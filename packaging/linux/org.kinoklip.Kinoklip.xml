@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- MIME type of Kinoklip project files (*.kkproj, JSON); installed by AppRun - -install-desktop-entry. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-kinoklip-project">
+    <comment>Kinoklip project</comment>
+    <sub-class-of type="application/json"/>
+    <generic-icon name="video-x-generic"/>
+    <glob pattern="*.kkproj"/>
+  </mime-type>
+</mime-info>

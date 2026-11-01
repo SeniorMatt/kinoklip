@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Kinoklip
+GenericName=Video Editor
+Comment=Edit videos: cut, arrange, add effects and export
+Exec=kinoklip %f
+TryExec=kinoklip
+Icon=org.kinoklip.Kinoklip
+Terminal=false
+StartupNotify=true
+StartupWMClass=kinoklip
+Categories=AudioVideo;Video;AudioVideoEditing;
+Keywords=video;editor;editing;cut;timeline;film;movie;nle;
+MimeType=application/x-kinoklip-project;video/mp4;video/x-matroska;video/webm;video/quicktime;video/x-msvideo;video/mpeg;video/mp2t;video/ogg;video/x-flv;video/3gpp;video/x-m4v;video/x-ms-wmv;video/dv;
