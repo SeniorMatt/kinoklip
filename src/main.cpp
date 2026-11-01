@@ -6,7 +6,7 @@
 int main(int argc, char** argv)
 {
     QApplication app(argc, argv);
-    QLabel l(QStringLiteral(CW_APP_NAME " " CW_APP_VERSION " — skeleton"));
+    QLabel l(QStringLiteral(KK_APP_NAME " " KK_APP_VERSION " — skeleton"));
     l.resize(480, 120);
     l.show();
     return app.exec();

@@ -17,7 +17,7 @@ extern "C" {
 #include <cstdint>
 #include <memory>
 
-namespace cw::media::detail {
+namespace kk::media::detail {
 
 struct HwDecodeState;
 
@@ -60,7 +60,7 @@ inline constexpr AVRational kMicrosecondsTb {1, 1000000};
 
 // ---- Helpers ----
 
-/// One-time global FFmpeg setup (log level + routing of FFmpeg logs into `cw.media`).
+/// One-time global FFmpeg setup (log level + routing of FFmpeg logs into `kk.media`).
 /// Idempotent and thread-safe; called by every entry point of the media engine.
 void initFfmpeg();
 
@@ -107,4 +107,4 @@ bool isStillImageSuffix(const QString& suffix);
 /// Defined in MediaProbe.cpp; shared with the decoders so they do not probe twice.
 MediaInfo infoFromFormatContext(const AVFormatContext* fmt, const QString& path);
 
-} // namespace cw::media::detail
+} // namespace kk::media::detail

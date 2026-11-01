@@ -5,8 +5,8 @@
 
 #include <QTest>
 
-using namespace cw;
-using namespace cw::media;
+using namespace kk;
+using namespace kk::media;
 
 class TestProbe : public QObject
 {

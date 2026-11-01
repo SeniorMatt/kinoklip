@@ -16,7 +16,7 @@ extern "C" {
 // Vulkan headers are optional at build time; without them any Vulkan device is accepted and a
 // device without video decode support simply falls back to software per stream.
 #if __has_include(<vulkan/vulkan.h>) && __has_include(<libavutil/hwcontext_vulkan.h>)
-#define CW_HAVE_VULKAN_HEADERS 1
+#define KK_HAVE_VULKAN_HEADERS 1
 extern "C" {
 #include <libavutil/hwcontext_vulkan.h>
 }
@@ -26,7 +26,7 @@ extern "C" {
 #include <algorithm>
 #include <atomic>
 
-namespace cw::media {
+namespace kk::media {
 
 namespace {
 
@@ -80,11 +80,11 @@ const Backend* findBackend(HwAccelMode mode)
     return nullptr;
 }
 
-/// Initial preference: Auto, overridable with CUTWISE_HWACCEL=off|auto|vaapi|cuda|vulkan
+/// Initial preference: Auto, overridable with KINOKLIP_HWACCEL=off|auto|vaapi|cuda|vulkan
 /// (handy to work around a broken driver without touching settings).
 HwAccelMode initialPreference()
 {
-    const QByteArray env = qgetenv("CUTWISE_HWACCEL").toLower();
+    const QByteArray env = qgetenv("KINOKLIP_HWACCEL").toLower();
     for (HwAccelMode mode : {HwAccelMode::Off, HwAccelMode::Auto, HwAccelMode::Vaapi,
              HwAccelMode::Cuda, HwAccelMode::Vulkan}) {
         if (!env.isEmpty() && env == hwAccelName(mode).toLower().toLatin1()) {
@@ -156,7 +156,7 @@ QStringList candidateDevices(HwAccelMode mode)
 /// False if a created device cannot decode at all (Vulkan device without video queue).
 bool deviceCanDecode(HwAccelMode mode, AVBufferRef* device)
 {
-#ifdef CW_HAVE_VULKAN_HEADERS
+#ifdef KK_HAVE_VULKAN_HEADERS
     if (mode == HwAccelMode::Vulkan) {
         const auto* ctx = reinterpret_cast<const AVHWDeviceContext*>(device->data);
         const auto* vk = static_cast<const AVVulkanDeviceContext*>(ctx->hwctx);
@@ -353,4 +353,4 @@ HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)
 
 } // namespace detail
 
-} // namespace cw::media
+} // namespace kk::media

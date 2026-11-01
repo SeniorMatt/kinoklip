@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace cw::media {
+namespace kk::media {
 
 using namespace detail;
 
@@ -322,4 +322,4 @@ bool VideoDecoder::Impl::position(int64_t ts, Accuracy accuracy)
     return ok && cur;
 }
 
-} // namespace cw::media
+} // namespace kk::media

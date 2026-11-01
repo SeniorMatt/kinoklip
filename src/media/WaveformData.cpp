@@ -12,7 +12,7 @@
 #include <cmath>
 #include <vector>
 
-namespace cw::media {
+namespace kk::media {
 
 namespace {
 
@@ -115,4 +115,4 @@ std::shared_ptr<WaveformData> loadWaveform(const QString& filePath)
     return data;
 }
 
-} // namespace cw::media
+} // namespace kk::media

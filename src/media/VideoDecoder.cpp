@@ -17,7 +17,7 @@
 #include <optional>
 #include <vector>
 
-namespace cw::media {
+namespace kk::media {
 
 using namespace detail;
 
@@ -390,4 +390,4 @@ QSize VideoDecoder::fitSize(QSize source, QSize maxSize)
         std::max(1, int(std::lround(source.height() * scale)))};
 }
 
-} // namespace cw::media
+} // namespace kk::media

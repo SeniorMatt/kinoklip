@@ -19,7 +19,7 @@
 #include <mutex>
 #include <utility>
 
-namespace cw::media {
+namespace kk::media {
 
 class VideoDecoder;
 
@@ -142,4 +142,4 @@ private:
     std::list<std::pair<QString, std::unique_ptr<VideoDecoder>>> m_idleDecoders; ///< MRU first
 };
 
-} // namespace cw::media
+} // namespace kk::media

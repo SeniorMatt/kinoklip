@@ -12,7 +12,7 @@
 #include <limits>
 #include <mutex>
 
-namespace cw::media::detail {
+namespace kk::media::detail {
 
 namespace {
 
@@ -22,7 +22,7 @@ constexpr int64_t kRewindMarginUs = 10'000'000;
 /// FFmpeg messages above this level (i.e. less important) are dropped before formatting.
 constexpr int kFfmpegLogLevel = AV_LOG_WARNING;
 
-/// Routes FFmpeg log lines into the `cw.media` category: errors become warnings, everything
+/// Routes FFmpeg log lines into the `kk.media` category: errors become warnings, everything
 /// else debug output. Called by FFmpeg from arbitrary threads.
 void ffmpegLogCallback(void* avClass, int level, const char* format, va_list args)
 {
@@ -259,4 +259,4 @@ bool isStillImageSuffix(const QString& suffix)
     return kSuffixes.contains(suffix.toLower());
 }
 
-} // namespace cw::media::detail
+} // namespace kk::media::detail

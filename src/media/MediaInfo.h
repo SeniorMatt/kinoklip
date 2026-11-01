@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // MediaInfo — what we know about a media file (streams, size, duration) + media::probe().
-// Shared contract between the media engine and the rest of the app (PLAN.md §5.3).
+// Shared contract between the media engine and the rest of the app (plan.md §5.3).
 #pragma once
 #include "core/Rational.h"
 
@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-namespace cw::media {
+namespace kk::media {
 
 /// Technical description of one media file, as returned by probe() and VideoDecoder::info().
 ///
@@ -55,4 +55,4 @@ struct MediaInfo
 /// Synchronous (may take tens of ms for some files); safe to call from any thread.
 MediaInfo probe(const QString& path);
 
-} // namespace cw::media
+} // namespace kk::media

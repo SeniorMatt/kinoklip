@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-namespace cw::media {
+namespace kk::media {
 
 namespace {
 
@@ -412,4 +412,4 @@ QString MediaCache::diskDirectory(const QString& path, const char* kind) const
     return cacheDirectory() + QLatin1Char('/') + QLatin1String(kind) + QLatin1Char('/') + hash;
 }
 
-} // namespace cw::media
+} // namespace kk::media

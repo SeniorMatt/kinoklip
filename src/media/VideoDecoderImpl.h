@@ -14,7 +14,7 @@
 #include <optional>
 #include <vector>
 
-namespace cw::media {
+namespace kk::media {
 
 namespace detail {
 
@@ -128,4 +128,4 @@ struct VideoDecoder::Impl
     QImage currentImage(QSize maxSize);
 };
 
-} // namespace cw::media
+} // namespace kk::media

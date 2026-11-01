@@ -2,7 +2,7 @@
 
 Everything that touches media files: probing, frame-exact video decoding (software and GPU),
 sample-exact audio decoding, and cached UI previews (thumbnails, poster frames, waveforms).
-Namespace `cw::media`, logging category `cw.media`. Depends only on `core` (for `Rational`),
+Namespace `kk::media`, logging category `kk.media`. Depends only on `core` (for `Rational`),
 QtCore/QtGui and FFmpeg — never on Qt Widgets.
 
 ## Conventions (read this first)
@@ -75,7 +75,7 @@ The decoder keeps the last returned frame (`cur`) and the following one (`next`)
   packet at the new position is an IDR we skip the flush ("soft seek") and drop stale frames
   via packet→frame `opaque` generation tags. VAAPI re-inits in ~5 ms and always flushes.
 * Global preference: `setPreferredHwAccel()`; per decoder: `VideoDecoder::setHwAccel()`;
-  for debugging without touching settings: environment `CUTWISE_HWACCEL=off|auto|vaapi|cuda|vulkan`.
+  for debugging without touching settings: environment `KINOKLIP_HWACCEL=off|auto|vaapi|cuda|vulkan`.
 * Linux permissions: VAAPI/Vulkan need access to `/dev/dri/renderD*` (member of group
   `render`, or the active seat user). Without it they are reported unavailable.
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-// Product identity comes from CMake (CW_APP_NAME / CW_APP_ID / CW_APP_VERSION).
-namespace cw::appinfo {
-inline constexpr const char* name = CW_APP_NAME;
-inline constexpr const char* id = CW_APP_ID;
-inline constexpr const char* version = CW_APP_VERSION;
-inline constexpr const char* projectExtension = "cwproj";
-} // namespace cw::appinfo
+// Product identity comes from CMake (KK_APP_NAME / KK_APP_ID / KK_APP_VERSION).
+namespace kk::appinfo {
+inline constexpr const char* name = KK_APP_NAME;
+inline constexpr const char* id = KK_APP_ID;
+inline constexpr const char* version = KK_APP_VERSION;
+inline constexpr const char* projectExtension = "kkproj";
+} // namespace kk::appinfo

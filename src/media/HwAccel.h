@@ -6,7 +6,7 @@
 #include <QString>
 #include <QStringList>
 
-namespace cw::media {
+namespace kk::media {
 
 /// Hardware decoding backend selection.
 /// `Auto` tries the platform's backends in order of preference (Linux: VAAPI on the GPU that
@@ -47,4 +47,4 @@ HwAccelMode preferredHwAccel();
 /// opened on first call, which can take ~0.1-1 s; cached afterwards). Thread-safe.
 QList<HwDeviceInfo> hwCapabilities();
 
-} // namespace cw::media
+} // namespace kk::media
