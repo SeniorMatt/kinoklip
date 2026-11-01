@@ -314,6 +314,14 @@ void MainWindow::closeEvent(QCloseEvent* event)
     event->accept();
 }
 
+void MainWindow::changeEvent(QEvent* event)
+{
+    QMainWindow::changeEvent(event);
+    // Keep View ▸ Full Screen checked state right when the window manager changes it (Esc, ...).
+    if (event->type() == QEvent::WindowStateChange)
+        m_ctx.actions->action(QStringLiteral("view.fullscreen"))->setChecked(isFullScreen());
+}
+
 void MainWindow::saveSettings() const
 {
     QSettings settings;
