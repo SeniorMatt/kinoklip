@@ -90,11 +90,13 @@ Pages (tabs on a bottom page bar): **Media · Edit · Deliver** active; **Color*
 - **Media page**: file-system browser (left) + preview viewer (centre) + media pool (bottom) +
   metadata (right).
 - **Deliver page**: render settings (left), viewer (centre), render queue (right), mini timeline.
-- **Look: current KDE Plasma 6 Breeze.** On KDE the launcher runs with the host Qt so the real
-  Breeze style, colour scheme, accent colour, icons, fonts and file dialogs apply. Elsewhere the
-  built-in theme (`src/app/Theme.*`) emulates Breeze Dark/Light (palette, 5 px rounded corners,
-  flat tool buttons, accent focus/selection, Breeze spacing) and icons come from the system icon
-  theme via `QIcon::fromTheme` with a bundled Breeze icon subset (LGPL-3.0, attributed) as fallback.
+- **Look: identical on every OS, modelled on the latest KDE Plasma 6 Breeze.** The app always uses
+  its own built-in theme (`src/app/Theme.*`: Fusion base + palette + QProxyStyle/QSS) reproducing
+  current Breeze Dark (default) and Breeze Light: colour scheme values, 5 px rounded corners, flat
+  tool buttons, accent-blue focus rings and selections, Breeze metrics/spacing, Noto Sans-like font
+  stack. Icons: a bundled Breeze icon subset (LGPL-3.0, attributed), never the host icon theme, so
+  Linux/Windows/macOS look the same. Host platform themes are ignored. Everything is verified
+  against the latest Breeze (screenshots compared with Plasma 6 Breeze references).
   Editor-specific visuals (timeline clips, viewer chrome) use colours derived from the palette.
 
 ---
