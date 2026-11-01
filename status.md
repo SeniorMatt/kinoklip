@@ -22,3 +22,4 @@
 - 03:03 Timeline merged (21/21 tests, 0 warnings): custom-painted timeline, select/trim/blade tools, roll/slip/slide, snapping, drag-drop, thumbnails+waveforms, 2000-clip repaint 3.6-8.2 ms. Open item: F9/F10/F12 need the source viewer (playback agent). Formats agent starting.
 - 03:10 Panels merged (26/26 tests after fixing a ThumbnailProvider name clash): inspector w/ keyframes, effects library, media pool (bins, grid/list, posters), media browser, metadata, project settings, preferences (hw accel), keyboard customization.
 - 03:11 Sent 7 screenshots to the owner. Packaging agent started (self-built single-file .run launcher + portable folder; AppImage tools can't be downloaded). Running: render, formats, packaging.
+- 03:15 Render merged (31/31 tests): GL 3.3 compositor, YUV shaders, 8 effects, 4 transitions, titles, CPU fallback, audio mixer; 1080p 2.7-4.4 ms/frame on GTX 1650. Playback agent starting.
