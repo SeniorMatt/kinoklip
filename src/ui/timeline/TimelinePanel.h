@@ -1,38 +1,42 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// TimelinePanel — PLACEHOLDER timeline: tool bar + read-only track/clip drawing.
-// The timeline agent replaces the implementation (TimelineWidget, ruler, headers, tools).
+// TimelinePanel — the Edit page's timeline area: tool bar + TimelineWidget + controller.
 #pragma once
 
 #include "ui/common/PanelFrame.h"
-
-#include <cstdint>
 
 class QToolBar;
 
 namespace kk {
 
 struct AppContext;
-class TimelinePreview;
+class TimelineController;
+class TimelineWidget;
 
-/// The Edit page's timeline area: a tool bar ([Select][Trim][Blade] | [Snap][Link] | zoom)
-/// bound to the registry actions, and the track view below it.
-///
-/// Placeholder behaviour: draws tracks and clips from the Timeline, moves the playhead on
-/// clicks in the ruler, no editing.
+/// The Edit page's timeline: a tool bar ([Select][Trim][Blade] | [Snap][Link] |
+/// [Insert][Overwrite][Place on Top] | zoom) bound to the registry actions, and the
+/// interactive TimelineWidget below it. Owns the TimelineController, which connects the
+/// timeline's actions (see src/ui/timeline/readme.md for the list and the public API other
+/// modules use: TimelineController::insertSource(), setSourceProvider(), the widget's
+/// thumbnail/waveform providers and setFollowPlayhead()).
 class TimelinePanel : public PanelFrame
 {
     Q_OBJECT
 public:
-    /// Creates the panel for the project in @p ctx.
+    /// Creates the panel for the project in @p ctx and connects the timeline actions.
     TimelinePanel(AppContext& ctx, QWidget* parent = nullptr);
 
     /// The tool bar, so other modules can append buttons.
     [[nodiscard]] QToolBar* toolBar() const { return m_toolBar; }
+    /// Commands, tool state and track targeting.
+    [[nodiscard]] TimelineController* controller() const { return m_controller; }
+    /// The track view.
+    [[nodiscard]] TimelineWidget* timelineWidget() const { return m_view; }
 
 private:
     AppContext& m_ctx;
     QToolBar* m_toolBar = nullptr;
-    TimelinePreview* m_view = nullptr;
+    TimelineController* m_controller = nullptr;
+    TimelineWidget* m_view = nullptr;
 };
 
 } // namespace kk
