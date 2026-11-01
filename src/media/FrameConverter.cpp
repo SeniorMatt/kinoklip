@@ -10,7 +10,7 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 }
 
-namespace cw::media::detail {
+namespace kk::media::detail {
 
 namespace {
 
@@ -140,4 +140,4 @@ QImage FrameConverter::convert(const AVFrame* frame, QSize outSize)
     return image;
 }
 
-} // namespace cw::media::detail
+} // namespace kk::media::detail

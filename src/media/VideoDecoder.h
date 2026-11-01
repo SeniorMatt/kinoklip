@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <memory>
 
-namespace cw::media {
+namespace kk::media {
 
 /// Decodes the video stream of one file (or a still image) by media time — as raw planes for
 /// the GPU compositor (decodeFrame()) or as a ready-to-paint QImage (frameAt()).
@@ -115,4 +115,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace cw::media
+} // namespace kk::media

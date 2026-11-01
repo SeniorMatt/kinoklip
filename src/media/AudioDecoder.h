@@ -9,10 +9,10 @@
 #include <cstdint>
 #include <memory>
 
-namespace cw::media {
+namespace kk::media {
 
 /// Decodes the audio stream of one media file into the engine's fixed audio format:
-/// **48 000 Hz, 2 channels, interleaved `float`** (PLAN.md §5.1), whatever the file contains.
+/// **48 000 Hz, 2 channels, interleaved `float`** (plan.md §5.1), whatever the file contains.
 /// Mono is copied to both channels at unity gain; more than two channels are downmixed
 /// (libswresample's standard matrix, normalised so it cannot clip).
 ///
@@ -64,4 +64,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace cw::media
+} // namespace kk::media

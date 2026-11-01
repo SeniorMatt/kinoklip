@@ -9,7 +9,7 @@
 
 #include <mutex>
 
-namespace cw::media::detail {
+namespace kk::media::detail {
 
 /// Per-decoder state for FFmpeg's get_format callback (AVCodecContext::opaque points here).
 struct HwDecodeState
@@ -59,4 +59,4 @@ private:
     Entry m_entries[5]; ///< indexed by int(HwAccelMode)
 };
 
-} // namespace cw::media::detail
+} // namespace kk::media::detail

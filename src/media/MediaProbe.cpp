@@ -17,7 +17,7 @@ extern "C" {
 #include <cmath>
 #include <utility>
 
-namespace cw::media {
+namespace kk::media {
 
 namespace {
 
@@ -234,4 +234,4 @@ MediaInfo probe(const QString& path)
     return detail::infoFromFormatContext(fmt.get(), path);
 }
 
-} // namespace cw::media
+} // namespace kk::media

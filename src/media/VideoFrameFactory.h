@@ -10,7 +10,7 @@
 
 #include <memory>
 
-namespace cw::media::detail {
+namespace kk::media::detail {
 
 /// Timing/geometry that the decoder knows but the AVFrame does not carry reliably.
 struct FrameMeta
@@ -55,4 +55,4 @@ private:
     FrameConverter m_converter; ///< for formats outside PixelFormat → Bgra
 };
 
-} // namespace cw::media::detail
+} // namespace kk::media::detail

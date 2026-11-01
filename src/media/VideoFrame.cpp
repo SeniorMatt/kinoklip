@@ -13,7 +13,7 @@ extern "C" {
 
 #include <optional>
 
-namespace cw::media {
+namespace kk::media {
 
 namespace {
 
@@ -273,4 +273,4 @@ std::shared_ptr<const VideoFrame> VideoFrameFactory::wrapImage(
 
 } // namespace detail
 
-} // namespace cw::media
+} // namespace kk::media

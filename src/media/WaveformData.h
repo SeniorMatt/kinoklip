@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <memory>
 
-namespace cw::media {
+namespace kk::media {
 
 /// Audio overview for waveform drawing: per channel, the minimum and maximum sample of every
 /// 1/peaksPerSecond-second block of the 48 kHz decoded audio, scaled from [-1, 1] to
@@ -36,10 +36,10 @@ inline constexpr int kWaveformPeaksPerSecond = 100;
 std::shared_ptr<WaveformData> computeWaveform(
     const QString& path, const std::atomic<bool>* cancel = nullptr, QString* error = nullptr);
 
-/// Writes `data` to `filePath` in Cutwise's small binary waveform format. Returns success.
+/// Writes `data` to `filePath` in Kinoklip's small binary waveform format. Returns success.
 bool saveWaveform(const WaveformData& data, const QString& filePath);
 
 /// Reads a file written by saveWaveform(). @return nullptr if missing, corrupt or outdated.
 std::shared_ptr<WaveformData> loadWaveform(const QString& filePath);
 
-} // namespace cw::media
+} // namespace kk::media

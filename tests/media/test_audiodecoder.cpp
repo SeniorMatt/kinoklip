@@ -10,8 +10,8 @@
 #include <cmath>
 #include <vector>
 
-using namespace cw;
-using namespace cw::media;
+using namespace kk;
+using namespace kk::media;
 
 namespace {
 

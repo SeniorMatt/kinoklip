@@ -7,7 +7,7 @@
 #include <QImage>
 #include <QSize>
 
-namespace cw::media::detail {
+namespace kk::media::detail {
 
 /// Converts decoded video frames (any pixel format) into `QImage::Format_ARGB32_Premultiplied`
 /// images of a requested size, honouring the frame's colour space (BT.601/709/2020) and range.
@@ -33,4 +33,4 @@ private:
     bool m_fullRange = false;
 };
 
-} // namespace cw::media::detail
+} // namespace kk::media::detail

@@ -15,7 +15,7 @@ extern "C" {
 #include <numeric>
 #include <vector>
 
-namespace cw::media {
+namespace kk::media {
 
 using namespace detail;
 
@@ -447,4 +447,4 @@ int AudioDecoder::read(int64_t startSample48k, float* dst, int frames)
     return frames;
 }
 
-} // namespace cw::media
+} // namespace kk::media

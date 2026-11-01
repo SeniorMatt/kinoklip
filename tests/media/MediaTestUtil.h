@@ -12,12 +12,12 @@
 
 #include <cstdint>
 
-namespace cw::test {
+namespace kk::test {
 
 /// Directory holding the generated fixtures (gitignored).
 inline QString fixtureDir()
 {
-    return QStringLiteral(CW_TEST_DATA_DIR "/generated");
+    return QStringLiteral(KK_TEST_DATA_DIR "/generated");
 }
 
 /// Absolute path of a generated fixture file.
@@ -35,7 +35,7 @@ inline bool ensureFixtures(QString* why)
         return false;
     }
     const QString script
-        = QDir::cleanPath(QStringLiteral(CW_TEST_DATA_DIR "/../../scripts/make_test_media.sh"));
+        = QDir::cleanPath(QStringLiteral(KK_TEST_DATA_DIR "/../../scripts/make_test_media.sh"));
     QProcess process;
     process.setProcessChannelMode(QProcess::ForwardedChannels);
     process.start(QStringLiteral("bash"), {script, fixtureDir()});
@@ -89,4 +89,4 @@ inline int64_t frameStartUs(int64_t index, int64_t num, int64_t den)
     return (index * den * 1'000'000 + num - 1) / num;
 }
 
-} // namespace cw::test
+} // namespace kk::test

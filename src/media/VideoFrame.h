@@ -10,7 +10,7 @@
 
 struct AVFrame;
 
-namespace cw::media {
+namespace kk::media {
 
 /// Memory layout of a VideoFrame's planes. Only these layouts ever reach consumers: any other
 /// decoder output (12-bit, alpha YUV, RGB codecs, stills...) is converted to `Bgra`.
@@ -104,4 +104,4 @@ struct VideoFrame
 /// Short name of a pixel format ("nv12", "yuv420p10", ...), e.g. for logs and shader lookup.
 const char* pixelFormatName(PixelFormat format);
 
-} // namespace cw::media
+} // namespace kk::media
