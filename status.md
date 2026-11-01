@@ -36,3 +36,4 @@
 - 03:53 Heartbeat: breeze (1 commit), playback (1 commit), export (just started) all active within the last minute.
 - 03:56 Owner: KDE code-style conversion dropped. coding-style.md back to the existing project style (clang-format config as is, PascalCase sources). Phase 4 keeps parity + QA + final build.
 - 04:17 Disk full (13 MB free) stalled builds. Freed 5.7 GB: apt + pacman package caches, main's rebuildable build dirs. Agents told: Release builds, one build dir each, shared fixtures. Rest of the disk is used by data outside this project (not touched).
+- 04:19 Disk cleanup (owner-approved): home caches (browser, nvidia shader, mozilla, mintinstall, thumbnails) + Trash emptied -> 12 GB free. System cleanup (old kernels, unused flatpak runtimes) was blocked by the safety filter. DaVinci Resolve found in /opt/resolve (6.9 GB) - not touched, not inspected, awaiting owner decision.
