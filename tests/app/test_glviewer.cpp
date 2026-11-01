@@ -63,7 +63,11 @@ private slots:
         surface.setFrame(testPattern());
         verifyPattern(surface.grabFramebuffer(), surface.pictureRect());
         // Same-size frames reuse the texture (glTexSubImage2D path).
+#if QT_VERSION >= QT_VERSION_CHECK(6, 12, 0)
+        QImage swapped = testPattern().flipped(Qt::Horizontal); // mirrored() is deprecated
+#else
         QImage swapped = testPattern().mirrored(true, false);
+#endif
         surface.setFrame(swapped);
         const QImage shot = surface.grabFramebuffer();
         const QRect p = surface.pictureRect();
