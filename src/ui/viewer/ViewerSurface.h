@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ViewerSurface — the picture area of a viewer. OpenGL (GlViewerSurface) when available,
-// raster fallback (RasterViewerSurface) otherwise. PLACEHOLDER drawing; keep the interface.
+// raster fallback (RasterViewerSurface) otherwise. Keep the interface when extending.
 #pragma once
 
 #include <QImage>
@@ -42,7 +42,7 @@ public:
     [[nodiscard]] virtual QRect pictureRect() const = 0;
 };
 
-/// State + drawing shared by both implementations (placeholder: QPainter-based).
+/// State and letterbox maths shared by both implementations; paint() is the raster drawing.
 class ViewerPicture
 {
 public:
