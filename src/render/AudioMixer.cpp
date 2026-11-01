@@ -17,6 +17,8 @@ namespace {
 
 /// Gain at or below this level is treated as silence.
 constexpr double kSilenceDb = -96.0;
+/// Upper bound of half a transition's length: how far a clip can play into its handles.
+constexpr double kMaxHandleSeconds = 60.0;
 /// Don't retry opening a failed file for this long.
 constexpr qint64 kRetryFailedMs = 5000;
 
@@ -151,13 +153,21 @@ void AudioMixer::mix(const TimelineData& tl, int64_t startSample48k, int frames,
     const int64_t mixEnd = startSample48k + frames;
     const bool anySolo = std::any_of(
         tl.audioTracks.begin(), tl.audioTracks.end(), [](const TrackData& t) { return t.solo; });
+    // Cheap pre-filter in frames: clips farther than kMaxHandleSeconds from the mix window
+    // cannot reach it even through a transition handle, so the (linear) linked-clip lookup
+    // below only runs for the few clips around the playhead.
+    const int64_t margin = int64_t(kMaxHandleSeconds * tl.fps.toDouble()) + 1;
+    const int64_t windowFirst
+        = usToFrames(startSample48k * 1'000'000 / kSampleRate, tl.fps) - margin;
+    const int64_t windowLast = usToFrames(mixEnd * 1'000'000 / kSampleRate, tl.fps) + margin;
 
     for (const TrackData& track : tl.audioTracks) {
         if (track.muted || (anySolo && !track.solo))
             continue;
         for (int ci = 0; ci < int(track.clips.size()); ++ci) {
             const ClipData& clip = track.clips[size_t(ci)];
-            if (!clip.enabled || clip.kind != ClipKind::Media)
+            if (!clip.enabled || clip.kind != ClipKind::Media || clip.end() < windowFirst
+                || clip.start > windowLast)
                 continue;
 
             // Transitions: the audio track's own, else the linked video clip's.
