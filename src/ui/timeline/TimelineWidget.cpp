@@ -345,7 +345,9 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         menu.addSeparator();
         const quint64 id = hit.clipId;
         const ClipData* clip = editops::clipById(data, id);
-        if (clip && (clip->transitionIn || clip->transitionOut)) {
+        const TrackData* clipTrack = data.track(hit.track);
+        const bool editable = clipTrack && !clipTrack->locked;
+        if (editable && clip && (clip->transitionIn || clip->transitionOut)) {
             menu.addAction(tr("Remove Transitions"), this, [this, id] {
                 m_ctx.project->beginEdit(tr("Remove Transitions"));
                 if (ClipData* c = editops::clipById(m_ctx.project->timeline()->mutableData(), id)) {
@@ -355,7 +357,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
                 m_ctx.project->endEdit();
             });
         }
-        if (clip && !clip->effects.isEmpty()) {
+        if (editable && clip && !clip->effects.isEmpty()) {
             menu.addAction(tr("Remove Effects"), this, [this, id] {
                 m_ctx.project->beginEdit(tr("Remove Effects"));
                 if (ClipData* c = editops::clipById(m_ctx.project->timeline()->mutableData(), id))
