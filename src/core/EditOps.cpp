@@ -548,6 +548,250 @@ int64_t slipClip(TimelineData& data, quint64 clipId, int64_t deltaFrames)
     return applied;
 }
 
+// ---- Roll, slide, gaps ----
+
+namespace {
+// True if no clip of @p track overlaps [s, e). Clips are sorted and disjoint, so their ends are
+// sorted too: one binary search finds the first clip that ends after s.
+bool rangeFree(const TrackData& track, int64_t s, int64_t e)
+{
+    const auto it = std::upper_bound(track.clips.cbegin(), track.clips.cend(), s,
+        [](int64_t frame, const ClipData& c) { return frame < c.end(); });
+    return it == track.clips.cend() || it->start >= e;
+}
+} // namespace
+
+int64_t rollEdit(TimelineData& data, quint64 leftClipId, quint64 rightClipId, int64_t delta)
+{
+    const auto left = findClip(data, leftClipId);
+    const auto right = findClip(data, rightClipId);
+    if (!left || !right || !(left->track == right->track)
+        || right->clipIndex != left->clipIndex + 1)
+        return 0;
+    TrackData& track = *data.track(left->track);
+    if (track.locked)
+        return 0;
+    ClipData& a = track.clips[size_t(left->clipIndex)];
+    ClipData& b = track.clips[size_t(right->clipIndex)];
+    if (a.end() != b.start)
+        return 0;
+    // Rolling right extends a's tail (needs media after a's out point) and shortens b's head;
+    // rolling left is the mirror image.
+    const int64_t hi = std::min(maxTailExtension(a, data.fps), b.duration - 1);
+    const int64_t lo = -std::min(a.duration - 1, maxHeadExtension(b, data.fps));
+    const int64_t applied = std::clamp(delta, std::min<int64_t>(lo, 0), std::max<int64_t>(hi, 0));
+    if (applied == 0)
+        return 0;
+    a.duration += applied;
+    moveHead(b, applied, data.fps);
+    return applied;
+}
+
+int64_t slideClip(TimelineData& data, quint64 clipId, int64_t delta)
+{
+    const auto loc = findClip(data, clipId);
+    if (!loc)
+        return 0;
+    TrackData& track = *data.track(loc->track);
+    if (track.locked)
+        return 0;
+    const size_t i = size_t(loc->clipIndex);
+    ClipData* prev = i > 0 ? &track.clips[i - 1] : nullptr;
+    ClipData* next = i + 1 < track.clips.size() ? &track.clips[i + 1] : nullptr;
+    const ClipData& clip = track.clips[i];
+    const bool prevTouches = prev && prev->end() == clip.start;
+    const bool nextTouches = next && next->start == clip.end();
+
+    // Each side limits both directions: a touching neighbour by its duration (shrinking) and its
+    // media handle (growing); a gap by its size (shrinking) and not at all (growing).
+    int64_t hi = kUnbounded;
+    int64_t lo = -kUnbounded;
+    if (prevTouches) {
+        hi = std::min(hi, maxTailExtension(*prev, data.fps));
+        lo = std::max(lo, -(prev->duration - 1));
+    } else {
+        lo = std::max(lo, -(clip.start - (prev ? prev->end() : 0)));
+    }
+    if (nextTouches) {
+        hi = std::min(hi, next->duration - 1);
+        lo = std::max(lo, -maxHeadExtension(*next, data.fps));
+    } else if (next) {
+        hi = std::min(hi, next->start - clip.end());
+    }
+    const int64_t applied = std::clamp(delta, std::min<int64_t>(lo, 0), std::max<int64_t>(hi, 0));
+    if (applied == 0)
+        return 0;
+    if (prevTouches)
+        prev->duration += applied;
+    track.clips[i].start += applied; // keyframes are clip-local and move with the clip
+    if (nextTouches)
+        moveHead(*next, applied, data.fps);
+    return applied;
+}
+
+std::optional<std::pair<int64_t, int64_t>> gapAt(
+    const TimelineData& data, TrackRef ref, int64_t frame)
+{
+    const TrackData* track = data.track(ref);
+    if (!track || frame < 0)
+        return std::nullopt;
+    // First clip that ends after frame; if it also starts at or before frame it covers it.
+    const auto it = std::upper_bound(track->clips.cbegin(), track->clips.cend(), frame,
+        [](int64_t f, const ClipData& c) { return f < c.end(); });
+    if (it == track->clips.cend() || it->start <= frame)
+        return std::nullopt;
+    const int64_t gapStart = it == track->clips.cbegin() ? 0 : (it - 1)->end();
+    return std::make_pair(gapStart, it->start);
+}
+
+int64_t closeGap(TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope)
+{
+    const auto gap = gapAt(data, ref, frame);
+    const TrackData* target = data.track(ref);
+    if (!gap || target->locked)
+        return 0;
+    const int64_t cut = gap->second; // clips starting here or later move left
+    int64_t amount = gap->second - gap->first;
+    if (scope == RippleScope::AllTracks) {
+        // Every other track can only give up the empty room directly left of the cut; a clip
+        // straddling the cut leaves no room at all.
+        forEachTrack(data, [&](TrackRef r, const TrackData& track) {
+            if (track.locked || r == ref)
+                return;
+            int64_t lastEnd = 0;
+            for (const ClipData& c : track.clips) {
+                if (c.start >= cut)
+                    break;
+                lastEnd = std::max(lastEnd, c.end());
+            }
+            amount = std::min(amount, std::max<int64_t>(0, cut - lastEnd));
+        });
+    }
+    if (amount <= 0)
+        return 0;
+    forEachTrack(data, [&](TrackRef r, TrackData& track) {
+        if (track.locked || (scope == RippleScope::TargetTracks && !(r == ref)))
+            return;
+        for (ClipData& c : track.clips) {
+            if (c.start >= cut)
+                c.start -= amount;
+        }
+    });
+    return amount;
+}
+
+QVector<quint64> placeOnTop(TimelineData& data, const QVector<PlacedClip>& clips)
+{
+    for (const PlacedClip& placed : clips) {
+        if (placed.clip.duration < 1 || placed.clip.speed <= 0 || placed.track.index < 0
+            || placed.track.index > int(data.tracks(placed.track.type).size()))
+            return {};
+    }
+    QVector<quint64> ids;
+    for (PlacedClip placed : clips) {
+        ClipData& clip = placed.clip;
+        clip.start = std::max<int64_t>(0, clip.start);
+        auto& list = data.tracks(placed.track.type);
+        int index = placed.track.index;
+        while (index < int(list.size())
+            && (list[size_t(index)].locked
+                || !rangeFree(list[size_t(index)], clip.start, clip.end())))
+            ++index;
+        if (index >= int(list.size()))
+            index = addTrack(data, placed.track.type); // may reallocate `list`
+        ensureId(data, clip);
+        ids.append(clip.id);
+        insertSorted(data.tracks(placed.track.type)[size_t(index)], std::move(clip));
+    }
+    return ids;
+}
+
+// ---- Clipboard ----
+
+Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds)
+{
+    struct Found
+    {
+        TrackRef ref;
+        const ClipData* clip;
+    };
+    std::vector<Found> found;
+    QSet<quint64> seen;
+    int64_t minStart = kUnbounded;
+    int64_t maxEnd = 0;
+    int minIndex[2] = {std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
+    for (quint64 id : clipIds) {
+        const auto loc = findClip(data, id);
+        if (!loc || seen.contains(id))
+            continue;
+        seen.insert(id);
+        const ClipData* c = &data.track(loc->track)->clips[size_t(loc->clipIndex)];
+        found.push_back({loc->track, c});
+        minStart = std::min(minStart, c->start);
+        maxEnd = std::max(maxEnd, c->end());
+        int& m = minIndex[loc->track.type == TrackType::Video ? 0 : 1];
+        m = std::min(m, loc->track.index);
+    }
+    Clipboard board;
+    if (found.empty())
+        return board;
+    std::sort(found.begin(), found.end(),
+        [](const Found& a, const Found& b) { return a.clip->start < b.clip->start; });
+    board.baseVideoTrack = minIndex[0] == std::numeric_limits<int>::max() ? 0 : minIndex[0];
+    board.baseAudioTrack = minIndex[1] == std::numeric_limits<int>::max() ? 0 : minIndex[1];
+    board.duration = maxEnd - minStart;
+    for (const Found& f : found) {
+        ClipboardClip entry;
+        entry.type = f.ref.type;
+        entry.trackOffset = f.ref.index
+            - (f.ref.type == TrackType::Video ? board.baseVideoTrack : board.baseAudioTrack);
+        entry.clip = *f.clip;
+        entry.clip.start -= minStart;
+        board.clips.append(std::move(entry));
+    }
+    return board;
+}
+
+QVector<quint64> pasteClips(TimelineData& data, const Clipboard& clipboard, int64_t frame,
+    int videoBase, int audioBase, bool insert)
+{
+    if (clipboard.isEmpty())
+        return {};
+    frame = std::max<int64_t>(0, frame);
+    const int bases[2] = {videoBase >= 0 ? videoBase : clipboard.baseVideoTrack,
+        audioBase >= 0 ? audioBase : clipboard.baseAudioTrack};
+    // Refuse before changing anything if an existing destination track is locked.
+    for (const ClipboardClip& entry : clipboard.clips) {
+        const int index = bases[entry.type == TrackType::Video ? 0 : 1] + entry.trackOffset;
+        const TrackData* track = data.track(TrackRef {entry.type, index});
+        if (index < 0 || (track && track->locked))
+            return {};
+    }
+    // Make sure every destination track exists (pasting high tracks into a smaller timeline).
+    for (const ClipboardClip& entry : clipboard.clips) {
+        const int index = bases[entry.type == TrackType::Video ? 0 : 1] + entry.trackOffset;
+        while (int(data.tracks(entry.type).size()) <= index)
+            addTrack(data, entry.type);
+    }
+    QVector<PlacedClip> placed;
+    placed.reserve(clipboard.clips.size());
+    GroupRemap remap; // fresh link groups, shared between clips that were linked together
+    for (const ClipboardClip& entry : clipboard.clips) {
+        PlacedClip p;
+        p.track = TrackRef {
+            entry.type, bases[entry.type == TrackType::Video ? 0 : 1] + entry.trackOffset};
+        p.clip = entry.clip;
+        p.clip.id = data.allocateId();
+        p.clip.start = frame + entry.clip.start;
+        p.clip.linkGroup = remap.map(data, entry.clip.linkGroup);
+        for (EffectInstance& fx : p.clip.effects)
+            fx.id = data.allocateId();
+        placed.append(std::move(p));
+    }
+    return insert ? insertClips(data, placed, RippleScope::AllTracks)
+                  : overwriteClips(data, placed);
+}
+
 // ---- Tracks ----
 
 int addTrack(TimelineData& data, TrackType type, int index)
