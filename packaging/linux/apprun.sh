@@ -9,10 +9,17 @@
 # What it does:
 #   1. Links the bundled copies of "fallback" libraries the host lacks into
 #      usr/lib/fallback-active/ (found through RUNPATH; see packaging/linux/excludelist.txt).
-#   2. Chooses the Qt: the bundled Qt 6.4 by default (identical look everywhere; the app
-#      brings its own style). KINOKLIP_HOST_QT=1 opts in to the host Qt instead (only if it
-#      has every needed module, >= 6.4, and a wayland/xcb platform plugin).
-#   3. Execs usr/bin/kinoklip with all arguments.
+#      "newer" fallbacks (libstdc++, libgcc_s) are linked when the host copy is older than
+#      the bundled one (compared by their highest GLIBCXX_/GCC_ version tag).
+#   2. Chooses the Qt: the bundled Qt (with KDE Frameworks 6 and the Breeze style: identical
+#      look everywhere) by default. KINOKLIP_HOST_QT=1 opts in to the host Qt instead (only if
+#      it has every needed module, is at least the Qt the app was built with, and has a
+#      wayland/xcb platform plugin).
+#   3. Points XDG_DATA_DIRS at usr/share (KDE colour schemes) and LIBHEIF_PLUGIN_PATH at the
+#      bundled libheif decoder plugins.
+#   4. Records the original value of every variable it changes (KINOKLIP_ORIG_VARS +
+#      KINOKLIP_ORIG_<NAME>; src/platform/ChildProcessEnv restores them for programs the app
+#      starts, e.g. xdg-open), then execs usr/bin/kinoklip with all arguments.
 #
 # Environment it reads:
 #   KINOKLIP_HOST_QT=1      try the host Qt (falls back to the bundled one if unsuitable)
@@ -23,7 +30,10 @@
 #   KINOKLIP_QUIET=1        no log line on stderr
 #   KINOKLIP_RUN_PATH       set by the .run wrapper: the .run file (used for desktop entries)
 #
-# Never touched: LIBVA_DRIVERS_PATH, LIBVA_DRIVER_NAME, VK_*, __GLX_*, MESA_* -- the host
+#   KINOKLIP_FORCE_GLIBC=1|0  test hook: force the bundled glibc on / off
+#
+# Never touched: LIBVA_DRIVER_NAME, LIBVA_DRIVERS_PATH (except: set to the host driver dirs
+# when the bundled libva is used and the user has not set it), VK_*, __GLX_*, MESA_* -- the host
 # GPU drivers stay in charge of VAAPI/OpenGL/Vulkan.
 
 HERE="$(dirname "$(readlink -f "$0")")"
@@ -33,6 +43,30 @@ QTDIR="$LIB/qt"
 
 log() {
     [ "${KINOKLIP_QUIET:-0}" = 1 ] || printf 'kinoklip-launcher: %s\n' "$*" >&2
+}
+
+# ---- environment bookkeeping -----------------------------------------------------------
+# set_var NAME VALUE: exports NAME=VALUE and remembers the original value once, so the app
+# can give child processes the user's environment back (src/platform/ChildProcessEnv.h).
+KINOKLIP_ORIG_VARS="${KINOKLIP_ORIG_VARS:-}"
+set_var() {
+    case " $KINOKLIP_ORIG_VARS " in
+    *" $1 "*) ;; # already recorded (e.g. Kinoklip started from Kinoklip)
+    *)
+        KINOKLIP_ORIG_VARS="${KINOKLIP_ORIG_VARS:+$KINOKLIP_ORIG_VARS }$1"
+        if eval "[ -n \"\${$1+x}\" ]"; then
+            eval "KINOKLIP_ORIG_$1=\"\${$1}\""
+            export "KINOKLIP_ORIG_$1"
+        fi
+        ;;
+    esac
+    eval "$1=\"\$2\""
+    export "$1"
+}
+unset_var() {
+    eval "[ -n \"\${$1+x}\" ]" || return 0
+    set_var "$1" ""
+    unset "$1"
 }
 
 # ---- host library lookup -------------------------------------------------------------
@@ -76,6 +110,14 @@ host_lib() {
 }
 
 # ---- 1. fallback libraries -------------------------------------------------------------
+# newer_tag <soname>: the version tag recorded for a "newer" fallback (usr/lib/fallback/newer.txt)
+newer_tag() {
+    [ -f "$LIB/fallback/newer.txt" ] || return 0
+    while read -r _nn _nt; do
+        [ "$_nn" = "$1" ] && printf '%s\n' "$_nt" && return 0
+    done <"$LIB/fallback/newer.txt"
+    return 0
+}
 # fallback-active/ must contain exactly the fallback libs the host is missing: RUNPATH is
 # searched before the system, so anything linked there overrides the host copy.
 setup_fallback() {
@@ -85,8 +127,23 @@ setup_fallback() {
     for _f in "$LIB"/fallback/*.so*; do
         [ -e "$_f" ] || continue
         _n="${_f##*/}"
-        if [ "${KINOKLIP_FORCE_FALLBACK:-0}" = 1 ] || [ -z "$(host_lib "$_n")" ]; then
+        _host="$(host_lib "$_n")"
+        if [ "${KINOKLIP_FORCE_FALLBACK:-0}" = 1 ] || [ -z "$_host" ]; then
             _missing="$_missing $_n"
+        elif _tag="$(newer_tag "$_n")" && [ -n "$_tag" ]; then
+            # "newer" fallback: use ours if the host's copy is older (by its highest version
+            # tag, or for "file:" tags by the version in its real file name)
+            case "$_tag" in
+            file:*)
+                _tag="${_tag#file:}"
+                _hosttag="$(readlink -f "$_host")"
+                _hosttag="${_hosttag##*.so.}"
+                ;;
+            *) _hosttag="$(grep -aoE "${_tag%%[0-9]*}[0-9.]+" "$_host" 2>/dev/null | sort -uV | tail -n 1)" ;;
+            esac
+            if [ "$(printf '%s\n%s\n' "$_hosttag" "$_tag" | sort -V | tail -n 1)" != "$_hosttag" ]; then
+                _missing="$_missing $_n"
+            fi
         fi
     done
     if [ ! -w "$_active" ]; then
@@ -102,6 +159,19 @@ setup_fallback() {
         [ -L "$_active/$_n" ] || ln -s "../fallback/$_n" "$_active/$_n"
     done
     [ -n "$_missing" ] && log "using bundled fallbacks:$_missing"
+    # A bundled libva searches the build host's driver dir; point it at the host drivers
+    # (only then, and never over a user setting).
+    case " $_missing " in
+    *" libva.so.2 "*)
+        if [ -z "${LIBVA_DRIVERS_PATH:-}" ]; then
+            _dri=""
+            for _d in /usr/lib/x86_64-linux-gnu/dri /usr/lib64/dri /usr/lib/dri /usr/local/lib/dri; do
+                [ -d "$_d" ] && _dri="${_dri:+$_dri:}$_d"
+            done
+            [ -n "$_dri" ] && set_var LIBVA_DRIVERS_PATH "$_dri"
+        fi
+        ;;
+    esac
     return 0
 }
 
@@ -125,8 +195,11 @@ host_qt_ok() {
         return 1
         ;;
     esac
-    if [ "$_maj" -ne 6 ] || [ "$_min" -lt 4 ]; then
-        HOST_QT_REASON="host Qt $_maj.$_min is older than 6.4"
+    # at least the Qt the app was built with (usr/lib/qt/qt-version.txt, e.g. "6.12")
+    _need="$(cat "$QTDIR/qt-version.txt" 2>/dev/null || echo 6.4)"
+    _need_min="${_need#*.}"
+    if [ "$_maj" -ne 6 ] || [ "$_min" -lt "$_need_min" ]; then
+        HOST_QT_REASON="host Qt $_maj.$_min is older than $_need"
         return 1
     fi
     HOST_QT_VERSION="$_maj.$_min"
@@ -159,18 +232,19 @@ host_qt_ok() {
 
 use_bundled_qt() {
     # LD_LIBRARY_PATH (not RUNPATH) selects the bundled Qt, so host-Qt mode stays possible.
-    LD_LIBRARY_PATH="$QTDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-    # Only our plugins: host plugins are built for a newer Qt and would crash Qt 6.4.
-    QT_PLUGIN_PATH="$QTDIR/plugins"
-    # The app brings its own style and palette and must look the same on every system:
-    # the "generic" theme stops Qt's built-in KDE/GNOME themes from importing host fonts
-    # and colours, and a style override (e.g. breeze, absent anyway) is dropped.
-    QT_QPA_PLATFORMTHEME=generic
-    unset QT_STYLE_OVERRIDE
+    set_var LD_LIBRARY_PATH "$QTDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    # Only our plugins (incl. the Breeze style and KDE's icon engine): host plugins are built
+    # for another Qt/KF6 and could crash ours.
+    set_var QT_PLUGIN_PATH "$QTDIR/plugins"
+    # The app brings its own look (Breeze style, KDE colour scheme, Breeze icons) and must
+    # look the same on every system: the "generic" theme stops Qt's built-in KDE/GNOME themes
+    # from importing host fonts and colours, and a style override is dropped (the user picks
+    # the style in Settings > Style).
+    set_var QT_QPA_PLATFORMTHEME generic
+    unset_var QT_STYLE_OVERRIDE
     # the only multimedia backend we ship (shares the bundled FFmpeg)
-    QT_MEDIA_BACKEND="${QT_MEDIA_BACKEND:-ffmpeg}"
-    export LD_LIBRARY_PATH QT_PLUGIN_PATH QT_QPA_PLATFORMTHEME QT_MEDIA_BACKEND
-    log "using bundled Qt 6.4"
+    [ -n "${QT_MEDIA_BACKEND:-}" ] || set_var QT_MEDIA_BACKEND ffmpeg
+    log "using bundled Qt $(cat "$QTDIR/qt-version.txt" 2>/dev/null)"
 }
 
 # ---- desktop integration ---------------------------------------------------------------
@@ -244,10 +318,42 @@ else
     use_bundled_qt
 fi
 
-# Wayland first (native on KDE Linux), X11/XWayland as fallback. A user choice wins.
-QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland;xcb}"
-export QT_QPA_PLATFORM
-KINOKLIP_APPDIR="$HERE"
-export KINOKLIP_APPDIR
+# KDE colour schemes (usr/share/color-schemes) for KColorSchemeManager; the host's data dirs
+# stay searched after ours. Default per the XDG base directory spec if unset.
+set_var XDG_DATA_DIRS "$HERE/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+# libheif's decoder plugins (HEIC/AVIF) next to the bundled libheif
+if [ -d "$LIB/libheif/plugins" ]; then
+    set_var LIBHEIF_PLUGIN_PATH "$LIB/libheif/plugins"
+fi
 
+# Wayland first (native on KDE Linux), X11/XWayland as fallback. A user choice wins.
+[ -n "${QT_QPA_PLATFORM:-}" ] || set_var QT_QPA_PLATFORM "wayland;xcb"
+KINOKLIP_APPDIR="$HERE"
+export KINOKLIP_APPDIR KINOKLIP_ORIG_VARS
+
+# ---- glibc -------------------------------------------------------------------------------
+# The bundle is built on a current Arch system. If the host glibc is older than what the
+# bundled libraries need (usr/lib/glibc/glibc-required.txt), run through the bundled loader
+# with the bundled glibc. glibc is backwards compatible, so the host's GPU drivers and other
+# host libraries work with it. ld.so's --library-path is not inherited by child processes.
+# KINOKLIP_FORCE_GLIBC=1 / =0 forces it on / off (test hooks).
+use_bundled_glibc() {
+    case "${KINOKLIP_FORCE_GLIBC:-}" in 1) return 0 ;; 0) return 1 ;; esac
+    [ -f "$LIB/glibc/glibc-required.txt" ] || return 1
+    _need="$(cat "$LIB/glibc/glibc-required.txt")"
+    _have="$(getconf GNU_LIBC_VERSION 2>/dev/null)"
+    _have="${_have#glibc }"
+    if [ -z "$_have" ]; then
+        # no getconf: the version is in the loader's --version banner
+        _have="$(ldd --version 2>/dev/null | sed -n '1s/.* \([0-9][0-9.]*\)$/\1/p')"
+    fi
+    [ -n "$_have" ] || return 1
+    [ "$(printf '%s\n%s\n' "$_have" "$_need" | sort -V | head -n 1)" != "$_need" ]
+}
+
+if use_bundled_glibc; then
+    log "using the bundled glibc (host: ${_have:-forced}, bundle needs: ${_need:-forced})"
+    exec "$LIB/glibc/ld-linux-x86-64.so.2" --library-path "$LIB/glibc${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+        --argv0 "$HERE/usr/bin/kinoklip" "$HERE/usr/bin/kinoklip" "$@"
+fi
 exec "$HERE/usr/bin/kinoklip" "$@"
