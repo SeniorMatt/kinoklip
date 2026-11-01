@@ -19,6 +19,8 @@ extern "C" {
 
 namespace cw::media::detail {
 
+struct HwDecodeState;
+
 // ---- RAII wrappers (std::unique_ptr with FFmpeg's free functions) ----
 
 struct FormatContextDeleter
@@ -77,8 +79,15 @@ int findAudioStream(const AVFormatContext* fmt);
 
 /// Creates and opens a decoder for `stream`.
 /// @param threadCount 0 = automatic (one per core), otherwise the exact number of threads.
+/// @param hwDevice optional hardware device (see HwDevices.h); `hwState` must then be given
+///        and outlive the codec context.
 /// @return the opened codec context, or nullptr with a message in `*error`.
-CodecContextPtr openDecoder(const AVStream* stream, int threadCount, QString* error);
+CodecContextPtr openDecoder(const AVStream* stream, int threadCount, QString* error,
+    AVBufferRef* hwDevice = nullptr, HwDecodeState* hwState = nullptr);
+
+/// True if `packet` of an H.264 stream starts an IDR picture (handles both AVCC/MP4 and
+/// Annex-B/MPEG-TS framing). An IDR resets the decoder's reference state by itself.
+bool isH264IdrPacket(const AVPacket* packet, const AVCodecParameters* par);
 
 /// Seeks the demuxer so the following packets of `streamIndex` start at or before `ts`
 /// (stream time base), normally on a keyframe. Targets at or before `firstTs` (the stream's

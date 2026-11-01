@@ -2,6 +2,7 @@
 // FFmpegUtil — implementation of the internal FFmpeg helpers (opening files, decoders, logging).
 #include "media/FFmpegUtil.h"
 
+#include "media/HwDevices.h"
 #include "media/MediaLog.h"
 
 #include <QByteArray>
@@ -138,7 +139,8 @@ int findAudioStream(const AVFormatContext* fmt)
     return findStream(fmt, AVMEDIA_TYPE_AUDIO);
 }
 
-CodecContextPtr openDecoder(const AVStream* stream, int threadCount, QString* error)
+CodecContextPtr openDecoder(const AVStream* stream, int threadCount, QString* error,
+    AVBufferRef* hwDevice, HwDecodeState* hwState)
 {
     const AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (!codec) {
@@ -160,12 +162,62 @@ CodecContextPtr openDecoder(const AVStream* stream, int threadCount, QString* er
     ctx->pkt_timebase = stream->time_base;
     ctx->thread_count = threadCount; // 0 = let FFmpeg pick (one per core)
     ctx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
+    ctx->flags |= AV_CODEC_FLAG_COPY_OPAQUE; // packet.opaque → frame.opaque (seek generations)
+    if (hwDevice && hwState) {
+        attachHwDevice(ctx.get(), hwDevice, hwState);
+    }
     ret = avcodec_open2(ctx.get(), codec, nullptr);
     if (ret < 0) {
         setError(error, QStringLiteral("Cannot open decoder (%1)").arg(avErrorString(ret)));
         return {};
     }
     return ctx;
+}
+
+bool isH264IdrPacket(const AVPacket* packet, const AVCodecParameters* par)
+{
+    constexpr int kNalTypeMask = 0x1f;
+    constexpr int kNalSliceNonIdr = 1;
+    constexpr int kNalSliceIdr = 5;
+    // Returns 1 = IDR slice, 0 = other slice, -1 = not a slice (keep looking).
+    auto classify = [](uint8_t header) {
+        const int type = header & kNalTypeMask;
+        return type == kNalSliceIdr ? 1 : (type >= kNalSliceNonIdr && type < kNalSliceIdr ? 0 : -1);
+    };
+    const uint8_t* data = packet->data;
+    const int size = packet->size;
+    const bool avcc = par->extradata_size >= 7 && par->extradata[0] == 1;
+    if (avcc) {
+        // MP4/MKV: NAL units prefixed by their big-endian length (1-4 bytes, from avcC).
+        const int lengthSize = (par->extradata[4] & 3) + 1;
+        for (int pos = 0; pos + lengthSize < size;) {
+            int64_t nalSize = 0;
+            for (int i = 0; i < lengthSize; ++i) {
+                nalSize = (nalSize << 8) | data[pos + i];
+            }
+            pos += lengthSize;
+            if (nalSize <= 0 || pos + nalSize > size) {
+                return false;
+            }
+            const int kind = classify(data[pos]);
+            if (kind >= 0) {
+                return kind == 1;
+            }
+            pos += int(nalSize);
+        }
+        return false;
+    }
+    // Annex-B (MPEG-TS, raw .h264): NAL units separated by 00 00 01 start codes.
+    for (int pos = 0; pos + 3 < size; ++pos) {
+        if (data[pos] == 0 && data[pos + 1] == 0 && data[pos + 2] == 1) {
+            const int kind = classify(data[pos + 3]);
+            if (kind >= 0) {
+                return kind == 1;
+            }
+            pos += 2;
+        }
+    }
+    return false;
 }
 
 int seekDemuxer(AVFormatContext* fmt, int streamIndex, int64_t ts, int64_t firstTs)
