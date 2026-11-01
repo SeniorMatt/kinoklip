@@ -1,0 +1,192 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# excludelist.txt -- which shared libraries the Linux bundle must NOT carry.
+#
+# Read by scripts/package_linux.sh (dependency walker) and scripts/check_bundle.sh.
+#
+# Format: one entry per line, "<kind> <soname-glob>", '#' starts a comment.
+#   host      never bundled; the library must come from the user's system. The walker
+#             does not descend into it either, so its own dependencies are not bundled.
+#   fallback  prefer the host copy, but ship one in usr/lib/fallback/. The launcher links
+#             only the ones the host lacks into usr/lib/fallback-active/ (searched via
+#             RUNPATH), so a system copy always wins when it exists.
+#
+# Rule of thumb: a library goes to "host" when (a) it talks to the kernel, the GPU driver,
+# the display server or a system daemon and must match it, or (b) the host graphics/font
+# stack (Mesa, LLVM, freetype, ...) links it too: a bundled older copy would be loaded first
+# and shadow the newer one that host library was built against ("undefined symbol" crashes).
+# Every entry in (b) is present on any Arch/KDE system because systemd, Mesa or Qt need it.
+#
+# Target: KDE Linux (Arch based, Wayland, newer glibc/GCC than the Ubuntu 24.04 build host).
+
+# ---- C runtime (glibc): must match the host kernel and ld.so; never bundle ----
+host ld-linux-x86-64.so.2
+host linux-vdso.so.1
+host libc.so.6
+host libm.so.6
+host libpthread.so.0
+host libdl.so.2
+host librt.so.1
+host libresolv.so.2
+host libutil.so.1
+host libanl.so.1
+host libnsl.so.1
+host libmvec.so.1
+host libBrokenLocale.so.1
+
+# ---- C++/GCC runtime: the host (GCC 15 on Arch) is newer than our GCC 13 and is
+# backwards compatible; bundling would break host libraries (Mesa/LLVM) that need newer
+# GLIBCXX symbols. Bundle only if a target ever ships an OLDER libstdc++ than the build host.
+host libstdc++.so.6
+host libgcc_s.so.1
+host libatomic.so.1
+# OpenMP runtime (x265/libvpx); part of gcc-libs on Arch, but tiny, so keep a fallback.
+fallback libgomp.so.1
+
+# ---- GPU / OpenGL / Vulkan / video acceleration: must match the installed driver ----
+host libGL.so.1
+host libEGL.so.1
+host libGLX.so.0
+host libGLX_*.so.0
+host libEGL_*.so.0
+host libOpenGL.so.0
+host libGLdispatch.so.0
+host libGLESv2.so.2
+host libgbm.so.1
+host libdrm.so.2
+host libdrm_*.so.*
+host libvulkan.so.1
+host libcuda.so.1
+host libnvidia-*.so*
+host libnvcuvid.so.1
+# VAAPI/VDPAU front ends: the host libva loads the host iHD/radeonsi driver
+# (LIBVA_DRIVERS_PATH is never overridden). FFmpeg links them hard, so if a minimal host
+# lacks one (libvdpau is optional on recent Arch since Mesa dropped VDPAU) the bundled copy
+# is used instead of failing to start.
+fallback libva.so.2
+fallback libva-drm.so.2
+fallback libva-x11.so.2
+fallback libva-wayland.so.2
+fallback libvdpau.so.1
+# OpenCL ICD loader: reads /etc/OpenCL/vendors of the host; ship it in case it is missing.
+fallback libOpenCL.so.1
+
+# ---- Wayland: the client libraries follow the compositor's protocol versions ----
+host libwayland-client.so.0
+host libwayland-cursor.so.0
+host libwayland-egl.so.1
+host libwayland-server.so.0
+host libdecor-0.so.0
+# keymaps live in the host's /usr/share/X11/xkb; the library must match them
+host libxkbcommon.so.0
+fallback libxkbcommon-x11.so.0
+
+# ---- X11 / XCB core (installed with Xwayland and KWin on every Plasma system) ----
+host libX11.so.6
+host libX11-xcb.so.1
+host libXau.so.6
+host libXdmcp.so.6
+host libXext.so.6
+host libXfixes.so.3
+host libXrender.so.1
+host libXi.so.6
+host libXrandr.so.2
+host libXcursor.so.1
+host libXinerama.so.1
+host libXcomposite.so.1
+host libXdamage.so.1
+host libXxf86vm.so.1
+host libxshmfence.so.1
+# libxcb itself plus every protocol extension library (dri3, shm, randr, sync, xkb, ...),
+# all from the single libxcb package on Arch.
+host libxcb.so.1
+host libxcb-composite.so.0
+host libxcb-damage.so.0
+host libxcb-dpms.so.0
+host libxcb-dri2.so.0
+host libxcb-dri3.so.0
+host libxcb-glx.so.0
+host libxcb-present.so.0
+host libxcb-randr.so.0
+host libxcb-record.so.0
+host libxcb-render.so.0
+host libxcb-res.so.0
+host libxcb-screensaver.so.0
+host libxcb-shape.so.0
+host libxcb-shm.so.0
+host libxcb-sync.so.1
+host libxcb-xf86dri.so.0
+host libxcb-xfixes.so.0
+host libxcb-xinerama.so.0
+host libxcb-xinput.so.0
+host libxcb-xkb.so.1
+host libxcb-xtest.so.0
+host libxcb-xv.so.0
+host libxcb-xvmc.so.0
+# xcb-util family: separate small packages that a Wayland-only install may lack; only the
+# xcb fallback platform plugin needs them.
+fallback libxcb-icccm.so.4
+fallback libxcb-image.so.0
+fallback libxcb-keysyms.so.1
+fallback libxcb-render-util.so.0
+fallback libxcb-util.so.1
+fallback libxcb-cursor.so.0
+fallback libxcb-ewmh.so.2
+fallback libSM.so.6
+fallback libICE.so.6
+
+# ---- Fonts and text shaping: host versions find the host fonts/config. harfbuzz and
+# graphite2 are excluded because the host freetype links them (version skew otherwise). ----
+host libfontconfig.so.1
+host libfreetype.so.6
+host libharfbuzz.so.0
+host libgraphite2.so.3
+
+# ---- Audio: talk to the host PipeWire/PulseAudio daemon ----
+host libasound.so.2
+host libpulse.so.0
+host libpulse-simple.so.0
+host libpulsecommon-*.so
+host libpipewire-0.3.so.0
+host libjack.so.0
+
+# ---- System services / session ----
+host libdbus-1.so.3
+host libsystemd.so.0
+host libudev.so.1
+host libcap.so.2
+host libmount.so.1
+host libblkid.so.1
+host libuuid.so.1
+host libselinux.so.1
+host libgpg-error.so.0
+host libgcrypt.so.20
+host libcom_err.so.2
+host libkeyutils.so.1
+
+# ---- GLib: KDE/Qt on the host already load the (newer, backwards compatible) system copy;
+# the host loads its own GIO modules into it. ----
+host libglib-2.0.so.0
+host libgobject-2.0.so.0
+host libgio-2.0.so.0
+host libgmodule-2.0.so.0
+host libgthread-2.0.so.0
+host libpcre2-8.so.0
+
+# ---- Low-level compression/parsing libraries shared with Mesa/LLVM/freetype/systemd.
+# A bundled older copy would shadow the host's (unversioned symbols such as ZSTD_* are
+# resolved against whatever was loaded first). ----
+host libz.so.1
+host libzstd.so.1
+host liblzma.so.5
+host libbz2.so.1.0
+host liblz4.so.1
+host libexpat.so.1
+host libffi.so.8
+host libbrotlicommon.so.1
+host libbrotlidec.so.1
+host libbrotlienc.so.1
+host libpng16.so.16
+host libbsd.so.0
+host libmd.so.0
+host libelf.so.1
+host libtinfo.so.6
