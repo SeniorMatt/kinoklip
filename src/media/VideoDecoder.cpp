@@ -6,8 +6,6 @@
 #include "media/MediaLog.h"
 #include "media/VideoDecoderImpl.h"
 
-#include <QFileInfo>
-#include <QImageReader>
 #include <QThread>
 #include <QTransform>
 
@@ -15,6 +13,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace kk::media {
@@ -44,23 +43,78 @@ void setError(QString* error, const QString& message)
 
 // ---- Opening --------------------------------------------------------------------------------
 
-bool VideoDecoder::Impl::openStill(const QString& path, QString* error)
+bool VideoDecoder::Impl::openStill(const QString& path, const ImageHeader& header, QString* error)
 {
-    QImageReader reader(path);
-    reader.setAutoTransform(true); // apply EXIF orientation
-    const QImage image = reader.read();
-    if (image.isNull()) {
-        setError(error, reader.errorString());
+    // Shared process-wide cache: re-opening the same still (every clip of a slideshow, every
+    // render worker) costs a hash lookup instead of a decode.
+    const LoadedImage loaded = ImageLoader::loadCached(path);
+    if (loaded.image.isNull()) {
+        setError(error, loaded.error);
         return false;
     }
-    info = probe(path);
-    info.valid = info.hasVideo = info.isStillImage = true;
-    info.width = info.displayWidth = image.width();
-    info.height = info.displayHeight = image.height();
-    info.hasAlpha = image.hasAlphaChannel();
-    still = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    info = stillInfo(path, header);
+    info.width = info.displayWidth = loaded.image.width();
+    info.height = info.displayHeight = loaded.image.height();
+    info.hasAlpha = loaded.hasAlpha;
+    still = loaded.image;
     isStill = true;
     return true;
+}
+
+bool VideoDecoder::Impl::openFrameList(
+    const QString& path, MediaRoute route, const ImageHeader& header, QString* error)
+{
+    auto list = std::make_unique<ImageFrameList>();
+    const bool ok = route == MediaRoute::Sequence ? list->openSequence(path, error)
+                                                  : list->openAnimation(path, header, error);
+    if (!ok) {
+        return false;
+    }
+    info = list->info();
+    frameList = std::move(list);
+    // Decode frame 0 now, like openVideo(): validates the source and fixes the real size.
+    if (!frameListPosition(0)) {
+        setError(error, QStringLiteral("Cannot decode the first frame"));
+        frameList.reset();
+        return false;
+    }
+    info.width = info.displayWidth = frameListImage.width();
+    info.height = info.displayHeight = frameListImage.height();
+    return true;
+}
+
+bool VideoDecoder::Impl::frameListPosition(int64_t timeUs)
+{
+    const int index = frameList->indexAt(timeUs);
+    if (index == frameListIndex) {
+        return true;
+    }
+    QImage image = frameList->frame(index);
+    if (image.isNull()) {
+        return false;
+    }
+    if (image.cacheKey() != frameListImage.cacheKey()) {
+        // A new picture (not a held frame in a sequence gap): the scaled copy is stale.
+        frameListScaled = QImage();
+    }
+    frameListVideo.reset(); // re-wrapped on demand (no pixel copy) with this frame's pts
+    frameListImage = std::move(image);
+    frameListIndex = index;
+    return true;
+}
+
+QImage VideoDecoder::Impl::scaledCopy(
+    const QImage& image, QSize maxSize, QImage& scaled, QSize& scaledFor)
+{
+    const QSize out = fitSize(image.size(), maxSize);
+    if (out == image.size()) {
+        return image;
+    }
+    if (scaled.isNull() || scaledFor != maxSize) {
+        scaled = image.scaled(out, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        scaledFor = maxSize;
+    }
+    return scaled;
 }
 
 bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
@@ -161,6 +215,23 @@ bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
     }
     firstFrameTs = cur.pts;
 
+    // Clip geometry is fixed at open (MediaInfo::displayWidth is the contract for frameAt()
+    // sizes): every frame uses the container's sample aspect ratio, or — if the container
+    // declares none — the first frame's. Some decoders report a different SAR on later frames
+    // (H.263 CIF switches to 12:11 after a seek), which must not resize the clip.
+    const AVRational frameSar = cur.av->sample_aspect_ratio;
+    if (stream->sample_aspect_ratio.num <= 0 && stream->codecpar->sample_aspect_ratio.num <= 0
+        && frameSar.num > 0 && frameSar.den > 0) {
+        AVRational sar = frameSar;
+        av_reduce(&sar.num, &sar.den, sar.num, sar.den, INT16_MAX);
+        info.sampleAspectRatio = {sar.num, sar.den};
+        info.displayWidth = int(std::lround(double(info.width) * sar.num / sar.den));
+        info.displayHeight = info.height;
+        if (info.rotation == 90 || info.rotation == 270) {
+            std::swap(info.displayWidth, info.displayHeight);
+        }
+    }
+
     if (info.isStillImage) {
         // A single image FFmpeg can read but Qt cannot (e.g. DPX/EXR): keep it as a still.
         still = currentImage({});
@@ -178,15 +249,7 @@ bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
 
 QImage VideoDecoder::Impl::stillAt(QSize maxSize)
 {
-    const QSize out = fitSize(still.size(), maxSize);
-    if (out == still.size()) {
-        return still;
-    }
-    if (stillScaled.isNull() || stillScaledFor != maxSize) {
-        stillScaled = still.scaled(out, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-        stillScaledFor = maxSize;
-    }
-    return stillScaled;
+    return scaledCopy(still, maxSize, stillScaled, stillScaledFor);
 }
 
 // ---- Output ---------------------------------------------------------------------------------
@@ -201,9 +264,7 @@ std::shared_ptr<const VideoFrame> VideoDecoder::Impl::currentVideoFrame()
         } else if (cur.av->duration > 0) {
             meta.durationUs = av_rescale_q(cur.av->duration, stream->time_base, kMicrosecondsTb);
         }
-        const AVRational sar = cur.av->sample_aspect_ratio;
-        meta.sampleAspectRatio
-            = sar.num > 0 && sar.den > 0 ? Rational {sar.num, sar.den} : info.sampleAspectRatio;
+        meta.sampleAspectRatio = info.sampleAspectRatio; // fixed per clip, see openVideo()
         meta.rotation = info.rotation;
         cur.video = factory.make(cur.av.get(), meta);
         if (!cur.video && activeHw != HwAccelMode::Off) {
@@ -228,10 +289,7 @@ QImage VideoDecoder::Impl::currentImage(QSize maxSize)
         }
         frame = video->avFrame;
     }
-    AVRational sar = frame->sample_aspect_ratio;
-    if (sar.num <= 0 || sar.den <= 0) {
-        sar = {info.sampleAspectRatio.num, info.sampleAspectRatio.den};
-    }
+    const AVRational sar {info.sampleAspectRatio.num, info.sampleAspectRatio.den};
     QSize display(int(std::lround(double(frame->width) * sar.num / sar.den)), frame->height);
     const bool quarterTurn = info.rotation == 90 || info.rotation == 270;
     if (quarterTurn) {
@@ -280,10 +338,21 @@ bool VideoDecoder::open(const QString& path, QString* error)
     close();
     initFfmpeg();
     bool ok = false;
-    if (isStillImageSuffix(QFileInfo(path).suffix())) {
-        ok = m_impl->openStill(path, error);
+    ImageHeader header;
+    const MediaRoute route = routeFor(path, &header);
+    switch (route) {
+    case MediaRoute::Sequence:
+    case MediaRoute::Animation:
+        ok = m_impl->openFrameList(path, route, header, error);
+        break;
+    case MediaRoute::Still:
+        ok = m_impl->openStill(path, header, error);
+        break;
+    case MediaRoute::FFmpeg:
+        break;
     }
-    if (!ok) {
+    if (!ok && route != MediaRoute::Sequence) {
+        // FFmpeg is the universal fall-back (also for images the loaders rejected).
         ok = m_impl->openVideo(path, error);
     }
     if (!ok) {
@@ -326,6 +395,19 @@ std::shared_ptr<const VideoFrame> VideoDecoder::decodeFrame(int64_t timeUs, Accu
         d.lastReturnedUs = 0;
         return d.stillFrame;
     }
+    if (d.frameList) {
+        if (!d.frameListPosition(std::max<int64_t>(timeUs, 0))) {
+            return nullptr;
+        }
+        if (!d.frameListVideo) {
+            FrameMeta meta;
+            meta.ptsUs = d.frameList->startUs(d.frameListIndex);
+            meta.durationUs = d.frameList->durationUs(d.frameListIndex);
+            d.frameListVideo = VideoFrameFactory::wrapImage(d.frameListImage, meta);
+        }
+        d.lastReturnedUs = d.frameList->startUs(d.frameListIndex);
+        return d.frameListVideo;
+    }
     // No upper clamp on purpose: container durations can be short of the real last frame
     // (e.g. VFR MP4s). A target past the end seeks to the last keyframe, decodes to EOF and
     // returns the last frame, which stays cached for further past-the-end requests.
@@ -352,6 +434,13 @@ QImage VideoDecoder::frameAt(int64_t timeUs, QSize maxSize, Accuracy accuracy)
     if (d.isStill) {
         d.lastReturnedUs = 0;
         return d.stillAt(maxSize);
+    }
+    if (d.frameList) {
+        if (!d.frameListPosition(std::max<int64_t>(timeUs, 0))) {
+            return {};
+        }
+        d.lastReturnedUs = d.frameList->startUs(d.frameListIndex);
+        return Impl::scaledCopy(d.frameListImage, maxSize, d.frameListScaled, d.frameListScaledFor);
     }
     const int64_t ts = std::max(d.usToTs(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
     if (!d.position(ts, accuracy)) {

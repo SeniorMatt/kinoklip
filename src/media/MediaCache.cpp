@@ -310,6 +310,11 @@ void MediaCache::finishImage(const ImageRequest& request, const QImage& image)
         }
         m_images.insert(request.key, new QImage(image), imageCostKb(image));
     }
+    if (m_cancelled) {
+        // A job that was already running when shutdown() was called: keep its result, but stay
+        // silent — receivers may already be gone and "nothing after shutdown" is the contract.
+        return;
+    }
     if (request.kind == ImageKind::Poster) {
         emit posterFrameReady(request.path);
     } else {
@@ -391,6 +396,9 @@ void MediaCache::finishWaveform(
         }
         const int costKb = data->size() * 4 / 1024 + 1;
         m_waveforms.insert(path, new std::shared_ptr<const WaveformData>(data), costKb);
+    }
+    if (m_cancelled) {
+        return; // finished after shutdown(): cached, but no signal (see finishImage())
     }
     emit waveformReady(path);
 }

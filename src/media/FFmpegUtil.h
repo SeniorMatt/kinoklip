@@ -100,7 +100,9 @@ int seekDemuxer(AVFormatContext* fmt, int streamIndex, int64_t ts, int64_t first
 /// keeps audio and video of one file in sync even when their streams start at different times.
 int64_t originUs(const AVFormatContext* fmt);
 
-/// True if the file name extension denotes a still image format we load with QImageReader.
+/// True if the file name extension denotes a format that is always a still image
+/// (SupportedFormats Image/RawImage, except gif/webp which may be animated). Used to snap
+/// thumbnail times to 0.
 bool isStillImageSuffix(const QString& suffix);
 
 /// Fills a MediaInfo from an opened (and stream-info-probed) format context.

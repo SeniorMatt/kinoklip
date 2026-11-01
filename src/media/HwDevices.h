@@ -30,7 +30,8 @@ AVPixelFormat hwPixelFormat(const AVCodec* codec, HwAccelMode mode);
 void attachHwDevice(AVCodecContext* ctx, AVBufferRef* device, HwDecodeState* state);
 
 /// Process-wide owner of one AVHWDeviceContext per backend, shared by all decoders.
-/// Devices are created lazily on first use; a failure is remembered (not retried).
+/// Devices are created lazily on first use; a failure is remembered for the process lifetime
+/// (never retried, logged once), so decoder opens without a GPU cost nothing extra.
 /// AVBufferRef reference counting keeps a device alive while any decoder uses it; the
 /// manager itself is never destroyed (drivers must not be torn down during static exit).
 /// Thread-safety: all methods are thread-safe.
