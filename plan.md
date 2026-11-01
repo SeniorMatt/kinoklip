@@ -348,6 +348,13 @@ Rules for every agent:
   (e.g. use OpenH264 or hardware encoders). A `LICENSE` choice is left for you; code headers say
   "SPDX-License-Identifier: GPL-3.0-or-later" by default.
 
+## 8b. Distribution formats
+Now: **only the x86_64 binary bundle** (`dist/Kinoklip-x86_64.run` + portable folder).
+Later (keep the build relocatable and data paths via QStandardPaths so these stay easy):
+Flatpak (org.kinoklip.Kinoklip, KDE runtime — ships Breeze natively), AppImage (bundle is already
+AppDir-shaped), distro packages (Arch PKGBUILD/AUR, .deb, .rpm), Windows installer, macOS .dmg.
+App id everywhere: `org.kinoklip.Kinoklip`.
+
 ## 9. Later (after v0.1)
 Color page (wheels, curves, LUTs, scopes) → GPU pipeline (OpenGL/Vulkan) → proxies & render cache →
 speed ramps/retime → multicam → Fairlight-like mixer → Windows (MSVC + windeployqt + NSIS/MSIX) →

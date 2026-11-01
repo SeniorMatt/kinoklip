@@ -28,3 +28,4 @@
 - 03:20 Owner clarified: identical look on all OSes via our own Breeze (Plasma 6) theme + bundled Breeze icons; bundled Qt everywhere; test against latest Breeze. Packaging agent corrected.
 - 03:22 Scheduled resume check: formats, packaging, playback all active (commands within the last 2 min). No stalls; theme + export agents queued for the next free slots.
 - 03:23 Owner decision: use the REAL Breeze style + icons + KDE colour schemes bundled in the app (Kdenlive approach), customisable. Needs Qt>=6.6 + KF6 -> building in an Arch Linux container (distrobox 'kk-arch', podman). Image pulled; installing Qt6/KF6/Breeze/FFmpeg now.
+- 03:24 Owner: future formats Flatpak/AppImage/binary/others noted (plan 8b); current focus only the x86_64 binary.
