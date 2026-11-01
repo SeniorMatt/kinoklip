@@ -52,16 +52,19 @@ kk::ExportResult r = job.run([](const kk::ExportProgress& p) { /* frames, fps, E
   `framesToSamples48k(first + k + 1) - framesToSamples48k(first)`, so audio never drifts.
   Encoder priming (AAC, Opus) is written by the muxer as an edit list / pre-skip, which
   decoders honour — `test_export avSync` checks a flash frame against an audio impulse in
-  MP4/AAC, WebM/Opus, MOV/PCM and MKV/FLAC (all exact: offset 0 ms).
+  MP4/AAC (offset 0.3 ms), MOV/PCM and MKV/FLAC (0 ms) and WebM/Opus (6.5 ms = the Opus
+  pre-skip as reported by our decoder; well inside the one-frame tolerance).
 * **Colour**: YUV outputs are tagged and converted as BT.709 limited range (JPEG: BT.601 full
   range, the JFIF convention); RGB outputs are sRGB; EXR is linear (sRGB decoding curve),
   premultiplied. Alpha outputs (ProRes 4444, PNG/TIFF/EXR with alpha) are un-premultiplied
   first; opaque outputs use the premultiplied RGB directly (= the picture over black).
 * **RGB → YUV on the CPU, not the GPU**: the Compositor API hands out RGBA textures/images
-  only, so a GPU conversion would need a second readback path in `src/render`. The threaded
-  swscale pass costs ~1-2 ms per 1080p frame (measured below), small next to encoding, so
-  the conversion stays in `VideoEncoder`. A GPU NV12 pass + readback would be the next step
-  if the hardware encoders become conversion-bound (see TODO).
+  only, so a GPU conversion would need a second readback path in `src/render` (not owned
+  here). swscale's RGB → YUV path turned out slow (6-10 ms per 1080p frame idle, 22-26 ms on
+  the loaded dev box), so the 8-bit 4:2:0 hot path uses an own fixed-point BT.709 converter
+  (`RgbToYuv.h`, checked against swscale in `fastYuvMatchesSwscale`) split into row bands on
+  a small thread pool: 2.3-3.7 ms per 1080p frame under the same load. A GPU NV12 pass +
+  readback is the next step if hardware encoders become conversion-bound (see TODO).
 * **Errors and cancel**: every failure after the header was written goes through one path
   that aborts the muxer and deletes the file (or every file of a sequence). `cancel()` is an
   atomic flag checked once per frame; the partial output is removed the same way.
@@ -103,14 +106,21 @@ vp9 `_vaapi`, `_qsv`.
 
 ## Performance
 
-`build/test_exportperf` (1080p25, 100 frames of the 1080p fixture, CPU compositor under the
-offscreen platform). See the numbers in the test output and the export agent's report; on the
-dev box (i7 Comet Lake, GTX 1650):
+`build/test_exportperf` (1080p25 H.264 CRF/CQ 20, 100 frames of the 1080p fixture + AAC).
+"Encode only" = conversion + encoder on pre-rendered frames; "full pipeline" = compositor
+(here the GPU path: the NVIDIA EGL context works even on the offscreen platform), decoding,
+conversion, encoding, audio and muxing. Dev box i7 Comet Lake 4C/8T + GTX 1650, measured
+while other builds kept the load average at 17-21 (numbers on an idle machine are higher):
 
-| Path | encode only | full pipeline |
-|---|---|---|
-| libx264 medium | see test output | see test output |
-| h264_nvenc p5 | see test output | see test output |
+| Encoder | encode only | conversion | full pipeline |
+|---|---|---|---|
+| libx264 (medium) | 108 fps | 3.7 ms/frame | 28 fps |
+| h264_nvenc (p5) | 296 fps | 2.3 ms/frame | 68 fps |
+| before the own converter (swscale) | 25 / 42 fps | 26 / 22 ms/frame | 10 / 24 fps |
+
+VAAPI (the target laptop's path) could not be measured: the render nodes belong to the other
+logged-in user's seat on the dev box; `test_exportperf` and `test_export hardwareEncoders`
+pick it up automatically where `/dev/dri/renderD*` is accessible.
 
 ## How to extend
 
