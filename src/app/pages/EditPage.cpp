@@ -7,6 +7,7 @@
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/mediapool/MetadataPanel.h"
+#include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/viewer/ViewerPanel.h"
 
@@ -102,8 +103,26 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
 
     connect(
         m_mediaPool, &MediaPoolPanel::currentMediaChanged, m_metadata, &MetadataPanel::showMedia);
-    connect(m_mediaPool, &MediaPoolPanel::openInSourceViewer, m_sourceViewer,
-        &ViewerPanel::setSourceMedia);
+    // Double-click in the media pool: load the clip into the source viewer and make it the
+    // target of the transport keys (Space, J/K/L, I/O act on it).
+    connect(m_mediaPool, &MediaPoolPanel::openInSourceViewer, this, [this](const QString& id) {
+        if (isSingleViewer()) {
+            setSingleViewer(false); // a loaded clip needs its viewer
+        }
+        m_sourceViewer->setSourceMedia(id);
+        m_sourceViewer->activate();
+        m_sourceViewer->setFocus();
+    });
+    // F9 / F10 / F12 take the source viewer's clip and marked range.
+    m_timeline->controller()->setSourceProvider([this]() -> std::optional<SourceSelection> {
+        const std::optional<SourceRange> range = m_sourceViewer->sourceSelection();
+        if (!range) {
+            return std::nullopt;
+        }
+        return SourceSelection {range->mediaId, range->inUs, range->outUs};
+    });
+    // Focus in the timeline makes the program viewer the transport target (ViewerTransport).
+    m_timeline->setProperty("kkProgramFocus", true);
 }
 
 void EditPage::setPanelVisible(PanelId id, bool visible)
