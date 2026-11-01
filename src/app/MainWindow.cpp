@@ -10,11 +10,13 @@
 #include "app/Theme.h"
 #include "app/pages/EditPage.h"
 #include "app/pages/MediaPage.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
+#include "ui/dialogs/DialogActions.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -257,6 +259,12 @@ void MainWindow::connectAppActions()
     });
     connect(actions.action(QStringLiteral("help.about_qt")), &QAction::triggered, qApp,
         &QApplication::aboutQt);
+
+    // ---- Dialogs (src/ui/dialogs) ----
+    connectDialogActions(m_ctx, this, [this] {
+        if (m_autosave)
+            m_autosave->setIntervalMinutes(prefs::autosaveMinutes());
+    });
 }
 
 void MainWindow::connectPanelToggles()
