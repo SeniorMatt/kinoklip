@@ -34,3 +34,4 @@
 - 03:45 FUTURE idea recorded: Vim-style keyboard-only profile (plan 5.9b) + rules (commands with explicit args, pure navigation primitives, single input layer).
 - 03:52 Formats merged (32/32 tests): all plan 5.8 import formats verified (76 checks), Vulkan probe fix, media cache shutdown race fixed. Export agent starting.
 - 03:53 Heartbeat: breeze (1 commit), playback (1 commit), export (just started) all active within the last minute.
+- 03:56 Owner: KDE code-style conversion dropped. coding-style.md back to the existing project style (clang-format config as is, PascalCase sources). Phase 4 keeps parity + QA + final build.
