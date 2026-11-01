@@ -4,6 +4,7 @@
 
 #include "media/HwDevices.h"
 #include "media/MediaLog.h"
+#include "media/SupportedFormats.h"
 
 #include <QByteArray>
 #include <QFile>
@@ -244,19 +245,12 @@ int64_t originUs(const AVFormatContext* fmt)
 
 bool isStillImageSuffix(const QString& suffix)
 {
-    static const QStringList kSuffixes = {
-        QStringLiteral("png"),
-        QStringLiteral("jpg"),
-        QStringLiteral("jpeg"),
-        QStringLiteral("jpe"),
-        QStringLiteral("jfif"),
-        QStringLiteral("webp"),
-        QStringLiteral("bmp"),
-        QStringLiteral("tif"),
-        QStringLiteral("tiff"),
-        QStringLiteral("tga"),
-    };
-    return kSuffixes.contains(suffix.toLower());
+    const QString lower = suffix.toLower();
+    if (lower == QLatin1String("gif") || lower == QLatin1String("webp")) {
+        return false; // possibly animated
+    }
+    const MediaCategory category = SupportedFormats::categoryFor(QLatin1String("x.") + lower);
+    return category == MediaCategory::Image || category == MediaCategory::RawImage;
 }
 
 } // namespace kk::media::detail

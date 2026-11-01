@@ -6,6 +6,7 @@
 #include "media/FFmpegUtil.h"
 #include "media/FrameConverter.h"
 #include "media/HwDevices.h"
+#include "media/ImageFrameList.h"
 #include "media/VideoDecoder.h"
 #include "media/VideoFrameFactory.h"
 
@@ -55,6 +56,14 @@ struct VideoDecoder::Impl
     QSize stillScaledFor;
     std::shared_ptr<const VideoFrame> stillFrame;
 
+    // Image sequences and Qt animations (animated WebP): one image per frame.
+    std::unique_ptr<detail::ImageFrameList> frameList;
+    int frameListIndex = -1; ///< index of the frame `frameListImage` holds
+    QImage frameListImage; ///< full size
+    QImage frameListScaled; ///< frameListImage scaled for frameListScaledFor
+    QSize frameListScaledFor;
+    std::shared_ptr<const VideoFrame> frameListVideo; ///< frameListImage wrapped
+
     // FFmpeg state (video files).
     detail::FormatContextPtr fmt;
     detail::CodecContextPtr codec;
@@ -92,7 +101,11 @@ struct VideoDecoder::Impl
     bool softSeekPending = false; ///< demuxer moved, decoder not flushed yet
     intptr_t generation = 0; ///< tags packets/frames; frames of older generations are stale
 
-    bool openStill(const QString& path, QString* error);
+    bool openStill(const QString& path, const ImageHeader& header, QString* error);
+    bool openFrameList(
+        const QString& path, detail::MediaRoute route, const ImageHeader& header, QString* error);
+    bool frameListPosition(int64_t timeUs);
+    static QImage scaledCopy(const QImage& image, QSize maxSize, QImage& scaled, QSize& scaledFor);
     bool openVideo(const QString& path, QString* error);
     bool openCodec(HwAccelMode requested, QString* error);
     bool switchToSoftware();
