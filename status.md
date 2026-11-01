@@ -23,3 +23,4 @@
 - 03:10 Panels merged (26/26 tests after fixing a ThumbnailProvider name clash): inspector w/ keyframes, effects library, media pool (bins, grid/list, posters), media browser, metadata, project settings, preferences (hw accel), keyboard customization.
 - 03:11 Sent 7 screenshots to the owner. Packaging agent started (self-built single-file .run launcher + portable folder; AppImage tools can't be downloaded). Running: render, formats, packaging.
 - 03:15 Render merged (31/31 tests): GL 3.3 compositor, YUV shaders, 8 effects, 4 transitions, titles, CPU fallback, audio mixer; 1080p 2.7-4.4 ms/frame on GTX 1650. Playback agent starting.
+- 03:15 Sent first GPU-rendered frame to owner. Playback agent started (engine, JKL, audio clock, viewers, source viewer + F9/F10/F12). Running: formats, packaging, playback.
