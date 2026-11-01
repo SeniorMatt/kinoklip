@@ -316,6 +316,35 @@ Rules every agent follows NOW so the profiles can be added without rewrites:
    never an inline constant.
 6. Strings that differ (e.g. "Preferences" vs "Configure Kinoklip") come from the profile.
 
+#### 5.9b Vim profile (FUTURE idea — not implemented now)
+A third, keyboard-only interface profile where the whole editor is driven with Vim-style keys:
+- **Modes**: Normal (navigate/operate), Visual (select ranges of time/clips), Insert/Trim (live
+  edit-point adjustment), Command-line (`:`).
+- **Motions with counts** on the timeline: `h`/`l` frame, `5l` five frames, `w`/`b` next/prev edit
+  point, `e` clip end, `0`/`$` timeline start/end, `gg`/`G`, `j`/`k` track down/up, `f`/`t` jump to
+  marker, `` ` ``/`'` jump to marks (`ma` sets mark a).
+- **Operators + motions/objects**: `d` delete (ripple), `x` lift, `y` yank, `p`/`P` paste after/before
+  the playhead, `c` replace, `s` split; text-object-like targets `ic` (in clip), `ac` (clip + gap),
+  `it` (in transition), `ir` (in/out range): e.g. `dic`, `y3w`, `vip`.
+- **Repeat & macros**: `.` repeats the last edit, `q` records macros, `u` / `Ctrl-r` undo/redo,
+  registers (`"a`) for clipboard slots.
+- **Panels**: `Ctrl-w h/j/k/l` moves focus between panels; each panel gets Vim-style navigation
+  (media pool list, inspector fields: `j/k` move, `+`/`-` nudge value, `K` add keyframe).
+- **Command line**: `:w` save, `:e file`, `:import`, `:export preset`, `:set snap`, `:goto 01:02:03:04`,
+  `:fx blur 20` (add effect), `:speed 50%`; history and completion.
+- A status line shows mode, pending keys, count and current timecode.
+
+Rules every agent follows NOW so a Vim profile stays possible:
+1. **Every operation is a command with explicit arguments** (target clips/tracks, time range,
+   count, register), callable without the mouse — mouse gestures are just one way of filling in the
+   arguments. Keep editing logic in `EditOps`/controllers, never inside mouse handlers.
+2. Keyboard handling goes through one input layer (ActionRegistry today) so it can later be replaced
+   by a modal key-sequence state machine (multi-key chords, counts, pending operators).
+3. Navigation primitives (next edit point, next marker, next keyframe, next track, clip under
+   playhead, in/out range) live in `core` as pure functions so motions can reuse them.
+4. Panels expose keyboard focus and item navigation through a small interface (focus, move,
+   activate) rather than relying on mouse-only interaction.
+
 ### 5.10 Behaviour parity with Resolve's Edit page
 `docs/behavior-spec.md` (written in our own words from general NLE knowledge — no copied docs text)
 lists every Edit-page interaction and its expected behaviour; a parity agent tests each item and
