@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace cw {
+namespace kk {
 
 /// A selected keyframe: clip, parameter path and clip-local frame.
 struct KeyframeRef
@@ -73,4 +73,4 @@ private:
     QVector<KeyframeRef> m_keyframes;
 };
 
-} // namespace cw
+} // namespace kk

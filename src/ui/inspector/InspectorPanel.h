@@ -8,7 +8,7 @@
 
 class QTabWidget;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 
@@ -32,4 +32,4 @@ private:
     quint64 m_clipId = 0;
 };
 
-} // namespace cw
+} // namespace kk

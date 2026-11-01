@@ -2,8 +2,8 @@
 // Definition of the core module's logging category.
 #include "core/Logging.h"
 
-namespace cw {
+namespace kk {
 
-Q_LOGGING_CATEGORY(lcCore, "cw.core")
+Q_LOGGING_CATEGORY(lcCore, "kk.core")
 
-} // namespace cw
+} // namespace kk

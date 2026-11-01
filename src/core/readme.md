@@ -1,6 +1,6 @@
 # src/core — data model, editing, undo, serialization
 
-The heart of Cutwise. No widgets, no FFmpeg calls (only the `media::MediaInfo` value type and
+The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` value type and
 `media::probe()` for import). Everything here is unit-tested in `tests/core/`.
 
 ## Key types
@@ -12,7 +12,7 @@ The heart of Cutwise. No widgets, no FFmpeg calls (only the `media::MediaInfo` v
 | `ParamKeys.h` | well-known parameter keys (`keys::PosX`, `keys::Opacity`, ...) + defaults |
 | `TimelineData.h` | `ClipData`, `TrackData`, `Marker`, `EffectInstance`, `TransitionData`, `TimelineData`, `TrackRef` |
 | `MediaItem.h` | `MediaItem`, `Bin`, `MediaPoolState` |
-| `EditOps.h` | pure editing functions on `TimelineData&` (namespace `cw::editops`) |
+| `EditOps.h` | pure editing functions on `TimelineData&` (namespace `kk::editops`) |
 | `Timeline.h` | QObject: owns `TimelineData`, snapshot cache, playhead, `changed()` |
 | `MediaPool.h` | QObject: media items + bins, `importFiles()` |
 | `Project.h` | QObject: owns MediaPool + Timeline + QUndoStack, settings, save/load |
@@ -60,9 +60,9 @@ Clips on a track are sorted by start and never overlap; `duration >= 1`, `start 
 `speed > 0`, `sourceInUs >= 0`; every clip/track/effect id is non-zero, unique and `< nextId`;
 locked tracks are never changed by EditOps. Ids come from `TimelineData::allocateId()`.
 
-## Project file format (`.cwproj`, JSON)
+## Project file format (`.kkproj`, JSON)
 ```json
-{ "formatVersion": 1, "generator": "Cutwise 0.1.0",
+{ "formatVersion": 1, "generator": "Kinoklip 0.1.0",
   "project":   { "name": "My Film" },
   "mediaPool": { "bins": [...], "items": [{ "id", "path", "relativePath", "name", "binId", "info": {...} }] },
   "timeline":  { "name", "fps": {"num","den"}, "width", "height", "markIn", "markOut", "nextId",
@@ -78,7 +78,7 @@ the absolute path no longer exists.
 1. Declare a free function in `EditOps.h` with a `///` comment stating units and the return value.
 2. Implement it in `EditOps.cpp` using the internal helpers (`moveHead`, `clearRangeImpl`,
    `insertSorted`, `GroupRemap`). Never touch locked tracks; keep tracks sorted.
-3. Add tests in `tests/core/test_editops.cpp` ending with `CW_VERIFY_INVARIANTS(d)`, and add the
+3. Add tests in `tests/core/test_editops.cpp` ending with `KK_VERIFY_INVARIANTS(d)`, and add the
    operation to `randomOperationsKeepInvariants`.
 4. Call it from the UI between `beginEdit()`/`endEdit()`.
 

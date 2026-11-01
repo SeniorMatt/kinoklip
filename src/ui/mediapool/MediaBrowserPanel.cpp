@@ -11,7 +11,7 @@
 #include <QHeaderView>
 #include <QTreeView>
 
-namespace cw {
+namespace kk {
 
 MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Media Storage"), parent)
@@ -49,4 +49,4 @@ void MediaBrowserPanel::setRootPath(const QString& path)
     m_view->setRootIndex(m_model->setRootPath(path));
 }
 
-} // namespace cw
+} // namespace kk

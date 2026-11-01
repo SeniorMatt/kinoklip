@@ -7,7 +7,7 @@
 
 class QWidget;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 
@@ -22,4 +22,4 @@ struct AppContext;
 QStringList importMediaWithFeedback(
     AppContext& ctx, const QStringList& paths, QWidget* parent, const QString& binId = {});
 
-} // namespace cw
+} // namespace kk

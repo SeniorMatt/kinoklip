@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace cw {
+namespace kk {
 
 /// How the value travels from one keyframe to the next. The interpolation mode stored on keyframe
 /// K governs the segment K → K+1 (the last key's mode is irrelevant).
@@ -87,7 +87,7 @@ struct ParamSet
 
     /// Value of animated parameter @p key at @p localFrame, or @p fallback if the key is absent.
     [[nodiscard]] double value(const QString& key, int64_t localFrame, double fallback) const;
-    /// Value of animated parameter @p key using the documented default from cw::keys as fallback.
+    /// Value of animated parameter @p key using the documented default from kk::keys as fallback.
     [[nodiscard]] double value(const QString& key, int64_t localFrame) const;
     /// Static parameter @p key, or @p fallback if absent.
     [[nodiscard]] QVariant staticValue(const QString& key, const QVariant& fallback = {}) const;
@@ -110,4 +110,4 @@ struct ParamSet
 /// Parses a string produced by interpToString(); unknown strings yield Interp::Linear.
 [[nodiscard]] Interp interpFromString(const QString& text);
 
-} // namespace cw
+} // namespace kk

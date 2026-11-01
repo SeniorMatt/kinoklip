@@ -8,7 +8,7 @@
 class QFileSystemModel;
 class QTreeView;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 
@@ -33,4 +33,4 @@ private:
     QTreeView* m_view = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

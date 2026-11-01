@@ -2,7 +2,7 @@
 // Equality helpers for media pool value types.
 #include "core/MediaItem.h"
 
-namespace cw {
+namespace kk {
 
 bool sameMediaInfo(const media::MediaInfo& a, const media::MediaInfo& b)
 {
@@ -20,4 +20,4 @@ bool operator==(const MediaItem& a, const MediaItem& b)
         && sameMediaInfo(a.info, b.info);
 }
 
-} // namespace cw
+} // namespace kk

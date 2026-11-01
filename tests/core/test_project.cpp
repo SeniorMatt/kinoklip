@@ -8,9 +8,9 @@
 #include <QTest>
 #include <QUndoStack>
 
-using namespace cw;
-using namespace cw::test;
-namespace ops = cw::editops;
+using namespace kk;
+using namespace kk::test;
+namespace ops = kk::editops;
 
 class TestProject : public QObject
 {

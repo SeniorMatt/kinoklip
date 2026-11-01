@@ -6,7 +6,7 @@
 #include <QIcon>
 #include <QString>
 
-namespace cw {
+namespace kk {
 
 /// Icon from resources/icons/<name>.svg, tinted at paint time from the application palette:
 /// normal = WindowText, disabled = disabled WindowText, checked ("On" state) = Highlight.
@@ -19,4 +19,4 @@ namespace cw {
 /// True if an icon with this name exists in the resources.
 [[nodiscard]] bool hasIcon(const QString& name);
 
-} // namespace cw
+} // namespace kk

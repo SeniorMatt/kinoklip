@@ -10,7 +10,7 @@
 #include <QJsonValue>
 #include <QString>
 
-namespace cw::serialization {
+namespace kk::serialization {
 
 /// Version written to the "formatVersion" field of project files. Bump it when the format
 /// changes incompatibly and add a migration in Project::load().
@@ -48,4 +48,4 @@ inline constexpr int kFormatVersion = 1;
 /// Decodes the media pool, preferring the relative path when the absolute one is missing.
 [[nodiscard]] MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir);
 
-} // namespace cw::serialization
+} // namespace kk::serialization

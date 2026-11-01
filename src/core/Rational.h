@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace cw {
+namespace kk {
 
 // Exact frame rate / time base (e.g. 30000/1001).
 struct Rational
@@ -15,7 +15,7 @@ struct Rational
     friend constexpr bool operator==(const Rational&, const Rational&) = default;
 };
 
-// Timeline frame <-> microseconds helpers (see PLAN.md §5.1).
+// Timeline frame <-> microseconds helpers (see plan.md §5.1).
 inline int64_t framesToUs(int64_t frames, Rational fps)
 {
     return fps.isValid() ? (int64_t)std::llround(double(frames) * 1e6 * fps.den / fps.num) : 0;
@@ -29,4 +29,4 @@ inline int64_t framesToSamples48k(int64_t frames, Rational fps)
     return fps.isValid() ? (int64_t)std::llround(double(frames) * 48000.0 * fps.den / fps.num) : 0;
 }
 
-} // namespace cw
+} // namespace kk

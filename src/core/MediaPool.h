@@ -7,7 +7,7 @@
 #include <QObject>
 #include <QStringList>
 
-namespace cw {
+namespace kk {
 
 /// Outcome of MediaPool::importFiles().
 struct ImportResult
@@ -91,4 +91,4 @@ private:
     quint64 m_revision = 0;
 };
 
-} // namespace cw
+} // namespace kk

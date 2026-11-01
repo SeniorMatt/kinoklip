@@ -10,10 +10,10 @@
 #include <QOpenGLContext>
 #include <QPainter>
 
-namespace cw {
+namespace kk {
 
 namespace {
-Q_LOGGING_CATEGORY(lcViewer, "cw.ui.viewer")
+Q_LOGGING_CATEGORY(lcViewer, "kk.ui.viewer")
 
 constexpr int kPictureMargin = 8; // px around the letterboxed picture
 const QColor kSurroundColor(0x0b, 0x0b, 0x0c); // slightly lifted black around the picture
@@ -23,7 +23,7 @@ const QColor kEmptyTextColor(0x5a, 0x5a, 0x60);
 bool ViewerSurface::openGLAvailable()
 {
     static const bool available = [] {
-        if (qEnvironmentVariableIntValue("CW_NO_OPENGL") != 0)
+        if (qEnvironmentVariableIntValue("KK_NO_OPENGL") != 0)
             return false;
         // These platform plugins may create GL contexts but cannot composite QOpenGLWidgets
         // into a window ("QOpenGLWidget is not supported on this platform").
@@ -107,4 +107,4 @@ void ViewerPicture::paint(QPainter& painter, QSize widgetSize, bool fillSurround
     }
 }
 
-} // namespace cw
+} // namespace kk

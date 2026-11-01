@@ -4,7 +4,7 @@
 
 #include <QString>
 
-namespace cw {
+namespace kk {
 
 class MainWindow;
 
@@ -13,4 +13,4 @@ class MainWindow;
 /// Returns the process exit code (0 = success). Runs the event loop itself.
 int runScreenshot(MainWindow& window, const QString& pageId, const QString& pngPath);
 
-} // namespace cw
+} // namespace kk

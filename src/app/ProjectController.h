@@ -6,7 +6,7 @@
 
 class QWidget;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 
@@ -43,4 +43,4 @@ private:
     QWidget* m_window;
 };
 
-} // namespace cw
+} // namespace kk

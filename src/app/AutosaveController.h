@@ -5,12 +5,12 @@
 #include <QObject>
 #include <QTimer>
 
-namespace cw {
+namespace kk {
 
 class Project;
 
 /// Every prefs::autosaveMinutes() minutes (default 2) writes the project, if it has unsaved
-/// changes since the last autosave, to `<AppDataLocation>/autosave/<name>-<hash>.cwproj` with
+/// changes since the last autosave, to `<AppDataLocation>/autosave/<name>-<hash>.kkproj` with
 /// Project::saveCopy() (the document's path and modified flag are untouched).
 /// TODO(app): offer to restore autosaves after a crash.
 class AutosaveController : public QObject
@@ -38,4 +38,4 @@ private:
     quint64 m_savedPoolRevision = 0;
 };
 
-} // namespace cw
+} // namespace kk

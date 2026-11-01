@@ -9,7 +9,7 @@
 #include <QSurfaceFormat>
 #include <QTest>
 
-using namespace cw;
+using namespace kk;
 
 namespace {
 

@@ -11,7 +11,7 @@
 #include <QSplitter>
 #include <QVBoxLayout>
 
-namespace cw {
+namespace kk {
 
 MediaPage::MediaPage(AppContext& ctx, QWidget* parent)
     : Page(parent)
@@ -100,4 +100,4 @@ void MediaPage::restoreLayout(const QSettings& settings)
     }
 }
 
-} // namespace cw
+} // namespace kk

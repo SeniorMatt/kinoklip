@@ -9,7 +9,7 @@ Used by every panel and page. Depends on `core` only.
 | `StandardActions.h` | the catalogue: ids, texts, menus, icons; `standardMenus()` |
 | `PanelFrame.h` | common panel chrome (title bar + tool area + body); `createPlaceholderPanel()` |
 | `Page.h` | base class for main-window pages; `PanelId` for the interface-toolbar toggles |
-| `Icons.h` | `cw::icon("play")` — own SVGs tinted from the palette (On state = accent) |
+| `Icons.h` | `kk::icon("play")` — own SVGs tinted from the palette (On state = accent) |
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
 | `MediaImport.h` | import with user feedback; media file patterns/filters |
 | `Resources.h` | `initResources()` — call in `main()` and in tests that need icons/keymap |
@@ -46,7 +46,7 @@ in their default state (snap on, linked on, select tool).
 
 **Add an icon:** draw a 24×24 single-colour SVG (black strokes/fills; it is re-tinted at
 runtime) in `resources/icons/<name>.svg`, list it in `resources/resources.qrc`, use
-`cw::icon("<name>")`.
+`kk::icon("<name>")`.
 
 **Add a panel:** subclass `PanelFrame` in `src/ui/<area>/`, take `AppContext&`, place it in a
 page (`src/app/pages/*`). If it should be toggleable, add a `PanelId` + toggle action.

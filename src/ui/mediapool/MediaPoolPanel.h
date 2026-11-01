@@ -11,7 +11,7 @@
 class QListWidget;
 class QStackedWidget;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 
@@ -46,4 +46,4 @@ private:
     QListWidget* m_list = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

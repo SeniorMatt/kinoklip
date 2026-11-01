@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 
-namespace cw::timecode {
+namespace kk::timecode {
 
 int framesPerSecond(Rational fps)
 {
@@ -62,4 +62,4 @@ std::optional<int64_t> parse(QStringView text, Rational fps)
     return negative ? -total : total;
 }
 
-} // namespace cw::timecode
+} // namespace kk::timecode

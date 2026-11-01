@@ -19,6 +19,14 @@ Performance rules:
 - `#pragma once` in every header.
 - Include order (clang-format groups them): own header → project headers (`"core/..."`) → Qt → std.
 
+## 1b. Hard rules from the project owner
+- **No all-caps file names** (no `README.md`, `PLAN.md`, `LICENSE`...): docs are lowercase
+  (`readme.md`, `plan.md`, `coding-style.md`). C++ sources stay PascalCase (`TimelineWidget.cpp`);
+  `CMakeLists.txt` keeps the name CMake requires.
+- **No emojis** anywhere: code, comments, docs, commit messages, UI strings.
+- **Code produced by non-Claude tools/agents (Gemini, DeepSeek, ...) is untrusted**: it must be
+  reviewed line by line, built with zero warnings and covered by tests before it is committed.
+
 ## 2. Naming
 | Thing | Style | Example |
 |---|---|---|
@@ -29,7 +37,7 @@ Performance rules:
 | Private/protected data members | `m_` prefix | `m_playhead` |
 | Plain public struct fields | no prefix | `clip.start` |
 | Constants (`constexpr`) | `k` prefix | `kDefaultFps` |
-| Namespaces | lower case | `cw`, `cw::media`, `cw::ui` |
+| Namespaces | lower case | `kk`, `kk::media`, `kk::ui` |
 | Signals | past tense or "...Changed" | `changed()`, `playheadChanged()` |
 | Qt slots | imperative | `play()`, `setRate()` |
 
@@ -51,7 +59,7 @@ Frames vs microseconds confusion is the #1 bug source in NLEs; never write a bar
 - No commented-out code. No ASCII-art banners beyond simple `// ---- Section ----`.
 
 ## 4. Module structure & extensibility
-- Each `src/<module>/` has a `README.md`: responsibility, key classes, data flow,
+- Each `src/<module>/` has a `readme.md`: responsibility, key classes, data flow,
   **"How to extend"** (step-by-step for the common extension: new effect, new action, new page,
   new export preset, new panel...).
 - Dependencies point one way: `core` ← `media` ← `render` ← `playback`/`export` ← `ui` ← `app`.
@@ -63,14 +71,14 @@ Frames vs microseconds confusion is the #1 bug source in NLEs; never write a bar
 - Free functions over classes for pure logic (`EditOps`, interpolation maths) — easier to test.
 
 ## 5. C++ rules
-- C++20, Qt 6.4 API. No compiler-specific extensions. Everything in `namespace cw`.
+- C++20, Qt 6.4 API. No compiler-specific extensions. Everything in `namespace kk`.
 - Ownership: Qt parent/child for QObjects; `std::unique_ptr` / `std::shared_ptr` otherwise.
   No raw owning `new`/`delete` outside Qt parenting.
 - `const` everything that can be. Pass big values by `const&`. `[[nodiscard]]` on functions whose
   result must be checked.
 - Error handling: return `bool` + `QString* error`, or `std::optional`/expected-like struct.
   No exceptions crossing module boundaries. Log with `qCWarning(category)` (one logging category
-  per module, e.g. `cw.media`).
+  per module, e.g. `kk.media`).
 - Threads: document it on the class (`/// Thread-safety: ...`). Render/decode threads only touch
   immutable snapshots (`std::shared_ptr<const TimelineData>`).
 - No magic numbers: named `constexpr` constants with a comment.

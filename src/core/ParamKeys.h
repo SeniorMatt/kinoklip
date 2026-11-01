@@ -6,7 +6,7 @@
 #include <QString>
 #include <QStringView>
 
-namespace cw::keys {
+namespace kk::keys {
 
 // The constants below behave like enum values (qualified as keys::PosX), hence no k prefix.
 // Units and defaults are part of the contract; the renderer and inspector rely on them.
@@ -72,4 +72,4 @@ inline const QString BgOpacity
 /// Unknown keys return 0.
 [[nodiscard]] double defaultValue(QStringView key);
 
-} // namespace cw::keys
+} // namespace kk::keys

@@ -16,7 +16,7 @@
 #include <QMessageBox>
 #include <QSettings>
 
-namespace cw {
+namespace kk {
 
 namespace {
 constexpr char kLastProjectDirKey[] = "paths/lastProjectDir";
@@ -143,4 +143,4 @@ void ProjectController::importMedia()
     importMediaWithFeedback(m_ctx, paths, m_window);
 }
 
-} // namespace cw
+} // namespace kk

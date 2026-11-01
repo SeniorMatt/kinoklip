@@ -10,7 +10,7 @@
 
 #include <cstdio>
 
-namespace cw {
+namespace kk {
 
 namespace {
 const QSize kScreenshotSize(1920, 1080);
@@ -41,4 +41,4 @@ int runScreenshot(MainWindow& window, const QString& pageId, const QString& pngP
     return exitCode;
 }
 
-} // namespace cw
+} // namespace kk

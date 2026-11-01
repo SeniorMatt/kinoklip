@@ -6,7 +6,7 @@
 
 #include <QWidget>
 
-namespace cw {
+namespace kk {
 
 /// Plain QWidget implementation of ViewerSurface (offscreen screenshots, CI, no-GPU VMs).
 class RasterViewerSurface : public QWidget, public ViewerSurface
@@ -29,4 +29,4 @@ private:
     ViewerPicture m_picture;
 };
 
-} // namespace cw
+} // namespace kk

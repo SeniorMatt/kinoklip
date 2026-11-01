@@ -7,7 +7,7 @@
 
 class QSplitter;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 class ViewerPanel;
@@ -35,4 +35,4 @@ private:
     QSplitter* m_main = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

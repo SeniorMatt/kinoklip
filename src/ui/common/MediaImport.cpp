@@ -8,12 +8,12 @@
 #include <QCoreApplication>
 #include <QMessageBox>
 
-namespace cw {
+namespace kk {
 
 namespace {
 QString tr(const char* text)
 {
-    return QCoreApplication::translate("cw::MediaImport", text);
+    return QCoreApplication::translate("kk::MediaImport", text);
 }
 
 constexpr int kMaxListedWarnings = 12; // keep the dialog a sensible size
@@ -66,4 +66,4 @@ QStringList importMediaWithFeedback(
     return result.importedIds;
 }
 
-} // namespace cw
+} // namespace kk

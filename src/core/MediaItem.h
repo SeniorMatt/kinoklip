@@ -7,7 +7,7 @@
 #include <QString>
 #include <QVector>
 
-namespace cw {
+namespace kk {
 
 /// One imported media file. The probe result is cached so projects open even when the file is
 /// offline (moved/deleted).
@@ -45,4 +45,4 @@ struct MediaPoolState
 /// Field-by-field equality of two probe results (media::MediaInfo has no operator==).
 [[nodiscard]] bool sameMediaInfo(const media::MediaInfo& a, const media::MediaInfo& b);
 
-} // namespace cw
+} // namespace kk

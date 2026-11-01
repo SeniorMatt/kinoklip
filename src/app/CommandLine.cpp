@@ -5,27 +5,27 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 
-namespace cw {
+namespace kk {
 
 bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options, QString* error)
 {
     QCommandLineParser parser;
     parser.setApplicationDescription(
-        QCoreApplication::translate("cw::CommandLine", "Non-linear video editor"));
+        QCoreApplication::translate("kk::CommandLine", "Non-linear video editor"));
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addPositionalArgument(QStringLiteral("project"),
-        QCoreApplication::translate("cw::CommandLine", "Project file to open (optional)."),
+        QCoreApplication::translate("kk::CommandLine", "Project file to open (optional)."),
         QStringLiteral("[project]"));
 
     const QCommandLineOption screenshot(QStringLiteral("screenshot"),
-        QCoreApplication::translate("cw::CommandLine",
+        QCoreApplication::translate("kk::CommandLine",
             "Render the window (1920x1080) showing <page> (media, edit, deliver) to the PNG "
             "given as the first positional argument, then exit. Usage: --screenshot edit "
             "out.png [project]"),
         QStringLiteral("page"));
     const QCommandLineOption resetLayout(QStringLiteral("reset-layout"),
-        QCoreApplication::translate("cw::CommandLine", "Ignore the saved window layout."));
+        QCoreApplication::translate("kk::CommandLine", "Ignore the saved window layout."));
     parser.addOption(screenshot);
     parser.addOption(resetLayout);
 
@@ -54,4 +54,4 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
     return true;
 }
 
-} // namespace cw
+} // namespace kk

@@ -6,7 +6,7 @@
 #include <QHBoxLayout>
 #include <QToolButton>
 
-namespace cw {
+namespace kk {
 
 namespace {
 constexpr int kBarHeight = 40;
@@ -40,4 +40,4 @@ void PageBar::addPageAction(QAction* pageAction)
     m_buttons->addWidget(button);
 }
 
-} // namespace cw
+} // namespace kk

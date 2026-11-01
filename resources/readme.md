@@ -2,12 +2,12 @@
 
 | Path | What |
 |---|---|
-| `resources.qrc` | list of every compiled-in file (CMake compiles all `resources/*.qrc` into `cutwise_core`) |
+| `resources.qrc` | list of every compiled-in file (CMake compiles all `resources/*.qrc` into `kinoklip_core`) |
 | `keymap_default.json` | default shortcuts per action id (PLAN §5.7); user overrides live in QSettings |
-| `icons/*.svg` | the app's own 24×24 single-colour icons, tinted at runtime by `cw::icon()` |
+| `icons/*.svg` | the app's own 24×24 single-colour icons, tinted at runtime by `kk::icon()` |
 | `icons/app.svg` | coloured application icon (not tinted; packaging may replace it) |
 
-Resources live in a static library, so `cw::initResources()` must be called once (main and
+Resources live in a static library, so `kk::initResources()` must be called once (main and
 tests) — see `src/ui/common/Resources.h`.
 
 ## How to extend

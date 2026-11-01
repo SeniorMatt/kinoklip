@@ -6,7 +6,7 @@
 
 class QApplication;
 
-namespace cw::theme {
+namespace kk::theme {
 
 /// The single accent colour of the dark theme (selection, checked tool buttons, playhead).
 [[nodiscard]] QColor accentColor();
@@ -22,4 +22,4 @@ void apply(QApplication& app);
 /// Stores the choice and re-applies the theme to the running application.
 void setUseSystemColors(bool on);
 
-} // namespace cw::theme
+} // namespace kk::theme

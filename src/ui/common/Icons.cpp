@@ -12,11 +12,11 @@
 #include <QSet>
 #include <QSvgRenderer>
 
-namespace cw {
+namespace kk {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcIcons, "cw.ui.icons")
+Q_LOGGING_CATEGORY(lcIcons, "kk.ui.icons")
 
 QString iconPath(const QString& name)
 {
@@ -43,7 +43,7 @@ public:
     QPixmap pixmap(const QSize& size, QIcon::Mode mode, QIcon::State state) override
     {
         const QColor tint = tintFor(mode, state);
-        const QString key = QStringLiteral("cwicon:%1:%2x%3:%4")
+        const QString key = QStringLiteral("kkicon:%1:%2x%3:%4")
                                 .arg(m_name)
                                 .arg(size.width())
                                 .arg(size.height())
@@ -68,7 +68,7 @@ public:
 
     QSize actualSize(const QSize& size, QIcon::Mode, QIcon::State) override { return size; }
     QIconEngine* clone() const override { return new TintedSvgIconEngine(m_name, m_fixedColor); }
-    QString key() const override { return QStringLiteral("cw.tintedsvg"); }
+    QString key() const override { return QStringLiteral("kk.tintedsvg"); }
 
 private:
     QColor tintFor(QIcon::Mode mode, QIcon::State state) const
@@ -121,4 +121,4 @@ bool hasIcon(const QString& name)
     return !name.isEmpty() && QFile::exists(iconPath(name));
 }
 
-} // namespace cw
+} // namespace kk

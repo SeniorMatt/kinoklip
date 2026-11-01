@@ -9,7 +9,7 @@
 
 class QToolBar;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 class TimelinePreview;
@@ -35,4 +35,4 @@ private:
     TimelinePreview* m_view = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

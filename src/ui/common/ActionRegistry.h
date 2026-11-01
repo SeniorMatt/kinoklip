@@ -13,7 +13,7 @@
 
 class QAction;
 
-namespace cw {
+namespace kk {
 
 /// Central catalogue of user commands ("edit.split", "transport.play_pause", ...).
 ///
@@ -111,4 +111,4 @@ private:
     QHash<QString, QList<QKeySequence>> m_defaults;
 };
 
-} // namespace cw
+} // namespace kk

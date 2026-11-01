@@ -4,7 +4,7 @@
 
 #include <QSettings>
 
-namespace cw::prefs {
+namespace kk::prefs {
 
 namespace {
 constexpr int kDefaultAutosaveMinutes = 2;
@@ -71,4 +71,4 @@ void setAutosaveMinutes(int minutes)
     QSettings().setValue(QLatin1String(kAutosaveMinutes), qMax(0, minutes));
 }
 
-} // namespace cw::prefs
+} // namespace kk::prefs

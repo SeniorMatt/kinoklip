@@ -6,12 +6,12 @@
 
 // Global scope on purpose: Q_INIT_RESOURCE declares `extern int qInitResources_resources()` at
 // block scope, which would get internal linkage inside an anonymous namespace.
-static void initCutwiseResources()
+static void initKinoklipResources()
 {
     Q_INIT_RESOURCE(resources);
 }
 
-namespace cw {
+namespace kk {
 
 void initResources()
 {
@@ -19,7 +19,7 @@ void initResources()
     if (done)
         return;
     done = true;
-    initCutwiseResources();
+    initKinoklipResources();
 }
 
-} // namespace cw
+} // namespace kk

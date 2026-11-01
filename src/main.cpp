@@ -43,50 +43,50 @@ int main(int argc, char** argv)
 {
     configureOpenGL();
     QApplication app(argc, argv);
-    QCoreApplication::setOrganizationName(QLatin1String(cw::appinfo::id));
-    QCoreApplication::setApplicationName(QLatin1String(cw::appinfo::name));
-    QCoreApplication::setApplicationVersion(QLatin1String(cw::appinfo::version));
-    QGuiApplication::setDesktopFileName(QLatin1String(cw::appinfo::id));
-    cw::initResources();
+    QCoreApplication::setOrganizationName(QLatin1String(kk::appinfo::id));
+    QCoreApplication::setApplicationName(QLatin1String(kk::appinfo::name));
+    QCoreApplication::setApplicationVersion(QLatin1String(kk::appinfo::version));
+    QGuiApplication::setDesktopFileName(QLatin1String(kk::appinfo::id));
+    kk::initResources();
 
-    cw::CommandLineOptions options;
+    kk::CommandLineOptions options;
     QString error;
-    if (!cw::parseCommandLine(QCoreApplication::arguments(), options, &error)) {
+    if (!kk::parseCommandLine(QCoreApplication::arguments(), options, &error)) {
         std::fprintf(stderr, "%s\n", qPrintable(error));
         return 2;
     }
 
-    cw::theme::apply(app);
+    kk::theme::apply(app);
 
     // Application-wide objects, handed to every widget through AppContext (no singletons).
-    cw::Project project;
-    cw::SelectionModel selection;
-    cw::ActionRegistry actions;
+    kk::Project project;
+    kk::SelectionModel selection;
+    kk::ActionRegistry actions;
     actions.loadDefaultKeymap();
-    cw::registerStandardActions(actions);
-    cw::AppContext ctx;
+    kk::registerStandardActions(actions);
+    kk::AppContext ctx;
     ctx.project = &project;
     ctx.selection = &selection;
     ctx.actions = &actions;
 
     // ---- Non-interactive modes ----
     if (options.isScreenshot()) {
-        cw::MainWindowOptions windowOptions;
+        kk::MainWindowOptions windowOptions;
         windowOptions.restoreLayout = false; // deterministic default layout
         windowOptions.saveLayout = false;
         windowOptions.autosave = false;
-        cw::MainWindow window(ctx, windowOptions);
+        kk::MainWindow window(ctx, windowOptions);
         if (!options.projectFile.isEmpty() && !project.load(options.projectFile, &error)) {
             std::fprintf(stderr, "%s\n", qPrintable(error));
             return 1;
         }
-        return cw::runScreenshot(window, options.screenshotPage, options.screenshotPath);
+        return kk::runScreenshot(window, options.screenshotPage, options.screenshotPath);
     }
 
     // ---- Interactive ----
-    cw::MainWindowOptions windowOptions;
+    kk::MainWindowOptions windowOptions;
     windowOptions.restoreLayout = !options.resetLayout;
-    cw::MainWindow window(ctx, windowOptions);
+    kk::MainWindow window(ctx, windowOptions);
     if (!options.projectFile.isEmpty())
         window.projectController()->openFile(options.projectFile, false);
     window.showRestored();

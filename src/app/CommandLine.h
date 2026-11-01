@@ -5,7 +5,7 @@
 #include <QString>
 #include <QStringList>
 
-namespace cw {
+namespace kk {
 
 /// What the user asked for on the command line.
 /// To add a mode (e.g. `--render <project> <out.mp4>`): add fields here, an option in
@@ -24,4 +24,4 @@ struct CommandLineOptions
 /// Returns false with a message in @p error for invalid input.
 bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options, QString* error);
 
-} // namespace cw
+} // namespace kk

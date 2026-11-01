@@ -14,7 +14,7 @@
 class QHBoxLayout;
 class QLabel;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 class ViewerSurface;
@@ -75,4 +75,4 @@ private:
     QHBoxLayout* m_transportButtons = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

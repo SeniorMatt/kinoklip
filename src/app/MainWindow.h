@@ -11,7 +11,7 @@ class QAction;
 class QActionGroup;
 class QStackedWidget;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 class AutosaveController;
@@ -34,7 +34,7 @@ struct MainWindowOptions
 ///
 /// Layout: menu bar (built from the ActionRegistry) / InterfaceBar (panel toggles + project
 /// name) / QStackedWidget of Pages / PageBar. Pages are registered with addPage(), which is the
-/// extension point for new pages (see src/app/README.md).
+/// extension point for new pages (see src/app/readme.md).
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -97,4 +97,4 @@ private:
     bool m_geometryRestored = false;
 };
 
-} // namespace cw
+} // namespace kk

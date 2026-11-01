@@ -5,7 +5,7 @@
 #include <QString>
 #include <QVector>
 
-namespace cw {
+namespace kk {
 
 class ActionRegistry;
 
@@ -20,7 +20,7 @@ struct MenuCategory
 [[nodiscard]] QVector<MenuCategory> standardMenus();
 
 /// Registers every command of PLAN §5.7 and the main window. Behaviour is connected by the
-/// owning modules (see ui/common/README.md for the id list and who owns what).
+/// owning modules (see ui/common/readme.md for the id list and who owns what).
 void registerStandardActions(ActionRegistry& registry);
 
-} // namespace cw
+} // namespace kk

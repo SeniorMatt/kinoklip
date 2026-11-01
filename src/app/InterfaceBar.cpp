@@ -8,7 +8,7 @@
 #include <QLabel>
 #include <QToolButton>
 
-namespace cw {
+namespace kk {
 
 namespace {
 constexpr int kBarHeight = 34;
@@ -66,4 +66,4 @@ void InterfaceBar::setTitle(const QString& title)
     m_title->setText(title);
 }
 
-} // namespace cw
+} // namespace kk

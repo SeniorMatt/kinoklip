@@ -4,7 +4,7 @@
 
 #include <QPainter>
 
-namespace cw {
+namespace kk {
 
 RasterViewerSurface::RasterViewerSurface(QWidget* parent)
     : QWidget(parent)
@@ -43,4 +43,4 @@ void RasterViewerSurface::paintEvent(QPaintEvent*)
     m_picture.paint(painter, size(), true);
 }
 
-} // namespace cw
+} // namespace kk

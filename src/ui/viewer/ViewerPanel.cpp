@@ -17,7 +17,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-namespace cw {
+namespace kk {
 
 namespace {
 constexpr int kTransportIconSize = 18;
@@ -129,4 +129,4 @@ ViewerSurface* ViewerPanel::surface() const
     return m_surface;
 }
 
-} // namespace cw
+} // namespace kk

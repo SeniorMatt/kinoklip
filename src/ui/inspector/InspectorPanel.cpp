@@ -10,7 +10,7 @@
 
 #include <QTabWidget>
 
-namespace cw {
+namespace kk {
 
 InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Inspector"), parent)
@@ -38,4 +38,4 @@ void InspectorPanel::showClip(quint64 clipId)
     setTitle(clip ? tr("Inspector — %1").arg(clip->name) : tr("Inspector"));
 }
 
-} // namespace cw
+} // namespace kk

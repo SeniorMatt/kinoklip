@@ -10,7 +10,7 @@
 class QPainter;
 class QWidget;
 
-namespace cw {
+namespace kk {
 
 /// Interface of a viewer picture area. Implementations are QWidgets; use widget() to put one
 /// in a layout.
@@ -27,7 +27,7 @@ public:
     /// Creates the best available surface: GL if openGLAvailable(), raster otherwise.
     [[nodiscard]] static ViewerSurface* create(QWidget* parent);
     /// True if an OpenGL 3.3 core context can be created (cached after the first call).
-    /// Setting the environment variable CW_NO_OPENGL=1 forces false.
+    /// Setting the environment variable KK_NO_OPENGL=1 forces false.
     [[nodiscard]] static bool openGLAvailable();
 
     /// The QWidget implementing the surface.
@@ -61,4 +61,4 @@ private:
     QSize m_aspect {16, 9};
 };
 
-} // namespace cw
+} // namespace kk

@@ -7,7 +7,7 @@
 #include <QStandardPaths>
 #include <QTest>
 
-using namespace cw;
+using namespace kk;
 
 class TestPreferences : public QObject
 {
@@ -16,7 +16,7 @@ private slots:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(QStringLiteral("cutwise-tests"));
+        QCoreApplication::setOrganizationName(QStringLiteral("kinoklip-tests"));
         QCoreApplication::setApplicationName(QStringLiteral("test_preferences"));
         QSettings().clear();
     }

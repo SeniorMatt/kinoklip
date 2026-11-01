@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace cw::media {
+namespace kk::media {
 
 struct MediaInfo
 {
@@ -31,4 +31,4 @@ struct MediaInfo
 // Synchronous; safe to call from any thread.
 MediaInfo probe(const QString& path);
 
-} // namespace cw::media
+} // namespace kk::media

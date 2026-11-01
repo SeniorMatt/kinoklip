@@ -9,7 +9,7 @@
 #include <cmath>
 #include <limits>
 
-namespace cw::editops {
+namespace kk::editops {
 
 namespace {
 
@@ -795,4 +795,4 @@ void normalizeIds(TimelineData& data)
     data.nextId = std::max(data.nextId, maxId + 1);
 }
 
-} // namespace cw::editops
+} // namespace kk::editops

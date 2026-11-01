@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace cw {
+namespace kk {
 
 int64_t ClipData::framesToSourceUs(int64_t frames, Rational fps) const
 {
@@ -84,4 +84,4 @@ TimelineData makeDefaultTimeline(const QString& name, Rational fps, int width, i
     return t;
 }
 
-} // namespace cw
+} // namespace kk

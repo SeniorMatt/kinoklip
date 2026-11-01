@@ -2,7 +2,7 @@
 // AppContext — the shared objects handed to every page and panel (dependency injection).
 #pragma once
 
-namespace cw {
+namespace kk {
 
 class ActionRegistry;
 class PlaybackEngine; // implemented in src/playback (phase 3); may be null until then
@@ -20,4 +20,4 @@ struct AppContext
     PlaybackEngine* playback = nullptr; ///< program playback; null until src/playback exists
 };
 
-} // namespace cw
+} // namespace kk

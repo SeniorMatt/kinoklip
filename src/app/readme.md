@@ -23,8 +23,8 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 ## Start-up sequence (`src/main.cpp`)
 1. `configureOpenGL()` — default `QSurfaceFormat` = OpenGL 3.3 core, `Qt::AA_ShareOpenGLContexts`
    (must happen before `QApplication`).
-2. `QApplication`, organisation/app names (QSettings → `~/.config/cutwise/Cutwise.conf`),
-   `cw::initResources()`, command line, `theme::apply()`.
+2. `QApplication`, organisation/app names (QSettings → `~/.config/cutwise/Kinoklip.conf`),
+   `kk::initResources()`, command line, `theme::apply()`.
 3. `Project`, `SelectionModel`, `ActionRegistry` (+ `loadDefaultKeymap()` +
    `registerStandardActions()`), `AppContext`.
 4. Non-interactive modes (screenshot) or `MainWindow::showRestored()`.
@@ -37,7 +37,7 @@ preferences (theme, hw acceleration, autosave) are in `core/Preferences.h`.
 ## How to extend
 
 **Add a page** (e.g. the Color page later):
-1. Subclass `cw::Page` (`ui/common/Page.h`), implement `pageId()` and, if it has toggleable panels,
+1. Subclass `kk::Page` (`ui/common/Page.h`), implement `pageId()` and, if it has toggleable panels,
    `hasPanel()/setPanelVisible()/isPanelVisible()` + `saveLayout()/restoreLayout()`.
 2. In `MainWindow`'s constructor call `addPage(new MyPage(ctx), "view.page_<id>")`. The page
    action must exist in `ui/common/StandardActions.cpp` (and a shortcut in

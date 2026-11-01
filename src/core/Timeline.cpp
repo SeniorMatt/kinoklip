@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace cw {
+namespace kk {
 
 Timeline::Timeline(QObject* parent)
     : QObject(parent)
@@ -50,4 +50,4 @@ void Timeline::setPlayhead(int64_t frame)
     emit playheadChanged(frame);
 }
 
-} // namespace cw
+} // namespace kk

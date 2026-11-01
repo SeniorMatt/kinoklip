@@ -2,7 +2,7 @@
 // Default values of the well-known animated parameter keys.
 #include "core/ParamKeys.h"
 
-namespace cw::keys {
+namespace kk::keys {
 
 namespace {
 struct KeyDefault
@@ -31,4 +31,4 @@ double defaultValue(QStringView key)
     return 0.0;
 }
 
-} // namespace cw::keys
+} // namespace kk::keys

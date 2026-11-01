@@ -7,7 +7,7 @@
 
 class QTreeWidget;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 
@@ -28,4 +28,4 @@ private:
     QTreeWidget* m_tree = nullptr;
 };
 
-} // namespace cw
+} // namespace kk
