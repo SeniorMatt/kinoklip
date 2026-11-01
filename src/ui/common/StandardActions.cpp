@@ -142,6 +142,8 @@ const ActionSpec kActions[] = {
     {"playback", "transport.go_to_end",       QT_TRANSLATE_NOOP("kk::StandardActions", "Go to End"), "go_end"},
     {"playback", "-"},
     {"playback", "transport.loop",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Loop Playback"), "loop", true},
+    {"playback", "transport.play_in_out",     QT_TRANSLATE_NOOP("kk::StandardActions", "Play &In to Out")},
+    {"playback", "transport.play_around",     QT_TRANSLATE_NOOP("kk::StandardActions", "Play &Around Current Frame")},
 
     // ---- Help ----
     {"help", "help.about",            QT_TRANSLATE_NOOP("kk::StandardActions", "&About %1")},

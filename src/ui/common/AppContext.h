@@ -5,7 +5,7 @@
 namespace kk {
 
 class ActionRegistry;
-class PlaybackEngine; // implemented in src/playback (phase 3); may be null until then
+class PlaybackEngine; // src/playback; null in tests that do not need playback
 class Project;
 class SelectionModel;
 
@@ -17,7 +17,7 @@ struct AppContext
     Project* project = nullptr; ///< the open document (never null in the app)
     SelectionModel* selection = nullptr; ///< selected clips/keyframes (never null in the app)
     ActionRegistry* actions = nullptr; ///< every user command, by id (never null in the app)
-    PlaybackEngine* playback = nullptr; ///< program playback; null until src/playback exists
+    PlaybackEngine* playback = nullptr; ///< program (timeline) playback; may be null in tests
 };
 
 } // namespace kk

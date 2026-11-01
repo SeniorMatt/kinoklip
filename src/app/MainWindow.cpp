@@ -17,6 +17,7 @@
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
 #include "ui/dialogs/DialogActions.h"
+#include "ui/viewer/ViewerTransport.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -104,6 +105,9 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     buildInterfaceBar();
     connectAppActions();
     connectPanelToggles();
+    // Playback-owned actions (transport.*, view.fullscreen_viewer) -> the active viewer.
+    m_transport = new ViewerTransport(ctx, this);
+    m_transport->connectActions();
 
     connect(ctx.project, &Project::nameChanged, this, &MainWindow::updateTitle);
     connect(ctx.project, &Project::dirtyChanged, this, &MainWindow::updateTitle);

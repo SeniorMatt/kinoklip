@@ -1,100 +1,501 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// PLACEHOLDER viewer implementation: draws the last frame it was given; no decoding yet.
-// TODO(playback): replace with the real viewer driven by PlaybackEngine.
+// ViewerPanel — source / timeline viewer wired to a PlaybackEngine.
 #include "ui/viewer/ViewerPanel.h"
 
 #include "core/MediaPool.h"
 #include "core/Project.h"
+#include "core/Timeline.h"
+#include "playback/PlaybackEngine.h"
+#include "render/Compositor.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/TimecodeFormat.h"
+#include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QAction>
+#include <QApplication>
+#include <QComboBox>
+#include <QDrag>
 #include <QHBoxLayout>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QKeyEvent>
 #include <QLabel>
+#include <QMimeData>
+#include <QPainter>
 #include <QToolButton>
 #include <QVBoxLayout>
 
 namespace kk {
 
 namespace {
+
 constexpr int kTransportIconSize = 18;
-constexpr int kTransportBarHeight = 36;
+constexpr int kTransportBarHeight = 34;
+constexpr int kDragPixmapWidth = 160; ///< width of the picture shown while dragging a range
+
+QList<ViewerPanel*>& registry()
+{
+    static QList<ViewerPanel*> viewers;
+    return viewers;
+}
+ViewerPanel* s_active = nullptr;
+
+/// @p base mirrored horizontally (play reverse from the play icon), for every icon mode.
+QIcon mirrored(const QIcon& base)
+{
+    QIcon out;
+    const QSize size(kTransportIconSize * 2, kTransportIconSize * 2);
+    for (const QIcon::Mode mode : {QIcon::Normal, QIcon::Disabled, QIcon::Active}) {
+        out.addPixmap(base.pixmap(size, mode).transformed(QTransform().scale(-1, 1)), mode);
+    }
+    return out;
+}
+
+/// The play icon between in/out brackets ("play in to out").
+QIcon bracketed(const QIcon& base, const QColor& color)
+{
+    const int s = kTransportIconSize * 2;
+    QPixmap pm(s, s);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.drawPixmap(QRect(s / 4, s / 4, s / 2, s / 2), base.pixmap(QSize(s / 2, s / 2)));
+    p.setPen(QPen(color, 2.5));
+    const int t = s / 6;
+    const int b = s - s / 6;
+    p.drawPolyline(QPolygon({{s / 4, t}, {s / 8, t}, {s / 8, b}, {s / 4, b}}));
+    p.drawPolyline(QPolygon({{s - s / 4, t}, {s - s / 8, t}, {s - s / 8, b}, {s - s / 4, b}}));
+    p.end();
+    return QIcon(pm);
+}
+
+double zoomFactor(ViewerPanel::Zoom zoom)
+{
+    switch (zoom) {
+    case ViewerPanel::Zoom::Percent50:
+        return 0.5;
+    case ViewerPanel::Zoom::Percent100:
+        return 1.0;
+    case ViewerPanel::Zoom::Percent200:
+        return 2.0;
+    case ViewerPanel::Zoom::Fit:
+        break;
+    }
+    return 0.0;
+}
+
+QString rateText(double rate)
+{
+    if (rate == 0.0 || rate == 1.0) {
+        return {};
+    }
+    return QString::number(rate, 'g', 3) + QLatin1Char('x');
+}
+
 } // namespace
+
+QStringList ViewerPanel::sourceKeyActionIds()
+{
+    // Actions owned by the timeline module that should act on the clip while a source viewer
+    // has focus. Their keys come from the ActionRegistry, so remapping keeps working.
+    return {QStringLiteral("mark.in"), QStringLiteral("mark.out"), QStringLiteral("mark.clip"),
+        QStringLiteral("mark.clear_in"), QStringLiteral("mark.clear_out"),
+        QStringLiteral("mark.clear_both"), QStringLiteral("mark.go_to_in"),
+        QStringLiteral("mark.go_to_out"), QStringLiteral("transport.go_to_start"),
+        QStringLiteral("transport.go_to_end")};
+}
 
 ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     : PanelFrame(mode == Mode::Source ? tr("Source") : tr("Timeline"), parent)
     , m_ctx(ctx)
     , m_mode(mode)
 {
+    registry().append(this);
+    setObjectName(
+        mode == Mode::Source ? QStringLiteral("SourceViewer") : QStringLiteral("TimelineViewer"));
+    setFocusPolicy(Qt::ClickFocus);
+
+    // ---- Title bar: zoom, quality, timecode ----
+    m_zoomBox = new QComboBox;
+    m_zoomBox->setObjectName(QStringLiteral("ViewerZoom"));
+    m_zoomBox->addItems({tr("Fit"), tr("50%"), tr("100%"), tr("200%")});
+    m_zoomBox->setFocusPolicy(Qt::NoFocus);
+    m_zoomBox->setToolTip(tr("Viewer zoom"));
+    connect(m_zoomBox, &QComboBox::currentIndexChanged, this, [this](int i) { setZoom(Zoom(i)); });
+    addTitleBarWidget(m_zoomBox);
+
+    m_qualityBox = new QComboBox;
+    m_qualityBox->setObjectName(QStringLiteral("ViewerQuality"));
+    m_qualityBox->addItems({tr("Auto"), tr("Full"), tr("Half"), tr("Quarter")});
+    m_qualityBox->setFocusPolicy(Qt::NoFocus);
+    m_qualityBox->setToolTip(tr("Playback preview quality (Auto lowers the resolution while "
+                                "playing when rendering cannot keep up)"));
+    connect(m_qualityBox, &QComboBox::currentIndexChanged, this, [this](int i) {
+        if (engine()) {
+            engine()->setQualityMode(PlaybackEngine::QualityMode(i));
+        }
+    });
+    addTitleBarWidget(m_qualityBox);
+
     m_timecode = new QLabel(timecode::format(0, Rational {}));
     m_timecode->setObjectName(QStringLiteral("TimecodeLabel"));
-    m_timecode->setContentsMargins(0, 0, 6, 0);
+    m_timecode->setContentsMargins(6, 0, 6, 0);
     addTitleBarWidget(m_timecode);
 
-    auto* body = new QWidget;
-    auto* layout = new QVBoxLayout(body);
+    // ---- Body: picture, scrub bar, transport ----
+    m_body = new QWidget;
+    auto* layout = new QVBoxLayout(m_body);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    m_surface = ViewerSurface::create(body);
+    m_surface = ViewerSurface::create(m_body);
+    m_surface->widget()->setFocusPolicy(Qt::ClickFocus);
+    m_surface->widget()->installEventFilter(this);
     layout->addWidget(m_surface->widget(), 1);
 
-    auto* transport = new QWidget(body);
-    transport->setFixedHeight(kTransportBarHeight);
-    auto* transportLayout = new QHBoxLayout(transport);
-    transportLayout->setContentsMargins(6, 0, 6, 0);
-    transportLayout->addStretch(1);
-    m_transportButtons = new QHBoxLayout;
-    m_transportButtons->setSpacing(2);
-    transportLayout->addLayout(m_transportButtons);
-    transportLayout->addStretch(1);
-    layout->addWidget(transport);
-    setContentWidget(body);
+    m_scrub = new ScrubBar(m_body);
+    connect(m_scrub, &ScrubBar::scrubStarted, this, [this] {
+        activate();
+        if (engine() && engine()->isPlaying()) {
+            engine()->pause(); // scrubbing takes over the playhead
+        }
+    });
+    connect(m_scrub, &ScrubBar::scrubbed, this, [this](int64_t frame) {
+        if (engine()) {
+            engine()->seek(frame);
+        } else if (m_boundTimeline) {
+            m_boundTimeline->setPlayhead(frame);
+        }
+    });
+    layout->addWidget(m_scrub);
 
-    addTransportButton(
-        QStringLiteral("transport.go_to_start"), [this] { emit goToStartRequested(); });
-    addTransportButton(QStringLiteral("transport.prev_frame"), [this] { emit stepRequested(-1); });
-    addTransportButton(QStringLiteral("transport.shuttle_stop"), [this] { emit stopRequested(); });
-    addTransportButton(
-        QStringLiteral("transport.play_pause"), [this] { emit playPauseRequested(); });
-    addTransportButton(QStringLiteral("transport.next_frame"), [this] { emit stepRequested(1); });
-    addTransportButton(QStringLiteral("transport.go_to_end"), [this] { emit goToEndRequested(); });
-    addTransportButton(QStringLiteral("transport.loop"), {});
+    m_transport = new QWidget(m_body);
+    m_transport->setObjectName(QStringLiteral("ViewerTransport"));
+    m_transport->setFixedHeight(kTransportBarHeight);
+    auto* bar = new QHBoxLayout(m_transport);
+    bar->setContentsMargins(8, 0, 8, 0);
+    bar->setSpacing(2);
+    m_marksLabel = new QLabel;
+    m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));
+    m_marksLabel->setStyleSheet(
+        QStringLiteral("color: #8a8a92;")); // dim but readable on the dark theme
+    bar->addWidget(m_marksLabel);
+    bar->addStretch(1);
 
-    if (m_mode == Mode::Timeline && ctx.project) {
-        Timeline* timeline = ctx.project->timeline();
-        auto update = [this, timeline] {
-            setPosition(timeline->playhead(), timeline->data().fps);
-            m_surface->setAspect(QSize(timeline->data().width, timeline->data().height));
+    auto act = [this](const char* id) {
+        return m_ctx.actions && m_ctx.actions->contains(QLatin1String(id))
+            ? m_ctx.actions->action(QLatin1String(id))
+            : nullptr;
+    };
+    auto onEngine = [this](void (PlaybackEngine::*fn)()) {
+        return [this, fn] {
+            activate();
+            if (PlaybackEngine* e = engine()) {
+                (e->*fn)();
+            }
         };
-        connect(timeline, &Timeline::playheadChanged, this, update);
-        connect(timeline, &Timeline::changed, this, update);
-        update();
+    };
+    // Marks: the source player's own, or the timeline's (through its actions, owned by the
+    // timeline module).
+    auto mark = [this, act](const char* id, void (SourcePlayer::*fn)()) {
+        return [this, act, id, fn] {
+            activate();
+            if (m_mode == Mode::Source) {
+                if (m_player) {
+                    (m_player->*fn)();
+                }
+            } else if (QAction* a = act(id)) {
+                a->trigger();
+            }
+        };
+    };
+    addButton(bar, QStringLiteral("mark.in"), icon(QStringLiteral("mark_in")), tr("Mark In"),
+        mark("mark.in", &SourcePlayer::markInAtPosition));
+    addButton(bar, QStringLiteral("mark.out"), icon(QStringLiteral("mark_out")), tr("Mark Out"),
+        mark("mark.out", &SourcePlayer::markOutAtPosition));
+    bar->addSpacing(10);
+    addButton(bar, QStringLiteral("transport.go_to_start"), icon(QStringLiteral("go_start")),
+        tr("Go to Start"), onEngine(&PlaybackEngine::goToStart));
+    addButton(bar, QStringLiteral("transport.prev_frame"), icon(QStringLiteral("prev_frame")),
+        tr("Previous Frame"), [this] {
+            activate();
+            if (engine()) {
+                engine()->step(-1);
+            }
+            Q_EMIT stepRequested(-1);
+        });
+    addButton(bar, QStringLiteral("transport.shuttle_reverse"),
+        mirrored(icon(QStringLiteral("play"))), tr("Play Reverse"), [this] {
+            activate();
+            if (engine()) {
+                engine()->setRate(-1.0);
+            }
+        });
+    addButton(bar, QStringLiteral("transport.shuttle_stop"), icon(QStringLiteral("stop")),
+        tr("Stop"), [this] {
+            activate();
+            if (engine()) {
+                engine()->stop();
+            }
+            Q_EMIT stopRequested();
+        });
+    m_playButton = addButton(bar, QStringLiteral("transport.play_pause"),
+        icon(QStringLiteral("play")), tr("Play / Pause"), [this] {
+            activate();
+            if (engine()) {
+                engine()->togglePlay();
+            }
+            Q_EMIT playPauseRequested();
+        });
+    addButton(bar, QStringLiteral("transport.next_frame"), icon(QStringLiteral("next_frame")),
+        tr("Next Frame"), [this] {
+            activate();
+            if (engine()) {
+                engine()->step(1);
+            }
+            Q_EMIT stepRequested(1);
+        });
+    addButton(bar, QStringLiteral("transport.go_to_end"), icon(QStringLiteral("go_end")),
+        tr("Go to End"), onEngine(&PlaybackEngine::goToEnd));
+    bar->addSpacing(10);
+    // Loop is one global toggle (like most NLEs): the button shows the shared action.
+    if (QAction* loop = act("transport.loop")) {
+        auto* button = new QToolButton;
+        button->setAutoRaise(true);
+        button->setFocusPolicy(Qt::NoFocus);
+        button->setIconSize(QSize(kTransportIconSize, kTransportIconSize));
+        button->setDefaultAction(loop);
+        bar->addWidget(button);
+        connect(loop, &QAction::toggled, this, [this](bool on) {
+            if (engine()) {
+                engine()->setLoop(on);
+            }
+        });
+    }
+    addButton(bar, QStringLiteral("transport.play_in_out"),
+        bracketed(icon(QStringLiteral("play")), palette().color(QPalette::WindowText)),
+        tr("Play In to Out"), onEngine(&PlaybackEngine::playInToOut));
+    bar->addStretch(1);
+    m_rateLabel = new QLabel;
+    m_rateLabel->setObjectName(QStringLiteral("ViewerRate"));
+    m_rateLabel->setMinimumWidth(40);
+    m_rateLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    bar->addWidget(m_rateLabel);
+    layout->addWidget(m_transport);
+    setContentWidget(m_body);
+
+    // ---- Content ----
+    if (m_mode == Mode::Timeline) {
+        bindEngine(ctx.playback);
+        if (ctx.project) {
+            bindTimeline(ctx.project->timeline());
+        }
+    } else if (ctx.project) {
+        // A removed or relinked item must not stay loaded.
+        connect(ctx.project->mediaPool(), &MediaPool::changed, this, [this] {
+            if (!m_sourceMediaId.isEmpty()) {
+                const MediaItem* item = m_ctx.project->mediaPool()->item(m_sourceMediaId);
+                if (!item || (m_player && item->path != m_player->media().path)) {
+                    setSourceMedia(item ? item->id : QString());
+                }
+            }
+        });
     }
     clearFrame();
+    updateTitle();
+    updateMarksLabel();
 }
 
-void ViewerPanel::addTransportButton(
-    const QString& actionId, const std::function<void()>& sourceHandler)
+ViewerPanel::~ViewerPanel()
 {
-    QAction* action = m_ctx.actions ? m_ctx.actions->action(actionId) : nullptr;
-    auto* button = new QToolButton;
-    button->setAutoRaise(true);
-    button->setIconSize(QSize(kTransportIconSize, kTransportIconSize));
-    if (m_mode == Mode::Timeline && action) {
-        button->setDefaultAction(action);
-    } else if (action) {
-        // Same look as the global action, but drives the source viewer.
-        button->setIcon(action->icon());
-        button->setToolTip(action->toolTip());
-        button->setCheckable(action->isCheckable());
-        if (sourceHandler)
-            connect(button, &QToolButton::clicked, this, sourceHandler);
+    registry().removeAll(this);
+    if (s_active == this) {
+        s_active = nullptr;
     }
-    m_transportButtons->addWidget(button);
+    if (m_engine) {
+        m_engine->removeOutputClient(this);
+        disconnect(m_engine, nullptr, this, nullptr);
+    }
+    // The player (a child) would otherwise be deleted after the labels it updates.
+    delete m_player;
+    m_player = nullptr;
 }
+
+QToolButton* ViewerPanel::addButton(QHBoxLayout* layout, const QString& actionId,
+    const QIcon& buttonIcon, const QString& tip, const std::function<void()>& handler)
+{
+    auto* button = new QToolButton;
+    button->setObjectName(QStringLiteral("ViewerButton_") + actionId);
+    button->setAutoRaise(true);
+    button->setFocusPolicy(Qt::NoFocus); // keys stay with the viewer / application
+    button->setIconSize(QSize(kTransportIconSize, kTransportIconSize));
+    button->setIcon(buttonIcon);
+    // Tooltip with the action's current shortcut (looked up, never hard-coded).
+    QString shortcut;
+    if (m_ctx.actions && m_ctx.actions->contains(actionId)) {
+        const QList<QKeySequence> keys = m_ctx.actions->shortcuts(actionId);
+        if (!keys.isEmpty()) {
+            shortcut = keys.first().toString(QKeySequence::NativeText);
+        }
+    }
+    button->setToolTip(shortcut.isEmpty() ? tip : QStringLiteral("%1 (%2)").arg(tip, shortcut));
+    connect(button, &QToolButton::clicked, this, handler);
+    layout->addWidget(button);
+    return button;
+}
+
+// ---- Engine / timeline binding ----
+
+PlaybackEngine* ViewerPanel::engine() const
+{
+    return m_engine.data();
+}
+
+void ViewerPanel::ensurePlayer()
+{
+    if (m_player || m_mode != Mode::Source) {
+        return;
+    }
+    // Share the program engine's compositor: one render thread and GL context for the app.
+    std::shared_ptr<Compositor> compositor
+        = m_ctx.playback ? m_ctx.playback->compositor() : nullptr;
+    m_player = new SourcePlayer(std::move(compositor), this);
+    if (m_ctx.playback) {
+        m_player->engine()->setBehaviour(m_ctx.playback->behaviour());
+    }
+    bindEngine(m_player->engine());
+    bindTimeline(m_player->timeline());
+    connect(m_player, &SourcePlayer::marksChanged, this, &ViewerPanel::updateMarksLabel);
+}
+
+void ViewerPanel::bindEngine(PlaybackEngine* e)
+{
+    if (m_engine == e) {
+        return;
+    }
+    if (m_engine) {
+        m_engine->removeOutputClient(this);
+        disconnect(m_engine, nullptr, this, nullptr);
+    }
+    m_engine = e;
+    if (!e) {
+        return;
+    }
+    connect(e, &PlaybackEngine::frameReady, this, [this](const RenderedFramePtr& frame) {
+        if (frame) {
+            m_surface->setRenderedFrame(frame);
+        }
+    });
+    connect(e, &PlaybackEngine::positionChanged, this, &ViewerPanel::onPositionChanged);
+    connect(e, &PlaybackEngine::rateChanged, this, &ViewerPanel::onRateChanged);
+    m_qualityBox->setCurrentIndex(int(e->qualityMode()));
+    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("transport.loop"))) {
+        e->setLoop(m_ctx.actions->action(QStringLiteral("transport.loop"))->isChecked());
+    }
+    if (RenderedFramePtr current = e->currentFrame()) {
+        m_surface->setRenderedFrame(current);
+    }
+    onRateChanged(e->rate());
+    updateOutputClient();
+}
+
+void ViewerPanel::bindTimeline(Timeline* timeline)
+{
+    disconnect(m_tlChanged);
+    disconnect(m_tlPlayhead);
+    m_boundTimeline = timeline;
+    if (!timeline) {
+        return;
+    }
+    m_tlChanged = connect(timeline, &Timeline::changed, this, &ViewerPanel::onTimelineChanged);
+    if (!m_engine) {
+        // No engine (tests, headless tools): at least follow the playhead.
+        m_tlPlayhead
+            = connect(timeline, &Timeline::playheadChanged, this, &ViewerPanel::onPositionChanged);
+    }
+    onTimelineChanged();
+    onPositionChanged(m_engine ? m_engine->position() : timeline->playhead());
+}
+
+void ViewerPanel::onTimelineChanged()
+{
+    if (!m_boundTimeline) {
+        return;
+    }
+    const TimelineData& d = m_boundTimeline->data();
+    m_fps = d.fps;
+    m_surface->setAspect(QSize(d.width, d.height));
+    m_scrub->setDuration(d.duration());
+    m_scrub->setMarks(d.markIn, d.markOut);
+    updateMarksLabel();
+    updateTitle();
+    onPositionChanged(m_engine ? m_engine->position() : m_boundTimeline->playhead());
+    updateOutputClient();
+}
+
+void ViewerPanel::onPositionChanged(int64_t frame)
+{
+    m_timecode->setText(timecode::format(frame, m_fps));
+    m_scrub->setPosition(frame);
+}
+
+void ViewerPanel::onRateChanged(double rate)
+{
+    m_playButton->setIcon(icon(rate != 0.0 ? QStringLiteral("pause") : QStringLiteral("play")));
+    m_rateLabel->setText(rateText(rate));
+}
+
+void ViewerPanel::updateOutputClient()
+{
+    if (!m_engine) {
+        return;
+    }
+    if (!isVisible()) {
+        m_engine->removeOutputClient(this);
+        return;
+    }
+    const qreal dpr = m_surface->widget()->devicePixelRatioF();
+    const QSize logical = m_surface->pictureRect().size();
+    const QSize pixels(int(logical.width() * dpr), int(logical.height() * dpr));
+    m_engine->setOutputClient(this, pixels, m_surface->canDrawTextures());
+}
+
+void ViewerPanel::updateTitle()
+{
+    const QString base = m_mode == Mode::Source ? tr("Source") : tr("Timeline");
+    QString name;
+    if (m_mode == Mode::Source) {
+        name = m_player && m_player->hasMedia() ? m_player->media().name : QString();
+    } else if (m_boundTimeline) {
+        name = m_boundTimeline->data().name;
+    }
+    setTitle(name.isEmpty() ? base : tr("%1 — %2").arg(base, name));
+}
+
+void ViewerPanel::updateMarksLabel()
+{
+    if (!m_boundTimeline) {
+        m_marksLabel->clear();
+        return;
+    }
+    const TimelineData& d = m_boundTimeline->data();
+    const int64_t in = d.markIn >= 0 ? d.markIn : 0;
+    const int64_t out = d.markOut > 0 ? d.markOut : d.duration();
+    QStringList parts;
+    if (d.markIn >= 0) {
+        parts << tr("In %1").arg(timecode::format(d.markIn, d.fps));
+    }
+    if (d.markOut > 0) {
+        parts << tr("Out %1").arg(timecode::format(d.markOut - 1, d.fps));
+    }
+    // Duration of the marked range (or of everything), as Resolve shows it next to the marks.
+    parts << tr("Dur %1").arg(timecode::format(std::max<int64_t>(0, out - in), d.fps));
+    m_marksLabel->setText(parts.join(QStringLiteral("   ")));
+}
+
+// ---- Public API ----
 
 void ViewerPanel::showFrame(const QImage& frame)
 {
@@ -108,15 +509,35 @@ void ViewerPanel::clearFrame()
 
 void ViewerPanel::setPosition(int64_t frame, Rational fps)
 {
-    m_timecode->setText(timecode::format(frame, fps));
+    m_fps = fps;
+    onPositionChanged(frame);
 }
 
 void ViewerPanel::setSourceMedia(const QString& mediaId)
 {
-    m_sourceMediaId = mediaId;
+    if (m_mode != Mode::Source) {
+        return;
+    }
     const MediaItem* item
         = m_ctx.project && !mediaId.isEmpty() ? m_ctx.project->mediaPool()->item(mediaId) : nullptr;
-    setTitle(item ? tr("Source — %1").arg(item->name) : tr("Source"));
+    m_sourceMediaId = item ? item->id : QString();
+    if (item) {
+        ensurePlayer();
+        m_player->setMedia(item);
+        m_surface->setOverlayText(item->info.hasVideo ? QString() : tr("Audio only"));
+        if (!item->info.hasVideo) {
+            m_surface->clear(QString());
+        }
+    } else {
+        if (m_player) {
+            m_player->setMedia(nullptr);
+        }
+        m_surface->setOverlayText(QString());
+        clearFrame();
+    }
+    updateTitle();
+    updateMarksLabel();
+    Q_EMIT sourceMediaChanged(m_sourceMediaId);
 }
 
 QSize ViewerPanel::pictureSize() const
@@ -127,6 +548,196 @@ QSize ViewerPanel::pictureSize() const
 ViewerSurface* ViewerPanel::surface() const
 {
     return m_surface;
+}
+
+std::optional<SourceRange> ViewerPanel::sourceSelection() const
+{
+    return m_player ? m_player->selection() : std::nullopt;
+}
+
+void ViewerPanel::setZoom(Zoom zoom)
+{
+    m_zoom = zoom;
+    if (m_zoomBox->currentIndex() != int(zoom)) {
+        m_zoomBox->setCurrentIndex(int(zoom));
+    }
+    m_surface->setZoom(zoomFactor(zoom));
+    updateOutputClient();
+}
+
+void ViewerPanel::setChromeVisible(bool visible)
+{
+    setTitleBarVisible(visible);
+    m_scrub->setVisible(visible);
+    m_transport->setVisible(visible);
+}
+
+void ViewerPanel::activate()
+{
+    if (s_active != this) {
+        s_active = this;
+        Q_EMIT activated();
+    }
+}
+
+ViewerPanel* ViewerPanel::activeViewer()
+{
+    return s_active;
+}
+
+QList<ViewerPanel*> ViewerPanel::allViewers()
+{
+    return registry();
+}
+
+// ---- Events ----
+
+void ViewerPanel::showEvent(QShowEvent* event)
+{
+    PanelFrame::showEvent(event);
+    updateOutputClient();
+}
+
+void ViewerPanel::hideEvent(QHideEvent* event)
+{
+    PanelFrame::hideEvent(event);
+    if (m_engine) {
+        m_engine->removeOutputClient(this);
+    }
+}
+
+QString ViewerPanel::matchSourceKey(const QKeyEvent* key) const
+{
+    if (!m_ctx.actions || key->isAutoRepeat()) {
+        return {};
+    }
+    const QKeySequence pressed(
+        QKeyCombination(key->modifiers() & ~Qt::KeypadModifier, Qt::Key(key->key())));
+    for (const QString& id : sourceKeyActionIds()) {
+        if (!m_ctx.actions->contains(id)) {
+            continue;
+        }
+        for (const QKeySequence& seq : m_ctx.actions->shortcuts(id)) {
+            if (seq == pressed) {
+                return id;
+            }
+        }
+    }
+    return {};
+}
+
+bool ViewerPanel::handleSourceKey(const QString& id)
+{
+    if (!m_player || !m_player->hasMedia()) {
+        return false;
+    }
+    PlaybackEngine* e = m_player->engine();
+    if (id == QLatin1String("mark.in")) {
+        m_player->markInAtPosition();
+    } else if (id == QLatin1String("mark.out")) {
+        m_player->markOutAtPosition();
+    } else if (id == QLatin1String("mark.clip")) {
+        m_player->setMarks(0, e->duration());
+    } else if (id == QLatin1String("mark.clear_in")) {
+        m_player->clearIn();
+    } else if (id == QLatin1String("mark.clear_out")) {
+        m_player->clearOut();
+    } else if (id == QLatin1String("mark.clear_both")) {
+        m_player->clearBoth();
+    } else if (id == QLatin1String("mark.go_to_in")) {
+        e->goToIn();
+    } else if (id == QLatin1String("mark.go_to_out")) {
+        e->goToOut();
+    } else if (id == QLatin1String("transport.go_to_start")) {
+        e->goToStart();
+        Q_EMIT goToStartRequested();
+    } else if (id == QLatin1String("transport.go_to_end")) {
+        e->goToEnd();
+        Q_EMIT goToEndRequested();
+    } else {
+        return false;
+    }
+    return true;
+}
+
+bool ViewerPanel::event(QEvent* event)
+{
+    if (m_mode == Mode::Source
+        && (event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress)) {
+        auto* key = static_cast<QKeyEvent*>(event);
+        const QString id = m_player && m_player->hasMedia() ? matchSourceKey(key) : QString();
+        if (!id.isEmpty()) {
+            // Accepting the override suppresses the global (timeline) shortcut; the key then
+            // arrives here as a KeyPress.
+            if (event->type() == QEvent::KeyPress) {
+                handleSourceKey(id);
+            }
+            event->accept();
+            return true;
+        }
+    }
+    return PanelFrame::event(event);
+}
+
+bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched != m_surface->widget()) {
+        return PanelFrame::eventFilter(watched, event);
+    }
+    switch (event->type()) {
+    case QEvent::Resize:
+        updateOutputClient();
+        break;
+    case QEvent::MouseButtonPress: {
+        activate();
+        auto* mouse = static_cast<QMouseEvent*>(event);
+        m_dragArmed = m_mode == Mode::Source && mouse->button() == Qt::LeftButton && m_player
+            && m_player->hasMedia();
+        m_dragStart = mouse->position().toPoint();
+        break;
+    }
+    case QEvent::MouseMove: {
+        auto* mouse = static_cast<QMouseEvent*>(event);
+        if (m_dragArmed && (mouse->buttons() & Qt::LeftButton)
+            && (mouse->position().toPoint() - m_dragStart).manhattanLength()
+                >= QApplication::startDragDistance()) {
+            m_dragArmed = false;
+            startSourceDrag();
+            return true;
+        }
+        break;
+    }
+    case QEvent::MouseButtonRelease:
+        m_dragArmed = false;
+        break;
+    default:
+        break;
+    }
+    return PanelFrame::eventFilter(watched, event);
+}
+
+void ViewerPanel::startSourceDrag()
+{
+    const std::optional<SourceRange> range = sourceSelection();
+    if (!range) {
+        return;
+    }
+    // Payload contract: ui/common/DragMime.h (mime::SourceRange).
+    QJsonObject json;
+    json.insert(QStringLiteral("mediaId"), range->mediaId);
+    json.insert(QStringLiteral("inUs"), double(range->inUs));
+    json.insert(QStringLiteral("outUs"), double(range->outUs));
+    auto* data = new QMimeData;
+    data->setData(
+        QLatin1String(mime::SourceRange), QJsonDocument(json).toJson(QJsonDocument::Compact));
+    auto* drag = new QDrag(this);
+    drag->setMimeData(data);
+    const QPixmap picture = m_surface->widget()->grab(
+        m_surface->pictureRect().intersected(m_surface->widget()->rect()));
+    if (!picture.isNull()) {
+        drag->setPixmap(picture.scaledToWidth(kDragPixmapWidth, Qt::SmoothTransformation));
+    }
+    drag->exec(Qt::CopyAction);
 }
 
 } // namespace kk

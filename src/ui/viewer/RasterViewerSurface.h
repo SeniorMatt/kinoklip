@@ -9,6 +9,7 @@
 namespace kk {
 
 /// Plain QWidget implementation of ViewerSurface (offscreen screenshots, CI, no-GPU VMs).
+/// Draws RenderedFrame::image (the playback engine requests images for this surface).
 class RasterViewerSurface : public QWidget, public ViewerSurface
 {
     Q_OBJECT
@@ -18,9 +19,13 @@ public:
 
     QWidget* widget() override { return this; }
     void setFrame(const QImage& frame) override;
+    void setRenderedFrame(const RenderedFramePtr& frame) override;
+    [[nodiscard]] bool canDrawTextures() const override { return false; }
     void clear(const QString& text = {}) override;
     void setAspect(QSize aspect) override;
+    void setZoom(double zoom) override;
     [[nodiscard]] QRect pictureRect() const override;
+    void setOverlayText(const QString& text) override;
 
 protected:
     void paintEvent(QPaintEvent* event) override;
