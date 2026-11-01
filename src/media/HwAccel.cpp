@@ -337,6 +337,13 @@ HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)
         entry.info.error = device.isEmpty()
             ? avErrorString(ret)
             : QStringLiteral("%1: %2").arg(device, avErrorString(ret));
+        if (mode == HwAccelMode::Vulkan) {
+            // Physical devices are numbered densely: if index i cannot be created, no higher
+            // index exists either (and without any Vulkan driver every attempt would create and
+            // destroy a whole VkInstance and log "No devices found"). Only a device that was
+            // created but lacks video decode moves on to the next index (hybrid laptops).
+            break;
+        }
     }
     for (AVCodecID id : kInterestingCodecs) {
         if (hwPixelFormat(avcodec_find_decoder(id), mode) != AV_PIX_FMT_NONE) {
