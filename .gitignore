@@ -5,3 +5,4 @@ dist/
 tests/data/generated/
 .cache/
 compile_commands.json
+logs/
