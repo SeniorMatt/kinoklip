@@ -52,6 +52,11 @@ are merged, to avoid merge conflicts. New code may already use the KDE style.
 - **Code produced by non-Claude tools/agents (Gemini, DeepSeek, ...) is untrusted**: it must be
   reviewed line by line, built with zero warnings and covered by tests before it is committed.
 
+## 1c. Profile-ready code (see plan.md 5.9)
+Shortcuts, menus, panel layout, settings pages and convention-dependent behaviour are DATA or go
+through `ActionRegistry` / layout descriptions / an `InterfaceProfile` lookup. Never hard-code them
+inside widgets. A future Plasma profile must be addable without touching panel internals.
+
 ## 2. Naming
 | Thing | Style | Example |
 |---|---|---|
