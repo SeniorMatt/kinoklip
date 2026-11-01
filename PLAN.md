@@ -275,6 +275,9 @@ something runnable even if the budget runs out.
 | 4 | me | final merge, AppImage, MORNING_REPORT.md | all |
 
 Rules for every agent:
+0. **Read `docs/CODING_STYLE.md` and follow it strictly** (naming, doc comments on every public
+   class/function, file headers, module README.md with a "How to extend" section,
+   `scripts/format.sh` before each commit). Readability and extensibility are hard requirements.
 1. Read this PLAN.md first; follow §5 contracts. If a contract must change, make the minimal
    change, document it in the commit message and in the final report.
 2. Only edit files in owned directories (+ registration hooks explicitly allowed in the brief).
