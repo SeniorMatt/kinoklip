@@ -4,6 +4,7 @@
 // display rotation, transitions, effects, quality levels and zero-copy texture output.
 // GPU cases skip without OpenGL; ctest re-runs this test under xvfb-run when available.
 #include "RenderTestUtil.h"
+#include "media/HwAccel.h"
 #include "render/Compositor.h"
 
 #include <QDir>
@@ -399,6 +400,45 @@ private slots:
         const auto shot = snap(tl);
         for (const int f : {100, 101, 102, 110, 140, 105}) // sequential, then a seek back
             QCOMPARE(readFrameIndex(c->renderImage(shot, f)), 25 + (f - 100));
+    }
+
+    void hardwareAndSoftwareDecodePaths_data()
+    {
+        QTest::addColumn<QString>("file");
+        QTest::addColumn<bool>("hardware");
+        QTest::newRow("h264 8-bit, hw (NV12)") << "h264_25fps.mp4" << true;
+        QTest::newRow("h264 8-bit, sw (yuv420p)") << "h264_25fps.mp4" << false;
+        QTest::newRow("hevc 10-bit, hw (P010)") << "hevc10.mp4" << true;
+        QTest::newRow("hevc 10-bit, sw (yuv420p10)") << "hevc10.mp4" << false;
+    }
+    void hardwareAndSoftwareDecodePaths()
+    {
+        QFETCH(QString, file);
+        QFETCH(bool, hardware);
+        if (!gpu().isGpu())
+            QSKIP("no OpenGL");
+        if (!m_fixtureError.isEmpty())
+            QSKIP(qPrintable(m_fixtureError));
+        // The decoder preference applies to decoders opened afterwards; a fresh compositor has
+        // an empty decoder pool. Without a usable GPU decoder "hw" silently decodes in software.
+        media::setPreferredHwAccel(hardware ? media::HwAccelMode::Auto : media::HwAccelMode::Off);
+        Compositor compositor;
+        compositor.setMediaPaths(media(QStringLiteral("v"), fixture(qPrintable(file))));
+        TimelineData tl = emptyTimeline(1280, 720);
+        addClip(tl, TrackType::Video, 0, mediaClip(tl, QStringLiteral("v"), 0, 75, 0, 3'000'000));
+        const auto shot = snap(tl);
+        for (const int f : {0, 1, 2, 40}) {
+            const QImage img = compositor.renderImage(shot, f);
+            QCOMPARE(readFrameIndex(img), f);
+            // testsrc2 is mostly saturated colour: an all-grey picture would mean broken chroma.
+            int coloured = 0;
+            for (int x = 20; x < 1280; x += 40) {
+                const Px p = px(img, x, 400);
+                coloured += std::max({p.r, p.g, p.b}) - std::min({p.r, p.g, p.b}) > 100;
+            }
+            QVERIFY2(coloured > 8, QByteArray::number(coloured));
+        }
+        media::setPreferredHwAccel(media::HwAccelMode::Auto);
     }
 
     void sameSourceTwice()
