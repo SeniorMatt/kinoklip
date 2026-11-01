@@ -90,8 +90,12 @@ Pages (tabs on a bottom page bar): **Media · Edit · Deliver** active; **Color*
 - **Media page**: file-system browser (left) + preview viewer (centre) + media pool (bottom) +
   metadata (right).
 - **Deliver page**: render settings (left), viewer (centre), render queue (right), mini timeline.
-- Theme: own dark Fusion palette + small stylesheet (`src/app/Theme.*`), own SVG icons
-  (`resources/icons/`). Option in Preferences: "Use system (Plasma) colours".
+- **Look: current KDE Plasma 6 Breeze.** On KDE the launcher runs with the host Qt so the real
+  Breeze style, colour scheme, accent colour, icons, fonts and file dialogs apply. Elsewhere the
+  built-in theme (`src/app/Theme.*`) emulates Breeze Dark/Light (palette, 5 px rounded corners,
+  flat tool buttons, accent focus/selection, Breeze spacing) and icons come from the system icon
+  theme via `QIcon::fromTheme` with a bundled Breeze icon subset (LGPL-3.0, attributed) as fallback.
+  Editor-specific visuals (timeline clips, viewer chrome) use colours derived from the palette.
 
 ---
 
@@ -303,6 +307,7 @@ something runnable even if the budget runs out.
 | 3 | **playback** | `src/playback`, `src/ui/viewer` | render |
 | 3 | **export** | `src/export`, `src/ui/deliver`, CLI `--render` | render |
 | 3 | **formats** | `media/SupportedFormats`, still-image loaders (Qt, FFmpeg, libheif, LibRaw), image sequences, tests per format | media |
+| 3 | **theme** | Breeze look: Theme emulation, palette-derived editor colours, Breeze icon subset via fromTheme | foundation |
 | 3 | **packaging** | `packaging/`, AppImage script, .desktop, icon | foundation |
 | 4 | **qa** (1–2) | end-to-end scenarios, bug fixes, polish | all |
 | 4 | me | final merge, AppImage, morning-report.md | all |
