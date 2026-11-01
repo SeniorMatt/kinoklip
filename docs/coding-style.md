@@ -56,6 +56,9 @@ are merged, to avoid merge conflicts. New code may already use the KDE style.
 Shortcuts, menus, panel layout, settings pages and convention-dependent behaviour are DATA or go
 through `ActionRegistry` / layout descriptions / an `InterfaceProfile` lookup. Never hard-code them
 inside widgets. A future Plasma profile must be addable without touching panel internals.
+A future Vim profile (plan.md 5.9b) needs every operation to be a command with explicit arguments
+(targets, range, count) and navigation primitives as pure functions in `core` — keep editing logic
+out of mouse handlers.
 
 ## 2. Naming
 | Thing | Style | Example |

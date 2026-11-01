@@ -31,3 +31,4 @@
 - 03:24 Owner: future formats Flatpak/AppImage/binary/others noted (plan 8b); current focus only the x86_64 binary.
 - 03:35 Arch build container 'kk-arch' ready (Qt 6.12, KF6 6.31, Breeze 6.8.2, FFmpeg 9.0): main builds with 0 errors, 30/31 tests (1 timing-flaky, passes alone). Packaging merged: dist/Kinoklip-x86_64.run 60 MB self-extracting, portable folder, desktop entry + original icon. Breeze agent starting.
 - 03:43 Owner: match Resolve behaviour in every detail (parity agent + docs/behavior-spec.md, plan 5.10); FUTURE idea recorded: Resolve/Plasma interface profile switch (plan 5.9) with profile-ready coding rules added to coding-style.md.
+- 03:45 FUTURE idea recorded: Vim-style keyboard-only profile (plan 5.9b) + rules (commands with explicit args, pure navigation primitives, single input layer).
