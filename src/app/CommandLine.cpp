@@ -26,8 +26,14 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
         QStringLiteral("page"));
     const QCommandLineOption resetLayout(QStringLiteral("reset-layout"),
         QCoreApplication::translate("kk::CommandLine", "Ignore the saved window layout."));
+    const QCommandLineOption renderFrame(QStringLiteral("render-frame"),
+        QCoreApplication::translate("kk::CommandLine",
+            "Render one timeline frame of <project> to an image, then exit. Usage: "
+            "--render-frame project.kkproj <frame> <out.png>"),
+        QStringLiteral("project"));
     parser.addOption(screenshot);
     parser.addOption(resetLayout);
+    parser.addOption(renderFrame);
 
     parser.process(arguments); // exits on --help / --version / unknown options
 
@@ -42,6 +48,19 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             return false;
         }
         options.screenshotPath = positional.takeFirst();
+    }
+    if (parser.isSet(renderFrame)) {
+        bool ok = false;
+        options.renderFrameProject = parser.value(renderFrame);
+        if (positional.size() == 2)
+            options.renderFrameIndex = positional.first().toLongLong(&ok);
+        if (!ok || options.renderFrameIndex < 0) {
+            if (error)
+                *error = QStringLiteral("usage: --render-frame <project.kkproj> <frame> <out.png>");
+            return false;
+        }
+        options.renderFramePath = positional.last();
+        return true;
     }
     if (!positional.isEmpty())
         options.projectFile = positional.takeFirst();
