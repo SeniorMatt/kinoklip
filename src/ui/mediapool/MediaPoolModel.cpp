@@ -34,7 +34,7 @@ MediaPoolModel::MediaPoolModel(Project* project, QObject* parent)
     reload();
 }
 
-void MediaPoolModel::setThumbnailProvider(ThumbnailProvider provider)
+void MediaPoolModel::setThumbnailProvider(PosterProvider provider)
 {
     m_provider = std::move(provider);
     m_posters.clear();

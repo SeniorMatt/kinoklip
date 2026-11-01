@@ -21,14 +21,14 @@ struct MediaItem;
 /// Returns a poster frame for @p path about @p height pixels high, or a null image if it is not
 /// ready yet (the provider must then report it later through MediaPoolModel::thumbnailReady()).
 /// Must not block: it is called while painting.
-using ThumbnailProvider = std::function<QImage(const QString& path, int height)>;
+using PosterProvider = std::function<QImage(const QString& path, int height)>;
 
 /// Table model of all media items, in import order.
 ///
 /// Performance (2,000+ items):
 /// - Display strings are formatted once per item change and cached in the row (data() does no
 ///   formatting), the offline flag is checked once per add/reset (no per-paint file I/O).
-/// - Poster frames are requested from the ThumbnailProvider only when a view paints the item,
+/// - Poster frames are requested from the PosterProvider only when a view paints the item,
 ///   pre-scaled once to the tile size and kept in a byte-bounded QCache.
 ///
 /// Edits made through the model (rename, drop into bin) are undoable Project edits.
@@ -73,7 +73,7 @@ public:
     explicit MediaPoolModel(Project* project, QObject* parent = nullptr);
 
     /// Sets the poster frame provider (default: none = placeholders only).
-    void setThumbnailProvider(ThumbnailProvider provider);
+    void setThumbnailProvider(PosterProvider provider);
     /// A poster frame for @p path became available: drops the pending mark and repaints rows.
     void thumbnailReady(const QString& path);
     /// Re-checks which files are offline (e.g. when the application becomes active).
@@ -124,7 +124,7 @@ private:
     Project* m_project = nullptr;
     QVector<Row> m_rows;
     QHash<QString, int> m_rowById;
-    ThumbnailProvider m_provider;
+    PosterProvider m_provider;
     // Poster cache (mutable: filled lazily from the const data()).
     mutable QCache<QString, QPixmap> m_posters; ///< path → scaled poster; cost in KiB
     mutable QSet<QString> m_pending; ///< paths requested but not delivered yet

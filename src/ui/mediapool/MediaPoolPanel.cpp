@@ -411,7 +411,7 @@ bool MediaPoolPanel::selectMedia(const QString& id)
     return true;
 }
 
-void MediaPoolPanel::setThumbnailProvider(ThumbnailProvider provider)
+void MediaPoolPanel::setThumbnailProvider(PosterProvider provider)
 {
     m_model->setThumbnailProvider(std::move(provider));
 }
