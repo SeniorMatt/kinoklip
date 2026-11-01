@@ -19,3 +19,4 @@
 - 02:32 Owner request: follow KDE coding guidelines. coding-style.md updated; whole-tree conversion (KDE clang-format, lowercase file names, Q_EMIT/Q_SIGNALS/Q_SLOTS, QT_NO_KEYWORDS) scheduled as one commit after all agent branches merge.
 - 02:43 Owner request: support all basic formats. Format matrix added to plan.md 5.8; libheif (HEIC/AVIF) + LibRaw (camera RAW) installed; 'formats' agent queued for the next free slot; export agent will cover the export matrix.
 - 02:51 Heartbeat: timeline, panels, render all active (last commands within 2 min); timeline 2 commits, panels 2, render 0 (writing GL output layer).
+- 03:03 Timeline merged (21/21 tests, 0 warnings): custom-painted timeline, select/trim/blade tools, roll/slip/slide, snapping, drag-drop, thumbnails+waveforms, 2000-clip repaint 3.6-8.2 ms. Open item: F9/F10/F12 need the source viewer (playback agent). Formats agent starting.
