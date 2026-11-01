@@ -6,4 +6,7 @@ inline constexpr const char* name = KK_APP_NAME;
 inline constexpr const char* id = KK_APP_ID;
 inline constexpr const char* version = KK_APP_VERSION;
 inline constexpr const char* projectExtension = "kkproj";
+/// Reverse-DNS application id: desktop entry name, Wayland app_id, icon name, MIME package
+/// (packaging/linux/org.kinoklip.Kinoklip.desktop).
+inline constexpr const char* desktopId = "org.kinoklip.Kinoklip";
 } // namespace kk::appinfo

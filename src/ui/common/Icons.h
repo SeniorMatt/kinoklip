@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Icons — loads the app's own monochrome SVG icons and tints them to match the palette.
+// Icons — Breeze theme icons for standard actions, own palette-tinted SVGs for editor glyphs.
 #pragma once
 
 #include <QColor>
 #include <QIcon>
 #include <QString>
+#include <QStringList>
 
 namespace kk {
 
-/// Icon from resources/icons/<name>.svg, tinted at paint time from the application palette:
-/// normal = WindowText, disabled = disabled WindowText, checked ("On" state) = Highlight.
+/// Icon for our name @p name ("play", "blade", ...). If @p name maps to a freedesktop/Breeze
+/// icon (themeIconName()) that the current icon theme has, that theme icon is returned
+/// (Breeze, recoloured from the palette by KIconEngine in the KF6 build). Otherwise the own
+/// resources/icons/<name>.svg, tinted at paint time from the application palette:
+/// normal = WindowText, selected = HighlightedText, disabled = faded WindowText.
 /// Unknown names return a null QIcon (and log a warning once).
 [[nodiscard]] QIcon icon(const QString& name);
+
+/// The Breeze / freedesktop icon name used for @p name, or empty if we draw our own.
+[[nodiscard]] QString themeIconName(const QString& name);
+/// Our names that map to theme icons (for tests).
+[[nodiscard]] QStringList iconNames();
 
 /// Same icon drawn in a fixed colour @p color for every mode/state (e.g. a red record dot).
 [[nodiscard]] QIcon icon(const QString& name, const QColor& color);

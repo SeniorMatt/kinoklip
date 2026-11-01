@@ -13,6 +13,7 @@
 #include <QEvent>
 #include <QFontComboBox>
 #include <QGridLayout>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -71,7 +72,9 @@ QIcon swatchIcon(const QColor& color)
     pixmap.fill(Qt::transparent);
     QPainter p(&pixmap);
     p.setRenderHint(QPainter::Antialiasing);
-    p.setPen(QPen(QColor(255, 255, 255, 60), 1));
+    QColor border = QGuiApplication::palette().color(QPalette::WindowText);
+    border.setAlpha(80); // a soft outline in the text colour: visible on light and dark schemes
+    p.setPen(QPen(border, 1));
     p.setBrush(color);
     p.drawRoundedRect(QRectF(0.5, 0.5, kSwatchWidth - 1, kSwatchHeight - 1), 2, 2);
     return QIcon(pixmap);

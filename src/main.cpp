@@ -12,7 +12,9 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
+#include "ui/common/SettingsPages.h"
 #include "ui/common/StandardActions.h"
+#include "ui/dialogs/PreferencesDialog.h"
 
 #include <QApplication>
 #include <QSurfaceFormat>
@@ -43,11 +45,14 @@ void configureOpenGL()
 int main(int argc, char** argv)
 {
     configureOpenGL();
+    kk::theme::initBeforeApplication(); // bundled Breeze icons; must precede QApplication
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName(QLatin1String(kk::appinfo::id));
     QCoreApplication::setApplicationName(QLatin1String(kk::appinfo::name));
     QCoreApplication::setApplicationVersion(QLatin1String(kk::appinfo::version));
-    QGuiApplication::setDesktopFileName(QLatin1String(kk::appinfo::id));
+    // Matches packaging/linux/org.kinoklip.Kinoklip.desktop: Wayland app_id / X11 WM_CLASS,
+    // so the compositor shows the right icon and groups windows with the desktop entry.
+    QGuiApplication::setDesktopFileName(QLatin1String(kk::appinfo::desktopId));
     kk::initResources();
 
     kk::CommandLineOptions options;
@@ -60,6 +65,7 @@ int main(int argc, char** argv)
         return kk::runRenderFrame(
             options.renderFrameProject, options.renderFrameIndex, options.renderFramePath);
 
+    kk::theme::setSessionOverrides(options.style, options.colorScheme);
     kk::theme::apply(app);
 
     // Application-wide objects, handed to every widget through AppContext (no singletons).
@@ -68,10 +74,15 @@ int main(int argc, char** argv)
     kk::ActionRegistry actions;
     actions.loadDefaultKeymap();
     kk::registerStandardActions(actions);
+    kk::theme::registerActions(actions); // Settings > Color Theme / Style entries
+    kk::SettingsPageRegistry settingsPages;
+    kk::registerStandardSettingsPages(settingsPages);
+    kk::theme::registerSettingsPage(settingsPages, actions);
     kk::AppContext ctx;
     ctx.project = &project;
     ctx.selection = &selection;
     ctx.actions = &actions;
+    ctx.settingsPages = &settingsPages;
 
     // ---- Non-interactive modes ----
     if (options.isScreenshot()) {

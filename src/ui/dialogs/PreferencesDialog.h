@@ -5,15 +5,12 @@
 #include "core/Preferences.h"
 
 #include <QDialog>
-
-class QCheckBox;
-class QComboBox;
-class QLabel;
-class QSpinBox;
+#include <QVector>
 
 namespace kk {
 
-class ActionRegistry;
+class SettingsPage;
+class SettingsPageRegistry;
 
 namespace prefs {
 /// UI scale factor applied at start-up ("auto" or a factor such as "1.25"). Stored here until
@@ -22,25 +19,26 @@ namespace prefs {
 inline constexpr char kUiScale[] = "ui/scaleFactor";
 } // namespace prefs
 
-/// Edits the preferences stored in QSettings (keys in core/Preferences.h):
-/// - Playback: hardware acceleration (Auto / Off / VA-API / CUDA / QSV / Vulkan, key
+/// The Resolve-style preferences window: every registered SettingsPage (see
+/// ui/common/SettingsPages.h) as a titled group, OK / Cancel below.
+///
+/// Standard pages (registerStandardSettingsPages()):
+/// - "playback": hardware acceleration (Auto / Off / VA-API / CUDA / QSV / Vulkan, key
 ///   `playback/hwaccel`), with the backends that work on this machine listed next to it
 ///   (media::hwCapabilities(), probed on a worker thread because opening devices is slow).
-/// - Project: autosave interval in minutes (0 = off).
-/// - Appearance: use system colours (applied immediately through the
-///   `view.use_system_colors` action), UI scale (applies after a restart).
+/// - "project": autosave interval in minutes (0 = off).
+/// - "interface": UI scale (applies after a restart).
+/// Other modules add their own (src/app/Theme: "appearance" = colour theme and widget style).
 ///
-/// OK stores everything, pushes the hardware choice to the media module
-/// (applyHwAccelPreference()) and emits preferencesChanged().
+/// OK applies every page and emits preferencesChanged().
 class PreferencesDialog : public QDialog
 {
     Q_OBJECT
 public:
-    /// Creates the dialog filled from QSettings. @p actions (may be null) provides the
-    /// "use system colours" action so the theme switch goes through the app's handler.
-    explicit PreferencesDialog(ActionRegistry* actions, QWidget* parent = nullptr);
+    /// Creates the dialog with the pages of @p registry (null: only the standard pages).
+    explicit PreferencesDialog(const SettingsPageRegistry* registry, QWidget* parent = nullptr);
 
-    /// Stores the entered values.
+    /// Applies (stores) every page.
     void apply();
     void accept() override;
 
@@ -49,15 +47,11 @@ signals:
     void preferencesChanged();
 
 private:
-    void showCapabilities(const QString& text);
-
-    ActionRegistry* m_actions = nullptr;
-    QComboBox* m_hwAccel = nullptr;
-    QLabel* m_hwInfo = nullptr;
-    QSpinBox* m_autosave = nullptr;
-    QCheckBox* m_systemColors = nullptr;
-    QComboBox* m_scale = nullptr;
+    QVector<SettingsPage*> m_pages;
 };
+
+/// Registers the standard pages (playback, project, interface) with @p registry.
+void registerStandardSettingsPages(SettingsPageRegistry& registry);
 
 /// Makes the media module use the stored hardware acceleration preference for new decoders
 /// (QSV maps to VA-API: Intel's Linux decode path). Call at start-up and after changes.

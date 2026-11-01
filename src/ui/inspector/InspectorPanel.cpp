@@ -695,6 +695,18 @@ void InspectorPanel::updateHeader()
 
 // ---- Drag and drop (effects library) ----
 
+void InspectorPanel::changeEvent(QEvent* event)
+{
+    PanelFrame::changeEvent(event);
+    // The style sheet is generated from the palette: regenerate it after a colour scheme
+    // switch. Only when the text differs, because setStyleSheet() re-polishes every child.
+    if (event->type() == QEvent::PaletteChange) {
+        const QString sheet = inspectorStyleSheet(palette());
+        if (sheet != styleSheet())
+            setStyleSheet(sheet);
+    }
+}
+
 void InspectorPanel::dragEnterEvent(QDragEnterEvent* event)
 {
     if (m_clipId && event->mimeData()->hasFormat(QLatin1String(mime::Effect)))

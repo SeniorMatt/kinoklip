@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Tinted SVG icon engine: renders a monochrome SVG and recolours it per icon mode/state.
+// Icon lookup: Breeze theme icons for standard actions, tinted own SVGs for editor glyphs.
 #include "ui/common/Icons.h"
 
 #include <QFile>
@@ -22,6 +22,61 @@ QString iconPath(const QString& name)
 {
     return QStringLiteral(":/icons/%1.svg").arg(name);
 }
+
+/// Our icon name -> freedesktop / Breeze icon name. Names not listed here (blade, trim,
+/// insert/overwrite, mark in/out, edit points, snapping, single viewer, the page and some panel
+/// glyphs) have no fitting Breeze icon and keep our own SVG, tinted from the palette.
+/// tests/app/test_theme.cpp checks that every target exists in the Breeze theme.
+struct ThemeIcon
+{
+    const char* ours;
+    const char* theme;
+};
+// clang-format off
+constexpr ThemeIcon kThemeIcons[] = {
+    {"add",              "list-add"},
+    {"audio",            "audio-volume-high"},
+    {"audio_file",       "audio-x-generic"},
+    {"film",             "video-x-generic"},
+    {"folder",           "folder"},
+    {"fullscreen",       "view-fullscreen"},
+    {"go_end",           "media-skip-forward"},
+    {"go_start",         "media-skip-backward"},
+    {"grid_view",        "view-list-icons"},
+    {"hidden",           "view-hidden"},
+    {"image",            "image-x-generic"},
+    {"import",           "document-import"},
+    {"keyframe_next",    "keyframe-next"},
+    {"keyframe_on",      "keyframe-add"},
+    {"keyframe_prev",    "keyframe-previous"},
+    {"link",             "link"},
+    {"list_view",        "view-list-details"},
+    {"lock",             "object-locked"},
+    {"loop",             "media-playlist-repeat"},
+    {"marker",           "bookmark-new"},
+    {"mute",             "audio-volume-muted"},
+    {"next_frame",       "media-seek-forward"},
+    {"panel_edit_index", "view-list-text"},
+    {"panel_inspector",  "document-properties"},
+    {"panel_metadata",   "documentinfo"},
+    {"panel_mixer",      "view-media-equalizer"},
+    {"pause",            "media-playback-pause"},
+    {"play",             "media-playback-start"},
+    {"prev_frame",       "media-seek-backward"},
+    {"remove",           "list-remove"},
+    {"search",           "edit-find"},
+    {"select",           "tool-pointer"},
+    {"solo",             "audio-headphones"},
+    {"split",            "edit-cut"},
+    {"stop",             "media-playback-stop"},
+    {"title_clip",       "draw-text"},
+    {"unlock",           "object-unlocked"},
+    {"visible",          "view-visible"},
+    {"zoom_fit",         "zoom-fit-best"},
+    {"zoom_in",          "zoom-in"},
+    {"zoom_out",         "zoom-out"},
+};
+// clang-format on
 
 /// Draws the SVG (designed in a single colour) and replaces its colour with the tint.
 class TintedSvgIconEngine : public QIconEngine
@@ -71,19 +126,18 @@ public:
     QString key() const override { return QStringLiteral("kk.tintedsvg"); }
 
 private:
+    /// Same colours Breeze icons get from KIconEngine: text colour normally, highlighted text
+    /// on selections, faded when disabled. Checked/hovered states are shown by the widget
+    /// style's button background (Breeze convention), not by recolouring the glyph.
     QColor tintFor(QIcon::Mode mode, QIcon::State state) const
     {
+        Q_UNUSED(state);
         const QPalette pal = QGuiApplication::palette();
         QColor c = m_fixedColor.isValid() ? m_fixedColor
-            : state == QIcon::On          ? pal.color(QPalette::Highlight)
             : mode == QIcon::Selected     ? pal.color(QPalette::HighlightedText)
                                           : pal.color(QPalette::WindowText);
-        if (mode == QIcon::Disabled) {
-            c = m_fixedColor.isValid() ? m_fixedColor : pal.color(QPalette::WindowText);
+        if (mode == QIcon::Disabled)
             c.setAlphaF(0.35f);
-        } else if (mode == QIcon::Active && state == QIcon::Off && !m_fixedColor.isValid()) {
-            c = pal.color(QPalette::BrightText);
-        }
         return c;
     }
 
@@ -106,8 +160,22 @@ QIcon makeIcon(const QString& name, const QColor& color)
 
 } // namespace
 
+QString themeIconName(const QString& name)
+{
+    for (const ThemeIcon& entry : kThemeIcons) {
+        if (name == QLatin1String(entry.ours))
+            return QLatin1String(entry.theme);
+    }
+    return {};
+}
+
 QIcon icon(const QString& name)
 {
+    // Theme icons follow theme and palette changes by themselves (QIconLoaderEngine reloads
+    // on a theme switch, KIconEngine recolours per paint), so they can be cached by callers.
+    const QString themeName = themeIconName(name);
+    if (!themeName.isEmpty() && QIcon::hasThemeIcon(themeName))
+        return QIcon::fromTheme(themeName);
     return makeIcon(name, QColor());
 }
 
@@ -119,6 +187,14 @@ QIcon icon(const QString& name, const QColor& color)
 bool hasIcon(const QString& name)
 {
     return !name.isEmpty() && QFile::exists(iconPath(name));
+}
+
+QStringList iconNames()
+{
+    QStringList names;
+    for (const ThemeIcon& entry : kThemeIcons)
+        names.append(QLatin1String(entry.ours));
+    return names;
 }
 
 } // namespace kk

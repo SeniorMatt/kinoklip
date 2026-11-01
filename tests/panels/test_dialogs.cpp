@@ -159,14 +159,11 @@ private slots:
     void preferencesAreStored()
     {
         PanelFixture f;
-        QAction* systemColors = f.actions.action(QStringLiteral("view.use_system_colors"));
-        systemColors->setChecked(false);
-        PreferencesDialog dialog(&f.actions);
+        PreferencesDialog dialog(nullptr); // standard pages only
         const auto combos = dialog.findChildren<QComboBox*>();
         QComboBox* hw = combos.front();
         hw->setCurrentIndex(hw->findData(QStringLiteral("vaapi")));
         dialog.findChild<QSpinBox*>()->setValue(7);
-        dialog.findChild<QCheckBox*>()->setChecked(true);
         QSignalSpy changed(&dialog, &PreferencesDialog::preferencesChanged);
         // Let the hardware probe (worker thread) fill in its label for the screenshot.
         QElapsedTimer probe;
@@ -181,7 +178,6 @@ private slots:
         QCOMPARE(changed.count(), 1);
         QCOMPARE(prefs::hwAccel(), prefs::HwAccel::Vaapi);
         QCOMPARE(prefs::autosaveMinutes(), 7);
-        QVERIFY(systemColors->isChecked()); // went through the app's action
     }
 };
 
