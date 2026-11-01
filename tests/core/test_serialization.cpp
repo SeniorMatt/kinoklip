@@ -36,11 +36,11 @@ TimelineData richTimeline()
     media.label = QColor(10, 200, 30);
     media.speed = 1.5;
     media.enabled = false;
-    media.transform.animated(QLatin1String(keys::PosX), 0).setKey(0, -12.5, Interp::EaseInOut);
-    media.transform.animated(QLatin1String(keys::PosX), 0).setKey(30, 0.1 + 0.2, Interp::Hold);
-    media.transform.setBase(QLatin1String(keys::Opacity), 75.0);
-    media.transform.setStatic(QLatin1String(keys::FlipH), true);
-    media.audio.setBase(QLatin1String(keys::VolumeDb), -6.0);
+    media.transform.animated(keys::PosX, 0).setKey(0, -12.5, Interp::EaseInOut);
+    media.transform.animated(keys::PosX, 0).setKey(30, 0.1 + 0.2, Interp::Hold);
+    media.transform.setBase(keys::Opacity, 75.0);
+    media.transform.setStatic(keys::FlipH, true);
+    media.audio.setBase(keys::VolumeDb, -6.0);
     EffectInstance blur
         = EffectRegistry::instance().createEffect(QStringLiteral("gaussian_blur"), d.allocateId());
     blur.params.animated(QStringLiteral("radius"), 5).setKey(10, 20.0);
@@ -59,8 +59,8 @@ TimelineData richTimeline()
     title.duration = 25;
     title.start = 60;
     title.title = EffectRegistry::instance().defaultParams(QStringLiteral("text_title"));
-    title.title.setStatic(QLatin1String(keys::Text), QStringLiteral("Hello\n\"World\""));
-    title.title.setStatic(QLatin1String(keys::Color), QColor(1, 2, 3, 4));
+    title.title.setStatic(keys::Text, QStringLiteral("Hello\n\"World\""));
+    title.title.setStatic(keys::Color, QColor(1, 2, 3, 4));
     ops::overwriteClip(d, kV2, title);
 
     ClipData solid;

@@ -147,14 +147,14 @@ private slots:
     void paramSetDefaults()
     {
         ParamSet p;
-        QCOMPARE(p.value(QLatin1String(keys::Opacity), 0), 100.0);
-        QCOMPARE(p.value(QLatin1String(keys::ZoomX), 0), 1.0);
-        QCOMPARE(p.value(QLatin1String(keys::PosX), 0), 0.0);
+        QCOMPARE(p.value(keys::Opacity, 0), 100.0);
+        QCOMPARE(p.value(keys::ZoomX, 0), 1.0);
+        QCOMPARE(p.value(keys::PosX, 0), 0.0);
         QCOMPARE(p.value(QStringLiteral("unknown"), 0, 3.5), 3.5);
-        p.setBase(QLatin1String(keys::Opacity), 50.0);
-        QCOMPARE(p.value(QLatin1String(keys::Opacity), 0), 50.0);
+        p.setBase(keys::Opacity, 50.0);
+        QCOMPARE(p.value(keys::Opacity, 0), 50.0);
         QVERIFY(!p.isAnimated());
-        p.animated(QLatin1String(keys::PosX), 0).setKey(0, 10.0);
+        p.animated(keys::PosX, 0).setKey(0, 10.0);
         QVERIFY(p.isAnimated());
         QCOMPARE(p.staticValue(QStringLiteral("x"), true).toBool(), true);
     }

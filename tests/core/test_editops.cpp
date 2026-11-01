@@ -137,8 +137,8 @@ private slots:
     {
         TimelineData d = timeline();
         ClipData c = mediaClip(10, 40, 5, 1000);
-        c.transform.animated(QLatin1String(keys::Opacity), 100).setKey(0, 0.0);
-        c.transform.animated(QLatin1String(keys::Opacity), 100).setKey(40, 100.0);
+        c.transform.animated(keys::Opacity, 100).setKey(0, 0.0);
+        c.transform.animated(keys::Opacity, 100).setKey(40, 100.0);
         c.transitionIn = TransitionData {};
         c.transitionOut = TransitionData {};
         const quint64 id = ops::overwriteClip(d, kV1, c);
@@ -157,8 +157,8 @@ private slots:
         for (int64_t f = 10; f < 50; ++f) {
             const ClipData& now = f < 30 ? left : right;
             QCOMPARE(now.sourceTimeUsAt(f, d.fps), before.sourceTimeUsAt(f, d.fps));
-            QCOMPARE(now.transform.value(QLatin1String(keys::Opacity), now.localFrame(f)),
-                before.transform.value(QLatin1String(keys::Opacity), before.localFrame(f)));
+            QCOMPARE(now.transform.value(keys::Opacity, now.localFrame(f)),
+                before.transform.value(keys::Opacity, before.localFrame(f)));
         }
         CW_VERIFY_INVARIANTS(d);
     }
@@ -336,10 +336,10 @@ private slots:
     {
         TimelineData d = timeline();
         ClipData c = mediaClip(0, 50, 0, 1000);
-        c.transform.animated(QLatin1String(keys::PosX), 0).setKey(20, 5.0);
+        c.transform.animated(keys::PosX, 0).setKey(20, 5.0);
         const quint64 a = ops::overwriteClip(d, kV1, c);
         ops::trimHead(d, a, 10, false);
-        QVERIFY(ops::clipById(d, a)->transform.values[QLatin1String(keys::PosX)].hasKeyAt(10));
+        QVERIFY(ops::clipById(d, a)->transform.values[keys::PosX].hasKeyAt(10));
     }
 
     void trimHeadRipple()
