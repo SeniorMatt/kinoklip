@@ -16,8 +16,12 @@ struct CommandLineOptions
     QString screenshotPage; ///< --screenshot <page>: "media", "edit" or "deliver"
     QString screenshotPath; ///< PNG written in screenshot mode
     bool resetLayout = false; ///< --reset-layout: ignore saved window/panel layout
+    QString renderFrameProject; ///< --render-frame <project>: project to render a frame of
+    qint64 renderFrameIndex = 0; ///< timeline frame for --render-frame
+    QString renderFramePath; ///< image written by --render-frame
 
     [[nodiscard]] bool isScreenshot() const { return !screenshotPage.isEmpty(); }
+    [[nodiscard]] bool isRenderFrame() const { return !renderFrameProject.isEmpty(); }
 };
 
 /// Parses @p arguments (including argv[0]). Handles --help/--version itself (prints and exits).
