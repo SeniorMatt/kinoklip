@@ -89,7 +89,8 @@ public:
     void invalidate(const QString& path);
 
     /// Cancels queued work and waits for running jobs; afterwards all getters only return
-    /// already cached results. Called automatically when the application quits.
+    /// already cached results and no ...Ready signal is emitted any more (not even for jobs
+    /// that were running during the call). Called automatically when the application quits.
     void shutdown();
 
 signals:

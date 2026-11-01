@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MediaProbe — media::probe(): describes a media file using FFmpeg (or QImageReader for stills).
+// MediaProbe — media::probe(): describes a media file using FFmpeg, or ImageLoader /
+// ImageFrameList for stills, animated WebP and image sequences.
 #include "media/FFmpegUtil.h"
+#include "media/ImageFrameList.h"
 #include "media/MediaInfo.h"
 
 #include <QFileInfo>
-#include <QImageReader>
-#include <QPixelFormat>
 
 extern "C" {
 #include <libavutil/display.h>
@@ -107,39 +107,22 @@ int64_t streamEndUs(const AVFormatContext* fmt, const AVStream* stream)
         - detail::originUs(fmt);
 }
 
-/// Fills `info` for a still image readable by Qt. Returns false if Qt cannot read it or it is
-/// animated (animated GIF/WebP go through FFmpeg instead).
-bool probeStillWithQt(const QString& path, MediaInfo& info)
-{
-    QImageReader reader(path);
-    if (!reader.canRead() || (reader.supportsAnimation() && reader.imageCount() > 1)) {
-        return false;
-    }
-    QSize size = reader.size();
-    if (!size.isValid()) {
-        const QImage image = reader.read(); // some plugins only know the size after decoding
-        if (image.isNull()) {
-            return false;
-        }
-        size = image.size();
-    } else if (reader.transformation() & QImageIOHandler::TransformationRotate90) {
-        size.transpose(); // EXIF orientation is applied when loading
-    }
-    info.valid = true;
-    info.hasVideo = true;
-    info.isStillImage = true;
-    info.width = info.displayWidth = size.width();
-    info.height = info.displayHeight = size.height();
-    info.container = info.videoCodec = QString::fromLatin1(reader.format());
-    const QImage::Format format = reader.imageFormat();
-    info.hasAlpha = format != QImage::Format_Invalid
-        && QImage::toPixelFormat(format).alphaUsage() == QPixelFormat::UsesAlpha;
-    return true;
-}
-
 } // namespace
 
 namespace detail {
+
+MediaInfo stillInfo(const QString& path, const ImageHeader& header)
+{
+    MediaInfo info;
+    info.path = path;
+    info.valid = info.hasVideo = info.isStillImage = true;
+    info.width = info.displayWidth = header.size.width();
+    info.height = info.displayHeight = header.size.height();
+    info.hasAlpha = header.hasAlpha;
+    info.container = info.videoCodec = header.format;
+    info.pixelFormat = header.pixelFormat;
+    return info;
+}
 
 MediaInfo infoFromFormatContext(const AVFormatContext* fmt, const QString& path)
 {
@@ -214,15 +197,23 @@ MediaInfo infoFromFormatContext(const AVFormatContext* fmt, const QString& path)
 
 MediaInfo probe(const QString& path)
 {
+    // Images, animations and sequences first (decided by extension / path form, so ordinary
+    // video and audio files go straight to FFmpeg without touching an image library).
+    ImageHeader header;
+    switch (detail::routeFor(path, &header)) {
+    case detail::MediaRoute::Sequence:
+        return detail::ImageFrameList::probeSequence(path);
+    case detail::MediaRoute::Still:
+        return detail::stillInfo(path, header);
+    case detail::MediaRoute::Animation:
+        return detail::ImageFrameList::probeAnimation(path, header);
+    case detail::MediaRoute::FFmpeg:
+        break;
+    }
     MediaInfo info;
     info.path = path;
-    const QFileInfo fileInfo(path);
-    if (!fileInfo.isFile()) {
+    if (!QFileInfo(path).isFile()) {
         info.error = QStringLiteral("File not found: %1").arg(path);
-        return info;
-    }
-    if (detail::isStillImageSuffix(fileInfo.suffix()) && probeStillWithQt(path, info)) {
-        info.path = path;
         return info;
     }
     QString error;
