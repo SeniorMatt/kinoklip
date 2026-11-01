@@ -96,8 +96,8 @@ struct VideoFrame
     /// Width/height of plane `plane` in samples (chroma planes are subsampled).
     int planeWidth(int plane) const;
     int planeHeight(int plane) const;
-    /// Bytes per sample in plane `plane` (1, 2 for 10-bit formats, 2 for NV12/P010 UV pairs
-    /// counts as 2 × bytes per component, 4 for Bgra).
+    /// Bytes per texel of plane `plane`: 1 (8-bit), 2 (10-bit planar, P010 Y, NV12 UV pair),
+    /// 4 (P010 UV pair, Bgra). Use it to pick the texture format of each plane.
     int bytesPerPixel(int plane) const;
 };
 
