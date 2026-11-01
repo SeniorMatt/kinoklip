@@ -28,22 +28,18 @@ EffectRegistry& EffectRegistry::instance()
 
 void EffectRegistry::add(EffectDescriptor descriptor)
 {
-    for (EffectDescriptor& d : m_descriptors) {
-        if (d.id == descriptor.id) {
-            d = std::move(descriptor);
-            return;
-        }
+    if (const auto it = m_index.constFind(descriptor.id); it != m_index.cend()) {
+        m_descriptors[*it] = std::move(descriptor);
+        return;
     }
+    m_index.insert(descriptor.id, m_descriptors.size());
     m_descriptors.append(std::move(descriptor));
 }
 
 const EffectDescriptor* EffectRegistry::find(const QString& id) const
 {
-    for (const EffectDescriptor& d : m_descriptors) {
-        if (d.id == id)
-            return &d;
-    }
-    return nullptr;
+    const auto it = m_index.constFind(id);
+    return it == m_index.cend() ? nullptr : &m_descriptors[*it];
 }
 
 QVector<const EffectDescriptor*> EffectRegistry::byCategory(EffectCategory category) const

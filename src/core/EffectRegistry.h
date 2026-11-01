@@ -5,6 +5,7 @@
 
 #include "core/TimelineData.h"
 
+#include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVariant>
@@ -92,7 +93,8 @@ public:
 
     /// Registers (or replaces) a descriptor.
     void add(EffectDescriptor descriptor);
-    /// Descriptor with id @p id, or nullptr.
+    /// Descriptor with id @p id, or nullptr. O(1), no allocation (called per effect per frame
+    /// by the renderer). Pointers stay valid as long as no descriptor is added.
     [[nodiscard]] const EffectDescriptor* find(const QString& id) const;
     /// All descriptors of @p category in registration order.
     [[nodiscard]] QVector<const EffectDescriptor*> byCategory(EffectCategory category) const;
@@ -114,6 +116,7 @@ private:
     void registerBuiltins();
 
     QVector<EffectDescriptor> m_descriptors;
+    QHash<QString, qsizetype> m_index; ///< id → position in m_descriptors (O(1) find())
 };
 
 } // namespace cw
