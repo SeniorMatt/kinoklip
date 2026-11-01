@@ -8,6 +8,7 @@
 #include "app/Theme.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "render/RenderFrameCommand.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
@@ -55,6 +56,9 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "%s\n", qPrintable(error));
         return 2;
     }
+    if (options.isRenderFrame())
+        return kk::runRenderFrame(
+            options.renderFrameProject, options.renderFrameIndex, options.renderFramePath);
 
     kk::theme::apply(app);
 
