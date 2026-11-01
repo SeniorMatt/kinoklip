@@ -90,14 +90,16 @@ Pages (tabs on a bottom page bar): **Media · Edit · Deliver** active; **Color*
 - **Media page**: file-system browser (left) + preview viewer (centre) + media pool (bottom) +
   metadata (right).
 - **Deliver page**: render settings (left), viewer (centre), render queue (right), mini timeline.
-- **Look: identical on every OS, modelled on the latest KDE Plasma 6 Breeze.** The app always uses
-  its own built-in theme (`src/app/Theme.*`: Fusion base + palette + QProxyStyle/QSS) reproducing
-  current Breeze Dark (default) and Breeze Light: colour scheme values, 5 px rounded corners, flat
-  tool buttons, accent-blue focus rings and selections, Breeze metrics/spacing, Noto Sans-like font
-  stack. Icons: a bundled Breeze icon subset (LGPL-3.0, attributed), never the host icon theme, so
-  Linux/Windows/macOS look the same. Host platform themes are ignored. Everything is verified
-  against the latest Breeze (screenshots compared with Plasma 6 Breeze references).
+- **Look: the real KDE Breeze, the Kdenlive way.** The app ships the actual Breeze Qt style plugin,
+  the Breeze icon theme and KDE colour schemes (KColorScheme/KColorSchemeManager) inside its bundle on
+  every OS, so it looks the same on Linux, Windows and macOS. Default: Breeze style + Breeze Dark.
+  Customisable: Settings > Color Theme (any KDE colour scheme, incl. Breeze Light/Dark), Settings >
+  Style (Breeze, Fusion, ...), icon theme follows the colour scheme (breeze / breeze-dark).
   Editor-specific visuals (timeline clips, viewer chrome) use colours derived from the palette.
+- **Toolchain consequence:** current Breeze needs Qt >= 6.6 and KDE Frameworks 6, so Kinoklip is built
+  inside an Arch Linux container (`distrobox kk-arch`: latest Qt 6, KF6, Breeze, FFmpeg) — the same
+  base as the target (KDE Linux). The Mint host toolchain (Qt 6.4) stays only as a fallback build.
+  Windows/macOS later: KDE Craft (as Kdenlive does) provides Qt + KF6 + Breeze for those platforms.
 
 ---
 
