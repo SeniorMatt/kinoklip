@@ -15,3 +15,4 @@
 - 02:19 Foundation merged (10/10 tests, 0 warnings, layout screenshot verified). Renamed Cutwise -> Kinoklip (namespace kk, macros KK_, .kkproj, binary 'kinoklip'); doc files now lowercase. No-emoji / no-all-caps / review-external-code rules added.
 - 02:21 Phase 2 started (effort medium): agents 'timeline' (editing widget, tools, EditOps) and 'panels' (inspector, media pool, effects library, dialogs). 'media' still running. Shared drag-drop MIME contract added. Scheduled check-ins re-created for the new file names.
 - 02:28 Media merged (15/15 tests, 0 warnings): exact-seek decoders, hw decode VAAPI/CUDA/Vulkan with SW fallback, raw YUV frames, MediaCache thumbnails/waveforms. Note: on this dev box GPU device access alternates with the other logged-in user (tisha) - not an issue on a single-user laptop.
+- 02:29 Render agent started (GPU compositor GL 3.3, YUV shaders, effects, transitions, titles, audio mixer). Running: timeline, panels, render.
