@@ -61,8 +61,10 @@ public:
     void setMaxInFlight(int count) { m_maxInFlight = std::max(1, count); }
     [[nodiscard]] int maxInFlight() const { return m_maxInFlight; }
 
-    /// New request parameters; outstanding playback requests with the old ones are discarded.
-    void setParams(const RenderParams& params);
+    /// New request parameters. With @p discardPending (content changed: timeline or media)
+    /// outstanding playback requests are discarded; otherwise (size / quality only) they are
+    /// still presented — same picture, other resolution — so a quality switch drops nothing.
+    void setParams(const RenderParams& params, bool discardPending = true);
     [[nodiscard]] const RenderParams& params() const { return m_params; }
 
     /// Playback: requests the slots of @p wanted (display order) whose key is not requested yet,

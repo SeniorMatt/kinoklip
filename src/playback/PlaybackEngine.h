@@ -25,6 +25,25 @@ class Compositor;
 class MediaPool;
 class Timeline;
 
+/// Transport conventions that differ between editors (and future "interface profiles", see
+/// plan.md 5.10). Kept as data so a profile can swap them; read from QSettings by
+/// fromSettings() (keys under "playback/").
+struct PlaybackBehaviour
+{
+    /// Play pressed on the last frame starts again from the start of the range (true), or
+    /// does nothing (false).
+    bool restartAtEnd = true;
+    /// "Play around current frame": pre-roll / post-roll around the playhead (ms).
+    int prerollMs = 2000;
+    int postrollMs = 2000;
+    /// After play-around (and play in-to-out), return the playhead to where it started.
+    bool returnAfterPlayAround = true;
+
+    /// Values stored in QSettings ("playback/restartAtEnd", "playback/prerollMs",
+    /// "playback/postrollMs", "playback/returnAfterPlayAround"), defaults where unset.
+    [[nodiscard]] static PlaybackBehaviour fromSettings();
+};
+
 /// Plays a kk::Timeline (the program, or the private one-clip timeline of a SourcePlayer).
 ///
 /// **Transport.** stopped (paused) / playing (forward 1x) / shuttling (any other rate,
@@ -141,6 +160,9 @@ public:
     /// Length of the timeline in frames (0 if none).
     [[nodiscard]] int64_t duration() const;
     [[nodiscard]] bool loop() const { return m_loop; }
+    /// Transport conventions (restart at end, pre/post-roll).
+    void setBehaviour(const PlaybackBehaviour& behaviour) { m_behaviour = behaviour; }
+    [[nodiscard]] const PlaybackBehaviour& behaviour() const { return m_behaviour; }
     /// The last presented frame (keep it alive while drawing; see RenderedFrame).
     [[nodiscard]] RenderedFramePtr currentFrame() const { return m_current; }
 
@@ -200,6 +222,9 @@ public Q_SLOTS:
     void setLoop(bool loop);
     /// Plays from the in mark to the out mark (whole timeline if unmarked).
     void playInToOut();
+    /// Plays from pre-roll before to post-roll after the current frame once, then returns to
+    /// it (PlaybackBehaviour; Resolve's "play around current frame").
+    void playAroundCurrent();
     /// Moves to the in mark / to the last frame before the out mark.
     void goToIn();
     void goToOut();
@@ -262,7 +287,11 @@ private:
     double m_rate = 0.0;
     int64_t m_position = 0;
     bool m_loop = false;
-    bool m_playInOut = false; ///< playing the marked range once
+    bool m_customRange = false; ///< playing m_customStart..m_customEnd once (in-out / around)
+    int64_t m_customStart = 0;
+    int64_t m_customEnd = 0;
+    int64_t m_returnTo = -1; ///< frame to go back to when the custom range finishes
+    PlaybackBehaviour m_behaviour;
     int64_t m_rangeStart = 0; ///< range captured when motion started (loop / in-out)
     int64_t m_rangeEnd = 0;
     bool m_rangeLoop = false;
@@ -287,7 +316,11 @@ private:
     Quality m_autoQuality = Quality::Full; ///< Auto mode's playback quality
     int64_t m_headroomSinceUs = -1; ///< Auto: since when the load is below kUpshiftLoad
     int64_t m_lastQualityChangeUs = 0;
-    int64_t m_qualityEvalUs = 0; ///< start of the current Auto evaluation window
+    int64_t m_qualityEvalUs = 0;
+    int64_t m_upshiftBlockedUntilUs[3] = {0, 0, 0}; ///< by Quality: no upshift to it before
+    int64_t m_upshiftBackoffUs[3] = {0, 0, 0}; ///< by Quality: current back-off
+    int m_overloadWindows = 0; ///< consecutive Auto windows above kDownshiftLoad ///< start of the
+                               ///< current Auto evaluation window
     int64_t m_droppedAtQualityCheck = 0;
     Quality m_lastEmittedQuality = Quality::Full;
 

@@ -48,7 +48,8 @@ public:
 };
 
 /// The default output device through QAudioSink in pull mode, on its own thread
-/// (48 kHz stereo float, or int16 when the device rejects float).
+/// (48 kHz stereo float, or int16 when the device rejects float). The environment variable
+/// KK_NO_AUDIO=1 makes it report no device (tests never make a sound).
 [[nodiscard]] std::unique_ptr<AudioOutput> createDefaultAudioOutput();
 
 } // namespace kk
