@@ -1,0 +1,393 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// VideoDecoder — opening files (software or hardware decoding, with fall-back), turning the
+// current frame into a VideoFrame/QImage, and the public API. Seeking: VideoDecoderSeek.cpp.
+#include "media/VideoDecoder.h"
+
+#include "media/MediaLog.h"
+#include "media/VideoDecoderImpl.h"
+
+#include <QFileInfo>
+#include <QImageReader>
+#include <QThread>
+#include <QTransform>
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <optional>
+#include <vector>
+
+namespace kk::media {
+
+using namespace detail;
+
+namespace {
+
+/// Software decoding threads when the caller does not choose: the target machines are
+/// 4-core/8-thread laptops that also composite, mix audio and run the UI.
+constexpr int kMaxAutoSoftwareThreads = 4;
+
+/// Hardware decoders do the work on the GPU; extra CPU threads only add latency.
+constexpr int kHardwareDecodeThreads = 1;
+
+/// Used to synthesise timestamps when a file has none.
+constexpr AVRational kFallbackFrameRate {25, 1};
+
+void setError(QString* error, const QString& message)
+{
+    if (error) {
+        *error = message;
+    }
+}
+
+} // namespace
+
+// ---- Opening --------------------------------------------------------------------------------
+
+bool VideoDecoder::Impl::openStill(const QString& path, QString* error)
+{
+    QImageReader reader(path);
+    reader.setAutoTransform(true); // apply EXIF orientation
+    const QImage image = reader.read();
+    if (image.isNull()) {
+        setError(error, reader.errorString());
+        return false;
+    }
+    info = probe(path);
+    info.valid = info.hasVideo = info.isStillImage = true;
+    info.width = info.displayWidth = image.width();
+    info.height = info.displayHeight = image.height();
+    info.hasAlpha = image.hasAlphaChannel();
+    still = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    isStill = true;
+    return true;
+}
+
+bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
+{
+    releaseAll();
+    codec.reset();
+    activeHw = HwAccelMode::Off;
+    hwState = {};
+    hwFailed = false;
+    hwPacketErrors = 0;
+    softSeekAllowed = softSeekPending = false;
+    const AVCodec* decoder = avcodec_find_decoder(stream->codecpar->codec_id);
+    for (const HwAccelMode mode : hwCandidates(requested)) {
+        const AVPixelFormat hwFormat = hwPixelFormat(decoder, mode);
+        if (hwFormat == AV_PIX_FMT_NONE) {
+            continue; // FFmpeg has no hwaccel for this codec on this backend (ProRes, PNG...)
+        }
+        AVBufferRef* device = HwDeviceManager::instance().acquire(mode);
+        if (!device) {
+            continue;
+        }
+        hwState.hwFormat = hwFormat;
+        hwState.rejected = false;
+        codec = openDecoder(stream, kHardwareDecodeThreads, nullptr, device, &hwState);
+        av_buffer_unref(&device);
+        if (codec) {
+            activeHw = mode;
+            // FFmpeg's H.264 flush forces a full hwaccel re-init on the next slice. That costs
+            // ~250 ms per seek with NVDEC (decoder re-creation) and Vulkan (video session), but
+            // only ~5 ms with VAAPI and nothing for HEVC/VP9/AV1, whose flush keeps state.
+            softSeekAllowed = stream->codecpar->codec_id == AV_CODEC_ID_H264
+                && (mode == HwAccelMode::Cuda || mode == HwAccelMode::Vulkan);
+            return true;
+        }
+    }
+    const int threads = threadCount > 0
+        ? threadCount
+        : std::min(kMaxAutoSoftwareThreads, QThread::idealThreadCount());
+    codec = openDecoder(stream, threads, error);
+    return codec != nullptr;
+}
+
+bool VideoDecoder::Impl::switchToSoftware()
+{
+    qCInfo(lcMedia).noquote() << "hardware decoding (" + hwAccelName(activeHw) + ") failed for"
+                              << info.path << "- falling back to software";
+    // The demuxer position is left as is; with no current frame the next request seeks.
+    return openCodec(HwAccelMode::Off, nullptr);
+}
+
+bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
+{
+    fmt = openInput(path, error);
+    if (!fmt) {
+        return false;
+    }
+    info = infoFromFormatContext(fmt.get(), path);
+    streamIndex = findVideoStream(fmt.get());
+    if (streamIndex < 0) {
+        setError(error, QStringLiteral("No video stream"));
+        return false;
+    }
+    stream = fmt->streams[streamIndex];
+    // Let the demuxer drop packets of streams we do not decode.
+    for (unsigned i = 0; i < fmt->nb_streams; ++i) {
+        if (int(i) != streamIndex) {
+            fmt->streams[i]->discard = AVDISCARD_ALL;
+        }
+    }
+    packet.reset(av_packet_alloc());
+    scratch.reset(av_frame_alloc());
+    if (!packet || !scratch) {
+        setError(error, QStringLiteral("Out of memory"));
+        return false;
+    }
+    const AVRational tb = stream->time_base;
+    originTs = av_rescale_q(info.startTimeUs, kMicrosecondsTb, tb);
+    firstTs = stream->start_time != AV_NOPTS_VALUE ? stream->start_time : originTs;
+    const AVRational rate = info.frameRate.isValid()
+        ? AVRational {info.frameRate.num, info.frameRate.den}
+        : kFallbackFrameRate;
+    frameStepTs = std::max<int64_t>(1, av_rescale_q(1, av_inv_q(rate), tb));
+
+    const HwAccelMode requested
+        = info.isStillImage ? HwAccelMode::Off : hwOverride.value_or(preferredHwAccel());
+    if (!openCodec(requested, error)) {
+        return false;
+    }
+    // Decode (and for hardware: download) the first frame now. This validates the file and
+    // the whole hardware path end to end, and gives us the clamp lower bound.
+    bool ok = decodeOne(cur);
+    if (activeHw != HwAccelMode::Off && (!ok || hwFailed || !currentVideoFrame())) {
+        ok = switchToSoftware() && seek(firstTs, 0) && decodeOne(cur);
+    }
+    if (!ok) {
+        setError(error, QStringLiteral("No decodable video frames"));
+        return false;
+    }
+    firstFrameTs = cur.pts;
+
+    if (info.isStillImage) {
+        // A single image FFmpeg can read but Qt cannot (e.g. DPX/EXR): keep it as a still.
+        still = currentImage({});
+        if (still.isNull()) {
+            setError(error, QStringLiteral("Cannot convert image"));
+            return false;
+        }
+        isStill = true;
+        releaseAll();
+        codec.reset();
+        fmt.reset();
+    }
+    return true;
+}
+
+QImage VideoDecoder::Impl::stillAt(QSize maxSize)
+{
+    const QSize out = fitSize(still.size(), maxSize);
+    if (out == still.size()) {
+        return still;
+    }
+    if (stillScaled.isNull() || stillScaledFor != maxSize) {
+        stillScaled = still.scaled(out, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        stillScaledFor = maxSize;
+    }
+    return stillScaled;
+}
+
+// ---- Output ---------------------------------------------------------------------------------
+
+std::shared_ptr<const VideoFrame> VideoDecoder::Impl::currentVideoFrame()
+{
+    if (!cur.video && cur) {
+        FrameMeta meta;
+        meta.ptsUs = std::max<int64_t>(0, tsToUs(cur.pts));
+        if (next) {
+            meta.durationUs = tsToUs(next.pts) - meta.ptsUs;
+        } else if (cur.av->duration > 0) {
+            meta.durationUs = av_rescale_q(cur.av->duration, stream->time_base, kMicrosecondsTb);
+        }
+        const AVRational sar = cur.av->sample_aspect_ratio;
+        meta.sampleAspectRatio
+            = sar.num > 0 && sar.den > 0 ? Rational {sar.num, sar.den} : info.sampleAspectRatio;
+        meta.rotation = info.rotation;
+        cur.video = factory.make(cur.av.get(), meta);
+        if (!cur.video && activeHw != HwAccelMode::Off) {
+            hwFailed = true; // download failed
+        }
+    }
+    return cur.video;
+}
+
+QImage VideoDecoder::Impl::currentImage(QSize maxSize)
+{
+    if (curImageValid && maxSize == curImageMaxSize) {
+        return curImage;
+    }
+    // Hardware surfaces are converted from their downloaded copy (shared with decodeFrame()),
+    // software frames straight from the decoder output.
+    const AVFrame* frame = cur.av.get();
+    if (frame->hw_frames_ctx) {
+        const std::shared_ptr<const VideoFrame> video = currentVideoFrame();
+        if (!video || !video->avFrame) {
+            return {};
+        }
+        frame = video->avFrame;
+    }
+    AVRational sar = frame->sample_aspect_ratio;
+    if (sar.num <= 0 || sar.den <= 0) {
+        sar = {info.sampleAspectRatio.num, info.sampleAspectRatio.den};
+    }
+    QSize display(int(std::lround(double(frame->width) * sar.num / sar.den)), frame->height);
+    const bool quarterTurn = info.rotation == 90 || info.rotation == 270;
+    if (quarterTurn) {
+        display.transpose();
+    }
+    const QSize out = fitSize(display, maxSize);
+    QImage image = converter.convert(frame, quarterTurn ? out.transposed() : out);
+    if (!image.isNull() && info.rotation != 0) {
+        // QTransform::rotate() turns clockwise in Qt's y-down image coordinates.
+        image = image.transformed(QTransform().rotate(info.rotation));
+        if (image.format() != QImage::Format_ARGB32_Premultiplied) {
+            image.convertTo(QImage::Format_ARGB32_Premultiplied);
+        }
+    }
+    curImage = image;
+    curImageMaxSize = maxSize;
+    curImageValid = !image.isNull();
+    return image;
+}
+
+// ---- Public API ---------------------------------------------------------------------------
+
+VideoDecoder::VideoDecoder()
+    : m_impl(std::make_unique<Impl>())
+{ }
+
+VideoDecoder::~VideoDecoder() = default;
+
+void VideoDecoder::setThreadCount(int threads)
+{
+    m_impl->threadCount = std::max(0, threads);
+}
+
+void VideoDecoder::setHwAccel(HwAccelMode mode)
+{
+    m_impl->hwOverride = mode;
+}
+
+HwAccelMode VideoDecoder::activeHwAccel() const
+{
+    return m_impl->activeHw;
+}
+
+bool VideoDecoder::open(const QString& path, QString* error)
+{
+    close();
+    initFfmpeg();
+    bool ok = false;
+    if (isStillImageSuffix(QFileInfo(path).suffix())) {
+        ok = m_impl->openStill(path, error);
+    }
+    if (!ok) {
+        ok = m_impl->openVideo(path, error);
+    }
+    if (!ok) {
+        close();
+        return false;
+    }
+    m_impl->isOpen = true;
+    return true;
+}
+
+void VideoDecoder::close()
+{
+    const int threads = m_impl->threadCount;
+    const std::optional<HwAccelMode> hw = m_impl->hwOverride;
+    m_impl = std::make_unique<Impl>();
+    m_impl->threadCount = threads;
+    m_impl->hwOverride = hw;
+}
+
+bool VideoDecoder::isOpen() const
+{
+    return m_impl->isOpen;
+}
+
+const MediaInfo& VideoDecoder::info() const
+{
+    return m_impl->info;
+}
+
+std::shared_ptr<const VideoFrame> VideoDecoder::decodeFrame(int64_t timeUs, Accuracy accuracy)
+{
+    Impl& d = *m_impl;
+    if (!d.isOpen) {
+        return nullptr;
+    }
+    if (d.isStill) {
+        if (!d.stillFrame) {
+            d.stillFrame = VideoFrameFactory::wrapImage(d.still, FrameMeta {});
+        }
+        d.lastReturnedUs = 0;
+        return d.stillFrame;
+    }
+    // No upper clamp on purpose: container durations can be short of the real last frame
+    // (e.g. VFR MP4s). A target past the end seeks to the last keyframe, decodes to EOF and
+    // returns the last frame, which stays cached for further past-the-end requests.
+    const int64_t ts = std::max(d.usToTs(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
+    if (!d.position(ts, accuracy)) {
+        return nullptr;
+    }
+    std::shared_ptr<const VideoFrame> frame = d.currentVideoFrame();
+    if (!frame && d.hwFailed && d.switchToSoftware() && d.position(ts, accuracy)) {
+        frame = d.currentVideoFrame();
+    }
+    if (frame) {
+        d.lastReturnedUs = frame->ptsUs;
+    }
+    return frame;
+}
+
+QImage VideoDecoder::frameAt(int64_t timeUs, QSize maxSize, Accuracy accuracy)
+{
+    Impl& d = *m_impl;
+    if (!d.isOpen) {
+        return {};
+    }
+    if (d.isStill) {
+        d.lastReturnedUs = 0;
+        return d.stillAt(maxSize);
+    }
+    const int64_t ts = std::max(d.usToTs(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
+    if (!d.position(ts, accuracy)) {
+        return {};
+    }
+    QImage image = d.currentImage(maxSize);
+    if (image.isNull() && d.hwFailed && d.switchToSoftware() && d.position(ts, accuracy)) {
+        image = d.currentImage(maxSize);
+    }
+    if (!image.isNull()) {
+        d.lastReturnedUs = std::max<int64_t>(0, d.tsToUs(d.cur.pts));
+    }
+    return image;
+}
+
+int64_t VideoDecoder::lastFrameTimeUs() const
+{
+    return m_impl->lastReturnedUs;
+}
+
+QSize VideoDecoder::fitSize(QSize source, QSize maxSize)
+{
+    if (source.isEmpty()) {
+        return {};
+    }
+    constexpr double kUnbounded = std::numeric_limits<double>::infinity();
+    const double scaleX
+        = maxSize.width() > 0 ? double(maxSize.width()) / source.width() : kUnbounded;
+    const double scaleY
+        = maxSize.height() > 0 ? double(maxSize.height()) / source.height() : kUnbounded;
+    const double scale = std::min(scaleX, scaleY);
+    if (std::isinf(scale)) {
+        return source;
+    }
+    return {std::max(1, int(std::lround(source.width() * scale))),
+        std::max(1, int(std::lround(source.height() * scale)))};
+}
+
+} // namespace kk::media
