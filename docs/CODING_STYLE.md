@@ -1,7 +1,16 @@
 # Coding Style & Conventions
 
-The goal: **a codebase a new human contributor can read top-to-bottom and extend without asking
-anyone.** When in doubt, prefer the clearer code over the clever code.
+Priorities, in order: **1. performance, 2. correctness, 3. readability.**
+When the fastest approach is harder to read, keep the fast approach and **explain it with
+comments** (what it does, why it's fast, invariants it relies on). Comments are how we stay
+readable without giving up speed — so they are mandatory, not optional.
+
+Performance rules:
+- Nothing slow on the GUI thread (decode, render, disk I/O, probing) — use worker threads.
+- Hot paths (per frame / per sample) are allocation-free in steady state: reuse buffers, pools,
+  `reserve()`, no `QString` formatting, no `QVariant`, no virtual calls per pixel.
+- Pixels are processed on the GPU (OpenGL 3.3 core shaders); CPU fallbacks only where needed.
+- Measure before and after optimising; leave the benchmark numbers in a comment or test output.
 
 ## 1. Formatting (enforced)
 - `clang-format` with the repo's `.clang-format` (KDE/Qt-like, 4 spaces, 100 columns).

@@ -27,13 +27,18 @@ GPU effects, hardware decode, speed ramps, plugins (OFX), collaboration, Windows
 ---
 
 ## 3. Tech stack
+
+**Priority: performance first** (then correctness, then readability — compensated with thorough
+comments; see docs/CODING_STYLE.md). Dev machine: Intel UHD 630 + NVIDIA GTX 1650 (driver 580).
 | Area | Choice | Why |
 |---|---|---|
 | Language | C++20, CMake ≥ 3.24, Ninja | portable to Win/macOS later |
 | UI | Qt 6 Widgets (**6.4.2 on this machine — do not use 6.5+ APIs**) | native on Plasma |
 | Decode/encode | FFmpeg 6.1 libs (libavformat/codec/util/swscale/swresample) in-process | no external binaries |
 | Audio out | QtMultimedia `QAudioSink` | cross-platform |
-| Compositing | CPU, `QImage`/`QPainter` (ARGB32_Premultiplied) + hand-written effects | simple, robust; GPU later |
+| Compositing | **GPU: OpenGL 3.3 core** (offscreen context on render thread, shared with viewer `QOpenGLWidget`s); effects/transitions/YUV→RGB as GLSL shaders; text rasterised once with QPainter → texture | fast on every vendor, portable to Win/macOS |
+| HW decode | FFmpeg hwaccel: NVDEC/CUDA (NVIDIA), VAAPI (Intel/AMD), Vulkan; auto-select + SW fallback; later D3D11VA (Win), VideoToolbox (macOS) | |
+| HW encode | NVENC (NVIDIA), VAAPI/QSV (Intel/AMD) H.264/HEVC/AV1; fallback libx264 | |
 | Project files | JSON (`.cwproj`) | diffable, easy |
 | Undo | snapshot-based (`QUndoStack` storing before/after `TimelineData`) | robust with many authors |
 | Packaging | AppImage via linuxdeploy + Qt plugin | single file |
