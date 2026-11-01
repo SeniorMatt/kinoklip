@@ -10,6 +10,8 @@
 #include "playback/PlaybackLog.h"
 #include "render/Compositor.h"
 
+#include <QSettings>
+
 #include <algorithm>
 #include <cmath>
 
@@ -28,6 +30,10 @@ constexpr int64_t kQualityEvalUs = 500'000;
 constexpr int64_t kQualitySettleUs = 1'000'000;
 /// Dropped frames per evaluation window that force a lower quality.
 constexpr int64_t kDropsForDownshift = 3;
+/// After a downshift from a quality, returning to it waits this long (doubling each time, up
+/// to the maximum; reset when playback restarts).
+constexpr int64_t kUpshiftBackoffUs = 10'000'000;
+constexpr int64_t kMaxUpshiftBackoffUs = 120'000'000;
 
 int64_t nowMs()
 {
@@ -45,6 +51,20 @@ Quality higher(Quality q)
 }
 
 } // namespace
+
+PlaybackBehaviour PlaybackBehaviour::fromSettings()
+{
+    const QSettings settings;
+    PlaybackBehaviour b;
+    b.restartAtEnd
+        = settings.value(QStringLiteral("playback/restartAtEnd"), b.restartAtEnd).toBool();
+    b.prerollMs = settings.value(QStringLiteral("playback/prerollMs"), b.prerollMs).toInt();
+    b.postrollMs = settings.value(QStringLiteral("playback/postrollMs"), b.postrollMs).toInt();
+    b.returnAfterPlayAround
+        = settings.value(QStringLiteral("playback/returnAfterPlayAround"), b.returnAfterPlayAround)
+              .toBool();
+    return b;
+}
 
 PlaybackEngine::PlaybackEngine(QObject* parent)
     : PlaybackEngine(Options {}, parent)
@@ -195,7 +215,10 @@ void PlaybackEngine::range(int64_t* start, int64_t* end) const
 {
     *start = 0;
     *end = duration();
-    if ((m_loop || m_playInOut) && m_snapshot) {
+    if (m_customRange) {
+        *start = m_customStart;
+        *end = m_customEnd;
+    } else if (m_loop && m_snapshot) {
         if (m_snapshot->markIn >= 0) {
             *start = m_snapshot->markIn;
         }
@@ -339,7 +362,9 @@ void PlaybackEngine::updateParams(bool rerender)
         || old.outSize != params.outSize || old.quality != params.quality
         || old.outputs != params.outputs;
     if (changed) {
-        m_scheduler.setParams(params);
+        // Size/quality changes during playback keep the frames in flight (same picture).
+        const bool contentChanged = old.timeline != params.timeline || old.media != params.media;
+        m_scheduler.setParams(params, contentChanged || !isPlaying());
     }
     if (params.quality != m_lastEmittedQuality) {
         m_lastEmittedQuality = params.quality;
@@ -393,7 +418,8 @@ void PlaybackEngine::togglePlay()
 
 void PlaybackEngine::stop()
 {
-    m_playInOut = false;
+    m_customRange = false;
+    m_returnTo = -1;
     (void)m_shuttle.trigger(ShuttleControl::Key::K, m_rate, nowMs()); // reset hold state
     setRateInternal(0.0);
 }
@@ -485,11 +511,31 @@ void PlaybackEngine::playInToOut()
     if (isPlaying()) {
         setRateInternal(0.0);
     }
-    m_playInOut = true;
-    int64_t start = 0;
-    int64_t end = 0;
-    range(&start, &end);
-    setPositionInternal(start, true);
+    m_customRange = true;
+    m_customStart = m_snapshot->markIn >= 0 ? m_snapshot->markIn : 0;
+    m_customEnd = m_snapshot->markOut > m_customStart ? m_snapshot->markOut : duration();
+    m_returnTo = -1;
+    setPositionInternal(m_customStart, true);
+    setRateInternal(1.0);
+}
+
+void PlaybackEngine::playAroundCurrent()
+{
+    if (!m_snapshot) {
+        return;
+    }
+    if (isPlaying()) {
+        setRateInternal(0.0);
+    }
+    const int64_t here = m_position;
+    const double fpsValue = fps().toDouble();
+    const int64_t pre = int64_t(std::llround(m_behaviour.prerollMs * fpsValue / 1000.0));
+    const int64_t post = int64_t(std::llround(m_behaviour.postrollMs * fpsValue / 1000.0));
+    m_customRange = true;
+    m_customStart = std::max<int64_t>(0, here - pre);
+    m_customEnd = std::max(m_customStart + 1, std::min(duration(), here + post + 1));
+    m_returnTo = m_behaviour.returnAfterPlayAround ? here : -1;
+    setPositionInternal(m_customStart, true);
     setRateInternal(1.0);
 }
 
@@ -556,8 +602,9 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     const bool outside = start < double(m_rangeStart) || start >= double(m_rangeEnd);
     if (m_rangeLoop && outside) {
         start = rate > 0 ? double(m_rangeStart) : double(m_rangeEnd - 1);
-    } else if (!m_rangeLoop && rate > 0 && start >= double(m_rangeEnd - 1)) {
-        start = double(m_rangeStart); // play at the end: start over (common NLE behaviour)
+    } else if (!m_rangeLoop && rate > 0 && start >= double(m_rangeEnd - 1)
+        && m_behaviour.restartAtEnd) {
+        start = double(m_rangeStart); // play on the last frame: start over (PlaybackBehaviour)
     }
 
     m_rate = rate;
@@ -569,6 +616,12 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     }
     m_motionStartUs = now;
     m_lastQualityChangeUs = now;
+    m_overloadWindows = 0;
+    for (int i = 0; i < 3; ++i) {
+        m_upshiftBlockedUntilUs[i] = 0;
+        m_upshiftBackoffUs[i] = 0;
+    }
+    m_scheduler.resetAverage(); // paused stills / the previous run say nothing about this one
     m_droppedAtQualityCheck = m_stats.dropped;
     updateParams(false);
     setPositionInternal(int64_t(start), true);
@@ -585,7 +638,7 @@ void PlaybackEngine::stopMotion()
     stopAudio();
     m_clock.stop();
     m_scheduler.clear();
-    m_playInOut = false;
+    m_customRange = false;
     m_hasShownKey = false;
     updateParams(false);
     m_lastPlayheadWriteUs = 0;
@@ -716,13 +769,18 @@ void PlaybackEngine::updateAutoQuality(int64_t nowUs)
     const double intervalMs = 1000.0 / std::max(1.0, fps().toDouble());
     const double load = avg / intervalMs;
     Quality next = m_autoQuality;
-    if ((load > kDownshiftLoad || drops >= kDropsForDownshift)
+    // Overload must persist for two windows (or show up as real drops) before quality drops:
+    // a single slow window is usually a decoder opening or seeking at a cut.
+    m_overloadWindows = load > kDownshiftLoad ? m_overloadWindows + 1 : 0;
+    if ((m_overloadWindows >= 2 || drops >= kDropsForDownshift)
         && m_autoQuality != Quality::Quarter) {
+        m_overloadWindows = 0;
         next = lower(m_autoQuality);
     } else if (load < kUpshiftLoad && drops == 0 && m_autoQuality != Quality::Full) {
         if (m_headroomSinceUs < 0) {
             m_headroomSinceUs = nowUs;
-        } else if (nowUs - m_headroomSinceUs >= int64_t(kUpshiftHoldMs) * 1000) {
+        } else if (nowUs - m_headroomSinceUs >= int64_t(kUpshiftHoldMs) * 1000
+            && nowUs >= m_upshiftBlockedUntilUs[int(higher(m_autoQuality))]) {
             next = higher(m_autoQuality);
         }
     } else {
@@ -733,6 +791,13 @@ void PlaybackEngine::updateAutoQuality(int64_t nowUs)
     }
     qCInfo(lcPlayback) << "auto quality" << qualityFactor(m_autoQuality) << "->"
                        << qualityFactor(next) << "render" << avg << "ms, drops" << drops;
+    if (next != higher(m_autoQuality)) {
+        // Downshift: going back up to the quality that just failed waits, longer each time,
+        // so a renderer that is borderline at it does not oscillate (Full, Half, Full, ...).
+        int64_t& backoff = m_upshiftBackoffUs[int(m_autoQuality)];
+        backoff = backoff == 0 ? kUpshiftBackoffUs : std::min(backoff * 2, kMaxUpshiftBackoffUs);
+        m_upshiftBlockedUntilUs[int(m_autoQuality)] = nowUs + backoff;
+    }
     m_autoQuality = next;
     m_lastQualityChangeUs = nowUs;
     m_headroomSinceUs = -1;
@@ -814,7 +879,12 @@ void PlaybackEngine::onTick()
     updateAutoQuality(now);
 
     if (finished) {
+        const int64_t back = m_returnTo;
+        m_returnTo = -1;
         setRateInternal(0.0);
+        if (back >= 0) {
+            seek(back); // play around current: back to where it started
+        }
     }
 }
 

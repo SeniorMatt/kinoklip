@@ -121,33 +121,26 @@ private:
 class QtAudioOutput final : public AudioOutput
 {
 public:
-    QtAudioOutput()
-        : m_device(QMediaDevices::defaultAudioOutput())
-    {
-        m_format.setSampleRate(kSampleRate);
-        m_format.setChannelCount(kChannels);
-        m_format.setSampleFormat(QAudioFormat::Float);
-        if (!m_device.isNull() && !m_device.isFormatSupported(m_format)) {
-            m_format.setSampleFormat(QAudioFormat::Int16);
-            m_int16 = true;
-        }
-        m_thread.setObjectName(QStringLiteral("kk.audio"));
-        m_context.moveToThread(&m_thread);
-        m_thread.start(QThread::TimeCriticalPriority);
-        qCInfo(lcPlayback).noquote() << "audio output:" << description();
-    }
+    QtAudioOutput() = default;
 
     ~QtAudioOutput() override
     {
-        stop();
-        m_thread.quit();
-        m_thread.wait();
+        if (m_initialised) {
+            stop();
+            m_thread.quit();
+            m_thread.wait();
+        }
     }
 
-    bool isAvailable() const override { return !m_device.isNull(); }
+    bool isAvailable() const override
+    {
+        ensureInitialised();
+        return !m_device.isNull();
+    }
 
     QString description() const override
     {
+        ensureInitialised();
         if (m_device.isNull()) {
             return QStringLiteral("none");
         }
@@ -157,6 +150,7 @@ public:
 
     bool start(AudioRing* ring) override
     {
+        ensureInitialised();
         if (m_device.isNull()) {
             return false;
         }
@@ -173,6 +167,9 @@ public:
 
     void stop() override
     {
+        if (!m_initialised) {
+            return;
+        }
         QMetaObject::invokeMethod(
             &m_context, [this] { stopOnAudioThread(); }, Qt::BlockingQueuedConnection);
     }
@@ -180,6 +177,9 @@ public:
     void setVolume(float volume) override
     {
         m_volume = volume;
+        if (!m_initialised) {
+            return; // applied when the sink is created
+        }
         QMetaObject::invokeMethod(&m_context, [this, volume] {
             if (m_sink) {
                 m_sink->setVolume(volume);
@@ -196,6 +196,33 @@ public:
     }
 
 private:
+    /// Device query and audio thread are set up on first use: engines that never play (most
+    /// source viewers, tests) cost nothing. GUI thread (QMediaDevices).
+    void ensureInitialised() const
+    {
+        if (m_initialised) {
+            return;
+        }
+        auto* self = const_cast<QtAudioOutput*>(this);
+        self->m_initialised = true;
+        // KK_NO_AUDIO=1 (tests, CI, headless renders): behave as if there were no device, so
+        // nothing ever becomes audible and the engine uses its wall clock.
+        if (qEnvironmentVariableIntValue("KK_NO_AUDIO") == 0) {
+            self->m_device = QMediaDevices::defaultAudioOutput();
+        }
+        self->m_format.setSampleRate(kSampleRate);
+        self->m_format.setChannelCount(kChannels);
+        self->m_format.setSampleFormat(QAudioFormat::Float);
+        if (!m_device.isNull() && !m_device.isFormatSupported(m_format)) {
+            self->m_format.setSampleFormat(QAudioFormat::Int16);
+            self->m_int16 = true;
+        }
+        self->m_thread.setObjectName(QStringLiteral("kk.audio"));
+        self->m_context.moveToThread(&self->m_thread);
+        self->m_thread.start(QThread::TimeCriticalPriority);
+        qCInfo(lcPlayback).noquote() << "audio output:" << description();
+    }
+
     bool startOnAudioThread(AudioRing* ring)
     {
         m_sink = new QAudioSink(m_device, m_format);
@@ -253,6 +280,7 @@ private:
         }
     }
 
+    bool m_initialised = false;
     QAudioDevice m_device;
     QAudioFormat m_format;
     bool m_int16 = false;

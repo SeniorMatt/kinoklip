@@ -10,15 +10,20 @@ namespace kk {
 namespace {
 /// Weight of the newest sample in the render-time moving average (~ last 10 frames).
 constexpr double kRenderMsSmoothing = 0.1;
+/// Samples above this multiple of the average are clamped to it.
+constexpr double kOutlierFactor = 3.0;
 } // namespace
 
 FrameScheduler::FrameScheduler(RenderFn render)
     : m_render(std::move(render))
 { }
 
-void FrameScheduler::setParams(const RenderParams& params)
+void FrameScheduler::setParams(const RenderParams& params, bool discardPending)
 {
     m_params = params;
+    if (!discardPending) {
+        return;
+    }
     // Playback frames in flight were made for the old parameters: discard them.
     for (Entry& e : m_entries) {
         if (!check(e)) {
@@ -208,9 +213,14 @@ void FrameScheduler::noteRendered(const RenderedFramePtr& frame)
     if (!frame) {
         return;
     }
+    // Outliers (a decoder opening or seeking) are clamped so one slow frame does not look
+    // like a renderer that cannot keep up.
+    const double sample = m_avgRenderMs > 0.0
+        ? std::min(frame->renderMs, kOutlierFactor * m_avgRenderMs)
+        : frame->renderMs;
     m_avgRenderMs = m_avgRenderMs <= 0.0
-        ? frame->renderMs
-        : m_avgRenderMs + kRenderMsSmoothing * (frame->renderMs - m_avgRenderMs);
+        ? sample
+        : m_avgRenderMs + kRenderMsSmoothing * (sample - m_avgRenderMs);
 }
 
 } // namespace kk
