@@ -258,6 +258,30 @@ Deliver page has a render queue. CLI: `kinoklip --render project.kkproj out.mp4`
 | New / open project | Ctrl+N / Ctrl+O | Media / Edit / Deliver page | Shift+2 / Shift+4 / Shift+8 |
 | Full-screen viewer | Ctrl+F | Enable/disable clip | D |
 
+
+### 5.8 Supported formats (import and export)
+Acceptance is probe-based (anything FFmpeg/Qt/libheif/LibRaw can open is accepted); the extension
+lists below only drive file dialogs and the media browser filter. One registry:
+`media/SupportedFormats.h` (categories, extensions, `isLikelyMedia(path)`).
+
+**Import**
+- Video containers: mp4, m4v, mov, mkv, webm, avi, mts/m2ts/ts, mxf, flv, wmv/asf, 3gp, ogv, mpg/mpeg/vob, dv, y4m.
+- Video codecs: H.264, H.265/HEVC, AV1, VP8, VP9, ProRes, DNxHD/DNxHR, CineForm, MPEG-2/4, MJPEG, DV, WMV, Theora, FFV1, raw/uncompressed.
+- Audio: wav, aiff/aif, flac, mp3, aac/m4a, ogg/oga (Vorbis), opus, wma, ac3/eac3, dts, alac, caf, w64, mka.
+- Images (stills): png, jpg/jpeg, webp, bmp, gif (first frame; animated gif as video), tiff/tif, tga, svg,
+  ico, heic/heif and avif (libheif), jxl (FFmpeg libjxl), exr, dpx, psd (flattened), qoi, pcx, sgi,
+  camera RAW: cr2/cr3/nef/arw/dng/raf/orf/rw2 (LibRaw, half-size fast decode).
+- Image sequences: numbered files (name_0001.png ...) detected on import and offered as one clip.
+
+**Export (Deliver presets)**
+- MP4: H.264 (libx264 / NVENC / VAAPI), H.265 (libx265 / NVENC / VAAPI), AV1 (SVT-AV1 / NVENC / VAAPI where supported) + AAC.
+- MOV: ProRes 422 Proxy/LT/422/HQ, ProRes 4444 (with alpha), DNxHR LB/SQ/HQ/HQX + PCM.
+- MKV: any of the above video codecs + FLAC/Opus/AAC.
+- WebM: VP9 or AV1 + Opus.
+- Audio only: WAV (PCM 16/24/32f), FLAC, MP3, AAC (m4a), Opus.
+- Stills / sequences: PNG, JPEG, TIFF, EXR sequence; single frame grab (PNG/JPEG).
+- GIF (palettegen) for short clips.
+
 ---
 
 ## 6. Execution plan (agents, git branches)
@@ -278,6 +302,7 @@ something runnable even if the budget runs out.
 | 2 | **panels** | `src/ui/mediapool`, `src/ui/inspector`, `src/ui/effects`, `src/ui/dialogs` | foundation, media |
 | 3 | **playback** | `src/playback`, `src/ui/viewer` | render |
 | 3 | **export** | `src/export`, `src/ui/deliver`, CLI `--render` | render |
+| 3 | **formats** | `media/SupportedFormats`, still-image loaders (Qt, FFmpeg, libheif, LibRaw), image sequences, tests per format | media |
 | 3 | **packaging** | `packaging/`, AppImage script, .desktop, icon | foundation |
 | 4 | **qa** (1–2) | end-to-end scenarios, bug fixes, polish | all |
 | 4 | me | final merge, AppImage, morning-report.md | all |
