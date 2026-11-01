@@ -6,7 +6,7 @@ the portability rules in `plan.md` (Qt + FFmpeg + std only, platform code in `sr
 ## 1. Toolchain
 - Visual Studio 2022 (MSVC v143, C++20), CMake >= 3.24, Ninja (from the VS developer prompt).
 - Qt 6.4.x for `msvc2019_64` (binary compatible with v143) via the Qt online installer, or
-  vcpkg `qtbase`, `qtsvg`, `qtmultimedia`, `qtwayland` is not needed.
+  vcpkg ports `qtbase`, `qtsvg`, `qtmultimedia`.
 - FFmpeg 6.1 via vcpkg, manifest mode (`vcpkg.json` at the repo root):
   `ffmpeg[core,avcodec,avformat,avfilter,swscale,swresample,x264,x265,dav1d,aom,vpx,opus,mp3lame,webp,nvcodec,qsv,amf]`
   with triplet `x64-windows` (DLLs). x264/x265 make the build GPL, which matches the project
