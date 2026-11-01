@@ -415,6 +415,9 @@ AppDir-shaped), distro packages (Arch PKGBUILD/AUR, .deb, .rpm), Windows install
 App id everywhere: `org.kinoklip.Kinoklip`.
 
 ## 9. Later (after v0.1)
+The owner's version roadmap (v2 masks/compound clips/timeline tabs, v2.5 all pages basic,
+v3 full parity, v4 Resolve project import) lives in `docs/roadmap.md`.
+
 Color page (wheels, curves, LUTs, scopes) → GPU pipeline (OpenGL/Vulkan) → proxies & render cache →
 speed ramps/retime → multicam → Fairlight-like mixer → Windows (MSVC + windeployqt + NSIS/MSIX) →
 macOS (universal build, macdeployqt, notarization).

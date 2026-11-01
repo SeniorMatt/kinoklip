@@ -1,0 +1,64 @@
+# Kinoklip roadmap
+
+Owner's long-term plan (recorded 2026-11-02). Only v1 is being built now; everything below is
+**planned, not started**. Code written today must keep these doors open (see plan.md 5.9 / 5.9b /
+5.10 for the profile-ready and command-based rules).
+
+Naming rule for all versions: pages and features get our own names. Generic words (Cut, Edit,
+Color, Deliver, Media) are fine; Blackmagic product names (e.g. "Fusion", "Fairlight") are not used.
+
+---
+
+## v1 - the basics (current)
+Media / Edit / Deliver pages with the Resolve-like layout and behaviour: import (all common formats),
+multi-track timeline editing, trims, keyframes, simple effects, transitions, titles, GPU playback and
+export, real Breeze look, single-file Linux x86_64 binary. Color page visible but disabled.
+
+## v2 - deeper editing (niche features)
+- **Masks on the Edit page**: shape masks (rectangle, ellipse, polygon, bezier/freehand), feather,
+  expand/contract, invert, opacity, multiple masks per clip with add/subtract/intersect, all keyframed;
+  mask tracking (point/planar tracker) as a stretch goal.
+- **Compound clips**: collapse a selection into one clip, open/edit it in its own timeline,
+  decompose back in place, nested timelines (timeline used as a clip in another timeline).
+- **Timeline tabs enabled by default**: several timelines open at once as tabs above the timeline
+  (switch, reorder, close), each with its own playhead and zoom; stacked view as an option.
+- Other niche editing tools (candidates, to confirm): adjustment clips, freeze frame, speed change and
+  speed ramps with optical-flow / frame-blend retiming, reverse clip, multicam clips and the multicam
+  viewer, sync by audio waveform / timecode, subtitles track (SRT import/export), proxies and
+  optimised media, render cache, dynamic trim (JKL trimming), smart insert, replace edit, fit to fill,
+  ripple overwrite, audio keyframe lines on the timeline, clip attributes (pixel aspect, field order,
+  audio channel mapping), project bins/smart bins, power bins, clip colour labels and flags.
+
+## v2.5 - all other pages at a basic level
+- **Cut page** (fast single-timeline editing with the dual timeline, source tape, quick trims).
+- **Color page** (colour grading): primaries wheels, curves, HSL qualifier, windows/masks, nodes
+  (serial/parallel/layer), LUTs, scopes (waveform, parade, vectorscope, histogram), gallery stills.
+- **Compositing page** (own name, node-based compositing: merge, transform, masks, text, keyers,
+  tracker, particles later).
+- **Audio page** (own name, mixing and audio post: mixer with buses, EQ/dynamics, automation,
+  ADR/recording, loudness metering, VST/LV2 plugins later).
+- Media and Deliver pages extended (metadata editing, clone tool, render presets per platform).
+
+## v3 - finish every page, every detail
+Complete feature set and all the small behaviours/quirks of each page so that a long-time Resolve
+user can switch with no retraining: shortcut parity per page, same default behaviours, same panel
+options, same edge-case handling. Driven by an expanded `docs/behavior-spec.md` per page and the
+parity test suite.
+
+## v4 - switching from Resolve
+- **Import of Resolve projects** so users can move their work over.
+  - Primary path (safe): the interchange formats Resolve already exports — OpenTimelineIO (.otio),
+    FCPXML, AAF, EDL — covering timelines, clips, transitions, retimes, markers, transforms, basic
+    audio levels. Also export to these formats for round-tripping.
+  - Direct `.drp` (project) / `.dra` (project archive) import: these formats are undocumented and
+    reading them requires analysing files Resolve produces. This conflicts with the original
+    "no reverse engineering" rule, so it only happens after a legal check of the interoperability
+    exception in the relevant jurisdictions. Until then: interchange formats only.
+- Migration helpers: map colour grades and effects where an equivalent exists, report what could
+  not be converted.
+
+## Interface profiles (any version after v1)
+- Resolve profile (default), Plasma profile, Vim profile — see plan.md 5.9 / 5.9b.
+
+## Distribution (any version after v1)
+- Flatpak, AppImage, distro packages, Windows installer, macOS .dmg — see plan.md 8b.
