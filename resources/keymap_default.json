@@ -86,6 +86,8 @@
         "transport.go_to_start": ["Home"],
         "transport.go_to_end": ["End"],
         "transport.loop": ["Ctrl+/"],
+        "transport.play_in_out": ["Alt+/"],
+        "transport.play_around": ["Alt+Space"],
 
         "help.about": [],
         "help.about_qt": []

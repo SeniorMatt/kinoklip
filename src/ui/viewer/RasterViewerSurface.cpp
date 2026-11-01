@@ -20,6 +20,14 @@ void RasterViewerSurface::setFrame(const QImage& frame)
     update();
 }
 
+void RasterViewerSurface::setRenderedFrame(const RenderedFramePtr& frame)
+{
+    // The image shares its pixels with the RenderedFrame (implicit sharing): no copy.
+    if (frame && !frame->image.isNull()) {
+        setFrame(frame->image);
+    }
+}
+
 void RasterViewerSurface::clear(const QString& text)
 {
     m_picture.clear(text);
@@ -28,19 +36,35 @@ void RasterViewerSurface::clear(const QString& text)
 
 void RasterViewerSurface::setAspect(QSize aspect)
 {
-    if (m_picture.setAspect(aspect))
+    if (m_picture.setAspect(aspect)) {
         update();
+    }
+}
+
+void RasterViewerSurface::setZoom(double zoom)
+{
+    if (m_picture.setZoom(zoom)) {
+        update();
+    }
+}
+
+void RasterViewerSurface::setOverlayText(const QString& text)
+{
+    if (text != m_picture.overlayText()) {
+        m_picture.setOverlayText(text);
+        update();
+    }
 }
 
 QRect RasterViewerSurface::pictureRect() const
 {
-    return m_picture.pictureRect(size());
+    return m_picture.pictureRect(size(), devicePixelRatioF());
 }
 
 void RasterViewerSurface::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
-    m_picture.paint(painter, size(), true);
+    m_picture.paint(painter, size(), true, devicePixelRatioF());
 }
 
 } // namespace kk
