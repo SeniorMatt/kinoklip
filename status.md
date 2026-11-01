@@ -39,3 +39,4 @@
 - 04:19 Disk cleanup (owner-approved): home caches (browser, nvidia shader, mozilla, mintinstall, thumbnails) + Trash emptied -> 12 GB free. System cleanup (old kernels, unused flatpak runtimes) was blocked by the safety filter. DaVinci Resolve found in /opt/resolve (6.9 GB) - not touched, not inspected, awaiting owner decision.
 - 04:21 Owner request: DaVinci Resolve fully uninstalled (/opt/resolve, /var/BlackmagicDesign incl. its project database, menu/launcher entries). Never inspected. Disk: 19 GB free.
 - 04:31 Owner roadmap recorded in docs/roadmap.md (v2, v2.5, v3, v4). v1 scope unchanged: basics only.
+- 04:46 Playback merged (36/36 tests): viewers show video, audio-master clock, JKL, auto quality, source viewer + F9/F10/F12. Release naming: 0.1.0-alpha.1 (1.0 only on owner's decision). Website idea recorded in roadmap.

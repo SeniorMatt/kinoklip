@@ -9,6 +9,13 @@ Color, Deliver, Media) are fine; Blackmagic product names (e.g. "Fusion", "Fairl
 
 ---
 
+## Release naming
+- Everything before the owner's decision is a **pre-release**: `0.x.y-alpha.N` while features are
+  still landing and things break, `0.x.y-beta.N` once a version's features are complete and the
+  focus is stability. Current: **0.1.0-alpha.1**.
+- **1.0.0 is released only when the owner decides.** Until then no build is called "1.0".
+- The "v1 / v2 / v2.5 / v3 / v4" names below are feature milestones, not version numbers.
+
 ## v1 - the basics (current)
 Media / Edit / Deliver pages with the Resolve-like layout and behaviour: import (all common formats),
 multi-track timeline editing, trims, keyframes, simple effects, transitions, titles, GPU playback and
@@ -56,6 +63,13 @@ parity test suite.
     exception in the relevant jurisdictions. Until then: interchange formats only.
 - Migration helpers: map colour grades and effects where an equivalent exists, report what could
   not be converted.
+
+## Project website (later)
+A website presenting Kinoklip as a free replacement / alternative for DaVinci Resolve (in the spirit
+of how ArtCraft positions itself against Adobe): features, screenshots, downloads, roadmap, docs.
+Rules: refer to Resolve only by name for comparison ("an alternative to DaVinci Resolve"), never
+use Blackmagic logos, screenshots of Resolve, or wording that suggests affiliation or endorsement;
+all marketing claims must be true of the shipped build. Brand assets: our own logo (packaging icon).
 
 ## Interface profiles (any version after v1)
 - Resolve profile (default), Plasma profile, Vim profile — see plan.md 5.9 / 5.9b.
