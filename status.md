@@ -21,3 +21,4 @@
 - 02:51 Heartbeat: timeline, panels, render all active (last commands within 2 min); timeline 2 commits, panels 2, render 0 (writing GL output layer).
 - 03:03 Timeline merged (21/21 tests, 0 warnings): custom-painted timeline, select/trim/blade tools, roll/slip/slide, snapping, drag-drop, thumbnails+waveforms, 2000-clip repaint 3.6-8.2 ms. Open item: F9/F10/F12 need the source viewer (playback agent). Formats agent starting.
 - 03:10 Panels merged (26/26 tests after fixing a ThumbnailProvider name clash): inspector w/ keyframes, effects library, media pool (bins, grid/list, posters), media browser, metadata, project settings, preferences (hw accel), keyboard customization.
+- 03:11 Sent 7 screenshots to the owner. Packaging agent started (self-built single-file .run launcher + portable folder; AppImage tools can't be downloaded). Running: render, formats, packaging.
