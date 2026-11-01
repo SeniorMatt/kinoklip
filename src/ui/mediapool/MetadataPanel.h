@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MetadataPanel — PLACEHOLDER read-only technical metadata of a media item.
-// The panels agent may add editable fields (scene, take, notes) later.
+// MetadataPanel — read-only technical metadata (probe result) of a media item.
 #pragma once
 
 #include "ui/common/PanelFrame.h"
@@ -12,7 +11,8 @@ namespace kk {
 
 struct AppContext;
 
-/// Shows the probe result (MediaItem::info) of one media item.
+/// Shows the probe result (MediaItem::info) of one media item, grouped into Clip / Video /
+/// Audio sections, and whether the file is offline. Follows renames and undo.
 class MetadataPanel : public PanelFrame
 {
     Q_OBJECT
@@ -27,6 +27,7 @@ private:
     AppContext& m_ctx;
     QStackedWidget* m_stack = nullptr;
     QFormLayout* m_form = nullptr;
+    QString m_mediaId; ///< item shown (refreshed when the pool changes)
 };
 
 } // namespace kk

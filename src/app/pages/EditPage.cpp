@@ -102,8 +102,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
 
     connect(
         m_mediaPool, &MediaPoolPanel::currentMediaChanged, m_metadata, &MetadataPanel::showMedia);
-    connect(
-        m_mediaPool, &MediaPoolPanel::mediaActivated, m_sourceViewer, &ViewerPanel::setSourceMedia);
+    connect(m_mediaPool, &MediaPoolPanel::openInSourceViewer, m_sourceViewer,
+        &ViewerPanel::setSourceMedia);
 }
 
 void EditPage::setPanelVisible(PanelId id, bool visible)
