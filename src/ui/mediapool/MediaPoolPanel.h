@@ -35,7 +35,7 @@ struct AppContext;
 ///   openInSourceViewer(). Missing files are marked offline.
 /// - Every change (import, rename, move, delete, bins) is one undo step.
 ///
-/// Poster frames come from a ThumbnailProvider; by default media::MediaCache::posterFrame(),
+/// Poster frames come from a PosterProvider; by default media::MediaCache::posterFrame(),
 /// repainting items on MediaCache::posterFrameReady().
 ///
 /// Thread-safety: GUI thread only.
@@ -80,7 +80,7 @@ public:
 
     /// Replaces the poster frame provider (tests, or another cache). Call
     /// model()->thumbnailReady(path) when a pending poster becomes available.
-    void setThumbnailProvider(ThumbnailProvider provider);
+    void setThumbnailProvider(PosterProvider provider);
     /// The item model (all items).
     [[nodiscard]] MediaPoolModel* model() const { return m_model; }
 

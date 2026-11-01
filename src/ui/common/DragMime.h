@@ -14,7 +14,8 @@ inline constexpr char MediaItems[] = "application/x-kinoklip-media-ids";
 inline constexpr char SourceRange[] = "application/x-kinoklip-source-range";
 
 /// An effect, transition or generator from the effects library.
-/// Payload: UTF-8 EffectRegistry descriptor id (e.g. "gaussian_blur", "cross_dissolve", "text_title").
+/// Payload: UTF-8 EffectRegistry descriptor id (e.g. "gaussian_blur", "cross_dissolve",
+/// "text_title").
 inline constexpr char Effect[] = "application/x-kinoklip-effect";
 
 } // namespace kk::mime

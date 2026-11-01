@@ -17,7 +17,7 @@ Owned by the panels agent.
   the Media page viewer.
 - `MediaPoolPanel::selectMedia(id)` — e.g. "find clip in media pool" from the timeline.
 - Drags carry `mime::MediaItems` (newline-separated ids, `ui/common/DragMime.h`).
-- Poster frames: `ThumbnailProvider` = `std::function<QImage(path, height)>`, non-blocking
+- Poster frames: `PosterProvider` = `std::function<QImage(path, height)>`, non-blocking
   (null = pending). Default: `media::MediaCache::instance().posterFrame()`; the panel connects
   `MediaCache::posterFrameReady` to `MediaPoolModel::thumbnailReady()`. Replace it with
   `MediaPoolPanel::setThumbnailProvider()` (tests use a synchronous fake).
