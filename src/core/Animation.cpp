@@ -36,6 +36,8 @@ qsizetype lowerBound(const QVector<Keyframe>& keys, int64_t frame)
 }
 } // namespace
 
+// Hot path (called per parameter, per clip, per rendered frame): binary search on the sorted
+// keys, no allocation.
 double AnimatedValue::valueAt(int64_t localFrame) const
 {
     if (keys.isEmpty())
@@ -129,7 +131,9 @@ double ParamSet::value(const QString& key, int64_t localFrame, double fallback) 
 
 double ParamSet::value(const QString& key, int64_t localFrame) const
 {
-    return value(key, localFrame, keys::defaultValue(key));
+    // Look up first: the default table is only consulted for absent keys.
+    const auto it = values.constFind(key);
+    return it == values.cend() ? keys::defaultValue(key) : it->valueAt(localFrame);
 }
 
 QVariant ParamSet::staticValue(const QString& key, const QVariant& fallback) const
