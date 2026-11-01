@@ -26,3 +26,4 @@
 - 03:15 Sent first GPU-rendered frame to owner. Playback agent started (engine, JKL, audio clock, viewers, source viewer + F9/F10/F12). Running: formats, packaging, playback.
 - 03:18 Owner request: newest Breeze styling. Plan: host Qt on KDE (native Breeze; packaging agent informed) + Breeze emulation/icon fallback elsewhere (theme agent queued). breeze-icon-theme installed for the icon subset.
 - 03:20 Owner clarified: identical look on all OSes via our own Breeze (Plasma 6) theme + bundled Breeze icons; bundled Qt everywhere; test against latest Breeze. Packaging agent corrected.
+- 03:22 Scheduled resume check: formats, packaging, playback all active (commands within the last 2 min). No stalls; theme + export agents queued for the next free slots.
