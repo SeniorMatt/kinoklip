@@ -19,9 +19,13 @@ struct CommandLineOptions
     QString renderFrameProject; ///< --render-frame <project>: project to render a frame of
     qint64 renderFrameIndex = 0; ///< timeline frame for --render-frame
     QString renderFramePath; ///< image written by --render-frame
+    QString renderProject; ///< --render <project>: project to export
+    QString renderOutput; ///< file written by --render
+    QString renderPreset; ///< --preset <id> for --render (empty = chosen by extension)
 
     [[nodiscard]] bool isScreenshot() const { return !screenshotPage.isEmpty(); }
     [[nodiscard]] bool isRenderFrame() const { return !renderFrameProject.isEmpty(); }
+    [[nodiscard]] bool isRender() const { return !renderProject.isEmpty(); }
 };
 
 /// Parses @p arguments (including argv[0]). Handles --help/--version itself (prints and exits).
