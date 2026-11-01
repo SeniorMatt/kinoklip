@@ -74,7 +74,7 @@ public:
     [[nodiscard]] static float dbToGain(double db);
     /// Constant-power pan gains for @p pan in [−1, 1] (clamped).
     static void panGains(double pan, float& left, float& right);
-    /// Soft clipper: identity for |x| ≤ kClipKnee, smooth tanh knee above, |y| < 1.
+    /// Soft clipper: identity for |x| ≤ kClipKnee, smooth tanh knee above, never beyond ±1.
     [[nodiscard]] static float softClip(float x);
     /// Linear level (−1 dBFS) above which the soft clipper starts to act.
     static constexpr float kClipKnee = 0.891251f;
