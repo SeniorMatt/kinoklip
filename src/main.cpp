@@ -8,6 +8,7 @@
 #include "app/Theme.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "export/RenderCommand.h"
 #include "render/RenderFrameCommand.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -56,6 +57,8 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "%s\n", qPrintable(error));
         return 2;
     }
+    if (options.isRender())
+        return kk::runRender(options.renderProject, options.renderOutput, options.renderPreset);
     if (options.isRenderFrame())
         return kk::runRenderFrame(
             options.renderFrameProject, options.renderFrameIndex, options.renderFramePath);
