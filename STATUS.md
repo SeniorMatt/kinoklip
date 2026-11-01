@@ -10,3 +10,4 @@
 - 01:36 Command logging hook added: every Bash command / file write by me and all agents → ~/cutwise/logs/commands.log (watch live: tail -f ~/cutwise/logs/commands.log).
 - 01:45 User: performance first (readability via comments), GPU acceleration on all vendors. PLAN + CODING_STYLE updated; running agents notified (media: hw decode NVDEC/VAAPI/Vulkan + raw YUV frames; foundation: GL 3.3 context, cheap hot paths). gh CLI installed for GitHub repo.
 - 01:45 Target machine noted: T14s Gen 2 (i5-1145G7, Iris Xe, KDE Linux/Wayland) → VAAPI primary; media agent informed.
+- 02:06 Heartbeat: foundation 3 commits (core model, app shell, tests+READMEs) — finishing; media 1 commit (probe + frame-exact video + sample-exact audio decoders), working on hw decode/cache. Repo name still being chosen with user.
