@@ -11,7 +11,7 @@
 #include <QVariant>
 #include <QVector>
 
-namespace cw {
+namespace kk {
 
 /// What kind of thing a descriptor describes (also the Effects Library sections).
 enum class EffectCategory {
@@ -119,4 +119,4 @@ private:
     QHash<QString, qsizetype> m_index; ///< id → position in m_descriptors (O(1) find())
 };
 
-} // namespace cw
+} // namespace kk

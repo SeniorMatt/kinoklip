@@ -8,7 +8,7 @@
 #include <QSignalSpy>
 #include <QTest>
 
-using namespace cw;
+using namespace kk;
 
 namespace {
 MediaItem item(const QString& path)

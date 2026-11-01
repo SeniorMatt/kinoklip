@@ -14,9 +14,9 @@
 #include <QTest>
 #include <QUndoStack>
 
-using namespace cw;
-using namespace cw::test;
-namespace ops = cw::editops;
+using namespace kk;
+using namespace kk::test;
+namespace ops = kk::editops;
 
 namespace {
 
@@ -85,7 +85,7 @@ private slots:
     void timelineRoundTrip()
     {
         const TimelineData original = richTimeline();
-        CW_VERIFY_INVARIANTS(original);
+        KK_VERIFY_INVARIANTS(original);
         const QJsonObject json = serialization::timelineToJson(original);
         // Go through text to catch number formatting issues too.
         const QJsonDocument doc = QJsonDocument::fromJson(QJsonDocument(json).toJson());
@@ -134,7 +134,7 @@ private slots:
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
-        const QString path = dir.filePath(QStringLiteral("test.cwproj"));
+        const QString path = dir.filePath(QStringLiteral("test.kkproj"));
 
         Project p;
         p.setName(QStringLiteral("My Film"));
@@ -181,7 +181,7 @@ private slots:
         QTemporaryDir dir;
         Project p;
         p.setName(QStringLiteral("x"));
-        QVERIFY(p.saveCopy(dir.filePath(QStringLiteral("auto.cwproj"))));
+        QVERIFY(p.saveCopy(dir.filePath(QStringLiteral("auto.kkproj"))));
         QVERIFY(p.isDirty());
         QVERIFY(p.filePath().isEmpty());
     }
@@ -211,7 +211,7 @@ private slots:
         QTemporaryDir dir;
         Project p;
         QString error;
-        QVERIFY(!p.load(dir.filePath(QStringLiteral("missing.cwproj")), &error));
+        QVERIFY(!p.load(dir.filePath(QStringLiteral("missing.kkproj")), &error));
         QVERIFY(!error.isEmpty());
 
         auto writeFile = [&](const QString& name, const QByteArray& content) {
@@ -219,12 +219,12 @@ private slots:
             QVERIFY(f.open(QIODevice::WriteOnly));
             f.write(content);
         };
-        writeFile(QStringLiteral("garbage.cwproj"), "not json");
-        QVERIFY(!p.load(dir.filePath(QStringLiteral("garbage.cwproj")), &error));
-        writeFile(QStringLiteral("other.cwproj"), R"({"hello": 1})");
-        QVERIFY(!p.load(dir.filePath(QStringLiteral("other.cwproj")), &error));
-        writeFile(QStringLiteral("future.cwproj"), R"({"formatVersion": 999})");
-        QVERIFY(!p.load(dir.filePath(QStringLiteral("future.cwproj")), &error));
+        writeFile(QStringLiteral("garbage.kkproj"), "not json");
+        QVERIFY(!p.load(dir.filePath(QStringLiteral("garbage.kkproj")), &error));
+        writeFile(QStringLiteral("other.kkproj"), R"({"hello": 1})");
+        QVERIFY(!p.load(dir.filePath(QStringLiteral("other.kkproj")), &error));
+        writeFile(QStringLiteral("future.kkproj"), R"({"formatVersion": 999})");
+        QVERIFY(!p.load(dir.filePath(QStringLiteral("future.kkproj")), &error));
         QVERIFY(error.contains(QLatin1String("newer")));
         // The current project is untouched after failures.
         QCOMPARE(p.timeline()->data().videoTracks.size(), size_t(2));

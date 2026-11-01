@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 
 # ---- Product identity (rename the app here + src/app/AppInfo.h) ----
-set(APP_NAME "Cutwise")
-set(APP_ID   "cutwise")
+set(APP_NAME "Kinoklip")
+set(APP_ID   "kinoklip")
 
 project(${APP_NAME} VERSION 0.1.0 LANGUAGES CXX)
 
@@ -25,43 +25,43 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libavformat libavcodec libavutil libswscale libswresample libavfilter)
 
 # ---- Core library: everything under src/ except main.cpp ----
-file(GLOB_RECURSE CW_SOURCES CONFIGURE_DEPENDS
+file(GLOB_RECURSE KK_SOURCES CONFIGURE_DEPENDS
   ${CMAKE_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/src/*.h)
-list(FILTER CW_SOURCES EXCLUDE REGEX ".*/src/main\\.cpp$")
+list(FILTER KK_SOURCES EXCLUDE REGEX ".*/src/main\\.cpp$")
 
-add_library(cutwise_core STATIC ${CW_SOURCES})
-target_include_directories(cutwise_core PUBLIC ${CMAKE_SOURCE_DIR}/src)
-target_compile_definitions(cutwise_core PUBLIC
-  CW_APP_NAME="${APP_NAME}" CW_APP_ID="${APP_ID}" CW_APP_VERSION="${PROJECT_VERSION}"
+add_library(kinoklip_core STATIC ${KK_SOURCES})
+target_include_directories(kinoklip_core PUBLIC ${CMAKE_SOURCE_DIR}/src)
+target_compile_definitions(kinoklip_core PUBLIC
+  KK_APP_NAME="${APP_NAME}" KK_APP_ID="${APP_ID}" KK_APP_VERSION="${PROJECT_VERSION}"
 )
-target_link_libraries(cutwise_core PUBLIC
+target_link_libraries(kinoklip_core PUBLIC
   Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Multimedia Qt6::Svg Qt6::SvgWidgets
   Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent PkgConfig::FFMPEG)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  target_compile_options(cutwise_core PRIVATE -Wall -Wextra -Wno-unused-parameter)
+  target_compile_options(kinoklip_core PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()
 
 # Resources (icons, default keymap, ...): every resources/*.qrc is compiled into the core lib.
-file(GLOB CW_QRC CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/resources/*.qrc)
-if(CW_QRC)
-  qt_add_resources(CW_QRC_OBJS ${CW_QRC})
-  target_sources(cutwise_core PRIVATE ${CW_QRC_OBJS})
+file(GLOB KK_QRC CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/resources/*.qrc)
+if(KK_QRC)
+  qt_add_resources(KK_QRC_OBJS ${KK_QRC})
+  target_sources(kinoklip_core PRIVATE ${KK_QRC_OBJS})
 endif()
 
 # ---- Application ----
 add_executable(${APP_ID} src/main.cpp)
-target_link_libraries(${APP_ID} PRIVATE cutwise_core)
+target_link_libraries(${APP_ID} PRIVATE kinoklip_core)
 set_target_properties(${APP_ID} PROPERTIES WIN32_EXECUTABLE ON MACOSX_BUNDLE ON)
 install(TARGETS ${APP_ID} RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 
 # ---- Tests: every tests/**/test_*.cpp becomes its own executable ----
 enable_testing()
-file(GLOB_RECURSE CW_TESTS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/test_*.cpp)
-foreach(test_src ${CW_TESTS})
+file(GLOB_RECURSE KK_TESTS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/test_*.cpp)
+foreach(test_src ${KK_TESTS})
   get_filename_component(test_name ${test_src} NAME_WE)
   add_executable(${test_name} ${test_src})
-  target_link_libraries(${test_name} PRIVATE cutwise_core Qt6::Test)
-  target_compile_definitions(${test_name} PRIVATE CW_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
+  target_link_libraries(${test_name} PRIVATE kinoklip_core Qt6::Test)
+  target_compile_definitions(${test_name} PRIVATE KK_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
   add_test(NAME ${test_name} COMMAND ${test_name})
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 300)
 endforeach()

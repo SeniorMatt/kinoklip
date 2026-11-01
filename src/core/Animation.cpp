@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace cw {
+namespace kk {
 
 double easeCurve(Interp interp, double t)
 {
@@ -198,4 +198,4 @@ Interp interpFromString(const QString& text)
     return Interp::Linear;
 }
 
-} // namespace cw
+} // namespace kk

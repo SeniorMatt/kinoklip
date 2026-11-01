@@ -6,7 +6,7 @@
 
 class QSplitter;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 class MediaBrowserPanel;
@@ -50,4 +50,4 @@ private:
     QSplitter* m_main = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

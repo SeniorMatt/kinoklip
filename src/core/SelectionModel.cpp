@@ -2,7 +2,7 @@
 // SelectionModel implementation.
 #include "core/SelectionModel.h"
 
-namespace cw {
+namespace kk {
 
 SelectionModel::SelectionModel(QObject* parent)
     : QObject(parent)
@@ -77,4 +77,4 @@ void SelectionModel::clear()
     emit changed();
 }
 
-} // namespace cw
+} // namespace kk

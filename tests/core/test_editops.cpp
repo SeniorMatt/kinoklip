@@ -7,9 +7,9 @@
 #include <QRandomGenerator>
 #include <QTest>
 
-using namespace cw;
-using namespace cw::test;
-namespace ops = cw::editops;
+using namespace kk;
+using namespace kk::test;
+namespace ops = kk::editops;
 
 class TestEditOps : public QObject
 {
@@ -23,7 +23,7 @@ private slots:
         QVERIFY(id != 0);
         QCOMPARE(layout(d, kV1), QStringLiteral("10:20"));
         QVERIFY(ops::clipById(d, id));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void overwriteSplitsStraddledClip()
@@ -36,7 +36,7 @@ private slots:
         const ClipData& right = d.videoTracks[0].clips[2];
         QVERIFY(right.id != a);
         QCOMPARE(right.sourceInUs, 60 * kUsPerFrame25);
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void overwriteTrimsHeadAndTail()
@@ -47,7 +47,7 @@ private slots:
         ops::overwriteClip(d, kV1, mediaClip(20, 40));
         QCOMPARE(layout(d, kV1), QStringLiteral("0:20 20:40 60:20"));
         QCOMPARE(d.videoTracks[0].clips[2].sourceInUs, 20 * kUsPerFrame25);
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void overwriteReplacesCoveredClips()
@@ -57,7 +57,7 @@ private slots:
         ops::overwriteClip(d, kV1, mediaClip(20, 5));
         ops::overwriteClip(d, kV1, mediaClip(0, 50));
         QCOMPARE(layout(d, kV1), QStringLiteral("0:50"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void overwriteRejectsInvalid()
@@ -81,7 +81,7 @@ private slots:
         c.start = 10;
         const quint64 second = ops::overwriteClip(d, kV1, c);
         QVERIFY(second != first);
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     // ---- insert ----
@@ -95,7 +95,7 @@ private slots:
         QCOMPARE(layout(d, kV1), QStringLiteral("0:50 50:10 60:50"));
         QCOMPARE(layout(d, kA1), QStringLiteral("0:50 60:50"));
         QCOMPARE(layout(d, kV2), QStringLiteral("90:10"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void insertTargetTrackOnly()
@@ -106,7 +106,7 @@ private slots:
         ops::insertClip(d, kV1, mediaClip(50, 10), ops::RippleScope::TargetTracks);
         QCOMPARE(layout(d, kV1), QStringLiteral("0:50 50:10 60:50"));
         QCOMPARE(layout(d, kA1), QStringLiteral("0:100"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void insertSkipsLockedTracks()
@@ -116,7 +116,7 @@ private slots:
         d.audioTracks[0].locked = true;
         ops::insertClip(d, kV1, mediaClip(50, 10));
         QCOMPARE(layout(d, kA1), QStringLiteral("0:100"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void insertLinkedVideoAndAudio()
@@ -129,7 +129,7 @@ private slots:
         QCOMPARE(ids.size(), 2);
         QCOMPARE(layout(d, kV1), QStringLiteral("0:20 20:10 30:20"));
         QCOMPARE(layout(d, kA1), QStringLiteral("0:20 20:10 30:20"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     // ---- split ----
@@ -160,7 +160,7 @@ private slots:
             QCOMPARE(now.transform.value(keys::Opacity, now.localFrame(f)),
                 before.transform.value(keys::Opacity, before.localFrame(f)));
         }
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void splitAtEdgesDoesNothing()
@@ -186,7 +186,7 @@ private slots:
         QVERIFY(rightGroup != 0 && rightGroup != group);
         QCOMPARE(ops::clipById(d, rights[1])->linkGroup, rightGroup);
         QCOMPARE(ops::linkedClips(d, v).size(), 2);
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void splitClipsOnlySelected()
@@ -232,7 +232,7 @@ private slots:
         QCOMPARE(ops::rippleDeleteClips(d, {a, c}), 2);
         QCOMPARE(layout(d, kV1), QStringLiteral("0:10 20:10"));
         QCOMPARE(layout(d, kA1), QStringLiteral("40:10")); // other tracks untouched
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void rippleDeleteIgnoresLockedTrack()
@@ -254,7 +254,7 @@ private slots:
         QVERIFY(ops::moveClips(d, {a}, -100)); // clamped at 0
         QCOMPARE(layout(d, kV1), QStringLiteral("0:10"));
         QVERIFY(!ops::moveClips(d, {a}, -5)); // already at 0: nothing moves
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void moveOverwritesTarget()
@@ -264,7 +264,7 @@ private slots:
         ops::overwriteClip(d, kV1, mediaClip(20, 30));
         QVERIFY(ops::moveClips(d, {a}, 30));
         QCOMPARE(layout(d, kV1), QStringLiteral("20:10 30:10 40:10"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void moveGroupKeepsRelativePositions()
@@ -277,7 +277,7 @@ private slots:
         // Moving adjacent clips right must not let them overwrite each other.
         QVERIFY(ops::moveClips(d, {a, b}, 3));
         QCOMPARE(layout(d, kV1), QStringLiteral("3:10 13:10"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void moveBetweenTracks()
@@ -292,7 +292,7 @@ private slots:
         // Already on the top track: vertical delta clamps to 0; horizontal still applies.
         QVERIFY(ops::moveClips(d, {v}, 5, 3));
         QCOMPARE(layout(d, kV2), QStringLiteral("5:10"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void moveRefusesLockedTracks()
@@ -320,7 +320,7 @@ private slots:
         QCOMPARE(ops::clipById(d, b)->sourceInUs, 5 * kUsPerFrame25);
         QCOMPARE(ops::trimHead(d, b, 100, false), 19); // keeps 1 frame
         QCOMPARE(ops::clipById(d, b)->duration, 1);
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void trimHeadLimitedBySource()
@@ -352,7 +352,7 @@ private slots:
         QCOMPARE(ops::clipById(d, a)->sourceInUs, 15 * kUsPerFrame25);
         QCOMPARE(ops::trimHead(d, a, -100, true), -15); // source-limited, later clip shifts
         QCOMPARE(layout(d, kV1), QStringLiteral("0:30 40:10"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void trimTailNonRipple()
@@ -364,7 +364,7 @@ private slots:
         QCOMPARE(layout(d, kV1), QStringLiteral("0:15 15:10"));
         QCOMPARE(ops::trimTail(d, a, -50, false), -14);
         QCOMPARE(layout(d, kV1), QStringLiteral("0:1 15:10"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void trimTailLimitedBySource()
@@ -384,7 +384,7 @@ private slots:
         QCOMPARE(layout(d, kV1), QStringLiteral("0:17 17:10"));
         QCOMPARE(ops::trimTail(d, a, -12, true), -12);
         QCOMPARE(layout(d, kV1), QStringLiteral("0:5 5:10"));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     void trimRespectsSpeed()
@@ -420,7 +420,7 @@ private slots:
         QVERIFY(ops::removeTrack(d, kV2));
         QCOMPARE(d.videoTracks.size(), size_t(2));
         QVERIFY(!ops::removeTrack(d, TrackRef {TrackType::Video, 9}));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     // ---- linking ----
@@ -438,7 +438,7 @@ private slots:
         QCOMPARE(ops::linkedClips(d, v).size(), 2);
         ops::unlinkClips(d, {a1}); // leaves v alone → group dissolved
         QCOMPARE(ops::clipById(d, v)->linkGroup, quint64(0));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
     }
 
     // ---- snapping & navigation ----
@@ -477,7 +477,7 @@ private slots:
         TimelineData d = timeline();
         ops::overwriteClip(d, kV1, mediaClip(0, 10));
         ops::overwriteClip(d, kV1, mediaClip(20, 10));
-        CW_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(d);
 
         TimelineData overlap = d;
         overlap.videoTracks[0].clips[1].start = 5;
@@ -497,7 +497,7 @@ private slots:
         staleIds.nextId = 1;
         QVERIFY(!ops::checkInvariants(staleIds));
         ops::normalizeIds(staleIds);
-        CW_VERIFY_INVARIANTS(staleIds);
+        KK_VERIFY_INVARIANTS(staleIds);
     }
 
     /// Random sequences of operations must never break the invariants.

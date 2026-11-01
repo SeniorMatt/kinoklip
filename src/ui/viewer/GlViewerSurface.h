@@ -9,7 +9,7 @@
 
 class QLabel;
 
-namespace cw {
+namespace kk {
 
 /// QOpenGLWidget implementation of ViewerSurface.
 ///
@@ -58,4 +58,4 @@ private:
     GLint m_rectUniform = -1;
 };
 
-} // namespace cw
+} // namespace kk

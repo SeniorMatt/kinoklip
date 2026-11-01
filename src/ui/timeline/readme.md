@@ -11,5 +11,5 @@ actions (`tool.select/trim/blade`, `timeline.snapping/linked_selection`,
 Replace `TimelinePreview` with the interactive `TimelineWidget`: hit-testing, tools, snapping
 (`editops::snapCandidates/snapToNearest`), and edits through
 `project->beginEdit()` → `editops::*` on `timeline()->mutableData()` → `notifyChanged()` (live)
-→ `endEdit()` (see `src/core/README.md`). Connect the `tool.*`, `edit.*`, `timeline.*`,
-`clip.*` and `mark.*` actions listed in `src/ui/common/README.md`.
+→ `endEdit()` (see `src/core/readme.md`). Connect the `tool.*`, `edit.*`, `timeline.*`,
+`clip.*` and `mark.*` actions listed in `src/ui/common/readme.md`.

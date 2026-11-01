@@ -4,7 +4,7 @@
 
 #include <QCoreApplication>
 
-namespace cw {
+namespace kk {
 
 const ParamDescriptor* EffectDescriptor::param(const QString& key) const
 {
@@ -89,19 +89,19 @@ QString EffectRegistry::categoryName(EffectCategory category)
 {
     switch (category) {
     case EffectCategory::VideoEffect:
-        return QCoreApplication::translate("cw::EffectRegistry", "Video Effects");
+        return QCoreApplication::translate("kk::EffectRegistry", "Video Effects");
     case EffectCategory::AudioEffect:
-        return QCoreApplication::translate("cw::EffectRegistry", "Audio Effects");
+        return QCoreApplication::translate("kk::EffectRegistry", "Audio Effects");
     case EffectCategory::Transition:
-        return QCoreApplication::translate("cw::EffectRegistry", "Transitions");
+        return QCoreApplication::translate("kk::EffectRegistry", "Transitions");
     case EffectCategory::Generator:
-        return QCoreApplication::translate("cw::EffectRegistry", "Generators");
+        return QCoreApplication::translate("kk::EffectRegistry", "Generators");
     case EffectCategory::Title:
-        return QCoreApplication::translate("cw::EffectRegistry", "Titles");
+        return QCoreApplication::translate("kk::EffectRegistry", "Titles");
     case EffectCategory::ClipProperties:
-        return QCoreApplication::translate("cw::EffectRegistry", "Clip Properties");
+        return QCoreApplication::translate("kk::EffectRegistry", "Clip Properties");
     }
     return {};
 }
 
-} // namespace cw
+} // namespace kk

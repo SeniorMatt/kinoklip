@@ -7,7 +7,7 @@
 class QAction;
 class QHBoxLayout;
 
-namespace cw {
+namespace kk {
 
 /// Bottom bar with one button per page. Each button shows a page action (checkable, in an
 /// exclusive group owned by MainWindow), so clicking, the View menu and Shift+N shortcuts all
@@ -26,4 +26,4 @@ private:
     QHBoxLayout* m_buttons = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

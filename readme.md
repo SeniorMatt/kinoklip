@@ -1,12 +1,12 @@
-# Cutwise
+# Kinoklip
 
 A non-linear video editor written from scratch in C++20 with Qt 6 Widgets and FFmpeg. The Edit
 page layout follows the familiar professional NLE arrangement (media pool, source and timeline
 viewers, inspector, multi-track timeline, page bar) with common industry shortcuts.
-"Cutwise" is a placeholder name.
+"Kinoklip" is a placeholder name.
 
-- **Plan & architecture:** [PLAN.md](PLAN.md)
-- **Coding style (read before contributing):** [docs/CODING_STYLE.md](docs/CODING_STYLE.md)
+- **Plan & architecture:** [plan.md](plan.md)
+- **Coding style (read before contributing):** [docs/coding-style.md](docs/coding-style.md)
 
 ## Build
 
@@ -17,14 +17,14 @@ Svg, OpenGL, OpenGLWidgets, Concurrent, Test), FFmpeg 6 development libraries, p
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j4
 ctest --test-dir build --output-on-failure      # tests run with QT_QPA_PLATFORM=offscreen
-./build/cutwise [project.cwproj]
+./build/cutwise [project.kkproj]
 ```
 
 Useful options:
 ```sh
 ./build/cutwise --reset-layout                      # ignore the saved window layout
-QT_QPA_PLATFORM=offscreen ./build/cutwise --screenshot edit out.png [project.cwproj]
-CW_NO_OPENGL=1 ./build/cutwise                      # force the raster viewer fallback
+QT_QPA_PLATFORM=offscreen ./build/cutwise --screenshot edit out.png [project.kkproj]
+KK_NO_OPENGL=1 ./build/cutwise                      # force the raster viewer fallback
 ```
 Format before committing: `scripts/format.sh` (clang-format, `--check` for CI).
 
@@ -47,7 +47,7 @@ Format before committing: `scripts/format.sh` (clang-format, `--check` for CI).
 | `tests/<area>/test_*.cpp` | QtTest unit/smoke tests (each file is its own executable) |
 | `docs/` | coding style and other docs |
 
-Each module directory has a `README.md` with its responsibilities and a **How to extend** section.
+Each module directory has a `readme.md` with its responsibilities and a **How to extend** section.
 
 ## License
 GPL-3.0-or-later (see the SPDX headers; the AppImage bundles GPL FFmpeg components).

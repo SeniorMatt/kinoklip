@@ -16,7 +16,7 @@
 
 #include <algorithm>
 
-namespace cw {
+namespace kk {
 
 namespace {
 
@@ -171,4 +171,4 @@ void EditPage::restoreLayout(const QSettings& settings)
     setSingleViewer(settings.value(QStringLiteral("singleViewer"), false).toBool());
 }
 
-} // namespace cw
+} // namespace kk

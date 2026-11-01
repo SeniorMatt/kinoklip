@@ -3,7 +3,7 @@
 //
 // Every function keeps the track invariants (clips sorted by start, never overlapping, duration
 // >= 1, ids unique) and never touches locked tracks. They do not emit signals or create undo
-// entries; wrap calls in Project::beginEdit()/endEdit() (see core/README.md).
+// entries; wrap calls in Project::beginEdit()/endEdit() (see core/readme.md).
 #pragma once
 
 #include "core/TimelineData.h"
@@ -16,7 +16,7 @@
 #include <optional>
 #include <vector>
 
-namespace cw::editops {
+namespace kk::editops {
 
 // ---- Lookup ----
 
@@ -168,4 +168,4 @@ void unlinkClips(TimelineData& data, const QVector<quint64>& clipIds);
 /// Raises nextId above every id used in @p data (repairs files edited by hand).
 void normalizeIds(TimelineData& data);
 
-} // namespace cw::editops
+} // namespace kk::editops

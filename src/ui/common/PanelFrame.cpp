@@ -8,7 +8,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-namespace cw {
+namespace kk {
 
 namespace {
 constexpr int kTitleBarHeight = 26; // px; compact like most NLE panel headers
@@ -105,4 +105,4 @@ PanelFrame* createPlaceholderPanel(const QString& title, const QString& text, QW
     return panel;
 }
 
-} // namespace cw
+} // namespace kk

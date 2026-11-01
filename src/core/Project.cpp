@@ -12,7 +12,7 @@
 #include <QUndoCommand>
 #include <QUndoStack>
 
-namespace cw {
+namespace kk {
 
 namespace {
 
@@ -61,7 +61,7 @@ QJsonObject projectToJson(
     const QDir projectDir = QFileInfo(path).absoluteDir();
     QJsonObject root;
     root[QLatin1String("formatVersion")] = serialization::kFormatVersion;
-    root[QLatin1String("generator")] = QStringLiteral(CW_APP_NAME " " CW_APP_VERSION);
+    root[QLatin1String("generator")] = QStringLiteral(KK_APP_NAME " " KK_APP_VERSION);
     root[QLatin1String("project")] = QJsonObject {{QLatin1String("name"), name}};
     root[QLatin1String("mediaPool")] = serialization::mediaPoolToJson(pool.state(), projectDir);
     root[QLatin1String("timeline")] = serialization::timelineToJson(timeline.data());
@@ -209,7 +209,7 @@ bool Project::load(const QString& path, QString* error)
 
     const QJsonObject root = doc.object();
     if (!root.contains(QLatin1String("formatVersion")))
-        return fail(tr("%1 is not a %2 project file").arg(path, QStringLiteral(CW_APP_NAME)));
+        return fail(tr("%1 is not a %2 project file").arg(path, QStringLiteral(KK_APP_NAME)));
     const int version = root.value(QLatin1String("formatVersion")).toInt();
     if (version > serialization::kFormatVersion)
         return fail(tr("%1 was created by a newer version (format %2)").arg(path).arg(version));
@@ -328,4 +328,4 @@ void Project::restoreState(const TimelineData& timeline, const MediaPoolState& p
         m_mediaPool->setState(pool);
 }
 
-} // namespace cw
+} // namespace kk

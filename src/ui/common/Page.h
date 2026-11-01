@@ -7,7 +7,7 @@
 
 class QSettings;
 
-namespace cw {
+namespace kk {
 
 /// Panels that the interface toolbar can show/hide on a page.
 enum class PanelId {
@@ -80,7 +80,7 @@ public:
 
 signals:
     /// A panel was shown or hidden (by the toolbar or by the page itself).
-    void panelVisibilityChanged(cw::PanelId id, bool visible);
+    void panelVisibilityChanged(kk::PanelId id, bool visible);
 };
 
-} // namespace cw
+} // namespace kk

@@ -11,7 +11,7 @@
 #include <QLabel>
 #include <QStackedWidget>
 
-namespace cw {
+namespace kk {
 
 MetadataPanel::MetadataPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Metadata"), parent)
@@ -63,4 +63,4 @@ void MetadataPanel::showMedia(const QString& mediaId)
     m_stack->setCurrentIndex(1);
 }
 
-} // namespace cw
+} // namespace kk

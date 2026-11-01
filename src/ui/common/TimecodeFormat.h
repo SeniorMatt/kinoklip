@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace cw::timecode {
+namespace kk::timecode {
 
 /// Whole frames per timecode second for @p fps (rounded: 29.97 → 30, 23.976 → 24).
 [[nodiscard]] int framesPerSecond(Rational fps);
@@ -24,4 +24,4 @@ namespace cw::timecode {
 /// ("00:00:90:00" = 90 s). Returns std::nullopt for malformed text.
 [[nodiscard]] std::optional<int64_t> parse(QStringView text, Rational fps);
 
-} // namespace cw::timecode
+} // namespace kk::timecode

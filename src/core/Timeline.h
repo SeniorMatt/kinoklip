@@ -9,11 +9,11 @@
 #include <cstdint>
 #include <memory>
 
-namespace cw {
+namespace kk {
 
 /// Owns the editable TimelineData and the playhead position.
 ///
-/// Editing protocol (see core/README.md): wrap changes in Project::beginEdit()/endEdit(), mutate
+/// Editing protocol (see core/readme.md): wrap changes in Project::beginEdit()/endEdit(), mutate
 /// through mutableData() (usually via editops::*), and call notifyChanged() for live updates
 /// during a drag; endEdit() notifies automatically.
 ///
@@ -59,4 +59,4 @@ private:
     int64_t m_playhead = 0;
 };
 
-} // namespace cw
+} // namespace kk

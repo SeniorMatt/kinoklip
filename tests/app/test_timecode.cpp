@@ -4,7 +4,7 @@
 
 #include <QTest>
 
-using namespace cw;
+using namespace kk;
 
 class TestTimecode : public QObject
 {

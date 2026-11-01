@@ -7,7 +7,7 @@
 
 #include <QTest>
 
-namespace cw::test {
+namespace kk::test {
 
 /// 25 fps → 40 000 µs per frame.
 inline constexpr int64_t kUsPerFrame25 = 40000;
@@ -48,11 +48,11 @@ inline QString layout(const TimelineData& data, TrackRef ref)
     return parts.join(QLatin1Char(' '));
 }
 
-} // namespace cw::test
+} // namespace kk::test
 
 /// Fails the current test if the timeline violates its invariants.
-#define CW_VERIFY_INVARIANTS(data)                                                                 \
+#define KK_VERIFY_INVARIANTS(data)                                                                 \
     do {                                                                                           \
         QString why_;                                                                              \
-        QVERIFY2(cw::editops::checkInvariants((data), &why_), qPrintable(why_));                   \
+        QVERIFY2(kk::editops::checkInvariants((data), &why_), qPrintable(why_));                   \
     } while (false)

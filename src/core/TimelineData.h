@@ -14,7 +14,7 @@
 #include <optional>
 #include <vector>
 
-namespace cw {
+namespace kk {
 
 /// An effect applied to a clip. `type` is an EffectRegistry descriptor id (e.g. "gaussian_blur").
 struct EffectInstance
@@ -180,4 +180,4 @@ struct TimelineData
 [[nodiscard]] TimelineData makeDefaultTimeline(
     const QString& name, Rational fps, int width = 1920, int height = 1080);
 
-} // namespace cw
+} // namespace kk

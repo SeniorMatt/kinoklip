@@ -4,7 +4,7 @@
 
 #include <QFileInfo>
 
-namespace cw::media {
+namespace kk::media {
 MediaInfo probe(const QString& path)
 {
     MediaInfo mi;
@@ -12,4 +12,4 @@ MediaInfo probe(const QString& path)
     mi.error = QStringLiteral("probe() not implemented yet");
     return mi;
 }
-} // namespace cw::media
+} // namespace kk::media

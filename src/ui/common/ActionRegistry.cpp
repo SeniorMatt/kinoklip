@@ -15,11 +15,11 @@
 
 #include <optional>
 
-namespace cw {
+namespace kk {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcActions, "cw.ui.actions")
+Q_LOGGING_CATEGORY(lcActions, "kk.ui.actions")
 
 constexpr int kKeymapFormatVersion = 1;
 
@@ -32,7 +32,7 @@ QString plainText(const QAction* action)
 }
 
 // Dynamic property remembering the last generated tool tip, to tell it from a custom one.
-constexpr char kAutoToolTipProperty[] = "cwAutoToolTip";
+constexpr char kAutoToolTipProperty[] = "kkAutoToolTip";
 
 /// Sets the tool tip to "Text  (Shortcut)". Unless @p force is set, a tool tip the owner
 /// customised (anything other than the last generated one) is left alone.
@@ -290,4 +290,4 @@ bool ActionRegistry::importKeymap(const QString& path, QString* error)
     return true;
 }
 
-} // namespace cw
+} // namespace kk

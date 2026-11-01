@@ -8,7 +8,7 @@
 class QFormLayout;
 class QStackedWidget;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 
@@ -29,4 +29,4 @@ private:
     QFormLayout* m_form = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

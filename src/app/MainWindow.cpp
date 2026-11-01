@@ -27,7 +27,7 @@
 #include <QUndoStack>
 #include <QVBoxLayout>
 
-namespace cw {
+namespace kk {
 
 namespace {
 
@@ -348,4 +348,4 @@ void MainWindow::restoreSettings()
     setCurrentPage(settings.value(QLatin1String(kPageKey), QStringLiteral("edit")).toString());
 }
 
-} // namespace cw
+} // namespace kk

@@ -1,6 +1,6 @@
-# Cutwise — Master Plan (v0.1, overnight build)
+# Kinoklip — Master Plan (v0.1, overnight build)
 
-> "Cutwise" is a **placeholder name**. Renaming = change `APP_NAME`/`APP_ID` in `CMakeLists.txt`
+> "Kinoklip" is a **placeholder name**. Renaming = change `APP_NAME`/`APP_ID` in `CMakeLists.txt`
 > and `src/app/AppInfo.h`. Nothing else should hard-code the name.
 
 A non-linear video editor written from scratch in C++/Qt 6, whose **Edit page layout is inspired by
@@ -12,12 +12,12 @@ for v0.1 (a disabled "Color" page tab is reserved for later).
 
 ## 1. Goals for the morning (definition of done)
 
-1. `~/cutwise/dist/Cutwise-x86_64.AppImage` — double-click runnable on KDE Plasma / any modern
+1. `~/cutwise/dist/Kinoklip-x86_64.AppImage` — double-click runnable on KDE Plasma / any modern
    x86_64 Linux (glibc ≥ 2.39, e.g. KDE Linux, KDE neon 24.04, Fedora 40+, Arch). Copy on `~/Desktop`.
 2. You can: create a project → import clips → cut them on a multi-track timeline → animate
    transform/opacity/volume with keyframes → add simple effects, transitions and text titles →
    play back with audio → export an MP4.
-3. `MORNING_REPORT.md`: what works, what is known-broken, what's next.
+3. `morning-report.md`: what works, what is known-broken, what's next.
 
 ## 2. Non-goals (v0.1)
 Color page/grading, node compositing (Fusion-like), Fairlight-like audio DAW, multicam, proxies,
@@ -29,7 +29,7 @@ GPU effects, hardware decode, speed ramps, plugins (OFX), collaboration, Windows
 ## 3. Tech stack
 
 **Priority: performance first** (then correctness, then readability — compensated with thorough
-comments; see docs/CODING_STYLE.md). Dev machine: Intel UHD 630 + NVIDIA GTX 1650 (driver 580).
+comments; see docs/coding-style.md). Dev machine: Intel UHD 630 + NVIDIA GTX 1650 (driver 580).
 **Target machine: ThinkPad T14s Gen 2 — i5-1145G7 (4C/8T), Intel Iris Xe (Tiger Lake, iHD VAAPI driver),
 KDE Linux (Wayland).** ⇒ VAAPI is the primary hw path; must play 1080p smoothly (4K where hw decode allows).
 AppImage bundles the Qt Wayland plugin but uses the host's libva/libGL/libEGL/libvulkan/libdrm + drivers.
@@ -42,7 +42,7 @@ AppImage bundles the Qt Wayland plugin but uses the host's libva/libGL/libEGL/li
 | Compositing | **GPU: OpenGL 3.3 core** (offscreen context on render thread, shared with viewer `QOpenGLWidget`s); effects/transitions/YUV→RGB as GLSL shaders; text rasterised once with QPainter → texture | fast on every vendor, portable to Win/macOS |
 | HW decode | FFmpeg hwaccel: NVDEC/CUDA (NVIDIA), VAAPI (Intel/AMD), Vulkan; auto-select + SW fallback; later D3D11VA (Win), VideoToolbox (macOS) | |
 | HW encode | NVENC (NVIDIA), VAAPI/QSV (Intel/AMD) H.264/HEVC/AV1; fallback libx264 | |
-| Project files | JSON (`.cwproj`) | diffable, easy |
+| Project files | JSON (`.kkproj`) | diffable, easy |
 | Undo | snapshot-based (`QUndoStack` storing before/after `TimelineData`) | robust with many authors |
 | Packaging | AppImage via linuxdeploy + Qt plugin | single file |
 | Tests | QtTest, `QT_QPA_PLATFORM=offscreen` UI smoke tests, ffmpeg-generated fixtures | headless |
@@ -97,8 +97,8 @@ Pages (tabs on a bottom page bar): **Media · Edit · Deliver** active; **Color*
 
 ## 5. Architecture & directory layout
 ```
-cutwise/
-  CMakeLists.txt            globs src/**; builds static lib cutwise_core + exe + tests
+kinoklip/
+  CMakeLists.txt            globs src/**; builds static lib kinoklip_core + exe + tests
   src/main.cpp              app entry; also CLI: --render <proj> <out.mp4>, --screenshot <page> <png>
   src/app/                  Application, MainWindow, PageBar, Theme, Preferences, AppInfo.h
   src/core/                 data model, edit operations, undo, selection, serialization, effect registry
@@ -119,7 +119,7 @@ cutwise/
   tests/<area>/test_*.cpp   each file → its own test exe (auto-globbed)
   packaging/linux|windows|macos
 ```
-Namespace: everything in `namespace cw`.
+Namespace: everything in `namespace kk`.
 
 ### 5.1 Time conventions (MUST follow everywhere)
 - Timeline positions/durations: `int64_t` **frames at the timeline frame rate** (`TimelineData::fps`).
@@ -183,7 +183,7 @@ struct Bin { QString id; QString name; QString parentId; };
   params: [{key, label, type: Double|Int|Bool|Color|Choice|String, min, max, def, step, unit, choices, animatable}]}`.
   The Inspector builds its UI generically from descriptors; the Compositor looks up implementations by id.
 
-### 5.3 Media engine (`src/media`, namespace `cw::media`)
+### 5.3 Media engine (`src/media`, namespace `kk::media`)
 ```cpp
 struct MediaInfo { bool valid=false; QString error, path; bool hasVideo=false, hasAudio=false,
   isStillImage=false; int width=0, height=0, rotation=0; Rational frameRate; int64_t durationUs=0;
@@ -236,7 +236,7 @@ One engine for the program (timeline) and a light one for the source viewer (sin
 res, mixes audio with `AudioMixer`, encodes via libavcodec. Presets: H.264 MP4 (libx264 CRF,
 AAC 320k), H.265 MP4 (if libx265 exists), ProRes 422 HQ MOV (+PCM), PNG sequence? (later).
 Settings: resolution, fps (= timeline), quality, filename/location, range. Progress + ETA + cancel.
-Deliver page has a render queue. CLI: `cutwise --render project.cwproj out.mp4`.
+Deliver page has a render queue. CLI: `kinoklip --render project.kkproj out.mp4`.
 
 ### 5.7 Default shortcuts (all remappable in Keyboard Customization, saved as JSON)
 | Action | Key | Action | Key |
@@ -280,13 +280,13 @@ something runnable even if the budget runs out.
 | 3 | **export** | `src/export`, `src/ui/deliver`, CLI `--render` | render |
 | 3 | **packaging** | `packaging/`, AppImage script, .desktop, icon | foundation |
 | 4 | **qa** (1–2) | end-to-end scenarios, bug fixes, polish | all |
-| 4 | me | final merge, AppImage, MORNING_REPORT.md | all |
+| 4 | me | final merge, AppImage, morning-report.md | all |
 
 Rules for every agent:
-0. **Read `docs/CODING_STYLE.md` and follow it strictly** (naming, doc comments on every public
-   class/function, file headers, module README.md with a "How to extend" section,
+0. **Read `docs/coding-style.md` and follow it strictly** (naming, doc comments on every public
+   class/function, file headers, module readme.md with a "How to extend" section,
    `scripts/format.sh` before each commit). Readability and extensibility are hard requirements.
-1. Read this PLAN.md first; follow §5 contracts. If a contract must change, make the minimal
+1. Read this plan.md first; follow §5 contracts. If a contract must change, make the minimal
    change, document it in the commit message and in the final report.
 2. Only edit files in owned directories (+ registration hooks explicitly allowed in the brief).
 3. Qt 6.4 API only. C++20. No new third-party deps without asking the orchestrator.

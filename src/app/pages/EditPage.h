@@ -8,7 +8,7 @@
 
 class QSplitter;
 
-namespace cw {
+namespace kk {
 
 struct AppContext;
 class EffectsLibraryPanel;
@@ -76,4 +76,4 @@ private:
     QMap<PanelId, QWidget*> m_panels;
 };
 
-} // namespace cw
+} // namespace kk

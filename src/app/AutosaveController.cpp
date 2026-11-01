@@ -12,10 +12,10 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 
-namespace cw {
+namespace kk {
 
 namespace {
-Q_LOGGING_CATEGORY(lcAutosave, "cw.app.autosave")
+Q_LOGGING_CATEGORY(lcAutosave, "kk.app.autosave")
 constexpr int kMsPerMinute = 60 * 1000;
 constexpr int kHashChars = 8; // enough to keep projects with the same name apart
 } // namespace
@@ -79,4 +79,4 @@ bool AutosaveController::autosaveNow()
     return true;
 }
 
-} // namespace cw
+} // namespace kk

@@ -9,7 +9,7 @@
 
 #include <algorithm>
 
-namespace cw {
+namespace kk {
 
 namespace {
 QString newId()
@@ -200,4 +200,4 @@ void MediaPool::setState(MediaPoolState state)
     touch();
 }
 
-} // namespace cw
+} // namespace kk

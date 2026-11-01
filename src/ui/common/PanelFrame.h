@@ -10,7 +10,7 @@ class QHBoxLayout;
 class QLabel;
 class QToolButton;
 
-namespace cw {
+namespace kk {
 
 /// Base widget for all panels so they look the same: a title bar with the panel name on the
 /// left and an optional row of small tool buttons/widgets on the right, above a content widget.
@@ -57,4 +57,4 @@ private:
 [[nodiscard]] PanelFrame* createPlaceholderPanel(
     const QString& title, const QString& text, QWidget* parent = nullptr);
 
-} // namespace cw
+} // namespace kk

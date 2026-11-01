@@ -10,7 +10,7 @@
 #include <QSplitter>
 #include <QVBoxLayout>
 
-namespace cw {
+namespace kk {
 
 DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     : Page(parent)
@@ -52,4 +52,4 @@ void DeliverPage::restoreLayout(const QSettings& settings)
     m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
 }
 
-} // namespace cw
+} // namespace kk

@@ -11,7 +11,7 @@
 
 class QUndoStack;
 
-namespace cw {
+namespace kk {
 
 /// Project-wide settings. Resolution and frame rate are applied to the timeline.
 struct ProjectSettings
@@ -64,7 +64,7 @@ public:
 
     /// Resets to an empty project with default settings and V1/V2/A1/A2 tracks.
     void newProject();
-    /// Writes the project to @p path (JSON, see core/README.md) and makes it the current file.
+    /// Writes the project to @p path (JSON, see core/readme.md) and makes it the current file.
     /// Returns false and sets @p error on failure.
     bool save(const QString& path, QString* error = nullptr);
     /// Writes a copy to @p path without changing filePath() or the modified state (autosave).
@@ -127,4 +127,4 @@ private:
     MediaPoolState m_editPoolBefore;
 };
 
-} // namespace cw
+} // namespace kk

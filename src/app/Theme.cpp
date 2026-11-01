@@ -10,7 +10,7 @@
 #include <QStyle>
 #include <QStyleFactory>
 
-namespace cw::theme {
+namespace kk::theme {
 
 namespace {
 
@@ -167,4 +167,4 @@ void apply(QApplication& app)
     app.setStyleSheet(styleSheet(QApplication::palette()));
 }
 
-} // namespace cw::theme
+} // namespace kk::theme

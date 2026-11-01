@@ -9,7 +9,7 @@
 
 #include <algorithm>
 
-namespace cw::serialization {
+namespace kk::serialization {
 
 namespace {
 
@@ -431,4 +431,4 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
     return state;
 }
 
-} // namespace cw::serialization
+} // namespace kk::serialization

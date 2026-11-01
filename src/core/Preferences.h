@@ -6,7 +6,7 @@
 #include <QString>
 #include <QStringList>
 
-namespace cw::prefs {
+namespace kk::prefs {
 
 // ---- QSettings keys (the single place where preference key strings are spelled) ----
 inline constexpr char kUseSystemColors[] = "ui/useSystemColors"; ///< bool, default false
@@ -41,4 +41,4 @@ void setHwAccel(HwAccel mode);
 /// Stores the autosave interval.
 void setAutosaveMinutes(int minutes);
 
-} // namespace cw::prefs
+} // namespace kk::prefs

@@ -16,7 +16,7 @@
 #include <QMimeData>
 #include <QStackedWidget>
 
-namespace cw {
+namespace kk {
 
 namespace {
 constexpr int kItemIconSize = 48;
@@ -112,4 +112,4 @@ void MediaPoolPanel::dropEvent(QDropEvent* event)
     importMediaWithFeedback(m_ctx, paths, this);
 }
 
-} // namespace cw
+} // namespace kk

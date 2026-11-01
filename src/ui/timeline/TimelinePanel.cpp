@@ -13,7 +13,7 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 
-namespace cw {
+namespace kk {
 
 namespace {
 constexpr int kRulerHeight = 26;
@@ -186,4 +186,4 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     updateTitle();
 }
 
-} // namespace cw
+} // namespace kk

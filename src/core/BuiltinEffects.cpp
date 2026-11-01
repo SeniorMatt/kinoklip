@@ -6,13 +6,13 @@
 
 #include <QCoreApplication>
 
-namespace cw {
+namespace kk {
 
 namespace {
 
 QString tr(const char* text)
 {
-    return QCoreApplication::translate("cw::BuiltinEffects", text);
+    return QCoreApplication::translate("kk::BuiltinEffects", text);
 }
 
 // ---- Descriptor builders (keep the catalogue below readable) ----
@@ -241,4 +241,4 @@ void EffectRegistry::registerBuiltins()
         QStringLiteral("title")));
 }
 
-} // namespace cw
+} // namespace kk

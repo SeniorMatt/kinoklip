@@ -8,7 +8,7 @@ class QAction;
 class QHBoxLayout;
 class QLabel;
 
-namespace cw {
+namespace kk {
 
 /// "[Media Pool][Effects][Edit Index]   Project name   [Mixer][Metadata][Inspector]".
 /// Buttons show checkable panel-toggle actions. Object name "InterfaceBar" for styling.
@@ -34,4 +34,4 @@ private:
     QLabel* m_title = nullptr;
 };
 
-} // namespace cw
+} // namespace kk

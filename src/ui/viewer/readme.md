@@ -7,7 +7,7 @@
 | `ViewerPanel.h` | panel = title bar with timecode + `ViewerSurface` + transport bar; `Mode::Source` / `Mode::Timeline` |
 | `ViewerSurface.h` | interface of the picture area; `ViewerSurface::create()` picks GL or raster; `ViewerPicture` = shared state + letterbox maths (+ QPainter drawing for raster) |
 | `GlViewerSurface.h` | `QOpenGLWidget`, GLSL 330 core: one persistent texture updated with `glTexSubImage2D` straight from ARGB32 memory (`GL_BGRA`, no conversion, no per-frame allocation), scissored letterbox, overlay label for the empty state |
-| `RasterViewerSurface.h` | `QWidget` fallback (offscreen screenshots, CI, no GPU, `CW_NO_OPENGL=1`) |
+| `RasterViewerSurface.h` | `QWidget` fallback (offscreen screenshots, CI, no GPU, `KK_NO_OPENGL=1`) |
 
 Timeline-mode transport buttons trigger the global `transport.*` actions; Source-mode buttons
 emit `playPauseRequested()`, `stepRequested(int)`, ... instead. The timeline viewer's timecode

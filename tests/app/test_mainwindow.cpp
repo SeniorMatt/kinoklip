@@ -22,7 +22,7 @@
 
 #include <memory>
 
-using namespace cw;
+using namespace kk;
 
 namespace {
 
@@ -59,7 +59,7 @@ private slots:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(QStringLiteral("cutwise-tests"));
+        QCoreApplication::setOrganizationName(QStringLiteral("kinoklip-tests"));
         QCoreApplication::setApplicationName(QStringLiteral("test_mainwindow"));
         QSettings().clear();
         initResources();

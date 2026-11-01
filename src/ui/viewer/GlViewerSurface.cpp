@@ -6,11 +6,11 @@
 #include <QLoggingCategory>
 #include <QOpenGLContext>
 
-namespace cw {
+namespace kk {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcGlViewer, "cw.ui.viewer.gl")
+Q_LOGGING_CATEGORY(lcGlViewer, "kk.ui.viewer.gl")
 
 constexpr float kSurroundGrey = 0x0b / 255.0f; // slightly lifted black around the picture
 
@@ -229,4 +229,4 @@ void GlViewerSurface::releaseGl()
     doneCurrent();
 }
 
-} // namespace cw
+} // namespace kk

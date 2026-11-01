@@ -8,7 +8,7 @@
 #include <QHeaderView>
 #include <QTreeWidget>
 
-namespace cw {
+namespace kk {
 
 EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Effects"), parent)
@@ -42,4 +42,4 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     setContentWidget(m_tree);
 }
 
-} // namespace cw
+} // namespace kk
