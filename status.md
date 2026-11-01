@@ -16,3 +16,4 @@
 - 02:21 Phase 2 started (effort medium): agents 'timeline' (editing widget, tools, EditOps) and 'panels' (inspector, media pool, effects library, dialogs). 'media' still running. Shared drag-drop MIME contract added. Scheduled check-ins re-created for the new file names.
 - 02:28 Media merged (15/15 tests, 0 warnings): exact-seek decoders, hw decode VAAPI/CUDA/Vulkan with SW fallback, raw YUV frames, MediaCache thumbnails/waveforms. Note: on this dev box GPU device access alternates with the other logged-in user (tisha) - not an issue on a single-user laptop.
 - 02:29 Render agent started (GPU compositor GL 3.3, YUV shaders, effects, transitions, titles, audio mixer). Running: timeline, panels, render.
+- 02:32 Owner request: follow KDE coding guidelines. coding-style.md updated; whole-tree conversion (KDE clang-format, lowercase file names, Q_EMIT/Q_SIGNALS/Q_SLOTS, QT_NO_KEYWORDS) scheduled as one commit after all agent branches merge.
