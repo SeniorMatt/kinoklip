@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace kk::editops {
@@ -125,6 +126,73 @@ int64_t slipClip(TimelineData& data, quint64 clipId, int64_t deltaFrames);
 [[nodiscard]] int64_t maxHeadExtension(const ClipData& clip, Rational fps);
 /// Largest number of frames the tail can be extended to the right by source media alone.
 [[nodiscard]] int64_t maxTailExtension(const ClipData& clip, Rational fps);
+
+// ---- Roll, slide, gaps (timeline agent additions) ----
+
+/// Roll edit: moves the cut between two adjacent clips on one track (left.end() == right.start)
+/// by @p delta frames; the left tail and the right head move together, so nothing else shifts.
+/// Clamped so both clips keep duration >= 1 and stay within their source media.
+/// Returns the applied delta (0 if the clips are not adjacent on one unlocked track).
+int64_t rollEdit(TimelineData& data, quint64 leftClipId, quint64 rightClipId, int64_t delta);
+
+/// Slide: moves clip @p clipId by @p delta frames while its neighbours absorb the change, so
+/// the clip's content and the track length stay the same. A touching neighbour is trimmed (its
+/// tail on the left, its head on the right); a gap on that side grows or shrinks instead.
+/// Clamped by neighbour durations (>= 1), their media handles and frame 0.
+/// Returns the applied delta.
+int64_t slideClip(TimelineData& data, quint64 clipId, int64_t delta);
+
+/// Empty range [first, second) on track @p ref around frame @p frame, bounded by the previous
+/// clip end (or 0) and the next clip start. std::nullopt if a clip covers @p frame or there is
+/// no clip after the frame (the open end of a track is not a gap).
+[[nodiscard]] std::optional<std::pair<int64_t, int64_t>> gapAt(
+    const TimelineData& data, TrackRef ref, int64_t frame);
+
+/// Close gap: removes the gap under @p frame on track @p ref by shifting every later clip left.
+/// With RippleScope::AllTracks every other unlocked track is shifted by the same amount, which
+/// is reduced to the room that is free on all of them in the gap range (keeps sync).
+/// Returns the number of frames removed (0 if there is no gap or the track is locked).
+int64_t closeGap(
+    TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope = RippleScope::TargetTracks);
+
+/// Place on top: for each clip, starts at its PlacedClip::track and walks up its track list to
+/// the first unlocked track whose range [start, end) is empty; adds a new track on top if none
+/// is. Nothing is overwritten or rippled. Returns ids in input order (empty on invalid input).
+QVector<quint64> placeOnTop(TimelineData& data, const QVector<PlacedClip>& clips);
+
+// ---- Clipboard ----
+
+/// One clip in a clipboard: the clip with a start relative to the clipboard origin and its
+/// track as an offset from the lowest copied track of the same type.
+struct ClipboardClip
+{
+    TrackType type = TrackType::Video;
+    int trackOffset = 0; ///< 0 = lowest copied track of this type
+    ClipData clip; ///< clip.start is relative to the earliest copied clip (>= 0)
+};
+
+/// A copied set of clips (value type; safe to keep across edits and undo).
+struct Clipboard
+{
+    QVector<ClipboardClip> clips;
+    int baseVideoTrack = 0; ///< index of the lowest copied video track at copy time
+    int baseAudioTrack = 0; ///< index of the lowest copied audio track at copy time
+    int64_t duration = 0; ///< frames from the earliest start to the latest end
+
+    [[nodiscard]] bool isEmpty() const { return clips.isEmpty(); }
+};
+
+/// Copies the given clips (unknown ids ignored) into a Clipboard.
+[[nodiscard]] Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds);
+
+/// Pastes @p clipboard with its origin at timeline frame @p frame. Clips go to
+/// base + trackOffset, where the base is @p videoBase / @p audioBase (-1 = the tracks they were
+/// copied from); missing tracks are added. Every pasted clip gets fresh clip, link-group and
+/// effect ids (linked clips stay linked to each other). Overwrites by default; with
+/// @p insert = true the timeline ripples (RippleScope::AllTracks) to make room.
+/// Returns the new clip ids (empty if nothing could be pasted, e.g. a locked destination).
+QVector<quint64> pasteClips(TimelineData& data, const Clipboard& clipboard, int64_t frame,
+    int videoBase = -1, int audioBase = -1, bool insert = false);
 
 // ---- Tracks ----
 
