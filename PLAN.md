@@ -30,6 +30,9 @@ GPU effects, hardware decode, speed ramps, plugins (OFX), collaboration, Windows
 
 **Priority: performance first** (then correctness, then readability — compensated with thorough
 comments; see docs/CODING_STYLE.md). Dev machine: Intel UHD 630 + NVIDIA GTX 1650 (driver 580).
+**Target machine: ThinkPad T14s Gen 2 — i5-1145G7 (4C/8T), Intel Iris Xe (Tiger Lake, iHD VAAPI driver),
+KDE Linux (Wayland).** ⇒ VAAPI is the primary hw path; must play 1080p smoothly (4K where hw decode allows).
+AppImage bundles the Qt Wayland plugin but uses the host's libva/libGL/libEGL/libvulkan/libdrm + drivers.
 | Area | Choice | Why |
 |---|---|---|
 | Language | C++20, CMake ≥ 3.24, Ninja | portable to Win/macOS later |
