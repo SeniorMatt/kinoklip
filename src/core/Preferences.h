@@ -9,7 +9,11 @@
 namespace kk::prefs {
 
 // ---- QSettings keys (the single place where preference key strings are spelled) ----
-inline constexpr char kUseSystemColors[] = "ui/useSystemColors"; ///< bool, default false
+inline constexpr char kWidgetStyle[] = "ui/widgetStyle"; ///< QStyle key, default "Breeze"
+inline constexpr char kColorScheme[]
+    = "ui/colorScheme"; ///< KDE colour scheme id, default "BreezeDark"
+/// Legacy bool (before the KDE colour schemes): true is migrated to the system scheme.
+inline constexpr char kUseSystemColors[] = "ui/useSystemColors";
 inline constexpr char kHwAccel[] = "playback/hwaccel"; ///< HwAccel id string, default "auto"
 inline constexpr char kAutosaveMinutes[] = "project/autosaveMinutes"; ///< int, 0 = off; default 2
 

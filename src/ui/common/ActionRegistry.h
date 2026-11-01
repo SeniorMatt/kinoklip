@@ -34,6 +34,9 @@ class ActionRegistry : public QObject
 public:
     /// Separator marker returned by menuEntries().
     static constexpr char kSeparator[] = "-";
+    /// Prefix of a submenu marker returned by menuEntries(): ">settings.color_scheme" means
+    /// "a submenu here, filled with the entries of category settings.color_scheme".
+    static constexpr char kSubmenuPrefix[] = ">";
 
     /// Creates an empty registry. @p settingsGroup is the QSettings group for user overrides.
     explicit ActionRegistry(
@@ -51,6 +54,22 @@ public:
         const QString& iconName = {}, bool checkable = false);
     /// Appends a menu separator to @p category (after the last added action).
     void addSeparator(const QString& category);
+    /// Appends a submenu to @p category whose entries are those of @p subCategory (which may be
+    /// filled later, e.g. by the theme with one action per colour scheme). Menus are data: the
+    /// main window builds the nested menu from this marker (plan.md 5.9).
+    void addSubmenu(const QString& category, const QString& subCategory, const QString& title);
+    /// Title of a submenu category added with addSubmenu(), or empty.
+    [[nodiscard]] QString submenuTitle(const QString& subCategory) const
+    {
+        return m_submenuTitles.value(subCategory);
+    }
+    /// True if @p category is shown as a submenu of another category (not as a top-level menu).
+    [[nodiscard]] bool isSubmenu(const QString& category) const
+    {
+        return m_submenuTitles.contains(category);
+    }
+    /// The category of a menuEntries() submenu marker, or empty if @p entry is none.
+    [[nodiscard]] static QString submenuOf(const QString& entry);
 
     /// The action with id @p id, or nullptr (with a warning) if it is unknown.
     [[nodiscard]] QAction* action(const QString& id) const;
@@ -109,6 +128,7 @@ private:
     QStringList m_categories;
     QHash<QString, QStringList> m_menuEntries;
     QHash<QString, QList<QKeySequence>> m_defaults;
+    QHash<QString, QString> m_submenuTitles;
 };
 
 } // namespace kk

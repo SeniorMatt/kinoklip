@@ -19,6 +19,21 @@ endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Multimedia Svg SvgWidgets OpenGL OpenGLWidgets Concurrent Test)
 
+# KDE Frameworks 6 (optional): the real Breeze look the Kdenlive way -- KColorSchemeManager for
+# the KDE colour schemes, KIconThemes (+ the Breeze icons compiled into libKF6BreezeIcons) for
+# the icon theme. Present in the Arch container build; the Qt 6.4 fallback build (Mint) has no
+# KF6 and uses palette approximations read from resources/color-schemes (src/app/Theme.cpp).
+option(KK_USE_KF6 "Use KDE Frameworks 6 (KColorScheme, KIconThemes) when available" ON)
+set(KK_HAVE_KF6 OFF)
+if(KK_USE_KF6)
+  find_package(KF6ColorScheme 6.3 QUIET)
+  find_package(KF6IconThemes 6.3 QUIET)
+  if(KF6ColorScheme_FOUND AND KF6IconThemes_FOUND)
+    set(KK_HAVE_KF6 ON)
+  endif()
+endif()
+message(STATUS "KDE Frameworks 6 (Breeze colour schemes + icons): ${KK_HAVE_KF6}")
+
 # FFmpeg: pkg-config on Linux/macOS. (Windows later: FFMPEG_ROOT + find_library.)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
@@ -37,6 +52,10 @@ target_compile_definitions(kinoklip_core PUBLIC
 target_link_libraries(kinoklip_core PUBLIC
   Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Multimedia Qt6::Svg Qt6::SvgWidgets
   Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent PkgConfig::FFMPEG)
+if(KK_HAVE_KF6)
+  target_link_libraries(kinoklip_core PUBLIC KF6::ColorScheme KF6::IconThemes)
+  target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_KF6)
+endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(kinoklip_core PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()

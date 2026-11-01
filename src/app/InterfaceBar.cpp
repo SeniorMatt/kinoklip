@@ -47,6 +47,7 @@ void InterfaceBar::addButton(QHBoxLayout* layout, QAction* action)
     button->setDefaultAction(action);
     button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     button->setIconSize(QSize(kIconSize, kIconSize));
+    button->setAutoRaise(true); // flat until hovered/checked: the Breeze toolbar look
     button->setFocusPolicy(Qt::NoFocus);
     layout->addWidget(button);
 }

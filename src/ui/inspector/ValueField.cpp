@@ -125,8 +125,9 @@ void ValueField::paintEvent(QPaintEvent*)
     p.setRenderHint(QPainter::Antialiasing);
 
     QColor background = pal.color(QPalette::Base);
-    if (underMouse() || m_scrubbing)
-        background = background.lighter(125);
+    if (underMouse() || m_scrubbing) // lighter() does nothing on a white (light scheme) base
+        background
+            = background.lightness() < 128 ? background.lighter(125) : background.darker(104);
     QColor border = hasFocus() ? pal.color(QPalette::Highlight) : pal.color(QPalette::Mid);
     if (!isEnabled())
         background = pal.color(QPalette::Window);
@@ -136,9 +137,10 @@ void ValueField::paintEvent(QPaintEvent*)
 
     if (m_editor && m_editor->isVisible())
         return;
-    // Accent-coloured value text marks it as interactive, like most inspector fields.
-    p.setPen(isEnabled() ? pal.color(QPalette::Highlight).lighter(130)
-                         : pal.color(QPalette::Disabled, QPalette::Text));
+    // Accent-coloured value text marks it as interactive, like most inspector fields. The
+    // link colour is the accent tuned by the colour scheme for text on Base (light and dark).
+    p.setPen(
+        isEnabled() ? pal.color(QPalette::Link) : pal.color(QPalette::Disabled, QPalette::Text));
     p.drawText(rect().adjusted(kHorizontalPadding, 0, -kHorizontalPadding, 0),
         Qt::AlignVCenter | Qt::AlignRight, m_text);
 }

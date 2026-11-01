@@ -7,7 +7,6 @@
 #include "app/InterfaceBar.h"
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
-#include "app/Theme.h"
 #include "app/pages/EditPage.h"
 #include "app/pages/MediaPage.h"
 #include "core/Preferences.h"
@@ -28,6 +27,8 @@
 #include <QStackedWidget>
 #include <QUndoStack>
 #include <QVBoxLayout>
+
+#include <functional>
 
 namespace kk {
 
@@ -167,13 +168,21 @@ Page* MainWindow::page(const QString& pageId) const
 
 void MainWindow::buildMenus()
 {
+    // Menus are data (plan.md 5.9): each category lists action ids, separators and submenu
+    // markers; nothing here knows what a menu contains.
     const ActionRegistry& registry = *m_ctx.actions;
-    auto fillMenu = [&registry](QMenu* menu, const QString& category) {
+    std::function<void(QMenu*, const QString&)> fillMenu;
+    fillMenu = [&registry, &fillMenu](QMenu* menu, const QString& category) {
         for (const QString& id : registry.menuEntries(category)) {
-            if (id == QLatin1String(ActionRegistry::kSeparator))
+            if (id == QLatin1String(ActionRegistry::kSeparator)) {
                 menu->addSeparator();
-            else
+            } else if (const QString sub = ActionRegistry::submenuOf(id); !sub.isEmpty()) {
+                QMenu* submenu = menu->addMenu(registry.submenuTitle(sub));
+                submenu->setObjectName(QStringLiteral("menu:") + sub);
+                fillMenu(submenu, sub);
+            } else {
                 menu->addAction(registry.action(id));
+            }
         }
     };
     QStringList known;
@@ -181,17 +190,20 @@ void MainWindow::buildMenus()
     for (const MenuCategory& category : standardMenus()) {
         known.append(category.id);
         QMenu* menu = menuBar()->addMenu(category.title);
+        menu->setObjectName(QStringLiteral("menu:") + category.id);
         fillMenu(menu, category.id);
         if (category.id == QLatin1String("help"))
             helpMenu = menu;
     }
-    // Categories registered by other modules get their own menu before Help.
+    // Categories registered by other modules get their own menu before Help (submenu
+    // categories are already shown inside their parent menu).
     for (const QString& category : registry.categories()) {
-        if (known.contains(category))
+        if (known.contains(category) || registry.isSubmenu(category))
             continue;
         QString title = category;
         title[0] = title[0].toUpper();
         QMenu* menu = new QMenu(title, menuBar());
+        menu->setObjectName(QStringLiteral("menu:") + category);
         menuBar()->insertMenu(helpMenu ? helpMenu->menuAction() : nullptr, menu);
         fillMenu(menu, category);
     }
@@ -244,11 +256,6 @@ void MainWindow::connectAppActions()
     QAction* singleViewer = actions.action(QStringLiteral("view.single_viewer"));
     connect(singleViewer, &QAction::triggered, this,
         [this](bool on) { m_editPage->setSingleViewer(on); });
-
-    QAction* systemColors = actions.action(QStringLiteral("view.use_system_colors"));
-    systemColors->setChecked(theme::useSystemColors());
-    connect(
-        systemColors, &QAction::triggered, this, [](bool on) { theme::setUseSystemColors(on); });
 
     // ---- Help ----
     connect(actions.action(QStringLiteral("help.about")), &QAction::triggered, this, [this] {

@@ -14,7 +14,9 @@ namespace {
 
 const char* const kContext = "kk::StandardActions";
 
-/// One row of the catalogue. id "-" = separator in the current category.
+/// One row of the catalogue. id "-" = separator in the current category; an id starting with
+/// ">" (ActionRegistry::kSubmenuPrefix) is a submenu titled @c text showing that category,
+/// whose actions are registered by their owner (e.g. src/app/Theme for the colour schemes).
 struct ActionSpec
 {
     const char* category;
@@ -122,8 +124,6 @@ const ActionSpec kActions[] = {
     {"view", "view.single_viewer",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Single Viewer Mode"), "single_viewer", true},
     {"view", "view.fullscreen_viewer", QT_TRANSLATE_NOOP("kk::StandardActions", "Full-Screen &Viewer"), "fullscreen"},
     {"view", "view.fullscreen",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen"), "", true},
-    {"view", "-"},
-    {"view", "view.use_system_colors", QT_TRANSLATE_NOOP("kk::StandardActions", "Use System &Colors"), "", true},
 
     // ---- Playback ----
     {"playback", "transport.play_pause",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Play / Pause"), "play"},
@@ -142,6 +142,10 @@ const ActionSpec kActions[] = {
     {"playback", "transport.go_to_end",       QT_TRANSLATE_NOOP("kk::StandardActions", "Go to End"), "go_end"},
     {"playback", "-"},
     {"playback", "transport.loop",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Loop Playback"), "loop", true},
+
+    // ---- Settings (look and feel; entries filled by src/app/Theme) ----
+    {"settings", ">settings.color_scheme", QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Theme")},
+    {"settings", ">settings.style",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Style")},
 
     // ---- Help ----
     {"help", "help.about",            QT_TRANSLATE_NOOP("kk::StandardActions", "&About %1")},
@@ -169,6 +173,8 @@ QVector<MenuCategory> standardMenus()
         {QStringLiteral("view"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&View"))},
         {QStringLiteral("playback"),
             translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Playback"))},
+        {QStringLiteral("settings"),
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Settings"))},
         {QStringLiteral("help"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Help"))},
     };
 }
@@ -179,6 +185,10 @@ void registerStandardActions(ActionRegistry& registry)
         const QString category = QLatin1String(spec.category);
         if (qstrcmp(spec.id, ActionRegistry::kSeparator) == 0) {
             registry.addSeparator(category);
+            continue;
+        }
+        if (const QString sub = ActionRegistry::submenuOf(QLatin1String(spec.id)); !sub.isEmpty()) {
+            registry.addSubmenu(category, sub, translate(spec.text));
             continue;
         }
         registry.add(QLatin1String(spec.id), translate(spec.text), category,
