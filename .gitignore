@@ -1,0 +1,7 @@
+build/
+build-*/
+dist/
+*.AppImage
+tests/data/generated/
+.cache/
+compile_commands.json

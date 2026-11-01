@@ -1,0 +1,5 @@
+# Cutwise — live status log
+(newest at the bottom; times are local)
+
+- 01:05 Toolchain installed (Qt 6.4.2, FFmpeg 6.1, CMake 3.28, x264/AAC available).
+- 01:15 PLAN.md written; skeleton + git repo created.
