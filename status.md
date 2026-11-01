@@ -33,3 +33,4 @@
 - 03:43 Owner: match Resolve behaviour in every detail (parity agent + docs/behavior-spec.md, plan 5.10); FUTURE idea recorded: Resolve/Plasma interface profile switch (plan 5.9) with profile-ready coding rules added to coding-style.md.
 - 03:45 FUTURE idea recorded: Vim-style keyboard-only profile (plan 5.9b) + rules (commands with explicit args, pure navigation primitives, single input layer).
 - 03:52 Formats merged (32/32 tests): all plan 5.8 import formats verified (76 checks), Vulkan probe fix, media cache shutdown race fixed. Export agent starting.
+- 03:53 Heartbeat: breeze (1 commit), playback (1 commit), export (just started) all active within the last minute.
