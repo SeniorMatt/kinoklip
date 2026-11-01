@@ -1,0 +1,621 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// GlRenderer — per-frame orchestration of the GPU compositor.
+//
+// Per frame:  evaluate tracks → decode visible media in parallel → for each video track
+// (V1 first): draw its clip, or its two transition sides into temporaries + transition pass,
+// premultiplied-over into an RGBA16F accumulator → copy to an 8-bit output (slot texture
+// and/or PBO readback).
+//
+// Per clip (drawClip):
+//   direct path (no active effects): the source (YUV planes / title texture / solid colour) is
+//     drawn straight into the target through the full transform with crop + opacity — one pass;
+//   layer path (effects): the source is first drawn upright into a "layer" target (layer
+//     resolution, optional transparent margin), the effects ping-pong over pooled targets, and
+//     the layer is then drawn through the transform with opacity.
+#include "render/GlRenderer.h"
+
+#include "core/ParamKeys.h"
+#include "render/RenderLog.h"
+
+#include <QOffscreenSurface>
+#include <QOpenGLContext>
+#include <QOpenGLVersionFunctionsFactory>
+#include <QSet>
+
+#include <algorithm>
+#include <cmath>
+#include <latch>
+
+namespace kk::render {
+
+namespace {
+
+/// Largest texture/target edge we allocate (GL 3.3 guarantees 1024; real GPUs do ≥ 8192).
+constexpr int kMaxTargetEdge = 8192;
+/// Title textures kept in the cache (each is the text's bounding box, typically < 2 MB).
+constexpr int kTitleCacheSize = 24;
+/// Default colour of a Solid clip without a colour (solid_color descriptor default).
+const QColor kDefaultSolid(0x30, 0x30, 0x34);
+/// Worker threads for decoding the clips of one frame in parallel.
+constexpr int kDecodeThreads = 4;
+
+/// Quantises a zoom factor for title rasterisation so that animated zooms re-rasterise only at
+/// a few steps (the texture is then scaled by at most ~1.5× by the GPU).
+double titleRasterZoom(double zoom)
+{
+    if (zoom <= 1.0)
+        return std::max(0.25, std::ceil(zoom * 4.0) / 4.0);
+    constexpr double kSteps[] = {1.5, 2.0, 3.0, 4.0};
+    for (const double s : kSteps) {
+        if (zoom <= s)
+            return s;
+    }
+    return 4.0;
+}
+
+/// Crop rectangle (normalised content coordinates) of @p clip for a source of @p sourcePx.
+QRectF cropRect(const ClipData& clip, int64_t localFrame, QSizeF sourcePx)
+{
+    const ParamSet& p = clip.transform;
+    const double l = std::max(0.0, p.value(keys::CropL, localFrame)) / sourcePx.width();
+    const double r = std::max(0.0, p.value(keys::CropR, localFrame)) / sourcePx.width();
+    const double t = std::max(0.0, p.value(keys::CropT, localFrame)) / sourcePx.height();
+    const double b = std::max(0.0, p.value(keys::CropB, localFrame)) / sourcePx.height();
+    return QRectF(QPointF(l, t), QPointF(1.0 - r, 1.0 - b));
+}
+
+/// @p crop (content coordinates) expressed in the coordinates of sub-rectangle @p quad.
+QRectF cropInQuad(const QRectF& crop, const QRectF& quad)
+{
+    return QRectF((crop.left() - quad.left()) / quad.width(),
+        (crop.top() - quad.top()) / quad.height(), crop.width() / quad.width(),
+        crop.height() / quad.height());
+}
+
+} // namespace
+
+/// What a clip draws this frame. Content = the clip's picture at zoom 1 in timeline pixels.
+struct GlRenderer::ClipSource
+{
+    enum class Kind {
+        Video,
+        Texture,
+        Solid
+    };
+    Kind kind = Kind::Solid;
+    QSizeF content; ///< timeline pixels (display orientation)
+    QSizeF sourcePx; ///< source pixels covering the content (crop units, native resolution)
+    QRectF quad = QRectF(0, 0, 1, 1); ///< part of the content the source covers (content uv)
+    const DecodedClip* video = nullptr;
+    PlaneTextures* planes = nullptr;
+    GLuint texture = 0;
+    float color[4] = {0, 0, 0, 0}; ///< premultiplied
+};
+
+GlRenderer::GlRenderer(QOffscreenSurface* surface)
+    : m_surface(surface)
+{
+    m_decodeThreads.setMaxThreadCount(kDecodeThreads);
+    m_decodeThreads.setObjectName(QStringLiteral("kk.render.decode"));
+}
+
+GlRenderer::~GlRenderer()
+{
+    shutdown();
+}
+
+bool GlRenderer::initialize(QString* why)
+{
+    m_context = std::make_unique<QOpenGLContext>();
+    QSurfaceFormat format = m_surface->format();
+    format.setVersion(3, 3);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+    m_context->setFormat(format);
+    QOpenGLContext* share = QOpenGLContext::globalShareContext();
+    if (share)
+        m_context->setShareContext(share);
+    if (!m_context->create()) {
+        *why = QStringLiteral("cannot create an OpenGL context");
+        return false;
+    }
+    if (share && m_context->shareContext() != share)
+        qCWarning(lcRender) << "context sharing failed: viewers must use readback images";
+    if (!m_context->makeCurrent(m_surface)) {
+        *why = QStringLiteral("cannot make the OpenGL context current on the render thread");
+        return false;
+    }
+    const QSurfaceFormat actual = m_context->format();
+    if (m_context->isOpenGLES() || actual.version() < qMakePair(3, 3)) {
+        *why = QStringLiteral("OpenGL %1.%2%3 < 3.3 core")
+                   .arg(actual.majorVersion())
+                   .arg(actual.minorVersion())
+                   .arg(m_context->isOpenGLES() ? QStringLiteral(" ES") : QString());
+        return false;
+    }
+    m_gl = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_3_3_Core>(m_context.get());
+    if (!m_gl || !m_gl->initializeOpenGLFunctions()) {
+        *why = QStringLiteral("OpenGL 3.3 core functions unavailable");
+        return false;
+    }
+    const auto renderer = reinterpret_cast<const char*>(m_gl->glGetString(GL_RENDERER));
+    m_description = QStringLiteral("OpenGL %1.%2 (%3)")
+                        .arg(actual.majorVersion())
+                        .arg(actual.minorVersion())
+                        .arg(QString::fromLatin1(renderer ? renderer : "unknown"));
+
+    m_kit = std::make_unique<GlKit>(m_gl);
+    if (!m_kit->initialize(why) || !m_video.initialize(*m_kit, why))
+        return false;
+    m_output = std::make_unique<GlOutput>(*m_kit);
+
+    for (const GlEffectFactory& f : builtinGlEffects()) {
+        std::shared_ptr<GlEffect> effect = f.create();
+        QString log;
+        if (effect->initialize(*m_kit, &log))
+            m_effects.insert(QLatin1String(f.id), std::move(effect));
+        else
+            qCWarning(lcRender).noquote() << "effect" << f.id << "disabled:" << log;
+    }
+    for (const GlTransitionFactory& f : builtinGlTransitions()) {
+        std::shared_ptr<GlTransition> transition = f.create();
+        QString log;
+        if (transition->initialize(*m_kit, &log))
+            m_transitions.insert(QLatin1String(f.id), std::move(transition));
+        else
+            qCWarning(lcRender).noquote() << "transition" << f.id << "disabled:" << log;
+    }
+    const auto dissolve = m_transitions.constFind(QStringLiteral("cross_dissolve"));
+    if (dissolve == m_transitions.constEnd()) {
+        *why = QStringLiteral("cross_dissolve shader failed");
+        return false;
+    }
+    m_fallbackTransition = dissolve->get();
+
+    // Plane textures live with their decoder; delete them when the pool closes it.
+    m_decoders.setCloseHook([this](DecoderPool::Entry& e) {
+        if (auto planes = std::static_pointer_cast<PlaneTextures>(e.userData))
+            GlVideo::release(*m_kit, *planes);
+    });
+    m_decoded.reserve(16);
+    m_trackFrames.reserve(16);
+    m_activeEffects.reserve(16);
+    m_activeInstances.reserve(16);
+    const GLenum error = m_gl->glGetError();
+    if (error != GL_NO_ERROR) {
+        *why = QStringLiteral("GL error 0x%1 during initialisation").arg(error, 0, 16);
+        return false;
+    }
+    return true;
+}
+
+void GlRenderer::shutdown()
+{
+    if (!m_context)
+        return;
+    m_decodeThreads.waitForDone();
+    if (m_kit && m_context->makeCurrent(m_surface)) {
+        if (m_output)
+            m_output->destroy();
+        m_decoders.clear();
+        for (const TitleTexture& t : std::as_const(m_titles))
+            m_gl->glDeleteTextures(1, &t.texture);
+        m_titles.clear();
+        for (auto& e : m_effects)
+            e->destroy(*m_kit);
+        for (auto& t : m_transitions)
+            t->destroy(*m_kit);
+        m_video.destroy(*m_kit);
+        m_kit->destroy();
+        m_context->doneCurrent();
+    }
+    m_effects.clear();
+    m_transitions.clear();
+    m_output.reset();
+    m_kit.reset();
+    m_context.reset();
+}
+
+bool GlRenderer::hasPending() const
+{
+    return m_output && m_output->hasPending();
+}
+
+void GlRenderer::finishPending(bool keepNewest)
+{
+    if (m_output)
+        m_output->finishPending(keepNewest);
+}
+
+// ---- Decoding ----
+
+void GlRenderer::queueDecode(
+    const ClipData* clip, int64_t frame, const TimelineData& tl, const MediaPathMap* media)
+{
+    if (!clip || !clip->enabled || clip->kind != ClipKind::Media || decoded(clip))
+        return;
+    const QString path = media ? media->value(clip->mediaId) : QString();
+    if (path.isEmpty())
+        return; // unknown media id: the clip is offline and draws nothing
+    const int64_t timeUs = clampedSourceTimeUs(*clip, frame, tl.fps);
+    DecoderPool::Entry* entry = m_decoders.acquire(path, timeUs);
+    if (!entry)
+        return;
+    m_decoded.push_back({clip, entry, timeUs, nullptr});
+}
+
+void GlRenderer::decodeQueued()
+{
+    const int n = int(m_decoded.size());
+    if (n == 0)
+        return;
+    // Every queued clip has its own decoder (DecoderPool hands out a decoder once per frame),
+    // so the decodes are independent: run all but the first on worker threads.
+    std::latch done(n - 1);
+    for (int i = 1; i < n; ++i) {
+        DecodedClip* d = &m_decoded[size_t(i)];
+        m_decodeThreads.start([d, &done] {
+            d->frame = d->entry->decoder->decodeFrame(d->timeUs);
+            done.count_down();
+        });
+    }
+    m_decoded[0].frame = m_decoded[0].entry->decoder->decodeFrame(m_decoded[0].timeUs);
+    done.wait();
+}
+
+const GlRenderer::DecodedClip* GlRenderer::decoded(const ClipData* clip) const
+{
+    for (const DecodedClip& d : m_decoded) {
+        if (d.clip == clip)
+            return &d;
+    }
+    return nullptr;
+}
+
+// ---- Frame ----
+
+void GlRenderer::render(RenderJob& job)
+{
+    QElapsedTimer timer;
+    timer.start();
+    const RenderRequest& rq = job.request;
+    auto invalid = [&job] {
+        auto frame = std::make_shared<RenderedFrame>();
+        frame->frame = job.request.frame;
+        job.promise.set_value(std::move(frame));
+    };
+    if (!rq.timeline || rq.timeline->width <= 0 || rq.timeline->height <= 0) {
+        invalid();
+        return;
+    }
+    const TimelineData& tl = *rq.timeline;
+    const QSize requested = rq.outSize.isEmpty() ? QSize(tl.width, tl.height) : rq.outSize;
+    const QSize out = scaledRenderSize(requested, rq.quality);
+    if (out.width() > kMaxTargetEdge || out.height() > kMaxTargetEdge) {
+        qCWarning(lcRender) << "output size too large:" << out;
+        invalid();
+        return;
+    }
+
+    FrameContext fc;
+    fc.timeline = &tl;
+    fc.frame = rq.frame;
+    fc.outSize = out;
+    fc.sx = double(out.width()) / tl.width;
+    fc.sy = double(out.height()) / tl.height;
+
+    // 1. What is visible: V1 (index 0) is the bottom layer, drawn first.
+    m_trackFrames.clear();
+    for (const TrackData& track : tl.videoTracks) {
+        if (!track.enabled)
+            continue;
+        TrackFrame tf = evaluateTrack(track, rq.frame);
+        if (!tf.isEmpty())
+            m_trackFrames.push_back(tf);
+    }
+
+    // 2. Decode every visible media clip (in parallel when there are several).
+    m_decoders.beginFrame();
+    m_decoded.clear();
+    const MediaPathMap* media = job.media.get();
+    for (const TrackFrame& tf : m_trackFrames) {
+        if (tf.single) {
+            queueDecode(tf.single, rq.frame, tl, media);
+        } else {
+            queueDecode(tf.transition->outgoing, rq.frame, tl, media);
+            queueDecode(tf.transition->incoming, rq.frame, tl, media);
+        }
+    }
+    decodeQueued();
+
+    // 3. Composite.
+    PooledTarget accumulator = m_kit->acquire(out);
+    m_kit->bindTarget(*accumulator);
+    m_kit->clearTransparent();
+    for (const TrackFrame& tf : m_trackFrames)
+        drawTrack(tf, fc, *accumulator);
+
+    // 4. Output.
+    PooledTarget scratch;
+    GLuint readFbo = 0;
+    std::shared_ptr<RenderedFrame> result
+        = m_output->produce(*accumulator, (rq.outputs & OutputTexture) != 0, scratch, &readFbo);
+    result->frame = rq.frame;
+    if (rq.outputs & OutputImage) {
+        m_output->startReadback(job, std::move(result), readFbo, timer);
+    } else {
+        result->renderMs = double(timer.nsecsElapsed()) / 1e6;
+        job.promise.set_value(std::move(result));
+    }
+
+    // Housekeeping (cheap loops; actual deletions are rare).
+    m_kit->targets().trim();
+    m_decoders.collectIdle();
+    trimTitleCache();
+}
+
+void GlRenderer::drawTrack(
+    const TrackFrame& tf, const FrameContext& fc, const RenderTarget& accumulator)
+{
+    if (tf.single) {
+        m_kit->bindTarget(accumulator);
+        drawClip(*tf.single, fc, accumulator);
+        return;
+    }
+    // Transition: render both sides (already transformed) into temporaries, then combine them
+    // with the transition shader over the accumulator.
+    const TransitionSpan& span = *tf.transition;
+    PooledTarget a, b;
+    if (span.outgoing && span.outgoing->enabled) {
+        a = m_kit->acquire(fc.outSize);
+        m_kit->bindTarget(*a);
+        m_kit->clearTransparent();
+        drawClip(*span.outgoing, fc, *a);
+    }
+    if (span.incoming && span.incoming->enabled) {
+        b = m_kit->acquire(fc.outSize);
+        m_kit->bindTarget(*b);
+        m_kit->clearTransparent();
+        drawClip(*span.incoming, fc, *b);
+    }
+    GlTransition* transition = m_fallbackTransition;
+    if (auto it = m_transitions.constFind(span.transition->type); it != m_transitions.constEnd())
+        transition = it->get();
+    TransitionInput in;
+    in.a = a ? a->texture : m_kit->transparentTexture();
+    in.b = b ? b->texture : m_kit->transparentTexture();
+    in.progress = span.progress(fc.frame);
+    in.params = &span.transition->params;
+    in.localFrame = fc.frame - span.start;
+    in.size = fc.outSize;
+    m_kit->bindTarget(accumulator);
+    m_kit->setBlendOver(true);
+    transition->draw(*m_kit, in);
+}
+
+bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const FrameContext& fc,
+    double maxZoomValue, ClipSource& src)
+{
+    const QSizeF frameSize(fc.timeline->width, fc.timeline->height);
+    switch (clip.kind) {
+    case ClipKind::Media: {
+        const DecodedClip* d = decoded(&clip);
+        if (!d || !d->frame)
+            return false;
+        auto planes = std::static_pointer_cast<PlaneTextures>(d->entry->userData);
+        if (!planes) {
+            planes = std::make_shared<PlaneTextures>();
+            d->entry->userData = planes;
+        }
+        m_video.upload(*m_kit, *planes, d->frame);
+        const media::VideoFrame& f = *d->frame;
+        src.kind = ClipSource::Kind::Video;
+        src.sourcePx = displaySize(f.width, f.height, f.sampleAspectRatio, f.rotation);
+        src.content = fitSize(src.sourcePx, frameSize);
+        src.video = d;
+        src.planes = planes.get();
+        return true;
+    }
+    case ClipKind::Title: {
+        const double rasterScale = std::max(fc.sx, fc.sy) * titleRasterZoom(maxZoomValue);
+        const QSize canvas(std::max(1, int(std::lround(frameSize.width() * rasterScale))),
+            std::max(1, int(std::lround(frameSize.height() * rasterScale))));
+        const TitleTexture* t
+            = titleTexture(resolveTitleStyle(clip, localFrame, canvas, rasterScale));
+        if (!t)
+            return false;
+        src.kind = ClipSource::Kind::Texture;
+        src.content = frameSize;
+        src.sourcePx = frameSize; // crop is given in timeline pixels for generated clips
+        src.texture = t->texture;
+        src.quad = QRectF(t->rect.x() / canvas.width(), t->rect.y() / canvas.height(),
+            t->rect.width() / canvas.width(), t->rect.height() / canvas.height());
+        return true;
+    }
+    case ClipKind::Solid: {
+        const QColor c = clip.solidColor.isValid() ? clip.solidColor : kDefaultSolid;
+        const float a = float(c.alphaF());
+        src.kind = ClipSource::Kind::Solid;
+        src.content = frameSize;
+        src.sourcePx = frameSize;
+        src.color[0] = float(c.redF()) * a;
+        src.color[1] = float(c.greenF()) * a;
+        src.color[2] = float(c.blueF()) * a;
+        src.color[3] = a;
+        return true;
+    }
+    }
+    return false;
+}
+
+void GlRenderer::drawSource(
+    const ClipSource& src, const QTransform& quadToNdc, const QRectF& crop, float opacity)
+{
+    switch (src.kind) {
+    case ClipSource::Kind::Video:
+        m_video.draw(*m_kit, *src.planes, *src.video->frame, quadToNdc, crop, opacity);
+        break;
+    case ClipSource::Kind::Texture:
+        m_kit->blit(src.texture, quadToNdc, opacity, crop);
+        break;
+    case ClipSource::Kind::Solid: {
+        const float c[4] = {src.color[0] * opacity, src.color[1] * opacity, src.color[2] * opacity,
+            src.color[3] * opacity};
+        m_kit->fill(quadToNdc, c, crop);
+        break;
+    }
+    }
+}
+
+void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const RenderTarget& target)
+{
+    if (!clip.enabled)
+        return;
+    const int64_t local = clip.localFrame(fc.frame);
+    const float opacity
+        = float(std::clamp(clip.transform.value(keys::Opacity, local) / 100.0, 0.0, 1.0));
+    if (opacity <= 0.0f)
+        return;
+    const double zoom = maxZoom(clip, local);
+    ClipSource src;
+    if (zoom <= 0.0 || !resolveSource(clip, local, fc, zoom, src))
+        return;
+    const QRectF crop = cropRect(clip, local, src.sourcePx);
+    if (crop.width() <= 0 || crop.height() <= 0)
+        return;
+
+    // Content (centred, timeline px) → timeline frame px → output px.
+    const QTransform toOutput
+        = clipTransform(clip, local, QSizeF(fc.timeline->width, fc.timeline->height))
+        * QTransform::fromScale(fc.sx, fc.sy);
+    const QTransform outputToNdc = GlKit::pixelToNdc(fc.outSize);
+    const double cw = src.content.width();
+    const double ch = src.content.height();
+
+    // Active effects of this clip (known, enabled, not a no-op with the current values).
+    m_activeEffects.clear();
+    m_activeInstances.clear();
+    double padding = 0.0;
+    for (const EffectInstance& e : clip.effects) {
+        if (!e.enabled)
+            continue;
+        const auto it = m_effects.constFind(e.type);
+        if (it == m_effects.constEnd()) {
+            if (!m_warnedEffects.contains(e.type)) {
+                m_warnedEffects.insert(e.type);
+                qCWarning(lcRender) << "no GPU implementation for effect" << e.type;
+            }
+            continue;
+        }
+        if ((*it)->isIdentity(e.params, local))
+            continue;
+        m_activeEffects.push_back(it->get());
+        m_activeInstances.push_back(&e);
+        padding += (*it)->paddingPx(e.params, local);
+    }
+
+    if (m_activeEffects.empty()) {
+        // Direct path: one pass from the source into the target.
+        const QTransform quad(src.quad.width() * cw, 0, 0, src.quad.height() * ch,
+            (src.quad.x() - 0.5) * cw, (src.quad.y() - 0.5) * ch);
+        m_kit->bindTarget(target);
+        m_kit->setBlendOver(true);
+        drawSource(src, quad * toOutput * outputToNdc, cropInQuad(crop, src.quad), opacity);
+        return;
+    }
+
+    // Layer path. Layer resolution: output resolution at the clip's zoom, but never more
+    // detailed than the source itself (zooming into a 720p clip does not need a 4K layer).
+    const double base = std::max(fc.sx, fc.sy);
+    const double native = src.sourcePx.width() / cw; // source pixels per timeline pixel
+    const double nativeLimit = src.kind == ClipSource::Kind::Video ? native / base : 4.0;
+    double layerScale = base * std::min(zoom, std::max(1.0, nativeLimit));
+    const double padPx = std::ceil(padding * layerScale);
+    QSize layerSize(
+        int(std::ceil(cw * layerScale + 2 * padPx)), int(std::ceil(ch * layerScale + 2 * padPx)));
+    if (layerSize.width() > kMaxTargetEdge || layerSize.height() > kMaxTargetEdge) {
+        const double shrink
+            = double(kMaxTargetEdge) / std::max(layerSize.width(), layerSize.height());
+        layerScale *= shrink;
+        layerSize = QSize(std::min(kMaxTargetEdge, int(layerSize.width() * shrink)),
+            std::min(kMaxTargetEdge, int(layerSize.height() * shrink)));
+    }
+    layerSize = layerSize.expandedTo(QSize(1, 1));
+
+    PooledTarget layer = m_kit->acquire(layerSize);
+    m_kit->bindTarget(*layer);
+    m_kit->clearTransparent();
+    m_kit->setBlendOver(false);
+    const QRectF sourceRect(padPx + src.quad.x() * cw * layerScale,
+        padPx + src.quad.y() * ch * layerScale, src.quad.width() * cw * layerScale,
+        src.quad.height() * ch * layerScale);
+    drawSource(src, GlKit::quadToNdc(sourceRect, layerSize), cropInQuad(crop, src.quad), 1.0f);
+
+    for (size_t i = 0; i < m_activeEffects.size(); ++i) {
+        EffectInput in;
+        in.layer = layer.get();
+        in.scale = layerScale;
+        in.localFrame = local;
+        in.params = &m_activeInstances[i]->params;
+        PooledTarget next = m_activeEffects[i]->apply(*m_kit, in);
+        if (next)
+            layer = std::move(next);
+    }
+
+    // Layer pixel x ↔ content coordinate (x − pad) / layerScale − cw/2 (same for y).
+    const QTransform quad(layerSize.width() / layerScale, 0, 0, layerSize.height() / layerScale,
+        -padPx / layerScale - cw * 0.5, -padPx / layerScale - ch * 0.5);
+    m_kit->bindTarget(target);
+    m_kit->setBlendOver(true);
+    m_kit->blit(layer->texture, quad * toOutput * outputToNdc, opacity);
+}
+
+// ---- Title cache ----
+
+const GlRenderer::TitleTexture* GlRenderer::titleTexture(const TitleStyle& style)
+{
+    ++m_useCounter;
+    auto it = m_titles.find(style);
+    if (it != m_titles.end()) {
+        it->lastUse = m_useCounter;
+        return &*it;
+    }
+    const TitleImage image = renderTitle(style);
+    if (image.image.isNull())
+        return nullptr;
+    TitleTexture t;
+    t.size = image.image.size();
+    t.rect = image.rect;
+    t.canvas = style.canvas;
+    t.lastUse = m_useCounter;
+    m_gl->glGenTextures(1, &t.texture);
+    m_gl->glBindTexture(GL_TEXTURE_2D, t.texture);
+    m_gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    m_gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    m_gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    m_gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    m_gl->glPixelStorei(GL_UNPACK_ROW_LENGTH, GLint(image.image.bytesPerLine() / 4));
+    m_gl->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, t.size.width(), t.size.height(), 0, GL_BGRA,
+        GL_UNSIGNED_BYTE, image.image.constBits());
+    m_gl->glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    return &*m_titles.insert(style, t);
+}
+
+void GlRenderer::trimTitleCache()
+{
+    while (m_titles.size() > kTitleCacheSize) {
+        auto oldest = m_titles.begin();
+        for (auto it = m_titles.begin(); it != m_titles.end(); ++it) {
+            if (it->lastUse < oldest->lastUse)
+                oldest = it;
+        }
+        m_gl->glDeleteTextures(1, &oldest->texture);
+        m_titles.erase(oldest);
+    }
+}
+
+std::unique_ptr<RenderBackend> createGlBackend(QOffscreenSurface* surface)
+{
+    return std::make_unique<GlRenderer>(surface);
+}
+
+} // namespace kk::render
