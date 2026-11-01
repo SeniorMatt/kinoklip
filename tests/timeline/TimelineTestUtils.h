@@ -226,3 +226,10 @@ inline void buildManyClips(TimelineData& d, int count)
 }
 
 } // namespace kk::test
+
+/// Fails the current test if the timeline violates its invariants.
+#define KK_VERIFY_TIMELINE(data)                                                                   \
+    do {                                                                                           \
+        QString why_;                                                                              \
+        QVERIFY2(kk::editops::checkInvariants((data), &why_), qPrintable(why_));                   \
+    } while (false)
