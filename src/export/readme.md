@@ -52,8 +52,8 @@ kk::ExportResult r = job.run([](const kk::ExportProgress& p) { /* frames, fps, E
   `framesToSamples48k(first + k + 1) - framesToSamples48k(first)`, so audio never drifts.
   Encoder priming (AAC, Opus) is written by the muxer as an edit list / pre-skip, which
   decoders honour — `test_export avSync` checks a flash frame against an audio impulse in
-  MP4/AAC (offset 0.3 ms), MOV/PCM and MKV/FLAC (0 ms) and WebM/Opus (6.5 ms = the Opus
-  pre-skip as reported by our decoder; well inside the one-frame tolerance).
+  MP4/AAC (offset 0.3 ms), MOV/PCM and MKV/FLAC (0 ms) and WebM/Opus (0 ms with FFmpeg 9;
+  6.5 ms = the Opus pre-skip with FFmpeg 6.1's decoder; well inside the one-frame tolerance).
 * **Colour**: YUV outputs are tagged and converted as BT.709 limited range (JPEG: BT.601 full
   range, the JFIF convention); RGB outputs are sRGB; EXR is linear (sRGB decoding curve),
   premultiplied. Alpha outputs (ProRes 4444, PNG/TIFF/EXR with alpha) are un-premultiplied
@@ -117,6 +117,9 @@ while other builds kept the load average at 17-21 (numbers on an idle machine ar
 | libx264 (medium) | 108 fps | 3.7 ms/frame | 28 fps |
 | h264_nvenc (p5) | 296 fps | 2.3 ms/frame | 68 fps |
 | before the own converter (swscale) | 25 / 42 fps | 26 / 22 ms/frame | 10 / 24 fps |
+
+Arch container (FFmpeg 9, no GPU → QPainter compositor): libx264 65.8 fps encode only,
+20.5 fps full pipeline.
 
 VAAPI (the target laptop's path) could not be measured: the render nodes belong to the other
 logged-in user's seat on the dev box; `test_exportperf` and `test_export hardwareEncoders`

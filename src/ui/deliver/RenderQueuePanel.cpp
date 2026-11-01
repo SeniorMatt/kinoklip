@@ -5,6 +5,7 @@
 #include "export/RenderQueue.h"
 #include "ui/common/Icons.h"
 
+#include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
@@ -22,6 +23,8 @@ namespace kk {
 /// One job of the queue.
 class RenderJobCard : public QFrame
 {
+    Q_DECLARE_TR_FUNCTIONS(kk::RenderJobCard)
+
 public:
     RenderJobCard(RenderQueue* queue, quint64 id, QWidget* parent = nullptr)
         : QFrame(parent)
