@@ -23,8 +23,7 @@ Plan for a macOS build of Kinoklip. Nothing here is automated yet.
   macOS; Metal (via QRhi or a Metal backend of the compositor) is the long-term path.
 
 ## 3. Deployment
-1. `macdeployqt Kinoklip.app -no-plugins` is not enough; run plain
-   `macdeployqt build/Kinoklip.app` (copies Qt frameworks + cocoa platform plugin, styles,
+1. `macdeployqt build/Kinoklip.app` (copies Qt frameworks + cocoa platform plugin, styles,
    imageformats, iconengines, multimedia/ffmpeg) and then copy the FFmpeg dylibs into
    `Contents/Frameworks`.
 2. Fix install names with `install_name_tool -id @rpath/... ` / `-change` and add
