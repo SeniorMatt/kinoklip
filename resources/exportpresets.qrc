@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<!-- Export presets (src/export/ExportPresets.cpp loads :/export/presets.json). -->
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file>export/presets.json</file>
+    </qresource>
+</RCC>
