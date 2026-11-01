@@ -76,9 +76,15 @@ struct View
 /// Sends a drag-enter + drop of @p mime at @p pos to the viewport.
 bool drop(QWidget* viewport, QMimeData* mime, QPoint pos, Qt::KeyboardModifiers mods = {})
 {
-    QDragEnterEvent enter(pos, Qt::CopyAction, mime, Qt::LeftButton, mods);
+    // Qt 6.12 deprecates the QPoint constructors of the drag events; Qt 6.4 has no QPointF ones.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 12, 0)
+    const QPointF dragPos(pos);
+#else
+    const QPoint dragPos(pos);
+#endif
+    QDragEnterEvent enter(dragPos, Qt::CopyAction, mime, Qt::LeftButton, mods);
     QCoreApplication::sendEvent(viewport, &enter);
-    QDragMoveEvent move(pos, Qt::CopyAction, mime, Qt::LeftButton, mods);
+    QDragMoveEvent move(dragPos, Qt::CopyAction, mime, Qt::LeftButton, mods);
     QCoreApplication::sendEvent(viewport, &move);
     QDropEvent dropEvent(pos, Qt::CopyAction, mime, Qt::LeftButton, mods);
     QCoreApplication::sendEvent(viewport, &dropEvent);
