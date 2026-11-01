@@ -41,3 +41,4 @@
 - 04:31 Owner roadmap recorded in docs/roadmap.md (v2, v2.5, v3, v4). v1 scope unchanged: basics only.
 - 04:46 Playback merged (36/36 tests): viewers show video, audio-master clock, JKL, auto quality, source viewer + F9/F10/F12. Release naming: 0.1.0-alpha.1 (1.0 only on owner's decision). Website idea recorded in roadmap.
 - 04:49 Export merged (39/39 tests): ExportJob (3 frames in flight), NVENC/VAAPI/QSV detection + SW fallback, fast BT.709 RGB->YUV, 22 presets (MP4/MOV/MKV/WebM/audio/sequences/GIF), Deliver page + render queue, --render CLI. All v1 core features now on main. Parity agent starting.
+- 04:51 Heartbeat: breeze (5 commits) and parity (starting) active; 23 GB free.
