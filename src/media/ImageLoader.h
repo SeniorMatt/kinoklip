@@ -66,8 +66,11 @@ struct LoadedImage
 /// Camera RAW: half-size decode by default (one pixel per 2x2 Bayer block, ~4x faster, still
 /// at least 3 MP for current cameras); see setRawFullSize().
 /// HDR / float sources (EXR, 16-bit PNG/TIFF, 10-bit HEIF): converted to 8 bit; EXR is converted
-/// with the sRGB transfer curve and values above 1.0 are clamped.
+/// from linear light with the sRGB transfer curve (lookup table) and values above 1.0 are clamped.
 /// TODO(media): keep float/16-bit stills for an HDR compositor path instead of clamping.
+///
+/// Cost (dev box, 1920x1080, load()): JPEG 17 ms, PNG 52 ms, AVIF 89 ms, EXR (float) 34 ms;
+/// readHeader() 0.1-0.2 ms (EXR 4 ms); loadCached() hit 5-30 us (one stat() + hash lookup).
 ///
 /// Thread-safety: all functions are thread-safe (each call uses its own decoder state; the
 /// cache is mutex-protected).

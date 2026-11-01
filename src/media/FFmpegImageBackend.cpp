@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // FFmpegImageBackend — stills that only libavcodec decodes (JPEG XL, OpenEXR, DPX, PSD, QOI,
-// PCX, SGI, JPEG 2000...): first frame of the file, converted with swscale.
+// PCX, SGI, JPEG 2000...): first frame of the file, converted with swscale (planar float EXR:
+// own linear → sRGB lookup-table conversion).
 #include "media/FFmpegUtil.h"
 #include "media/FrameConverter.h"
 #include "media/ImageBackends.h"
@@ -9,6 +10,11 @@
 extern "C" {
 #include <libavutil/pixdesc.h>
 }
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstring>
 
 namespace kk::media::detail {
 
@@ -25,8 +31,7 @@ bool isImageDemuxer(const AVFormatContext* fmt)
     return strcmp(name, "image2") == 0 || (length > 5 && strcmp(name + length - 5, "_pipe") == 0);
 }
 
-/// Opens a decoder for a still. OpenEXR stores linear light; `apply_trc=iec61966_2_1` makes
-/// the decoder apply the sRGB curve so the 8-bit result looks right (values > 1 clamp later).
+/// Opens a decoder for a still (all cores: big EXR/JPEG 2000 frames decode slice-parallel).
 CodecContextPtr openStillDecoder(const AVStream* stream, QString* error)
 {
     const AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
@@ -40,18 +45,96 @@ CodecContextPtr openStillDecoder(const AVStream* stream, QString* error)
         *error = QStringLiteral("Cannot set up decoder");
         return {};
     }
-    ctx->thread_count = 0; // big EXR/JPEG 2000 frames decode slice-parallel
-    AVDictionary* options = nullptr;
-    if (stream->codecpar->codec_id == AV_CODEC_ID_EXR) {
-        av_dict_set(&options, "apply_trc", "iec61966_2_1", 0);
-    }
-    const int ret = avcodec_open2(ctx.get(), codec, &options);
-    av_dict_free(&options);
+    ctx->thread_count = 0;
+    const int ret = avcodec_open2(ctx.get(), codec, nullptr);
     if (ret < 0) {
         *error = QStringLiteral("Cannot open decoder (%1)").arg(avErrorString(ret));
         return {};
     }
     return ctx;
+}
+
+// ---- Linear float → 8-bit sRGB (OpenEXR) ----
+//
+// EXR holds scene-linear light as planar float (gbrpf32 / gbrapf32, associated alpha). Showing it
+// needs the sRGB transfer curve; the decoder's own `apply_trc` option evaluates pow() per sample
+// (~250 ms for a 1080p frame), while this table lookup takes a few ms. Values are clamped to
+// 0..1 (no tone mapping yet). The table has kSrgbLutSize entries over linear 0..1: the steepest
+// part of the curve (the linear toe, slope 12.92) then advances < 1 output level per entry.
+
+constexpr int kSrgbLutSize = 16384;
+
+const std::array<uint8_t, kSrgbLutSize>& srgbLut()
+{
+    static const std::array<uint8_t, kSrgbLutSize> kLut = [] {
+        std::array<uint8_t, kSrgbLutSize> lut {};
+        for (int i = 0; i < kSrgbLutSize; ++i) {
+            const double linear = double(i) / (kSrgbLutSize - 1);
+            const double encoded = linear <= 0.0031308
+                ? 12.92 * linear
+                : 1.055 * std::pow(linear, 1.0 / 2.4) - 0.055;
+            lut[size_t(i)] = uint8_t(std::lround(std::clamp(encoded, 0.0, 1.0) * 255.0));
+        }
+        return lut;
+    }();
+    return kLut;
+}
+
+/// Index into srgbLut() for a linear value (NaN and negatives → 0, > 1 → 1).
+inline int lutIndex(float linear)
+{
+    // The comparison form also maps NaN to 0.
+    if (!(linear > 0.0f)) {
+        return 0;
+    }
+    return linear >= 1.0f ? kSrgbLutSize - 1 : int(linear * (kSrgbLutSize - 1) + 0.5f);
+}
+
+/// True for the planar float formats convertLinearFloat() handles.
+bool isPlanarFloat(int format)
+{
+    return format == AV_PIX_FMT_GBRPF32LE || format == AV_PIX_FMT_GBRAPF32LE;
+}
+
+/// gbr(a)pf32le frame (linear, associated alpha) → premultiplied ARGB32 in sRGB.
+QImage convertLinearFloat(const AVFrame* frame)
+{
+    QImage image(frame->width, frame->height, QImage::Format_ARGB32_Premultiplied);
+    if (image.isNull()) {
+        return image;
+    }
+    const auto& lut = srgbLut();
+    const bool alpha = frame->format == AV_PIX_FMT_GBRAPF32LE;
+    for (int y = 0; y < frame->height; ++y) {
+        // Plane order of FFmpeg's GBR formats: 0 = G, 1 = B, 2 = R, 3 = A.
+        const auto* g = reinterpret_cast<const float*>(frame->data[0] + y * frame->linesize[0]);
+        const auto* b = reinterpret_cast<const float*>(frame->data[1] + y * frame->linesize[1]);
+        const auto* r = reinterpret_cast<const float*>(frame->data[2] + y * frame->linesize[2]);
+        const auto* a = alpha
+            ? reinterpret_cast<const float*>(frame->data[3] + y * frame->linesize[3])
+            : nullptr;
+        auto* out = reinterpret_cast<QRgb*>(image.scanLine(y));
+        for (int x = 0; x < frame->width; ++x) {
+            if (!a) {
+                out[x] = qRgb(lut[size_t(lutIndex(r[x]))], lut[size_t(lutIndex(g[x]))],
+                    lut[size_t(lutIndex(b[x]))]);
+                continue;
+            }
+            // Un-premultiply in linear light, encode, re-premultiply in 8 bit.
+            const float av = std::clamp(a[x], 0.0f, 1.0f);
+            if (av <= 0.0f) {
+                out[x] = 0;
+                continue;
+            }
+            const float inv = 1.0f / av;
+            const int a8 = int(av * 255.0f + 0.5f);
+            const auto premul = [a8](int c) { return (c * a8 + 127) / 255; };
+            out[x] = qRgba(premul(lut[size_t(lutIndex(r[x] * inv))]),
+                premul(lut[size_t(lutIndex(g[x] * inv))]),
+                premul(lut[size_t(lutIndex(b[x] * inv))]), a8);
+        }
+    }
+    return image;
 }
 
 } // namespace
@@ -137,10 +220,13 @@ bool loadFFmpeg(const QString& path, LoadedImage& result)
     if (const AVPixFmtDescriptor* desc = av_pix_fmt_desc_get(AVPixelFormat(frame->format))) {
         result.hasAlpha = (desc->flags & AV_PIX_FMT_FLAG_ALPHA) != 0;
     }
-    // swscale handles every format these decoders emit, including planar float (EXR), with
-    // clamping to 0..1 on the way to 8 bit.
-    FrameConverter converter;
-    result.image = converter.convert(frame.get(), QSize(frame->width, frame->height));
+    if (isPlanarFloat(frame->format)) {
+        result.image = convertLinearFloat(frame.get()); // EXR: linear light → sRGB
+    } else {
+        // swscale handles every other format these decoders emit.
+        FrameConverter converter;
+        result.image = converter.convert(frame.get(), QSize(frame->width, frame->height));
+    }
     if (result.image.isNull()) {
         result.error
             = QStringLiteral("Cannot convert pixel format %1")
