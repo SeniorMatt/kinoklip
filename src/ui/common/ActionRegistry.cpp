@@ -203,8 +203,12 @@ std::optional<QList<QKeySequence>> ActionRegistry::userOverride(const QString& i
     settings.beginGroup(m_settingsGroup);
     if (!settings.contains(id))
         return std::nullopt;
-    // Stored as one string ("Ctrl+B; F5") because INI files cannot hold empty lists.
-    return QKeySequence::listFromString(settings.value(id).toString(), QKeySequence::PortableText);
+    // Stored as one string ("Ctrl+B; F5") because INI files cannot hold empty lists; an empty
+    // string means "explicitly unbound" (listFromString would yield one empty sequence).
+    QList<QKeySequence> keys
+        = QKeySequence::listFromString(settings.value(id).toString(), QKeySequence::PortableText);
+    keys.removeIf([](const QKeySequence& k) { return k.isEmpty(); });
+    return keys;
 }
 
 void ActionRegistry::applyShortcuts(const QString& id, const QList<QKeySequence>& shortcuts)

@@ -20,6 +20,7 @@ The heart of Cutwise. No widgets, no FFmpeg calls (only the `media::MediaInfo` v
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
 | `BuiltinEffects.cpp` | the v0.1 descriptor catalogue |
 | `Serialization.h` | JSON encode/decode of all value types |
+| `Preferences.h` | QSettings preference keys + typed accessors (`playback/hwaccel`, autosave, theme) |
 
 ## Time conventions (PLAN §5.1)
 - Timeline positions and durations: `int64_t` frames at `TimelineData::fps`.
@@ -28,6 +29,16 @@ The heart of Cutwise. No widgets, no FFmpeg calls (only the `media::MediaInfo` v
   content when the head is trimmed or the clip is split.
 - `ClipData::sourceDurationUs` (addition to the PLAN contract) caches the media length so EditOps
   can clamp trims without a media-pool lookup; 0 means unbounded (stills, titles, solids).
+
+## Performance notes (hot paths for render/playback)
+- `Timeline::snapshot()` returns a cached `shared_ptr<const TimelineData>`; it deep-copies only
+  once after each change. Render/playback threads keep the pointer as long as they need it.
+- `AnimatedValue::valueAt()` is a binary search over sorted keys, allocation-free.
+- `keys::*` are `QStringLiteral` QStrings, so `params.value(keys::Opacity, f)` never allocates.
+- `TrackData::clipAt()` is a binary search; `EffectRegistry::find()` is a hash lookup.
+- `Timeline::notifyChanged()` only emits a signal (no copies, no JSON), so live updates during a
+  drag are cheap. The undo snapshot is taken once in `beginEdit()` and compared once in
+  `endEdit()`.
 
 ## Editing protocol
 ```cpp
