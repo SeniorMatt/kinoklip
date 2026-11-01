@@ -292,6 +292,64 @@ lists below only drive file dialogs and the media browser filter. One registry:
 
 ---
 
+### 5.9 Interface profiles (FUTURE idea — not implemented now, but all code must allow it)
+The owner wants a Settings switch between two complete interface profiles:
+- **Resolve profile** (default): Resolve-like layout, page bar, Resolve-style shortcuts, Resolve-style
+  menus and preferences window, and Resolve-like editing behaviour down to small details.
+- **Plasma profile**: everything follows KDE Plasma / KDE HIG conventions — KXmlGui-style menus
+  (Settings > Configure Kinoklip..., Configure Keyboard Shortcuts..., Configure Toolbars...),
+  KDE standard shortcuts (KStandardShortcut), a KConfigDialog-style settings window with a sidebar,
+  dockable panels, toolbars and a status bar like Kdenlive / other KDE apps.
+
+Rules every agent follows NOW so the profiles can be added without rewrites:
+1. **No hard-coded shortcuts**: every command is an `ActionRegistry` action; default keys come from a
+   keymap file per profile (`resources/keymaps/<profile>.json`; today only `resolve`).
+2. **No hard-coded menu structure**: menus/toolbars are built from data (action ids + separators),
+   one description per profile (`resources/menus/<profile>.json` or an equivalent table in one file).
+3. **Layout is data**: panels are independent widgets created by id (`PanelId`); page layouts (splitter
+   trees / dock arrangement) are described by a layout description per profile, not wired by hand
+   inside panel code. Panels never assume who their neighbours are.
+4. **Settings pages are registered**, not hard-wired into one dialog class, so they can be shown
+   either in a Resolve-style preferences window or a KConfigDialog-style sidebar dialog.
+5. **Behaviour that differs by convention** (e.g. what Delete does, default trim mode, playhead
+   follow, wheel = zoom vs scroll) goes through a small `InterfaceProfile`/preferences lookup,
+   never an inline constant.
+6. Strings that differ (e.g. "Preferences" vs "Configure Kinoklip") come from the profile.
+
+#### 5.9b Vim profile (FUTURE idea — not implemented now)
+A third, keyboard-only interface profile where the whole editor is driven with Vim-style keys:
+- **Modes**: Normal (navigate/operate), Visual (select ranges of time/clips), Insert/Trim (live
+  edit-point adjustment), Command-line (`:`).
+- **Motions with counts** on the timeline: `h`/`l` frame, `5l` five frames, `w`/`b` next/prev edit
+  point, `e` clip end, `0`/`$` timeline start/end, `gg`/`G`, `j`/`k` track down/up, `f`/`t` jump to
+  marker, `` ` ``/`'` jump to marks (`ma` sets mark a).
+- **Operators + motions/objects**: `d` delete (ripple), `x` lift, `y` yank, `p`/`P` paste after/before
+  the playhead, `c` replace, `s` split; text-object-like targets `ic` (in clip), `ac` (clip + gap),
+  `it` (in transition), `ir` (in/out range): e.g. `dic`, `y3w`, `vip`.
+- **Repeat & macros**: `.` repeats the last edit, `q` records macros, `u` / `Ctrl-r` undo/redo,
+  registers (`"a`) for clipboard slots.
+- **Panels**: `Ctrl-w h/j/k/l` moves focus between panels; each panel gets Vim-style navigation
+  (media pool list, inspector fields: `j/k` move, `+`/`-` nudge value, `K` add keyframe).
+- **Command line**: `:w` save, `:e file`, `:import`, `:export preset`, `:set snap`, `:goto 01:02:03:04`,
+  `:fx blur 20` (add effect), `:speed 50%`; history and completion.
+- A status line shows mode, pending keys, count and current timecode.
+
+Rules every agent follows NOW so a Vim profile stays possible:
+1. **Every operation is a command with explicit arguments** (target clips/tracks, time range,
+   count, register), callable without the mouse — mouse gestures are just one way of filling in the
+   arguments. Keep editing logic in `EditOps`/controllers, never inside mouse handlers.
+2. Keyboard handling goes through one input layer (ActionRegistry today) so it can later be replaced
+   by a modal key-sequence state machine (multi-key chords, counts, pending operators).
+3. Navigation primitives (next edit point, next marker, next keyframe, next track, clip under
+   playhead, in/out range) live in `core` as pure functions so motions can reuse them.
+4. Panels expose keyboard focus and item navigation through a small interface (focus, move,
+   activate) rather than relying on mouse-only interaction.
+
+### 5.10 Behaviour parity with Resolve's Edit page
+`docs/behavior-spec.md` (written in our own words from general NLE knowledge — no copied docs text)
+lists every Edit-page interaction and its expected behaviour; a parity agent tests each item and
+fixes gaps. Default target: a Resolve user should find every small detail behaves as expected.
+
 ## 6. Execution plan (agents, git branches)
 
 Repo: `~/cutwise` (git). Integration branch `main` must **always build**. Each agent works in its
@@ -313,6 +371,7 @@ something runnable even if the budget runs out.
 | 3 | **formats** | `media/SupportedFormats`, still-image loaders (Qt, FFmpeg, libheif, LibRaw), image sequences, tests per format | media |
 | 3 | **theme** | Breeze look: Theme emulation, palette-derived editor colours, Breeze icon subset via fromTheme | foundation |
 | 3 | **packaging** | `packaging/`, AppImage script, .desktop, icon | foundation |
+| 4 | **parity** | docs/behavior-spec.md + tests + fixes for Resolve-like behaviour | all |
 | 4 | **qa** (1–2) | end-to-end scenarios, bug fixes, polish | all |
 | 4 | me | final merge, AppImage, morning-report.md | all |
 

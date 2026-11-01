@@ -16,8 +16,14 @@ using namespace kk::media;
 
 namespace {
 
-/// Generous wait for background work (first-time decoder/GPU initialisation included).
-constexpr int kWaitMs = 30000;
+/// Generous wait for background work (first-time decoder/GPU initialisation included, and
+/// `ctest -j4` running decoder benchmarks next to us). spy.wait() returns as soon as the
+/// signal arrives, so this only matters when the machine is overloaded.
+constexpr int kWaitMs = 120000;
+
+/// Upper bound for shutdown(): it waits for the jobs that are running (up to one 1080p decode
+/// each), which takes far longer than usual on a loaded machine.
+constexpr int kShutdownLimitMs = 60000;
 
 int countFiles(const QString& directory)
 {
@@ -167,6 +173,7 @@ private slots:
         QVERIFY(m_cache->waveform(silent) == nullptr);
         QVERIFY(m_cache->thumbnail(QString(), 0, 64).isNull());
         QVERIFY(m_cache->thumbnail(corrupt, 0, 0).isNull());
+        // Failures never signal; give the (fast-failing) jobs time to finish even under load.
         QTest::qWait(1500);
         QCOMPARE(thumbSpy.count(), 0);
         QCOMPARE(waveSpy.count(), 0);
@@ -198,7 +205,7 @@ private slots:
         QElapsedTimer timer;
         timer.start();
         m_cache->shutdown(); // must not hang; queued jobs are dropped
-        QVERIFY(timer.elapsed() < 10000);
+        QVERIFY(timer.elapsed() < kShutdownLimitMs);
         QVERIFY(m_cache->thumbnail(path, 7'000'000, 360).isNull());
         QSignalSpy spy(m_cache, &MediaCache::thumbnailReady);
         QVERIFY(!spy.wait(300)); // nothing new is scheduled after shutdown

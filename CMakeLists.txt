@@ -39,6 +39,18 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libavformat libavcodec libavutil libswscale libswresample libavfilter)
 
+# Optional still-image libraries (src/media/ImageLoader): HEIC/HEIF/AVIF and camera RAW.
+# Without them those formats are reported unsupported (AVIF still opens through FFmpeg).
+option(KK_WITH_LIBHEIF "HEIC/HEIF/AVIF stills via libheif (if found)" ON)
+option(KK_WITH_LIBRAW "Camera RAW stills via LibRaw (if found)" ON)
+if(KK_WITH_LIBHEIF)
+  pkg_check_modules(LIBHEIF IMPORTED_TARGET libheif)
+endif()
+if(KK_WITH_LIBRAW)
+  pkg_check_modules(LIBRAW IMPORTED_TARGET libraw_r) # thread-safe LibRaw build
+endif()
+message(STATUS "libheif: ${LIBHEIF_FOUND} ${LIBHEIF_VERSION}, LibRaw: ${LIBRAW_FOUND} ${LIBRAW_VERSION}")
+
 # ---- Core library: everything under src/ except main.cpp ----
 file(GLOB_RECURSE KK_SOURCES CONFIGURE_DEPENDS
   ${CMAKE_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/src/*.h)
@@ -55,6 +67,14 @@ target_link_libraries(kinoklip_core PUBLIC
 if(KK_HAVE_KF6)
   target_link_libraries(kinoklip_core PUBLIC KF6::ColorScheme KF6::IconThemes)
   target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_KF6)
+endif()
+if(LIBHEIF_FOUND)
+  target_link_libraries(kinoklip_core PUBLIC PkgConfig::LIBHEIF)
+  target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_LIBHEIF=1)
+endif()
+if(LIBRAW_FOUND)
+  target_link_libraries(kinoklip_core PUBLIC PkgConfig::LIBRAW)
+  target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_LIBRAW=1)
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(kinoklip_core PRIVATE -Wall -Wextra -Wno-unused-parameter)

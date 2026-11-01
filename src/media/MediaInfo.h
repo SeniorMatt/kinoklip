@@ -46,12 +46,25 @@ struct MediaInfo
     /// Container timestamp (µs) that corresponds to media time 0. Informational only — every
     /// media API already measures time relative to it.
     int64_t startTimeUs = 0;
+
+    // ---- Added by the formats work (image sequences, see ImageSequence.h) ----
+    /// `path` is an image-sequence path ("/dir/name_%04d.png#fps=24"): hasVideo, frameRate =
+    /// the chosen rate, durationUs = frames / rate, size/codec/container of the first file.
+    bool isImageSequence = false;
+    int sequenceFirstNumber = 0; ///< lowest frame number on disk (frame 0 of the clip)
+    int sequenceLastNumber = 0; ///< highest frame number on disk
+    /// Numbers in [first, last] without a file; those frames repeat the previous image.
+    int sequenceMissingFrames = 0;
 };
 
 /// Probes `path` and describes its streams. Never throws; on failure returns `valid=false`
 /// with `error` set (missing file, garbage data, no audio/video stream...).
-/// Still images (png/jpg/webp/bmp/tiff/tga) report hasVideo=true, isStillImage=true,
-/// durationUs=0; EXIF orientation is already applied to width/height (rotation stays 0).
+/// Still images (every SupportedFormats Image/RawImage format: png, jpg, heic, avif, exr,
+/// camera RAW...) report hasVideo=true, isStillImage=true, durationUs=0; EXIF/HEIF/RAW
+/// orientation is already applied to width/height (rotation stays 0); camera RAW reports the
+/// half-size decode size by default (ImageLoader::setRawFullSize()). Animated GIF/WebP report
+/// a video (isStillImage=false, durationUs, frameRate). Image-sequence paths (ImageSequence.h)
+/// report a video with isImageSequence=true.
 /// Synchronous (may take tens of ms for some files); safe to call from any thread.
 MediaInfo probe(const QString& path);
 

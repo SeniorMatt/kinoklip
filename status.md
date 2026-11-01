@@ -30,3 +30,9 @@
 - 03:23 Owner decision: use the REAL Breeze style + icons + KDE colour schemes bundled in the app (Kdenlive approach), customisable. Needs Qt>=6.6 + KF6 -> building in an Arch Linux container (distrobox 'kk-arch', podman). Image pulled; installing Qt6/KF6/Breeze/FFmpeg now.
 - 03:24 Owner: future formats Flatpak/AppImage/binary/others noted (plan 8b); current focus only the x86_64 binary.
 - 03:35 Arch build container 'kk-arch' ready (Qt 6.12, KF6 6.31, Breeze 6.8.2, FFmpeg 9.0): main builds with 0 errors, 30/31 tests (1 timing-flaky, passes alone). Packaging merged: dist/Kinoklip-x86_64.run 60 MB self-extracting, portable folder, desktop entry + original icon. Breeze agent starting.
+- 03:43 Owner: match Resolve behaviour in every detail (parity agent + docs/behavior-spec.md, plan 5.10); FUTURE idea recorded: Resolve/Plasma interface profile switch (plan 5.9) with profile-ready coding rules added to coding-style.md.
+- 03:45 FUTURE idea recorded: Vim-style keyboard-only profile (plan 5.9b) + rules (commands with explicit args, pure navigation primitives, single input layer).
+- 03:52 Formats merged (32/32 tests): all plan 5.8 import formats verified (76 checks), Vulkan probe fix, media cache shutdown race fixed. Export agent starting.
+- 03:53 Heartbeat: breeze (1 commit), playback (1 commit), export (just started) all active within the last minute.
+- 03:56 Owner: KDE code-style conversion dropped. coding-style.md back to the existing project style (clang-format config as is, PascalCase sources). Phase 4 keeps parity + QA + final build.
+- 04:17 Disk full (13 MB free) stalled builds. Freed 5.7 GB: apt + pacman package caches, main's rebuildable build dirs. Agents told: Release builds, one build dir each, shared fixtures. Rest of the disk is used by data outside this project (not touched).
