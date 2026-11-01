@@ -259,7 +259,17 @@ QString applyScheme(QApplication& app, const QString& id)
 /// drawn by KIconEngine, which recolours it from the palette, so nothing needs switching.
 void applyIconTheme()
 {
-#ifndef KK_HAVE_KF6
+#ifdef KK_HAVE_KF6
+    // Only the Breeze set compiled into the app (":/icons/breeze" from libKF6BreezeIcons):
+    // an older Breeze installed on the host (e.g. Breeze 5 in /usr/share/icons on Ubuntu)
+    // would otherwise win and the icons would differ per system.
+    QStringList paths = QIcon::themeSearchPaths();
+    paths.erase(std::remove_if(paths.begin(), paths.end(),
+                    [](const QString& p) { return !p.startsWith(QLatin1Char(':')); }),
+        paths.end());
+    if (paths != QIcon::themeSearchPaths())
+        QIcon::setThemeSearchPaths(paths);
+#else
     const QString wanted = isDark() ? QStringLiteral("breeze-dark") : QStringLiteral("breeze");
     // Some platform plugins (offscreen, minimal) report no system icon dirs: look the theme
     // up in the XDG data dirs ourselves and add its directory to the search path.
