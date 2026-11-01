@@ -34,6 +34,11 @@ Owned by the panels agent.
 - Measured (offscreen, test_mediapoolpanel): 10 full repaints of a 2,000-item grid in ~40 ms;
   search filter over 2,000 items < 1 ms.
 
+## Layout notes
+The bins sidebar follows the panel width (hidden below 460 px so the narrow Edit-page column
+keeps two tile columns) until the user toggles it with the folder button; that choice is then
+remembered (`mediaPool/binsVisible`). The grid/list choice is remembered as `mediaPool/viewMode`.
+
 ## Undo
 Import, rename, delete, bin create/rename/delete and moves are each one
 `Project::beginEdit()/endEdit()` step (media pool state is part of the undo snapshot).

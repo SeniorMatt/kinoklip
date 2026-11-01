@@ -44,6 +44,9 @@ namespace {
 constexpr int kBinIdRole = Qt::UserRole;
 constexpr char kViewModeKey[] = "mediaPool/viewMode";
 constexpr char kBinsVisibleKey[] = "mediaPool/binsVisible";
+/// Below this panel width the bins sidebar hides itself (unless the user chose explicitly), so
+/// the grid keeps at least two tile columns in the narrow Edit page column.
+constexpr int kAutoBinsMinWidth = 460;
 constexpr int kBinsWidth = 130;
 constexpr int kItemsWidth = 400;
 constexpr int kGridSpacing = 4;
@@ -265,7 +268,11 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     });
 
     rebuildBins();
-    setBinsVisible(QSettings().value(QLatin1String(kBinsVisibleKey), true).toBool());
+    const QVariant binsChoice = QSettings().value(QLatin1String(kBinsVisibleKey));
+    if (binsChoice.isValid())
+        setBinsVisible(binsChoice.toBool());
+    else
+        applyAutoBins();
     const QString stored = QSettings().value(QLatin1String(kViewModeKey)).toString();
     setViewMode(stored == QLatin1String("list") ? ViewMode::List : ViewMode::Grid);
 }
@@ -367,9 +374,25 @@ void MediaPoolPanel::setViewMode(ViewMode mode)
 
 void MediaPoolPanel::setBinsVisible(bool visible)
 {
+    m_binsAuto = false;
     m_bins->setVisible(visible);
     m_binsButton->setChecked(visible);
     QSettings().setValue(QLatin1String(kBinsVisibleKey), visible);
+}
+
+void MediaPoolPanel::applyAutoBins()
+{
+    if (!m_binsAuto)
+        return;
+    const bool visible = width() >= kAutoBinsMinWidth;
+    m_bins->setVisible(visible);
+    m_binsButton->setChecked(visible);
+}
+
+void MediaPoolPanel::resizeEvent(QResizeEvent* event)
+{
+    PanelFrame::resizeEvent(event);
+    applyAutoBins();
 }
 
 bool MediaPoolPanel::selectMedia(const QString& id)

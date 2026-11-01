@@ -62,7 +62,8 @@ public:
     /// Selects (and scrolls to) media item @p id, switching to its bin and clearing the search.
     /// Returns false if the item does not exist.
     bool selectMedia(const QString& id);
-    /// Shows or hides the bins tree (remembered in QSettings).
+    /// Shows or hides the bins tree (remembered in QSettings). Until the user chooses, the tree
+    /// is shown only when the panel is wide enough.
     void setBinsVisible(bool visible);
 
     /// The bin shown ("" = Master).
@@ -107,9 +108,11 @@ signals:
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     void buildToolbar(QWidget* host);
+    void applyAutoBins();
     void rebuildBins();
     void showItemMenu(const QPoint& globalPos);
     void showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos);
@@ -135,6 +138,7 @@ private:
     QToolButton* m_binsButton = nullptr;
     ViewMode m_viewMode = ViewMode::Grid;
     bool m_rebuildingBins = false;
+    bool m_binsAuto = true; ///< bins visibility follows the width until the user toggles it
 };
 
 } // namespace kk
