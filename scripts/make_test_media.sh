@@ -20,7 +20,7 @@
 #                        checks position accuracy through the 44.1 → 48 kHz resampler.
 set -euo pipefail
 
-FIXTURE_VERSION=4
+FIXTURE_VERSION=5
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${1:-$ROOT/tests/data/generated}"
 STAMP="$OUT/.complete-v$FIXTURE_VERSION"
@@ -115,6 +115,13 @@ mv "$OUT/tmp_sine.mp3" "$OUT/sine.mp3"
 
 # 9. 1080p H.264 for performance measurements (8 s, 2 s GOP).
 barcoded_video 1920 1080 25 8 perf_1080p.mp4 -g 50
+
+# 9b. HEVC Main10 (10-bit 4:2:0) 1280x720 25 fps 3 s: hardware decoders download it as P010.
+"${FF[@]}" -f lavfi -i "testsrc2=s=1280x720:r=25:d=3" -f lavfi -i "$(barcode 1280 720 25 3)" \
+    -filter_complex "[0][1]overlay=0:0:shortest=1,format=yuv420p10le[v]" -map "[v]" \
+    -c:v libx265 -preset fast -x265-params "log-level=error:keyint=25:pools=2" -tag:v hvc1 \
+    "$OUT/tmp_hevc10.mp4"
+mv "$OUT/tmp_hevc10.mp4" "$OUT/hevc10.mp4"
 
 # 10. Stills: PNG with alpha (left half opaque red, right half transparent), opaque JPEG.
 "${FF[@]}" -f lavfi -i "color=c=red:s=64x48,format=rgba,geq=r=255:g=0:b=0:a='if(lt(X,W/2),255,0)'" \

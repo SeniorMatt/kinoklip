@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // test_videodecoder — frame-exact seeking, sequential decoding, VFR, rotation, alpha, stills.
 #include "MediaTestUtil.h"
+#include "media/HwAccel.h"
 #include "media/VideoDecoder.h"
 
 #include <QRandomGenerator>
@@ -56,6 +57,46 @@ int64_t vfrFrameIndex(int64_t timeUs)
         return timeUs * 30 / 1'000'000;
     }
     return std::min<int64_t>(59, 30 + (timeUs - 1'000'000) * 15 / 1'000'000);
+}
+
+/// The luma plane of a raw frame as an 8-bit grey image (for readFrameIndex()).
+QImage lumaImage(const VideoFrame& frame)
+{
+    QImage image(frame.width, frame.height, QImage::Format_Grayscale8);
+    for (int y = 0; y < frame.height; ++y) {
+        const uint8_t* row = frame.data[0] + size_t(y) * size_t(frame.linesize[0]);
+        uchar* out = image.scanLine(y);
+        for (int x = 0; x < frame.width; ++x) {
+            switch (frame.format) {
+            case PixelFormat::P010: // 10 bits in the high bits of 16-bit words
+                out[x] = row[2 * x + 1];
+                break;
+            case PixelFormat::Yuv420p10:
+            case PixelFormat::Yuv422p10:
+            case PixelFormat::Yuv444p10: // 10 bits in the low bits
+                out[x] = uchar((row[2 * x] | (row[2 * x + 1] << 8)) >> 2);
+                break;
+            case PixelFormat::Bgra:
+                out[x] = uchar(qGray(row[4 * x + 2], row[4 * x + 1], row[4 * x]));
+                break;
+            default:
+                out[x] = row[x];
+            }
+        }
+    }
+    return image;
+}
+
+/// Backends available on this machine (Auto order).
+QList<HwDeviceInfo> availableBackends()
+{
+    QList<HwDeviceInfo> result;
+    for (const HwDeviceInfo& device : hwCapabilities()) {
+        if (device.available) {
+            result.append(device);
+        }
+    }
+    return result;
 }
 
 } // namespace
@@ -305,6 +346,112 @@ private slots:
         const int lastIndex = test::readFrameIndex(late);
         QVERIFY2(lastIndex > 0 && lastIndex <= 225, qPrintable(QString::number(lastIndex)));
         QCOMPARE(test::readFrameIndex(decoder.frameAt(1'000'000)), 25);
+    }
+
+    void rawFrames_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::newRow("software") << int(HwAccelMode::Off);
+        for (const HwDeviceInfo& device : availableBackends()) {
+            QTest::newRow(qPrintable(device.name)) << int(device.mode);
+        }
+    }
+
+    /// decodeFrame(): planes, formats, timing, caching; per hardware backend.
+    void rawFrames()
+    {
+        QFETCH(int, mode);
+        const auto hw = HwAccelMode(mode);
+        VideoDecoder decoder;
+        decoder.setHwAccel(hw);
+        OPEN_OR_FAIL(decoder, "h264_25fps.mp4");
+        QCOMPARE(decoder.activeHwAccel(), hw);
+
+        const auto first = decoder.decodeFrame(2'020'000); // frame 50 (a keyframe)
+        QVERIFY(first);
+        QCOMPARE(first->width, 1280);
+        QCOMPARE(first->height, 720);
+        QCOMPARE(first->format, hw == HwAccelMode::Off ? PixelFormat::Yuv420p : PixelFormat::Nv12);
+        QCOMPARE(first->planeCount, hw == HwAccelMode::Off ? 3 : 2);
+        QCOMPARE(first->ptsUs, 2'000'000);
+        QCOMPARE(first->durationUs, 40'000);
+        QCOMPARE(first->matrix, ColorMatrix::Bt709);
+        QCOMPARE(first->range, ColorRange::Limited);
+        QCOMPARE(first->planeWidth(1), 640);
+        QCOMPARE(first->planeHeight(1), 360);
+        QVERIFY(first->linesize[0] >= 1280);
+        QCOMPARE(test::readFrameIndex(lumaImage(*first)), 50);
+        // Same frame again → the very same object; frames stay valid after moving on.
+        QCOMPARE(decoder.decodeFrame(2'030'000).get(), first.get());
+        QRandomGenerator rng(3);
+        for (int i = 0; i < 12; ++i) {
+            const int64_t t = rng.bounded(qint64(0), qint64(9'990'000));
+            const auto frame = decoder.decodeFrame(t);
+            QVERIFY(frame);
+            QCOMPARE(
+                test::readFrameIndex(lumaImage(*frame)), int(test::expectedFrameIndex(t, 25, 1)));
+        }
+        QCOMPARE(test::readFrameIndex(lumaImage(*first)), 50);
+
+        // 10-bit HEVC: P010 from hardware, planar 10-bit from software.
+        VideoDecoder hevc;
+        hevc.setHwAccel(hw);
+        OPEN_OR_FAIL(hevc, "hevc10.mp4");
+        const auto deep = hevc.decodeFrame(1'500'000);
+        QVERIFY(deep);
+        QCOMPARE(deep->format,
+            hevc.activeHwAccel() == HwAccelMode::Off ? PixelFormat::Yuv420p10 : PixelFormat::P010);
+        QCOMPARE(test::readFrameIndex(lumaImage(*deep)), 37);
+        QCOMPARE(test::readFrameIndex(hevc.frameAt(1'500'000, {640, 360})), 37);
+        qInfo("%s: h264 → %s, hevc10 → %s (%s)", qPrintable(hwAccelName(hw)),
+            pixelFormatName(first->format), pixelFormatName(deep->format),
+            qPrintable(hwAccelName(hevc.activeHwAccel())));
+    }
+
+    /// Streams no GPU can decode (H.264 4:4:4, ProRes) fall back to software transparently.
+    void hardwareFallback()
+    {
+        for (const HwDeviceInfo& device : availableBackends()) {
+            VideoDecoder vfr;
+            vfr.setHwAccel(device.mode);
+            OPEN_OR_FAIL(vfr, "vfr_odd.mp4");
+            QCOMPARE(vfr.activeHwAccel(), HwAccelMode::Off);
+            QCOMPARE(test::readFrameIndex(vfr.frameAt(1'500'000)), int(vfrFrameIndex(1'500'000)));
+
+            VideoDecoder prores;
+            prores.setHwAccel(device.mode);
+            OPEN_OR_FAIL(prores, "prores4444_alpha.mov");
+            QCOMPARE(prores.activeHwAccel(), HwAccelMode::Off);
+            const auto frame = prores.decodeFrame(0);
+            QVERIFY(frame);
+            QCOMPARE(frame->format, PixelFormat::Bgra); // 12-bit + alpha → premultiplied BGRA
+            QCOMPARE(int(frame->data[0][size_t(120 * frame->linesize[0] + 280 * 4 + 3)]), 0);
+            QCOMPARE(int(frame->data[0][size_t(120 * frame->linesize[0] + 40 * 4 + 3)]), 255);
+        }
+    }
+
+    void stillAsRawFrame()
+    {
+        VideoDecoder png;
+        OPEN_OR_FAIL(png, "still_alpha.png");
+        const auto frame = png.decodeFrame(5'000'000);
+        QVERIFY(frame);
+        QCOMPARE(frame->format, PixelFormat::Bgra);
+        QCOMPARE(frame->width, 64);
+        QCOMPARE(frame->data[0][size_t(24 * frame->linesize[0] + 8 * 4 + 2)], uint8_t(255)); // R
+        QCOMPARE(png.decodeFrame(0).get(), frame.get());
+    }
+
+    void preference()
+    {
+        const HwAccelMode before = preferredHwAccel();
+        setPreferredHwAccel(HwAccelMode::Off);
+        VideoDecoder decoder;
+        OPEN_OR_FAIL(decoder, "h264_60fps.mp4");
+        QCOMPARE(decoder.activeHwAccel(), HwAccelMode::Off);
+        setPreferredHwAccel(before);
+        QCOMPARE(hwAccelName(HwAccelMode::Vaapi), QStringLiteral("VAAPI"));
+        QVERIFY(!hwCapabilities().isEmpty());
     }
 
     /// Independent decoders on several threads must not interfere.
