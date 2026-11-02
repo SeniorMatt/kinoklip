@@ -13,6 +13,7 @@ Used by every panel and page. Depends on `core` only.
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
 | `MediaImport.h` | import with user feedback; media file patterns/filters |
 | `Resources.h` | `initResources()` — call in `main()` and in tests that need icons/keymap |
+| `ShortcutFallback.h` | app event filter (MainWindow installs it): an unmatched key with a shifted US character (`Ctrl+Shift+{`) triggers the action bound to the unshifted form (`Ctrl+Shift+[`); never in text input or popups |
 
 ## Panel conventions
 - Constructor `Panel(AppContext& ctx, QWidget* parent = nullptr)`; keep `AppContext&`.

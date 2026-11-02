@@ -298,6 +298,8 @@ void MainWindow::connectAppActions()
     QAction* singleViewer = actions.action(QStringLiteral("view.single_viewer"));
     connect(singleViewer, &QAction::triggered, this,
         [this](bool on) { m_editPage->setSingleViewer(on); });
+    // The page also leaves / enters the mode itself (viewer header button, restored layout).
+    connect(m_editPage, &EditPage::singleViewerChanged, singleViewer, &QAction::setChecked);
 
     // ---- Help ----
     connect(actions.action(QStringLiteral("help.about")), &QAction::triggered, this, [this] {
