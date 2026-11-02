@@ -158,7 +158,7 @@ void PlaybackEngine::onPlayheadChanged(int64_t frame)
     }
     // Someone else moved the playhead (timeline scrub, Home/End, edit navigation).
     if (isPlaying()) {
-        startMotion(m_rate, double(frame));
+        seekWhilePlaying(frame, false);
         return;
     }
     m_position = frame;
@@ -488,7 +488,7 @@ void PlaybackEngine::seek(int64_t frame)
 {
     frame = std::max<int64_t>(0, frame);
     if (isPlaying()) {
-        startMotion(m_rate, double(frame));
+        seekWhilePlaying(frame, true);
         return;
     }
     setPositionInternal(frame, true);
@@ -592,7 +592,8 @@ void PlaybackEngine::setRateInternal(double rate)
 void PlaybackEngine::startMotion(double rate, double fromFrame)
 {
     const int64_t now = monotonicUs();
-    const bool fromRest = m_motionStartUs == 0; // a new play, not a seek or rate change
+    // A new play (not a seek, rate change or resume after a seek).
+    const bool fromRest = m_motionStartUs == 0 && !m_parked;
     if (m_motionStartUs > 0) {
         m_stats.playSeconds += double(now - m_motionStartUs) * 1e-6;
     }
@@ -608,7 +609,7 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     if (m_rangeLoop && outside) {
         start = rate > 0 ? double(m_rangeStart) : double(m_rangeEnd - 1);
     } else if (!m_rangeLoop && rate > 0 && start >= double(m_rangeEnd - 1)
-        && m_behaviour.restartAtEnd) {
+        && m_behaviour.restartAtEnd && !m_resuming) {
         start = double(m_rangeStart); // play on the last frame: start over (PlaybackBehaviour)
     }
 
@@ -624,9 +625,56 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
         m_auto.reset(now);
         m_scheduler.resetAverage(); // paused stills say nothing about playback
     }
+    m_parked = false;
     updateParams(false);
     setPositionInternal(int64_t(start), true);
+    // The picture on screen (the paused frame, a seek target) need not be rendered again.
+    if (m_current && m_current->frame == int64_t(start)) {
+        m_lastShownKey = int64_t(start);
+        m_hasShownKey = true;
+    }
     ensureTicking();
+}
+
+void PlaybackEngine::seekWhilePlaying(int64_t frame, bool writePlayhead)
+{
+    const int64_t now = monotonicUs();
+    frame = clampFrame(frame);
+    ++m_stats.seeksWhilePlaying;
+    if (!m_parked) {
+        // Leave motion: stale look-ahead is cancelled, the sound stops until we resume.
+        if (m_motionStartUs > 0) {
+            m_stats.playSeconds += double(now - m_motionStartUs) * 1e-6;
+            m_motionStartUs = 0;
+        }
+        stopAudio();
+        m_clock.stop();
+        m_scheduler.clear();
+        m_hasShownKey = false;
+        m_parked = true;
+    }
+    m_parkTarget = frame;
+    m_lastSeekUs = now;
+    m_parkShown = m_current && m_current->frame == frame;
+    if (m_parkShown) {
+        m_stats.lastSeekMs = 0.0;
+    }
+    if (frame != m_position) {
+        m_position = frame;
+        Q_EMIT positionChanged(m_position);
+    }
+    if (writePlayhead) {
+        this->writePlayhead();
+    }
+    m_scheduler.requestStill(frame); // coalesced: one in flight, the newest wish pending
+    ensureTicking();
+}
+
+void PlaybackEngine::resumeFromPark()
+{
+    m_resuming = true;
+    startMotion(m_rate, double(m_parkTarget));
+    m_resuming = false;
 }
 
 void PlaybackEngine::stopMotion()
@@ -639,6 +687,7 @@ void PlaybackEngine::stopMotion()
     stopAudio();
     m_clock.stop();
     m_scheduler.clear();
+    m_parked = false;
     m_customRange = false;
     m_hasShownKey = false;
     updateParams(false);
@@ -732,7 +781,7 @@ void PlaybackEngine::present(const RenderedFramePtr& frame, int64_t key)
     if (!frame || !frame->ok) {
         return;
     }
-    if (isPlaying()) {
+    if (isPlaying() && !m_parked) {
         ++m_stats.presented;
         if (std::abs(m_rate) == 1.0 && m_hasShownKey) {
             const int dir = m_rate > 0 ? 1 : -1;
@@ -822,6 +871,22 @@ void PlaybackEngine::onTick()
         }
         if (!m_scheduler.busy()) {
             m_tick.stop();
+        }
+        return;
+    }
+
+    if (m_parked) {
+        if (RenderedFramePtr frame = m_scheduler.pollStill()) {
+            present(frame, frame->frame);
+            if (frame->ok && frame->frame == m_parkTarget && !m_parkShown) {
+                m_parkShown = true;
+                m_stats.lastSeekMs = double(now - m_lastSeekUs) / 1000.0;
+            }
+        }
+        const int64_t quietUs = now - m_lastSeekUs;
+        if (quietUs >= int64_t(kSeekResumeMs) * 1000
+            && (m_parkShown || quietUs >= int64_t(kSeekMaxParkMs) * 1000)) {
+            resumeFromPark();
         }
         return;
     }

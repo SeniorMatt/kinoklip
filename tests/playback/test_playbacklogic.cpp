@@ -9,6 +9,7 @@
 
 #include <QTest>
 
+#include <atomic>
 #include <cmath>
 #include <random>
 
@@ -23,9 +24,11 @@ using Key = ShuttleControl::Key;
 struct FakeRenderer
 {
     std::vector<std::pair<int64_t, std::promise<RenderedFramePtr>>> pending;
+    std::vector<std::shared_ptr<const std::atomic<bool>>> cancelFlags; ///< by issue order
     FrameScheduler::RenderFn fn()
     {
         return [this](RenderRequest request) {
+            cancelFlags.push_back(request.cancelled);
             pending.emplace_back(request.frame, std::promise<RenderedFramePtr>());
             return pending.back().second.get_future();
         };
@@ -365,6 +368,33 @@ private Q_SLOTS:
         QVERIFY(!s.poll(5, 1)); // old results are never presented
         QCOMPARE(s.prefetch({{0, 0}, {1, 1}}), 2);
     }
+
+    void schedulerClearCancels()
+    {
+        FakeRenderer r;
+        FrameScheduler s(r.fn());
+        s.setParams(
+            RenderParams {std::make_shared<TimelineData>(), {}, {}, Quality::Full, OutputImage});
+        s.prefetch({{0, 0}, {1, 1}, {2, 2}});
+        QCOMPARE(int(r.cancelFlags.size()), 3);
+        for (const auto& flag : r.cancelFlags)
+            QVERIFY(flag && !flag->load());
+        s.clear(); // a seek: the look-ahead is stale
+        for (const auto& flag : r.cancelFlags)
+            QVERIFY(flag->load());
+        s.requestStill(40);
+        QCOMPARE(int(r.cancelFlags.size()), 4);
+        QVERIFY(!r.cancelFlags.back()->load()); // new requests are not cancelled
+        // A size/quality change keeps the frames in flight (same picture): not cancelled.
+        s.prefetch({{41, 41}});
+        s.setParams(
+            RenderParams {std::make_shared<TimelineData>(), {}, {}, Quality::Half, OutputImage},
+            false);
+        QVERIFY(!r.cancelFlags.back()->load());
+        while (!r.pending.empty())
+            r.finishOldest();
+    }
+
     // ---- AutoQuality ----
 
     /// Feeds @p seconds of observations every 100 ms of a renderer that needs @p fullMs per
