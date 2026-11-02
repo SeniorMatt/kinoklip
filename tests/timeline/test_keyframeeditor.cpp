@@ -122,8 +122,8 @@ private slots:
         // Rows: master, Transform group, Position X, Opacity.
         const auto rows = v.keys()->rows();
         QCOMPARE(rows.size(), 4);
-        QCOMPARE(rows[0].kind, KeyframeTrackWidget::Row::Kind::Master);
-        QCOMPARE(rows[1].kind, KeyframeTrackWidget::Row::Kind::Group);
+        QCOMPARE(rows[0].kind, KeyRow::Kind::Master);
+        QCOMPARE(rows[1].kind, KeyRow::Kind::Group);
         // Deleting the clip drops its editor.
         v.f.project.beginEdit(QStringLiteral("del"));
         ops::liftClips(v.f.data(), {v.clipId});

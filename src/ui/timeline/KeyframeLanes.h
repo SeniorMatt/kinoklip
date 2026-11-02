@@ -7,6 +7,7 @@
 #include "core/Animation.h"
 #include "core/KeyframeOps.h"
 #include "core/SelectionModel.h"
+#include "ui/keyframes/KeyframeTimeMap.h"
 
 #include <QHash>
 #include <QObject>
@@ -16,6 +17,7 @@
 #include <cstdint>
 
 class QPainter;
+class QToolButton;
 class QWidget;
 
 namespace kk {
@@ -27,6 +29,7 @@ class TimelineController;
 class TimelineLayout;
 class KeyframeTrackWidget;
 class CurveEditorWidget;
+class KeyframeViewBase;
 
 /// Owns the expanded keyframe / curve editors of a TimelineWidget.
 ///
@@ -39,7 +42,12 @@ class CurveEditorWidget;
 ///
 /// The lane widgets are children of the timeline viewport, positioned over the lane rects of
 /// TimelineLayout (clipped below the ruler), so they take their own input without touching the
-/// timeline's mouse state machine.
+/// timeline's mouse state machine. They are the shared DopeSheetView / CurveView of
+/// src/ui/keyframes on a time map that goes through TimelineLayout.
+///
+/// A clip narrower than kMinUsableClipWidthPx on screen is too cramped to edit keys in the lane
+/// (owner feedback alpha2-12.png): its lane then shows an "Open in Keyframes Panel" button next
+/// to the clip; the lane menus always have that entry (openInPanelRequested()).
 /// Thread-safety: GUI thread only.
 class KeyframeLanes : public QObject
 {
@@ -69,6 +77,11 @@ public:
     /// Opens / closes the curve editor of @p clipId.
     void setCurveEditorOpen(quint64 clipId, bool open);
 
+    /// Below this on-screen clip width the lane offers the Keyframes panel.
+    static constexpr int kMinUsableClipWidthPx = 160;
+    /// The "Open in Keyframes Panel" button of @p clipId's lane (tests), or nullptr.
+    [[nodiscard]] QToolButton* openPanelButton(quint64 clipId) const;
+
     /// Lane heights per track id for TimelineLayout::setLaneHeights() (drops states of clips
     /// that no longer exist).
     [[nodiscard]] QHash<quint64, int> laneHeights(const TimelineData& data);
@@ -95,8 +108,8 @@ public:
     bool deleteSelectedKeys();
     /// Copies the selected keyframes (of the first selected key's clip).
     bool copySelectedKeys();
-    /// True if keyframes were copied.
-    [[nodiscard]] bool hasCopiedKeys() const { return !m_clipboard.isEmpty(); }
+    /// True if keyframes were copied (the clipboard is shared with the Keyframes panel).
+    [[nodiscard]] bool hasCopiedKeys() const;
     /// Pastes copied keyframes into the current clip at the playhead.
     bool pasteKeys();
     /// Applies preset @p interp to the selected keys.
@@ -107,13 +120,34 @@ public:
 signals:
     /// Lane heights changed: the timeline must rebuild its layout (and call syncGeometry()).
     void layoutChanged();
+    /// The user asked to edit the keys of @p clipId in the Keyframes panel (the page selects
+    /// the clip and shows the panel).
+    void openInPanelRequested(quint64 clipId);
 
 private:
     struct Lane
     {
         QPointer<KeyframeTrackWidget> keys;
         QPointer<CurveEditorWidget> curves;
+        QPointer<QToolButton> openPanel;
     };
+    /// KeyframeTimeMap through TimelineLayout: lane widget x equals viewport x.
+    class LayoutTimeMap : public KeyframeTimeMap
+    {
+    public:
+        explicit LayoutTimeMap(const TimelineLayout& layout)
+            : m_layout(layout)
+        { }
+        [[nodiscard]] double frameToX(double frame) const override;
+        [[nodiscard]] double xToFrame(double x) const override;
+        [[nodiscard]] double pixelsPerFrame() const override;
+
+    private:
+        const TimelineLayout& m_layout;
+    };
+    void placeOpenPanelButton(
+        Lane& lane, quint64 clipId, const ClipData& clip, const QRect& laneRect);
+    void setupLaneWidget(KeyframeViewBase* w, quint64 clipId);
     [[nodiscard]] int keyTrackHeight(const ClipData& clip) const;
     [[nodiscard]] int curveHeight(const ClipState& s) const;
     void setOpen(quint64 clipId, bool keyframes, bool open);
@@ -127,7 +161,7 @@ private:
     QHash<quint64, ClipState> m_states;
     QHash<quint64, Lane> m_lanes;
     quint64 m_order = 0;
-    keyframeops::KeyClipboard m_clipboard;
+    LayoutTimeMap m_timeMap;
 };
 
 } // namespace kk
