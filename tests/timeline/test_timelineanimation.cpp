@@ -343,7 +343,9 @@ private slots:
         int n = 0;
         auto shoot = [&](const char* name, int64_t t0, int frames, int stepMs) {
             for (int i = 0; i < frames; ++i) {
-                const QImage img = v.grab(t0 + i * stepMs).copy(0, 0, 1200, 160);
+                const QRect row = v.w.layout().rowRect(v.w.layout().rowOf(kV1));
+                const QImage img
+                    = v.grab(t0 + i * stepMs).copy(0, row.top() - 24, 760, row.height() + 34);
                 QVERIFY(img.save(QStringLiteral("%1/%2_%3.png")
                                      .arg(folder, QLatin1String(name))
                                      .arg(n++, 3, 10, QLatin1Char('0'))));

@@ -102,7 +102,7 @@ public:
     struct Ghost
     {
         ClipData clip;
-        TrackType type = TrackType::Video;
+        TrackRef track; ///< the track it was on (drawn under that row's clips)
         double start = 0, end = 0; ///< frames as displayed when it was removed
         double top = 0, height = 0; ///< view y + scrollY, height
     };

@@ -276,6 +276,9 @@ void TimelinePainter::paintRow(QPainter& p, const TimelinePaintInput& in, int ro
 
     // Clips sliding into place may still be drawn where the model no longer has them.
     const double slack = in.anim ? in.anim->maxShiftFrames() : 0.0;
+    // Removed clips fading out on this row, under the clips that replace them.
+    if (in.anim)
+        paintGhosts(p, in, info.ref);
     const auto [first, last] = TimelineLayout::clipRange(
         *track, L.xToFrame(kHeaderWidth) - slack, L.xToFrame(width) + slack);
     if (in.anim) {
@@ -902,11 +905,10 @@ void TimelinePainter::paintAnimatedClip(QPainter& p, const TimelinePaintInput& i
     p.setOpacity(1.0);
 }
 
-void TimelinePainter::paintAnimationOverlays(QPainter& p, const TimelinePaintInput& in)
+void TimelinePainter::paintGhosts(QPainter& p, const TimelinePaintInput& in, TrackRef track)
 {
-    const TimelineLayout& L = *in.layout;
-    // Ghosts of removed clips: painted like clips (paintClip() finds their rect by id), on a
-    // track of the right type so they keep their colours.
+    // Painted like clips (paintClip() finds a ghost's rect by id), on a track of the right
+    // type so they keep their colours.
     static const TrackData kGhostTracks[3] = {
         [] {
             TrackData t;
@@ -924,13 +926,21 @@ void TimelinePainter::paintAnimationOverlays(QPainter& p, const TimelinePaintInp
             return t;
         }(),
     };
+    const TimelineLayout& L = *in.layout;
     for (const TimelineAnimator::Ghost& g : in.anim->ghosts()) {
+        if (!(g.track == track))
+            continue;
         const double x0 = L.frameToX(g.start);
         const double x1 = L.frameToX(g.end);
         if (x1 < kHeaderWidth || x0 > L.viewSize().width())
             continue;
-        paintAnimatedClip(p, in, -1, kGhostTracks[int(g.type)], g.clip);
+        paintAnimatedClip(p, in, -1, kGhostTracks[int(track.type)], g.clip);
     }
+}
+
+void TimelinePainter::paintAnimationOverlays(QPainter& p, const TimelinePaintInput& in)
+{
+    const TimelineLayout& L = *in.layout;
     // Blade / trim flashes: a bright line wiping down the clip row, then fading.
     for (const TimelineAnimator::FlashView& f : in.anim->flashes()) {
         const QRect rr = L.rowRect(L.rowOf(f.track));
@@ -938,9 +948,9 @@ void TimelinePainter::paintAnimationOverlays(QPainter& p, const TimelinePaintInp
             continue;
         const double x = std::round(L.frameToX(double(f.frame))) + 0.5;
         const double h = (rr.height() - 2) * f.wipe;
-        p.fillRect(QRectF(x - 3, rr.top() + 1, 6, h),
-            withAlpha(sc().focus, int(std::lround(90 * f.strength))));
-        p.fillRect(QRectF(x - 1, rr.top() + 1, 2, h),
+        p.fillRect(QRectF(x - 5, rr.top() + 1, 10, h),
+            withAlpha(sc().focus, int(std::lround(150 * f.strength))));
+        p.fillRect(QRectF(x - 1.5, rr.top() + 1, 3, h),
             withAlpha(sc().bright, int(std::lround(255 * f.strength))));
     }
 }

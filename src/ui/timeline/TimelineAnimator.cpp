@@ -254,7 +254,7 @@ void TimelineAnimator::modelChanged(std::shared_ptr<const TimelineData> now, qui
         const auto g = displayedGeom(oc, it->track, oldLayout, t);
         if (!g)
             continue;
-        ghosts.push_back(Ghost {oc, it->track.type, g->start, g->end, g->top, g->height});
+        ghosts.push_back(Ghost {oc, it->track, g->start, g->end, g->top, g->height});
         ++appearing;
     }
     if (appearing > kMaxAppearing) {
