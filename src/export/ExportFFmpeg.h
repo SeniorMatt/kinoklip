@@ -20,6 +20,10 @@ extern "C" {
 #include <memory>
 #include <vector>
 
+namespace kk::media::detail {
+class FfmpegLogCapture;
+}
+
 namespace kk::exporter {
 
 struct CodecContextDeleter
@@ -146,5 +150,22 @@ inline std::vector<int> supportedSampleRates(const AVCodec* codec)
 /// One-time FFmpeg setup shared with the media engine (log level and routing of FFmpeg's
 /// messages into Qt logging), so encoder chatter does not reach stderr. Idempotent.
 void initExportFfmpeg();
+
+/// RAII: while alive, FFmpeg messages logged on this thread are kept out of the log (debug
+/// output only) and the first error is remembered - for hardware encoder probes, whose
+/// failures are expected and summarised in one line by EncoderCatalog. Nestable.
+class FfmpegQuiet
+{
+public:
+    FfmpegQuiet();
+    ~FfmpegQuiet();
+    FfmpegQuiet(const FfmpegQuiet&) = delete;
+    FfmpegQuiet& operator=(const FfmpegQuiet&) = delete;
+    /// First error message FFmpeg logged meanwhile, or empty.
+    [[nodiscard]] QString firstError() const;
+
+private:
+    std::unique_ptr<media::detail::FfmpegLogCapture> m_capture;
+};
 
 } // namespace kk::exporter

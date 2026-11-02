@@ -110,12 +110,22 @@ viewer can draw them.
 
 ### Statistics
 `Stats` (fps, drops, render time and its stages: decode, upload, composite, output; seeks).
-`KK_PLAYBACK_STATS=1` logs one line per second while playing, e.g.
+`KK_PLAYBACK_STATS=1` (any value but empty/0/false/off/no) logs one line per second while
+playing and a summary every time playback stops, e.g.
 
 ```
+kk.playback: KK_PLAYBACK_STATS: one stats line per second while playing and a summary when playback stops
 kk.playback: stats: 60.0 fps (of 60.00), 0 dropped, quality 1 999x562, render 11.1 ms
              [decode 0.1, upload 0.9, composite 0.2, output 9.0], audio clock, A/V 0.00
+kk.playback: stats summary: played 4.20 s, 252 frames shown (60.0 fps of 60.00), 0 dropped,
+             0 seeks while playing, render avg [decode 0.1, upload 0.9, composite 0.2, output 9.0] ms
 ```
+
+The per-second line needs one full second of uninterrupted playback (no seek-while-playing
+park in between); alpha.3 had only that line, so short plays printed nothing at all. The first
+line confirms the variable reached the process. `tests/playback/test_playbackstats` checks
+both lines; `KK_SCREENSHOT_PLAY_MS=2000 kinoklip --screenshot edit out.png project.kkproj`
+plays headless (also in the bundle).
 
 ## Transport semantics (Resolve-like)
 

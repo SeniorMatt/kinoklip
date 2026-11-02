@@ -3,6 +3,7 @@
 #include "playback/AudioOutput.h"
 
 #include "core/Preferences.h"
+#include "media/MediaLog.h"
 #include "playback/AudioRing.h"
 #include "playback/PlaybackLog.h"
 
@@ -217,6 +218,9 @@ private:
                     self->m_device = device;
             }
         }
+        // QMediaDevices just initialised Qt Multimedia, whose FFmpeg backend replaces FFmpeg's
+        // log callback: take FFmpeg's messages back into kk.media.
+        media::installFfmpegLogRouting();
         self->m_format.setSampleRate(kSampleRate);
         self->m_format.setChannelCount(kChannels);
         self->m_format.setSampleFormat(QAudioFormat::Float);

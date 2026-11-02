@@ -67,7 +67,11 @@ bool VideoDecoder::Impl::decodeOne(DecodedFrame& out)
 {
     int skippedCorrupt = 0;
     for (;;) {
-        int ret = avcodec_receive_frame(codec.get(), scratch.get());
+        int ret = 0;
+        {
+            const auto lock = lockHw(); // see HwDeviceManager::callLock()
+            ret = avcodec_receive_frame(codec.get(), scratch.get());
+        }
         if (ret == 0) {
             if (reinterpret_cast<intptr_t>(scratch->opaque) != generation) {
                 av_frame_unref(scratch.get()); // decoded before a soft seek: stale
@@ -111,6 +115,7 @@ bool VideoDecoder::Impl::decodeOne(DecodedFrame& out)
         if (ret != AVERROR(EAGAIN)) {
             qCDebug(lcMedia) << "video decoder error:" << avErrorString(ret);
             hwFailed = activeHw != HwAccelMode::Off;
+            hwFailReason = QStringLiteral("decoder error: ") + avErrorString(ret);
             return false;
         }
         if (draining) {
@@ -122,7 +127,10 @@ bool VideoDecoder::Impl::decodeOne(DecodedFrame& out)
             if (ret != AVERROR_EOF) {
                 qCDebug(lcMedia) << "read error, treating as end of stream:" << avErrorString(ret);
             }
-            avcodec_send_packet(codec.get(), nullptr); // flush: returns the delayed frames
+            {
+                const auto lock = lockHw();
+                avcodec_send_packet(codec.get(), nullptr); // flush: returns the delayed frames
+            }
             draining = true;
             continue;
         }
@@ -132,16 +140,23 @@ bool VideoDecoder::Impl::decodeOne(DecodedFrame& out)
                 // the flush can be skipped; anything else needs the real flush.
                 softSeekPending = false;
                 if (!isH264IdrPacket(packet.get(), stream->codecpar)) {
+                    const auto lock = lockHw();
                     avcodec_flush_buffers(codec.get());
                 }
             }
             packet->opaque = reinterpret_cast<void*>(generation);
-            ret = avcodec_send_packet(codec.get(), packet.get());
+            {
+                const auto lock = lockHw();
+                ret = avcodec_send_packet(codec.get(), packet.get());
+            }
             if (ret < 0) {
                 qCDebug(lcMedia) << "skipping undecodable packet:" << avErrorString(ret);
                 if (activeHw != HwAccelMode::Off && ++hwPacketErrors >= kMaxHwPacketErrors) {
                     av_packet_unref(packet.get());
                     hwFailed = true;
+                    hwFailReason = QStringLiteral("%1 packets in a row rejected: %2")
+                                       .arg(hwPacketErrors)
+                                       .arg(avErrorString(ret));
                     return false;
                 }
             } else {
@@ -173,6 +188,7 @@ bool VideoDecoder::Impl::seek(int64_t targetTs, int attempt)
     if (softSeekAllowed && !draining) {
         softSeekPending = true; // decided at the first packet (see decodeOne)
     } else {
+        const auto lock = lockHw();
         avcodec_flush_buffers(codec.get()); // also required to leave the drained (EOF) state
         softSeekPending = false;
     }
