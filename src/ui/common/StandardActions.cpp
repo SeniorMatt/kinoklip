@@ -150,6 +150,8 @@ const ActionSpec kActions[] = {
     {"clip", "clip.change_duration",  QT_TRANSLATE_NOOP("kk::StandardActions", "Change Clip &Duration…")},
     {"clip", "clip.change_speed",     QT_TRANSLATE_NOOP("kk::StandardActions", "Change Clip &Speed…")},
     {"clip", "clip.retime_controls",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Retime Controls")},
+    {"clip", "clip.speed_increase",   QT_TRANSLATE_NOOP("kk::StandardActions", "Increase Clip Speed by 10%")},
+    {"clip", "clip.speed_decrease",   QT_TRANSLATE_NOOP("kk::StandardActions", "Decrease Clip Speed by 10%")},
     {"clip", "clip.freeze_frame",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Freeze Frame")},
     {"clip", "clip.retime_curve",     QT_TRANSLATE_NOOP("kk::StandardActions", "Retime &Curve")},
     {"clip", "-"},

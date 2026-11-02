@@ -332,6 +332,7 @@ void TimelineWidget::paintEvent(QPaintEvent*)
         in.headerMeter = &m_options.headerMeter;
     in.thumbnails = m_thumbMode;
     in.waveforms = m_showWaveforms;
+    in.sourceTimecode = m_showSourceTimecode;
     if (uianim::enabled()) {
         m_anim.observeSnap(m_overlay.snapFrame);
         m_anim.observeEditPoint(in.editTailClip, in.editHeadClip);
@@ -355,6 +356,14 @@ void TimelineWidget::setShowWaveforms(bool on)
     if (m_showWaveforms == on)
         return;
     m_showWaveforms = on;
+    viewport()->update();
+}
+
+void TimelineWidget::setShowSourceTimecode(bool on)
+{
+    if (m_showSourceTimecode == on)
+        return;
+    m_showSourceTimecode = on;
     viewport()->update();
 }
 

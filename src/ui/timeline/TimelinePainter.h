@@ -118,6 +118,9 @@ struct TimelinePaintInput
     ClipThumbnails thumbnails = ClipThumbnails::Filmstrip;
     /// Audio clips draw their waveform (Timeline View Options); off = clip colour only.
     bool waveforms = true;
+    /// Media and nested clips show their source in timecode after the name (Timeline View
+    /// Options > Show Source Timecode, spec 12.14); off by default like Resolve.
+    bool sourceTimecode = false;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and
@@ -198,6 +201,9 @@ private:
     /// (number, name) and the name (cached per clip).
     [[nodiscard]] const QString& clipLabel(const TimelinePaintInput& in, const ClipData& clip);
     /// @p text (the clip's label) elided to @p width px (cached per clip).
+    /// Cached source in timecode of @p clip ("01:00:02:00"; empty for generated clips).
+    [[nodiscard]] const QString& sourceTimecodeText(
+        const TimelinePaintInput& in, const ClipData& clip);
     [[nodiscard]] const QString& elidedName(const ClipData& clip, const QString& text, int width);
     [[nodiscard]] QString mediaPath(const TimelinePaintInput& in, const QString& mediaId) const;
 
@@ -223,6 +229,10 @@ private:
         int angle = -2;
         const TimelineData* multicam = nullptr;
         QString label;
+        /// Source timecode text and the source time / timecode start it was made from.
+        int64_t tcSourceUs = -1;
+        int64_t tcStartUs = -1;
+        QString tc;
     };
     QHash<quint64, NameCache> m_names;
     std::vector<float> m_peaks;

@@ -163,6 +163,9 @@ public slots:
     [[nodiscard]] ClipThumbnails clipThumbnails() const { return m_thumbMode; }
     void setShowWaveforms(bool on);
     [[nodiscard]] bool showWaveforms() const { return m_showWaveforms; }
+    /// Media clips show their source in timecode after the name (spec 12.14; off by default).
+    void setShowSourceTimecode(bool on);
+    [[nodiscard]] bool showSourceTimecode() const { return m_showSourceTimecode; }
     /// Adds the Track Height submenu (Small / Medium / Large, spec 12.10) for track @p ref, or
     /// for every track with @p allTracks (the Timeline View Options menu).
     void addTrackHeightMenu(QMenu& menu, TrackRef ref, bool allTracks);
@@ -405,6 +408,7 @@ private:
     TimelineViewOptions m_options;
     ClipThumbnails m_thumbMode = ClipThumbnails::Filmstrip;
     bool m_showWaveforms = true;
+    bool m_showSourceTimecode = false;
     bool m_syncingScrollBars = false;
     bool m_fitOnFirstShow = true;
     quint64 m_hoverClip = 0; ///< clip under the mouse (fade handles shown)
