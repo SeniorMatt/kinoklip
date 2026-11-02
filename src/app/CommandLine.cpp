@@ -22,7 +22,8 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
         QCoreApplication::translate("kk::CommandLine",
             "Render the window (1920x1080) showing <target> to the PNG given as the first "
             "positional argument, then exit. Targets: media, edit, deliver, preferences, "
-            "keyboard, inspector, keyframes, keyframes-window, mediapool, menu-color-theme, "
+            "keyboard, inspector, keyframes, keyframes-window, mediapool, import-dialog (whole "
+            "screen with File > Import Media open), menu-color-theme, "
             "menu-style. Usage: --screenshot "
             "edit out.png [project]"),
         QStringLiteral("target"));
