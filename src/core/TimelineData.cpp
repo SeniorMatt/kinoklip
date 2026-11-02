@@ -59,6 +59,13 @@ const TrackData* TimelineData::track(TrackRef ref) const
     return &list[size_t(ref.index)];
 }
 
+int64_t nestedFrameAt(const ClipData& clip, int64_t frame, Rational parentFps, Rational nestedFps)
+{
+    // sourceTimeUsAt() is the PLAN 5.1 media formula (sourceIn + speed-scaled offset); the
+    // nested timeline is the "media" here, measured in µs of its own time base.
+    return usToFrames(clip.sourceTimeUsAt(frame, parentFps), nestedFps);
+}
+
 QString trackDisplayName(const TrackData& track, int index)
 {
     if (!track.name.isEmpty())

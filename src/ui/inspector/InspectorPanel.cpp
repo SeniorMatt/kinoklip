@@ -817,6 +817,16 @@ void InspectorPanel::updateHeader()
     case ClipKind::Solid:
         info = tr("Solid color");
         break;
+    case ClipKind::Nested: {
+        // Compound clip or nested timeline: transform, opacity, effects and volume act on
+        // the nested result as a whole.
+        const auto nested = m_ctx.project->timelineData(c->nestedUid);
+        if (!nested)
+            info = tr("Compound clip (offline)");
+        else
+            info = nested->compound ? tr("Compound clip") : tr("Timeline clip");
+        break;
+    }
     }
     const int selected = selectedItemCount();
     if (selected > 1)

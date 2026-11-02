@@ -25,6 +25,7 @@ namespace kk {
 
 struct AppContext;
 class KeyframeLanes;
+class NestedPreview;
 class TimelineController;
 
 /// The timeline editor view.
@@ -124,6 +125,8 @@ protected:
     void changeEvent(QEvent* event) override;
 
 private:
+    /// Applies the remembered zoom / scroll of timeline @p uid (fit when there is none).
+    void restoreViewState(quint64 uid);
     // ---- Input state machine (TimelineInput.cpp) ----
     enum class DragMode {
         None,
@@ -249,6 +252,7 @@ private:
     TimelineLayout m_layout;
     TimelinePainter m_painter;
     KeyframeLanes* m_keyframeLanes = nullptr; ///< child QObject: keyframe / curve editor lanes
+    NestedPreview* m_nestedPreview = nullptr; ///< child QObject: compound clip previews
     TimelineOverlay m_overlay;
     QSet<quint64> m_selected; ///< mirror of the SelectionModel for O(1) lookups while painting
     Drag m_drag;

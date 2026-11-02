@@ -207,7 +207,14 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         view->setMouseTracking(true);
         connect(view, &QAbstractItemView::doubleClicked, this, [this](const QModelIndex& index) {
             const QString id = index.data(MediaPoolModel::IdRole).toString();
-            if (!id.isEmpty())
+            if (id.isEmpty())
+                return;
+            // Timelines and compound clips open in a timeline tab (Resolve), media in the
+            // source viewer.
+            const MediaItem* item = m_ctx.project->mediaPool()->item(id);
+            if (item && item->isTimeline())
+                openTimeline(item->timelineUid);
+            else
                 emit openInSourceViewer(id);
         });
         connect(view, &QWidget::customContextMenuRequested, this,
@@ -592,13 +599,34 @@ int MediaPoolPanel::deleteItems(const QStringList& ids)
 {
     if (ids.isEmpty())
         return 0;
-    m_ctx.project->beginEdit(
-        ids.size() == 1 ? tr("Delete Media") : tr("Delete %1 Media Items").arg(ids.size()));
+    // Timeline / compound clip items delete their timeline (Project, one step each; the last
+    // timeline of a project stays); media items go in one step.
+    QStringList files;
+    QVector<quint64> timelines;
+    for (const QString& id : ids) {
+        const MediaItem* item = m_ctx.project->mediaPool()->item(id);
+        if (item && item->isTimeline())
+            timelines.append(item->timelineUid);
+        else
+            files.append(id);
+    }
     int removed = 0;
-    for (const QString& id : ids)
-        removed += m_ctx.project->mediaPool()->removeItem(id) ? 1 : 0;
-    m_ctx.project->endEdit();
+    if (!files.isEmpty()) {
+        m_ctx.project->beginEdit(
+            files.size() == 1 ? tr("Delete Media") : tr("Delete %1 Media Items").arg(files.size()));
+        for (const QString& id : std::as_const(files))
+            removed += m_ctx.project->mediaPool()->removeItem(id) ? 1 : 0;
+        m_ctx.project->endEdit();
+    }
+    for (const quint64 uid : std::as_const(timelines))
+        removed += m_ctx.project->deleteTimeline(uid) ? 1 : 0;
     return removed;
+}
+
+void MediaPoolPanel::openTimeline(quint64 uid)
+{
+    if (m_ctx.project->openTab(uid))
+        emit timelineOpened(uid);
 }
 
 QStringList MediaPoolPanel::importFiles(const QStringList& paths, const QString& binId)
@@ -631,11 +659,24 @@ void MediaPoolPanel::confirmAndDelete(const QStringList& ids)
     // Count timeline clips that would go offline, so the user knows what happens.
     int used = 0;
     const QSet<QString> idSet(ids.cbegin(), ids.cend());
-    const TimelineData& data = m_ctx.project->timeline()->data();
-    for (const auto* tracks : {&data.videoTracks, &data.audioTracks}) {
-        for (const TrackData& track : *tracks) {
-            for (const ClipData& clip : track.clips)
-                used += idSet.contains(clip.mediaId) ? 1 : 0;
+    QSet<quint64> timelines;
+    for (const QString& id : ids) {
+        if (const MediaItem* item = m_ctx.project->mediaPool()->item(id);
+            item && item->isTimeline())
+            timelines.insert(item->timelineUid);
+    }
+    for (const quint64 uid : m_ctx.project->timelineUids()) {
+        const auto data = m_ctx.project->timelineData(uid);
+        for (const auto* tracks : {&data->videoTracks, &data->audioTracks}) {
+            for (const TrackData& track : *tracks) {
+                for (const ClipData& clip : track.clips) {
+                    const bool nested = clip.kind == ClipKind::Nested;
+                    used += (!nested && idSet.contains(clip.mediaId))
+                            || (nested && timelines.contains(clip.nestedUid))
+                        ? 1
+                        : 0;
+                }
+            }
         }
     }
     if (used > 0) {
@@ -665,13 +706,25 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
     const QStringList ids = selectedMediaIds();
     const QString current = currentMediaId();
     QMenu menu(this);
-    if (!current.isEmpty()) {
+    const MediaItem* currentItem = m_ctx.project->mediaPool()->item(current);
+    if (currentItem && currentItem->isTimeline()) {
+        const quint64 uid = currentItem->timelineUid;
+        menu.addAction(tr("Open in Timeline"), this, [this, uid] { openTimeline(uid); });
+        menu.addAction(currentItem->kind == MediaItemKind::CompoundClip
+                ? tr("Duplicate Compound Clip")
+                : tr("Duplicate Timeline"),
+            this, [this, uid] { m_ctx.project->duplicateTimeline(uid); });
+        menu.addSeparator();
+        menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
+    } else if (!current.isEmpty()) {
         menu.addAction(tr("Open in Source Viewer"), this,
             [this, current] { emit openInSourceViewer(current); });
         menu.addSeparator();
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
         menu.addAction(
             tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });
+    }
+    if (!current.isEmpty()) {
         QMenu* move = menu.addMenu(tr("Move to Bin"));
         move->addAction(tr("Master"), this, [this, ids] { moveItemsToBin(ids, QString()); });
         for (const Bin& bin : m_ctx.project->mediaPool()->bins()) {
@@ -688,10 +741,12 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         &MediaPoolPanel::importWithDialog);
     menu.addAction(icon(QStringLiteral("folder")), tr("New Bin"), this,
         [this] { createBin(tr("New Bin"), currentBin()); });
+    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("timeline.new")))
+        menu.addAction(m_ctx.actions->action(QStringLiteral("timeline.new")));
     // Only offered when something is offline (one stat per item when the menu opens).
     const auto& items = m_ctx.project->mediaPool()->state().items;
     if (std::any_of(items.cbegin(), items.cend(),
-            [](const MediaItem& m) { return !QFileInfo::exists(m.path); })) {
+            [](const MediaItem& m) { return !m.isTimeline() && !QFileInfo::exists(m.path); })) {
         menu.addSeparator();
         menu.addAction(tr("Relink Offline Media…"), this, &MediaPoolPanel::relinkWithDialog);
     }
@@ -718,7 +773,7 @@ void MediaPoolPanel::relinkWithDialog()
     const int relinked = relinkFromFolder(folder);
     const auto& items = m_ctx.project->mediaPool()->state().items;
     const auto stillOffline = std::count_if(items.cbegin(), items.cend(),
-        [](const MediaItem& m) { return !QFileInfo::exists(m.path); });
+        [](const MediaItem& m) { return !m.isTimeline() && !QFileInfo::exists(m.path); });
     QMessageBox::information(this, tr("Relink Offline Media"),
         tr("%n item(s) relinked.", nullptr, relinked)
             + (stillOffline > 0 ? QLatin1Char(' ')

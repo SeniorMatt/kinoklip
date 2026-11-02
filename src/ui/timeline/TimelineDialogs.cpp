@@ -3,6 +3,9 @@
 // application style).
 #include "ui/timeline/TimelineDialogs.h"
 
+#include "core/Project.h"
+#include "ui/dialogs/ProjectSettingsDialog.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -10,12 +13,15 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPixmap>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QVBoxLayout>
 
 namespace kk::timelinedialogs {
@@ -160,6 +166,86 @@ std::optional<PasteAttributeSet> askPasteAttributes(QWidget* parent)
     s.pan = pan->isChecked();
     s.speed = speed->isChecked();
     return s;
+}
+
+std::optional<QString> askName(QWidget* parent, const QString& title, const QString& label,
+    const QString& suggestion, const QString& okText)
+{
+    QDialog dialog(parent);
+    dialog.setObjectName(QStringLiteral("NameDialog"));
+    dialog.setWindowTitle(title);
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* form = new QFormLayout;
+    auto* edit = new QLineEdit(suggestion);
+    edit->setObjectName(QStringLiteral("Name"));
+    edit->selectAll();
+    edit->setMinimumWidth(260);
+    form->addRow(label, edit);
+    layout->addLayout(form);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    buttons->button(QDialogButtonBox::Ok)->setText(okText);
+    layout->addWidget(buttons);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    if (dialog.exec() != QDialog::Accepted)
+        return std::nullopt;
+    return edit->text();
+}
+
+void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
+{
+    const auto data = project.timelineData(uid);
+    if (!data)
+        return;
+    QDialog dialog(parent);
+    dialog.setObjectName(QStringLiteral("TimelineSettingsDialog"));
+    dialog.setWindowTitle(QCoreApplication::translate("kk::timelinedialogs", "Timeline Settings")
+        + QStringLiteral(" - ") + data->name);
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* follow
+        = new QCheckBox(QCoreApplication::translate("kk::timelinedialogs", "Use project settings"));
+    follow->setObjectName(QStringLiteral("UseProjectSettings"));
+    follow->setChecked(data->useProjectSettings);
+    layout->addWidget(follow);
+    auto* box = new QGroupBox(QCoreApplication::translate("kk::timelinedialogs", "Format"));
+    auto* form = new QFormLayout(box);
+    auto* width = new QSpinBox;
+    auto* height = new QSpinBox;
+    for (QSpinBox* spin : {width, height}) {
+        spin->setRange(16, 8192);
+        spin->setSuffix(QStringLiteral(" px"));
+    }
+    width->setValue(data->width);
+    height->setValue(data->height);
+    auto* size = new QHBoxLayout;
+    size->addWidget(width);
+    size->addWidget(new QLabel(QStringLiteral("x")));
+    size->addWidget(height);
+    form->addRow(QCoreApplication::translate("kk::timelinedialogs", "Timeline resolution"), size);
+    auto* fps = new QComboBox;
+    for (const Rational& r : ProjectSettingsDialog::frameRates())
+        fps->addItem(QStringLiteral("%1 fps").arg(QString::number(r.toDouble(), 'g', 5)),
+            QVariant::fromValue(QPoint(r.num, r.den)));
+    int index = fps->findData(QPoint(data->fps.num, data->fps.den));
+    if (index < 0) {
+        fps->addItem(QStringLiteral("%1 fps").arg(QString::number(data->fps.toDouble(), 'g', 5)),
+            QVariant::fromValue(QPoint(data->fps.num, data->fps.den)));
+        index = fps->count() - 1;
+    }
+    fps->setCurrentIndex(index);
+    form->addRow(QCoreApplication::translate("kk::timelinedialogs", "Timeline frame rate"), fps);
+    layout->addWidget(box);
+    box->setEnabled(!follow->isChecked());
+    QObject::connect(follow, &QCheckBox::toggled, box, [box](bool on) { box->setEnabled(!on); });
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    layout->addWidget(buttons);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    const QPoint rate = fps->currentData().toPoint();
+    project.setTimelineFormat(
+        uid, follow->isChecked(), width->value(), height->value(), Rational {rate.x(), rate.y()});
 }
 
 } // namespace kk::timelinedialogs

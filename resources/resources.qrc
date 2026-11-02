@@ -9,6 +9,7 @@
         <file>icons/add.svg</file>
         <file>icons/app.svg</file>
         <file>icons/audio_file.svg</file>
+        <file>icons/compound_clip.svg</file>
         <file>icons/audio.svg</file>
         <file>icons/blade.svg</file>
         <file>icons/film.svg</file>
@@ -77,6 +78,7 @@
         <file>icons/solo.svg</file>
         <file>icons/split.svg</file>
         <file>icons/stop.svg</file>
+        <file>icons/timeline.svg</file>
         <file>icons/title_clip.svg</file>
         <file>icons/trim.svg</file>
         <file>icons/unlock.svg</file>

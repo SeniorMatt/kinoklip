@@ -138,6 +138,13 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
         m_sourceViewer->activate();
         m_sourceViewer->setFocus();
     });
+    // A timeline opened from the media pool shows in the timeline viewer (Resolve).
+    connect(m_mediaPool, &MediaPoolPanel::timelineOpened, this, [this] {
+        showSourceInSingleViewer(false);
+        m_timelineViewer->activate();
+    });
+    // New timelines and compound clips go into the media pool's current bin (Resolve).
+    m_timeline->controller()->setBinProvider([this] { return m_mediaPool->currentBin(); });
     // F9 / F10 / F12 take the source viewer's clip and marked range.
     m_timeline->controller()->setSourceProvider([this]() -> std::optional<SourceSelection> {
         const std::optional<SourceRange> range = m_sourceViewer->sourceSelection();

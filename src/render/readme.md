@@ -108,6 +108,23 @@ mixer.mix(*snapshot, kk::framesToSamples48k(frame, fps), 1024, buffer);   // 204
   parameters re-rasterise on each frame they change. Zoomed titles are rasterised at a
   quantised zoom (≤ 4×) to stay sharp.
 
+### Nested timelines (compound clips)
+
+A `ClipKind::Nested` clip shows another timeline, found in the root snapshot's
+`TimelineData::nested` map (filled by `Timeline::snapshot()` / `Project::renderSnapshot()`).
+The decode stage walks into visible nested timelines, so their media joins the frame's parallel
+decode and the decode-ahead (`DecodedClip` is keyed by clip and source time: the same nested
+clip can be visible at two times through two instances). Compositing: `compositeTimeline()`
+renders the nested timeline at the parent's frame mapped with `nestedFrameAt()` into a pooled
+RGBA16F target sized like the area it covers in the output (times its zoom, at most 2x),
+cached for the rest of the frame (`m_nested`, repeated instances at the same frame), then
+the clip draws it as a texture source, so its transform, crop, opacity, effects and
+transitions apply to the nested picture as a whole. The CPU fallback renders nested timelines
+recursively into images; the AudioMixer mixes them through a child mixer per Nested clip
+(clipping only on the master). Depth is limited to 16 (recursion is prevented in core; this
+only guards damaged files). Cost: one extra full-size pass per visible nested level, no extra
+decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
+
 ### Cancellation and statistics
 
 * `RenderRequest::cancelled` (optional `shared_ptr<const atomic<bool>>`): a request whose flag
