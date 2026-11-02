@@ -109,6 +109,13 @@ Output size = the timeline aspect fitted into the largest registered viewer (dev
 never above timeline resolution; textures are requested when the GPU compositor runs and every
 viewer can draw them.
 
+### Proxies and render cache
+`setSubstitutes(proxies, media)` (from `MediaManagement`) puts the proxy map into every request
+and replaces the media table (offline originals play their proxy's sound); a change re-renders
+like a content change. `setRenderCache(view)` only affects later requests (same pictures).
+`proxiesInUse()` / `proxiesInUseChanged()` drive the viewer's "Proxy" indicator. While the
+engine plays, `MediaManagement` pauses background caching.
+
 ### Statistics
 `Stats` (fps, drops, render time and its stages: decode, upload, composite, output; seeks).
 `KK_PLAYBACK_STATS=1` (any value but empty/0/false/off/no) logs one line per second while

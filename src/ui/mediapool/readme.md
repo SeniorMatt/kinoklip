@@ -22,6 +22,14 @@ Owned by the panels agent.
   `MediaCache::posterFrameReady` to `MediaPoolModel::thumbnailReady()`. Replace it with
   `MediaPoolPanel::setThumbnailProvider()` (tests use a synchronous fake).
 
+## Proxy / optimized media
+`MediaPoolModel::setLinkStatusProvider()` (the app passes `MediaManagement::status()`) fills
+the Proxy / Optimized Media columns and `LinkBadgeRole` (tile badge "P", "O", "P 42%",
+amber "P!" when stale / missing); statuses are cached per row and refreshed on
+`MediaManagement::statusChanged/statusReset`. The context menu shows the `mediapool.*`
+commands (src/ui/common/MediaManagement); `publishSelection()` stores the selected ids in
+their action data and enables them for the selection.
+
 ## Multicam and sync (MediaPoolMulticam.cpp, MulticamDialog, MulticamSync)
 
 Context menu for video / audio items: Create New Multicam Clip Using Selected Clips… (dialog:

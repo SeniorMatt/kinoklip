@@ -12,6 +12,7 @@
 #include "ui/common/DragAndDrop.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
+#include "ui/common/MediaManagement.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/viewer/MaskOverlay.h"
@@ -162,6 +163,16 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
                 engine()->setQualityMode(mode);
             }
         });
+    // "Proxy" when the shown timeline / clip plays proxy or optimized media (Resolve shows
+    // the proxy state in the viewer as well); hidden otherwise.
+    m_proxyLabel = new QLabel(tr("Proxy"));
+    m_proxyLabel->setObjectName(QStringLiteral("ViewerProxyIndicator"));
+    m_proxyLabel->setContentsMargins(metrics::kSpaceS, 0, metrics::kSpaceS, 0);
+    m_proxyLabel->setToolTip(tr("Playing proxy or optimized media (Playback > Proxy Handling). "
+                                "Export uses the camera originals."));
+    m_proxyLabel->setStyleSheet(QStringLiteral("color: #e0a030; font-weight: bold;"));
+    m_proxyLabel->setVisible(false);
+    addTitleBarWidget(m_proxyLabel);
     addTitleBarWidget(m_qualityBox);
 
     m_timecode = new QLabel(timecode::format(0, Rational {}));
@@ -401,6 +412,15 @@ void ViewerPanel::ensurePlayer()
     if (m_ctx.playback) {
         m_player->engine()->setBehaviour(m_ctx.playback->behaviour());
     }
+    if (MediaManagement* mm = m_ctx.media) {
+        // The source viewer plays proxies too (sound stays with the clip's own file).
+        m_player->engine()->setSubstitutes(mm->proxies(), nullptr);
+        PlaybackEngine* engine = m_player->engine();
+        connect(mm, &MediaManagement::proxiesChanged, engine,
+            [engine](std::shared_ptr<const ProxyMap> proxies) {
+                engine->setSubstitutes(std::move(proxies), nullptr);
+            });
+    }
     bindEngine(m_player->engine());
     bindTimeline(m_player->timeline());
     connect(m_player, &SourcePlayer::marksChanged, this, &ViewerPanel::updateMarksLabel);
@@ -426,6 +446,8 @@ void ViewerPanel::bindEngine(PlaybackEngine* e)
     });
     connect(e, &PlaybackEngine::positionChanged, this, &ViewerPanel::onPositionChanged);
     connect(e, &PlaybackEngine::rateChanged, this, &ViewerPanel::onRateChanged);
+    connect(e, &PlaybackEngine::proxiesInUseChanged, m_proxyLabel, &QWidget::setVisible);
+    m_proxyLabel->setVisible(e->proxiesInUse());
     e->setQualityMode(PlaybackResolution::instance().mode());
     if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("transport.loop"))) {
         e->setLoop(m_ctx.actions->action(QStringLiteral("transport.loop"))->isChecked());

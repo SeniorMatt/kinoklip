@@ -143,6 +143,9 @@ void configureEncoder(AVCodecContext* ctx, AVDictionary** opts, const VideoEncod
         if (quality) {
             setOpt(opts, "crf", QByteArray::number(s.quality));
         }
+        if (s.fastDecode && name == QLatin1String("libx264")) {
+            setOpt(opts, "tune", QByteArray("fastdecode"));
+        }
         if (name == QLatin1String("libx265")) {
             setOpt(opts, "x265-params", QByteArray("log-level=error"));
             ctx->codec_tag = MKTAG('h', 'v', 'c', '1'); // what Apple players require in MP4/MOV
@@ -166,6 +169,9 @@ void configureEncoder(AVCodecContext* ctx, AVDictionary** opts, const VideoEncod
         }
         if (c.lowPower) {
             setOpt(opts, "low_power", 1);
+        }
+        if (s.fastDecode && name.startsWith(QLatin1String("h264"))) {
+            setOpt(opts, "coder", QByteArray("cavlc"));
         }
         if (name.startsWith(QLatin1String("hevc"))) {
             ctx->codec_tag = MKTAG('h', 'v', 'c', '1');

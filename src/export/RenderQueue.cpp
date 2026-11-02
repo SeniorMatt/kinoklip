@@ -31,9 +31,11 @@ RenderQueue::~RenderQueue()
 }
 
 quint64 RenderQueue::addJob(const QString& name, const ExportSettings& settings,
-    std::shared_ptr<const TimelineData> timeline, std::shared_ptr<const MediaPathMap> media)
+    std::shared_ptr<const TimelineData> timeline, std::shared_ptr<const MediaPathMap> media,
+    std::shared_ptr<const ProxyMap> proxies)
 {
     Job job;
+    job.proxies = std::move(proxies);
     job.id = m_nextId++;
     job.name = name;
     job.settings = settings;
@@ -148,14 +150,15 @@ void RenderQueue::startNext()
         return;
     }
     const bool wasIdle = !m_running;
-    if (next->settings.hasVideo() && !m_compositor) {
+    if (next->settings.hasVideo() && !m_compositor && !m_external) {
         m_compositor = std::make_unique<Compositor>(); // GUI thread (QOffscreenSurface)
     }
     next->status = Status::Rendering;
     next->progress = {};
     m_runningId = next->id;
     m_running = std::make_shared<ExportJob>(next->settings, next->timeline, next->media);
-    m_running->setCompositor(m_compositor.get());
+    m_running->setCompositor(m_external ? m_external : m_compositor.get());
+    m_running->setProxies(next->proxies);
 
     const quint64 id = next->id;
     std::shared_ptr<ExportJob> job = m_running;

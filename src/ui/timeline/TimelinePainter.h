@@ -57,6 +57,15 @@ struct TimelineOverlay
 
 /// Everything a paint needs, gathered by the widget (all pointers non-owning, non-null except
 /// mediaPool).
+/// One range of the render cache status bar on the ruler (Resolve: red = needs caching,
+/// blue = cached).
+struct CacheBarRange
+{
+    int64_t start = 0;
+    int64_t end = 0; ///< exclusive
+    bool cached = false;
+};
+
 struct TimelinePaintInput
 {
     const TimelineData* data = nullptr;
@@ -78,6 +87,8 @@ struct TimelinePaintInput
     int64_t gapEnd = 0;
     /// Selected transition (spec 13.10); clipId 0 = none.
     TransitionRef transition;
+    /// Render cache status (Playback > Render Cache); null / empty = no bar.
+    const QVector<CacheBarRange>* cache = nullptr;
     /// Clips showing their retime controls (Ctrl+R); nullptr = none.
     const QSet<quint64>* retimeShown = nullptr;
     /// Timelines of the project by uid (multicam clips show their active angle's name);

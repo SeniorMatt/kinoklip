@@ -9,6 +9,7 @@
 #include "playback/AudioRing.h"
 #include "playback/PlaybackLog.h"
 #include "render/Compositor.h"
+#include "render/ProxySelection.h"
 
 #include <QSettings>
 
@@ -143,9 +144,33 @@ void PlaybackEngine::setMediaPool(MediaPool* pool)
         setMediaPaths({});
         return;
     }
-    m_poolChanged = connect(m_pool, &MediaPool::changed, this,
-        [this] { setMediaPaths(makeMediaPathMap(m_pool->state())); });
-    setMediaPaths(makeMediaPathMap(m_pool->state()));
+    m_poolChanged = connect(m_pool, &MediaPool::changed, this, [this] {
+        setMediaPaths(m_audioOverride ? m_audioOverride : makeMediaPathMap(m_pool->state()));
+    });
+    setMediaPaths(m_audioOverride ? m_audioOverride : makeMediaPathMap(m_pool->state()));
+}
+
+void PlaybackEngine::setSubstitutes(
+    std::shared_ptr<const ProxyMap> proxies, std::shared_ptr<const MediaPathMap> media)
+{
+    const bool proxiesChanged = proxies != m_proxies;
+    m_proxies = std::move(proxies);
+    m_audioOverride = std::move(media);
+    if (m_audioOverride && m_audioOverride != m_media) {
+        setMediaPaths(m_audioOverride); // also updates the parameters
+    } else if (!m_audioOverride && m_pool) {
+        setMediaPaths(makeMediaPathMap(m_pool->state()));
+    } else if (proxiesChanged) {
+        updateParams(true);
+    }
+}
+
+void PlaybackEngine::setRenderCache(std::shared_ptr<const RenderCacheView> view)
+{
+    if (view == m_renderCache)
+        return;
+    m_renderCache = std::move(view);
+    updateParams(false);
 }
 
 void PlaybackEngine::setMediaPaths(std::shared_ptr<const MediaPathMap> media)
@@ -368,6 +393,8 @@ void PlaybackEngine::updateParams(bool rerender)
     RenderParams params;
     params.timeline = m_snapshot;
     params.media = m_media;
+    params.proxies = m_proxies;
+    params.renderCache = m_renderCache;
     // The proxy resolution is applied here (relative to the timeline resolution, see
     // renderSize()); the compositor renders exactly that size.
     params.outSize = renderSize();
@@ -378,12 +405,26 @@ void PlaybackEngine::updateParams(bool rerender)
             m_clients.cbegin(), m_clients.cend(), [](const Client& c) { return c.textures; });
     params.outputs = m_compositor->isGpu() && allTextures ? OutputTexture : OutputImage;
     const RenderParams& old = m_scheduler.params();
-    const bool changed = old.timeline != params.timeline || old.media != params.media
-        || old.outSize != params.outSize || old.outputs != params.outputs;
+    const bool contentChanged = old.timeline != params.timeline || old.media != params.media
+        || old.proxies != params.proxies;
+    const bool changed
+        = contentChanged || old.outSize != params.outSize || old.outputs != params.outputs;
+    if (old.timeline != params.timeline || old.proxies != params.proxies) {
+        // Viewer indicator: does this timeline show any substitute? (one pass over its clips)
+        const bool inUse = params.timeline && params.proxies
+            && usesSubstitutes(*params.timeline, *params.proxies);
+        if (inUse != m_proxiesInUse) {
+            m_proxiesInUse = inUse;
+            Q_EMIT proxiesInUseChanged(inUse);
+        }
+    }
     if (changed) {
         // Size/quality changes during playback keep the frames in flight (same picture).
-        const bool contentChanged = old.timeline != params.timeline || old.media != params.media;
         m_scheduler.setParams(params, contentChanged || !isPlaying());
+    } else if (old.renderCache != params.renderCache) {
+        // A new cache view shows the same pictures: later requests use it, nothing in flight
+        // or on screen needs to be redone.
+        m_scheduler.setParams(params, false);
     }
     if (quality != m_lastEmittedQuality) {
         m_lastEmittedQuality = quality;

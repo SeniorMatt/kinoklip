@@ -7,6 +7,7 @@
 #include "export/ExportPresets.h"
 #include "export/RenderQueue.h"
 #include "render/Compositor.h"
+#include "render/ProxySelection.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/deliver/RenderQueuePanel.h"
@@ -131,8 +132,17 @@ quint64 DeliverPage::addCurrentToQueue(bool confirmOverwrite)
     const QString name = QStringLiteral("%1 - %2").arg(
         timeline->name.isEmpty() ? m_ctx.project->name() : timeline->name,
         QFileInfo(s.outputPath).fileName());
-    return m_queue->addJob(
-        name, s, timeline, makeMediaPathMap(m_ctx.project->mediaPool()->state()));
+    // Export renders the camera originals unless Advanced Settings asks for proxies /
+    // optimized media.
+    std::shared_ptr<const ProxyMap> proxies;
+    if (m_settingsPanel->useProxyMedia() || m_settingsPanel->useOptimizedMedia()) {
+        proxies = makeProxyMap(m_ctx.project->mediaPool()->state(), *m_ctx.project->mediaLinks(),
+            m_settingsPanel->useProxyMedia() ? ProxyHandling::PreferProxies
+                                             : ProxyHandling::Disabled,
+            m_settingsPanel->useOptimizedMedia());
+    }
+    return m_queue->addJob(name, s, timeline, makeMediaPathMap(m_ctx.project->mediaPool()->state()),
+        std::move(proxies));
 }
 
 void DeliverPage::updateRange()

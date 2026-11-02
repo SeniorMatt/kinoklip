@@ -8,8 +8,10 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "export/RenderCacheManager.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/MediaManagement.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/NestedPreview.h"
 #include "ui/timeline/TimelineController.h"
@@ -48,6 +50,18 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     viewport()->setAcceptDrops(true);
     viewport()->setMouseTracking(true);
     viewport()->setAttribute(Qt::WA_OpaquePaintEvent);
+    if (ctx.media) {
+        RenderCacheManager* cache = ctx.media->renderCache();
+        auto syncCache = [this, cache] {
+            m_cacheBar.clear();
+            for (const RenderCacheManager::Range& r : cache->ranges())
+                m_cacheBar.append(
+                    {r.start, r.end, r.state == RenderCacheManager::RangeState::Cached});
+            viewport()->update(0, 0, viewport()->width(), timelinemetrics::kRulerHeight);
+        };
+        connect(cache, &RenderCacheManager::rangesChanged, this, syncCache);
+        syncCache();
+    }
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setMinimumHeight(kRulerHeight + 2 * kDefaultAudioHeight);
@@ -207,6 +221,7 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     }
     in.transition = m_ctx.selection->transition().value_or(TransitionRef {0, true});
     in.hasFocus = hasFocus();
+    in.cache = &m_cacheBar;
     in.retimeShown = &m_controller->retimeControls();
     m_painter.paint(p, in);
     m_keyframeLanes->paintClipButtons(p);

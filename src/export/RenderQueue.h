@@ -50,6 +50,9 @@ public:
         ExportSettings settings;
         std::shared_ptr<const TimelineData> timeline;
         std::shared_ptr<const MediaPathMap> media;
+        /// Proxy / optimized media to render with (Deliver "Use proxy media"); nullptr =
+        /// camera originals (the default).
+        std::shared_ptr<const ProxyMap> proxies;
         Status status = Status::Queued;
         ExportProgress progress;
         ExportResult result; ///< valid once finished
@@ -61,7 +64,11 @@ public:
 
     /// Adds a job (Queued). @return its id.
     quint64 addJob(const QString& name, const ExportSettings& settings,
-        std::shared_ptr<const TimelineData> timeline, std::shared_ptr<const MediaPathMap> media);
+        std::shared_ptr<const TimelineData> timeline, std::shared_ptr<const MediaPathMap> media,
+        std::shared_ptr<const ProxyMap> proxies = nullptr);
+    /// Uses @p compositor (owned by the caller, must outlive the queue) instead of creating
+    /// one; lets background queues (proxies, render cache) share a single render thread.
+    void setCompositor(Compositor* compositor) { m_external = compositor; }
     /// Removes a job that is not rendering. @return false if it is rendering or unknown.
     bool removeJob(quint64 id);
     /// Starts rendering every queued job, one after another.
@@ -113,6 +120,7 @@ private:
     std::shared_ptr<ExportJob> m_running;
     quint64 m_runningId = 0;
     std::unique_ptr<Compositor> m_compositor;
+    Compositor* m_external = nullptr; ///< setCompositor()
 };
 
 } // namespace kk

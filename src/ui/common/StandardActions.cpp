@@ -39,6 +39,9 @@ const ActionSpec kActions[] = {
     {"file", "file.save_as",          QT_TRANSLATE_NOOP("kk::StandardActions", "Save Project &As…")},
     {"file", "-"},
     {"file", "file.import_media",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Import Media…"), "import"},
+    // The media pool's proxy / optimized media commands also live here (act on the media
+    // pool selection); Resolve offers them in the media pool context menu.
+    {"file", ">mediapool",            QT_TRANSLATE_NOOP("kk::StandardActions", "Pro&xy and Optimized Media")},
     {"file", "-"},
     {"file", "file.project_settings", QT_TRANSLATE_NOOP("kk::StandardActions", "Project Se&ttings…")},
     {"file", "-"},
@@ -140,6 +143,7 @@ const ActionSpec kActions[] = {
     {"clip", "clip.new_compound",     QT_TRANSLATE_NOOP("kk::StandardActions", "New &Compound Clip…"), "compound_clip"},
     {"clip", "clip.open_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Open in Timeline")},
     {"clip", "clip.decompose",        QT_TRANSLATE_NOOP("kk::StandardActions", "Decompose in &Place")},
+    {"clip", "clip.render_cache_output", QT_TRANSLATE_NOOP("kk::StandardActions", "Render Cache Clip O&utput"), "", true},
     {"clip", "-"},
     // Multicam clips (media pool commands in src/ui/mediapool/MediaPoolMulticam.cpp, angle
     // edits in src/ui/timeline/TimelineMulticam.cpp, viewer grid in src/ui/viewer).
@@ -253,6 +257,28 @@ const ActionSpec kActions[] = {
     {"playback.resolution", "playback.resolution_quarter", QT_TRANSLATE_NOOP("kk::StandardActions", "&Quarter Resolution"), "", true},
     {"playback.resolution", "-"},
     {"playback.resolution", "playback.resolution_auto",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Automatic (Half When Playback Cannot Keep Up)"), "", true},
+    // Resolve: Playback > Proxy Handling, Use Optimized Media If Available, Render Cache.
+    {"playback", ">playback.proxy_handling",  QT_TRANSLATE_NOOP("kk::StandardActions", "Pro&xy Handling")},
+    {"playback.proxy_handling", "playback.proxy_prefer",    QT_TRANSLATE_NOOP("kk::StandardActions", "Prefer &Proxies"), "", true},
+    {"playback.proxy_handling", "playback.proxy_originals", QT_TRANSLATE_NOOP("kk::StandardActions", "Prefer &Camera Originals"), "", true},
+    {"playback.proxy_handling", "playback.proxy_disable",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Disable All Proxies"), "", true},
+    {"playback", "playback.use_proxy",        QT_TRANSLATE_NOOP("kk::StandardActions", "Use Pro&xy Media If Available"), "", true},
+    {"playback", "playback.use_optimized",    QT_TRANSLATE_NOOP("kk::StandardActions", "Use &Optimized Media If Available"), "", true},
+    {"playback", ">playback.render_cache",    QT_TRANSLATE_NOOP("kk::StandardActions", "Render &Cache")},
+    {"playback.render_cache", "playback.render_cache_none",  QT_TRANSLATE_NOOP("kk::StandardActions", "&None"), "", true},
+    {"playback.render_cache", "playback.render_cache_smart", QT_TRANSLATE_NOOP("kk::StandardActions", "&Smart"), "", true},
+    {"playback.render_cache", "playback.render_cache_user",  QT_TRANSLATE_NOOP("kk::StandardActions", "&User"), "", true},
+    {"playback", "playback.delete_render_cache", QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete Render Cache…")},
+
+    // ---- Media pool (File submenu + context menu; MediaPoolPanel puts the selected ids into
+    // the data) ----
+    {"mediapool", "mediapool.generate_optimized", QT_TRANSLATE_NOOP("kk::StandardActions", "Generate Optimized Media")},
+    {"mediapool", "mediapool.generate_proxy",     QT_TRANSLATE_NOOP("kk::StandardActions", "Generate Proxy Media")},
+    {"mediapool", "mediapool.stop_generation",    QT_TRANSLATE_NOOP("kk::StandardActions", "Stop Generating")},
+    {"mediapool", "mediapool.link_proxy",         QT_TRANSLATE_NOOP("kk::StandardActions", "Link Proxy Media…")},
+    {"mediapool", "mediapool.unlink_proxy",       QT_TRANSLATE_NOOP("kk::StandardActions", "Unlink Proxy Media")},
+    {"mediapool", "mediapool.delete_proxy",       QT_TRANSLATE_NOOP("kk::StandardActions", "Delete Proxy Media…")},
+    {"mediapool", "mediapool.delete_optimized",   QT_TRANSLATE_NOOP("kk::StandardActions", "Delete Optimized Media…")},
 
     // ---- Settings (look and feel; entries filled by src/app/Theme) ----
     {"settings", ">settings.color_scheme", QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Theme")},
@@ -328,6 +354,18 @@ void registerStandardActions(ActionRegistry& registry)
              "playback.resolution_quarter", "playback.resolution_auto"})
         resolutions->addAction(registry.action(QLatin1String(id)));
     registry.action(QStringLiteral("playback.resolution_full"))->setChecked(true);
+    for (const auto& group : {std::initializer_list<const char*> {"playback.proxy_prefer",
+                                  "playback.proxy_originals", "playback.proxy_disable"},
+             std::initializer_list<const char*> {"playback.render_cache_none",
+                 "playback.render_cache_smart", "playback.render_cache_user"}}) {
+        auto* g = new QActionGroup(&registry);
+        for (const char* id : group)
+            g->addAction(registry.action(QLatin1String(id)));
+    }
+    registry.action(QStringLiteral("playback.proxy_prefer"))->setChecked(true);
+    registry.action(QStringLiteral("playback.use_proxy"))->setChecked(true);
+    registry.action(QStringLiteral("playback.use_optimized"))->setChecked(true);
+    registry.action(QStringLiteral("playback.render_cache_none"))->setChecked(true);
     registry.action(QStringLiteral("timeline.snapping"))->setChecked(true);
     auto* multicamModes = new QActionGroup(&registry);
     for (const char* id : {"multicam.mode_cut", "multicam.mode_switch"})

@@ -121,6 +121,8 @@ void MediaPoolModel::reload()
     m_rows.reserve(items.size());
     for (const MediaItem& item : items)
         m_rows.append(makeRow(item));
+    for (Row& row : m_rows)
+        fillLinks(row);
     reindex(0);
     endResetModel();
 }
@@ -139,6 +141,7 @@ void MediaPoolModel::onItemAdded(const QString& id)
     const int row = int(m_rows.size());
     beginInsertRows({}, row, row);
     m_rows.append(makeRow(*item));
+    fillLinks(m_rows.back());
     m_rowById.insert(id, row);
     endInsertRows();
 }
@@ -162,6 +165,37 @@ void MediaPoolModel::onItemChanged(const QString& id)
     if (row < 0 || !item)
         return;
     m_rows[row] = makeRow(*item);
+    fillLinks(m_rows[row]);
+    emit dataChanged(index(row, 0), index(row, ColumnCount - 1));
+}
+
+void MediaPoolModel::setLinkStatusProvider(
+    std::function<MediaLinkStatus(const QString& id)> provider)
+{
+    m_linkStatus = std::move(provider);
+    linkStatusChanged();
+}
+
+void MediaPoolModel::fillLinks(Row& row) const
+{
+    // A few stat() calls per item, only when its status may have changed (never per paint).
+    row.links = m_linkStatus ? m_linkStatus(row.id) : MediaLinkStatus {};
+}
+
+void MediaPoolModel::linkStatusChanged(const QString& id)
+{
+    if (m_rows.isEmpty())
+        return;
+    if (id.isEmpty()) {
+        for (Row& row : m_rows)
+            fillLinks(row);
+        emit dataChanged(index(0, 0), index(int(m_rows.size()) - 1, ColumnCount - 1));
+        return;
+    }
+    const int row = m_rowById.value(id, -1);
+    if (row < 0)
+        return;
+    fillLinks(m_rows[row]);
     emit dataChanged(index(row, 0), index(row, ColumnCount - 1));
 }
 
@@ -219,6 +253,10 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
             return row.codecText;
         case AudioColumn:
             return row.audioText;
+        case ProxyColumn:
+            return row.links.proxyText;
+        case OptimizedColumn:
+            return row.links.optimizedText;
         default:
             return {};
         }
@@ -267,6 +305,10 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
         return row.durationText;
     case SearchTextRole:
         return row.searchText;
+    case LinkBadgeRole:
+        return row.links.badge;
+    case LinkProblemRole:
+        return row.links.problem;
     default:
         return {};
     }
@@ -289,6 +331,10 @@ QVariant MediaPoolModel::headerData(int section, Qt::Orientation orientation, in
         return tr("Codec");
     case AudioColumn:
         return tr("Audio");
+    case ProxyColumn:
+        return tr("Proxy");
+    case OptimizedColumn:
+        return tr("Optimized Media");
     default:
         return {};
     }
