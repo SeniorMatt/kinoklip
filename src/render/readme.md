@@ -176,6 +176,15 @@ Costs (1080p): blend ~0.5 ms; flow ~2-4 ms on a GTX 1650 class GPU, ~0.3-0.6 s o
 (export fine, preview slow: use Nearest / Frame Blend). Nested clips use Nearest. Tests:
 `test_retimerender`.
 
+### Multicam clips
+
+A Nested clip with `ClipData::multicamAngle >= 0` is resolved with
+`NestedTimelines::findClip()` to the angle view of its multicam timeline (one video and one
+audio track), so the nested pass composites, decodes and mixes only the active angle. The
+multicam viewer's grid is an ordinary timeline of such clips scaled into cells, i.e. N nested
+composites at cell size (decode stays full size: proxies will cut that cost). Test:
+`test_multicamrender`.
+
 ### Nested timelines (compound clips)
 
 A `ClipKind::Nested` clip shows another timeline, found in the root snapshot's

@@ -43,6 +43,15 @@ void paintPlaceholder(QPainter* p, const QRect& r, int kind, const QPalette& pal
             p->drawRoundedRect(QRectF(c.x() - 22, c.y() - 14, 44, 28), 2, 2);
         break;
     }
+    case MediaPoolModel::MulticamKind: {
+        // A 2x2 grid of angle frames.
+        for (int i = 0; i < 4; ++i) {
+            const qreal x = c.x() - 21 + (i % 2) * 22;
+            const qreal y = c.y() - 14 + (i / 2) * 15;
+            p->drawRoundedRect(QRectF(x, y, 20, 13), 1.5, 1.5);
+        }
+        break;
+    }
     case MediaPoolModel::SubtitleKind: {
         // A caption box with two text lines.
         p->drawRoundedRect(QRectF(c.x() - 20, c.y() - 14, 40, 28), 3, 3);

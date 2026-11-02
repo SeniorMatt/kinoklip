@@ -197,10 +197,14 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
     ActionRegistry* reg = m_ctx.actions;
     if (currentItem && currentItem->isTimeline()) {
         const quint64 uid = currentItem->timelineUid;
+        if (currentItem->kind == MediaItemKind::MulticamClip)
+            menu.addAction(tr("Open in Source Viewer"), this,
+                [this, current] { emit openInSourceViewer(current); });
         menu.addAction(tr("Open in Timeline"), this, [this, uid] { openTimeline(uid); });
-        menu.addAction(currentItem->kind == MediaItemKind::CompoundClip
-                ? tr("Duplicate Compound Clip")
-                : tr("Duplicate Timeline"),
+        menu.addAction(currentItem->kind == MediaItemKind::MulticamClip
+                ? tr("Duplicate Multicam Clip")
+                : currentItem->kind == MediaItemKind::CompoundClip ? tr("Duplicate Compound Clip")
+                                                                   : tr("Duplicate Timeline"),
             this, [this, uid] { m_ctx.project->duplicateTimeline(uid); });
         menu.addSeparator();
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
@@ -216,6 +220,10 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
         menu.addAction(
             tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });
+        if (!power) {
+            menu.addSeparator();
+            addMulticamMenu(menu, ids);
+        }
     }
     if (!current.isEmpty()) {
         addColorMenu(menu, ids);

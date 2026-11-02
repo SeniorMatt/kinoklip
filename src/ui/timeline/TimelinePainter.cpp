@@ -8,6 +8,7 @@
 #include "core/ClipColors.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
+#include "core/Multicam.h"
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "ui/common/Icons.h"
@@ -186,13 +187,34 @@ QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type, const Me
     return clipColor(clip, type);
 }
 
-const QString& TimelinePainter::elidedName(const ClipData& clip, int width)
+const QString& TimelinePainter::clipLabel(const TimelinePaintInput& in, const ClipData& clip)
+{
+    // A multicam segment shows its active angle (number and name) before the clip name.
+    if (clip.kind != ClipKind::Nested || clip.multicamAngle < 0 || !in.timelines)
+        return clip.name;
+    const TimelineData* mc = (*in.timelines)(clip.nestedUid);
+    if (!mc || !mc->multicam)
+        return clip.name;
+    NameCache& entry = m_names[clip.id];
+    if (entry.angle != clip.multicamAngle || entry.multicam != mc || entry.name != clip.name
+        || entry.label.isEmpty()) {
+        entry.angle = clip.multicamAngle;
+        entry.multicam = mc;
+        entry.label = QStringLiteral("%1  %2 - %3")
+                          .arg(clip.multicamAngle + 1)
+                          .arg(multicam::angleName(*mc, clip.multicamAngle), clip.name);
+        entry.width = -1; // re-elide
+    }
+    return entry.label;
+}
+
+const QString& TimelinePainter::elidedName(const ClipData& clip, const QString& text, int width)
 {
     NameCache& entry = m_names[clip.id];
     if (entry.width != width || entry.name != clip.name) {
         entry.name = clip.name;
         entry.width = width;
-        entry.elided = QFontMetrics(m_smallFont).elidedText(clip.name, Qt::ElideRight, width);
+        entry.elided = QFontMetrics(m_smallFont).elidedText(text, Qt::ElideRight, width);
     }
     return entry.elided;
 }
@@ -208,8 +230,11 @@ QString TimelinePainter::mediaPath(const TimelinePaintInput& in, const QString& 
 QString TimelinePainter::clipPreviewPath(const ClipData& clip, const MediaItem* item)
 {
     // Nested clips: the providers resolve the pseudo path to the nested timeline's preview.
+    // A multicam clip previews its active angle (the angle view's key).
     if (clip.kind == ClipKind::Nested)
-        return nestedPreviewPath(clip.nestedUid);
+        return nestedPreviewPath(clip.multicamAngle >= 0
+                ? multicamViewKey(clip.nestedUid, clip.multicamAngle)
+                : clip.nestedUid);
     return item ? item->path : QString();
 }
 
@@ -395,11 +420,12 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     if (nameRoom > 12 && bandH >= 12) {
         p.setFont(m_smallFont);
         p.setPen(clip.enabled ? QColor(0xf2, 0xf2, 0xf4) : m_textDim);
-        const QString& name = elidedName(clip, nameRoom);
+        const QString& label = clipLabel(in, clip);
+        const QString& name = elidedName(clip, label, nameRoom);
         const double baseline = r.top() + (bandH + m_fontAscent) / 2.0 - 1;
         p.drawText(QPointF(visLeft + 5, baseline), name);
         // Duration only when the full name fits with room to spare (duration-aware text).
-        if (name == clip.name && nameRoom > 150) {
+        if (name == label && nameRoom > 150) {
             const QFontMetrics fm(m_smallFont);
             const int nameW = fm.horizontalAdvance(name);
             const QString dur = timecode::format(clip.duration, in.data->fps);

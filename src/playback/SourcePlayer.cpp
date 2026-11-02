@@ -98,7 +98,7 @@ Rational SourcePlayer::fps() const
 void SourcePlayer::remember()
 {
     if (hasMedia()) {
-        m_memory.insert(m_item.id, Memory {markIn(), markOut(), m_engine->position()});
+        m_memory.insert(m_item.id, Memory {markIn(), markOut(), m_engine->position(), fps()});
     }
 }
 
@@ -124,6 +124,7 @@ void SourcePlayer::setMedia(const MediaItem* item)
     tl.markOut = memory.markOut;
     auto media = std::make_shared<MediaPathMap>();
     media->insert(m_item.id, m_item.path);
+    m_timeline->setNestedResolver({}); // plain media: no nested timelines
     // Detach while replacing the content so the engine renders once, for the final state.
     m_engine->setTimeline(nullptr);
     m_engine->setMediaPaths(media);
@@ -132,6 +133,44 @@ void SourcePlayer::setMedia(const MediaItem* item)
         memory.position, 0, std::max<int64_t>(0, m_timeline->data().duration() - 1)));
     m_engine->setTimeline(m_timeline);
     Q_EMIT mediaChanged(m_item.id);
+}
+
+void SourcePlayer::setContent(const MediaItem& item, TimelineData content,
+    std::shared_ptr<const MediaPathMap> media, Timeline::NestedResolver resolver)
+{
+    const bool same = item.id == m_item.id;
+    if (same) {
+        // Same item, new content (grid page, angle, edited multicam clip): keep the marks,
+        // the position and the transport; the engine re-renders on Timeline::changed().
+        content.markIn = m_timeline->data().markIn;
+        content.markOut = m_timeline->data().markOut;
+        m_engine->setMediaPaths(std::move(media));
+        m_timeline->setNestedResolver(std::move(resolver));
+        m_timeline->setData(std::move(content));
+        return;
+    }
+    m_engine->stop();
+    remember();
+    m_item = item;
+    const Memory memory = m_memory.value(m_item.id);
+    content.markIn = memory.markIn;
+    content.markOut = memory.markOut;
+    m_engine->setTimeline(nullptr);
+    m_engine->setMediaPaths(std::move(media));
+    m_timeline->setNestedResolver(std::move(resolver));
+    m_timeline->setData(std::move(content));
+    m_timeline->setPlayhead(std::clamp<int64_t>(
+        memory.position, 0, std::max<int64_t>(0, m_timeline->data().duration() - 1)));
+    m_engine->setTimeline(m_timeline);
+    Q_EMIT mediaChanged(m_item.id);
+}
+
+int64_t SourcePlayer::markInUs(const QString& mediaId) const
+{
+    if (hasMedia() && mediaId == m_item.id)
+        return markIn() > 0 ? framesToUs(markIn(), fps()) : 0;
+    const auto it = m_memory.constFind(mediaId);
+    return it != m_memory.constEnd() && it->markIn > 0 ? framesToUs(it->markIn, it->fps) : 0;
 }
 
 int64_t SourcePlayer::markIn() const
