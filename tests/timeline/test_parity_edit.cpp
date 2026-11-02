@@ -5,10 +5,16 @@
 // docs/behavior-spec.md.
 #include "ParityTestUtils.h"
 #include "TimelineTestUtils.h"
+#include "core/EditBehaviour.h"
+#include "ui/common/SettingsPages.h"
+#include "ui/timeline/EditingSettingsPage.h"
 
 #include <QAction>
+#include <QComboBox>
+#include <QScrollBar>
 #include <QTest>
 #include <QUndoStack>
+#include <QWheelEvent>
 
 using namespace kk;
 using namespace kk::test;
@@ -298,6 +304,81 @@ private slots:
         QCOMPARE(t.f.view().audioTracks[0].clips[0].id, ba); // linked parts swapped along
         t.action("trim.swap_left")->trigger();
         QCOMPARE(t.f.view().videoTracks[0].clips[0].id, a);
+    }
+
+    // ---- 19 Zoom and scrolling ----
+
+    void spec19_6_wheelZoomAroundPlayheadOrCursor()
+    {
+        View v;
+        v.put(kV1, solidClip(0, 5000));
+        v.w.setPixelsPerFrame(2.0, kHeaderWidth);
+        v.tl()->setPlayhead(100);
+        auto altWheel = [&](QPoint pos) {
+            QWheelEvent wheel(pos, v.vp()->mapToGlobal(pos), {}, QPoint(0, 240), Qt::NoButton,
+                Qt::AltModifier, Qt::NoScrollPhase, false);
+            QCoreApplication::sendEvent(v.vp(), &wheel);
+        };
+        // Default (Resolve): Alt+wheel zooms and the playhead keeps its place.
+        const double playheadX = v.w.layout().frameToX(100);
+        const QPoint pointer(900, 200);
+        altWheel(pointer);
+        QVERIFY(v.w.pixelsPerFrame() > 2.0);
+        QVERIFY(qAbs(v.w.layout().frameToX(100) - playheadX) < 1.0);
+        // "Zoom around: Mouse cursor": the frame under the pointer keeps its place.
+        EditBehaviour::setZoomAnchor(ZoomAnchor::Cursor);
+        const double frameUnderPointer = v.w.layout().xToFrame(pointer.x());
+        altWheel(pointer);
+        QVERIFY(qAbs(v.w.layout().xToFrame(pointer.x()) - frameUnderPointer) < 1.0);
+        // Keyboard zoom always keeps the playhead.
+        const double before = v.w.layout().frameToX(100);
+        v.action("timeline.zoom_in")->trigger();
+        QVERIFY(qAbs(v.w.layout().frameToX(100) - before) < 1.0);
+    }
+
+    void spec19_6_editingPreferencesPage()
+    {
+        SettingsPageRegistry registry;
+        registerEditingSettingsPage(registry);
+        QVERIFY(registry.contains(QStringLiteral("editing")));
+        QWidget parent;
+        SettingsPage* page = registry.pages().front().create(&parent);
+        auto* anchor = page->findChild<QComboBox*>(QStringLiteral("zoomAround"));
+        auto* scheme = page->findChild<QComboBox*>(QStringLiteral("wheelScheme"));
+        QVERIFY(anchor && scheme);
+        QCOMPARE(anchor->currentData().toInt(), int(ZoomAnchor::Playhead)); // Resolve default
+        anchor->setCurrentIndex(anchor->findData(int(ZoomAnchor::Cursor)));
+        scheme->setCurrentIndex(scheme->findData(int(WheelScheme::Classic)));
+        page->apply();
+        QCOMPARE(EditBehaviour::fromSettings().zoomAnchor, ZoomAnchor::Cursor);
+        QCOMPARE(EditBehaviour::fromSettings().wheelScheme, WheelScheme::Classic);
+    }
+
+    void spec19_3_resolveWheelScrollsAndChangesTrackHeight()
+    {
+        View v;
+        v.put(kV1, solidClip(0, 5000));
+        v.w.setPixelsPerFrame(2.0, kHeaderWidth);
+        const double ppf = v.w.pixelsPerFrame();
+        auto wheel = [&](Qt::KeyboardModifiers mods, int dy) {
+            const QPoint pos(600, 200);
+            QWheelEvent e(pos, v.vp()->mapToGlobal(pos), {}, QPoint(0, dy), Qt::NoButton, mods,
+                Qt::NoScrollPhase, false);
+            QCoreApplication::sendEvent(v.vp(), &e);
+        };
+        // Ctrl+wheel scrolls time (no zoom).
+        const int scrollBefore = v.w.horizontalScrollBar()->value();
+        wheel(Qt::ControlModifier, -240);
+        QVERIFY(v.w.horizontalScrollBar()->value() > scrollBefore);
+        QCOMPARE(v.w.pixelsPerFrame(), ppf);
+        // Shift+wheel makes every track taller (view only, no undo step).
+        const int undo = v.undoCount();
+        const int rowHeight = v.w.layout().rowRect(v.w.layout().rowOf(kV1)).height();
+        wheel(Qt::ShiftModifier, 240);
+        QVERIFY(v.w.trackHeightScale() > 1.0);
+        QVERIFY(v.w.layout().rowRect(v.w.layout().rowOf(kV1)).height() > rowHeight);
+        QCOMPARE(v.undoCount(), undo);
+        QCOMPARE(v.f.view().videoTracks[0].height, 0);
     }
 
     // ---- 23 Other Edit page commands ----

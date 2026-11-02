@@ -17,6 +17,7 @@
 #include "ui/common/SettingsPages.h"
 #include "ui/common/StandardActions.h"
 #include "ui/dialogs/PreferencesDialog.h"
+#include "ui/timeline/EditingSettingsPage.h"
 
 #include <QApplication>
 #include <QSettings>
@@ -105,6 +106,7 @@ int main(int argc, char** argv)
     kk::theme::registerActions(actions); // Settings > Color Theme / Style entries
     kk::SettingsPageRegistry settingsPages;
     kk::registerStandardSettingsPages(settingsPages);
+    kk::registerEditingSettingsPage(settingsPages); // timeline: wheel scheme, zoom anchor
     kk::theme::registerSettingsPage(settingsPages, actions);
     // Program playback: owns the compositor (render thread + GL context) shared by every
     // viewer, follows the project's timeline and media pool.

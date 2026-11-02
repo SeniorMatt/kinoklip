@@ -9,6 +9,22 @@
 
 namespace kk {
 
+/// Which point stays fixed when the timeline zooms with the mouse wheel (spec 19.6).
+enum class ZoomAnchor {
+    Playhead, ///< the playhead keeps its place (Resolve; view centre when it is off-screen)
+    Cursor ///< the frame under the mouse pointer keeps its place
+};
+
+/// Meaning of the mouse wheel modifiers over the timeline (spec 19.3).
+enum class WheelScheme {
+    /// Resolve: wheel scrolls the tracks, Ctrl+wheel scrolls time, Alt+wheel zooms time,
+    /// Shift+wheel changes the track height
+    Resolve,
+    /// Kinoklip 0.1: wheel scrolls the tracks (time when they fit), Shift+wheel scrolls time,
+    /// Ctrl+wheel zooms
+    Classic
+};
+
 /// Convention-dependent editing behaviour (plan.md 5.9 rule 5). The defaults follow the
 /// Resolve-like profile described in docs/behavior-spec.md; a future interface profile can
 /// change them without touching the timeline code. Plain value type; read it where the
@@ -36,15 +52,29 @@ struct EditBehaviour
     bool selectToolRollsAtCut = true;
     /// Trim tool: the upper (name bar) part of a clip body slides, the rest slips (spec 8.6).
     bool trimToolSlideInNameBar = true;
+    /// Fixed point of mouse-wheel zoom ("Zoom around", spec 19.6). Keyboard zoom always keeps
+    /// the playhead.
+    ZoomAnchor zoomAnchor = ZoomAnchor::Playhead;
+    /// Mouse wheel modifier convention (spec 19.3).
+    WheelScheme wheelScheme = WheelScheme::Resolve;
+    /// Dynamic trim (spec 8.17): J/K/L trim the selected edit point while playing, instead of
+    /// only moving the playhead. Off: W just toggles the mode without J/K/L trimming.
+    bool dynamicTrimWithJkl = true;
 
     /// Values stored in QSettings (group "edit/": stillSeconds, generatorSeconds,
     /// transitionSeconds, multiFrameNudge, threePointEditing, rippleDeleteGapAtPlayhead,
-    /// trimToPlayheadRipples, selectToolRollsAtCut, trimToolSlideInNameBar); defaults where
-    /// unset.
+    /// trimToPlayheadRipples, selectToolRollsAtCut, trimToolSlideInNameBar, zoomAround
+    /// ("playhead" / "cursor"), wheelScheme ("resolve" / "classic"), dynamicTrimWithJkl);
+    /// defaults where unset.
     [[nodiscard]] static EditBehaviour fromSettings();
 
     /// @p seconds as a frame count at @p fps (at least 1 frame).
     [[nodiscard]] static int64_t frames(double seconds, Rational fps);
+
+    /// Stores the zoom anchor (QSettings "edit/zoomAround").
+    static void setZoomAnchor(ZoomAnchor anchor);
+    /// Stores the wheel scheme (QSettings "edit/wheelScheme").
+    static void setWheelScheme(WheelScheme scheme);
 };
 
 } // namespace kk

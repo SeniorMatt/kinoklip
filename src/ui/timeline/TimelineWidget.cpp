@@ -3,6 +3,7 @@
 // The mouse state machine lives in TimelineInput.cpp, drag and drop in TimelineDrop.cpp.
 #include "ui/timeline/TimelineWidget.h"
 
+#include "core/EditBehaviour.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -224,21 +225,49 @@ void TimelineWidget::scrollToFrame(double frame)
 
 void TimelineWidget::wheelEvent(QWheelEvent* event)
 {
+    // The modifier convention and the zoom anchor are preferences (EditBehaviour, spec
+    // 19.3 / 19.6 / 19.7); a few QSettings lookups per wheel event are cheap.
+    const EditBehaviour behaviour = EditBehaviour::fromSettings();
     const QPoint angle = event->angleDelta();
-    if (event->modifiers() & Qt::ControlModifier) {
-        const int delta = angle.y() != 0 ? angle.y() : angle.x();
-        const double x = event->position().x();
-        zoomBy(std::pow(kWheelZoomPerDegree, delta), x >= kHeaderWidth ? x : zoomAnchorX());
+    // Qt turns Alt+wheel into a horizontal delta on some platforms: use whichever is set.
+    const int anyDelta = angle.y() != 0 ? angle.y() : angle.x();
+    const Qt::KeyboardModifiers mods = event->modifiers();
+    const bool resolve = behaviour.wheelScheme == WheelScheme::Resolve;
+    const double pointerX = event->position().x();
+    auto wheelZoom = [&] {
+        const double anchor = behaviour.zoomAnchor == ZoomAnchor::Cursor && pointerX >= kHeaderWidth
+            ? pointerX
+            : zoomAnchorX();
+        zoomBy(std::pow(kWheelZoomPerDegree, anyDelta), anchor);
+    };
+    QScrollBar* h = horizontalScrollBar();
+    QScrollBar* v = verticalScrollBar();
+    const int timeStep = m_layout.trackAreaWidth() / 1200; // pixels of scroll per 1/8 degree
+    if (resolve) {
+        if (mods & Qt::AltModifier) {
+            wheelZoom();
+        } else if (mods & Qt::ShiftModifier) {
+            setTrackHeightScale(m_layout.heightScale() * std::pow(kWheelZoomPerDegree, anyDelta));
+        } else if ((mods & Qt::ControlModifier) || angle.x() != 0) {
+            // Ctrl+wheel and horizontal touchpad swipes scroll time.
+            h->setValue(
+                h->value() - (angle.x() != 0 ? angle.x() : angle.y()) * std::max(1, timeStep));
+        } else {
+            v->setValue(v->value() - angle.y() / 2);
+        }
         event->accept();
         return;
     }
-    // Shift+wheel (some platforms already turn it into a horizontal delta) and horizontal
-    // touchpad swipes scroll time; the plain wheel scrolls tracks when they overflow,
-    // otherwise time.
-    const bool shift = event->modifiers() & Qt::ShiftModifier;
+    if (mods & Qt::ControlModifier) {
+        wheelZoom();
+        event->accept();
+        return;
+    }
+    // Classic: Shift+wheel (some platforms already turn it into a horizontal delta) and
+    // horizontal touchpad swipes scroll time; the plain wheel scrolls tracks when they
+    // overflow, otherwise time.
+    const bool shift = mods & Qt::ShiftModifier;
     const int dx = angle.x() != 0 ? angle.x() : (shift ? angle.y() : 0);
-    QScrollBar* h = horizontalScrollBar();
-    QScrollBar* v = verticalScrollBar();
     if (dx != 0) {
         h->setValue(h->value() - dx * m_layout.trackAreaWidth() / 1200);
     } else if (m_layout.maxScrollY() > 0) {
@@ -247,6 +276,14 @@ void TimelineWidget::wheelEvent(QWheelEvent* event)
         h->setValue(h->value() - angle.y() * m_layout.trackAreaWidth() / 1200);
     }
     event->accept();
+}
+
+void TimelineWidget::setTrackHeightScale(double scale)
+{
+    m_layout.setHeightScale(scale);
+    m_layout.rebuild(m_ctx.project->timeline()->data());
+    updateScrollBars();
+    viewport()->update();
 }
 
 // ---- Zoom ----
