@@ -239,6 +239,10 @@ Format version 10 (attrs) adds clip fades and Clip Attributes (see `Serializatio
 Format version 11 (bins): items may carry "clipColor", "flags", "metadata", "added",
 "modified"; the media pool "smartBins"; the project "binViews" (see `Serialization.h`).
 Versions <= 10 get "modified" (and "added") from the file on disk when loading.
+Format version 12 (audiopage) adds the mixer: audio tracks may carry
+"mix" (strip, channel format, bus routes, automation mode and curves), timelines "mixer" (buses,
+output bus); see `Serialization.h` / `MixerJson.h`. Absent = a neutral mixer, so older files
+load and play unchanged.
 Media paths are stored absolute and relative to the project file; the relative one is used when
 the absolute path no longer exists.
 
@@ -279,3 +283,20 @@ the absolute path no longer exists.
   item in every timeline, so render snapshots carry it. Serialized from format 10.
 - Stacked timelines: `Project::setTabs()`, `timelinePlayhead()` / `setTimelinePlayhead()`
   (inactive timelines keep their own playhead; `inactivePlayheadChanged`).
+
+## Mixer model (Audio page, spec section 37)
+
+`MixerData.h`: `ChannelStrip` (6-band `EqSettings`, `DynamicsSettings`, fader dB, pan, bus mute),
+`TrackMix` on every `TrackData` (strip, mono / stereo channel format, bus routes, `AutomationMode`
+off / read / touch / write, fader and pan automation curves keyed in **timeline frames**),
+`BusData` and `MixerData` on every `TimelineData` (buses, the output bus, the id allocator; Bus 1
+always exists). Value types, so undo, render snapshots and copy / paste carry them. `MixerOps.h`
+(`kk::mixerops`): pure edits (add / rename / delete buses, routes, channel format, output bus,
+automation mode, automation writing with erase-what-was-passed, clamping) and the evaluation the
+mixer and the widgets share (`faderDbAt()`, `panAt()`), callable without the mouse. `MixerJson.h`:
+format 12 (only non-default values are written; the loader repairs missing main buses,
+duplicate ids, unknown routes and out-of-range values). The track's `muted` / `solo` flags are the
+timeline header's (one state for the header and the mixer). Track automation does not move with
+ripple edits (it belongs to the timeline, not the clips; the clip level line keeps using the
+clip's `audio/volumeDb` keys).
+

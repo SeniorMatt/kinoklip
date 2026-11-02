@@ -108,4 +108,9 @@ struct TrackFrame
 /// Display size of a coded picture: width × SAR, then swapped for 90/270° rotation.
 [[nodiscard]] QSizeF displaySize(int codedWidth, int codedHeight, Rational sar, int rotation);
 
+/// True if @p a and @p b render the same pictures: they differ at most in what only the
+/// sound uses (audio tracks and their clips, the mixer, markers, marks). Conservative: any
+/// change of a video or subtitle track, the format or a nested timeline counts as different.
+[[nodiscard]] bool samePictures(const TimelineData& a, const TimelineData& b);
+
 } // namespace kk::render

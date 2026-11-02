@@ -4,6 +4,7 @@
 
 #include "playback/AudioRing.h"
 #include "render/AudioMixer.h"
+#include "render/LoudnessMeter.h"
 
 #include <algorithm>
 #include <chrono>
@@ -30,6 +31,9 @@ double wrapIntoLoop(double pos, const SampleLoop& loop)
         pos += len;
     return pos;
 }
+
+/// meterFrameAt() accepts a frame up to this many samples before the asked one (0.5 s).
+constexpr int64_t kMeterMaxAge = 24000;
 } // namespace
 
 AudioFeeder::AudioFeeder(AudioRing* ring)
@@ -156,11 +160,40 @@ size_t AudioFeeder::waitForFill(size_t frames, int timeoutMs)
     return m_ring->available();
 }
 
+bool AudioFeeder::meterFrameAt(int64_t sample, MeterFrame* out) const
+{
+    std::lock_guard lock(m_meterMutex);
+    const MeterFrame* best = nullptr;
+    for (const MeterFrame& f : m_meters) {
+        if (f.sample < 0 || f.sample > sample || sample - f.sample > kMeterMaxAge)
+            continue;
+        if (!best || f.sample > best->sample)
+            best = &f;
+    }
+    if (!best)
+        return false;
+    *out = *best;
+    return true;
+}
+
+void AudioFeeder::clearMeters()
+{
+    std::lock_guard lock(m_meterMutex);
+    for (MeterFrame& f : m_meters)
+        f.sample = -1;
+}
+
 void AudioFeeder::run()
 {
     AudioMixer mixer; // used only on this thread
     constexpr int ch = AudioRing::kChannels;
     std::vector<float> chunk(size_t(kChunkFrames) * ch);
+    // Metering state of this thread (allocated once).
+    auto loudness = std::make_unique<dsp::LoudnessMeter>();
+    auto levels = std::make_unique<MixLevels>();
+    auto chunkLevels = std::make_unique<MixLevels>();
+    auto frame = std::make_unique<MeterFrame>();
+    mixer.setLevels(levels.get());
     std::unique_lock lock(m_mutex);
     while (!m_quit) {
         // Scrubbing keeps the ring nearly empty so the sound follows the playhead closely.
@@ -221,6 +254,10 @@ void AudioFeeder::run()
             continue;
         }
 
+        // Meters: the sample the chunk starts at, and the peaks of every mix call in it.
+        const int64_t chunkStart = rate != 1.0 ? int64_t(std::floor(m_srcPos)) : position;
+        chunkLevels->clear();
+
         if (rate != 1.0) {
             // Varispeed: a chunk never crosses the loop boundary in its playing direction.
             int done = 0;
@@ -232,6 +269,7 @@ void AudioFeeder::run()
                     count = std::clamp(int(std::ceil(room)), 1, count);
                 }
                 mixVarispeed(mixer, *timeline, count, chunk.data() + size_t(done) * ch);
+                chunkLevels->merge(*levels);
                 done += count;
                 m_srcPos = wrapIntoLoop(m_srcPos, loop);
             }
@@ -245,12 +283,30 @@ void AudioFeeder::run()
                     count = int(std::min<int64_t>(count, loop.end - position));
                 }
                 mixer.mix(*timeline, position, count, chunk.data() + size_t(done) * ch);
+                chunkLevels->merge(*levels);
                 done += count;
                 position += count;
                 if (loop.active() && position >= loop.end) {
                     position = loop.start;
                 }
             }
+        }
+
+        // Meters: loudness of the output, then publish the time-stamped frame.
+        if (m_resetLoudness.exchange(false))
+            loudness->reset();
+        loudness->process(chunk.data(), kChunkFrames);
+        frame->sample = chunkStart;
+        frame->levels = *chunkLevels;
+        frame->momentaryLufs = loudness->momentary();
+        frame->shortTermLufs = loudness->shortTerm();
+        frame->integratedLufs = loudness->integrated();
+        frame->truePeakDb = loudness->truePeakRecent();
+        frame->truePeakMaxDb = loudness->truePeakMax();
+        {
+            std::lock_guard meterLock(m_meterMutex);
+            m_meters[size_t(m_meterHead)] = *frame;
+            m_meterHead = (m_meterHead + 1) % kMeterFrames;
         }
 
         lock.lock();

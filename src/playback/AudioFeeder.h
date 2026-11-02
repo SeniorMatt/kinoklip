@@ -4,8 +4,11 @@
 #pragma once
 
 #include "core/TimelineData.h"
+#include "render/MixLevels.h"
 #include "render/RenderTypes.h"
 
+#include <array>
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <memory>
@@ -47,6 +50,11 @@ struct SampleLoop
 /// what is heard follows the playhead closely; each scrubTo() plays one short snippet
 /// (kScrubSnippetFrames, faded in and out) from that position, silence otherwise.
 ///
+/// Metering: every chunk's track / bus / output peaks (AudioMixer::setLevels()) and the
+/// output's loudness (dsp::LoudnessMeter, BS.1770) go into a small ring of time-stamped
+/// MeterFrame entries; meterFrameAt() picks the one for the sample being heard (the mix runs
+/// ~170 ms ahead of the device). The ring is guarded by its own mutex, held only for the copy.
+///
 /// Thread-safety: all public methods on one controlling thread (GUI). start()/stop() hand
 /// over the ring: after stop() returns the feeder no longer writes to it.
 class AudioFeeder
@@ -84,6 +92,15 @@ public:
     /// Returns the frames available.
     size_t waitForFill(size_t frames, int timeoutMs);
 
+    /// Copies the meter frame of the mixed block that contains timeline sample @p sample
+    /// (else the latest one before it, at most ~0.5 s older) into @p out. Returns false (and
+    /// leaves @p out alone) when there is none.
+    bool meterFrameAt(int64_t sample, MeterFrame* out) const;
+    /// Restarts the integrated loudness and the maximum true peak (from the next chunk).
+    void resetLoudness() { m_resetLoudness = true; }
+    /// Forgets the meter frames (after stop, so a later start shows no stale levels).
+    void clearMeters();
+
 private:
     void run();
     /// Mixes @p count output frames at m_rate from m_srcPos into @p out (varispeed path).
@@ -109,6 +126,12 @@ private:
     int64_t m_scrubTarget = -1; ///< pending snippet start (-1 = none)
     int64_t m_scrubPos = 0; ///< current snippet position
     int m_scrubLeft = 0; ///< frames of the current snippet still to mix
+
+    static constexpr int kMeterFrames = 32; ///< ~680 ms of chunks (the ring holds ~170 ms)
+    mutable std::mutex m_meterMutex;
+    std::array<MeterFrame, kMeterFrames> m_meters {};
+    int m_meterHead = 0;
+    std::atomic<bool> m_resetLoudness {false};
 };
 
 } // namespace kk

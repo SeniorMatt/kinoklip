@@ -51,7 +51,30 @@ Keeping 2-3 requests queued lets the PBO readback of frame N overlap rendering o
 kk::AudioMixer mixer;                            // one per consumer thread (not thread-safe)
 mixer.setMediaPaths(paths);
 mixer.mix(*snapshot, kk::framesToSamples48k(frame, fps), 1024, buffer);   // 2048 floats
+kk::MixLevels levels; mixer.setLevels(&levels);  // optional: per track / bus / output peaks
 ```
+
+The mixer graph (Audio page, spec 37; `AudioMixerGraph.cpp`): each audio track's clips are
+summed into a track buffer (clip volume, clip pan, fades, crossfades: `AudioMixer.cpp`), then the
+track's channel strip runs (`ChannelProcessor`): **channel format** (mono = (L + R) / 2) ->
+**EQ** (`Equalizer`, 6 RBJ biquads, `Biquad`) -> **compressor** -> **limiter** (`Dynamics`) ->
+**pan** (constant power, -3 dB law: centre is 3.01 dB below a hard pan, normalised to unity at
+centre so an untouched track is unchanged; stereo tracks pan as a balance) -> **fader** (track
+automation or the static value) -> **mute / solo**; the result is added to every bus the track is
+routed to. Each bus: sum -> channel format -> EQ -> compressor -> limiter -> fader -> mute. The
+output bus (`MixerData::outputBus`) goes to the soft clipper and out, so playback and export
+render the same bus. Gains glide over ~5 ms and EQ parameters over ~10 ms (no clicks, no zipper
+noise); a mix call that does not continue the previous one clears every filter and envelope
+first, so a range mixes to the same samples in one call, in playback chunks and after a seek
+(`test_mixergraph`). Channels with no sound and no tail skip their processing. Metering
+(`MixLevels`): post-fader peaks per track and bus and of the output; `LoudnessMeter` (BS.1770-4:
+K-weighting, momentary / short-term / gated integrated LUFS, 4x true peak) is run by the playback
+feeder on the output.
+
+The render cache stores pictures only (video chunks, `RenderCacheKeys`): audio is always mixed
+live from the snapshot, so a mixer change can never hear stale cached audio. Sound-only edits
+(mixer, automation, clip volume) leave the pictures alone: `render::samePictures()` lets the
+playback engine keep the rendered frames (`PlaybackEngine::onTimelineChanged()`).
 
 ## Pipeline
 
@@ -268,7 +291,13 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 | `GlGenerators.*` | the generator pattern shader |
 | `YuvMath.*` | YUV → RGB coefficients (unit-tested on the CPU) |
 | `DecoderPool.*` | `VideoDecoder` reuse by path and position |
-| `AudioMixer.*` | audio mixing |
+| `AudioMixer.*` | audio mixing: clips, fades, transitions (`AudioMixer.cpp`) and the mixer graph of tracks and buses (`AudioMixerGraph.cpp`, state in `MixerChannel.h`) |
+| `ChannelProcessor.*` | one mixer channel: mono fold, EQ, dynamics, smoothed pan / fader gains, peaks |
+| `Biquad.*` | RBJ cookbook biquad design (high / low pass, shelves, bell, notch) and response |
+| `Equalizer.*` | smoothed 6-band EQ (real-time safe) |
+| `Dynamics.*` | compressor (dB-domain attack / release, soft knee, make-up) and peak limiter |
+| `LoudnessMeter.*` | BS.1770-4 / EBU R128 loudness and 4x true peak |
+| `MixLevels.*` | meter readings of a mix call (`MixLevels`) and the time-stamped `MeterFrame` |
 | `GlRetime.*` | in-between frames of retimed clips: frame blend, optical flow (coarse-to-fine symmetric block matching) |
 | `TimeStretch.*` | WSOLA time stretch (pitch-corrected retimed audio) + `SourceCache` |
 | `RenderFrameCommand.*` | `--render-frame` |
@@ -292,6 +321,12 @@ decoding and llvmpipe a 1080p60 screen recording went from 46 to 60 fps (see
 `src/ui/viewer/readme.md`).
 
 ## How to extend
+
+### A new mixer processor (e.g. a gate)
+Write the DSP as a class like `Dynamics` (real-time safe, `setTarget()` / `reset()` /
+`process()`, its own smoothing), add its settings to `ChannelStrip` (core/MixerData.h, JSON in
+core/MixerJson.cpp), run it from `ChannelProcessor::processInserts()` at its place in the signal
+flow, and test it with synthesized signals (tests/render/test_mixerdsp.cpp).
 
 ### A new video effect
 1. **Descriptor**: append `descriptor("my_effect", ...)` with its parameters to

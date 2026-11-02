@@ -16,6 +16,7 @@ namespace kk {
 struct AppContext;
 class AutosaveController;
 class DeliverPage;
+class AudioPage;
 class CutPage;
 class EditPage;
 class InterfaceBar;
@@ -58,6 +59,7 @@ public:
 
     [[nodiscard]] MediaPage* mediaPage() const { return m_mediaPage; }
     [[nodiscard]] CutPage* cutPage() const { return m_cutPage; }
+    [[nodiscard]] AudioPage* audioPage() const { return m_audioPage; }
     [[nodiscard]] EditPage* editPage() const { return m_editPage; }
     [[nodiscard]] DeliverPage* deliverPage() const { return m_deliverPage; }
     [[nodiscard]] ProjectController* projectController() const { return m_projectController; }
@@ -96,6 +98,7 @@ private:
     QVector<PageEntry> m_pages;
     MediaPage* m_mediaPage = nullptr;
     CutPage* m_cutPage = nullptr;
+    AudioPage* m_audioPage = nullptr;
     EditPage* m_editPage = nullptr;
     DeliverPage* m_deliverPage = nullptr;
     ProjectController* m_projectController = nullptr;

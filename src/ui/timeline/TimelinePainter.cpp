@@ -1105,7 +1105,7 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
 
         // Buttons from the right.
         int buttonsLeft = kHeaderWidth;
-        for (HeaderButton b : TimelineLayout::headerButtons(ref.type)) {
+        for (HeaderButton b : L.buttonsFor(ref.type)) {
             const QRect br = L.headerButtonRect(row, b);
             buttonsLeft = std::min(buttonsLeft, br.left());
             bool on = false;
@@ -1136,6 +1136,8 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 on = track.autoSelect;
                 onColor = strip.darker(140);
                 break;
+            case HeaderButton::Arm:
+                break; // drawn disabled below (recording is deferred)
             default:
                 break;
             }
@@ -1146,6 +1148,11 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 p.drawPixmap(QPointF(br.center().x() - s.width() / 2 + 0.5,
                                  br.center().y() - s.height() / 2 + 0.5),
                     *icon);
+            }
+            if (b == HeaderButton::Arm) {
+                p.setFont(m_boldFont);
+                p.setPen(sc().textDisabled);
+                p.drawText(br, Qt::AlignCenter, qtr("R"));
             }
             if (b == HeaderButton::AutoSelect) {
                 // Painted glyph (no icon file): a track bar with a selection tick; bright when
@@ -1172,11 +1179,35 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
             p.drawText(QPointF(nameLeft, patch.center().y() + m_fontAscent / 2.0 - 1),
                 smallMetrics.elidedText(name, Qt::ElideRight, nameRoom));
         }
+        const bool audioPage = L.audioPageHeaders() && ref.type == TrackType::Audio;
         if (r.height() >= 44) {
             p.setFont(m_smallFont);
             p.setPen(m_textDim);
-            p.drawText(QPointF(12, patch.bottom() + 6 + m_fontAscent),
-                track.clips.size() == 1 ? qtr("1 Clip") : qtr("%1 Clips").arg(track.clips.size()));
+            // Audio page: the channel format instead of the clip count.
+            const QString second = audioPage ? (track.mix.mono ? qtr("Mono") : qtr("Stereo"))
+                : track.clips.size() == 1    ? qtr("1 Clip")
+                                             : qtr("%1 Clips").arg(track.clips.size());
+            p.drawText(QPointF(12, patch.bottom() + 6 + m_fontAscent), second);
+        }
+        if (audioPage && in.headerMeter) {
+            // Level meter at the header's right edge (scheme zone colours, like the mixer).
+            const QRect m = L.headerMeterRect(row);
+            const auto [leftDb, rightDb] = (*in.headerMeter)(track.id);
+            const int bars = track.mix.mono ? 1 : 2;
+            const int w = bars == 1 ? m.width() : (m.width() - 1) / 2;
+            const float levels[2] = {leftDb, rightDb};
+            for (int b = 0; b < bars; ++b) {
+                const QRect bar(m.left() + b * (w + 1), m.top(), w, m.height());
+                p.fillRect(bar, m_window.darker(150));
+                const double t = std::clamp((double(levels[b]) + 60.0) / 60.0, 0.0, 1.0);
+                const int h = int(t * bar.height());
+                if (h > 0) {
+                    const QColor c = levels[b] > -6.0f ? sc().negative
+                        : levels[b] > -18.0f           ? sc().neutral
+                                                       : sc().positive;
+                    p.fillRect(QRect(bar.left(), bar.bottom() - h + 1, bar.width(), h), c);
+                }
+            }
         }
     }
     p.setClipping(false);
