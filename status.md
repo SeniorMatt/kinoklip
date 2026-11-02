@@ -61,3 +61,4 @@
 - 10:56 Session restarted; playback2, editfix, filedialog resumed (none had committed). Owner: ripple trim works on Shift+[ / ]; wants Resolve mapping Ctrl+Shift+[ / ] = ripple trim to playhead, Shift+[ / ] = trim leaving a gap -> sent to editfix.
 - 11:05 Owner asked for a full keyframe editor window (like latest Resolve); queued as agent 'kfwindow' for the next free slot.
 - 11:11 Owner bug: inspector shows the audio half of a linked pair -> sent to editfix.
+- 11:19 Heartbeat: playback2 2 commits, editfix active (0), filedialog 1; 22 GB free. kfwindow queued.
