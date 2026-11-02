@@ -70,3 +70,4 @@
 - 12:37 RELEASED v0.1.0-alpha.3 (GitHub pre-release). All agents finished; worktrees removed; heartbeat stopped. Follow-up noted: GuiPrivate use (Wayland portal parent) ties the app to its exact Qt build - launcher's host-Qt mode must require an exact Qt match or be dropped. Waiting for owner's test.
 - 13:09 Owner feedback on alpha.3 in docs/feedback/alpha3.md (Wayland DnD broken, mouse-grab warnings, VAAPI sync-surface failures, missing stats lines, panel detaching not discoverable). Starting: wayland, hwdecode (bug fixes -> alpha.4), compound (v2: timeline tabs + compound clips).
 - 13:11 Owner: window flickers/stutters on resize (Plasma Wayland) -> added to wayland agent.
+- 13:18 Heartbeat: wayland 1 commit, hwdecode and compound active (0 commits yet); 22 GB free.
