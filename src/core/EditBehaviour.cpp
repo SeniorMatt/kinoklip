@@ -28,7 +28,8 @@ EditBehaviour EditBehaviour::fromSettings()
     b.trimToPlayheadRipples = flag("edit/trimToPlayheadRipples", b.trimToPlayheadRipples);
     b.selectToolRollsAtCut = flag("edit/selectToolRollsAtCut", b.selectToolRollsAtCut);
     b.trimToolSlideInNameBar = flag("edit/trimToolSlideInNameBar", b.trimToolSlideInNameBar);
-    b.zoomAnchor = s.value(QStringLiteral("edit/zoomAround")).toString() == QLatin1String("cursor")
+    // Same key and values as prefs::kZoomAnchor / prefs::zoomAroundMouse().
+    b.zoomAnchor = s.value(QStringLiteral("edit/zoomAnchor")).toString() == QLatin1String("mouse")
         ? ZoomAnchor::Cursor
         : ZoomAnchor::Playhead;
     b.wheelScheme
@@ -52,8 +53,8 @@ namespace kk {
 
 void EditBehaviour::setZoomAnchor(ZoomAnchor anchor)
 {
-    QSettings().setValue(QStringLiteral("edit/zoomAround"),
-        anchor == ZoomAnchor::Cursor ? QStringLiteral("cursor") : QStringLiteral("playhead"));
+    QSettings().setValue(QStringLiteral("edit/zoomAnchor"),
+        anchor == ZoomAnchor::Cursor ? QStringLiteral("mouse") : QStringLiteral("playhead"));
 }
 
 void EditBehaviour::setWheelScheme(WheelScheme scheme)

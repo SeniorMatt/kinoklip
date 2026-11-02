@@ -42,6 +42,7 @@ ParamGroupBox::ParamGroupBox(const QString& title, QWidget* parent)
     m_chevron->setFixedSize(kHeaderButtonSize, kHeaderButtonSize);
     m_chevron->setIcon(inspectorGlyph(InspectorGlyph::Expanded));
     m_chevron->setFocusPolicy(Qt::NoFocus);
+    m_chevron->setToolTip(tr("Collapse or expand this section"));
     connect(m_chevron, &QToolButton::clicked, this, [this] {
         setCollapsed(!m_collapsed);
         emit collapsedChanged(m_collapsed);

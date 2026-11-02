@@ -68,7 +68,7 @@ const ActionSpec kActions[] = {
     {"edit", "edit.overwrite",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Overwrite Clip"), "overwrite"},
     {"edit", "edit.ripple_overwrite", QT_TRANSLATE_NOOP("kk::StandardActions", "Ripple O&verwrite")},
     {"edit", "edit.place_on_top",     QT_TRANSLATE_NOOP("kk::StandardActions", "Place on &Top"), "place_on_top"},
-    {"edit", "edit.replace",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Replace Clip")},
+    {"edit", "edit.replace",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Replace Clip"), "replace"},
     {"edit", "edit.fit_to_fill",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Fit to Fill")},
     {"edit", "edit.append_at_end",    QT_TRANSLATE_NOOP("kk::StandardActions", "Append at &End")},
     {"edit", "-"},
@@ -150,11 +150,11 @@ const ActionSpec kActions[] = {
 
     // ---- View ----
     {"view", "view.page_media",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Media Page"), "page_media", true},
-    {"view", "view.page_cut",         QT_TRANSLATE_NOOP("kk::StandardActions", "C&ut Page"), "", true},
+    {"view", "view.page_cut",         QT_TRANSLATE_NOOP("kk::StandardActions", "C&ut Page"), "page_cut", true},
     {"view", "view.page_edit",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Edit Page"), "page_edit", true},
-    {"view", "view.page_fusion",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Fusion Page"), "", true},
+    {"view", "view.page_compositing", QT_TRANSLATE_NOOP("kk::StandardActions", "C&ompositing Page"), "page_compositing", true},
     {"view", "view.page_color",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Page"), "page_color", true},
-    {"view", "view.page_fairlight",   QT_TRANSLATE_NOOP("kk::StandardActions", "F&airlight Page"), "", true},
+    {"view", "view.page_audio",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Audio Page"), "page_audio", true},
     {"view", "view.page_deliver",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Deliver Page"), "page_deliver", true},
     {"view", "-"},
     {"view", "view.toggle_media_pool", QT_TRANSLATE_NOOP("kk::StandardActions", "Media Pool"), "panel_media_pool", true},
@@ -265,8 +265,11 @@ void registerStandardActions(ActionRegistry& registry)
     // Short labels for the page bar buttons (menus keep the full "Media Page" text).
     const char* const pageLabels[][2] = {
         {"view.page_media", QT_TRANSLATE_NOOP("kk::StandardActions", "Media")},
+        {"view.page_cut", QT_TRANSLATE_NOOP("kk::StandardActions", "Cut")},
         {"view.page_edit", QT_TRANSLATE_NOOP("kk::StandardActions", "Edit")},
+        {"view.page_compositing", QT_TRANSLATE_NOOP("kk::StandardActions", "Compositing")},
         {"view.page_color", QT_TRANSLATE_NOOP("kk::StandardActions", "Color")},
+        {"view.page_audio", QT_TRANSLATE_NOOP("kk::StandardActions", "Audio")},
         {"view.page_deliver", QT_TRANSLATE_NOOP("kk::StandardActions", "Deliver")},
     };
     for (const auto& [id, label] : pageLabels)
@@ -302,14 +305,17 @@ void registerStandardActions(ActionRegistry& registry)
             QStringLiteral("timeline.tracks"));
     }
 
-    // Commands of subsystems that do not exist yet (other pages, retime, freeze frames, audio
-    // scrubbing): present so the keymap matches Resolve's, but disabled.
+    // Pages of the Resolve layout that are not built yet (visible in the page bar, so the bar
+    // has Resolve's order and proportions) and commands of subsystems that do not exist yet
+    // (retime, freeze frames, audio scrubbing): present so the keymap matches Resolve's, but
+    // disabled.
     for (const char* id :
-        {"view.page_cut", "view.page_fusion", "view.page_color", "view.page_fairlight",
+        {"view.page_cut", "view.page_compositing", "view.page_color", "view.page_audio",
             "clip.retime_controls", "clip.freeze_frame", "timeline.audio_scrubbing"}) {
         QAction* a = registry.action(QLatin1String(id));
         a->setEnabled(false);
-        a->setStatusTip(translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Coming later")));
+        a->setStatusTip(
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Coming in a later version")));
     }
 }
 

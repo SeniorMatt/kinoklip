@@ -26,13 +26,15 @@ namespace kk {
 
 namespace {
 
-// Default sizes for a 1920x1080 window; QSplitter scales them to the real size.
+// Default sizes for a 1920x1080 window; applyDefaultProportions() scales them to the real size
+// on the first show (QSplitter alone would give the whole difference to the stretching child).
 constexpr int kLeftColumnWidth = 380;
 constexpr int kViewerWidth = 560;
 constexpr int kRightColumnWidth = 420;
 constexpr int kTopRowHeight = 520;
 constexpr int kBottomRowHeight = 440;
 constexpr int kMixerWidth = 260;
+constexpr int kReferenceWidth = kLeftColumnWidth + 2 * kViewerWidth + kRightColumnWidth;
 
 QSplitter* makeSplitter(Qt::Orientation orientation)
 {
@@ -158,6 +160,33 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_timeline->setProperty("kkProgramFocus", true);
 }
 
+void EditPage::showEvent(QShowEvent* event)
+{
+    Page::showEvent(event);
+    if (!m_layoutRestored && !m_proportionsApplied) {
+        m_proportionsApplied = true;
+        applyDefaultProportions();
+    }
+}
+
+void EditPage::applyDefaultProportions()
+{
+    const auto scaled = [](int reference, int total, int referenceTotal) {
+        return int(qint64(reference) * total / referenceTotal);
+    };
+    const int width = m_topRow->width();
+    const int height = m_main->height();
+    if (width <= 0 || height <= 0)
+        return;
+    m_topRow->setSizes({scaled(kLeftColumnWidth, width, kReferenceWidth),
+        scaled(kViewerWidth, width, kReferenceWidth), scaled(kViewerWidth, width, kReferenceWidth),
+        scaled(kRightColumnWidth, width, kReferenceWidth)});
+    const int referenceHeight = kTopRowHeight + kBottomRowHeight;
+    m_main->setSizes({scaled(kTopRowHeight, height, referenceHeight),
+        scaled(kBottomRowHeight, height, referenceHeight)});
+    m_bottomRow->setSizes({m_bottomRow->width() - kMixerWidth, kMixerWidth});
+}
+
 void EditPage::setPanelVisible(PanelId id, bool visible)
 {
     QWidget* panel = m_panels.value(id);
@@ -208,6 +237,7 @@ void EditPage::saveLayout(QSettings& settings) const
 
 void EditPage::restoreLayout(const QSettings& settings)
 {
+    m_layoutRestored = settings.contains(QStringLiteral("main"));
     m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
     m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
     m_bottomRow->restoreState(settings.value(QStringLiteral("bottomRow")).toByteArray());

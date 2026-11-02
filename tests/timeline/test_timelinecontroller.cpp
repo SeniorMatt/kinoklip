@@ -173,6 +173,7 @@ private slots:
         t.action("mark.clear_out")->trigger();
         QCOMPARE(t.f.view().markOut, int64_t(-1));
 
+        t.f.selection.clear(); // with the clip selected, M would add a clip marker (spec 18.4)
         tl->setPlayhead(30);
         t.action("mark.add_marker")->trigger();
         tl->setPlayhead(12);

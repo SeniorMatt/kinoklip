@@ -2,6 +2,8 @@
 // InterfaceBar implementation: a 3-column grid keeps the title centred whatever the button widths.
 #include "app/InterfaceBar.h"
 
+#include "ui/common/Metrics.h"
+
 #include <QAction>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -11,8 +13,8 @@
 namespace kk {
 
 namespace {
-constexpr int kBarHeight = 34;
-constexpr int kIconSize = 16;
+constexpr int kBarHeight = metrics::kInterfaceBarHeight;
+constexpr int kIconSize = metrics::kToolIconSize;
 } // namespace
 
 InterfaceBar::InterfaceBar(QWidget* parent)
@@ -23,11 +25,11 @@ InterfaceBar::InterfaceBar(QWidget* parent)
     setFixedHeight(kBarHeight);
 
     auto* grid = new QGridLayout(this);
-    grid->setContentsMargins(6, 0, 6, 0);
+    grid->setContentsMargins(metrics::kSpaceM, 0, metrics::kSpaceM, 0);
     m_left = new QHBoxLayout;
-    m_left->setSpacing(2);
+    m_left->setSpacing(metrics::kSpaceXs);
     m_right = new QHBoxLayout;
-    m_right->setSpacing(2);
+    m_right->setSpacing(metrics::kSpaceXs);
     m_title = new QLabel(this);
     m_title->setObjectName(QStringLiteral("ProjectTitle"));
     m_title->setAlignment(Qt::AlignCenter);
@@ -50,6 +52,13 @@ void InterfaceBar::addButton(QHBoxLayout* layout, QAction* action)
     button->setAutoRaise(true); // flat until hovered/checked: the Breeze toolbar look
     button->setFocusPolicy(Qt::NoFocus);
     layout->addWidget(button);
+    m_buttons.insert(action, button);
+}
+
+void InterfaceBar::setActionShown(QAction* action, bool shown)
+{
+    if (QWidget* button = m_buttons.value(action))
+        button->setVisible(shown);
 }
 
 void InterfaceBar::addLeftAction(QAction* action)

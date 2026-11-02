@@ -6,6 +6,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
+#include "ui/common/Metrics.h"
 #include "ui/effects/EffectActions.h"
 
 #include <QApplication>
@@ -15,6 +16,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPainterPath>
+#include <QSplitter>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
@@ -24,6 +26,9 @@ namespace {
 
 constexpr int kGlyphSize = 20;
 constexpr int kDescriptorRole = Qt::UserRole; ///< descriptor id (empty for section rows)
+constexpr int kCategoryRole = Qt::UserRole + 1; ///< EffectCategory of a section row
+constexpr int kSidebarWidth = 150; ///< px, category sidebar
+constexpr int kListWidth = 230;
 
 /// Tree that exports mime::Effect for drags (QTreeWidget's default exports its own format).
 class EffectsTree final : public QTreeWidget
@@ -160,10 +165,18 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Effects"), parent)
     , m_ctx(ctx)
 {
-    auto* content = new QWidget;
-    auto* layout = new QVBoxLayout(content);
-    layout->setContentsMargins(6, 6, 6, 0);
-    layout->setSpacing(6);
+    // Resolve's layout: a category sidebar on the left, search + the effects on the right.
+    m_categories = new QTreeWidget;
+    m_categories->setObjectName(QStringLiteral("EffectsCategories"));
+    m_categories->setHeaderHidden(true);
+    m_categories->setFrameShape(QFrame::NoFrame);
+    m_categories->setIndentation(metrics::kSpaceL);
+    m_categories->setSelectionMode(QAbstractItemView::SingleSelection);
+
+    auto* listSide = new QWidget;
+    auto* layout = new QVBoxLayout(listSide);
+    layout->setContentsMargins(metrics::kSpaceS, metrics::kSpaceS, metrics::kSpaceS, 0);
+    layout->setSpacing(metrics::kSpaceS);
 
     m_search = new QLineEdit;
     m_search->setPlaceholderText(tr("Search effects"));
@@ -183,11 +196,22 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     m_tree->setDragDropMode(QAbstractItemView::DragOnly);
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
     layout->addWidget(m_tree, 1);
-    setContentWidget(content);
+
+    auto* splitter = new QSplitter(Qt::Horizontal);
+    splitter->setChildrenCollapsible(false);
+    splitter->setHandleWidth(1);
+    splitter->addWidget(m_categories);
+    splitter->addWidget(listSide);
+    splitter->setStretchFactor(1, 1);
+    splitter->setSizes({kSidebarWidth, kListWidth});
+    setContentWidget(splitter);
 
     populate();
 
     connect(m_search, &QLineEdit::textChanged, this, &EffectsLibraryPanel::setFilterText);
+    connect(m_categories, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* item) {
+        setCategoryFilter(item ? item->data(0, Qt::UserRole).toInt() : -1);
+    });
     connect(m_tree, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem* item) {
         const QString id = item->data(0, kDescriptorRole).toString();
         if (!id.isEmpty())
@@ -217,17 +241,50 @@ void EffectsLibraryPanel::populate()
             item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
         }
         section->setExpanded(true);
+        section->setData(0, kCategoryRole, int(category));
     }
+
+    // Sidebar: "Toolbox" (everything for the timeline picture) with its categories, then the
+    // audio effects, like Resolve's effects library.
+    auto* toolbox = new QTreeWidgetItem(m_categories, {tr("Toolbox")});
+    toolbox->setData(0, Qt::UserRole, -1);
+    for (EffectCategory category : {EffectCategory::Transition, EffectCategory::Title,
+             EffectCategory::Generator, EffectCategory::VideoEffect}) {
+        if (registry.byCategory(category).isEmpty())
+            continue;
+        auto* item = new QTreeWidgetItem(toolbox, {sectionTitle(category)});
+        item->setData(0, Qt::UserRole, int(category));
+    }
+    toolbox->setExpanded(true);
+    if (!registry.byCategory(EffectCategory::AudioEffect).isEmpty()) {
+        auto* audio = new QTreeWidgetItem(m_categories, {tr("Audio FX")});
+        audio->setData(0, Qt::UserRole, int(EffectCategory::AudioEffect));
+    }
+    m_categories->setCurrentItem(toolbox);
+}
+
+void EffectsLibraryPanel::setCategoryFilter(int category)
+{
+    m_category = category;
+    applyFilters();
 }
 
 void EffectsLibraryPanel::setFilterText(const QString& text)
 {
     if (m_search->text() != text)
         m_search->setText(text); // re-enters via textChanged
-    const QString needle = text.trimmed();
+    applyFilters();
+}
+
+void EffectsLibraryPanel::applyFilters()
+{
+    const QString needle = m_search->text().trimmed();
     const EffectRegistry& registry = EffectRegistry::instance();
     for (int s = 0; s < m_tree->topLevelItemCount(); ++s) {
         QTreeWidgetItem* section = m_tree->topLevelItem(s);
+        // A search looks through every category, like Resolve's library search.
+        const bool inCategory = !needle.isEmpty() || m_category < 0
+            || section->data(0, kCategoryRole).toInt() == m_category;
         int visible = 0;
         for (int i = 0; i < section->childCount(); ++i) {
             QTreeWidgetItem* item = section->child(i);
@@ -238,7 +295,7 @@ void EffectsLibraryPanel::setFilterText(const QString& text)
             item->setHidden(!match);
             visible += match ? 1 : 0;
         }
-        section->setHidden(visible == 0);
+        section->setHidden(!inCategory || visible == 0);
         if (!needle.isEmpty() && visible > 0)
             section->setExpanded(true);
     }

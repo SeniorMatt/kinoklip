@@ -52,8 +52,8 @@ struct EditBehaviour
     bool selectToolRollsAtCut = true;
     /// Trim tool: the upper (name bar) part of a clip body slides, the rest slips (spec 8.6).
     bool trimToolSlideInNameBar = true;
-    /// Fixed point of mouse-wheel zoom ("Zoom around", spec 19.6). Keyboard zoom always keeps
-    /// the playhead.
+    /// Fixed point of mouse-wheel zoom ("Timeline zooms around", spec 19.6). Keyboard zoom always
+    /// keeps the playhead.
     ZoomAnchor zoomAnchor = ZoomAnchor::Playhead;
     /// Mouse wheel modifier convention (spec 19.3).
     WheelScheme wheelScheme = WheelScheme::Resolve;
@@ -63,15 +63,15 @@ struct EditBehaviour
 
     /// Values stored in QSettings (group "edit/": stillSeconds, generatorSeconds,
     /// transitionSeconds, multiFrameNudge, threePointEditing, rippleDeleteGapAtPlayhead,
-    /// trimToPlayheadRipples, selectToolRollsAtCut, trimToolSlideInNameBar, zoomAround
-    /// ("playhead" / "cursor"), wheelScheme ("resolve" / "classic"), dynamicTrimWithJkl);
-    /// defaults where unset.
+    /// trimToPlayheadRipples, selectToolRollsAtCut, trimToolSlideInNameBar, zoomAnchor
+    /// ("playhead" / "mouse", shared with prefs::kZoomAnchor), wheelScheme ("resolve" / "classic"),
+    /// dynamicTrimWithJkl); defaults where unset.
     [[nodiscard]] static EditBehaviour fromSettings();
 
     /// @p seconds as a frame count at @p fps (at least 1 frame).
     [[nodiscard]] static int64_t frames(double seconds, Rational fps);
 
-    /// Stores the zoom anchor (QSettings "edit/zoomAround").
+    /// Stores the zoom anchor (QSettings "edit/zoomAnchor", see prefs::kZoomAnchor).
     static void setZoomAnchor(ZoomAnchor anchor);
     /// Stores the wheel scheme (QSettings "edit/wheelScheme").
     static void setWheelScheme(WheelScheme scheme);

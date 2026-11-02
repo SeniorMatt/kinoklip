@@ -291,6 +291,8 @@ QJsonObject ExportSettings::toJson() const
     v[QStringLiteral("width")] = video.width;
     v[QStringLiteral("height")] = video.height;
     v[QStringLiteral("alpha")] = video.alpha;
+    v[QStringLiteral("keyframeInterval")] = video.keyframeInterval;
+    v[QStringLiteral("frameReordering")] = video.frameReordering;
     QJsonObject a;
     a[QStringLiteral("enabled")] = audio.enabled;
     a[QStringLiteral("codec")] = audio.codec;
@@ -345,6 +347,9 @@ ExportSettings ExportSettings::fromJson(const QJsonObject& o, const ExportSettin
     s.video.width = int(num(v, "width", s.video.width));
     s.video.height = int(num(v, "height", s.video.height));
     s.video.alpha = boolean(v, "alpha", s.video.alpha);
+    s.video.keyframeInterval
+        = std::max(0, int(num(v, "keyframeInterval", s.video.keyframeInterval)));
+    s.video.frameReordering = boolean(v, "frameReordering", s.video.frameReordering);
     const QJsonObject a = o.value(QLatin1String("audio")).toObject();
     s.audio.enabled = boolean(a, "enabled", s.audio.enabled);
     s.audio.codec = str(a, "codec", s.audio.codec);

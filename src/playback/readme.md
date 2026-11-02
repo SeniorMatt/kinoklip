@@ -117,7 +117,7 @@ on llvmpipe needs Auto quality (Half). Full table: `src/ui/viewer/readme.md`.
 
 ## How to extend
 
-* **A new transport command**: add the action (StandardActions.cpp + keymap_default.json),
+* **A new transport command**: add the action (StandardActions.cpp + scripts/keymap-resolve-windows.py, which writes resources/keymaps/resolve-windows.json),
   a slot on `PlaybackEngine`, and one `on("id", ...)` line in `ViewerTransport::connectActions()`.
 * **A new convention switch**: add a field to `PlaybackBehaviour` (+ its QSettings key in
   `fromSettings()`), read it where the behaviour happens; never an inline constant.

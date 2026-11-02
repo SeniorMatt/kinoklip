@@ -14,9 +14,9 @@ namespace kk {
 ///
 /// Pages are created fresh every time a settings dialog opens, read their values from
 /// QSettings (or the module that owns them) in the constructor and store them in apply().
-/// They never assume which dialog shows them: today the Resolve-style PreferencesDialog stacks
-/// them as group boxes, a future Plasma profile can put them into a KConfigDialog-style
-/// sidebar (plan.md 5.9, rule 4).
+/// They never assume which dialog shows them: today the Resolve-style PreferencesDialog shows
+/// them in a System / User section list, a future Plasma profile can put them into a
+/// KConfigDialog-style sidebar (plan.md 5.9, rule 4).
 class SettingsPage : public QWidget
 {
     Q_OBJECT
@@ -35,6 +35,13 @@ struct SettingsPageInfo
     QString iconName; ///< freedesktop / Breeze icon name for a sidebar (may be empty)
     int order = 0; ///< sort key: lower comes first
     std::function<SettingsPage*(QWidget* parent)> create; ///< builds a new page widget
+    /// Preferences group: "system" (machine: memory, storage, decoding, audio devices) or
+    /// "user" (personal: interface, editing, playback, keyboard), like Resolve's two tabs.
+    QString group = QStringLiteral("user");
+    /// Section of the group that shows this page; pages with the same section are stacked
+    /// in one section (titled by the page whose id equals the section, else the first page).
+    /// Empty = a section of its own (= id).
+    QString section;
 };
 
 /// All settings pages of the application, contributed by the modules that own the settings

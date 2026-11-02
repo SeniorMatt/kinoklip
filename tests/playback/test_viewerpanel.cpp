@@ -93,7 +93,7 @@ private Q_SLOTS:
         viewer.resize(640, 480);
         viewer.show();
         QVERIFY(QTest::qWaitForWindowExposed(&viewer));
-        QVERIFY(viewer.title().startsWith(QLatin1String("Timeline")));
+        // Resolve's viewer header shows only the name of what is loaded.
         QVERIFY(viewer.title().contains(QLatin1String("Demo")));
         QCOMPARE(viewer.engine(), f.engine.get());
         QWidget* surface = viewer.surface()->widget();

@@ -10,7 +10,7 @@
 #include "core/ParamKeys.h"
 #include "render/TimelineEval.h"
 #include "ui/common/SettingsPages.h"
-#include "ui/timeline/EditingSettingsPage.h"
+#include "ui/dialogs/PreferencesDialog.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -341,16 +341,22 @@ private slots:
 
     void spec19_6_editingPreferencesPage()
     {
+        // The Editing page (src/ui/dialogs) writes the keys EditBehaviour reads.
         SettingsPageRegistry registry;
-        registerEditingSettingsPage(registry);
+        registerStandardSettingsPages(registry, nullptr);
         QVERIFY(registry.contains(QStringLiteral("editing")));
         QWidget parent;
-        SettingsPage* page = registry.pages().front().create(&parent);
-        auto* anchor = page->findChild<QComboBox*>(QStringLiteral("zoomAround"));
-        auto* scheme = page->findChild<QComboBox*>(QStringLiteral("wheelScheme"));
+        SettingsPage* page = nullptr;
+        for (const SettingsPageInfo& info : registry.pages()) {
+            if (info.id == QLatin1String("editing"))
+                page = info.create(&parent);
+        }
+        QVERIFY(page);
+        auto* anchor = page->findChild<QComboBox*>(QStringLiteral("ZoomAnchor"));
+        auto* scheme = page->findChild<QComboBox*>(QStringLiteral("WheelScheme"));
         QVERIFY(anchor && scheme);
-        QCOMPARE(anchor->currentData().toInt(), int(ZoomAnchor::Playhead)); // Resolve default
-        anchor->setCurrentIndex(anchor->findData(int(ZoomAnchor::Cursor)));
+        QCOMPARE(EditBehaviour::fromSettings().zoomAnchor, ZoomAnchor::Playhead); // default
+        anchor->setCurrentIndex(anchor->findData(QStringLiteral("mouse")));
         scheme->setCurrentIndex(scheme->findData(int(WheelScheme::Classic)));
         page->apply();
         QCOMPARE(EditBehaviour::fromSettings().zoomAnchor, ZoomAnchor::Cursor);
