@@ -9,6 +9,7 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
 | `ViewerSurface.h` | picture-area interface; `ViewerSurface::create()` picks GL or raster; `ViewerPicture` = shared state, letterbox/zoom maths, raster drawing |
 | `GlViewerSurface.h` | `QOpenGLWidget`: draws the compositor's texture **zero copy** (`glWaitSync` on the frame's fence, sampler object, frame kept alive until the next one is drawn) or uploads an image (`glTexSubImage2D` from ARGB32 memory) |
 | `RasterViewerSurface.h` | `QWidget` fallback (offscreen screenshots, CI, no GPU, `KK_NO_OPENGL=1`); draws `RenderedFrame::image` |
+| `MaskOverlay.h` | on-screen mask controls of the timeline viewer: an additive transparent child of the picture surface (outlines, handles, drawing / editing gestures of the current clip's masks; follows `pictureRect()` and the clip transform); `createModeButton()` is the bottom-left on-screen controls menu (Off / Mask, `view.onscreen_masks`). See docs/behavior-spec.md section 27 |
 | `ScrubBar.h` | jog/scrub strip: duration, in/out band with brackets, playhead; drag to scrub, wheel = one frame |
 | `ViewerTransport.h` | routes the playback-owned global actions to the **active** viewer, J/K/L hold detection, full-screen viewer |
 
@@ -40,6 +41,12 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
   the right end of both viewer headers): one viewer shows the timeline, or the source clip
   after one was opened (media pool, match frame); Q swaps; activating the timeline viewer
   shows the timeline (spec 24.4 - 24.6).
+
+* **On-screen mask controls** (Timeline viewers only): `MaskOverlay` sits on the picture
+  surface and is shown while a mask of the selected clip is active (Inspector Masks section)
+  or the Mask on-screen controls are on, with the playhead inside that clip. It takes the mouse
+  only then; otherwise clicks reach the surface as before. Zoom and aspect changes call
+  `MaskOverlay::refresh()`.
 
 ## Actions connected here (ViewerTransport)
 
