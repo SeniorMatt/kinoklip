@@ -9,6 +9,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 |---|---|
 | `Rational.h` | exact frame rates + frame/µs/sample conversions (PLAN §5.1) |
 | `Animation.h` | `Interp` (per-key preset), `KeyHandle`, `Keyframe`, `AnimatedValue` (keyframed scalar, Bezier evaluation), `ParamSet` |
+| `Mask.h` | clip masks: `MaskShape`, `MaskMode` (combine table), `MaskPoint` / `MaskPath`, `AnimatedPath` (keyframed shape), `maskkeys::*`, `MaskData`; pure helpers (mask transform, outline, bezier flattening, polygon offset, freehand simplification, point insertion) |
 | `KeyframeOps.h` | pure keyframe functions: parameter paths, grouped list of animated parameters, navigation, move / delete / interpolation / flatten / handles / copy and paste (namespace `kk::keyframeops`) |
 | `ParamKeys.h` | well-known parameter keys (`keys::PosX`, `keys::Opacity`, ...) + defaults |
 | `TimelineData.h` | `ClipData`, `TrackData`, `Marker`, `EffectInstance`, `TransitionData`, `TimelineData`, `TrackRef` |
@@ -80,14 +81,28 @@ split at the playhead without a selection, mark clip and the default transition,
 `RippleScope::AllTracks` (insert, close gap) skips tracks whose selector is off unless they
 receive clips.
 
+## Masks (`Mask.h`, roadmap v2)
+`ClipData::masks` is an ordered list; the renderer applies it to the clip's picture after its
+effects and before its transform (src/render/readme.md, "Masks"). Mask coordinates are clip
+content pixels (timeline pixels at zoom 1, origin at the content centre); point paths are
+mask-local and mapped by `maskToContent()` (position + rotation + scale). Numeric parameters
+live in `MaskData::params` (`maskkeys::*`, KeyframeOps path `mask/<id>/<key>`); mode, invert,
+enabled and closed are struct fields. The shape of point masks is ONE animated property
+(`AnimatedPath`, path `mask/<id>/shape`): an ordinary `AnimatedValue` holds the key frames and
+easing and its key values index the stored shapes, so every generic keyframe operation works on
+shape keys; KeyframeOps calls `AnimatedPath::normalize()` after moving / deleting them (and
+skips them in vertical curve drags). All shapes of a path have the same point count
+(`insertPathPoint()` / `removePathPoint()` edit every key). Mask ids share the timeline id space;
+split and paste give copies fresh ids.
+
 ## Invariants (checked by `editops::checkInvariants`)
 Clips on a track are sorted by start and never overlap; `duration >= 1`, `start >= 0`,
-`speed > 0`, `sourceInUs >= 0`; every clip/track/effect id is non-zero, unique and `< nextId`;
+`speed > 0`, `sourceInUs >= 0`; every clip/track/effect/mask id is non-zero, unique and `< nextId`;
 locked tracks are never changed by EditOps. Ids come from `TimelineData::allocateId()`.
 
 ## Project file format (`.kkproj`, JSON)
 ```json
-{ "formatVersion": 2, "generator": "Kinoklip 0.1.0",
+{ "formatVersion": 3, "generator": "Kinoklip 0.1.0",
   "project":   { "name": "My Film" },
   "mediaPool": { "bins": [...], "items": [{ "id", "path", "relativePath", "name", "binId", "info": {...} }] },
   "timeline":  { "name", "fps": {"num","den"}, "width", "height", "markIn", "markOut", "nextId",
@@ -98,6 +113,8 @@ Keyframes: `{"frame", "value"}` plus, when not default, `"in"` / `"out"` (handle
 or `{"mode": "free", "dt", "dv"}`) and `"hold": true`. Format version 1 stored one `"interp"`
 per key (curve of the segment starting there); `paramSetFromJson()` recognises it and converts
 it with `migrateLegacyInterp()` (ease in and out is reproduced exactly).
+Format version 3 adds clip `"masks"` (see `Serialization.h` for the fields); version-2 files
+have none and load unchanged.
 Media paths are stored absolute and relative to the project file; the relative one is used when
 the absolute path no longer exists.
 
