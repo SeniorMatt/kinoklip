@@ -109,3 +109,5 @@
 - 23:42 cutpage merged (Cut page, spec 35); full host suite started.
 - 23:43 Started agents 'colorpage' (format v12) and 'audiopage' (format v13) in parallel.
 - 23:46 main after cutpage: 94/94 pass; pushed.
+- 23:48 Owner: v2.2 = small tweened animations (blade cut, trims, ripple, inserts, undo, playhead jumps) with an option to disable. Started agent 'animations'; 0.2.2-alpha.1 (with the Cut page) to ship before color/audio merge.
+- 00:02 Owner: no Color page (paused, moved to v4 with Compositing); Audio page continues; focus = polish basic video editing (roadmap v3). Starting agent 'editpolish'.
