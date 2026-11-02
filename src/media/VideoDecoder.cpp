@@ -201,8 +201,9 @@ bool VideoDecoder::Impl::switchToSoftware(bool duringOpen)
 {
     const HwAccelMode failed = activeHw;
     const QString name = hwAccelName(failed);
+    const bool rejected = hwState.rejected; // openCodec() below resets it
     QString why;
-    if (hwState.rejected) {
+    if (rejected) {
         why = QStringLiteral("the GPU cannot decode this stream");
     } else {
         why = hwFailReason.isEmpty() ? QStringLiteral("decoding error") : hwFailReason;
@@ -210,11 +211,13 @@ bool VideoDecoder::Impl::switchToSoftware(bool duringOpen)
         // disabling the backend for the session.
         HwDeviceManager::instance().reportFailure(failed, why);
     }
-    const int64_t atUs = lastDecodedTs != AV_NOPTS_VALUE ? tsToUs(lastDecodedTs) : 0;
+    const int64_t atTs = cur ? cur.pts : lastDecodedTs;
+    const int64_t atUs = atTs != AV_NOPTS_VALUE ? std::max<int64_t>(0, tsToUs(atTs)) : 0;
     // The demuxer position is left as is; with no current frame the next request seeks.
     const bool ok = openCodec(HwAccelMode::Off, nullptr);
     if (duringOpen) {
         hwOpenFailure = QStringLiteral("%1 failed: %2").arg(name, why);
+        hwOpenFailed = !rejected;
     } else {
         const QString line = QStringLiteral("%1 decoding failed for %2 at %3 s (%4); continuing "
                                             "in software (%5 threads)")
@@ -250,10 +253,12 @@ void VideoDecoder::Impl::logOpened()
     if (!hwOpenFailure.isEmpty()) {
         line += QStringLiteral("; ") + hwOpenFailure;
     }
-    if (firstTime(QStringLiteral("open|") + info.path + u'|' + with)) {
-        qCInfo(lcMedia).noquote() << line;
-    } else {
+    if (!firstTime(QStringLiteral("open|%1|%2|%3").arg(info.path, with, hwOpenFailure))) {
         qCDebug(lcMedia).noquote() << line;
+    } else if (hwOpenFailed) {
+        qCWarning(lcMedia).noquote() << line;
+    } else {
+        qCInfo(lcMedia).noquote() << line;
     }
 }
 

@@ -101,6 +101,7 @@ struct VideoDecoder::Impl
     bool hwFailed = false; ///< hw decoding broke → switch to software at the next chance
     QString hwFailReason; ///< why (for the one log line of the fall-back)
     QString hwOpenFailure; ///< "VAAPI failed: ..." when open() fell back to software
+    bool hwOpenFailed = false; ///< ... because of an error (not a profile the GPU lacks)
     int hwPacketErrors = 0;
     /// The shared device's call lock (HwDeviceManager::callLock) while decoding on hardware,
     /// else nullptr. Held around every libavcodec call and download, never across two.

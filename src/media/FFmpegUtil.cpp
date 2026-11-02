@@ -8,6 +8,7 @@
 
 #include <QByteArray>
 #include <QFile>
+#include <QRegularExpression>
 
 #include <cstdarg>
 #include <limits>
@@ -139,7 +140,10 @@ void FfmpegLogCapture::record(int level, const QByteArray& text)
     if (level <= AV_LOG_ERROR) {
         ++m_errorCount;
         if (m_firstError.isEmpty()) {
-            m_firstError = QString::fromUtf8(text);
+            // "[h264_qsv @ 0x56f7ebbcd800] Failed to ..." -> "h264_qsv: Failed to ..."
+            static const QRegularExpression context(
+                QStringLiteral(R"(\[([^\]@]+?) @ 0x[0-9a-fA-F]+\] )"));
+            m_firstError = QString::fromUtf8(text).replace(context, QStringLiteral("\\1: "));
         }
     }
     if (m_outer) {
