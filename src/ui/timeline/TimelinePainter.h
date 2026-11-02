@@ -3,6 +3,7 @@
 // paint event. Separated from the widget so that drawing has no input/state-machine logic.
 #pragma once
 
+#include "core/SelectionModel.h"
 #include "core/TimelineData.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelineMedia.h"
@@ -71,6 +72,8 @@ struct TimelinePaintInput
     int gapRow = -1;
     int64_t gapStart = 0;
     int64_t gapEnd = 0;
+    /// Selected transition (spec 13.10); clipId 0 = none.
+    TransitionRef transition;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and
@@ -88,6 +91,11 @@ public:
     /// Sets the providers for thumbnails and waveforms (null = placeholders only).
     void setThumbnailProvider(ThumbnailProvider provider) { m_thumbnails = std::move(provider); }
     void setWaveformProvider(WaveformProvider provider) { m_waveforms = std::move(provider); }
+
+    /// Where the "fx" badge of a clip with effects is drawn: @p clipRect from
+    /// TimelineLayout::clipRect(), @p viewRight the right edge of the view (the badge sticks to
+    /// the visible right end of the clip). Empty if the clip is too narrow to show it.
+    [[nodiscard]] static QRectF fxBadgeRect(const QRectF& clipRect, double viewRight);
 
     /// Updates fonts and colours (call on palette/font change).
     void setStyle(const QPalette& palette, const QFont& font);
@@ -113,7 +121,7 @@ private:
         QPainter& p, const TimelinePaintInput& in, const ClipData& clip, const QRectF& rect);
     void paintTransitions(QPainter& p, const TimelinePaintInput& in, int row,
         const TrackData& track, size_t first, size_t last);
-    void paintTransitionBlock(QPainter& p, const QRectF& r, bool in);
+    void paintTransitionBlock(QPainter& p, const QRectF& r, bool in, bool selected = false);
     void paintHeaders(QPainter& p, const TimelinePaintInput& in);
     void paintRuler(QPainter& p, const TimelinePaintInput& in);
     void paintOverlays(QPainter& p, const TimelinePaintInput& in);

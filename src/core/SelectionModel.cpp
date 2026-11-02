@@ -15,16 +15,21 @@ void SelectionModel::setClips(const QVector<quint64>& clipIds)
         if (id != 0 && !unique.contains(id))
             unique.append(id);
     }
-    if (unique == m_clips && m_keyframes.isEmpty())
+    if (unique == m_clips && m_keyframes.isEmpty() && !m_transition)
         return;
     m_clips = unique;
     m_keyframes.clear();
+    m_transition.reset();
     emit changed();
 }
 
 void SelectionModel::addClips(const QVector<quint64>& clipIds)
 {
     bool modified = false;
+    if (m_transition && !clipIds.isEmpty()) {
+        m_transition.reset();
+        modified = true;
+    }
     for (quint64 id : clipIds) {
         if (id != 0 && !m_clips.contains(id)) {
             m_clips.append(id);
@@ -56,7 +61,10 @@ void SelectionModel::prune(const QSet<quint64>& existingIds)
         = m_clips.removeIf([&](quint64 id) { return !existingIds.contains(id); });
     const qsizetype removedKeys = m_keyframes.removeIf(
         [&](const KeyframeRef& k) { return !existingIds.contains(k.clipId); });
-    if (removed > 0 || removedKeys > 0)
+    const bool transitionGone = m_transition && !existingIds.contains(m_transition->clipId);
+    if (transitionGone)
+        m_transition.reset();
+    if (removed > 0 || removedKeys > 0 || transitionGone)
         emit changed();
 }
 
@@ -68,12 +76,27 @@ void SelectionModel::setKeyframes(const QVector<KeyframeRef>& keys)
     emit changed();
 }
 
+void SelectionModel::selectTransition(const TransitionRef& ref)
+{
+    if (ref.clipId == 0) {
+        clear();
+        return;
+    }
+    if (m_transition == ref && m_clips.isEmpty() && m_keyframes.isEmpty())
+        return;
+    m_clips.clear();
+    m_keyframes.clear();
+    m_transition = ref;
+    emit changed();
+}
+
 void SelectionModel::clear()
 {
     if (isEmpty())
         return;
     m_clips.clear();
     m_keyframes.clear();
+    m_transition.reset();
     emit changed();
 }
 

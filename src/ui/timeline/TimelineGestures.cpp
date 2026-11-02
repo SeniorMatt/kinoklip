@@ -60,6 +60,53 @@ std::optional<TimelineWidget::TransitionEdgeHit> TimelineWidget::transitionEdgeA
     return std::nullopt;
 }
 
+std::optional<TransitionRef> TimelineWidget::transitionAt(QPointF pos) const
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const TimelineHit hit = m_layout.hitTest(data, pos);
+    if (hit.area != TimelineHit::Area::Clip && hit.area != TimelineHit::Area::Track)
+        return std::nullopt;
+    const TrackData* track = data.track(hit.track);
+    if (!track || track->clips.empty())
+        return std::nullopt;
+    // The block is drawn inset by 3 px in the row (TimelinePainter::paintTransitions).
+    const QRect row = m_layout.rowRect(m_layout.rowOf(hit.track));
+    if (pos.y() < row.top() + 3 || pos.y() > row.bottom() - 3)
+        return std::nullopt;
+    const auto& clips = track->clips;
+    const auto it = std::upper_bound(clips.cbegin(), clips.cend(), hit.frame,
+        [](double f, const ClipData& c) { return f < double(c.start); });
+    const size_t pivot = size_t(it - clips.cbegin());
+    const size_t from = pivot >= 2 ? pivot - 2 : 0;
+    const size_t to = std::min(clips.size(), pivot + 2);
+    for (size_t i = from; i < to; ++i) {
+        for (const bool head : {true, false}) {
+            const auto window = ops::transitionWindow(data, clips[i].id, head);
+            if (!window)
+                continue;
+            const double x0 = m_layout.frameToX(double(window->first));
+            const double x1 = m_layout.frameToX(double(window->second));
+            if (x1 - x0 >= 3 && pos.x() >= x0 && pos.x() < x1)
+                return TransitionRef {clips[i].id, head};
+        }
+    }
+    return std::nullopt;
+}
+
+quint64 TimelineWidget::fxBadgeAt(QPointF pos) const
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const TimelineHit hit = m_layout.hitTest(data, pos);
+    if (hit.area != TimelineHit::Area::Clip)
+        return 0;
+    const ClipData* clip = ops::clipById(data, hit.clipId);
+    if (!clip || clip->effects.isEmpty())
+        return 0;
+    const QRectF badge = TimelinePainter::fxBadgeRect(
+        m_layout.clipRect(hit.row, *clip), double(m_layout.viewSize().width()));
+    return badge.contains(pos) ? clip->id : 0;
+}
+
 void TimelineWidget::updateTransitionEdge(QPointF pos)
 {
     restoreOrigin();
