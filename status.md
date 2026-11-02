@@ -72,3 +72,4 @@
 - 13:11 Owner: window flickers/stutters on resize (Plasma Wayland) -> added to wayland agent.
 - 13:18 Heartbeat: wayland 1 commit, hwdecode and compound active (0 commits yet); 22 GB free.
 - 14:02 hwdecode merged (57/57): one lock per shared VAAPI device, retry + per-file software fallback, quiet probes, FFmpeg log routing re-installed after Qt Multimedia, per-file decoder log lines, stats summary on stop, docs/hw-decode-test.md. All log categories default to info. Starting masks (v2).
+- 14:18 Heartbeat: wayland 13 commits, compound 9, masks 1; all active; 21 GB free.
