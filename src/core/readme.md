@@ -17,12 +17,12 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `Timeline.h` | QObject: owns `TimelineData`, snapshot cache, playhead, `changed()` |
 | `MediaPool.h` | QObject: media items + bins, `importFiles()` |
 | `Project.h` | QObject: owns MediaPool + Timeline + QUndoStack, settings, save/load |
-| `SelectionModel.h` | QObject: selected clip ids + keyframes |
+| `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive) |
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
 | `BuiltinEffects.cpp` | the v0.1 descriptor catalogue |
 | `Serialization.h` | JSON encode/decode of all value types |
 | `Preferences.h` | QSettings preference keys + typed accessors (`playback/hwaccel`, autosave, theme) |
-| `EditBehaviour.h` | convention-dependent editing defaults (`edit/*`: still / generator / transition lengths, three-point editing, ripple delete without selection, trim zones); see docs/behavior-spec.md |
+| `EditBehaviour.h` | convention-dependent editing defaults (`edit/*`: still / generator / transition lengths, three-point editing, ripple delete without selection, trim zones; `migrateSettings()` drops retired keys at start-up); see docs/behavior-spec.md |
 
 ## Time conventions (PLAN §5.1)
 - Timeline positions and durations: `int64_t` frames at `TimelineData::fps`.

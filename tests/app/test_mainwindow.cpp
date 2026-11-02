@@ -5,12 +5,15 @@
 #include "app/Theme.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
+#include "core/MediaPool.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/mediapool/MediaPoolPanel.h"
+#include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
 #include <QApplication>
@@ -18,6 +21,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTest>
+#include <QToolButton>
 #include <QUndoStack>
 
 #include <memory>
@@ -101,6 +105,68 @@ private slots:
 
         f.action("view.single_viewer")->trigger();
         QVERIFY(edit->isSingleViewer());
+    }
+
+    /// Alpha.2 feedback #5 (spec 24.4 - 24.6): a viewer-mode button at the right of both viewer
+    /// headers, in step with View > Single Viewer Mode; single mode shows the timeline, or the
+    /// source clip once one is opened; Q swaps; the choice persists.
+    void spec24_4_singleViewerToggle()
+    {
+        {
+            Fixture f;
+            f.window->resize(1600, 900);
+            f.window->show();
+            QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+            EditPage* edit = f.window->editPage();
+            QAction* single = f.action("view.single_viewer");
+            QVERIFY(single->isCheckable());
+            QCOMPARE(edit->viewerModeButtons().size(), qsizetype(2));
+            QToolButton* button = edit->viewerModeButtons().at(1); // timeline viewer header
+            QVERIFY(button->isVisible());
+            QVERIFY(button->toolTip().contains(QLatin1String("Single Viewer")));
+            const int viewerWidth = edit->sourceViewer()->width() + edit->timelineViewer()->width();
+            button->click();
+            QVERIFY(edit->isSingleViewer());
+            QVERIFY(single->isChecked());
+            QVERIFY(edit->sourceViewer()->isHidden());
+            QVERIFY(!edit->timelineViewer()->isHidden());
+            QVERIFY(button->toolTip().contains(QLatin1String("Dual Viewer")));
+            QCoreApplication::processEvents();
+            QVERIFY(edit->timelineViewer()->width() >= viewerWidth - 10);
+            // The header button sits right of the timecode, inside the panel.
+            const QPoint br = button->mapTo(edit->timelineViewer(), button->rect().topRight());
+            QVERIFY(br.x() < edit->timelineViewer()->width());
+
+            // Opening a clip shows the source viewer in place of the timeline viewer.
+            MediaItem item;
+            item.path = QStringLiteral("/nonexistent/clip.mp4");
+            item.name = QStringLiteral("clip.mp4");
+            item.info.valid = true;
+            item.info.hasVideo = true;
+            item.info.durationUs = 10'000'000;
+            item.info.width = 640;
+            item.info.height = 360;
+            const QString id = f.project.mediaPool()->addItem(item);
+            emit edit->mediaPool()->openInSourceViewer(id);
+            QVERIFY(edit->isSingleViewer());
+            QVERIFY(edit->singleViewerShowsSource());
+            QVERIFY(edit->timelineViewer()->isHidden());
+            // Q swaps back to the timeline.
+            f.action("view.toggle_source_timeline")->trigger();
+            QVERIFY(!edit->singleViewerShowsSource());
+            QVERIFY(!edit->timelineViewer()->isHidden());
+            // The menu entry leaves single mode again; both viewers come back.
+            single->trigger();
+            QVERIFY(!edit->isSingleViewer());
+            QVERIFY(!edit->sourceViewer()->isHidden());
+            QVERIFY(!edit->timelineViewer()->isHidden());
+            single->trigger(); // single again, then persist
+            f.window->close();
+        }
+        Fixture g;
+        QVERIFY(g.window->editPage()->isSingleViewer());
+        QVERIFY(g.action("view.single_viewer")->isChecked());
+        QSettings().clear();
     }
 
     void layoutPersists()

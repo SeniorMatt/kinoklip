@@ -196,4 +196,33 @@ bool TimelineController::setTransitionDuration(quint64 clipId, bool head, int64_
     });
 }
 
+void TimelineController::selectTransition(const TransitionRef& ref)
+{
+    const bool hadEdit = !m_selectedEdit.isEmpty() || m_selectedGap;
+    m_selectedEdit = {};
+    m_selectedGap.reset();
+    m_ctx.selection->selectTransition(ref);
+    if (hadEdit)
+        emit stateChanged();
+}
+
+bool TimelineController::deleteTransition(const TransitionRef& ref)
+{
+    const bool changed = runEdit(project(), tr("Delete Transition"), [&](TimelineData& data) {
+        const auto loc = ops::findClip(data, ref.clipId);
+        const TrackData* track = loc ? data.track(loc->track) : nullptr;
+        ClipData* clip = ops::clipById(data, ref.clipId);
+        if (!clip || !track || track->locked)
+            return false;
+        auto& slot = ref.head ? clip->transitionIn : clip->transitionOut;
+        if (!slot)
+            return false;
+        slot.reset();
+        return true;
+    });
+    if (changed && m_ctx.selection->transition() == ref)
+        m_ctx.selection->clear();
+    return changed;
+}
+
 } // namespace kk

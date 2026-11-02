@@ -342,8 +342,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
             }
         }
     }
-    if (hasFx && visible.width() > 30 && bandH >= 12) {
-        const QRectF badge(visRight - badgeW - 3, r.top() + 2, badgeW, bandH - 4);
+    if (const QRectF badge = hasFx ? fxBadgeRect(r, viewRight) : QRectF(); !badge.isEmpty()) {
         p.fillRect(badge, base.darker(190));
         p.setPen(QColor(0xf0, 0xc8, 0x6a));
         p.setFont(m_smallFont);
@@ -536,7 +535,18 @@ void TimelinePainter::paintKeyframes(
     }
 }
 
-void TimelinePainter::paintTransitionBlock(QPainter& p, const QRectF& r, bool in)
+QRectF TimelinePainter::fxBadgeRect(const QRectF& r, double viewRight)
+{
+    constexpr double badgeW = 18;
+    const double visLeft = std::max(r.left(), double(kHeaderWidth));
+    const double visRight = std::min(r.right(), viewRight);
+    const double bandH = r.height() >= kMinBandRow ? kBandHeight : r.height();
+    if (r.width() < 4 || visRight - visLeft <= 30 || bandH < 12)
+        return {};
+    return QRectF(visRight - badgeW - 3, r.top() + 2, badgeW, bandH - 4);
+}
+
+void TimelinePainter::paintTransitionBlock(QPainter& p, const QRectF& r, bool in, bool selected)
 {
     // A bevelled block: light face, bright top/left edges, dark bottom/right edges and a
     // diagonal showing the direction of the blend.
@@ -552,6 +562,12 @@ void TimelinePainter::paintTransitionBlock(QPainter& p, const QRectF& r, bool in
     else
         p.drawLine(r.topLeft() + QPointF(1, 1), r.bottomRight() + QPointF(-1, -1));
     p.setRenderHint(QPainter::Antialiasing, false);
+    if (selected) {
+        // Same colour as a selected clip's outline.
+        p.setPen(QPen(kSelection, 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(r.adjusted(1, 1, -1, -1));
+    }
 }
 
 void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in, int row,
@@ -574,7 +590,8 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
             const double x0 = L.frameToX(f0);
             const double x1 = L.frameToX(f0 + d);
             if (x1 - x0 >= 3)
-                paintTransitionBlock(p, QRectF(x0, top, x1 - x0, h), true);
+                paintTransitionBlock(p, QRectF(x0, top, x1 - x0, h), true,
+                    in.transition == TransitionRef {c.id, true});
         }
         if (c.transitionOut) {
             const bool touching = i + 1 < track.clips.size() && track.clips[i + 1].start == c.end();
@@ -584,7 +601,8 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
             const double x0 = L.frameToX(f1 - d);
             const double x1 = L.frameToX(f1);
             if (x1 - x0 >= 3)
-                paintTransitionBlock(p, QRectF(x0, top, x1 - x0, h), false);
+                paintTransitionBlock(p, QRectF(x0, top, x1 - x0, h), false,
+                    in.transition == TransitionRef {c.id, false});
         }
     }
 }

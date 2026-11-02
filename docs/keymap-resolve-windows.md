@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 157 commands; sure 88, likely 41, unsure 28.
+Counts: 159 commands; sure 90, likely 41, unsure 28.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -79,8 +79,10 @@ that every command has an entry and that no key is used twice.
 | Nudge / Trim One Frame Right | `trim.nudge_right` | `.` | sure |  |
 | Nudge / Trim Several Frames Left | `trim.nudge_left_multi` | `Shift+,` | sure |  |
 | Nudge / Trim Several Frames Right | `trim.nudge_right_multi` | `Shift+.` | sure |  |
-| Trim Start to Playhead | `trim.trim_start` | `Shift+[` | sure |  |
-| Trim End to Playhead | `trim.trim_end` | `Shift+]` | sure |  |
+| Trim Start to Playhead (leaves a gap) | `trim.trim_start` | `Shift+[` | sure |  |
+| Trim End to Playhead (leaves a gap) | `trim.trim_end` | `Shift+]` | sure |  |
+| Ripple Trim Start to Playhead (closes the gap) | `trim.ripple_trim_start` | `Ctrl+Shift+[` | sure | On a US layout Qt may deliver Ctrl+Shift+{; the timeline accepts both (spec 8.10). |
+| Ripple Trim End to Playhead (closes the gap) | `trim.ripple_trim_end` | `Ctrl+Shift+]` | sure | On a US layout Qt may deliver Ctrl+Shift+}; the timeline accepts both (spec 8.10). |
 | Extend Edit to Playhead | `trim.extend_edit` | `E` | sure |  |
 | Toggle Edit Point Side (out / roll / in) | `trim.cycle_edit` | `U` | sure |  |
 | Select Nearest Edit Point | `trim.select_nearest_edit` | `V` | sure |  |

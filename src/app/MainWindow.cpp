@@ -13,6 +13,7 @@
 #include "core/Project.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/ShortcutFallback.h"
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
 #include "ui/dialogs/DialogActions.h"
@@ -90,6 +91,8 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     setWindowIcon(QIcon(QStringLiteral(":/icons/app.svg")));
     // Every registered action works as an application-wide shortcut, menu or not.
     addActions(ctx.actions->actions());
+    // Ctrl+Shift+[ etc. also when the layout reports Ctrl+Shift+{ (alpha.2 feedback).
+    new ShortcutFallback(*ctx.actions, this);
 
     auto* central = new QWidget(this);
     central->setObjectName(QStringLiteral("CentralWidget"));
@@ -295,6 +298,8 @@ void MainWindow::connectAppActions()
     QAction* singleViewer = actions.action(QStringLiteral("view.single_viewer"));
     connect(singleViewer, &QAction::triggered, this,
         [this](bool on) { m_editPage->setSingleViewer(on); });
+    // The page also leaves / enters the mode itself (viewer header button, restored layout).
+    connect(m_editPage, &EditPage::singleViewerChanged, singleViewer, &QAction::setChecked);
 
     // ---- Help ----
     connect(actions.action(QStringLiteral("help.about")), &QAction::triggered, this, [this] {

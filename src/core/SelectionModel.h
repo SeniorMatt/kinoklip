@@ -8,6 +8,7 @@
 #include <QVector>
 
 #include <cstdint>
+#include <optional>
 
 namespace kk {
 
@@ -19,6 +20,15 @@ struct KeyframeRef
     int64_t frame = 0; ///< clip-local frame
 
     friend bool operator==(const KeyframeRef&, const KeyframeRef&) = default;
+};
+
+/// A selected transition: the clip holding it and which end (transitionIn / transitionOut).
+struct TransitionRef
+{
+    quint64 clipId = 0;
+    bool head = true; ///< ClipData::transitionIn (else transitionOut)
+
+    friend bool operator==(const TransitionRef&, const TransitionRef&) = default;
 };
 
 /// Holds the selected clip ids (ordered by selection time) and selected keyframes.
@@ -35,12 +45,15 @@ public:
     [[nodiscard]] const QVector<quint64>& clips() const { return m_clips; }
     /// True if @p clipId is selected.
     [[nodiscard]] bool isSelected(quint64 clipId) const { return m_clips.contains(clipId); }
-    /// True if no clip and no keyframe is selected.
-    [[nodiscard]] bool isEmpty() const { return m_clips.isEmpty() && m_keyframes.isEmpty(); }
+    /// True if no clip, keyframe or transition is selected.
+    [[nodiscard]] bool isEmpty() const
+    {
+        return m_clips.isEmpty() && m_keyframes.isEmpty() && !m_transition;
+    }
     /// Most recently selected clip (the one the Inspector shows), or 0.
     [[nodiscard]] quint64 currentClip() const { return m_clips.isEmpty() ? 0 : m_clips.back(); }
 
-    /// Replaces the clip selection (also clears selected keyframes).
+    /// Replaces the clip selection (also clears selected keyframes and the transition).
     void setClips(const QVector<quint64>& clipIds);
     /// Selects exactly one clip (0 = clear).
     void selectClip(quint64 clipId)
@@ -61,7 +74,13 @@ public:
     /// Replaces the keyframe selection.
     void setKeyframes(const QVector<KeyframeRef>& keys);
 
-    /// Clears clips and keyframes.
+    /// The selected transition, if any. It is exclusive: selecting it clears the clips and
+    /// keyframes, selecting or adding clips clears it (spec 13.10).
+    [[nodiscard]] std::optional<TransitionRef> transition() const { return m_transition; }
+    /// Selects only the transition @p ref (clipId 0 = clear the selection).
+    void selectTransition(const TransitionRef& ref);
+
+    /// Clears clips, keyframes and the transition.
     void clear();
 
 signals:
@@ -71,6 +90,7 @@ signals:
 private:
     QVector<quint64> m_clips;
     QVector<KeyframeRef> m_keyframes;
+    std::optional<TransitionRef> m_transition;
 };
 
 } // namespace kk

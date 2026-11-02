@@ -35,8 +35,10 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
   current shortcut from the registry.
 * **Full-screen viewer** (`view.fullscreen_viewer`, Ctrl+F): a picture-only Timeline viewer
   window on the main window's screen; all registry actions are added to it; Esc closes.
-* **Single viewer mode** (`view.single_viewer`, app-owned) hides the source viewer;
-  opening a clip from the media pool shows it again.
+* **Single viewer mode** (`view.single_viewer`, app-owned; EditPage adds a mode button at
+  the right end of both viewer headers): one viewer shows the timeline, or the source clip
+  after one was opened (media pool, match frame); Q swaps; activating the timeline viewer
+  shows the timeline (spec 24.4 - 24.6).
 
 ## Actions connected here (ViewerTransport)
 

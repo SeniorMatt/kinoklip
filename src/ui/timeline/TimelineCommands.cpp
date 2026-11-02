@@ -44,6 +44,10 @@ bool TimelineController::hasMarkedRange() const
 
 void TimelineController::deleteSelection()
 {
+    if (const auto t = m_ctx.selection->transition()) {
+        deleteTransition(*t); // Backspace on a selected transition (spec 13.10)
+        return;
+    }
     if (m_selectedGap) {
         // A selected gap is removed by either delete key (spec 10.5).
         rippleDeleteSelection();
@@ -70,6 +74,10 @@ void TimelineController::deleteSelection()
 
 void TimelineController::rippleDeleteSelection()
 {
+    if (const auto t = m_ctx.selection->transition()) {
+        deleteTransition(*t); // a transition has no length of its own to ripple
+        return;
+    }
     if (const auto gap = m_selectedGap) {
         setSelectedGap(std::nullopt);
         closeGapAt(gap->track, gap->start);
