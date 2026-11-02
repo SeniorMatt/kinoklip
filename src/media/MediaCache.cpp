@@ -161,6 +161,21 @@ QImage MediaCache::thumbnail(const QString& path, int64_t timeUs, int height)
     return requestImage(request);
 }
 
+QImage MediaCache::frame(const QString& path, int64_t timeUs, int height)
+{
+    if (path.isEmpty() || height <= 0) {
+        return {};
+    }
+    ImageRequest request;
+    request.kind = ImageKind::Frame;
+    request.path = path;
+    request.height = snapThumbnailHeight(height);
+    request.timeUs
+        = detail::isStillImageSuffix(QFileInfo(path).suffix()) ? 0 : std::max<int64_t>(timeUs, 0);
+    request.key = QStringLiteral("f|%1|%2|%3").arg(path).arg(request.height).arg(request.timeUs);
+    return requestImage(request);
+}
+
 QImage MediaCache::posterFrame(const QString& path, int height)
 {
     if (path.isEmpty() || height <= 0) {
@@ -223,9 +238,10 @@ void MediaCache::invalidate(const QString& path)
         const QMutexLocker lock(&m_mutex);
         const QString thumbPrefix = QStringLiteral("t|%1|").arg(path);
         const QString posterPrefix = QStringLiteral("p|%1|").arg(path);
+        const QString framePrefix = QStringLiteral("f|%1|").arg(path);
         const auto isForPath = [&](const QString& key) {
             return key.startsWith(thumbPrefix) || key.startsWith(posterPrefix)
-                || key == QLatin1String("w|") + path;
+                || key.startsWith(framePrefix) || key == QLatin1String("w|") + path;
         };
         const QList<QString> keys = m_images.keys();
         for (const QString& key : keys) {
@@ -261,7 +277,9 @@ void MediaCache::runImageJob(const ImageRequest& request)
 {
     QImage image;
     if (!m_cancelled) {
-        const QString directory = diskDirectory(request.path, "thumbs");
+        // Exact frames are transient previews: memory cache only.
+        const QString directory
+            = request.kind == ImageKind::Frame ? QString() : diskDirectory(request.path, "thumbs");
         QString basePath;
         if (!directory.isEmpty()) {
             basePath = directory
@@ -317,6 +335,8 @@ void MediaCache::finishImage(const ImageRequest& request, const QImage& image)
     }
     if (request.kind == ImageKind::Poster) {
         emit posterFrameReady(request.path);
+    } else if (request.kind == ImageKind::Frame) {
+        emit frameReady(request.path);
     } else {
         emit thumbnailReady(request.path);
     }
