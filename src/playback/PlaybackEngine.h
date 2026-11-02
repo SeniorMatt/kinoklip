@@ -169,6 +169,8 @@ public:
         std::shared_ptr<const ProxyMap> proxies, std::shared_ptr<const MediaPathMap> media);
     /// Proxy map in use (viewer indicator).
     [[nodiscard]] const std::shared_ptr<const ProxyMap>& proxies() const { return m_proxies; }
+    /// True when the current timeline shows at least one proxy / optimized media file.
+    [[nodiscard]] bool proxiesInUse() const { return m_proxiesInUse; }
     /// Render cache of the current timeline snapshot (Playback > Render Cache); frames of
     /// cached chunks are shown from the cache. nullptr = no cache.
     void setRenderCache(std::shared_ptr<const RenderCacheView> view);
@@ -270,6 +272,8 @@ Q_SIGNALS:
     void loopChanged(bool loop);
     /// The quality used for rendering changed (Auto mode switching, or the setting).
     void qualityChanged(Quality quality);
+    /// proxiesInUse() changed (viewer "Proxy" indicator).
+    void proxiesInUseChanged(bool inUse);
 
 private:
     void init(Options options);
@@ -317,6 +321,7 @@ private:
     std::shared_ptr<const MediaPathMap> m_audioOverride; ///< setSubstitutes()
     std::shared_ptr<const ProxyMap> m_proxies;
     std::shared_ptr<const RenderCacheView> m_renderCache;
+    bool m_proxiesInUse = false;
     QMetaObject::Connection m_timelineChanged, m_playheadChanged, m_poolChanged;
 
     double m_rate = 0.0;

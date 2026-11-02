@@ -262,6 +262,7 @@ private:
     KeyframeLanes* m_keyframeLanes = nullptr; ///< child QObject: keyframe / curve editor lanes
     NestedPreview* m_nestedPreview = nullptr; ///< child QObject: compound clip previews
     TimelineOverlay m_overlay;
+    QVector<CacheBarRange> m_cacheBar; ///< render cache status on the ruler
     QSet<quint64> m_selected; ///< mirror of the SelectionModel for O(1) lookups while painting
     Drag m_drag;
     QTimer m_autoScroll;

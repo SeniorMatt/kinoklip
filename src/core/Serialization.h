@@ -26,14 +26,22 @@ namespace kk::serialization {
 ///   compound clip items in the media pool ("kind", "timelineUid"). Files of versions 1 and 2
 ///   store one "timeline" object; Project::load() turns it into timeline uid 1 with a media
 ///   pool item, which reproduces the old project exactly.
-/// - 4: proxy / optimized media links ("mediaLinks": [{"mediaId", "proxy"?, "optimized"?}],
+/// - 4: clips may carry "masks" (core/Mask.h): {"id", "shape", "mode", "name"?, "enabled"?,
+///   "invert"?, "closed"?, "params"?, and "points" (static shape) or "shapeKeys" (keyframes with
+///   their "points")}; a point is [x, y, inX, inY, outX, outY] plus 1 when smooth. Files of
+///   versions 1 - 3 have no masks and load through the older migrations unchanged; older builds
+///   refuse version 4 instead of silently dropping the masks.
+/// - 5: reserved for the retime branch (speed / retime model).
+/// - 6: proxy / optimized media links ("mediaLinks": [{"mediaId", "proxy"?, "optimized"?}],
 ///   each {"path", "source": {"size", "mtimeMs"}, "width", "height", "format"?}), the
 ///   project's "cacheSettings" (core/MediaLinks.h: proxy / optimized / render cache formats,
 ///   background caching, proxy handling, render cache mode) and the clip flag
-///   "cacheOutput" (Render Cache Clip Output). Older files get the defaults (proxy handling
+///   "cacheOutput" (Render Cache Clip Output). Older files (any version, also
+///   without the 5 = retime branch) get the defaults; nothing else changes, so the loader
+///   needs no step for 4 -> 6 or 5 -> 6. Defaults: (proxy handling
 ///   "prefer proxies", render cache "none"); proxies already in the proxy folder are linked
 ///   by the application after loading (MediaLinks::autoLink()).
-inline constexpr int kFormatVersion = 4;
+inline constexpr int kFormatVersion = 6;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

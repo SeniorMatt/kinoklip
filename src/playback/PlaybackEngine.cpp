@@ -9,6 +9,7 @@
 #include "playback/AudioRing.h"
 #include "playback/PlaybackLog.h"
 #include "render/Compositor.h"
+#include "render/ProxySelection.h"
 
 #include <QSettings>
 
@@ -408,6 +409,15 @@ void PlaybackEngine::updateParams(bool rerender)
         || old.proxies != params.proxies;
     const bool changed
         = contentChanged || old.outSize != params.outSize || old.outputs != params.outputs;
+    if (old.timeline != params.timeline || old.proxies != params.proxies) {
+        // Viewer indicator: does this timeline show any substitute? (one pass over its clips)
+        const bool inUse = params.timeline && params.proxies
+            && usesSubstitutes(*params.timeline, *params.proxies);
+        if (inUse != m_proxiesInUse) {
+            m_proxiesInUse = inUse;
+            Q_EMIT proxiesInUseChanged(inUse);
+        }
+    }
     if (changed) {
         // Size/quality changes during playback keep the frames in flight (same picture).
         m_scheduler.setParams(params, contentChanged || !isPlaying());

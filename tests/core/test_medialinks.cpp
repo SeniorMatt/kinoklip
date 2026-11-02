@@ -203,7 +203,7 @@ private slots:
         QFile f(path);
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
-        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), 4);
+        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), serialization::kFormatVersion);
         QCOMPARE(root.value(QLatin1String("mediaLinks")).toArray().size(), 1); // "gone" dropped
 
         Project q;

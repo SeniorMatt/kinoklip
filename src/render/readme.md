@@ -67,9 +67,10 @@ mixer.mix(*snapshot, kk::framesToSamples48k(frame, fps), 1024, buffer);   // 204
    3. per track, into the RGBA16F accumulator (premultiplied "over"):
         clip ──► source: YUV planes (persistent per-decoder textures, glTexSubImage2D straight
         │                from decoder memory) | title texture (cached) | solid colour
-        ├─ no effects: ONE pass  source → crop → YUV→RGB → transform → opacity → accumulator
-        └─ effects:    source → crop → layer (RGBA16F, layer resolution, optional margin)
+        ├─ no effects/masks: ONE pass  source → crop → YUV→RGB → transform → opacity → accumulator
+        └─ effects or masks: source → crop → layer (RGBA16F, layer resolution, optional margin)
                        → effect passes (ping-pong, pooled targets)
+                       → mask pass (GlMasks: matte × layer)
                        → transform → opacity → accumulator
         transition: A and B each drawn (as above) into an output-size temp,
                     transition shader (A, B, progress) → accumulator
@@ -108,6 +109,28 @@ mixer.mix(*snapshot, kk::framesToSamples48k(frame, fps), 1024, buffer);   // 204
   parameters re-rasterise on each frame they change. Zoomed titles are rasterised at a
   quantised zoom (≤ 4×) to stay sharp.
 
+### Masks (`GlMasks`)
+
+`ClipData::masks` (core/Mask.h) are applied to the clip's layer after its effects and before
+its transform, so they move with the clip and the clip opacity / transitions apply on top.
+* **Rectangle / ellipse**: analytic in the combine shader: signed distance of the rotated
+  shape (exact for the rectangle, a first-order estimate f/|∇f| for the ellipse, exact for
+  circles), shifted by the expansion, through `1 − smoothstep(−featherIn, +featherOut, d)` (at
+  least one pixel wide = antialiasing).
+* **Point paths**: flattened on the CPU (adaptive cubic subdivision, 0.25 layer px), offset by
+  expand + (featherOut − featherIn) / 2 (miter joins), filled with ONE triangle fan whose blend
+  function `ONE_MINUS_DST_COLOR, ZERO` toggles the destination (even-odd fill, exact 0 / 1, no
+  stencil buffer) into an RGBA8 coverage target, then blurred with `GlKit::gaussianBlur()`
+  (σ = (in + out) / 3.76 — the smoothstep's slope at the edge — at least 0.5 px). Feathered
+  coverage is rasterised and blurred at 1/2, 1/4 or 1/8 resolution while σ stays ≥ 1.5 px
+  there; the combine pass upsamples it with bilinear filtering.
+* **Combine**: one fullscreen pass evaluates up to 8 masks (≤ 4 coverage textures) in list
+  order — invert, opacity, mode table of `MaskMode` — and writes layer × matte; longer lists
+  chain through an intermediate matte. The CPU fallback clips with the combined
+  `QPainterPath`s (hard edges; feather, expansion and partial opacity ignored).
+* Masks are evaluated at the requested frame exactly (`AnimatedPath::evaluate`), so viewer,
+  playback and export agree.
+
 ### Nested timelines (compound clips)
 
 A `ClipKind::Nested` clip shows another timeline, found in the root snapshot's
@@ -134,6 +157,20 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
   (incl. hardware download; ~0 when the decode-ahead finished in time), `uploadMs` (plane
   textures), `compositeMs` (drawing), `outputMs` (output slot, fence/flush, readback). On
   llvmpipe the GPU work itself shows up in `outputMs` (it runs at the flush).
+
+### Proxies and the render cache
+
+* `RenderRequest::proxies` (`ProxyMap`: media id -> `ProxyRef {path, displaySize}`): the
+  decode stage opens the proxy instead of the original; `resolveSource()` (and the CPU path)
+  keep the original's display size as `sourcePx`, so crop units and fitting do not change.
+  nullptr (export) = originals. Built by `ProxySelection.h` (`makeProxyMap()`: Proxy Handling,
+  optimized media, stale / missing links never used; `makeAudioPathMap()`: offline originals
+  play their proxy's sound; `usesSubstitutes()`: viewer indicator).
+* `RenderRequest::renderCache` (`RenderCacheView`): `Compositor::renderAsync()` replaces a
+  request for a frame inside a cached chunk by a request for the chunk's one-clip timeline
+  (`RenderedFrame::fromCache`), but only when `view->snapshot == request.timeline`.
+  `RenderCacheKeys.h`: chunk grid, keys, Smart / User selection, `makeRenderCacheView()`.
+  Bump `kRenderCacheVersion` whenever rendering changes for the same input.
 
 ## Threading and GL context model
 
@@ -166,6 +203,7 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 | `GlKit.*` | GL toolkit: common vertex shader, `GlProgram`, pooled `RenderTarget`s, blit/fill, separable Gaussian blur (downscaled for large sigma) |
 | `GlVideo.*` | persistent plane textures (R8/RG8/R16/RG16/RGBA8) + the YUV → RGB shader (crop, rotation, edge antialiasing) |
 | `GlEffects.*` | the eight built-in effects and **their registration table** |
+| `GlMasks.*` | clip mask pass (analytic shapes, path coverage, feather, combine) |
 | `GlTransitions.*` | the four built-in transitions and **their registration table** |
 | `GlOutput.*` | output slots (shared textures + fences), PBO readback |
 | `CpuRenderer.cpp` | QPainter fallback |

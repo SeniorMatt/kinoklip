@@ -9,7 +9,7 @@
 // Per clip (drawClip):
 //   direct path (no active effects): the source (YUV planes / title texture / solid colour) is
 //     drawn straight into the target through the full transform with crop + opacity — one pass;
-//   layer path (effects): the source is first drawn upright into a "layer" target (layer
+//   layer path (effects, masks): the source is first drawn upright into a "layer" target (layer
 //     resolution, optional transparent margin), the effects ping-pong over pooled targets, and
 //     the layer is then drawn through the transform with opacity.
 #include "render/GlRenderer.h"
@@ -150,7 +150,8 @@ bool GlRenderer::initialize(QString* why)
                         .arg(QString::fromLatin1(renderer ? renderer : "unknown"));
 
     m_kit = std::make_unique<GlKit>(m_gl);
-    if (!m_kit->initialize(why) || !m_video.initialize(*m_kit, why))
+    if (!m_kit->initialize(why) || !m_video.initialize(*m_kit, why)
+        || !m_masks.initialize(*m_kit, why))
         return false;
     m_output = std::make_unique<GlOutput>(*m_kit);
 
@@ -215,6 +216,7 @@ void GlRenderer::shutdown()
         for (auto& t : m_transitions)
             t->destroy(*m_kit);
         m_video.destroy(*m_kit);
+        m_masks.destroy(*m_kit);
         m_kit->destroy();
         m_context->doneCurrent();
     }
@@ -652,7 +654,10 @@ void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const Re
         padding += (*it)->paddingPx(e.params, local);
     }
 
-    if (m_activeEffects.empty()) {
+    // Masks cut the clip's own picture (after its effects, before its transform), so they
+    // need the layer path too.
+    const bool masked = GlMasks::hasActiveMasks(clip);
+    if (m_activeEffects.empty() && !masked) {
         // Direct path: one pass from the source into the target.
         const QTransform quad(src.quad.width() * cw, 0, 0, src.quad.height() * ch,
             (src.quad.x() - 0.5) * cw, (src.quad.y() - 0.5) * ch);
@@ -697,6 +702,11 @@ void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const Re
         in.params = &m_activeInstances[i]->params;
         PooledTarget next = m_activeEffects[i]->apply(*m_kit, in);
         if (next)
+            layer = std::move(next);
+    }
+    if (masked) {
+        const MaskLayerGeometry geometry {QSizeF(cw, ch), layerScale, padPx};
+        if (PooledTarget next = m_masks.apply(*m_kit, *layer, geometry, clip, local))
             layer = std::move(next);
     }
 
