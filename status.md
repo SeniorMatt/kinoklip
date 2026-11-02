@@ -89,3 +89,4 @@
 - 18:18 Heartbeat: multicam 11 commits (container build compiling), bins 4, attrs active; 18 GB free.
 - 18:50 multicam merged (all tests pass). Usage limit reached: bins and attrs agents paused (work committed in their worktrees; resume via SendMessage). Next: merge bins + attrs, renumber spec sections, release 0.2.0-alpha.1.
 - 19:25 Resumed after usage pause: bins (6 commits + uncommitted work) and attrs (5 commits); heartbeat re-created. Next: merge both, renumber spec sections, release 0.2.0-alpha.1.
+- 19:33 Owner: Kinoklip = default scheme; all custom-painted colours follow the scheme. Queued agent 'themecolors' after bins+attrs merge (before 0.2.0-alpha.1).

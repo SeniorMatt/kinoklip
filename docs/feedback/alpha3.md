@@ -17,3 +17,8 @@
    - No line says which hardware decoder is actually used when it works.
 4. Owner wants: fix all bugs, then move on to the next stage (v2 in docs/roadmap.md).
 5. The main window flickers and stutters while resizing on KDE Plasma (Wayland). Sent to the wayland agent.
+6. (0.2 work) Owner: Kinoklip must be the default colour scheme, and everything Kinoklip paints itself
+   (clip colours, track badges, playhead, ruler, lanes, waveforms, keyframes, overlays, cache bar...)
+   must follow the active colour scheme. Plan: semantic roles mapped to KColorScheme roles
+   (link/positive/visited/neutral/negative/focus + window/view backgrounds); clip colour labels still
+   override per clip. Agent 'themecolors' starts after bins + attrs are merged.
