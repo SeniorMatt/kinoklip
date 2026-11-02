@@ -490,7 +490,8 @@ private slots:
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
         file.close();
-        QCOMPARE(root.value(QStringLiteral("formatVersion")).toInt(), 8);
+        QCOMPARE(
+            root.value(QStringLiteral("formatVersion")).toInt(), serialization::kFormatVersion);
 
         // A version-5 file (before multicam): nested clips have no angle and show their whole
         // timeline, compound timelines stay compound clips.
