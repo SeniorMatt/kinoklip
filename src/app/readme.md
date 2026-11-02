@@ -19,7 +19,7 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `Theme.h` | the real KDE Breeze look: widget style, KDE colour schemes, Breeze icons, panel style sheet; Settings > Color Theme / Style; "appearance" settings page |
 | `ColorSchemeFile.h` | reads a KDE `.colors` file into a QPalette (fallback build without KF6) |
 | `CommandLine.h` | `QCommandLineParser` → `CommandLineOptions` |
-| `Screenshot.h` | `--screenshot <target> <out.png> [project]`: pages, `preferences[:section]`, `project-settings[:section]`, `keyboard`, `inspector`, `mediapool`, `menu-color-theme`, `menu-style` (works with `QT_QPA_PLATFORM=offscreen`; `KK_SCREENSHOT_SIZE=1366x768` for small screens) |
+| `Screenshot.h` | `--screenshot <target> <out.png> [project]`: pages, `preferences[:section]`, `project-settings[:section]`, `keyboard`, `inspector`, `mediapool`, `menu-color-theme`, `menu-style` (works with `QT_QPA_PLATFORM=offscreen`; `KK_SCREENSHOT_SIZE=1366x768` for small screens; `KK_SCREENSHOT_PLAY_MS=2000` plays the first viewer with content that long before the grab, a headless playback check) |
 | `MenuMetricsStyle.h` | proxy over the widget style that reserves the submenu arrow column in menus |
 
 ## Start-up sequence (`src/main.cpp`)

@@ -321,10 +321,33 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
     };
     QTimer poll;
     poll.setInterval(kFramePollMs);
+    // KK_SCREENSHOT_PLAY_MS=n: play the first viewer with content for n ms before the grab
+    // (headless check of playback, e.g. that KK_PLAYBACK_STATS lines appear in a bundle).
+    const int playMs = qEnvironmentVariableIntValue("KK_SCREENSHOT_PLAY_MS");
+    auto playThenGrab = [&] {
+        PlaybackEngine* engine = nullptr;
+        for (ViewerPanel* viewer : ViewerPanel::allViewers()) {
+            if (viewer->isVisible() && viewer->engine() && viewer->engine()->duration() > 0) {
+                engine = viewer->engine();
+                break;
+            }
+        }
+        if (playMs <= 0 || !engine) {
+            if (playMs > 0)
+                std::fprintf(stderr, "KK_SCREENSHOT_PLAY_MS: no viewer with content to play\n");
+            QTimer::singleShot(kFramePollMs, &window, grab); // one more paint
+            return;
+        }
+        engine->play();
+        QTimer::singleShot(playMs, &window, [&, engine] {
+            engine->stop();
+            QTimer::singleShot(kFramePollMs, &window, grab);
+        });
+    };
     QObject::connect(&poll, &QTimer::timeout, &window, [&] {
         if (viewersSettled() || waited.elapsed() > kFrameTimeoutMs) {
             poll.stop();
-            QTimer::singleShot(kFramePollMs, &window, grab); // one more paint
+            playThenGrab();
         }
     });
     QTimer::singleShot(delayMs, &window, [&] {
