@@ -275,8 +275,10 @@ QString parentWindowIdentifier(QWindow* window)
     if (built == running) {
         if (auto* integration = QGuiApplicationPrivate::platformIntegration()) {
             if (auto* services = dynamic_cast<QDesktopUnixServices*>(integration->services())) {
+                // "wayland:" with an empty handle when the compositor has no xdg-foreign
+                // (e.g. weston): no usable parent.
                 const QString id = services->portalWindowIdentifier(window);
-                if (!id.isEmpty())
+                if (!id.isEmpty() && !id.endsWith(QLatin1Char(':')))
                     return id;
             }
         }
