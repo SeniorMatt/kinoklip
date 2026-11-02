@@ -23,8 +23,35 @@ constexpr int64_t kRewindMarginUs = 10'000'000;
 /// FFmpeg messages above this level (i.e. less important) are dropped before formatting.
 constexpr int kFfmpegLogLevel = AV_LOG_WARNING;
 
+/// FFmpeg *error* messages that are harmless in an editor and only become debug output:
+/// metadata the mov demuxer re-reads raw, and the reference-picture complaints every H.264 /
+/// HEVC decoder prints for the first frames after a seek (VideoDecoder skips those frames).
+constexpr const char* kHarmlessErrors[] = {
+    "UDTA parsing failed",
+    "co located POCs unavailable",
+    "mmco: unref short failure",
+    "Could not find ref with POC",
+    "Missing reference picture",
+    "Error constructing the frame RPS",
+};
+
+/// The innermost FfmpegLogCapture of this thread (captures form a stack).
+thread_local FfmpegLogCapture* t_capture = nullptr;
+
+bool isHarmless(const QByteArray& text)
+{
+    for (const char* pattern : kHarmlessErrors) {
+        if (text.contains(pattern)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /// Routes FFmpeg log lines into the `kk.media` category: errors become warnings, everything
-/// else debug output. Called by FFmpeg from arbitrary threads.
+/// else (and known harmless errors) debug output. While an FfmpegLogCapture is active on the
+/// calling thread, messages are recorded there and only appear as debug output.
+/// Called by FFmpeg from arbitrary threads.
 void ffmpegLogCallback(void* avClass, int level, const char* format, va_list args)
 {
     if (level > av_log_get_level()) {
@@ -38,7 +65,12 @@ void ffmpegLogCallback(void* avClass, int level, const char* format, va_list arg
     if (text.isEmpty()) {
         return;
     }
-    if (level <= AV_LOG_ERROR) {
+    if (t_capture) {
+        t_capture->record(level, text);
+        qCDebug(lcMedia, "ffmpeg (captured): %s", text.constData());
+        return;
+    }
+    if (level <= AV_LOG_ERROR && !isHarmless(text)) {
         qCWarning(lcMedia, "ffmpeg: %s", text.constData());
     } else {
         qCDebug(lcMedia, "ffmpeg: %s", text.constData());
@@ -89,6 +121,31 @@ int findStream(const AVFormatContext* fmt, AVMediaType type)
 }
 
 } // namespace
+
+FfmpegLogCapture::FfmpegLogCapture()
+    : m_outer(t_capture)
+{
+    initFfmpeg();
+    t_capture = this;
+}
+
+FfmpegLogCapture::~FfmpegLogCapture()
+{
+    t_capture = m_outer;
+}
+
+void FfmpegLogCapture::record(int level, const QByteArray& text)
+{
+    if (level <= AV_LOG_ERROR) {
+        ++m_errorCount;
+        if (m_firstError.isEmpty()) {
+            m_firstError = QString::fromUtf8(text);
+        }
+    }
+    if (m_outer) {
+        m_outer->record(level, text);
+    }
+}
 
 void initFfmpeg()
 {

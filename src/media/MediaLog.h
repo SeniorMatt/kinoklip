@@ -7,7 +7,8 @@
 namespace kk::media {
 
 /// Logging category used by everything in `src/media`.
-/// Enable verbose output with `QT_LOGGING_RULES="kk.media.debug=true"`.
+/// Info and above are shown by default; verbose output (seeks, FFmpeg warnings, captured
+/// hardware probe messages) with `QT_LOGGING_RULES="kk.media.debug=true"`.
 /// FFmpeg's own log messages are routed into this category as well (see FFmpegUtil.cpp).
 Q_DECLARE_LOGGING_CATEGORY(lcMedia)
 

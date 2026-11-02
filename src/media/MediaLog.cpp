@@ -4,6 +4,8 @@
 
 namespace kk::media {
 
-Q_LOGGING_CATEGORY(lcMedia, "kk.media")
+// Info and above by default: debug output (seeks, FFmpeg warnings) needs
+// QT_LOGGING_RULES="kk.media.debug=true".
+Q_LOGGING_CATEGORY(lcMedia, "kk.media", QtInfoMsg)
 
 } // namespace kk::media
