@@ -108,6 +108,13 @@ void ViewerTransport::connectActions()
         return a;
     };
     on("transport.play_pause", [](PlaybackEngine* e) { e->togglePlay(); });
+    // Shift+Space (spec 1.9): plays backwards at 1x; pressed again while reversing, pauses.
+    on("transport.play_reverse", [](PlaybackEngine* e) {
+        if (e->rate() < 0)
+            e->pause();
+        else
+            e->setRate(-1.0);
+    });
     on("transport.shuttle_reverse", [](PlaybackEngine* e) { e->shuttleReverse(); });
     on("transport.shuttle_stop", [](PlaybackEngine* e) { e->shuttleStop(); });
     on("transport.shuttle_forward", [](PlaybackEngine* e) { e->shuttleForward(); });
