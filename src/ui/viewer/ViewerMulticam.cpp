@@ -203,7 +203,8 @@ void ViewerPanel::leaveMulticamContent()
 
 void ViewerPanel::updateMulticam()
 {
-    if (!m_multicam || !m_multicamOverlay)
+    // Hidden viewers (the other page's source viewer) catch up in showEvent().
+    if (!m_multicam || !m_multicamOverlay || !isVisible())
         return;
     Project* project = m_ctx.project;
     const auto lookup = project->timelineLookup();

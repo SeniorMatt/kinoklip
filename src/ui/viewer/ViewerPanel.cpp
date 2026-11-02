@@ -675,6 +675,8 @@ void ViewerPanel::showEvent(QShowEvent* event)
 {
     PanelFrame::showEvent(event);
     updateOutputClient();
+    if (m_multicam)
+        updateMulticam();
 }
 
 void ViewerPanel::hideEvent(QHideEvent* event)

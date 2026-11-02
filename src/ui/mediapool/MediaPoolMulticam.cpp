@@ -63,7 +63,7 @@ quint64 MediaPoolPanel::createMulticamClip(const QStringList& ids, const QString
     if (!offsets)
         return 0;
     QVector<multicam::AngleSource> sources;
-    Rational fps;
+    Rational fps {0, 1};
     int width = 0, height = 0;
     for (qsizetype k = 0; k < inputs.size(); ++k) {
         const SyncInput& in = inputs[k];
