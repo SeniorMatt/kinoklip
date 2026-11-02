@@ -205,7 +205,7 @@ private:
             break;
         }
         case ClipKind::Nested: {
-            const TimelineData* n = m_nested ? m_nested->find(clip.nestedUid) : nullptr;
+            const TimelineData* n = m_nested ? m_nested->findClip(clip) : nullptr;
             if (!n || n->width <= 0 || n->height <= 0 || m_depth >= kMaxNestingDepth)
                 return;
             sourcePx = QSizeF(n->width, n->height);

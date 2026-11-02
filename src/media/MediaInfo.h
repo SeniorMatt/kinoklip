@@ -55,6 +55,11 @@ struct MediaInfo
     int sequenceLastNumber = 0; ///< highest frame number on disk
     /// Numbers in [first, last] without a file; those frames repeat the previous image.
     int sequenceMissingFrames = 0;
+
+    // ---- Added by the multicam work (timecode sync, core/Multicam.h) ----
+    /// Embedded start timecode of the file ("01:00:00:00"; a ';' before the frames marks
+    /// drop-frame), from the container / stream "timecode" metadata. Empty = none.
+    QString startTimecode;
 };
 
 /// Probes `path` and describes its streams. Never throws; on failure returns `valid=false`
