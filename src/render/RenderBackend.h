@@ -19,6 +19,7 @@ struct RenderJob
 {
     RenderRequest request;
     std::shared_ptr<const MediaPathMap> media; ///< resolved (request.media or the default)
+    bool fromCache = false; ///< the request was rewritten to a render cache chunk
     std::promise<RenderedFramePtr> promise;
 };
 

@@ -85,6 +85,9 @@ public:
 
     /// The compositor used for video (required when settings().hasVideo()).
     void setCompositor(Compositor* compositor) { m_compositor = compositor; }
+    /// Renders with proxy / optimized media instead of the camera originals (Deliver's "Use
+    /// proxy media" option; the default, nullptr, always renders the originals).
+    void setProxies(std::shared_ptr<const ProxyMap> proxies) { m_proxies = std::move(proxies); }
 
     /// Renders the whole range. @p progress is called on the calling thread after every
     /// frame (keep it cheap; throttle UI updates yourself). On error or cancel every file
@@ -108,6 +111,7 @@ private:
     ExportSettings m_settings;
     std::shared_ptr<const TimelineData> m_timeline;
     std::shared_ptr<const MediaPathMap> m_media;
+    std::shared_ptr<const ProxyMap> m_proxies;
     Compositor* m_compositor = nullptr;
     std::atomic<bool> m_cancel {false};
 };

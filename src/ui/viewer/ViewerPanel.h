@@ -161,6 +161,7 @@ private:
     QWidget* m_body = nullptr;
     ScrubBar* m_scrub = nullptr;
     QWidget* m_transport = nullptr;
+    QLabel* m_proxyLabel = nullptr; ///< "Proxy" indicator in the title bar
     QLabel* m_timecode = nullptr;
     QLabel* m_rateLabel = nullptr;
     QLabel* m_marksLabel = nullptr;

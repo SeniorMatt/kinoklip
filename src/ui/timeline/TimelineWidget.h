@@ -287,6 +287,7 @@ private:
     QPointer<QMenu> m_retimeMenu; ///< open speed / speed point menu
     NestedPreview* m_nestedPreview = nullptr; ///< child QObject: compound clip previews
     TimelineOverlay m_overlay;
+    QVector<CacheBarRange> m_cacheBar; ///< render cache status on the ruler
     QSet<quint64> m_selected; ///< mirror of the SelectionModel for O(1) lookups while painting
     Drag m_drag;
     QTimer m_autoScroll;

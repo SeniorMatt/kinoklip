@@ -5,6 +5,7 @@
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
 #include "core/Project.h"
+#include "export/ProxyQueue.h"
 #include "media/MediaCache.h"
 #include "platform/ChildProcessEnv.h"
 #include "platform/DroppedFiles.h"
@@ -15,6 +16,7 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
+#include "ui/common/MediaManagement.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/mediapool/MediaPoolDelegate.h"
 
@@ -148,6 +150,14 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     });
     connect(&media::MediaCache::instance(), &media::MediaCache::posterFrameReady, m_model,
         &MediaPoolModel::thumbnailReady);
+    // Proxy / optimized media badges and columns.
+    if (MediaManagement* mm = ctx.media) {
+        m_model->setLinkStatusProvider([mm](const QString& id) { return mm->status(id); });
+        connect(mm, &MediaManagement::statusChanged, m_model,
+            [this](const QString& id) { m_model->linkStatusChanged(id); });
+        connect(
+            mm, &MediaManagement::statusReset, m_model, [this] { m_model->linkStatusChanged(); });
+    }
 
     // ---- Title bar ----
     if (ctx.actions) {
@@ -268,6 +278,10 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     // ---- Wiring ----
     connect(m_selection, &QItemSelectionModel::currentChanged, this,
         [this] { emit currentMediaChanged(currentMediaId()); });
+    // The media pool commands (proxy / optimized media) act on the selection: keep it in
+    // their data so menus, shortcuts and the context menu all see it.
+    connect(m_selection, &QItemSelectionModel::selectionChanged, this,
+        &MediaPoolPanel::publishSelection);
     connect(m_bins, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* item) {
         if (!m_rebuildingBins && item)
             m_proxy->setBin(item->data(0, kBinIdRole).toString());
@@ -382,6 +396,41 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
 }
 
 // ---- State ----
+
+void MediaPoolPanel::publishSelection()
+{
+    if (!m_ctx.actions)
+        return;
+    const QStringList ids = selectedMediaIds();
+    const MediaLinks* links = m_ctx.project->mediaLinks();
+    const ProxyQueue* queue = m_ctx.media ? m_ctx.media->proxyQueue() : nullptr;
+    bool anyProxy = false;
+    bool anyOptimized = false;
+    bool anyPending = false;
+    bool anyFile = false;
+    for (const QString& id : ids) {
+        const MediaItem* item = m_ctx.project->mediaPool()->item(id);
+        if (!item || item->isTimeline())
+            continue;
+        anyFile = true;
+        anyProxy |= !links->link(id, LinkKind::Proxy).isEmpty();
+        anyOptimized |= !links->link(id, LinkKind::Optimized).isEmpty();
+        if (queue)
+            anyPending |= queue->isPending(id, LinkKind::Proxy)
+                || queue->isPending(id, LinkKind::Optimized);
+    }
+    const std::pair<const char*, bool> enabled[] = {{"mediapool.generate_optimized", anyFile},
+        {"mediapool.generate_proxy", anyFile}, {"mediapool.stop_generation", anyPending},
+        {"mediapool.link_proxy", anyFile && ids.size() == 1}, {"mediapool.unlink_proxy", anyProxy},
+        {"mediapool.delete_proxy", anyProxy}, {"mediapool.delete_optimized", anyOptimized}};
+    for (const auto& [id, on] : enabled) {
+        if (!m_ctx.actions->contains(QLatin1String(id)))
+            continue;
+        QAction* a = m_ctx.actions->action(QLatin1String(id));
+        a->setData(ids);
+        a->setEnabled(on);
+    }
+}
 
 QStringList MediaPoolPanel::selectedMediaIds() const
 {
@@ -741,6 +790,17 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         for (const Bin& bin : m_ctx.project->mediaPool()->bins()) {
             const QString binId = bin.id;
             move->addAction(bin.name, this, [this, ids, binId] { moveItemsToBin(ids, binId); });
+        }
+        // Proxy / optimized media (Resolve's media pool context menu entries).
+        if (m_ctx.actions && m_ctx.media && currentItem && !currentItem->isTimeline()) {
+            publishSelection();
+            menu.addSeparator();
+            for (const char* id : {"mediapool.generate_optimized", "mediapool.generate_proxy",
+                     "mediapool.stop_generation", "mediapool.link_proxy", "mediapool.unlink_proxy",
+                     "mediapool.delete_proxy", "mediapool.delete_optimized"}) {
+                if (m_ctx.actions->contains(QLatin1String(id)))
+                    menu.addAction(m_ctx.actions->action(QLatin1String(id)));
+            }
         }
         menu.addSeparator();
         menu.addAction(icon(QStringLiteral("remove")),

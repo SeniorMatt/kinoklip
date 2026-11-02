@@ -7,6 +7,7 @@ Used by every panel and page. Depends on `core` only.
 | `AppContext.h` | the struct of shared objects every panel receives: `Project*`, `SelectionModel*`, `ActionRegistry*`, `PlaybackEngine*` (null until src/playback exists) |
 | `ActionRegistry.h` | every command as a `QAction` with a stable id; rebind/reset/import/export/conflict lookup; **keymap profiles** (implementation in `KeymapProfiles.cpp`, see below) |
 | `StandardActions.h` | the catalogue: ids, texts, menus, icons; `standardMenus()` |
+| `MediaManagement.h` | proxy / optimized media and render cache glue (created in `main()`, `AppContext::media`): `mediapool.*`, `playback.proxy_*`, `playback.use_*`, `playback.render_cache_*`, `clip.render_cache_output` commands; ProxyQueue + RenderCacheManager + a shared background Compositor; proxy map for every viewer, cache view for program playback, per-item status for the media pool |
 | `PanelFrame.h` | common panel chrome (title bar + tool area + body); `createPlaceholderPanel()` |
 | `Page.h` | base class for main-window pages; `PanelId` for the interface-toolbar toggles |
 | `Icons.h` | `kk::icon("play")` — own SVGs tinted from the palette (On state = accent) |

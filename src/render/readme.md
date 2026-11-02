@@ -173,6 +173,20 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
   textures), `compositeMs` (drawing), `outputMs` (output slot, fence/flush, readback). On
   llvmpipe the GPU work itself shows up in `outputMs` (it runs at the flush).
 
+### Proxies and the render cache
+
+* `RenderRequest::proxies` (`ProxyMap`: media id -> `ProxyRef {path, displaySize}`): the
+  decode stage opens the proxy instead of the original; `resolveSource()` (and the CPU path)
+  keep the original's display size as `sourcePx`, so crop units and fitting do not change.
+  nullptr (export) = originals. Built by `ProxySelection.h` (`makeProxyMap()`: Proxy Handling,
+  optimized media, stale / missing links never used; `makeAudioPathMap()`: offline originals
+  play their proxy's sound; `usesSubstitutes()`: viewer indicator).
+* `RenderRequest::renderCache` (`RenderCacheView`): `Compositor::renderAsync()` replaces a
+  request for a frame inside a cached chunk by a request for the chunk's one-clip timeline
+  (`RenderedFrame::fromCache`), but only when `view->snapshot == request.timeline`.
+  `RenderCacheKeys.h`: chunk grid, keys, Smart / User selection, `makeRenderCacheView()`.
+  Bump `kRenderCacheVersion` whenever rendering changes for the same input.
+
 ## Threading and GL context model
 
 * `Compositor` (constructed on the GUI thread: it creates the `QOffscreenSurface`) starts one

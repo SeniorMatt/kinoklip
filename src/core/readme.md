@@ -28,6 +28,19 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `Preferences.h` | QSettings preference keys + typed accessors (`playback/hwaccel`, autosave, theme) |
 | `EditBehaviour.h` | convention-dependent editing defaults (`edit/*`: still / generator / transition lengths, three-point editing, ripple delete without selection, trim zones; `migrateSettings()` drops retired keys at start-up); see docs/behavior-spec.md |
 
+## Proxy / optimized media links and cache settings (proxies branch)
+`MediaLinks.h`: `MediaLinks` (owned by the Project, `Project::mediaLinks()`) maps media pool item
+ids to a proxy and an optimized media `MediaLink` (path, source fingerprint = size + mtime of
+the original, picture size, format). Not part of the undo state; saved as "mediaLinks".
+`state()` = None / Ready / Stale (source changed) / Missing; an offline original counts as
+Ready. `autoLink()` links files with the stable name `stableLinkFileName()` whose JSON sidecar
+names the original. `MediaCacheSettings` (`Project::cacheSettings()`, saved as
+"cacheSettings", not undoable, marks the project modified): proxy / optimized resolution and
+format, render cache format, background caching, User-mode options, Proxy Handling, Use
+Optimized Media, Render Cache mode. `ClipData::cacheOutput` = Render Cache Clip Output.
+Preferences: `prefs::proxyDirectory()`, `optimizedMediaDirectory()`,
+`renderCacheDirectory()`, `renderCacheLimitGiB()`.
+
 ## Time conventions (PLAN §5.1)
 - Timeline positions and durations: `int64_t` frames at `TimelineData::fps`.
 - Source positions: `int64_t` microseconds (`ClipData::sourceInUs`).
