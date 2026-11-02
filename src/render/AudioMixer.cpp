@@ -5,6 +5,7 @@
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "media/AudioDecoder.h"
+#include "render/MixerChannel.h"
 #include "render/RenderLog.h"
 #include "render/TimeStretch.h"
 #include "render/TimelineEval.h"
@@ -98,6 +99,9 @@ void AudioMixer::setMediaPaths(std::shared_ptr<const MediaPathMap> media)
 void AudioMixer::reset()
 {
     m_decoders.clear();
+    m_trackChannels.clear();
+    m_busChannels.clear();
+    m_nextSample = std::numeric_limits<int64_t>::min();
 }
 
 float AudioMixer::dbToGain(double db)
@@ -185,6 +189,11 @@ void AudioMixer::collectIdle()
         else
             ++it;
     }
+    // Channels of deleted tracks / buses (live ones are touched by every mix call).
+    std::erase_if(m_trackChannels,
+        [&](const auto& entry) { return now - entry.second->lastUsedMs > m_idleCloseMs; });
+    std::erase_if(m_busChannels,
+        [&](const auto& entry) { return now - entry.second->lastUsedMs > m_idleCloseMs; });
 }
 
 void AudioMixer::mix(const TimelineData& tl, int64_t startSample48k, int frames, float* out)
@@ -192,11 +201,22 @@ void AudioMixer::mix(const TimelineData& tl, int64_t startSample48k, int frames,
     if (frames <= 0)
         return;
     std::fill(out, out + size_t(frames) * kChannels, 0.0f);
+    if (m_levels)
+        m_levels->clear();
     if (!tl.fps.isValid())
         return;
     mixTimeline(tl, tl.nested, startSample48k, frames, out);
-    for (int i = 0; i < frames * kChannels; ++i)
-        out[i] = softClip(out[i]);
+    float peakL = 0.0f, peakR = 0.0f;
+    for (int i = 0; i < frames; ++i) {
+        out[size_t(i) * 2] = softClip(out[size_t(i) * 2]);
+        out[size_t(i) * 2 + 1] = softClip(out[size_t(i) * 2 + 1]);
+        peakL = std::max(peakL, std::abs(out[size_t(i) * 2]));
+        peakR = std::max(peakR, std::abs(out[size_t(i) * 2 + 1]));
+    }
+    if (m_levels) {
+        m_levels->output[0] = peakL;
+        m_levels->output[1] = peakR;
+    }
     collectIdle();
 }
 
@@ -223,12 +243,10 @@ void AudioMixer::readSource(
     d.decoder->read(first, out, count);
 }
 
-void AudioMixer::mixTimeline(const TimelineData& tl, const NestedTimelines& nested,
-    int64_t startSample48k, int frames, float* out)
+bool AudioMixer::mixTrackClips(const TimelineData& tl, const NestedTimelines& nested,
+    const TrackData& track, int64_t startSample48k, int frames, float* out)
 {
     const int64_t mixEnd = startSample48k + frames;
-    const bool anySolo = std::any_of(
-        tl.audioTracks.begin(), tl.audioTracks.end(), [](const TrackData& t) { return t.solo; });
     // Cheap pre-filter in frames: clips farther than kMaxHandleSeconds from the mix window
     // cannot reach it even through a transition handle, so the (linear) linked-clip lookup
     // below only runs for the few clips around the playhead.
@@ -237,50 +255,52 @@ void AudioMixer::mixTimeline(const TimelineData& tl, const NestedTimelines& nest
         = usToFrames(startSample48k * 1'000'000 / kSampleRate, tl.fps) - margin;
     const int64_t windowLast = usToFrames(mixEnd * 1'000'000 / kSampleRate, tl.fps) + margin;
 
-    for (const TrackData& track : tl.audioTracks) {
-        if (track.muted || (anySolo && !track.solo))
+    // First clip that can reach the window (clips are sorted and disjoint).
+    const auto firstIt = std::lower_bound(track.clips.begin(), track.clips.end(), windowFirst,
+        [](const ClipData& c, int64_t f) { return c.end() < f; });
+    bool any = false;
+    for (int ci = int(firstIt - track.clips.begin()); ci < int(track.clips.size()); ++ci) {
+        const ClipData& clip = track.clips[size_t(ci)];
+        if (clip.start > windowLast)
+            break;
+        if (!clip.enabled || (clip.kind != ClipKind::Media && clip.kind != ClipKind::Nested))
             continue;
-        for (int ci = 0; ci < int(track.clips.size()); ++ci) {
-            const ClipData& clip = track.clips[size_t(ci)];
-            if (!clip.enabled || (clip.kind != ClipKind::Media && clip.kind != ClipKind::Nested)
-                || clip.end() < windowFirst || clip.start > windowLast)
-                continue;
 
-            // Transitions: the audio track's own, else the linked video clip's.
-            std::optional<render::TransitionSpan> head = render::headTransition(track, ci);
-            std::optional<render::TransitionSpan> tail = render::tailTransition(track, ci);
-            if (!head || !tail) {
-                const TrackData* vTrack = nullptr;
-                int vIndex = -1;
-                if (linkedVideo(tl, clip, &vTrack, &vIndex)) {
-                    if (!head)
-                        head = render::headTransition(*vTrack, vIndex);
-                    if (!tail)
-                        tail = render::tailTransition(*vTrack, vIndex);
-                }
+        // Transitions: the audio track's own, else the linked video clip's.
+        std::optional<render::TransitionSpan> head = render::headTransition(track, ci);
+        std::optional<render::TransitionSpan> tail = render::tailTransition(track, ci);
+        if (!head || !tail) {
+            const TrackData* vTrack = nullptr;
+            int vIndex = -1;
+            if (linkedVideo(tl, clip, &vTrack, &vIndex)) {
+                if (!head)
+                    head = render::headTransition(*vTrack, vIndex);
+                if (!tail)
+                    tail = render::tailTransition(*vTrack, vIndex);
             }
-            // A centred transition extends the clip into its handles.
-            int64_t playStart = clip.start;
-            int64_t playEnd = clip.end();
-            Fade headFade, tailFade;
-            if (head) {
-                playStart = std::min(playStart, head->start);
-                headFade = {
-                    framesToSamples48k(head->start, tl.fps), framesToSamples48k(head->end, tl.fps)};
-            }
-            if (tail) {
-                playEnd = std::max(playEnd, tail->end);
-                tailFade = {
-                    framesToSamples48k(tail->start, tl.fps), framesToSamples48k(tail->end, tl.fps)};
-            }
-            const int64_t s0 = std::max(framesToSamples48k(playStart, tl.fps), startSample48k);
-            const int64_t s1 = std::min(framesToSamples48k(playEnd, tl.fps), mixEnd);
-            if (s1 <= s0)
-                continue;
-            mixClip(tl, nested, clip, headFade, tailFade, s0, s1,
-                out + (s0 - startSample48k) * kChannels);
         }
+        // A centred transition extends the clip into its handles.
+        int64_t playStart = clip.start;
+        int64_t playEnd = clip.end();
+        Fade headFade, tailFade;
+        if (head) {
+            playStart = std::min(playStart, head->start);
+            headFade
+                = {framesToSamples48k(head->start, tl.fps), framesToSamples48k(head->end, tl.fps)};
+        }
+        if (tail) {
+            playEnd = std::max(playEnd, tail->end);
+            tailFade
+                = {framesToSamples48k(tail->start, tl.fps), framesToSamples48k(tail->end, tl.fps)};
+        }
+        const int64_t s0 = std::max(framesToSamples48k(playStart, tl.fps), startSample48k);
+        const int64_t s1 = std::min(framesToSamples48k(playEnd, tl.fps), mixEnd);
+        if (s1 <= s0)
+            continue;
+        any |= mixClip(
+            tl, nested, clip, headFade, tailFade, s0, s1, out + (s0 - startSample48k) * kChannels);
     }
+    return any;
 }
 
 const float* AudioMixer::retimedSource(Decoder& d, const NestedTimelines& nested,
@@ -357,12 +377,12 @@ const float* AudioMixer::retimedSource(Decoder& d, const NestedTimelines& nested
     return out;
 }
 
-void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
+bool AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
     const ClipData& clip, const Fade& head, const Fade& tail, int64_t from, int64_t to, float* out)
 {
     Decoder* d = decoderFor(clip, nested);
     if (!d)
-        return;
+        return false;
     if (d->decoder) {
         // Clip Attributes channel routing (a no-op compare unless it changed).
         if (!(d->decoder->channelMapping().channelFormat == clip.attributes.channelFormat
@@ -436,6 +456,7 @@ void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
             out[size_t(i) * 2 + 1] += src[size_t(i) * 2 + 1] * g * panR;
         }
     }
+    return true;
 }
 
 } // namespace kk

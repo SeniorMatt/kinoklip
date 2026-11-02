@@ -49,6 +49,14 @@ struct TimelineViewOptions
     /// Remembers zoom and scroll per timeline in Project::viewState() and restores them on a
     /// tab switch. Only one view per timeline should (the Edit page's).
     bool keepsViewState = true;
+    /// Height factor of the video and subtitle rows (below 1 = collapsed, the Audio page).
+    double videoHeightScale = 1.0;
+    /// Audio page headers: record arm (disabled), channel format and a level meter in the
+    /// headers of audio tracks (the meter reads headerMeter).
+    bool audioPageHeaders = false;
+    /// Level (dBFS, left and right; mono: equal) of the audio track with the given id, for
+    /// the header meters; empty = no meters.
+    std::function<std::pair<float, float>(quint64 trackId)> headerMeter;
 };
 
 /// The timeline editor view.

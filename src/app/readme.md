@@ -12,6 +12,7 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `MainWindow.h` | menu bar (built from `ActionRegistry`), `InterfaceBar`, page stack, `PageBar`; window/page layout persistence; close prompt |
 | `InterfaceBar.h` | top strip: panel toggles left/right, project name centred |
 | `PageBar.h` | bottom strip in Resolve's order: Media · Cut · Edit · Compositing · Color · Audio · Deliver (unbuilt pages disabled; slots are the `kPageSlots` table in `MainWindow.cpp`) |
+| `pages/AudioPage.h` | the Audio page (spec 37): small floatable `ViewerPanel`, `LoudnessPanel` (meters, loudness), a `TimelineWidget` with the audio page view options (tall audio, collapsed video, headers with arm / format / meter) driven by the Edit page's `TimelineController`, the large `MixerPanel`; own `MixerController` (Write passes while shown) and `MeterModel`; widgets in `src/ui/audio`. `ScreenshotAudio.h` builds the `audio[:eq|dynamics]` screenshot (demo mix, offline meter reading) |
 | `pages/CutPage.h` | the Cut page (spec 35): media pool, `CutViewer` (Source Clip / Source Tape / Timeline), `CutToolBar`, dual timeline (`CutOverview` over a centred-playhead `TimelineWidget`); edits with the Edit page's `TimelineController` (built after the Edit page in `MainWindow`); widgets in `src/ui/cut` |
 | `pages/EditPage.h` | PLAN §4 Edit layout with nested `QSplitter`s; accessors for every panel |
 | `pages/MediaPage.h` | browser · source viewer · metadata over the media pool |
@@ -20,7 +21,7 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `Theme.h` | the real KDE Breeze look: widget style, KDE colour schemes, Breeze icons, panel style sheet; Settings > Color Theme / Style; "appearance" settings page |
 | `ColorSchemeFile.h` | reads a KDE `.colors` file into a QPalette (fallback build without KF6) |
 | `CommandLine.h` | `QCommandLineParser` → `CommandLineOptions` |
-| `Screenshot.h` | `--screenshot <target> <out.png> [project]`: pages, `preferences[:section]`, `project-settings[:section]`, `keyboard`, `inspector`, `mediapool`, `menu-color-theme`, `menu-style`, `cut[:tape|clip|strip]` (an empty timeline first gets the media pool's files appended) (works with `QT_QPA_PLATFORM=offscreen`; `KK_SCREENSHOT_SIZE=1366x768` for small screens; `KK_SCREENSHOT_PLAY_MS=2000` plays the first viewer with content that long before the grab, a headless playback check) |
+| `Screenshot.h` | `--screenshot <target> <out.png> [project]`: pages, `preferences[:section]`, `project-settings[:section]`, `keyboard`, `inspector`, `mediapool`, `menu-color-theme`, `menu-style`, `cut[:tape|clip|strip]` (an empty timeline first gets the media pool's files appended), `audio[:eq|dynamics]` (Audio page with a demo mix and meter readings; the editor window composited in) (works with `QT_QPA_PLATFORM=offscreen`; `KK_SCREENSHOT_SIZE=1366x768` for small screens; `KK_SCREENSHOT_PLAY_MS=2000` plays the first viewer with content that long before the grab, a headless playback check) |
 | `MenuMetricsStyle.h` | proxy over the widget style that reserves the submenu arrow column in menus |
 
 ## Start-up sequence (`src/main.cpp`)

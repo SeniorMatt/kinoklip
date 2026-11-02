@@ -116,6 +116,17 @@ like a content change. `setRenderCache(view)` only affects later requests (same 
 `proxiesInUse()` / `proxiesInUseChanged()` drive the viewer's "Proxy" indicator. While the
 engine plays, `MediaManagement` pauses background caching.
 
+### Meters (Audio page)
+The feeder thread hands its mixer a `MixLevels` and runs a `dsp::LoudnessMeter` over every mixed
+chunk; each chunk becomes a time-stamped `MeterFrame` in a small mutex-guarded ring (32 chunks,
+copied in microseconds). While the audio device is the clock, every engine tick picks the frame
+of the sample being heard (`AudioFeeder::meterFrameAt()`, the mix runs ~170 ms ahead) at most
+every `kMeterIntervalMs` (33 ms) and emits `metersUpdated()`; `meters()` returns it. Stopping
+emits one silent frame (the integrated loudness and the true-peak maximum stay until
+`resetLoudness()`). Without a sound device (`KK_NO_AUDIO`, tests) there are no readings.
+Sound-only edits (`render::samePictures()`) only go to the feeder: the renderer keeps its
+snapshot, so moving a fader while playing never drops pictures.
+
 ### Statistics
 `Stats` (fps, drops, render time and its stages: decode, upload, composite, output; seeks).
 `KK_PLAYBACK_STATS=1` (any value but empty/0/false/off/no) logs one line per second while

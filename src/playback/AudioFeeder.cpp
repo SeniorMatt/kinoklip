@@ -4,6 +4,7 @@
 
 #include "playback/AudioRing.h"
 #include "render/AudioMixer.h"
+#include "render/LoudnessMeter.h"
 
 #include <algorithm>
 #include <chrono>
@@ -14,6 +15,8 @@ namespace kk {
 namespace {
 /// Sleep between ring checks while the ring is full (well below the ring's duration).
 constexpr auto kIdleWait = std::chrono::milliseconds(4);
+/// meterFrameAt() accepts a frame up to this many samples before the asked one (0.5 s).
+constexpr int64_t kMeterMaxAge = 24000;
 } // namespace
 
 AudioFeeder::AudioFeeder(AudioRing* ring)
@@ -78,10 +81,39 @@ size_t AudioFeeder::waitForFill(size_t frames, int timeoutMs)
     return m_ring->available();
 }
 
+bool AudioFeeder::meterFrameAt(int64_t sample, MeterFrame* out) const
+{
+    std::lock_guard lock(m_meterMutex);
+    const MeterFrame* best = nullptr;
+    for (const MeterFrame& f : m_meters) {
+        if (f.sample < 0 || f.sample > sample || sample - f.sample > kMeterMaxAge)
+            continue;
+        if (!best || f.sample > best->sample)
+            best = &f;
+    }
+    if (!best)
+        return false;
+    *out = *best;
+    return true;
+}
+
+void AudioFeeder::clearMeters()
+{
+    std::lock_guard lock(m_meterMutex);
+    for (MeterFrame& f : m_meters)
+        f.sample = -1;
+}
+
 void AudioFeeder::run()
 {
     AudioMixer mixer; // used only on this thread
     std::vector<float> chunk(size_t(kChunkFrames) * AudioRing::kChannels);
+    // Metering state of this thread (allocated once).
+    auto loudness = std::make_unique<dsp::LoudnessMeter>();
+    auto levels = std::make_unique<MixLevels>();
+    auto chunkLevels = std::make_unique<MixLevels>();
+    auto frame = std::make_unique<MeterFrame>();
+    mixer.setLevels(levels.get());
     std::unique_lock lock(m_mutex);
     while (!m_quit) {
         if (!m_running || m_ring->space() < size_t(kChunkFrames) || !m_timeline) {
@@ -101,6 +133,8 @@ void AudioFeeder::run()
         lock.unlock();
 
         // A chunk never crosses the loop end: split it so the mix jumps exactly there.
+        const int64_t chunkStart = position;
+        chunkLevels->clear();
         int done = 0;
         while (done < kChunkFrames) {
             int count = kChunkFrames - done;
@@ -109,11 +143,29 @@ void AudioFeeder::run()
             }
             mixer.mix(
                 *timeline, position, count, chunk.data() + size_t(done) * AudioRing::kChannels);
+            chunkLevels->merge(*levels);
             done += count;
             position += count;
             if (loop.active() && position >= loop.end) {
                 position = loop.start;
             }
+        }
+
+        // Meters: loudness of the output, then publish the time-stamped frame.
+        if (m_resetLoudness.exchange(false))
+            loudness->reset();
+        loudness->process(chunk.data(), kChunkFrames);
+        frame->sample = chunkStart;
+        frame->levels = *chunkLevels;
+        frame->momentaryLufs = loudness->momentary();
+        frame->shortTermLufs = loudness->shortTerm();
+        frame->integratedLufs = loudness->integrated();
+        frame->truePeakDb = loudness->truePeakRecent();
+        frame->truePeakMaxDb = loudness->truePeakMax();
+        {
+            std::lock_guard meterLock(m_meterMutex);
+            m_meters[size_t(m_meterHead)] = *frame;
+            m_meterHead = (m_meterHead + 1) % kMeterFrames;
         }
 
         lock.lock();

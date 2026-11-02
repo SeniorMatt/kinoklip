@@ -206,6 +206,8 @@ void TimelineWidget::setViewOptions(const TimelineViewOptions& options)
 {
     m_options = options;
     m_layout.setAudioHeightScale(options.audioHeightScale);
+    m_layout.setVideoHeightScale(options.videoHeightScale);
+    m_layout.setAudioPageHeaders(options.audioPageHeaders);
     m_layout.rebuild(m_ctx.project->timeline()->data());
     setHorizontalScrollBarPolicy(
         options.centredPlayhead ? Qt::ScrollBarAlwaysOff : Qt::ScrollBarAlwaysOn);
@@ -267,6 +269,8 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     in.retimeShown = &m_controller->retimeControls();
     in.hoverClip = m_hoverClip;
     in.selectedKeys = &m_ctx.selection->keyframes();
+    if (m_options.headerMeter)
+        in.headerMeter = &m_options.headerMeter;
     m_painter.paint(p, in);
     m_keyframeLanes->paintClipButtons(p);
 }

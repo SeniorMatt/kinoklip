@@ -53,6 +53,12 @@ export, real Breeze look, single-file Linux x86_64 binary. Color page visible bu
   tracker, particles later).
 - **Audio page** (own name, mixing and audio post: mixer with buses, EQ/dynamics, automation,
   ADR/recording, loudness metering, VST/LV2 plugins later).
+  Status: in progress on the `audiopage` branch - basic level done (layout with meters, viewer,
+  tall audio timeline and mixer; buses and routing; 6-band EQ and compressor / limiter per track
+  and bus; fader / pan automation with off / read / touch / write; peak meters and EBU R128
+  loudness with true peak; project format 13); recording / ADR, plugins, surround formats, sound
+  library, dialogue leveler, elastic wave, console mapping, VCAs and further effects deferred
+  (docs/behavior-spec.md section 37).
 - Media and Deliver pages extended (metadata editing, clone tool, render presets per platform).
 
 ## v3 - finish every page, every detail

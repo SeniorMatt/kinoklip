@@ -3,18 +3,23 @@
 #pragma once
 
 #include "core/TimelineData.h"
+#include "render/MixLevels.h"
 #include "render/RenderTypes.h"
 
 #include <QElapsedTimer>
 #include <QString>
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
 namespace kk::media {
 class AudioDecoder;
+}
+namespace kk::dsp {
+class ChannelProcessor;
 }
 
 namespace kk {
@@ -43,11 +48,24 @@ namespace kk {
 ///   (audioFadeGain() in core/ClipAttributes.h), times the volume and transitions;
 /// * Clip Attributes channel routing (ClipData::attributes, applied by the decoder:
 ///   media::AudioDecoder::setChannelMapping());
+/// * the mixer graph (Audio page, core/MixerData.h; render/AudioMixerGraph.cpp): every
+///   audio track's clips are summed into a track buffer, which runs through the track's
+///   channel strip in this order: channel format (mono = (L + R) / 2) -> 6-band EQ ->
+///   compressor -> limiter -> pan (the constant-power law below, from the track's pan
+///   automation or static pan) -> fader (automation or static) -> mute / solo; then it is
+///   added to every bus the track is routed to. Each bus: sum -> channel format -> EQ ->
+///   compressor -> limiter -> fader -> mute. The output bus (MixerData::outputBus, default
+///   Bus 1) is what mix() returns, so playback and export hear the same thing. Gains glide
+///   (~5 ms) and EQ parameters glide (~10 ms), so nothing clicks or zippers. A mix call that
+///   does not continue the previous one (seek, loop jump, new export) clears the filter and
+///   envelope memory first, so a range always mixes the same way from the same start;
 /// * a soft clipper on the master (transparent below −1 dBFS, asymptotic to ±1).
 ///
-/// Performance: allocation-free in steady state (scratch buffers grow only; decoders are only
-/// created when a clip starts playing). Opening a decoder costs a few ms, so call mix() from
-/// a thread that buffers ahead of the audio device, not from a hard real-time callback.
+/// Performance: allocation-free in steady state (scratch buffers grow only; decoders and
+/// channel processors are only created when a clip starts playing or a track / bus appears;
+/// tracks without sound and without a filter tail skip their processing). Opening a decoder costs a
+/// few ms, so call mix() from a thread that buffers ahead of the audio device, not from a hard
+/// real-time callback.
 ///
 /// Thread-safety: NOT thread-safe; one mixer per consumer thread (playback, export).
 class AudioMixer
@@ -75,6 +93,11 @@ public:
     /// Closes every decoder (e.g. after a project change).
     void reset();
 
+    /// Meter readings: when set, every mix() of this (master) mixer clears @p levels and
+    /// fills it with the post-fader peaks of every audio track and bus and of the output
+    /// (not owned; nullptr = no metering).
+    void setLevels(MixLevels* levels) { m_levels = levels; }
+
     /// Number of open decoders (tests, stats).
     [[nodiscard]] int openDecoders() const { return int(m_decoders.size()); }
 
@@ -93,10 +116,23 @@ private:
     struct Decoder;
     struct Fade;
 
+    struct Channel;
+
     Decoder* decoderFor(const ClipData& clip, const NestedTimelines& nested);
-    /// Adds every audio track of @p tl over [start, start + frames) to @p out (no clipping).
+    /// Adds the mix of @p tl's output bus over [start, start + frames) to @p out (no
+    /// clipping): tracks through their strips into the buses, buses through theirs
+    /// (AudioMixerGraph.cpp).
     void mixTimeline(const TimelineData& tl, const NestedTimelines& nested, int64_t startSample48k,
         int frames, float* out);
+    /// Adds the clips of @p track over [start, start + frames) to @p out (clip volume, pan,
+    /// fades and transitions; no track processing). Returns whether any clip played.
+    bool mixTrackClips(const TimelineData& tl, const NestedTimelines& nested,
+        const TrackData& track, int64_t startSample48k, int frames, float* out);
+    /// The processor state of track @p id / bus @p id (created on first use).
+    Channel& trackChannel(quint64 id);
+    Channel& busChannel(int id);
+    /// Clears every channel's filter and envelope memory (a non-contiguous mix).
+    void resetChannels();
     /// Reads @p count source samples of clip decoder @p d from source sample @p first.
     void readSource(
         Decoder& d, const NestedTimelines& nested, int64_t first, float* out, int count);
@@ -104,7 +140,8 @@ private:
     /// the clip has pitch correction, else resampled along the retime curve).
     const float* retimedSource(Decoder& d, const NestedTimelines& nested, const ClipData& clip,
         Rational fps, int64_t clipStart, int64_t sourceIn, int64_t from, int n);
-    void mixClip(const TimelineData& tl, const NestedTimelines& nested, const ClipData& clip,
+    /// Adds one clip over timeline samples [from, to) to @p out; false if it has no source.
+    bool mixClip(const TimelineData& tl, const NestedTimelines& nested, const ClipData& clip,
         const Fade& head, const Fade& tail, int64_t from, int64_t to, float* out);
     void collectIdle();
 
@@ -116,6 +153,13 @@ private:
     std::vector<double> m_positions; ///< retime curve source positions per block (scratch)
     QElapsedTimer m_clock;
     qint64 m_idleCloseMs = 10000;
+    // ---- Mixer graph (AudioMixerGraph.cpp) ----
+    std::unordered_map<quint64, std::unique_ptr<Channel>> m_trackChannels; ///< by track id
+    std::unordered_map<int, std::unique_ptr<Channel>> m_busChannels; ///< by bus id
+    std::vector<float> m_trackBuffer; ///< one track's signal (scratch)
+    std::vector<std::vector<float>> m_busBuffers; ///< per MixerData::buses index (scratch)
+    int64_t m_nextSample = std::numeric_limits<int64_t>::min(); ///< contiguity check
+    MixLevels* m_levels = nullptr;
 };
 
 } // namespace kk
