@@ -46,3 +46,4 @@
 - 05:09 Owner chose GPL-3.0-or-later: license.md (verbatim FSF text) + License section in readme.md.
 - 05:13 Breeze merged (41/41 tests both toolchains). Readme 'Download here' button added; release notes written; publishing v0.1.0-alpha.1 pre-release.
 - 05:14 RELEASED v0.1.0-alpha.1 (GitHub pre-release, private repo): Kinoklip-x86_64.run (90 MB), portable tar.zst, SHA256SUMS. Copy on ~/Desktop. Parity agent still running.
+- 05:27 Parity merged (43/43 tests): docs/behavior-spec.md 160 items (107 OK, 35 fixed, 5 decisions, 13 deferred), auto track selectors, edit-point selection/trim keys, 3-point editing, replace/fit-to-fill/append, gap selection, keyframe interpolation menu, end-to-end test import->edit->play->export. QA agent starting; then alpha.2.
