@@ -124,6 +124,9 @@ private:
     void seekLocalFrame(quint64 clipId, int64_t localFrame) override;
     void setActiveParam(const ParamRef& ref, const ParamDescriptor& desc) override;
     [[nodiscard]] QColor pickColor(const QColor& initial, const QString& title) override;
+    [[nodiscard]] bool isMixed(const ParamRef& ref, const ParamDescriptor& desc) const override;
+    /// The selected clips an edit of @p clipId also changes (MultiClipEdit.h).
+    [[nodiscard]] QVector<quint64> editPeers(quint64 clipId) const;
 
     // ---- Building ----
     [[nodiscard]] Structure computeStructure(quint64 clipId) const;

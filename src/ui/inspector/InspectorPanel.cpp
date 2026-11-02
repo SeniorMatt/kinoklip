@@ -13,6 +13,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/inspector/KeyframeButton.h"
+#include "ui/inspector/MultiClipEdit.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
 
@@ -373,7 +374,19 @@ void InspectorPanel::modifyClip(quint64 clipId, const std::function<void(ClipDat
     }
     if (ClipData* c = editops::clipById(data, clipId)) {
         const bool ownBefore = c->kind == ClipKind::Subtitle && subtitles::hasOwnStyle(*c);
+        // Multi-clip editing (spec 24.1): the change also goes to the other selected clips of
+        // the same kind, inside the same open edit (one undo step).
+        const QVector<quint64> peers = editPeers(clipId);
+        const std::optional<ClipData> before
+            = peers.isEmpty() ? std::nullopt : std::optional<ClipData>(*c);
         mutate(*c);
+        if (before) {
+            const ClipData after = *c; // peers live in the same track vectors: copy first
+            for (quint64 id : peers)
+                if (ClipData* peer = editops::clipById(data, id))
+                    multiclip::propagate(*before, after, *peer);
+            c = editops::clipById(data, clipId);
+        }
         if (c->kind == ClipKind::Subtitle && !ownBefore && subtitles::hasOwnStyle(*c)) {
             // "Custom Style" switched on: start from the track's look (keys the caption does
             // not set yet), so nothing changes until the user edits it.
@@ -387,6 +400,42 @@ void InspectorPanel::modifyClip(quint64 clipId, const std::function<void(ClipDat
         }
         timeline->notifyChanged(); // live update of viewers while the gesture continues
     }
+}
+
+QVector<quint64> InspectorPanel::editPeers(quint64 clipId) const
+{
+    if (!m_ctx.selection || (clipId & kTrackStyleBit) || m_ctx.selection->clips().size() < 2)
+        return {};
+    return multiclip::peers(m_ctx.project->timeline()->data(), m_ctx.selection->clips(), clipId);
+}
+
+bool InspectorPanel::isMixed(const ParamRef& ref, const ParamDescriptor& desc) const
+{
+    const QVector<quint64> peers = editPeers(ref.clipId);
+    if (peers.isEmpty())
+        return false;
+    const ClipData* shown = clip(ref.clipId);
+    if (!shown)
+        return false;
+    const bool scalar = desc.type == ParamType::Double || desc.type == ParamType::Int;
+    const double value
+        = scalar ? paramaccess::scalar(*shown, ref, desc, localFrame(ref.clipId)) : 0;
+    const QVariant fixed = scalar ? QVariant() : paramaccess::staticValue(*shown, ref, desc);
+    for (quint64 id : peers) {
+        const ClipData* peer = clip(id);
+        const std::optional<ParamRef> pref
+            = peer ? multiclip::peerRef(*shown, *peer, ref) : std::nullopt;
+        if (!pref)
+            continue;
+        if (scalar) {
+            // Compared at each clip's own playhead frame (the value each one shows).
+            if (std::abs(paramaccess::scalar(*peer, *pref, desc, localFrame(id)) - value) > 1e-9)
+                return true;
+        } else if (paramaccess::staticValue(*peer, *pref, desc) != fixed) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void InspectorPanel::editClip(
@@ -969,8 +1018,14 @@ void InspectorPanel::updateHeader()
     }
     }
     const int selected = selectedItemCount();
-    if (selected > 1)
-        info = tr("%1 clips selected, showing the last one").arg(selected);
+    if (selected > 1) {
+        // Multi-clip editing (spec 24.1): say which clips an edit reaches.
+        const int reach = int(editPeers(m_clipId).size()) + 1;
+        info = reach >= selected ? tr("%1 clips selected, edits apply to all").arg(selected)
+            : reach > 1
+            ? tr("%1 clips selected, edits apply to %2 of this kind").arg(selected).arg(reach)
+            : tr("%1 clips selected, showing the last one").arg(selected);
+    }
     if (m_clipInfo->text() != info)
         m_clipInfo->setText(info);
     m_clipInfo->show();
