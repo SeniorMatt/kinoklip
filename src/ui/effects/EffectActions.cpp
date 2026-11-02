@@ -2,7 +2,9 @@
 // EffectActions implementation.
 #include "ui/effects/EffectActions.h"
 
+#include "core/EditBehaviour.h"
 #include "core/EditOps.h"
+#include "core/Generators.h"
 #include "core/ParamKeys.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -21,8 +23,6 @@ QString tr(const char* text)
 {
     return QCoreApplication::translate("kk::EffectActions", text);
 }
-
-constexpr double kGeneratorSeconds = 5.0;
 
 /// Type of the track holding @p clipId, if the clip exists.
 std::optional<TrackType> trackTypeOf(const TimelineData& data, quint64 clipId)
@@ -51,7 +51,43 @@ int64_t defaultTransitionFrames(Rational fps)
 
 int64_t defaultGeneratorFrames(Rational fps)
 {
-    return std::max<int64_t>(1, std::llround(fps.toDouble() * kGeneratorSeconds));
+    // Preferences > Editing > "Generator duration" (EditBehaviour::generatorSeconds).
+    return EditBehaviour::frames(EditBehaviour::fromSettings().generatorSeconds, fps);
+}
+
+std::optional<ClipData> makeGeneratorClip(const QString& descriptorId, Rational fps)
+{
+    const EffectRegistry& registry = EffectRegistry::instance();
+    const EffectDescriptor* desc = registry.find(descriptorId);
+    if (!desc)
+        return std::nullopt;
+    ClipData clip;
+    clip.name = desc->name;
+    clip.duration = defaultGeneratorFrames(fps);
+    switch (desc->category) {
+    case EffectCategory::Title:
+        clip.kind = ClipKind::Title;
+        clip.title = registry.defaultParams(descriptorId);
+        clip.name = clip.title.staticValue(keys::Text, desc->name).toString();
+        break;
+    case EffectCategory::Effects:
+        clip.kind = ClipKind::Adjustment; // the only "Effects" entry: Adjustment Clip
+        break;
+    case EffectCategory::Generator:
+        if (descriptorId == generators::SolidColor) {
+            clip.kind = ClipKind::Solid;
+            const ParamDescriptor* color = desc->param(QStringLiteral("color"));
+            clip.solidColor = color ? color->defStatic.value<QColor>() : QColor(Qt::black);
+        } else {
+            clip.kind = ClipKind::Generator;
+            clip.generator = descriptorId;
+            clip.title = registry.defaultParams(descriptorId);
+        }
+        break;
+    default:
+        return std::nullopt;
+    }
+    return clip;
 }
 
 bool effectFitsTrack(EffectCategory category, TrackType type)
@@ -126,7 +162,8 @@ quint64 addGeneratorClip(
     const EffectRegistry& registry = EffectRegistry::instance();
     const EffectDescriptor* desc = registry.find(descriptorId);
     if (!desc
-        || (desc->category != EffectCategory::Title && desc->category != EffectCategory::Generator))
+        || (desc->category != EffectCategory::Title && desc->category != EffectCategory::Generator
+            && desc->category != EffectCategory::Effects))
         return 0;
     const TimelineData& current = project.timeline()->data();
     const int64_t length
@@ -145,19 +182,12 @@ quint64 addGeneratorClip(
     while (target < int(current.videoTracks.size()) && current.videoTracks[size_t(target)].locked)
         ++target;
 
-    ClipData clip;
+    std::optional<ClipData> made = makeGeneratorClip(descriptorId, current.fps);
+    if (!made)
+        return 0;
+    ClipData clip = std::move(*made);
     clip.start = start;
     clip.duration = length;
-    clip.name = desc->name;
-    if (desc->category == EffectCategory::Title) {
-        clip.kind = ClipKind::Title;
-        clip.title = registry.defaultParams(descriptorId);
-        clip.name = clip.title.staticValue(keys::Text, desc->name).toString();
-    } else {
-        clip.kind = ClipKind::Solid;
-        const ParamDescriptor* color = desc->param(QStringLiteral("color"));
-        clip.solidColor = color ? color->defStatic.value<QColor>() : QColor(Qt::black);
-    }
 
     project.beginEdit(tr("Add %1").arg(desc->name));
     TimelineData& data = project.timeline()->mutableData();
@@ -191,7 +221,8 @@ bool activate(AppContext& ctx, const QString& descriptorId)
         return applyTransition(project, clipId, descriptorId, atHead);
     }
     case EffectCategory::Title:
-    case EffectCategory::Generator: {
+    case EffectCategory::Generator:
+    case EffectCategory::Effects: {
         const quint64 id = addGeneratorClip(project, descriptorId, playhead);
         if (id && ctx.selection)
             ctx.selection->selectClip(id);

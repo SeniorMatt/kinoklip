@@ -306,9 +306,12 @@ private slots:
         TimelineData hidden = tl;
         hidden.subtitleTracks[0].enabled = false;
         QVERIFY(brightBox(c->renderImage(snap(hidden), 15), 200).isEmpty());
-        // Top position, left aligned (caption override beats the track style).
+        // Top position, left aligned (a caption with its own style overrides the track style).
         TimelineData top = tl;
         top.subtitleTracks[0].clips[0].title.setStatic(subtitles::Position, QStringLiteral("top"));
+        // ... ignored until the caption has its own style
+        QCOMPARE(brightBox(c->renderImage(snap(top), 15), 200), box);
+        top.subtitleTracks[0].clips[0].title.setStatic(subtitles::OwnStyle, true);
         top.subtitleTracks[0].clips[0].title.setStatic(keys::Align, QStringLiteral("left"));
         const QRect topBox = brightBox(c->renderImage(snap(top), 15), 200);
         QVERIFY2(topBox.top() < 40 && topBox.left() < 60,

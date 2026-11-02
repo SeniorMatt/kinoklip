@@ -225,6 +225,11 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
                 group(groups::Transform, ParamScope::Transform);
                 group(groups::Cropping, ParamScope::Transform);
                 appendMasksGroup(model.entries, colorIndex, *clip, itemKey, depth, showAll);
+                if (clip->kind == ClipKind::Generator) {
+                    if (const EffectDescriptor* d = reg.find(clip->generator))
+                        appendGroup(model.entries, colorIndex, *clip, *d, ParamScope::Title, 0,
+                            itemKey, depth, showAll);
+                }
                 if (clip->kind == ClipKind::Title) {
                     for (const EffectDescriptor* d : reg.byCategory(EffectCategory::Title)) {
                         if (paramaccess::scopeForStorage(d->storage) == ParamScope::Title)

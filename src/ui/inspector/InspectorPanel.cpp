@@ -5,6 +5,7 @@
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/Subtitles.h"
 #include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -42,6 +43,24 @@ namespace kk {
 namespace {
 
 constexpr int kTabMargin = 0;
+
+/// Virtual clip ids address the default style of a subtitle track (bit 63 + TrackData::id):
+/// clip ids are allocated from 1 upwards and never get near it.
+constexpr quint64 kTrackStyleBit = quint64(1) << 63;
+
+quint64 trackStyleClipId(quint64 trackId)
+{
+    return kTrackStyleBit | trackId;
+}
+
+TrackData* subtitleTrackById(TimelineData& data, quint64 trackId)
+{
+    for (TrackData& t : data.subtitleTracks) {
+        if (t.id == trackId)
+            return &t;
+    }
+    return nullptr;
+}
 constexpr int kGroupSpacing = 1;
 
 /// Style sheet of the inspector's own widgets, derived from the palette so it matches both
@@ -294,11 +313,26 @@ void InspectorPanel::goToKeyframe(bool forward)
 
 const ClipData* InspectorPanel::clip(quint64 clipId) const
 {
+    if (clipId & kTrackStyleBit) {
+        const TimelineData& data = m_ctx.project->timeline()->data();
+        for (const TrackData& t : data.subtitleTracks) {
+            if (trackStyleClipId(t.id) == clipId) {
+                m_trackStyleProxy.kind = ClipKind::Subtitle;
+                m_trackStyleProxy.id = clipId;
+                m_trackStyleProxy.duration = 1;
+                m_trackStyleProxy.title = t.subtitleStyle;
+                return &m_trackStyleProxy;
+            }
+        }
+        return nullptr;
+    }
     return clipId ? editops::clipById(m_ctx.project->timeline()->data(), clipId) : nullptr;
 }
 
 int64_t InspectorPanel::localFrame(quint64 clipId) const
 {
+    if (clipId & kTrackStyleBit)
+        return 0; // track styles are not animated
     const ClipData* c = clip(clipId);
     if (!c)
         return 0;
@@ -323,8 +357,34 @@ void InspectorPanel::endParamEdit()
 void InspectorPanel::modifyClip(quint64 clipId, const std::function<void(ClipData&)>& mutate)
 {
     Timeline* timeline = m_ctx.project->timeline();
-    if (ClipData* c = editops::clipById(timeline->mutableData(), clipId)) {
+    TimelineData& data = timeline->mutableData();
+    if (clipId & kTrackStyleBit) {
+        // Track style: edit a stand-in clip and copy its parameter set back to the track.
+        if (TrackData* t = subtitleTrackById(data, clipId & ~kTrackStyleBit)) {
+            ClipData proxy;
+            proxy.kind = ClipKind::Subtitle;
+            proxy.duration = 1;
+            proxy.title = t->subtitleStyle;
+            mutate(proxy);
+            t->subtitleStyle = proxy.title;
+            timeline->notifyChanged();
+        }
+        return;
+    }
+    if (ClipData* c = editops::clipById(data, clipId)) {
+        const bool ownBefore = c->kind == ClipKind::Subtitle && subtitles::hasOwnStyle(*c);
         mutate(*c);
+        if (c->kind == ClipKind::Subtitle && !ownBefore && subtitles::hasOwnStyle(*c)) {
+            // "Custom Style" switched on: start from the track's look (keys the caption does
+            // not set yet), so nothing changes until the user edits it.
+            if (const auto loc = editops::findClip(data, clipId)) {
+                const ParamSet& style = data.track(loc->track)->subtitleStyle;
+                for (auto it = style.values.cbegin(); it != style.values.cend(); ++it)
+                    c->title.values.insert(it.key(), it.value());
+                for (auto it = style.statics.cbegin(); it != style.statics.cend(); ++it)
+                    c->title.statics.insert(it.key(), it.value());
+            }
+        }
         timeline->notifyChanged(); // live update of viewers while the gesture continues
     }
 }
@@ -339,6 +399,8 @@ void InspectorPanel::editClip(
 
 void InspectorPanel::seekLocalFrame(quint64 clipId, int64_t local)
 {
+    if (clipId & kTrackStyleBit)
+        return;
     if (const ClipData* c = clip(clipId))
         m_ctx.project->timeline()->setPlayhead(c->start + local);
 }
@@ -393,7 +455,11 @@ InspectorPanel::Structure InspectorPanel::computeStructure(quint64 clipId) const
         s.maskIds.append(m.id);
     s.transitionIn = c.transitionIn ? c.transitionIn->type : QString();
     s.transitionOut = c.transitionOut ? c.transitionOut->type : QString();
-    if (!s.onVideoTrack) {
+    if (c.kind == ClipKind::Subtitle) {
+        s.subtitleTrackId = data.track(location->track)->id;
+        s.ownStyle = subtitles::hasOwnStyle(c);
+    }
+    if (location->track.type == TrackType::Audio) {
         s.audioClipId = clipId;
     } else if (s.audioClipId == 0 && c.linkGroup != 0) {
         for (quint64 linked : editops::linkedClips(data, clipId)) {
@@ -568,8 +634,15 @@ void InspectorPanel::rebuild()
             addPlaceholder(Tab(tab), hint);
     } else {
         const EffectRegistry& registry = EffectRegistry::instance();
-        // Video tab
-        if (m_structure.onVideoTrack) {
+        m_tabs->setTabText(
+            TitleTab, c->kind == ClipKind::Subtitle ? tr("Captions") : tabName(TitleTab));
+        if (c->kind == ClipKind::Subtitle) {
+            buildCaptionsTab(*c);
+        } else if (m_structure.onVideoTrack) {
+            if (c->kind == ClipKind::Generator) {
+                if (const EffectDescriptor* d = registry.find(c->generator))
+                    addDescriptorGroup(VideoTab, *d, ParamScope::Title, m_clipId);
+            }
             if (c->kind == ClipKind::Solid) {
                 if (const EffectDescriptor* d = registry.find(QStringLiteral("solid_color")))
                     addDescriptorGroup(VideoTab, *d, ParamScope::SolidColor, m_clipId);
@@ -589,9 +662,12 @@ void InspectorPanel::rebuild()
         } else {
             addPlaceholder(AudioTab, tr("This clip has no audio."));
         }
-        buildEffectsTab(*c);
+        if (c->kind != ClipKind::Subtitle)
+            buildEffectsTab(*c);
         // Title tab
-        if (c->kind == ClipKind::Title) {
+        if (c->kind == ClipKind::Subtitle) {
+            // built by buildCaptionsTab()
+        } else if (c->kind == ClipKind::Title) {
             for (const EffectDescriptor* d : registry.byCategory(EffectCategory::Title)) {
                 if (paramaccess::scopeForStorage(d->storage) == ParamScope::Title)
                     addDescriptorGroup(TitleTab, *d, ParamScope::Title, m_clipId);
@@ -600,7 +676,10 @@ void InspectorPanel::rebuild()
             addPlaceholder(TitleTab,
                 tr("Not a title clip. Double-click a title in the Effects library to add one."));
         }
-        buildTransitionTab(*c);
+        if (c->kind == ClipKind::Subtitle)
+            addPlaceholder(TransitionTab, tr("Subtitle clips have no transitions."));
+        else
+            buildTransitionTab(*c);
     }
     for (int tab = 0; tab < kTabCount; ++tab)
         tabLayout(Tab(tab))->addStretch(1);
@@ -609,6 +688,33 @@ void InspectorPanel::rebuild()
     // Restore the scroll positions once the new pages have a size.
     for (int i = 0; i < m_tabScroll.size(); ++i)
         m_tabScroll[i]->verticalScrollBar()->setValue(scrollPositions[i]);
+}
+
+void InspectorPanel::buildCaptionsTab(const ClipData& c)
+{
+    // Like Resolve's subtitle inspector: the caption (text + whether it has its own style),
+    // its style when it does, and the default style of its track (every caption without a
+    // custom style follows it).
+    const EffectRegistry& registry = EffectRegistry::instance();
+    addPlaceholder(VideoTab, tr("Subtitle clips are drawn over the picture; see Captions."));
+    addPlaceholder(EffectsTab, tr("Subtitle clips have no effects."));
+    if (const EffectDescriptor* d = registry.find(subtitles::CaptionGroup))
+        addDescriptorGroup(TitleTab, *d, ParamScope::Title, m_clipId);
+    const EffectDescriptor* style = registry.find(subtitles::StyleGroup);
+    if (!style)
+        return;
+    if (subtitles::hasOwnStyle(c)) {
+        EffectDescriptor own = *style;
+        own.name = tr("Caption Style");
+        addDescriptorGroup(TitleTab, own, ParamScope::Title, m_clipId);
+    }
+    const auto loc = editops::findClip(m_ctx.project->timeline()->data(), m_clipId);
+    if (!loc)
+        return;
+    const TrackData* track = m_ctx.project->timeline()->data().track(loc->track);
+    EffectDescriptor trackStyle = *style;
+    trackStyle.name = tr("Track Style (%1)").arg(trackDisplayName(*track, loc->track.index));
+    addDescriptorGroup(TitleTab, trackStyle, ParamScope::Title, trackStyleClipId(track->id));
 }
 
 void InspectorPanel::buildEffectsTab(const ClipData& c)
@@ -839,6 +945,17 @@ void InspectorPanel::updateHeader()
         break;
     case ClipKind::Solid:
         info = tr("Solid color");
+        break;
+    case ClipKind::Adjustment:
+        info = tr("Adjustment clip");
+        break;
+    case ClipKind::Generator: {
+        const EffectDescriptor* d = EffectRegistry::instance().find(c->generator);
+        info = d ? tr("Generator: %1").arg(d->name) : tr("Generator");
+        break;
+    }
+    case ClipKind::Subtitle:
+        info = tr("Subtitle");
         break;
     case ClipKind::Nested: {
         // Compound clip or nested timeline: transform, opacity, effects and volume act on

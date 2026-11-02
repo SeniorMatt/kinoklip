@@ -4,8 +4,10 @@
 // a DropPlan; the same plan drives the ghost preview while dragging and the edit on drop, so
 // what the user sees is exactly what they get.
 #include "core/EffectRegistry.h"
+#include "core/MediaPool.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/Subtitles.h"
 #include "core/Timeline.h"
 #include "platform/DroppedFiles.h"
 #include "ui/common/AppContext.h"
@@ -165,6 +167,30 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
     if (!sources.isEmpty()) {
         int64_t at = -1;
         for (const SourceSelection& s : sources) {
+            const MediaItem* item = m_ctx.project->mediaPool()->item(s.mediaId);
+            if (item && item->isSubtitle()) {
+                // A subtitle file: one caption per cue on subtitle tracks (the row under the
+                // mouse when it is a subtitle track, else ST1; overlapping cues on the tracks
+                // above), timed from the drop point. Missing tracks are created on drop.
+                const int base = hit.track.type == TrackType::Subtitle ? hit.track.index : 0;
+                const int64_t length = std::max<int64_t>(
+                    1, usToFrames(subtitles::cuesDurationUs(item->cues), data.fps));
+                if (at < 0)
+                    at = snapStart(frame, length);
+                QVector<ops::PlacedClip> group;
+                int maxTrack = -1;
+                for (const subtitles::PlacedCaption& c :
+                    subtitles::captionsFromCues(item->cues, data.fps, at)) {
+                    group.append({TrackRef {TrackType::Subtitle, base + c.lane}, c.clip});
+                    maxTrack = std::max(maxTrack, base + c.lane);
+                }
+                plan.newSubtitleTracks = std::max(
+                    plan.newSubtitleTracks, maxTrack + 1 - int(data.subtitleTracks.size()));
+                at += length;
+                if (!group.isEmpty())
+                    plan.groups.append(group);
+                continue;
+            }
             // makeMediaClips() only knows existing tracks: ask for track 0 of a type that will be
             // created and move the clip to the new index afterwards.
             QVector<ops::PlacedClip> group = m_controller->makeMediaClips(s.mediaId, s.inUs,
@@ -180,6 +206,14 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
                 p.clip.start = at;
             at += group.front().clip.duration;
             plan.groups.append(group);
+        }
+        const bool onlyCaptions = std::all_of(plan.groups.cbegin(), plan.groups.cend(),
+            [](const auto& g) { return g.front().track.type == TrackType::Subtitle; });
+        if (onlyCaptions) {
+            // Captions never need the new video / audio track of the empty-space zones; new
+            // subtitle tracks are shown in the band instead.
+            plan.newVideoTrack = plan.newAudioTrack = false;
+            plan.newTrackBandType = TrackType::Subtitle;
         }
         if (!plan.groups.isEmpty())
             plan.kind = DropPlan::Kind::Clips;
@@ -197,15 +231,16 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
 
     switch (desc->category) {
     case EffectCategory::Generator:
-    case EffectCategory::Title: {
+    case EffectCategory::Title:
+    case EffectCategory::Effects: {
         if (videoTrack < 0)
             return plan;
         std::optional<ClipData> clip = TimelineController::makeGeneratorClip(effectId, data.fps);
         if (!clip)
             return plan;
         clip->start = snapStart(frame, clip->duration);
-        // Titles and generators always go onto a video track: the row under the mouse when it
-        // is one (a new one above the top track), else V1.
+        // Titles, generators and adjustment clips always go onto a video track: the row under
+        // the mouse when it is one (a new one above the top track), else V1.
         if (zone == Zone::Below)
             return DropPlan {};
         const int track = hit.track.type == TrackType::Video ? hit.track.index : 0;
@@ -317,11 +352,16 @@ bool TimelineWidget::executeDrop(const DropPlan& plan)
             ops::addTrack(data, TrackType::Video);
         if (plan.newAudioTrack)
             ops::addTrack(data, TrackType::Audio);
+        for (int i = 0; i < plan.newSubtitleTracks; ++i)
+            ops::addTrack(data, TrackType::Subtitle);
         for (const auto& group : plan.groups) {
-            const QVector<quint64> ids = plan.insert
+            // Captions of a subtitle file keep their own timing: always overwrite.
+            const bool captions = group.front().track.type == TrackType::Subtitle;
+            const QVector<quint64> ids = plan.insert && !captions
                 ? ops::insertClips(data, group, ops::RippleScope::AllTracks)
                 : ops::overwriteClips(data, group);
-            if (ids.size() > 1)
+            // Video + audio of one source are linked; the captions of a subtitle file are not.
+            if (ids.size() > 1 && group.front().track.type != TrackType::Subtitle)
                 ops::linkClips(data, ids);
             created += ids;
         }

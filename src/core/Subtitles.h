@@ -45,11 +45,19 @@ inline const QString MarginV = QStringLiteral("subMarginV");
 /// line wrapping); default kDefaultMarginH
 inline const QString MarginH = QStringLiteral("subMarginH");
 
+/// Caption only: static bool. Off (default): the caption uses its track's style; on: its own
+/// style keys (a full copy made when it is switched on) override the track's.
+inline const QString OwnStyle = QStringLiteral("ownStyle");
+/// Descriptor ids of the inspector groups (category ClipProperties, storage "title"): the
+/// caption text + OwnStyle, and the style parameters (caption or track style).
+inline const QString CaptionGroup = QStringLiteral("builtin.caption");
+inline const QString StyleGroup = QStringLiteral("builtin.subtitle_style");
+
 inline constexpr double kDefaultSize = 52.0; ///< font px at 1080 lines
 inline constexpr double kDefaultMarginV = 7.0; ///< percent of the frame height
 inline constexpr double kDefaultMarginH = 8.0; ///< percent of the frame width
 inline constexpr double kDefaultOutlineWidth = 2.5; ///< px
-inline constexpr double kDefaultBgOpacity = 0.0; ///< percent: no box by default
+inline constexpr double kDefaultBgOpacity = 60.0; ///< percent (box off by default)
 /// Shortest caption a cue becomes on the timeline (frames).
 inline constexpr int64_t kMinCaptionFrames = 1;
 
@@ -57,14 +65,16 @@ inline constexpr int64_t kMinCaptionFrames = 1;
 /// track starts with it; keys missing from a track's style fall back to it.
 [[nodiscard]] const ParamSet& defaultStyle();
 
-/// Style value lookup with the caption → track → default chain (animated keys at the
-/// caption-local frame @p localFrame). Allocation-free.
+/// Style value lookup with the caption (only with OwnStyle on) → track → default chain
+/// (animated keys at the caption-local frame @p localFrame). Allocation-free.
 [[nodiscard]] double styleValue(
     const ClipData& caption, const TrackData* track, const QString& key, int64_t localFrame);
-/// Static style lookup with the caption → track → default chain.
+/// Static style lookup with the caption (OwnStyle on) → track → default chain.
 [[nodiscard]] QVariant styleStatic(
     const ClipData& caption, const TrackData* track, const QString& key);
 
+/// True if caption @p caption overrides its track's style (OwnStyle).
+[[nodiscard]] bool hasOwnStyle(const ClipData& caption);
 /// Text of a caption clip (keys::Text, empty when unset).
 [[nodiscard]] QString captionText(const ClipData& caption);
 /// A new caption clip (no id yet) showing @p text over [startFrame, startFrame + frames).

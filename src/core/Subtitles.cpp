@@ -191,8 +191,11 @@ const ParamSet& defaultStyle()
 double styleValue(
     const ClipData& caption, const TrackData* track, const QString& key, int64_t localFrame)
 {
-    if (const auto it = caption.title.values.constFind(key); it != caption.title.values.constEnd())
-        return it->valueAt(localFrame);
+    if (hasOwnStyle(caption)) {
+        if (const auto it = caption.title.values.constFind(key);
+            it != caption.title.values.constEnd())
+            return it->valueAt(localFrame);
+    }
     if (track) {
         // Track styles are not animated per caption: evaluated at frame 0.
         if (const auto it = track->subtitleStyle.values.constFind(key);
@@ -204,15 +207,23 @@ double styleValue(
 
 QVariant styleStatic(const ClipData& caption, const TrackData* track, const QString& key)
 {
-    if (const auto it = caption.title.statics.constFind(key);
-        it != caption.title.statics.constEnd())
-        return *it;
+    if (hasOwnStyle(caption)) {
+        if (const auto it = caption.title.statics.constFind(key);
+            it != caption.title.statics.constEnd())
+            return *it;
+    }
     if (track) {
         if (const auto it = track->subtitleStyle.statics.constFind(key);
             it != track->subtitleStyle.statics.constEnd())
             return *it;
     }
     return defaultStyle().staticValue(key);
+}
+
+bool hasOwnStyle(const ClipData& caption)
+{
+    const auto it = caption.title.statics.constFind(OwnStyle);
+    return it != caption.title.statics.constEnd() && it->toBool();
 }
 
 QString captionText(const ClipData& caption)

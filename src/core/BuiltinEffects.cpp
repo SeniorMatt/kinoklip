@@ -4,6 +4,7 @@
 #include "core/EffectRegistry.h"
 #include "core/Generators.h"
 #include "core/ParamKeys.h"
+#include "core/Subtitles.h"
 
 #include <QCoreApplication>
 
@@ -265,6 +266,41 @@ void EffectRegistry::registerBuiltins()
             number(keys::BgOpacity, tr("Background Opacity"), 0, 100, 60, 1, kPercent),
             boolean(keys::Shadow, tr("Drop Shadow"), false),
         },
+        QStringLiteral("title")));
+
+    // ---- Subtitles (inspector groups of captions and subtitle tracks; not in the library) ----
+    namespace st = subtitles;
+    auto fixedNumber = [](ParamDescriptor p) {
+        p.animatable = false;
+        return p;
+    };
+    add(descriptor(st::CaptionGroup, tr("Caption"), C::ClipProperties, tr("Subtitle text"),
+        {text(keys::Text, tr("Text"), QString()), boolean(st::OwnStyle, tr("Custom Style"), false)},
+        QStringLiteral("title")));
+    add(descriptor(st::StyleGroup, tr("Style"), C::ClipProperties, tr("How captions look"),
+        {text(keys::Font, tr("Font"), QStringLiteral("Sans Serif")),
+            fixedNumber(number(keys::Size, tr("Size"), 4, 400, st::kDefaultSize, 1, kPx)),
+            boolean(keys::Bold, tr("Bold"), false), boolean(keys::Italic, tr("Italic"), false),
+            color(keys::Color, tr("Color"), QColor(Qt::white)),
+            color(keys::OutlineColor, tr("Outline Color"), QColor(Qt::black)),
+            fixedNumber(number(keys::OutlineWidth, tr("Outline Width"), 0, 30,
+                st::kDefaultOutlineWidth, 0.5, kPx)),
+            boolean(keys::Shadow, tr("Drop Shadow"), true),
+            boolean(keys::BgEnabled, tr("Background"), false),
+            color(keys::BgColor, tr("Background Color"), QColor(Qt::black)),
+            fixedNumber(number(keys::BgOpacity, tr("Background Opacity"), 0, 100,
+                st::kDefaultBgOpacity, 1, kPercent)),
+            choice(keys::Align, tr("Alignment"),
+                {QStringLiteral("left"), QStringLiteral("center"), QStringLiteral("right")},
+                {tr("Left"), tr("Center"), tr("Right")}, QStringLiteral("center")),
+            choice(st::Position, tr("Position"),
+                {QStringLiteral("bottom"), QStringLiteral("top"), QStringLiteral("middle")},
+                {tr("Bottom"), tr("Top"), tr("Middle")}, QStringLiteral("bottom")),
+            fixedNumber(number(
+                st::MarginV, tr("Vertical Margin"), 0, 50, st::kDefaultMarginV, 0.5, kPercent)),
+            fixedNumber(number(
+                st::MarginH, tr("Horizontal Margin"), 0, 50, st::kDefaultMarginH, 0.5, kPercent)),
+            fixedNumber(number(keys::LineSpacing, tr("Line Spacing"), 50, 300, 100, 1, kPercent))},
         QStringLiteral("title")));
 
     // ---- Effects (library section "Effects") ----
