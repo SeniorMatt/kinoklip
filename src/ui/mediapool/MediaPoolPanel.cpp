@@ -20,6 +20,7 @@
 #include "ui/common/PanelSplitter.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolDelegate.h"
+#include "ui/mediapool/MediaPoolStripDelegate.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -57,6 +58,30 @@ constexpr int kGridSpacing = 4;
 constexpr int kStackGrid = 0;
 constexpr int kStackList = 1;
 constexpr int kStackEmpty = 2;
+constexpr int kStackStrip = 3;
+
+/// Stored names of the view modes (QSettings default and per-bin BinViewState::mode).
+QString viewModeKey(MediaPoolPanel::ViewMode mode)
+{
+    switch (mode) {
+    case MediaPoolPanel::ViewMode::List:
+        return QStringLiteral("list");
+    case MediaPoolPanel::ViewMode::Strip:
+        return QStringLiteral("strip");
+    case MediaPoolPanel::ViewMode::Grid:
+        break;
+    }
+    return QStringLiteral("grid");
+}
+
+MediaPoolPanel::ViewMode viewModeFromKey(const QString& key)
+{
+    if (key == QLatin1String("list"))
+        return MediaPoolPanel::ViewMode::List;
+    if (key == QLatin1String("strip"))
+        return MediaPoolPanel::ViewMode::Strip;
+    return MediaPoolPanel::ViewMode::Grid;
+}
 } // namespace
 
 MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
@@ -135,6 +160,28 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     m_grid->setItemDelegate(new MediaPoolDelegate(m_grid));
     m_grid->setGridSize(MediaPoolDelegate::tileSize() + QSize(kGridSpacing, kGridSpacing));
 
+    // Strip view (Cut page): one row per clip with a film strip of thumbnails across it.
+    m_strip = new QListView;
+    m_strip->setObjectName(QStringLiteral("MediaPoolStrip"));
+    m_strip->setViewMode(QListView::ListMode);
+    m_strip->setUniformItemSizes(true);
+    m_strip->setResizeMode(QListView::Adjust);
+    m_strip->setItemDelegate(new MediaPoolStripDelegate(
+        [this](const QString& id) {
+            MediaPoolStripDelegate::StripSource source;
+            if (const MediaItem* item = m_model->item(id); item && !item->isTimeline()) {
+                source.path = item->path;
+                source.durationUs = item->info.isStillImage ? 0 : item->info.durationUs;
+                source.hasVideo = item->info.hasVideo;
+            }
+            return source;
+        },
+        m_strip));
+    connect(&media::MediaCache::instance(), &media::MediaCache::thumbnailReady, m_strip, [this] {
+        if (m_strip->isVisible())
+            m_strip->viewport()->update();
+    });
+
     m_list = new QTreeView;
     m_list->setObjectName(QStringLiteral("MediaPoolList"));
     m_list->setRootIsDecorated(false);
@@ -144,8 +191,8 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     m_list->sortByColumn(-1, Qt::AscendingOrder); // import order until the user sorts
     m_list->setAllColumnsShowFocus(true);
 
-    for (QAbstractItemView* view :
-        {static_cast<QAbstractItemView*>(m_grid), static_cast<QAbstractItemView*>(m_list)}) {
+    for (QAbstractItemView* view : {static_cast<QAbstractItemView*>(m_grid),
+             static_cast<QAbstractItemView*>(m_list), static_cast<QAbstractItemView*>(m_strip)}) {
         view->setModel(m_proxy);
         view->setSelectionModel(m_selection);
         view->setFrameShape(QFrame::NoFrame);
@@ -210,6 +257,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     m_stack->insertWidget(kStackGrid, m_grid);
     m_stack->insertWidget(kStackList, m_list);
     m_stack->insertWidget(kStackEmpty, m_empty);
+    m_stack->insertWidget(kStackStrip, m_strip);
 
     m_splitter = new PanelSplitter(Qt::Horizontal);
     m_splitter->setChildrenCollapsible(false);
@@ -267,9 +315,12 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     connect(project, &Project::projectReset, this, &MediaPoolPanel::applyBinView);
     auto updateEmpty = [this] {
         const bool empty = m_model->rowCount() == 0;
-        m_stack->setCurrentIndex(
-            empty ? kStackEmpty : (m_viewMode == ViewMode::Grid ? kStackGrid : kStackList));
+        m_stack->setCurrentIndex(empty ? kStackEmpty : stackIndexFor(m_viewMode));
     };
+    connect(m_proxy, &QAbstractItemModel::rowsInserted, this, &MediaPoolPanel::shownItemsChanged);
+    connect(m_proxy, &QAbstractItemModel::rowsRemoved, this, &MediaPoolPanel::shownItemsChanged);
+    connect(m_proxy, &QAbstractItemModel::modelReset, this, &MediaPoolPanel::shownItemsChanged);
+    connect(m_proxy, &QAbstractItemModel::layoutChanged, this, &MediaPoolPanel::shownItemsChanged);
     connect(m_model, &QAbstractItemModel::rowsInserted, this, updateEmpty);
     connect(m_model, &QAbstractItemModel::rowsRemoved, this, updateEmpty);
     connect(m_model, &QAbstractItemModel::modelReset, this, updateEmpty);
@@ -287,7 +338,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     else
         applyAutoBins();
     const QString stored = QSettings().value(QLatin1String(kViewModeKey)).toString();
-    setViewMode(stored == QLatin1String("list") ? ViewMode::List : ViewMode::Grid);
+    setViewMode(viewModeFromKey(stored));
     applyBinView();
 }
 
@@ -341,8 +392,12 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
     };
     m_gridButton = makeToggle(QStringLiteral("grid_view"), tr("Thumbnail view"));
     m_listButton = makeToggle(QStringLiteral("list_view"), tr("List view"));
+    m_stripButton = makeToggle(QStringLiteral("strip_view"), tr("Strip view"));
+    m_stripButton->setObjectName(QStringLiteral("MediaPoolStripButton"));
+    m_stripButton->setVisible(false); // setStripViewAvailable()
     connect(m_gridButton, &QToolButton::clicked, this, [this] { setViewMode(ViewMode::Grid); });
     connect(m_listButton, &QToolButton::clicked, this, [this] { setViewMode(ViewMode::List); });
+    connect(m_stripButton, &QToolButton::clicked, this, [this] { setViewMode(ViewMode::Strip); });
 
     // Sort menu (Resolve's media pool sorts the thumbnail view too, not only the list).
     auto* sortButton = new QToolButton(host);
@@ -536,19 +591,40 @@ void MediaPoolPanel::setColorFilter(const QString& colorId)
             : icon(QStringLiteral("flag"), clipColorValue(colorId)));
 }
 
+int MediaPoolPanel::stackIndexFor(ViewMode mode) const
+{
+    switch (mode) {
+    case ViewMode::List:
+        return kStackList;
+    case ViewMode::Strip:
+        return m_stripAvailable ? kStackStrip : kStackGrid;
+    case ViewMode::Grid:
+        break;
+    }
+    return kStackGrid;
+}
+
+void MediaPoolPanel::setStripViewAvailable(bool available)
+{
+    m_stripAvailable = available;
+    m_stripButton->setVisible(available);
+    setViewMode(m_viewMode); // a stored strip mode shows now (or falls back to the grid)
+}
+
 void MediaPoolPanel::setViewMode(ViewMode mode)
 {
     m_viewMode = mode;
-    m_gridButton->setChecked(mode == ViewMode::Grid);
-    m_listButton->setChecked(mode == ViewMode::List);
+    const ViewMode shown = mode == ViewMode::Strip && !m_stripAvailable ? ViewMode::Grid : mode;
+    m_gridButton->setChecked(shown == ViewMode::Grid);
+    m_listButton->setChecked(shown == ViewMode::List);
+    m_stripButton->setChecked(shown == ViewMode::Strip);
     if (m_model->rowCount() > 0)
-        m_stack->setCurrentIndex(mode == ViewMode::Grid ? kStackGrid : kStackList);
+        m_stack->setCurrentIndex(stackIndexFor(mode));
     else
         m_stack->setCurrentIndex(kStackEmpty);
     if (m_applyingView)
         return;
-    QSettings().setValue(QLatin1String(kViewModeKey),
-        mode == ViewMode::Grid ? QStringLiteral("grid") : QStringLiteral("list"));
+    QSettings().setValue(QLatin1String(kViewModeKey), viewModeKey(mode));
     storeBinView();
 }
 
@@ -568,7 +644,7 @@ void MediaPoolPanel::applyBinView()
     const BinViewState state = m_ctx.project->binViewState(m_proxy->bin());
     m_applyingView = true;
     if (!state.mode.isEmpty())
-        setViewMode(state.mode == QLatin1String("list") ? ViewMode::List : ViewMode::Grid);
+        setViewMode(viewModeFromKey(state.mode));
     const int column = MediaPoolModel::columnForKey(state.sortKey);
     m_list->sortByColumn(column, state.descending ? Qt::DescendingOrder : Qt::AscendingOrder);
     if (column < 0)
@@ -581,7 +657,7 @@ void MediaPoolPanel::storeBinView()
     if (m_applyingView)
         return;
     BinViewState state;
-    state.mode = m_viewMode == ViewMode::List ? QStringLiteral("list") : QStringLiteral("grid");
+    state.mode = viewModeKey(m_viewMode);
     const int column = m_list->header()->sortIndicatorSection();
     state.sortKey = column >= 0 && column < MediaPoolModel::ColumnCount
         ? MediaPoolModel::columnKey(column)
@@ -686,8 +762,14 @@ void MediaPoolPanel::setThumbnailProvider(PosterProvider provider)
 
 QAbstractItemView* MediaPoolPanel::currentView() const
 {
-    return m_viewMode == ViewMode::Grid ? static_cast<QAbstractItemView*>(m_grid)
-                                        : static_cast<QAbstractItemView*>(m_list);
+    switch (stackIndexFor(m_viewMode)) {
+    case kStackList:
+        return m_list;
+    case kStackStrip:
+        return m_strip;
+    default:
+        return m_grid;
+    }
 }
 
 // ---- Bins ----

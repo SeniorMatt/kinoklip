@@ -3,7 +3,7 @@
 The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id
 `resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and
 its global commands, written from general knowledge of how Resolve behaves (nothing copied from
-Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Cut, Compositing, Color and
+Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing, Color and
 Audio pages, audio scrubbing) keep their Resolve key but are
 disabled.
 
@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 231 commands; sure 94, likely 83, unsure 54.
+Counts: 241 commands; sure 94, likely 83, unsure 64.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -205,7 +205,7 @@ that every command has an entry and that no key is used twice.
 | Command | Action id | Key | Confidence | Note |
 |---|---|---|---|---|
 | Media Page | `view.page_media` | `Shift+2` | sure |  |
-| Cut Page (disabled) | `view.page_cut` | `Shift+3` | sure |  |
+| Cut Page | `view.page_cut` | `Shift+3` | sure |  |
 | Edit Page | `view.page_edit` | `Shift+4` | sure |  |
 | Compositing Page (disabled; Resolve: Fusion) | `view.page_compositing` | `Shift+5` | sure |  |
 | Color Page (disabled) | `view.page_color` | `Shift+6` | sure |  |
@@ -307,6 +307,21 @@ that every command has an entry and that no key is used twice.
 | Cut / Switch to Multicam Angle 7 | `multicam.angle_7` | `7` | likely |  |
 | Cut / Switch to Multicam Angle 8 | `multicam.angle_8` | `8` | likely |  |
 | Cut / Switch to Multicam Angle 9 | `multicam.angle_9` | `9` | likely |  |
+
+## Cut page
+
+| Command | Action id | Key | Confidence | Note |
+|---|---|---|---|---|
+| Smart Insert (insert at the edit point nearest to the playhead) | `cut.smart_insert` | (none) | unsure | Cut page edit button; no own key is known. While the Cut page is shown, Insert Clip (F9) runs Smart Insert (Kinoklip's routing). |
+| Append (after the last clip) | `cut.append` | (none) | unsure | Cut page edit button; while the Cut page is shown, Append at End (Shift+F12) runs it. |
+| Ripple Overwrite (replace the clip under the playhead) | `cut.ripple_overwrite` | (none) | unsure | Cut page edit button; while the Cut page is shown, Ripple Overwrite (Shift+F10) runs it. |
+| Close Up (zoomed cutaway on the track above) | `cut.close_up` | (none) | unsure | Cut page edit button; no default key known, none assigned |
+| Place on Top (Cut page) | `cut.place_on_top` | (none) | unsure | Cut page edit button; while the Cut page is shown, Place on Top (F12) runs it. |
+| Source Overwrite (on the track above, lined up by timecode) | `cut.source_overwrite` | (none) | unsure | Cut page edit button; no default key known, none assigned |
+| Fast Review (play faster, longer clips faster) | `cut.fast_review` | (none) | unsure | Cut page viewer button; no default key known, none assigned |
+| Cut Viewer: Source Clip | `cut.viewer_source_clip` | (none) | unsure | Cut page viewer mode button; Q switches between the source and the timeline there |
+| Cut Viewer: Source Tape (all clips of the bin back to back) | `cut.viewer_source_tape` | (none) | unsure | Cut page viewer mode button; no default key known |
+| Cut Viewer: Timeline | `cut.viewer_timeline` | (none) | unsure | Cut page viewer mode button; Q switches between the source and the timeline there |
 
 ## Help
 

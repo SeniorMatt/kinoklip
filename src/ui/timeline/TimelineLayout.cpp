@@ -42,7 +42,7 @@ void TimelineLayout::rebuild(const TimelineData& data)
     for (int i = 0; i < int(data.audioTracks.size()); ++i) {
         const TrackData& t = data.audioTracks[size_t(i)];
         const int lane = m_laneHeights.value(t.id, 0);
-        const int h = scaled(trackHeight(t)) + lane;
+        const int h = scaled(int(std::lround(trackHeight(t) * m_audioHeightScale))) + lane;
         m_rows.push_back({TrackRef {TrackType::Audio, i}, y, h, lane});
         y += h;
     }

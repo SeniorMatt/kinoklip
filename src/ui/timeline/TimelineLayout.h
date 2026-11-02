@@ -119,6 +119,10 @@ public:
     /// effect on the next rebuild().
     void setHeightScale(double scale);
     [[nodiscard]] double heightScale() const { return m_heightScale; }
+    /// Extra height factor of the audio rows only (compact audio, Cut page); takes effect on
+    /// the next rebuild().
+    void setAudioHeightScale(double scale) { m_audioHeightScale = std::clamp(scale, 0.1, 1.0); }
+    [[nodiscard]] double audioHeightScale() const { return m_audioHeightScale; }
     static constexpr double kMinHeightScale = 0.5;
     static constexpr double kMaxHeightScale = 3.0;
 
@@ -209,6 +213,7 @@ private:
     QSize m_viewSize;
     double m_pixelsPerFrame = 2.0;
     double m_heightScale = 1.0;
+    double m_audioHeightScale = 1.0; ///< setAudioHeightScale()
     double m_scrollX = 0;
     int m_scrollY = 0;
     std::vector<TimelineRow> m_rows;

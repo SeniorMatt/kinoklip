@@ -179,7 +179,8 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
             m_controller->setSelectedEdit(
                 head ? EditPointSelection {0, hit.clipId} : EditPointSelection {hit.clipId, 0});
             m_drag.pending = head ? DragMode::TrimHead : DragMode::TrimTail;
-            m_drag.ripple = tool == TimelineTool::Trim;
+            // The Cut page's timeline ripples with the selection tool too.
+            m_drag.ripple = tool == TimelineTool::Trim || m_options.rippleEdgeTrims;
         }
         m_drag.mode = DragMode::Pending;
         return;
@@ -523,6 +524,8 @@ void TimelineWidget::finishDrag()
     m_drag = Drag {};
     m_overlay.snapFrame.reset();
     m_overlay.rubberBand = QRect();
+    if (mode == DragMode::Scrub && m_options.centredPlayhead)
+        centreOnPlayhead(); // the view stayed put under the mouse while scrubbing
     viewport()->update();
 }
 

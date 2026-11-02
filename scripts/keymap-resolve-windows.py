@@ -146,7 +146,7 @@ a("mark.delete_marker", "Delete Marker", ["Alt+M"], L)
 
 sec("Pages and view")
 a("view.page_media", "Media Page", ["Shift+2"], S)
-a("view.page_cut", "Cut Page (disabled)", ["Shift+3"], S)
+a("view.page_cut", "Cut Page", ["Shift+3"], S)
 a("view.page_edit", "Edit Page", ["Shift+4"], S)
 a("view.page_compositing", "Compositing Page (disabled; Resolve: Fusion)", ["Shift+5"], S)
 a("view.page_color", "Color Page (disabled)", ["Shift+6"], S)
@@ -234,6 +234,18 @@ for n in range(1, 10):
     a("multicam.angle_%d" % n, "Cut / Switch to Multicam Angle %d" % n, [str(n)], L,
       "number keys cut to the angle while the multicam viewer is shown (Resolve's multicam editing); acts on the multicam clip under the timeline playhead" if n == 1 else "")
 
+sec("Cut page")
+a("cut.smart_insert", "Smart Insert (insert at the edit point nearest to the playhead)", [], U, "Cut page edit button; no own key is known. While the Cut page is shown, Insert Clip (F9) runs Smart Insert (Kinoklip's routing).")
+a("cut.append", "Append (after the last clip)", [], U, "Cut page edit button; while the Cut page is shown, Append at End (Shift+F12) runs it.")
+a("cut.ripple_overwrite", "Ripple Overwrite (replace the clip under the playhead)", [], U, "Cut page edit button; while the Cut page is shown, Ripple Overwrite (Shift+F10) runs it.")
+a("cut.close_up", "Close Up (zoomed cutaway on the track above)", [], U, "Cut page edit button; no default key known, none assigned")
+a("cut.place_on_top", "Place on Top (Cut page)", [], U, "Cut page edit button; while the Cut page is shown, Place on Top (F12) runs it.")
+a("cut.source_overwrite", "Source Overwrite (on the track above, lined up by timecode)", [], U, "Cut page edit button; no default key known, none assigned")
+a("cut.fast_review", "Fast Review (play faster, longer clips faster)", [], U, "Cut page viewer button; no default key known, none assigned")
+a("cut.viewer_source_clip", "Cut Viewer: Source Clip", [], U, "Cut page viewer mode button; Q switches between the source and the timeline there")
+a("cut.viewer_source_tape", "Cut Viewer: Source Tape (all clips of the bin back to back)", [], U, "Cut page viewer mode button; no default key known")
+a("cut.viewer_timeline", "Cut Viewer: Timeline", [], U, "Cut page viewer mode button; Q switches between the source and the timeline there")
+
 sec("Help")
 a("help.about", "About", [], S)
 a("help.about_qt", "About Qt", [], S)
@@ -263,7 +275,7 @@ out = ["# Keymap: DaVinci Resolve (Windows)", "",
 "The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id",
 "`resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and",
 "its global commands, written from general knowledge of how Resolve behaves (nothing copied from",
-"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Cut, Compositing, Color and",
+"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing, Color and",
 "Audio pages, audio scrubbing) keep their Resolve key but are",
 "disabled.", "",
 "**Confidence** says how sure we are that the key is Resolve's default:",
