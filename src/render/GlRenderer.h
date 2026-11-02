@@ -6,6 +6,7 @@
 #include "media/VideoFrame.h"
 #include "render/DecoderPool.h"
 #include "render/GlEffects.h"
+#include "render/GlGenerators.h"
 #include "render/GlKit.h"
 #include "render/GlMasks.h"
 #include "render/GlOutput.h"
@@ -53,6 +54,10 @@ private:
         double sy = 1.0; ///< ... vertically
         const NestedTimelines* nested = nullptr; ///< the root snapshot's nested timelines
         int depth = 0; ///< nesting depth (0 = root)
+        /// While an adjustment clip's track is drawn: the composite of the tracks below it
+        /// (output-sized texture), the source of every adjustment clip. 0 otherwise.
+        GLuint below = 0;
+        bool subtitles = false; ///< draw the subtitle tracks (root timeline only)
     };
     /// A media clip decoded for the current frame. A clip inside a nested timeline can be
     /// shown at several times in one frame (two instances), so (clip, timeUs) is the key.
@@ -110,6 +115,11 @@ private:
         double maxZoomValue, ClipSource& out);
     void drawSource(
         const ClipSource& src, const QTransform& quadToNdc, const QRectF& crop, float opacity);
+    /// Renders generator clip @p clip into a per-frame target (cached for the frame).
+    const RenderTarget* generatorTarget(
+        const ClipData& clip, int64_t localFrame, const FrameContext& fc, double zoom);
+    /// Draws the caption of every enabled subtitle track at fc.frame over @p target.
+    void drawSubtitles(const FrameContext& fc, const RenderTarget& target);
     const TitleTexture* titleTexture(const TitleStyle& style);
     void trimTitleCache();
 
@@ -120,6 +130,7 @@ private:
     std::unique_ptr<GlOutput> m_output;
     GlVideo m_video;
     GlMasks m_masks; ///< clip mask pass (applied on the layer path)
+    GlGenerators m_generators; ///< generator patterns
     QString m_description;
 
     QHash<QString, std::shared_ptr<GlEffect>> m_effects; ///< descriptor id → implementation
@@ -134,6 +145,7 @@ private:
     /// composited while its parent's list is still in use).
     std::vector<std::vector<TrackFrame>> m_trackFrames;
     std::vector<NestedComposite> m_nested; ///< per-frame nested composites (capacity reused)
+    std::vector<PooledTarget> m_generated; ///< per-frame generator pictures (capacity reused)
     std::vector<GlEffect*> m_activeEffects; ///< per-clip scratch
     std::vector<const EffectInstance*> m_activeInstances; ///< parallel to m_activeEffects
 

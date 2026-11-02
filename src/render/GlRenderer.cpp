@@ -15,6 +15,7 @@
 #include "render/GlRenderer.h"
 
 #include "core/ParamKeys.h"
+#include "render/CaptionRenderer.h"
 #include "render/RenderLog.h"
 
 #include <QOffscreenSurface>
@@ -70,6 +71,20 @@ QRectF cropRect(const ClipData& clip, int64_t localFrame, QSizeF sourcePx)
     return QRectF(QPointF(l, t), QPointF(1.0 - r, 1.0 - b));
 }
 
+/// Unit quad → whole target (normalised device coordinates).
+const QTransform kFullscreenNdc(2, 0, 0, 2, -1, -1);
+
+/// True if @p tf shows an adjustment clip (alone or as a side of a transition).
+bool showsAdjustment(const TrackFrame& tf)
+{
+    auto adjustment
+        = [](const ClipData* c) { return c && c->enabled && c->kind == ClipKind::Adjustment; };
+    if (tf.single)
+        return adjustment(tf.single);
+    return tf.transition
+        && (adjustment(tf.transition->outgoing) || adjustment(tf.transition->incoming));
+}
+
 /// @p crop (content coordinates) expressed in the coordinates of sub-rectangle @p quad.
 QRectF cropInQuad(const QRectF& crop, const QRectF& quad)
 {
@@ -92,6 +107,9 @@ struct GlRenderer::ClipSource
     QSizeF content; ///< timeline pixels (display orientation)
     QSizeF sourcePx; ///< source pixels covering the content (crop units, native resolution)
     QRectF quad = QRectF(0, 0, 1, 1); ///< part of the content the source covers (content uv)
+    /// The texture already has output resolution (adjustment clip source): layers never need
+    /// more detail than that.
+    bool outputSized = false;
     const DecodedClip* video = nullptr;
     PlaneTextures* planes = nullptr;
     GLuint texture = 0;
@@ -151,7 +169,7 @@ bool GlRenderer::initialize(QString* why)
 
     m_kit = std::make_unique<GlKit>(m_gl);
     if (!m_kit->initialize(why) || !m_video.initialize(*m_kit, why)
-        || !m_masks.initialize(*m_kit, why))
+        || !m_masks.initialize(*m_kit, why) || !m_generators.initialize(*m_kit, why))
         return false;
     m_output = std::make_unique<GlOutput>(*m_kit);
 
@@ -189,6 +207,7 @@ bool GlRenderer::initialize(QString* why)
     m_trackFrames.resize(size_t(kMaxNestingDepth) + 1);
     m_trackFrames[0].reserve(16);
     m_nested.reserve(4);
+    m_generated.reserve(4);
     m_activeEffects.reserve(16);
     m_activeInstances.reserve(16);
     const GLenum error = m_gl->glGetError();
@@ -217,6 +236,8 @@ void GlRenderer::shutdown()
             t->destroy(*m_kit);
         m_video.destroy(*m_kit);
         m_masks.destroy(*m_kit);
+        m_generators.destroy(*m_kit);
+        m_generated.clear();
         m_kit->destroy();
         m_context->doneCurrent();
     }
@@ -372,6 +393,7 @@ void GlRenderer::render(RenderJob& job)
     fc.sy = double(out.height()) / tl.height;
 
     fc.nested = &tl.nested;
+    fc.subtitles = rq.subtitles;
 
     // 1 + 2. Decode every visible media clip, including the clips inside visible nested
     //        timelines (in parallel when there are several).
@@ -386,7 +408,10 @@ void GlRenderer::render(RenderJob& job)
 
     // 3. Composite (V1 = index 0 is the bottom layer, drawn first).
     PooledTarget accumulator = compositeTimeline(fc);
+    if (fc.subtitles && !tl.subtitleTracks.empty())
+        drawSubtitles(fc, *accumulator);
     m_nested.clear(); // the nested composites were consumed by the draws above
+    m_generated.clear();
 
     // 4. Output.
     const qint64 compositedNs = timer.nsecsElapsed();
@@ -427,8 +452,25 @@ PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
     m_kit->bindTarget(*accumulator);
     m_kit->clearTransparent();
     // Index loop: a nested clip composites at depth + 1 and never touches this list.
-    for (size_t i = 0; i < frames.size(); ++i)
-        drawTrack(frames[i], fc, *accumulator);
+    for (size_t i = 0; i < frames.size(); ++i) {
+        if (!showsAdjustment(frames[i])) {
+            drawTrack(frames[i], fc, *accumulator);
+            continue;
+        }
+        // Adjustment clip: what has been composited so far (every track below) becomes its
+        // source. The accumulator is copied into a fresh target first, so the processed
+        // picture is drawn OVER the unprocessed one: masks, crop and opacity < 100 % leave
+        // the tracks below visible where the adjustment does not reach (one extra
+        // full-frame copy per adjustment track; nothing when there is none).
+        PooledTarget below = std::move(accumulator);
+        accumulator = m_kit->acquire(fc.outSize);
+        m_kit->bindTarget(*accumulator);
+        m_kit->setBlendOver(false);
+        m_kit->blit(below->texture, kFullscreenNdc);
+        FrameContext adjust = fc;
+        adjust.below = below->texture;
+        drawTrack(frames[i], adjust, *accumulator);
+    }
     return accumulator;
 }
 
@@ -560,6 +602,29 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         src.texture = target->texture;
         return true;
     }
+    case ClipKind::Adjustment: {
+        // The composite of the tracks below (see compositeTimeline()), covering the frame.
+        if (!fc.below)
+            return false;
+        src.kind = ClipSource::Kind::Texture;
+        src.content = frameSize;
+        src.sourcePx = frameSize; // crop in timeline pixels
+        src.texture = fc.below;
+        src.outputSized = true;
+        return true;
+    }
+    case ClipKind::Generator: {
+        const RenderTarget* target = generatorTarget(clip, localFrame, fc, maxZoomValue);
+        if (!target)
+            return false;
+        src.kind = ClipSource::Kind::Texture;
+        src.content = frameSize;
+        src.sourcePx = frameSize;
+        src.texture = target->texture;
+        return true;
+    }
+    case ClipKind::Subtitle:
+        return false; // drawn over the picture by drawSubtitles(), never as a layer
     case ClipKind::Solid: {
         const QColor c = clip.solidColor.isValid() ? clip.solidColor : kDefaultSolid;
         const float a = float(c.alphaF());
@@ -659,7 +724,9 @@ void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const Re
     // detailed than the source itself (zooming into a 720p clip does not need a 4K layer).
     const double base = std::max(fc.sx, fc.sy);
     const double native = src.sourcePx.width() / cw; // source pixels per timeline pixel
-    const double nativeLimit = src.kind == ClipSource::Kind::Video ? native / base : 4.0;
+    const double nativeLimit = src.kind == ClipSource::Kind::Video ? native / base
+        : src.outputSized                                          ? 1.0
+                                                                   : 4.0;
     double layerScale = base * std::min(zoom, std::max(1.0, nativeLimit));
     const double padPx = std::ceil(padding * layerScale);
     QSize layerSize(
@@ -704,6 +771,65 @@ void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const Re
     m_kit->bindTarget(target);
     m_kit->setBlendOver(true);
     m_kit->blit(layer->texture, quad * toOutput * outputToNdc, opacity);
+}
+
+// ---- Generators and captions ----
+
+const RenderTarget* GlRenderer::generatorTarget(
+    const ClipData& clip, int64_t localFrame, const FrameContext& fc, double zoom)
+{
+    GeneratorFrame g = resolveGenerator(clip, localFrame, fc.frame, fc.timeline->fps);
+    if (g.kind == GeneratorFrame::Kind::Unknown)
+        return nullptr;
+    // Rendered at the size the frame covers in the output (sharper when zoomed in, up to 2x).
+    const QSizeF frameSize(fc.timeline->width, fc.timeline->height);
+    const double scale = std::max(fc.sx, fc.sy) * std::clamp(zoom, 1.0, kMaxNestedZoom);
+    QSize size(std::max(1, int(std::ceil(frameSize.width() * scale))),
+        std::max(1, int(std::ceil(frameSize.height() * scale))));
+    if (size.width() > kMaxTargetEdge || size.height() > kMaxTargetEdge)
+        size.scale(kMaxTargetEdge, kMaxTargetEdge, Qt::KeepAspectRatio);
+    PooledTarget target = m_kit->acquire(size);
+    m_kit->bindTarget(*target);
+    m_generators.drawPattern(*m_kit, g, frameSize);
+    if (!g.textStyle.text.isEmpty()) {
+        if (g.kind == GeneratorFrame::Kind::Countdown)
+            g.textStyle.size = countdownNumberSize(frameSize.height());
+        g.textStyle.canvas = size;
+        g.textStyle.scale = double(size.height()) / frameSize.height();
+        if (const TitleTexture* t = titleTexture(g.textStyle)) {
+            const QRectF rect = t->rect.translated(0, g.textOffsetY * g.textStyle.scale);
+            m_kit->bindTarget(*target);
+            m_kit->setBlendOver(true);
+            m_kit->blit(t->texture, GlKit::quadToNdc(rect, size));
+        }
+    }
+    m_generated.push_back(std::move(target));
+    return m_generated.back().get();
+}
+
+void GlRenderer::drawSubtitles(const FrameContext& fc, const RenderTarget& target)
+{
+    // Captions are drawn at output resolution straight from the (cached) title textures: a
+    // static caption costs one textured quad per frame.
+    const double scale = fc.sy;
+    for (const TrackData& track : fc.timeline->subtitleTracks) {
+        if (!track.enabled)
+            continue;
+        const ClipData* caption = captionAt(track, fc.frame);
+        if (!caption)
+            continue;
+        CaptionPlacement placement;
+        const TitleStyle style = resolveCaptionStyle(
+            *caption, &track, caption->localFrame(fc.frame), fc.outSize, scale, &placement);
+        const TitleTexture* t = titleTexture(style);
+        if (!t)
+            continue;
+        const QRectF rect
+            = t->rect.translated(captionOffset(t->rect, fc.outSize, style.align, placement));
+        m_kit->bindTarget(target);
+        m_kit->setBlendOver(true);
+        m_kit->blit(t->texture, GlKit::quadToNdc(rect, fc.outSize));
+    }
 }
 
 // ---- Title cache ----
