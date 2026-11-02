@@ -204,6 +204,12 @@ a("mediapool.link_proxy", "Link Proxy Media", [], L, "media pool context menu, n
 a("mediapool.unlink_proxy", "Unlink Proxy Media", [], L, "media pool context menu, no default key")
 a("mediapool.delete_proxy", "Delete Proxy Media", [], L, "media pool context menu, no default key")
 a("mediapool.delete_optimized", "Delete Optimized Media", [], L, "media pool context menu, no default key")
+a("mediapool.new_bin", "New Bin", ["Ctrl+Shift+N"], L, "File > New Bin")
+a("mediapool.new_smart_bin", "New Smart Bin", [], L, "File menu / bin list context menu, no default key")
+a("mediapool.select_in_timeline", "Select Clips in Timeline (media pool selection)", [], U, "media pool context menu; Kinoklip's wording")
+a("mediapool.remove_unused", "Remove Unused Clips", [], L, "media pool context menu, asks first, no default key")
+a("view.show_bin_list", "Show Bin List (media pool sidebar)", [], L, "media pool toolbar button, no default key")
+a("timeline.find_in_media_pool", "Find in Media Pool (timeline clip)", ["Alt+F"], L, "timeline clip context menu")
 
 sec("Help")
 a("help.about", "About", [], S)

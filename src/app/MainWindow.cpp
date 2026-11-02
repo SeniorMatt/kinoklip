@@ -19,6 +19,7 @@
 #include "ui/deliver/DeliverPage.h"
 #include "ui/dialogs/DialogActions.h"
 #include "ui/dialogs/PreferencesDialog.h"
+#include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/viewer/ViewerTransport.h"
 
@@ -356,6 +357,9 @@ void MainWindow::connectAppActions()
         if (m_ctx.media) // cache folder may have moved (Preferences > Media Storage)
             m_ctx.media->preferencesChanged();
         m_editPage->timeline()->applyPreferences(); // timeline tabs on / off
+        m_editPage->mediaPool()->applyPreferences(); // default smart bins on / off
+        if (m_mediaPage)
+            m_mediaPage->mediaPool()->applyPreferences();
     });
     applyRuntimePreferences(m_ctx.playback); // stored choices from start-up on
 }

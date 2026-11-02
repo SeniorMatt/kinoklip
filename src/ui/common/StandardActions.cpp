@@ -32,6 +32,8 @@ const ActionSpec kActions[] = {
     // ---- File ----
     {"file", "file.new",              QT_TRANSLATE_NOOP("kk::StandardActions", "&New Project")},
     {"file", "timeline.new",          QT_TRANSLATE_NOOP("kk::StandardActions", "New &Timeline…"), "timeline"},
+    {"file", "mediapool.new_bin",     QT_TRANSLATE_NOOP("kk::StandardActions", "New &Bin"), "folder"},
+    {"file", "mediapool.new_smart_bin", QT_TRANSLATE_NOOP("kk::StandardActions", "New S&mart Bin…"), "smart_bin"},
     {"file", "file.open",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Open Project…")},
     {"file", ">file.recent",          QT_TRANSLATE_NOOP("kk::StandardActions", "Open &Recent")},
     {"file", "-"},
@@ -42,6 +44,8 @@ const ActionSpec kActions[] = {
     // The media pool's proxy / optimized media commands also live here (act on the media
     // pool selection); Resolve offers them in the media pool context menu.
     {"file", ">mediapool",            QT_TRANSLATE_NOOP("kk::StandardActions", "Pro&xy and Optimized Media")},
+    // Media pool organisation commands acting on the visible media pool (bins branch).
+    {"file", ">mediapool.organize",   QT_TRANSLATE_NOOP("kk::StandardActions", "Media &Pool")},
     {"file", "-"},
     {"file", "file.project_settings", QT_TRANSLATE_NOOP("kk::StandardActions", "Project Se&ttings…")},
     {"file", "-"},
@@ -133,6 +137,7 @@ const ActionSpec kActions[] = {
     // ---- Clip ----
     {"clip", "clip.toggle_enabled",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Enable / Disable Clip")},
     {"clip", "clip.match_frame",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Match Frame")},
+    {"clip", "timeline.find_in_media_pool", QT_TRANSLATE_NOOP("kk::StandardActions", "&Find in Media Pool")},
     {"clip", "-"},
     {"clip", "clip.change_duration",  QT_TRANSLATE_NOOP("kk::StandardActions", "Change Clip &Duration…")},
     {"clip", "clip.change_speed",     QT_TRANSLATE_NOOP("kk::StandardActions", "Change Clip &Speed…")},
@@ -198,6 +203,7 @@ const ActionSpec kActions[] = {
     {"view", "view.toggle_mixer",     QT_TRANSLATE_NOOP("kk::StandardActions", "Mixer"), "panel_mixer", true},
     {"view", "view.toggle_metadata",  QT_TRANSLATE_NOOP("kk::StandardActions", "Metadata"), "panel_metadata", true},
     {"view", "view.toggle_inspector", QT_TRANSLATE_NOOP("kk::StandardActions", "Inspector"), "panel_inspector", true},
+    {"view", "view.show_bin_list",    QT_TRANSLATE_NOOP("kk::StandardActions", "Show &Bin List"), "folder", true},
     {"view", "-"},
     {"view", "view.single_viewer",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Single Viewer Mode"), "single_viewer", true},
     {"view", "view.toggle_source_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Source / Timeline Viewer")},
@@ -257,6 +263,10 @@ const ActionSpec kActions[] = {
     {"mediapool", "mediapool.unlink_proxy",       QT_TRANSLATE_NOOP("kk::StandardActions", "Unlink Proxy Media")},
     {"mediapool", "mediapool.delete_proxy",       QT_TRANSLATE_NOOP("kk::StandardActions", "Delete Proxy Media…")},
     {"mediapool", "mediapool.delete_optimized",   QT_TRANSLATE_NOOP("kk::StandardActions", "Delete Optimized Media…")},
+
+    // ---- Media pool organisation (File > Media Pool; MediaPoolPanel acts on its selection) ----
+    {"mediapool.organize", "mediapool.select_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Select Clips in &Timeline")},
+    {"mediapool.organize", "mediapool.remove_unused", QT_TRANSLATE_NOOP("kk::StandardActions", "Remove &Unused Clips…")},
 
     // ---- Settings (look and feel; entries filled by src/app/Theme) ----
     {"settings", ">settings.color_scheme", QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Theme")},

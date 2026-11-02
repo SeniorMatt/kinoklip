@@ -4,6 +4,7 @@
 
 #include "app/AppInfo.h"
 #include "core/EditOps.h"
+#include "core/MediaUsage.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -136,8 +137,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
         m_panels.value(id)->hide();
     updateColumns();
 
-    connect(
-        m_mediaPool, &MediaPoolPanel::currentMediaChanged, m_metadata, &MetadataPanel::showMedia);
+    // The metadata panel follows the media pool selection (one item or batch editing).
+    m_metadata->attach(m_mediaPool);
     // Double-click in the media pool: load the clip into the source viewer and make it the
     // target of the transport keys (Space, J/K/L, I/O act on it).
     connect(m_mediaPool, &MediaPoolPanel::openInSourceViewer, this, [this](const QString& id) {
@@ -194,6 +195,15 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
                                                                                   : m_sourceViewer;
                 next->activate();
                 next->setFocus();
+            });
+    }
+    // Alt+F (Find in Media Pool): reveals the source of the selected timeline clip (else the
+    // top clip under the playhead) in the media pool, switching to its bin.
+    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("timeline.find_in_media_pool"))) {
+        connect(m_ctx.actions->action(QStringLiteral("timeline.find_in_media_pool")),
+            &QAction::triggered, this, [this] {
+                if (isVisible())
+                    findInMediaPool();
             });
     }
     // Double-click on a transition / click on an fx badge: show it in the Inspector.
@@ -369,6 +379,31 @@ bool EditPage::isPanelVisible(PanelId id) const
         return m_keyframesShown;
     const QWidget* panel = m_panels.value(id);
     return panel && !panel->isHidden();
+}
+
+bool EditPage::findInMediaPool()
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const ClipData* clip = nullptr;
+    for (const quint64 id : m_ctx.selection->clips()) {
+        clip = editops::clipById(data, id);
+        if (clip && (clip->kind == ClipKind::Media || clip->kind == ClipKind::Nested))
+            break;
+        clip = nullptr;
+    }
+    const int64_t playhead = m_ctx.project->timeline()->playhead();
+    for (auto t = data.videoTracks.crbegin(); !clip && t != data.videoTracks.crend(); ++t)
+        clip = t->clipAt(playhead);
+    for (auto t = data.audioTracks.cbegin(); !clip && t != data.audioTracks.cend(); ++t)
+        clip = t->clipAt(playhead);
+    if (!clip)
+        return false;
+    const QString id = usage::itemIdOf(*clip, m_ctx.project->mediaPool()->state());
+    if (id.isEmpty())
+        return false;
+    if (m_mediaPool->isHidden())
+        setPanelVisible(PanelId::MediaPool, true);
+    return m_mediaPool->selectMedia(id);
 }
 
 void EditPage::updateColumns()

@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 198 commands; sure 94, likely 62, unsure 42.
+Counts: 204 commands; sure 94, likely 67, unsure 43.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -269,6 +269,12 @@ that every command has an entry and that no key is used twice.
 | Unlink Proxy Media | `mediapool.unlink_proxy` | (none) | likely | media pool context menu, no default key |
 | Delete Proxy Media | `mediapool.delete_proxy` | (none) | likely | media pool context menu, no default key |
 | Delete Optimized Media | `mediapool.delete_optimized` | (none) | likely | media pool context menu, no default key |
+| New Bin | `mediapool.new_bin` | `Ctrl+Shift+N` | likely | File > New Bin |
+| New Smart Bin | `mediapool.new_smart_bin` | (none) | likely | File menu / bin list context menu, no default key |
+| Select Clips in Timeline (media pool selection) | `mediapool.select_in_timeline` | (none) | unsure | media pool context menu; Kinoklip's wording |
+| Remove Unused Clips | `mediapool.remove_unused` | (none) | likely | media pool context menu, asks first, no default key |
+| Show Bin List (media pool sidebar) | `view.show_bin_list` | (none) | likely | media pool toolbar button, no default key |
+| Find in Media Pool (timeline clip) | `timeline.find_in_media_pool` | `Alt+F` | likely | timeline clip context menu |
 
 ## Help
 
