@@ -117,7 +117,13 @@ class TestWayland : public QObject
     QPoint poolItemPoint() const
     {
         // Find the imported still by id: the pool also lists the project's timeline(s).
-        auto* grid = page()->mediaPool()->findChild<QListView*>();
+        // The visible list view: the panel also has a (hidden) strip view since the Cut page.
+        QListView* grid = nullptr;
+        for (QListView* view : page()->mediaPool()->findChildren<QListView*>()) {
+            if (view->isVisible())
+                grid = view;
+        }
+        Q_ASSERT(grid);
         const QAbstractItemModel* model = grid->model();
         QModelIndex index = model->index(0, 0);
         for (int row = 0; row < model->rowCount(); ++row) {
