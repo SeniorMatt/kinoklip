@@ -30,6 +30,7 @@
 #include <KColorSchemeManager>
 #include <KColorSchemeModel>
 #include <KIconTheme>
+#include <KSharedConfig>
 #include <kcolorscheme_version.h>
 #endif
 
@@ -94,8 +95,11 @@ QString styleSheet(const QPalette& p)
     const QColor text = p.color(QPalette::WindowText);
     const QColor separator = mix(window, text, kSeparatorMix);
     QColor header = state().headerBackground;
-    if (!header.isValid())
-        header = isDark() ? window.lighter(115) : window.darker(103);
+    // A header from another scheme than the palette (light window, dark header or the other
+    // way round) is never right: derive it from the window colour then.
+    const bool darkWindow = window.lightness() < 128;
+    if (!header.isValid() || (header.lightness() < 128) != darkWindow)
+        header = darkWindow ? window.lighter(115) : window.darker(103);
 
     QString sheet = QStringLiteral(R"(
 QSplitter::handle { background: %1; }
@@ -227,8 +231,32 @@ QString applyScheme(QApplication& app, const QString& id)
 #endif
     // KColorSchemeManager sets the palette and KDE_COLOR_SCHEME_PATH (read by the Breeze
     // style for its hover/focus colours); the Header colour set is not part of QPalette.
-    s.headerBackground = KColorScheme(QPalette::Active, KColorScheme::Header).background().color();
-    Q_UNUSED(app);
+    //
+    // "Default (System)" (empty id): KColorSchemeManager falls back to the platform palette,
+    // which in the bundle is Qt's "generic" theme (light), while a default-constructed
+    // KColorScheme reads the user's kdeglobals (e.g. Breeze Dark on Plasma): dark title bars
+    // over light panels in alpha.1. The system scheme is the kdeglobals one, so take palette
+    // AND header from the same config; without a kdeglobals both are KDE's defaults.
+    if (use.isEmpty()) {
+        const KSharedConfigPtr system = KSharedConfig::openConfig(QStringLiteral("kdeglobals"));
+        QApplication::setPalette(KColorScheme::createApplicationPalette(system));
+        // The Breeze style and default-constructed KColorSchemes read KDE_COLOR_SCHEME_PATH;
+        // point it at the same kdeglobals (cleared without one: KDE's defaults everywhere).
+        const QString globals = QStandardPaths::locate(
+            QStandardPaths::GenericConfigLocation, QStringLiteral("kdeglobals"));
+        app.setProperty(
+            "KDE_COLOR_SCHEME_PATH", globals.isEmpty() ? QVariant() : QVariant(globals));
+        s.headerBackground
+            = KColorScheme(QPalette::Active, KColorScheme::Header, system).background().color();
+    } else {
+        const QString path
+            = manager->indexForSchemeId(use).data(KColorSchemeModel::PathRole).toString();
+        const KSharedConfigPtr scheme = path.isEmpty()
+            ? KSharedConfigPtr()
+            : KSharedConfig::openConfig(path, KConfig::SimpleConfig);
+        s.headerBackground
+            = KColorScheme(QPalette::Active, KColorScheme::Header, scheme).background().color();
+    }
     return use;
 #else
     QString use = id;
@@ -290,6 +318,19 @@ void applyIconTheme()
     }
     QIcon::setThemeName(state().systemIconTheme); // no Breeze: own SVGs fill the gaps
 #endif
+}
+
+/// Applies widget style @p style and colour scheme @p scheme in the only order that keeps
+/// them consistent: scheme (sets KDE_COLOR_SCHEME_PATH), then a NEW style instance (the
+/// Breeze style reads KDE's Header colours for menu and tool bars from that path when it is
+/// created and does not notice later in-app changes), then the scheme again (a style change
+/// resets the application palette). Updates the state's active ids.
+void applyStyleAndScheme(QApplication& app, const QString& style, const QString& scheme)
+{
+    State& s = state();
+    s.activeScheme = applyScheme(app, scheme);
+    s.activeStyle = applyStyle(style);
+    s.activeScheme = applyScheme(app, s.activeScheme);
 }
 
 void refreshChrome(QApplication& app)
@@ -404,8 +445,7 @@ void apply(QApplication& app)
         s.systemIconTheme = QIcon::themeName();
         s.captured = true;
     }
-    s.activeStyle = applyStyle(storedStyle());
-    s.activeScheme = applyScheme(app, storedScheme());
+    applyStyleAndScheme(app, storedStyle(), storedScheme());
     refreshChrome(app);
     syncActionChecks();
     qCInfo(lcTheme) << "style" << s.activeStyle << "colour scheme"
@@ -441,9 +481,7 @@ void setStyle(const QString& style)
     QApplication* app = application();
     if (!app)
         return;
-    state().activeStyle = applyStyle(style);
-    // A style change resets the palette to the style's standard one: re-apply the scheme.
-    state().activeScheme = applyScheme(*app, state().activeScheme);
+    applyStyleAndScheme(*app, style, state().activeScheme);
     refreshChrome(*app);
     syncActionChecks();
 }
@@ -492,7 +530,7 @@ void setColorScheme(const QString& id)
     QApplication* app = application();
     if (!app)
         return;
-    state().activeScheme = applyScheme(*app, id);
+    applyStyleAndScheme(*app, state().activeStyle, id);
     refreshChrome(*app);
     syncActionChecks();
 }

@@ -51,7 +51,13 @@ user can change all of it.
 | Icons | `KIconTheme::initTheme()` before `QApplication`: Breeze compiled into libKF6BreezeIcons, drawn by KIconEngine which recolours them from the palette | `QIcon::setThemeName("breeze"/"breeze-dark")` by palette lightness if installed, else our SVGs |
 | Chrome | style sheet generated from the palette (`Theme.cpp: styleSheet()`): only backgrounds/borders of our own panels and bars; buttons, tabs, menus, focus and selection are left to Breeze | same |
 
-Defaults: style `Breeze`, scheme `BreezeDark`. Settings keys: `ui/widgetStyle`,
+Defaults: style `Breeze`, scheme `BreezeDark`. "Default (System)" means the scheme in the
+user's `kdeglobals` (Plasma's choice; KDE's default Breeze without one): palette and Header
+colours both come from that file, never the palette from the platform and the header from
+kdeglobals. Runtime switches are covered by `tests/app/test_themeswitch.cpp` (every scheme and
+style in the real main window; every widget's palette and the painted chrome are checked).
+Custom-drawn widgets read colours at paint time or on `QEvent::PaletteChange`; icons drawn by
+us use `kk::paletteIcon()` / the tinted SVG engine, which look the colour up per paint. Settings keys: `ui/widgetStyle`,
 `ui/colorScheme` (`""` = "Default (System)"; the old `ui/useSystemColors=true` is migrated to
 it). Command line (this run only, nothing stored): `--widget-style Fusion`,
 `--color-scheme BreezeLight|system`.
