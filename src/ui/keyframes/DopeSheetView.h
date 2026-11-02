@@ -50,6 +50,8 @@ public:
     /// Row height in px (default 18).
     void setRowHeight(int px);
     [[nodiscard]] int rowHeight() const { return m_rowHeight; }
+    /// Draws the row labels in the label column (default true; the panel has its own tree).
+    void setDrawLabels(bool on);
     /// Logical height of the rows (+ padding).
     [[nodiscard]] int contentHeight() const;
     /// Widget-space centre of the diamond of row @p row at timeline frame @p frame (tests).
@@ -84,6 +86,7 @@ private:
 
     QVector<KeyRow> m_rows;
     int m_rowHeight = 18;
+    bool m_drawLabels = true;
     mutable QVector<Mark> m_marks; ///< reused paint buffer
 
     enum class Mode {

@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 159 commands; sure 90, likely 41, unsure 28.
+Counts: 160 commands; sure 90, likely 41, unsure 29.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -195,6 +195,7 @@ that every command has an entry and that no key is used twice.
 | Media Pool panel | `view.toggle_media_pool` | (none) | likely |  |
 | Effects panel | `view.toggle_effects` | (none) | likely |  |
 | Edit Index panel | `view.toggle_edit_index` | (none) | likely |  |
+| Keyframes panel (keyframe editor window) | `view.toggle_keyframes` | (none) | unsure | Kinoklip's large keyframe editor; no default key is known, none assigned. |
 | Mixer panel | `view.toggle_mixer` | (none) | likely |  |
 | Metadata panel | `view.toggle_metadata` | (none) | likely |  |
 | Inspector panel | `view.toggle_inspector` | (none) | likely |  |

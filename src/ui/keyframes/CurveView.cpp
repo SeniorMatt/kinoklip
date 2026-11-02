@@ -173,6 +173,12 @@ void CurveView::zoomValue(double factor, double anchorY)
     update();
 }
 
+void CurveView::panValue(double dyPx)
+{
+    m_panY += dyPx / (graphRect().height() * m_zoomY);
+    update();
+}
+
 void CurveView::fitSelection()
 {
     const QVector<KeyframeRef> keys = selectedKeys();

@@ -17,6 +17,8 @@
 #include "ui/dialogs/ProjectSettingsDialog.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
+#include "ui/keyframes/CurveView.h"
+#include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
@@ -204,6 +206,44 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         lanes->setCurveEditorOpen(id, true);
         if (target == QLatin1String("keyframes"))
             panel = timelinePanel;
+    } else if (base == QLatin1String("keyframes-panel")) {
+        // The Keyframes panel on the most animated video clip, a few keys selected, the
+        // playhead inside the clip. Sections: dope | curves | absolute | float.
+        const ClipData* animated = nullptr;
+        qsizetype best = 0;
+        for (const TrackData& track : ctx.project->timeline()->data().videoTracks) {
+            for (const ClipData& c : track.clips) {
+                const qsizetype n = keyframeops::animatedParams(c).size();
+                if (n > best) {
+                    best = n;
+                    animated = &c;
+                }
+            }
+        }
+        EditPage* edit = window.editPage();
+        if (!animated || !edit) {
+            std::fprintf(stderr, "keyframes-panel: needs a project with an animated video clip\n");
+            return 2;
+        }
+        ctx.selection->selectClip(animated->id);
+        const QVector<int64_t> frames = keyframeops::allKeyFrames(*animated);
+        ctx.selection->setKeyframes(keyframeops::keysAt(*animated, frames.value(2)));
+        ctx.project->timeline()->setPlayhead(animated->start + frames.value(3));
+        edit->setPanelVisible(PanelId::Keyframes, true);
+        KeyframesPanel* kf = edit->keyframes();
+        if (section == QLatin1String("dope"))
+            kf->setViews(true, false);
+        else if (section == QLatin1String("curves"))
+            kf->setViews(false, true);
+        else if (section == QLatin1String("absolute"))
+            kf->curveView()->setAxisMode(CurveView::AxisMode::Absolute);
+        else if (section == QLatin1String("float")) {
+            edit->setKeyframesFloating(true);
+            if (QWidget* w = edit->keyframesWindow()) {
+                w->resize(1600, 640);
+                panel = w;
+            }
+        }
     } else if (target == QLatin1String("edit-single") || target == QLatin1String("edit-dual")) {
         // The viewer mode button in the viewer headers (spec 24.4).
         window.editPage()->setSingleViewer(target == QLatin1String("edit-single"));
@@ -242,6 +282,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         std::fprintf(stderr,
             "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
             "project-settings[:section], keyboard, inspector, keyframes, keyframes-window, "
+            "keyframes-panel[:dope|curves|absolute|float], "
             "mediapool, "
             "effects, import-dialog, menu-color-theme "
             "or "
