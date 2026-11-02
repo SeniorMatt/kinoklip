@@ -63,3 +63,4 @@
 - 11:11 Owner bug: inspector shows the audio half of a linked pair -> sent to editfix.
 - 11:19 Heartbeat: playback2 2 commits, editfix active (0), filedialog 1; 22 GB free. kfwindow queued.
 - 11:39 editfix merged (52/52): Ctrl+Shift+[/] ripple trims, Shift+[/] gap trims, layout shortcut fallback, duplicate-key test, selectable transitions, linked pair = one inspector item, single/dual viewer button. kfwindow agent starting.
+- 11:52 filedialog merged (53/53): every file dialog via XDG desktop portal (KDE KIO dialog on Plasma), Qt fallback, theme untouched, --version/--help without display. Running: playback2, kfwindow.
