@@ -4,7 +4,7 @@ The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`,
 `resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and
 its global commands, written from general knowledge of how Resolve behaves (nothing copied from
 Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing, Color and
-Audio pages, audio scrubbing) keep their Resolve key but are
+Audio pages) keep their Resolve key but are
 disabled.
 
 **Confidence** says how sure we are that the key is Resolve's default:
@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 241 commands; sure 94, likely 83, unsure 64.
+Counts: 244 commands; sure 94, likely 84, unsure 66.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -91,6 +91,8 @@ that every command has an entry and that no key is used twice.
 | Select Nearest Clip or Gap | `trim.select_nearest_clip` | `Shift+V` | likely |  |
 | Swap Clip with Previous | `trim.swap_left` | `Ctrl+Shift+,` | likely |  |
 | Swap Clip with Next | `trim.swap_right` | `Ctrl+Shift+.` | likely |  |
+| Move Clips Up a Track (video clips of the selection, else its audio) | `trim.move_up` | `Alt+Up` | unsure | Kinoklip binds Alt+Up / Alt+Down; Resolve's default for moving clips between tracks is not confirmed |
+| Move Clips Down a Track | `trim.move_down` | `Alt+Down` | unsure |  |
 
 ## Timeline
 
@@ -101,7 +103,7 @@ that every command has an entry and that no key is used twice.
 | Add Default Transition | `timeline.add_transition` | `Ctrl+T` | sure |  |
 | Snapping | `timeline.snapping` | `N` | sure |  |
 | Linked Selection | `timeline.linked_selection` | `Ctrl+Shift+L` | sure |  |
-| Audio Scrubbing (disabled: no audio scrubbing yet) | `timeline.audio_scrubbing` | `Shift+S` | sure |  |
+| Audio Scrubbing (a short sound while the playhead is dragged or stepped) | `timeline.audio_scrubbing` | `Shift+S` | sure |  |
 | Zoom In | `timeline.zoom_in` | `Ctrl+=` | sure |  |
 | Zoom Out | `timeline.zoom_out` | `Ctrl+-` | sure |  |
 | Zoom to Fit | `timeline.zoom_fit` | `Shift+Z` | sure |  |
@@ -109,6 +111,7 @@ that every command has an entry and that no key is used twice.
 | Add Audio Track | `timeline.add_audio_track` | (none) | likely |  |
 | Add Subtitle Track | `timeline.add_subtitle_track` | (none) | likely | Timeline > Add Track > Subtitle Track in Resolve; no default key known |
 | Add Subtitle (caption at the playhead) | `timeline.add_subtitle` | (none) | unsure | Resolve adds captions from the subtitle track's right-click menu; no default key known |
+| Delete Empty Tracks | `timeline.delete_empty_tracks` | (none) | likely | track header context menu command without a default key |
 | Duplicate Timeline | `timeline.duplicate` | (none) | likely | media pool / Timeline menu command without a default key |
 | Delete Timeline | `timeline.delete` | (none) | likely | media pool command without a default key (Delete in the media pool deletes the selected timeline item) |
 | Timeline Settings | `timeline.settings` | (none) | unsure | no known default key |

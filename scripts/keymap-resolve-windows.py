@@ -71,6 +71,8 @@ a("trim.select_nearest_edit", "Select Nearest Edit Point", ["V"], S)
 a("trim.select_nearest_clip", "Select Nearest Clip or Gap", ["Shift+V"], L)
 a("trim.swap_left", "Swap Clip with Previous", ["Ctrl+Shift+,"], L)
 a("trim.swap_right", "Swap Clip with Next", ["Ctrl+Shift+."], L)
+a("trim.move_up", "Move Clips Up a Track (video clips of the selection, else its audio)", ["Alt+Up"], U, "Kinoklip binds Alt+Up / Alt+Down; Resolve's default for moving clips between tracks is not confirmed")
+a("trim.move_down", "Move Clips Down a Track", ["Alt+Down"], U)
 
 sec("Timeline")
 a("edit.split", "Split Clip (Razor) at Playhead", ["Ctrl+\\"], S, "Ctrl+B is not a default (owner feedback alpha.1 #8).")
@@ -78,7 +80,7 @@ a("edit.join", "Join Clips (remove a through edit)", ["Alt+\\"], U)
 a("timeline.add_transition", "Add Default Transition", ["Ctrl+T"], S)
 a("timeline.snapping", "Snapping", ["N"], S)
 a("timeline.linked_selection", "Linked Selection", ["Ctrl+Shift+L"], S)
-a("timeline.audio_scrubbing", "Audio Scrubbing (disabled: no audio scrubbing yet)", ["Shift+S"], S)
+a("timeline.audio_scrubbing", "Audio Scrubbing (a short sound while the playhead is dragged or stepped)", ["Shift+S"], S)
 a("timeline.zoom_in", "Zoom In", ["Ctrl+="], S)
 a("timeline.zoom_out", "Zoom Out", ["Ctrl+-"], S)
 a("timeline.zoom_fit", "Zoom to Fit", ["Shift+Z"], S)
@@ -86,6 +88,7 @@ a("timeline.add_video_track", "Add Video Track", [], L)
 a("timeline.add_audio_track", "Add Audio Track", [], L)
 a("timeline.add_subtitle_track", "Add Subtitle Track", [], L, "Timeline > Add Track > Subtitle Track in Resolve; no default key known")
 a("timeline.add_subtitle", "Add Subtitle (caption at the playhead)", [], U, "Resolve adds captions from the subtitle track's right-click menu; no default key known")
+a("timeline.delete_empty_tracks", "Delete Empty Tracks", [], L, "track header context menu command without a default key")
 a("timeline.duplicate", "Duplicate Timeline", [], L, "media pool / Timeline menu command without a default key")
 a("timeline.delete", "Delete Timeline", [], L, "media pool command without a default key (Delete in the media pool deletes the selected timeline item)")
 a("timeline.settings", "Timeline Settings", [], U, "no known default key")
@@ -276,7 +279,7 @@ out = ["# Keymap: DaVinci Resolve (Windows)", "",
 "`resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and",
 "its global commands, written from general knowledge of how Resolve behaves (nothing copied from",
 "Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing, Color and",
-"Audio pages, audio scrubbing) keep their Resolve key but are",
+"Audio pages) keep their Resolve key but are",
 "disabled.", "",
 "**Confidence** says how sure we are that the key is Resolve's default:",
 "- **sure**: well-known default, used daily;",
