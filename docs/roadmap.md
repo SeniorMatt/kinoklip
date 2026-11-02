@@ -42,6 +42,17 @@ export, real Breeze look, single-file Linux x86_64 binary. Color page visible bu
   like Resolve.
 - Released before any v2.5 work is merged.
 
+## v2.2 - small UI animations (owner request, 0.2.2-alpha.1)
+- Short tweened animations on the timeline so edits are easier to follow: clips slide into
+  place after trims, ripple deletes, inserts, nudges and undo / redo; new clips grow in,
+  removed clips fade out; a blade cut flashes and the two halves settle together; trimmed
+  edges flash on release and the selected edit point pulses; the playhead line glides on
+  jumps; the snap indicator fades. Display only: the timeline model and undo change at once.
+- Preferences > UI Settings > "Animate timeline edits" (on by default) and "Animation speed";
+  KDE's global animation speed applies too (instant = off).
+- Ships together with the Cut page (v2.5 work merged before this release), docs/behavior-spec.md
+  section 38.
+
 ## v2.5 - all other pages at a basic level
 - **Cut page** (fast single-timeline editing with the dual timeline, source tape, quick trims).
   Status: in progress on the `cutpage` branch - basic level done (layout, dual timeline, source

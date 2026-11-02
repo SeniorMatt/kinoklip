@@ -10,6 +10,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SettingsPages.h"
+#include "ui/common/UiAnimation.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ViewerPanel.h"
@@ -30,6 +31,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QSettings>
+#include <QSlider>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTreeWidget>
@@ -37,6 +39,7 @@
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
+#include <cmath>
 
 namespace kk {
 
@@ -403,15 +406,52 @@ public:
         m_scale->setCurrentIndex(std::max(0, m_scale->findData(scale)));
         m_scale->setToolTip(tr("Takes effect after restarting the application."));
         form->addRow(tr("Interface scale"), m_scale);
+
+        // v2.2: small tweens of timeline edits (src/ui/common/UiAnimation.h).
+        m_animate = new QCheckBox(tr("Animate timeline edits"));
+        m_animate->setObjectName(QStringLiteral("AnimateTimelineEdits"));
+        m_animate->setChecked(prefs::animationsEnabled());
+        form->addRow(tr("Animations"), m_animate);
+        m_speed = new QSlider(Qt::Horizontal);
+        m_speed->setObjectName(QStringLiteral("AnimationSpeed"));
+        // Steps of 0.25 from 0.5x (slower) to 2x (faster).
+        m_speed->setRange(kMinSpeedStep, kMaxSpeedStep);
+        m_speed->setPageStep(1);
+        m_speed->setTickPosition(QSlider::TicksBelow);
+        m_speed->setValue(int(std::lround(prefs::animationSpeed() / kSpeedStep)));
+        m_speed->setEnabled(m_animate->isChecked());
+        auto* speedLabel = new QLabel;
+        auto showSpeed = [this, speedLabel] {
+            speedLabel->setText(tr("%1x").arg(m_speed->value() * kSpeedStep));
+        };
+        showSpeed();
+        connect(m_speed, &QSlider::valueChanged, this, showSpeed);
+        connect(m_animate, &QCheckBox::toggled, m_speed, &QWidget::setEnabled);
+        auto* speedRow = new QHBoxLayout;
+        speedRow->addWidget(m_speed, 1);
+        speedRow->addWidget(speedLabel);
+        form->addRow(tr("Animation speed"), speedRow);
+        form->addRow(QString(),
+            note(tr("Clips slide, appear and fade after edits, cuts flash and the playhead "
+                    "glides on jumps. The timeline itself changes at once. The desktop's "
+                    "animation speed applies as well.")));
     }
 
     void apply() override
     {
         QSettings().setValue(QLatin1String(prefs::kUiScale), m_scale->currentData().toString());
+        prefs::setAnimationsEnabled(m_animate->isChecked());
+        prefs::setAnimationSpeed(m_speed->value() * kSpeedStep);
+        uianim::reload(); // live: every timeline view follows at once
     }
 
 private:
+    static constexpr double kSpeedStep = 0.25;
+    static constexpr int kMinSpeedStep = 2; ///< 0.5x
+    static constexpr int kMaxSpeedStep = 8; ///< 2x
     QComboBox* m_scale = nullptr;
+    QCheckBox* m_animate = nullptr;
+    QSlider* m_speed = nullptr;
 };
 
 // ---- User: Project Save and Load -----------------------------------------------------
@@ -699,6 +739,7 @@ void applyStartupPreferences()
 void applyRuntimePreferences(PlaybackEngine* playback)
 {
     applyHwAccelPreference();
+    uianim::reload();
     media::ImageLoader::setCacheLimitBytes(int64_t(prefs::stillCacheMiB()) * kBytesPerMiB);
     const QString cacheDir = prefs::cacheDirectory();
     media::MediaCache::instance().setCacheDirectory(

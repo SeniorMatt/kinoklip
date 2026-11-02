@@ -14,6 +14,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/UiAnimation.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
@@ -543,9 +544,28 @@ void TimelineWidget::finishDrag()
 {
     m_autoScroll.stop();
     const DragMode mode = m_drag.mode;
+    const bool edited = m_drag.editOpen;
     if (m_drag.editOpen) {
         m_drag.editOpen = false;
         m_ctx.project->endEdit();
+    }
+    // Animations: the trimmed / rolled edges flash once on release (the drag itself was 1:1).
+    if (edited && uianim::enabled()
+        && (mode == DragMode::TrimHead || mode == DragMode::TrimTail || mode == DragMode::Roll)) {
+        const TimelineData& data = m_ctx.project->timeline()->data();
+        auto flash = [&](quint64 id, bool head) {
+            if (const auto loc = editops::findClip(data, id)) {
+                const ClipData& c = data.track(loc->track)->clips[size_t(loc->clipIndex)];
+                m_anim.flashEdge(loc->track, head ? c.start : c.end());
+            }
+        };
+        if (mode == DragMode::Roll) {
+            for (const auto& [left, right] : m_drag.rolls)
+                flash(left, false);
+        } else {
+            for (const quint64 id : m_drag.clips)
+                flash(id, mode == DragMode::TrimHead);
+        }
     }
     if (mode == DragMode::Move && m_drag.duplicate && !m_drag.resultIds.isEmpty())
         m_ctx.selection->setClips(m_drag.resultIds);
@@ -556,6 +576,7 @@ void TimelineWidget::finishDrag()
     m_overlay.rubberBand = QRect();
     if (mode == DragMode::Scrub && m_options.centredPlayhead)
         centreOnPlayhead(); // the view stayed put under the mouse while scrubbing
+    syncAnimations();
     viewport()->update();
 }
 
@@ -571,6 +592,7 @@ void TimelineWidget::cancelDrag()
     m_drag = Drag {};
     m_overlay.snapFrame.reset();
     m_overlay.rubberBand = QRect();
+    syncAnimations();
     viewport()->unsetCursor();
     viewport()->update();
 }

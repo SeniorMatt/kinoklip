@@ -28,6 +28,7 @@ class QPalette;
 namespace kk {
 
 struct MediaItem;
+class TimelineAnimator;
 
 class MediaPool;
 
@@ -98,6 +99,10 @@ struct TimelinePaintInput
     /// Timelines of the project by uid (multicam clips show their active angle's name);
     /// nullptr = plain clip names.
     const std::function<const TimelineData*(quint64)>* timelines = nullptr;
+    /// Running display animations (TimelineAnimator.h): clips are drawn at their tweened
+    /// rects, plus ghosts, flashes, the playhead glide and the snap fade. nullptr (animations
+    /// off or idle) = everything is drawn exactly at the model.
+    const TimelineAnimator* anim = nullptr;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and
@@ -142,6 +147,14 @@ private:
     void paintRow(QPainter& p, const TimelinePaintInput& in, int row);
     void paintClip(QPainter& p, const TimelinePaintInput& in, int row, const TrackData& track,
         const ClipData& clip);
+    /// paintClip() with the animation opacity of @p clip applied (in.anim set).
+    void paintAnimatedClip(QPainter& p, const TimelinePaintInput& in, int row,
+        const TrackData& track, const ClipData& clip);
+    /// Ghosts of removed clips and blade / trim flashes (in.anim set).
+    void paintAnimationOverlays(QPainter& p, const TimelinePaintInput& in);
+    /// @p rect (a model clip rect) as drawn: the animator's tweened rect when one runs.
+    [[nodiscard]] static QRectF shownRect(
+        const TimelinePaintInput& in, quint64 clipId, QRectF rect);
     void paintThumbnails(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
         const QRectF& content, const QRectF& visible);
     void paintWaveform(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
