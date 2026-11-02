@@ -59,7 +59,7 @@ struct GeneratorFrame
     /// Text drawn on top (countdown number, timecode); empty = none. `textStyle.canvas` and
     /// `scale` are filled by the renderer for its target.
     TitleStyle textStyle;
-    double textOffsetY = 0; ///< timeline px the text block sits below the frame centre
+    double textOffsetY = 0; ///< fraction of the frame height the text sits below the centre
 
     /// True if the kind has a per-pixel pattern (everything but the timecode text).
     [[nodiscard]] bool hasPattern() const

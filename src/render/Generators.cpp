@@ -265,7 +265,7 @@ GeneratorFrame resolveGenerator(
         gf.textStyle.bgColor = colorParam(clip, keys::BgColor);
         gf.textStyle.bgOpacity = std::clamp(numberParam(clip, keys::BgOpacity, local), 0.0, 100.0);
         gf.textStyle.size = std::max(1.0, numberParam(clip, keys::Size, local));
-        gf.textOffsetY = numberParam(clip, g::OffsetY, local);
+        gf.textOffsetY = numberParam(clip, g::OffsetY, local) / 100.0;
     }
     gf.textStyle.outlineColor = QColor(Qt::black);
     return gf;
@@ -302,7 +302,7 @@ QImage renderGeneratorImage(GeneratorFrame gf, QSize canvas, QSizeF frameSize)
         const TitleImage text = renderTitle(gf.textStyle);
         if (!text.image.isNull()) {
             QPainter p(&image);
-            p.drawImage(text.rect.translated(0, gf.textOffsetY * gf.textStyle.scale), text.image);
+            p.drawImage(text.rect.translated(0, gf.textOffsetY * image.height()), text.image);
         }
     }
     return image;

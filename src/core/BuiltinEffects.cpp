@@ -345,7 +345,7 @@ void EffectRegistry::registerGenerators()
             boolean(keys::BgEnabled, tr("Background"), true),
             color(keys::BgColor, tr("Background Color"), QColor(Qt::black)),
             number(keys::BgOpacity, tr("Background Opacity"), 0, 100, 70, 1, kPercent),
-            number(g::OffsetY, tr("Vertical Offset"), -2000, 2000, 420, 1, kPx)},
+            number(g::OffsetY, tr("Vertical Position"), -50, 50, 39, 0.5, kPercent)},
         storage));
 }
 
