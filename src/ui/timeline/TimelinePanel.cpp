@@ -8,6 +8,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/TimelineController.h"
+#include "ui/timeline/TimelineDialogs.h"
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
@@ -28,6 +29,15 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
 
     m_controller = new TimelineController(ctx, this);
     m_controller->connectActions();
+    // The commands' questions are modal dialogs owned by this panel (tests set their own).
+    m_controller->setHandlePrompt([this](int64_t missing, bool canShorten) {
+        return timelinedialogs::askHandles(this, missing, canShorten);
+    });
+    m_controller->setMarkerEditor([this](Marker& marker, bool clipMarker) {
+        return timelinedialogs::editMarker(this, marker, clipMarker);
+    });
+    m_controller->setPasteAttributesPrompt(
+        [this] { return timelinedialogs::askPasteAttributes(this); });
 
     m_toolBar = new QToolBar(body);
     m_toolBar->setIconSize(QSize(18, 18));

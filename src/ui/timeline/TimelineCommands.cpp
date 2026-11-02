@@ -440,30 +440,8 @@ bool TimelineController::setSelectionSpeed(double speed)
         return false;
     return runEdit(project(), tr("Change Clip Speed"), [&](TimelineData& data) {
         bool any = false;
-        for (quint64 id : ids) {
-            const ClipData* c = ops::clipById(data, id);
-            const auto loc = ops::findClip(data, id);
-            if (!c || data.track(loc->track)->locked || c->speed == speed)
-                continue;
-            // The same source material at the new speed: duration scales by old / new.
-            int64_t frames = std::max<int64_t>(
-                1, int64_t(std::llround(double(c->duration) * c->speed / speed)));
-            if (c->kind == ClipKind::Media && c->sourceDurationUs > 0) {
-                const double usPerFrame = 1e6 * data.fps.den / data.fps.num * speed;
-                const auto available
-                    = int64_t(double(c->sourceDurationUs - c->sourceInUs) / usPerFrame);
-                frames = std::clamp<int64_t>(available, 1, frames);
-            }
-            const int64_t delta = frames - c->duration;
-            // Shrink at the old speed first / grow at the new one, so the clip never shows
-            // media past its end.
-            if (delta < 0)
-                ops::trimTail(data, id, delta, true);
-            ops::clipById(data, id)->speed = speed;
-            if (delta > 0)
-                ops::trimTail(data, id, delta, true);
-            any = true;
-        }
+        for (quint64 id : ids)
+            any |= timelineedit::applyClipSpeed(data, id, speed);
         return any;
     });
 }

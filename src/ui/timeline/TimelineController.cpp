@@ -8,6 +8,7 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/timeline/TimelineEditUtil.h"
@@ -23,9 +24,6 @@ namespace kk {
 namespace ops = editops;
 
 namespace {
-
-/// Default transition id (Ctrl+T); its length comes from EditBehaviour.
-const QString kDefaultTransition = QStringLiteral("cross_dissolve");
 
 using timelineedit::runEdit;
 
@@ -458,50 +456,59 @@ void TimelineController::nudge(int64_t frames)
         [&](TimelineData& data) { return ops::moveClips(data, ids, frames, 0); });
 }
 
+int64_t TimelineController::applyEditTrim(
+    TimelineData& data, const EditPointSelection& edit, int64_t frames, bool ripple) const
+{
+    if (edit.isEmpty() || frames == 0)
+        return 0;
+    if (edit.tailClip && edit.headClip) {
+        const int64_t applied = ops::rollEdit(data, edit.tailClip, edit.headClip, frames);
+        if (applied != 0 && m_linked) {
+            // Linked pairs cut at the same frame roll along (spec 8.12).
+            const QVector<quint64> lefts = ops::linkedClips(data, edit.tailClip);
+            const QVector<quint64> rights = ops::linkedClips(data, edit.headClip);
+            for (quint64 l : lefts) {
+                if (l == edit.tailClip)
+                    continue;
+                const ClipData* lc = ops::clipById(data, l);
+                for (quint64 r : rights) {
+                    const ClipData* rc = ops::clipById(data, r);
+                    // rollEdit() itself rejects pairs that do not touch on one track.
+                    if (r != edit.headClip && lc && rc && lc->end() == rc->start)
+                        ops::rollEdit(data, l, r, applied);
+                }
+            }
+        }
+        return applied;
+    }
+    const bool head = edit.headClip != 0;
+    const quint64 primary = head ? edit.headClip : edit.tailClip;
+    const QVector<quint64> ids = sameEdgeLinks(data, primary, head, m_linked);
+    const int64_t applied = head ? ops::trimHead(data, primary, frames, ripple)
+                                 : ops::trimTail(data, primary, frames, ripple);
+    for (int i = 1; i < ids.size(); ++i) {
+        if (head)
+            ops::trimHead(data, ids[i], applied, ripple);
+        else
+            ops::trimTail(data, ids[i], applied, ripple);
+    }
+    return applied;
+}
+
 int64_t TimelineController::trimSelectedEdit(int64_t frames)
 {
     const EditPointSelection edit = m_selectedEdit;
     if (edit.isEmpty() || frames == 0)
         return 0;
     const bool ripple = m_tool == TimelineTool::Trim;
-    int64_t applied = 0;
     const bool roll = edit.tailClip && edit.headClip;
+    int64_t applied = 0;
     runEdit(project(),
         roll         ? tr("Roll Edit")
             : ripple ? tr("Ripple Trim")
                      : tr("Trim Clip"),
         [&](TimelineData& data) {
-            if (roll) {
-                applied = ops::rollEdit(data, edit.tailClip, edit.headClip, frames);
-                if (applied != 0 && m_linked) {
-                    // Linked pairs cut at the same frame roll along (spec 8.12).
-                    const QVector<quint64> lefts = ops::linkedClips(data, edit.tailClip);
-                    const QVector<quint64> rights = ops::linkedClips(data, edit.headClip);
-                    for (quint64 l : lefts) {
-                        if (l == edit.tailClip)
-                            continue;
-                        const ClipData* lc = ops::clipById(data, l);
-                        for (quint64 r : rights) {
-                            const ClipData* rc = ops::clipById(data, r);
-                            // rollEdit() itself rejects pairs that do not touch on one track.
-                            if (r != edit.headClip && lc && rc && lc->end() == rc->start)
-                                ops::rollEdit(data, l, r, applied);
-                        }
-                    }
-                }
-                return applied != 0;
-            }
-            const bool head = edit.headClip != 0;
-            const quint64 primary = head ? edit.headClip : edit.tailClip;
-            const QVector<quint64> ids = sameEdgeLinks(data, primary, head, m_linked);
-            applied = head ? ops::trimHead(data, primary, frames, ripple)
-                           : ops::trimTail(data, primary, frames, ripple);
-            for (int i = 1; i < ids.size(); ++i) {
-                if (head)
-                    ops::trimHead(data, ids[i], applied, ripple);
-                else
-                    ops::trimTail(data, ids[i], applied, ripple);
-            }
+            applied = applyEditTrim(data, edit, frames, ripple);
             return applied != 0;
         });
     return applied;
@@ -831,85 +838,7 @@ void TimelineController::pasteInsert()
     }
 }
 
-void TimelineController::addDefaultTransition()
-{
-    const TimelineData& d = timeline()->data();
-    const int64_t playhead = timeline()->playhead();
-
-    // Edges that get a transition: (clip id, head?).
-    QVector<std::pair<quint64, bool>> edges;
-    const QVector<quint64> selected = effectiveSelection();
-    if (!m_selectedEdit.isEmpty()) {
-        // The selected edit point (spec 13.2).
-        if (m_selectedEdit.headClip)
-            edges.append({m_selectedEdit.headClip, true});
-        else
-            edges.append({m_selectedEdit.tailClip, false});
-    } else if (!selected.isEmpty()) {
-        // Both ends of every selected clip (spec 13.2).
-        for (quint64 id : selected) {
-            edges.append({id, true});
-            edges.append({id, false});
-        }
-    } else {
-        // The edge closest to the playhead on the auto-select video tracks (spec 13.2).
-        quint64 bestId = 0;
-        bool bestHead = true;
-        int64_t bestDistance = std::numeric_limits<int64_t>::max();
-        const ops::TrackFilter accept = ops::autoSelectTracks();
-        for (size_t i = 0; i < d.videoTracks.size(); ++i) {
-            if (!accept(TrackRef {TrackType::Video, int(i)}, d.videoTracks[i]))
-                continue;
-            for (const ClipData& c : d.videoTracks[i].clips) {
-                const int64_t dh = std::abs(c.start - playhead);
-                const int64_t dt = std::abs(c.end() - playhead);
-                if (dh < bestDistance) {
-                    bestId = c.id;
-                    bestHead = true;
-                    bestDistance = dh;
-                }
-                if (dt < bestDistance) {
-                    bestId = c.id;
-                    bestHead = false;
-                    bestDistance = dt;
-                }
-            }
-        }
-        if (bestId)
-            edges.append({bestId, bestHead});
-    }
-    if (edges.isEmpty())
-        return;
-
-    const int64_t standard
-        = EditBehaviour::frames(EditBehaviour::fromSettings().transitionSeconds, d.fps);
-    runEdit(project(), tr("Add Transition"), [&](TimelineData& data) {
-        bool changed = false;
-        for (const auto& [clipId, edgeIsHead] : edges) {
-            const auto loc = ops::findClip(data, clipId);
-            if (!loc || data.track(loc->track)->locked)
-                continue;
-            TrackData& track = *data.track(loc->track);
-            size_t index = size_t(loc->clipIndex);
-            bool head = edgeIsHead;
-            // A tail that touches the next clip is the same cut as that clip's head: store the
-            // transition on the right-hand clip (transitionIn, centred on the cut).
-            if (!head && index + 1 < track.clips.size()
-                && track.clips[index + 1].start == track.clips[index].end()) {
-                ++index;
-                head = true;
-            }
-            ClipData& clip = track.clips[index];
-            std::optional<TransitionData>& slot = head ? clip.transitionIn : clip.transitionOut;
-            if (slot)
-                continue; // keep an existing transition (and do not add one twice at a cut)
-            const int64_t frames = std::min(standard, clip.duration);
-            slot = EffectRegistry::instance().createTransition(kDefaultTransition, frames);
-            changed = true;
-        }
-        return changed;
-    });
-}
+// addDefaultTransition() lives in TimelineTransitions.cpp.
 
 // ---- Tracks ----
 
@@ -1075,7 +1004,19 @@ void TimelineController::connectActions()
     on("mark.clear_both", &TimelineController::clearInOut);
     on("mark.go_to_in", &TimelineController::goToIn);
     on("mark.go_to_out", &TimelineController::goToOut);
-    on("mark.add_marker", &TimelineController::addMarker);
+    on("mark.add_marker", &TimelineController::addMarkerAtPlayhead);
+    on("mark.modify_marker", &TimelineController::addAndModifyMarker);
+    on("edit.paste_attributes", &TimelineController::pasteAttributesInteractive);
+    toggle("trim.dynamic", [this](bool on) { setDynamicTrim(on); });
+    // Dynamic trim follows the playhead while the program engine plays (spec 8.17).
+    connect(timeline(), &Timeline::playheadChanged, this, &TimelineController::onPlayheadMoved);
+    m_dynamicLast = timeline()->playhead();
+    if (m_ctx.playback) {
+        connect(m_ctx.playback, &PlaybackEngine::rateChanged, this, [this](double rate) {
+            if (rate == 0.0)
+                playbackStopped();
+        });
+    }
     // Pure playhead navigation over timeline edit points; the playback module must not connect
     // these a second time (see src/ui/timeline/readme.md).
     on("transport.prev_edit", &TimelineController::goToPreviousEdit);
