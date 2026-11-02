@@ -15,6 +15,7 @@ namespace kk {
 struct AppContext;
 class EffectsLibraryPanel;
 class InspectorPanel;
+class KeyframesPanel;
 class MediaPoolPanel;
 class MetadataPanel;
 class PanelFrame;
@@ -28,6 +29,11 @@ class ViewerPanel;
 /// ```
 /// Toggleable panels are shown/hidden from the interface toolbar; a column disappears when all
 /// its panels are hidden. "Single viewer" mode hides the source viewer.
+///
+/// The Keyframes panel docks as a full-width row between the viewers and the timeline (a third
+/// pane of the main vertical splitter) or floats in its own window (setKeyframesFloating(), the
+/// panel's title-bar button); closing that window hides the panel, showing it again reopens the
+/// window. Dock state, window geometry and the panel's own splitters persist with the layout.
 class EditPage : public Page
 {
     Q_OBJECT
@@ -57,6 +63,12 @@ public:
         return m_viewerModeButtons;
     }
 
+    /// Docks (false) or floats (true) the Keyframes panel.
+    void setKeyframesFloating(bool floating);
+    [[nodiscard]] bool isKeyframesFloating() const { return m_keyframesFloating; }
+    /// The floating Keyframes window (exists once the panel was floated), or nullptr.
+    [[nodiscard]] QWidget* keyframesWindow() const { return m_keyframesWindow; }
+
 signals:
     /// Single viewer mode was switched on or off (the main window syncs its menu entry).
     void singleViewerChanged(bool single);
@@ -70,9 +82,11 @@ public:
     [[nodiscard]] InspectorPanel* inspector() const { return m_inspector; }
     [[nodiscard]] MetadataPanel* metadata() const { return m_metadata; }
     [[nodiscard]] TimelinePanel* timeline() const { return m_timeline; }
+    [[nodiscard]] KeyframesPanel* keyframes() const { return m_keyframes; }
 
 protected:
     void showEvent(QShowEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void updateColumns();
@@ -85,6 +99,10 @@ private:
     /// Resolve's default proportions for the page's actual size (first show without a
     /// stored layout): viewers about half the height, side columns about a fifth of the width.
     void applyDefaultProportions();
+    /// Shows / hides the Keyframes panel where it lives (docked row or its window).
+    void showKeyframes(bool visible);
+    /// Gives the docked Keyframes row a usable height (taken from the timeline row).
+    void ensureKeyframesHeight();
 
     AppContext& m_ctx;
     MediaPoolPanel* m_mediaPool = nullptr;
@@ -96,11 +114,15 @@ private:
     MetadataPanel* m_metadata = nullptr;
     TimelinePanel* m_timeline = nullptr;
     PanelFrame* m_mixer = nullptr;
+    KeyframesPanel* m_keyframes = nullptr;
+    QWidget* m_keyframesWindow = nullptr; ///< top-level window of the floating panel
+    bool m_keyframesFloating = false;
+    bool m_keyframesShown = false;
     QList<QToolButton*> m_viewerModeButtons;
     bool m_singleViewer = false;
     bool m_singleShowsSource = false;
 
-    QSplitter* m_main = nullptr; ///< vertical: top row over bottom row
+    QSplitter* m_main = nullptr; ///< vertical: top row, Keyframes (docked), bottom row
     QSplitter* m_topRow = nullptr; ///< left column | source | timeline viewer | right column
     QSplitter* m_leftColumn = nullptr; ///< media pool / effects / edit index
     QSplitter* m_rightColumn = nullptr; ///< inspector / metadata

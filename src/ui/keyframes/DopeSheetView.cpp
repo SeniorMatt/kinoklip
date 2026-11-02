@@ -40,6 +40,12 @@ void DopeSheetView::setRowHeight(int px)
     update();
 }
 
+void DopeSheetView::setDrawLabels(bool on)
+{
+    m_drawLabels = on;
+    update();
+}
+
 int DopeSheetView::contentHeight() const
 {
     return int(m_rows.size()) * m_rowHeight + 2 * kTopPadding;
@@ -145,7 +151,7 @@ void DopeSheetView::paintEvent(QPaintEvent*)
             p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), QColor(127, 127, 127, 34));
         else if (i % 2 == 1)
             p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), QColor(127, 127, 127, 14));
-        if (lw > 0) {
+        if (lw > 0 && m_drawLabels) {
             const int indent = row.kind == KeyRow::Kind::Param ? 2 * kLabelIndent
                 : row.kind == KeyRow::Kind::Group              ? kLabelIndent
                                                                : 6;
@@ -218,7 +224,7 @@ void DopeSheetView::mousePressEvent(QMouseEvent* event)
         m_mode = Mode::Pending;
         return;
     }
-    if (hit.row >= 0 && pos.x() < labelWidth()) {
+    if (hit.row >= 0 && pos.x() < labelWidth() && m_drawLabels) {
         clickSelect(rowKeys(m_rows[hit.row]), event->modifiers()); // label: every key of the row
         return;
     }

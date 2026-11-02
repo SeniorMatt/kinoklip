@@ -89,6 +89,8 @@ public:
     void fitSelection();
     /// Multiplies the value zoom by @p factor keeping widget y @p anchorY fixed.
     void zoomValue(double factor, double anchorY);
+    /// Pans the value axis by @p dyPx widget pixels (positive: the curves move down).
+    void panValue(double dyPx);
     /// Value zoom factor (1 = fit) and pan (fractions of the graph height), for persistence.
     [[nodiscard]] double valueZoom() const { return m_zoomY; }
 
