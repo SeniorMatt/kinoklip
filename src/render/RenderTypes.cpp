@@ -25,4 +25,14 @@ std::shared_ptr<const MediaPathMap> makeMediaPathMap(const MediaPoolState& pool)
     return map;
 }
 
+const RenderCacheChunk* RenderCacheView::find(int64_t frame) const
+{
+    const auto it = std::upper_bound(chunks.begin(), chunks.end(), frame,
+        [](int64_t f, const RenderCacheChunk& c) { return f < c.start; });
+    if (it == chunks.begin())
+        return nullptr;
+    const RenderCacheChunk& c = *std::prev(it);
+    return frame < c.end ? &c : nullptr;
+}
+
 } // namespace kk
