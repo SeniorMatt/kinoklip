@@ -150,7 +150,7 @@ a("view.page_cut", "Cut Page", ["Shift+3"], S)
 a("view.page_edit", "Edit Page", ["Shift+4"], S)
 a("view.page_compositing", "Compositing Page (disabled; Resolve: Fusion)", ["Shift+5"], S)
 a("view.page_color", "Color Page (disabled)", ["Shift+6"], S)
-a("view.page_audio", "Audio Page (disabled; Resolve: Fairlight)", ["Shift+7"], S)
+a("view.page_audio", "Audio Page", ["Shift+7"], S)
 a("view.page_deliver", "Deliver Page", ["Shift+8"], S)
 a("view.toggle_media_pool", "Media Pool panel", [], L)
 a("view.toggle_effects", "Effects panel", [], L)
@@ -246,6 +246,11 @@ a("cut.viewer_source_clip", "Cut Viewer: Source Clip", [], U, "Cut page viewer m
 a("cut.viewer_source_tape", "Cut Viewer: Source Tape (all clips of the bin back to back)", [], U, "Cut page viewer mode button; no default key known")
 a("cut.viewer_timeline", "Cut Viewer: Timeline", [], U, "Cut page viewer mode button; Q switches between the source and the timeline there")
 
+sec("Audio page")
+a("audio.add_bus", "Add Bus (stereo; mono from the bus strip's menu)", [], U, "Audio page mixer command; no default key known, none assigned")
+a("audio.reset_loudness", "Reset Loudness Meter (integrated loudness, true peak max)", [], U, "loudness meter reset button; no default key known, none assigned")
+a("audio.float_viewer", "Float Viewer (Audio page)", [], U, "the Audio page viewer as a small floating window; no default key known, none assigned")
+
 sec("Help")
 a("help.about", "About", [], S)
 a("help.about_qt", "About Qt", [], S)
@@ -275,8 +280,8 @@ out = ["# Keymap: DaVinci Resolve (Windows)", "",
 "The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id",
 "`resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and",
 "its global commands, written from general knowledge of how Resolve behaves (nothing copied from",
-"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing, Color and",
-"Audio pages, audio scrubbing) keep their Resolve key but are",
+"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing and Color",
+"pages, audio scrubbing) keep their Resolve key but are",
 "disabled.", "",
 "**Confidence** says how sure we are that the key is Resolve's default:",
 "- **sure**: well-known default, used daily;",

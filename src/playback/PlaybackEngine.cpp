@@ -8,8 +8,10 @@
 #include "playback/AudioOutput.h"
 #include "playback/AudioRing.h"
 #include "playback/PlaybackLog.h"
+#include "render/AudioMixer.h"
 #include "render/Compositor.h"
 #include "render/ProxySelection.h"
+#include "render/TimelineEval.h"
 
 #include <QSettings>
 
@@ -121,6 +123,7 @@ void PlaybackEngine::setTimeline(Timeline* timeline)
     disconnect(m_playheadChanged);
     m_timeline = timeline;
     m_snapshot.reset();
+    m_videoSnapshot.reset();
     m_current.reset();
     if (m_timeline) {
         m_timelineChanged
@@ -184,11 +187,20 @@ void PlaybackEngine::setMediaPaths(std::shared_ptr<const MediaPathMap> media)
 
 void PlaybackEngine::onTimelineChanged()
 {
-    m_snapshot = m_timeline ? m_timeline->snapshot() : nullptr;
+    std::shared_ptr<const TimelineData> next = m_timeline ? m_timeline->snapshot() : nullptr;
+    // A sound-only edit (fader, EQ, automation, clip volume...) goes to the mixer only: the
+    // pictures are the same, so the renderer keeps the previous snapshot and nothing in
+    // flight is dropped.
+    const bool soundOnly
+        = next && m_snapshot && m_videoSnapshot && render::samePictures(*m_videoSnapshot, *next);
+    m_snapshot = std::move(next);
     m_clock.setFps(fps());
     if (m_feeder && m_snapshot) {
         m_feeder->setTimeline(m_snapshot);
     }
+    if (soundOnly)
+        return;
+    m_videoSnapshot = m_snapshot;
     if (!m_snapshot) {
         setRateInternal(0.0);
         m_scheduler.clear();
@@ -391,7 +403,7 @@ void PlaybackEngine::setVolume(float volume)
 void PlaybackEngine::updateParams(bool rerender)
 {
     RenderParams params;
-    params.timeline = m_snapshot;
+    params.timeline = m_videoSnapshot ? m_videoSnapshot : m_snapshot;
     params.media = m_media;
     params.proxies = m_proxies;
     params.renderCache = m_renderCache;
@@ -433,6 +445,43 @@ void PlaybackEngine::updateParams(bool rerender)
     if (rerender && changed && !isPlaying() && m_snapshot) {
         requestStill(true);
     }
+}
+
+// ---- Meters ----
+
+void PlaybackEngine::resetLoudness()
+{
+    if (m_feeder)
+        m_feeder->resetLoudness();
+    m_meterFrame.integratedLufs = -200.0;
+    m_meterFrame.truePeakMaxDb = -200.0;
+    Q_EMIT metersUpdated();
+}
+
+void PlaybackEngine::updateMeters(int64_t nowUs, double heardFrame)
+{
+    if (!m_feeder || !m_clock.isAudioMaster()
+        || nowUs - m_lastMeterUs < int64_t(kMeterIntervalMs) * 1000)
+        return;
+    m_lastMeterUs = nowUs;
+    const int64_t sample = int64_t(heardFrame * AudioMixer::kSampleRate * fps().den / fps().num);
+    if (m_feeder->meterFrameAt(sample, &m_meterFrame))
+        Q_EMIT metersUpdated();
+}
+
+void PlaybackEngine::clearMeters()
+{
+    if (m_feeder)
+        m_feeder->clearMeters();
+    if (m_meterFrame.sample < 0)
+        return;
+    const double integrated = m_meterFrame.integratedLufs;
+    const double truePeakMax = m_meterFrame.truePeakMaxDb;
+    m_meterFrame = MeterFrame {};
+    // The program's integrated loudness stays on display until it is reset (Resolve).
+    m_meterFrame.integratedLufs = integrated;
+    m_meterFrame.truePeakMaxDb = truePeakMax;
+    Q_EMIT metersUpdated();
 }
 
 // ---- Statistics ----
@@ -804,6 +853,7 @@ void PlaybackEngine::stopAudio()
     m_audio->stop();
     m_feeder->stop();
     m_ring->clear();
+    clearMeters();
 }
 
 void PlaybackEngine::requestStill(bool force)
@@ -1052,6 +1102,7 @@ void PlaybackEngine::onTick()
         present(frame, shownKey);
     }
     setPositionInternal(int64_t(wrap(double(dueKey))), true);
+    updateMeters(now, wrap(unwrapped));
     updateAutoQuality(now);
     if (m_logStats) {
         logStats(now);

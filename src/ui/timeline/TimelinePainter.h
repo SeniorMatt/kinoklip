@@ -98,6 +98,8 @@ struct TimelinePaintInput
     /// Timelines of the project by uid (multicam clips show their active angle's name);
     /// nullptr = plain clip names.
     const std::function<const TimelineData*(quint64)>* timelines = nullptr;
+    /// Audio page header meters: dBFS (left, right) of an audio track by id; nullptr = none.
+    const std::function<std::pair<float, float>(quint64)>* headerMeter = nullptr;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and

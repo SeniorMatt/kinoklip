@@ -10,6 +10,9 @@
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
 #include "playback/SourcePlayer.h"
+#include "ui/audio/MeterModel.h"
+#include "ui/audio/MixerController.h"
+#include "ui/audio/MixerPanel.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
@@ -84,7 +87,13 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_inspector = new InspectorPanel(ctx);
     m_metadata = new MetadataPanel(ctx);
     m_timeline = new TimelinePanel(ctx);
-    m_mixer = createPlaceholderPanel(tr("Mixer"), tr("Track levels and meters will appear here."));
+    // The Edit page's Mixer panel: the Audio page's mixer strips (own controller and meter
+    // ballistics; automation Write passes run only from the Audio page).
+    auto* mixerController = new MixerController(ctx, this);
+    mixerController->setWritePassesEnabled(false);
+    auto* meterModel = new MeterModel(this);
+    meterModel->setEngine(ctx.playback);
+    m_mixer = new MixerPanel(ctx, mixerController, meterModel);
     m_keyframes = new KeyframesPanel(ctx);
 
     m_leftColumn = makeSplitter(Qt::Vertical);

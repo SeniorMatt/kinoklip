@@ -74,7 +74,16 @@ namespace kk::serialization {
 ///   bins branch) Project::fromJson() fills "modified" from the files on disk and uses it as
 ///   "added" too (the best known bound), so the date rules of smart bins work on old projects.
 ///   Older builds refuse version 11 instead of silently dropping colours, flags and metadata.
-inline constexpr int kFormatVersion = 11;
+/// - 13 (audiopage branch; 12 is reserved for the colorpage branch): the Audio page's mixer.
+///   Audio tracks may carry "mix" ({"strip", "mono", "buses": [bus ids], "automation": "off" |
+///   "read" | "touch" | "write", "automationKeys": a ParamSet with "volumeDb" / "pan" curves
+///   in timeline frames}); timelines may carry "mixer" ({"buses": [{"id", "name"?, "mono"?,
+///   "strip"?}], "output", "nextBusId"}). A strip is {"eq": {"on", "bands": [6 x {"type",
+///   "on", "freq", "gain", "q"}]}?, "dynamics": {...}?, "volume"?, "pan"?, "muted"?}
+///   (core/MixerJson.h). Every field is optional and defaults to a neutral mixer (main bus
+///   only, every track routed to it), so files of versions 1 - 12 load unchanged and play
+///   exactly as before; older builds refuse version 13 instead of silently dropping the mix.
+inline constexpr int kFormatVersion = 13;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

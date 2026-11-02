@@ -25,7 +25,7 @@ void TimelineLayout::rebuild(const TimelineData& data)
     // Subtitle tracks sit above every video track (like Resolve): ST(n) first, ST1 last.
     for (int i = int(data.subtitleTracks.size()) - 1; i >= 0; --i) {
         const TrackData& t = data.subtitleTracks[size_t(i)];
-        const int h = scaled(trackHeight(t));
+        const int h = scaled(int(std::lround(trackHeight(t) * m_videoHeightScale)));
         m_rows.push_back({TrackRef {TrackType::Subtitle, i}, y, h, 0});
         y += h;
     }
@@ -33,7 +33,7 @@ void TimelineLayout::rebuild(const TimelineData& data)
     for (int i = int(data.videoTracks.size()) - 1; i >= 0; --i) {
         const TrackData& t = data.videoTracks[size_t(i)];
         const int lane = m_laneHeights.value(t.id, 0);
-        const int h = scaled(trackHeight(t)) + lane;
+        const int h = scaled(int(std::lround(trackHeight(t) * m_videoHeightScale))) + lane;
         m_rows.push_back({TrackRef {TrackType::Video, i}, y, h, lane});
         y += h;
     }
@@ -172,6 +172,23 @@ const std::vector<HeaderButton>& TimelineLayout::headerButtons(TrackType type)
     return subtitle;
 }
 
+const std::vector<HeaderButton>& TimelineLayout::buttonsFor(TrackType type) const
+{
+    static const std::vector<HeaderButton> audioPage {HeaderButton::Mute, HeaderButton::Solo,
+        HeaderButton::Arm, HeaderButton::Lock, HeaderButton::AutoSelect};
+    return m_audioPageHeaders && type == TrackType::Audio ? audioPage : headerButtons(type);
+}
+
+QRect TimelineLayout::headerMeterRect(int row) const
+{
+    const QRect r = rowRect(row);
+    if (r.isEmpty() || !m_audioPageHeaders || m_rows[size_t(row)].ref.type != TrackType::Audio)
+        return {};
+    const int lane = m_rows[size_t(row)].laneHeight;
+    return QRect(kHeaderWidth - 4 - kHeaderMeterWidth, r.top() + 3, kHeaderMeterWidth,
+        r.height() - lane - 6);
+}
+
 QRect TimelineLayout::headerButtonRect(int row, HeaderButton button) const
 {
     const QRect r = rowRect(row);
@@ -181,8 +198,11 @@ QRect TimelineLayout::headerButtonRect(int row, HeaderButton button) const
     const int y = r.top() + std::min(6, (r.height() - kHeaderButton) / 2);
     if (button == HeaderButton::Target)
         return QRect(10, y, 30, kHeaderButton);
-    const auto& buttons = headerButtons(m_rows[size_t(row)].ref.type);
+    const TrackType type = m_rows[size_t(row)].ref.type;
+    const auto& buttons = buttonsFor(type);
     int x = kHeaderWidth - 8 - kHeaderButton;
+    if (m_audioPageHeaders && type == TrackType::Audio)
+        x -= kHeaderMeterWidth + 2; // the meter sits at the right edge
     for (HeaderButton b : buttons) {
         if (b == button)
             return QRect(x, y, kHeaderButton, kHeaderButton);
@@ -244,7 +264,7 @@ TimelineHit TimelineLayout::hitTest(const TimelineData& data, QPointF pos) const
             const QPoint p = pos.toPoint();
             if (headerButtonRect(hit.row, HeaderButton::Target).contains(p))
                 hit.button = HeaderButton::Target;
-            for (HeaderButton b : headerButtons(row.ref.type)) {
+            for (HeaderButton b : buttonsFor(row.ref.type)) {
                 if (headerButtonRect(hit.row, b).contains(p))
                     hit.button = b;
             }
