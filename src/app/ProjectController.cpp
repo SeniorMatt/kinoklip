@@ -6,13 +6,13 @@
 #include "app/AutosaveController.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "platform/FileDialogs.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaImport.h"
 
 #include <QAction>
 #include <QDir>
-#include <QFileDialog>
 #include <QFileInfo>
 #include <QLocale>
 #include <QMenu>
@@ -31,11 +31,6 @@ QString projectFilter()
 {
     return QObject::tr("%1 projects (*.%2);;All files (*)")
         .arg(QLatin1String(appinfo::name), QLatin1String(appinfo::projectExtension));
-}
-
-QString lastDir(const char* key)
-{
-    return QSettings().value(QLatin1String(key), QDir::homePath()).toString();
 }
 
 void rememberDir(const char* key, const QString& filePath)
@@ -86,8 +81,8 @@ void ProjectController::open()
 {
     if (!maybeSave())
         return;
-    const QString path = QFileDialog::getOpenFileName(
-        m_window, tr("Open Project"), lastDir(kLastProjectDirKey), projectFilter());
+    const QString path = platform::getOpenFileName(
+        m_window, tr("Open Project"), projectFilter(), QLatin1String(kLastProjectDirKey));
     if (!path.isEmpty())
         openFile(path, false);
 }
@@ -121,11 +116,9 @@ bool ProjectController::save()
 
 bool ProjectController::saveAs()
 {
-    const QString suggested = QDir(lastDir(kLastProjectDirKey))
-                                  .filePath(m_ctx.project->name() + QLatin1Char('.')
-                                      + QLatin1String(appinfo::projectExtension));
-    QString path
-        = QFileDialog::getSaveFileName(m_window, tr("Save Project As"), suggested, projectFilter());
+    QString path = platform::getSaveFileName(m_window, tr("Save Project As"), projectFilter(),
+        QLatin1String(kLastProjectDirKey),
+        m_ctx.project->name() + QLatin1Char('.') + QLatin1String(appinfo::projectExtension));
     if (path.isEmpty())
         return false;
     if (QFileInfo(path).suffix().isEmpty())
@@ -142,11 +135,10 @@ bool ProjectController::saveAs()
 
 void ProjectController::importMedia()
 {
-    const QStringList paths = QFileDialog::getOpenFileNames(
-        m_window, tr("Import Media"), lastDir(kLastMediaDirKey), mediaFileDialogFilter());
+    const QStringList paths = platform::getOpenFileNames(
+        m_window, tr("Import Media"), mediaFileDialogFilter(), QLatin1String(kLastMediaDirKey));
     if (paths.isEmpty())
         return;
-    rememberDir(kLastMediaDirKey, paths.front());
     importMediaWithFeedback(m_ctx, paths, m_window);
 }
 
