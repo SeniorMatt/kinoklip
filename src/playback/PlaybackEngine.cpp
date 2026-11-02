@@ -27,6 +27,9 @@ constexpr size_t kRingFrames = 8192;
 /// Pre-roll before the device starts (frames in the ring), and how long to wait for it.
 constexpr size_t kPrerollFrames = 2 * 1024;
 constexpr int kPrerollTimeoutMs = 60;
+/// Longest a play from rest waits for its first frame before the clock starts anyway
+/// (opening a hardware decoder for the first time takes 200 - 400 ms here).
+constexpr int kVideoPrerollMaxMs = 800;
 int64_t nowMs()
 {
     return monotonicUs() / 1000;
@@ -437,6 +440,8 @@ void PlaybackEngine::updateParams(bool rerender)
             Q_EMIT proxiesInUseChanged(inUse);
         }
     }
+    if (contentChanged)
+        m_currentStale = true; // the frame on screen shows the old pictures
     if (changed) {
         // Size/quality changes during playback keep the frames in flight (same picture).
         m_scheduler.setParams(params, contentChanged || !isPlaying());
@@ -736,12 +741,16 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
 
     m_rate = rate;
     m_statsPlayRate = rate;
-    // Every rate is heard (varispeed, pitched); see AudioFeeder.
-    const bool useAudio = rate != 0.0 && hasAudio() && !m_muted;
-    if (useAudio) {
-        startAudioClock(start);
+    m_prerollUntilUs = 0;
+    // A play from rest whose start frame is not on screen yet (the decoders are still
+    // opening): hold the clock until it is (onTick()), so no frames are dropped at the start.
+    const bool startShown
+        = m_current && m_current->ok && !m_currentStale && m_current->frame == int64_t(start);
+    if (fromRest && !startShown) {
+        m_prerollUntilUs = now + int64_t(kVideoPrerollMaxMs) * 1000;
+        m_prerollFrom = start;
     } else {
-        m_clock.startFree(start, rate, now);
+        startClock(start, now);
     }
     m_motionStartUs = now;
     if (fromRest) {
@@ -765,9 +774,21 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     ensureTicking();
 }
 
+void PlaybackEngine::startClock(double fromFrame, int64_t nowUs)
+{
+    // Every rate is heard (varispeed, pitched); see AudioFeeder.
+    const bool useAudio = m_rate != 0.0 && hasAudio() && !m_muted;
+    if (useAudio) {
+        startAudioClock(fromFrame);
+    } else {
+        m_clock.startFree(fromFrame, m_rate, nowUs);
+    }
+}
+
 void PlaybackEngine::seekWhilePlaying(int64_t frame, bool writePlayhead)
 {
     const int64_t now = monotonicUs();
+    m_prerollUntilUs = 0; // a seek parks: resuming starts the clock
     frame = clampFrame(frame);
     ++m_stats.seeksWhilePlaying;
     if (!m_parked) {
@@ -817,6 +838,7 @@ void PlaybackEngine::stopMotion()
     m_clock.stop();
     m_scheduler.clear();
     m_parked = false;
+    m_prerollUntilUs = 0;
     if (m_logStats) {
         logStatsSummary(); // also covers plays shorter than one stats window (1 s)
     }
@@ -971,6 +993,7 @@ void PlaybackEngine::present(const RenderedFramePtr& frame, int64_t key)
         ++m_winCount;
     }
     m_current = frame;
+    m_currentStale = false;
     Q_EMIT frameReady(m_current);
 }
 
@@ -1068,6 +1091,33 @@ void PlaybackEngine::onTick()
         }
         if (!m_scheduler.busy()) {
             m_tick.stop();
+        }
+        return;
+    }
+
+    if (m_prerollUntilUs > 0) {
+        // Video pre-roll (startMotion()): the first frames go through the playback path (so
+        // its decoders open now, not while the clock runs); the clock starts once the first
+        // one is ready, or at the deadline.
+        const int dir = m_rate > 0 ? 1 : -1;
+        const int64_t first = int64_t(m_prerollFrom);
+        std::vector<FrameSlot> wanted;
+        for (int k = 0; k <= m_scheduler.maxInFlight(); ++k) {
+            const int64_t key = first + dir * k;
+            if (!m_rangeLoop && (key >= m_rangeEnd || key < m_rangeStart))
+                break;
+            wanted.push_back({key, int64_t(wrap(double(key)))});
+        }
+        m_scheduler.prefetch(wanted);
+        int64_t shownKey = 0;
+        RenderedFramePtr frame = m_scheduler.poll(first, dir, &shownKey);
+        const bool ready = frame && frame->ok;
+        if (ready || now >= m_prerollUntilUs) {
+            m_prerollUntilUs = 0;
+            m_motionStartUs = now;
+            if (ready)
+                present(frame, shownKey); // the first played frame (nothing dropped before)
+            startClock(m_prerollFrom, now);
         }
         return;
     }

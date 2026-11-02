@@ -406,7 +406,8 @@ private Q_SLOTS:
             }
         });
         e->play();
-        QVERIFY(e->stats().audioMaster);
+        // The clock starts once the first frame is ready (video pre-roll).
+        QTRY_VERIFY_WITH_TIMEOUT(e->stats().audioMaster, 1000);
         QTest::qWait(2000);
         const auto s = e->stats();
         e->pause();
@@ -421,6 +422,42 @@ private Q_SLOTS:
         QVERIFY2(maxErr < 1.5, qPrintable(QString::number(maxErr)));
         QVERIFY(s.audioMaster);
         QCOMPARE(device->starts(), 1);
+    }
+
+    /// Polish round 2 (first play after an import): a play from rest whose start frame is not
+    /// on screen yet holds the clock and the sound until it is, so the play starts with that
+    /// frame and drops nothing while the decoders open.
+    void playFromRestWaitsForTheFirstFrame()
+    {
+        Timeline tl;
+        tl.setData(solidTimeline(2000));
+        auto fake = std::make_unique<test::FakeAudioOutput>();
+        test::FakeAudioOutput* device = fake.get();
+        auto e = makeEngine(std::move(fake));
+        e->setTimeline(&tl);
+        tl.setPlayhead(40);
+        int64_t firstPlayed = -1;
+        connect(e.get(), &PlaybackEngine::frameReady, this, [&](const RenderedFramePtr& f) {
+            if (f && e->isPlaying() && firstPlayed < 0)
+                firstPlayed = f->frame;
+        });
+        const int starts = device->starts(); // the scrub snippet of setPlayhead() may count
+        e->play(); // at once: the paused frame of the new timeline is not rendered yet
+        QVERIFY(e->isPlaying());
+        QVERIFY(!e->stats().audioMaster); // held
+        QCOMPARE(e->position(), int64_t(40));
+        QTRY_VERIFY_WITH_TIMEOUT(e->stats().audioMaster, 1000);
+        QCOMPARE(device->starts(), starts + 1);
+        QCOMPARE(firstPlayed, int64_t(40));
+        QTRY_VERIFY_WITH_TIMEOUT(e->position() > 45, 2000);
+        QCOMPARE(e->stats().dropped, int64_t(0));
+        e->pause();
+        // Playing again from a frame that is on screen starts the clock at once.
+        QTRY_VERIFY_WITH_TIMEOUT(
+            e->currentFrame() && e->currentFrame()->frame == e->position(), 1000);
+        e->play();
+        QVERIFY(e->stats().audioMaster);
+        e->pause();
     }
 
     void mutedUsesWallClock()
