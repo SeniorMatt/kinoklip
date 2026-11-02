@@ -50,7 +50,8 @@ inline const QString Background = QStringLiteral("background"); ///< colour
 inline const QString Accent = QStringLiteral("accent"); ///< countdown sweep colour
 inline const QString Source = QStringLiteral("source"); ///< timecode: "timeline" | "clip"
 inline const QString Prefix = QStringLiteral("prefix"); ///< timecode text before the value
-inline const QString OffsetY = QStringLiteral("offsetY"); ///< timecode px below the centre
+/// timecode: percent of the frame height the text sits below the centre
+inline const QString OffsetY = QStringLiteral("offsetY");
 inline const QString StartFrame
     = QStringLiteral("startFrame"); ///< timecode value shown at frame 0, frames (static int)
 

@@ -834,7 +834,7 @@ const RenderTarget* GlRenderer::generatorTarget(
         g.textStyle.canvas = size;
         g.textStyle.scale = double(size.height()) / frameSize.height();
         if (const TitleTexture* t = titleTexture(g.textStyle)) {
-            const QRectF rect = t->rect.translated(0, g.textOffsetY * g.textStyle.scale);
+            const QRectF rect = t->rect.translated(0, g.textOffsetY * size.height());
             m_kit->bindTarget(*target);
             m_kit->setBlendOver(true);
             m_kit->blit(t->texture, GlKit::quadToNdc(rect, size));
