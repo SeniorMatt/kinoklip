@@ -129,12 +129,19 @@ public:
     /// Null (default) = moves stay inside the view.
     using ClipDragOut = std::function<void(const QVector<quint64>& clips, int64_t grabFrames)>;
     void setClipDragOut(ClipDragOut handler) { m_clipDragOut = std::move(handler); }
+    /// The offset label shown next to the pointer during a move / trim (empty otherwise).
+    [[nodiscard]] const DragInfoLabel& dragInfo() const { return m_overlay.dragInfo; }
+    /// The frames on both sides of the edit being trimmed (inactive when not trimming).
+    [[nodiscard]] const TrimPreview& trimPreview() const { return m_trimPreview; }
 
 signals:
     /// The user asked to inspect @p clipId (the page shows the Inspector on that tab).
     void inspectRequested(quint64 clipId, kk::TimelineWidget::InspectTarget target);
     /// Zoom or horizontal scroll changed (the Keyframes panel's Follow Timeline mode).
     void viewChanged();
+    /// A trim, roll, slip or slide drag changed the frames at its edit (spec 8.15); an
+    /// inactive preview when the gesture ends. The page shows them in the timeline viewer.
+    void trimPreviewChanged(const kk::TrimPreview& preview);
 
 public slots:
     /// View-only vertical zoom of all tracks (Shift+wheel in the Resolve wheel scheme).
@@ -255,6 +262,10 @@ private:
     void updateRubberBand(QPointF pos);
     void updateTransitionEdge(QPointF pos);
     void updateShuffle(QPointF pos);
+    /// Updates the drag offset label and the trim preview from the live state of the gesture
+    /// (TimelineDragInfo.cpp); clearDragInfo() when the gesture ends.
+    void refreshDragInfo();
+    void clearDragInfo();
     // ---- Level lines and fade handles (TimelineLevelsInput.cpp) ----
     /// Left press with the selection tool on a clip: a fade handle, a volume key or the
     /// level line (Alt+click adds a key). Returns whether the press was taken.
@@ -371,6 +382,7 @@ private:
     bool m_fitOnFirstShow = true;
     quint64 m_hoverClip = 0; ///< clip under the mouse (fade handles shown)
     ClipDragOut m_clipDragOut;
+    TrimPreview m_trimPreview; ///< refreshDragInfo()
 };
 
 } // namespace kk

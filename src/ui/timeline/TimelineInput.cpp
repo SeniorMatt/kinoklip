@@ -536,6 +536,7 @@ void TimelineWidget::updateDrag(QPointF pos)
     case DragMode::Pending:
         break;
     }
+    refreshDragInfo();
     viewport()->update();
 }
 
@@ -552,6 +553,7 @@ void TimelineWidget::finishDrag()
     if (mode == DragMode::Pan)
         viewport()->unsetCursor();
     m_drag = Drag {};
+    clearDragInfo();
     m_overlay.snapFrame.reset();
     m_overlay.rubberBand = QRect();
     if (mode == DragMode::Scrub && m_options.centredPlayhead)
@@ -569,6 +571,7 @@ void TimelineWidget::cancelDrag()
     if (m_drag.mode == DragMode::RubberBand)
         m_ctx.selection->setClips(m_drag.baseSelection);
     m_drag = Drag {};
+    clearDragInfo();
     m_overlay.snapFrame.reset();
     m_overlay.rubberBand = QRect();
     viewport()->unsetCursor();

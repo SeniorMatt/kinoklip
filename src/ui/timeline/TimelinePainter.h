@@ -5,6 +5,7 @@
 
 #include "core/SelectionModel.h"
 #include "core/TimelineData.h"
+#include "ui/timeline/DragInfo.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelineMedia.h"
 
@@ -53,6 +54,7 @@ struct TimelineOverlay
     int dropTransitionRow = -1; ///< transition drop preview: row and frame range
     int64_t dropTransitionFrom = 0;
     int64_t dropTransitionTo = 0;
+    DragInfoLabel dragInfo; ///< offset label next to the pointer while moving / trimming
 };
 
 /// Everything a paint needs, gathered by the widget (all pointers non-owning, non-null except
