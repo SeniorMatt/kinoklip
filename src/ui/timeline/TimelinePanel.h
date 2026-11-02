@@ -3,7 +3,9 @@
 #pragma once
 
 #include "ui/common/PanelFrame.h"
+#include "ui/timeline/TimelinePainter.h"
 
+class QMenu;
 class QSlider;
 class QSplitter;
 class QToolBar;
@@ -40,6 +42,10 @@ public:
     [[nodiscard]] TimelineTabs* tabs() const { return m_tabs; }
     /// Re-reads the preferences this panel follows (Preferences > Editing > Timelines).
     void applyPreferences();
+    /// Timeline View Options (spec 12.11): video clip pictures and audio waveforms of the
+    /// view, stored in the settings (prefs::kTimelineThumbnails / kTimelineWaveforms).
+    void setClipThumbnails(ClipThumbnails mode);
+    void setShowWaveforms(bool on);
 
     // ---- Stacked timelines (View > Stacked Timelines, spec 31.8 - 31.10) ----
     /// Shows a second timeline above the editor (or hides it). The second one is read-only
@@ -68,6 +74,11 @@ private:
 
     AppContext& m_ctx;
     QToolBar* m_toolBar = nullptr;
+    /// The Timeline View Options button and its menu (filled on every show).
+    QWidget* makeViewOptionsButton();
+    void fillViewOptionsMenu(QMenu& menu);
+    ClipThumbnails m_viewThumbnails = ClipThumbnails::Filmstrip;
+    bool m_viewWaveforms = true;
     QSlider* m_zoomSlider = nullptr;
     bool m_syncingSlider = false;
     TimelineController* m_controller = nullptr;
