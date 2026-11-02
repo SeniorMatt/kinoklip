@@ -69,6 +69,8 @@ private:
         int64_t timeUs = 0;
         int64_t nextTimeUs = 0; ///< source time of the next frame (decode-ahead)
         std::shared_ptr<const media::VideoFrame> frame;
+        /// Proxy decoded instead of the original: the original's display size (crop units).
+        QSizeF displayOverride;
         /// Retimed clips with Frame Blend / Optical Flow: the following source frame (own
         /// decoder, so both keep decoding forward), the process and the weight of frameB
         /// (0 = only `frame`; set by the decode when timeUs falls between two frames).
@@ -176,6 +178,7 @@ private:
     GlTransition* m_fallbackTransition = nullptr; ///< cross_dissolve for unknown ids
 
     DecoderPool m_decoders;
+    const ProxyMap* m_proxies = nullptr; ///< RenderRequest::proxies of the current frame
     QThreadPool m_decodeThreads; ///< parallel decoding of the clips visible in one frame
     std::vector<DecodedClip> m_decoded; ///< per-frame scratch (capacity reused)
     qint64 m_uploadNs = 0; ///< plane upload time of the current frame (statistics)

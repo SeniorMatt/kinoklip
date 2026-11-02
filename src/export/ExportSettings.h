@@ -67,6 +67,9 @@ struct VideoExportSettings
     /// Allow B-frames (frame reordering) in inter-frame codecs. Off: every frame only refers
     /// to earlier ones (some editing and streaming tools want that).
     bool frameReordering = true;
+    /// Favour decoding speed over compression (H.264: libx264 "tune fastdecode" = CAVLC, no
+    /// deblocking / weighted prediction; VAAPI: CAVLC). Proxy media; not in the JSON form.
+    bool fastDecode = false;
 
     friend bool operator==(const VideoExportSettings&, const VideoExportSettings&) = default;
 };

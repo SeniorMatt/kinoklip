@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ProjectSettingsDialog — Resolve-style project settings: a section list (Master Settings,
-// Image Scaling, Audio, General Options, Render Cache) and the section's settings.
+// Image Scaling, Audio, General Options, Optimized Media and Render Cache) and the section's
+// settings.
 #pragma once
 
 #include "core/Project.h"
 
 #include <QDialog>
 
+class QCheckBox;
 class QComboBox;
 class QLabel;
 class QLineEdit;
@@ -41,6 +43,8 @@ public:
 
     /// Settings as currently entered.
     [[nodiscard]] ProjectSettings settings() const;
+    /// Optimized media / proxy / render cache settings currently shown.
+    [[nodiscard]] MediaCacheSettings cacheSettings() const;
     /// Fills the controls from @p settings (selects a matching preset or Custom).
     void setSettings(const ProjectSettings& settings);
     /// Applies the entered settings to the project (one undo step if the timeline changes).
@@ -79,6 +83,15 @@ private:
     QComboBox* m_retimeProcess = nullptr; ///< Frame Interpolation > Retime process
     QSpinBox* m_autosave = nullptr;
     QLabel* m_warning = nullptr;
+    QComboBox* m_proxyResolution = nullptr;
+    QComboBox* m_proxyFormat = nullptr;
+    QComboBox* m_optimizedResolution = nullptr;
+    QComboBox* m_optimizedFormat = nullptr;
+    QComboBox* m_cacheFormat = nullptr;
+    QCheckBox* m_backgroundCache = nullptr;
+    QSpinBox* m_backgroundDelay = nullptr;
+    QCheckBox* m_userTransitions = nullptr;
+    QCheckBox* m_userComposites = nullptr;
     QListWidget* m_sections = nullptr;
     QStackedWidget* m_stack = nullptr;
 };

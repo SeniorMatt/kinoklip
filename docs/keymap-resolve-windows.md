@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 184 commands; sure 94, likely 50, unsure 40.
+Counts: 201 commands; sure 94, likely 64, unsure 43.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -250,6 +250,28 @@ that every command has an entry and that no key is used twice.
 | Timeline Proxy Resolution: Half | `playback.resolution_half` | (none) | sure | menu command without a default key |
 | Timeline Proxy Resolution: Quarter | `playback.resolution_quarter` | (none) | sure | menu command without a default key |
 | Automatic proxy resolution (Kinoklip) | `playback.resolution_auto` | (none) | sure | no Resolve equivalent; Resolve's closest is Performance Mode |
+| Proxy Handling: Prefer Proxies | `playback.proxy_prefer` | (none) | likely | menu command without a default key (Playback > Proxy Handling) |
+| Proxy Handling: Prefer Camera Originals | `playback.proxy_originals` | (none) | likely | menu command without a default key |
+| Proxy Handling: Disable All Proxies | `playback.proxy_disable` | (none) | likely | menu command without a default key |
+| Use Proxy Media If Available | `playback.use_proxy` | (none) | unsure | no default key known; toggles between Prefer Proxies and Disable All Proxies |
+| Use Optimized Media If Available | `playback.use_optimized` | (none) | likely | menu command without a default key |
+| Render Cache: None | `playback.render_cache_none` | (none) | likely | menu command without a default key |
+| Render Cache: Smart | `playback.render_cache_smart` | (none) | likely | menu command without a default key |
+| Render Cache: User | `playback.render_cache_user` | (none) | likely | menu command without a default key |
+| Delete Render Cache (all) | `playback.delete_render_cache` | (none) | unsure | Resolve offers All / Unused / Selected Clips; Kinoklip deletes all |
+| Render Cache Clip Output | `clip.render_cache_output` | (none) | likely | clip context menu command without a default key |
+
+## Media pool
+
+| Command | Action id | Key | Confidence | Note |
+|---|---|---|---|---|
+| Generate Optimized Media | `mediapool.generate_optimized` | (none) | likely | media pool context menu, no default key |
+| Generate Proxy Media | `mediapool.generate_proxy` | (none) | likely | media pool context menu, no default key |
+| Stop generating proxy / optimized media | `mediapool.stop_generation` | (none) | unsure | Resolve stops from its progress dialog; Kinoklip from the context menu |
+| Link Proxy Media | `mediapool.link_proxy` | (none) | likely | media pool context menu, no default key |
+| Unlink Proxy Media | `mediapool.unlink_proxy` | (none) | likely | media pool context menu, no default key |
+| Delete Proxy Media | `mediapool.delete_proxy` | (none) | likely | media pool context menu, no default key |
+| Delete Optimized Media | `mediapool.delete_optimized` | (none) | likely | media pool context menu, no default key |
 
 ## Help
 

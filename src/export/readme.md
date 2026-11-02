@@ -129,6 +129,75 @@ Software encoders: libx264, libx265, libsvtav1 (libaom-av1 fallback), libvpx-vp9
 dnxhd, png, mjpeg, tiff, exr, gif. Hardware: h264/hevc/av1 `_nvenc`, `_vaapi`, `_qsv`;
 vp9 `_vaapi`, `_qsv`.
 
+## Proxy media, optimized media, render cache
+
+| File | What |
+|---|---|
+| `ProxyMedia.h` | intermediate formats (`proxyFormats()`, `renderCacheFormats()`), `intermediateSettings()`, `makeProxyJob()` (one media item -> one-clip timeline -> QuickTime file) |
+| `ProxyQueue.h` | background proxy / optimized media jobs (private RenderQueue), progress per item, cancel, atomic rename + sidecar + link on success, `deleteLinked()` |
+| `RenderCacheManager.h` | Playback > Render Cache: keys of the active timeline, idle-time background rendering of wanted chunks, pause during playback, eviction, `RenderCacheView` for playback, ruler ranges |
+
+**Proxies vs optimized media** (Resolve's two concepts, same machinery here):
+* *Proxy media*: small, fast-to-decode copies (default H.264 fast decode at "Choose
+  automatically" = at most 540 lines) in a portable folder of the user's choice (Preferences >
+  Media Storage), linkable by hand, used according to Playback > Proxy Handling, ignored by
+  export unless Deliver's "Use proxy media" is on. For editing on weak laptops.
+* *Optimized media*: edit-friendly intermediates (default DNxHR LB at original resolution,
+  intra-only, so seeking and scrubbing are instant) that Kinoklip manages in the cache folder;
+  used whenever "Use Optimized Media If Available" is on and no proxy is used. For sources that
+  are slow to decode at full quality (long-GOP HEVC, RAW-ish formats).
+
+Both are *display-equivalent*: rendered by the compositor from a one-clip timeline the size of
+the proxy, i.e. upright, square pixels, same display aspect, frame k at k / fps of the source
+rate, the source's sound as PCM 16-bit. The renderer decodes them with the original's geometry
+(`ProxyRef::displaySize`), so crop values, fitting and rotation behave exactly as with the
+original. Stale detection: `MediaLink::source` = size + mtime of the original when the file was
+made (core/MediaLinks.h).
+
+**Choice of the default proxy codec** (measured on the dev box, FFmpeg 6.1 software decoding,
+one thread, 1080p60 noisy test pattern transcoded, 240 frames; ms per frame):
+
+| Codec (960x540) | decode | size / 4 s | | Codec (1920x1080) | decode |
+|---|---|---|---|---|---|
+| H.264 GOP 12, no B, tune fastdecode | **1.5** | 2.4 MB | | H.264 GOP 12 fastdecode | 10.8 |
+| H.264 GOP 12, no B, CABAC | 2.9 | 2.0 MB | | H.264 CABAC (= camera-like) | 21.1 |
+| H.264 intra only, fastdecode | 3.2 | 6.5 MB | | DNxHR LB | 8.7 |
+| MJPEG q4 | 2.1 | 7.6 MB | | MJPEG q4 | 8.7 |
+| DNxHR LB | 2.2 | 11.8 MB | | ProRes 422 Proxy | 11.6 |
+| ProRes 422 Proxy (10-bit) | 3.5 | 15.1 MB | | the original (H.264 High, long GOP) | 21.0 |
+
+H.264 fast decode wins at proxy sizes (decode cost and size), seeks decode at most 11 extra
+frames (~16 ms at 540p), and every laptop GPU (Iris Xe: VAAPI) decodes it in hardware. DNxHR
+LB is the default for optimized media (intra) and the render cache: at 1080p it decodes in
+8.7 ms on one core, 5 ms with 4 slice threads (DNxHR SQ: 21.7 / 12 ms, closer to the uncached
+picture; selectable).
+
+**Playback measurement** (`KK_PERF_PROXIES=1 build/test_proxyperf`): 3-layer 1080p60 timeline
+(full frame + two picture-in-picture layers of a camera-like H.264 High 1080p60 file), Edit-page
+viewer 1000x562, Full, software decoding (`KINOKLIP_HWACCEL=off`), llvmpipe under xvfb, dev
+box shared with other builds (load average 6-10; with load 15-18 every mode was 3-4x slower):
+
+| Mode | fps of 60 | dropped / 3 s | render ms [decode, upload, output] |
+|---|---|---|---|
+| camera originals | 13.3 | 141 | 62.9 [47.7, 13.2, 12.5] |
+| proxies (960x540 H.264 fast decode) | 48.0 | 37 | 20.7 [3.3, 5.6, 11.7] |
+| render cache (DNxHR LB 1080p, Smart) | 52.3 | 23 | 20.9 [3.3, 1.0, 14.8] |
+
+Generating the proxy took 6.9 s for 5 s of 1080p60 (NVENC on the dev box; libx264 or VAAPI
+elsewhere); caching the 4 s timeline 23.9 s on llvmpipe. The remaining drops are llvmpipe's
+output stage (the software GL itself), not decoding; on the laptop's Iris Xe that stage is a
+fraction of a millisecond.
+
+**Render cache design**: the active timeline is cut into one-second chunks; a chunk's key is a
+SHA-1 over the cache version, app version, format, timeline format, range and the JSON of every
+clip that can influence the chunk (+ media fingerprints, nested timelines); see
+`render/RenderCacheKeys.h` for the exact rules. The key is the file name
+(`<cache folder>/RenderCache/<key>.mov`), so invalidation needs no bookkeeping: edits change
+keys, unchanged chunks keep theirs (also across undo, timelines and projects). Wanted chunks
+(Smart / User rules) are rendered after the idle delay through the normal export pipeline
+from the camera originals; the Compositor substitutes a cached chunk only for the exact
+snapshot (pointer) the view was built for. Cached pictures are opaque (rendered over black).
+
 ## Performance
 
 `build/test_exportperf` (1080p25 H.264 CRF/CQ 20, 100 frames of the 1080p fixture + AAC).

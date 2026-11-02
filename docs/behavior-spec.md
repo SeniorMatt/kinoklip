@@ -430,7 +430,7 @@ Clean room: our own wording, icons and handle design.
 | 27.9 | Drawing a polygon / bezier mask: click = corner point; press and drag (bezier) = smooth point with tangents along the drag; click the first point, double-click or press Enter = close; Backspace = remove the last point; Esc = close, or discard a mask with fewer points than a shape needs. Freehand: press and draw, releasing closes and simplifies the stroke. A closed path is recentred on its bounding box (rotation and scale act about its middle). Each point is one undo step. | Fixed (test_masksui overlayDrawsPolygon, overlayDrawsBezierAndFreehand, overlayDrawingCancel) |
 | 27.10 | Editing points: drag = move (all selected points), Shift+click = add to the selection, drag a tangent end = turn it (a smooth point keeps the other side collinear with its length; Alt breaks the tangent), double-click a point = corner / smooth, click the outline = insert a point there (the curve keeps its shape), Delete / Backspace = remove the selected points (not below the shape's minimum). With focus in the viewer these keys go to the mask, not the timeline. | Fixed (test_masksui overlayDrawsPolygon, overlayDrawsBezierAndFreehand; test_masks insertPointKeepsTheOutline) |
 | 27.11 | Masks render the same in the viewer, playback and export (the compositor), on clips inside compound clips / nested timelines and on compound (nested) clips themselves; the CPU fallback applies them as hard-edged shapes (modes and invert exact, feather / expand / partial opacity ignored). Timeline thumbnails show the source media, as before. | Fixed (test_maskrender cpuFallback). Decision on the fallback. |
-| 27.12 | Project files store masks from format version 4; projects of versions 1 - 3 load unchanged and are saved as version 4; a newer version is refused. | Fixed (test_masks serializationRoundTrip, formatVersion2Loads) |
+| 27.12 | Project files store masks from format version 4; projects of versions 1 - 3 load unchanged and are saved in the current format (4 or later); a newer version is refused. | Fixed (test_masks serializationRoundTrip, formatVersion2Loads) |
 | 27.13 | Mask tracking (point / planar) and mask presets are not implemented. | Deferred (roadmap v2 stretch goal) |
 
 ## 28. Adjustment clips, generators and subtitles (adjsubs branch, v2)
@@ -482,6 +482,33 @@ retime controls behave (clean room: our own wording and drawing). Model and math
 | 31.15 | Project files store the retime curve, process and pitch correction from format version 5; the single speed of older projects loads as one constant segment with pitch correction off (they resampled their audio), so they play as before. | Fixed (test_retime serializationRoundTrip, formatThreeSpeedMigrates) |
 | 31.16 | Motion estimation settings, a per-clip Inspector retime section and speed-change keyboard nudges are not implemented. | Deferred |
 
+## 29. Proxy media, optimized media and render cache (proxies branch, roadmap v2)
+
+From general knowledge of how Resolve handles proxies, optimized media and its render cache
+(clean room; Resolve was not used).
+Tests: ml = test_medialinks, px = test_proxies, rc = test_rendercache, mm = test_mediamanagement.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 29.1 | Media pool context menu (video items): Generate Optimized Media, Generate Proxy Media, Stop Generating, Link Proxy Media..., Unlink Proxy Media, Delete Proxy Media..., Delete Optimized Media.... They act on every selected item; audio files, stills and timelines are skipped (a note when nothing could be queued). | Fixed (mm endToEnd) |
+| 29.2 | Generation runs in the background, one file at a time, at low priority; the tile shows a badge "P 42%" (proxy) / "O 42%" (optimized) while it runs, then "P" / "O"; the list view has Proxy and Optimized Media columns ("None", "960x540", "Generating 42%", "Stale (source changed)", "Missing"). Stop Generating cancels; a cancelled or failed job leaves no file and no link. | Fixed (px cancelLeavesNothing; mm endToEnd) |
+| 29.3 | Proxy resolution: Choose automatically (default) / Original / Half / Quarter (Project Settings > Optimized Media and Render Cache). Automatic = the largest of the three that is at most 540 lines high (1080p and 4K sources: 960x540; 720p: 640x360; SD: original). | Decision (ml proxySizes) |
+| 29.4 | Proxy format: H.264 fast decode (default: 12-frame GOP without B-frames, CAVLC, no deblocking; hardware encoded where possible), ProRes 422 Proxy / LT, DNxHR LB / SQ, in QuickTime with the source's sound as PCM. Sources with alpha get ProRes 4444. Optimized media: Original resolution, DNxHR LB by default. | Decision (measured, export/readme.md) |
+| 29.5 | Proxies are stored in the proxy folder (Preferences > System > Media Storage > Proxy generation location; default <cache folder>/ProxyMedia) as "<name>_<8 hex digits of the source path hash>.mov" with a small JSON sidecar; optimized media in <cache folder>/OptimizedMedia. Regenerating replaces the file atomically. | Fixed (ml stableNames; px generateLinkAndPlay) |
+| 29.6 | Links are saved with the project. On load and on import, proxies / optimized media with the stable name and a sidecar naming the source are linked automatically (also in other projects). Linking is not an edit: undo never unlinks. | Fixed (ml projectRoundTrip, linksSurviveUndo, sidecarAndAutoLink; mm endToEnd) |
+| 29.7 | A proxy made from a source that has changed since (size or modification time) is stale: never used, badge "P!" in amber, column "Stale (source changed)". A missing proxy file is shown the same way ("Missing"). | Fixed (ml staleDetection; px generateLinkAndPlay) |
+| 29.8 | Link Proxy Media... links any video file of (nearly) the same length by hand; Unlink keeps the file; Delete Proxy Media deletes generated files and unlinks, but only unlinks files outside the proxy folder. | Fixed (px generateLinkAndPlay; mm endToEnd) |
+| 29.9 | Playback > Proxy Handling: Prefer Proxies (default), Prefer Camera Originals (the original while it is online; an offline original plays its proxy, picture and sound), Disable All Proxies. Playback > Use Proxy Media If Available toggles between Prefer Proxies and Disable All Proxies. Playback > Use Optimized Media If Available (default on). Settings are per project. | Fixed (px generateLinkAndPlay; mm endToEnd) |
+| 29.10 | With a proxy the clip looks the same, only less detailed: same frame (frame-exact), same framing, crop in source pixels, same rotation and pixel aspect handling. Applies to the timeline viewer and the source viewer. | Fixed (px generateLinkAndPlay, rotatedSourceKeepsGeometry) |
+| 29.11 | The viewer title bar shows "Proxy" (amber) while the shown timeline / clip uses proxy or optimized media. | Fixed (mm endToEnd: PlaybackEngine::proxiesInUse) |
+| 29.12 | Export always renders the camera originals. Deliver > Video > "Use proxy media" / "Use optimized media" (off by default) render with them instead. | Fixed (px exportUsesOriginals) |
+| 29.13 | Playback > Render Cache: None (default for new projects), Smart, User. Smart caches one-second sections with a transition, a composite (two or more video tracks with pictures), effects or masks, a compound / nested clip or a speed change. User caches clips marked Clip > Render Cache Clip Output (an undoable clip flag) plus, when enabled in Project Settings, transitions and composites. | Fixed (rc chunkGrid, userMode; mm endToEnd) |
+| 29.14 | Background caching starts after the user has been idle for N seconds (Project Settings: "Enable background caching after N seconds", default 5); playback pauses it and abandons the section in progress. Sections render from the camera originals at timeline resolution in the render cache format (DNxHR LB default; DNxHR SQ, ProRes 422 Proxy, ProRes 422). | Fixed (rc pauseAbortsAndBackgroundStarts) |
+| 29.15 | The timeline ruler shows a thin bar at its top: red over sections that need caching, blue over cached ones. | Fixed (new) |
+| 29.16 | Playback shows cached sections from the cache; the picture matches the uncached render within the codec's loss (DNxHR LB on the test content: mean 2.9-4.2 of 255, luma PSNR 34-37 dB). Cached pictures are opaque (composited over black). | Fixed (rc backgroundCacheAndHit) |
+| 29.17 | Invalidation: any change that can alter a section's pictures makes its cache unused (property / keyframe changes, trims, slips, moves, effects and their parameters, masks, transitions on either side of a cut, track enable, timeline size / rate, cache format, relinking or replacing a media file, edits inside nested timelines). Renaming, colour labels, markers, audio changes and the cache flag itself keep it. Undo returns to the cached state. | Fixed (rc *Invalidates*, irrelevantChangesKeepTheCache, transitionNeighbours, nestedTimelineInvalidates, backgroundCacheAndHit) |
+| 29.18 | Playback > Delete Render Cache... deletes every cached file; the cache folder is kept under a size limit (Preferences > Media Storage, default 20 GB, oldest files first). Resolve's Delete Render Cache > Unused / Selected Clips are not offered. | Decision |
+
 ---
 
 ## Summary
@@ -499,6 +526,7 @@ retime controls behave (clean room: our own wording and drawing). Model and math
 - The retime branch (roadmap v2) added 31.1 - 31.16 (speed points, ramps, reverse / freeze,
   retime process, pitch-corrected audio) and updated 23.7.
 - The masks branch (roadmap v2) added 27.1 - 27.13 (shape masks, on-screen mask controls).
+- The proxies branch (roadmap v2) added 29.1 - 29.18 (proxy and optimized media, render cache).
 - The kfwindow branch (alpha.2 feedback #10) added 15.14 - 15.20 (the Keyframes panel, docked
   or floating, sharing its editing code with the inline lanes).
 - The adjsubs branch (v2) added 28.1 - 28.14 (adjustment clips, generators, subtitles).

@@ -6,6 +6,7 @@ namespace kk {
 
 class ActionRegistry;
 class PlaybackEngine; // src/playback; null in tests that do not need playback
+class MediaManagement; // proxies / optimized media / render cache; may be null in tests
 class Project;
 class SelectionModel;
 class SettingsPageRegistry;
@@ -20,6 +21,7 @@ struct AppContext
     ActionRegistry* actions = nullptr; ///< every user command, by id (never null in the app)
     PlaybackEngine* playback = nullptr; ///< program (timeline) playback; may be null in tests
     SettingsPageRegistry* settingsPages = nullptr; ///< preference pages (null: standard pages only)
+    MediaManagement* media = nullptr; ///< proxies, optimized media, render cache; may be null
 };
 
 } // namespace kk

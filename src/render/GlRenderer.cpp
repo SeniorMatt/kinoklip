@@ -291,7 +291,15 @@ void GlRenderer::queueDecode(const ClipData* clip, int64_t frame, int64_t nextFr
     const int64_t timeUs = clampedSourceTimeUs(*clip, frame, tl.fps);
     if (decoded(clip, timeUs))
         return;
-    const QString path = media ? media->value(clip->mediaId) : QString();
+    // A proxy / optimized file stands in for the original's video (same timing, original
+    // geometry: ProxyRef::displaySize); export passes no proxies.
+    const ProxyRef* proxy = nullptr;
+    if (m_proxies) {
+        const auto it = m_proxies->constFind(clip->mediaId);
+        if (it != m_proxies->constEnd())
+            proxy = &it.value();
+    }
+    const QString path = proxy ? proxy->path : media ? media->value(clip->mediaId) : QString();
     if (path.isEmpty())
         return; // unknown media id: the clip is offline and draws nothing
     DecoderPool::Entry* entry = m_decoders.acquire(path, timeUs);
@@ -302,6 +310,8 @@ void GlRenderer::queueDecode(const ClipData* clip, int64_t frame, int64_t nextFr
     d.entry = entry;
     d.timeUs = timeUs;
     d.nextTimeUs = clampedSourceTimeUs(*clip, nextFrame, tl.fps);
+    if (proxy) // decode the proxy, keep the original's geometry (crop units, fit)
+        d.displayOverride = proxy->displaySize;
     d.process = m_retimeOk ? retime::effectiveProcess(*clip, tl) : RetimeProcess::Nearest;
     if (d.process != RetimeProcess::Nearest) {
         // The in-between needs the next source frame too: a second decoder positioned one
@@ -454,6 +464,7 @@ void GlRenderer::render(RenderJob& job)
     m_decoders.beginFrame();
     m_decoded.clear();
     m_nested.clear();
+    m_proxies = rq.proxies.get();
     queueTimeline(tl, rq.frame, rq.frame + 1, tl.nested, job.media.get(), 0);
     decodeQueued();
     const qint64 decodedNs = timer.nsecsElapsed();
@@ -475,6 +486,7 @@ void GlRenderer::render(RenderJob& job)
     std::shared_ptr<RenderedFrame> result
         = m_output->produce(*accumulator, (rq.outputs & OutputTexture) != 0, scratch, &readFbo);
     result->frame = rq.frame;
+    result->fromCache = job.fromCache;
     result->decodeMs = double(decodedNs) / 1e6;
     result->uploadMs = double(m_uploadNs) / 1e6;
     result->compositeMs = double(compositedNs - decodedNs - m_uploadNs) / 1e6;
@@ -648,7 +660,9 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         m_uploadNs += uploadTimer.nsecsElapsed();
         const media::VideoFrame& f = *d->frame;
         src.kind = ClipSource::Kind::Video;
-        src.sourcePx = displaySize(f.width, f.height, f.sampleAspectRatio, f.rotation);
+        src.sourcePx = d->displayOverride.isEmpty()
+            ? displaySize(f.width, f.height, f.sampleAspectRatio, f.rotation)
+            : d->displayOverride; // proxy: crop and fit in the original's pixels
         src.content = fitSize(src.sourcePx, frameSize);
         src.video = d;
         src.planes = planes.get();

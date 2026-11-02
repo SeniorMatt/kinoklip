@@ -3,8 +3,11 @@
 #include "ui/dialogs/ProjectSettingsDialog.h"
 
 #include "core/Preferences.h"
+#include "core/Project.h"
+#include "export/ProxyMedia.h"
 #include "ui/common/Metrics.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -128,7 +131,7 @@ ProjectSettingsDialog::ProjectSettingsDialog(Project* project, QWidget* parent)
     addSection(QStringLiteral("scaling"), tr("Image Scaling"), buildScaling());
     addSection(QStringLiteral("audio"), tr("Audio"), buildAudio());
     addSection(QStringLiteral("general"), tr("General Options"), buildGeneral());
-    addSection(QStringLiteral("cache"), tr("Render Cache"), buildCache());
+    addSection(QStringLiteral("cache"), tr("Optimized Media and Render Cache"), buildCache());
     m_sections->setCurrentRow(0);
 
     auto* separator = new QFrame;
@@ -332,13 +335,93 @@ QWidget* ProjectSettingsDialog::buildGeneral()
 
 QWidget* ProjectSettingsDialog::buildCache()
 {
+    // Resolve: Master Settings > Optimized Media and Render Cache.
     auto* form = makeForm();
-    const QString why = tr("Render cache and optimized media are coming in a later version; "
-                           "playback lowers the preview resolution instead when needed.");
-    form->addRow(tr("Render cache format"), fixedCombo(tr("None"), why));
-    form->addRow(tr("Optimized media resolution"), fixedCombo(tr("None"), why));
-    form->addRow(tr("Optimized media format"), fixedCombo(tr("None"), why));
+    auto resolutionCombo = [](const char* name) {
+        auto* c = new QComboBox;
+        c->setObjectName(QLatin1String(name));
+        c->addItem(tr("Choose automatically"), int(ProxyResolution::Auto));
+        c->addItem(tr("Original"), int(ProxyResolution::Original));
+        c->addItem(tr("Half"), int(ProxyResolution::Half));
+        c->addItem(tr("Quarter"), int(ProxyResolution::Quarter));
+        return c;
+    };
+    auto formatCombo = [](const char* name, const QVector<IntermediateFormat>& formats) {
+        auto* c = new QComboBox;
+        c->setObjectName(QLatin1String(name));
+        for (const IntermediateFormat& f : formats)
+            c->addItem(f.name, f.id);
+        return c;
+    };
+    m_proxyResolution = resolutionCombo("ProxyResolution");
+    m_proxyResolution->setToolTip(tr("Choose automatically: the largest of Original, Half and "
+                                     "Quarter that is at most 540 lines high."));
+    form->addRow(tr("Proxy media resolution"), m_proxyResolution);
+    m_proxyFormat = formatCombo("ProxyFormat", proxyFormats());
+    m_proxyFormat->setToolTip(tr("H.264 (fast decode) gives the smallest files and the fastest "
+                                 "playback on laptops; hardware encoded when available."));
+    form->addRow(tr("Proxy media format"), m_proxyFormat);
+    m_optimizedResolution = resolutionCombo("OptimizedResolution");
+    form->addRow(tr("Optimized media resolution"), m_optimizedResolution);
+    m_optimizedFormat = formatCombo("OptimizedFormat", proxyFormats());
+    form->addRow(tr("Optimized media format"), m_optimizedFormat);
+    m_cacheFormat = formatCombo("RenderCacheFormat", renderCacheFormats());
+    m_cacheFormat->setToolTip(tr("Intra-frame codec of cached frames (timeline resolution). "
+                                 "DNxHR LB decodes fastest; SQ / ProRes 422 look closer to "
+                                 "the uncached picture."));
+    form->addRow(tr("Render cache format"), m_cacheFormat);
+
+    auto* background = new QWidget;
+    auto* row = new QHBoxLayout(background);
+    row->setContentsMargins(0, 0, 0, 0);
+    m_backgroundCache = new QCheckBox(tr("Enable background caching after"));
+    m_backgroundCache->setObjectName(QStringLiteral("BackgroundCache"));
+    m_backgroundDelay = new QSpinBox;
+    m_backgroundDelay->setObjectName(QStringLiteral("BackgroundCacheDelay"));
+    m_backgroundDelay->setRange(0, 600);
+    m_backgroundDelay->setSuffix(tr(" seconds"));
+    row->addWidget(m_backgroundCache);
+    row->addWidget(m_backgroundDelay);
+    row->addStretch(1);
+    form->addRow(QString(), background);
+    m_userTransitions = new QCheckBox(tr("Automatically cache transitions in User Mode"));
+    m_userTransitions->setObjectName(QStringLiteral("UserCacheTransitions"));
+    form->addRow(QString(), m_userTransitions);
+    m_userComposites = new QCheckBox(tr("Automatically cache composites in User Mode"));
+    m_userComposites->setObjectName(QStringLiteral("UserCacheComposites"));
+    form->addRow(QString(), m_userComposites);
+
+    auto select = [](QComboBox* c, const QVariant& v) {
+        const int i = c->findData(v);
+        if (i >= 0)
+            c->setCurrentIndex(i);
+    };
+    const MediaCacheSettings& cs = m_project->cacheSettings();
+    select(m_proxyResolution, int(cs.proxyResolution));
+    select(m_proxyFormat, cs.proxyFormat);
+    select(m_optimizedResolution, int(cs.optimizedResolution));
+    select(m_optimizedFormat, cs.optimizedFormat);
+    select(m_cacheFormat, cs.renderCacheFormat);
+    m_backgroundCache->setChecked(cs.backgroundCache);
+    m_backgroundDelay->setValue(cs.backgroundCacheDelaySec);
+    m_userTransitions->setChecked(cs.userCacheTransitions);
+    m_userComposites->setChecked(cs.userCacheComposites);
     return formWidget(form);
+}
+
+MediaCacheSettings ProjectSettingsDialog::cacheSettings() const
+{
+    MediaCacheSettings s = m_project->cacheSettings(); // keeps the Playback menu modes
+    s.proxyResolution = ProxyResolution(m_proxyResolution->currentData().toInt());
+    s.proxyFormat = m_proxyFormat->currentData().toString();
+    s.optimizedResolution = ProxyResolution(m_optimizedResolution->currentData().toInt());
+    s.optimizedFormat = m_optimizedFormat->currentData().toString();
+    s.renderCacheFormat = m_cacheFormat->currentData().toString();
+    s.backgroundCache = m_backgroundCache->isChecked();
+    s.backgroundCacheDelaySec = m_backgroundDelay->value();
+    s.userCacheTransitions = m_userTransitions->isChecked();
+    s.userCacheComposites = m_userComposites->isChecked();
+    return s;
 }
 
 ProjectSettings ProjectSettingsDialog::settings() const
@@ -404,6 +487,7 @@ void ProjectSettingsDialog::updateWarning()
 void ProjectSettingsDialog::apply()
 {
     m_project->setSettings(settings());
+    m_project->setCacheSettings(cacheSettings());
     if (m_autosave->value() != prefs::autosaveMinutes()) {
         prefs::setAutosaveMinutes(m_autosave->value());
         emit preferencesChanged();
