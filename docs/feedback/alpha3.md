@@ -16,3 +16,4 @@
      (QSV probes).
    - No line says which hardware decoder is actually used when it works.
 4. Owner wants: fix all bugs, then move on to the next stage (v2 in docs/roadmap.md).
+5. The main window flickers and stutters while resizing on KDE Plasma (Wayland). Sent to the wayland agent.
