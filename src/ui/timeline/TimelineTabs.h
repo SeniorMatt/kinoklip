@@ -50,6 +50,7 @@ private:
     AppContext& m_ctx;
     QTabBar* m_bar = nullptr;
     QComboBox* m_combo = nullptr;
+    QWidget* m_spacer = nullptr;
     bool m_tabsMode = true;
     bool m_syncing = false;
 };
