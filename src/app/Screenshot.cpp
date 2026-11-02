@@ -121,14 +121,17 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         dialog = std::move(settings);
     } else if (target == QLatin1String("keyboard")) {
         dialog = std::make_unique<KeyboardCustomizationDialog>(*ctx.actions, &window);
-    } else if (target == QLatin1String("menu-color-theme")
-        || target == QLatin1String("menu-style")) {
-        QMenu* settings = findMenu(&window, QStringLiteral("settings"));
+    } else if (target == QLatin1String("menu-color-theme") || target == QLatin1String("menu-style")
+        || target == QLatin1String("menu-playback-resolution")) {
+        const bool playback = target == QLatin1String("menu-playback-resolution");
+        QMenu* settings
+            = findMenu(&window, playback ? QStringLiteral("playback") : QStringLiteral("settings"));
         QMenu* sub = findMenu(&window,
-            target == QLatin1String("menu-style") ? QStringLiteral("settings.style")
-                                                  : QStringLiteral("settings.color_scheme"));
+            playback                                    ? QStringLiteral("playback.resolution")
+                : target == QLatin1String("menu-style") ? QStringLiteral("settings.style")
+                                                        : QStringLiteral("settings.color_scheme"));
         if (!settings || !sub) {
-            std::fprintf(stderr, "no Settings menu\n");
+            std::fprintf(stderr, "no such menu\n");
             return 2;
         }
         QMenuBar* bar = window.menuBar();
@@ -184,7 +187,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             "mediapool, "
             "effects, menu-color-theme "
             "or "
-            "menu-style)\n",
+            "menu-style, menu-playback-resolution)\n",
             qPrintable(target));
         return 2;
     }
