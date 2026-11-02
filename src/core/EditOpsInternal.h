@@ -13,7 +13,8 @@
 namespace kk::editops::detail {
 
 inline constexpr int64_t kUnbounded = std::numeric_limits<int64_t>::max() / 4;
-inline constexpr TrackType kTrackTypes[] = {TrackType::Video, TrackType::Audio};
+inline constexpr TrackType kTrackTypes[]
+    = {TrackType::Video, TrackType::Audio, TrackType::Subtitle};
 
 // Hands out one new link group per old group during a single operation, so that the right-hand
 // pieces of linked clips split together stay linked to each other.

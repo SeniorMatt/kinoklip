@@ -402,6 +402,8 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     // and 2 -> 3 (one "timeline" object -> "timelines") happens in fromJson().
     // Version 3 -> 4 only added clip masks ("masks", absent = none): a version-3 document is a
     // valid version-4 document without masks, and it is written back as version 4.
+    // Versions 4 - 6 -> 7 only added adjustment / generator clips, subtitle tracks and
+    // subtitle media items (all optional fields, absent = none): nothing to convert.
 
     // Media paths stored relative to the document resolve against the document's folder
     // (for a recovered autosave that is the original project file, not the autosave dir).
