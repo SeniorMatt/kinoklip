@@ -57,20 +57,20 @@ QIcon mirrored(const QIcon& base)
 }
 
 /// The play icon between in/out brackets ("play in to out").
-QIcon bracketed(const QIcon& base, const QColor& color)
+/// @p base between square brackets ("play in to out"), drawn with paletteIcon() so base and
+/// brackets follow colour scheme switches.
+QIcon bracketed(const QIcon& base, const QString& cacheKey)
 {
-    const int s = kTransportIconSize * 2;
-    QPixmap pm(s, s);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.drawPixmap(QRect(s / 4, s / 4, s / 2, s / 2), base.pixmap(QSize(s / 2, s / 2)));
-    p.setPen(QPen(color, 2.5));
-    const int t = s / 6;
-    const int b = s - s / 6;
-    p.drawPolyline(QPolygon({{s / 4, t}, {s / 8, t}, {s / 8, b}, {s / 4, b}}));
-    p.drawPolyline(QPolygon({{s - s / 4, t}, {s - s / 8, t}, {s - s / 8, b}, {s - s / 4, b}}));
-    p.end();
-    return QIcon(pm);
+    return paletteIcon(cacheKey, [base](QPainter& p, const QSizeF& size, const QColor& color) {
+        const qreal s = qMin(size.width(), size.height());
+        const QRectF inner(s / 4, s / 4, s / 2, s / 2);
+        base.paint(&p, inner.toAlignedRect());
+        p.setPen(QPen(color, 2.5 * s / (kTransportIconSize * 2)));
+        const qreal t = s / 6;
+        const qreal b = s - s / 6;
+        p.drawPolyline(QPolygonF({{s / 4, t}, {s / 8, t}, {s / 8, b}, {s / 4, b}}));
+        p.drawPolyline(QPolygonF({{s - s / 4, t}, {s - s / 8, t}, {s - s / 8, b}, {s - s / 4, b}}));
+    });
 }
 
 double zoomFactor(ViewerPanel::Zoom zoom)
@@ -277,7 +277,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         });
     }
     addButton(bar, QStringLiteral("transport.play_in_out"),
-        bracketed(icon(QStringLiteral("play")), palette().color(QPalette::WindowText)),
+        bracketed(icon(QStringLiteral("play")), QStringLiteral("viewer-play-in-out")),
         tr("Play In to Out"), onEngine(&PlaybackEngine::playInToOut));
     bar->addStretch(1);
     addButton(bar, QStringLiteral("mark.in"), icon(QStringLiteral("mark_in")), tr("Mark In"),

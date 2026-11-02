@@ -2,14 +2,16 @@
 // Builds a demo project from the media fixtures (two video tracks + a title track, a keyframed
 // blur, a picture-in-picture with drop shadow, a cross dissolve, linked audio), saves it as
 // .kkproj and renders a few frames through the --render-frame code path to PNG.
-// The project and PNGs go to $KK_RENDER_DEMO_DIR (default: <tmp>/kinoklip-render-demo) so they
-// can be inspected, and re-rendered with `kinoklip --render-frame demo.kkproj <frame> out.png`.
+// The project and PNGs go to $KK_RENDER_DEMO_DIR (default: a new <tmp>/kinoklip-render-demo-XXXXXX
+// per run) so they can be inspected, and re-rendered with `kinoklip --render-frame demo.kkproj
+// <frame> out.png`.
 #include "RenderTestUtil.h"
 #include "core/EffectRegistry.h"
 #include "core/Project.h"
 #include "render/RenderFrameCommand.h"
 
 #include <QDir>
+#include <QTemporaryDir>
 
 using namespace kk;
 using namespace kk::test;
@@ -24,8 +26,14 @@ private slots:
         if (!ensureFixtures(&why))
             QSKIP(qPrintable(why));
         QString dir = qEnvironmentVariable("KK_RENDER_DEMO_DIR");
+        // Default: a directory of this run only (kept for inspection). A fixed path raced
+        // when several checkouts ran the suite at once on one machine/container.
+        QTemporaryDir runDir(QDir::tempPath() + QStringLiteral("/kinoklip-render-demo-XXXXXX"));
+        runDir.setAutoRemove(false);
         if (dir.isEmpty())
-            dir = QDir::tempPath() + QStringLiteral("/kinoklip-render-demo");
+            dir = runDir.path();
+        else
+            runDir.remove();
         QVERIFY(QDir().mkpath(dir));
 
         Project project;

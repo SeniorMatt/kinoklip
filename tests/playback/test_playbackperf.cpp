@@ -11,11 +11,14 @@
 #include "../media/MediaTestUtil.h"
 #include "PlaybackTestUtil.h"
 #include "core/EffectRegistry.h"
+#include "core/MediaPool.h"
 #include "core/ParamKeys.h"
 #include "core/Project.h"
+#include "media/MediaInfo.h"
 #include "playback/PlaybackEngine.h"
 #include "render/Compositor.h"
 
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QTest>
 
@@ -78,6 +81,71 @@ class TestPlaybackPerf : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    /// One clip filling a timeline of its own size and rate, played at Auto quality in the
+    /// Edit-page viewer size: the plain "can it play this file" number. perf_1080p.mp4 always;
+    /// more files (e.g. a 4K HEVC clip) with KK_PERF_MEDIA=/path/a.mp4:/path/b.mov.
+    void singleClipPlayback_data()
+    {
+        QTest::addColumn<QString>("path");
+        QTest::newRow("perf_1080p.mp4") << test::fixture("perf_1080p.mp4");
+        for (const QString& p :
+            qEnvironmentVariable("KK_PERF_MEDIA").split(QLatin1Char(':'), Qt::SkipEmptyParts))
+            QTest::newRow(qPrintable(QFileInfo(p).fileName())) << p;
+    }
+
+    void singleClipPlayback()
+    {
+        QFETCH(QString, path);
+        QString why;
+        if (!test::ensureFixtures(&why))
+            QSKIP(qPrintable(why));
+        Project project;
+        const ImportResult imported = project.importMedia({path});
+        QCOMPARE(imported.importedIds.size(), 1);
+        const media::MediaInfo& info = project.mediaPool()->state().items[0].info;
+        const Rational fps = info.frameRate.isValid() ? info.frameRate : Rational {25, 1};
+        project.beginEdit(QStringLiteral("perf"));
+        TimelineData& tl = project.timeline()->mutableData();
+        tl = makeDefaultTimeline(
+            QStringLiteral("perf"), fps, info.displayWidth, info.displayHeight);
+        ClipData c;
+        c.id = tl.allocateId();
+        c.mediaId = imported.importedIds[0];
+        c.sourceDurationUs = info.durationUs;
+        c.duration = std::max<int64_t>(1, usToFrames(info.durationUs, fps));
+        tl.videoTracks[0].clips.push_back(c);
+        if (info.hasAudio) {
+            c.id = tl.allocateId();
+            tl.audioTracks[0].clips.push_back(c);
+        }
+        project.endEdit();
+
+        auto fake = std::make_unique<test::FakeAudioOutput>(10, 40);
+        PlaybackEngine::Options options;
+        options.audio = std::move(fake);
+        PlaybackEngine engine(std::move(options));
+        engine.setMediaPool(project.mediaPool());
+        engine.setTimeline(project.timeline());
+        int client = 0;
+        engine.setOutputClient(&client, QSize(1000, 562), engine.compositor()->isGpu());
+        engine.setQualityMode(PlaybackEngine::QualityMode::Auto);
+        QVERIFY(QTest::qWaitFor([&] { return engine.currentFrame() != nullptr; }, 10000));
+        engine.play();
+        QTest::qWait(500);
+        engine.resetStats();
+        const int seconds = int(std::min<int64_t>(kPlaySeconds, info.durationUs / 1'000'000 - 1));
+        QTest::qWait(std::max(1, seconds) * 1000);
+        const PlaybackEngine::Stats s = engine.stats();
+        const Quality used = engine.currentQuality();
+        engine.pause();
+        qInfo("%s | %s %dx%d %.3f fps %s | %.2f fps of %.3f, %lld dropped, render %.1f ms/frame, "
+              "quality %.2f",
+            qPrintable(engine.compositor()->backendDescription()), QTest::currentDataTag(),
+            info.width, info.height, fps.toDouble(), qPrintable(info.videoCodec), s.fps(),
+            fps.toDouble(), qlonglong(s.dropped), s.averageRenderMs, qualityFactor(used));
+        QVERIFY(s.presented > 0);
+    }
+
     void sustainedPlayback_data()
     {
         QTest::addColumn<QSize>("viewer");

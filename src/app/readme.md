@@ -14,8 +14,8 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `PageBar.h` | bottom strip in Resolve's order: Media · Cut · Edit · Compositing · Color · Audio · Deliver (unbuilt pages disabled; slots are the `kPageSlots` table in `MainWindow.cpp`) |
 | `pages/EditPage.h` | PLAN §4 Edit layout with nested `QSplitter`s; accessors for every panel |
 | `pages/MediaPage.h` | browser · source viewer · metadata over the media pool |
-| `ProjectController.h` | new / open / save / save as / import media + "save changes?" |
-| `AutosaveController.h` | autosave every `prefs::autosaveMinutes()` (2) to `AppDataLocation/autosave/` |
+| `ProjectController.h` | new / open / save / save as / import media + "save changes?"; File > Open Recent; start-up crash recovery prompt |
+| `AutosaveController.h` | autosave every `prefs::autosaveMinutes()` (2) to `AppDataLocation/autosave/`; the file is deleted when saved / replaced / on normal quit, so one left at start-up means a crash (`findRecoverable()`) |
 | `Theme.h` | the real KDE Breeze look: widget style, KDE colour schemes, Breeze icons, panel style sheet; Settings > Color Theme / Style; "appearance" settings page |
 | `ColorSchemeFile.h` | reads a KDE `.colors` file into a QPalette (fallback build without KF6) |
 | `CommandLine.h` | `QCommandLineParser` → `CommandLineOptions` |
@@ -31,11 +31,12 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 3. `Project`, `SelectionModel`, `ActionRegistry` (+ `loadDefaultKeymap()` +
    `registerStandardActions()` + `theme::registerActions()`), `SettingsPageRegistry`
    (standard pages + `theme::registerSettingsPage()`), `AppContext`.
-4. Non-interactive modes (screenshot) or `MainWindow::showRestored()`.
+4. Non-interactive modes (screenshot) or `MainWindow::showRestored()`, then
+   `ProjectController::offerRecovery()` (autosaves of a crashed session) and the project argument.
 
 ## Settings keys used here
 `mainWindow/geometry`, `mainWindow/state`, `mainWindow/page`, `pages/<pageId>/...` (splitter
-states and `visible/<panel>` flags), `paths/lastProjectDir`, `paths/lastMediaDir`. User
+states and `visible/<panel>` flags), `paths/lastProjectDir`, `paths/lastMediaDir`, `paths/recentProjects` (File > Open Recent, 10 entries). User
 preferences (theme, hw acceleration, autosave) are in `core/Preferences.h`.
 
 ## Theme system (the real KDE Breeze, the Kdenlive way)
@@ -51,7 +52,13 @@ user can change all of it.
 | Icons | `KIconTheme::initTheme()` before `QApplication`: Breeze compiled into libKF6BreezeIcons, drawn by KIconEngine which recolours them from the palette | `QIcon::setThemeName("breeze"/"breeze-dark")` by palette lightness if installed, else our SVGs |
 | Chrome | style sheet generated from the palette (`Theme.cpp: styleSheet()`): only backgrounds/borders of our own panels and bars; buttons, tabs, menus, focus and selection are left to Breeze | same |
 
-Defaults: style `Breeze`, scheme `BreezeDark`. Settings keys: `ui/widgetStyle`,
+Defaults: style `Breeze`, scheme `BreezeDark`. "Default (System)" means the scheme in the
+user's `kdeglobals` (Plasma's choice; KDE's default Breeze without one): palette and Header
+colours both come from that file, never the palette from the platform and the header from
+kdeglobals. Runtime switches are covered by `tests/app/test_themeswitch.cpp` (every scheme and
+style in the real main window; every widget's palette and the painted chrome are checked).
+Custom-drawn widgets read colours at paint time or on `QEvent::PaletteChange`; icons drawn by
+us use `kk::paletteIcon()` / the tinted SVG engine, which look the colour up per paint. Settings keys: `ui/widgetStyle`,
 `ui/colorScheme` (`""` = "Default (System)"; the old `ui/useSystemColors=true` is migrated to
 it). Command line (this run only, nothing stored): `--widget-style Fusion`,
 `--color-scheme BreezeLight|system`.

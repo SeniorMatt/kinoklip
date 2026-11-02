@@ -29,6 +29,9 @@
 #   KINOKLIP_FORCE_FALLBACK=1  test hook: use every bundled fallback library
 #   KINOKLIP_QUIET=1        no log line on stderr
 #   KINOKLIP_RUN_PATH       set by the .run wrapper: the .run file (used for desktop entries)
+#   KINOKLIP_NO_DESKTOP_ENTRY=1  do not install/refresh the menu entry on start (it is
+#                           installed automatically otherwise; --uninstall-desktop-entry
+#                           opts out permanently, --install-desktop-entry opts back in)
 #
 #   KINOKLIP_FORCE_GLIBC=1|0  test hook: force the bundled glibc on / off
 #
@@ -259,11 +262,10 @@ refresh_desktop_caches() {
     return 0
 }
 
-install_desktop_entry() {
-    _dh="$(data_home)"
+# write_desktop_file <out>: the bundle's desktop entry with Exec/TryExec pointing at the .run
+# (or this AppRun), quoted for paths with spaces.
+write_desktop_file() {
     _target="${KINOKLIP_RUN_PATH:-$HERE/AppRun}"
-    mkdir -p "$_dh/applications" "$_dh/icons/hicolor/scalable/apps" "$_dh/mime/packages" || return 1
-    # Exec/TryExec point at the .run (or this AppRun), quoted for paths with spaces.
     # Desktop-entry rules: inside "..." the characters " ` $ need "\\" before them and a
     # backslash needs four (string escaping is applied before the quoting rule).
     _q="$(printf '%s' "$_target" | sed -e 's/\\/\\\\\\\\/g' -e 's/["`$]/\\\\&/g')"
@@ -271,20 +273,58 @@ install_desktop_entry() {
     KK_EXEC="Exec=\"$_q\" %f" KK_TRYEXEC="TryExec=$_target" awk '
         /^Exec=/ { print ENVIRON["KK_EXEC"]; next }
         /^TryExec=/ { print ENVIRON["KK_TRYEXEC"]; next }
-        { print }' "$HERE/$APP_ID.desktop" >"$_dh/applications/$APP_ID.desktop" || return 1
+        { print }' "$HERE/$APP_ID.desktop" >"$1"
+}
+
+install_desktop_entry() {
+    _dh="$(data_home)"
+    mkdir -p "$_dh/applications" "$_dh/icons/hicolor/scalable/apps" "$_dh/mime/packages" || return 1
+    write_desktop_file "$_dh/applications/$APP_ID.desktop" || return 1
     cp "$HERE/$APP_ID.svg" "$_dh/icons/hicolor/scalable/apps/$APP_ID.svg" || return 1
     cp "$HERE/usr/share/mime/packages/$APP_ID.xml" "$_dh/mime/packages/$APP_ID.xml" || return 1
+    rm -f "$(optout_file)"
     refresh_desktop_caches
+    [ "${1:-}" = quiet ] && return 0
     echo "Installed $_dh/applications/$APP_ID.desktop -> $_target"
     case "$_target" in
     */.cache/*) echo "Note: this points into the extraction cache; prefer running --install-desktop-entry from the .run file." ;;
     esac
 }
 
+# Written by --uninstall-desktop-entry: the user does not want the menu entry, so the
+# automatic install below must not bring it back.
+optout_file() { printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/kinoklip/no-desktop-entry"; }
+
+# Every normal start: make sure ~/.local/share/applications/<app id>.desktop exists and
+# points at this copy. Qt registers the app id with the XDG desktop portal at start-up
+# ("Failed to register with host portal ... App info not found" otherwise), and Plasma
+# uses the entry for the window/task-manager icon on Wayland. Rewritten only when the
+# content differs (first start, the .run moved, a new version), so normal starts only read
+# one small file. KINOKLIP_NO_DESKTOP_ENTRY=1 or the opt-out file skips it.
+ensure_desktop_entry() {
+    [ "${KINOKLIP_NO_DESKTOP_ENTRY:-0}" = 1 ] && return 0
+    [ -e "$(optout_file)" ] && return 0
+    [ -n "${HOME:-}" ] || return 0
+    _want="${TMPDIR:-/tmp}/kinoklip-desktop-$$"
+    write_desktop_file "$_want" 2>/dev/null || {
+        rm -f "$_want"
+        return 0
+    }
+    _have="$(data_home)/applications/$APP_ID.desktop"
+    if ! cmp -s "$_want" "$_have" 2>/dev/null; then
+        if install_desktop_entry quiet >/dev/null 2>&1; then
+            log "installed the desktop entry $_have"
+        fi
+    fi
+    rm -f "$_want"
+    return 0
+}
+
 uninstall_desktop_entry() {
     _dh="$(data_home)"
     rm -f "$_dh/applications/$APP_ID.desktop" "$_dh/icons/hicolor/scalable/apps/$APP_ID.svg" \
         "$_dh/mime/packages/$APP_ID.xml"
+    mkdir -p "$(dirname "$(optout_file)")" && : >"$(optout_file)"
     refresh_desktop_caches
     echo "Removed the Kinoklip desktop entry from $_dh"
 }
@@ -302,6 +342,7 @@ esac
 
 # ---- run -------------------------------------------------------------------------------
 setup_fallback
+ensure_desktop_entry
 
 if [ "${KINOKLIP_BUNDLED_QT:-0}" = 1 ]; then
     use_bundled_qt

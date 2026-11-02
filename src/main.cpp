@@ -143,8 +143,11 @@ int main(int argc, char** argv)
     kk::MainWindowOptions windowOptions;
     windowOptions.restoreLayout = !options.resetLayout;
     kk::MainWindow window(ctx, windowOptions);
-    if (!options.projectFile.isEmpty())
-        window.projectController()->openFile(options.projectFile, false);
     window.showRestored();
+    // Crash recovery first (an autosave newer than the project), then the project given on
+    // the command line, unless its recovered state was just restored.
+    if (!window.projectController()->offerRecovery(options.projectFile)
+        && !options.projectFile.isEmpty())
+        window.projectController()->openFile(options.projectFile, false);
     return QApplication::exec();
 }

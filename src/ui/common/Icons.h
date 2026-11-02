@@ -7,6 +7,10 @@
 #include <QString>
 #include <QStringList>
 
+#include <functional>
+
+class QPainter;
+
 namespace kk {
 
 /// Icon for our name @p name ("play", "blade", ...). If @p name maps to a freedesktop/Breeze
@@ -24,6 +28,18 @@ namespace kk {
 
 /// Same icon drawn in a fixed colour @p color for every mode/state (e.g. a red record dot).
 [[nodiscard]] QIcon icon(const QString& name, const QColor& color);
+
+/// Draws a glyph into a @p size (device-independent px) canvas with pen/brush colour @p color.
+using GlyphPainter
+    = std::function<void(QPainter& painter, const QSizeF& size, const QColor& color)>;
+
+/// Icon painted on demand by @p draw in the CURRENT application palette, so it follows colour
+/// scheme switches (an icon pre-rendered into a QPixmap keeps the old scheme's colours).
+/// Colours per mode: normal = WindowText at @p normalOpacity, active = WindowText, selected =
+/// HighlightedText, disabled = the disabled WindowText. Rendered pixmaps are kept in
+/// QPixmapCache under @p cacheKey + size + colour, so painting stays cheap.
+[[nodiscard]] QIcon paletteIcon(
+    const QString& cacheKey, GlyphPainter draw, qreal normalOpacity = 1.0);
 
 /// True if an icon with this name exists in the resources.
 [[nodiscard]] bool hasIcon(const QString& name);
