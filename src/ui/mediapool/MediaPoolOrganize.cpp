@@ -99,7 +99,9 @@ bool MediaPoolPanel::renameBin(const QString& binKey, const QString& name)
     const QString id = Filter::idOfKey(binKey);
     const Bin* bin = pool && !id.isEmpty() ? pool->bin(id) : nullptr;
     const QString trimmed = name.trimmed();
-    if (!bin || trimmed.isEmpty() || bin->name == trimmed) {
+    if (bin && bin->name == trimmed)
+        return false; // unchanged
+    if (!bin || trimmed.isEmpty()) {
         // Restore the shown name, from the event loop (called from the tree's itemChanged).
         QTimer::singleShot(0, this, &MediaPoolPanel::rebuildBins);
         return false;

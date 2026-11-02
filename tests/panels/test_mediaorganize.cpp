@@ -53,6 +53,9 @@ QString addItem(Project& project, const QString& name, const QString& binId = {}
     item.info.frameRate = still ? Rational {0, 1} : fps;
     item.info.durationUs = still ? 0 : 10'000'000;
     item.info.videoCodec = QStringLiteral("h264");
+    item.info.audioCodec = QStringLiteral("aac");
+    item.info.audioChannels = still ? 0 : 2;
+    item.info.audioSampleRate = still ? 0 : 48000;
     project.beginEdit(QStringLiteral("add"));
     const QString id = project.mediaPool()->addItem(item);
     project.endEdit();
@@ -514,7 +517,7 @@ private slots:
         f.ctx.powerBins = &power;
         prefs::setShowDefaultSmartBins(true);
         auto* host = new QWidget;
-        host->resize(1180, 520);
+        host->resize(1400, 560);
         auto* h = new QHBoxLayout(host);
         h->setContentsMargins(0, 0, 0, 0);
         auto* panel = new MediaPoolPanel(f.ctx);
@@ -574,6 +577,9 @@ private slots:
 
         panel->setCurrentBin(day1);
         panel->setViewMode(MediaPoolPanel::ViewMode::List);
+        for (const int c : {int(MediaPoolModel::AudioColumn), int(MediaPoolModel::ProxyColumn),
+                 int(MediaPoolModel::OptimizedColumn), int(MediaPoolModel::ResolutionColumn)})
+            panel->setColumnVisible(c, false);
         panel->setColumnVisible(MediaPoolModel::KeywordsColumn, true);
         panel->setColumnVisible(MediaPoolModel::RatingColumn, true);
         panel->setSelectedMediaIds({ids[4]});

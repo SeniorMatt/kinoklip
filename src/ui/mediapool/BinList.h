@@ -67,6 +67,8 @@ public:
     bool setCurrentKey(const QString& key);
     /// Row of bin @p key, or nullptr.
     [[nodiscard]] QTreeWidgetItem* itemForKey(const QString& key) const;
+    /// True while rebuild() runs (item signals then are not user edits).
+    [[nodiscard]] bool isRebuilding() const { return m_rebuilding; }
     /// Kind of @p item.
     [[nodiscard]] static RowKind kindOf(const QTreeWidgetItem* item);
 
