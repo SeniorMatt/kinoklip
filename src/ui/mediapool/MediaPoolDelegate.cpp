@@ -2,6 +2,7 @@
 // MediaPoolDelegate implementation.
 #include "ui/mediapool/MediaPoolDelegate.h"
 
+#include "core/ClipColors.h"
 #include "ui/mediapool/MediaPoolModel.h"
 
 #include <QApplication>
@@ -14,6 +15,7 @@ namespace {
 
 constexpr int kPadding = 6; ///< around the poster inside the tile
 constexpr int kNameHeight = 18;
+constexpr int kFlagSize = 8; ///< px, flag markers on the poster
 const QSize kPoster = MediaPoolModel::kPosterSize;
 
 /// Neutral placeholder for items without a poster (pending, audio, failed decode): a dark tile
@@ -185,6 +187,29 @@ void MediaPoolDelegate::paint(
         p->drawText(badge, Qt::AlignCenter, linkBadge);
     }
 
+    // Flags: small squares along the top-right edge of the poster (one per flag, Resolve
+    // shows flags as coloured markers on the thumbnail).
+    const uint flags = index.data(MediaPoolModel::FlagsRole).toUInt();
+    if (flags != 0) {
+        int x = posterRect.right() - kFlagSize - 3;
+        for (int i = int(flagPalette().size()) - 1; i >= 0 && x > posterRect.left(); --i) {
+            if (!(flags & (1u << i)))
+                continue;
+            const QRectF mark(x, posterRect.top() + 3, kFlagSize, kFlagSize);
+            p->setPen(QPen(QColor(0, 0, 0, 160), 1));
+            p->setBrush(flagColor(i));
+            p->drawRoundedRect(mark, 1.5, 1.5);
+            x -= kFlagSize + 2;
+        }
+    }
+
+    // Usage: a small dot in the bottom-left corner of items used in a timeline.
+    if (index.data(MediaPoolModel::UsageRole).toInt() > 0) {
+        p->setPen(QPen(QColor(0, 0, 0, 170), 1));
+        p->setBrush(QColor(0xf0, 0xf0, 0xf0));
+        p->drawEllipse(QPointF(posterRect.left() + 7.5, posterRect.bottom() - 6.5), 3.0, 3.0);
+    }
+
     // Selection outline around the poster.
     if (selected) {
         p->setPen(QPen(pal.color(QPalette::Highlight), 2));
@@ -192,14 +217,22 @@ void MediaPoolDelegate::paint(
         p->drawRect(QRectF(posterRect).adjusted(-1, -1, 1, 1));
     }
 
-    // Name, elided.
+    // Name, elided, on the clip colour when there is one (Resolve colours the name label).
     p->setFont(option.font);
     const QRect nameRect(
         tile.left() + kPadding, posterRect.bottom() + 3, tile.width() - 2 * kPadding, kNameHeight);
+    const QColor clipColor = index.data(MediaPoolModel::ClipColorRole).value<QColor>();
+    if (clipColor.isValid()) {
+        p->setPen(Qt::NoPen);
+        p->setBrush(clipColor);
+        p->drawRoundedRect(QRectF(nameRect).adjusted(0, 1, 0, -1), 3, 3);
+    }
     const QString name = option.fontMetrics.elidedText(
         index.data(Qt::DisplayRole).toString(), Qt::ElideMiddle, nameRect.width());
     p->setPen(offline ? QColor(0xe0, 0x70, 0x70)
-                      : pal.color(selected ? QPalette::HighlightedText : QPalette::Text));
+            : clipColor.isValid()
+            ? QColor(0xf6, 0xf6, 0xf6)
+            : pal.color(selected ? QPalette::HighlightedText : QPalette::Text));
     p->drawText(nameRect, Qt::AlignHCenter | Qt::AlignVCenter, name);
     p->restore();
 }
