@@ -14,6 +14,7 @@
 #include "render/Compositor.h"
 #include "render/ProxySelection.h"
 
+#include <QElapsedTimer>
 #include <QProcess>
 #include <QSettings>
 #include <QTemporaryDir>
