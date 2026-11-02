@@ -40,6 +40,8 @@ int64_t TimelineData::duration() const
         result = std::max(result, t.end());
     for (const TrackData& t : audioTracks)
         result = std::max(result, t.end());
+    for (const TrackData& t : subtitleTracks)
+        result = std::max(result, t.end());
     return result;
 }
 
@@ -70,8 +72,16 @@ QString trackDisplayName(const TrackData& track, int index)
 {
     if (!track.name.isEmpty())
         return track.name;
-    const QChar prefix = track.type == TrackType::Video ? QLatin1Char('V') : QLatin1Char('A');
-    return prefix + QString::number(index + 1);
+    const QString number = QString::number(index + 1);
+    switch (track.type) {
+    case TrackType::Video:
+        return QLatin1Char('V') + number;
+    case TrackType::Audio:
+        return QLatin1Char('A') + number;
+    case TrackType::Subtitle:
+        break;
+    }
+    return QLatin1String("ST") + number;
 }
 
 TimelineData makeDefaultTimeline(const QString& name, Rational fps, int width, int height)

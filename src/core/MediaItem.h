@@ -2,6 +2,7 @@
 // Value types of the media pool: imported media items and the bins (folders) holding them.
 #pragma once
 
+#include "core/Subtitles.h"
 #include "media/MediaInfo.h"
 
 #include <QString>
@@ -13,7 +14,10 @@ namespace kk {
 enum class MediaItemKind {
     File, ///< an imported media file (path, probe result)
     Timeline, ///< a timeline of the project (MediaItem::timelineUid)
-    CompoundClip ///< the timeline behind a compound clip (MediaItem::timelineUid)
+    CompoundClip, ///< the timeline behind a compound clip (MediaItem::timelineUid)
+    /// An imported subtitle file (.srt / .vtt): MediaItem::cues hold its captions, so the
+    /// item keeps working when the file is gone. Dropping it on the timeline creates captions.
+    Subtitle
 };
 
 /// One imported media file, or a timeline / compound clip of the project (Resolve lists both
@@ -29,9 +33,15 @@ struct MediaItem
     media::MediaInfo info; ///< result of media::probe() at import time
     MediaItemKind kind = MediaItemKind::File;
     quint64 timelineUid = 0; ///< TimelineData::uid for Timeline / CompoundClip items
+    QVector<SubtitleCue> cues; ///< Subtitle items: the parsed captions (file order)
 
     /// True for timeline and compound clip items.
-    [[nodiscard]] bool isTimeline() const { return kind != MediaItemKind::File; }
+    [[nodiscard]] bool isTimeline() const
+    {
+        return kind == MediaItemKind::Timeline || kind == MediaItemKind::CompoundClip;
+    }
+    /// True for imported subtitle files.
+    [[nodiscard]] bool isSubtitle() const { return kind == MediaItemKind::Subtitle; }
 
     /// Compares every field, including the cached probe result.
     friend bool operator==(const MediaItem& a, const MediaItem& b);

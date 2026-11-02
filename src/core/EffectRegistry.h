@@ -20,7 +20,9 @@ enum class EffectCategory {
     Transition, ///< stored in ClipData::transitionIn / transitionOut
     Generator, ///< a clip kind of its own (e.g. solid colour)
     Title, ///< text generators (ClipData::title)
-    ClipProperties ///< built-in parameter groups stored directly on ClipData (transform, ...)
+    ClipProperties, ///< built-in parameter groups stored directly on ClipData (transform, ...)
+    /// Library section "Effects": clips that process the tracks below them (Adjustment Clip)
+    Effects
 };
 
 /// Value type of a parameter. Double/Int are animatable scalars (ParamSet::values) unless
@@ -65,7 +67,8 @@ struct EffectDescriptor
     EffectCategory category = EffectCategory::VideoEffect;
     QString description; ///< one-line tooltip
     /// Where the parameters are stored for ClipProperties groups / generators:
-    /// "transform", "audio" or "title" (ClipData member), "solidColor"; empty = own ParamSet.
+    /// "transform", "audio" or "title" (ClipData member; generators keep their parameters in
+    /// ClipData::title too), "solidColor"; empty = own ParamSet.
     QString storage;
     QVector<ParamDescriptor> params;
 
@@ -114,6 +117,7 @@ public:
 private:
     EffectRegistry();
     void registerBuiltins();
+    void registerGenerators(); ///< the generator catalogue (BuiltinEffects.cpp)
 
     QVector<EffectDescriptor> m_descriptors;
     QHash<QString, qsizetype> m_index; ///< id → position in m_descriptors (O(1) find())

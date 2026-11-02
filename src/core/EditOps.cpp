@@ -3,6 +3,7 @@
 #include "core/EditOps.h"
 
 #include "core/EditOpsInternal.h"
+#include "core/Subtitles.h"
 
 #include <QHash>
 #include <QSet>
@@ -228,8 +229,10 @@ bool moveClips(
     std::vector<Moving> moving;
     QSet<quint64> seen;
     int64_t minStart = kUnbounded;
-    int minIndex[2] = {std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
-    int maxIndex[2] = {-1, -1};
+    int minIndex[kTrackTypeCount];
+    int maxIndex[kTrackTypeCount];
+    std::fill(std::begin(minIndex), std::end(minIndex), std::numeric_limits<int>::max());
+    std::fill(std::begin(maxIndex), std::end(maxIndex), -1);
     for (quint64 id : clipIds) {
         if (seen.contains(id))
             continue;
@@ -240,7 +243,7 @@ bool moveClips(
             return false;
         seen.insert(id);
         moving.push_back({*loc, id});
-        const int t = loc->track.type == TrackType::Video ? 0 : 1;
+        const int t = trackTypeIndex(loc->track.type);
         minIndex[t] = std::min(minIndex[t], loc->track.index);
         maxIndex[t] = std::max(maxIndex[t], loc->track.index);
         minStart = std::min(minStart, data.track(loc->track)->clips[size_t(loc->clipIndex)].start);
@@ -250,17 +253,17 @@ bool moveClips(
 
     // Clamp as a group so the clips keep their relative positions.
     const int64_t dx = std::max(deltaFrames, -minStart);
-    int dy[2] = {0, 0};
-    for (int t = 0; t < 2; ++t) {
+    int dy[kTrackTypeCount] = {};
+    for (int t = 0; t < kTrackTypeCount; ++t) {
         if (maxIndex[t] < 0)
             continue;
         const int count = int(data.tracks(kTrackTypes[t]).size());
         dy[t] = std::clamp(deltaTrack, -minIndex[t], count - 1 - maxIndex[t]);
     }
-    if (dx == 0 && dy[0] == 0 && dy[1] == 0)
+    if (dx == 0 && dy[0] == 0 && dy[1] == 0 && dy[2] == 0)
         return false;
     for (const Moving& m : moving) {
-        const int t = m.from.track.type == TrackType::Video ? 0 : 1;
+        const int t = trackTypeIndex(m.from.track.type);
         const TrackRef dest {m.from.track.type, m.from.track.index + dy[t]};
         if (data.track(dest)->locked)
             return false;
@@ -273,7 +276,7 @@ bool moveClips(
         const int index = track.indexOfClip(m.id);
         ClipData clip = track.clips[size_t(index)];
         track.clips.erase(track.clips.begin() + index);
-        const int t = m.from.track.type == TrackType::Video ? 0 : 1;
+        const int t = trackTypeIndex(m.from.track.type);
         clip.start += dx;
         lifted.emplace_back(TrackRef {m.from.track.type, m.from.track.index + dy[t]}, clip);
     }
@@ -544,7 +547,8 @@ Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds)
     QSet<quint64> seen;
     int64_t minStart = kUnbounded;
     int64_t maxEnd = 0;
-    int minIndex[2] = {std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
+    int minIndex[kTrackTypeCount];
+    std::fill(std::begin(minIndex), std::end(minIndex), std::numeric_limits<int>::max());
     for (quint64 id : clipIds) {
         const auto loc = findClip(data, id);
         if (!loc || seen.contains(id))
@@ -554,7 +558,7 @@ Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds)
         found.push_back({loc->track, c});
         minStart = std::min(minStart, c->start);
         maxEnd = std::max(maxEnd, c->end());
-        int& m = minIndex[loc->track.type == TrackType::Video ? 0 : 1];
+        int& m = minIndex[trackTypeIndex(loc->track.type)];
         m = std::min(m, loc->track.index);
     }
     Clipboard board;
@@ -564,12 +568,14 @@ Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds)
         [](const Found& a, const Found& b) { return a.clip->start < b.clip->start; });
     board.baseVideoTrack = minIndex[0] == std::numeric_limits<int>::max() ? 0 : minIndex[0];
     board.baseAudioTrack = minIndex[1] == std::numeric_limits<int>::max() ? 0 : minIndex[1];
+    board.baseSubtitleTrack = minIndex[2] == std::numeric_limits<int>::max() ? 0 : minIndex[2];
     board.duration = maxEnd - minStart;
+    const int boardBases[kTrackTypeCount]
+        = {board.baseVideoTrack, board.baseAudioTrack, board.baseSubtitleTrack};
     for (const Found& f : found) {
         ClipboardClip entry;
         entry.type = f.ref.type;
-        entry.trackOffset = f.ref.index
-            - (f.ref.type == TrackType::Video ? board.baseVideoTrack : board.baseAudioTrack);
+        entry.trackOffset = f.ref.index - boardBases[trackTypeIndex(f.ref.type)];
         entry.clip = *f.clip;
         entry.clip.start -= minStart;
         board.clips.append(std::move(entry));
@@ -583,18 +589,18 @@ QVector<quint64> pasteClips(TimelineData& data, const Clipboard& clipboard, int6
     if (clipboard.isEmpty())
         return {};
     frame = std::max<int64_t>(0, frame);
-    const int bases[2] = {videoBase >= 0 ? videoBase : clipboard.baseVideoTrack,
-        audioBase >= 0 ? audioBase : clipboard.baseAudioTrack};
+    const int bases[kTrackTypeCount] = {videoBase >= 0 ? videoBase : clipboard.baseVideoTrack,
+        audioBase >= 0 ? audioBase : clipboard.baseAudioTrack, clipboard.baseSubtitleTrack};
     // Refuse before changing anything if an existing destination track is locked.
     for (const ClipboardClip& entry : clipboard.clips) {
-        const int index = bases[entry.type == TrackType::Video ? 0 : 1] + entry.trackOffset;
+        const int index = bases[trackTypeIndex(entry.type)] + entry.trackOffset;
         const TrackData* track = data.track(TrackRef {entry.type, index});
         if (index < 0 || (track && track->locked))
             return {};
     }
     // Make sure every destination track exists (pasting high tracks into a smaller timeline).
     for (const ClipboardClip& entry : clipboard.clips) {
-        const int index = bases[entry.type == TrackType::Video ? 0 : 1] + entry.trackOffset;
+        const int index = bases[trackTypeIndex(entry.type)] + entry.trackOffset;
         while (int(data.tracks(entry.type).size()) <= index)
             addTrack(data, entry.type);
     }
@@ -603,8 +609,7 @@ QVector<quint64> pasteClips(TimelineData& data, const Clipboard& clipboard, int6
     GroupRemap remap; // fresh link groups, shared between clips that were linked together
     for (const ClipboardClip& entry : clipboard.clips) {
         PlacedClip p;
-        p.track = TrackRef {
-            entry.type, bases[entry.type == TrackType::Video ? 0 : 1] + entry.trackOffset};
+        p.track = TrackRef {entry.type, bases[trackTypeIndex(entry.type)] + entry.trackOffset};
         p.clip = entry.clip;
         p.clip.id = data.allocateId();
         p.clip.start = frame + entry.clip.start;
@@ -626,7 +631,7 @@ int addTrack(TimelineData& data, TrackType type, int index)
     auto& list = data.tracks(type);
     if (index < 0 || index > int(list.size()))
         index = int(list.size());
-    TrackData track;
+    TrackData track = type == TrackType::Subtitle ? subtitles::makeSubtitleTrack() : TrackData {};
     track.id = data.allocateId();
     track.type = type;
     list.insert(list.begin() + index, std::move(track));
@@ -815,7 +820,7 @@ std::optional<int64_t> previousMarker(const TimelineData& data, int64_t frame)
 
 const ClipData* clipUnderFrame(const TimelineData& data, int64_t frame, const TrackFilter& filter)
 {
-    for (const TrackType type : {TrackType::Video, TrackType::Audio}) {
+    for (const TrackType type : kTrackTypes) {
         const auto& list = data.tracks(type);
         for (size_t i = 0; i < list.size(); ++i) {
             if (filter && !filter(TrackRef {type, int(i)}, list[i]))
@@ -877,6 +882,8 @@ bool checkInvariants(const TimelineData& data, QString* why)
                     return fail(clipName + QStringLiteral(" has a negative source in point"));
                 if (c.linkGroup >= data.nextId)
                     return fail(clipName + QStringLiteral(" has link group >= nextId"));
+                if ((type == TrackType::Subtitle) != (c.kind == ClipKind::Subtitle))
+                    return fail(clipName + QStringLiteral(" is on the wrong kind of track"));
                 if (i + 1 < track.clips.size() && c.end() > track.clips[i + 1].start)
                     return fail(clipName + QStringLiteral(" overlaps or is out of order"));
                 for (const EffectInstance& fx : c.effects) {

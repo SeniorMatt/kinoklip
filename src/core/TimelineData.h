@@ -86,8 +86,25 @@ enum class ClipKind {
     /// Another timeline of the project used as a clip: a compound clip or a nested timeline
     /// (ClipData::nestedUid). Its "source" time is the nested timeline's time in µs, so
     /// trim / slip / split / speed work exactly as for media.
-    Nested
+    Nested,
+    /// An adjustment clip (Effects > Adjustment Clip): no picture of its own. Its effects,
+    /// transform, crop, opacity and masks act on the composite of every video track below it,
+    /// within its time range (src/render/readme.md, "Adjustment clips").
+    Adjustment,
+    /// A generated picture (ClipData::generator = EffectRegistry id of category Generator,
+    /// e.g. "four_color_gradient"; its parameters live in ClipData::title).
+    Generator,
+    /// A caption on a subtitle track: text and style overrides in ClipData::title (keys::Text
+    /// and the subtitle style keys), drawn over the picture with the track's default style.
+    Subtitle
 };
+
+/// True for clip kinds without source media (titles, solids, generators, adjustment clips,
+/// captions): unbounded trims, no decoding.
+[[nodiscard]] inline bool isGeneratedKind(ClipKind kind)
+{
+    return kind != ClipKind::Media && kind != ClipKind::Nested;
+}
 
 /// One clip on a track. Positions are timeline frames, source positions microseconds (PLAN §5.1).
 struct ClipData
@@ -112,7 +129,12 @@ struct ClipData
 
     ParamSet transform; ///< keys::PosX ... keys::CropB, statics keys::FlipH/FlipV/ZoomLinked
     ParamSet audio; ///< keys::VolumeDb, keys::Pan
-    ParamSet title; ///< Title clips only: see the title keys in core/ParamKeys.h
+    /// Title clips: the title keys in core/ParamKeys.h. Generator clips: the parameters of the
+    /// generator descriptor. Subtitle clips: keys::Text plus the style keys that override the
+    /// track's default style (core/Subtitles.h).
+    ParamSet title;
+    /// Generator clips only: EffectRegistry descriptor id of the generator.
+    QString generator;
     QColor solidColor; ///< Solid clips only
     QVector<EffectInstance> effects; ///< applied in order
     /// Shape masks, evaluated in order on the clip's picture (after the effects, before the
@@ -141,11 +163,21 @@ struct ClipData
     friend bool operator==(const ClipData&, const ClipData&) = default;
 };
 
-/// Video or audio track.
+/// Video, audio or subtitle track. Subtitle tracks are drawn above every video track (in the
+/// timeline and over the picture) and hold ClipKind::Subtitle clips only.
 enum class TrackType {
     Video,
-    Audio
+    Audio,
+    Subtitle
 };
+
+/// Number of TrackType values (size of per-type arrays indexed by trackTypeIndex()).
+inline constexpr int kTrackTypeCount = 3;
+/// Dense index of @p type: 0 = video, 1 = audio, 2 = subtitle.
+[[nodiscard]] constexpr int trackTypeIndex(TrackType type)
+{
+    return int(type);
+}
 
 /// One track. Invariant: `clips` sorted by start, never overlapping (see editops::checkInvariants).
 struct TrackData
@@ -162,6 +194,12 @@ struct TrackData
     /// default transition) and in the all-track ripple of insert edits and gap removal.
     bool autoSelect = true;
     int height = 0; ///< UI track height in px, 0 = default
+    /// Subtitle tracks only: the default caption style (subtitle style keys of
+    /// core/Subtitles.h); a caption's own ClipData::title keys override it.
+    ParamSet subtitleStyle;
+    /// Subtitle tracks only: ISO 639 language code written to sidecar / embedded subtitle
+    /// streams (empty = undefined).
+    QString language;
     std::vector<ClipData> clips;
 
     /// Clip covering timeline frame @p frame, or nullptr.
@@ -223,6 +261,7 @@ struct TimelineData
     int height = 1080;
     std::vector<TrackData> videoTracks; ///< index 0 = V1 (bottom-most)
     std::vector<TrackData> audioTracks; ///< index 0 = A1
+    std::vector<TrackData> subtitleTracks; ///< index 0 = ST1 (lowest, drawn first)
     int64_t markIn = -1; ///< -1 = not set
     int64_t markOut = -1; ///< -1 = not set; exclusive end frame
     QVector<Marker> markers; ///< sorted by frame
@@ -233,15 +272,19 @@ struct TimelineData
 
     /// End of the last clip on any track, in frames.
     [[nodiscard]] int64_t duration() const;
-    /// Video or audio track list.
+    /// Video, audio or subtitle track list.
     [[nodiscard]] std::vector<TrackData>& tracks(TrackType type)
     {
-        return type == TrackType::Video ? videoTracks : audioTracks;
+        return type == TrackType::Video ? videoTracks
+            : type == TrackType::Audio  ? audioTracks
+                                        : subtitleTracks;
     }
-    /// Video or audio track list (const).
+    /// Video, audio or subtitle track list (const).
     [[nodiscard]] const std::vector<TrackData>& tracks(TrackType type) const
     {
-        return type == TrackType::Video ? videoTracks : audioTracks;
+        return type == TrackType::Video ? videoTracks
+            : type == TrackType::Audio  ? audioTracks
+                                        : subtitleTracks;
     }
     /// Track at @p ref, or nullptr if out of range.
     [[nodiscard]] TrackData* track(TrackRef ref);
@@ -259,7 +302,8 @@ struct TimelineData
 [[nodiscard]] int64_t nestedFrameAt(
     const ClipData& clip, int64_t frame, Rational parentFps, Rational nestedFps);
 
-/// Display name of a track: its user name, or "V<n>" / "A<n>" from the 0-based @p index.
+/// Display name of a track: its user name, or "V<n>" / "A<n>" / "ST<n>" from the 0-based
+/// @p index.
 [[nodiscard]] QString trackDisplayName(const TrackData& track, int index);
 
 /// A new timeline with two video (V1, V2) and two audio (A1, A2) tracks.
