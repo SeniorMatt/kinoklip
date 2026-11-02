@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 223 commands; sure 94, likely 76, unsure 53.
+Counts: 225 commands; sure 94, likely 78, unsure 53.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -215,6 +215,7 @@ that every command has an entry and that no key is used twice.
 | Effects panel | `view.toggle_effects` | (none) | likely |  |
 | Edit Index panel | `view.toggle_edit_index` | (none) | likely |  |
 | Keyframes panel (keyframe editor window) | `view.toggle_keyframes` | (none) | unsure | Kinoklip's large keyframe editor; no default key is known, none assigned. |
+| Stacked Timelines (two timelines one above the other) | `view.stacked_timelines` | (none) | likely | a timeline view option in Resolve; no default key known |
 | Mixer panel | `view.toggle_mixer` | (none) | likely |  |
 | Metadata panel | `view.toggle_metadata` | (none) | likely |  |
 | Inspector panel | `view.toggle_inspector` | (none) | likely |  |
@@ -260,6 +261,7 @@ that every command has an entry and that no key is used twice.
 | Render Cache: User | `playback.render_cache_user` | (none) | likely | menu command without a default key |
 | Delete Render Cache (all) | `playback.delete_render_cache` | (none) | unsure | Resolve offers All / Unused / Selected Clips; Kinoklip deletes all |
 | Render Cache Clip Output | `clip.render_cache_output` | (none) | likely | clip context menu command without a default key |
+| Clip Attributes (pixel aspect, data levels, field order, rotation, audio channels, start timecode) | `clip.attributes` | (none) | likely | media pool / timeline clip context menu command; no default key known |
 
 ## Media pool
 

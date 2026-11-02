@@ -98,6 +98,13 @@ public:
     /// Opens the menu of the speed point at clip-local @p localFrame (non-modal).
     void showSpeedPointMenu(quint64 clipId, int64_t localFrame, QPoint pos);
 
+    /// Stacked timelines: called (instead of continuing the move) when a clip move is dragged
+    /// out of the view above or below it, with the moved clips and the grab distance in frames
+    /// from the earliest one's start; the handler starts the copy drag (TimelineClips MIME).
+    /// Null (default) = moves stay inside the view.
+    using ClipDragOut = std::function<void(const QVector<quint64>& clips, int64_t grabFrames)>;
+    void setClipDragOut(ClipDragOut handler) { m_clipDragOut = std::move(handler); }
+
 signals:
     /// The user asked to inspect @p clipId (the page shows the Inspector on that tab).
     void inspectRequested(quint64 clipId, kk::TimelineWidget::InspectTarget target);
@@ -156,7 +163,10 @@ private:
         Pan,
         TransitionEdge, ///< dragging an outer edge of a transition changes its length (13.9)
         RetimePoint, ///< a speed point / clip end handle of the retime controls (31.4)
-        Shuffle ///< Ctrl+Shift drag: swap / shuffle insert within the track (21.6)
+        Shuffle, ///< Ctrl+Shift drag: swap / shuffle insert within the track (21.6)
+        Fade, ///< a fade handle at a clip's top corner (spec 32.4)
+        LevelLine, ///< the audio level line: volume up / down (spec 32.1)
+        LevelKey ///< a volume key on the level line: time and value (spec 32.2)
     };
     /// An outer edge of a transition under the pointer.
     struct TransitionEdgeHit
@@ -196,6 +206,15 @@ private:
         TransitionEdgeHit transition; ///< TransitionEdge: which edge is dragged
         retimebar::Hit retime; ///< RetimePoint: which handle
         quint64 retimeClip = 0;
+        // Fade / LevelLine / LevelKey (TimelineLevelsInput.cpp)
+        quint64 levelClip = 0;
+        bool fadeHead = true; ///< Fade: the fade-in handle (else the fade-out)
+        int64_t levelFrame = 0; ///< LevelLine: clip-local frame grabbed
+        double levelDb = 0.0; ///< accumulated dB offset (Shift = fine steps)
+        double levelLastY = 0.0; ///< pointer y of the previous move
+        QRectF levelArea; ///< LevelLine / LevelKey: the clip's waveform area at the press
+        KeyframeRef levelKey; ///< LevelKey: the key at the press (origin)
+        double levelKeyDb = 0.0; ///< LevelKey: its value at the press
     };
 
     void startDrag(DragMode mode);
@@ -211,6 +230,16 @@ private:
     void updateRubberBand(QPointF pos);
     void updateTransitionEdge(QPointF pos);
     void updateShuffle(QPointF pos);
+    // ---- Level lines and fade handles (TimelineLevelsInput.cpp) ----
+    /// Left press with the selection tool on a clip: a fade handle, a volume key or the
+    /// level line (Alt+click adds a key). Returns whether the press was taken.
+    bool pressLevels(QPointF pos, const TimelineHit& hit);
+    void updateLevelDrag(QPointF pos);
+    /// Cursor for @p pos over clip @p hit's level line / fade handles, if any.
+    [[nodiscard]] std::optional<Qt::CursorShape> levelCursor(
+        QPointF pos, const TimelineHit& hit) const;
+    /// Right-click on a volume key: its menu (Delete Keyframe). Returns whether one was there.
+    bool levelKeyMenu(QPointF pos, QPoint globalPos);
     // ---- Retime controls (TimelineRetimeInput.cpp) ----
     /// The retime control under @p pos (clip id in @p clipId), Kind::None if there is none.
     [[nodiscard]] retimebar::Hit retimeHitAt(QPointF pos, quint64* clipId) const;
@@ -245,7 +274,8 @@ private:
             Clips,
             Effect,
             Transition,
-            Files ///< files from a file manager: imported into the media pool on drop
+            Files, ///< files from a file manager: imported into the media pool on drop
+            TimelineClips ///< clips of another timeline (stacked timelines): copied
         };
         Kind kind = Kind::None;
         /// Clips: groups of clips created from one source each (linked after placing).
@@ -268,7 +298,14 @@ private:
         int64_t previewFrom = 0;
         int64_t previewTo = 0;
         int previewRow = -1;
+        // TimelineClips: what to copy and where (TimelineController::copyClipsFrom()).
+        quint64 sourceUid = 0;
+        QVector<quint64> sourceClips;
+        int64_t copyFrame = 0;
+        TrackRef copyTrack;
     };
+    /// The TimelineClips part of planDrop() (TimelineStackedDrop.cpp).
+    void planClipCopy(const QMimeData* mime, const TimelineHit& hit, QPointF pos, DropPlan& plan);
     [[nodiscard]] DropPlan planDrop(
         const QMimeData* mime, QPointF pos, Qt::KeyboardModifiers modifiers);
     void showDropPreview(const DropPlan& plan);
@@ -300,6 +337,8 @@ private:
     bool m_followPlayhead = true;
     bool m_syncingScrollBars = false;
     bool m_fitOnFirstShow = true;
+    quint64 m_hoverClip = 0; ///< clip under the mouse (fade handles shown)
+    ClipDragOut m_clipDragOut;
 };
 
 } // namespace kk
