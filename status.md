@@ -75,3 +75,4 @@
 - 14:18 Heartbeat: wayland 13 commits, compound 9, masks 1; all active; 21 GB free.
 - 14:51 compound + wayland merged; fixed 4 tests that assumed media pool item 0 is a file (pool lists timelines). Host 64/64, container 65/65 incl. real Wayland drag session. Built + smoke-tested 0.1.0-alpha.4; publishing. Follow-up: on pure X11 Qt prints 2 lines trying wayland first (launcher should pick xcb when WAYLAND_DISPLAY is unset).
 - 14:52 Starting v2 agents: retime (retime controls, speed ramps, freeze, frame blend/optical flow) and proxies (proxy/optimized media + render cache + launcher X11 nit). Running: masks, retime, proxies.
+- 14:57 masks finished (60/60 on its branch); merge into main conflicted in 6 files (both bumped formatVersion to 3) -> aborted; masks agent merging main, masks = formatVersion 4. Running: masks (integration), retime, proxies.
