@@ -27,7 +27,7 @@
 namespace kk {
 
 namespace {
-Q_LOGGING_CATEGORY(lcAutosave, "kk.app.autosave")
+Q_LOGGING_CATEGORY(lcAutosave, "kk.app.autosave", QtInfoMsg)
 constexpr int kMsPerMinute = 60 * 1000;
 constexpr int kHashChars = 8; // enough to keep projects with the same name apart
 constexpr char kInfoKey[] = "autosave";

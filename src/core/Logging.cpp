@@ -4,6 +4,6 @@
 
 namespace kk {
 
-Q_LOGGING_CATEGORY(lcCore, "kk.core")
+Q_LOGGING_CATEGORY(lcCore, "kk.core", QtInfoMsg)
 
 } // namespace kk

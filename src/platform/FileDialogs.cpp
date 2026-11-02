@@ -18,7 +18,7 @@ namespace kk::platform {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcFileDialogs, "kinoklip.filedialogs")
+Q_LOGGING_CATEGORY(lcFileDialogs, "kinoklip.filedialogs", QtInfoMsg)
 
 constexpr char kOverrideVar[] = "KINOKLIP_FILE_DIALOG";
 /// Test hook: talk to this D-Bus name instead of org.freedesktop.portal.Desktop.
