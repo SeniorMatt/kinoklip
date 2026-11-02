@@ -342,7 +342,10 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         connect(ctx.project->mediaPool(), &MediaPool::changed, this, [this] {
             if (!m_sourceMediaId.isEmpty()) {
                 const MediaItem* item = m_ctx.project->mediaPool()->item(m_sourceMediaId);
-                if (!item || (m_player && item->path != m_player->media().path)) {
+                if (!item
+                    || (m_player
+                        && (item->path != m_player->media().path
+                            || !(item->attributes == m_player->media().attributes)))) {
                     setSourceMedia(item ? item->id : QString());
                 }
             }
@@ -495,7 +498,14 @@ void ViewerPanel::onTimelineChanged()
 
 void ViewerPanel::onPositionChanged(int64_t frame)
 {
-    m_timecode->setText(timecode::format(frame, m_fps));
+    // Source viewer: Clip Attributes > Timecode can give the media its own start timecode.
+    int64_t start = 0;
+    if (m_mode == Mode::Source && m_ctx.project && !m_sourceMediaId.isEmpty()) {
+        const MediaItem* item = m_ctx.project->mediaPool()->item(m_sourceMediaId);
+        if (item && item->attributes.overrideTimecode)
+            start = item->attributes.startTimecodeFrames;
+    }
+    m_timecode->setText(timecode::format(start + frame, m_fps));
     m_scrub->setPosition(frame);
 }
 
