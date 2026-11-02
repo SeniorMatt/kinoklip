@@ -4,6 +4,7 @@
 #include "core/Project.h"
 
 #include "core/Logging.h"
+#include "core/Retime.h"
 #include "core/Serialization.h"
 
 #include <QDir>
@@ -126,14 +127,17 @@ Project::~Project() = default;
 
 ProjectSettings Project::settings() const
 {
-    return ProjectSettings {m_name, m_format.width, m_format.height, m_format.fps};
+    return ProjectSettings {
+        m_name, m_format.width, m_format.height, m_format.fps, m_format.retimeProcess};
 }
 
 void Project::setSettings(const ProjectSettings& settings)
 {
     setName(settings.name);
-    const Format format {
-        settings.width, settings.height, settings.fps.isValid() ? settings.fps : kDefaultFps};
+    const Format format {settings.width, settings.height,
+        settings.fps.isValid() ? settings.fps : kDefaultFps,
+        settings.retimeProcess == RetimeProcess::ProjectDefault ? RetimeProcess::Nearest
+                                                                : settings.retimeProcess};
     if (format == m_format)
         return;
     // TODO(core): changing fps does not rescale existing clip positions yet.
@@ -141,14 +145,15 @@ void Project::setSettings(const ProjectSettings& settings)
     m_format = format;
     for (const quint64 uid : timelineUids()) {
         const auto data = timelineData(uid);
-        if (!data->useProjectSettings)
-            continue;
-        if (data->width == format.width && data->height == format.height && data->fps == format.fps)
-            continue;
         auto copy = std::make_shared<TimelineData>(*data);
-        copy->width = format.width;
-        copy->height = format.height;
-        copy->fps = format.fps;
+        copy->retimeProcess = format.retimeProcess; // project-wide, every timeline
+        if (data->useProjectSettings) {
+            copy->width = format.width;
+            copy->height = format.height;
+            copy->fps = format.fps;
+        }
+        if (*copy == *data)
+            continue;
         replaceTimeline(uid, std::move(copy));
     }
     endEdit();
@@ -222,7 +227,8 @@ QJsonObject Project::toJson(const QString& path) const
     root[QLatin1String("generator")] = QStringLiteral(KK_APP_NAME " " KK_APP_VERSION);
     root[QLatin1String("project")] = QJsonObject {{QLatin1String("name"), m_name},
         {QLatin1String("width"), m_format.width}, {QLatin1String("height"), m_format.height},
-        {QLatin1String("fps"), fpsToJson(m_format.fps)}};
+        {QLatin1String("fps"), fpsToJson(m_format.fps)},
+        {QLatin1String("retimeProcess"), retime::processToString(m_format.retimeProcess)}};
     root[QLatin1String("mediaPool")]
         = serialization::mediaPoolToJson(m_mediaPool->state(), projectDir);
     QJsonArray timelines;
@@ -304,6 +310,10 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
             fps.value(QLatin1String("den")).toInt(format.fps.den)};
         if (r.isValid())
             format.fps = r;
+        format.retimeProcess = retime::processFromString(
+            project.value(QLatin1String("retimeProcess")).toString(), RetimeProcess::Nearest);
+        if (format.retimeProcess == RetimeProcess::ProjectDefault)
+            format.retimeProcess = RetimeProcess::Nearest;
     }
     for (const QJsonValue& v : root.value(QLatin1String("timelineViews")).toArray()) {
         const QJsonObject o = v.toObject();

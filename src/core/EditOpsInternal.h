@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/EditOps.h"
+#include "core/Retime.h"
 
 #include <QHash>
 
@@ -40,6 +41,7 @@ inline void shiftClipKeys(ClipData& clip, int64_t deltaFrames)
     clip.transform.shiftKeys(deltaFrames);
     clip.audio.shiftKeys(deltaFrames);
     clip.title.shiftKeys(deltaFrames);
+    clip.retime.shiftKeys(deltaFrames); // speed points follow the content too
     for (EffectInstance& fx : clip.effects)
         fx.params.shiftKeys(deltaFrames);
     for (Marker& m : clip.markers) // clip markers follow the content like keyframes
@@ -52,7 +54,8 @@ inline void moveHead(ClipData& clip, int64_t delta, Rational fps)
 {
     clip.start += delta;
     clip.duration -= delta;
-    clip.sourceInUs = std::max<int64_t>(0, clip.sourceInUs + clip.framesToSourceUs(delta, fps));
+    clip.sourceInUs = std::max<int64_t>(
+        0, clip.sourceInUs + retime::sourceOffsetUs(clip, 0.0, double(delta), fps));
     shiftClipKeys(clip, -delta);
 }
 
@@ -145,10 +148,20 @@ inline void forEachTrack(const TimelineData& data, Fn&& fn)
     }
 }
 
-// Source-media duration of one timeline frame at the clip's speed, in µs.
+// Source-media duration of one timeline frame at the clip's constant speed, in µs (the
+// magnitude; at least one frame's worth for a curve).
 inline double usPerFrame(const ClipData& clip, Rational fps)
 {
-    return fps.isValid() ? 1e6 * fps.den / fps.num * clip.speed : 0.0;
+    if (!fps.isValid())
+        return 0.0;
+    const double speed = retime::hasCurve(clip) ? 1.0 : std::abs(clip.speed);
+    return 1e6 * fps.den / fps.num * speed;
+}
+
+// True when the plain constant-forward-speed formulas apply (no curve, speed > 0).
+inline bool isPlainForward(const ClipData& clip)
+{
+    return !retime::hasCurve(clip) && clip.speed > 0;
 }
 
 inline bool isBounded(const ClipData& clip)

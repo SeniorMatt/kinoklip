@@ -424,6 +424,7 @@ quint64 Project::createTimeline(const QString& name, const QString& binId)
     TimelineData t = makeDefaultTimeline(name.isEmpty() ? uniqueTimelineName(tr("Timeline")) : name,
         m_format.fps, m_format.width, m_format.height);
     t.uid = m_nextTimelineUid++;
+    t.retimeProcess = m_format.retimeProcess;
     const quint64 uid = t.uid;
     beginEdit(tr("New Timeline"));
     addTimeline(std::move(t), binId);
