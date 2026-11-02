@@ -14,6 +14,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
 
@@ -71,6 +72,9 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     if (m_drag.mode != DragMode::None)
         return;
     const QPointF pos = event->position();
+    // Keyframe / curve editor toggle buttons on animated clips (KeyframeLanes).
+    if (event->button() == Qt::LeftButton && m_keyframeLanes->clickClipButton(pos))
+        return;
     const TimelineData& data = m_ctx.project->timeline()->data();
     m_drag = Drag {};
     m_drag.pressPos = pos;

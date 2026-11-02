@@ -46,6 +46,8 @@ public:
     QCheckBox* addEnableToggle();
     /// Adds a compact tool button at the right of the header.
     QToolButton* addHeaderButton(InspectorGlyph glyph, const QString& toolTip);
+    /// Adds an arbitrary widget at the right of the header (e.g. the section keyframe diamond).
+    void addHeaderWidget(QWidget* widget);
     /// Changes the header title.
     void setTitle(const QString& title);
 
