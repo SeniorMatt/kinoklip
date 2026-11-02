@@ -16,6 +16,18 @@ inline constexpr char kColorScheme[]
 inline constexpr char kUseSystemColors[] = "ui/useSystemColors";
 inline constexpr char kHwAccel[] = "playback/hwaccel"; ///< HwAccel id string, default "auto"
 inline constexpr char kAutosaveMinutes[] = "project/autosaveMinutes"; ///< int, 0 = off; default 2
+/// int MiB, memory budget of the decoded still image cache (media::ImageLoader), default 256.
+inline constexpr char kStillCacheMiB[] = "system/stillCacheMiB";
+/// "auto" (OpenGL compositor when available) or "cpu" (QPainter compositor); start-up only.
+inline constexpr char kRenderBackend[] = "system/renderBackend";
+/// Folder of the thumbnail / waveform cache ("" = the platform cache folder + "/media").
+inline constexpr char kCacheDirectory[] = "system/cacheDirectory";
+/// QAudioDevice id (UTF-8 bytes as a string) of the playback output; "" = system default.
+inline constexpr char kAudioOutputDevice[] = "system/audioOutputDevice";
+/// Default viewer preview quality: "auto", "full", "half" or "quarter" (default "auto").
+inline constexpr char kPreviewQuality[] = "playback/previewQuality";
+/// Mouse-wheel / slider zoom anchor of the timeline: "playhead" (Resolve, default) or "mouse".
+inline constexpr char kZoomAnchor[] = "edit/zoomAnchor";
 
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).
@@ -44,5 +56,18 @@ void setHwAccel(HwAccel mode);
 [[nodiscard]] int autosaveMinutes();
 /// Stores the autosave interval.
 void setAutosaveMinutes(int minutes);
+
+/// Still image cache budget in MiB (default 256, at least 16).
+[[nodiscard]] int stillCacheMiB();
+/// True if the user asked for the CPU compositor (takes effect at the next start).
+[[nodiscard]] bool forceCpuRendering();
+/// Configured cache folder, or empty for the default.
+[[nodiscard]] QString cacheDirectory();
+/// Configured audio output device id, or empty for the system default.
+[[nodiscard]] QString audioOutputDevice();
+/// Default viewer preview quality id ("auto", "full", "half", "quarter").
+[[nodiscard]] QString previewQuality();
+/// True if the timeline zooms around the mouse pointer instead of the playhead.
+[[nodiscard]] bool zoomAroundMouse();
 
 } // namespace kk::prefs

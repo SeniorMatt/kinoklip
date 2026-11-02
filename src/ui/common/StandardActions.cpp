@@ -59,7 +59,7 @@ const ActionSpec kActions[] = {
     {"edit", "edit.insert",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Insert Clip"), "insert"},
     {"edit", "edit.overwrite",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Overwrite Clip"), "overwrite"},
     {"edit", "edit.place_on_top",     QT_TRANSLATE_NOOP("kk::StandardActions", "Place on &Top"), "place_on_top"},
-    {"edit", "edit.replace",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Replace Clip")},
+    {"edit", "edit.replace",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Replace Clip"), "replace"},
     {"edit", "edit.fit_to_fill",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Fit to Fill")},
     {"edit", "edit.append_at_end",    QT_TRANSLATE_NOOP("kk::StandardActions", "Append at &End")},
     {"edit", "-"},
@@ -122,8 +122,11 @@ const ActionSpec kActions[] = {
 
     // ---- View ----
     {"view", "view.page_media",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Media Page"), "page_media", true},
+    {"view", "view.page_cut",         QT_TRANSLATE_NOOP("kk::StandardActions", "C&ut Page"), "page_cut", true},
     {"view", "view.page_edit",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Edit Page"), "page_edit", true},
+    {"view", "view.page_compositing", QT_TRANSLATE_NOOP("kk::StandardActions", "C&ompositing Page"), "page_compositing", true},
     {"view", "view.page_color",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Page"), "page_color", true},
+    {"view", "view.page_audio",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Audio Page"), "page_audio", true},
     {"view", "view.page_deliver",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Deliver Page"), "page_deliver", true},
     {"view", "-"},
     {"view", "view.toggle_media_pool", QT_TRANSLATE_NOOP("kk::StandardActions", "Media Pool"), "panel_media_pool", true},
@@ -230,16 +233,25 @@ void registerStandardActions(ActionRegistry& registry)
     // Short labels for the page bar buttons (menus keep the full "Media Page" text).
     const char* const pageLabels[][2] = {
         {"view.page_media", QT_TRANSLATE_NOOP("kk::StandardActions", "Media")},
+        {"view.page_cut", QT_TRANSLATE_NOOP("kk::StandardActions", "Cut")},
         {"view.page_edit", QT_TRANSLATE_NOOP("kk::StandardActions", "Edit")},
+        {"view.page_compositing", QT_TRANSLATE_NOOP("kk::StandardActions", "Compositing")},
         {"view.page_color", QT_TRANSLATE_NOOP("kk::StandardActions", "Color")},
+        {"view.page_audio", QT_TRANSLATE_NOOP("kk::StandardActions", "Audio")},
         {"view.page_deliver", QT_TRANSLATE_NOOP("kk::StandardActions", "Deliver")},
     };
     for (const auto& [id, label] : pageLabels)
         registry.action(QLatin1String(id))->setIconText(translate(label));
 
-    QAction* color = registry.action(QStringLiteral("view.page_color"));
-    color->setEnabled(false);
-    color->setStatusTip(translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Coming later")));
+    // Pages of the Resolve layout that are not built yet: visible in the page bar (so the
+    // bar has Resolve's order and proportions) but disabled.
+    for (const char* id :
+        {"view.page_cut", "view.page_compositing", "view.page_color", "view.page_audio"}) {
+        QAction* page = registry.action(QLatin1String(id));
+        page->setEnabled(false);
+        page->setStatusTip(
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Coming in a later version")));
+    }
 }
 
 } // namespace kk

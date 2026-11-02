@@ -4,8 +4,9 @@ Owned by the panels agent.
 
 | File | What |
 |---|---|
-| `ProjectSettingsDialog.h` | name, resolution presets + custom, frame rate (23.976 ... 60), sample rate (48 kHz fixed in v0.1); applied with `Project::setSettings()` = one undo step |
-| `PreferencesDialog.h` | hardware acceleration (`playback/hwaccel`) with the working backends listed (`media::hwCapabilities()`, probed off the GUI thread), autosave minutes, system colours, UI scale |
+| `ProjectSettingsDialog.h` | Resolve-style section list: Master Settings (resolution presets + custom, pixel aspect, timeline / playback frame rate, video monitoring), Image Scaling, Audio, General Options (name, autosave), Render Cache; applied with `Project::setSettings()` = one undo step |
+| `PreferencesDialog.h` | Resolve-style window: System / User tabs, section list, the registered `SettingsPage`s of a section stacked under headings; Save / Cancel |
+| `PreferencePages.cpp` | the standard pages + `applyStartupPreferences()` / `applyRuntimePreferences()` (see the table below) |
 | `KeyboardCustomizationDialog.h` | searchable command/shortcut table over `ActionRegistry`, `ShortcutRecorder`, conflict detection with reassign, reset one/all, import/export JSON, Cancel restores |
 | `DialogActions.h` | `connectDialogActions(ctx, window, onPreferencesChanged)` — the one call the main window makes |
 
@@ -16,17 +17,34 @@ stored hardware-acceleration preference to `media::setPreferredHwAccel()` at sta
 to VA-API, Intel's decode path on Linux). The callback restarts the autosave timer after the
 Preferences dialog stored new values.
 
+## Preferences and where they go
+
+| Section | Setting | Key | Applied by |
+|---|---|---|---|
+| System > Memory and GPU | still image cache | `system/stillCacheMiB` | `media::ImageLoader::setCacheLimitBytes()` (live) |
+| | GPU processing mode | `system/renderBackend` | `KINOKLIP_RENDER=cpu` before the compositor exists (next start) |
+| System > Media Storage | cache files location | `system/cacheDirectory` | `media::MediaCache::setCacheDirectory()` (live) |
+| System > Decode Options | hardware decoding (+ API table) | `playback/hwaccel` | `media::setPreferredHwAccel()` (new decoders) |
+| System > Audio I/O | output device | `system/audioOutputDevice` | `playback/AudioOutput` (first playback, i.e. next start) |
+| User > UI Settings | colour theme, widget style (theme page), interface scale | `ui/colorScheme`, `ui/widgetStyle`, `ui/scaleFactor` | theme actions (live), `main()` (next start) |
+| User > Project Save and Load | autosave interval | `project/autosaveMinutes` | `AutosaveController` (live) |
+| User > Editing | still / title+generator / transition durations, fast nudge, three-point editing, ripple delete gap, trim behaviour | `edit/*` (`core/EditBehaviour.h`) | read at each edit (live) |
+| | timeline zooms around playhead / mouse | `edit/zoomAnchor` (`prefs::zoomAroundMouse()`) | timeline wheel zoom (timeline module) |
+| User > Playback Settings | performance mode (preview quality), pre/post-roll, return after play around, restart at end | `playback/previewQuality`, `playback/*` (`PlaybackBehaviour`) | viewers' quality combos + `PlaybackEngine::setBehaviour()` (live) |
+| User > Keyboard | opens Keyboard Customization | — | `edit.keyboard_customization` |
+
 ## Notes and known gaps
 - **UI scale** is stored as `ui/scaleFactor` ("auto" or a factor like "1.25", constant
   `prefs::kUiScale` in `PreferencesDialog.h`). It needs `main()` to set `QT_SCALE_FACTOR` from
   it before creating `QApplication` (app owner) — until then the setting has no effect.
-- **Settings pages are registered** (`ui/common/SettingsPages.h`, plan.md 5.9 rule 4): the
-  dialog stacks every page of the `SettingsPageRegistry` in `AppContext` as a titled group.
-  Standard pages: `registerStandardSettingsPages()` (playback, project, interface); the app's
-  theme adds "appearance" (colour theme + widget style), which applies through the
+- **Settings pages are registered** (`ui/common/SettingsPages.h`, plan.md 5.9 rule 4): each
+  page names its group ("system" / "user") and section; the dialog lists the sections.
+  Standard pages: `registerStandardSettingsPages()`; the app's theme adds "appearance"
+  (colour theme + widget style) to the "ui" section, which applies through the
   `settings.color_scheme.*` / `settings.style.*` actions so the theme code stays the only
   place that applies themes. To add a page: subclass `SettingsPage` (read values in the
-  constructor, store them in `apply()`) and `registry.add({id, title, icon, order, factory})`.
+  constructor, store them in `apply()`) and `registry.add({id, title, icon, order, factory})`
+  with `group` / `section` set.
 - **Frame-rate changes** keep clip positions in frames (see `Project::setSettings()`); the dialog
   warns when the timeline has clips.
 - Keyboard changes apply live so they can be tried; Cancel restores the state from when the

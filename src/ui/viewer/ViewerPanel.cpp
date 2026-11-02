@@ -11,6 +11,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
+#include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -33,8 +34,8 @@ namespace kk {
 
 namespace {
 
-constexpr int kTransportIconSize = 18;
-constexpr int kTransportBarHeight = 34;
+constexpr int kTransportIconSize = metrics::kTransportIconSize;
+constexpr int kTransportBarHeight = 36;
 constexpr int kDragPixmapWidth = 160; ///< width of the picture shown while dragging a range
 
 QList<ViewerPanel*>& registry()
@@ -118,19 +119,23 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         mode == Mode::Source ? QStringLiteral("SourceViewer") : QStringLiteral("TimelineViewer"));
     setFocusPolicy(Qt::ClickFocus);
 
-    // ---- Title bar: zoom, quality, timecode ----
+    // ---- Title bar (Resolve's viewer header): zoom on the left, the clip / timeline name
+    // centred, preview quality and the timecode on the right ----
+    setTitleCentered(true);
     m_zoomBox = new QComboBox;
     m_zoomBox->setObjectName(QStringLiteral("ViewerZoom"));
     m_zoomBox->addItems({tr("Fit"), tr("50%"), tr("100%"), tr("200%")});
     m_zoomBox->setFocusPolicy(Qt::NoFocus);
     m_zoomBox->setToolTip(tr("Viewer zoom"));
+    m_zoomBox->setMinimumWidth(metrics::kTitleComboMinWidth);
     connect(m_zoomBox, &QComboBox::currentIndexChanged, this, [this](int i) { setZoom(Zoom(i)); });
-    addTitleBarWidget(m_zoomBox);
+    addTitleBarLeadingWidget(m_zoomBox);
 
     m_qualityBox = new QComboBox;
     m_qualityBox->setObjectName(QStringLiteral("ViewerQuality"));
     m_qualityBox->addItems({tr("Auto"), tr("Full"), tr("Half"), tr("Quarter")});
     m_qualityBox->setFocusPolicy(Qt::NoFocus);
+    m_qualityBox->setMinimumWidth(metrics::kTitleComboMinWidth);
     m_qualityBox->setToolTip(tr("Playback preview quality (Auto lowers the resolution while "
                                 "playing when rendering cannot keep up)"));
     connect(m_qualityBox, &QComboBox::currentIndexChanged, this, [this](int i) {
@@ -142,7 +147,8 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
 
     m_timecode = new QLabel(timecode::format(0, Rational {}));
     m_timecode->setObjectName(QStringLiteral("TimecodeLabel"));
-    m_timecode->setContentsMargins(6, 0, 6, 0);
+    m_timecode->setContentsMargins(metrics::kSpaceS, 0, metrics::kSpaceS, 0);
+    m_timecode->setToolTip(tr("Current timecode"));
     addTitleBarWidget(m_timecode);
 
     // ---- Body: picture, scrub bar, transport ----
@@ -175,12 +181,12 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     m_transport->setObjectName(QStringLiteral("ViewerTransport"));
     m_transport->setFixedHeight(kTransportBarHeight);
     auto* bar = new QHBoxLayout(m_transport);
-    bar->setContentsMargins(8, 0, 8, 0);
-    bar->setSpacing(2);
+    bar->setContentsMargins(metrics::kSpaceM, 0, metrics::kSpaceM, 0);
+    bar->setSpacing(metrics::kSpaceXs);
     m_marksLabel = new QLabel;
     m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));
-    m_marksLabel->setStyleSheet(
-        QStringLiteral("color: #8a8a92;")); // dim but readable on the dark theme
+    // Secondary text from the palette (readable in light and dark colour schemes).
+    m_marksLabel->setForegroundRole(QPalette::PlaceholderText);
     bar->addWidget(m_marksLabel);
     bar->addStretch(1);
 
@@ -211,11 +217,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
             }
         };
     };
-    addButton(bar, QStringLiteral("mark.in"), icon(QStringLiteral("mark_in")), tr("Mark In"),
-        mark("mark.in", &SourcePlayer::markInAtPosition));
-    addButton(bar, QStringLiteral("mark.out"), icon(QStringLiteral("mark_out")), tr("Mark Out"),
-        mark("mark.out", &SourcePlayer::markOutAtPosition));
-    bar->addSpacing(10);
+    // Resolve's transport row: marked duration left, transport centred, in / out marks right.
     addButton(bar, QStringLiteral("transport.go_to_start"), icon(QStringLiteral("go_start")),
         tr("Go to Start"), onEngine(&PlaybackEngine::goToStart));
     addButton(bar, QStringLiteral("transport.prev_frame"), icon(QStringLiteral("prev_frame")),
@@ -259,7 +261,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         });
     addButton(bar, QStringLiteral("transport.go_to_end"), icon(QStringLiteral("go_end")),
         tr("Go to End"), onEngine(&PlaybackEngine::goToEnd));
-    bar->addSpacing(10);
+    bar->addSpacing(metrics::kSpaceL);
     // Loop is one global toggle (like most NLEs): the button shows the shared action.
     if (QAction* loop = act("transport.loop")) {
         auto* button = new QToolButton;
@@ -278,6 +280,10 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         bracketed(icon(QStringLiteral("play")), palette().color(QPalette::WindowText)),
         tr("Play In to Out"), onEngine(&PlaybackEngine::playInToOut));
     bar->addStretch(1);
+    addButton(bar, QStringLiteral("mark.in"), icon(QStringLiteral("mark_in")), tr("Mark In"),
+        mark("mark.in", &SourcePlayer::markInAtPosition));
+    addButton(bar, QStringLiteral("mark.out"), icon(QStringLiteral("mark_out")), tr("Mark Out"),
+        mark("mark.out", &SourcePlayer::markOutAtPosition));
     m_rateLabel = new QLabel;
     m_rateLabel->setObjectName(QStringLiteral("ViewerRate"));
     m_rateLabel->setMinimumWidth(40);
@@ -471,7 +477,8 @@ void ViewerPanel::updateTitle()
     } else if (m_boundTimeline) {
         name = m_boundTimeline->data().name;
     }
-    setTitle(name.isEmpty() ? base : tr("%1 — %2").arg(base, name));
+    // Resolve's header shows just the name of what is loaded.
+    setTitle(name.isEmpty() ? base : name);
 }
 
 void ViewerPanel::updateMarksLabel()

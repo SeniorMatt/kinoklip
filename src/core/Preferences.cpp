@@ -8,6 +8,8 @@ namespace kk::prefs {
 
 namespace {
 constexpr int kDefaultAutosaveMinutes = 2;
+constexpr int kDefaultStillCacheMiB = 256; ///< media::ImageLoader's own default
+constexpr int kMinStillCacheMiB = 16;
 
 struct HwAccelName
 {
@@ -69,6 +71,37 @@ int autosaveMinutes()
 void setAutosaveMinutes(int minutes)
 {
     QSettings().setValue(QLatin1String(kAutosaveMinutes), qMax(0, minutes));
+}
+
+int stillCacheMiB()
+{
+    return qMax(kMinStillCacheMiB,
+        QSettings().value(QLatin1String(kStillCacheMiB), kDefaultStillCacheMiB).toInt());
+}
+
+bool forceCpuRendering()
+{
+    return QSettings().value(QLatin1String(kRenderBackend)).toString() == QLatin1String("cpu");
+}
+
+QString cacheDirectory()
+{
+    return QSettings().value(QLatin1String(kCacheDirectory)).toString();
+}
+
+QString audioOutputDevice()
+{
+    return QSettings().value(QLatin1String(kAudioOutputDevice)).toString();
+}
+
+QString previewQuality()
+{
+    return QSettings().value(QLatin1String(kPreviewQuality), QStringLiteral("auto")).toString();
+}
+
+bool zoomAroundMouse()
+{
+    return QSettings().value(QLatin1String(kZoomAnchor)).toString() == QLatin1String("mouse");
 }
 
 } // namespace kk::prefs

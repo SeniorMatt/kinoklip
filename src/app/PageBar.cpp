@@ -2,6 +2,8 @@
 // PageBar implementation.
 #include "app/PageBar.h"
 
+#include "ui/common/Metrics.h"
+
 #include <QAction>
 #include <QHBoxLayout>
 #include <QToolButton>
@@ -9,9 +11,10 @@
 namespace kk {
 
 namespace {
-constexpr int kBarHeight = 40;
-constexpr int kIconSize = 18;
-constexpr int kButtonMinWidth = 96;
+constexpr int kBarHeight = metrics::kPageBarHeight;
+constexpr int kIconSize = metrics::kTransportIconSize;
+/// Equal button widths keep the seven pages evenly spaced like Resolve's page bar.
+constexpr int kButtonMinWidth = 112;
 } // namespace
 
 PageBar::PageBar(QWidget* parent)
@@ -21,10 +24,10 @@ PageBar::PageBar(QWidget* parent)
     setAttribute(Qt::WA_StyledBackground);
     setFixedHeight(kBarHeight);
     auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(8, 0, 8, 0);
+    layout->setContentsMargins(metrics::kSpaceM, 0, metrics::kSpaceM, 0);
     layout->addStretch(1);
     m_buttons = new QHBoxLayout;
-    m_buttons->setSpacing(24);
+    m_buttons->setSpacing(metrics::kSpaceM);
     layout->addLayout(m_buttons);
     layout->addStretch(1);
 }
