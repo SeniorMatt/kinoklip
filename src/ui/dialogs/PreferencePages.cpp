@@ -456,6 +456,12 @@ public:
         m_slideInName = new QCheckBox(tr("Trim tool slides in the clip name bar"));
         m_slideInName->setChecked(b.trimToolSlideInNameBar);
         form->addRow(QString(), m_slideInName);
+        m_tabs = new QCheckBox(tr("Show open timelines as tabs"));
+        m_tabs->setObjectName(QStringLiteral("TimelineTabs"));
+        m_tabs->setToolTip(tr("Off: one timeline at a time, chosen from a drop-down above "
+                              "the timeline"));
+        m_tabs->setChecked(b.timelineTabs);
+        form->addRow(tr("Timelines"), m_tabs);
     }
 
     void apply() override
@@ -469,6 +475,7 @@ public:
         s.setValue(QStringLiteral("edit/rippleDeleteGapAtPlayhead"), m_rippleGap->isChecked());
         s.setValue(QStringLiteral("edit/selectToolRollsAtCut"), m_rollAtCut->isChecked());
         s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
+        s.setValue(QStringLiteral("edit/timelineTabs"), m_tabs->isChecked());
         s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
         EditBehaviour::setWheelScheme(WheelScheme(m_wheel->currentData().toInt()));
     }
@@ -484,6 +491,7 @@ private:
     QCheckBox* m_rippleGap = nullptr;
     QCheckBox* m_rollAtCut = nullptr;
     QCheckBox* m_slideInName = nullptr;
+    QCheckBox* m_tabs = nullptr;
 };
 
 // ---- User: Playback Settings ---------------------------------------------------------

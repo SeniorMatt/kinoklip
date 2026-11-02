@@ -56,6 +56,8 @@ void MediaPoolModel::thumbnailReady(const QString& path)
 void MediaPoolModel::recheckOffline()
 {
     for (int r = 0; r < m_rows.size(); ++r) {
+        if (m_rows[r].kind == TimelineKind || m_rows[r].kind == CompoundKind)
+            continue; // no file behind them
         const bool offline = !QFileInfo::exists(m_rows[r].path);
         if (offline != m_rows[r].offline) {
             m_rows[r].offline = offline;
@@ -93,6 +95,14 @@ MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item)
                             .arg(info.audioSampleRate / 1000.0, 0, 'g', 3);
     }
     row.searchText = (item.name + QLatin1Char(' ') + item.path).toLower();
+    if (item.isTimeline()) {
+        row.kind = item.kind == MediaItemKind::CompoundClip ? CompoundKind : TimelineKind;
+        row.codecText
+            = item.kind == MediaItemKind::CompoundClip ? tr("Compound Clip") : tr("Timeline");
+        row.audioText.clear();
+        row.offline = false;
+        return row;
+    }
     // One stat() per item on add/reset, never while painting.
     row.offline = !QFileInfo::exists(item.path);
     return row;
@@ -163,7 +173,8 @@ int MediaPoolModel::columnCount(const QModelIndex& parent) const
 
 QPixmap MediaPoolModel::poster(const Row& row) const
 {
-    if (row.kind == AudioKind || !m_provider)
+    if (row.kind == AudioKind || row.kind == TimelineKind || row.kind == CompoundKind
+        || !m_provider)
         return {};
     if (const QPixmap* cached = m_posters.object(row.path))
         return *cached;
@@ -216,10 +227,18 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
             return icon(QStringLiteral("image"));
         case AudioKind:
             return icon(QStringLiteral("audio_file"));
+        case TimelineKind:
+            return icon(QStringLiteral("timeline"));
+        case CompoundKind:
+            return icon(QStringLiteral("compound_clip"));
         default:
             return icon(QStringLiteral("film"));
         }
     case Qt::ToolTipRole:
+        if (row.kind == TimelineKind || row.kind == CompoundKind)
+            return row.kind == TimelineKind
+                ? tr("%1\nTimeline: double-click to open it in a tab").arg(row.name)
+                : tr("%1\nCompound clip: double-click to open it in a tab").arg(row.name);
         return row.offline ? tr("%1\nMedia offline: the file is missing.").arg(row.path) : row.path;
     case Qt::ForegroundRole:
         if (row.offline)
@@ -312,7 +331,9 @@ QMimeData* MediaPoolModel::mimeData(const QModelIndexList& indexes) const
 
 Qt::DropActions MediaPoolModel::supportedDragActions() const
 {
-    return Qt::CopyAction | Qt::MoveAction;
+    // Copy only: a drag never removes items (with Move, QAbstractItemView deletes the rows a
+    // target accepted), and the Wayland compositor negotiates a single, unambiguous action.
+    return Qt::CopyAction;
 }
 
 // ---- MediaPoolFilterModel ----

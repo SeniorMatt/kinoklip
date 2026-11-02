@@ -63,7 +63,9 @@ public:
     enum MediaKind {
         VideoKind,
         AudioKind,
-        ImageKind
+        ImageKind,
+        TimelineKind, ///< a timeline of the project (double-click opens it in a tab)
+        CompoundKind ///< a compound clip (its timeline)
     };
 
     /// Size poster frames are scaled to fit (16:9 tile).

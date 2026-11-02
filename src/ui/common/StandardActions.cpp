@@ -31,6 +31,7 @@ struct ActionSpec
 const ActionSpec kActions[] = {
     // ---- File ----
     {"file", "file.new",              QT_TRANSLATE_NOOP("kk::StandardActions", "&New Project")},
+    {"file", "timeline.new",          QT_TRANSLATE_NOOP("kk::StandardActions", "New &Timeline…"), "timeline"},
     {"file", "file.open",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Open Project…")},
     {"file", ">file.recent",          QT_TRANSLATE_NOOP("kk::StandardActions", "Open &Recent")},
     {"file", "-"},
@@ -116,6 +117,14 @@ const ActionSpec kActions[] = {
     {"timeline", "-"},
     {"timeline", "timeline.add_video_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Video Track")},
     {"timeline", "timeline.add_audio_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Audio Track")},
+    {"timeline", "-"},
+    {"timeline", "timeline.duplicate", QT_TRANSLATE_NOOP("kk::StandardActions", "D&uplicate Timeline")},
+    {"timeline", "timeline.delete",   QT_TRANSLATE_NOOP("kk::StandardActions", "Delete Timel&ine")},
+    {"timeline", "timeline.settings", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline Se&ttings…")},
+    {"timeline", "timeline.next_tab", QT_TRANSLATE_NOOP("kk::StandardActions", "Ne&xt Timeline Tab")},
+    {"timeline", "timeline.prev_tab", QT_TRANSLATE_NOOP("kk::StandardActions", "Previous Timeline Ta&b")},
+    {"timeline", "timeline.close_tab", QT_TRANSLATE_NOOP("kk::StandardActions", "&Close Timeline Tab")},
+    {"timeline", "-"},
     {"timeline", ">timeline.tracks",  QT_TRANSLATE_NOOP("kk::StandardActions", "Track &Destination and Auto Select")},
 
     // ---- Clip ----
@@ -126,6 +135,10 @@ const ActionSpec kActions[] = {
     {"clip", "clip.change_speed",     QT_TRANSLATE_NOOP("kk::StandardActions", "Change Clip &Speed…")},
     {"clip", "clip.retime_controls",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Retime Controls")},
     {"clip", "clip.freeze_frame",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Freeze Frame")},
+    {"clip", "-"},
+    {"clip", "clip.new_compound",     QT_TRANSLATE_NOOP("kk::StandardActions", "New &Compound Clip…"), "compound_clip"},
+    {"clip", "clip.open_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Open in Timeline")},
+    {"clip", "clip.decompose",        QT_TRANSLATE_NOOP("kk::StandardActions", "Decompose in &Place")},
     {"clip", "-"},
     {"clip", "clip.link",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Link Clips")},
     {"clip", "clip.unlink",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Unlink Clips")},

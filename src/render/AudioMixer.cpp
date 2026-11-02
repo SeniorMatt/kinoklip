@@ -21,6 +21,8 @@ constexpr double kSilenceDb = -96.0;
 constexpr double kMaxHandleSeconds = 60.0;
 /// Don't retry opening a failed file for this long.
 constexpr qint64 kRetryFailedMs = 5000;
+/// Deepest nesting mixed (guards against damaged data only; see compound::canNest()).
+constexpr int kMaxNestingDepth = 16;
 
 /// The clip linked to @p clip on a video track (same non-zero linkGroup, overlapping).
 const ClipData* linkedVideo(
@@ -46,6 +48,10 @@ const ClipData* linkedVideo(
 struct AudioMixer::Decoder
 {
     std::unique_ptr<media::AudioDecoder> decoder; ///< nullptr after a failed open
+    /// Nested clips: the mixer of the nested timeline (owns its own decoders) and the
+    /// timeline it mixes (owned by the snapshot passed to mix(), valid during the call).
+    std::unique_ptr<AudioMixer> nested;
+    const TimelineData* nestedTimeline = nullptr;
     QString path;
     qint64 lastUsedMs = 0;
     qint64 failedAtMs = -1;
@@ -100,8 +106,25 @@ float AudioMixer::softClip(float x)
     return x < 0 ? -y : y;
 }
 
-AudioMixer::Decoder* AudioMixer::decoderFor(const ClipData& clip)
+AudioMixer::Decoder* AudioMixer::decoderFor(const ClipData& clip, const NestedTimelines& nested)
 {
+    if (clip.kind == ClipKind::Nested) {
+        const TimelineData* n = nested.find(clip.nestedUid);
+        if (!n || m_depth >= kMaxNestingDepth)
+            return nullptr;
+        auto& slot = m_decoders[clip.id];
+        if (!slot)
+            slot = std::make_unique<Decoder>();
+        if (!slot->nested) {
+            slot->nested = std::make_unique<AudioMixer>();
+            slot->nested->m_depth = m_depth + 1;
+            slot->nested->setIdleCloseMs(m_idleCloseMs);
+        }
+        slot->nested->m_media = m_media;
+        slot->nestedTimeline = n;
+        slot->lastUsedMs = m_clock.elapsed();
+        return slot.get();
+    }
     const QString path = m_media ? m_media->value(clip.mediaId) : QString();
     if (path.isEmpty())
         return nullptr;
@@ -150,6 +173,38 @@ void AudioMixer::mix(const TimelineData& tl, int64_t startSample48k, int frames,
     std::fill(out, out + size_t(frames) * kChannels, 0.0f);
     if (!tl.fps.isValid())
         return;
+    mixTimeline(tl, tl.nested, startSample48k, frames, out);
+    for (int i = 0; i < frames * kChannels; ++i)
+        out[i] = softClip(out[i]);
+    collectIdle();
+}
+
+void AudioMixer::readSource(
+    Decoder& d, const NestedTimelines& nested, int64_t first, float* out, int count)
+{
+    if (d.nested) {
+        // Nested timeline time 0 = source sample 0. Silence before it (handles of a
+        // transition at the very start) and wherever nothing plays inside.
+        std::fill(out, out + size_t(count) * kChannels, 0.0f);
+        int64_t from = first;
+        int n = count;
+        if (from < 0) {
+            const int skip = int(std::min<int64_t>(-from, count));
+            from += skip;
+            n -= skip;
+            out += size_t(skip) * kChannels;
+        }
+        if (n > 0 && d.nestedTimeline->fps.isValid())
+            d.nested->mixTimeline(*d.nestedTimeline, nested, from, n, out);
+        d.nested->collectIdle();
+        return;
+    }
+    d.decoder->read(first, out, count);
+}
+
+void AudioMixer::mixTimeline(const TimelineData& tl, const NestedTimelines& nested,
+    int64_t startSample48k, int frames, float* out)
+{
     const int64_t mixEnd = startSample48k + frames;
     const bool anySolo = std::any_of(
         tl.audioTracks.begin(), tl.audioTracks.end(), [](const TrackData& t) { return t.solo; });
@@ -166,8 +221,8 @@ void AudioMixer::mix(const TimelineData& tl, int64_t startSample48k, int frames,
             continue;
         for (int ci = 0; ci < int(track.clips.size()); ++ci) {
             const ClipData& clip = track.clips[size_t(ci)];
-            if (!clip.enabled || clip.kind != ClipKind::Media || clip.end() < windowFirst
-                || clip.start > windowLast)
+            if (!clip.enabled || (clip.kind != ClipKind::Media && clip.kind != ClipKind::Nested)
+                || clip.end() < windowFirst || clip.start > windowLast)
                 continue;
 
             // Transitions: the audio track's own, else the linked video clip's.
@@ -201,19 +256,16 @@ void AudioMixer::mix(const TimelineData& tl, int64_t startSample48k, int frames,
             const int64_t s1 = std::min(framesToSamples48k(playEnd, tl.fps), mixEnd);
             if (s1 <= s0)
                 continue;
-            mixClip(tl, clip, headFade, tailFade, s0, s1, out + (s0 - startSample48k) * kChannels);
+            mixClip(tl, nested, clip, headFade, tailFade, s0, s1,
+                out + (s0 - startSample48k) * kChannels);
         }
     }
-
-    for (int i = 0; i < frames * kChannels; ++i)
-        out[i] = softClip(out[i]);
-    collectIdle();
 }
 
-void AudioMixer::mixClip(const TimelineData& tl, const ClipData& clip, const Fade& head,
-    const Fade& tail, int64_t from, int64_t to, float* out)
+void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
+    const ClipData& clip, const Fade& head, const Fade& tail, int64_t from, int64_t to, float* out)
 {
-    Decoder* d = decoderFor(clip);
+    Decoder* d = decoderFor(clip, nested);
     if (!d)
         return;
     const int n = int(to - from);
@@ -226,7 +278,7 @@ void AudioMixer::mixClip(const TimelineData& tl, const ClipData& clip, const Fad
     if (speed == 1.0) {
         if (m_source.size() < size_t(n) * kChannels)
             m_source.resize(size_t(n) * kChannels);
-        d->decoder->read(sourceIn + (from - clipStart), m_source.data(), n);
+        readSource(*d, nested, sourceIn + (from - clipStart), m_source.data(), n);
         src = m_source.data();
     } else {
         // Linear interpolation between the source samples around each output position.
@@ -237,7 +289,7 @@ void AudioMixer::mixClip(const TimelineData& tl, const ClipData& clip, const Fad
             m_source.resize(size_t(count) * kChannels);
         if (m_resampled.size() < size_t(n) * kChannels)
             m_resampled.resize(size_t(n) * kChannels);
-        d->decoder->read(first, m_source.data(), count);
+        readSource(*d, nested, first, m_source.data(), count);
         for (int i = 0; i < n; ++i) {
             const double p = pos0 - double(first) + i * speed;
             const int k = std::min(int(p), count - 2);

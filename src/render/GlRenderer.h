@@ -46,19 +46,32 @@ private:
     /// Frame-wide values every clip draw needs.
     struct FrameContext
     {
-        const TimelineData* timeline = nullptr;
-        int64_t frame = 0;
+        const TimelineData* timeline = nullptr; ///< the root or a nested timeline
+        int64_t frame = 0; ///< frame of `timeline`
         QSize outSize;
         double sx = 1.0; ///< output pixels per timeline pixel, horizontally
         double sy = 1.0; ///< ... vertically
+        const NestedTimelines* nested = nullptr; ///< the root snapshot's nested timelines
+        int depth = 0; ///< nesting depth (0 = root)
     };
-    /// A media clip decoded for the current frame.
+    /// A media clip decoded for the current frame. A clip inside a nested timeline can be
+    /// shown at several times in one frame (two instances), so (clip, timeUs) is the key.
     struct DecodedClip
     {
         const ClipData* clip = nullptr;
         DecoderPool::Entry* entry = nullptr;
         int64_t timeUs = 0;
+        int64_t nextTimeUs = 0; ///< source time of the next frame (decode-ahead)
         std::shared_ptr<const media::VideoFrame> frame;
+    };
+    /// A nested timeline composited for the current frame (reused by every instance that
+    /// shows the same frame at the same size).
+    struct NestedComposite
+    {
+        const TimelineData* timeline = nullptr;
+        int64_t frame = 0;
+        QSize size;
+        PooledTarget target;
     };
     /// What a clip draws, resolved for this frame (see drawClip()).
     struct ClipSource;
@@ -72,12 +85,23 @@ private:
         quint64 lastUse = 0;
     };
 
-    void queueDecode(
-        const ClipData* clip, int64_t frame, const TimelineData& tl, const MediaPathMap* media);
+    /// Queues the decode of @p clip at @p frame of @p tl (@p nextFrame: the frame playback
+    /// asks for next); a Nested clip queues the clips visible in its timeline (recursive).
+    void queueDecode(const ClipData* clip, int64_t frame, int64_t nextFrame, const TimelineData& tl,
+        const NestedTimelines& nested, const MediaPathMap* media, int depth);
+    /// queueDecode() for every visible clip of @p tl at @p frame.
+    void queueTimeline(const TimelineData& tl, int64_t frame, int64_t nextFrame,
+        const NestedTimelines& nested, const MediaPathMap* media, int depth);
     void decodeQueued();
     /// Starts decoding the next frame of every clip that plays forward (worker threads).
-    void startDecodeAhead(int64_t frame, const TimelineData& tl);
-    const DecodedClip* decoded(const ClipData* clip) const;
+    void startDecodeAhead();
+    const DecodedClip* decoded(const ClipData* clip, int64_t timeUs) const;
+    /// Composites every video track of @p fc.timeline at @p fc.frame into a new target of
+    /// @p fc.outSize (premultiplied, transparent where nothing is).
+    PooledTarget compositeTimeline(const FrameContext& fc);
+    /// The composite of nested timeline @p tl at @p frame and @p size (cached per frame).
+    const RenderTarget* nestedComposite(
+        const TimelineData& tl, int64_t frame, QSize size, const FrameContext& parent);
 
     void drawTrack(
         const TrackFrame& track, const FrameContext& fc, const RenderTarget& accumulator);
@@ -106,7 +130,10 @@ private:
     QThreadPool m_decodeThreads; ///< parallel decoding of the clips visible in one frame
     std::vector<DecodedClip> m_decoded; ///< per-frame scratch (capacity reused)
     qint64 m_uploadNs = 0; ///< plane upload time of the current frame (statistics)
-    std::vector<TrackFrame> m_trackFrames; ///< per-frame scratch
+    /// Per-frame scratch of the track walk, one list per nesting depth (a nested timeline is
+    /// composited while its parent's list is still in use).
+    std::vector<std::vector<TrackFrame>> m_trackFrames;
+    std::vector<NestedComposite> m_nested; ///< per-frame nested composites (capacity reused)
     std::vector<GlEffect*> m_activeEffects; ///< per-clip scratch
     std::vector<const EffectInstance*> m_activeInstances; ///< parallel to m_activeEffects
 

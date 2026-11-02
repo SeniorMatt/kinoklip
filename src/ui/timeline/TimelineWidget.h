@@ -25,6 +25,7 @@ namespace kk {
 
 struct AppContext;
 class KeyframeLanes;
+class NestedPreview;
 class TimelineController;
 
 /// The timeline editor view.
@@ -124,6 +125,8 @@ protected:
     void changeEvent(QEvent* event) override;
 
 private:
+    /// Applies the remembered zoom / scroll of timeline @p uid (fit when there is none).
+    void restoreViewState(quint64 uid);
     // ---- Input state machine (TimelineInput.cpp) ----
     enum class DragMode {
         None,
@@ -216,12 +219,20 @@ private:
             None,
             Clips,
             Effect,
-            Transition
+            Transition,
+            Files ///< files from a file manager: imported into the media pool on drop
         };
         Kind kind = Kind::None;
         /// Clips: groups of clips created from one source each (linked after placing).
         QVector<QVector<editops::PlacedClip>> groups;
         bool insert = false; ///< Ctrl: insert instead of overwrite
+        /// Clips: dropped in the empty space above the top video track / below the last audio
+        /// track (Resolve: a new track is created there); the clips' refs already use the new
+        /// index (= the current track count).
+        bool newVideoTrack = false;
+        bool newAudioTrack = false;
+        QRect newTrackBand; ///< where the ghost of a new track's clips is drawn
+        TrackType newTrackBandType = TrackType::Video; ///< the new track shown in the band
         quint64 clipId = 0; ///< Effect/Transition target
         QString effectId;
         bool head = true; ///< Transition: at the clip head (transitionIn) or tail
@@ -249,6 +260,7 @@ private:
     TimelineLayout m_layout;
     TimelinePainter m_painter;
     KeyframeLanes* m_keyframeLanes = nullptr; ///< child QObject: keyframe / curve editor lanes
+    NestedPreview* m_nestedPreview = nullptr; ///< child QObject: compound clip previews
     TimelineOverlay m_overlay;
     QSet<quint64> m_selected; ///< mirror of the SelectionModel for O(1) lookups while painting
     Drag m_drag;

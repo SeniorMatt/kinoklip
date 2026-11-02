@@ -87,6 +87,8 @@ public:
     [[nodiscard]] QHash<quint64, int> laneHeights(const TimelineData& data);
     /// Places, shows and hides the lane widgets after a layout / scroll / zoom change.
     void syncGeometry();
+    /// Closes every lane (another timeline became active: clip ids mean other clips there).
+    void reset();
 
     /// Paints the toggle buttons on every visible animated clip (after the timeline painter).
     void paintClipButtons(QPainter& p) const;

@@ -26,12 +26,15 @@ class QPalette;
 
 namespace kk {
 
+struct MediaItem;
+
 class MediaPool;
 
 /// A clip that would be created by a drop or drag (drawn translucent).
 struct TimelineGhost
 {
-    int row = -1;
+    int row = -1; ///< -1: a track the drop will create, drawn in @c band
+    QRect band;
     int64_t start = 0;
     int64_t duration = 0;
     QString name;
@@ -107,6 +110,9 @@ public:
     [[nodiscard]] static QColor clipColor(const ClipData& clip, TrackType type);
 
 private:
+    /// Media path (or nested-preview pseudo path) of @p clip for the thumbnail / waveform
+    /// providers.
+    [[nodiscard]] static QString clipPreviewPath(const ClipData& clip, const MediaItem* item);
     void paintTrackArea(QPainter& p, const TimelinePaintInput& in);
     void paintRow(QPainter& p, const TimelinePaintInput& in, int row);
     void paintClip(QPainter& p, const TimelinePaintInput& in, int row, const TrackData& track,
