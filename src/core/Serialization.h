@@ -44,7 +44,20 @@ namespace kk::serialization {
 ///   (proxy handling "prefer proxies", render cache "none"); nothing else changes, so the
 ///   loader needs no step for 4 -> 6 or 5 -> 6; proxies already in the proxy folder are linked
 ///   by the application after loading (MediaLinks::autoLink()).
-inline constexpr int kFormatVersion = 6;
+/// - 9: media pool organisation (bins branch). Media pool items may carry "clipColor" (palette
+///   id, core/ClipColors.h), "flags" (array of flag ids), "metadata" (description, comments,
+///   keywords, scene, shot, take, camera, angle, goodTake, rating; only the fields set),
+///   "added" / "modified" (ms since the epoch); the media pool may carry "smartBins"
+///   ([{"id", "name", "match": "all" | "any", "rules": [{"field", "op", "value"}]}], ids from
+///   core/SmartBins.h); the project stores "binViews" ([{"bin", "mode", "sort", "descending"}],
+///   per-bin view mode and sort order). The order of "bins" is the order of sibling bins.
+///   Every field is optional, so older files load unchanged; for files older than 9
+///   Project::fromJson() fills "modified" from the files on disk and uses it as "added" too
+///   (the best known bound), so the date rules of smart bins work on old projects. Older builds
+///   refuse version 9 instead of silently dropping colours, flags and metadata.
+/// - 7, 8: reserved for the adjustment-clip / subtitle and multicam branches (developed in
+///   parallel).
+inline constexpr int kFormatVersion = 9;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
