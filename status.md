@@ -87,3 +87,4 @@
 - 17:37 adjsubs merged (80/80): adjustment clips (fast path), generators, subtitle tracks + SRT/VTT import, burn-in/sidecar/embedded export, format v7. Starting 'attrs' (audio level lines on timeline, clip attributes, stacked timelines, spec renumbering). Running: multicam, bins, attrs.
 - 18:16 Owner request: Kinoklip colour scheme (Resolve-like neutral charcoal + warm accent) added; verified in the KF6 bundle and by test_themeswitch. Default still Breeze Dark (asked owner).
 - 18:18 Heartbeat: multicam 11 commits (container build compiling), bins 4, attrs active; 18 GB free.
+- 18:50 multicam merged (all tests pass). Usage limit reached: bins and attrs agents paused (work committed in their worktrees; resume via SendMessage). Next: merge bins + attrs, renumber spec sections, release 0.2.0-alpha.1.
