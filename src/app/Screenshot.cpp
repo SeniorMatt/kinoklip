@@ -580,12 +580,18 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             edit->setPanelVisible(PanelId::Effects, true);
         panel = window.findChild<EffectsLibraryPanel*>();
     } else if (base == QLatin1String("cut")) {
-        // Cut page (spec 35): an empty timeline gets every file of the media pool appended
+        // Cut page (spec 35): files in KK_SCREENSHOT_IMPORT are imported; an empty timeline gets
+        // every file of the media pool appended
         // (Append, one undo step) and the playhead in its middle. "cut:tape" shows the source
         // tape of the bin, "cut:clip" the first clip in Source Clip mode, "cut:strip" the media
         // pool's strip view.
         window.setCurrentPage(QStringLiteral("cut"));
         CutPage* cut = window.cutPage();
+        // KK_SCREENSHOT_IMPORT=a.mp4:b.mp4 imports media first (colon-separated).
+        const QStringList importPaths = qEnvironmentVariable("KK_SCREENSHOT_IMPORT")
+                                            .split(QLatin1Char(':'), Qt::SkipEmptyParts);
+        if (!importPaths.isEmpty())
+            ctx.project->importMedia(importPaths);
         QVector<SourceSelection> clips;
         for (const MediaItem& m : ctx.project->mediaPool()->items()) {
             if (m.kind == MediaItemKind::File && (m.info.hasVideo || m.info.hasAudio))
