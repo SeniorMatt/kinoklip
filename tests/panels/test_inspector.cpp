@@ -320,7 +320,62 @@ private slots:
         QVERIFY(volume);
         f.selection.selectClip(a);
         QCOMPARE(panel.audioClipId(), a);
-        QCOMPARE(panel.clipId(), a);
+        QCOMPARE(panel.clipId(), v); // the pair is one item (spec 24.1)
+    }
+
+    void spec24_1_linkedPairIsOneItem()
+    {
+        PanelFixture f;
+        const quint64 v = f.addClip(kV1, 0, 50);
+        const quint64 a = f.addClip(kA1, 0, 50);
+        f.project.beginEdit(QStringLiteral("link"));
+        editops::linkClips(f.project.timeline()->mutableData(), {v, a});
+        f.project.endEdit();
+        InspectorPanel panel(f.ctx);
+        auto* info = panel.findChild<QLabel*>(QStringLiteral("InspectorClipInfo"));
+        // Linked selection selects both; the audio clip may well be the last one.
+        f.selection.setClips({v, a});
+        QCOMPARE(panel.clipId(), v);
+        QCOMPARE(panel.audioClipId(), a);
+        QVERIFY(!info->text().contains(QLatin1String("selected")));
+        // The Video tab edits the video clip (owner's alpha.2 report: it said "Audio clips have
+        // no video properties").
+        QVERIFY(panel.findChild<ValueField*>(QStringLiteral("value:") + keys::ZoomX));
+        // Another, unrelated clip as well: two items.
+        const quint64 other = f.addClip(kV1, 60, 20);
+        f.selection.addClips({other});
+        QCOMPARE(panel.clipId(), other);
+        QCOMPARE(info->text(), QStringLiteral("2 clips selected, showing the last one"));
+    }
+
+    void spec24_2_tabFollowsClickedPart()
+    {
+        PanelFixture f;
+        const quint64 v = f.addClip(kV1, 0, 50);
+        const quint64 a = f.addClip(kA1, 0, 50);
+        f.project.beginEdit(QStringLiteral("link"));
+        editops::linkClips(f.project.timeline()->mutableData(), {v, a});
+        f.project.endEdit();
+        InspectorPanel panel(f.ctx);
+        f.selection.setClips({v, a}); // audio part clicked (last = current)
+        QCOMPARE(panel.tabs()->currentIndex(), int(InspectorPanel::AudioTab));
+        f.selection.setClips({a, v}); // video part clicked
+        QCOMPARE(panel.tabs()->currentIndex(), int(InspectorPanel::VideoTab));
+        // Other tabs are left alone.
+        panel.tabs()->setCurrentIndex(InspectorPanel::EffectsTab);
+        f.selection.setClips({v, a});
+        QCOMPARE(panel.tabs()->currentIndex(), int(InspectorPanel::EffectsTab));
+    }
+
+    void spec13_10_selectedTransitionShowsTransitionTab()
+    {
+        PanelFixture f;
+        const quint64 id = f.addClip(kV1, 0, 100);
+        effectactions::applyTransition(f.project, id, QStringLiteral("wipe"), true);
+        InspectorPanel panel(f.ctx);
+        f.selection.selectTransition({id, true});
+        QCOMPARE(panel.clipId(), id);
+        QCOMPARE(panel.tabs()->currentIndex(), int(InspectorPanel::TransitionTab));
     }
 
     void titleClipTextIsOneUndoStepPerBurst()
