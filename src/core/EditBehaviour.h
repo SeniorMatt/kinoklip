@@ -61,12 +61,16 @@ struct EditBehaviour
     /// Open timelines are shown as tabs above the timeline (owner default, v2); off: one
     /// timeline at a time, chosen from a drop-down like Resolve's single-timeline mode.
     bool timelineTabs = true;
+    /// Two-up trim view (spec 8.19): render each side with its clip's effects and transform
+    /// through the program compositor instead of showing the source frame. Off by default:
+    /// it shares the viewer's render thread and lags behind fast drags (polish-v3, Round 3).
+    bool twoUpProgramLook = false;
 
     /// Values stored in QSettings (group "edit/": stillSeconds, generatorSeconds,
     /// transitionSeconds, multiFrameNudge, threePointEditing, rippleDeleteGapAtPlayhead,
     /// selectToolRollsAtCut, trimToolSlideInNameBar, zoomAnchor
     /// ("playhead" / "mouse", shared with prefs::kZoomAnchor), wheelScheme ("resolve" / "classic"),
-    /// dynamicTrimWithJkl, timelineTabs); defaults where unset.
+    /// dynamicTrimWithJkl, timelineTabs, twoUpProgramLook); defaults where unset.
     [[nodiscard]] static EditBehaviour fromSettings();
 
     /// @p seconds as a frame count at @p fps (at least 1 frame).

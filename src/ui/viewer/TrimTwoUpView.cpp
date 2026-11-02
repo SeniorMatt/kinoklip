@@ -2,14 +2,19 @@
 // TrimTwoUpView — two-up trim pictures in the timeline viewer.
 #include "ui/viewer/TrimTwoUpView.h"
 
+#include "core/EditOps.h"
 #include "core/MediaPool.h"
+#include "core/Timeline.h"
 #include "media/MediaCache.h"
+#include "playback/PlaybackEngine.h"
+#include "render/Compositor.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QEvent>
 #include <QPainter>
+#include <QTimer>
 
 #include <algorithm>
 
@@ -22,6 +27,32 @@ constexpr int kGap = 6;
 constexpr int kCaption = 34;
 /// Requests are made at the displayed size but not larger than this (decode cost).
 constexpr int kMaxRequestHeight = 540;
+/// How often finished Program renders are collected while one is in flight (ms).
+constexpr int kRenderPollMs = 4;
+
+/// A one-clip timeline showing @p clip of @p snapshot with its own look (effects, transform,
+/// crop, masks) but without its transitions and fades, so the edit frame is not faded out.
+std::shared_ptr<const TimelineData> clipAlone(const TimelineData& snapshot, const ClipData& clip)
+{
+    auto data = std::make_shared<TimelineData>();
+    data->fps = snapshot.fps;
+    data->width = snapshot.width;
+    data->height = snapshot.height;
+    data->retimeProcess = snapshot.retimeProcess;
+    data->nested = snapshot.nested; // nested clips render their timelines
+    TrackData track;
+    track.id = 1;
+    track.type = TrackType::Video;
+    ClipData c = clip;
+    c.transitionIn.reset();
+    c.transitionOut.reset();
+    c.fadeInFrames = 0;
+    c.fadeOutFrames = 0;
+    c.enabled = true;
+    track.clips.push_back(std::move(c));
+    data->videoTracks.push_back(std::move(track));
+    return data;
+}
 } // namespace
 
 TrimTwoUpView::TrimTwoUpView(ViewerSurface* surface, const MediaPool* pool)
@@ -36,7 +67,28 @@ TrimTwoUpView::TrimTwoUpView(ViewerSurface* surface, const MediaPool* pool)
     setGeometry(surface->widget()->rect());
     connect(&media::MediaCache::instance(), &media::MediaCache::frameReady, this,
         &TrimTwoUpView::onFrameReady);
+    m_poll = new QTimer(this);
+    m_poll->setInterval(kRenderPollMs);
+    connect(m_poll, &QTimer::timeout, this, &TrimTwoUpView::collectRenders);
     hide();
+}
+
+void TrimTwoUpView::setProgramSource(PlaybackEngine* engine, Timeline* timeline)
+{
+    m_engine = engine;
+    m_timeline = timeline;
+}
+
+void TrimTwoUpView::setPictures(Pictures pictures)
+{
+    m_pictures = pictures;
+}
+
+TrimTwoUpView::Pictures TrimTwoUpView::pictures() const
+{
+    const bool gpu
+        = m_engine && m_timeline && m_engine->compositor() && m_engine->compositor()->isGpu();
+    return m_pictures == Pictures::Program && gpu ? Pictures::Program : Pictures::Source;
 }
 
 void TrimTwoUpView::setPreview(const TrimPreview& preview, Rational fps)
@@ -50,6 +102,23 @@ void TrimTwoUpView::setPreview(const TrimPreview& preview, Rational fps)
         return;
     }
     const TrimPreviewSide* sides[2] = {&preview.left, &preview.right};
+    if (pictures() == Pictures::Program) {
+        for (int i = 0; i < 2; ++i) {
+            Side& s = m_sides[i];
+            s.path.clear();
+            s.wantedClip = sides[i]->clipId;
+            s.wantedFrame = sides[i]->timelineFrame;
+            s.wantedRevision = m_timeline->revision();
+            if (s.wantedClip == 0)
+                s.image = QImage();
+            renderSide(i);
+        }
+        refresh();
+        show();
+        raise();
+        update();
+        return;
+    }
     for (int i = 0; i < 2; ++i) {
         Side& s = m_sides[i];
         const MediaItem* item
@@ -71,7 +140,70 @@ void TrimTwoUpView::setPreview(const TrimPreview& preview, Rational fps)
 bool TrimTwoUpView::hasPicture(int side) const
 {
     const Side& s = m_sides[std::clamp(side, 0, 1)];
+    if (pictures() == Pictures::Program)
+        return !s.image.isNull() && s.shownClip == s.wantedClip && s.shownFrame == s.wantedFrame
+            && s.shownRevision == s.wantedRevision;
     return !s.image.isNull() && s.shownUs == s.wantedUs;
+}
+
+void TrimTwoUpView::renderSide(int i)
+{
+    Side& s = m_sides[i];
+    if (s.rendering || s.wantedClip == 0)
+        return; // one render in flight per side; the newest wish follows when it is done
+    if (s.shownClip == s.wantedClip && s.shownFrame == s.wantedFrame
+        && s.shownRevision == s.wantedRevision && !s.image.isNull())
+        return;
+    const std::shared_ptr<const TimelineData> snapshot = m_timeline->snapshot();
+    const ClipData* clip = editops::clipById(*snapshot, s.wantedClip);
+    if (!clip)
+        return;
+    RenderRequest request;
+    request.timeline = clipAlone(*snapshot, *clip);
+    request.media = m_engine->mediaPaths();
+    request.proxies = m_engine->proxies(); // proxies decode faster, like the viewer
+    request.frame = s.wantedFrame;
+    const int h = requestHeight();
+    const double aspect = snapshot->height > 0 ? double(snapshot->width) / snapshot->height : 1.0;
+    request.outSize = QSize(std::max(1, int(h * aspect)), h);
+    request.outputs = OutputImage;
+    request.subtitles = false;
+    s.future = m_engine->compositor()->renderAsync(std::move(request));
+    s.rendering = true;
+    s.renderingClip = s.wantedClip;
+    s.renderingFrame = s.wantedFrame;
+    s.renderingRevision = s.wantedRevision;
+    if (!m_poll->isActive())
+        m_poll->start();
+}
+
+void TrimTwoUpView::collectRenders()
+{
+    bool busy = false;
+    for (int i = 0; i < 2; ++i) {
+        Side& s = m_sides[i];
+        if (!s.rendering)
+            continue;
+        if (s.future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+            busy = true;
+            continue;
+        }
+        const RenderedFramePtr frame = s.future.get();
+        s.rendering = false;
+        if (frame && frame->ok && !frame->image.isNull()) {
+            s.image = frame->image;
+            s.shownClip = s.renderingClip;
+            s.shownFrame = s.renderingFrame;
+            s.shownRevision = s.renderingRevision;
+        }
+        if (isVisible() && pictures() == Pictures::Program) {
+            renderSide(i); // the drag moved on meanwhile
+            busy |= s.rendering;
+        }
+        update();
+    }
+    if (!busy)
+        m_poll->stop();
 }
 
 void TrimTwoUpView::refresh()

@@ -175,6 +175,8 @@ public:
     /// rebuilds both when the pool, the links or Playback > Proxy Handling change.
     void setSubstitutes(
         std::shared_ptr<const ProxyMap> proxies, std::shared_ptr<const MediaPathMap> media);
+    /// Media id -> path table the engine renders with (other renderers sharing compositor()).
+    [[nodiscard]] const std::shared_ptr<const MediaPathMap>& mediaPaths() const { return m_media; }
     /// Proxy map in use (viewer indicator).
     [[nodiscard]] const std::shared_ptr<const ProxyMap>& proxies() const { return m_proxies; }
     /// True when the current timeline shows at least one proxy / optimized media file.
