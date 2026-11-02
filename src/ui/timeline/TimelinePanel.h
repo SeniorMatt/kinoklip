@@ -46,6 +46,8 @@ public:
     /// view, stored in the settings (prefs::kTimelineThumbnails / kTimelineWaveforms).
     void setClipThumbnails(ClipThumbnails mode);
     void setShowWaveforms(bool on);
+    /// Timeline View Options > Show Source Timecode (prefs::kTimelineSourceTimecode).
+    void setShowSourceTimecode(bool on);
 
     // ---- Stacked timelines (View > Stacked Timelines, spec 31.8 - 31.10) ----
     /// Shows a second timeline above the editor (or hides it). The second one is read-only
@@ -79,6 +81,7 @@ private:
     void fillViewOptionsMenu(QMenu& menu);
     ClipThumbnails m_viewThumbnails = ClipThumbnails::Filmstrip;
     bool m_viewWaveforms = true;
+    bool m_viewSourceTimecode = false;
     QSlider* m_zoomSlider = nullptr;
     bool m_syncingSlider = false;
     TimelineController* m_controller = nullptr;

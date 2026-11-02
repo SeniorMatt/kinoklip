@@ -14,6 +14,7 @@
 #include "core/Retime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/common/SourceTimecode.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/LevelLines.h"
 #include "ui/timeline/NestedPreview.h"
@@ -48,6 +49,7 @@ constexpr double kBandHeight = levellines::kNameBand; ///< clip title band (name
 constexpr int kMinBandRow = levellines::kMinBandRow; ///< lower rows show only the band
 constexpr int kMajorTickSpacingPx = 128; ///< aim for labelled ruler ticks this far apart
 constexpr double kFlagMark = 6; ///< px, flag squares in a clip's name band
+constexpr int kSourceTcGap = 10; ///< px between a clip name and its source timecode
 constexpr int kMinMinorTickPx = 7;
 constexpr int kIconSize = 14;
 
@@ -191,6 +193,25 @@ const QString& TimelinePainter::elidedName(const ClipData& clip, const QString& 
         entry.elided = QFontMetrics(m_smallFont).elidedText(text, Qt::ElideRight, width);
     }
     return entry.elided;
+}
+
+const QString& TimelinePainter::sourceTimecodeText(
+    const TimelinePaintInput& in, const ClipData& clip)
+{
+    static const QString kNone;
+    if (isGeneratedKind(clip.kind))
+        return kNone;
+    // Formatted only when the source in or the media's start timecode changed: the paint
+    // loop must not format strings per frame (see the file header).
+    const SourceTimecodeBase base = sourceTimecodeBase(clip, in.mediaPool, in.data->fps);
+    NameCache& entry = m_names[clip.id];
+    if (entry.tcSourceUs != clip.sourceInUs || entry.tcStartUs != base.startUs
+        || entry.tc.isEmpty()) {
+        entry.tcSourceUs = clip.sourceInUs;
+        entry.tcStartUs = base.startUs;
+        entry.tc = timecode::format(usToFrames(base.startUs + clip.sourceInUs, base.rate), base.rate);
+    }
+    return entry.tc;
 }
 
 QString TimelinePainter::mediaPath(const TimelinePaintInput& in, const QString& mediaId) const
@@ -424,11 +445,23 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         p.setFont(m_smallFont);
         p.setPen(clip.enabled ? sc().textOn(base) : m_textDim);
         const QString& label = clipLabel(in, clip);
-        const QString& name = elidedName(clip, label, nameRoom);
+        // Source timecode (view option): drawn after the name, which gives it room first.
+        const QString& tc = in.sourceTimecode ? sourceTimecodeText(in, clip) : QString();
+        const QFontMetrics smallFm(m_smallFont);
+        const int tcW = tc.isEmpty() ? 0 : smallFm.horizontalAdvance(tc) + kSourceTcGap;
+        const bool showTc = tcW > 0 && nameRoom - tcW > 40;
+        const QString& name = elidedName(clip, label, showTc ? nameRoom - tcW : nameRoom);
         const double baseline = r.top() + (bandH + m_fontAscent) / 2.0 - 1;
         p.drawText(QPointF(visLeft + 5, baseline), name);
+        if (showTc) {
+            p.setPen(base.lighter(175));
+            p.drawText(
+                QPointF(visLeft + 5 + smallFm.horizontalAdvance(name) + kSourceTcGap, baseline),
+                tc);
+            p.setPen(clip.enabled ? sc().textOn(base) : m_textDim);
+        }
         // Duration only when the full name fits with room to spare (duration-aware text).
-        if (name == label && nameRoom > 150) {
+        if (name == label && !showTc && nameRoom > 150) {
             const QFontMetrics fm(m_smallFont);
             const int nameW = fm.horizontalAdvance(name);
             const QString dur = timecode::format(clip.duration, in.data->fps);

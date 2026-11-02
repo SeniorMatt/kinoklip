@@ -452,6 +452,30 @@ bool TimelineController::setSelectionDuration(int64_t frames)
     });
 }
 
+bool TimelineController::nudgeSelectionSpeed(int deltaPercent)
+{
+    constexpr double kMinNudgedSpeed = 0.10; ///< 10 %: the slowest a nudge goes
+    constexpr double kMaxNudgedSpeed = 100.0; ///< 10000 %, the Change Clip Speed dialog limit
+    const QVector<quint64> ids = effectiveSelection();
+    if (ids.isEmpty() || deltaPercent == 0)
+        return false;
+    const QString label = deltaPercent > 0 ? tr("Increase Clip Speed") : tr("Decrease Clip Speed");
+    return runEdit(project(), label, [&](TimelineData& data) {
+        bool any = false;
+        for (quint64 id : ids) {
+            const ClipData* c = ops::clipById(data, id);
+            if (!c || !(c->speed > 0.0) || retime::hasCurve(*c))
+                continue;
+            // Whole tenths of a percent, so repeated nudges do not drift (1.1 + 0.1 ...).
+            const double speed = std::clamp(
+                std::round(c->speed * 1000.0 + deltaPercent * 10.0) / 1000.0, kMinNudgedSpeed,
+                kMaxNudgedSpeed);
+            any |= timelineedit::applyClipSpeed(data, id, speed);
+        }
+        return any;
+    });
+}
+
 bool TimelineController::setSelectionSpeed(double speed)
 {
     const QVector<quint64> ids = effectiveSelection();
