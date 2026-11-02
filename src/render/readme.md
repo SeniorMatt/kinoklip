@@ -131,6 +131,31 @@ its transform, so they move with the clip and the clip opacity / transitions app
 * Masks are evaluated at the requested frame exactly (`AnimatedPath::evaluate`), so viewer,
   playback and export agree.
 
+### Adjustment clips, generators, captions
+
+* **Adjustment clips** (`ClipKind::Adjustment`): `compositeTimeline()` notices a track frame
+  that shows one, moves the accumulator aside as the "below" texture, copies it into a fresh
+  accumulator and draws the clip with that texture as its source (`FrameContext::below`,
+  output-sized, so layers never go above output resolution). A single adjustment clip is drawn
+  in two passes: `ClipBlend::Erase` (the footprint - crop, masks, transform - times opacity is
+  removed: `GL_ZERO, GL_ONE_MINUS_SRC_ALPHA`) and `ClipBlend::Add` (the processed picture,
+  `GL_ONE, GL_ONE`), so inside the footprint the result replaces the tracks below and outside
+  it they are untouched. Transition frames use the transition shader over the copy. Cost: one
+  full-frame copy + one footprint pass per adjustment track; nothing without one. Works per
+  nesting level. CPU fallback: the same with QImage copies, `DestinationOut` + `Plus`.
+* **Generators** (`ClipKind::Generator`, `render/Generators.*`, `render/GlGenerators.*`):
+  `resolveGenerator()` turns the clip's parameters at a frame into a `GeneratorFrame`; the GPU
+  draws its pattern with one shader (`uMode`: four-colour / linear / radial gradient, SMPTE or
+  full-field bars, grey scale, noise from an integer hash, countdown dial) into a per-frame
+  target at output size (x zoom up to 2), and text (countdown number, timecode) through the
+  title texture cache; the CPU fallback evaluates the same formulas per pixel
+  (`renderGeneratorImage()`).
+* **Captions**: after the video tracks of the root timeline, `drawSubtitles()` draws the
+  caption of every enabled subtitle track (`RenderRequest::subtitles`, on for the viewer; export
+  sets it only for "burn into video"), rasterised by TitleRenderer from
+  `resolveCaptionStyle()` (caption → track → default style) and placed by `captionOffset()`
+  (bottom / top / middle, alignment, margins in percent of the frame).
+
 ### Nested timelines (compound clips)
 
 A `ClipKind::Nested` clip shows another timeline, found in the root snapshot's
@@ -195,6 +220,9 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 | `CpuRenderer.cpp` | QPainter fallback |
 | `TimelineEval.*` | pure: transition spans, track evaluation, source time clamping, clip transform |
 | `TitleRenderer.*` | `TitleStyle` (cache key) + QPainter title rasteriser |
+| `CaptionRenderer.*` | caption style resolution and placement (subtitle tracks) |
+| `Generators.*` | generator parameter resolution, CPU raster, shared bar table / noise hash |
+| `GlGenerators.*` | the generator pattern shader |
 | `YuvMath.*` | YUV → RGB coefficients (unit-tested on the CPU) |
 | `DecoderPool.*` | `VideoDecoder` reuse by path and position |
 | `AudioMixer.*` | audio mixing |
@@ -241,7 +269,15 @@ decoding and llvmpipe a 1080p60 screen recording went from 46 to 60 fps (see
 3. Test at a known progress (see `otherTransitions`). Timing semantics need no change: they
    live in `TimelineEval` and are shared with the audio crossfade.
 
-### A new generator / clip kind
+### A new generator
+1. Id + parameter keys in `core/Generators.h`, descriptor (category Generator, storage
+   "title") in `registerGenerators()` (`core/BuiltinEffects.cpp`).
+2. A `GeneratorFrame::Kind`, its resolution in `resolveGenerator()`, the per-pixel formula in
+   `patternAt()` (CPU) and the same in the `GlGenerators` shader (new `uMode`), or only a
+   `textStyle` for text generators.
+3. A case in `tests/render/test_generators.cpp` (determinism + GPU/CPU agreement).
+
+### A new clip kind
 Add the `ClipKind`, then a case in `GlRenderer::resolveSource()` producing a texture
 (`ClipSource::Kind::Texture`, cache it like titles) or a colour, and the same in
 `CpuRenderer::drawClip()`.

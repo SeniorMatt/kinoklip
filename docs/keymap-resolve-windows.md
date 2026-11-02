@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 180 commands; sure 94, likely 47, unsure 39.
+Counts: 183 commands; sure 94, likely 49, unsure 40.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -34,6 +34,7 @@ that every command has an entry and that no key is used twice.
 | Save Project | `file.save` | `Ctrl+S` | sure |  |
 | Save Project As | `file.save_as` | `Ctrl+Shift+S` | sure |  |
 | Import Media | `file.import_media` | `Ctrl+I` | sure |  |
+| Import Subtitle | `file.import_subtitle` | (none) | likely | File > Import > Subtitle in Resolve; no default key known |
 | Project Settings | `file.project_settings` | `Shift+9` | sure |  |
 | Quit | `file.quit` | `Ctrl+Q` | sure |  |
 
@@ -106,6 +107,8 @@ that every command has an entry and that no key is used twice.
 | Zoom to Fit | `timeline.zoom_fit` | `Shift+Z` | sure |  |
 | Add Video Track | `timeline.add_video_track` | (none) | likely |  |
 | Add Audio Track | `timeline.add_audio_track` | (none) | likely |  |
+| Add Subtitle Track | `timeline.add_subtitle_track` | (none) | likely | Timeline > Add Track > Subtitle Track in Resolve; no default key known |
+| Add Subtitle (caption at the playhead) | `timeline.add_subtitle` | (none) | unsure | Resolve adds captions from the subtitle track's right-click menu; no default key known |
 | Duplicate Timeline | `timeline.duplicate` | (none) | likely | media pool / Timeline menu command without a default key |
 | Delete Timeline | `timeline.delete` | (none) | likely | media pool command without a default key (Delete in the media pool deletes the selected timeline item) |
 | Timeline Settings | `timeline.settings` | (none) | unsure | no known default key |
