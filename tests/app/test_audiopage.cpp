@@ -184,6 +184,16 @@ private slots:
         // Audio page headers: record arm and a meter; the Edit page has neither.
         QVERIFY(!L.headerButtonRect(audioRow, HeaderButton::Arm).isEmpty());
         QVERIFY(!L.headerMeterRect(audioRow).isEmpty());
+        // Round 2 polish: the buttons go to a second line so the track name has the first
+        // line up to the meter (it used to be cut to "A...").
+        QVERIFY(L.twoLineHeader(audioRow));
+        const QRect patch = L.headerButtonRect(audioRow, HeaderButton::Target);
+        for (const HeaderButton b : L.buttonsFor(TrackType::Audio)) {
+            const QRect br = L.headerButtonRect(audioRow, b);
+            QVERIFY(br.top() > patch.bottom());
+            QVERIFY(br.right() < L.headerMeterRect(audioRow).left());
+        }
+        QVERIFY(L.headerMeterRect(audioRow).left() - patch.right() > 100); // name room
         const TimelineLayout& edit = f.window->editPage()->timeline()->timelineWidget()->layout();
         QVERIFY(edit.headerButtonRect(edit.rowOf(TrackRef {TrackType::Audio, 0}), HeaderButton::Arm)
                     .isEmpty());

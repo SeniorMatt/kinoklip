@@ -1178,9 +1178,12 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
             }
         }
 
-        // Track name, then the clip count on the second line if there is room.
+        // Track name, then the clip count on the second line if there is room. With the
+        // buttons on the second line (Audio page) the name runs up to the meter.
+        const bool twoLines = L.twoLineHeader(row);
         const int nameLeft = patch.right() + 8;
-        const int nameRoom = buttonsLeft - 6 - nameLeft;
+        const int nameRight = twoLines ? kHeaderWidth - 4 - kHeaderMeterWidth : buttonsLeft;
+        const int nameRoom = nameRight - 6 - nameLeft;
         if (nameRoom > 10) {
             p.setFont(m_smallFont);
             p.setPen(m_text);
@@ -1200,7 +1203,12 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
             const QString second = audioPage ? (track.mix.mono ? qtr("Mono") : qtr("Stereo"))
                 : track.clips.size() == 1    ? qtr("1 Clip")
                                              : qtr("%1 Clips").arg(track.clips.size());
-            p.drawText(QPointF(12, patch.bottom() + 6 + m_fontAscent), second);
+            // Two-line headers: left of the buttons, centred on their line.
+            const double baseline = twoLines
+                ? L.headerButtonRect(row, HeaderButton::Mute).center().y() + m_fontAscent / 2.0 - 1
+                : patch.bottom() + 6 + m_fontAscent;
+            if (!twoLines || smallMetrics.horizontalAdvance(second) + 12 < buttonsLeft - 4)
+                p.drawText(QPointF(12, baseline), second);
         }
         if (audioPage && in.headerMeter) {
             // Level meter at the header's right edge (scheme zone colours, like the mixer).
