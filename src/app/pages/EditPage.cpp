@@ -2,6 +2,7 @@
 // EditPage layout and panel visibility handling.
 #include "app/pages/EditPage.h"
 
+#include "app/AppInfo.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -433,7 +434,10 @@ void EditPage::setKeyframesFloating(bool floating)
             // J/K/L, undo, ...) keep working while it has focus.
             m_keyframesWindow = new QWidget(this, Qt::Window);
             m_keyframesWindow->setObjectName(QStringLiteral("KeyframesWindow"));
-            m_keyframesWindow->setWindowTitle(tr("Keyframes"));
+            // "Keyframes — Kinoklip": the app name tells the window apart in the task manager
+            // and window switcher (KWin shows the title in its decoration).
+            m_keyframesWindow->setWindowTitle(
+                tr("Keyframes — %1").arg(QString::fromLatin1(appinfo::name)));
             m_keyframesWindow->resize(kKeyframesWindowSize);
             auto* layout = new QVBoxLayout(m_keyframesWindow);
             layout->setContentsMargins(0, 0, 0, 0);
