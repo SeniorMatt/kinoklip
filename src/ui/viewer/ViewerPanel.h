@@ -140,6 +140,10 @@ public:
     /// Offers the edit overlay to drags (default off: only a page that handles
     /// sourceEditDropped() turns it on).
     void setEditOverlayEnabled(bool enabled);
+    /// Replaces the overlay's edit types by the commands @p actionIds (labels from the
+    /// actions' text, keys from their shortcuts); empty = the Edit page's seven source edits.
+    /// The Cut page offers its smart edits this way (spec 35.26).
+    void setEditTileActions(const QStringList& actionIds);
 
     // ---- Multicam viewer (Source mode; ViewerMulticam.cpp) ----
 
@@ -243,6 +247,7 @@ private:
     TrimTwoUpView* m_twoUp = nullptr; ///< Timeline mode: two-up trim view
     QString m_timecodeEntry; ///< setTimecodeEntryText()
     bool m_editOverlayEnabled = false; ///< setEditOverlayEnabled()
+    QStringList m_editTileActions; ///< setEditTileActions(); empty = kEditTiles
     QComboBox* m_modeBox = nullptr; ///< Source mode: Source / Multicam
     QComboBox* m_gridBox = nullptr; ///< multicam grid size (Auto, 2x2, 3x3, 4x4)
     bool m_multicam = false;

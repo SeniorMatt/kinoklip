@@ -76,13 +76,32 @@ void ViewerPanel::setEditOverlayEnabled(bool enabled)
     setAcceptDrops(m_editOverlayEnabled);
 }
 
+void ViewerPanel::setEditTileActions(const QStringList& actionIds)
+{
+    m_editTileActions = actionIds;
+    if (m_editOverlay)
+        updateEditTiles();
+}
+
 void ViewerPanel::updateEditTiles()
 {
+    QVector<std::pair<QString, QString>> defs; // action id, label
+    if (m_editTileActions.isEmpty()) {
+        for (const EditTileDef& def : kEditTiles)
+            defs.append({QLatin1String(def.actionId), tr(def.label)});
+    } else {
+        for (const QString& id : m_editTileActions) {
+            QString label = id;
+            if (m_ctx.actions && m_ctx.actions->contains(id))
+                label = m_ctx.actions->action(id)->text().remove(QLatin1Char('&'));
+            defs.append({id, label});
+        }
+    }
     QVector<EditOverlay::Tile> tiles;
-    for (const EditTileDef& def : kEditTiles) {
+    for (const auto& [actionId, label] : defs) {
         EditOverlay::Tile tile;
-        tile.actionId = QLatin1String(def.actionId);
-        tile.label = tr(def.label);
+        tile.actionId = actionId;
+        tile.label = label;
         if (m_ctx.actions && m_ctx.actions->contains(tile.actionId)) {
             const QList<QKeySequence> keys = m_ctx.actions->shortcuts(tile.actionId);
             if (!keys.isEmpty())
