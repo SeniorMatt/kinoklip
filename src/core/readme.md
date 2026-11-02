@@ -8,7 +8,8 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | File | What |
 |---|---|
 | `Rational.h` | exact frame rates + frame/µs/sample conversions (PLAN §5.1) |
-| `Animation.h` | `Interp`, `Keyframe`, `AnimatedValue` (keyframed scalar), `ParamSet` |
+| `Animation.h` | `Interp` (per-key preset), `KeyHandle`, `Keyframe`, `AnimatedValue` (keyframed scalar, Bezier evaluation), `ParamSet` |
+| `KeyframeOps.h` | pure keyframe functions: parameter paths, grouped list of animated parameters, navigation, move / delete / interpolation / flatten / handles / copy and paste (namespace `kk::keyframeops`) |
 | `ParamKeys.h` | well-known parameter keys (`keys::PosX`, `keys::Opacity`, ...) + defaults |
 | `TimelineData.h` | `ClipData`, `TrackData`, `Marker`, `EffectInstance`, `TransitionData`, `TimelineData`, `TrackRef` |
 | `MediaItem.h` | `MediaItem`, `Bin`, `MediaPoolState` |
@@ -27,11 +28,25 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 - Timeline positions and durations: `int64_t` frames at `TimelineData::fps`.
 - Source positions: `int64_t` microseconds (`ClipData::sourceInUs`).
 - Keyframes and clip markers (`ClipData::markers`): clip-local frames (`frame - clip.start`);
-  they move with the clip and follow the content when the head is trimmed or the clip is split.
+  they move with the clip and follow the content when the head is trimmed or the clip is split;
+  a slip leaves keyframes in place. Keys a trim leaves outside the clip are kept (and return
+  when the clip is extended).
 - Transitions at a cut are placed by `TransitionData::alignment` (centre / start on cut / end
   on cut); `TransitionData::framesBeforeCut()` is the one formula render, painter and EditOps use.
 - `ClipData::sourceDurationUs` (addition to the PLAN contract) caches the media length so EditOps
   can clamp trims without a media-pool lookup; 0 means unbounded (stills, titles, solids).
+
+## Keyframe interpolation
+Each `Keyframe` has an `in` and an `out` `KeyHandle` (mode Linear, Ease, Smooth or Free) and a
+`hold` flag. The segment between keys A and B is the cubic Bezier through A, A + out(A),
+B - in(B), B in (frame, value) space. Non-free handles are resolved from the neighbours and are
+always a third of the segment long in time, which makes time linear in the Bezier parameter (no
+root finding in the common case). Linear = points at the neighbour, Ease = flat, Smooth =
+Catmull-Rom tangent flattened at extrema and the ends (no overshoot), Free = stored `dtFrames` /
+`dv` (clamped to the segment, solved with bracketed Newton). Hold keeps the value until the
+next key. `Interp` is the preset the user picks (Linear, EaseIn = arrives slowly, EaseOut =
+leaves slowly, EaseInOut, Smooth, Hold); `keyInterp()` reports Custom for dragged handles.
+`valueAtTime()` evaluates fractional frames (the audio gain envelope).
 
 ## Performance notes (hot paths for render/playback)
 - `Timeline::snapshot()` returns a cached `shared_ptr<const TimelineData>`; it deep-copies only
@@ -72,13 +87,17 @@ locked tracks are never changed by EditOps. Ids come from `TimelineData::allocat
 
 ## Project file format (`.kkproj`, JSON)
 ```json
-{ "formatVersion": 1, "generator": "Kinoklip 0.1.0",
+{ "formatVersion": 2, "generator": "Kinoklip 0.1.0",
   "project":   { "name": "My Film" },
   "mediaPool": { "bins": [...], "items": [{ "id", "path", "relativePath", "name", "binId", "info": {...} }] },
   "timeline":  { "name", "fps": {"num","den"}, "width", "height", "markIn", "markOut", "nextId",
                  "markers": [...], "videoTracks": [...], "audioTracks": [...] } }
 ```
 Static params are plain JSON values except colours (`{"color": "#aarrggbb"}`).
+Keyframes: `{"frame", "value"}` plus, when not default, `"in"` / `"out"` (handle mode string,
+or `{"mode": "free", "dt", "dv"}`) and `"hold": true`. Format version 1 stored one `"interp"`
+per key (curve of the segment starting there); `paramSetFromJson()` recognises it and converts
+it with `migrateLegacyInterp()` (ease in and out is reproduced exactly).
 Media paths are stored absolute and relative to the project file; the relative one is used when
 the absolute path no longer exists.
 
