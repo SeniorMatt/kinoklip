@@ -589,9 +589,8 @@ void registerStandardSettingsPages(SettingsPageRegistry& registry, ActionRegistr
     const QString user = QStringLiteral("user");
     auto add = [&registry](const char* id, const QString& title, const char* icon, int order,
                    const QString& group, std::function<SettingsPage*(QWidget*)> create) {
-        SettingsPageInfo info {
-            QLatin1String(id), title, QLatin1String(icon), order, std::move(create)};
-        info.group = group;
+        SettingsPageInfo info {QLatin1String(id), title, QLatin1String(icon), order,
+            std::move(create), group, QString()};
         registry.add(std::move(info));
     };
     // System (machine) sections, Resolve's order.

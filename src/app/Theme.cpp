@@ -556,11 +556,12 @@ void registerActions(ActionRegistry& registry)
 void registerSettingsPage(SettingsPageRegistry& pages, ActionRegistry& registry)
 {
     ActionRegistry* actions = &registry;
+    // Preferences > User > UI Settings.
     SettingsPageInfo page {QStringLiteral("appearance"),
         QCoreApplication::translate("kk::theme", "Appearance"),
         QStringLiteral("preferences-desktop-theme-global"), 30,
-        [actions](QWidget* parent) { return new AppearancePage(*actions, parent); }};
-    page.section = QStringLiteral("ui"); // Preferences > User > UI Settings
+        [actions](QWidget* parent) { return new AppearancePage(*actions, parent); },
+        QStringLiteral("user"), QStringLiteral("ui")};
     pages.add(std::move(page));
 }
 
