@@ -43,3 +43,4 @@
 - 04:49 Export merged (39/39 tests): ExportJob (3 frames in flight), NVENC/VAAPI/QSV detection + SW fallback, fast BT.709 RGB->YUV, 22 presets (MP4/MOV/MKV/WebM/audio/sequences/GIF), Deliver page + render queue, --render CLI. All v1 core features now on main. Parity agent starting.
 - 04:51 Heartbeat: breeze (5 commits) and parity (starting) active; 23 GB free.
 - 04:57 Breeze finished (real Breeze style, KDE colour schemes, Breeze icons, Settings > Color Theme/Style, Appearance prefs page, container-built 90 MB .run with glibc fallback, verified on Mint). Merge into main conflicted in 4 app-wiring files -> aborted; breeze agent is merging main into its branch and rebuilding the .run with all features.
+- 05:09 Owner chose GPL-3.0-or-later: license.md (verbatim FSF text) + License section in readme.md.
