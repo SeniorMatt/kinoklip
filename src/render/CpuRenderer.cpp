@@ -97,7 +97,11 @@ private:
                     m_below = image.copy();
                     painter.begin(&image);
                 }
-                if (tf.single)
+                if (tf.single && tf.single->kind == ClipKind::Adjustment) {
+                    // Replace the footprint with the processed picture (see GlRenderer).
+                    drawClip(painter, *tf.single, 1.0, Blend::Erase);
+                    drawClip(painter, *tf.single, 1.0, Blend::Add);
+                } else if (tf.single)
                     drawClip(painter, *tf.single, 1.0);
                 else if (tf.transition)
                     drawTransition(painter, *tf.transition);
@@ -142,7 +146,15 @@ private:
         painter.drawImage(0, 0, layer);
     }
 
-    void drawClip(QPainter& painter, const ClipData& clip, double weight)
+    /// Over: normal clips. Erase / Add: the two passes of an adjustment clip (footprint ×
+    /// opacity removed from the target, then the processed picture added).
+    enum class Blend {
+        Over,
+        Erase,
+        Add
+    };
+
+    void drawClip(QPainter& painter, const ClipData& clip, double weight, Blend blend = Blend::Over)
     {
         if (!clip.enabled)
             return;
@@ -238,6 +250,10 @@ private:
         }
         if (picture.isNull() && !solid.isValid())
             return;
+        if (blend == Blend::Erase) {
+            solid = QColor(Qt::white);
+            picture = QImage();
+        }
 
         // Crop in source pixels → content coordinates.
         const ParamSet& p = clip.transform;
@@ -255,6 +271,10 @@ private:
         painter.setRenderHint(QPainter::Antialiasing);
         painter.setTransform(toOutput);
         painter.setOpacity(opacity);
+        if (blend == Blend::Erase)
+            painter.setCompositionMode(QPainter::CompositionMode_DestinationOut);
+        else if (blend == Blend::Add)
+            painter.setCompositionMode(QPainter::CompositionMode_Plus);
         painter.setClipRect(cropRect);
         if (const auto matte = maskMatte(clip, local, content)) {
             if (matte->isEmpty()) {

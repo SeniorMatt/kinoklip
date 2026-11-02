@@ -20,8 +20,15 @@ void TimelineLayout::rebuild(const TimelineData& data)
     auto scaled
         = [this](int h) { return std::max(kMinTrackHeight, int(std::lround(h * m_heightScale))); };
     m_rows.clear();
-    m_rows.reserve(data.videoTracks.size() + data.audioTracks.size());
+    m_rows.reserve(data.subtitleTracks.size() + data.videoTracks.size() + data.audioTracks.size());
     int y = 0;
+    // Subtitle tracks sit above every video track (like Resolve): ST(n) first, ST1 last.
+    for (int i = int(data.subtitleTracks.size()) - 1; i >= 0; --i) {
+        const TrackData& t = data.subtitleTracks[size_t(i)];
+        const int h = scaled(trackHeight(t));
+        m_rows.push_back({TrackRef {TrackType::Subtitle, i}, y, h, 0});
+        y += h;
+    }
     // Video tracks grow upwards from the divider: V(n) first, V1 last.
     for (int i = int(data.videoTracks.size()) - 1; i >= 0; --i) {
         const TrackData& t = data.videoTracks[size_t(i)];
@@ -47,7 +54,15 @@ int TimelineLayout::trackHeight(const TrackData& track)
 {
     if (track.height > 0)
         return std::clamp(track.height, kMinTrackHeight, kMaxTrackHeight);
-    return track.type == TrackType::Video ? kDefaultVideoHeight : kDefaultAudioHeight;
+    switch (track.type) {
+    case TrackType::Video:
+        return kDefaultVideoHeight;
+    case TrackType::Audio:
+        return kDefaultAudioHeight;
+    case TrackType::Subtitle:
+        break;
+    }
+    return kDefaultSubtitleHeight;
 }
 
 // ---- Horizontal ----
@@ -144,7 +159,17 @@ const std::vector<HeaderButton>& TimelineLayout::headerButtons(TrackType type)
         HeaderButton::Visible, HeaderButton::Lock, HeaderButton::AutoSelect};
     static const std::vector<HeaderButton> audio {
         HeaderButton::Solo, HeaderButton::Mute, HeaderButton::Lock, HeaderButton::AutoSelect};
-    return type == TrackType::Video ? video : audio;
+    static const std::vector<HeaderButton> subtitle {
+        HeaderButton::Visible, HeaderButton::Lock, HeaderButton::AutoSelect};
+    switch (type) {
+    case TrackType::Video:
+        return video;
+    case TrackType::Audio:
+        return audio;
+    case TrackType::Subtitle:
+        break;
+    }
+    return subtitle;
 }
 
 QRect TimelineLayout::headerButtonRect(int row, HeaderButton button) const

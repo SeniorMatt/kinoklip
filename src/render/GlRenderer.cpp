@@ -458,10 +458,11 @@ PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
             continue;
         }
         // Adjustment clip: what has been composited so far (every track below) becomes its
-        // source. The accumulator is copied into a fresh target first, so the processed
-        // picture is drawn OVER the unprocessed one: masks, crop and opacity < 100 % leave
-        // the tracks below visible where the adjustment does not reach (one extra
-        // full-frame copy per adjustment track; nothing when there is none).
+        // source. The accumulator is copied into a fresh target first (a texture cannot be
+        // sampled while it is drawn to), then drawTrack() replaces the clip's footprint with
+        // the processed picture: masks, crop and opacity < 100 % leave the tracks below
+        // visible where the adjustment does not reach. Cost: one full-frame copy and one
+        // footprint pass per adjustment track; nothing when there is none.
         PooledTarget below = std::move(accumulator);
         accumulator = m_kit->acquire(fc.outSize);
         m_kit->bindTarget(*accumulator);
@@ -499,6 +500,13 @@ void GlRenderer::drawTrack(
 {
     if (tf.single) {
         m_kit->bindTarget(accumulator);
+        if (tf.single->kind == ClipKind::Adjustment && fc.below) {
+            // Inside its footprint the processed picture REPLACES the tracks below (mixed by
+            // opacity), outside it they stay untouched: erase the footprint, then add.
+            drawClip(*tf.single, fc, accumulator, ClipBlend::Erase);
+            drawClip(*tf.single, fc, accumulator, ClipBlend::Add);
+            return;
+        }
         drawClip(*tf.single, fc, accumulator);
         return;
     }
@@ -660,7 +668,24 @@ void GlRenderer::drawSource(
     }
 }
 
-void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const RenderTarget& target)
+void GlRenderer::applyBlend(ClipBlend blend)
+{
+    m_kit->setBlendOver(true);
+    switch (blend) {
+    case ClipBlend::Over:
+        m_gl->glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        break;
+    case ClipBlend::Erase:
+        m_gl->glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+        break;
+    case ClipBlend::Add:
+        m_gl->glBlendFunc(GL_ONE, GL_ONE);
+        break;
+    }
+}
+
+void GlRenderer::drawClip(
+    const ClipData& clip, const FrameContext& fc, const RenderTarget& target, ClipBlend blend)
 {
     if (!clip.enabled)
         return;
@@ -673,6 +698,14 @@ void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const Re
     ClipSource src;
     if (zoom <= 0.0 || !resolveSource(clip, local, fc, zoom, src))
         return;
+    const bool erase = blend == ClipBlend::Erase;
+    if (erase) {
+        // The footprint: an opaque white picture of the same size through the same crop,
+        // masks and transform.
+        src.kind = ClipSource::Kind::Solid;
+        src.quad = QRectF(0, 0, 1, 1);
+        std::fill(std::begin(src.color), std::end(src.color), 1.0f);
+    }
     const QRectF crop = cropRect(clip, local, src.sourcePx);
     if (crop.width() <= 0 || crop.height() <= 0)
         return;
@@ -690,7 +723,7 @@ void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const Re
     m_activeInstances.clear();
     double padding = 0.0;
     for (const EffectInstance& e : clip.effects) {
-        if (!e.enabled)
+        if (!e.enabled || erase)
             continue;
         const auto it = m_effects.constFind(e.type);
         if (it == m_effects.constEnd()) {
@@ -715,8 +748,10 @@ void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const Re
         const QTransform quad(src.quad.width() * cw, 0, 0, src.quad.height() * ch,
             (src.quad.x() - 0.5) * cw, (src.quad.y() - 0.5) * ch);
         m_kit->bindTarget(target);
-        m_kit->setBlendOver(true);
+        applyBlend(blend);
         drawSource(src, quad * toOutput * outputToNdc, cropInQuad(crop, src.quad), opacity);
+        if (blend != ClipBlend::Over)
+            applyBlend(ClipBlend::Over);
         return;
     }
 
@@ -769,8 +804,10 @@ void GlRenderer::drawClip(const ClipData& clip, const FrameContext& fc, const Re
     const QTransform quad(layerSize.width() / layerScale, 0, 0, layerSize.height() / layerScale,
         -padPx / layerScale - cw * 0.5, -padPx / layerScale - ch * 0.5);
     m_kit->bindTarget(target);
-    m_kit->setBlendOver(true);
+    applyBlend(blend);
     m_kit->blit(layer->texture, quad * toOutput * outputToNdc, opacity);
+    if (blend != ClipBlend::Over)
+        applyBlend(ClipBlend::Over);
 }
 
 // ---- Generators and captions ----
