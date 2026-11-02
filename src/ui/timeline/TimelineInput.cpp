@@ -578,15 +578,16 @@ void TimelineWidget::updateMove(QPointF pos)
     restoreOrigin();
     TimelineData& data = m_ctx.project->timeline()->mutableData();
     if (m_drag.duplicate) {
-        const bool video = m_drag.primaryTrack.type == TrackType::Video;
-        const int vBase = m_drag.board.baseVideoTrack + (video ? dy : 0);
-        const int aBase = m_drag.board.baseAudioTrack + (video ? 0 : dy);
+        // Linked halves move by the same track offset (V1->V2 takes A1->A2), like Resolve.
+        const int vBase = m_drag.board.baseVideoTrack + dy;
+        const int aBase = m_drag.board.baseAudioTrack + dy;
         m_drag.resultIds = vBase >= 0 && aBase >= 0
             ? ops::pasteClips(data, m_drag.board, m_drag.minStart + dx, vBase, aBase)
             : QVector<quint64> {};
     } else {
-        // The grabbed clip's type moves vertically; linked clips of the other type keep
-        // their tracks (V and A are separate track lists).
+        // Like Resolve, linked clips of the other type move by the same track offset: dragging
+        // a video clip from V1 to V2 takes its audio from A1 to A2 (away from the V/A divider).
+        // Each type is clamped to its own existing tracks by moveClips.
         QVector<quint64> same;
         QVector<quint64> other;
         for (quint64 id : m_drag.clips) {
@@ -595,7 +596,10 @@ void TimelineWidget::updateMove(QPointF pos)
                 (loc->track.type == m_drag.primaryTrack.type ? same : other).append(id);
         }
         const bool movedSame = ops::moveClips(data, same, dx, dy);
-        const bool movedOther = other.isEmpty() || ops::moveClips(data, other, dx, 0) || dx == 0;
+        // If the other type can't follow vertically (no such track, or it is locked), it keeps
+        // its tracks and only follows in time; a false result means "unchanged".
+        const bool movedOther = other.isEmpty() || ops::moveClips(data, other, dx, dy)
+            || ops::moveClips(data, other, dx, 0) || dx == 0;
         if (!movedOther && movedSame)
             restoreOrigin(); // one half was blocked (locked track): keep V/A in sync
     }
