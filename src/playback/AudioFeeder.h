@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/TimelineData.h"
+#include "playback/VarispeedResampler.h"
 #include "render/MixLevels.h"
 #include "render/RenderTypes.h"
 
@@ -42,9 +43,10 @@ struct SampleLoop
 ///
 /// Varispeed (rate != 1: shuttle, reverse, slow play; spec 1.16): like a tape, the pitch
 /// follows the speed. Each chunk mixes the span of timeline samples it covers (|rate| times
-/// the chunk, read forwards) and resamples it by linear interpolation into the output, in
-/// reverse order for negative rates. Linear interpolation aliases a little at high speeds,
-/// which is acceptable for shuttling (it is a navigation aid, not a render path).
+/// the chunk plus the kernel reach, read forwards) and resamples it with VarispeedResampler
+/// (windowed sinc, low-passed below the output Nyquist frequency at |rate| > 1, so 4x - 8x
+/// shuttling does not alias), in reverse order for negative rates. Forwards, the mixed
+/// window slides: only the new samples are mixed each chunk, so the mixer runs continuously.
 ///
 /// Scrubbing (startScrub(); spec 23.7): the ring is kept nearly empty (kScrubFillFrames) so
 /// what is heard follows the playhead closely; each scrubTo() plays one short snippet
@@ -105,6 +107,8 @@ private:
     void run();
     /// Mixes @p count output frames at m_rate from m_srcPos into @p out (varispeed path).
     void mixVarispeed(AudioMixer& mixer, const TimelineData& timeline, int count, float* out);
+    /// Makes m_span hold timeline samples [@p lo, @p hi] (varispeed window; worker thread).
+    void ensureWindow(AudioMixer& mixer, const TimelineData& timeline, int64_t lo, int64_t hi);
 
     AudioRing* m_ring;
     std::thread m_thread;
@@ -121,7 +125,11 @@ private:
     SampleLoop m_loop;
     double m_rate = 1.0;
     double m_srcPos = 0.0; ///< varispeed: timeline sample of the next output frame
-    std::vector<float> m_span; ///< varispeed: mixed source span (worker thread only)
+    std::vector<float> m_span; ///< varispeed: mixed source window (worker thread only)
+    int64_t m_spanStart = 0; ///< varispeed: timeline sample of m_span's first frame
+    int64_t m_spanFrames = 0; ///< varispeed: valid frames in m_span (0 = none)
+    const TimelineData* m_spanTimeline = nullptr; ///< timeline the window was mixed from
+    VarispeedResampler m_resampler; ///< kernel table (read-only after construction)
     bool m_scrub = false; ///< scrub mode
     int64_t m_scrubTarget = -1; ///< pending snippet start (-1 = none)
     int64_t m_scrubPos = 0; ///< current snippet position

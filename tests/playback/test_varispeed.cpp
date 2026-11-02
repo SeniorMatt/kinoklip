@@ -10,6 +10,7 @@
 #include "playback/AudioRing.h"
 #include "playback/PlaybackClock.h"
 #include "playback/PlaybackEngine.h"
+#include "playback/VarispeedResampler.h"
 #include "render/AudioMixer.h"
 #include "render/Compositor.h"
 
@@ -25,6 +26,7 @@ using namespace kk::test;
 namespace {
 
 const QString kRamp = QStringLiteral("ramp");
+constexpr int kRampPeriod = 4800; ///< mono_ramp_48k.wav: a sawtooth with this period
 constexpr int kCh = AudioRing::kChannels;
 
 /// A 25 fps timeline with the 5 s ramp on A1 from frame 0.
@@ -77,8 +79,9 @@ private slots:
         m_paths->insert(kRamp, fixture("mono_ramp_48k.wav"));
     }
 
-    /// Output frame k at rate r carries timeline sample start + r * k (exact at whole
-    /// positions, no interpolation needed): forwards fast, backwards, and slow.
+    /// Output frame k at rate r carries timeline sample start + r * k: forwards fast,
+    /// backwards, and slow. The band-limited resampler passes the ramp exactly; frames whose
+    /// kernel reaches one of the sawtooth's jumps (every 4800 samples) are skipped.
     void spec1_16_feederResamplesAtTheRate_data()
     {
         QTest::addColumn<double>("rate");
@@ -112,8 +115,14 @@ private slots:
         const std::vector<float> got = readRing(feeder, ring, kFrames);
         feeder.stop();
         QCOMPARE(int(got.size()), kFrames * kCh);
+        const double reach = VarispeedResampler::margin(rate) + 1;
+        int checked = 0;
         for (int k = 0; k < kFrames; ++k) {
             const double pos = double(start) + rate * k;
+            const double toJump = std::fmod(pos, double(kRampPeriod));
+            if (toJump < reach || toJump > kRampPeriod - reach)
+                continue;
+            ++checked;
             const double i = pos - double(lo);
             const int i0 = int(std::floor(i));
             const double frac = i - i0;
@@ -125,6 +134,61 @@ private slots:
                                      .arg(got[size_t(k) * kCh])
                                      .arg(expected)));
         }
+        QVERIFY(checked > kFrames / 2);
+    }
+
+    /// Shuttling at 4x and 8x does not alias (spec 1.16): a tone above the output Nyquist
+    /// frequency (half of 48 kHz / rate) is removed instead of folding back into the audible
+    /// band, while a tone well below it passes. Linear interpolation, the old resampler, lets
+    /// the high tone through almost unchanged.
+    void spec1_16_shuttleDoesNotAlias_data()
+    {
+        QTest::addColumn<double>("rate");
+        QTest::newRow("4x") << 4.0;
+        QTest::newRow("8x") << 8.0;
+        QTest::newRow("reverse 4x") << -4.0;
+    }
+    void spec1_16_shuttleDoesNotAlias()
+    {
+        QFETCH(double, rate);
+        const double nyquistOut = 0.5 / std::abs(rate); // cycles per source sample
+        const VarispeedResampler resampler;
+        constexpr int kOut = 2048;
+        const int margin = VarispeedResampler::margin(rate);
+        const int spanFrames = int(std::abs(rate) * kOut) + 2 * margin + 2;
+        const double pos0 = rate > 0 ? margin : spanFrames - 1 - margin;
+        auto rmsOf = [&](double cyclesPerSample, bool linear) {
+            std::vector<float> span(size_t(spanFrames) * kCh);
+            for (int i = 0; i < spanFrames; ++i)
+                for (int c = 0; c < kCh; ++c)
+                    span[size_t(i) * kCh + c]
+                        = float(std::sin(2 * M_PI * cyclesPerSample * i + 0.3 * c));
+            std::vector<float> out(size_t(kOut) * kCh);
+            if (linear) {
+                for (int k = 0; k < kOut; ++k) {
+                    const double p = pos0 + rate * k;
+                    const int i = int(std::floor(p));
+                    const float f = float(p - i);
+                    for (int c = 0; c < kCh; ++c)
+                        out[size_t(k) * kCh + c] = span[size_t(i) * kCh + c] * (1 - f)
+                            + span[size_t(i + 1) * kCh + c] * f;
+                }
+            } else {
+                resampler.process(span.data(), spanFrames, pos0, rate, kOut, out.data());
+            }
+            double sum = 0;
+            for (float v : out)
+                sum += double(v) * v;
+            return std::sqrt(sum / double(out.size()));
+        };
+        // A tone at 1.5x the output Nyquist frequency: would alias, must be gone (< -40 dB).
+        const double high = 1.5 * nyquistOut;
+        const double filtered = rmsOf(high, false);
+        QVERIFY2(filtered < 0.007, qPrintable(QString::number(filtered)));
+        QVERIFY(rmsOf(high, true) > 0.1); // what linear interpolation did
+        // A tone at 0.3x the output Nyquist frequency passes (RMS of a unit sine: 0.707).
+        const double pass = rmsOf(0.3 * nyquistOut, false);
+        QVERIFY2(std::abs(pass - M_SQRT1_2) < 0.03, qPrintable(QString::number(pass)));
     }
 
     /// Reverse play before the timeline start is silence, not a crash.
