@@ -76,6 +76,13 @@ struct PlaybackBehaviour
 /// fewer pixels than half the timeline resolution anyway). Textures (zero copy) are requested
 /// when the GPU compositor is active and every client can draw them, otherwise images.
 ///
+/// **Seeking while playing** (clicking or dragging the ruler or playhead, Home/End...): playback
+/// carries on from the new position, like Resolve. The engine *parks*: the stale look-ahead is
+/// cancelled, sound stops, the target frame is rendered like a paused scrub (coalesced, so a
+/// drag renders what it can and always ends on the last position), and clock and sound resume
+/// from the target once it is on screen and no further seek arrived for kSeekResumeMs (or
+/// after kSeekMaxParkMs at the latest). The transport state stays Playing throughout.
+///
 /// **Timeline sync.** The engine follows Timeline::playheadChanged (scrub/seek from the
 /// timeline, keyboard navigation) and writes the playhead back at most every
 /// kPlayheadIntervalMs during playback (the timeline view follows it). Timeline::changed
@@ -126,6 +133,8 @@ public:
         double averageUploadMs = 0.0; ///< ... texture uploads
         double averageCompositeMs = 0.0; ///< ... drawing (excluding uploads)
         double averageOutputMs = 0.0; ///< ... output texture / readback
+        double lastSeekMs = 0.0; ///< last seek while playing: until its target was on screen
+        int64_t seeksWhilePlaying = 0; ///< seeks while playing (each move of a drag counts)
         bool audioMaster = false; ///< current clock source
         double avOffsetFrames = 0.0; ///< last audio - clock error seen by the clock (frames)
         [[nodiscard]] double fps() const { return playSeconds > 0 ? presented / playSeconds : 0.0; }
@@ -134,6 +143,8 @@ public:
     static constexpr int kTickMs = 4; ///< clock poll / presentation interval
     static constexpr int kPlayheadIntervalMs = 33; ///< Timeline::setPlayhead throttle (~30 Hz)
     static constexpr int kAudioStartTimeoutMs = 600; ///< no device position -> wall clock
+    static constexpr int kSeekResumeMs = 80; ///< quiet time after a seek before motion resumes
+    static constexpr int kSeekMaxParkMs = 400; ///< resume even if the target is not shown yet
 
     /// Creates an engine with its own Compositor and the default audio output.
     explicit PlaybackEngine(QObject* parent = nullptr);
@@ -222,7 +233,7 @@ public Q_SLOTS:
     void step(int64_t frames);
     /// Moves by one second of frames (@p direction +1 / -1).
     void stepSeconds(int direction);
-    /// Moves to @p frame (keeps playing if playing).
+    /// Moves to @p frame (keeps playing if playing; see "Seeking while playing").
     void seek(int64_t frame);
     /// Turns looping on/off.
     void setLoop(bool loop);
@@ -255,6 +266,8 @@ private:
     void onTimelineChanged();
     void onPlayheadChanged(int64_t frame);
     void startMotion(double rate, double fromFrame);
+    void seekWhilePlaying(int64_t frame, bool writePlayhead);
+    void resumeFromPark();
     void stopMotion();
     void startAudioClock(double fromFrame);
     void stopAudio();
@@ -308,6 +321,12 @@ private:
     int64_t m_lastPlayheadWriteUs = 0;
     int64_t m_audioStartUs = 0;
     int64_t m_motionStartUs = 0;
+
+    bool m_parked = false; ///< playing, but held at a seek target (see seekWhilePlaying())
+    bool m_resuming = false; ///< startMotion() called by resumeFromPark()
+    bool m_parkShown = false; ///< the seek target is on screen
+    int64_t m_parkTarget = 0;
+    int64_t m_lastSeekUs = 0;
 
     RenderedFramePtr m_current;
     int64_t m_lastShownKey = 0;

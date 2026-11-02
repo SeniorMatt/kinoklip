@@ -7,6 +7,7 @@
 #include "playback/PlaybackEngine.h"
 #include "render/Compositor.h"
 
+#include <QElapsedTimer>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -267,6 +268,63 @@ private Q_SLOTS:
         qInfo("60 playhead moves -> %lld renders", qlonglong(issued));
         QVERIFY2(issued <= 3, qPrintable(QString::number(issued)));
         QCOMPARE(qBlue(centre(e->currentFrame())), 255);
+    }
+
+    /// Clicking / dragging the ruler while playing (alpha.2 feedback 3): the target frame is
+    /// shown at once, playback carries on from there, and a burst of moves is coalesced (no
+    /// render or sound restart per move).
+    void seekWhilePlaying()
+    {
+        Timeline tl;
+        tl.setData(solidTimeline(1000, 500)); // red before 500, blue from 500
+        auto e = makeEngine(std::make_unique<test::FakeAudioOutput>(10, 40));
+        e->setTimeline(&tl);
+        QSignalSpy states(e.get(), &PlaybackEngine::stateChanged);
+        e->play();
+        QTest::qWait(300);
+        // A click: frame 700 on screen quickly, still playing.
+        QElapsedTimer timer;
+        timer.start();
+        tl.setPlayhead(700);
+        QCOMPARE(e->position(), int64_t(700));
+        QVERIFY(waitFor([&] { return e->currentFrame() && e->currentFrame()->frame >= 700; }));
+        const qint64 clickMs = timer.elapsed();
+        QCOMPARE(qBlue(centre(e->currentFrame())), 255);
+        QTest::qWait(400);
+        QVERIFY(e->isPlaying());
+        QVERIFY2(
+            e->position() > 700 && e->position() < 720, qPrintable(QString::number(e->position())));
+        QCOMPARE(states.count(), 1); // Playing only: the seek is no pause/play cycle
+        QVERIFY(e->stats().audioMaster); // sound resumed
+        // A drag: 60 moves in quick succession (back into the red part).
+        const int64_t before = e->scheduler().issuedCount();
+        for (int64_t f = 100; f < 160; ++f)
+            tl.setPlayhead(f);
+        const int64_t issued = e->scheduler().issuedCount() - before;
+        QVERIFY2(issued <= 2, qPrintable(QString::number(issued)));
+        QCOMPARE(e->position(), int64_t(159));
+        QVERIFY(waitFor([&] {
+            return e->currentFrame() && e->currentFrame()->frame >= 159
+                && e->currentFrame()->frame < 170;
+        }));
+        QCOMPARE(qRed(centre(e->currentFrame())), 255);
+        QTest::qWait(400);
+        QVERIFY(e->isPlaying());
+        QVERIFY2(
+            e->position() > 159 && e->position() < 180, qPrintable(QString::number(e->position())));
+        // Engine seek() (scrub bar, go to start) behaves the same and writes the playhead.
+        e->seek(600);
+        QCOMPARE(tl.playhead(), int64_t(600));
+        QVERIFY(waitFor([&] { return e->currentFrame() && e->currentFrame()->frame >= 600; }));
+        QVERIFY(e->stats().seeksWhilePlaying >= 62);
+        qInfo("click seek -> frame on screen in %lld ms (engine: %.1f ms); 60 drag moves -> "
+              "%lld renders",
+            qlonglong(clickMs), e->stats().lastSeekMs, qlonglong(issued));
+        // Pausing while parked shows exactly the paused frame.
+        tl.setPlayhead(300);
+        e->pause();
+        QVERIFY(waitFor([&] { return e->currentFrame() && e->currentFrame()->frame == 300; }));
+        QCOMPARE(e->position(), int64_t(300));
     }
 
     void rerendersOnEditWhilePaused()

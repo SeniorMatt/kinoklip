@@ -16,7 +16,15 @@ constexpr double kOutlierFactor = 3.0;
 
 FrameScheduler::FrameScheduler(RenderFn render)
     : m_render(std::move(render))
+    , m_cancel(std::make_shared<std::atomic<bool>>(false))
 { }
+
+void FrameScheduler::cancelOutstanding()
+{
+    // Requests still queued on the render thread are skipped; a new flag for new requests.
+    m_cancel->store(true, std::memory_order_relaxed);
+    m_cancel = std::make_shared<std::atomic<bool>>(false);
+}
 
 void FrameScheduler::setParams(const RenderParams& params, bool discardPending)
 {
@@ -24,13 +32,19 @@ void FrameScheduler::setParams(const RenderParams& params, bool discardPending)
     if (!discardPending) {
         return;
     }
-    // Playback frames in flight were made for the old parameters: discard them.
+    // Playback frames in flight were made for the old parameters: discard them. (A still in
+    // flight is kept: pollStill() re-issues the pending wish with the new parameters.)
+    bool cancel = false;
     for (Entry& e : m_entries) {
         if (!check(e)) {
             m_zombies.push_back(std::move(e.future));
+            cancel = true;
         }
     }
     m_entries.clear();
+    if (cancel && !m_stillActive) {
+        cancelOutstanding();
+    }
 }
 
 std::future<RenderedFramePtr> FrameScheduler::issue(int64_t frame)
@@ -42,6 +56,7 @@ std::future<RenderedFramePtr> FrameScheduler::issue(int64_t frame)
     request.outSize = m_params.outSize;
     request.quality = m_params.quality;
     request.outputs = m_params.outputs;
+    request.cancelled = m_cancel;
     ++m_issued;
     return m_render(std::move(request));
 }
@@ -206,11 +221,12 @@ void FrameScheduler::clear()
     }
     m_stillActive = false;
     m_still = Entry {};
+    cancelOutstanding();
 }
 
 void FrameScheduler::noteRendered(const RenderedFramePtr& frame)
 {
-    if (!frame) {
+    if (!frame || !frame->ok) {
         return;
     }
     // Outliers (a decoder opening or seeking) are clamped so one slow frame does not look
