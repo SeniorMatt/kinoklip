@@ -9,9 +9,11 @@
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/ChangeSpeedDialog.h"
+#include "ui/timeline/StackedTimelinePane.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineDialogs.h"
 #include "ui/timeline/TimelineLayout.h"
@@ -19,10 +21,16 @@
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
+#include <QDrag>
 #include <QEvent>
 #include <QInputDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QSlider>
+#include <QSplitter>
 #include <QToolBar>
 #include <QVBoxLayout>
 
@@ -106,9 +114,29 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
         m_toolBar->addAction(ctx.actions->action(QStringLiteral("timeline.zoom_in")));
     layout->addWidget(m_toolBar);
 
+    // Stacked timelines: two slots in a vertical splitter; the editor group (tabs + view)
+    // sits in one, the inactive pane (created on first use) in the other.
+    m_stack = new QSplitter(Qt::Vertical, body);
+    m_stack->setObjectName(QStringLiteral("StackedTimelines"));
+    m_stack->setChildrenCollapsible(false);
+    for (QWidget*& slot : m_slots) {
+        slot = new QWidget(m_stack);
+        auto* l = new QVBoxLayout(slot);
+        l->setContentsMargins(0, 0, 0, 0);
+        l->setSpacing(0);
+        m_stack->addWidget(slot);
+    }
+    m_slots[0]->hide();
+    layout->addWidget(m_stack, 1);
+    m_editorGroup = new QWidget(m_slots[1]);
+    auto* editorLayout = new QVBoxLayout(m_editorGroup);
+    editorLayout->setContentsMargins(0, 0, 0, 0);
+    editorLayout->setSpacing(0);
+    m_slots[1]->layout()->addWidget(m_editorGroup);
+
     // Open timelines (v2: tabs by default, Preferences > Editing > Timelines).
-    m_tabs = new TimelineTabs(ctx, body);
-    layout->addWidget(m_tabs);
+    m_tabs = new TimelineTabs(ctx, m_editorGroup);
+    editorLayout->addWidget(m_tabs);
     connect(m_tabs, &TimelineTabs::renameRequested, this, [this](quint64 uid) {
         const auto data = m_ctx.project->timelineData(uid);
         if (!data)
@@ -127,8 +155,8 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
             m_ctx.playback->pause();
     });
 
-    m_view = new TimelineWidget(ctx, m_controller, body);
-    layout->addWidget(m_view, 1);
+    m_view = new TimelineWidget(ctx, m_controller, m_editorGroup);
+    editorLayout->addWidget(m_view, 1);
     setContentWidget(body);
     // Resolve has no title above its timeline: the name is in the timeline viewer's header
     // and the tool bar starts right under the viewers.
@@ -163,7 +191,21 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
             this, &TimelinePanel::askClipDuration);
         connect(m_ctx.actions->action(QStringLiteral("clip.change_speed")), &QAction::triggered,
             this, &TimelinePanel::askClipSpeed);
+        if (m_ctx.actions->contains(QStringLiteral("view.stacked_timelines"))) {
+            QAction* stacked = m_ctx.actions->action(QStringLiteral("view.stacked_timelines"));
+            stacked->setChecked(m_stacked);
+            connect(stacked, &QAction::toggled, this, &TimelinePanel::setStackedTimelines);
+        }
     }
+    // Stacked: the pane never shows the active timeline (switching tabs in the editor to the
+    // timeline the pane shows puts the previous one into the pane).
+    connect(ctx.project, &Project::activeTimelineAboutToChange, this,
+        [this](quint64 uid) { m_previousActive = uid; });
+    connect(ctx.project, &Project::activeTimelineChanged, this, [this](quint64 uid) {
+        if (m_stacked && m_pane && !m_swapping && m_pane->currentTimeline() == uid
+            && m_ctx.project->hasTimeline(m_previousActive))
+            m_pane->showTimeline(m_previousActive);
+    });
 
     // Title = timeline name (the program viewer is already called "Timeline").
     Timeline* timeline = ctx.project->timeline();
@@ -178,6 +220,114 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
 void TimelinePanel::applyPreferences()
 {
     m_tabs->setTabsMode(EditBehaviour::fromSettings().timelineTabs);
+}
+
+void TimelinePanel::setStackedTimelines(bool on)
+{
+    if (on == m_stacked)
+        return;
+    m_stacked = on;
+    if (on && !m_pane) {
+        m_pane = new StackedTimelinePane(m_ctx, m_slots[0]);
+        connect(m_pane, &StackedTimelinePane::activateRequested, this,
+            &TimelinePanel::activateStackedPane);
+        connect(m_pane, &StackedTimelinePane::clipsDropped, this,
+            [this](quint64 source, const QVector<quint64>& clips, int64_t frame, TrackRef track,
+                bool insert) {
+                // Dropped on the inactive timeline: it becomes the active one, then the copy
+                // is an ordinary edit there (one undo step).
+                if (activateStackedPane())
+                    m_controller->copyClipsFrom(source, clips, frame, track, insert);
+            });
+    }
+    if (on) {
+        // The pane starts with another regular timeline (the first one that is not active).
+        const quint64 active = m_ctx.project->activeTimelineUid();
+        if (!m_ctx.project->hasTimeline(m_pane->currentTimeline())
+            || m_pane->currentTimeline() == active) {
+            quint64 other = 0;
+            for (const quint64 uid : m_ctx.project->timelineUids()) {
+                const auto data = m_ctx.project->timelineData(uid);
+                if (uid != active && data && !data->compound) {
+                    other = uid;
+                    break;
+                }
+            }
+            m_pane->setTabs(other ? QVector<quint64> {other} : QVector<quint64> {}, other);
+        }
+        m_view->setClipDragOut(
+            [this](const QVector<quint64>& clips, int64_t grab) { dragClipsOut(clips, grab); });
+    } else {
+        m_view->setClipDragOut({});
+        if (m_pane)
+            m_pane->view()->storeViewState();
+    }
+    placeStackedPanes();
+    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.stacked_timelines"))) {
+        QAction* a = m_ctx.actions->action(QStringLiteral("view.stacked_timelines"));
+        if (a->isChecked() != on)
+            a->setChecked(on);
+    }
+}
+
+void TimelinePanel::placeStackedPanes()
+{
+    const int editor = m_stacked ? m_activeSlot : 1;
+    // Reparenting hides a widget until the layout's queued show: show them right away so
+    // the swap is complete when this returns.
+    m_slots[editor]->layout()->addWidget(m_editorGroup);
+    m_editorGroup->show();
+    if (m_pane)
+        m_slots[1 - editor]->layout()->addWidget(m_pane);
+    m_slots[0]->setVisible(m_stacked || editor == 0);
+    m_slots[1]->setVisible(m_stacked || editor == 1);
+    if (m_pane)
+        m_pane->setVisible(m_stacked);
+    if (m_stacked)
+        m_stack->setSizes({1, 1}); // two equal halves
+}
+
+bool TimelinePanel::activateStackedPane()
+{
+    if (!m_stacked || !m_pane)
+        return false;
+    Project* project = m_ctx.project;
+    const quint64 uid = m_pane->currentTimeline();
+    const quint64 old = project->activeTimelineUid();
+    if (!uid || uid == old || project->isEditing())
+        return false;
+    // Each pane keeps its own tabs, zoom and scroll: the pane's become the editor's (the
+    // project's) and the other way round.
+    m_pane->view()->storeViewState();
+    const QVector<quint64> paneTabs = m_pane->tabs();
+    const QVector<quint64> editorTabs = project->tabs();
+    m_swapping = true;
+    const bool ok = project->setActiveTimeline(uid);
+    if (ok) {
+        project->setTabs(paneTabs);
+        m_pane->setTabs(editorTabs, old);
+        m_activeSlot = 1 - m_activeSlot; // the editor moves to where the user clicked
+        placeStackedPanes();
+        m_view->setFocus(Qt::MouseFocusReason);
+    }
+    m_swapping = false;
+    return ok;
+}
+
+void TimelinePanel::dragClipsOut(const QVector<quint64>& clips, int64_t grabFrames)
+{
+    QJsonArray ids;
+    for (const quint64 id : clips)
+        ids.append(qint64(id));
+    auto* mime = new QMimeData;
+    mime->setData(QLatin1String(mime::TimelineClips),
+        QJsonDocument(
+            QJsonObject {{QLatin1String("timeline"), qint64(m_ctx.project->activeTimelineUid())},
+                {QLatin1String("clips"), ids}, {QLatin1String("grabFrames"), qint64(grabFrames)}})
+            .toJson(QJsonDocument::Compact));
+    auto* drag = new QDrag(m_view);
+    drag->setMimeData(mime);
+    drag->exec(Qt::CopyAction, Qt::CopyAction);
 }
 
 void TimelinePanel::askClipDuration()

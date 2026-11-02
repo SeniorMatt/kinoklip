@@ -36,6 +36,7 @@ constexpr int kSnapPx = 8; ///< snapping distance in pixels
 constexpr int kTrimThresholdPx = 2; ///< trims start almost immediately (frame accuracy)
 constexpr int kAutoScrollZonePx = 24; ///< near the left/right edge a drag scrolls the view
 constexpr int kAutoScrollMaxPx = 40; ///< per timer tick at the very edge
+constexpr int kDragOutMarginPx = 12; ///< a move dragged this far out of the view leaves it
 } // namespace
 
 // ---- Helpers ----
@@ -139,6 +140,9 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
         emit inspectRequested(fx, InspectTarget::Effects);
         return;
     }
+    // Fade handles, volume keys and the level line (selection tool, spec 32).
+    if (onClip && tool == TimelineTool::Select && pressLevels(pos, hit))
+        return;
     const EditBehaviour behaviour = EditBehaviour::fromSettings();
     if (!onClip) {
         // Empty track area: a plain click clears the selection and selects the gap under the
@@ -224,12 +228,24 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
     if (m_drag.mode == DragMode::Pending) {
         const bool trim = m_drag.pending == DragMode::TrimHead
             || m_drag.pending == DragMode::TrimTail || m_drag.pending == DragMode::Roll
-            || m_drag.pending == DragMode::TransitionEdge
-            || m_drag.pending == DragMode::RetimePoint;
+            || m_drag.pending == DragMode::TransitionEdge || m_drag.pending == DragMode::RetimePoint
+            || m_drag.pending == DragMode::Fade || m_drag.pending == DragMode::LevelLine
+            || m_drag.pending == DragMode::LevelKey;
         const int threshold = trim ? kTrimThresholdPx : QApplication::startDragDistance();
         if ((pos - m_drag.pressPos).manhattanLength() < threshold)
             return;
         startDrag(m_drag.pending);
+    }
+    // Stacked timelines: a clip move dragged out of the view above or below becomes a copy
+    // drag towards the other timeline (spec 32.9).
+    if (m_drag.mode == DragMode::Move && m_clipDragOut && !m_drag.duplicate
+        && (pos.y() < -kDragOutMarginPx || pos.y() > viewport()->height() + kDragOutMarginPx)) {
+        const QVector<quint64> clips = m_drag.clips;
+        const int64_t grab
+            = int64_t(std::floor(m_layout.xToFrame(m_drag.pressPos.x()))) - m_drag.minStart;
+        cancelDrag();
+        m_clipDragOut(clips, std::max<int64_t>(0, grab));
+        return;
     }
     updateDrag(pos);
     // Auto-scroll while dragging near the left/right edge.
@@ -294,6 +310,10 @@ void TimelineWidget::keyPressEvent(QKeyEvent* event)
 
 void TimelineWidget::leaveEvent(QEvent* event)
 {
+    if (m_hoverClip) {
+        m_hoverClip = 0;
+        viewport()->update();
+    }
     if (m_overlay.bladeFrame) {
         m_overlay.bladeFrame.reset();
         viewport()->update();
@@ -331,6 +351,15 @@ void TimelineWidget::startDrag(DragMode mode)
     case DragMode::RetimePoint:
         openEdit(m_drag.retime.kind == retimebar::Hit::Kind::PointTop ? tr("Move Speed Point")
                                                                       : tr("Change Speed"));
+        return;
+    case DragMode::Fade:
+        openEdit(m_drag.fadeHead ? tr("Fade In") : tr("Fade Out"));
+        return;
+    case DragMode::LevelLine:
+        openEdit(tr("Change Volume"));
+        return;
+    case DragMode::LevelKey:
+        openEdit(tr("Move Keyframe"));
         return;
     case DragMode::Shuffle:
         m_drag.primary = hit.clipId;
@@ -462,6 +491,11 @@ void TimelineWidget::updateDrag(QPointF pos)
         break;
     case DragMode::Shuffle:
         updateShuffle(pos);
+        break;
+    case DragMode::Fade:
+    case DragMode::LevelLine:
+    case DragMode::LevelKey:
+        updateLevelDrag(pos);
         break;
     case DragMode::Pan:
         horizontalScrollBar()->setValue(m_drag.scrollXAtPress - int(pos.x() - m_drag.pressPos.x()));
@@ -813,6 +847,11 @@ void TimelineWidget::updateHover(QPointF pos)
         shape = Qt::SizeHorCursor; // speed point / retime handle (spec 31.4)
     } else if (tool != TimelineTool::Blade && transitionEdgeAt(pos)) {
         shape = Qt::SizeHorCursor; // transition length (spec 13.9)
+    } else if (const auto level
+        = hit.area == TimelineHit::Area::Clip && tool == TimelineTool::Select
+            ? levelCursor(pos, hit)
+            : std::nullopt) {
+        shape = *level; // fade handle / level line / volume key (spec 32)
     } else if (hit.area == TimelineHit::Area::Clip) {
         const bool edge = hit.part == ClipPart::Head || hit.part == ClipPart::Tail;
         if (tool == TimelineTool::Blade) {
@@ -827,6 +866,11 @@ void TimelineWidget::updateHover(QPointF pos)
         }
     }
     viewport()->setCursor(shape);
+    const quint64 hover = hit.area == TimelineHit::Area::Clip ? hit.clipId : 0;
+    if (hover != m_hoverClip) {
+        m_hoverClip = hover; // fade handles follow the mouse
+        viewport()->update();
+    }
     if (blade != m_overlay.bladeFrame || bladeRow != m_overlay.bladeRow) {
         m_overlay.bladeFrame = blade;
         m_overlay.bladeRow = bladeRow;
