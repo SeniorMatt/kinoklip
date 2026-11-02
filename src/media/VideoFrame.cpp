@@ -180,6 +180,42 @@ VideoFrameFactory::~VideoFrameFactory()
     av_buffer_pool_uninit(&m_pool); // buffers still held by frames are freed when released
 }
 
+bool VideoFrameFactory::copyMapped(AVFrame* dst, const AVFrame* hwFrame)
+{
+    // av_hwframe_transfer_data() maps the VA surface and copies it with plain loads. The
+    // mapping is write-combining (uncached) memory on Intel/AMD, where plain loads crawl
+    // (~250 MB/s: 1080p NV12 took ~11 ms on a UHD 630). av_image_copy_uc_from() uses SSE4.1
+    // streaming loads made for exactly this (several GB/s); it is a plain copy elsewhere.
+    // KINOKLIP_VAAPI_COPY=transfer: always use av_hwframe_transfer_data (diagnostics).
+    static const bool disabled
+        = qEnvironmentVariable("KINOKLIP_VAAPI_COPY") == QLatin1String("transfer");
+    if (m_mapFailed || disabled) {
+        return false;
+    }
+    FramePtr mapped(av_frame_alloc());
+    if (!mapped) {
+        return false;
+    }
+    mapped->format = dst->format;
+    const int ret = av_hwframe_map(mapped.get(), hwFrame, AV_HWFRAME_MAP_READ);
+    if (ret < 0 || mapped->format != dst->format || mapped->width < dst->width
+        || mapped->height < dst->height) {
+        qCDebug(lcMedia) << "hardware frame mapping unavailable (" << avErrorString(ret)
+                         << "); using av_hwframe_transfer_data";
+        m_mapFailed = true; // do not retry every frame
+        return false;
+    }
+    ptrdiff_t dstLines[4] = {};
+    ptrdiff_t srcLines[4] = {};
+    for (int i = 0; i < 4; ++i) {
+        dstLines[i] = dst->linesize[i];
+        srcLines[i] = mapped->linesize[i];
+    }
+    av_image_copy_uc_from(dst->data, dstLines, const_cast<const uint8_t**>(mapped->data), srcLines,
+        AVPixelFormat(dst->format), dst->width, dst->height);
+    return true;
+}
+
 FramePtr VideoFrameFactory::download(const AVFrame* hwFrame)
 {
     const auto* frames = reinterpret_cast<const AVHWFramesContext*>(hwFrame->hw_frames_ctx->data);
@@ -208,7 +244,9 @@ FramePtr VideoFrameFactory::download(const AVFrame* hwFrame)
     out->height = hwFrame->height;
     av_image_fill_arrays(out->data, out->linesize, out->buf[0]->data, format, out->width,
         out->height, kPlaneAlignment);
-    int ret = av_hwframe_transfer_data(out.get(), hwFrame, 0);
+    int ret = frames->device_ctx->type == AV_HWDEVICE_TYPE_VAAPI && copyMapped(out.get(), hwFrame)
+        ? 0
+        : av_hwframe_transfer_data(out.get(), hwFrame, 0);
     if (ret >= 0) {
         ret = av_frame_copy_props(out.get(), hwFrame);
     }
