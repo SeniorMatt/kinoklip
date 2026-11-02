@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // TimelineController, part 6: retiming — Change Clip Speed, retime controls (Ctrl+R), freeze
-// frame (Shift+R), the speed bar commands and the retime curve request (spec section 31).
+// frame (Shift+R), the speed bar commands and the retime curve request (spec section 29).
 #include "core/Project.h"
 #include "core/Retime.h"
 #include "core/RetimeOps.h"

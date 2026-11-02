@@ -172,7 +172,7 @@ struct ClipData
     /// Clip > Render Cache Clip Output: the render cache keeps this clip's frames in User
     /// mode (src/render/RenderCacheKeys.h). Not part of the cache key itself.
     bool cacheOutput = false;
-    /// Fade handles (spec section 32): frames of the fade-in from the clip start and of the
+    /// Fade handles (spec section 31): frames of the fade-in from the clip start and of the
     /// fade-out to the clip end; 0 = none. Video: linear opacity ramp; audio: equal-power gain
     /// ramp (core/ClipAttributes.h). They multiply with transitions and the keyframed opacity /
     /// volume, are kept by trims, and a split / range cut drops the fade at the cut.

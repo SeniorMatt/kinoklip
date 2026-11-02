@@ -105,7 +105,7 @@ bool channelMatrix(const ClipAttributes& attributes, int channels, double* matri
 [[nodiscard]] QString channelFormatToString(ChannelFormat format);
 [[nodiscard]] ChannelFormat channelFormatFromString(const QString& s);
 
-// ---- Clip fades (fade handles at the top corners of a clip, spec section 32) ----
+// ---- Clip fades (fade handles at the top corners of a clip, spec section 31) ----
 
 /// Video fade factor (0..1, multiplies the clip's opacity) at clip-local frame @p local of a
 /// clip @p duration frames long with fade-in @p fadeIn and fade-out @p fadeOut frames:

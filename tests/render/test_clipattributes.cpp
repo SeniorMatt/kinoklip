@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Clip fades and Clip Attributes in the renderers and the mixer (spec section 32): fade
+// Clip fades and Clip Attributes in the renderers and the mixer (spec section 31): fade
 // handles (video opacity ramp, audio equal-power ramp), channel routing (left only to both
 // sides, swap, mute), pixel aspect and extra rotation (GPU and CPU), data levels and
 // deinterlacing (GPU).

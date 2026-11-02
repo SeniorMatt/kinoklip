@@ -403,7 +403,7 @@ void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
             db = volume->valueAtTime(lf);
         }
         double g = dbToGain(db);
-        if (clip.fadeInFrames > 0 || clip.fadeOutFrames > 0) // fade handles (spec 32)
+        if (clip.fadeInFrames > 0 || clip.fadeOutFrames > 0) // fade handles (spec 31)
             g *= audioFadeGain(double(sample - clipStart) * framesPerSample, clip.duration,
                 clip.fadeInFrames, clip.fadeOutFrames);
         constexpr double kHalfPi = std::numbers::pi / 2.0;

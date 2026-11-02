@@ -96,3 +96,6 @@
 - 20:23 bins merged into main (format v11); full test run started.
 - 20:23 Started agent 'themecolors' (Kinoklip default, all custom-painted colours from the scheme).
 - 20:33 main after bins: 90/90 tests pass; pushed. themecolors running.
+- 20:43 Owner: readme split (docs/building.md, contributing.md, directory-map.md), centred download link; pushed.
+- 21:00 themecolors merged (Kinoklip default; SchemeColors helper); full test run started.
+- 21:04 main after themecolors: 91/91 pass. Spec sections renumbered 27-34 in order; roadmap updated; version 0.2.0-alpha.1; release notes written. Starting release build.

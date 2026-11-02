@@ -45,7 +45,7 @@ bool TimelineController::hasMarkedRange() const
 
 void TimelineController::deleteSelection()
 {
-    // Keys selected on their own (a volume key on a level line, spec 32.2): delete them.
+    // Keys selected on their own (a volume key on a level line, spec 31.2): delete them.
     if (m_ctx.selection->clips().isEmpty() && !m_ctx.selection->keyframes().isEmpty()) {
         keyframecommands::deleteSelected(m_ctx);
         return;
@@ -80,7 +80,7 @@ void TimelineController::deleteSelection()
 
 void TimelineController::rippleDeleteSelection()
 {
-    // Keys selected on their own (a volume key on a level line, spec 32.2): delete them.
+    // Keys selected on their own (a volume key on a level line, spec 31.2): delete them.
     if (m_ctx.selection->clips().isEmpty() && !m_ctx.selection->keyframes().isEmpty()) {
         keyframecommands::deleteSelected(m_ctx);
         return;

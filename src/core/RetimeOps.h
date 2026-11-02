@@ -17,7 +17,7 @@ namespace kk::retimeops {
 // linked pair always plays in sync. When the clip gets longer or shorter, the later clips on
 // the partners' tracks ripple (move by the same amount), like Resolve's retime controls.
 // Keyframes of other parameters stay at their clip-local frames: they are attached to the
-// timeline, not to the source (spec 31.10). Locked tracks are never changed; functions
+// timeline, not to the source (spec 29.10). Locked tracks are never changed; functions
 // return false / 0 when nothing changed. Model and units: core/Retime.h.
 
 /// The clip and its retime partners (ids; @p clipId first). Empty if the clip is missing.

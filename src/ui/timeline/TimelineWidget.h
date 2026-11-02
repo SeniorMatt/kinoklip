@@ -164,9 +164,9 @@ private:
         TransitionEdge, ///< dragging an outer edge of a transition changes its length (13.9)
         RetimePoint, ///< a speed point / clip end handle of the retime controls (31.4)
         Shuffle, ///< Ctrl+Shift drag: swap / shuffle insert within the track (21.6)
-        Fade, ///< a fade handle at a clip's top corner (spec 32.4)
-        LevelLine, ///< the audio level line: volume up / down (spec 32.1)
-        LevelKey ///< a volume key on the level line: time and value (spec 32.2)
+        Fade, ///< a fade handle at a clip's top corner (spec 31.4)
+        LevelLine, ///< the audio level line: volume up / down (spec 31.1)
+        LevelKey ///< a volume key on the level line: time and value (spec 31.2)
     };
     /// An outer edge of a transition under the pointer.
     struct TransitionEdgeHit

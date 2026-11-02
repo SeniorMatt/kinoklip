@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// TimelineWidget, level lines and fade handles (spec section 32): presses on a clip's fade
+// TimelineWidget, level lines and fade handles (spec section 31): presses on a clip's fade
 // handles, on the audio level line (drag = volume, Alt+click = add a key) and on its keys
 // (drag in time and value, right-click menu). Every gesture is one undo step; the edits
 // themselves are core/LevelOps.h.

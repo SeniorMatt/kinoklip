@@ -488,7 +488,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         return;
     }
     if (levelKeyMenu(event->pos(), event->globalPos()))
-        return; // a volume key on a level line (spec 32.2)
+        return; // a volume key on a level line (spec 31.2)
     const TimelineData& data = m_ctx.project->timeline()->data();
     const TimelineHit hit = m_layout.hitTest(data, event->pos());
     ActionRegistry* reg = m_ctx.actions;
@@ -603,7 +603,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
             addAction("clip.open_in_timeline");
             addAction("clip.decompose");
         }
-        // Clip Attributes of the clip's media pool item (spec 32.6).
+        // Clip Attributes of the clip's media pool item (spec 31.6).
         if (clip && clip->kind == ClipKind::Media)
             addAction("clip.attributes");
         menu.addSeparator();

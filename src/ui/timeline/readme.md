@@ -163,7 +163,7 @@ and F9/F10/F12 work unchanged. Actions: `timeline.new` (Ctrl+N), `timeline.dupli
   (`subtitles::captionsFromCues()`), overlapping cues on further subtitle tracks
   (`DropPlan::newSubtitleTracks`), never linked, always overwrite. Generator / adjustment
   descriptors use `effectactions::makeGeneratorClip()` like double-click.
-## Retime controls (spec section 31)
+## Retime controls (spec section 29)
 
 `clip.retime_controls` (Ctrl+R) toggles the speed bar of the retime targets (selection, else
 clips under the playhead on auto-select video tracks); the shown set is controller view state
@@ -280,7 +280,7 @@ squares at the right of the name band. The clip context menu adds "Clip Color" /
 (`ClipColorMenu.h`; flags edit the media pool item) and Find in Media Pool
 (`timeline.find_in_media_pool`, handled by the Edit page).
 
-## Level lines, fade handles, stacked timelines (spec section 32)
+## Level lines, fade handles, stacked timelines (spec section 31)
 - `LevelLines.h`: pure geometry of the audio level line (dB <-> y over the waveform area, key
   and line hit-testing) and of the fade handles. `TimelinePainter::paintVolumeLine()` draws
   the exact curve + key diamonds, `paintFades()` the wedges and (hovered clip) the handles.

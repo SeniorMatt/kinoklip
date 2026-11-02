@@ -140,7 +140,7 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
         emit inspectRequested(fx, InspectTarget::Effects);
         return;
     }
-    // Fade handles, volume keys and the level line (selection tool, spec 32).
+    // Fade handles, volume keys and the level line (selection tool, spec 31).
     if (onClip && tool == TimelineTool::Select && pressLevels(pos, hit))
         return;
     const EditBehaviour behaviour = EditBehaviour::fromSettings();
@@ -237,7 +237,7 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
         startDrag(m_drag.pending);
     }
     // Stacked timelines: a clip move dragged out of the view above or below becomes a copy
-    // drag towards the other timeline (spec 32.9).
+    // drag towards the other timeline (spec 31.9).
     if (m_drag.mode == DragMode::Move && m_clipDragOut && !m_drag.duplicate
         && (pos.y() < -kDragOutMarginPx || pos.y() > viewport()->height() + kDragOutMarginPx)) {
         const QVector<quint64> clips = m_drag.clips;
@@ -844,14 +844,14 @@ void TimelineWidget::updateHover(QPointF pos)
     } else if (retimeKind == retimebar::Hit::Kind::PointTop
         || retimeKind == retimebar::Hit::Kind::PointBottom
         || retimeKind == retimebar::Hit::Kind::EndHandle) {
-        shape = Qt::SizeHorCursor; // speed point / retime handle (spec 31.4)
+        shape = Qt::SizeHorCursor; // speed point / retime handle (spec 29.4)
     } else if (tool != TimelineTool::Blade && transitionEdgeAt(pos)) {
         shape = Qt::SizeHorCursor; // transition length (spec 13.9)
     } else if (const auto level
         = hit.area == TimelineHit::Area::Clip && tool == TimelineTool::Select
             ? levelCursor(pos, hit)
             : std::nullopt) {
-        shape = *level; // fade handle / level line / volume key (spec 32)
+        shape = *level; // fade handle / level line / volume key (spec 31)
     } else if (hit.area == TimelineHit::Area::Clip) {
         const bool edge = hit.part == ClipPart::Head || hit.part == ClipPart::Tail;
         if (tool == TimelineTool::Blade) {
