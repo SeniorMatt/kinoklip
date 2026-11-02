@@ -9,6 +9,7 @@
 #include "render/Compositor.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/DragAndDrop.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
@@ -28,6 +29,7 @@
 #include <QLabel>
 #include <QMimeData>
 #include <QPainter>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -38,6 +40,11 @@ namespace {
 constexpr int kTransportIconSize = metrics::kTransportIconSize;
 constexpr int kTransportBarHeight = 36;
 constexpr int kDragPixmapWidth = 160; ///< width of the picture shown while dragging a range
+/// While the window (or a splitter) is being resized, the engine renders for the new picture
+/// size only once the size has been stable this long. Meanwhile the surface draws the last
+/// frame scaled into the new picture rect. Re-rendering at every intermediate size (one
+/// composite + new output textures per resize step) was what made live resizing stutter.
+constexpr int kResizeSettleMs = 120;
 
 QList<ViewerPanel*>& registry()
 {
@@ -116,6 +123,10 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     , m_mode(mode)
 {
     registry().append(this);
+    m_resizeSettle = new QTimer(this);
+    m_resizeSettle->setSingleShot(true);
+    m_resizeSettle->setInterval(kResizeSettleMs);
+    connect(m_resizeSettle, &QTimer::timeout, this, &ViewerPanel::updateOutputClient);
     setObjectName(
         mode == Mode::Source ? QStringLiteral("SourceViewer") : QStringLiteral("TimelineViewer"));
     setFocusPolicy(Qt::ClickFocus);
@@ -457,10 +468,13 @@ void ViewerPanel::updateOutputClient()
     if (!m_engine) {
         return;
     }
+    m_resizeSettle->stop();
     if (!isVisible()) {
         m_engine->removeOutputClient(this);
+        m_outputSized = false;
         return;
     }
+    m_outputSized = true;
     const qreal dpr = m_surface->widget()->devicePixelRatioF();
     const QSize logical = m_surface->pictureRect().size();
     const QSize pixels(int(logical.width() * dpr), int(logical.height() * dpr));
@@ -692,7 +706,12 @@ bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
     }
     switch (event->type()) {
     case QEvent::Resize:
-        updateOutputClient();
+        // First size: at once (the first picture must come at the right size). Later sizes:
+        // coalesced, see kResizeSettleMs.
+        if (m_outputSized)
+            m_resizeSettle->start();
+        else
+            updateOutputClient();
         break;
     case QEvent::MouseButtonPress: {
         activate();
@@ -743,7 +762,7 @@ void ViewerPanel::startSourceDrag()
     if (!picture.isNull()) {
         drag->setPixmap(picture.scaledToWidth(kDragPixmapWidth, Qt::SmoothTransformation));
     }
-    drag->exec(Qt::CopyAction);
+    execCopyDrag(drag, "source viewer");
 }
 
 } // namespace kk

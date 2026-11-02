@@ -38,6 +38,9 @@ public:
 
 protected:
     QStringList mimeTypes() const override { return {QLatin1String(mime::Effect)}; }
+    /// Copy only (the drag source's actions come from here): the library never loses items,
+    /// and Wayland negotiates one unambiguous action.
+    Qt::DropActions supportedDropActions() const override { return Qt::CopyAction; }
 
     QMimeData* mimeData(const QList<QTreeWidgetItem*>& items) const override
     {
@@ -194,6 +197,7 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     m_tree->setIndentation(14);
     m_tree->setDragEnabled(true);
     m_tree->setDragDropMode(QAbstractItemView::DragOnly);
+    m_tree->setDefaultDropAction(Qt::CopyAction);
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
     layout->addWidget(m_tree, 1);
 
