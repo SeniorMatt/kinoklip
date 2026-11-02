@@ -58,3 +58,4 @@
 - 08:11 qa merged (50/50 tests host + container): theme-switch crash fixed, live palette switching, wayland plugin bundled, desktop entry auto-install, crash recovery, Open Recent, relink, robustness/fuzz tests. Built 0.1.0-alpha.2 in container (bundle check OK, 90 MB), smoke-tested on host under xvfb (screenshot Dark/Light, 10 s 1080p render OK). Publishing pre-release.
 - 08:11 RELEASED v0.1.0-alpha.2 (GitHub pre-release). All agents finished; worktrees removed; hourly heartbeat stopped. Waiting for owner's test of alpha.2. 24 GB free.
 - 10:45 Owner feedback on alpha.2 recorded in docs/feedback/alpha2.md. Starting playback2, editfix, filedialog agents.
+- 10:56 Session restarted; playback2, editfix, filedialog resumed (none had committed). Owner: ripple trim works on Shift+[ / ]; wants Resolve mapping Ctrl+Shift+[ / ] = ripple trim to playhead, Shift+[ / ] = trim leaving a gap -> sent to editfix.
