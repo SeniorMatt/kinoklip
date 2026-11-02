@@ -33,6 +33,9 @@ namespace kk {
 /// * transitions: an audio clip's own transitionIn/Out, or — for clips linked to a video clip
 ///   (same non-zero linkGroup) — the video clip's transition: equal-power crossfade (sin/cos)
 ///   centred on the cut, using source handles; fades from/to silence at track ends;
+/// * Nested clips (compound clips, nested timelines): the nested timeline's own mix (all its
+///   audio tracks, recursively, before the master clipper) is the clip's source, read through
+///   a child mixer per clip so contiguous playback never re-opens anything;
 /// * a soft clipper on the master (transparent below −1 dBFS, asymptotic to ±1).
 ///
 /// Performance: allocation-free in steady state (scratch buffers grow only; decoders are only
@@ -83,12 +86,19 @@ private:
     struct Decoder;
     struct Fade;
 
-    Decoder* decoderFor(const ClipData& clip);
-    void mixClip(const TimelineData& tl, const ClipData& clip, const Fade& head, const Fade& tail,
-        int64_t from, int64_t to, float* out);
+    Decoder* decoderFor(const ClipData& clip, const NestedTimelines& nested);
+    /// Adds every audio track of @p tl over [start, start + frames) to @p out (no clipping).
+    void mixTimeline(const TimelineData& tl, const NestedTimelines& nested, int64_t startSample48k,
+        int frames, float* out);
+    /// Reads @p count source samples of clip decoder @p d from source sample @p first.
+    void readSource(
+        Decoder& d, const NestedTimelines& nested, int64_t first, float* out, int count);
+    void mixClip(const TimelineData& tl, const NestedTimelines& nested, const ClipData& clip,
+        const Fade& head, const Fade& tail, int64_t from, int64_t to, float* out);
     void collectIdle();
 
     std::shared_ptr<const MediaPathMap> m_media;
+    int m_depth = 0; ///< nesting depth of this mixer (0 = the master mixer)
     std::unordered_map<quint64, std::unique_ptr<Decoder>> m_decoders; ///< by clip id
     std::vector<float> m_source; ///< decoded source samples (scratch)
     std::vector<float> m_resampled; ///< speed-adjusted samples (scratch)
