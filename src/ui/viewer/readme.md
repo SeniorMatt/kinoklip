@@ -49,22 +49,37 @@ off), `transport.prev_frame/next_frame` (arrows), `transport.back_1s/forward_1s`
 
 ## Performance
 
-`tests/playback/test_playbackperf` — 1080p25 timeline (1080p H.264 + 720p PiP with drop
-shadow + title, linked audio), fake sound card as master clock, 6 s:
+`tests/playback/test_playbackperf` (see src/playback/readme.md). Playback2 work (alpha.2
+feedback "pixelated while playing"), 2026-11-02, llvmpipe under xvfb, Edit-page viewer
+1000x562, 6 s per case. The machine was shared with parallel builds (load average 8-15), so
+software GL numbers vary by ±10 fps between runs; the GTX 1650 / Intel GPUs were not usable for
+GL by the agents (no display session), decoding used CUDA ("hw") or software ("sw").
 
-| Backend | Output | Quality | fps | dropped / 150 | render ms/frame |
-|---|---|---|---|---|---|
-| GTX 1650 (offscreen EGL) | 1000x562 (Edit viewer) | Auto (stays Full) | 25.00 | 0 | 2.0 |
-| GTX 1650 (offscreen EGL) | 1000x562 | Full | 25.00 | 0 | 2.1 |
-| GTX 1650 (offscreen EGL) | 1920x1080 (full screen) | Auto (stays Full) | 25.00 | 0 | 2.0 |
-| llvmpipe (xvfb), quiet machine | 1000x562 | Auto / Full | 25.00 | 0 | 8-10 |
-| llvmpipe (xvfb), quiet machine | 1920x1080 | Auto (Full/Half) | 25.00 | 0 | 27 |
-| llvmpipe (xvfb), load average 10-16 | 1000x562 | Full | 24.83 | 0 | 46 |
-| llvmpipe (xvfb), load average 10-16 | 1920x1080 | Auto (-> Quarter) | 20.99 | 33 | 18 (Quarter) |
+`singleClipPlayback` (one clip, timeline of its own size/rate):
 
-The machine was shared with several parallel builds; software GL suffers most from that.
-Audio was the master clock in every run (fake device, 10 ms periods, 40 ms latency); A/V
-error reported by the clock < 0.001 frames, no underruns.
+| File | Decode | Before: default Auto | After: default Full |
+|---|---|---|---|
+| perf_1080p (H.264 1080p25) | hw | 25.0 fps, 0 dropped, Full | 25.0 fps, 0 dropped, Full |
+| hevc_2160p30 (HEVC 4K30) | hw | 30.0 fps, 0 dropped, **Half** | 30.0 fps, 0 dropped, Full |
+| screen_1080p60 (H.264) | hw | 57.2 fps, 18 dropped, **Half** | 58.5-60.0 fps, 0-9 dropped, Full |
+| screen_1440p60 (H.264) | hw | 54.7 fps, 35 dropped, **Quarter (250x140 px)** | 51-60 fps, 0-54 dropped, Full |
+| screen_1080p60 | sw | 52.5 fps, 45 dropped, **Quarter** | 60.0 fps, 0 dropped, Full (46.2 fps before the decode-ahead) |
+| screen_1440p60 | sw | 26.3 fps, 215 dropped, **Quarter** | 49.3 fps, 65 dropped, Full (21.7 fps before the decode-ahead) |
+
+Stage times after (ms per frame, hw decode): decode 0.0-0.7 (hidden by the decode-ahead; was
+1.2-3.6), upload 0.5-2.3, composite 0.1-1.5, output 9-16 (llvmpipe executes the GL work at the
+flush; on a GPU this is ~0).
+
+`seekWhilePlaying` (hw decode; latency until a frame within 0.5 s of the target is on screen):
+
+| File | Click, before | Click, after | Drag (40 moves): frames shown before → after | Last drag position on screen, before → after |
+|---|---|---|---|---|
+| perf_1080p | 75 ms (max 101) | 72-78 ms (max 111) | 0 → 24-40 | 0 → 0-23 ms |
+| screen_1080p60 | 118 ms (max 161) | 70-87 ms (max 172) | 0 → 12-19 | 73 → 21-30 ms |
+| hevc_2160p30 | 136 ms (max 199) | 101-114 ms (max 187) | 0 → 7-13 | 97 → 46-96 ms |
+
+Before, the picture froze for the whole drag (every move restarted the sound device and waited
+for the old look-ahead); with a real sound server the restart cost was higher still.
 
 ## Tests
 
