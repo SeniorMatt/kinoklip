@@ -49,6 +49,10 @@ public:
     bool removeItem(const QString& id);
     /// Renames an item. Returns false if it does not exist.
     bool renameItem(const QString& id, const QString& name);
+    /// Relinks offline items: every item whose file is missing and whose file name exists in
+    /// @p folder points there afterwards (the cached probe result is kept; the media must be
+    /// the same file, as with Resolve's "Relink Clips"). Returns the number relinked.
+    int relinkFromFolder(const QString& folder);
     /// Moves an item into bin @p binId ("" = root). Returns false if item or bin is unknown.
     bool moveItemToBin(const QString& itemId, const QString& binId);
 

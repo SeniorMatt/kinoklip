@@ -8,10 +8,43 @@
 #include <QJsonArray>
 
 #include <algorithm>
+#include <cmath>
+#include <optional>
 
 namespace kk::serialization {
 
 namespace {
+
+// ---- Load-time limits ----
+// A damaged or hand-edited file must not drive the renderer into absurd allocations or
+// integer overflow (frames -> microseconds -> samples multiply by up to 48000), so loading
+// rejects values far outside anything an edit can produce.
+constexpr int kMaxDimension = 16384; ///< px; largest texture size GL 3.3 hardware supports
+constexpr double kMinFps = 1.0;
+constexpr double kMaxFps = 1000.0;
+constexpr int64_t kMaxFrames = int64_t(1) << 32; ///< ~4.5 years at 30 fps
+constexpr int64_t kMaxSourceUs = int64_t(1) << 50; ///< ~35 years
+constexpr double kMaxSpeed = 1.0e6; ///< fit-to-fill of hours into a frame stays below this
+
+/// Why @p c is unusable, or empty.
+QString clipLimitError(const ClipData& c)
+{
+    if (c.start < 0 || c.start > kMaxFrames || c.duration > kMaxFrames)
+        return QStringLiteral("clip %1 position out of range").arg(c.id);
+    if (!std::isfinite(c.speed) || c.speed > kMaxSpeed)
+        return QStringLiteral("clip %1 speed out of range").arg(c.id);
+    if (c.sourceInUs > kMaxSourceUs || c.sourceDurationUs < 0 || c.sourceDurationUs > kMaxSourceUs)
+        return QStringLiteral("clip %1 source range out of range").arg(c.id);
+    return {};
+}
+
+/// Transition lengths are clamped to [1, clip duration] (they are drawn and rendered
+/// within the clip; anything else is meaningless).
+void clampTransition(std::optional<TransitionData>& t, int64_t clipDuration)
+{
+    if (t)
+        t->duration = std::clamp<int64_t>(t->duration, 1, std::max<int64_t>(1, clipDuration));
+}
 
 QString colorToString(const QColor& c)
 {
@@ -309,6 +342,16 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
         fps.value(QLatin1String("num")).toInt(25), fps.value(QLatin1String("den")).toInt(1)};
     data.width = o.value(QLatin1String("width")).toInt(1920);
     data.height = o.value(QLatin1String("height")).toInt(1080);
+    auto fail = [error](const QString& why) {
+        if (error)
+            *error = QStringLiteral("invalid timeline: %1").arg(why);
+        return false;
+    };
+    if (data.width > kMaxDimension || data.height > kMaxDimension)
+        return fail(
+            QStringLiteral("resolution %1x%2 is too large").arg(data.width).arg(data.height));
+    if (data.fps.isValid() && (data.fps.toDouble() < kMinFps || data.fps.toDouble() > kMaxFps))
+        return fail(QStringLiteral("frame rate %1 is out of range").arg(data.fps.toDouble()));
     data.markIn = o.value(QLatin1String("markIn")).toInteger(-1);
     data.markOut = o.value(QLatin1String("markOut")).toInteger(-1);
     data.nextId = quint64(o.value(QLatin1String("nextId")).toInteger(1));
@@ -327,6 +370,17 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
         data.videoTracks.push_back(trackFromJson(v.toObject(), TrackType::Video));
     for (const QJsonValue& v : o.value(QLatin1String("audioTracks")).toArray())
         data.audioTracks.push_back(trackFromJson(v.toObject(), TrackType::Audio));
+
+    for (TrackType type : {TrackType::Video, TrackType::Audio}) {
+        for (TrackData& track : data.tracks(type)) {
+            for (ClipData& c : track.clips) {
+                if (const QString why = clipLimitError(c); !why.isEmpty())
+                    return fail(why);
+                clampTransition(c.transitionIn, c.duration);
+                clampTransition(c.transitionOut, c.duration);
+            }
+        }
+    }
 
     editops::normalizeIds(data);
     QString why;
@@ -422,6 +476,13 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
         if (!QFileInfo::exists(m.path) && !relative.isEmpty()) {
             const QString candidate = projectDir.absoluteFilePath(relative);
             if (QFileInfo::exists(candidate))
+                m.path = QFileInfo(candidate).absoluteFilePath();
+        }
+        // Moved media: same file name next to the project file (project folder copied or
+        // media collected into it). One stat per offline item, so loading stays cheap.
+        if (!QFileInfo::exists(m.path) && !m.path.isEmpty()) {
+            const QString candidate = projectDir.filePath(QFileInfo(m.path).fileName());
+            if (QFileInfo(candidate).isFile())
                 m.path = QFileInfo(candidate).absoluteFilePath();
         }
         m.name = o.value(QLatin1String("name")).toString();

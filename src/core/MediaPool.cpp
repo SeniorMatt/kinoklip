@@ -4,6 +4,7 @@
 
 #include "core/Logging.h"
 
+#include <QDir>
 #include <QFileInfo>
 #include <QUuid>
 
@@ -120,6 +121,26 @@ bool MediaPool::removeItem(const QString& id)
     emit itemRemoved(id);
     touch();
     return true;
+}
+
+int MediaPool::relinkFromFolder(const QString& folder)
+{
+    const QDir dir(folder);
+    int relinked = 0;
+    for (MediaItem& item : m_state.items) {
+        if (QFileInfo::exists(item.path))
+            continue;
+        const QString candidate = dir.filePath(QFileInfo(item.path).fileName());
+        if (!QFileInfo(candidate).isFile())
+            continue;
+        item.path = QFileInfo(candidate).absoluteFilePath();
+        item.info.path = item.path;
+        emit itemChanged(item.id);
+        ++relinked;
+    }
+    if (relinked > 0)
+        touch();
+    return relinked;
 }
 
 bool MediaPool::renameItem(const QString& id, const QString& name)
