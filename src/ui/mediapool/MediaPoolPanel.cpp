@@ -231,17 +231,21 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     });
     connect(m_bins, &BinList::keyActivated, this, &MediaPoolPanel::showBinKey);
     connect(m_bins, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item) {
-        // In-place rename of a bin or a user smart bin.
+        // In-place rename of a bin or a user smart bin (not the rows rebuild() creates).
+        if (m_bins->isRebuilding())
+            return;
         const QString key = item->data(0, BinList::kKeyRole).toString();
         const BinList::RowKind kind = BinList::kindOf(item);
         if (kind == BinList::RowKind::ProjectBin || kind == BinList::RowKind::PowerBin)
             renameBin(key, item->text(0));
         else if (kind == BinList::RowKind::SmartBin) {
             const SmartBin* smart = m_proxy->smartBinFor(key);
-            if (smart && !item->text(0).trimmed().isEmpty()
-                && item->text(0).trimmed() != smart->name) {
+            const QString name = item->text(0).trimmed();
+            if (!smart || name == smart->name) {
+                // unchanged (icon / data updates also emit itemChanged): nothing to do
+            } else if (!name.isEmpty() && m_ctx.project->mediaPool()->smartBin(smart->id)) {
                 SmartBin renamed = *smart;
-                renamed.name = item->text(0).trimmed();
+                renamed.name = name;
                 updateSmartBin(renamed);
             } else {
                 QTimer::singleShot(0, this, &MediaPoolPanel::rebuildBins); // restore the name
