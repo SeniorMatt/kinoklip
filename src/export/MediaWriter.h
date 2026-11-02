@@ -32,6 +32,9 @@ public:
     [[nodiscard]] bool needsGlobalHeader() const;
     /// Adds a stream with the parameters of the opened encoder @p encoder. @return its index.
     [[nodiscard]] int addStream(const AVCodecContext* encoder, QString* error);
+    /// Sets metadata @p key (e.g. "language", "title") of stream @p streamIndex (before
+    /// writeHeader()). Empty values are skipped.
+    void setStreamMetadata(int streamIndex, const char* key, const QString& value);
     /// Opens the file and writes the header. @p faststart: moov atom at the front (second
     /// pass at finish(), MP4/MOV/M4A only). @p startNumber: first number of image sequences.
     [[nodiscard]] bool writeHeader(bool faststart, int startNumber, QString* error);

@@ -87,6 +87,9 @@ QIcon categoryGlyph(EffectCategory category)
     case EffectCategory::Generator:
         tint = QColor(0x7f, 0xc0, 0x8a);
         break;
+    case EffectCategory::Effects:
+        tint = QColor(0xa8, 0x9c, 0xd8);
+        break;
     case EffectCategory::AudioEffect:
         tint = QColor(0x5f, 0xc4, 0xb8);
         break;
@@ -119,6 +122,17 @@ QIcon categoryGlyph(EffectCategory category)
         p.setBrush(tint);
         p.drawRoundedRect(tile.adjusted(3.5, 3, -3.5, -3), 1, 1);
         break;
+    case EffectCategory::Effects: {
+        // Adjustment clip: stacked layers, the top one outlined (it acts on those below).
+        p.setPen(Qt::NoPen);
+        p.setBrush(tint);
+        p.drawRect(QRectF(tile.left() + 3, tile.bottom() - 4.5, tile.width() - 6, 2));
+        p.drawRect(QRectF(tile.left() + 3, tile.bottom() - 8, tile.width() - 6, 2));
+        p.setPen(QPen(tint.lighter(140), 1.0));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(tile.left() + 3, tile.top() + 2.5, tile.width() - 6, 3));
+        break;
+    }
     case EffectCategory::AudioEffect: {
         p.setPen(QPen(tint, 1.4, Qt::SolidLine, Qt::RoundCap));
         const qreal cy = tile.center().y();
@@ -157,6 +171,8 @@ QString sectionTitle(EffectCategory category)
         return EffectsLibraryPanel::tr("Video Effects");
     case EffectCategory::AudioEffect:
         return EffectsLibraryPanel::tr("Audio Effects");
+    case EffectCategory::Effects:
+        return EffectsLibraryPanel::tr("Effects");
     case EffectCategory::ClipProperties:
         break;
     }
@@ -229,8 +245,9 @@ void EffectsLibraryPanel::populate()
     const EffectRegistry& registry = EffectRegistry::instance();
     QFont sectionFont = m_tree->font();
     sectionFont.setBold(true);
-    for (EffectCategory category : {EffectCategory::Transition, EffectCategory::Title,
-             EffectCategory::Generator, EffectCategory::VideoEffect, EffectCategory::AudioEffect}) {
+    for (EffectCategory category :
+        {EffectCategory::Transition, EffectCategory::Title, EffectCategory::Generator,
+            EffectCategory::Effects, EffectCategory::VideoEffect, EffectCategory::AudioEffect}) {
         const auto descriptors = registry.byCategory(category);
         if (descriptors.isEmpty())
             continue;
@@ -254,7 +271,7 @@ void EffectsLibraryPanel::populate()
     auto* toolbox = new QTreeWidgetItem(m_categories, {tr("Toolbox")});
     toolbox->setData(0, Qt::UserRole, -1);
     for (EffectCategory category : {EffectCategory::Transition, EffectCategory::Title,
-             EffectCategory::Generator, EffectCategory::VideoEffect}) {
+             EffectCategory::Generator, EffectCategory::Effects, EffectCategory::VideoEffect}) {
         if (registry.byCategory(category).isEmpty())
             continue;
         auto* item = new QTreeWidgetItem(toolbox, {sectionTitle(category)});

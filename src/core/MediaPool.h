@@ -9,6 +9,10 @@
 
 namespace kk {
 
+/// Probe-like description of a subtitle file (valid, path, duration = end of the last cue,
+/// container = suffix; no video or audio).
+[[nodiscard]] media::MediaInfo subtitleInfo(const QString& path, const QVector<SubtitleCue>& cues);
+
 /// Outcome of MediaPool::importFiles().
 struct ImportResult
 {

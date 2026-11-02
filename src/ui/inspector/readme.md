@@ -71,3 +71,14 @@ inspector shows it automatically with the editor matching its `ParamType`.
 
 **A new tab section:** add a `Structure` field if its presence changes the widgets, then build
 it in `InspectorPanel::rebuild()` with `addDescriptorGroup()` or `addGroup()` + `addParam()`.
+
+## Generators, adjustment clips and captions (v2)
+- Generator clips: the generator's descriptor group (parameters in `ClipData::title`,
+  `ParamScope::Title`) at the top of the Video tab, then Transform / Cropping / Masks.
+- Adjustment clips: Transform, Cropping, Masks and the Effects tab like any video clip.
+- Subtitle clips: the Title tab is renamed "Captions" and holds the `builtin.caption` group
+  (text, Custom Style), the caption's own `builtin.subtitle_style` group when Custom Style is on
+  (switching it on copies the track style into the caption), and the track's default style.
+  The track style is edited through a stand-in clip: a virtual clip id (bit 63 + track id)
+  that `clip()` / `modifyClip()` map to `TrackData::subtitleStyle`, so the generic rows work
+  unchanged.

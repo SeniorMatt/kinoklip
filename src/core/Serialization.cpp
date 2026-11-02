@@ -74,6 +74,12 @@ QString kindToString(ClipKind kind)
         return QStringLiteral("solid");
     case ClipKind::Nested:
         return QStringLiteral("nested");
+    case ClipKind::Adjustment:
+        return QStringLiteral("adjustment");
+    case ClipKind::Generator:
+        return QStringLiteral("generator");
+    case ClipKind::Subtitle:
+        return QStringLiteral("subtitle");
     }
     return QStringLiteral("media");
 }
@@ -86,6 +92,12 @@ ClipKind kindFromString(const QString& text)
         return ClipKind::Solid;
     if (text == QLatin1String("nested"))
         return ClipKind::Nested;
+    if (text == QLatin1String("adjustment"))
+        return ClipKind::Adjustment;
+    if (text == QLatin1String("generator"))
+        return ClipKind::Generator;
+    if (text == QLatin1String("subtitle"))
+        return ClipKind::Subtitle;
     return ClipKind::Media;
 }
 
@@ -129,6 +141,11 @@ QJsonObject trackToJson(const TrackData& track)
     o[QLatin1String("solo")] = track.solo;
     o[QLatin1String("autoSelect")] = track.autoSelect;
     o[QLatin1String("height")] = track.height;
+    if (track.type == TrackType::Subtitle) {
+        o[QLatin1String("subtitleStyle")] = paramSetToJson(track.subtitleStyle);
+        if (!track.language.isEmpty())
+            o[QLatin1String("language")] = track.language;
+    }
     QJsonArray clips;
     for (const ClipData& c : track.clips)
         clips.append(clipToJson(c));
@@ -148,6 +165,10 @@ TrackData trackFromJson(const QJsonObject& o, TrackType type)
     t.solo = o.value(QLatin1String("solo")).toBool(false);
     t.autoSelect = o.value(QLatin1String("autoSelect")).toBool(true);
     t.height = o.value(QLatin1String("height")).toInt(0);
+    if (type == TrackType::Subtitle) {
+        t.subtitleStyle = paramSetFromJson(o.value(QLatin1String("subtitleStyle")).toObject());
+        t.language = o.value(QLatin1String("language")).toString();
+    }
     for (const QJsonValue& v : o.value(QLatin1String("clips")).toArray())
         t.clips.push_back(clipFromJson(v.toObject()));
     std::stable_sort(t.clips.begin(), t.clips.end(),
@@ -479,6 +500,8 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("title")] = paramSetToJson(clip.title);
     if (clip.solidColor.isValid())
         o[QLatin1String("solidColor")] = colorToString(clip.solidColor);
+    if (!clip.generator.isEmpty())
+        o[QLatin1String("generator")] = clip.generator;
     if (!clip.effects.isEmpty()) {
         QJsonArray effects;
         for (const EffectInstance& fx : clip.effects) {
@@ -537,6 +560,7 @@ ClipData clipFromJson(const QJsonObject& o)
     c.title = paramSetFromJson(o.value(QLatin1String("title")).toObject());
     if (o.contains(QLatin1String("solidColor")))
         c.solidColor = colorFromString(o.value(QLatin1String("solidColor")).toString());
+    c.generator = o.value(QLatin1String("generator")).toString();
     for (const QJsonValue& v : o.value(QLatin1String("effects")).toArray()) {
         const QJsonObject fo = v.toObject();
         EffectInstance fx;
@@ -586,6 +610,12 @@ QJsonObject timelineToJson(const TimelineData& data)
     for (const TrackData& t : data.audioTracks)
         audio.append(trackToJson(t));
     o[QLatin1String("audioTracks")] = audio;
+    if (!data.subtitleTracks.empty()) { // format 7; omitted when empty (older files identical)
+        QJsonArray subtitle;
+        for (const TrackData& t : data.subtitleTracks)
+            subtitle.append(trackToJson(t));
+        o[QLatin1String("subtitleTracks")] = subtitle;
+    }
     return o;
 }
 
@@ -623,8 +653,10 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
         data.videoTracks.push_back(trackFromJson(v.toObject(), TrackType::Video));
     for (const QJsonValue& v : o.value(QLatin1String("audioTracks")).toArray())
         data.audioTracks.push_back(trackFromJson(v.toObject(), TrackType::Audio));
+    for (const QJsonValue& v : o.value(QLatin1String("subtitleTracks")).toArray())
+        data.subtitleTracks.push_back(trackFromJson(v.toObject(), TrackType::Subtitle));
 
-    for (TrackType type : {TrackType::Video, TrackType::Audio}) {
+    for (TrackType type : {TrackType::Video, TrackType::Audio, TrackType::Subtitle}) {
         for (TrackData& track : data.tracks(type)) {
             for (ClipData& c : track.clips) {
                 if (const QString why = clipLimitError(c); !why.isEmpty())
@@ -714,10 +746,19 @@ QJsonObject mediaPoolToJson(const MediaPoolState& state, const QDir& projectDir)
                 {QLatin1String("info"), mediaInfoToJson(m.info)}});
             continue;
         }
-        items.append(QJsonObject {{QLatin1String("id"), m.id}, {QLatin1String("path"), m.path},
+        QJsonObject item {{QLatin1String("id"), m.id}, {QLatin1String("path"), m.path},
             {QLatin1String("relativePath"), projectDir.relativeFilePath(m.path)},
             {QLatin1String("name"), m.name}, {QLatin1String("binId"), m.binId},
-            {QLatin1String("info"), mediaInfoToJson(m.info)}});
+            {QLatin1String("info"), mediaInfoToJson(m.info)}};
+        if (m.isSubtitle()) {
+            // Format 7: the captions travel with the project ([startUs, endUs, text]).
+            item[QLatin1String("kind")] = QStringLiteral("subtitle");
+            QJsonArray cues;
+            for (const SubtitleCue& c : m.cues)
+                cues.append(QJsonArray {qint64(c.startUs), qint64(c.endUs), c.text});
+            item[QLatin1String("cues")] = cues;
+        }
+        items.append(item);
     }
     return QJsonObject {{QLatin1String("bins"), bins}, {QLatin1String("items"), items}};
 }
@@ -764,6 +805,14 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
         m.binId = o.value(QLatin1String("binId")).toString();
         m.info = mediaInfoFromJson(o.value(QLatin1String("info")).toObject());
         m.info.path = m.path;
+        if (kind == QLatin1String("subtitle")) {
+            m.kind = MediaItemKind::Subtitle;
+            for (const QJsonValue& cv : o.value(QLatin1String("cues")).toArray()) {
+                const QJsonArray a = cv.toArray();
+                if (a.size() >= 3)
+                    m.cues.append({a[0].toInteger(), a[1].toInteger(), a[2].toString()});
+            }
+        }
         state.items.append(m);
     }
     return state;

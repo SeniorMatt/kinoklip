@@ -512,6 +512,36 @@ QWidget* RenderSettingsPanel::buildFileTab()
     m_uniqueNames->setChecked(settings.value(QLatin1String(kUniqueNamesKey), false).toBool());
     form->addRow(QString(), m_uniqueNames);
 
+    // Subtitle settings (Resolve's File tab): off by default; burn in, a separate file next
+    // to the render, or a subtitle stream in the movie.
+    m_fileForm = form;
+    auto* subtitleHeading = new QLabel(tr("Subtitle Settings"));
+    QFont headingFont = subtitleHeading->font();
+    headingFont.setWeight(QFont::DemiBold);
+    subtitleHeading->setFont(headingFont);
+    form->addRow(subtitleHeading);
+    m_subtitleExport = new QCheckBox(tr("Export subtitle"));
+    m_subtitleExport->setObjectName(QStringLiteral("RenderSubtitleExport"));
+    m_subtitleExport->setToolTip(tr("Include the enabled subtitle tracks in the render"));
+    form->addRow(QString(), m_subtitleExport);
+    m_subtitleMode = new QComboBox;
+    m_subtitleMode->setObjectName(QStringLiteral("RenderSubtitleMode"));
+    m_subtitleMode->addItem(tr("Burn into video"), int(SubtitleExportMode::BurnIn));
+    m_subtitleMode->addItem(tr("As a separate file"), int(SubtitleExportMode::Sidecar));
+    m_subtitleMode->addItem(tr("As embedded captions"), int(SubtitleExportMode::Embedded));
+    form->addRow(tr("Format"), m_subtitleMode);
+    m_subtitleFormat = new QComboBox;
+    m_subtitleFormat->setObjectName(QStringLiteral("RenderSubtitleFormat"));
+    m_subtitleFormat->addItem(tr("SRT"), int(SubtitleFormat::Srt));
+    m_subtitleFormat->addItem(tr("WebVTT"), int(SubtitleFormat::WebVtt));
+    form->addRow(tr("Export as"), m_subtitleFormat);
+    m_subtitleCodec = new QComboBox;
+    m_subtitleCodec->setObjectName(QStringLiteral("RenderSubtitleCodec"));
+    form->addRow(tr("Codec"), m_subtitleCodec);
+    connect(m_subtitleExport, &QCheckBox::toggled, this, [this] { refresh(); });
+    for (QComboBox* box : {m_subtitleMode, m_subtitleFormat, m_subtitleCodec})
+        connect(box, &QComboBox::currentIndexChanged, this, [this] { refresh(); });
+
     m_resultPath = new QLabel;
     m_resultPath->setObjectName(QStringLiteral("RenderResultPath"));
     m_resultPath->setWordWrap(true);
@@ -617,6 +647,11 @@ ExportSettings RenderSettingsPanel::settings() const
     s.audio.sampleRate = m_sampleRate->currentData().toInt();
     s.audio.bitDepth = m_bitDepth->currentData().toInt();
     s.range = RangeMode(m_range->currentData().toInt());
+    s.subtitles.enabled = m_subtitleExport->isChecked();
+    s.subtitles.mode = SubtitleExportMode(m_subtitleMode->currentData().toInt());
+    s.subtitles.sidecarFormat = SubtitleFormat(m_subtitleFormat->currentData().toInt());
+    if (m_subtitleCodec->currentIndex() >= 0)
+        s.subtitles.embeddedCodec = m_subtitleCodec->currentData().toString();
 
     QString name = m_fileName->text().trimmed();
     if (name.isEmpty())
@@ -727,6 +762,17 @@ void RenderSettingsPanel::setSettings(const ExportSettings& input)
     selectData(m_sampleRate, s.audio.sampleRate);
     selectData(m_bitDepth, s.audio.bitDepth);
     selectData(m_range, int(s.range));
+    m_subtitleExport->setChecked(s.subtitles.enabled);
+    selectData(m_subtitleMode, int(s.subtitles.mode));
+    selectData(m_subtitleFormat, int(s.subtitles.sidecarFormat));
+    m_subtitleCodec->clear();
+    for (const QString& codec : subtitleCodecs(s.container))
+        m_subtitleCodec->addItem(subtitleCodecName(codec), codec);
+    const QString subtitleCodec = s.embeddedSubtitleCodec();
+    if (const int i = m_subtitleCodec->findData(
+            subtitleCodec.isEmpty() ? s.subtitles.embeddedCodec : subtitleCodec);
+        i >= 0)
+        m_subtitleCodec->setCurrentIndex(i);
     m_extension->setText(container ? QStringLiteral(".") + container->extension : QString());
 
     if (!s.outputPath.isEmpty()) {
@@ -825,6 +871,21 @@ void RenderSettingsPanel::updateVisibility()
     m_tabs->setTabToolTip(1, audioPossible ? QString() : tr("This format has no audio"));
     m_range->setEnabled(kind != OutputKind::Still);
     m_addButton->setEnabled(s.hasVideo() || s.hasAudio());
+
+    // Subtitles: embedding needs a container with subtitle streams, burning in a picture.
+    const bool subtitlesOn = s.subtitles.enabled && kind != OutputKind::Still;
+    m_subtitleExport->setEnabled(kind != OutputKind::Still);
+    m_fileForm->setRowVisible(m_subtitleMode, subtitlesOn);
+    m_fileForm->setRowVisible(
+        m_subtitleFormat, subtitlesOn && s.subtitles.mode == SubtitleExportMode::Sidecar);
+    m_fileForm->setRowVisible(
+        m_subtitleCodec, subtitlesOn && s.subtitles.mode == SubtitleExportMode::Embedded);
+    const bool canEmbed = !subtitleCodecs(s.container).isEmpty();
+    m_subtitleCodec->setEnabled(canEmbed);
+    m_subtitleCodec->setToolTip(canEmbed
+            ? QString()
+            : tr("This format cannot carry subtitles; choose MP4, QuickTime, "
+                 "MKV or WebM, or write a separate file"));
 
     // Encoder availability annotations.
     for (int i = 0; i < m_encoder->count(); ++i) {

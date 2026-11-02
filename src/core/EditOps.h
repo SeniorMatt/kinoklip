@@ -186,6 +186,7 @@ struct Clipboard
     QVector<ClipboardClip> clips;
     int baseVideoTrack = 0; ///< index of the lowest copied video track at copy time
     int baseAudioTrack = 0; ///< index of the lowest copied audio track at copy time
+    int baseSubtitleTrack = 0; ///< index of the lowest copied subtitle track at copy time
     int64_t duration = 0; ///< frames from the earliest start to the latest end
 
     [[nodiscard]] bool isEmpty() const { return clips.isEmpty(); }
@@ -196,7 +197,8 @@ struct Clipboard
 
 /// Pastes @p clipboard with its origin at timeline frame @p frame. Clips go to
 /// base + trackOffset, where the base is @p videoBase / @p audioBase (-1 = the tracks they were
-/// copied from); missing tracks are added. Every pasted clip gets fresh clip, link-group and
+/// copied from; captions always go back to the subtitle tracks they came from); missing tracks
+/// are added. Every pasted clip gets fresh clip, link-group and
 /// effect ids (linked clips stay linked to each other). Overwrites by default; with
 /// @p insert = true the timeline ripples (RippleScope::AllTracks) to make room.
 /// Returns the new clip ids (empty if nothing could be pasted, e.g. a locked destination).

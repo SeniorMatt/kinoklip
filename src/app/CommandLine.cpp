@@ -23,8 +23,8 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             "Render the window (1920x1080) showing <target> to the PNG given as the first "
             "positional argument, then exit. Targets: media, edit, edit-single, edit-dual, "
             "transition, deliver, preferences, "
-            "keyboard, inspector, keyframes, keyframes-window, retime, retime:curve, mediapool, "
-            "import-dialog (whole "
+            "keyboard, inspector, keyframes, keyframes-window, retime, retime:curve, subtitles, "
+            "subtitles:inspector, mediapool, import-dialog (whole "
             "screen with File > Import Media open), menu-color-theme, "
             "menu-style, menu-playback-resolution. Usage: --screenshot "
             "edit out.png [project]"),

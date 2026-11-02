@@ -60,6 +60,13 @@ int MediaWriter::addStream(const AVCodecContext* encoder, QString* error)
     return stream->index;
 }
 
+void MediaWriter::setStreamMetadata(int streamIndex, const char* key, const QString& value)
+{
+    if (!m_fmt || streamIndex < 0 || streamIndex >= int(m_fmt->nb_streams) || value.isEmpty())
+        return;
+    av_dict_set(&m_fmt->streams[streamIndex]->metadata, key, value.toUtf8().constData(), 0);
+}
+
 bool MediaWriter::writeHeader(bool faststart, int startNumber, QString* error)
 {
     if (!(m_fmt->oformat->flags & AVFMT_NOFILE)) {

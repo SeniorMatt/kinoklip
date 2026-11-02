@@ -37,9 +37,10 @@ private slots:
         QStringList sections;
         for (int i = 0; i < panel.tree()->topLevelItemCount(); ++i)
             sections.append(panel.tree()->topLevelItem(i)->text(0));
-        QCOMPARE(sections.mid(0, 4),
+        QCOMPARE(sections.mid(0, 5),
             QStringList({QStringLiteral("Video Transitions"), QStringLiteral("Titles"),
-                QStringLiteral("Generators"), QStringLiteral("Video Effects")}));
+                QStringLiteral("Generators"), QStringLiteral("Effects"),
+                QStringLiteral("Video Effects")}));
         QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
         saveScreenshot(panel, QStringLiteral("effects_library"));
 

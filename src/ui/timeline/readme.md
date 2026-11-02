@@ -142,6 +142,18 @@ and F9/F10/F12 work unchanged. Actions: `timeline.new` (Ctrl+N), `timeline.dupli
 `timeline.delete`, `timeline.settings`, `timeline.next_tab`, `timeline.prev_tab`,
 `timeline.close_tab`, `clip.new_compound`, `clip.open_in_timeline`, `clip.decompose`.
 
+## Subtitle tracks, adjustment clips, generators (v2)
+- `TimelineLayout::rebuild()` stacks subtitle rows above the video rows (ST(n) first); the
+  divider stays between video and audio. Headers: "ST<n>" label without a source patch (target
+  setters ignore subtitle refs), eye / lock / auto-select.
+- `TimelinePainter`: adjustment clips slate with hatching, generators terracotta, captions
+  sand with their text.
+- `TimelineController::addSubtitleAtPlayhead()` (`timeline.add_subtitle`), `addTrack(Subtitle)`
+  (`timeline.add_subtitle_track`); context menus of subtitle rows offer both.
+- Drops (`TimelineDrop.cpp`): a subtitle media item becomes one caption per cue
+  (`subtitles::captionsFromCues()`), overlapping cues on further subtitle tracks
+  (`DropPlan::newSubtitleTracks`), never linked, always overwrite. Generator / adjustment
+  descriptors use `effectactions::makeGeneratorClip()` like double-click.
 ## Retime controls (spec section 31)
 
 `clip.retime_controls` (Ctrl+R) toggles the speed bar of the retime targets (selection, else

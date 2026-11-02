@@ -110,6 +110,9 @@ struct RenderRequest
     /// (a request already being rendered finishes normally). Lets playback drop its stale
     /// look-ahead on a seek instead of waiting for it.
     std::shared_ptr<const std::atomic<bool>> cancelled = nullptr;
+    /// Draw the captions of the enabled subtitle tracks over the picture (viewer; export
+    /// with "burn into video"). Only the root timeline's subtitle tracks are drawn.
+    bool subtitles = true;
     /// Video substitutes (proxy / optimized media); nullptr = camera originals (export).
     std::shared_ptr<const ProxyMap> proxies = nullptr;
     /// Render cache of `timeline`; nullptr or a view of another snapshot = render normally.
