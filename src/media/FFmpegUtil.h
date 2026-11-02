@@ -5,6 +5,7 @@
 
 #include "media/MediaInfo.h"
 
+#include <QByteArray>
 #include <QString>
 
 extern "C" {
@@ -63,6 +64,33 @@ inline constexpr AVRational kMicrosecondsTb {1, 1000000};
 /// One-time global FFmpeg setup (log level + routing of FFmpeg logs into `kk.media`).
 /// Idempotent and thread-safe; called by every entry point of the media engine.
 void initFfmpeg();
+
+/// Captures FFmpeg's log output of the current thread while alive (RAII, nestable): the
+/// messages are not shown (debug output only) but remembered, so a caller can turn an expected
+/// failure (hardware probes, a broken GPU download) into one meaningful line of its own
+/// instead of FFmpeg's per-call error spam. Messages FFmpeg logs from other threads (its own
+/// worker threads) are not captured.
+class FfmpegLogCapture
+{
+public:
+    FfmpegLogCapture();
+    ~FfmpegLogCapture();
+    FfmpegLogCapture(const FfmpegLogCapture&) = delete;
+    FfmpegLogCapture& operator=(const FfmpegLogCapture&) = delete;
+
+    /// Number of error (or worse) messages captured.
+    [[nodiscard]] int errorCount() const { return m_errorCount; }
+    /// The first error message captured (with FFmpeg's "[context]" prefix), or empty.
+    [[nodiscard]] QString firstError() const { return m_firstError; }
+
+    /// Internal: called by the log callback (also forwards to the enclosing capture).
+    void record(int level, const QByteArray& text);
+
+private:
+    FfmpegLogCapture* m_outer = nullptr;
+    int m_errorCount = 0;
+    QString m_firstError;
+};
 
 /// Human-readable text for an FFmpeg error code (AVERROR(...)).
 QString avErrorString(int errorCode);
