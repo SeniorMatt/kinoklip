@@ -223,7 +223,7 @@ private slots:
         const QString self = QCoreApplication::applicationFilePath();
         addItem(f.project, QStringLiteral("Video"), self);
         QVERIFY(asked.isEmpty()); // nothing requested until painted
-        const QModelIndex index = panel.model()->index(0, 0);
+        const QModelIndex index = panel.model()->index(1, 0);
         QVERIFY(index.data(MediaPoolModel::PosterRole).value<QPixmap>().isNull());
         QCOMPARE(asked.size(), 1);
         QVERIFY(index.data(MediaPoolModel::PosterRole).value<QPixmap>().isNull());
