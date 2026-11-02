@@ -264,6 +264,36 @@ private slots:
             (TransformHandle {TransformHandle::Kind::Crop, 0, -1}));
     }
 
+    // Round 3 audit A2: with the audio part of a linked pair clicked, the controls show and
+    // act on its video part.
+    void linkedAudioPartShowsTheVideoControls()
+    {
+        Fixture f;
+        TimelineData d = f.project.timeline()->data();
+        ClipData& video = d.videoTracks[0].clips[0];
+        video.linkGroup = 7;
+        ClipData audio = video;
+        audio.id = d.allocateId();
+        audio.kind = ClipKind::Solid;
+        d.audioTracks[0].clips.push_back(audio);
+        f.project.timeline()->setData(d);
+        f.selection.setClips({f.clipId, audio.id}); // the audio part clicked last
+        ViewerPanel viewer(ViewerPanel::Mode::Timeline, f.ctx);
+        viewer.resize(700, 500);
+        viewer.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&viewer));
+        TransformOverlay* overlay = viewer.transformOverlay();
+        f.action("view.onscreen_transform")->setChecked(true);
+        QTRY_VERIFY(overlay->isEditing());
+        const QPointF from = handleAt(overlay, 1, 1, false);
+        const QPointF to = overlay->frameToWidget()->map(QPointF(400, 225));
+        press(overlay, from);
+        move(overlay, to);
+        release(overlay, to);
+        QVERIFY(std::abs(f.clip().transform.value(keys::ZoomX, 0) - 1.5) < 0.02);
+        f.action("view.onscreen_transform")->setChecked(false);
+    }
+
     // The real overlay: scale, rotate and crop drags are one named undo step each and
     // write keys at the playhead when the parameter is animated.
     void overlayDragsAreUndoStepsAndKeyframe()

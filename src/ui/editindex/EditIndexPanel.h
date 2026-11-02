@@ -50,6 +50,9 @@ public:
 
 protected:
     void showEvent(QShowEvent* event) override;
+    /// Markers mode: Delete / Backspace in the table delete the marker instead of reaching
+    /// the window's Delete commands (which would ripple delete the marker's clip).
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void scheduleRebuild();

@@ -2,6 +2,7 @@
 // EditIndexModel — rows, display text and marker editing of the Edit Index.
 #include "ui/editindex/EditIndexModel.h"
 
+#include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "ui/common/SchemeColors.h"
@@ -252,6 +253,30 @@ bool EditIndexModel::setData(const QModelIndex& index, const QVariant& value, in
         return false;
     }
     (isName ? marker->name : marker->note) = text;
+    m_project->endEdit();
+    return true;
+}
+
+bool EditIndexModel::deleteMarker(int row)
+{
+    if (m_mode != Mode::Markers || row < 0 || row >= int(m_markers.size())
+        || m_markers[size_t(row)].locked)
+        return false;
+    const editindex::MarkerRow marker = m_markers[size_t(row)];
+    m_project->beginEdit(tr("Delete Marker"));
+    TimelineData& data = m_project->timeline()->mutableData();
+    QVector<Marker>* list = &data.markers;
+    if (marker.clipId) {
+        ClipData* clip = editops::clipById(data, marker.clipId);
+        list = clip ? &clip->markers : nullptr;
+    }
+    const qsizetype removed = list
+        ? list->removeIf([&marker](const Marker& m) { return m.frame == marker.storedFrame; })
+        : 0;
+    if (removed == 0) {
+        m_project->cancelEdit();
+        return false;
+    }
     m_project->endEdit();
     return true;
 }

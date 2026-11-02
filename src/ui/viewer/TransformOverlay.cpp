@@ -98,9 +98,25 @@ const ClipData* TransformOverlay::currentClip(quint64* id) const
     const bool on = (m_action && m_action->isChecked()) || isCropMode();
     if (!m_ctx.selection || !on)
         return nullptr;
-    const quint64 clipId = m_ctx.selection->currentClip();
+    quint64 clipId = m_ctx.selection->currentClip();
     const TimelineData& data = m_ctx.project->timeline()->data();
-    const auto loc = clipId ? editops::findClip(data, clipId) : std::nullopt;
+    auto loc = clipId ? editops::findClip(data, clipId) : std::nullopt;
+    // The audio part of a linked pair was clicked: the controls act on its video part, as
+    // the Inspector shows the pair as one item (spec 24.1).
+    if (loc && loc->track.type != TrackType::Video) {
+        const ClipData& audio = data.track(loc->track)->clips[size_t(loc->clipIndex)];
+        loc.reset();
+        for (int t = 0; audio.linkGroup && t < int(data.videoTracks.size()) && !loc; ++t) {
+            const auto& clips = data.videoTracks[size_t(t)].clips;
+            for (int i = 0; i < int(clips.size()); ++i) {
+                if (clips[size_t(i)].linkGroup == audio.linkGroup) {
+                    clipId = clips[size_t(i)].id;
+                    loc = editops::findClip(data, clipId);
+                    break;
+                }
+            }
+        }
+    }
     if (!loc || loc->track.type != TrackType::Video || data.track(loc->track)->locked)
         return nullptr;
     const ClipData& clip = data.track(loc->track)->clips[size_t(loc->clipIndex)];

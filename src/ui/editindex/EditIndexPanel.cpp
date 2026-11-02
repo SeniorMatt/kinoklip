@@ -14,6 +14,7 @@
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QKeyEvent>
 #include <QLineEdit>
 #include <QPainter>
 #include <QPixmap>
@@ -88,6 +89,7 @@ EditIndexPanel::EditIndexPanel(AppContext& ctx, QWidget* parent)
         m_table->fontMetrics().height() + 2 * metrics::kSpaceS);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setHighlightSections(false);
+    m_table->installEventFilter(this);
     layout->addWidget(m_table, 1);
     setContentWidget(body);
 
@@ -120,6 +122,26 @@ EditIndexPanel::EditIndexPanel(AppContext& ctx, QWidget* parent)
         connect(ctx.selection, &SelectionModel::changed, this, &EditIndexPanel::syncFromSelection);
     m_colorFilter->setVisible(false);
     rebuildNow();
+}
+
+bool EditIndexPanel::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_table
+        && (event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress)
+        && mode() == EditIndexModel::Mode::Markers && m_table->currentIndex().isValid()) {
+        // (A cell editor gets its own key events, so editing text is not affected.)
+        const auto* key = static_cast<QKeyEvent*>(event);
+        if ((key->key() == Qt::Key_Delete || key->key() == Qt::Key_Backspace)
+            && key->modifiers() == Qt::NoModifier) {
+            if (event->type() == QEvent::KeyPress) {
+                const int row = m_filter->mapToSource(m_table->currentIndex()).row();
+                m_model->deleteMarker(row);
+            }
+            event->accept(); // ShortcutOverride: the key goes to us, not to a shortcut
+            return true;
+        }
+    }
+    return PanelFrame::eventFilter(watched, event);
 }
 
 void EditIndexPanel::setMode(EditIndexModel::Mode mode)
