@@ -4,6 +4,8 @@
 // filter proxy used by the media pool views.
 #pragma once
 
+#include "ui/common/MediaManagement.h"
+
 #include <QAbstractTableModel>
 #include <QCache>
 #include <QHash>
@@ -45,6 +47,8 @@ public:
         FpsColumn,
         CodecColumn,
         AudioColumn,
+        ProxyColumn, ///< proxy media: "None", "960x540", "Generating 42%", "Stale"...
+        OptimizedColumn, ///< optimized media, same texts
         ColumnCount
     };
 
@@ -56,7 +60,9 @@ public:
         PosterRole, ///< QPixmap poster (null while pending / for audio)
         KindRole, ///< int MediaKind
         DurationTextRole, ///< QString duration timecode ("" for stills)
-        SearchTextRole ///< QString lower-case "name path" for filtering
+        SearchTextRole, ///< QString lower-case "name path" for filtering
+        LinkBadgeRole, ///< QString proxy / optimized badge ("P", "O", "P 42%", "P!", "")
+        LinkProblemRole ///< bool: the badge is a warning (stale / missing)
     };
 
     /// Coarse media kind, for placeholder glyphs.
@@ -80,6 +86,11 @@ public:
     void thumbnailReady(const QString& path);
     /// Re-checks which files are offline (e.g. when the application becomes active).
     void recheckOffline();
+    /// Sets where proxy / optimized media status comes from (src/ui/common/MediaManagement;
+    /// default: none = empty columns, no badges).
+    void setLinkStatusProvider(std::function<MediaLinkStatus(const QString& id)> provider);
+    /// Re-reads the link status of item @p id (empty = every item).
+    void linkStatusChanged(const QString& id = {});
 
     /// Row of media item @p id, or -1.
     [[nodiscard]] int rowOf(const QString& id) const { return m_rowById.value(id, -1); }
@@ -113,9 +124,11 @@ private:
         QString searchText;
         MediaKind kind = VideoKind;
         bool offline = false;
+        MediaLinkStatus links; ///< from the link status provider (cached)
     };
 
     static Row makeRow(const MediaItem& item);
+    void fillLinks(Row& row) const;
     void reload();
     void onItemAdded(const QString& id);
     void onItemRemoved(const QString& id);
@@ -127,6 +140,7 @@ private:
     QVector<Row> m_rows;
     QHash<QString, int> m_rowById;
     PosterProvider m_provider;
+    std::function<MediaLinkStatus(const QString&)> m_linkStatus;
     // Poster cache (mutable: filled lazily from the const data()).
     mutable QCache<QString, QPixmap> m_posters; ///< path → scaled poster; cost in KiB
     mutable QSet<QString> m_pending; ///< paths requested but not delivered yet

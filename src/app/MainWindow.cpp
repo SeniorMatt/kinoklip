@@ -13,6 +13,7 @@
 #include "core/Project.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/MediaManagement.h"
 #include "ui/common/ShortcutFallback.h"
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
@@ -352,6 +353,8 @@ void MainWindow::connectAppActions()
         if (m_autosave)
             m_autosave->setIntervalMinutes(prefs::autosaveMinutes());
         applyRuntimePreferences(m_ctx.playback);
+        if (m_ctx.media) // cache folder may have moved (Preferences > Media Storage)
+            m_ctx.media->preferencesChanged();
         m_editPage->timeline()->applyPreferences(); // timeline tabs on / off
     });
     applyRuntimePreferences(m_ctx.playback); // stored choices from start-up on

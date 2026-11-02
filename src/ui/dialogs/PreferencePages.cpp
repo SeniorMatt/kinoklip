@@ -208,16 +208,59 @@ public:
                 m_folder->setText(QDir::toNativeSeparators(dir));
         });
         connect(reset, &QPushButton::clicked, m_folder, &QLineEdit::clear);
+
+        // Proxy media folder (Resolve: "Proxy generation location"): portable proxies that
+        // other projects find automatically; default inside the cache folder.
+        m_proxyFolder = new QLineEdit(prefs::proxyDirectoryOverride());
+        m_proxyFolder->setObjectName(QStringLiteral("ProxyDirectory"));
+        m_proxyFolder->setPlaceholderText(tr("<cache files location>/ProxyMedia"));
+        auto* proxyBrowse = new QPushButton(tr("Browse"));
+        proxyBrowse->setToolTip(tr("Choose the proxy media folder"));
+        auto* proxyReset = new QPushButton(tr("Default"));
+        proxyReset->setToolTip(tr("Keep proxies inside the cache folder"));
+        auto* proxyRow = new QWidget;
+        auto* proxyLayout = new QHBoxLayout(proxyRow);
+        proxyLayout->setContentsMargins(0, 0, 0, 0);
+        proxyLayout->setSpacing(metrics::kSpaceS);
+        proxyLayout->addWidget(m_proxyFolder, 1);
+        proxyLayout->addWidget(proxyBrowse);
+        proxyLayout->addWidget(proxyReset);
+        form->addRow(tr("Proxy generation location"), proxyRow);
+        connect(proxyBrowse, &QPushButton::clicked, this, [this] {
+            const QString dir = platform::getExistingDirectory(this, tr("Proxy Media Location"),
+                QString(),
+                m_proxyFolder->text().isEmpty() ? prefs::proxyDirectory() : m_proxyFolder->text());
+            if (!dir.isEmpty())
+                m_proxyFolder->setText(QDir::toNativeSeparators(dir));
+        });
+        connect(proxyReset, &QPushButton::clicked, m_proxyFolder, &QLineEdit::clear);
+
+        m_cacheLimit = new QSpinBox;
+        m_cacheLimit->setObjectName(QStringLiteral("RenderCacheLimit"));
+        m_cacheLimit->setRange(1, 4096);
+        m_cacheLimit->setSuffix(tr(" GB"));
+        m_cacheLimit->setValue(prefs::renderCacheLimitGiB());
+        form->addRow(tr("Render cache size limit"), m_cacheLimit);
+        form->addRow(QString(),
+            note(tr("Optimized media and the render cache live in the cache folder "
+                    "(OptimizedMedia, RenderCache); the oldest cached frames are deleted "
+                    "first when the limit is reached.")));
     }
 
     void apply() override
     {
-        QSettings().setValue(
+        QSettings settings;
+        settings.setValue(
             QLatin1String(prefs::kCacheDirectory), QDir::fromNativeSeparators(m_folder->text()));
+        settings.setValue(QLatin1String(prefs::kProxyDirectory),
+            QDir::fromNativeSeparators(m_proxyFolder->text()));
+        settings.setValue(QLatin1String(prefs::kRenderCacheLimitGiB), m_cacheLimit->value());
     }
 
 private:
     QLineEdit* m_folder = nullptr;
+    QLineEdit* m_proxyFolder = nullptr;
+    QSpinBox* m_cacheLimit = nullptr;
 };
 
 // ---- System: Decode Options ----------------------------------------------------------
