@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <memory>
 #include <vector>
 
@@ -41,9 +42,21 @@ public:
         std::unique_ptr<media::VideoDecoder> decoder;
         QString path;
         int64_t lastTimeUs = -1; ///< media time of the last request, -1 = none yet
+        int64_t previousTimeUs = -1; ///< media time of the request before that
+        /// Decode-ahead running on a worker thread (see GlRenderer); the decoder must not be
+        /// used before waitAhead().
+        std::future<void> ahead;
         qint64 lastUsedMs = 0; ///< pool clock of the last acquire()
         bool busy = false; ///< handed out during the current frame
         std::shared_ptr<void> userData;
+
+        /// Waits for a decode-ahead in flight (no-op without one).
+        void waitAhead()
+        {
+            if (ahead.valid())
+                ahead.wait();
+            ahead = {};
+        }
     };
 
     /// Called right before an entry is closed/destroyed (on the owning thread).
