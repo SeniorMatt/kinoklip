@@ -90,6 +90,14 @@ void SelectionModel::selectTransition(const TransitionRef& ref)
     emit changed();
 }
 
+void SelectionModel::setActiveMask(quint64 maskId)
+{
+    if (m_activeMask == maskId)
+        return;
+    m_activeMask = maskId;
+    emit activeMaskChanged(maskId);
+}
+
 void SelectionModel::clear()
 {
     if (isEmpty())
