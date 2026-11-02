@@ -88,6 +88,9 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
 
     Timeline* timeline = ctx.project->timeline();
     connect(timeline, &Timeline::changed, this, &TimelineWidget::onTimelineChanged);
+    // Offline media are drawn red (the set changes on activation, relink, undo).
+    connect(ctx.project->mediaPool(), &MediaPool::offlineChanged, viewport(),
+        qOverload<>(&QWidget::update));
     connect(timeline, &Timeline::playheadChanged, this, &TimelineWidget::onPlayheadChanged);
     connect(ctx.selection, &SelectionModel::changed, this, &TimelineWidget::onSelectionChanged);
     connect(ctx.project, &Project::projectReset, this, [this] {
@@ -327,6 +330,8 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     in.selectedKeys = &m_ctx.selection->keyframes();
     if (m_options.headerMeter)
         in.headerMeter = &m_options.headerMeter;
+    in.thumbnails = m_thumbMode;
+    in.waveforms = m_showWaveforms;
     if (uianim::enabled()) {
         m_anim.observeSnap(m_overlay.snapFrame);
         m_anim.observeEditPoint(in.editTailClip, in.editHeadClip);
@@ -335,6 +340,22 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     }
     m_painter.paint(p, in);
     m_keyframeLanes->paintClipButtons(p);
+}
+
+void TimelineWidget::setClipThumbnails(ClipThumbnails mode)
+{
+    if (m_thumbMode == mode)
+        return;
+    m_thumbMode = mode;
+    viewport()->update();
+}
+
+void TimelineWidget::setShowWaveforms(bool on)
+{
+    if (m_showWaveforms == on)
+        return;
+    m_showWaveforms = on;
+    viewport()->update();
 }
 
 void TimelineWidget::changeEvent(QEvent* event)
@@ -438,7 +459,9 @@ void TimelineWidget::wheelEvent(QWheelEvent* event)
     };
     QScrollBar* h = horizontalScrollBar();
     QScrollBar* v = verticalScrollBar();
-    const int timeStep = m_layout.trackAreaWidth() / 1200; // pixels of scroll per 1/8 degree
+    // One wheel notch (120 = 15 degrees) scrolls a tenth of the visible time at any width
+    // (the integer step used to truncate: 120 px per notch on any view under 2400 px).
+    const double timeStep = m_layout.trackAreaWidth() / 1200.0; // px per 1/8 degree
     if (resolve) {
         if (mods & Qt::AltModifier) {
             wheelZoom();
@@ -446,8 +469,8 @@ void TimelineWidget::wheelEvent(QWheelEvent* event)
             setTrackHeightScale(m_layout.heightScale() * std::pow(kWheelZoomPerDegree, anyDelta));
         } else if ((mods & Qt::ControlModifier) || angle.x() != 0) {
             // Ctrl+wheel and horizontal touchpad swipes scroll time.
-            h->setValue(
-                h->value() - (angle.x() != 0 ? angle.x() : angle.y()) * std::max(1, timeStep));
+            h->setValue(h->value()
+                - int(std::lround((angle.x() != 0 ? angle.x() : angle.y()) * timeStep)));
         } else {
             v->setValue(v->value() - angle.y() / 2);
         }
@@ -584,6 +607,28 @@ void TimelineWidget::transitionMenu(QMenu& menu, const TransitionRef& ref)
     del->setEnabled(editable);
 }
 
+void TimelineWidget::addTrackHeightMenu(QMenu& menu, TrackRef ref, bool allTracks)
+{
+    using Preset = TimelineController::TrackHeightPreset;
+    QMenu* sub = menu.addMenu(allTracks ? tr("Track Height (All Tracks)") : tr("Track Height"));
+    sub->setObjectName(QStringLiteral("TrackHeightMenu"));
+    const TrackData* track = m_ctx.project->timeline()->data().track(ref);
+    const std::optional<Preset> current
+        = track && !allTracks ? TimelineController::heightPresetOf(*track) : std::nullopt;
+    const std::pair<Preset, QString> presets[] = {
+        {Preset::Small, tr("Small")},
+        {Preset::Medium, tr("Medium")},
+        {Preset::Large, tr("Large")},
+    };
+    for (const auto& [preset, text] : presets) {
+        QAction* a = sub->addAction(text, this, [this, ref, p = preset, allTracks] {
+            m_controller->setTrackHeightPreset(ref, p, allTracks);
+        });
+        a->setCheckable(!allTracks);
+        a->setChecked(current == preset);
+    }
+}
+
 void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
 {
     if (m_drag.mode != DragMode::None)
@@ -633,6 +678,31 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         });
         menu.addAction(track->locked ? tr("Unlock Track") : tr("Lock Track"), this,
             [this, ref] { m_controller->toggleTrackFlag(ref, TimelineController::FlagLocked); });
+        // The header buttons as menu entries (Resolve offers them in the header menu too).
+        if (ref.type == TrackType::Video)
+            menu.addAction(
+                track->enabled ? tr("Disable Track") : tr("Enable Track"), this, [this, ref] {
+                    m_controller->toggleTrackFlag(ref, TimelineController::FlagEnabled);
+                });
+        if (ref.type == TrackType::Audio) {
+            menu.addAction(track->muted ? tr("Unmute Track") : tr("Mute Track"), this,
+                [this, ref] { m_controller->toggleTrackFlag(ref, TimelineController::FlagMuted); });
+            menu.addAction(track->solo ? tr("Unsolo Track") : tr("Solo Track"), this,
+                [this, ref] { m_controller->toggleTrackFlag(ref, TimelineController::FlagSolo); });
+        }
+        menu.addSeparator();
+        // Move Track Up / Down (spec 12.9): on screen, so the outermost track cannot move out.
+        const int count = int(data.tracks(ref.type).size());
+        const bool screenTop
+            = ref.type == TrackType::Audio ? ref.index == 0 : ref.index == count - 1;
+        const bool screenBottom
+            = ref.type == TrackType::Audio ? ref.index == count - 1 : ref.index == 0;
+        menu.addAction(tr("Move Track Up"), this, [this, ref] { m_controller->moveTrack(ref, 1); })
+            ->setEnabled(!screenTop);
+        menu.addAction(
+                tr("Move Track Down"), this, [this, ref] { m_controller->moveTrack(ref, -1); })
+            ->setEnabled(!screenBottom);
+        addTrackHeightMenu(menu, ref, false);
         menu.addSeparator();
         menu.addAction(tr("Add Track Above"), this,
             [this, ref] { m_controller->addTrack(ref.type, ref.index + 1); });
@@ -805,6 +875,10 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
                 markerIndex = i;
         }
         if (markerIndex >= 0) {
+            // Name, colour and note (the marker editor, as a double-click on it).
+            const int64_t markerFrame = data.markers[markerIndex].frame;
+            menu.addAction(tr("Modify Marker…"), this,
+                [this, markerFrame] { m_controller->editTimelineMarker(markerFrame); });
             menu.addAction(tr("Delete Marker"), this, [this, markerIndex] {
                 m_ctx.project->beginEdit(tr("Delete Marker"));
                 auto& markers = m_ctx.project->timeline()->mutableData().markers;

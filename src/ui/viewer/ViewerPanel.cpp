@@ -21,11 +21,13 @@
 #include "ui/viewer/MulticamOverlay.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
+#include "ui/viewer/TransformOverlay.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QContextMenuEvent>
 #include <QDrag>
 #include <QHBoxLayout>
 #include <QJsonDocument>
@@ -203,8 +205,12 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         // On-screen mask controls: an additive child layer over the picture surface.
         m_maskOverlay = new MaskOverlay(m_ctx, m_surface);
         connect(m_maskOverlay, &MaskOverlay::pressed, this, [this] { activate(); });
+        // On-screen Transform controls: drag the current clip (titles) in the viewer.
+        m_transformOverlay = new TransformOverlay(m_ctx, m_surface);
+        connect(m_transformOverlay, &TransformOverlay::pressed, this, [this] { activate(); });
         setupEditingAids();
     }
+    setupOfflineNotice();
 
     m_scrub = new ScrubBar(m_body);
     // While playing, scrubbing keeps playing from where the mouse leaves the playhead, like the
@@ -231,7 +237,11 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
             = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_masks"))
             ? m_ctx.actions->action(QStringLiteral("view.onscreen_masks"))
             : nullptr;
-        bar->addWidget(MaskOverlay::createModeButton(masks, m_transport));
+        QAction* transform
+            = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_transform"))
+            ? m_ctx.actions->action(QStringLiteral("view.onscreen_transform"))
+            : nullptr;
+        bar->addWidget(MaskOverlay::createModeButton(masks, m_transport, transform));
     }
     m_marksLabel = new QLabel;
     m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));
@@ -522,6 +532,7 @@ void ViewerPanel::onPositionChanged(int64_t frame)
     if (m_timecodeEntry.isEmpty()) // a typed timecode stays until it is entered or cancelled
         m_timecode->setText(timecode::format(start + frame, m_fps));
     m_scrub->setPosition(frame);
+    updateOfflineNotice();
 }
 
 void ViewerPanel::onRateChanged(double rate)
@@ -694,6 +705,8 @@ void ViewerPanel::setZoom(Zoom zoom)
     m_surface->setZoom(zoomFactor(zoom));
     if (m_maskOverlay)
         m_maskOverlay->refresh(); // handles follow the new picture rectangle
+    if (m_transformOverlay)
+        m_transformOverlay->refresh();
     if (m_multicamOverlay)
         m_multicamOverlay->refresh();
     updateOutputClient();
@@ -822,6 +835,8 @@ bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
     }
     switch (event->type()) {
     case QEvent::Resize:
+        if (m_offlineNotice && m_offlineNotice->isVisible())
+            m_offlineNotice->resize(m_surface->widget()->size());
         // First size: at once (the first picture must come at the right size). Later sizes:
         // coalesced, see kResizeSettleMs.
         if (m_outputSized && m_resizeSettle->interval() > 0)
@@ -851,6 +866,10 @@ bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
     case QEvent::MouseButtonRelease:
         m_dragArmed = false;
         break;
+    case QEvent::ContextMenu:
+        activate(); // the marks and transport of the menu act on this viewer
+        showContextMenu(static_cast<QContextMenuEvent*>(event)->globalPos());
+        return true;
     default:
         break;
     }

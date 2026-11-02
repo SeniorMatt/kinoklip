@@ -240,6 +240,7 @@ const ActionSpec kActions[] = {
     {"view", "view.toggle_source_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Source / Timeline Viewer")},
     {"view", "view.multicam_viewer",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Multicam Viewer (source viewer shows the angles)"), "multicam_clip", true},
     {"view", "view.fullscreen_viewer", QT_TRANSLATE_NOOP("kk::StandardActions", "Full-Screen &Viewer"), "fullscreen"},
+    {"view", "view.onscreen_transform", QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Transform Controls"), "", true},
     {"view", "view.onscreen_masks",   QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Mask Controls"), "", true},
     {"view", "view.fullscreen",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen"), "", true},
 

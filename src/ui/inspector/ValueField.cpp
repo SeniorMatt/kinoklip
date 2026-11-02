@@ -142,7 +142,16 @@ void ValueField::paintEvent(QPaintEvent*)
     p.setPen(
         isEnabled() ? pal.color(QPalette::Link) : pal.color(QPalette::Disabled, QPalette::Text));
     p.drawText(rect().adjusted(kHorizontalPadding, 0, -kHorizontalPadding, 0),
-        Qt::AlignVCenter | Qt::AlignRight, m_text);
+        Qt::AlignVCenter | Qt::AlignRight, m_mixed && !m_scrubbing ? tr("Mixed") : m_text);
+}
+
+void ValueField::setMixed(bool mixed)
+{
+    if (m_mixed == mixed)
+        return;
+    m_mixed = mixed;
+    setToolTip(mixed ? tr("The selected clips have different values") : QString());
+    update();
 }
 
 void ValueField::mousePressEvent(QMouseEvent* event)

@@ -11,6 +11,7 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "export/RenderCommand.h"
+#include "media/HwAccel.h"
 #include "playback/PlaybackEngine.h"
 #include "render/RenderFrameCommand.h"
 #include "ui/common/ActionRegistry.h"
@@ -184,6 +185,9 @@ int main(int argc, char** argv)
     kk::MainWindowOptions windowOptions;
     windowOptions.restoreLayout = !options.resetLayout;
     kk::MainWindow window(ctx, windowOptions);
+    // The hardware decoder device (the window applied the stored preference): opened in the
+    // background now, so the first frame after an import does not wait 200 - 300 ms for it.
+    kk::media::warmUpHwDecoding();
     window.showRestored();
     // Crash recovery first (an autosave newer than the project), then the project given on
     // the command line, unless its recovered state was just restored.

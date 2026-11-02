@@ -8,6 +8,7 @@
 #include "ui/effects/EffectActions.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/inspector/KeyframeButton.h"
+#include "ui/inspector/MultiClipEdit.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
 #include "ui/inspector/ValueField.h"
@@ -345,7 +346,96 @@ private slots:
         const quint64 other = f.addClip(kV1, 60, 20);
         f.selection.addClips({other});
         QCOMPARE(panel.clipId(), other);
-        QCOMPARE(info->text(), QStringLiteral("2 clips selected, showing the last one"));
+        // Both are video clips of the same kind: an edit reaches both (multi-clip editing).
+        QCOMPARE(info->text(), QStringLiteral("2 clips selected, edits apply to all"));
+        // A title among them is another kind: the edit reaches only the media clips.
+        const quint64 title = f.addClip(kV1, 90, 20, ClipKind::Solid);
+        f.selection.addClips({title});
+        QCOMPARE(info->text(), QStringLiteral("3 clips selected, showing the last one"));
+    }
+
+    /// Multi-clip editing (spec 24.1): with several clips of the same kind selected, a value
+    /// typed in the Inspector goes to all of them in one undo step; different values show as
+    /// "Mixed"; a drag is one step too; clips of another kind or on a locked track are left
+    /// alone; effect parameters reach the matching effect of the other clips.
+    void spec24_1_multiClipEditsApplyToAll()
+    {
+        PanelFixture f;
+        const quint64 a = f.addClip(kV1, 0, 50);
+        const quint64 b = f.addClip(kV1, 60, 50);
+        const quint64 solid = f.addClip(kV1, 120, 20, ClipKind::Solid);
+        InspectorPanel panel(f.ctx);
+        f.selection.setClips({a, solid, b}); // b shown (last clicked)
+        QCOMPARE(panel.clipId(), b);
+        auto* zoom = panel.findChild<ValueField*>(QStringLiteral("value:") + keys::ZoomX);
+        QVERIFY(zoom);
+        QVERIFY(!zoom->isMixed());
+        const int before = f.project.undoStack()->count();
+        emit zoom->valueCommitted(1.5);
+        QCOMPARE(f.project.undoStack()->count(), before + 1);
+        const TimelineData& d = f.project.timeline()->data();
+        auto zoomOf
+            = [&](quint64 id) { return editops::clipById(d, id)->transform.value(keys::ZoomX, 0); };
+        QCOMPARE(zoomOf(a), 1.5);
+        QCOMPARE(zoomOf(b), 1.5);
+        QCOMPARE(zoomOf(solid), 1.0); // another kind
+        // Different values: "Mixed" until the next edit.
+        f.project.beginEdit(QStringLiteral("setup"));
+        editops::clipById(f.project.timeline()->mutableData(), a)
+            ->transform.animated(keys::ZoomX, 1.0)
+            .setValue(0, 2.0);
+        f.project.endEdit();
+        QCoreApplication::processEvents();
+        QVERIFY(zoom->isMixed());
+        // A drag: one undo step for all.
+        const int beforeDrag = f.project.undoStack()->count();
+        emit zoom->scrubStarted();
+        emit zoom->valueScrubbed(1.2);
+        emit zoom->valueScrubbed(1.3);
+        emit zoom->scrubFinished();
+        QCOMPARE(f.project.undoStack()->count(), beforeDrag + 1);
+        QCOMPARE(zoomOf(a), 1.3);
+        QCOMPARE(zoomOf(b), 1.3);
+        QVERIFY(!zoom->isMixed());
+        f.project.undoStack()->undo();
+        QCOMPARE(zoomOf(a), 2.0);
+        QCOMPARE(zoomOf(b), 1.5);
+        // A locked track is left alone.
+        const quint64 locked = f.addClip(TrackRef {TrackType::Video, 1}, 0, 50);
+        f.project.beginEdit(QStringLiteral("lock"));
+        f.project.timeline()->mutableData().videoTracks[1].locked = true;
+        f.project.endEdit();
+        f.selection.setClips({locked, a, b});
+        emit zoom->valueCommitted(0.5);
+        QCOMPARE(zoomOf(a), 0.5);
+        QCOMPARE(zoomOf(locked), 1.0);
+    }
+
+    /// Effect parameters: the matching instance (same type, same position among that type)
+    /// of every selected clip changes with the shown clip's.
+    void spec24_1_multiClipEffectParams()
+    {
+        PanelFixture f;
+        const quint64 a = f.addClip(kV1, 0, 50);
+        const quint64 b = f.addClip(kV1, 60, 50);
+        effectactions::applyEffect(f.project, {a}, QStringLiteral("gaussian_blur"));
+        effectactions::applyEffect(f.project, {b}, QStringLiteral("gaussian_blur"));
+        const ClipData before = *editops::clipById(f.project.timeline()->data(), a);
+        ClipData after = before;
+        QVERIFY(!after.effects.isEmpty());
+        after.effects[0].params.animated(QStringLiteral("radius"), 0).setValue(0, 7.0);
+        after.effects[0].enabled = false;
+        ClipData peer = *editops::clipById(f.project.timeline()->data(), b);
+        QVERIFY(multiclip::propagate(before, after, peer));
+        QCOMPARE(peer.effects[0].params.value(QStringLiteral("radius"), 0, 0), 7.0);
+        QVERIFY(!peer.effects[0].enabled);
+        const ParamRef ref {a, ParamScope::Effect, after.effects[0].id, QStringLiteral("radius")};
+        const auto pref = multiclip::peerRef(after, peer, ref);
+        QVERIFY(pref);
+        QCOMPARE(pref->effectId, peer.effects[0].id);
+        QCOMPARE(pref->clipId, b);
+        // Nothing changed: nothing to copy.
+        QVERIFY(!multiclip::propagate(after, after, peer));
     }
 
     void spec24_2_tabFollowsClickedPart()

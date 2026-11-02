@@ -160,8 +160,10 @@ public:
     void refresh(const ClipData& clip, int64_t localFrame, bool playheadInside) override
     {
         const double v = paramaccess::scalar(clip, m_ref, m_desc, localFrame);
-        if (!m_field->isScrubbing())
+        if (!m_field->isScrubbing()) {
             m_field->setValue(v);
+            m_field->setMixed(m_host.isMixed(m_ref, m_desc));
+        }
         if (m_slider && !m_slider->isSliderDown()) {
             const int position = toSlider(v);
             if (position != m_slider->value()) {
@@ -308,8 +310,16 @@ public:
     void refresh(const ClipData& clip, int64_t localFrame, bool) override
     {
         const bool on = paramaccess::staticValue(clip, m_ref, m_desc).toBool();
-        if (m_box->isChecked() != on)
-            m_box->setChecked(on);
+        // Mixed across the selected clips (spec 24.1): the partial check mark; a click
+        // then sets every clip to the box's new state.
+        const Qt::CheckState state = m_host.isMixed(m_ref, m_desc)
+            ? Qt::PartiallyChecked
+            : (on ? Qt::Checked : Qt::Unchecked);
+        if (m_box->checkState() != state) {
+            // Tristate only while mixed: a click from the partial mark goes to checked.
+            m_box->setTristate(state == Qt::PartiallyChecked);
+            m_box->setCheckState(state);
+        }
         refreshReset(clip, localFrame);
     }
 
@@ -344,8 +354,10 @@ public:
 
     void refresh(const ClipData& clip, int64_t localFrame, bool) override
     {
-        const int index
-            = m_desc.choices.indexOf(paramaccess::staticValue(clip, m_ref, m_desc).toString());
+        // Mixed across the selected clips (spec 24.1): no current entry.
+        const int index = m_host.isMixed(m_ref, m_desc)
+            ? -1
+            : m_desc.choices.indexOf(paramaccess::staticValue(clip, m_ref, m_desc).toString());
         if (index != m_combo->currentIndex())
             m_combo->setCurrentIndex(index);
         refreshReset(clip, localFrame);

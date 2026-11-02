@@ -12,6 +12,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/audio/AudioScales.h"
+#include "ui/audio/DynamicsWindow.h"
 #include "ui/audio/EqCurveView.h"
 #include "ui/audio/EqWindow.h"
 #include "ui/audio/FaderWidget.h"
@@ -137,6 +138,19 @@ private slots:
         QVERIFY(f.action("audio.float_viewer")->isEnabled());
         f.action("audio.float_viewer")->trigger();
         QVERIFY(f.audio()->isViewerFloating());
+        // Polish round 2: the floating viewer and the EQ / dynamics windows carry the
+        // window-scoped shortcuts (Space plays while they have focus).
+        QWidget* floating = f.window->findChild<QWidget*>(QStringLiteral("AudioViewerWindow"));
+        QVERIFY(floating);
+        QVERIFY(floating->actions().contains(f.action("transport.play_pause")));
+        QVERIFY(f.strip(MixTarget::track(f.a1()))
+                    ->openEq()
+                    ->actions()
+                    .contains(f.action("transport.play_pause")));
+        QVERIFY(f.strip(MixTarget::track(f.a1()))
+                    ->openDynamics()
+                    ->actions()
+                    .contains(f.action("edit.undo")));
         f.action("audio.float_viewer")->trigger();
         QVERIFY(!f.audio()->isViewerFloating());
         f.action("view.page_edit")->trigger();
@@ -184,6 +198,16 @@ private slots:
         // Audio page headers: record arm and a meter; the Edit page has neither.
         QVERIFY(!L.headerButtonRect(audioRow, HeaderButton::Arm).isEmpty());
         QVERIFY(!L.headerMeterRect(audioRow).isEmpty());
+        // Round 2 polish: the buttons go to a second line so the track name has the first
+        // line up to the meter (it used to be cut to "A...").
+        QVERIFY(L.twoLineHeader(audioRow));
+        const QRect patch = L.headerButtonRect(audioRow, HeaderButton::Target);
+        for (const HeaderButton b : L.buttonsFor(TrackType::Audio)) {
+            const QRect br = L.headerButtonRect(audioRow, b);
+            QVERIFY(br.top() > patch.bottom());
+            QVERIFY(br.right() < L.headerMeterRect(audioRow).left());
+        }
+        QVERIFY(L.headerMeterRect(audioRow).left() - patch.right() > 100); // name room
         const TimelineLayout& edit = f.window->editPage()->timeline()->timelineWidget()->layout();
         QVERIFY(edit.headerButtonRect(edit.rowOf(TrackRef {TrackType::Audio, 0}), HeaderButton::Arm)
                     .isEmpty());

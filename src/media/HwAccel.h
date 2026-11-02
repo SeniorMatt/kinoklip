@@ -50,6 +50,13 @@ HwAccelMode preferredHwAccel();
 /// opened on first call, which can take ~0.1-1 s; cached afterwards). Thread-safe.
 QList<HwDeviceInfo> hwCapabilities();
 
+/// Opens the hardware decoding device that Auto (or the preferred backend) will use, on a
+/// background thread, so the first decoder after start-up does not pay for it (creating a
+/// CUDA context takes 200 - 300 ms; the first frame after an import used to wait for it).
+/// Stops at the first available backend in Auto order; Vulkan only when it is preferred.
+/// Does nothing when hardware decoding is off or after the first call. Thread-safe.
+void warmUpHwDecoding();
+
 /// True if an NVIDIA driver device node exists (/dev/nvidiactl).
 /// Without it CUDA/NVDEC/NVENC cannot work, so they are not even tried (FFmpeg would log
 /// CUDA_ERROR_NO_DEVICE errors). Linux only; true elsewhere (let the driver decide).

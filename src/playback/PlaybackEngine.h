@@ -385,6 +385,17 @@ private:
     int64_t m_parkTarget = 0;
     int64_t m_lastSeekUs = 0;
 
+    /// Video pre-roll of a play from rest (first play after an import or a load): the clock
+    /// and the sound wait until the start frame is on screen, at most kVideoPrerollMaxMs, so
+    /// picture and sound start together instead of the picture catching up with dropped
+    /// frames while the decoders open. 0 = not waiting; else the monotonicUs() deadline.
+    int64_t m_prerollUntilUs = 0;
+    double m_prerollFrom = 0.0; ///< start frame of the held play
+    /// m_current shows older content (the pictures changed since it was rendered).
+    bool m_currentStale = false;
+    /// Starts the clock (the sound device, else the wall clock) at @p fromFrame.
+    void startClock(double fromFrame, int64_t nowUs);
+
     RenderedFramePtr m_current;
     int64_t m_lastShownKey = 0;
     bool m_hasShownKey = false;

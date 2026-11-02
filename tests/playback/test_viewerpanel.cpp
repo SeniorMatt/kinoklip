@@ -5,9 +5,13 @@
 // full-screen viewer, and F9 inserting the source viewer's marked range (EditPage wiring).
 #include "../media/MediaTestUtil.h"
 #include "app/pages/EditPage.h"
+#include "core/EditOps.h"
+#include "core/MediaPool.h"
+#include "core/ParamKeys.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -15,6 +19,7 @@
 #include "ui/common/StandardActions.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
+#include "ui/viewer/TransformOverlay.h"
 #include "ui/viewer/ViewerPanel.h"
 #include "ui/viewer/ViewerSurface.h"
 #include "ui/viewer/ViewerTransport.h"
@@ -25,10 +30,12 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMenu>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QSurfaceFormat>
 #include <QTest>
+#include <QUndoStack>
 
 #include <memory>
 
@@ -322,6 +329,107 @@ private Q_SLOTS:
     }
 
     /// F9 on the Edit page inserts the source viewer's marked range at the playhead.
+    /// Polish round 2 (offline media): the timeline viewer says "Media Offline" with the clip
+    /// name while the top clip at the playhead has no file; a solid there clears it; the
+    /// source viewer says it for an offline source clip.
+    void mediaOfflineNotice()
+    {
+        Fixture f;
+        f.solidTimeline();
+        MediaItem item;
+        item.path = QStringLiteral("/nonexistent/moved.mp4");
+        item.name = QStringLiteral("moved.mp4");
+        item.info.valid = true;
+        item.info.hasVideo = true;
+        item.info.durationUs = 10'000'000;
+        const QString id = f.project.mediaPool()->addItem(item);
+        QVERIFY(f.project.mediaPool()->isOffline(id));
+        ClipData clip;
+        clip.kind = ClipKind::Media;
+        clip.mediaId = id;
+        clip.name = QStringLiteral("moved.mp4");
+        clip.start = 200;
+        clip.duration = 50;
+        clip.sourceDurationUs = 10'000'000;
+        f.project.beginEdit(QStringLiteral("place"));
+        editops::overwriteClip(f.project.timeline()->mutableData(), {TrackType::Video, 0}, clip);
+        f.project.endEdit();
+        ViewerPanel program(ViewerPanel::Mode::Timeline, f.ctx);
+        program.resize(480, 320);
+        program.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&program));
+        QVERIFY(program.offlineNotice());
+        QVERIFY(!program.offlineNotice()->isVisible()); // the solid at frame 0
+        f.project.timeline()->setPlayhead(220);
+        QTRY_VERIFY(program.offlineNotice()->isVisible());
+        QVERIFY(program.offlineNotice()->text().contains(QLatin1String("Media Offline")));
+        QVERIFY(program.offlineNotice()->text().contains(QLatin1String("moved.mp4")));
+        f.project.timeline()->setPlayhead(10);
+        QTRY_VERIFY(!program.offlineNotice()->isVisible());
+        ViewerPanel source(ViewerPanel::Mode::Source, f.ctx);
+        source.show();
+        source.setSourceMedia(id);
+        source.updateOfflineNotice();
+        QVERIFY(source.offlineNotice()->isVisible());
+        // Round 2 audit C1: the viewers have a context menu of registry commands.
+        std::unique_ptr<QMenu> menu(program.buildContextMenu(nullptr));
+        QVERIFY(menu->actions().contains(f.actions.action(QStringLiteral("transport.play_pause"))));
+        QVERIFY(menu->actions().contains(f.actions.action(QStringLiteral("mark.in"))));
+        QVERIFY(menu->actions().contains(f.actions.action(QStringLiteral("clip.match_frame"))));
+        std::unique_ptr<QMenu> sourceMenu(source.buildContextMenu(nullptr));
+        QVERIFY(
+            !sourceMenu->actions().contains(f.actions.action(QStringLiteral("clip.match_frame"))));
+    }
+
+    /// Polish round 2 (titles): with the on-screen controls on Transform, dragging in the
+    /// timeline viewer moves the current clip (Position X / Y in timeline pixels), one undo
+    /// step per drag; Shift keeps one axis.
+    void onScreenTransformMovesTheClip()
+    {
+        Fixture f;
+        f.solidTimeline(); // 320x180, a solid over frames 0..99 on V1
+        const quint64 id = f.project.timeline()->data().videoTracks[0].clips[0].id;
+        f.selection.setClips({id});
+        ViewerPanel program(ViewerPanel::Mode::Timeline, f.ctx);
+        program.resize(700, 500);
+        program.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&program));
+        TransformOverlay* overlay = program.transformOverlay();
+        QVERIFY(overlay);
+        QVERIFY(!overlay->isEditing()); // the controls are off
+        f.actions.action(QStringLiteral("view.onscreen_transform"))->setChecked(true);
+        QTRY_VERIFY(overlay->isEditing());
+        const auto map = overlay->frameToWidget();
+        QVERIFY(map);
+        const QPoint from = map->map(QPointF(160, 90)).toPoint();
+        const QPoint to = map->map(QPointF(200, 70)).toPoint(); // +40 px right, 20 px up
+        const int steps = f.project.undoStack()->count();
+        QTest::mousePress(overlay, Qt::LeftButton, {}, from);
+        QTest::mouseMove(overlay, (from + to) / 2);
+        QTest::mouseMove(overlay, to);
+        QTest::mouseRelease(overlay, Qt::LeftButton, {}, to);
+        const ClipData* clip = editops::clipById(f.project.timeline()->data(), id);
+        QVERIFY(std::abs(clip->transform.value(keys::PosX, 0) - 40) <= 2);
+        QVERIFY(std::abs(clip->transform.value(keys::PosY, 0) + 20) <= 2);
+        QCOMPARE(f.project.undoStack()->count(), steps + 1);
+        QCOMPARE(f.project.undoStack()->undoText(), QStringLiteral("Move Clip"));
+        // Shift: one axis only.
+        QTest::mousePress(overlay, Qt::LeftButton, {}, from);
+        QTest::mouseMove(overlay, to, 0);
+        QMouseEvent move(QEvent::MouseMove, QPointF(to), overlay->mapToGlobal(QPointF(to)),
+            Qt::NoButton, Qt::LeftButton, Qt::ShiftModifier);
+        QCoreApplication::sendEvent(overlay, &move);
+        QTest::mouseRelease(overlay, Qt::LeftButton, Qt::ShiftModifier, to);
+        clip = editops::clipById(f.project.timeline()->data(), id);
+        QVERIFY(std::abs(clip->transform.value(keys::PosX, 0) - 80) <= 3);
+        QVERIFY(std::abs(clip->transform.value(keys::PosY, 0) + 20) <= 2); // unchanged
+        // The Mask mode turns Transform off (one mode at a time).
+        f.actions.action(QStringLiteral("view.onscreen_masks"))->setChecked(true);
+        f.actions.action(QStringLiteral("view.onscreen_transform"))->setChecked(false);
+        QTRY_VERIFY(!overlay->isEditing());
+        f.actions.action(QStringLiteral("view.onscreen_masks"))->setChecked(false);
+    }
+
     void insertMarkedSourceRange()
     {
         QString why;

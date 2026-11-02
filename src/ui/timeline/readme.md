@@ -17,6 +17,12 @@ for thumbnails and waveforms).
 | `TimelineGestures.cpp` | widget gestures: transition edge drag, Ctrl+Shift shuffle drag, ruler marker double-click |
 | `TimelineDragInfo.cpp` / `DragInfo.h` | widget part: the offset label next to the pointer while moving / trimming (spec 21.9) and the `TrimPreview` for the two-up view (`trimPreviewChanged()`, spec 8.15) |
 | `TimelineEntryEdits.cpp` | controller part: typed timecodes (`enterTimecode()`, spec 2.10) and the viewer edit overlay's edits (`editSources()`, spec 4.14) |
+| `TimelineTrackCommands.cpp` | controller part: Alt+Up / Down clip moves (spec 21.10), Delete Empty Tracks (12.8), Move Track Up / Down (`moveTrack()`, 12.9), track height presets (`setTrackHeightPreset()`, 12.10) |
+
+Timeline View Options (spec 12.11): `TimelinePanel` owns the button at the left of the tool
+bar; the view draws video clips per `TimelineWidget::setClipThumbnails()` (`ClipThumbnails`:
+filmstrip, head and tail, none) and audio waveforms per `setShowWaveforms()`. Clips of offline
+media (`MediaPool::isOffline()`) are drawn red with "Media Offline" (12.13).
 | `TimelineDialogs.h` | the modal questions (handles, marker editor, paste attributes, name of a new timeline / compound clip, Timeline Settings) installed by the panel |
 | `TimelineCompound.cpp` | controller part 5: New Timeline / Duplicate / Delete, tab cycling and closing, New Compound Clip, Open in Timeline, Decompose in Place |
 | `TimelineTabs.h` | the row above the tracks: tabs of the open timelines (switch, drag to reorder, close, context menu) or, with tabs off (Preferences > Editing), a drop-down |
