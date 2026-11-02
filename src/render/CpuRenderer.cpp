@@ -3,7 +3,8 @@
 //
 // Same timeline semantics as the GPU path (TimelineEval): transform, opacity, crop, titles,
 // solids, display rotation/SAR (VideoDecoder::frameAt applies them) and transitions — the
-// latter all rendered as a cross dissolve. Effects are skipped (one warning per effect id).
+// latter all rendered as a cross dissolve. Effects are skipped (one warning per effect id);
+// masks are applied as hard-edged clip paths (maskMatte()).
 #include "core/ParamKeys.h"
 #include "render/DecoderPool.h"
 #include "render/RenderBackend.h"
@@ -13,10 +14,12 @@
 
 #include <QElapsedTimer>
 #include <QPainter>
+#include <QPainterPath>
 #include <QSet>
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace kk::render {
 
@@ -221,11 +224,60 @@ private:
         painter.setTransform(toOutput);
         painter.setOpacity(opacity);
         painter.setClipRect(cropRect);
+        if (const auto matte = maskMatte(clip, local, content)) {
+            if (matte->isEmpty()) {
+                painter.restore();
+                return;
+            }
+            painter.setClipPath(*matte, Qt::IntersectClip);
+        }
         if (solid.isValid())
             painter.fillRect(pictureRect, solid);
         else
             painter.drawImage(pictureRect, picture);
         painter.restore();
+    }
+
+    /// Hard-edged approximation of the GPU mask matte as a clip path in content coordinates
+    /// (modes and invert exact; feather, expansion and partial opacity are ignored: a mask with
+    /// opacity 0 is skipped). std::nullopt when the clip has no renderable mask.
+    static std::optional<QPainterPath> maskMatte(
+        const ClipData& clip, int64_t local, QSizeF content)
+    {
+        std::optional<QPainterPath> matte;
+        QPainterPath everything;
+        // Generous bounds: masks may reach beyond the content (the crop clips anyway).
+        everything.addRect(QRectF(-content.width() * 4, -content.height() * 4, content.width() * 8,
+            content.height() * 8));
+        for (const MaskData& m : clip.masks) {
+            if (!m.isRenderable())
+                continue;
+            if (!matte) {
+                const bool full = m.mode == MaskMode::Subtract || m.mode == MaskMode::Intersect;
+                matte = full ? everything : QPainterPath();
+            }
+            if (m.value(maskkeys::Opacity, local) <= 0.0)
+                continue;
+            QPainterPath shape = maskOutline(m, local);
+            shape.setFillRule(Qt::OddEvenFill);
+            if (m.invert)
+                shape = everything.subtracted(shape);
+            switch (m.mode) {
+            case MaskMode::Add:
+                *matte = matte->united(shape);
+                break;
+            case MaskMode::Subtract:
+                *matte = matte->subtracted(shape);
+                break;
+            case MaskMode::Intersect:
+                *matte = matte->intersected(shape);
+                break;
+            case MaskMode::Difference:
+                *matte = matte->united(shape).subtracted(matte->intersected(shape));
+                break;
+            }
+        }
+        return matte;
     }
 
     DecoderPool m_decoders;

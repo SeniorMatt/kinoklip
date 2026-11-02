@@ -51,3 +51,10 @@ Audio; tree, dope sheet and curves pick it up.
 **A new view on keyframes** (e.g. a speed graph): derive from `KeyframeViewBase`, take a
 `KeyframeTimeMap`, use `beginDragEdit()` / `restoreDragOrigin()` / `endDragEdit()` for drags and
 `keyframecommands` for commands.
+
+## Masks
+Video clips list their masks after Cropping in one "Masks" group (`appendMasksGroup()` in
+`KeyframeItemModel.cpp`): every animatable mask parameter labelled "<mask>: <parameter>" and,
+for point masks, a "<mask>: Shape" row (path `mask/<id>/shape`). The shape row has keys but no
+value field (shapes are edited in the viewer); vertical drags in the curve editor leave shape
+keys alone (`keyframeops::offsetKeyValues()` skips them).

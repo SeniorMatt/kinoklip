@@ -400,6 +400,8 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     // Version 1 -> 2 (keyframe interp -> Bezier handles) is converted per key inside
     // serialization::paramSetFromJson(), which recognises the v1 "interp" field. Versions 1
     // and 2 -> 3 (one "timeline" object -> "timelines") happens in fromJson().
+    // Version 3 -> 4 only added clip masks ("masks", absent = none): a version-3 document is a
+    // valid version-4 document without masks, and it is written back as version 4.
 
     // Media paths stored relative to the document resolve against the document's folder
     // (for a recovered autosave that is the original project file, not the autosave dir).

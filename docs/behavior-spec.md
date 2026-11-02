@@ -411,6 +411,28 @@ Tests: `cp` = `tests/core/test_compound.cpp`, `tt` = `tests/timeline/test_timeli
 | 26.12 | Nested clips show thumbnails and waveforms of their content on the timeline (rendered in the background, cached until the nested timeline changes) and have their own clip colour. | Fixed (new) |
 | 26.13 | Deleting a compound clip / timeline from the media pool asks first when clips use it; those clips become offline (draw and play nothing). | Fixed |
 
+## 27. Masks (masks branch, roadmap v2)
+
+Shape masks on the Edit page, from general knowledge of how NLE masks behave (Resolve's
+Edit-page approach: shapes on a clip, shaped on-screen in the timeline viewer, keyframable).
+Clean room: our own wording, icons and handle design.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 27.1 | A clip has an ordered list of masks: rectangle, ellipse, polygon, bezier (pen: corner and smooth points) and freehand (a drawn stroke, simplified to a smooth bezier path). Each has enable, mode, invert, opacity, feather inside / outside, expand / contract and a transform (position, width / height for rectangles and ellipses, scale X / Y, rotation). | Fixed (test_masks; test_masksui inspector*) |
+| 27.2 | Masks cut the clip's own picture: after its effects, before its transform, opacity and compositing, so they move, scale and rotate with the clip and the clip opacity applies on top. | Fixed (test_maskrender masksFollowTheClipTransform) |
+| 27.3 | Modes combine with the masks above in the list: Add = union, Subtract = cut out, Intersect = keep the overlap, Difference = overlap removed. The matte starts empty for a first Add / Difference mask and full for a first Subtract / Intersect mask (one Subtract mask cuts a hole). Invert flips one mask's coverage before its mode, opacity scales it. | Fixed (test_maskrender modes, invertAndOpacity) |
+| 27.4 | Feather softens the edge from feather-inside pixels within the shape to feather-outside pixels beyond it (timeline pixels, so the look does not change with preview quality); expand moves the edge out (negative: in). Hard edges are antialiased. | Fixed (test_maskrender featherIsMonotonic, expandContract, ellipseAdd) |
+| 27.5 | Every numeric mask parameter and the shape (all points as one property) are keyframed with the normal keyframe system: diamonds in the Inspector (per row, per mask section, shape row), the Keyframes panel and the inline timeline lanes list them in a "Masks" group ("<mask>: <parameter>"), keys move / delete / copy / ease like other keys; shape keys interpolate every point and tangent. Rendering evaluates the exact frame. | Fixed (test_masks keyframeOps*, copyPasteShapeKeys; test_maskrender animatedMaskAtExactFrames; test_masksui inspectorEditsMasks) |
+| 27.6 | Inspector, Video tab: a Masks section after Cropping with one add button per shape; one group per mask with enable, edit-in-viewer (active mask), move up / down, delete and the keyframe section diamond, then Mode, Invert, Opacity, Feather Inside / Outside, Expand, Position, Width / Height (rectangle, ellipse), Scale, Rotation and, for point masks, a Shape row (point count, shape keyframe). Every change is one undo step; a field drag is one step from press to release. | Fixed (test_masksui inspector*) |
+| 27.7 | A new mask is the active one; the timeline viewer then shows its on-screen controls. The viewer's on-screen controls button (bottom left, "Off / Mask", View > On-Screen Mask Controls) shows every mask outline of the current clip without an active mask; clicking an outline makes that mask active; Esc deactivates. The overlay follows Fit / 50 / 100 / 200 % and the clip transform; it is hidden while the playhead is outside the clip. | Fixed (test_masksui overlayVisibility, overlayFollowsZoom) |
+| 27.8 | Rectangle / ellipse on screen: drag inside = move (Shift: one axis); corner / edge squares = resize with the opposite side fixed (Alt: about the centre; Shift on a corner: keep the aspect ratio); the round handle above = rotate (Shift: 15 degree steps); the two triangles below the right edge = feather outside / inside (the dotted outlines show both). Point masks use the same handles on their bounding box; their corners scale about the mask centre. Each drag is one undo step. | Fixed (test_masksui overlayMovesResizesRotates, overlayFeatherHandles) |
+| 27.9 | Drawing a polygon / bezier mask: click = corner point; press and drag (bezier) = smooth point with tangents along the drag; click the first point, double-click or press Enter = close; Backspace = remove the last point; Esc = close, or discard a mask with fewer points than a shape needs. Freehand: press and draw, releasing closes and simplifies the stroke. A closed path is recentred on its bounding box (rotation and scale act about its middle). Each point is one undo step. | Fixed (test_masksui overlayDrawsPolygon, overlayDrawsBezierAndFreehand, overlayDrawingCancel) |
+| 27.10 | Editing points: drag = move (all selected points), Shift+click = add to the selection, drag a tangent end = turn it (a smooth point keeps the other side collinear with its length; Alt breaks the tangent), double-click a point = corner / smooth, click the outline = insert a point there (the curve keeps its shape), Delete / Backspace = remove the selected points (not below the shape's minimum). With focus in the viewer these keys go to the mask, not the timeline. | Fixed (test_masksui overlayDrawsPolygon, overlayDrawsBezierAndFreehand; test_masks insertPointKeepsTheOutline) |
+| 27.11 | Masks render the same in the viewer, playback and export (the compositor), on clips inside compound clips / nested timelines and on compound (nested) clips themselves; the CPU fallback applies them as hard-edged shapes (modes and invert exact, feather / expand / partial opacity ignored). Timeline thumbnails show the source media, as before. | Fixed (test_maskrender cpuFallback). Decision on the fallback. |
+| 27.12 | Project files store masks from format version 4; projects of versions 1 - 3 load unchanged and are saved as version 4; a newer version is refused. | Fixed (test_masks serializationRoundTrip, formatVersion2Loads) |
+| 27.13 | Mask tracking (point / planar) and mask presets are not implemented. | Deferred (roadmap v2 stretch goal) |
+
 ---
 
 ## Summary
@@ -425,6 +447,7 @@ Tests: `cp` = `tests/core/test_compound.cpp`, `tt` = `tests/timeline/test_timeli
   ripple), 23.5, and added 13.10 and 24.1 - 24.6.
 - The keyframes branch fixed 15.8 and added 15.9 - 15.13 (keyframe editor, curve editor,
   Bezier interpolation, section diamonds).
+- The masks branch (roadmap v2) added 27.1 - 27.13 (shape masks, on-screen mask controls).
 - The kfwindow branch (alpha.2 feedback #10) added 15.14 - 15.20 (the Keyframes panel, docked
   or floating, sharing its editing code with the inline lanes).
 - The compound branch (v2) added 25.1 - 25.11 (several timelines per project, timeline tabs on
