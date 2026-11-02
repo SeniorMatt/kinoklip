@@ -299,6 +299,17 @@ void EditPage::showEvent(QShowEvent* event)
         m_proportionsApplied = true;
         applyDefaultProportions();
     }
+    if (m_keyframesFloating && m_keyframesShown && m_keyframesWindow && !event->spontaneous())
+        m_keyframesWindow->show();
+}
+
+void EditPage::hideEvent(QHideEvent* event)
+{
+    Page::hideEvent(event);
+    // The floating Keyframes window belongs to the Edit page: it goes away with the page
+    // (another page, minimised main window) and comes back with it.
+    if (m_keyframesFloating && m_keyframesWindow && !event->spontaneous())
+        m_keyframesWindow->hide();
 }
 
 void EditPage::applyDefaultProportions()
