@@ -115,11 +115,17 @@ private slots:
 
     void rippleDeleteWithoutSelectionClosesGap()
     {
+        // Opt-in convenience (EditBehaviour::rippleDeleteGapAtPlayhead, behavior-spec 10.5);
+        // by default nothing happens without a selection.
         Ctl t;
         t.put(kV1, solidClip(0, 10));
         t.put(kV1, solidClip(30, 10));
         t.f.project.timeline()->setPlayhead(15);
         t.c.rippleDeleteSelection();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 30:10"));
+        QSettings().setValue(QStringLiteral("edit/rippleDeleteGapAtPlayhead"), true);
+        t.c.rippleDeleteSelection();
+        QSettings().remove(QStringLiteral("edit/rippleDeleteGapAtPlayhead"));
         QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));
     }
 
