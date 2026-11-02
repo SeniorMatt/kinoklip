@@ -177,7 +177,7 @@ QString storedScheme()
 }
 
 /// Schemes compiled into the app (resources/color-schemes): id -> resource path.
-QHash<QString, QString> bundledSchemes()
+[[maybe_unused]] QHash<QString, QString> bundledSchemes()
 {
     QHash<QString, QString> paths;
     const QFileInfoList files = QDir(QStringLiteral(":/color-schemes"))
