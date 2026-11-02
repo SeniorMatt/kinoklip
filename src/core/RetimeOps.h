@@ -30,8 +30,8 @@ namespace kk::retimeops {
 /// segments keep the speed there.
 bool addSpeedPoint(TimelineData& data, quint64 clipId, int64_t frame);
 /// Removes the speed point at clip-local @p localFrame; the neighbouring segments merge (the
-/// clip keeps its length; the merged segment covers the same source). A curve that ends up
-/// with one constant speed becomes a plain constant speed again.
+/// clip keeps its length; the merged segment covers the same source). A curve left without
+/// speed points and with one constant speed becomes a plain constant speed again.
 bool removeSpeedPoint(TimelineData& data, quint64 clipId, int64_t localFrame);
 /// Sets the speed of segment @p segment (index into retime::segments()) to @p speed (1 = 100 %,
 /// negative = reverse, 0 = freeze). The segment keeps its source material, so its length
@@ -88,8 +88,8 @@ bool setPitchCorrection(TimelineData& data, quint64 clipId, bool on);
 /// Converts a constant-speed clip into a retime curve with keys at its first frame and its
 /// end (no visible change), and makes sure a curve has keys at both edges.
 void ensureCurve(ClipData& clip);
-/// Turns a curve that is one straight line (all Linear, equal speeds) back into a constant
-/// speed. No visible change.
+/// Turns a curve without speed points that is one straight line (all Linear, equal speeds)
+/// back into a constant speed. No visible change.
 void simplifyCurve(ClipData& clip);
 
 } // namespace kk::retimeops

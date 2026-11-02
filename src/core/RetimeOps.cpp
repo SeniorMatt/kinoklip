@@ -39,8 +39,9 @@ bool sameRetime(const ClipData& a, const ClipData& b)
         && a.retime == b.retime && a.sourceInUs == b.sourceInUs;
 }
 
-/// A clip edit: changes the clip and returns how many frames longer it got (0 = same length,
-/// std::nullopt = nothing changed).
+/// A clip edit: changes the clip and returns by how many frames the later clips of its track
+/// move (its length change when the edit ripples, 0 otherwise; std::nullopt = nothing
+/// changed).
 using ClipEdit = std::function<std::optional<int64_t>(ClipData&, Rational fps)>;
 
 /// Applies @p edit to the clip and every partner; ripples the later clips of each edited track
@@ -65,7 +66,7 @@ bool applyToGroup(TimelineData& data, quint64 clipId, const ClipEdit& edit)
             continue;
         }
         clip.duration = std::max<int64_t>(1, clip.duration);
-        const int64_t applied = clip.duration - before.duration;
+        const int64_t applied = *delta;
         for (size_t i = size_t(loc->clipIndex) + 1; i < track.clips.size(); ++i)
             track.clips[i].start += applied;
         changed |= clip != before || applied != 0;
@@ -148,6 +149,9 @@ void simplifyCurve(ClipData& clip)
         return;
     }
     const QVector<Keyframe>& k = c->keys;
+    // Speed points the user placed stay, even between equal speeds (Resolve keeps them too).
+    if (!retime::speedPoints(clip).isEmpty())
+        return;
     const double slope = (k[1].value - k[0].value) / double(k[1].frame - k[0].frame);
     for (qsizetype i = 0; i < k.size(); ++i) {
         const Keyframe& key = k[i];
@@ -500,7 +504,7 @@ bool changeClipSpeed(TimelineData& data, quint64 clipId, const SpeedChange& chan
             clip.duration = frames;
             if (clip == before)
                 return std::nullopt;
-            return delta;
+            return change.ripple ? delta : 0;
         });
 }
 
