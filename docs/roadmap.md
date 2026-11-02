@@ -42,32 +42,41 @@ export, real Breeze look, single-file Linux x86_64 binary. Color page visible bu
   like Resolve.
 - Released before any v2.5 work is merged.
 
-## v2.5 - all other pages at a basic level
-- **Cut page** (fast single-timeline editing with the dual timeline, source tape, quick trims).
-  Status: in progress on the `cutpage` branch - basic level done (layout, dual timeline, source
-  tape, the six smart edits, ripple trims, fast review, strip view); sync bin, boring detector,
-  trim editor and audio trim deferred (docs/behavior-spec.md section 35).
-- **Color page** (colour grading): primaries wheels, curves, HSL qualifier, windows/masks, nodes
-  (serial/parallel/layer), LUTs, scopes (waveform, parade, vectorscope, histogram), gallery stills.
-- **Compositing page** (own name, node-based compositing: merge, transform, masks, text, keyers,
-  tracker, particles later).
-- **Audio page** (own name, mixing and audio post: mixer with buses, EQ/dynamics, automation,
-  ADR/recording, loudness metering, VST/LV2 plugins later).
-  Status: in progress on the `audiopage` branch - basic level done (layout with meters, viewer,
-  tall audio timeline and mixer; buses and routing; 6-band EQ and compressor / limiter per track
-  and bus; fader / pan automation with off / read / touch / write; peak meters and EBU R128
-  loudness with true peak; project format 12); recording / ADR, plugins, surround formats, sound
-  library, dialogue leveler, elastic wave, console mapping, VCAs and further effects deferred
+## v2.2 - small UI animations (owner request, 0.2.2-alpha.1)
+- Short tweened animations on the timeline so edits are easier to follow: clips slide into
+  place after trims, ripple deletes, inserts, nudges and undo / redo; new clips grow in,
+  removed clips fade out; a blade cut flashes and the two halves settle together; trimmed
+  edges flash on release and the selected edit point pulses; the playhead line glides on
+  jumps; the snap indicator fades. Display only: the timeline model and undo change at once.
+- Preferences > UI Settings > "Animate timeline edits" (on by default) and "Animation speed";
+  KDE's global animation speed applies too (instant = off).
+- Ships together with the Cut page (v2.5 work merged before this release), docs/behavior-spec.md
+  section 36.
+
+## v2.5 - Cut and Audio pages (owner decision 2026-11-03)
+- **Cut page** (done, basic level): dual timeline, source tape, smart edits, fast review.
+- **Audio page** (in progress, basic level): mixer with buses, EQ / dynamics, automation, meters,
+  loudness.
+  Status: basic level done on the `audiopage` branch (layout with meters, viewer, tall audio
+  timeline and mixer; buses and routing; 6-band EQ and compressor / limiter per track and bus;
+  fader / pan automation with off / read / touch / write; peak meters and EBU R128 loudness with
+  true peak; project format 12); recording / ADR, plugins, surround formats, sound library,
+  dialogue leveler, elastic wave, console mapping, VCAs and further effects deferred
   (docs/behavior-spec.md section 37).
-- Media and Deliver pages extended (metadata editing, clone tool, render presets per platform).
+- The Color and Compositing pages moved to v4.
 
-## v3 - finish every page, every detail
-Complete feature set and all the small behaviours/quirks of each page so that a long-time Resolve
-user can switch with no retraining: shortcut parity per page, same default behaviours, same panel
-options, same edge-case handling. Driven by an expanded `docs/behavior-spec.md` per page and the
-parity test suite.
+## v3 - polish basic video editing (current focus)
+Make everyday editing on the Edit and Cut pages feel finished before adding more pages: the
+remaining Edit page behaviours and quirks of Resolve, the deferred spec items (shuttle audio,
+viewer edit overlay, two-up trim view, ...), smoothness and responsiveness, small animations
+(v2.2), and fixes from owner testing. Driven by `docs/behavior-spec.md` and the parity tests.
 
-## v4 - switching from Resolve
+## v4 - the other pages, and switching from Resolve
+- **Color page** (colour grading): primaries wheels, curves, HSL qualifier, windows, nodes, LUTs,
+  scopes, gallery stills. A started branch `colorpage` exists (paused 2026-11-03).
+- **Compositing page** (own name, node-based compositing: merge, transform, masks, text, keyers,
+  tracker).
+- Media and Deliver pages extended (clone tool, render presets per platform).
 - **Import of Resolve projects** so users can move their work over.
   - Primary path (safe): the interchange formats Resolve already exports — OpenTimelineIO (.otio),
     FCPXML, AAF, EDL — covering timelines, clips, transitions, retimes, markers, transforms, basic
@@ -91,3 +100,9 @@ all marketing claims must be true of the shipped build. Brand assets: our own lo
 
 ## Distribution (any version after v1)
 - Flatpak, AppImage, distro packages, Windows installer, macOS .dmg — see plan.md 8b.
+
+## Later - finish every page, every detail
+Complete feature set and all the small behaviours/quirks of each page so that a long-time Resolve
+user can switch with no retraining: shortcut parity per page, same default behaviours, same panel
+options, same edge-case handling. Driven by an expanded `docs/behavior-spec.md` per page and the
+parity test suite.

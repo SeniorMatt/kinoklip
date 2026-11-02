@@ -34,7 +34,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `CutEdits.h` | the Cut page's smart edits as pure functions (namespace `kk::cutedits`): `nearestEditPoint()`, `smartInsert()`, `append()`, `rippleOverwrite()`, `placeOnTop()` (one free track for the whole edit), `closeUp()` (zoomed video on top), `sourceOverwrite()` + `sourceOverwriteStart()` (line up by timecode), `fastReviewRate()`; spec section 35 |
 | `SourceTape.h` | the Cut page's source tape: a bin's clips back to back at the timeline rate; tape frame <-> (clip, source µs), a marked range split at the clip boundaries (`segments()`), a playable private timeline (`toTimeline()`) |
 | `Serialization.h` | JSON encode/decode of all value types |
-| `Preferences.h` | QSettings preference keys + typed accessors (`playback/hwaccel`, autosave, theme) |
+| `Preferences.h` | QSettings preference keys + typed accessors (`playback/hwaccel`, autosave, theme, `ui/animations` + `ui/animationSpeed`) |
 | `EditBehaviour.h` | convention-dependent editing defaults (`edit/*`: still / generator / transition lengths, three-point editing, ripple delete without selection, trim zones; `migrateSettings()` drops retired keys at start-up); see docs/behavior-spec.md |
 
 ## Media pool organisation (bins branch, v2)
