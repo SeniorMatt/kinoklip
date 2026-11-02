@@ -88,6 +88,9 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
 
     Timeline* timeline = ctx.project->timeline();
     connect(timeline, &Timeline::changed, this, &TimelineWidget::onTimelineChanged);
+    // Offline media are drawn red (the set changes on activation, relink, undo).
+    connect(ctx.project->mediaPool(), &MediaPool::offlineChanged, viewport(),
+        qOverload<>(&QWidget::update));
     connect(timeline, &Timeline::playheadChanged, this, &TimelineWidget::onPlayheadChanged);
     connect(ctx.selection, &SelectionModel::changed, this, &TimelineWidget::onSelectionChanged);
     connect(ctx.project, &Project::projectReset, this, [this] {

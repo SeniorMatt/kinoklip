@@ -22,6 +22,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRandomGenerator>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -306,6 +307,9 @@ private slots:
             QVERIFY(p.load(projectPath));
             QVERIFY(p.mediaPool()->item(r.importedIds[0]));
             QVERIFY(!QFileInfo::exists(p.mediaPool()->item(r.importedIds[0])->path));
+            // Polish round 2: the pool knows it is offline (timeline and viewers mark it).
+            QVERIFY(p.mediaPool()->isOffline(r.importedIds[0]));
+            QCOMPARE(p.mediaPool()->offlineCount(), 1);
             Compositor compositor(Compositor::Options {true});
             AudioMixer mixer;
             exercise(p, compositor, mixer);
@@ -333,6 +337,26 @@ private slots:
             QCOMPARE(relinked, 1);
             QVERIFY(QFileInfo::exists(p.mediaPool()->item(r.importedIds[0])->path));
             QVERIFY(p.isDirty());
+            QVERIFY(!p.mediaPool()->isOffline(r.importedIds[0]));
+        }
+        // 4. Polish round 2: Relink searches subfolders (the parent folder is picked), and
+        // "Relink Selected Clips" relinks only the given items.
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("deep/a/b"))));
+        QVERIFY(QFile::rename(dir.filePath(QStringLiteral("new/clip.mp4")),
+            dir.filePath(QStringLiteral("deep/a/b/clip.mp4"))));
+        {
+            Project p;
+            QVERIFY(p.load(projectPath));
+            QVERIFY(p.mediaPool()->isOffline(r.importedIds[0]));
+            QSignalSpy offline(p.mediaPool(), &MediaPool::offlineChanged);
+            QCOMPARE(p.mediaPool()->relinkFromFolder(
+                         dir.filePath(QStringLiteral("deep")), {QStringLiteral("other")}),
+                0);
+            QCOMPARE(p.mediaPool()->relinkFromFolder(
+                         dir.filePath(QStringLiteral("deep")), {r.importedIds[0]}),
+                1);
+            QVERIFY(!p.mediaPool()->isOffline(r.importedIds[0]));
+            QCOMPARE(offline.count(), 1);
         }
     }
 

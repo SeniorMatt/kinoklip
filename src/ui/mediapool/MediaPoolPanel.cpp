@@ -325,8 +325,10 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     connect(m_model, &QAbstractItemModel::rowsRemoved, this, updateEmpty);
     connect(m_model, &QAbstractItemModel::modelReset, this, updateEmpty);
     connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState s) {
-        if (s == Qt::ApplicationActive)
+        if (s == Qt::ApplicationActive) {
             m_model->recheckOffline();
+            m_ctx.project->mediaPool()->recheckOffline(); // the timeline and viewers' markers
+        }
     });
     connectActions();
 

@@ -19,11 +19,12 @@ namespace {
 
 using Preset = TimelineController::TrackHeightPreset;
 
-/// Adds a fake 10 s video media item (no file needed) and returns its id.
+/// Adds a fake 10 s video media item and returns its id. The path is any existing file (the
+/// test binary), so the item is not offline; nothing decodes it (fake providers).
 QString addMedia(Project& project)
 {
     MediaItem item;
-    item.path = QStringLiteral("/nonexistent/clip.mp4");
+    item.path = QCoreApplication::applicationFilePath();
     item.name = QStringLiteral("clip.mp4");
     item.info.valid = true;
     item.info.hasVideo = true;
@@ -190,6 +191,19 @@ private slots:
         QVERIFY(v.w.showWaveforms());
         v.w.setShowWaveforms(false);
         QVERIFY(!v.w.showWaveforms());
+        // Offline media (round 2, E1): no thumbnails are asked for, the clip says so.
+        v.w.setClipThumbnails(ClipThumbnails::Filmstrip);
+        v.f.project.mediaPool()->setState([&] {
+            MediaPoolState st = v.f.project.mediaPool()->state();
+            for (MediaItem& m : st.items)
+                if (m.id == media)
+                    m.path = QStringLiteral("/nonexistent/moved.mp4");
+            return st;
+        }());
+        QVERIFY(v.f.project.mediaPool()->isOffline(media));
+        requests = 0;
+        v.w.viewport()->repaint();
+        QCOMPARE(requests, 0);
     }
 
     /// Edit > Undo names the action (round 2 audit U1): header buttons say what they did.
