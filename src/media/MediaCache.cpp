@@ -39,6 +39,10 @@ constexpr int kPosterPositionDivisor = 10;
 /// Decoders kept open between thumbnail jobs (sequential thumbnails of one file then decode
 /// forward instead of re-opening and seeking). Each costs tens of MB for HD video.
 constexpr size_t kMaxIdleDecoders = 4;
+/// PreviewDecoding::BySize: pictures up to this many pixels (1920x1200) decode in software.
+/// Measured with test_mediaperf filmstripLatency (20 cold 64 px thumbnails): 1080p60 H.264
+/// software 0.6 s vs hardware 2.4 s, 2160p30 HEVC software 2.9 s vs hardware 1.3 s.
+constexpr int64_t kSoftwarePreviewMaxPixels = int64_t(1920) * 1200;
 
 /// Waveform jobs decode whole files; two in parallel keep the disk and CPU busy enough.
 constexpr int kWaveformThreads = 2;
@@ -354,14 +358,35 @@ std::unique_ptr<VideoDecoder> MediaCache::acquireDecoder(const QString& path)
             return decoder;
         }
     }
-    auto decoder = std::make_unique<VideoDecoder>();
-    decoder->setThreadCount(1); // parallelism comes from the pool, not from each decoder
-    QString error;
-    if (!decoder->open(path, &error)) {
-        qCDebug(lcMedia) << "no thumbnail for" << path << ":" << error;
-        return nullptr;
+    const PreviewDecoding mode = m_previewDecoding.load();
+    auto open = [&path](HwAccelMode hw) -> std::unique_ptr<VideoDecoder> {
+        auto decoder = std::make_unique<VideoDecoder>();
+        decoder->setThreadCount(1); // parallelism comes from the pool, not from each decoder
+        decoder->setHwAccel(hw);
+        QString error;
+        if (!decoder->open(path, &error)) {
+            qCDebug(lcMedia) << "no thumbnail for" << path << ":" << error;
+            return nullptr;
+        }
+        return decoder;
+    };
+    auto decoder = open(mode == PreviewDecoding::Hardware ? HwAccelMode::Auto : HwAccelMode::Off);
+    // BySize: a software open is cheap (no device), so large pictures are simply reopened on
+    // the hardware decoder, where seeking to a 4K HEVC frame is about twice as fast.
+    if (decoder && mode == PreviewDecoding::BySize
+        && int64_t(decoder->info().width) * decoder->info().height > kSoftwarePreviewMaxPixels) {
+        if (auto hw = open(HwAccelMode::Auto))
+            decoder = std::move(hw);
     }
     return decoder;
+}
+
+void MediaCache::setPreviewDecoding(PreviewDecoding mode)
+{
+    m_previewDecoding = mode;
+    // Idle decoders keep the backend they were opened with; drop them so the mode applies.
+    const std::lock_guard lock(m_decoderMutex);
+    m_idleDecoders.clear();
 }
 
 void MediaCache::releaseDecoder(const QString& path, std::unique_ptr<VideoDecoder> decoder)

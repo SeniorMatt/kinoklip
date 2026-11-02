@@ -2,6 +2,7 @@
 // ViewerPanel, part: Timeline mode editing aids — the edit overlay for media dragged onto
 // the viewer (spec 4.14), the two-up trim view (spec 8.15) and the typed timecode display
 // (spec 2.10).
+#include "core/EditBehaviour.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
@@ -65,6 +66,9 @@ void ViewerPanel::setupEditingAids()
 {
     m_editOverlay = new EditOverlay(m_surface);
     m_twoUp = new TrimTwoUpView(m_surface, m_ctx.project ? m_ctx.project->mediaPool() : nullptr);
+    // The timeline viewer can picture the two sides with their program look (spec 8.19).
+    if (m_mode == Mode::Timeline && m_ctx.project)
+        m_twoUp->setProgramSource(m_ctx.playback, m_ctx.project->timeline());
     updateEditTiles();
     if (m_ctx.actions)
         connect(
@@ -170,8 +174,14 @@ void ViewerPanel::setTimecodeEntryText(const QString& text)
 
 void ViewerPanel::setTrimPreview(const TrimPreview& preview)
 {
-    if (m_twoUp)
-        m_twoUp->setPreview(preview, m_fps);
+    if (!m_twoUp)
+        return;
+    // The picture mode is read when a trim starts (not per mouse move).
+    if (preview.isActive() && !m_twoUp->preview().isActive())
+        m_twoUp->setPictures(EditBehaviour::fromSettings().twoUpProgramLook
+                ? TrimTwoUpView::Pictures::Program
+                : TrimTwoUpView::Pictures::Source);
+    m_twoUp->setPreview(preview, m_fps);
 }
 
 void ViewerPanel::dragEnterEvent(QDragEnterEvent* event)

@@ -381,6 +381,11 @@ public slots:
     /// R: plays the selected clips (with linked parts) at @p speed (1.0 = 100 %); the
     /// duration changes accordingly (limited by the media) and later clips ripple.
     bool setSelectionSpeed(double speed);
+    /// Increase / Decrease Clip Speed by 10% (spec 29.17): each selected clip (else the clips
+    /// under the playhead, with linked parts) at a constant forward speed changes by
+    /// @p deltaPercent percentage points (100 % -> 110 %), at least 10 %; durations follow
+    /// like setSelectionSpeed(). Reverse, freeze and ramped clips are left alone. One undo step.
+    bool nudgeSelectionSpeed(int deltaPercent);
 
     // ---- Retime (TimelineRetime.cpp; spec section 29) ----
     /// The clips a retime command applies to: the selection with linked parts, else the clips

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// TransformOverlay — outline of the current clip and the move gesture.
+// TransformOverlay — drawing of the on-screen Transform / Crop controls and their drags.
 #include "ui/viewer/TransformOverlay.h"
 
 #include "core/EditOps.h"
-#include "core/ParamKeys.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
-#include "render/TimelineEval.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/SchemeColors.h"
@@ -22,9 +20,40 @@
 
 namespace kk {
 
+namespace tg = transformgesture;
+
 namespace {
-/// Half size of the centre cross (px).
-constexpr double kCrossHalf = 7.0;
+constexpr double kCrossHalf = 7.0; ///< half size of the anchor cross (px)
+constexpr double kAnchorRadius = 4.0; ///< ring around the anchor cross (px)
+constexpr double kHandleHalf = 3.5; ///< half side of a square handle (px)
+constexpr double kKnobRadius = 4.5; ///< rotation knob (px)
+constexpr int kHaloAlpha = 160; ///< dark halo under the lines (readable over any picture)
+constexpr int kDimAlpha = 110; ///< the uncropped outline in Crop mode
+
+QString undoName(TransformHandle::Kind kind)
+{
+    switch (kind) {
+    case TransformHandle::Kind::Scale:
+        return TransformOverlay::tr("Scale Clip");
+    case TransformHandle::Kind::Rotate:
+        return TransformOverlay::tr("Rotate Clip");
+    case TransformHandle::Kind::Anchor:
+        return TransformOverlay::tr("Move Anchor Point");
+    case TransformHandle::Kind::Crop:
+        return TransformOverlay::tr("Crop Clip");
+    case TransformHandle::Kind::Move:
+    case TransformHandle::Kind::None:
+        break;
+    }
+    return TransformOverlay::tr("Move Clip");
+}
+
+QAction* registryAction(AppContext& ctx, const char* id)
+{
+    return ctx.actions && ctx.actions->contains(QLatin1String(id))
+        ? ctx.actions->action(QLatin1String(id))
+        : nullptr;
+}
 } // namespace
 
 TransformOverlay::TransformOverlay(AppContext& ctx, ViewerSurface* surface)
@@ -36,11 +65,14 @@ TransformOverlay::TransformOverlay(AppContext& ctx, ViewerSurface* surface)
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::ClickFocus);
+    setMouseTracking(true); // hover cursors over the handles
     surface->widget()->installEventFilter(this);
     setGeometry(surface->widget()->rect());
-    if (ctx.actions && ctx.actions->contains(QStringLiteral("view.onscreen_transform"))) {
-        m_action = ctx.actions->action(QStringLiteral("view.onscreen_transform"));
-        connect(m_action, &QAction::toggled, this, &TransformOverlay::refresh);
+    m_action = registryAction(ctx, "view.onscreen_transform");
+    m_cropAction = registryAction(ctx, "view.onscreen_crop");
+    for (QAction* a : {m_action, m_cropAction}) {
+        if (a)
+            connect(a, &QAction::toggled, this, &TransformOverlay::refresh);
     }
     Timeline* timeline = ctx.project->timeline();
     connect(timeline, &Timeline::changed, this, &TransformOverlay::refresh);
@@ -56,13 +88,35 @@ TransformOverlay::~TransformOverlay()
         finishDrag(true);
 }
 
+bool TransformOverlay::isCropMode() const
+{
+    return m_cropAction && m_cropAction->isChecked();
+}
+
 const ClipData* TransformOverlay::currentClip(quint64* id) const
 {
-    if (!m_ctx.selection || !m_action || !m_action->isChecked())
+    const bool on = (m_action && m_action->isChecked()) || isCropMode();
+    if (!m_ctx.selection || !on)
         return nullptr;
-    const quint64 clipId = m_ctx.selection->currentClip();
+    quint64 clipId = m_ctx.selection->currentClip();
     const TimelineData& data = m_ctx.project->timeline()->data();
-    const auto loc = clipId ? editops::findClip(data, clipId) : std::nullopt;
+    auto loc = clipId ? editops::findClip(data, clipId) : std::nullopt;
+    // The audio part of a linked pair was clicked: the controls act on its video part, as
+    // the Inspector shows the pair as one item (spec 24.1).
+    if (loc && loc->track.type != TrackType::Video) {
+        const ClipData& audio = data.track(loc->track)->clips[size_t(loc->clipIndex)];
+        loc.reset();
+        for (int t = 0; audio.linkGroup && t < int(data.videoTracks.size()) && !loc; ++t) {
+            const auto& clips = data.videoTracks[size_t(t)].clips;
+            for (int i = 0; i < int(clips.size()); ++i) {
+                if (clips[size_t(i)].linkGroup == audio.linkGroup) {
+                    clipId = clips[size_t(i)].id;
+                    loc = editops::findClip(data, clipId);
+                    break;
+                }
+            }
+        }
+    }
     if (!loc || loc->track.type != TrackType::Video || data.track(loc->track)->locked)
         return nullptr;
     const ClipData& clip = data.track(loc->track)->clips[size_t(loc->clipIndex)];
@@ -84,6 +138,16 @@ std::optional<QTransform> TransformOverlay::frameToWidget() const
         * QTransform::fromTranslate(pic.x(), pic.y());
 }
 
+std::optional<TransformPicture> TransformOverlay::picture() const
+{
+    const ClipData* clip = currentClip();
+    if (!clip)
+        return std::nullopt;
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    return tg::picture(*clip, clip->localFrame(m_ctx.project->timeline()->playhead()),
+        QSizeF(data.width, data.height), m_ctx.project->mediaPool());
+}
+
 void TransformOverlay::refresh()
 {
     if (parentWidget() && geometry() != parentWidget()->rect())
@@ -101,76 +165,132 @@ void TransformOverlay::refresh()
 
 void TransformOverlay::paintEvent(QPaintEvent*)
 {
-    const ClipData* clip = currentClip();
+    const auto pic = picture();
     const auto toWidget = frameToWidget();
-    if (!clip || !toWidget)
+    if (!pic || !toWidget)
         return;
-    const TimelineData& data = m_ctx.project->timeline()->data();
-    const int64_t local = clip->localFrame(m_ctx.project->timeline()->playhead());
-    // The clip's frame-sized content through its own transform (content origin = centre).
-    const QTransform content
-        = render::clipTransform(*clip, local, QSizeF(data.width, data.height)) * *toWidget;
+    const bool crop = isCropMode();
+    const QTransform content = pic->contentToFrame * *toWidget;
+    const QSizeF size = pic->content;
     const QPolygonF outline = content.map(
-        QPolygonF(QRectF(-data.width / 2.0, -data.height / 2.0, data.width, data.height)));
-    const QPointF centre = content.map(QPointF(0, 0));
+        QPolygonF(QRectF(-size.width() / 2, -size.height() / 2, size.width(), size.height())));
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
     const SchemeColors& c = schemeColors();
-    p.setPen(QPen(withAlpha(c.shadow, 160), 3));
-    p.drawPolygon(outline);
-    p.setPen(QPen(c.selection, 1.5));
-    p.drawPolygon(outline);
-    p.drawLine(centre - QPointF(kCrossHalf, 0), centre + QPointF(kCrossHalf, 0));
-    p.drawLine(centre - QPointF(0, kCrossHalf), centre + QPointF(0, kCrossHalf));
+    const QPen halo(withAlpha(c.shadow, kHaloAlpha), 3);
+    const QPen line(c.selection, 1.5);
+    auto stroke = [&p, &halo, &line](auto draw) {
+        p.setPen(halo);
+        draw();
+        p.setPen(line);
+        draw();
+    };
+    p.setBrush(Qt::NoBrush);
+    if (crop) {
+        p.setPen(QPen(withAlpha(c.selection, kDimAlpha), 1, Qt::DashLine));
+        p.drawPolygon(outline);
+        const QPolygonF cropped = content.map(QPolygonF(pic->crop));
+        stroke([&] { p.drawPolygon(cropped); });
+    } else {
+        stroke([&] { p.drawPolygon(outline); });
+        // Rotation knob on a stem above the top edge.
+        const QPointF top = content.map(QPointF(0, -size.height() / 2));
+        const QPointF knob = tg::rotateKnob(*pic, *toWidget);
+        stroke([&] { p.drawLine(top, knob); });
+        p.setPen(halo);
+        p.setBrush(c.selection);
+        p.drawEllipse(knob, kKnobRadius, kKnobRadius);
+        // Anchor point: cross and ring.
+        const QPointF a = content.map(pic->anchor);
+        p.setBrush(Qt::NoBrush);
+        stroke([&] {
+            p.drawLine(a - QPointF(kCrossHalf, 0), a + QPointF(kCrossHalf, 0));
+            p.drawLine(a - QPointF(0, kCrossHalf), a + QPointF(0, kCrossHalf));
+            p.drawEllipse(a, kAnchorRadius, kAnchorRadius);
+        });
+    }
+    // Square handles on the corners and edge midpoints.
+    p.setPen(halo);
+    p.setBrush(c.selection);
+    for (const auto& [pos, handle] : tg::handles(*pic, *toWidget, crop))
+        p.drawRect(QRectF(
+            pos - QPointF(kHandleHalf, kHandleHalf), QSizeF(2 * kHandleHalf, 2 * kHandleHalf)));
+}
+
+void TransformOverlay::updateCursor(QPointF pos)
+{
+    const auto pic = picture();
+    const auto toWidget = frameToWidget();
+    if (!pic || !toWidget) {
+        unsetCursor();
+        return;
+    }
+    const TransformHandle h = tg::hitTest(*pic, *toWidget, isCropMode(), pos);
+    switch (h.kind) {
+    case TransformHandle::Kind::None:
+        unsetCursor();
+        break;
+    case TransformHandle::Kind::Move:
+        setCursor(Qt::SizeAllCursor);
+        break;
+    case TransformHandle::Kind::Anchor:
+        setCursor(Qt::CrossCursor);
+        break;
+    case TransformHandle::Kind::Rotate:
+        setCursor(Qt::PointingHandCursor);
+        break;
+    case TransformHandle::Kind::Scale:
+    case TransformHandle::Kind::Crop:
+        if (h.sx != 0 && h.sy != 0)
+            setCursor(h.sx == h.sy ? Qt::SizeFDiagCursor : Qt::SizeBDiagCursor);
+        else
+            setCursor(h.sx != 0 ? Qt::SizeHorCursor : Qt::SizeVerCursor);
+        break;
+    }
 }
 
 void TransformOverlay::mousePressEvent(QMouseEvent* event)
 {
     quint64 id = 0;
     const ClipData* clip = currentClip(&id);
-    if (!clip || event->button() != Qt::LeftButton) {
+    const auto pic = picture();
+    const auto toWidget = frameToWidget();
+    if (!clip || !pic || !toWidget || event->button() != Qt::LeftButton) {
+        event->ignore();
+        return;
+    }
+    const TransformHandle handle = tg::hitTest(*pic, *toWidget, isCropMode(), event->position());
+    if (handle.kind == TransformHandle::Kind::None) {
         event->ignore();
         return;
     }
     emit pressed();
     setFocus();
-    const int64_t local = clip->localFrame(m_ctx.project->timeline()->playhead());
+    const int64_t local
+        = std::clamp<int64_t>(clip->localFrame(m_ctx.project->timeline()->playhead()), 0,
+            std::max<int64_t>(0, clip->duration - 1));
+    m_drag.begin(*clip, local, *pic, handle, toWidget->inverted().map(event->position()));
     m_dragging = true;
     m_dragClip = id;
-    m_pressPos = event->position();
-    m_startPos = QPointF(
-        clip->transform.value(keys::PosX, local), clip->transform.value(keys::PosY, local));
-    m_ctx.project->beginEdit(tr("Move Clip"));
+    m_ctx.project->beginEdit(undoName(handle.kind));
 }
 
 void TransformOverlay::mouseMoveEvent(QMouseEvent* event)
 {
-    if (!m_dragging)
+    if (!m_dragging) {
+        updateCursor(event->position());
         return;
-    const QRect pic = m_surface->pictureRect();
-    const TimelineData& data = m_ctx.project->timeline()->data();
-    if (pic.isEmpty())
-        return;
-    // Widget px -> timeline px (the viewer shows the frame scaled into pictureRect()).
-    QPointF d = event->position() - m_pressPos;
-    d.rx() *= double(data.width) / pic.width();
-    d.ry() *= double(data.height) / pic.height();
-    if (event->modifiers() & Qt::ShiftModifier) {
-        if (std::abs(d.x()) >= std::abs(d.y()))
-            d.setY(0);
-        else
-            d.setX(0);
     }
+    const auto toWidget = frameToWidget();
     Timeline* timeline = m_ctx.project->timeline();
     ClipData* clip = editops::clipById(timeline->mutableData(), m_dragClip);
-    if (!clip)
+    if (!toWidget || !clip)
         return;
     const int64_t local = std::clamp<int64_t>(
         clip->localFrame(timeline->playhead()), 0, std::max<int64_t>(0, clip->duration - 1));
-    // Whole pixels, like the Inspector's Position fields.
-    clip->transform.animated(keys::PosX, 0).setValue(local, std::round(m_startPos.x() + d.x()));
-    clip->transform.animated(keys::PosY, 0).setValue(local, std::round(m_startPos.y() + d.y()));
-    timeline->notifyChanged(); // live picture while dragging
+    m_drag.update(clip->transform, local, toWidget->inverted().map(event->position()),
+        event->modifiers() & Qt::ShiftModifier);
+    timeline->notifyChanged(); // live picture and Inspector while dragging
 }
 
 void TransformOverlay::mouseReleaseEvent(QMouseEvent* event)

@@ -5,9 +5,11 @@
 #include "media/AudioDecoder.h"
 #include "media/HwAccel.h"
 #include "media/MediaCache.h"
+#include "media/MediaInfo.h"
 #include "media/VideoDecoder.h"
 
 #include <QElapsedTimer>
+#include <QFileInfo>
 #include <QRandomGenerator>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -173,8 +175,54 @@ private slots:
         qInfo("thumbnail (cold, 1080p H.264): first %.1f ms, next 10 sequential %.1f ms", coldMs,
             tenMs);
         QCOMPARE(spy.count(), 11);
-        cache.shutdown();
     }
+
+    /// A timeline filmstrip of a cold file (20 thumbnails 64 px high spread over the clip,
+    /// requested at once like a first paint), with software and with hardware preview
+    /// decoders (MediaCache::setPreviewDecoding(); polish-v3 Round 3). KK_PERF_MEDIA adds files.
+    void filmstripLatency_data()
+    {
+        QTest::addColumn<QString>("path");
+        QStringList files {test::fixture("perf_1080p.mp4")};
+        files += qEnvironmentVariable("KK_PERF_MEDIA").split(QLatin1Char(':'), Qt::SkipEmptyParts);
+        for (const QString& f : files)
+            QTest::newRow(qPrintable(QFileInfo(f).fileName())) << f;
+    }
+
+    void filmstripLatency()
+    {
+        QFETCH(QString, path);
+        constexpr int kThumbs = 20;
+        MediaCache& cache = MediaCache::instance();
+        double ms[2] = {0, 0};
+        const MediaCache::PreviewDecoding modes[2]
+            = {MediaCache::PreviewDecoding::Software, MediaCache::PreviewDecoding::Hardware};
+        for (int m = 0; m < 2; ++m) {
+            QTemporaryDir cacheDir; // cold every time
+            cache.setCacheDirectory(cacheDir.path());
+            cache.clearMemoryCache();
+            cache.setPreviewDecoding(modes[m]);
+            QSignalSpy spy(&cache, &MediaCache::thumbnailReady);
+            const int64_t length = std::max<int64_t>(1'000'000, probe(path).durationUs);
+            QElapsedTimer timer;
+            timer.start();
+            auto missing = [&] {
+                int n = 0;
+                for (int i = 0; i < kThumbs; ++i)
+                    n += cache.thumbnail(path, length * i / kThumbs, 64).isNull() ? 1 : 0;
+                return n;
+            };
+            missing(); // requests all of them at once, like a first paint
+            while (missing() > 0 && spy.wait(20000)) { }
+            ms[m] = millis(timer);
+            QCOMPARE(missing(), 0);
+        }
+        cache.setPreviewDecoding(MediaCache::PreviewDecoding::BySize);
+        qInfo("filmstrip of 20 (cold, %s): software %.0f ms, hardware %.0f ms",
+            qPrintable(QFileInfo(path).fileName()), ms[0], ms[1]);
+    }
+
+    void cleanupTestCase() { MediaCache::instance().shutdown(); }
 };
 
 QTEST_GUILESS_MAIN(TestMediaPerf)

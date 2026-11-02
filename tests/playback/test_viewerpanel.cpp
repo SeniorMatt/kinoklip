@@ -401,8 +401,9 @@ private Q_SLOTS:
         QTRY_VERIFY(overlay->isEditing());
         const auto map = overlay->frameToWidget();
         QVERIFY(map);
-        const QPoint from = map->map(QPointF(160, 90)).toPoint();
-        const QPoint to = map->map(QPointF(200, 70)).toPoint(); // +40 px right, 20 px up
+        // Off the centre: the anchor cross there moves the anchor point (spec 24.11).
+        const QPoint from = map->map(QPointF(130, 110)).toPoint();
+        const QPoint to = map->map(QPointF(170, 90)).toPoint(); // +40 px right, 20 px up
         const int steps = f.project.undoStack()->count();
         QTest::mousePress(overlay, Qt::LeftButton, {}, from);
         QTest::mouseMove(overlay, (from + to) / 2);

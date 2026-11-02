@@ -13,6 +13,7 @@ class QToolButton;
 namespace kk {
 
 struct AppContext;
+class EditIndexPanel;
 class EffectsLibraryPanel;
 class InspectorPanel;
 class KeyframesPanel;
@@ -84,6 +85,7 @@ public:
     // Panel accessors for modules that wire behaviour (playback, timeline, panels agents).
     [[nodiscard]] MediaPoolPanel* mediaPool() const { return m_mediaPool; }
     [[nodiscard]] EffectsLibraryPanel* effectsLibrary() const { return m_effects; }
+    [[nodiscard]] EditIndexPanel* editIndex() const { return m_editIndex; }
     [[nodiscard]] ViewerPanel* sourceViewer() const { return m_sourceViewer; }
     [[nodiscard]] ViewerPanel* timelineViewer() const { return m_timelineViewer; }
     [[nodiscard]] InspectorPanel* inspector() const { return m_inspector; }
@@ -117,7 +119,7 @@ private:
     AppContext& m_ctx;
     MediaPoolPanel* m_mediaPool = nullptr;
     EffectsLibraryPanel* m_effects = nullptr;
-    PanelFrame* m_editIndex = nullptr;
+    EditIndexPanel* m_editIndex = nullptr;
     ViewerPanel* m_sourceViewer = nullptr;
     ViewerPanel* m_timelineViewer = nullptr;
     InspectorPanel* m_inspector = nullptr;

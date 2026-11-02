@@ -8,7 +8,8 @@ knowledge of Resolve (clean room); decisions are recorded in docs/behavior-spec.
 
 Priorities: **P1** = noticed in every session, or a deferred spec item; **P2** = noticed
 often; **P3** = nice to have / rare.
-Round 1 was the `editpolish` branch, round 2 the `polish2` branch (section "Round 2" below).
+Round 1 was the `editpolish` branch, round 2 the `polish2` branch (section "Round 2" below),
+round 3 the `polish3` branch (section "Round 3").
 
 Status: **Done** (on this branch, with tests), **OK** (already fine, verified), **Open**
 (not done in this round), **Partial**. Tests: `ea` = tests/timeline/test_editaids.cpp, `vs` =
@@ -71,7 +72,7 @@ the code:
 | T4 | Track header context menu: Delete Empty Tracks (Resolve's "Delete Empty Tracks"). | P2 | Done (spec 12.8; ea) |
 | T5 | Track height presets in the header menu (small / medium / large for the track). | P3 | Done in round 2 (spec 12.10; p2) |
 | T6 | Up / Down edit points, auto-select tracks, V / Shift+V / U, trim tool slip / slide, linked selection, snapping, gap selection and Delete Gaps, add / delete / rename tracks. | - | OK (spec 2, 6, 7, 8, 10, 11, 12) |
-| T7 | Speed-change nudges (spec 29.16): Resolve has no default keys for them; commands without keys. | P3 | Open |
+| T7 | Speed-change nudges (spec 29.16): Resolve has no default keys for them; commands without keys. | P3 | Done in round 3 (spec 29.17; p3) |
 | T8 | Move Track Up / Down in the header menu. | P3 | Done in round 2 (spec 12.9; p2) |
 
 ### Inspector, media pool, responsiveness
@@ -163,9 +164,9 @@ up); waiting for more pre-rolled frames would delay the start further.
 | U1 | Undo names: every header button undid as "Change Track", a multi-item drop as "Edit Clips". | P2 | Done (spec 17.5; p2); unnamed steps now log a warning |
 | Z1 | Zoom: Shift+Z fit, limits, keyboard zoom keeps the playhead, Alt+wheel around the playhead (unchanged on the owner's request). Ctrl+wheel scrolled 120 px per notch on any view under 2400 px (integer step). | P3 | OK; scroll step Done (spec 19.8; p2) |
 | D1 | Clip display: name and duration at small heights (the band takes the whole row); thumbnail modes and waveform toggle were missing. | P2 | Done (spec 12.11; p2) |
-| D2 | Source timecode on clips. | P3 | Open (Resolve does not show it by default either) |
+| D2 | Source timecode on clips. | P3 | Done in round 3 (spec 12.14; p3), off by default like Resolve |
 | M1 | Markers: M / Ctrl+M / Alt+M, colour and name editor, Shift+Up / Down, clip markers. | - | OK (spec 18) |
-| M2 | Marker list in the Edit Index: the Edit Index is still a placeholder panel. | P2 | Open (needs the Edit Index panel: list of edits and markers) |
+| M2 | Marker list in the Edit Index: the Edit Index is still a placeholder panel. | P2 | Done in round 3 (spec 18.8, 18.9; ei) |
 | T1 | Titles: font, size, colour in the Inspector (Title tab), one undo step per typing burst. | - | OK (spec 14.3) |
 | T2 | Titles: positioning by dragging in the viewer (Resolve's on-screen Transform controls). | P1 | Done (spec 24.9; vp) |
 | R1 | Deliver quick path: preset, Add to Render Queue, Render All, progress per job. | - | OK (spec 22 step 9) |
@@ -189,3 +190,108 @@ up); waiting for more pre-rolled frames would delay the start further.
 - First play at once: a few frames dropped while the first hardware decoder warms up.
 - T7 (round 1): speed-change nudges (no Resolve default keys known).
 - The two-up trim view shows source frames (no program-rendered two-up).
+
+## Round 3: the round 2 leftovers and a last pass over a basic session
+
+Branch `polish3` (after round 2). First the leftovers of round 2, then a short audit of what
+is still rough in a basic session (import, cut, trim, titles, markers, render). Tests: `ei` =
+tests/panels/test_editindex.cpp, `tc3` = tests/playback/test_transformcontrols.cpp, `p3` =
+tests/timeline/test_polish3.cpp, `tu` = tests/playback/test_trimtwoup.cpp (also the two-up
+benchmark), `fp` = tests/app/test_firstplay.cpp, `mp` = test_mediaperf filmstripLatency.
+
+### Round 2 leftovers
+
+| # | Item | Pri | Status |
+|---|---|---|---|
+| L1 | Edit Index panel: the events of the timeline (#, reel, name, track, source in / out, record in / out, duration, notes) and a Markers mode (colour, name, timecode, duration, notes, location); click to jump and select, search, colour filter, marker name / notes edited in place (one undo step), live, scheme colours. | P2 | Done (spec 18.8, 18.9; ei) |
+| L2 | On-screen Transform controls complete: corner / edge scale handles, rotation knob, anchor point; a Crop mode with edge and corner handles. One named undo step per drag, keys at the playhead when animated. | P2 | Done (spec 24.11, 24.12; tc3) |
+| L3 | Source timecode on clips (Timeline View Options), off by default. | P3 | Done (spec 12.14; p3) |
+| L4 | Two-up trim view with the program look (effects, transforms) at reduced size. | P3 | Partial: implemented, opt-in (spec 8.19 Decision; tu): it lags fast drags, so source frames stay the default (numbers below) |
+| L5 | Increase / Decrease Clip Speed by 10% (commands without keys). | P3 | Done (spec 29.17; p3) |
+| L6 | First play right after an import: the few dropped frames. | P2 | Done (spec 1.19; fp, mp; numbers below) |
+
+Decisions (details in the spec):
+- Scale handles (24.11): corners keep the aspect while Zoom X / Y are linked (the Inspector's
+  default) and edges then scale both axes; **Shift toggles** the link for the drag, as
+  Resolve's linked zoom behaves (a free scale of a linked zoom unlinks it). Shift snaps a
+  rotation to 15 degree steps and keeps a move on one axis. The anchor cross moves the anchor
+  point while the picture stays still (Position compensates). Scaling and rotating pivot on
+  the anchor point.
+- Edit Index (18.8, 18.9): one row per clip (linked video and audio are separate events, as
+  on the tracks); Notes of an event are read-only (transitions, speed, disabled, offline);
+  markers are single frames, so Duration shows one frame.
+- Speed nudges (29.17): percentage points (100 % -> 110 % -> 120 %), at least 10 %; reverse,
+  freeze and ramped clips are left alone.
+
+### Two-up with the program look (L4)
+
+`tests/playback/test_trimtwoup.cpp rollDragCost`: a roll dragged one frame per 16 ms (40
+steps) over a 1080p H.264 pair, the left clip blurred, the right one zoomed; "up to date" =
+both sides show the wanted frame at the next step. Measured on the Xvfb display (llvmpipe
+OpenGL; offscreen there is no GPU compositor and the view stays in Source mode).
+
+| Mode | GUI time per step | Sides up to date after a step | Catch up after the drag |
+|---|---|---|---|
+| Source frames (default) | 0.07 ms | 68 % | 0 ms |
+| Program look | 0.05 ms | 0 % | 160 - 200 ms |
+
+Why not the default: the program renders go through the viewer's one render thread, next to
+the viewer's own still frames (three renders per mouse move), so on this machine they never
+kept up with the drag. On a real GPU each render is far cheaper, so it is a preference
+(Editing > Trimming, "Trim view shows effects and transforms (slower)") rather than removed.
+
+### First play after import (L6)
+
+Same test as round 2 (`tests/app/test_firstplay.cpp`, real main window, offscreen with the CPU
+compositor, CUDA decoding on the owner's laptop), two runs each, Space pressed right after
+the drop. The perf clips are those of scripts/make_perf_media.sh.
+
+| Clip | Before: frames dropped | After | Before: first frame after play | After |
+|---|---|---|---|---|
+| h264 720p25 | 5, 3 | 0, 0 | 121 - 173 ms | 74 - 78 ms |
+| screen 1080p60 | 5, 6 | 0, 0 | 175 - 223 ms | 124 - 127 ms |
+| hevc 2160p30 | 6, 6 | 1, 2 | 172 - 225 ms | 123 - 124 ms |
+
+Space after the paused frame appeared stays at 51 ms and 0 dropped. Cause: the drops did not
+come from the playback decoder itself but from the media cache: the new clip's first
+filmstrip opened up to four hardware decoders (one per preview thread) at the moment the
+playback opened its own, and with thumbnails off the first play dropped nothing. Preview
+decoders now decode in software up to 1920x1200 and use the hardware decoder only for larger
+pictures (`MediaCache::PreviewDecoding::BySize`). Filmstrip of 20 cold 64 px thumbnails
+(`test_mediaperf filmstripLatency`), software / hardware: perf 1080p H.264 0.42 / 0.61 s,
+screen 1080p60 0.59 - 0.63 / 0.95 - 2.4 s, hevc 2160p30 2.9 - 3.1 / 1.2 - 1.3 s, 720p25
+0.4 - 0.8 / 0.3 - 0.4 s; so small files are as fast or faster in software and 4K HEVC keeps
+the hardware decoder. Pre-opening the playback decoder (the other idea) was not needed: the
+decoder under the playhead is already open by the time Space is pressed after the paused
+frame, and at once the still render opens it anyway.
+
+### Audit
+
+| # | Item | Pri | Status |
+|---|---|---|---|
+| A1 | Edit Index, Markers: a row selects the marker's clip, and Delete then reached the window's Delete commands and ripple deleted the clip instead of the marker. | P1 | Done: Delete / Backspace delete the marker, one undo step (spec 18.9; ei deleteKeyDeletesTheMarker) |
+| A2 | On-screen Transform / Crop controls hid themselves when the audio part of a linked clip was clicked last (the Inspector shows the pair as one item). | P1 | Done: they act on the video part (spec 24.11; tc3 linkedAudioPartShowsTheVideoControls) |
+| A3 | Clip > Normalize Audio Levels (Resolve's clip menu; sets the clip gain so the peak reaches a target). | P2 | Open |
+| A4 | Edit Index export: Resolve exports the list as an EDL / marker list. | P3 | Open |
+| A5 | Edit > History (a list of the undo steps to jump back several at once). | P3 | Open |
+| A6 | Edit Index columns are fixed (Resolve lets the user hide columns from the panel menu). | P3 | Open |
+| A7 | Ranged markers (a marker with a duration, Alt+drag in the ruler). | P3 | Open (markers are single frames; Duration shows one frame) |
+| A8 | Typed timecode, J/K/L, Space and the marker / speed commands with the Edit Index focused. | - | OK (window-scoped commands; the table only takes Delete in Markers mode and text keys while a cell is edited) |
+
+### Shortcuts changed in round 3
+
+| Command | Key | Confidence |
+|---|---|---|
+| On-Screen Crop Controls (`view.onscreen_crop`) | none (new command; the viewer's on-screen controls menu) | unsure |
+| Increase Clip Speed by 10% (`clip.speed_increase`) | none (new command; Clip menu) | unsure |
+| Decrease Clip Speed by 10% (`clip.speed_decrease`) | none (new command; Clip menu) | unsure |
+
+### Left after round 3
+
+- A3 Normalize Audio Levels, A4 Edit Index export (EDL), A5 Edit > History, A6 Edit Index
+  column chooser, A7 ranged markers.
+- The program-look two-up stays opt-in until it is measured on a real GPU (the benchmark
+  skips without a GPU compositor; run it on a desktop session).
+- 2160p HEVC first play at once still drops 1 - 2 frames (the 4K previews keep the hardware
+  decoder).
+
