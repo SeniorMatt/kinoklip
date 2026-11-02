@@ -13,4 +13,15 @@ void initExportFfmpeg()
     media::detail::initFfmpeg();
 }
 
+FfmpegQuiet::FfmpegQuiet()
+    : m_capture(std::make_unique<media::detail::FfmpegLogCapture>())
+{ }
+
+FfmpegQuiet::~FfmpegQuiet() = default;
+
+QString FfmpegQuiet::firstError() const
+{
+    return m_capture->firstError();
+}
+
 } // namespace kk::exporter
