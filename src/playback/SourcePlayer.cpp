@@ -5,6 +5,7 @@
 #include "core/Timeline.h"
 #include "render/Compositor.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace kk {
@@ -21,6 +22,17 @@ TimelineData makeSourceTimeline(const MediaItem& item)
     const Rational fps = info.frameRate.isValid() ? info.frameRate : SourcePlayer::kFallbackFps;
     int width = info.displayWidth > 0 ? info.displayWidth : info.width;
     int height = info.displayHeight > 0 ? info.displayHeight : info.height;
+    // Clip Attributes: a pixel aspect override or an extra rotation change the picture's
+    // display size, so the source viewer's frame follows them.
+    const ClipAttributes& attributes = item.attributes;
+    if (info.width > 0 && info.height > 0
+        && (attributes.pixelAspect.isValid() || attributes.rotation != 0)) {
+        const double par = effectivePixelAspect(attributes, info.sampleAspectRatio).toDouble();
+        width = std::max(1, int(std::lround(info.width * par)));
+        height = info.height;
+        if (normalizedRotation(info.rotation + attributes.rotation) % 180 != 0)
+            std::swap(width, height);
+    }
     if (width <= 0 || height <= 0) {
         width = kAudioOnlyWidth;
         height = kAudioOnlyHeight;
@@ -51,6 +63,7 @@ TimelineData makeSourceTimeline(const MediaItem& item)
     clip.sourceInUs = 0;
     clip.sourceDurationUs = info.isStillImage ? 0 : info.durationUs;
     clip.linkGroup = 1;
+    clip.attributes = item.attributes;
     if (info.hasVideo) {
         clip.id = tl.allocateId();
         tl.videoTracks[0].clips.push_back(clip);
@@ -105,7 +118,8 @@ void SourcePlayer::remember()
 void SourcePlayer::setMedia(const MediaItem* item)
 {
     const QString newId = item ? item->id : QString();
-    if (newId == m_item.id && (!item || item->path == m_item.path)) {
+    if (newId == m_item.id
+        && (!item || (item->path == m_item.path && item->attributes == m_item.attributes))) {
         return;
     }
     m_engine->stop();
