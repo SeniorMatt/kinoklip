@@ -119,6 +119,21 @@ bool ExportSettings::hasAudio() const
     return k == OutputKind::Audio || (k == OutputKind::Movie && audio.enabled);
 }
 
+bool ExportSettings::burnsInSubtitles() const
+{
+    return subtitles.enabled && subtitles.mode == SubtitleExportMode::BurnIn && hasVideo();
+}
+
+QString ExportSettings::embeddedSubtitleCodec() const
+{
+    if (!subtitles.enabled || subtitles.mode != SubtitleExportMode::Embedded)
+        return {};
+    const QStringList codecs = subtitleCodecs(container);
+    if (codecs.isEmpty())
+        return {};
+    return codecs.contains(subtitles.embeddedCodec) ? subtitles.embeddedCodec : codecs.front();
+}
+
 bool ExportSettings::keepsAlpha() const
 {
     if (!video.alpha || !hasVideo()) {
@@ -310,6 +325,7 @@ QJsonObject ExportSettings::toJson() const
     if (!outputPath.isEmpty()) {
         o[QStringLiteral("outputPath")] = outputPath;
     }
+    o[QStringLiteral("subtitles")] = subtitles.toJson();
     return o;
 }
 
@@ -360,6 +376,8 @@ ExportSettings ExportSettings::fromJson(const QJsonObject& o, const ExportSettin
     s.rangeIn = int64_t(num(o, "rangeIn", double(s.rangeIn)));
     s.rangeOut = int64_t(num(o, "rangeOut", double(s.rangeOut)));
     s.outputPath = str(o, "outputPath", s.outputPath);
+    s.subtitles = SubtitleExportSettings::fromJson(
+        o.value(QStringLiteral("subtitles")).toObject(), base.subtitles);
     return s;
 }
 
