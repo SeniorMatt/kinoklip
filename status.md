@@ -67,3 +67,4 @@
 - 12:06 playback2 merged (53/53): Full playback resolution default (Auto stepped to 1/4 of viewer after 3 drops = owner's pixelation), Playback > Playback Resolution menu, Auto opt-in + never below Half, seek-while-playing hold/resume (no freeze), decode-ahead, VAAPI streaming copy, KK_PLAYBACK_STATS. Running: kfwindow only.
 - 12:19 Heartbeat: kfwindow 7 commits, active; 22 GB free. alpha.3 after it.
 - 12:37 kfwindow merged (54/54 host + container). Built 0.1.0-alpha.3 in container (bundle check OK, 91 MB), smoke-tested via the .run (screenshots, 12 s 1080p render). Publishing pre-release.
+- 12:37 RELEASED v0.1.0-alpha.3 (GitHub pre-release). All agents finished; worktrees removed; heartbeat stopped. Follow-up noted: GuiPrivate use (Wayland portal parent) ties the app to its exact Qt build - launcher's host-Qt mode must require an exact Qt match or be dropped. Waiting for owner's test.
