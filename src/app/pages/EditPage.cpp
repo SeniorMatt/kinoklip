@@ -6,6 +6,8 @@
 #include "playback/SourcePlayer.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/Icons.h"
+#include "ui/common/Metrics.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
@@ -13,11 +15,13 @@
 #include "ui/mediapool/MetadataPanel.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
+#include "ui/timeline/TimelineWidget.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
 #include <QSettings>
 #include <QSplitter>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -113,10 +117,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     // Double-click in the media pool: load the clip into the source viewer and make it the
     // target of the transport keys (Space, J/K/L, I/O act on it).
     connect(m_mediaPool, &MediaPoolPanel::openInSourceViewer, this, [this](const QString& id) {
-        if (isSingleViewer()) {
-            setSingleViewer(false); // a loaded clip needs its viewer
-        }
         m_sourceViewer->setSourceMedia(id);
+        showSourceInSingleViewer(true); // single mode: the viewer switches to the clip
         m_sourceViewer->activate();
         m_sourceViewer->setFocus();
     });
@@ -132,9 +134,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     // with the part the timeline uses marked.
     m_timeline->controller()->setMatchFrameHandler(
         [this](const QString& mediaId, int64_t sourceUs, int64_t inUs, int64_t outUs) {
-            if (isSingleViewer())
-                setSingleViewer(false);
             m_sourceViewer->setSourceMedia(mediaId);
+            showSourceInSingleViewer(true);
             if (SourcePlayer* player = m_sourceViewer->sourcePlayer()) {
                 const Rational fps = player->fps();
                 player->setMarks(usToFrames(inUs, fps), usToFrames(outUs, fps));
@@ -148,16 +149,116 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
             &QAction::triggered, this, [this] {
                 if (!isVisible())
                     return;
-                ViewerPanel* next
-                    = ViewerPanel::activeViewer() == m_sourceViewer || isSingleViewer()
-                    ? m_timelineViewer
-                    : m_sourceViewer;
+                if (isSingleViewer()) {
+                    // Single mode: Q swaps what the one viewer shows (spec 24.5).
+                    showSourceInSingleViewer(!m_singleShowsSource);
+                    ViewerPanel* shown = m_singleShowsSource && !m_sourceViewer->isHidden()
+                        ? m_sourceViewer
+                        : m_timelineViewer;
+                    shown->activate();
+                    shown->setFocus();
+                    return;
+                }
+                ViewerPanel* next = ViewerPanel::activeViewer() == m_sourceViewer ? m_timelineViewer
+                                                                                  : m_sourceViewer;
                 next->activate();
                 next->setFocus();
             });
     }
-    // Focus in the timeline makes the program viewer the transport target (ViewerTransport).
+    // Double-click on a transition / click on an fx badge: show it in the Inspector.
+    connect(m_timeline->timelineWidget(), &TimelineWidget::inspectRequested, this,
+        [this](quint64 clipId, TimelineWidget::InspectTarget target) {
+            setPanelVisible(PanelId::Inspector, true);
+            m_inspector->inspect(clipId,
+                target == TimelineWidget::InspectTarget::Transition ? InspectorPanel::TransitionTab
+                                                                    : InspectorPanel::EffectsTab);
+        });
+    // Focus in the timeline makes the program viewer the transport target (ViewerTransport);
+    // in single viewer mode the one viewer follows the active one, like Resolve.
     m_timeline->setProperty("kkProgramFocus", true);
+    connect(m_timelineViewer, &ViewerPanel::activated, this,
+        [this] { showSourceInSingleViewer(false); });
+
+    // Viewer mode button at the right end of both viewer headers (alpha.2 feedback #5).
+    for (ViewerPanel* viewer : {m_sourceViewer, m_timelineViewer}) {
+        auto* button = new QToolButton;
+        button->setObjectName(QStringLiteral("ViewerModeButton"));
+        button->setAutoRaise(true);
+        button->setFocusPolicy(Qt::NoFocus);
+        button->setIconSize(QSize(metrics::kToolIconSize, metrics::kToolIconSize));
+        connect(button, &QToolButton::clicked, this, [this] {
+            if (QAction* a = singleViewerAction())
+                a->trigger(); // keeps the View menu entry in step
+            else
+                setSingleViewer(!isSingleViewer());
+        });
+        viewer->addTitleBarWidget(button);
+        m_viewerModeButtons.append(button);
+    }
+    if (m_ctx.actions) {
+        connect(m_ctx.actions, &ActionRegistry::shortcutsChanged, this, [this](const QString& id) {
+            if (id == QLatin1String("view.single_viewer"))
+                updateViewerModeButtons();
+        });
+    }
+    updateViewerModeButtons();
+}
+
+QAction* EditPage::singleViewerAction() const
+{
+    return m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.single_viewer"))
+        ? m_ctx.actions->action(QStringLiteral("view.single_viewer"))
+        : nullptr;
+}
+
+void EditPage::updateViewerModeButtons()
+{
+    QString keys;
+    if (const QAction* a = singleViewerAction(); a && !a->shortcut().isEmpty())
+        keys = QStringLiteral(" (%1)").arg(a->shortcut().toString(QKeySequence::NativeText));
+    for (QToolButton* button : std::as_const(m_viewerModeButtons)) {
+        // The icon shows the layout a click switches to.
+        button->setIcon(kk::icon(
+            m_singleViewer ? QStringLiteral("dual_viewer") : QStringLiteral("single_viewer")));
+        button->setToolTip(m_singleViewer ? tr("Dual Viewer Mode: source and timeline side by "
+                                               "side%1")
+                                                .arg(keys)
+                                          : tr("Single Viewer Mode: one viewer, switch between "
+                                               "source and timeline with Q%1")
+                                                .arg(keys));
+        button->setAccessibleName(
+            m_singleViewer ? tr("Dual Viewer Mode") : tr("Single Viewer Mode"));
+    }
+}
+
+void EditPage::showSourceInSingleViewer(bool source)
+{
+    m_singleShowsSource = source;
+    updateViewers();
+}
+
+void EditPage::updateViewers()
+{
+    const bool hasClip = !m_sourceViewer->sourceMedia().isEmpty();
+    const bool showSource = !m_singleViewer || (m_singleShowsSource && hasClip);
+    const bool showTimeline = !m_singleViewer || !showSource;
+    if (showSource == !m_sourceViewer->isHidden() && showTimeline == !m_timelineViewer->isHidden())
+        return;
+    // Keep the width the viewers had together: one viewer gets all of it, two share it.
+    QList<int> sizes = m_topRow->sizes();
+    const int source = m_topRow->indexOf(m_sourceViewer);
+    const int program = m_topRow->indexOf(m_timelineViewer);
+    const int space = (m_sourceViewer->isHidden() ? 0 : sizes[source])
+        + (m_timelineViewer->isHidden() ? 0 : sizes[program]);
+    m_sourceViewer->setVisible(showSource);
+    m_timelineViewer->setVisible(showTimeline);
+    if (space > 0) {
+        sizes[source] = showSource ? (showTimeline ? space / 2 : space) : 0;
+        sizes[program] = showTimeline ? space - sizes[source] : 0;
+        m_topRow->setSizes(sizes);
+    }
+    if (showSource && !showTimeline && ViewerPanel::activeViewer() == m_timelineViewer)
+        m_sourceViewer->activate();
 }
 
 void EditPage::showEvent(QShowEvent* event)
@@ -215,12 +316,26 @@ void EditPage::updateColumns()
 
 void EditPage::setSingleViewer(bool single)
 {
-    m_sourceViewer->setVisible(!single);
+    if (single == m_singleViewer)
+        return;
+    m_singleViewer = single;
+    // Entering single mode shows the viewer that was in use (the source one when it was the
+    // transport target and has a clip).
+    if (single)
+        m_singleShowsSource = ViewerPanel::activeViewer() == m_sourceViewer;
+    updateViewers();
+    updateViewerModeButtons();
+    emit singleViewerChanged(single);
+}
+
+bool EditPage::singleViewerShowsSource() const
+{
+    return m_singleViewer && !m_sourceViewer->isHidden();
 }
 
 bool EditPage::isSingleViewer() const
 {
-    return m_sourceViewer->isHidden();
+    return m_singleViewer;
 }
 
 void EditPage::saveLayout(QSettings& settings) const

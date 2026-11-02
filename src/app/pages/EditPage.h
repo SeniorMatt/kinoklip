@@ -6,7 +6,9 @@
 
 #include <QMap>
 
+class QAction;
 class QSplitter;
+class QToolButton;
 
 namespace kk {
 
@@ -40,11 +42,26 @@ public:
     void saveLayout(QSettings& settings) const override;
     void restoreLayout(const QSettings& settings) override;
 
-    /// Hides the source viewer so the timeline viewer gets the whole width.
+    /// Single viewer mode (Resolve's Workspace > Single Viewer Mode): one viewer gets the
+    /// width of both. It shows the timeline, or the source clip after one was opened (media pool
+    /// double-click, match frame); Q switches between the two, activating the timeline viewer
+    /// (e.g. by clicking in the timeline) shows the timeline. Persisted with the layout.
     void setSingleViewer(bool single);
     /// True in single-viewer mode.
     [[nodiscard]] bool isSingleViewer() const;
+    /// Single mode: true if the one viewer shows the source clip (false: the timeline).
+    [[nodiscard]] bool singleViewerShowsSource() const;
+    /// The viewer mode buttons at the right of the viewer headers (source, timeline).
+    [[nodiscard]] const QList<QToolButton*>& viewerModeButtons() const
+    {
+        return m_viewerModeButtons;
+    }
 
+signals:
+    /// Single viewer mode was switched on or off (the main window syncs its menu entry).
+    void singleViewerChanged(bool single);
+
+public:
     // Panel accessors for modules that wire behaviour (playback, timeline, panels agents).
     [[nodiscard]] MediaPoolPanel* mediaPool() const { return m_mediaPool; }
     [[nodiscard]] EffectsLibraryPanel* effectsLibrary() const { return m_effects; }
@@ -59,6 +76,12 @@ protected:
 
 private:
     void updateColumns();
+    /// Shows / hides the two viewers for the current mode.
+    void updateViewers();
+    /// Single mode: which viewer to show (source only once a clip is loaded).
+    void showSourceInSingleViewer(bool source);
+    void updateViewerModeButtons();
+    [[nodiscard]] QAction* singleViewerAction() const;
     /// Resolve's default proportions for the page's actual size (first show without a
     /// stored layout): viewers about half the height, side columns about a fifth of the width.
     void applyDefaultProportions();
@@ -73,6 +96,9 @@ private:
     MetadataPanel* m_metadata = nullptr;
     TimelinePanel* m_timeline = nullptr;
     PanelFrame* m_mixer = nullptr;
+    QList<QToolButton*> m_viewerModeButtons;
+    bool m_singleViewer = false;
+    bool m_singleShowsSource = false;
 
     QSplitter* m_main = nullptr; ///< vertical: top row over bottom row
     QSplitter* m_topRow = nullptr; ///< left column | source | timeline viewer | right column

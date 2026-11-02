@@ -735,9 +735,8 @@ QVector<quint64> TimelineWidget::clickedWithLinks(quint64 clipId) const
 void TimelineWidget::clickSelect(const TimelineHit& hit, Qt::KeyboardModifiers modifiers)
 {
     // Alt-click picks just the clicked clip, not its linked partners (spec 7.3).
-    const QVector<quint64> ids = (modifiers & Qt::AltModifier)
-        ? QVector<quint64> {hit.clipId}
-        : clickedWithLinks(hit.clipId);
+    const QVector<quint64> ids = (modifiers & Qt::AltModifier) ? QVector<quint64> {hit.clipId}
+                                                               : clickedWithLinks(hit.clipId);
     if (modifiers & (Qt::ShiftModifier | Qt::ControlModifier)) {
         if (m_ctx.selection->isSelected(hit.clipId))
             m_ctx.selection->removeClips(ids);
