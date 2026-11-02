@@ -13,6 +13,7 @@ Used by every panel and page. Depends on `core` only.
 | `SchemeColors.h` | `kk::schemeColors()`: every colour of custom-painted widgets (clips, badges, playhead, lanes, keyframes, overlays...) derived from the active colour scheme's roles; `SchemeColorsNotifier::changed()` after a scheme switch. Never hard-code a colour in a widget: add a role here |
 | `Icons.h` | `kk::icon("play")` — own SVGs tinted from the palette (On state = accent) |
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
+| `TimecodeEntry.h` | typed timecodes (spec 2.10): `timecode::parseTyped()` (calculator-style digits, + / - offsets) and the application key filter `TimecodeEntry` collecting them while the timeline has focus (EditPage wires it) |
 | `MediaImport.h` | import with user feedback; media file patterns/filters |
 | `Resources.h` | `initResources()` — call in `main()` and in tests that need icons/keymap |
 | `PanelSplitter.h` | `QSplitter` for every split between and inside panels: handles that highlight on hover / press and never trigger Breeze's mouse-grabbing splitter proxy (see "Wayland") |

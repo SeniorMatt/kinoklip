@@ -19,6 +19,7 @@ class KeyframesPanel;
 class MediaPoolPanel;
 class MetadataPanel;
 class PanelFrame;
+class TimecodeEntry;
 class TimelinePanel;
 class ViewerPanel;
 
@@ -110,6 +111,8 @@ private:
     void showKeyframes(bool visible);
     /// Gives the docked Keyframes row a usable height (taken from the timeline row).
     void ensureKeyframesHeight();
+    /// Typed timecodes, the viewer edit overlay and the two-up trim view (EditPageAids.cpp).
+    void setupEditingAids();
 
     AppContext& m_ctx;
     MediaPoolPanel* m_mediaPool = nullptr;
@@ -137,6 +140,7 @@ private:
     QMap<PanelId, QWidget*> m_panels;
     bool m_layoutRestored = false; ///< restoreLayout() found stored splitter states
     bool m_proportionsApplied = false;
+    TimecodeEntry* m_timecodeEntry = nullptr; ///< typed timecode (spec 2.10)
 };
 
 } // namespace kk

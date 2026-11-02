@@ -169,7 +169,12 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
         if (!range) {
             return std::nullopt;
         }
-        return SourceSelection {range->mediaId, range->inUs, range->outUs};
+        SourceSelection selection {range->mediaId, range->inUs, range->outUs};
+        // Unmarked source: Replace lines up the two playheads (spec 4.7).
+        const SourcePlayer* player = m_sourceViewer->sourcePlayer();
+        if (player && player->markIn() < 0 && player->engine())
+            selection.playheadUs = framesToUs(player->engine()->position(), player->fps());
+        return selection;
     });
     // F (match frame): the source of the clip under the playhead, parked on the same frame,
     // with the part the timeline uses marked.
@@ -268,6 +273,7 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
         });
     }
     updateViewerModeButtons();
+    setupEditingAids();
 }
 
 QAction* EditPage::singleViewerAction() const

@@ -11,6 +11,8 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
 | `GlViewerSurface.h` | `QOpenGLWidget`: draws the compositor's texture **zero copy** (`glWaitSync` on the frame's fence, sampler object, frame kept alive until the next one is drawn) or uploads an image (`glTexSubImage2D` from ARGB32 memory) |
 | `RasterViewerSurface.h` | `QWidget` fallback (offscreen screenshots, CI, no GPU, `KK_NO_OPENGL=1`); draws `RenderedFrame::image` |
 | `MaskOverlay.h` | on-screen mask controls of the timeline viewer: an additive transparent child of the picture surface (outlines, handles, drawing / editing gestures of the current clip's masks; follows `pictureRect()` and the clip transform); `createModeButton()` is the bottom-left on-screen controls menu (Off / Mask, `view.onscreen_masks`). See docs/behavior-spec.md section 27 |
+| `EditOverlay.h` | Timeline mode: the edit types drawn over the picture while media is dragged onto the viewer (spec 4.14); `ViewerEditAids.cpp` turns the drop into `sourceEditDropped(actionId, sources)` |
+| `TrimTwoUpView.h` | Timeline mode: the two-up trim view (spec 8.15), exact source frames from `MediaCache::frame()`, one request in flight per side; `ViewerPanel::setTrimPreview()` |
 | `ScrubBar.h` | jog/scrub strip: duration, in/out band with brackets, playhead; drag to scrub, wheel = one frame |
 | `ViewerTransport.h` | routes the playback-owned global actions to the **active** viewer, J/K/L hold detection, full-screen viewer |
 
