@@ -16,6 +16,14 @@ constexpr int kActiveLinePx = 3; ///< drawn line while hovered / dragged
 /// handles at all (and QSS ":hover" on QSplitter::handle is unreliable because handles have
 /// no WA_Hover by default), so it paints itself: the panel background, a 1 px separator line,
 /// and a 3 px highlight-coloured bar while active.
+///
+/// It also keeps Breeze's "splitter proxy" away: for thin handles Breeze shows an invisible
+/// 24 px widget over the handle on hover and calls QWidget::grabMouse() on it when pressed.
+/// Qt Wayland refuses explicit grabs outside popups ("This plugin supports grabbing the mouse
+/// only for popup windows", twice per splitter drag: grab and release - the owner's log had
+/// six). The handle filters its own hover events ahead of Breeze's filter, so the proxy never
+/// appears; the drag itself is QSplitterHandle's normal press / move / release, which needs no
+/// explicit grab.
 class PanelSplitterHandle final : public QSplitterHandle
 {
 public:
@@ -29,19 +37,36 @@ public:
 protected:
     bool event(QEvent* event) override
     {
+        // QWidget::event(Polish) runs the style's polish(), where Breeze installs its filter;
+        // QApplication::setStyle() polishes existing widgets directly and then sends
+        // StyleChange. Installing ours after either puts it first: the last installed filter
+        // runs first.
+        const bool result = QSplitterHandle::event(event);
+        if (event->type() == QEvent::Polish || event->type() == QEvent::StyleChange) {
+            removeEventFilter(this);
+            installEventFilter(this);
+        }
+        return result;
+    }
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (watched != this)
+            return QSplitterHandle::eventFilter(watched, event);
         switch (event->type()) {
         case QEvent::HoverEnter:
-            m_hover = true;
-            update();
-            break;
+        case QEvent::HoverMove:
+            if (!m_hover) {
+                m_hover = true;
+                update();
+            }
+            return true; // consumed: Breeze's splitter proxy must not see it
         case QEvent::HoverLeave:
             m_hover = false;
             update();
-            break;
+            return true;
         default:
-            break;
+            return false;
         }
-        return QSplitterHandle::event(event);
     }
     void mousePressEvent(QMouseEvent* event) override
     {
