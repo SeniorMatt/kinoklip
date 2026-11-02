@@ -33,7 +33,7 @@ contains *t* (exact for VFR too); requests before the first / after the last fra
 | `ImageLoader.h` | Still images → ARGB32 premultiplied, upright: backend by extension (Qt, libheif, FFmpeg, LibRaw) with fall-back; `loadCached()` = process-wide LRU still cache (256 MiB); RAW half/full size. |
 | `ImageSequence.h` | Sequence path convention (`/dir/name_%04d.png#fps=24`), `detectSequence(file)` for "import as sequence", scans with gap reporting. |
 | internal (formats) | `ImageBackends.h` + `*ImageBackend.cpp` (one file per library), `ImageFrameList` (sequences and Qt animations as frame-indexed sources; `routeFor()` = the routing decision shared by `probe()` and `VideoDecoder::open()`). |
-| internal | `FFmpegUtil` (RAII, open/seek helpers, log routing), `HwDevices`/`HwAccel.cpp` (backend table, shared device contexts), `VideoFrameFactory` (hw download + pooling), `FrameConverter` (swscale → QImage). |
+| internal | `FFmpegUtil` (RAII, open/seek helpers, log routing + `FfmpegLogCapture`), `HwDevices`/`HwAccel.cpp` (backend table, shared device contexts), `VideoFrameFactory` (hw download + pooling), `FrameConverter` (swscale → QImage). |
 
 ## Data flow
 
@@ -115,6 +115,51 @@ The decoder keeps the last returned frame (`cur`) and the following one (`next`)
   for debugging without touching settings: environment `KINOKLIP_HWACCEL=off|auto|vaapi|cuda|vulkan`.
 * Linux permissions: VAAPI/Vulkan need access to `/dev/dri/renderD*` (member of group
   `render`, or the active seat user). Without it they are reported unavailable.
+  CUDA is not tried at all without `/dev/nvidiactl` (no `CUDA_ERROR_NO_DEVICE` noise).
+
+### Hardware decoding robustness (alpha.3: "Failed to sync surface" on Iris Xe)
+
+* **One device, many threads.** All decoders share one `AVHWDeviceContext` per backend (one
+  VADisplay), used at the same time by the render thread, its decode-ahead and parallel-decode
+  workers, the thumbnail pool and export. FFmpeg's `hwcontext_vaapi` takes no lock and libva
+  promises no thread safety, so every hardware decoder holds the device's call lock
+  (`HwDeviceManager::callLock()`) around each libavcodec call that can reach the driver
+  (`avcodec_send_packet/receive_frame/flush_buffers`, open, free incl. the surface pool) and
+  around each download. Per call, not per frame: GPU decoding stays asynchronous, only the
+  download's `vaSyncSurface` waits. Default: VAAPI only; `KINOKLIP_HW_SERIALIZE=off|vaapi|all`.
+* **Surface lifetime.** The decoder references at most `cur`, `next` and the frame being
+  received (3) on top of the DPB; `extra_hw_frames = 4` covers that. A download works on `cur`,
+  which the decoder owns, and `av_hwframe_map()` itself references the source frame until the
+  mapping is freed, so a surface can never be recycled while it is read.
+* **Download contract.** `av_hwframe_map(dst, hw, AV_HWFRAME_MAP_READ)` with `dst->format` =
+  the frames' `sw_format`: FFmpeg calls `vaSyncSurface()` first, then (READ without DIRECT)
+  copies into a VAImage and maps it; we copy with streaming loads. An `EIO` from mapping (the
+  sync failed) is not retried through `av_hwframe_transfer_data()` (same sync, a second error
+  line) and does not disable the fast path; other mapping errors fall back to transfer.
+* **Failures are recoverable.** A failed download is retried once; if it fails again the
+  decoder re-opens in software and decodes the *same* frame (no lost frame, never a garbage
+  picture). FFmpeg's messages during downloads are captured (`FfmpegLogCapture`) and become
+  the reason of one warning per file:
+  `kk.media: VAAPI decoding failed for a.mp4 at 1.240 s (frame download: Input/output error
+  (AVHWFramesContext: Failed to sync surface 0x3: 1 (operation failed))); continuing in
+  software (4 threads)`. After 3 such fall-backs the backend is disabled for the session
+  (one warning). A profile the GPU lacks is not counted.
+* **Log lines.** Per file, once: `kk.media: decoding a.mp4 (h264 high 1920x1080) with VAAPI
+  (iHD 24.1.0, /dev/dri/renderD128)` or `... with software (4 threads)`, plus `; VAAPI failed:
+  <why>` when opening fell back. When a device is first opened: `kk.media: hardware decoding
+  VAAPI available: /dev/dri/renderD128, driver iHD 24.1.0, libva 2.22.0 (host,
+  /usr/lib/libva.so.2.2200.0)` (bundled vs host libva, and `LIBVA_DRIVER_NAME` /
+  `LIBVA_DRIVERS_PATH` if set).
+* Tests: `tests/media/test_hwdecode` (fault injection via `detail::injectDownloadFailures()`,
+  six threads on one shared device with and without the lock). Owner test plan for the
+  T14s: `docs/hw-decode-test.md`.
+
+### Logging
+
+`kk.media` shows info and above by default. FFmpeg errors become warnings, except known
+harmless ones (mov `UDTA parsing failed`, post-seek reference complaints) and anything logged
+inside an `FfmpegLogCapture`; FFmpeg warnings are debug output. Everything:
+`QT_LOGGING_RULES="kk.media.debug=true"`.
 
 ### Audio accuracy
 
