@@ -161,7 +161,7 @@ its transform, so they move with the clip and the clip opacity / transitions app
   `resolveCaptionStyle()` (caption → track → default style) and placed by `captionOffset()`
   (bottom / top / middle, alignment, margins in percent of the frame).
 
-### Retimed clips (speed changes, spec section 31)
+### Retimed clips (speed changes, spec section 29)
 
 The source time of every frame comes from `core/Retime.h` (`clampedSourceTimeUs()`), so
 viewer, playback, export and the CPU fallback show the same frame. With Frame Blend or Optical
@@ -347,7 +347,7 @@ Add it in `media::PixelFormat` (see `src/media/readme.md`), map plane formats in
 * An output slot released while a viewer's draw that samples it is still in flight could in
   theory be overwritten early; keep the frame until the next one is displayed (documented above).
 
-### Fades and Clip Attributes (spec section 32)
+### Fades and Clip Attributes (spec section 31)
 * `clipOpacity()` (TimelineEval) = keyframed opacity x `videoFadeFactor()` of the clip's fade
   handles; GPU, CPU and the adjustment-clip identity test use it.
 * `GlVideo::lookFor(frame, ClipData::attributes)` gives the rotation (file + attribute), the

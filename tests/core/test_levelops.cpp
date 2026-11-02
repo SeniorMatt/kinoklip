@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Level lines, fades and Clip Attributes in core (spec section 32): LevelOps edits, fades on
+// Level lines, fades and Clip Attributes in core (spec section 31): LevelOps edits, fades on
 // split / join, attributes mirrored from the media pool to clips (undo included), project
 // format 10 round trip and older files.
 #include "CoreTestUtils.h"

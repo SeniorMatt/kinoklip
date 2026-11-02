@@ -7,7 +7,7 @@ inline constexpr const char* name = KK_APP_NAME;
 inline constexpr const char* id = KK_APP_ID;
 inline constexpr const char* version = KK_APP_VERSION; // base version; see prerelease
 /// Pre-release tag shown in the About box and window title (empty for a final release).
-inline constexpr const char* prerelease = "alpha.4";
+inline constexpr const char* prerelease = "alpha.1";
 /// Version as shown to the user: "0.1.0-alpha.1" (base version + "-" + prerelease if set).
 inline QString displayVersion()
 {

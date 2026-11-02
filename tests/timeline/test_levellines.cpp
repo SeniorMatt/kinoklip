@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// UI tests of spec section 32 on the timeline: audio level line drag (one undo step, Shift
+// UI tests of spec section 31 on the timeline: audio level line drag (one undo step, Shift
 // fine), Alt+click adds a volume key, key drag in time and value, key delete, fade handles;
 // stacked timelines (toggle, activation by click and focus routing, copy drops both ways).
 #include "../panels/PanelTestUtils.h"

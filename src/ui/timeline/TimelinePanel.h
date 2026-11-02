@@ -41,7 +41,7 @@ public:
     /// Re-reads the preferences this panel follows (Preferences > Editing > Timelines).
     void applyPreferences();
 
-    // ---- Stacked timelines (View > Stacked Timelines, spec 32.8 - 32.10) ----
+    // ---- Stacked timelines (View > Stacked Timelines, spec 31.8 - 31.10) ----
     /// Shows a second timeline above the editor (or hides it). The second one is read-only
     /// until clicked: then it becomes the active timeline (it drives the viewer) and the
     /// editor moves into its place, the other timeline taking the other pane.

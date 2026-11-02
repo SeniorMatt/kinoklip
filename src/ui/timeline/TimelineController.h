@@ -242,7 +242,7 @@ public:
     void cycleTab(int step);
     /// Closes the active tab (not the last one).
     bool closeActiveTab();
-    /// Stacked timelines (spec 32.9): copies clips @p clipIds of timeline @p sourceUid (any
+    /// Stacked timelines (spec 31.9): copies clips @p clipIds of timeline @p sourceUid (any
     /// timeline of the project, the active one included) into the active timeline with the
     /// earliest clip at @p frame; video clips start on the video track @p track.index, audio
     /// clips on the audio track of the same index (or of @p track when it is an audio track),
@@ -328,7 +328,7 @@ public slots:
     /// duration changes accordingly (limited by the media) and later clips ripple.
     bool setSelectionSpeed(double speed);
 
-    // ---- Retime (TimelineRetime.cpp; spec section 31) ----
+    // ---- Retime (TimelineRetime.cpp; spec section 29) ----
     /// The clips a retime command applies to: the selection with linked parts, else the clips
     /// under the playhead on the auto-select video tracks (and their links).
     QVector<quint64> retimeTargets() const;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// TimelineWidget, stacked timelines (spec 32.9): planning the drop of clips dragged from the
+// TimelineWidget, stacked timelines (spec 31.9): planning the drop of clips dragged from the
 // other timeline (MIME mime::TimelineClips). The ghost shows the copies where they will land;
 // the drop runs TimelineController::copyClipsFrom() (one undo step).
 #include "core/EditOps.h"

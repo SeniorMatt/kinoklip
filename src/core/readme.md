@@ -78,7 +78,7 @@ Preferences: `prefs::proxyDirectory()`, `optimizedMediaDirectory()`,
   `sourceInUs + (R(x) - R(0)) * frameUs` where R is the retime curve (source frames at the
   timeline rate) or `x * speed`. Speed points are keys of `keys::RetimeFrame` in
   `ClipData::retime` and shift with the content like keyframes; other keyframes stay at their
-  clip time when a clip is retimed (spec 31.10).
+  clip time when a clip is retimed (spec 29.10).
 - `ClipData::sourceDurationUs` (addition to the PLAN contract) caches the media length so EditOps
   can clamp trims without a media-pool lookup; 0 means unbounded (stills, titles, solids).
 
@@ -262,7 +262,7 @@ the absolute path no longer exists.
 3. Extend `richTimeline()` in `tests/core/test_serialization.cpp` so the round-trip covers it.
 4. Bump `kFormatVersion` only for incompatible changes, and add a migration in `Project::load()`.
 
-## Fades, level lines, Clip Attributes (attrs branch, spec section 32)
+## Fades, level lines, Clip Attributes (attrs branch, spec section 31)
 - `ClipData::fadeInFrames` / `fadeOutFrames`: fade handles (clip properties, not keyframes);
   `videoFadeFactor()` (linear) and `audioFadeGain()` (equal power) in `ClipAttributes.h` are the
   one formula renderers and mixer use. Splits / range cuts drop the fade at the cut
