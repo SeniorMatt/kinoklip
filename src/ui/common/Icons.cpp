@@ -158,7 +158,86 @@ QIcon makeIcon(const QString& name, const QColor& color)
     return QIcon(new TintedSvgIconEngine(name, color));
 }
 
+/// Engine of paletteIcon(): looks the colour up at paint time.
+class PaletteIconEngine final : public QIconEngine
+{
+public:
+    PaletteIconEngine(QString key, GlyphPainter draw, qreal normalOpacity)
+        : m_key(std::move(key))
+        , m_draw(std::move(draw))
+        , m_normalOpacity(normalOpacity)
+    { }
+
+    void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode, QIcon::State state) override
+    {
+        const qreal dpr = painter->device() ? painter->device()->devicePixelRatioF() : 1.0;
+        painter->drawPixmap(rect, scaledPixmap(rect.size(), mode, state, dpr));
+    }
+
+    QPixmap pixmap(const QSize& size, QIcon::Mode mode, QIcon::State state) override
+    {
+        return scaledPixmap(size, mode, state, 1.0);
+    }
+
+    QPixmap scaledPixmap(const QSize& size, QIcon::Mode mode, QIcon::State, qreal scale) override
+    {
+        const QPalette pal = QGuiApplication::palette();
+        QColor c;
+        switch (mode) {
+        case QIcon::Disabled:
+            c = pal.color(QPalette::Disabled, QPalette::WindowText);
+            break;
+        case QIcon::Selected:
+            c = pal.color(QPalette::Active, QPalette::HighlightedText);
+            break;
+        case QIcon::Active:
+            c = pal.color(QPalette::Active, QPalette::WindowText);
+            break;
+        case QIcon::Normal:
+            c = pal.color(QPalette::Active, QPalette::WindowText);
+            c.setAlphaF(float(c.alphaF() * m_normalOpacity));
+            break;
+        }
+        const QSize device = (QSizeF(size) * scale).toSize();
+        const QString key = QStringLiteral("kkpal:%1:%2x%3:%4")
+                                .arg(m_key)
+                                .arg(device.width())
+                                .arg(device.height())
+                                .arg(c.rgba(), 0, 16);
+        QPixmap cached;
+        if (QPixmapCache::find(key, &cached))
+            return cached;
+        QPixmap pm(device);
+        pm.setDevicePixelRatio(scale);
+        pm.fill(Qt::transparent);
+        {
+            QPainter p(&pm);
+            p.setRenderHint(QPainter::Antialiasing);
+            m_draw(p, QSizeF(size), c);
+        }
+        QPixmapCache::insert(key, pm);
+        return pm;
+    }
+
+    QSize actualSize(const QSize& size, QIcon::Mode, QIcon::State) override { return size; }
+    QIconEngine* clone() const override
+    {
+        return new PaletteIconEngine(m_key, m_draw, m_normalOpacity);
+    }
+    QString key() const override { return QStringLiteral("kk.paletteicon"); }
+
+private:
+    QString m_key;
+    GlyphPainter m_draw;
+    qreal m_normalOpacity;
+};
+
 } // namespace
+
+QIcon paletteIcon(const QString& cacheKey, GlyphPainter draw, qreal normalOpacity)
+{
+    return QIcon(new PaletteIconEngine(cacheKey, std::move(draw), normalOpacity));
+}
 
 QString themeIconName(const QString& name)
 {
