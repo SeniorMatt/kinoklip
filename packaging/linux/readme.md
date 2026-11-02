@@ -176,8 +176,10 @@ done | grep -E 'undefined symbol|not found'
    The choice is logged to stderr (`KINOKLIP_QUIET=1` silences it).
 3. `XDG_DATA_DIRS=usr/share:<previous or /usr/local/share:/usr/share>` (KColorSchemeManager
    finds the colour schemes, KIconLoader the Breeze icons there),
-   `LIBHEIF_PLUGIN_PATH=usr/lib/libheif/plugins`, `QT_QPA_PLATFORM=wayland;xcb` unless the
-   user set it; exports `KINOKLIP_APPDIR`.
+   `LIBHEIF_PLUGIN_PATH=usr/lib/libheif/plugins`, `QT_QPA_PLATFORM=wayland;xcb` when
+   `WAYLAND_DISPLAY` is set and `QT_QPA_PLATFORM=xcb` when it is not (a pure X11 session: no
+   "Failed to create wl_display" / "Could not load the Qt platform plugin wayland" lines
+   before the fallback), unless the user set `QT_QPA_PLATFORM`; exports `KINOKLIP_APPDIR`.
 4. Every variable it changes is recorded first: `KINOKLIP_ORIG_VARS` lists the names and
    `KINOKLIP_ORIG_<NAME>` holds the original value (absent = was unset). The app
    (`src/platform/ChildProcessEnv.h`: `childEnvironment()`, `prepareChildProcess()`,

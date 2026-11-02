@@ -175,6 +175,25 @@ void MediaPoolDelegate::paint(
         p->drawText(badge, Qt::AlignCenter, duration);
     }
 
+    // Proxy / optimized media badge in the top-left corner ("P", "O", "P 42%" while
+    // generating, "P!" amber when stale or missing).
+    const QString linkBadge = index.data(MediaPoolModel::LinkBadgeRole).toString();
+    if (!linkBadge.isEmpty()) {
+        QFont small = option.font;
+        small.setPointSizeF(small.pointSizeF() * 0.8);
+        small.setBold(true);
+        p->setFont(small);
+        const QFontMetrics fm(small);
+        const QRect text(0, 0, fm.horizontalAdvance(linkBadge) + 8, fm.height() + 2);
+        const QRect badge = text.translated(posterRect.left() + 3, posterRect.top() + 3);
+        const bool problem = index.data(MediaPoolModel::LinkProblemRole).toBool();
+        p->setPen(Qt::NoPen);
+        p->setBrush(problem ? QColor(0xd0, 0x90, 0x20, 220) : QColor(0x2a, 0x6f, 0xc9, 220));
+        p->drawRoundedRect(QRectF(badge), 3, 3);
+        p->setPen(Qt::white);
+        p->drawText(badge, Qt::AlignCenter, linkBadge);
+    }
+
     // Selection outline around the poster.
     if (selected) {
         p->setPen(QPen(pal.color(QPalette::Highlight), 2));

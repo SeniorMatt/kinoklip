@@ -36,7 +36,15 @@ namespace kk::serialization {
 ///   carry "retimeProcess" (the project default). Older files store a top-level clip
 ///   "speed": clipFromJson() reads it as a single constant-speed segment with pitch
 ///   correction off (audio of older projects was resampled), which plays exactly as before.
-/// - 6, 7: reserved for the proxies / adjustment-clip branches (developed in parallel).
+/// - 6: proxy / optimized media links ("mediaLinks": [{"mediaId", "proxy"?, "optimized"?}],
+///   each {"path", "source": {"size", "mtimeMs"}, "width", "height", "format"?}), the
+///   project's "cacheSettings" (core/MediaLinks.h: proxy / optimized / render cache formats,
+///   background caching, proxy handling, render cache mode) and the clip flag
+///   "cacheOutput" (Render Cache Clip Output). Older files get the defaults
+///   (proxy handling "prefer proxies", render cache "none"); nothing else changes, so the
+///   loader needs no step for 4 -> 6 or 5 -> 6; proxies already in the proxy folder are linked
+///   by the application after loading (MediaLinks::autoLink()).
+/// - 7: reserved for the adjustment-clip / generator / subtitle branch (in parallel).
 /// - 8: multicam clips. Timelines may carry "multicam": true (always with "compound"), clips
 ///   "multicamAngle" (0-based angle of a Nested clip showing a multicam timeline), media
 ///   pool items "kind": "multicam", and media info "timecode" (embedded start timecode).

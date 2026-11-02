@@ -58,6 +58,9 @@ public:
 
     /// Ids of the selected media items.
     [[nodiscard]] QStringList selectedMediaIds() const;
+    /// Stores the selected ids in the media pool commands (`mediapool.*` actions' data) and
+    /// enables them for what the selection allows.
+    void publishSelection();
     /// The current (focused) media item id, or empty.
     [[nodiscard]] QString currentMediaId() const;
     /// Ids of the items currently shown (after bin + search filtering), in view order.

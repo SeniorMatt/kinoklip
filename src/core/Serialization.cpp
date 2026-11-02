@@ -471,6 +471,8 @@ QJsonObject clipToJson(const ClipData& clip)
     o[QLatin1String("enabled")] = clip.enabled;
     if (clip.linkGroup != 0)
         o[QLatin1String("linkGroup")] = qint64(clip.linkGroup);
+    if (clip.cacheOutput)
+        o[QLatin1String("cacheOutput")] = true;
     if (clip.transform != ParamSet {})
         o[QLatin1String("transform")] = paramSetToJson(clip.transform);
     if (clip.audio != ParamSet {})
@@ -532,6 +534,7 @@ ClipData clipFromJson(const QJsonObject& o)
     }
     c.enabled = o.value(QLatin1String("enabled")).toBool(true);
     c.linkGroup = quint64(o.value(QLatin1String("linkGroup")).toInteger());
+    c.cacheOutput = o.value(QLatin1String("cacheOutput")).toBool(false);
     c.transform = paramSetFromJson(o.value(QLatin1String("transform")).toObject());
     c.audio = paramSetFromJson(o.value(QLatin1String("audio")).toObject());
     c.title = paramSetFromJson(o.value(QLatin1String("title")).toObject());

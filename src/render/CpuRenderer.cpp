@@ -51,6 +51,7 @@ public:
         const QSize requested = rq.outSize.isEmpty() ? QSize(tl.width, tl.height) : rq.outSize;
         const QSize out = scaledRenderSize(requested, rq.quality);
         m_media = job.media.get();
+        m_proxies = rq.proxies.get();
         m_nested = &tl.nested;
         m_depth = 0;
         m_decoders.beginFrame();
@@ -58,6 +59,7 @@ public:
         m_decoders.collectIdle();
         frame->size = out;
         frame->ok = true;
+        frame->fromCache = job.fromCache;
         frame->image = std::move(image);
         frame->renderMs = double(timer.nsecsElapsed()) / 1e6;
         job.promise.set_value(std::move(frame));
@@ -158,7 +160,13 @@ private:
         QColor solid;
         switch (clip.kind) {
         case ClipKind::Media: {
-            const QString path = m_media ? m_media->value(clip.mediaId) : QString();
+            // Proxy: decode the substitute, keep the original's geometry (see ProxyRef).
+            const auto proxy
+                = m_proxies ? m_proxies->constFind(clip.mediaId) : ProxyMap::const_iterator();
+            const bool useProxy = m_proxies && proxy != m_proxies->constEnd();
+            const QString path = useProxy ? proxy->path
+                : m_media                 ? m_media->value(clip.mediaId)
+                                          : QString();
             if (path.isEmpty())
                 return;
             const int64_t timeUs = clampedSourceTimeUs(clip, m_frame, m_timeline->fps);
@@ -166,7 +174,8 @@ private:
             if (!entry)
                 return;
             const media::MediaInfo& info = entry->decoder->info();
-            sourcePx = QSizeF(info.displayWidth, info.displayHeight);
+            sourcePx
+                = useProxy ? proxy->displaySize : QSizeF(info.displayWidth, info.displayHeight);
             content = fitSize(sourcePx, frameSize);
             // Decode at the size the picture occupies in the output (never above native).
             const double zoom = std::max(1.0, maxZoom(clip, local));
@@ -306,6 +315,7 @@ private:
     QSet<QString> m_warned;
     const TimelineData* m_timeline = nullptr;
     const MediaPathMap* m_media = nullptr;
+    const ProxyMap* m_proxies = nullptr;
     const NestedTimelines* m_nested = nullptr;
     int m_depth = 0;
     int64_t m_frame = 0;
