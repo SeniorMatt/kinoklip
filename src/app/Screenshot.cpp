@@ -3,6 +3,7 @@
 #include "app/Screenshot.h"
 
 #include "app/MainWindow.h"
+#include "app/ProjectController.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
@@ -29,6 +30,7 @@
 #include <QMenuBar>
 #include <QPainter>
 #include <QPixmap>
+#include <QScreen>
 #include <QTimer>
 
 #include <cstdio>
@@ -39,7 +41,9 @@ namespace kk {
 namespace {
 const QSize kScreenshotSize(1920, 1080);
 constexpr int kSettleDelayMs = 400; // let layouts, file system model and GL widgets settle
-constexpr int kDialogSettleDelayMs = 1500; // Preferences probes the GPU on a worker thread
+constexpr int kDialogSettleDelayMs = 1500;
+constexpr int kImportDialogDelayMs = 6000; // the portal and its dialog process start up //
+                                           // Preferences probes the GPU on a worker thread
 constexpr int kMenuMargin = 24; // px of window around an open menu in menu shots
 
 QMenu* findMenu(QWidget* root, const QString& category)
@@ -84,6 +88,32 @@ bool viewersSettled()
     }
     return true;
 }
+/// "import-dialog": File > Import Media is opened and the whole screen is grabbed (on X11 that
+/// includes the desktop's file dialog, another process' window when it comes from the XDG
+/// portal). KK_SCREENSHOT_DIALOG_DELAY: milliseconds to wait for the dialog (default 6000).
+int grabImportDialog(MainWindow& window, const QString& pngPath)
+{
+    int exitCode = 1;
+    const int delay = qEnvironmentVariableIsSet("KK_SCREENSHOT_DIALOG_DELAY")
+        ? qEnvironmentVariableIntValue("KK_SCREENSHOT_DIALOG_DELAY")
+        : kImportDialogDelayMs;
+    QTimer::singleShot(kSettleDelayMs, &window, [&] {
+        // Runs while the dialog is open (its nested event loop keeps timers going).
+        QTimer::singleShot(delay, &window, [&] {
+            QScreen* screen = QGuiApplication::primaryScreen();
+            const QPixmap pixmap = screen ? screen->grabWindow(0) : QPixmap();
+            if (!pixmap.isNull() && pixmap.save(pngPath, "PNG"))
+                exitCode = 0;
+            else
+                std::fprintf(stderr, "cannot grab the screen into %s\n", qPrintable(pngPath));
+            QApplication::exit(exitCode); // also ends the dialog's event loop
+        });
+        window.projectController()->importMedia();
+    });
+    QApplication::exec();
+    return exitCode;
+}
+
 } // namespace
 
 int runScreenshot(MainWindow& window, const QString& target, const QString& pngPath)
@@ -206,12 +236,14 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         if (Page* edit = window.page(QStringLiteral("edit")))
             edit->setPanelVisible(PanelId::Effects, true);
         panel = window.findChild<EffectsLibraryPanel*>();
+    } else if (target == QLatin1String("import-dialog")) {
+        return grabImportDialog(window, pngPath);
     } else if (!isPage) {
         std::fprintf(stderr,
             "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
             "project-settings[:section], keyboard, inspector, keyframes, keyframes-window, "
             "mediapool, "
-            "effects, menu-color-theme "
+            "effects, import-dialog, menu-color-theme "
             "or "
             "menu-style)\n",
             qPrintable(target));

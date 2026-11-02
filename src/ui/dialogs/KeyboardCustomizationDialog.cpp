@@ -2,6 +2,7 @@
 // KeyboardCustomizationDialog implementation.
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 
+#include "platform/FileDialogs.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/StandardActions.h"
 
@@ -9,7 +10,6 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDialogButtonBox>
-#include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
@@ -507,8 +507,8 @@ void KeyboardCustomizationDialog::deleteProfile()
 
 void KeyboardCustomizationDialog::importKeymap()
 {
-    const QString path = QFileDialog::getOpenFileName(
-        this, tr("Import Keyboard Profile"), QString(), tr("Keymap (*.json)"));
+    const QString path = platform::getOpenFileName(this, tr("Import Keyboard Profile"),
+        tr("Keymap (*.json)"), QStringLiteral("paths/lastKeymapDir"));
     if (path.isEmpty())
         return;
     QString error;
@@ -524,8 +524,9 @@ void KeyboardCustomizationDialog::importKeymap()
 
 void KeyboardCustomizationDialog::exportKeymap()
 {
-    QString path = QFileDialog::getSaveFileName(this, tr("Export Keyboard Profile"),
-        m_registry.activeProfile() + QStringLiteral(".json"), tr("Keymap (*.json)"));
+    QString path = platform::getSaveFileName(this, tr("Export Keyboard Profile"),
+        tr("Keymap (*.json)"), QStringLiteral("paths/lastKeymapDir"),
+        m_registry.activeProfile() + QStringLiteral(".json"));
     if (path.isEmpty())
         return;
     if (!path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive))
