@@ -199,7 +199,10 @@ void GlOutput::finishPending(bool keepNewest)
         }
         gl->glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         m_freePbos.push_back(p.pbo);
-        p.frame->renderMs = p.submitMs + double(wait.nsecsElapsed()) / 1e6;
+        const double waitMs = double(wait.nsecsElapsed()) / 1e6;
+        p.frame->renderMs = p.submitMs + waitMs;
+        p.frame->outputMs += p.submitMs - p.frame->decodeMs - p.frame->uploadMs
+            - p.frame->compositeMs - p.frame->outputMs + waitMs;
         p.job.promise.set_value(std::move(p.frame));
     }
 }

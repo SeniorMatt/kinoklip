@@ -89,6 +89,11 @@ struct RenderedFrame
     void* fence = nullptr;
     QImage image; ///< ARGB32_Premultiplied when OutputImage was requested (or CPU fallback)
     double renderMs = 0.0; ///< wall-clock time the render thread spent on this frame
+    // Stages of renderMs (render-thread wall clock; GPU work runs asynchronously):
+    double decodeMs = 0.0; ///< decoding every visible clip (incl. hardware frame download)
+    double uploadMs = 0.0; ///< plane texture uploads
+    double compositeMs = 0.0; ///< drawing layers, effects, transitions (excluding uploads)
+    double outputMs = 0.0; ///< output slot + fence (+ readback for OutputImage)
 };
 
 /// Shared handle to a rendered frame (releasing the last reference recycles the texture).

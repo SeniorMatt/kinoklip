@@ -24,30 +24,9 @@ constexpr size_t kRingFrames = 8192;
 /// Pre-roll before the device starts (frames in the ring), and how long to wait for it.
 constexpr size_t kPrerollFrames = 2 * 1024;
 constexpr int kPrerollTimeoutMs = 60;
-/// Auto quality is re-evaluated this often while playing...
-constexpr int64_t kQualityEvalUs = 500'000;
-/// ...but not within this time after a change (the render-time average must refill).
-constexpr int64_t kQualitySettleUs = 1'000'000;
-/// Dropped frames per evaluation window that force a lower quality.
-constexpr int64_t kDropsForDownshift = 3;
-/// After a downshift from a quality, returning to it waits this long (doubling each time, up
-/// to the maximum; reset when playback restarts).
-constexpr int64_t kUpshiftBackoffUs = 10'000'000;
-constexpr int64_t kMaxUpshiftBackoffUs = 120'000'000;
-
 int64_t nowMs()
 {
     return monotonicUs() / 1000;
-}
-
-Quality lower(Quality q)
-{
-    return q == Quality::Full ? Quality::Half : Quality::Quarter;
-}
-
-Quality higher(Quality q)
-{
-    return q == Quality::Quarter ? Quality::Half : Quality::Full;
 }
 
 } // namespace
@@ -87,6 +66,7 @@ void PlaybackEngine::init(Options options)
         m_ring = std::make_unique<AudioRing>(kRingFrames);
         m_feeder = std::make_unique<AudioFeeder>(m_ring.get());
     }
+    m_logStats = qEnvironmentVariableIntValue("KK_PLAYBACK_STATS") != 0;
     m_tick.setTimerType(Qt::PreciseTimer);
     m_tick.setInterval(kTickMs);
     connect(&m_tick, &QTimer::timeout, this, &PlaybackEngine::onTick);
@@ -300,13 +280,27 @@ QSize PlaybackEngine::outputSize() const
     return fitted.expandedTo(QSize(1, 1));
 }
 
+QSize PlaybackEngine::renderSize() const
+{
+    const QSize out = outputSize();
+    const Quality quality = currentQuality();
+    if (quality == Quality::Full) {
+        return out;
+    }
+    // Proxy resolution: a fraction of the timeline resolution, never more than the viewer shows.
+    const QSize native
+        = m_snapshot ? QSize(m_snapshot->width, m_snapshot->height) : QSize(1920, 1080);
+    const QSize proxy = scaledRenderSize(native, quality);
+    return proxy.width() < out.width() ? proxy : out;
+}
+
 void PlaybackEngine::setQualityMode(QualityMode mode)
 {
     if (mode == m_qualityMode) {
         return;
     }
     m_qualityMode = mode;
-    m_autoQuality = Quality::Full;
+    m_auto.reset(monotonicUs());
     m_scheduler.resetAverage();
     updateParams(true);
 }
@@ -324,7 +318,7 @@ Quality PlaybackEngine::currentQuality() const
         break;
     }
     // Auto: a paused picture is always sharp; playback adapts.
-    return isPlaying() ? m_autoQuality : Quality::Full;
+    return isPlaying() ? m_auto.quality() : Quality::Full;
 }
 
 void PlaybackEngine::setMuted(bool muted)
@@ -351,24 +345,26 @@ void PlaybackEngine::updateParams(bool rerender)
     RenderParams params;
     params.timeline = m_snapshot;
     params.media = m_media;
-    params.outSize = outputSize();
-    params.quality = currentQuality();
+    // The proxy resolution is applied here (relative to the timeline resolution, see
+    // renderSize()); the compositor renders exactly that size.
+    params.outSize = renderSize();
+    params.quality = Quality::Full;
+    const Quality quality = currentQuality();
     const bool allTextures = !m_clients.isEmpty()
         && std::all_of(
             m_clients.cbegin(), m_clients.cend(), [](const Client& c) { return c.textures; });
     params.outputs = m_compositor->isGpu() && allTextures ? OutputTexture : OutputImage;
     const RenderParams& old = m_scheduler.params();
     const bool changed = old.timeline != params.timeline || old.media != params.media
-        || old.outSize != params.outSize || old.quality != params.quality
-        || old.outputs != params.outputs;
+        || old.outSize != params.outSize || old.outputs != params.outputs;
     if (changed) {
         // Size/quality changes during playback keep the frames in flight (same picture).
         const bool contentChanged = old.timeline != params.timeline || old.media != params.media;
         m_scheduler.setParams(params, contentChanged || !isPlaying());
     }
-    if (params.quality != m_lastEmittedQuality) {
-        m_lastEmittedQuality = params.quality;
-        Q_EMIT qualityChanged(params.quality);
+    if (quality != m_lastEmittedQuality) {
+        m_lastEmittedQuality = quality;
+        Q_EMIT qualityChanged(quality);
     }
     if (rerender && changed && !isPlaying() && m_snapshot) {
         requestStill(true);
@@ -384,6 +380,12 @@ PlaybackEngine::Stats PlaybackEngine::stats() const
         s.playSeconds += double(monotonicUs() - m_motionStartUs) * 1e-6;
     }
     s.averageRenderMs = m_scheduler.averageRenderMs();
+    if (m_stageCount > 0) {
+        s.averageDecodeMs = m_stageSum[0] / double(m_stageCount);
+        s.averageUploadMs = m_stageSum[1] / double(m_stageCount);
+        s.averageCompositeMs = m_stageSum[2] / double(m_stageCount);
+        s.averageOutputMs = m_stageSum[3] / double(m_stageCount);
+    }
     s.audioMaster = m_clock.isAudioMaster() && isPlaying();
     s.avOffsetFrames = m_clock.lastAudioError();
     return s;
@@ -392,6 +394,8 @@ PlaybackEngine::Stats PlaybackEngine::stats() const
 void PlaybackEngine::resetStats()
 {
     m_stats = Stats {};
+    std::fill(std::begin(m_stageSum), std::end(m_stageSum), 0.0);
+    m_stageCount = 0;
     m_motionStartUs = isPlaying() ? monotonicUs() : 0;
 }
 
@@ -588,6 +592,7 @@ void PlaybackEngine::setRateInternal(double rate)
 void PlaybackEngine::startMotion(double rate, double fromFrame)
 {
     const int64_t now = monotonicUs();
+    const bool fromRest = m_motionStartUs == 0; // a new play, not a seek or rate change
     if (m_motionStartUs > 0) {
         m_stats.playSeconds += double(now - m_motionStartUs) * 1e-6;
     }
@@ -615,14 +620,10 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
         m_clock.startFree(start, rate, now);
     }
     m_motionStartUs = now;
-    m_lastQualityChangeUs = now;
-    m_overloadWindows = 0;
-    for (int i = 0; i < 3; ++i) {
-        m_upshiftBlockedUntilUs[i] = 0;
-        m_upshiftBackoffUs[i] = 0;
+    if (fromRest) {
+        m_auto.reset(now);
+        m_scheduler.resetAverage(); // paused stills say nothing about playback
     }
-    m_scheduler.resetAverage(); // paused stills / the previous run say nothing about this one
-    m_droppedAtQualityCheck = m_stats.dropped;
     updateParams(false);
     setPositionInternal(int64_t(start), true);
     ensureTicking();
@@ -742,6 +743,14 @@ void PlaybackEngine::present(const RenderedFramePtr& frame, int64_t key)
         }
         m_lastShownKey = key;
         m_hasShownKey = true;
+        const double stages[4]
+            = {frame->decodeMs, frame->uploadMs, frame->compositeMs, frame->outputMs};
+        for (int i = 0; i < 4; ++i) {
+            m_stageSum[i] += stages[i];
+            m_winSum[i] += stages[i];
+        }
+        ++m_stageCount;
+        ++m_winCount;
     }
     m_current = frame;
     Q_EMIT frameReady(m_current);
@@ -752,57 +761,56 @@ void PlaybackEngine::updateAutoQuality(int64_t nowUs)
     if (m_qualityMode != QualityMode::Auto || !isPlaying()) {
         return;
     }
-    // Let the render-time average refill after a change, then evaluate in fixed windows.
-    if (nowUs - m_lastQualityChangeUs < kQualitySettleUs
-        || nowUs - m_qualityEvalUs < kQualityEvalUs) {
-        return;
-    }
-    m_qualityEvalUs = nowUs;
-    const double avg = m_scheduler.averageRenderMs();
-    const int64_t drops = m_stats.dropped - m_droppedAtQualityCheck;
-    m_droppedAtQualityCheck = m_stats.dropped;
-    if (avg <= 0.0) {
-        return;
-    }
     // Throughput needed: one frame per timeline frame interval whatever the rate (shuttle
     // shows every n-th frame at the same display rate).
     const double intervalMs = 1000.0 / std::max(1.0, fps().toDouble());
-    const double load = avg / intervalMs;
-    Quality next = m_autoQuality;
-    // Overload must persist for two windows (or show up as real drops) before quality drops:
-    // a single slow window is usually a decoder opening or seeking at a cut.
-    m_overloadWindows = load > kDownshiftLoad ? m_overloadWindows + 1 : 0;
-    if ((m_overloadWindows >= 2 || drops >= kDropsForDownshift)
-        && m_autoQuality != Quality::Quarter) {
-        m_overloadWindows = 0;
-        next = lower(m_autoQuality);
-    } else if (load < kUpshiftLoad && drops == 0 && m_autoQuality != Quality::Full) {
-        if (m_headroomSinceUs < 0) {
-            m_headroomSinceUs = nowUs;
-        } else if (nowUs - m_headroomSinceUs >= int64_t(kUpshiftHoldMs) * 1000
-            && nowUs >= m_upshiftBlockedUntilUs[int(higher(m_autoQuality))]) {
-            next = higher(m_autoQuality);
-        }
-    } else {
-        m_headroomSinceUs = -1;
-    }
-    if (next == m_autoQuality) {
+    const Quality before = m_auto.quality();
+    if (!m_auto.update(nowUs, m_scheduler.averageRenderMs(), intervalMs)) {
         return;
     }
-    qCInfo(lcPlayback) << "auto quality" << qualityFactor(m_autoQuality) << "->"
-                       << qualityFactor(next) << "render" << avg << "ms, drops" << drops;
-    if (next != higher(m_autoQuality)) {
-        // Downshift: going back up to the quality that just failed waits, longer each time,
-        // so a renderer that is borderline at it does not oscillate (Full, Half, Full, ...).
-        int64_t& backoff = m_upshiftBackoffUs[int(m_autoQuality)];
-        backoff = backoff == 0 ? kUpshiftBackoffUs : std::min(backoff * 2, kMaxUpshiftBackoffUs);
-        m_upshiftBlockedUntilUs[int(m_autoQuality)] = nowUs + backoff;
-    }
-    m_autoQuality = next;
-    m_lastQualityChangeUs = nowUs;
-    m_headroomSinceUs = -1;
+    qCInfo(lcPlayback) << "auto quality" << qualityFactor(before) << "->"
+                       << qualityFactor(m_auto.quality()) << "load" << m_auto.lastLoad();
     m_scheduler.resetAverage();
     updateParams(false);
+}
+
+void PlaybackEngine::logStats(int64_t nowUs)
+{
+    if (m_statsLogUs == 0) {
+        m_statsLogUs = nowUs;
+        m_statsAtLog = stats();
+        return;
+    }
+    if (nowUs - m_statsLogUs < 1'000'000) {
+        return;
+    }
+    const Stats s = stats();
+    const double seconds = double(nowUs - m_statsLogUs) * 1e-6;
+    const int64_t frames = std::max<int64_t>(1, m_winCount);
+    auto stage = [&](int i) { return m_winSum[i] / double(frames); };
+    const QSize size = renderSize();
+    qCInfo(lcPlayback).noquote() << QStringLiteral(
+        "stats: %1 fps (of %2), %3 dropped, quality %4 %5x%6, render %7 ms "
+        "[decode %8, upload %9, composite %10, output %11], %12, A/V %13")
+                                        .arg(double(s.presented - m_statsAtLog.presented) / seconds,
+                                            0, 'f', 1)
+                                        .arg(fps().toDouble() * std::abs(m_rate), 0, 'f', 2)
+                                        .arg(s.dropped - m_statsAtLog.dropped)
+                                        .arg(qualityFactor(currentQuality()))
+                                        .arg(size.width())
+                                        .arg(size.height())
+                                        .arg(s.averageRenderMs, 0, 'f', 1)
+                                        .arg(stage(0), 0, 'f', 1)
+                                        .arg(stage(1), 0, 'f', 1)
+                                        .arg(stage(2), 0, 'f', 1)
+                                        .arg(stage(3), 0, 'f', 1)
+                                        .arg(s.audioMaster ? QStringLiteral("audio clock")
+                                                           : QStringLiteral("wall clock"))
+                                        .arg(s.avOffsetFrames, 0, 'f', 2);
+    m_statsLogUs = nowUs;
+    m_statsAtLog = s;
+    std::fill(std::begin(m_winSum), std::end(m_winSum), 0.0);
+    m_winCount = 0;
 }
 
 void PlaybackEngine::onTick()
@@ -877,6 +885,9 @@ void PlaybackEngine::onTick()
     }
     setPositionInternal(int64_t(wrap(double(dueKey))), true);
     updateAutoQuality(now);
+    if (m_logStats) {
+        logStats(now);
+    }
 
     if (finished) {
         const int64_t back = m_returnTo;
