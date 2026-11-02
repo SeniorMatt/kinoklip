@@ -159,7 +159,10 @@ The decoder keeps the last returned frame (`cur`) and the following one (`next`)
 `kk.media` shows info and above by default. FFmpeg errors become warnings, except known
 harmless ones (mov `UDTA parsing failed`, post-seek reference complaints) and anything logged
 inside an `FfmpegLogCapture`; FFmpeg warnings are debug output. Everything:
-`QT_LOGGING_RULES="kk.media.debug=true"`.
+`QT_LOGGING_RULES="kk.media.debug=true"`. Qt Multimedia's FFmpeg backend (the bundle's
+`QT_MEDIA_BACKEND=ffmpeg`) installs its own `av_log` callback when it initialises, so
+`initFfmpeg()` re-installs ours on every call and the audio output calls
+`installFfmpegLogRouting()` right after `QMediaDevices` (alpha.3 printed FFmpeg's raw lines).
 
 ### Audio accuracy
 

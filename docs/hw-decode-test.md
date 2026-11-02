@@ -13,7 +13,15 @@ and `kk.media: hardware frame download failed: "Input/output error"`, and no
 * the log says which decoder each file uses, which VA driver and libva are loaded, and probing
   for NVIDIA/QSV no longer prints errors on a machine without them;
 * `KK_PLAYBACK_STATS=1` now also prints a summary every time playback stops (alpha.3 printed
-  only after one full second of uninterrupted playback, so short plays printed nothing).
+  only after one full second of uninterrupted playback, so short plays printed nothing);
+* FFmpeg's messages stay in Kinoklip's log routing: Qt Multimedia's FFmpeg backend replaced
+  FFmpeg's log callback as soon as audio started, which is why alpha.3 showed raw
+  `[AVHWFramesContext] ...`, `UDTA ...`, `CUDA_ERROR_NO_DEVICE` and MFX lines.
+
+`QT_FORCE_STDERR_LOGGING=1` is added to every command below: the bundled Qt sends its log to
+the systemd journal instead of the terminal when it thinks there is no console (e.g. when the
+`.run` is started from Dolphin); with the variable the lines always reach `tee`. (Already
+started without it? `journalctl --user -b | grep kk\.` finds them.)
 
 Please run the steps below and send `kinoklip-*.txt` back. Each run takes about two minutes.
 
@@ -32,7 +40,7 @@ In `vainfo` look for `Driver version: Intel iHD driver ... - 24.x` (or 25.x) and
 ## 1. Normal run (the main question)
 
 ```sh
-KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-1-default.txt
+QT_FORCE_STDERR_LOGGING=1 KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-1-default.txt
 ```
 
 In the app: import the clip, put it on the timeline, play at least 5 s, stop; click somewhere
@@ -62,17 +70,17 @@ Same steps as run 1 each time (play 5 s twice is enough, no render needed):
 
 ```sh
 # a) without the new locking: if failures become more frequent, concurrency is (part of) it
-KINOKLIP_HW_SERIALIZE=off KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-2a-nolock.txt
+KINOKLIP_HW_SERIALIZE=off QT_FORCE_STDERR_LOGGING=1 KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-2a-nolock.txt
 # b) old download path (av_hwframe_transfer_data instead of map + streaming copy)
-KINOKLIP_VAAPI_COPY=transfer KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-2b-transfer.txt
+KINOKLIP_VAAPI_COPY=transfer QT_FORCE_STDERR_LOGGING=1 KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-2b-transfer.txt
 # c) everything in software: the reference (no hardware decoding at all)
-KINOKLIP_HWACCEL=off KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-2c-software.txt
+KINOKLIP_HWACCEL=off QT_FORCE_STDERR_LOGGING=1 KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-2c-software.txt
 ```
 
 And one verbose run with every media detail (FFmpeg messages included):
 
 ```sh
-QT_LOGGING_RULES="kk.media.debug=true" KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-3-verbose.txt
+QT_LOGGING_RULES="kk.media.debug=true" QT_FORCE_STDERR_LOGGING=1 KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.run 2>&1 | tee kinoklip-3-verbose.txt
 ```
 
 ## 3. Optional: headless playback of a saved project
@@ -94,4 +102,5 @@ KK_PLAYBACK_STATS=1 KK_SCREENSHOT_PLAY_MS=5000 ./Kinoklip-x86_64.run --screensho
 | `KINOKLIP_VAAPI_COPY=transfer` | VAAPI download through `av_hwframe_transfer_data` (old path) |
 | `KINOKLIP_HWENC=off` | no hardware encoders for export |
 | `QT_LOGGING_RULES="kk.media.debug=true"` | verbose media log (also `kk.export.debug`, `kk.playback.debug`) |
+| `QT_FORCE_STDERR_LOGGING=1` | (Qt) always log to stderr, never to the journal |
 | `LIBVA_DRIVER_NAME=iHD` | (libva) force the iHD driver; leave unset normally |
