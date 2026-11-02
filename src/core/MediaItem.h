@@ -16,6 +16,7 @@ enum class MediaItemKind {
     File, ///< an imported media file (path, probe result)
     Timeline, ///< a timeline of the project (MediaItem::timelineUid)
     CompoundClip, ///< the timeline behind a compound clip (MediaItem::timelineUid)
+    MulticamClip, ///< the timeline behind a multicam clip (TimelineData::multicam)
     /// An imported subtitle file (.srt / .vtt): MediaItem::cues hold its captions, so the
     /// item keeps working when the file is gone. Dropping it on the timeline creates captions.
     Subtitle
@@ -42,7 +43,8 @@ struct MediaItem
     /// True for timeline and compound clip items.
     [[nodiscard]] bool isTimeline() const
     {
-        return kind == MediaItemKind::Timeline || kind == MediaItemKind::CompoundClip;
+        return kind == MediaItemKind::Timeline || kind == MediaItemKind::CompoundClip
+            || kind == MediaItemKind::MulticamClip;
     }
     /// True for imported subtitle files.
     [[nodiscard]] bool isSubtitle() const { return kind == MediaItemKind::Subtitle; }

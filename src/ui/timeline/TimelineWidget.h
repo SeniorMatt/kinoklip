@@ -324,6 +324,8 @@ private:
     TimelineController* m_controller = nullptr;
     TimelineLayout m_layout;
     TimelinePainter m_painter;
+    /// Project timelines by uid for the painter (multicam angle names); set once.
+    std::function<const TimelineData*(quint64)> m_timelineLookup;
     KeyframeLanes* m_keyframeLanes = nullptr; ///< child QObject: keyframe / curve editor lanes
     QPointer<QMenu> m_retimeMenu; ///< open speed / speed point menu
     NestedPreview* m_nestedPreview = nullptr; ///< child QObject: compound clip previews

@@ -317,7 +317,7 @@ private slots:
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
         file.close();
-        QCOMPARE(root.value(QStringLiteral("formatVersion")).toInt(), 7);
+        QVERIFY(root.value(QStringLiteral("formatVersion")).toInt() >= 7); // 8 after multicam
         QFile::remove(srtPath); // the cues travel with the project
         Project q;
         QVERIFY2(q.load(path, &error), qPrintable(error));

@@ -30,6 +30,13 @@ QVector<QPair<quint64, QString>> signature(const Project::TimelineSet& set)
     return result;
 }
 
+MediaItemKind itemKindOf(const TimelineData& data)
+{
+    return data.multicam ? MediaItemKind::MulticamClip
+        : data.compound  ? MediaItemKind::CompoundClip
+                         : MediaItemKind::Timeline;
+}
+
 } // namespace
 
 // ---- Lookup ----
@@ -111,21 +118,56 @@ void Project::replaceTimeline(quint64 uid, std::shared_ptr<const TimelineData> d
         s->data = std::move(data);
 }
 
-NestedTimelines Project::nestedFor(const TimelineData& data) const
+compound::TimelineLookup Project::timelineLookup() const
+{
+    return [this](quint64 uid) { return lookup(uid); };
+}
+
+NestedTimelines Project::nestedTimelinesFor(const TimelineData& data) const
 {
     // Render snapshots carry every timeline their Nested clips reach. The inactive ones are
-    // shared pointers already, so building the map costs one hash insert per timeline.
+    // shared pointers already, so building the map costs one hash insert per timeline. The
+    // walk starts at @p data itself (not its uid): the source viewer's private timelines
+    // (uid 0) reach project timelines too.
     NestedTimelines nested;
-    const QVector<quint64> reach
-        = compound::reachableTimelines(data.uid, [this](quint64 uid) { return lookup(uid); });
+    const compound::TimelineLookup lk = timelineLookup();
+    QVector<quint64> reach;
+    QSet<quint64> seen {data.uid};
+    for (const quint64 child : compound::directReferences(data)) {
+        if (seen.contains(child))
+            continue;
+        seen.insert(child);
+        reach.append(child);
+        for (const quint64 deeper : compound::reachableTimelines(child, lk)) {
+            if (!seen.contains(deeper)) {
+                seen.insert(deeper);
+                reach.append(deeper);
+            }
+        }
+    }
     if (reach.isEmpty())
         return nested;
     auto map = std::make_shared<NestedTimelineMap>();
-    for (const quint64 uid : reach) {
-        if (uid == data.uid)
+    for (const quint64 uid : std::as_const(reach)) {
+        if (uid == data.uid && uid != 0)
             continue; // cannot happen without a cycle; never render the root inside itself
-        if (auto d = timelineData(uid))
-            map->insert(uid, std::move(d));
+        auto d = timelineData(uid);
+        if (!d)
+            continue;
+        if (d->multicam) {
+            // One entry per angle (multicamViewKey()); cached until the timeline changes.
+            AngleViews& cache = m_angleViews[uid];
+            if (cache.source != d) {
+                cache.source = d;
+                cache.views.clear();
+                for (int a = 0; a < multicam::angleCount(*d); ++a)
+                    cache.views.append(
+                        std::make_shared<const TimelineData>(multicam::angleView(*d, a)));
+            }
+            for (qsizetype a = 0; a < cache.views.size(); ++a)
+                map->insert(multicamViewKey(uid, int(a)), cache.views[a]);
+        }
+        map->insert(uid, std::move(d));
     }
     nested.map = std::move(map);
     return nested;
@@ -133,17 +175,27 @@ NestedTimelines Project::nestedFor(const TimelineData& data) const
 
 void Project::installResolver()
 {
-    m_timeline->setNestedResolver([this](const TimelineData& data) { return nestedFor(data); });
+    m_timeline->setNestedResolver(
+        [this](const TimelineData& data) { return nestedTimelinesFor(data); });
 }
 
 std::shared_ptr<const TimelineData> Project::renderSnapshot(quint64 uid) const
 {
+    if (uid > kTimelineUidMask) {
+        // An angle view key (multicamViewKey()): that angle of the multicam timeline alone.
+        const auto base = timelineData(uid & kTimelineUidMask);
+        if (!base)
+            return nullptr;
+        auto view = std::make_shared<TimelineData>(multicam::angleView(*base, int(uid >> 40) - 1));
+        view->nested = nestedTimelinesFor(*view);
+        return view;
+    }
     if (uid == m_activeUid)
         return m_timeline->snapshot();
     const auto plain = timelineData(uid);
     if (!plain)
         return nullptr;
-    NestedTimelines nested = nestedFor(*plain);
+    NestedTimelines nested = nestedTimelinesFor(*plain);
     if (!nested.map)
         return plain;
     auto copy = std::make_shared<TimelineData>(*plain);
@@ -231,7 +283,7 @@ void Project::syncDerived()
         const auto it = itemOf.constFind(s.uid);
         if (it == itemOf.constEnd()) {
             MediaItem item;
-            item.kind = data->compound ? MediaItemKind::CompoundClip : MediaItemKind::Timeline;
+            item.kind = itemKindOf(*data);
             item.timelineUid = s.uid;
             item.name = data->name;
             item.info = compound::timelineInfo(*data);
@@ -354,6 +406,7 @@ void Project::resetTimelines(
 {
     // Before anything is replaced: views store their state into the old timeline's slot.
     emit activeTimelineAboutToChange(m_activeUid);
+    m_angleViews.clear();
     m_slots = std::move(timelineSlots);
     m_nextTimelineUid = 1;
     for (const TimelineSlot& s : m_slots)
@@ -374,7 +427,7 @@ void Project::addTimeline(TimelineData data, const QString& binId)
 {
     const quint64 uid = data.uid;
     MediaItem item;
-    item.kind = data.compound ? MediaItemKind::CompoundClip : MediaItemKind::Timeline;
+    item.kind = itemKindOf(data);
     item.timelineUid = uid;
     item.name = data.name;
     item.binId = binId;

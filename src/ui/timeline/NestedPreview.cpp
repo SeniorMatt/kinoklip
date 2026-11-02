@@ -58,7 +58,8 @@ NestedPreview::~NestedPreview()
 NestedPreview::Entry& NestedPreview::entry(quint64 uid)
 {
     Entry& e = m_entries[uid];
-    std::shared_ptr<const TimelineData> current = m_project->timelineData(uid);
+    // Multicam angle keys (multicamViewKey()) depend on the multicam timeline itself.
+    std::shared_ptr<const TimelineData> current = m_project->timelineData(uid & kTimelineUidMask);
     if (current != e.version) {
         // The nested timeline changed: everything made from the old version is stale.
         e.version = std::move(current);

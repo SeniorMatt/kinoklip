@@ -234,8 +234,8 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
             // Timelines and compound clips open in a timeline tab (Resolve), media in the
             // source viewer.
             const MediaItem* item = m_ctx.project->mediaPool()->item(id);
-            if (item && item->isTimeline())
-                openTimeline(item->timelineUid);
+            if (item && item->isTimeline() && item->kind != MediaItemKind::MulticamClip)
+                openTimeline(item->timelineUid); // multicam clips: angles in the source viewer
             else if (item && item->isSubtitle())
                 return; // no picture to view: drag it onto the timeline for captions
             else
@@ -316,6 +316,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     });
 
     rebuildBins();
+    connectMulticamActions();
     const QVariant binsChoice = QSettings().value(QLatin1String(kBinsVisibleKey));
     if (binsChoice.isValid())
         setBinsVisible(binsChoice.toBool());
@@ -774,10 +775,14 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
     const MediaItem* currentItem = m_ctx.project->mediaPool()->item(current);
     if (currentItem && currentItem->isTimeline()) {
         const quint64 uid = currentItem->timelineUid;
+        if (currentItem->kind == MediaItemKind::MulticamClip)
+            menu.addAction(tr("Open in Source Viewer"), this,
+                [this, current] { emit openInSourceViewer(current); });
         menu.addAction(tr("Open in Timeline"), this, [this, uid] { openTimeline(uid); });
-        menu.addAction(currentItem->kind == MediaItemKind::CompoundClip
-                ? tr("Duplicate Compound Clip")
-                : tr("Duplicate Timeline"),
+        menu.addAction(currentItem->kind == MediaItemKind::MulticamClip
+                ? tr("Duplicate Multicam Clip")
+                : currentItem->kind == MediaItemKind::CompoundClip ? tr("Duplicate Compound Clip")
+                                                                   : tr("Duplicate Timeline"),
             this, [this, uid] { m_ctx.project->duplicateTimeline(uid); });
         menu.addSeparator();
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
@@ -798,6 +803,8 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
                     *m_ctx.project, ids.contains(current) ? ids : QStringList {current}, this);
             });
         }
+        menu.addSeparator();
+        addMulticamMenu(menu, ids);
     }
     if (!current.isEmpty()) {
         QMenu* move = menu.addMenu(tr("Move to Bin"));

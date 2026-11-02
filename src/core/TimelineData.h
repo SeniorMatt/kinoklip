@@ -125,6 +125,10 @@ struct ClipData
     /// ClipKind::Nested: TimelineData::uid of the timeline the clip shows (authoritative; a
     /// uid that no longer exists makes the clip offline: it draws and plays nothing).
     quint64 nestedUid = 0;
+    /// ClipKind::Nested showing a multicam timeline (TimelineData::multicam): the 0-based
+    /// angle the clip shows (video clips: the video track of that angle, audio clips: its
+    /// audio track). -1 = no angle: the whole nested timeline (every other Nested clip).
+    int multicamAngle = -1;
     QString name;
     QColor label; ///< optional user colour label (invalid = none)
     int64_t start = 0; ///< first timeline frame
@@ -256,7 +260,18 @@ struct TrackRef
 /// Nested timelines of a render snapshot: TimelineData::uid -> immutable data (see
 /// TimelineData::nested). Every timeline reachable from the snapshot is in the one map; the
 /// entries themselves carry no map (renderers pass the root's map down).
+/// Multicam timelines also contribute one entry per angle (multicamViewKey()): a copy that
+/// holds only that angle's video and audio track (core/Multicam.h, multicam::angleView()).
 using NestedTimelineMap = QHash<quint64, std::shared_ptr<const TimelineData>>;
+
+/// Key of the angle view of multicam timeline @p uid, angle @p angle (0-based) in a
+/// NestedTimelineMap. Timeline uids stay far below 2^40, so the keys never collide with them.
+[[nodiscard]] constexpr quint64 multicamViewKey(quint64 uid, int angle)
+{
+    return uid | (quint64(angle + 1) << 40);
+}
+/// The timeline-uid bits of a NestedTimelineMap key (removes the angle of multicamViewKey()).
+inline constexpr quint64 kTimelineUidMask = (quint64(1) << 40) - 1;
 
 /// Holder of the nested-timeline map of a render snapshot. Compares equal to every other
 /// holder: it is derived data (filled by Timeline::snapshot()), so it must never make two
@@ -273,6 +288,10 @@ struct NestedTimelines
         const auto it = map->constFind(uid);
         return it == map->constEnd() ? nullptr : it->get();
     }
+    /// What Nested clip @p clip shows: for a multicam angle (ClipData::multicamAngle >= 0)
+    /// the angle view of its multicam timeline (multicamViewKey()), else (or when the map has
+    /// no such view) the nested timeline itself. nullptr if neither exists (offline).
+    [[nodiscard]] const TimelineData* findClip(const ClipData& clip) const;
     friend bool operator==(const NestedTimelines&, const NestedTimelines&) { return true; }
 };
 
@@ -285,6 +304,10 @@ struct TimelineData
     /// True for the timeline behind a compound clip (Clip > New Compound Clip): listed in the
     /// media pool as a compound clip, not as a timeline.
     bool compound = false;
+    /// True for the timeline behind a multicam clip (also `compound`, so it is never counted
+    /// as a regular timeline): video track k and audio track k are angle k (core/Multicam.h),
+    /// listed in the media pool as a multicam clip.
+    bool multicam = false;
     /// Resolution and frame rate follow the project settings (Project::setSettings()).
     bool useProjectSettings = true;
     QString name;

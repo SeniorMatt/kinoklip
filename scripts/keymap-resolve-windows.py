@@ -210,6 +210,24 @@ a("mediapool.unlink_proxy", "Unlink Proxy Media", [], L, "media pool context men
 a("mediapool.delete_proxy", "Delete Proxy Media", [], L, "media pool context menu, no default key")
 a("mediapool.delete_optimized", "Delete Optimized Media", [], L, "media pool context menu, no default key")
 
+sec("Multicam and sync")
+a("mediapool.new_multicam", "Create New Multicam Clip Using Selected Clips (media pool)", [], L, "media pool context menu command without a default key in Resolve")
+a("mediapool.sync_waveform", "Sync and Place on Timeline: Based on Waveform", [], U, "Kinoklip's command (Resolve's closest is Auto Sync Audio > Based on Waveform in the media pool); no default key")
+a("mediapool.sync_timecode", "Sync and Place on Timeline: Based on Timecode", [], U, "Kinoklip's command (Resolve: Auto Sync Audio > Based on Timecode); no default key")
+a("mediapool.sync_in_points", "Sync and Place on Timeline: Based on In Points", [], U, "Kinoklip's command (Resolve: Auto Sync Audio > Based on In Points); no default key")
+a("view.multicam_viewer", "Multicam Viewer (source viewer mode: Multicam)", [], L, "Resolve picks Multicam in the source viewer's mode menu; no default key is known, none assigned")
+a("multicam.flatten", "Flatten Multicam Clip", [], L, "timeline context menu command without a default key")
+a("multicam.mode_cut", "Multicam Cut Mode", [], U, "Resolve switches cut / switch with buttons above the multicam viewer; no default key is known")
+a("multicam.mode_switch", "Multicam Switch Mode", [], U, "see Multicam Cut Mode")
+a("multicam.target_both", "Multicam: Video and Audio", [], U, "Resolve's video / audio / both buttons of the multicam viewer; no default key is known")
+a("multicam.target_video", "Multicam: Video Only", [], U, "see Multicam: Video and Audio")
+a("multicam.target_audio", "Multicam: Audio Only", [], U, "see Multicam: Video and Audio")
+a("multicam.prev_page", "Previous Multicam Angle Page", [], U, "no default key is known")
+a("multicam.next_page", "Next Multicam Angle Page", [], U, "no default key is known")
+for n in range(1, 10):
+    a("multicam.angle_%d" % n, "Cut / Switch to Multicam Angle %d" % n, [str(n)], L,
+      "number keys cut to the angle while the multicam viewer is shown (Resolve's multicam editing); acts on the multicam clip under the timeline playhead" if n == 1 else "")
+
 sec("Help")
 a("help.about", "About", [], S)
 a("help.about_qt", "About Qt", [], S)

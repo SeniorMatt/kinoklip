@@ -279,7 +279,7 @@ void GlRenderer::queueDecode(const ClipData* clip, int64_t frame, int64_t nextFr
     if (!clip || !clip->enabled)
         return;
     if (clip->kind == ClipKind::Nested) {
-        const TimelineData* n = nested.find(clip->nestedUid);
+        const TimelineData* n = nested.findClip(*clip);
         if (!n || depth >= kMaxNestingDepth)
             return;
         queueTimeline(*n, nestedFrameAt(*clip, frame, tl.fps, n->fps),
@@ -711,7 +711,7 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         // the output (fitted like media: aspect kept), then drawn like a texture source, so
         // the instance's transform, crop, opacity, effects and transitions apply to the
         // whole nested picture.
-        const TimelineData* n = fc.nested ? fc.nested->find(clip.nestedUid) : nullptr;
+        const TimelineData* n = fc.nested ? fc.nested->findClip(clip) : nullptr;
         if (!n || n->width <= 0 || n->height <= 0 || fc.depth + 1 > kMaxNestingDepth)
             return false;
         const QSizeF native(n->width, n->height);

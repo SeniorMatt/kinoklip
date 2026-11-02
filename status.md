@@ -85,3 +85,7 @@
 - 17:18 Heartbeat: linked V/A vertical move fix (owner request) built, full suite running; adjsubs 12 commits, multicam 5 (both in long builds since 17:05), bins started; 20 GB free.
 - 17:21 Linked V/A vertical move (owner request) committed: 75/76 in parallel run, test_resizebench timing flake under load 19 (passes alone).
 - 17:37 adjsubs merged (80/80): adjustment clips (fast path), generators, subtitle tracks + SRT/VTT import, burn-in/sidecar/embedded export, format v7. Starting 'attrs' (audio level lines on timeline, clip attributes, stacked timelines, spec renumbering). Running: multicam, bins, attrs.
+- 18:16 Owner request: Kinoklip colour scheme (Resolve-like neutral charcoal + warm accent) added; verified in the KF6 bundle and by test_themeswitch. Default still Breeze Dark (asked owner).
+- 18:18 Heartbeat: multicam 11 commits (container build compiling), bins 4, attrs active; 18 GB free.
+- 18:50 multicam merged (all tests pass). Usage limit reached: bins and attrs agents paused (work committed in their worktrees; resume via SendMessage). Next: merge bins + attrs, renumber spec sections, release 0.2.0-alpha.1.
+- 19:25 Resumed after usage pause: bins (6 commits + uncommitted work) and attrs (5 commits); heartbeat re-created. Next: merge both, renumber spec sections, release 0.2.0-alpha.1.

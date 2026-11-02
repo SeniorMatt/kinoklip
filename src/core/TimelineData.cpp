@@ -21,6 +21,18 @@ int64_t ClipData::sourceTimeUsAt(int64_t frame, Rational fps) const
     return retime::sourceTimeUs(*this, double(frame - start), fps);
 }
 
+const TimelineData* NestedTimelines::findClip(const ClipData& clip) const
+{
+    if (!map)
+        return nullptr;
+    if (clip.multicamAngle >= 0) {
+        const auto it = map->constFind(multicamViewKey(clip.nestedUid, clip.multicamAngle));
+        if (it != map->constEnd())
+            return it->get();
+    }
+    return find(clip.nestedUid);
+}
+
 const ClipData* TrackData::clipAt(int64_t frame) const
 {
     // First clip whose end is after frame; it contains frame if it starts at or before it.

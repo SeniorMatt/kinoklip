@@ -437,6 +437,8 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     // inside serialization::clipFromJson() (no "retime" object = older format).
     // Versions 4 - 6 -> 7 only added adjustment / generator clips, subtitle tracks and
     // subtitle media items (all optional fields, absent = none): nothing to convert.
+    // Versions 5 - 7 -> 8 (multicam): no multicam timelines, Nested clips without
+    // "multicamAngle" load as -1 (= the whole nested timeline, exactly what they showed).
     // Versions <= 9 -> 10 only added clip fades and Clip Attributes (optional fields,
     // absent = none): nothing to convert.
 

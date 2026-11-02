@@ -107,6 +107,23 @@ int64_t streamEndUs(const AVFormatContext* fmt, const AVStream* stream)
         - detail::originUs(fmt);
 }
 
+/// Embedded start timecode ("HH:MM:SS:FF", ';' before the frames = drop frame): the
+/// container's "timecode" tag, else the video stream's, else any stream's (QuickTime keeps it
+/// on a "tmcd" data track, MXF on the container). Empty when the file has none.
+QString startTimecode(const AVFormatContext* fmt, const AVStream* video)
+{
+    auto tag = [](const AVDictionary* dict) {
+        const AVDictionaryEntry* e = av_dict_get(dict, "timecode", nullptr, 0);
+        return e && e->value ? QString::fromUtf8(e->value).trimmed() : QString();
+    };
+    QString tc = tag(fmt->metadata);
+    if (tc.isEmpty() && video)
+        tc = tag(video->metadata);
+    for (unsigned i = 0; tc.isEmpty() && i < fmt->nb_streams; ++i)
+        tc = tag(fmt->streams[i]->metadata);
+    return tc;
+}
+
 } // namespace
 
 namespace detail {
@@ -185,6 +202,8 @@ MediaInfo infoFromFormatContext(const AVFormatContext* fmt, const QString& path)
         }
         info.durationUs = std::max<int64_t>(0, endUs);
     }
+
+    info.startTimecode = startTimecode(fmt, video);
 
     info.valid = info.hasVideo || info.hasAudio;
     if (!info.valid) {

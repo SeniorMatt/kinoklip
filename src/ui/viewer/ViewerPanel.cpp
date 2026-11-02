@@ -16,6 +16,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/viewer/MaskOverlay.h"
+#include "ui/viewer/MulticamOverlay.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -351,6 +352,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
             }
         });
     }
+    setupMulticam();
     clearFrame();
     updateTitle();
     updateMarksLabel();
@@ -488,6 +490,8 @@ void ViewerPanel::onTimelineChanged()
     m_surface->setAspect(QSize(d.width, d.height));
     if (m_maskOverlay)
         m_maskOverlay->refresh();
+    if (m_multicamOverlay && m_multicamOverlay->isVisible())
+        m_multicamOverlay->refresh();
     m_scrub->setDuration(d.duration());
     m_scrub->setMarks(d.markIn, d.markOut);
     updateMarksLabel();
@@ -593,7 +597,16 @@ void ViewerPanel::setSourceMedia(const QString& mediaId)
     const MediaItem* item
         = m_ctx.project && !mediaId.isEmpty() ? m_ctx.project->mediaPool()->item(mediaId) : nullptr;
     m_sourceMediaId = item ? item->id : QString();
-    if (item) {
+    if (item && item->kind == MediaItemKind::MulticamClip && m_multicamOverlay) {
+        // A multicam clip opens as its angle grid (it wins over the timeline's clip until
+        // the timeline playhead is moved again).
+        m_multicamPrefersSource = true;
+        m_localVideoAngle = m_localAudioAngle = 0;
+        if (m_multicam)
+            updateMulticam();
+        else
+            setMulticamMode(true);
+    } else if (item) {
         ensurePlayer();
         m_player->setMedia(item);
         m_surface->setOverlayText(item->info.hasVideo ? QString() : tr("Audio only"));
@@ -636,6 +649,8 @@ void ViewerPanel::setZoom(Zoom zoom)
     m_surface->setZoom(zoomFactor(zoom));
     if (m_maskOverlay)
         m_maskOverlay->refresh(); // handles follow the new picture rectangle
+    if (m_multicamOverlay)
+        m_multicamOverlay->refresh();
     updateOutputClient();
 }
 
@@ -670,6 +685,8 @@ void ViewerPanel::showEvent(QShowEvent* event)
 {
     PanelFrame::showEvent(event);
     updateOutputClient();
+    if (m_multicam)
+        updateMulticam();
 }
 
 void ViewerPanel::hideEvent(QHideEvent* event)
