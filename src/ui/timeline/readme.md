@@ -26,6 +26,7 @@ for thumbnails and waveforms).
 | `ChangeSpeedDialog.h` | the R dialog: speed / fps / duration linked, reverse, freeze, ripple, pitch correction |
 | `TimelineLayout.h` | pure geometry: frame <-> x, rows, header buttons, clip ranges, hit-testing (unit-tested) |
 | `TimelinePainter.h` | draws ruler, headers, clips, transitions, overlays for one paint event |
+| `TimelineAnimator.h` | display-only tweens (v2.2, spec 38): clips sliding after committed edits, appearing / ghost fade-out, blade and trim flashes, edit point pulse, snap fade, playhead glide |
 | `TimelineMedia.h` | thumbnail / waveform provider types and the MediaCache-backed defaults |
 | `KeyframeLanes.h` | per-clip keyframe / curve editor state, lane heights for the layout, lane widget placement, the two toggle buttons on animated clips, keyframe commands and actions |
 | `KeyframeTrackWidget.h` | keyframe editor lane: a `DopeSheetView` (src/ui/keyframes) of one clip with the row labels in the header column |
@@ -204,6 +205,27 @@ scroll in pixels.
 - Selection is mirrored into a `QSet` for O(1) lookups (SelectionModel stores a vector).
 - Benchmark (`test_timelinebench`, 2,000 clips, 1920x600 offscreen): 3.6 to 8.2 ms per full
   repaint from fit-all to max zoom; one live drag update (state copy + move) 3.4 ms.
+
+## Animations (v2.2, TimelineAnimator.h, spec 38)
+
+Display only: the model and the undo stack change instantly, hit tests use the model.
+- `TimelineWidget::onTimelineChanged()` hands every *committed* change (no open edit, so live
+  drags in any view stay 1:1) to `TimelineAnimator::modelChanged()` *before* the layout is
+  rebuilt: the old rows give the old clip positions. One pass over the new clips with hash
+  lookups into the previous state (`Timeline::plainSnapshot()`, which endEdit() needs anyway)
+  records where each moved clip was drawn; new clips appear, removed ones become ghosts, a new
+  clip that forms a through edit with the old clip it came from is a blade cut (flash + halves
+  apart). Changes during an open edit mark the animator stale; the undo stack's indexChanged()
+  and `finishDrag()` resync it without animating.
+- `TimelinePaintInput::anim` is set only while something runs: the painter then asks
+  `displayClip()` for each clip's rect and opacity, widens the visible clip range by
+  `maxShiftFrames()` and draws ghosts, flashes, the pulsed edit point bracket, the snap fade and
+  the gliding playhead. With animations idle or off (`uianim::enabled()`) the old paths run
+  unchanged and the widget makes no animator calls at all.
+- Time: `uianim::nowMs()` frozen per paint by `tick()`; a precise timer at the screen refresh
+  rate repaints the viewport while anything runs. Durations and easing: `ui/common/UiAnimation.h`.
+- Test: tests/timeline/test_timelineanimation.cpp (test clock; KK_ANIMATIONS=1 since offscreen
+  defaults to off; KK_ANIMATION_SHOTS=<folder> writes demo frames).
 
 ## Input state machine (TimelineInput.cpp)
 

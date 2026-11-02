@@ -9,10 +9,12 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "export/RenderCacheManager.h"
+#include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/common/UiAnimation.h"
 #include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/NestedPreview.h"
@@ -23,6 +25,7 @@
 #include <QMenu>
 #include <QPainter>
 #include <QScrollBar>
+#include <QUndoStack>
 #include <QWheelEvent>
 
 #include <cmath>
@@ -43,6 +46,7 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     : QAbstractScrollArea(parent)
     , m_ctx(ctx)
     , m_controller(controller)
+    , m_anim([this] { viewport()->update(); })
 {
     if (ctx.project)
         m_timelineLookup = ctx.project->timelineLookup();
@@ -87,6 +91,7 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     connect(timeline, &Timeline::playheadChanged, this, &TimelineWidget::onPlayheadChanged);
     connect(ctx.selection, &SelectionModel::changed, this, &TimelineWidget::onSelectionChanged);
     connect(ctx.project, &Project::projectReset, this, [this] {
+        m_anim.clear(); // a loaded project is not an edit
         onTimelineChanged();
         if (m_options.keepsViewState)
             restoreViewState(m_ctx.project->activeTimelineUid());
@@ -130,8 +135,17 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     m_autoScroll.setInterval(30);
     connect(&m_autoScroll, &QTimer::timeout, this, &TimelineWidget::autoScrollTick);
 
+    // Animations (v2.2): the undo stack index moves when a gesture's edit is pushed (its live
+    // changes were not animated) and on undo / redo.
+    connect(
+        ctx.project->undoStack(), &QUndoStack::indexChanged, this, &TimelineWidget::syncAnimations);
+    connect(uianim::Notifier::instance(), &uianim::Notifier::changed, this,
+        &TimelineWidget::onAnimationSettingsChanged);
+
     m_layout.rebuild(timeline->data());
+    m_lastPlayhead = timeline->playhead();
     onSelectionChanged();
+    syncAnimations(); // the first edit animates from the state at construction
 }
 
 void TimelineWidget::restoreViewState(quint64 uid)
@@ -179,6 +193,23 @@ void TimelineWidget::refreshMedia()
 
 void TimelineWidget::onTimelineChanged()
 {
+    // Animations: compare the committed state with the previous one while the old layout is
+    // still in place (the old rows give the old clip positions). Live changes of an open edit
+    // (drags, here or in another view of the same timeline) are drawn 1:1 instead.
+    if (uianim::enabled()) {
+        const Timeline* timeline = m_ctx.project->timeline();
+        if (m_ctx.project->isEditing())
+            m_anim.markStale();
+        else if (m_anim.stale() || timeline->revision() != m_anim.revision()) {
+            m_anim.modelChanged(timeline->plainSnapshot(), m_ctx.project->activeTimelineUid(),
+                timeline->revision(), m_layout);
+            // Keyboard trims of the selected edit point: its highlight pulses once.
+            const auto& edit = m_controller->selectedEdit();
+            if ((edit.tailClip && m_anim.isAnimating(edit.tailClip))
+                || (edit.headClip && m_anim.isAnimating(edit.headClip)))
+                m_anim.pulseEditPoint();
+        }
+    }
     m_layout.setLaneHeights(m_keyframeLanes->laneHeights(m_ctx.project->timeline()->data()));
     m_layout.rebuild(m_ctx.project->timeline()->data());
     updateScrollBars();
@@ -192,8 +223,33 @@ void TimelineWidget::onSelectionChanged()
     viewport()->update();
 }
 
-void TimelineWidget::onPlayheadChanged(int64_t)
+void TimelineWidget::syncAnimations()
 {
+    if (!uianim::enabled() || !m_anim.stale() || m_ctx.project->isEditing())
+        return;
+    const Timeline* timeline = m_ctx.project->timeline();
+    m_anim.resync(
+        timeline->plainSnapshot(), m_ctx.project->activeTimelineUid(), timeline->revision());
+}
+
+void TimelineWidget::onAnimationSettingsChanged()
+{
+    m_anim.clear();
+    syncAnimations();
+    viewport()->update();
+}
+
+void TimelineWidget::onPlayheadChanged(int64_t frame)
+{
+    // Animations: an isolated jump (edit point navigation, Home / End, a click on the Cut
+    // page overview) glides the drawn line; playback, scrubbing and centred views do not.
+    if (uianim::enabled()) {
+        const bool playing = m_ctx.playback && m_ctx.playback->isPlaying();
+        m_anim.playheadMoved(m_lastPlayhead, frame,
+            !playing && !m_options.centredPlayhead && m_drag.mode != DragMode::Scrub,
+            m_layout.pixelsPerFrame());
+    }
+    m_lastPlayhead = frame;
     // While the user scrubs, the view must not jump under the mouse.
     if (m_drag.mode != DragMode::Scrub && m_options.centredPlayhead)
         centreOnPlayhead();
@@ -267,6 +323,12 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     in.retimeShown = &m_controller->retimeControls();
     in.hoverClip = m_hoverClip;
     in.selectedKeys = &m_ctx.selection->keyframes();
+    if (uianim::enabled()) {
+        m_anim.observeSnap(m_overlay.snapFrame);
+        m_anim.observeEditPoint(in.editTailClip, in.editHeadClip);
+        if (m_anim.tick())
+            in.anim = &m_anim;
+    }
     m_painter.paint(p, in);
     m_keyframeLanes->paintClipButtons(p);
 }
