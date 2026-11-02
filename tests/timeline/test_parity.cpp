@@ -63,6 +63,8 @@ private slots:
         QCOMPARE(keys("trim.extend_edit"), QStringLiteral("E"));
         QCOMPARE(keys("trim.trim_start"), QStringLiteral("Shift+["));
         QCOMPARE(keys("trim.trim_end"), QStringLiteral("Shift+]"));
+        QCOMPARE(keys("trim.ripple_trim_start"), QStringLiteral("Ctrl+Shift+["));
+        QCOMPARE(keys("trim.ripple_trim_end"), QStringLiteral("Ctrl+Shift+]"));
         QCOMPARE(keys("trim.nudge_left_multi"), QStringLiteral("Shift+,"));
         QCOMPARE(keys("edit.delete"), QStringLiteral("Backspace"));
         QCOMPARE(keys("edit.ripple_delete"), QStringLiteral("Del|Shift+Backspace"));
@@ -407,7 +409,32 @@ private slots:
         QCOMPARE(t.c.selectedEdit(), (EditPointSelection {b, 0}));
     }
 
-    void spec8_10_trimStartEndToPlayhead()
+    void spec8_10_rippleTrimStartEndToPlayhead()
+    {
+        Ctl t;
+        const quint64 v = t.put(kV1, mediaClip(10, 40));
+        const quint64 a = t.put(kA1, mediaClip(10, 40));
+        t.link({v, a});
+        t.put(kV1, mediaClip(50, 10));
+        t.tl()->setPlayhead(20);
+        const int before = t.undoCount();
+        t.action("trim.ripple_trim_start")->trigger();
+        // Ripple: 10 frames gone from the head, the following clip moves left.
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:30 40:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("10:30"));
+        QCOMPARE(t.tl()->playhead(), int64_t(10));
+        QCOMPARE(ops::clipById(t.f.view(), v)->sourceInUs, int64_t(60 * 40000));
+        QCOMPARE(t.undoCount(), before + 1);
+        t.tl()->setPlayhead(30);
+        t.action("trim.ripple_trim_end")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:20 30:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("10:20"));
+        QCOMPARE(t.undoCount(), before + 2);
+        t.f.project.undoStack()->undo();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:30 40:10"));
+    }
+
+    void spec8_10_trimStartEndToPlayheadLeavesGap()
     {
         Ctl t;
         const quint64 v = t.put(kV1, mediaClip(10, 40));
@@ -416,15 +443,28 @@ private slots:
         t.put(kV1, mediaClip(50, 10));
         t.tl()->setPlayhead(20);
         t.action("trim.trim_start")->trigger();
-        // Ripple: 10 frames gone from the head, the following clip moves left.
-        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:30 40:10"));
-        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("10:30"));
-        QCOMPARE(t.tl()->playhead(), int64_t(10));
-        QCOMPARE(ops::clipById(t.f.view(), v)->sourceInUs, int64_t(60 * 40000));
+        // No ripple: the clip starts at the playhead, the next clip stays.
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("20:30 50:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("20:30"));
+        QCOMPARE(t.tl()->playhead(), int64_t(20));
         t.tl()->setPlayhead(30);
         t.action("trim.trim_end")->trigger();
-        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:20 30:10"));
-        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("10:20"));
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("20:10 50:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("20:10"));
+    }
+
+    void spec8_10_rippleTrimSkipsLockedTracks()
+    {
+        Ctl t;
+        t.put(kV1, mediaClip(10, 40));
+        t.put(kV2, mediaClip(10, 40));
+        t.c.toggleTrackFlag(kV2, TimelineController::FlagAutoSelect);
+        // V2 auto-select on but locked: untouched.
+        t.c.toggleTrackFlag(kV2, TimelineController::FlagLocked);
+        t.tl()->setPlayhead(20);
+        t.action("trim.ripple_trim_end")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:10"));
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("10:40"));
     }
 
     void spec8_11_extendEdit()

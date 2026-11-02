@@ -6,6 +6,7 @@
 #include "app/ProjectController.h"
 #include "app/Screenshot.h"
 #include "app/Theme.h"
+#include "core/EditBehaviour.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "export/RenderCommand.h"
@@ -80,6 +81,7 @@ int main(int argc, char** argv)
     // so the compositor shows the right icon and groups windows with the desktop entry.
     QGuiApplication::setDesktopFileName(QLatin1String(kk::appinfo::desktopId));
     kk::initResources();
+    kk::EditBehaviour::migrateSettings();
 
     kk::CommandLineOptions options;
     QString error;

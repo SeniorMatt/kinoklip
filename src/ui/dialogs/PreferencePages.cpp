@@ -449,12 +449,9 @@ public:
                                        "selected"));
         m_rippleGap->setChecked(b.rippleDeleteGapAtPlayhead);
         form->addRow(tr("Ripple delete"), m_rippleGap);
-        m_trimRipple = new QCheckBox(tr("Trim start / end to playhead ripples"));
-        m_trimRipple->setChecked(b.trimToPlayheadRipples);
-        form->addRow(tr("Trimming"), m_trimRipple);
         m_rollAtCut = new QCheckBox(tr("Selection tool rolls at the middle of an edit"));
         m_rollAtCut->setChecked(b.selectToolRollsAtCut);
-        form->addRow(QString(), m_rollAtCut);
+        form->addRow(tr("Trimming"), m_rollAtCut);
         m_slideInName = new QCheckBox(tr("Trim tool slides in the clip name bar"));
         m_slideInName->setChecked(b.trimToolSlideInNameBar);
         form->addRow(QString(), m_slideInName);
@@ -469,7 +466,6 @@ public:
         s.setValue(QStringLiteral("edit/multiFrameNudge"), m_nudge->value());
         s.setValue(QStringLiteral("edit/threePointEditing"), m_threePoint->isChecked());
         s.setValue(QStringLiteral("edit/rippleDeleteGapAtPlayhead"), m_rippleGap->isChecked());
-        s.setValue(QStringLiteral("edit/trimToPlayheadRipples"), m_trimRipple->isChecked());
         s.setValue(QStringLiteral("edit/selectToolRollsAtCut"), m_rollAtCut->isChecked());
         s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
         s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
@@ -485,7 +481,6 @@ private:
     QComboBox* m_zoom = nullptr;
     QCheckBox* m_threePoint = nullptr;
     QCheckBox* m_rippleGap = nullptr;
-    QCheckBox* m_trimRipple = nullptr;
     QCheckBox* m_rollAtCut = nullptr;
     QCheckBox* m_slideInName = nullptr;
 };

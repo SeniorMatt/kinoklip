@@ -46,6 +46,8 @@
         "trim.nudge_right_multi": ["Shift+."],
         "trim.trim_start": ["Shift+["],
         "trim.trim_end": ["Shift+]"],
+        "trim.ripple_trim_start": ["Ctrl+Shift+["],
+        "trim.ripple_trim_end": ["Ctrl+Shift+]"],
         "trim.extend_edit": ["E"],
         "trim.cycle_edit": ["U"],
         "trim.select_nearest_edit": ["V"],

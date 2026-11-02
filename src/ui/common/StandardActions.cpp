@@ -90,6 +90,8 @@ const ActionSpec kActions[] = {
     {"trim", "-"},
     {"trim", "trim.trim_start",       QT_TRANSLATE_NOOP("kk::StandardActions", "Trim &Start to Playhead")},
     {"trim", "trim.trim_end",         QT_TRANSLATE_NOOP("kk::StandardActions", "Trim &End to Playhead")},
+    {"trim", "trim.ripple_trim_start", QT_TRANSLATE_NOOP("kk::StandardActions", "Ripple Trim Start to Playhead")},
+    {"trim", "trim.ripple_trim_end",  QT_TRANSLATE_NOOP("kk::StandardActions", "Ripple Trim End to Playhead")},
     {"trim", "trim.extend_edit",      QT_TRANSLATE_NOOP("kk::StandardActions", "E&xtend Edit to Playhead")},
     {"trim", "trim.cycle_edit",       QT_TRANSLATE_NOOP("kk::StandardActions", "Cycle Edit Point &Side")},
     {"trim", "-"},
