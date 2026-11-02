@@ -51,3 +51,4 @@
 - 05:47 Session restarted. Resumed qa and resolveedit (neither had committed yet). resolveui is marked stopped by the owner, so it was not restarted; awaiting owner decision. 25 GB free.
 - 05:49 Owner: resolveui was stopped by accident -> relaunched fresh. kk-arch container restarted after the laptop shutdown; hourly heartbeat re-created. Running: qa, resolveedit, resolveui. Queued: keyframe editor.
 - 06:14 Heartbeat: qa 3 commits, resolveedit 2, resolveui active (no commits yet); 17 GB free (falling, watch).
+- 06:47 resolveui merged: Resolve page bar (Media/Cut/Edit/Compositing/Color/Audio/Deliver), viewer/timeline toolbar layout, menu arrow + combo + preset-row + Preferences fixes, one spacing scale, Resolve-style Render Settings / Project Settings / Preferences (System/User), unsupported options disabled with tooltips. Keyframe editor agent starting.
