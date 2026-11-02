@@ -162,6 +162,8 @@ void AudioPage::setViewerFloating(bool floating)
             auto* l = new QVBoxLayout(m_viewerWindow);
             l->setContentsMargins(0, 0, 0, 0);
             m_viewerWindow->resize(kFloatingViewerSize);
+            // Shortcuts are window-scoped: the transport keys work in the floating viewer.
+            m_viewerWindow->addActions(window()->actions());
         }
         m_viewerWindow->layout()->addWidget(m_viewer);
         m_viewerDock->hide();

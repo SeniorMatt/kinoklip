@@ -313,6 +313,8 @@ public:
     /// Removes every track without clips, keeping at least one video and one audio track and
     /// every locked track (spec 12.8). One undo step.
     void deleteEmptyTracks();
+    /// Undo label of source edit @p mode ("Insert Clip", "Overwrite Clip", ...).
+    [[nodiscard]] static QString sourceEditLabel(SourceEditMode mode);
     /// Track header menu > Move Track Up / Down (spec 12.9): swaps track @p ref with its
     /// neighbour on screen (@p up = 1: above, -1: below; video numbers grow upwards, audio
     /// numbers downwards). Clips, name, flags, height and mixer settings move with the track;

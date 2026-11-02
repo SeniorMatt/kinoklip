@@ -12,6 +12,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/audio/AudioScales.h"
+#include "ui/audio/DynamicsWindow.h"
 #include "ui/audio/EqCurveView.h"
 #include "ui/audio/EqWindow.h"
 #include "ui/audio/FaderWidget.h"
@@ -137,6 +138,19 @@ private slots:
         QVERIFY(f.action("audio.float_viewer")->isEnabled());
         f.action("audio.float_viewer")->trigger();
         QVERIFY(f.audio()->isViewerFloating());
+        // Polish round 2: the floating viewer and the EQ / dynamics windows carry the
+        // window-scoped shortcuts (Space plays while they have focus).
+        QWidget* floating = f.window->findChild<QWidget*>(QStringLiteral("AudioViewerWindow"));
+        QVERIFY(floating);
+        QVERIFY(floating->actions().contains(f.action("transport.play_pause")));
+        QVERIFY(f.strip(MixTarget::track(f.a1()))
+                    ->openEq()
+                    ->actions()
+                    .contains(f.action("transport.play_pause")));
+        QVERIFY(f.strip(MixTarget::track(f.a1()))
+                    ->openDynamics()
+                    ->actions()
+                    .contains(f.action("edit.undo")));
         f.action("audio.float_viewer")->trigger();
         QVERIFY(!f.audio()->isViewerFloating());
         f.action("view.page_edit")->trigger();

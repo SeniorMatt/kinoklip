@@ -191,6 +191,31 @@ private slots:
         v.w.setShowWaveforms(false);
         QVERIFY(!v.w.showWaveforms());
     }
+
+    /// Edit > Undo names the action (round 2 audit U1): header buttons say what they did.
+    void undoNamesTrackButtons()
+    {
+        View v;
+        const TrackRef v1 {TrackType::Video, 0};
+        const TrackRef a1 {TrackType::Audio, 0};
+        v.c.toggleTrackFlag(v1, TimelineController::FlagLocked);
+        QCOMPARE(v.undoText(), QStringLiteral("Lock Track"));
+        v.c.toggleTrackFlag(v1, TimelineController::FlagLocked);
+        QCOMPARE(v.undoText(), QStringLiteral("Unlock Track"));
+        v.c.toggleTrackFlag(a1, TimelineController::FlagMuted);
+        QCOMPARE(v.undoText(), QStringLiteral("Mute Track"));
+        v.c.toggleTrackFlag(a1, TimelineController::FlagSolo);
+        QCOMPARE(v.undoText(), QStringLiteral("Solo Track"));
+        v.c.toggleTrackFlag(v1, TimelineController::FlagEnabled);
+        QCOMPARE(v.undoText(), QStringLiteral("Disable Track"));
+        v.c.toggleTrackFlag(v1, TimelineController::FlagAutoSelect);
+        QCOMPARE(v.undoText(), QStringLiteral("Auto Track Selector"));
+        // Several media pool items dropped at once: named after the edit.
+        const QString media = addMedia(v.f.project);
+        v.c.editSources({SourceSelection {media, 0, 0}, SourceSelection {media, 0, 0}},
+            SourceEditMode::AppendAtEnd);
+        QCOMPARE(v.undoText(), QStringLiteral("Append at End"));
+    }
 };
 
 QTEST_MAIN(TestPolish2)

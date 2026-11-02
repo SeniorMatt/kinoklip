@@ -521,6 +521,9 @@ void Project::beginEdit(const QString& label)
 {
     if (m_editDepth++ > 0)
         return;
+    // Edit > Undo shows the label ("Undo Ripple Delete"): every step needs one.
+    if (label.isEmpty())
+        qCWarning(lcCore) << "undo step without a name";
     m_editLabel = label;
     m_editCancelled = false;
     m_editBefore = currentSet();
