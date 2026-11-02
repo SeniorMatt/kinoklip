@@ -363,6 +363,14 @@ void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
     Decoder* d = decoderFor(clip, nested);
     if (!d)
         return;
+    if (d->decoder) {
+        // Clip Attributes channel routing (a no-op compare unless it changed).
+        if (!(d->decoder->channelMapping().channelFormat == clip.attributes.channelFormat
+                && d->decoder->channelMapping().left == clip.attributes.left
+                && d->decoder->channelMapping().right == clip.attributes.right))
+            d->cache.clear(); // cached source samples used the old routing
+        d->decoder->setChannelMapping(clip.attributes);
+    }
     const int n = int(to - from);
     const int64_t clipStart = framesToSamples48k(clip.start, tl.fps);
     const int64_t sourceIn = std::llround(double(clip.sourceInUs) * kSampleRate / 1e6);
@@ -395,6 +403,9 @@ void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
             db = volume->valueAtTime(lf);
         }
         double g = dbToGain(db);
+        if (clip.fadeInFrames > 0 || clip.fadeOutFrames > 0) // fade handles (spec 32)
+            g *= audioFadeGain(double(sample - clipStart) * framesPerSample, clip.duration,
+                clip.fadeInFrames, clip.fadeOutFrames);
         constexpr double kHalfPi = std::numbers::pi / 2.0;
         if (head.active() && sample >= head.start && sample < head.end)
             g *= std::sin(double(sample - head.start) / double(head.end - head.start) * kHalfPi);

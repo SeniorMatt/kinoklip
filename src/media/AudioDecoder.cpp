@@ -77,6 +77,7 @@ struct AudioDecoder::Impl
     AVChannelLayout swrInLayout {}; ///< input configuration `swr` was built for
     int swrInRate = 0;
     int swrInFormat = -1;
+    ClipAttributes mapping; ///< channel routing (Clip Attributes); Auto = default layout
 
     int64_t originTs = 0; ///< stream timestamp of media time 0
     int64_t firstTs = 0; ///< earliest timestamp of the stream (seek lower bound)
@@ -311,7 +312,13 @@ bool AudioDecoder::Impl::ensureResampler(const AVFrame* decoded)
     int ret = swr_alloc_set_opts2(&raw, &outLayout, AV_SAMPLE_FMT_FLT, kSampleRate, &inLayout,
         AVSampleFormat(decoded->format), decoded->sample_rate, 0, nullptr);
     SwrContextPtr context(raw);
-    if (ret >= 0) {
+    // Clip Attributes channel routing: an explicit 2 x N matrix (row 0 = left output).
+    double mapped[2 * kMaxMappedChannels];
+    const bool custom = inLayout.nb_channels <= kMaxMappedChannels
+        && channelMatrix(mapping, inLayout.nb_channels, mapped);
+    if (ret >= 0 && custom) {
+        ret = swr_set_matrix(raw, mapped, inLayout.nb_channels);
+    } else if (ret >= 0) {
         if (inLayout.nb_channels == 1) {
             // Mono → both channels at unity gain (swresample's default would be -3 dB).
             const double monoToStereo[2] = {1.0, 1.0};
@@ -403,6 +410,29 @@ const MediaInfo& AudioDecoder::info() const
 int64_t AudioDecoder::lengthSamples() const
 {
     return m_impl->exactLength >= 0 ? m_impl->exactLength : m_impl->estimatedLength;
+}
+
+void AudioDecoder::setChannelMapping(const ClipAttributes& attributes)
+{
+    Impl& d = *m_impl;
+    ClipAttributes audioOnly;
+    audioOnly.channelFormat = attributes.channelFormat;
+    audioOnly.left = attributes.left;
+    audioOnly.right = attributes.right;
+    if (d.mapping == audioOnly)
+        return;
+    d.mapping = audioOnly;
+    // The buffered samples were mixed with the old routing: the next read() seeks and
+    // decodes again (sample-exact), and the resampler is rebuilt with the new matrix.
+    d.swr.reset();
+    d.buffer.clear();
+    d.bufferOffset = 0;
+    d.positionValid = false;
+}
+
+const ClipAttributes& AudioDecoder::channelMapping() const
+{
+    return m_impl->mapping;
 }
 
 int AudioDecoder::read(int64_t startSample48k, float* dst, int frames)

@@ -168,8 +168,7 @@ private:
         if (!clip.enabled)
             return;
         const int64_t local = clip.localFrame(m_frame);
-        const double opacity
-            = std::clamp(clip.transform.value(keys::Opacity, local) / 100.0, 0.0, 1.0) * weight;
+        const double opacity = clipOpacity(clip, local) * weight;
         if (opacity <= 0.0)
             return;
         for (const EffectInstance& e : clip.effects) {
@@ -203,12 +202,26 @@ private:
             if (!entry)
                 return;
             const media::MediaInfo& info = entry->decoder->info();
-            sourcePx
+            // Clip Attributes: the decoder applies the file's pixel aspect and rotation; an
+            // override changes the display size (the picture is stretched into it) and an
+            // extra rotation turns the decoded image. Data levels and deinterlacing are GPU
+            // only (like effects).
+            const ClipAttributes& attributes = clip.attributes;
+            const int extraRotation = normalizedRotation(attributes.rotation);
+            const QSizeF fileDisplay
                 = useProxy ? proxy->displaySize : QSizeF(info.displayWidth, info.displayHeight);
+            if (useProxy || !attributes.pixelAspect.isValid()) {
+                sourcePx = extraRotation % 180 ? fileDisplay.transposed() : fileDisplay;
+            } else {
+                sourcePx = displaySize(info.width, info.height, attributes.pixelAspect,
+                    normalizedRotation(info.rotation + extraRotation));
+            }
             content = fitSize(sourcePx, frameSize);
             // Decode at the size the picture occupies in the output (never above native).
             const double zoom = std::max(1.0, maxZoom(clip, local));
-            const QSize want = (content * outScale * zoom).toSize().boundedTo(sourcePx.toSize());
+            QSize want = (content * outScale * zoom).toSize().boundedTo(sourcePx.toSize());
+            if (extraRotation % 180)
+                want.transpose(); // decoded in the file's orientation, turned below
             picture = entry->decoder->frameAt(timeUs, want.expandedTo(QSize(1, 1)));
             // Frame Blend / Optical Flow (no flow on the CPU: blended): mix in the next source
             // frame by where the source time falls between the two.
@@ -228,6 +241,8 @@ private:
                     blend.drawImage(QRect(QPoint(0, 0), picture.size()), b);
                 }
             }
+            if (extraRotation != 0 && !picture.isNull())
+                picture = picture.transformed(QTransform().rotate(extraRotation));
             pictureRect = QRectF(
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
             break;

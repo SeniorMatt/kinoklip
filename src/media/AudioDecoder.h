@@ -2,6 +2,7 @@
 // AudioDecoder — sample-accurate random access to the audio of one file as 48 kHz stereo float.
 #pragma once
 
+#include "core/ClipAttributes.h"
 #include "media/MediaInfo.h"
 
 #include <QString>
@@ -52,6 +53,15 @@ public:
     /// Length of the audio in 48 kHz sample frames. Estimated from the container duration
     /// until the decoder has reached the end of the stream once; exact afterwards.
     int64_t lengthSamples() const;
+
+    /// Routes the source channels as Clip Attributes @p attributes say (channelFormat,
+    /// left, right; the other fields are ignored): Auto = the default layout above. Can be
+    /// called at any time; a change makes the next read() decode again from the exact sample.
+    void setChannelMapping(const ClipAttributes& attributes);
+    /// The routing set by setChannelMapping() (only its audio fields are meaningful).
+    [[nodiscard]] const ClipAttributes& channelMapping() const;
+    /// Most source channels an explicit mapping can address (more = default downmix).
+    static constexpr int kMaxMappedChannels = 64;
 
     /// Decodes `frames` sample frames starting at `startSample48k` into `dst`
     /// (`frames * 2` floats, interleaved stereo, nominally in [-1, 1]).
