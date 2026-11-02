@@ -15,7 +15,7 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
 | `TransformOverlay.h` | Timeline mode: on-screen Transform and Crop controls (`view.onscreen_transform`, `view.onscreen_crop`, entries of the on-screen controls menu): outline, corner / edge scale handles, rotation knob, anchor cross, move; crop edges and corners; one named undo step per drag (spec 24.9, 24.11, 24.12) |
 | `TransformGesture.h` | pure maths of those controls: picture geometry (fit size, crop rectangle), handle positions and hit-testing, `TransformDrag` (what a drag writes into `ClipData::transform`, the Shift conventions) |
 | `ViewerOffline.cpp` | ViewerPanel part: the "Media Offline" notice when the clip shown has no file (`MediaPool::isOffline()`, spec 24.8) |
-| `TrimTwoUpView.h` | Timeline mode: the two-up trim view (spec 8.15), exact source frames from `MediaCache::frame()`, one request in flight per side; `ViewerPanel::setTrimPreview()` |
+| `TrimTwoUpView.h` | Timeline mode: the two-up trim view (spec 8.15, 8.19): exact source frames from `MediaCache::frame()` (default), or with Preferences > Editing "Trim view shows effects and transforms" each clip alone rendered by the program compositor (`setProgramSource()`, `Pictures::Program`, GPU only); one request in flight per side; `ViewerPanel::setTrimPreview()` |
 | `ScrubBar.h` | jog/scrub strip: duration, in/out band with brackets, playhead; drag to scrub, wheel = one frame |
 | `ViewerTransport.h` | routes the playback-owned global actions to the **active** viewer, J/K/L hold detection, full-screen viewer |
 
