@@ -46,8 +46,9 @@ constexpr int kTopRowHeight = 520;
 constexpr int kBottomRowHeight = 440;
 constexpr int kMixerWidth = 260;
 constexpr int kKeyframesMinDockHeight = 160; ///< below this a shown docked panel is resized
-constexpr double kKeyframesDockShare = 0.32; ///< of the page height when it opens docked
-constexpr int kMinTimelineHeight = 140; ///< the timeline keeps at least this much
+constexpr double kKeyframesDockShare = 0.40; ///< of the page height when it opens docked
+constexpr int kMinTimelineHeight = 200; ///< the timeline keeps at least this much
+constexpr int kMinViewerRowHeight = 260; ///< and the viewer row this much
 const QSize kKeyframesWindowSize(1400, 520); ///< first floating window size
 constexpr int kReferenceWidth = kLeftColumnWidth + 2 * kViewerWidth + kRightColumnWidth;
 
@@ -379,25 +380,25 @@ void EditPage::ensureKeyframesHeight()
     QList<int> sizes = m_main->sizes();
     const int index = m_main->indexOf(m_keyframes);
     const int bottom = m_main->indexOf(m_bottomRow);
+    const int top = m_main->indexOf(m_topRow);
     if (index < 0 || sizes.size() != 3 || sizes[index] >= kKeyframesMinDockHeight)
         return;
-    const int total = std::max(1, m_main->height());
-    // Taken from the timeline row (the viewers keep their size), which keeps a usable height.
+    const int total = sizes[0] + sizes[1] + sizes[2];
+    if (total <= 0)
+        return;
+    // Like opening a panel row in Resolve: the viewers and the timeline both give up height
+    // (each keeps a usable minimum), in proportion to what they have.
     const int want = std::max(kKeyframesMinDockHeight, int(total * kKeyframesDockShare));
-    const int give = std::clamp(sizes[bottom] - kMinTimelineHeight, 0, want);
-    sizes[index] = std::max(sizes[index], give);
-    sizes[bottom] -= sizes[index];
-    if (sizes[bottom] < kMinTimelineHeight) { // small window: share with the viewers too
-        const int missing = kMinTimelineHeight - sizes[bottom];
-        sizes[bottom] = kMinTimelineHeight;
-        sizes[0] = std::max(100, sizes[0] - missing);
-    }
-    if (sizes[index] < kKeyframesMinDockHeight) {
-        const int extra
-            = std::min(kKeyframesMinDockHeight - sizes[index], std::max(0, sizes[0] - 150));
-        sizes[index] += extra;
-        sizes[0] -= extra;
-    }
+    const int spareTop = std::max(0, sizes[top] - kMinViewerRowHeight);
+    const int spareBottom = std::max(0, sizes[bottom] - kMinTimelineHeight);
+    const int spare = spareTop + spareBottom;
+    if (spare <= 0)
+        return;
+    const int give = std::min(want - sizes[index], spare);
+    const int fromTop = int(qint64(give) * spareTop / spare);
+    sizes[top] -= fromTop;
+    sizes[bottom] -= give - fromTop;
+    sizes[index] += give;
     m_main->setSizes(sizes);
 }
 

@@ -100,6 +100,8 @@ void KeyframeRuler::paintEvent(QPaintEvent*)
         const double x = std::round(m_map.frameToX(double(f))) + 0.5;
         p.setPen(dim);
         p.drawLine(QPointF(x, height() - 9), QPointF(x, height() - 1));
+        if (x + 3 < m_labelWidth)
+            continue; // the label would be cut by the axis column
         p.setPen(text);
         p.drawText(QPointF(x + 3, height() - 10), timecode::format(f, data.fps));
     }
