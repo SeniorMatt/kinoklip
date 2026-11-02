@@ -161,6 +161,17 @@ public:
     void setMediaPool(MediaPool* pool);
     /// Fixed media path table (instead of setMediaPool()).
     void setMediaPaths(std::shared_ptr<const MediaPathMap> media);
+    /// Proxy / optimized media for the picture (render/ProxySelection.h, nullptr = the camera
+    /// originals) and the media table to use instead of the pool's own paths (offline
+    /// originals play their proxy's sound; nullptr = the pool's paths). The application
+    /// rebuilds both when the pool, the links or Playback > Proxy Handling change.
+    void setSubstitutes(
+        std::shared_ptr<const ProxyMap> proxies, std::shared_ptr<const MediaPathMap> media);
+    /// Proxy map in use (viewer indicator).
+    [[nodiscard]] const std::shared_ptr<const ProxyMap>& proxies() const { return m_proxies; }
+    /// Render cache of the current timeline snapshot (Playback > Render Cache); frames of
+    /// cached chunks are shown from the cache. nullptr = no cache.
+    void setRenderCache(std::shared_ptr<const RenderCacheView> view);
     /// The compositor (shareable with other engines).
     [[nodiscard]] std::shared_ptr<Compositor> compositor() const { return m_compositor; }
 
@@ -303,6 +314,9 @@ private:
     MediaPool* m_pool = nullptr;
     std::shared_ptr<const TimelineData> m_snapshot;
     std::shared_ptr<const MediaPathMap> m_media;
+    std::shared_ptr<const MediaPathMap> m_audioOverride; ///< setSubstitutes()
+    std::shared_ptr<const ProxyMap> m_proxies;
+    std::shared_ptr<const RenderCacheView> m_renderCache;
     QMetaObject::Connection m_timelineChanged, m_playheadChanged, m_poolChanged;
 
     double m_rate = 0.0;
