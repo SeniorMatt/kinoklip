@@ -93,4 +93,9 @@
         <file>icons/zoom_in.svg</file>
         <file>icons/zoom_out.svg</file>
     </qresource>
+    <!-- KColorSchemeManager (KF6) also lists the schemes in this resource directory, so the
+         default Kinoklip scheme is found without a copy on disk (src/app/Theme.cpp). -->
+    <qresource prefix="/org.kde.kcolorscheme">
+        <file alias="color-schemes/Kinoklip.colors">color-schemes/Kinoklip.colors</file>
+    </qresource>
 </RCC>
