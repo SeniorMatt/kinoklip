@@ -164,12 +164,9 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     layout->addWidget(m_surface->widget(), 1);
 
     m_scrub = new ScrubBar(m_body);
-    connect(m_scrub, &ScrubBar::scrubStarted, this, [this] {
-        activate();
-        if (engine() && engine()->isPlaying()) {
-            engine()->pause(); // scrubbing takes over the playhead
-        }
-    });
+    // While playing, scrubbing keeps playing from where the mouse leaves the playhead, like the
+    // timeline ruler (PlaybackEngine parks on the frame under the mouse meanwhile).
+    connect(m_scrub, &ScrubBar::scrubStarted, this, [this] { activate(); });
     connect(m_scrub, &ScrubBar::scrubbed, this, [this](int64_t frame) {
         if (engine()) {
             engine()->seek(frame);
