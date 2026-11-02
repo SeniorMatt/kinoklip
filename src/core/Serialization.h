@@ -20,7 +20,12 @@ namespace kk::serialization {
 /// - 2: keyframes carry Bezier handles ("in" / "out": mode string or {"mode":"free","dt","dv"})
 ///   and a "hold" flag. Version-1 keys are detected by their "interp" field and converted by
 ///   paramSetFromJson() (migrateLegacyInterp() in core/Animation.h).
-inline constexpr int kFormatVersion = 2;
+/// - 3: clips may carry "masks" (core/Mask.h): {"id", "shape", "mode", "name"?, "enabled"?,
+///   "invert"?, "closed"?, "params"?, and "points" (static shape) or "shapeKeys" (keyframes with
+///   their "points")}; a point is [x, y, inX, inY, outX, outY] plus 1 when smooth. Version-2
+///   files have no masks and load unchanged (see Project::load()); older builds refuse version 3
+///   instead of silently dropping the masks.
+inline constexpr int kFormatVersion = 3;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

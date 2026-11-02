@@ -234,6 +234,8 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     // Version 1 -> 2 (keyframe interp -> Bezier handles) is converted per key inside
     // serialization::paramSetFromJson(), which recognises the v1 "interp" field; nothing else
     // changed, so no whole-document migration is needed.
+    // Version 2 -> 3 only added clip masks ("masks", absent = none): a version-2 document is
+    // a valid version-3 document without masks, and it is written back as version 3.
 
     TimelineData timeline;
     QString timelineError;
