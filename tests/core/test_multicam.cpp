@@ -366,6 +366,42 @@ private slots:
         QCOMPARE(f.data().videoTracks[0].clips.size(), size_t(1));
     }
 
+    void coexistsWithSubtitleTracks()
+    {
+        // Captions stay on the root timeline: a cut leaves the subtitle track alone, and the
+        // angle views never carry subtitle tracks (a caption track added inside the multicam
+        // timeline is not shown through an angle).
+        Fixture f;
+        f.project.beginEdit(QStringLiteral("Captions"));
+        TimelineData& d = f.project.timeline()->mutableData();
+        TrackData st;
+        st.id = d.allocateId();
+        st.type = TrackType::Subtitle;
+        ClipData caption;
+        caption.id = d.allocateId();
+        caption.kind = ClipKind::Subtitle;
+        caption.start = 80;
+        caption.duration = 50;
+        caption.title.setStatic(keys::Text, QStringLiteral("Hello"));
+        st.clips.push_back(caption);
+        d.subtitleTracks.push_back(st);
+        f.project.endEdit();
+        f.project.beginEdit(QStringLiteral("Cut"));
+        QVERIFY(!mc::cutToAngle(f.project.timeline()->mutableData(), 100, 1, mc::AngleTarget::Both,
+            f.project.timelineLookup())
+                     .isEmpty());
+        f.project.endEdit();
+        QCOMPARE(f.data().subtitleTracks.size(), size_t(1));
+        QCOMPARE(f.data().subtitleTracks[0].clips.size(), size_t(1));
+        QCOMPARE(f.data().subtitleTracks[0].clips[0].start, int64_t(80));
+        QCOMPARE(f.data().videoTracks[0].clips.size(), size_t(2));
+        KK_VERIFY_INVARIANTS(f.data());
+        TimelineData m = *f.project.timelineData(f.mcUid);
+        m.subtitleTracks.push_back(st);
+        QVERIFY(mc::angleView(m, 0).subtitleTracks.empty());
+        QVERIFY(mc::gridTimeline(m, 2, 0, 0, {}).subtitleTracks.empty());
+    }
+
     void cutRespectsLockedTracks()
     {
         Fixture f;
