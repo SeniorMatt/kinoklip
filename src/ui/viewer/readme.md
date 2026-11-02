@@ -48,6 +48,20 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
   only then; otherwise clicks reach the surface as before. Zoom and aspect changes call
   `MaskOverlay::refresh()`.
 
+## Multicam viewer (ViewerMulticam.cpp, MulticamOverlay)
+
+Source viewers have a Source / Multicam mode (header combo, View > Multicam Viewer) and a
+grid size combo (Auto, 2x2, 3x3, 4x4). In Multicam mode the source player plays
+`multicam::gridTimeline()` (SourcePlayer::setContent()) of the multicam clip under the
+timeline playhead — following it on every playhead change, also during playback (paused
+engine, coalesced still renders) — else of the loaded multicam clip (opening one from the
+media pool shows its grid until the timeline playhead is moved). `MulticamOverlay` draws the
+angle labels, the active angle frames (red both, blue video, green audio) and the page arrows;
+a click or the `multicam.angle_n` keys (1-9, only while the mode is on) emit
+`multicamAngleChosen()`, which EditPage connects to `TimelineController::chooseMulticamAngle()`
+(cut or switch per Clip > Multicam). Not following a timeline clip, a choice changes the
+angle the viewer plays.
+
 ## Actions connected here (ViewerTransport)
 
 `transport.play_pause` (Space), `transport.shuttle_reverse/stop/forward` (J/K/L, auto-repeat

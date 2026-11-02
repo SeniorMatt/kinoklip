@@ -22,6 +22,16 @@ Owned by the panels agent.
   `MediaCache::posterFrameReady` to `MediaPoolModel::thumbnailReady()`. Replace it with
   `MediaPoolPanel::setThumbnailProvider()` (tests use a synchronous fake).
 
+## Multicam and sync (MediaPoolMulticam.cpp, MulticamDialog, MulticamSync)
+
+Context menu for video / audio items: Create New Multicam Clip Using Selected Clips… (dialog:
+name, angle sync, angle names, Original Clips bin) and Sync and Place on Timeline (Based on
+Waveform / Timecode / In Points). `computeSync()` (no widgets, testable) does the work;
+`runSyncWithFeedback()` runs waveform analysis on a worker behind a cancellable progress
+dialog and reports clips that could not be synced. In points come from
+`setInPointProvider()` (EditPage: the source viewer's remembered marks). Multicam items
+double-click into the source viewer (their angle grid) instead of a timeline tab.
+
 ## Performance (2,000+ items)
 - One shared model + proxy + selection for both views; `QListView` with uniform item sizes,
   fixed grid size and batched layout.

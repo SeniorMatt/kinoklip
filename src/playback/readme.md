@@ -11,6 +11,7 @@ category `kk.playback`.
 |---|---|
 | `PlaybackEngine.h` | `PlaybackEngine` (QObject): content, transport slots, output clients, quality, stats; `PlaybackBehaviour` (convention data) |
 | `SourcePlayer.h` | `SourcePlayer`: one media item on a private one-clip timeline, own in/out marks, `selection()` -> `SourceRange`; `makeSourceTimeline()` |
+| `SourcePlayer::setContent()` | any private timeline for an item (the multicam viewer's angle grid) with its own media map and nested resolver; same item = keep position and transport |
 | `ShuttleControl.h` | pure J/K/L state machine (rates, K+L / K+J step and held slow play) |
 | `PlaybackClock.h` | pure clock: free-running or slaved to the audio device (slewed, monotonic) |
 | `FrameScheduler.h` | pure request bookkeeping: look-ahead, frame dropping, scrub coalescing, cancellation |

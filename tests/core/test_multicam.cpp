@@ -122,6 +122,28 @@ private slots:
             1920, 1080, &error));
     }
 
+    void placeSyncedStacksTracks()
+    {
+        TimelineData d = timeline(); // V1, V2, A1, A2
+        ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        const auto ids = mc::placeSynced(d,
+            {source(QStringLiteral("a"), 10, 1000000), source(QStringLiteral("b"), 4, 0),
+                source(QStringLiteral("c"), 6, 3000000, false, true)},
+            50);
+        QVERIFY(ids);
+        QCOMPARE(ids->size(), 5); // a: V+A, b: V+A, c: A
+        QCOMPARE(d.videoTracks.size(), size_t(4));
+        QCOMPARE(d.audioTracks.size(), size_t(5));
+        QCOMPARE(d.videoTracks[2].name, QStringLiteral("a"));
+        QCOMPARE(d.videoTracks[2].clips[0].start, int64_t(75)); // 1 s after b
+        QCOMPARE(d.videoTracks[3].clips[0].start, int64_t(50));
+        QCOMPARE(d.audioTracks[4].name, QStringLiteral("c"));
+        QCOMPARE(d.audioTracks[4].clips[0].start, int64_t(125));
+        QCOMPARE(ops::linkedClips(d, d.videoTracks[2].clips[0].id).size(), 2);
+        QCOMPARE(d.videoTracks[0].clips.size(), size_t(1)); // existing content untouched
+        KK_VERIFY_INVARIANTS(d);
+    }
+
     void angleViewHoldsOneAngle()
     {
         const auto t
