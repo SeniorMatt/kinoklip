@@ -21,7 +21,8 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
     const QCommandLineOption screenshot(QStringLiteral("screenshot"),
         QCoreApplication::translate("kk::CommandLine",
             "Render the window (1920x1080) showing <target> to the PNG given as the first "
-            "positional argument, then exit. Targets: media, edit, deliver, preferences, "
+            "positional argument, then exit. Targets: media, edit, edit-single, edit-dual, "
+            "transition, deliver, preferences, "
             "keyboard, inspector, keyframes, keyframes-window, mediapool, menu-color-theme, "
             "menu-style. Usage: --screenshot "
             "edit out.png [project]"),

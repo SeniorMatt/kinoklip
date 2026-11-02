@@ -3,6 +3,8 @@
 #include "app/Screenshot.h"
 
 #include "app/MainWindow.h"
+#include "app/pages/EditPage.h"
+#include "core/EditOps.h"
 #include "core/KeyframeOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -16,6 +18,7 @@
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/KeyframeLanes.h"
+#include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
 #include "ui/viewer/ViewerPanel.h"
@@ -171,6 +174,32 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         lanes->setCurveEditorOpen(id, true);
         if (target == QLatin1String("keyframes"))
             panel = timelinePanel;
+    } else if (target == QLatin1String("edit-single") || target == QLatin1String("edit-dual")) {
+        // The viewer mode button in the viewer headers (spec 24.4).
+        window.editPage()->setSingleViewer(target == QLatin1String("edit-single"));
+    } else if (target == QLatin1String("transition")) {
+        // The first transition on a video track, selected (spec 13.10), timeline zoomed to it.
+        auto* timelinePanel = window.findChild<TimelinePanel*>();
+        const TimelineData& data = ctx.project->timeline()->data();
+        std::optional<TransitionRef> ref;
+        for (const TrackData& track : data.videoTracks) {
+            for (const ClipData& c : track.clips) {
+                if (!ref && (c.transitionIn || c.transitionOut))
+                    ref = TransitionRef {c.id, c.transitionIn.has_value()};
+            }
+        }
+        if (!timelinePanel || !ref) {
+            std::fprintf(stderr, "transition: needs a project with a video transition\n");
+            return 2;
+        }
+        timelinePanel->controller()->selectTransition(*ref);
+        if (const auto range = editops::transitionWindow(data, ref->clipId, ref->head)) {
+            TimelineWidget* w = timelinePanel->timelineWidget();
+            QTimer::singleShot(0, w, [w, range] {
+                w->setPixelsPerFrame(6.0, 0);
+                w->scrollToFrame(double(range->first) - 60);
+            });
+        }
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
     } else if (target == QLatin1String("effects")) {
