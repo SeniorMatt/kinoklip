@@ -12,6 +12,7 @@
 #include "render/TimelineEval.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QAction>
@@ -40,10 +41,11 @@ constexpr double kRotateSnapDegrees = 15.0; ///< Shift + rotate
 constexpr double kStrokeTolerancePx = 2.0; ///< freehand simplification, screen pixels
 constexpr double kMinDrawSpacing = 3.0; ///< drawing: clicks closer to the last point are ignored
 
+// Fixed exception: mask outlines are drawn over arbitrary video, so they stay white with a
+// black halo (readable on any picture) whatever the scheme. Selection uses the scheme.
 const QColor kLine(255, 255, 255, 235);
 const QColor kHalo(0, 0, 0, 150);
 const QColor kInactive(255, 255, 255, 120);
-const QColor kSelected(0xff, 0xa8, 0x3a); ///< timeline selection orange
 const QColor kFeather(255, 255, 255, 140);
 
 double len(QPointF d)
@@ -455,7 +457,7 @@ void MaskOverlay::paintHandles(QPainter& p, const View& v) const
         const QRectF r(c - QPointF(kHandleRadius, kHandleRadius),
             QSizeF(2 * kHandleRadius, 2 * kHandleRadius));
         p.setPen(QPen(kHalo, 1.0));
-        p.setBrush(filled ? QBrush(kSelected) : QBrush(kLine));
+        p.setBrush(filled ? QBrush(schemeColors().selection) : QBrush(kLine));
         p.drawRect(r);
     };
     auto dot = [&](QPointF c, double r, const QColor& fill) {

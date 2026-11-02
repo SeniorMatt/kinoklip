@@ -93,7 +93,8 @@ trademarked pages). Shortcuts Shift+2 / Shift+4 / Shift+8 (Shift+5 reserved for 
 - **Deliver page**: render settings (left), viewer (centre), render queue (right), mini timeline.
 - **Look: the real KDE Breeze, the Kdenlive way.** The app ships the actual Breeze Qt style plugin,
   the Breeze icon theme and KDE colour schemes (KColorScheme/KColorSchemeManager) inside its bundle on
-  every OS, so it looks the same on Linux, Windows and macOS. Default: Breeze style + Breeze Dark.
+  every OS, so it looks the same on Linux, Windows and macOS. Default: Breeze style + the Kinoklip
+  colour scheme (custom-painted widgets follow the active scheme, ui/common/SchemeColors.h).
   Customisable: Settings > Color Theme (any KDE colour scheme, incl. Breeze Light/Dark), Settings >
   Style (Breeze, Fusion, ...), icon theme follows the colour scheme (breeze / breeze-dark).
   Editor-specific visuals (timeline clips, viewer chrome) use colours derived from the palette.

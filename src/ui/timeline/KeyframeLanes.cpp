@@ -8,6 +8,7 @@
 #include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/keyframes/KeyframeCommands.h"
 #include "ui/timeline/CurveEditorWidget.h"
 #include "ui/timeline/KeyframeTrackWidget.h"
@@ -32,7 +33,6 @@ constexpr int kButtonH = 12;
 constexpr int kButtonGap = 2;
 constexpr int kMinClipWidthForButtons = 2 * kButtonW + 3 * kButtonGap + 8;
 constexpr int kMinClipHeightForButtons = 26;
-const QColor kButtonOn(0xff, 0xa8, 0x3a); ///< timeline selection colour: editor open
 constexpr int kOpenPanelGap = 6; ///< gap between the clip and its "open in panel" button
 
 bool clipIsAnimated(const ClipData& c)
@@ -354,10 +354,12 @@ void KeyframeLanes::paintClipButtons(QPainter& p) const
             for (const bool isCurve : {false, true}) {
                 const QRect b = isCurve ? curves : keys;
                 const bool on = isCurve ? curvesOpen : keysOpen;
-                p.setPen(QColor(0, 0, 0, 160));
-                p.setBrush(on ? kButtonOn : QColor(20, 20, 24, 150));
+                // On (editor open): the selection colour, like a selected clip's outline.
+                const SchemeColors& sc = schemeColors();
+                p.setPen(withAlpha(sc.shadow, 160));
+                p.setBrush(on ? sc.selection : withAlpha(sc.shadow, 150));
                 p.drawRoundedRect(QRectF(b).adjusted(0.5, 0.5, -0.5, -0.5), 2, 2);
-                const QColor glyph = on ? QColor(20, 20, 20) : QColor(235, 235, 235);
+                const QColor glyph = on ? sc.textOn(sc.selection) : sc.bright;
                 const QPointF c = QRectF(b).center();
                 if (isCurve) {
                     QPainterPath path;

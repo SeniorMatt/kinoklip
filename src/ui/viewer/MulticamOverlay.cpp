@@ -3,6 +3,7 @@
 #include "ui/viewer/MulticamOverlay.h"
 
 #include "core/Multicam.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QEvent>
@@ -15,9 +16,6 @@ namespace {
 
 // Frame colours of the active angle (Resolve's convention: red = both, blue = video, green =
 // audio).
-const QColor kBoth(0xe0, 0x3c, 0x31);
-const QColor kVideo(0x3d, 0x8e, 0xf0);
-const QColor kAudio(0x3c, 0xc0, 0x5a);
 constexpr int kActiveFrame = 3; ///< px width of the active angle's frame
 constexpr int kLabelPad = 4; ///< px around the angle label
 constexpr int kArrowSize = 22; ///< px of the page arrow buttons
@@ -119,8 +117,11 @@ void MulticamOverlay::paintEvent(QPaintEvent*)
     font.setBold(true);
     p.setFont(font);
     const QFontMetrics fm(font);
+    // Drawn over video: plates and text from the scheme's complementary (dark) set; active
+    // angles in the video (link) / audio (positive) / both (negative) roles of the timeline.
+    const SchemeColors& sc = schemeColors();
     if (!m_message.isEmpty()) {
-        p.setPen(QColor(0xd0, 0xd0, 0xd4));
+        p.setPen(sc.overlayText);
         p.drawText(m_surface->pictureRect(), Qt::AlignCenter | Qt::TextWordWrap, m_message);
         return;
     }
@@ -130,18 +131,18 @@ void MulticamOverlay::paintEvent(QPaintEvent*)
         if (angle >= m_names.size())
             break;
         const QRect cell = cellRect(angle);
-        p.setPen(QColor(0, 0, 0, 200));
+        p.setPen(withAlpha(sc.shadow, 200));
         p.setBrush(Qt::NoBrush);
         p.drawRect(cell);
         if (angle == m_hover)
-            p.fillRect(cell, QColor(255, 255, 255, 28));
+            p.fillRect(cell, withAlpha(sc.overlayText, 28));
         // Label: angle number and name on a dark plate, bottom left.
         const QString text = QStringLiteral("%1  %2").arg(angle + 1).arg(m_names[angle]);
         const QString elided = fm.elidedText(text, Qt::ElideRight, cell.width() - 4 * kLabelPad);
         const QRect plate(cell.left() + kLabelPad, cell.bottom() - fm.height() - 3 * kLabelPad,
             fm.horizontalAdvance(elided) + 2 * kLabelPad, fm.height() + 2 * kLabelPad);
-        p.fillRect(plate, QColor(0, 0, 0, 150));
-        p.setPen(QColor(0xf2, 0xf2, 0xf4));
+        p.fillRect(plate, sc.overlay);
+        p.setPen(sc.overlayText);
         p.drawText(plate, Qt::AlignCenter, elided);
     }
     // Active angle frames last, so they are on top of the neighbours' thin frames.
@@ -155,17 +156,17 @@ void MulticamOverlay::paintEvent(QPaintEvent*)
         p.drawRect(cell.adjusted(half, half, -half - 1, -half - 1));
     };
     if (m_video >= 0 && m_video == m_audio) {
-        frame(m_video, kBoth, 0);
+        frame(m_video, sc.negative, 0);
     } else {
-        frame(m_video, kVideo, 0);
-        frame(m_audio, kAudio, m_audio == m_video ? kActiveFrame : 0);
+        frame(m_video, sc.link, 0);
+        frame(m_audio, sc.positive, m_audio == m_video ? kActiveFrame : 0);
     }
     if (pageCount() > 1) {
         p.setRenderHint(QPainter::Antialiasing, true);
         for (const int delta : {-1, 1}) {
             const QRect r = pageArrowRect(delta);
-            p.fillRect(r, QColor(0, 0, 0, 150));
-            p.setPen(QPen(QColor(0xf2, 0xf2, 0xf4), 2));
+            p.fillRect(r, sc.overlay);
+            p.setPen(QPen(sc.overlayText, 2));
             const QPointF c = QRectF(r).center();
             const qreal d = delta * 4.0;
             p.drawPolyline(QPolygonF({c + QPointF(-d, -6), c + QPointF(d, 0), c + QPointF(-d, 6)}));
@@ -174,7 +175,7 @@ void MulticamOverlay::paintEvent(QPaintEvent*)
         const QRect left = pageArrowRect(-1);
         const int w = fm.horizontalAdvance(pageText) + 2 * kLabelPad;
         const QRect plate(left.left() - w - 4, left.top(), w, left.height());
-        p.fillRect(plate, QColor(0, 0, 0, 150));
+        p.fillRect(plate, sc.overlay);
         p.drawText(plate, Qt::AlignCenter, pageText);
     }
 }

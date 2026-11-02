@@ -8,6 +8,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/effects/EffectActions.h"
 
 #include <QApplication>
@@ -76,25 +77,27 @@ QIcon categoryGlyph(EffectCategory category)
     QPainter p(&pixmap);
     p.setRenderHint(QPainter::Antialiasing);
     const QRectF tile(1.5, 3.5, kGlyphSize - 3, kGlyphSize - 7);
+    // Tints from the scheme, the same roles as the clips these effects make on the timeline.
+    const SchemeColors& sc = schemeColors();
     QColor tint;
     switch (category) {
     case EffectCategory::Transition:
-        tint = QColor(0x6f, 0x9f, 0xd8);
+        tint = sc.transition;
         break;
     case EffectCategory::Title:
-        tint = QColor(0xc9, 0x8f, 0xd8);
+        tint = sc.visited;
         break;
     case EffectCategory::Generator:
-        tint = QColor(0x7f, 0xc0, 0x8a);
+        tint = mixColors(sc.visited, sc.neutral, 0.55);
         break;
     case EffectCategory::Effects:
-        tint = QColor(0xa8, 0x9c, 0xd8);
+        tint = mixColors(sc.link, sc.textDim, 0.4);
         break;
     case EffectCategory::AudioEffect:
-        tint = QColor(0x5f, 0xc4, 0xb8);
+        tint = sc.positive;
         break;
     default:
-        tint = QColor(0xd8, 0xa8, 0x5f);
+        tint = sc.link;
         break;
     }
     QColor fill = tint;
@@ -228,6 +231,16 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     setContentWidget(splitter);
 
     populate();
+    // The category glyphs are pixmaps in the scheme's colours: redraw them on a switch.
+    connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this, [this] {
+        for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
+            QTreeWidgetItem* section = m_tree->topLevelItem(i);
+            const QIcon glyph
+                = categoryGlyph(EffectCategory(section->data(0, kCategoryRole).toInt()));
+            for (int c = 0; c < section->childCount(); ++c)
+                section->child(c)->setIcon(0, glyph);
+        }
+    });
 
     connect(m_search, &QLineEdit::textChanged, this, &EffectsLibraryPanel::setFilterText);
     connect(m_categories, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* item) {

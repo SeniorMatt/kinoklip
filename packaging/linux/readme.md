@@ -73,7 +73,7 @@ kinoklip-x86_64/
                                       "newer" ones (libstdc++, libgcc_s, libva, fontconfig,
                                       wayland-client/-cursor) + newer.txt (their version tags)
   usr/lib/fallback-active/            symlinks to the fallbacks the host lacks (made by AppRun)
-  usr/share/color-schemes/            KDE colour schemes (BreezeDark, BreezeLight, BreezeClassic)
+  usr/share/color-schemes/            KDE colour schemes (Kinoklip = default, BreezeDark, BreezeLight, BreezeClassic)
   usr/share/icons/breeze/             Breeze icon theme (wins over an older host Breeze)
   usr/share/applications, icons/hicolor/scalable/apps, mime/packages
   usr/share/doc/kinoklip/             bundled-libraries.txt (soname, package, version) and
