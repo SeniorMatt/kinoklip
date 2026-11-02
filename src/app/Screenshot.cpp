@@ -533,9 +533,11 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             delayMs = kDialogSettleDelayMs;
         } else {
             placeClip();
-            const TimelineData& data = ctx.project->timeline()->data();
             ctx.project->beginEdit(QStringLiteral("Demo"));
             TimelineData& d = ctx.project->timeline()->mutableData();
+            if (base == QLatin1String("levels") && !d.audioTracks.empty())
+                d.audioTracks.front().height = 120; // room for the level line
+            const TimelineData& data = d;
             for (const auto* tracks : {&data.videoTracks, &data.audioTracks}) {
                 for (const TrackData& t : *tracks) {
                     for (const ClipData& c : t.clips) {
@@ -559,6 +561,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
                 tc->insertSource(mediaId, 0, lengthUs / 2, SourceEditMode::Overwrite);
                 ctx.project->timeline()->setPlayhead(25);
                 ctx.project->setActiveTimeline(first);
+                ctx.project->closeTab(second); // Timeline B lives in the upper pane only
                 ctx.project->timeline()->setPlayhead(60);
                 timelinePanel->setStackedTimelines(true);
             }
