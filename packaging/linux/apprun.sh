@@ -374,8 +374,17 @@ if [ -d "$LIB/libheif/plugins" ]; then
     set_var LIBHEIF_PLUGIN_PATH "$LIB/libheif/plugins"
 fi
 
-# Wayland first (native on KDE Linux), X11/XWayland as fallback. A user choice wins.
-[ -n "${QT_QPA_PLATFORM:-}" ] || set_var QT_QPA_PLATFORM "wayland;xcb"
+# Wayland first (native on KDE Linux), X11/XWayland as fallback. A user choice wins. Without a
+# Wayland compositor (pure X11 session: WAYLAND_DISPLAY unset) go straight to xcb: trying
+# wayland first makes the bundled Qt print "Failed to create wl_display" and "Could not load
+# the Qt platform plugin wayland" before it falls back.
+if [ -z "${QT_QPA_PLATFORM:-}" ]; then
+    if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        set_var QT_QPA_PLATFORM "wayland;xcb"
+    else
+        set_var QT_QPA_PLATFORM xcb
+    fi
+fi
 KINOKLIP_APPDIR="$HERE"
 export KINOKLIP_APPDIR KINOKLIP_ORIG_VARS
 
