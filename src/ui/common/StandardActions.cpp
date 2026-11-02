@@ -352,6 +352,7 @@ QVector<MenuCategory> standardMenus()
         {QStringLiteral("view"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&View"))},
         {QStringLiteral("playback"),
             translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Playback"))},
+        {QStringLiteral("audio"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Audio"))},
         {QStringLiteral("settings"),
             translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Settings"))},
         {QStringLiteral("help"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Help"))},
