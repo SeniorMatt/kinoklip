@@ -237,8 +237,8 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
                                 itemKey, depth, showAll);
                     }
                 }
-            } else {
-                group(groups::Audio, ParamScope::Audio);
+            } else if (loc->track.type == TrackType::Audio) {
+                group(groups::Audio, ParamScope::Audio); // captions have no animated groups
             }
             for (const EffectInstance& fx : clip->effects) {
                 if (const EffectDescriptor* d = reg.find(fx.type))

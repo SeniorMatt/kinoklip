@@ -7,6 +7,8 @@
 #include "core/Generators.h"
 #include "render/Compositor.h"
 
+#include <QElapsedTimer>
+
 using namespace kk;
 using namespace kk::test;
 
@@ -324,6 +326,41 @@ private slots:
         tl.videoTracks[2].clips[0].enabled = true;
         tl.videoTracks[2].enabled = false;
         QVERIFY(maxDifference(plain, m_gpu->renderImage(snap(tl), 5)) <= 1);
+    }
+
+    /// Cost of an adjustment clip at 1080p (printed; numbers in src/render/readme.md).
+    void cost()
+    {
+        if (!m_gpu->isGpu())
+            QSKIP("no OpenGL");
+        TimelineData plain = emptyTimeline(1920, 1080);
+        addClip(plain, TrackType::Video, 0, solidClip(plain, QColor(200, 40, 30), 0, 100));
+        ClipData box = solidClip(plain, QColor(20, 60, 220), 0, 100);
+        box.transform.setBase(keys::ZoomX, 0.5);
+        box.transform.setBase(keys::ZoomY, 0.5);
+        addClip(plain, TrackType::Video, 1, box);
+        TrackData v3;
+        v3.id = plain.allocateId();
+        plain.videoTracks.push_back(v3);
+        TimelineData adjusted = plain;
+        ClipData adj = adjustmentClip(adjusted, 0, 100);
+        adj.effects.append(effect(adjusted, "saturation", "saturation", 20));
+        addClip(adjusted, TrackType::Video, 2, adj);
+        TimelineData identity = plain;
+        addClip(identity, TrackType::Video, 2, adjustmentClip(identity, 0, 100));
+        auto measure = [&](const TimelineData& tl) {
+            const auto shot = snap(tl);
+            (void)m_gpu->render(shot, 0, {}, Quality::Full, OutputTexture); // warm up
+            QElapsedTimer t;
+            t.start();
+            constexpr int kFrames = 20;
+            for (int f = 0; f < kFrames; ++f)
+                (void)m_gpu->render(shot, f, {}, Quality::Full, OutputTexture);
+            return double(t.nsecsElapsed()) / 1e6 / kFrames;
+        };
+        qInfo("1080p ms/frame (texture output): plain %.2f, identity adjustment %.2f, "
+              "adjustment + saturation %.2f",
+            measure(plain), measure(identity), measure(adjusted));
     }
 };
 

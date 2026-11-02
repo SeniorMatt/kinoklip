@@ -457,22 +457,53 @@ PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
             drawTrack(frames[i], fc, *accumulator);
             continue;
         }
-        // Adjustment clip: what has been composited so far (every track below) becomes its
-        // source. The accumulator is copied into a fresh target first (a texture cannot be
-        // sampled while it is drawn to), then drawTrack() replaces the clip's footprint with
-        // the processed picture: masks, crop and opacity < 100 % leave the tracks below
-        // visible where the adjustment does not reach. Cost: one full-frame copy and one
-        // footprint pass per adjustment track; nothing when there is none.
-        PooledTarget below = std::move(accumulator);
-        accumulator = m_kit->acquire(fc.outSize);
-        m_kit->bindTarget(*accumulator);
-        m_kit->setBlendOver(false);
-        m_kit->blit(below->texture, kFullscreenNdc);
-        FrameContext adjust = fc;
-        adjust.below = below->texture;
-        drawTrack(frames[i], adjust, *accumulator);
+        drawAdjustment(frames[i], fc, accumulator);
     }
     return accumulator;
+}
+
+bool GlRenderer::hasActiveEffect(const ClipData& clip, int64_t local) const
+{
+    for (const EffectInstance& e : clip.effects) {
+        if (!e.enabled)
+            continue;
+        const auto it = m_effects.constFind(e.type);
+        if (it != m_effects.constEnd() && !(*it)->isIdentity(e.params, local))
+            return true;
+    }
+    return false;
+}
+
+void GlRenderer::drawAdjustment(
+    const TrackFrame& tf, const FrameContext& fc, PooledTarget& accumulator)
+{
+    // What has been composited so far (every track below) is the adjustment clip's source.
+    FrameContext adjust = fc;
+    if (tf.single) {
+        const ClipData& clip = *tf.single;
+        const int64_t local = clip.localFrame(fc.frame);
+        if (hasIdentityFootprint(clip, local)) {
+            // The common case (a grade or blur over everything): nothing to do without an
+            // active effect; otherwise the layer path reads the accumulator into its layer and
+            // the result overwrites it - no copy, no footprint pass.
+            if (!hasActiveEffect(clip, local))
+                return;
+            adjust.below = accumulator->texture;
+            drawClip(clip, adjust, *accumulator, ClipBlend::Replace);
+            return;
+        }
+    }
+    // General case: the accumulator is copied into a fresh target (a texture cannot be sampled
+    // while it is drawn to), then drawTrack() replaces the clip's footprint with the processed
+    // picture: masks, crop, transform and opacity < 100 % leave the tracks below visible
+    // where the adjustment does not reach. Cost: one full-frame copy and one footprint pass.
+    PooledTarget below = std::move(accumulator);
+    accumulator = m_kit->acquire(fc.outSize);
+    m_kit->bindTarget(*accumulator);
+    m_kit->setBlendOver(false);
+    m_kit->blit(below->texture, kFullscreenNdc);
+    adjust.below = below->texture;
+    drawTrack(tf, adjust, *accumulator);
 }
 
 const RenderTarget* GlRenderer::nestedComposite(
@@ -680,6 +711,9 @@ void GlRenderer::applyBlend(ClipBlend blend)
         break;
     case ClipBlend::Add:
         m_gl->glBlendFunc(GL_ONE, GL_ONE);
+        break;
+    case ClipBlend::Replace:
+        m_kit->setBlendOver(false);
         break;
     }
 }
