@@ -5,8 +5,10 @@
 #include "core/MediaPool.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
+#include "playback/PlaybackEngine.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/common/UiAnimation.h"
 #include "ui/timeline/TimelinePainter.h"
 
 #include <QMouseEvent>
@@ -26,6 +28,7 @@ constexpr int kMinSeconds = 10; ///< an empty or short timeline still spans this
 constexpr int kTargetTicks = 12; ///< about this many ruler ticks across the width
 constexpr double kAudioShare = 0.35; ///< of the track area for audio (compact)
 constexpr int kRowGap = 1;
+constexpr int kGlideFrameMs = 16; ///< repaint interval while the playhead glides
 
 /// Tick spacing in seconds: the first "nice" step giving at most kTargetTicks ticks.
 int tickSeconds(double totalSeconds)
@@ -49,7 +52,16 @@ CutOverview::CutOverview(AppContext& ctx, QWidget* parent)
     setMouseTracking(false);
     Timeline* timeline = ctx.project->timeline();
     connect(timeline, &Timeline::changed, this, qOverload<>(&QWidget::update));
-    connect(timeline, &Timeline::playheadChanged, this, qOverload<>(&QWidget::update));
+    connect(timeline, &Timeline::playheadChanged, this, &CutOverview::onPlayheadChanged);
+    m_lastPlayhead = timeline->playhead();
+    // Playhead glide (v2.2, spec 36.10): repaints while the line glides to a clicked frame.
+    m_glideTimer.setTimerType(Qt::PreciseTimer);
+    m_glideTimer.setInterval(kGlideFrameMs);
+    connect(&m_glideTimer, &QTimer::timeout, this, [this] {
+        if (!m_glide.running(uianim::nowMs()))
+            m_glideTimer.stop();
+        update();
+    });
     connect(ctx.project, &Project::activeTimelineChanged, this, qOverload<>(&QWidget::update));
     connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this,
         qOverload<>(&QWidget::update));
@@ -168,9 +180,23 @@ void CutOverview::paintEvent(QPaintEvent*)
             p.drawLine(x, 0, x, height());
         }
     }
-    const double px = frameToX(double(m_ctx.project->timeline()->playhead()));
+    const double px
+        = frameToX(m_glide.frame(m_ctx.project->timeline()->playhead(), uianim::nowMs()));
     p.setPen(QPen(sc.playhead, 2));
     p.drawLine(QPointF(px, 0), QPointF(px, height()));
+}
+
+void CutOverview::onPlayheadChanged(int64_t frame)
+{
+    // A click glides the line (isolated jump); dragging and playback stay 1:1.
+    const bool playing = m_ctx.playback && m_ctx.playback->isPlaying();
+    const double pxPerFrame
+        = (width() - 2.0 * kSidePadding) / double(std::max<int64_t>(1, visibleFrames()));
+    if (m_glide.moved(m_lastPlayhead, frame, uianim::enabled() && !playing, pxPerFrame)
+        && !m_glideTimer.isActive())
+        m_glideTimer.start();
+    m_lastPlayhead = frame;
+    update();
 }
 
 void CutOverview::scrubTo(double x)

@@ -39,6 +39,12 @@ inline constexpr char kZoomAnchor[] = "edit/zoomAnchor";
 /// bool: show the default smart bins (Video, Audio, Stills, Timelines) in the bin list;
 /// default false (Preferences > Editing).
 inline constexpr char kDefaultSmartBins[] = "mediaPool/defaultSmartBins";
+/// bool: small tweened animations of timeline edits, the playhead and the snap indicator
+/// (Preferences > UI Settings > "Animate timeline edits"); default true (v2.2).
+inline constexpr char kAnimations[] = "ui/animations";
+/// double: speed factor of those animations (0.5 = twice as long .. 2 = half as long);
+/// default 1.
+inline constexpr char kAnimationSpeed[] = "ui/animationSpeed";
 
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).
@@ -99,5 +105,13 @@ void setPreviewQuality(const QString& id);
 [[nodiscard]] bool showDefaultSmartBins();
 /// Stores kDefaultSmartBins.
 void setShowDefaultSmartBins(bool show);
+/// True if timeline animations are on (kAnimations, default true).
+[[nodiscard]] bool animationsEnabled();
+/// Stores kAnimations.
+void setAnimationsEnabled(bool on);
+/// Animation speed factor (kAnimationSpeed), clamped to [0.5, 2], default 1.
+[[nodiscard]] double animationSpeed();
+/// Stores kAnimationSpeed (clamped to [0.5, 2]).
+void setAnimationSpeed(double factor);
 
 } // namespace kk::prefs

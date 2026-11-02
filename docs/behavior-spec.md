@@ -635,6 +635,30 @@ tests/core/test_sourcetape.cpp.
 | 35.24 | Camera-angle features (multicam source tape, sync by angle, Source Overwrite searching every angle). | Deferred: multicam editing is on the Edit page. |
 | 35.25 | Inspector, effects and titles panels on the Cut page. | Deferred: use the Edit page (the selection carries over). |
 
+## 36. Animations (v2.2)
+
+Small tweened animations of the timeline views (Edit page, both Cut page timelines, stacked
+timelines), added on the owner's request so edits read more clearly. They are display only:
+the timeline data and the undo stack change at once, exactly as without them. Numbers 36 and 37
+are left for the Color and Audio pages.
+
+Tests: an = tests/timeline/test_timelineanimation.cpp.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 36.1 | Preferences > UI Settings > "Animate timeline edits" (default on) and "Animation speed" (0.5x - 2x, default 1x) are stored and apply at once to every open timeline; turning them off mid-animation shows the final state immediately. KDE's global animation speed (System Settings, kdeglobals AnimationDurationFactor) scales the durations and its "instant" setting turns them off. | Fixed (new; an preferencePersistsAndAppliesLive) |
+| 36.2 | With animations off the view always shows the model; nothing extra runs (no snapshot, no timer). Offscreen (the tests) they default to off unless KK_ANIMATIONS is set; KK_NO_ANIMATIONS turns them off anywhere. | Fixed (new; an disabledShowsTheModelAtOnce) |
+| 36.3 | After a committed edit, every clip whose start, length or track changed slides from where it was drawn to its new place (OutCubic, about 180 ms): ripple delete and close gap (later clips slide left), insert / overwrite / append and the Cut page's smart edits (later clips slide right), keyboard trims (Shift+[ / ], Ctrl+Shift+[ / ], edit point trims), nudges (, and .), track changes and undo / redo. The tween always ends exactly on the model. | Fixed (new; an rippleDeleteSlidesAndLandsOnTheModel, newEditRestartsFromTheDisplayedState) |
+| 36.4 | New clips (inserts, drops from the media pool or a file manager, paste) grow in from about 70 % of their height and fade in (light OutBack, about 160 ms, no visible bounce); removed clips fade out and shrink where they were drawn. Undoing a delete slides the clip back from its fading ghost. | Fixed (new; an insertedClipAppears, rippleDeleteSlidesAndLandsOnTheModel) |
+| 36.5 | Blade (the blade tool, Ctrl+\ split at the playhead, the Cut page button): a bright line wipes down the cut and fades (about 220 ms) while the two halves are drawn a hair (4 px) apart and settle together. Undoing a cut lets the left half grow back without a ghost. | Fixed (new; an bladeFlashesAndSeparatesTheHalves) |
+| 36.6 | Mouse trims, ripple trims and rolls follow the pointer 1:1 while dragging (no animation during any open edit, in this view or another view of the same timeline); on release the trimmed edges flash once. The selected edit point's highlight pulses once when it is selected and after a keyboard trim moves it. | Fixed (new; an liveDragsAreNotAnimated) |
+| 36.7 | A new edit during an animation restarts from what is drawn at that moment, never from the old model state, so nothing jumps. | Fixed (new; an newEditRestartsFromTheDisplayedState) |
+| 36.8 | Hit testing, snapping and every command use the model positions, also mid-animation. | Fixed (new; an hitTestsUseTheModelMidAnimation) |
+| 36.9 | The snap indicator fades in and out (about 120 ms). | Fixed (new; an snapIndicatorFades) |
+| 36.10 | Isolated playhead jumps (Up / Down to edit points, Home / End, markers, a click in the Cut page's upper timeline) glide the drawn playhead line (about 140 ms); the playhead value changes at once. Playback, scrubbing, the Cut page's centred lower timeline and changes less than 100 ms apart (drags, key auto-repeat) are not animated. | Fixed (new; an playheadJumpGlides) |
+| 36.11 | Performance: only the timeline viewport repaints during an animation, at the display refresh rate; a change on a timeline with more than 50000 clips, or one that adds / removes more than 200 clips (a load), is not animated. | Fixed (new; test_timelinebench, test_resizebench unchanged) |
+| 36.12 | Track height tweens, zoom smoothing, page switch cross-fades and Inspector section animations. | Deferred: clips already tween vertically when tracks are added or removed; the rest was left out to keep page switching and zoom immediate. |
+
 ## 37. Audio page (audiopage branch, roadmap v2.5)
 
 Mixing on its own page (Shift+7): the mixer with buses, EQ and dynamics per track and bus,
@@ -642,7 +666,7 @@ fader / pan automation, peak meters and loudness metering. Written from general 
 Resolve's audio page works and from standard DSP (RBJ cookbook biquads, ITU-R BS.1770-4 /
 EBU R128); our own names, layout drawing and icons. It shares the project, the active timeline,
 the playhead, the selection, the undo stack and the timeline controller with the Edit and Cut
-pages. (Section 36 is reserved for the colour page branch.)
+pages.
 
 Tests: ap = tests/app/test_audiopage.cpp, mg = tests/render/test_mixergraph.cpp, dsp =
 tests/render/test_mixerdsp.cpp, md = tests/core/test_mixerdata.cpp.
@@ -713,5 +737,7 @@ tests/render/test_mixerdsp.cpp, md = tests/core/test_mixerdata.cpp.
 - The themecolors branch (alpha.3 feedback #6) added 34.1 - 34.5 (Kinoklip default scheme, scheme-driven editor colours).
 - The cutpage branch (v2.5) added 35.1 - 35.25 (the Cut page: dual timeline, source tape, smart
   edits, strip view, fast review; 35.19 - 35.25 deferred).
+- The animations branch (v2.2) added 36.1 - 36.12 (display-only timeline animations and their
+  preference; 36.12 deferred).
 - The audiopage branch (v2.5) added 37.1 - 37.33 (the Audio page: mixer with buses, EQ,
   dynamics, automation, meters and loudness; 37.20 - 37.33 deferred).

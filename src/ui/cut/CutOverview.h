@@ -3,6 +3,9 @@
 // the playhead and the range the lower (zoomed) timeline shows.
 #pragma once
 
+#include "ui/common/UiAnimation.h"
+
+#include <QTimer>
 #include <QWidget>
 
 #include <cstdint>
@@ -51,11 +54,15 @@ protected:
 
 private:
     void scrubTo(double x);
+    void onPlayheadChanged(int64_t frame);
 
     AppContext& m_ctx;
     double m_detailFirst = 0.0;
     double m_detailLast = 0.0;
     bool m_scrubbing = false;
+    uianim::PlayheadGlide m_glide; ///< the drawn playhead line glides to clicked frames
+    QTimer m_glideTimer;
+    int64_t m_lastPlayhead = 0;
 };
 
 } // namespace kk

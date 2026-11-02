@@ -47,3 +47,10 @@ takes its colours from `ui/common/SchemeColors.h` (meter zones: positive / neutr
 - **A new Audio page command**: add it to the "audio" category in `ui/common/StandardActions.cpp`,
   a row in `scripts/keymap-resolve-windows.py` (then run it), and connect it in
   `AudioPage::connectActions()` (page-only commands go in `kPageActions`).
+
+## Timeline animations
+
+The Audio page's timeline is an ordinary `TimelineWidget`, so the display-only animator of v2.2
+(`ui/timeline/TimelineAnimator`, switched by `ui/common/UiAnimation`; spec 36) runs there too.
+Mixer edits move no clips, so they animate nothing; fader and EQ drags are open edits, which only
+mark the animator stale until the gesture ends. Animations are off by default in offscreen tests.

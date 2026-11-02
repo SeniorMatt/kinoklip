@@ -105,3 +105,13 @@
 - 22:53 Owner: v2.1 first (double-click opens compound at hovered time; moving past the outermost track creates a track). Cut page agent paused (3 commits on cutpage). Implementing v2.1 on main.
 - 23:04 v2.1 on main: 91/91 pass. Starting 0.2.1-alpha.1 container release build.
 - 23:18 Released 0.2.1-alpha.1 (v2.1); copy in ~/Desktop/kinoklip-0.2.1-alpha.1. Resuming Cut page agent.
+- 23:25 Heartbeat: cutpage merged main (v2.1) 7 min ago, working; 19 GB free.
+- 23:42 cutpage merged (Cut page, spec 35); full host suite started.
+- 23:43 Started agents 'colorpage' (format v12) and 'audiopage' (format v13) in parallel.
+- 23:46 main after cutpage: 94/94 pass; pushed.
+- 23:48 Owner: v2.2 = small tweened animations (blade cut, trims, ripple, inserts, undo, playhead jumps) with an option to disable. Started agent 'animations'; 0.2.2-alpha.1 (with the Cut page) to ship before color/audio merge.
+- 00:02 Owner: no Color page (paused, moved to v4 with Compositing); Audio page continues; focus = polish basic video editing (roadmap v3). Starting agent 'editpolish'.
+- 00:02 colorpage paused: WIP 17fafc4 kept on branch 'colorpage' (core grade model only, uncompiled); worktree removed. Resume in v4.
+- 00:25 Heartbeat: animations 2 commits (testing), audiopage working (64 files uncommitted), editpolish audit committed + implementing; 17 GB free.
+- 00:34 Heartbeat: animations testing (2 commits), audiopage committed main work, editpolish building (41 files); 16 GB free.
+- 00:37 animations merged (spec renumbered 38 -> 36; Audio page will be 37). Version 0.2.2. Full host suite started.
