@@ -239,7 +239,10 @@ void KeyframeParamTree::buildRow(Row& row, int index)
         row.next, &QAbstractButton::clicked, this, [this, index] { jump(*m_rows[index], true); });
     h->addWidget(row.next);
 
-    if (e.kind == KeyRow::Kind::Param) {
+    // A mask shape has keys but no number to type (it is edited in the viewer).
+    const bool shapeRow = e.kind == KeyRow::Kind::Param && !e.params.isEmpty()
+        && ko::isShapePath(e.params.front().path);
+    if (e.kind == KeyRow::Kind::Param && !shapeRow) {
         auto* f = new ValueField(row.widget);
         f->setFixedWidth(kValueFieldWidth);
         f->setRange(e.desc.min, e.desc.max);

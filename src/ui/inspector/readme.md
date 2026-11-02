@@ -9,6 +9,7 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 | `InspectorPanel.h` | the panel: header, five tabs (Video / Audio / Effects / Title / Transition), structure tracking, undo protocol (implements `ParamEditHost`) |
 | `ParamGroupBox.h` | one collapsible section (Transform, Cropping, an effect instance, a transition) with a shared `QGridLayout` |
 | `ParamRows.h` | one editor row per `ParamDescriptor`: number, bool, choice, colour, string, title text, font |
+| `InspectorMasks.cpp` | the Video tab's Masks section (part of `InspectorPanel`): add buttons per shape, one group per mask (enable, edit in the viewer = `SelectionModel::setActiveMask()`, reorder, delete, section diamond, shape row), rows from the `builtin.mask` descriptor with `ParamScope::Mask` |
 | `ParamAccess.h` | `ParamRef` (clip, scope, effect id, key) and the read/write functions that map a descriptor parameter onto `ClipData` |
 | `ParamEditHost.h` | the interface rows use to read clips and make undoable edits |
 | `ValueField.h` | draggable numeric field (drag to scrub, Shift fine, Ctrl coarse, double-click to type) |
@@ -17,7 +18,10 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 
 ### Data flow
 - Everything is generated from `EffectRegistry` descriptors:
-  - Video tab: `solid_color` (Solid clips), `builtin.transform`, `builtin.cropping`.
+  - Video tab: `solid_color` (Solid clips), `builtin.transform`, `builtin.cropping`, then the
+    Masks section (`builtin.mask` rows per mask; width / height only for rectangles and
+    ellipses; mode / invert map to `MaskData` fields, the synthetic `shape` key to the
+    animated path, see `ParamAccess.h`).
   - Audio tab: `builtin.audio`, bound to the clip itself (audio track) or its first linked
     audio clip (a video clip with linked audio).
   - Effects tab: one group per `EffectInstance` (enable, move up/down, remove, reset all) and an

@@ -14,6 +14,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
+#include "ui/viewer/MaskOverlay.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -177,6 +178,11 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     m_surface->widget()->setFocusPolicy(Qt::ClickFocus);
     m_surface->widget()->installEventFilter(this);
     layout->addWidget(m_surface->widget(), 1);
+    if (m_mode == Mode::Timeline) {
+        // On-screen mask controls: an additive child layer over the picture surface.
+        m_maskOverlay = new MaskOverlay(m_ctx, m_surface);
+        connect(m_maskOverlay, &MaskOverlay::pressed, this, [this] { activate(); });
+    }
 
     m_scrub = new ScrubBar(m_body);
     // While playing, scrubbing keeps playing from where the mouse leaves the playhead, like the
@@ -197,6 +203,14 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     auto* bar = new QHBoxLayout(m_transport);
     bar->setContentsMargins(metrics::kSpaceM, 0, metrics::kSpaceM, 0);
     bar->setSpacing(metrics::kSpaceXs);
+    if (m_maskOverlay) {
+        // Bottom-left on-screen controls menu (Off / Mask), like Resolve's viewer.
+        QAction* masks
+            = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_masks"))
+            ? m_ctx.actions->action(QStringLiteral("view.onscreen_masks"))
+            : nullptr;
+        bar->addWidget(MaskOverlay::createModeButton(masks, m_transport));
+    }
     m_marksLabel = new QLabel;
     m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));
     // Secondary text from the palette (readable in light and dark colour schemes).
@@ -447,6 +461,8 @@ void ViewerPanel::onTimelineChanged()
     const TimelineData& d = m_boundTimeline->data();
     m_fps = d.fps;
     m_surface->setAspect(QSize(d.width, d.height));
+    if (m_maskOverlay)
+        m_maskOverlay->refresh();
     m_scrub->setDuration(d.duration());
     m_scrub->setMarks(d.markIn, d.markOut);
     updateMarksLabel();
@@ -586,6 +602,8 @@ void ViewerPanel::setZoom(Zoom zoom)
         m_zoomBox->setCurrentIndex(int(zoom));
     }
     m_surface->setZoom(zoomFactor(zoom));
+    if (m_maskOverlay)
+        m_maskOverlay->refresh(); // handles follow the new picture rectangle
     updateOutputClient();
 }
 

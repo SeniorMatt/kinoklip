@@ -155,6 +155,31 @@ void EffectRegistry::registerBuiltins()
         },
         QStringLiteral("audio")));
 
+    // Mask parameters (ClipData::masks[i]; the inspector shows one group per mask, the
+    // keyframe editors one "Masks" group). Width / height apply to rectangles and ellipses.
+    add(descriptor(kMaskDescriptorId, tr("Masks"), C::ClipProperties,
+        tr("Shape masks cut the clip's picture before it is composited"),
+        {
+            choice(maskkeys::Mode, tr("Mode"),
+                {QStringLiteral("add"), QStringLiteral("subtract"), QStringLiteral("intersect"),
+                    QStringLiteral("difference")},
+                {tr("Add"), tr("Subtract"), tr("Intersect"), tr("Difference")},
+                QStringLiteral("add")),
+            boolean(maskkeys::Invert, tr("Invert"), false),
+            number(maskkeys::Opacity, tr("Opacity"), 0, 100, 100, 1, kPercent),
+            number(maskkeys::FeatherIn, tr("Feather Inside"), 0, 2000, 0, 0.5, kPx),
+            number(maskkeys::FeatherOut, tr("Feather Outside"), 0, 2000, 0, 0.5, kPx),
+            number(maskkeys::Expand, tr("Expand"), -2000, 2000, 0, 0.5, kPx),
+            number(maskkeys::PosX, tr("Position X"), -10000, 10000, 0, 1, kPx),
+            number(maskkeys::PosY, tr("Position Y"), -10000, 10000, 0, 1, kPx),
+            number(maskkeys::Width, tr("Width"), 1, 20000, 960, 1, kPx),
+            number(maskkeys::Height, tr("Height"), 1, 20000, 540, 1, kPx),
+            number(maskkeys::ScaleX, tr("Scale X"), 0.01, 20.0, 1.0, 0.01),
+            number(maskkeys::ScaleY, tr("Scale Y"), 0.01, 20.0, 1.0, 0.01),
+            number(maskkeys::Rotation, tr("Rotation"), -3600, 3600, 0, 0.1, kDegrees),
+        },
+        QStringLiteral("mask")));
+
     // ---- Video effects (ClipData::effects) ----
     add(descriptor("gaussian_blur", tr("Gaussian Blur"), C::VideoEffect,
         tr("Soft blur of the whole image"),

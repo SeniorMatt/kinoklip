@@ -54,6 +54,24 @@ TimelineData richTimeline()
     media.transitionOut = TransitionData {};
     media.transitionOut->alignment = TransitionAlignment::EndOnCut; // spec 13.5
     media.markers.append(Marker {3, QStringLiteral("clip marker"), QColor(0, 200, 0), {}});
+    // Masks (format version 3): a parametric ellipse and an animated bezier path.
+    MaskData ellipse = makeMask(MaskShape::Ellipse, d.allocateId(), QSizeF(800, 400));
+    ellipse.mode = MaskMode::Subtract;
+    ellipse.invert = true;
+    ellipse.enabled = false;
+    ellipse.name = QStringLiteral("Face");
+    ellipse.params.animated(maskkeys::FeatherOut, 0).setKey(4, 12.5, Interp::EaseOut);
+    media.masks.append(ellipse);
+    MaskData pen = makeMask(MaskShape::Bezier, d.allocateId(), {});
+    pen.closed = true;
+    pen.mode = MaskMode::Difference;
+    pen.path.setShape(0, {MaskPoint {0, 0, -5, 0, 5, 0, true}, MaskPoint {100, 0}, {50, 80}});
+    pen.path.setKey(0);
+    MaskPath moved = pen.path.at(0);
+    moved[1].x = 140.25;
+    pen.path.setKey(20, moved);
+    pen.path.timing.keys[1].hold = true;
+    media.masks.append(pen);
     const quint64 v = ops::overwriteClip(d, kV1, media);
     const quint64 a = ops::overwriteClip(d, kA1, mediaClip(0, 50));
     ops::linkClips(d, {v, a});

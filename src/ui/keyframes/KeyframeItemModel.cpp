@@ -76,6 +76,9 @@ void appendGroup(QVector<KeyframeEntry>& out, int& colorIndex, const ClipData& c
         case ParamScope::Effect:
             path = ko::effectPath(effectId, pd.key);
             break;
+        case ParamScope::Mask:
+            path = ko::maskPath(effectId, pd.key);
+            break;
         default:
             continue;
         }
@@ -91,6 +94,68 @@ void appendGroup(QVector<KeyframeEntry>& out, int& colorIndex, const ClipData& c
         e.colorIndex = colorIndex++;
         group.params.append(e.params.front());
         params.append(e);
+    }
+    if (params.isEmpty())
+        return;
+    out.append(group);
+    out += params;
+}
+
+/// The "Masks" group: every mask's animatable parameters labelled "<mask>: <parameter>", and
+/// a "<mask>: Shape" row for point masks (their shape keys).
+void appendMasksGroup(QVector<KeyframeEntry>& out, int& colorIndex, const ClipData& clip,
+    const QString& itemKey, int depth, bool showAll)
+{
+    const EffectDescriptor* desc
+        = EffectRegistry::instance().find(QLatin1String(kMaskDescriptorId));
+    if (!desc || clip.masks.isEmpty())
+        return;
+    const QString groupKey = QStringLiteral("group:%1/%2/0").arg(clip.id).arg(desc->id);
+    KeyframeEntry group;
+    group.kind = KeyRow::Kind::Group;
+    group.label = desc->name;
+    group.key = groupKey;
+    group.parentKey = itemKey;
+    group.depth = depth;
+    QVector<KeyframeEntry> params;
+    for (int i = 0; i < clip.masks.size(); ++i) {
+        const MaskData& mask = clip.masks[i];
+        const QString name = maskDisplayName(mask, i);
+        auto add = [&](const ParamDescriptor& pd) {
+            const ParamRef ref {clip.id, ParamScope::Mask, mask.id, pd.key};
+            const AnimatedValue* v = paramaccess::animated(clip, ref);
+            if (!showAll && !(v && v->isAnimated()))
+                return;
+            const QString path = ko::maskPath(mask.id, pd.key);
+            KeyframeEntry e;
+            e.kind = KeyRow::Kind::Param;
+            e.label = name + QStringLiteral(": ") + pd.label;
+            e.key = QStringLiteral("param:%1/%2").arg(clip.id).arg(path);
+            e.parentKey = groupKey;
+            e.depth = depth + 1;
+            e.params = {{clip.id, path}};
+            e.ref = ref;
+            e.desc = pd;
+            e.colorIndex = colorIndex++;
+            group.params.append(e.params.front());
+            params.append(e);
+        };
+        for (const ParamDescriptor& pd : desc->params) {
+            if (!pd.isScalar() || !pd.animatable)
+                continue;
+            const bool size = pd.key == maskkeys::Width || pd.key == maskkeys::Height;
+            if (size && mask.isPathShape())
+                continue;
+            add(pd);
+        }
+        if (mask.isPathShape()) {
+            ParamDescriptor shape;
+            shape.key = maskkeys::Shape;
+            shape.label = tr(QT_TRANSLATE_NOOP("kk::KeyframeItems", "Shape"));
+            shape.min = 0;
+            shape.max = double(std::max<qsizetype>(1, mask.path.timing.keys.size() - 1));
+            add(shape);
+        }
     }
     if (params.isEmpty())
         return;
@@ -159,6 +224,7 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
             if (video) {
                 group(groups::Transform, ParamScope::Transform);
                 group(groups::Cropping, ParamScope::Transform);
+                appendMasksGroup(model.entries, colorIndex, *clip, itemKey, depth, showAll);
                 if (clip->kind == ClipKind::Title) {
                     for (const EffectDescriptor* d : reg.byCategory(EffectCategory::Title)) {
                         if (paramaccess::scopeForStorage(d->storage) == ParamScope::Title)

@@ -25,6 +25,7 @@ namespace kk {
 
 struct AppContext;
 class PlaybackEngine;
+class MaskOverlay;
 class ScrubBar;
 class Timeline;
 class ViewerSurface;
@@ -156,6 +157,7 @@ private:
     Timeline* m_boundTimeline = nullptr;
     QMetaObject::Connection m_tlChanged, m_tlPlayhead;
     ViewerSurface* m_surface = nullptr;
+    MaskOverlay* m_maskOverlay = nullptr; ///< Timeline mode: on-screen mask controls
     QWidget* m_body = nullptr;
     ScrubBar* m_scrub = nullptr;
     QWidget* m_transport = nullptr;
