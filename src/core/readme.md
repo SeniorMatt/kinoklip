@@ -218,3 +218,19 @@ the absolute path no longer exists.
 2. Write/read it in `Serialization.cpp` (missing on read → default, so old files keep loading).
 3. Extend `richTimeline()` in `tests/core/test_serialization.cpp` so the round-trip covers it.
 4. Bump `kFormatVersion` only for incompatible changes, and add a migration in `Project::load()`.
+
+## Fades, level lines, Clip Attributes (attrs branch, spec section 32)
+- `ClipData::fadeInFrames` / `fadeOutFrames`: fade handles (clip properties, not keyframes);
+  `videoFadeFactor()` (linear) and `audioFadeGain()` (equal power) in `ClipAttributes.h` are the
+  one formula renderers and mixer use. Splits / range cuts drop the fade at the cut
+  (`EditOpsInternal.h`), joins keep the outer ones.
+- `LevelOps.h` (namespace `kk::levelops`): the edits behind the timeline's level lines and fade
+  handles (offset the volume at a frame, add / move volume keys, set a fade), callable without
+  the mouse.
+- `ClipAttributes.h`: pixel aspect, data levels, field order + deinterlace, extra rotation,
+  channel format / routing (`channelMatrix()`), start timecode. The truth is
+  `MediaItem::attributes` (`MediaPool::setItemAttributes()` inside an edit);
+  `Project::syncDerived()` mirrors it into `ClipData::attributes` of every Media clip of the
+  item in every timeline, so render snapshots carry it. Serialized from format 10.
+- Stacked timelines: `Project::setTabs()`, `timelinePlayhead()` / `setTimelinePlayhead()`
+  (inactive timelines keep their own playhead; `inactivePlayheadChanged`).

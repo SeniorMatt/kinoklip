@@ -198,6 +198,19 @@ bool MediaPool::renameItem(const QString& id, const QString& name)
     return true;
 }
 
+bool MediaPool::setItemAttributes(const QString& id, const ClipAttributes& attributes)
+{
+    const int i = indexOfItem(id);
+    if (i < 0)
+        return false;
+    if (m_state.items[i].attributes == attributes)
+        return true;
+    m_state.items[i].attributes = attributes;
+    emit itemChanged(id);
+    touch();
+    return true;
+}
+
 bool MediaPool::moveItemToBin(const QString& itemId, const QString& binId)
 {
     const int i = indexOfItem(itemId);

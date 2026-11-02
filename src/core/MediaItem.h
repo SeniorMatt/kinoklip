@@ -2,6 +2,7 @@
 // Value types of the media pool: imported media items and the bins (folders) holding them.
 #pragma once
 
+#include "core/ClipAttributes.h"
 #include "core/Subtitles.h"
 #include "media/MediaInfo.h"
 
@@ -34,6 +35,9 @@ struct MediaItem
     MediaItemKind kind = MediaItemKind::File;
     quint64 timelineUid = 0; ///< TimelineData::uid for Timeline / CompoundClip items
     QVector<SubtitleCue> cues; ///< Subtitle items: the parsed captions (file order)
+    /// File items: how the file is interpreted (Clip Attributes dialog); mirrored into the
+    /// ClipData::attributes of its clips by Project::syncDerived().
+    ClipAttributes attributes;
 
     /// True for timeline and compound clip items.
     [[nodiscard]] bool isTimeline() const

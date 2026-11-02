@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/Animation.h"
+#include "core/ClipAttributes.h"
 #include "core/Mask.h"
 #include "core/Rational.h"
 
@@ -167,6 +168,15 @@ struct ClipData
     /// Clip > Render Cache Clip Output: the render cache keeps this clip's frames in User
     /// mode (src/render/RenderCacheKeys.h). Not part of the cache key itself.
     bool cacheOutput = false;
+    /// Fade handles (spec section 32): frames of the fade-in from the clip start and of the
+    /// fade-out to the clip end; 0 = none. Video: linear opacity ramp; audio: equal-power gain
+    /// ramp (core/ClipAttributes.h). They multiply with transitions and the keyframed opacity /
+    /// volume, are kept by trims, and a split / range cut drops the fade at the cut.
+    int64_t fadeInFrames = 0;
+    int64_t fadeOutFrames = 0;
+    /// Media clips: the Clip Attributes of the media pool item (MediaItem::attributes),
+    /// mirrored by Project::syncDerived() so render snapshots need no media pool lookup.
+    ClipAttributes attributes;
 
     /// First frame after the clip.
     [[nodiscard]] int64_t end() const { return start + duration; }
