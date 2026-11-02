@@ -292,12 +292,14 @@ QVector<AnimatedParam> animatedParams(const ClipData& clip)
     }
     if (clip.title.isAnimated()) {
         QSet<QString> listed;
-        const EffectDescriptor* titleDesc = nullptr;
+        // Generator clips keep their parameters in ClipData::title too.
+        const EffectDescriptor* titleDesc
+            = clip.kind == ClipKind::Generator ? reg.find(clip.generator) : nullptr;
         for (const EffectDescriptor* d : reg.byCategory(EffectCategory::Title)) {
-            if (d->storage == kTitle) {
-                titleDesc = d;
+            if (titleDesc)
                 break;
-            }
+            if (d->storage == kTitle)
+                titleDesc = d;
         }
         appendGroup(out, listed, clip.title, kTitle + QLatin1Char('/'), kTitle, titleDesc, true);
     }

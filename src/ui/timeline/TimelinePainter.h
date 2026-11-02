@@ -121,6 +121,10 @@ public:
 
     /// Body colour of a clip (label colour, or a colour by clip kind and track type).
     [[nodiscard]] static QColor clipColor(const ClipData& clip, TrackType type);
+    /// Body colour as drawn: the clip's own label, else the clip colour of its media pool
+    /// item @p item (may be null), else the colour by kind and track type.
+    [[nodiscard]] static QColor clipColor(
+        const ClipData& clip, TrackType type, const MediaItem* item);
 
 private:
     /// Media path (or nested-preview pseudo path) of @p clip for the thumbnail / waveform

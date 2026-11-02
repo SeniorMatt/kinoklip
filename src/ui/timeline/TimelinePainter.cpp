@@ -41,6 +41,11 @@ const QColor kSolidClip(0x6c, 0x6c, 0x78);
 /// colours, so a nested clip is recognisable at a glance.
 const QColor kNestedClip(0x2a, 0x7f, 0x8a);
 const QColor kNestedAudioClip(0x3b, 0x77, 0x6a);
+/// Adjustment clips: a cool slate with diagonal hatching (no picture of their own).
+const QColor kAdjustmentClip(0x5d, 0x6b, 0x84);
+const QColor kGeneratorClip(0xa0, 0x62, 0x3c);
+const QColor kSubtitleClip(0x8a, 0x7d, 0x55);
+const QColor kSubtitleStrip(0xb8, 0xa0, 0x58);
 const QColor kSelection(0xff, 0xa8, 0x3a);
 const QColor kPlayhead(0xe5, 0x48, 0x4d);
 const QColor kSnapLine(0xf4, 0xd6, 0x4e);
@@ -160,10 +165,25 @@ QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type)
         return kSolidClip;
     case ClipKind::Nested:
         return type == TrackType::Video ? kNestedClip : kNestedAudioClip;
+    case ClipKind::Adjustment:
+        return kAdjustmentClip;
+    case ClipKind::Generator:
+        return kGeneratorClip;
+    case ClipKind::Subtitle:
+        return kSubtitleClip;
     case ClipKind::Media:
         break;
     }
     return type == TrackType::Video ? kVideoClip : kAudioClip;
+}
+
+QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type, const MediaItem* item)
+{
+    if (!clip.label.isValid() && item) {
+        if (const QColor c = clipColorValue(item->clipColor); c.isValid())
+            return c;
+    }
+    return clipColor(clip, type);
 }
 
 const QString& TimelinePainter::elidedName(const ClipData& clip, int width)
@@ -260,7 +280,7 @@ void TimelinePainter::paintRow(QPainter& p, const TimelinePaintInput& in, int ro
     paintTransitions(p, in, row, *track, first, last);
 
     // Hidden video / muted audio / locked tracks are dimmed as a whole.
-    const bool off = info.ref.type == TrackType::Video ? !track->enabled : track->muted;
+    const bool off = info.ref.type == TrackType::Audio ? track->muted : !track->enabled;
     if (off || track->locked) {
         p.fillRect(QRect(kHeaderWidth, r.top(), width - kHeaderWidth, r.height()),
             QColor(10, 10, 12, track->locked ? 70 : 110));
@@ -289,9 +309,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     // Clip colour: the clip's own, else the colour of its media pool item (O(1) lookup).
     const MediaItem* poolItem
         = in.mediaPool && !clip.mediaId.isEmpty() ? in.mediaPool->item(clip.mediaId) : nullptr;
-    const QColor itemColor
-        = poolItem && !clip.label.isValid() ? clipColorValue(poolItem->clipColor) : QColor();
-    const QColor base = itemColor.isValid() ? itemColor : clipColor(clip, track.type);
+    const QColor base = clipColor(clip, track.type, poolItem);
 
     // Sub-pixel / tiny clips (zoomed far out): one rectangle, nothing else.
     if (r.width() < 4) {
@@ -326,6 +344,27 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
             p.fillRect(content.adjusted(0, 2, 0, -2),
                 clip.solidColor.isValid() ? clip.solidColor : kSolidClip);
             break;
+        case ClipKind::Adjustment: {
+            // Diagonal hatching: the clip shows no picture, it processes what is below.
+            p.save();
+            p.setClipRect(content, Qt::IntersectClip);
+            p.setPen(QPen(base.lighter(135), 1));
+            m_lines.clear();
+            const double h = content.height();
+            const double first = std::floor((content.left() - h - r.left()) / 9.0) * 9.0 + r.left();
+            for (double x = first; x < content.right(); x += 9)
+                m_lines.emplace_back(QPointF(x, content.bottom()), QPointF(x + h, content.top()));
+            p.setRenderHint(QPainter::Antialiasing, true);
+            for (const QLineF& line : m_lines)
+                p.drawLine(line);
+            p.restore();
+            break;
+        }
+        case ClipKind::Generator:
+            // A muted swatch strip reads as "generated picture" next to media thumbnails.
+            p.fillRect(content.adjusted(0, 2, 0, -2), base.darker(120));
+            break;
+        case ClipKind::Subtitle:
         case ClipKind::Title:
             if (content.height() >= 14 && visible.width() > 30) {
                 p.setFont(m_smallFont);
@@ -874,14 +913,17 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
         const TrackRef ref = L.rows()[size_t(row)].ref;
         const TrackData& track = *in.data->track(ref);
         const bool video = ref.type == TrackType::Video;
+        const bool subtitle = ref.type == TrackType::Subtitle;
+        const QColor strip = video ? kVideoStrip : subtitle ? kSubtitleStrip : kAudioStrip;
         p.fillRect(QRect(0, r.top(), kHeaderWidth, r.height()), m_window);
-        p.fillRect(QRect(0, r.top(), 3, r.height()), video ? kVideoStrip : kAudioStrip);
+        p.fillRect(QRect(0, r.top(), 3, r.height()), strip);
         p.fillRect(QRect(0, r.bottom(), kHeaderWidth, 1), m_line);
 
         // Destination patch with the short name ("V1"); filled when targeted.
         const QRect patch = L.headerButtonRect(row, HeaderButton::Target);
-        const bool targeted = (video ? in.targetVideo : in.targetAudio) == ref.index;
-        const QColor patchColor = video ? kVideoStrip : kAudioStrip;
+        // Subtitle tracks have no source patch: their label is never "targeted".
+        const bool targeted = !subtitle && (video ? in.targetVideo : in.targetAudio) == ref.index;
+        const QColor patchColor = strip;
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setPen(targeted ? patchColor.lighter(130) : m_line.lighter(220));
         p.setBrush(targeted ? patchColor : m_window.darker(125));
@@ -889,8 +931,10 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
         p.setRenderHint(QPainter::Antialiasing, false);
         p.setFont(m_boldFont);
         p.setPen(targeted ? QColor(Qt::white) : m_text);
-        const QString shortName
-            = (video ? QStringLiteral("V") : QStringLiteral("A")) + QString::number(ref.index + 1);
+        const QString shortName = (video             ? QStringLiteral("V")
+                                          : subtitle ? QStringLiteral("ST")
+                                                     : QStringLiteral("A"))
+            + QString::number(ref.index + 1);
         p.drawText(patch, Qt::AlignCenter, shortName);
 
         // Buttons from the right.
@@ -924,7 +968,7 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 break;
             case HeaderButton::AutoSelect:
                 on = track.autoSelect;
-                onColor = video ? kVideoStrip.darker(140) : kAudioStrip.darker(140);
+                onColor = strip.darker(140);
                 break;
             default:
                 break;
@@ -954,9 +998,11 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
         if (nameRoom > 10) {
             p.setFont(m_smallFont);
             p.setPen(m_text);
-            const QString name = track.name.isEmpty()
-                ? (video ? qtr("Video %1") : qtr("Audio %1")).arg(ref.index + 1)
-                : track.name;
+            const QString name = track.name.isEmpty() ? (video             ? qtr("Video %1")
+                                                                : subtitle ? qtr("Subtitle %1")
+                                                                           : qtr("Audio %1"))
+                                                            .arg(ref.index + 1)
+                                                      : track.name;
             p.drawText(QPointF(nameLeft, patch.center().y() + m_fontAscent / 2.0 - 1),
                 smallMetrics.elidedText(name, Qt::ElideRight, nameRoom));
         }

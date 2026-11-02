@@ -84,6 +84,23 @@ kk::ExportResult r = job.run([](const kk::ExportProgress& p) { /* frames, fps, E
   unavailable (no NVIDIA driver), QSV unavailable (no Intel GPU with a oneVPL/MFX runtime)`.
   `tests/export/test_encoderprobe` checks that probing logs no warning at all.
 
+## Subtitles (`SubtitleExport.*`)
+
+`ExportSettings::subtitles` mirrors Resolve's File tab "Export Subtitle" (off by default):
+* **Burn into video**: `RenderRequest::subtitles` is set for every frame (the compositor draws
+  the enabled subtitle tracks, see src/render/readme.md).
+* **As a separate file**: after the movie is finished, `writeSidecars()` writes one .srt / .vtt
+  per enabled subtitle track with captions in the range, next to the render
+  (`name.srt`, or `name.<language|n>.srt` for several); listed in `ExportResult::files`.
+* **As embedded captions**: one `exporter::SubtitleEncoder` + stream per track
+  (`subtitleCodecs()`: MP4 / MOV `mov_text`, MKV `subrip` or `ass`, WebM `webvtt`), language
+  and title metadata (`containerLanguage()` maps ISO 639-2/T to /B for QuickTime). The cues
+  are encoded from ASS events (the encoders' common input, `subtitle_header` built by us) and
+  queued right after the header; the interleaving writer holds them until the picture reaches
+  their time.
+Cues come from `collectSubtitleTracks()`: clipped to the render range, timed from its first
+frame. Tests: `tests/export/test_subtitleexport.cpp` (ffprobe / ffmpeg check the streams).
+
 ## Threading
 
 * `ExportJob::run()` blocks; `RenderQueue` runs it on a `QThread` (low priority) and

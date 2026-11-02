@@ -218,6 +218,11 @@ private slots:
         MediaItem compound;
         compound.kind = MediaItemKind::CompoundClip;
         QCOMPARE(itemType(compound), QStringLiteral("compound"));
+        MediaItem subtitle;
+        subtitle.kind = MediaItemKind::Subtitle;
+        QCOMPARE(itemType(subtitle), QStringLiteral("subtitle"));
+        QVERIFY(ruleMatches(
+            {SmartField::Type, SmartOp::Is, QStringLiteral("subtitle")}, subtitle, ctx));
     }
 
     void matchAllAndAny()

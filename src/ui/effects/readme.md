@@ -4,7 +4,7 @@ Owned by the panels agent.
 
 | File | What |
 |---|---|
-| `EffectsLibraryPanel.h` | sectioned tree (Video Transitions, Titles, Generators, Video Effects, Audio Effects) with a search field, painted category glyphs, drag source |
+| `EffectsLibraryPanel.h` | sectioned tree (Video Transitions, Titles, Generators, Effects, Video Effects, Audio Effects) with a search field, painted category glyphs, drag source |
 | `EffectActions.h` | undoable operations: `applyEffect()`, `applyTransition()`, `removeTransition()`, `addGeneratorClip()`, `activate()` (double-click semantics) |
 
 ## Behaviour
@@ -14,7 +14,8 @@ Owned by the panels agent.
   - video/audio effects are appended to every selected clip whose track type fits,
   - transitions go onto the current clip, at the end nearer to the playhead (1 s default,
     clamped to the clip; retyping keeps the length),
-  - titles and generators become a new 5 s clip at the playhead, on the track above the
+  - titles, generators and the Adjustment Clip (section "Effects") become a new clip at the
+    playhead (Preferences > Editing generator duration, 5 s by default), on the track above the
     highest video track that is busy there (a track is added if needed); it gets selected.
   Every call is exactly one undo step, and a no-op creates none.
 - **Search** filters by name and description (case-insensitive), hiding empty sections.

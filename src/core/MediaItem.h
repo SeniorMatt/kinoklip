@@ -2,6 +2,7 @@
 // Value types of the media pool: imported media items and the bins (folders) holding them.
 #pragma once
 
+#include "core/Subtitles.h"
 #include "media/MediaInfo.h"
 
 #include <QString>
@@ -14,7 +15,10 @@ namespace kk {
 enum class MediaItemKind {
     File, ///< an imported media file (path, probe result)
     Timeline, ///< a timeline of the project (MediaItem::timelineUid)
-    CompoundClip ///< the timeline behind a compound clip (MediaItem::timelineUid)
+    CompoundClip, ///< the timeline behind a compound clip (MediaItem::timelineUid)
+    /// An imported subtitle file (.srt / .vtt): MediaItem::cues hold its captions, so the
+    /// item keeps working when the file is gone. Dropping it on the timeline creates captions.
+    Subtitle
 };
 
 /// User metadata of a media pool item (Metadata panel; searched, sortable list columns, smart
@@ -51,6 +55,7 @@ struct MediaItem
     media::MediaInfo info; ///< result of media::probe() at import time
     MediaItemKind kind = MediaItemKind::File;
     quint64 timelineUid = 0; ///< TimelineData::uid for Timeline / CompoundClip items
+    QVector<SubtitleCue> cues; ///< Subtitle items: the parsed captions (file order)
     /// Clip colour (core/ClipColors.h palette id; empty = none). Timeline clips without their
     /// own colour (ClipData::label) show it.
     QString clipColor;
@@ -64,7 +69,12 @@ struct MediaItem
     qint64 fileModifiedMs = 0;
 
     /// True for timeline and compound clip items.
-    [[nodiscard]] bool isTimeline() const { return kind != MediaItemKind::File; }
+    [[nodiscard]] bool isTimeline() const
+    {
+        return kind == MediaItemKind::Timeline || kind == MediaItemKind::CompoundClip;
+    }
+    /// True for imported subtitle files.
+    [[nodiscard]] bool isSubtitle() const { return kind == MediaItemKind::Subtitle; }
 
     /// Compares every field, including the cached probe result.
     friend bool operator==(const MediaItem& a, const MediaItem& b);
@@ -86,7 +96,7 @@ enum class SmartField {
     Name, ///< display name (text)
     FileName, ///< file name of the media (text)
     Path, ///< full path (text)
-    Type, ///< video / audio / still / timeline / compound / multicam (choice)
+    Type, ///< video / audio / still / timeline / compound / multicam / subtitle (choice)
     Codec, ///< video codec, else audio codec (text)
     Resolution, ///< "1920x1080": is / is not, larger / smaller (pixel count)
     FrameRate, ///< frames per second (number)

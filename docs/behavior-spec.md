@@ -433,6 +433,30 @@ Clean room: our own wording, icons and handle design.
 | 27.12 | Project files store masks from format version 4; projects of versions 1 - 3 load unchanged and are saved in the current format (4 or later); a newer version is refused. | Fixed (test_masks serializationRoundTrip, formatVersion2Loads) |
 | 27.13 | Mask tracking (point / planar) and mask presets are not implemented. | Deferred (roadmap v2 stretch goal) |
 
+## 28. Adjustment clips, generators and subtitles (adjsubs branch, v2)
+
+From general knowledge of how Resolve's Edit page treats adjustment clips, generators and its
+subtitle track. Clean room: our own wording, icons and colours.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 28.1 | Effects library > Effects > Adjustment Clip (double-click: at the playhead on the lowest free video track above the busy ones; or drag onto a video track) creates a clip without a picture of its own, as long as the generator duration in Preferences. It trims, moves, splits, ripples, copies and keyframes like any clip. | Fixed (test_generators everyGeneratorIsRegistered; test_subtitles serializationRoundTrip) |
+| 28.2 | Its effects, transform, cropping, opacity and masks act on the composite of every video track below it within its time range: a blur blurs across clip edges, a transform moves the whole picture. Inside its footprint the processed picture replaces what is below; outside it (crop, masks, a zoomed-out frame) and in proportion to its opacity the tracks below stay visible. | Fixed (test_adjustment effectMatchesPerClipEffects, blurActsOnComposite, transformMatchesCompound, opacityAndMask). Decision: "replace in the footprint" (no ghost of the unprocessed picture where the composite is transparent). |
+| 28.3 | Transitions on an adjustment clip blend its effect in and out (fade from / to the unprocessed picture); inside a compound clip / nested timeline it only affects that timeline's tracks; a disabled clip or hidden track does nothing. | Fixed (test_adjustment transitionFadesEffect, nestedScope, disabled) |
+| 28.4 | The timeline shows adjustment clips in their own colour with diagonal hatching (no thumbnails); the inspector shows Transform, Cropping, Masks and the Effects tab, the header says "Adjustment clip". The CPU fallback applies transform, crop, opacity and masks, but no effects. | Fixed (test_adjustment identityIsInvisible cpu). Decision on the fallback (like every clip). |
+| 28.5 | Generators: Solid Color, 4 Color Gradient, Linear Gradient, Radial Gradient, Color Bars (SMPTE-style 75 % bars with reverse band, -I / white / +Q / PLUGE row, or full-field 100 % bars), Grey Scale (steps or smooth ramp, horizontal / vertical), Noise (mono / colour, brightness, amount, grain size, seed, still or animated), Countdown (leader-style dial with sweep and number) and Timecode (timeline or clip timecode burnt in, with prefix, size, colour, background box and position). Numeric parameters are keyframeable in the inspector (Video tab) and the keyframe editor; colours and choices are static. | Fixed (test_generators deterministic, colorBars, greyScaleAndGradients, noise, countdownAndTimecode) |
+| 28.6 | Generators render identically in the viewer, playback and export, deterministically (noise from an integer hash of the cell, seed and clip-local frame), on the GPU and in the CPU fallback (same formulas). | Fixed (test_generators deterministic) |
+| 28.7 | Subtitle tracks sit above all video tracks (ST1 lowest). Header: "ST<n>" label (no source patch), eye (show / hide the captions in the viewer and in burnt-in exports), lock and auto-select. Timeline > Add Subtitle Track; right-click a subtitle track > Add Subtitle; Timeline > Add Subtitle adds a 3 s caption at the playhead on the current / first free subtitle track (a track is created when needed) and selects it. | Fixed (test_subtitles editOps). |
+| 28.8 | Captions are clips: split, trim, ripple, roll, move (between subtitle tracks only), copy / paste (back onto subtitle tracks), join (same text), delete and ripple delete like other clips; an insert edit ripples subtitle tracks along with the others. They never go into compound clips. | Fixed (test_subtitles editOps, invariantsRejectWrongTracks) |
+| 28.9 | Inspector > Captions tab for a caption: the text (multi-line), "Custom Style" (off: the caption follows its track's style; on: its own copy of the style), and the track's default style (font, size, bold, italic, colour, outline colour / width, drop shadow, background box colour / opacity, alignment, position bottom / top / middle, vertical and horizontal margins, line spacing). Every change is one undo step. | Fixed (test_generators burnInCaptions) |
+| 28.10 | File > Import Subtitle (and Import Media / drops) reads SubRip (.srt) and WebVTT (.vtt) into the media pool: UTF-8 with or without BOM, CRLF, ',' or '.' before the milliseconds, numbered or unnumbered cues, multi-line text; markup (<i>, <font>, {\an8}, WebVTT classes / voices) is removed and entities decoded; NOTE / STYLE / REGION blocks are skipped. The item keeps its captions in the project. | Fixed (test_subtitles parseSrt, parseWebVtt, rejectsGarbage, projectFormatAndMigration) |
+| 28.11 | Dragging a subtitle item onto the timeline creates the captions with the file's timing from the drop point (snapping like clips), on the subtitle track under the mouse or ST1; overlapping cues go to the tracks above; missing subtitle tracks are created. | Fixed (test_subtitles cuesToCaptions). Decision: the drop point is the file's zero (drop at the start for absolute timing). |
+| 28.12 | Deliver > File > Subtitle Settings: Export subtitle (off by default), Format: Burn into video / As a separate file (Export as SRT or WebVTT, next to the render: "name.srt", or "name.<language or n>.srt" for several tracks) / As embedded captions (MP4 / QuickTime: timed text; MKV: SRT or ASS; WebM: WebVTT; one stream per enabled subtitle track, with language and title). Captions are clipped to the render range and timed from its first frame; hidden subtitle tracks are not exported. | Fixed (test_subtitleexport) |
+| 28.13 | Project format 7 stores adjustment / generator clips, subtitle tracks and subtitle media items; versions 1 - 6 load unchanged (5 = retiming, 6 = the proxy branch). | Fixed (test_subtitles projectFormatAndMigration) |
+| 28.14 | Subtitle styles per word (italic spans), karaoke timing, subtitle import from video containers and caption speed / reading-rate checks are not implemented. | Deferred |
+
+---
+
 ## 31. Speed changes and retiming (retime branch, roadmap v2)
 
 Speed points, speed ramps, reverse and freeze, written from general knowledge of how Resolve's
@@ -487,6 +511,33 @@ Tests: ml = test_medialinks, px = test_proxies, rc = test_rendercache, mm = test
 
 ---
 
+## 32. Media pool organisation (bins branch, roadmap v2)
+
+Tests: bn = tests/core/test_bins.cpp, sb = tests/core/test_smartbins.cpp,
+mo = tests/panels/test_mediaorganize.cpp.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 32.1 | The bin list shows Master at the top with the project's bins as a tree, then a Smart Bins section and a Power Bins section. Show Bin List (toolbar button, View menu, bin list menu) hides / shows it; the choice is remembered. | Fixed (new; mo binListSections) |
+| 32.2 | New Bin (File menu, Ctrl+Shift+N, title bar, context menus) creates a bin inside the current bin and starts renaming it; bins rename in place (F2 / double-click). Each is one undo step. | Fixed (mo binTreeDragAndUndo) |
+| 32.3 | Dragging a bin onto another bin makes it a sub-bin; dropping it on the upper or lower edge of a row places it before / after that row. A bin cannot be dropped into itself or its own sub-bins; project bins and power bins stay in their own section. One undo step. | Fixed (bn moveBinReordersAndReparents; mo binTreeDragAndUndo) |
+| 32.4 | Media items dragged onto a bin move there (one undo step). Files from the file manager dropped on a bin are imported into it. | Fixed (mo binTreeDragAndUndo) |
+| 32.5 | Delete Bin removes the bin, its sub-bins and the media inside them (asks first when it is not empty and says how many timeline clips go offline). Timelines and compound clips inside are kept and move to Master. One undo step. | Decision (timelines are only deleted explicitly; bn deleteBinRemovesContents) |
+| 32.6 | Each bin remembers its view mode (thumbnails / list) and sort order; they are saved with the project. | Fixed (bn projectSaveLoadAndBinViews; mo perBinViewState) |
+| 32.7 | Smart bins: New Smart Bin… opens a dialog with the name, "match all / any of the following rules" and rule rows (field, operator, value). Fields: clip name, file name, file path, type (video / audio / still / timeline / compound / multicam / subtitle), codec, resolution, frame rate, duration, date added, date modified, clip colour, flags, keywords, comments, description, usage. A smart bin shows every matching item of the project, wherever it is, and updates live when items, rules or timelines change. Edit / rename / delete from the bin list menu (undoable). | Fixed (sb everyFieldAndOperator, matchAllAndAny; mo smartBinIsLive) |
+| 32.8 | Default smart bins (Video, Audio, Stills, Timelines) appear when Preferences > Editing > "Show the default smart bins" is on. | Fixed (sb defaultSmartBinsSortByType; mo defaultSmartBinsFollowPreference) |
+| 32.9 | Power bins: bins shared by every project (stored in the application data folder, items by absolute path). Clips can be imported or dragged into them; using a power bin clip in a timeline or the source viewer adds it to the project's media pool. Power bin changes are saved at once and are not part of the project's undo. | Decision (Resolve keeps them in the database; bn powerBinsPersistAcrossProjects; mo powerBinsAcrossProjects) |
+| 32.10 | Clip Color (item and timeline clip context menus): sixteen colours plus Clear Color. Media pool tiles show the colour behind the name; timeline clips use their own colour, else the colour of their media pool item. | Decision (fallback to the item colour; mo colorsAndFlagsInViewsAndTimeline) |
+| 32.11 | Flags: sixteen flag colours, several per item, toggled from the item and timeline clip context menus (a timeline clip sets the flags of its source); shown as small markers on tiles and timeline clips. | Fixed (bn colorsFlagsMetadataUndo; mo colorsAndFlagsInViewsAndTimeline) |
+| 32.12 | List view columns: right-click the header to choose columns (clip colour, flags, usage, file name, path, dates, description, comments, keywords, scene, shot, take, camera, angle, good take, rating, ...); every column sorts, numbers and dates numerically. | Fixed (mo columnsSortAndChooser) |
+| 32.13 | Search covers name, path, clip colour and flag names, keywords, comments and the other metadata; the colour filter button shows one clip colour (or clips without one). | Fixed (mo searchAndColorFilter) |
+| 32.14 | Metadata panel: Clip Details (name, file, codec, resolution, frame rate, duration, audio, clip colour, flags, usage; read-only) and editable Shot and Scene (scene, shot, take, camera, angle, good take) and Notes (description, comments, keywords, rating). Each edit is one undo step. | Fixed (mo metadataEditAndBatch) |
+| 32.15 | With several items selected the metadata panel shows shared values (others empty with a "multiple values" hint); editing a field writes that field to all of them in one undo step. | Fixed (mo metadataEditAndBatch) |
+| 32.16 | Usage: the Usage column counts the timeline uses of an item (every timeline, compound clips and nested timelines included; a linked video + audio pair is one use); tiles of used items show a small dot. | Fixed (bn usageCountsNestedAndCompound; mo usageCommands) |
+| 32.17 | Select Clips in Timeline selects the clips of the active timeline that use the selected items. Remove Unused Clips removes every media file used in no timeline after a confirmation (one undo step; files stay on disk). | Fixed (mo usageCommands) |
+| 32.18 | Find in Media Pool (Alt+F, timeline clip menu) shows the source of the selected clip (else the top clip under the playhead) in the media pool: its bin opens and the item is selected. | Fixed (mo usageCommands) |
+| 32.19 | Project format 9 stores colours, flags, metadata, dates, smart bins and bin views; older projects open unchanged (file dates are read from disk). | Fixed (bn serializationRoundTrip, migratesVersion6Project) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -505,5 +556,8 @@ Tests: ml = test_medialinks, px = test_proxies, rc = test_rendercache, mm = test
 - The proxies branch (roadmap v2) added 29.1 - 29.18 (proxy and optimized media, render cache).
 - The kfwindow branch (alpha.2 feedback #10) added 15.14 - 15.20 (the Keyframes panel, docked
   or floating, sharing its editing code with the inline lanes).
+- The adjsubs branch (v2) added 28.1 - 28.14 (adjustment clips, generators, subtitles).
 - The compound branch (v2) added 25.1 - 25.11 (several timelines per project, timeline tabs on
   by default, drop-down mode) and 26.1 - 26.13 (compound clips, nested timelines).
+- The bins branch (v2) added 32.1 - 32.19 (nested bins, smart bins, power bins, clip colours,
+  flags, metadata editing, usage commands).

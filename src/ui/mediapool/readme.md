@@ -4,11 +4,13 @@ Owned by the panels agent.
 
 | File | What |
 |---|---|
-| `MediaPoolPanel.h` | bins tree + items (grid of poster frames / detail list), search, import, rename, delete, reveal, move to bin, drag source |
+| `MediaPoolPanel.h` | bin list + items (grid of poster frames / detail list), search, colour filter, import, rename, delete, reveal, move to bin, drag source; menus in `MediaPoolMenus.cpp`, undoable operations (bins, smart bins, power bins, colours, flags, usage commands) in `MediaPoolOrganize.cpp` |
+| `BinList.h` | the bin list sidebar: Master tree, Smart Bins, Power Bins; drag to reorder / re-parent bins, drop items and files |
+| `SmartBinDialog.h` | smart bin rules editor (name, match all / any, field / operator / value rows) |
 | `MediaPoolModel.h` | `MediaPoolModel` (table over `MediaPool`, cached display strings, lazy posters) and `MediaPoolFilterModel` (bin + search) |
 | `MediaPoolDelegate.h` | grid tile painter (poster or placeholder glyph, duration badge, offline marker, name) |
 | `MediaBrowserPanel.h` | Media page file browser: places, folder tree, media-only file list, "Add to Media Pool" |
-| `MetadataPanel.h` | probe info of the current item (Clip / Video / Audio sections, offline state) |
+| `MetadataPanel.h` | Clip Details (read-only) + editable Shot and Scene / Notes fields; batch editing of several items (`attach()` follows a MediaPoolPanel) |
 
 ## Contracts for other modules
 - `MediaPoolPanel::openInSourceViewer(QString mediaId)` — emitted on double-click / context
@@ -21,6 +23,21 @@ Owned by the panels agent.
   (null = pending). Default: `media::MediaCache::instance().posterFrame()`; the panel connects
   `MediaCache::posterFrameReady` to `MediaPoolModel::thumbnailReady()`. Replace it with
   `MediaPoolPanel::setThumbnailProvider()` (tests use a synchronous fake).
+
+## Bins, smart bins, power bins (bins branch)
+- Bin keys (MediaPoolFilterModel): "" = Master, bin id, "smart:<id>", "power:" (power root),
+  "power:<id>". `currentBin()` stays a project bin id (new timelines go there); use
+  `currentBinKey()` for the shown bin.
+- Power bins come from `AppContext::powerBins` (null = no section). The model lists their
+  items after the project's (`PowerRole`). Drags of power items carry `kPowerItemsMime`; the
+  media ids are resolved (items copied into the project) only when a target reads
+  `mime::MediaItems` (`MediaDragData::retrieveData`), so moves between power bins never touch
+  the project.
+- Usage counts are recomputed 150 ms after the last timeline / pool change; rows whose count
+  changed emit dataChanged (smart bins with usage rules re-filter).
+- List columns: `MediaPoolModel::Column`, keys `columnKey()`; visibility in
+  `mediaPool/columns`; sorting through `SortRole` (raw numbers and times).
+- `mediapool.*` organisation commands act only in the visible panel (both pages own one).
 
 ## Proxy / optimized media
 `MediaPoolModel::setLinkStatusProvider()` (the app passes `MediaManagement::status()`) fills
@@ -48,7 +65,8 @@ keeps two tile columns) until the user toggles it with the folder button; that c
 remembered (`mediaPool/binsVisible`). The grid/list choice is remembered as `mediaPool/viewMode`.
 
 ## Undo
-Import, rename, delete, bin create/rename/delete and moves are each one
+Import, rename, delete, bin create/rename/move/delete, smart bins, colours, flags, metadata and
+moves are each one
 `Project::beginEdit()/endEdit()` step (media pool state is part of the undo snapshot).
 
 ## How to extend
@@ -56,8 +74,10 @@ Import, rename, delete, bin create/rename/delete and moves are each one
   `makeRow()`, return it in `data()` and name it in `headerData()`.
 - **A new filter (e.g. "video only"):** add state to `MediaPoolFilterModel` and test it in
   `filterAcceptsRow()` (call `invalidateFilter()` when it changes).
-- **Editable metadata (scene, take, notes):** add fields to `MediaItem` (core) with
-  serialization, then editors in `MetadataPanel::showMedia()` writing through
-  `beginEdit()/endEdit()`.
+- **A new metadata field:** add it to `MediaMetadata` (core, with serialization in
+  `metadataToJson()`), a `MetadataPanel::Field` with its editor, a list column, and (if
+  wanted) a `SmartField` in core/SmartBins.
+- **A new smart bin field:** add it to `SmartField`, `kFields` and `ruleMatches()` in
+  core/SmartBins.cpp and to tests/core/test_smartbins.cpp.
 - **Reveal and select the file** in the file manager: needs the FileManager1 D-Bus call; put
   it into `src/platform/` and call it from `MediaPoolPanel::revealInFileManager()`.

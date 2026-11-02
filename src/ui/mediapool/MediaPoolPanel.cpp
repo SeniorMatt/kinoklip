@@ -168,6 +168,8 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
                 openTimeline(item->timelineUid);
                 return;
             }
+            if (item && item->isSubtitle())
+                return; // no picture to view: drag it onto the timeline for captions
             const QStringList projectIds = ensureInProject({id});
             if (!projectIds.isEmpty())
                 emit openInSourceViewer(projectIds.front());

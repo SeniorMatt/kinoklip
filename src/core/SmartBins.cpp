@@ -281,7 +281,8 @@ QVector<std::pair<QString, QString>> choicesFor(SmartField field)
         out = {{QStringLiteral("video"), tr("Video")}, {QStringLiteral("audio"), tr("Audio")},
             {QStringLiteral("still"), tr("Still")}, {QStringLiteral("timeline"), tr("Timeline")},
             {QStringLiteral("compound"), tr("Compound Clip")},
-            {QStringLiteral("multicam"), tr("Multicam Clip")}};
+            {QStringLiteral("multicam"), tr("Multicam Clip")},
+            {QStringLiteral("subtitle"), tr("Subtitle")}};
         break;
     case SmartField::ClipColor:
         out.append({QStringLiteral("none"), tr("None")});
@@ -384,6 +385,8 @@ QString itemType(const MediaItem& item)
         return QStringLiteral("timeline");
     case MediaItemKind::CompoundClip:
         return QStringLiteral("compound");
+    case MediaItemKind::Subtitle:
+        return QStringLiteral("subtitle");
     case MediaItemKind::File:
         break;
     }
