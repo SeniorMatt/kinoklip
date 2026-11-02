@@ -20,6 +20,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QFileInfo>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSettings>
@@ -182,6 +183,14 @@ private:
         QVERIFY(checked > 50);
 
         const QImage shot = app.window->grab().toImage();
+        // Optional: one screenshot per scheme for a visual check (first round only).
+        if (const QString dir = qEnvironmentVariable("KK_SCREENSHOT_DIR"); !dir.isEmpty()) {
+            const QString file
+                = QStringLiteral("%1/themeswitch-%2.png")
+                      .arg(dir, scheme.isEmpty() ? QStringLiteral("system") : scheme);
+            if (!QFileInfo::exists(file))
+                shot.save(file);
+        }
         const QStringList chrome = {QStringLiteral("InterfaceBar"), QStringLiteral("PageBar"),
             QStringLiteral("PanelTitleBar")};
         for (const QString& name : chrome) {
