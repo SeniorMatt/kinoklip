@@ -2,8 +2,10 @@
 // JSON encoding of timelines, clips, parameter sets and the media pool.
 #include "core/Serialization.h"
 
+#include "core/ClipColors.h"
 #include "core/EditOps.h"
 #include "core/Retime.h"
+#include "core/SmartBins.h"
 
 #include <QFileInfo>
 #include <QJsonArray>
@@ -798,6 +800,113 @@ media::MediaInfo mediaInfoFromJson(const QJsonObject& o)
     return info;
 }
 
+namespace {
+
+QJsonObject metadataToJson(const MediaMetadata& m)
+{
+    QJsonObject o;
+    auto text = [&o](const char* key, const QString& value) {
+        if (!value.isEmpty())
+            o[QLatin1String(key)] = value;
+    };
+    text("description", m.description);
+    text("comments", m.comments);
+    if (!m.keywords.isEmpty())
+        o[QLatin1String("keywords")] = QJsonArray::fromStringList(m.keywords);
+    text("scene", m.scene);
+    text("shot", m.shot);
+    text("take", m.take);
+    text("camera", m.camera);
+    text("angle", m.angle);
+    if (m.goodTake)
+        o[QLatin1String("goodTake")] = true;
+    if (m.rating > 0)
+        o[QLatin1String("rating")] = m.rating;
+    return o;
+}
+
+MediaMetadata metadataFromJson(const QJsonObject& o)
+{
+    MediaMetadata m;
+    m.description = o.value(QLatin1String("description")).toString();
+    m.comments = o.value(QLatin1String("comments")).toString();
+    for (const QJsonValue& k : o.value(QLatin1String("keywords")).toArray()) {
+        if (const QString t = k.toString().trimmed();
+            !t.isEmpty() && !m.keywords.contains(t, Qt::CaseInsensitive))
+            m.keywords.append(t);
+    }
+    m.scene = o.value(QLatin1String("scene")).toString();
+    m.shot = o.value(QLatin1String("shot")).toString();
+    m.take = o.value(QLatin1String("take")).toString();
+    m.camera = o.value(QLatin1String("camera")).toString();
+    m.angle = o.value(QLatin1String("angle")).toString();
+    m.goodTake = o.value(QLatin1String("goodTake")).toBool(false);
+    m.rating = std::clamp(o.value(QLatin1String("rating")).toInt(0), 0, 5);
+    return m;
+}
+
+/// Format 9 fields of an item (all optional: absent = default).
+void writeItemExtras(const MediaItem& m, QJsonObject& o)
+{
+    if (!m.clipColor.isEmpty())
+        o[QLatin1String("clipColor")] = m.clipColor;
+    if (m.flags != 0)
+        o[QLatin1String("flags")] = QJsonArray::fromStringList(flagIds(m.flags));
+    if (!m.metadata.isEmpty())
+        o[QLatin1String("metadata")] = metadataToJson(m.metadata);
+    if (m.addedMs > 0)
+        o[QLatin1String("added")] = m.addedMs;
+    if (m.fileModifiedMs > 0)
+        o[QLatin1String("modified")] = m.fileModifiedMs;
+}
+
+void readItemExtras(const QJsonObject& o, MediaItem& m)
+{
+    m.clipColor = o.value(QLatin1String("clipColor")).toString();
+    if (!findClipColor(m.clipColor))
+        m.clipColor.clear();
+    QStringList flags;
+    for (const QJsonValue& f : o.value(QLatin1String("flags")).toArray())
+        flags.append(f.toString());
+    m.flags = flagsFromIds(flags);
+    m.metadata = metadataFromJson(o.value(QLatin1String("metadata")).toObject());
+    m.addedMs = o.value(QLatin1String("added")).toInteger(0);
+    m.fileModifiedMs = o.value(QLatin1String("modified")).toInteger(0);
+}
+
+QJsonObject smartBinToJson(const SmartBin& b)
+{
+    QJsonArray rules;
+    for (const SmartRule& r : b.rules) {
+        rules.append(QJsonObject {{QLatin1String("field"), smartbins::fieldId(r.field)},
+            {QLatin1String("op"), smartbins::operatorId(r.op)}, {QLatin1String("value"), r.value}});
+    }
+    return QJsonObject {{QLatin1String("id"), b.id}, {QLatin1String("name"), b.name},
+        {QLatin1String("match"), b.matchAll ? QStringLiteral("all") : QStringLiteral("any")},
+        {QLatin1String("rules"), rules}};
+}
+
+SmartBin smartBinFromJson(const QJsonObject& o)
+{
+    SmartBin b;
+    b.id = o.value(QLatin1String("id")).toString();
+    b.name = o.value(QLatin1String("name")).toString();
+    b.matchAll = o.value(QLatin1String("match")).toString() != QLatin1String("any");
+    for (const QJsonValue& v : o.value(QLatin1String("rules")).toArray()) {
+        const QJsonObject r = v.toObject();
+        SmartRule rule;
+        // Rules with an unknown field or operator (a newer version) are dropped.
+        if (!smartbins::fieldFromId(r.value(QLatin1String("field")).toString(), &rule.field)
+            || !smartbins::operatorFromId(r.value(QLatin1String("op")).toString(), &rule.op))
+            continue;
+        rule.value = r.value(QLatin1String("value")).toString();
+        b.rules.append(rule);
+    }
+    return b;
+}
+
+} // namespace
+
 QJsonObject mediaPoolToJson(const MediaPoolState& state, const QDir& projectDir)
 {
     QJsonArray bins;
@@ -809,14 +918,16 @@ QJsonObject mediaPoolToJson(const MediaPoolState& state, const QDir& projectDir)
     for (const MediaItem& m : state.items) {
         if (m.isTimeline()) {
             // Timeline / compound clip items: no file, the info is derived from the timeline.
-            items.append(QJsonObject {{QLatin1String("id"), m.id},
+            QJsonObject o {{QLatin1String("id"), m.id},
                 {QLatin1String("kind"),
                     m.kind == MediaItemKind::MulticamClip       ? QStringLiteral("multicam")
                         : m.kind == MediaItemKind::CompoundClip ? QStringLiteral("compound")
                                                                 : QStringLiteral("timeline")},
                 {QLatin1String("timelineUid"), qint64(m.timelineUid)},
                 {QLatin1String("name"), m.name}, {QLatin1String("binId"), m.binId},
-                {QLatin1String("info"), mediaInfoToJson(m.info)}});
+                {QLatin1String("info"), mediaInfoToJson(m.info)}};
+            writeItemExtras(m, o);
+            items.append(o);
             continue;
         }
         QJsonObject item {{QLatin1String("id"), m.id}, {QLatin1String("path"), m.path},
@@ -833,9 +944,17 @@ QJsonObject mediaPoolToJson(const MediaPoolState& state, const QDir& projectDir)
                 cues.append(QJsonArray {qint64(c.startUs), qint64(c.endUs), c.text});
             item[QLatin1String("cues")] = cues;
         }
+        writeItemExtras(m, item);
         items.append(item);
     }
-    return QJsonObject {{QLatin1String("bins"), bins}, {QLatin1String("items"), items}};
+    QJsonObject pool {{QLatin1String("bins"), bins}, {QLatin1String("items"), items}};
+    if (!state.smartBins.isEmpty()) {
+        QJsonArray smart;
+        for (const SmartBin& b : state.smartBins)
+            smart.append(smartBinToJson(b));
+        pool[QLatin1String("smartBins")] = smart;
+    }
+    return pool;
 }
 
 MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir)
@@ -861,6 +980,7 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
             m.name = o.value(QLatin1String("name")).toString();
             m.binId = o.value(QLatin1String("binId")).toString();
             m.info = mediaInfoFromJson(o.value(QLatin1String("info")).toObject());
+            readItemExtras(o, m);
             state.items.append(m);
             continue;
         }
@@ -892,8 +1012,11 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
                     m.cues.append({a[0].toInteger(), a[1].toInteger(), a[2].toString()});
             }
         }
+        readItemExtras(o, m);
         state.items.append(m);
     }
+    for (const QJsonValue& v : json.value(QLatin1String("smartBins")).toArray())
+        state.smartBins.append(smartBinFromJson(v.toObject()));
     return state;
 }
 

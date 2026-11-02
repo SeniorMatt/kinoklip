@@ -202,6 +202,36 @@ private slots:
         QVERIFY(f.window->windowTitle().startsWith(QLatin1String("Trip")));
     }
 
+    void findInMediaPool()
+    {
+        // Alt+F: the selected timeline clip's media is selected in the media pool, in its bin.
+        Fixture f;
+        f.project.beginEdit(QStringLiteral("Setup"));
+        const QString bin = f.project.mediaPool()->addBin(QStringLiteral("Footage"));
+        MediaItem item;
+        item.path = QCoreApplication::applicationFilePath();
+        item.binId = bin;
+        item.info.valid = true;
+        item.info.hasVideo = true;
+        item.info.durationUs = 4'000'000;
+        const QString id = f.project.mediaPool()->addItem(item);
+        ClipData clip;
+        clip.mediaId = id;
+        clip.duration = 25;
+        const quint64 clipId
+            = editops::overwriteClip(f.project.timeline()->mutableData(), TrackRef {}, clip);
+        f.project.endEdit();
+        MediaPoolPanel* pool = f.window->editPage()->mediaPool();
+        QVERIFY(!f.window->editPage()->findInMediaPool() || pool->currentMediaId() == id);
+        f.selection.setClips({clipId});
+        QVERIFY(f.window->editPage()->findInMediaPool());
+        QCOMPARE(pool->currentBin(), bin);
+        QCOMPARE(pool->currentMediaId(), id);
+        QVERIFY(f.actions.contains(QStringLiteral("timeline.find_in_media_pool")));
+        QCOMPARE(f.actions.shortcuts(QStringLiteral("timeline.find_in_media_pool")).value(0),
+            QKeySequence(QStringLiteral("Alt+F")));
+    }
+
     void autosaveWritesCopy()
     {
         Project project;

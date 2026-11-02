@@ -49,6 +49,17 @@ struct TimelineViewState
     friend bool operator==(const TimelineViewState&, const TimelineViewState&) = default;
 };
 
+/// Per-bin view settings of the media pool (thumbnail / list, sort order), remembered per bin
+/// and saved with the project (not undoable, does not make the project modified).
+struct BinViewState
+{
+    QString mode; ///< "grid", "list"; empty = the panel's last choice
+    QString sortKey; ///< list column key ("name", "duration", ...); empty = import order
+    bool descending = false;
+
+    friend bool operator==(const BinViewState&, const BinViewState&) = default;
+};
+
 /// The document: media pool + timelines + undo history + settings + file path.
 ///
 /// **Timelines.** A project holds any number of timelines (TimelineData::uid), each listed in
@@ -225,6 +236,14 @@ public:
     [[nodiscard]] TimelineViewState viewState(quint64 uid) const;
     /// Remembers the view state of timeline @p uid.
     void setViewState(quint64 uid, const TimelineViewState& state);
+    /// View settings of media pool bin @p binKey (the media pool panel's bin keys: "" =
+    /// Master, a bin id, "smart:<id>", "power:<id>"); default-constructed when never set.
+    [[nodiscard]] BinViewState binViewState(const QString& binKey) const
+    {
+        return m_binViews.value(binKey);
+    }
+    /// Remembers the view settings of bin @p binKey (a default state forgets them).
+    void setBinViewState(const QString& binKey, const BinViewState& state);
 
     // ---- Editing protocol ----
 
@@ -332,6 +351,7 @@ private:
     std::vector<TimelineSlot> m_slots; ///< every timeline, creation order
     quint64 m_activeUid = 0;
     QVector<quint64> m_tabs;
+    QHash<QString, BinViewState> m_binViews; ///< media pool bin key -> view settings
     quint64 m_nextTimelineUid = 1;
     Format m_format;
     QUndoStack* m_undoStack = nullptr;

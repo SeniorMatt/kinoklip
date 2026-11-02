@@ -175,7 +175,7 @@ private slots:
         QFile f(path);
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
-        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), 10);
+        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), serialization::kFormatVersion);
         Project loaded;
         QString error;
         QVERIFY2(loaded.load(path, &error), qPrintable(error));

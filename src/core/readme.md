@@ -16,7 +16,11 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `MediaItem.h` | `MediaItem`, `Bin`, `MediaPoolState` |
 | `EditOps.h` | pure editing functions on `TimelineData&` (namespace `kk::editops`); implemented in `EditOps.cpp`, `EditOpsRipple.cpp` (ripple delete across tracks, in/out lift / extract / copy, delete gaps, join, swap, shuffle, ripple overwrite) and `EditOpsTransitions.cpp` (transition windows, alignment, length, handle checks); shared private helpers in `EditOpsInternal.h` |
 | `Timeline.h` | QObject: owns the active timeline's `TimelineData`, snapshot caches (render snapshot with nested timelines, plain snapshot), playhead, `changed()` |
-| `MediaPool.h` | QObject: media items (files, timelines, compound clips) + bins, `importFiles()` |
+| `MediaPool.h` | QObject: media items (files, timelines, compound clips) + bins (nested, ordered, `moveBin()`, `removeBinWithContents()`), clip colours, flags, metadata, smart bins, `importFiles()` |
+| `ClipColors.h` | the sixteen clip colours and sixteen flag colours (stable ids, our own names), lookups |
+| `SmartBins.h` | smart bin rules: field / operator catalogue, `ruleMatches()` / `matches()`, default smart bins |
+| `MediaUsage.h` | usage counts of media pool items over every timeline (`usage::compute()`), clips using items, unused files |
+| `PowerBins.h` | QObject: application-wide MediaPool saved to `<AppData>/power-bins.json` on every change |
 | `Project.h` | QObject: owns MediaPool + Timeline + QUndoStack, every timeline of the project, tabs, settings, save/load; timelines / tabs / compound clips in `ProjectTimelines.cpp` |
 | `CompoundOps.h` | pure compound-clip / nesting functions (namespace `kk::compound`): `collapse()`, `decompose()`, `canNest()` / `reaches()` (recursion), `syncNestedSources()`, `timelineInfo()`, `makeNestedClip()` |
 | `Retime.h` | the speed model: constant speed or retime curve (`ClipData::retime`, keys = speed points), exact source-time mapping, segments, media limits, retime process (namespace `kk::retime`) |
@@ -30,6 +34,23 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `Serialization.h` | JSON encode/decode of all value types |
 | `Preferences.h` | QSettings preference keys + typed accessors (`playback/hwaccel`, autosave, theme) |
 | `EditBehaviour.h` | convention-dependent editing defaults (`edit/*`: still / generator / transition lengths, three-point editing, ripple delete without selection, trim zones; `migrateSettings()` drops retired keys at start-up); see docs/behavior-spec.md |
+
+## Media pool organisation (bins branch, v2)
+- Bins are a tree (`Bin::parentId`); siblings keep the order of `MediaPoolState::bins`.
+  `moveBin()` refuses cycles; `removeBinWithContents()` deletes sub-bins and media files,
+  timeline items move to Master (Resolve deletes a bin with its contents; timelines are only
+  deleted explicitly).
+- `MediaItem::clipColor` (palette id), `flags` (bit set, `ClipColors.h`), `metadata`
+  (`MediaMetadata`), `addedMs`, `fileModifiedMs`. Timeline clips use `ClipData::label` (a palette
+  value) and fall back to the item colour when drawn; flags belong to the item, so every
+  instance shows them.
+- `MediaPoolState::smartBins` are part of the undo state; default smart bins
+  (`smartbins::defaultSmartBins()`, ids `default.*`) are never stored.
+- `Project::binViewState()` (view mode + sort per bin key) is saved as "binViews", not
+  undoable.
+- Usage: a linked V+A pair is one use; compound clip timelines count, so media only inside a
+  compound clip is "used".
+- `MediaPool::item()` is a hash lookup (index rebuilt lazily after structural changes).
 
 ## Proxy / optimized media links and cache settings (proxies branch)
 `MediaLinks.h`: `MediaLinks` (owned by the Project, `Project::mediaLinks()`) maps media pool item
@@ -212,6 +233,10 @@ and subtitle media items (`"kind": "subtitle"`, `"cues": [[startUs, endUs, text]
 5 and 6 belong to the retime / proxy branches; all older files load unchanged.
 Format version 8 adds multicam: timeline `"multicam": true`, clip `"multicamAngle"`, media
 pool item `"kind": "multicam"`, media info `"timecode"` (all optional).
+Format version 10 (attrs) adds clip fades and Clip Attributes (see `Serialization.h`).
+Format version 11 (bins): items may carry "clipColor", "flags", "metadata", "added",
+"modified"; the media pool "smartBins"; the project "binViews" (see `Serialization.h`).
+Versions <= 10 get "modified" (and "added") from the file on disk when loading.
 Media paths are stored absolute and relative to the project file; the relative one is used when
 the absolute path no longer exists.
 
