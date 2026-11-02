@@ -93,3 +93,6 @@
 - 19:51 attrs merged into main (level lines, fades, Clip Attributes, stacked timelines; format v10); full test run started.
 - 20:02 main after attrs: 87/87 tests pass; pushed. Waiting on bins (merging main, format v11).
 - 20:13 Heartbeat: bins merged main and moved to format v11 (c9ef248), now testing; 19 GB free.
+- 20:23 bins merged into main (format v11); full test run started.
+- 20:23 Started agent 'themecolors' (Kinoklip default, all custom-painted colours from the scheme).
+- 20:33 main after bins: 90/90 tests pass; pushed. themecolors running.
