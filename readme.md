@@ -1,5 +1,7 @@
 # Kinoklip
 
+[![Download here](https://img.shields.io/badge/Download-here-3daee9?style=for-the-badge)](https://github.com/SeniorMatt/kinoklip/releases)
+
 A non-linear video editor written from scratch in C++20 with Qt 6 Widgets and FFmpeg. The Edit
 page layout follows the familiar professional NLE arrangement (media pool, source and timeline
 viewers, inspector, multi-track timeline, page bar) with common industry shortcuts.
