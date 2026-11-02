@@ -125,7 +125,11 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     registry().append(this);
     m_resizeSettle = new QTimer(this);
     m_resizeSettle->setSingleShot(true);
-    m_resizeSettle->setInterval(kResizeSettleMs);
+    // KK_VIEWER_RESIZE_SETTLE_MS overrides the delay (0: every size at once, the old
+    // behaviour; used by the resize benchmark, tests/app/test_resizebench.cpp).
+    m_resizeSettle->setInterval(qEnvironmentVariableIsSet("KK_VIEWER_RESIZE_SETTLE_MS")
+            ? qEnvironmentVariableIntValue("KK_VIEWER_RESIZE_SETTLE_MS")
+            : kResizeSettleMs);
     connect(m_resizeSettle, &QTimer::timeout, this, &ViewerPanel::updateOutputClient);
     setObjectName(
         mode == Mode::Source ? QStringLiteral("SourceViewer") : QStringLiteral("TimelineViewer"));
@@ -708,7 +712,7 @@ bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
     case QEvent::Resize:
         // First size: at once (the first picture must come at the right size). Later sizes:
         // coalesced, see kResizeSettleMs.
-        if (m_outputSized)
+        if (m_outputSized && m_resizeSettle->interval() > 0)
             m_resizeSettle->start();
         else
             updateOutputClient();
