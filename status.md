@@ -59,3 +59,4 @@
 - 08:11 RELEASED v0.1.0-alpha.2 (GitHub pre-release). All agents finished; worktrees removed; hourly heartbeat stopped. Waiting for owner's test of alpha.2. 24 GB free.
 - 10:45 Owner feedback on alpha.2 recorded in docs/feedback/alpha2.md. Starting playback2, editfix, filedialog agents.
 - 10:56 Session restarted; playback2, editfix, filedialog resumed (none had committed). Owner: ripple trim works on Shift+[ / ]; wants Resolve mapping Ctrl+Shift+[ / ] = ripple trim to playhead, Shift+[ / ] = trim leaving a gap -> sent to editfix.
+- 11:05 Owner asked for a full keyframe editor window (like latest Resolve); queued as agent 'kfwindow' for the next free slot.
