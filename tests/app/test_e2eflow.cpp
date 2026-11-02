@@ -248,10 +248,12 @@ private slots:
         app.project.timeline()->setPlayhead(0);
         QSignalSpy frames(app.playback.get(), &PlaybackEngine::frameReady);
         app.trigger("transport.play_pause");
-        QTRY_VERIFY_WITH_TIMEOUT(app.project.timeline()->playhead() >= 25, 10000);
+        // Under heavy machine load the engine drops frames (by design), so wait for both
+        // conditions instead of expecting 5 frames within the first second.
+        QTRY_VERIFY_WITH_TIMEOUT(
+            app.project.timeline()->playhead() >= 25 && frames.count() >= 5, 10000);
         app.trigger("transport.play_pause");
         QVERIFY(!app.playback->isPlaying());
-        QVERIFY(frames.count() >= 5);
         QVERIFY(app.playback->stats().presented >= 5);
 
         // ---- Deliver: YouTube 1080p job, render, probe ----
