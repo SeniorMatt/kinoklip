@@ -585,7 +585,8 @@ HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)
         }
     }
     if (entry.info.available) {
-        QString details = entry.info.device;
+        QString details
+            = entry.info.device.isEmpty() ? QStringLiteral("default device") : entry.info.device;
         if (mode == HwAccelMode::Vaapi) {
             // Bundled libva + host driver is the usual suspect for VAAPI trouble: say which
             // libva and which driver are really in use (and any override the user set).
