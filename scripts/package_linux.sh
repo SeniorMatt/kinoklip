@@ -110,6 +110,9 @@ classify() {
 #    KDE theme cannot be built for Qt 6.4 -- host-Qt mode exists for that), tls, sql, print.
 # ---------------------------------------------------------------------------------------
 PLUGIN_GLOBS=(
+    # Wayland: Qt >= 6.10 ships a single platforms/libqwayland.so; older Qt (6.4 host) has
+    # the -egl/-generic pair. Both are listed; globs that match nothing are skipped.
+    platforms/libqwayland.so
     platforms/libqwayland-egl.so
     platforms/libqwayland-generic.so
     platforms/libqxcb.so
