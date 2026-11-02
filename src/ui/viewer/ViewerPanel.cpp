@@ -13,6 +13,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
+#include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/ViewerSurface.h"
 
@@ -133,16 +134,17 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
 
     m_qualityBox = new QComboBox;
     m_qualityBox->setObjectName(QStringLiteral("ViewerQuality"));
-    m_qualityBox->addItems({tr("Auto"), tr("Full"), tr("Half"), tr("Quarter")});
     m_qualityBox->setFocusPolicy(Qt::NoFocus);
     m_qualityBox->setMinimumWidth(metrics::kTitleComboMinWidth);
-    m_qualityBox->setToolTip(tr("Playback preview quality (Auto lowers the resolution while "
-                                "playing when rendering cannot keep up)"));
-    connect(m_qualityBox, &QComboBox::currentIndexChanged, this, [this](int i) {
-        if (engine()) {
-            engine()->setQualityMode(PlaybackEngine::QualityMode(i));
-        }
-    });
+    // One application-wide playback resolution (Playback menu, every viewer, Preferences).
+    PlaybackResolution& resolution = PlaybackResolution::instance();
+    resolution.bindCombo(m_qualityBox);
+    connect(
+        &resolution, &PlaybackResolution::changed, this, [this](PlaybackEngine::QualityMode mode) {
+            if (engine()) {
+                engine()->setQualityMode(mode);
+            }
+        });
     addTitleBarWidget(m_qualityBox);
 
     m_timecode = new QLabel(timecode::format(0, Rational {}));
@@ -396,7 +398,7 @@ void ViewerPanel::bindEngine(PlaybackEngine* e)
     });
     connect(e, &PlaybackEngine::positionChanged, this, &ViewerPanel::onPositionChanged);
     connect(e, &PlaybackEngine::rateChanged, this, &ViewerPanel::onRateChanged);
-    m_qualityBox->setCurrentIndex(int(e->qualityMode()));
+    e->setQualityMode(PlaybackResolution::instance().mode());
     if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("transport.loop"))) {
         e->setLoop(m_ctx.actions->action(QStringLiteral("transport.loop"))->isChecked());
     }

@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 157 commands; sure 88, likely 41, unsure 28.
+Counts: 161 commands; sure 92, likely 41, unsure 28.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -223,6 +223,10 @@ that every command has an entry and that no key is used twice.
 | Loop | `transport.loop` | `Ctrl+/` | sure |  |
 | Play In to Out | `transport.play_in_out` | `Alt+/` | sure |  |
 | Play Around Current Frame | `transport.play_around` | `/` | sure |  |
+| Timeline Proxy Resolution: Full | `playback.resolution_full` | (none) | sure | menu command without a default key |
+| Timeline Proxy Resolution: Half | `playback.resolution_half` | (none) | sure | menu command without a default key |
+| Timeline Proxy Resolution: Quarter | `playback.resolution_quarter` | (none) | sure | menu command without a default key |
+| Automatic proxy resolution (Kinoklip) | `playback.resolution_auto` | (none) | sure | no Resolve equivalent; Resolve's closest is Performance Mode |
 
 ## Help
 
