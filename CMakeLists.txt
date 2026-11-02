@@ -128,6 +128,20 @@ foreach(test_src ${KK_TESTS})
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 300)
 endforeach()
 
+# test_wayland once more under a real compositor with real input (weston on Xvfb, xdotool):
+# drags through wl_data_device, no explicit grabs, floating panels. Only where the tools exist
+# (the Arch container); offscreen the test skips itself.
+find_program(KK_WESTON weston)
+find_program(KK_XVFB Xvfb)
+find_program(KK_XDOTOOL xdotool)
+if(KK_WESTON AND KK_XVFB AND KK_XDOTOOL)
+  add_test(NAME test_wayland_session
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/wayland_session.sh $<TARGET_FILE:test_wayland>)
+  set_tests_properties(test_wayland_session PROPERTIES
+    ENVIRONMENT "KK_NO_AUDIO=1;KK_XDISPLAY=:88;KK_WESTON_LOG=${CMAKE_BINARY_DIR}/weston-test.log"
+    TIMEOUT 300 RUN_SERIAL TRUE)
+endif()
+
 # Helper for the nested Wayland session checks (scripts/wayland_dnd_check.sh): an external drag
 # source standing in for Dolphin. Not a test itself.
 add_executable(kk_dragsource tests/tools/kk_dragsource.cpp)
