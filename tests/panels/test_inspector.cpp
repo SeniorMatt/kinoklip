@@ -142,6 +142,36 @@ private slots:
         QCOMPARE(panel.rebuildCount(), rebuilds);
     }
 
+    // Spec 15.13: the section diamond keys every animatable parameter of the section.
+    void spec15_13_sectionKeyframeDiamond()
+    {
+        PanelFixture f;
+        const quint64 id = f.addClip(kV1, 10, 100);
+        InspectorPanel panel(f.ctx);
+        f.selection.selectClip(id);
+        f.project.timeline()->setPlayhead(30); // clip-local frame 20
+        auto* section = panel.findChild<KeyframeButton*>(
+            QStringLiteral("keyframe-section:") + QLatin1String(groups::Cropping));
+        QVERIFY(section);
+        QCOMPARE(section->state(), KeyframeButton::State::NotAnimated);
+        const int commands = f.project.undoStack()->count();
+        section->click();
+        QCOMPARE(f.project.undoStack()->count(), commands + 1);
+        const ClipData& c = *editops::clipById(f.project.timeline()->data(), id);
+        for (const QString& key : {keys::CropL, keys::CropR, keys::CropT, keys::CropB})
+            QVERIFY(c.transform.values.value(key).hasKeyAt(20));
+        QVERIFY(!c.transform.values.value(keys::PosX).isAnimated()); // other section untouched
+        QCOMPARE(section->state(), KeyframeButton::State::OnKey);
+        f.project.timeline()->setPlayhead(50);
+        QCOMPARE(section->state(), KeyframeButton::State::Animated);
+        f.project.timeline()->setPlayhead(30);
+        section->click(); // all on a key: removes them
+        const ClipData& after = *editops::clipById(f.project.timeline()->data(), id);
+        QVERIFY(!after.transform.values.value(keys::CropL).isAnimated());
+        f.project.timeline()->setPlayhead(500); // outside the clip
+        QVERIFY(!section->isEnabled());
+    }
+
     void keyframeButtonTogglesAtLocalFrame()
     {
         PanelFixture f;

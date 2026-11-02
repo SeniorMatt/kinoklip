@@ -22,6 +22,7 @@ class QMimeData;
 namespace kk {
 
 struct AppContext;
+class KeyframeLanes;
 class TimelineController;
 
 /// The timeline editor view.
@@ -47,6 +48,8 @@ public:
     [[nodiscard]] TimelineController* controller() const { return m_controller; }
     /// Current geometry (for tests and hit-testing from outside).
     [[nodiscard]] const TimelineLayout& layout() const { return m_layout; }
+    /// The per-clip keyframe and curve editors (KeyframeLanes.h).
+    [[nodiscard]] KeyframeLanes* keyframeLanes() const { return m_keyframeLanes; }
 
     /// Replaces the thumbnail source (default: media::MediaCache). Null = placeholders.
     void setThumbnailProvider(ThumbnailProvider provider);
@@ -218,6 +221,7 @@ private:
     TimelineController* m_controller = nullptr;
     TimelineLayout m_layout;
     TimelinePainter m_painter;
+    KeyframeLanes* m_keyframeLanes = nullptr; ///< child QObject: keyframe / curve editor lanes
     TimelineOverlay m_overlay;
     QSet<quint64> m_selected; ///< mirror of the SelectionModel for O(1) lookups while painting
     Drag m_drag;

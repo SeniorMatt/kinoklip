@@ -24,15 +24,19 @@ void TimelineLayout::rebuild(const TimelineData& data)
     int y = 0;
     // Video tracks grow upwards from the divider: V(n) first, V1 last.
     for (int i = int(data.videoTracks.size()) - 1; i >= 0; --i) {
-        const int h = scaled(trackHeight(data.videoTracks[size_t(i)]));
-        m_rows.push_back({TrackRef {TrackType::Video, i}, y, h});
+        const TrackData& t = data.videoTracks[size_t(i)];
+        const int lane = m_laneHeights.value(t.id, 0);
+        const int h = scaled(trackHeight(t)) + lane;
+        m_rows.push_back({TrackRef {TrackType::Video, i}, y, h, lane});
         y += h;
     }
     m_videoHeight = y;
     y += kSectionGap;
     for (int i = 0; i < int(data.audioTracks.size()); ++i) {
-        const int h = scaled(trackHeight(data.audioTracks[size_t(i)]));
-        m_rows.push_back({TrackRef {TrackType::Audio, i}, y, h});
+        const TrackData& t = data.audioTracks[size_t(i)];
+        const int lane = m_laneHeights.value(t.id, 0);
+        const int h = scaled(trackHeight(t)) + lane;
+        m_rows.push_back({TrackRef {TrackType::Audio, i}, y, h, lane});
         y += h;
     }
     m_contentHeight = y;
@@ -179,7 +183,17 @@ QRectF TimelineLayout::clipRect(int row, const ClipData& clip) const
     const QRect r = rowRect(row);
     const double x0 = frameToX(double(clip.start));
     const double x1 = frameToX(double(clip.end()));
-    return QRectF(x0, r.top() + 1, x1 - x0, r.height() - 2);
+    const int lane = r.isEmpty() ? 0 : m_rows[size_t(row)].laneHeight;
+    return QRectF(x0, r.top() + 1, x1 - x0, r.height() - lane - 2);
+}
+
+QRect TimelineLayout::laneRect(int index) const
+{
+    const QRect r = rowRect(index);
+    if (r.isEmpty() || m_rows[size_t(index)].laneHeight <= 0)
+        return {};
+    const int lane = m_rows[size_t(index)].laneHeight;
+    return QRect(r.left(), r.bottom() + 1 - lane, r.width(), lane);
 }
 
 TimelineHit TimelineLayout::hitTest(const TimelineData& data, QPointF pos) const
@@ -216,6 +230,9 @@ TimelineHit TimelineLayout::hitTest(const TimelineData& data, QPointF pos) const
     hit.area = TimelineHit::Area::Track;
     const TrackData* track = data.track(row.ref);
     if (!track)
+        return hit;
+    // The keyframe / curve lane below the clips has no clip parts (its widget takes input).
+    if (row.laneHeight > 0 && pos.y() >= rowRect(hit.row).bottom() + 1 - row.laneHeight)
         return hit;
     // Look at the clips within one grab zone of the pointer; at most a few qualify.
     const double zoneFrames = kEdgeGrabPx / m_pixelsPerFrame;

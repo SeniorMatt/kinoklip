@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 152 commands; sure 88, likely 39, unsure 25.
+Counts: 157 commands; sure 88, likely 41, unsure 28.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -153,9 +153,14 @@ that every command has an entry and that no key is used twice.
 | Freeze Frame (disabled: no freeze frames yet) | `clip.freeze_frame` | `Shift+R` | sure |  |
 | Link / Unlink Clips | `clip.link` | `Ctrl+Alt+L` | likely | Resolve has one toggle; Kinoklip's Link toggles too. |
 | Unlink Clips | `clip.unlink` | (none) | likely |  |
-| Add Keyframe (inspector) | `clip.add_keyframe` | `Alt+K` | unsure | kept until the keyframe editor exists |
+| Add Keyframe (inspector) | `clip.add_keyframe` | `Alt+K` | unsure | toggles a key on the last touched inspector parameter; Resolve default not confirmed |
 | Previous Keyframe | `clip.prev_keyframe` | `[` | likely |  |
 | Next Keyframe | `clip.next_keyframe` | `]` | likely |  |
+| Delete Keyframes | `clip.delete_keyframe` | (none) | unsure | no known default; Delete / Backspace act on selected keys while the keyframe or curve editor has focus |
+| Copy Keyframes | `clip.copy_keyframes` | (none) | unsure | no known default; Ctrl+C acts on selected keys while the keyframe or curve editor has focus |
+| Paste Keyframes | `clip.paste_keyframes` | (none) | unsure | no known default; Ctrl+V pastes keys at the playhead while the keyframe or curve editor has focus |
+| Show Keyframe Editor | `clip.toggle_keyframe_editor` | (none) | likely | Resolve uses the clip's keyframe button; no default key |
+| Show Curve Editor | `clip.toggle_curve_editor` | (none) | likely | Resolve uses the clip's curve button; no default key |
 
 ## Marking and markers
 

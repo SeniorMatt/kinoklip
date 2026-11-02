@@ -173,7 +173,7 @@ std::optional<Interp> keyInterp(const ClipData& clip, const ParamRef& ref, int64
     if (const AnimatedValue* value = animated(clip, ref)) {
         for (const Keyframe& k : value->keys) {
             if (k.frame == localFrame)
-                return k.interp;
+                return kk::keyInterp(k);
         }
     }
     return std::nullopt;
@@ -190,7 +190,7 @@ bool setKeyInterp(ClipData& clip, const ParamRef& ref, int64_t localFrame, Inter
             return false;
         for (Keyframe& k : it->keys) {
             if (k.frame == localFrame) {
-                k.interp = interp;
+                applyInterp(k, interp);
                 return true;
             }
         }

@@ -3,6 +3,7 @@
 #include "app/Screenshot.h"
 
 #include "app/MainWindow.h"
+#include "core/KeyframeOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -14,6 +15,9 @@
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
+#include "ui/timeline/KeyframeLanes.h"
+#include "ui/timeline/TimelinePanel.h"
+#include "ui/timeline/TimelineWidget.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QApplication>
@@ -143,6 +147,30 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             }
         }
         panel = window.findChild<InspectorPanel*>();
+    } else if (target == QLatin1String("keyframes")
+        || target == QLatin1String("keyframes-window")) {
+        // Keyframe editor + curve editor of the first animated video clip, a few keys selected.
+        auto* timelinePanel = window.findChild<TimelinePanel*>();
+        const ClipData* animated = nullptr;
+        for (const TrackData& track : ctx.project->timeline()->data().videoTracks) {
+            for (const ClipData& c : track.clips) {
+                if (!animated && !keyframeops::allKeyFrames(c).isEmpty())
+                    animated = &c;
+            }
+        }
+        if (!timelinePanel || !animated) {
+            std::fprintf(stderr, "keyframes: needs a project with an animated video clip\n");
+            return 2;
+        }
+        const quint64 id = animated->id;
+        ctx.selection->selectClip(id);
+        const QVector<int64_t> frames = keyframeops::allKeyFrames(*animated);
+        ctx.selection->setKeyframes(keyframeops::keysAt(*animated, frames.value(1)));
+        KeyframeLanes* lanes = timelinePanel->timelineWidget()->keyframeLanes();
+        lanes->setKeyframeEditorOpen(id, true);
+        lanes->setCurveEditorOpen(id, true);
+        if (target == QLatin1String("keyframes"))
+            panel = timelinePanel;
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
     } else if (target == QLatin1String("effects")) {
@@ -152,7 +180,9 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
     } else if (!isPage) {
         std::fprintf(stderr,
             "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
-            "project-settings[:section], keyboard, inspector, mediapool, effects, menu-color-theme "
+            "project-settings[:section], keyboard, inspector, keyframes, keyframes-window, "
+            "mediapool, "
+            "effects, menu-color-theme "
             "or "
             "menu-style)\n",
             qPrintable(target));

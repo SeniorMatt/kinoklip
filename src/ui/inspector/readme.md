@@ -38,6 +38,10 @@ Edits the parameters of the selected clip. Owned by the panels agent.
   clip; disabled when the playhead is outside). When a scalar is animated, editing its value
   sets a key at the current frame (`AnimatedValue::setValue`). Linked zoom (`zoomLinked`)
   applies value and key edits to both zoom axes. Transition parameters are not keyframed.
+  Right-click on a filled diamond picks the key's preset (linear, ease in / out / in and out,
+  smooth, static). Sections with animatable parameters (Transform, Cropping, Audio, Title)
+  have a section diamond in the header that keys / unkeys all of them at once. The timeline's
+  keyframe and curve editors edit the same keys (src/ui/timeline/KeyframeLanes.h).
 - **Shortcuts.** `clip.add_keyframe` toggles a key on the parameter the user touched last;
   `clip.prev_keyframe` / `clip.next_keyframe` jump across every animated parameter shown.
 - **Drops.** `mime::Effect` dropped on the inspector applies an effect to the shown clip, or a

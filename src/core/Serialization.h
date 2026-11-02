@@ -14,7 +14,22 @@ namespace kk::serialization {
 
 /// Version written to the "formatVersion" field of project files. Bump it when the format
 /// changes incompatibly and add a migration in Project::load().
-inline constexpr int kFormatVersion = 1;
+///
+/// History:
+/// - 1: keyframes carry one "interp" (curve of the segment starting at the key).
+/// - 2: keyframes carry Bezier handles ("in" / "out": mode string or {"mode":"free","dt","dv"})
+///   and a "hold" flag. Version-1 keys are detected by their "interp" field and converted by
+///   paramSetFromJson() (migrateLegacyInterp() in core/Animation.h).
+inline constexpr int kFormatVersion = 2;
+
+/// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
+[[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
+/// Decodes keyframeToJson() (a version-1 "interp" field is ignored here; see paramSetFromJson).
+[[nodiscard]] Keyframe keyframeFromJson(const QJsonObject& json);
+/// Encodes a key handle: the mode string, or an object for Free handles.
+[[nodiscard]] QJsonValue keyHandleToJson(const KeyHandle& handle);
+/// Decodes keyHandleToJson(); anything unknown yields a Linear handle.
+[[nodiscard]] KeyHandle keyHandleFromJson(const QJsonValue& json);
 
 /// Encodes a ParamSet as {"values": {...}, "statics": {...}}.
 [[nodiscard]] QJsonObject paramSetToJson(const ParamSet& params);

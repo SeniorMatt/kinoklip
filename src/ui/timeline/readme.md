@@ -20,6 +20,10 @@ for thumbnails and waveforms).
 | `TimelineLayout.h` | pure geometry: frame <-> x, rows, header buttons, clip ranges, hit-testing (unit-tested) |
 | `TimelinePainter.h` | draws ruler, headers, clips, transitions, overlays for one paint event |
 | `TimelineMedia.h` | thumbnail / waveform provider types and the MediaCache-backed defaults |
+| `KeyframeLanes.h` | per-clip keyframe / curve editor state, lane heights for the layout, lane widget placement, the two toggle buttons on animated clips, keyframe commands and actions |
+| `ClipLaneWidget.h` | base of the lane widgets: frame mapping, keyframe selection, drag / undo protocol, snapping, key menu, Delete / Ctrl+C / Ctrl+V while focused |
+| `KeyframeTrackWidget.h` | keyframe editor lane: master, group and parameter rows of diamonds |
+| `CurveEditorWidget.h` | curve editor lane: curves, keys, Bezier handles, preset tool bar |
 
 Tests: `tests/timeline/` (layout maths, controller commands, QTest gestures, demo project,
 2,000-clip benchmark) and `tests/core/test_editops_timeline.cpp` (roll, slide, gaps,
@@ -55,7 +59,7 @@ cross dissolve 1 s), `timeline.add_video_track/add_audio_track`, `trim.nudge_lef
 Shift+Backspace; with nothing selected it closes the gap under the playhead on the target
 video track), `edit.cut/copy/paste` (paste at the playhead onto the original tracks),
 `edit.select_all/deselect_all`, `edit.insert/overwrite/place_on_top` (F9/F10/F12),
-`clip.toggle_enabled` (D), `clip.link/unlink`, `mark.in/out/clip/selection/clear_in/clear_out/
+`clip.toggle_enabled` (D), `clip.link/unlink`, `clip.toggle_keyframe_editor/toggle_curve_editor/delete_keyframe/copy_keyframes/paste_keyframes` (KeyframeLanes), `mark.in/out/clip/selection/clear_in/clear_out/
 clear_both/go_to_in/go_to_out/add_marker`, `edit.paste_insert` (Ctrl+Shift+V),
 `edit.replace/fit_to_fill/append_at_end` (F11 / Shift+F11 / Shift+F12),
 `trim.nudge_left_multi/right_multi` (Shift+, / Shift+.), `trim.trim_start/trim_end`
@@ -92,6 +96,19 @@ rolls it, E extends it, Ctrl+T puts the transition there) and the **gap**
 
 Source edits (`insertSource()`) use three-point editing: the timeline in mark (else the
 playhead) is the destination, in + out set the length, an out mark alone backtimes.
+
+## Keyframe and curve editors (spec 15.8 - 15.12)
+
+Additive layer: `TimelineWidget` owns a `KeyframeLanes`. Before each layout rebuild it asks it
+for extra lane heights per track (`TimelineLayout::setLaneHeights`); a row's `laneHeight` sits
+below its clips (`clipRect()` excludes it, `laneRect()` returns it, hit-testing treats it as
+empty track). The lane widgets are children of the viewport placed over `laneRect()` (cut below
+the ruler) by `syncGeometry()` after every layout / scroll / zoom change; they take their own
+mouse and key input, forward plain wheel events to the timeline, and paint their own playhead.
+The only hook in the input state machine is the toggle-button click in `mousePressEvent()`.
+Lane edits use the same protocol as timeline drags (copy origin, restore + re-apply per move,
+one undo step). Selected keys live in `SelectionModel::keyframes()` (paths from
+`core/KeyframeOps.h`).
 
 ## Coordinates and time
 

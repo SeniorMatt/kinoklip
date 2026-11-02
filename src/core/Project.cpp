@@ -213,7 +213,9 @@ bool Project::load(const QString& path, QString* error)
     const int version = root.value(QLatin1String("formatVersion")).toInt();
     if (version > serialization::kFormatVersion)
         return fail(tr("%1 was created by a newer version (format %2)").arg(path).arg(version));
-    // Migrations from older format versions go here once version 2 exists.
+    // Version 1 -> 2 (keyframe interp -> Bezier handles) is converted per key inside
+    // serialization::paramSetFromJson(), which recognises the v1 "interp" field; nothing else
+    // changed, so no whole-document migration is needed.
 
     TimelineData timeline;
     QString timelineError;
