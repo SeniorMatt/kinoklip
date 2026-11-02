@@ -57,6 +57,11 @@
         "clip.add_keyframe": ["Alt+K"],
         "clip.prev_keyframe": ["["],
         "clip.next_keyframe": ["]"],
+        "clip.delete_keyframe": [],
+        "clip.copy_keyframes": [],
+        "clip.paste_keyframes": [],
+        "clip.toggle_keyframe_editor": [],
+        "clip.toggle_curve_editor": [],
 
         "mark.in": ["I"],
         "mark.out": ["O"],

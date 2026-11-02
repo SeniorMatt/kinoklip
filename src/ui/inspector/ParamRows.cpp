@@ -249,7 +249,8 @@ private:
             {Interp::EaseIn, tr("Ease In")},
             {Interp::EaseOut, tr("Ease Out")},
             {Interp::EaseInOut, tr("Ease In and Out")},
-            {Interp::Hold, tr("Hold")},
+            {Interp::Smooth, tr("Smooth (Bezier)")},
+            {Interp::Hold, tr("Static (Hold)")},
         };
         for (const auto& [mode, text] : modes) {
             QAction* a = menu.addAction(text);

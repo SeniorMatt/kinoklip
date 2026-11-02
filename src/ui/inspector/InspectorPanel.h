@@ -126,6 +126,9 @@ private:
     QVBoxLayout* tabLayout(Tab tab) const;
     void addPlaceholder(Tab tab, const QString& text);
     ParamGroupBox* addGroup(Tab tab, const QString& key, const QString& title, quint64 clipId);
+    /// Adds the section keyframe diamond (keys every animatable parameter of the group).
+    void addSectionKeyframeButton(
+        ParamGroupBox* group, const EffectDescriptor& desc, ParamScope scope, quint64 clipId);
     void addDescriptorGroup(
         Tab tab, const EffectDescriptor& desc, ParamScope scope, quint64 clipId);
     void buildEffectsTab(const ClipData& clip);
