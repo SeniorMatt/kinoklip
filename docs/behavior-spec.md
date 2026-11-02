@@ -17,7 +17,7 @@ Tests: `tp` = `tests/timeline/test_parity.cpp` (test names start with the item n
 `vp` = `test_viewerpanel`, `eo` = `test_editops` / `test_editops_timeline`, `in` =
 `test_inspector`.
 
-Shortcuts are data (`resources/keymap_default.json`, remappable in Keyboard Customization);
+Shortcuts are data (`resources/keymaps/resolve-windows.json`, remappable in Keyboard Customization);
 convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`, QSettings
 `playback/*`) and `EditBehaviour` (`src/core/EditBehaviour.h`, QSettings `edit/*`).
 

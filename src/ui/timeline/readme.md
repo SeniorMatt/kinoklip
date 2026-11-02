@@ -138,7 +138,7 @@ the position; the same plan draws the ghost preview and performs the drop (one u
 
 **A new tool:**
 1. Add the action to `StandardActions.cpp` (group `trim`, checkable, in the tools
-   `QActionGroup`) and a key to `resources/keymap_default.json`.
+   `QActionGroup`) and a key to `resources/keymaps/resolve-windows.json`.
 2. Add a value to `TimelineTool` and map its action in `TimelineController::connectActions()`
    and `setTool()`.
 3. In `TimelineWidget::mousePressEvent()` decide the `DragMode` for the new tool (add one to

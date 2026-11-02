@@ -20,12 +20,21 @@ namespace kk {
 /// - Commands are registered once at start-up (see StandardActions.cpp) with a display text,
 ///   a menu category and an optional icon. Owners of the behaviour connect later:
 ///   `connect(ctx.actions->action("edit.split"), &QAction::triggered, ...)`.
-/// - Default shortcuts come from a keymap JSON (resources/keymap_default.json); user overrides
-///   are stored in QSettings (group "shortcuts") and applied on registration.
+/// - Default shortcuts come from the active **keymap profile** (plan.md 5.9 rule 1):
+///   - built-in profiles are the read-only files `resources/keymaps/<id>.json` (`:/keymaps/`);
+///     the default is kDefaultProfile ("resolve-windows", Resolve's Windows defaults);
+///   - user profiles are JSON files in `<AppData>/keymaps/` (userProfileDirectory()); each one
+///     is based on a built-in profile and stores its own overrides.
+///   Rebinding a key always changes the **active** profile: a built-in profile keeps its
+///   overrides in QSettings (group "<settingsGroup>/<profile id>"), a user profile in its file.
+///   Reset restores the profile's base (the built-in file) for that command.
+/// - The active profile id is stored in QSettings key "keymap/profile".
 /// - The main window adds all actions to itself so shortcuts work application-wide.
 ///
-/// Keymap JSON format: `{"formatVersion": 1, "shortcuts": {"<id>": ["Ctrl+B", ...], ...}}`
-/// using QKeySequence::PortableText.
+/// Keymap JSON format: `{"formatVersion": 1, "name": "...", "basedOn": "<built-in id>",
+/// "shortcuts": {"<id>": ["Ctrl+B", ...], ...}}` using QKeySequence::PortableText. "name" and
+/// "basedOn" are optional (built-in files have no "basedOn"; in a user profile "shortcuts"
+/// holds only the overrides of its base).
 ///
 /// Thread-safety: GUI thread only.
 class ActionRegistry : public QObject
@@ -42,10 +51,57 @@ public:
     explicit ActionRegistry(
         QObject* parent = nullptr, const QString& settingsGroup = QStringLiteral("shortcuts"));
 
-    /// Loads default shortcuts from a keymap file and applies them to registered actions that
-    /// have no user override. Returns false and sets @p error if the file is unreadable.
-    bool loadDefaultKeymap(
-        const QString& path = QStringLiteral(":/keymap_default.json"), QString* error = nullptr);
+    /// Id of the built-in default profile (Resolve's Windows shortcuts).
+    static constexpr char kDefaultProfile[] = "resolve-windows";
+
+    /// One keymap profile as listed by profiles().
+    struct KeymapProfile
+    {
+        QString id; ///< stable id ("resolve-windows", "user-my-keys", ...)
+        QString name; ///< display name
+        bool builtIn = false; ///< read-only file shipped in the resources
+        QString basedOn; ///< user profiles: the built-in profile providing the defaults
+    };
+
+    /// Loads the active keymap profile (QSettings "keymap/profile", else kDefaultProfile) and
+    /// applies it to the registered actions; actions registered later pick it up as well.
+    /// With a non-empty @p path that file is used as the defaults instead (tests, tools); the
+    /// overrides of the active profile still apply. Returns false and sets @p error if the
+    /// file is unreadable.
+    bool loadDefaultKeymap(const QString& path = {}, QString* error = nullptr);
+
+    // ---- Keymap profiles ----
+
+    /// Built-in profiles first (sorted by name), then user profiles (sorted by name).
+    [[nodiscard]] QVector<KeymapProfile> profiles() const;
+    /// The profile with @p id, if it exists.
+    [[nodiscard]] std::optional<KeymapProfile> profile(const QString& id) const;
+    /// Id of the active profile.
+    [[nodiscard]] QString activeProfile() const { return m_activeProfile; }
+    /// Makes @p id the active profile (persisted) and applies its shortcuts. Returns false
+    /// (and keeps the current one) if it does not exist or cannot be read.
+    bool setActiveProfile(const QString& id, QString* error = nullptr);
+    /// Creates a user profile named @p name with the current shortcuts of profile @p sourceId
+    /// (defaults and overrides). Returns the new id, or empty on failure.
+    QString duplicateProfile(
+        const QString& sourceId, const QString& name, QString* error = nullptr);
+    /// Renames user profile @p id. Built-in profiles cannot be renamed.
+    bool renameProfile(const QString& id, const QString& name, QString* error = nullptr);
+    /// Deletes user profile @p id (its file). Deleting the active profile activates the
+    /// built-in profile it was based on. Built-in profiles cannot be deleted.
+    bool deleteProfile(const QString& id, QString* error = nullptr);
+    /// Creates a user profile from keymap file @p path (an exported profile or any keymap
+    /// JSON; commands missing in the file keep their defaults). @p name empty: the file's
+    /// "name", else its base name. Returns the new id, or empty on failure.
+    QString importProfile(const QString& path, const QString& name = {}, QString* error = nullptr);
+    /// Writes the complete shortcuts of profile @p id (defaults + overrides) to @p path.
+    bool exportProfile(const QString& id, const QString& path, QString* error = nullptr) const;
+    /// True if profile @p id has shortcuts that differ from its base.
+    [[nodiscard]] bool isProfileModified(const QString& id) const;
+    /// Folder holding the user profiles (default `<AppDataLocation>/keymaps`).
+    [[nodiscard]] QString userProfileDirectory() const;
+    /// Overrides the user profile folder (tests). Rescans the profiles.
+    void setUserProfileDirectory(const QString& dir);
 
     /// Registers a command. @p category is a menu id ("file", "edit", ...); @p iconName names
     /// an icon from resources/icons (may be empty). Registering an existing id returns the
@@ -106,8 +162,12 @@ public:
     bool importKeymap(const QString& path, QString* error = nullptr);
 
 signals:
-    /// The shortcuts of @p id changed (rebind, reset, import).
+    /// The shortcuts of @p id changed (rebind, reset, import, profile switch).
     void shortcutsChanged(const QString& id);
+    /// A profile was added, renamed or deleted.
+    void profilesChanged();
+    /// Another profile became active (its shortcuts are already applied).
+    void activeProfileChanged(const QString& id);
 
 private:
     struct Entry
@@ -117,18 +177,49 @@ private:
         QAction* action = nullptr;
     };
 
-    static bool readKeymap(
-        const QString& path, QHash<QString, QList<QKeySequence>>& out, QString* error);
+    using KeyMap = QHash<QString, QList<QKeySequence>>;
+    /// A user profile file as found by scanProfiles().
+    struct UserProfile
+    {
+        KeymapProfile info;
+        QString path;
+    };
+
+    static bool readKeymap(const QString& path, KeyMap& out, QString* error,
+        QString* name = nullptr, QString* basedOn = nullptr);
+    static bool writeKeymap(const QString& path, const KeyMap& keys, const QString& name,
+        const QString& basedOn, QString* error);
     void applyShortcuts(const QString& id, const QList<QKeySequence>& shortcuts);
     [[nodiscard]] std::optional<QList<QKeySequence>> userOverride(const QString& id) const;
+    /// Re-reads the built-in and user profile lists.
+    void scanProfiles();
+    [[nodiscard]] const UserProfile* userProfile(const QString& id) const;
+    [[nodiscard]] QString builtInPath(const QString& id) const;
+    /// Base (defaults) and overrides of profile @p id.
+    bool loadProfileMaps(const QString& id, KeyMap& base, KeyMap& overrides, QString* error) const;
+    /// Writes m_overrides of the active profile to its store (QSettings group or user file).
+    void persistOverrides();
+    /// Moves overrides saved before profiles existed (directly in the settings group) into
+    /// the default profile's group.
+    void migrateLegacyOverrides();
+    /// Applies m_defaults + m_overrides to every registered action.
+    void applyAll();
+    [[nodiscard]] QString uniqueUserId(const QString& name) const;
 
     QString m_settingsGroup;
     QVector<Entry> m_entries;
     QHash<QString, int> m_index;
     QStringList m_categories;
     QHash<QString, QStringList> m_menuEntries;
-    QHash<QString, QList<QKeySequence>> m_defaults;
+    KeyMap m_defaults; ///< base shortcuts of the active profile
+    KeyMap m_overrides; ///< overrides of the active profile (empty list = unbound)
     QHash<QString, QString> m_submenuTitles;
+    QString m_activeProfile = QLatin1String(kDefaultProfile);
+    QVector<KeymapProfile> m_builtIns;
+    QVector<UserProfile> m_userProfiles;
+    QString m_userDir;
+    bool m_profilesScanned = false;
+    int m_batch = 0; ///< > 0: persistOverrides() is deferred to the end of a batch
 };
 
 } // namespace kk

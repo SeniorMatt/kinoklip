@@ -19,6 +19,7 @@
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QUndoStack>
 
@@ -108,6 +109,32 @@ private slots:
         dialog.setCurrentId(QStringLiteral("clip.add_keyframe"));
         saveScreenshot(dialog, QStringLiteral("dialog_keyboard"));
         dialog.reject();
+    }
+
+    void keyboardProfileComboSwitchesAndCancelRestores()
+    {
+        PanelFixture f;
+        QTemporaryDir dir;
+        f.actions.setUserProfileDirectory(dir.path());
+        const QString user
+            = f.actions.duplicateProfile(f.actions.activeProfile(), QStringLiteral("Mine"));
+        QVERIFY(!user.isEmpty());
+        const QString builtIn = f.actions.activeProfile();
+        KeyboardCustomizationDialog dialog(f.actions);
+        QComboBox* combo = dialog.profileCombo();
+        QCOMPARE(combo->count(), 2);
+        QCOMPARE(combo->currentData().toString(), builtIn);
+        const int userIndex = combo->findData(user);
+        QVERIFY(userIndex >= 0);
+        combo->setCurrentIndex(userIndex);
+        emit combo->activated(userIndex);
+        QCOMPARE(f.actions.activeProfile(), user);
+        QVERIFY(dialog.assignShortcut(QStringLiteral("edit.split"), QKeySequence(Qt::Key_F6),
+            KeyboardCustomizationDialog::ConflictPolicy::Reassign));
+        dialog.reject(); // back to the profile the dialog was opened with
+        QCOMPARE(f.actions.activeProfile(), builtIn);
+        QVERIFY(f.actions.shortcuts(QStringLiteral("edit.split")).indexOf(QKeySequence(Qt::Key_F6))
+            < 0);
     }
 
     void recorderCapturesChord()
