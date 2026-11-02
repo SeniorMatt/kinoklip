@@ -10,6 +10,7 @@
 #include <QSize>
 #include <QString>
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 
@@ -62,6 +63,11 @@ struct RenderRequest
     QSize outSize; ///< output size in pixels; empty = timeline resolution
     Quality quality = Quality::Full;
     unsigned outputs = OutputTexture; ///< RenderOutput flags
+    /// Optional cancellation flag: when it is true by the time the render thread picks the
+    /// request up, the request is skipped and completes with `ok == false, cancelled == true`
+    /// (a request already being rendered finishes normally). Lets playback drop its stale
+    /// look-ahead on a seek instead of waiting for it.
+    std::shared_ptr<const std::atomic<bool>> cancelled = nullptr;
 };
 
 /// Result of a render request. Immutable once handed out; share it as RenderedFramePtr.
@@ -78,7 +84,8 @@ struct RenderedFrame
 {
     int64_t frame = 0; ///< timeline frame that was rendered
     QSize size; ///< pixel size of texture/image (requested size scaled by Quality)
-    bool ok = false; ///< false: invalid request (no timeline, bad size) — everything else empty
+    bool ok = false; ///< false: invalid or cancelled request — everything else empty
+    bool cancelled = false; ///< skipped because RenderRequest::cancelled was set
     /// GL_TEXTURE_2D name (GL_RGBA8) in the shared context group, or 0 (CPU fallback, or
     /// OutputTexture not requested). Bind it in any context that shares with
     /// QOpenGLContext::globalShareContext().
@@ -89,6 +96,11 @@ struct RenderedFrame
     void* fence = nullptr;
     QImage image; ///< ARGB32_Premultiplied when OutputImage was requested (or CPU fallback)
     double renderMs = 0.0; ///< wall-clock time the render thread spent on this frame
+    // Stages of renderMs (render-thread wall clock; GPU work runs asynchronously):
+    double decodeMs = 0.0; ///< decoding every visible clip (incl. hardware frame download)
+    double uploadMs = 0.0; ///< plane texture uploads
+    double compositeMs = 0.0; ///< drawing layers, effects, transitions (excluding uploads)
+    double outputMs = 0.0; ///< output slot + fence (+ readback for OutputImage)
 };
 
 /// Shared handle to a rendered frame (releasing the last reference recycles the texture).

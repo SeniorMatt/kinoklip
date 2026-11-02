@@ -79,6 +79,7 @@ DecoderPool::Entry* DecoderPool::acquire(const QString& path, int64_t timeUs)
         m_entries.push_back(std::move(entry));
     }
     chosen->busy = true;
+    chosen->previousTimeUs = chosen->lastTimeUs;
     chosen->lastTimeUs = timeUs;
     chosen->lastUsedMs = now;
     return chosen;
@@ -90,6 +91,7 @@ void DecoderPool::collectIdle()
     for (size_t i = 0; i < m_entries.size();) {
         Entry& e = *m_entries[i];
         if (!e.busy && now - e.lastUsedMs > m_idleCloseMs) {
+            e.waitAhead();
             if (m_closeHook)
                 m_closeHook(e);
             m_entries.erase(m_entries.begin() + qsizetype(i));
@@ -102,6 +104,7 @@ void DecoderPool::collectIdle()
 void DecoderPool::clear()
 {
     for (auto& e : m_entries) {
+        e->waitAhead();
         if (m_closeHook)
             m_closeHook(*e);
     }

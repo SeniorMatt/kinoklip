@@ -11,6 +11,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/common/SettingsPages.h"
 #include "ui/dialogs/PreferencesDialog.h"
+#include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
@@ -499,12 +500,14 @@ public:
         m_quality = new QComboBox;
         m_quality->setObjectName(QStringLiteral("PreviewQuality"));
         m_quality->addItem(
-            tr("Automatic (lower while playing when needed)"), QStringLiteral("auto"));
-        m_quality->addItem(tr("Full"), QStringLiteral("full"));
+            tr("Full (skip frames rather than lose sharpness)"), QStringLiteral("full"));
         m_quality->addItem(tr("Half"), QStringLiteral("half"));
         m_quality->addItem(tr("Quarter"), QStringLiteral("quarter"));
+        m_quality->addItem(
+            tr("Automatic (Half while playback cannot keep up)"), QStringLiteral("auto"));
         m_quality->setCurrentIndex(std::max(0, m_quality->findData(prefs::previewQuality())));
-        form->addRow(tr("Performance mode"), m_quality);
+        m_quality->setToolTip(PlaybackResolution::toolTip());
+        form->addRow(tr("Playback resolution"), m_quality);
         m_preroll = new QDoubleSpinBox;
         m_postroll = new QDoubleSpinBox;
         for (QDoubleSpinBox* spin : {m_preroll, m_postroll}) {
@@ -530,7 +533,7 @@ public:
     void apply() override
     {
         QSettings s;
-        s.setValue(QLatin1String(prefs::kPreviewQuality), m_quality->currentData());
+        prefs::setPreviewQuality(m_quality->currentData().toString());
         s.setValue(QStringLiteral("playback/prerollMs"), qRound(m_preroll->value() * kMsPerSecond));
         s.setValue(
             QStringLiteral("playback/postrollMs"), qRound(m_postroll->value() * kMsPerSecond));
@@ -644,17 +647,10 @@ void applyRuntimePreferences(PlaybackEngine* playback)
         cacheDir.isEmpty() ? defaultCacheDirectory() : cacheDir);
     if (playback)
         playback->setBehaviour(PlaybackBehaviour::fromSettings());
-    // Default preview quality: through the viewers' combo boxes, so they stay in sync with
-    // their engines (program and source players).
-    static const QStringList kQualityIds {QStringLiteral("auto"), QStringLiteral("full"),
-        QStringLiteral("half"), QStringLiteral("quarter")};
-    const int quality = std::max(0, int(kQualityIds.indexOf(prefs::previewQuality())));
-    for (ViewerPanel* viewer : ViewerPanel::allViewers()) {
-        if (auto* combo = viewer->findChild<QComboBox*>(QStringLiteral("ViewerQuality")))
-            combo->setCurrentIndex(quality);
-    }
+    // Playback resolution: the shared setting updates every viewer, its engine and the menu.
+    PlaybackResolution::instance().load();
     if (playback)
-        playback->setQualityMode(PlaybackEngine::QualityMode(quality));
+        playback->setQualityMode(PlaybackResolution::instance().mode());
 }
 
 } // namespace kk

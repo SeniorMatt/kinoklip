@@ -102,6 +102,12 @@ The decoder keeps the last returned frame (`cur`) and the following one (`next`)
   `VideoDecoder::activeHwAccel()` tells what is actually used.
 * Hardware frames are downloaded only for frames that are returned, into a buffer pool:
   8-bit → **NV12**, 10-bit → **P010** (NVDEC's P016 is reported as P010: same layout).
+* VAAPI downloads map the surface (`av_hwframe_map`) and copy with `av_image_copy_uc_from()`
+  (SSE4.1 streaming loads): the mapping is write-combining memory, which plain loads (what
+  `av_hwframe_transfer_data` uses) read at a few hundred MB/s — that made VAAPI
+  "download-bound" (86 fps for 1080p below). Falls back to `av_hwframe_transfer_data` if
+  mapping fails; `KINOKLIP_VAAPI_COPY=transfer` forces the old path (diagnostics).
+  TODO(media): re-measure on Intel (the numbers below predate this change).
 * H.264 on CUDA/Vulkan: FFmpeg's flush re-creates the whole hw decoder (~250 ms). When the
   packet at the new position is an IDR we skip the flush ("soft seek") and drop stale frames
   via packet→frame `opaque` generation tags. VAAPI re-inits in ~5 ms and always flushes.
