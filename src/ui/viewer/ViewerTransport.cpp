@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <QScreen>
+#include <QSettings>
 #include <QShortcut>
 
 namespace kk {
@@ -108,6 +109,20 @@ void ViewerTransport::connectActions()
         });
         return a;
     };
+    // Audio scrubbing (Shift+S, spec 23.7): one switch for every viewer, kept in the settings.
+    if (actions->contains(QStringLiteral("timeline.audio_scrubbing"))) {
+        QAction* scrub = actions->action(QStringLiteral("timeline.audio_scrubbing"));
+        const bool enabled
+            = QSettings().value(QStringLiteral("playback/audioScrubbing"), true).toBool();
+        scrub->setStatusTip(tr("Play a short piece of the sound while the playhead is dragged "
+                               "or stepped"));
+        scrub->setChecked(enabled);
+        PlaybackEngine::setAudioScrubbing(enabled);
+        connect(scrub, &QAction::toggled, this, [](bool checked) {
+            PlaybackEngine::setAudioScrubbing(checked);
+            QSettings().setValue(QStringLiteral("playback/audioScrubbing"), checked);
+        });
+    }
     on("transport.play_pause", [](PlaybackEngine* e) { e->togglePlay(); });
     // Shift+Space (spec 1.9): plays backwards at 1x; pressed again while reversing, pauses.
     on("transport.play_reverse", [](PlaybackEngine* e) {
