@@ -14,6 +14,7 @@ Used by every panel and page. Depends on `core` only.
 | `UiAnimation.h` | `kk::uianim`: the global switch of the small UI animations (prefs `ui/animations`, `ui/animationSpeed`, KDE's animation speed; off offscreen unless `KK_ANIMATIONS`), standard durations (`duration(Kind)`, 120-220 ms) and easing (OutCubic moves, light OutBack pops), the clock (`setClockForTesting()`), `PlayheadGlide`, `Notifier::changed()` |
 | `Icons.h` | `kk::icon("play")` — own SVGs tinted from the palette (On state = accent) |
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
+| `TimecodeEntry.h` | typed timecodes (spec 2.10): `timecode::parseTyped()` (calculator-style digits, + / - offsets) and the application key filter `TimecodeEntry` collecting them while the timeline has focus (EditPage wires it) |
 | `MediaImport.h` | import with user feedback; media file patterns/filters |
 | `Resources.h` | `initResources()` — call in `main()` and in tests that need icons/keymap |
 | `PanelSplitter.h` | `QSplitter` for every split between and inside panels: handles that highlight on hover / press and never trigger Breeze's mouse-grabbing splitter proxy (see "Wayland") |

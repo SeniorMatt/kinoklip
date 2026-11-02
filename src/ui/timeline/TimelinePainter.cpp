@@ -1053,6 +1053,9 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
         p.setPen(m_accent);
         p.drawRect(o.rubberBand.adjusted(0, 0, -1, -1));
     }
+    draginfo::paint(p, o.dragInfo, m_smallFont,
+        QRect(
+            kHeaderWidth, kRulerHeight, view.width() - kHeaderWidth, view.height() - kRulerHeight));
     p.setClipping(false);
 }
 

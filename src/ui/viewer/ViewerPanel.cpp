@@ -203,6 +203,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         // On-screen mask controls: an additive child layer over the picture surface.
         m_maskOverlay = new MaskOverlay(m_ctx, m_surface);
         connect(m_maskOverlay, &MaskOverlay::pressed, this, [this] { activate(); });
+        setupEditingAids();
     }
 
     m_scrub = new ScrubBar(m_body);
@@ -518,7 +519,8 @@ void ViewerPanel::onPositionChanged(int64_t frame)
         if (item && item->attributes.overrideTimecode)
             start = item->attributes.startTimecodeFrames;
     }
-    m_timecode->setText(timecode::format(start + frame, m_fps));
+    if (m_timecodeEntry.isEmpty()) // a typed timecode stays until it is entered or cancelled
+        m_timecode->setText(timecode::format(start + frame, m_fps));
     m_scrub->setPosition(frame);
 }
 

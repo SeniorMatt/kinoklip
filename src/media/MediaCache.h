@@ -59,6 +59,12 @@ public:
     /// @return the cached image, or a null QImage → thumbnailReady(path) follows later.
     QImage thumbnail(const QString& path, int64_t timeUs, int height);
 
+    /// The exact frame at media time `timeUs` (µs, not snapped), `height` pixels high (snapped
+    /// like thumbnail()), for frame-accurate previews such as the two-up trim view. Kept in
+    /// the memory cache only (never written to disk).
+    /// @return the cached image, or a null QImage → frameReady(path) follows later.
+    QImage frame(const QString& path, int64_t timeUs, int height);
+
     /// Representative image for media pool icons: the frame at 10 % of the duration (or the
     /// still image itself), `height` pixels high (snapped like thumbnail()).
     /// @return the cached image, or a null QImage → posterFrameReady(path) follows later.
@@ -98,6 +104,8 @@ signals:
     void thumbnailReady(const QString& path);
     /// A poster frame for `path` became available; call posterFrame() again.
     void posterFrameReady(const QString& path);
+    /// A frame() for `path` became available; call frame() again.
+    void frameReady(const QString& path);
     /// The waveform of `path` became available; call waveform() again.
     void waveformReady(const QString& path);
 
@@ -105,6 +113,7 @@ private:
     enum class ImageKind {
         Thumbnail,
         Poster,
+        Frame, ///< frame(): exact time, memory only
     };
     /// One image job: what to render and its memory-cache key.
     struct ImageRequest
