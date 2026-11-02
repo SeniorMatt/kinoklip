@@ -239,7 +239,7 @@ Format version 10 (attrs) adds clip fades and Clip Attributes (see `Serializatio
 Format version 11 (bins): items may carry "clipColor", "flags", "metadata", "added",
 "modified"; the media pool "smartBins"; the project "binViews" (see `Serialization.h`).
 Versions <= 10 get "modified" (and "added") from the file on disk when loading.
-Format version 13 (audiopage; 12 is the colour page's) adds the mixer: audio tracks may carry
+Format version 12 (audiopage) adds the mixer: audio tracks may carry
 "mix" (strip, channel format, bus routes, automation mode and curves), timelines "mixer" (buses,
 output bus); see `Serialization.h` / `MixerJson.h`. Absent = a neutral mixer, so older files
 load and play unchanged.
@@ -294,7 +294,7 @@ always exists). Value types, so undo, render snapshots and copy / paste carry th
 (`kk::mixerops`): pure edits (add / rename / delete buses, routes, channel format, output bus,
 automation mode, automation writing with erase-what-was-passed, clamping) and the evaluation the
 mixer and the widgets share (`faderDbAt()`, `panAt()`), callable without the mouse. `MixerJson.h`:
-format 13 (only non-default values are written; the loader repairs missing main buses,
+format 12 (only non-default values are written; the loader repairs missing main buses,
 duplicate ids, unknown routes and out-of-range values). The track's `muted` / `solo` flags are the
 timeline header's (one state for the header and the mixer). Track automation does not move with
 ripple edits (it belongs to the timeline, not the clips; the clip level line keeps using the
