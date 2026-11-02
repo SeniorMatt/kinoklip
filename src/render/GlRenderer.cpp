@@ -248,6 +248,8 @@ void GlRenderer::decodeQueued()
     const int n = int(m_decoded.size());
     if (n == 0)
         return;
+    for (DecodedClip& d : m_decoded)
+        d.entry->waitAhead(); // usually already done: it ran while the last frame was drawn
     // Every queued clip has its own decoder (DecoderPool hands out a decoder once per frame),
     // so the decodes are independent: run all but the first on worker threads.
     std::latch done(n - 1);
@@ -260,6 +262,31 @@ void GlRenderer::decodeQueued()
     }
     m_decoded[0].frame = m_decoded[0].entry->decoder->decodeFrame(m_decoded[0].timeUs);
     done.wait();
+}
+
+void GlRenderer::startDecodeAhead(int64_t frame, const TimelineData& tl)
+{
+    // Playback and export ask for frame + 1 next. Decoding it now, on a worker thread, overlaps
+    // the decode with this frame's upload/drawing/output and with the time until the next
+    // request arrives; the decoder then returns the cached frame. Only for decoders that are
+    // moving forward one frame at a time (not for scrubbing, reverse play or stills).
+    for (const DecodedClip& d : m_decoded) {
+        DecoderPool::Entry* entry = d.entry;
+        if (!d.frame || entry->ahead.valid() || entry->previousTimeUs < 0)
+            continue;
+        const int64_t nextUs = clampedSourceTimeUs(*d.clip, frame + 1, tl.fps);
+        const int64_t step = nextUs - d.timeUs;
+        const int64_t lastStep = d.timeUs - entry->previousTimeUs;
+        if (step <= 0 || lastStep <= 0 || lastStep > 2 * step + 1)
+            continue;
+        auto done = std::make_shared<std::promise<void>>();
+        entry->ahead = done->get_future();
+        media::VideoDecoder* decoder = entry->decoder.get();
+        m_decodeThreads.start([decoder, nextUs, done] {
+            (void)decoder->decodeFrame(nextUs);
+            done->set_value();
+        });
+    }
 }
 
 const GlRenderer::DecodedClip* GlRenderer::decoded(const ClipData* clip) const
@@ -326,6 +353,9 @@ void GlRenderer::render(RenderJob& job)
         }
     }
     decodeQueued();
+    const qint64 decodedNs = timer.nsecsElapsed();
+    startDecodeAhead(rq.frame, tl);
+    m_uploadNs = 0;
 
     // 3. Composite.
     PooledTarget accumulator = m_kit->acquire(out);
@@ -335,11 +365,16 @@ void GlRenderer::render(RenderJob& job)
         drawTrack(tf, fc, *accumulator);
 
     // 4. Output.
+    const qint64 compositedNs = timer.nsecsElapsed();
     PooledTarget scratch;
     GLuint readFbo = 0;
     std::shared_ptr<RenderedFrame> result
         = m_output->produce(*accumulator, (rq.outputs & OutputTexture) != 0, scratch, &readFbo);
     result->frame = rq.frame;
+    result->decodeMs = double(decodedNs) / 1e6;
+    result->uploadMs = double(m_uploadNs) / 1e6;
+    result->compositeMs = double(compositedNs - decodedNs - m_uploadNs) / 1e6;
+    result->outputMs = double(timer.nsecsElapsed() - compositedNs) / 1e6; // + readback below
     if (rq.outputs & OutputImage) {
         m_output->startReadback(job, std::move(result), readFbo, timer);
     } else {
@@ -406,7 +441,10 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
             planes = std::make_shared<PlaneTextures>();
             d->entry->userData = planes;
         }
+        QElapsedTimer uploadTimer;
+        uploadTimer.start();
         m_video.upload(*m_kit, *planes, d->frame);
+        m_uploadNs += uploadTimer.nsecsElapsed();
         const media::VideoFrame& f = *d->frame;
         src.kind = ClipSource::Kind::Video;
         src.sourcePx = displaySize(f.width, f.height, f.sampleAspectRatio, f.rotation);

@@ -199,6 +199,14 @@ const ActionSpec kActions[] = {
     {"playback", "transport.loop",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Loop Playback"), "loop", true},
     {"playback", "transport.play_in_out",     QT_TRANSLATE_NOOP("kk::StandardActions", "Play &In to Out")},
     {"playback", "transport.play_around",     QT_TRANSLATE_NOOP("kk::StandardActions", "Play &Around Current Frame")},
+    {"playback", "-"},
+    // Resolve: Playback > Timeline Proxy Resolution (src/ui/viewer/PlaybackResolution).
+    {"playback", ">playback.resolution",      QT_TRANSLATE_NOOP("kk::StandardActions", "Playback &Resolution")},
+    {"playback.resolution", "playback.resolution_full",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Resolution"), "", true},
+    {"playback.resolution", "playback.resolution_half",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Half Resolution"), "", true},
+    {"playback.resolution", "playback.resolution_quarter", QT_TRANSLATE_NOOP("kk::StandardActions", "&Quarter Resolution"), "", true},
+    {"playback.resolution", "-"},
+    {"playback.resolution", "playback.resolution_auto",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Automatic (Half When Playback Cannot Keep Up)"), "", true},
 
     // ---- Settings (look and feel; entries filled by src/app/Theme) ----
     {"settings", ">settings.color_scheme", QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Theme")},
@@ -267,6 +275,11 @@ void registerStandardActions(ActionRegistry& registry)
     for (const char* id : {"tool.select", "tool.trim", "tool.blade"})
         tools->addAction(registry.action(QLatin1String(id)));
     registry.action(QStringLiteral("tool.select"))->setChecked(true);
+    auto* resolutions = new QActionGroup(&registry);
+    for (const char* id : {"playback.resolution_full", "playback.resolution_half",
+             "playback.resolution_quarter", "playback.resolution_auto"})
+        resolutions->addAction(registry.action(QLatin1String(id)));
+    registry.action(QStringLiteral("playback.resolution_full"))->setChecked(true);
     registry.action(QStringLiteral("timeline.snapping"))->setChecked(true);
     registry.action(QStringLiteral("timeline.linked_selection"))->setChecked(true);
 

@@ -25,7 +25,7 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             "transition, deliver, preferences, "
             "keyboard, inspector, keyframes, keyframes-window, mediapool, import-dialog (whole "
             "screen with File > Import Media open), menu-color-theme, "
-            "menu-style. Usage: --screenshot "
+            "menu-style, menu-playback-resolution. Usage: --screenshot "
             "edit out.png [project]"),
         QStringLiteral("target"));
     const QCommandLineOption resetLayout(QStringLiteral("reset-layout"),

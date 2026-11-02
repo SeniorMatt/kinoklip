@@ -23,8 +23,9 @@ struct FrameMeta
 
 /// Builds VideoFrames from decoder output for one VideoDecoder:
 /// - software frames in a PixelFormat layout are wrapped by reference (no copy);
-/// - hardware frames are downloaded (av_hwframe_transfer_data) into NV12/P010 buffers taken
-///   from a pool, so steady-state playback allocates no pixel memory;
+/// - hardware frames are downloaded into NV12/P010 buffers taken from a pool, so steady-state
+///   playback allocates no pixel memory (VAAPI: mapped + streaming-load copy, see
+///   copyMapped(); others: av_hwframe_transfer_data);
 /// - any other format is converted once to premultiplied Bgra.
 /// Pools are reference counted by FFmpeg: frames may outlive the factory.
 /// TODO(media): zero-copy GPU interop (VAAPI → EGLImage/dma-buf, CUDA → GL) instead of the
@@ -50,7 +51,12 @@ public:
     static std::shared_ptr<const VideoFrame> wrapImage(const QImage& image, const FrameMeta& meta);
 
 private:
+    /// VAAPI: maps @p hwFrame and copies it into @p dst (allocated, same format) with
+    /// streaming loads. @return false if mapping is not possible (caller transfers instead).
+    bool copyMapped(AVFrame* dst, const AVFrame* hwFrame);
+
     AVBufferPool* m_pool = nullptr;
+    bool m_mapFailed = false; ///< mapping failed once: always transfer
     size_t m_poolBufferSize = 0;
     FrameConverter m_converter; ///< for formats outside PixelFormat → Bgra
 };
