@@ -9,6 +9,8 @@
 
 #include <QApplication>
 #include <QContextMenuEvent>
+#include <QScrollBar>
+#include <QWheelEvent>
 #include <QTest>
 #include <QTimer>
 #include <QUndoStack>
@@ -275,6 +277,33 @@ private slots:
         const QStringList ruler = menuTexts(v.w, QPoint(x, kRulerHeight / 2));
         QVERIFY(ruler.contains(QStringLiteral("Modify Marker…")));
         QVERIFY(ruler.contains(QStringLiteral("Delete Marker")));
+    }
+
+    /// Round 2 audit Z1: Ctrl+wheel (Resolve scheme) scrolls a tenth of the visible time per
+    /// notch, whatever the view width.
+    void ctrlWheelScrollsATenthOfTheView()
+    {
+        View v;
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        ops::overwriteClip(v.f.data(), {TrackType::Video, 0}, solidClip(0, 5000));
+        v.f.project.endEdit();
+        for (const int width : {1000, 2000}) {
+            v.w.resize(width, 500);
+            QCoreApplication::processEvents();
+            v.w.scrollToFrame(0);
+            QScrollBar* h = v.w.horizontalScrollBar();
+            const int before = h->value();
+            const QPointF pos(400, 200);
+            QWheelEvent wheel(pos, v.w.viewport()->mapToGlobal(pos), QPoint(), QPoint(0, -120),
+                Qt::NoButton, Qt::ControlModifier, Qt::NoScrollPhase, false);
+            QCoreApplication::sendEvent(v.w.viewport(), &wheel);
+            const double expected = v.w.layout().trackAreaWidth() / 10.0;
+            QVERIFY2(std::abs((h->value() - before) - expected) <= 2,
+                qPrintable(QStringLiteral("%1: %2 vs %3")
+                               .arg(width)
+                               .arg(h->value() - before)
+                               .arg(expected)));
+        }
     }
 };
 
