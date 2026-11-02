@@ -27,16 +27,50 @@ struct EffectInstance
     friend bool operator==(const EffectInstance&, const EffectInstance&) = default;
 };
 
+/// Where a transition between two touching clips sits relative to the cut (spec 13.5).
+enum class TransitionAlignment {
+    Centre, ///< half before, half after the cut (default)
+    StartOnCut, ///< starts at the cut: all frames in the incoming clip (needs outgoing handles)
+    EndOnCut ///< ends at the cut: all frames in the outgoing clip (needs incoming handles)
+};
+
 /// A transition attached to the head (transitionIn) or tail (transitionOut) of a clip.
-/// Semantics are described in PLAN §5.4 (centred on the cut if there is an adjacent neighbour,
-/// otherwise a fade from/to transparent).
+/// Semantics are described in PLAN §5.4 (placed on the cut by `alignment` if there is an
+/// adjacent neighbour, otherwise a fade from/to transparent).
 struct TransitionData
 {
     QString type = QStringLiteral("cross_dissolve"); ///< EffectRegistry id (category Transition)
     int64_t duration = 25; ///< length in timeline frames
+    TransitionAlignment alignment = TransitionAlignment::Centre;
     ParamSet params;
 
+    /// Frames of the transition that lie before the cut (at a cut between two clips).
+    [[nodiscard]] int64_t framesBeforeCut() const
+    {
+        switch (alignment) {
+        case TransitionAlignment::StartOnCut:
+            return 0;
+        case TransitionAlignment::EndOnCut:
+            return duration;
+        case TransitionAlignment::Centre:
+            break;
+        }
+        return duration / 2;
+    }
+
     friend bool operator==(const TransitionData&, const TransitionData&) = default;
+};
+
+/// A marker: on the timeline (TimelineData::markers, timeline frames) or on a clip
+/// (ClipData::markers, clip-local frames that follow the content like keyframes; spec 18.4).
+struct Marker
+{
+    int64_t frame = 0;
+    QString name;
+    QColor color = QColor(0x4c, 0x9b, 0xe8);
+    QString note; ///< free text (marker editor, spec 18.5)
+
+    friend bool operator==(const Marker&, const Marker&) = default;
 };
 
 /// What a clip shows.
@@ -71,6 +105,9 @@ struct ClipData
     QVector<EffectInstance> effects; ///< applied in order
     std::optional<TransitionData> transitionIn;
     std::optional<TransitionData> transitionOut;
+    /// Clip markers, sorted by frame; clip-local frames (frame - start), may lie outside the
+    /// visible part after a trim (kept like keyframes so undoing nothing is lost).
+    QVector<Marker> markers;
 
     /// First frame after the clip.
     [[nodiscard]] int64_t end() const { return start + duration; }
@@ -120,16 +157,6 @@ struct TrackData
     [[nodiscard]] int64_t end() const { return clips.empty() ? 0 : clips.back().end(); }
 
     friend bool operator==(const TrackData&, const TrackData&) = default;
-};
-
-/// A timeline marker.
-struct Marker
-{
-    int64_t frame = 0;
-    QString name;
-    QColor color = QColor(0x4c, 0x9b, 0xe8);
-
-    friend bool operator==(const Marker&, const Marker&) = default;
 };
 
 /// Addresses a track by type and index (index 0 = V1/A1; V1 is the bottom-most video track).

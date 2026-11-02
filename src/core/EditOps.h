@@ -87,9 +87,12 @@ QVector<quint64> insertClips(TimelineData& data, const QVector<PlacedClip>& clip
 /// Returns the number of clips removed.
 int liftClips(TimelineData& data, const QVector<quint64>& clipIds);
 /// Ripple delete: removes the clips and shifts later clips on the same track left to close the
-/// gaps (other tracks are not touched; include linked clips to keep sync).
-/// Returns the number of clips removed.
-int rippleDeleteClips(TimelineData& data, const QVector<quint64>& clipIds);
+/// gaps. With RippleScope::AllTracks every other unlocked auto-select track shifts by the same
+/// amount for each removed time range in which it is empty (spec 10.4: keeps sync; a track
+/// with content inside the range stays where it is). Include linked clips to keep them in
+/// sync. Locked tracks never change. Returns the number of clips removed.
+int rippleDeleteClips(TimelineData& data, const QVector<quint64>& clipIds,
+    RippleScope scope = RippleScope::TargetTracks);
 
 // ---- Splitting ----
 
@@ -199,6 +202,88 @@ struct Clipboard
 /// Returns the new clip ids (empty if nothing could be pasted, e.g. a locked destination).
 QVector<quint64> pasteClips(TimelineData& data, const Clipboard& clipboard, int64_t frame,
     int videoBase = -1, int audioBase = -1, bool insert = false);
+
+// ---- In / out ranges (EditOpsRipple.cpp) ----
+
+/// Lift: clears [@p in, @p out) on every track accepted by @p filter (default: every
+/// unlocked track), splitting clips at the range edges and leaving a gap.
+/// Returns whether anything was removed.
+bool liftRange(TimelineData& data, int64_t in, int64_t out, const TrackFilter& filter = {});
+/// Extract (ripple delete of a range): like liftRange(), then every later clip on the same
+/// tracks moves left by out - in. Returns whether anything changed.
+bool extractRange(TimelineData& data, int64_t in, int64_t out, const TrackFilter& filter = {});
+/// Clipboard holding the parts of the clips inside [@p in, @p out) on the tracks accepted by
+/// @p filter (clips straddling the edges are cut at them). Its origin is @p in, so pasting
+/// keeps empty room at the start of the range; duration = out - in.
+[[nodiscard]] Clipboard copyRange(
+    const TimelineData& data, int64_t in, int64_t out, const TrackFilter& filter = {});
+
+/// Delete gaps: removes every time range in which all tracks accepted by @p filter (default:
+/// unlocked auto-select tracks) are empty, up to the end of the last clip, shifting later clips
+/// on those tracks left, so sync between them is kept. Returns the frames removed in total.
+int64_t deleteGaps(TimelineData& data, const TrackFilter& filter = {});
+
+// ---- Joining, swapping, ripple overwrite (EditOpsRipple.cpp) ----
+
+/// True if @p leftClipId and @p rightClipId touch on one unlocked track and form a through
+/// edit: same media / kind, same speed, the right clip continues the source exactly where the
+/// left one ends, and no transition sits on the cut.
+[[nodiscard]] bool canJoin(const TimelineData& data, quint64 leftClipId, quint64 rightClipId);
+/// Join: merges a through edit (canJoin()) into the left clip; the right clip's keyframes and
+/// tail transition move over. Returns whether the clips were joined.
+bool joinClips(TimelineData& data, quint64 leftClipId, quint64 rightClipId);
+
+/// Swap (spec 21.6): exchanges clip @p clipId with its previous (@p direction < 0) or next
+/// (> 0) neighbour on its track; a gap between them stays between them. Transitions on the
+/// two clips are removed (their neighbours change). Returns the id of the neighbour that was
+/// swapped, or 0 (no neighbour, locked track).
+quint64 swapWithNeighbour(TimelineData& data, quint64 clipId, int direction);
+/// Shuffle move (spec 21.6, Ctrl+Shift drag): takes clip @p clipId out of its track (closing
+/// the hole) and inserts it at @p frame (frame of the track after removal; snapped by the
+/// caller to an edit point), shifting the clips after it. Only its own track changes.
+/// Returns whether the clip moved.
+bool shuffleClip(TimelineData& data, quint64 clipId, int64_t frame);
+
+/// Ripple overwrite (spec 4.11): replaces [@p rangeStart, @p rangeEnd) on the clips' tracks
+/// with @p clips (all starting at rangeStart) and ripples everything after the range by the
+/// length difference, on the receiving tracks and (scope AllTracks) the other unlocked
+/// auto-select tracks; when the new material is shorter, another track only follows if the
+/// room it gives up is empty. Returns the new ids in input order (empty on invalid input).
+QVector<quint64> rippleOverwriteClips(TimelineData& data, const QVector<PlacedClip>& clips,
+    int64_t rangeStart, int64_t rangeEnd, RippleScope scope = RippleScope::AllTracks);
+
+// ---- Transitions (EditOpsTransitions.cpp) ----
+
+/// Frames of media a transition still needs beyond the clips' handles (spec 13.7).
+struct HandleShortfall
+{
+    int64_t outgoing = 0; ///< frames missing after the outgoing clip's out point
+    int64_t incoming = 0; ///< frames missing before the incoming clip's in point
+    [[nodiscard]] bool any() const { return outgoing > 0 || incoming > 0; }
+};
+
+/// Timeline frames [first, second) covered by the transition at the head (@p head) or tail of
+/// clip @p clipId (placed by its alignment at a cut, a fade inside the clip otherwise).
+/// std::nullopt if there is no such transition.
+[[nodiscard]] std::optional<std::pair<int64_t, int64_t>> transitionWindow(
+    const TimelineData& data, quint64 clipId, bool head);
+/// Longest transition that fits at that edge with @p alignment: within the clip lengths and,
+/// with @p limitByHandles, within the media handles of both clips (a fade needs no handle).
+/// 0 if the clip is unknown.
+[[nodiscard]] int64_t maxTransitionDuration(const TimelineData& data, quint64 clipId, bool head,
+    TransitionAlignment alignment, bool limitByHandles);
+/// Handle frames missing for a transition of @p duration frames with @p alignment at that edge.
+[[nodiscard]] HandleShortfall transitionShortfall(const TimelineData& data, quint64 clipId,
+    bool head, int64_t duration, TransitionAlignment alignment);
+/// Sets the length of the existing transition at that edge (clamped to [1, the clip-length
+/// limit]). Returns the new length, or 0 if there is no transition or the track is locked.
+int64_t setTransitionDuration(TimelineData& data, quint64 clipId, bool head, int64_t frames);
+/// Changes the alignment of the transition at that edge (shortened if it no longer fits the
+/// clips). Returns whether anything changed.
+bool setTransitionAlignment(
+    TimelineData& data, quint64 clipId, bool head, TransitionAlignment alignment);
+/// The neighbour of clip @p clipId that shares its head (@p head) or tail cut, or 0.
+[[nodiscard]] quint64 cutNeighbour(const TimelineData& data, quint64 clipId, bool head);
 
 // ---- Tracks ----
 

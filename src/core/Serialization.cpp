@@ -50,6 +50,11 @@ QJsonObject transitionToJson(const TransitionData& t)
     QJsonObject o;
     o[QLatin1String("type")] = t.type;
     o[QLatin1String("duration")] = qint64(t.duration);
+    // Centre (the default) is omitted, so files of earlier versions stay identical.
+    if (t.alignment == TransitionAlignment::StartOnCut)
+        o[QLatin1String("alignment")] = QStringLiteral("start");
+    else if (t.alignment == TransitionAlignment::EndOnCut)
+        o[QLatin1String("alignment")] = QStringLiteral("end");
     if (t.params != ParamSet {})
         o[QLatin1String("params")] = paramSetToJson(t.params);
     return o;
@@ -60,6 +65,11 @@ TransitionData transitionFromJson(const QJsonObject& o)
     TransitionData t;
     t.type = o.value(QLatin1String("type")).toString(t.type);
     t.duration = o.value(QLatin1String("duration")).toInteger(t.duration);
+    const QString alignment = o.value(QLatin1String("alignment")).toString();
+    if (alignment == QLatin1String("start"))
+        t.alignment = TransitionAlignment::StartOnCut;
+    else if (alignment == QLatin1String("end"))
+        t.alignment = TransitionAlignment::EndOnCut;
     t.params = paramSetFromJson(o.value(QLatin1String("params")).toObject());
     return t;
 }
@@ -252,6 +262,42 @@ ParamSet paramSetFromJson(const QJsonObject& json)
 
 // ---- Clips ----
 
+namespace {
+
+QJsonArray markersToJson(const QVector<Marker>& list)
+{
+    QJsonArray markers;
+    for (const Marker& m : list) {
+        QJsonObject o {{QLatin1String("frame"), qint64(m.frame)}, {QLatin1String("name"), m.name},
+            {QLatin1String("color"), colorToString(m.color)}};
+        if (!m.note.isEmpty())
+            o[QLatin1String("note")] = m.note;
+        markers.append(o);
+    }
+    return markers;
+}
+
+/// Markers sorted by frame (files edited by hand may list them in any order).
+QVector<Marker> markersFromJson(const QJsonArray& array)
+{
+    QVector<Marker> list;
+    for (const QJsonValue& v : array) {
+        const QJsonObject m = v.toObject();
+        Marker marker;
+        marker.frame = m.value(QLatin1String("frame")).toInteger();
+        marker.name = m.value(QLatin1String("name")).toString();
+        marker.note = m.value(QLatin1String("note")).toString();
+        if (m.contains(QLatin1String("color")))
+            marker.color = colorFromString(m.value(QLatin1String("color")).toString());
+        list.append(marker);
+    }
+    std::stable_sort(list.begin(), list.end(),
+        [](const Marker& a, const Marker& b) { return a.frame < b.frame; });
+    return list;
+}
+
+} // namespace
+
 QJsonObject clipToJson(const ClipData& clip)
 {
     QJsonObject o;
@@ -291,6 +337,8 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("transitionIn")] = transitionToJson(*clip.transitionIn);
     if (clip.transitionOut)
         o[QLatin1String("transitionOut")] = transitionToJson(*clip.transitionOut);
+    if (!clip.markers.isEmpty())
+        o[QLatin1String("markers")] = markersToJson(clip.markers);
     return o;
 }
 
@@ -328,6 +376,7 @@ ClipData clipFromJson(const QJsonObject& o)
         c.transitionIn = transitionFromJson(o.value(QLatin1String("transitionIn")).toObject());
     if (o.contains(QLatin1String("transitionOut")))
         c.transitionOut = transitionFromJson(o.value(QLatin1String("transitionOut")).toObject());
+    c.markers = markersFromJson(o.value(QLatin1String("markers")).toArray());
     return c;
 }
 
@@ -344,12 +393,7 @@ QJsonObject timelineToJson(const TimelineData& data)
     o[QLatin1String("markIn")] = qint64(data.markIn);
     o[QLatin1String("markOut")] = qint64(data.markOut);
     o[QLatin1String("nextId")] = qint64(data.nextId);
-    QJsonArray markers;
-    for (const Marker& m : data.markers) {
-        markers.append(QJsonObject {{QLatin1String("frame"), qint64(m.frame)},
-            {QLatin1String("name"), m.name}, {QLatin1String("color"), colorToString(m.color)}});
-    }
-    o[QLatin1String("markers")] = markers;
+    o[QLatin1String("markers")] = markersToJson(data.markers);
     QJsonArray video;
     for (const TrackData& t : data.videoTracks)
         video.append(trackToJson(t));
@@ -373,17 +417,7 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
     data.markIn = o.value(QLatin1String("markIn")).toInteger(-1);
     data.markOut = o.value(QLatin1String("markOut")).toInteger(-1);
     data.nextId = quint64(o.value(QLatin1String("nextId")).toInteger(1));
-    for (const QJsonValue& v : o.value(QLatin1String("markers")).toArray()) {
-        const QJsonObject m = v.toObject();
-        Marker marker;
-        marker.frame = m.value(QLatin1String("frame")).toInteger();
-        marker.name = m.value(QLatin1String("name")).toString();
-        if (m.contains(QLatin1String("color")))
-            marker.color = colorFromString(m.value(QLatin1String("color")).toString());
-        data.markers.append(marker);
-    }
-    std::stable_sort(data.markers.begin(), data.markers.end(),
-        [](const Marker& a, const Marker& b) { return a.frame < b.frame; });
+    data.markers = markersFromJson(o.value(QLatin1String("markers")).toArray());
     for (const QJsonValue& v : o.value(QLatin1String("videoTracks")).toArray())
         data.videoTracks.push_back(trackFromJson(v.toObject(), TrackType::Video));
     for (const QJsonValue& v : o.value(QLatin1String("audioTracks")).toArray())

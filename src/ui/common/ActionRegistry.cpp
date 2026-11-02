@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ActionRegistry implementation: registration, keymap files, QSettings overrides.
+// ActionRegistry implementation: registration, keymap files, overrides of the active profile.
+// The profile list and profile management live in KeymapProfiles.cpp.
 #include "ui/common/ActionRegistry.h"
 
 #include "ui/common/Icons.h"
@@ -66,7 +67,7 @@ ActionRegistry::ActionRegistry(QObject* parent, const QString& settingsGroup)
 { }
 
 bool ActionRegistry::readKeymap(
-    const QString& path, QHash<QString, QList<QKeySequence>>& out, QString* error)
+    const QString& path, KeyMap& out, QString* error, QString* name, QString* basedOn)
 {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -76,12 +77,17 @@ bool ActionRegistry::readKeymap(
     }
     QJsonParseError parseError;
     const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
-    const QJsonObject shortcuts = doc.object().value(QLatin1String("shortcuts")).toObject();
-    if (doc.isNull() || !doc.object().contains(QLatin1String("shortcuts"))) {
+    const QJsonObject root = doc.object();
+    const QJsonObject shortcuts = root.value(QLatin1String("shortcuts")).toObject();
+    if (doc.isNull() || !root.contains(QLatin1String("shortcuts"))) {
         if (error)
             *error = tr("%1 is not a keymap file: %2").arg(path, parseError.errorString());
         return false;
     }
+    if (name)
+        *name = root.value(QLatin1String("name")).toString();
+    if (basedOn)
+        *basedOn = root.value(QLatin1String("basedOn")).toString();
     for (auto it = shortcuts.constBegin(); it != shortcuts.constEnd(); ++it) {
         QList<QKeySequence> keys;
         // Accept a single string or a list of strings.
@@ -98,19 +104,76 @@ bool ActionRegistry::readKeymap(
     return true;
 }
 
-bool ActionRegistry::loadDefaultKeymap(const QString& path, QString* error)
+bool ActionRegistry::writeKeymap(const QString& path, const KeyMap& keys, const QString& name,
+    const QString& basedOn, QString* error)
 {
-    QHash<QString, QList<QKeySequence>> defaults;
-    if (!readKeymap(path, defaults, error)) {
-        qCWarning(lcActions) << "default keymap not loaded:" << path;
+    QJsonObject shortcuts;
+    for (auto it = keys.cbegin(); it != keys.cend(); ++it)
+        shortcuts.insert(it.key(), QJsonArray::fromStringList(toStringList(it.value())));
+    QJsonObject root {{QLatin1String("formatVersion"), kKeymapFormatVersion}};
+    if (!name.isEmpty())
+        root.insert(QLatin1String("name"), name);
+    if (!basedOn.isEmpty())
+        root.insert(QLatin1String("basedOn"), basedOn);
+    root.insert(QLatin1String("shortcuts"), shortcuts);
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        if (error)
+            *error = tr("Cannot write %1: %2").arg(path, file.errorString());
         return false;
     }
-    m_defaults = defaults;
-    for (const Entry& e : std::as_const(m_entries)) {
-        if (!userOverride(e.id))
-            applyShortcuts(e.id, m_defaults.value(e.id));
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    if (!file.commit()) {
+        if (error)
+            *error = tr("Cannot write %1: %2").arg(path, file.errorString());
+        return false;
     }
     return true;
+}
+
+bool ActionRegistry::loadDefaultKeymap(const QString& path, QString* error)
+{
+    scanProfiles();
+    migrateLegacyOverrides();
+    const QString stored
+        = QSettings()
+              .value(QStringLiteral("keymap/profile"), QLatin1String(kDefaultProfile))
+              .toString();
+    m_activeProfile = profile(stored) ? stored : QLatin1String(kDefaultProfile);
+    KeyMap base;
+    KeyMap overrides;
+    if (!loadProfileMaps(m_activeProfile, base, overrides, error)) {
+        // A broken user profile falls back to the default one.
+        m_activeProfile = QLatin1String(kDefaultProfile);
+        base.clear();
+        overrides.clear();
+        if (!loadProfileMaps(m_activeProfile, base, overrides, error)) {
+            qCWarning(lcActions) << "default keymap not loaded";
+            return false;
+        }
+    }
+    if (!path.isEmpty()) {
+        base.clear();
+        if (!readKeymap(path, base, error)) {
+            qCWarning(lcActions) << "keymap not loaded:" << path;
+            return false;
+        }
+    }
+    m_defaults = base;
+    m_overrides = overrides;
+    applyAll();
+    return true;
+}
+
+void ActionRegistry::applyAll()
+{
+    for (const Entry& e : std::as_const(m_entries)) {
+        const QList<QKeySequence> keys = userOverride(e.id).value_or(m_defaults.value(e.id));
+        if (toStringList(e.action->shortcuts()) == toStringList(keys))
+            continue;
+        applyShortcuts(e.id, keys);
+        emit shortcutsChanged(e.id);
+    }
 }
 
 QAction* ActionRegistry::add(const QString& id, const QString& text, const QString& category,
@@ -214,16 +277,10 @@ QList<QKeySequence> ActionRegistry::shortcuts(const QString& id) const
 
 std::optional<QList<QKeySequence>> ActionRegistry::userOverride(const QString& id) const
 {
-    QSettings settings;
-    settings.beginGroup(m_settingsGroup);
-    if (!settings.contains(id))
+    const auto it = m_overrides.constFind(id);
+    if (it == m_overrides.cend())
         return std::nullopt;
-    // Stored as one string ("Ctrl+B; F5") because INI files cannot hold empty lists; an empty
-    // string means "explicitly unbound" (listFromString would yield one empty sequence).
-    QList<QKeySequence> keys
-        = QKeySequence::listFromString(settings.value(id).toString(), QKeySequence::PortableText);
-    keys.removeIf([](const QKeySequence& k) { return k.isEmpty(); });
-    return keys;
+    return *it;
 }
 
 void ActionRegistry::applyShortcuts(const QString& id, const QList<QKeySequence>& shortcuts)
@@ -238,12 +295,11 @@ void ActionRegistry::setShortcuts(const QString& id, const QList<QKeySequence>& 
 {
     if (!contains(id))
         return;
-    QSettings settings;
-    settings.beginGroup(m_settingsGroup);
     if (toStringList(shortcuts) == toStringList(m_defaults.value(id)))
-        settings.remove(id);
+        m_overrides.remove(id);
     else
-        settings.setValue(id, QKeySequence::listToString(shortcuts, QKeySequence::PortableText));
+        m_overrides.insert(id, shortcuts);
+    persistOverrides();
     applyShortcuts(id, shortcuts);
     emit shortcutsChanged(id);
 }
@@ -255,8 +311,12 @@ void ActionRegistry::resetShortcuts(const QString& id)
 
 void ActionRegistry::resetAllShortcuts()
 {
+    // One write of the profile instead of one per command.
+    ++m_batch;
     for (const Entry& e : std::as_const(m_entries))
         resetShortcuts(e.id);
+    --m_batch;
+    persistOverrides();
 }
 
 QString ActionRegistry::actionForShortcut(
@@ -273,35 +333,25 @@ QString ActionRegistry::actionForShortcut(
 
 bool ActionRegistry::exportKeymap(const QString& path, QString* error) const
 {
-    QJsonObject shortcuts;
+    KeyMap keys;
     for (const Entry& e : m_entries)
-        shortcuts.insert(e.id, QJsonArray::fromStringList(toStringList(e.action->shortcuts())));
-    const QJsonObject root {{QLatin1String("formatVersion"), kKeymapFormatVersion},
-        {QLatin1String("shortcuts"), shortcuts}};
-    QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly)) {
-        if (error)
-            *error = tr("Cannot write %1: %2").arg(path, file.errorString());
-        return false;
-    }
-    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
-    if (!file.commit()) {
-        if (error)
-            *error = tr("Cannot write %1: %2").arg(path, file.errorString());
-        return false;
-    }
-    return true;
+        keys.insert(e.id, e.action->shortcuts());
+    const auto info = profile(m_activeProfile);
+    return writeKeymap(path, keys, info ? info->name : QString(), {}, error);
 }
 
 bool ActionRegistry::importKeymap(const QString& path, QString* error)
 {
-    QHash<QString, QList<QKeySequence>> keymap;
+    KeyMap keymap;
     if (!readKeymap(path, keymap, error))
         return false;
+    ++m_batch;
     for (auto it = keymap.cbegin(); it != keymap.cend(); ++it) {
         if (contains(it.key()))
             setShortcuts(it.key(), it.value());
     }
+    --m_batch;
+    persistOverrides();
     return true;
 }
 

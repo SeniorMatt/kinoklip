@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Behaviour parity tests: one test per item (or group of items) of docs/behavior-spec.md that
 // this branch implemented or verified. Test names start with the spec item number.
+#include "ParityTestUtils.h"
 #include "TimelineTestUtils.h"
 #include "core/EditBehaviour.h"
 #include "core/MediaPool.h"
@@ -18,114 +19,7 @@ using namespace kk::test;
 using namespace kk::timelinemetrics;
 namespace ops = kk::editops;
 
-namespace {
-constexpr TrackRef kV1 {TrackType::Video, 0};
-constexpr TrackRef kV2 {TrackType::Video, 1};
-constexpr TrackRef kA1 {TrackType::Audio, 0};
-
-QString layout(const TimelineData& d, TrackRef ref)
-{
-    QStringList parts;
-    for (const ClipData& c : d.track(ref)->clips)
-        parts.append(QStringLiteral("%1:%2").arg(c.start).arg(c.duration));
-    return parts.join(QLatin1Char(' '));
-}
-
-/// A fake 10 s A/V media item (no file needed).
-QString addMedia(Project& project, bool video = true, bool audio = true)
-{
-    MediaItem item;
-    item.path = QStringLiteral("/nonexistent/clip.mp4");
-    item.name = QStringLiteral("clip.mp4");
-    item.info.valid = true;
-    item.info.hasVideo = video;
-    item.info.hasAudio = audio;
-    item.info.durationUs = 10'000'000;
-    item.info.width = 1920;
-    item.info.height = 1080;
-    return project.mediaPool()->addItem(item);
-}
-
-/// A media clip with a 200-frame source starting @p srcFrame frames in (25 fps).
-ClipData mediaClip(int64_t start, int64_t duration, int64_t srcFrame = 50)
-{
-    ClipData c = solidClip(start, duration);
-    c.kind = ClipKind::Media;
-    c.sourceInUs = srcFrame * 40000;
-    c.sourceDurationUs = 200 * 40000;
-    return c;
-}
-
-/// Controller only (commands).
-struct Ctl
-{
-    TimelineFixture f;
-    TimelineController c {f.ctx};
-    Ctl() { c.connectActions(); }
-    QAction* action(const char* id) { return f.actions.action(QLatin1String(id)); }
-    Timeline* tl() { return f.project.timeline(); }
-    int undoCount() const { return f.project.undoStack()->count(); }
-    quint64 put(TrackRef ref, ClipData clip)
-    {
-        f.project.beginEdit(QStringLiteral("setup"));
-        const quint64 id = ops::overwriteClip(f.data(), ref, clip);
-        f.project.endEdit();
-        return id;
-    }
-    void link(QVector<quint64> ids)
-    {
-        f.project.beginEdit(QStringLiteral("setup"));
-        ops::linkClips(f.data(), ids);
-        f.project.endEdit();
-    }
-    void setMarks(int64_t in, int64_t out)
-    {
-        f.project.beginEdit(QStringLiteral("setup"));
-        f.data().markIn = in;
-        f.data().markOut = out;
-        f.project.endEdit();
-    }
-};
-
-/// Controller + shown widget at 10 px per frame.
-struct View : Ctl
-{
-    TimelineWidget w {f.ctx, &c};
-    View()
-    {
-        w.setThumbnailProvider({});
-        w.setWaveformProvider({});
-        w.resize(1200, 500);
-        w.show();
-        QVERIFY(QTest::qWaitForWindowExposed(&w));
-        w.setPixelsPerFrame(10.0, kHeaderWidth);
-        w.scrollToFrame(0);
-    }
-    QWidget* vp() { return w.viewport(); }
-    QPoint at(double frame, TrackRef ref)
-    {
-        const TimelineLayout& L = w.layout();
-        return QPoint(int(std::lround(L.frameToX(frame))), L.rowRect(L.rowOf(ref)).center().y());
-    }
-    QRectF clipRect(quint64 id)
-    {
-        const auto loc = ops::findClip(f.view(), id);
-        const ClipData& c = f.view().track(loc->track)->clips[size_t(loc->clipIndex)];
-        return w.layout().clipRect(w.layout().rowOf(loc->track), c);
-    }
-    void drag(QPoint from, QPoint to, Qt::KeyboardModifiers mods = {})
-    {
-        QTest::mousePress(vp(), Qt::LeftButton, mods, from);
-        for (int i = 1; i <= 4; ++i)
-            QTest::mouseMove(vp(), from + (to - from) * i / 4);
-        QTest::mouseRelease(vp(), Qt::LeftButton, mods, to);
-    }
-    void click(QPoint p, Qt::KeyboardModifiers mods = {})
-    {
-        QTest::mouseClick(vp(), Qt::LeftButton, mods, p);
-    }
-};
-} // namespace
+using namespace kk::test::parity;
 
 class TestParity : public QObject
 {
@@ -155,7 +49,16 @@ private slots:
         QCOMPARE(keys("edit.replace"), QStringLiteral("F11"));
         QCOMPARE(keys("edit.fit_to_fill"), QStringLiteral("Shift+F11"));
         QCOMPARE(keys("edit.append_at_end"), QStringLiteral("Shift+F12"));
-        QCOMPARE(keys("edit.split"), QStringLiteral("Ctrl+B|Ctrl+\\"));
+        QCOMPARE(keys("edit.split"), QStringLiteral("Ctrl+\\")); // owner: not Ctrl+B
+        QCOMPARE(keys("edit.ripple_cut"), QStringLiteral("Ctrl+Shift+X"));
+        QCOMPARE(keys("edit.ripple_overwrite"), QStringLiteral("Shift+F10"));
+        QCOMPARE(keys("trim.dynamic"), QStringLiteral("W"));
+        QCOMPARE(keys("trim.select_nearest_edit"), QStringLiteral("V"));
+        QCOMPARE(keys("edit.paste_attributes"), QStringLiteral("Alt+V"));
+        QCOMPARE(keys("mark.modify_marker"), QStringLiteral("Ctrl+M"));
+        QCOMPARE(keys("clip.match_frame"), QStringLiteral("F"));
+        QCOMPARE(keys("view.page_color"), QStringLiteral("Shift+6"));
+        QCOMPARE(keys("file.project_settings"), QStringLiteral("Shift+9"));
         QCOMPARE(keys("edit.paste_insert"), QStringLiteral("Ctrl+Shift+V"));
         QCOMPARE(keys("trim.extend_edit"), QStringLiteral("E"));
         QCOMPARE(keys("trim.trim_start"), QStringLiteral("Shift+["));

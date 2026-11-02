@@ -113,6 +113,13 @@ public:
     /// Sets the widget size (view coordinates).
     void setViewSize(QSize size) { m_viewSize = size; }
     [[nodiscard]] QSize viewSize() const { return m_viewSize; }
+    /// View-only vertical zoom applied to every track height (Shift+wheel, spec 19.7); not
+    /// saved and not an undo step. Clamped to [kMinHeightScale, kMaxHeightScale]; takes
+    /// effect on the next rebuild().
+    void setHeightScale(double scale);
+    [[nodiscard]] double heightScale() const { return m_heightScale; }
+    static constexpr double kMinHeightScale = 0.5;
+    static constexpr double kMaxHeightScale = 3.0;
 
     // ---- Horizontal ----
 
@@ -200,6 +207,7 @@ public:
 private:
     QSize m_viewSize;
     double m_pixelsPerFrame = 2.0;
+    double m_heightScale = 1.0;
     double m_scrollX = 0;
     int m_scrollY = 0;
     std::vector<TimelineRow> m_rows;

@@ -30,7 +30,8 @@ TimelineData richTimeline()
     d.height = 2160;
     d.markIn = 12;
     d.markOut = 99;
-    d.markers.append(Marker {5, QStringLiteral("Start"), QColor(255, 0, 0)});
+    d.markers.append(
+        Marker {5, QStringLiteral("Start"), QColor(255, 0, 0), QStringLiteral("note")});
 
     ClipData media = mediaClip(0, 50, 3, 500, QStringLiteral("Interview"));
     media.label = QColor(10, 200, 30);
@@ -51,6 +52,8 @@ TimelineData richTimeline()
         EffectRegistry::instance().createEffect(QStringLiteral("drop_shadow"), d.allocateId()));
     media.transitionIn = EffectRegistry::instance().createTransition(QStringLiteral("wipe"), 12);
     media.transitionOut = TransitionData {};
+    media.transitionOut->alignment = TransitionAlignment::EndOnCut; // spec 13.5
+    media.markers.append(Marker {3, QStringLiteral("clip marker"), QColor(0, 200, 0), {}});
     const quint64 v = ops::overwriteClip(d, kV1, media);
     const quint64 a = ops::overwriteClip(d, kA1, mediaClip(0, 50));
     ops::linkClips(d, {v, a});
