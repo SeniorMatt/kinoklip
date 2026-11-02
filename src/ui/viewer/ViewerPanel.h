@@ -27,6 +27,9 @@ struct AppContext;
 class PlaybackEngine;
 class MaskOverlay;
 class MulticamOverlay;
+class EditOverlay;
+class TrimTwoUpView;
+struct TrimPreview;
 class ScrubBar;
 class Timeline;
 class ViewerSurface;
@@ -123,6 +126,21 @@ public:
     /// Source mode key handling: the action ids claimed while focus is inside the viewer.
     [[nodiscard]] static QStringList sourceKeyActionIds();
 
+    // ---- Editing aids (Timeline mode; ViewerEditAids.cpp) ----
+
+    /// Shows @p text (a timecode being typed, spec 2.10) in the timecode display instead of
+    /// the position; empty = the position again.
+    void setTimecodeEntryText(const QString& text);
+    /// The two-up trim view (spec 8.15): shows @p preview over the picture while it is active.
+    void setTrimPreview(const TrimPreview& preview);
+    /// The two-up layer (nullptr in Source mode).
+    [[nodiscard]] TrimTwoUpView* trimView() const { return m_twoUp; }
+    /// The edit overlay shown while media is dragged over the viewer (nullptr in Source mode).
+    [[nodiscard]] EditOverlay* editOverlay() const { return m_editOverlay; }
+    /// Offers the edit overlay to drags (default off: only a page that handles
+    /// sourceEditDropped() turns it on).
+    void setEditOverlayEnabled(bool enabled);
+
     // ---- Multicam viewer (Source mode; ViewerMulticam.cpp) ----
 
     /// Shows the angle grid instead of the source clip (View > Multicam Viewer, the header's
@@ -160,17 +178,29 @@ Q_SIGNALS:
     /// Multicam viewer following the timeline: the user chose @p angle (0-based) to cut or
     /// switch to at the playhead (EditPage: TimelineController::chooseMulticamAngle()).
     void multicamAngleChosen(int angle);
+    /// Timeline mode: media was dropped on a tile of the edit overlay (spec 4.14);
+    /// @p actionId names the edit ("edit.insert", "edit.overwrite", ...), @p sources are the
+    /// dropped ranges in order (media pool items: the whole clip).
+    void sourceEditDropped(const QString& actionId, const QList<kk::SourceRange>& sources);
 
 protected:
     bool event(QEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dragLeaveEvent(QDragLeaveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
 
 private:
     QToolButton* addButton(QHBoxLayout* layout, const QString& actionId, const QIcon& icon,
         const QString& tip, const std::function<void()>& handler);
     void ensurePlayer();
+    /// Creates the Timeline mode editing aids (edit overlay, two-up view).
+    void setupEditingAids();
+    /// The overlay's tiles with their current keys.
+    void updateEditTiles();
     void bindEngine(PlaybackEngine* engine);
     void bindTimeline(Timeline* timeline);
     void onTimelineChanged();
@@ -209,6 +239,10 @@ private:
     ViewerSurface* m_surface = nullptr;
     MaskOverlay* m_maskOverlay = nullptr; ///< Timeline mode: on-screen mask controls
     MulticamOverlay* m_multicamOverlay = nullptr; ///< Source mode: angle grid chrome
+    EditOverlay* m_editOverlay = nullptr; ///< Timeline mode: edit types while dragging media
+    TrimTwoUpView* m_twoUp = nullptr; ///< Timeline mode: two-up trim view
+    QString m_timecodeEntry; ///< setTimecodeEntryText()
+    bool m_editOverlayEnabled = false; ///< setEditOverlayEnabled()
     QComboBox* m_modeBox = nullptr; ///< Source mode: Source / Multicam
     QComboBox* m_gridBox = nullptr; ///< multicam grid size (Auto, 2x2, 3x3, 4x4)
     bool m_multicam = false;
