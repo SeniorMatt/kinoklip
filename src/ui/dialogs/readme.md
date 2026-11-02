@@ -27,7 +27,7 @@ Preferences dialog stored new values.
 | | proxy generation location, render cache size limit | `system/proxyDirectory`, `system/renderCacheLimitGiB` | `MediaManagement::preferencesChanged()` (live; optimized media and render cache live in the cache folder) |
 | System > Decode Options | hardware decoding (+ API table) | `playback/hwaccel` | `media::setPreferredHwAccel()` (new decoders) |
 | System > Audio I/O | output device | `system/audioOutputDevice` | `playback/AudioOutput` (first playback, i.e. next start) |
-| User > UI Settings | colour theme, widget style (theme page), interface scale | `ui/colorScheme`, `ui/widgetStyle`, `ui/scaleFactor` | theme actions (live), `main()` (next start) |
+| User > UI Settings | colour theme, widget style (theme page), interface scale, animate timeline edits + animation speed | `ui/colorScheme`, `ui/widgetStyle`, `ui/scaleFactor`, `ui/animations`, `ui/animationSpeed` | theme actions (live), `main()` (next start), `uianim::reload()` (live) |
 | User > Project Save and Load | autosave interval | `project/autosaveMinutes` | `AutosaveController` (live) |
 | User > Editing | still / title+generator / transition durations, fast nudge, three-point editing, ripple delete gap, trim behaviour | `edit/*` (`core/EditBehaviour.h`) | read at each edit (live) |
 | | timeline zooms around playhead / mouse | `edit/zoomAnchor` (`prefs::zoomAroundMouse()`) | timeline wheel zoom (timeline module) |

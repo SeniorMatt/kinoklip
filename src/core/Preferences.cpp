@@ -14,6 +14,8 @@ constexpr int kDefaultAutosaveMinutes = 2;
 constexpr int kDefaultStillCacheMiB = 256; ///< media::ImageLoader's own default
 constexpr int kMinStillCacheMiB = 16;
 constexpr int kDefaultRenderCacheGiB = 20;
+constexpr double kMinAnimationSpeed = 0.5;
+constexpr double kMaxAnimationSpeed = 2.0;
 
 struct HwAccelName
 {
@@ -168,6 +170,28 @@ bool showDefaultSmartBins()
 void setShowDefaultSmartBins(bool show)
 {
     QSettings().setValue(QLatin1String(kDefaultSmartBins), show);
+}
+
+bool animationsEnabled()
+{
+    return QSettings().value(QLatin1String(kAnimations), true).toBool();
+}
+
+void setAnimationsEnabled(bool on)
+{
+    QSettings().setValue(QLatin1String(kAnimations), on);
+}
+
+double animationSpeed()
+{
+    return std::clamp(QSettings().value(QLatin1String(kAnimationSpeed), 1.0).toDouble(),
+        kMinAnimationSpeed, kMaxAnimationSpeed);
+}
+
+void setAnimationSpeed(double factor)
+{
+    QSettings().setValue(
+        QLatin1String(kAnimationSpeed), std::clamp(factor, kMinAnimationSpeed, kMaxAnimationSpeed));
 }
 
 } // namespace kk::prefs

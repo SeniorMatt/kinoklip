@@ -18,6 +18,7 @@
 #include "ui/timeline/LevelLines.h"
 #include "ui/timeline/NestedPreview.h"
 #include "ui/timeline/RetimeBar.h"
+#include "ui/timeline/TimelineAnimator.h"
 
 #include <QCoreApplication>
 #include <QFontMetrics>
@@ -246,6 +247,8 @@ void TimelinePainter::paintTrackArea(QPainter& p, const TimelinePaintInput& in)
             continue;
         paintRow(p, in, row);
     }
+    if (in.anim)
+        paintAnimationOverlays(p, in);
     p.setClipping(false);
 }
 
@@ -271,10 +274,20 @@ void TimelinePainter::paintRow(QPainter& p, const TimelinePaintInput& in, int ro
         p.fillRect(QRectF(x0, r.top(), x1 - x0, r.height() - 1), tint);
     }
 
-    const auto [first, last]
-        = TimelineLayout::clipRange(*track, L.xToFrame(kHeaderWidth), L.xToFrame(width));
-    for (size_t i = first; i < last; ++i)
-        paintClip(p, in, row, *track, track->clips[i]);
+    // Clips sliding into place may still be drawn where the model no longer has them.
+    const double slack = in.anim ? in.anim->maxShiftFrames() : 0.0;
+    // Removed clips fading out on this row, under the clips that replace them.
+    if (in.anim)
+        paintGhosts(p, in, info.ref);
+    const auto [first, last] = TimelineLayout::clipRange(
+        *track, L.xToFrame(kHeaderWidth) - slack, L.xToFrame(width) + slack);
+    if (in.anim) {
+        for (size_t i = first; i < last; ++i)
+            paintAnimatedClip(p, in, row, *track, track->clips[i]);
+    } else {
+        for (size_t i = first; i < last; ++i)
+            paintClip(p, in, row, *track, track->clips[i]);
+    }
     paintTransitions(p, in, row, *track, first, last);
 
     // Hidden video / muted audio / locked tracks are dimmed as a whole.
@@ -297,7 +310,12 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     const TrackData& track, const ClipData& clip)
 {
     const TimelineLayout& L = *in.layout;
-    const QRectF r = L.clipRect(row, clip);
+    QRectF r = L.clipRect(row, clip);
+    // Animations: the drawn rect differs from the model; frame-based marks follow by dx.
+    const double modelLeft = r.left();
+    if (in.anim)
+        in.anim->displayClip(clip.id, r, L);
+    const double animDx = r.left() - modelLeft;
     const double viewRight = L.viewSize().width();
     const double visLeft = std::max(r.left(), double(kHeaderWidth));
     const double visRight = std::min(r.right(), viewRight);
@@ -442,7 +460,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         for (const Marker& m : clip.markers) {
             if (m.frame < 0 || m.frame >= clip.duration)
                 continue;
-            const double x = L.frameToX(double(clip.start + m.frame));
+            const double x = L.frameToX(double(clip.start + m.frame)) + animDx;
             if (x < visLeft - 4 || x > visRight + 4)
                 continue;
             const QPointF pts[4] = {{x, cy - 4}, {x + 4, cy}, {x, cy + 4}, {x - 4, cy}};
@@ -531,8 +549,8 @@ void TimelinePainter::paintRetime(QPainter& p, const TimelinePaintInput& in, con
     const QFontMetrics fm(m_smallFont);
     for (const retimebar::SegmentField& f : g.fields) {
         p.fillRect(f.rect, speedColor(f.segment));
-        p.fillRect(
-            QRectF(f.rect.left(), f.rect.bottom() - 1, f.rect.width(), 1), withAlpha(sc().shadow, 120));
+        p.fillRect(QRectF(f.rect.left(), f.rect.bottom() - 1, f.rect.width(), 1),
+            withAlpha(sc().shadow, 120));
         // Speed text (sticky inside the visible part of the field) and the menu arrow.
         const QRectF shown = f.rect.intersected(visible);
         const QString text
@@ -831,13 +849,21 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
     const double h = rr.height() - 6;
     for (size_t i = from; i < to; ++i) {
         const ClipData& c = track.clips[i];
+        // Animations: the transition blocks move with their clip's drawn edges.
+        double dxIn = 0, dxOut = 0;
+        if (in.anim && (c.transitionIn || c.transitionOut)) {
+            const QRectF model = L.clipRect(row, c);
+            const QRectF shown = shownRect(in, c.id, model);
+            dxIn = shown.left() - model.left();
+            dxOut = shown.right() - model.right();
+        }
         if (c.transitionIn) {
             const bool touching = i > 0 && track.clips[i - 1].end() == c.start;
             const double d = double(c.transitionIn->duration);
             const double f0
                 = touching ? double(c.start - c.transitionIn->framesBeforeCut()) : double(c.start);
-            const double x0 = L.frameToX(f0);
-            const double x1 = L.frameToX(f0 + d);
+            const double x0 = L.frameToX(f0) + dxIn;
+            const double x1 = L.frameToX(f0 + d) + dxIn;
             if (x1 - x0 >= 3)
                 paintTransitionBlock(p, QRectF(x0, top, x1 - x0, h), true,
                     in.transition == TransitionRef {c.id, true});
@@ -847,12 +873,85 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
             const double d = double(c.transitionOut->duration);
             const double f1 = touching ? double(c.end() - c.transitionOut->framesBeforeCut()) + d
                                        : double(c.end());
-            const double x0 = L.frameToX(f1 - d);
-            const double x1 = L.frameToX(f1);
+            const double x0 = L.frameToX(f1 - d) + dxOut;
+            const double x1 = L.frameToX(f1) + dxOut;
             if (x1 - x0 >= 3)
                 paintTransitionBlock(p, QRectF(x0, top, x1 - x0, h), false,
                     in.transition == TransitionRef {c.id, false});
         }
+    }
+}
+
+// ---- Animations (only while TimelineAnimator runs) ----
+
+QRectF TimelinePainter::shownRect(const TimelinePaintInput& in, quint64 clipId, QRectF rect)
+{
+    if (in.anim)
+        in.anim->displayClip(clipId, rect, *in.layout);
+    return rect;
+}
+
+void TimelinePainter::paintAnimatedClip(QPainter& p, const TimelinePaintInput& in, int row,
+    const TrackData& track, const ClipData& clip)
+{
+    QRectF r = in.layout->clipRect(row, clip);
+    const double opacity = in.anim->displayClip(clip.id, r, *in.layout);
+    if (opacity >= 1.0) {
+        paintClip(p, in, row, track, clip);
+        return;
+    }
+    p.setOpacity(opacity);
+    paintClip(p, in, row, track, clip);
+    p.setOpacity(1.0);
+}
+
+void TimelinePainter::paintGhosts(QPainter& p, const TimelinePaintInput& in, TrackRef track)
+{
+    // Painted like clips (paintClip() finds a ghost's rect by id), on a track of the right
+    // type so they keep their colours.
+    static const TrackData kGhostTracks[3] = {
+        [] {
+            TrackData t;
+            t.type = TrackType::Video;
+            return t;
+        }(),
+        [] {
+            TrackData t;
+            t.type = TrackType::Audio;
+            return t;
+        }(),
+        [] {
+            TrackData t;
+            t.type = TrackType::Subtitle;
+            return t;
+        }(),
+    };
+    const TimelineLayout& L = *in.layout;
+    for (const TimelineAnimator::Ghost& g : in.anim->ghosts()) {
+        if (!(g.track == track))
+            continue;
+        const double x0 = L.frameToX(g.start);
+        const double x1 = L.frameToX(g.end);
+        if (x1 < kHeaderWidth || x0 > L.viewSize().width())
+            continue;
+        paintAnimatedClip(p, in, -1, kGhostTracks[int(track.type)], g.clip);
+    }
+}
+
+void TimelinePainter::paintAnimationOverlays(QPainter& p, const TimelinePaintInput& in)
+{
+    const TimelineLayout& L = *in.layout;
+    // Blade / trim flashes: a bright line wiping down the clip row, then fading.
+    for (const TimelineAnimator::FlashView& f : in.anim->flashes()) {
+        const QRect rr = L.rowRect(L.rowOf(f.track));
+        if (rr.isEmpty() || f.strength <= 0.0)
+            continue;
+        const double x = std::round(L.frameToX(double(f.frame))) + 0.5;
+        const double h = (rr.height() - 2) * f.wipe;
+        p.fillRect(QRectF(x - 5, rr.top() + 1, 10, h),
+            withAlpha(sc().focus, int(std::lround(150 * f.strength))));
+        p.fillRect(QRectF(x - 1.5, rr.top() + 1, 3, h),
+            withAlpha(sc().bright, int(std::lround(255 * f.strength))));
     }
 }
 
@@ -890,7 +989,7 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
             const ClipData& c = in.data->track(loc->track)->clips[size_t(loc->clipIndex)];
             p.setPen(QPen(m_accent, 2));
             p.setBrush(withAlpha(m_accent, 40));
-            p.drawRect(L.clipRect(row, c).adjusted(1, 1, -1, -1));
+            p.drawRect(shownRect(in, c.id, L.clipRect(row, c)).adjusted(1, 1, -1, -1));
             p.setBrush(Qt::NoBrush);
         }
     }
@@ -912,7 +1011,12 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
         p.setPen(QPen(m_accent, 1));
         p.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
     }
-    // Selected edit point: a thick bracket on the selected side(s) of the cut.
+    // Selected edit point: a thick bracket on the selected side(s) of the cut. Animations:
+    // it widens and brightens once when selected or trimmed (TimelineAnimator::editPulse()).
+    const double pulse = in.anim ? in.anim->editPulse() : 0.0;
+    const double bracketW = 3.0 + 3.0 * pulse;
+    const QColor bracket
+        = pulse > 0.0 ? mixColors(sc().snap, sc().bright, 0.55 * pulse) : sc().snap;
     for (const quint64 id : {in.editTailClip, in.editHeadClip}) {
         if (!id)
             continue;
@@ -921,10 +1025,10 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
             continue;
         const int row = L.rowOf(loc->track);
         const ClipData& c = in.data->track(loc->track)->clips[size_t(loc->clipIndex)];
-        const QRectF cr = L.clipRect(row, c);
+        const QRectF cr = shownRect(in, c.id, L.clipRect(row, c));
         const bool tail = id == in.editTailClip;
-        const double x = tail ? cr.right() - 3 : cr.left();
-        p.fillRect(QRectF(x, cr.top(), 3, cr.height()), sc().snap);
+        const double x = tail ? cr.right() - bracketW : cr.left();
+        p.fillRect(QRectF(x, cr.top(), bracketW, cr.height()), bracket);
     }
     if (o.bladeFrame && o.bladeRow >= 0) {
         const QRect rr = L.rowRect(o.bladeRow);
@@ -932,7 +1036,14 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
         p.setPen(QPen(sc().playhead, 1, Qt::DashLine));
         p.drawLine(QPointF(x, rr.top()), QPointF(x, rr.bottom()));
     }
-    if (o.snapFrame) {
+    if (in.anim) {
+        // Snap indicator fading in / out.
+        if (const auto snap = in.anim->snapLine(o.snapFrame)) {
+            const double x = std::round(L.frameToX(double(snap->first))) + 0.5;
+            p.setPen(QPen(withAlpha(sc().snap, int(std::lround(255 * snap->second))), 1));
+            p.drawLine(QPointF(x, kRulerHeight), QPointF(x, view.height()));
+        }
+    } else if (o.snapFrame) {
         const double x = std::round(L.frameToX(double(*o.snapFrame))) + 0.5;
         p.setPen(QPen(sc().snap, 1));
         p.drawLine(QPointF(x, kRulerHeight), QPointF(x, view.height()));
@@ -964,7 +1075,9 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
         const TrackData& track = *in.data->track(ref);
         const bool video = ref.type == TrackType::Video;
         const bool subtitle = ref.type == TrackType::Subtitle;
-        const QColor strip = video ? sc().videoTrack : subtitle ? sc().subtitleTrack : sc().audioTrack;
+        const QColor strip = video ? sc().videoTrack
+            : subtitle             ? sc().subtitleTrack
+                                   : sc().audioTrack;
         p.fillRect(QRect(0, r.top(), kHeaderWidth, r.height()), m_window);
         p.fillRect(QRect(0, r.top(), 3, r.height()), strip);
         p.fillRect(QRect(0, r.bottom(), kHeaderWidth, 1), m_line);
@@ -1170,7 +1283,9 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
 void TimelinePainter::paintPlayhead(QPainter& p, const TimelinePaintInput& in)
 {
     const TimelineLayout& L = *in.layout;
-    const double x = std::round(L.frameToX(double(in.playhead))) + 0.5;
+    // Animations: the line glides to a jump target (the playhead value itself is instant).
+    const double frame = in.anim ? in.anim->playheadFrame(in.playhead) : double(in.playhead);
+    const double x = std::round(L.frameToX(frame)) + 0.5;
     const QSize view = L.viewSize();
     if (x < kHeaderWidth || x > view.width())
         return;
