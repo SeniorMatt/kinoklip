@@ -42,7 +42,7 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
 
 `transport.play_pause` (Space), `transport.shuttle_reverse/stop/forward` (J/K/L, auto-repeat
 off), `transport.prev_frame/next_frame` (arrows), `transport.back_1s/forward_1s`
-(Shift+arrows), `transport.play_in_out` (Alt+/), `transport.play_around` (Alt+Space),
+(Shift+arrows), `transport.play_in_out` (Alt+/), `transport.play_around` (/), `transport.play_reverse` (Shift+Space),
 `view.fullscreen_viewer` (Ctrl+F). **Not** `transport.prev_edit/next_edit/go_to_start/go_to_end`
 (timeline module) and not `transport.loop` (each viewer applies the toggle).
 

@@ -127,9 +127,10 @@ int TimelineLayout::rowOf(TrackRef ref) const
 
 const std::vector<HeaderButton>& TimelineLayout::headerButtons(TrackType type)
 {
-    static const std::vector<HeaderButton> video {HeaderButton::Visible, HeaderButton::Lock};
+    static const std::vector<HeaderButton> video {
+        HeaderButton::Visible, HeaderButton::Lock, HeaderButton::AutoSelect};
     static const std::vector<HeaderButton> audio {
-        HeaderButton::Solo, HeaderButton::Mute, HeaderButton::Lock};
+        HeaderButton::Solo, HeaderButton::Mute, HeaderButton::Lock, HeaderButton::AutoSelect};
     return type == TrackType::Video ? video : audio;
 }
 

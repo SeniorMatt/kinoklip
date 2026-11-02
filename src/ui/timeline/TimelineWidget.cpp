@@ -146,6 +146,13 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     in.playhead = m_ctx.project->timeline()->playhead();
     in.targetVideo = m_controller->targetVideoTrack();
     in.targetAudio = m_controller->targetAudioTrack();
+    in.editTailClip = m_controller->selectedEdit().tailClip;
+    in.editHeadClip = m_controller->selectedEdit().headClip;
+    if (const auto& gap = m_controller->selectedGap()) {
+        in.gapRow = m_layout.rowOf(gap->track);
+        in.gapStart = gap->start;
+        in.gapEnd = gap->end;
+    }
     in.hasFocus = hasFocus();
     m_painter.paint(p, in);
 }

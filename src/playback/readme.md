@@ -90,7 +90,7 @@ are requested when the GPU compositor runs and every viewer can draw them.
 | ← / → , Shift+← / → | one frame / one second (pauses) |
 | loop (Ctrl+/) | repeat [in, out) if both marks are set, else the whole timeline |
 | play in to out (Alt+/) | the marked range once (looping if loop is on) |
-| play around (Alt+Space) | pre-roll .. post-roll around the playhead (2 s each), then back |
+| play around (/) | pre-roll .. post-roll around the playhead (2 s each), then back |
 
 Keys come from the ActionRegistry keymap (nothing is hard-coded); conventions that differ
 between editors live in `PlaybackBehaviour` (QSettings `playback/restartAtEnd`, `prerollMs`,

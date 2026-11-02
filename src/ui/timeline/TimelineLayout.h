@@ -26,6 +26,10 @@ inline constexpr int kMinTrackHeight = 26;
 inline constexpr int kMaxTrackHeight = 240;
 inline constexpr int kSectionGap = 6; ///< divider between the video and the audio tracks
 inline constexpr int kEdgeGrabPx = 7; ///< width of the trim zones at clip edges
+/// Half-width of the roll zone centred on a cut between two touching clips (spec 8.2/8.5).
+inline constexpr int kRollZonePx = 2;
+/// Height of the clip name band at the top of a clip (trim tool: slide zone, spec 8.6).
+inline constexpr int kClipNameBandPx = 15;
 inline constexpr int kResizeGrabPx = 3; ///< header bottom edge that resizes a track
 inline constexpr int kHeaderButton = 18; ///< square header buttons (lock, mute, ...)
 inline constexpr int kHeaderButtonGap = 3;
@@ -49,7 +53,8 @@ enum class HeaderButton {
     Lock,
     Visible, ///< video: track enabled in the output
     Mute, ///< audio
-    Solo ///< audio
+    Solo, ///< audio
+    AutoSelect ///< auto track selector (TrackData::autoSelect, spec 12.5)
 };
 
 /// Which part of a clip a point is on.

@@ -592,6 +592,29 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
         p.setPen(QPen(m_accent, 2));
         p.drawRect(QRectF(x0, rr.top() + 3, std::max(4.0, x1 - x0), rr.height() - 6));
     }
+    if (in.gapRow >= 0 && in.gapEnd > in.gapStart) {
+        const QRect rr = L.rowRect(in.gapRow);
+        const double x0 = L.frameToX(double(in.gapStart));
+        const double x1 = L.frameToX(double(in.gapEnd));
+        const QRectF r(x0, rr.top() + 2, std::max(2.0, x1 - x0), rr.height() - 4);
+        p.fillRect(r, QColor(m_accent.red(), m_accent.green(), m_accent.blue(), 55));
+        p.setPen(QPen(m_accent, 1));
+        p.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
+    }
+    // Selected edit point: a thick bracket on the selected side(s) of the cut.
+    for (const quint64 id : {in.editTailClip, in.editHeadClip}) {
+        if (!id)
+            continue;
+        const auto loc = editops::findClip(*in.data, id);
+        if (!loc)
+            continue;
+        const int row = L.rowOf(loc->track);
+        const ClipData& c = in.data->track(loc->track)->clips[size_t(loc->clipIndex)];
+        const QRectF cr = L.clipRect(row, c);
+        const bool tail = id == in.editTailClip;
+        const double x = tail ? cr.right() - 3 : cr.left();
+        p.fillRect(QRectF(x, cr.top(), 3, cr.height()), kSnapLine);
+    }
     if (o.bladeFrame && o.bladeRow >= 0) {
         const QRect rr = L.rowRect(o.bladeRow);
         const double x = std::round(L.frameToX(double(*o.bladeFrame))) + 0.5;
@@ -677,6 +700,10 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 onColor = kSoloOn;
                 icon = &m_iconSolo;
                 break;
+            case HeaderButton::AutoSelect:
+                on = track.autoSelect;
+                onColor = video ? kVideoStrip.darker(140) : kAudioStrip.darker(140);
+                break;
             default:
                 break;
             }
@@ -687,6 +714,15 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 p.drawPixmap(QPointF(br.center().x() - s.width() / 2 + 0.5,
                                  br.center().y() - s.height() / 2 + 0.5),
                     *icon);
+            }
+            if (b == HeaderButton::AutoSelect) {
+                // Painted glyph (no icon file): a track bar with a selection tick; bright when
+                // the auto track selector is on.
+                p.setPen(Qt::NoPen);
+                p.setBrush(on ? QColor(Qt::white) : m_text.darker(160));
+                p.drawRect(QRect(br.left() + 4, br.top() + 5, br.width() - 8, 3));
+                p.drawRect(QRect(br.left() + 4, br.bottom() - 7, br.width() - 8, 3));
+                p.setBrush(Qt::NoBrush);
             }
         }
 
