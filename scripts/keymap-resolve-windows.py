@@ -122,9 +122,9 @@ sec("Pages and view")
 a("view.page_media", "Media Page", ["Shift+2"], S)
 a("view.page_cut", "Cut Page (disabled)", ["Shift+3"], S)
 a("view.page_edit", "Edit Page", ["Shift+4"], S)
-a("view.page_fusion", "Fusion Page (disabled)", ["Shift+5"], S)
+a("view.page_compositing", "Compositing Page (disabled; Resolve: Fusion)", ["Shift+5"], S)
 a("view.page_color", "Color Page (disabled)", ["Shift+6"], S)
-a("view.page_fairlight", "Fairlight Page (disabled)", ["Shift+7"], S)
+a("view.page_audio", "Audio Page (disabled; Resolve: Fairlight)", ["Shift+7"], S)
 a("view.page_deliver", "Deliver Page", ["Shift+8"], S)
 a("view.toggle_media_pool", "Media Pool panel", [], L)
 a("view.toggle_effects", "Effects panel", [], L)
@@ -186,8 +186,8 @@ out = ["# Keymap: DaVinci Resolve (Windows)", "",
 "The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id",
 "`resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and",
 "its global commands, written from general knowledge of how Resolve behaves (nothing copied from",
-"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Cut, Fusion, Color and",
-"Fairlight pages, retime curves, freeze frames, audio scrubbing) keep their Resolve key but are",
+"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Cut, Compositing, Color and",
+"Audio pages, retime curves, freeze frames, audio scrubbing) keep their Resolve key but are",
 "disabled.", "",
 "**Confidence** says how sure we are that the key is Resolve's default:",
 "- **sure**: well-known default, used daily;",

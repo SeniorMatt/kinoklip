@@ -6,6 +6,7 @@
 #include <QString>
 
 class QAction;
+class QGridLayout;
 class QHBoxLayout;
 class QLabel;
 class QToolButton;
@@ -38,6 +39,11 @@ public:
     QToolButton* addTitleBarAction(QAction* action);
     /// Adds an arbitrary widget (e.g. a timecode label) at the right of the title bar.
     void addTitleBarWidget(QWidget* widget);
+    /// Adds a widget at the left of the title bar, before the title (e.g. a viewer's zoom).
+    void addTitleBarLeadingWidget(QWidget* widget);
+    /// Centres the title in the bar (viewer headers show the clip / timeline name centred,
+    /// with zoom on the left and the timecode on the right); default: left aligned.
+    void setTitleCentered(bool centered);
     /// Layout of the title bar's tool area, for custom arrangements.
     [[nodiscard]] QHBoxLayout* titleBarToolsLayout() const { return m_toolsLayout; }
     /// Shows or hides the title bar (e.g. for the viewer in full-screen mode).
@@ -47,6 +53,8 @@ private:
     QWidget* m_titleBar = nullptr;
     QLabel* m_titleLabel = nullptr;
     QHBoxLayout* m_toolsLayout = nullptr;
+    QHBoxLayout* m_leadingLayout = nullptr;
+    QGridLayout* m_titleGrid = nullptr;
     QWidget* m_content = nullptr;
 };
 

@@ -85,6 +85,8 @@ private:
     QTimer m_previewDebounce;
     QTimer m_previewPoll;
     bool m_hwDetectionStarted = false;
+    bool m_layoutRestored = false; ///< restoreLayout() found a stored splitter state
+    bool m_proportionsApplied = false;
 };
 
 } // namespace kk

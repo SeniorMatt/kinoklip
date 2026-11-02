@@ -54,8 +54,14 @@ public:
     [[nodiscard]] MetadataPanel* metadata() const { return m_metadata; }
     [[nodiscard]] TimelinePanel* timeline() const { return m_timeline; }
 
+protected:
+    void showEvent(QShowEvent* event) override;
+
 private:
     void updateColumns();
+    /// Resolve's default proportions for the page's actual size (first show without a
+    /// stored layout): viewers about half the height, side columns about a fifth of the width.
+    void applyDefaultProportions();
 
     AppContext& m_ctx;
     MediaPoolPanel* m_mediaPool = nullptr;
@@ -74,6 +80,8 @@ private:
     QSplitter* m_rightColumn = nullptr; ///< inspector / metadata
     QSplitter* m_bottomRow = nullptr; ///< timeline | mixer
     QMap<PanelId, QWidget*> m_panels;
+    bool m_layoutRestored = false; ///< restoreLayout() found stored splitter states
+    bool m_proportionsApplied = false;
 };
 
 } // namespace kk

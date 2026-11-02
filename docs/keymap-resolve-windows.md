@@ -3,8 +3,8 @@
 The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id
 `resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and
 its global commands, written from general knowledge of how Resolve behaves (nothing copied from
-Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Cut, Fusion, Color and
-Fairlight pages, retime curves, freeze frames, audio scrubbing) keep their Resolve key but are
+Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Cut, Compositing, Color and
+Audio pages, retime curves, freeze frames, audio scrubbing) keep their Resolve key but are
 disabled.
 
 **Confidence** says how sure we are that the key is Resolve's default:
@@ -181,9 +181,9 @@ that every command has an entry and that no key is used twice.
 | Media Page | `view.page_media` | `Shift+2` | sure |  |
 | Cut Page (disabled) | `view.page_cut` | `Shift+3` | sure |  |
 | Edit Page | `view.page_edit` | `Shift+4` | sure |  |
-| Fusion Page (disabled) | `view.page_fusion` | `Shift+5` | sure |  |
+| Compositing Page (disabled; Resolve: Fusion) | `view.page_compositing` | `Shift+5` | sure |  |
 | Color Page (disabled) | `view.page_color` | `Shift+6` | sure |  |
-| Fairlight Page (disabled) | `view.page_fairlight` | `Shift+7` | sure |  |
+| Audio Page (disabled; Resolve: Fairlight) | `view.page_audio` | `Shift+7` | sure |  |
 | Deliver Page | `view.page_deliver` | `Shift+8` | sure |  |
 | Media Pool panel | `view.toggle_media_pool` | (none) | likely |  |
 | Effects panel | `view.toggle_effects` | (none) | likely |  |

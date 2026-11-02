@@ -36,7 +36,10 @@
         <file>icons/next_edit.svg</file>
         <file>icons/next_frame.svg</file>
         <file>icons/overwrite.svg</file>
+        <file>icons/page_audio.svg</file>
         <file>icons/page_color.svg</file>
+        <file>icons/page_compositing.svg</file>
+        <file>icons/page_cut.svg</file>
         <file>icons/page_deliver.svg</file>
         <file>icons/page_edit.svg</file>
         <file>icons/page_media.svg</file>
@@ -52,6 +55,7 @@
         <file>icons/prev_edit.svg</file>
         <file>icons/prev_frame.svg</file>
         <file>icons/remove.svg</file>
+        <file>icons/replace.svg</file>
         <file>icons/search.svg</file>
         <file>icons/select.svg</file>
         <file>icons/single_viewer.svg</file>

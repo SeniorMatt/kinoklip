@@ -15,6 +15,7 @@
 #include "ui/mediapool/MediaPoolDelegate.h"
 
 #include <QAction>
+#include <QActionGroup>
 #include <QApplication>
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -40,6 +41,7 @@
 namespace kk {
 
 namespace {
+constexpr int kSearchMaxWidth = 280; ///< px; Resolve keeps the media pool search compact
 
 constexpr int kBinIdRole = Qt::UserRole;
 constexpr char kViewModeKey[] = "mediaPool/viewMode";
@@ -217,8 +219,17 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     header->resizeSection(MediaPoolModel::FpsColumn, 55);
     header->resizeSection(MediaPoolModel::CodecColumn, 70);
 
-    m_empty = createPlaceholderContent(
-        tr("No media yet.\nImport files with Ctrl+I or drop them here."));
+    // The import shortcut comes from the keymap (remappable), never a hard-coded key.
+    QString importKey;
+    if (ctx.actions && ctx.actions->contains(QStringLiteral("file.import_media"))) {
+        const QList<QKeySequence> keys
+            = ctx.actions->shortcuts(QStringLiteral("file.import_media"));
+        if (!keys.isEmpty())
+            importKey = keys.first().toString(QKeySequence::NativeText);
+    }
+    m_empty = createPlaceholderContent(importKey.isEmpty()
+            ? tr("No media yet.\nImport files or drop them here.")
+            : tr("No media yet.\nImport files with %1 or drop them here.").arg(importKey));
     m_stack = new QStackedWidget;
     m_stack->insertWidget(kStackGrid, m_grid);
     m_stack->insertWidget(kStackList, m_list);
@@ -290,12 +301,14 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
     m_binsButton->setAutoRaise(true);
     connect(m_binsButton, &QToolButton::clicked, this, &MediaPoolPanel::setBinsVisible);
     layout->addWidget(m_binsButton);
+    layout->addStretch(1);
     m_search = new QLineEdit(host);
     m_search->setPlaceholderText(tr("Search media"));
     m_search->setClearButtonEnabled(true);
     m_search->addAction(icon(QStringLiteral("search")), QLineEdit::LeadingPosition);
     connect(m_search, &QLineEdit::textChanged, this,
         [this](const QString& text) { m_proxy->setSearchText(text); });
+    m_search->setMaximumWidth(kSearchMaxWidth);
     layout->addWidget(m_search, 1);
 
     auto makeToggle = [host, layout](const QString& iconName, const QString& tip) {
@@ -311,6 +324,41 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
     m_listButton = makeToggle(QStringLiteral("list_view"), tr("List view"));
     connect(m_gridButton, &QToolButton::clicked, this, [this] { setViewMode(ViewMode::Grid); });
     connect(m_listButton, &QToolButton::clicked, this, [this] { setViewMode(ViewMode::List); });
+
+    // Sort menu (Resolve's media pool sorts the thumbnail view too, not only the list).
+    auto* sortButton = new QToolButton(host);
+    sortButton->setObjectName(QStringLiteral("MediaPoolSort"));
+    sortButton->setIcon(QIcon::fromTheme(QStringLiteral("view-sort")));
+    sortButton->setToolTip(tr("Sort media"));
+    sortButton->setAutoRaise(true);
+    sortButton->setPopupMode(QToolButton::InstantPopup);
+    auto* sortMenu = new QMenu(sortButton);
+    auto* columns = new QActionGroup(sortMenu);
+    const std::pair<int, QString> keys[] = {{-1, tr("Import Order")},
+        {MediaPoolModel::NameColumn, tr("Clip Name")},
+        {MediaPoolModel::DurationColumn, tr("Duration")},
+        {MediaPoolModel::ResolutionColumn, tr("Resolution")},
+        {MediaPoolModel::FpsColumn, tr("Frame Rate")}, {MediaPoolModel::CodecColumn, tr("Codec")}};
+    for (const auto& [column, label] : keys) {
+        QAction* action = sortMenu->addAction(label);
+        action->setCheckable(true);
+        action->setChecked(column == -1);
+        action->setData(column);
+        columns->addAction(action);
+    }
+    sortMenu->addSeparator();
+    QAction* descending = sortMenu->addAction(tr("Descending"));
+    descending->setCheckable(true);
+    auto applySort = [this, columns, descending] {
+        const int column = columns->checkedAction() ? columns->checkedAction()->data().toInt() : -1;
+        // Sorting through the list view keeps its header indicator in sync.
+        m_list->sortByColumn(
+            column, descending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder);
+    };
+    connect(columns, &QActionGroup::triggered, this, applySort);
+    connect(descending, &QAction::triggered, this, applySort);
+    sortButton->setMenu(sortMenu);
+    layout->addWidget(sortButton);
 }
 
 // ---- State ----

@@ -20,8 +20,11 @@ void connectDialogActions(
     applyHwAccelPreference(); // the stored choice applies from start-up on
     ActionRegistry& actions = *ctx.actions;
     QObject::connect(actions.action(QStringLiteral("file.project_settings")), &QAction::triggered,
-        window, [&ctx, window] {
+        window, [&ctx, window, onPreferencesChanged] {
             ProjectSettingsDialog dialog(ctx.project, window);
+            if (onPreferencesChanged) // the autosave interval lives in General Options too
+                QObject::connect(&dialog, &ProjectSettingsDialog::preferencesChanged, window,
+                    onPreferencesChanged);
             dialog.exec();
         });
     QObject::connect(actions.action(QStringLiteral("edit.keyboard_customization")),

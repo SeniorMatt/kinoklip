@@ -8,6 +8,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
+#include "ui/common/Metrics.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
@@ -99,7 +100,8 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     header->setObjectName(QStringLiteral("InspectorHeader"));
     header->setAttribute(Qt::WA_StyledBackground);
     auto* headerLayout = new QVBoxLayout(header);
-    headerLayout->setContentsMargins(10, 6, 10, 6);
+    headerLayout->setContentsMargins(metrics::kSpaceM, metrics::kSpaceS + metrics::kSpaceXs,
+        metrics::kSpaceM, metrics::kSpaceS + metrics::kSpaceXs);
     headerLayout->setSpacing(1);
     m_clipName = new QLabel;
     m_clipName->setObjectName(QStringLiteral("InspectorClipName"));
@@ -666,6 +668,9 @@ void InspectorPanel::refreshValues()
 void InspectorPanel::updateHeader()
 {
     const ClipData* c = clip(m_clipId);
+    // Like Resolve, the inspector shows only its tabs while nothing is selected (the tab
+    // pages explain what to do); the header appears with a clip.
+    m_clipName->parentWidget()->setVisible(c != nullptr);
     if (!c) {
         m_clipName->setText(tr("No clip selected"));
         m_clipInfo->clear();
