@@ -271,6 +271,10 @@ bool canJoin(const TimelineData& data, quint64 leftClipId, quint64 rightClipId)
         || a.enabled != b.enabled || a.transitionOut || b.transitionIn || !sameEffectChain(a, b))
         return false;
     switch (a.kind) {
+    case ClipKind::Nested:
+        if (a.nestedUid != b.nestedUid)
+            return false;
+        [[fallthrough]];
     case ClipKind::Media: {
         // The right clip must continue the source where the left one ends (half a frame of
         // rounding allowed: source times are microseconds).

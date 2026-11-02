@@ -9,8 +9,17 @@
 
 namespace kk {
 
-/// One imported media file. The probe result is cached so projects open even when the file is
-/// offline (moved/deleted).
+/// What a media pool item stands for.
+enum class MediaItemKind {
+    File, ///< an imported media file (path, probe result)
+    Timeline, ///< a timeline of the project (MediaItem::timelineUid)
+    CompoundClip ///< the timeline behind a compound clip (MediaItem::timelineUid)
+};
+
+/// One imported media file, or a timeline / compound clip of the project (Resolve lists both
+/// in the media pool). Timeline items have no path; their `info` describes the timeline
+/// (duration, resolution, frame rate, video/audio) and is kept in sync by the Project. The probe
+/// result is cached so projects open even when the file is offline (moved/deleted).
 struct MediaItem
 {
     QString id; ///< unique, stable across save/load (referenced by ClipData::mediaId)
@@ -18,6 +27,11 @@ struct MediaItem
     QString name; ///< display name (defaults to the file name)
     QString binId; ///< owning Bin::id; empty = the root ("Master") bin
     media::MediaInfo info; ///< result of media::probe() at import time
+    MediaItemKind kind = MediaItemKind::File;
+    quint64 timelineUid = 0; ///< TimelineData::uid for Timeline / CompoundClip items
+
+    /// True for timeline and compound clip items.
+    [[nodiscard]] bool isTimeline() const { return kind != MediaItemKind::File; }
 
     /// Compares every field, including the cached probe result.
     friend bool operator==(const MediaItem& a, const MediaItem& b);

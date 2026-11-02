@@ -65,6 +65,8 @@ QString kindToString(ClipKind kind)
         return QStringLiteral("title");
     case ClipKind::Solid:
         return QStringLiteral("solid");
+    case ClipKind::Nested:
+        return QStringLiteral("nested");
     }
     return QStringLiteral("media");
 }
@@ -75,6 +77,8 @@ ClipKind kindFromString(const QString& text)
         return ClipKind::Title;
     if (text == QLatin1String("solid"))
         return ClipKind::Solid;
+    if (text == QLatin1String("nested"))
+        return ClipKind::Nested;
     return ClipKind::Media;
 }
 
@@ -338,6 +342,8 @@ QJsonObject clipToJson(const ClipData& clip)
     o[QLatin1String("kind")] = kindToString(clip.kind);
     if (!clip.mediaId.isEmpty())
         o[QLatin1String("mediaId")] = clip.mediaId;
+    if (clip.nestedUid != 0)
+        o[QLatin1String("nestedUid")] = qint64(clip.nestedUid);
     o[QLatin1String("name")] = clip.name;
     if (clip.label.isValid())
         o[QLatin1String("label")] = colorToString(clip.label);
@@ -381,6 +387,7 @@ ClipData clipFromJson(const QJsonObject& o)
     c.id = quint64(o.value(QLatin1String("id")).toInteger());
     c.kind = kindFromString(o.value(QLatin1String("kind")).toString());
     c.mediaId = o.value(QLatin1String("mediaId")).toString();
+    c.nestedUid = quint64(o.value(QLatin1String("nestedUid")).toInteger());
     c.name = o.value(QLatin1String("name")).toString();
     if (o.contains(QLatin1String("label")))
         c.label = colorFromString(o.value(QLatin1String("label")).toString());
@@ -418,6 +425,12 @@ ClipData clipFromJson(const QJsonObject& o)
 QJsonObject timelineToJson(const TimelineData& data)
 {
     QJsonObject o;
+    if (data.uid != 0)
+        o[QLatin1String("uid")] = qint64(data.uid);
+    if (data.compound)
+        o[QLatin1String("compound")] = true;
+    if (!data.useProjectSettings)
+        o[QLatin1String("useProjectSettings")] = false;
     o[QLatin1String("name")] = data.name;
     o[QLatin1String("fps")]
         = QJsonObject {{QLatin1String("num"), data.fps.num}, {QLatin1String("den"), data.fps.den}};
@@ -441,6 +454,9 @@ QJsonObject timelineToJson(const TimelineData& data)
 bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
 {
     TimelineData data;
+    data.uid = quint64(o.value(QLatin1String("uid")).toInteger());
+    data.compound = o.value(QLatin1String("compound")).toBool(false);
+    data.useProjectSettings = o.value(QLatin1String("useProjectSettings")).toBool(true);
     data.name = o.value(QLatin1String("name")).toString();
     const QJsonObject fps = o.value(QLatin1String("fps")).toObject();
     data.fps = Rational {
@@ -545,6 +561,17 @@ QJsonObject mediaPoolToJson(const MediaPoolState& state, const QDir& projectDir)
     }
     QJsonArray items;
     for (const MediaItem& m : state.items) {
+        if (m.isTimeline()) {
+            // Timeline / compound clip items: no file, the info is derived from the timeline.
+            items.append(QJsonObject {{QLatin1String("id"), m.id},
+                {QLatin1String("kind"),
+                    m.kind == MediaItemKind::CompoundClip ? QStringLiteral("compound")
+                                                          : QStringLiteral("timeline")},
+                {QLatin1String("timelineUid"), qint64(m.timelineUid)},
+                {QLatin1String("name"), m.name}, {QLatin1String("binId"), m.binId},
+                {QLatin1String("info"), mediaInfoToJson(m.info)}});
+            continue;
+        }
         items.append(QJsonObject {{QLatin1String("id"), m.id}, {QLatin1String("path"), m.path},
             {QLatin1String("relativePath"), projectDir.relativeFilePath(m.path)},
             {QLatin1String("name"), m.name}, {QLatin1String("binId"), m.binId},
@@ -566,6 +593,17 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
         const QJsonObject o = v.toObject();
         MediaItem m;
         m.id = o.value(QLatin1String("id")).toString();
+        const QString kind = o.value(QLatin1String("kind")).toString();
+        if (kind == QLatin1String("timeline") || kind == QLatin1String("compound")) {
+            m.kind = kind == QLatin1String("compound") ? MediaItemKind::CompoundClip
+                                                       : MediaItemKind::Timeline;
+            m.timelineUid = quint64(o.value(QLatin1String("timelineUid")).toInteger());
+            m.name = o.value(QLatin1String("name")).toString();
+            m.binId = o.value(QLatin1String("binId")).toString();
+            m.info = mediaInfoFromJson(o.value(QLatin1String("info")).toObject());
+            state.items.append(m);
+            continue;
+        }
         m.path = o.value(QLatin1String("path")).toString();
         const QString relative = o.value(QLatin1String("relativePath")).toString();
         if (!QFileInfo::exists(m.path) && !relative.isEmpty()) {

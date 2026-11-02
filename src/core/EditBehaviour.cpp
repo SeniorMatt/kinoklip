@@ -27,6 +27,7 @@ EditBehaviour EditBehaviour::fromSettings()
         = flag("edit/rippleDeleteGapAtPlayhead", b.rippleDeleteGapAtPlayhead);
     b.selectToolRollsAtCut = flag("edit/selectToolRollsAtCut", b.selectToolRollsAtCut);
     b.trimToolSlideInNameBar = flag("edit/trimToolSlideInNameBar", b.trimToolSlideInNameBar);
+    b.timelineTabs = flag("edit/timelineTabs", b.timelineTabs);
     // Same key and values as prefs::kZoomAnchor / prefs::zoomAroundMouse().
     b.zoomAnchor = s.value(QStringLiteral("edit/zoomAnchor")).toString() == QLatin1String("mouse")
         ? ZoomAnchor::Cursor

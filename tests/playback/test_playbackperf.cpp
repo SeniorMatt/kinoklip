@@ -83,7 +83,7 @@ Rational buildSingleClipTimeline(Project& project, const QString& path)
     const ImportResult imported = project.importMedia({path});
     if (imported.importedIds.size() != 1)
         return {};
-    const media::MediaInfo& info = project.mediaPool()->state().items[0].info;
+    const media::MediaInfo& info = project.mediaPool()->item(imported.importedIds[0])->info;
     const Rational fps = info.frameRate.isValid() ? info.frameRate : Rational {25, 1};
     project.beginEdit(QStringLiteral("perf"));
     TimelineData& tl = project.timeline()->mutableData();
@@ -233,7 +233,7 @@ private Q_SLOTS:
         Project project;
         const ImportResult imported = project.importMedia({path});
         QCOMPARE(imported.importedIds.size(), 1);
-        const media::MediaInfo& info = project.mediaPool()->state().items[0].info;
+        const media::MediaInfo& info = project.mediaPool()->item(imported.importedIds[0])->info;
         const Rational fps = info.frameRate.isValid() ? info.frameRate : Rational {25, 1};
         project.beginEdit(QStringLiteral("perf"));
         TimelineData& tl = project.timeline()->mutableData();

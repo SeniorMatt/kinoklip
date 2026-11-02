@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 164 commands; sure 94, likely 41, unsure 29.
+Counts: 174 commands; sure 94, likely 47, unsure 33.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -28,7 +28,8 @@ that every command has an entry and that no key is used twice.
 
 | Command | Action id | Key | Confidence | Note |
 |---|---|---|---|---|
-| New Project | `file.new` | `Ctrl+N` | unsure | Resolve uses Ctrl+N for New Timeline; Kinoklip has one timeline per project, so it creates a new project. |
+| New Project | `file.new` | (none) | unsure | no known default (projects are created in Resolve's Project Manager); Ctrl+N is New Timeline |
+| New Timeline | `timeline.new` | `Ctrl+N` | likely | File > New Timeline in Resolve; the dialog asks for the name |
 | Open Project / Project Manager | `file.open` | `Ctrl+O` / `Shift+1` | likely | Shift+1 is Resolve's Project Manager page; Kinoklip has no project manager yet and opens a project instead. Ctrl+O unsure. |
 | Save Project | `file.save` | `Ctrl+S` | sure |  |
 | Save Project As | `file.save_as` | `Ctrl+Shift+S` | sure |  |
@@ -105,6 +106,12 @@ that every command has an entry and that no key is used twice.
 | Zoom to Fit | `timeline.zoom_fit` | `Shift+Z` | sure |  |
 | Add Video Track | `timeline.add_video_track` | (none) | likely |  |
 | Add Audio Track | `timeline.add_audio_track` | (none) | likely |  |
+| Duplicate Timeline | `timeline.duplicate` | (none) | likely | media pool / Timeline menu command without a default key |
+| Delete Timeline | `timeline.delete` | (none) | likely | media pool command without a default key (Delete in the media pool deletes the selected timeline item) |
+| Timeline Settings | `timeline.settings` | (none) | unsure | no known default key |
+| Next Timeline Tab | `timeline.next_tab` | (none) | unsure | no known Resolve default; click the tab or use the timeline drop-down |
+| Previous Timeline Tab | `timeline.prev_tab` | (none) | unsure | no known Resolve default |
+| Close Timeline Tab | `timeline.close_tab` | (none) | unsure | no known Resolve default; the tab's close button or its context menu |
 
 ## Track destination and auto track selectors
 
@@ -153,6 +160,9 @@ that every command has an entry and that no key is used twice.
 | Change Clip Speed | `clip.change_speed` | `R` | likely |  |
 | Retime Controls (disabled: no retime curve yet) | `clip.retime_controls` | `Ctrl+R` | sure |  |
 | Freeze Frame (disabled: no freeze frames yet) | `clip.freeze_frame` | `Shift+R` | sure |  |
+| New Compound Clip | `clip.new_compound` | (none) | likely | Clip menu / clip context menu command without a default key in Resolve |
+| Open in Timeline (compound clip) | `clip.open_in_timeline` | (none) | likely | context menu command without a default key |
+| Decompose in Place (compound clip) | `clip.decompose` | (none) | likely | context menu command without a default key |
 | Link / Unlink Clips | `clip.link` | `Ctrl+Alt+L` | likely | Resolve has one toggle; Kinoklip's Link toggles too. |
 | Unlink Clips | `clip.unlink` | (none) | likely |  |
 | Add Keyframe (inspector) | `clip.add_keyframe` | `Alt+K` | unsure | toggles a key on the last touched inspector parameter; Resolve default not confirmed |

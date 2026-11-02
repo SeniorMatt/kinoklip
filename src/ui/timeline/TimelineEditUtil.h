@@ -39,7 +39,7 @@ inline bool applyClipSpeed(TimelineData& data, quint64 clipId, double speed)
         return false;
     int64_t frames
         = std::max<int64_t>(1, int64_t(std::llround(double(c->duration) * c->speed / speed)));
-    if (c->kind == ClipKind::Media && c->sourceDurationUs > 0) {
+    if ((c->kind == ClipKind::Media || c->kind == ClipKind::Nested) && c->sourceDurationUs > 0) {
         const double usPerFrame = 1e6 * data.fps.den / data.fps.num * speed;
         const auto available = int64_t(double(c->sourceDurationUs - c->sourceInUs) / usPerFrame);
         frames = std::clamp<int64_t>(available, 1, frames);

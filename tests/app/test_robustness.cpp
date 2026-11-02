@@ -304,8 +304,8 @@ private slots:
         {
             Project p;
             QVERIFY(p.load(projectPath));
-            QCOMPARE(p.mediaPool()->state().items.size(), 1);
-            QVERIFY(!QFileInfo::exists(p.mediaPool()->state().items[0].path));
+            QVERIFY(p.mediaPool()->item(r.importedIds[0]));
+            QVERIFY(!QFileInfo::exists(p.mediaPool()->item(r.importedIds[0])->path));
             Compositor compositor(Compositor::Options {true});
             AudioMixer mixer;
             exercise(p, compositor, mixer);
@@ -316,7 +316,7 @@ private slots:
         {
             Project p;
             QVERIFY(p.load(projectPath));
-            QCOMPARE(QFileInfo(p.mediaPool()->state().items[0].path).canonicalFilePath(),
+            QCOMPARE(QFileInfo(p.mediaPool()->item(r.importedIds[0])->path).canonicalFilePath(),
                 QFileInfo(dir.filePath(QStringLiteral("p/clip.mp4"))).canonicalFilePath());
         }
         // 3. Moved into a folder chosen by the user: relinkFromFolder() finds it by name.
@@ -331,7 +331,7 @@ private slots:
                 = p.mediaPool()->relinkFromFolder(dir.filePath(QStringLiteral("new")));
             p.endEdit();
             QCOMPARE(relinked, 1);
-            QVERIFY(QFileInfo::exists(p.mediaPool()->state().items[0].path));
+            QVERIFY(QFileInfo::exists(p.mediaPool()->item(r.importedIds[0])->path));
             QVERIFY(p.isDirty());
         }
     }
@@ -480,7 +480,7 @@ private slots:
         Project project;
         const ImportResult r = project.importMedia({path});
         QCOMPARE(r.importedIds.size(), 1);
-        const media::MediaInfo& info = project.mediaPool()->state().items[0].info;
+        const media::MediaInfo& info = project.mediaPool()->item(r.importedIds[0])->info;
         QVERIFY(info.durationUs > 3600LL * 1'000'000);
         project.beginEdit(QStringLiteral("long"));
         TimelineData& tl = project.timeline()->mutableData();
