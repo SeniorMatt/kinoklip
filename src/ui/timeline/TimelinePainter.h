@@ -63,6 +63,14 @@ struct TimelinePaintInput
     int targetVideo = -1;
     int targetAudio = -1;
     bool hasFocus = false;
+    /// Selected edit point (spec 7.6): the clip whose tail and/or the clip whose head is
+    /// selected (both = a roll); 0 = that side not selected.
+    quint64 editTailClip = 0;
+    quint64 editHeadClip = 0;
+    /// Selected gap (spec 10.5): row and frame range; row -1 = none.
+    int gapRow = -1;
+    int64_t gapStart = 0;
+    int64_t gapEnd = 0;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and

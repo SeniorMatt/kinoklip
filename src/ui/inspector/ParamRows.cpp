@@ -17,6 +17,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QSlider>
@@ -145,6 +146,10 @@ public:
             layout->addWidget(m_next);
             grid->addWidget(box, gridRow, paramgrid::kKeyframe);
             connect(m_diamond, &QAbstractButton::clicked, this, [this] { toggleKey(); });
+            // Right-click on a key: interpolation of the segment that starts there (spec 15.6).
+            m_diamond->setContextMenuPolicy(Qt::CustomContextMenu);
+            connect(m_diamond, &QWidget::customContextMenuRequested, this,
+                [this](const QPoint& pos) { showInterpMenu(m_diamond->mapToGlobal(pos)); });
             connect(m_prev, &QAbstractButton::clicked, this, [this] { jump(false); });
             connect(m_next, &QAbstractButton::clicked, this, [this] { jump(true); });
         }
@@ -227,6 +232,37 @@ private:
             = anim && anim->hasKeyAt(frame) ? tr("Remove Keyframe") : tr("Add Keyframe");
         m_host.editClip(label, m_ref.clipId,
             [this, frame](ClipData& c) { paramaccess::toggleKey(c, m_ref, m_desc, frame); });
+    }
+
+    void showInterpMenu(const QPoint& globalPos)
+    {
+        const ClipData* clip = m_host.clip(m_ref.clipId);
+        if (!clip)
+            return;
+        const int64_t frame = m_host.localFrame(m_ref.clipId);
+        const std::optional<Interp> current = paramaccess::keyInterp(*clip, m_ref, frame);
+        if (!current)
+            return; // only a key has an interpolation
+        QMenu menu;
+        const std::pair<Interp, QString> modes[] = {
+            {Interp::Linear, tr("Linear")},
+            {Interp::EaseIn, tr("Ease In")},
+            {Interp::EaseOut, tr("Ease Out")},
+            {Interp::EaseInOut, tr("Ease In and Out")},
+            {Interp::Hold, tr("Hold")},
+        };
+        for (const auto& [mode, text] : modes) {
+            QAction* a = menu.addAction(text);
+            a->setCheckable(true);
+            a->setChecked(mode == *current);
+            const Interp m = mode;
+            connect(a, &QAction::triggered, this, [this, frame, m] {
+                m_host.editClip(tr("Change Keyframe Interpolation"), m_ref.clipId,
+                    [this, frame, m](
+                        ClipData& c) { paramaccess::setKeyInterp(c, m_ref, frame, m); });
+            });
+        }
+        menu.exec(globalPos);
     }
 
     void jump(bool forward)

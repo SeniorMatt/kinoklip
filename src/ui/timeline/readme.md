@@ -49,10 +49,25 @@ cross dissolve 1 s), `timeline.add_video_track/add_audio_track`, `trim.nudge_lef
 Shift+Backspace; with nothing selected it closes the gap under the playhead on the target
 video track), `edit.cut/copy/paste` (paste at the playhead onto the original tracks),
 `edit.select_all/deselect_all`, `edit.insert/overwrite/place_on_top` (F9/F10/F12),
-`clip.toggle_enabled` (D), `clip.link/unlink`, `mark.in/out/clip/clear_in/clear_out/clear_both/
-go_to_in/go_to_out/add_marker`, and the pure navigation actions `transport.prev_edit/next_edit/
-go_to_start/go_to_end` (Up/Down/Home/End). **The playback module must not connect those four
+`clip.toggle_enabled` (D), `clip.link/unlink`, `mark.in/out/clip/selection/clear_in/clear_out/
+clear_both/go_to_in/go_to_out/add_marker`, `edit.paste_insert` (Ctrl+Shift+V),
+`edit.replace/fit_to_fill/append_at_end` (F11 / Shift+F11 / Shift+F12),
+`trim.nudge_left_multi/right_multi` (Shift+, / Shift+.), `trim.trim_start/trim_end`
+(Shift+[ / Shift+]), `trim.extend_edit` (E), and the pure navigation actions
+`transport.prev_edit/next_edit/go_to_start/go_to_end/prev_marker/next_marker`
+(Up/Down/Home/End/Shift+Up/Shift+Down). **The playback module must not connect those
 transport actions a second time** (they would step twice).
+
+Behaviour is specified item by item in `docs/behavior-spec.md`; conventions that differ
+between editors are read from `EditBehaviour` (src/core), never inline constants.
+
+Besides the clip selection (SelectionModel) the controller owns two exclusive selections:
+the **edit point** (`selectedEdit()`: tail and/or head of touching clips; nudging trims or
+rolls it, E extends it, Ctrl+T puts the transition there) and the **gap**
+(`selectedGap()`: Backspace/Delete close it). Selecting clips clears both.
+
+Source edits (`insertSource()`) use three-point editing: the timeline in mark (else the
+playhead) is the destination, in + out set the length, an out mark alone backtimes.
 
 ## Coordinates and time
 
@@ -83,13 +98,15 @@ Idle --press--> [area/tool decides]
   header bottom edge         -> ResizeTrack
   middle button              -> Pan
   blade tool on a clip       -> split clip + linked clips at the pointer (one undo step)
-  select tool:  clip edge    -> Pending(TrimHead/TrimTail, leaves gaps)
-                clip body    -> click selection, Pending(Move)   (Alt held: duplicate)
-                empty        -> Pending(RubberBand)
-  trim tool:    edit point   -> Pending(Roll)
-                clip edge    -> Pending(TrimHead/TrimTail, ripple)
+  select tool:  cut centre   -> select edit (both sides), Pending(Roll)
+                clip edge    -> select edit point, Pending(TrimHead/TrimTail, leaves gaps)
+                clip body    -> click selection, Pending(Move)   (Alt: one side; drag duplicates)
+                empty        -> select gap, Pending(RubberBand)
+  trim tool:    cut centre   -> select edit (both sides), Pending(Roll)   (+-kRollZonePx)
+                clip edge    -> select edit point, Pending(TrimHead/TrimTail, ripple)
+                name band    -> Pending(Slide)                    (Alt held: Slip)
                 clip body    -> Pending(Slip)                     (Alt held: Slide)
-                empty        -> Pending(RubberBand)
+                empty        -> select gap, Pending(RubberBand)
 Pending --moved past threshold--> startDrag(mode): copy origin, beginEdit()
 Drag mode --move--> updateDrag(): restore origin, apply op with the total delta,
                     notifyChanged(); auto-scroll near the left/right edge

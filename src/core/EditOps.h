@@ -39,6 +39,9 @@ struct ClipLocation
 using TrackFilter = std::function<bool(TrackRef ref, const TrackData& track)>;
 /// Filter accepting every track that is not locked (the default for splitAt()).
 [[nodiscard]] TrackFilter unlockedTracks();
+/// Filter accepting the unlocked tracks whose auto track selector is on (TrackData::autoSelect);
+/// used by the playhead-based commands when nothing is selected (docs/behavior-spec.md 6.4).
+[[nodiscard]] TrackFilter autoSelectTracks();
 
 // ---- Placing clips ----
 
@@ -52,7 +55,9 @@ struct PlacedClip
 /// Which tracks an insert ripples (shifts to the right).
 enum class RippleScope {
     TargetTracks, ///< only the tracks receiving clips
-    AllTracks ///< every unlocked track, keeping V/A sync (default)
+    /// the receiving tracks plus every other unlocked track whose auto track selector is on,
+    /// keeping V/A sync (default; a track with TrackData::autoSelect off is left alone)
+    AllTracks
 };
 
 /// Removes everything inside [@p startFrame, @p endFrame) on one track, splitting or trimming
@@ -149,7 +154,8 @@ int64_t slideClip(TimelineData& data, quint64 clipId, int64_t delta);
     const TimelineData& data, TrackRef ref, int64_t frame);
 
 /// Close gap: removes the gap under @p frame on track @p ref by shifting every later clip left.
-/// With RippleScope::AllTracks every other unlocked track is shifted by the same amount, which
+/// With RippleScope::AllTracks every other unlocked auto-select track is shifted by the same
+/// amount, which
 /// is reduced to the room that is free on all of them in the gap range (keeps sync).
 /// Returns the number of frames removed (0 if there is no gap or the track is locked).
 int64_t closeGap(
@@ -222,10 +228,22 @@ void unlinkClips(TimelineData& data, const QVector<quint64>& clipIds);
 /// Candidate closest to @p frame within @p toleranceFrames, if any.
 [[nodiscard]] std::optional<int64_t> snapToNearest(
     const std::vector<int64_t>& candidates, int64_t frame, int64_t toleranceFrames);
-/// First clip start/end strictly after @p frame on any track.
-[[nodiscard]] std::optional<int64_t> nextEditPoint(const TimelineData& data, int64_t frame);
-/// Last clip start/end strictly before @p frame on any track.
-[[nodiscard]] std::optional<int64_t> previousEditPoint(const TimelineData& data, int64_t frame);
+/// First clip start/end strictly after @p frame on the tracks accepted by @p filter (default:
+/// every track).
+[[nodiscard]] std::optional<int64_t> nextEditPoint(
+    const TimelineData& data, int64_t frame, const TrackFilter& filter = {});
+/// Last clip start/end strictly before @p frame on the tracks accepted by @p filter (default:
+/// every track).
+[[nodiscard]] std::optional<int64_t> previousEditPoint(
+    const TimelineData& data, int64_t frame, const TrackFilter& filter = {});
+/// First marker strictly after @p frame (spec 2.9).
+[[nodiscard]] std::optional<int64_t> nextMarker(const TimelineData& data, int64_t frame);
+/// Last marker strictly before @p frame (spec 2.9).
+[[nodiscard]] std::optional<int64_t> previousMarker(const TimelineData& data, int64_t frame);
+/// The clip covering @p frame, searching the video tracks from V1 upwards, then the
+/// audio tracks, restricted to @p filter (default: every track). nullptr if none.
+[[nodiscard]] const ClipData* clipUnderFrame(
+    const TimelineData& data, int64_t frame, const TrackFilter& filter = {});
 
 // ---- Invariants ----
 
