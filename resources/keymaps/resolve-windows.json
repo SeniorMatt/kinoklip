@@ -232,6 +232,16 @@
         "multicam.angle_7": ["7"],
         "multicam.angle_8": ["8"],
         "multicam.angle_9": ["9"],
+        "cut.smart_insert": [],
+        "cut.append": [],
+        "cut.ripple_overwrite": [],
+        "cut.close_up": [],
+        "cut.place_on_top": [],
+        "cut.source_overwrite": [],
+        "cut.fast_review": [],
+        "cut.viewer_source_clip": [],
+        "cut.viewer_source_tape": [],
+        "cut.viewer_timeline": [],
         "help.about": [],
         "help.about_qt": []
     }

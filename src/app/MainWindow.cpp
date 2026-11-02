@@ -7,6 +7,7 @@
 #include "app/InterfaceBar.h"
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
+#include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "app/pages/MediaPage.h"
 #include "core/Preferences.h"
@@ -72,7 +73,7 @@ struct PageSlot
 };
 constexpr PageSlot kPageSlots[] = {
     {"view.page_media", "media"},
-    {"view.page_cut", nullptr},
+    {"view.page_cut", "cut"},
     {"view.page_edit", "edit"},
     {"view.page_compositing", nullptr},
     {"view.page_color", nullptr},
@@ -147,10 +148,13 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     // ---- Pages (extension point: new pages are added here) ----
     m_mediaPage = new MediaPage(ctx);
     m_editPage = new EditPage(ctx);
+    // The Cut page edits with the Edit page's timeline controller (one tool / target state).
+    m_cutPage = new CutPage(ctx, m_editPage->timeline()->controller());
     m_deliverPage = new DeliverPage(ctx);
     // The page bar in Resolve's order; pages not built yet are disabled placeholders.
     const QHash<QString, Page*> built {{QStringLiteral("media"), m_mediaPage},
-        {QStringLiteral("edit"), m_editPage}, {QStringLiteral("deliver"), m_deliverPage}};
+        {QStringLiteral("cut"), m_cutPage}, {QStringLiteral("edit"), m_editPage},
+        {QStringLiteral("deliver"), m_deliverPage}};
     for (const PageSlot& slot : kPageSlots) {
         const QString actionId = QLatin1String(slot.actionId);
         Page* page = slot.pageId ? built.value(QLatin1String(slot.pageId)) : nullptr;
@@ -360,6 +364,8 @@ void MainWindow::connectAppActions()
         m_editPage->mediaPool()->applyPreferences(); // default smart bins on / off
         if (m_mediaPage)
             m_mediaPage->mediaPool()->applyPreferences();
+        if (m_cutPage)
+            m_cutPage->mediaPool()->applyPreferences();
     });
     applyRuntimePreferences(m_ctx.playback); // stored choices from start-up on
 }

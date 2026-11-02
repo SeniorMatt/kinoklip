@@ -7,6 +7,7 @@
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
 #include "render/Compositor.h"
+#include "render/RenderTypes.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragAndDrop.h"
@@ -605,7 +606,9 @@ void ViewerPanel::setSourceMedia(const QString& mediaId)
     const MediaItem* item
         = m_ctx.project && !mediaId.isEmpty() ? m_ctx.project->mediaPool()->item(mediaId) : nullptr;
     m_sourceMediaId = item ? item->id : QString();
-    if (item && item->kind == MediaItemKind::MulticamClip && m_multicamOverlay) {
+    m_customContent = false;
+    if (item && item->kind == MediaItemKind::MulticamClip && m_multicamOverlay
+        && m_multicamAllowed) {
         // A multicam clip opens as its angle grid (it wins over the timeline's clip until
         // the timeline playhead is moved again).
         m_multicamPrefersSource = true;
@@ -631,6 +634,38 @@ void ViewerPanel::setSourceMedia(const QString& mediaId)
     updateTitle();
     updateMarksLabel();
     Q_EMIT sourceMediaChanged(m_sourceMediaId);
+}
+
+void ViewerPanel::setSourceContent(const MediaItem& item, TimelineData content)
+{
+    if (m_mode != Mode::Source || !m_ctx.project)
+        return;
+    m_sourceMediaId.clear();
+    if (content.duration() <= 0) {
+        m_customContent = false;
+        if (m_player)
+            m_player->setMedia(nullptr);
+        clearFrame();
+    } else {
+        m_customContent = true;
+        ensurePlayer();
+        Project* project = m_ctx.project;
+        m_player->setContent(item, std::move(content),
+            makeMediaPathMap(project->mediaPool()->state()),
+            [project](const TimelineData& d) { return project->nestedTimelinesFor(d); });
+        m_surface->setOverlayText(QString());
+    }
+    updateTitle();
+    updateMarksLabel();
+}
+
+void ViewerPanel::setMulticamAllowed(bool allowed)
+{
+    m_multicamAllowed = allowed;
+    if (!allowed && m_multicam)
+        setMulticamMode(false);
+    if (m_modeBox)
+        m_modeBox->setVisible(allowed);
 }
 
 QSize ViewerPanel::pictureSize() const
@@ -823,8 +858,8 @@ bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
 void ViewerPanel::startSourceDrag()
 {
     const std::optional<SourceRange> range = sourceSelection();
-    if (!range) {
-        return;
+    if (!range || m_customContent) {
+        return; // a source tape range is not one media item
     }
     // Payload contract: ui/common/DragMime.h (mime::SourceRange).
     QJsonObject json;
