@@ -119,6 +119,10 @@ public:
     /// Current data of timeline @p uid (the active one included), or nullptr. The pointer is
     /// immutable; it stays valid as long as the caller holds it.
     [[nodiscard]] std::shared_ptr<const TimelineData> timelineData(quint64 uid) const;
+    /// Render snapshot of timeline @p uid (TimelineData::nested filled, like
+    /// Timeline::snapshot() for the active one), or nullptr. Thumbnails, export of other
+    /// timelines.
+    [[nodiscard]] std::shared_ptr<const TimelineData> renderSnapshot(quint64 uid) const;
     /// Uid of the active timeline.
     [[nodiscard]] quint64 activeTimelineUid() const { return m_activeUid; }
     /// Makes timeline @p uid the active one (opens a tab for it). Refused (false) while an
@@ -268,6 +272,7 @@ private:
     void resetTimelines(
         std::vector<TimelineSlot> timelineSlots, quint64 active, QVector<quint64> tabs);
     void installResolver();
+    [[nodiscard]] NestedTimelines nestedFor(const TimelineData& data) const;
     void notifyNestedChanges(const TimelineSet& before);
     void setFilePath(const QString& path);
     void setSettingsDirty(bool dirty);

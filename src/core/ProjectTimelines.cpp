@@ -111,26 +111,44 @@ void Project::replaceTimeline(quint64 uid, std::shared_ptr<const TimelineData> d
         s->data = std::move(data);
 }
 
-void Project::installResolver()
+NestedTimelines Project::nestedFor(const TimelineData& data) const
 {
     // Render snapshots carry every timeline their Nested clips reach. The inactive ones are
     // shared pointers already, so building the map costs one hash insert per timeline.
-    m_timeline->setNestedResolver([this](const TimelineData& data) {
-        NestedTimelines nested;
-        const QVector<quint64> reach
-            = compound::reachableTimelines(data.uid, [this](quint64 uid) { return lookup(uid); });
-        if (reach.isEmpty())
-            return nested;
-        auto map = std::make_shared<NestedTimelineMap>();
-        for (const quint64 uid : reach) {
-            if (uid == m_activeUid)
-                continue; // cannot happen without a cycle; never render the root inside itself
-            if (auto d = timelineData(uid))
-                map->insert(uid, std::move(d));
-        }
-        nested.map = std::move(map);
+    NestedTimelines nested;
+    const QVector<quint64> reach
+        = compound::reachableTimelines(data.uid, [this](quint64 uid) { return lookup(uid); });
+    if (reach.isEmpty())
         return nested;
-    });
+    auto map = std::make_shared<NestedTimelineMap>();
+    for (const quint64 uid : reach) {
+        if (uid == data.uid)
+            continue; // cannot happen without a cycle; never render the root inside itself
+        if (auto d = timelineData(uid))
+            map->insert(uid, std::move(d));
+    }
+    nested.map = std::move(map);
+    return nested;
+}
+
+void Project::installResolver()
+{
+    m_timeline->setNestedResolver([this](const TimelineData& data) { return nestedFor(data); });
+}
+
+std::shared_ptr<const TimelineData> Project::renderSnapshot(quint64 uid) const
+{
+    if (uid == m_activeUid)
+        return m_timeline->snapshot();
+    const auto plain = timelineData(uid);
+    if (!plain)
+        return nullptr;
+    NestedTimelines nested = nestedFor(*plain);
+    if (!nested.map)
+        return plain;
+    auto copy = std::make_shared<TimelineData>(*plain);
+    copy->nested = std::move(nested);
+    return copy;
 }
 
 // ---- Derived data ----
