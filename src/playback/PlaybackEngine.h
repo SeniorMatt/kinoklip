@@ -280,6 +280,7 @@ private:
     void ensureTicking();
     void updateAutoQuality(int64_t nowUs);
     void logStats(int64_t nowUs);
+    void logStatsSummary();
     void setRateInternal(double rate);
     [[nodiscard]] double wrap(double unwrapped) const;
     [[nodiscard]] int64_t clampFrame(int64_t frame) const;
@@ -341,9 +342,14 @@ private:
     QualityMode m_qualityMode = QualityMode::Full;
     AutoQuality m_auto;
     Quality m_lastEmittedQuality = Quality::Full;
-    bool m_logStats = false; ///< KK_PLAYBACK_STATS=1: one line of statistics per second
+    bool m_logStats = false; ///< KK_PLAYBACK_STATS=1: one line per second + one per play
     int64_t m_statsLogUs = 0;
     Stats m_statsAtLog;
+    bool m_playStatsActive = false; ///< a play (from rest) is being summarised
+    Stats m_statsAtPlay; ///< stats() when the current play started
+    double m_playStageSumAtStart[4] = {0, 0, 0, 0};
+    int64_t m_playStageCountAtStart = 0;
+    double m_statsPlayRate = 1.0; ///< rate of the play being summarised (last one if changed)
 
     Stats m_stats;
     double m_stageSum[4] = {0, 0, 0, 0}; ///< decode, upload, composite, output (ms)
