@@ -190,6 +190,7 @@ std::optional<CollapseResult> collapse(TimelineData& parent, const QVector<quint
     nested.uid = nestedUid;
     nested.compound = true;
     nested.useProjectSettings = parent.useProjectSettings;
+    nested.retimeProcess = parent.retimeProcess;
     nested.name = name;
     nested.fps = parent.fps;
     nested.width = parent.width;
@@ -276,7 +277,7 @@ std::optional<QVector<quint64>> decompose(TimelineData& parent, const QVector<qu
             setError(error, tr("The clip is on a locked track."));
             return std::nullopt;
         }
-        if (c.speed != 1.0) {
+        if (retime::isRetimed(c)) {
             setError(error, tr("Reset the speed of the compound clip to 100% first."));
             return std::nullopt;
         }

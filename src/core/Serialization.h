@@ -31,13 +31,18 @@ namespace kk::serialization {
 ///   their "points")}; a point is [x, y, inX, inY, outX, outY] plus 1 when smooth. Files of
 ///   versions 1 - 3 have no masks and load through the older migrations unchanged; older builds
 ///   refuse version 4 instead of silently dropping the masks.
+/// - 5: retiming. A clip's speed moved into a "retime" object {"speed", "curve" (a ParamSet
+///   with the keys::RetimeFrame curve, optional), "process", "pitchCorrection"}; timelines
+///   carry "retimeProcess" (the project default). Older files store a top-level clip
+///   "speed": clipFromJson() reads it as a single constant-speed segment with pitch
+///   correction off (audio of older projects was resampled), which plays exactly as before.
 /// - 7: adjustment clips ("kind": "adjustment"), generator clips ("kind": "generator",
 ///   "generator": descriptor id, parameters in "title"), subtitle tracks ("subtitleTracks":
 ///   tracks with "subtitleStyle" and "language"?, holding "kind": "subtitle" clips whose text
 ///   and style overrides are in "title"), subtitle media pool items ("kind": "subtitle",
-///   "cues": [[startUs, endUs, text], ...]). Versions 5 and 6 are reserved for the retime and
-///   proxy work of other branches. Older files have none of these and load unchanged; older
-///   builds refuse version 7 instead of silently dropping captions and adjustment clips.
+///   "cues": [[startUs, endUs, text], ...]). Version 6 is reserved for the proxy branch. Older
+///   files have none of these and load unchanged; older builds refuse version 7 instead of silently
+///   dropping captions and adjustment clips.
 inline constexpr int kFormatVersion = 7;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.

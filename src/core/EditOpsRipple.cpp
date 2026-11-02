@@ -269,8 +269,16 @@ bool canJoin(const TimelineData& data, quint64 leftClipId, quint64 rightClipId)
     const ClipData& a = track.clips[size_t(left->clipIndex)];
     const ClipData& b = track.clips[size_t(right->clipIndex)];
     if (a.end() != b.start || a.kind != b.kind || a.mediaId != b.mediaId || a.speed != b.speed
-        || a.enabled != b.enabled || a.transitionOut || b.transitionIn || !sameEffectChain(a, b))
+        || a.enabled != b.enabled || a.transitionOut || b.transitionIn || !sameEffectChain(a, b)
+        || a.retimeProcess != b.retimeProcess || a.pitchCorrection != b.pitchCorrection)
         return false;
+    // Retime curves: the right clip's must be the left one's continued (a split shifts it).
+    {
+        ParamSet shifted = a.retime;
+        shifted.shiftKeys(-a.duration);
+        if (shifted != b.retime)
+            return false;
+    }
     switch (a.kind) {
     case ClipKind::Nested:
         if (a.nestedUid != b.nestedUid)
@@ -280,7 +288,9 @@ bool canJoin(const TimelineData& data, quint64 leftClipId, quint64 rightClipId)
         // The right clip must continue the source where the left one ends (half a frame of
         // rounding allowed: source times are microseconds).
         const int64_t expected = a.sourceTimeUsAt(a.end(), data.fps);
-        return std::abs(double(b.sourceInUs - expected)) <= usPerFrame(a, data.fps) / 2.0;
+        const double tolerance = std::max(1.0,
+            retime::frameUs(data.fps) * std::abs(retime::speedAt(a, double(a.duration))) / 2.0);
+        return std::abs(double(b.sourceInUs - expected)) <= tolerance;
     }
     case ClipKind::Title:
     case ClipKind::Subtitle:
@@ -382,7 +392,7 @@ QVector<quint64> rippleOverwriteClips(TimelineData& data, const QVector<PlacedCl
     QVector<TrackRef> targets;
     for (const PlacedClip& p : clips) {
         const TrackData* t = data.track(p.track);
-        if (!t || t->locked || p.clip.duration < 1 || p.clip.speed <= 0)
+        if (!t || t->locked || p.clip.duration < 1 || !std::isfinite(p.clip.speed))
             return {};
         newEnd = std::max(newEnd, rangeStart + p.clip.duration);
         targets.append(p.track);

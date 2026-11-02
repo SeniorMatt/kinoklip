@@ -75,11 +75,16 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
                 m_layout.scrollY()});
         m_ctx.selection->clear();
         m_keyframeLanes->reset();
+        m_controller->clearRetimeControls();
     });
     connect(ctx.project, &Project::activeTimelineChanged, this, [this](quint64 uid) {
         onTimelineChanged();
         restoreViewState(uid);
     });
+    connect(m_controller, &TimelineController::retimeControlsChanged, viewport(),
+        [this] { viewport()->update(); });
+    connect(m_controller, &TimelineController::retimeCurveRequested, this,
+        &TimelineWidget::showRetimeCurve);
     connect(m_controller, &TimelineController::stateChanged, this, [this] {
         updateHover(viewport()->mapFromGlobal(QCursor::pos()));
         viewport()->update();
@@ -198,6 +203,7 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     }
     in.transition = m_ctx.selection->transition().value_or(TransitionRef {0, true});
     in.hasFocus = hasFocus();
+    in.retimeShown = &m_controller->retimeControls();
     m_painter.paint(p, in);
     m_keyframeLanes->paintClipButtons(p);
 }
@@ -441,6 +447,17 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
 {
     if (m_drag.mode != DragMode::None)
         return;
+    // Retime controls: the speed point menu on a point, the speed menu on a segment.
+    quint64 retimeClip = 0;
+    const retimebar::Hit rh = retimeHitAt(event->pos(), &retimeClip);
+    if (rh.kind == retimebar::Hit::Kind::PointTop || rh.kind == retimebar::Hit::Kind::PointBottom) {
+        showSpeedPointMenu(retimeClip, rh.localFrame, event->pos());
+        return;
+    }
+    if (rh.kind == retimebar::Hit::Kind::Segment) {
+        showSpeedMenu(retimeClip, rh.segment, event->pos());
+        return;
+    }
     const TimelineData& data = m_ctx.project->timeline()->data();
     const TimelineHit hit = m_layout.hitTest(data, event->pos());
     ActionRegistry* reg = m_ctx.actions;
@@ -501,6 +518,11 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         addAction("edit.split");
         addAction("clip.toggle_enabled");
         addAction("timeline.add_transition");
+        menu.addSeparator();
+        addAction("clip.change_speed");
+        addAction("clip.retime_controls");
+        addAction("clip.freeze_frame");
+        addAction("clip.retime_curve");
         menu.addSeparator();
         addAction("clip.link");
         addAction("clip.unlink");

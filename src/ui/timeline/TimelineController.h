@@ -4,10 +4,12 @@
 #pragma once
 
 #include "core/EditOps.h"
+#include "core/RetimeOps.h"
 #include "core/SelectionModel.h"
 #include "core/TimelineData.h"
 
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QVector>
 
@@ -296,6 +298,38 @@ public slots:
     /// R: plays the selected clips (with linked parts) at @p speed (1.0 = 100 %); the
     /// duration changes accordingly (limited by the media) and later clips ripple.
     bool setSelectionSpeed(double speed);
+
+    // ---- Retime (TimelineRetime.cpp; spec section 31) ----
+    /// The clips a retime command applies to: the selection with linked parts, else the clips
+    /// under the playhead on the auto-select video tracks (and their links).
+    QVector<quint64> retimeTargets() const;
+    /// R dialog: applies @p change to every retime target (one undo step).
+    bool changeSelectionSpeed(const retimeops::SpeedChange& change);
+    /// Ctrl+R: shows / hides the retime controls (speed bar) of the retime targets.
+    void toggleRetimeControls();
+    /// Clips showing their retime controls.
+    const QSet<quint64>& retimeControls() const { return m_retimeShown; }
+    /// Hides every speed bar (another timeline became active).
+    void clearRetimeControls();
+    /// True if clip @p clipId shows its retime controls.
+    bool retimeControlsShown(quint64 clipId) const;
+    /// Shows / hides the retime controls of @p clipId (and its retime partners).
+    void setRetimeControlsShown(quint64 clipId, bool shown);
+    /// Shift+R: every retime target freezes on the frame under the playhead (one undo step).
+    bool freezeFrame();
+    /// Ctrl+Shift+R: asks the view to open the retime curve of the first retime target.
+    void showRetimeCurve();
+    /// Speed bar commands on clip @p clipId (and its retime partners), one undo step each.
+    bool addSpeedPointAtPlayhead(quint64 clipId);
+    bool removeSpeedPoint(quint64 clipId, int64_t localFrame);
+    bool setSegmentSpeed(quint64 clipId, int segment, double speed);
+    bool reverseSegment(quint64 clipId, int segment);
+    /// Inserts a one-second freeze segment at the playhead.
+    bool freezeSegmentAtPlayhead(quint64 clipId);
+    bool resetClipSpeed(quint64 clipId);
+    bool setSpeedPointRamp(quint64 clipId, int64_t localFrame, Interp ramp);
+    bool setRetimeProcess(quint64 clipId, RetimeProcess process);
+    bool setPitchCorrection(quint64 clipId, bool on);
     void selectAll();
     void deselectAll();
     /// Moves the selected clips, or trims the selected edit point (ripple in the trim tool,
@@ -404,6 +438,11 @@ public:
 signals:
     /// tool(), snapping(), linkedSelection() or the targets changed (repaint).
     void stateChanged();
+    /// Retime controls were shown or hidden on some clips (repaint).
+    void retimeControlsChanged();
+    /// The retime curve of @p clipId should be shown in the curve editor (Ctrl+Shift+R, the
+    /// speed menu's Retime Curve entry).
+    void retimeCurveRequested(quint64 clipId);
 
 private:
     void setPlayheadClamped(int64_t frame);
@@ -449,6 +488,7 @@ private:
     MessageSink m_messageSink;
     std::function<void(quint64)> m_timelineSettingsPrompt;
     std::function<QString()> m_binProvider;
+    QSet<quint64> m_retimeShown; ///< clips showing their speed bar (view state)
     bool m_dynamicTrim = false;
     bool m_dynamicOpen = false; ///< an undoable dynamic-trim run is in progress
     int64_t m_dynamicLast = 0; ///< playhead at the last dynamic-trim step
