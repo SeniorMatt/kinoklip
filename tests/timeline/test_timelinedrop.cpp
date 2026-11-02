@@ -308,6 +308,70 @@ private slots:
         QCOMPARE(v.clipCount(kV1), 0); // ... nothing resolvable: nothing happens
         QCOMPARE(v.f.project.mediaPool()->items().size(), itemsBefore);
     }
+
+    /// A subtitle item from the media pool: one caption per cue on the subtitle tracks
+    /// (overlapping cues on a second, new track), timed from the drop point, never linked;
+    /// no video / audio track appears although it is dropped in the empty space above.
+    void subtitleItemCreatesCaptions()
+    {
+        View v;
+        MediaItem item;
+        item.kind = MediaItemKind::Subtitle;
+        item.path = QStringLiteral("/nonexistent/c.srt");
+        item.cues = {{0, 1'000'000, QStringLiteral("one")},
+            {400'000, 1'200'000, QStringLiteral("overlap")},
+            {2'000'000, 3'000'000, QStringLiteral("two")}};
+        item.info = subtitleInfo(item.path, item.cues);
+        const QString id = v.f.project.mediaPool()->addItem(item);
+        auto mime = std::make_unique<QMimeData>();
+        mime->setData(QLatin1String(mime::MediaItems), id.toUtf8());
+        const int videoTracks = int(v.f.view().videoTracks.size());
+        const Answers a = sendDrag(v.vp(), mime.get(), v.at(20, kV1));
+        QVERIFY(a.move && a.drop);
+        const TimelineData& d = v.f.view();
+        QCOMPARE(int(d.subtitleTracks.size()), 2);
+        QCOMPARE(int(d.videoTracks.size()), videoTracks);
+        QCOMPARE(v.clipCount(kV1), 0);
+        const auto& st1 = d.subtitleTracks[0].clips;
+        QCOMPARE(int(st1.size()), 2);
+        QCOMPARE(st1[0].start, int64_t(20));
+        QCOMPARE(st1[0].duration, int64_t(25));
+        QCOMPARE(st1[1].start, int64_t(70));
+        QCOMPARE(st1[0].linkGroup, quint64(0));
+        QCOMPARE(int(d.subtitleTracks[1].clips.size()), 1);
+        QCOMPARE(d.subtitleTracks[1].clips[0].start, int64_t(30));
+        // One undo step removes everything again.
+        v.f.project.undoStack()->undo();
+        QVERIFY(v.f.view().subtitleTracks.empty());
+    }
+
+    /// Timeline > Add Subtitle: at the playhead on ST1 (created), shortened before the next
+    /// caption, on the next free track when the playhead is inside one; selected.
+    void addSubtitleAtPlayhead()
+    {
+        View v;
+        v.f.project.timeline()->setPlayhead(10);
+        const quint64 first = v.c.addSubtitleAtPlayhead();
+        QVERIFY(first);
+        QCOMPARE(v.f.selection.currentClip(), first);
+        QCOMPARE(int(v.f.view().subtitleTracks.size()), 1);
+        QCOMPARE(v.f.view().subtitleTracks[0].clips[0].duration, int64_t(75)); // 3 s
+        v.f.project.timeline()->setPlayhead(0);
+        const quint64 before = v.c.addSubtitleAtPlayhead();
+        QCOMPARE(ops::clipById(v.f.data(), before)->duration, int64_t(10)); // up to the next
+        v.f.project.timeline()->setPlayhead(20); // inside the first caption
+        const quint64 other = v.c.addSubtitleAtPlayhead();
+        QCOMPARE(ops::findClip(v.f.view(), other)->track.index, 1);
+        // Adjustment clips and generators come from the effects library like titles.
+        v.f.project.timeline()->setPlayhead(200);
+        QVERIFY(v.c.makeGeneratorClip(QStringLiteral("adjustment_clip"), {25, 1}));
+        QCOMPARE(v.c.makeGeneratorClip(QStringLiteral("adjustment_clip"), {25, 1})->kind,
+            ClipKind::Adjustment);
+        const auto noise = v.c.makeGeneratorClip(QStringLiteral("noise"), {25, 1});
+        QVERIFY(noise && noise->kind == ClipKind::Generator);
+        QCOMPARE(noise->generator, QStringLiteral("noise"));
+        QVERIFY(noise->title.values.contains(QStringLiteral("grain")));
+    }
 };
 
 QTEST_MAIN(TestTimelineDrop)

@@ -422,7 +422,7 @@ private slots:
         QCOMPARE(retime::segments(back).size(), 1);
         o[QLatin1String("speed")] = 1.0;
         QVERIFY(serialization::clipFromJson(o).pitchCorrection);
-        QVERIFY(serialization::kFormatVersion >= 5); // 6: proxies branch
+        QVERIFY(serialization::kFormatVersion >= 5); // 5 introduced retiming
     }
 
     void projectDefaultProcessFollowsSettings()

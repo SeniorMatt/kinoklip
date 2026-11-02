@@ -6,6 +6,7 @@
 #include "media/VideoFrame.h"
 #include "render/DecoderPool.h"
 #include "render/GlEffects.h"
+#include "render/GlGenerators.h"
 #include "render/GlKit.h"
 #include "render/GlMasks.h"
 #include "render/GlOutput.h"
@@ -54,6 +55,10 @@ private:
         double sy = 1.0; ///< ... vertically
         const NestedTimelines* nested = nullptr; ///< the root snapshot's nested timelines
         int depth = 0; ///< nesting depth (0 = root)
+        /// While an adjustment clip's track is drawn: the composite of the tracks below it
+        /// (output-sized texture), the source of every adjustment clip. 0 otherwise.
+        GLuint below = 0;
+        bool subtitles = false; ///< draw the subtitle tracks (root timeline only)
     };
     /// A media clip decoded for the current frame. A clip inside a nested timeline can be
     /// shown at several times in one frame (two instances), so (clip, timeUs) is the key.
@@ -118,11 +123,36 @@ private:
 
     void drawTrack(
         const TrackFrame& track, const FrameContext& fc, const RenderTarget& accumulator);
-    void drawClip(const ClipData& clip, const FrameContext& fc, const RenderTarget& target);
+    /// How drawClip() combines the clip with the target.
+    enum class ClipBlend {
+        Over, ///< premultiplied over (every normal clip)
+        /// Adjustment clips, pass 1: target *= 1 - coverage, where coverage is the clip's
+        /// footprint (crop, masks, transform) times its opacity; effects are skipped.
+        Erase,
+        /// Adjustment clips, pass 2: target += processed picture × opacity.
+        Add,
+        /// Adjustment clips covering the whole frame unchanged (hasIdentityFootprint()): the
+        /// processed layer overwrites the target (blending off).
+        Replace
+    };
+    void drawClip(const ClipData& clip, const FrameContext& fc, const RenderTarget& target,
+        ClipBlend blend = ClipBlend::Over);
+    /// Sets the GL blend function for @p blend (blending enabled).
+    void applyBlend(ClipBlend blend);
+    /// True if adjustment clip @p clip has an effect that changes the picture at @p local.
+    [[nodiscard]] bool hasActiveEffect(const ClipData& clip, int64_t local) const;
+    /// Draws the track frame @p tf showing an adjustment clip over @p accumulator (which holds
+    /// the tracks below); may replace @p accumulator.
+    void drawAdjustment(const TrackFrame& tf, const FrameContext& fc, PooledTarget& accumulator);
     bool resolveSource(const ClipData& clip, int64_t localFrame, const FrameContext& fc,
         double maxZoomValue, ClipSource& out);
     void drawSource(
         const ClipSource& src, const QTransform& quadToNdc, const QRectF& crop, float opacity);
+    /// Renders generator clip @p clip into a per-frame target (cached for the frame).
+    const RenderTarget* generatorTarget(
+        const ClipData& clip, int64_t localFrame, const FrameContext& fc, double zoom);
+    /// Draws the caption of every enabled subtitle track at fc.frame over @p target.
+    void drawSubtitles(const FrameContext& fc, const RenderTarget& target);
     /// Frame blend / optical flow of a decoded clip with a frameB: converts both frames to RGB
     /// at display orientation (at most @p maxSize) and returns the in-between picture's
     /// texture, kept alive until the end of the frame. 0 on failure.
@@ -137,6 +167,7 @@ private:
     std::unique_ptr<GlOutput> m_output;
     GlVideo m_video;
     GlMasks m_masks; ///< clip mask pass (applied on the layer path)
+    GlGenerators m_generators; ///< generator patterns
     GlRetime m_retime;
     bool m_retimeOk = false; ///< retime shaders built (else every clip uses Nearest)
     std::vector<PooledTarget> m_retimeTargets; ///< per-frame in-between pictures
@@ -155,6 +186,7 @@ private:
     /// composited while its parent's list is still in use).
     std::vector<std::vector<TrackFrame>> m_trackFrames;
     std::vector<NestedComposite> m_nested; ///< per-frame nested composites (capacity reused)
+    std::vector<PooledTarget> m_generated; ///< per-frame generator pictures (capacity reused)
     std::vector<GlEffect*> m_activeEffects; ///< per-clip scratch
     std::vector<const EffectInstance*> m_activeInstances; ///< parallel to m_activeEffects
 

@@ -433,6 +433,11 @@ public slots:
     void sourceEdit(SourceEditMode mode); ///< uses the source provider
     void addTrack(TrackType type, int index = -1);
     void removeTrack(TrackRef ref);
+    /// Timeline > Add Subtitle: a caption ("Subtitle", 3 s long or up to the next
+    /// caption) at the playhead on the current / first free subtitle track (one is added when
+    /// needed); it becomes the selection so the inspector can edit its text. One undo step.
+    /// Returns the new clip id (0 = nothing added).
+    quint64 addSubtitleAtPlayhead();
     void renameTrack(TrackRef ref, const QString& name);
     /// Toggles a header flag (HeaderButton::Lock/Visible/Mute/Solo given as TrackFlag).
     void toggleTrackFlag(TrackRef ref, int flag);

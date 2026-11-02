@@ -5,6 +5,7 @@
 #pragma once
 
 #include "export/ExportFormats.h"
+#include "export/SubtitleExport.h"
 
 #include <QJsonObject>
 #include <QSize>
@@ -92,6 +93,7 @@ struct ExportSettings
     bool videoEnabled = true; ///< ignored by audio-only containers
     VideoExportSettings video;
     AudioExportSettings audio;
+    SubtitleExportSettings subtitles; ///< Deliver > File: Export Subtitle
     RangeMode range = RangeMode::Entire;
     int64_t rangeIn = 0; ///< RangeMode::Custom: first frame
     int64_t rangeOut = 0; ///< RangeMode::Custom: exclusive end frame
@@ -107,6 +109,11 @@ struct ExportSettings
     [[nodiscard]] bool hasVideo() const;
     /// True if an audio stream is produced.
     [[nodiscard]] bool hasAudio() const;
+    /// True if captions are drawn into the picture (subtitle export on, mode BurnIn).
+    [[nodiscard]] bool burnsInSubtitles() const;
+    /// Embedded subtitle codec this job uses ("" = no embedded stream: export off, another
+    /// mode, or a container without subtitle streams).
+    [[nodiscard]] QString embeddedSubtitleCodec() const;
     /// True if the output keeps transparency (alpha requested and supported by codec/profile).
     [[nodiscard]] bool keepsAlpha() const;
 

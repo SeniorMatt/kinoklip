@@ -7,7 +7,9 @@
 // masks are applied as hard-edged clip paths (maskMatte()).
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
+#include "render/CaptionRenderer.h"
 #include "render/DecoderPool.h"
+#include "render/Generators.h"
 #include "render/RenderBackend.h"
 #include "render/RenderLog.h"
 #include "render/TimelineEval.h"
@@ -56,6 +58,8 @@ public:
         m_depth = 0;
         m_decoders.beginFrame();
         QImage image = renderTimeline(tl, rq.frame, out);
+        if (rq.subtitles && !tl.subtitleTracks.empty())
+            drawSubtitles(image, tl, rq.frame);
         m_decoders.collectIdle();
         frame->size = out;
         frame->ok = true;
@@ -84,18 +88,35 @@ private:
             double(out.width()) / tl.width, double(out.height()) / tl.height);
         QImage image(out, QImage::Format_ARGB32_Premultiplied);
         image.fill(Qt::transparent);
+        const QImage savedBelow = m_below;
         {
             QPainter painter(&image);
             for (const TrackData& track : tl.videoTracks) {
                 if (!track.enabled)
                     continue;
                 const TrackFrame tf = evaluateTrack(track, frame);
-                if (tf.single)
+                if (tf.isEmpty())
+                    continue;
+                if (tf.single && tf.single->kind == ClipKind::Adjustment
+                    && hasIdentityFootprint(*tf.single, tf.single->localFrame(frame)))
+                    continue; // effects are skipped here, so it would change nothing
+                if (showsAdjustment(tf)) {
+                    // The tracks below become the adjustment clip's picture (see GlRenderer).
+                    painter.end();
+                    m_below = image.copy();
+                    painter.begin(&image);
+                }
+                if (tf.single && tf.single->kind == ClipKind::Adjustment) {
+                    // Replace the footprint with the processed picture (see GlRenderer).
+                    drawClip(painter, *tf.single, 1.0, Blend::Erase);
+                    drawClip(painter, *tf.single, 1.0, Blend::Add);
+                } else if (tf.single)
                     drawClip(painter, *tf.single, 1.0);
                 else if (tf.transition)
                     drawTransition(painter, *tf.transition);
             }
         }
+        m_below = savedBelow;
         m_timeline = savedTimeline;
         m_frame = savedFrame;
         m_out = savedOut;
@@ -134,7 +155,15 @@ private:
         painter.drawImage(0, 0, layer);
     }
 
-    void drawClip(QPainter& painter, const ClipData& clip, double weight)
+    /// Over: normal clips. Erase / Add: the two passes of an adjustment clip (footprint ×
+    /// opacity removed from the target, then the processed picture added).
+    enum class Blend {
+        Over,
+        Erase,
+        Add
+    };
+
+    void drawClip(QPainter& painter, const ClipData& clip, double weight, Blend blend = Blend::Over)
     {
         if (!clip.enabled)
             return;
@@ -229,6 +258,24 @@ private:
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
             break;
         }
+        case ClipKind::Adjustment:
+            if (m_below.isNull())
+                return;
+            picture = m_below;
+            pictureRect = QRectF(
+                -content.width() / 2, -content.height() / 2, content.width(), content.height());
+            break;
+        case ClipKind::Generator: {
+            const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
+            const QSize canvas = (frameSize * outScale * zoom).toSize().expandedTo(QSize(1, 1));
+            picture = renderGeneratorImage(
+                resolveGenerator(clip, local, m_frame, m_timeline->fps), canvas, frameSize);
+            pictureRect = QRectF(
+                -content.width() / 2, -content.height() / 2, content.width(), content.height());
+            break;
+        }
+        case ClipKind::Subtitle:
+            return; // drawn over the picture by drawSubtitles()
         case ClipKind::Solid:
             solid = clip.solidColor.isValid() ? clip.solidColor : QColor(0x30, 0x30, 0x34);
             pictureRect = QRectF(
@@ -237,6 +284,10 @@ private:
         }
         if (picture.isNull() && !solid.isValid())
             return;
+        if (blend == Blend::Erase) {
+            solid = QColor(Qt::white);
+            picture = QImage();
+        }
 
         // Crop in source pixels → content coordinates.
         const ParamSet& p = clip.transform;
@@ -254,6 +305,10 @@ private:
         painter.setRenderHint(QPainter::Antialiasing);
         painter.setTransform(toOutput);
         painter.setOpacity(opacity);
+        if (blend == Blend::Erase)
+            painter.setCompositionMode(QPainter::CompositionMode_DestinationOut);
+        else if (blend == Blend::Add)
+            painter.setCompositionMode(QPainter::CompositionMode_Plus);
         painter.setClipRect(cropRect);
         if (const auto matte = maskMatte(clip, local, content)) {
             if (matte->isEmpty()) {
@@ -267,6 +322,39 @@ private:
         else
             painter.drawImage(pictureRect, picture);
         painter.restore();
+    }
+
+    static bool showsAdjustment(const TrackFrame& tf)
+    {
+        auto adjustment
+            = [](const ClipData* c) { return c && c->enabled && c->kind == ClipKind::Adjustment; };
+        if (tf.single)
+            return adjustment(tf.single);
+        return tf.transition
+            && (adjustment(tf.transition->outgoing) || adjustment(tf.transition->incoming));
+    }
+
+    /// Captions of the enabled subtitle tracks over @p image (same layout as the GPU path).
+    static void drawSubtitles(QImage& image, const TimelineData& tl, int64_t frame)
+    {
+        QPainter painter(&image);
+        const double scale = double(image.height()) / tl.height;
+        for (const TrackData& track : tl.subtitleTracks) {
+            if (!track.enabled)
+                continue;
+            const ClipData* caption = captionAt(track, frame);
+            if (!caption)
+                continue;
+            CaptionPlacement placement;
+            const TitleStyle style = resolveCaptionStyle(
+                *caption, &track, caption->localFrame(frame), image.size(), scale, &placement);
+            const TitleImage text = renderTitle(style);
+            if (text.image.isNull())
+                continue;
+            painter.drawImage(text.rect.translated(
+                                  captionOffset(text.rect, image.size(), style.align, placement)),
+                text.image);
+        }
     }
 
     /// Hard-edged approximation of the GPU mask matte as a clip path in content coordinates
@@ -313,6 +401,7 @@ private:
 
     DecoderPool m_decoders;
     QSet<QString> m_warned;
+    QImage m_below; ///< composite below the adjustment track being drawn (output size)
     const TimelineData* m_timeline = nullptr;
     const MediaPathMap* m_media = nullptr;
     const ProxyMap* m_proxies = nullptr;

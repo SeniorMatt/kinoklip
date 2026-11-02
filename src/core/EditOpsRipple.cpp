@@ -88,15 +88,16 @@ int rippleDeleteClips(TimelineData& data, const QVector<quint64>& clipIds, Rippl
     const QSet<quint64> ids(clipIds.cbegin(), clipIds.cend());
     // Time ranges removed on unlocked tracks, and which tracks lose clips.
     std::vector<Range> removedRanges;
-    std::vector<char> hasDeletion[2] = {std::vector<char>(data.videoTracks.size(), 0),
-        std::vector<char>(data.audioTracks.size(), 0)};
+    std::vector<char> hasDeletion[kTrackTypeCount] = {std::vector<char>(data.videoTracks.size(), 0),
+        std::vector<char>(data.audioTracks.size(), 0),
+        std::vector<char>(data.subtitleTracks.size(), 0)};
     forEachTrack(std::as_const(data), [&](TrackRef ref, const TrackData& track) {
         if (track.locked)
             return;
         for (const ClipData& c : track.clips) {
             if (ids.contains(c.id)) {
                 removedRanges.emplace_back(c.start, c.end());
-                hasDeletion[ref.type == TrackType::Video ? 0 : 1][size_t(ref.index)] = 1;
+                hasDeletion[trackTypeIndex(ref.type)][size_t(ref.index)] = 1;
             }
         }
     });
@@ -108,7 +109,7 @@ int rippleDeleteClips(TimelineData& data, const QVector<quint64>& clipIds, Rippl
     forEachTrack(data, [&](TrackRef ref, TrackData& track) {
         if (track.locked)
             return;
-        if (hasDeletion[ref.type == TrackType::Video ? 0 : 1][size_t(ref.index)]) {
+        if (hasDeletion[trackTypeIndex(ref.type)][size_t(ref.index)]) {
             // Clips are sorted and disjoint, so every later clip moves left by the total
             // duration of the removed clips before it.
             std::vector<ClipData> kept;
@@ -292,7 +293,12 @@ bool canJoin(const TimelineData& data, quint64 leftClipId, quint64 rightClipId)
         return std::abs(double(b.sourceInUs - expected)) <= tolerance;
     }
     case ClipKind::Title:
+    case ClipKind::Subtitle:
         return a.title.statics == b.title.statics;
+    case ClipKind::Generator:
+        return a.generator == b.generator && a.title == b.title;
+    case ClipKind::Adjustment:
+        return a.effects.size() == b.effects.size();
     case ClipKind::Solid:
         return a.solidColor == b.solidColor;
     }

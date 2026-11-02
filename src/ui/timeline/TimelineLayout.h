@@ -23,6 +23,7 @@ inline constexpr int kRulerHeight = 30; ///< time ruler at the top of the view
 inline constexpr int kHeaderWidth = 196; ///< track header column on the left
 inline constexpr int kDefaultVideoHeight = 66; ///< TrackData::height == 0 for video
 inline constexpr int kDefaultAudioHeight = 50; ///< TrackData::height == 0 for audio
+inline constexpr int kDefaultSubtitleHeight = 40; ///< TrackData::height == 0 for subtitles
 inline constexpr int kMinTrackHeight = 26;
 inline constexpr int kMaxTrackHeight = 240;
 inline constexpr int kSectionGap = 6; ///< divider between the video and the audio tracks

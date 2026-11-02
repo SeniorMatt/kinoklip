@@ -154,6 +154,12 @@ private:
     QLineEdit* m_subfolder = nullptr;
     QCheckBox* m_uniqueNames = nullptr;
     QLabel* m_resultPath = nullptr;
+    // File > Subtitle settings
+    QFormLayout* m_fileForm = nullptr;
+    QCheckBox* m_subtitleExport = nullptr; ///< "Export subtitle"
+    QComboBox* m_subtitleMode = nullptr; ///< burn in / separate file / embedded
+    QComboBox* m_subtitleFormat = nullptr; ///< separate file: SRT / WebVTT
+    QComboBox* m_subtitleCodec = nullptr; ///< embedded: the container's subtitle codecs
     // Range
     QComboBox* m_range = nullptr;
     QPushButton* m_addButton = nullptr;

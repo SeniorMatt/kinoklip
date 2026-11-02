@@ -473,6 +473,27 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             std::fprintf(stderr, "%s\n", qPrintable(error));
             return 2;
         }
+    } else if (base == QLatin1String("subtitles")) {
+        // The caption of ST1 under the playhead (or its first caption) selected, the Inspector
+        // on its Captions tab. "subtitles:inspector" saves only the Inspector.
+        const TimelineData& data = ctx.project->timeline()->data();
+        if (data.subtitleTracks.empty() || data.subtitleTracks.front().clips.empty()) {
+            std::fprintf(stderr, "subtitles: needs a project with captions on ST1\n");
+            return 2;
+        }
+        const TrackData& st = data.subtitleTracks.front();
+        const int64_t playhead = ctx.project->timeline()->playhead();
+        const ClipData* caption = st.clipAt(playhead);
+        if (!caption) {
+            caption = &st.clips.front();
+            ctx.project->timeline()->setPlayhead(caption->start);
+        }
+        ctx.selection->selectClip(caption->id);
+        auto* inspector = window.findChild<InspectorPanel*>();
+        if (inspector)
+            inspector->tabs()->setCurrentIndex(InspectorPanel::TitleTab);
+        if (section == QLatin1String("inspector"))
+            panel = inspector;
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
     } else if (target == QLatin1String("effects")) {
@@ -485,7 +506,8 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         std::fprintf(stderr,
             "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
             "project-settings[:section], keyboard, inspector, keyframes[:curves|narrow], "
-            "keyframes-window, masks[:inspector|viewer], multicam[:viewer|timeline], "
+            "keyframes-window, masks[:inspector|viewer], subtitles[:inspector], "
+            "multicam[:viewer|timeline], "
             "keyframes-panel[:dope|curves|absolute|float], "
             "mediapool, "
             "effects, import-dialog, menu-color-theme "

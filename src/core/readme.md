@@ -24,6 +24,8 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `RetimeOps.h` | speed edits on a clip and its linked partners with ripple: speed points, segment speed, reverse / freeze segments, freeze frame, reset, retime / slide handles, ramps, Change Clip Speed (namespace `kk::retimeops`) |
 | `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive) |
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
+| `Generators.h` | ids and parameter keys of the built-in generators and the adjustment clip |
+| `Subtitles.h` | `SubtitleCue`, SRT / WebVTT parse and write, caption style keys + defaults (caption → track → default chain), cue ↔ caption conversion (lanes for overlapping cues) |
 | `BuiltinEffects.cpp` | the v0.1 descriptor catalogue |
 | `Serialization.h` | JSON encode/decode of all value types |
 | `Preferences.h` | QSettings preference keys + typed accessors (`playback/hwaccel`, autosave, theme) |
@@ -160,14 +162,30 @@ skips them in vertical curve drags). All shapes of a path have the same point co
 (`insertPathPoint()` / `removePathPoint()` edit every key). Mask ids share the timeline id space;
 split and paste give copies fresh ids.
 
+## Adjustment clips, generators, subtitles (v2)
+- `ClipKind::Adjustment`: no source; its effects / transform / masks process the tracks below
+  (src/render/readme.md). `ClipKind::Generator`: `ClipData::generator` = descriptor id, its
+  parameters in `ClipData::title` (so KeyframeOps paths are `title/<key>`).
+- `TrackType::Subtitle` / `TimelineData::subtitleTracks` (drawn above V tracks, ST1 = index 0)
+  hold only `ClipKind::Subtitle` clips (an invariant). A caption's text is `keys::Text` in
+  `ClipData::title`; `TrackData::subtitleStyle` is the track's default style; with
+  `subtitles::OwnStyle` on, the caption's own style keys override it. `editops::addTrack()`
+  gives a new subtitle track the default style. Per-type arrays are indexed with
+  `trackTypeIndex()` (`kTrackTypeCount` = 3); `detail::kTrackTypes` lists all three, so ripple,
+  split, gap and invariant code covers subtitle tracks. Compound clips keep captions in the
+  parent.
+- `MediaItemKind::Subtitle`: an imported .srt / .vtt, with its parsed `cues` stored in the
+  project (`MediaPool::importFiles()` parses instead of probing).
+
 ## Invariants (checked by `editops::checkInvariants`)
-Clips on a track are sorted by start and never overlap; `duration >= 1`, `start >= 0`,
+Clips on a track are sorted by start and never overlap; subtitle tracks hold Subtitle clips
+and only they do; `duration >= 1`, `start >= 0`,
 `speed > 0`, `sourceInUs >= 0`; every clip/track/effect/mask id is non-zero, unique and `< nextId`;
 locked tracks are never changed by EditOps. Ids come from `TimelineData::allocateId()`.
 
 ## Project file format (`.kkproj`, JSON)
 ```json
-{ "formatVersion": 4, "generator": "Kinoklip 0.1.0",
+{ "formatVersion": 7, "generator": "Kinoklip 0.1.0",
   "project":   { "name": "My Film", "width", "height", "fps": {"num","den"} },
   "mediaPool": { "bins": [...], "items": [{ "id", "path", "relativePath", "name", "binId", "info": {...} },
                                           { "id", "kind": "timeline" | "compound", "timelineUid", "name", "binId", "info" }] },
@@ -188,10 +206,12 @@ or `{"mode": "free", "dt", "dv"}`) and `"hold": true`. Format version 1 stored o
 per key (curve of the segment starting there); `paramSetFromJson()` recognises it and converts
 it with `migrateLegacyInterp()` (ease in and out is reproduced exactly).
 Format version 4 adds clip `"masks"` (see `Serialization.h` for the fields); files of versions
-1 - 3 have none and load unchanged.
+1 - 3 have none and load unchanged. Format version 7 adds `"kind": "adjustment" | "generator" |
+"subtitle"` clips (`"generator"` id), `"subtitleTracks"` (with `"subtitleStyle"`, `"language"`)
+and subtitle media items (`"kind": "subtitle"`, `"cues": [[startUs, endUs, text]]`); versions
+5 and 6 belong to the retime / proxy branches; all older files load unchanged.
 Format version 8 adds multicam: timeline `"multicam": true`, clip `"multicamAngle"`, media
-pool item `"kind": "multicam"`, media info `"timecode"` (all optional; 6 and 7 are reserved for
-the proxies / adjustment-clip branches).
+pool item `"kind": "multicam"`, media info `"timecode"` (all optional).
 Media paths are stored absolute and relative to the project file; the relative one is used when
 the absolute path no longer exists.
 
