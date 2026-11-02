@@ -1,0 +1,382 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Behaviour parity tests, part 2 (resolveedit branch): ripple cut / ripple delete on clips,
+// gaps and in-out ranges, ripple overwrite, selection commands, join, swap, match frame,
+// track targeting keys, clip duration / speed. Test names start with the item number of
+// docs/behavior-spec.md.
+#include "ParityTestUtils.h"
+#include "TimelineTestUtils.h"
+
+#include <QAction>
+#include <QTest>
+#include <QUndoStack>
+
+using namespace kk;
+using namespace kk::test;
+using namespace kk::test::parity;
+
+namespace {
+constexpr TrackRef kA2 {TrackType::Audio, 1};
+} // namespace
+
+class TestParityEdit : public QObject
+{
+    Q_OBJECT
+private slots:
+    void initTestCase() { initTimelineTestCase("test_parity_edit"); }
+    void init() { QSettings().clear(); }
+
+    // ---- 10 Delete, ripple delete, ripple cut ----
+
+    void spec10_2_rippleDeleteClipRipplesAutoSelectTracks()
+    {
+        Ctl t;
+        const quint64 v = t.put(kV1, solidClip(10, 10));
+        const quint64 a = t.put(kA1, solidClip(10, 10));
+        t.link({v, a});
+        t.put(kV1, solidClip(20, 10));
+        t.put(kA1, solidClip(20, 10));
+        t.put(kV2, solidClip(40, 5)); // title later on V2: follows (spec 10.4)
+        t.f.selection.setClips({v});
+        const int before = t.undoCount();
+        t.action("edit.ripple_delete")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("10:10")); // linked part went too
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("30:5"));
+        QCOMPARE(t.undoCount(), before + 1); // one undo step
+        QVERIFY(t.f.selection.clips().isEmpty());
+        t.f.project.undoStack()->undo();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:10 20:10"));
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("40:5"));
+    }
+
+    void spec10_3_rippleDeleteLinkedSelectionOffAndLockedTracks()
+    {
+        Ctl t;
+        const quint64 v = t.put(kV1, solidClip(0, 10));
+        const quint64 a = t.put(kA1, solidClip(0, 10));
+        t.link({v, a});
+        t.put(kV1, solidClip(10, 10));
+        t.put(kA1, solidClip(10, 10));
+        t.put(kA2, solidClip(30, 10));
+        t.f.project.beginEdit(QStringLiteral("lock"));
+        t.f.data().audioTracks[1].locked = true;
+        t.f.project.endEdit();
+        t.c.setLinkedSelection(false);
+        t.f.selection.setClips({v});
+        t.action("edit.ripple_delete")->trigger();
+        // Only the video part; A1 has a clip in the range, so it keeps its place; A2 is locked.
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(t.f.view(), kA2), QStringLiteral("30:10"));
+    }
+
+    void spec10_5_rippleDeleteGapStillWorks()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 10));
+        t.put(kV1, solidClip(20, 10));
+        QVERIFY(t.c.selectGapAt(kV1, 15));
+        t.action("edit.ripple_delete")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));
+    }
+
+    void spec10_7_backspaceLiftsMarkedRange()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 40));
+        t.put(kA1, solidClip(0, 40));
+        t.put(kV2, solidClip(0, 40));
+        t.f.project.beginEdit(QStringLiteral("auto select off"));
+        t.f.data().videoTracks[1].autoSelect = false;
+        t.f.project.endEdit();
+        t.setMarks(10, 20);
+        t.action("edit.delete")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 20:20"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("0:10 20:20"));
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("0:40")); // auto select off
+        QCOMPARE(t.f.view().markIn, int64_t(10)); // lift keeps the marks
+    }
+
+    void spec10_8_deleteExtractsMarkedRange()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 40));
+        t.put(kA1, solidClip(30, 10));
+        t.setMarks(10, 20);
+        t.tl()->setPlayhead(35);
+        const int before = t.undoCount();
+        t.action("edit.ripple_delete")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:20"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("20:10"));
+        QCOMPARE(t.f.view().markIn, int64_t(-1));
+        QCOMPARE(t.tl()->playhead(), int64_t(10));
+        QCOMPARE(t.undoCount(), before + 1);
+        // A selection wins over the marks.
+        t.setMarks(0, 5);
+        const quint64 last = t.f.view().videoTracks[0].clips.back().id;
+        t.f.selection.setClips({last});
+        t.action("edit.ripple_delete")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10"));
+    }
+
+    void spec10_9_rippleCutClipsAndPasteBack()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 10, QStringLiteral("a")));
+        const quint64 b = t.put(kV1, solidClip(10, 10, QStringLiteral("b")));
+        t.put(kV1, solidClip(20, 10, QStringLiteral("c")));
+        t.f.selection.setClips({b});
+        QCOMPARE(
+            t.action("edit.ripple_cut")->shortcut(), QKeySequence(QStringLiteral("Ctrl+Shift+X")));
+        const int before = t.undoCount();
+        t.action("edit.ripple_cut")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(t.undoCount(), before + 1);
+        QCOMPARE(t.c.clipboard().clips.size(), 1);
+        // Paste insert at the cut puts it back where it was.
+        t.tl()->setPlayhead(10);
+        t.action("edit.paste_insert")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10 20:10"));
+        QCOMPARE(t.f.view().videoTracks[0].clips[1].name, QStringLiteral("b"));
+    }
+
+    void spec10_9_rippleCutMarkedRange()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 40));
+        t.setMarks(10, 20);
+        t.action("edit.ripple_cut")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:20"));
+        QCOMPARE(t.c.clipboard().duration, int64_t(10));
+        QCOMPARE(t.tl()->playhead(), int64_t(10));
+        // Nothing selected, no marks: nothing happens and no undo step.
+        const int before = t.undoCount();
+        t.action("edit.ripple_cut")->trigger();
+        QCOMPARE(t.undoCount(), before);
+    }
+
+    void spec10_10_deleteGaps()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(5, 10));
+        t.put(kV1, solidClip(30, 10));
+        t.put(kA1, solidClip(32, 4));
+        t.action("edit.delete_gaps")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("12:4")); // stays in sync with V1
+    }
+
+    void spec16_5_copyAndCutMarkedRange()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 40));
+        t.setMarks(10, 20);
+        t.action("edit.copy")->trigger();
+        QCOMPARE(t.c.clipboard().duration, int64_t(10));
+        t.action("edit.cut")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 20:20"));
+    }
+
+    // ---- 4 Source edits ----
+
+    void spec4_11_rippleOverwriteReplacesClipAtItsOwnLength()
+    {
+        Ctl t;
+        const QString media = addMedia(t.f.project, true, false);
+        t.put(kV1, solidClip(0, 10));
+        t.put(kV1, solidClip(10, 20));
+        t.put(kV1, solidClip(30, 10));
+        t.tl()->setPlayhead(15);
+        // Source: 1 s (25 frames) replaces the 20-frame clip, the rest moves 5 frames later.
+        const QVector<quint64> ids
+            = t.c.insertSource(media, 0, 1'000'000, SourceEditMode::RippleOverwrite);
+        QCOMPARE(ids.size(), 1);
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:25 35:10"));
+        QCOMPARE(t.tl()->playhead(), int64_t(35));
+        // With in/out marks the marked range is replaced.
+        t.setMarks(0, 10);
+        t.c.insertSource(media, 0, 200'000, SourceEditMode::RippleOverwrite); // 5 frames
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:5 5:25 30:10"));
+    }
+
+    // ---- 7 Selection ----
+
+    void spec7_11_selectClipsForwardAndBackward()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, solidClip(0, 10));
+        const quint64 b = t.put(kV1, solidClip(20, 10));
+        const quint64 c = t.put(kA1, solidClip(25, 10));
+        const quint64 v2 = t.put(kV2, solidClip(30, 5));
+        t.f.project.beginEdit(QStringLiteral("auto select off"));
+        t.f.data().videoTracks[1].autoSelect = false;
+        t.f.project.endEdit();
+        t.tl()->setPlayhead(15);
+        t.action("edit.select_forward")->trigger();
+        QCOMPARE(t.f.selection.clips(), (QVector<quint64> {b, c}));
+        t.action("edit.select_forward_all")->trigger();
+        QCOMPARE(t.f.selection.clips(), (QVector<quint64> {b, v2, c}));
+        t.action("edit.select_backward")->trigger();
+        QCOMPARE(t.f.selection.clips(), (QVector<quint64> {a}));
+    }
+
+    void spec7_12_selectNearestEditPoint()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, solidClip(0, 10));
+        const quint64 b = t.put(kV1, solidClip(10, 10));
+        t.tl()->setPlayhead(12);
+        t.action("trim.select_nearest_edit")->trigger(); // V
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {a, b})); // a cut: roll
+        t.tl()->setPlayhead(19);
+        t.action("trim.select_nearest_edit")->trigger();
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {b, 0})); // free tail
+    }
+
+    void spec7_13_selectNearestClipOrGap()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, solidClip(0, 10));
+        t.put(kV1, solidClip(20, 10));
+        t.tl()->setPlayhead(5);
+        t.action("trim.select_nearest_clip")->trigger(); // Shift+V
+        QCOMPARE(t.f.selection.clips(), (QVector<quint64> {a}));
+        t.tl()->setPlayhead(15);
+        t.action("trim.select_nearest_clip")->trigger();
+        QVERIFY(t.c.selectedGap().has_value());
+        QCOMPARE(t.c.selectedGap()->start, int64_t(10));
+        QVERIFY(t.f.selection.clips().isEmpty());
+    }
+
+    // ---- 9 Blade / join ----
+
+    void spec9_6_joinThroughEdit()
+    {
+        Ctl t;
+        const quint64 v = t.put(kV1, mediaClip(0, 40));
+        const quint64 a = t.put(kA1, mediaClip(0, 40));
+        t.link({v, a});
+        t.tl()->setPlayhead(20);
+        t.action("edit.split")->trigger(); // Ctrl+\ on the auto-select tracks
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:20 20:20"));
+        const quint64 right = t.f.view().videoTracks[0].clips[1].id;
+        t.c.setSelectedEdit({v, right});
+        const int before = t.undoCount();
+        t.action("edit.join")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:40"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("0:40")); // the linked audio too
+        QCOMPARE(t.undoCount(), before + 1);
+    }
+
+    // ---- 18 Markers ----
+
+    void spec18_6_deleteMarkerAtPlayhead()
+    {
+        Ctl t;
+        t.tl()->setPlayhead(7);
+        t.action("mark.add_marker")->trigger();
+        QCOMPARE(t.f.view().markers.size(), 1);
+        t.action("mark.delete_marker")->trigger(); // Alt+M
+        QCOMPARE(t.f.view().markers.size(), 0);
+    }
+
+    // ---- 21 Moving clips ----
+
+    void spec21_7_swapKeysExchangeNeighbours()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, solidClip(0, 10, QStringLiteral("a")));
+        const quint64 aa = t.put(kA1, solidClip(0, 10, QStringLiteral("a")));
+        t.link({a, aa});
+        const quint64 b = t.put(kV1, solidClip(10, 20, QStringLiteral("b")));
+        const quint64 ba = t.put(kA1, solidClip(10, 20, QStringLiteral("b")));
+        t.link({b, ba});
+        t.f.selection.setClips({a});
+        t.action("trim.swap_right")->trigger(); // Ctrl+Shift+.
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:20 20:10"));
+        QCOMPARE(t.f.view().videoTracks[0].clips[0].id, b);
+        QCOMPARE(t.f.view().audioTracks[0].clips[0].id, ba); // linked parts swapped along
+        t.action("trim.swap_left")->trigger();
+        QCOMPARE(t.f.view().videoTracks[0].clips[0].id, a);
+    }
+
+    // ---- 23 Other Edit page commands ----
+
+    void spec23_1_matchFrame()
+    {
+        Ctl t;
+        const QString media = addMedia(t.f.project);
+        QString gotMedia;
+        int64_t gotUs = -1;
+        int64_t gotIn = -1;
+        int64_t gotOut = -1;
+        t.c.setMatchFrameHandler([&](const QString& id, int64_t us, int64_t in, int64_t out) {
+            gotMedia = id;
+            gotUs = us;
+            gotIn = in;
+            gotOut = out;
+        });
+        ClipData clip = mediaClip(100, 50, 10); // source starts 10 frames in
+        clip.mediaId = media;
+        t.put(kV1, clip);
+        t.tl()->setPlayhead(120);
+        t.action("clip.match_frame")->trigger(); // F
+        QCOMPARE(gotMedia, media);
+        QCOMPARE(gotUs, int64_t(30 * 40000));
+        QCOMPARE(gotIn, int64_t(10 * 40000));
+        QCOMPARE(gotOut, int64_t(60 * 40000));
+    }
+
+    void spec23_2_changeDurationAndSpeed()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, mediaClip(0, 40, 0)); // 200-frame source
+        t.put(kV1, mediaClip(40, 10));
+        t.f.selection.setClips({a});
+        QVERIFY(t.c.setSelectionDuration(30));
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:30 30:10")); // ripples
+        QVERIFY(t.c.setSelectionSpeed(2.0));
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:15 15:10"));
+        QCOMPARE(t.f.view().videoTracks[0].clips[0].speed, 2.0);
+        QVERIFY(t.c.setSelectionSpeed(0.5)); // 4x longer: 60 frames
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:60 60:10"));
+        // The same 30 source frames at 10 %: 300 frames.
+        QVERIFY(t.c.setSelectionSpeed(0.1));
+        QCOMPARE(t.f.view().videoTracks[0].clips[0].duration, int64_t(300));
+        // Longer than the media allows: 200 source frames at 10 % are 2000 frames.
+        QVERIFY(t.c.setSelectionDuration(5000));
+        QCOMPARE(t.f.view().videoTracks[0].clips[0].duration, int64_t(2000));
+    }
+
+    void spec23_3_trackTargetingAndAutoSelectKeys()
+    {
+        Ctl t;
+        t.action("timeline.target_video_2")->trigger(); // Alt+2
+        QCOMPARE(t.c.targetVideoTrack(), 1);
+        t.action("timeline.target_audio_2")->trigger();
+        QCOMPARE(t.c.targetAudioTrack(), 1);
+        t.action("timeline.target_video_8")->trigger(); // no V8: ignored
+        QCOMPARE(t.c.targetVideoTrack(), 1);
+        t.action("timeline.auto_select_video_1")->trigger(); // Ctrl+1
+        QVERIFY(!t.f.view().videoTracks[0].autoSelect);
+        t.action("timeline.auto_select_audio_2")->trigger();
+        QVERIFY(!t.f.view().audioTracks[1].autoSelect);
+        QCOMPARE(
+            t.action("timeline.target_video_2")->shortcut(), QKeySequence(QStringLiteral("Alt+2")));
+    }
+
+    void spec23_4_linkTogglesLinkAndUnlink()
+    {
+        Ctl t;
+        const quint64 v = t.put(kV1, solidClip(0, 10));
+        const quint64 a = t.put(kA1, solidClip(0, 10));
+        t.f.selection.setClips({v, a});
+        t.action("clip.link")->trigger(); // Ctrl+Alt+L
+        QVERIFY(ops::clipById(t.f.view(), v)->linkGroup != 0);
+        t.action("clip.link")->trigger();
+        QCOMPARE(ops::clipById(t.f.view(), v)->linkGroup, quint64(0));
+    }
+};
+
+QTEST_MAIN(TestParityEdit)
+#include "test_parity_edit.moc"

@@ -2,6 +2,10 @@
 // EditPage layout and panel visibility handling.
 #include "app/pages/EditPage.h"
 
+#include "playback/PlaybackEngine.h"
+#include "playback/SourcePlayer.h"
+#include "ui/common/ActionRegistry.h"
+#include "ui/common/AppContext.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
@@ -11,6 +15,7 @@
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/viewer/ViewerPanel.h"
 
+#include <QAction>
 #include <QSettings>
 #include <QSplitter>
 #include <QVBoxLayout>
@@ -121,6 +126,34 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
         }
         return SourceSelection {range->mediaId, range->inUs, range->outUs};
     });
+    // F (match frame): the source of the clip under the playhead, parked on the same frame,
+    // with the part the timeline uses marked.
+    m_timeline->controller()->setMatchFrameHandler(
+        [this](const QString& mediaId, int64_t sourceUs, int64_t inUs, int64_t outUs) {
+            if (isSingleViewer())
+                setSingleViewer(false);
+            m_sourceViewer->setSourceMedia(mediaId);
+            if (SourcePlayer* player = m_sourceViewer->sourcePlayer()) {
+                const Rational fps = player->fps();
+                player->setMarks(usToFrames(inUs, fps), usToFrames(outUs, fps));
+                player->engine()->seek(usToFrames(sourceUs, fps));
+            }
+            m_sourceViewer->activate();
+        });
+    // Q: switch the transport target between the source and the timeline viewer.
+    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.toggle_source_timeline"))) {
+        connect(m_ctx.actions->action(QStringLiteral("view.toggle_source_timeline")),
+            &QAction::triggered, this, [this] {
+                if (!isVisible())
+                    return;
+                ViewerPanel* next
+                    = ViewerPanel::activeViewer() == m_sourceViewer || isSingleViewer()
+                    ? m_timelineViewer
+                    : m_sourceViewer;
+                next->activate();
+                next->setFocus();
+            });
+    }
     // Focus in the timeline makes the program viewer the transport target (ViewerTransport).
     m_timeline->setProperty("kkProgramFocus", true);
 }

@@ -34,7 +34,10 @@ enum class SourceEditMode {
     PlaceOnTop, ///< first free track above the target (F12)
     Replace, ///< replace the clip under the playhead, keeping its place and length (F11)
     FitToFill, ///< source in..out retimed into timeline in..out (Shift+F11)
-    AppendAtEnd ///< overwrite after the last clip of the timeline (Shift+F12)
+    AppendAtEnd, ///< overwrite after the last clip of the timeline (Shift+F12)
+    /// replace the timeline in..out range (else the clip under the playhead) with the source
+    /// at its own length, rippling the rest by the difference (Shift+F10, spec 4.11)
+    RippleOverwrite
 };
 
 /// A selected edit point (spec 7.6): the tail of @p tailClip and/or the head of @p headClip.
@@ -125,6 +128,12 @@ public:
     {
         m_sourceProvider = std::move(provider);
     }
+    /// Match frame target (wired by the page): loads media @p mediaId in the source viewer,
+    /// parks it on source time @p sourceUs and marks [@p inUs, @p outUs) (the part of the
+    /// media the timeline clip uses).
+    using MatchFrameHandler = std::function<void(
+        const QString& mediaId, int64_t sourceUs, int64_t inUs, int64_t outUs)>;
+    void setMatchFrameHandler(MatchFrameHandler handler) { m_matchFrame = std::move(handler); }
 
     // ---- Clip factories ----
 
@@ -153,8 +162,50 @@ public:
 public slots:
     // ---- Commands (each one undo step; no-ops when there is nothing to do) ----
     void splitAtPlayhead();
-    void deleteSelection(); ///< lift: leaves gaps
-    void rippleDeleteSelection(); ///< closes the gaps (or closes the gap under the playhead)
+    /// Backspace (spec 10.1, 10.7): lifts the selected clips (gaps stay); a selected gap is
+    /// closed; with no clip selected and in + out marks set, lifts the marked range on the
+    /// auto-select tracks.
+    void deleteSelection();
+    /// Delete / Shift+Backspace (spec 10.2-10.8): ripple-deletes the selected clips (later
+    /// clips on their tracks close up, other auto-select tracks follow where they have room);
+    /// closes a selected gap; with no clip selected and in + out marks set, extracts the
+    /// marked range on the auto-select tracks (playhead to the in mark, marks cleared).
+    void rippleDeleteSelection();
+    /// Ctrl+Shift+X (spec 10.9): copies the selected clips (else the marked range) to the
+    /// clipboard and ripple-deletes them, in one undo step.
+    void rippleCut();
+    /// Removes every gap common to the auto-select tracks (keeps sync; Edit > Delete Gaps).
+    void deleteGaps();
+    /// Selects the clips starting at or after (@p forward) / ending at or before the playhead
+    /// on the auto-select tracks, or on every unlocked track with @p allTracks.
+    void selectClipsFromPlayhead(bool forward, bool allTracks);
+    /// V: selects the edit point closest to the playhead on the auto-select tracks (video
+    /// first); at a cut both sides (roll).
+    void selectNearestEdit();
+    /// Shift+V: selects the clip under the playhead (auto-select tracks, V1 upwards), else the
+    /// gap under the playhead on the target video track.
+    void selectNearestClipOrGap();
+    /// Joins through edits: the selected edit point, or touching selected clips that continue
+    /// each other (linked parts join along). One undo step.
+    void joinSelection();
+    /// Swaps the selected clip (and its linked parts) with its previous (-1) / next (+1)
+    /// neighbour (spec 21.6).
+    void swapSelection(int direction);
+    /// F: loads the source of the clip under the playhead into the source viewer at the same
+    /// frame (via the match frame handler).
+    void matchFrame();
+    /// Alt+n / Ctrl+Alt+n: makes track number @p number (1 = V1/A1) the destination.
+    void setTargetByNumber(TrackType type, int number);
+    /// Ctrl+n / Ctrl+Shift+n: toggles the auto track selector of track number @p number.
+    void toggleAutoSelectByNumber(TrackType type, int number);
+    /// Alt+M: deletes the timeline marker at the playhead.
+    void deleteMarkerAtPlayhead();
+    /// Ctrl+D: gives the selected clips (with linked parts) a duration of @p frames, rippling
+    /// later clips. Limited by the media. Returns whether anything changed.
+    bool setSelectionDuration(int64_t frames);
+    /// R: plays the selected clips (with linked parts) at @p speed (1.0 = 100 %); the
+    /// duration changes accordingly (limited by the media) and later clips ripple.
+    bool setSelectionSpeed(double speed);
     void selectAll();
     void deselectAll();
     /// Moves the selected clips, or trims the selected edit point (ripple in the trim tool,
@@ -189,6 +240,7 @@ public slots:
     void goToOut();
     void addMarker();
     void toggleClipsEnabled();
+    /// Ctrl+Alt+L: links the selected clips, or unlinks them if they already form one group.
     void linkSelection();
     void unlinkSelection();
     void copy();
@@ -226,6 +278,8 @@ signals:
 
 private:
     void setPlayheadClamped(int64_t frame);
+    /// True if the timeline has both an in and an out mark (out > in).
+    [[nodiscard]] bool hasMarkedRange() const;
     void setMarks(int64_t in, int64_t out, const QString& label);
     void trimToPlayhead(bool head);
     /// Trims the selected edit point by @p frames (one undo step). Returns the applied delta.
@@ -242,6 +296,7 @@ private:
     EditPointSelection m_selectedEdit;
     std::optional<GapSelection> m_selectedGap;
     std::function<std::optional<SourceSelection>()> m_sourceProvider;
+    MatchFrameHandler m_matchFrame;
 };
 
 } // namespace kk

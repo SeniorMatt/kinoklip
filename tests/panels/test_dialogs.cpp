@@ -100,7 +100,7 @@ private slots:
         dialog.setFilterText(QStringLiteral("undo"));
         QVERIFY(dialog.visibleIds().contains(QStringLiteral("edit.undo")));
         QVERIFY(!dialog.visibleIds().contains(QStringLiteral("edit.split")));
-        dialog.setFilterText(QStringLiteral("Ctrl+B")); // search by key
+        dialog.setFilterText(QStringLiteral("Ctrl+\\")); // search by key
         QVERIFY(dialog.visibleIds().contains(QStringLiteral("edit.split")));
         dialog.setFilterText({});
         QCOMPARE(dialog.visibleIds().size(), f.actions.ids().size());
