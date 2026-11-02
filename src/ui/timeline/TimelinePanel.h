@@ -5,11 +5,13 @@
 #include "ui/common/PanelFrame.h"
 
 class QSlider;
+class QSplitter;
 class QToolBar;
 
 namespace kk {
 
 struct AppContext;
+class StackedTimelinePane;
 class TimelineController;
 class TimelineTabs;
 class TimelineWidget;
@@ -39,6 +41,20 @@ public:
     /// Re-reads the preferences this panel follows (Preferences > Editing > Timelines).
     void applyPreferences();
 
+    // ---- Stacked timelines (View > Stacked Timelines, spec 32.8 - 32.10) ----
+    /// Shows a second timeline above the editor (or hides it). The second one is read-only
+    /// until clicked: then it becomes the active timeline (it drives the viewer) and the
+    /// editor moves into its place, the other timeline taking the other pane.
+    void setStackedTimelines(bool on);
+    [[nodiscard]] bool stackedTimelines() const { return m_stacked; }
+    /// The inactive pane (null until stacked timelines were first shown).
+    [[nodiscard]] StackedTimelinePane* stackedPane() const { return m_pane; }
+    /// Makes the inactive pane's timeline the active one (what a click on it does). Returns
+    /// whether the timelines swapped.
+    bool activateStackedPane();
+    /// 0 = the editor is the top pane, 1 = the bottom pane (stacked mode).
+    [[nodiscard]] int activePaneIndex() const { return m_activeSlot; }
+
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
@@ -57,6 +73,19 @@ private:
     TimelineController* m_controller = nullptr;
     TimelineWidget* m_view = nullptr;
     TimelineTabs* m_tabs = nullptr;
+    // Stacked timelines
+    /// Places the editor group and the pane into the two slots (m_activeSlot = editor).
+    void placeStackedPanes();
+    /// Starts the copy drag of clips of the active timeline dragged out of the editor.
+    void dragClipsOut(const QVector<quint64>& clips, int64_t grabFrames);
+    QSplitter* m_stack = nullptr;
+    QWidget* m_slots[2] = {nullptr, nullptr};
+    QWidget* m_editorGroup = nullptr; ///< tabs + timeline widget
+    StackedTimelinePane* m_pane = nullptr;
+    bool m_stacked = false;
+    bool m_swapping = false;
+    int m_activeSlot = 1;
+    quint64 m_previousActive = 0;
 };
 
 } // namespace kk

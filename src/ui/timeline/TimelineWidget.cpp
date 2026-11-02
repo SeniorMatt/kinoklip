@@ -224,6 +224,8 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     in.hasFocus = hasFocus();
     in.cache = &m_cacheBar;
     in.retimeShown = &m_controller->retimeControls();
+    in.hoverClip = m_hoverClip;
+    in.selectedKeys = &m_ctx.selection->keyframes();
     m_painter.paint(p, in);
     m_keyframeLanes->paintClipButtons(p);
 }
@@ -478,6 +480,8 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         showSpeedMenu(retimeClip, rh.segment, event->pos());
         return;
     }
+    if (levelKeyMenu(event->pos(), event->globalPos()))
+        return; // a volume key on a level line (spec 32.2)
     const TimelineData& data = m_ctx.project->timeline()->data();
     const TimelineHit hit = m_layout.hitTest(data, event->pos());
     ActionRegistry* reg = m_ctx.actions;
@@ -592,6 +596,9 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
             addAction("clip.open_in_timeline");
             addAction("clip.decompose");
         }
+        // Clip Attributes of the clip's media pool item (spec 32.6).
+        if (clip && clip->kind == ClipKind::Media)
+            addAction("clip.attributes");
         menu.addSeparator();
         const TrackData* clipTrack = data.track(hit.track);
         const bool editable = clipTrack && !clipTrack->locked;

@@ -11,6 +11,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
+#include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 
@@ -220,6 +221,17 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
         menu.addAction(
             tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });
+        // Clip Attributes (attrs branch) of the selected file items; power bin items are
+        // copied into the project first, the dialog edits project items only.
+        if (currentItem && currentItem->kind == MediaItemKind::File) {
+            menu.addSeparator();
+            menu.addAction(tr("Clip Attributes…"), this, [this, ids, current] {
+                const QStringList projectIds
+                    = ensureInProject(ids.contains(current) ? ids : QStringList {current});
+                if (!projectIds.isEmpty())
+                    clipattributes::edit(*m_ctx.project, projectIds, this);
+            });
+        }
         if (!power) {
             menu.addSeparator();
             addMulticamMenu(menu, ids);

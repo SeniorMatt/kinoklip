@@ -279,3 +279,23 @@ colour of its media pool item, else the colour by kind. Flags of the item are dr
 squares at the right of the name band. The clip context menu adds "Clip Color" / "Flags"
 (`ClipColorMenu.h`; flags edit the media pool item) and Find in Media Pool
 (`timeline.find_in_media_pool`, handled by the Edit page).
+
+## Level lines, fade handles, stacked timelines (spec section 32)
+- `LevelLines.h`: pure geometry of the audio level line (dB <-> y over the waveform area, key
+  and line hit-testing) and of the fade handles. `TimelinePainter::paintVolumeLine()` draws
+  the exact curve + key diamonds, `paintFades()` the wedges and (hovered clip) the handles.
+- `TimelineLevelsInput.cpp`: selection-tool presses on fade handles (`DragMode::Fade`), the
+  line (`LevelLine`, Shift = fine, Alt+click adds a key) and keys (`LevelKey`); edits are
+  `core/LevelOps.h`, one undo step per gesture; right-click on a key = Delete Keyframe.
+  `edit.delete` / `edit.ripple_delete` delete selected keys when no clip is selected.
+- Clip context menu: `clip.attributes` (Clip Attributes dialog, src/ui/dialogs).
+- Stacked timelines (`view.stacked_timelines`, `TimelinePanel::setStackedTimelines()`): a
+  vertical splitter with two slots; the editor group (TimelineTabs + TimelineWidget) sits in
+  one, `StackedTimelinePane` (own tab list, "+" menu, read-only `StackedTimelineView` with own
+  zoom / scroll and the inactive timeline's own playhead) in the other. A click in the pane
+  calls `activateStackedPane()`: the pane's timeline becomes active, tab lists swap
+  (`Project::setTabs()`), the editor moves into the clicked slot. Copies between them use
+  MIME `mime::TimelineClips` ({timeline, clips, grabFrames}): the pane starts a QDrag from a
+  clip, the editor starts one when a move leaves the view vertically
+  (`TimelineWidget::setClipDragOut()`); both end in `TimelineController::copyClipsFrom()`
+  (TimelineStackedDrop.cpp plans the editor's ghost).

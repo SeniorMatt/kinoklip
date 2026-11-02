@@ -3,6 +3,7 @@
 // YUV → RGB conversion shader (BT.601/709/2020, limited/full range, 8/10-bit, BGRA).
 #pragma once
 
+#include "core/ClipAttributes.h"
 #include "media/VideoFrame.h"
 #include "render/GlKit.h"
 
@@ -25,6 +26,15 @@ struct PlaneTextures
     std::shared_ptr<const media::VideoFrame> uploaded;
 };
 
+/// How a frame is shown: the frame's own metadata with the clip's Clip Attributes applied
+/// (GlVideo::lookFor()).
+struct VideoLook
+{
+    int rotation = 0; ///< clockwise display rotation (file + attribute), 0/90/180/270
+    media::ColorRange range = media::ColorRange::Limited; ///< data levels used for YUV -> RGB
+    int keepField = -1; ///< deinterlacing: -1 off, 0 keep the top field, 1 the bottom field
+};
+
 /// Converts and draws video frames. One instance per GL renderer (render thread).
 class GlVideo
 {
@@ -43,8 +53,12 @@ public:
     /// @p quadToNdc places the unit quad (= the whole picture in DISPLAY orientation, i.e. after
     /// rotation); @p crop is the visible part of the picture in quad coordinates (x0, y0, x1, y1
     /// as a rect), @p opacity multiplies the premultiplied result. Blending as currently set.
+    /// @p look: rotation, data levels and deinterlacing to use (lookFor()).
     void draw(GlKit& kit, const PlaneTextures& textures, const media::VideoFrame& frame,
-        const QTransform& quadToNdc, const QRectF& crop, float opacity);
+        const QTransform& quadToNdc, const QRectF& crop, float opacity, const VideoLook& look);
+    /// The look of @p frame with Clip Attributes @p attributes applied.
+    [[nodiscard]] static VideoLook lookFor(
+        const media::VideoFrame& frame, const ClipAttributes& attributes);
 
     /// Texture-coordinate transform (quad in display orientation → coded texture uv) for a
     /// clockwise display @p rotation of 0/90/180/270 degrees.
@@ -58,6 +72,7 @@ private:
     GLint m_sampleScale = -1;
     GLint m_crop = -1;
     GLint m_opacity = -1;
+    GLint m_keepField = -1;
 };
 
 } // namespace kk::render

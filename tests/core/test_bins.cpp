@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Unit tests for media pool organisation in core: nested bins (move / re-parent / delete with
 // contents, undo), clip colours, flags, metadata, usage counting (nested timelines, compound
-// clips), power bins persistence, serialization round trip and the format 9 migration.
+// clips), power bins persistence, serialization round trip and the format 11 migration.
 #include "CoreTestUtils.h"
 #include "core/ClipColors.h"
 #include "core/CompoundOps.h"
@@ -397,14 +397,24 @@ private slots:
         QFile f(path);
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
-        QCOMPARE(root.value(QStringLiteral("formatVersion")).toInt(), 9);
+        QCOMPARE(
+            root.value(QStringLiteral("formatVersion")).toInt(), serialization::kFormatVersion);
+        QCOMPARE(serialization::kFormatVersion, 11);
         q.newProject();
         QCOMPARE(q.binViewState(bin), BinViewState {});
     }
 
-    void migratesVersion6Project()
+    void migratesOlderProjects_data()
     {
-        // A version-6 project: no colours, flags, metadata, smart bins or file times.
+        QTest::addColumn<int>("version");
+        QTest::newRow("6 (before multicam)") << 6;
+        QTest::newRow("10 (attrs, saved without bins data)") << 10;
+    }
+
+    void migratesOlderProjects()
+    {
+        // An older project: no colours, flags, metadata, smart bins or file times.
+        QFETCH(int, version);
         QTemporaryDir dir;
         const QString media = dir.filePath(QStringLiteral("clip.mp4"));
         QFile mf(media);
@@ -422,7 +432,7 @@ private slots:
         QVERIFY(f.open(QIODevice::ReadOnly));
         QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
         f.close();
-        root[QStringLiteral("formatVersion")] = 6;
+        root[QStringLiteral("formatVersion")] = version;
         QJsonObject pool = root.value(QStringLiteral("mediaPool")).toObject();
         QJsonArray items = pool.value(QStringLiteral("items")).toArray();
         for (int i = 0; i < items.size(); ++i) {

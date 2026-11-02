@@ -73,6 +73,10 @@ struct TrackFrame
 /// Index of the clip covering @p frame, or -1. O(log n).
 [[nodiscard]] int clipIndexAt(const TrackData& track, int64_t frame);
 
+/// Opacity of @p clip at clip-local frame @p localFrame (0..1): its keyframed Opacity times
+/// the fade handles (videoFadeFactor()). Shared by the GPU and CPU renderers.
+[[nodiscard]] double clipOpacity(const ClipData& clip, int64_t localFrame);
+
 /// Source media time (µs) shown by @p clip at timeline frame @p frame, clamped to the media
 /// (>= 0 and < sourceDurationUs when that is known). Frames outside the clip (transition
 /// handles) extrapolate and therefore freeze on the first/last frame when there is no media.
