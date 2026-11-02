@@ -130,3 +130,4 @@
 - 03:33 Heartbeat: polish3 3 commits (source timecode, speed nudges), building; 17 GB free.
 - 04:03 polish3 merged (10 commits); full suite started.
 - 04:08 main after polish3: 110/110 pass. Version 0.3.1; notes written; container release build started.
+- 04:21 Released 0.3.1-alpha.1 (polish rounds 2+3; container 111/111). Desktop copy.
