@@ -275,6 +275,8 @@ EqWindow* MixerStrip::openEq()
     if (!m_eqWindow) {
         m_eqWindow = new EqWindow(m_controller, m_target, window());
         m_eqWindow->resize(620, 460);
+        // Shortcuts are window-scoped: Space, J / K / L, undo work in the tool window too.
+        m_eqWindow->addActions(window()->actions());
     }
     m_eqWindow->show();
     m_eqWindow->raise();
@@ -284,8 +286,10 @@ EqWindow* MixerStrip::openEq()
 
 DynamicsWindow* MixerStrip::openDynamics()
 {
-    if (!m_dynamicsWindow)
+    if (!m_dynamicsWindow) {
         m_dynamicsWindow = new DynamicsWindow(m_controller, m_meters, m_target, window());
+        m_dynamicsWindow->addActions(window()->actions()); // window-scoped shortcuts
+    }
     m_dynamicsWindow->show();
     m_dynamicsWindow->raise();
     m_dynamicsWindow->activateWindow();
