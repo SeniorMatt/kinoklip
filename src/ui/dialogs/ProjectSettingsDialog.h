@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ProjectSettingsDialog — project name, timeline resolution, frame rate and sample rate.
+// ProjectSettingsDialog — Resolve-style project settings: a section list (Master Settings,
+// Image Scaling, Audio, General Options, Render Cache) and the section's settings.
 #pragma once
 
 #include "core/Project.h"
@@ -9,17 +10,27 @@
 class QComboBox;
 class QLabel;
 class QLineEdit;
+class QListWidget;
 class QSpinBox;
+class QStackedWidget;
 
 namespace kk {
 
-/// Edits ProjectSettings. OK applies them with Project::setSettings(), which makes resolution
-/// and frame-rate changes one undoable step (the name change marks the project modified).
+/// Edits ProjectSettings. Save applies them with Project::setSettings(), which makes
+/// resolution and frame-rate changes one undoable step (the name change marks the project
+/// modified).
 ///
-/// Resolution presets (UHD, QHD, HD, 720p, vertical, square) fill width/height; "Custom"
-/// unlocks the spin boxes. Frame rates: 23.976, 24, 25, 29.97, 30, 50, 59.94, 60.
-/// The sample rate is fixed at 48 kHz in v0.1 (the audio mixer's rate, PLAN 5.1); the combo
-/// shows it so the setting has a home once other rates are supported.
+/// Sections (left list, like Resolve):
+/// - Master Settings: timeline resolution presets (UHD, QHD, HD, 720p, vertical, square) or
+///   Custom, pixel aspect ratio (square only), timeline frame rate (23.976 ... 60), playback
+///   frame rate (= timeline), video monitoring (no output devices yet).
+/// - Image Scaling: mismatched resolution handling ("scale entire image to fit", the
+///   compositor's only mode for now), output scaling (= timeline).
+/// - Audio: sample rate 48 kHz and 32-bit float mixing (the mixer's fixed format, PLAN 5.1).
+/// - General Options: project name, autosave interval (the user preference
+///   `project/autosaveMinutes`, shared with Preferences > Project Save and Load).
+/// - Render Cache: render cache / optimized media placeholders.
+/// Settings the engine cannot change yet are shown disabled with a tooltip saying why.
 class ProjectSettingsDialog : public QDialog
 {
     Q_OBJECT
@@ -38,8 +49,21 @@ public:
     [[nodiscard]] static QVector<Rational> frameRates();
 
     void accept() override;
+    /// Shows the section @p sectionId ("master", "scaling", "audio", "general", "cache").
+    bool showSection(const QString& sectionId);
+
+signals:
+    /// The autosave interval (a user preference) was stored.
+    void preferencesChanged();
 
 private:
+    QWidget* buildMaster();
+    QWidget* buildScaling();
+    QWidget* buildAudio();
+    QWidget* buildGeneral();
+    QWidget* buildCache();
+    void addSection(const QString& id, const QString& title, QWidget* page);
+
     void presetChanged(int index);
     void updateWarning();
 
@@ -50,7 +74,11 @@ private:
     QSpinBox* m_height = nullptr;
     QComboBox* m_fps = nullptr;
     QComboBox* m_sampleRate = nullptr;
+    QComboBox* m_playbackFps = nullptr;
+    QSpinBox* m_autosave = nullptr;
     QLabel* m_warning = nullptr;
+    QListWidget* m_sections = nullptr;
+    QStackedWidget* m_stack = nullptr;
 };
 
 } // namespace kk
