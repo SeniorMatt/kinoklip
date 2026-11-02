@@ -154,6 +154,25 @@ private slots:
         QVERIFY(!ko::setHandle(f.d, {f.id, kPosX, 49}, ko::HandleSide::In, 1, 1, false));
     }
 
+    // Spec 15.7 (decision): keys follow the source content on head trims; keys trimmed out of
+    // the clip are kept (not deleted), so extending the clip again brings them back; a slip
+    // keeps keys at their clip-relative positions (the animation stays in sync with the edit).
+    void spec15_7_keysSurviveTrimAndSlip()
+    {
+        Fixture f;
+        f.clip().sourceDurationUs = 0; // unbounded source for the test
+        QCOMPARE(editops::trimHead(f.d, f.id, 30, false), 30);
+        QCOMPARE(f.value(kPosX).keys[0].frame, -30); // outside, kept
+        QCOMPARE(f.value(kPosX).keys[1].frame, 20);
+        QCOMPARE(editops::trimHead(f.d, f.id, -30, false), -30);
+        QCOMPARE(f.value(kPosX).keys[0].frame, 0);
+        QCOMPARE(editops::trimTail(f.d, f.id, -60, false), -60); // duration 40: key 50 outside
+        QCOMPARE(f.value(kPosX).keys[1].frame, 50);
+        f.clip().sourceInUs = 100 * 40000;
+        editops::slipClip(f.d, f.id, -10);
+        QCOMPARE(f.value(kPosX).keys[1].frame, 50);
+    }
+
     void spec15_9_offsetValues()
     {
         Fixture f;

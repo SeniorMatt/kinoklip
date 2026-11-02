@@ -30,6 +30,7 @@ Behaviour is connected by the module that owns it:
 | `tool.*`, `trim.*`, `edit.split/delete/ripple_delete/cut/copy/paste/paste_insert/select_all/deselect_all/insert/overwrite/place_on_top/replace/fit_to_fill/append_at_end`, `timeline.*`, `clip.toggle_enabled/link/unlink`, `mark.*`, `transport.prev_edit/next_edit/go_to_start/go_to_end/prev_marker/next_marker` | timeline agent |
 | `transport.*`, `view.fullscreen_viewer` | playback agent |
 | `clip.add_keyframe/prev_keyframe/next_keyframe` | panels agent (Inspector) |
+| `clip.toggle_keyframe_editor/toggle_curve_editor/delete_keyframe/copy_keyframes/paste_keyframes` | timeline (KeyframeLanes) |
 | `file.project_settings`, `edit.keyboard_customization`, `edit.preferences` | panels agent (dialogs) |
 
 `timeline.snapping`, `timeline.linked_selection` and the `tool.*` group are checkable and start
