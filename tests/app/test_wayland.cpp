@@ -21,6 +21,7 @@
 #include "ui/common/StandardActions.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/keyframes/KeyframesPanel.h"
+#include "ui/mediapool/MediaPoolModel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
@@ -115,8 +116,17 @@ class TestWayland : public QObject
     }
     QPoint poolItemPoint() const
     {
+        // Find the imported still by id: the pool also lists the project's timeline(s).
         auto* grid = page()->mediaPool()->findChild<QListView*>();
-        const QModelIndex index = grid->model()->index(0, 0);
+        const QAbstractItemModel* model = grid->model();
+        QModelIndex index = model->index(0, 0);
+        for (int row = 0; row < model->rowCount(); ++row) {
+            const QModelIndex candidate = model->index(row, 0);
+            if (candidate.data(MediaPoolModel::IdRole).toString() == m_mediaId) {
+                index = candidate;
+                break;
+            }
+        }
         return screen(grid->viewport(), grid->visualRect(index).center());
     }
 
