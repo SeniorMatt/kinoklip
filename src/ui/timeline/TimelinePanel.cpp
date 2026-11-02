@@ -166,6 +166,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     m_view = new TimelineWidget(ctx, m_controller, m_editorGroup);
     m_view->setClipThumbnails(m_viewThumbnails);
     m_view->setShowWaveforms(m_viewWaveforms);
+    m_view->setShowSourceTimecode(m_viewSourceTimecode);
     editorLayout->addWidget(m_view, 1);
     setContentWidget(body);
     // Resolve has no title above its timeline: the name is in the timeline viewer's header
@@ -433,6 +434,8 @@ QWidget* TimelinePanel::makeViewOptionsButton()
         : mode == QLatin1String("none")                  ? ClipThumbnails::None
                                                          : ClipThumbnails::Filmstrip;
     m_viewWaveforms = settings.value(QLatin1String(prefs::kTimelineWaveforms), true).toBool();
+    m_viewSourceTimecode
+        = settings.value(QLatin1String(prefs::kTimelineSourceTimecode), false).toBool();
     return button;
 }
 
@@ -457,6 +460,11 @@ void TimelinePanel::fillViewOptionsMenu(QMenu& menu)
         = menu.addAction(tr("Show Waveforms"), this, [this](bool on) { setShowWaveforms(on); });
     wave->setCheckable(true);
     wave->setChecked(m_view->showWaveforms());
+    menu.addSection(tr("Clips"));
+    QAction* tc = menu.addAction(
+        tr("Show Source Timecode"), this, [this](bool on) { setShowSourceTimecode(on); });
+    tc->setCheckable(true);
+    tc->setChecked(m_view->showSourceTimecode());
     menu.addSeparator();
     m_view->addTrackHeightMenu(menu, TrackRef {TrackType::Video, 0}, true);
     if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.stacked_timelines")))
@@ -471,6 +479,13 @@ void TimelinePanel::setClipThumbnails(ClipThumbnails mode)
         : mode == ClipThumbnails::None                ? "none"
                                                       : "filmstrip";
     QSettings().setValue(QLatin1String(prefs::kTimelineThumbnails), QLatin1String(id));
+}
+
+void TimelinePanel::setShowSourceTimecode(bool on)
+{
+    m_viewSourceTimecode = on;
+    m_view->setShowSourceTimecode(on);
+    QSettings().setValue(QLatin1String(prefs::kTimelineSourceTimecode), on);
 }
 
 void TimelinePanel::setShowWaveforms(bool on)

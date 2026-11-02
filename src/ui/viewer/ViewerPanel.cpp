@@ -241,7 +241,10 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
             = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_transform"))
             ? m_ctx.actions->action(QStringLiteral("view.onscreen_transform"))
             : nullptr;
-        bar->addWidget(MaskOverlay::createModeButton(masks, m_transport, transform));
+        QAction* crop = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_crop"))
+            ? m_ctx.actions->action(QStringLiteral("view.onscreen_crop"))
+            : nullptr;
+        bar->addWidget(MaskOverlay::createModeButton(masks, m_transport, transform, crop));
     }
     m_marksLabel = new QLabel;
     m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));

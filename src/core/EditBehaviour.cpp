@@ -37,6 +37,7 @@ EditBehaviour EditBehaviour::fromSettings()
         ? WheelScheme::Classic
         : WheelScheme::Resolve;
     b.dynamicTrimWithJkl = flag("edit/dynamicTrimWithJkl", b.dynamicTrimWithJkl);
+    b.twoUpProgramLook = flag("edit/twoUpProgramLook", b.twoUpProgramLook);
     return b;
 }
 

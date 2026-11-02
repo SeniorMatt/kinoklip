@@ -30,6 +30,9 @@ namespace {
 
 using timelineedit::runEdit;
 
+/// Increase / Decrease Clip Speed step, in percentage points (spec 29.17).
+constexpr int kSpeedNudgePercent = 10;
+
 /// Clips linked to @p clipId whose same edge (head or tail) sits on the same frame; they
 /// trim along with it (spec 8.12). Includes @p clipId itself first.
 QVector<quint64> sameEdgeLinks(const TimelineData& data, quint64 clipId, bool head, bool linked)
@@ -1058,6 +1061,8 @@ void TimelineController::connectActions()
     on("edit.delete_gaps", &TimelineController::deleteGaps);
     on("edit.join", &TimelineController::joinSelection);
     on("clip.retime_controls", &TimelineController::toggleRetimeControls);
+    on("clip.speed_increase", [this] { nudgeSelectionSpeed(kSpeedNudgePercent); });
+    on("clip.speed_decrease", [this] { nudgeSelectionSpeed(-kSpeedNudgePercent); });
     on("clip.freeze_frame", &TimelineController::freezeFrame);
     on("clip.retime_curve", &TimelineController::showRetimeCurve);
     on("edit.select_forward", [this] { selectClipsFromPlayhead(true, false); });

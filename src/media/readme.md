@@ -179,6 +179,11 @@ For resampled sources the input is additionally aligned to a common grid point o
   (JPEG for opaque thumbnails, PNG with alpha). A changed file gets a new directory.
 * Image jobs and waveform jobs run in separate pools so long waveform scans never starve
   thumbnails. Up to 4 decoders stay open between jobs so neighbouring thumbnails decode forward.
+* Preview decoders decode in software up to 1920x1200 and on the hardware decoder above
+  (`PreviewDecoding::BySize`, `setPreviewDecoding()`): several hardware decoders opened for a
+  first filmstrip delayed the program playback's own one (first play after an import dropped
+  frames), while small frames decode as fast in software; 4K HEVC is about twice as fast on
+  the hardware decoder (test_mediaperf filmstripLatency).
 * `shutdown()` (automatic on quit) drops queued jobs and waits for running ones.
 
 ## Performance (dev box: i7 Comet Lake 8 threads + UHD 630 iHD 24.1 + GTX 1650, 1080p H.264, 2 s GOP)
