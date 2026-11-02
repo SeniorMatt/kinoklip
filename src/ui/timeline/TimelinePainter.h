@@ -33,7 +33,8 @@ class MediaPool;
 /// A clip that would be created by a drop or drag (drawn translucent).
 struct TimelineGhost
 {
-    int row = -1;
+    int row = -1; ///< -1: a track the drop will create, drawn in @c band
+    QRect band;
     int64_t start = 0;
     int64_t duration = 0;
     QString name;

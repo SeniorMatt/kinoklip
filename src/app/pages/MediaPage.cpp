@@ -2,6 +2,7 @@
 // MediaPage layout and panel toggles.
 #include "app/pages/MediaPage.h"
 
+#include "ui/common/PanelSplitter.h"
 #include "ui/mediapool/MediaBrowserPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/mediapool/MetadataPanel.h"
@@ -22,18 +23,16 @@ MediaPage::MediaPage(AppContext& ctx, QWidget* parent)
     m_metadata = new MetadataPanel(ctx);
     m_mediaPool = new MediaPoolPanel(ctx);
 
-    m_topRow = new QSplitter(Qt::Horizontal);
+    m_topRow = new PanelSplitter(Qt::Horizontal);
     m_topRow->setChildrenCollapsible(false);
-    m_topRow->setHandleWidth(3);
     m_topRow->addWidget(m_browser);
     m_topRow->addWidget(m_viewer);
     m_topRow->addWidget(m_metadata);
     m_topRow->setStretchFactor(1, 1);
     m_topRow->setSizes({420, 1080, 420});
 
-    m_main = new QSplitter(Qt::Vertical);
+    m_main = new PanelSplitter(Qt::Vertical);
     m_main->setChildrenCollapsible(false);
-    m_main->setHandleWidth(3);
     m_main->addWidget(m_topRow);
     m_main->addWidget(m_mediaPool);
     m_main->setStretchFactor(0, 1);

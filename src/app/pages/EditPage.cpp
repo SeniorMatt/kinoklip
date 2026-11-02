@@ -2,6 +2,7 @@
 // EditPage layout and panel visibility handling.
 #include "app/pages/EditPage.h"
 
+#include "app/AppInfo.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -13,6 +14,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelFrame.h"
+#include "ui/common/PanelSplitter.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/keyframes/KeyframesPanel.h"
@@ -26,12 +28,18 @@
 
 #include <QAction>
 #include <QCloseEvent>
+#include <QCursor>
+#include <QGuiApplication>
 #include <QSettings>
 #include <QSplitter>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QWindow>
 
 #include <algorithm>
+#include <functional>
+#include <memory>
 
 namespace kk {
 
@@ -50,14 +58,14 @@ constexpr double kKeyframesDockShare = 0.40; ///< of the page height when it ope
 constexpr int kMinTimelineHeight = 200; ///< the timeline keeps at least this much
 constexpr int kMinViewerRowHeight = 260; ///< and the viewer row this much
 const QSize kKeyframesWindowSize(1400, 520); ///< first floating window size
+constexpr int kTearOffGrabY = 12; ///< px below the window top where the pointer holds it
+constexpr int kTearOffMoveRetryMs = 15; ///< wait for the torn-off window to be mapped ...
+constexpr int kTearOffMoveAttempts = 40; ///< ... at most this often (600 ms)
 constexpr int kReferenceWidth = kLeftColumnWidth + 2 * kViewerWidth + kRightColumnWidth;
 
 QSplitter* makeSplitter(Qt::Orientation orientation)
 {
-    auto* splitter = new QSplitter(orientation);
-    splitter->setChildrenCollapsible(false);
-    splitter->setHandleWidth(3);
-    return splitter;
+    return new PanelSplitter(orientation); // hover-highlighted handles, no collapsing
 }
 
 } // namespace
@@ -199,6 +207,7 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     // Keyframes panel: float / dock, Follow Timeline, "Open in Keyframes Panel" from a lane.
     connect(m_keyframes, &KeyframesPanel::floatToggleRequested, this,
         [this] { setKeyframesFloating(!m_keyframesFloating); });
+    connect(m_keyframes, &KeyframesPanel::tearOffRequested, this, &EditPage::tearOffKeyframes);
     TimelineWidget* timelineWidget = m_timeline->timelineWidget();
     connect(timelineWidget, &TimelineWidget::viewChanged, m_keyframes, [this, timelineWidget] {
         const auto [first, last] = timelineWidget->visibleFrameRange();
@@ -432,7 +441,10 @@ void EditPage::setKeyframesFloating(bool floating)
             // J/K/L, undo, ...) keep working while it has focus.
             m_keyframesWindow = new QWidget(this, Qt::Window);
             m_keyframesWindow->setObjectName(QStringLiteral("KeyframesWindow"));
-            m_keyframesWindow->setWindowTitle(tr("Keyframes"));
+            // "Keyframes — Kinoklip": the app name tells the window apart in the task manager
+            // and window switcher (KWin shows the title in its decoration).
+            m_keyframesWindow->setWindowTitle(
+                tr("Keyframes — %1").arg(QString::fromLatin1(appinfo::name)));
             m_keyframesWindow->resize(kKeyframesWindowSize);
             auto* layout = new QVBoxLayout(m_keyframesWindow);
             layout->setContentsMargins(0, 0, 0, 0);
@@ -456,6 +468,42 @@ void EditPage::setKeyframesFloating(bool floating)
         if (m_keyframesShown)
             ensureKeyframesHeight();
     }
+}
+
+void EditPage::tearOffKeyframes()
+{
+    if (m_keyframesFloating)
+        return;
+    // X11 lets a client place its window: put the header under the pointer. On Wayland the
+    // compositor places it (the move is ignored there) and the interactive move below makes it
+    // follow the pointer.
+    const QPoint pointer = QCursor::pos();
+    if (m_keyframesWindow)
+        m_keyframesWindow->move(pointer - QPoint(m_keyframesWindow->width() / 2, kTearOffGrabY));
+    setKeyframesFloating(true);
+    if (!m_keyframesWindow)
+        return;
+    if (m_keyframesWindow->pos() == QPoint())
+        m_keyframesWindow->move(pointer - QPoint(m_keyframesWindow->width() / 2, kTearOffGrabY));
+    // Hand the still-pressed drag over to the window manager once the new window is mapped:
+    // xdg_toplevel.move / _NET_WM_MOVERESIZE with the press serial. The compositor accepts it
+    // while the button is held (KWin checks the seat's implicit grab, not the surface); if it
+    // refuses, the window simply stays where it opened.
+    auto attempts = std::make_shared<int>(0);
+    auto tryMove = std::make_shared<std::function<void()>>();
+    *tryMove = [this, attempts, tryMove] {
+        if (!m_keyframesWindow || !m_keyframesFloating
+            || !(QGuiApplication::mouseButtons() & Qt::LeftButton))
+            return;
+        QWindow* handle = m_keyframesWindow->windowHandle();
+        if (handle && handle->isExposed()) {
+            handle->startSystemMove();
+            return;
+        }
+        if (++*attempts < kTearOffMoveAttempts)
+            QTimer::singleShot(kTearOffMoveRetryMs, this, *tryMove);
+    };
+    QTimer::singleShot(0, this, *tryMove);
 }
 
 bool EditPage::eventFilter(QObject* watched, QEvent* event)

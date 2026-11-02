@@ -331,7 +331,9 @@ QMimeData* MediaPoolModel::mimeData(const QModelIndexList& indexes) const
 
 Qt::DropActions MediaPoolModel::supportedDragActions() const
 {
-    return Qt::CopyAction | Qt::MoveAction;
+    // Copy only: a drag never removes items (with Move, QAbstractItemView deletes the rows a
+    // target accepted), and the Wayland compositor negotiates a single, unambiguous action.
+    return Qt::CopyAction;
 }
 
 // ---- MediaPoolFilterModel ----

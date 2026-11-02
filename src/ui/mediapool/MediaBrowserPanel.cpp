@@ -5,6 +5,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
+#include "ui/common/PanelSplitter.h"
 
 #include <QComboBox>
 #include <QDir>
@@ -118,7 +119,7 @@ MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
     m_list->header()->setSectionResizeMode(kSizeColumn, QHeaderView::ResizeToContents);
     m_list->header()->setSectionResizeMode(kDateColumn, QHeaderView::ResizeToContents);
 
-    auto* splitter = new QSplitter(Qt::Vertical);
+    auto* splitter = new PanelSplitter(Qt::Vertical);
     splitter->setChildrenCollapsible(false);
     splitter->setHandleWidth(1);
     splitter->addWidget(m_tree);

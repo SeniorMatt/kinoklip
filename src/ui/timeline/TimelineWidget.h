@@ -219,12 +219,20 @@ private:
             None,
             Clips,
             Effect,
-            Transition
+            Transition,
+            Files ///< files from a file manager: imported into the media pool on drop
         };
         Kind kind = Kind::None;
         /// Clips: groups of clips created from one source each (linked after placing).
         QVector<QVector<editops::PlacedClip>> groups;
         bool insert = false; ///< Ctrl: insert instead of overwrite
+        /// Clips: dropped in the empty space above the top video track / below the last audio
+        /// track (Resolve: a new track is created there); the clips' refs already use the new
+        /// index (= the current track count).
+        bool newVideoTrack = false;
+        bool newAudioTrack = false;
+        QRect newTrackBand; ///< where the ghost of a new track's clips is drawn
+        TrackType newTrackBandType = TrackType::Video; ///< the new track shown in the band
         quint64 clipId = 0; ///< Effect/Transition target
         QString effectId;
         bool head = true; ///< Transition: at the clip head (transitionIn) or tail

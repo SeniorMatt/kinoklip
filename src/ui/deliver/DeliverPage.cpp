@@ -8,6 +8,7 @@
 #include "export/RenderQueue.h"
 #include "render/Compositor.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/PanelSplitter.h"
 #include "ui/deliver/RenderQueuePanel.h"
 #include "ui/deliver/RenderRangeBar.h"
 #include "ui/deliver/RenderSettingsPanel.h"
@@ -47,7 +48,7 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     m_viewer = new ViewerPanel(ViewerPanel::Mode::Timeline, ctx);
     m_queuePanel = new RenderQueuePanel(m_queue);
 
-    m_topRow = new QSplitter(Qt::Horizontal);
+    m_topRow = new PanelSplitter(Qt::Horizontal);
     m_topRow->setChildrenCollapsible(false);
     m_topRow->addWidget(m_settingsPanel);
     m_topRow->addWidget(m_viewer);
@@ -56,7 +57,7 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     m_topRow->setSizes({kSettingsWidth, kViewerWidth, kQueueWidth});
 
     m_rangeBar = new RenderRangeBar(ctx.project->timeline());
-    m_main = new QSplitter(Qt::Vertical);
+    m_main = new PanelSplitter(Qt::Vertical);
     m_main->setChildrenCollapsible(false);
     m_main->addWidget(m_topRow);
     m_main->addWidget(m_rangeBar);
