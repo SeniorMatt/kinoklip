@@ -258,9 +258,13 @@ public slots:
     /// tracks of its type. One undo step.
     void soloAutoSelect(TrackRef ref);
     /// Trims the head (Shift+[) / tail (Shift+]) of the clips under the playhead to the
-    /// playhead: the selected clips, or those on auto-select tracks (spec 8.10).
+    /// playhead, leaving a gap: the selected clips, or those on auto-select tracks (spec 8.10).
     void trimStartToPlayhead();
     void trimEndToPlayhead();
+    /// Same clips, rippling (Ctrl+Shift+[ / Ctrl+Shift+]): the gap closes, later clips move
+    /// left and the playhead lands on the old start (spec 8.10). One undo step.
+    void rippleTrimStartToPlayhead();
+    void rippleTrimEndToPlayhead();
     void goToPreviousEdit();
     void goToNextEdit();
     void goToPreviousMarker();
@@ -346,7 +350,7 @@ private:
     /// True if the timeline has both an in and an out mark (out > in).
     [[nodiscard]] bool hasMarkedRange() const;
     void setMarks(int64_t in, int64_t out, const QString& label);
-    void trimToPlayhead(bool head);
+    void trimToPlayhead(bool head, bool ripple);
     /// Trims the selected edit point by @p frames (one undo step). Returns the applied delta.
     int64_t trimSelectedEdit(int64_t frames);
     /// The trim of trimSelectedEdit() on @p data without opening an edit (roll when both

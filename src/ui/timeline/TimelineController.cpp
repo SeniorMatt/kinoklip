@@ -571,7 +571,7 @@ void TimelineController::soloAutoSelect(TrackRef ref)
     });
 }
 
-void TimelineController::trimToPlayhead(bool head)
+void TimelineController::trimToPlayhead(bool head, bool ripple)
 {
     const int64_t f = timeline()->playhead();
     const TimelineData& d = timeline()->data();
@@ -596,40 +596,51 @@ void TimelineController::trimToPlayhead(bool head)
     }
     if (ids.isEmpty())
         return;
-    const bool ripple = EditBehaviour::fromSettings().trimToPlayheadRipples;
     int64_t newPlayhead = f;
-    const bool changed
-        = runEdit(project(), head ? tr("Trim Start") : tr("Trim End"), [&](TimelineData& data) {
-              bool any = false;
-              for (quint64 id : ids) {
-                  const ClipData* c = ops::clipById(data, id);
-                  if (!c)
-                      continue;
-                  if (head) {
-                      // The playhead frame becomes the first frame of the clip.
-                      const int64_t start = c->start;
-                      any |= ops::trimHead(data, id, f - start, ripple) != 0;
-                      if (ripple)
-                          newPlayhead = start; // the same picture is now at the old start
-                  } else {
-                      // The playhead frame is the first frame removed.
-                      any |= ops::trimTail(data, id, f - c->end(), ripple) != 0;
-                  }
-              }
-              return any;
-          });
+    const bool changed = runEdit(project(),
+        ripple ? (head ? tr("Ripple Trim Start") : tr("Ripple Trim End"))
+               : (head ? tr("Trim Start") : tr("Trim End")),
+        [&](TimelineData& data) {
+            bool any = false;
+            for (quint64 id : ids) {
+                const ClipData* c = ops::clipById(data, id);
+                if (!c)
+                    continue;
+                if (head) {
+                    // The playhead frame becomes the first frame of the clip.
+                    const int64_t start = c->start;
+                    any |= ops::trimHead(data, id, f - start, ripple) != 0;
+                    if (ripple)
+                        newPlayhead = start; // the same picture is now at the old start
+                } else {
+                    // The playhead frame is the first frame removed.
+                    any |= ops::trimTail(data, id, f - c->end(), ripple) != 0;
+                }
+            }
+            return any;
+        });
     if (changed && newPlayhead != f)
         timeline()->setPlayhead(newPlayhead);
 }
 
 void TimelineController::trimStartToPlayhead()
 {
-    trimToPlayhead(true);
+    trimToPlayhead(true, false);
 }
 
 void TimelineController::trimEndToPlayhead()
 {
-    trimToPlayhead(false);
+    trimToPlayhead(false, false);
+}
+
+void TimelineController::rippleTrimStartToPlayhead()
+{
+    trimToPlayhead(true, true);
+}
+
+void TimelineController::rippleTrimEndToPlayhead()
+{
+    trimToPlayhead(false, true);
 }
 
 void TimelineController::setPlayheadClamped(int64_t frame)
@@ -945,6 +956,8 @@ void TimelineController::connectActions()
     on("trim.cycle_edit", &TimelineController::cycleEditPoint);
     on("trim.trim_start", &TimelineController::trimStartToPlayhead);
     on("trim.trim_end", &TimelineController::trimEndToPlayhead);
+    on("trim.ripple_trim_start", &TimelineController::rippleTrimStartToPlayhead);
+    on("trim.ripple_trim_end", &TimelineController::rippleTrimEndToPlayhead);
     on("trim.select_nearest_edit", &TimelineController::selectNearestEdit);
     on("trim.select_nearest_clip", &TimelineController::selectNearestClipOrGap);
     on("trim.swap_left", [this] { swapSelection(-1); });
