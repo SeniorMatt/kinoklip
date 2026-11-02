@@ -10,11 +10,13 @@
 # KK_COMPOSITOR=kwin uses KWin (Plasma's compositor) instead, with its virtual backend: its
 # X11 / Wayland windowed backends need a GPU, which the container lacks. The virtual output has
 # no input devices and is not visible on the X screen: drive it with build-arch/kk_fakeinput
-# (KWin's fake-input protocol, enabled by KWIN_WAYLAND_NO_PERMISSION_CHECKS=1) and check the
-# app's logs. KK_WAYLAND_SCALE=1.5 sets the output scale with kscreen-doctor (fractional scaling like
-# a laptop panel). KWin's binary carries file capabilities that a rootless container refuses to exec,
-# so a copy without them is used (it must be called kwin_wayland: KWin's QPA plugin checks
-# the executable name). KWin needs a session bus: the command runs under dbus-run-session.
+# (KWin's fake-input protocol, enabled by KWIN_WAYLAND_NO_PERMISSION_CHECKS=1) and read the
+# app's logs (QT_LOGGING_RULES=kk.ui.dnd.debug=true). KWin composites with QPainter there and
+# has no effects, so its screenshot API is unavailable too. KK_WAYLAND_SCALE=1.5 sets the
+# output scale with kscreen-doctor (fractional scaling like a laptop panel). KWin's binary
+# carries file capabilities that a rootless container refuses to exec, so a copy without them
+# is used (named kwin_wayland: KWin's QPA plugin checks the executable name). KWin needs a
+# session bus: the command runs under dbus-run-session.
 #
 # Run in the Arch container (weston, xorg-server-xvfb, xdotool, imagemagick):
 #   podman exec -w "$PWD" kk-arch scripts/wayland_session.sh <command> [args...]
@@ -60,7 +62,7 @@ if [ "${KK_COMPOSITOR:-weston}" = kwin ]; then
     fi
     # Own config dir: KWin saves output settings (scale) in kwinoutputconfig.json.
     XDG_CONFIG_HOME="$(mktemp -d /tmp/kk-kwin-config-XXXXXX)" \
-        KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1 \
+        KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 \
         KWIN_COMPOSE=Q "$KWIN" --virtual --width "$W" \
         --height "$H" --socket "$SOCKET" --no-lockscreen >"$LOG" 2>&1 &
 else
