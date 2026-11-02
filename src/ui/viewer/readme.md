@@ -62,6 +62,15 @@ a click or the `multicam.angle_n` keys (1-9, only while the mode is on) emit
 (cut or switch per Clip > Multicam). Not following a timeline clip, a choice changes the
 angle the viewer plays.
 
+Grid cost: one nested composite per angle at cell size; decoding is per angle at the source
+size, or the proxy's when proxies are linked (Playback > Proxy Handling, the source player
+gets the program's proxy map). Measured (KK_PLAYBACK_STATS, 4 x 1080p25 H.264 angles, CUDA
+decode, 552x311 viewer, llvmpipe software GL under Xvfb): 10-11 fps, render 85 ms = decode
+16 + upload 10 + composite 53 + output 7 ms; the composite is the software GL cost (YUV ->
+RGB of four 1080p frames on the CPU), so a hardware GPU (single-angle composite ~1 ms, see
+Performance) plays the grid in real time; with 960x540 proxies the decode and upload parts
+shrink about 4x.
+
 ## Actions connected here (ViewerTransport)
 
 `transport.play_pause` (Space), `transport.shuttle_reverse/stop/forward` (J/K/L, auto-repeat
