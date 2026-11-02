@@ -172,6 +172,7 @@ ExportResult ExportJob::runStill()
     Q_UNUSED(end);
     const QSize size = m_settings.outputSize(*m_timeline);
     RenderRequest request {m_timeline, m_media, first, size, Quality::Full, OutputImage};
+    request.proxies = m_proxies;
     const RenderedFramePtr frame = m_compositor->renderAsync(std::move(request)).get();
     if (!frame || !frame->ok || frame->image.isNull()) {
         result.error = tr("Rendering frame %1 failed.").arg(first);
@@ -332,8 +333,10 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
         int64_t step = 1;
         if (s.hasVideo()) {
             while (int64_t(inFlight.size()) < kFramesInFlight && requested < total) {
-                inFlight.push_back(m_compositor->renderAsync(
-                    {m_timeline, m_media, first + requested, size, Quality::Full, OutputImage}));
+                RenderRequest request {
+                    m_timeline, m_media, first + requested, size, Quality::Full, OutputImage};
+                request.proxies = m_proxies; // nullptr unless "Use proxy media" was chosen
+                inFlight.push_back(m_compositor->renderAsync(std::move(request)));
                 ++requested;
             }
             const RenderedFramePtr frame = inFlight.front().get();
