@@ -130,7 +130,7 @@ bool tryEncode(VideoEncoderConfig config, QString* error)
         return packets > 0;
     }();
     if (!ok && error && !capture.firstError().isEmpty()) {
-        *error += QStringLiteral(" [%1]").arg(capture.firstError());
+        *error += QStringLiteral(" (%1)").arg(capture.firstError());
     }
     return ok;
 }
@@ -168,7 +168,7 @@ AVBufferRef* vaapiDeviceFor(Cache& c, const QString& node, QString* error)
         if (error) {
             *error = QStringLiteral("cannot open VAAPI on %1: %2").arg(node, avError(err));
             if (!capture.firstError().isEmpty()) {
-                *error += QStringLiteral(" [%1]").arg(capture.firstError());
+                *error += QStringLiteral(" (%1)").arg(capture.firstError());
             }
         }
     }
@@ -300,8 +300,8 @@ void logSummary(const QString& scope)
     QStringList parts;
     {
         std::lock_guard lock(c.mutex);
-        if (c.summarised.contains(scope)) {
-            return;
+        if (c.summarised.contains(scope) || c.summarised.contains(QString())) {
+            return; // said already (the full summary covers every codec)
         }
         c.summarised.insert(scope);
         for (EncoderBackend backend :

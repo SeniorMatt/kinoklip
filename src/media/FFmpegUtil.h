@@ -80,7 +80,7 @@ public:
 
     /// Number of error (or worse) messages captured.
     [[nodiscard]] int errorCount() const { return m_errorCount; }
-    /// The first error message captured (with FFmpeg's "[context]" prefix), or empty.
+    /// The first error message captured, e.g. "h264_qsv: Error creating a MFX session", or empty.
     [[nodiscard]] QString firstError() const { return m_firstError; }
 
     /// Internal: called by the log callback (also forwards to the enclosing capture).
