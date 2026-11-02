@@ -39,6 +39,7 @@
         "trim.trim_start": ["Shift+["],
         "trim.trim_end": ["Shift+]"],
         "trim.extend_edit": ["E"],
+        "trim.cycle_edit": ["U"],
 
         "edit.split": ["Ctrl+B", "Ctrl+\\"],
         "timeline.add_transition": ["Ctrl+T"],

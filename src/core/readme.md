@@ -21,6 +21,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `BuiltinEffects.cpp` | the v0.1 descriptor catalogue |
 | `Serialization.h` | JSON encode/decode of all value types |
 | `Preferences.h` | QSettings preference keys + typed accessors (`playback/hwaccel`, autosave, theme) |
+| `EditBehaviour.h` | convention-dependent editing defaults (`edit/*`: still / generator / transition lengths, three-point editing, ripple delete without selection, trim zones); see docs/behavior-spec.md |
 
 ## Time conventions (PLAN §5.1)
 - Timeline positions and durations: `int64_t` frames at `TimelineData::fps`.
@@ -54,6 +55,13 @@ project->endEdit();                                      // pushes ONE undo comm
 - `Project::undo()/redo()` are ignored while an edit is open (e.g. mid-drag).
 - Never mutate `mutableData()` outside begin/endEdit — the change would not be undoable and the
   project would not become dirty.
+
+## Auto track selectors
+`TrackData::autoSelect` (default on) marks the tracks that take part in edits without an
+explicit target: `editops::autoSelectTracks()` is the filter for next/previous edit point,
+split at the playhead without a selection, mark clip and the default transition, and
+`RippleScope::AllTracks` (insert, close gap) skips tracks whose selector is off unless they
+receive clips.
 
 ## Invariants (checked by `editops::checkInvariants`)
 Clips on a track are sorted by start and never overlap; `duration >= 1`, `start >= 0`,
