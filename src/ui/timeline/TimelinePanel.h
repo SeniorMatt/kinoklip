@@ -33,6 +33,11 @@ public:
     [[nodiscard]] TimelineWidget* timelineWidget() const { return m_view; }
 
 private:
+    /// Ctrl+D: asks for a new duration of the selected clips (timecode).
+    void askClipDuration();
+    /// R: asks for a new speed (percent) of the selected clips.
+    void askClipSpeed();
+
     AppContext& m_ctx;
     QToolBar* m_toolBar = nullptr;
     TimelineController* m_controller = nullptr;

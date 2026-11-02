@@ -56,7 +56,9 @@ private slots:
         registerStandardActions(reg);
         const QList<QPair<const char*, const char*>> expected {
             {"transport.play_pause", "Space"},
-            {"edit.split", "Ctrl+B"},
+            {"edit.split", "Ctrl+\\"},
+            {"edit.ripple_cut", "Ctrl+Shift+X"},
+            {"view.page_deliver", "Shift+8"},
             {"edit.undo", "Ctrl+Z"},
             {"edit.redo", "Ctrl+Shift+Z"},
             {"tool.blade", "B"},
@@ -114,7 +116,7 @@ private slots:
         for (const MenuCategory& m : standardMenus())
             menuIds.append(m.id);
         for (const QString& category : reg.categories())
-            QVERIFY2(menuIds.contains(category), qPrintable(category));
+            QVERIFY2(menuIds.contains(category) || reg.isSubmenu(category), qPrintable(category));
         const QStringList file = reg.menuEntries(QStringLiteral("file"));
         QCOMPARE(file.first(), QStringLiteral("file.new"));
         QVERIFY(file.contains(QLatin1String(ActionRegistry::kSeparator)));
@@ -142,7 +144,7 @@ private slots:
             QVERIFY(reg.shortcuts(QStringLiteral("edit.copy")).isEmpty());
             reg.resetAllShortcuts();
             QCOMPARE(reg.action(QStringLiteral("edit.split"))->shortcut(),
-                QKeySequence(QStringLiteral("Ctrl+B")));
+                QKeySequence(QStringLiteral("Ctrl+\\")));
             QVERIFY(QSettings().childGroups().isEmpty() || QSettings().allKeys().isEmpty());
         }
     }

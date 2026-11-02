@@ -10,6 +10,7 @@
 #include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/timeline/TimelineEditUtil.h"
 
 #include <QAction>
 
@@ -26,20 +27,7 @@ namespace {
 /// Default transition id (Ctrl+T); its length comes from EditBehaviour.
 const QString kDefaultTransition = QStringLiteral("cross_dissolve");
 
-/// Runs @p fn on the mutable timeline inside one undoable edit. @p fn returns whether it
-/// changed anything; if not, the edit is cancelled so no empty undo step (or id allocation)
-/// is left behind.
-template<typename Fn>
-bool runEdit(Project* project, const QString& label, Fn&& fn)
-{
-    project->beginEdit(label);
-    const bool changed = fn(project->timeline()->mutableData());
-    if (changed)
-        project->endEdit();
-    else
-        project->cancelEdit();
-    return changed;
-}
+using timelineedit::runEdit;
 
 /// Clips linked to @p clipId whose same edge (head or tail) sits on the same frame; they
 /// trim along with it (spec 8.12). Includes @p clipId itself first.
@@ -280,6 +268,9 @@ QVector<quint64> TimelineController::insertSource(
     case SourceEditMode::AppendAtEnd:
         label = tr("Append at End");
         break;
+    case SourceEditMode::RippleOverwrite:
+        label = tr("Ripple Overwrite");
+        break;
     }
     const EditBehaviour behaviour = EditBehaviour::fromSettings();
     const TimelineData& before = timeline()->data();
@@ -294,7 +285,30 @@ QVector<quint64> TimelineController::insertSource(
     int64_t fixedFrames = 0;
     bool backtime = false; // only an out mark: the clip ends at it
     double speed = 1.0;
+    // Ripple overwrite (spec 4.11): the range that is replaced.
+    int64_t replaceStart = 0;
+    int64_t replaceEnd = 0;
     switch (mode) {
+    case SourceEditMode::RippleOverwrite: {
+        // The timeline in..out range, else the clip under the playhead (target video track
+        // first); the source keeps its own length and the timeline ripples by the difference.
+        if (tlIn >= 0 && tlOut > tlIn) {
+            replaceStart = tlIn;
+            replaceEnd = tlOut;
+        } else {
+            const ClipData* target = nullptr;
+            if (const TrackData* t = before.track(TrackRef {TrackType::Video, m_targetVideo}))
+                target = t->clipAt(playhead);
+            if (!target)
+                target = ops::clipUnderFrame(before, playhead, ops::autoSelectTracks());
+            if (!target)
+                return {};
+            replaceStart = target->start;
+            replaceEnd = target->end();
+        }
+        at = replaceStart;
+        break;
+    }
     case SourceEditMode::Replace: {
         // The clip under the playhead on the target video track (else any auto-select track)
         // keeps its place and length; the source fills it from its in point.
@@ -368,6 +382,9 @@ QVector<quint64> TimelineController::insertSource(
         case SourceEditMode::PlaceOnTop:
             ids = ops::placeOnTop(data, clips);
             break;
+        case SourceEditMode::RippleOverwrite:
+            ids = ops::rippleOverwriteClips(data, clips, replaceStart, replaceEnd);
+            break;
         }
         if (ids.size() > 1)
             ops::linkClips(data, ids); // video + audio of one source stay in sync
@@ -401,43 +418,6 @@ void TimelineController::splitAtPlayhead()
             return !ops::splitClips(data, selected, frame).isEmpty();
         return !ops::splitAt(data, frame, ops::autoSelectTracks()).isEmpty();
     });
-}
-
-void TimelineController::deleteSelection()
-{
-    if (m_selectedGap) {
-        // A selected gap is removed by either delete key (spec 10.5).
-        rippleDeleteSelection();
-        return;
-    }
-    const QVector<quint64> ids = effectiveSelection();
-    if (ids.isEmpty())
-        return;
-    runEdit(
-        project(), tr("Delete"), [&](TimelineData& data) { return ops::liftClips(data, ids) > 0; });
-    m_ctx.selection->clear();
-}
-
-void TimelineController::rippleDeleteSelection()
-{
-    if (const auto gap = m_selectedGap) {
-        setSelectedGap(std::nullopt);
-        closeGapAt(gap->track, gap->start);
-        return;
-    }
-    const QVector<quint64> ids = effectiveSelection();
-    if (ids.isEmpty()) {
-        // Nothing selected: optionally (EditBehaviour) close the gap under the playhead on the
-        // target video track; by default nothing happens (spec 10.5).
-        if (EditBehaviour::fromSettings().rippleDeleteGapAtPlayhead) {
-            const TrackRef ref {TrackType::Video, std::max(0, m_targetVideo)};
-            closeGapAt(ref, timeline()->playhead());
-        }
-        return;
-    }
-    runEdit(project(), tr("Ripple Delete"),
-        [&](TimelineData& data) { return ops::rippleDeleteClips(data, ids) > 0; });
-    m_ctx.selection->clear();
 }
 
 void TimelineController::closeGapAt(TrackRef ref, int64_t frame)
@@ -809,13 +789,6 @@ void TimelineController::toggleClipsEnabled()
     });
 }
 
-void TimelineController::linkSelection()
-{
-    const QVector<quint64> ids = m_ctx.selection->clips();
-    runEdit(project(), tr("Link Clips"),
-        [&](TimelineData& data) { return ops::linkClips(data, ids) != 0; });
-}
-
 void TimelineController::unlinkSelection()
 {
     const QVector<quint64> ids = ops::withLinkedClips(timeline()->data(), m_ctx.selection->clips());
@@ -824,24 +797,6 @@ void TimelineController::unlinkSelection()
         ops::unlinkClips(data, ids);
         return !(data == before);
     });
-}
-
-void TimelineController::copy()
-{
-    const QVector<quint64> ids = effectiveSelection();
-    if (!ids.isEmpty())
-        m_clipboard = ops::copyClips(timeline()->data(), ids);
-}
-
-void TimelineController::cut()
-{
-    const QVector<quint64> ids = effectiveSelection();
-    if (ids.isEmpty())
-        return;
-    m_clipboard = ops::copyClips(timeline()->data(), ids);
-    runEdit(
-        project(), tr("Cut"), [&](TimelineData& data) { return ops::liftClips(data, ids) > 0; });
-    m_ctx.selection->clear();
 }
 
 void TimelineController::paste()
@@ -1061,6 +1016,34 @@ void TimelineController::connectActions()
     on("trim.cycle_edit", &TimelineController::cycleEditPoint);
     on("trim.trim_start", &TimelineController::trimStartToPlayhead);
     on("trim.trim_end", &TimelineController::trimEndToPlayhead);
+    on("trim.select_nearest_edit", &TimelineController::selectNearestEdit);
+    on("trim.select_nearest_clip", &TimelineController::selectNearestClipOrGap);
+    on("trim.swap_left", [this] { swapSelection(-1); });
+    on("trim.swap_right", [this] { swapSelection(1); });
+    on("edit.ripple_cut", &TimelineController::rippleCut);
+    on("edit.delete_gaps", &TimelineController::deleteGaps);
+    on("edit.join", &TimelineController::joinSelection);
+    on("edit.select_forward", [this] { selectClipsFromPlayhead(true, false); });
+    on("edit.select_backward", [this] { selectClipsFromPlayhead(false, false); });
+    on("edit.select_forward_all", [this] { selectClipsFromPlayhead(true, true); });
+    on("edit.select_backward_all", [this] { selectClipsFromPlayhead(false, true); });
+    on("clip.match_frame", &TimelineController::matchFrame);
+    on("mark.delete_marker", &TimelineController::deleteMarkerAtPlayhead);
+    for (int n = 1; reg->contains(QStringLiteral("timeline.target_video_%1").arg(n)); ++n) {
+        const QString num = QString::number(n);
+        auto bind = [&](const QString& id, auto fn) {
+            if (reg->contains(id))
+                connect(reg->action(id), &QAction::triggered, this, fn);
+        };
+        bind(QStringLiteral("timeline.target_video_") + num,
+            [this, n] { setTargetByNumber(TrackType::Video, n); });
+        bind(QStringLiteral("timeline.target_audio_") + num,
+            [this, n] { setTargetByNumber(TrackType::Audio, n); });
+        bind(QStringLiteral("timeline.auto_select_video_") + num,
+            [this, n] { toggleAutoSelectByNumber(TrackType::Video, n); });
+        bind(QStringLiteral("timeline.auto_select_audio_") + num,
+            [this, n] { toggleAutoSelectByNumber(TrackType::Audio, n); });
+    }
     on("edit.split", &TimelineController::splitAtPlayhead);
     on("edit.delete", &TimelineController::deleteSelection);
     on("edit.ripple_delete", &TimelineController::rippleDeleteSelection);
@@ -1072,6 +1055,7 @@ void TimelineController::connectActions()
     on("edit.deselect_all", &TimelineController::deselectAll);
     on("edit.insert", [this] { sourceEdit(SourceEditMode::Insert); });
     on("edit.overwrite", [this] { sourceEdit(SourceEditMode::Overwrite); });
+    on("edit.ripple_overwrite", [this] { sourceEdit(SourceEditMode::RippleOverwrite); });
     on("edit.place_on_top", [this] { sourceEdit(SourceEditMode::PlaceOnTop); });
     on("edit.replace", [this] { sourceEdit(SourceEditMode::Replace); });
     on("edit.fit_to_fill", [this] { sourceEdit(SourceEditMode::FitToFill); });
