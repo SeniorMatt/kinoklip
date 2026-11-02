@@ -245,6 +245,9 @@
         "cut.viewer_source_clip": [],
         "cut.viewer_source_tape": [],
         "cut.viewer_timeline": [],
+        "audio.add_bus": [],
+        "audio.reset_loudness": [],
+        "audio.float_viewer": [],
         "help.about": [],
         "help.about_qt": []
     }

@@ -193,4 +193,11 @@ bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame)
         clip.masks.cbegin(), clip.masks.cend(), [](const MaskData& m) { return m.isRenderable(); });
 }
 
+bool samePictures(const TimelineData& a, const TimelineData& b)
+{
+    return a.uid == b.uid && a.fps == b.fps && a.width == b.width && a.height == b.height
+        && a.retimeProcess == b.retimeProcess && a.nested == b.nested
+        && a.videoTracks == b.videoTracks && a.subtitleTracks == b.subtitleTracks;
+}
+
 } // namespace kk::render

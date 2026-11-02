@@ -4,6 +4,7 @@
 
 #include "app/MainWindow.h"
 #include "app/ProjectController.h"
+#include "app/ScreenshotAudio.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
@@ -220,6 +221,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
     const bool isPage = window.setCurrentPage(target);
     std::unique_ptr<QWidget> dialog;
     QWidget* panel = nullptr; // panel targets: only this widget is saved
+    QWidget* toolWindow = nullptr; // a floating editor composited into the window grab
     QList<QMenu*> menus;
     if (!isPage)
         window.setCurrentPage(QStringLiteral("edit"));
@@ -613,11 +615,21 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         } else if (section == QLatin1String("strip")) {
             cut->mediaPool()->setViewMode(MediaPoolPanel::ViewMode::Strip);
         }
+    } else if (base == QLatin1String("audio")) {
+        // Audio page (spec 37): demo mix, meters filled offline; "audio:eq" / "audio:dynamics"
+        // open A1's editor window, composited into the grab.
+        QString why;
+        toolWindow = prepareAudioScreenshot(window, section, &why);
+        if (!why.isEmpty()) {
+            std::fprintf(stderr, "%s\n", qPrintable(why));
+            return 2;
+        }
     } else if (target == QLatin1String("import-dialog")) {
         return grabImportDialog(window, pngPath);
     } else if (!isPage) {
         std::fprintf(stderr,
-            "unknown screenshot target '%s' (use media, cut[:tape|clip|strip], edit, deliver, "
+            "unknown screenshot target '%s' (use media, cut[:tape|clip|strip], edit, "
+            "audio[:eq|dynamics], deliver, "
             "preferences[:section], "
             "project-settings[:section], keyboard, inspector, keyframes[:curves|narrow], "
             "keyframes-window, masks[:inspector|viewer], subtitles[:inspector], "
@@ -637,6 +649,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
     QElapsedTimer waited;
     auto grab = [&] {
         const QPixmap pixmap = dialog ? dialog->grab()
+            : toolWindow              ? grabWithToolWindow(window, toolWindow)
             : panel                   ? panel->grab()
             : menus.isEmpty()         ? window.grab()
                                       : grabWithMenus(window, menus);

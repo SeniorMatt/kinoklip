@@ -7,6 +7,7 @@
 #include "app/InterfaceBar.h"
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
+#include "app/pages/AudioPage.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "app/pages/MediaPage.h"
@@ -77,7 +78,7 @@ constexpr PageSlot kPageSlots[] = {
     {"view.page_edit", "edit"},
     {"view.page_compositing", nullptr},
     {"view.page_color", nullptr},
-    {"view.page_audio", nullptr},
+    {"view.page_audio", "audio"},
     {"view.page_deliver", "deliver"},
 };
 
@@ -150,11 +151,13 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     m_editPage = new EditPage(ctx);
     // The Cut page edits with the Edit page's timeline controller (one tool / target state).
     m_cutPage = new CutPage(ctx, m_editPage->timeline()->controller());
+    // The Audio page too: one tool / target state for every timeline view.
+    m_audioPage = new AudioPage(ctx, m_editPage->timeline()->controller());
     m_deliverPage = new DeliverPage(ctx);
     // The page bar in Resolve's order; pages not built yet are disabled placeholders.
     const QHash<QString, Page*> built {{QStringLiteral("media"), m_mediaPage},
         {QStringLiteral("cut"), m_cutPage}, {QStringLiteral("edit"), m_editPage},
-        {QStringLiteral("deliver"), m_deliverPage}};
+        {QStringLiteral("audio"), m_audioPage}, {QStringLiteral("deliver"), m_deliverPage}};
     for (const PageSlot& slot : kPageSlots) {
         const QString actionId = QLatin1String(slot.actionId);
         Page* page = slot.pageId ? built.value(QLatin1String(slot.pageId)) : nullptr;

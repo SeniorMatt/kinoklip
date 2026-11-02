@@ -6,6 +6,7 @@
 #include "core/Animation.h"
 #include "core/ClipAttributes.h"
 #include "core/Mask.h"
+#include "core/MixerData.h"
 #include "core/Rational.h"
 
 #include <QColor>
@@ -236,6 +237,9 @@ struct TrackData
     /// Subtitle tracks only: ISO 639 language code written to sidecar / embedded subtitle
     /// streams (empty = undefined).
     QString language;
+    /// Audio tracks only: the mixer channel (EQ, dynamics, pan, fader, channel format, bus
+    /// routing, automation; Audio page, core/MixerData.h).
+    TrackMix mix;
     std::vector<ClipData> clips;
 
     /// Clip covering timeline frame @p frame, or nullptr.
@@ -324,6 +328,8 @@ struct TimelineData
     int64_t markOut = -1; ///< -1 = not set; exclusive end frame
     QVector<Marker> markers; ///< sorted by frame
     quint64 nextId = 1; ///< id allocator for clips, tracks and effect instances
+    /// Buses and the output bus of the Audio page's mixer (core/MixerData.h).
+    MixerData mixer;
     /// Render snapshots only (Timeline::snapshot()): every timeline the nested clips of this
     /// one reach, directly or indirectly. Empty in editable data; never serialized.
     NestedTimelines nested;

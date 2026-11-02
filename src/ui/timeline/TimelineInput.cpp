@@ -930,6 +930,7 @@ void TimelineWidget::headerClick(const TimelineHit& hit)
         else
             m_controller->toggleTrackFlag(hit.track, TimelineController::FlagAutoSelect);
         break;
+    case HeaderButton::Arm: // recording is deferred: the button is shown disabled
     case HeaderButton::None:
         break;
     }

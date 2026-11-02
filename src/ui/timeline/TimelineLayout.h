@@ -35,6 +35,8 @@ inline constexpr int kClipNameBandPx = 15;
 inline constexpr int kResizeGrabPx = 3; ///< header bottom edge that resizes a track
 inline constexpr int kHeaderButton = 18; ///< square header buttons (lock, mute, ...)
 inline constexpr int kHeaderButtonGap = 3;
+/// Audio page headers: width of the level meter at the right edge of audio track headers.
+inline constexpr int kHeaderMeterWidth = 12;
 /// Zoom limits in pixels per frame: ~2.5 h of 25 fps per 1000 px .. 48 px per frame.
 inline constexpr double kMinPixelsPerFrame = 0.004;
 inline constexpr double kMaxPixelsPerFrame = 48.0;
@@ -59,7 +61,8 @@ enum class HeaderButton {
     Visible, ///< video: track enabled in the output
     Mute, ///< audio
     Solo, ///< audio
-    AutoSelect ///< auto track selector (TrackData::autoSelect, spec 12.5)
+    AutoSelect, ///< auto track selector (TrackData::autoSelect, spec 12.5)
+    Arm ///< audio, Audio page headers only: record arm (disabled; recording is deferred)
 };
 
 /// Which part of a clip a point is on.
@@ -121,8 +124,16 @@ public:
     [[nodiscard]] double heightScale() const { return m_heightScale; }
     /// Extra height factor of the audio rows only (compact audio, Cut page); takes effect on
     /// the next rebuild().
-    void setAudioHeightScale(double scale) { m_audioHeightScale = std::clamp(scale, 0.1, 1.0); }
+    void setAudioHeightScale(double scale) { m_audioHeightScale = std::clamp(scale, 0.1, 3.0); }
     [[nodiscard]] double audioHeightScale() const { return m_audioHeightScale; }
+    /// Extra height factor of the video and subtitle rows (below 1 = collapsed, the Audio
+    /// page; never below kMinTrackHeight); takes effect on the next rebuild().
+    void setVideoHeightScale(double scale) { m_videoHeightScale = std::clamp(scale, 0.1, 1.0); }
+    [[nodiscard]] double videoHeightScale() const { return m_videoHeightScale; }
+    /// Audio page headers: audio tracks get a record arm button and a level meter at the
+    /// right edge of their header (buttons move left to make room).
+    void setAudioPageHeaders(bool on) { m_audioPageHeaders = on; }
+    [[nodiscard]] bool audioPageHeaders() const { return m_audioPageHeaders; }
     static constexpr double kMinHeightScale = 0.5;
     static constexpr double kMaxHeightScale = 3.0;
 
@@ -190,6 +201,12 @@ public:
 
     /// Buttons shown in the header of a track of @p type, ordered from right to left.
     [[nodiscard]] static const std::vector<HeaderButton>& headerButtons(TrackType type);
+    /// The buttons this layout shows for @p type (headerButtons(), plus Arm for audio tracks
+    /// with audio page headers).
+    [[nodiscard]] const std::vector<HeaderButton>& buttonsFor(TrackType type) const;
+    /// View rect of the header level meter of row @p row (empty unless audio page headers
+    /// and an audio row).
+    [[nodiscard]] QRect headerMeterRect(int row) const;
     /// View rect of @p button in the header of row @p row (empty if the type has no such
     /// button).
     [[nodiscard]] QRect headerButtonRect(int row, HeaderButton button) const;
@@ -214,6 +231,8 @@ private:
     double m_pixelsPerFrame = 2.0;
     double m_heightScale = 1.0;
     double m_audioHeightScale = 1.0; ///< setAudioHeightScale()
+    double m_videoHeightScale = 1.0; ///< setVideoHeightScale()
+    bool m_audioPageHeaders = false; ///< setAudioPageHeaders()
     double m_scrollX = 0;
     int m_scrollY = 0;
     std::vector<TimelineRow> m_rows;

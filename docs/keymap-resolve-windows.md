@@ -3,8 +3,8 @@
 The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id
 `resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and
 its global commands, written from general knowledge of how Resolve behaves (nothing copied from
-Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing, Color and
-Audio pages) keep their Resolve key but are
+Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing and Color
+pages) keep their Resolve key but are
 disabled.
 
 **Confidence** says how sure we are that the key is Resolve's default:
@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 244 commands; sure 94, likely 84, unsure 66.
+Counts: 247 commands; sure 94, likely 84, unsure 69.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -212,7 +212,7 @@ that every command has an entry and that no key is used twice.
 | Edit Page | `view.page_edit` | `Shift+4` | sure |  |
 | Compositing Page (disabled; Resolve: Fusion) | `view.page_compositing` | `Shift+5` | sure |  |
 | Color Page (disabled) | `view.page_color` | `Shift+6` | sure |  |
-| Audio Page (disabled; Resolve: Fairlight) | `view.page_audio` | `Shift+7` | sure |  |
+| Audio Page | `view.page_audio` | `Shift+7` | sure |  |
 | Deliver Page | `view.page_deliver` | `Shift+8` | sure |  |
 | Media Pool panel | `view.toggle_media_pool` | (none) | likely |  |
 | Effects panel | `view.toggle_effects` | (none) | likely |  |
@@ -325,6 +325,14 @@ that every command has an entry and that no key is used twice.
 | Cut Viewer: Source Clip | `cut.viewer_source_clip` | (none) | unsure | Cut page viewer mode button; Q switches between the source and the timeline there |
 | Cut Viewer: Source Tape (all clips of the bin back to back) | `cut.viewer_source_tape` | (none) | unsure | Cut page viewer mode button; no default key known |
 | Cut Viewer: Timeline | `cut.viewer_timeline` | (none) | unsure | Cut page viewer mode button; Q switches between the source and the timeline there |
+
+## Audio page
+
+| Command | Action id | Key | Confidence | Note |
+|---|---|---|---|---|
+| Add Bus (stereo; mono from the bus strip's menu) | `audio.add_bus` | (none) | unsure | Audio page mixer command; no default key known, none assigned |
+| Reset Loudness Meter (integrated loudness, true peak max) | `audio.reset_loudness` | (none) | unsure | loudness meter reset button; no default key known, none assigned |
+| Float Viewer (Audio page) | `audio.float_viewer` | (none) | unsure | the Audio page viewer as a small floating window; no default key known, none assigned |
 
 ## Help
 

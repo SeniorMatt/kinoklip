@@ -57,6 +57,12 @@ export, real Breeze look, single-file Linux x86_64 binary. Color page visible bu
 - **Cut page** (done, basic level): dual timeline, source tape, smart edits, fast review.
 - **Audio page** (in progress, basic level): mixer with buses, EQ / dynamics, automation, meters,
   loudness.
+  Status: basic level done on the `audiopage` branch (layout with meters, viewer, tall audio
+  timeline and mixer; buses and routing; 6-band EQ and compressor / limiter per track and bus;
+  fader / pan automation with off / read / touch / write; peak meters and EBU R128 loudness with
+  true peak; project format 12); recording / ADR, plugins, surround formats, sound library,
+  dialogue leveler, elastic wave, console mapping, VCAs and further effects deferred
+  (docs/behavior-spec.md section 37).
 - The Color and Compositing pages moved to v4.
 
 ## v3 - polish basic video editing (current focus)

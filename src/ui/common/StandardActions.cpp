@@ -302,6 +302,12 @@ const ActionSpec kActions[] = {
     {"cut", "cut.viewer_source_tape", QT_TRANSLATE_NOOP("kk::StandardActions", "Viewer: Source Ta&pe"), "source_tape", true},
     {"cut", "cut.viewer_timeline",    QT_TRANSLATE_NOOP("kk::StandardActions", "Viewer: Time&line"), "timeline", true},
 
+    // ---- Audio page / mixer (own "Audio" menu) ----
+    {"audio", "audio.add_bus",          QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Bus"), "add"},
+    {"audio", "audio.reset_loudness",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Reset Loudness Meter")},
+    {"audio", "-"},
+    {"audio", "audio.float_viewer",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Float Viewer"), "", true},
+
     {"mediapool", "mediapool.generate_optimized", QT_TRANSLATE_NOOP("kk::StandardActions", "Generate Optimized Media")},
     {"mediapool", "mediapool.generate_proxy",     QT_TRANSLATE_NOOP("kk::StandardActions", "Generate Proxy Media")},
     {"mediapool", "mediapool.stop_generation",    QT_TRANSLATE_NOOP("kk::StandardActions", "Stop Generating")},
@@ -349,6 +355,7 @@ QVector<MenuCategory> standardMenus()
         {QStringLiteral("view"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&View"))},
         {QStringLiteral("playback"),
             translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Playback"))},
+        {QStringLiteral("audio"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Audio"))},
         {QStringLiteral("settings"),
             translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Settings"))},
         {QStringLiteral("help"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Help"))},
@@ -477,7 +484,7 @@ void registerStandardActions(ActionRegistry& registry)
             registry.action(id)->setEnabled(false);
     }
 
-    for (const char* id : {"view.page_compositing", "view.page_color", "view.page_audio"}) {
+    for (const char* id : {"view.page_compositing", "view.page_color"}) {
         QAction* a = registry.action(QLatin1String(id));
         a->setEnabled(false);
         a->setStatusTip(

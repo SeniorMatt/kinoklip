@@ -4,6 +4,7 @@
 
 #include "core/ClipColors.h"
 #include "core/EditOps.h"
+#include "core/MixerJson.h"
 #include "core/Retime.h"
 #include "core/SmartBins.h"
 
@@ -143,6 +144,9 @@ QJsonObject trackToJson(const TrackData& track)
     o[QLatin1String("solo")] = track.solo;
     o[QLatin1String("autoSelect")] = track.autoSelect;
     o[QLatin1String("height")] = track.height;
+    // Format 13: the mixer channel of audio tracks, omitted while it has the defaults.
+    if (track.type == TrackType::Audio && track.mix != TrackMix {})
+        o[QLatin1String("mix")] = trackMixToJson(track.mix);
     if (track.type == TrackType::Subtitle) {
         o[QLatin1String("subtitleStyle")] = paramSetToJson(track.subtitleStyle);
         if (!track.language.isEmpty())
@@ -167,6 +171,8 @@ TrackData trackFromJson(const QJsonObject& o, TrackType type)
     t.solo = o.value(QLatin1String("solo")).toBool(false);
     t.autoSelect = o.value(QLatin1String("autoSelect")).toBool(true);
     t.height = o.value(QLatin1String("height")).toInt(0);
+    if (type == TrackType::Audio) // formats 1 - 11 have no "mix": the defaults
+        t.mix = trackMixFromJson(o.value(QLatin1String("mix")).toObject());
     if (type == TrackType::Subtitle) {
         t.subtitleStyle = paramSetFromJson(o.value(QLatin1String("subtitleStyle")).toObject());
         t.language = o.value(QLatin1String("language")).toString();
@@ -683,6 +689,8 @@ QJsonObject timelineToJson(const TimelineData& data)
             subtitle.append(trackToJson(t));
         o[QLatin1String("subtitleTracks")] = subtitle;
     }
+    if (data.mixer != MixerData {}) // format 12; omitted when default (older files identical)
+        o[QLatin1String("mixer")] = mixerToJson(data.mixer);
     return o;
 }
 
@@ -725,6 +733,10 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
         data.audioTracks.push_back(trackFromJson(v.toObject(), TrackType::Audio));
     for (const QJsonValue& v : o.value(QLatin1String("subtitleTracks")).toArray())
         data.subtitleTracks.push_back(trackFromJson(v.toObject(), TrackType::Subtitle));
+    // Format 13: buses and the output bus (absent = the main bus only); routes to buses that
+    // do not exist are dropped.
+    data.mixer = mixerFromJson(o.value(QLatin1String("mixer")).toObject());
+    repairRoutes(data.mixer, data.audioTracks);
 
     for (TrackType type : {TrackType::Video, TrackType::Audio, TrackType::Subtitle}) {
         for (TrackData& track : data.tracks(type)) {

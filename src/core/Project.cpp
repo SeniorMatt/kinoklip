@@ -495,6 +495,10 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     // "multicamAngle" load as -1 (= the whole nested timeline, exactly what they showed).
     // Versions <= 9 -> 10 only added clip fades and Clip Attributes (optional fields,
     // absent = none): nothing to convert.
+    // Versions <= 11 -> 12 (Audio page mixer) only added the optional "mix" (audio tracks)
+    // and "mixer" (timelines) objects; absent = a neutral mixer (main bus only, every track
+    // routed to it, faders at 0 dB), which plays exactly like the older mix: nothing to
+    // convert (serialization::trackMixFromJson() / mixerFromJson() give the defaults).
 
     // Media paths stored relative to the document resolve against the document's folder
     // (for a recovered autosave that is the original project file, not the autosave dir).

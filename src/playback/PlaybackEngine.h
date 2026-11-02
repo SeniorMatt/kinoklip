@@ -8,6 +8,7 @@
 #include "playback/FrameScheduler.h"
 #include "playback/PlaybackClock.h"
 #include "playback/ShuttleControl.h"
+#include "render/MixLevels.h"
 #include "render/RenderTypes.h"
 
 #include <QHash>
@@ -232,6 +233,16 @@ public:
 
     // ---- Statistics ----
     [[nodiscard]] Stats stats() const;
+
+    // ---- Meters (Audio page, Mixer panel) ----
+
+    /// Levels and loudness of the audio being heard (MeterFrame::sample = -1 while stopped or
+    /// without a sound device). Updated at most every kMeterIntervalMs while playing.
+    [[nodiscard]] const MeterFrame& meters() const { return m_meterFrame; }
+    /// Restarts the integrated loudness and the maximum true peak.
+    void resetLoudness();
+    /// Throttle of metersUpdated() (about 30 updates per second).
+    static constexpr int kMeterIntervalMs = 33;
     void resetStats();
     /// The frame scheduler (tests).
     [[nodiscard]] FrameScheduler& scheduler() { return m_scheduler; }
@@ -287,6 +298,8 @@ Q_SIGNALS:
     void qualityChanged(Quality quality);
     /// proxiesInUse() changed (viewer "Proxy" indicator).
     void proxiesInUseChanged(bool inUse);
+    /// meters() changed (throttled to kMeterIntervalMs; once more, silent, on stop).
+    void metersUpdated();
 
 private:
     void init(Options options);
@@ -309,6 +322,8 @@ private:
     void updateAutoQuality(int64_t nowUs);
     void logStats(int64_t nowUs);
     void logStatsSummary();
+    void updateMeters(int64_t nowUs, double heardFrame);
+    void clearMeters();
     void setRateInternal(double rate);
     [[nodiscard]] double wrap(double unwrapped) const;
     [[nodiscard]] int64_t clampFrame(int64_t frame) const;
@@ -357,6 +372,11 @@ private:
     bool m_settingPlayhead = false; ///< guards our own Timeline::setPlayhead calls
     int64_t m_lastPlayheadWriteUs = 0;
     int64_t m_audioStartUs = 0;
+    MeterFrame m_meterFrame; ///< meters(); sample -1 = silent
+    int64_t m_lastMeterUs = 0;
+    /// Last snapshot handed to the renderer: an edit that only changes the sound (mixer,
+    /// automation, clip volume) keeps it, so fader moves never re-render or drop pictures.
+    std::shared_ptr<const TimelineData> m_videoSnapshot;
     int64_t m_motionStartUs = 0;
 
     bool m_parked = false; ///< playing, but held at a seek target (see seekWhilePlaying())
