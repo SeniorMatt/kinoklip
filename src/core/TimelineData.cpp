@@ -2,6 +2,8 @@
 // Small helpers of the timeline value types.
 #include "core/TimelineData.h"
 
+#include "core/Retime.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -12,6 +14,11 @@ int64_t ClipData::framesToSourceUs(int64_t frames, Rational fps) const
     if (!fps.isValid())
         return 0;
     return int64_t(std::llround(double(frames) * 1e6 * fps.den / fps.num * speed));
+}
+
+int64_t ClipData::sourceTimeUsAt(int64_t frame, Rational fps) const
+{
+    return retime::sourceTimeUs(*this, double(frame - start), fps);
 }
 
 const ClipData* TrackData::clipAt(int64_t frame) const

@@ -3,6 +3,7 @@
 #include "core/Serialization.h"
 
 #include "core/EditOps.h"
+#include "core/Retime.h"
 
 #include <QFileInfo>
 #include <QJsonArray>
@@ -31,10 +32,16 @@ QString clipLimitError(const ClipData& c)
 {
     if (c.start < 0 || c.start > kMaxFrames || c.duration > kMaxFrames)
         return QStringLiteral("clip %1 position out of range").arg(c.id);
-    if (!std::isfinite(c.speed) || c.speed > kMaxSpeed)
+    if (!std::isfinite(c.speed) || std::abs(c.speed) > kMaxSpeed)
         return QStringLiteral("clip %1 speed out of range").arg(c.id);
     if (c.sourceInUs > kMaxSourceUs || c.sourceDurationUs < 0 || c.sourceDurationUs > kMaxSourceUs)
         return QStringLiteral("clip %1 source range out of range").arg(c.id);
+    for (const AnimatedValue& v : c.retime.values) {
+        for (const Keyframe& k : v.keys) {
+            if (!std::isfinite(k.value) || std::abs(k.value) > double(kMaxSourceUs))
+                return QStringLiteral("clip %1 retime curve out of range").arg(c.id);
+        }
+    }
     return {};
 }
 
@@ -469,7 +476,17 @@ QJsonObject clipToJson(const ClipData& clip)
     o[QLatin1String("duration")] = qint64(clip.duration);
     o[QLatin1String("sourceInUs")] = qint64(clip.sourceInUs);
     o[QLatin1String("sourceDurationUs")] = qint64(clip.sourceDurationUs);
-    o[QLatin1String("speed")] = clip.speed;
+    if (retime::isRetimed(clip) || clip.retime != ParamSet {}
+        || clip.retimeProcess != RetimeProcess::ProjectDefault || !clip.pitchCorrection) {
+        QJsonObject r;
+        r[QLatin1String("speed")] = clip.speed;
+        if (clip.retime != ParamSet {})
+            r[QLatin1String("curve")] = paramSetToJson(clip.retime);
+        if (clip.retimeProcess != RetimeProcess::ProjectDefault)
+            r[QLatin1String("process")] = retime::processToString(clip.retimeProcess);
+        r[QLatin1String("pitchCorrection")] = clip.pitchCorrection;
+        o[QLatin1String("retime")] = r;
+    }
     o[QLatin1String("enabled")] = clip.enabled;
     if (clip.linkGroup != 0)
         o[QLatin1String("linkGroup")] = qint64(clip.linkGroup);
@@ -521,7 +538,18 @@ ClipData clipFromJson(const QJsonObject& o)
     c.duration = o.value(QLatin1String("duration")).toInteger();
     c.sourceInUs = o.value(QLatin1String("sourceInUs")).toInteger();
     c.sourceDurationUs = o.value(QLatin1String("sourceDurationUs")).toInteger();
-    c.speed = o.value(QLatin1String("speed")).toDouble(1.0);
+    if (o.contains(QLatin1String("retime"))) {
+        const QJsonObject r = o.value(QLatin1String("retime")).toObject();
+        c.speed = r.value(QLatin1String("speed")).toDouble(1.0);
+        c.retime = paramSetFromJson(r.value(QLatin1String("curve")).toObject());
+        c.retimeProcess = retime::processFromString(r.value(QLatin1String("process")).toString());
+        c.pitchCorrection = r.value(QLatin1String("pitchCorrection")).toBool(true);
+    } else {
+        // Format <= 3: one constant speed (= one segment). Those versions resampled the audio
+        // of retimed clips (pitch followed the speed): keep that sound.
+        c.speed = o.value(QLatin1String("speed")).toDouble(1.0);
+        c.pitchCorrection = c.speed == 1.0;
+    }
     c.enabled = o.value(QLatin1String("enabled")).toBool(true);
     c.linkGroup = quint64(o.value(QLatin1String("linkGroup")).toInteger());
     c.transform = paramSetFromJson(o.value(QLatin1String("transform")).toObject());
@@ -565,6 +593,8 @@ QJsonObject timelineToJson(const TimelineData& data)
         = QJsonObject {{QLatin1String("num"), data.fps.num}, {QLatin1String("den"), data.fps.den}};
     o[QLatin1String("width")] = data.width;
     o[QLatin1String("height")] = data.height;
+    if (data.retimeProcess != RetimeProcess::Nearest)
+        o[QLatin1String("retimeProcess")] = retime::processToString(data.retimeProcess);
     o[QLatin1String("markIn")] = qint64(data.markIn);
     o[QLatin1String("markOut")] = qint64(data.markOut);
     o[QLatin1String("nextId")] = qint64(data.nextId);
@@ -598,6 +628,10 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
         fps.value(QLatin1String("num")).toInt(25), fps.value(QLatin1String("den")).toInt(1)};
     data.width = o.value(QLatin1String("width")).toInt(1920);
     data.height = o.value(QLatin1String("height")).toInt(1080);
+    data.retimeProcess = retime::processFromString(
+        o.value(QLatin1String("retimeProcess")).toString(), RetimeProcess::Nearest);
+    if (data.retimeProcess == RetimeProcess::ProjectDefault)
+        data.retimeProcess = RetimeProcess::Nearest;
     auto fail = [error](const QString& why) {
         if (error)
             *error = QStringLiteral("invalid timeline: %1").arg(why);

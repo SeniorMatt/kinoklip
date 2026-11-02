@@ -8,9 +8,11 @@
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
 #include "core/ParamKeys.h"
+#include "core/Retime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/NestedPreview.h"
+#include "ui/timeline/RetimeBar.h"
 
 #include <QCoreApplication>
 #include <QFontMetrics>
@@ -399,6 +401,8 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
 
     if (r.height() >= 24)
         paintKeyframes(p, in, clip, r);
+    if (in.retimeShown && in.retimeShown->contains(clip.id))
+        paintRetime(p, in, clip, r, visible);
 
     // Clip markers (spec 18.4): small coloured diamonds in the name band. Markers are
     // clip-local frames; only those inside the visible part of the clip are drawn.
@@ -471,6 +475,102 @@ void TimelinePainter::paintThumbnails(QPainter& p, const TimelinePaintInput& in,
     p.restore();
 }
 
+namespace {
+// Speed bar field colours by kind of segment (dark enough for white text in both schemes).
+const QColor kSpeedNormal(0x3a, 0x40, 0x4a);
+const QColor kSpeedSlow(0x8a, 0x5a, 0x1e);
+const QColor kSpeedFast(0x1f, 0x6e, 0x66);
+const QColor kSpeedFreeze(0x8c, 0x32, 0x3a);
+const QColor kSpeedReverse(0x5e, 0x3c, 0x8c);
+const QColor kSpeedPoint(0xf4, 0xd6, 0x4e);
+
+QColor speedColor(const retime::Segment& s)
+{
+    if (s.isFreeze())
+        return kSpeedFreeze;
+    if (s.isReverse())
+        return kSpeedReverse;
+    if (std::abs(s.speed - 1.0) < 1e-6)
+        return kSpeedNormal;
+    return s.speed < 1.0 ? kSpeedSlow : kSpeedFast;
+}
+} // namespace
+
+void TimelinePainter::paintRetime(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
+    const QRectF& rect, const QRectF& visible)
+{
+    const retimebar::Geometry g = retimebar::geometry(clip, rect, *in.layout);
+    if (g.isEmpty())
+        return;
+    p.save();
+    p.setClipRect(visible, Qt::IntersectClip);
+    p.setFont(m_smallFont);
+    const QFontMetrics fm(m_smallFont);
+    for (const retimebar::SegmentField& f : g.fields) {
+        p.fillRect(f.rect, speedColor(f.segment));
+        p.fillRect(
+            QRectF(f.rect.left(), f.rect.bottom() - 1, f.rect.width(), 1), QColor(0, 0, 0, 120));
+        // Speed text (sticky inside the visible part of the field) and the menu arrow.
+        const QRectF shown = f.rect.intersected(visible);
+        const QString text
+            = f.segment.isFreeze() ? qtr("Freeze 0%") : retime::formatPercent(f.segment.speed);
+        if (shown.width() > fm.horizontalAdvance(text) + retimebar::kArrowWidth + 12) {
+            p.setPen(QColor(0xf2, 0xf2, 0xf4));
+            // Clear of a speed point's handle at the field start.
+            const double inset = f.segment.startKey >= 0 && f.segment.startLocal > 0
+                ? retimebar::kHandleHalfWidth + 3
+                : 4;
+            p.drawText(shown.adjusted(inset, 0, -retimebar::kArrowWidth - 2, 0),
+                Qt::AlignVCenter | Qt::AlignLeft, text);
+        }
+        if (f.arrow.width() >= 6) {
+            const QPointF c = f.arrow.center();
+            const QPointF tri[3]
+                = {{c.x() - 3, c.y() - 1.5}, {c.x() + 3, c.y() - 1.5}, {c.x(), c.y() + 2.5}};
+            p.setRenderHint(QPainter::Antialiasing, true);
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor(0xe8, 0xe8, 0xec));
+            p.drawConvexPolygon(tri, 3);
+            p.setRenderHint(QPainter::Antialiasing, false);
+        }
+    }
+    // Speed points: a line through the clip, the slide handle in the bar, the retime handle
+    // at the bottom; ramped points get a round slide handle.
+    const AnimatedValue* curve = retime::curve(clip);
+    for (const retimebar::PointMarks& m : g.points) {
+        p.fillRect(QRectF(m.x - 0.5, g.bar.bottom(), 1, rect.bottom() - g.bar.bottom()),
+            QColor(kSpeedPoint.red(), kSpeedPoint.green(), kSpeedPoint.blue(), 170));
+        bool ramp = false;
+        if (curve) {
+            const qsizetype i = curve->indexOf(m.localFrame);
+            ramp = i >= 0 && keyInterp(curve->keys[i]) != Interp::Linear;
+        }
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(QPen(QColor(0, 0, 0, 180), 1));
+        p.setBrush(kSpeedPoint);
+        const QRectF top = m.top.adjusted(1, 2, -1, -2);
+        if (ramp)
+            p.drawEllipse(top);
+        else
+            p.drawRoundedRect(top, 1.5, 1.5);
+        const QRectF b = m.bottom;
+        const QPointF tri[3]
+            = {{b.left() + 1, b.bottom()}, {b.right() - 1, b.bottom()}, {b.center().x(), b.top()}};
+        p.drawConvexPolygon(tri, 3);
+        p.setRenderHint(QPainter::Antialiasing, false);
+    }
+    // Retime handle of the clip end.
+    p.fillRect(g.endHandle.adjusted(1, 2, -1, -2), kSpeedPoint);
+    p.restore();
+}
+
+namespace {
+/// Columns per waveform request on retimed clips (the curve is treated as straight inside).
+constexpr int kRetimeChunkPx = 16;
+/// Below this speed retimed audio is muted (AudioMixer's kMinAudibleSpeed).
+constexpr double kMinAudibleSpeed = 0.02;
+} // namespace
+
 void TimelinePainter::paintWaveform(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
     const QRectF& full, const QRectF& visible, const QColor& color)
 {
@@ -484,13 +584,32 @@ void TimelinePainter::paintWaveform(QPainter& p, const TimelinePaintInput& in, c
     bool ok = false;
     if (m_waveforms && in.mediaPool) {
         const MediaItem* item = in.mediaPool->item(clip.mediaId);
-        if (item || clip.kind == ClipKind::Nested) {
-            const double usPerFrame = fps.isValid() ? 1e6 * fps.den / fps.num * clip.speed : 0;
+        if ((item || clip.kind == ClipKind::Nested) && !retime::isRetimed(clip)) {
+            const double usPerFrame = fps.isValid() ? 1e6 * fps.den / fps.num : 0;
             const double startFrame = L.xToFrame(visible.left()) - double(clip.start);
             const double startUs = double(clip.sourceInUs) + startFrame * usPerFrame;
             m_peaks.resize(size_t(columns)); // capacity is kept between paints
             ok = m_waveforms(clipPreviewPath(clip, item), startUs, usPerFrame / L.pixelsPerFrame(),
                 columns, m_peaks.data());
+        } else if (item || clip.kind == ClipKind::Nested) {
+            // Retimed: the waveform follows the retime curve in chunks of kRetimeChunkPx
+            // columns (each a straight piece of the curve); freeze and reverse pieces are drawn
+            // silent, as the mixer plays them.
+            m_peaks.assign(size_t(columns), 0.0f);
+            const QString path = clipPreviewPath(clip, item);
+            ok = true;
+            for (int c0 = 0; c0 < columns && ok; c0 += kRetimeChunkPx) {
+                const int n = std::min(kRetimeChunkPx, columns - c0);
+                const double f0 = L.xToFrame(visible.left() + c0) - double(clip.start);
+                const double f1 = L.xToFrame(visible.left() + c0 + n) - double(clip.start);
+                const double us0 = double(retime::sourceTimeUs(clip, f0, fps));
+                const double us1 = double(retime::sourceTimeUs(clip, f1, fps));
+                const double perColumn = (us1 - us0) / n;
+                const double speed = perColumn * L.pixelsPerFrame() / retime::frameUs(fps);
+                if (speed < kMinAudibleSpeed)
+                    continue; // muted
+                ok = m_waveforms(path, us0, perColumn, n, m_peaks.data() + c0);
+            }
         }
     }
     p.setPen(color);

@@ -108,8 +108,9 @@ a("clip.toggle_enabled", "Enable / Disable Clip", ["D"], S)
 a("clip.match_frame", "Match Frame (load the source at this frame)", ["F"], S)
 a("clip.change_duration", "Change Clip Duration", ["Ctrl+D"], S)
 a("clip.change_speed", "Change Clip Speed", ["R"], L)
-a("clip.retime_controls", "Retime Controls (disabled: no retime curve yet)", ["Ctrl+R"], S)
-a("clip.freeze_frame", "Freeze Frame (disabled: no freeze frames yet)", ["Shift+R"], S)
+a("clip.retime_controls", "Retime Controls (speed bar on the selected clips)", ["Ctrl+R"], S)
+a("clip.freeze_frame", "Freeze Frame (the clip shows the frame at the playhead)", ["Shift+R"], S)
+a("clip.retime_curve", "Retime Curve (opens the clip's retime curve in the curve editor)", ["Ctrl+Shift+R"], L)
 a("clip.new_compound", "New Compound Clip", [], L, "Clip menu / clip context menu command without a default key in Resolve")
 a("clip.open_in_timeline", "Open in Timeline (compound clip)", [], L, "context menu command without a default key")
 a("clip.decompose", "Decompose in Place (compound clip)", [], L, "context menu command without a default key")
@@ -218,7 +219,7 @@ out = ["# Keymap: DaVinci Resolve (Windows)", "",
 "`resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and",
 "its global commands, written from general knowledge of how Resolve behaves (nothing copied from",
 "Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Cut, Compositing, Color and",
-"Audio pages, retime curves, freeze frames, audio scrubbing) keep their Resolve key but are",
+"Audio pages, audio scrubbing) keep their Resolve key but are",
 "disabled.", "",
 "**Confidence** says how sure we are that the key is Resolve's default:",
 "- **sure**: well-known default, used daily;",

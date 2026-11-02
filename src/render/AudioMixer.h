@@ -23,8 +23,11 @@ namespace kk {
 ///
 /// * per clip a media::AudioDecoder (pooled by clip id, so contiguous playback never seeks;
 ///   closed after `idleCloseMs` without use);
-/// * source position from clip start / sourceInUs / speed (speed ≠ 1 is resampled linearly,
-///   i.e. pitch changes with speed — v0.1 has no time stretching);
+/// * source position from clip start / sourceInUs and the retime curve or constant speed
+///   (core/Retime.h). Retimed clips with ClipData::pitchCorrection are time stretched
+///   (render/TimeStretch.h, WSOLA: tempo follows the curve, pitch stays); without it they are
+///   resampled along the curve (pitch follows the speed). Freeze and reverse parts (speed
+///   below 2 %) are muted;
 /// * volume in dB (ClipData::audio keys::VolumeDb, keyframed; interpolated between frames
 ///   and ramped linearly over kBlockFrames-sample blocks, so automation never clicks);
 /// * constant-power pan: θ = (pan + 1)·π/4, gains √2·cos θ / √2·sin θ (unity at centre,
@@ -93,6 +96,10 @@ private:
     /// Reads @p count source samples of clip decoder @p d from source sample @p first.
     void readSource(
         Decoder& d, const NestedTimelines& nested, int64_t first, float* out, int count);
+    /// Retimed clip: the source for timeline samples [from, from + n) (time stretched when
+    /// the clip has pitch correction, else resampled along the retime curve).
+    const float* retimedSource(Decoder& d, const NestedTimelines& nested, const ClipData& clip,
+        Rational fps, int64_t clipStart, int64_t sourceIn, int64_t from, int n);
     void mixClip(const TimelineData& tl, const NestedTimelines& nested, const ClipData& clip,
         const Fade& head, const Fade& tail, int64_t from, int64_t to, float* out);
     void collectIdle();
@@ -102,6 +109,7 @@ private:
     std::unordered_map<quint64, std::unique_ptr<Decoder>> m_decoders; ///< by clip id
     std::vector<float> m_source; ///< decoded source samples (scratch)
     std::vector<float> m_resampled; ///< speed-adjusted samples (scratch)
+    std::vector<double> m_positions; ///< retime curve source positions per block (scratch)
     QElapsedTimer m_clock;
     qint64 m_idleCloseMs = 10000;
 };

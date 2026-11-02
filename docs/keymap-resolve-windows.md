@@ -4,7 +4,7 @@ The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`,
 `resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and
 its global commands, written from general knowledge of how Resolve behaves (nothing copied from
 Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Cut, Compositing, Color and
-Audio pages, retime curves, freeze frames, audio scrubbing) keep their Resolve key but are
+Audio pages, audio scrubbing) keep their Resolve key but are
 disabled.
 
 **Confidence** says how sure we are that the key is Resolve's default:
@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 183 commands; sure 94, likely 49, unsure 40.
+Counts: 184 commands; sure 94, likely 50, unsure 40.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -161,8 +161,9 @@ that every command has an entry and that no key is used twice.
 | Match Frame (load the source at this frame) | `clip.match_frame` | `F` | sure |  |
 | Change Clip Duration | `clip.change_duration` | `Ctrl+D` | sure |  |
 | Change Clip Speed | `clip.change_speed` | `R` | likely |  |
-| Retime Controls (disabled: no retime curve yet) | `clip.retime_controls` | `Ctrl+R` | sure |  |
-| Freeze Frame (disabled: no freeze frames yet) | `clip.freeze_frame` | `Shift+R` | sure |  |
+| Retime Controls (speed bar on the selected clips) | `clip.retime_controls` | `Ctrl+R` | sure |  |
+| Freeze Frame (the clip shows the frame at the playhead) | `clip.freeze_frame` | `Shift+R` | sure |  |
+| Retime Curve (opens the clip's retime curve in the curve editor) | `clip.retime_curve` | `Ctrl+Shift+R` | likely |  |
 | New Compound Clip | `clip.new_compound` | (none) | likely | Clip menu / clip context menu command without a default key in Resolve |
 | Open in Timeline (compound clip) | `clip.open_in_timeline` | (none) | likely | context menu command without a default key |
 | Decompose in Place (compound clip) | `clip.decompose` | (none) | likely | context menu command without a default key |
