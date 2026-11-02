@@ -3,15 +3,19 @@
 // search, import (button, OS drops), rename/delete/reveal, drag source for the timeline.
 #pragma once
 
+#include "core/Multicam.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/mediapool/MediaPoolModel.h"
 
 #include <QStringList>
 
+#include <functional>
+
 class QAbstractItemView;
 class QItemSelectionModel;
 class QLineEdit;
 class QListView;
+class QMenu;
 class QSplitter;
 class QStackedWidget;
 class QToolButton;
@@ -124,8 +128,30 @@ public:
     /// "Relink Offline Media…": asks for a folder, then relinkFromFolder() and a summary.
     void relinkWithDialog();
 
+    // ---- Multicam and sync (MediaPoolMulticam.cpp) ----
+
+    /// Source in point of a media item in µs (0 = none); Sync Based on In Points asks it
+    /// (EditPage connects the source viewer's remembered marks).
+    using InPointProvider = std::function<int64_t(const QString& mediaId)>;
+    void setInPointProvider(InPointProvider provider) { m_inPoints = std::move(provider); }
+    /// Media items among @p ids that can be synced / be angles (files with a duration).
+    [[nodiscard]] QStringList syncableIds(const QStringList& ids) const;
+    /// Creates a multicam clip from @p ids (sync by @p sync, progress / problem dialogs for
+    /// waveform sync) in the current bin; angle names from the clip names or numbers. Returns
+    /// the uid, 0 when cancelled or refused.
+    quint64 createMulticamClip(const QStringList& ids, const QString& name,
+        multicam::SyncMethod sync, bool namesFromClips, bool moveSources);
+    /// Create New Multicam Clip Using Selected Clips: the options dialog, then
+    /// createMulticamClip().
+    void newMulticamClipWithDialog();
+    /// Sync and Place on Timeline: @p ids synced by @p sync on new tracks of the active
+    /// timeline from its playhead (one undo step). Returns the number of clips placed.
+    int syncAndPlaceOnTimeline(const QStringList& ids, multicam::SyncMethod sync);
+
 private:
     void buildToolbar(QWidget* host);
+    void addMulticamMenu(QMenu& menu, const QStringList& ids);
+    void connectMulticamActions();
     void applyAutoBins();
     void rebuildBins();
     void showItemMenu(const QPoint& globalPos);
@@ -137,6 +163,7 @@ private:
     [[nodiscard]] QAbstractItemView* currentView() const;
 
     AppContext& m_ctx;
+    InPointProvider m_inPoints;
     MediaPoolModel* m_model = nullptr;
     MediaPoolFilterModel* m_proxy = nullptr;
     QItemSelectionModel* m_selection = nullptr;
