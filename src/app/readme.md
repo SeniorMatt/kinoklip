@@ -11,7 +11,7 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `AppInfo.h` | product name/id/version (from CMake) — rename the app there + `CMakeLists.txt` |
 | `MainWindow.h` | menu bar (built from `ActionRegistry`), `InterfaceBar`, page stack, `PageBar`; window/page layout persistence; close prompt |
 | `InterfaceBar.h` | top strip: panel toggles left/right, project name centred |
-| `PageBar.h` | bottom strip: Media · Edit · Color (disabled) · Deliver |
+| `PageBar.h` | bottom strip in Resolve's order: Media · Cut · Edit · Compositing · Color · Audio · Deliver (unbuilt pages disabled; slots are the `kPageSlots` table in `MainWindow.cpp`) |
 | `pages/EditPage.h` | PLAN §4 Edit layout with nested `QSplitter`s; accessors for every panel |
 | `pages/MediaPage.h` | browser · source viewer · metadata over the media pool |
 | `ProjectController.h` | new / open / save / save as / import media + "save changes?" |
@@ -19,7 +19,8 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `Theme.h` | the real KDE Breeze look: widget style, KDE colour schemes, Breeze icons, panel style sheet; Settings > Color Theme / Style; "appearance" settings page |
 | `ColorSchemeFile.h` | reads a KDE `.colors` file into a QPalette (fallback build without KF6) |
 | `CommandLine.h` | `QCommandLineParser` → `CommandLineOptions` |
-| `Screenshot.h` | `--screenshot <target> <out.png> [project]`: pages, `preferences`, `keyboard`, `menu-color-theme`, `menu-style` (works with `QT_QPA_PLATFORM=offscreen`) |
+| `Screenshot.h` | `--screenshot <target> <out.png> [project]`: pages, `preferences[:section]`, `project-settings[:section]`, `keyboard`, `inspector`, `mediapool`, `menu-color-theme`, `menu-style` (works with `QT_QPA_PLATFORM=offscreen`; `KK_SCREENSHOT_SIZE=1366x768` for small screens) |
+| `MenuMetricsStyle.h` | proxy over the widget style that reserves the submenu arrow column in menus |
 
 ## Start-up sequence (`src/main.cpp`)
 1. `configureOpenGL()` — default `QSurfaceFormat` = OpenGL 3.3 core, `Qt::AA_ShareOpenGLContexts`
