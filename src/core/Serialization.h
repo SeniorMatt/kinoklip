@@ -51,7 +51,11 @@ namespace kk::serialization {
 ///   "cues": [[startUs, endUs, text], ...]). Older
 ///   files have none of these and load unchanged; older builds refuse version 7 instead of silently
 ///   dropping captions and adjustment clips.
-/// - 8: reserved for the multicam branch (developed in parallel).
+/// - 8: multicam clips. Timelines may carry "multicam": true (always with "compound"), clips
+///   "multicamAngle" (0-based angle of a Nested clip showing a multicam timeline), media
+///   pool items "kind": "multicam", and media info "timecode" (embedded start timecode).
+///   Every field is optional, so files of versions 1 - 7 load unchanged; older builds refuse
+///   version 8 instead of showing every angle of a multicam clip stacked.
 /// - 9: media pool organisation (bins branch). Media pool items may carry "clipColor" (palette
 ///   id, core/ClipColors.h), "flags" (array of flag ids), "metadata" (description, comments,
 ///   keywords, scene, shot, take, camera, angle, goodTake, rating; only the fields set),

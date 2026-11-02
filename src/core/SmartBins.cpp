@@ -385,6 +385,8 @@ QString itemType(const MediaItem& item)
         return QStringLiteral("timeline");
     case MediaItemKind::CompoundClip:
         return QStringLiteral("compound");
+    case MediaItemKind::MulticamClip:
+        return QStringLiteral("multicam");
     case MediaItemKind::Subtitle:
         return QStringLiteral("subtitle");
     case MediaItemKind::File:

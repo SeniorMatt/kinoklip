@@ -509,6 +509,31 @@ Tests: ml = test_medialinks, px = test_proxies, rc = test_rendercache, mm = test
 | 29.17 | Invalidation: any change that can alter a section's pictures makes its cache unused (property / keyframe changes, trims, slips, moves, effects and their parameters, masks, transitions on either side of a cut, track enable, timeline size / rate, cache format, relinking or replacing a media file, edits inside nested timelines). Renaming, colour labels, markers, audio changes and the cache flag itself keep it. Undo returns to the cached state. | Fixed (rc *Invalidates*, irrelevantChangesKeepTheCache, transitionNeighbours, nestedTimelineInvalidates, backgroundCacheAndHit) |
 | 29.18 | Playback > Delete Render Cache... deletes every cached file; the cache folder is kept under a size limit (Preferences > Media Storage, default 20 GB, oldest files first). Resolve's Delete Render Cache > Unused / Selected Clips are not offered. | Decision |
 
+## 35. Multicam clips and sync (multicam branch, roadmap v2)
+
+Multicam editing and clip sync, written from general public knowledge of how Resolve's
+multicam clips and multicam viewer behave (clean room: our own wording, icons and drawing).
+Model: `src/core/Multicam.h`; sync: `src/media/AudioSync.h`, `src/ui/mediapool/MulticamSync.h`;
+viewer: `src/ui/viewer/ViewerMulticam.cpp`. Tests: `mc` = `tests/core/test_multicam.cpp`,
+`as` = `tests/media/test_audiosync.cpp`, `mr` = `tests/render/test_multicamrender.cpp`,
+`mu` = `tests/panels/test_multicamui.cpp`.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 35.1 | Media pool, one or more video / audio clips selected: right-click > Create New Multicam Clip Using Selected Clips… (also Clip > New Multicam Clip…) asks for the name ("Multicam Clip N"), the angle sync (Timecode, Sound, In Points, Clip Start), the angle names (clip names or "Angle n") and whether to move the source clips into a new "Original Clips" bin; the last choices are remembered. The multicam clip appears in the current bin with its own icon. One undo step. | Fixed (new; mc projectCreatesItemAndBin; mu createFromMediaPool) |
+| 35.2 | A multicam clip is a special nested timeline: angle k = video track k + audio track k (named after the angle), each source placed at its synced position, the earliest at frame 0; positions are exact to the microsecond (start rounded up to a frame, the sub-frame rest skipped at the head). Rate and picture size come from the first clip with video. | Fixed (mc buildPlacesSyncedSources). Decision: one audio track per angle (multichannel angles keep their channels in one track). |
+| 35.3 | Sync by sound: the downmixed audio's onset envelope is cross-correlated (FFT, every offset at once, then refined to 1 ms); different gain, noise, lengths and partial overlaps are handled; the longest clip is the reference. Clips without common sound are reported with their confidence (and placed at the start if the user continues). | Fixed (as knownOffsets, unrelatedRecordingsAreRejected, longRecordingsAreFast; within 2 ms on synthetic scenes) |
+| 35.4 | Sync by timecode uses the files' embedded start timecode (container / stream "timecode" metadata, drop frame understood); sync by in points lines up the clips' source in points (the source viewer's marks); clips missing a timecode are reported. | Fixed (mc timecodeParsing) |
+| 35.5 | Sync and Place on Timeline (media pool context menu and Clip menu: Based on Waveform / Timecode / In Points) puts the synced clips on new tracks at the top of the current timeline, from the playhead, video and audio of each clip linked. One undo step. | Fixed (new, Kinoklip's command; mc placeSyncedStacksTracks; mu syncAndPlace) |
+| 35.6 | A multicam clip is edited into a timeline like any clip (drag, F9/F10/...); on the timeline a multicam segment shows the active angle ("n  angle - clip"), and its thumbnails show that angle. | Fixed (screenshot target multicam) |
+| 35.7 | Source viewer mode menu (Source / Multicam) or View > Multicam Viewer: the source viewer shows the angles of the multicam clip under the timeline playhead as a grid (2x2, 3x3 or 4x4 per page, automatic or chosen; page arrows when there are more angles), following the playhead live during playback. Opening a multicam clip from the media pool shows its grid (until the timeline playhead is moved again). Each cell is labelled with the angle number and name; the active angle is framed red (video and audio), blue (video only) or green (audio only). | Fixed (mu multicamViewerFollowsTimelineAndCuts). Decision: the grid is a private timeline played by the source player, so it uses the normal decode / render path. |
+| 35.8 | Click an angle in the multicam viewer, or press 1-9 while it is shown: in Cut mode the multicam clip is cut at the playhead and continues on that angle; in Switch mode the current segment changes its angle. Video and Audio / Video Only / Audio Only choose the side (Clip > Multicam). Works while playing; each choice is one undo step. A cut on a segment's first frame switches it; choosing the angle it already shows does nothing. | Fixed (mc cutToAngle, switchAngle; mu multicamViewerFollowsTimelineAndCuts) |
+| 35.9 | A video-only (or audio-only) cut cuts both sides at the playhead so video and audio segments stay pairwise linked; only the chosen side changes its angle. | Decision (mc cutToAngle) |
+| 35.10 | Timeline right-click on a multicam clip: Switch Multicam Clip Angle > Video and Audio / Video / Audio > angle list; Open in Timeline (edit the angles: sync, add, trim; every instance follows); Flatten Multicam Clip (the segment becomes the clips of its active angle, cut to its window, video and audio linked). | Fixed (mc flatten; mu multicamViewerFollowsTimelineAndCuts: flatten). The context menu itself is untested. |
+| 35.11 | Rendering, playback and export show only the active angle's picture and sound, exactly from the cut frame; locked tracks refuse cuts. | Fixed (mr activeAngleAndCuts, audioFollowsAudioAngle, gridShowsEveryAngle; mc cutRespectsLockedTracks) |
+| 35.12 | Project files store multicam clips from format version 8; older projects load unchanged; newer versions are refused. | Fixed (mc saveLoadAndMigration, clipJsonRoundTrip) |
+| 35.13 | Angle decoding at reduced size without proxies (FFmpeg lowres) for the grid (with proxies linked, the grid decodes the proxies like any viewer), sync by markers or out points, camera-metadata angle names, and adding audio-only angles to an existing multicam clip from the media pool are not implemented. | Deferred |
+
 ---
 
 ## 32. Media pool organisation (bins branch, roadmap v2)
@@ -559,5 +584,7 @@ mo = tests/panels/test_mediaorganize.cpp.
 - The adjsubs branch (v2) added 28.1 - 28.14 (adjustment clips, generators, subtitles).
 - The compound branch (v2) added 25.1 - 25.11 (several timelines per project, timeline tabs on
   by default, drop-down mode) and 26.1 - 26.13 (compound clips, nested timelines).
+- The multicam branch (v2) added 35.1 - 35.13 (multicam clips, the multicam viewer, sync by
+  waveform / timecode / in points).
 - The bins branch (v2) added 32.1 - 32.19 (nested bins, smart bins, power bins, clip colours,
   flags, metadata editing, usage commands).

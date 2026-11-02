@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/MediaItem.h"
+#include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
 
 #include <QHash>
@@ -60,6 +61,13 @@ public:
     /// Loads @p item (copied; nullptr = unload). Restores the marks and position it had the
     /// last time it was loaded. Stops playback.
     void setMedia(const MediaItem* item);
+    /// Loads @p item shown through the given private timeline @p content instead of the
+    /// one-clip timeline (the multicam viewer's angle grid, a multicam clip's angle), with
+    /// @p media for the clips inside and @p resolver for its nested timelines. Marks and
+    /// position are remembered per item as with setMedia(); loading the same item again
+    /// (another page, angle or an edited multicam clip) keeps the position and playback.
+    void setContent(const MediaItem& item, TimelineData content,
+        std::shared_ptr<const MediaPathMap> media, Timeline::NestedResolver resolver);
     /// Id of the loaded item (empty = none).
     [[nodiscard]] QString mediaId() const { return m_item.id; }
     /// The loaded item (default-constructed if none).
@@ -86,6 +94,10 @@ public:
     void clearOut();
     void clearBoth();
 
+    /// In point of item @p mediaId in source µs as last marked in this player (the loaded item
+    /// or a remembered one); 0 when it has none (Sync Based on In Points).
+    [[nodiscard]] int64_t markInUs(const QString& mediaId) const;
+
     /// The marked range of the loaded item (whole item where unmarked), or nullopt if nothing
     /// is loaded.
     [[nodiscard]] std::optional<SourceRange> selection() const;
@@ -102,6 +114,7 @@ private:
         int64_t markIn = -1;
         int64_t markOut = -1;
         int64_t position = 0;
+        Rational fps; ///< rate of the frame numbers above
     };
 
     void init(PlaybackEngine::Options options);

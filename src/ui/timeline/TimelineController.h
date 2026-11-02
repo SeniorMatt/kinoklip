@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/EditOps.h"
+#include "core/Multicam.h"
 #include "core/RetimeOps.h"
 #include "core/SelectionModel.h"
 #include "core/TimelineData.h"
@@ -213,6 +214,26 @@ public:
     bool openSelectedInTimeline();
     /// File > New Timeline: asks for the name (empty @p name), creates and opens it.
     quint64 newTimeline(const QString& name = {});
+
+    // ---- Multicam clips (TimelineMulticam.cpp) ----
+
+    /// Cut / switch mode and target of angle choices (Clip > Multicam actions; defaults when
+    /// there is no registry: cut, video and audio).
+    [[nodiscard]] bool multicamSwitchMode() const;
+    [[nodiscard]] multicam::AngleTarget multicamTarget() const;
+    /// The multicam viewer's angle choice (click on a cell, number keys): in cut mode cuts
+    /// the multicam clip under the playhead to @p angle (0-based) at the playhead, in switch
+    /// mode changes that segment's angle; video / audio / both per multicamTarget(). One
+    /// undo step; works during playback. Returns whether anything changed.
+    bool chooseMulticamAngle(int angle);
+    /// Cut to @p angle at the playhead (see multicam::cutToAngle()). One undo step.
+    bool cutMulticamAngle(int angle, multicam::AngleTarget target);
+    /// Switch Multicam Clip Angle: multicam clip @p clipId (and its linked parts per
+    /// @p target) shows @p angle. One undo step.
+    bool switchMulticamAngle(quint64 clipId, int angle, multicam::AngleTarget target);
+    /// Flatten Multicam Clip for the selected multicam clips (else the one under the
+    /// playhead). One undo step per clip. Returns whether anything was flattened.
+    bool flattenMulticamSelection();
     /// Duplicates the active timeline and opens the copy.
     quint64 duplicateActiveTimeline();
     /// Deletes the active timeline after confirmation (refused for the last timeline).
@@ -443,6 +464,9 @@ signals:
     /// The retime curve of @p clipId should be shown in the curve editor (Ctrl+Shift+R, the
     /// speed menu's Retime Curve entry).
     void retimeCurveRequested(quint64 clipId);
+    /// A multicam angle choice changed the timeline (the multicam viewer refreshes its
+    /// highlight at once, also while playing).
+    void multicamAngleChosen();
 
 private:
     void setPlayheadClamped(int64_t frame);

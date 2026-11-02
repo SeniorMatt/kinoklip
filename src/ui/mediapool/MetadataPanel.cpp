@@ -322,6 +322,7 @@ void MetadataPanel::fillDetails(const QVector<const MediaItem*>& items)
         const Rational fps = info.frameRate.isValid() ? info.frameRate : kFallbackFps;
         addRow(tr("Duration"), timecode::format(usToFrames(info.durationUs, fps), fps));
     }
+    addRow(tr("Start timecode"), info.startTimecode);
     if (info.hasVideo) {
         addRow(tr("Video codec"), info.videoCodec);
         addRow(tr("Resolution"), tr("%1 x %2").arg(info.width).arg(info.height));

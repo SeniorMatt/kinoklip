@@ -24,6 +24,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `Project.h` | QObject: owns MediaPool + Timeline + QUndoStack, every timeline of the project, tabs, settings, save/load; timelines / tabs / compound clips in `ProjectTimelines.cpp` |
 | `CompoundOps.h` | pure compound-clip / nesting functions (namespace `kk::compound`): `collapse()`, `decompose()`, `canNest()` / `reaches()` (recursion), `syncNestedSources()`, `timelineInfo()`, `makeNestedClip()` |
 | `Retime.h` | the speed model: constant speed or retime curve (`ClipData::retime`, keys = speed points), exact source-time mapping, segments, media limits, retime process (namespace `kk::retime`) |
+| `Multicam.h` | multicam clips (namespace `kk::multicam`): `build()` from synced `AngleSource`s, `angleView()`, `gridTimeline()` (the viewer grid), `cutToAngle()` / `switchAngle()` / `flatten()`, `placeSynced()`, timecode parsing and sync offsets |
 | `RetimeOps.h` | speed edits on a clip and its linked partners with ripple: speed points, segment speed, reverse / freeze segments, freeze frame, reset, retime / slide handles, ramps, Change Clip Speed (namespace `kk::retimeops`) |
 | `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive) |
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
@@ -127,6 +128,21 @@ leaves slowly, EaseInOut, Smooth, Hold); `keyInterp()` reports Custom for dragge
 - Tabs (`Project::tabs()`, `openTab()`, `closeTab()`, `moveTab()`) are UI state saved with the
   project, not undoable. `setActiveTimeline()` is refused while an edit is open.
 
+## Multicam clips (v2)
+- A multicam clip is a compound timeline with `TimelineData::multicam` set: video track k +
+  audio track k = angle k (track names = angle names). Its media pool item has
+  `MediaItemKind::MulticamClip`; `Project::createMulticamClip()` / `flattenMulticamClip()`
+  (ProjectMulticam.cpp) are one undo step each.
+- A Nested clip showing it carries `ClipData::multicamAngle` (-1 = whole timeline, as every
+  other Nested clip). `Project::nestedTimelinesFor()` adds one *angle view* per angle to the
+  render snapshot's map under `multicamViewKey(uid, angle)` (only that angle's tracks; cached
+  until the multicam timeline changes), and every renderer looks clips up with
+  `NestedTimelines::findClip()`, so only the active angle is decoded, drawn and mixed.
+- Cuts split both sides of a segment (V/A stay pairwise linked) and switch the target side.
+- Sync offsets (`AngleSource::offsetUs`): where media time 0 of each source lies on a common
+  axis; `build()` starts the earliest at frame 0 and keeps sub-frame alignment through
+  `sourceInUs`. Waveform offsets come from `media/AudioSync.h`.
+
 ## Editing protocol
 ```cpp
 project->beginEdit(tr("Move Clip"));                    // snapshot "before"
@@ -215,6 +231,8 @@ Format version 4 adds clip `"masks"` (see `Serialization.h` for the fields); fil
 "subtitle"` clips (`"generator"` id), `"subtitleTracks"` (with `"subtitleStyle"`, `"language"`)
 and subtitle media items (`"kind": "subtitle"`, `"cues": [[startUs, endUs, text]]`); versions
 5 and 6 belong to the retime / proxy branches; all older files load unchanged.
+Format version 8 adds multicam: timeline `"multicam": true`, clip `"multicamAngle"`, media
+pool item `"kind": "multicam"`, media info `"timecode"` (all optional).
 Format version 9 (bins): items may carry "clipColor", "flags", "metadata", "added",
 "modified"; the media pool "smartBins"; the project "binViews" (see `Serialization.h`).
 Versions <= 8 get "modified" (and "added") from the file on disk when loading.

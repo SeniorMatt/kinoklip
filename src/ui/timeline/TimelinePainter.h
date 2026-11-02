@@ -18,6 +18,7 @@
 #include <QString>
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -90,6 +91,9 @@ struct TimelinePaintInput
     const QVector<CacheBarRange>* cache = nullptr;
     /// Clips showing their retime controls (Ctrl+R); nullptr = none.
     const QSet<quint64>* retimeShown = nullptr;
+    /// Timelines of the project by uid (multicam clips show their active angle's name);
+    /// nullptr = plain clip names.
+    const std::function<const TimelineData*(quint64)>* timelines = nullptr;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and
@@ -152,7 +156,11 @@ private:
     void paintRuler(QPainter& p, const TimelinePaintInput& in);
     void paintOverlays(QPainter& p, const TimelinePaintInput& in);
     void paintPlayhead(QPainter& p, const TimelinePaintInput& in);
-    [[nodiscard]] const QString& elidedName(const ClipData& clip, int width);
+    /// Name band text of @p clip: its name, or for a multicam segment the active angle
+    /// (number, name) and the name (cached per clip).
+    [[nodiscard]] const QString& clipLabel(const TimelinePaintInput& in, const ClipData& clip);
+    /// @p text (the clip's label) elided to @p width px (cached per clip).
+    [[nodiscard]] const QString& elidedName(const ClipData& clip, const QString& text, int width);
     [[nodiscard]] QString mediaPath(const TimelinePaintInput& in, const QString& mediaId) const;
 
     ThumbnailProvider m_thumbnails;
@@ -172,6 +180,11 @@ private:
         QString name;
         int width = -1;
         QString elided;
+        /// Multicam clips: the label "<n> <angle name> - <clip name>" and what it was made
+        /// from (angle, multicam timeline data), rebuilt when either changes.
+        int angle = -2;
+        const TimelineData* multicam = nullptr;
+        QString label;
     };
     QHash<quint64, NameCache> m_names;
     std::vector<float> m_peaks;

@@ -162,9 +162,10 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
             if (id.isEmpty())
                 return;
             // Timelines and compound clips open in a timeline tab (Resolve), media in the
-            // source viewer (power bin media first becomes part of the project).
+            // source viewer (power bin media first becomes part of the project; multicam clips show
+            // their angles there).
             const MediaItem* item = m_model->item(id);
-            if (item && item->isTimeline()) {
+            if (item && item->isTimeline() && item->kind != MediaItemKind::MulticamClip) {
                 openTimeline(item->timelineUid);
                 return;
             }
@@ -279,6 +280,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     connectActions();
 
     rebuildBins();
+    connectMulticamActions();
     const QVariant binsChoice = QSettings().value(QLatin1String(kBinsVisibleKey));
     if (binsChoice.isValid())
         setBinsVisible(binsChoice.toBool());
