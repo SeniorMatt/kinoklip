@@ -58,8 +58,9 @@ kinoklip-x86_64/
                                       libKF6BreezeIcons with the icons compiled in)
   usr/lib/qt/*.so*                    Qt 6.12 libraries and libraries only Qt needs (ICU, ...)
   usr/lib/qt/qt-version.txt           Qt version built against (minimum for host-Qt mode)
-  usr/lib/qt/plugins/                 platforms (wayland-egl, wayland-generic, xcb, offscreen,
-                                      minimal), wayland shell/decoration/graphics integration,
+  usr/lib/qt/plugins/                 platforms (wayland: libqwayland.so from Qt 6.10 on,
+                                      wayland-egl/-generic before; xcb, offscreen, minimal),
+                                      wayland shell/decoration/graphics integration,
                                       xcbglintegrations, imageformats, iconengines (svg),
                                       multimedia (FFmpeg backend), platforminputcontexts,
                                       styles/breeze6.so (Breeze style; KF6Style, KF6WindowSystem
@@ -181,6 +182,20 @@ done | grep -E 'undefined symbol|not found'
 `${XDG_DATA_HOME:-~/.local/share}` with `Exec=` pointing at the `.run` file (or at AppRun for
 the folder), then refreshes the MIME/desktop/KDE caches if the tools exist.
 `--uninstall-desktop-entry` removes them.
+
+Every normal start also does this automatically (quietly) when
+`~/.local/share/applications/org.kinoklip.Kinoklip.desktop` is missing or differs (first start,
+the `.run` moved, a new version): Qt registers the app id with the XDG desktop portal at
+start-up and logs `Failed to register with host portal ... App info not found` without it, and
+Plasma uses the entry for the Wayland window icon. Normal starts only compare one small file.
+`--uninstall-desktop-entry` writes `~/.config/kinoklip/no-desktop-entry` (opt-out, removed again
+by `--install-desktop-entry`); `KINOKLIP_NO_DESKTOP_ENTRY=1` skips it for one run.
+
+`scripts/check_bundle.sh` fails when a Wayland or X11 platform plugin, the xdg-shell
+integration or the Wayland EGL client integration is missing (alpha.1 shipped without a
+Wayland platform plugin because Qt 6.10 renamed it). Manual Wayland check in the container:
+`weston --backend=headless --socket=kk-wl &` then
+`WAYLAND_DISPLAY=kk-wl QT_QPA_PLATFORM=wayland dist/kinoklip-x86_64/AppRun --screenshot edit /tmp/wl.png`.
 
 Test hooks: `KINOKLIP_FORCE_FALLBACK=1` (use every fallback), `KINOKLIP_HOST_LIBDIRS=dir:dir`
 (search only these dirs for host libraries, e.g. an empty dir to simulate a bare host).
