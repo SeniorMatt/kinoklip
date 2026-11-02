@@ -92,3 +92,4 @@
 - 19:33 Owner: Kinoklip = default scheme; all custom-painted colours follow the scheme. Queued agent 'themecolors' after bins+attrs merge (before 0.2.0-alpha.1).
 - 19:51 attrs merged into main (level lines, fades, Clip Attributes, stacked timelines; format v10); full test run started.
 - 20:02 main after attrs: 87/87 tests pass; pushed. Waiting on bins (merging main, format v11).
+- 20:13 Heartbeat: bins merged main and moved to format v11 (c9ef248), now testing; 19 GB free.
