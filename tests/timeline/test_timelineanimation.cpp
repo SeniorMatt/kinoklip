@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Display animations of the timeline (v2.2, spec 38): with animations off the view shows the
+// Display animations of the timeline (v2.2, spec 36): with animations off the view shows the
 // model at once; on, clips tween from their old place and land exactly on the model; hit tests
 // use the model mid-animation; a new edit restarts from the displayed state; blade flashes,
 // ghosts, playhead glides and the snap fade; the preference persists and applies live.
