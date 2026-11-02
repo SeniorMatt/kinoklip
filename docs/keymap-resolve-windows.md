@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 181 commands; sure 94, likely 48, unsure 39.
+Counts: 203 commands; sure 94, likely 60, unsure 49.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -247,6 +247,33 @@ that every command has an entry and that no key is used twice.
 | Timeline Proxy Resolution: Half | `playback.resolution_half` | (none) | sure | menu command without a default key |
 | Timeline Proxy Resolution: Quarter | `playback.resolution_quarter` | (none) | sure | menu command without a default key |
 | Automatic proxy resolution (Kinoklip) | `playback.resolution_auto` | (none) | sure | no Resolve equivalent; Resolve's closest is Performance Mode |
+
+## Multicam and sync
+
+| Command | Action id | Key | Confidence | Note |
+|---|---|---|---|---|
+| Create New Multicam Clip Using Selected Clips (media pool) | `mediapool.new_multicam` | (none) | likely | media pool context menu command without a default key in Resolve |
+| Sync and Place on Timeline: Based on Waveform | `mediapool.sync_waveform` | (none) | unsure | Kinoklip's command (Resolve's closest is Auto Sync Audio > Based on Waveform in the media pool); no default key |
+| Sync and Place on Timeline: Based on Timecode | `mediapool.sync_timecode` | (none) | unsure | Kinoklip's command (Resolve: Auto Sync Audio > Based on Timecode); no default key |
+| Sync and Place on Timeline: Based on In Points | `mediapool.sync_in_points` | (none) | unsure | Kinoklip's command (Resolve: Auto Sync Audio > Based on In Points); no default key |
+| Multicam Viewer (source viewer mode: Multicam) | `view.multicam_viewer` | (none) | likely | Resolve picks Multicam in the source viewer's mode menu; no default key is known, none assigned |
+| Flatten Multicam Clip | `multicam.flatten` | (none) | likely | timeline context menu command without a default key |
+| Multicam Cut Mode | `multicam.mode_cut` | (none) | unsure | Resolve switches cut / switch with buttons above the multicam viewer; no default key is known |
+| Multicam Switch Mode | `multicam.mode_switch` | (none) | unsure | see Multicam Cut Mode |
+| Multicam: Video and Audio | `multicam.target_both` | (none) | unsure | Resolve's video / audio / both buttons of the multicam viewer; no default key is known |
+| Multicam: Video Only | `multicam.target_video` | (none) | unsure | see Multicam: Video and Audio |
+| Multicam: Audio Only | `multicam.target_audio` | (none) | unsure | see Multicam: Video and Audio |
+| Previous Multicam Angle Page | `multicam.prev_page` | (none) | unsure | no default key is known |
+| Next Multicam Angle Page | `multicam.next_page` | (none) | unsure | no default key is known |
+| Cut / Switch to Multicam Angle 1 | `multicam.angle_1` | `1` | likely | number keys cut to the angle while the multicam viewer is shown (Resolve's multicam editing); acts on the multicam clip under the timeline playhead |
+| Cut / Switch to Multicam Angle 2 | `multicam.angle_2` | `2` | likely |  |
+| Cut / Switch to Multicam Angle 3 | `multicam.angle_3` | `3` | likely |  |
+| Cut / Switch to Multicam Angle 4 | `multicam.angle_4` | `4` | likely |  |
+| Cut / Switch to Multicam Angle 5 | `multicam.angle_5` | `5` | likely |  |
+| Cut / Switch to Multicam Angle 6 | `multicam.angle_6` | `6` | likely |  |
+| Cut / Switch to Multicam Angle 7 | `multicam.angle_7` | `7` | likely |  |
+| Cut / Switch to Multicam Angle 8 | `multicam.angle_8` | `8` | likely |  |
+| Cut / Switch to Multicam Angle 9 | `multicam.angle_9` | `9` | likely |  |
 
 ## Help
 

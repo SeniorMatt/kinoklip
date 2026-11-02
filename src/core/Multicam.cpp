@@ -7,6 +7,7 @@
 #include "core/Retime.h"
 
 #include <QCoreApplication>
+#include <QHash>
 #include <QRegularExpression>
 #include <QSet>
 
@@ -171,6 +172,39 @@ std::optional<TimelineData> build(const QVector<AngleSource>& sources, quint64 u
         mc.audioTracks.push_back(std::move(a));
     }
     return mc;
+}
+
+std::optional<QVector<quint64>> placeSynced(
+    TimelineData& data, const QVector<AngleSource>& sources, int64_t frame, QString* error)
+{
+    const std::optional<TimelineData> layout
+        = build(sources, 0, {}, data.fps, data.width, data.height, error);
+    if (!layout)
+        return std::nullopt;
+    QVector<quint64> placed;
+    QHash<quint64, quint64> groups; // link group in the layout -> new group in data
+    for (TrackType type : {TrackType::Video, TrackType::Audio}) {
+        for (const TrackData& from : layout->tracks(type)) {
+            if (from.clips.empty())
+                continue;
+            const int index = editops::addTrack(data, type);
+            TrackData& to = data.tracks(type)[size_t(index)];
+            to.name = from.name;
+            for (ClipData c : from.clips) {
+                c.id = data.allocateId();
+                c.start += std::max<int64_t>(0, frame);
+                if (c.linkGroup != 0) {
+                    auto it = groups.find(c.linkGroup);
+                    if (it == groups.end())
+                        it = groups.insert(c.linkGroup, data.allocateId());
+                    c.linkGroup = *it;
+                }
+                placed.append(c.id);
+                to.clips.push_back(std::move(c));
+            }
+        }
+    }
+    return placed;
 }
 
 ClipData makeMulticamClip(const TimelineData& mc, const QString& mediaId, int angle)

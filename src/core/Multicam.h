@@ -74,6 +74,14 @@ struct AngleSource
 [[nodiscard]] std::optional<TimelineData> build(const QVector<AngleSource>& sources, quint64 uid,
     const QString& name, Rational fps, int width, int height, QString* error = nullptr);
 
+/// Sync and Place on Timeline: puts the synced @p sources on new tracks at the top of
+/// @p data (one video track per source with video, one audio track per source with audio,
+/// named after the source), aligned exactly like build() does it, the earliest at frame
+/// @p frame. Video and audio of one source are linked. Returns the new clip ids (nullopt
+/// with @p error like build()).
+[[nodiscard]] std::optional<QVector<quint64>> placeSynced(TimelineData& data,
+    const QVector<AngleSource>& sources, int64_t frame, QString* error = nullptr);
+
 /// A Nested clip showing all of @p mc from its start at angle @p angle (id 0, start 0), for
 /// drops of the multicam clip onto a timeline (video and audio parts are linked copies).
 [[nodiscard]] ClipData makeMulticamClip(const TimelineData& mc, const QString& mediaId, int angle);

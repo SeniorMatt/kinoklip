@@ -141,6 +141,27 @@ const ActionSpec kActions[] = {
     {"clip", "clip.open_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Open in Timeline")},
     {"clip", "clip.decompose",        QT_TRANSLATE_NOOP("kk::StandardActions", "Decompose in &Place")},
     {"clip", "-"},
+    // Multicam clips (media pool commands in src/ui/mediapool/MediaPoolMulticam.cpp, angle
+    // edits in src/ui/timeline/TimelineMulticam.cpp, viewer grid in src/ui/viewer).
+    {"clip", "mediapool.new_multicam", QT_TRANSLATE_NOOP("kk::StandardActions", "New Multica&m Clip Using Selected Clips…"), "multicam_clip"},
+    {"clip", ">clip.sync",            QT_TRANSLATE_NOOP("kk::StandardActions", "S&ync and Place on Timeline")},
+    {"clip.sync", "mediapool.sync_waveform", QT_TRANSLATE_NOOP("kk::StandardActions", "Based on &Waveform")},
+    {"clip.sync", "mediapool.sync_timecode", QT_TRANSLATE_NOOP("kk::StandardActions", "Based on &Timecode")},
+    {"clip.sync", "mediapool.sync_in_points", QT_TRANSLATE_NOOP("kk::StandardActions", "Based on &In Points")},
+    {"clip", ">clip.multicam",        QT_TRANSLATE_NOOP("kk::StandardActions", "Multica&m")},
+    {"clip.multicam", "multicam.flatten", QT_TRANSLATE_NOOP("kk::StandardActions", "&Flatten Multicam Clip")},
+    {"clip.multicam", "-"},
+    {"clip.multicam", "multicam.mode_cut", QT_TRANSLATE_NOOP("kk::StandardActions", "&Cut Mode (angle clicks cut at the playhead)"), "", true},
+    {"clip.multicam", "multicam.mode_switch", QT_TRANSLATE_NOOP("kk::StandardActions", "&Switch Mode (angle clicks change the current segment)"), "", true},
+    {"clip.multicam", "-"},
+    {"clip.multicam", "multicam.target_both", QT_TRANSLATE_NOOP("kk::StandardActions", "Video &and Audio"), "", true},
+    {"clip.multicam", "multicam.target_video", QT_TRANSLATE_NOOP("kk::StandardActions", "&Video Only"), "", true},
+    {"clip.multicam", "multicam.target_audio", QT_TRANSLATE_NOOP("kk::StandardActions", "A&udio Only"), "", true},
+    {"clip.multicam", "-"},
+    {"clip.multicam", "multicam.prev_page", QT_TRANSLATE_NOOP("kk::StandardActions", "&Previous Angle Page")},
+    {"clip.multicam", "multicam.next_page", QT_TRANSLATE_NOOP("kk::StandardActions", "&Next Angle Page")},
+    {"clip.multicam", "-"},
+    {"clip", "-"},
     {"clip", "clip.link",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Link Clips")},
     {"clip", "clip.unlink",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Unlink Clips")},
     {"clip", "-"},
@@ -197,6 +218,7 @@ const ActionSpec kActions[] = {
     {"view", "-"},
     {"view", "view.single_viewer",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Single Viewer Mode"), "single_viewer", true},
     {"view", "view.toggle_source_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Source / Timeline Viewer")},
+    {"view", "view.multicam_viewer",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Multicam Viewer (source viewer shows the angles)"), "multicam_clip", true},
     {"view", "view.fullscreen_viewer", QT_TRANSLATE_NOOP("kk::StandardActions", "Full-Screen &Viewer"), "fullscreen"},
     {"view", "view.onscreen_masks",   QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Mask Controls"), "", true},
     {"view", "view.fullscreen",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen"), "", true},
@@ -244,6 +266,8 @@ const ActionSpec kActions[] = {
 
 /// Number of tracks with destination / auto-select shortcuts (V1-V8, A1-A8).
 constexpr int kTrackShortcutCount = 8;
+/// Angles that have a "Cut / Switch to Angle n" command (number keys 1-9).
+constexpr int kMulticamAngleShortcutCount = 9;
 
 QString translate(const char* text)
 {
@@ -305,6 +329,22 @@ void registerStandardActions(ActionRegistry& registry)
         resolutions->addAction(registry.action(QLatin1String(id)));
     registry.action(QStringLiteral("playback.resolution_full"))->setChecked(true);
     registry.action(QStringLiteral("timeline.snapping"))->setChecked(true);
+    auto* multicamModes = new QActionGroup(&registry);
+    for (const char* id : {"multicam.mode_cut", "multicam.mode_switch"})
+        multicamModes->addAction(registry.action(QLatin1String(id)));
+    registry.action(QStringLiteral("multicam.mode_cut"))->setChecked(true);
+    auto* multicamTargets = new QActionGroup(&registry);
+    for (const char* id :
+        {"multicam.target_both", "multicam.target_video", "multicam.target_audio"})
+        multicamTargets->addAction(registry.action(QLatin1String(id)));
+    registry.action(QStringLiteral("multicam.target_both"))->setChecked(true);
+    // Number keys: cut (or switch, per the mode) to angle 1-9 of the multicam clip under the
+    // timeline playhead while the multicam viewer is shown.
+    for (int n = 1; n <= kMulticamAngleShortcutCount; ++n) {
+        registry.add(QStringLiteral("multicam.angle_") + QString::number(n),
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Cut / Switch to Angle %1")).arg(n),
+            QStringLiteral("clip.multicam"));
+    }
     registry.action(QStringLiteral("timeline.linked_selection"))->setChecked(true);
 
     // Short labels for the page bar buttons (menus keep the full "Media Page" text).
