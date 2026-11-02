@@ -35,17 +35,24 @@ public:
     /// The tree (tests).
     [[nodiscard]] QTreeWidget* tree() const { return m_tree; }
 
+    /// Shows only the section of EffectCategory @p category in the list (-1 = all); the
+    /// sidebar calls it. A search text looks through every category.
+    void setCategoryFilter(int category);
+
 signals:
     /// The user activated descriptor @p descriptorId (after it was applied).
     void effectActivated(const QString& descriptorId);
 
 private:
     void populate();
+    void applyFilters();
     void activate(const QString& descriptorId);
 
     AppContext& m_ctx;
     QLineEdit* m_search = nullptr;
     QTreeWidget* m_tree = nullptr;
+    QTreeWidget* m_categories = nullptr; ///< Resolve's sidebar: Toolbox > categories, Audio FX
+    int m_category = -1; ///< EffectCategory shown, -1 = all
 };
 
 } // namespace kk

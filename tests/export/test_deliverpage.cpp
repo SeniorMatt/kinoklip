@@ -5,14 +5,24 @@
 // finished job to $KK_SCREENSHOT_DIR/deliver_page.png when that variable is set.
 #include "../panels/PanelTestUtils.h"
 #include "ExportTestUtil.h"
+#include "export/ExportPresets.h"
 #include "export/RenderQueue.h"
 #include "ui/common/Resources.h"
 #include "ui/deliver/DeliverPage.h"
 #include "ui/deliver/RenderSettingsPanel.h"
 
 #include <QApplication>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDir>
+#include <QFile>
+#include <QLineEdit>
+#include <QRadioButton>
+#include <QSettings>
 #include <QSignalSpy>
+#include <QSpinBox>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 
 using namespace kk;
 using namespace kk::test;
@@ -26,6 +36,74 @@ private Q_SLOTS:
     {
         QStandardPaths::setTestModeEnabled(true); // user presets go to a test location
         initResources();
+    }
+
+    /// The Resolve-style form: every option reaches ExportSettings, file naming options
+    /// persist, unsupported options are disabled with a reason.
+    void renderSettingsForm()
+    {
+        PanelFixture fx;
+        QSettings().remove(QStringLiteral("deliver"));
+        ExportPresets presets;
+        auto* panel = new RenderSettingsPanel(fx.ctx, &presets);
+        std::unique_ptr<QWidget> owner(panel);
+        panel->applyPreset(QStringLiteral("youtube_1080p"));
+
+        // Quality: the preset's CRF 18 is the "High" level; Best writes the codec's value.
+        auto* level = panel->findChild<QComboBox*>(QStringLiteral("RenderQualityLevel"));
+        QCOMPARE(level->currentData().toInt(), int(RenderSettingsPanel::QualityLevel::High));
+        level->setCurrentIndex(level->findData(int(RenderSettingsPanel::QualityLevel::Best)));
+        QCOMPARE(panel->settings().video.quality,
+            RenderSettingsPanel::qualityValue(
+                QStringLiteral("h264"), RenderSettingsPanel::QualityLevel::Best));
+        QCOMPARE(panel->currentPresetId(), QString()); // a manual change leaves the preset
+        panel->findChild<QRadioButton*>(QStringLiteral("RenderQualityRestrict"))->setChecked(true);
+        QCOMPARE(panel->settings().video.rateControl, RateControl::Bitrate);
+        panel->findChild<QSpinBox*>(QStringLiteral("RenderBitrate"))->setValue(12000);
+        QCOMPARE(panel->settings().video.bitrateKbps, 12000);
+
+        // Key frames and frame reordering.
+        panel->findChild<QRadioButton*>(QStringLiteral("RenderKeyframesEvery"))->setChecked(true);
+        panel->findChild<QSpinBox*>(QStringLiteral("RenderKeyframeInterval"))->setValue(12);
+        panel->findChild<QCheckBox*>(QStringLiteral("RenderFrameReordering"))->setChecked(false);
+        ExportSettings s = panel->settings();
+        QCOMPARE(s.video.keyframeInterval, 12);
+        QVERIFY(!s.video.frameReordering);
+
+        // Resolution "Match timeline" = 0x0 (timeline size).
+        auto* resolution = panel->findChild<QComboBox*>(QStringLiteral("RenderResolution"));
+        resolution->setCurrentIndex(0);
+        QCOMPARE(panel->settings().video.width, 0);
+
+        // Unsupported options are disabled with a tooltip, not faked.
+        auto* individual = panel->findChild<QRadioButton*>(QStringLiteral("RenderIndividualClips"));
+        QVERIFY(!individual->isEnabled());
+        QVERIFY(!individual->toolTip().isEmpty());
+
+        // File tab: subfolder and unique names build the output path and persist.
+        QTemporaryDir dir;
+        s = panel->settings();
+        s.outputPath = dir.filePath(QStringLiteral("cut.mp4"));
+        panel->setSettings(s);
+        panel->findChild<QCheckBox*>(QStringLiteral("RenderUseSubfolder"))->setChecked(true);
+        panel->findChild<QLineEdit*>(QStringLiteral("RenderSubfolder"))
+            ->setText(QStringLiteral("web"));
+        QCOMPARE(panel->settings().outputPath, dir.filePath(QStringLiteral("web/cut.mp4")));
+        QDir(dir.path()).mkpath(QStringLiteral("web"));
+        QFile existing(dir.filePath(QStringLiteral("web/cut.mp4")));
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        existing.close();
+        panel->findChild<QCheckBox*>(QStringLiteral("RenderUniqueNames"))->setChecked(true);
+        QCOMPARE(panel->settings().outputPath, dir.filePath(QStringLiteral("web/cut_1.mp4")));
+        QVERIFY(QSettings().value(QStringLiteral("deliver/useSubfolder")).toBool());
+        QCOMPARE(QSettings().value(QStringLiteral("deliver/subfolder")).toString(),
+            QStringLiteral("web"));
+
+        // A new panel (next start) restores the file options.
+        RenderSettingsPanel again(fx.ctx, &presets);
+        QVERIFY(again.findChild<QCheckBox*>(QStringLiteral("RenderUseSubfolder"))->isChecked());
+        QVERIFY(again.findChild<QCheckBox*>(QStringLiteral("RenderUniqueNames"))->isChecked());
+        QSettings().remove(QStringLiteral("deliver"));
     }
 
     void pageWorkflow()

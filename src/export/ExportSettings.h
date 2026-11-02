@@ -61,6 +61,11 @@ struct VideoExportSettings
     /// Output height in pixels; 0 = timeline height, or proportional when only width is set.
     int height = 0;
     bool alpha = false; ///< keep transparency (only for alpha-capable codecs/profiles)
+    /// Distance between key frames in frames; 0 = automatic (one every 2 seconds).
+    int keyframeInterval = 0;
+    /// Allow B-frames (frame reordering) in inter-frame codecs. Off: every frame only refers
+    /// to earlier ones (some editing and streaming tools want that).
+    bool frameReordering = true;
 
     friend bool operator==(const VideoExportSettings&, const VideoExportSettings&) = default;
 };

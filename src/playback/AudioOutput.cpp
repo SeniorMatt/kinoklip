@@ -2,6 +2,7 @@
 // AudioOutput — QAudioSink (pull mode) on a dedicated thread, reading from an AudioRing.
 #include "playback/AudioOutput.h"
 
+#include "core/Preferences.h"
 #include "playback/AudioRing.h"
 #include "playback/PlaybackLog.h"
 
@@ -209,6 +210,12 @@ private:
         // nothing ever becomes audible and the engine uses its wall clock.
         if (qEnvironmentVariableIntValue("KK_NO_AUDIO") == 0) {
             self->m_device = QMediaDevices::defaultAudioOutput();
+            // Preferences > System > Audio I/O: a chosen device, if it is connected.
+            const QByteArray wanted = prefs::audioOutputDevice().toUtf8();
+            for (const QAudioDevice& device : QMediaDevices::audioOutputs()) {
+                if (!wanted.isEmpty() && device.id() == wanted)
+                    self->m_device = device;
+            }
         }
         self->m_format.setSampleRate(kSampleRate);
         self->m_format.setChannelCount(kChannels);

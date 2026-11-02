@@ -2,6 +2,7 @@
 // InterfaceBar — the top strip with panel toggles (left/right) and the project name (centre).
 #pragma once
 
+#include <QHash>
 #include <QWidget>
 
 class QAction;
@@ -25,6 +26,9 @@ public:
     void addRightAction(QAction* action);
     /// Sets the centred title (project name).
     void setTitle(const QString& title);
+    /// Shows or hides the button of @p action (like Resolve, each page only shows the
+    /// toggles of the panels it has; the action itself stays in the View menu).
+    void setActionShown(QAction* action, bool shown);
 
 private:
     void addButton(QHBoxLayout* layout, QAction* action);
@@ -32,6 +36,7 @@ private:
     QHBoxLayout* m_left = nullptr;
     QHBoxLayout* m_right = nullptr;
     QLabel* m_title = nullptr;
+    QHash<QAction*, QWidget*> m_buttons;
 };
 
 } // namespace kk

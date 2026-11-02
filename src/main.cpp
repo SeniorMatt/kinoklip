@@ -104,10 +104,11 @@ int main(int argc, char** argv)
     kk::registerStandardActions(actions);
     kk::theme::registerActions(actions); // Settings > Color Theme / Style entries
     kk::SettingsPageRegistry settingsPages;
-    kk::registerStandardSettingsPages(settingsPages);
+    kk::registerStandardSettingsPages(settingsPages, &actions);
     kk::theme::registerSettingsPage(settingsPages, actions);
     // Program playback: owns the compositor (render thread + GL context) shared by every
     // viewer, follows the project's timeline and media pool.
+    kk::applyStartupPreferences(); // before the compositor exists (GPU processing mode)
     kk::PlaybackEngine playback;
     playback.setBehaviour(kk::PlaybackBehaviour::fromSettings());
     playback.setMediaPool(project.mediaPool());

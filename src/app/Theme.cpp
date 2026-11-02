@@ -4,6 +4,7 @@
 #include "app/Theme.h"
 
 #include "app/ColorSchemeFile.h"
+#include "app/MenuMetricsStyle.h"
 #include "core/Preferences.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/SettingsPages.h"
@@ -146,7 +147,7 @@ QString applyStyle(const QString& wanted)
         if (key.compare(wanted, Qt::CaseInsensitive) != 0)
             qCInfo(lcTheme) << "widget style" << wanted << "not available, using" << key;
         if (QStyle* style = QStyleFactory::create(key)) {
-            QApplication::setStyle(style);
+            QApplication::setStyle(new MenuMetricsStyle(style)); // see MenuMetricsStyle.h
             return key;
         }
     }
@@ -555,9 +556,13 @@ void registerActions(ActionRegistry& registry)
 void registerSettingsPage(SettingsPageRegistry& pages, ActionRegistry& registry)
 {
     ActionRegistry* actions = &registry;
-    pages.add({QStringLiteral("appearance"), QCoreApplication::translate("kk::theme", "Appearance"),
+    // Preferences > User > UI Settings.
+    SettingsPageInfo page {QStringLiteral("appearance"),
+        QCoreApplication::translate("kk::theme", "Appearance"),
         QStringLiteral("preferences-desktop-theme-global"), 30,
-        [actions](QWidget* parent) { return new AppearancePage(*actions, parent); }});
+        [actions](QWidget* parent) { return new AppearancePage(*actions, parent); },
+        QStringLiteral("user"), QStringLiteral("ui")};
+    pages.add(std::move(page));
 }
 
 } // namespace kk::theme

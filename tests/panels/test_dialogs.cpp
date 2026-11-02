@@ -3,8 +3,11 @@
 // preferences storage.
 #include "PanelTestUtils.h"
 #include "app/Theme.h"
+#include "core/EditBehaviour.h"
 #include "core/Preferences.h"
+#include "playback/PlaybackEngine.h"
 #include "ui/common/Resources.h"
+#include "ui/common/SettingsPages.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
@@ -13,13 +16,16 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QLabel>
+#include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTest>
+#include <QTreeWidget>
 #include <QUndoStack>
 
 using namespace kk;
@@ -135,7 +141,7 @@ private slots:
         dialog.setSettings(wanted);
         QCOMPARE(dialog.settings(), wanted);
         // The 720p preset is recognised, so the size fields are locked.
-        QVERIFY(!dialog.findChildren<QSpinBox*>().front()->isEnabled());
+        QVERIFY(!dialog.findChild<QSpinBox*>(QStringLiteral("TimelineWidth"))->isEnabled());
         saveScreenshot(dialog, QStringLiteral("dialog_project_settings"));
 
         const int commands = f.project.undoStack()->count();
@@ -152,32 +158,105 @@ private slots:
         custom.width = 1000;
         custom.height = 500;
         dialog.setSettings(custom);
-        QVERIFY(dialog.findChildren<QSpinBox*>().front()->isEnabled());
+        QVERIFY(dialog.findChild<QSpinBox*>(QStringLiteral("TimelineWidth"))->isEnabled());
         QCOMPARE(dialog.settings().width, 1000);
+    }
+
+    void projectSettingsSections()
+    {
+        PanelFixture f;
+        prefs::setAutosaveMinutes(2);
+        ProjectSettingsDialog dialog(&f.project);
+        for (const char* id : {"master", "scaling", "audio", "general", "cache"})
+            QVERIFY2(dialog.showSection(QLatin1String(id)), id);
+        QVERIFY(!dialog.showSection(QStringLiteral("nope")));
+        // Not supported by the engine yet: shown, disabled, with the reason.
+        auto* scaling = dialog.findChild<QComboBox*>(QStringLiteral("MismatchedResolution"));
+        QVERIFY(!scaling->isEnabled());
+        QVERIFY(!scaling->toolTip().isEmpty());
+        // General Options: the autosave interval is the shared user preference.
+        QSignalSpy changed(&dialog, &ProjectSettingsDialog::preferencesChanged);
+        dialog.findChild<QSpinBox*>(QStringLiteral("AutosaveMinutes"))->setValue(9);
+        dialog.apply();
+        QCOMPARE(prefs::autosaveMinutes(), 9);
+        QCOMPARE(changed.count(), 1);
     }
 
     void preferencesAreStored()
     {
         PanelFixture f;
         PreferencesDialog dialog(nullptr); // standard pages only
-        const auto combos = dialog.findChildren<QComboBox*>();
-        QComboBox* hw = combos.front();
+        // Resolve's structure: System and User sections.
+        for (const char* id : {"memory", "storage", "decode", "audio_io", "ui", "project",
+                 "editing", "playback", "keyboard"}) {
+            QVERIFY2(dialog.showSection(QLatin1String(id)), id);
+        }
+        auto combo = [&dialog](const char* name) {
+            return dialog.findChild<QComboBox*>(QLatin1String(name));
+        };
+        auto spin = [&dialog](const char* name) {
+            return dialog.findChild<QSpinBox*>(QLatin1String(name));
+        };
+        auto seconds = [&dialog](const char* name) {
+            return dialog.findChild<QDoubleSpinBox*>(QLatin1String(name));
+        };
+        QComboBox* hw = combo("HwAccel");
         hw->setCurrentIndex(hw->findData(QStringLiteral("vaapi")));
-        dialog.findChild<QSpinBox*>()->setValue(7);
+        spin("AutosaveMinutes")->setValue(7);
+        spin("StillCacheMiB")->setValue(512);
+        combo("GpuProcessing")->setCurrentIndex(1);
+        seconds("StillSeconds")->setValue(3.0);
+        seconds("TransitionSeconds")->setValue(0.5);
+        spin("MultiFrameNudge")->setValue(10);
+        combo("ZoomAnchor")->setCurrentIndex(1);
+        combo("PreviewQuality")->setCurrentIndex(2);
+        seconds("PrerollSeconds")->setValue(3.0);
         QSignalSpy changed(&dialog, &PreferencesDialog::preferencesChanged);
-        // Let the hardware probe (worker thread) fill in its label for the screenshot.
+        // Let the hardware probe (worker thread) fill in its table for the screenshot.
+        auto* table = dialog.findChild<QTreeWidget*>(QStringLiteral("HwInfo"));
         QElapsedTimer probe;
         probe.start();
-        QTRY_VERIFY_WITH_TIMEOUT(!dialog.findChild<QLabel*>(QStringLiteral("HwInfo"))
-                                      ->text()
-                                      .startsWith(QStringLiteral("Checking")),
+        QTRY_VERIFY_WITH_TIMEOUT(table->topLevelItemCount() > 0
+                && !table->topLevelItem(0)->text(1).startsWith(QStringLiteral("Checking")),
             15000);
         qInfo("hardware probe took %lld ms", probe.elapsed());
+        dialog.showSection(QStringLiteral("decode"));
         saveScreenshot(dialog, QStringLiteral("dialog_preferences"));
         dialog.apply();
         QCOMPARE(changed.count(), 1);
         QCOMPARE(prefs::hwAccel(), prefs::HwAccel::Vaapi);
         QCOMPARE(prefs::autosaveMinutes(), 7);
+        QCOMPARE(prefs::stillCacheMiB(), 512);
+        QVERIFY(prefs::forceCpuRendering());
+        QVERIFY(prefs::zoomAroundMouse());
+        QCOMPARE(prefs::previewQuality(), QStringLiteral("half"));
+        // The values reach the modules that read them.
+        const EditBehaviour edit = EditBehaviour::fromSettings();
+        QCOMPARE(edit.stillSeconds, 3.0);
+        QCOMPARE(edit.transitionSeconds, 0.5);
+        QCOMPARE(edit.multiFrameNudge, 10);
+        QCOMPARE(PlaybackBehaviour::fromSettings().prerollMs, 3000);
+        applyRuntimePreferences(nullptr); // applies without a playback engine (headless)
+
+        // A reopened dialog shows the stored values.
+        PreferencesDialog again(nullptr);
+        QCOMPARE(again.findChild<QSpinBox*>(QStringLiteral("StillCacheMiB"))->value(), 512);
+        QCOMPARE(again.findChild<QComboBox*>(QStringLiteral("ZoomAnchor"))->currentIndex(), 1);
+        QSettings().clear();
+    }
+
+    void preferencesKeyboardEntry()
+    {
+        PanelFixture f;
+        SettingsPageRegistry registry;
+        registerStandardSettingsPages(registry, &f.actions);
+        PreferencesDialog dialog(&registry);
+        QSignalSpy opened(
+            f.actions.action(QStringLiteral("edit.keyboard_customization")), &QAction::triggered);
+        auto* button = dialog.findChild<QPushButton*>(QStringLiteral("OpenKeyboardCustomization"));
+        QVERIFY(button && button->isEnabled());
+        button->click();
+        QCOMPARE(opened.count(), 1);
     }
 };
 

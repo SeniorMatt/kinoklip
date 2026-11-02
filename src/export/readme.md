@@ -9,7 +9,7 @@ log-routing hook), `render` (Compositor, AudioMixer) and FFmpeg; never on widget
 
 | Header | What |
 |---|---|
-| `ExportSettings.h` | `ExportSettings` (container, `VideoExportSettings`, `AudioExportSettings`, range, output path), `EncoderBackend`, `RateControl`, `RangeMode`; `validate()`, `normalize()`, JSON form, `outputSize()`, `frameRange()`, `sequencePattern()` |
+| `ExportSettings.h` | `ExportSettings` (container, `VideoExportSettings` incl. key frame interval and frame reordering, `AudioExportSettings`, range, output path), `EncoderBackend`, `RateControl`, `RangeMode`; `validate()`, `normalize()`, JSON form, `outputSize()`, `frameRange()`, `sequencePattern()` |
 | `ExportFormats.h` | the format matrix as data: `exportContainers()`, `exportVideoCodecs()`, `exportAudioCodecs()` |
 | `ExportPresets.h` | built-in presets (`resources/export/presets.json`) + user presets (`<AppData>/export_presets.json`) |
 | `EncoderCatalog.h` | encoder candidates per codec, run-time hardware detection (NVENC, VAAPI, QSV) |
