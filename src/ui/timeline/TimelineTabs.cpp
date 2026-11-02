@@ -44,7 +44,7 @@ TimelineTabs::TimelineTabs(AppContext& ctx, QWidget* parent)
     m_bar->setFocusPolicy(Qt::NoFocus); // keys stay with the timeline
     m_bar->setContextMenuPolicy(Qt::CustomContextMenu);
     m_bar->setStyleSheet(QStringLiteral("QTabBar::tab { max-width: %1px; }").arg(kMaxTabTextWidth));
-    layout->addWidget(m_bar);
+    layout->addWidget(m_bar, 1); // the tabs take the row (scroll buttons only when they must)
 
     m_combo = new QComboBox(this);
     m_combo->setObjectName(QStringLiteral("TimelineDropDown"));
@@ -52,7 +52,10 @@ TimelineTabs::TimelineTabs(AppContext& ctx, QWidget* parent)
     m_combo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     m_combo->setToolTip(tr("Timeline shown in the timeline viewer and editor"));
     layout->addWidget(m_combo);
-    layout->addStretch(1);
+    // Fills the row in drop-down mode (hidden widgets do not take space).
+    m_spacer = new QWidget(this);
+    m_spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    layout->addWidget(m_spacer, 1);
 
     connect(m_bar, &QTabBar::currentChanged, this, [this](int index) {
         if (m_syncing || index < 0)
@@ -90,6 +93,7 @@ void TimelineTabs::setTabsMode(bool tabs)
     m_tabsMode = tabs;
     m_bar->setVisible(tabs);
     m_combo->setVisible(!tabs);
+    m_spacer->setVisible(!tabs);
     sync();
 }
 
