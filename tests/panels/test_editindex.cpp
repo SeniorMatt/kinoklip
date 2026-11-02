@@ -9,6 +9,7 @@
 #include "ui/editindex/EditIndexModel.h"
 #include "ui/editindex/EditIndexPanel.h"
 #include "ui/editindex/EditIndexRows.h"
+#include "ui/timeline/TimelineController.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -215,6 +216,38 @@ private slots:
         f.project.endEdit();
         panel.rebuildNow();
         QVERIFY(!(m->flags(m->index(1, EditIndexModel::MarkerName)) & Qt::ItemIsEditable));
+    }
+
+    // Round 3 audit A1: Delete on a marker row deletes the marker (one undo step), not the
+    // clip the row selected through the window's Delete commands.
+    void deleteKeyDeletesTheMarker()
+    {
+        PanelFixture f;
+        const quint64 clip = f.addClip(kV1, 0, 50);
+        f.project.beginEdit(QStringLiteral("Add Markers"));
+        editops::clipById(f.project.timeline()->mutableData(), clip)
+            ->markers.push_back({7, QStringLiteral("Clip"), kRed, {}});
+        f.project.endEdit();
+        TimelineController controller(f.ctx); // Delete would ripple delete the clip
+        controller.connectActions();
+        QWidget window; // the window's shortcuts, as in the main window
+        window.addActions(f.actions.actions());
+        EditIndexPanel panel(f.ctx);
+        panel.setParent(&window);
+        window.resize(900, 300);
+        panel.resize(900, 300);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        panel.setMode(EditIndexModel::Mode::Markers);
+        clickRow(panel, 0);
+        QCOMPARE(f.selection.currentClip(), clip);
+        panel.table()->setFocus();
+        const int before = f.project.undoStack()->count();
+        QTest::keyClick(panel.table(), Qt::Key_Delete);
+        QVERIFY(f.clip(clip)); // still there
+        QVERIFY(f.clip(clip)->markers.isEmpty());
+        QCOMPARE(f.project.undoStack()->count(), before + 1);
+        QCOMPARE(f.project.undoStack()->undoText(), QStringLiteral("Delete Marker"));
     }
 
     // Edits, undo and hidden panels: the table follows the timeline.

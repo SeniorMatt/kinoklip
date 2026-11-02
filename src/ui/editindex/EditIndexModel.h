@@ -84,6 +84,10 @@ public:
     Qt::ItemFlags flags(const QModelIndex& index) const override;
     bool setData(const QModelIndex& index, const QVariant& value, int role) override;
 
+    /// Markers mode: deletes the marker of @p row (one undo step "Delete Marker"). False for
+    /// events, a locked track or a marker that is gone.
+    bool deleteMarker(int row);
+
 private:
     [[nodiscard]] QVariant eventData(const editindex::EventRow& row, int column, int role) const;
     [[nodiscard]] QVariant markerData(const editindex::MarkerRow& row, int column, int role) const;
