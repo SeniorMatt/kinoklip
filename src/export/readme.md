@@ -155,6 +155,22 @@ LB is the default for optimized media (intra) and the render cache: at 1080p it 
 8.7 ms on one core, 5 ms with 4 slice threads (DNxHR SQ: 21.7 / 12 ms, closer to the uncached
 picture; selectable).
 
+**Playback measurement** (`KK_PERF_PROXIES=1 build/test_proxyperf`): 3-layer 1080p60 timeline
+(full frame + two picture-in-picture layers of a camera-like H.264 High 1080p60 file), Edit-page
+viewer 1000x562, Full, software decoding (`KINOKLIP_HWACCEL=off`), llvmpipe under xvfb, dev
+box shared with other builds (load average 6-10; with load 15-18 every mode was 3-4x slower):
+
+| Mode | fps of 60 | dropped / 3 s | render ms [decode, upload, output] |
+|---|---|---|---|
+| camera originals | 13.3 | 141 | 62.9 [47.7, 13.2, 12.5] |
+| proxies (960x540 H.264 fast decode) | 48.0 | 37 | 20.7 [3.3, 5.6, 11.7] |
+| render cache (DNxHR LB 1080p, Smart) | 52.3 | 23 | 20.9 [3.3, 1.0, 14.8] |
+
+Generating the proxy took 6.9 s for 5 s of 1080p60 (NVENC on the dev box; libx264 or VAAPI
+elsewhere); caching the 4 s timeline 23.9 s on llvmpipe. The remaining drops are llvmpipe's
+output stage (the software GL itself), not decoding; on the laptop's Iris Xe that stage is a
+fraction of a millisecond.
+
 **Render cache design**: the active timeline is cut into one-second chunks; a chunk's key is a
 SHA-1 over the cache version, app version, format, timeline format, range and the JSON of every
 clip that can influence the chunk (+ media fingerprints, nested timelines); see
