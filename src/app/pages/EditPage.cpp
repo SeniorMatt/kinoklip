@@ -153,6 +153,15 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     });
     // New timelines and compound clips go into the media pool's current bin (Resolve).
     m_timeline->controller()->setBinProvider([this] { return m_mediaPool->currentBin(); });
+    // Multicam: angle clicks / number keys in the multicam viewer cut (or switch) the
+    // multicam clip under the timeline playhead; Sync Based on In Points uses the source
+    // viewer's marks.
+    connect(m_sourceViewer, &ViewerPanel::multicamAngleChosen, m_timeline->controller(),
+        &TimelineController::chooseMulticamAngle);
+    m_mediaPool->setInPointProvider([this](const QString& mediaId) -> int64_t {
+        const SourcePlayer* player = m_sourceViewer->sourcePlayer();
+        return player ? player->markInUs(mediaId) : 0;
+    });
     // F9 / F10 / F12 take the source viewer's clip and marked range.
     m_timeline->controller()->setSourceProvider([this]() -> std::optional<SourceSelection> {
         const std::optional<SourceRange> range = m_sourceViewer->sourceSelection();

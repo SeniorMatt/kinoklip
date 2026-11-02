@@ -238,6 +238,8 @@ QVector<ops::PlacedClip> TimelineController::makeNestedClips(
     const TimelineData& data = timeline()->data();
     ClipData base = compound::makeNestedClip(*nested, item.id);
     base.name = item.name;
+    if (nested->multicam)
+        base.multicamAngle = 0; // a multicam clip starts on angle 1 (switch / cut later)
     const int64_t lengthUs = compound::nestedDurationUs(*nested);
     inUs = std::clamp<int64_t>(inUs, 0, lengthUs);
     const int64_t endUs = outUs > inUs ? std::min(outUs, lengthUs) : lengthUs;
@@ -1116,6 +1118,9 @@ void TimelineController::connectActions()
     on("timeline.next_tab", [this] { cycleTab(1); });
     on("timeline.prev_tab", [this] { cycleTab(-1); });
     on("timeline.close_tab", &TimelineController::closeActiveTab);
+    // Multicam (TimelineMulticam.cpp). The angle keys (multicam.angle_n) go through the
+    // multicam viewer (src/ui/viewer/ViewerMulticam.cpp), which calls chooseMulticamAngle().
+    on("multicam.flatten", &TimelineController::flattenMulticamSelection);
 }
 
 } // namespace kk
