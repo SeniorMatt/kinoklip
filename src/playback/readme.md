@@ -50,13 +50,17 @@ source.markInAtPosition(); ... source.selection();  // {mediaId, inUs, outUs}
 ```
 
 ### Clock
-* **Forward 1x with sound**: the device is the master. `AudioOutput::playedFrames()` reports
+* **With sound, at any rate**: the device is the master (shuttle, reverse and slow play are
+  varispeed: each device frame carries `rate` timeline samples, resampled by `AudioFeeder`). `AudioOutput::playedFrames()` reports
   heard frames: `min(processedUSecs, frames handed over − frames still in the sink buffer)` —
   correct for backends that report "written" as well as "played" positions. Reports come in
   period-sized steps and a little late, so `PlaybackClock` runs on the wall clock and slews
   towards the reports' upper envelope (gain 0.3 when the device is ahead, 0.03 when behind,
-  snap beyond 3 frames). The position never goes backwards.
-* **Reverse, shuttle (2x-8x), slow (0.5x), muted, no device**: free-running wall clock.
+  snap beyond 3 frames times the speed). The position never goes against the play direction.
+* **Muted, no device**: free-running wall clock.
+* **Audio scrubbing** (paused, `PlaybackEngine::setAudioScrubbing()`): every playhead move
+  sends a snippet position to the feeder's scrub mode, which keeps the ring short (~43 ms)
+  and plays ~80 ms faded snippets; the device stops 350 ms after the last move.
 * A device that reports no progress within 600 ms is abandoned for the wall clock (logged).
 * Underruns: the device plays silence and later skips the same number of ring frames, so
   device frame n always carries timeline sample `start + n` (sync survives hiccups).
@@ -191,13 +195,12 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
   `fromSettings()`), read it where the behaviour happens; never an inline constant.
 * **Another sound backend**: implement `AudioOutput` (the contract is in its header: heard
   position + underrun skipping) and pass it in `PlaybackEngine::Options::audio`.
-* **Audio while shuttling** (scrub audio, 2x with pitch): extend `AudioFeeder` with a rate
-  and make `startMotion()` use the audio clock for those rates.
+* **Better shuttle sound** (pitch-kept fast play): replace the linear resampler in
+  `AudioFeeder::mixVarispeed()`; the clock already handles every rate.
 
 ## Known gaps / TODO
 
-* TODO(playback): no audio in reverse / shuttle / slow play (wall clock, silent).
-* TODO(playback): no audio scrubbing (short snippets while dragging).
+* TODO(playback): shuttle sound uses linear interpolation (some aliasing at 4x-8x).
 * TODO(playback): seeks show the exact target frame (decoder seek + decode forward from the
   keyframe, 70-140 ms here); showing the nearest keyframe first would be faster for long GOPs.
 * TODO(playback): presentation is timer-driven (4 ms) rather than locked to the display's
