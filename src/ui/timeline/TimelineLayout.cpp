@@ -179,6 +179,15 @@ const std::vector<HeaderButton>& TimelineLayout::buttonsFor(TrackType type) cons
     return m_audioPageHeaders && type == TrackType::Audio ? audioPage : headerButtons(type);
 }
 
+bool TimelineLayout::twoLineHeader(int row) const
+{
+    if (!m_audioPageHeaders || row < 0 || row >= int(m_rows.size())
+        || m_rows[size_t(row)].ref.type != TrackType::Audio)
+        return false;
+    const QRect r = rowRect(row);
+    return r.height() - m_rows[size_t(row)].laneHeight >= kTwoLineHeaderMinHeight;
+}
+
 QRect TimelineLayout::headerMeterRect(int row) const
 {
     const QRect r = rowRect(row);
@@ -195,10 +204,14 @@ QRect TimelineLayout::headerButtonRect(int row, HeaderButton button) const
     if (r.isEmpty() || button == HeaderButton::None)
         return {};
     // Buttons sit on the first line of the header, vertically centred in small rows.
-    const int y = r.top() + std::min(6, (r.height() - kHeaderButton) / 2);
+    int y = r.top() + std::min(6, (r.height() - kHeaderButton) / 2);
     if (button == HeaderButton::Target)
         return QRect(10, y, 30, kHeaderButton);
     const TrackType type = m_rows[size_t(row)].ref.type;
+    // Audio page: the buttons and meter leave no room for the name on one line, so tall
+    // headers put the buttons on a second line (the name keeps the first).
+    if (twoLineHeader(row))
+        y += kHeaderButton + kHeaderLineGap;
     const auto& buttons = buttonsFor(type);
     int x = kHeaderWidth - 8 - kHeaderButton;
     if (m_audioPageHeaders && type == TrackType::Audio)
