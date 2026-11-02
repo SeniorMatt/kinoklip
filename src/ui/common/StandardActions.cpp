@@ -242,6 +242,7 @@ const ActionSpec kActions[] = {
     {"view", "view.fullscreen_viewer", QT_TRANSLATE_NOOP("kk::StandardActions", "Full-Screen &Viewer"), "fullscreen"},
     {"view", "view.onscreen_transform", QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Transform Controls"), "", true},
     {"view", "view.onscreen_masks",   QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Mask Controls"), "", true},
+    {"view", "view.onscreen_crop",    QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Crop Controls"), "", true},
     {"view", "view.fullscreen",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen"), "", true},
 
     // ---- Playback ----

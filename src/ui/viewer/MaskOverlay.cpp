@@ -160,10 +160,10 @@ MaskOverlay::~MaskOverlay()
 }
 
 QToolButton* MaskOverlay::createModeButton(
-    QAction* masksAction, QWidget* parent, QAction* transformAction)
+    QAction* masksAction, QWidget* parent, QAction* transformAction, QAction* cropAction)
 {
     // Resolve-like on-screen controls menu at the bottom left of the viewer: one mode at a
-    // time (Off, Transform, Mask).
+    // time (Off, Transform, Crop, Mask).
     auto* button = new QToolButton(parent);
     button->setObjectName(QStringLiteral("ViewerOnScreenControls"));
     button->setAutoRaise(true);
@@ -173,38 +173,45 @@ QToolButton* MaskOverlay::createModeButton(
     auto* menu = new QMenu(button);
     QAction* off = menu->addAction(tr("Off"));
     off->setCheckable(true);
-    QAction* transform = transformAction;
-    if (transform) {
-        menu->addAction(transform);
-        transform->setCheckable(true);
+    QAction* mask = masksAction ? masksAction : new QAction(tr("Mask"), menu);
+    // Menu order and the button text of each mode.
+    QList<std::pair<QAction*, QString>> modes;
+    if (transformAction)
+        modes.append({transformAction, tr("Transform")});
+    if (cropAction)
+        modes.append({cropAction, tr("Crop")});
+    modes.append({mask, tr("Mask")});
+    for (const auto& [action, text] : std::as_const(modes)) {
+        menu->addAction(action);
+        action->setCheckable(true);
     }
-    QAction* mask = masksAction ? masksAction : menu->addAction(tr("Mask"));
-    if (masksAction)
-        menu->addAction(masksAction);
-    mask->setCheckable(true);
-    auto sync = [button, off, mask, transform] {
-        const bool t = transform && transform->isChecked();
-        off->setChecked(!mask->isChecked() && !t);
-        button->setText(t ? tr("Transform") : mask->isChecked() ? tr("Mask") : tr("Off"));
+    auto sync = [button, off, modes] {
+        QString text = tr("Off");
+        for (const auto& [action, name] : modes) {
+            if (action->isChecked())
+                text = name;
+        }
+        off->setChecked(text == tr("Off"));
+        button->setText(text);
     };
-    connect(off, &QAction::triggered, mask, [mask, transform, sync] {
-        mask->setChecked(false);
-        if (transform)
-            transform->setChecked(false);
+    connect(off, &QAction::triggered, button, [modes, sync] {
+        for (const auto& [action, name] : modes)
+            action->setChecked(false);
         sync();
     });
     // The modes exclude each other (the registry actions stay plain checkable actions).
-    connect(mask, &QAction::toggled, button, [sync, transform](bool on) {
-        if (on && transform)
-            transform->setChecked(false);
-        sync();
-    });
-    if (transform)
-        connect(transform, &QAction::toggled, button, [sync, mask](bool on) {
-            if (on)
-                mask->setChecked(false);
+    for (const auto& [action, name] : std::as_const(modes)) {
+        QAction* self = action;
+        connect(self, &QAction::toggled, button, [self, modes, sync](bool on) {
+            if (on) {
+                for (const auto& [other, otherName] : modes) {
+                    if (other != self)
+                        other->setChecked(false);
+                }
+            }
             sync();
         });
+    }
     sync();
     button->setMenu(menu);
     return button;

@@ -168,6 +168,7 @@ a("view.toggle_source_timeline", "Toggle Source / Timeline Viewer", ["Q"], S)
 a("view.fullscreen_viewer", "Viewer Full Screen", ["Ctrl+F"], L)
 a("view.onscreen_transform", "On-Screen Transform Controls (viewer on-screen controls: Transform)", [], U, "Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned.")
 a("view.onscreen_masks", "On-Screen Mask Controls (viewer on-screen controls: Mask)", [], U, "Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned.")
+a("view.onscreen_crop", "On-Screen Crop Controls (viewer on-screen controls: Crop)", [], U, "Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned.")
 a("view.fullscreen", "Full Screen Window", ["Ctrl+Shift+F"], U)
 
 sec("Playback and navigation")

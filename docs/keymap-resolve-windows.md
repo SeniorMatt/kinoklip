@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 248 commands; sure 94, likely 84, unsure 70.
+Counts: 249 commands; sure 94, likely 84, unsure 71.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -227,6 +227,7 @@ that every command has an entry and that no key is used twice.
 | Viewer Full Screen | `view.fullscreen_viewer` | `Ctrl+F` | likely |  |
 | On-Screen Transform Controls (viewer on-screen controls: Transform) | `view.onscreen_transform` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
 | On-Screen Mask Controls (viewer on-screen controls: Mask) | `view.onscreen_masks` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
+| On-Screen Crop Controls (viewer on-screen controls: Crop) | `view.onscreen_crop` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
 | Full Screen Window | `view.fullscreen` | `Ctrl+Shift+F` | unsure |  |
 
 ## Playback and navigation
