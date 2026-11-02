@@ -45,3 +45,4 @@
 - 04:57 Breeze finished (real Breeze style, KDE colour schemes, Breeze icons, Settings > Color Theme/Style, Appearance prefs page, container-built 90 MB .run with glibc fallback, verified on Mint). Merge into main conflicted in 4 app-wiring files -> aborted; breeze agent is merging main into its branch and rebuilding the .run with all features.
 - 05:09 Owner chose GPL-3.0-or-later: license.md (verbatim FSF text) + License section in readme.md.
 - 05:13 Breeze merged (41/41 tests both toolchains). Readme 'Download here' button added; release notes written; publishing v0.1.0-alpha.1 pre-release.
+- 05:14 RELEASED v0.1.0-alpha.1 (GitHub pre-release, private repo): Kinoklip-x86_64.run (90 MB), portable tar.zst, SHA256SUMS. Copy on ~/Desktop. Parity agent still running.
