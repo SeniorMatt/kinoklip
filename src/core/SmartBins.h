@@ -53,7 +53,7 @@ struct Context
 [[nodiscard]] bool operatorFromId(const QString& id, SmartOp* op);
 
 /// Type value of @p item for SmartField::Type: "video", "audio", "still", "timeline",
-/// "compound" or "multicam".
+/// "compound", "multicam" or "subtitle".
 [[nodiscard]] QString itemType(const MediaItem& item);
 
 /// True if @p item satisfies @p rule. Text comparisons ignore case; unknown dates never match

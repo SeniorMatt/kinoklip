@@ -9,6 +9,7 @@
 #include <QVector>
 
 #include <cstdint>
+#include <optional>
 
 namespace kk {
 
@@ -19,8 +20,14 @@ namespace effectactions {
 
 /// Default transition length: one second at the timeline rate (at least one frame).
 [[nodiscard]] int64_t defaultTransitionFrames(Rational fps);
-/// Default length of a new title / generator clip: five seconds at the timeline rate.
+/// Default length of a new title / generator / adjustment clip: Preferences > Editing >
+/// generator duration (EditBehaviour::generatorSeconds, 5 s by default) at the timeline rate.
 [[nodiscard]] int64_t defaultGeneratorFrames(Rational fps);
+
+/// A new clip (no id, start 0, default length) for a Title / Generator / Effects descriptor:
+/// a Title, Solid, Generator or Adjustment clip with the descriptor's default parameters.
+/// std::nullopt for other descriptors.
+[[nodiscard]] std::optional<ClipData> makeGeneratorClip(const QString& descriptorId, Rational fps);
 
 /// True if an effect of @p category can be applied to a clip on a track of @p type
 /// (video effects on video tracks, audio effects on audio tracks).
@@ -41,7 +48,8 @@ bool applyTransition(Project& project, quint64 clipId, const QString& descriptor
 /// Removes the head (@p atHead) or tail transition of clip @p clipId. One undo step.
 bool removeTransition(Project& project, quint64 clipId, bool atHead);
 
-/// Creates a title or generator clip (descriptor category Title or Generator) starting at
+/// Creates a title, generator or adjustment clip (descriptor category Title, Generator or
+/// Effects) starting at
 /// timeline frame @p frame, placed on the lowest video track above everything that already
 /// occupies that range (a new track is added if needed). One undo step.
 /// Returns the new clip id, or 0 on failure.

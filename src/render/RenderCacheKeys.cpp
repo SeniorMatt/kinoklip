@@ -310,6 +310,9 @@ std::shared_ptr<const RenderCacheView> makeRenderCacheView(
         clip.sourceDurationUs = framesToUs(clip.duration, snapshot->fps);
         track.clips.push_back(std::move(clip));
         tl->videoTracks.push_back(std::move(track));
+        // Chunks are rendered without captions (ExportJob, subtitle export off); the viewer
+        // still draws the timeline's subtitle tracks over the cached picture.
+        tl->subtitleTracks = snapshot->subtitleTracks;
         auto media = std::make_shared<MediaPathMap>();
         media->insert(tl->videoTracks[0].clips[0].mediaId, renderCacheFile(directory, c.key));
         view->chunks.push_back({c.start, c.end, std::move(tl), std::move(media)});

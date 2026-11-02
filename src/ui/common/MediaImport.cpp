@@ -25,7 +25,7 @@ QStringList mediaFileNamePatterns()
         QStringList list;
         for (const char* ext : {"mp4", "mov", "mkv", "webm", "avi", "mxf", "m4v", "mts", "m2ts",
                  "mpg", "mpeg", "wav", "mp3", "flac", "ogg", "m4a", "aac", "opus", "png", "jpg",
-                 "jpeg", "tif", "tiff", "bmp", "webp"}) {
+                 "jpeg", "tif", "tiff", "bmp", "webp", "srt", "vtt"}) {
             list.append(QStringLiteral("*.") + QLatin1String(ext));
             list.append(QStringLiteral("*.") + QLatin1String(ext).toString().toUpper());
         }
@@ -42,6 +42,11 @@ QString mediaFileDialogFilter()
             lower.append(p);
     }
     return tr("Media files (%1);;All files (*)").arg(lower.join(QLatin1Char(' ')));
+}
+
+QString subtitleFileDialogFilter()
+{
+    return tr("Subtitle files (*.srt *.vtt *.SRT *.VTT);;All files (*)");
 }
 
 QStringList importMediaWithFeedback(

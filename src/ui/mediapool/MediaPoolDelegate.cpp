@@ -43,6 +43,13 @@ void paintPlaceholder(QPainter* p, const QRect& r, int kind, const QPalette& pal
             p->drawRoundedRect(QRectF(c.x() - 22, c.y() - 14, 44, 28), 2, 2);
         break;
     }
+    case MediaPoolModel::SubtitleKind: {
+        // A caption box with two text lines.
+        p->drawRoundedRect(QRectF(c.x() - 20, c.y() - 14, 40, 28), 3, 3);
+        p->drawLine(QPointF(c.x() - 12, c.y() + 1), QPointF(c.x() + 12, c.y() + 1));
+        p->drawLine(QPointF(c.x() - 8, c.y() + 7), QPointF(c.x() + 8, c.y() + 7));
+        break;
+    }
     case MediaPoolModel::AudioKind: {
         // Symmetric bars like a waveform.
         const qreal heights[] = {6, 14, 22, 12, 26, 16, 8, 18, 10, 4};

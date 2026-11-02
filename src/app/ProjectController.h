@@ -59,6 +59,8 @@ public slots:
     bool saveAs();
     /// File ▸ Import Media… (multi-file dialog → MediaPool).
     void importMedia();
+    /// File > Import Subtitle: .srt / .vtt files into the media pool.
+    void importSubtitle();
 
 private:
     void fillRecentMenu(QMenu* menu);

@@ -167,4 +167,18 @@ QSizeF displaySize(int codedWidth, int codedHeight, Rational sar, int rotation)
     return (rotation == 90 || rotation == 270) ? s.transposed() : s;
 }
 
+bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame)
+{
+    const ParamSet& p = clip.transform;
+    if (p.value(keys::PosX, localFrame) != 0.0 || p.value(keys::PosY, localFrame) != 0.0
+        || p.value(keys::ZoomX, localFrame) != 1.0 || p.value(keys::ZoomY, localFrame) != 1.0
+        || p.value(keys::Rotation, localFrame) != 0.0 || p.value(keys::Opacity, localFrame) < 100.0
+        || p.value(keys::CropL, localFrame) > 0.0 || p.value(keys::CropR, localFrame) > 0.0
+        || p.value(keys::CropT, localFrame) > 0.0 || p.value(keys::CropB, localFrame) > 0.0
+        || p.staticValue(keys::FlipH).toBool() || p.staticValue(keys::FlipV).toBool())
+        return false;
+    return std::none_of(
+        clip.masks.cbegin(), clip.masks.cend(), [](const MaskData& m) { return m.isRenderable(); });
+}
+
 } // namespace kk::render

@@ -225,6 +225,11 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
                 group(groups::Transform, ParamScope::Transform);
                 group(groups::Cropping, ParamScope::Transform);
                 appendMasksGroup(model.entries, colorIndex, *clip, itemKey, depth, showAll);
+                if (clip->kind == ClipKind::Generator) {
+                    if (const EffectDescriptor* d = reg.find(clip->generator))
+                        appendGroup(model.entries, colorIndex, *clip, *d, ParamScope::Title, 0,
+                            itemKey, depth, showAll);
+                }
                 if (clip->kind == ClipKind::Title) {
                     for (const EffectDescriptor* d : reg.byCategory(EffectCategory::Title)) {
                         if (paramaccess::scopeForStorage(d->storage) == ParamScope::Title)
@@ -232,8 +237,8 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
                                 itemKey, depth, showAll);
                     }
                 }
-            } else {
-                group(groups::Audio, ParamScope::Audio);
+            } else if (loc->track.type == TrackType::Audio) {
+                group(groups::Audio, ParamScope::Audio); // captions have no animated groups
             }
             for (const EffectInstance& fx : clip->effects) {
                 if (const EffectDescriptor* d = reg.find(fx.type))

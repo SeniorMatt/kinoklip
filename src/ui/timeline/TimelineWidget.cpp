@@ -513,6 +513,11 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
             [this, ref] { m_controller->addTrack(ref.type, ref.index); });
         addAction("timeline.add_video_track");
         addAction("timeline.add_audio_track");
+        addAction("timeline.add_subtitle_track");
+        if (ref.type == TrackType::Subtitle) {
+            menu.addSeparator();
+            addAction("timeline.add_subtitle");
+        }
         menu.addSeparator();
         QAction* del = menu.addAction(
             tr("Delete Track"), this, [this, ref] { m_controller->removeTrack(ref); });
@@ -609,8 +614,17 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         addAction("edit.paste");
         addAction("edit.select_all");
         menu.addSeparator();
+        if (ref.type == TrackType::Subtitle) {
+            // Resolve: right-click in a subtitle track adds a caption there (at the playhead).
+            menu.addAction(tr("Add Subtitle"), this, [this, frame] {
+                m_ctx.project->timeline()->setPlayhead(frame);
+                m_controller->addSubtitleAtPlayhead();
+            });
+            menu.addSeparator();
+        }
         addAction("timeline.add_video_track");
         addAction("timeline.add_audio_track");
+        addAction("timeline.add_subtitle_track");
         break;
     }
     case TimelineHit::Area::Ruler: {

@@ -205,12 +205,14 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         menu.addSeparator();
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
     } else if (!current.isEmpty()) {
-        menu.addAction(tr("Open in Source Viewer"), this, [this, current] {
-            const QStringList projectIds = ensureInProject({current});
-            if (!projectIds.isEmpty())
-                emit openInSourceViewer(projectIds.front());
-        });
-        menu.addSeparator();
+        if (!currentItem || !currentItem->isSubtitle()) {
+            menu.addAction(tr("Open in Source Viewer"), this, [this, current] {
+                const QStringList projectIds = ensureInProject({current});
+                if (!projectIds.isEmpty())
+                    emit openInSourceViewer(projectIds.front());
+            });
+            menu.addSeparator();
+        }
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
         menu.addAction(
             tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });

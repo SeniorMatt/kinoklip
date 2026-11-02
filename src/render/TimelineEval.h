@@ -93,6 +93,11 @@ struct TrackFrame
 /// so changing only the anchor never moves an unscaled, unrotated picture.
 [[nodiscard]] QTransform clipTransform(const ClipData& clip, int64_t localFrame, QSizeF frameSize);
 
+/// True if @p clip at @p localFrame covers the frame exactly as its content: no move, zoom,
+/// rotation, flip or crop, opacity 100 % and no renderable mask. An adjustment clip with an
+/// identity footprint replaces the whole frame (and does nothing when its effects do nothing).
+[[nodiscard]] bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame);
+
 /// Largest |zoom| of @p clip at @p localFrame (used to choose the layer resolution).
 [[nodiscard]] double maxZoom(const ClipData& clip, int64_t localFrame);
 
