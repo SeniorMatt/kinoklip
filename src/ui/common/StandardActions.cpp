@@ -39,6 +39,7 @@ const ActionSpec kActions[] = {
     {"file", "file.save_as",          QT_TRANSLATE_NOOP("kk::StandardActions", "Save Project &As…")},
     {"file", "-"},
     {"file", "file.import_media",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Import Media…"), "import"},
+    {"file", "file.import_subtitle",  QT_TRANSLATE_NOOP("kk::StandardActions", "Import S&ubtitle…")},
     // The media pool's proxy / optimized media commands also live here (act on the media
     // pool selection); Resolve offers them in the media pool context menu.
     {"file", ">mediapool",            QT_TRANSLATE_NOOP("kk::StandardActions", "Pro&xy and Optimized Media")},
@@ -120,6 +121,8 @@ const ActionSpec kActions[] = {
     {"timeline", "-"},
     {"timeline", "timeline.add_video_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Video Track")},
     {"timeline", "timeline.add_audio_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Audio Track")},
+    {"timeline", "timeline.add_subtitle_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add Su&btitle Track")},
+    {"timeline", "timeline.add_subtitle", QT_TRANSLATE_NOOP("kk::StandardActions", "Add Subtit&le")},
     {"timeline", "-"},
     {"timeline", "timeline.duplicate", QT_TRANSLATE_NOOP("kk::StandardActions", "D&uplicate Timeline")},
     {"timeline", "timeline.delete",   QT_TRANSLATE_NOOP("kk::StandardActions", "Delete Timel&ine")},

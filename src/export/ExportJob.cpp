@@ -7,6 +7,7 @@
 #include "export/EncoderCatalog.h"
 #include "export/ExportLog.h"
 #include "export/MediaWriter.h"
+#include "export/SubtitleExport.h"
 #include "export/VideoEncoder.h"
 #include "render/AudioMixer.h"
 #include "render/Compositor.h"
@@ -172,6 +173,7 @@ ExportResult ExportJob::runStill()
     Q_UNUSED(end);
     const QSize size = m_settings.outputSize(*m_timeline);
     RenderRequest request {m_timeline, m_media, first, size, Quality::Full, OutputImage};
+    request.subtitles = m_settings.burnsInSubtitles();
     request.proxies = m_proxies;
     const RenderedFramePtr frame = m_compositor->renderAsync(std::move(request)).get();
     if (!frame || !frame->ok || frame->image.isNull()) {
@@ -273,11 +275,55 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
         result.error = error;
         return result;
     }
+
+    // ---- Subtitles: one embedded stream per enabled subtitle track with captions ----
+    const QVector<SubtitleTrackExport> captionTracks = s.subtitles.enabled
+        ? collectSubtitleTracks(tl, first, end)
+        : QVector<SubtitleTrackExport> {};
+    const QString subtitleCodec = s.embeddedSubtitleCodec();
+    std::vector<std::unique_ptr<SubtitleEncoder>> subtitleEncoders;
+    std::vector<int> subtitleStreams;
+    if (!subtitleCodec.isEmpty() && !sequence) {
+        for (const SubtitleTrackExport& track : captionTracks) {
+            auto encoder = std::make_unique<SubtitleEncoder>();
+            if (!encoder->open(subtitleCodec, size.width(), size.height(),
+                    writer.needsGlobalHeader(), &error)) {
+                result.error = error;
+                return result;
+            }
+            const int stream = writer.addStream(encoder->context(), &error);
+            if (stream < 0) {
+                result.error = error;
+                return result;
+            }
+            writer.setStreamMetadata(
+                stream, "language", containerLanguage(track.language, s.container));
+            writer.setStreamMetadata(stream, "title", track.name);
+            subtitleStreams.push_back(stream);
+            subtitleEncoders.push_back(std::move(encoder));
+        }
+    }
     if (!writer.writeHeader(container->faststart, 0, &error)) {
         result.error = error;
         writer.abort();
         QFile::remove(result.outputPath);
         return result;
+    }
+    // Captions are tiny: all of them are queued right away; the interleaving writer holds
+    // them until the picture and sound reach their time.
+    for (size_t i = 0; i < subtitleEncoders.size(); ++i) {
+        const int stream = subtitleStreams[i];
+        const AVRational tb = subtitleEncoders[i]->context()->time_base;
+        for (const SubtitleCue& cue : captionTracks[int(i)].cues) {
+            const bool ok = subtitleEncoders[i]->encode(
+                cue, [&](AVPacket* p) { return writer.write(p, stream, tb, &error); }, &error);
+            if (!ok) {
+                result.error = tr("Subtitle encoding failed: %1").arg(error);
+                writer.abort();
+                QFile::remove(result.outputPath);
+                return result;
+            }
+        }
     }
 
     // From here on every failure path must delete what was written.
@@ -335,6 +381,7 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
             while (int64_t(inFlight.size()) < kFramesInFlight && requested < total) {
                 RenderRequest request {
                     m_timeline, m_media, first + requested, size, Quality::Full, OutputImage};
+                request.subtitles = s.burnsInSubtitles();
                 request.proxies = m_proxies; // nullptr unless "Use proxy media" was chosen
                 inFlight.push_back(m_compositor->renderAsync(std::move(request)));
                 ++requested;
@@ -398,6 +445,13 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
     result.frames = total;
     result.files
         = sequence ? sequenceFiles(result.outputPath, total) : QStringList {result.outputPath};
+    // Separate subtitle files next to the render (Resolve: "As a separate file").
+    if (s.subtitles.enabled && s.subtitles.mode == SubtitleExportMode::Sidecar
+        && !writeSidecars(
+            s.outputPath, captionTracks, s.subtitles.sidecarFormat, &result.files, &error)) {
+        result.ok = false;
+        result.error = error;
+    }
     return result;
 }
 

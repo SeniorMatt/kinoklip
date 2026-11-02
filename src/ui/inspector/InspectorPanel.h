@@ -107,6 +107,8 @@ private:
         QVector<quint64> maskIds; ///< in order (a mask's shape type never changes)
         QString transitionIn; ///< type, empty = none
         QString transitionOut;
+        quint64 subtitleTrackId = 0; ///< Subtitle clips: TrackData::id of their track
+        bool ownStyle = false; ///< Subtitle clips: subtitles::OwnStyle
 
         friend bool operator==(const Structure&, const Structure&) = default;
     };
@@ -141,6 +143,8 @@ private:
         ParamGroupBox* group, const EffectDescriptor& desc, ParamScope scope, quint64 clipId);
     void addDescriptorGroup(
         Tab tab, const EffectDescriptor& desc, ParamScope scope, quint64 clipId);
+    /// Subtitle clips: the Captions tab (caption text, own style, track style).
+    void buildCaptionsTab(const ClipData& c);
     void buildEffectsTab(const ClipData& clip);
     void buildTransitionTab(const ClipData& clip);
     void addTransitionGroup(const ClipData& clip, bool atHead);
@@ -167,6 +171,10 @@ private:
     quint64 m_clipId = 0;
     quint64 m_audioClipId = 0;
     Structure m_structure;
+    /// Stand-in clip for the style of a subtitle track (virtual clip id, see
+    /// trackStyleClipId()): its `title` mirrors TrackData::subtitleStyle, so the generic
+    /// parameter rows edit the track style. Refreshed by clip().
+    mutable ClipData m_trackStyleProxy;
     QVector<ParamGroupBox*> m_groups;
     QVector<quint64> m_groupClip; ///< clip id bound to m_groups[i]
     QHash<QString, bool> m_collapsed; ///< group key → collapsed, survives rebuilds

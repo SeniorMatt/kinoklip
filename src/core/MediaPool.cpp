@@ -19,6 +19,18 @@ QString newId()
 }
 } // namespace
 
+media::MediaInfo subtitleInfo(const QString& path, const QVector<SubtitleCue>& cues)
+{
+    media::MediaInfo info;
+    info.valid = true;
+    info.path = path;
+    info.durationUs = subtitles::cuesDurationUs(cues);
+    info.container = QFileInfo(path).suffix().toLower();
+    return info;
+}
+
+namespace { } // namespace
+
 MediaPool::MediaPool(QObject* parent)
     : QObject(parent)
 { }
@@ -79,6 +91,21 @@ ImportResult MediaPool::importFiles(const QStringList& paths, const QString& bin
             [&](const MediaItem& m) { return m.path == absolute; });
         if (duplicate) {
             result.warnings.append(tr("%1: already in the media pool").arg(absolute));
+            continue;
+        }
+        if (subtitles::isSubtitleFile(absolute)) {
+            // Subtitle files are parsed, not probed: the captions are stored in the item.
+            MediaItem item;
+            QString error;
+            if (!subtitles::readFile(absolute, &item.cues, &error)) {
+                result.warnings.append(tr("%1: %2").arg(absolute, error));
+                continue;
+            }
+            item.kind = MediaItemKind::Subtitle;
+            item.path = absolute;
+            item.binId = targetBin;
+            item.info = subtitleInfo(absolute, item.cues);
+            result.importedIds.append(addItem(std::move(item)));
             continue;
         }
         media::MediaInfo info = media::probe(absolute);

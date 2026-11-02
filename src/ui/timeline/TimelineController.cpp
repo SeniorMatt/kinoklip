@@ -8,10 +8,12 @@
 #include "core/MediaPool.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/Subtitles.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/effects/EffectActions.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
 #include <QAction>
@@ -152,6 +154,8 @@ void TimelineController::setLinkedSelection(bool on)
 
 void TimelineController::setTargetTrack(TrackType type, int index)
 {
+    if (type == TrackType::Subtitle)
+        return; // subtitle tracks are not source destinations
     const int count = int(timeline()->data().tracks(type).size());
     if (index < 0 || index >= count)
         index = -1;
@@ -164,6 +168,8 @@ void TimelineController::setTargetTrack(TrackType type, int index)
 
 void TimelineController::toggleTarget(TrackRef ref)
 {
+    if (ref.type == TrackType::Subtitle)
+        return;
     const int current = ref.type == TrackType::Video ? m_targetVideo : m_targetAudio;
     setTargetTrack(ref.type, current == ref.index ? -1 : ref.index);
 }
@@ -249,25 +255,7 @@ QVector<ops::PlacedClip> TimelineController::makeNestedClips(
 
 std::optional<ClipData> TimelineController::makeGeneratorClip(const QString& effectId, Rational fps)
 {
-    const EffectRegistry& registry = EffectRegistry::instance();
-    const EffectDescriptor* desc = registry.find(effectId);
-    if (!desc)
-        return std::nullopt;
-    ClipData clip;
-    clip.name = desc->name;
-    clip.duration = EditBehaviour::frames(EditBehaviour::fromSettings().generatorSeconds, fps);
-    if (desc->category == EffectCategory::Title) {
-        clip.kind = ClipKind::Title;
-        clip.title = registry.defaultParams(effectId);
-    } else if (desc->category == EffectCategory::Generator) {
-        clip.kind = ClipKind::Solid;
-        const ParamSet params = registry.defaultParams(effectId);
-        clip.solidColor
-            = params.staticValue(QStringLiteral("color"), QColor(0x30, 0x30, 0x34)).value<QColor>();
-    } else {
-        return std::nullopt;
-    }
-    return clip;
+    return effectactions::makeGeneratorClip(effectId, fps);
 }
 
 // ---- Source edits ----
@@ -884,18 +872,62 @@ void TimelineController::pasteInsert()
 
 void TimelineController::addTrack(TrackType type, int index)
 {
-    runEdit(project(), type == TrackType::Video ? tr("Add Video Track") : tr("Add Audio Track"),
-        [&](TimelineData& data) {
-            ops::addTrack(data, type, index);
-            return true;
-        });
+    const QString label = type == TrackType::Video ? tr("Add Video Track")
+        : type == TrackType::Audio                 ? tr("Add Audio Track")
+                                                   : tr("Add Subtitle Track");
+    runEdit(project(), label, [&](TimelineData& data) {
+        ops::addTrack(data, type, index);
+        return true;
+    });
+}
+
+quint64 TimelineController::addSubtitleAtPlayhead()
+{
+    constexpr double kCaptionSeconds = 3.0; ///< default length of a new caption
+    const TimelineData& before = timeline()->data();
+    const int64_t at = timeline()->playhead();
+    // Preferred track: the one holding the current caption selection, else ST1 upwards; the
+    // first one that is unlocked and free at the playhead gets the caption (a new subtitle
+    // track when none is).
+    int preferred = 0;
+    if (const auto loc = ops::findClip(before, m_ctx.selection->currentClip());
+        loc && loc->track.type == TrackType::Subtitle)
+        preferred = loc->track.index;
+    int target = -1;
+    const int count = int(before.subtitleTracks.size());
+    for (int k = 0; k < count && target < 0; ++k) {
+        const int i = (preferred + k) % count;
+        const TrackData& t = before.subtitleTracks[size_t(i)];
+        if (!t.locked && !t.clipAt(at))
+            target = i;
+    }
+    quint64 id = 0;
+    runEdit(project(), tr("Add Subtitle"), [&](TimelineData& data) {
+        if (target < 0)
+            target = ops::addTrack(data, TrackType::Subtitle);
+        const TrackData& t = data.subtitleTracks[size_t(target)];
+        // Default length, shortened to the gap before the next caption.
+        int64_t length = EditBehaviour::frames(kCaptionSeconds, data.fps);
+        for (const ClipData& c : t.clips) {
+            if (c.start > at) {
+                length = std::min(length, c.start - at);
+                break;
+            }
+        }
+        id = ops::overwriteClip(data, TrackRef {TrackType::Subtitle, target},
+            subtitles::makeCaption(tr("Subtitle"), at, length));
+        return id != 0;
+    });
+    if (id)
+        m_ctx.selection->selectClip(id);
+    return id;
 }
 
 void TimelineController::removeTrack(TrackRef ref)
 {
     const bool removed = runEdit(project(), tr("Delete Track"),
         [&](TimelineData& data) { return ops::removeTrack(data, ref); });
-    if (removed) {
+    if (removed && ref.type != TrackType::Subtitle) {
         int& target = ref.type == TrackType::Video ? m_targetVideo : m_targetAudio;
         const int count = int(timeline()->data().tracks(ref.type).size());
         if (target >= count)
@@ -1037,6 +1069,8 @@ void TimelineController::connectActions()
     on("timeline.add_transition", &TimelineController::addDefaultTransition);
     on("timeline.add_video_track", [this] { addTrack(TrackType::Video); });
     on("timeline.add_audio_track", [this] { addTrack(TrackType::Audio); });
+    on("timeline.add_subtitle_track", [this] { addTrack(TrackType::Subtitle); });
+    on("timeline.add_subtitle", &TimelineController::addSubtitleAtPlayhead);
     on("clip.toggle_enabled", &TimelineController::toggleClipsEnabled);
     on("clip.link", &TimelineController::linkSelection);
     on("clip.unlink", &TimelineController::unlinkSelection);

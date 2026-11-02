@@ -16,6 +16,8 @@ namespace kk::compound {
 
 using editops::detail::insertSorted;
 using editops::detail::kTrackTypes;
+/// Track types a compound clip can hold (captions stay in the parent).
+constexpr TrackType kMediaTrackTypes[] = {TrackType::Video, TrackType::Audio};
 using editops::detail::moveHead;
 using editops::detail::rangeFree;
 
@@ -158,6 +160,10 @@ std::optional<CollapseResult> collapse(TimelineData& parent, const QVector<quint
         const auto loc = editops::findClip(parent, id);
         if (!loc)
             continue;
+        // Captions stay on the parent's subtitle tracks (a compound clip holds pictures and
+        // sound; subtitles belong to the timeline that is delivered).
+        if (loc->track.type == TrackType::Subtitle)
+            continue;
         unique.insert(id);
         const TrackData& track = *parent.track(loc->track);
         if (track.locked) {
@@ -190,7 +196,7 @@ std::optional<CollapseResult> collapse(TimelineData& parent, const QVector<quint
     nested.width = parent.width;
     nested.height = parent.height;
     nested.nextId = parent.nextId;
-    for (TrackType type : kTrackTypes) {
+    for (TrackType type : kMediaTrackTypes) {
         const int ti = type == TrackType::Video ? 0 : 1;
         const int count = hi[ti] < 0 ? 1 : hi[ti] - lo[ti] + 1;
         for (int k = 0; k < count; ++k) {
@@ -223,7 +229,7 @@ std::optional<CollapseResult> collapse(TimelineData& parent, const QVector<quint
             t.clips.erase(t.clips.begin() + i);
     }
     const quint64 group = (hi[0] >= 0 && hi[1] >= 0) ? parent.allocateId() : 0;
-    for (TrackType type : kTrackTypes) {
+    for (TrackType type : kMediaTrackTypes) {
         const int ti = type == TrackType::Video ? 0 : 1;
         if (hi[ti] < 0)
             continue;

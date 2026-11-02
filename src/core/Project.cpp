@@ -435,6 +435,8 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     // valid version-4 document without masks, and it is written back as version 4.
     // Version 4 -> 5 (retiming): a clip's top-level "speed" becomes one constant segment
     // inside serialization::clipFromJson() (no "retime" object = older format).
+    // Versions 4 - 6 -> 7 only added adjustment / generator clips, subtitle tracks and
+    // subtitle media items (all optional fields, absent = none): nothing to convert.
     // Versions 5 - 7 -> 8 (multicam): no multicam timelines, Nested clips without
     // "multicamAngle" load as -1 (= the whole nested timeline, exactly what they showed).
 

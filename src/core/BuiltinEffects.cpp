@@ -2,7 +2,9 @@
 // The built-in v0.1 catalogue: clip property groups, video effects, transitions, generators.
 // To add an effect: append a descriptor here, then implement it in src/render keyed by its id.
 #include "core/EffectRegistry.h"
+#include "core/Generators.h"
 #include "core/ParamKeys.h"
+#include "core/Subtitles.h"
 
 #include <QCoreApplication>
 
@@ -87,11 +89,11 @@ ParamDescriptor text(const QString& key, const QString& label, const QString& de
     return p;
 }
 
-EffectDescriptor descriptor(const char* id, const QString& name, EffectCategory category,
+EffectDescriptor descriptor(const QString& id, const QString& name, EffectCategory category,
     const QString& description, QVector<ParamDescriptor> params, const QString& storage = {})
 {
     EffectDescriptor d;
-    d.id = QLatin1String(id);
+    d.id = id;
     d.name = name;
     d.category = category;
     d.description = description;
@@ -243,6 +245,7 @@ void EffectRegistry::registerBuiltins()
     add(descriptor("solid_color", tr("Solid Color"), C::Generator, tr("A full-frame solid color"),
         {color(QStringLiteral("color"), tr("Color"), QColor(0x30, 0x30, 0x34))},
         QStringLiteral("solidColor")));
+    registerGenerators();
     add(descriptor("text_title", tr("Text"), C::Title, tr("A simple text title"),
         {
             text(keys::Text, tr("Text"), tr("Title")),
@@ -264,6 +267,122 @@ void EffectRegistry::registerBuiltins()
             boolean(keys::Shadow, tr("Drop Shadow"), false),
         },
         QStringLiteral("title")));
+
+    // ---- Subtitles (inspector groups of captions and subtitle tracks; not in the library) ----
+    namespace st = subtitles;
+    auto fixedNumber = [](ParamDescriptor p) {
+        p.animatable = false;
+        return p;
+    };
+    add(descriptor(st::CaptionGroup, tr("Caption"), C::ClipProperties, tr("Subtitle text"),
+        {text(keys::Text, tr("Text"), QString()), boolean(st::OwnStyle, tr("Custom Style"), false)},
+        QStringLiteral("title")));
+    add(descriptor(st::StyleGroup, tr("Style"), C::ClipProperties, tr("How captions look"),
+        {text(keys::Font, tr("Font"), QStringLiteral("Sans Serif")),
+            fixedNumber(number(keys::Size, tr("Size"), 4, 400, st::kDefaultSize, 1, kPx)),
+            boolean(keys::Bold, tr("Bold"), false), boolean(keys::Italic, tr("Italic"), false),
+            color(keys::Color, tr("Color"), QColor(Qt::white)),
+            color(keys::OutlineColor, tr("Outline Color"), QColor(Qt::black)),
+            fixedNumber(number(keys::OutlineWidth, tr("Outline Width"), 0, 30,
+                st::kDefaultOutlineWidth, 0.5, kPx)),
+            boolean(keys::Shadow, tr("Drop Shadow"), true),
+            boolean(keys::BgEnabled, tr("Background"), false),
+            color(keys::BgColor, tr("Background Color"), QColor(Qt::black)),
+            fixedNumber(number(keys::BgOpacity, tr("Background Opacity"), 0, 100,
+                st::kDefaultBgOpacity, 1, kPercent)),
+            choice(keys::Align, tr("Alignment"),
+                {QStringLiteral("left"), QStringLiteral("center"), QStringLiteral("right")},
+                {tr("Left"), tr("Center"), tr("Right")}, QStringLiteral("center")),
+            choice(st::Position, tr("Position"),
+                {QStringLiteral("bottom"), QStringLiteral("top"), QStringLiteral("middle")},
+                {tr("Bottom"), tr("Top"), tr("Middle")}, QStringLiteral("bottom")),
+            fixedNumber(number(
+                st::MarginV, tr("Vertical Margin"), 0, 50, st::kDefaultMarginV, 0.5, kPercent)),
+            fixedNumber(number(
+                st::MarginH, tr("Horizontal Margin"), 0, 50, st::kDefaultMarginH, 0.5, kPercent)),
+            fixedNumber(number(keys::LineSpacing, tr("Line Spacing"), 50, 300, 100, 1, kPercent))},
+        QStringLiteral("title")));
+
+    // ---- Effects (library section "Effects") ----
+    add(descriptor(generators::AdjustmentClip, tr("Adjustment Clip"), C::Effects,
+        tr("Applies its effects, transform and masks to every track below it"), {}, {}));
+}
+
+void EffectRegistry::registerGenerators()
+{
+    using C = EffectCategory;
+    namespace g = generators;
+    const QString storage = QStringLiteral("title"); // generator parameters: ClipData::title
+    auto fixed = [](ParamDescriptor p) {
+        p.animatable = false;
+        return p;
+    };
+    add(descriptor(g::FourColorGradient, tr("4 Color Gradient"), C::Generator,
+        tr("Blends four corner colors across the frame"),
+        {color(g::Color1, tr("Top Left"), QColor(0xd9, 0x4f, 0x4f)),
+            color(g::Color2, tr("Top Right"), QColor(0xe0, 0xc0, 0x4a)),
+            color(g::Color3, tr("Bottom Left"), QColor(0x3f, 0x6f, 0xd0)),
+            color(g::Color4, tr("Bottom Right"), QColor(0x4f, 0xb0, 0x70))},
+        storage));
+    add(descriptor(g::LinearGradient, tr("Linear Gradient"), C::Generator,
+        tr("A straight blend between two colors"),
+        {color(g::Color1, tr("Start Color"), QColor(Qt::black)),
+            color(g::Color2, tr("End Color"), QColor(Qt::white)),
+            number(g::Angle, tr("Angle"), -360, 360, 0, 1, kDegrees),
+            number(g::CenterX, tr("Center X"), -4000, 4000, 0, 1, kPx),
+            number(g::CenterY, tr("Center Y"), -4000, 4000, 0, 1, kPx),
+            number(g::Length, tr("Length"), 1, 8000, 1920, 1, kPx)},
+        storage));
+    add(descriptor(g::RadialGradient, tr("Radial Gradient"), C::Generator,
+        tr("A circular blend from an inner to an outer color"),
+        {color(g::Color1, tr("Inner Color"), QColor(Qt::white)),
+            color(g::Color2, tr("Outer Color"), QColor(Qt::black)),
+            number(g::CenterX, tr("Center X"), -4000, 4000, 0, 1, kPx),
+            number(g::CenterY, tr("Center Y"), -4000, 4000, 0, 1, kPx),
+            number(g::Radius, tr("Radius"), 1, 8000, 800, 1, kPx)},
+        storage));
+    add(descriptor(g::ColorBars, tr("Color Bars"), C::Generator,
+        tr("Test pattern: SMPTE-style or full-field color bars"),
+        {choice(g::Style, tr("Style"), {QStringLiteral("smpte"), QStringLiteral("full")},
+            {tr("SMPTE (75%)"), tr("Full Field (100%)")}, QStringLiteral("smpte"))},
+        storage));
+    add(descriptor(g::GreyScale, tr("Grey Scale"), C::Generator,
+        tr("A black to white ramp in steps"),
+        {fixed(integer(g::Steps, tr("Steps"), 0, 64, 11)),
+            choice(g::Orientation, tr("Orientation"),
+                {QStringLiteral("horizontal"), QStringLiteral("vertical")},
+                {tr("Horizontal"), tr("Vertical")}, QStringLiteral("horizontal"))},
+        storage));
+    add(descriptor(g::Noise, tr("Noise"), C::Generator, tr("Random grain, still or animated"),
+        {boolean(g::Monochrome, tr("Monochrome"), true),
+            number(g::Brightness, tr("Brightness"), 0, 100, 50, 1, kPercent),
+            number(g::Amount, tr("Amount"), 0, 100, 100, 1, kPercent),
+            number(g::Grain, tr("Grain Size"), 1, 100, 1, 0.5, kPx),
+            fixed(integer(g::Seed, tr("Seed"), 0, 99999, 1)),
+            boolean(g::Animated, tr("Animated"), true)},
+        storage));
+    add(descriptor(g::Countdown, tr("Countdown"), C::Generator,
+        tr("A leader-style countdown with a sweeping hand"),
+        {fixed(integer(g::StartSeconds, tr("Start At"), 0, 99, 0, QStringLiteral("s"))),
+            color(keys::Color, tr("Number Color"), QColor(Qt::white)),
+            color(g::Accent, tr("Sweep Color"), QColor(0x80, 0x80, 0x88)),
+            color(g::Background, tr("Background"), QColor(0x30, 0x30, 0x34)),
+            text(keys::Font, tr("Font"), QStringLiteral("Sans Serif"))},
+        storage));
+    add(descriptor(g::Timecode, tr("Timecode"), C::Generator,
+        tr("Burns the timeline or clip timecode into the picture"),
+        {choice(g::Source, tr("Source"), {QStringLiteral("timeline"), QStringLiteral("clip")},
+             {tr("Timeline"), tr("Clip")}, QStringLiteral("timeline")),
+            fixed(integer(g::StartFrame, tr("Start Frame"), 0, 9999999, 0)),
+            text(g::Prefix, tr("Prefix"), QString()),
+            text(keys::Font, tr("Font"), QStringLiteral("Monospace")),
+            number(keys::Size, tr("Size"), 8, 400, 64, 1, kPx),
+            color(keys::Color, tr("Color"), QColor(Qt::white)),
+            boolean(keys::BgEnabled, tr("Background"), true),
+            color(keys::BgColor, tr("Background Color"), QColor(Qt::black)),
+            number(keys::BgOpacity, tr("Background Opacity"), 0, 100, 70, 1, kPercent),
+            number(g::OffsetY, tr("Vertical Position"), -50, 50, 39, 0.5, kPercent)},
+        storage));
 }
 
 } // namespace kk

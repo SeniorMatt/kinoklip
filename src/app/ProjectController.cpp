@@ -55,6 +55,8 @@ ProjectController::ProjectController(AppContext& ctx, QWidget* window)
         &ProjectController::saveAs);
     connect(actions.action(QStringLiteral("file.import_media")), &QAction::triggered, this,
         &ProjectController::importMedia);
+    connect(actions.action(QStringLiteral("file.import_subtitle")), &QAction::triggered, this,
+        &ProjectController::importSubtitle);
 }
 
 bool ProjectController::maybeSave()
@@ -137,6 +139,17 @@ void ProjectController::importMedia()
 {
     const QStringList paths = platform::getOpenFileNames(
         m_window, tr("Import Media"), mediaFileDialogFilter(), QLatin1String(kLastMediaDirKey));
+    if (paths.isEmpty())
+        return;
+    importMediaWithFeedback(m_ctx, paths, m_window);
+}
+
+void ProjectController::importSubtitle()
+{
+    // Subtitle files land in the media pool like Resolve's File > Import > Subtitle; dragging
+    // the item onto the timeline creates the captions.
+    const QStringList paths = platform::getOpenFileNames(m_window, tr("Import Subtitle"),
+        subtitleFileDialogFilter(), QLatin1String(kLastMediaDirKey));
     if (paths.isEmpty())
         return;
     importMediaWithFeedback(m_ctx, paths, m_window);

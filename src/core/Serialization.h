@@ -44,7 +44,13 @@ namespace kk::serialization {
 ///   (proxy handling "prefer proxies", render cache "none"); nothing else changes, so the
 ///   loader needs no step for 4 -> 6 or 5 -> 6; proxies already in the proxy folder are linked
 ///   by the application after loading (MediaLinks::autoLink()).
-/// - 7: reserved for the adjustment-clip / generator / subtitle branch (in parallel).
+/// - 7: adjustment clips ("kind": "adjustment"), generator clips ("kind": "generator",
+///   "generator": descriptor id, parameters in "title"), subtitle tracks ("subtitleTracks":
+///   tracks with "subtitleStyle" and "language"?, holding "kind": "subtitle" clips whose text
+///   and style overrides are in "title"), subtitle media pool items ("kind": "subtitle",
+///   "cues": [[startUs, endUs, text], ...]). Older
+///   files have none of these and load unchanged; older builds refuse version 7 instead of silently
+///   dropping captions and adjustment clips.
 /// - 8: multicam clips. Timelines may carry "multicam": true (always with "compound"), clips
 ///   "multicamAngle" (0-based angle of a Nested clip showing a multicam timeline), media
 ///   pool items "kind": "multicam", and media info "timecode" (embedded start timecode).

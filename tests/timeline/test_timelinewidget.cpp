@@ -22,6 +22,7 @@ namespace {
 constexpr TrackRef kV1 {TrackType::Video, 0};
 constexpr TrackRef kV2 {TrackType::Video, 1};
 constexpr TrackRef kA1 {TrackType::Audio, 0};
+constexpr TrackRef kA2 {TrackType::Audio, 1};
 
 QString layout(const TimelineData& d, TrackRef ref)
 {
@@ -156,6 +157,45 @@ private slots:
         v.drag(v.at(30, kV1), v.at(40, kV1));
         QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("30:20"));
         QCOMPARE(layout(v.f.view(), kA1), QStringLiteral("20:20"));
+    }
+
+    void linkedClipsMoveAcrossTracksTogether()
+    {
+        // Like Resolve: dragging linked video from V1 to V2 takes its audio from A1 to A2.
+        View v;
+        const quint64 a = v.put(kV1, solidClip(10, 20));
+        const quint64 b = v.put(kA1, solidClip(10, 20));
+        v.f.project.beginEdit(QStringLiteral("link"));
+        ops::linkClips(v.f.data(), {a, b});
+        v.f.project.endEdit();
+        v.drag(v.at(20, kV1), v.at(20, kV2));
+        QCOMPARE(layout(v.f.view(), kV1), QString());
+        QCOMPARE(layout(v.f.view(), kV2), QStringLiteral("10:20"));
+        QCOMPARE(layout(v.f.view(), kA1), QString());
+        QCOMPARE(layout(v.f.view(), kA2), QStringLiteral("10:20"));
+        // And back down again.
+        v.drag(v.at(20, kV2), v.at(20, kV1));
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("10:20"));
+        QCOMPARE(layout(v.f.view(), kA1), QStringLiteral("10:20"));
+        KK_VERIFY_TIMELINE(v.f.view());
+    }
+
+    void linkedVideoMovesUpWhenAudioCannotFollow()
+    {
+        // Only one audio track: the video still moves up, the audio keeps its track.
+        View v;
+        v.f.project.beginEdit(QStringLiteral("tracks"));
+        QVERIFY(ops::removeTrack(v.f.data(), kA2));
+        v.f.project.endEdit();
+        const quint64 a = v.put(kV1, solidClip(10, 20));
+        const quint64 b = v.put(kA1, solidClip(10, 20));
+        v.f.project.beginEdit(QStringLiteral("link"));
+        ops::linkClips(v.f.data(), {a, b});
+        v.f.project.endEdit();
+        v.drag(v.at(20, kV1), v.at(30, kV2));
+        QCOMPARE(layout(v.f.view(), kV2), QStringLiteral("20:20"));
+        QCOMPARE(layout(v.f.view(), kA1), QStringLiteral("20:20"));
+        KK_VERIFY_TIMELINE(v.f.view());
     }
 
     void altDragDuplicates()
