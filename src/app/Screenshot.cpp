@@ -10,6 +10,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
+#include "ui/dialogs/ProjectSettingsDialog.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/viewer/ViewerPanel.h"
@@ -90,9 +91,24 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
 
     AppContext& ctx = window.context();
     int delayMs = kSettleDelayMs;
-    if (target == QLatin1String("preferences")) {
-        dialog = std::make_unique<PreferencesDialog>(ctx.settingsPages, &window);
+    // "preferences[:section]" and "project-settings[:section]" open a dialog section.
+    const QString section = target.section(QLatin1Char(':'), 1);
+    const QString base = target.section(QLatin1Char(':'), 0, 0);
+    if (base == QLatin1String("preferences")) {
+        auto prefs = std::make_unique<PreferencesDialog>(ctx.settingsPages, &window);
+        if (!section.isEmpty() && !prefs->showSection(section)) {
+            std::fprintf(stderr, "unknown preferences section '%s'\n", qPrintable(section));
+            return 2;
+        }
+        dialog = std::move(prefs);
         delayMs = kDialogSettleDelayMs;
+    } else if (base == QLatin1String("project-settings")) {
+        auto settings = std::make_unique<ProjectSettingsDialog>(ctx.project, &window);
+        if (!section.isEmpty() && !settings->showSection(section)) {
+            std::fprintf(stderr, "unknown project settings section '%s'\n", qPrintable(section));
+            return 2;
+        }
+        dialog = std::move(settings);
     } else if (target == QLatin1String("keyboard")) {
         dialog = std::make_unique<KeyboardCustomizationDialog>(*ctx.actions, &window);
     } else if (target == QLatin1String("menu-color-theme")
@@ -125,8 +141,9 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         panel = window.findChild<MediaPoolPanel*>();
     } else if (!isPage) {
         std::fprintf(stderr,
-            "unknown screenshot target '%s' (use media, edit, deliver, preferences, keyboard, "
-            "inspector, mediapool, menu-color-theme or menu-style)\n",
+            "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
+            "project-settings[:section], keyboard, inspector, mediapool, menu-color-theme or "
+            "menu-style)\n",
             qPrintable(target));
         return 2;
     }

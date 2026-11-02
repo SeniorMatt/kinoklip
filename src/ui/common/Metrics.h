@@ -26,5 +26,8 @@ inline constexpr int kTitleComboMinWidth = 84;
 /// Label column of settings forms: wide enough for the longest Resolve-style label so all
 /// fields in a dialog start at the same x.
 inline constexpr int kFormLabelMinWidth = 150;
+/// Minimum width of combo boxes in settings forms, so short choices ("Square", "Breeze") do
+/// not give a ragged column of tiny combos.
+inline constexpr int kFormComboMinWidth = 220;
 
 } // namespace kk::metrics
