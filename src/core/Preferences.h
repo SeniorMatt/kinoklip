@@ -36,6 +36,9 @@ inline constexpr char kPreviewQuality[] = "playback/previewQuality";
 inline constexpr char kPreviewQualityRevision[] = "playback/previewQualityRevision";
 /// Mouse-wheel / slider zoom anchor of the timeline: "playhead" (Resolve, default) or "mouse".
 inline constexpr char kZoomAnchor[] = "edit/zoomAnchor";
+/// bool: show the default smart bins (Video, Audio, Stills, Timelines) in the bin list;
+/// default false (Preferences > Editing).
+inline constexpr char kDefaultSmartBins[] = "mediaPool/defaultSmartBins";
 
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).
@@ -92,5 +95,9 @@ void setAutosaveMinutes(int minutes);
 void setPreviewQuality(const QString& id);
 /// True if the timeline zooms around the mouse pointer instead of the playhead.
 [[nodiscard]] bool zoomAroundMouse();
+/// True if the media pool shows the default smart bins (kDefaultSmartBins).
+[[nodiscard]] bool showDefaultSmartBins();
+/// Stores kDefaultSmartBins.
+void setShowDefaultSmartBins(bool show);
 
 } // namespace kk::prefs

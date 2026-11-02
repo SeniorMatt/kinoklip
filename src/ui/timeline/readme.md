@@ -273,6 +273,13 @@ tested in `tests/core/`), then call it from the controller or a drag mode.
 **Something new on clips:** draw it in `TimelinePainter::paintClip()`; keep it out of the
 hot path unless the clip is wide enough, no QString formatting per clip, reuse member buffers.
 
+## Clip colours and flags (bins branch)
+`TimelinePainter::clipColor(clip, type, item)`: the clip's own `ClipData::label`, else the clip
+colour of its media pool item, else the colour by kind. Flags of the item are drawn as small
+squares at the right of the name band. The clip context menu adds "Clip Color" / "Flags"
+(`ClipColorMenu.h`; flags edit the media pool item) and Find in Media Pool
+(`timeline.find_in_media_pool`, handled by the Edit page).
+
 ## Level lines, fade handles, stacked timelines (spec section 32)
 - `LevelLines.h`: pure geometry of the audio level line (dB <-> y over the waveform area, key
   and line hit-testing) and of the fade handles. `TimelinePainter::paintVolumeLine()` draws

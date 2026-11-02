@@ -557,6 +557,33 @@ viewer: `src/ui/viewer/ViewerMulticam.cpp`. Tests: `mc` = `tests/core/test_multi
 
 ---
 
+## 36. Media pool organisation (bins branch, roadmap v2)
+
+Tests: bn = tests/core/test_bins.cpp, sb = tests/core/test_smartbins.cpp,
+mo = tests/panels/test_mediaorganize.cpp.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 36.1 | The bin list shows Master at the top with the project's bins as a tree, then a Smart Bins section and a Power Bins section. Show Bin List (toolbar button, View menu, bin list menu) hides / shows it; the choice is remembered. | Fixed (new; mo binListSections) |
+| 36.2 | New Bin (File menu, Ctrl+Shift+N, title bar, context menus) creates a bin inside the current bin and starts renaming it; bins rename in place (F2 / double-click). Each is one undo step. | Fixed (mo binTreeDragAndUndo) |
+| 36.3 | Dragging a bin onto another bin makes it a sub-bin; dropping it on the upper or lower edge of a row places it before / after that row. A bin cannot be dropped into itself or its own sub-bins; project bins and power bins stay in their own section. One undo step. | Fixed (bn moveBinReordersAndReparents; mo binTreeDragAndUndo) |
+| 36.4 | Media items dragged onto a bin move there (one undo step). Files from the file manager dropped on a bin are imported into it. | Fixed (mo binTreeDragAndUndo) |
+| 36.5 | Delete Bin removes the bin, its sub-bins and the media inside them (asks first when it is not empty and says how many timeline clips go offline). Timelines and compound clips inside are kept and move to Master. One undo step. | Decision (timelines are only deleted explicitly; bn deleteBinRemovesContents) |
+| 36.6 | Each bin remembers its view mode (thumbnails / list) and sort order; they are saved with the project. | Fixed (bn projectSaveLoadAndBinViews; mo perBinViewState) |
+| 36.7 | Smart bins: New Smart Bin… opens a dialog with the name, "match all / any of the following rules" and rule rows (field, operator, value). Fields: clip name, file name, file path, type (video / audio / still / timeline / compound / multicam / subtitle), codec, resolution, frame rate, duration, date added, date modified, clip colour, flags, keywords, comments, description, usage. A smart bin shows every matching item of the project, wherever it is, and updates live when items, rules or timelines change. Edit / rename / delete from the bin list menu (undoable). | Fixed (sb everyFieldAndOperator, matchAllAndAny; mo smartBinIsLive) |
+| 36.8 | Default smart bins (Video, Audio, Stills, Timelines) appear when Preferences > Editing > "Show the default smart bins" is on. | Fixed (sb defaultSmartBinsSortByType; mo defaultSmartBinsFollowPreference) |
+| 36.9 | Power bins: bins shared by every project (stored in the application data folder, items by absolute path). Clips can be imported or dragged into them; using a power bin clip in a timeline or the source viewer adds it to the project's media pool. Power bin changes are saved at once and are not part of the project's undo. | Decision (Resolve keeps them in the database; bn powerBinsPersistAcrossProjects; mo powerBinsAcrossProjects) |
+| 36.10 | Clip Color (item and timeline clip context menus): sixteen colours plus Clear Color. Media pool tiles show the colour behind the name; timeline clips use their own colour, else the colour of their media pool item. | Decision (fallback to the item colour; mo colorsAndFlagsInViewsAndTimeline) |
+| 36.11 | Flags: sixteen flag colours, several per item, toggled from the item and timeline clip context menus (a timeline clip sets the flags of its source); shown as small markers on tiles and timeline clips. | Fixed (bn colorsFlagsMetadataUndo; mo colorsAndFlagsInViewsAndTimeline) |
+| 36.12 | List view columns: right-click the header to choose columns (clip colour, flags, usage, file name, path, dates, description, comments, keywords, scene, shot, take, camera, angle, good take, rating, ...); every column sorts, numbers and dates numerically. | Fixed (mo columnsSortAndChooser) |
+| 36.13 | Search covers name, path, clip colour and flag names, keywords, comments and the other metadata; the colour filter button shows one clip colour (or clips without one). | Fixed (mo searchAndColorFilter) |
+| 36.14 | Metadata panel: Clip Details (name, file, codec, resolution, frame rate, duration, audio, clip colour, flags, usage; read-only) and editable Shot and Scene (scene, shot, take, camera, angle, good take) and Notes (description, comments, keywords, rating). Each edit is one undo step. | Fixed (mo metadataEditAndBatch) |
+| 36.15 | With several items selected the metadata panel shows shared values (others empty with a "multiple values" hint); editing a field writes that field to all of them in one undo step. | Fixed (mo metadataEditAndBatch) |
+| 36.16 | Usage: the Usage column counts the timeline uses of an item (every timeline, compound clips and nested timelines included; a linked video + audio pair is one use); tiles of used items show a small dot. | Fixed (bn usageCountsNestedAndCompound; mo usageCommands) |
+| 36.17 | Select Clips in Timeline selects the clips of the active timeline that use the selected items. Remove Unused Clips removes every media file used in no timeline after a confirmation (one undo step; files stay on disk). | Fixed (mo usageCommands) |
+| 36.18 | Find in Media Pool (Alt+F, timeline clip menu) shows the source of the selected clip (else the top clip under the playhead) in the media pool: its bin opens and the item is selected. | Fixed (mo usageCommands) |
+| 36.19 | Project format 11 stores colours, flags, metadata, dates, smart bins and bin views; older projects open unchanged (file dates are read from disk). | Fixed (bn serializationRoundTrip, migratesOlderProjects) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -582,3 +609,5 @@ viewer: `src/ui/viewer/ViewerMulticam.cpp`. Tests: `mc` = `tests/core/test_multi
   waveform / timecode / in points).
 - The attrs branch (v2) added 32.1 - 32.12 (audio level lines, fade handles, Clip Attributes,
   stacked timelines).
+- The bins branch (v2) added 36.1 - 36.19 (nested bins, smart bins, power bins, clip colours,
+  flags, metadata editing, usage commands).

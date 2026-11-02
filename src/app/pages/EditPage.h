@@ -53,6 +53,9 @@ public:
     /// double-click, match frame); Q switches between the two, activating the timeline viewer
     /// (e.g. by clicking in the timeline) shows the timeline. Persisted with the layout.
     void setSingleViewer(bool single);
+    /// Find in Media Pool: selects the media pool item of the selected timeline clip (else the
+    /// top clip under the playhead). False when there is no such clip / item.
+    bool findInMediaPool();
     /// True in single-viewer mode.
     [[nodiscard]] bool isSingleViewer() const;
     /// Single mode: true if the one viewer shows the source clip (false: the timeline).

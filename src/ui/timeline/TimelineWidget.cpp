@@ -12,6 +12,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaManagement.h"
+#include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/NestedPreview.h"
 #include "ui/timeline/TimelineController.h"
@@ -549,6 +550,10 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         menu.addSeparator();
         addAction("clip.link");
         addAction("clip.unlink");
+        menu.addSeparator();
+        // Organisation (bins branch): clip colour, flags of the source, find its source.
+        addClipColorMenus(menu, m_ctx, m_ctx.selection->clips(), this);
+        addAction("timeline.find_in_media_pool");
         menu.addSeparator();
         const quint64 id = hit.clipId;
         const ClipData* clip = editops::clipById(data, id);

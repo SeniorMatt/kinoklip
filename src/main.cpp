@@ -7,6 +7,7 @@
 #include "app/Screenshot.h"
 #include "app/Theme.h"
 #include "core/EditBehaviour.h"
+#include "core/PowerBins.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "export/RenderCommand.h"
@@ -154,6 +155,10 @@ int main(int argc, char** argv)
     ctx.actions = &actions;
     ctx.settingsPages = &settingsPages;
     ctx.playback = &playback;
+    // Power bins: shared by every project (AppData; KK_POWER_BINS overrides the file, used for
+    // documentation screenshots and tests).
+    kk::PowerBins powerBins(qEnvironmentVariable("KK_POWER_BINS"));
+    ctx.powerBins = &powerBins;
     // Proxy / optimized media and render cache (sets ctx.media; before any panel exists).
     kk::MediaManagement mediaManagement(ctx);
 

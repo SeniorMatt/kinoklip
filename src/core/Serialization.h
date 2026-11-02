@@ -61,8 +61,20 @@ namespace kk::serialization {
 ///   "levels", "fieldOrder", "deinterlace", "rotation", "channelFormat" + "left" / "right",
 ///   "startTimecode"). All optional (absent = none / the file as is), so older files load
 ///   unchanged; older builds refuse version 10 instead of silently dropping fades and
-///   attributes. (8 and 9 are used by the multicam and bins branches.)
-inline constexpr int kFormatVersion = 10;
+///   attributes. (8 is multicam; 9 was the bins branch before it moved to 11.)
+/// - 11: media pool organisation (bins branch; it used 9 while in development, before attrs
+///   took 10). Media pool items may carry "clipColor" (palette id, core/ClipColors.h), "flags"
+///   (array of flag ids), "metadata" (description, comments, keywords, scene, shot, take,
+///   camera, angle, goodTake, rating; only the fields set), "added" / "modified" (ms since the
+///   epoch); the media pool may carry "smartBins" ([{"id", "name", "match": "all" | "any",
+///   "rules": [{"field", "op", "value"}]}], ids from core/SmartBins.h); the project stores
+///   "binViews" ([{"bin", "mode", "sort", "descending"}], per-bin view mode and sort order).
+///   The order of "bins" is the order of sibling bins. Every field is optional, so older files
+///   load unchanged; for files older than 11 (including 10 files saved by builds without the
+///   bins branch) Project::fromJson() fills "modified" from the files on disk and uses it as
+///   "added" too (the best known bound), so the date rules of smart bins work on old projects.
+///   Older builds refuse version 11 instead of silently dropping colours, flags and metadata.
+inline constexpr int kFormatVersion = 11;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

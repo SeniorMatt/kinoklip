@@ -505,6 +505,11 @@ public:
                               "the timeline"));
         m_tabs->setChecked(b.timelineTabs);
         form->addRow(tr("Timelines"), m_tabs);
+        m_smartBins = new QCheckBox(tr("Show the default smart bins (Video, Audio, Stills, "
+                                       "Timelines)"));
+        m_smartBins->setObjectName(QStringLiteral("DefaultSmartBins"));
+        m_smartBins->setChecked(prefs::showDefaultSmartBins());
+        form->addRow(tr("Media pool"), m_smartBins);
     }
 
     void apply() override
@@ -520,6 +525,7 @@ public:
         s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
         s.setValue(QStringLiteral("edit/timelineTabs"), m_tabs->isChecked());
         s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
+        prefs::setShowDefaultSmartBins(m_smartBins->isChecked());
         EditBehaviour::setWheelScheme(WheelScheme(m_wheel->currentData().toInt()));
     }
 
@@ -535,6 +541,7 @@ private:
     QCheckBox* m_rollAtCut = nullptr;
     QCheckBox* m_slideInName = nullptr;
     QCheckBox* m_tabs = nullptr;
+    QCheckBox* m_smartBins = nullptr;
 };
 
 // ---- User: Playback Settings ---------------------------------------------------------

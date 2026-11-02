@@ -141,10 +141,10 @@ private slots:
         panel.setCurrentBin(bin);
         QCOMPARE(files(f.project, panel.visibleMediaIds()), QStringList {item});
 
-        QVERIFY(panel.deleteBin(bin)); // items move to the parent
-        QCOMPARE(f.project.mediaPool()->item(item)->binId, QString());
+        QVERIFY(panel.deleteBin(bin)); // Resolve: the bin goes with its contents
+        QVERIFY(!f.project.mediaPool()->item(item));
         QCOMPARE(panel.currentBin(), QString()); // current bin vanished -> Master
-        QCOMPARE(files(f.project, panel.visibleMediaIds()), QStringList {item});
+        QVERIFY(files(f.project, panel.visibleMediaIds()).isEmpty());
         QCOMPARE(f.project.undoStack()->count(), commands + 4);
 
         f.project.undo();

@@ -5,6 +5,7 @@
 // everything that can be a rectangle.
 #include "ui/timeline/TimelinePainter.h"
 
+#include "core/ClipColors.h"
 #include "core/EditOps.h"
 #include "core/LevelOps.h"
 #include "core/MediaPool.h"
@@ -64,6 +65,7 @@ const QColor kAudioStrip(0x3b, 0xa0, 0x6e);
 constexpr double kBandHeight = levellines::kNameBand; ///< clip title band (name, fx badge)
 constexpr int kMinBandRow = levellines::kMinBandRow; ///< lower rows show only the band
 constexpr int kMajorTickSpacingPx = 128; ///< aim for labelled ruler ticks this far apart
+constexpr double kFlagMark = 6; ///< px, flag squares in a clip's name band
 constexpr int kMinMinorTickPx = 7;
 constexpr int kIconSize = 14;
 
@@ -180,6 +182,15 @@ QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type)
         break;
     }
     return type == TrackType::Video ? kVideoClip : kAudioClip;
+}
+
+QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type, const MediaItem* item)
+{
+    if (!clip.label.isValid() && item) {
+        if (const QColor c = clipColorValue(item->clipColor); c.isValid())
+            return c;
+    }
+    return clipColor(clip, type);
 }
 
 const QString& TimelinePainter::clipLabel(const TimelinePaintInput& in, const ClipData& clip)
@@ -326,7 +337,10 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     if (visRight <= visLeft && r.width() >= 1)
         return;
     const bool selected = in.selected->contains(clip.id);
-    const QColor base = clipColor(clip, track.type);
+    // Clip colour: the clip's own, else the colour of its media pool item (O(1) lookup).
+    const MediaItem* poolItem
+        = in.mediaPool && !clip.mediaId.isEmpty() ? in.mediaPool->item(clip.mediaId) : nullptr;
+    const QColor base = clipColor(clip, track.type, poolItem);
 
     // Sub-pixel / tiny clips (zoomed far out): one rectangle, nothing else.
     if (r.width() < 4) {
@@ -401,9 +415,13 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     p.setBrush(Qt::NoBrush);
     p.drawRect(QRectF(r.left(), r.top(), r.width() - 1, r.height() - 1));
 
+    // Flags of the media pool item: small squares at the right end of the name band.
+    const quint32 flags = poolItem ? poolItem->flags : 0;
+    const int flagMarks = flags != 0 && bandH >= 10 ? flagCount(flags) : 0;
+    const double flagsW = flagMarks > 0 ? flagMarks * (kFlagMark + 2) + 2 : 0;
     // Name (sticky: stays readable when the clip start is scrolled off), duration, fx badge.
     const bool hasFx = !clip.effects.isEmpty();
-    const double badgeW = hasFx ? 18 : 0;
+    const double badgeW = (hasFx ? 18 : 0) + flagsW;
     const int nameRoom = int(visible.width() - 10 - badgeW);
     if (nameRoom > 12 && bandH >= 12) {
         p.setFont(m_smallFont);
@@ -422,6 +440,18 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
                 p.setPen(base.lighter(175));
                 p.drawText(QPointF(visRight - 6 - badgeW - durW, baseline), dur);
             }
+        }
+    }
+    if (flagMarks > 0 && visible.width() > flagsW + 24) {
+        const double right = std::min(r.right(), viewRight) - (hasFx ? 20 : 0) - 3;
+        double x = right - kFlagMark;
+        const double y = r.top() + (bandH - kFlagMark) / 2.0;
+        for (int i = int(flagPalette().size()) - 1; i >= 0; --i) {
+            if (!(flags & (1u << i)))
+                continue;
+            p.fillRect(QRectF(x - 0.5, y - 0.5, kFlagMark + 1, kFlagMark + 1), base.darker(240));
+            p.fillRect(QRectF(x, y, kFlagMark, kFlagMark), flagColor(i));
+            x -= kFlagMark + 2;
         }
     }
     if (const QRectF badge = hasFx ? fxBadgeRect(r, viewRight) : QRectF(); !badge.isEmpty()) {

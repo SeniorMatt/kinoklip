@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MediaPoolPanel implementation.
+// MediaPoolPanel implementation: construction, views, bin list, per-bin view state, drops.
+// Context menus live in MediaPoolMenus.cpp, the undoable operations in MediaPoolOrganize.cpp.
 #include "ui/mediapool/MediaPoolPanel.h"
 
-#include "core/EditOps.h"
+#include "core/ClipColors.h"
 #include "core/MediaPool.h"
+#include "core/PowerBins.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
+#include "core/SmartBins.h"
 #include "export/ProxyQueue.h"
 #include "media/MediaCache.h"
-#include "platform/ChildProcessEnv.h"
 #include "platform/DroppedFiles.h"
-#include "platform/FileDialogs.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragAndDrop.h"
-#include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
-#include "ui/common/MediaImport.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/PanelSplitter.h"
-#include "ui/dialogs/ClipAttributesDialog.h"
+#include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolDelegate.h"
 
 #include <QAction>
@@ -26,14 +26,11 @@
 #include <QApplication>
 #include <QDragEnterEvent>
 #include <QDropEvent>
-#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QInputDialog>
 #include <QLineEdit>
 #include <QListView>
 #include <QMenu>
-#include <QMessageBox>
 #include <QMimeData>
 #include <QSettings>
 #include <QSplitter>
@@ -41,20 +38,16 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
-#include <QTreeWidget>
-#include <QUrl>
 #include <QVBoxLayout>
-
-#include <algorithm>
 
 namespace kk {
 
 namespace {
 constexpr int kSearchMaxWidth = 280; ///< px; Resolve keeps the media pool search compact
 
-constexpr int kBinIdRole = Qt::UserRole;
 constexpr char kViewModeKey[] = "mediaPool/viewMode";
 constexpr char kBinsVisibleKey[] = "mediaPool/binsVisible";
+constexpr char kColumnsKey[] = "mediaPool/columns"; ///< list of visible column keys
 /// Below this panel width the bins sidebar hides itself (unless the user chose explicitly), so
 /// the grid keeps at least two tile columns in the narrow Edit page column.
 constexpr int kAutoBinsMinWidth = 460;
@@ -64,72 +57,6 @@ constexpr int kGridSpacing = 4;
 constexpr int kStackGrid = 0;
 constexpr int kStackList = 1;
 constexpr int kStackEmpty = 2;
-
-QStringList idsFromMime(const QMimeData* data)
-{
-    const QString text = QString::fromUtf8(data->data(QLatin1String(mime::MediaItems)));
-    return text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
-}
-
-/// Files from a file manager / the desktop (uri-list or document-portal transfer).
-QStringList localFiles(const QMimeData* data)
-{
-    return platform::droppedLocalFiles(data);
-}
-
-/// Bins tree accepting media item drops (move into bin) and OS file drops (import into bin).
-class BinTree final : public QTreeWidget
-{
-public:
-    std::function<void(const QStringList& ids, const QString& binId)> onItemsDropped;
-    std::function<void(const QStringList& paths, const QString& binId)> onFilesDropped;
-
-    using QTreeWidget::QTreeWidget;
-
-protected:
-    void dragEnterEvent(QDragEnterEvent* event) override
-    {
-        if (event->mimeData()->hasFormat(QLatin1String(mime::MediaItems))
-            || platform::hasDroppedFiles(event->mimeData()))
-            event->acceptProposedAction();
-        else
-            event->ignore();
-        logDropEvent("bins", event);
-    }
-
-    void dragMoveEvent(QDragMoveEvent* event) override
-    {
-        QTreeWidgetItem* target = itemAt(event->position().toPoint());
-        if (target) {
-            setCurrentItem(target);
-            event->acceptProposedAction();
-        } else {
-            event->ignore();
-        }
-        logDropEvent("bins", event);
-    }
-
-    void dropEvent(QDropEvent* event) override
-    {
-        QTreeWidgetItem* target = itemAt(event->position().toPoint());
-        logDropEvent("bins", event);
-        if (!target) {
-            event->ignore();
-            return;
-        }
-        const QString binId = target->data(0, kBinIdRole).toString();
-        const QMimeData* data = event->mimeData();
-        if (data->hasFormat(QLatin1String(mime::MediaItems)) && onItemsDropped)
-            onItemsDropped(idsFromMime(data), binId);
-        else if (platform::hasDroppedFiles(data) && onFilesDropped) {
-            // Deferred like MediaPoolPanel::dropEvent(): no modal dialog inside the drop.
-            const QStringList paths = localFiles(data);
-            QTimer::singleShot(0, this, [this, paths, binId] { onFilesDropped(paths, binId); });
-        }
-        event->acceptProposedAction();
-    }
-};
-
 } // namespace
 
 MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
@@ -138,8 +65,14 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
 {
     setAcceptDrops(true);
     Project* project = ctx.project;
+    m_showDefaultSmartBins = prefs::showDefaultSmartBins();
 
     m_model = new MediaPoolModel(project, this);
+    if (ctx.powerBins)
+        m_model->setPowerBins(ctx.powerBins->pool());
+    // A drag of power bin items reaching the timeline copies them into the project then.
+    m_model->setPowerResolver(
+        [this](const QStringList& powerIds) { return ensureInProject(powerIds); });
     m_proxy = new MediaPoolFilterModel(project, this);
     m_proxy->setSourceModel(m_model);
     m_proxy->setSortCaseSensitivity(Qt::CaseInsensitive);
@@ -168,7 +101,8 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         addTitleBarAction(import);
     }
     auto* newBin = new QAction(icon(QStringLiteral("folder")), tr("New Bin"), this);
-    connect(newBin, &QAction::triggered, this, [this] { createBin(tr("New Bin"), currentBin()); });
+    connect(
+        newBin, &QAction::triggered, this, [this] { createBin(tr("New Bin"), currentBinKey()); });
     addTitleBarAction(newBin);
 
     // ---- Body ----
@@ -180,19 +114,14 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     buildToolbar(toolbar);
     layout->addWidget(toolbar);
 
-    auto* bins = new BinTree;
-    m_bins = bins;
-    m_bins->setHeaderHidden(true);
-    m_bins->setFrameShape(QFrame::NoFrame);
-    m_bins->setIndentation(12);
-    m_bins->setAcceptDrops(true);
-    m_bins->setDropIndicatorShown(true);
-    m_bins->setEditTriggers(QAbstractItemView::EditKeyPressed);
-    m_bins->setContextMenuPolicy(Qt::CustomContextMenu);
-    bins->onItemsDropped
-        = [this](const QStringList& ids, const QString& binId) { moveItemsToBin(ids, binId); };
-    bins->onFilesDropped
-        = [this](const QStringList& paths, const QString& binId) { importFiles(paths, binId); };
+    m_bins = new BinList;
+    m_bins->setObjectName(QStringLiteral("MediaPoolBins"));
+    m_bins->onItemsDropped = [this](const QStringList& ids, const QStringList& powerIds,
+                                 const QString& key) { moveItemsToBin(ids + powerIds, key); };
+    m_bins->onFilesDropped
+        = [this](const QStringList& paths, const QString& key) { importFiles(paths, key); };
+    m_bins->onBinDropped = [this](const QString& key, const QString& target,
+                               BinList::DropPlace place) { moveBin(key, target, int(place)); };
 
     m_grid = new QListView;
     m_grid->setViewMode(QListView::IconMode);
@@ -207,6 +136,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     m_grid->setGridSize(MediaPoolDelegate::tileSize() + QSize(kGridSpacing, kGridSpacing));
 
     m_list = new QTreeView;
+    m_list->setObjectName(QStringLiteral("MediaPoolList"));
     m_list->setRootIsDecorated(false);
     m_list->setUniformRowHeights(true);
     m_list->setAlternatingRowColors(true);
@@ -232,25 +162,38 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
             if (id.isEmpty())
                 return;
             // Timelines and compound clips open in a timeline tab (Resolve), media in the
-            // source viewer.
-            const MediaItem* item = m_ctx.project->mediaPool()->item(id);
-            if (item && item->isTimeline() && item->kind != MediaItemKind::MulticamClip)
-                openTimeline(item->timelineUid); // multicam clips: angles in the source viewer
-            else if (item && item->isSubtitle())
+            // source viewer (power bin media first becomes part of the project; multicam clips show
+            // their angles there).
+            const MediaItem* item = m_model->item(id);
+            if (item && item->isTimeline() && item->kind != MediaItemKind::MulticamClip) {
+                openTimeline(item->timelineUid);
+                return;
+            }
+            if (item && item->isSubtitle())
                 return; // no picture to view: drag it onto the timeline for captions
-            else
-                emit openInSourceViewer(id);
+            const QStringList projectIds = ensureInProject({id});
+            if (!projectIds.isEmpty())
+                emit openInSourceViewer(projectIds.front());
         });
         connect(view, &QWidget::customContextMenuRequested, this,
             [this, view](const QPoint& pos) { showItemMenu(view->viewport()->mapToGlobal(pos)); });
     }
     QHeaderView* header = m_list->header();
     header->setStretchLastSection(true);
+    header->setSectionsMovable(true);
     header->resizeSection(MediaPoolModel::NameColumn, 200);
     header->resizeSection(MediaPoolModel::DurationColumn, 90);
     header->resizeSection(MediaPoolModel::ResolutionColumn, 95);
     header->resizeSection(MediaPoolModel::FpsColumn, 55);
     header->resizeSection(MediaPoolModel::CodecColumn, 70);
+    header->resizeSection(MediaPoolModel::ClipColorColumn, 90);
+    header->resizeSection(MediaPoolModel::FlagsColumn, 90);
+    header->resizeSection(MediaPoolModel::UsageColumn, 55);
+    header->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(header, &QWidget::customContextMenuRequested, this,
+        [this, header](const QPoint& pos) { showHeaderMenu(header->mapToGlobal(pos)); });
+    connect(header, &QHeaderView::sortIndicatorChanged, this, [this] { storeBinView(); });
+    applyColumnVisibility();
 
     // The import shortcut comes from the keymap (remappable), never a hard-coded key.
     QString importKey;
@@ -283,25 +226,45 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         [this] { emit currentMediaChanged(currentMediaId()); });
     // The media pool commands (proxy / optimized media) act on the selection: keep it in
     // their data so menus, shortcuts and the context menu all see it.
-    connect(m_selection, &QItemSelectionModel::selectionChanged, this,
-        &MediaPoolPanel::publishSelection);
-    connect(m_bins, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* item) {
-        if (!m_rebuildingBins && item)
-            m_proxy->setBin(item->data(0, kBinIdRole).toString());
+    connect(m_selection, &QItemSelectionModel::selectionChanged, this, [this] {
+        publishSelection();
+        emit selectedMediaChanged(selectedMediaIds());
     });
+    connect(m_bins, &BinList::keyActivated, this, &MediaPoolPanel::showBinKey);
     connect(m_bins, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item) {
-        if (m_rebuildingBins)
+        // In-place rename of a bin or a user smart bin (not the rows rebuild() creates).
+        if (m_bins->isRebuilding())
             return;
-        const QString id = item->data(0, kBinIdRole).toString();
-        if (!id.isEmpty())
-            renameBin(id, item->text(0));
+        const QString key = item->data(0, BinList::kKeyRole).toString();
+        const BinList::RowKind kind = BinList::kindOf(item);
+        if (kind == BinList::RowKind::ProjectBin || kind == BinList::RowKind::PowerBin)
+            renameBin(key, item->text(0));
+        else if (kind == BinList::RowKind::SmartBin) {
+            const SmartBin* smart = m_proxy->smartBinFor(key);
+            const QString name = item->text(0).trimmed();
+            if (!smart || name == smart->name) {
+                // unchanged (icon / data updates also emit itemChanged): nothing to do
+            } else if (!name.isEmpty() && m_ctx.project->mediaPool()->smartBin(smart->id)) {
+                SmartBin renamed = *smart;
+                renamed.name = name;
+                updateSmartBin(renamed);
+            } else {
+                QTimer::singleShot(0, this, &MediaPoolPanel::rebuildBins); // restore the name
+            }
+        }
     });
     connect(m_bins, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         showBinMenu(m_bins->itemAt(pos), m_bins->viewport()->mapToGlobal(pos));
     });
     MediaPool* pool = project->mediaPool();
     connect(pool, &MediaPool::binsChanged, this, &MediaPoolPanel::rebuildBins);
+    connect(pool, &MediaPool::smartBinsChanged, this, &MediaPoolPanel::rebuildBins);
     connect(pool, &MediaPool::reset, this, &MediaPoolPanel::rebuildBins);
+    if (ctx.powerBins) {
+        connect(ctx.powerBins->pool(), &MediaPool::binsChanged, this, &MediaPoolPanel::rebuildBins);
+        connect(ctx.powerBins->pool(), &MediaPool::reset, this, &MediaPoolPanel::rebuildBins);
+    }
+    connect(project, &Project::projectReset, this, &MediaPoolPanel::applyBinView);
     auto updateEmpty = [this] {
         const bool empty = m_model->rowCount() == 0;
         m_stack->setCurrentIndex(
@@ -314,6 +277,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         if (s == Qt::ApplicationActive)
             m_model->recheckOffline();
     });
+    connectActions();
 
     rebuildBins();
     connectMulticamActions();
@@ -324,6 +288,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         applyAutoBins();
     const QString stored = QSettings().value(QLatin1String(kViewModeKey)).toString();
     setViewMode(stored == QLatin1String("list") ? ViewMode::List : ViewMode::Grid);
+    applyBinView();
 }
 
 void MediaPoolPanel::buildToolbar(QWidget* host)
@@ -333,8 +298,9 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
     layout->setContentsMargins(6, 4, 6, 4);
     layout->setSpacing(4);
     m_binsButton = new QToolButton(host);
+    m_binsButton->setObjectName(QStringLiteral("MediaPoolShowBins"));
     m_binsButton->setIcon(icon(QStringLiteral("folder")));
-    m_binsButton->setToolTip(tr("Show bins"));
+    m_binsButton->setToolTip(tr("Show Bin List"));
     m_binsButton->setCheckable(true);
     m_binsButton->setAutoRaise(true);
     connect(m_binsButton, &QToolButton::clicked, this, &MediaPoolPanel::setBinsVisible);
@@ -342,12 +308,27 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
     layout->addStretch(1);
     m_search = new QLineEdit(host);
     m_search->setPlaceholderText(tr("Search media"));
+    m_search->setToolTip(tr("Searches names, file paths, clip colors, flags, keywords, "
+                            "comments and the other metadata"));
     m_search->setClearButtonEnabled(true);
     m_search->addAction(icon(QStringLiteral("search")), QLineEdit::LeadingPosition);
     connect(m_search, &QLineEdit::textChanged, this,
         [this](const QString& text) { m_proxy->setSearchText(text); });
     m_search->setMaximumWidth(kSearchMaxWidth);
     layout->addWidget(m_search, 1);
+
+    // Clip colour filter: shows one colour (Resolve's media pool colour filter).
+    m_colorButton = new QToolButton(host);
+    m_colorButton->setObjectName(QStringLiteral("MediaPoolColorFilter"));
+    m_colorButton->setIcon(icon(QStringLiteral("flag")));
+    m_colorButton->setToolTip(tr("Show clips of one clip color"));
+    m_colorButton->setAutoRaise(true);
+    m_colorButton->setPopupMode(QToolButton::InstantPopup);
+    auto* colorMenu = new QMenu(m_colorButton);
+    connect(colorMenu, &QMenu::aboutToShow, this,
+        [this, colorMenu] { fillColorFilterMenu(colorMenu); });
+    m_colorButton->setMenu(colorMenu);
+    layout->addWidget(m_colorButton);
 
     auto makeToggle = [host, layout](const QString& iconName, const QString& tip) {
         auto* button = new QToolButton(host);
@@ -376,11 +357,14 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
         {MediaPoolModel::NameColumn, tr("Clip Name")},
         {MediaPoolModel::DurationColumn, tr("Duration")},
         {MediaPoolModel::ResolutionColumn, tr("Resolution")},
-        {MediaPoolModel::FpsColumn, tr("Frame Rate")}, {MediaPoolModel::CodecColumn, tr("Codec")}};
+        {MediaPoolModel::FpsColumn, tr("Frame Rate")}, {MediaPoolModel::CodecColumn, tr("Codec")},
+        {MediaPoolModel::ClipColorColumn, tr("Clip Color")},
+        {MediaPoolModel::UsageColumn, tr("Usage")},
+        {MediaPoolModel::DateAddedColumn, tr("Date Added")},
+        {MediaPoolModel::DateModifiedColumn, tr("Date Modified")}};
     for (const auto& [column, label] : keys) {
         QAction* action = sortMenu->addAction(label);
         action->setCheckable(true);
-        action->setChecked(column == -1);
         action->setData(column);
         columns->addAction(action);
     }
@@ -389,14 +373,44 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
     descending->setCheckable(true);
     auto applySort = [this, columns, descending] {
         const int column = columns->checkedAction() ? columns->checkedAction()->data().toInt() : -1;
-        // Sorting through the list view keeps its header indicator in sync.
-        m_list->sortByColumn(
-            column, descending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder);
+        setSort(column, descending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder);
     };
     connect(columns, &QActionGroup::triggered, this, applySort);
     connect(descending, &QAction::triggered, this, applySort);
+    // The menu shows the current sort (it may come from the list header or the bin).
+    connect(sortMenu, &QMenu::aboutToShow, this, [this, columns, descending] {
+        const int column = m_list->header()->sortIndicatorSection();
+        for (QAction* a : columns->actions())
+            a->setChecked(a->data().toInt() == (column < 0 ? -1 : column));
+        descending->setChecked(m_list->header()->sortIndicatorOrder() == Qt::DescendingOrder);
+    });
     sortButton->setMenu(sortMenu);
     layout->addWidget(sortButton);
+}
+
+void MediaPoolPanel::connectActions()
+{
+    ActionRegistry* reg = m_ctx.actions;
+    if (!reg)
+        return;
+    // Both pages own a media pool panel; commands act in the visible one only (the bin list
+    // toggle is a shared setting, so both follow it).
+    auto on = [this, reg](const char* id, auto&& slot) {
+        if (!reg->contains(QLatin1String(id)))
+            return;
+        connect(reg->action(QLatin1String(id)), &QAction::triggered, this, [this, slot] {
+            if (isVisible())
+                slot();
+        });
+    };
+    if (reg->contains(QStringLiteral("view.show_bin_list"))) {
+        QAction* toggle = reg->action(QStringLiteral("view.show_bin_list"));
+        connect(toggle, &QAction::triggered, this, [this](bool on) { setBinsVisible(on); });
+    }
+    on("mediapool.new_bin", [this] { createBin(tr("New Bin"), currentBinKey()); });
+    on("mediapool.new_smart_bin", [this] { newSmartBinWithDialog(); });
+    on("mediapool.remove_unused", [this] { removeUnusedClips(true); });
+    on("mediapool.select_in_timeline", [this] { selectClipsInTimeline(selectedMediaIds()); });
 }
 
 // ---- State ----
@@ -446,6 +460,23 @@ QStringList MediaPoolPanel::selectedMediaIds() const
     return ids;
 }
 
+void MediaPoolPanel::setSelectedMediaIds(const QStringList& ids)
+{
+    QItemSelection selection;
+    QModelIndex first;
+    for (const QString& id : ids) {
+        const QModelIndex index = m_proxy->mapFromSource(m_model->index(m_model->rowOf(id), 0));
+        if (!index.isValid())
+            continue;
+        if (!first.isValid())
+            first = index;
+        selection.select(index, index);
+    }
+    m_selection->select(selection, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    if (first.isValid())
+        m_selection->setCurrentIndex(first, QItemSelectionModel::NoUpdate);
+}
+
 QString MediaPoolPanel::currentMediaId() const
 {
     return m_selection->currentIndex().data(MediaPoolModel::IdRole).toString();
@@ -461,25 +492,48 @@ QStringList MediaPoolPanel::visibleMediaIds() const
 
 QString MediaPoolPanel::currentBin() const
 {
-    return m_proxy->bin();
+    const QString key = m_proxy->bin();
+    return MediaPoolFilterModel::isSmartKey(key) || MediaPoolFilterModel::isPowerKey(key)
+        ? QString()
+        : key;
 }
 
 void MediaPoolPanel::setCurrentBin(const QString& binId)
 {
-    m_proxy->setBin(binId);
-    QTreeWidgetItemIterator it(m_bins);
-    for (; *it; ++it) {
-        if ((*it)->data(0, kBinIdRole).toString() == binId) {
-            const QSignalBlocker block(m_bins);
-            m_bins->setCurrentItem(*it);
-            break;
-        }
-    }
+    setCurrentBinKey(binId);
+}
+
+QString MediaPoolPanel::currentBinKey() const
+{
+    return m_proxy->bin();
+}
+
+void MediaPoolPanel::setCurrentBinKey(const QString& key)
+{
+    const QString shown = m_bins->itemForKey(key) ? key : QString();
+    m_bins->setCurrentKey(shown);
+    showBinKey(shown);
+}
+
+void MediaPoolPanel::showBinKey(const QString& key)
+{
+    if (key == m_proxy->bin())
+        return;
+    m_proxy->setBin(key);
+    applyBinView();
 }
 
 void MediaPoolPanel::setSearchText(const QString& text)
 {
     m_search->setText(text); // textChanged updates the proxy
+}
+
+void MediaPoolPanel::setColorFilter(const QString& colorId)
+{
+    m_proxy->setColorFilter(colorId);
+    m_colorButton->setIcon(colorId.isEmpty() || colorId == QLatin1String("none")
+            ? icon(QStringLiteral("flag"))
+            : icon(QStringLiteral("flag"), clipColorValue(colorId)));
 }
 
 void MediaPoolPanel::setViewMode(ViewMode mode)
@@ -491,8 +545,89 @@ void MediaPoolPanel::setViewMode(ViewMode mode)
         m_stack->setCurrentIndex(mode == ViewMode::Grid ? kStackGrid : kStackList);
     else
         m_stack->setCurrentIndex(kStackEmpty);
+    if (m_applyingView)
+        return;
     QSettings().setValue(QLatin1String(kViewModeKey),
         mode == ViewMode::Grid ? QStringLiteral("grid") : QStringLiteral("list"));
+    storeBinView();
+}
+
+void MediaPoolPanel::setSort(int column, Qt::SortOrder order)
+{
+    // Sorting through the list view keeps its header indicator in sync (sortIndicatorChanged
+    // stores the choice for the bin).
+    m_list->sortByColumn(column, order);
+    if (column < 0)
+        m_proxy->sort(-1);
+    storeBinView();
+}
+
+void MediaPoolPanel::applyBinView()
+{
+    // Per-bin view mode and sort order (Resolve remembers them per bin).
+    const BinViewState state = m_ctx.project->binViewState(m_proxy->bin());
+    m_applyingView = true;
+    if (!state.mode.isEmpty())
+        setViewMode(state.mode == QLatin1String("list") ? ViewMode::List : ViewMode::Grid);
+    const int column = MediaPoolModel::columnForKey(state.sortKey);
+    m_list->sortByColumn(column, state.descending ? Qt::DescendingOrder : Qt::AscendingOrder);
+    if (column < 0)
+        m_proxy->sort(-1);
+    m_applyingView = false;
+}
+
+void MediaPoolPanel::storeBinView()
+{
+    if (m_applyingView)
+        return;
+    BinViewState state;
+    state.mode = m_viewMode == ViewMode::List ? QStringLiteral("list") : QStringLiteral("grid");
+    const int column = m_list->header()->sortIndicatorSection();
+    state.sortKey = column >= 0 && column < MediaPoolModel::ColumnCount
+        ? MediaPoolModel::columnKey(column)
+        : QString();
+    state.descending
+        = !state.sortKey.isEmpty() && m_list->header()->sortIndicatorOrder() == Qt::DescendingOrder;
+    m_ctx.project->setBinViewState(m_proxy->bin(), state);
+}
+
+void MediaPoolPanel::setColumnVisible(int column, bool visible)
+{
+    if (column <= MediaPoolModel::NameColumn || column >= MediaPoolModel::ColumnCount)
+        return; // the name always shows
+    m_list->header()->setSectionHidden(column, !visible);
+    QStringList keys;
+    for (int c = 0; c < MediaPoolModel::ColumnCount; ++c) {
+        if (!m_list->header()->isSectionHidden(c))
+            keys.append(MediaPoolModel::columnKey(c));
+    }
+    QSettings().setValue(QLatin1String(kColumnsKey), keys);
+}
+
+bool MediaPoolPanel::isColumnVisible(int column) const
+{
+    return !m_list->header()->isSectionHidden(column);
+}
+
+void MediaPoolPanel::applyColumnVisibility()
+{
+    const QVariant stored = QSettings().value(QLatin1String(kColumnsKey));
+    const QStringList keys = stored.toStringList();
+    for (int c = 0; c < MediaPoolModel::ColumnCount; ++c) {
+        const bool visible = c == MediaPoolModel::NameColumn
+            || (stored.isValid() ? keys.contains(MediaPoolModel::columnKey(c))
+                                 : MediaPoolModel::columnVisibleByDefault(c));
+        m_list->header()->setSectionHidden(c, !visible);
+    }
+}
+
+void MediaPoolPanel::applyPreferences()
+{
+    const bool show = prefs::showDefaultSmartBins();
+    if (show == m_showDefaultSmartBins)
+        return;
+    m_showDefaultSmartBins = show;
+    rebuildBins();
 }
 
 void MediaPoolPanel::setBinsVisible(bool visible)
@@ -500,7 +635,14 @@ void MediaPoolPanel::setBinsVisible(bool visible)
     m_binsAuto = false;
     m_bins->setVisible(visible);
     m_binsButton->setChecked(visible);
+    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.show_bin_list")))
+        m_ctx.actions->action(QStringLiteral("view.show_bin_list"))->setChecked(visible);
     QSettings().setValue(QLatin1String(kBinsVisibleKey), visible);
+}
+
+bool MediaPoolPanel::binsVisible() const
+{
+    return !m_bins->isHidden();
 }
 
 void MediaPoolPanel::applyAutoBins()
@@ -520,11 +662,14 @@ void MediaPoolPanel::resizeEvent(QResizeEvent* event)
 
 bool MediaPoolPanel::selectMedia(const QString& id)
 {
-    const MediaItem* item = m_ctx.project->mediaPool()->item(id);
+    const MediaItem* item = m_model->item(id);
     if (!item)
         return false;
     m_search->clear();
-    setCurrentBin(item->binId);
+    setColorFilter({});
+    const bool power = m_model->powerBins() && m_model->poolOf(id) == m_model->powerBins();
+    setCurrentBinKey(
+        power ? QLatin1String(MediaPoolFilterModel::kPowerPrefix) + item->binId : item->binId);
     const QModelIndex index = m_proxy->mapFromSource(m_model->index(m_model->rowOf(id), 0));
     if (!index.isValid())
         return false;
@@ -547,347 +692,44 @@ QAbstractItemView* MediaPoolPanel::currentView() const
 
 // ---- Bins ----
 
+QVector<SmartBin> MediaPoolPanel::shownSmartBins() const
+{
+    QVector<SmartBin> bins;
+    if (m_showDefaultSmartBins)
+        bins = smartbins::defaultSmartBins();
+    bins += m_ctx.project->mediaPool()->smartBins();
+    return bins;
+}
+
+MediaPool* MediaPoolPanel::poolForKey(const QString& key) const
+{
+    if (MediaPoolFilterModel::isPowerKey(key))
+        return m_ctx.powerBins ? m_ctx.powerBins->pool() : nullptr;
+    if (MediaPoolFilterModel::isSmartKey(key))
+        return nullptr;
+    return m_ctx.project->mediaPool();
+}
+
 void MediaPoolPanel::rebuildBins()
 {
-    // Bins are few (tens): a full rebuild is simpler than incremental updates and keeps the
-    // current bin and the expanded state.
-    m_rebuildingBins = true;
-    QSet<QString> collapsed;
-    QTreeWidgetItemIterator it(m_bins);
-    for (; *it; ++it) {
-        if (!(*it)->isExpanded())
-            collapsed.insert((*it)->data(0, kBinIdRole).toString());
-    }
     m_proxy->binsChanged();
-    const QString current = m_proxy->bin();
-    m_bins->clear();
-
-    auto* root = new QTreeWidgetItem(m_bins, {tr("Master")});
-    root->setIcon(0, icon(QStringLiteral("folder")));
-    root->setData(0, kBinIdRole, QString());
-    QHash<QString, QTreeWidgetItem*> items;
-    items.insert(QString(), root);
-    const QVector<Bin>& bins = m_ctx.project->mediaPool()->bins();
-    // Parents may be listed after children: insert in passes until everything is placed.
-    QVector<const Bin*> pending;
-    for (const Bin& b : bins)
-        pending.append(&b);
-    while (!pending.isEmpty()) {
-        const qsizetype before = pending.size();
-        for (qsizetype i = 0; i < pending.size();) {
-            const Bin* b = pending[i];
-            QTreeWidgetItem* parent = items.value(b->parentId);
-            if (!parent && !b->parentId.isEmpty() && !m_ctx.project->mediaPool()->bin(b->parentId))
-                parent = root; // dangling parent id: show under Master
-            if (!parent) {
-                ++i;
-                continue;
-            }
-            auto* item = new QTreeWidgetItem(parent, {b->name});
-            item->setIcon(0, icon(QStringLiteral("folder")));
-            item->setData(0, kBinIdRole, b->id);
-            item->setFlags(item->flags() | Qt::ItemIsEditable);
-            items.insert(b->id, item);
-            pending.removeAt(i);
-        }
-        if (pending.size() == before)
-            break; // cycle in parent ids: give up on the rest
-    }
-    for (auto i = items.cbegin(); i != items.cend(); ++i)
-        i.value()->setExpanded(!collapsed.contains(i.key()));
-    m_bins->setCurrentItem(items.value(current, root));
-    m_rebuildingBins = false;
-}
-
-QString MediaPoolPanel::createBin(const QString& name, const QString& parentId)
-{
-    Project* project = m_ctx.project;
-    project->beginEdit(tr("New Bin"));
-    const QString id = project->mediaPool()->addBin(name, parentId);
-    project->endEdit();
-    // Start renaming the new bin right away (UI only).
-    QTreeWidgetItemIterator it(m_bins);
-    for (; *it; ++it) {
-        if ((*it)->data(0, kBinIdRole).toString() == id) {
-            m_bins->scrollToItem(*it);
-            if (isVisible())
-                m_bins->editItem(*it);
-            break;
-        }
-    }
-    return id;
-}
-
-bool MediaPoolPanel::renameBin(const QString& binId, const QString& name)
-{
-    const Bin* bin = m_ctx.project->mediaPool()->bin(binId);
-    const QString trimmed = name.trimmed();
-    if (!bin || trimmed.isEmpty() || bin->name == trimmed) {
-        rebuildBins(); // restore the shown name
-        return false;
-    }
-    m_ctx.project->beginEdit(tr("Rename Bin"));
-    const bool ok = m_ctx.project->mediaPool()->renameBin(binId, trimmed);
-    m_ctx.project->endEdit();
-    return ok;
-}
-
-bool MediaPoolPanel::deleteBin(const QString& binId)
-{
-    if (binId.isEmpty())
-        return false;
-    m_ctx.project->beginEdit(tr("Delete Bin"));
-    const bool ok = m_ctx.project->mediaPool()->removeBin(binId);
-    m_ctx.project->endEdit();
-    return ok;
-}
-
-int MediaPoolPanel::moveItemsToBin(const QStringList& ids, const QString& binId)
-{
-    MediaPool* pool = m_ctx.project->mediaPool();
-    QStringList toMove;
-    for (const QString& id : ids) {
-        const MediaItem* item = pool->item(id);
-        if (item && item->binId != binId)
-            toMove.append(id);
-    }
-    if (toMove.isEmpty())
-        return 0;
-    m_ctx.project->beginEdit(tr("Move to Bin"));
-    int moved = 0;
-    for (const QString& id : std::as_const(toMove))
-        moved += pool->moveItemToBin(id, binId) ? 1 : 0;
-    m_ctx.project->endEdit();
-    return moved;
-}
-
-int MediaPoolPanel::deleteItems(const QStringList& ids)
-{
-    if (ids.isEmpty())
-        return 0;
-    // Timeline / compound clip items delete their timeline (Project, one step each; the last
-    // timeline of a project stays); media items go in one step.
-    QStringList files;
-    QVector<quint64> timelines;
-    for (const QString& id : ids) {
-        const MediaItem* item = m_ctx.project->mediaPool()->item(id);
-        if (item && item->isTimeline())
-            timelines.append(item->timelineUid);
-        else
-            files.append(id);
-    }
-    int removed = 0;
-    if (!files.isEmpty()) {
-        m_ctx.project->beginEdit(
-            files.size() == 1 ? tr("Delete Media") : tr("Delete %1 Media Items").arg(files.size()));
-        for (const QString& id : std::as_const(files))
-            removed += m_ctx.project->mediaPool()->removeItem(id) ? 1 : 0;
-        m_ctx.project->endEdit();
-    }
-    for (const quint64 uid : std::as_const(timelines))
-        removed += m_ctx.project->deleteTimeline(uid) ? 1 : 0;
-    return removed;
+    m_proxy->smartBinsChanged();
+    // A default smart bin that was switched off: back to Master.
+    if (MediaPoolFilterModel::isSmartKey(m_proxy->bin()) && !m_showDefaultSmartBins
+        && MediaPoolFilterModel::idOfKey(m_proxy->bin())
+               .startsWith(QLatin1String(smartbins::kDefaultIdPrefix)))
+        m_proxy->setBin({});
+    m_bins->setCurrentKey(m_proxy->bin());
+    m_bins->rebuild(*m_ctx.project->mediaPool(), shownSmartBins(),
+        m_ctx.powerBins ? m_ctx.powerBins->pool() : nullptr);
+    if (!m_bins->setCurrentKey(m_proxy->bin()))
+        showBinKey({});
 }
 
 void MediaPoolPanel::openTimeline(quint64 uid)
 {
     if (m_ctx.project->openTab(uid))
         emit timelineOpened(uid);
-}
-
-QStringList MediaPoolPanel::importFiles(const QStringList& paths, const QString& binId)
-{
-    return importMediaWithFeedback(m_ctx, paths, this, binId);
-}
-
-// ---- Context menus & commands ----
-
-void MediaPoolPanel::importWithDialog()
-{
-    // Same remembered folder as File > Import Media (src/app/ProjectController.cpp).
-    const QStringList paths = platform::getOpenFileNames(
-        this, tr("Import Media"), mediaFileDialogFilter(), QStringLiteral("paths/lastMediaDir"));
-    if (!paths.isEmpty())
-        importFiles(paths, currentBin());
-}
-
-void MediaPoolPanel::renameCurrentItem()
-{
-    const QModelIndex current = m_selection->currentIndex();
-    if (current.isValid())
-        currentView()->edit(current.siblingAtColumn(MediaPoolModel::NameColumn));
-}
-
-void MediaPoolPanel::confirmAndDelete(const QStringList& ids)
-{
-    if (ids.isEmpty())
-        return;
-    // Count timeline clips that would go offline, so the user knows what happens.
-    int used = 0;
-    const QSet<QString> idSet(ids.cbegin(), ids.cend());
-    QSet<quint64> timelines;
-    for (const QString& id : ids) {
-        if (const MediaItem* item = m_ctx.project->mediaPool()->item(id);
-            item && item->isTimeline())
-            timelines.insert(item->timelineUid);
-    }
-    for (const quint64 uid : m_ctx.project->timelineUids()) {
-        const auto data = m_ctx.project->timelineData(uid);
-        for (const auto* tracks : {&data->videoTracks, &data->audioTracks, &data->subtitleTracks}) {
-            for (const TrackData& track : *tracks) {
-                for (const ClipData& clip : track.clips) {
-                    const bool nested = clip.kind == ClipKind::Nested;
-                    used += (!nested && idSet.contains(clip.mediaId))
-                            || (nested && timelines.contains(clip.nestedUid))
-                        ? 1
-                        : 0;
-                }
-            }
-        }
-    }
-    if (used > 0) {
-        const auto answer = QMessageBox::question(this, tr("Delete Media"),
-            tr("%n clip(s) on the timeline use this media and will show as offline. Delete anyway?",
-                nullptr, used));
-        if (answer != QMessageBox::Yes)
-            return;
-    }
-    deleteItems(ids);
-}
-
-void MediaPoolPanel::revealInFileManager(const QString& id)
-{
-    const MediaItem* item = m_ctx.project->mediaPool()->item(id);
-    if (!item)
-        return;
-    // Opening the containing folder works on every desktop; selecting the file itself would
-    // need the platform-specific FileManager1 D-Bus interface (TODO(panels): src/platform).
-    // platform::openUrl: the file manager must start with the user's environment, not the
-    // bundle's library/plugin paths.
-    platform::openUrl(QUrl::fromLocalFile(QFileInfo(item->path).absolutePath()));
-}
-
-void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
-{
-    const QStringList ids = selectedMediaIds();
-    const QString current = currentMediaId();
-    QMenu menu(this);
-    const MediaItem* currentItem = m_ctx.project->mediaPool()->item(current);
-    if (currentItem && currentItem->isTimeline()) {
-        const quint64 uid = currentItem->timelineUid;
-        if (currentItem->kind == MediaItemKind::MulticamClip)
-            menu.addAction(tr("Open in Source Viewer"), this,
-                [this, current] { emit openInSourceViewer(current); });
-        menu.addAction(tr("Open in Timeline"), this, [this, uid] { openTimeline(uid); });
-        menu.addAction(currentItem->kind == MediaItemKind::MulticamClip
-                ? tr("Duplicate Multicam Clip")
-                : currentItem->kind == MediaItemKind::CompoundClip ? tr("Duplicate Compound Clip")
-                                                                   : tr("Duplicate Timeline"),
-            this, [this, uid] { m_ctx.project->duplicateTimeline(uid); });
-        menu.addSeparator();
-        menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
-    } else if (!current.isEmpty()) {
-        if (!currentItem || !currentItem->isSubtitle()) {
-            menu.addAction(tr("Open in Source Viewer"), this,
-                [this, current] { emit openInSourceViewer(current); });
-            menu.addSeparator();
-        }
-        menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
-        menu.addAction(
-            tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });
-        // Clip Attributes (spec 32.6) of the selected file items.
-        if (currentItem && currentItem->kind == MediaItemKind::File) {
-            menu.addSeparator();
-            menu.addAction(tr("Clip Attributes…"), this, [this, ids, current] {
-                clipattributes::edit(
-                    *m_ctx.project, ids.contains(current) ? ids : QStringList {current}, this);
-            });
-        }
-        menu.addSeparator();
-        addMulticamMenu(menu, ids);
-    }
-    if (!current.isEmpty()) {
-        QMenu* move = menu.addMenu(tr("Move to Bin"));
-        move->addAction(tr("Master"), this, [this, ids] { moveItemsToBin(ids, QString()); });
-        for (const Bin& bin : m_ctx.project->mediaPool()->bins()) {
-            const QString binId = bin.id;
-            move->addAction(bin.name, this, [this, ids, binId] { moveItemsToBin(ids, binId); });
-        }
-        // Proxy / optimized media (Resolve's media pool context menu entries).
-        if (m_ctx.actions && m_ctx.media && currentItem && !currentItem->isTimeline()) {
-            publishSelection();
-            menu.addSeparator();
-            for (const char* id : {"mediapool.generate_optimized", "mediapool.generate_proxy",
-                     "mediapool.stop_generation", "mediapool.link_proxy", "mediapool.unlink_proxy",
-                     "mediapool.delete_proxy", "mediapool.delete_optimized"}) {
-                if (m_ctx.actions->contains(QLatin1String(id)))
-                    menu.addAction(m_ctx.actions->action(QLatin1String(id)));
-            }
-        }
-        menu.addSeparator();
-        menu.addAction(icon(QStringLiteral("remove")),
-            ids.size() > 1 ? tr("Delete %1 Items").arg(ids.size()) : tr("Delete"), this,
-            [this, ids] { confirmAndDelete(ids); });
-        menu.addSeparator();
-    }
-    menu.addAction(icon(QStringLiteral("import")), tr("Import Media…"), this,
-        &MediaPoolPanel::importWithDialog);
-    menu.addAction(icon(QStringLiteral("folder")), tr("New Bin"), this,
-        [this] { createBin(tr("New Bin"), currentBin()); });
-    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("timeline.new")))
-        menu.addAction(m_ctx.actions->action(QStringLiteral("timeline.new")));
-    // Only offered when something is offline (one stat per item when the menu opens).
-    const auto& items = m_ctx.project->mediaPool()->state().items;
-    if (std::any_of(items.cbegin(), items.cend(),
-            [](const MediaItem& m) { return !m.isTimeline() && !QFileInfo::exists(m.path); })) {
-        menu.addSeparator();
-        menu.addAction(tr("Relink Offline Media…"), this, &MediaPoolPanel::relinkWithDialog);
-    }
-    menu.exec(globalPos);
-}
-
-int MediaPoolPanel::relinkFromFolder(const QString& folder)
-{
-    Project* project = m_ctx.project;
-    project->beginEdit(tr("Relink Media"));
-    const int relinked = project->mediaPool()->relinkFromFolder(folder);
-    project->endEdit();
-    m_model->recheckOffline();
-    return relinked;
-}
-
-void MediaPoolPanel::relinkWithDialog()
-{
-    const QString folder = platform::getExistingDirectory(this,
-        tr("Relink Offline Media: Choose the Folder with the Files"),
-        QStringLiteral("paths/lastRelinkDir"));
-    if (folder.isEmpty())
-        return;
-    const int relinked = relinkFromFolder(folder);
-    const auto& items = m_ctx.project->mediaPool()->state().items;
-    const auto stillOffline = std::count_if(items.cbegin(), items.cend(),
-        [](const MediaItem& m) { return !m.isTimeline() && !QFileInfo::exists(m.path); });
-    QMessageBox::information(this, tr("Relink Offline Media"),
-        tr("%n item(s) relinked.", nullptr, relinked)
-            + (stillOffline > 0 ? QLatin1Char(' ')
-                        + tr("%n item(s) are still offline (no file with the same name in "
-                             "that folder).",
-                            nullptr, int(stillOffline))
-                                : QString()));
-}
-
-void MediaPoolPanel::showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos)
-{
-    const QString binId = item ? item->data(0, kBinIdRole).toString() : QString();
-    QMenu menu(this);
-    menu.addAction(icon(QStringLiteral("folder")), tr("New Bin"), this,
-        [this, binId] { createBin(tr("New Bin"), binId); });
-    if (item && !binId.isEmpty()) {
-        menu.addAction(tr("Rename Bin"), this, [this, item] { m_bins->editItem(item); });
-        menu.addAction(icon(QStringLiteral("remove")), tr("Delete Bin"), this,
-            [this, binId] { deleteBin(binId); });
-    }
-    menu.exec(globalPos);
 }
 
 // ---- OS drops onto the item area ----
@@ -914,16 +756,17 @@ void MediaPoolPanel::dragMoveEvent(QDragMoveEvent* event)
 void MediaPoolPanel::dropEvent(QDropEvent* event)
 {
     logDropEvent("media pool", event);
-    const QStringList paths = localFiles(event->mimeData());
+    const QStringList paths = platform::droppedLocalFiles(event->mimeData());
     if (paths.isEmpty()) {
         event->ignore();
         return;
     }
     event->acceptProposedAction();
     // From the event loop: importing may show a modal report, which must not run inside the
-    // drop (the source would wait for the drop to finish).
-    const QString bin = currentBin();
-    QTimer::singleShot(0, this, [this, paths, bin] { importFiles(paths, bin); });
+    // drop (the source would wait for the drop to finish). Smart bins import into Master.
+    const QString key
+        = MediaPoolFilterModel::isSmartKey(currentBinKey()) ? QString() : currentBinKey();
+    QTimer::singleShot(0, this, [this, paths, key] { importFiles(paths, key); });
 }
 
 } // namespace kk

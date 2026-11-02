@@ -160,4 +160,14 @@ bool zoomAroundMouse()
     return QSettings().value(QLatin1String(kZoomAnchor)).toString() == QLatin1String("mouse");
 }
 
+bool showDefaultSmartBins()
+{
+    return QSettings().value(QLatin1String(kDefaultSmartBins), false).toBool();
+}
+
+void setShowDefaultSmartBins(bool show)
+{
+    QSettings().setValue(QLatin1String(kDefaultSmartBins), show);
+}
+
 } // namespace kk::prefs

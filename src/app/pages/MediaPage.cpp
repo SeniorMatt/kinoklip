@@ -42,8 +42,8 @@ MediaPage::MediaPage(AppContext& ctx, QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_main);
 
-    connect(
-        m_mediaPool, &MediaPoolPanel::currentMediaChanged, m_metadata, &MetadataPanel::showMedia);
+    // The metadata panel follows the media pool selection (one item or batch editing).
+    m_metadata->attach(m_mediaPool);
     connect(
         m_mediaPool, &MediaPoolPanel::currentMediaChanged, m_viewer, &ViewerPanel::setSourceMedia);
 }

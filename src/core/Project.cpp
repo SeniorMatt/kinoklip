@@ -7,6 +7,7 @@
 #include "core/Retime.h"
 #include "core/Serialization.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -216,6 +217,7 @@ void Project::newProject()
     m_mediaPool->clear();
     m_links->clear();
     m_cacheSettings = {};
+    m_binViews.clear();
     TimelineData first
         = makeDefaultTimeline(tr("Timeline 1"), kDefaultFps, kDefaultWidth, kDefaultHeight);
     first.uid = 1;
@@ -265,6 +267,24 @@ QJsonObject Project::toJson(const QString& path) const
     root[QLatin1String("timelineViews")] = views;
     root[QLatin1String("mediaLinks")] = m_links->toJson(m_mediaPool->state());
     root[QLatin1String("cacheSettings")] = m_cacheSettings.toJson();
+    if (!m_binViews.isEmpty()) {
+        QJsonArray binViews;
+        // Sorted keys: saving the same project twice writes the same file.
+        QStringList keys = m_binViews.keys();
+        keys.sort();
+        for (const QString& key : std::as_const(keys)) {
+            const BinViewState& v = m_binViews[key];
+            QJsonObject o {{QLatin1String("bin"), key}};
+            if (!v.mode.isEmpty())
+                o[QLatin1String("mode")] = v.mode;
+            if (!v.sortKey.isEmpty())
+                o[QLatin1String("sort")] = v.sortKey;
+            if (v.descending)
+                o[QLatin1String("descending")] = true;
+            binViews.append(o);
+        }
+        root[QLatin1String("binViews")] = binViews;
+    }
     return root;
 }
 
@@ -361,8 +381,34 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
     m_undoStack->clear();
     m_name = project.value(QLatin1String("name")).toString(fallbackName);
     m_format = format;
-    m_mediaPool->setState(serialization::mediaPoolFromJson(
-        root.value(QLatin1String("mediaPool")).toObject(), projectDir));
+    MediaPoolState pool = serialization::mediaPoolFromJson(
+        root.value(QLatin1String("mediaPool")).toObject(), projectDir);
+    if (version < 11) {
+        // Version <= 10 -> 11: no file times were stored (10 is the attrs format without the
+        // bins data). The file's modification time is read
+        // now (one stat per item; mediaPoolFromJson already checks every path) and also used as
+        // the "date added", the earliest moment the file can have been imported.
+        for (MediaItem& m : pool.items) {
+            if (m.kind != MediaItemKind::File || m.fileModifiedMs > 0)
+                continue;
+            const QFileInfo fi(m.path);
+            if (fi.exists())
+                m.fileModifiedMs = fi.lastModified().toMSecsSinceEpoch();
+            if (m.addedMs == 0)
+                m.addedMs = m.fileModifiedMs;
+        }
+    }
+    m_mediaPool->setState(std::move(pool));
+    m_binViews.clear();
+    for (const QJsonValue& v : root.value(QLatin1String("binViews")).toArray()) {
+        const QJsonObject o = v.toObject();
+        BinViewState state;
+        state.mode = o.value(QLatin1String("mode")).toString();
+        state.sortKey = o.value(QLatin1String("sort")).toString();
+        state.descending = o.value(QLatin1String("descending")).toBool(false);
+        if (!(state == BinViewState {}))
+            m_binViews.insert(o.value(QLatin1String("bin")).toString(), state);
+    }
     // Version 3 -> 4: no links and default cache settings (both keys are simply absent); the
     // application links proxies found in the proxy folder after loading.
     m_links->fromJson(root.value(QLatin1String("mediaLinks")).toArray());
@@ -370,6 +416,14 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
         = MediaCacheSettings::fromJson(root.value(QLatin1String("cacheSettings")).toObject());
     resetTimelines(std::move(timelineSlots), active, tabs);
     return true;
+}
+
+void Project::setBinViewState(const QString& binKey, const BinViewState& state)
+{
+    if (state == BinViewState {})
+        m_binViews.remove(binKey);
+    else
+        m_binViews.insert(binKey, state);
 }
 
 bool Project::save(const QString& path, QString* error)
