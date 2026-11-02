@@ -74,6 +74,8 @@ private:
     void queueDecode(
         const ClipData* clip, int64_t frame, const TimelineData& tl, const MediaPathMap* media);
     void decodeQueued();
+    /// Starts decoding the next frame of every clip that plays forward (worker threads).
+    void startDecodeAhead(int64_t frame, const TimelineData& tl);
     const DecodedClip* decoded(const ClipData* clip) const;
 
     void drawTrack(
