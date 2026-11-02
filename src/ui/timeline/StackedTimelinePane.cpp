@@ -9,6 +9,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/timeline/NestedPreview.h"
 #include "ui/timeline/TimelineMedia.h"
 
@@ -40,7 +41,7 @@ namespace {
 constexpr double kWheelZoomPerDegree = 1.0035; ///< like TimelineWidget
 constexpr double kExtraScrollFraction = 0.5; ///< scrollable room after the last clip
 constexpr int64_t kEmptyTimelineFrames = 250; ///< fit range of an empty timeline
-const QColor kInactiveShade(0, 0, 0, 40); ///< dims the inactive timeline a little
+constexpr int kInactiveShadeAlpha = 40; ///< dims the inactive timeline a little (scheme shadow)
 
 /// MIME payload of a copy drag of @p clips of timeline @p uid (DragMime.h).
 QByteArray clipsPayload(quint64 uid, const QVector<quint64>& clips, int64_t grabFrames)
@@ -72,6 +73,12 @@ StackedTimelineView::StackedTimelineView(AppContext& ctx, QWidget* parent)
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setMinimumHeight(kRulerHeight + 2 * kDefaultAudioHeight);
     m_painter.setStyle(palette(), font());
+    // Clip, track and state colours come from SchemeColors, which has the new scheme's roles
+    // only after kk::theme is done (a PaletteChange can arrive first).
+    connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this, [this] {
+        m_painter.setStyle(palette(), font());
+        viewport()->update();
+    });
     m_nestedPreview = new NestedPreview(ctx.project, this);
     connect(m_nestedPreview, &NestedPreview::ready, viewport(), [this] { viewport()->update(); });
     m_painter.setThumbnailProvider(m_nestedPreview->wrap(mediaCacheThumbnails()));
@@ -226,7 +233,7 @@ void StackedTimelineView::paintEvent(QPaintEvent*)
     in.hasFocus = false;
     m_painter.paint(p, in);
     // The inactive one reads as such: slightly dimmed (the active timeline drives the viewer).
-    p.fillRect(viewport()->rect(), kInactiveShade);
+    p.fillRect(viewport()->rect(), withAlpha(schemeColors().shadow, kInactiveShadeAlpha));
 }
 
 void StackedTimelineView::mousePressEvent(QMouseEvent* event)

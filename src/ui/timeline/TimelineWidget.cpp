@@ -12,6 +12,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaManagement.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/NestedPreview.h"
@@ -68,6 +69,12 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     setMinimumHeight(kRulerHeight + 2 * kDefaultAudioHeight);
 
     m_painter.setStyle(palette(), font());
+    // Clip, track and state colours come from SchemeColors, which has the new scheme's roles
+    // only after kk::theme is done (a PaletteChange can arrive first).
+    connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this, [this] {
+        m_painter.setStyle(palette(), font());
+        viewport()->update();
+    });
     // Compound clips / nested timelines: previews rendered from the nested timeline.
     m_nestedPreview = new NestedPreview(ctx.project, this);
     connect(m_nestedPreview, &NestedPreview::ready, this, &TimelineWidget::refreshMedia);

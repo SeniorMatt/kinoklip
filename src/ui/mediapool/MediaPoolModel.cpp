@@ -8,6 +8,7 @@
 #include "core/SmartBins.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 
 #include <QDateTime>
@@ -589,7 +590,7 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
     }
     case Qt::ForegroundRole:
         if (row.offline)
-            return QColor(0xe0, 0x60, 0x60);
+            return schemeColors().negative;
         return {};
     case IdRole:
         return row.id;

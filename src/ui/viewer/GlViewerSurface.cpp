@@ -2,6 +2,8 @@
 // OpenGL viewer surface: compositor texture (zero copy) or uploaded image, one textured quad.
 #include "ui/viewer/GlViewerSurface.h"
 
+#include "ui/common/SchemeColors.h"
+
 #include <QCoreApplication>
 #include <QLabel>
 #include <QLoggingCategory>
@@ -15,7 +17,6 @@ namespace {
 
 Q_LOGGING_CATEGORY(lcGlViewer, "kk.ui.viewer.gl", QtInfoMsg)
 
-constexpr float kSurroundGrey = 0x0b / 255.0f; // slightly lifted black around the picture
 
 // Unit quad as a triangle strip; the vertex shader maps it onto the picture rectangle.
 constexpr GLfloat kQuad[] = {0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 1.f, 1.f};
@@ -54,7 +55,17 @@ GlViewerSurface::GlViewerSurface(QWidget* parent)
     m_text->setObjectName(QStringLiteral("ViewerEmptyText"));
     m_text->setAlignment(Qt::AlignCenter);
     m_text->setAttribute(Qt::WA_TransparentForMouseEvents);
-    m_text->setStyleSheet(QStringLiteral("color: #5a5a60; background: transparent;"));
+    // Same colour as the raster surface's empty text (SchemeColors viewer roles).
+    const auto styleText = [label = m_text] {
+        const SchemeColors& sc = schemeColors();
+        label->setStyleSheet(QStringLiteral("color: %1; background: transparent;")
+                                 .arg(mixColors(sc.viewerText, sc.viewerSurround, 0.45)
+                                         .name(QColor::HexRgb)));
+    };
+    styleText();
+    connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, m_text, styleText);
+    connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this,
+        [this] { update(); }); // surround colour
 }
 
 GlViewerSurface::~GlViewerSurface()
@@ -232,7 +243,8 @@ void GlViewerSurface::uploadFrame()
 
 void GlViewerSurface::paintGL()
 {
-    glClearColor(kSurroundGrey, kSurroundGrey, kSurroundGrey, 1.0f);
+    const QColor surround = schemeColors().viewerSurround;
+    glClearColor(surround.redF(), surround.greenF(), surround.blueF(), 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     if (!m_glReady) {
         return;
@@ -249,7 +261,7 @@ void GlViewerSurface::paintGL()
 
     glEnable(GL_SCISSOR_TEST);
     glScissor(visible.x(), visible.y(), visible.width(), visible.height());
-    glClearColor(0.f, 0.f, 0.f, 1.f);
+    glClearColor(0.f, 0.f, 0.f, 1.f); // picture area: video content, fixed black
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 

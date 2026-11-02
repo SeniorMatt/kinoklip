@@ -6,6 +6,7 @@
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/keyframes/KeyframeGrid.h"
 #include "ui/keyframes/KeyframeTimeMap.h"
 
@@ -33,11 +34,6 @@ constexpr double kMaxZoom = 500.0;
 constexpr double kValueGridPx = 28.0; ///< about one value grid line per this many px
 constexpr double kTimeGridPx = 70.0; ///< minimum distance of time grid lines
 constexpr double kFitSelectionFill = 0.8; ///< selected keys fill this much of the height
-const QColor kKeySelected(0xff, 0xa8, 0x3a);
-
-const QColor kCurveColors[] = {QColor(0xe0, 0x5c, 0x5c), QColor(0x5c, 0xc0, 0x6c),
-    QColor(0x5c, 0x9c, 0xe8), QColor(0xe0, 0xc0, 0x48), QColor(0xc0, 0x6c, 0xe0),
-    QColor(0x48, 0xc8, 0xc8), QColor(0xe8, 0x8c, 0x40), QColor(0xa8, 0xa8, 0xa8)};
 } // namespace
 
 CurveView::CurveView(AppContext& ctx, const KeyframeTimeMap& map, QWidget* parent)
@@ -48,7 +44,8 @@ CurveView::CurveView(AppContext& ctx, const KeyframeTimeMap& map, QWidget* paren
 
 QColor CurveView::curveColor(int index)
 {
-    return kCurveColors[size_t(std::max(0, index)) % std::size(kCurveColors)];
+    // Distinct scheme colours (negative, positive, link, ...: red, green, blue first).
+    return schemeColors().series(std::max(0, index));
 }
 
 // ---- Curves ----
@@ -535,10 +532,10 @@ void CurveView::paintEvent(QPaintEvent*)
                 }
             }
             const bool outside = key.frame < 0 || key.frame >= c->duration;
-            QColor fill = selected ? kKeySelected : col;
+            QColor fill = selected ? schemeColors().keyframeSelected : col;
             if (outside)
                 fill.setAlpha(110);
-            p.setPen(QPen(QColor(20, 20, 20, outside ? 110 : 255), 1));
+            p.setPen(QPen(withAlpha(schemeColors().shadow, outside ? 110 : 255), 1));
             p.setBrush(fill);
             if (key.hold)
                 p.drawRect(QRectF(kp.x() - kPointRadius, kp.y() - kPointRadius, 2 * kPointRadius,

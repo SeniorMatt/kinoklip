@@ -2,6 +2,7 @@
 // ViewerSurface factory, OpenGL availability check and shared letterbox / raster drawing.
 #include "ui/viewer/ViewerSurface.h"
 
+#include "ui/common/SchemeColors.h"
 #include "ui/viewer/GlViewerSurface.h"
 #include "ui/viewer/RasterViewerSurface.h"
 
@@ -18,9 +19,6 @@ namespace {
 Q_LOGGING_CATEGORY(lcViewer, "kk.ui.viewer", QtInfoMsg)
 
 constexpr int kPictureMargin = 8; // px around the letterboxed picture
-const QColor kSurroundColor(0x0b, 0x0b, 0x0c); // slightly lifted black around the picture
-const QColor kEmptyTextColor(0x5a, 0x5a, 0x60);
-const QColor kOverlayTextColor(0x9a, 0x9a, 0xa2);
 } // namespace
 
 bool ViewerSurface::openGLAvailable()
@@ -127,16 +125,19 @@ void ViewerPicture::paintTexts(QPainter& painter, const QRect& picture) const
     if (text.isEmpty()) {
         return;
     }
-    painter.setPen(hasFrame() ? kOverlayTextColor : kEmptyTextColor);
+    const SchemeColors& sc = schemeColors();
+    painter.setPen(
+        hasFrame() ? sc.viewerText : mixColors(sc.viewerText, sc.viewerSurround, 0.45));
     painter.drawText(picture, Qt::AlignCenter, text);
 }
 
 void ViewerPicture::paint(QPainter& painter, QSize widgetSize, bool fillSurround, qreal dpr) const
 {
     if (fillSurround) {
-        painter.fillRect(QRect(QPoint(0, 0), widgetSize), kSurroundColor);
+        painter.fillRect(QRect(QPoint(0, 0), widgetSize), schemeColors().viewerSurround);
     }
     const QRect target = pictureRect(widgetSize, dpr);
+    // Fixed black: the picture area is video content (letterbox), not scheme chrome.
     painter.fillRect(target, Qt::black);
     if (!m_frame.isNull()) {
         // Premultiplied frame over the black picture area = what the GL path shows.

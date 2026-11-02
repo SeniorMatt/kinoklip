@@ -7,6 +7,7 @@
 #include "app/MenuMetricsStyle.h"
 #include "core/Preferences.h"
 #include "ui/common/ActionRegistry.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/common/SettingsPages.h"
 
 #include <QAction>
@@ -14,6 +15,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QIcon>
@@ -67,6 +69,7 @@ struct State
     QPointer<QActionGroup> styleActions;
     QHash<QString, QString> fallbackSchemePaths; ///< id -> .colors path (fallback build)
     QColor headerBackground; ///< KDE "Header" colour set background of the active scheme
+    SchemeRoles roles; ///< KDE roles of the active scheme beyond QPalette (SchemeColors)
 };
 
 State& state()
@@ -173,6 +176,114 @@ QString storedScheme()
         .toString();
 }
 
+/// Schemes compiled into the app (resources/color-schemes): id -> resource path.
+[[maybe_unused]] QHash<QString, QString> bundledSchemes()
+{
+    QHash<QString, QString> paths;
+    const QFileInfoList files = QDir(QStringLiteral(":/color-schemes"))
+                                    .entryInfoList({QStringLiteral("*.colors")}, QDir::Files);
+    for (const QFileInfo& file : files)
+        paths.insert(file.completeBaseName(), file.filePath());
+    return paths;
+}
+
+/// The roles SchemeColors needs that QPalette lacks, read from a .colors file.
+[[maybe_unused]] SchemeRoles rolesFromFile(const ColorSchemeFile& file, bool withBackgrounds)
+{
+    const auto c = [&file](const char* set, const char* key) {
+        return file.color(QLatin1String(set), QLatin1String(key));
+    };
+    SchemeRoles r;
+    r.link = c("View", "ForegroundLink");
+    r.visited = c("View", "ForegroundVisited");
+    r.active = c("View", "ForegroundActive");
+    r.inactive = c("View", "ForegroundInactive");
+    r.positive = c("View", "ForegroundPositive");
+    r.neutral = c("View", "ForegroundNeutral");
+    r.negative = c("View", "ForegroundNegative");
+    r.focus = c("View", "DecorationFocus");
+    r.hover = c("View", "DecorationHover");
+    if (withBackgrounds) {
+        r.header = c("Header", "BackgroundNormal");
+        r.complementary = c("Complementary", "BackgroundNormal");
+        r.complementaryText = c("Complementary", "ForegroundNormal");
+    }
+    return r;
+}
+
+/// Small preview icon: window background with a selection-coloured bar (KDE shows similar
+/// swatches in its colour scheme menu).
+QIcon schemeSwatch(const QPalette& p)
+{
+    QPixmap pixmap(kSwatchSize, kSwatchSize);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(p.color(QPalette::WindowText), 1));
+    painter.setBrush(p.color(QPalette::Window));
+    painter.drawRoundedRect(QRectF(0.5, 0.5, kSwatchSize - 1, kSwatchSize - 1), 2, 2);
+    painter.fillRect(QRectF(3, 9, kSwatchSize - 6, 4), p.color(QPalette::Highlight));
+    return QIcon(pixmap);
+}
+
+#ifdef KK_HAVE_KF6
+/// KF6: the SchemeColors roles of the scheme in @p config.
+SchemeRoles rolesFromConfig(const KSharedConfigPtr& config)
+{
+    const KColorScheme view(QPalette::Active, KColorScheme::View, config);
+    SchemeRoles r;
+    r.link = view.foreground(KColorScheme::LinkText).color();
+    r.visited = view.foreground(KColorScheme::VisitedText).color();
+    r.active = view.foreground(KColorScheme::ActiveText).color();
+    r.inactive = view.foreground(KColorScheme::InactiveText).color();
+    r.positive = view.foreground(KColorScheme::PositiveText).color();
+    r.neutral = view.foreground(KColorScheme::NeutralText).color();
+    r.negative = view.foreground(KColorScheme::NegativeText).color();
+    r.focus = view.decoration(KColorScheme::FocusColor).color();
+    r.hover = view.decoration(KColorScheme::HoverColor).color();
+    r.header = KColorScheme(QPalette::Active, KColorScheme::Header, config).background().color();
+    const KColorScheme complementary(QPalette::Active, KColorScheme::Complementary, config);
+    r.complementary = complementary.background().color();
+    r.complementaryText = complementary.foreground().color();
+    return r;
+}
+
+/// KF6: a compiled-in scheme that KColorSchemeManager's model does not list (KF6 before the
+/// model looked into ":/org.kde.kcolorscheme/color-schemes", or a dev build without the
+/// scheme on disk) is copied to the cache dir, so KConfig and the Breeze style (which read
+/// KDE_COLOR_SCHEME_PATH) get a real file. Returns its path, or empty.
+QString bundledSchemeOnDisk(const QString& id)
+{
+    const QString resource = bundledSchemes().value(id);
+    if (resource.isEmpty())
+        return {};
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+        + QStringLiteral("/color-schemes");
+    const QString path = dir + QLatin1Char('/') + id + QStringLiteral(".colors");
+    QFile source(resource);
+    QFile target(path);
+    if (!source.open(QIODevice::ReadOnly))
+        return {};
+    const QByteArray data = source.readAll();
+    if (target.open(QIODevice::ReadOnly) && target.readAll() == data)
+        return path;
+    target.close();
+    if (!QDir().mkpath(dir) || !target.open(QIODevice::WriteOnly | QIODevice::Truncate)
+        || target.write(data) != data.size()) {
+        qCWarning(lcTheme) << "cannot write colour scheme" << path;
+        return {};
+    }
+    return path;
+}
+
+/// KF6: a compiled-in scheme the model lacks (see bundledSchemeOnDisk()).
+bool isUnlistedBundledScheme(const QString& id)
+{
+    return !id.isEmpty() && !KColorSchemeManager::instance()->indexForSchemeId(id).isValid()
+        && bundledSchemes().contains(id);
+}
+#endif
+
 #ifndef KK_HAVE_KF6
 /// Fallback: id -> file of every scheme we can find. Schemes in the XDG data dirs win over
 /// the copies compiled into the app (resources/color-schemes), like KDE's own lookup.
@@ -194,36 +305,38 @@ const QHash<QString, QString>& fallbackSchemes()
     }
     return paths;
 }
-
-/// Small preview icon: window background with a selection-coloured bar (KDE shows similar
-/// swatches in its colour scheme menu).
-QIcon schemeSwatch(const QPalette& p)
-{
-    QPixmap pixmap(kSwatchSize, kSwatchSize);
-    pixmap.fill(Qt::transparent);
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(QPen(p.color(QPalette::WindowText), 1));
-    painter.setBrush(p.color(QPalette::Window));
-    painter.drawRoundedRect(QRectF(0.5, 0.5, kSwatchSize - 1, kSwatchSize - 1), 2, 2);
-    painter.fillRect(QRectF(3, 9, kSwatchSize - 6, 4), p.color(QPalette::Highlight));
-    return QIcon(pixmap);
-}
 #endif
 
-/// Applies scheme @p id (unknown ids fall back to the default scheme). Returns the id in use.
+/// Applies scheme @p id; an unknown id falls back to the default scheme, then to Breeze Dark,
+/// then to the system scheme. Returns the id in use.
 QString applyScheme(QApplication& app, const QString& id)
 {
     State& s = state();
 #ifdef KK_HAVE_KF6
     KColorSchemeManager* manager = KColorSchemeManager::instance();
     manager->setAutosaveChanges(false); // persisted by us (QSettings), not in kdeglobals
+    const auto available = [manager](const QString& candidate) {
+        return candidate.isEmpty() || manager->indexForSchemeId(candidate).isValid()
+            || (isUnlistedBundledScheme(candidate) && !bundledSchemeOnDisk(candidate).isEmpty());
+    };
     QString use = id;
-    if (!use.isEmpty() && !manager->indexForSchemeId(use).isValid()) {
-        qCWarning(lcTheme) << "colour scheme" << use << "not found, using" << kDefaultColorScheme;
-        use = QLatin1String(kDefaultColorScheme);
-        if (!manager->indexForSchemeId(use).isValid())
-            use.clear();
+    for (const char* fallback : {kDefaultColorScheme, kFallbackColorScheme, ""}) {
+        if (available(use))
+            break;
+        qCWarning(lcTheme) << "colour scheme" << use << "not found, trying" << fallback;
+        use = QString::fromLatin1(fallback);
+    }
+    if (isUnlistedBundledScheme(use)) {
+        // Not in KColorSchemeManager's model: apply the cached copy ourselves, the way the
+        // manager does (palette + KDE_COLOR_SCHEME_PATH for the Breeze style).
+        const QString path = bundledSchemeOnDisk(use);
+        const KSharedConfigPtr scheme = KSharedConfig::openConfig(path, KConfig::SimpleConfig);
+        QApplication::setPalette(KColorScheme::createApplicationPalette(scheme));
+        app.setProperty("KDE_COLOR_SCHEME_PATH", path);
+        s.headerBackground
+            = KColorScheme(QPalette::Active, KColorScheme::Header, scheme).background().color();
+        s.roles = rolesFromConfig(scheme);
+        return use;
     }
 #if KCOLORSCHEME_VERSION >= QT_VERSION_CHECK(6, 19, 0)
     manager->activateSchemeId(use);
@@ -249,6 +362,7 @@ QString applyScheme(QApplication& app, const QString& id)
             "KDE_COLOR_SCHEME_PATH", globals.isEmpty() ? QVariant() : QVariant(globals));
         s.headerBackground
             = KColorScheme(QPalette::Active, KColorScheme::Header, system).background().color();
+        s.roles = rolesFromConfig(system);
     } else {
         const QString path
             = manager->indexForSchemeId(use).data(KColorSchemeModel::PathRole).toString();
@@ -257,27 +371,37 @@ QString applyScheme(QApplication& app, const QString& id)
             : KSharedConfig::openConfig(path, KConfig::SimpleConfig);
         s.headerBackground
             = KColorScheme(QPalette::Active, KColorScheme::Header, scheme).background().color();
+        s.roles = rolesFromConfig(scheme);
     }
     return use;
 #else
     QString use = id;
     const QHash<QString, QString>& schemes = fallbackSchemes();
-    if (!use.isEmpty() && !schemes.contains(use)) {
-        qCWarning(lcTheme) << "colour scheme" << use << "not found, using" << kDefaultColorScheme;
-        use = schemes.contains(QLatin1String(kDefaultColorScheme))
-            ? QString::fromLatin1(kDefaultColorScheme)
-            : QString();
+    for (const char* fallback : {kDefaultColorScheme, kFallbackColorScheme, ""}) {
+        if (use.isEmpty() || schemes.contains(use))
+            break;
+        qCWarning(lcTheme) << "colour scheme" << use << "not found, trying" << fallback;
+        use = QString::fromLatin1(fallback);
     }
     ColorSchemeFile file;
     if (!use.isEmpty() && file.load(schemes.value(use))) {
         QApplication::setPalette(file.palette());
         s.headerBackground
             = file.color(QStringLiteral("Header"), QStringLiteral("BackgroundNormal"));
+        s.roles = rolesFromFile(file, true);
         app.setProperty("KDE_COLOR_SCHEME_PATH", schemes.value(use));
     } else {
         use.clear();
         QApplication::setPalette(s.systemPalette);
         s.headerBackground = QColor();
+        // The platform palette has no positive/neutral/negative roles: take them from the
+        // Breeze scheme of the same lightness (backgrounds stay the platform's own).
+        ColorSchemeFile breeze;
+        const bool dark = s.systemPalette.color(QPalette::Window).lightness() < 128;
+        s.roles = breeze.load(dark ? QStringLiteral(":/color-schemes/BreezeDark.colors")
+                                   : QStringLiteral(":/color-schemes/BreezeLight.colors"))
+            ? rolesFromFile(breeze, false)
+            : SchemeRoles();
         app.setProperty("KDE_COLOR_SCHEME_PATH", QVariant());
     }
     return use;
@@ -338,6 +462,8 @@ void refreshChrome(QApplication& app)
 {
     applyIconTheme();
     app.setStyleSheet(styleSheet(QApplication::palette()));
+    // Last: custom-painted widgets repaint from the new roles (SchemeColorsNotifier).
+    setSchemeRoles(state().roles);
 }
 
 void syncActionChecks()
@@ -499,6 +625,12 @@ QVector<ColorSchemeInfo> availableColorSchemes()
         schemes.append(
             {id, id.isEmpty() ? systemName : index.data(KColorSchemeModel::NameRole).toString()});
     }
+    const QHash<QString, QString> bundled = bundledSchemes();
+    for (auto it = bundled.cbegin(); it != bundled.cend(); ++it) {
+        ColorSchemeFile file;
+        if (isUnlistedBundledScheme(it.key()) && file.load(it.value()))
+            schemes.append({it.key(), file.name()});
+    }
 #else
     schemes.append({QString(), systemName});
     const QHash<QString, QString>& files = fallbackSchemes();
@@ -566,8 +698,11 @@ void registerActions(ActionRegistry& registry)
 #ifdef KK_HAVE_KF6
         // KColorSchemeModel provides KDE's own preview icon for each scheme.
         const QModelIndex index = KColorSchemeManager::instance()->indexForSchemeId(scheme.id);
+        ColorSchemeFile file;
         if (index.isValid())
             action->setIcon(model->data(index, KColorSchemeModel::IconRole).value<QIcon>());
+        else if (file.load(bundledSchemes().value(scheme.id)))
+            action->setIcon(schemeSwatch(file.palette()));
 #else
         ColorSchemeFile file;
         if (!scheme.id.isEmpty() && file.load(fallbackSchemes().value(scheme.id)))

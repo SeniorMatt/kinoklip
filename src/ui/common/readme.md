@@ -10,6 +10,7 @@ Used by every panel and page. Depends on `core` only.
 | `MediaManagement.h` | proxy / optimized media and render cache glue (created in `main()`, `AppContext::media`): `mediapool.*`, `playback.proxy_*`, `playback.use_*`, `playback.render_cache_*`, `clip.render_cache_output` commands; ProxyQueue + RenderCacheManager + a shared background Compositor; proxy map for every viewer, cache view for program playback, per-item status for the media pool |
 | `PanelFrame.h` | common panel chrome (title bar + tool area + body); `createPlaceholderPanel()` |
 | `Page.h` | base class for main-window pages; `PanelId` for the interface-toolbar toggles |
+| `SchemeColors.h` | `kk::schemeColors()`: every colour of custom-painted widgets (clips, badges, playhead, lanes, keyframes, overlays...) derived from the active colour scheme's roles; `SchemeColorsNotifier::changed()` after a scheme switch. Never hard-code a colour in a widget: add a role here |
 | `Icons.h` | `kk::icon("play")` — own SVGs tinted from the palette (On state = accent) |
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
 | `MediaImport.h` | import with user feedback; media file patterns/filters |

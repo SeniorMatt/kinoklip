@@ -6,6 +6,7 @@
 #include "core/Project.h"
 #include "export/ProxyMedia.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/SchemeColors.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -247,11 +248,8 @@ QWidget* ProjectSettingsDialog::buildMaster()
     m_warning = new QLabel;
     m_warning->setWordWrap(true);
     QPalette warn = m_warning->palette();
-    // KDE "neutral" (warning) text colours of Breeze Dark / Breeze Light, picked by the
-    // lightness of the active scheme so the warning stays readable in both.
-    const bool darkScheme = warn.color(QPalette::Window).lightness() < 128;
-    warn.setColor(
-        QPalette::WindowText, darkScheme ? QColor(0xf6, 0x74, 0x00) : QColor(0xc6, 0x5c, 0x00));
+    // The scheme's "neutral" (warning) text colour.
+    warn.setColor(QPalette::WindowText, schemeColors().neutral);
     m_warning->setPalette(warn);
     layout->addWidget(m_warning);
 

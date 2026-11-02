@@ -3,6 +3,7 @@
 #include "ui/deliver/RenderRangeBar.h"
 
 #include "core/Timeline.h"
+#include "ui/common/SchemeColors.h"
 
 #include <QMouseEvent>
 #include <QPainter>
@@ -49,6 +50,8 @@ void RenderRangeBar::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     const QPalette& pal = palette();
+    // Same roles as the timeline: clip colours, in/out range in focus, playhead in negative.
+    const SchemeColors& sc = schemeColors();
     p.fillRect(rect(), pal.color(QPalette::Base));
     const TimelineData& tl = m_timeline->data();
     const int lanes = int(tl.videoTracks.size() + tl.audioTracks.size());
@@ -57,8 +60,7 @@ void RenderRangeBar::paintEvent(QPaintEvent*)
 
     // Render range: tinted background across all lanes.
     if (m_end > m_first) {
-        QColor range = pal.color(QPalette::Highlight);
-        range.setAlpha(35);
+        const QColor range = withAlpha(sc.focus, 35);
         p.fillRect(
             QRectF(frameToX(m_first), 0, frameToX(m_end) - frameToX(m_first), height()), range);
     }
@@ -74,22 +76,20 @@ void RenderRangeBar::paintEvent(QPaintEvent*)
         }
         y += laneHeight + kLaneGap;
     };
-    const QColor videoColour(0x4c, 0x7d, 0xb8);
-    const QColor audioColour(0x4a, 0x9a, 0x6a);
     for (auto it = tl.videoTracks.rbegin(); it != tl.videoTracks.rend(); ++it) {
-        drawTrack(*it, videoColour);
+        drawTrack(*it, sc.videoClip);
     }
     for (const TrackData& track : tl.audioTracks) {
-        drawTrack(track, audioColour);
+        drawTrack(track, sc.audioClip);
     }
 
     // Range edges and playhead.
     if (m_end > m_first) {
-        p.setPen(QPen(pal.color(QPalette::Highlight), 2));
+        p.setPen(QPen(sc.focus, 2));
         p.drawLine(QPointF(frameToX(m_first), 0), QPointF(frameToX(m_first), height()));
         p.drawLine(QPointF(frameToX(m_end), 0), QPointF(frameToX(m_end), height()));
     }
-    p.setPen(QPen(QColor(0xe0, 0x40, 0x40), 1.5));
+    p.setPen(QPen(sc.playhead, 1.5));
     const double ph = frameToX(m_timeline->playhead());
     p.drawLine(QPointF(ph, 0), QPointF(ph, height()));
 }

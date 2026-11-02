@@ -48,16 +48,19 @@ user can change all of it.
 | Part | KF6 build (Arch container, release bundle) | Fallback build (Qt 6.4, no KF6) |
 |---|---|---|
 | Widget style | `QApplication::setStyle("Breeze")` (plugin `styles/breeze6.so`); Fusion if missing | Breeze if the host has a Qt 6.4 build of it, else Fusion |
-| Colours | `KColorSchemeManager::activateSchemeId()`; schemes from `color-schemes/` in `XDG_DATA_DIRS` (bundle: `usr/share/color-schemes`) | `ColorSchemeFile` parses the same `.colors` files (copies in `resources/color-schemes/` + XDG dirs) into a QPalette |
+| Colours | `KColorSchemeManager::activateSchemeId()`; schemes from `color-schemes/` in `XDG_DATA_DIRS` (bundle: `usr/share/color-schemes`) and the app's `:/org.kde.kcolorscheme/color-schemes` (Kinoklip); a compiled-in scheme the model lacks (older KF6) is copied to the cache dir and applied directly | `ColorSchemeFile` parses the same `.colors` files (copies in `resources/color-schemes/` + XDG dirs) into a QPalette |
 | Icons | `KIconTheme::initTheme()` before `QApplication`: Breeze compiled into libKF6BreezeIcons, drawn by KIconEngine which recolours them from the palette | `QIcon::setThemeName("breeze"/"breeze-dark")` by palette lightness if installed, else our SVGs |
 | Chrome | style sheet generated from the palette (`Theme.cpp: styleSheet()`): only backgrounds/borders of our own panels and bars; buttons, tabs, menus, focus and selection are left to Breeze | same |
 
-Defaults: style `Breeze`, scheme `BreezeDark`. "Default (System)" means the scheme in the
+Defaults: style `Breeze`, scheme `Kinoklip` (`kDefaultColorScheme`, compiled into the app, so it
+exists in every build mode); if it cannot be found, `BreezeDark`, then the style's palette. A
+scheme the user chose explicitly (stored `ui/colorScheme`) is kept. "Default (System)" means the scheme in the
 user's `kdeglobals` (Plasma's choice; KDE's default Breeze without one): palette and Header
 colours both come from that file, never the palette from the platform and the header from
 kdeglobals. Runtime switches are covered by `tests/app/test_themeswitch.cpp` (every scheme and
 style in the real main window; every widget's palette and the painted chrome are checked).
-Custom-drawn widgets read colours at paint time or on `QEvent::PaletteChange`; icons drawn by
+Custom-drawn widgets take every colour from `kk::schemeColors()` (`ui/common/SchemeColors.h`,
+see "Editor visuals") at paint time; icons drawn by
 us use `kk::paletteIcon()` / the tinted SVG engine, which look the colour up per paint. Settings keys: `ui/widgetStyle`,
 `ui/colorScheme` (`""` = "Default (System)"; the old `ui/useSystemColors=true` is migrated to
 it). Command line (this run only, nothing stored): `--widget-style Fusion`,
@@ -77,15 +80,25 @@ Breeze counterpart (blade, trim, insert/overwrite, mark in/out, edit points, sna
 and some panel icons) stay our own SVGs, tinted from the palette like KIconEngine tints
 Breeze. `tests/app/test_theme.cpp` fails if a mapped name disappears from Breeze.
 
-**Editor visuals.** Timeline lanes, headers, ruler, separators and overlays derive from the
-palette (`TimelinePainter::setStyle()`, re-run on `QEvent::PaletteChange`); clip colours are
-content colours that read on light and dark schemes. Video viewer surrounds stay dark grey
-(neutral for judging pictures) in every scheme.
+**Editor visuals.** Everything Kinoklip paints itself follows the active scheme through
+`kk::schemeColors()` (`ui/common/SchemeColors.h`): `theme::apply()` / `setColorScheme()` hand it
+the KDE roles QPalette lacks (`SchemeRoles`: KColorScheme with KF6, the `.colors` file
+without), it derives the editor roles (video clips = link, audio = positive, titles /
+generators / subtitles = visited, selection = neutral, transitions = focus, playhead and marks
+= negative, lanes / ruler / grids = view and window backgrounds, plates over video = the
+complementary set) and emits `SchemeColorsNotifier::changed()`; widgets that cache colours or
+pixmaps (`TimelinePainter::setStyle()`, effects library glyphs, viewer labels) refresh on it.
+The viewer surround comes from the complementary set, so it stays dark in light schemes.
+Fixed on purpose: clip colour labels, flags and marker colours (user data), video content
+(letterbox black, thumbnails) and the white-on-black mask outlines over video.
+`tests/app/test_schemecolors.cpp` switches schemes and checks the helper and the painted
+timeline.
 
 **Add a colour scheme:** drop a KDE `.colors` file into `~/.local/share/color-schemes/`
 (or any `color-schemes/` dir in `XDG_DATA_DIRS`); it appears in Settings > Color Theme on the
 next start. To ship one with the app, also put it in `resources/color-schemes/` +
-`resources/resources.qrc` (fallback build) and let `scripts/package_linux.sh` copy it to the
+`resources/resources.qrc` (fallback build; for KF6 also as an alias under the
+`/org.kde.kcolorscheme` prefix, like Kinoklip) and let `scripts/package_linux.sh` copy it to the
 bundle's `usr/share/color-schemes/`.
 
 **Add a widget style:** any Qt style plugin in the plugin path (`QStyleFactory::keys()`) is

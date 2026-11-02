@@ -15,8 +15,11 @@ class SettingsPageRegistry;
 
 namespace kk::theme {
 
-/// Id of the default colour scheme (KDE file base name).
-inline constexpr char kDefaultColorScheme[] = "BreezeDark";
+/// Id of the default colour scheme (KDE file base name): Kinoklip's own scheme, compiled
+/// into the app (resources/color-schemes/Kinoklip.colors), so it exists in every build.
+inline constexpr char kDefaultColorScheme[] = "Kinoklip";
+/// Used when the default scheme cannot be found (then the style's own palette).
+inline constexpr char kFallbackColorScheme[] = "BreezeDark";
 /// Default widget style (QStyleFactory key); Fusion is used if the Breeze plugin is missing.
 inline constexpr char kDefaultStyle[] = "Breeze";
 
@@ -53,8 +56,9 @@ void apply(QApplication& app);
 void setStyle(const QString& style);
 
 /// Every colour scheme found (system entry first, then by name). KF6: KColorSchemeManager's
-/// model (color-schemes dirs in XDG_DATA_DIRS); fallback: the schemes compiled into the app
-/// (resources/color-schemes) plus those in the XDG data dirs.
+/// model (color-schemes dirs in XDG_DATA_DIRS and the app's ":/org.kde.kcolorscheme"
+/// resources) plus any compiled-in scheme the model lacks; fallback: the schemes compiled
+/// into the app (resources/color-schemes) plus those in the XDG data dirs.
 [[nodiscard]] QVector<ColorSchemeInfo> availableColorSchemes();
 /// Id of the active colour scheme ("" = system).
 [[nodiscard]] QString currentColorScheme();
