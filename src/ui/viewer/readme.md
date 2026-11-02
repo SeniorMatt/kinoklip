@@ -4,7 +4,8 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
 
 | File | What |
 |---|---|
-| `ViewerPanel.h` | the viewer panel: `Mode::Source` / `Mode::Timeline`; header "Source — clip" / "Timeline — name" with zoom (Fit/50/100/200 %), preview quality (Auto/Full/Half/Quarter) and timecode; picture; scrub bar; transport bar |
+| `ViewerPanel.h` | the viewer panel: `Mode::Source` / `Mode::Timeline`; header "Source — clip" / "Timeline — name" with zoom (Fit/50/100/200 %), playback resolution ("Full Res" / "Half Res" / "Quarter Res" / "Auto Res", see `PlaybackResolution`) and timecode; picture; scrub bar (scrubbing while playing keeps playing); transport bar |
+| `PlaybackResolution.h` | the application-wide playback resolution (Resolve's Timeline Proxy Resolution): Playback > Playback Resolution actions, every viewer's combo and Preferences > Playback stay in sync; stored in `playback/previewQuality` (default Full, old "auto" migrated once) |
 | `ViewerSurface.h` | picture-area interface; `ViewerSurface::create()` picks GL or raster; `ViewerPicture` = shared state, letterbox/zoom maths, raster drawing |
 | `GlViewerSurface.h` | `QOpenGLWidget`: draws the compositor's texture **zero copy** (`glWaitSync` on the frame's fence, sampler object, frame kept alive until the next one is drawn) or uploads an image (`glTexSubImage2D` from ARGB32 memory) |
 | `RasterViewerSurface.h` | `QWidget` fallback (offscreen screenshots, CI, no GPU, `KK_NO_OPENGL=1`); draws `RenderedFrame::image` |
