@@ -7,6 +7,7 @@
 #include "render/DecoderPool.h"
 #include "render/GlEffects.h"
 #include "render/GlKit.h"
+#include "render/GlMasks.h"
 #include "render/GlOutput.h"
 #include "render/GlTransitions.h"
 #include "render/GlVideo.h"
@@ -94,6 +95,7 @@ private:
     std::unique_ptr<GlKit> m_kit;
     std::unique_ptr<GlOutput> m_output;
     GlVideo m_video;
+    GlMasks m_masks; ///< clip mask pass (applied on the layer path)
     QString m_description;
 
     QHash<QString, std::shared_ptr<GlEffect>> m_effects; ///< descriptor id → implementation

@@ -4,6 +4,7 @@
 #include "core/Mask.h"
 
 #include <QCoreApplication>
+#include <QTransform>
 
 #include <algorithm>
 #include <cmath>
@@ -281,6 +282,42 @@ std::optional<QPointF> contentToMask(const MaskData& mask, int64_t localFrame, Q
     const double dx = content.x() - mask.value(maskkeys::PosX, localFrame);
     const double dy = content.y() - mask.value(maskkeys::PosY, localFrame);
     return QPointF((c * dx + s * dy) / sx, (-s * dx + c * dy) / sy);
+}
+
+QPainterPath maskOutline(const MaskData& mask, int64_t localFrame)
+{
+    QPainterPath local;
+    if (mask.isPathShape()) {
+        const MaskPath path = mask.path.at(double(localFrame));
+        if (path.isEmpty())
+            return {};
+        local.moveTo(path[0].pos());
+        const qsizetype segments = mask.closed ? path.size() : path.size() - 1;
+        for (qsizetype i = 0; i < segments; ++i) {
+            const MaskPoint& a = path[i];
+            const MaskPoint& b = path[(i + 1) % path.size()];
+            if (!a.hasTangents() && !b.hasTangents())
+                local.lineTo(b.pos());
+            else
+                local.cubicTo(QPointF(a.x + a.outX, a.y + a.outY),
+                    QPointF(b.x + b.inX, b.y + b.inY), b.pos());
+        }
+        if (mask.closed)
+            local.closeSubpath();
+    } else {
+        const double w = mask.value(maskkeys::Width, localFrame);
+        const double h = mask.value(maskkeys::Height, localFrame);
+        const QRectF r(-w / 2, -h / 2, w, h);
+        if (mask.shape == MaskShape::Ellipse)
+            local.addEllipse(r);
+        else
+            local.addRect(r);
+    }
+    QTransform t;
+    t.translate(mask.value(maskkeys::PosX, localFrame), mask.value(maskkeys::PosY, localFrame));
+    t.rotate(mask.value(maskkeys::Rotation, localFrame)); // degrees, clockwise with y down
+    t.scale(mask.value(maskkeys::ScaleX, localFrame), mask.value(maskkeys::ScaleY, localFrame));
+    return t.map(local);
 }
 
 void offsetPolygon(QVector<QPointF>& poly, double distance)

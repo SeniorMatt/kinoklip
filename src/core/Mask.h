@@ -6,6 +6,7 @@
 
 #include "core/Animation.h"
 
+#include <QPainterPath>
 #include <QPointF>
 #include <QSizeF>
 #include <QString>
@@ -218,6 +219,11 @@ struct MaskData
 /// Inverse of maskToContent() (std::nullopt when a scale is 0).
 [[nodiscard]] std::optional<QPointF> contentToMask(
     const MaskData& mask, int64_t localFrame, QPointF content);
+
+/// Outline of @p mask at @p localFrame in clip content coordinates (no feather or expansion):
+/// a rotated rectangle / ellipse, or the bezier path (closed when the mask is). Used by the
+/// viewer overlay and the CPU renderer.
+[[nodiscard]] QPainterPath maskOutline(const MaskData& mask, int64_t localFrame);
 
 /// Flattens the closed bezier path @p path (mask-local) into a polygon @p out, mapping every
 /// vertex through @p map (e.g. maskToContent then to layer pixels). Curved segments are split
