@@ -5,7 +5,7 @@ Used by every panel and page. Depends on `core` only.
 | File | What |
 |---|---|
 | `AppContext.h` | the struct of shared objects every panel receives: `Project*`, `SelectionModel*`, `ActionRegistry*`, `PlaybackEngine*` (null until src/playback exists) |
-| `ActionRegistry.h` | every command as a `QAction` with a stable id; default keys from `resources/keymap_default.json`, user overrides in QSettings group `shortcuts`; rebind/reset/import/export/conflict lookup |
+| `ActionRegistry.h` | every command as a `QAction` with a stable id; rebind/reset/import/export/conflict lookup; **keymap profiles** (implementation in `KeymapProfiles.cpp`, see below) |
 | `StandardActions.h` | the catalogue: ids, texts, menus, icons; `standardMenus()` |
 | `PanelFrame.h` | common panel chrome (title bar + tool area + body); `createPlaceholderPanel()` |
 | `Page.h` | base class for main-window pages; `PanelId` for the interface-toolbar toggles |
@@ -35,12 +35,35 @@ Behaviour is connected by the module that owns it:
 `timeline.snapping`, `timeline.linked_selection` and the `tool.*` group are checkable and start
 in their default state (snap on, linked on, select tool).
 
+## Keymap profiles
+
+Default keys come from the active keymap profile (plan.md 5.9 rule 1):
+
+- **Built-in** profiles: `resources/keymaps/<id>.json` (read-only, compiled in). The default is
+  `resolve-windows` (Resolve's Windows defaults, documented in docs/keymap-resolve-windows.md).
+- **User** profiles: `<AppData>/keymaps/<name>.json`, id `user-<name>`; each has a `basedOn`
+  built-in profile and stores only its overrides.
+- Rebinding always changes the active profile: built-in profiles keep their overrides in
+  QSettings (`shortcuts/<profile id>/<action id>`), user profiles in their file. Reset restores
+  the base. Overrides saved before profiles existed (`shortcuts/<action id>`) are migrated to
+  the default profile on start.
+- API: `profiles()`, `profile(id)`, `activeProfile()` / `setActiveProfile(id)` (persisted in
+  `keymap/profile`), `duplicateProfile()`, `renameProfile()`, `deleteProfile()`,
+  `importProfile(path)` (creates a user profile), `exportProfile(id, path)` (complete keymap),
+  `isProfileModified(id)`; signals `profilesChanged()`, `activeProfileChanged(id)`.
+- The Keyboard Customization dialog shows a profile combo at the top (+ Duplicate / Rename /
+  Delete), Import / Export work on profiles.
+
+**Add a built-in profile:** drop `resources/keymaps/<id>.json` (with a `"name"`) into the
+resources and list it in `resources/resources.qrc`; it must cover every action id (see the
+test in `test_actionregistry`).
+
 ## How to extend
 
 **Add a command:**
 1. Add a row to `kActions` in `StandardActions.cpp` (category = menu id, optional icon name,
    checkable flag). Order in the table = order in the menu; `"-"` adds a separator.
-2. Add its default shortcut to `resources/keymap_default.json` (use `[]` for none) — the test
+2. Add its default shortcut to every built-in profile in `resources/keymaps/` (use `[]` for none) — the test
    `test_actionregistry` fails if an action is missing there or a shortcut is used twice.
 3. Connect `triggered` in the owning module.
 

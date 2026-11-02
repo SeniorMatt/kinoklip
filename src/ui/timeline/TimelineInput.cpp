@@ -113,6 +113,13 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
             bladeAt(hit);
         return;
     }
+    // Outer edges of a transition change its length (spec 13.9); they win over the clip body.
+    if (const auto edge = transitionEdgeAt(pos)) {
+        m_drag.transition = *edge;
+        m_drag.pending = DragMode::TransitionEdge;
+        m_drag.mode = DragMode::Pending;
+        return;
+    }
     const EditBehaviour behaviour = EditBehaviour::fromSettings();
     if (!onClip) {
         // Empty track area: a plain click clears the selection and selects the gap under the
@@ -155,6 +162,16 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
         return;
     }
 
+    // Ctrl+Shift drag on a clip body (selection tool): swap / shuffle insert (spec 21.6).
+    // Select the clip without the Ctrl/Shift toggle.
+    if (tool == TimelineTool::Select
+        && (m_drag.modifiers & (Qt::ControlModifier | Qt::ShiftModifier))
+            == (Qt::ControlModifier | Qt::ShiftModifier)) {
+        m_ctx.selection->setClips(m_controller->withLinks({hit.clipId}));
+        m_drag.pending = DragMode::Shuffle;
+        m_drag.mode = DragMode::Pending;
+        return;
+    }
     clickSelect(hit, m_drag.modifiers);
     if (!m_ctx.selection->isSelected(hit.clipId))
         return; // Ctrl/Shift-click deselected it: nothing to drag
@@ -187,7 +204,8 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
     m_drag.lastPos = pos;
     if (m_drag.mode == DragMode::Pending) {
         const bool trim = m_drag.pending == DragMode::TrimHead
-            || m_drag.pending == DragMode::TrimTail || m_drag.pending == DragMode::Roll;
+            || m_drag.pending == DragMode::TrimTail || m_drag.pending == DragMode::Roll
+            || m_drag.pending == DragMode::TransitionEdge;
         const int threshold = trim ? kTrimThresholdPx : QApplication::startDragDistance();
         if ((pos - m_drag.pressPos).manhattanLength() < threshold)
             return;
@@ -227,7 +245,11 @@ void TimelineWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
 {
-    // Double-clicking the ruler or empty track area just behaves like a press.
+    // A double-click on a ruler marker opens the marker editor (spec 18.5); anywhere else it
+    // behaves like a press.
+    if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
+        && editMarkerNear(event->position()))
+        return;
     mousePressEvent(event);
 }
 
@@ -274,6 +296,14 @@ void TimelineWidget::startDrag(DragMode mode)
         m_drag.originHeight = TimelineLayout::trackHeight(*data.track(hit.track));
         openEdit(tr("Resize Track"));
         return;
+    case DragMode::TransitionEdge:
+        openEdit(tr("Change Transition Length"));
+        return;
+    case DragMode::Shuffle:
+        m_drag.primary = hit.clipId;
+        m_drag.clips = m_controller->withLinks({hit.clipId});
+        openEdit(tr("Swap Edit"));
+        break;
     case DragMode::Move: {
         // Alt-drag: the clicked side only (linked partners are not expanded, spec 7.3).
         m_drag.clips = (m_drag.modifiers & Qt::AltModifier) ? m_ctx.selection->clips()
@@ -382,13 +412,21 @@ void TimelineWidget::updateDrag(QPointF pos)
         updateSlipSlide(pos);
         break;
     case DragMode::ResizeTrack: {
-        const int h = std::clamp(m_drag.originHeight + int(pos.y() - m_drag.pressPos.y()),
+        // The stored height is unscaled; the drag distance is in scaled view pixels.
+        const int h = std::clamp(m_drag.originHeight
+                + int(std::lround((pos.y() - m_drag.pressPos.y()) / m_layout.heightScale())),
             kMinTrackHeight, kMaxTrackHeight);
         if (TrackData* t = m_ctx.project->timeline()->mutableData().track(m_drag.hit.track))
             t->height = h;
         m_ctx.project->timeline()->notifyChanged();
         break;
     }
+    case DragMode::TransitionEdge:
+        updateTransitionEdge(pos);
+        break;
+    case DragMode::Shuffle:
+        updateShuffle(pos);
+        break;
     case DragMode::Pan:
         horizontalScrollBar()->setValue(m_drag.scrollXAtPress - int(pos.x() - m_drag.pressPos.x()));
         verticalScrollBar()->setValue(m_drag.scrollYAtPress - int(pos.y() - m_drag.pressPos.y()));
@@ -720,6 +758,8 @@ void TimelineWidget::updateHover(QPointF pos)
     int bladeRow = -1;
     if (hit.area == TimelineHit::Area::HeaderResize) {
         shape = Qt::SizeVerCursor;
+    } else if (tool != TimelineTool::Blade && transitionEdgeAt(pos)) {
+        shape = Qt::SizeHorCursor; // transition length (spec 13.9)
     } else if (hit.area == TimelineHit::Area::Clip) {
         const bool edge = hit.part == ClipPart::Head || hit.part == ClipPart::Tail;
         if (tool == TimelineTool::Blade) {

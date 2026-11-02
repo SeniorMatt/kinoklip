@@ -434,6 +434,13 @@ public:
         m_zoom->setToolTip(tr("Point the timeline keeps in place when zooming with the "
                               "mouse wheel"));
         form->addRow(tr("Timeline zooms around"), m_zoom);
+        m_wheel = new QComboBox;
+        m_wheel->setObjectName(QStringLiteral("WheelScheme"));
+        m_wheel->addItem(tr("Resolve (Alt zooms, Ctrl scrolls time, Shift track height)"),
+            int(WheelScheme::Resolve));
+        m_wheel->addItem(tr("Classic (Ctrl zooms, Shift scrolls time)"), int(WheelScheme::Classic));
+        m_wheel->setCurrentIndex(m_wheel->findData(int(b.wheelScheme)));
+        form->addRow(tr("Mouse wheel"), m_wheel);
 
         m_threePoint = new QCheckBox(tr("Use timeline in and out points for source edits"));
         m_threePoint->setChecked(b.threePointEditing);
@@ -466,6 +473,7 @@ public:
         s.setValue(QStringLiteral("edit/selectToolRollsAtCut"), m_rollAtCut->isChecked());
         s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
         s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
+        EditBehaviour::setWheelScheme(WheelScheme(m_wheel->currentData().toInt()));
     }
 
 private:
@@ -473,6 +481,7 @@ private:
     QDoubleSpinBox* m_generator = nullptr;
     QDoubleSpinBox* m_transition = nullptr;
     QSpinBox* m_nudge = nullptr;
+    QComboBox* m_wheel = nullptr;
     QComboBox* m_zoom = nullptr;
     QCheckBox* m_threePoint = nullptr;
     QCheckBox* m_rippleGap = nullptr;

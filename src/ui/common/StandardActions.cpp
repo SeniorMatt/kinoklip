@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Table of every standard command. Default shortcuts live in resources/keymap_default.json.
+// Table of every standard command. Default shortcuts live in
+// resources/keymaps/resolve-windows.json.
 #include "ui/common/StandardActions.h"
 
 #include "ui/common/ActionRegistry.h"
@@ -49,15 +50,23 @@ const ActionSpec kActions[] = {
     {"edit", "edit.copy",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Copy")},
     {"edit", "edit.paste",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Paste")},
     {"edit", "edit.paste_insert",     QT_TRANSLATE_NOOP("kk::StandardActions", "Paste &Insert")},
+    {"edit", "edit.paste_attributes", QT_TRANSLATE_NOOP("kk::StandardActions", "Paste Attri&butes…")},
+    {"edit", "edit.ripple_cut",       QT_TRANSLATE_NOOP("kk::StandardActions", "Ripple Cu&t")},
     {"edit", "-"},
-    {"edit", "edit.delete",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete")},
+    {"edit", "edit.delete",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete Selected")},
     {"edit", "edit.ripple_delete",    QT_TRANSLATE_NOOP("kk::StandardActions", "Ripple De&lete")},
+    {"edit", "edit.delete_gaps",      QT_TRANSLATE_NOOP("kk::StandardActions", "Delete &Gaps")},
     {"edit", "-"},
     {"edit", "edit.select_all",       QT_TRANSLATE_NOOP("kk::StandardActions", "Select &All")},
     {"edit", "edit.deselect_all",     QT_TRANSLATE_NOOP("kk::StandardActions", "Deselect All")},
+    {"edit", "edit.select_forward",   QT_TRANSLATE_NOOP("kk::StandardActions", "Select Clips Forward")},
+    {"edit", "edit.select_backward",  QT_TRANSLATE_NOOP("kk::StandardActions", "Select Clips Backward")},
+    {"edit", "edit.select_forward_all", QT_TRANSLATE_NOOP("kk::StandardActions", "Select Clips Forward on All Tracks")},
+    {"edit", "edit.select_backward_all", QT_TRANSLATE_NOOP("kk::StandardActions", "Select Clips Backward on All Tracks")},
     {"edit", "-"},
     {"edit", "edit.insert",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Insert Clip"), "insert"},
     {"edit", "edit.overwrite",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Overwrite Clip"), "overwrite"},
+    {"edit", "edit.ripple_overwrite", QT_TRANSLATE_NOOP("kk::StandardActions", "Ripple O&verwrite")},
     {"edit", "edit.place_on_top",     QT_TRANSLATE_NOOP("kk::StandardActions", "Place on &Top"), "place_on_top"},
     {"edit", "edit.replace",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Replace Clip"), "replace"},
     {"edit", "edit.fit_to_fill",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Fit to Fill")},
@@ -71,6 +80,8 @@ const ActionSpec kActions[] = {
     {"trim", "tool.trim",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Trim Edit Mode"), "trim", true},
     {"trim", "tool.blade",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Blade Edit Mode"), "blade", true},
     {"trim", "-"},
+    {"trim", "trim.dynamic",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Dynamic Trim Mode"), "", true},
+    {"trim", "-"},
     {"trim", "trim.nudge_left",       QT_TRANSLATE_NOOP("kk::StandardActions", "Nudge One Frame &Left")},
     {"trim", "trim.nudge_right",      QT_TRANSLATE_NOOP("kk::StandardActions", "Nudge One Frame &Right")},
     {"trim", "trim.nudge_left_multi", QT_TRANSLATE_NOOP("kk::StandardActions", "Nudge Several Frames Left")},
@@ -80,13 +91,21 @@ const ActionSpec kActions[] = {
     {"trim", "trim.trim_end",         QT_TRANSLATE_NOOP("kk::StandardActions", "Trim &End to Playhead")},
     {"trim", "trim.extend_edit",      QT_TRANSLATE_NOOP("kk::StandardActions", "E&xtend Edit to Playhead")},
     {"trim", "trim.cycle_edit",       QT_TRANSLATE_NOOP("kk::StandardActions", "Cycle Edit Point &Side")},
+    {"trim", "-"},
+    {"trim", "trim.select_nearest_edit", QT_TRANSLATE_NOOP("kk::StandardActions", "Select &Nearest Edit Point")},
+    {"trim", "trim.select_nearest_clip", QT_TRANSLATE_NOOP("kk::StandardActions", "Select Nearest &Clip or Gap")},
+    {"trim", "-"},
+    {"trim", "trim.swap_left",        QT_TRANSLATE_NOOP("kk::StandardActions", "Swap Clip with Previous")},
+    {"trim", "trim.swap_right",       QT_TRANSLATE_NOOP("kk::StandardActions", "Swap Clip with Next")},
 
     // ---- Timeline ----
     {"timeline", "edit.split",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Split Clip at Playhead"), "split"},
+    {"timeline", "edit.join",         QT_TRANSLATE_NOOP("kk::StandardActions", "&Join Clips")},
     {"timeline", "timeline.add_transition", QT_TRANSLATE_NOOP("kk::StandardActions", "Add Default &Transition")},
     {"timeline", "-"},
     {"timeline", "timeline.snapping", QT_TRANSLATE_NOOP("kk::StandardActions", "S&napping"), "snap", true},
     {"timeline", "timeline.linked_selection", QT_TRANSLATE_NOOP("kk::StandardActions", "&Linked Selection"), "link", true},
+    {"timeline", "timeline.audio_scrubbing", QT_TRANSLATE_NOOP("kk::StandardActions", "Audio Scr&ubbing"), "", true},
     {"timeline", "-"},
     {"timeline", "timeline.zoom_in",  QT_TRANSLATE_NOOP("kk::StandardActions", "Zoom &In"), "zoom_in"},
     {"timeline", "timeline.zoom_out", QT_TRANSLATE_NOOP("kk::StandardActions", "Zoom &Out"), "zoom_out"},
@@ -94,9 +113,16 @@ const ActionSpec kActions[] = {
     {"timeline", "-"},
     {"timeline", "timeline.add_video_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Video Track")},
     {"timeline", "timeline.add_audio_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Audio Track")},
+    {"timeline", ">timeline.tracks",  QT_TRANSLATE_NOOP("kk::StandardActions", "Track &Destination and Auto Select")},
 
     // ---- Clip ----
     {"clip", "clip.toggle_enabled",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Enable / Disable Clip")},
+    {"clip", "clip.match_frame",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Match Frame")},
+    {"clip", "-"},
+    {"clip", "clip.change_duration",  QT_TRANSLATE_NOOP("kk::StandardActions", "Change Clip &Duration…")},
+    {"clip", "clip.change_speed",     QT_TRANSLATE_NOOP("kk::StandardActions", "Change Clip &Speed…")},
+    {"clip", "clip.retime_controls",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Retime Controls")},
+    {"clip", "clip.freeze_frame",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Freeze Frame")},
     {"clip", "-"},
     {"clip", "clip.link",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Link Clips")},
     {"clip", "clip.unlink",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Unlink Clips")},
@@ -119,6 +145,8 @@ const ActionSpec kActions[] = {
     {"mark", "mark.go_to_out",        QT_TRANSLATE_NOOP("kk::StandardActions", "Go to Out")},
     {"mark", "-"},
     {"mark", "mark.add_marker",       QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Marker"), "marker"},
+    {"mark", "mark.modify_marker",    QT_TRANSLATE_NOOP("kk::StandardActions", "Add and M&odify Marker…")},
+    {"mark", "mark.delete_marker",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete Marker")},
 
     // ---- View ----
     {"view", "view.page_media",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Media Page"), "page_media", true},
@@ -137,6 +165,7 @@ const ActionSpec kActions[] = {
     {"view", "view.toggle_inspector", QT_TRANSLATE_NOOP("kk::StandardActions", "Inspector"), "panel_inspector", true},
     {"view", "-"},
     {"view", "view.single_viewer",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Single Viewer Mode"), "single_viewer", true},
+    {"view", "view.toggle_source_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Source / Timeline Viewer")},
     {"view", "view.fullscreen_viewer", QT_TRANSLATE_NOOP("kk::StandardActions", "Full-Screen &Viewer"), "fullscreen"},
     {"view", "view.fullscreen",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen"), "", true},
 
@@ -172,6 +201,9 @@ const ActionSpec kActions[] = {
     {"help", "help.about_qt",         QT_TRANSLATE_NOOP("kk::StandardActions", "About &Qt")},
 };
 // clang-format on
+
+/// Number of tracks with destination / auto-select shortcuts (V1-V8, A1-A8).
+constexpr int kTrackShortcutCount = 8;
 
 QString translate(const char* text)
 {
@@ -243,13 +275,46 @@ void registerStandardActions(ActionRegistry& registry)
     for (const auto& [id, label] : pageLabels)
         registry.action(QLatin1String(id))->setIconText(translate(label));
 
-    // Pages of the Resolve layout that are not built yet: visible in the page bar (so the
-    // bar has Resolve's order and proportions) but disabled.
+    // Track destination (patch) and auto track selector toggles per track number (data-driven
+    // submenu; keys in the keymap profile).
+    for (int n = 1; n <= kTrackShortcutCount; ++n) {
+        const QString num = QString::number(n);
+        registry.add(QStringLiteral("timeline.target_video_") + num,
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Video Destination V%1")).arg(n),
+            QStringLiteral("timeline.tracks"));
+    }
+    registry.addSeparator(QStringLiteral("timeline.tracks"));
+    for (int n = 1; n <= kTrackShortcutCount; ++n) {
+        const QString num = QString::number(n);
+        registry.add(QStringLiteral("timeline.target_audio_") + num,
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Audio Destination A%1")).arg(n),
+            QStringLiteral("timeline.tracks"));
+    }
+    registry.addSeparator(QStringLiteral("timeline.tracks"));
+    for (int n = 1; n <= kTrackShortcutCount; ++n) {
+        const QString num = QString::number(n);
+        registry.add(QStringLiteral("timeline.auto_select_video_") + num,
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Auto Select V%1")).arg(n),
+            QStringLiteral("timeline.tracks"));
+    }
+    registry.addSeparator(QStringLiteral("timeline.tracks"));
+    for (int n = 1; n <= kTrackShortcutCount; ++n) {
+        const QString num = QString::number(n);
+        registry.add(QStringLiteral("timeline.auto_select_audio_") + num,
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Auto Select A%1")).arg(n),
+            QStringLiteral("timeline.tracks"));
+    }
+
+    // Pages of the Resolve layout that are not built yet (visible in the page bar, so the bar
+    // has Resolve's order and proportions) and commands of subsystems that do not exist yet
+    // (retime, freeze frames, audio scrubbing): present so the keymap matches Resolve's, but
+    // disabled.
     for (const char* id :
-        {"view.page_cut", "view.page_compositing", "view.page_color", "view.page_audio"}) {
-        QAction* page = registry.action(QLatin1String(id));
-        page->setEnabled(false);
-        page->setStatusTip(
+        {"view.page_cut", "view.page_compositing", "view.page_color", "view.page_audio",
+            "clip.retime_controls", "clip.freeze_frame", "timeline.audio_scrubbing"}) {
+        QAction* a = registry.action(QLatin1String(id));
+        a->setEnabled(false);
+        a->setStatusTip(
             translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Coming in a later version")));
     }
 }

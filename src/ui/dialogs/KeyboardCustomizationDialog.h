@@ -8,6 +8,7 @@
 #include <QKeySequence>
 #include <QLineEdit>
 
+class QComboBox;
 class QLabel;
 class QPushButton;
 class QTreeWidget;
@@ -44,9 +45,12 @@ protected:
 ///   replaces the command's primary shortcut (secondary ones are kept); "Clear" removes all.
 /// - If the key is used by another command the dialog asks whether to reassign it (the other
 ///   command loses that key).
-/// - Changes apply immediately (so they can be tried out); Cancel restores the shortcuts the
-///   dialog was opened with. Reset / Reset All restore the defaults; Import / Export read and
-///   write keymap JSON files (ActionRegistry format).
+/// - A profile combo at the top switches the keymap profile (built-in presets and user
+///   copies); its menu button duplicates, renames and deletes user profiles. Import creates a
+///   user profile from a keymap file, Export writes the active profile.
+/// - Changes apply immediately to the active profile (so they can be tried out); Cancel
+///   reactivates the profile the dialog was opened with and restores its shortcuts. Reset /
+///   Reset All restore the profile's defaults.
 class KeyboardCustomizationDialog : public QDialog
 {
     Q_OBJECT
@@ -77,6 +81,8 @@ public:
     [[nodiscard]] QString currentId() const;
     /// Selects command @p id.
     void setCurrentId(const QString& id);
+    /// The profile combo (tests).
+    [[nodiscard]] QComboBox* profileCombo() const { return m_profiles; }
 
     void reject() override;
 
@@ -91,10 +97,17 @@ private:
     void resetAll();
     void importKeymap();
     void exportKeymap();
+    void fillProfiles();
+    void duplicateProfile();
+    void renameProfile();
+    void deleteProfile();
     [[nodiscard]] QString commandName(const QString& id) const;
 
     ActionRegistry& m_registry;
     QHash<QString, QList<QKeySequence>> m_original; ///< shortcuts when the dialog opened
+    QString m_originalProfile; ///< profile active when the dialog opened
+    QComboBox* m_profiles = nullptr;
+    QPushButton* m_profileMenu = nullptr;
     QHash<QString, QTreeWidgetItem*> m_rows;
     QLineEdit* m_search = nullptr;
     QTreeWidget* m_tree = nullptr;
