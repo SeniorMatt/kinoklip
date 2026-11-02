@@ -6,6 +6,8 @@
 #include "media/MediaLog.h"
 #include "media/VideoDecoderImpl.h"
 
+#include <QFileInfo>
+#include <QSet>
 #include <QThread>
 #include <QTransform>
 
@@ -39,7 +41,39 @@ void setError(QString* error, const QString& message)
     }
 }
 
+/// True the first time `key` is seen in this process: decoders are opened many times per file
+/// (render pool, thumbnails, export), the log should say things once per file.
+bool firstTime(const QString& key)
+{
+    static std::mutex mutex;
+    static QSet<QString> seen;
+    const std::lock_guard lock(mutex);
+    if (seen.contains(key)) {
+        return false;
+    }
+    seen.insert(key);
+    return true;
+}
+
 } // namespace
+
+VideoDecoder::Impl::~Impl()
+{
+    freeCodec();
+}
+
+void VideoDecoder::Impl::freeCodec()
+{
+    // Frames first (they return surfaces to the pool), then the codec (which destroys the VA
+    // context and, with the last reference, the surface pool) - all under the device lock.
+    const auto lock = lockHw();
+    releaseAll();
+    spareFrames.clear();
+    if (scratch) {
+        av_frame_unref(scratch.get());
+    }
+    codec.reset();
+}
 
 // ---- Opening --------------------------------------------------------------------------------
 
@@ -119,11 +153,12 @@ QImage VideoDecoder::Impl::scaledCopy(
 
 bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
 {
-    releaseAll();
-    codec.reset();
+    freeCodec();
     activeHw = HwAccelMode::Off;
+    hwLock = nullptr;
     hwState = {};
     hwFailed = false;
+    hwFailReason.clear();
     hwPacketErrors = 0;
     softSeekAllowed = softSeekPending = false;
     const AVCodec* decoder = avcodec_find_decoder(stream->codecpar->codec_id);
@@ -138,7 +173,11 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
         }
         hwState.hwFormat = hwFormat;
         hwState.rejected = false;
-        codec = openDecoder(stream, kHardwareDecodeThreads, nullptr, device, &hwState);
+        hwLock = HwDeviceManager::instance().callLock(mode);
+        {
+            const auto lock = lockHw();
+            codec = openDecoder(stream, kHardwareDecodeThreads, nullptr, device, &hwState);
+        }
         av_buffer_unref(&device);
         if (codec) {
             activeHw = mode;
@@ -149,6 +188,7 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
                 && (mode == HwAccelMode::Cuda || mode == HwAccelMode::Vulkan);
             return true;
         }
+        hwLock = nullptr;
     }
     const int threads = threadCount > 0
         ? threadCount
@@ -157,12 +197,64 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
     return codec != nullptr;
 }
 
-bool VideoDecoder::Impl::switchToSoftware()
+bool VideoDecoder::Impl::switchToSoftware(bool duringOpen)
 {
-    qCInfo(lcMedia).noquote() << "hardware decoding (" + hwAccelName(activeHw) + ") failed for"
-                              << info.path << "- falling back to software";
+    const HwAccelMode failed = activeHw;
+    const QString name = hwAccelName(failed);
+    QString why;
+    if (hwState.rejected) {
+        why = QStringLiteral("the GPU cannot decode this stream");
+    } else {
+        why = hwFailReason.isEmpty() ? QStringLiteral("decoding error") : hwFailReason;
+        // A rejected profile is not the device's fault; real failures count towards
+        // disabling the backend for the session.
+        HwDeviceManager::instance().reportFailure(failed, why);
+    }
+    const int64_t atUs = lastDecodedTs != AV_NOPTS_VALUE ? tsToUs(lastDecodedTs) : 0;
     // The demuxer position is left as is; with no current frame the next request seeks.
-    return openCodec(HwAccelMode::Off, nullptr);
+    const bool ok = openCodec(HwAccelMode::Off, nullptr);
+    if (duringOpen) {
+        hwOpenFailure = QStringLiteral("%1 failed: %2").arg(name, why);
+    } else {
+        const QString line = QStringLiteral("%1 decoding failed for %2 at %3 s (%4); continuing "
+                                            "in software (%5 threads)")
+                                 .arg(name, QFileInfo(info.path).fileName())
+                                 .arg(double(atUs) / 1e6, 0, 'f', 3)
+                                 .arg(why)
+                                 .arg(codec ? codec->thread_count : 0);
+        if (firstTime(QStringLiteral("fallback|") + info.path)) {
+            qCWarning(lcMedia).noquote() << line;
+        } else {
+            qCDebug(lcMedia).noquote() << line;
+        }
+    }
+    return ok;
+}
+
+void VideoDecoder::Impl::logOpened()
+{
+    QString profile;
+    if (const char* p
+        = avcodec_profile_name(stream->codecpar->codec_id, stream->codecpar->profile)) {
+        profile = QLatin1Char(' ') + QString::fromUtf8(p).toLower();
+    }
+    const QString with = activeHw != HwAccelMode::Off
+        ? HwDeviceManager::instance().describe(activeHw)
+        : QStringLiteral("software (%1 threads)").arg(codec ? codec->thread_count : 0);
+    QString line = QStringLiteral("decoding %1 (%2%3 %4x%5) with %6")
+                       .arg(QFileInfo(info.path).fileName(),
+                           QString::fromUtf8(avcodec_get_name(stream->codecpar->codec_id)), profile)
+                       .arg(info.width)
+                       .arg(info.height)
+                       .arg(with);
+    if (!hwOpenFailure.isEmpty()) {
+        line += QStringLiteral("; ") + hwOpenFailure;
+    }
+    if (firstTime(QStringLiteral("open|") + info.path + u'|' + with)) {
+        qCInfo(lcMedia).noquote() << line;
+    } else {
+        qCDebug(lcMedia).noquote() << line;
+    }
 }
 
 bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
@@ -207,7 +299,10 @@ bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
     // the whole hardware path end to end, and gives us the clamp lower bound.
     bool ok = decodeOne(cur);
     if (activeHw != HwAccelMode::Off && (!ok || hwFailed || !currentVideoFrame())) {
-        ok = switchToSoftware() && seek(firstTs, 0) && decodeOne(cur);
+        if (!ok && !hwFailed && hwFailReason.isEmpty()) {
+            hwFailReason = QStringLiteral("no frame decoded");
+        }
+        ok = switchToSoftware(true) && seek(firstTs, 0) && decodeOne(cur);
     }
     if (!ok) {
         setError(error, QStringLiteral("No decodable video frames"));
@@ -240,10 +335,11 @@ bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
             return false;
         }
         isStill = true;
-        releaseAll();
-        codec.reset();
+        freeCodec();
         fmt.reset();
+        return true;
     }
+    logOpened();
     return true;
 }
 
@@ -266,9 +362,24 @@ std::shared_ptr<const VideoFrame> VideoDecoder::Impl::currentVideoFrame()
         }
         meta.sampleAspectRatio = info.sampleAspectRatio; // fixed per clip, see openVideo()
         meta.rotation = info.rotation;
-        cur.video = factory.make(cur.av.get(), meta);
+        const bool hwFrame = cur.av->hw_frames_ctx != nullptr;
+        {
+            const auto lock = hwFrame ? lockHw() : std::unique_lock<std::mutex>();
+            cur.video = factory.make(cur.av.get(), meta);
+            if (!cur.video && hwFrame) {
+                // One retry: a transient failure (driver busy) succeeds now; a broken surface
+                // fails again immediately and the caller re-decodes the frame in software.
+                const QString first = factory.lastErrorString();
+                cur.video = factory.make(cur.av.get(), meta);
+                if (cur.video) {
+                    qCDebug(lcMedia).noquote()
+                        << "hardware frame download succeeded on retry after:" << first;
+                }
+            }
+        }
         if (!cur.video && activeHw != HwAccelMode::Off) {
-            hwFailed = true; // download failed
+            hwFailed = true; // download failed twice
+            hwFailReason = QStringLiteral("frame download: ") + factory.lastErrorString();
         }
     }
     return cur.video;

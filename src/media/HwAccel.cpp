@@ -7,6 +7,12 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QRegularExpression>
+
+#ifdef Q_OS_UNIX
+#include <dlfcn.h>
+#endif
 
 extern "C" {
 #include <libavutil/hwcontext.h>
@@ -173,6 +179,50 @@ bool deviceCanDecode(HwAccelMode mode, AVBufferRef* device)
     return true;
 }
 
+/// Serialisation policy from KINOKLIP_HW_SERIALIZE (default: VAAPI only).
+detail::HwSerialise initialSerialise()
+{
+    const QByteArray env = qgetenv("KINOKLIP_HW_SERIALIZE").toLower();
+    if (env == "off" || env == "0" || env == "none") {
+        return detail::HwSerialise::Off;
+    }
+    if (env == "all") {
+        return detail::HwSerialise::All;
+    }
+    return detail::HwSerialise::Vaapi;
+}
+
+std::atomic<int> s_injectedDownloadFailures {0};
+
+/// Looks up a libva function in the already loaded libva (libavutil links it), without a
+/// build-time dependency on the libva headers.
+void* libvaSymbol(const char* name)
+{
+#ifdef Q_OS_UNIX
+    return dlsym(RTLD_DEFAULT, name);
+#else
+    Q_UNUSED(name)
+    return nullptr;
+#endif
+}
+
+/// "Intel iHD driver for Intel(R) Gen Graphics - 24.1.0 ()" -> "iHD 24.1.0";
+/// "Mesa Gallium driver 24.2.1 for AMD Radeon ..." -> "Mesa Gallium 24.2.1 (AMD Radeon ...)".
+QString shortDriverName(const QString& vendor)
+{
+    static const QRegularExpression intel(QStringLiteral(R"((iHD|i965)\b.*?-\s*([0-9][0-9.]*))"));
+    if (const auto m = intel.match(vendor); m.hasMatch()) {
+        return m.captured(1) + u' ' + m.captured(2);
+    }
+    static const QRegularExpression mesa(
+        QStringLiteral(R"(Mesa Gallium driver ([0-9][^ ]*)(?: for (.*))?)"));
+    if (const auto m = mesa.match(vendor); m.hasMatch()) {
+        return QStringLiteral("Mesa Gallium %1").arg(m.captured(1))
+            + (m.captured(2).isEmpty() ? QString() : QStringLiteral(" (%1)").arg(m.captured(2)));
+    }
+    return vendor.trimmed();
+}
+
 /// FFmpeg's get_format callback: pick the hardware surface format if offered, otherwise
 /// (profile unsupported by the GPU, hwaccel init failed) the first software format.
 AVPixelFormat selectHwFormat(AVCodecContext* ctx, const AVPixelFormat* formats)
@@ -233,6 +283,94 @@ QList<HwDeviceInfo> hwCapabilities()
     return result;
 }
 
+bool nvidiaDriverPresent()
+{
+#ifdef Q_OS_LINUX
+    // The control node, not /proc/driver/nvidia: containers see the host's /proc but get the
+    // device nodes only when the GPU is passed through.
+    return QFile::exists(QStringLiteral("/dev/nvidiactl"));
+#else
+    return true;
+#endif
+}
+
+bool qsvRuntimePresent()
+{
+#ifdef Q_OS_LINUX
+    static const bool present = [] {
+        bool intelGpu = false;
+        const QDir dri(QStringLiteral("/dev/dri"));
+        for (const QString& name : dri.entryList({QStringLiteral("renderD*")}, QDir::System)) {
+            QFile vendor(QStringLiteral("/sys/class/drm/%1/device/vendor").arg(name));
+            if (vendor.open(QIODevice::ReadOnly)) {
+                bool ok = false;
+                intelGpu = intelGpu || vendor.readAll().trimmed().toUInt(&ok, 16) == kVendorIntel;
+            }
+        }
+        if (!intelGpu) {
+            return false;
+        }
+        if (qEnvironmentVariableIsSet("ONEVPL_SEARCH_PATH")) {
+            return true; // the dispatcher looks there too: let it try
+        }
+        // The oneVPL GPU runtime (Gen12+, e.g. Iris Xe) or the legacy Media SDK runtime.
+        for (const char* lib : {"libmfx-gen.so.1.2", "libmfxhw64.so.1"}) {
+            if (void* handle = dlopen(lib, RTLD_LAZY | RTLD_LOCAL)) {
+                dlclose(handle);
+                return true;
+            }
+        }
+        return false;
+    }();
+    return present;
+#else
+    return true;
+#endif
+}
+
+QString vaapiDriverName(AVBufferRef* device)
+{
+    if (!device) {
+        return {};
+    }
+    const auto* ctx = reinterpret_cast<const AVHWDeviceContext*>(device->data);
+    if (ctx->type != AV_HWDEVICE_TYPE_VAAPI || !ctx->hwctx) {
+        return {};
+    }
+    // AVVAAPIDeviceContext starts with `VADisplay display` (public, stable FFmpeg ABI).
+    void* display = *static_cast<void* const*>(ctx->hwctx);
+    using VendorFn = const char* (*)(void*);
+    auto vendor = reinterpret_cast<VendorFn>(libvaSymbol("vaQueryVendorString"));
+    const char* text = display && vendor ? vendor(display) : nullptr;
+    return text ? shortDriverName(QString::fromUtf8(text)) : QString();
+}
+
+QString libvaDescription()
+{
+#ifdef Q_OS_UNIX
+    void* symbol = libvaSymbol("vaInitialize");
+    Dl_info dl {};
+    if (!symbol || !dladdr(symbol, &dl) || !dl.dli_fname) {
+        return {};
+    }
+    const QString path = QFileInfo(QString::fromLocal8Bit(dl.dli_fname)).canonicalFilePath();
+    // libva.so.2.<minor * 100 + micro>.0 (libtool versioning) -> 2.<minor>.<micro>
+    QString version = QStringLiteral("?");
+    static const QRegularExpression re(QStringLiteral(R"(libva\.so\.(\d+)\.(\d+)\.)"));
+    if (const auto m = re.match(path); m.hasMatch()) {
+        const int lt = m.captured(2).toInt();
+        version = QStringLiteral("%1.%2.%3").arg(m.captured(1)).arg(lt / 100).arg(lt % 100);
+    }
+    const QString appDir = qEnvironmentVariable("KINOKLIP_APPDIR");
+    const bool bundled
+        = !appDir.isEmpty() && path.startsWith(QFileInfo(appDir).canonicalFilePath() + u'/');
+    return QStringLiteral("libva %1 (%2, %3)")
+        .arg(version, bundled ? QStringLiteral("bundled") : QStringLiteral("host"), path);
+#else
+    return {};
+#endif
+}
+
 // ---- Internal helpers -----------------------------------------------------------------------
 
 namespace detail {
@@ -279,6 +417,10 @@ void attachHwDevice(AVCodecContext* ctx, AVBufferRef* device, HwDecodeState* sta
     ctx->extra_hw_frames = kExtraHwFrames;
 }
 
+HwDeviceManager::HwDeviceManager()
+    : m_serialise(initialSerialise())
+{ }
+
 HwDeviceManager& HwDeviceManager::instance()
 {
     static auto* s_instance = new HwDeviceManager; // intentionally never destroyed
@@ -289,7 +431,87 @@ AVBufferRef* HwDeviceManager::acquire(HwAccelMode mode)
 {
     const std::lock_guard lock(m_mutex);
     Entry& entry = ensure(mode);
-    return entry.device ? av_buffer_ref(entry.device) : nullptr;
+    return entry.device && !entry.disabled ? av_buffer_ref(entry.device) : nullptr;
+}
+
+QString HwDeviceManager::describe(HwAccelMode mode)
+{
+    const std::lock_guard lock(m_mutex);
+    const HwDeviceInfo& info = ensure(mode).info;
+    QStringList parts;
+    if (!info.driver.isEmpty()) {
+        parts << info.driver;
+    }
+    if (!info.device.isEmpty()) {
+        parts << info.device;
+    }
+    return parts.isEmpty()
+        ? info.name
+        : QStringLiteral("%1 (%2)").arg(info.name, parts.join(QStringLiteral(", ")));
+}
+
+std::mutex* HwDeviceManager::callLock(HwAccelMode mode)
+{
+    const std::lock_guard lock(m_mutex);
+    const bool serialise = m_serialise == HwSerialise::All
+        || (m_serialise == HwSerialise::Vaapi && mode == HwAccelMode::Vaapi);
+    return serialise && mode != HwAccelMode::Off && mode != HwAccelMode::Auto
+        ? &m_entries[int(mode)].callMutex
+        : nullptr;
+}
+
+bool HwDeviceManager::reportFailure(HwAccelMode mode, const QString& reason)
+{
+    const std::lock_guard lock(m_mutex);
+    Entry& entry = m_entries[int(mode)];
+    ++entry.failures;
+    if (!entry.disabled && entry.failures >= kMaxDecoderFailures) {
+        entry.disabled = true;
+        qCWarning(lcMedia).noquote()
+            << QStringLiteral("hardware decoding %1 disabled for this session after %2 failures "
+                              "(last: %3); new decoders use software")
+                   .arg(entry.info.name)
+                   .arg(entry.failures)
+                   .arg(reason);
+    }
+    return entry.disabled;
+}
+
+int HwDeviceManager::failureCount(HwAccelMode mode)
+{
+    const std::lock_guard lock(m_mutex);
+    return m_entries[int(mode)].failures;
+}
+
+void HwDeviceManager::resetFailures()
+{
+    const std::lock_guard lock(m_mutex);
+    for (Entry& entry : m_entries) {
+        entry.failures = 0;
+        entry.disabled = false;
+    }
+}
+
+void HwDeviceManager::setSerialise(HwSerialise policy)
+{
+    const std::lock_guard lock(m_mutex);
+    m_serialise = policy;
+}
+
+void injectDownloadFailures(int count)
+{
+    s_injectedDownloadFailures.store(count);
+}
+
+bool takeInjectedDownloadFailure()
+{
+    int left = s_injectedDownloadFailures.load();
+    while (left > 0) {
+        if (s_injectedDownloadFailures.compare_exchange_weak(left, left - 1)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 HwDeviceInfo HwDeviceManager::info(HwAccelMode mode)
@@ -313,13 +535,20 @@ HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)
         entry.info.error = QStringLiteral("Not supported on this platform");
         return entry;
     }
-    const QStringList devices = candidateDevices(mode);
+    QStringList devices = candidateDevices(mode);
     if (devices.isEmpty()) {
         entry.info.error = QStringLiteral("No device found");
+    }
+    if (mode == HwAccelMode::Cuda && !nvidiaDriverPresent()) {
+        devices.clear(); // creating a CUDA device would only log CUDA_ERROR_NO_DEVICE
+        entry.info.error = QStringLiteral("no NVIDIA driver");
     }
     for (const QString& device : devices) {
         AVBufferRef* ref = nullptr;
         const QByteArray deviceName = device.toUtf8();
+        // Device creation failures are expected (no such GPU, no permission): keep FFmpeg's
+        // messages out of the log and report them in our one line below.
+        FfmpegLogCapture capture;
         const int ret = av_hwdevice_ctx_create(
             &ref, backend->type, device.isEmpty() ? nullptr : deviceName.constData(), nullptr, 0);
         if (ret >= 0 && !deviceCanDecode(mode, ref)) {
@@ -332,11 +561,16 @@ HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)
             entry.info.available = true;
             entry.info.device = device;
             entry.info.error.clear();
+            if (mode == HwAccelMode::Vaapi) {
+                entry.info.driver = vaapiDriverName(ref);
+            }
             break;
         }
-        entry.info.error = device.isEmpty()
-            ? avErrorString(ret)
-            : QStringLiteral("%1: %2").arg(device, avErrorString(ret));
+        QString reason = avErrorString(ret);
+        if (!capture.firstError().isEmpty()) {
+            reason += QStringLiteral(": ") + capture.firstError();
+        }
+        entry.info.error = device.isEmpty() ? reason : QStringLiteral("%1: %2").arg(device, reason);
         if (mode == HwAccelMode::Vulkan) {
             // Physical devices are numbered densely: if index i cannot be created, no higher
             // index exists either (and without any Vulkan driver every attempt would create and
@@ -350,11 +584,28 @@ HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)
             entry.info.codecs.append(QString::fromUtf8(avcodec_get_name(id)));
         }
     }
-    qCInfo(lcMedia).noquote() << "hardware decoding" << entry.info.name << ":"
-                              << (entry.info.available
-                                         ? QStringLiteral("available ") + entry.info.device
-                                         : QStringLiteral("unavailable (") + entry.info.error
-                                             + ')');
+    if (entry.info.available) {
+        QString details = entry.info.device;
+        if (mode == HwAccelMode::Vaapi) {
+            // Bundled libva + host driver is the usual suspect for VAAPI trouble: say which
+            // libva and which driver are really in use (and any override the user set).
+            details
+                += QStringLiteral(", driver %1, %2")
+                       .arg(entry.info.driver.isEmpty() ? QStringLiteral("?") : entry.info.driver,
+                           libvaDescription());
+            for (const char* var : {"LIBVA_DRIVER_NAME", "LIBVA_DRIVERS_PATH"}) {
+                if (qEnvironmentVariableIsSet(var)) {
+                    details += QStringLiteral(", %1=%2").arg(
+                        QLatin1String(var), qEnvironmentVariable(var));
+                }
+            }
+        }
+        qCInfo(lcMedia).noquote() << "hardware decoding" << entry.info.name
+                                  << "available:" << details;
+    } else {
+        qCInfo(lcMedia).noquote() << "hardware decoding" << entry.info.name
+                                  << "unavailable:" << entry.info.error;
+    }
     return entry;
 }
 
