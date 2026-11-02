@@ -17,7 +17,20 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "" FORCE)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Multimedia Svg SvgWidgets OpenGL OpenGLWidgets Concurrent Test)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Multimedia Svg SvgWidgets OpenGL OpenGLWidgets Concurrent DBus Test)
+
+# Qt's private QDesktopUnixServices (Qt >= 6.9) exports our window for the XDG desktop portal
+# ("wayland:<handle>"), so the native file dialog is attached to the Kinoklip window
+# (src/platform/PortalFileChooser.cpp). Optional: without it the dialog still works, unparented
+# on Wayland.
+set(KK_HAVE_PORTAL_WINDOW_ID OFF)
+if(Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
+  find_package(Qt6 QUIET COMPONENTS GuiPrivate)
+  if(TARGET Qt6::GuiPrivate)
+    set(KK_HAVE_PORTAL_WINDOW_ID ON)
+  endif()
+endif()
+message(STATUS "Portal parent-window export (Qt private API): ${KK_HAVE_PORTAL_WINDOW_ID}")
 
 # KDE Frameworks 6 (optional): the real Breeze look the Kdenlive way -- KColorSchemeManager for
 # the KDE colour schemes, KIconThemes (+ the Breeze icons compiled into libKF6BreezeIcons) for
@@ -63,7 +76,11 @@ target_compile_definitions(kinoklip_core PUBLIC
 )
 target_link_libraries(kinoklip_core PUBLIC
   Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Multimedia Qt6::Svg Qt6::SvgWidgets
-  Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent PkgConfig::FFMPEG)
+  Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::DBus PkgConfig::FFMPEG)
+if(KK_HAVE_PORTAL_WINDOW_ID)
+  target_link_libraries(kinoklip_core PRIVATE Qt6::GuiPrivate)
+  target_compile_definitions(kinoklip_core PRIVATE KK_HAVE_PORTAL_WINDOW_ID)
+endif()
 if(KK_HAVE_KF6)
   target_link_libraries(kinoklip_core PUBLIC KF6::ColorScheme KF6::IconThemes)
   target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_KF6)
@@ -95,12 +112,18 @@ install(TARGETS ${APP_ID} RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 
 # ---- Tests: every tests/**/test_*.cpp becomes its own executable ----
 enable_testing()
+find_program(KK_DBUS_RUN_SESSION dbus-run-session)
 file(GLOB_RECURSE KK_TESTS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/test_*.cpp)
 foreach(test_src ${KK_TESTS})
   get_filename_component(test_name ${test_src} NAME_WE)
   add_executable(${test_name} ${test_src})
   target_link_libraries(${test_name} PRIVATE kinoklip_core Qt6::Test)
   target_compile_definitions(${test_name} PRIVATE KK_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
-  add_test(NAME ${test_name} COMMAND ${test_name})
+  if(test_name STREQUAL "test_filedialogs" AND KK_DBUS_RUN_SESSION)
+    # its portal round trip needs a private session bus (skipped without one)
+    add_test(NAME ${test_name} COMMAND ${KK_DBUS_RUN_SESSION} -- $<TARGET_FILE:${test_name}>)
+  else()
+    add_test(NAME ${test_name} COMMAND ${test_name})
+  endif()
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 300)
 endforeach()
