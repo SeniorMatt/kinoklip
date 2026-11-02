@@ -40,6 +40,14 @@ public:
     virtual void seekLocalFrame(quint64 clipId, int64_t localFrame) = 0;
     /// Remembers the parameter the user last touched (target of the Add Keyframe shortcut).
     virtual void setActiveParam(const ParamRef& ref, const ParamDescriptor& desc) = 0;
+    /// True if the clips an edit of @p ref applies to (the selected clips of the same kind,
+    /// spec 24.1) hold different values of it; the row then shows "mixed" instead of a value.
+    [[nodiscard]] virtual bool isMixed(const ParamRef& ref, const ParamDescriptor& desc) const
+    {
+        (void)ref;
+        (void)desc;
+        return false;
+    }
     /// Asks the user for a colour (modal). Returns an invalid colour if cancelled.
     [[nodiscard]] virtual QColor pickColor(const QColor& initial, const QString& title) = 0;
 };
