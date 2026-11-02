@@ -39,6 +39,9 @@ bool clipIsAnimated(const ClipData& c)
 {
     if (c.transform.isAnimated() || c.audio.isAnimated() || c.title.isAnimated())
         return true;
+    if (std::any_of(
+            c.masks.cbegin(), c.masks.cend(), [](const MaskData& m) { return m.isAnimated(); }))
+        return true;
     return std::any_of(c.effects.cbegin(), c.effects.cend(),
         [](const EffectInstance& fx) { return fx.params.isAnimated(); });
 }

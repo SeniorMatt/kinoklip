@@ -4,7 +4,7 @@ Owned by the panels agent.
 
 | File | What |
 |---|---|
-| `ProjectSettingsDialog.h` | Resolve-style section list: Master Settings (resolution presets + custom, pixel aspect, timeline / playback frame rate, video monitoring), Image Scaling, Audio, General Options (name, autosave), Render Cache; applied with `Project::setSettings()` = one undo step |
+| `ProjectSettingsDialog.h` | Resolve-style section list: Master Settings (resolution presets + custom, pixel aspect, timeline / playback frame rate, video monitoring), Image Scaling, Audio, General Options (name, autosave), Optimized Media and Render Cache (proxy / optimized resolution and format, render cache format, background caching, User mode options -> `Project::setCacheSettings()`, not undoable); applied with `Project::setSettings()` = one undo step |
 | `PreferencesDialog.h` | Resolve-style window: System / User tabs, section list, the registered `SettingsPage`s of a section stacked under headings; Save / Cancel |
 | `PreferencePages.cpp` | the standard pages + `applyStartupPreferences()` / `applyRuntimePreferences()` (see the table below) |
 | `KeyboardCustomizationDialog.h` | searchable command/shortcut table over `ActionRegistry`, `ShortcutRecorder`, conflict detection with reassign, reset one/all, import/export JSON, Cancel restores |
@@ -24,6 +24,7 @@ Preferences dialog stored new values.
 | System > Memory and GPU | still image cache | `system/stillCacheMiB` | `media::ImageLoader::setCacheLimitBytes()` (live) |
 | | GPU processing mode | `system/renderBackend` | `KINOKLIP_RENDER=cpu` before the compositor exists (next start) |
 | System > Media Storage | cache files location | `system/cacheDirectory` | `media::MediaCache::setCacheDirectory()` (live) |
+| | proxy generation location, render cache size limit | `system/proxyDirectory`, `system/renderCacheLimitGiB` | `MediaManagement::preferencesChanged()` (live; optimized media and render cache live in the cache folder) |
 | System > Decode Options | hardware decoding (+ API table) | `playback/hwaccel` | `media::setPreferredHwAccel()` (new decoders) |
 | System > Audio I/O | output device | `system/audioOutputDevice` | `playback/AudioOutput` (first playback, i.e. next start) |
 | User > UI Settings | colour theme, widget style (theme page), interface scale | `ui/colorScheme`, `ui/widgetStyle`, `ui/scaleFactor` | theme actions (live), `main()` (next start) |

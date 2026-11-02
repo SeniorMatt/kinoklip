@@ -896,6 +896,20 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
         p.drawText(QPointF(x + 4, 11), timecode::format(f, d.fps));
     }
 
+    // Render cache status: a thin bar along the top of the ruler, red where a section needs
+    // caching, blue where it is cached (Resolve's render cache indicator).
+    if (in.cache && !in.cache->isEmpty()) {
+        constexpr int kCacheBarHeight = 3;
+        for (const CacheBarRange& r : *in.cache) {
+            if (r.end <= f0 || r.start > f1)
+                continue;
+            const double x0 = L.frameToX(double(r.start));
+            const double x1 = L.frameToX(double(r.end));
+            p.fillRect(QRectF(x0, 0, std::max(1.0, x1 - x0), kCacheBarHeight),
+                r.cached ? QColor(0x3d, 0x8b, 0xf0) : QColor(0xd0, 0x3a, 0x3a));
+        }
+    }
+
     // Markers: small coloured flags on the ruler bottom.
     p.setRenderHint(QPainter::Antialiasing, true);
     for (const Marker& m : d.markers) {

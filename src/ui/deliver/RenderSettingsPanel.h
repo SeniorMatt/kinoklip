@@ -46,6 +46,9 @@ public:
 
     /// Current settings (output path = location [/ subfolder] / file name + extension).
     [[nodiscard]] ExportSettings settings() const;
+    /// Advanced: render with proxy media / optimized media where it exists (default off).
+    [[nodiscard]] bool useProxyMedia() const;
+    [[nodiscard]] bool useOptimizedMedia() const;
     /// Shows @p settings in the widgets.
     void setSettings(const ExportSettings& settings);
     /// Applies a preset by id (no-op for unknown ids).
@@ -129,6 +132,8 @@ private:
     QRadioButton* m_keyframesEvery = nullptr;
     QSpinBox* m_keyframeInterval = nullptr;
     QCheckBox* m_frameReordering = nullptr;
+    QCheckBox* m_useProxies = nullptr;
+    QCheckBox* m_useOptimized = nullptr;
     QComboBox* m_dataLevels = nullptr;
     QComboBox* m_colorSpace = nullptr;
     QComboBox* m_gamma = nullptr;
