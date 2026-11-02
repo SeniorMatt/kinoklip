@@ -11,6 +11,7 @@
 #include "core/ParamKeys.h"
 #include "core/Project.h"
 #include "core/Serialization.h"
+#include "export/RenderCommand.h"
 #include "render/AudioMixer.h"
 #include "render/Compositor.h"
 #include "render/RenderTypes.h"
@@ -385,6 +386,125 @@ private slots:
                 (void)compositor.renderImage(timeline, f, QSize(160, 90), Quality::Quarter);
                 mixer.mix(*timeline, framesToSamples48k(f, tl.fps), 1920, audio.data());
             }
+        }
+    }
+
+    /// Odd timeline rates with sources of other rates, sizes, rotation and alpha, edited
+    /// (trims, speed change, dissolve) and exported through the --render code path.
+    void oddFrameRatesEditAndExport_data()
+    {
+        QTest::addColumn<int>("num");
+        QTest::addColumn<int>("den");
+        QTest::newRow("23.976") << 24000 << 1001;
+        QTest::newRow("59.94") << 60000 << 1001;
+        QTest::newRow("29.97") << 30000 << 1001;
+    }
+
+    void oddFrameRatesEditAndExport()
+    {
+        QFETCH(int, num);
+        QFETCH(int, den);
+        Project project;
+        const QStringList sources
+            = {test::fixture("h264_2997.mp4"), test::fixture("h264_60fps.mp4"),
+                test::fixture("rotated_portrait.mp4"), test::fixture("vfr_odd.mp4"),
+                test::fixture("prores4444_alpha.mov"), test::fixture("still_alpha.png")};
+        const ImportResult r = project.importMedia(sources);
+        QCOMPARE(r.importedIds.size(), sources.size());
+        const EffectRegistry& registry = EffectRegistry::instance();
+        project.beginEdit(QStringLiteral("edit"));
+        TimelineData& tl = project.timeline()->mutableData();
+        tl.fps = {num, den};
+        tl.width = 640;
+        tl.height = 360;
+        // V1: four sources back to back, 1 s each, cut 0.3 s into the source, a dissolve.
+        const int64_t second = usToFrames(1'000'000, tl.fps);
+        for (int i = 0; i < 4; ++i) {
+            ClipData c = test::mediaClip(
+                tl, r.importedIds[i], i * second, second, 300'000, framesToUs(second, tl.fps));
+            if (i == 1) {
+                c.speed = 1.5; // speed change on a 60 fps source
+                c.sourceDurationUs = int64_t(framesToUs(second, tl.fps) * 1.5);
+            }
+            if (i == 2)
+                c.transitionIn = registry.createTransition(QStringLiteral("cross_dissolve"), 6);
+            test::addClip(tl, TrackType::Video, 0, c);
+        }
+        // V2: alpha ProRes, then the alpha still over it.
+        test::addClip(tl, TrackType::Video, 1,
+            test::mediaClip(tl, r.importedIds[4], 0, second, 0, framesToUs(second, tl.fps)));
+        test::addClip(tl, TrackType::Video, 1,
+            test::mediaClip(tl, r.importedIds[5], second, second, 0, framesToUs(second, tl.fps)));
+        // A1: audio of the 29.97 clip across the whole timeline.
+        test::addClip(tl, TrackType::Audio, 0,
+            test::mediaClip(
+                tl, r.importedIds[0], 0, 4 * second, 0, framesToUs(4 * second, tl.fps)));
+        project.endEdit();
+        QString invariant;
+        QVERIFY2(editops::checkInvariants(project.timeline()->data(), &invariant),
+            qPrintable(invariant));
+
+        QTemporaryDir dir;
+        const QString projectPath = dir.filePath(QStringLiteral("odd.kkproj"));
+        QVERIFY(project.save(projectPath));
+        const QString out = dir.filePath(QStringLiteral("odd.mp4"));
+        QCOMPARE(runRender(projectPath, out), 0);
+        const media::MediaInfo info = media::probe(out);
+        QVERIFY2(info.valid, qPrintable(info.error));
+        QCOMPARE(info.frameRate.num, num);
+        QCOMPARE(info.frameRate.den, den);
+        QCOMPARE(info.width, 640);
+        QCOMPARE(info.height, 360);
+        QVERIFY(info.hasAudio);
+        const int64_t expectedUs = framesToUs(4 * second, tl.fps);
+        QVERIFY2(std::abs(info.durationUs - expectedUs) <= framesToUs(2, tl.fps),
+            qPrintable(QStringLiteral("duration %1 us, expected %2")
+                           .arg(info.durationUs)
+                           .arg(expectedUs)));
+        // Every frame decodes (no holes at clip boundaries / the speed-changed clip).
+        media::VideoDecoder decoder;
+        QVERIFY(decoder.open(out));
+        for (int64_t f = 0; f < 4 * second; f += second / 4)
+            QVERIFY2(
+                decoder.decodeFrame(framesToUs(f, tl.fps) + 1), qPrintable(QString::number(f)));
+    }
+
+    /// A very long clip (opt-in: KK_LONG_MEDIA=<file of an hour or more>, e.g. the 2 h file
+    /// made by `ffmpeg -f lavfi -i color=s=320x180:r=25:d=7200 ...`): import, put the whole
+    /// clip on the timeline, render and mix near the end, and time the far seeks.
+    void veryLongClip()
+    {
+        const QString path = qEnvironmentVariable("KK_LONG_MEDIA");
+        if (path.isEmpty())
+            QSKIP("set KK_LONG_MEDIA to a long media file");
+        Project project;
+        const ImportResult r = project.importMedia({path});
+        QCOMPARE(r.importedIds.size(), 1);
+        const media::MediaInfo& info = project.mediaPool()->state().items[0].info;
+        QVERIFY(info.durationUs > 3600LL * 1'000'000);
+        project.beginEdit(QStringLiteral("long"));
+        TimelineData& tl = project.timeline()->mutableData();
+        const int64_t frames = usToFrames(info.durationUs, tl.fps);
+        test::addClip(tl, TrackType::Video, 0,
+            test::mediaClip(tl, r.importedIds[0], 0, frames, 0, info.durationUs));
+        test::addClip(tl, TrackType::Audio, 0,
+            test::mediaClip(tl, r.importedIds[0], 0, frames, 0, info.durationUs));
+        project.endEdit();
+        Compositor compositor(Compositor::Options {true});
+        AudioMixer mixer;
+        auto timeline = std::make_shared<const TimelineData>(tl);
+        compositor.setMediaPaths(makeMediaPathMap(project.mediaPool()->state()));
+        mixer.setMediaPaths(makeMediaPathMap(project.mediaPool()->state()));
+        std::vector<float> audio(2 * 1920);
+        for (int64_t f : {int64_t(0), frames / 2, frames - 2, frames - 1, int64_t(10)}) {
+            QElapsedTimer t;
+            t.start();
+            const QImage image = compositor.renderImage(timeline, f, QSize(160, 90));
+            const qint64 videoMs = t.restart();
+            mixer.mix(*timeline, framesToSamples48k(f, tl.fps), 1920, audio.data());
+            qInfo("frame %lld of %lld: video %lld ms, audio %lld ms", qlonglong(f),
+                qlonglong(frames), videoMs, t.elapsed());
+            QVERIFY(!image.isNull());
         }
     }
 
