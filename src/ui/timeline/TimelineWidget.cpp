@@ -583,6 +583,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         QAction* del = menu.addAction(
             tr("Delete Track"), this, [this, ref] { m_controller->removeTrack(ref); });
         del->setEnabled(!track->locked);
+        addAction("timeline.delete_empty_tracks");
         break;
     }
     case TimelineHit::Area::Clip: {
@@ -597,6 +598,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         addAction("timeline.add_transition");
         menu.addSeparator();
         addAction("clip.change_speed");
+        addAction("clip.change_duration");
         addAction("clip.retime_controls");
         addAction("clip.freeze_frame");
         addAction("clip.retime_curve");

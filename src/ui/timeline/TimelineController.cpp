@@ -260,8 +260,8 @@ std::optional<ClipData> TimelineController::makeGeneratorClip(const QString& eff
 
 // ---- Source edits ----
 
-QVector<quint64> TimelineController::insertSource(
-    const QString& mediaId, int64_t inUs, int64_t outUs, SourceEditMode mode)
+QVector<quint64> TimelineController::insertSource(const QString& mediaId, int64_t inUs,
+    int64_t outUs, SourceEditMode mode, int64_t replaceAlignUs)
 {
     QString label;
     switch (mode) {
@@ -336,6 +336,10 @@ QVector<quint64> TimelineController::insertSource(
             return {};
         at = target->start;
         fixedFrames = target->duration;
+        // No source in mark: the source playhead frame lines up with the timeline playhead.
+        if (replaceAlignUs >= 0)
+            inUs = std::max<int64_t>(
+                0, replaceAlignUs - framesToUs(playhead - target->start, before.fps));
         break;
     }
     case SourceEditMode::AppendAtEnd:
@@ -419,7 +423,7 @@ void TimelineController::sourceEdit(SourceEditMode mode)
     if (!m_sourceProvider)
         return;
     if (const auto source = m_sourceProvider())
-        insertSource(source->mediaId, source->inUs, source->outUs, mode);
+        insertSource(source->mediaId, source->inUs, source->outUs, mode, source->playheadUs);
 }
 
 // ---- Commands ----
@@ -1025,6 +1029,9 @@ void TimelineController::connectActions()
     on("trim.select_nearest_clip", &TimelineController::selectNearestClipOrGap);
     on("trim.swap_left", [this] { swapSelection(-1); });
     on("trim.swap_right", [this] { swapSelection(1); });
+    on("trim.move_up", [this] { moveSelectionVertically(1); });
+    on("trim.move_down", [this] { moveSelectionVertically(-1); });
+    on("timeline.delete_empty_tracks", &TimelineController::deleteEmptyTracks);
     on("edit.ripple_cut", &TimelineController::rippleCut);
     on("edit.delete_gaps", &TimelineController::deleteGaps);
     on("edit.join", &TimelineController::joinSelection);
