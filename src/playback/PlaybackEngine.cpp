@@ -95,6 +95,12 @@ void PlaybackEngine::init(Options options)
     m_shuttleTimer.setTimerType(Qt::PreciseTimer);
     connect(
         &m_shuttleTimer, &QTimer::timeout, this, [this] { applyShuttle(m_shuttle.poll(nowMs())); });
+    m_scrubIdle.setSingleShot(true);
+    m_scrubIdle.setInterval(kScrubIdleMs);
+    connect(&m_scrubIdle, &QTimer::timeout, this, [this] {
+        if (m_scrubActive && !isPlaying())
+            stopAudio();
+    });
 }
 
 PlaybackEngine::~PlaybackEngine()
@@ -212,6 +218,7 @@ void PlaybackEngine::onPlayheadChanged(int64_t frame)
     m_position = frame;
     Q_EMIT positionChanged(m_position);
     requestStill(false);
+    scrubAudio(frame);
 }
 
 // ---- State ----
@@ -557,6 +564,7 @@ void PlaybackEngine::seek(int64_t frame)
     }
     setPositionInternal(frame, true);
     requestStill(false);
+    scrubAudio(frame);
 }
 
 void PlaybackEngine::setLoop(bool loop)
@@ -679,7 +687,8 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
 
     m_rate = rate;
     m_statsPlayRate = rate;
-    const bool useAudio = rate == 1.0 && hasAudio() && !m_muted;
+    // Every rate is heard (varispeed, pitched); see AudioFeeder.
+    const bool useAudio = rate != 0.0 && hasAudio() && !m_muted;
     if (useAudio) {
         startAudioClock(start);
     } else {
@@ -781,18 +790,18 @@ void PlaybackEngine::startAudioClock(double fromFrame)
         loop.start = framesToSamples48k(m_rangeStart, fps());
         loop.end = framesToSamples48k(m_rangeEnd, fps());
     }
-    m_feeder->start(m_snapshot, startSample, loop);
+    m_feeder->start(m_snapshot, startSample, loop, m_rate);
     // A short pre-roll so the device does not start with an underrun.
     (void)m_feeder->waitForFill(kPrerollFrames, kPrerollTimeoutMs);
     if (!m_audio->start(m_ring.get())) {
         qCWarning(lcPlayback) << "audio output failed to start; using the wall clock";
         m_feeder->stop();
         m_ring->clear();
-        m_clock.startFree(fromFrame, 1.0, monotonicUs());
+        m_clock.startFree(fromFrame, m_rate, monotonicUs());
         return;
     }
     m_audioStartUs = monotonicUs();
-    m_clock.startAudio(fromFrame, m_audioStartUs);
+    m_clock.startAudio(fromFrame, m_audioStartUs, m_rate);
 }
 
 void PlaybackEngine::stopAudio()
@@ -804,6 +813,41 @@ void PlaybackEngine::stopAudio()
     m_audio->stop();
     m_feeder->stop();
     m_ring->clear();
+    m_scrubActive = false;
+    m_scrubIdle.stop();
+}
+
+namespace {
+/// PlaybackEngine::setAudioScrubbing(): one switch for all engines (GUI thread only).
+bool g_audioScrubbing = true;
+} // namespace
+
+void PlaybackEngine::setAudioScrubbing(bool on)
+{
+    g_audioScrubbing = on;
+}
+
+bool PlaybackEngine::audioScrubbing()
+{
+    return g_audioScrubbing;
+}
+
+void PlaybackEngine::scrubAudio(int64_t frame)
+{
+    if (!g_audioScrubbing || isPlaying() || m_muted || !hasAudio() || !m_snapshot)
+        return;
+    if (!m_scrubActive) {
+        // Open the device once per scrub gesture; snippets then only feed the ring.
+        m_feeder->startScrub(m_snapshot);
+        if (!m_audio->start(m_ring.get())) {
+            m_feeder->stop();
+            m_ring->clear();
+            return;
+        }
+        m_scrubActive = true;
+    }
+    m_feeder->scrubTo(framesToSamples48k(frame, fps()));
+    m_scrubIdle.start();
 }
 
 void PlaybackEngine::requestStill(bool force)
@@ -1002,7 +1046,7 @@ void PlaybackEngine::onTick()
             qCWarning(lcPlayback) << "audio device reports no progress; using the wall clock";
             const double pos = m_clock.lastPosition();
             stopAudio();
-            m_clock.startFree(pos, 1.0, now);
+            m_clock.startFree(pos, m_rate, now);
             played = -1;
         }
     }

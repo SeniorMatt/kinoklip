@@ -52,11 +52,16 @@ struct PlaybackBehaviour
 /// by frames. Loop (toggle) repeats [in, out) if both marks are set, else the whole timeline;
 /// playInToOut() plays the marked range once (or looping if loop is on).
 ///
-/// **Clock.** Forward 1x with sound: the audio device is the master (PlaybackClock in audio
+/// **Clock.** With sound the audio device is the master at every rate (PlaybackClock in audio
 /// mode, fed by AudioOutput::playedFrames()); the AudioFeeder thread mixes ahead into a
-/// lock-free AudioRing that the device pulls from. Reverse, shuttle, slow, muted or no
-/// device: a free-running wall clock. If the device produces no position within
-/// kAudioStartTimeoutMs the engine falls back to the wall clock (logged).
+/// lock-free AudioRing that the device pulls from. Reverse, shuttle and slow play are
+/// varispeed: the sound is resampled, pitched like a tape (spec 1.16). Muted or no device: a
+/// free-running wall clock. If the device produces no position within kAudioStartTimeoutMs
+/// the engine falls back to the wall clock (logged).
+///
+/// **Audio scrubbing** (setAudioScrubbing(), Shift+S; spec 23.7): while paused, every
+/// playhead move (ruler or scrub bar drag, frame steps, navigation) plays a short snippet
+/// from the new position; the device stops kScrubIdleMs after the last move.
 ///
 /// **Video.** A precise ~4 ms GUI timer polls the clock; FrameScheduler keeps 2-3
 /// Compositor::renderAsync() requests ahead of it and presents the newest finished frame that
@@ -145,6 +150,8 @@ public:
     static constexpr int kAudioStartTimeoutMs = 600; ///< no device position -> wall clock
     static constexpr int kSeekResumeMs = 80; ///< quiet time after a seek before motion resumes
     static constexpr int kSeekMaxParkMs = 400; ///< resume even if the target is not shown yet
+    /// Audio scrubbing: the device stops this long after the last playhead move.
+    static constexpr int kScrubIdleMs = 350;
 
     /// Creates an engine with its own Compositor and the default audio output.
     explicit PlaybackEngine(QObject* parent = nullptr);
@@ -216,6 +223,12 @@ public:
     void setVolume(float volume);
     /// True if a sound device is available.
     [[nodiscard]] bool hasAudio() const;
+    /// Audio scrubbing on / off for every engine (program and source players; spec 23.7;
+    /// default on, like Resolve). A scrub sound already playing ends at its idle timeout.
+    static void setAudioScrubbing(bool on);
+    [[nodiscard]] static bool audioScrubbing();
+    /// True while a scrub snippet is playing or the scrub device is still open (tests).
+    [[nodiscard]] bool isScrubbingAudio() const { return m_scrubActive; }
 
     // ---- Statistics ----
     [[nodiscard]] Stats stats() const;
@@ -303,6 +316,8 @@ private:
     /// [start, end) of the active loop / play range in frames.
     void range(int64_t* start, int64_t* end) const;
     [[nodiscard]] bool loopActive() const;
+    /// Paused with audio scrubbing on: plays a snippet from @p frame.
+    void scrubAudio(int64_t frame);
 
     std::shared_ptr<Compositor> m_compositor;
     std::unique_ptr<AudioOutput> m_audio;
@@ -313,6 +328,7 @@ private:
     ShuttleControl m_shuttle;
     QTimer m_tick;
     QTimer m_shuttleTimer; ///< fires at ShuttleControl::holdDeadlineMs()
+    QTimer m_scrubIdle; ///< stops the scrub sound (kScrubIdleMs after the last move)
 
     Timeline* m_timeline = nullptr;
     MediaPool* m_pool = nullptr;
@@ -336,6 +352,7 @@ private:
     int64_t m_rangeEnd = 0;
     bool m_rangeLoop = false;
     bool m_muted = false;
+    bool m_scrubActive = false; ///< the device plays scrub snippets
     float m_volume = 1.0f;
     bool m_settingPlayhead = false; ///< guards our own Timeline::setPlayhead calls
     int64_t m_lastPlayheadWriteUs = 0;

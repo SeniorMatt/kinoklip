@@ -11,10 +11,11 @@ namespace kk {
 
 /// The playback position source.
 ///
-/// * **Free-running** (reverse, fast/slow shuttle, muted, no audio device): position =
-///   start + rate * elapsed * fps. The caller measures elapsed time with a QElapsedTimer.
-/// * **Audio master** (forward 1x with sound): the audio device reports how many sample frames
-///   were *heard* (latency-compensated, see AudioOutput::playedFrames()); position = start +
+/// * **Free-running** (muted, no audio device): position = start + rate * elapsed * fps. The
+///   caller measures elapsed time with a QElapsedTimer.
+/// * **Audio master** (any rate with sound; shuttle, reverse and slow play are varispeed, see
+///   AudioFeeder): the audio device reports how many sample frames were *heard*
+///   (latency-compensated, see AudioOutput::playedFrames()); position = start + rate *
 ///   played / 48000 * fps. Device positions arrive in steps (one audio period, 5-40 ms) and with
 ///   jitter, which would make video frames hop. So the clock runs on the wall clock and is
 ///   *slewed* towards the audio position: errors below kSnapFrames are corrected by
@@ -44,10 +45,11 @@ public:
     /// Starts a free-running clock at @p startFrame with speed @p rate (frames of timeline time
     /// per frame of real time; negative = reverse) at wall time @p nowUs.
     void startFree(double startFrame, double rate, int64_t nowUs);
-    /// Starts an audio-slaved 1x clock at @p startFrame (the frame whose first sample is the
-    /// first sample sent to the device). Until the device reports played samples the position
-    /// holds at @p startFrame (device start-up latency).
-    void startAudio(double startFrame, int64_t nowUs);
+    /// Starts an audio-slaved clock at @p startFrame (the frame whose first sample is the
+    /// first sample sent to the device) running at @p rate (each device frame carries @p rate
+    /// timeline samples). Until the device reports played samples the position holds at
+    /// @p startFrame (device start-up latency).
+    void startAudio(double startFrame, int64_t nowUs, double rate = 1.0);
     /// Freezes the clock at its current position (pause).
     void stop() { m_running = false; }
 
