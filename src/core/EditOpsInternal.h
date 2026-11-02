@@ -153,7 +153,8 @@ inline double usPerFrame(const ClipData& clip, Rational fps)
 
 inline bool isBounded(const ClipData& clip)
 {
-    return clip.kind == ClipKind::Media && clip.sourceDurationUs > 0;
+    return (clip.kind == ClipKind::Media || clip.kind == ClipKind::Nested)
+        && clip.sourceDurationUs > 0;
 }
 
 // True if no clip of @p track overlaps [s, e). Clips are sorted and disjoint, so their ends are

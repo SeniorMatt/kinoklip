@@ -20,7 +20,13 @@ namespace kk::serialization {
 /// - 2: keyframes carry Bezier handles ("in" / "out": mode string or {"mode":"free","dt","dv"})
 ///   and a "hold" flag. Version-1 keys are detected by their "interp" field and converted by
 ///   paramSetFromJson() (migrateLegacyInterp() in core/Animation.h).
-inline constexpr int kFormatVersion = 2;
+/// - 3: several timelines per project ("timelines" array with "uid", "compound",
+///   "useProjectSettings"; "activeTimeline", "tabs", "timelineViews"; project resolution and
+///   frame rate in "project"), Nested clips ("kind": "nested", "nestedUid"), timeline /
+///   compound clip items in the media pool ("kind", "timelineUid"). Files of versions 1 and 2
+///   store one "timeline" object; Project::load() turns it into timeline uid 1 with a media
+///   pool item, which reproduces the old project exactly.
+inline constexpr int kFormatVersion = 3;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
