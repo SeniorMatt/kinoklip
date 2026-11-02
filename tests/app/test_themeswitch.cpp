@@ -20,6 +20,8 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QMenu>
 #include <QMenuBar>
@@ -27,6 +29,8 @@
 #include <QStandardPaths>
 #include <QTest>
 
+#include <algorithm>
+#include <cstdlib>
 #include <memory>
 
 using namespace kk;
@@ -94,8 +98,25 @@ private slots:
         QCoreApplication::setOrganizationName(QStringLiteral("kinoklip-tests"));
         QCoreApplication::setApplicationName(QStringLiteral("test_themeswitch"));
         QSettings().clear();
+        // Emulate the owner's dark Plasma desktop: kdeglobals holds Breeze Dark, while the
+        // platform palette (offscreen / the bundle's "generic" theme) is light. "Default
+        // (System)" must then not mix the two (alpha.1: dark title bars over light panels).
+        const QString configDir
+            = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        QDir().mkpath(configDir);
+        const QString kdeglobals = configDir + QStringLiteral("/kdeglobals");
+        QFile::remove(kdeglobals);
+        const QString dark = QStandardPaths::locate(
+            QStandardPaths::GenericDataLocation, QStringLiteral("color-schemes/BreezeDark.colors"));
+        QFile::copy(dark.isEmpty() ? QStringLiteral(":/color-schemes/BreezeDark.colors") : dark,
+            kdeglobals);
         initResources();
         theme::apply(*qApp);
+    }
+    void cleanupTestCase()
+    {
+        QFile::remove(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+            + QStringLiteral("/kdeglobals"));
     }
 
     void switchSchemesInMainWindow()
@@ -178,6 +199,18 @@ private:
                 qPrintable(QStringLiteral("%1 (%2 '%3'): window colour %4, application %5")
                                .arg(scheme, QString::fromLatin1(w->metaObject()->className()),
                                    w->objectName(), got.name(), window.name())));
+            // Text roles must contrast with the window (a stale text colour was the visible
+            // alpha.1 bug: light menu bar text on a light scheme).
+            for (QPalette::ColorRole role :
+                {QPalette::WindowText, QPalette::ButtonText, QPalette::Text}) {
+                const QColor text = w->palette().color(QPalette::Active, role);
+                QVERIFY2(darkColor(text) != dark,
+                    qPrintable(QStringLiteral("%1 (%2 '%3'): text role %4 is %5 on window %6")
+                                   .arg(scheme, QString::fromLatin1(w->metaObject()->className()),
+                                       w->objectName())
+                                   .arg(int(role))
+                                   .arg(text.name(), window.name())));
+            }
             ++checked;
         }
         QVERIFY(checked > 50);
@@ -206,8 +239,58 @@ private:
         QMenuBar* bar = app.window->menuBar();
         QVERIFY2(widgetLooksDark(shot, app.window.get(), bar) == dark,
             qPrintable(scheme + QStringLiteral(": menu bar does not follow the scheme")));
+        // The menu titles must contrast with the bar: the most contrasting pixel of the bar
+        // (text) is far from the background. alpha.1 kept the previous scheme's text colour
+        // (pale titles on a light bar) because Breeze caches the Header colours per style.
+        const QRect barRect(bar->mapTo(app.window.get(), QPoint(0, 0)), bar->size());
+        const QImage barImage = shot.copy(QRect(
+            barRect.topLeft() * shot.devicePixelRatio(), barRect.size() * shot.devicePixelRatio()));
+        const int background = shot.pixelColor(barRect.topLeft() + QPoint(2, 2)).lightness();
+        int maxContrast = 0;
+        for (int y = 0; y < barImage.height(); ++y)
+            for (int x = 0; x < barImage.width() / 2; ++x)
+                maxContrast = std::max(
+                    maxContrast, std::abs(barImage.pixelColor(x, y).lightness() - background));
+        // Theme (Breeze) and own icons are recoloured for the new scheme: the opaque pixels
+        // of an action icon are light on a dark scheme and dark on a light one.
+        for (const char* id : {"view.toggle_mixer", "view.toggle_metadata", "transport.play_pause",
+                 "tool.blade", "view.toggle_edit_index"}) {
+            QAction* action = app.actions.action(QLatin1String(id));
+            if (!action || action->icon().isNull())
+                continue;
+            const QImage icon = action->icon()
+                                    .pixmap(QSize(16, 16), QIcon::Normal)
+                                    .toImage()
+                                    .convertToFormat(QImage::Format_ARGB32);
+            qint64 sum = 0;
+            qint64 count = 0;
+            for (int y = 0; y < icon.height(); ++y)
+                for (int x = 0; x < icon.width(); ++x)
+                    if (qAlpha(icon.pixel(x, y)) > 160) {
+                        sum += QColor(icon.pixel(x, y)).lightness();
+                        ++count;
+                    }
+            if (count == 0)
+                continue;
+            QVERIFY2(darkColor(QColor::fromHsl(0, 0, int(sum / count))) != dark,
+                qPrintable(QStringLiteral("%1: icon of %2 has lightness %3 on a %4 scheme")
+                               .arg(scheme, QLatin1String(id))
+                               .arg(sum / count)
+                               .arg(dark ? "dark" : "light")));
+        }
+        QVERIFY2(maxContrast > 150,
+            qPrintable(
+                QStringLiteral("%1: menu bar text contrast only %2").arg(scheme).arg(maxContrast)));
     }
 };
 
-QTEST_MAIN(TestThemeSwitch)
+// Like main(): KIconTheme must be initialised before QApplication, otherwise Breeze icons are
+// plain SVGs that are never recoloured and the icon checks would test the wrong thing.
+int main(int argc, char** argv)
+{
+    theme::initBeforeApplication();
+    QApplication app(argc, argv);
+    TestThemeSwitch test;
+    return QTest::qExec(&test, argc, argv);
+}
 #include "test_themeswitch.moc"
