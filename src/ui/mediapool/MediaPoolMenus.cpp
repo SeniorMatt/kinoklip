@@ -221,6 +221,13 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
         menu.addAction(
             tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });
+        // Resolve's "Relink Selected Clips": offered when one of the selected items is offline.
+        const QStringList selectedIds = ids.contains(current) ? ids : QStringList {current};
+        if (!power
+            && std::any_of(selectedIds.cbegin(), selectedIds.cend(),
+                [this](const QString& id) { return m_ctx.project->mediaPool()->isOffline(id); }))
+            menu.addAction(tr("Relink Selected Clips…"), this,
+                [this, selectedIds] { relinkWithDialog(selectedIds); });
         // Clip Attributes (attrs branch) of the selected file items; power bin items are
         // copied into the project first, the dialog edits project items only.
         if (currentItem && currentItem->kind == MediaItemKind::File) {
@@ -289,7 +296,7 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
     if (std::any_of(items.cbegin(), items.cend(),
             [](const MediaItem& m) { return !m.isTimeline() && !QFileInfo::exists(m.path); })) {
         menu.addSeparator();
-        menu.addAction(tr("Relink Offline Media…"), this, &MediaPoolPanel::relinkWithDialog);
+        menu.addAction(tr("Relink Offline Media…"), this, [this] { relinkWithDialog(); });
     }
     menu.exec(globalPos);
 }
@@ -346,27 +353,29 @@ void MediaPoolPanel::showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos)
     menu.exec(globalPos);
 }
 
-int MediaPoolPanel::relinkFromFolder(const QString& folder)
+int MediaPoolPanel::relinkFromFolder(const QString& folder, const QStringList& onlyIds)
 {
     Project* project = m_ctx.project;
     project->beginEdit(tr("Relink Media"));
-    const int relinked = project->mediaPool()->relinkFromFolder(folder);
+    const int relinked = project->mediaPool()->relinkFromFolder(folder, onlyIds);
     project->endEdit();
     m_model->recheckOffline();
     return relinked;
 }
 
-void MediaPoolPanel::relinkWithDialog()
+void MediaPoolPanel::relinkWithDialog(const QStringList& onlyIds)
 {
     const QString folder = platform::getExistingDirectory(this,
         tr("Relink Offline Media: Choose the Folder with the Files"),
         QStringLiteral("paths/lastRelinkDir"));
     if (folder.isEmpty())
         return;
-    const int relinked = relinkFromFolder(folder);
+    const int relinked = relinkFromFolder(folder, onlyIds);
     const auto& items = m_ctx.project->mediaPool()->state().items;
-    const auto stillOffline = std::count_if(items.cbegin(), items.cend(),
-        [](const MediaItem& m) { return !m.isTimeline() && !QFileInfo::exists(m.path); });
+    const auto stillOffline = std::count_if(items.cbegin(), items.cend(), [&](const MediaItem& m) {
+        return !m.isTimeline() && (onlyIds.isEmpty() || onlyIds.contains(m.id))
+            && !QFileInfo::exists(m.path);
+    });
     QMessageBox::information(this, tr("Relink Offline Media"),
         tr("%n item(s) relinked.", nullptr, relinked)
             + (stillOffline > 0 ? QLatin1Char(' ')

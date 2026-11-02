@@ -5,9 +5,12 @@
 // full-screen viewer, and F9 inserting the source viewer's marked range (EditPage wiring).
 #include "../media/MediaTestUtil.h"
 #include "app/pages/EditPage.h"
+#include "core/EditOps.h"
+#include "core/MediaPool.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -322,6 +325,50 @@ private Q_SLOTS:
     }
 
     /// F9 on the Edit page inserts the source viewer's marked range at the playhead.
+    /// Polish round 2 (offline media): the timeline viewer says "Media Offline" with the clip
+    /// name while the top clip at the playhead has no file; a solid there clears it; the
+    /// source viewer says it for an offline source clip.
+    void mediaOfflineNotice()
+    {
+        Fixture f;
+        f.solidTimeline();
+        MediaItem item;
+        item.path = QStringLiteral("/nonexistent/moved.mp4");
+        item.name = QStringLiteral("moved.mp4");
+        item.info.valid = true;
+        item.info.hasVideo = true;
+        item.info.durationUs = 10'000'000;
+        const QString id = f.project.mediaPool()->addItem(item);
+        QVERIFY(f.project.mediaPool()->isOffline(id));
+        ClipData clip;
+        clip.kind = ClipKind::Media;
+        clip.mediaId = id;
+        clip.name = QStringLiteral("moved.mp4");
+        clip.start = 200;
+        clip.duration = 50;
+        clip.sourceDurationUs = 10'000'000;
+        f.project.beginEdit(QStringLiteral("place"));
+        editops::overwriteClip(f.project.timeline()->mutableData(), {TrackType::Video, 0}, clip);
+        f.project.endEdit();
+        ViewerPanel program(ViewerPanel::Mode::Timeline, f.ctx);
+        program.resize(480, 320);
+        program.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&program));
+        QVERIFY(program.offlineNotice());
+        QVERIFY(!program.offlineNotice()->isVisible()); // the solid at frame 0
+        f.project.timeline()->setPlayhead(220);
+        QTRY_VERIFY(program.offlineNotice()->isVisible());
+        QVERIFY(program.offlineNotice()->text().contains(QLatin1String("Media Offline")));
+        QVERIFY(program.offlineNotice()->text().contains(QLatin1String("moved.mp4")));
+        f.project.timeline()->setPlayhead(10);
+        QTRY_VERIFY(!program.offlineNotice()->isVisible());
+        ViewerPanel source(ViewerPanel::Mode::Source, f.ctx);
+        source.show();
+        source.setSourceMedia(id);
+        source.updateOfflineNotice();
+        QVERIFY(source.offlineNotice()->isVisible());
+    }
+
     void insertMarkedSourceRange()
     {
         QString why;

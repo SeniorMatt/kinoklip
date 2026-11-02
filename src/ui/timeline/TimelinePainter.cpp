@@ -343,7 +343,17 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     const QColor contentColor = base.darker(165);
     p.fillRect(content, contentColor);
 
-    if (content.height() >= 6) {
+    // Offline media (the file was moved or deleted): a red body saying so, like Resolve.
+    const bool offline = poolItem && in.mediaPool->isOffline(clip.mediaId);
+    if (offline) {
+        p.fillRect(content, sc().negative.darker(160));
+        if (content.height() >= 12 && visible.width() > 60) {
+            p.setFont(m_smallFont);
+            p.setPen(sc().textOn(sc().negative.darker(160)));
+            p.drawText(content.adjusted(6, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft,
+                qtr("Media Offline"));
+        }
+    } else if (content.height() >= 6) {
         switch (clip.kind) {
         case ClipKind::Media:
         case ClipKind::Nested:

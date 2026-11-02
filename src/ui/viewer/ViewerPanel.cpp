@@ -205,6 +205,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         connect(m_maskOverlay, &MaskOverlay::pressed, this, [this] { activate(); });
         setupEditingAids();
     }
+    setupOfflineNotice();
 
     m_scrub = new ScrubBar(m_body);
     // While playing, scrubbing keeps playing from where the mouse leaves the playhead, like the
@@ -522,6 +523,7 @@ void ViewerPanel::onPositionChanged(int64_t frame)
     if (m_timecodeEntry.isEmpty()) // a typed timecode stays until it is entered or cancelled
         m_timecode->setText(timecode::format(start + frame, m_fps));
     m_scrub->setPosition(frame);
+    updateOfflineNotice();
 }
 
 void ViewerPanel::onRateChanged(double rate)
@@ -822,6 +824,8 @@ bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
     }
     switch (event->type()) {
     case QEvent::Resize:
+        if (m_offlineNotice && m_offlineNotice->isVisible())
+            m_offlineNotice->resize(m_surface->widget()->size());
         // First size: at once (the first picture must come at the right size). Later sizes:
         // coalesced, see kResizeSettleMs.
         if (m_outputSized && m_resizeSettle->interval() > 0)

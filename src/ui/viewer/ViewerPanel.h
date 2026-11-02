@@ -144,6 +144,11 @@ public:
     /// actions' text, keys from their shortcuts); empty = the Edit page's seven source edits.
     /// The Cut page offers its smart edits this way (spec 35.26).
     void setEditTileActions(const QStringList& actionIds);
+    /// Shows or hides the "Media Offline" notice for what the viewer shows now (called on
+    /// position, media pool and offline changes).
+    void updateOfflineNotice();
+    /// The notice (tests); hidden while the media shown is online.
+    [[nodiscard]] QLabel* offlineNotice() const { return m_offlineNotice; }
 
     // ---- Multicam viewer (Source mode; ViewerMulticam.cpp) ----
 
@@ -209,6 +214,11 @@ private:
     void bindTimeline(Timeline* timeline);
     void onTimelineChanged();
     void onPositionChanged(int64_t frame);
+    // ---- Media Offline notice (ViewerOffline.cpp) ----
+    void setupOfflineNotice();
+    /// Name of the offline clip shown at @p frame (source clip / top visible timeline clip),
+    /// empty when what is shown is online.
+    [[nodiscard]] QString offlineClipName(int64_t frame) const;
     void onRateChanged(double rate);
     void updateOutputClient();
     void updateTitle();
@@ -248,6 +258,7 @@ private:
     QString m_timecodeEntry; ///< setTimecodeEntryText()
     bool m_editOverlayEnabled = false; ///< setEditOverlayEnabled()
     QStringList m_editTileActions; ///< setEditTileActions(); empty = kEditTiles
+    QLabel* m_offlineNotice = nullptr; ///< "Media Offline" over the picture
     QComboBox* m_modeBox = nullptr; ///< Source mode: Source / Multicam
     QComboBox* m_gridBox = nullptr; ///< multicam grid size (Auto, 2x2, 3x3, 4x4)
     bool m_multicam = false;
