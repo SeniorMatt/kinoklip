@@ -2,6 +2,7 @@
 // EffectsLibraryPanel + EffectActions: sections, search, drag payload, activation semantics.
 #include "PanelTestUtils.h"
 #include "app/Theme.h"
+#include "core/EffectRegistry.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Resources.h"
 #include "ui/effects/EffectActions.h"
@@ -50,6 +51,16 @@ private slots:
         QVERIFY(panel.visibleDescriptorIds().isEmpty());
         panel.setFilterText({});
         QVERIFY(panel.visibleDescriptorIds().size() > 10);
+
+        // The sidebar category narrows the list; a search still looks everywhere.
+        panel.setCategoryFilter(int(EffectCategory::Transition));
+        QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("cross_dissolve")));
+        QVERIFY(!panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
+        panel.setFilterText(QStringLiteral("blur"));
+        QCOMPARE(panel.visibleDescriptorIds(), QStringList {QStringLiteral("gaussian_blur")});
+        panel.setFilterText({});
+        panel.setCategoryFilter(-1);
+        QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
     }
 
     void dragPayloadIsDescriptorId()

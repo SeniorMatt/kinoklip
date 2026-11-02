@@ -11,6 +11,7 @@
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
+#include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/viewer/ViewerPanel.h"
@@ -144,10 +145,15 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         panel = window.findChild<InspectorPanel*>();
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
+    } else if (target == QLatin1String("effects")) {
+        if (Page* edit = window.page(QStringLiteral("edit")))
+            edit->setPanelVisible(PanelId::Effects, true);
+        panel = window.findChild<EffectsLibraryPanel*>();
     } else if (!isPage) {
         std::fprintf(stderr,
             "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
-            "project-settings[:section], keyboard, inspector, mediapool, menu-color-theme or "
+            "project-settings[:section], keyboard, inspector, mediapool, effects, menu-color-theme "
+            "or "
             "menu-style)\n",
             qPrintable(target));
         return 2;
