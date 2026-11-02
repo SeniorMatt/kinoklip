@@ -361,7 +361,7 @@ how some layouts report the key.
 | 23.4 | Ctrl+Alt+L links the selected clips, or unlinks them if they already are one group. | Fixed (pe2 spec23_4) |
 | 23.5 | Q switches the transport target between the source and the timeline viewer. | Fixed (new). In single viewer mode it swaps what the one viewer shows (24.5). |
 | 23.6 | Keyboard profiles: built-in read-only profiles (Resolve Windows is the default) and user copies; switch, duplicate, rename, delete, import, export; changes are kept per profile. | Fixed (new; ar builtInProfileIsDefault, userProfiles*, profileImportExport; test_dialogs keyboardProfileCombo*) |
-| 23.7 | Commands of subsystems Kinoklip does not have yet (Cut, Compositing, Color and Audio pages, retime controls Ctrl+R, freeze frame Shift+R, audio scrubbing Shift+S) keep their Resolve key but are disabled. | Decision |
+| 23.7 | Commands of subsystems Kinoklip does not have yet (Cut, Compositing, Color and Audio pages, audio scrubbing Shift+S) keep their Resolve key but are disabled. Retime controls (Ctrl+R) and freeze frame (Shift+R) work since the retime branch (section 31). | Decision |
 
 ## 24. Inspector and viewers (editfix branch, alpha.2 feedback)
 
@@ -433,10 +433,35 @@ Clean room: our own wording, icons and handle design.
 | 27.12 | Project files store masks from format version 4; projects of versions 1 - 3 load unchanged and are saved in the current format (4 or later); a newer version is refused. | Fixed (test_masks serializationRoundTrip, formatVersion2Loads) |
 | 27.13 | Mask tracking (point / planar) and mask presets are not implemented. | Deferred (roadmap v2 stretch goal) |
 
+## 31. Speed changes and retiming (retime branch, roadmap v2)
+
+Speed points, speed ramps, reverse and freeze, written from general knowledge of how Resolve's
+retime controls behave (clean room: our own wording and drawing). Model and maths:
+`src/core/Retime.h`; edits: `src/core/RetimeOps.h`.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 31.1 | A clip plays at a constant speed (100 % by default; negative = reverse, 0 = freeze) or follows a retime curve: source frame over clip time, whose keys are the speed points. Between two speed points the speed is constant (straight curve) or ramps (curved). The picture is continuous at every speed point. | Fixed (test_retime curveSegmentsAndExtrapolation, smoothRampIsMonotoneAndContinuous) |
+| 31.2 | Ctrl+R shows / hides the retime controls of the selected clips (else the clips under the playhead on auto-select video tracks): a speed bar under the clip name with one field per speed segment (its speed, colour-coded: slower, faster, reverse, freeze; a menu arrow), a line through the clip at each speed point with a slide handle in the bar and a retime handle at the bottom, and a retime handle at the clip end. View state only (not undoable, not saved). | Fixed (test_retimebar ctrlRTogglesTheSpeedBar) |
+| 31.3 | The speed menu (arrow of a field, or right-click on a field): Change Speed presets 10 % - 1000 %, Normal (100 %), Add Speed Point (at the playhead), Freeze Frame (a one-second freeze segment at the playhead), Reverse Segment, Reset Clip, Retime Curve, Retime Process (Project Settings / Nearest / Frame Blend / Optical Flow), Pitch Correction, Hide Retime Controls. Each command is one undo step. | Fixed (test_retimebar speedMenu*) |
+| 31.4 | Dragging a speed point's retime handle (bottom) changes the speed of the segment before it: that segment keeps its source material and gets longer or shorter. Dragging the slide handle (top) moves where the speed changes, keeping both segments' speeds (the next segment covers less or more material). The clip end's handle retimes the last segment. Each drag is one undo step. Right-click a point: No Ramp / Smooth Ramp / Ease In and Out, Delete Speed Point. | Fixed (test_retimebar handleDragsRetimeAndSlide, speedPointMenuRampAndDelete; test_retime retimeAndSlideHandles) |
+| 31.5 | Ripple: whenever a retime makes a clip longer or shorter, the later clips on its track move by the same amount (the linked audio clip and its track change the same way, so V and A stay in sync). The Change Clip Speed dialog can turn ripple off: the clip then keeps its length, limited by the media. | Fixed (test_retime speedPointThenSlowSegmentRipples, linkedAudioFollows, changeClipSpeedDialog) |
+| 31.6 | Changing a segment's speed keeps its material: length = material / speed, rounded to whole frames, and the speed is then exact. Setting a freeze segment to a speed makes it play from its frame for the same length. Speed points stay where they are even when both sides end up at the same speed. | Fixed (test_retime) |
+| 31.7 | Reverse Segment plays the segment backwards with the same length; the following material continues from where the reversed segment ends (the picture never jumps). Reverse speed in the dialog plays the whole clip backwards over the same material. | Fixed (test_retime reverseSegmentBounces, changeClipSpeedDialog). Decision: continuous curve (no jump back). |
+| 31.8 | Shift+R (Freeze Frame) makes each target clip show the frame under the playhead (its first frame when the playhead is outside it) for its whole length. Freeze Frame in the speed menu inserts a one-second freeze at the playhead and ripples. | Fixed (test_retime freezeSegmentAndFreezeFrame; test_retimebar freezeFrameAndRetimeCurveActions) |
+| 31.9 | R opens Change Clip Speed: Speed (%), Frames per second (speed x source rate) and Duration are linked; Reverse speed, Freeze frame, Ripple sequence (on), Pitch correction. Applying it replaces a retime curve with one speed over the clip's material. | Fixed (test_retimebar changeSpeedDialogLinksTheFields; test_retime changeClipSpeedDialog) |
+| 31.10 | Keyframes of the other parameters stay at their clip time when a clip is retimed (attached to the timeline, not to the source), like Resolve. Trimming, splitting, slipping and joining a retimed clip keep the picture at every remaining frame; speed points move with the content like keyframes. | Fixed (test_retime trimSplitJoinKeepTheMapping). Decision. |
+| 31.11 | The retime curve ("Retime / Retime Frame", source frame over clip time) is listed in the inline curve and keyframe editors and the Keyframes panel; its keys move, delete, copy and ease like other keys (Smooth = speed ramp). Ctrl+Shift+R (Retime Curve) opens the clip's curve editor showing only the retime curve. | Fixed (test_retimebar freezeFrameAndRetimeCurveActions) |
+| 31.12 | Retime process per clip (speed menu) or the project default (Project Settings > Master Settings > Frame Interpolation): Nearest = the source frame at the exact source time; Frame Blend = the two neighbouring source frames mixed by the position between them; Optical Flow = motion-compensated in-between frames (GPU block-matching flow; falls back to the blend where motion cannot be matched). A clip at 100 % always shows exact frames. The CPU fallback renders Optical Flow as Frame Blend. | Fixed (test_retimerender frameBlendMixesNeighbours, opticalFlowMovesTheBox; test_retime projectDefaultProcessFollowsSettings) |
+| 31.13 | Playback, export and the viewer pick the same source frame for every timeline frame (one mapping in core); thumbnails follow the retime curve and waveforms follow it too (freeze and reverse drawn silent). | Fixed (test_retimerender curveSelectsExactSourceFrames, reverseAndFreezeFrames) |
+| 31.14 | Audio follows the speed: with Pitch Correction (default for new speed changes) it is time-stretched (pitch kept), without it resampled (pitch follows the speed). Freeze and reverse parts are muted. | Fixed (test_timestretch; test_audiomixer freezeAndReverseAreMuted, pitchCorrectedClipKeepsLength) |
+| 31.15 | Project files store the retime curve, process and pitch correction from format version 5; the single speed of older projects loads as one constant segment with pitch correction off (they resampled their audio), so they play as before. | Fixed (test_retime serializationRoundTrip, formatThreeSpeedMigrates) |
+| 31.16 | Motion estimation settings, a per-clip Inspector retime section and speed-change keyboard nudges are not implemented. | Deferred |
+
 ## 29. Proxy media, optimized media and render cache (proxies branch, roadmap v2)
 
 From general knowledge of how Resolve handles proxies, optimized media and its render cache
-(clean room; Resolve was not used). Number 28 is left to the retime branch.
+(clean room; Resolve was not used).
 Tests: ml = test_medialinks, px = test_proxies, rc = test_rendercache, mm = test_mediamanagement.
 
 | # | Expected behaviour | Status |
@@ -474,6 +499,8 @@ Tests: ml = test_medialinks, px = test_proxies, rc = test_rendercache, mm = test
   ripple), 23.5, and added 13.10 and 24.1 - 24.6.
 - The keyframes branch fixed 15.8 and added 15.9 - 15.13 (keyframe editor, curve editor,
   Bezier interpolation, section diamonds).
+- The retime branch (roadmap v2) added 31.1 - 31.16 (speed points, ramps, reverse / freeze,
+  retime process, pitch-corrected audio) and updated 23.7.
 - The masks branch (roadmap v2) added 27.1 - 27.13 (shape masks, on-screen mask controls).
 - The proxies branch (roadmap v2) added 29.1 - 29.18 (proxy and optimized media, render cache).
 - The kfwindow branch (alpha.2 feedback #10) added 15.14 - 15.20 (the Keyframes panel, docked

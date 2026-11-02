@@ -223,6 +223,24 @@ private slots:
         QCOMPARE(changed(before, chunkKeys(d)), (QVector<int> {1, 2, 3}));
     }
 
+    void retimeInvalidates()
+    {
+        TimelineData tl = keyTimeline();
+        const auto before = chunkKeys(tl);
+        TimelineData slow = tl;
+        clipAt(slow, 0, 1).speed = 0.5; // blue solid [50, 100) at half speed
+        QCOMPARE(changed(before, chunkKeys(slow)), (QVector<int> {2, 3}));
+        CacheKeyOptions o;
+        QVERIFY(renderCacheChunks(slow, {}, o)[3].reasons & CacheRetime);
+        QVERIFY(renderCacheChunks(slow, {}, o)[3].wanted); // Smart caches speed changes
+        TimelineData blend = slow;
+        clipAt(blend, 0, 1).retimeProcess = RetimeProcess::FrameBlend;
+        QCOMPARE(changed(chunkKeys(slow), chunkKeys(blend)), (QVector<int> {2, 3}));
+        TimelineData project = slow; // the project default process: every chunk
+        project.retimeProcess = RetimeProcess::OpticalFlow;
+        QCOMPARE(changed(chunkKeys(slow), chunkKeys(project)).size(), 4);
+    }
+
     void mediaRelinkInvalidates()
     {
         TimelineData tl = keyTimeline();

@@ -32,7 +32,7 @@ enum CacheReason : unsigned {
     CacheComposite = 1u << 1, ///< two or more video tracks have clips in the chunk
     CacheEffects = 1u << 2, ///< a clip with enabled effects (or masks)
     CacheNested = 1u << 3, ///< a compound clip / nested timeline
-    CacheRetime = 1u << 4, ///< a speed change (speed != 1)
+    CacheRetime = 1u << 4, ///< retimed: speed change, reverse, freeze or retime curve
     CacheUserClip = 1u << 5, ///< a clip marked "Render Cache Clip Output"
 };
 

@@ -15,8 +15,10 @@
 #include "render/GlRenderer.h"
 
 #include "core/ParamKeys.h"
+#include "core/Retime.h"
 #include "render/RenderLog.h"
 
+#include <QElapsedTimer>
 #include <QOffscreenSurface>
 #include <QOpenGLContext>
 #include <QOpenGLVersionFunctionsFactory>
@@ -41,6 +43,8 @@ constexpr int kDecodeThreads = 4;
 /// Deepest nesting rendered (a timeline cannot contain itself, see compound::canNest(); this
 /// only guards against damaged data).
 constexpr int kMaxNestingDepth = 16;
+/// In-between weights closer than this to a source frame show that frame (no interpolation).
+constexpr float kMinRetimeWeight = 1.0f / 128.0f;
 /// A nested timeline is composited at the size it occupies in the output, times its zoom up
 /// to this factor (sharper when zoomed in, bounded memory).
 constexpr double kMaxNestedZoom = 2.0;
@@ -154,6 +158,12 @@ bool GlRenderer::initialize(QString* why)
         || !m_masks.initialize(*m_kit, why))
         return false;
     m_output = std::make_unique<GlOutput>(*m_kit);
+    {
+        QString log;
+        m_retimeOk = m_retime.initialize(*m_kit, &log);
+        if (!m_retimeOk)
+            qCWarning(lcRender).noquote() << "frame interpolation disabled:" << log;
+    }
 
     for (const GlEffectFactory& f : builtinGlEffects()) {
         std::shared_ptr<GlEffect> effect = f.create();
@@ -215,6 +225,8 @@ void GlRenderer::shutdown()
             e->destroy(*m_kit);
         for (auto& t : m_transitions)
             t->destroy(*m_kit);
+        m_retimeTargets.clear();
+        m_retime.destroy(*m_kit);
         m_video.destroy(*m_kit);
         m_masks.destroy(*m_kit);
         m_kit->destroy();
@@ -272,8 +284,24 @@ void GlRenderer::queueDecode(const ClipData* clip, int64_t frame, int64_t nextFr
     DecoderPool::Entry* entry = m_decoders.acquire(path, timeUs);
     if (!entry)
         return;
-    m_decoded.push_back({clip, entry, timeUs, clampedSourceTimeUs(*clip, nextFrame, tl.fps),
-        nullptr, proxy ? proxy->displaySize : QSizeF()});
+    DecodedClip d;
+    d.clip = clip;
+    d.entry = entry;
+    d.timeUs = timeUs;
+    d.nextTimeUs = clampedSourceTimeUs(*clip, nextFrame, tl.fps);
+    if (proxy) // decode the proxy, keep the original's geometry (crop units, fit)
+        d.displayOverride = proxy->displaySize;
+    d.process = m_retimeOk ? retime::effectiveProcess(*clip, tl) : RetimeProcess::Nearest;
+    if (d.process != RetimeProcess::Nearest) {
+        // The in-between needs the next source frame too: a second decoder positioned one
+        // source frame later (both then decode forward, never back and forth).
+        const double fps = entry->decoder->info().frameRate.toDouble();
+        const int64_t frameUs = fps > 0 ? int64_t(1e6 / fps) : 40000;
+        d.entryB = m_decoders.acquire(path, timeUs + frameUs);
+        if (!d.entryB)
+            d.process = RetimeProcess::Nearest;
+    }
+    m_decoded.push_back(std::move(d));
 }
 
 void GlRenderer::queueTimeline(const TimelineData& tl, int64_t frame, int64_t nextFrame,
@@ -297,20 +325,48 @@ void GlRenderer::decodeQueued()
     const int n = int(m_decoded.size());
     if (n == 0)
         return;
-    for (DecodedClip& d : m_decoded)
+    for (DecodedClip& d : m_decoded) {
         d.entry->waitAhead(); // usually already done: it ran while the last frame was drawn
+        if (d.entryB)
+            d.entryB->waitAhead();
+    }
     // Every queued clip has its own decoder (DecoderPool hands out a decoder once per frame),
     // so the decodes are independent: run all but the first on worker threads.
     std::latch done(n - 1);
     for (int i = 1; i < n; ++i) {
         DecodedClip* d = &m_decoded[size_t(i)];
         m_decodeThreads.start([d, &done] {
-            d->frame = d->entry->decoder->decodeFrame(d->timeUs);
+            decodeOne(*d);
             done.count_down();
         });
     }
-    m_decoded[0].frame = m_decoded[0].entry->decoder->decodeFrame(m_decoded[0].timeUs);
+    decodeOne(m_decoded[0]);
     done.wait();
+}
+
+void GlRenderer::decodeOne(DecodedClip& d)
+{
+    d.frame = d.entry->decoder->decodeFrame(d.timeUs);
+    d.frameB.reset();
+    d.weightB = 0.0f;
+    if (!d.frame || !d.entryB || d.process == RetimeProcess::Nearest)
+        return;
+    // Where the exact source time falls between this frame and the next one.
+    int64_t frameUs = d.frame->durationUs;
+    if (frameUs <= 0) {
+        const double fps = d.entry->decoder->info().frameRate.toDouble();
+        frameUs = fps > 0 ? int64_t(1e6 / fps) : 0;
+    }
+    if (frameUs <= 0)
+        return;
+    const float w = float(double(d.timeUs - d.frame->ptsUs) / double(frameUs));
+    if (w < kMinRetimeWeight || w > 1.0f - kMinRetimeWeight)
+        return;
+    auto next = d.entryB->decoder->decodeFrame(d.frame->ptsUs + frameUs);
+    if (!next || next == d.frame || next->ptsUs <= d.frame->ptsUs)
+        return; // last frame of the media: nothing to interpolate towards
+    d.frameB = std::move(next);
+    d.weightB = std::clamp(w, 0.0f, 1.0f);
 }
 
 void GlRenderer::startDecodeAhead()
@@ -396,6 +452,7 @@ void GlRenderer::render(RenderJob& job)
     // 3. Composite (V1 = index 0 is the bottom layer, drawn first).
     PooledTarget accumulator = compositeTimeline(fc);
     m_nested.clear(); // the nested composites were consumed by the draws above
+    m_retimeTargets.clear(); // ... and the in-between pictures of retimed clips
 
     // 4. Output.
     const qint64 compositedNs = timer.nsecsElapsed();
@@ -528,6 +585,19 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         src.content = fitSize(src.sourcePx, frameSize);
         src.video = d;
         src.planes = planes.get();
+        if (d->frameB && d->weightB > 0.0f) {
+            // Retimed between two source frames: the in-between picture at the size the clip
+            // covers in the output (never above the source), then drawn like a texture.
+            const double scale = std::max(fc.sx, fc.sy) * std::max(1.0, maxZoomValue);
+            QSize size = (src.content * scale).toSize().boundedTo(src.sourcePx.toSize());
+            size = size.boundedTo(QSize(kMaxTargetEdge, kMaxTargetEdge)).expandedTo(QSize(1, 1));
+            if (const GLuint texture = retimedPicture(*d, size)) {
+                src.kind = ClipSource::Kind::Texture;
+                src.texture = texture;
+                src.video = nullptr;
+                src.planes = nullptr;
+            }
+        }
         return true;
     }
     case ClipKind::Title: {
@@ -586,6 +656,44 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
     }
     }
     return false;
+}
+
+GLuint GlRenderer::retimedPicture(const DecodedClip& d, QSize size)
+{
+    auto planesOf = [](DecoderPool::Entry* e) {
+        auto planes = std::static_pointer_cast<PlaneTextures>(e->userData);
+        if (!planes) {
+            planes = std::make_shared<PlaneTextures>();
+            e->userData = planes;
+        }
+        return planes;
+    };
+    const auto planesB = planesOf(d.entryB);
+    QElapsedTimer uploadTimer;
+    uploadTimer.start();
+    m_video.upload(*m_kit, *planesB, d.frameB);
+    m_uploadNs += uploadTimer.nsecsElapsed();
+    const auto planesA = planesOf(d.entry); // uploaded by resolveSource()
+    // Both frames upright (display orientation), unblended, into RGBA16F targets.
+    auto toRgb = [&](const PlaneTextures& planes, const media::VideoFrame& frame) {
+        PooledTarget t = m_kit->acquire(size);
+        m_kit->bindTarget(*t);
+        m_kit->clearTransparent();
+        m_kit->setBlendOver(false);
+        m_video.draw(*m_kit, planes, frame, GlKit::quadToNdc(QRectF(QPointF(0, 0), size), size),
+            QRectF(0, 0, 1, 1), 1.0f);
+        return t;
+    };
+    PooledTarget a = toRgb(*planesA, *d.frame);
+    PooledTarget b = toRgb(*planesB, *d.frameB);
+    PooledTarget out = d.process == RetimeProcess::OpticalFlow
+        ? m_retime.interpolate(*m_kit, *a, *b, d.weightB)
+        : m_retime.blend(*m_kit, *a, *b, d.weightB);
+    if (!out)
+        return 0;
+    const GLuint texture = out->texture;
+    m_retimeTargets.push_back(std::move(out));
+    return texture;
 }
 
 void GlRenderer::drawSource(

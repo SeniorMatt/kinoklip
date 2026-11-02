@@ -25,7 +25,8 @@ namespace kk {
 /// Sections (left list, like Resolve):
 /// - Master Settings: timeline resolution presets (UHD, QHD, HD, 720p, vertical, square) or
 ///   Custom, pixel aspect ratio (square only), timeline frame rate (23.976 ... 60), playback
-///   frame rate (= timeline), video monitoring (no output devices yet).
+///   frame rate (= timeline), frame interpolation (the default retime process of retimed
+///   clips: Nearest, Frame Blend, Optical Flow), video monitoring (no output devices yet).
 /// - Image Scaling: mismatched resolution handling ("scale entire image to fit", the
 ///   compositor's only mode for now), output scaling (= timeline).
 /// - Audio: sample rate 48 kHz and 32-bit float mixing (the mixer's fixed format, PLAN 5.1).
@@ -79,6 +80,7 @@ private:
     QComboBox* m_fps = nullptr;
     QComboBox* m_sampleRate = nullptr;
     QComboBox* m_playbackFps = nullptr;
+    QComboBox* m_retimeProcess = nullptr; ///< Frame Interpolation > Retime process
     QSpinBox* m_autosave = nullptr;
     QLabel* m_warning = nullptr;
     QComboBox* m_proxyResolution = nullptr;

@@ -31,15 +31,18 @@ namespace kk::serialization {
 ///   their "points")}; a point is [x, y, inX, inY, outX, outY] plus 1 when smooth. Files of
 ///   versions 1 - 3 have no masks and load through the older migrations unchanged; older builds
 ///   refuse version 4 instead of silently dropping the masks.
-/// - 5: reserved for the retime branch (speed / retime model).
+/// - 5: retiming. A clip's speed moved into a "retime" object {"speed", "curve" (a ParamSet
+///   with the keys::RetimeFrame curve, optional), "process", "pitchCorrection"}; timelines
+///   carry "retimeProcess" (the project default). Older files store a top-level clip
+///   "speed": clipFromJson() reads it as a single constant-speed segment with pitch
+///   correction off (audio of older projects was resampled), which plays exactly as before.
 /// - 6: proxy / optimized media links ("mediaLinks": [{"mediaId", "proxy"?, "optimized"?}],
 ///   each {"path", "source": {"size", "mtimeMs"}, "width", "height", "format"?}), the
 ///   project's "cacheSettings" (core/MediaLinks.h: proxy / optimized / render cache formats,
 ///   background caching, proxy handling, render cache mode) and the clip flag
-///   "cacheOutput" (Render Cache Clip Output). Older files (any version, also
-///   without the 5 = retime branch) get the defaults; nothing else changes, so the loader
-///   needs no step for 4 -> 6 or 5 -> 6. Defaults: (proxy handling
-///   "prefer proxies", render cache "none"); proxies already in the proxy folder are linked
+///   "cacheOutput" (Render Cache Clip Output). Older files get the defaults
+///   (proxy handling "prefer proxies", render cache "none"); nothing else changes, so the
+///   loader needs no step for 4 -> 6 or 5 -> 6; proxies already in the proxy folder are linked
 ///   by the application after loading (MediaLinks::autoLink()).
 inline constexpr int kFormatVersion = 6;
 

@@ -9,6 +9,7 @@
 #include "render/GlKit.h"
 #include "render/GlMasks.h"
 #include "render/GlOutput.h"
+#include "render/GlRetime.h"
 #include "render/GlTransitions.h"
 #include "render/GlVideo.h"
 #include "render/RenderBackend.h"
@@ -65,6 +66,13 @@ private:
         std::shared_ptr<const media::VideoFrame> frame;
         /// Proxy decoded instead of the original: the original's display size (crop units).
         QSizeF displayOverride;
+        /// Retimed clips with Frame Blend / Optical Flow: the following source frame (own
+        /// decoder, so both keep decoding forward), the process and the weight of frameB
+        /// (0 = only `frame`; set by the decode when timeUs falls between two frames).
+        RetimeProcess process = RetimeProcess::Nearest;
+        DecoderPool::Entry* entryB = nullptr;
+        std::shared_ptr<const media::VideoFrame> frameB;
+        float weightB = 0.0f;
     };
     /// A nested timeline composited for the current frame (reused by every instance that
     /// shows the same frame at the same size).
@@ -95,6 +103,9 @@ private:
     void queueTimeline(const TimelineData& tl, int64_t frame, int64_t nextFrame,
         const NestedTimelines& nested, const MediaPathMap* media, int depth);
     void decodeQueued();
+    /// Decodes @p d (worker thread): its frame, and for Frame Blend / Optical Flow the next
+    /// source frame when the source time lies between two frames.
+    static void decodeOne(DecodedClip& d);
     /// Starts decoding the next frame of every clip that plays forward (worker threads).
     void startDecodeAhead();
     const DecodedClip* decoded(const ClipData* clip, int64_t timeUs) const;
@@ -112,6 +123,10 @@ private:
         double maxZoomValue, ClipSource& out);
     void drawSource(
         const ClipSource& src, const QTransform& quadToNdc, const QRectF& crop, float opacity);
+    /// Frame blend / optical flow of a decoded clip with a frameB: converts both frames to RGB
+    /// at display orientation (at most @p maxSize) and returns the in-between picture's
+    /// texture, kept alive until the end of the frame. 0 on failure.
+    GLuint retimedPicture(const DecodedClip& d, QSize maxSize);
     const TitleTexture* titleTexture(const TitleStyle& style);
     void trimTitleCache();
 
@@ -122,6 +137,9 @@ private:
     std::unique_ptr<GlOutput> m_output;
     GlVideo m_video;
     GlMasks m_masks; ///< clip mask pass (applied on the layer path)
+    GlRetime m_retime;
+    bool m_retimeOk = false; ///< retime shaders built (else every clip uses Nearest)
+    std::vector<PooledTarget> m_retimeTargets; ///< per-frame in-between pictures
     QString m_description;
 
     QHash<QString, std::shared_ptr<GlEffect>> m_effects; ///< descriptor id → implementation

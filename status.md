@@ -79,3 +79,5 @@
 - 15:08 Owner will test alpha.4 later; continue per plan. Next v2 queue after masks/retime/proxies: (1) adjustment clips + freeze/generators + subtitles track (SRT), (2) multicam + sync by audio waveform/timecode, (3) smart bins/power bins/clip colours + flags. Then 0.2.0-alpha.1.
 - 15:18 Heartbeat: masks integrating (waiting on its build), retime 1 commit, proxies 2; 20 GB free.
 - 15:30 masks merged (67/67): format v4. Format numbers reserved: retime v5, proxies v6, subtitles agent v7 (renumber at merge if order differs). Starting 'adjsubs' (adjustment clips, generators, subtitles).
+- 16:24 Heartbeat: retime merged locally, build+tests running (not pushed yet); proxies 9 commits, adjsubs 8; 19 GB free.
+- 16:24 retime merged (71/71): retime controls Ctrl+R, speed points + ramps, freeze Shift+R, reverse, frame blend + GPU optical flow, WSOLA pitch correction, format v5. Running: proxies, adjsubs; next: multicam.

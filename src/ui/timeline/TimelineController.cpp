@@ -992,6 +992,9 @@ void TimelineController::connectActions()
     on("edit.ripple_cut", &TimelineController::rippleCut);
     on("edit.delete_gaps", &TimelineController::deleteGaps);
     on("edit.join", &TimelineController::joinSelection);
+    on("clip.retime_controls", &TimelineController::toggleRetimeControls);
+    on("clip.freeze_frame", &TimelineController::freezeFrame);
+    on("clip.retime_curve", &TimelineController::showRetimeCurve);
     on("edit.select_forward", [this] { selectClipsFromPlayhead(true, false); });
     on("edit.select_backward", [this] { selectClipsFromPlayhead(false, false); });
     on("edit.select_forward_all", [this] { selectClipsFromPlayhead(true, true); });

@@ -75,6 +75,9 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     // Keyframe / curve editor toggle buttons on animated clips (KeyframeLanes).
     if (event->button() == Qt::LeftButton && m_keyframeLanes->clickClipButton(pos))
         return;
+    // Retime controls (Ctrl+R) win over the clip body under them.
+    if (event->button() == Qt::LeftButton && pressRetime(pos))
+        return;
     const TimelineData& data = m_ctx.project->timeline()->data();
     m_drag = Drag {};
     m_drag.pressPos = pos;
@@ -221,7 +224,8 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
     if (m_drag.mode == DragMode::Pending) {
         const bool trim = m_drag.pending == DragMode::TrimHead
             || m_drag.pending == DragMode::TrimTail || m_drag.pending == DragMode::Roll
-            || m_drag.pending == DragMode::TransitionEdge;
+            || m_drag.pending == DragMode::TransitionEdge
+            || m_drag.pending == DragMode::RetimePoint;
         const int threshold = trim ? kTrimThresholdPx : QApplication::startDragDistance();
         if ((pos - m_drag.pressPos).manhattanLength() < threshold)
             return;
@@ -323,6 +327,10 @@ void TimelineWidget::startDrag(DragMode mode)
         return;
     case DragMode::TransitionEdge:
         openEdit(tr("Change Transition Length"));
+        return;
+    case DragMode::RetimePoint:
+        openEdit(m_drag.retime.kind == retimebar::Hit::Kind::PointTop ? tr("Move Speed Point")
+                                                                      : tr("Change Speed"));
         return;
     case DragMode::Shuffle:
         m_drag.primary = hit.clipId;
@@ -448,6 +456,9 @@ void TimelineWidget::updateDrag(QPointF pos)
     }
     case DragMode::TransitionEdge:
         updateTransitionEdge(pos);
+        break;
+    case DragMode::RetimePoint:
+        updateRetimeDrag(pos);
         break;
     case DragMode::Shuffle:
         updateShuffle(pos);
@@ -788,8 +799,14 @@ void TimelineWidget::updateHover(QPointF pos)
     Qt::CursorShape shape = Qt::ArrowCursor;
     std::optional<int64_t> blade;
     int bladeRow = -1;
+    quint64 retimeClip = 0;
+    const retimebar::Hit::Kind retimeKind = retimeHitAt(pos, &retimeClip).kind;
     if (hit.area == TimelineHit::Area::HeaderResize) {
         shape = Qt::SizeVerCursor;
+    } else if (retimeKind == retimebar::Hit::Kind::PointTop
+        || retimeKind == retimebar::Hit::Kind::PointBottom
+        || retimeKind == retimebar::Hit::Kind::EndHandle) {
+        shape = Qt::SizeHorCursor; // speed point / retime handle (spec 31.4)
     } else if (tool != TimelineTool::Blade && transitionEdgeAt(pos)) {
         shape = Qt::SizeHorCursor; // transition length (spec 13.9)
     } else if (hit.area == TimelineHit::Area::Clip) {

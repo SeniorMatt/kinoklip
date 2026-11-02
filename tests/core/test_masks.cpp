@@ -368,8 +368,7 @@ private slots:
         QVERIFY(file.open(QIODevice::ReadOnly));
         QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
         file.close();
-        QCOMPARE(root[QStringLiteral("formatVersion")].toInt(),
-            serialization::kFormatVersion); // written as the current version (>= 4)
+        QCOMPARE(root[QStringLiteral("formatVersion")].toInt(), serialization::kFormatVersion);
         Project p4;
         QVERIFY2(p4.load(v4, &error), qPrintable(error));
         QCOMPARE(p4.timeline()->data().videoTracks[0].clips[0].masks.size(), 1);

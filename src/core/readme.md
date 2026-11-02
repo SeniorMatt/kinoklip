@@ -19,6 +19,8 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `MediaPool.h` | QObject: media items (files, timelines, compound clips) + bins, `importFiles()` |
 | `Project.h` | QObject: owns MediaPool + Timeline + QUndoStack, every timeline of the project, tabs, settings, save/load; timelines / tabs / compound clips in `ProjectTimelines.cpp` |
 | `CompoundOps.h` | pure compound-clip / nesting functions (namespace `kk::compound`): `collapse()`, `decompose()`, `canNest()` / `reaches()` (recursion), `syncNestedSources()`, `timelineInfo()`, `makeNestedClip()` |
+| `Retime.h` | the speed model: constant speed or retime curve (`ClipData::retime`, keys = speed points), exact source-time mapping, segments, media limits, retime process (namespace `kk::retime`) |
+| `RetimeOps.h` | speed edits on a clip and its linked partners with ripple: speed points, segment speed, reverse / freeze segments, freeze frame, reset, retime / slide handles, ramps, Change Clip Speed (namespace `kk::retimeops`) |
 | `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive) |
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
 | `BuiltinEffects.cpp` | the v0.1 descriptor catalogue |
@@ -48,6 +50,11 @@ Preferences: `prefs::proxyDirectory()`, `optimizedMediaDirectory()`,
   when the clip is extended).
 - Transitions at a cut are placed by `TransitionData::alignment` (centre / start on cut / end
   on cut); `TransitionData::framesBeforeCut()` is the one formula render, painter and EditOps use.
+- Retiming (`core/Retime.h`): the source time at clip-local frame x is
+  `sourceInUs + (R(x) - R(0)) * frameUs` where R is the retime curve (source frames at the
+  timeline rate) or `x * speed`. Speed points are keys of `keys::RetimeFrame` in
+  `ClipData::retime` and shift with the content like keyframes; other keyframes stay at their
+  clip time when a clip is retimed (spec 31.10).
 - `ClipData::sourceDurationUs` (addition to the PLAN contract) caches the media length so EditOps
   can clamp trims without a media-pool lookup; 0 means unbounded (stills, titles, solids).
 
@@ -153,7 +160,10 @@ locked tracks are never changed by EditOps. Ids come from `TimelineData::allocat
   "activeTimeline": uid, "tabs": [uid, ...],
   "timelineViews": [{ "uid", "playhead", "pixelsPerFrame", "scrollX", "scrollY" }] }
 ```
-Nested clips: `"kind": "nested", "nestedUid"`. Versions 1 and 2 had a single `"timeline"`
+Nested clips: `"kind": "nested", "nestedUid"`. Retimed clips (version 5):
+`"retime": {"speed", "curve"?: ParamSet with "retimeFrame", "process"?, "pitchCorrection"}`;
+timelines and `"project"` carry `"retimeProcess"`. A version <= 4 clip's `"speed"` loads as one
+constant segment with pitch correction off. Versions 1 and 2 had a single `"timeline"`
 object instead of `"timelines"`; `Project::fromJson()` loads it as timeline uid 1 and creates
 its media pool item, so old projects open unchanged.
 Static params are plain JSON values except colours (`{"color": "#aarrggbb"}`).

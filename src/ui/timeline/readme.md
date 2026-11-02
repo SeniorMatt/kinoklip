@@ -19,7 +19,11 @@ for thumbnails and waveforms).
 | `TimelineCompound.cpp` | controller part 5: New Timeline / Duplicate / Delete, tab cycling and closing, New Compound Clip, Open in Timeline, Decompose in Place |
 | `TimelineTabs.h` | the row above the tracks: tabs of the open timelines (switch, drag to reorder, close, context menu) or, with tabs off (Preferences > Editing), a drop-down |
 | `NestedPreview.h` | thumbnails / waveforms of compound clips and nested timelines, rendered in the background from the nested timeline and cached until it changes; the painter reaches it through the `kk-nested:<uid>` pseudo path |
-| `TimelineEditUtil.h` | private: `runEdit()` (one undo step or none) and `applyClipSpeed()` |
+| `TimelineEditUtil.h` | private: `runEdit()` (one undo step or none), `applyClipSpeed()`, `applyClipRetime()` (paste attributes) |
+| `TimelineRetime.cpp` | controller part 6: retime targets, Change Clip Speed, Ctrl+R retime controls state, Shift+R freeze frame, speed bar commands |
+| `RetimeBar.h` | pure geometry / hit-testing of the retime controls (speed bar fields, speed point handles, end handle) |
+| `TimelineRetimeInput.cpp` | widget part: speed bar presses, handle drags (`DragMode::RetimePoint`), the speed menu and speed point menu, Retime Curve (curve lane with only the retime curve) |
+| `ChangeSpeedDialog.h` | the R dialog: speed / fps / duration linked, reverse, freeze, ripple, pitch correction |
 | `TimelineLayout.h` | pure geometry: frame <-> x, rows, header buttons, clip ranges, hit-testing (unit-tested) |
 | `TimelinePainter.h` | draws ruler, headers, clips, transitions, overlays for one paint event |
 | `TimelineMedia.h` | thumbnail / waveform provider types and the MediaCache-backed defaults |
@@ -137,6 +141,16 @@ media pool into Nested clips (refused when it would make the timeline contain it
 and F9/F10/F12 work unchanged. Actions: `timeline.new` (Ctrl+N), `timeline.duplicate`,
 `timeline.delete`, `timeline.settings`, `timeline.next_tab`, `timeline.prev_tab`,
 `timeline.close_tab`, `clip.new_compound`, `clip.open_in_timeline`, `clip.decompose`.
+
+## Retime controls (spec section 31)
+
+`clip.retime_controls` (Ctrl+R) toggles the speed bar of the retime targets (selection, else
+clips under the playhead on auto-select video tracks); the shown set is controller view state
+(`retimeControls()`, cleared on timeline switch). `clip.freeze_frame` (Shift+R),
+`clip.retime_curve` (Ctrl+Shift+R) and `clip.change_speed` (R, `ChangeSpeedDialog`) are
+connected here too. Handle drags follow the usual protocol (origin restore + `retimeops`
+per move, one undo step); menus are non-modal `QMenu`s with object names for tests
+(`TimelineWidget::retimeMenu()`). Tests: `tests/timeline/test_retimebar.cpp`.
 
 ## Coordinates and time
 
