@@ -242,6 +242,14 @@ public:
     void cycleTab(int step);
     /// Closes the active tab (not the last one).
     bool closeActiveTab();
+    /// Stacked timelines (spec 32.9): copies clips @p clipIds of timeline @p sourceUid (any
+    /// timeline of the project, the active one included) into the active timeline with the
+    /// earliest clip at @p frame; video clips start on the video track @p track.index, audio
+    /// clips on the audio track of the same index (or of @p track when it is an audio track),
+    /// missing tracks are added. Overwrites, or inserts with @p insert. Clips that would make
+    /// the timeline contain itself are skipped. One undo step; selects and returns the copies.
+    QVector<quint64> copyClipsFrom(quint64 sourceUid, const QVector<quint64>& clipIds,
+        int64_t frame, TrackRef track, bool insert = false);
 
     // ---- Clip factories ----
 

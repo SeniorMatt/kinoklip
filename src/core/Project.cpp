@@ -383,8 +383,9 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
     m_format = format;
     MediaPoolState pool = serialization::mediaPoolFromJson(
         root.value(QLatin1String("mediaPool")).toObject(), projectDir);
-    if (version < 9) {
-        // Version <= 8 -> 9: no file times were stored. The file's modification time is read
+    if (version < 11) {
+        // Version <= 10 -> 11: no file times were stored (10 is the attrs format without the
+        // bins data). The file's modification time is read
         // now (one stat per item; mediaPoolFromJson already checks every path) and also used as
         // the "date added", the earliest moment the file can have been imported.
         for (MediaItem& m : pool.items) {
@@ -492,6 +493,8 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     // subtitle media items (all optional fields, absent = none): nothing to convert.
     // Versions 5 - 7 -> 8 (multicam): no multicam timelines, Nested clips without
     // "multicamAngle" load as -1 (= the whole nested timeline, exactly what they showed).
+    // Versions <= 9 -> 10 only added clip fades and Clip Attributes (optional fields,
+    // absent = none): nothing to convert.
 
     // Media paths stored relative to the document resolve against the document's folder
     // (for a recovered autosave that is the original project file, not the autosave dir).

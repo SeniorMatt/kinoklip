@@ -20,7 +20,7 @@ bool operator==(const MediaItem& a, const MediaItem& b)
         && a.kind == b.kind && a.timelineUid == b.timelineUid && a.cues == b.cues
         && a.clipColor == b.clipColor && a.flags == b.flags && a.metadata == b.metadata
         && a.addedMs == b.addedMs && a.fileModifiedMs == b.fileModifiedMs
-        && sameMediaInfo(a.info, b.info);
+        && a.attributes == b.attributes && sameMediaInfo(a.info, b.info);
 }
 
 } // namespace kk

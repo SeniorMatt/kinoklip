@@ -320,6 +320,7 @@ bool joinClips(TimelineData& data, quint64 leftClipId, quint64 rightClipId)
     for (qsizetype e = 0; e < a.effects.size(); ++e)
         mergeKeys(a.effects[e].params, b.effects[e].params, a.duration);
     a.transitionOut = b.transitionOut;
+    a.fadeOutFrames = b.fadeOutFrames;
     a.duration += b.duration;
     track.clips.erase(track.clips.begin() + std::ptrdiff_t(i) + 1);
     return true;

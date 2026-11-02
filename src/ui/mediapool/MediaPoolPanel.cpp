@@ -441,6 +441,8 @@ void MediaPoolPanel::publishSelection()
         {"mediapool.generate_proxy", anyFile}, {"mediapool.stop_generation", anyPending},
         {"mediapool.link_proxy", anyFile && ids.size() == 1}, {"mediapool.unlink_proxy", anyProxy},
         {"mediapool.delete_proxy", anyProxy}, {"mediapool.delete_optimized", anyOptimized}};
+    if (m_ctx.actions->contains(QStringLiteral("clip.attributes"))) // Clip > Clip Attributes
+        m_ctx.actions->action(QStringLiteral("clip.attributes"))->setData(ids);
     for (const auto& [id, on] : enabled) {
         if (!m_ctx.actions->contains(QLatin1String(id)))
             continue;

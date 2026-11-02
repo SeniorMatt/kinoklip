@@ -151,6 +151,7 @@ const ActionSpec kActions[] = {
     {"clip", "clip.new_compound",     QT_TRANSLATE_NOOP("kk::StandardActions", "New &Compound Clip…"), "compound_clip"},
     {"clip", "clip.open_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Open in Timeline")},
     {"clip", "clip.decompose",        QT_TRANSLATE_NOOP("kk::StandardActions", "Decompose in &Place")},
+    {"clip", "clip.attributes",       QT_TRANSLATE_NOOP("kk::StandardActions", "Clip &Attributes…")},
     {"clip", "clip.render_cache_output", QT_TRANSLATE_NOOP("kk::StandardActions", "Render Cache Clip O&utput"), "", true},
     {"clip", "-"},
     // Multicam clips (media pool commands in src/ui/mediapool/MediaPoolMulticam.cpp, angle
@@ -224,6 +225,7 @@ const ActionSpec kActions[] = {
     {"view", "view.toggle_effects",   QT_TRANSLATE_NOOP("kk::StandardActions", "Effects"), "panel_effects", true},
     {"view", "view.toggle_edit_index", QT_TRANSLATE_NOOP("kk::StandardActions", "Edit Index"), "panel_edit_index", true},
     {"view", "view.toggle_keyframes", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframes"), "panel_keyframes", true},
+    {"view", "view.stacked_timelines", QT_TRANSLATE_NOOP("kk::StandardActions", "S&tacked Timelines"), "", true},
     {"view", "view.toggle_mixer",     QT_TRANSLATE_NOOP("kk::StandardActions", "Mixer"), "panel_mixer", true},
     {"view", "view.toggle_metadata",  QT_TRANSLATE_NOOP("kk::StandardActions", "Metadata"), "panel_metadata", true},
     {"view", "view.toggle_inspector", QT_TRANSLATE_NOOP("kk::StandardActions", "Inspector"), "panel_inspector", true},

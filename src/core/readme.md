@@ -233,9 +233,10 @@ and subtitle media items (`"kind": "subtitle"`, `"cues": [[startUs, endUs, text]
 5 and 6 belong to the retime / proxy branches; all older files load unchanged.
 Format version 8 adds multicam: timeline `"multicam": true`, clip `"multicamAngle"`, media
 pool item `"kind": "multicam"`, media info `"timecode"` (all optional).
-Format version 9 (bins): items may carry "clipColor", "flags", "metadata", "added",
+Format version 10 (attrs) adds clip fades and Clip Attributes (see `Serialization.h`).
+Format version 11 (bins): items may carry "clipColor", "flags", "metadata", "added",
 "modified"; the media pool "smartBins"; the project "binViews" (see `Serialization.h`).
-Versions <= 8 get "modified" (and "added") from the file on disk when loading.
+Versions <= 10 get "modified" (and "added") from the file on disk when loading.
 Media paths are stored absolute and relative to the project file; the relative one is used when
 the absolute path no longer exists.
 
@@ -260,3 +261,19 @@ the absolute path no longer exists.
 2. Write/read it in `Serialization.cpp` (missing on read → default, so old files keep loading).
 3. Extend `richTimeline()` in `tests/core/test_serialization.cpp` so the round-trip covers it.
 4. Bump `kFormatVersion` only for incompatible changes, and add a migration in `Project::load()`.
+
+## Fades, level lines, Clip Attributes (attrs branch, spec section 32)
+- `ClipData::fadeInFrames` / `fadeOutFrames`: fade handles (clip properties, not keyframes);
+  `videoFadeFactor()` (linear) and `audioFadeGain()` (equal power) in `ClipAttributes.h` are the
+  one formula renderers and mixer use. Splits / range cuts drop the fade at the cut
+  (`EditOpsInternal.h`), joins keep the outer ones.
+- `LevelOps.h` (namespace `kk::levelops`): the edits behind the timeline's level lines and fade
+  handles (offset the volume at a frame, add / move volume keys, set a fade), callable without
+  the mouse.
+- `ClipAttributes.h`: pixel aspect, data levels, field order + deinterlace, extra rotation,
+  channel format / routing (`channelMatrix()`), start timecode. The truth is
+  `MediaItem::attributes` (`MediaPool::setItemAttributes()` inside an edit);
+  `Project::syncDerived()` mirrors it into `ClipData::attributes` of every Media clip of the
+  item in every timeline, so render snapshots carry it. Serialized from format 10.
+- Stacked timelines: `Project::setTabs()`, `timelinePlayhead()` / `setTimelinePlayhead()`
+  (inactive timelines keep their own playhead; `inactivePlayheadChanged`).

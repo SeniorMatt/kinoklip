@@ -7,12 +7,14 @@
 
 #include "core/ClipColors.h"
 #include "core/EditOps.h"
+#include "core/LevelOps.h"
 #include "core/MediaPool.h"
 #include "core/Multicam.h"
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/TimecodeFormat.h"
+#include "ui/timeline/LevelLines.h"
 #include "ui/timeline/NestedPreview.h"
 #include "ui/timeline/RetimeBar.h"
 
@@ -47,6 +49,10 @@ const QColor kAdjustmentClip(0x5d, 0x6b, 0x84);
 const QColor kGeneratorClip(0xa0, 0x62, 0x3c);
 const QColor kSubtitleClip(0x8a, 0x7d, 0x55);
 const QColor kSubtitleStrip(0xb8, 0xa0, 0x58);
+const QColor kLevelLine(0xff, 0xe0, 0x80, 220); ///< audio level line and its keys
+const QColor kFadeShade(0, 0, 0, 90); ///< the faded part of a clip
+const QColor kFadeLine(0xf2, 0xf2, 0xf4, 200); ///< the fade curve
+const QColor kFadeHandleFill(0xf2, 0xf2, 0xf4); ///< fade handle squares
 const QColor kSelection(0xff, 0xa8, 0x3a);
 const QColor kPlayhead(0xe5, 0x48, 0x4d);
 const QColor kSnapLine(0xf4, 0xd6, 0x4e);
@@ -56,8 +62,8 @@ const QColor kSoloOn(0xd8, 0xb8, 0x3a);
 const QColor kVideoStrip(0x3d, 0x7f, 0xc4);
 const QColor kAudioStrip(0x3b, 0xa0, 0x6e);
 
-constexpr double kBandHeight = 15; ///< clip title band (name, fx badge)
-constexpr int kMinBandRow = 30; ///< rows lower than this show only the band
+constexpr double kBandHeight = levellines::kNameBand; ///< clip title band (name, fx badge)
+constexpr int kMinBandRow = levellines::kMinBandRow; ///< lower rows show only the band
 constexpr int kMajorTickSpacingPx = 128; ///< aim for labelled ruler ticks this far apart
 constexpr double kFlagMark = 6; ///< px, flag squares in a clip's name band
 constexpr int kMinMinorTickPx = 7;
@@ -362,7 +368,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
             else {
                 const QRectF full(r.left(), content.top(), r.width(), content.height());
                 paintWaveform(p, in, clip, full, content, base.lighter(165));
-                paintVolumeLine(p, in, clip, full, content);
+                paintVolumeLine(p, in, clip, r, content);
             }
             break;
         case ClipKind::Solid:
@@ -455,6 +461,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         p.drawText(badge, Qt::AlignCenter, QStringLiteral("fx"));
     }
 
+    paintFades(p, in, clip, r, visible);
     if (r.height() >= 24)
         paintKeyframes(p, in, clip, r);
     if (in.retimeShown && in.retimeShown->contains(clip.id))
@@ -685,44 +692,101 @@ void TimelinePainter::paintWaveform(QPainter& p, const TimelinePaintInput& in, c
 }
 
 void TimelinePainter::paintVolumeLine(QPainter& p, const TimelinePaintInput& in,
-    const ClipData& clip, const QRectF& full, const QRectF& visible)
+    const ClipData& clip, const QRectF& clipRect, const QRectF& visible)
 {
-    if (full.height() < 14)
+    namespace ll = levellines;
+    const QRectF area = ll::levelArea(clipRect);
+    if (area.isEmpty())
         return;
-    // Gain mapped linearly in dB: +12 dB at the top, -60 dB (and below) at the bottom.
-    constexpr double kTopDb = 12.0;
-    constexpr double kBottomDb = -60.0;
-    const auto yFor = [&](double db) {
-        const double t = (kTopDb - std::clamp(db, kBottomDb, kTopDb)) / (kTopDb - kBottomDb);
-        return full.top() + 2 + t * (full.height() - 4);
-    };
     const TimelineLayout& L = *in.layout;
     const auto it = clip.audio.values.constFind(keys::VolumeDb);
+    const bool animated = it != clip.audio.values.cend() && !it->keys.isEmpty();
+    const double clipStart = double(clip.start);
     m_lines.clear();
-    if (it == clip.audio.values.cend() || it->keys.isEmpty()) {
+    if (!animated) {
         const double db = it == clip.audio.values.cend() ? 0.0 : it->base;
-        const double y = yFor(db);
+        const double y = ll::yForDb(area, db);
         m_lines.emplace_back(visible.left(), y, visible.right(), y);
     } else {
-        // Straight segments between keys (linear approximation of the eases is enough for an
-        // overview), flat before the first and after the last key.
-        const auto& keys = it->keys;
-        double prevX = full.left();
-        double prevY = yFor(keys.front().value);
-        for (const Keyframe& k : keys) {
-            const double x = L.frameToX(double(clip.start + k.frame));
-            const double y = yFor(k.value);
-            if (x >= visible.left() - 1 || prevX <= visible.right() + 1)
-                m_lines.emplace_back(prevX, prevY, x, y);
+        // The exact curve (eases included), sampled every kStepPx over the visible part, so
+        // what is drawn is what the hit test and the mixer use.
+        constexpr double kStepPx = 2.0;
+        double prevX = visible.left();
+        double prevY = ll::yForDb(area, it->valueAtTime(L.xToFrame(prevX) - clipStart));
+        for (double x = prevX + kStepPx; prevX < visible.right(); x += kStepPx) {
+            x = std::min(x, visible.right());
+            const double y = ll::yForDb(area, it->valueAtTime(L.xToFrame(x) - clipStart));
+            m_lines.emplace_back(prevX, prevY, x, y);
             prevX = x;
             prevY = y;
         }
-        m_lines.emplace_back(prevX, prevY, full.right(), prevY);
     }
+    p.save();
+    p.setClipRect(visible, Qt::IntersectClip);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen(QColor(0xff, 0xe0, 0x80, 210), 1.2));
+    p.setPen(QPen(kLevelLine, 1.3));
     p.drawLines(m_lines.data(), int(m_lines.size()));
-    p.setRenderHint(QPainter::Antialiasing, false);
+    if (animated) {
+        // Keys on the line: diamonds, selected ones filled with the selection colour. The
+        // path string is built once (no allocation per key and paint).
+        static const QString kVolumePath = levelops::volumePath();
+        const bool anySelected = in.selectedKeys && !in.selectedKeys->isEmpty();
+        for (const Keyframe& k : it->keys) {
+            if (k.frame < 0 || k.frame >= clip.duration)
+                continue;
+            const double x = L.frameToX(clipStart + double(k.frame));
+            if (x < visible.left() - ll::kKeyRadius || x > visible.right() + ll::kKeyRadius)
+                continue;
+            const bool sel = anySelected
+                && in.selectedKeys->contains(KeyframeRef {clip.id, kVolumePath, k.frame});
+            p.setPen(QColor(20, 20, 20));
+            p.setBrush(sel ? kSelection : kLevelLine);
+            drawDiamond(p, QPointF(x, ll::yForDb(area, k.value)), ll::kKeyRadius + 0.5);
+        }
+        p.setBrush(Qt::NoBrush);
+    }
+    p.restore();
+}
+
+void TimelinePainter::paintFades(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
+    const QRectF& r, const QRectF& visible)
+{
+    namespace ll = levellines;
+    const TimelineLayout& L = *in.layout;
+    const double ppf = L.pixelsPerFrame();
+    const bool hovered = in.hoverClip == clip.id;
+    if (clip.fadeInFrames <= 0 && clip.fadeOutFrames <= 0 && !hovered)
+        return;
+    p.save();
+    p.setClipRect(visible, Qt::IntersectClip);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    // The faded part: a shaded wedge from the corner to where the fade reaches full level,
+    // its edge the fade curve (straight: video fades linearly; close enough for audio).
+    const double top = r.top() + 1;
+    const double bottom = r.bottom() - 1;
+    const auto wedge = [&](double cornerX, double endX) {
+        const QPointF pts[3] = {{cornerX, top}, {endX, top}, {cornerX, bottom}};
+        p.setPen(Qt::NoPen);
+        p.setBrush(kFadeShade);
+        p.drawConvexPolygon(pts, 3);
+        p.setPen(QPen(kFadeLine, 1.2));
+        p.drawLine(QPointF(cornerX, bottom), QPointF(endX, top));
+    };
+    if (clip.fadeInFrames > 0)
+        wedge(r.left(), r.left() + double(clip.fadeInFrames) * ppf);
+    if (clip.fadeOutFrames > 0)
+        wedge(r.right(), r.right() - double(clip.fadeOutFrames) * ppf);
+    if (hovered || clip.fadeInFrames > 0 || clip.fadeOutFrames > 0) {
+        for (const bool head : {true, false}) {
+            const QRectF h = ll::fadeHandleRect(clip, r, L, head);
+            if (h.isEmpty() || (!hovered && (head ? clip.fadeInFrames : clip.fadeOutFrames) == 0))
+                continue;
+            p.setPen(QColor(20, 20, 20));
+            p.setBrush(kFadeHandleFill);
+            p.drawRect(h.adjusted(0.5, 0.5, -0.5, -0.5));
+        }
+    }
+    p.restore();
 }
 
 void TimelinePainter::paintKeyframes(

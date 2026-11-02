@@ -7,6 +7,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/keyframes/KeyframeCommands.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
@@ -44,6 +45,11 @@ bool TimelineController::hasMarkedRange() const
 
 void TimelineController::deleteSelection()
 {
+    // Keys selected on their own (a volume key on a level line, spec 32.2): delete them.
+    if (m_ctx.selection->clips().isEmpty() && !m_ctx.selection->keyframes().isEmpty()) {
+        keyframecommands::deleteSelected(m_ctx);
+        return;
+    }
     if (const auto t = m_ctx.selection->transition()) {
         deleteTransition(*t); // Backspace on a selected transition (spec 13.10)
         return;
@@ -74,6 +80,11 @@ void TimelineController::deleteSelection()
 
 void TimelineController::rippleDeleteSelection()
 {
+    // Keys selected on their own (a volume key on a level line, spec 32.2): delete them.
+    if (m_ctx.selection->clips().isEmpty() && !m_ctx.selection->keyframes().isEmpty()) {
+        keyframecommands::deleteSelected(m_ctx);
+        return;
+    }
     if (const auto t = m_ctx.selection->transition()) {
         deleteTransition(*t); // a transition has no length of its own to ripple
         return;

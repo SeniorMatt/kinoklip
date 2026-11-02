@@ -223,6 +223,47 @@ void Project::syncDerived()
             s.data = std::move(copy);
         }
     }
+    // 1b. Media clips mirror the Clip Attributes of their media pool item (render snapshots
+    //     carry them; the item is the single source of truth). One hash lookup per media
+    //     clip; a timeline is only copied when one of its clips is out of date.
+    QHash<QString, ClipAttributes> attributesOf;
+    for (const MediaItem& item : m_mediaPool->items()) {
+        if (!item.attributes.isDefault())
+            attributesOf.insert(item.id, item.attributes);
+    }
+    const auto attributesOutdated = [&](const TimelineData& t) {
+        for (const auto* tracks : {&t.videoTracks, &t.audioTracks}) {
+            for (const TrackData& track : *tracks) {
+                for (const ClipData& c : track.clips) {
+                    if (c.kind == ClipKind::Media
+                        && !(c.attributes == attributesOf.value(c.mediaId)))
+                        return true;
+                }
+            }
+        }
+        return false;
+    };
+    const auto syncAttributes = [&](TimelineData& t) {
+        for (auto* tracks : {&t.videoTracks, &t.audioTracks}) {
+            for (TrackData& track : *tracks) {
+                for (ClipData& c : track.clips) {
+                    if (c.kind == ClipKind::Media)
+                        c.attributes = attributesOf.value(c.mediaId);
+                }
+            }
+        }
+    };
+    for (TimelineSlot& s : m_slots) {
+        if (!attributesOutdated(*lookup(s.uid)))
+            continue;
+        if (s.uid == m_activeUid) {
+            syncAttributes(m_timeline->mutableData());
+        } else {
+            auto copy = std::make_shared<TimelineData>(*s.data);
+            syncAttributes(*copy);
+            s.data = std::move(copy);
+        }
+    }
     // 2. One media pool item per timeline. The item's name is authoritative (renaming in the
     //    media pool renames the timeline), the info is derived from the timeline.
     QHash<quint64, QString> itemOf;
@@ -444,6 +485,42 @@ void Project::moveTab(int from, int to)
         return;
     m_tabs.move(from, to);
     emit tabsChanged();
+}
+
+void Project::setTabs(const QVector<quint64>& tabs)
+{
+    QVector<quint64> clean;
+    for (const quint64 uid : tabs) {
+        if (slot(uid) && !clean.contains(uid))
+            clean.append(uid);
+    }
+    if (!clean.contains(m_activeUid))
+        clean.append(m_activeUid);
+    if (clean == m_tabs)
+        return;
+    m_tabs = std::move(clean);
+    emit tabsChanged();
+}
+
+int64_t Project::timelinePlayhead(quint64 uid) const
+{
+    if (uid == m_activeUid)
+        return m_timeline->playhead();
+    const TimelineSlot* s = slot(uid);
+    return s ? s->playhead : 0;
+}
+
+void Project::setTimelinePlayhead(quint64 uid, int64_t frame)
+{
+    if (uid == m_activeUid) {
+        m_timeline->setPlayhead(frame);
+        return;
+    }
+    TimelineSlot* s = slot(uid);
+    if (!s || s->playhead == frame)
+        return;
+    s->playhead = std::max<int64_t>(0, frame);
+    emit inactivePlayheadChanged(uid, s->playhead);
 }
 
 TimelineViewState Project::viewState(quint64 uid) const

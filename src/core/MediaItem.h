@@ -2,6 +2,7 @@
 // Value types of the media pool: imported media items and the bins (folders) holding them.
 #pragma once
 
+#include "core/ClipAttributes.h"
 #include "core/Subtitles.h"
 #include "media/MediaInfo.h"
 
@@ -68,6 +69,9 @@ struct MediaItem
     /// Modification time of the file when it was imported / relinked (ms since the epoch,
     /// UTC); 0 = unknown or no file.
     qint64 fileModifiedMs = 0;
+    /// File items: how the file is interpreted (Clip Attributes dialog); mirrored into the
+    /// ClipData::attributes of its clips by Project::syncDerived().
+    ClipAttributes attributes;
 
     /// True for timeline and compound clip items.
     [[nodiscard]] bool isTimeline() const

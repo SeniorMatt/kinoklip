@@ -336,3 +336,8 @@ a `…Ready(path)` signal emitted from the finish function in the cache's thread
 automatically). Bump `FIXTURE_VERSION` when changing it. Video fixtures carry a frame-index
 barcode (see the script header; `tests/media/MediaTestUtil.h` reads it), so new seek tests can
 assert the exact frame.
+
+## Channel routing (Clip Attributes)
+`AudioDecoder::setChannelMapping(ClipAttributes)`: Stereo / Mono routing of chosen source
+channels through an explicit 2 x N swresample matrix (`channelMatrix()` in core); Auto keeps the
+default layout. Changing it invalidates the buffered samples (the next read seeks exactly).

@@ -224,6 +224,14 @@ public:
     bool closeTab(quint64 uid);
     /// Moves the tab at @p from to index @p to.
     void moveTab(int from, int to);
+    /// Replaces the tab list (stacked timelines swap the tabs of their two panes): unknown
+    /// uids and duplicates are dropped, the active timeline is kept (appended if missing).
+    void setTabs(const QVector<quint64>& tabs);
+    /// Playhead of timeline @p uid (the active one's live playhead; 0 for unknown uids).
+    [[nodiscard]] int64_t timelinePlayhead(quint64 uid) const;
+    /// Moves the playhead of timeline @p uid (stacked timelines: the inactive pane has its own
+    /// playhead). Not an edit; emits inactivePlayheadChanged() for inactive timelines.
+    void setTimelinePlayhead(quint64 uid, int64_t frame);
     /// View state (zoom, scroll) of timeline @p uid.
     [[nodiscard]] TimelineViewState viewState(quint64 uid) const;
     /// Remembers the view state of timeline @p uid.
@@ -294,6 +302,8 @@ signals:
     void timelinesChanged();
     /// The tabs (open timelines or their order) changed.
     void tabsChanged();
+    /// The playhead of inactive timeline @p uid moved (setTimelinePlayhead()).
+    void inactivePlayheadChanged(quint64 uid, int64_t frame);
     /// cacheSettings() changed (also after new/load).
     void cacheSettingsChanged();
 

@@ -39,6 +39,10 @@ namespace kk {
 /// * Nested clips (compound clips, nested timelines): the nested timeline's own mix (all its
 ///   audio tracks, recursively, before the master clipper) is the clip's source, read through
 ///   a child mixer per clip so contiguous playback never re-opens anything;
+/// * fade handles (ClipData::fadeInFrames / fadeOutFrames): equal-power gain ramps
+///   (audioFadeGain() in core/ClipAttributes.h), times the volume and transitions;
+/// * Clip Attributes channel routing (ClipData::attributes, applied by the decoder:
+///   media::AudioDecoder::setChannelMapping());
 /// * a soft clipper on the master (transparent below −1 dBFS, asymptotic to ±1).
 ///
 /// Performance: allocation-free in steady state (scratch buffers grow only; decoders are only
