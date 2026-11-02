@@ -103,6 +103,12 @@ MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item)
         row.offline = false;
         return row;
     }
+    if (item.isSubtitle()) {
+        row.kind = SubtitleKind;
+        row.codecText = item.info.container == QLatin1String("vtt") ? tr("WebVTT Subtitle")
+                                                                    : tr("SubRip Subtitle");
+        row.audioText = tr("%n caption(s)", nullptr, int(item.cues.size()));
+    }
     // One stat() per item on add/reset, never while painting.
     row.offline = !QFileInfo::exists(item.path);
     return row;
@@ -208,7 +214,7 @@ int MediaPoolModel::columnCount(const QModelIndex& parent) const
 QPixmap MediaPoolModel::poster(const Row& row) const
 {
     if (row.kind == AudioKind || row.kind == TimelineKind || row.kind == CompoundKind
-        || !m_provider)
+        || row.kind == SubtitleKind || !m_provider)
         return {};
     if (const QPixmap* cached = m_posters.object(row.path))
         return *cached;
@@ -269,6 +275,8 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
             return icon(QStringLiteral("timeline"));
         case CompoundKind:
             return icon(QStringLiteral("compound_clip"));
+        case SubtitleKind:
+            return icon(QStringLiteral("subtitle"));
         default:
             return icon(QStringLiteral("film"));
         }

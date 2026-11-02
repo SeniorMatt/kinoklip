@@ -71,7 +71,8 @@ public:
         AudioKind,
         ImageKind,
         TimelineKind, ///< a timeline of the project (double-click opens it in a tab)
-        CompoundKind ///< a compound clip (its timeline)
+        CompoundKind, ///< a compound clip (its timeline)
+        SubtitleKind ///< an imported subtitle file (drag onto the timeline for captions)
     };
 
     /// Size poster frames are scaled to fit (16:9 tile).

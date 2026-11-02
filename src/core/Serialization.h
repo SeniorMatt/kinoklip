@@ -44,7 +44,14 @@ namespace kk::serialization {
 ///   (proxy handling "prefer proxies", render cache "none"); nothing else changes, so the
 ///   loader needs no step for 4 -> 6 or 5 -> 6; proxies already in the proxy folder are linked
 ///   by the application after loading (MediaLinks::autoLink()).
-inline constexpr int kFormatVersion = 6;
+/// - 7: adjustment clips ("kind": "adjustment"), generator clips ("kind": "generator",
+///   "generator": descriptor id, parameters in "title"), subtitle tracks ("subtitleTracks":
+///   tracks with "subtitleStyle" and "language"?, holding "kind": "subtitle" clips whose text
+///   and style overrides are in "title"), subtitle media pool items ("kind": "subtitle",
+///   "cues": [[startUs, endUs, text], ...]). Older
+///   files have none of these and load unchanged; older builds refuse version 7 instead of silently
+///   dropping captions and adjustment clips.
+inline constexpr int kFormatVersion = 7;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

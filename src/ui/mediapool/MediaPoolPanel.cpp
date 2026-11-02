@@ -235,6 +235,8 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
             const MediaItem* item = m_ctx.project->mediaPool()->item(id);
             if (item && item->isTimeline())
                 openTimeline(item->timelineUid);
+            else if (item && item->isSubtitle())
+                return; // no picture to view: drag it onto the timeline for captions
             else
                 emit openInSourceViewer(id);
         });
@@ -727,7 +729,7 @@ void MediaPoolPanel::confirmAndDelete(const QStringList& ids)
     }
     for (const quint64 uid : m_ctx.project->timelineUids()) {
         const auto data = m_ctx.project->timelineData(uid);
-        for (const auto* tracks : {&data->videoTracks, &data->audioTracks}) {
+        for (const auto* tracks : {&data->videoTracks, &data->audioTracks, &data->subtitleTracks}) {
             for (const TrackData& track : *tracks) {
                 for (const ClipData& clip : track.clips) {
                     const bool nested = clip.kind == ClipKind::Nested;
@@ -777,9 +779,11 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         menu.addSeparator();
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
     } else if (!current.isEmpty()) {
-        menu.addAction(tr("Open in Source Viewer"), this,
-            [this, current] { emit openInSourceViewer(current); });
-        menu.addSeparator();
+        if (!currentItem || !currentItem->isSubtitle()) {
+            menu.addAction(tr("Open in Source Viewer"), this,
+                [this, current] { emit openInSourceViewer(current); });
+            menu.addSeparator();
+        }
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
         menu.addAction(
             tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });
