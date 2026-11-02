@@ -184,7 +184,10 @@ void KeyframeTrackWidget::paintEvent(QPaintEvent*)
             const double x0 = std::max(left, xOfLocal(double(frames.front())));
             const double x1 = std::min(right, xOfLocal(double(frames.back())));
             if (x1 > x0) {
-                p.setPen(QPen(QColor(kKeyFill.red(), kKeyFill.green(), kKeyFill.blue(), 110), 1));
+                // Text colour, faint: readable on dark and light lanes alike.
+                QColor span = text;
+                span.setAlpha(70);
+                p.setPen(QPen(span, 1));
                 p.drawLine(QPointF(x0, cy), QPointF(x1, cy));
             }
         }
