@@ -12,4 +12,9 @@ namespace kk::media {
 /// FFmpeg's own log messages are routed into this category as well (see FFmpegUtil.cpp).
 Q_DECLARE_LOGGING_CATEGORY(lcMedia)
 
+/// (Re-)installs the routing of FFmpeg's log into `kk.media`. Call after anything that may
+/// have replaced FFmpeg's log callback: Qt Multimedia's FFmpeg backend does so when it
+/// initialises (first QMediaDevices / QAudioSink use). Cheap and thread-safe.
+void installFfmpegLogRouting();
+
 } // namespace kk::media

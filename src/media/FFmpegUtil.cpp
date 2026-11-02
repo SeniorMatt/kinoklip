@@ -154,10 +154,14 @@ void FfmpegLogCapture::record(int level, const QByteArray& text)
 void initFfmpeg()
 {
     static std::once_flag once;
-    std::call_once(once, [] {
-        av_log_set_level(kFfmpegLogLevel);
-        av_log_set_callback(ffmpegLogCallback);
-    });
+    std::call_once(once, [] { av_log_set_level(kFfmpegLogLevel); });
+    // Every time, not once: Qt Multimedia's FFmpeg backend (QT_MEDIA_BACKEND=ffmpeg, the
+    // bundle's default) installs its own av_log callback when it initialises - on the first
+    // QMediaDevices/QAudioSink use, i.e. typically after our first decoder was opened - and
+    // FFmpeg's messages then bypassed our routing, filters and captures (the raw
+    // "[AVHWFramesContext] Failed to sync surface", UDTA, CUDA and MFX lines of alpha.3).
+    // A plain pointer store; FFmpeg reads it unsynchronised either way.
+    av_log_set_callback(ffmpegLogCallback);
 }
 
 QString avErrorString(int errorCode)
@@ -315,3 +319,12 @@ bool isStillImageSuffix(const QString& suffix)
 }
 
 } // namespace kk::media::detail
+
+namespace kk::media {
+
+void installFfmpegLogRouting()
+{
+    detail::initFfmpeg();
+}
+
+} // namespace kk::media
