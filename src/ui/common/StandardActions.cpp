@@ -77,6 +77,7 @@ const ActionSpec kActions[] = {
     {"trim", "trim.trim_start",       QT_TRANSLATE_NOOP("kk::StandardActions", "Trim &Start to Playhead")},
     {"trim", "trim.trim_end",         QT_TRANSLATE_NOOP("kk::StandardActions", "Trim &End to Playhead")},
     {"trim", "trim.extend_edit",      QT_TRANSLATE_NOOP("kk::StandardActions", "E&xtend Edit to Playhead")},
+    {"trim", "trim.cycle_edit",       QT_TRANSLATE_NOOP("kk::StandardActions", "Cycle Edit Point &Side")},
 
     // ---- Timeline ----
     {"timeline", "edit.split",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Split Clip at Playhead"), "split"},

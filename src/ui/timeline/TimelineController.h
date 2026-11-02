@@ -162,6 +162,12 @@ public slots:
     void nudge(int64_t frames);
     /// Moves the selected edit point to the playhead (E; spec 8.11).
     void extendEditToPlayhead();
+    /// U (spec 8.16): cycles the selected edit point at a cut between the outgoing tail, the
+    /// roll (both sides) and the incoming head. No-op without a touching neighbour.
+    void cycleEditPoint();
+    /// Alt-click on an auto track selector (spec 6.6): only @p ref keeps it on among the
+    /// tracks of its type. One undo step.
+    void soloAutoSelect(TrackRef ref);
     /// Trims the head (Shift+[) / tail (Shift+]) of the clips under the playhead to the
     /// playhead: the selected clips, or those on auto-select tracks (spec 8.10).
     void trimStartToPlayhead();

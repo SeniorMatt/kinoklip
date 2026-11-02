@@ -378,6 +378,17 @@ private slots:
         QCOMPARE(v.undoCount(), before + 1);
     }
 
+    void spec6_6_altClickSoloesAutoSelect()
+    {
+        View v;
+        const int row = v.w.layout().rowOf(kV2);
+        const QRect r = v.w.layout().headerButtonRect(row, HeaderButton::AutoSelect);
+        v.click(r.center(), Qt::AltModifier);
+        QVERIFY(!v.f.view().videoTracks[0].autoSelect);
+        QVERIFY(v.f.view().videoTracks[1].autoSelect);
+        QVERIFY(v.f.view().audioTracks[0].autoSelect); // other type untouched
+    }
+
     // ---- 7 Selection ----
 
     void spec7_3_altClickSelectsOneSide()
@@ -473,6 +484,24 @@ private slots:
         t.action("trim.nudge_right_multi")->trigger(); // spec 8.9: 5 frames
         QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:19 31:24 65:10"));
         QCOMPARE(t.undoCount(), before + 1);
+    }
+
+    void spec8_16_cycleEditPoint()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, solidClip(10, 20));
+        const quint64 b = t.put(kV1, solidClip(30, 20));
+        t.c.setSelectedEdit({a, 0});
+        t.action("trim.cycle_edit")->trigger();
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {a, b}));
+        t.action("trim.cycle_edit")->trigger();
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {0, b}));
+        t.action("trim.cycle_edit")->trigger();
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {a, 0}));
+        // A free edge has one side only.
+        t.c.setSelectedEdit({b, 0});
+        t.action("trim.cycle_edit")->trigger();
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {b, 0}));
     }
 
     void spec8_10_trimStartEndToPlayhead()

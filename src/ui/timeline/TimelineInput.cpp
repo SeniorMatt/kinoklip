@@ -700,7 +700,10 @@ void TimelineWidget::headerClick(const TimelineHit& hit)
         m_controller->toggleTrackFlag(hit.track, TimelineController::FlagSolo);
         break;
     case HeaderButton::AutoSelect:
-        m_controller->toggleTrackFlag(hit.track, TimelineController::FlagAutoSelect);
+        if (m_drag.modifiers & Qt::AltModifier)
+            m_controller->soloAutoSelect(hit.track); // spec 6.6
+        else
+            m_controller->toggleTrackFlag(hit.track, TimelineController::FlagAutoSelect);
         break;
     case HeaderButton::None:
         break;

@@ -538,6 +538,52 @@ void TimelineController::extendEditToPlayhead()
     trimSelectedEdit(timeline()->playhead() - edge);
 }
 
+void TimelineController::cycleEditPoint()
+{
+    const TimelineData& d = timeline()->data();
+    const EditPointSelection e = m_selectedEdit;
+    if (e.isEmpty())
+        return;
+    // The clips on both sides of the cut, if they touch.
+    quint64 left = e.tailClip;
+    quint64 right = e.headClip;
+    const quint64 known = left ? left : right;
+    const auto loc = ops::findClip(d, known);
+    if (!loc)
+        return;
+    const auto& clips = d.track(loc->track)->clips;
+    const size_t i = size_t(loc->clipIndex);
+    if (!right && i + 1 < clips.size() && clips[i + 1].start == clips[i].end())
+        right = clips[i + 1].id;
+    if (!left && i > 0 && clips[i - 1].end() == clips[i].start)
+        left = clips[i - 1].id;
+    if (!left || !right)
+        return; // a free edge has only one side
+    // tail -> roll -> head -> tail
+    if (e.tailClip && !e.headClip)
+        setSelectedEdit({left, right});
+    else if (e.tailClip && e.headClip)
+        setSelectedEdit({0, right});
+    else
+        setSelectedEdit({left, 0});
+}
+
+void TimelineController::soloAutoSelect(TrackRef ref)
+{
+    runEdit(project(), tr("Change Track"), [&](TimelineData& data) {
+        auto& list = data.tracks(ref.type);
+        if (ref.index < 0 || ref.index >= int(list.size()))
+            return false;
+        bool changed = false;
+        for (size_t i = 0; i < list.size(); ++i) {
+            const bool on = int(i) == ref.index;
+            changed |= list[i].autoSelect != on;
+            list[i].autoSelect = on;
+        }
+        return changed;
+    });
+}
+
 void TimelineController::trimToPlayhead(bool head)
 {
     const int64_t f = timeline()->playhead();
@@ -1012,6 +1058,7 @@ void TimelineController::connectActions()
     on("trim.nudge_left_multi", [this] { nudge(-EditBehaviour::fromSettings().multiFrameNudge); });
     on("trim.nudge_right_multi", [this] { nudge(EditBehaviour::fromSettings().multiFrameNudge); });
     on("trim.extend_edit", &TimelineController::extendEditToPlayhead);
+    on("trim.cycle_edit", &TimelineController::cycleEditPoint);
     on("trim.trim_start", &TimelineController::trimStartToPlayhead);
     on("trim.trim_end", &TimelineController::trimEndToPlayhead);
     on("edit.split", &TimelineController::splitAtPlayhead);
