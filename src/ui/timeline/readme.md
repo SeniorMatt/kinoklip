@@ -22,7 +22,10 @@ for thumbnails and waveforms).
 Timeline View Options (spec 12.11): `TimelinePanel` owns the button at the left of the tool
 bar; the view draws video clips per `TimelineWidget::setClipThumbnails()` (`ClipThumbnails`:
 filmstrip, head and tail, none) and audio waveforms per `setShowWaveforms()`. Clips of offline
-media (`MediaPool::isOffline()`) are drawn red with "Media Offline" (12.13).
+media (`MediaPool::isOffline()`) are drawn red with "Media Offline" (12.13). Show Source
+Timecode (12.14, off by default, `setShowSourceTimecode()`) draws the source in timecode after
+the clip name; `TimelinePainter::sourceTimecodeText()` caches the text per clip
+(`ui/common/SourceTimecode.h` gives the media's start timecode and rate).
 | `TimelineDialogs.h` | the modal questions (handles, marker editor, paste attributes, name of a new timeline / compound clip, Timeline Settings) installed by the panel |
 | `TimelineCompound.cpp` | controller part 5: New Timeline / Duplicate / Delete, tab cycling and closing, New Compound Clip, Open in Timeline, Decompose in Place |
 | `TimelineTabs.h` | the row above the tracks: tabs of the open timelines (switch, drag to reorder, close, context menu) or, with tabs off (Preferences > Editing), a drop-down |
@@ -190,7 +193,9 @@ and F9/F10/F12 work unchanged. Actions: `timeline.new` (Ctrl+N), `timeline.dupli
 clips under the playhead on auto-select video tracks); the shown set is controller view state
 (`retimeControls()`, cleared on timeline switch). `clip.freeze_frame` (Shift+R),
 `clip.retime_curve` (Ctrl+Shift+R) and `clip.change_speed` (R, `ChangeSpeedDialog`) are
-connected here too. Handle drags follow the usual protocol (origin restore + `retimeops`
+connected here too, and `clip.speed_increase` / `clip.speed_decrease` (no default keys,
+`TimelineController::nudgeSelectionSpeed()`, spec 29.17: 10 percentage points through
+`timelineedit::applyClipSpeed()`, one undo step). Handle drags follow the usual protocol (origin restore + `retimeops`
 per move, one undo step); menus are non-modal `QMenu`s with object names for tests
 (`TimelineWidget::retimeMenu()`). Tests: `tests/timeline/test_retimebar.cpp`.
 
