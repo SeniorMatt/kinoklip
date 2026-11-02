@@ -388,6 +388,36 @@ private slots:
         QCOMPARE(f.project.undoStack()->undoText(), QStringLiteral("Ripple Trim"));
     }
 
+    void movePastTheTopTrackCreatesATrack()
+    {
+        Fixture f;
+        f.showCut();
+        QVERIFY(f.cut()->editor()->run(CutEdit::Append, f.whole({0, 1}))); // V1 + A1
+        f.selection.clear();
+        TimelineWidget* lower = f.cut()->timeline();
+        f.project.timeline()->setPlayhead(40);
+        QCoreApplication::processEvents();
+        const TimelineLayout& geo = lower->layout();
+        const int videoTracks = int(f.data().videoTracks.size());
+        const int v1 = geo.rowOf(TrackRef {TrackType::Video, 0});
+        const int top = geo.rowOf(TrackRef {TrackType::Video, videoTracks - 1});
+        QVERIFY(v1 >= 0 && top >= 0);
+        const QPoint from(int(std::lround(geo.frameToX(20.0))), geo.rowRect(v1).center().y());
+        // Above the top video track: the compact lower timeline has no empty band there, so the
+        // pointer goes onto the ruler, which counts as "past the outermost track" too.
+        const int aboveY = std::max(1, geo.rowRect(top).top() - 6);
+        const QPoint to(from.x(), aboveY);
+        QWidget* vp = lower->viewport();
+        QTest::mousePress(vp, Qt::LeftButton, {}, from);
+        QTest::mouseMove(vp, QPoint(from.x(), (from.y() + to.y()) / 2));
+        QTest::mouseMove(vp, to);
+        QTest::mouseRelease(vp, Qt::LeftButton, {}, to);
+        // Spec 21.8 on the Cut page too: one new video track (and its audio partner).
+        QCOMPARE(int(f.data().videoTracks.size()), videoTracks + 1);
+        QCOMPARE(int(f.data().videoTracks.back().clips.size()), 1);
+        QCOMPARE(f.data().videoTracks.back().clips.front().start, int64_t(0));
+    }
+
     void bladeAndDissolveFromTheToolBar()
     {
         Fixture f;
