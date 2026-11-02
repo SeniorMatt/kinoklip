@@ -9,6 +9,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelSplitter.h"
 #include "ui/keyframes/CurveView.h"
 #include "ui/keyframes/DopeSheetView.h"
 #include "ui/keyframes/KeyframeCommands.h"
@@ -119,7 +120,7 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     m_curves->setTimeGrid(true);
     m_curves->setMinimumHeight(80);
     m_curves->setTimePanner([this](double dx) { scrollTimePx(-dx); });
-    m_viewSplit = new QSplitter(Qt::Vertical);
+    m_viewSplit = new PanelSplitter(Qt::Vertical);
     m_viewSplit->setChildrenCollapsible(false);
     m_viewSplit->setHandleWidth(3);
     m_viewSplit->addWidget(m_dope);
@@ -134,7 +135,7 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     // Wheel events the views ignore propagate here (see eventFilter()).
     m_right->installEventFilter(this);
 
-    m_split = new QSplitter(Qt::Horizontal);
+    m_split = new PanelSplitter(Qt::Horizontal);
     m_split->setChildrenCollapsible(false);
     m_split->setHandleWidth(3);
     m_split->addWidget(left);

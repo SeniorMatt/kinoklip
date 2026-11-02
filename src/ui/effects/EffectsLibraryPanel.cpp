@@ -7,6 +7,7 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelSplitter.h"
 #include "ui/effects/EffectActions.h"
 
 #include <QApplication>
@@ -201,7 +202,7 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
     layout->addWidget(m_tree, 1);
 
-    auto* splitter = new QSplitter(Qt::Horizontal);
+    auto* splitter = new PanelSplitter(Qt::Horizontal);
     splitter->setChildrenCollapsible(false);
     splitter->setHandleWidth(1);
     splitter->addWidget(m_categories);

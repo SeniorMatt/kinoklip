@@ -15,6 +15,7 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
+#include "ui/common/PanelSplitter.h"
 #include "ui/mediapool/MediaPoolDelegate.h"
 
 #include <QAction>
@@ -247,7 +248,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     m_stack->insertWidget(kStackList, m_list);
     m_stack->insertWidget(kStackEmpty, m_empty);
 
-    m_splitter = new QSplitter(Qt::Horizontal);
+    m_splitter = new PanelSplitter(Qt::Horizontal);
     m_splitter->setChildrenCollapsible(false);
     m_splitter->setHandleWidth(1);
     m_splitter->addWidget(m_bins);
