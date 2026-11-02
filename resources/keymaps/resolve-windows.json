@@ -110,6 +110,7 @@
         "clip.change_speed": ["R"],
         "clip.retime_controls": ["Ctrl+R"],
         "clip.freeze_frame": ["Shift+R"],
+        "clip.retime_curve": ["Ctrl+Shift+R"],
         "clip.new_compound": [],
         "clip.open_in_timeline": [],
         "clip.decompose": [],

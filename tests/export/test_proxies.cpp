@@ -160,6 +160,27 @@ private slots:
             QVERIFY2(meanDifference(a->image, b->image) < 12.0,
                 qPrintable(QString::number(meanDifference(a->image, b->image))));
         }
+        // Retimed clips follow the same source mapping with the proxy (2x speed and reverse).
+        for (const double speed : {2.0, -1.0}) {
+            TimelineData retimed = *tl;
+            ClipData& c = retimed.videoTracks[0].clips[0];
+            c.speed = speed;
+            c.duration = 100;
+            if (speed < 0)
+                c.sourceInUs = 9'000'000; // reverse plays backwards from 9 s
+            const auto r = snap(retimed);
+            for (const int64_t frame : {3, 40}) {
+                RenderRequest plain {
+                    r, makeMediaPathMap(pool), frame, {}, Quality::Full, OutputImage};
+                RenderRequest proxied = plain;
+                proxied.proxies = map;
+                const RenderedFramePtr a = compositor.renderAsync(plain).get();
+                const RenderedFramePtr b = compositor.renderAsync(proxied).get();
+                QVERIFY(a && a->ok && b && b->ok);
+                QVERIFY(readFrameIndex(a->image) >= 0);
+                QCOMPARE(readFrameIndex(b->image), readFrameIndex(a->image));
+            }
+        }
         // Crop is in the original's pixels: cropping 640 px from the right of the 1280 px
         // original removes the right half with and without the proxy.
         {

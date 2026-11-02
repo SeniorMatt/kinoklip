@@ -29,6 +29,9 @@ struct ProjectSettings
     int width = 1920;
     int height = 1080;
     Rational fps {25, 1};
+    /// Default retime process of clips set to "Project Settings" (Master Settings > Frame
+    /// Interpolation); mirrored into every timeline's TimelineData::retimeProcess.
+    RetimeProcess retimeProcess = RetimeProcess::Nearest;
 
     friend bool operator==(const ProjectSettings&, const ProjectSettings&) = default;
 };
@@ -224,6 +227,7 @@ public:
         int width = 1920;
         int height = 1080;
         Rational fps {25, 1};
+        RetimeProcess retimeProcess = RetimeProcess::Nearest;
         friend bool operator==(const Format&, const Format&) = default;
     };
     /// Restores a complete state (undo commands). @p primary: the timeline the step was made

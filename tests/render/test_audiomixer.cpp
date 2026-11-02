@@ -216,6 +216,7 @@ private slots:
             QSKIP(qPrintable(m_skip));
         TimelineData tl = oneClip(0, 50, 0, -12);
         tl.audioTracks[0].clips[0].speed = 2.0;
+        tl.audioTracks[0].clips[0].pitchCorrection = false; // resampled: pitch follows speed
         AudioMixer mixer;
         mixer.setMediaPaths(paths());
         std::vector<float> out(2 * 100);
@@ -223,6 +224,42 @@ private slots:
         const double g = std::pow(10.0, -12.0 / 20.0);
         for (int i = 0; i < 100; ++i) // 2× speed: timeline sample s plays source sample 2s
             QVERIFY(std::abs(out[size_t(2 * i)] - g * ramp(2 * (100 + i))) < kTolerance);
+    }
+
+    void freezeAndReverseAreMuted()
+    {
+        if (!m_skip.isEmpty())
+            QSKIP(qPrintable(m_skip));
+        for (const double speed : {0.0, -1.0}) {
+            TimelineData tl = oneClip(0, 50, 1'000'000, 0.0);
+            tl.audioTracks[0].clips[0].speed = speed;
+            AudioMixer mixer;
+            mixer.setMediaPaths(paths());
+            std::vector<float> out(2 * 2000);
+            mixer.mix(tl, 1000, 2000, out.data());
+            for (float v : out)
+                QCOMPARE(v, 0.0f);
+        }
+    }
+
+    void pitchCorrectedClipKeepsLength()
+    {
+        if (!m_skip.isEmpty())
+            QSKIP(qPrintable(m_skip));
+        // 50 % with pitch correction: sound for the whole (doubled) clip, silence after it.
+        TimelineData tl = oneClip(0, 50, 0, 0.0);
+        tl.audioTracks[0].clips[0].speed = 0.5;
+        AudioMixer mixer;
+        mixer.setMediaPaths(paths());
+        std::vector<float> out(2 * 48000);
+        mixer.mix(tl, 0, 48000, out.data()); // the clip is 2 s = 96000 samples at 25 fps
+        double energy = 0.0;
+        for (int i = 2000; i < 48000; ++i)
+            energy += double(out[size_t(2 * i)]) * out[size_t(2 * i)];
+        QVERIFY(energy / 46000.0 > 0.1); // the ramp fixture's RMS is ~0.58
+        mixer.mix(tl, 96000 + 2048, 1024, out.data());
+        for (int i = 0; i < 2048; ++i)
+            QCOMPARE(out[size_t(i)], 0.0f);
     }
 
     void crossfadeUnderLinkedVideoTransition()

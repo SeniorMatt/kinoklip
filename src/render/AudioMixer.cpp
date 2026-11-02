@@ -3,12 +3,15 @@
 #include "render/AudioMixer.h"
 
 #include "core/ParamKeys.h"
+#include "core/Retime.h"
 #include "media/AudioDecoder.h"
 #include "render/RenderLog.h"
+#include "render/TimeStretch.h"
 #include "render/TimelineEval.h"
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numbers>
 
 namespace kk {
@@ -23,6 +26,15 @@ constexpr double kMaxHandleSeconds = 60.0;
 constexpr qint64 kRetryFailedMs = 5000;
 /// Deepest nesting mixed (guards against damaged data only; see compound::canNest()).
 constexpr int kMaxNestingDepth = 16;
+/// Retimed audio below this speed (freeze, reverse, near-stops of a ramp) is muted, as in
+/// Resolve: there is no meaningful sound to play.
+constexpr double kMinAudibleSpeed = 0.02;
+/// Resampled (no pitch correction) reads of more source frames than this per call are muted
+/// (beyond ~1000 % the material is noise anyway; bounds the scratch buffer).
+constexpr int64_t kMaxVarispeedRead = int64_t(1) << 20;
+/// Samples between two evaluations of the retime curve (positions are interpolated linearly
+/// in between; the curve is smooth at this scale).
+constexpr int kCurveStep = 64;
 
 /// The clip linked to @p clip on a video track (same non-zero linkGroup, overlapping).
 const ClipData* linkedVideo(
@@ -55,6 +67,12 @@ struct AudioMixer::Decoder
     QString path;
     qint64 lastUsedMs = 0;
     qint64 failedAtMs = -1;
+    /// Retimed clips: recently read source samples and the time stretch state, valid for the
+    /// retime state in `stamp` (start, source in, speed, curve).
+    render::SourceCache cache;
+    render::TimeStretch stretch;
+    ClipData stamp;
+    bool stamped = false;
 };
 
 /// A gain ramp over [start, end) timeline samples: fade-in (sin) or fade-out (cos).
@@ -121,6 +139,8 @@ AudioMixer::Decoder* AudioMixer::decoderFor(const ClipData& clip, const NestedTi
             slot->nested->setIdleCloseMs(m_idleCloseMs);
         }
         slot->nested->m_media = m_media;
+        if (slot->nestedTimeline != n) // edited (new snapshot): cached samples are stale
+            slot->cache.clear();
         slot->nestedTimeline = n;
         slot->lastUsedMs = m_clock.elapsed();
         return slot.get();
@@ -136,6 +156,7 @@ AudioMixer::Decoder* AudioMixer::decoderFor(const ClipData& clip, const NestedTi
     d.lastUsedMs = now;
     if (d.path != path) { // new clip, or its media was relinked
         d.decoder.reset();
+        d.cache.clear();
         d.failedAtMs = -1;
         d.path = path;
     }
@@ -262,6 +283,80 @@ void AudioMixer::mixTimeline(const TimelineData& tl, const NestedTimelines& nest
     }
 }
 
+const float* AudioMixer::retimedSource(Decoder& d, const NestedTimelines& nested,
+    const ClipData& clip, Rational fps, int64_t clipStart, int64_t sourceIn, int64_t from, int n)
+{
+    if (m_resampled.size() < size_t(n) * kChannels)
+        m_resampled.resize(size_t(n) * kChannels);
+    float* out = m_resampled.data();
+    // A new retime state (an edit) invalidates the grain chain; the cached source stays.
+    if (!d.stamped || d.stamp.start != clip.start || d.stamp.sourceInUs != clip.sourceInUs
+        || d.stamp.speed != clip.speed || d.stamp.retime != clip.retime) {
+        d.stamp.start = clip.start;
+        d.stamp.sourceInUs = clip.sourceInUs;
+        d.stamp.speed = clip.speed;
+        d.stamp.retime = clip.retime;
+        d.stamped = true;
+        d.stretch.invalidate();
+    }
+    // Source sample (fractional) at timeline sample s: sourceIn + R-offset in samples.
+    const double framesPerSample = double(fps.num) / (double(kSampleRate) * fps.den);
+    const double samplesPerFrame = double(kSampleRate) * fps.den / double(fps.num);
+    const double r0 = retime::position(clip, 0.0);
+    auto sourceAt = [&](int64_t sample) {
+        const double x = double(sample - clipStart) * framesPerSample;
+        return double(sourceIn) + (retime::position(clip, x) - r0) * samplesPerFrame;
+    };
+    const render::SourceCache::Reader reader
+        = [this, &d, &nested](
+              int64_t first, float* dst, int count) { readSource(d, nested, first, dst, count); };
+
+    if (clip.pitchCorrection) {
+        // WSOLA: grains on a grid anchored at the clip start, so every render of a range
+        // gives the same samples.
+        d.stretch.render(
+            from - clipStart, n, [&](int64_t outSample) { return sourceAt(clipStart + outSample); },
+            d.cache, reader, out);
+        return out;
+    }
+
+    // Varispeed (pitch follows the speed): source positions at every kCurveStep-th sample,
+    // linear in between, then linear interpolation between the two source samples around each.
+    const int edges = n / kCurveStep + 2;
+    m_positions.resize(size_t(edges));
+    double lo = std::numeric_limits<double>::max();
+    double hi = std::numeric_limits<double>::lowest();
+    for (int e = 0; e < edges; ++e) {
+        const double p = sourceAt(from + std::min<int64_t>(int64_t(e) * kCurveStep, n));
+        m_positions[size_t(e)] = p;
+        lo = std::min(lo, p);
+        hi = std::max(hi, p);
+    }
+    const int64_t first = int64_t(std::floor(lo));
+    const int64_t count = int64_t(std::ceil(hi)) - first + 2;
+    if (count > kMaxVarispeedRead) {
+        std::fill(out, out + size_t(n) * kChannels, 0.0f);
+        return out;
+    }
+    const float* s = d.cache.fetch(first, int(count), reader);
+    for (int i = 0; i < n; ++i) {
+        const int e = i / kCurveStep;
+        const int segStart = e * kCurveStep;
+        const int segEnd = std::min(segStart + kCurveStep, n); // > i, so > segStart
+        const double t = double(i - segStart) / double(segEnd - segStart);
+        const double p0 = m_positions[size_t(e)];
+        const double p = p0 + (m_positions[size_t(e) + 1] - p0) * t - double(first);
+        const int k = std::clamp(int(p), 0, int(count) - 2);
+        const float f = float(p - k);
+        for (int c = 0; c < kChannels; ++c) {
+            const float a = s[size_t(k) * kChannels + size_t(c)];
+            const float b = s[size_t(k + 1) * kChannels + size_t(c)];
+            out[size_t(i) * kChannels + size_t(c)] = a + (b - a) * f;
+        }
+    }
+    return out;
+}
+
 void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
     const ClipData& clip, const Fade& head, const Fade& tail, int64_t from, int64_t to, float* out)
 {
@@ -271,40 +366,21 @@ void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
     const int n = int(to - from);
     const int64_t clipStart = framesToSamples48k(clip.start, tl.fps);
     const int64_t sourceIn = std::llround(double(clip.sourceInUs) * kSampleRate / 1e6);
-    const double speed = clip.speed > 0 ? clip.speed : 1.0;
+    const double framesPerSample = double(tl.fps.num) / (double(kSampleRate) * tl.fps.den);
+    const bool retimed = retime::isRetimed(clip);
 
     // ---- Source samples for timeline samples [from, to) ----
     const float* src = nullptr;
-    if (speed == 1.0) {
+    if (!retimed) {
         if (m_source.size() < size_t(n) * kChannels)
             m_source.resize(size_t(n) * kChannels);
         readSource(*d, nested, sourceIn + (from - clipStart), m_source.data(), n);
         src = m_source.data();
     } else {
-        // Linear interpolation between the source samples around each output position.
-        const double pos0 = double(sourceIn) + double(from - clipStart) * speed;
-        const int64_t first = int64_t(std::floor(pos0));
-        const int count = int(std::ceil((n - 1) * speed + (pos0 - first))) + 2;
-        if (m_source.size() < size_t(count) * kChannels)
-            m_source.resize(size_t(count) * kChannels);
-        if (m_resampled.size() < size_t(n) * kChannels)
-            m_resampled.resize(size_t(n) * kChannels);
-        readSource(*d, nested, first, m_source.data(), count);
-        for (int i = 0; i < n; ++i) {
-            const double p = pos0 - double(first) + i * speed;
-            const int k = std::min(int(p), count - 2);
-            const float t = float(p - k);
-            for (int c = 0; c < kChannels; ++c) {
-                const float a = m_source[size_t(k) * kChannels + size_t(c)];
-                const float b = m_source[size_t(k + 1) * kChannels + size_t(c)];
-                m_resampled[size_t(i) * kChannels + size_t(c)] = a + (b - a) * t;
-            }
-        }
-        src = m_resampled.data();
+        src = retimedSource(*d, nested, clip, tl.fps, clipStart, sourceIn, from, n);
     }
 
     // ---- Gain envelope: volume automation × transition fades, evaluated at block edges ----
-    const double framesPerSample = double(tl.fps.num) / (double(kSampleRate) * tl.fps.den);
     const AnimatedValue* volume = nullptr;
     if (const auto it = clip.audio.values.constFind(keys::VolumeDb);
         it != clip.audio.values.constEnd())
@@ -324,6 +400,11 @@ void AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
             g *= std::sin(double(sample - head.start) / double(head.end - head.start) * kHalfPi);
         if (tail.active() && sample >= tail.start && sample < tail.end)
             g *= std::cos(double(sample - tail.start) / double(tail.end - tail.start) * kHalfPi);
+        // Freeze / reverse: silent (ramped over one block like any gain change).
+        if (retimed
+            && retime::speedAt(clip, double(sample - clipStart) * framesPerSample)
+                < kMinAudibleSpeed)
+            g = 0.0;
         return float(g);
     };
 

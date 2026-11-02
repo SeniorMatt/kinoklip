@@ -6,11 +6,14 @@
 #include "core/EditOps.h"
 #include "core/SelectionModel.h"
 #include "core/TimelineData.h"
+#include "ui/timeline/RetimeBar.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelineMedia.h"
 #include "ui/timeline/TimelinePainter.h"
 
 #include <QAbstractScrollArea>
+#include <QMenu>
+#include <QPointer>
 #include <QSet>
 #include <QTimer>
 
@@ -85,6 +88,15 @@ public:
     /// Visible frame range of the track area (first, last; fractional).
     [[nodiscard]] std::pair<double, double> visibleFrameRange() const;
 
+    /// The retime controls of clip @p clipId as drawn (empty if hidden / not visible).
+    [[nodiscard]] retimebar::Geometry retimeGeometry(quint64 clipId) const;
+    /// The speed menu or speed point menu currently open (tests), or nullptr.
+    [[nodiscard]] QMenu* retimeMenu() const { return m_retimeMenu; }
+    /// Opens the speed menu of segment @p segment of @p clipId at viewport @p pos (non-modal).
+    void showSpeedMenu(quint64 clipId, int segment, QPoint pos);
+    /// Opens the menu of the speed point at clip-local @p localFrame (non-modal).
+    void showSpeedPointMenu(quint64 clipId, int64_t localFrame, QPoint pos);
+
 signals:
     /// The user asked to inspect @p clipId (the page shows the Inspector on that tab).
     void inspectRequested(quint64 clipId, kk::TimelineWidget::InspectTarget target);
@@ -142,6 +154,7 @@ private:
         ResizeTrack,
         Pan,
         TransitionEdge, ///< dragging an outer edge of a transition changes its length (13.9)
+        RetimePoint, ///< a speed point / clip end handle of the retime controls (31.4)
         Shuffle ///< Ctrl+Shift drag: swap / shuffle insert within the track (21.6)
     };
     /// An outer edge of a transition under the pointer.
@@ -180,6 +193,8 @@ private:
         int scrollXAtPress = 0;
         int scrollYAtPress = 0;
         TransitionEdgeHit transition; ///< TransitionEdge: which edge is dragged
+        retimebar::Hit retime; ///< RetimePoint: which handle
+        quint64 retimeClip = 0;
     };
 
     void startDrag(DragMode mode);
@@ -195,6 +210,15 @@ private:
     void updateRubberBand(QPointF pos);
     void updateTransitionEdge(QPointF pos);
     void updateShuffle(QPointF pos);
+    // ---- Retime controls (TimelineRetimeInput.cpp) ----
+    /// The retime control under @p pos (clip id in @p clipId), Kind::None if there is none.
+    [[nodiscard]] retimebar::Hit retimeHitAt(QPointF pos, quint64* clipId) const;
+    /// Left press on the retime controls: opens the menu or starts a handle drag. Returns
+    /// whether the press was taken.
+    bool pressRetime(QPointF pos);
+    void updateRetimeDrag(QPointF pos);
+    /// Opens the curve editor of @p clipId showing only its retime curve.
+    void showRetimeCurve(quint64 clipId);
     /// The transition edge within grab distance of @p pos, if any (TimelineGestures.cpp).
     [[nodiscard]] std::optional<TransitionEdgeHit> transitionEdgeAt(QPointF pos) const;
     /// Ruler double-click: opens the marker editor for a marker near @p pos. Returns whether
@@ -260,6 +284,7 @@ private:
     TimelineLayout m_layout;
     TimelinePainter m_painter;
     KeyframeLanes* m_keyframeLanes = nullptr; ///< child QObject: keyframe / curve editor lanes
+    QPointer<QMenu> m_retimeMenu; ///< open speed / speed point menu
     NestedPreview* m_nestedPreview = nullptr; ///< child QObject: compound clip previews
     TimelineOverlay m_overlay;
     QVector<CacheBarRange> m_cacheBar; ///< render cache status on the ruler

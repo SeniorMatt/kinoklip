@@ -3,6 +3,7 @@
 #include "render/RenderCacheKeys.h"
 
 #include "core/MediaItem.h"
+#include "core/Retime.h"
 #include "core/Serialization.h"
 
 #include <QCryptographicHash>
@@ -53,7 +54,7 @@ unsigned staticClipReasons(const ClipData& clip, const QJsonObject& json)
     unsigned r = 0;
     if (clip.kind == ClipKind::Nested)
         r |= CacheNested;
-    if (std::abs(clip.speed - 1.0) > 1e-9)
+    if (retime::isRetimed(clip)) // speed change, reverse, freeze or a retime curve
         r |= CacheRetime;
     // Masks live in the clip JSON (masks branch); a non-empty "masks" value counts as an
     // effect. Looking at the JSON keeps this file independent of that field.
@@ -216,6 +217,10 @@ std::vector<CacheChunk> renderCacheChunks(
     header.addData(':' + QByteArray::number(timeline.width) + 'x'
         + QByteArray::number(timeline.height) + '@' + QByteArray::number(timeline.fps.num) + '/'
         + QByteArray::number(timeline.fps.den));
+    // The timeline's default retime process (Frame Blend / Optical Flow) changes the pictures
+    // of every retimed clip that follows the project default. The clips' own retime state
+    // (speed, curve, process, pitch) is part of their JSON.
+    header.addData(QByteArrayLiteral(":retime:") + QByteArray::number(int(timeline.retimeProcess)));
     const QByteArray headerHash = header.result();
 
     ClipHasher hasher(timeline, mediaKeys);

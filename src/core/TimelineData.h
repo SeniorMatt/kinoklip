@@ -78,6 +78,15 @@ struct Marker
     friend bool operator==(const Marker&, const Marker&) = default;
 };
 
+/// How a clip playing at another speed than its source produces the frames between two source
+/// frames (Resolve's "retime process"). ProjectDefault defers to TimelineData::retimeProcess.
+enum class RetimeProcess : quint8 {
+    ProjectDefault, ///< clips only: use the timeline's (project's) default
+    Nearest, ///< the source frame covering the source time (no interpolation)
+    FrameBlend, ///< cross-fade of the two source frames around the source time
+    OpticalFlow ///< motion-compensated interpolation (GPU block-matching flow, render/GlRetime)
+};
+
 /// What a clip shows.
 enum class ClipKind {
     Media, ///< a MediaItem from the media pool (video and/or audio)
@@ -106,7 +115,17 @@ struct ClipData
     /// Duration of the source media in µs, used to clamp trims. 0 = unbounded (stills, titles,
     /// solids). Filled from MediaItem::info.durationUs when the clip is created.
     int64_t sourceDurationUs = 0;
-    double speed = 1.0; ///< playback speed factor (> 0)
+    /// Constant playback speed used while the clip has no retime curve (core/Retime.h):
+    /// 1 = normal, 0.5 = half speed, < 0 = reverse, 0 = freeze frame. Finite.
+    double speed = 1.0;
+    /// Retime curve: keys::RetimeFrame keyframed with two or more keys replaces `speed` (speed
+    /// points, ramps, freeze and reverse segments; see core/Retime.h). Clip-local frames like
+    /// every keyframe.
+    ParamSet retime;
+    RetimeProcess retimeProcess = RetimeProcess::ProjectDefault;
+    /// Audio of a clip that is not at 100 % keeps its pitch (time stretch) instead of being
+    /// resampled (pitch follows the speed).
+    bool pitchCorrection = true;
     bool enabled = true;
     quint64 linkGroup = 0; ///< V+A clips from the same source share a non-zero group id
 
@@ -133,13 +152,13 @@ struct ClipData
     [[nodiscard]] bool contains(int64_t frame) const { return frame >= start && frame < end(); }
     /// Clip-local frame (used for keyframes) of timeline frame @p frame.
     [[nodiscard]] int64_t localFrame(int64_t frame) const { return frame - start; }
-    /// Source media microseconds covered by @p frames timeline frames at this clip's speed.
+    /// Source media microseconds covered by @p frames timeline frames at the constant `speed`
+    /// (ignores a retime curve; see retime::sourceOffsetUs() for the general form).
     [[nodiscard]] int64_t framesToSourceUs(int64_t frames, Rational fps) const;
-    /// Source media time (µs) displayed at timeline frame @p frame (PLAN §5.1 formula).
-    [[nodiscard]] int64_t sourceTimeUsAt(int64_t frame, Rational fps) const
-    {
-        return sourceInUs + framesToSourceUs(frame - start, fps);
-    }
+    /// Source media time (µs) displayed at timeline frame @p frame: PLAN §5.1 formula
+    /// `sourceIn + offset` where the offset follows the retime curve (core/Retime.h) or the
+    /// constant speed. Not clamped to the media.
+    [[nodiscard]] int64_t sourceTimeUsAt(int64_t frame, Rational fps) const;
 
     friend bool operator==(const ClipData&, const ClipData&) = default;
 };
@@ -226,6 +245,9 @@ struct TimelineData
     int height = 1080;
     std::vector<TrackData> videoTracks; ///< index 0 = V1 (bottom-most)
     std::vector<TrackData> audioTracks; ///< index 0 = A1
+    /// Retime process of clips set to RetimeProcess::ProjectDefault (Project Settings > Master
+    /// Settings > Frame Interpolation; Project::setSettings() keeps every timeline in sync).
+    RetimeProcess retimeProcess = RetimeProcess::Nearest;
     int64_t markIn = -1; ///< -1 = not set
     int64_t markOut = -1; ///< -1 = not set; exclusive end frame
     QVector<Marker> markers; ///< sorted by frame
