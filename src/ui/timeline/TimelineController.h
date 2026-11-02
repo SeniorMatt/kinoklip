@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/EditOps.h"
+#include "core/SelectionModel.h"
 #include "core/TimelineData.h"
 
 #include <QObject>
@@ -135,6 +136,9 @@ public:
     /// Selects the gap under @p frame on @p ref (clears it if there is none). Returns whether
     /// a gap was selected.
     bool selectGapAt(TrackRef ref, int64_t frame);
+    /// Selects the transition @p ref (SelectionModel::selectTransition; clears clips, the edit
+    /// point and the gap). The Inspector shows it on its Transition tab (spec 13.10).
+    void selectTransition(const TransitionRef& ref);
 
     /// The selection, expanded with linked clips when linked selection is on.
     [[nodiscard]] QVector<quint64> effectiveSelection() const;
@@ -298,6 +302,9 @@ public slots:
     bool setTransitionAlignment(quint64 clipId, bool head, TransitionAlignment alignment);
     /// Sets the length of that transition (clamped to the clips); one undo step.
     bool setTransitionDuration(quint64 clipId, bool head, int64_t frames);
+    /// Removes the transition @p ref (not on a locked track); one undo step. Delete and
+    /// Backspace call it when a transition is selected (spec 13.10).
+    bool deleteTransition(const TransitionRef& ref);
     /// M (spec 18.1, 18.4, 18.5): a clip marker on the selected clip under the playhead, else
     /// a timeline marker; on an existing marker opens the marker editor instead.
     void addMarkerAtPlayhead();

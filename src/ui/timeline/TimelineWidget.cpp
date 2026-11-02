@@ -161,6 +161,7 @@ void TimelineWidget::paintEvent(QPaintEvent*)
         in.gapStart = gap->start;
         in.gapEnd = gap->end;
     }
+    in.transition = m_ctx.selection->transition().value_or(TransitionRef {0, true});
     in.hasFocus = hasFocus();
     m_painter.paint(p, in);
     m_keyframeLanes->paintClipButtons(p);
@@ -342,6 +343,58 @@ void TimelineWidget::zoomToFit()
 
 // ---- Context menus ----
 
+void TimelineWidget::transitionMenu(QMenu& menu, const TransitionRef& ref)
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const ClipData* clip = editops::clipById(data, ref.clipId);
+    const auto& slot = clip ? (ref.head ? clip->transitionIn : clip->transitionOut)
+                            : std::optional<TransitionData> {};
+    if (!slot)
+        return;
+    const auto loc = editops::findClip(data, ref.clipId);
+    const TrackData* track = loc ? data.track(loc->track) : nullptr;
+    const bool editable = track && !track->locked;
+    menu.addAction(tr("Open in Inspector"), this,
+        [this, ref] { emit inspectRequested(ref.clipId, InspectTarget::Transition); });
+    menu.addSeparator();
+    QAction* duration = menu.addAction(tr("Change Transition Duration…"), this, [this, ref] {
+        const ClipData* c = editops::clipById(m_ctx.project->timeline()->data(), ref.clipId);
+        const auto& t = c ? (ref.head ? c->transitionIn : c->transitionOut)
+                          : std::optional<TransitionData> {};
+        if (!t)
+            return;
+        const int64_t limit = editops::maxTransitionDuration(
+            m_ctx.project->timeline()->data(), ref.clipId, ref.head, t->alignment, false);
+        bool ok = false;
+        const int frames
+            = QInputDialog::getInt(this, tr("Change Transition Duration"), tr("Duration (frames):"),
+                int(t->duration), 1, int(std::max<int64_t>(1, limit)), 1, &ok);
+        if (ok)
+            m_controller->setTransitionDuration(ref.clipId, ref.head, frames);
+    });
+    duration->setEnabled(editable);
+    if (editops::cutNeighbour(data, ref.clipId, ref.head)) {
+        QMenu* sub = menu.addMenu(tr("Transition Alignment"));
+        sub->setEnabled(editable);
+        const std::pair<TransitionAlignment, QString> choices[] = {
+            {TransitionAlignment::EndOnCut, tr("End on Edit")},
+            {TransitionAlignment::Centre, tr("Centre on Edit")},
+            {TransitionAlignment::StartOnCut, tr("Start on Edit")},
+        };
+        for (const auto& [alignment, text] : choices) {
+            QAction* a = sub->addAction(text, this, [this, ref, alignment = alignment] {
+                m_controller->setTransitionAlignment(ref.clipId, ref.head, alignment);
+            });
+            a->setCheckable(true);
+            a->setChecked(slot->alignment == alignment);
+        }
+    }
+    menu.addSeparator();
+    QAction* del = menu.addAction(
+        tr("Delete Transition"), this, [this, ref] { m_controller->deleteTransition(ref); });
+    del->setEnabled(editable);
+}
+
 void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
 {
     if (m_drag.mode != DragMode::None)
@@ -355,6 +408,14 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         if (QAction* a = action(id))
             menu.addAction(a);
     };
+
+    // A transition wins over the clip under it (spec 13.10).
+    if (const auto t = transitionAt(event->pos())) {
+        m_controller->selectTransition(*t);
+        transitionMenu(menu, *t);
+        menu.exec(event->globalPos());
+        return;
+    }
 
     switch (hit.area) {
     case TimelineHit::Area::Header:
@@ -385,7 +446,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
     }
     case TimelineHit::Area::Clip: {
         if (!m_selected.contains(hit.clipId))
-            m_ctx.selection->setClips(m_controller->withLinks({hit.clipId}));
+            m_ctx.selection->setClips(clickedWithLinks(hit.clipId));
         addAction("edit.cut");
         addAction("edit.copy");
         addAction("edit.paste");

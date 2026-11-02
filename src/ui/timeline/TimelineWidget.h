@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/EditOps.h"
+#include "core/SelectionModel.h"
 #include "core/TimelineData.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelineMedia.h"
@@ -17,6 +18,7 @@
 #include <optional>
 #include <vector>
 
+class QMenu;
 class QMimeData;
 
 namespace kk {
@@ -67,6 +69,22 @@ public:
     void setFollowPlayhead(bool follow) { m_followPlayhead = follow; }
     [[nodiscard]] bool followPlayhead() const { return m_followPlayhead; }
 
+    /// What a double-click on a transition or a click on the fx badge asks the Inspector
+    /// to show (spec 13.10).
+    enum class InspectTarget {
+        Effects,
+        Transition
+    };
+    Q_ENUM(InspectTarget)
+    /// The transition (clip + end) drawn at @p pos, if any (TimelineGestures.cpp).
+    [[nodiscard]] std::optional<TransitionRef> transitionAt(QPointF pos) const;
+    /// The clip whose "fx" badge is at @p pos, or 0.
+    [[nodiscard]] quint64 fxBadgeAt(QPointF pos) const;
+
+signals:
+    /// The user asked to inspect @p clipId (the page shows the Inspector on that tab).
+    void inspectRequested(quint64 clipId, kk::TimelineWidget::InspectTarget target);
+
 public slots:
     /// View-only vertical zoom of all tracks (Shift+wheel in the Resolve wheel scheme).
     void setTrackHeightScale(double scale);
@@ -92,6 +110,8 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void leaveEvent(QEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
+    /// Context menu of a transition (spec 13.10): delete, duration, alignment.
+    void transitionMenu(QMenu& menu, const TransitionRef& ref);
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dragLeaveEvent(QDragLeaveEvent* event) override;
@@ -175,6 +195,8 @@ private:
     void scrubTo(QPointF pos);
     void bladeAt(const TimelineHit& hit);
     void clickSelect(const TimelineHit& hit, Qt::KeyboardModifiers modifiers);
+    /// @p clipId with its linked clips (linked selection on), @p clipId last = current clip.
+    [[nodiscard]] QVector<quint64> clickedWithLinks(quint64 clipId) const;
     void headerClick(const TimelineHit& hit);
     void updateHover(QPointF pos);
     void autoScrollTick();
