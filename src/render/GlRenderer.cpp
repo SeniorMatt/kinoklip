@@ -660,9 +660,18 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         m_uploadNs += uploadTimer.nsecsElapsed();
         const media::VideoFrame& f = *d->frame;
         src.kind = ClipSource::Kind::Video;
-        src.sourcePx = d->displayOverride.isEmpty()
-            ? displaySize(f.width, f.height, f.sampleAspectRatio, f.rotation)
-            : d->displayOverride; // proxy: crop and fit in the original's pixels
+        // Clip Attributes: pixel aspect override and extra rotation change the display size
+        // (crop units and the fit); a proxy keeps the original's size, turned with the extra
+        // rotation (its pixel aspect is already square).
+        const ClipAttributes& attributes = clip.attributes;
+        if (d->displayOverride.isEmpty()) {
+            src.sourcePx = displaySize(f.width, f.height,
+                effectivePixelAspect(attributes, f.sampleAspectRatio),
+                normalizedRotation(f.rotation + attributes.rotation));
+        } else {
+            src.sourcePx = attributes.rotation % 180 != 0 ? d->displayOverride.transposed()
+                                                          : d->displayOverride;
+        }
         src.content = fitSize(src.sourcePx, frameSize);
         src.video = d;
         src.planes = planes.get();
@@ -785,7 +794,7 @@ GLuint GlRenderer::retimedPicture(const DecodedClip& d, QSize size)
         m_kit->clearTransparent();
         m_kit->setBlendOver(false);
         m_video.draw(*m_kit, planes, frame, GlKit::quadToNdc(QRectF(QPointF(0, 0), size), size),
-            QRectF(0, 0, 1, 1), 1.0f);
+            QRectF(0, 0, 1, 1), 1.0f, GlVideo::lookFor(frame, d.clip->attributes));
         return t;
     };
     PooledTarget a = toRgb(*planesA, *d.frame);
@@ -805,7 +814,8 @@ void GlRenderer::drawSource(
 {
     switch (src.kind) {
     case ClipSource::Kind::Video:
-        m_video.draw(*m_kit, *src.planes, *src.video->frame, quadToNdc, crop, opacity);
+        m_video.draw(*m_kit, *src.planes, *src.video->frame, quadToNdc, crop, opacity,
+            GlVideo::lookFor(*src.video->frame, src.video->clip->attributes));
         break;
     case ClipSource::Kind::Texture:
         m_kit->blit(src.texture, quadToNdc, opacity, crop);
@@ -844,8 +854,7 @@ void GlRenderer::drawClip(
     if (!clip.enabled)
         return;
     const int64_t local = clip.localFrame(fc.frame);
-    const float opacity
-        = float(std::clamp(clip.transform.value(keys::Opacity, local) / 100.0, 0.0, 1.0));
+    const float opacity = float(clipOpacity(clip, local));
     if (opacity <= 0.0f)
         return;
     const double zoom = maxZoom(clip, local);

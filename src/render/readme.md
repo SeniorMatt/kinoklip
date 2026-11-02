@@ -337,3 +337,16 @@ Add it in `media::PixelFormat` (see `src/media/readme.md`), map plane formats in
   along the retime curve; freeze / reverse parts are muted.
 * An output slot released while a viewer's draw that samples it is still in flight could in
   theory be overwritten early; keep the frame until the next one is displayed (documented above).
+
+### Fades and Clip Attributes (spec section 32)
+* `clipOpacity()` (TimelineEval) = keyframed opacity x `videoFadeFactor()` of the clip's fade
+  handles; GPU, CPU and the adjustment-clip identity test use it.
+* `GlVideo::lookFor(frame, ClipData::attributes)` gives the rotation (file + attribute), the
+  data levels used for YUV -> RGB and the deinterlacing field; the YUV shader's
+  `fieldSample()` samples only the kept field's rows (two fetches 2 rows apart). The display
+  size follows the pixel aspect override and the total rotation (`resolveSource()`); proxies
+  keep the original's size, turned by the extra rotation. CPU fallback: pixel aspect and
+  rotation only.
+* AudioMixer: fade handles are equal-power gain ramps in the gain envelope; channel routing is
+  applied by `media::AudioDecoder::setChannelMapping()` (a swresample matrix; a change
+  re-decodes from the exact sample and clears the retime source cache).

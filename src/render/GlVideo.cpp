@@ -21,18 +21,32 @@ uniform vec3 uYuvOffset;
 uniform float uSampleScale;
 uniform vec4 uCrop;      // visible rect in quad coordinates: x0, y0, x1, y1
 uniform float uOpacity;
+uniform int uKeepField;  // deinterlace: -1 off, 0 keep the top field (even rows), 1 the bottom
+// Deinterlacing by field interpolation (Clip Attributes): only the rows of the kept field are
+// sampled, vertically interpolated between two rows of that field (2 rows apart), so the
+// other field's motion (combing) never shows. Rows are texel centres: row r at (r + 0.5) / h.
+vec4 fieldSample(sampler2D tex, vec2 uv)
+{
+    if (uKeepField < 0)
+        return texture(tex, uv);
+    float h = float(textureSize(tex, 0).y);
+    float f = (uv.y * h - 0.5 - float(uKeepField)) * 0.5; // position in field rows
+    float r0 = floor(f);
+    float y0 = (r0 * 2.0 + float(uKeepField) + 0.5) / h;
+    return mix(texture(tex, vec2(uv.x, y0)), texture(tex, vec2(uv.x, y0 + 2.0 / h)), f - r0);
+}
 void main()
 {
     vec4 c;
     if (uLayout == 0) {
-        c = texture(uPlane0, vUv);
+        c = fieldSample(uPlane0, vUv);
     } else {
         vec3 yuv;
-        yuv.x = texture(uPlane0, vUv).r;
+        yuv.x = fieldSample(uPlane0, vUv).r;
         if (uLayout == 1)
-            yuv.yz = texture(uPlane1, vUv).rg;
+            yuv.yz = fieldSample(uPlane1, vUv).rg;
         else
-            yuv.yz = vec2(texture(uPlane1, vUv).r, texture(uPlane2, vUv).r);
+            yuv.yz = vec2(fieldSample(uPlane1, vUv).r, fieldSample(uPlane2, vUv).r);
         c = vec4(clamp(uYuvMatrix * (yuv * uSampleScale - uYuvOffset), 0.0, 1.0), 1.0);
     }
     vec2 inside = step(uCrop.xy, vQuad) * step(vQuad, uCrop.zw);
@@ -91,6 +105,7 @@ bool GlVideo::initialize(GlKit& kit, QString* why)
     m_sampleScale = m_program.uniform(gl, "uSampleScale");
     m_crop = m_program.uniform(gl, "uCrop");
     m_opacity = m_program.uniform(gl, "uOpacity");
+    m_keepField = m_program.uniform(gl, "uKeepField");
     gl->glUseProgram(m_program.id);
     gl->glUniform1i(m_program.uniform(gl, "uPlane0"), 0);
     gl->glUniform1i(m_program.uniform(gl, "uPlane1"), 1);
@@ -169,17 +184,30 @@ QTransform GlVideo::rotationUv(int rotation)
     }
 }
 
+VideoLook GlVideo::lookFor(const media::VideoFrame& frame, const ClipAttributes& a)
+{
+    VideoLook look;
+    look.rotation = normalizedRotation(frame.rotation + a.rotation);
+    look.range = a.levels == DataLevels::Video ? media::ColorRange::Limited
+        : a.levels == DataLevels::Full         ? media::ColorRange::Full
+                                               : frame.range;
+    if (a.deinterlace && a.fieldOrder != FieldOrder::Progressive)
+        look.keepField = a.fieldOrder == FieldOrder::LowerFirst ? 1 : 0;
+    return look;
+}
+
 void GlVideo::draw(GlKit& kit, const PlaneTextures& t, const media::VideoFrame& frame,
-    const QTransform& quadToNdc, const QRectF& crop, float opacity)
+    const QTransform& quadToNdc, const QRectF& crop, float opacity, const VideoLook& look)
 {
     GlFunctions* gl = kit.gl();
     gl->glUseProgram(m_program.id);
     kit.setMatrix(m_program.posMatrix, quadToNdc);
-    kit.setMatrix(m_program.uvMatrix, rotationUv(frame.rotation));
+    kit.setMatrix(m_program.uvMatrix, rotationUv(look.rotation));
+    gl->glUniform1i(m_keepField, look.keepField);
     const int layout = layoutOf(frame.format);
     gl->glUniform1i(m_layout, layout);
     if (layout != 0) {
-        const YuvCoefficients c = yuvCoefficients(frame.matrix, frame.range, frame.format);
+        const YuvCoefficients c = yuvCoefficients(frame.matrix, look.range, frame.format);
         gl->glUniformMatrix3fv(m_yuvMatrix, 1, GL_FALSE, c.matrix.data());
         gl->glUniform3fv(m_yuvOffset, 1, c.offset.data());
         gl->glUniform1f(m_sampleScale, c.sampleScale);
