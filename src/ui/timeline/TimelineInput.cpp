@@ -8,6 +8,7 @@
 // Re-applying from the origin keeps overwrite semantics exact (moving a clip back and forth
 // over another one does not chew it up) at the cost of one TimelineData copy per mouse move,
 // which is cheap compared with a repaint (a few hundred microseconds for 2,000 clips).
+#include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -112,10 +113,16 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
             bladeAt(hit);
         return;
     }
+    const EditBehaviour behaviour = EditBehaviour::fromSettings();
     if (!onClip) {
-        // Empty track area: rubber band; a plain click clears the selection.
-        if (!(m_drag.modifiers & (Qt::ShiftModifier | Qt::ControlModifier)))
+        // Empty track area: a plain click clears the selection and selects the gap under the
+        // pointer, if any (spec 10.5); dragging draws a rubber band.
+        const bool additive = m_drag.modifiers & (Qt::ShiftModifier | Qt::ControlModifier);
+        if (!additive) {
             m_ctx.selection->clear();
+            m_controller->setSelectedEdit({});
+            m_controller->selectGapAt(hit.track, int64_t(std::floor(hit.frame)));
+        }
         m_drag.baseSelection = m_ctx.selection->clips();
         m_drag.pending = DragMode::RubberBand;
         m_drag.mode = DragMode::Pending;
@@ -124,13 +131,24 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
 
     const bool edge = hit.part == ClipPart::Head || hit.part == ClipPart::Tail;
     if (edge) {
-        // Grabbing an edge selects just that clip (and its links) without touching others.
-        if (!m_selected.contains(hit.clipId))
-            m_ctx.selection->setClips(m_controller->withLinks({hit.clipId}));
-        if (tool == TimelineTool::Trim && hit.cutLeft && hit.cutRight) {
+        // An edge press selects the edit point (spec 7.6) and, when dragged, trims it.
+        // At a cut between two touching clips the narrow centre zone rolls (both tools; the
+        // selection tool only if EditBehaviour allows it), either side trims that side.
+        bool roll = false;
+        if (hit.cutLeft && hit.cutRight) {
+            const ClipData* left = ops::clipById(data, hit.cutLeft);
+            const double cutX = left ? m_layout.frameToX(double(left->end())) : -1e9;
+            const bool centre = std::abs(pos.x() - cutX) <= kRollZonePx;
+            roll = centre && (tool == TimelineTool::Trim || behaviour.selectToolRollsAtCut);
+        }
+        if (roll) {
+            m_controller->setSelectedEdit({hit.cutLeft, hit.cutRight});
             m_drag.pending = DragMode::Roll;
         } else {
-            m_drag.pending = hit.part == ClipPart::Head ? DragMode::TrimHead : DragMode::TrimTail;
+            const bool head = hit.part == ClipPart::Head;
+            m_controller->setSelectedEdit(
+                head ? EditPointSelection {0, hit.clipId} : EditPointSelection {hit.clipId, 0});
+            m_drag.pending = head ? DragMode::TrimHead : DragMode::TrimTail;
             m_drag.ripple = tool == TimelineTool::Trim;
         }
         m_drag.mode = DragMode::Pending;
@@ -140,10 +158,22 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     clickSelect(hit, m_drag.modifiers);
     if (!m_ctx.selection->isSelected(hit.clipId))
         return; // Ctrl/Shift-click deselected it: nothing to drag
-    if (tool == TimelineTool::Trim)
-        m_drag.pending = (m_drag.modifiers & Qt::AltModifier) ? DragMode::Slide : DragMode::Slip;
-    else
+    if (tool == TimelineTool::Trim) {
+        // Trim tool on a clip body: the name band slides, the rest slips (spec 8.6); Alt
+        // swaps the two.
+        bool slide = false;
+        if (behaviour.trimToolSlideInNameBar) {
+            if (const ClipData* c = ops::clipById(data, hit.clipId)) {
+                const QRectF r = m_layout.clipRect(hit.row, *c);
+                slide = pos.y() < r.top() + kClipNameBandPx;
+            }
+        }
+        if (m_drag.modifiers & Qt::AltModifier)
+            slide = !slide;
+        m_drag.pending = slide ? DragMode::Slide : DragMode::Slip;
+    } else {
         m_drag.pending = DragMode::Move;
+    }
     m_drag.mode = DragMode::Pending;
 }
 
@@ -245,7 +275,9 @@ void TimelineWidget::startDrag(DragMode mode)
         openEdit(tr("Resize Track"));
         return;
     case DragMode::Move: {
-        m_drag.clips = m_controller->effectiveSelection();
+        // Alt-drag: the clicked side only (linked partners are not expanded, spec 7.3).
+        m_drag.clips = (m_drag.modifiers & Qt::AltModifier) ? m_ctx.selection->clips()
+                                                            : m_controller->effectiveSelection();
         if (!m_drag.clips.contains(hit.clipId))
             m_drag.clips.prepend(hit.clipId);
         m_drag.primary = hit.clipId;
@@ -631,12 +663,17 @@ void TimelineWidget::bladeAt(const TimelineHit& hit)
 
 void TimelineWidget::clickSelect(const TimelineHit& hit, Qt::KeyboardModifiers modifiers)
 {
-    const QVector<quint64> ids = m_controller->withLinks({hit.clipId});
+    // Alt-click picks just the clicked clip, not its linked partners (spec 7.3).
+    const QVector<quint64> ids = (modifiers & Qt::AltModifier)
+        ? QVector<quint64> {hit.clipId}
+        : m_controller->withLinks({hit.clipId});
     if (modifiers & (Qt::ShiftModifier | Qt::ControlModifier)) {
         if (m_ctx.selection->isSelected(hit.clipId))
             m_ctx.selection->removeClips(ids);
         else
             m_ctx.selection->addClips(ids);
+    } else if (modifiers & Qt::AltModifier) {
+        m_ctx.selection->setClips(ids);
     } else if (m_ctx.selection->isSelected(hit.clipId)) {
         m_drag.selectOnRelease = true; // keep the group for dragging; reduce on plain click
     } else {
@@ -661,6 +698,12 @@ void TimelineWidget::headerClick(const TimelineHit& hit)
         break;
     case HeaderButton::Solo:
         m_controller->toggleTrackFlag(hit.track, TimelineController::FlagSolo);
+        break;
+    case HeaderButton::AutoSelect:
+        if (m_drag.modifiers & Qt::AltModifier)
+            m_controller->soloAutoSelect(hit.track); // spec 6.6
+        else
+            m_controller->toggleTrackFlag(hit.track, TimelineController::FlagAutoSelect);
         break;
     case HeaderButton::None:
         break;

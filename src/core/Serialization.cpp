@@ -73,6 +73,7 @@ QJsonObject trackToJson(const TrackData& track)
     o[QLatin1String("locked")] = track.locked;
     o[QLatin1String("muted")] = track.muted;
     o[QLatin1String("solo")] = track.solo;
+    o[QLatin1String("autoSelect")] = track.autoSelect;
     o[QLatin1String("height")] = track.height;
     QJsonArray clips;
     for (const ClipData& c : track.clips)
@@ -91,6 +92,7 @@ TrackData trackFromJson(const QJsonObject& o, TrackType type)
     t.locked = o.value(QLatin1String("locked")).toBool(false);
     t.muted = o.value(QLatin1String("muted")).toBool(false);
     t.solo = o.value(QLatin1String("solo")).toBool(false);
+    t.autoSelect = o.value(QLatin1String("autoSelect")).toBool(true);
     t.height = o.value(QLatin1String("height")).toInt(0);
     for (const QJsonValue& v : o.value(QLatin1String("clips")).toArray())
         t.clips.push_back(clipFromJson(v.toObject()));

@@ -31,7 +31,29 @@ enum class TimelineTool {
 enum class SourceEditMode {
     Insert, ///< ripple everything after the playhead (F9)
     Overwrite, ///< replace what is under the new clip (F10)
-    PlaceOnTop ///< first free track above the target (F12)
+    PlaceOnTop, ///< first free track above the target (F12)
+    Replace, ///< replace the clip under the playhead, keeping its place and length (F11)
+    FitToFill, ///< source in..out retimed into timeline in..out (Shift+F11)
+    AppendAtEnd ///< overwrite after the last clip of the timeline (Shift+F12)
+};
+
+/// A selected edit point (spec 7.6): the tail of @p tailClip and/or the head of @p headClip.
+/// Both set = the cut between two touching clips (nudging rolls it).
+struct EditPointSelection
+{
+    quint64 tailClip = 0;
+    quint64 headClip = 0;
+    [[nodiscard]] bool isEmpty() const { return !tailClip && !headClip; }
+    friend bool operator==(const EditPointSelection&, const EditPointSelection&) = default;
+};
+
+/// A selected gap (spec 10.5): empty range [start, end) on one track.
+struct GapSelection
+{
+    TrackRef track;
+    int64_t start = 0;
+    int64_t end = 0;
+    friend bool operator==(const GapSelection&, const GapSelection&) = default;
 };
 
 /// A ranged source clip, as offered by the source viewer.
@@ -81,6 +103,17 @@ public:
     /// Toggles the destination patch of track @p ref (target it, or untarget if it is).
     void toggleTarget(TrackRef ref);
 
+    /// Selected edit point (empty = none). Selecting one clears the clip and gap selection;
+    /// selecting clips clears it.
+    [[nodiscard]] const EditPointSelection& selectedEdit() const { return m_selectedEdit; }
+    void setSelectedEdit(const EditPointSelection& edit);
+    /// Selected gap, if any (cleared by selecting clips or an edit point).
+    [[nodiscard]] const std::optional<GapSelection>& selectedGap() const { return m_selectedGap; }
+    void setSelectedGap(const std::optional<GapSelection>& gap);
+    /// Selects the gap under @p frame on @p ref (clears it if there is none). Returns whether
+    /// a gap was selected.
+    bool selectGapAt(TrackRef ref, int64_t frame);
+
     /// The selection, expanded with linked clips when linked selection is on.
     [[nodiscard]] QVector<quint64> effectiveSelection() const;
     /// @p ids expanded with linked clips when linked selection is on.
@@ -124,14 +157,31 @@ public slots:
     void rippleDeleteSelection(); ///< closes the gaps (or closes the gap under the playhead)
     void selectAll();
     void deselectAll();
+    /// Moves the selected clips, or trims the selected edit point (ripple in the trim tool,
+    /// roll when both sides are selected), by @p frames.
     void nudge(int64_t frames);
+    /// Moves the selected edit point to the playhead (E; spec 8.11).
+    void extendEditToPlayhead();
+    /// U (spec 8.16): cycles the selected edit point at a cut between the outgoing tail, the
+    /// roll (both sides) and the incoming head. No-op without a touching neighbour.
+    void cycleEditPoint();
+    /// Alt-click on an auto track selector (spec 6.6): only @p ref keeps it on among the
+    /// tracks of its type. One undo step.
+    void soloAutoSelect(TrackRef ref);
+    /// Trims the head (Shift+[) / tail (Shift+]) of the clips under the playhead to the
+    /// playhead: the selected clips, or those on auto-select tracks (spec 8.10).
+    void trimStartToPlayhead();
+    void trimEndToPlayhead();
     void goToPreviousEdit();
     void goToNextEdit();
+    void goToPreviousMarker();
+    void goToNextMarker();
     void goToStart();
     void goToEnd();
     void markIn();
     void markOut();
     void markClip(); ///< in/out around the selected clip, or the clip under the playhead
+    void markSelection(); ///< in/out around all selected clips (spec 3.6)
     void clearIn();
     void clearOut();
     void clearInOut();
@@ -143,8 +193,12 @@ public slots:
     void unlinkSelection();
     void copy();
     void cut();
-    void paste();
-    void addDefaultTransition(); ///< cross_dissolve, 1 s, at the edit nearest to the playhead
+    void paste(); ///< overwrite at the playhead (spec 16.2)
+    void pasteInsert(); ///< insert at the playhead, rippling (spec 16.3)
+    /// Cross dissolve of the standard length (spec 13.1-13.3): at the selected edit point, at
+    /// both ends of the selected clips, or at the edit nearest to the playhead on the
+    /// auto-select video tracks; linked audio cut at the same frame gets a cross fade.
+    void addDefaultTransition();
     void sourceEdit(SourceEditMode mode); ///< uses the source provider
     void addTrack(TrackType type, int index = -1);
     void removeTrack(TrackRef ref);
@@ -160,7 +214,8 @@ public:
         FlagEnabled,
         FlagLocked,
         FlagMuted,
-        FlagSolo
+        FlagSolo,
+        FlagAutoSelect
     };
     /// The clipboard (last copy/cut).
     [[nodiscard]] const editops::Clipboard& clipboard() const { return m_clipboard; }
@@ -172,6 +227,10 @@ signals:
 private:
     void setPlayheadClamped(int64_t frame);
     void setMarks(int64_t in, int64_t out, const QString& label);
+    void trimToPlayhead(bool head);
+    /// Trims the selected edit point by @p frames (one undo step). Returns the applied delta.
+    int64_t trimSelectedEdit(int64_t frames);
+    void onClipSelectionChanged();
 
     AppContext& m_ctx;
     TimelineTool m_tool = TimelineTool::Select;
@@ -180,6 +239,8 @@ private:
     int m_targetVideo = 0;
     int m_targetAudio = 0;
     editops::Clipboard m_clipboard;
+    EditPointSelection m_selectedEdit;
+    std::optional<GapSelection> m_selectedGap;
     std::function<std::optional<SourceSelection>()> m_sourceProvider;
 };
 

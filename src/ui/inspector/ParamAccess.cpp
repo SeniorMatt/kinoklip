@@ -168,6 +168,42 @@ bool toggleKey(ClipData& clip, const ParamRef& ref, const ParamDescriptor& desc,
     return !remove;
 }
 
+std::optional<Interp> keyInterp(const ClipData& clip, const ParamRef& ref, int64_t localFrame)
+{
+    if (const AnimatedValue* value = animated(clip, ref)) {
+        for (const Keyframe& k : value->keys) {
+            if (k.frame == localFrame)
+                return k.interp;
+        }
+    }
+    return std::nullopt;
+}
+
+bool setKeyInterp(ClipData& clip, const ParamRef& ref, int64_t localFrame, Interp interp)
+{
+    ParamSet* set = paramSet(clip, ref);
+    if (!set)
+        return false;
+    auto apply = [&](const QString& key) {
+        const auto it = set->values.find(key);
+        if (it == set->values.end())
+            return false;
+        for (Keyframe& k : it->keys) {
+            if (k.frame == localFrame) {
+                k.interp = interp;
+                return true;
+            }
+        }
+        return false;
+    };
+    const bool changed = apply(ref.key);
+    if (changed) {
+        if (const QString* partner = linkedZoomPartner(clip, ref))
+            apply(*partner);
+    }
+    return changed;
+}
+
 void reset(ClipData& clip, const ParamRef& ref, const ParamDescriptor& desc)
 {
     if (desc.isScalar()) {
