@@ -69,11 +69,9 @@ void MetadataPanel::showMedia(const QString& mediaId)
         field->setTextInteractionFlags(Qt::TextSelectableByMouse);
         field->setWordWrap(true);
         auto* name = new QLabel(label);
-        QPalette dim = name->palette();
-        QColor text = dim.color(QPalette::WindowText);
-        text.setAlphaF(0.65f);
-        dim.setColor(QPalette::WindowText, text);
-        name->setPalette(dim);
+        // Dimmed through a palette ROLE, not a copied colour: an own palette would keep the
+        // previous scheme's text colour after a colour scheme switch.
+        name->setForegroundRole(QPalette::PlaceholderText);
         m_form->addRow(name, field);
     };
 

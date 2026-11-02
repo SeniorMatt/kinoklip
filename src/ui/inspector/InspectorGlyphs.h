@@ -19,7 +19,7 @@ enum class InspectorGlyph {
 };
 
 /// Icon for @p glyph tinted with the application palette's WindowText colour (disabled mode
-/// dimmed). Icons are cached per glyph; call after the theme has been applied.
+/// dimmed). Painted from the palette at paint time, so they follow colour scheme switches.
 [[nodiscard]] QIcon inspectorGlyph(InspectorGlyph glyph);
 
 } // namespace kk

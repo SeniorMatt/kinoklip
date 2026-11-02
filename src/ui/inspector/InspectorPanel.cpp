@@ -13,6 +13,7 @@
 #include "ui/inspector/ParamRows.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
@@ -88,7 +89,7 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     , m_ctx(ctx)
 {
     setAcceptDrops(true);
-    setStyleSheet(inspectorStyleSheet(palette()));
+    setStyleSheet(inspectorStyleSheet(QApplication::palette()));
 
     auto* content = new QWidget;
     auto* layout = new QVBoxLayout(content);
@@ -700,10 +701,21 @@ void InspectorPanel::changeEvent(QEvent* event)
     PanelFrame::changeEvent(event);
     // The style sheet is generated from the palette: regenerate it after a colour scheme
     // switch. Only when the text differs, because setStyleSheet() re-polishes every child.
-    if (event->type() == QEvent::PaletteChange) {
-        const QString sheet = inspectorStyleSheet(palette());
-        if (sheet != styleSheet())
+    //
+    // Built from the APPLICATION palette, never palette(): setStyleSheet() re-polishes this
+    // widget, the style sheet style assigns it a derived palette, and that sends another
+    // PaletteChange. With palette() as input every round produced a slightly different sheet
+    // and the recursion overflowed the stack (the alpha.1 crash on a colour scheme switch).
+    // The guard keeps the nested PaletteChange from re-entering even if the input changes.
+    if ((event->type() == QEvent::PaletteChange
+            || event->type() == QEvent::ApplicationPaletteChange)
+        && !m_updatingStyleSheet) {
+        const QString sheet = inspectorStyleSheet(QApplication::palette());
+        if (sheet != styleSheet()) {
+            m_updatingStyleSheet = true;
             setStyleSheet(sheet);
+            m_updatingStyleSheet = false;
+        }
     }
 }
 

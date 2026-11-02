@@ -158,6 +158,7 @@ private:
     std::optional<ParamRef> m_activeRef;
     ParamDescriptor m_activeDesc;
     std::function<QColor(const QColor&, const QString&)> m_colorPicker;
+    bool m_updatingStyleSheet = false; ///< re-entrancy guard of changeEvent()
 };
 
 } // namespace kk
