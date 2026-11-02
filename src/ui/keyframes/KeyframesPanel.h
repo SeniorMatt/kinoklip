@@ -44,7 +44,10 @@ class KeyframeRuler;
 /// the inspector, the timeline lanes and the viewers update at once.
 ///
 /// Docking is the page's business (EditPage): the panel only asks for it with
-/// floatToggleRequested() and shows the state set by setFloating().
+/// floatToggleRequested() (the labelled Float / Dock button in the header, or a double-click
+/// on the header) or tearOffRequested() (the header dragged out of the docked panel), and shows
+/// the state set by setFloating(). While floating, dragging the header moves the window
+/// (QWindow::startSystemMove(): the compositor moves it, which is the only way on Wayland).
 /// Thread-safety: GUI thread only.
 class KeyframesPanel : public PanelFrame
 {
@@ -90,14 +93,19 @@ public:
     [[nodiscard]] QToolButton* floatButton() const { return m_floatButton; }
 
 signals:
-    /// The user clicked the float / dock button.
+    /// The user clicked the float / dock button or double-clicked the header.
     void floatToggleRequested();
+    /// The user dragged the docked panel's header out of the panel (tear-off): the page should
+    /// float the panel and let the window follow the pointer (startSystemMove()) while the
+    /// button is still down.
+    void tearOffRequested();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
 private:
+    bool headerEvent(QEvent* event);
     QWidget* buildToolRow();
     void rebuild();
     void applyView();
@@ -121,6 +129,8 @@ private:
     double m_timelineFirst = 0.0;
     double m_timelineLast = 0.0;
     bool m_syncingScroll = false;
+    QPoint m_headerPressGlobal; ///< pointer at the header press (global), for drag gestures
+    bool m_headerArmed = false; ///< left button pressed on the header, no gesture yet
 
     QLabel* m_itemLabel = nullptr;
     QToolButton* m_floatButton = nullptr;
