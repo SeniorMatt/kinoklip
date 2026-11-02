@@ -65,6 +65,9 @@ public:
 
     /// Docks (false) or floats (true) the Keyframes panel.
     void setKeyframesFloating(bool floating);
+    /// Floats the docked Keyframes panel because its header was dragged out, and lets the new
+    /// window follow the pointer while the button is held (QWindow::startSystemMove()).
+    void tearOffKeyframes();
     [[nodiscard]] bool isKeyframesFloating() const { return m_keyframesFloating; }
     /// The floating Keyframes window (exists once the panel was floated), or nullptr.
     [[nodiscard]] QWidget* keyframesWindow() const { return m_keyframesWindow; }

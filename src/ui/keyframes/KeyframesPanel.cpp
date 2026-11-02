@@ -15,9 +15,11 @@
 #include "ui/keyframes/KeyframeParamTree.h"
 #include "ui/keyframes/KeyframeRuler.h"
 
+#include <QApplication>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QScrollBar>
 #include <QSettings>
 #include <QSplitter>
@@ -25,6 +27,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWheelEvent>
+#include <QWindow>
 
 #include <cmath>
 
@@ -43,6 +46,9 @@ constexpr double kWheelScrollPx = 60.0; ///< time scroll per wheel notch
 constexpr int kToolButtonSize = 24;
 constexpr int kDopeShare = 2; ///< default dope sheet : curves height ratio
 constexpr int kCurvesShare = 3;
+/// How far (px) the pointer must leave the docked panel while dragging its header before it
+/// tears off into its own window.
+constexpr int kTearOffDistancePx = 24;
 } // namespace
 
 KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
@@ -61,9 +67,14 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     m_floatButton->setAutoRaise(true);
     m_floatButton->setFocusPolicy(Qt::NoFocus);
     m_floatButton->setIconSize(QSize(metrics::kToolIconSize, metrics::kToolIconSize));
+    // Labelled (owner feedback: detaching was not discoverable with an icon alone).
+    m_floatButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     connect(m_floatButton, &QToolButton::clicked, this, &KeyframesPanel::floatToggleRequested);
     addTitleBarWidget(m_floatButton);
     setFloating(false);
+    // Header gestures: double-click floats / docks, dragging out tears off, dragging a floating
+    // panel's header moves its window.
+    titleBar()->installEventFilter(this);
 
     auto* body = new QWidget;
     auto* bodyLayout = new QVBoxLayout(body);
@@ -287,10 +298,15 @@ void KeyframesPanel::setFloating(bool floating)
     m_floating = floating;
     m_floatButton->setIcon(
         kk::icon(floating ? QStringLiteral("window_dock") : QStringLiteral("window_float")));
-    m_floatButton->setToolTip(floating ? tr("Dock the Keyframes panel back into the Edit page")
-                                       : tr("Open the Keyframes panel in its own window (e.g. on "
-                                            "a second monitor)"));
+    m_floatButton->setText(floating ? tr("Dock") : tr("Float"));
+    m_floatButton->setToolTip(floating
+            ? tr("Dock the Keyframes panel back into the Edit page (or double-click the header)."
+                 "\nDrag the header to move the window.")
+            : tr("Open the Keyframes panel in its own window, e.g. on a second monitor.\n"
+                 "You can also double-click the header, or drag the header out of the panel."));
     m_floatButton->setAccessibleName(floating ? tr("Dock") : tr("Float"));
+    titleBar()->setToolTip(floating ? tr("Drag to move the window, double-click to dock")
+                                    : tr("Double-click or drag out to open in its own window"));
 }
 
 void KeyframesPanel::setViewMode(ViewMode mode)
@@ -500,8 +516,66 @@ void KeyframesPanel::resizeEvent(QResizeEvent* event)
     applyView();
 }
 
+bool KeyframesPanel::headerEvent(QEvent* event)
+{
+    // Only the bar itself: clicks on its buttons / labels reach those children first (a label
+    // passes them on, which is fine: it is part of the header).
+    switch (event->type()) {
+    case QEvent::MouseButtonDblClick: {
+        auto* mouse = static_cast<QMouseEvent*>(event);
+        if (mouse->button() != Qt::LeftButton)
+            return false;
+        m_headerArmed = false;
+        emit floatToggleRequested();
+        return true;
+    }
+    case QEvent::MouseButtonPress: {
+        auto* mouse = static_cast<QMouseEvent*>(event);
+        m_headerArmed = mouse->button() == Qt::LeftButton;
+        m_headerPressGlobal = mouse->globalPosition().toPoint();
+        return false;
+    }
+    case QEvent::MouseMove: {
+        auto* mouse = static_cast<QMouseEvent*>(event);
+        if (!m_headerArmed || !(mouse->buttons() & Qt::LeftButton))
+            return false;
+        const QPoint global = mouse->globalPosition().toPoint();
+        if (m_floating) {
+            // Move the floating window with the compositor's interactive move: works on
+            // Wayland (xdg_toplevel.move with the press serial) and X11 (_NET_WM_MOVERESIZE);
+            // a client cannot position its own top-level on Wayland.
+            if ((global - m_headerPressGlobal).manhattanLength()
+                < QApplication::startDragDistance())
+                return false;
+            m_headerArmed = false;
+            if (QWindow* handle = window()->windowHandle())
+                handle->startSystemMove();
+            return true;
+        }
+        // Docked: tear off once the pointer leaves the panel by kTearOffDistancePx (a short
+        // drag inside the header does nothing, so a sloppy click never undocks).
+        const QRect panel(mapToGlobal(QPoint(0, 0)), size());
+        if (panel
+                .marginsAdded(QMargins(
+                    kTearOffDistancePx, kTearOffDistancePx, kTearOffDistancePx, kTearOffDistancePx))
+                .contains(global))
+            return false;
+        m_headerArmed = false;
+        emit tearOffRequested();
+        return true;
+    }
+    case QEvent::MouseButtonRelease:
+        m_headerArmed = false;
+        return false;
+    default:
+        return false;
+    }
+}
+
 bool KeyframesPanel::eventFilter(QObject* watched, QEvent* event)
 {
+    if (watched == titleBar() && headerEvent(event))
+        return true;
     if (watched == m_right && event->type() == QEvent::Wheel) {
         auto* we = static_cast<QWheelEvent*>(event);
         const int delta = we->angleDelta().y() != 0 ? we->angleDelta().y() : we->angleDelta().x();
