@@ -5,7 +5,9 @@
 #include "RenderTestUtil.h"
 #include "core/CompoundOps.h"
 #include "core/Generators.h"
+#include "core/Subtitles.h"
 #include "render/Compositor.h"
+#include "render/RenderCacheKeys.h"
 
 #include <QElapsedTimer>
 
@@ -361,6 +363,37 @@ private slots:
         qInfo("1080p ms/frame (texture output): plain %.2f, identity adjustment %.2f, "
               "adjustment + saturation %.2f",
             measure(plain), measure(identity), measure(adjusted));
+    }
+
+    /// Render cache: adjustment / generator changes change the chunk keys (their full clip
+    /// JSON is hashed), captions do not (they are drawn live over cached chunks, which keep
+    /// the subtitle tracks).
+    void renderCacheKeys()
+    {
+        TimelineData tl = scene();
+        ClipData adj = adjustmentClip(tl, 0, 100);
+        adj.effects.append(effect(tl, "saturation", "saturation", 20));
+        addClip(tl, TrackType::Video, 2, adj);
+        const CacheKeyOptions options;
+        const auto base = renderCacheChunks(tl, {}, options);
+        QVERIFY(!base.empty());
+        QVERIFY(base.front().reasons & CacheEffects);
+        TimelineData changed = tl;
+        changed.videoTracks[2].clips[0].effects[0].params.setBase(QStringLiteral("saturation"), 50);
+        QVERIFY(renderCacheChunks(changed, {}, options).front().key != base.front().key);
+        TimelineData captioned = tl;
+        TrackData st = subtitles::makeSubtitleTrack();
+        st.id = captioned.allocateId();
+        ClipData c = subtitles::makeCaption(QStringLiteral("x"), 0, 10);
+        c.id = captioned.allocateId();
+        st.clips.push_back(c);
+        captioned.subtitleTracks.push_back(st);
+        const auto withCaption = renderCacheChunks(captioned, {}, options);
+        QCOMPARE(withCaption.front().key, base.front().key);
+        const auto view = makeRenderCacheView(std::make_shared<const TimelineData>(captioned),
+            withCaption, {withCaption.front().key}, QStringLiteral("/nonexistent"));
+        QCOMPARE(view->chunks.size(), size_t(1));
+        QCOMPARE(view->chunks.front().timeline->subtitleTracks.size(), size_t(1));
     }
 };
 

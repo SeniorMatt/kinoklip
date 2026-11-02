@@ -22,6 +22,8 @@ struct RenderParams
     QSize outSize;
     Quality quality = Quality::Full;
     unsigned outputs = OutputTexture;
+    std::shared_ptr<const ProxyMap> proxies; ///< proxy / optimized media (viewers only)
+    std::shared_ptr<const RenderCacheView> renderCache; ///< cached chunks of `timeline`
 };
 
 /// One frame the playback engine wants: `frame` is rendered, `key` orders the frames in play

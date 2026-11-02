@@ -174,6 +174,7 @@ ExportResult ExportJob::runStill()
     const QSize size = m_settings.outputSize(*m_timeline);
     RenderRequest request {m_timeline, m_media, first, size, Quality::Full, OutputImage};
     request.subtitles = m_settings.burnsInSubtitles();
+    request.proxies = m_proxies;
     const RenderedFramePtr frame = m_compositor->renderAsync(std::move(request)).get();
     if (!frame || !frame->ok || frame->image.isNull()) {
         result.error = tr("Rendering frame %1 failed.").arg(first);
@@ -381,6 +382,7 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
                 RenderRequest request {
                     m_timeline, m_media, first + requested, size, Quality::Full, OutputImage};
                 request.subtitles = s.burnsInSubtitles();
+                request.proxies = m_proxies; // nullptr unless "Use proxy media" was chosen
                 inFlight.push_back(m_compositor->renderAsync(std::move(request)));
                 ++requested;
             }

@@ -387,6 +387,16 @@ QWidget* RenderSettingsPanel::buildVideoTab()
         tr("Allow B-frames. Turn off for files that some editing or streaming tools need to "
            "decode without reordering."));
     m_videoForm->addRow(QString(), m_frameReordering);
+    // Resolve's Advanced Settings: render from proxy / optimized media instead of the camera
+    // originals (off by default: export always uses the originals unless asked).
+    m_useProxies = new QCheckBox(tr("Use proxy media"));
+    m_useProxies->setObjectName(QStringLiteral("RenderUseProxies"));
+    m_useProxies->setToolTip(tr("Render from proxies where they exist (fast drafts). Off: "
+                                "always the camera originals."));
+    m_videoForm->addRow(QString(), m_useProxies);
+    m_useOptimized = new QCheckBox(tr("Use optimized media"));
+    m_useOptimized->setObjectName(QStringLiteral("RenderUseOptimized"));
+    m_videoForm->addRow(QString(), m_useOptimized);
 
     const QString levelsWhy
         = tr("YUV codecs are written with video levels (limited range), RGB and JPEG with full "
@@ -593,6 +603,16 @@ void RenderSettingsPanel::rebuildPresetRow()
     for (const ExportPreset& p : m_presets->all())
         m_presetRow->addPreset(p.id, p.name, icon(categoryIcon(p.category)), p.description);
     m_presetRow->setCurrent(m_presetId);
+}
+
+bool RenderSettingsPanel::useProxyMedia() const
+{
+    return m_useProxies->isChecked();
+}
+
+bool RenderSettingsPanel::useOptimizedMedia() const
+{
+    return m_useOptimized->isChecked();
 }
 
 ExportSettings RenderSettingsPanel::settings() const

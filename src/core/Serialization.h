@@ -36,11 +36,19 @@ namespace kk::serialization {
 ///   carry "retimeProcess" (the project default). Older files store a top-level clip
 ///   "speed": clipFromJson() reads it as a single constant-speed segment with pitch
 ///   correction off (audio of older projects was resampled), which plays exactly as before.
+/// - 6: proxy / optimized media links ("mediaLinks": [{"mediaId", "proxy"?, "optimized"?}],
+///   each {"path", "source": {"size", "mtimeMs"}, "width", "height", "format"?}), the
+///   project's "cacheSettings" (core/MediaLinks.h: proxy / optimized / render cache formats,
+///   background caching, proxy handling, render cache mode) and the clip flag
+///   "cacheOutput" (Render Cache Clip Output). Older files get the defaults
+///   (proxy handling "prefer proxies", render cache "none"); nothing else changes, so the
+///   loader needs no step for 4 -> 6 or 5 -> 6; proxies already in the proxy folder are linked
+///   by the application after loading (MediaLinks::autoLink()).
 /// - 7: adjustment clips ("kind": "adjustment"), generator clips ("kind": "generator",
 ///   "generator": descriptor id, parameters in "title"), subtitle tracks ("subtitleTracks":
 ///   tracks with "subtitleStyle" and "language"?, holding "kind": "subtitle" clips whose text
 ///   and style overrides are in "title"), subtitle media pool items ("kind": "subtitle",
-///   "cues": [[startUs, endUs, text], ...]). Version 6 is reserved for the proxy branch. Older
+///   "cues": [[startUs, endUs, text], ...]). Older
 ///   files have none of these and load unchanged; older builds refuse version 7 instead of silently
 ///   dropping captions and adjustment clips.
 inline constexpr int kFormatVersion = 7;

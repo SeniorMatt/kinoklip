@@ -14,6 +14,7 @@
 #include "render/RenderFrameCommand.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/MediaManagement.h"
 #include "ui/common/Resources.h"
 #include "ui/common/SettingsPages.h"
 #include "ui/common/StandardActions.h"
@@ -153,6 +154,8 @@ int main(int argc, char** argv)
     ctx.actions = &actions;
     ctx.settingsPages = &settingsPages;
     ctx.playback = &playback;
+    // Proxy / optimized media and render cache (sets ctx.media; before any panel exists).
+    kk::MediaManagement mediaManagement(ctx);
 
     // ---- Non-interactive modes ----
     if (options.isScreenshot()) {

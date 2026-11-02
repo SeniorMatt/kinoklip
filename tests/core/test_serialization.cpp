@@ -54,6 +54,7 @@ TimelineData richTimeline()
     media.transitionOut = TransitionData {};
     media.transitionOut->alignment = TransitionAlignment::EndOnCut; // spec 13.5
     media.markers.append(Marker {3, QStringLiteral("clip marker"), QColor(0, 200, 0), {}});
+    media.cacheOutput = true;
     // Masks (format version 3): a parametric ellipse and an animated bezier path.
     MaskData ellipse = makeMask(MaskShape::Ellipse, d.allocateId(), QSizeF(800, 400));
     ellipse.mode = MaskMode::Subtract;

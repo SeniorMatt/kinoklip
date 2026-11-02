@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace kk {
 
@@ -43,6 +44,47 @@ using MediaPathMap = QHash<QString, QString>;
 /// Builds the id → path table of a media pool (GUI thread; O(items)).
 [[nodiscard]] std::shared_ptr<const MediaPathMap> makeMediaPathMap(const MediaPoolState& pool);
 
+/// A proxy (or optimized media) file that stands in for a media item's video.
+///
+/// Proxies are *display-equivalent*: upright, square pixels, the same display aspect as the
+/// original, any size (src/export/ProxyJob). The renderer decodes `path` but keeps the
+/// geometry of the original: `displaySize` is the original's upright display size in pixels
+/// (the unit of the crop parameters and of the fit into the timeline frame), so a clip looks
+/// the same with or without its proxy, only less detailed.
+struct ProxyRef
+{
+    QString path;
+    QSizeF displaySize; ///< original display size (after SAR and rotation), pixels
+};
+
+/// MediaItem::id → substitute video file. Only the items listed use a substitute; audio
+/// always comes from the MediaPathMap (AudioMixer). Built on the GUI thread
+/// (src/export/ProxyResolver), immutable once shared.
+using ProxyMap = QHash<QString, ProxyRef>;
+
+/// One chunk of the render cache that is on disk, as seen by the Compositor (see
+/// render/RenderCacheKeys.h): timeline frames [start, end) are shown from a single media clip
+/// `timeline` (frame `start` = the file's first frame) with `media` as its path table.
+struct RenderCacheChunk
+{
+    int64_t start = 0;
+    int64_t end = 0;
+    std::shared_ptr<const TimelineData> timeline;
+    std::shared_ptr<const MediaPathMap> media;
+};
+
+/// The cached chunks of ONE timeline snapshot (immutable). The Compositor uses them only for
+/// requests whose RenderRequest::timeline is exactly `snapshot` (pointer identity): any edit
+/// makes a new snapshot, so a stale view can never show outdated pictures.
+struct RenderCacheView
+{
+    std::shared_ptr<const TimelineData> snapshot;
+    std::vector<RenderCacheChunk> chunks; ///< sorted by start, non-overlapping
+
+    /// Chunk containing @p frame, or nullptr (binary search).
+    [[nodiscard]] const RenderCacheChunk* find(int64_t frame) const;
+};
+
 /// What a render request should produce (bit flags, combine with |).
 enum RenderOutput : unsigned {
     /// An RGBA8 GL texture in the shared context group, for zero-copy display
@@ -71,6 +113,12 @@ struct RenderRequest
     /// Draw the captions of the enabled subtitle tracks over the picture (viewer; export
     /// with "burn into video"). Only the root timeline's subtitle tracks are drawn.
     bool subtitles = true;
+    /// Video substitutes (proxy / optimized media); nullptr = camera originals (export).
+    std::shared_ptr<const ProxyMap> proxies = nullptr;
+    /// Render cache of `timeline`; nullptr or a view of another snapshot = render normally.
+    /// A frame inside a cached chunk is rendered from the chunk's file instead (the request is
+    /// rewritten by Compositor::renderAsync(); RenderedFrame::fromCache tells).
+    std::shared_ptr<const RenderCacheView> renderCache = nullptr;
 };
 
 /// Result of a render request. Immutable once handed out; share it as RenderedFramePtr.
@@ -104,6 +152,7 @@ struct RenderedFrame
     double uploadMs = 0.0; ///< plane texture uploads
     double compositeMs = 0.0; ///< drawing layers, effects, transitions (excluding uploads)
     double outputMs = 0.0; ///< output slot + fence (+ readback for OutputImage)
+    bool fromCache = false; ///< shown from the render cache (RenderRequest::renderCache)
 };
 
 /// Shared handle to a rendered frame (releasing the last reference recycles the texture).

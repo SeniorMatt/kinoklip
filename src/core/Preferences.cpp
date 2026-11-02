@@ -3,6 +3,9 @@
 #include "core/Preferences.h"
 
 #include <QSettings>
+#include <QStandardPaths>
+
+#include <algorithm>
 
 namespace kk::prefs {
 
@@ -10,6 +13,7 @@ namespace {
 constexpr int kDefaultAutosaveMinutes = 2;
 constexpr int kDefaultStillCacheMiB = 256; ///< media::ImageLoader's own default
 constexpr int kMinStillCacheMiB = 16;
+constexpr int kDefaultRenderCacheGiB = 20;
 
 struct HwAccelName
 {
@@ -87,6 +91,42 @@ bool forceCpuRendering()
 QString cacheDirectory()
 {
     return QSettings().value(QLatin1String(kCacheDirectory)).toString();
+}
+
+QString effectiveCacheDirectory()
+{
+    const QString dir = cacheDirectory();
+    if (!dir.isEmpty())
+        return dir;
+    return QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+        + QStringLiteral("/media");
+}
+
+QString proxyDirectoryOverride()
+{
+    return QSettings().value(QLatin1String(kProxyDirectory)).toString();
+}
+
+QString proxyDirectory()
+{
+    const QString dir = proxyDirectoryOverride();
+    return dir.isEmpty() ? effectiveCacheDirectory() + QStringLiteral("/ProxyMedia") : dir;
+}
+
+QString optimizedMediaDirectory()
+{
+    return effectiveCacheDirectory() + QStringLiteral("/OptimizedMedia");
+}
+
+QString renderCacheDirectory()
+{
+    return effectiveCacheDirectory() + QStringLiteral("/RenderCache");
+}
+
+int renderCacheLimitGiB()
+{
+    return std::max(
+        1, QSettings().value(QLatin1String(kRenderCacheLimitGiB), kDefaultRenderCacheGiB).toInt());
 }
 
 QString audioOutputDevice()
