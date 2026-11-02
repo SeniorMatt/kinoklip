@@ -21,9 +21,8 @@ for thumbnails and waveforms).
 | `TimelinePainter.h` | draws ruler, headers, clips, transitions, overlays for one paint event |
 | `TimelineMedia.h` | thumbnail / waveform provider types and the MediaCache-backed defaults |
 | `KeyframeLanes.h` | per-clip keyframe / curve editor state, lane heights for the layout, lane widget placement, the two toggle buttons on animated clips, keyframe commands and actions |
-| `ClipLaneWidget.h` | base of the lane widgets: frame mapping, keyframe selection, drag / undo protocol, snapping, key menu, Delete / Ctrl+C / Ctrl+V while focused |
-| `KeyframeTrackWidget.h` | keyframe editor lane: master, group and parameter rows of diamonds |
-| `CurveEditorWidget.h` | curve editor lane: curves, keys, Bezier handles, preset tool bar |
+| `KeyframeTrackWidget.h` | keyframe editor lane: a `DopeSheetView` (src/ui/keyframes) of one clip with the row labels in the header column |
+| `CurveEditorWidget.h` | curve editor lane: a `CurveView` (src/ui/keyframes) of one clip with the parameter list and preset tool bar in the header column |
 
 Tests: `tests/timeline/` (layout maths, controller commands, QTest gestures, demo project,
 2,000-clip benchmark) and `tests/core/test_editops_timeline.cpp` (roll, slide, gaps,
@@ -116,7 +115,12 @@ mouse and key input, forward plain wheel events to the timeline, and paint their
 The only hook in the input state machine is the toggle-button click in `mousePressEvent()`.
 Lane edits use the same protocol as timeline drags (copy origin, restore + re-apply per move,
 one undo step). Selected keys live in `SelectionModel::keyframes()` (paths from
-`core/KeyframeOps.h`).
+`core/KeyframeOps.h`). The lane widgets are thin subclasses of the shared views in
+`src/ui/keyframes` (also used by the Keyframes panel) on a `KeyframeTimeMap` that goes through
+`TimelineLayout`. A clip narrower than `KeyframeLanes::kMinUsableClipWidthPx` shows an "Open in
+Keyframes Panel" button in its lane (the lane menus always have the entry):
+`KeyframeLanes::openInPanelRequested(clipId)`, wired by EditPage. `TimelineWidget::viewChanged()`
+(zoom / scroll) feeds the panel's Follow Timeline mode.
 
 ## Coordinates and time
 
