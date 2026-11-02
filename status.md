@@ -101,3 +101,7 @@
 - 21:04 main after themecolors: 91/91 pass. Spec sections renumbered 27-34 in order; roadmap updated; version 0.2.0-alpha.1; release notes written. Starting release build.
 - 21:13 Heartbeat: no agents running; 0.2.0-alpha.1 container release build in progress.
 - 21:20 Released 0.2.0-alpha.1 (GitHub pre-release, 3 assets; copy in ~/Desktop/kinoklip-0.2.0-alpha.1). Smoke: fresh config starts in Kinoklip, render OK. v2 done except mask tracking. Next: v2.5 (order to confirm with owner).
+- 21:22 Owner chose Cut page first for v2.5. Started agent 'cutpage'.
+- 22:53 Owner: v2.1 first (double-click opens compound at hovered time; moving past the outermost track creates a track). Cut page agent paused (3 commits on cutpage). Implementing v2.1 on main.
+- 23:04 v2.1 on main: 91/91 pass. Starting 0.2.1-alpha.1 container release build.
+- 23:18 Released 0.2.1-alpha.1 (v2.1); copy in ~/Desktop/kinoklip-0.2.1-alpha.1. Resuming Cut page agent.

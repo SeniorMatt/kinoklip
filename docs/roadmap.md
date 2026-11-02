@@ -36,6 +36,12 @@ export, real Breeze look, single-file Linux x86_64 binary. Color page visible bu
   ripple overwrite, audio keyframe lines on the timeline, clip attributes (pixel aspect, field order,
   audio channel mapping), project bins/smart bins, power bins, clip colour labels and flags.
 
+## v2.1 - compound clips and tracks (owner feedback on 0.2.0-alpha.1)
+- Double-clicking a compound clip opens it in a timeline tab at the moment under the pointer.
+- Dragging clips above the top video track or below the bottom audio track creates a new track,
+  like Resolve.
+- Released before any v2.5 work is merged.
+
 ## v2.5 - all other pages at a basic level
 - **Cut page** (fast single-timeline editing with the dual timeline, source tape, quick trims).
   Status: in progress on the `cutpage` branch - basic level done (layout, dual timeline, source
