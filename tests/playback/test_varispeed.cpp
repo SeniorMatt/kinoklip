@@ -257,7 +257,7 @@ private slots:
         PlaybackEngine& e = *engine;
         e.setTimeline(&tl);
         e.setRate(2.0);
-        QVERIFY(e.stats().audioMaster);
+        QTRY_VERIFY_WITH_TIMEOUT(e.stats().audioMaster, 1000); // after the video pre-roll
         QCOMPARE(device->starts(), 1);
         e.setRate(-1.0);
         QVERIFY(e.stats().audioMaster);
@@ -291,7 +291,7 @@ private slots:
         QVERIFY(e.isScrubbingAudio());
         e.play();
         QVERIFY(!e.isScrubbingAudio());
-        QVERIFY(e.stats().audioMaster);
+        QTRY_VERIFY_WITH_TIMEOUT(e.stats().audioMaster, 1000);
         e.pause();
     }
 

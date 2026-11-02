@@ -31,6 +31,7 @@ extern "C" {
 
 #include <algorithm>
 #include <atomic>
+#include <thread>
 
 namespace kk::media {
 
@@ -281,6 +282,24 @@ QList<HwDeviceInfo> hwCapabilities()
         result.append(detail::HwDeviceManager::instance().info(backend.mode));
     }
     return result;
+}
+
+void warmUpHwDecoding()
+{
+    static std::atomic<bool> started {false};
+    const HwAccelMode preferred = preferredHwAccel();
+    if (preferred == HwAccelMode::Off || started.exchange(true))
+        return;
+    std::thread([preferred] {
+        for (const Backend& backend : kBackends) {
+            if (preferred != HwAccelMode::Auto && backend.mode != preferred)
+                continue;
+            if (preferred == HwAccelMode::Auto && backend.mode == HwAccelMode::Vulkan)
+                break; // experimental drivers: only when chosen explicitly
+            if (detail::HwDeviceManager::instance().info(backend.mode).available)
+                break;
+        }
+    }).detach();
 }
 
 bool nvidiaDriverPresent()
