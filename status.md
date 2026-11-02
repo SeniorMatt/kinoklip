@@ -68,3 +68,4 @@
 - 12:19 Heartbeat: kfwindow 7 commits, active; 22 GB free. alpha.3 after it.
 - 12:37 kfwindow merged (54/54 host + container). Built 0.1.0-alpha.3 in container (bundle check OK, 91 MB), smoke-tested via the .run (screenshots, 12 s 1080p render). Publishing pre-release.
 - 12:37 RELEASED v0.1.0-alpha.3 (GitHub pre-release). All agents finished; worktrees removed; heartbeat stopped. Follow-up noted: GuiPrivate use (Wayland portal parent) ties the app to its exact Qt build - launcher's host-Qt mode must require an exact Qt match or be dropped. Waiting for owner's test.
+- 13:09 Owner feedback on alpha.3 in docs/feedback/alpha3.md (Wayland DnD broken, mouse-grab warnings, VAAPI sync-surface failures, missing stats lines, panel detaching not discoverable). Starting: wayland, hwdecode (bug fixes -> alpha.4), compound (v2: timeline tabs + compound clips).
