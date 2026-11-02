@@ -284,12 +284,13 @@ private slots:
             mime.setUrls({QUrl::fromLocalFile(path)});
         else
             mime.setData(format, list);
+        const auto itemsBefore = v.f.project.mediaPool()->items().size(); // includes the timeline
         const Answers a = sendDrag(v.vp(), &mime, v.at(10, kV2));
         QVERIFY(a.enter);
         QVERIFY(a.move);
         QVERIFY(a.drop);
         // Imported and placed from the event loop (no modal dialog inside the drop).
-        QTRY_COMPARE(v.f.project.mediaPool()->items().size(), 2);
+        QTRY_COMPARE(v.f.project.mediaPool()->items().size(), itemsBefore + 1);
         QTRY_COMPARE(v.clipCount(kV2), 1);
         QCOMPARE(v.f.view().videoTracks[1].clips[0].start, int64_t(10));
         QCOMPARE(v.clipCount(kA2), 0); // a still has no audio
@@ -298,13 +299,14 @@ private slots:
     void portalKeyAloneDoesNotCrash()
     {
         View v;
+        const auto itemsBefore = v.f.project.mediaPool()->items().size(); // includes the timeline
         QMimeData mime;
         mime.setData(QStringLiteral("application/vnd.portal.filetransfer"), "no-such-key");
         const Answers a = sendDrag(v.vp(), &mime, v.at(10, kV1));
         QVERIFY(a.enter); // may carry files: accepted while dragging ...
         QTest::qWait(50);
         QCOMPARE(v.clipCount(kV1), 0); // ... nothing resolvable: nothing happens
-        QCOMPARE(v.f.project.mediaPool()->items().size(), 1);
+        QCOMPARE(v.f.project.mediaPool()->items().size(), itemsBefore);
     }
 };
 

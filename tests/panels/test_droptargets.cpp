@@ -148,11 +148,12 @@ private slots:
         auto* grid = panel.findChild<QListView*>();
         QVERIFY(grid);
         const QPoint pos = grid->viewport()->mapTo(&panel, grid->viewport()->rect().center());
+        const auto itemsBefore = f.project.mediaPool()->items().size();
         const Answers a = sendDrag(&panel, &mime, pos);
         QVERIFY(a.enter);
         QVERIFY(a.move);
         QVERIFY(a.drop);
-        QTRY_COMPARE(f.project.mediaPool()->items().size(), 1);
+        QTRY_COMPARE(f.project.mediaPool()->items().size(), itemsBefore + 1);
 
         // Our own media pool payload is not a file drop.
         QMimeData items;
@@ -193,8 +194,10 @@ private slots:
         QTemporaryDir dir;
         QMimeData files;
         files.setUrls({QUrl::fromLocalFile(writeStill(dir, QStringLiteral("two.png")))});
+        // The pool also lists the project's timeline(s), so count relative to the start.
+        const auto itemsBefore = f.project.mediaPool()->items().size();
         QVERIFY(sendDrag(tree->viewport(), &files, tree->viewport()->mapFrom(tree, pos)).drop);
-        QTRY_COMPARE(f.project.mediaPool()->items().size(), 2);
+        QTRY_COMPARE(f.project.mediaPool()->items().size(), itemsBefore + 1);
         bool inBin = false;
         for (const MediaItem& m : f.project.mediaPool()->items())
             inBin = inBin || (m.name.startsWith(QLatin1String("two")) && m.binId == bin);

@@ -124,7 +124,8 @@ private slots:
             QSKIP("no OpenGL");
         const TimelineData flat = scene();
         TimelineData parent = flat;
-        const auto r = compound::collapse(parent, allClips(parent), 9, QStringLiteral("cc"), nullptr);
+        const auto r
+            = compound::collapse(parent, allClips(parent), 9, QStringLiteral("cc"), nullptr);
         QVERIFY(r);
         const auto nestedShot = withNested(parent, {&r->nested});
         const auto flatShot = snap(flat);
@@ -132,7 +133,8 @@ private slots:
             const QImage a = c->renderImage(flatShot, f);
             const QImage b = c->renderImage(nestedShot, f);
             QVERIFY2(maxDifference(a, b) <= 2,
-                qPrintable(QStringLiteral("frame %1 differs by %2").arg(f).arg(maxDifference(a, b))));
+                qPrintable(
+                    QStringLiteral("frame %1 differs by %2").arg(f).arg(maxDifference(a, b))));
         }
     }
 
@@ -148,7 +150,8 @@ private slots:
         parent.uid = 1;
         addClip(parent, TrackType::Video, 0, solidClip(parent, QColor(255, 0, 0), 0, 10));
         addClip(parent, TrackType::Video, 1, solidClip(parent, QColor(0, 0, 255), 0, 10));
-        const auto r = compound::collapse(parent, allClips(parent), 5, QStringLiteral("cc"), nullptr);
+        const auto r
+            = compound::collapse(parent, allClips(parent), 5, QStringLiteral("cc"), nullptr);
         QVERIFY(r);
         ClipData* inst = editops::clipById(parent, r->instanceIds[0]);
         inst->transform.setBase(keys::Opacity, 50.0);
@@ -244,7 +247,8 @@ private slots:
         addClip(flat, TrackType::Audio, 1,
             mediaClip(flat, QStringLiteral("ramp"), 20, 30, 0, 5'000'000));
         TimelineData parent = flat;
-        const auto r = compound::collapse(parent, allClips(parent), 4, QStringLiteral("cc"), nullptr);
+        const auto r
+            = compound::collapse(parent, allClips(parent), 4, QStringLiteral("cc"), nullptr);
         QVERIFY(r);
         QCOMPARE(r->instanceIds.size(), 1); // audio only
         const auto nestedShot = withNested(parent, {&r->nested});
