@@ -5,6 +5,7 @@
 // solids, display rotation/SAR (VideoDecoder::frameAt applies them) and transitions — the
 // latter all rendered as a cross dissolve. Effects are skipped (one warning per effect id).
 #include "core/ParamKeys.h"
+#include "core/Retime.h"
 #include "render/DecoderPool.h"
 #include "render/RenderBackend.h"
 #include "render/RenderLog.h"
@@ -21,6 +22,9 @@
 namespace kk::render {
 
 namespace {
+
+/// Blend weights closer than this to a source frame show that frame alone.
+constexpr double kMinBlend = 1.0 / 128.0;
 
 class CpuRenderer final : public RenderBackend
 {
@@ -165,6 +169,24 @@ private:
             const double zoom = std::max(1.0, maxZoom(clip, local));
             const QSize want = (content * outScale * zoom).toSize().boundedTo(sourcePx.toSize());
             picture = entry->decoder->frameAt(timeUs, want.expandedTo(QSize(1, 1)));
+            // Frame Blend / Optical Flow (no flow on the CPU: blended): mix in the next source
+            // frame by where the source time falls between the two.
+            if (retime::effectiveProcess(clip, *m_timeline) != RetimeProcess::Nearest
+                && !picture.isNull() && info.frameRate.isValid()) {
+                const int64_t frameUs = int64_t(1e6 / info.frameRate.toDouble());
+                const int64_t ptsUs = entry->decoder->lastFrameTimeUs();
+                const double w = frameUs > 0 ? double(timeUs - ptsUs) / double(frameUs) : 0.0;
+                DecoderPool::Entry* next = w > kMinBlend && w < 1.0 - kMinBlend
+                    ? m_decoders.acquire(path, ptsUs + frameUs)
+                    : nullptr;
+                const QImage b
+                    = next ? next->decoder->frameAt(ptsUs + frameUs, picture.size()) : QImage();
+                if (!b.isNull() && next->decoder->lastFrameTimeUs() > ptsUs) {
+                    QPainter blend(&picture);
+                    blend.setOpacity(w);
+                    blend.drawImage(QRect(QPoint(0, 0), picture.size()), b);
+                }
+            }
             pictureRect = QRectF(
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
             break;
