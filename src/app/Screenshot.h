@@ -13,8 +13,9 @@ class MainWindow;
 /// Targets: a page id (media, edit, deliver); "preferences" / "keyboard" (that dialog over
 /// the Edit page; only the dialog is saved); "inspector" (first video clip selected) /
 /// "mediapool" (only that Edit-page panel is saved); "menu-color-theme" / "menu-style" (Settings
-/// menu with the submenu open, cropped to the menus). Returns the process exit code (0 = success).
-/// Runs the event loop itself.
+/// menu with the submenu open, cropped to the menus); "import-dialog" (File > Import Media open,
+/// the whole screen grabbed: shows the desktop's portal dialog on X11). Returns the process exit
+/// code (0 = success). Runs the event loop itself.
 int runScreenshot(MainWindow& window, const QString& target, const QString& pngPath);
 
 } // namespace kk
