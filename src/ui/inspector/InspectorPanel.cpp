@@ -855,14 +855,27 @@ void InspectorPanel::dragEnterEvent(QDragEnterEvent* event)
 {
     if (m_clipId && event->mimeData()->hasFormat(QLatin1String(mime::Effect)))
         event->acceptProposedAction();
+    else
+        event->ignore();
+}
+
+void InspectorPanel::dragMoveEvent(QDragMoveEvent* event)
+{
+    // Answer every move explicitly (Wayland: each one becomes wl_data_offer.accept).
+    if (m_clipId && event->mimeData()->hasFormat(QLatin1String(mime::Effect)))
+        event->acceptProposedAction();
+    else
+        event->ignore();
 }
 
 void InspectorPanel::dropEvent(QDropEvent* event)
 {
     const QString id = QString::fromUtf8(event->mimeData()->data(QLatin1String(mime::Effect)));
     const EffectDescriptor* desc = EffectRegistry::instance().find(id);
-    if (!desc || !m_clipId)
+    if (!desc || !m_clipId) {
+        event->ignore();
         return;
+    }
     bool done = false;
     if (desc->category == EffectCategory::Transition) {
         const ClipData* c = clip(m_clipId);
