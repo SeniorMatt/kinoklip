@@ -7,6 +7,7 @@
 #include "core/SelectionModel.h"
 #include "core/TimelineData.h"
 #include "ui/timeline/RetimeBar.h"
+#include "ui/timeline/TimelineAnimator.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelineMedia.h"
 #include "ui/timeline/TimelinePainter.h"
@@ -74,6 +75,8 @@ public:
     [[nodiscard]] TimelineController* controller() const { return m_controller; }
     /// Current geometry (for tests and hit-testing from outside).
     [[nodiscard]] const TimelineLayout& layout() const { return m_layout; }
+    /// Display animations of this view (v2.2; tests drive and inspect them).
+    [[nodiscard]] TimelineAnimator& animator() { return m_anim; }
     /// The per-clip keyframe and curve editors (KeyframeLanes.h).
     [[nodiscard]] KeyframeLanes* keyframeLanes() const { return m_keyframeLanes; }
 
@@ -347,6 +350,11 @@ private:
     void onTimelineChanged();
     void onSelectionChanged();
     void onPlayheadChanged(int64_t frame);
+    /// Animations: takes the current model as the animator's previous state when the last
+    /// changes happened during an open edit (a drag), so the next edit animates from it.
+    void syncAnimations();
+    /// Animations turned on / off or their speed changed (uianim::Notifier).
+    void onAnimationSettingsChanged();
     void updateScrollBars();
     void zoomBy(double factor, double anchorX);
     [[nodiscard]] double zoomAnchorX() const;
@@ -371,6 +379,8 @@ private:
     bool m_fitOnFirstShow = true;
     quint64 m_hoverClip = 0; ///< clip under the mouse (fade handles shown)
     ClipDragOut m_clipDragOut;
+    TimelineAnimator m_anim; ///< display-only tweens (TimelineAnimator.h)
+    int64_t m_lastPlayhead = 0; ///< playhead at the last playheadChanged() (glide start)
 };
 
 } // namespace kk
