@@ -111,6 +111,8 @@ const ActionSpec kActions[] = {
     {"trim", "-"},
     {"trim", "trim.swap_left",        QT_TRANSLATE_NOOP("kk::StandardActions", "Swap Clip with Previous")},
     {"trim", "trim.swap_right",       QT_TRANSLATE_NOOP("kk::StandardActions", "Swap Clip with Next")},
+    {"trim", "trim.move_up",          QT_TRANSLATE_NOOP("kk::StandardActions", "Move Clips Up a Track")},
+    {"trim", "trim.move_down",        QT_TRANSLATE_NOOP("kk::StandardActions", "Move Clips Down a Track")},
 
     // ---- Timeline ----
     {"timeline", "edit.split",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Split Clip at Playhead"), "split"},
@@ -129,6 +131,7 @@ const ActionSpec kActions[] = {
     {"timeline", "timeline.add_audio_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Audio Track")},
     {"timeline", "timeline.add_subtitle_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add Su&btitle Track")},
     {"timeline", "timeline.add_subtitle", QT_TRANSLATE_NOOP("kk::StandardActions", "Add Subtit&le")},
+    {"timeline", "timeline.delete_empty_tracks", QT_TRANSLATE_NOOP("kk::StandardActions", "Delete &Empty Tracks")},
     {"timeline", "-"},
     {"timeline", "timeline.duplicate", QT_TRANSLATE_NOOP("kk::StandardActions", "D&uplicate Timeline")},
     {"timeline", "timeline.delete",   QT_TRANSLATE_NOOP("kk::StandardActions", "Delete Timel&ine")},
@@ -474,8 +477,7 @@ void registerStandardActions(ActionRegistry& registry)
             registry.action(id)->setEnabled(false);
     }
 
-    for (const char* id : {"view.page_compositing", "view.page_color", "view.page_audio",
-             "timeline.audio_scrubbing"}) {
+    for (const char* id : {"view.page_compositing", "view.page_color", "view.page_audio"}) {
         QAction* a = registry.action(QLatin1String(id));
         a->setEnabled(false);
         a->setStatusTip(
