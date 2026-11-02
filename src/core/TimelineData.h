@@ -7,14 +7,18 @@
 #include "core/Rational.h"
 
 #include <QColor>
+#include <QHash>
 #include <QString>
 #include <QVector>
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
 
 namespace kk {
+
+struct TimelineData;
 
 /// An effect applied to a clip. `type` is an EffectRegistry descriptor id (e.g. "gaussian_blur").
 struct EffectInstance
@@ -77,7 +81,11 @@ struct Marker
 enum class ClipKind {
     Media, ///< a MediaItem from the media pool (video and/or audio)
     Title, ///< a text title generated from ClipData::title
-    Solid ///< a solid colour (ClipData::solidColor)
+    Solid, ///< a solid colour (ClipData::solidColor)
+    /// Another timeline of the project used as a clip: a compound clip or a nested timeline
+    /// (ClipData::nestedUid). Its "source" time is the nested timeline's time in µs, so
+    /// trim / slip / split / speed work exactly as for media.
+    Nested
 };
 
 /// One clip on a track. Positions are timeline frames, source positions microseconds (PLAN §5.1).
@@ -85,7 +93,10 @@ struct ClipData
 {
     quint64 id = 0; ///< unique within the timeline; 0 = not yet placed (EditOps assign one)
     ClipKind kind = ClipKind::Media;
-    QString mediaId; ///< MediaItem::id for ClipKind::Media
+    QString mediaId; ///< MediaItem::id for ClipKind::Media (and the pool item of a Nested clip)
+    /// ClipKind::Nested: TimelineData::uid of the timeline the clip shows (authoritative; a
+    /// uid that no longer exists makes the clip offline: it draws and plays nothing).
+    quint64 nestedUid = 0;
     QString name;
     QColor label; ///< optional user colour label (invalid = none)
     int64_t start = 0; ///< first timeline frame
@@ -168,9 +179,40 @@ struct TrackRef
     friend bool operator==(const TrackRef&, const TrackRef&) = default;
 };
 
+/// Nested timelines of a render snapshot: TimelineData::uid -> immutable data (see
+/// TimelineData::nested). Every timeline reachable from the snapshot is in the one map; the
+/// entries themselves carry no map (renderers pass the root's map down).
+using NestedTimelineMap = QHash<quint64, std::shared_ptr<const TimelineData>>;
+
+/// Holder of the nested-timeline map of a render snapshot. Compares equal to every other
+/// holder: it is derived data (filled by Timeline::snapshot()), so it must never make two
+/// otherwise identical timelines differ (undo snapshots, change detection).
+struct NestedTimelines
+{
+    std::shared_ptr<const NestedTimelineMap> map;
+
+    /// The nested timeline with @p uid, or nullptr.
+    [[nodiscard]] const TimelineData* find(quint64 uid) const
+    {
+        if (!map)
+            return nullptr;
+        const auto it = map->constFind(uid);
+        return it == map->constEnd() ? nullptr : it->get();
+    }
+    friend bool operator==(const NestedTimelines&, const NestedTimelines&) { return true; }
+};
+
 /// The complete, copyable state of a timeline (PLAN §5.2).
 struct TimelineData
 {
+    /// Project-unique, stable id of the timeline (referenced by ClipData::nestedUid and
+    /// MediaItem::timelineUid); 0 = a stand-alone timeline that is not part of a project.
+    quint64 uid = 0;
+    /// True for the timeline behind a compound clip (Clip > New Compound Clip): listed in the
+    /// media pool as a compound clip, not as a timeline.
+    bool compound = false;
+    /// Resolution and frame rate follow the project settings (Project::setSettings()).
+    bool useProjectSettings = true;
     QString name;
     Rational fps; ///< timeline frame rate; all frame values are in this rate
     int width = 1920;
@@ -181,6 +223,9 @@ struct TimelineData
     int64_t markOut = -1; ///< -1 = not set; exclusive end frame
     QVector<Marker> markers; ///< sorted by frame
     quint64 nextId = 1; ///< id allocator for clips, tracks and effect instances
+    /// Render snapshots only (Timeline::snapshot()): every timeline the nested clips of this
+    /// one reach, directly or indirectly. Empty in editable data; never serialized.
+    NestedTimelines nested;
 
     /// End of the last clip on any track, in frames.
     [[nodiscard]] int64_t duration() const;
@@ -203,6 +248,12 @@ struct TimelineData
 
     friend bool operator==(const TimelineData&, const TimelineData&) = default;
 };
+
+/// Timeline frame of the nested timeline (frame rate @p nestedFps) shown by Nested clip
+/// @p clip at frame @p frame of its parent (rate @p parentFps). Not clamped: frames outside
+/// the nested timeline show nothing. Floor rounding like usToFrames().
+[[nodiscard]] int64_t nestedFrameAt(
+    const ClipData& clip, int64_t frame, Rational parentFps, Rational nestedFps);
 
 /// Display name of a track: its user name, or "V<n>" / "A<n>" from the 0-based @p index.
 [[nodiscard]] QString trackDisplayName(const TrackData& track, int index);
