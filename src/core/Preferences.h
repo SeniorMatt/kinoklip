@@ -22,6 +22,10 @@ inline constexpr char kStillCacheMiB[] = "system/stillCacheMiB";
 inline constexpr char kRenderBackend[] = "system/renderBackend";
 /// Folder of the thumbnail / waveform cache ("" = the platform cache folder + "/media").
 inline constexpr char kCacheDirectory[] = "system/cacheDirectory";
+/// Folder of generated proxy media ("" = "<cache folder>/ProxyMedia", see proxyDirectory()).
+inline constexpr char kProxyDirectory[] = "system/proxyDirectory";
+/// int GiB, disk budget of the render cache (oldest chunks are deleted first), default 20.
+inline constexpr char kRenderCacheLimitGiB[] = "system/renderCacheLimitGiB";
 /// QAudioDevice id (UTF-8 bytes as a string) of the playback output; "" = system default.
 inline constexpr char kAudioOutputDevice[] = "system/audioOutputDevice";
 /// Playback resolution (Playback > Playback Resolution, the viewers' resolution combo,
@@ -67,6 +71,18 @@ void setAutosaveMinutes(int minutes);
 [[nodiscard]] bool forceCpuRendering();
 /// Configured cache folder, or empty for the default.
 [[nodiscard]] QString cacheDirectory();
+/// Cache folder in use: cacheDirectory(), or the default "<platform cache>/media".
+[[nodiscard]] QString effectiveCacheDirectory();
+/// Configured proxy folder, or empty for the default.
+[[nodiscard]] QString proxyDirectoryOverride();
+/// Proxy folder in use: kProxyDirectory, or "<effective cache folder>/ProxyMedia".
+[[nodiscard]] QString proxyDirectory();
+/// Optimized media folder (managed by Kinoklip): "<effective cache folder>/OptimizedMedia".
+[[nodiscard]] QString optimizedMediaDirectory();
+/// Render cache folder: "<effective cache folder>/RenderCache".
+[[nodiscard]] QString renderCacheDirectory();
+/// Render cache disk budget in GiB (default 20, at least 1).
+[[nodiscard]] int renderCacheLimitGiB();
 /// Configured audio output device id, or empty for the system default.
 [[nodiscard]] QString audioOutputDevice();
 /// Playback resolution id ("full", "half", "quarter", "auto"; default "full"). The first call

@@ -112,10 +112,12 @@ bool writeJson(const QString& path, const QJsonObject& root, QString* error)
 Project::Project(QObject* parent)
     : QObject(parent)
     , m_mediaPool(new MediaPool(this))
+    , m_links(new MediaLinks(this))
     , m_timeline(new Timeline(this))
     , m_undoStack(new QUndoStack(this))
 {
     connect(m_undoStack, &QUndoStack::cleanChanged, this, [this] { emitDirtyIfChanged(); });
+    connect(m_links, &MediaLinks::changed, this, [this] { setSettingsDirty(true); });
     installResolver();
     newProject();
 }
@@ -123,6 +125,15 @@ Project::Project(QObject* parent)
 Project::~Project() = default;
 
 // ---- Settings & document state ----
+
+void Project::setCacheSettings(const MediaCacheSettings& settings)
+{
+    if (settings == m_cacheSettings)
+        return;
+    m_cacheSettings = settings;
+    setSettingsDirty(true);
+    emit cacheSettingsChanged();
+}
 
 ProjectSettings Project::settings() const
 {
@@ -198,6 +209,8 @@ void Project::newProject()
     m_name = ProjectSettings {}.name;
     m_format = Format {kDefaultWidth, kDefaultHeight, kDefaultFps};
     m_mediaPool->clear();
+    m_links->clear();
+    m_cacheSettings = {};
     TimelineData first
         = makeDefaultTimeline(tr("Timeline 1"), kDefaultFps, kDefaultWidth, kDefaultHeight);
     first.uid = 1;
@@ -209,6 +222,7 @@ void Project::newProject()
     m_settingsDirty = false;
     emitDirtyIfChanged();
     emit nameChanged(m_name);
+    emit cacheSettingsChanged();
     emit projectReset();
 }
 
@@ -243,6 +257,8 @@ QJsonObject Project::toJson(const QString& path) const
         tabs.append(qint64(uid));
     root[QLatin1String("tabs")] = tabs;
     root[QLatin1String("timelineViews")] = views;
+    root[QLatin1String("mediaLinks")] = m_links->toJson(m_mediaPool->state());
+    root[QLatin1String("cacheSettings")] = m_cacheSettings.toJson();
     return root;
 }
 
@@ -337,6 +353,11 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
     m_format = format;
     m_mediaPool->setState(serialization::mediaPoolFromJson(
         root.value(QLatin1String("mediaPool")).toObject(), projectDir));
+    // Version 3 -> 4: no links and default cache settings (both keys are simply absent); the
+    // application links proxies found in the proxy folder after loading.
+    m_links->fromJson(root.value(QLatin1String("mediaLinks")).toArray());
+    m_cacheSettings
+        = MediaCacheSettings::fromJson(root.value(QLatin1String("cacheSettings")).toObject());
     resetTimelines(std::move(timelineSlots), active, tabs);
     return true;
 }
@@ -411,6 +432,7 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     m_settingsDirty = false;
     emitDirtyIfChanged();
     emit nameChanged(m_name);
+    emit cacheSettingsChanged();
     emit projectReset();
     return true;
 }

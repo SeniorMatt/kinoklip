@@ -26,7 +26,14 @@ namespace kk::serialization {
 ///   compound clip items in the media pool ("kind", "timelineUid"). Files of versions 1 and 2
 ///   store one "timeline" object; Project::load() turns it into timeline uid 1 with a media
 ///   pool item, which reproduces the old project exactly.
-inline constexpr int kFormatVersion = 3;
+/// - 4: proxy / optimized media links ("mediaLinks": [{"mediaId", "proxy"?, "optimized"?}],
+///   each {"path", "source": {"size", "mtimeMs"}, "width", "height", "format"?}), the
+///   project's "cacheSettings" (core/MediaLinks.h: proxy / optimized / render cache formats,
+///   background caching, proxy handling, render cache mode) and the clip flag
+///   "cacheOutput" (Render Cache Clip Output). Older files get the defaults (proxy handling
+///   "prefer proxies", render cache "none"); proxies already in the proxy folder are linked
+///   by the application after loading (MediaLinks::autoLink()).
+inline constexpr int kFormatVersion = 4;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
