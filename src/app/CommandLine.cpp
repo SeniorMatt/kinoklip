@@ -20,10 +20,11 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
 
     const QCommandLineOption screenshot(QStringLiteral("screenshot"),
         QCoreApplication::translate("kk::CommandLine",
-            "Render the window (1920x1080) showing <page> (media, edit, deliver) to the PNG "
-            "given as the first positional argument, then exit. Usage: --screenshot edit "
-            "out.png [project]"),
-        QStringLiteral("page"));
+            "Render the window (1920x1080) showing <target> to the PNG given as the first "
+            "positional argument, then exit. Targets: media, edit, deliver, preferences, "
+            "keyboard, inspector, mediapool, menu-color-theme, menu-style. Usage: --screenshot "
+            "edit out.png [project]"),
+        QStringLiteral("target"));
     const QCommandLineOption resetLayout(QStringLiteral("reset-layout"),
         QCoreApplication::translate("kk::CommandLine", "Ignore the saved window layout."));
     const QCommandLineOption renderFrame(QStringLiteral("render-frame"),
@@ -31,6 +32,16 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             "Render one timeline frame of <project> to an image, then exit. Usage: "
             "--render-frame project.kkproj <frame> <out.png>"),
         QStringLiteral("project"));
+    // Not "--style": QApplication consumes -style/--style itself before we parse. This one
+    // goes through the theme (stored choice untouched, fallback to Breeze/Fusion if missing).
+    const QCommandLineOption style(QStringLiteral("widget-style"),
+        QCoreApplication::translate("kk::CommandLine",
+            "Widget style for this run (e.g. Breeze, Fusion); the stored choice is kept."),
+        QStringLiteral("key"));
+    const QCommandLineOption colorScheme(QStringLiteral("color-scheme"),
+        QCoreApplication::translate("kk::CommandLine",
+            "KDE colour scheme for this run (e.g. BreezeDark, BreezeLight, system)."),
+        QStringLiteral("id"));
     const QCommandLineOption render(QStringLiteral("render"),
         QCoreApplication::translate("kk::CommandLine",
             "Export the timeline of <project> to a file, then exit. Usage: --render "
@@ -45,6 +56,8 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
     parser.addOption(render);
     parser.addOption(preset);
     parser.addOption(screenshot);
+    parser.addOption(style);
+    parser.addOption(colorScheme);
     parser.addOption(resetLayout);
     parser.addOption(renderFrame);
 
@@ -52,6 +65,8 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
 
     QStringList positional = parser.positionalArguments();
     options.resetLayout = parser.isSet(resetLayout);
+    options.style = parser.value(style);
+    options.colorScheme = parser.value(colorScheme);
     if (parser.isSet(screenshot)) {
         options.screenshotPage = parser.value(screenshot);
         if (positional.isEmpty()) {

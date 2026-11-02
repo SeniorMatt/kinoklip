@@ -3,6 +3,9 @@
 <RCC version="1.0">
     <qresource prefix="/">
         <file>keymap_default.json</file>
+        <file>color-schemes/BreezeClassic.colors</file>
+        <file>color-schemes/BreezeDark.colors</file>
+        <file>color-schemes/BreezeLight.colors</file>
         <file>icons/add.svg</file>
         <file>icons/app.svg</file>
         <file>icons/audio_file.svg</file>

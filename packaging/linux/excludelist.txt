@@ -9,6 +9,15 @@
 #   fallback  prefer the host copy, but ship one in usr/lib/fallback/. The launcher links
 #             only the ones the host lacks into usr/lib/fallback-active/ (searched via
 #             RUNPATH), so a system copy always wins when it exists.
+#   newer     like fallback, but the bundled copy is also used when the host has an OLDER
+#             one: compared by the highest GLIBCXX_/GCC_ version tag inside the file, or else
+#             by the version in the real file name (libfontconfig.so.1.17.0). Only for
+#             libraries that are backwards compatible, so the newest copy is always safe --
+#             also for host libraries loaded into the same process.
+# A current Arch build references symbols that older distributions' copies lack (found with
+# LD_BIND_NOW=1 LD_WARN=yes on Linux Mint 22): fontconfig 2.17 (FcConfigSetDefaultSubstitute,
+# used by pango/libass) and wayland-client 1.23+ (wl_display_create_queue_with_name, used
+# by KF6GuiAddons). Both keep their ABI stable, so they are "newer" fallbacks.
 #
 # Rule of thumb: a library goes to "host" when (a) it talks to the kernel, the GPU driver,
 # the display server or a system daemon and must match it, or (b) the host graphics/font
@@ -16,9 +25,13 @@
 # and shadow the newer one that host library was built against ("undefined symbol" crashes).
 # Every entry in (b) is present on any Arch/KDE system because systemd, Mesa or Qt need it.
 #
-# Target: KDE Linux (Arch based, Wayland, newer glibc/GCC than the Ubuntu 24.04 build host).
+# Build host: the Arch Linux container kk-arch (glibc 2.44, GCC 16 at the time of writing).
+# Target: KDE Linux (Arch based, Wayland); other current distributions should work as long
+# as their glibc is at least the one the bundle needs (scripts/check_bundle.sh prints it).
 
-# ---- C runtime (glibc): must match the host kernel and ld.so; never bundle ----
+# ---- C runtime (glibc): taken from the host. Never walked into the bundle; package_linux.sh
+# ships the build host's glibc separately in usr/lib/glibc/, which AppRun only uses (via its
+# own ld.so) when the host glibc is older than the bundle needs ----
 host ld-linux-x86-64.so.2
 host linux-vdso.so.1
 host libc.so.6
@@ -33,11 +46,12 @@ host libnsl.so.1
 host libmvec.so.1
 host libBrokenLocale.so.1
 
-# ---- C++/GCC runtime: the host (GCC 15 on Arch) is newer than our GCC 13 and is
-# backwards compatible; bundling would break host libraries (Mesa/LLVM) that need newer
-# GLIBCXX symbols. Bundle only if a target ever ships an OLDER libstdc++ than the build host.
-host libstdc++.so.6
-host libgcc_s.so.1
+# ---- C++/GCC runtime: backwards compatible, so the NEWEST copy must be loaded. An Arch build
+# needs a newer libstdc++ than e.g. Ubuntu 24.04 has (GLIBCXX_3.4.36 vs 3.4.33): ship ours
+# as "newer" fallback; on a host with the same or a newer GCC runtime (KDE Linux) the host
+# copy wins, so host libraries (Mesa/LLVM) never see an older libstdc++ than they need.
+newer libstdc++.so.6
+newer libgcc_s.so.1
 host libatomic.so.1
 # OpenMP runtime (x265/libvpx); part of gcc-libs on Arch, but tiny, so keep a fallback.
 fallback libgomp.so.1
@@ -58,21 +72,25 @@ host libvulkan.so.1
 host libcuda.so.1
 host libnvidia-*.so*
 host libnvcuvid.so.1
+# libva is a "newer" fallback: an Arch FFmpeg calls vaMapBuffer2 (libva 2.21+), which e.g.
+# Ubuntu 24.04's libva 2.20 lacks. A newer libva still loads older drivers; when the bundled
+# one is used, AppRun points LIBVA_DRIVERS_PATH at the host's driver directory (the bundled
+# libva would otherwise look in Arch's /usr/lib/dri only).
 # VAAPI/VDPAU front ends: the host libva loads the host iHD/radeonsi driver
 # (LIBVA_DRIVERS_PATH is never overridden). FFmpeg links them hard, so if a minimal host
 # lacks one (libvdpau is optional on recent Arch since Mesa dropped VDPAU) the bundled copy
 # is used instead of failing to start.
-fallback libva.so.2
-fallback libva-drm.so.2
-fallback libva-x11.so.2
-fallback libva-wayland.so.2
+newer libva.so.2
+newer libva-drm.so.2
+newer libva-x11.so.2
+newer libva-wayland.so.2
 fallback libvdpau.so.1
 # OpenCL ICD loader: reads /etc/OpenCL/vendors of the host; ship it in case it is missing.
 fallback libOpenCL.so.1
 
 # ---- Wayland: the client libraries follow the compositor's protocol versions ----
-host libwayland-client.so.0
-host libwayland-cursor.so.0
+newer libwayland-client.so.0
+newer libwayland-cursor.so.0
 host libwayland-egl.so.1
 host libwayland-server.so.0
 host libdecor-0.so.0
@@ -136,7 +154,7 @@ fallback libICE.so.6
 
 # ---- Fonts and text shaping: host versions find the host fonts/config. harfbuzz and
 # graphite2 are excluded because the host freetype links them (version skew otherwise). ----
-host libfontconfig.so.1
+newer libfontconfig.so.1
 host libfreetype.so.6
 host libharfbuzz.so.0
 host libgraphite2.so.3

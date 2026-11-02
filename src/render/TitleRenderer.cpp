@@ -54,7 +54,13 @@ QString stringStatic(const ParamSet& p, const QString& key, const QString& fallb
 
 size_t qHash(const TitleStyle& s, size_t seed)
 {
+    // Qt 6.12 deprecates the seedless combiner (the seed must reach the element hashes);
+    // Qt 6.4 only has the default constructor.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 12, 0)
+    QtPrivate::QHashCombine hash(seed);
+#else
     QtPrivate::QHashCombine hash;
+#endif
     seed = hash(seed, s.text);
     seed = hash(seed, s.font);
     seed

@@ -324,13 +324,26 @@ MediaPoolFilterModel::MediaPoolFilterModel(Project* project, QObject* parent)
     updateBinSet();
 }
 
+void MediaPoolFilterModel::refilter()
+{
+    // Qt 6.12 replaces invalidateFilter() by the begin/endFilterChange() pair (Qt >= 6.9);
+    // Qt 6.4 only has invalidateFilter(). The filter state was already updated by the caller,
+    // which is fine: endFilterChange() re-evaluates every row like invalidateFilter() did.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 12, 0)
+    beginFilterChange();
+    endFilterChange();
+#else
+    invalidateFilter();
+#endif
+}
+
 void MediaPoolFilterModel::setBin(const QString& binId)
 {
     if (binId == m_bin)
         return;
     m_bin = binId;
     updateBinSet();
-    invalidateFilter();
+    refilter();
 }
 
 void MediaPoolFilterModel::setSearchText(const QString& text)
@@ -342,7 +355,7 @@ void MediaPoolFilterModel::setSearchText(const QString& text)
     m_search = lower;
     if (scopeChanged)
         updateBinSet();
-    invalidateFilter();
+    refilter();
 }
 
 void MediaPoolFilterModel::binsChanged()
@@ -350,7 +363,7 @@ void MediaPoolFilterModel::binsChanged()
     if (!m_bin.isEmpty() && !m_project->mediaPool()->bin(m_bin))
         m_bin.clear(); // the current bin was deleted
     updateBinSet();
-    invalidateFilter();
+    refilter();
 }
 
 void MediaPoolFilterModel::updateBinSet()

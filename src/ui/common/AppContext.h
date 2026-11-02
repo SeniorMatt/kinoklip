@@ -8,6 +8,7 @@ class ActionRegistry;
 class PlaybackEngine; // src/playback; null in tests that do not need playback
 class Project;
 class SelectionModel;
+class SettingsPageRegistry;
 
 /// Non-owning pointers to the application-wide objects. Created in main(), outlives every
 /// widget. Panels take `(AppContext& ctx, QWidget* parent)` and keep the reference.
@@ -18,6 +19,7 @@ struct AppContext
     SelectionModel* selection = nullptr; ///< selected clips/keyframes (never null in the app)
     ActionRegistry* actions = nullptr; ///< every user command, by id (never null in the app)
     PlaybackEngine* playback = nullptr; ///< program (timeline) playback; may be null in tests
+    SettingsPageRegistry* settingsPages = nullptr; ///< preference pages (null: standard pages only)
 };
 
 } // namespace kk

@@ -25,7 +25,10 @@ using namespace timelinemetrics;
 
 namespace {
 
-// ---- Colours (own palette, tuned for the dark theme) ----
+// ---- Colours ----
+// Clip, track-strip and state colours are content colours (like clip labels): saturated mid
+// tones with light text that read on light and dark colour schemes alike. Everything around
+// them (lanes, headers, ruler, lines, overlays) is derived from the palette in setStyle().
 const QColor kVideoClip(0x2f, 0x62, 0x96);
 const QColor kAudioClip(0x2c, 0x7a, 0x58);
 const QColor kTitleClip(0x80, 0x5c, 0xb0);
@@ -77,6 +80,19 @@ int64_t minorTickFrames(int64_t major, double ppf)
     return 0;
 }
 
+/// Linear blend of @p a towards @p b (0 = a, 1 = b).
+QColor mixColor(const QColor& a, const QColor& b, double amount)
+{
+    const auto lerp = [amount](int x, int y) { return int(x + (y - x) * amount + 0.5); };
+    return QColor(lerp(a.red(), b.red()), lerp(a.green(), b.green()), lerp(a.blue(), b.blue()));
+}
+
+QColor withAlpha(QColor c, int alpha)
+{
+    c.setAlpha(alpha);
+    return c;
+}
+
 void drawDiamond(QPainter& p, QPointF c, double r)
 {
     const QPointF pts[4]
@@ -90,13 +106,6 @@ TimelinePainter::TimelinePainter()
 {
     m_lines.reserve(4096);
     m_peaks.reserve(4096);
-    auto pix = [](const char* name) { return kk::icon(QLatin1String(name)).pixmap(kIconSize); };
-    m_iconLock = pix("lock");
-    m_iconUnlock = pix("unlock");
-    m_iconVisible = pix("visible");
-    m_iconHidden = pix("hidden");
-    m_iconMute = pix("mute");
-    m_iconSolo = pix("solo");
 }
 
 void TimelinePainter::setStyle(const QPalette& pal, const QFont& font)
@@ -112,10 +121,23 @@ void TimelinePainter::setStyle(const QPalette& pal, const QFont& font)
     m_text = pal.color(QPalette::WindowText);
     m_textDim = pal.color(QPalette::PlaceholderText);
     m_accent = pal.color(QPalette::Highlight);
-    m_lane = m_base.lighter(112);
-    m_laneAlt = m_base.lighter(118);
+    // Lanes: the view background nudged towards the text colour, so alternate rows stay
+    // distinguishable in light schemes too (lighter() does nothing on white).
+    m_lane = mixColor(m_base, m_text, 0.05);
+    m_laneAlt = mixColor(m_base, m_text, 0.08);
     m_line = pal.color(QPalette::Dark);
+    // Playhead timecode: warm orange (NLE convention), darker on light schemes for contrast.
+    m_timecode = m_window.lightness() < 128 ? QColor(0xff, 0x8a, 0x6a) : QColor(0xc4, 0x4a, 0x1c);
     m_names.clear();
+    // Header icons are pre-rendered once per palette (the paint loop only blits pixmaps);
+    // re-rendering here picks up the new colours after a colour scheme switch.
+    auto pix = [](const char* name) { return kk::icon(QLatin1String(name)).pixmap(kIconSize); };
+    m_iconLock = pix("lock");
+    m_iconUnlock = pix("unlock");
+    m_iconVisible = pix("visible");
+    m_iconHidden = pix("hidden");
+    m_iconMute = pix("mute");
+    m_iconSolo = pix("solo");
 }
 
 QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type)
@@ -229,7 +251,7 @@ void TimelinePainter::paintRow(QPainter& p, const TimelinePaintInput& in, int ro
         m_lines.clear();
         for (int x = kHeaderWidth - r.height(); x < width; x += 12)
             m_lines.emplace_back(x, r.bottom(), x + r.height(), r.top());
-        p.setPen(QColor(255, 255, 255, 14));
+        p.setPen(withAlpha(m_text, 18));
         p.drawLines(m_lines.data(), int(m_lines.size()));
     }
 }
@@ -562,13 +584,13 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
         const double x0 = L.frameToX(double(g.start));
         const double x1 = L.frameToX(double(g.start + g.duration));
         const QRectF r(x0, rr.top() + 1, std::max(2.0, x1 - x0), rr.height() - 2);
-        p.fillRect(r, QColor(255, 255, 255, 46));
-        p.setPen(QPen(QColor(255, 255, 255, 190), 1, Qt::DashLine));
+        p.fillRect(r, withAlpha(m_text, 46));
+        p.setPen(QPen(withAlpha(m_text, 190), 1, Qt::DashLine));
         p.setBrush(Qt::NoBrush);
         p.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
         if (r.width() > 30) {
             p.setFont(m_smallFont);
-            p.setPen(Qt::white);
+            p.setPen(m_text);
             p.drawText(QPointF(std::max(x0, double(kHeaderWidth)) + 5, r.top() + m_fontAscent + 2),
                 g.name);
         }
@@ -728,7 +750,7 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
     QFont tcFont = m_boldFont;
     tcFont.setPointSizeF(m_font.pointSizeF() + 2);
     p.setFont(tcFont);
-    p.setPen(QColor(0xff, 0x8a, 0x6a));
+    p.setPen(m_timecode);
     p.drawText(QRect(10, 0, kHeaderWidth - 14, kRulerHeight), Qt::AlignVCenter | Qt::AlignLeft,
         timecode::format(in.playhead, d.fps));
 

@@ -59,6 +59,8 @@ public:
     [[nodiscard]] EditPage* editPage() const { return m_editPage; }
     [[nodiscard]] DeliverPage* deliverPage() const { return m_deliverPage; }
     [[nodiscard]] ProjectController* projectController() const { return m_projectController; }
+    /// The application objects this window was built with.
+    [[nodiscard]] AppContext& context() const { return m_ctx; }
 
     /// Shows the window: restored geometry if available, otherwise maximised.
     void showRestored();

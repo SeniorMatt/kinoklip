@@ -31,7 +31,7 @@ void connectDialogActions(
         });
     QObject::connect(actions.action(QStringLiteral("edit.preferences")), &QAction::triggered,
         window, [&ctx, window, onPreferencesChanged] {
-            PreferencesDialog dialog(ctx.actions, window);
+            PreferencesDialog dialog(ctx.settingsPages, window);
             if (onPreferencesChanged)
                 QObject::connect(
                     &dialog, &PreferencesDialog::preferencesChanged, window, onPreferencesChanged);

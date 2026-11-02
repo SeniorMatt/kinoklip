@@ -19,6 +19,10 @@
 # Only tools from the distribution are used (ldd, readelf, patchelf, tar, zstd); no
 # linuxdeploy/appimagetool. See packaging/linux/readme.md for the bundle layout and the
 # reasoning behind every excluded library.
+#
+# Primary build host: the Arch Linux container kk-arch (Qt 6.12 + KDE Frameworks 6 + Breeze):
+#   podman exec -w "$PWD" kk-arch env KK_BUILD_DIR=build-arch-release scripts/package_linux.sh
+# The Mint/Ubuntu host (Qt 6.4, no KF6) still works and produces a bundle without Breeze.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -71,7 +75,8 @@ VERSION="$(sed -n 's/^project([^ ]* VERSION \([0-9.]*\).*/\1/p' "$ROOT/CMakeList
 VERSION="${VERSION:-0.0.0}"
 
 QT_PLUGINS="${KK_QT_PLUGINS:-$(qtpaths6 --query QT_INSTALL_PLUGINS 2>/dev/null || true)}"
-[ -d "$QT_PLUGINS" ] || QT_PLUGINS=/usr/lib/x86_64-linux-gnu/qt6/plugins
+[ -d "$QT_PLUGINS" ] || QT_PLUGINS=/usr/lib/qt6/plugins # Arch
+[ -d "$QT_PLUGINS" ] || QT_PLUGINS=/usr/lib/x86_64-linux-gnu/qt6/plugins # Debian/Ubuntu
 [ -d "$QT_PLUGINS" ] || die "Qt plugin dir not found (set KK_QT_PLUGINS)"
 
 # ---------------------------------------------------------------------------------------
@@ -84,7 +89,7 @@ while read -r kind pat _; do
     EX_PAT+=("$pat")
 done <"$PKG/excludelist.txt"
 
-# Prints host / fallback / bundle for a soname.
+# Prints host / fallback / newer / bundle for a soname.
 classify() {
     local name="$1" i
     for i in "${!EX_PAT[@]}"; do
@@ -118,7 +123,28 @@ PLUGIN_GLOBS=(
     'iconengines/*.so'
     multimedia/libffmpegmediaplugin.so
     'platforminputcontexts/*.so'
+    # The real Breeze look (KF6 builds only; the globs match nothing on the Qt 6.4 host):
+    # the Breeze widget style, KDE's recolouring icon engine (Breeze icons are compiled into
+    # libKF6BreezeIcons, pulled in as a dependency) and KWindowSystem's platform plugins
+    # (Breeze uses them for window shadows/blur).
+    styles/breeze6.so
+    'kiconthemes6/iconengines/*.so'
+    'kf6/kwindowsystem/*.so'
 )
+
+# libheif decodes HEIC/AVIF through runtime plugins (libde265, dav1d, aom, ffmpeg, ...), loaded
+# from LIBHEIF_PLUGIN_PATH (set by AppRun to usr/lib/libheif/plugins). Arch keeps them in
+# /usr/lib/libheif, Debian/Ubuntu in /usr/lib/<triplet>/libheif/plugins.
+HEIF_PLUGIN_DIR=""
+for d in /usr/lib/libheif/plugins /usr/lib/libheif /usr/lib/x86_64-linux-gnu/libheif/plugins; do
+    if compgen -G "$d/*.so" >/dev/null; then
+        HEIF_PLUGIN_DIR="$d"
+        break
+    fi
+done
+
+# KDE colour schemes for KColorSchemeManager (found through XDG_DATA_DIRS, set by AppRun).
+COLOR_SCHEMES_DIR=/usr/share/color-schemes
 
 # ---------------------------------------------------------------------------------------
 # 4. Dependency walk.
@@ -208,6 +234,11 @@ walk() {
 
 log "resolving dependencies"
 walk N "$BIN"
+declare -a HEIF_PLUGINS=()
+if [ -n "$HEIF_PLUGIN_DIR" ] && [ -n "${IN_N[libheif.so.1]+x}" ]; then
+    for f in "$HEIF_PLUGIN_DIR"/*.so; do HEIF_PLUGINS+=("$f"); done
+    walk N "${HEIF_PLUGINS[@]}"
+fi
 
 # Qt roots: the Qt libraries the binary links, plus every shipped plugin.
 declare -a QT_ROOTS=() PLUGIN_FILES=()
@@ -240,7 +271,8 @@ strip --strip-unneeded "$APPDIR/usr/bin/kinoklip"
 declare -A DEST_OF=() # soname -> bundle-relative dir
 for name in "${!IN_N[@]}" "${!IN_Q[@]}"; do
     [ -n "${DEST_OF[$name]+x}" ] && continue
-    if [ "$(kind_of "$name")" = fallback ]; then
+    kind="$(kind_of "$name")"
+    if [ "$kind" = fallback ] || [ "$kind" = newer ]; then
         DEST_OF[$name]=usr/lib/fallback
     elif [ -n "${IN_N[$name]+x}" ]; then
         DEST_OF[$name]=usr/lib
@@ -258,6 +290,51 @@ for f in "${PLUGIN_FILES[@]}"; do
     mkdir -p "$APPDIR/usr/lib/qt/plugins/$(dirname "$rel")"
     cp -L "$f" "$APPDIR/usr/lib/qt/plugins/$rel"
 done
+if [ "${#HEIF_PLUGINS[@]}" -gt 0 ]; then
+    mkdir -p "$APPDIR/usr/lib/libheif/plugins"
+    for f in "${HEIF_PLUGINS[@]}"; do cp -L "$f" "$APPDIR/usr/lib/libheif/plugins/"; done
+fi
+# glibc of the build host, for hosts with an OLDER glibc (e.g. an Arch build on Ubuntu 24.04:
+# libm 2.43/2.44 symbol versions). It is not on any RUNPATH: AppRun starts the binary through
+# usr/lib/glibc/ld-linux-x86-64.so.2 --library-path usr/lib/glibc only when the host glibc is
+# older than glibc-required.txt, so on current hosts the system glibc is used as before and
+# child processes never inherit the bundled one (ld.so options are not inherited).
+GLIBC_DIR="$(dirname "$(readlink -f "$(ldd "$BIN" | sed -n 's/.*libc\.so\.6 => \([^ ]*\).*/\1/p')")")"
+mkdir -p "$APPDIR/usr/lib/glibc"
+for name in ld-linux-x86-64.so.2 libc.so.6 libm.so.6 libmvec.so.1 libpthread.so.0 libdl.so.2 \
+    librt.so.1 libresolv.so.2 libutil.so.1 libanl.so.1; do
+    [ -e "$GLIBC_DIR/$name" ] && cp -L "$GLIBC_DIR/$name" "$APPDIR/usr/lib/glibc/$name"
+done
+GLIBC_REQUIRED="$(find "$APPDIR/usr" -path "$APPDIR/usr/lib/glibc" -prune -o -type f \( -name '*.so*' -o -path '*/bin/*' \) -print |
+    while read -r f; do readelf -V --wide "$f" 2>/dev/null; done |
+    grep -oE 'Name: GLIBC_[0-9]+\.[0-9]+(\.[0-9]+)?' | sed 's/Name: GLIBC_//' | sort -uV | tail -n 1)"
+echo "$GLIBC_REQUIRED" >"$APPDIR/usr/lib/glibc/glibc-required.txt"
+log "bundle needs glibc >= $GLIBC_REQUIRED; build host glibc $(getconf GNU_LIBC_VERSION 2>/dev/null | cut -d' ' -f2) shipped for older hosts"
+
+# fallback libraries that are only used when the host copy is older (libstdc++, libgcc_s):
+# AppRun compares this version tag with the host library's.
+: >"$APPDIR/usr/lib/fallback/newer.txt"
+for name in "${!DEST_OF[@]}"; do
+    [ "$(kind_of "$name")" = newer ] || continue
+    tag="$(grep -aoE 'GLIBCXX_3\.4\.[0-9]+|GCC_[0-9]+\.[0-9]+(\.[0-9]+)?' "$APPDIR/usr/lib/fallback/$name" | sort -uV | tail -n1 || true)"
+    if [ -z "$tag" ]; then # no symbol versions: the real file name carries the version
+        real="$(readlink -f "${PATH_OF[$name]}")"
+        tag="file:${real##*.so.}"
+    fi
+    echo "$name $tag" >>"$APPDIR/usr/lib/fallback/newer.txt"
+done
+# KF6 builds: colour schemes and the Breeze icon theme in usr/share (first in XDG_DATA_DIRS,
+# set by AppRun). The icons are also compiled into libKF6BreezeIcons, but KIconLoader
+# searches the XDG icon dirs before that, so a host with an older Breeze (e.g. Breeze 5 on
+# Ubuntu) would otherwise show different icons. ~5 MB compressed (most files are symlinks);
+# breeze-dark is not needed (KIconEngine recolours breeze from the palette).
+if [ -d "$COLOR_SCHEMES_DIR" ] && [ -f "$QT_PLUGINS/styles/breeze6.so" ]; then
+    mkdir -p "$APPDIR/usr/share/color-schemes" "$APPDIR/usr/share/icons"
+    cp -L "$COLOR_SCHEMES_DIR"/*.colors "$APPDIR/usr/share/color-schemes/"
+    if [ -f /usr/share/icons/breeze/index.theme ]; then
+        tar -C /usr/share/icons --exclude='*.rcc' -cf - breeze | tar -C "$APPDIR/usr/share/icons" -xf -
+    fi
+fi
 
 # RUNPATHs. They make the bundle work without LD_LIBRARY_PATH for everything except Qt
 # (which the launcher selects per mode). Never include usr/lib/qt in the binary's RUNPATH,
@@ -280,6 +357,15 @@ log "setting RUNPATHs"
     done
     for f in "$APPDIR"/usr/lib/qt/plugins/*/*.so; do
         patchelf --set-rpath '$ORIGIN/../..:$ORIGIN/../../..:$ORIGIN/../../../fallback-active' "$f"
+    done
+    # two levels deeper: kiconthemes6/iconengines/, kf6/kwindowsystem/
+    for f in "$APPDIR"/usr/lib/qt/plugins/*/*/*.so; do
+        [ -e "$f" ] || continue
+        patchelf --set-rpath '$ORIGIN/../../..:$ORIGIN/../../../..:$ORIGIN/../../../../fallback-active' "$f"
+    done
+    for f in "$APPDIR"/usr/lib/libheif/plugins/*.so; do
+        [ -e "$f" ] || continue
+        patchelf --set-rpath '$ORIGIN/../..:$ORIGIN/../../fallback-active' "$f"
     done
 }
 
@@ -304,6 +390,10 @@ done
     echo "# Qt libraries kinoklip needs from a host Qt (generated by scripts/package_linux.sh)."
     printf '%s\n' "${!REQ[@]}" | sort
 } >"$APPDIR/usr/lib/qt/host-qt-requirements.txt"
+# The binary uses the API of the Qt it was built with: a host Qt must be at least that new.
+QT_BUILD_VERSION="$(readlink -f "${PATH_OF[libQt6Core.so.6]}")"
+QT_BUILD_VERSION="${QT_BUILD_VERSION##*/libQt6Core.so.}"
+echo "${QT_BUILD_VERSION%.*}" >"$APPDIR/usr/lib/qt/qt-version.txt"
 
 # Launcher, desktop entry, icon, MIME type
 install -m 755 "$PKG/apprun.sh" "$APPDIR/AppRun"
@@ -316,21 +406,72 @@ install -m 644 "$PKG/$APP_ID.xml" "$APPDIR/usr/share/mime/packages/$APP_ID.xml"
 echo "$VERSION" >"$APPDIR/usr/share/doc/kinoklip/version"
 
 # Licence notices of the bundled libraries (GPL/LGPL compliance; see plan.md section 8).
+# Debian/Ubuntu: dpkg -S + /usr/share/doc/<pkg>/copyright. Arch: pacman -Qo + /usr/share/licenses/<pkg>/
+# (Arch packages put the licence text there unless it is a common licence, whose text is in
+# /usr/share/licenses/spdx/ -- copied for every SPDX id a bundled package names).
 log "collecting licence files"
-{
-    echo "Bundled third-party libraries (from the build host's packages)."
-    echo "Licence texts: licenses/<package>.copyright. Source: the distribution's source packages."
-    echo
-    for name in $(printf '%s\n' "${!DEST_OF[@]}" | sort); do
-        pkg="$(dpkg -S "$(readlink -f "${PATH_OF[$name]}")" 2>/dev/null | head -n1 | cut -d: -f1 || true)"
-        ver=""
-        [ -n "$pkg" ] && ver="$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || true)"
-        printf '%-36s %-32s %s\n' "$name" "${pkg:-?}" "$ver"
-        if [ -n "$pkg" ] && [ -f "/usr/share/doc/$pkg/copyright" ]; then
-            cp -L "/usr/share/doc/$pkg/copyright" "$APPDIR/usr/share/doc/kinoklip/licenses/$pkg.copyright"
+LICENSES="$APPDIR/usr/share/doc/kinoklip/licenses"
+pkg_of() {
+    local f
+    f="$(readlink -f "$1")"
+    if command -v pacman >/dev/null; then
+        pacman -Qqo "$f" 2>/dev/null | head -n1
+    elif command -v dpkg >/dev/null; then
+        dpkg -S "$f" 2>/dev/null | head -n1 | cut -d: -f1
+    fi
+}
+pkg_version() {
+    if command -v pacman >/dev/null; then
+        pacman -Q "$1" 2>/dev/null | cut -d' ' -f2
+    else
+        dpkg-query -W -f='${Version}' "$1" 2>/dev/null
+    fi
+}
+copy_licence() {
+    local pkg="$1" id
+    if command -v pacman >/dev/null; then
+        if [ -d "/usr/share/licenses/$pkg" ]; then
+            mkdir -p "$LICENSES/$pkg"
+            cp -rL "/usr/share/licenses/$pkg/." "$LICENSES/$pkg/"
         fi
+        # SPDX ids from the package metadata, e.g. "LGPL-2.1-or-later  GPL-3.0-only"
+        for id in $(LC_ALL=C pacman -Qi "$pkg" 2>/dev/null | sed -n 's/^Licenses *: //p'); do
+            id="${id//[()]/}"
+            case "$id" in AND | OR | WITH | '') continue ;; esac
+            if [ -f "/usr/share/licenses/spdx/$id.txt" ]; then
+                mkdir -p "$LICENSES/spdx"
+                cp -L "/usr/share/licenses/spdx/$id.txt" "$LICENSES/spdx/"
+            fi
+        done
+    elif [ -f "/usr/share/doc/$pkg/copyright" ]; then
+        cp -L "/usr/share/doc/$pkg/copyright" "$LICENSES/$pkg.copyright"
+    fi
+}
+declare -A LICENCE_DONE=()
+{
+    echo "Bundled third-party libraries and plugins (from the build host's packages)."
+    echo "Licence texts: licenses/<package>/ (Arch) or licenses/<package>.copyright (Debian),"
+    echo "common licence texts in licenses/spdx/. Source: the distribution's source packages."
+    echo
+    {
+        for name in "${!DEST_OF[@]}"; do echo "$name ${PATH_OF[$name]}"; done
+        for f in "${PLUGIN_FILES[@]}" "${HEIF_PLUGINS[@]}"; do echo "${f##*/} $f"; done
+        if [ -d "$APPDIR/usr/share/color-schemes" ]; then
+            for f in "$COLOR_SCHEMES_DIR"/*.colors; do echo "${f##*/} $f"; done
+        fi
+        if [ -f "$APPDIR/usr/share/icons/breeze/index.theme" ]; then
+            echo "icons/breeze /usr/share/icons/breeze/index.theme"
+        fi
+    } | sort | while read -r name path; do
+        pkg="$(pkg_of "$path")"
+        printf '%-44s %-28s %s\n' "$name" "${pkg:-?}" "$( [ -n "$pkg" ] && pkg_version "$pkg")"
     done
 } >"$APPDIR/usr/share/doc/kinoklip/bundled-libraries.txt"
+for pkg in $(awk 'NR > 4 && $2 != "?" { print $2 }' "$APPDIR/usr/share/doc/kinoklip/bundled-libraries.txt" | sort -u); do
+    [ -n "${LICENCE_DONE[$pkg]+x}" ] && continue
+    LICENCE_DONE[$pkg]=1
+    copy_licence "$pkg"
+done
 
 # ---------------------------------------------------------------------------------------
 # 6. Archive + single-file .run
@@ -379,7 +520,7 @@ fi
 # ---------------------------------------------------------------------------------------
 log "bundle: $(du -sh "$APPDIR" | cut -f1) in $APPDIR"
 log "  usr/lib: $(ls "$APPDIR/usr/lib" | grep -c '\.so') libs, usr/lib/qt: $(ls "$APPDIR/usr/lib/qt" | grep -c '\.so') libs," \
-    "fallback: $(ls "$APPDIR/usr/lib/fallback" | wc -l) libs, plugins: ${#PLUGIN_FILES[@]}"
+    "fallback: $(ls "$APPDIR/usr/lib/fallback" | grep -c '\.so') libs, plugins: ${#PLUGIN_FILES[@]} Qt + ${#HEIF_PLUGINS[@]} libheif"
 for f in "$DIST"/kinoklip-x86_64.tar.* "$DIST"/Kinoklip-x86_64.run; do
     [ -f "$f" ] && log "$(du -h "$f" | cut -f1)	$f"
 done

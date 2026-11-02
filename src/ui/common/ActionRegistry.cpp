@@ -146,6 +146,21 @@ void ActionRegistry::addSeparator(const QString& category)
         entries.append(QLatin1String(kSeparator));
 }
 
+void ActionRegistry::addSubmenu(
+    const QString& category, const QString& subCategory, const QString& title)
+{
+    m_submenuTitles.insert(subCategory, title);
+    if (!m_categories.contains(category))
+        m_categories.append(category);
+    m_menuEntries[category].append(QLatin1String(kSubmenuPrefix) + subCategory);
+}
+
+QString ActionRegistry::submenuOf(const QString& entry)
+{
+    return entry.startsWith(QLatin1String(kSubmenuPrefix)) ? entry.mid(int(qstrlen(kSubmenuPrefix)))
+                                                           : QString();
+}
+
 QAction* ActionRegistry::action(const QString& id) const
 {
     const auto it = m_index.constFind(id);

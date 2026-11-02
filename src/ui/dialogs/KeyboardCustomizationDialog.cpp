@@ -202,12 +202,17 @@ void KeyboardCustomizationDialog::populate()
     QFont bold = m_tree->font();
     bold.setBold(true);
     for (const QString& category : m_registry.categories()) {
-        auto* section = new QTreeWidgetItem(m_tree, {titles.value(category, category)});
+        QString title = titles.value(category, stripMnemonic(m_registry.submenuTitle(category)));
+        if (title.isEmpty())
+            title = category;
+        auto* section = new QTreeWidgetItem(m_tree, {title});
         section->setFont(CommandColumn, bold);
         section->setFlags(Qt::ItemIsEnabled);
         section->setFirstColumnSpanned(true);
         for (const QString& id : m_registry.menuEntries(category)) {
-            if (id == QLatin1String(ActionRegistry::kSeparator))
+            // separators and submenu markers (the submenu is a section of its own)
+            if (id == QLatin1String(ActionRegistry::kSeparator)
+                || !ActionRegistry::submenuOf(id).isEmpty())
                 continue;
             auto* row = new QTreeWidgetItem(section);
             row->setData(CommandColumn, kIdRole, id);

@@ -83,6 +83,17 @@ echo "checking ${#ELFS[@]} ELF files in $B"
 check_pass normal "$B/usr/lib/qt"
 check_pass fallback "$B/usr/lib/fallback:$B/usr/lib/qt"
 
+# The newest glibc symbol version any bundled ELF references = the oldest host glibc the bundle
+# runs on natively; on older hosts AppRun switches to the bundled glibc (usr/lib/glibc).
+# libstdc++/libgcc_s are "newer" fallbacks, so the GCC runtime is not a limit.
+glibc_need="$(for f in "${ELFS[@]}"; do
+    case "$f" in "$B/usr/lib/glibc/"*) continue ;; esac
+    readelf -V --wide "$f" 2>/dev/null
+done | grep -oE 'GLIBC_[0-9]+\.[0-9]+(\.[0-9]+)?' | sort -uV | tail -n 1)"
+echo "minimum host glibc without the bundled one: ${glibc_need#GLIBC_}"
+if [ -f "$B/usr/lib/glibc/glibc-required.txt" ]; then
+    echo "bundled glibc for older hosts: $(ls "$B/usr/lib/glibc" | grep -c '\.so') libraries"
+fi
 echo "host libraries the bundle needs (from packaging/linux/excludelist.txt):"
 printf '%s\n' "${!HOST_USED[@]}" | sort | column -c 100
 if [ "$errors" -gt 0 ]; then
