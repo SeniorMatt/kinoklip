@@ -7,9 +7,11 @@
 #include "core/Project.h"
 #include "media/MediaCache.h"
 #include "platform/ChildProcessEnv.h"
+#include "platform/DroppedFiles.h"
 #include "platform/FileDialogs.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/DragAndDrop.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
@@ -32,6 +34,7 @@
 #include <QSettings>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
 #include <QTreeWidget>
@@ -64,14 +67,10 @@ QStringList idsFromMime(const QMimeData* data)
     return text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
 }
 
+/// Files from a file manager / the desktop (uri-list or document-portal transfer).
 QStringList localFiles(const QMimeData* data)
 {
-    QStringList paths;
-    for (const QUrl& url : data->urls()) {
-        if (url.isLocalFile())
-            paths.append(url.toLocalFile());
-    }
-    return paths;
+    return platform::droppedLocalFiles(data);
 }
 
 /// Bins tree accepting media item drops (move into bin) and OS file drops (import into bin).
@@ -87,8 +86,11 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override
     {
         if (event->mimeData()->hasFormat(QLatin1String(mime::MediaItems))
-            || event->mimeData()->hasUrls())
+            || platform::hasDroppedFiles(event->mimeData()))
             event->acceptProposedAction();
+        else
+            event->ignore();
+        logDropEvent("bins", event);
     }
 
     void dragMoveEvent(QDragMoveEvent* event) override
@@ -100,19 +102,26 @@ protected:
         } else {
             event->ignore();
         }
+        logDropEvent("bins", event);
     }
 
     void dropEvent(QDropEvent* event) override
     {
         QTreeWidgetItem* target = itemAt(event->position().toPoint());
-        if (!target)
+        logDropEvent("bins", event);
+        if (!target) {
+            event->ignore();
             return;
+        }
         const QString binId = target->data(0, kBinIdRole).toString();
         const QMimeData* data = event->mimeData();
         if (data->hasFormat(QLatin1String(mime::MediaItems)) && onItemsDropped)
             onItemsDropped(idsFromMime(data), binId);
-        else if (data->hasUrls() && onFilesDropped)
-            onFilesDropped(localFiles(data), binId);
+        else if (platform::hasDroppedFiles(data) && onFilesDropped) {
+            // Deferred like MediaPoolPanel::dropEvent(): no modal dialog inside the drop.
+            const QStringList paths = localFiles(data);
+            QTimer::singleShot(0, this, [this, paths, binId] { onFilesDropped(paths, binId); });
+        }
         event->acceptProposedAction();
     }
 };
@@ -201,6 +210,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         view->setSelectionMode(QAbstractItemView::ExtendedSelection);
         view->setDragEnabled(true);
         view->setDragDropMode(QAbstractItemView::DragOnly);
+        view->setDefaultDropAction(Qt::CopyAction); // see MediaPoolModel::supportedDragActions
         view->setAcceptDrops(false); // OS file drops are handled by the panel
         view->setEditTriggers(QAbstractItemView::EditKeyPressed);
         view->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -746,15 +756,36 @@ void MediaPoolPanel::showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos)
 
 void MediaPoolPanel::dragEnterEvent(QDragEnterEvent* event)
 {
-    if (event->mimeData()->hasUrls())
+    if (platform::hasDroppedFiles(event->mimeData()))
         event->acceptProposedAction();
+    else
+        event->ignore();
+    logDropEvent("media pool", event);
+}
+
+void MediaPoolPanel::dragMoveEvent(QDragMoveEvent* event)
+{
+    // Explicit, so every move answers the compositor (Wayland: wl_data_offer.accept +
+    // set_actions per motion); an unanswered offer is treated as "cannot drop here".
+    if (platform::hasDroppedFiles(event->mimeData()))
+        event->acceptProposedAction();
+    else
+        event->ignore();
 }
 
 void MediaPoolPanel::dropEvent(QDropEvent* event)
 {
+    logDropEvent("media pool", event);
     const QStringList paths = localFiles(event->mimeData());
+    if (paths.isEmpty()) {
+        event->ignore();
+        return;
+    }
     event->acceptProposedAction();
-    importFiles(paths, currentBin());
+    // From the event loop: importing may show a modal report, which must not run inside the
+    // drop (the source would wait for the drop to finish).
+    const QString bin = currentBin();
+    QTimer::singleShot(0, this, [this, paths, bin] { importFiles(paths, bin); });
 }
 
 } // namespace kk
