@@ -12,6 +12,7 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `MainWindow.h` | menu bar (built from `ActionRegistry`), `InterfaceBar`, page stack, `PageBar`; window/page layout persistence; close prompt |
 | `InterfaceBar.h` | top strip: panel toggles left/right, project name centred |
 | `PageBar.h` | bottom strip in Resolve's order: Media · Cut · Edit · Compositing · Color · Audio · Deliver (unbuilt pages disabled; slots are the `kPageSlots` table in `MainWindow.cpp`) |
+| `pages/CutPage.h` | the Cut page (spec 35): media pool, `CutViewer` (Source Clip / Source Tape / Timeline), `CutToolBar`, dual timeline (`CutOverview` over a centred-playhead `TimelineWidget`); edits with the Edit page's `TimelineController` (built after the Edit page in `MainWindow`); widgets in `src/ui/cut` |
 | `pages/EditPage.h` | PLAN §4 Edit layout with nested `QSplitter`s; accessors for every panel |
 | `pages/MediaPage.h` | browser · source viewer · metadata over the media pool |
 | `ProjectController.h` | new / open / save / save as / import media + "save changes?"; File > Open Recent; start-up crash recovery prompt |
@@ -19,7 +20,7 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `Theme.h` | the real KDE Breeze look: widget style, KDE colour schemes, Breeze icons, panel style sheet; Settings > Color Theme / Style; "appearance" settings page |
 | `ColorSchemeFile.h` | reads a KDE `.colors` file into a QPalette (fallback build without KF6) |
 | `CommandLine.h` | `QCommandLineParser` → `CommandLineOptions` |
-| `Screenshot.h` | `--screenshot <target> <out.png> [project]`: pages, `preferences[:section]`, `project-settings[:section]`, `keyboard`, `inspector`, `mediapool`, `menu-color-theme`, `menu-style` (works with `QT_QPA_PLATFORM=offscreen`; `KK_SCREENSHOT_SIZE=1366x768` for small screens; `KK_SCREENSHOT_PLAY_MS=2000` plays the first viewer with content that long before the grab, a headless playback check) |
+| `Screenshot.h` | `--screenshot <target> <out.png> [project]`: pages, `preferences[:section]`, `project-settings[:section]`, `keyboard`, `inspector`, `mediapool`, `menu-color-theme`, `menu-style`, `cut[:tape|clip|strip]` (an empty timeline first gets the media pool's files appended) (works with `QT_QPA_PLATFORM=offscreen`; `KK_SCREENSHOT_SIZE=1366x768` for small screens; `KK_SCREENSHOT_PLAY_MS=2000` plays the first viewer with content that long before the grab, a headless playback check) |
 | `MenuMetricsStyle.h` | proxy over the widget style that reserves the submenu arrow column in menus |
 
 ## Start-up sequence (`src/main.cpp`)
@@ -116,7 +117,11 @@ name exists: `ls /usr/share/icons/breeze/*/*/<name>.svg` in the container) and r
    `hasPanel()/setPanelVisible()/isPanelVisible()` + `saveLayout()/restoreLayout()`.
 2. In `MainWindow`'s constructor call `addPage(new MyPage(ctx), "view.page_<id>")`. The page
    action must exist in `ui/common/StandardActions.cpp` (and a shortcut in
-   `resources/keymaps/resolve-windows.json`). For Color, replace the disabled placeholder button.
+   `resources/keymaps/resolve-windows.json`). For Color, replace the disabled placeholder button
+   (set the page id in its `kPageSlots` row, as the Cut page did).
+3. A page that edits the timeline reuses the Edit page's `TimelineController` (pass
+   `editPage()->timeline()->controller()`, see `CutPage`), so tool, targets and clipboard are
+   shared; give extra `TimelineWidget`s `TimelineViewOptions::keepsViewState = false`.
 
 **Add a command-line mode** (e.g. `--render <project> <out.mp4>`):
 1. Add fields to `CommandLineOptions` and an option in `parseCommandLine()`.

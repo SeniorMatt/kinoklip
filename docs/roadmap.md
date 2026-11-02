@@ -1,7 +1,7 @@
 # Kinoklip roadmap
 
 Owner's long-term plan (recorded 2026-11-02). v1 is done (0.1.0-alpha.1 - alpha.4); v2 is done
-(0.2.0-alpha.1) except mask tracking; v2.5 and later are **planned, not started**. Code written today must keep these doors open (see plan.md 5.9 / 5.9b /
+(0.2.0-alpha.1) except mask tracking; v2.5 has started (Cut page, see below); later versions are **planned, not started**. Code written today must keep these doors open (see plan.md 5.9 / 5.9b /
 5.10 for the profile-ready and command-based rules).
 
 Naming rule for all versions: pages and features get our own names. Generic words (Cut, Edit,
@@ -38,6 +38,9 @@ export, real Breeze look, single-file Linux x86_64 binary. Color page visible bu
 
 ## v2.5 - all other pages at a basic level
 - **Cut page** (fast single-timeline editing with the dual timeline, source tape, quick trims).
+  Status: in progress on the `cutpage` branch - basic level done (layout, dual timeline, source
+  tape, the six smart edits, ripple trims, fast review, strip view); sync bin, boring detector,
+  trim editor and audio trim deferred (docs/behavior-spec.md section 35).
 - **Color page** (colour grading): primaries wheels, curves, HSL qualifier, windows/masks, nodes
   (serial/parallel/layer), LUTs, scopes (waveform, parade, vectorscope, histogram), gallery stills.
 - **Compositing page** (own name, node-based compositing: merge, transform, masks, text, keyers,
