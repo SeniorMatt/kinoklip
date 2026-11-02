@@ -5,6 +5,7 @@
 #include "media/HwAccel.h"
 #include "media/ImageLoader.h"
 #include "media/MediaCache.h"
+#include "platform/FileDialogs.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/Metrics.h"
@@ -18,7 +19,6 @@
 #include <QComboBox>
 #include <QDir>
 #include <QDoubleSpinBox>
-#include <QFileDialog>
 #include <QFormLayout>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
@@ -201,8 +201,8 @@ public:
             note(tr("Thumbnails and audio waveforms of imported media are kept here so "
                     "projects open quickly.")));
         connect(browse, &QPushButton::clicked, this, [this] {
-            const QString dir = QFileDialog::getExistingDirectory(this, tr("Cache Files Location"),
-                m_folder->text().isEmpty() ? defaultCacheDirectory() : m_folder->text());
+            const QString dir = platform::getExistingDirectory(this, tr("Cache Files Location"),
+                QString(), m_folder->text().isEmpty() ? defaultCacheDirectory() : m_folder->text());
             if (!dir.isEmpty())
                 m_folder->setText(QDir::toNativeSeparators(dir));
         });

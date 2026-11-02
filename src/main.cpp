@@ -20,6 +20,7 @@
 #include "ui/dialogs/PreferencesDialog.h"
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QSettings>
 #include <QSurfaceFormat>
 
@@ -66,17 +67,47 @@ void applyUiScale()
     }
 }
 
+/// True if the arguments ask only for --help/--version (or an option error QCommandLineParser
+/// reports and exits on): answered with a QCoreApplication, so it works without a display.
+bool wantsTextOnly(int argc, char** argv)
+{
+    for (int i = 1; i < argc; ++i) {
+        const QByteArray arg(argv[i]);
+        if (arg == "--") // positional arguments only from here on
+            return false;
+        if (arg == "-h" || arg == "--help" || arg == "--help-all" || arg == "-?" || arg == "-v"
+            || arg == "--version")
+            return true;
+    }
+    return false;
+}
+
+void setApplicationIdentity()
+{
+    QCoreApplication::setOrganizationName(QLatin1String(kk::appinfo::id));
+    QCoreApplication::setApplicationName(QLatin1String(kk::appinfo::name));
+    QCoreApplication::setApplicationVersion(kk::appinfo::displayVersion());
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
+    if (wantsTextOnly(argc, argv)) {
+        // No GUI: QApplication would abort without a display before we could parse.
+        QCoreApplication app(argc, argv);
+        setApplicationIdentity();
+        kk::CommandLineOptions options;
+        QString error;
+        kk::parseCommandLine(QCoreApplication::arguments(), options, &error); // prints, exits
+        std::fprintf(stderr, "%s\n", qPrintable(error));
+        return 2;
+    }
     applyUiScale();
     configureOpenGL();
     kk::theme::initBeforeApplication(); // bundled Breeze icons; must precede QApplication
     QApplication app(argc, argv);
-    QCoreApplication::setOrganizationName(QLatin1String(kk::appinfo::id));
-    QCoreApplication::setApplicationName(QLatin1String(kk::appinfo::name));
-    QCoreApplication::setApplicationVersion(kk::appinfo::displayVersion());
+    setApplicationIdentity();
     // Matches packaging/linux/org.kinoklip.Kinoklip.desktop: Wayland app_id / X11 WM_CLASS,
     // so the compositor shows the right icon and groups windows with the desktop entry.
     QGuiApplication::setDesktopFileName(QLatin1String(kk::appinfo::desktopId));

@@ -88,7 +88,8 @@ in its own directory so that the binary's RUNPATH never points at it: with
 Not shipped: `egldeviceintegrations` and the eglfs/linuxfb/vnc platforms (only for running
 without a desktop session), the GStreamer multimedia backend (the FFmpeg backend shares our
 FFmpeg), platform themes (GTK3 would drag in GTK; the KDE platform theme would make the
-look host-dependent: the app sets style, colours and icons itself), `kstyle_config`, TLS/SQL/print
+look host-dependent: the app sets style, colours and icons itself; the portal file dialogs
+need no platform theme, see "File dialogs" below), `kstyle_config`, TLS/SQL/print
 plugins. `qt.conf` is deliberately not used: Qt reads it from the binary's directory in
 *every* mode, which would break the host-Qt mode; `QT_PLUGIN_PATH` does the same job.
 
@@ -217,6 +218,28 @@ versions), `--install-desktop-entry`, `--uninstall-desktop-entry`. The archive i
 (sorted, fixed owner/mtime), so rebuilding unchanged content keeps the same cache directory.
 Old versions are not deleted automatically (one may still be running); use `--uninstall-cache`.
 
+## File dialogs (XDG desktop portal)
+
+The app shows the desktop's own file chooser (on Plasma the KDE / Dolphin dialog) by calling
+`org.freedesktop.portal.FileChooser` over D-Bus itself (`src/platform/PortalFileChooser`,
+details in `src/platform/readme.md`). Nothing extra is bundled for it: only `libQt6DBus`
+(already part of the bundled Qt) is needed, the dialog itself runs in the host's
+`xdg-desktop-portal` + `xdg-desktop-portal-kde` processes, and the D-Bus daemon is the host's.
+
+Deliberately **not** used: Qt's `xdgdesktopportal` platform theme plugin
+(`QT_QPA_PLATFORMTHEME=xdgdesktopportal`). It would also give portal dialogs, but it wraps
+the platform theme chosen from `XDG_CURRENT_DESKTOP` (Qt's built-in KDE theme on Plasma), which
+imports the host's fonts, palette and icon settings: the look would become host-dependent and
+`src/app/Theme`'s "system" palette capture would change. The KDE platform theme
+(plasma-integration) has the same problem and is built against a specific KF6/Qt. With the
+direct D-Bus implementation the launcher keeps `QT_QPA_PLATFORMTHEME=generic`.
+
+Fallback: no session bus, no portal (`org.freedesktop.portal.Desktop` neither running nor
+activatable), no file chooser backend, or an error -> Qt's widget dialog, as before.
+`KINOKLIP_FILE_DIALOG=qt` forces it. A warning `kinoklip.filedialogs: portal file dialog
+failed` is logged when the portal was found but failed; `QT_LOGGING_RULES=kinoklip.filedialogs.debug=true`
+shows the probed version.
+
 ## Verification
 
 ```sh
@@ -241,6 +264,23 @@ only from the bundle; `KINOKLIP_HOST_QT=1` loads `/lib/x86_64-linux-gnu/libQt6Co
 the host's platform plugin; with `KINOKLIP_HOST_LIBDIRS=<empty dir>` the host Qt is rejected
 and libva/libvdpau come from `fallback-active/`.
 
+File dialogs through the portal (needs `xdg-desktop-portal`, `xdg-desktop-portal-kde`,
+`xorg-server-xvfb`, `imagemagick`, `xdotool` in the container):
+
+```sh
+podman exec -w "$PWD" kk-arch scripts/portal_dialog_check.sh dist/kinoklip-x86_64/AppRun /tmp/pc
+# also choose two files in the KDE dialog and check they are imported:
+podman exec -w "$PWD" kk-arch env KK_PORTAL_CHOOSE='"/tmp/m/a.mp4" "/tmp/m/b.mp4"' \
+    KK_SCREENSHOT_DIALOG_DELAY=14000 KK_ROOT_GRAB_AFTER=4 scripts/portal_dialog_check.sh \
+    dist/kinoklip-x86_64/AppRun /tmp/pc
+```
+Done for this change: the KDE (KIO) dialog appears over the bundled app's window with the
+"Media files" filter selected, `dbus.log` shows `FileChooser.OpenFile` with `multiple=true`,
+`modal=true`, the `x11:` parent, case-insensitive globs and the remembered `current_folder`,
+the `Response` URIs (one with a space) are imported, and quitting with the dialog open sends
+`Request.Close`. Under headless weston (Wayland) the call is made too; weston has no
+xdg-foreign, so it goes without a parent there.
+
 ## Making a real AppImage later
 
 The folder is already AppDir-shaped (`AppRun`, top-level `.desktop`, icon, `.DirIcon`). With
@@ -264,8 +304,10 @@ or move the fallbacks to plain `usr/lib` for the AppImage. AppImage tooling pref
 - Programs the app starts get the original environment back only where the app goes through
   `src/platform/ChildProcessEnv` (currently: reveal in file manager). New `QProcess` /
   `QDesktopServices` call sites must use it too.
-- The bundled Qt does not use the KDE platform theme: file dialogs are Qt's own widgets (no
-  portal/KIO dialogs). Intended (identical look everywhere).
+- File dialogs come from the XDG desktop portal (the KDE/KIO dialog on Plasma) when the
+  session has one; otherwise Qt's widget dialog. See "File dialogs" above. Not yet checked on
+  a real Plasma 6 Wayland session: whether KWin stacks the portal dialog over our window
+  (it is exported through xdg-foreign) and that keyboard focus moves to it.
 - The Wayland app_id is `org.kinoklip.Kinoklip` (`setDesktopFileName`), matching the desktop
   file name; on X11 KWin matches through the same desktop file name, and
   `StartupWMClass=kinoklip` still matches the WM_CLASS instance (binary name).
