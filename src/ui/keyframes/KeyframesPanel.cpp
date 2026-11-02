@@ -318,6 +318,11 @@ void KeyframesPanel::setViews(bool dopeSheet, bool curves)
     m_curves->setVisible(curves);
 }
 
+void KeyframesPanel::setNormalised(bool normalised)
+{
+    m_normalisedButton->setChecked(normalised); // toggled() switches the curve view
+}
+
 void KeyframesPanel::setShowAllParameters(bool all)
 {
     if (m_showAllButton->isChecked() != all)

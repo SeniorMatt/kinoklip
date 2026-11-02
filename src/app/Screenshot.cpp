@@ -17,7 +17,6 @@
 #include "ui/dialogs/ProjectSettingsDialog.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
-#include "ui/keyframes/CurveView.h"
 #include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/KeyframeLanes.h"
@@ -248,7 +247,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         else if (section == QLatin1String("curves"))
             kf->setViews(false, true);
         else if (section == QLatin1String("absolute"))
-            kf->curveView()->setAxisMode(CurveView::AxisMode::Absolute);
+            kf->setNormalised(false);
         else if (section == QLatin1String("float")) {
             edit->setKeyframesFloating(true);
             if (QWidget* w = edit->keyframesWindow()) {

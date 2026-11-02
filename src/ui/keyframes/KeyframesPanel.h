@@ -70,6 +70,8 @@ public:
     [[nodiscard]] ViewMode viewMode() const { return m_viewMode; }
     /// Shows the dope sheet and / or the curve editor (at least one stays on).
     void setViews(bool dopeSheet, bool curves);
+    /// Normalised value axis (true, default) or one shared axis; keeps the tool button in step.
+    void setNormalised(bool normalised);
     /// Lists every animatable parameter (true) or only animated ones (default).
     void setShowAllParameters(bool all);
 

@@ -30,7 +30,7 @@ constexpr double kSampleStepPx = 2.0; ///< curve polyline resolution
 constexpr double kWheelZoomPerStep = 1.15; ///< value zoom per wheel notch (120 units)
 constexpr double kMinZoom = 0.05;
 constexpr double kMaxZoom = 500.0;
-constexpr double kValueGridPx = 40.0; ///< about one value grid line per this many px
+constexpr double kValueGridPx = 28.0; ///< about one value grid line per this many px
 constexpr double kTimeGridPx = 70.0; ///< minimum distance of time grid lines
 constexpr double kFitSelectionFill = 0.8; ///< selected keys fill this much of the height
 const QColor kKeySelected(0xff, 0xa8, 0x3a);
