@@ -51,7 +51,13 @@ namespace kk::serialization {
 ///   "cues": [[startUs, endUs, text], ...]). Older
 ///   files have none of these and load unchanged; older builds refuse version 7 instead of silently
 ///   dropping captions and adjustment clips.
-inline constexpr int kFormatVersion = 7;
+/// - 10 (attrs branch): clip fade handles ("fadeIn" / "fadeOut", frames) and Clip Attributes
+///   ("attributes" on media pool file items, mirrored on their clips: "pixelAspect" [num, den],
+///   "levels", "fieldOrder", "deinterlace", "rotation", "channelFormat" + "left" / "right",
+///   "startTimecode"). All optional (absent = none / the file as is), so older files load
+///   unchanged; older builds refuse version 10 instead of silently dropping fades and
+///   attributes. (8 and 9 are used by the multicam and bins branches.)
+inline constexpr int kFormatVersion = 10;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
@@ -71,6 +77,11 @@ inline constexpr int kFormatVersion = 7;
 [[nodiscard]] QJsonValue variantToJson(const QVariant& value);
 /// Decodes a value written by variantToJson().
 [[nodiscard]] QVariant variantFromJson(const QJsonValue& json);
+
+/// Encodes Clip Attributes (only the fields that differ from the defaults).
+[[nodiscard]] QJsonObject attributesToJson(const ClipAttributes& attributes);
+/// Decodes attributesToJson(); missing fields keep their defaults.
+[[nodiscard]] ClipAttributes attributesFromJson(const QJsonObject& json);
 
 /// Encodes one clip (also used for copy/paste).
 [[nodiscard]] QJsonObject clipToJson(const ClipData& clip);
