@@ -120,3 +120,5 @@
 - 01:27 Released 0.2.2-alpha.1 earlier; merged editpolish (v3 round 1) and audiopage (format 12; conflicts in AudioFeeder/PlaybackEngine resolved by hand); full suite running.
 - 01:27 Heartbeat: no agents running; full suite on merged main (editpolish + audiopage) in progress.
 - 01:34 main 102/102 pass, pushed. Version 0.3.0; release notes written; container release build started.
+- 01:34 Started agent 'polish2' (v3 round 2: leftovers + first-30-minutes audit).
+- 01:53 Released 0.3.0-alpha.1 (v3 round 1 + Audio page). Container: 102/103, test_generators failed under load, passes alone. Desktop copy. polish2 running.
