@@ -81,6 +81,8 @@ const ActionSpec kActions[] = {
     {"edit", "edit.replace",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Replace Clip"), "replace"},
     {"edit", "edit.fit_to_fill",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Fit to Fill")},
     {"edit", "edit.append_at_end",    QT_TRANSLATE_NOOP("kk::StandardActions", "Append at &End")},
+    // Cut page smart edits and viewer modes (enabled while the Cut page is shown).
+    {"edit", ">cut",                  QT_TRANSLATE_NOOP("kk::StandardActions", "C&ut Page")},
     {"edit", "-"},
     {"edit", "edit.keyboard_customization", QT_TRANSLATE_NOOP("kk::StandardActions", "&Keyboard Customization…")},
     {"edit", "edit.preferences",      QT_TRANSLATE_NOOP("kk::StandardActions", "Pr&eferences…")},
@@ -283,6 +285,20 @@ const ActionSpec kActions[] = {
 
     // ---- Media pool (File submenu + context menu; MediaPoolPanel puts the selected ids into
     // the data) ----
+    // ---- Cut page (submenu of Edit) ----
+    {"cut", "cut.smart_insert",       QT_TRANSLATE_NOOP("kk::StandardActions", "Smart &Insert"), "smart_insert"},
+    {"cut", "cut.append",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Append"), "append"},
+    {"cut", "cut.ripple_overwrite",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Ripple Overwrite"), "ripple_overwrite"},
+    {"cut", "cut.close_up",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Close Up"), "close_up"},
+    {"cut", "cut.place_on_top",       QT_TRANSLATE_NOOP("kk::StandardActions", "Place on &Top"), "place_on_top"},
+    {"cut", "cut.source_overwrite",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Source Overwrite"), "source_overwrite"},
+    {"cut", "-"},
+    {"cut", "cut.fast_review",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Fast Review"), "fast_review", true},
+    {"cut", "-"},
+    {"cut", "cut.viewer_source_clip", QT_TRANSLATE_NOOP("kk::StandardActions", "Viewer: Source &Clip"), "source_clip", true},
+    {"cut", "cut.viewer_source_tape", QT_TRANSLATE_NOOP("kk::StandardActions", "Viewer: Source Ta&pe"), "source_tape", true},
+    {"cut", "cut.viewer_timeline",    QT_TRANSLATE_NOOP("kk::StandardActions", "Viewer: Time&line"), "timeline", true},
+
     {"mediapool", "mediapool.generate_optimized", QT_TRANSLATE_NOOP("kk::StandardActions", "Generate Optimized Media")},
     {"mediapool", "mediapool.generate_proxy",     QT_TRANSLATE_NOOP("kk::StandardActions", "Generate Proxy Media")},
     {"mediapool", "mediapool.stop_generation",    QT_TRANSLATE_NOOP("kk::StandardActions", "Stop Generating")},
@@ -447,8 +463,19 @@ void registerStandardActions(ActionRegistry& registry)
     // has Resolve's order and proportions) and commands of subsystems that do not exist yet
     // (audio scrubbing): present so the keymap matches Resolve's, but
     // disabled.
-    for (const char* id : {"view.page_cut", "view.page_compositing", "view.page_color",
-             "view.page_audio", "timeline.audio_scrubbing"}) {
+    auto* cutViewerModes = new QActionGroup(&registry);
+    for (const char* id :
+        {"cut.viewer_source_clip", "cut.viewer_source_tape", "cut.viewer_timeline"})
+        cutViewerModes->addAction(registry.action(QLatin1String(id)));
+    registry.action(QStringLiteral("cut.viewer_timeline"))->setChecked(true);
+    // The Cut page enables its commands while it is shown (CutPage::showEvent()).
+    for (const QString& id : registry.menuEntries(QStringLiteral("cut"))) {
+        if (registry.contains(id))
+            registry.action(id)->setEnabled(false);
+    }
+
+    for (const char* id : {"view.page_compositing", "view.page_color", "view.page_audio",
+             "timeline.audio_scrubbing"}) {
         QAction* a = registry.action(QLatin1String(id));
         a->setEnabled(false);
         a->setStatusTip(

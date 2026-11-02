@@ -598,6 +598,43 @@ Tests: sc = tests/app/test_schemecolors.cpp, ts = tests/app/test_themeswitch.cpp
 | 34.4 | Switching the scheme repaints the timeline, keyframe editors, rulers, viewer overlays, media pool tiles and the render range bar at once in the new colours; nothing keeps the old scheme's colours. | Fixed (sc timelineRepaintsOnSwitch; ts) |
 | 34.5 | Fixed colours that do not follow the scheme: clip colour labels, flags and marker colours (user data), solid clips' own colour, video content (black letterbox, thumbnails) and the white-on-black outlines of on-screen mask controls. | Decision |
 
+## 35. Cut page (cutpage branch, roadmap v2.5)
+
+Fast single-timeline editing on its own page (Shift+3), sharing the project, the active
+timeline, the selection, the undo stack and the timeline controller (tool, snapping, targets,
+clipboard) with the Edit page. Written from general knowledge of how Resolve's Cut page works.
+
+Tests: cp = tests/app/test_cutpage.cpp, ce = tests/core/test_cutedits.cpp, st =
+tests/core/test_sourcetape.cpp.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 35.1 | The page bar's Cut button (between Media and Edit) and Shift+3 open the Cut page; the interface bar offers the media pool toggle there. | Fixed (new; cp pageIsEnabledAndSwitchesWithShift3) |
+| 35.2 | Layout: media pool on the left, one large viewer on the right, the tool bar of smart edits below them, then the dual timeline. Switching between Cut and Edit keeps the playhead, the selection, the clips and the undo history (one project, one active timeline). | Fixed (new; cp sharesTimelinePlayheadAndSelectionWithEditPage) |
+| 35.3 | Dual timeline: the upper timeline always shows the whole timeline fitted to the width, with the playhead and a band marking what the lower timeline shows; the lower one is zoomed (about 20 s across) with the playhead held in its centre, so it scrolls under the playhead during playback and navigation. Clicking or dragging in the upper one moves the playhead; scrolling the lower one by hand (wheel) moves the playhead too. Both switch the viewer to Timeline. | Fixed (new; cp dualTimelineFollowsThePlayhead) |
+| 35.4 | Viewer modes Source Clip / Source Tape / Timeline (buttons in the viewer header; Q switches between the last source mode and Timeline). A click on a media pool clip opens it in Source Clip mode, or, in Source Tape mode, moves the tape to that clip. Each mode keeps its own clip, position and marks. | Fixed (new; cp viewerModesAndQ) |
+| 35.5 | Source Tape: every clip of the current bin, in the media pool's view order (sort, search and filter apply), played back to back as one tape, with a bar of clip boundaries under the viewer (click to jump). In / out marks work across clips: a marked range is split at the clip boundaries into one source range per clip, and the edit buttons place them back to back. Only an in mark: to the end of that clip; only an out mark: from the start of its clip; no marks: the whole clip under the tape position. Timelines, compound / multicam clips and subtitles are not on the tape; stills get the still length. | Fixed (new; st, cp sourceTapeMarksAcrossClipBoundaries) |
+| 35.6 | Smart Insert inserts the source at the edit point nearest to the playhead (clip starts and ends on any track, frame 0 or the timeline end; ties go to the earlier point), so a clip is never split; later clips on the auto-select tracks ripple. The playhead goes to the end of the new clip. While the Cut page is shown, F9 runs Smart Insert. | Fixed (new; ce smartInsert*, cp smartInsertPicksNearestEditPointInOneUndoStep, insertKeyRunsSmartInsertOnTheCutPage) |
+| 35.7 | Append puts the source after the last clip of the timeline; nothing moves (Shift+F12 on the Cut page). | Fixed (new; ce appendGoesAfterTheLastClip) |
+| 35.8 | Ripple Overwrite replaces the clip under the playhead (destination video track first) with the source at its own length; everything after it ripples by the difference (Shift+F10 on the Cut page). Without a clip under the playhead nothing happens and the tool bar says why. | Fixed (new; ce rippleOverwrite*, cp refusedEditLeavesNoUndoStep) |
+| 35.9 | Place On Top puts the source at the playhead on the first track above the destination that is free for the whole source (a new track if none is); all clips of one edit go on that one track (F12 on the Cut page). | Fixed (new; ce placeOnTopUsesFirstFreeTrackForAllSegments) |
+| 35.10 | Close Up places the source's picture on top at the playhead, zoomed to 150 % around the centre (a cutaway to a closer shot; the sound below continues). | Decision: Resolve detects faces to frame the close up; Kinoklip zooms on the centre (`cutedits::kCloseUpZoom`). Video only. (ce closeUpIsZoomedVideoOnTop) |
+| 35.11 | Source Overwrite places the source's picture on the track above so that it lines up by timecode with the clip under the playhead: the source frame with the same timecode as the timeline frame under the playhead lands on the playhead. Timecode = Clip Attributes start timecode, else the file's embedded one. No clip under the playhead, a missing timecode or a marked range that does not contain that moment: refused with a message. | Decision (simplified): only the first source range decides the alignment; video only; no multi-angle search. (ce sourceOverwrite*) |
+| 35.12 | Every smart edit is one undo step named after the button; the new clips are selected (video and audio linked per source clip) and the playhead moves to their end. A refused edit leaves no undo step. | Fixed (new; cp smartInsertPicksNearestEditPointInOneUndoStep, appendPlaceOnTopCloseUpRippleOverwrite, refusedEditLeavesNoUndoStep) |
+| 35.13 | Smart edit material: Source Clip mode the marked range of the clip (whole clip unmarked); Source Tape mode as 35.5; Timeline mode the clips selected in the media pool, whole, in view order. Destination tracks are the Edit page's (Alt+n / Ctrl+Alt+n). F10 / F11 / Shift+F11 on the Cut page do the Edit page's overwrite / replace / fit to fill with the Cut viewer's source. | Fixed (new; cp insertKeyRunsSmartInsertOnTheCutPage) |
+| 35.14 | Lower timeline editing: select, move and trim as on the Edit page with the selection tool, except that dragging a clip edge is a ripple trim (later clips follow, no gap) - the Cut page's default; the narrow centre of a cut between two clips rolls. Dragging clips past the outermost track creates a new track (21.8) and a double-click on a compound clip opens it at the frame under the pointer (26.14), as on the Edit page (the lower timeline is the same widget). Blade at the playhead (Ctrl+\ as in the keymap), Delete / Backspace and ripple delete, Ctrl+T and the tool bar's dissolve button for a cross dissolve at the nearest edit. | Fixed (new; cp edgeDragRipplesInTheLowerTimeline, movePastTheTopTrackCreatesATrack, bladeAndDissolveFromTheToolBar) |
+| 35.15 | Audio tracks are compact in the lower timeline (about half height); the upper timeline gives audio about a third of its height. | Fixed (new; `TimelineViewOptions::audioHeightScale`) |
+| 35.16 | Media pool: thumbnail, list and strip views (strip: a film strip of thumbnails across each clip, Cut page only), with the media pool's sort menu (import order, name, duration, resolution, frame rate, codec, clip colour, usage, dates; ascending / descending). | Fixed (new; cp stripViewOnlyOnTheCutPage) |
+| 35.17 | Fast Review (tool bar button) plays the timeline faster: each shot (the stretch between two edit points) plays at its length / 2 s, at least real time and at most 8x, so long shots go by quickly. Any transport command ends it. | Decision (simplified): no audio pitch handling at the higher rates. (ce fastReviewRateFollowsClipLength, cp fastReviewSpeedGrowsWithShotLength) |
+| 35.18 | The cut.* commands are enabled only while the Cut page is shown; the Edit page's F9 / F12 / Shift+F10 / Shift+F12 keep their Edit page meaning there. | Fixed (new; cp cutActionsOnlyOnTheCutPage) |
+| 35.19 | Sync bin (the bin of clips in sync with the timeline clip under the playhead). | Deferred: needs per-clip sync data across cameras. |
+| 35.20 | Boring detector (marks long shots and jump cuts). | Deferred. |
+| 35.21 | Trim editor window (the full-screen trim view with both sides of the cut). | Deferred: needs a second render path in the viewer (as 8.15). |
+| 35.22 | Transitions other than a cross dissolve from the Cut page tool bar (wipes, smooth cut). | Deferred: the Effects library on the Edit page has the other transitions. |
+| 35.23 | Audio trim view (waveforms enlarged while trimming). | Deferred. |
+| 35.24 | Camera-angle features (multicam source tape, sync by angle, Source Overwrite searching every angle). | Deferred: multicam editing is on the Edit page. |
+| 35.25 | Inspector, effects and titles panels on the Cut page. | Deferred: use the Edit page (the selection carries over). |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -626,3 +663,5 @@ Tests: sc = tests/app/test_schemecolors.cpp, ts = tests/app/test_themeswitch.cpp
 - The bins branch (v2) added 33.1 - 33.19 (nested bins, smart bins, power bins, clip colours,
   flags, metadata editing, usage commands).
 - The themecolors branch (alpha.3 feedback #6) added 34.1 - 34.5 (Kinoklip default scheme, scheme-driven editor colours).
+- The cutpage branch (v2.5) added 35.1 - 35.25 (the Cut page: dual timeline, source tape, smart
+  edits, strip view, fast review; 35.19 - 35.25 deferred).

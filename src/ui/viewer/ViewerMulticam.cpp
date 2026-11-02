@@ -126,6 +126,8 @@ void ViewerPanel::setupMulticam()
 
 void ViewerPanel::setMulticamMode(bool on)
 {
+    if (on && !m_multicamAllowed)
+        return;
     if (m_mode != Mode::Source || !m_multicamOverlay || on == m_multicam) {
         if (m_modeBox && m_modeBox->currentIndex() != (m_multicam ? 1 : 0))
             m_modeBox->setCurrentIndex(m_multicam ? 1 : 0);

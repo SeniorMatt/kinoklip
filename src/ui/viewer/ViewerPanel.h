@@ -82,6 +82,15 @@ public:
     void setPosition(int64_t frame, Rational fps);
     /// Source mode: shows MediaItem @p mediaId (empty = none). Updates the title.
     void setSourceMedia(const QString& mediaId);
+    /// Source mode: shows the private timeline @p content as if it were clip @p item (the Cut
+    /// page's source tape: every clip of a bin back to back). The player keeps marks and
+    /// position per item id, so rebuilding the content for the same @p item.id keeps them.
+    /// sourceMedia() stays empty (the item is not in the media pool); the picture cannot be
+    /// dragged out (its range is not one media item). An empty @p content unloads.
+    void setSourceContent(const MediaItem& item, TimelineData content);
+    /// Source mode: offers the Source / Multicam mode menu (default true). Off for viewers that
+    /// only ever show one kind of content (the Cut page's).
+    void setMulticamAllowed(bool allowed);
     /// Source mode: current MediaItem id.
     [[nodiscard]] QString sourceMedia() const { return m_sourceMediaId; }
     /// Size in device-independent pixels available for the picture (to choose decode size).
@@ -203,6 +212,8 @@ private:
     QComboBox* m_modeBox = nullptr; ///< Source mode: Source / Multicam
     QComboBox* m_gridBox = nullptr; ///< multicam grid size (Auto, 2x2, 3x3, 4x4)
     bool m_multicam = false;
+    bool m_multicamAllowed = true; ///< setMulticamAllowed()
+    bool m_customContent = false; ///< setSourceContent() is shown
     bool m_multicamPrefersSource = false; ///< the loaded multicam clip wins over the timeline
     int m_multicamColumns = 0;
     int m_multicamPage = 0;

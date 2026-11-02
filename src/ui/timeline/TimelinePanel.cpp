@@ -182,7 +182,12 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
 
     if (ctx.actions) {
         auto on = [this](const char* id, void (TimelineWidget::*slot)()) {
-            connect(m_ctx.actions->action(QLatin1String(id)), &QAction::triggered, m_view, slot);
+            // Another page's timeline (the Cut page) zooms itself while this one is hidden.
+            connect(m_ctx.actions->action(QLatin1String(id)), &QAction::triggered, m_view,
+                [this, slot] {
+                    if (m_view->isVisible() || !window()->isVisible())
+                        (m_view->*slot)();
+                });
         };
         on("timeline.zoom_in", &TimelineWidget::zoomIn);
         on("timeline.zoom_out", &TimelineWidget::zoomOut);

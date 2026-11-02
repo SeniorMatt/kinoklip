@@ -10,8 +10,10 @@ class MainWindow;
 
 /// Sizes @p window to 1920x1080, shows @p target, lets layouts settle, grabs it into
 /// @p pngPath and quits the event loop. Works with QT_QPA_PLATFORM=offscreen.
-/// Targets: a page id (media, edit, deliver); "preferences" / "keyboard" (that dialog over
-/// the Edit page; only the dialog is saved); "inspector" (first video clip selected) /
+/// Targets: a page id (media, cut, edit, deliver); "cut:tape" / "cut:clip" / "cut:strip" (the Cut
+/// page with its viewer in Source Tape / Source Clip mode, or the media pool's strip view; an
+/// empty timeline first gets the media pool's files appended); "preferences" / "keyboard" (that
+/// dialog over the Edit page; only the dialog is saved); "inspector" (first video clip selected) /
 /// "mediapool" (only that Edit-page panel is saved); "menu-color-theme" / "menu-style" (Settings
 /// menu with the submenu open, cropped to the menus); "import-dialog" (File > Import Media open,
 /// the whole screen grabbed: shows the desktop's portal dialog on X11). Returns the process exit

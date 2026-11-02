@@ -4,6 +4,7 @@
 
 #include "app/MainWindow.h"
 #include "app/ProjectController.h"
+#include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
@@ -18,6 +19,8 @@
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/cut/CutEditor.h"
+#include "ui/cut/CutViewer.h"
 #include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
@@ -576,11 +579,46 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         if (Page* edit = window.page(QStringLiteral("edit")))
             edit->setPanelVisible(PanelId::Effects, true);
         panel = window.findChild<EffectsLibraryPanel*>();
+    } else if (base == QLatin1String("cut")) {
+        // Cut page (spec 35): files in KK_SCREENSHOT_IMPORT are imported; an empty timeline gets
+        // every file of the media pool appended
+        // (Append, one undo step) and the playhead in its middle. "cut:tape" shows the source
+        // tape of the bin, "cut:clip" the first clip in Source Clip mode, "cut:strip" the media
+        // pool's strip view.
+        window.setCurrentPage(QStringLiteral("cut"));
+        CutPage* cut = window.cutPage();
+        // KK_SCREENSHOT_IMPORT=a.mp4:b.mp4 imports media first (colon-separated).
+        const QStringList importPaths = qEnvironmentVariable("KK_SCREENSHOT_IMPORT")
+                                            .split(QLatin1Char(':'), Qt::SkipEmptyParts);
+        if (!importPaths.isEmpty())
+            ctx.project->importMedia(importPaths);
+        QVector<SourceSelection> clips;
+        for (const MediaItem& m : ctx.project->mediaPool()->items()) {
+            if (m.kind == MediaItemKind::File && (m.info.hasVideo || m.info.hasAudio))
+                clips.append(SourceSelection {m.id, 0, 0});
+        }
+        if (ctx.project->timeline()->data().duration() == 0 && !clips.isEmpty()) {
+            cut->editor()->run(CutEdit::Append, clips);
+            ctx.selection->clear();
+        }
+        ctx.project->timeline()->setPlayhead(ctx.project->timeline()->data().duration() / 2);
+        ctx.project->undoStack()->setClean(); // demo edits: closing must not ask
+        if (section == QLatin1String("tape")) {
+            cut->viewer()->setMode(CutViewer::Mode::SourceTape);
+            if (clips.size() > 1)
+                cut->viewer()->showTapeClip(clips[1].mediaId);
+        } else if (section == QLatin1String("clip") && !clips.isEmpty()) {
+            cut->viewer()->clipViewer()->setSourceMedia(clips.front().mediaId);
+            cut->viewer()->setMode(CutViewer::Mode::SourceClip);
+        } else if (section == QLatin1String("strip")) {
+            cut->mediaPool()->setViewMode(MediaPoolPanel::ViewMode::Strip);
+        }
     } else if (target == QLatin1String("import-dialog")) {
         return grabImportDialog(window, pngPath);
     } else if (!isPage) {
         std::fprintf(stderr,
-            "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
+            "unknown screenshot target '%s' (use media, cut[:tape|clip|strip], edit, deliver, "
+            "preferences[:section], "
             "project-settings[:section], keyboard, inspector, keyframes[:curves|narrow], "
             "keyframes-window, masks[:inspector|viewer], subtitles[:inspector], "
             "multicam[:viewer|timeline], "

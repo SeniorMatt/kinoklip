@@ -58,7 +58,8 @@ public:
     /// Item presentation.
     enum class ViewMode {
         Grid,
-        List
+        List,
+        Strip ///< film strips of thumbnails across each clip (Cut page; setStripViewAvailable())
     };
 
     /// Creates the panel for ctx.project's media pool (and ctx.powerBins when set).
@@ -100,10 +101,15 @@ public:
     /// Shows only items of clip colour @p colorId ("" = all, "none" = without colour).
     void setColorFilter(const QString& colorId);
 
-    /// Grid or list.
+    /// Grid, list or strip.
     [[nodiscard]] ViewMode viewMode() const { return m_viewMode; }
-    /// Switches between grid and list (remembered for the current bin and as the default).
+    /// Switches between grid, list and strip (remembered for the current bin and as the
+    /// default). Strip falls back to grid where the strip view is not available.
     void setViewMode(ViewMode mode);
+    /// Offers the strip view (button in the toolbar; off by default: only the Cut page's media
+    /// pool has it, like Resolve).
+    void setStripViewAvailable(bool available);
+    [[nodiscard]] bool isStripViewAvailable() const { return m_stripAvailable; }
     /// Sorts the items by list column @p column (-1 = import order); remembered per bin.
     void setSort(int column, Qt::SortOrder order);
     /// Shows or hides list column @p column (remembered in QSettings). The name column
@@ -178,6 +184,9 @@ signals:
     void selectedMediaChanged(const QStringList& ids);
     /// The user double-clicked an item: show it in the source viewer.
     void openInSourceViewer(const QString& mediaId);
+    /// The items shown changed: another bin, search, filter, sort order, or items added /
+    /// removed (the Cut page rebuilds its source tape from visibleMediaIds()).
+    void shownItemsChanged();
     /// A timeline / compound clip item was opened in a timeline tab (double-click, menu).
     void timelineOpened(quint64 uid);
 
@@ -258,13 +267,18 @@ private:
     QStackedWidget* m_stack = nullptr;
     QListView* m_grid = nullptr;
     QTreeView* m_list = nullptr;
+    QListView* m_strip = nullptr; ///< strip view (MediaPoolStripDelegate)
     QWidget* m_empty = nullptr;
     QLineEdit* m_search = nullptr;
     QToolButton* m_gridButton = nullptr;
     QToolButton* m_listButton = nullptr;
+    QToolButton* m_stripButton = nullptr;
     QToolButton* m_binsButton = nullptr;
     QToolButton* m_colorButton = nullptr;
     ViewMode m_viewMode = ViewMode::Grid;
+    bool m_stripAvailable = false;
+    /// Stack page showing the items in @p mode (the strip page only where available).
+    [[nodiscard]] int stackIndexFor(ViewMode mode) const;
     bool m_binsAuto = true; ///< bins visibility follows the width until the user toggles it
     bool m_showDefaultSmartBins = false; ///< Preferences > Editing
     bool m_applyingView = false; ///< applyBinView() running: do not store the view back

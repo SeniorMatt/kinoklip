@@ -51,7 +51,19 @@ w->ensurePlayheadVisible();
 w->setThumbnailProvider(fn);         // default: media::MediaCache::thumbnail()
 w->setWaveformProvider(fn);          // default: media::MediaCache::waveform()
 w->refreshMedia();                   // repaint (already connected to MediaCache's signals)
+// Another page's timeline view on the same controller (the Cut page's lower timeline):
+auto* lower = new TimelineWidget(ctx, tc);
+lower->setViewOptions({.centredPlayhead = true, .rippleEdgeTrims = true,
+    .audioHeightScale = 0.55, .keepsViewState = false});
+// Page-specific meaning of F9 / F10 / ... (the Cut page's smart edits while it is shown):
+tc->setSourceEditHandler([page](SourceEditMode m) { return page->isVisible() && ...; });
 ```
+
+`TimelineViewOptions` (TimelineWidget.h) are per view: a centred playhead (the view scrolls
+under the playhead; wheel scrolling moves the playhead; no horizontal scroll bar), ripple trims
+for clip-edge drags with the selection tool, an audio row height factor and whether the view
+stores zoom / scroll per timeline in `Project::viewState()` (only the Edit page's view does).
+The registry zoom actions act on the visible view (the Edit page's skips itself while hidden).
 
 The playhead lives in `Timeline` (`setPlayhead()` / `playheadChanged`); the widget follows it
 automatically (except while the user scrubs). Nothing else is needed from playback.

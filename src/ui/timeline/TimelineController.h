@@ -155,6 +155,14 @@ public:
     {
         m_sourceProvider = std::move(provider);
     }
+    /// Page-specific handling of the source edit commands (F9, F10, ... Shift+F12): asked
+    /// first by sourceEdit(); returns true when it took @p mode (the Cut page's smart edits
+    /// while that page is shown), false to let the controller do its normal edit. Null = none.
+    using SourceEditHandler = std::function<bool(SourceEditMode mode)>;
+    void setSourceEditHandler(SourceEditHandler handler)
+    {
+        m_sourceEditHandler = std::move(handler);
+    }
     /// Match frame target (wired by the page): loads media @p mediaId in the source viewer,
     /// parks it on source time @p sourceUs and marks [@p inUs, @p outUs) (the part of the
     /// media the timeline clip uses).
@@ -510,6 +518,7 @@ private:
     EditPointSelection m_selectedEdit;
     std::optional<GapSelection> m_selectedGap;
     std::function<std::optional<SourceSelection>()> m_sourceProvider;
+    SourceEditHandler m_sourceEditHandler;
     MatchFrameHandler m_matchFrame;
     HandlePrompt m_handlePrompt;
     MarkerEditor m_markerEditor;
