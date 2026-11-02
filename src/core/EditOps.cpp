@@ -185,6 +185,11 @@ const ClipData* clipById(const TimelineData& data, quint64 clipId)
     return loc ? &data.track(loc->track)->clips[size_t(loc->clipIndex)] : nullptr;
 }
 
+TrackFilter autoSelectTracks()
+{
+    return [](TrackRef, const TrackData& track) { return !track.locked && track.autoSelect; };
+}
+
 TrackFilter unlockedTracks()
 {
     return [](TrackRef, const TrackData& track) { return !track.locked; };
@@ -267,7 +272,7 @@ QVector<quint64> insertClips(
     forEachTrack(data, [&](TrackRef ref, TrackData& track) {
         if (track.locked)
             return;
-        if (scope == RippleScope::TargetTracks && !targets.contains(ref))
+        if (!targets.contains(ref) && (scope == RippleScope::TargetTracks || !track.autoSelect))
             return;
         for (size_t i = 0; i < track.clips.size(); ++i) {
             if (track.clips[i].start < insertAt && track.clips[i].end() > insertAt) {
@@ -656,7 +661,7 @@ int64_t closeGap(TimelineData& data, TrackRef ref, int64_t frame, RippleScope sc
         // Every other track can only give up the empty room directly left of the cut; a clip
         // straddling the cut leaves no room at all.
         forEachTrack(data, [&](TrackRef r, const TrackData& track) {
-            if (track.locked || r == ref)
+            if (track.locked || !track.autoSelect || r == ref)
                 return;
             int64_t lastEnd = 0;
             for (const ClipData& c : track.clips) {
@@ -670,7 +675,8 @@ int64_t closeGap(TimelineData& data, TrackRef ref, int64_t frame, RippleScope sc
     if (amount <= 0)
         return 0;
     forEachTrack(data, [&](TrackRef r, TrackData& track) {
-        if (track.locked || (scope == RippleScope::TargetTracks && !(r == ref)))
+        if (track.locked
+            || (!(r == ref) && (scope == RippleScope::TargetTracks || !track.autoSelect)))
             return;
         for (ClipData& c : track.clips) {
             if (c.start >= cut)
@@ -930,10 +936,12 @@ std::optional<int64_t> snapToNearest(
 }
 
 namespace {
-std::vector<int64_t> editPoints(const TimelineData& data)
+std::vector<int64_t> editPoints(const TimelineData& data, const TrackFilter& filter)
 {
     std::vector<int64_t> frames;
-    forEachTrack(data, [&](TrackRef, const TrackData& track) {
+    forEachTrack(data, [&](TrackRef ref, const TrackData& track) {
+        if (filter && !filter(ref, track))
+            return;
         for (const ClipData& c : track.clips) {
             frames.push_back(c.start);
             frames.push_back(c.end());
@@ -945,22 +953,57 @@ std::vector<int64_t> editPoints(const TimelineData& data)
 }
 } // namespace
 
-std::optional<int64_t> nextEditPoint(const TimelineData& data, int64_t frame)
+std::optional<int64_t> nextEditPoint(
+    const TimelineData& data, int64_t frame, const TrackFilter& filter)
 {
-    const std::vector<int64_t> points = editPoints(data);
+    const std::vector<int64_t> points = editPoints(data, filter);
     const auto it = std::upper_bound(points.cbegin(), points.cend(), frame);
     if (it == points.cend())
         return std::nullopt;
     return *it;
 }
 
-std::optional<int64_t> previousEditPoint(const TimelineData& data, int64_t frame)
+std::optional<int64_t> previousEditPoint(
+    const TimelineData& data, int64_t frame, const TrackFilter& filter)
 {
-    const std::vector<int64_t> points = editPoints(data);
+    const std::vector<int64_t> points = editPoints(data, filter);
     const auto it = std::lower_bound(points.cbegin(), points.cend(), frame);
     if (it == points.cbegin())
         return std::nullopt;
     return *(it - 1);
+}
+
+std::optional<int64_t> nextMarker(const TimelineData& data, int64_t frame)
+{
+    // Markers are sorted by frame.
+    const auto it = std::upper_bound(data.markers.cbegin(), data.markers.cend(), frame,
+        [](int64_t f, const Marker& m) { return f < m.frame; });
+    if (it == data.markers.cend())
+        return std::nullopt;
+    return it->frame;
+}
+
+std::optional<int64_t> previousMarker(const TimelineData& data, int64_t frame)
+{
+    const auto it = std::lower_bound(data.markers.cbegin(), data.markers.cend(), frame,
+        [](const Marker& m, int64_t f) { return m.frame < f; });
+    if (it == data.markers.cbegin())
+        return std::nullopt;
+    return (it - 1)->frame;
+}
+
+const ClipData* clipUnderFrame(const TimelineData& data, int64_t frame, const TrackFilter& filter)
+{
+    for (const TrackType type : {TrackType::Video, TrackType::Audio}) {
+        const auto& list = data.tracks(type);
+        for (size_t i = 0; i < list.size(); ++i) {
+            if (filter && !filter(TrackRef {type, int(i)}, list[i]))
+                continue;
+            if (const ClipData* c = list[i].clipAt(frame))
+                return c;
+        }
+    }
+    return nullptr;
 }
 
 // ---- Invariants ----
