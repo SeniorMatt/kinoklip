@@ -7,6 +7,7 @@
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
+#include "core/ParamKeys.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -18,6 +19,7 @@
 #include "ui/common/StandardActions.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
+#include "ui/viewer/TransformOverlay.h"
 #include "ui/viewer/ViewerPanel.h"
 #include "ui/viewer/ViewerSurface.h"
 #include "ui/viewer/ViewerTransport.h"
@@ -33,6 +35,7 @@
 #include <QStandardPaths>
 #include <QSurfaceFormat>
 #include <QTest>
+#include <QUndoStack>
 
 #include <memory>
 
@@ -376,6 +379,55 @@ private Q_SLOTS:
         std::unique_ptr<QMenu> sourceMenu(source.buildContextMenu(nullptr));
         QVERIFY(
             !sourceMenu->actions().contains(f.actions.action(QStringLiteral("clip.match_frame"))));
+    }
+
+    /// Polish round 2 (titles): with the on-screen controls on Transform, dragging in the
+    /// timeline viewer moves the current clip (Position X / Y in timeline pixels), one undo
+    /// step per drag; Shift keeps one axis.
+    void onScreenTransformMovesTheClip()
+    {
+        Fixture f;
+        f.solidTimeline(); // 320x180, a solid over frames 0..99 on V1
+        const quint64 id = f.project.timeline()->data().videoTracks[0].clips[0].id;
+        f.selection.setClips({id});
+        ViewerPanel program(ViewerPanel::Mode::Timeline, f.ctx);
+        program.resize(700, 500);
+        program.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&program));
+        TransformOverlay* overlay = program.transformOverlay();
+        QVERIFY(overlay);
+        QVERIFY(!overlay->isEditing()); // the controls are off
+        f.actions.action(QStringLiteral("view.onscreen_transform"))->setChecked(true);
+        QTRY_VERIFY(overlay->isEditing());
+        const auto map = overlay->frameToWidget();
+        QVERIFY(map);
+        const QPoint from = map->map(QPointF(160, 90)).toPoint();
+        const QPoint to = map->map(QPointF(200, 70)).toPoint(); // +40 px right, 20 px up
+        const int steps = f.project.undoStack()->count();
+        QTest::mousePress(overlay, Qt::LeftButton, {}, from);
+        QTest::mouseMove(overlay, (from + to) / 2);
+        QTest::mouseMove(overlay, to);
+        QTest::mouseRelease(overlay, Qt::LeftButton, {}, to);
+        const ClipData* clip = editops::clipById(f.project.timeline()->data(), id);
+        QVERIFY(std::abs(clip->transform.value(keys::PosX, 0) - 40) <= 2);
+        QVERIFY(std::abs(clip->transform.value(keys::PosY, 0) + 20) <= 2);
+        QCOMPARE(f.project.undoStack()->count(), steps + 1);
+        QCOMPARE(f.project.undoStack()->undoText(), QStringLiteral("Move Clip"));
+        // Shift: one axis only.
+        QTest::mousePress(overlay, Qt::LeftButton, {}, from);
+        QTest::mouseMove(overlay, to, 0);
+        QMouseEvent move(QEvent::MouseMove, QPointF(to), overlay->mapToGlobal(QPointF(to)),
+            Qt::NoButton, Qt::LeftButton, Qt::ShiftModifier);
+        QCoreApplication::sendEvent(overlay, &move);
+        QTest::mouseRelease(overlay, Qt::LeftButton, Qt::ShiftModifier, to);
+        clip = editops::clipById(f.project.timeline()->data(), id);
+        QVERIFY(std::abs(clip->transform.value(keys::PosX, 0) - 80) <= 3);
+        QVERIFY(std::abs(clip->transform.value(keys::PosY, 0) + 20) <= 2); // unchanged
+        // The Mask mode turns Transform off (one mode at a time).
+        f.actions.action(QStringLiteral("view.onscreen_masks"))->setChecked(true);
+        f.actions.action(QStringLiteral("view.onscreen_transform"))->setChecked(false);
+        QTRY_VERIFY(!overlay->isEditing());
+        f.actions.action(QStringLiteral("view.onscreen_masks"))->setChecked(false);
     }
 
     void insertMarkedSourceRange()

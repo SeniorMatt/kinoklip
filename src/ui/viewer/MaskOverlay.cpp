@@ -159,10 +159,11 @@ MaskOverlay::~MaskOverlay()
         finishGesture();
 }
 
-QToolButton* MaskOverlay::createModeButton(QAction* masksAction, QWidget* parent)
+QToolButton* MaskOverlay::createModeButton(
+    QAction* masksAction, QWidget* parent, QAction* transformAction)
 {
     // Resolve-like on-screen controls menu at the bottom left of the viewer: one mode at a
-    // time; "Mask" is the only overlay implemented so far.
+    // time (Off, Transform, Mask).
     auto* button = new QToolButton(parent);
     button->setObjectName(QStringLiteral("ViewerOnScreenControls"));
     button->setAutoRaise(true);
@@ -170,20 +171,40 @@ QToolButton* MaskOverlay::createModeButton(QAction* masksAction, QWidget* parent
     button->setToolButtonStyle(Qt::ToolButtonTextOnly);
     button->setToolTip(tr("On-screen controls"));
     auto* menu = new QMenu(button);
-    auto* group = new QActionGroup(menu);
     QAction* off = menu->addAction(tr("Off"));
     off->setCheckable(true);
-    group->addAction(off);
+    QAction* transform = transformAction;
+    if (transform) {
+        menu->addAction(transform);
+        transform->setCheckable(true);
+    }
     QAction* mask = masksAction ? masksAction : menu->addAction(tr("Mask"));
     if (masksAction)
         menu->addAction(masksAction);
     mask->setCheckable(true);
-    auto sync = [button, off, mask] {
-        off->setChecked(!mask->isChecked());
-        button->setText(mask->isChecked() ? tr("Mask") : tr("Off"));
+    auto sync = [button, off, mask, transform] {
+        const bool t = transform && transform->isChecked();
+        off->setChecked(!mask->isChecked() && !t);
+        button->setText(t ? tr("Transform") : mask->isChecked() ? tr("Mask") : tr("Off"));
     };
-    connect(off, &QAction::triggered, mask, [mask] { mask->setChecked(false); });
-    connect(mask, &QAction::toggled, button, sync);
+    connect(off, &QAction::triggered, mask, [mask, transform, sync] {
+        mask->setChecked(false);
+        if (transform)
+            transform->setChecked(false);
+        sync();
+    });
+    // The modes exclude each other (the registry actions stay plain checkable actions).
+    connect(mask, &QAction::toggled, button, [sync, transform](bool on) {
+        if (on && transform)
+            transform->setChecked(false);
+        sync();
+    });
+    if (transform)
+        connect(transform, &QAction::toggled, button, [sync, mask](bool on) {
+            if (on)
+                mask->setChecked(false);
+            sync();
+        });
     sync();
     button->setMenu(menu);
     return button;
