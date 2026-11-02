@@ -22,3 +22,7 @@ Resolve has its viewer-mode control), alpha2-11.png (a dissolve on the timeline 
     a short clip is far too cramped to use). A large dockable/floating Keyframes panel synced with
     the timeline, with dope-sheet rows and a big curve view for the selected clip(s). Queued after
     the current round (it touches the keyframe/inspector UI).
+11. Selecting a video clip with linked audio makes the inspector show the audio part ("2 clips
+    selected, showing the last one", Video tab empty), so scale can't be changed (alpha2-13.png).
+    Resolve treats a linked pair as one inspector item (Video tab = video part, Audio tab = audio
+    part). Sent to editfix.
