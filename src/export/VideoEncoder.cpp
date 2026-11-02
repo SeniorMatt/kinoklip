@@ -255,7 +255,11 @@ bool VideoEncoder::open(const VideoEncoderConfig& config, QString* error)
     ctx->time_base = AVRational {config.fps.den, config.fps.num};
     ctx->framerate = AVRational {config.fps.num, config.fps.den};
     ctx->sample_aspect_ratio = AVRational {1, 1};
-    ctx->gop_size = std::max(1, int(std::lround(config.fps.toDouble() * kGopSeconds)));
+    ctx->gop_size = config.settings.keyframeInterval > 0
+        ? config.settings.keyframeInterval
+        : std::max(1, int(std::lround(config.fps.toDouble() * kGopSeconds)));
+    if (!config.settings.frameReordering)
+        ctx->max_b_frames = 0; // honoured by x264/x265/SVT-AV1/libvpx and the hw encoders
     ctx->thread_count = 0; // automatic (software encoders)
 
     m_swFormat = choosePixelFormat(codec, config);

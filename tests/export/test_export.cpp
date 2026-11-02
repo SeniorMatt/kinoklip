@@ -12,6 +12,10 @@
 #include "export/RgbToYuv.h"
 #include "render/Compositor.h"
 
+extern "C" {
+#include <libavformat/avformat.h>
+}
+
 #include <QElapsedTimer>
 #include <QJsonDocument>
 #include <QProcess>
@@ -83,6 +87,8 @@ private Q_SLOTS:
         s.range = RangeMode::Custom;
         s.rangeIn = 5;
         s.rangeOut = 17;
+        s.video.keyframeInterval = 12;
+        s.video.frameReordering = false;
         s.outputPath = QStringLiteral("/tmp/x.mov");
         const QByteArray json = QJsonDocument(s.toJson()).toJson();
         const ExportSettings back
@@ -505,6 +511,52 @@ private Q_SLOTS:
         QCOMPARE(r.frames, int64_t(25));
         const media::MediaInfo info = media::probe(r.outputPath);
         QVERIFY(std::abs(info.durationUs - 25 * kFrameUs) <= kFrameUs);
+    }
+
+    /// Render Settings "Key frames: every N" and "Frame reordering" reach the encoder.
+    void keyframesAndReordering()
+    {
+        if (!m_skip.isEmpty()) {
+            QSKIP(qPrintable(m_skip));
+        }
+        ExportSettings s;
+        s.video.encoder = EncoderBackend::Software; // deterministic GOP handling
+        s.video.keyframeInterval = 5;
+        s.video.frameReordering = false;
+        s.audio.enabled = false;
+        s.range = RangeMode::Custom;
+        s.rangeIn = 0;
+        s.rangeOut = 25;
+        s.outputPath = m_dir.filePath(QStringLiteral("gop.mp4"));
+        const ExportResult r = render(s);
+        QVERIFY2(r.ok, qPrintable(r.error));
+
+        AVFormatContext* format = nullptr;
+        QCOMPARE(
+            avformat_open_input(&format, r.outputPath.toUtf8().constData(), nullptr, nullptr), 0);
+        QVERIFY(avformat_find_stream_info(format, nullptr) >= 0);
+        AVPacket* packet = av_packet_alloc();
+        int frames = 0;
+        int lastKey = -1;
+        int longestGop = 0;
+        bool reordered = false;
+        while (av_read_frame(format, packet) >= 0) {
+            if (packet->flags & AV_PKT_FLAG_KEY) {
+                longestGop = std::max(longestGop, frames - lastKey);
+                lastKey = frames;
+            }
+            ++frames;
+            reordered |= packet->pts != packet->dts; // B-frames need pts != dts
+            av_packet_unref(packet);
+        }
+        av_packet_free(&packet);
+        avformat_close_input(&format);
+        longestGop = std::max(longestGop, frames - lastKey);
+        QCOMPARE(frames, 25);
+        // A key frame at least every 5 frames (scene cuts may add more); the default (2 s)
+        // would give one key frame for the whole second.
+        QVERIFY2(longestGop <= 5, qPrintable(QString::number(longestGop)));
+        QVERIFY(!reordered);
     }
 
     void renderQueue()
