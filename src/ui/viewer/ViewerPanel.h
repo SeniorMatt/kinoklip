@@ -27,6 +27,7 @@ namespace kk {
 struct AppContext;
 class PlaybackEngine;
 class MaskOverlay;
+class TransformOverlay;
 class MulticamOverlay;
 class EditOverlay;
 class TrimTwoUpView;
@@ -145,6 +146,8 @@ public:
     /// actions' text, keys from their shortcuts); empty = the Edit page's seven source edits.
     /// The Cut page offers its smart edits this way (spec 35.26).
     void setEditTileActions(const QStringList& actionIds);
+    /// The on-screen Transform controls (nullptr in Source mode).
+    [[nodiscard]] TransformOverlay* transformOverlay() const { return m_transformOverlay; }
     /// The viewer's context menu (right-click on the picture): play, marks, markers, match
     /// frame and the viewer modes, all registry commands. Owned by @p parent.
     [[nodiscard]] QMenu* buildContextMenu(QWidget* parent);
@@ -264,6 +267,7 @@ private:
     bool m_editOverlayEnabled = false; ///< setEditOverlayEnabled()
     QStringList m_editTileActions; ///< setEditTileActions(); empty = kEditTiles
     QLabel* m_offlineNotice = nullptr; ///< "Media Offline" over the picture
+    TransformOverlay* m_transformOverlay = nullptr; ///< Timeline mode: on-screen Transform
     QComboBox* m_modeBox = nullptr; ///< Source mode: Source / Multicam
     QComboBox* m_gridBox = nullptr; ///< multicam grid size (Auto, 2x2, 3x3, 4x4)
     bool m_multicam = false;

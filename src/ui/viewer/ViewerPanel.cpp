@@ -21,6 +21,7 @@
 #include "ui/viewer/MulticamOverlay.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
+#include "ui/viewer/TransformOverlay.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QAction>
@@ -204,6 +205,9 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         // On-screen mask controls: an additive child layer over the picture surface.
         m_maskOverlay = new MaskOverlay(m_ctx, m_surface);
         connect(m_maskOverlay, &MaskOverlay::pressed, this, [this] { activate(); });
+        // On-screen Transform controls: drag the current clip (titles) in the viewer.
+        m_transformOverlay = new TransformOverlay(m_ctx, m_surface);
+        connect(m_transformOverlay, &TransformOverlay::pressed, this, [this] { activate(); });
         setupEditingAids();
     }
     setupOfflineNotice();
@@ -233,7 +237,11 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
             = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_masks"))
             ? m_ctx.actions->action(QStringLiteral("view.onscreen_masks"))
             : nullptr;
-        bar->addWidget(MaskOverlay::createModeButton(masks, m_transport));
+        QAction* transform
+            = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_transform"))
+            ? m_ctx.actions->action(QStringLiteral("view.onscreen_transform"))
+            : nullptr;
+        bar->addWidget(MaskOverlay::createModeButton(masks, m_transport, transform));
     }
     m_marksLabel = new QLabel;
     m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));
@@ -697,6 +705,8 @@ void ViewerPanel::setZoom(Zoom zoom)
     m_surface->setZoom(zoomFactor(zoom));
     if (m_maskOverlay)
         m_maskOverlay->refresh(); // handles follow the new picture rectangle
+    if (m_transformOverlay)
+        m_transformOverlay->refresh();
     if (m_multicamOverlay)
         m_multicamOverlay->refresh();
     updateOutputClient();
