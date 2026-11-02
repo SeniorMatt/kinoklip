@@ -39,6 +39,8 @@ TimelineData richTimeline()
     media.enabled = false;
     media.transform.animated(keys::PosX, 0).setKey(0, -12.5, Interp::EaseInOut);
     media.transform.animated(keys::PosX, 0).setKey(30, 0.1 + 0.2, Interp::Hold);
+    media.transform.animated(keys::PosX, 0).setKey(60, 4.0, Interp::Smooth);
+    media.transform.animated(keys::PosX, 0).keys[2].out = {KeyHandle::Mode::Free, 7.5, -3.25};
     media.transform.setBase(keys::Opacity, 75.0);
     media.transform.setStatic(keys::FlipH, true);
     media.audio.setBase(keys::VolumeDb, -6.0);
@@ -207,6 +209,52 @@ private slots:
         const QJsonObject json = serialization::mediaPoolToJson(state, oldDir);
         const MediaPoolState loaded = serialization::mediaPoolFromJson(json, newDir);
         QCOMPARE(loaded.items[0].path, newDir.filePath(QStringLiteral("media/a.mov")));
+    }
+
+    // Spec 15.11: a format-version-1 project with per-segment "interp" still loads, converted
+    // to handles (ease in and out stays exactly the same curve).
+    void spec15_11_loadsVersion1Keyframes()
+    {
+        const QByteArray v1 = R"({"formatVersion": 1, "project": {"name": "old"},
+            "mediaPool": {"bins": [], "items": []},
+            "timeline": {"name": "T", "fps": {"num": 25, "den": 1}, "width": 1920,
+              "height": 1080, "nextId": 10, "videoTracks": [{"id": 1, "clips": [
+                {"id": 2, "kind": "solid", "start": 0, "duration": 100,
+                 "transform": {"values": {"opacity": {"base": 100, "keys": [
+                   {"frame": 0, "value": 0, "interp": "easeInOut"},
+                   {"frame": 40, "value": 100, "interp": "easeOut"},
+                   {"frame": 80, "value": 50, "interp": "hold"},
+                   {"frame": 90, "value": 10, "interp": "linear"}]}}}}]}],
+              "audioTracks": []}})";
+        QTemporaryDir dir;
+        const QString path = dir.filePath(QStringLiteral("v1.kkproj"));
+        QFile f(path);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(v1);
+        f.close();
+        Project p;
+        QString error;
+        QVERIFY2(p.load(path, &error), qPrintable(error));
+        const TimelineData& d = p.timeline()->data();
+        QVERIFY(!d.videoTracks.empty() && !d.videoTracks[0].clips.empty());
+        const AnimatedValue& v = d.videoTracks[0].clips[0].transform.values.value(keys::Opacity);
+        QCOMPARE(v.keys.size(), 4);
+        QCOMPARE(v.valueAt(10), 15.625); // smoothstep(0.25) * 100
+        QCOMPARE(v.keys[0].out.mode, KeyHandle::Mode::Ease);
+        QCOMPARE(v.keys[1].in.mode, KeyHandle::Mode::Ease);
+        QCOMPARE(v.keys[2].in.mode, KeyHandle::Mode::Ease); // v1 easeOut of key 1
+        QVERIFY(v.keys[2].hold);
+        QCOMPARE(v.valueAt(89), 50.0);
+
+        // Saving writes version 2 handles and no "interp" any more.
+        QVERIFY(p.save(path, &error));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        const QByteArray saved = f.readAll();
+        QVERIFY(!saved.contains("\"interp\""));
+        QVERIFY(saved.contains("\"hold\""));
+        Project again;
+        QVERIFY(again.load(path, &error));
+        QCOMPARE(again.timeline()->data(), d);
     }
 
     void loadErrors()

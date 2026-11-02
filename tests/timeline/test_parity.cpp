@@ -534,6 +534,10 @@ private slots:
         QVERIFY(paramaccess::setKeyInterp(c, ref, 0, Interp::Hold));
         QCOMPARE(c.transform.value(keys::Opacity, 20, 1.0), 0.0); // held until the next key
         QVERIFY(paramaccess::setKeyInterp(c, ref, 0, Interp::EaseInOut));
+        // Per-key presets (spec 15.11): only the side leaving key 0 eases so far...
+        QCOMPARE(c.transform.value(keys::Opacity, 20, 1.0), 0.375);
+        // ...easing into key 40 as well makes the symmetric curve.
+        QVERIFY(paramaccess::setKeyInterp(c, ref, 40, Interp::EaseInOut));
         QCOMPARE(c.transform.value(keys::Opacity, 20, 1.0), 0.5); // symmetric curve midpoint
     }
 

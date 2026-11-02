@@ -110,6 +110,12 @@ QToolButton* ParamGroupBox::addHeaderButton(InspectorGlyph glyph, const QString&
     return button;
 }
 
+void ParamGroupBox::addHeaderWidget(QWidget* widget)
+{
+    widget->setParent(m_header);
+    m_headerLayout->addWidget(widget);
+}
+
 void ParamGroupBox::setTitle(const QString& title)
 {
     m_title->setText(title);

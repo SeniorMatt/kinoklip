@@ -59,8 +59,11 @@ void mergeKeys(ParamSet& dst, const ParamSet& src, int64_t offset)
             continue;
         AnimatedValue& target = dst.animated(it.key(), it.value().base);
         for (const Keyframe& k : it.value().keys) {
-            if (k.frame >= 0 && !target.hasKeyAt(k.frame + offset))
-                target.setKey(k.frame + offset, k.value, k.interp);
+            if (k.frame >= 0 && !target.hasKeyAt(k.frame + offset)) {
+                Keyframe moved = k; // handles and hold travel with the key
+                moved.frame += offset;
+                target.putKey(moved);
+            }
         }
     }
 }

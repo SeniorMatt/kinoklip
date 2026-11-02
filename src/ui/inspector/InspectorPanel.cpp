@@ -5,11 +5,13 @@
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
 #include "ui/effects/EffectActions.h"
+#include "ui/inspector/KeyframeButton.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
 
@@ -382,6 +384,7 @@ void InspectorPanel::addDescriptorGroup(
     ParamGroupBox* group = addGroup(tab, desc.id, desc.name, clipId);
     for (const ParamDescriptor& p : desc.params)
         group->addParam(ParamRef {clipId, scope, 0, p.key}, p, *this);
+    addSectionKeyframeButton(group, desc, scope, clipId);
     QToolButton* reset = group->addHeaderButton(InspectorGlyph::Reset, tr("Reset all"));
     connect(reset, &QToolButton::clicked, this, [this, group, clipId, name = desc.name] {
         QVector<std::pair<ParamRef, ParamDescriptor>> params;
@@ -391,6 +394,63 @@ void InspectorPanel::addDescriptorGroup(
             for (const auto& [ref, desc] : params)
                 paramaccess::reset(c, ref, desc);
         });
+    });
+}
+
+void InspectorPanel::addSectionKeyframeButton(
+    ParamGroupBox* group, const EffectDescriptor& desc, ParamScope scope, quint64 clipId)
+{
+    // Spec 15.13: one diamond in the section header keys every animatable parameter of the
+    // section at once (filled when all of them have a key at the playhead).
+    QVector<ParamDescriptor> params;
+    for (const ParamDescriptor& p : desc.params) {
+        if (p.isScalar() && p.animatable)
+            params.append(p);
+    }
+    if (params.isEmpty() || scope == ParamScope::SolidColor)
+        return;
+    auto* diamond = new KeyframeButton;
+    diamond->setObjectName(QStringLiteral("keyframe-section:") + desc.id);
+    diamond->setToolTip(tr("Add or remove keyframes of every %1 parameter").arg(desc.name));
+    group->addHeaderWidget(diamond);
+    connect(diamond, &KeyframeButton::clicked, this, [this, params, scope, clipId, desc] {
+        const ClipData* c = clip(clipId);
+        if (!c)
+            return;
+        const int64_t frame = localFrame(clipId);
+        bool allOnKey = true;
+        for (const ParamDescriptor& p : params) {
+            const AnimatedValue* v = paramaccess::animated(*c, ParamRef {clipId, scope, 0, p.key});
+            allOnKey = allOnKey && v && v->hasKeyAt(frame);
+        }
+        editClip(allOnKey ? tr("Remove %1 Keyframes").arg(desc.name)
+                          : tr("Add %1 Keyframes").arg(desc.name),
+            clipId, [&](ClipData& target) {
+                ParamSet* set = paramaccess::paramSet(target, ParamRef {clipId, scope, 0, {}});
+                if (!set)
+                    return;
+                for (const ParamDescriptor& p : params) {
+                    AnimatedValue& v = set->animated(p.key, p.def);
+                    if (allOnKey)
+                        v.removeKey(frame);
+                    else if (!v.hasKeyAt(frame))
+                        v.setKey(frame, v.valueAt(frame));
+                }
+            });
+    });
+    group->setHeaderRefresh([this, diamond, params, scope, clipId](const ClipData& c) {
+        const int64_t playhead = m_ctx.project->timeline()->playhead();
+        const int64_t frame = c.localFrame(playhead);
+        bool any = false;
+        bool all = true;
+        for (const ParamDescriptor& p : params) {
+            const AnimatedValue* v = paramaccess::animated(c, ParamRef {clipId, scope, 0, p.key});
+            any = any || (v && v->isAnimated());
+            all = all && v && v->hasKeyAt(frame);
+        }
+        using S = KeyframeButton::State;
+        diamond->setState(all ? S::OnKey : (any ? S::Animated : S::NotAnimated));
+        diamond->setEnabled(c.contains(playhead));
     });
 }
 

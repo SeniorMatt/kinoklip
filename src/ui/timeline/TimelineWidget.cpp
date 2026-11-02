@@ -9,6 +9,7 @@
 #include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
 
 #include <QContextMenuEvent>
@@ -66,6 +67,11 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
         viewport()->update();
     });
 
+    // Keyframe / curve editors below clips (additive layer: own widgets, own input).
+    m_keyframeLanes = new KeyframeLanes(ctx, m_layout, m_controller, viewport(), this);
+    connect(
+        m_keyframeLanes, &KeyframeLanes::layoutChanged, this, &TimelineWidget::onTimelineChanged);
+
     m_autoScroll.setInterval(30);
     connect(&m_autoScroll, &QTimer::timeout, this, &TimelineWidget::autoScrollTick);
 
@@ -101,6 +107,7 @@ void TimelineWidget::refreshMedia()
 
 void TimelineWidget::onTimelineChanged()
 {
+    m_layout.setLaneHeights(m_keyframeLanes->laneHeights(m_ctx.project->timeline()->data()));
     m_layout.rebuild(m_ctx.project->timeline()->data());
     updateScrollBars();
     viewport()->update();
@@ -156,6 +163,7 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     }
     in.hasFocus = hasFocus();
     m_painter.paint(p, in);
+    m_keyframeLanes->paintClipButtons(p);
 }
 
 void TimelineWidget::changeEvent(QEvent* event)
@@ -201,6 +209,7 @@ void TimelineWidget::updateScrollBars()
     v->setValue(m_layout.scrollY());
     m_layout.setScrollY(v->value());
     m_syncingScrollBars = false;
+    m_keyframeLanes->syncGeometry();
 }
 
 void TimelineWidget::scrollContentsBy(int, int)
@@ -213,6 +222,7 @@ void TimelineWidget::scrollContentsBy(int, int)
     if (m_drag.mode != DragMode::None && m_drag.mode != DragMode::Pending
         && m_drag.mode != DragMode::Pan)
         updateDrag(m_drag.lastPos);
+    m_keyframeLanes->syncGeometry();
     viewport()->update();
 }
 

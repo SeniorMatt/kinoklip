@@ -146,6 +146,52 @@ QVariant variantFromJson(const QJsonValue& json)
     return json.toVariant();
 }
 
+QJsonValue keyHandleToJson(const KeyHandle& h)
+{
+    if (h.mode != KeyHandle::Mode::Free)
+        return handleModeToString(h.mode);
+    return QJsonObject {{QLatin1String("mode"), handleModeToString(h.mode)},
+        {QLatin1String("dt"), h.dtFrames}, {QLatin1String("dv"), h.dv}};
+}
+
+KeyHandle keyHandleFromJson(const QJsonValue& json)
+{
+    KeyHandle h;
+    if (json.isString()) {
+        h.mode = handleModeFromString(json.toString());
+    } else if (json.isObject()) {
+        const QJsonObject o = json.toObject();
+        h.mode = handleModeFromString(o.value(QLatin1String("mode")).toString());
+        h.dtFrames = o.value(QLatin1String("dt")).toDouble();
+        h.dv = o.value(QLatin1String("dv")).toDouble();
+    }
+    return h;
+}
+
+QJsonObject keyframeToJson(const Keyframe& k)
+{
+    // Defaults (linear handles, no hold) are omitted to keep files small and diffable.
+    QJsonObject o {{QLatin1String("frame"), qint64(k.frame)}, {QLatin1String("value"), k.value}};
+    if (k.in != KeyHandle {})
+        o[QLatin1String("in")] = keyHandleToJson(k.in);
+    if (k.out != KeyHandle {})
+        o[QLatin1String("out")] = keyHandleToJson(k.out);
+    if (k.hold)
+        o[QLatin1String("hold")] = true;
+    return o;
+}
+
+Keyframe keyframeFromJson(const QJsonObject& o)
+{
+    Keyframe k;
+    k.frame = o.value(QLatin1String("frame")).toInteger();
+    k.value = o.value(QLatin1String("value")).toDouble();
+    k.in = keyHandleFromJson(o.value(QLatin1String("in")));
+    k.out = keyHandleFromJson(o.value(QLatin1String("out")));
+    k.hold = o.value(QLatin1String("hold")).toBool();
+    return k;
+}
+
 QJsonObject paramSetToJson(const ParamSet& params)
 {
     QJsonObject values;
@@ -154,11 +200,8 @@ QJsonObject paramSetToJson(const ParamSet& params)
         v[QLatin1String("base")] = it->base;
         if (it->isAnimated()) {
             QJsonArray keys;
-            for (const Keyframe& k : it->keys) {
-                keys.append(QJsonObject {{QLatin1String("frame"), qint64(k.frame)},
-                    {QLatin1String("value"), k.value},
-                    {QLatin1String("interp"), interpToString(k.interp)}});
-            }
+            for (const Keyframe& k : it->keys)
+                keys.append(keyframeToJson(k));
             v[QLatin1String("keys")] = keys;
         }
         values[it.key()] = v;
@@ -182,11 +225,29 @@ ParamSet paramSetFromJson(const QJsonObject& json)
     for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
         const QJsonObject v = it.value().toObject();
         AnimatedValue value(v.value(QLatin1String("base")).toDouble());
-        for (const QJsonValue& kv : v.value(QLatin1String("keys")).toArray()) {
+        const QJsonArray keys = v.value(QLatin1String("keys")).toArray();
+        // Format version 1 stored one "interp" per key (the curve of the segment starting
+        // there); it is detected per key and converted once all keys are known, because a v1
+        // easeOut changes the *next* key's handle.
+        QVector<Interp> legacy;
+        bool hasLegacy = false;
+        for (const QJsonValue& kv : keys) {
             const QJsonObject k = kv.toObject();
-            value.setKey(k.value(QLatin1String("frame")).toInteger(),
-                k.value(QLatin1String("value")).toDouble(),
-                interpFromString(k.value(QLatin1String("interp")).toString()));
+            value.putKey(keyframeFromJson(k));
+            hasLegacy = hasLegacy || k.contains(QLatin1String("interp"));
+        }
+        if (hasLegacy) {
+            // putKey() sorted the keys; map the legacy modes by frame.
+            QMap<qint64, Interp> byFrame;
+            for (const QJsonValue& kv : keys) {
+                const QJsonObject k = kv.toObject();
+                byFrame.insert(k.value(QLatin1String("frame")).toInteger(),
+                    interpFromString(k.value(QLatin1String("interp")).toString()));
+            }
+            legacy.reserve(value.keys.size());
+            for (const Keyframe& key : value.keys)
+                legacy.append(byFrame.value(key.frame, Interp::Linear));
+            migrateLegacyInterp(value, legacy);
         }
         params.values.insert(it.key(), value);
     }

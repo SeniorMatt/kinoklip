@@ -25,6 +25,16 @@
         <file>icons/keyframe_off.svg</file>
         <file>icons/keyframe_on.svg</file>
         <file>icons/keyframe_prev.svg</file>
+        <file>icons/keyframe_editor.svg</file>
+        <file>icons/curve_editor.svg</file>
+        <file>icons/interp_linear.svg</file>
+        <file>icons/interp_smooth.svg</file>
+        <file>icons/interp_ease_in.svg</file>
+        <file>icons/interp_ease_out.svg</file>
+        <file>icons/interp_ease_in_out.svg</file>
+        <file>icons/interp_hold.svg</file>
+        <file>icons/interp_flatten.svg</file>
+        <file>icons/curve_fit.svg</file>
         <file>icons/link.svg</file>
         <file>icons/list_view.svg</file>
         <file>icons/lock.svg</file>

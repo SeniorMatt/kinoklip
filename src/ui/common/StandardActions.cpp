@@ -130,6 +130,11 @@ const ActionSpec kActions[] = {
     {"clip", "clip.add_keyframe",     QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Keyframe"), "keyframe_on"},
     {"clip", "clip.prev_keyframe",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Previous Keyframe"), "keyframe_prev"},
     {"clip", "clip.next_keyframe",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Next Keyframe"), "keyframe_next"},
+    {"clip", "clip.delete_keyframe",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete Keyframes")},
+    {"clip", "clip.copy_keyframes",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Copy Keyframes")},
+    {"clip", "clip.paste_keyframes",  QT_TRANSLATE_NOOP("kk::StandardActions", "Paste Key&frames")},
+    {"clip", "clip.toggle_keyframe_editor", QT_TRANSLATE_NOOP("kk::StandardActions", "Show Keyframe &Editor"), "keyframe_editor"},
+    {"clip", "clip.toggle_curve_editor", QT_TRANSLATE_NOOP("kk::StandardActions", "Show C&urve Editor"), "curve_editor"},
 
     // ---- Mark ----
     {"mark", "mark.in",               QT_TRANSLATE_NOOP("kk::StandardActions", "Mark &In"), "mark_in"},

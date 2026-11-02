@@ -260,12 +260,11 @@ void AudioMixer::mixClip(const TimelineData& tl, const ClipData& clip, const Fad
     auto gainAt = [&](int64_t sample) {
         double db = 0.0;
         if (volume) {
-            // Keyframes are per frame; interpolate between the two frames around the sample.
+            // The keyframe curve evaluated at the sample's exact (fractional) clip-local
+            // frame: Bezier eases stay smooth between frames and a static (hold) key steps
+            // exactly at the next key, as on the video side.
             const double lf = double(sample - clipStart) * framesPerSample;
-            const double f0 = std::floor(lf);
-            const double v0 = volume->valueAt(int64_t(f0));
-            const double v1 = volume->isAnimated() ? volume->valueAt(int64_t(f0) + 1) : v0;
-            db = v0 + (v1 - v0) * (lf - f0);
+            db = volume->valueAtTime(lf);
         }
         double g = dbToGain(db);
         constexpr double kHalfPi = std::numbers::pi / 2.0;

@@ -5,6 +5,7 @@
 
 #include "core/TimelineData.h"
 
+#include <QHash>
 #include <QPointF>
 #include <QRect>
 #include <QSize>
@@ -43,7 +44,10 @@ struct TimelineRow
 {
     TrackRef ref;
     int top = 0; ///< content y (0 = first row below the ruler, before vertical scrolling)
-    int height = 0;
+    int height = 0; ///< whole row, keyframe / curve lane included
+    /// Height of the keyframe / curve editor lane at the bottom of the row (0 = none); the
+    /// clips use the remaining height - laneHeight at the top.
+    int laneHeight = 0;
 };
 
 /// Buttons painted in a track header, from right to left.
@@ -103,6 +107,9 @@ class TimelineLayout
 public:
     /// Rebuilds the row list from @p data (call after every timeline change).
     void rebuild(const TimelineData& data);
+    /// Extra lane heights below tracks (TrackData::id -> px) for the keyframe and curve
+    /// editors (KeyframeLanes); applied by the next rebuild().
+    void setLaneHeights(QHash<quint64, int> heights) { m_laneHeights = std::move(heights); }
     /// Sets the widget size (view coordinates).
     void setViewSize(QSize size) { m_viewSize = size; }
     [[nodiscard]] QSize viewSize() const { return m_viewSize; }
@@ -189,8 +196,10 @@ public:
     [[nodiscard]] static std::pair<size_t, size_t> clipRange(
         const TrackData& track, double f0, double f1);
     /// View rect of @p clip in row @p row (not clipped to the visible area; 1 px inset
-    /// vertically so neighbouring rows do not touch).
+    /// vertically so neighbouring rows do not touch; above the row's lane).
     [[nodiscard]] QRectF clipRect(int row, const ClipData& clip) const;
+    /// View rect of the keyframe / curve lane of row @p index (empty if it has none).
+    [[nodiscard]] QRect laneRect(int index) const;
 
     /// What is at view position @p pos.
     [[nodiscard]] TimelineHit hitTest(const TimelineData& data, QPointF pos) const;
@@ -202,6 +211,7 @@ private:
     double m_scrollX = 0;
     int m_scrollY = 0;
     std::vector<TimelineRow> m_rows;
+    QHash<quint64, int> m_laneHeights;
     int m_videoHeight = 0; ///< height of all video rows (above the divider)
     int m_contentHeight = 0;
 };
