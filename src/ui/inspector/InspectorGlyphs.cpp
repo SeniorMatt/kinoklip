@@ -2,6 +2,8 @@
 // InspectorGlyphs implementation: each glyph is a QPainterPath stroked into a 16 px pixmap.
 #include "ui/inspector/InspectorGlyphs.h"
 
+#include "ui/common/Icons.h"
+
 #include <QApplication>
 #include <QHash>
 #include <QPainter>
@@ -13,7 +15,6 @@ namespace kk {
 namespace {
 
 constexpr int kGlyphSize = 16;
-constexpr int kGlyphScale = 2; ///< drawn at 2x so the icon stays crisp on HiDPI screens
 
 QPainterPath glyphPath(InspectorGlyph glyph)
 {
@@ -59,38 +60,27 @@ QPainterPath glyphPath(InspectorGlyph glyph)
     return path;
 }
 
-QPixmap renderGlyph(InspectorGlyph glyph, const QColor& color)
-{
-    QPixmap pixmap(kGlyphSize * kGlyphScale, kGlyphSize * kGlyphScale);
-    pixmap.setDevicePixelRatio(kGlyphScale);
-    pixmap.fill(Qt::transparent);
-    QPainter p(&pixmap);
-    p.setRenderHint(QPainter::Antialiasing);
-    p.setPen(QPen(color, 1.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    p.setBrush(Qt::NoBrush);
-    p.drawPath(glyphPath(glyph));
-    return pixmap;
-}
-
 } // namespace
 
 QIcon inspectorGlyph(InspectorGlyph glyph)
 {
-    // Keyed by glyph and palette colour, so switching themes produces fresh icons.
-    static QHash<quint64, QIcon> cache;
-    const QPalette pal = QApplication::palette();
-    const QColor normal = pal.color(QPalette::Active, QPalette::WindowText);
-    const quint64 key = (quint64(glyph) << 32) | normal.rgba();
-    if (const auto it = cache.constFind(key); it != cache.cend())
+    // Painted at paint time from the current palette (paletteIcon), so the glyphs follow a
+    // colour scheme switch; normal state slightly dimmed, full text colour when hovered.
+    constexpr qreal kNormalOpacity = 0.75;
+    static QHash<int, QIcon> cache; // one engine per glyph; the engine caches the pixmaps
+    if (const auto it = cache.constFind(int(glyph)); it != cache.cend())
         return *it;
-    QIcon icon;
-    QColor dimmed = normal;
-    dimmed.setAlphaF(0.75f);
-    icon.addPixmap(renderGlyph(glyph, dimmed), QIcon::Normal);
-    icon.addPixmap(renderGlyph(glyph, normal), QIcon::Active);
-    icon.addPixmap(
-        renderGlyph(glyph, pal.color(QPalette::Disabled, QPalette::WindowText)), QIcon::Disabled);
-    cache.insert(key, icon);
+    const QPainterPath path = glyphPath(glyph);
+    QIcon icon = paletteIcon(
+        QStringLiteral("inspector-glyph-%1").arg(int(glyph)),
+        [path](QPainter& p, const QSizeF& size, const QColor& color) {
+            p.scale(size.width() / kGlyphSize, size.height() / kGlyphSize);
+            p.setPen(QPen(color, 1.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            p.setBrush(Qt::NoBrush);
+            p.drawPath(path);
+        },
+        kNormalOpacity);
+    cache.insert(int(glyph), icon);
     return icon;
 }
 

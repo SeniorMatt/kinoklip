@@ -38,6 +38,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace kk {
 
 namespace {
@@ -685,7 +687,43 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         &MediaPoolPanel::importWithDialog);
     menu.addAction(icon(QStringLiteral("folder")), tr("New Bin"), this,
         [this] { createBin(tr("New Bin"), currentBin()); });
+    // Only offered when something is offline (one stat per item when the menu opens).
+    const auto& items = m_ctx.project->mediaPool()->state().items;
+    if (std::any_of(items.cbegin(), items.cend(),
+            [](const MediaItem& m) { return !QFileInfo::exists(m.path); })) {
+        menu.addSeparator();
+        menu.addAction(tr("Relink Offline Media…"), this, &MediaPoolPanel::relinkWithDialog);
+    }
     menu.exec(globalPos);
+}
+
+int MediaPoolPanel::relinkFromFolder(const QString& folder)
+{
+    Project* project = m_ctx.project;
+    project->beginEdit(tr("Relink Media"));
+    const int relinked = project->mediaPool()->relinkFromFolder(folder);
+    project->endEdit();
+    m_model->recheckOffline();
+    return relinked;
+}
+
+void MediaPoolPanel::relinkWithDialog()
+{
+    const QString folder = QFileDialog::getExistingDirectory(
+        this, tr("Relink Offline Media: Choose the Folder with the Files"));
+    if (folder.isEmpty())
+        return;
+    const int relinked = relinkFromFolder(folder);
+    const auto& items = m_ctx.project->mediaPool()->state().items;
+    const auto stillOffline = std::count_if(items.cbegin(), items.cend(),
+        [](const MediaItem& m) { return !QFileInfo::exists(m.path); });
+    QMessageBox::information(this, tr("Relink Offline Media"),
+        tr("%n item(s) relinked.", nullptr, relinked)
+            + (stillOffline > 0 ? QLatin1Char(' ')
+                        + tr("%n item(s) are still offline (no file with the same name in "
+                             "that folder).",
+                            nullptr, int(stillOffline))
+                                : QString()));
 }
 
 void MediaPoolPanel::showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos)

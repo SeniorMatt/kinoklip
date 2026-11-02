@@ -3,6 +3,7 @@
 #include "app/ProjectController.h"
 
 #include "app/AppInfo.h"
+#include "app/AutosaveController.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "ui/common/ActionRegistry.h"
@@ -13,7 +14,10 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QLocale>
+#include <QMenu>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QSettings>
 
 namespace kk {
@@ -21,6 +25,7 @@ namespace kk {
 namespace {
 constexpr char kLastProjectDirKey[] = "paths/lastProjectDir";
 constexpr char kLastMediaDirKey[] = "paths/lastMediaDir";
+constexpr char kRecentProjectsKey[] = "paths/recentProjects";
 
 QString projectFilter()
 {
@@ -98,6 +103,7 @@ bool ProjectController::openFile(const QString& path, bool askToSave)
     }
     m_ctx.selection->clear();
     rememberDir(kLastProjectDirKey, path);
+    addRecentProject(path);
     return true;
 }
 
@@ -130,6 +136,7 @@ bool ProjectController::saveAs()
         return false;
     }
     rememberDir(kLastProjectDirKey, path);
+    addRecentProject(path);
     return true;
 }
 
@@ -141,6 +148,112 @@ void ProjectController::importMedia()
         return;
     rememberDir(kLastMediaDirKey, paths.front());
     importMediaWithFeedback(m_ctx, paths, m_window);
+}
+
+// ---- Crash recovery ----
+
+bool ProjectController::offerRecovery(const QString& onlyDocument)
+{
+    const QString only
+        = onlyDocument.isEmpty() ? QString() : QFileInfo(onlyDocument).absoluteFilePath();
+    for (const RecoveryCandidate& c : AutosaveController::findRecoverable()) {
+        if (!only.isEmpty() && QFileInfo(c.documentPath).absoluteFilePath() != only)
+            continue;
+        QMessageBox box(QMessageBox::Warning, tr("Recover Unsaved Changes"),
+            tr("%1 did not shut down properly. An autosave of “%2” from %3 has changes "
+               "that were not saved.")
+                .arg(QLatin1String(appinfo::name), c.name,
+                    QLocale().toString(c.savedAt, QLocale::ShortFormat)),
+            QMessageBox::NoButton, m_window);
+        box.setInformativeText(c.documentPath.isEmpty()
+                ? tr("The project had never been saved.")
+                : tr("Project file: %1\nRestoring opens the autosave; save it to replace the "
+                     "project file.")
+                      .arg(QDir::toNativeSeparators(c.documentPath)));
+        QPushButton* restore = box.addButton(tr("&Restore"), QMessageBox::AcceptRole);
+        QPushButton* discard = box.addButton(tr("&Discard"), QMessageBox::DestructiveRole);
+        box.addButton(tr("&Not Now"), QMessageBox::RejectRole);
+        box.setDefaultButton(restore);
+        box.exec();
+        if (box.clickedButton() == discard) {
+            AutosaveController::discardCandidate(c);
+            continue;
+        }
+        if (box.clickedButton() != restore)
+            continue; // kept for the next start
+        QString error;
+        if (!m_ctx.project->loadRecovered(c.autosavePath, c.documentPath, &error)) {
+            QMessageBox::critical(m_window, tr("Recover Unsaved Changes"), error);
+            continue;
+        }
+        m_ctx.selection->clear();
+        if (m_autosave)
+            m_autosave->adopt(c.autosavePath);
+        return true; // one project per window; older candidates wait for the next start
+    }
+    return false;
+}
+
+// ---- Recent projects ----
+
+QStringList ProjectController::recentProjects()
+{
+    return QSettings().value(QLatin1String(kRecentProjectsKey)).toStringList();
+}
+
+void ProjectController::addRecentProject(const QString& path)
+{
+    const QString absolute = QFileInfo(path).absoluteFilePath();
+    QStringList list = recentProjects();
+    list.removeAll(absolute);
+    list.prepend(absolute);
+    while (list.size() > kMaxRecentProjects)
+        list.removeLast();
+    QSettings().setValue(QLatin1String(kRecentProjectsKey), list);
+}
+
+void ProjectController::clearRecentProjects()
+{
+    QSettings().remove(QLatin1String(kRecentProjectsKey));
+}
+
+void ProjectController::attachRecentMenu(QMenu* menu)
+{
+    // Rebuilt on every opening: cheap (ten entries) and always reflects other windows'
+    // changes and files that went missing meanwhile.
+    connect(menu, &QMenu::aboutToShow, this, [this, menu] { fillRecentMenu(menu); });
+    fillRecentMenu(menu);
+}
+
+void ProjectController::fillRecentMenu(QMenu* menu)
+{
+    menu->clear();
+    const QStringList list = recentProjects();
+    int number = 0;
+    for (const QString& path : list) {
+        const QFileInfo file(path);
+        // "&1 name" accelerators for the first nine, like KDE's recent files menus.
+        ++number;
+        const QString label = number < 10
+            ? QStringLiteral("&%1 %2").arg(number).arg(file.completeBaseName())
+            : file.completeBaseName();
+        QAction* action = menu->addAction(label);
+        action->setToolTip(QDir::toNativeSeparators(path));
+        action->setStatusTip(QDir::toNativeSeparators(path));
+        if (!file.exists()) {
+            action->setEnabled(false);
+            action->setText(tr("%1 (missing)").arg(label));
+            continue;
+        }
+        connect(action, &QAction::triggered, this, [this, path] { openFile(path, true); });
+    }
+    if (list.isEmpty()) {
+        menu->addAction(tr("No Recent Projects"))->setEnabled(false);
+        return;
+    }
+    menu->addSeparator();
+    connect(menu->addAction(tr("&Clear Menu")), &QAction::triggered, this,
+        [] { clearRecentProjects(); });
 }
 
 } // namespace kk

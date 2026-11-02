@@ -110,6 +110,13 @@ protected:
     void dropEvent(QDropEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
+public:
+    /// Relinks offline media found by file name in @p folder (one undo step). Returns the
+    /// number of items relinked.
+    int relinkFromFolder(const QString& folder);
+    /// "Relink Offline Media…": asks for a folder, then relinkFromFolder() and a summary.
+    void relinkWithDialog();
+
 private:
     void buildToolbar(QWidget* host);
     void applyAutoBins();

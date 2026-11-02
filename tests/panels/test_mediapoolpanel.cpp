@@ -10,12 +10,14 @@
 
 #include <QApplication>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QListView>
 #include <QMimeData>
 #include <QPainter>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QUndoStack>
 
@@ -175,6 +177,23 @@ private slots:
         emit grid->doubleClicked(grid->model()->index(0, 0));
         QCOMPARE(open.count(), 1);
         QCOMPARE(open.front().front().toString(), missing);
+    }
+
+    void relinkOfflineFromFolder()
+    {
+        PanelFixture f;
+        MediaPoolPanel panel(f.ctx);
+        QTemporaryDir dir;
+        addItem(f.project, QStringLiteral("Gone"), QStringLiteral("/nonexistent/clip_a.mp4"));
+        addItem(f.project, QStringLiteral("Other"), QStringLiteral("/nonexistent/clip_b.mp4"));
+        QFile file(dir.filePath(QStringLiteral("clip_a.mp4")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        QCOMPARE(panel.relinkFromFolder(dir.path()), 1);
+        QVERIFY(!panel.model()->index(0, 0).data(MediaPoolModel::OfflineRole).toBool());
+        QVERIFY(panel.model()->index(1, 0).data(MediaPoolModel::OfflineRole).toBool());
+        f.project.undo(); // one undo step
+        QVERIFY(!QFileInfo::exists(f.project.mediaPool()->state().items[0].path));
     }
 
     void postersAreLazyAndAsync()

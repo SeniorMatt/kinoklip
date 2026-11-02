@@ -36,11 +36,12 @@ excluded() {
     return 1
 }
 
+errors=0
+
 # all ELF files of the bundle (binary, libraries, plugins); fallback-active only holds links
 mapfile -t ELFS < <(find "$B/usr" -path "$B/usr/lib/fallback-active" -prune -o -type f -print |
     while read -r f; do file -b "$f" | grep -q '^ELF' && echo "$f"; done)
 
-errors=0
 declare -A HOST_USED=()
 # Only the DIRECT dependencies (readelf NEEDED) of each bundled ELF are judged, resolved
 # through that file's ldd output: ldd also lists what host libraries pull in themselves
@@ -78,6 +79,18 @@ check_pass() {
         done < <(LD_LIBRARY_PATH="$ldpath" ldd "$f" 2>/dev/null)
     done
 }
+
+# Plugins the app cannot start without on the target desktops: a Wayland and an X11 platform
+# plugin (Qt renamed the Wayland one in 6.10: libqwayland-egl.so -> libqwayland.so), the
+# Wayland xdg-shell integration and a Wayland EGL client buffer integration (OpenGL viewers).
+P="$B/usr/lib/qt/plugins"
+for want in 'platforms/libqwayland*.so' 'platforms/libqxcb.so' \
+    'wayland-shell-integration/libxdg-shell.so' 'wayland-graphics-integration-client/*egl*.so'; do
+    if ! compgen -G "$P/$want" >/dev/null; then
+        echo "MISSING PLUGIN: usr/lib/qt/plugins/$want"
+        errors=$((errors + 1))
+    fi
+done
 
 echo "checking ${#ELFS[@]} ELF files in $B"
 check_pass normal "$B/usr/lib/qt"
