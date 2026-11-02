@@ -4,12 +4,14 @@
 
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
+#include "core/MediaPool.h"
 #include "core/Project.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
+#include "ui/timeline/ChangeSpeedDialog.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineDialogs.h"
 #include "ui/timeline/TimelineLayout.h"
@@ -200,18 +202,19 @@ void TimelinePanel::askClipDuration()
 
 void TimelinePanel::askClipSpeed()
 {
-    const QVector<quint64> ids = m_controller->effectiveSelection();
+    const QVector<quint64> ids = m_controller->retimeTargets();
     if (ids.isEmpty() || !isVisible())
         return;
-    const ClipData* clip = editops::clipById(m_ctx.project->timeline()->data(), ids.front());
+    const TimelineData& d = m_ctx.project->timeline()->data();
+    const ClipData* clip = editops::clipById(d, ids.front());
     if (!clip)
         return;
-    bool ok = false;
-    // Percent: 100 = normal speed; 1..10000 % like the usual speed dialogs.
-    const double percent = QInputDialog::getDouble(
-        this, tr("Change Clip Speed"), tr("Speed (%):"), clip->speed * 100.0, 1.0, 10000.0, 2, &ok);
-    if (ok)
-        m_controller->setSelectionSpeed(percent / 100.0);
+    Rational sourceFps;
+    if (const MediaItem* item = m_ctx.project->mediaPool()->item(clip->mediaId))
+        sourceFps = item->info.frameRate;
+    ChangeSpeedDialog dialog(*clip, d.fps, sourceFps, this);
+    if (dialog.exec() == QDialog::Accepted)
+        m_controller->changeSelectionSpeed(dialog.result());
 }
 
 void TimelinePanel::syncZoomSlider()

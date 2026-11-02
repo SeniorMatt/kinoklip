@@ -135,6 +135,7 @@ const ActionSpec kActions[] = {
     {"clip", "clip.change_speed",     QT_TRANSLATE_NOOP("kk::StandardActions", "Change Clip &Speed…")},
     {"clip", "clip.retime_controls",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Retime Controls")},
     {"clip", "clip.freeze_frame",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Freeze Frame")},
+    {"clip", "clip.retime_curve",     QT_TRANSLATE_NOOP("kk::StandardActions", "Retime &Curve")},
     {"clip", "-"},
     {"clip", "clip.new_compound",     QT_TRANSLATE_NOOP("kk::StandardActions", "New &Compound Clip…"), "compound_clip"},
     {"clip", "clip.open_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Open in Timeline")},
@@ -351,11 +352,10 @@ void registerStandardActions(ActionRegistry& registry)
 
     // Pages of the Resolve layout that are not built yet (visible in the page bar, so the bar
     // has Resolve's order and proportions) and commands of subsystems that do not exist yet
-    // (retime, freeze frames, audio scrubbing): present so the keymap matches Resolve's, but
+    // (audio scrubbing): present so the keymap matches Resolve's, but
     // disabled.
-    for (const char* id :
-        {"view.page_cut", "view.page_compositing", "view.page_color", "view.page_audio",
-            "clip.retime_controls", "clip.freeze_frame", "timeline.audio_scrubbing"}) {
+    for (const char* id : {"view.page_cut", "view.page_compositing", "view.page_color",
+             "view.page_audio", "timeline.audio_scrubbing"}) {
         QAction* a = registry.action(QLatin1String(id));
         a->setEnabled(false);
         a->setStatusTip(

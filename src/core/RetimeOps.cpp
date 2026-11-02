@@ -419,7 +419,10 @@ int64_t slidePoint(TimelineData& data, quint64 clipId, int64_t pointLocal, int64
                 // The freeze after the point shows the new frame; everything after it follows.
                 shiftAfter(c, k, shift, newValue - v);
             } else {
-                shiftAfter(c, k, shift, 0.0);
+                // Whole frames: the next segment keeps its exact speed, so its end (and what
+                // follows) moves by the rounding (< half a source frame at that speed).
+                const double exactEnd = newValue + s2 * double(newLen2);
+                shiftAfter(c, k, shift, exactEnd - vNext);
             }
             applied = d;
             return grow(clip, shift);

@@ -45,7 +45,8 @@ protected:
 private:
     /// Ctrl+D: asks for a new duration of the selected clips (timecode).
     void askClipDuration();
-    /// R: asks for a new speed (percent) of the selected clips.
+    /// R: the Change Clip Speed dialog for the selected clips (else the clips under the
+    /// playhead).
     void askClipSpeed();
     void syncZoomSlider();
 
