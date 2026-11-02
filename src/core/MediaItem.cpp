@@ -17,7 +17,9 @@ bool sameMediaInfo(const media::MediaInfo& a, const media::MediaInfo& b)
 bool operator==(const MediaItem& a, const MediaItem& b)
 {
     return a.id == b.id && a.path == b.path && a.name == b.name && a.binId == b.binId
-        && a.kind == b.kind && a.timelineUid == b.timelineUid && sameMediaInfo(a.info, b.info);
+        && a.kind == b.kind && a.timelineUid == b.timelineUid && a.clipColor == b.clipColor
+        && a.flags == b.flags && a.metadata == b.metadata && a.addedMs == b.addedMs
+        && a.fileModifiedMs == b.fileModifiedMs && sameMediaInfo(a.info, b.info);
 }
 
 } // namespace kk
