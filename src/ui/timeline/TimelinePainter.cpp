@@ -671,16 +671,18 @@ void TimelinePainter::paintVolumeLine(QPainter& p, const TimelinePaintInput& in,
     p.setPen(QPen(kLevelLine, 1.3));
     p.drawLines(m_lines.data(), int(m_lines.size()));
     if (animated) {
-        // Keys on the line: diamonds, selected ones filled with the selection colour.
+        // Keys on the line: diamonds, selected ones filled with the selection colour. The
+        // path string is built once (no allocation per key and paint).
+        static const QString kVolumePath = levelops::volumePath();
+        const bool anySelected = in.selectedKeys && !in.selectedKeys->isEmpty();
         for (const Keyframe& k : it->keys) {
             if (k.frame < 0 || k.frame >= clip.duration)
                 continue;
             const double x = L.frameToX(clipStart + double(k.frame));
             if (x < visible.left() - ll::kKeyRadius || x > visible.right() + ll::kKeyRadius)
                 continue;
-            const bool sel = in.selectedKeys
-                && in.selectedKeys->contains(
-                    KeyframeRef {clip.id, levelops::volumePath(), k.frame});
+            const bool sel = anySelected
+                && in.selectedKeys->contains(KeyframeRef {clip.id, kVolumePath, k.frame});
             p.setPen(QColor(20, 20, 20));
             p.setBrush(sel ? kSelection : kLevelLine);
             drawDiamond(p, QPointF(x, ll::yForDb(area, k.value)), ll::kKeyRadius + 0.5);
