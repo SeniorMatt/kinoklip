@@ -53,6 +53,9 @@ public:
     bool removeItem(const QString& id);
     /// Renames an item. Returns false if it does not exist.
     bool renameItem(const QString& id, const QString& name);
+    /// Replaces the Clip Attributes of item @p id (call inside a Project edit: the clips of
+    /// the item follow in Project::syncDerived()). Returns false if it does not exist.
+    bool setItemAttributes(const QString& id, const ClipAttributes& attributes);
     /// Replaces name and info of item @p id (timeline items, kept in sync by the Project).
     /// Emits itemChanged() only when something differs. Returns false if it does not exist.
     bool updateItem(const QString& id, const QString& name, const media::MediaInfo& info);

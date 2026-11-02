@@ -7,6 +7,7 @@
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
+#include "core/LevelOps.h"
 #include "core/MediaPool.h"
 #include "core/Multicam.h"
 #include "core/Project.h"
@@ -17,6 +18,7 @@
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
@@ -494,6 +496,80 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             inspector->tabs()->setCurrentIndex(InspectorPanel::TitleTab);
         if (section == QLatin1String("inspector"))
             panel = inspector;
+    } else if (base == QLatin1String("levels") || base == QLatin1String("stacked")
+        || base == QLatin1String("clip-attributes")) {
+        // Spec section 32. The first media item with video and audio is put on the timeline
+        // (when it is empty); "levels": volume keys on its audio clip and fades on both parts;
+        // "stacked": a second timeline with the clip, View > Stacked Timelines on;
+        // "clip-attributes[:audio|timecode]": the Clip Attributes dialog of the item.
+        auto* timelinePanel = window.findChild<TimelinePanel*>();
+        const MediaItem* item = nullptr;
+        for (const MediaItem& m : ctx.project->mediaPool()->items()) {
+            if (!item && m.kind == MediaItemKind::File && m.info.hasVideo && m.info.hasAudio)
+                item = &m;
+        }
+        if (!timelinePanel || !item) {
+            std::fprintf(
+                stderr, "%s: needs a project with a video file with sound\n", qPrintable(base));
+            return 2;
+        }
+        const QString mediaId = item->id;
+        const int64_t lengthUs = std::min<int64_t>(item->info.durationUs, 8'000'000);
+        TimelineController* tc = timelinePanel->controller();
+        auto placeClip = [&] {
+            if (ctx.project->timeline()->data().duration() > 0)
+                return;
+            ctx.project->timeline()->setPlayhead(0);
+            tc->insertSource(mediaId, 0, lengthUs, SourceEditMode::Overwrite);
+        };
+        if (base == QLatin1String("clip-attributes")) {
+            auto d = std::make_unique<ClipAttributesDialog>(*item, 1, &window);
+            if (section == QLatin1String("audio"))
+                d->tabs()->setCurrentIndex(1);
+            else if (section == QLatin1String("timecode"))
+                d->tabs()->setCurrentIndex(2);
+            d->adjustSize();
+            dialog = std::move(d);
+            delayMs = kDialogSettleDelayMs;
+        } else {
+            placeClip();
+            ctx.project->beginEdit(QStringLiteral("Demo"));
+            TimelineData& d = ctx.project->timeline()->mutableData();
+            if (base == QLatin1String("levels") && !d.audioTracks.empty())
+                d.audioTracks.front().height = 120; // room for the level line
+            const TimelineData& data = d;
+            for (const auto* tracks : {&data.videoTracks, &data.audioTracks}) {
+                for (const TrackData& t : *tracks) {
+                    for (const ClipData& c : t.clips) {
+                        levelops::setFade(d, c.id, true, c.duration / 6);
+                        levelops::setFade(d, c.id, false, c.duration / 4);
+                        if (&t == &data.audioTracks.front() && base == QLatin1String("levels")) {
+                            levelops::addVolumeKey(d, c.id, c.duration / 3);
+                            levelops::addVolumeKey(d, c.id, c.duration / 2);
+                            levelops::addVolumeKey(d, c.id, c.duration * 2 / 3);
+                            levelops::offsetVolume(d, c.id, c.duration / 2, -12.0);
+                        }
+                    }
+                }
+            }
+            ctx.project->endEdit();
+            if (base == QLatin1String("stacked")) {
+                const quint64 first = ctx.project->activeTimelineUid();
+                const quint64 second = ctx.project->createTimeline(QStringLiteral("Timeline B"));
+                ctx.project->setActiveTimeline(second);
+                ctx.project->timeline()->setPlayhead(0);
+                tc->insertSource(mediaId, 0, lengthUs / 2, SourceEditMode::Overwrite);
+                ctx.project->timeline()->setPlayhead(25);
+                ctx.project->setActiveTimeline(first);
+                ctx.project->closeTab(second); // Timeline B lives in the upper pane only
+                ctx.project->timeline()->setPlayhead(60);
+                timelinePanel->setStackedTimelines(true);
+            }
+            ctx.project->undoStack()->setClean(); // demo edits: closing must not ask
+            TimelineWidget* w = timelinePanel->timelineWidget();
+            QTimer::singleShot(0, w, [w] { w->zoomToFit(); });
+            panel = timelinePanel;
+        }
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
     } else if (target == QLatin1String("effects")) {
@@ -509,7 +585,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             "keyframes-window, masks[:inspector|viewer], subtitles[:inspector], "
             "multicam[:viewer|timeline], "
             "keyframes-panel[:dope|curves|absolute|float], "
-            "mediapool, "
+            "mediapool, levels, stacked, clip-attributes[:audio|timecode], "
             "effects, import-dialog, menu-color-theme "
             "or "
             "menu-style, menu-playback-resolution)\n",

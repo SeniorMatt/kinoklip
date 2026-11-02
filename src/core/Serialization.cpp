@@ -460,6 +460,56 @@ MaskData maskFromJson(const QJsonObject& o)
 
 } // namespace
 
+QJsonObject attributesToJson(const ClipAttributes& a)
+{
+    // Only what differs from the default is written (most items have no attributes).
+    const ClipAttributes d;
+    QJsonObject o;
+    if (a.pixelAspect.isValid()) {
+        o[QLatin1String("pixelAspect")] = QJsonArray {a.pixelAspect.num, a.pixelAspect.den};
+    }
+    if (a.levels != d.levels)
+        o[QLatin1String("levels")] = dataLevelsToString(a.levels);
+    if (a.fieldOrder != d.fieldOrder)
+        o[QLatin1String("fieldOrder")] = fieldOrderToString(a.fieldOrder);
+    if (a.deinterlace)
+        o[QLatin1String("deinterlace")] = true;
+    if (a.rotation != 0)
+        o[QLatin1String("rotation")] = a.rotation;
+    if (a.channelFormat != d.channelFormat) {
+        o[QLatin1String("channelFormat")] = channelFormatToString(a.channelFormat);
+        o[QLatin1String("left")] = a.left;
+        o[QLatin1String("right")] = a.right;
+    }
+    if (a.overrideTimecode)
+        o[QLatin1String("startTimecode")] = qint64(a.startTimecodeFrames);
+    return o;
+}
+
+ClipAttributes attributesFromJson(const QJsonObject& o)
+{
+    ClipAttributes a;
+    const QJsonArray par = o.value(QLatin1String("pixelAspect")).toArray();
+    if (par.size() == 2) {
+        const Rational r {par[0].toInt(), par[1].toInt()};
+        if (r.isValid())
+            a.pixelAspect = r;
+    }
+    a.levels = dataLevelsFromString(o.value(QLatin1String("levels")).toString());
+    a.fieldOrder = fieldOrderFromString(o.value(QLatin1String("fieldOrder")).toString());
+    a.deinterlace = o.value(QLatin1String("deinterlace")).toBool(false);
+    a.rotation = normalizedRotation(o.value(QLatin1String("rotation")).toInt(0));
+    a.channelFormat = channelFormatFromString(o.value(QLatin1String("channelFormat")).toString());
+    a.left = o.value(QLatin1String("left")).toInt(0);
+    a.right = o.value(QLatin1String("right")).toInt(1);
+    if (o.contains(QLatin1String("startTimecode"))) {
+        a.overrideTimecode = true;
+        a.startTimecodeFrames
+            = std::max<int64_t>(0, o.value(QLatin1String("startTimecode")).toInteger());
+    }
+    return a;
+}
+
 QJsonObject clipToJson(const ClipData& clip)
 {
     QJsonObject o;
@@ -494,6 +544,12 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("linkGroup")] = qint64(clip.linkGroup);
     if (clip.cacheOutput)
         o[QLatin1String("cacheOutput")] = true;
+    if (clip.fadeInFrames > 0)
+        o[QLatin1String("fadeIn")] = qint64(clip.fadeInFrames);
+    if (clip.fadeOutFrames > 0)
+        o[QLatin1String("fadeOut")] = qint64(clip.fadeOutFrames);
+    if (!clip.attributes.isDefault())
+        o[QLatin1String("attributes")] = attributesToJson(clip.attributes);
     if (clip.transform != ParamSet {})
         o[QLatin1String("transform")] = paramSetToJson(clip.transform);
     if (clip.audio != ParamSet {})
@@ -558,6 +614,10 @@ ClipData clipFromJson(const QJsonObject& o)
     c.enabled = o.value(QLatin1String("enabled")).toBool(true);
     c.linkGroup = quint64(o.value(QLatin1String("linkGroup")).toInteger());
     c.cacheOutput = o.value(QLatin1String("cacheOutput")).toBool(false);
+    c.fadeInFrames = std::max<int64_t>(0, o.value(QLatin1String("fadeIn")).toInteger());
+    c.fadeOutFrames = std::max<int64_t>(0, o.value(QLatin1String("fadeOut")).toInteger());
+    if (o.contains(QLatin1String("attributes")))
+        c.attributes = attributesFromJson(o.value(QLatin1String("attributes")).toObject());
     c.transform = paramSetFromJson(o.value(QLatin1String("transform")).toObject());
     c.audio = paramSetFromJson(o.value(QLatin1String("audio")).toObject());
     c.title = paramSetFromJson(o.value(QLatin1String("title")).toObject());
@@ -763,6 +823,8 @@ QJsonObject mediaPoolToJson(const MediaPoolState& state, const QDir& projectDir)
             {QLatin1String("relativePath"), projectDir.relativeFilePath(m.path)},
             {QLatin1String("name"), m.name}, {QLatin1String("binId"), m.binId},
             {QLatin1String("info"), mediaInfoToJson(m.info)}};
+        if (!m.attributes.isDefault())
+            item[QLatin1String("attributes")] = attributesToJson(m.attributes);
         if (m.isSubtitle()) {
             // Format 7: the captions travel with the project ([startUs, endUs, text]).
             item[QLatin1String("kind")] = QStringLiteral("subtitle");
@@ -820,6 +882,8 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
         m.binId = o.value(QLatin1String("binId")).toString();
         m.info = mediaInfoFromJson(o.value(QLatin1String("info")).toObject());
         m.info.path = m.path;
+        if (o.contains(QLatin1String("attributes")))
+            m.attributes = attributesFromJson(o.value(QLatin1String("attributes")).toObject());
         if (kind == QLatin1String("subtitle")) {
             m.kind = MediaItemKind::Subtitle;
             for (const QJsonValue& cv : o.value(QLatin1String("cues")).toArray()) {

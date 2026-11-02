@@ -36,7 +36,8 @@ bool hasInternalFormat(const QMimeData* mime)
 {
     return mime->hasFormat(QLatin1String(mime::MediaItems))
         || mime->hasFormat(QLatin1String(mime::SourceRange))
-        || mime->hasFormat(QLatin1String(mime::Effect));
+        || mime->hasFormat(QLatin1String(mime::Effect))
+        || mime->hasFormat(QLatin1String(mime::TimelineClips));
 }
 
 /// Our own payloads, or files from a file manager / the desktop (Dolphin: text/uri-list;
@@ -142,6 +143,12 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
             return std::max<int64_t>(0, *s2 - duration);
         return f;
     };
+
+    // ---- Clips of another timeline (stacked timelines): a copy ----
+    if (mime->hasFormat(QLatin1String(mime::TimelineClips))) {
+        planClipCopy(mime, hit, pos, plan);
+        return plan;
+    }
 
     // ---- Files from outside: their durations are only known after importing them, so the
     // plan is just "here"; the drop imports them and re-plans as media items. ----
@@ -303,6 +310,7 @@ void TimelineWidget::showDropPreview(const DropPlan& plan)
     m_overlay.dropTransitionRow = -1;
     switch (plan.kind) {
     case DropPlan::Kind::Clips:
+    case DropPlan::Kind::TimelineClips:
         for (const auto& group : plan.groups) {
             for (const ops::PlacedClip& p : group) {
                 const int row = m_layout.rowOf(p.track);
@@ -344,6 +352,11 @@ bool TimelineWidget::executeDrop(const DropPlan& plan)
     case DropPlan::Kind::None:
     case DropPlan::Kind::Files: // dropEvent() imports the files and re-plans
         return false;
+    case DropPlan::Kind::TimelineClips:
+        return !m_controller
+                    ->copyClipsFrom(plan.sourceUid, plan.sourceClips, plan.copyFrame,
+                        plan.copyTrack, plan.insert)
+                    .isEmpty();
     case DropPlan::Kind::Clips: {
         project->beginEdit(plan.insert ? tr("Insert Clip") : tr("Add Clip"));
         TimelineData& data = project->timeline()->mutableData();

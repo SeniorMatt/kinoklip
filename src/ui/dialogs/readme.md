@@ -61,3 +61,10 @@ Preferences dialog stored new values.
   map it in `settings()` / `setSettings()`.
 - **A new dialog opened from a menu:** add the action (see `src/ui/common/readme.md`), then
   connect it in `connectDialogActions()`.
+
+## Clip Attributes (attrs branch)
+`ClipAttributesDialog.h`: Video / Audio / Timecode tabs (spec 32.6 - 32.8);
+`clipattributes::edit()` / `apply()` (one undo step on the media pool items),
+`timelineTargets()`. `clip.attributes` is connected in `connectDialogActions()`: the media of
+the selected timeline clips, else the media pool selection (published into the action's data
+by MediaPoolPanel).

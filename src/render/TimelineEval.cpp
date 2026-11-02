@@ -167,8 +167,20 @@ QSizeF displaySize(int codedWidth, int codedHeight, Rational sar, int rotation)
     return (rotation == 90 || rotation == 270) ? s.transposed() : s;
 }
 
+double clipOpacity(const ClipData& clip, int64_t localFrame)
+{
+    const double opacity
+        = std::clamp(clip.transform.value(keys::Opacity, localFrame) / 100.0, 0.0, 1.0);
+    if (clip.fadeInFrames <= 0 && clip.fadeOutFrames <= 0)
+        return opacity;
+    return opacity
+        * videoFadeFactor(localFrame, clip.duration, clip.fadeInFrames, clip.fadeOutFrames);
+}
+
 bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame)
 {
+    if (clipOpacity(clip, localFrame) < 1.0)
+        return false;
     const ParamSet& p = clip.transform;
     if (p.value(keys::PosX, localFrame) != 0.0 || p.value(keys::PosY, localFrame) != 0.0
         || p.value(keys::ZoomX, localFrame) != 1.0 || p.value(keys::ZoomY, localFrame) != 1.0

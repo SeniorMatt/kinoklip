@@ -18,6 +18,7 @@
 #include "ui/common/MediaImport.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/mediapool/MediaPoolDelegate.h"
 
 #include <QAction>
@@ -426,6 +427,8 @@ void MediaPoolPanel::publishSelection()
         {"mediapool.generate_proxy", anyFile}, {"mediapool.stop_generation", anyPending},
         {"mediapool.link_proxy", anyFile && ids.size() == 1}, {"mediapool.unlink_proxy", anyProxy},
         {"mediapool.delete_proxy", anyProxy}, {"mediapool.delete_optimized", anyOptimized}};
+    if (m_ctx.actions->contains(QStringLiteral("clip.attributes"))) // Clip > Clip Attributes
+        m_ctx.actions->action(QStringLiteral("clip.attributes"))->setData(ids);
     for (const auto& [id, on] : enabled) {
         if (!m_ctx.actions->contains(QLatin1String(id)))
             continue;
@@ -792,6 +795,14 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
         menu.addAction(
             tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });
+        // Clip Attributes (spec 32.6) of the selected file items.
+        if (currentItem && currentItem->kind == MediaItemKind::File) {
+            menu.addSeparator();
+            menu.addAction(tr("Clip Attributes…"), this, [this, ids, current] {
+                clipattributes::edit(
+                    *m_ctx.project, ids.contains(current) ? ids : QStringList {current}, this);
+            });
+        }
         menu.addSeparator();
         addMulticamMenu(menu, ids);
     }
