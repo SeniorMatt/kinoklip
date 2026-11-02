@@ -688,6 +688,7 @@ void PlaybackEngine::stopMotion()
     m_clock.stop();
     m_scheduler.clear();
     m_parked = false;
+    m_statsLogUs = 0; // the next play starts a new statistics window
     m_customRange = false;
     m_hasShownKey = false;
     updateParams(false);
