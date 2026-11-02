@@ -68,6 +68,7 @@ void InspectorPanel::buildMasksSection(const ClipData& c)
 
     // Section header group with one add button per shape type.
     ParamGroupBox* section = addGroup(VideoTab, QStringLiteral("masks"), desc->name, clipId);
+    section->setObjectName(QStringLiteral("mask-section"));
     auto* bar = new QWidget;
     bar->setObjectName(QStringLiteral("InspectorMaskButtons"));
     auto* barLayout = new QHBoxLayout(bar);
