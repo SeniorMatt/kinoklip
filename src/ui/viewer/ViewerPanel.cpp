@@ -26,6 +26,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QContextMenuEvent>
 #include <QDrag>
 #include <QHBoxLayout>
 #include <QJsonDocument>
@@ -855,6 +856,10 @@ bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
     case QEvent::MouseButtonRelease:
         m_dragArmed = false;
         break;
+    case QEvent::ContextMenu:
+        activate(); // the marks and transport of the menu act on this viewer
+        showContextMenu(static_cast<QContextMenuEvent*>(event)->globalPos());
+        return true;
     default:
         break;
     }

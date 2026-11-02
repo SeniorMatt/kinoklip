@@ -28,6 +28,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMenu>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QSurfaceFormat>
@@ -367,6 +368,14 @@ private Q_SLOTS:
         source.setSourceMedia(id);
         source.updateOfflineNotice();
         QVERIFY(source.offlineNotice()->isVisible());
+        // Round 2 audit C1: the viewers have a context menu of registry commands.
+        std::unique_ptr<QMenu> menu(program.buildContextMenu(nullptr));
+        QVERIFY(menu->actions().contains(f.actions.action(QStringLiteral("transport.play_pause"))));
+        QVERIFY(menu->actions().contains(f.actions.action(QStringLiteral("mark.in"))));
+        QVERIFY(menu->actions().contains(f.actions.action(QStringLiteral("clip.match_frame"))));
+        std::unique_ptr<QMenu> sourceMenu(source.buildContextMenu(nullptr));
+        QVERIFY(
+            !sourceMenu->actions().contains(f.actions.action(QStringLiteral("clip.match_frame"))));
     }
 
     void insertMarkedSourceRange()

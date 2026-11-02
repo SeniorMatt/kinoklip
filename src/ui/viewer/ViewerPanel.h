@@ -18,6 +18,7 @@ class QComboBox;
 class QKeyEvent;
 class QHBoxLayout;
 class QLabel;
+class QMenu;
 class QTimer;
 class QToolButton;
 
@@ -144,6 +145,9 @@ public:
     /// actions' text, keys from their shortcuts); empty = the Edit page's seven source edits.
     /// The Cut page offers its smart edits this way (spec 35.26).
     void setEditTileActions(const QStringList& actionIds);
+    /// The viewer's context menu (right-click on the picture): play, marks, markers, match
+    /// frame and the viewer modes, all registry commands. Owned by @p parent.
+    [[nodiscard]] QMenu* buildContextMenu(QWidget* parent);
     /// Shows or hides the "Media Offline" notice for what the viewer shows now (called on
     /// position, media pool and offline changes).
     void updateOfflineNotice();
@@ -216,6 +220,7 @@ private:
     void onPositionChanged(int64_t frame);
     // ---- Media Offline notice (ViewerOffline.cpp) ----
     void setupOfflineNotice();
+    void showContextMenu(const QPoint& globalPos);
     /// Name of the offline clip shown at @p frame (source clip / top visible timeline clip),
     /// empty when what is shown is online.
     [[nodiscard]] QString offlineClipName(int64_t frame) const;
