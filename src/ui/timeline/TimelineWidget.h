@@ -231,6 +231,9 @@ private:
         /// index (= the current track count).
         bool newVideoTrack = false;
         bool newAudioTrack = false;
+        /// Clips: subtitle tracks to add first (a subtitle file's overlapping cues need more
+        /// than the existing ones); the refs already use the new indices.
+        int newSubtitleTracks = 0;
         QRect newTrackBand; ///< where the ghost of a new track's clips is drawn
         TrackType newTrackBandType = TrackType::Video; ///< the new track shown in the band
         quint64 clipId = 0; ///< Effect/Transition target

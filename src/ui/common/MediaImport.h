@@ -16,6 +16,8 @@ struct AppContext;
 
 /// File dialog name filter for importable media ("Media files (*.mp4 *.mov ...);;All files (*)").
 [[nodiscard]] QString mediaFileDialogFilter();
+/// File dialog filter of File > Import Subtitle (SubRip .srt, WebVTT .vtt).
+[[nodiscard]] QString subtitleFileDialogFilter();
 
 /// Imports @p paths into the media pool as one undoable step and shows a warning dialog
 /// (parented to @p parent) listing files that could not be imported. Returns the new item ids.
