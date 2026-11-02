@@ -159,6 +159,29 @@ private slots:
         QVERIFY(std::abs(out[0] - std::pow(10.0, -11.0 / 20.0) * ramp(10560)) < 0.002);
     }
 
+    // Spec 15.11: audio follows the same curve as playback of video parameters: eased
+    // segments are evaluated between frames, static (hold) keys step exactly at the next key.
+    void spec15_11_volumeCurvesExact()
+    {
+        if (!m_skip.isEmpty())
+            QSKIP(qPrintable(m_skip));
+        TimelineData tl = oneClip(0, 50, 0, 0);
+        AnimatedValue& vol = tl.audioTracks[0].clips[0].audio.animated(keys::VolumeDb, 0);
+        vol.setKey(0, 0, Interp::EaseInOut);
+        vol.setKey(10, -20, Interp::EaseInOut);
+        vol.setKey(20, -6, Interp::Hold);
+        vol.setKey(30, 0);
+        AudioMixer mixer;
+        mixer.setMediaPaths(paths());
+        std::vector<float> out(2 * 64);
+        // Local frame 2.5 (sample 4800): smoothstep(0.25) of -20 dB = -3.125 dB.
+        mixer.mix(tl, 4800, 64, out.data());
+        QVERIFY(std::abs(out[0] - std::pow(10.0, -3.125 / 20.0) * ramp(4800)) < 0.002);
+        // Frame 29.5: still the held -6 dB (no ramp into the next key).
+        mixer.mix(tl, 29 * 1920 + 960, 64, out.data());
+        QVERIFY(std::abs(out[0] - std::pow(10.0, -6.0 / 20.0) * ramp(29 * 1920 + 960)) < 0.002);
+    }
+
     void muteAndSolo()
     {
         if (!m_skip.isEmpty())
