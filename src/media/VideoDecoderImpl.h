@@ -12,6 +12,7 @@
 
 #include <QImage>
 
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -43,6 +44,11 @@ struct DecodedFrame
 
 struct VideoDecoder::Impl
 {
+    Impl() = default;
+    ~Impl();
+    Impl(const Impl&) = delete;
+    Impl& operator=(const Impl&) = delete;
+
     MediaInfo info;
     int threadCount = 0;
     std::optional<HwAccelMode> hwOverride;
@@ -93,7 +99,16 @@ struct VideoDecoder::Impl
     HwAccelMode activeHw = HwAccelMode::Off;
     detail::HwDecodeState hwState; ///< get_format callback state (codec->opaque points here)
     bool hwFailed = false; ///< hw decoding broke → switch to software at the next chance
+    QString hwFailReason; ///< why (for the one log line of the fall-back)
+    QString hwOpenFailure; ///< "VAAPI failed: ..." when open() fell back to software
     int hwPacketErrors = 0;
+    /// The shared device's call lock (HwDeviceManager::callLock) while decoding on hardware,
+    /// else nullptr. Held around every libavcodec call and download, never across two.
+    std::mutex* hwLock = nullptr;
+    std::unique_lock<std::mutex> lockHw() const
+    {
+        return hwLock ? std::unique_lock<std::mutex>(*hwLock) : std::unique_lock<std::mutex>();
+    }
 
     // Soft seeks (see seek()): skip avcodec_flush_buffers() when re-initialising the decoder
     // is expensive and the new position starts with an IDR picture.
@@ -108,7 +123,9 @@ struct VideoDecoder::Impl
     static QImage scaledCopy(const QImage& image, QSize maxSize, QImage& scaled, QSize& scaledFor);
     bool openVideo(const QString& path, QString* error);
     bool openCodec(HwAccelMode requested, QString* error);
-    bool switchToSoftware();
+    bool switchToSoftware(bool duringOpen = false);
+    void freeCodec();
+    void logOpened();
     QImage stillAt(QSize maxSize);
 
     int64_t usToTs(int64_t us) const
