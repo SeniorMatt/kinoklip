@@ -8,6 +8,7 @@ Owned by the panels agent.
 | `BinList.h` | the bin list sidebar: Master tree, Smart Bins, Power Bins; drag to reorder / re-parent bins, drop items and files |
 | `SmartBinDialog.h` | smart bin rules editor (name, match all / any, field / operator / value rows) |
 | `MediaPoolModel.h` | `MediaPoolModel` (table over `MediaPool`, cached display strings, lazy posters) and `MediaPoolFilterModel` (bin + search) |
+| `MediaPoolStripDelegate.h` | strip view row painter (Cut page): name and duration over a film strip of thumbnails at evenly spaced times of the clip (`MediaCache::thumbnail()`, repaint on `thumbnailReady`) |
 | `MediaPoolDelegate.h` | grid tile painter (poster or placeholder glyph, duration badge, offline marker, name) |
 | `MediaBrowserPanel.h` | Media page file browser: places, folder tree, media-only file list, "Add to Media Pool" |
 | `MetadataPanel.h` | Clip Details (read-only) + editable Shot and Scene / Notes fields; batch editing of several items (`attach()` follows a MediaPoolPanel) |
@@ -17,6 +18,10 @@ Owned by the panels agent.
   menu. The Edit page connects it to `ViewerPanel::setSourceMedia` (src/app/pages/EditPage.cpp).
 - `MediaPoolPanel::currentMediaChanged(QString mediaId)` — selection, for the metadata panel and
   the Media page viewer.
+- `MediaPoolPanel::setStripViewAvailable(true)` adds the strip view (`ViewMode::Strip`, stored
+  as "strip"; panels without it show the grid instead). `shownItemsChanged()` fires when the
+  visible items change (bin, search, filter, sort, import / delete): the Cut page rebuilds its
+  source tape from `visibleMediaIds()`.
 - `MediaPoolPanel::selectMedia(id)` — e.g. "find clip in media pool" from the timeline.
 - Drags carry `mime::MediaItems` (newline-separated ids, `ui/common/DragMime.h`).
 - Poster frames: `PosterProvider` = `std::function<QImage(path, height)>`, non-blocking
