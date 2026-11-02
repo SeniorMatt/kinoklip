@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Table of every standard command. Default shortcuts live in resources/keymap_default.json.
+// Table of every standard command. Default shortcuts live in resources/keymaps/resolve-windows.json.
 #include "ui/common/StandardActions.h"
 
 #include "ui/common/ActionRegistry.h"

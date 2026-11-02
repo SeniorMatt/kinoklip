@@ -37,7 +37,7 @@ private slots:
         QVERIFY(reg.loadDefaultKeymap());
         registerStandardActions(reg);
 
-        QFile file(QStringLiteral(":/keymap_default.json"));
+        QFile file(QStringLiteral(":/keymaps/resolve-windows.json"));
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QJsonObject keymap = QJsonDocument::fromJson(file.readAll())
                                        .object()
@@ -177,6 +177,127 @@ private slots:
         color->setToolTip(QStringLiteral("custom"));
         color->setText(QStringLiteral("Color!"));
         QCOMPARE(color->toolTip(), QStringLiteral("custom"));
+    }
+
+    void builtInProfileIsDefault()
+    {
+        ActionRegistry reg;
+        QTemporaryDir dir;
+        reg.setUserProfileDirectory(dir.path());
+        QVERIFY(reg.loadDefaultKeymap());
+        registerStandardActions(reg);
+        QCOMPARE(reg.activeProfile(), QLatin1String(ActionRegistry::kDefaultProfile));
+        const auto list = reg.profiles();
+        QVERIFY(!list.isEmpty());
+        QCOMPARE(list.first().id, QLatin1String(ActionRegistry::kDefaultProfile));
+        QVERIFY(list.first().builtIn);
+        QVERIFY(!reg.isProfileModified(list.first().id));
+        QString error;
+        QVERIFY(!reg.renameProfile(list.first().id, QStringLiteral("x"), &error));
+        QVERIFY(!reg.deleteProfile(list.first().id, &error));
+        QVERIFY(!reg.setActiveProfile(QStringLiteral("nope"), &error));
+        QCOMPARE(reg.activeProfile(), QLatin1String(ActionRegistry::kDefaultProfile));
+    }
+
+    void userProfilesDuplicateSwitchRenameDelete()
+    {
+        QTemporaryDir dir;
+        const QString split = QStringLiteral("edit.split");
+        const QList<QKeySequence> builtInSplit = [&] {
+            ActionRegistry reg;
+            reg.setUserProfileDirectory(dir.path());
+            reg.loadDefaultKeymap();
+            registerStandardActions(reg);
+            return reg.shortcuts(split);
+        }();
+        QString userId;
+        {
+            ActionRegistry reg;
+            reg.setUserProfileDirectory(dir.path());
+            reg.loadDefaultKeymap();
+            registerStandardActions(reg);
+            QSignalSpy listSpy(&reg, &ActionRegistry::profilesChanged);
+            userId = reg.duplicateProfile(reg.activeProfile(), QStringLiteral("My Keys"));
+            QVERIFY(!userId.isEmpty());
+            QCOMPARE(listSpy.count(), 1);
+            QCOMPARE(reg.profiles().size(), 2);
+            QCOMPARE(reg.profile(userId)->name, QStringLiteral("My Keys"));
+            QCOMPARE(reg.profile(userId)->basedOn, QLatin1String(ActionRegistry::kDefaultProfile));
+
+            // Per-profile overrides: a change in the user profile leaves the built-in alone.
+            QSignalSpy activeSpy(&reg, &ActionRegistry::activeProfileChanged);
+            QVERIFY(reg.setActiveProfile(userId));
+            QCOMPARE(activeSpy.count(), 1);
+            reg.setShortcuts(split, {QKeySequence(Qt::Key_F7)});
+            QVERIFY(reg.isProfileModified(userId));
+            QVERIFY(reg.setActiveProfile(QLatin1String(ActionRegistry::kDefaultProfile)));
+            QCOMPARE(reg.shortcuts(split), builtInSplit);
+            QVERIFY(reg.setActiveProfile(userId));
+            QCOMPARE(reg.shortcuts(split), QList<QKeySequence> {QKeySequence(Qt::Key_F7)});
+            // Reset restores the base of the profile.
+            reg.resetShortcuts(split);
+            QCOMPARE(reg.shortcuts(split), builtInSplit);
+            reg.setShortcuts(split, {QKeySequence(Qt::Key_F7)});
+            QVERIFY(reg.renameProfile(userId, QStringLiteral("Renamed")));
+            QCOMPARE(reg.profile(userId)->name, QStringLiteral("Renamed"));
+        }
+        {
+            // A new run restores the active user profile and its overrides.
+            ActionRegistry reg;
+            reg.setUserProfileDirectory(dir.path());
+            reg.loadDefaultKeymap();
+            registerStandardActions(reg);
+            QCOMPARE(reg.activeProfile(), userId);
+            QCOMPARE(reg.shortcuts(split), QList<QKeySequence> {QKeySequence(Qt::Key_F7)});
+            // Duplicating a user profile keeps its base and its overrides.
+            const QString copy = reg.duplicateProfile(userId, QStringLiteral("Renamed"));
+            QVERIFY(copy != userId);
+            QVERIFY(reg.setActiveProfile(copy));
+            QCOMPARE(reg.shortcuts(split), QList<QKeySequence> {QKeySequence(Qt::Key_F7)});
+            // Deleting the active profile falls back to its base.
+            QVERIFY(reg.deleteProfile(copy));
+            QCOMPARE(reg.activeProfile(), QLatin1String(ActionRegistry::kDefaultProfile));
+            QCOMPARE(reg.shortcuts(split), builtInSplit);
+            QVERIFY(reg.deleteProfile(userId));
+            QCOMPARE(reg.profiles().size(), 1);
+        }
+    }
+
+    void profileImportExport()
+    {
+        QTemporaryDir dir;
+        const QString file = dir.filePath(QStringLiteral("exported.json"));
+        ActionRegistry reg;
+        reg.setUserProfileDirectory(dir.filePath(QStringLiteral("profiles")));
+        reg.loadDefaultKeymap();
+        registerStandardActions(reg);
+        reg.setShortcuts(QStringLiteral("mark.in"), {QKeySequence(Qt::Key_F2)});
+        QVERIFY(reg.exportProfile(reg.activeProfile(), file));
+        const QString id = reg.importProfile(file, QStringLiteral("Imported"));
+        QVERIFY(!id.isEmpty());
+        reg.resetAllShortcuts();
+        QVERIFY(!reg.isProfileModified(reg.activeProfile()));
+        QVERIFY(reg.isProfileModified(id));
+        QVERIFY(reg.setActiveProfile(id));
+        QCOMPARE(reg.action(QStringLiteral("mark.in"))->shortcut(), QKeySequence(Qt::Key_F2));
+        QString error;
+        QVERIFY(
+            reg.importProfile(dir.filePath(QStringLiteral("missing.json")), {}, &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+    }
+
+    void legacyOverridesMigrate()
+    {
+        // Overrides saved before keymap profiles existed belong to the default profile.
+        QSettings().setValue(QStringLiteral("shortcuts/mark.in"), QStringLiteral("F3"));
+        QTemporaryDir dir;
+        ActionRegistry reg;
+        reg.setUserProfileDirectory(dir.path());
+        reg.loadDefaultKeymap();
+        registerStandardActions(reg);
+        QCOMPARE(reg.action(QStringLiteral("mark.in"))->shortcut(), QKeySequence(Qt::Key_F3));
+        QVERIFY(!QSettings().contains(QStringLiteral("shortcuts/mark.in")));
+        QVERIFY(QSettings().contains(QStringLiteral("shortcuts/resolve-windows/mark.in")));
     }
 
     void duplicateRegistrationReturnsExisting()

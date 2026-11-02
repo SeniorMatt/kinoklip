@@ -2,7 +2,7 @@
 <!-- All files compiled into the app. Add new icons here (alphabetical). -->
 <RCC version="1.0">
     <qresource prefix="/">
-        <file>keymap_default.json</file>
+        <file>keymaps/resolve-windows.json</file>
         <file>color-schemes/BreezeClassic.colors</file>
         <file>color-schemes/BreezeDark.colors</file>
         <file>color-schemes/BreezeLight.colors</file>

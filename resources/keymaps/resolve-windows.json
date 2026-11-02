@@ -1,6 +1,7 @@
 {
     "formatVersion": 1,
-    "comment": "Default shortcuts (PLAN §5.7). Keys use QKeySequence portable text. Users rebind in Edit > Keyboard Customization; overrides live in the user settings, not here.",
+    "name": "DaVinci Resolve (Windows)",
+    "comment": "Built-in default profile: Resolve's Windows default shortcuts (docs/keymap-resolve-windows.md). Keys use QKeySequence portable text. Read-only: users rebind in Keyboard Customization; overrides live in the user settings or in a user profile.",
     "shortcuts": {
         "file.new": ["Ctrl+N"],
         "file.open": ["Ctrl+O"],
