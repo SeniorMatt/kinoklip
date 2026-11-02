@@ -7,6 +7,7 @@
 #include "core/Project.h"
 #include "media/MediaCache.h"
 #include "platform/ChildProcessEnv.h"
+#include "platform/FileDialogs.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
@@ -19,7 +20,6 @@
 #include <QApplication>
 #include <QDragEnterEvent>
 #include <QDropEvent>
-#include <QFileDialog>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -610,8 +610,9 @@ QStringList MediaPoolPanel::importFiles(const QStringList& paths, const QString&
 
 void MediaPoolPanel::importWithDialog()
 {
-    const QStringList paths = QFileDialog::getOpenFileNames(
-        this, tr("Import Media"), QString(), mediaFileDialogFilter());
+    // Same remembered folder as File > Import Media (src/app/ProjectController.cpp).
+    const QStringList paths = platform::getOpenFileNames(
+        this, tr("Import Media"), mediaFileDialogFilter(), QStringLiteral("paths/lastMediaDir"));
     if (!paths.isEmpty())
         importFiles(paths, currentBin());
 }
@@ -709,8 +710,9 @@ int MediaPoolPanel::relinkFromFolder(const QString& folder)
 
 void MediaPoolPanel::relinkWithDialog()
 {
-    const QString folder = QFileDialog::getExistingDirectory(
-        this, tr("Relink Offline Media: Choose the Folder with the Files"));
+    const QString folder = platform::getExistingDirectory(this,
+        tr("Relink Offline Media: Choose the Folder with the Files"),
+        QStringLiteral("paths/lastRelinkDir"));
     if (folder.isEmpty())
         return;
     const int relinked = relinkFromFolder(folder);
