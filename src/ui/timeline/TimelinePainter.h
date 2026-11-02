@@ -150,7 +150,9 @@ private:
     /// paintClip() with the animation opacity of @p clip applied (in.anim set).
     void paintAnimatedClip(QPainter& p, const TimelinePaintInput& in, int row,
         const TrackData& track, const ClipData& clip);
-    /// Ghosts of removed clips and blade / trim flashes (in.anim set).
+    /// Ghosts of removed clips of track @p track (in.anim set).
+    void paintGhosts(QPainter& p, const TimelinePaintInput& in, TrackRef track);
+    /// Blade / trim flashes (in.anim set).
     void paintAnimationOverlays(QPainter& p, const TimelinePaintInput& in);
     /// @p rect (a model clip rect) as drawn: the animator's tweened rect when one runs.
     [[nodiscard]] static QRectF shownRect(
