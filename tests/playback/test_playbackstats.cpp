@@ -1,24 +1,40 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // KK_PLAYBACK_STATS: while playing, one "stats:" line per second; when playback stops, one
 // "stats summary:" line (also for plays shorter than a second). Own executable because the
-// variable is read once per process.
+// variable is read once per process. Also: FFmpeg's log stays routed into kk.media after
+// Qt Multimedia (whose FFmpeg backend installs its own av_log callback) initialised.
 #include "core/Timeline.h"
+#include "playback/AudioOutput.h"
 #include "playback/PlaybackEngine.h"
 #include "render/Compositor.h"
 
+#include <QAudioDevice>
+#include <QMediaDevices>
 #include <QTest>
+
+extern "C" {
+#include <libavutil/log.h>
+}
 
 using namespace kk;
 
 namespace {
 
 QStringList g_lines; ///< kk.playback info lines
+QStringList g_mediaWarnings; ///< kk.media warnings
+QStringList g_otherFfmpeg; ///< any other category mentioning the probe text
 QtMessageHandler g_previous = nullptr;
 
 void handler(QtMsgType type, const QMessageLogContext& context, const QString& text)
 {
-    if (type == QtInfoMsg && context.category && QByteArray(context.category) == "kk.playback") {
+    const QByteArray category = context.category ? QByteArray(context.category) : QByteArray();
+    if (type == QtInfoMsg && category == "kk.playback") {
         g_lines << text;
+    }
+    if (type == QtWarningMsg && category == "kk.media") {
+        g_mediaWarnings << text;
+    } else if (text.contains(QLatin1String("routing check"))) {
+        g_otherFfmpeg << QString::fromLatin1(category) + QStringLiteral(": ") + text;
     }
     if (g_previous) {
         g_previous(type, context, text);
@@ -86,6 +102,20 @@ private Q_SLOTS:
         engine.stop();
         QCOMPARE(countStarting("stats: "), 0);
         QCOMPARE(countStarting("stats summary: played "), 1);
+    }
+
+    void ffmpegLogStaysRoutedAfterQtMultimedia()
+    {
+        // Loads Qt Multimedia's backend (the bundle uses QT_MEDIA_BACKEND=ffmpeg, whose
+        // initialisation replaces FFmpeg's log callback), the way the first player does.
+        (void)QMediaDevices::audioOutputs();
+        av_log(nullptr, AV_LOG_ERROR, "routing check before\n");
+        qInfo("after Qt Multimedia init: %s", qPrintable(g_otherFfmpeg.join(u';')));
+        const std::unique_ptr<AudioOutput> audio = createDefaultAudioOutput();
+        (void)audio->isAvailable(); // initialises the device query
+        g_mediaWarnings.clear();
+        av_log(nullptr, AV_LOG_ERROR, "routing check after\n");
+        QCOMPARE(g_mediaWarnings.filter(QStringLiteral("ffmpeg: routing check after")).size(), 1);
     }
 };
 
