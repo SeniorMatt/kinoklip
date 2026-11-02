@@ -45,6 +45,10 @@ inline constexpr char kAnimations[] = "ui/animations";
 /// double: speed factor of those animations (0.5 = twice as long .. 2 = half as long);
 /// default 1.
 inline constexpr char kAnimationSpeed[] = "ui/animationSpeed";
+/// Timeline View Options: video clip pictures, "filmstrip" (default), "headtail" or "none".
+inline constexpr char kTimelineThumbnails[] = "timeline/thumbnails";
+/// Timeline View Options: bool, audio clips draw waveforms (default true).
+inline constexpr char kTimelineWaveforms[] = "timeline/waveforms";
 
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).

@@ -5,11 +5,13 @@
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
+#include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/ChangeSpeedDialog.h"
@@ -21,6 +23,7 @@
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
+#include <QActionGroup>
 #include <QDrag>
 #include <QEvent>
 #include <QInputDialog>
@@ -29,9 +32,12 @@
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QPainter>
+#include <QSettings>
 #include <QSlider>
 #include <QSplitter>
 #include <QToolBar>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -88,6 +94,8 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
         {"timeline.snapping", "timeline.linked_selection", nullptr, nullptr},
         {"edit.split", "mark.add_marker", nullptr, nullptr},
     };
+    m_toolBar->addWidget(makeViewOptionsButton());
+    m_toolBar->addSeparator();
     for (const auto& group : groups) {
         if (!m_toolBar->actions().isEmpty())
             m_toolBar->addSeparator();
@@ -156,6 +164,8 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     });
 
     m_view = new TimelineWidget(ctx, m_controller, m_editorGroup);
+    m_view->setClipThumbnails(m_viewThumbnails);
+    m_view->setShowWaveforms(m_viewWaveforms);
     editorLayout->addWidget(m_view, 1);
     setContentWidget(body);
     // Resolve has no title above its timeline: the name is in the timeline viewer's header
@@ -391,6 +401,83 @@ bool TimelinePanel::eventFilter(QObject* watched, QEvent* event)
     if (event->type() == QEvent::Paint && watched == m_view->viewport())
         syncZoomSlider();
     return PanelFrame::eventFilter(watched, event);
+}
+
+QWidget* TimelinePanel::makeViewOptionsButton()
+{
+    // Resolve's Timeline View Options sit at the left end of the timeline tool bar.
+    auto* button = new QToolButton(m_toolBar);
+    button->setObjectName(QStringLiteral("TimelineViewOptions"));
+    button->setToolTip(tr("Timeline View Options"));
+    button->setFocusPolicy(Qt::NoFocus);
+    button->setPopupMode(QToolButton::InstantPopup);
+    button->setIcon(paletteIcon(QStringLiteral("timeline-view-options"),
+        [](QPainter& p, const QSizeF& size, const QColor& color) {
+            // Three track rows, the middle one with two clips.
+            const double w = size.width();
+            const double h = size.height() / 7.0;
+            p.fillRect(QRectF(w * 0.1, h * 1, w * 0.8, h), color);
+            p.fillRect(QRectF(w * 0.1, h * 3, w * 0.35, h), color);
+            p.fillRect(QRectF(w * 0.55, h * 3, w * 0.35, h), color);
+            p.fillRect(QRectF(w * 0.1, h * 5, w * 0.8, h), color);
+        }));
+    auto* menu = new QMenu(button);
+    menu->setObjectName(QStringLiteral("TimelineViewOptionsMenu"));
+    button->setMenu(menu);
+    // Rebuilt on every show so the checks reflect the view (and the current timeline).
+    connect(menu, &QMenu::aboutToShow, this, [this, menu] { fillViewOptionsMenu(*menu); });
+    // Restore the stored choices.
+    const QSettings settings;
+    const QString mode = settings.value(QLatin1String(prefs::kTimelineThumbnails)).toString();
+    m_viewThumbnails = mode == QLatin1String("headtail") ? ClipThumbnails::HeadTail
+        : mode == QLatin1String("none")                  ? ClipThumbnails::None
+                                                         : ClipThumbnails::Filmstrip;
+    m_viewWaveforms = settings.value(QLatin1String(prefs::kTimelineWaveforms), true).toBool();
+    return button;
+}
+
+void TimelinePanel::fillViewOptionsMenu(QMenu& menu)
+{
+    menu.clear();
+    menu.addSection(tr("Video Clips"));
+    const std::pair<ClipThumbnails, QString> modes[] = {
+        {ClipThumbnails::Filmstrip, tr("Filmstrip")},
+        {ClipThumbnails::HeadTail, tr("Head and Tail Frames")},
+        {ClipThumbnails::None, tr("Clip Name Only")},
+    };
+    auto* group = new QActionGroup(&menu);
+    for (const auto& [mode, text] : modes) {
+        QAction* a = menu.addAction(text, this, [this, m = mode] { setClipThumbnails(m); });
+        a->setCheckable(true);
+        a->setChecked(m_view->clipThumbnails() == mode);
+        group->addAction(a);
+    }
+    menu.addSection(tr("Audio Clips"));
+    QAction* wave
+        = menu.addAction(tr("Show Waveforms"), this, [this](bool on) { setShowWaveforms(on); });
+    wave->setCheckable(true);
+    wave->setChecked(m_view->showWaveforms());
+    menu.addSeparator();
+    m_view->addTrackHeightMenu(menu, TrackRef {TrackType::Video, 0}, true);
+    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.stacked_timelines")))
+        menu.addAction(m_ctx.actions->action(QStringLiteral("view.stacked_timelines")));
+}
+
+void TimelinePanel::setClipThumbnails(ClipThumbnails mode)
+{
+    m_viewThumbnails = mode;
+    m_view->setClipThumbnails(mode);
+    const char* id = mode == ClipThumbnails::HeadTail ? "headtail"
+        : mode == ClipThumbnails::None                ? "none"
+                                                      : "filmstrip";
+    QSettings().setValue(QLatin1String(prefs::kTimelineThumbnails), QLatin1String(id));
+}
+
+void TimelinePanel::setShowWaveforms(bool on)
+{
+    m_viewWaveforms = on;
+    m_view->setShowWaveforms(on);
+    QSettings().setValue(QLatin1String(prefs::kTimelineWaveforms), on);
 }
 
 } // namespace kk

@@ -347,12 +347,14 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         switch (clip.kind) {
         case ClipKind::Media:
         case ClipKind::Nested:
-            if (track.type == TrackType::Video)
-                paintThumbnails(p, in, clip,
-                    QRectF(r.left(), content.top(), r.width(), content.height()), content);
-            else {
+            if (track.type == TrackType::Video) {
+                if (in.thumbnails != ClipThumbnails::None)
+                    paintThumbnails(p, in, clip,
+                        QRectF(r.left(), content.top(), r.width(), content.height()), content);
+            } else {
                 const QRectF full(r.left(), content.top(), r.width(), content.height());
-                paintWaveform(p, in, clip, full, content, base.lighter(165));
+                if (in.waveforms)
+                    paintWaveform(p, in, clip, full, content, base.lighter(165));
                 paintVolumeLine(p, in, clip, r, content);
             }
             break;
@@ -501,24 +503,35 @@ void TimelinePainter::paintThumbnails(QPainter& p, const TimelinePaintInput& in,
 
     p.save();
     p.setClipRect(visible.adjusted(1, 0, -1, 0), Qt::IntersectClip);
+    // One tile at x showing timeline frame @p frame (placeholder until the cache has it).
+    auto drawTile = [&](double x, int64_t frame) {
+        const QRectF tile(x, top, tileW, tileH);
+        QImage image;
+        if (m_thumbnails && (item || clip.kind == ClipKind::Nested))
+            image = m_thumbnails(
+                clipPreviewPath(clip, item), clip.sourceTimeUsAt(frame, in.data->fps), tileH);
+        if (image.isNull())
+            p.fillRect(tile.adjusted(0, 0, -1, 0), placeholder);
+        else
+            p.drawImage(tile, image);
+        p.fillRect(QRectF(x + tileW - 1, top, 1, tileH), separator);
+    };
+    if (in.thumbnails == ClipThumbnails::HeadTail) {
+        // Resolve's "thumbnail" view: the first frame at the head, the last one at the tail
+        // (only the head when the clip is too narrow for both).
+        drawTile(full.left(), clip.start);
+        if (full.width() >= 2 * tileW)
+            drawTile(full.right() - tileW, clip.start + std::max<int64_t>(0, clip.duration - 1));
+        p.restore();
+        return;
+    }
     // Tiles are anchored at the clip start so they do not swim while scrolling.
     const int firstTile = int(std::floor((visible.left() - full.left()) / tileW));
     for (int i = std::max(0, firstTile);; ++i) {
         const double x = full.left() + i * tileW;
         if (x >= visible.right() || x >= full.right())
             break;
-        const QRectF tile(x, top, tileW, tileH);
-        QImage image;
-        if (m_thumbnails && (item || clip.kind == ClipKind::Nested)) {
-            const int64_t frame = clip.start + int64_t((x - full.left()) / L.pixelsPerFrame());
-            image = m_thumbnails(
-                clipPreviewPath(clip, item), clip.sourceTimeUsAt(frame, in.data->fps), tileH);
-        }
-        if (image.isNull())
-            p.fillRect(tile.adjusted(0, 0, -1, 0), placeholder);
-        else
-            p.drawImage(tile, image);
-        p.fillRect(QRectF(x + tileW - 1, top, 1, tileH), separator);
+        drawTile(x, clip.start + int64_t((x - full.left()) / L.pixelsPerFrame()));
     }
     p.restore();
 }
