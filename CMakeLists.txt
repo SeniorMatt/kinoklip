@@ -157,6 +157,3 @@ endif()
 # Writes a project with imported media for those checks (media pool items to drag).
 add_executable(kk_makeproject tests/tools/kk_makeproject.cpp)
 target_link_libraries(kk_makeproject PRIVATE kinoklip_core)
-# Screenshot of a KWin session for those checks (KWin's ScreenShot2 D-Bus API).
-add_executable(kk_kwinshot tests/tools/kk_kwinshot.cpp)
-target_link_libraries(kk_kwinshot PRIVATE Qt6::Gui Qt6::DBus)
