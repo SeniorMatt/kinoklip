@@ -54,7 +54,7 @@ CutOverview::CutOverview(AppContext& ctx, QWidget* parent)
     connect(timeline, &Timeline::changed, this, qOverload<>(&QWidget::update));
     connect(timeline, &Timeline::playheadChanged, this, &CutOverview::onPlayheadChanged);
     m_lastPlayhead = timeline->playhead();
-    // Playhead glide (v2.2, spec 38.10): repaints while the line glides to a clicked frame.
+    // Playhead glide (v2.2, spec 36.10): repaints while the line glides to a clicked frame.
     m_glideTimer.setTimerType(Qt::PreciseTimer);
     m_glideTimer.setInterval(kGlideFrameMs);
     connect(&m_glideTimer, &QTimer::timeout, this, [this] {

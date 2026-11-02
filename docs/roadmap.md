@@ -51,7 +51,7 @@ export, real Breeze look, single-file Linux x86_64 binary. Color page visible bu
 - Preferences > UI Settings > "Animate timeline edits" (on by default) and "Animation speed";
   KDE's global animation speed applies too (instant = off).
 - Ships together with the Cut page (v2.5 work merged before this release), docs/behavior-spec.md
-  section 38.
+  section 36.
 
 ## v2.5 - Cut and Audio pages (owner decision 2026-11-03)
 - **Cut page** (done, basic level): dual timeline, source tape, smart edits, fast review.

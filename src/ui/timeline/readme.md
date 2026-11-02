@@ -26,7 +26,7 @@ for thumbnails and waveforms).
 | `ChangeSpeedDialog.h` | the R dialog: speed / fps / duration linked, reverse, freeze, ripple, pitch correction |
 | `TimelineLayout.h` | pure geometry: frame <-> x, rows, header buttons, clip ranges, hit-testing (unit-tested) |
 | `TimelinePainter.h` | draws ruler, headers, clips, transitions, overlays for one paint event |
-| `TimelineAnimator.h` | display-only tweens (v2.2, spec 38): clips sliding after committed edits, appearing / ghost fade-out, blade and trim flashes, edit point pulse, snap fade, playhead glide |
+| `TimelineAnimator.h` | display-only tweens (v2.2, spec 36): clips sliding after committed edits, appearing / ghost fade-out, blade and trim flashes, edit point pulse, snap fade, playhead glide |
 | `TimelineMedia.h` | thumbnail / waveform provider types and the MediaCache-backed defaults |
 | `KeyframeLanes.h` | per-clip keyframe / curve editor state, lane heights for the layout, lane widget placement, the two toggle buttons on animated clips, keyframe commands and actions |
 | `KeyframeTrackWidget.h` | keyframe editor lane: a `DopeSheetView` (src/ui/keyframes) of one clip with the row labels in the header column |
@@ -206,7 +206,7 @@ scroll in pixels.
 - Benchmark (`test_timelinebench`, 2,000 clips, 1920x600 offscreen): 3.6 to 8.2 ms per full
   repaint from fit-all to max zoom; one live drag update (state copy + move) 3.4 ms.
 
-## Animations (v2.2, TimelineAnimator.h, spec 38)
+## Animations (v2.2, TimelineAnimator.h, spec 36)
 
 Display only: the model and the undo stack change instantly, hit tests use the model.
 - `TimelineWidget::onTimelineChanged()` hands every *committed* change (no open edit, so live
