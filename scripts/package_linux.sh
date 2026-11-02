@@ -334,6 +334,8 @@ done
 if [ -d "$COLOR_SCHEMES_DIR" ] && [ -f "$QT_PLUGINS/styles/breeze6.so" ]; then
     mkdir -p "$APPDIR/usr/share/color-schemes" "$APPDIR/usr/share/icons"
     cp -L "$COLOR_SCHEMES_DIR"/*.colors "$APPDIR/usr/share/color-schemes/"
+    # Kinoklip's own scheme (also compiled into the app for the non-KF6 fallback).
+    cp "$ROOT/resources/color-schemes/Kinoklip.colors" "$APPDIR/usr/share/color-schemes/"
     if [ -f /usr/share/icons/breeze/index.theme ]; then
         tar -C /usr/share/icons --exclude='*.rcc' -cf - breeze | tar -C "$APPDIR/usr/share/icons" -xf -
     fi
