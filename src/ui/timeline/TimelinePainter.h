@@ -90,6 +90,10 @@ struct TimelinePaintInput
     const QVector<CacheBarRange>* cache = nullptr;
     /// Clips showing their retime controls (Ctrl+R); nullptr = none.
     const QSet<quint64>* retimeShown = nullptr;
+    /// Clip under the mouse (its fade handles are shown); 0 = none.
+    quint64 hoverClip = 0;
+    /// Selected keyframes (volume keys on the level lines are drawn selected); may be null.
+    const QVector<KeyframeRef>* selectedKeys = nullptr;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and
@@ -134,8 +138,12 @@ private:
         const QRectF& content, const QRectF& visible);
     void paintWaveform(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
         const QRectF& content, const QRectF& visible, const QColor& color);
+    /// The audio level line with its keys (LevelLines.h); @p clipRect = the whole clip.
     void paintVolumeLine(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
-        const QRectF& full, const QRectF& visible);
+        const QRectF& clipRect, const QRectF& visible);
+    /// The fade wedges and, on the hovered clip, the fade handles.
+    void paintFades(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
+        const QRectF& clipRect, const QRectF& visible);
     /// The speed bar, speed points and handles of a clip with retime controls (RetimeBar.h).
     void paintRetime(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
         const QRectF& rect, const QRectF& visible);

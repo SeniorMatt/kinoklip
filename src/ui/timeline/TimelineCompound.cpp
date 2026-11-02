@@ -2,10 +2,13 @@
 // TimelineController, part 5: timelines (new, duplicate, delete, tabs) and compound clips
 // (new, open, decompose). The work happens in core (Project / CompoundOps); this file adds
 // the questions, the selection handling and the user-facing messages.
+#include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/Timeline.h"
 #include "ui/common/AppContext.h"
 #include "ui/timeline/TimelineController.h"
+#include "ui/timeline/TimelineEditUtil.h"
 
 namespace kk {
 
@@ -187,6 +190,35 @@ void TimelineController::cycleTab(int step)
 bool TimelineController::closeActiveTab()
 {
     return project()->closeTab(project()->activeTimelineUid());
+}
+
+QVector<quint64> TimelineController::copyClipsFrom(
+    quint64 sourceUid, const QVector<quint64>& clipIds, int64_t frame, TrackRef track, bool insert)
+{
+    Project* p = project();
+    const auto source = p->timelineData(sourceUid);
+    if (!source || clipIds.isEmpty() || p->isEditing())
+        return {};
+    // A nested clip showing the destination (directly or through others) cannot go there.
+    const quint64 target = p->activeTimelineUid();
+    QVector<quint64> ids;
+    for (const quint64 id : clipIds) {
+        const ClipData* c = editops::clipById(*source, id);
+        if (c && (c->kind != ClipKind::Nested || p->canNest(c->nestedUid, target)))
+            ids.append(id);
+    }
+    const editops::Clipboard board = editops::copyClips(*source, ids);
+    if (board.isEmpty())
+        return {};
+    QVector<quint64> created;
+    timelineedit::runEdit(p, insert ? tr("Insert Clips") : tr("Copy Clips"), [&](TimelineData& d) {
+        const int index = std::max(0, track.index);
+        created = editops::pasteClips(d, board, std::max<int64_t>(0, frame), index, index, insert);
+        return !created.isEmpty();
+    });
+    if (!created.isEmpty())
+        m_ctx.selection->setClips(created);
+    return created;
 }
 
 } // namespace kk

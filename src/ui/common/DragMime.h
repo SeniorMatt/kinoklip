@@ -18,4 +18,9 @@ inline constexpr char SourceRange[] = "application/x-kinoklip-source-range";
 /// "text_title").
 inline constexpr char Effect[] = "application/x-kinoklip-effect";
 
+/// Clips of one timeline dragged onto another (stacked timelines; always a copy).
+/// Payload: UTF-8 JSON {"timeline": uid, "clips": [clip ids], "grabFrames": int64} where
+/// grabFrames is the distance from the earliest dragged clip's start to the grab point.
+inline constexpr char TimelineClips[] = "application/x-kinoklip-timeline-clips";
+
 } // namespace kk::mime
