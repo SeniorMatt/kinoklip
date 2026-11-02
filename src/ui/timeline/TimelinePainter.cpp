@@ -482,9 +482,13 @@ void TimelinePainter::paintRetime(QPainter& p, const TimelinePaintInput& in, con
         const QRectF shown = f.rect.intersected(visible);
         const QString text
             = f.segment.isFreeze() ? qtr("Freeze 0%") : retime::formatPercent(f.segment.speed);
-        if (shown.width() > fm.horizontalAdvance(text) + retimebar::kArrowWidth + 8) {
+        if (shown.width() > fm.horizontalAdvance(text) + retimebar::kArrowWidth + 12) {
             p.setPen(QColor(0xf2, 0xf2, 0xf4));
-            p.drawText(shown.adjusted(4, 0, -retimebar::kArrowWidth - 2, 0),
+            // Clear of a speed point's handle at the field start.
+            const double inset = f.segment.startKey >= 0 && f.segment.startLocal > 0
+                ? retimebar::kHandleHalfWidth + 3
+                : 4;
+            p.drawText(shown.adjusted(inset, 0, -retimebar::kArrowWidth - 2, 0),
                 Qt::AlignVCenter | Qt::AlignLeft, text);
         }
         if (f.arrow.width() >= 6) {

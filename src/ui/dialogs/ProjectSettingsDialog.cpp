@@ -17,6 +17,8 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace kk {
 
 namespace {
@@ -250,6 +252,18 @@ QWidget* ProjectSettingsDialog::buildMaster()
     m_warning->setPalette(warn);
     layout->addWidget(m_warning);
 
+    layout->addWidget(subHeading(tr("Frame Interpolation")));
+    auto* interpolation = makeForm();
+    m_retimeProcess = new QComboBox;
+    m_retimeProcess->setObjectName(QStringLiteral("RetimeProcess"));
+    m_retimeProcess->addItem(tr("Nearest"), int(RetimeProcess::Nearest));
+    m_retimeProcess->addItem(tr("Frame Blend"), int(RetimeProcess::FrameBlend));
+    m_retimeProcess->addItem(tr("Optical Flow"), int(RetimeProcess::OpticalFlow));
+    m_retimeProcess->setToolTip(tr("How clips playing at another speed make the frames between "
+                                   "two source frames, unless a clip chooses its own."));
+    interpolation->addRow(tr("Retime process"), m_retimeProcess);
+    layout->addWidget(formWidget(interpolation));
+
     layout->addWidget(subHeading(tr("Video Monitoring")));
     auto* monitoring = makeForm();
     const QString noDevice = tr("Output to video capture and playback devices is coming in a "
@@ -337,6 +351,7 @@ ProjectSettings ProjectSettingsDialog::settings() const
     s.height = m_height->value();
     const QPoint fps = m_fps->currentData().toPoint();
     s.fps = Rational {fps.x(), fps.y()};
+    s.retimeProcess = RetimeProcess(m_retimeProcess->currentData().toInt());
     return s;
 }
 
@@ -361,6 +376,8 @@ void ProjectSettingsDialog::setSettings(const ProjectSettings& settings)
     }
     m_fps->setCurrentIndex(fpsIndex);
     m_playbackFps->setItemText(0, m_fps->currentText());
+    const int process = m_retimeProcess->findData(int(settings.retimeProcess));
+    m_retimeProcess->setCurrentIndex(std::max(0, process));
     updateWarning();
 }
 
