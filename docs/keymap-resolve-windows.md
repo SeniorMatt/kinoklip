@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 174 commands; sure 94, likely 47, unsure 33.
+Counts: 180 commands; sure 94, likely 47, unsure 39.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -166,6 +166,11 @@ that every command has an entry and that no key is used twice.
 | Link / Unlink Clips | `clip.link` | `Ctrl+Alt+L` | likely | Resolve has one toggle; Kinoklip's Link toggles too. |
 | Unlink Clips | `clip.unlink` | (none) | likely |  |
 | Add Keyframe (inspector) | `clip.add_keyframe` | `Alt+K` | unsure | toggles a key on the last touched inspector parameter; Resolve default not confirmed |
+| Add Rectangle Mask | `mask.add_rectangle` | (none) | unsure | Clip > Add Mask; no Resolve default key known, none assigned. In the viewer, editing keys (Delete, Backspace, Enter, Esc) act on the active mask while the viewer has focus. |
+| Add Ellipse Mask | `mask.add_ellipse` | (none) | unsure | no default key known |
+| Add Polygon Mask (click points in the viewer) | `mask.add_polygon` | (none) | unsure | no default key known |
+| Add Bezier Mask (pen: click corners, drag smooth points) | `mask.add_bezier` | (none) | unsure | no default key known |
+| Add Freehand Mask (draw in the viewer) | `mask.add_freehand` | (none) | unsure | no default key known |
 | Previous Keyframe | `clip.prev_keyframe` | `[` | likely |  |
 | Next Keyframe | `clip.next_keyframe` | `]` | likely |  |
 | Delete Keyframes | `clip.delete_keyframe` | (none) | unsure | no known default; Delete / Backspace act on selected keys while the keyframe or curve editor has focus |
@@ -212,6 +217,7 @@ that every command has an entry and that no key is used twice.
 | Single Viewer Mode | `view.single_viewer` | (none) | unsure |  |
 | Toggle Source / Timeline Viewer | `view.toggle_source_timeline` | `Q` | sure |  |
 | Viewer Full Screen | `view.fullscreen_viewer` | `Ctrl+F` | likely |  |
+| On-Screen Mask Controls (viewer on-screen controls: Mask) | `view.onscreen_masks` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
 | Full Screen Window | `view.fullscreen` | `Ctrl+Shift+F` | unsure |  |
 
 ## Playback and navigation

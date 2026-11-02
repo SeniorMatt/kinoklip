@@ -11,12 +11,14 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
+#include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
+#include "ui/inspector/ParamGroupBox.h"
 #include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/KeyframeLanes.h"
@@ -25,6 +27,7 @@
 #include "ui/timeline/TimelineWidget.h"
 #include "ui/viewer/ViewerPanel.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QElapsedTimer>
 #include <QMenu>
@@ -32,8 +35,10 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QScreen>
+#include <QTabWidget>
 #include <QTimer>
 
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 
@@ -281,6 +286,49 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
                 w->scrollToFrame(double(range->first) - 60);
             });
         }
+    } else if (base == QLatin1String("masks")) {
+        // The first video clip with masks, its first mask active (on-screen controls shown)
+        // and the Inspector scrolled to the Masks section. "masks:inspector" / "masks:viewer"
+        // save only that panel.
+        const ClipData* masked = nullptr;
+        for (const TrackData& track : ctx.project->timeline()->data().videoTracks) {
+            for (const ClipData& c : track.clips) {
+                if (!masked && !c.masks.isEmpty())
+                    masked = &c;
+            }
+        }
+        if (!masked) {
+            std::fprintf(stderr, "masks: needs a project with a masked video clip\n");
+            return 2;
+        }
+        const int64_t playhead = ctx.project->timeline()->playhead();
+        if (!masked->contains(playhead))
+            ctx.project->timeline()->setPlayhead(masked->start);
+        ctx.selection->selectClip(masked->id);
+        const int activeIndex = std::clamp(
+            qEnvironmentVariableIntValue("KK_SCREENSHOT_MASK"), 0, int(masked->masks.size()) - 1);
+        ctx.selection->setActiveMask(masked->masks[activeIndex].id);
+        if (ctx.actions->contains(QStringLiteral("view.onscreen_masks")))
+            ctx.actions->action(QStringLiteral("view.onscreen_masks"))->setChecked(true);
+        auto* inspector = window.findChild<InspectorPanel*>();
+        if (inspector) {
+            inspector->tabs()->setCurrentIndex(InspectorPanel::VideoTab);
+            QTimer::singleShot(0, inspector, [inspector] {
+                // Collapse Transform and Cropping so the Masks section is in view.
+                for (ParamGroupBox* g : inspector->groups()) {
+                    if (!g->objectName().startsWith(QLatin1String("mask")))
+                        g->setCollapsed(true);
+                }
+            });
+        }
+        if (section == QLatin1String("inspector"))
+            panel = inspector;
+        else if (section == QLatin1String("viewer")) {
+            for (ViewerPanel* viewer : ViewerPanel::allViewers()) {
+                if (viewer->mode() == ViewerPanel::Mode::Timeline && viewer->isVisible())
+                    panel = viewer;
+            }
+        }
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
     } else if (target == QLatin1String("effects")) {
@@ -293,7 +341,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         std::fprintf(stderr,
             "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
             "project-settings[:section], keyboard, inspector, keyframes[:curves|narrow], "
-            "keyframes-window, "
+            "keyframes-window, masks[:inspector|viewer], "
             "keyframes-panel[:dope|curves|absolute|float], "
             "mediapool, "
             "effects, import-dialog, menu-color-theme "

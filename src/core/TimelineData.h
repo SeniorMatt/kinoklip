@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/Animation.h"
+#include "core/Mask.h"
 #include "core/Rational.h"
 
 #include <QColor>
@@ -133,6 +134,9 @@ struct ClipData
     ParamSet title; ///< Title clips only: see the title keys in core/ParamKeys.h
     QColor solidColor; ///< Solid clips only
     QVector<EffectInstance> effects; ///< applied in order
+    /// Shape masks, evaluated in order on the clip's picture (after the effects, before the
+    /// transform); see core/Mask.h. Ids share the timeline's id space.
+    QVector<MaskData> masks;
     std::optional<TransitionData> transitionIn;
     std::optional<TransitionData> transitionOut;
     /// Clip markers, sorted by frame; clip-local frames (frame - start), may lie outside the

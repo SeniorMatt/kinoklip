@@ -7,6 +7,7 @@
 #include "render/DecoderPool.h"
 #include "render/GlEffects.h"
 #include "render/GlKit.h"
+#include "render/GlMasks.h"
 #include "render/GlOutput.h"
 #include "render/GlRetime.h"
 #include "render/GlTransitions.h"
@@ -133,6 +134,7 @@ private:
     std::unique_ptr<GlKit> m_kit;
     std::unique_ptr<GlOutput> m_output;
     GlVideo m_video;
+    GlMasks m_masks; ///< clip mask pass (applied on the layer path)
     GlRetime m_retime;
     bool m_retimeOk = false; ///< retime shaders built (else every clip uses Nearest)
     std::vector<PooledTarget> m_retimeTargets; ///< per-frame in-between pictures

@@ -138,6 +138,20 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
             this, [this] { goToKeyframe(false); });
         connect(ctx.actions->action(QStringLiteral("clip.next_keyframe")), &QAction::triggered,
             this, [this] { goToKeyframe(true); });
+        // Clip > Add Mask: a mask on the clip the Inspector shows (video clips only).
+        const std::pair<const char*, MaskShape> maskActions[]
+            = {{"mask.add_rectangle", MaskShape::Rectangle},
+                {"mask.add_ellipse", MaskShape::Ellipse}, {"mask.add_polygon", MaskShape::Polygon},
+                {"mask.add_bezier", MaskShape::Bezier}, {"mask.add_freehand", MaskShape::Freehand}};
+        for (const auto& [id, shape] : maskActions) {
+            if (!ctx.actions->contains(QLatin1String(id)))
+                continue;
+            connect(ctx.actions->action(QLatin1String(id)), &QAction::triggered, this,
+                [this, shape = shape] {
+                    if (m_structure.onVideoTrack)
+                        addMask(shape);
+                });
+        }
     }
     if (ctx.selection) {
         connect(ctx.selection, &SelectionModel::changed, this, [this] {
@@ -157,6 +171,11 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     connect(timeline, &Timeline::changed, this, &InspectorPanel::onTimelineChanged);
     connect(timeline, &Timeline::playheadChanged, this, &InspectorPanel::refreshValues);
     connect(ctx.project, &Project::projectReset, this, [this] { showClip(0); });
+    if (ctx.selection) {
+        // The mask groups' "edit in the viewer" buttons follow the active mask.
+        connect(ctx.selection, &SelectionModel::activeMaskChanged, this,
+            &InspectorPanel::refreshValues);
+    }
 
     rebuild();
 }
@@ -369,6 +388,9 @@ InspectorPanel::Structure InspectorPanel::computeStructure(quint64 clipId) const
     s.effectIds.reserve(c.effects.size());
     for (const EffectInstance& fx : c.effects)
         s.effectIds.append(fx.id);
+    s.maskIds.reserve(c.masks.size());
+    for (const MaskData& m : c.masks)
+        s.maskIds.append(m.id);
     s.transitionIn = c.transitionIn ? c.transitionIn->type : QString();
     s.transitionOut = c.transitionOut ? c.transitionOut->type : QString();
     if (!s.onVideoTrack) {
@@ -556,6 +578,7 @@ void InspectorPanel::rebuild()
                 if (const EffectDescriptor* d = registry.find(QLatin1String(id)))
                     addDescriptorGroup(VideoTab, *d, ParamScope::Transform, m_clipId);
             }
+            buildMasksSection(*c);
         } else {
             addPlaceholder(VideoTab, tr("Audio clips have no video properties."));
         }

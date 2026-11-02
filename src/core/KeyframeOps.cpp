@@ -24,6 +24,21 @@ const QString kAudio = QStringLiteral("audio");
 const QString kTitle = QStringLiteral("title");
 const QString kEffect = QStringLiteral("effect");
 const QString kRetime = QStringLiteral("retime");
+const QString kMask = QStringLiteral("mask");
+
+// Parses "<head>/<id>/<key>" (effect and mask paths). Returns false for malformed paths.
+bool splitIdPath(const QString& path, qsizetype slash, quint64* id, QString* key)
+{
+    const qsizetype slash2 = path.indexOf(QLatin1Char('/'), slash + 1);
+    if (slash2 < 0)
+        return false;
+    bool ok = false;
+    *id = QStringView(path).mid(slash + 1, slash2 - slash - 1).toULongLong(&ok);
+    if (!ok)
+        return false;
+    *key = path.mid(slash2 + 1);
+    return true;
+}
 
 // Splits a path into the ParamSet it lives in and the key inside it. Returns nullptr for
 // unknown paths. Template so the const and mutable lookups share one implementation.
@@ -34,6 +49,16 @@ auto resolveSet(Clip& clip, const QString& path, QString* key) -> decltype(&clip
     if (slash <= 0)
         return nullptr;
     const QStringView head = QStringView(path).left(slash);
+    if (head == kMask) {
+        quint64 id = 0;
+        if (!splitIdPath(path, slash, &id, key) || *key == maskkeys::Shape)
+            return nullptr; // the shape is not in a ParamSet (see findValue)
+        for (auto& mask : clip.masks) {
+            if (mask.id == id)
+                return &mask.params;
+        }
+        return nullptr;
+    }
     if (head == kEffect) {
         const qsizetype slash2 = path.indexOf(QLatin1Char('/'), slash + 1);
         if (slash2 < 0)
@@ -65,6 +90,8 @@ auto resolveSet(Clip& clip, const QString& path, QString* key) -> decltype(&clip
 // Default base value of a parameter created by a paste.
 double defaultBase(const ClipData& clip, const QString& path, const QString& key)
 {
+    if (path.startsWith(kMask))
+        return maskkeys::defaultValue(key);
     if (path.startsWith(kEffect)) {
         for (const EffectInstance& fx : clip.effects) {
             if (path.startsWith(effectPath(fx.id, QString()))) {
@@ -117,9 +144,44 @@ void forEachValue(const ClipData& clip, F&& fn)
     visit(clip.transform, kTransform + QLatin1Char('/'));
     visit(clip.title, kTitle + QLatin1Char('/'));
     visit(clip.audio, kAudio + QLatin1Char('/'));
+    for (const MaskData& mask : clip.masks) {
+        visit(mask.params, maskPath(mask.id, QString()));
+        fn(maskPath(mask.id, maskkeys::Shape), mask.path.timing);
+    }
     for (const EffectInstance& fx : clip.effects)
         visit(fx.params, effectPath(fx.id, QString()));
     visit(clip.retime, kRetime + QLatin1Char('/'));
+}
+
+// The animated shape addressed by a "mask/<id>/shape" path, or nullptr.
+template<typename Clip>
+auto resolveShape(Clip& clip, const QString& path) -> decltype(&clip.masks[0].path)
+{
+    if (!path.startsWith(kMask))
+        return nullptr;
+    const qsizetype slash = path.indexOf(QLatin1Char('/'));
+    quint64 id = 0;
+    QString key;
+    if (slash != kMask.size() || !splitIdPath(path, slash, &id, &key) || key != maskkeys::Shape)
+        return nullptr;
+    for (auto& mask : clip.masks) {
+        if (mask.id == id)
+            return &mask.path;
+    }
+    return nullptr;
+}
+
+// Restores the AnimatedPath invariant of every shape in @p refs after their timing changed.
+void normalizeShapes(TimelineData& data, const QVector<KeyframeRef>& refs)
+{
+    for (const KeyframeRef& r : refs) {
+        if (!isShapePath(r.paramPath))
+            continue;
+        if (ClipData* clip = editops::clipById(data, r.clipId)) {
+            if (AnimatedPath* p = resolveShape(*clip, r.paramPath))
+                p->normalize();
+        }
+    }
 }
 
 } // namespace
@@ -136,8 +198,38 @@ QString effectPath(quint64 effectId, const QString& key)
     return kEffect + QLatin1Char('/') + QString::number(effectId) + QLatin1Char('/') + key;
 }
 
+QString maskPath(quint64 maskId, const QString& key)
+{
+    return kMask + QLatin1Char('/') + QString::number(maskId) + QLatin1Char('/') + key;
+}
+
+bool isShapePath(const QString& path)
+{
+    return path.startsWith(kMask) && path.endsWith(QLatin1Char('/') + maskkeys::Shape);
+}
+
+const MaskData* findMask(const ClipData& clip, quint64 maskId)
+{
+    for (const MaskData& m : clip.masks) {
+        if (m.id == maskId)
+            return &m;
+    }
+    return nullptr;
+}
+
+MaskData* findMask(ClipData& clip, quint64 maskId)
+{
+    for (MaskData& m : clip.masks) {
+        if (m.id == maskId)
+            return &m;
+    }
+    return nullptr;
+}
+
 const AnimatedValue* findValue(const ClipData& clip, const QString& path)
 {
+    if (const AnimatedPath* shape = resolveShape(clip, path))
+        return &shape->timing;
     QString key;
     const ParamSet* set = resolveSet(clip, path, &key);
     if (!set)
@@ -148,6 +240,8 @@ const AnimatedValue* findValue(const ClipData& clip, const QString& path)
 
 AnimatedValue* findValue(ClipData& clip, const QString& path)
 {
+    if (AnimatedPath* shape = resolveShape(clip, path))
+        return &shape->timing;
     QString key;
     ParamSet* set = resolveSet(clip, path, &key);
     if (!set)
@@ -168,6 +262,33 @@ QVector<AnimatedParam> animatedParams(const ClipData& clip)
             reg.find(QString::fromLatin1(groups::Transform)), false);
         appendGroup(out, listed, clip.transform, prefix, QString::fromLatin1(groups::Cropping),
             reg.find(QString::fromLatin1(groups::Cropping)), true);
+    }
+    if (std::any_of(clip.masks.cbegin(), clip.masks.cend(),
+            [](const MaskData& m) { return m.isAnimated(); })) {
+        // One "Masks" group; the labels name the mask because several masks share keys.
+        const QString groupId = QStringLiteral("builtin.masks");
+        const EffectDescriptor* desc = reg.find(QStringLiteral("builtin.mask"));
+        const QString groupName = desc ? desc->name : QStringLiteral("Masks");
+        for (int i = 0; i < clip.masks.size(); ++i) {
+            const MaskData& mask = clip.masks[i];
+            if (!mask.isAnimated())
+                continue;
+            const QString name = maskDisplayName(mask, i);
+            QVector<AnimatedParam> part;
+            QSet<QString> listed;
+            appendGroup(
+                part, listed, mask.params, maskPath(mask.id, QString()), groupId, desc, true);
+            if (mask.path.isAnimated()) {
+                part.append({maskPath(mask.id, maskkeys::Shape), groupId, groupName,
+                    QCoreApplication::translate("kk::KeyframeOps", "Shape"), 0.0,
+                    double(std::max<qsizetype>(1, mask.path.timing.keys.size() - 1))});
+            }
+            for (AnimatedParam& p : part) {
+                p.groupName = groupName;
+                p.label = name + QStringLiteral(": ") + p.label;
+                out.append(p);
+            }
+        }
     }
     if (clip.title.isAnimated()) {
         QSet<QString> listed;
@@ -328,6 +449,7 @@ QVector<KeyframeRef> moveKeys(
         if (m)
             out.append(*m);
     }
+    normalizeShapes(data, out); // moved shape keys may have changed their order
     return out;
 }
 
@@ -352,8 +474,14 @@ int forEachKey(TimelineData& data, const QVector<KeyframeRef>& refs, F&& fn)
 
 int offsetKeyValues(TimelineData& data, const QVector<KeyframeRef>& refs, double deltaValue)
 {
-    return forEachKey(
-        data, refs, [&](AnimatedValue& v, qsizetype i) { v.keys[i].value += deltaValue; });
+    int n = 0;
+    for (const KeyframeRef& r : refs) {
+        if (isShapePath(r.paramPath))
+            continue; // shape key values are shape indices
+        n += forEachKey(
+            data, {r}, [&](AnimatedValue& v, qsizetype i) { v.keys[i].value += deltaValue; });
+    }
+    return n;
 }
 
 int deleteKeys(TimelineData& data, const QVector<KeyframeRef>& refs)
@@ -367,6 +495,7 @@ int deleteKeys(TimelineData& data, const QVector<KeyframeRef>& refs)
             ++n;
         }
     }
+    normalizeShapes(data, refs);
     return n;
 }
 
@@ -432,8 +561,12 @@ KeyClipboard copyKeys(const TimelineData& data, const QVector<KeyframeRef>& refs
     for (const KeyframeRef& r : refs) {
         const AnimatedValue* value = r.clipId == clipId ? findValue(*clip, r.paramPath) : nullptr;
         const qsizetype idx = value ? value->indexOf(r.frame) : -1;
-        if (idx >= 0)
-            board.entries.append({r.paramPath, r.frame - first, value->keys[idx]});
+        if (idx < 0)
+            continue;
+        KeyClipboard::Entry entry {r.paramPath, r.frame - first, value->keys[idx], {}};
+        if (const AnimatedPath* shape = resolveShape(*clip, r.paramPath))
+            entry.shape = shape->shapes.value(idx);
+        board.entries.append(entry);
     }
     return board;
 }
@@ -446,6 +579,23 @@ QVector<KeyframeRef> pasteKeys(
     if (!clip)
         return out;
     for (const KeyClipboard::Entry& e : board.entries) {
+        if (isShapePath(e.path)) {
+            AnimatedPath* shape = resolveShape(*clip, e.path);
+            if (!shape || (shape->pointCount() != e.shape.size() && shape->pointCount() != 0))
+                continue; // another mask, or a different number of points
+            const int64_t frame = localFrame + e.offset;
+            shape->setKey(frame, e.shape);
+            const qsizetype idx = shape->timing.indexOf(frame);
+            if (idx >= 0) {
+                // Keep the copied easing (setKey gave the new key the default preset).
+                Keyframe& k = shape->timing.keys[idx];
+                k.in = e.key.in;
+                k.out = e.key.out;
+                k.hold = e.key.hold;
+            }
+            out.append({clipId, e.path, frame});
+            continue;
+        }
         QString key;
         ParamSet* set = resolveSet(*clip, e.path, &key);
         if (!set || key.isEmpty())
