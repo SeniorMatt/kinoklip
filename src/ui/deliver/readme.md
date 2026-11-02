@@ -4,14 +4,16 @@ Owned by the export work. Depends on `src/export` (settings, presets, render que
 (preview Compositor), `ui/common`, `ui/viewer`.
 
 ```
-┌ Render Settings ───────┬──────── Timeline viewer ────────┬ Render Queue ──────────┐
-│ [preset strip ........]│                                 │ ┌ job card ──────────┐ │
-│ [Video][Audio][File]   │   frame under the playhead      │ │ name  [x][dir][-]  │ │
-│  Format / Codec /      │   (preview Compositor while no  │ │ file · size · N fr │ │
-│  Encoder / Profile /   │    PlaybackEngine drives it)    │ │ ███████░░  42% ETA │ │
-│  Resolution / Quality  │                                 │ └────────────────────┘ │
-│ Render: (o)Entire ( )In/Out                              │                        │
-│ [Add to Render Queue]  │                                 │ [Render All][Stop][Clear]
+┌ Render Settings ───(…)─┬──────── Timeline viewer ────────┬ Render Queue ──────────┐
+│ ‹ [tile][tile][tile] › │                                 │ ┌ job card ──────────┐ │
+│ YouTube 1080p          │   frame under the playhead      │ │ name  [x][dir][-]  │ │
+│ Filename [_________]   │   (preview Compositor while no  │ │ file · size · N fr │ │
+│ Location [_____][Browse]   PlaybackEngine drives it)    │ │ ███████░░  42% ETA │ │
+│ Render (o)Single ( )Individual (disabled)                │ └────────────────────┘ │
+│ [Video][Audio][File]   │                                 │                        │
+│  Format / Codec / Encoder / Profile / Resolution / Frame │                        │
+│  rate / Quality / Speed / Key frames / Reordering / tags │                        │
+│ Render [Entire ▾] [Add to Render Queue]                  │ [Render All][Stop][Clear]
 ├────────────────────────┴─────────────────────────────────┴────────────────────────┤
 │ mini timeline: lanes per track, render range highlighted, playhead (click/drag)   │
 └───────────────────────────────────────────────────────────────────────────────────┘
@@ -20,7 +22,8 @@ Owned by the export work. Depends on `src/export` (settings, presets, render que
 | File | What |
 |---|---|
 | `DeliverPage.*` | the page (`kk::Page`, id `deliver`): splitters, owns `ExportPresets` + `RenderQueue`, debounced playhead preview through its own `Compositor` (one request in flight, rendered at the viewer size), hardware encoder detection on first show (worker thread), "Add to Render Queue" with overwrite confirmation |
-| `RenderSettingsPanel.*` | preset strip (built-in + user presets, title-bar menu to save/delete user presets), Video / Audio / File tabs, render range; a view of one `ExportSettings` that is normalised after every change so invalid combinations cannot be chosen |
+| `RenderSettingsPanel.*` | Resolve's Render Settings: preset row, filename + location, single / individual clips, Video / Audio / File tabs, render range; a view of one `ExportSettings` that is normalised after every change so invalid combinations cannot be chosen |
+| `RenderPresetRow.*` | the preset tiles (icon over a two-line name, elided with a tooltip), scrolled with arrow buttons instead of a scroll bar |
 | `RenderQueuePanel.*` | one card per job (status, progress bar, fps, ETA, cancel, reveal output folder, remove), Render All / Stop / Clear Finished |
 | `RenderRangeBar.*` | mini timeline (clips per track, range, playhead; click/drag seeks) |
 
@@ -30,6 +33,16 @@ Behaviour notes:
 * Applying a preset keeps the file name, location and render range.
 * Frame rate is always the timeline rate (no retiming); resolution is timeline, a standard
   size or custom.
+* Quality is Resolve's "Automatic [Best / High / Medium / Low / Custom]" or "Restrict to N
+  Kb/s"; the levels map to per-codec CRF / CQ values (`RenderSettingsPanel::qualityValue()`).
+* Key frames (automatic = every 2 s, or every N frames) and frame reordering (B-frames) go to
+  `VideoExportSettings::keyframeInterval` / `frameReordering`.
+* Disabled with a tooltip because the engine does not support them yet: individual clips,
+  frame rate (always the timeline's), data levels, colour space / gamma tags (Rec.709),
+  output channels (stereo), encoding profile for H.264 / H.265 / AV1 (chosen by the encoder).
+* File tab: filename from a custom name or the timeline name, subfolder, unique filenames
+  (`_1`, `_2` ...). Remembered in QSettings `deliver/fileNameUsesTimeline`, `deliver/useSubfolder`,
+  `deliver/subfolder`, `deliver/uniqueFileNames`.
 * The Encoder combo marks hardware backends that were not detected "(not available)"; picking
   one anyway falls back to software at render time.
 
