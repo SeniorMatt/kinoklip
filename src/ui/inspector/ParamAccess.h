@@ -22,7 +22,11 @@ enum class ParamScope {
     SolidColor, ///< ClipData::solidColor (Solid clips; the single "color" static)
     Effect, ///< ClipData::effects[i].params, i found by ParamRef::effectId
     TransitionIn, ///< ClipData::transitionIn->params (+ the synthetic duration key)
-    TransitionOut ///< ClipData::transitionOut->params (+ the synthetic duration key)
+    TransitionOut, ///< ClipData::transitionOut->params (+ the synthetic duration key)
+    Mask ///< ClipData::masks[i].params, i found by ParamRef::effectId (= MaskData::id);
+         ///< the statics maskkeys::Mode / Invert map to MaskData::mode / invert, and the key
+         ///< maskkeys::Shape to the animated path (animated() = its timing; toggleKey() and
+         ///< setKeyInterp() edit shape keys; setScalar() ignores it)
 };
 
 /// Full address of one parameter: clip, storage, effect instance (Effect scope) and key.
@@ -30,7 +34,7 @@ struct ParamRef
 {
     quint64 clipId = 0;
     ParamScope scope = ParamScope::Transform;
-    quint64 effectId = 0; ///< EffectInstance::id for ParamScope::Effect, else 0
+    quint64 effectId = 0; ///< EffectInstance::id (Effect scope) or MaskData::id (Mask), else 0
     QString key;
 
     friend bool operator==(const ParamRef&, const ParamRef&) = default;
@@ -55,6 +59,10 @@ inline const QString kTransitionDuration = QStringLiteral("@duration");
 [[nodiscard]] const EffectInstance* effect(const ClipData& clip, quint64 effectId);
 /// Mutable overload of effect().
 [[nodiscard]] EffectInstance* effect(ClipData& clip, quint64 effectId);
+/// The mask addressed by a Mask-scope ref (MaskData::id @p maskId), or nullptr.
+[[nodiscard]] const MaskData* mask(const ClipData& clip, quint64 maskId);
+/// Mutable overload of mask().
+[[nodiscard]] MaskData* mask(ClipData& clip, quint64 maskId);
 /// The transition of a TransitionIn/TransitionOut scope, or nullptr.
 [[nodiscard]] const TransitionData* transition(const ClipData& clip, ParamScope scope);
 /// Mutable overload of transition().

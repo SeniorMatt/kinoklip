@@ -56,6 +56,43 @@ QPainterPath glyphPath(InspectorGlyph glyph)
         path.moveTo(3.5, 8);
         path.lineTo(12.5, 8);
         break;
+    case InspectorGlyph::MaskRectangle:
+        path.addRect(QRectF(2.5, 4.0, 11, 8));
+        break;
+    case InspectorGlyph::MaskEllipse:
+        path.addEllipse(QRectF(2.0, 3.5, 12, 9));
+        break;
+    case InspectorGlyph::MaskPolygon:
+        path.moveTo(8, 2.5);
+        path.lineTo(13.5, 6.5);
+        path.lineTo(11.5, 13);
+        path.lineTo(4.5, 13);
+        path.lineTo(2.5, 6.5);
+        path.closeSubpath();
+        break;
+    case InspectorGlyph::MaskBezier:
+        path.moveTo(2.5, 12.5);
+        path.cubicTo(4, 3, 10, 3, 13.5, 11);
+        path.moveTo(5.5, 3.5); // tangent handle through the curve's top
+        path.lineTo(11.5, 3.5);
+        path.addEllipse(QRectF(7.0, 2.5, 2, 2));
+        break;
+    case InspectorGlyph::MaskFreehand:
+        path.moveTo(4, 11);
+        path.cubicTo(1, 6, 6, 1, 10, 3.5);
+        path.cubicTo(15, 6, 12, 13, 8, 12);
+        path.cubicTo(6, 11.5, 7, 9, 9, 9.5);
+        break;
+    case InspectorGlyph::EditOnScreen:
+        path.moveTo(3, 13);
+        path.lineTo(4, 9.5);
+        path.lineTo(10.5, 3);
+        path.lineTo(13, 5.5);
+        path.lineTo(6.5, 12);
+        path.closeSubpath();
+        path.moveTo(9, 4.5);
+        path.lineTo(11.5, 7);
+        break;
     }
     return path;
 }

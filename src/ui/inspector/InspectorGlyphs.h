@@ -15,7 +15,13 @@ enum class InspectorGlyph {
     MoveDown, ///< chevron pointing down
     Add, ///< a plus
     Expanded, ///< chevron pointing down (group open)
-    Collapsed ///< chevron pointing right (group closed)
+    Collapsed, ///< chevron pointing right (group closed)
+    MaskRectangle, ///< a rectangle outline (add rectangle mask)
+    MaskEllipse, ///< an ellipse outline
+    MaskPolygon, ///< a pentagon with corner dots
+    MaskBezier, ///< a curve with one tangent handle
+    MaskFreehand, ///< a loose closed scribble
+    EditOnScreen ///< a pen nib (show the mask's on-screen controls)
 };
 
 /// Icon for @p glyph tinted with the application palette's WindowText colour (disabled mode

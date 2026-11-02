@@ -138,6 +138,14 @@ const ActionSpec kActions[] = {
     {"clip", "clip.paste_keyframes",  QT_TRANSLATE_NOOP("kk::StandardActions", "Paste Key&frames")},
     {"clip", "clip.toggle_keyframe_editor", QT_TRANSLATE_NOOP("kk::StandardActions", "Show Keyframe &Editor"), "keyframe_editor"},
     {"clip", "clip.toggle_curve_editor", QT_TRANSLATE_NOOP("kk::StandardActions", "Show C&urve Editor"), "curve_editor"},
+    {"clip", "-"},
+    // Masks of the current clip (src/ui/inspector/InspectorMasks.cpp; drawn in the viewer).
+    {"clip", ">clip.masks",           QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Mask")},
+    {"clip.masks", "mask.add_rectangle", QT_TRANSLATE_NOOP("kk::StandardActions", "&Rectangle Mask")},
+    {"clip.masks", "mask.add_ellipse",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Ellipse Mask")},
+    {"clip.masks", "mask.add_polygon",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Polygon Mask")},
+    {"clip.masks", "mask.add_bezier",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Bezier Mask")},
+    {"clip.masks", "mask.add_freehand",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Freehand Mask")},
 
     // ---- Mark ----
     {"mark", "mark.in",               QT_TRANSLATE_NOOP("kk::StandardActions", "Mark &In"), "mark_in"},
@@ -176,6 +184,7 @@ const ActionSpec kActions[] = {
     {"view", "view.single_viewer",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Single Viewer Mode"), "single_viewer", true},
     {"view", "view.toggle_source_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Source / Timeline Viewer")},
     {"view", "view.fullscreen_viewer", QT_TRANSLATE_NOOP("kk::StandardActions", "Full-Screen &Viewer"), "fullscreen"},
+    {"view", "view.onscreen_masks",   QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Mask Controls"), "", true},
     {"view", "view.fullscreen",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen"), "", true},
 
     // ---- Playback ----

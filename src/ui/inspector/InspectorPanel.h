@@ -27,7 +27,8 @@ struct AppContext;
 /// Shows and edits the current clip (SelectionModel::currentClip()).
 ///
 /// Layout: a header (clip name, "N clips selected") above five tabs. Every section is a
-/// ParamGroupBox whose rows come from a descriptor: Transform / Cropping / Audio groups
+/// ParamGroupBox whose rows come from a descriptor: Transform / Cropping / Masks (one group per
+/// mask, InspectorMasks.cpp) / Audio groups
 /// (EffectCategory::ClipProperties), one group per effect instance, the title parameters and
 /// the head/tail transitions. Adding a descriptor to the registry is enough for it to appear.
 ///
@@ -102,6 +103,7 @@ private:
         ClipKind kind = ClipKind::Media;
         bool onVideoTrack = true;
         QVector<quint64> effectIds; ///< in order
+        QVector<quint64> maskIds; ///< in order (a mask's shape type never changes)
         QString transitionIn; ///< type, empty = none
         QString transitionOut;
 
@@ -143,6 +145,11 @@ private:
     void addTransitionGroup(const ClipData& clip, bool atHead);
     void moveEffect(quint64 effectId, int delta);
     void removeEffect(quint64 effectId);
+    // ---- Masks section (InspectorMasks.cpp) ----
+    void buildMasksSection(const ClipData& clip);
+    void addMask(MaskShape shape);
+    void moveMask(quint64 maskId, int delta);
+    void removeMask(quint64 maskId);
 
     // ---- Refreshing ----
     void refreshValues();
