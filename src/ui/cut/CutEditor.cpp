@@ -28,6 +28,14 @@ constexpr std::pair<CutEdit, const char*> kEditActions[] = {
 
 } // namespace
 
+std::optional<CutEdit> CutEditor::editForAction(const QString& actionId)
+{
+    for (const auto& [edit, id] : kEditActions)
+        if (actionId == QLatin1String(id))
+            return edit;
+    return std::nullopt;
+}
+
 CutEditor::CutEditor(AppContext& ctx, TimelineController* controller, QObject* parent)
     : QObject(parent)
     , m_ctx(ctx)

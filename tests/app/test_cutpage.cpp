@@ -27,6 +27,7 @@
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
+#include "ui/viewer/EditOverlay.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
@@ -230,6 +231,28 @@ private slots:
         QVERIFY(editor->run(CutEdit::RippleOverwrite, f.whole({1}))); // 3 s replaces it
         QCOMPARE(layout(f.data(), TrackType::Video, 0), QStringLiteral("0:100 100:75"));
         QCOMPARE(undo->count(), steps + 3);
+    }
+
+    /// Spec 35.26 (polish round 2): media dragged onto the Cut page's timeline viewer shows
+    /// the six smart edits; a drop on a tile runs that edit with the dropped clips.
+    void dropOnTheViewerOffersTheSmartEdits()
+    {
+        Fixture f;
+        f.showCut();
+        ViewerPanel* program = f.cut()->viewer()->timelineViewer();
+        QVERIFY(program->editOverlay());
+        const auto& tiles = program->editOverlay()->tiles();
+        QCOMPARE(int(tiles.size()), 6);
+        QCOMPARE(tiles[0].actionId, QStringLiteral("cut.smart_insert"));
+        QCOMPARE(tiles[1].actionId, QStringLiteral("cut.append"));
+        QVERIFY(!tiles[0].label.contains(QLatin1Char('&')));
+        QVERIFY(program->acceptDrops());
+        const int steps = f.project.undoStack()->count();
+        emit program->sourceEditDropped(QStringLiteral("cut.append"),
+            {SourceRange {f.ids[2], 0, 0}, SourceRange {f.ids[0], 0, 0}});
+        QCOMPARE(layout(f.data(), TrackType::Video, 0), QStringLiteral("0:100 100:50"));
+        QCOMPARE(f.project.undoStack()->count(), steps + 1);
+        QCOMPARE(f.project.undoStack()->undoText(), QStringLiteral("Append"));
     }
 
     void refusedEditLeavesNoUndoStep()

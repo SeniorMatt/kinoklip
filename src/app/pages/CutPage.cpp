@@ -126,6 +126,22 @@ CutPage::CutPage(AppContext& ctx, TimelineController* controller, QWidget* paren
     // F9 / Shift+F10 / F12 / Shift+F12 run the Cut page versions while this page is shown.
     m_controller->setSourceEditHandler(
         [this](SourceEditMode mode) { return isVisible() && m_editor->handleSourceEdit(mode); });
+    // Dragging media onto the timeline viewer offers the smart edits (spec 35.26).
+    ViewerPanel* program = m_viewer->timelineViewer();
+    program->setEditTileActions({QStringLiteral("cut.smart_insert"), QStringLiteral("cut.append"),
+        QStringLiteral("cut.ripple_overwrite"), QStringLiteral("cut.close_up"),
+        QStringLiteral("cut.place_on_top"), QStringLiteral("cut.source_overwrite")});
+    program->setEditOverlayEnabled(true);
+    connect(program, &ViewerPanel::sourceEditDropped, this,
+        [this](const QString& actionId, const QList<SourceRange>& ranges) {
+            const std::optional<CutEdit> edit = CutEditor::editForAction(actionId);
+            if (!edit)
+                return;
+            QVector<SourceSelection> material;
+            for (const SourceRange& r : ranges)
+                material.append({r.mediaId, r.inUs, r.outUs});
+            m_editor->run(*edit, material);
+        });
     connect(m_toolBar, &CutToolBar::zoomInRequested, m_lower, &TimelineWidget::zoomIn);
     connect(m_toolBar, &CutToolBar::zoomOutRequested, m_lower, &TimelineWidget::zoomOut);
 
