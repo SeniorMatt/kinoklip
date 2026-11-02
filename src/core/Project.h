@@ -4,8 +4,10 @@
 
 #include "core/MediaLinks.h"
 #include "core/MediaPool.h"
+#include "core/Multicam.h"
 #include "core/Timeline.h"
 
+#include <QHash>
 #include <QJsonObject>
 #include <QObject>
 #include <QString>
@@ -133,7 +135,7 @@ public:
     [[nodiscard]] std::shared_ptr<const TimelineData> timelineData(quint64 uid) const;
     /// Render snapshot of timeline @p uid (TimelineData::nested filled, like
     /// Timeline::snapshot() for the active one), or nullptr. Thumbnails, export of other
-    /// timelines.
+    /// timelines. A multicamViewKey() gives a snapshot of that multicam angle alone.
     [[nodiscard]] std::shared_ptr<const TimelineData> renderSnapshot(quint64 uid) const;
     /// Uid of the active timeline.
     [[nodiscard]] quint64 activeTimelineUid() const { return m_activeUid; }
@@ -178,6 +180,27 @@ public:
     /// the clips linked to it that show the same timeline). One undo step. Returns the ids of
     /// the restored clips, or nothing with @p error set.
     std::optional<QVector<quint64>> decomposeCompoundClip(quint64 clipId, QString* error = nullptr);
+    /// Looks any timeline of the project up by uid (the active one included); valid while
+    /// the project lives. For the pure functions of CompoundOps / Multicam.
+    [[nodiscard]] compound::TimelineLookup timelineLookup() const;
+    /// The nested-timeline map of a render snapshot of @p data (every timeline its Nested
+    /// clips reach, plus the angle views of multicam timelines); @p data need not be a
+    /// timeline of the project (the source viewer's private timelines).
+    [[nodiscard]] NestedTimelines nestedTimelinesFor(const TimelineData& data) const;
+
+    // ---- Multicam clips (ProjectMulticam.cpp) ----
+
+    /// Create New Multicam Clip Using Selected Clips: builds the multicam timeline from the
+    /// synced @p sources (multicam::build(); rate @p fps, picture @p width x @p height) and
+    /// its media pool item in bin @p binId. With @p moveSources, the source items go into a
+    /// new bin "Original Clips" inside @p binId. One undo step. Returns the uid, or 0 with
+    /// @p error set.
+    quint64 createMulticamClip(const QVector<multicam::AngleSource>& sources, const QString& name,
+        Rational fps, int width, int height, const QString& binId = {}, bool moveSources = false,
+        QString* error = nullptr);
+    /// Flatten Multicam Clip for the multicam clip @p clipId of the active timeline (and the
+    /// parts linked to it): see multicam::flatten(). One undo step.
+    std::optional<QVector<quint64>> flattenMulticamClip(quint64 clipId, QString* error = nullptr);
 
     // ---- Tabs and per-timeline view state (ProjectTimelines.cpp) ----
 
@@ -297,7 +320,6 @@ private:
     void resetTimelines(
         std::vector<TimelineSlot> timelineSlots, quint64 active, QVector<quint64> tabs);
     void installResolver();
-    [[nodiscard]] NestedTimelines nestedFor(const TimelineData& data) const;
     void notifyNestedChanges(const TimelineSet& before);
     void setFilePath(const QString& path);
     void setSettingsDirty(bool dirty);
@@ -325,6 +347,15 @@ private:
     MediaPoolState m_editPoolBefore;
     Format m_editFormatBefore;
     quint64 m_editPrimary = 0;
+
+    /// Angle views of multicam timelines (multicam::angleView()), rebuilt when the multicam
+    /// timeline's data pointer changes, so render snapshots share them.
+    struct AngleViews
+    {
+        std::shared_ptr<const TimelineData> source;
+        QVector<std::shared_ptr<const TimelineData>> views;
+    };
+    mutable QHash<quint64, AngleViews> m_angleViews;
 };
 
 } // namespace kk

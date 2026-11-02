@@ -30,6 +30,16 @@ amber "P!" when stale / missing); statuses are cached per row and refreshed on
 commands (src/ui/common/MediaManagement); `publishSelection()` stores the selected ids in
 their action data and enables them for the selection.
 
+## Multicam and sync (MediaPoolMulticam.cpp, MulticamDialog, MulticamSync)
+
+Context menu for video / audio items: Create New Multicam Clip Using Selected Clips… (dialog:
+name, angle sync, angle names, Original Clips bin) and Sync and Place on Timeline (Based on
+Waveform / Timecode / In Points). `computeSync()` (no widgets, testable) does the work;
+`runSyncWithFeedback()` runs waveform analysis on a worker behind a cancellable progress
+dialog and reports clips that could not be synced. In points come from
+`setInPointProvider()` (EditPage: the source viewer's remembered marks). Multicam items
+double-click into the source viewer (their angle grid) instead of a timeline tab.
+
 ## Performance (2,000+ items)
 - One shared model + proxy + selection for both views; `QListView` with uniform item sizes,
   fixed grid size and batched layout.

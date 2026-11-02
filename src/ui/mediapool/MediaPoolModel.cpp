@@ -56,7 +56,8 @@ void MediaPoolModel::thumbnailReady(const QString& path)
 void MediaPoolModel::recheckOffline()
 {
     for (int r = 0; r < m_rows.size(); ++r) {
-        if (m_rows[r].kind == TimelineKind || m_rows[r].kind == CompoundKind)
+        if (m_rows[r].kind == TimelineKind || m_rows[r].kind == CompoundKind
+            || m_rows[r].kind == MulticamKind)
             continue; // no file behind them
         const bool offline = !QFileInfo::exists(m_rows[r].path);
         if (offline != m_rows[r].offline) {
@@ -96,9 +97,12 @@ MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item)
     }
     row.searchText = (item.name + QLatin1Char(' ') + item.path).toLower();
     if (item.isTimeline()) {
-        row.kind = item.kind == MediaItemKind::CompoundClip ? CompoundKind : TimelineKind;
-        row.codecText
-            = item.kind == MediaItemKind::CompoundClip ? tr("Compound Clip") : tr("Timeline");
+        row.kind = item.kind == MediaItemKind::MulticamClip ? MulticamKind
+            : item.kind == MediaItemKind::CompoundClip      ? CompoundKind
+                                                            : TimelineKind;
+        row.codecText = item.kind == MediaItemKind::MulticamClip ? tr("Multicam Clip")
+            : item.kind == MediaItemKind::CompoundClip           ? tr("Compound Clip")
+                                                                 : tr("Timeline");
         row.audioText.clear();
         row.offline = false;
         return row;
@@ -214,7 +218,7 @@ int MediaPoolModel::columnCount(const QModelIndex& parent) const
 QPixmap MediaPoolModel::poster(const Row& row) const
 {
     if (row.kind == AudioKind || row.kind == TimelineKind || row.kind == CompoundKind
-        || row.kind == SubtitleKind || !m_provider)
+        || row.kind == MulticamKind || row.kind == SubtitleKind || !m_provider)
         return {};
     if (const QPixmap* cached = m_posters.object(row.path))
         return *cached;
@@ -275,12 +279,17 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
             return icon(QStringLiteral("timeline"));
         case CompoundKind:
             return icon(QStringLiteral("compound_clip"));
+        case MulticamKind:
+            return icon(QStringLiteral("multicam_clip"));
         case SubtitleKind:
             return icon(QStringLiteral("subtitle"));
         default:
             return icon(QStringLiteral("film"));
         }
     case Qt::ToolTipRole:
+        if (row.kind == MulticamKind)
+            return tr("%1\nMulticam clip: double-click to show its angles in the source viewer")
+                .arg(row.name);
         if (row.kind == TimelineKind || row.kind == CompoundKind)
             return row.kind == TimelineKind
                 ? tr("%1\nTimeline: double-click to open it in a tab").arg(row.name)

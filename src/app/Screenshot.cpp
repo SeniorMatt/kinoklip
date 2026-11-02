@@ -9,6 +9,7 @@
 #include "core/KeyframeOps.h"
 #include "core/LevelOps.h"
 #include "core/MediaPool.h"
+#include "core/Multicam.h"
 #include "core/Project.h"
 #include "core/Retime.h"
 #include "core/RetimeOps.h"
@@ -26,6 +27,7 @@
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
+#include "ui/mediapool/MulticamSync.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
@@ -124,6 +126,88 @@ int grabImportDialog(MainWindow& window, const QString& pngPath)
     });
     QApplication::exec();
     return exitCode;
+}
+
+/// "multicam[:viewer|timeline]": a four-angle multicam clip (the project's multicam clip, else
+/// one made from the first four media items, or from the files in KK_SCREENSHOT_IMPORT,
+/// colon-separated, synced by sound when they share it) on the timeline with three cuts, the
+/// source viewer in multicam mode following the second segment. Returns the panel to save
+/// (nullptr = the window), or sets @p error.
+QWidget* setupMulticamShot(MainWindow& window, const QString& section, QString* error)
+{
+    AppContext& ctx = window.context();
+    Project* project = ctx.project;
+    const QStringList importPaths
+        = qEnvironmentVariable("KK_SCREENSHOT_IMPORT").split(QLatin1Char(':'), Qt::SkipEmptyParts);
+    if (!importPaths.isEmpty())
+        project->importMedia(importPaths);
+    quint64 uid = 0;
+    for (const quint64 t : project->timelineUids()) {
+        if (!uid && project->timelineData(t)->multicam)
+            uid = t;
+    }
+    if (!uid) {
+        QVector<SyncInput> inputs;
+        for (const MediaItem& item : project->mediaPool()->items()) {
+            if (inputs.size() < 4 && !item.isTimeline() && item.info.hasVideo
+                && !item.info.isStillImage && item.info.durationUs > 0)
+                inputs.append({item.id, item.name, item.path, item.info, 0});
+        }
+        if (inputs.isEmpty()) {
+            *error = QStringLiteral("multicam: needs media (KK_SCREENSHOT_IMPORT=a.mp4:b.mp4)");
+            return nullptr;
+        }
+        SyncReport report = computeSync(inputs, multicam::SyncMethod::Waveform);
+        QVector<multicam::AngleSource> sources;
+        for (qsizetype k = 0; k < inputs.size(); ++k)
+            sources.append({inputs[k].mediaId, multicam::defaultAngleName(inputs[k].name),
+                inputs[k].info, report.offsetsUs.value(k).value_or(0)});
+        const media::MediaInfo& first = inputs.first().info;
+        uid = project->createMulticamClip(sources, QStringLiteral("Concert Multicam"),
+            first.frameRate.isValid() ? first.frameRate : project->settings().fps,
+            first.displayWidth > 0 ? first.displayWidth : first.width,
+            first.displayHeight > 0 ? first.displayHeight : first.height);
+    }
+    const auto mc = project->timelineData(uid);
+    if (!mc) {
+        *error = QStringLiteral("multicam: could not create the multicam clip");
+        return nullptr;
+    }
+    // A new timeline with the multicam clip and cuts to angles 2, 3, 4 (or as many as exist).
+    const quint64 tl = project->createTimeline(QStringLiteral("Multicam Edit"));
+    project->openTab(tl);
+    project->beginEdit(QStringLiteral("Place"));
+    TimelineData& d = project->timeline()->mutableData();
+    const ClipData clip = multicam::makeMulticamClip(*mc, project->timelineItemId(uid), 0);
+    editops::linkClips(d,
+        editops::overwriteClips(
+            d, {{TrackRef {TrackType::Video, 0}, clip}, {TrackRef {TrackType::Audio, 0}, clip}}));
+    const int angles = multicam::angleCount(*mc);
+    const auto lookup = project->timelineLookup();
+    for (int k = 1; k < std::min(angles, 4); ++k)
+        multicam::cutToAngle(d, clip.duration * k / 4, k, multicam::AngleTarget::Both, lookup);
+    project->endEdit();
+    project->undoStack()->setClean(); // demo edits: closing must not ask to save them
+    project->timeline()->setPlayhead(clip.duration * 3 / 8);
+    window.editPage()->setSingleViewer(false);
+    ViewerPanel* source = window.editPage()->sourceViewer();
+    source->show();
+    source->setMulticamMode(true);
+    auto* timelinePanel = window.findChild<TimelinePanel*>();
+    if (timelinePanel) {
+        TimelineWidget* w = timelinePanel->timelineWidget();
+        const int64_t duration = clip.duration;
+        QTimer::singleShot(0, w, [w, duration] {
+            const double width = std::max(200, w->viewport()->width() - 220);
+            w->setPixelsPerFrame(width * 0.9 / double(duration), 0);
+            w->scrollToFrame(0);
+        });
+    }
+    if (section == QLatin1String("viewer"))
+        return source;
+    if (section == QLatin1String("timeline"))
+        return timelinePanel;
+    return nullptr;
 }
 
 } // namespace
@@ -384,6 +468,13 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
                     panel = viewer;
             }
         }
+    } else if (base == QLatin1String("multicam")) {
+        QString error;
+        panel = setupMulticamShot(window, section, &error);
+        if (!error.isEmpty()) {
+            std::fprintf(stderr, "%s\n", qPrintable(error));
+            return 2;
+        }
     } else if (base == QLatin1String("subtitles")) {
         // The caption of ST1 under the playhead (or its first caption) selected, the Inspector
         // on its Captions tab. "subtitles:inspector" saves only the Inspector.
@@ -489,6 +580,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
             "project-settings[:section], keyboard, inspector, keyframes[:curves|narrow], "
             "keyframes-window, masks[:inspector|viewer], subtitles[:inspector], "
+            "multicam[:viewer|timeline], "
             "keyframes-panel[:dope|curves|absolute|float], "
             "mediapool, levels, stacked, clip-attributes[:audio|timecode], "
             "effects, import-dialog, menu-color-theme "

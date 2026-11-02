@@ -127,7 +127,7 @@ float AudioMixer::softClip(float x)
 AudioMixer::Decoder* AudioMixer::decoderFor(const ClipData& clip, const NestedTimelines& nested)
 {
     if (clip.kind == ClipKind::Nested) {
-        const TimelineData* n = nested.find(clip.nestedUid);
+        const TimelineData* n = nested.findClip(clip);
         if (!n || m_depth >= kMaxNestingDepth)
             return nullptr;
         auto& slot = m_decoders[clip.id];

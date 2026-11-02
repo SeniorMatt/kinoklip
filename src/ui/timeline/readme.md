@@ -129,6 +129,15 @@ Keyframes Panel" button in its lane (the lane menus always have the entry):
 `KeyframeLanes::openInPanelRequested(clipId)`, wired by EditPage. `TimelineWidget::viewChanged()`
 (zoom / scroll) feeds the panel's Follow Timeline mode.
 
+## Multicam clips (TimelineMulticam.cpp)
+
+`chooseMulticamAngle()` (multicam viewer clicks and number keys) cuts at the playhead or
+switches the segment under it, per the `multicam.mode_*` / `multicam.target_*` actions; one
+undo step each, also while playing. The clip context menu offers Switch Multicam Clip Angle
+(Video and Audio / Video / Audio), Open in Timeline and Flatten Multicam Clip
+(`multicam.flatten`). The painter labels multicam segments "n  angle - clip" and their
+thumbnails show the active angle (`nestedPreviewPath(multicamViewKey(...))`).
+
 ## Timelines, tabs and compound clips (v2)
 
 The widget always shows `Project::timeline()`, the active timeline. On
