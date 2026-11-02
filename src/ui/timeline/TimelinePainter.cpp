@@ -186,8 +186,11 @@ QString TimelinePainter::mediaPath(const TimelinePaintInput& in, const QString& 
 QString TimelinePainter::clipPreviewPath(const ClipData& clip, const MediaItem* item)
 {
     // Nested clips: the providers resolve the pseudo path to the nested timeline's preview.
+    // A multicam clip previews its active angle (the angle view's key).
     if (clip.kind == ClipKind::Nested)
-        return nestedPreviewPath(clip.nestedUid);
+        return nestedPreviewPath(clip.multicamAngle >= 0
+                ? multicamViewKey(clip.nestedUid, clip.multicamAngle)
+                : clip.nestedUid);
     return item ? item->path : QString();
 }
 

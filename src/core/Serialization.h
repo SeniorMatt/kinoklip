@@ -36,7 +36,13 @@ namespace kk::serialization {
 ///   carry "retimeProcess" (the project default). Older files store a top-level clip
 ///   "speed": clipFromJson() reads it as a single constant-speed segment with pitch
 ///   correction off (audio of older projects was resampled), which plays exactly as before.
-inline constexpr int kFormatVersion = 5;
+/// - 6, 7: reserved for the proxies / adjustment-clip branches (developed in parallel).
+/// - 8: multicam clips. Timelines may carry "multicam": true (always with "compound"), clips
+///   "multicamAngle" (0-based angle of a Nested clip showing a multicam timeline), media
+///   pool items "kind": "multicam", and media info "timecode" (embedded start timecode).
+///   Every field is optional, so files of versions 1 - 7 load unchanged; older builds refuse
+///   version 8 instead of showing every angle of a multicam clip stacked.
+inline constexpr int kFormatVersion = 8;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

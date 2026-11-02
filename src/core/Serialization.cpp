@@ -448,6 +448,8 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("mediaId")] = clip.mediaId;
     if (clip.nestedUid != 0)
         o[QLatin1String("nestedUid")] = qint64(clip.nestedUid);
+    if (clip.multicamAngle >= 0)
+        o[QLatin1String("multicamAngle")] = clip.multicamAngle;
     o[QLatin1String("name")] = clip.name;
     if (clip.label.isValid())
         o[QLatin1String("label")] = colorToString(clip.label);
@@ -508,6 +510,7 @@ ClipData clipFromJson(const QJsonObject& o)
     c.kind = kindFromString(o.value(QLatin1String("kind")).toString());
     c.mediaId = o.value(QLatin1String("mediaId")).toString();
     c.nestedUid = quint64(o.value(QLatin1String("nestedUid")).toInteger());
+    c.multicamAngle = std::max(-1, o.value(QLatin1String("multicamAngle")).toInt(-1));
     c.name = o.value(QLatin1String("name")).toString();
     if (o.contains(QLatin1String("label")))
         c.label = colorFromString(o.value(QLatin1String("label")).toString());
@@ -562,6 +565,8 @@ QJsonObject timelineToJson(const TimelineData& data)
         o[QLatin1String("uid")] = qint64(data.uid);
     if (data.compound)
         o[QLatin1String("compound")] = true;
+    if (data.multicam)
+        o[QLatin1String("multicam")] = true;
     if (!data.useProjectSettings)
         o[QLatin1String("useProjectSettings")] = false;
     o[QLatin1String("name")] = data.name;
@@ -591,6 +596,9 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
     TimelineData data;
     data.uid = quint64(o.value(QLatin1String("uid")).toInteger());
     data.compound = o.value(QLatin1String("compound")).toBool(false);
+    // A multicam timeline is always a compound one too (never counted as a regular timeline).
+    data.multicam = o.value(QLatin1String("multicam")).toBool(false);
+    data.compound = data.compound || data.multicam;
     data.useProjectSettings = o.value(QLatin1String("useProjectSettings")).toBool(true);
     data.name = o.value(QLatin1String("name")).toString();
     const QJsonObject fps = o.value(QLatin1String("fps")).toObject();
@@ -647,7 +655,7 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
 
 QJsonObject mediaInfoToJson(const media::MediaInfo& info)
 {
-    return QJsonObject {
+    QJsonObject o {
         {QLatin1String("valid"), info.valid},
         {QLatin1String("error"), info.error},
         {QLatin1String("hasVideo"), info.hasVideo},
@@ -666,6 +674,9 @@ QJsonObject mediaInfoToJson(const media::MediaInfo& info)
         {QLatin1String("audioCodec"), info.audioCodec},
         {QLatin1String("container"), info.container},
     };
+    if (!info.startTimecode.isEmpty())
+        o[QLatin1String("timecode")] = info.startTimecode;
+    return o;
 }
 
 media::MediaInfo mediaInfoFromJson(const QJsonObject& o)
@@ -688,6 +699,7 @@ media::MediaInfo mediaInfoFromJson(const QJsonObject& o)
     info.videoCodec = o.value(QLatin1String("videoCodec")).toString();
     info.audioCodec = o.value(QLatin1String("audioCodec")).toString();
     info.container = o.value(QLatin1String("container")).toString();
+    info.startTimecode = o.value(QLatin1String("timecode")).toString();
     return info;
 }
 
@@ -704,8 +716,9 @@ QJsonObject mediaPoolToJson(const MediaPoolState& state, const QDir& projectDir)
             // Timeline / compound clip items: no file, the info is derived from the timeline.
             items.append(QJsonObject {{QLatin1String("id"), m.id},
                 {QLatin1String("kind"),
-                    m.kind == MediaItemKind::CompoundClip ? QStringLiteral("compound")
-                                                          : QStringLiteral("timeline")},
+                    m.kind == MediaItemKind::MulticamClip       ? QStringLiteral("multicam")
+                        : m.kind == MediaItemKind::CompoundClip ? QStringLiteral("compound")
+                                                                : QStringLiteral("timeline")},
                 {QLatin1String("timelineUid"), qint64(m.timelineUid)},
                 {QLatin1String("name"), m.name}, {QLatin1String("binId"), m.binId},
                 {QLatin1String("info"), mediaInfoToJson(m.info)}});
@@ -733,8 +746,10 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
         MediaItem m;
         m.id = o.value(QLatin1String("id")).toString();
         const QString kind = o.value(QLatin1String("kind")).toString();
-        if (kind == QLatin1String("timeline") || kind == QLatin1String("compound")) {
-            m.kind = kind == QLatin1String("compound") ? MediaItemKind::CompoundClip
+        if (kind == QLatin1String("timeline") || kind == QLatin1String("compound")
+            || kind == QLatin1String("multicam")) {
+            m.kind = kind == QLatin1String("multicam") ? MediaItemKind::MulticamClip
+                : kind == QLatin1String("compound")    ? MediaItemKind::CompoundClip
                                                        : MediaItemKind::Timeline;
             m.timelineUid = quint64(o.value(QLatin1String("timelineUid")).toInteger());
             m.name = o.value(QLatin1String("name")).toString();

@@ -13,7 +13,8 @@ namespace kk {
 enum class MediaItemKind {
     File, ///< an imported media file (path, probe result)
     Timeline, ///< a timeline of the project (MediaItem::timelineUid)
-    CompoundClip ///< the timeline behind a compound clip (MediaItem::timelineUid)
+    CompoundClip, ///< the timeline behind a compound clip (MediaItem::timelineUid)
+    MulticamClip ///< the timeline behind a multicam clip (TimelineData::multicam)
 };
 
 /// One imported media file, or a timeline / compound clip of the project (Resolve lists both
