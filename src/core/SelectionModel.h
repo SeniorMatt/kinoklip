@@ -83,14 +83,24 @@ public:
     /// Clears clips, keyframes and the transition.
     void clear();
 
+    /// The mask being edited (MaskData::id of a mask of the current clip; 0 = none). Set by
+    /// the Inspector's Masks section and the viewer's mask overlay, which shows its handles.
+    /// Independent of the clip selection: users check that the id belongs to the shown clip.
+    [[nodiscard]] quint64 activeMask() const { return m_activeMask; }
+    /// Sets activeMask() (emits activeMaskChanged() when it changes).
+    void setActiveMask(quint64 maskId);
+
 signals:
     /// The selection changed.
     void changed();
+    /// activeMask() changed.
+    void activeMaskChanged(quint64 maskId);
 
 private:
     QVector<quint64> m_clips;
     QVector<KeyframeRef> m_keyframes;
     std::optional<TransitionRef> m_transition;
+    quint64 m_activeMask = 0;
 };
 
 } // namespace kk

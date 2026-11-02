@@ -19,6 +19,8 @@ namespace kk::keyframeops {
 //
 // A path addresses one AnimatedValue of a clip (SelectionModel's KeyframeRef::paramPath):
 //   "transform/<key>", "audio/<key>", "title/<key>", "effect/<instance id>/<key>",
+//   "mask/<mask id>/<key>" (MaskData::params) and "mask/<mask id>/shape" (the animated path:
+//   its AnimatedPath::timing value; the operations below keep the shapes in step).
 //   "retime/retimeFrame" (the retime curve, core/Retime.h; group id "retime", listed last).
 
 /// Path of a parameter stored in a clip ParamSet member ("transform", "audio", "title",
@@ -26,6 +28,14 @@ namespace kk::keyframeops {
 [[nodiscard]] QString memberPath(const QString& member, const QString& key);
 /// Path of a parameter of effect instance @p effectId.
 [[nodiscard]] QString effectPath(quint64 effectId, const QString& key);
+/// Path of a parameter of mask @p maskId (maskkeys::Shape for the animated shape).
+[[nodiscard]] QString maskPath(quint64 maskId, const QString& key);
+/// True if @p path addresses a mask shape (its key values are shape indices, not numbers).
+[[nodiscard]] bool isShapePath(const QString& path);
+/// The mask with id @p maskId of @p clip, or nullptr.
+[[nodiscard]] const MaskData* findMask(const ClipData& clip, quint64 maskId);
+/// Mutable overload of findMask().
+[[nodiscard]] MaskData* findMask(ClipData& clip, quint64 maskId);
 /// The animated value at @p path, or nullptr (unknown path, missing effect, key never set).
 [[nodiscard]] const AnimatedValue* findValue(const ClipData& clip, const QString& path);
 /// Mutable overload of findValue().
@@ -35,8 +45,8 @@ namespace kk::keyframeops {
 struct AnimatedParam
 {
     QString path; ///< see above
-    QString groupId; ///< "builtin.transform", "builtin.cropping", "title", "builtin.audio", or
-                     ///< "effect/<instance id>"
+    QString groupId; ///< "builtin.transform", "builtin.cropping", "builtin.masks", "title",
+                     ///< "builtin.audio", or "effect/<instance id>"
     QString groupName; ///< translated group title (descriptor name)
     QString label; ///< translated parameter label (descriptor label, else the key)
     double min = 0.0; ///< descriptor range (curve editor fallback range)
@@ -44,8 +54,9 @@ struct AnimatedParam
 };
 
 /// The parameters of @p clip that have keyframes, in inspector order: Transform, Cropping,
-/// Title, Audio, then the effects in stack order (each in its descriptor's order). Parameters
-/// without a descriptor entry come last in their group.
+/// Masks (one group for all masks, labels "<mask name>: <parameter>"), Title, Audio, then the
+/// effects in stack order (each in its descriptor's order). Parameters without a descriptor entry
+/// come last in their group.
 [[nodiscard]] QVector<AnimatedParam> animatedParams(const ClipData& clip);
 
 /// Sorted, unique clip-local frames of every key of @p clip (the "master" keyframe row).
@@ -73,7 +84,8 @@ struct AnimatedParam
 QVector<KeyframeRef> moveKeys(
     TimelineData& data, const QVector<KeyframeRef>& refs, int64_t deltaFrames);
 /// Adds @p deltaValue to the value of every key @p refs (curve editor vertical drag; callers
-/// restore the drag origin first, like every timeline drag). Returns the number changed.
+/// restore the drag origin first, like every timeline drag). Mask shape keys are skipped.
+/// Returns the number changed.
 int offsetKeyValues(TimelineData& data, const QVector<KeyframeRef>& refs, double deltaValue);
 /// Removes keys @p refs. Returns the number removed.
 int deleteKeys(TimelineData& data, const QVector<KeyframeRef>& refs);
@@ -103,6 +115,7 @@ struct KeyClipboard
         QString path;
         int64_t offset = 0; ///< frames after the earliest copied key
         Keyframe key; ///< frame field unused (offset is authoritative)
+        MaskPath shape; ///< mask shape keys: the path of the key (key.value is meaningless)
     };
     QVector<Entry> entries;
     [[nodiscard]] bool isEmpty() const { return entries.isEmpty(); }
@@ -110,7 +123,8 @@ struct KeyClipboard
 /// Copies keys @p refs of one clip (refs of other clips than the first ref's are ignored).
 [[nodiscard]] KeyClipboard copyKeys(const TimelineData& data, const QVector<KeyframeRef>& refs);
 /// Pastes @p board into clip @p clipId with the earliest key at clip-local @p localFrame.
-/// Parameters the clip does not have yet are created (effects only if the instance exists).
+/// Parameters the clip does not have yet are created (effects and masks only if the instance
+/// exists; shape keys only into a mask whose path has the same number of points).
 /// Returns the pasted refs.
 QVector<KeyframeRef> pasteKeys(
     TimelineData& data, quint64 clipId, const KeyClipboard& board, int64_t localFrame);

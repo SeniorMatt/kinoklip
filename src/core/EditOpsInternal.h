@@ -44,6 +44,8 @@ inline void shiftClipKeys(ClipData& clip, int64_t deltaFrames)
     clip.retime.shiftKeys(deltaFrames); // speed points follow the content too
     for (EffectInstance& fx : clip.effects)
         fx.params.shiftKeys(deltaFrames);
+    for (MaskData& mask : clip.masks)
+        mask.shiftKeys(deltaFrames);
     for (Marker& m : clip.markers) // clip markers follow the content like keyframes
         m.frame += deltaFrames;
 }
@@ -85,6 +87,8 @@ inline quint64 splitClipAtIndex(
     right.id = data.allocateId();
     right.linkGroup = remap.map(data, right.linkGroup);
     right.transitionIn.reset();
+    for (MaskData& mask : right.masks) // mask ids are unique per timeline (KeyframeOps paths)
+        mask.id = data.allocateId();
     moveHead(right, frame - right.start, data.fps);
     const quint64 rightId = right.id;
     track.clips.insert(track.clips.begin() + std::ptrdiff_t(index) + 1, std::move(right));

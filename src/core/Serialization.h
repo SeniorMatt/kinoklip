@@ -26,12 +26,17 @@ namespace kk::serialization {
 ///   compound clip items in the media pool ("kind", "timelineUid"). Files of versions 1 and 2
 ///   store one "timeline" object; Project::load() turns it into timeline uid 1 with a media
 ///   pool item, which reproduces the old project exactly.
-/// - 4: retiming. A clip's speed moved into a "retime" object {"speed", "curve" (a ParamSet
+/// - 4: clips may carry "masks" (core/Mask.h): {"id", "shape", "mode", "name"?, "enabled"?,
+///   "invert"?, "closed"?, "params"?, and "points" (static shape) or "shapeKeys" (keyframes with
+///   their "points")}; a point is [x, y, inX, inY, outX, outY] plus 1 when smooth. Files of
+///   versions 1 - 3 have no masks and load through the older migrations unchanged; older builds
+///   refuse version 4 instead of silently dropping the masks.
+/// - 5: retiming. A clip's speed moved into a "retime" object {"speed", "curve" (a ParamSet
 ///   with the keys::RetimeFrame curve, optional), "process", "pitchCorrection"}; timelines
 ///   carry "retimeProcess" (the project default). Older files store a top-level clip
 ///   "speed": clipFromJson() reads it as a single constant-speed segment with pitch
 ///   correction off (audio of older projects was resampled), which plays exactly as before.
-inline constexpr int kFormatVersion = 4;
+inline constexpr int kFormatVersion = 5;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

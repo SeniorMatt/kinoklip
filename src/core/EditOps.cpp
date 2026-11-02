@@ -633,6 +633,8 @@ QVector<quint64> pasteClips(TimelineData& data, const Clipboard& clipboard, int6
         p.clip.linkGroup = remap.map(data, entry.clip.linkGroup);
         for (EffectInstance& fx : p.clip.effects)
             fx.id = data.allocateId();
+        for (MaskData& mask : p.clip.masks)
+            mask.id = data.allocateId();
         placed.append(std::move(p));
     }
     return insert ? insertClips(data, placed, RippleScope::AllTracks)
@@ -903,6 +905,10 @@ bool checkInvariants(const TimelineData& data, QString* why)
                     if (!claim(fx.id, clipName + QStringLiteral(" effect")))
                         return false;
                 }
+                for (const MaskData& mask : c.masks) {
+                    if (!claim(mask.id, clipName + QStringLiteral(" mask")))
+                        return false;
+                }
             }
         }
     }
@@ -918,6 +924,8 @@ void normalizeIds(TimelineData& data)
             maxId = std::max({maxId, c.id, c.linkGroup});
             for (const EffectInstance& fx : c.effects)
                 maxId = std::max(maxId, fx.id);
+            for (const MaskData& mask : c.masks)
+                maxId = std::max(maxId, mask.id);
         }
     });
     data.nextId = std::max(data.nextId, maxId + 1);

@@ -74,3 +74,8 @@
 - 14:02 hwdecode merged (57/57): one lock per shared VAAPI device, retry + per-file software fallback, quiet probes, FFmpeg log routing re-installed after Qt Multimedia, per-file decoder log lines, stats summary on stop, docs/hw-decode-test.md. All log categories default to info. Starting masks (v2).
 - 14:18 Heartbeat: wayland 13 commits, compound 9, masks 1; all active; 21 GB free.
 - 14:51 compound + wayland merged; fixed 4 tests that assumed media pool item 0 is a file (pool lists timelines). Host 64/64, container 65/65 incl. real Wayland drag session. Built + smoke-tested 0.1.0-alpha.4; publishing. Follow-up: on pure X11 Qt prints 2 lines trying wayland first (launcher should pick xcb when WAYLAND_DISPLAY is unset).
+- 14:52 Starting v2 agents: retime (retime controls, speed ramps, freeze, frame blend/optical flow) and proxies (proxy/optimized media + render cache + launcher X11 nit). Running: masks, retime, proxies.
+- 14:57 masks finished (60/60 on its branch); merge into main conflicted in 6 files (both bumped formatVersion to 3) -> aborted; masks agent merging main, masks = formatVersion 4. Running: masks (integration), retime, proxies.
+- 15:08 Owner will test alpha.4 later; continue per plan. Next v2 queue after masks/retime/proxies: (1) adjustment clips + freeze/generators + subtitles track (SRT), (2) multicam + sync by audio waveform/timecode, (3) smart bins/power bins/clip colours + flags. Then 0.2.0-alpha.1.
+- 15:18 Heartbeat: masks integrating (waiting on its build), retime 1 commit, proxies 2; 20 GB free.
+- 15:30 masks merged (67/67): format v4. Format numbers reserved: retime v5, proxies v6, subtitles agent v7 (renumber at merge if order differs). Starting 'adjsubs' (adjustment clips, generators, subtitles).

@@ -2,6 +2,7 @@
 // ParamAccess implementation.
 #include "ui/inspector/ParamAccess.h"
 
+#include "core/KeyframeOps.h"
 #include "core/ParamKeys.h"
 
 #include <algorithm>
@@ -66,6 +67,16 @@ EffectInstance* effect(ClipData& clip, quint64 effectId)
     return findEffect<ClipData, EffectInstance>(clip, effectId);
 }
 
+const MaskData* mask(const ClipData& clip, quint64 maskId)
+{
+    return keyframeops::findMask(clip, maskId);
+}
+
+MaskData* mask(ClipData& clip, quint64 maskId)
+{
+    return keyframeops::findMask(clip, maskId);
+}
+
 const TransitionData* transition(const ClipData& clip, ParamScope scope)
 {
     const auto& t = scope == ParamScope::TransitionIn ? clip.transitionIn : clip.transitionOut;
@@ -98,6 +109,10 @@ const ParamSet* paramSet(const ClipData& clip, const ParamRef& ref)
         const TransitionData* t = transition(clip, ref.scope);
         return t ? &t->params : nullptr;
     }
+    case ParamScope::Mask: {
+        const MaskData* m = mask(clip, ref.effectId);
+        return m ? &m->params : nullptr;
+    }
     }
     return nullptr;
 }
@@ -110,6 +125,11 @@ ParamSet* paramSet(ClipData& clip, const ParamRef& ref)
 
 const AnimatedValue* animated(const ClipData& clip, const ParamRef& ref)
 {
+    if (ref.scope == ParamScope::Mask && ref.key == maskkeys::Shape) {
+        // The animated shape: its key timing (values are shape indices, see core/Mask.h).
+        const MaskData* m = mask(clip, ref.effectId);
+        return m ? &m->path.timing : nullptr;
+    }
     const ParamSet* set = paramSet(clip, ref);
     if (!set)
         return nullptr;
@@ -138,6 +158,8 @@ void setScalar(ClipData& clip, const ParamRef& ref, const ParamDescriptor& desc,
                 = std::clamp<int64_t>(std::llround(value), 1, std::max<int64_t>(1, clip.duration));
         return;
     }
+    if (ref.scope == ParamScope::Mask && ref.key == maskkeys::Shape)
+        return; // shapes are edited in the viewer, not as a number
     ParamSet* set = paramSet(clip, ref);
     if (!set)
         return;
@@ -148,6 +170,17 @@ void setScalar(ClipData& clip, const ParamRef& ref, const ParamDescriptor& desc,
 
 bool toggleKey(ClipData& clip, const ParamRef& ref, const ParamDescriptor& desc, int64_t localFrame)
 {
+    if (ref.scope == ParamScope::Mask && ref.key == maskkeys::Shape) {
+        MaskData* m = mask(clip, ref.effectId);
+        if (!m)
+            return false;
+        if (m->path.timing.hasKeyAt(localFrame)) {
+            m->path.removeKey(localFrame);
+            return false;
+        }
+        m->path.setKey(localFrame);
+        return true;
+    }
     ParamSet* set = paramSet(clip, ref);
     if (!set || ref.key == kTransitionDuration)
         return false;
@@ -181,6 +214,14 @@ std::optional<Interp> keyInterp(const ClipData& clip, const ParamRef& ref, int64
 
 bool setKeyInterp(ClipData& clip, const ParamRef& ref, int64_t localFrame, Interp interp)
 {
+    if (ref.scope == ParamScope::Mask && ref.key == maskkeys::Shape) {
+        MaskData* m = mask(clip, ref.effectId);
+        const qsizetype i = m ? m->path.timing.indexOf(localFrame) : -1;
+        if (i < 0)
+            return false;
+        applyInterp(m->path.timing.keys[i], interp);
+        return true;
+    }
     ParamSet* set = paramSet(clip, ref);
     if (!set)
         return false;
@@ -206,6 +247,8 @@ bool setKeyInterp(ClipData& clip, const ParamRef& ref, int64_t localFrame, Inter
 
 void reset(ClipData& clip, const ParamRef& ref, const ParamDescriptor& desc)
 {
+    if (ref.scope == ParamScope::Mask && ref.key == maskkeys::Shape)
+        return; // a shape has no default
     if (desc.isScalar()) {
         if (ref.key == kTransitionDuration) {
             setScalar(clip, ref, desc, 0, desc.def);
@@ -225,6 +268,14 @@ QVariant staticValue(const ClipData& clip, const ParamRef& ref, const ParamDescr
 {
     if (ref.scope == ParamScope::SolidColor)
         return clip.solidColor.isValid() ? QVariant(clip.solidColor) : desc.defStatic;
+    if (ref.scope == ParamScope::Mask
+        && (ref.key == maskkeys::Mode || ref.key == maskkeys::Invert)) {
+        const MaskData* m = mask(clip, ref.effectId);
+        if (!m)
+            return desc.defStatic;
+        return ref.key == maskkeys::Mode ? QVariant(maskModeToString(m->mode))
+                                         : QVariant(m->invert);
+    }
     const ParamSet* set = paramSet(clip, ref);
     return set ? set->staticValue(ref.key, desc.defStatic) : desc.defStatic;
 }
@@ -233,6 +284,16 @@ void setStatic(ClipData& clip, const ParamRef& ref, const QVariant& value)
 {
     if (ref.scope == ParamScope::SolidColor) {
         clip.solidColor = value.value<QColor>();
+        return;
+    }
+    if (ref.scope == ParamScope::Mask
+        && (ref.key == maskkeys::Mode || ref.key == maskkeys::Invert)) {
+        if (MaskData* m = mask(clip, ref.effectId)) {
+            if (ref.key == maskkeys::Mode)
+                m->mode = maskModeFromString(value.toString());
+            else
+                m->invert = value.toBool();
+        }
         return;
     }
     if (ParamSet* set = paramSet(clip, ref))

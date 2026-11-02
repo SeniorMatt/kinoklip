@@ -422,7 +422,7 @@ private slots:
         QCOMPARE(retime::segments(back).size(), 1);
         o[QLatin1String("speed")] = 1.0;
         QVERIFY(serialization::clipFromJson(o).pitchCorrection);
-        QCOMPARE(serialization::kFormatVersion, 4);
+        QCOMPARE(serialization::kFormatVersion, 5);
     }
 
     void projectDefaultProcessFollowsSettings()
