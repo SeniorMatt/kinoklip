@@ -188,6 +188,16 @@ the position; the same plan draws the ghost preview and performs the drop (one u
 - transition: head or tail of the clip under the mouse (nearest half); a tail touching the next
   clip becomes that clip's `transitionIn`, centred on the cut; 1 s.
 - generator / title: a new 5 s clip on the video track under the mouse (V1 otherwise).
+- empty space of the track area (Resolve): above the top video track a new video track is
+  created for the drop, below the last audio track a new audio track; the other half of a
+  linked clip goes to the same index, created when missing (V3 pairs with A3); a title or
+  generator only goes above. The gap between V1 and A1 counts as the nearer row. The ghost is
+  drawn in the band where the new track will appear. Ruler and headers refuse drops.
+- files from a file manager (`platform::droppedLocalFiles()`): imported into the media pool
+  (one undo step, the usual report for unsupported files) from the event loop after the drop,
+  then placed like a media pool drag at the drop position (a second step).
+Every `DragEnter` / `DragMove` is answered explicitly (see src/ui/common/readme.md, "Drag and
+drop", for the Wayland rules); `kk.ui.dnd` logs them. Tests: `test_timelinedrop.cpp`.
 
 ## How to extend
 
