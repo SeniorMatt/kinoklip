@@ -276,7 +276,11 @@ void MetadataPanel::fillDetails(const QVector<const MediaItem*>& items)
             return;
         auto* field = new QLabel(value);
         field->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        field->setWordWrap(true);
+        // One line, clipped by the panel width (wrapped labels in a form inside a scroll area
+        // get the height of one line); the tooltip has the whole value.
+        field->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+        field->setMinimumWidth(1);
+        field->setToolTip(value);
         m_details->addRow(dimLabel(label), field);
     };
     m_details->addRow(sectionLabel(tr("Clip Details"), true));
