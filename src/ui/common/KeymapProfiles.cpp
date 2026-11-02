@@ -17,7 +17,7 @@ namespace kk {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcKeymaps, "kk.ui.keymaps")
+Q_LOGGING_CATEGORY(lcKeymaps, "kk.ui.keymaps", QtInfoMsg)
 
 /// Resource folder of the built-in profiles (resources/keymaps/<id>.json).
 const QString kBuiltInDir = QStringLiteral(":/keymaps");

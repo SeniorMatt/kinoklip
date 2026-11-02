@@ -41,7 +41,7 @@ namespace kk::theme {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcTheme, "kk.app.theme")
+Q_LOGGING_CATEGORY(lcTheme, "kk.app.theme", QtInfoMsg)
 
 constexpr char kFallbackStyle[] = "Fusion";
 constexpr char kSchemeCategory[] = "settings.color_scheme";

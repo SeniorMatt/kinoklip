@@ -15,7 +15,7 @@
 namespace kk {
 
 namespace {
-Q_LOGGING_CATEGORY(lcViewer, "kk.ui.viewer")
+Q_LOGGING_CATEGORY(lcViewer, "kk.ui.viewer", QtInfoMsg)
 
 constexpr int kPictureMargin = 8; // px around the letterboxed picture
 const QColor kSurroundColor(0x0b, 0x0b, 0x0c); // slightly lifted black around the picture

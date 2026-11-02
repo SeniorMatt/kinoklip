@@ -13,7 +13,7 @@ namespace kk {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcGlViewer, "kk.ui.viewer.gl")
+Q_LOGGING_CATEGORY(lcGlViewer, "kk.ui.viewer.gl", QtInfoMsg)
 
 constexpr float kSurroundGrey = 0x0b / 255.0f; // slightly lifted black around the picture
 

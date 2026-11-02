@@ -71,3 +71,4 @@
 - 13:09 Owner feedback on alpha.3 in docs/feedback/alpha3.md (Wayland DnD broken, mouse-grab warnings, VAAPI sync-surface failures, missing stats lines, panel detaching not discoverable). Starting: wayland, hwdecode (bug fixes -> alpha.4), compound (v2: timeline tabs + compound clips).
 - 13:11 Owner: window flickers/stutters on resize (Plasma Wayland) -> added to wayland agent.
 - 13:18 Heartbeat: wayland 1 commit, hwdecode and compound active (0 commits yet); 22 GB free.
+- 14:02 hwdecode merged (57/57): one lock per shared VAAPI device, retry + per-file software fallback, quiet probes, FFmpeg log routing re-installed after Qt Multimedia, per-file decoder log lines, stats summary on stop, docs/hw-decode-test.md. All log categories default to info. Starting masks (v2).

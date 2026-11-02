@@ -20,7 +20,7 @@ namespace kk {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcActions, "kk.ui.actions")
+Q_LOGGING_CATEGORY(lcActions, "kk.ui.actions", QtInfoMsg)
 
 constexpr int kKeymapFormatVersion = 1;
 

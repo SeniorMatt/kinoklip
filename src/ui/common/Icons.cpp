@@ -16,7 +16,7 @@ namespace kk {
 
 namespace {
 
-Q_LOGGING_CATEGORY(lcIcons, "kk.ui.icons")
+Q_LOGGING_CATEGORY(lcIcons, "kk.ui.icons", QtInfoMsg)
 
 QString iconPath(const QString& name)
 {
