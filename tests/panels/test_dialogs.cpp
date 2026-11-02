@@ -236,7 +236,9 @@ private slots:
         seconds("TransitionSeconds")->setValue(0.5);
         spin("MultiFrameNudge")->setValue(10);
         combo("ZoomAnchor")->setCurrentIndex(1);
-        combo("PreviewQuality")->setCurrentIndex(2);
+        QComboBox* resolution = combo("PreviewQuality");
+        QCOMPARE(resolution->currentData().toString(), QStringLiteral("full")); // the default
+        resolution->setCurrentIndex(resolution->findData(QStringLiteral("half")));
         seconds("PrerollSeconds")->setValue(3.0);
         QSignalSpy changed(&dialog, &PreferencesDialog::preferencesChanged);
         // Let the hardware probe (worker thread) fill in its table for the screenshot.

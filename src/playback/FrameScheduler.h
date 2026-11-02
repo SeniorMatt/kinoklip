@@ -39,9 +39,10 @@ struct FrameSlot
 /// and poll() with the frame due *now*. poll() returns the newest finished frame that is not
 /// in the future (in play direction) and forgets everything older — those frames are dropped,
 /// never shown late, so video cannot drift behind the clock. At most maxInFlight() requests
-/// are unfinished at any time (2-3 keep the GPU busy while bounding latency); requests that
-/// became useless (seek, parameter change) keep counting until they finish, because the
-/// render thread cannot cancel them.
+/// are unfinished at any time (2-3 keep the GPU busy while bounding latency). Requests that
+/// became useless (clear() on a seek, a content change) are cancelled: the render thread skips
+/// them if it has not started them yet (RenderRequest::cancelled); until they complete they
+/// still count as in flight.
 ///
 /// Scrubbing / stills: requestStill() keeps at most ONE still request in flight; further calls
 /// only replace the pending frame number. When the in-flight one finishes, poll() returns it
@@ -82,7 +83,8 @@ public:
     /// Scrub/still: the finished still, or nullptr. Issues the pending one if any.
     RenderedFramePtr pollStill();
 
-    /// Forgets all playback and still requests (unfinished ones keep counting until done).
+    /// Forgets all playback and still requests and cancels the unfinished ones (they keep
+    /// counting until the render thread has skipped or finished them).
     void clear();
     /// True if any request (playback, still or discarded) is unfinished.
     [[nodiscard]] bool busy();
@@ -112,6 +114,8 @@ private:
     static bool check(Entry& e);
     void reapZombies();
     void noteRendered(const RenderedFramePtr& frame);
+    /// Sets the cancellation flag of every request issued so far.
+    void cancelOutstanding();
 
     RenderFn m_render;
     RenderParams m_params;
@@ -126,6 +130,7 @@ private:
     int64_t m_dropped = 0;
     int64_t m_issued = 0;
     double m_avgRenderMs = 0.0;
+    std::shared_ptr<std::atomic<bool>> m_cancel; ///< flag of the current request generation
 };
 
 } // namespace kk

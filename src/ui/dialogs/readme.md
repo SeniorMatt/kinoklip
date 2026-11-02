@@ -30,7 +30,7 @@ Preferences dialog stored new values.
 | User > Project Save and Load | autosave interval | `project/autosaveMinutes` | `AutosaveController` (live) |
 | User > Editing | still / title+generator / transition durations, fast nudge, three-point editing, ripple delete gap, trim behaviour | `edit/*` (`core/EditBehaviour.h`) | read at each edit (live) |
 | | timeline zooms around playhead / mouse | `edit/zoomAnchor` (`prefs::zoomAroundMouse()`) | timeline wheel zoom (timeline module) |
-| User > Playback Settings | performance mode (preview quality), pre/post-roll, return after play around, restart at end | `playback/previewQuality`, `playback/*` (`PlaybackBehaviour`) | viewers' quality combos + `PlaybackEngine::setBehaviour()` (live) |
+| User > Playback Settings | playback resolution (Full default / Half / Quarter / Automatic), pre/post-roll, return after play around, restart at end | `playback/previewQuality` (+ `previewQualityRevision`), `playback/*` (`PlaybackBehaviour`) | `PlaybackResolution::load()` (menu, viewer combos, engines) + `PlaybackEngine::setBehaviour()` (live) |
 | User > Keyboard | opens Keyboard Customization | — | `edit.keyboard_customization` |
 
 ## Notes and known gaps

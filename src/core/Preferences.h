@@ -24,8 +24,12 @@ inline constexpr char kRenderBackend[] = "system/renderBackend";
 inline constexpr char kCacheDirectory[] = "system/cacheDirectory";
 /// QAudioDevice id (UTF-8 bytes as a string) of the playback output; "" = system default.
 inline constexpr char kAudioOutputDevice[] = "system/audioOutputDevice";
-/// Default viewer preview quality: "auto", "full", "half" or "quarter" (default "auto").
+/// Playback resolution (Playback > Playback Resolution, the viewers' resolution combo,
+/// Preferences > Playback): "full" (default), "half", "quarter" or "auto".
 inline constexpr char kPreviewQuality[] = "playback/previewQuality";
+/// Settings revision of kPreviewQuality (int). Below 2, a stored "auto" (the alpha.1/alpha.2
+/// default, which lowered the resolution too eagerly) is migrated to "full" once.
+inline constexpr char kPreviewQualityRevision[] = "playback/previewQualityRevision";
 /// Mouse-wheel / slider zoom anchor of the timeline: "playhead" (Resolve, default) or "mouse".
 inline constexpr char kZoomAnchor[] = "edit/zoomAnchor";
 
@@ -65,8 +69,11 @@ void setAutosaveMinutes(int minutes);
 [[nodiscard]] QString cacheDirectory();
 /// Configured audio output device id, or empty for the system default.
 [[nodiscard]] QString audioOutputDevice();
-/// Default viewer preview quality id ("auto", "full", "half", "quarter").
+/// Playback resolution id ("full", "half", "quarter", "auto"; default "full"). The first call
+/// migrates a stored "auto" from before revision 2 to "full" (see kPreviewQualityRevision).
 [[nodiscard]] QString previewQuality();
+/// Stores the playback resolution id.
+void setPreviewQuality(const QString& id);
 /// True if the timeline zooms around the mouse pointer instead of the playhead.
 [[nodiscard]] bool zoomAroundMouse();
 

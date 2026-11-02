@@ -74,6 +74,13 @@ struct Compositor::Impl
                 queue.pop_front();
                 moreQueued = !queue.empty();
             }
+            if (job.request.cancelled && job.request.cancelled->load(std::memory_order_relaxed)) {
+                auto skipped = std::make_shared<RenderedFrame>();
+                skipped->frame = job.request.frame;
+                skipped->cancelled = true;
+                job.promise.set_value(std::move(skipped));
+                continue;
+            }
             backend->render(job);
             // Keep the newest readback in flight only while more work is waiting: its DMA then
             // overlaps the next frame's rendering instead of stalling this thread.
