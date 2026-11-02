@@ -6,6 +6,8 @@
 #include <QString>
 #include <QStringList>
 
+struct AVBufferRef;
+
 namespace kk::media {
 
 /// Hardware decoding backend selection.
@@ -27,6 +29,7 @@ struct HwDeviceInfo
     QString name; ///< "VAAPI", "CUDA", "Vulkan"
     bool available = false;
     QString device; ///< device that was opened, e.g. "/dev/dri/renderD129" (may be empty)
+    QString driver; ///< short driver description, e.g. "iHD 24.1.0" (VAAPI; may be empty)
     QString error; ///< why it is unavailable (when !available)
     /// Codecs FFmpeg can decode with this backend. Whether a given profile (e.g. HEVC 10-bit
     /// or AV1) really works depends on the GPU; decoders fall back to software if not.
@@ -46,5 +49,23 @@ HwAccelMode preferredHwAccel();
 /// The hardware backends of this platform in Auto order, each probed once (devices are
 /// opened on first call, which can take ~0.1-1 s; cached afterwards). Thread-safe.
 QList<HwDeviceInfo> hwCapabilities();
+
+/// True if an NVIDIA driver device node exists (/dev/nvidiactl).
+/// Without it CUDA/NVDEC/NVENC cannot work, so they are not even tried (FFmpeg would log
+/// CUDA_ERROR_NO_DEVICE errors). Linux only; true elsewhere (let the driver decide).
+bool nvidiaDriverPresent();
+
+/// True if Intel Quick Sync (FFmpeg's *_qsv) can possibly work: an Intel GPU render node and
+/// a oneVPL/Media SDK runtime library (libmfx-gen.so.1.2 or libmfxhw64.so.1) can be loaded,
+/// or ONEVPL_SEARCH_PATH is set. Without them FFmpeg logs "Error creating a MFX session".
+bool qsvRuntimePresent();
+
+/// Short name of the VA driver behind a VAAPI device context, e.g. "iHD 24.1.0" or
+/// "Mesa Gallium 24.2.1"; empty if unknown. Used for log lines.
+QString vaapiDriverName(AVBufferRef* device);
+
+/// The libva library actually loaded, e.g. "libva 2.22.0 (host, /usr/lib/libva.so.2.2200.0)"
+/// or "... (bundled, ...)"; empty if libva is not loaded.
+QString libvaDescription();
 
 } // namespace kk::media

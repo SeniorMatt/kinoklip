@@ -75,6 +75,14 @@ kk::ExportResult r = job.run([](const kk::ExportProgress& p) { /* frames, fps, E
   encoder cannot open at the real size, the job falls back to the next candidate and reports
   the encoder actually used in `ExportResult::videoEncoder`. `KINOKLIP_HWENC=off` disables
   hardware encoding.
+* **Quiet probing**: NVENC is not tried without `/dev/nvidiactl`, QSV not without an Intel
+  render node and a oneVPL/MFX runtime (`media::nvidiaDriverPresent()`,
+  `media::qsvRuntimePresent()`). FFmpeg's messages during the remaining probes are captured
+  (`FfmpegQuiet`; the first error becomes the status reason), per-encoder results are debug
+  output, and one info line summarises:
+  `kk.export: hardware encoders: VAAPI h264/hevc (iHD 24.1.0, /dev/dri/renderD128), NVENC
+  unavailable (no NVIDIA driver), QSV unavailable (no Intel GPU with a oneVPL/MFX runtime)`.
+  `tests/export/test_encoderprobe` checks that probing logs no warning at all.
 
 ## Threading
 

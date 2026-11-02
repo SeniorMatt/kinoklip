@@ -2,6 +2,7 @@
 // VideoFrame — plane geometry helpers + VideoFrameFactory (decoder output → VideoFrame).
 #include "media/VideoFrame.h"
 
+#include "media/HwDevices.h"
 #include "media/MediaLog.h"
 #include "media/VideoFrameFactory.h"
 
@@ -180,30 +181,43 @@ VideoFrameFactory::~VideoFrameFactory()
     av_buffer_pool_uninit(&m_pool); // buffers still held by frames are freed when released
 }
 
-bool VideoFrameFactory::copyMapped(AVFrame* dst, const AVFrame* hwFrame)
+int VideoFrameFactory::copyMapped(AVFrame* dst, const AVFrame* hwFrame)
 {
     // av_hwframe_transfer_data() maps the VA surface and copies it with plain loads. The
     // mapping is write-combining (uncached) memory on Intel/AMD, where plain loads crawl
     // (~250 MB/s: 1080p NV12 took ~11 ms on a UHD 630). av_image_copy_uc_from() uses SSE4.1
     // streaming loads made for exactly this (several GB/s); it is a plain copy elsewhere.
     // KINOKLIP_VAAPI_COPY=transfer: always use av_hwframe_transfer_data (diagnostics).
+    //
+    // FFmpeg contract (hwcontext_vaapi.c, vaapi_map_frame): av_hwframe_map() with
+    // AV_HWFRAME_MAP_READ first calls vaSyncSurface() (waits until the GPU finished decoding
+    // into the surface; "Failed to sync surface" + AVERROR(EIO) otherwise), then - READ
+    // without DIRECT - copies the surface into a VAImage (vaCreateImage + vaGetImage) and maps
+    // that. `mapped` holds a reference to the hardware frame until it is freed below, so the
+    // surface cannot return to the decoder's pool while we copy; the caller (VideoDecoder)
+    // holds the device's call lock (HwDeviceManager::callLock) around the whole download.
     static const bool disabled
         = qEnvironmentVariable("KINOKLIP_VAAPI_COPY") == QLatin1String("transfer");
     if (m_mapFailed || disabled) {
-        return false;
+        return AVERROR(ENOSYS);
     }
     FramePtr mapped(av_frame_alloc());
     if (!mapped) {
-        return false;
+        return AVERROR(ENOMEM);
     }
     mapped->format = dst->format;
     const int ret = av_hwframe_map(mapped.get(), hwFrame, AV_HWFRAME_MAP_READ);
+    if (ret == AVERROR(EIO)) {
+        // The surface itself is bad (vaSyncSurface failed): av_hwframe_transfer_data() would
+        // sync the same surface again and fail the same way. Report it; keep mapping enabled.
+        return ret;
+    }
     if (ret < 0 || mapped->format != dst->format || mapped->width < dst->width
         || mapped->height < dst->height) {
         qCDebug(lcMedia) << "hardware frame mapping unavailable (" << avErrorString(ret)
                          << "); using av_hwframe_transfer_data";
         m_mapFailed = true; // do not retry every frame
-        return false;
+        return AVERROR(ENOSYS);
     }
     ptrdiff_t dstLines[4] = {};
     ptrdiff_t srcLines[4] = {};
@@ -213,16 +227,19 @@ bool VideoFrameFactory::copyMapped(AVFrame* dst, const AVFrame* hwFrame)
     }
     av_image_copy_uc_from(dst->data, dstLines, const_cast<const uint8_t**>(mapped->data), srcLines,
         AVPixelFormat(dst->format), dst->width, dst->height);
-    return true;
+    return 0;
 }
 
 FramePtr VideoFrameFactory::download(const AVFrame* hwFrame)
 {
+    m_lastError = 0;
+    m_lastErrorText.clear();
     const auto* frames = reinterpret_cast<const AVHWFramesContext*>(hwFrame->hw_frames_ctx->data);
     const AVPixelFormat format = frames->sw_format;
     const int size
         = av_image_get_buffer_size(format, hwFrame->width, hwFrame->height, kPlaneAlignment);
     if (size <= 0) {
+        m_lastError = size < 0 ? size : AVERROR(EINVAL);
         return nullptr;
     }
     // One pool per frame size; re-created when the stream changes resolution/format.
@@ -233,10 +250,12 @@ FramePtr VideoFrameFactory::download(const AVFrame* hwFrame)
     }
     FramePtr out(av_frame_alloc());
     if (!m_pool || !out) {
+        m_lastError = AVERROR(ENOMEM);
         return nullptr;
     }
     out->buf[0] = av_buffer_pool_get(m_pool);
     if (!out->buf[0]) {
+        m_lastError = AVERROR(ENOMEM);
         return nullptr;
     }
     out->format = format;
@@ -244,17 +263,44 @@ FramePtr VideoFrameFactory::download(const AVFrame* hwFrame)
     out->height = hwFrame->height;
     av_image_fill_arrays(out->data, out->linesize, out->buf[0]->data, format, out->width,
         out->height, kPlaneAlignment);
-    int ret = frames->device_ctx->type == AV_HWDEVICE_TYPE_VAAPI && copyMapped(out.get(), hwFrame)
-        ? 0
-        : av_hwframe_transfer_data(out.get(), hwFrame, 0);
+    if (takeInjectedDownloadFailure()) {
+        m_lastError = AVERROR(EIO);
+        m_lastErrorText = QStringLiteral("injected download failure (test)");
+        return nullptr;
+    }
+    // A failing download is handled by the decoder (retry, then software): capture FFmpeg's
+    // messages ("Failed to sync surface ...") as the reason instead of logging every one.
+    FfmpegLogCapture capture;
+    int ret = AVERROR(ENOSYS);
+    if (frames->device_ctx->type == AV_HWDEVICE_TYPE_VAAPI) {
+        ret = copyMapped(out.get(), hwFrame);
+    }
+    if (ret == AVERROR(ENOSYS)) {
+        ret = av_hwframe_transfer_data(out.get(), hwFrame, 0);
+    }
     if (ret >= 0) {
         ret = av_frame_copy_props(out.get(), hwFrame);
     }
     if (ret < 0) {
-        qCWarning(lcMedia) << "hardware frame download failed:" << avErrorString(ret);
+        m_lastError = ret;
+        m_lastErrorText = capture.firstError();
+        qCDebug(lcMedia).noquote()
+            << "hardware frame download failed:" << avErrorString(ret) << m_lastErrorText;
         return nullptr;
     }
     return out;
+}
+
+QString VideoFrameFactory::lastErrorString() const
+{
+    if (m_lastError == 0) {
+        return {};
+    }
+    QString text = avErrorString(m_lastError);
+    if (!m_lastErrorText.isEmpty()) {
+        text += QStringLiteral(" (%1)").arg(m_lastErrorText);
+    }
+    return text;
 }
 
 std::shared_ptr<const VideoFrame> VideoFrameFactory::make(

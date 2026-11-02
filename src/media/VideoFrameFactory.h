@@ -44,20 +44,28 @@ public:
     std::shared_ptr<const VideoFrame> make(const AVFrame* decoded, const FrameMeta& meta);
 
     /// Downloads a hardware frame into a pooled software frame (NV12/P010...).
-    /// @return nullptr on failure.
+    /// @return nullptr on failure (see lastError()); nothing is logged above debug level.
     FramePtr download(const AVFrame* hwFrame);
+
+    /// FFmpeg error code of the last failed download (0 after a successful one).
+    [[nodiscard]] int lastError() const { return m_lastError; }
+    /// "Input/output error (Failed to sync surface 0x3: 1 (operation failed))" or empty.
+    [[nodiscard]] QString lastErrorString() const;
 
     /// Wraps a premultiplied ARGB32 image (stills) as a Bgra frame sharing its pixels.
     static std::shared_ptr<const VideoFrame> wrapImage(const QImage& image, const FrameMeta& meta);
 
 private:
     /// VAAPI: maps @p hwFrame and copies it into @p dst (allocated, same format) with
-    /// streaming loads. @return false if mapping is not possible (caller transfers instead).
-    bool copyMapped(AVFrame* dst, const AVFrame* hwFrame);
+    /// streaming loads. @return 0 on success, AVERROR(ENOSYS) if mapping is not possible
+    /// (caller transfers instead), another error if the surface cannot be read at all.
+    int copyMapped(AVFrame* dst, const AVFrame* hwFrame);
 
     AVBufferPool* m_pool = nullptr;
     bool m_mapFailed = false; ///< mapping failed once: always transfer
     size_t m_poolBufferSize = 0;
+    int m_lastError = 0;
+    QString m_lastErrorText; ///< first FFmpeg error message of the last failed download
     FrameConverter m_converter; ///< for formats outside PixelFormat → Bgra
 };
 
