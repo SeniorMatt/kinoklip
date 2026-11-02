@@ -105,3 +105,7 @@
 - 22:53 Owner: v2.1 first (double-click opens compound at hovered time; moving past the outermost track creates a track). Cut page agent paused (3 commits on cutpage). Implementing v2.1 on main.
 - 23:04 v2.1 on main: 91/91 pass. Starting 0.2.1-alpha.1 container release build.
 - 23:18 Released 0.2.1-alpha.1 (v2.1); copy in ~/Desktop/kinoklip-0.2.1-alpha.1. Resuming Cut page agent.
+- 23:25 Heartbeat: cutpage merged main (v2.1) 7 min ago, working; 19 GB free.
+- 23:42 cutpage merged (Cut page, spec 35); full host suite started.
+- 23:43 Started agents 'colorpage' (format v12) and 'audiopage' (format v13) in parallel.
+- 23:46 main after cutpage: 94/94 pass; pushed.
