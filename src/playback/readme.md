@@ -13,7 +13,8 @@ category `kk.playback`.
 | `SourcePlayer.h` | `SourcePlayer`: one media item on a private one-clip timeline, own in/out marks, `selection()` -> `SourceRange`; `makeSourceTimeline()` |
 | `ShuttleControl.h` | pure J/K/L state machine (rates, K+L / K+J step and held slow play) |
 | `PlaybackClock.h` | pure clock: free-running or slaved to the audio device (slewed, monotonic) |
-| `FrameScheduler.h` | pure request bookkeeping: look-ahead, frame dropping, scrub coalescing |
+| `FrameScheduler.h` | pure request bookkeeping: look-ahead, frame dropping, scrub coalescing, cancellation |
+| `AutoQuality.h` | pure Full/Half decision of the opt-in "Automatic" playback resolution |
 | `AudioOutput.h` | sound device interface + `createDefaultAudioOutput()` (QAudioSink, own thread), `monotonicUs()` |
 | `AudioFeeder.h` | mixer thread (`AudioMixer`) filling the ring ahead of the device |
 | `AudioRing.h` | lock-free SPSC ring of stereo float frames |
@@ -70,13 +71,51 @@ While paused, playhead moves and edits go through `requestStill()`: one request 
 later wishes only replace the pending frame number (a fast scrub renders what it can and
 always ends on the last position).
 
-### Quality
-`QualityMode::Auto` renders Full while paused; during playback it evaluates every 500 ms
-(after a 1 s settle) and steps down (Full → Half → Quarter) when the average render time
-exceeds 85 % of the frame interval or ≥ 3 frames were dropped in the window, and back up after
-2 s below 35 %. Manual Full/Half/Quarter are fixed. Output size = the timeline aspect fitted
-into the largest registered viewer (device pixels), never above timeline resolution; textures
-are requested when the GPU compositor runs and every viewer can draw them.
+### Seeking while playing
+A playhead change while playing (ruler click or drag, viewer jog bar, Home/End, edit
+navigation) does not stop playback (Resolve keeps playing from the new position). The engine
+*parks*: `FrameScheduler::clear()` cancels the stale look-ahead (`RenderRequest::cancelled`,
+skipped by the render thread if not started), the sound device stops once, the target is
+rendered like a paused scrub (coalesced), and clock and sound restart from the target once it
+is on screen and no further seek came for `kSeekResumeMs` (80 ms; `kSeekMaxParkMs` = 400 ms at
+the latest). The state stays `Playing`. Before, every playhead change restarted the sound
+device (blocking) and waited for the old look-ahead, so a drag showed no picture at all until
+the mouse stopped. A frame already on screen is never rendered again when motion starts.
+
+### Quality (playback resolution)
+Resolve's *Timeline Proxy Resolution*; in Kinoklip Playback > Playback Resolution, the viewer
+header combo ("Full Res"...) and Preferences > Playback, one shared value
+(`src/ui/viewer/PlaybackResolution`, QSettings `playback/previewQuality`).
+
+* **Full** (default): every frame at full resolution; when rendering cannot keep up, frames
+  are dropped (never shown late), the picture stays sharp.
+* **Half / Quarter**: render at most 1/2 or 1/4 of the *timeline* resolution. The render size
+  is `renderSize() = min(outputSize(), timeline size × factor)`, so for an Edit-page viewer
+  smaller than half the timeline, Half changes nothing.
+* **Auto** (opt-in, `AutoQuality`): Full while paused; during playback Full → Half only after
+  3 consecutive one-second windows in which the renderer itself was overloaded (average render
+  time > 90 % of the frame interval; dropped frames alone never count: they also come from GUI
+  stalls, decoding and seeks), never below Half, back to Full after 2 s with load < 50 % (a
+  back-off of 5 s, doubling to 30 s, when Full keeps failing), and immediately back to Full
+  for the rest of the play when Half was not at least 25 % faster (decode-bound).
+
+Alpha.1/alpha.2 defaulted to an Auto that stepped down to Quarter of the *viewer* size after
+three dropped frames (and waited up to 2 minutes to try again): a ~1000 px viewer showed
+250x140 pixels, which was the owner's "pixelated while playing" (feedback alpha.2 #2). A stored
+"auto" is migrated to "full" once (`prefs::previewQuality()`, revision 2).
+
+Output size = the timeline aspect fitted into the largest registered viewer (device pixels),
+never above timeline resolution; textures are requested when the GPU compositor runs and every
+viewer can draw them.
+
+### Statistics
+`Stats` (fps, drops, render time and its stages: decode, upload, composite, output; seeks).
+`KK_PLAYBACK_STATS=1` logs one line per second while playing, e.g.
+
+```
+kk.playback: stats: 60.0 fps (of 60.00), 0 dropped, quality 1 999x562, render 11.1 ms
+             [decode 0.1, upload 0.9, composite 0.2, output 9.0], audio clock, A/V 0.00
+```
 
 ## Transport semantics (Resolve-like)
 
@@ -98,22 +137,33 @@ between editors live in `PlaybackBehaviour` (QSettings `playback/restartAtEnd`, 
 
 ## Measurements
 
-`tests/playback/test_playbackperf` (1080p25 timeline: 1080p H.264 under a 720p PiP with drop
-shadow, a title, linked audio; fake sound card as master): 25.00 fps with 0 dropped frames on
-the GTX 1650 at viewer and full-HD size (2 ms/frame) and on llvmpipe at viewer size; full-HD
-on llvmpipe needs Auto quality (Half). Full table: `src/ui/viewer/readme.md`.
+`tests/playback/test_playbackperf` (GL under xvfb when available):
+* `singleClipPlayback`: one clip on a timeline of its own size/rate, Edit-page viewer
+  (1000x562), Full; stage times. More files with `KK_PERF_MEDIA=a.mp4:b.mov`
+  (`scripts/make_perf_media.sh` writes screen recordings 1080p60/1440p60 and a 4K HEVC clip),
+  other modes with `KK_PERF_QUALITY=auto|half|quarter`.
+* `sustainedPlayback`: 1080p25 timeline (1080p H.264 under a 720p PiP with drop shadow, a
+  title, linked audio; fake sound card as master).
+* `seekWhilePlaying`: click (6 jumps) and drag (40 moves, 16 ms apart) latency until a frame
+  within half a second of the target is on screen.
+
+Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
 
 ## Tests
 
 * `test_playbacklogic` — ShuttleControl sequences, clock monotonicity and A/V bound with a
   simulated device (stale, period-quantised reports, ±0.2 % crystal drift), ring, scheduler
-  bounds / dropping / reverse / loop keys / scrub coalescing / parameter changes.
+  bounds / dropping / reverse / loop keys / scrub coalescing / parameter changes /
+  cancellation, AutoQuality (sustained overload only, never below Half, quick recovery,
+  back-off, gives up when Half does not help).
 * `test_playbackengine` — engine against the real Compositor and a fake sound card: states,
   J/K/L, K+L step, slow play, loop, play in-to-out, end handling, playhead write-back, scrub
-  coalescing (60 moves → 2 renders), re-render on edits, output size, audio master clock
+  coalescing (60 moves → 2 renders), seek while playing (click: target on screen, keeps
+  playing, no state change; drag: 60 moves → ≤ 2 renders), re-render on edits, output and
+  proxy render size, audio master clock
   (|position − heard| < 1.5 frames), clock switching, dead-device fallback.
 * `test_viewerpanel` — viewers (src/ui/viewer), source marks, F9 integration.
-* `test_playbackperf` — sustained playback measurement (GL under xvfb when available).
+* `test_playbackperf` — playback and seek measurements (see above).
 
 ## How to extend
 
@@ -130,6 +180,8 @@ on llvmpipe needs Auto quality (Half). Full table: `src/ui/viewer/readme.md`.
 
 * TODO(playback): no audio in reverse / shuttle / slow play (wall clock, silent).
 * TODO(playback): no audio scrubbing (short snippets while dragging).
+* TODO(playback): seeks show the exact target frame (decoder seek + decode forward from the
+  keyframe, 70-140 ms here); showing the nearest keyframe first would be faster for long GOPs.
 * TODO(playback): presentation is timer-driven (4 ms) rather than locked to the display's
   vsync (`QOpenGLWidget::frameSwapped`); frame pacing is good to ±4 ms.
 * TODO(playback): a device switch (headphones plugged in) is picked up on the next play only.

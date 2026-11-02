@@ -5,6 +5,7 @@
 // full-screen viewer, and F9 inserting the source viewer's marked range (EditPage wiring).
 #include "../media/MediaTestUtil.h"
 #include "app/pages/EditPage.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "playback/PlaybackEngine.h"
@@ -12,6 +13,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/ViewerPanel.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -23,6 +25,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QSurfaceFormat>
 #include <QTest>
 
@@ -83,7 +87,15 @@ class TestViewerPanel : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
-    void initTestCase() { initResources(); }
+    void initTestCase()
+    {
+        initResources();
+        // Private settings (the playback resolution is persisted).
+        QStandardPaths::setTestModeEnabled(true);
+        QCoreApplication::setOrganizationName(QStringLiteral("kinoklip-tests"));
+        QCoreApplication::setApplicationName(QStringLiteral("test_viewerpanel"));
+        QSettings().clear();
+    }
 
     void timelineViewerShowsProgram()
     {
@@ -141,9 +153,22 @@ private Q_SLOTS:
         QCOMPARE(f.engine->outputSize(), QSize(320, 180)); // never above timeline resolution
         viewer.setZoom(ViewerPanel::Zoom::Fit);
         QVERIFY(viewer.surface()->pictureRect().width() > 640);
-        // Quality box drives the engine.
-        viewer.findChild<QComboBox*>(QStringLiteral("ViewerQuality"))->setCurrentIndex(2);
+        // The resolution box drives the engine and the shared setting (menu, other viewers).
+        auto* box = viewer.findChild<QComboBox*>(QStringLiteral("ViewerQuality"));
+        QCOMPARE(box->currentText(), QStringLiteral("Full Res"));
+        QCOMPARE(f.engine->qualityMode(), PlaybackEngine::QualityMode::Full);
+        box->setCurrentIndex(box->findData(int(PlaybackEngine::QualityMode::Half)));
         QCOMPARE(f.engine->qualityMode(), PlaybackEngine::QualityMode::Half);
+        QCOMPARE(PlaybackResolution::instance().mode(), PlaybackEngine::QualityMode::Half);
+        QCOMPARE(prefs::previewQuality(), QStringLiteral("half"));
+        ViewerPanel other(ViewerPanel::Mode::Timeline, f.ctx);
+        auto* otherBox = other.findChild<QComboBox*>(QStringLiteral("ViewerQuality"));
+        QCOMPARE(otherBox->currentData().toInt(), int(PlaybackEngine::QualityMode::Half));
+        PlaybackResolution::instance().setMode(PlaybackEngine::QualityMode::Quarter); // menu
+        QCOMPARE(box->currentText(), QStringLiteral("Quarter Res"));
+        QCOMPARE(otherBox->currentText(), QStringLiteral("Quarter Res"));
+        QCOMPARE(f.engine->qualityMode(), PlaybackEngine::QualityMode::Quarter);
+        PlaybackResolution::instance().setMode(PlaybackEngine::QualityMode::Full);
     }
 
     void timelineViewerWithoutEngine()

@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Pure playback logic: J/K/L state machine, playback clock (free and audio-slaved), audio ring,
-// frame scheduler (look-ahead, dropping, scrub coalescing).
+// frame scheduler (look-ahead, dropping, scrub coalescing), Auto proxy resolution.
 #include "playback/AudioRing.h"
+#include "playback/AutoQuality.h"
 #include "playback/FrameScheduler.h"
 #include "playback/PlaybackClock.h"
 #include "playback/ShuttleControl.h"
 
 #include <QTest>
 
+#include <atomic>
 #include <cmath>
 #include <random>
 
@@ -22,9 +24,11 @@ using Key = ShuttleControl::Key;
 struct FakeRenderer
 {
     std::vector<std::pair<int64_t, std::promise<RenderedFramePtr>>> pending;
+    std::vector<std::shared_ptr<const std::atomic<bool>>> cancelFlags; ///< by issue order
     FrameScheduler::RenderFn fn()
     {
         return [this](RenderRequest request) {
+            cancelFlags.push_back(request.cancelled);
             pending.emplace_back(request.frame, std::promise<RenderedFramePtr>());
             return pending.back().second.get_future();
         };
@@ -363,6 +367,95 @@ private Q_SLOTS:
         r.finishOldest();
         QVERIFY(!s.poll(5, 1)); // old results are never presented
         QCOMPARE(s.prefetch({{0, 0}, {1, 1}}), 2);
+    }
+
+    void schedulerClearCancels()
+    {
+        FakeRenderer r;
+        FrameScheduler s(r.fn());
+        s.setParams(
+            RenderParams {std::make_shared<TimelineData>(), {}, {}, Quality::Full, OutputImage});
+        s.prefetch({{0, 0}, {1, 1}, {2, 2}});
+        QCOMPARE(int(r.cancelFlags.size()), 3);
+        for (const auto& flag : r.cancelFlags)
+            QVERIFY(flag && !flag->load());
+        s.clear(); // a seek: the look-ahead is stale
+        for (const auto& flag : r.cancelFlags)
+            QVERIFY(flag->load());
+        s.requestStill(40);
+        QCOMPARE(int(r.cancelFlags.size()), 4);
+        QVERIFY(!r.cancelFlags.back()->load()); // new requests are not cancelled
+        // A size/quality change keeps the frames in flight (same picture): not cancelled.
+        s.prefetch({{41, 41}});
+        s.setParams(
+            RenderParams {std::make_shared<TimelineData>(), {}, {}, Quality::Half, OutputImage},
+            false);
+        QVERIFY(!r.cancelFlags.back()->load());
+        while (!r.pending.empty())
+            r.finishOldest();
+    }
+
+    // ---- AutoQuality ----
+
+    /// Feeds @p seconds of observations every 100 ms of a renderer that needs @p fullMs per
+    /// frame at Full and @p halfMs at Half (60 fps); returns the quality at the end.
+    static Quality feed(AutoQuality& q, int64_t& now, double seconds, double fullMs, double halfMs)
+    {
+        for (int i = 0; i < int(std::lround(seconds * 10)); ++i) {
+            now += 100'000;
+            q.update(now, q.quality() == Quality::Full ? fullMs : halfMs, 1000.0 / 60.0);
+        }
+        return q.quality();
+    }
+
+    void autoQualityStaysFullWhenItKeepsUp()
+    {
+        AutoQuality q;
+        int64_t now = 1'000'000;
+        q.reset(now);
+        QCOMPARE(feed(q, now, 30, 14.0, 5.0), Quality::Full); // 84 % of a 60 fps interval
+    }
+
+    void autoQualityNeedsSustainedOverload()
+    {
+        AutoQuality q;
+        int64_t now = 1'000'000;
+        q.reset(now);
+        // Two overloaded windows (a decoder opening, a seek) followed by recovery: no change.
+        QCOMPARE(feed(q, now, 2.5, 25.0, 9.0), Quality::Full);
+        QCOMPARE(feed(q, now, 5, 10.0, 9.0), Quality::Full);
+        // Sustained overload: Half after three overloaded windows, never Quarter.
+        QCOMPARE(feed(q, now, 2.4, 25.0, 9.0), Quality::Full);
+        QCOMPARE(feed(q, now, 1.1, 25.0, 9.0), Quality::Half);
+        QCOMPARE(feed(q, now, 60, 25.0, 9.0), Quality::Half); // Half helps; load 0.54 stays
+    }
+
+    void autoQualityRecoversQuickly()
+    {
+        AutoQuality q;
+        int64_t now = 1'000'000;
+        q.reset(now);
+        QCOMPARE(feed(q, now, 3, 25.0, 9.0), Quality::Half);
+        // The content got lighter: back to Full after 3 s (settle + 2 s of headroom).
+        QCOMPARE(feed(q, now, 3, 6.0, 3.0), Quality::Full);
+        // Full fails again right away: Half, and the next upshift waits the back-off (5 s).
+        QCOMPARE(feed(q, now, 3, 25.0, 9.0), Quality::Half);
+        QCOMPARE(feed(q, now, 4.5, 6.0, 3.0), Quality::Half);
+        QCOMPARE(feed(q, now, 1.0, 6.0, 3.0), Quality::Full);
+    }
+
+    void autoQualityGivesUpWhenHalfDoesNotHelp()
+    {
+        AutoQuality q;
+        int64_t now = 1'000'000;
+        q.reset(now);
+        // Decode-bound: Full 25 ms, Half 23 ms -> pointless, back to Full for this play.
+        QCOMPARE(feed(q, now, 3, 25.0, 23.0), Quality::Half);
+        QCOMPARE(feed(q, now, 1.0, 25.0, 23.0), Quality::Full);
+        QCOMPARE(feed(q, now, 30, 25.0, 23.0), Quality::Full);
+        // A new play starts over.
+        q.reset(now);
+        QCOMPARE(feed(q, now, 3, 25.0, 23.0), Quality::Half);
     }
 };
 

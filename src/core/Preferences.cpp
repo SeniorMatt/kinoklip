@@ -96,7 +96,23 @@ QString audioOutputDevice()
 
 QString previewQuality()
 {
-    return QSettings().value(QLatin1String(kPreviewQuality), QStringLiteral("auto")).toString();
+    QSettings settings;
+    constexpr int kRevision = 2;
+    if (settings.value(QLatin1String(kPreviewQualityRevision), 0).toInt() < kRevision) {
+        // Alpha.1/alpha.2 defaulted to "auto", which dropped to a quarter of the viewer size
+        // while playing: everyone starts at Full once; Auto stays available as an option.
+        if (settings.value(QLatin1String(kPreviewQuality)).toString() == QLatin1String("auto"))
+            settings.setValue(QLatin1String(kPreviewQuality), QStringLiteral("full"));
+        settings.setValue(QLatin1String(kPreviewQualityRevision), kRevision);
+    }
+    return settings.value(QLatin1String(kPreviewQuality), QStringLiteral("full")).toString();
+}
+
+void setPreviewQuality(const QString& id)
+{
+    QSettings settings;
+    settings.setValue(QLatin1String(kPreviewQuality), id);
+    settings.setValue(QLatin1String(kPreviewQualityRevision), 2);
 }
 
 bool zoomAroundMouse()

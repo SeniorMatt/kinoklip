@@ -61,7 +61,9 @@ mixer.mix(*snapshot, kk::framesToSamples48k(frame, fps), 1024, buffer);   // 204
    1. evaluateTrack() per enabled video track (V1 first)  ── TimelineEval.h (pure, shared
       → single clip | transition span (A, B, progress)       with CPU path + AudioMixer)
    2. DecoderPool.acquire(path, t) per visible media clip; decodeFrame() in parallel
-      (QThreadPool, one decoder per use) → VideoFrame planes
+      (QThreadPool, one decoder per use) → VideoFrame planes. Clips playing forward one frame
+      at a time then start decoding frame + 1 on the pool (decode-ahead, overlaps steps 3-4
+      and the wait for the next request; the next decodeFrame() returns the cached frame)
    3. per track, into the RGBA16F accumulator (premultiplied "over"):
         clip ──► source: YUV planes (persistent per-decoder textures, glTexSubImage2D straight
         │                from decoder memory) | title texture (cached) | solid colour
@@ -106,6 +108,16 @@ mixer.mix(*snapshot, kk::framesToSamples48k(frame, fps), 1024, buffer);   // 204
   parameters re-rasterise on each frame they change. Zoomed titles are rasterised at a
   quantised zoom (≤ 4×) to stay sharp.
 
+### Cancellation and statistics
+
+* `RenderRequest::cancelled` (optional `shared_ptr<const atomic<bool>>`): a request whose flag
+  is set before the render thread picks it up completes at once with `ok = false,
+  cancelled = true`. Playback cancels its stale look-ahead on a seek.
+* `RenderedFrame` reports `renderMs` and its stages (render-thread wall clock): `decodeMs`
+  (incl. hardware download; ~0 when the decode-ahead finished in time), `uploadMs` (plane
+  textures), `compositeMs` (drawing), `outputMs` (output slot, fence/flush, readback). On
+  llvmpipe the GPU work itself shows up in `outputMs` (it runs at the flush).
+
 ## Threading and GL context model
 
 * `Compositor` (constructed on the GUI thread: it creates the `QOffscreenSurface`) starts one
@@ -124,6 +136,8 @@ mixer.mix(*snapshot, kk::framesToSamples48k(frame, fps), 1024, buffer);   // 204
   fails, the thread uses `CpuRenderer` instead (QPainter; transform, opacity, crop, titles,
   solids; every transition as a dissolve; effects skipped with one warning per effect id).
 * Decoders unused for 10 s are closed; render targets unused for 120 frames are deleted.
+* A decoder with a decode-ahead in flight (`DecoderPool::Entry::ahead`) is only used or closed
+  after `waitAhead()`.
 
 ## Files
 
@@ -159,9 +173,9 @@ GTX 1650 (NVIDIA 580, CUDA decode), ms per frame:
 Under xvfb (llvmpipe = software OpenGL, what ctest measures, 12 frames per case): 25 / 171 /
 162 ms (texture) and 8 / 32 / 35 ms at Half. On the GPU decoding dominates; a static title costs
 ~0.3 ms/frame including readback.
-A per-clip look-ahead decode was not added: decoding already runs in parallel per layer and
-the frame times above leave ample headroom at 25-60 fps; the playback engine can queue
-requests ahead itself (`renderAsync`).
+The per-clip decode-ahead (above) hides the decode time on the render thread: with software
+decoding and llvmpipe a 1080p60 screen recording went from 46 to 60 fps (see
+`src/ui/viewer/readme.md`).
 
 ## How to extend
 
@@ -201,8 +215,10 @@ Add it in `media::PixelFormat` (see `src/media/readme.md`), map plane formats in
   preview) — bilinear sampling can alias; render the YUV pass at an intermediate size first.
 * TODO(render): HDR (PQ/HLG) frames are composited as SDR (no tone mapping), chroma siting is
   assumed centred, BT.2020 is converted with its matrix but not gamut-mapped to BT.709.
-* TODO(render): zero-copy hardware frames (VAAPI dma-buf → EGLImage) — the GPU path still
-  uploads decoded planes from system memory.
+* TODO(render): zero-copy hardware frames (VAAPI dma-buf → EGLImage when the compositor's
+  context is EGL, CUDA → GL interop) — the GPU path still downloads hardware frames (VAAPI:
+  streaming-load copy, see src/media) and uploads planes. Needs testing on Intel/AMD hardware
+  with a session (the build machine's render nodes are not accessible to the agents).
 * The CPU fallback renders every transition as a dissolve and skips effects.
 * Audio speed changes resample linearly (pitch follows speed); no time stretching.
 * An output slot released while a viewer's draw that samples it is still in flight could in

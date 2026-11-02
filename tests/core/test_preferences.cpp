@@ -42,6 +42,26 @@ private slots:
         QCOMPARE(prefs::autosaveMinutes(), 5);
     }
 
+    /// Playback resolution: default Full; a stored "auto" from alpha.1/alpha.2 (the old
+    /// default) becomes "full" exactly once, a later explicit "auto" is kept.
+    void previewQualityMigration()
+    {
+        QSettings().clear();
+        QCOMPARE(prefs::previewQuality(), QStringLiteral("full"));
+        QSettings().clear();
+        QSettings().setValue(QLatin1String(prefs::kPreviewQuality), QStringLiteral("auto"));
+        QCOMPARE(prefs::previewQuality(), QStringLiteral("full"));
+        QCOMPARE(QSettings().value(QLatin1String(prefs::kPreviewQuality)).toString(),
+            QStringLiteral("full"));
+        prefs::setPreviewQuality(QStringLiteral("auto")); // chosen again by the user
+        QCOMPARE(prefs::previewQuality(), QStringLiteral("auto"));
+        QCOMPARE(prefs::previewQuality(), QStringLiteral("auto"));
+        // Other old values are kept.
+        QSettings().clear();
+        QSettings().setValue(QLatin1String(prefs::kPreviewQuality), QStringLiteral("half"));
+        QCOMPARE(prefs::previewQuality(), QStringLiteral("half"));
+    }
+
     void cleanupTestCase() { QSettings().clear(); }
 };
 

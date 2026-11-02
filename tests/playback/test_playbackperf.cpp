@@ -18,6 +18,7 @@
 #include "playback/PlaybackEngine.h"
 #include "render/Compositor.h"
 
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QTest>
@@ -75,15 +76,145 @@ void buildTimeline(Project& project)
     project.endEdit();
 }
 
+/// A timeline of the size and rate of @p path holding just that clip (and its sound).
+/// @return the frame rate, or an invalid Rational on failure.
+Rational buildSingleClipTimeline(Project& project, const QString& path)
+{
+    const ImportResult imported = project.importMedia({path});
+    if (imported.importedIds.size() != 1)
+        return {};
+    const media::MediaInfo& info = project.mediaPool()->state().items[0].info;
+    const Rational fps = info.frameRate.isValid() ? info.frameRate : Rational {25, 1};
+    project.beginEdit(QStringLiteral("perf"));
+    TimelineData& tl = project.timeline()->mutableData();
+    tl = makeDefaultTimeline(QStringLiteral("perf"), fps, info.displayWidth, info.displayHeight);
+    ClipData c;
+    c.id = tl.allocateId();
+    c.mediaId = imported.importedIds[0];
+    c.sourceDurationUs = info.durationUs;
+    c.duration = std::max<int64_t>(1, usToFrames(info.durationUs, fps));
+    tl.videoTracks[0].clips.push_back(c);
+    if (info.hasAudio) {
+        c.id = tl.allocateId();
+        tl.audioTracks[0].clips.push_back(c);
+    }
+    project.endEdit();
+    return fps;
+}
+
+QStringList perfMedia()
+{
+    QStringList paths {test::fixture("perf_1080p.mp4")};
+    paths += qEnvironmentVariable("KK_PERF_MEDIA").split(QLatin1Char(':'), Qt::SkipEmptyParts);
+    return paths;
+}
+
 } // namespace
 
 class TestPlaybackPerf : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
-    /// One clip filling a timeline of its own size and rate, played at Auto quality in the
-    /// Edit-page viewer size: the plain "can it play this file" number. perf_1080p.mp4 always;
-    /// more files (e.g. a 4K HEVC clip) with KK_PERF_MEDIA=/path/a.mp4:/path/b.mov.
+    /// Seek-to-first-frame latency while playing (alpha.2 feedback 3): clicks on the ruler
+    /// (jumps of a few seconds, Timeline::setPlayhead as the timeline view does) and a drag
+    /// (a move every 16 ms). Latency = from the playhead change until a frame within half a
+    /// second after the target is on screen.
+    void seekWhilePlaying_data()
+    {
+        QTest::addColumn<QString>("path");
+        for (const QString& p : perfMedia())
+            QTest::newRow(qPrintable(QFileInfo(p).fileName())) << p;
+    }
+
+    void seekWhilePlaying()
+    {
+        QFETCH(QString, path);
+        QString why;
+        if (!test::ensureFixtures(&why))
+            QSKIP(qPrintable(why));
+        Project project;
+        const Rational fps = buildSingleClipTimeline(project, path);
+        QVERIFY(fps.isValid());
+        const int64_t frames = project.timeline()->snapshot()->duration();
+        PlaybackEngine::Options options;
+        options.audio = std::make_unique<test::FakeAudioOutput>(10, 40);
+        PlaybackEngine engine(std::move(options));
+        engine.setMediaPool(project.mediaPool());
+        engine.setTimeline(project.timeline());
+        int client = 0;
+        engine.setOutputClient(&client, QSize(1000, 562), engine.compositor()->isGpu());
+        QVERIFY(QTest::qWaitFor([&] { return engine.currentFrame() != nullptr; }, 10000));
+        int64_t lastShown = -1;
+        QElapsedTimer clock;
+        clock.start();
+        qint64 shownAtNs = 0;
+        QObject::connect(
+            &engine, &PlaybackEngine::frameReady, &engine, [&](const RenderedFramePtr& f) {
+                if (f && f->ok) {
+                    lastShown = f->frame;
+                    shownAtNs = clock.nsecsElapsed();
+                }
+            });
+        const int64_t window = std::max<int64_t>(2, int64_t(fps.toDouble() / 2));
+        // Waits for a frame in [target, target + window]; returns the latency in ms.
+        auto waitShown = [&](int64_t target, qint64 sinceNs) {
+            const bool ok = QTest::qWaitFor(
+                [&] { return lastShown >= target && lastShown <= target + window; }, 3000);
+            return ok ? std::max(0.0, double(shownAtNs - sinceNs) / 1e6) : 3000.0;
+        };
+        engine.play();
+        QTest::qWait(600);
+
+        // Clicks: jump around the clip (forward and back, across GOPs).
+        const double spots[] = {0.7, 0.2, 0.55, 0.1, 0.85, 0.4};
+        double clickSum = 0.0;
+        double clickMax = 0.0;
+        for (double spot : spots) {
+            const int64_t target = int64_t(spot * double(frames));
+            const qint64 t0 = clock.nsecsElapsed();
+            project.timeline()->setPlayhead(target);
+            const double ms = waitShown(target, t0);
+            clickSum += ms;
+            clickMax = std::max(clickMax, ms);
+            QTest::qWait(500);
+            QVERIFY(engine.isPlaying());
+        }
+
+        // Drag: 40 moves 16 ms apart over ~3 s of material.
+        const int64_t from = frames / 4;
+        const int64_t step = std::max<int64_t>(1, int64_t(fps.toDouble() * 3.0) / 40);
+        int64_t target = from;
+        int shownDuringDrag = 0;
+        const QMetaObject::Connection counter
+            = QObject::connect(&engine, &PlaybackEngine::frameReady, &engine,
+                [&](const RenderedFramePtr&) { ++shownDuringDrag; });
+        for (int i = 0; i < 40; ++i) {
+            target = std::min(frames - 1, from + i * step);
+            project.timeline()->setPlayhead(target);
+            QTest::qWait(16);
+        }
+        QObject::disconnect(counter);
+        const qint64 t0 = clock.nsecsElapsed();
+        const double dragMs = waitShown(target, t0);
+        QTest::qWait(1000);
+        const bool playing = engine.isPlaying();
+        const int64_t after = engine.position();
+        engine.pause();
+        qInfo("%s | %s | click seek to frame on screen: avg %.0f ms, max %.0f ms | drag: %d "
+              "frames shown during 40 moves, last position on screen %.0f ms after the drag | "
+              "1 s later at frame %lld (from %lld)",
+            qPrintable(engine.compositor()->backendDescription()), QTest::currentDataTag(),
+            clickSum / double(std::size(spots)), clickMax, shownDuringDrag, dragMs,
+            qlonglong(after), qlonglong(target));
+        QVERIFY(playing);
+        QVERIFY(after > target); // playback continued from the drag position
+    }
+
+    /// One clip filling a timeline of its own size and rate, played at Full (the default)
+    /// in the Edit-page viewer size: the plain "can it play this file" number, with the time
+    /// per stage. perf_1080p.mp4 always; more files with KK_PERF_MEDIA=/path/a.mp4:/path/b.mov
+    /// (scripts/make_perf_media.sh writes screen recordings and a 4K HEVC clip); other
+    /// qualities with KK_PERF_QUALITY=auto|full|half|quarter.
     void singleClipPlayback_data()
     {
         QTest::addColumn<QString>("path");
@@ -128,7 +259,10 @@ private Q_SLOTS:
         engine.setTimeline(project.timeline());
         int client = 0;
         engine.setOutputClient(&client, QSize(1000, 562), engine.compositor()->isGpu());
-        engine.setQualityMode(PlaybackEngine::QualityMode::Auto);
+        const QStringList modes {QStringLiteral("auto"), QStringLiteral("full"),
+            QStringLiteral("half"), QStringLiteral("quarter")};
+        const int mode = modes.indexOf(qEnvironmentVariable("KK_PERF_QUALITY", modes[1]));
+        engine.setQualityMode(PlaybackEngine::QualityMode(std::max(0, mode)));
         QVERIFY(QTest::qWaitFor([&] { return engine.currentFrame() != nullptr; }, 10000));
         engine.play();
         QTest::qWait(500);
@@ -137,12 +271,15 @@ private Q_SLOTS:
         QTest::qWait(std::max(1, seconds) * 1000);
         const PlaybackEngine::Stats s = engine.stats();
         const Quality used = engine.currentQuality();
+        const QSize rendered = engine.renderSize();
         engine.pause();
-        qInfo("%s | %s %dx%d %.3f fps %s | %.2f fps of %.3f, %lld dropped, render %.1f ms/frame, "
-              "quality %.2f",
+        qInfo("%s | %s %dx%d %.3f fps %s | %.2f fps of %.3f, %lld dropped, render %.1f ms/frame "
+              "[decode %.1f upload %.1f composite %.1f output %.1f], quality %.2f at %dx%d",
             qPrintable(engine.compositor()->backendDescription()), QTest::currentDataTag(),
             info.width, info.height, fps.toDouble(), qPrintable(info.videoCodec), s.fps(),
-            fps.toDouble(), qlonglong(s.dropped), s.averageRenderMs, qualityFactor(used));
+            fps.toDouble(), qlonglong(s.dropped), s.averageRenderMs, s.averageDecodeMs,
+            s.averageUploadMs, s.averageCompositeMs, s.averageOutputMs, qualityFactor(used),
+            rendered.width(), rendered.height());
         QVERIFY(s.presented > 0);
     }
 
