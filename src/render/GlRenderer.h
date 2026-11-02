@@ -110,7 +110,19 @@ private:
 
     void drawTrack(
         const TrackFrame& track, const FrameContext& fc, const RenderTarget& accumulator);
-    void drawClip(const ClipData& clip, const FrameContext& fc, const RenderTarget& target);
+    /// How drawClip() combines the clip with the target.
+    enum class ClipBlend {
+        Over, ///< premultiplied over (every normal clip)
+        /// Adjustment clips, pass 1: target *= 1 - coverage, where coverage is the clip's
+        /// footprint (crop, masks, transform) times its opacity; effects are skipped.
+        Erase,
+        /// Adjustment clips, pass 2: target += processed picture × opacity.
+        Add
+    };
+    void drawClip(const ClipData& clip, const FrameContext& fc, const RenderTarget& target,
+        ClipBlend blend = ClipBlend::Over);
+    /// Sets the GL blend function for @p blend (blending enabled).
+    void applyBlend(ClipBlend blend);
     bool resolveSource(const ClipData& clip, int64_t localFrame, const FrameContext& fc,
         double maxZoomValue, ClipSource& out);
     void drawSource(
