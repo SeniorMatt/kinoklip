@@ -6,6 +6,7 @@
 
 #include <QDateTime>
 #include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QSet>
 #include <QUuid>
@@ -63,6 +64,19 @@ int MediaPool::indexOfBin(const QString& id) const
             return i;
     }
     return -1;
+}
+
+bool MediaPool::recheckOffline()
+{
+    QSet<QString> offline;
+    for (const MediaItem& m : m_state.items)
+        if (!m.isTimeline() && !m.path.isEmpty() && !QFileInfo::exists(m.path))
+            offline.insert(m.id);
+    if (offline == m_offline)
+        return false;
+    m_offline = std::move(offline);
+    emit offlineChanged();
+    return true;
 }
 
 void MediaPool::touch()
@@ -186,6 +200,11 @@ QString MediaPool::addItem(MediaItem item)
     const QString id = item.id;
     m_state.items.append(std::move(item));
     m_index.insert(id, int(m_state.items.size()) - 1); // appending keeps every other index
+    const MediaItem& added = m_state.items.back();
+    if (!added.isTimeline() && !added.path.isEmpty() && !QFileInfo::exists(added.path)) {
+        m_offline.insert(id); // e.g. a project's item whose file was moved
+        emit offlineChanged();
+    }
     emit itemAdded(id);
     touch();
     return id;
@@ -196,6 +215,7 @@ bool MediaPool::removeItem(const QString& id)
     const int i = indexOfItem(id);
     if (i < 0)
         return false;
+    m_offline.remove(id);
     m_state.items.remove(i);
     invalidateIndex();
     emit itemRemoved(id);
@@ -218,15 +238,42 @@ bool MediaPool::updateItem(const QString& id, const QString& name, const media::
     return true;
 }
 
-int MediaPool::relinkFromFolder(const QString& folder)
+int MediaPool::relinkFromFolder(const QString& folder, const QStringList& onlyIds)
 {
-    const QDir dir(folder);
+    // The offline file names we look for (only those, so a big folder tree costs one walk).
+    QHash<QString, QString> found; // file name -> path (the shallowest match wins)
+    QHash<QString, int> depth;
+    for (const MediaItem& item : m_state.items) {
+        if (item.isTimeline() || (!onlyIds.isEmpty() && !onlyIds.contains(item.id))
+            || QFileInfo::exists(item.path))
+            continue;
+        found.insert(QFileInfo(item.path).fileName(), QString());
+    }
+    if (found.isEmpty())
+        return 0;
+    // Resolve's Relink searches the chosen folder and its subfolders.
+    const QString root = QDir(folder).absolutePath();
+    QDirIterator it(root, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    int scanned = 0;
+    while (it.hasNext() && scanned++ < kMaxRelinkScanFiles) {
+        const QString path = it.next();
+        const QString name = it.fileName();
+        const auto slot = found.find(name);
+        if (slot == found.end())
+            continue;
+        const int d = int(path.count(QLatin1Char('/')));
+        if (slot->isEmpty() || d < depth.value(name)) {
+            *slot = path;
+            depth.insert(name, d);
+        }
+    }
     int relinked = 0;
     for (MediaItem& item : m_state.items) {
-        if (item.isTimeline() || QFileInfo::exists(item.path))
+        if (item.isTimeline() || (!onlyIds.isEmpty() && !onlyIds.contains(item.id))
+            || QFileInfo::exists(item.path))
             continue;
-        const QString candidate = dir.filePath(QFileInfo(item.path).fileName());
-        if (!QFileInfo(candidate).isFile())
+        const QString candidate = found.value(QFileInfo(item.path).fileName());
+        if (candidate.isEmpty())
             continue;
         item.path = QFileInfo(candidate).absoluteFilePath();
         item.info.path = item.path;
@@ -234,8 +281,10 @@ int MediaPool::relinkFromFolder(const QString& folder)
         emit itemChanged(item.id);
         ++relinked;
     }
-    if (relinked > 0)
+    if (relinked > 0) {
+        recheckOffline();
         touch();
+    }
     return relinked;
 }
 
@@ -474,6 +523,7 @@ void MediaPool::setState(MediaPoolState state)
 {
     m_state = std::move(state);
     invalidateIndex();
+    recheckOffline();
     emit reset();
     touch();
 }

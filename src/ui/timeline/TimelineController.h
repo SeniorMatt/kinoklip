@@ -313,6 +313,26 @@ public:
     /// Removes every track without clips, keeping at least one video and one audio track and
     /// every locked track (spec 12.8). One undo step.
     void deleteEmptyTracks();
+    /// Undo label of source edit @p mode ("Insert Clip", "Overwrite Clip", ...).
+    [[nodiscard]] static QString sourceEditLabel(SourceEditMode mode);
+    /// Track header menu > Move Track Up / Down (spec 12.9): swaps track @p ref with its
+    /// neighbour on screen (@p up = 1: above, -1: below; video numbers grow upwards, audio
+    /// numbers downwards). Clips, name, flags, height and mixer settings move with the track;
+    /// the destination patch follows it. One undo step; false at the outermost track.
+    bool moveTrack(TrackRef ref, int up);
+    /// Track height presets (spec 12.10). Small, Medium (the default height) and Large.
+    enum class TrackHeightPreset {
+        Small,
+        Medium,
+        Large
+    };
+    /// The stored height (TrackData::height) of @p preset for a track of @p type.
+    [[nodiscard]] static int presetHeight(TrackType type, TrackHeightPreset preset);
+    /// The preset @p track's height matches, if any.
+    [[nodiscard]] static std::optional<TrackHeightPreset> heightPresetOf(const TrackData& track);
+    /// Sets the height of track @p ref (or, with @p allTracks, of every track) to @p preset.
+    /// One undo step ("Track Height"), none when nothing changes.
+    bool setTrackHeightPreset(TrackRef ref, TrackHeightPreset preset, bool allTracks = false);
 
 public slots:
     // ---- Commands (each one undo step; no-ops when there is nothing to do) ----

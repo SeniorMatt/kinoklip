@@ -5,6 +5,7 @@
 #include "export/RenderQueue.h"
 #include "ui/common/Icons.h"
 
+#include <QApplication>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
@@ -151,6 +152,13 @@ RenderQueuePanel::RenderQueuePanel(RenderQueue* queue, QWidget* parent)
     scroll->setWidget(listHost);
     layout->addWidget(scroll, 1);
 
+    // What the last run did (Resolve's "render complete" moment), shown when the queue stops.
+    m_summary = new QLabel;
+    m_summary->setObjectName(QStringLiteral("RenderSummary"));
+    m_summary->setWordWrap(true);
+    m_summary->hide();
+    layout->addWidget(m_summary);
+
     auto* buttons = new QHBoxLayout;
     m_renderAll = new QPushButton(icon(QStringLiteral("play")), tr("Render All"));
     m_stop = new QPushButton(icon(QStringLiteral("stop")), tr("Stop"));
@@ -168,10 +176,64 @@ RenderQueuePanel::RenderQueuePanel(RenderQueue* queue, QWidget* parent)
     connect(m_queue, &RenderQueue::jobRemoved, this, &RenderQueuePanel::removeCard);
     connect(m_queue, &RenderQueue::jobChanged, this, &RenderQueuePanel::updateCard);
     connect(m_queue, &RenderQueue::runningChanged, this, &RenderQueuePanel::updateButtons);
+    connect(m_queue, &RenderQueue::runningChanged, this, &RenderQueuePanel::onRunningChanged);
     for (const RenderQueue::Job& job : m_queue->jobs()) {
         addCard(job.id);
     }
     updateButtons();
+}
+
+QString RenderQueuePanel::summaryText() const
+{
+    return m_summary->isVisible() || !m_summary->text().isEmpty() ? m_summary->text() : QString();
+}
+
+void RenderQueuePanel::onRunningChanged(bool running)
+{
+    // The queue may pause between jobs: a run lasts until nothing is queued or rendering.
+    bool pending = false;
+    for (const RenderQueue::Job& job : m_queue->jobs()) {
+        const bool open = job.status == RenderQueue::Status::Queued
+            || job.status == RenderQueue::Status::Rendering;
+        if (open && !m_runStarted.contains(job.id) && (running || m_queue->isRunning()))
+            m_runStarted.append(job.id);
+        pending |= open;
+    }
+    if (running) {
+        m_summary->hide();
+        return;
+    }
+    if (pending || m_runStarted.isEmpty())
+        return;
+    int done = 0;
+    int failed = 0;
+    int cancelled = 0;
+    for (const RenderQueue::Job& job : m_queue->jobs()) {
+        if (!m_runStarted.contains(job.id))
+            continue;
+        done += job.status == RenderQueue::Status::Done;
+        failed += job.status == RenderQueue::Status::Failed;
+        cancelled += job.status == RenderQueue::Status::Cancelled;
+    }
+    m_runStarted.clear();
+    QStringList parts;
+    if (done > 0)
+        parts << (done == 1 ? tr("1 job rendered") : tr("%1 jobs rendered").arg(done));
+    if (failed > 0)
+        parts << tr("%1 failed").arg(failed);
+    if (cancelled > 0)
+        parts << tr("%1 stopped").arg(cancelled);
+    if (parts.isEmpty())
+        return;
+    const QString text
+        = (failed > 0 ? tr("Render finished with errors: %1") : tr("Render complete: %1"))
+              .arg(parts.join(QStringLiteral(", ")));
+    m_summary->setText(text);
+    m_summary->show();
+    // Long renders run in the background: flash the task bar entry when the window is not
+    // active (KDE / Windows "needs attention"), as Resolve signals a finished render.
+    QApplication::alert(window());
+    emit runFinished(text);
 }
 
 void RenderQueuePanel::addCard(quint64 id)

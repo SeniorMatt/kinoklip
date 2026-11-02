@@ -343,16 +343,28 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     const QColor contentColor = base.darker(165);
     p.fillRect(content, contentColor);
 
-    if (content.height() >= 6) {
+    // Offline media (the file was moved or deleted): a red body saying so, like Resolve.
+    const bool offline = poolItem && in.mediaPool->isOffline(clip.mediaId);
+    if (offline) {
+        p.fillRect(content, sc().negative.darker(160));
+        if (content.height() >= 12 && visible.width() > 60) {
+            p.setFont(m_smallFont);
+            p.setPen(sc().textOn(sc().negative.darker(160)));
+            p.drawText(content.adjusted(6, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft,
+                qtr("Media Offline"));
+        }
+    } else if (content.height() >= 6) {
         switch (clip.kind) {
         case ClipKind::Media:
         case ClipKind::Nested:
-            if (track.type == TrackType::Video)
-                paintThumbnails(p, in, clip,
-                    QRectF(r.left(), content.top(), r.width(), content.height()), content);
-            else {
+            if (track.type == TrackType::Video) {
+                if (in.thumbnails != ClipThumbnails::None)
+                    paintThumbnails(p, in, clip,
+                        QRectF(r.left(), content.top(), r.width(), content.height()), content);
+            } else {
                 const QRectF full(r.left(), content.top(), r.width(), content.height());
-                paintWaveform(p, in, clip, full, content, base.lighter(165));
+                if (in.waveforms)
+                    paintWaveform(p, in, clip, full, content, base.lighter(165));
                 paintVolumeLine(p, in, clip, r, content);
             }
             break;
@@ -501,24 +513,35 @@ void TimelinePainter::paintThumbnails(QPainter& p, const TimelinePaintInput& in,
 
     p.save();
     p.setClipRect(visible.adjusted(1, 0, -1, 0), Qt::IntersectClip);
+    // One tile at x showing timeline frame @p frame (placeholder until the cache has it).
+    auto drawTile = [&](double x, int64_t frame) {
+        const QRectF tile(x, top, tileW, tileH);
+        QImage image;
+        if (m_thumbnails && (item || clip.kind == ClipKind::Nested))
+            image = m_thumbnails(
+                clipPreviewPath(clip, item), clip.sourceTimeUsAt(frame, in.data->fps), tileH);
+        if (image.isNull())
+            p.fillRect(tile.adjusted(0, 0, -1, 0), placeholder);
+        else
+            p.drawImage(tile, image);
+        p.fillRect(QRectF(x + tileW - 1, top, 1, tileH), separator);
+    };
+    if (in.thumbnails == ClipThumbnails::HeadTail) {
+        // Resolve's "thumbnail" view: the first frame at the head, the last one at the tail
+        // (only the head when the clip is too narrow for both).
+        drawTile(full.left(), clip.start);
+        if (full.width() >= 2 * tileW)
+            drawTile(full.right() - tileW, clip.start + std::max<int64_t>(0, clip.duration - 1));
+        p.restore();
+        return;
+    }
     // Tiles are anchored at the clip start so they do not swim while scrolling.
     const int firstTile = int(std::floor((visible.left() - full.left()) / tileW));
     for (int i = std::max(0, firstTile);; ++i) {
         const double x = full.left() + i * tileW;
         if (x >= visible.right() || x >= full.right())
             break;
-        const QRectF tile(x, top, tileW, tileH);
-        QImage image;
-        if (m_thumbnails && (item || clip.kind == ClipKind::Nested)) {
-            const int64_t frame = clip.start + int64_t((x - full.left()) / L.pixelsPerFrame());
-            image = m_thumbnails(
-                clipPreviewPath(clip, item), clip.sourceTimeUsAt(frame, in.data->fps), tileH);
-        }
-        if (image.isNull())
-            p.fillRect(tile.adjusted(0, 0, -1, 0), placeholder);
-        else
-            p.drawImage(tile, image);
-        p.fillRect(QRectF(x + tileW - 1, top, 1, tileH), separator);
+        drawTile(x, clip.start + int64_t((x - full.left()) / L.pixelsPerFrame()));
     }
     p.restore();
 }
@@ -1165,9 +1188,12 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
             }
         }
 
-        // Track name, then the clip count on the second line if there is room.
+        // Track name, then the clip count on the second line if there is room. With the
+        // buttons on the second line (Audio page) the name runs up to the meter.
+        const bool twoLines = L.twoLineHeader(row);
         const int nameLeft = patch.right() + 8;
-        const int nameRoom = buttonsLeft - 6 - nameLeft;
+        const int nameRight = twoLines ? kHeaderWidth - 4 - kHeaderMeterWidth : buttonsLeft;
+        const int nameRoom = nameRight - 6 - nameLeft;
         if (nameRoom > 10) {
             p.setFont(m_smallFont);
             p.setPen(m_text);
@@ -1187,7 +1213,12 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
             const QString second = audioPage ? (track.mix.mono ? qtr("Mono") : qtr("Stereo"))
                 : track.clips.size() == 1    ? qtr("1 Clip")
                                              : qtr("%1 Clips").arg(track.clips.size());
-            p.drawText(QPointF(12, patch.bottom() + 6 + m_fontAscent), second);
+            // Two-line headers: left of the buttons, centred on their line.
+            const double baseline = twoLines
+                ? L.headerButtonRect(row, HeaderButton::Mute).center().y() + m_fontAscent / 2.0 - 1
+                : patch.bottom() + 6 + m_fontAscent;
+            if (!twoLines || smallMetrics.horizontalAdvance(second) + 12 < buttonsLeft - 4)
+                p.drawText(QPointF(12, baseline), second);
         }
         if (audioPage && in.headerMeter) {
             // Level meter at the header's right edge (scheme zone colours, like the mixer).

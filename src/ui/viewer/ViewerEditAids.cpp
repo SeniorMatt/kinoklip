@@ -18,6 +18,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QMenu>
 #include <QMimeData>
 
 namespace kk {
@@ -76,13 +77,70 @@ void ViewerPanel::setEditOverlayEnabled(bool enabled)
     setAcceptDrops(m_editOverlayEnabled);
 }
 
+QMenu* ViewerPanel::buildContextMenu(QWidget* parent)
+{
+    // Resolve's viewer menu at a basic level: transport, marks, markers, the viewer modes.
+    // Registry commands only (keys shown, enabled state kept by their owners).
+    auto* menu = new QMenu(parent);
+    menu->setObjectName(QStringLiteral("ViewerContextMenu"));
+    if (!m_ctx.actions)
+        return menu;
+    const bool timeline = m_mode == Mode::Timeline;
+    const std::initializer_list<const char*> groups[] = {
+        {"transport.play_pause", "transport.play_in_out", "transport.loop"},
+        {"mark.in", "mark.out", "mark.clear_both", "mark.go_to_in", "mark.go_to_out"},
+        {timeline ? "mark.add_marker" : nullptr, timeline ? "clip.match_frame" : nullptr},
+        {"view.single_viewer", "view.toggle_source_timeline", "view.fullscreen_viewer"},
+    };
+    for (const auto& group : groups) {
+        if (!menu->isEmpty())
+            menu->addSeparator();
+        for (const char* id : group)
+            if (id && m_ctx.actions->contains(QLatin1String(id)))
+                menu->addAction(m_ctx.actions->action(QLatin1String(id)));
+    }
+    if (m_ctx.actions->contains(QStringLiteral("playback.resolution"))) {
+        menu->addSeparator();
+        QAction* res = m_ctx.actions->action(QStringLiteral("playback.resolution"));
+        if (res->menu())
+            menu->addMenu(res->menu());
+    }
+    return menu;
+}
+
+void ViewerPanel::showContextMenu(const QPoint& globalPos)
+{
+    QMenu* menu = buildContextMenu(this);
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    menu->popup(globalPos);
+}
+
+void ViewerPanel::setEditTileActions(const QStringList& actionIds)
+{
+    m_editTileActions = actionIds;
+    if (m_editOverlay)
+        updateEditTiles();
+}
+
 void ViewerPanel::updateEditTiles()
 {
+    QVector<std::pair<QString, QString>> defs; // action id, label
+    if (m_editTileActions.isEmpty()) {
+        for (const EditTileDef& def : kEditTiles)
+            defs.append({QLatin1String(def.actionId), tr(def.label)});
+    } else {
+        for (const QString& id : m_editTileActions) {
+            QString label = id;
+            if (m_ctx.actions && m_ctx.actions->contains(id))
+                label = m_ctx.actions->action(id)->text().remove(QLatin1Char('&'));
+            defs.append({id, label});
+        }
+    }
     QVector<EditOverlay::Tile> tiles;
-    for (const EditTileDef& def : kEditTiles) {
+    for (const auto& [actionId, label] : defs) {
         EditOverlay::Tile tile;
-        tile.actionId = QLatin1String(def.actionId);
-        tile.label = tr(def.label);
+        tile.actionId = actionId;
+        tile.label = label;
         if (m_ctx.actions && m_ctx.actions->contains(tile.actionId)) {
             const QList<QKeySequence> keys = m_ctx.actions->shortcuts(tile.actionId);
             if (!keys.isEmpty())

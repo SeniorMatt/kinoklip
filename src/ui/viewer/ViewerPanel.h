@@ -18,6 +18,7 @@ class QComboBox;
 class QKeyEvent;
 class QHBoxLayout;
 class QLabel;
+class QMenu;
 class QTimer;
 class QToolButton;
 
@@ -26,6 +27,7 @@ namespace kk {
 struct AppContext;
 class PlaybackEngine;
 class MaskOverlay;
+class TransformOverlay;
 class MulticamOverlay;
 class EditOverlay;
 class TrimTwoUpView;
@@ -140,6 +142,20 @@ public:
     /// Offers the edit overlay to drags (default off: only a page that handles
     /// sourceEditDropped() turns it on).
     void setEditOverlayEnabled(bool enabled);
+    /// Replaces the overlay's edit types by the commands @p actionIds (labels from the
+    /// actions' text, keys from their shortcuts); empty = the Edit page's seven source edits.
+    /// The Cut page offers its smart edits this way (spec 35.26).
+    void setEditTileActions(const QStringList& actionIds);
+    /// The on-screen Transform controls (nullptr in Source mode).
+    [[nodiscard]] TransformOverlay* transformOverlay() const { return m_transformOverlay; }
+    /// The viewer's context menu (right-click on the picture): play, marks, markers, match
+    /// frame and the viewer modes, all registry commands. Owned by @p parent.
+    [[nodiscard]] QMenu* buildContextMenu(QWidget* parent);
+    /// Shows or hides the "Media Offline" notice for what the viewer shows now (called on
+    /// position, media pool and offline changes).
+    void updateOfflineNotice();
+    /// The notice (tests); hidden while the media shown is online.
+    [[nodiscard]] QLabel* offlineNotice() const { return m_offlineNotice; }
 
     // ---- Multicam viewer (Source mode; ViewerMulticam.cpp) ----
 
@@ -205,6 +221,12 @@ private:
     void bindTimeline(Timeline* timeline);
     void onTimelineChanged();
     void onPositionChanged(int64_t frame);
+    // ---- Media Offline notice (ViewerOffline.cpp) ----
+    void setupOfflineNotice();
+    void showContextMenu(const QPoint& globalPos);
+    /// Name of the offline clip shown at @p frame (source clip / top visible timeline clip),
+    /// empty when what is shown is online.
+    [[nodiscard]] QString offlineClipName(int64_t frame) const;
     void onRateChanged(double rate);
     void updateOutputClient();
     void updateTitle();
@@ -243,6 +265,9 @@ private:
     TrimTwoUpView* m_twoUp = nullptr; ///< Timeline mode: two-up trim view
     QString m_timecodeEntry; ///< setTimecodeEntryText()
     bool m_editOverlayEnabled = false; ///< setEditOverlayEnabled()
+    QStringList m_editTileActions; ///< setEditTileActions(); empty = kEditTiles
+    QLabel* m_offlineNotice = nullptr; ///< "Media Offline" over the picture
+    TransformOverlay* m_transformOverlay = nullptr; ///< Timeline mode: on-screen Transform
     QComboBox* m_modeBox = nullptr; ///< Source mode: Source / Multicam
     QComboBox* m_gridBox = nullptr; ///< multicam grid size (Auto, 2x2, 3x3, 4x4)
     bool m_multicam = false;

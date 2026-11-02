@@ -6,6 +6,7 @@
 
 #include <QHash>
 #include <QObject>
+#include <QSet>
 #include <QStringList>
 
 namespace kk {
@@ -66,10 +67,14 @@ public:
     /// Replaces name and info of item @p id (timeline items, kept in sync by the Project).
     /// Emits itemChanged() only when something differs. Returns false if it does not exist.
     bool updateItem(const QString& id, const QString& name, const media::MediaInfo& info);
-    /// Relinks offline items: every item whose file is missing and whose file name exists in
-    /// @p folder points there afterwards (the cached probe result is kept; the media must be
-    /// the same file, as with Resolve's "Relink Clips"). Returns the number relinked.
-    int relinkFromFolder(const QString& folder);
+    /// Relinks offline items (all, or only @p onlyIds): every item whose file is missing and
+    /// whose file name exists in @p folder or one of its subfolders (the shallowest match;
+    /// at most kMaxRelinkScanFiles files are looked at) points there afterwards. The cached
+    /// probe result is kept: the media must be the same file, as with Resolve's "Relink
+    /// Clips". Returns the number relinked.
+    int relinkFromFolder(const QString& folder, const QStringList& onlyIds = {});
+    /// Files relinkFromFolder() walks at most (a whole drive picked by mistake stays quick).
+    static constexpr int kMaxRelinkScanFiles = 200000;
     /// Moves an item into bin @p binId ("" = root). Returns false if item or bin is unknown.
     bool moveItemToBin(const QString& itemId, const QString& binId);
 
@@ -112,6 +117,18 @@ public:
     /// Removes a smart bin (items are not touched). False if unknown.
     bool removeSmartBin(const QString& id);
 
+    // ---- Offline media ----
+
+    /// True if item @p id is a file whose path does not exist (moved, renamed, unmounted
+    /// drive) as of the last check. O(1), no file I/O: painters call it per clip.
+    [[nodiscard]] bool isOffline(const QString& id) const { return m_offline.contains(id); }
+    /// Number of offline items as of the last check.
+    [[nodiscard]] int offlineCount() const { return int(m_offline.size()); }
+    /// Checks every file item on disk (one stat each; on add, load, undo, relink and when the
+    /// application becomes active). Emits offlineChanged() when the set changed; returns
+    /// whether it did.
+    bool recheckOffline();
+
     /// Copy of the complete contents (for undo snapshots and saving).
     [[nodiscard]] const MediaPoolState& state() const { return m_state; }
     /// Replaces the complete contents and emits reset() + changed().
@@ -136,6 +153,8 @@ signals:
     void reset();
     /// Emitted after every change of any kind.
     void changed();
+    /// The set of offline items changed (recheckOffline()); views repaint their markers.
+    void offlineChanged();
 
 private:
     int indexOfItem(const QString& id) const;
@@ -146,6 +165,7 @@ private:
 
     MediaPoolState m_state;
     quint64 m_revision = 0;
+    QSet<QString> m_offline; ///< recheckOffline(): file items whose path is missing
     // id -> position in m_state.items, rebuilt lazily after structural changes: item() is
     // called per painted timeline clip and per media pool row, so it must not be a scan.
     mutable QHash<QString, int> m_index;

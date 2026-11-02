@@ -203,9 +203,10 @@ protected:
 public:
     /// Relinks offline media found by file name in @p folder (one undo step). Returns the
     /// number of items relinked.
-    int relinkFromFolder(const QString& folder);
-    /// "Relink Offline Media…": asks for a folder, then relinkFromFolder() and a summary.
-    void relinkWithDialog();
+    int relinkFromFolder(const QString& folder, const QStringList& onlyIds = {});
+    /// "Relink Offline Media…" (all) / "Relink Selected Clips…" (@p onlyIds): asks for a
+    /// folder, then relinkFromFolder() and a summary.
+    void relinkWithDialog(const QStringList& onlyIds = {});
 
     // ---- Multicam and sync (MediaPoolMulticam.cpp) ----
 

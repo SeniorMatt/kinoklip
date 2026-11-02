@@ -9,6 +9,7 @@
 #include "export/RenderQueue.h"
 #include "ui/common/Resources.h"
 #include "ui/deliver/DeliverPage.h"
+#include "ui/deliver/RenderQueuePanel.h"
 #include "ui/deliver/RenderSettingsPanel.h"
 
 #include <QApplication>
@@ -155,6 +156,10 @@ private Q_SLOTS:
         for (const RenderQueue::Job& job : queue->jobs()) {
             QVERIFY2(job.status == RenderQueue::Status::Done, qPrintable(job.result.error));
         }
+        // Polish round 2: the queue panel says the render is complete.
+        auto* queuePanel = page.findChild<RenderQueuePanel*>();
+        QVERIFY(queuePanel);
+        QTRY_COMPARE(queuePanel->summaryText(), QStringLiteral("Render complete: 2 jobs rendered"));
         const media::MediaInfo info = media::probe(dir.filePath(QStringLiteral("deliver.mp4")));
         QVERIFY(info.valid && info.hasVideo && info.hasAudio);
 

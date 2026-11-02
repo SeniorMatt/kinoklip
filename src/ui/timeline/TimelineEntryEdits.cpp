@@ -39,7 +39,7 @@ QVector<quint64> TimelineController::editSources(
     }
     // Edits nest: the outer pair makes the whole drop one undo step.
     Project* p = project();
-    p->beginEdit(tr("Edit Clips"));
+    p->beginEdit(sourceEditLabel(mode));
     QVector<quint64> created;
     for (const SourceSelection& s : sources)
         created += insertSource(s.mediaId, s.inUs, s.outUs, mode);

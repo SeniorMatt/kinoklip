@@ -157,6 +157,15 @@ signals:
 public slots:
     /// View-only vertical zoom of all tracks (Shift+wheel in the Resolve wheel scheme).
     void setTrackHeightScale(double scale);
+    /// Timeline View Options (spec 12.11): what video clips show (filmstrip, head and tail
+    /// frames, none) and whether audio clips draw waveforms. View only; repaints at once.
+    void setClipThumbnails(ClipThumbnails mode);
+    [[nodiscard]] ClipThumbnails clipThumbnails() const { return m_thumbMode; }
+    void setShowWaveforms(bool on);
+    [[nodiscard]] bool showWaveforms() const { return m_showWaveforms; }
+    /// Adds the Track Height submenu (Small / Medium / Large, spec 12.10) for track @p ref, or
+    /// for every track with @p allTracks (the Timeline View Options menu).
+    void addTrackHeightMenu(QMenu& menu, TrackRef ref, bool allTracks);
     [[nodiscard]] double trackHeightScale() const { return m_layout.heightScale(); }
     void zoomIn();
     void zoomOut();
@@ -394,6 +403,8 @@ private:
     QTimer m_autoScroll;
     bool m_followPlayhead = true;
     TimelineViewOptions m_options;
+    ClipThumbnails m_thumbMode = ClipThumbnails::Filmstrip;
+    bool m_showWaveforms = true;
     bool m_syncingScrollBars = false;
     bool m_fitOnFirstShow = true;
     quint64 m_hoverClip = 0; ///< clip under the mouse (fade handles shown)

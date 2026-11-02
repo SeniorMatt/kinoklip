@@ -37,6 +37,10 @@ inline constexpr int kHeaderButton = 18; ///< square header buttons (lock, mute,
 inline constexpr int kHeaderButtonGap = 3;
 /// Audio page headers: width of the level meter at the right edge of audio track headers.
 inline constexpr int kHeaderMeterWidth = 12;
+/// Audio page headers at least this tall put their buttons on a second line (spec 37.3).
+inline constexpr int kTwoLineHeaderMinHeight = 2 * kHeaderButton + 14;
+/// Vertical gap between the two header lines.
+inline constexpr int kHeaderLineGap = 4;
 /// Zoom limits in pixels per frame: ~2.5 h of 25 fps per 1000 px .. 48 px per frame.
 inline constexpr double kMinPixelsPerFrame = 0.004;
 inline constexpr double kMaxPixelsPerFrame = 48.0;
@@ -207,6 +211,9 @@ public:
     /// View rect of the header level meter of row @p row (empty unless audio page headers
     /// and an audio row).
     [[nodiscard]] QRect headerMeterRect(int row) const;
+    /// True if row @p row's header shows its buttons on a second line, under the name
+    /// (Audio page headers of tall audio rows, so the track name stays readable).
+    [[nodiscard]] bool twoLineHeader(int row) const;
     /// View rect of @p button in the header of row @p row (empty if the type has no such
     /// button).
     [[nodiscard]] QRect headerButtonRect(int row, HeaderButton button) const;

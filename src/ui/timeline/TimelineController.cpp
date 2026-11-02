@@ -260,33 +260,31 @@ std::optional<ClipData> TimelineController::makeGeneratorClip(const QString& eff
 
 // ---- Source edits ----
 
+QString TimelineController::sourceEditLabel(SourceEditMode mode)
+{
+    switch (mode) {
+    case SourceEditMode::Insert:
+        return tr("Insert Clip");
+    case SourceEditMode::Overwrite:
+        return tr("Overwrite Clip");
+    case SourceEditMode::PlaceOnTop:
+        return tr("Place on Top");
+    case SourceEditMode::Replace:
+        return tr("Replace Clip");
+    case SourceEditMode::FitToFill:
+        return tr("Fit to Fill");
+    case SourceEditMode::AppendAtEnd:
+        return tr("Append at End");
+    case SourceEditMode::RippleOverwrite:
+        return tr("Ripple Overwrite");
+    }
+    return {};
+}
+
 QVector<quint64> TimelineController::insertSource(const QString& mediaId, int64_t inUs,
     int64_t outUs, SourceEditMode mode, int64_t replaceAlignUs)
 {
-    QString label;
-    switch (mode) {
-    case SourceEditMode::Insert:
-        label = tr("Insert Clip");
-        break;
-    case SourceEditMode::Overwrite:
-        label = tr("Overwrite Clip");
-        break;
-    case SourceEditMode::PlaceOnTop:
-        label = tr("Place on Top");
-        break;
-    case SourceEditMode::Replace:
-        label = tr("Replace Clip");
-        break;
-    case SourceEditMode::FitToFill:
-        label = tr("Fit to Fill");
-        break;
-    case SourceEditMode::AppendAtEnd:
-        label = tr("Append at End");
-        break;
-    case SourceEditMode::RippleOverwrite:
-        label = tr("Ripple Overwrite");
-        break;
-    }
+    const QString label = sourceEditLabel(mode);
     const EditBehaviour behaviour = EditBehaviour::fromSettings();
     const TimelineData& before = timeline()->data();
     const int64_t playhead = timeline()->playhead();
@@ -580,7 +578,7 @@ void TimelineController::cycleEditPoint()
 
 void TimelineController::soloAutoSelect(TrackRef ref)
 {
-    runEdit(project(), tr("Change Track"), [&](TimelineData& data) {
+    runEdit(project(), tr("Auto Track Selector"), [&](TimelineData& data) {
         auto& list = data.tracks(ref.type);
         if (ref.index < 0 || ref.index >= int(list.size()))
             return false;
@@ -955,7 +953,31 @@ void TimelineController::renameTrack(TrackRef ref, const QString& name)
 
 void TimelineController::toggleTrackFlag(TrackRef ref, int flag)
 {
-    runEdit(project(), tr("Change Track"), [&](TimelineData& data) {
+    // Undo names the button (Edit > Undo "Lock Track"), on or off.
+    const TrackData* current = timeline()->data().track(ref);
+    if (!current)
+        return;
+    QString label;
+    switch (flag) {
+    case FlagEnabled:
+        label = current->enabled ? tr("Disable Track") : tr("Enable Track");
+        break;
+    case FlagLocked:
+        label = current->locked ? tr("Unlock Track") : tr("Lock Track");
+        break;
+    case FlagMuted:
+        label = current->muted ? tr("Unmute Track") : tr("Mute Track");
+        break;
+    case FlagSolo:
+        label = current->solo ? tr("Unsolo Track") : tr("Solo Track");
+        break;
+    case FlagAutoSelect:
+        label = tr("Auto Track Selector");
+        break;
+    default:
+        return;
+    }
+    runEdit(project(), label, [&](TimelineData& data) {
         TrackData* t = data.track(ref);
         if (!t)
             return false;

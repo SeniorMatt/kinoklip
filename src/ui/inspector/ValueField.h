@@ -46,6 +46,11 @@ public:
     /// Displays @p value (clamped) without emitting any signal. Cheap when unchanged.
     void setValue(double value);
 
+    /// Multi-clip editing (spec 24.1): the selected clips differ, so the field shows "Mixed"
+    /// instead of the number until the next edit (which sets one value for all of them).
+    void setMixed(bool mixed);
+    [[nodiscard]] bool isMixed() const { return m_mixed; }
+
     /// Minimum of the range.
     [[nodiscard]] double minimum() const { return m_min; }
     /// Maximum of the range.
@@ -94,6 +99,7 @@ private:
     QString m_suffix;
     double m_value = 0.0;
     QString m_text; ///< cached display text of m_value (formatted once per change)
+    bool m_mixed = false;
 
     // Drag state. The value is accumulated in double precision from the press position so
     // switching modifiers mid-drag never makes the value jump.

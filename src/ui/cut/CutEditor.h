@@ -10,6 +10,7 @@
 #include <QVector>
 
 #include <functional>
+#include <optional>
 
 namespace kk {
 
@@ -71,6 +72,8 @@ public:
 
     /// Undo label of @p edit ("Smart Insert", ...).
     [[nodiscard]] static QString label(CutEdit edit);
+    /// The edit of registry action @p actionId ("cut.smart_insert", ...), if it is one.
+    [[nodiscard]] static std::optional<CutEdit> editForAction(const QString& actionId);
 
 signals:
     /// An edit did nothing; @p reason is a short sentence for the user.

@@ -18,6 +18,7 @@ category `kk.playback`.
 | `AutoQuality.h` | pure Full/Half decision of the opt-in "Automatic" playback resolution |
 | `AudioOutput.h` | sound device interface + `createDefaultAudioOutput()` (QAudioSink, own thread), `monotonicUs()` |
 | `AudioFeeder.h` | mixer thread (`AudioMixer`) filling the ring ahead of the device |
+| `VarispeedResampler.h` | windowed-sinc resampler of the varispeed path (low-passed at 2x - 16x, so shuttling does not alias) |
 | `AudioRing.h` | lock-free SPSC ring of stereo float frames |
 
 ```cpp
@@ -206,12 +207,11 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
   `fromSettings()`), read it where the behaviour happens; never an inline constant.
 * **Another sound backend**: implement `AudioOutput` (the contract is in its header: heard
   position + underrun skipping) and pass it in `PlaybackEngine::Options::audio`.
-* **Better shuttle sound** (pitch-kept fast play): replace the linear resampler in
-  `AudioFeeder::mixVarispeed()`; the clock already handles every rate.
+* **Pitch-kept fast play**: replace `VarispeedResampler` in `AudioFeeder::mixVarispeed()` by a
+  time-stretcher (the window and the clock already handle every rate).
 
 ## Known gaps / TODO
 
-* TODO(playback): shuttle sound uses linear interpolation (some aliasing at 4x-8x).
 * TODO(playback): seeks show the exact target frame (decoder seek + decode forward from the
   keyframe, 70-140 ms here); showing the nearest keyframe first would be faster for long GOPs.
 * TODO(playback): presentation is timer-driven (4 ms) rather than locked to the display's

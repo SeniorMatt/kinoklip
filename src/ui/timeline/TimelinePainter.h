@@ -69,6 +69,13 @@ struct CacheBarRange
     bool cached = false;
 };
 
+/// What video clips show below their name band (Timeline View Options, spec 12.11).
+enum class ClipThumbnails {
+    Filmstrip, ///< a thumbnail every tile width across the clip (default)
+    HeadTail, ///< the first frame at the clip start and the last frame at its end
+    None, ///< no pictures: name band and clip colour only (fastest)
+};
+
 struct TimelinePaintInput
 {
     const TimelineData* data = nullptr;
@@ -107,6 +114,10 @@ struct TimelinePaintInput
     /// rects, plus ghosts, flashes, the playhead glide and the snap fade. nullptr (animations
     /// off or idle) = everything is drawn exactly at the model.
     const TimelineAnimator* anim = nullptr;
+    /// Video clip pictures (Timeline View Options).
+    ClipThumbnails thumbnails = ClipThumbnails::Filmstrip;
+    /// Audio clips draw their waveform (Timeline View Options); off = clip colour only.
+    bool waveforms = true;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and

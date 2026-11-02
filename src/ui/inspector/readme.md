@@ -11,7 +11,8 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 | `ParamRows.h` | one editor row per `ParamDescriptor`: number, bool, choice, colour, string, title text, font |
 | `InspectorMasks.cpp` | the Video tab's Masks section (part of `InspectorPanel`): add buttons per shape, one group per mask (enable, edit in the viewer = `SelectionModel::setActiveMask()`, reorder, delete, section diamond, shape row), rows from the `builtin.mask` descriptor with `ParamScope::Mask` |
 | `ParamAccess.h` | `ParamRef` (clip, scope, effect id, key) and the read/write functions that map a descriptor parameter onto `ClipData` |
-| `ParamEditHost.h` | the interface rows use to read clips and make undoable edits |
+| `ParamEditHost.h` | the interface rows use to read clips and make undoable edits (`isMixed()`: the selected clips differ) |
+| `MultiClipEdit.h` | multi-clip editing (spec 24.1): the peers of the shown clip, effect matching by type and position, copying a change onto the peers (`InspectorPanel::modifyClip()` calls it inside the open edit) |
 | `ValueField.h` | draggable numeric field (drag to scrub, Shift fine, Ctrl coarse, double-click to type) |
 | `KeyframeButton.h` | keyframe diamond (outlined = animated, filled = key at playhead) + prev/next arrows |
 | `InspectorGlyphs.h` | small painted glyphs (reset, remove, up/down, add, chevrons) |

@@ -166,6 +166,7 @@ a("view.toggle_inspector", "Inspector panel", [], L)
 a("view.single_viewer", "Single Viewer Mode", [], U)
 a("view.toggle_source_timeline", "Toggle Source / Timeline Viewer", ["Q"], S)
 a("view.fullscreen_viewer", "Viewer Full Screen", ["Ctrl+F"], L)
+a("view.onscreen_transform", "On-Screen Transform Controls (viewer on-screen controls: Transform)", [], U, "Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned.")
 a("view.onscreen_masks", "On-Screen Mask Controls (viewer on-screen controls: Mask)", [], U, "Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned.")
 a("view.fullscreen", "Full Screen Window", ["Ctrl+Shift+F"], U)
 

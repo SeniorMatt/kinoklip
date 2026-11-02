@@ -70,8 +70,10 @@ public:
     /// Selected point indices of the active point mask.
     [[nodiscard]] const QSet<int>& selectedPoints() const { return m_selected; }
 
-    /// The viewer's on-screen controls button (menu: Off / Mask), driving @p masksAction.
-    [[nodiscard]] static QToolButton* createModeButton(QAction* masksAction, QWidget* parent);
+    /// The viewer's on-screen controls button (menu: Off / Transform / Mask), driving
+    /// @p masksAction and @p transformAction (TransformOverlay; may be null).
+    [[nodiscard]] static QToolButton* createModeButton(
+        QAction* masksAction, QWidget* parent, QAction* transformAction = nullptr);
 
     /// Re-evaluates visibility and repaints (zoom, aspect, timeline or selection changes).
     void refresh();
