@@ -38,6 +38,12 @@ constexpr int kTitleCacheSize = 24;
 const QColor kDefaultSolid(0x30, 0x30, 0x34);
 /// Worker threads for decoding the clips of one frame in parallel.
 constexpr int kDecodeThreads = 4;
+/// Deepest nesting rendered (a timeline cannot contain itself, see compound::canNest(); this
+/// only guards against damaged data).
+constexpr int kMaxNestingDepth = 16;
+/// A nested timeline is composited at the size it occupies in the output, times its zoom up
+/// to this factor (sharper when zoomed in, bounded memory).
+constexpr double kMaxNestedZoom = 2.0;
 
 /// Quantises a zoom factor for title rasterisation so that animated zooms re-rasterise only at
 /// a few steps (the texture is then scaled by at most ~1.5× by the GPU).
@@ -178,7 +184,11 @@ bool GlRenderer::initialize(QString* why)
             GlVideo::release(*m_kit, *planes);
     });
     m_decoded.reserve(16);
-    m_trackFrames.reserve(16);
+    // One list per depth, allocated up front: a deeper level must never reallocate the
+    // outer vector while a shallower level iterates its list.
+    m_trackFrames.resize(size_t(kMaxNestingDepth) + 1);
+    m_trackFrames[0].reserve(16);
+    m_nested.reserve(4);
     m_activeEffects.reserve(16);
     m_activeInstances.reserve(16);
     const GLenum error = m_gl->glGetError();
@@ -230,19 +240,48 @@ void GlRenderer::finishPending(bool keepNewest)
 
 // ---- Decoding ----
 
-void GlRenderer::queueDecode(
-    const ClipData* clip, int64_t frame, const TimelineData& tl, const MediaPathMap* media)
+void GlRenderer::queueDecode(const ClipData* clip, int64_t frame, int64_t nextFrame,
+    const TimelineData& tl, const NestedTimelines& nested, const MediaPathMap* media, int depth)
 {
-    if (!clip || !clip->enabled || clip->kind != ClipKind::Media || decoded(clip))
+    if (!clip || !clip->enabled)
+        return;
+    if (clip->kind == ClipKind::Nested) {
+        const TimelineData* n = nested.find(clip->nestedUid);
+        if (!n || depth >= kMaxNestingDepth)
+            return;
+        queueTimeline(*n, nestedFrameAt(*clip, frame, tl.fps, n->fps),
+            nestedFrameAt(*clip, nextFrame, tl.fps, n->fps), nested, media, depth + 1);
+        return;
+    }
+    if (clip->kind != ClipKind::Media)
+        return;
+    const int64_t timeUs = clampedSourceTimeUs(*clip, frame, tl.fps);
+    if (decoded(clip, timeUs))
         return;
     const QString path = media ? media->value(clip->mediaId) : QString();
     if (path.isEmpty())
         return; // unknown media id: the clip is offline and draws nothing
-    const int64_t timeUs = clampedSourceTimeUs(*clip, frame, tl.fps);
     DecoderPool::Entry* entry = m_decoders.acquire(path, timeUs);
     if (!entry)
         return;
-    m_decoded.push_back({clip, entry, timeUs, nullptr});
+    m_decoded.push_back(
+        {clip, entry, timeUs, clampedSourceTimeUs(*clip, nextFrame, tl.fps), nullptr});
+}
+
+void GlRenderer::queueTimeline(const TimelineData& tl, int64_t frame, int64_t nextFrame,
+    const NestedTimelines& nested, const MediaPathMap* media, int depth)
+{
+    for (const TrackData& track : tl.videoTracks) {
+        if (!track.enabled)
+            continue;
+        const TrackFrame tf = evaluateTrack(track, frame);
+        if (tf.single) {
+            queueDecode(tf.single, frame, nextFrame, tl, nested, media, depth);
+        } else if (tf.transition) {
+            queueDecode(tf.transition->outgoing, frame, nextFrame, tl, nested, media, depth);
+            queueDecode(tf.transition->incoming, frame, nextFrame, tl, nested, media, depth);
+        }
+    }
 }
 
 void GlRenderer::decodeQueued()
@@ -266,7 +305,7 @@ void GlRenderer::decodeQueued()
     done.wait();
 }
 
-void GlRenderer::startDecodeAhead(int64_t frame, const TimelineData& tl)
+void GlRenderer::startDecodeAhead()
 {
     // Playback and export ask for frame + 1 next. Decoding it now, on a worker thread, overlaps
     // the decode with this frame's upload/drawing/output and with the time until the next
@@ -276,7 +315,7 @@ void GlRenderer::startDecodeAhead(int64_t frame, const TimelineData& tl)
         DecoderPool::Entry* entry = d.entry;
         if (!d.frame || entry->ahead.valid() || entry->previousTimeUs < 0)
             continue;
-        const int64_t nextUs = clampedSourceTimeUs(*d.clip, frame + 1, tl.fps);
+        const int64_t nextUs = d.nextTimeUs;
         const int64_t step = nextUs - d.timeUs;
         const int64_t lastStep = d.timeUs - entry->previousTimeUs;
         if (step <= 0 || lastStep <= 0 || lastStep > 2 * step + 1)
@@ -291,10 +330,10 @@ void GlRenderer::startDecodeAhead(int64_t frame, const TimelineData& tl)
     }
 }
 
-const GlRenderer::DecodedClip* GlRenderer::decoded(const ClipData* clip) const
+const GlRenderer::DecodedClip* GlRenderer::decoded(const ClipData* clip, int64_t timeUs) const
 {
     for (const DecodedClip& d : m_decoded) {
-        if (d.clip == clip)
+        if (d.clip == clip && d.timeUs == timeUs)
             return &d;
     }
     return nullptr;
@@ -332,39 +371,22 @@ void GlRenderer::render(RenderJob& job)
     fc.sx = double(out.width()) / tl.width;
     fc.sy = double(out.height()) / tl.height;
 
-    // 1. What is visible: V1 (index 0) is the bottom layer, drawn first.
-    m_trackFrames.clear();
-    for (const TrackData& track : tl.videoTracks) {
-        if (!track.enabled)
-            continue;
-        TrackFrame tf = evaluateTrack(track, rq.frame);
-        if (!tf.isEmpty())
-            m_trackFrames.push_back(tf);
-    }
+    fc.nested = &tl.nested;
 
-    // 2. Decode every visible media clip (in parallel when there are several).
+    // 1 + 2. Decode every visible media clip, including the clips inside visible nested
+    //        timelines (in parallel when there are several).
     m_decoders.beginFrame();
     m_decoded.clear();
-    const MediaPathMap* media = job.media.get();
-    for (const TrackFrame& tf : m_trackFrames) {
-        if (tf.single) {
-            queueDecode(tf.single, rq.frame, tl, media);
-        } else {
-            queueDecode(tf.transition->outgoing, rq.frame, tl, media);
-            queueDecode(tf.transition->incoming, rq.frame, tl, media);
-        }
-    }
+    m_nested.clear();
+    queueTimeline(tl, rq.frame, rq.frame + 1, tl.nested, job.media.get(), 0);
     decodeQueued();
     const qint64 decodedNs = timer.nsecsElapsed();
-    startDecodeAhead(rq.frame, tl);
+    startDecodeAhead();
     m_uploadNs = 0;
 
-    // 3. Composite.
-    PooledTarget accumulator = m_kit->acquire(out);
-    m_kit->bindTarget(*accumulator);
-    m_kit->clearTransparent();
-    for (const TrackFrame& tf : m_trackFrames)
-        drawTrack(tf, fc, *accumulator);
+    // 3. Composite (V1 = index 0 is the bottom layer, drawn first).
+    PooledTarget accumulator = compositeTimeline(fc);
+    m_nested.clear(); // the nested composites were consumed by the draws above
 
     // 4. Output.
     const qint64 compositedNs = timer.nsecsElapsed();
@@ -388,6 +410,46 @@ void GlRenderer::render(RenderJob& job)
     m_kit->targets().trim();
     m_decoders.collectIdle();
     trimTitleCache();
+}
+
+PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
+{
+    std::vector<TrackFrame>& frames = m_trackFrames[size_t(fc.depth)];
+    frames.clear();
+    for (const TrackData& track : fc.timeline->videoTracks) {
+        if (!track.enabled)
+            continue;
+        TrackFrame tf = evaluateTrack(track, fc.frame);
+        if (!tf.isEmpty())
+            frames.push_back(tf);
+    }
+    PooledTarget accumulator = m_kit->acquire(fc.outSize);
+    m_kit->bindTarget(*accumulator);
+    m_kit->clearTransparent();
+    // Index loop: a nested clip composites at depth + 1 and never touches this list.
+    for (size_t i = 0; i < frames.size(); ++i)
+        drawTrack(frames[i], fc, *accumulator);
+    return accumulator;
+}
+
+const RenderTarget* GlRenderer::nestedComposite(
+    const TimelineData& tl, int64_t frame, QSize size, const FrameContext& parent)
+{
+    for (const NestedComposite& n : m_nested) {
+        if (n.timeline == &tl && n.frame == frame && n.size == size)
+            return n.target.get();
+    }
+    FrameContext fc;
+    fc.timeline = &tl;
+    fc.frame = frame;
+    fc.outSize = size;
+    fc.sx = double(size.width()) / tl.width;
+    fc.sy = double(size.height()) / tl.height;
+    fc.nested = parent.nested;
+    fc.depth = parent.depth + 1;
+    PooledTarget target = compositeTimeline(fc);
+    m_nested.push_back({&tl, frame, size, std::move(target)});
+    return m_nested.back().target.get();
 }
 
 void GlRenderer::drawTrack(
@@ -435,7 +497,8 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
     const QSizeF frameSize(fc.timeline->width, fc.timeline->height);
     switch (clip.kind) {
     case ClipKind::Media: {
-        const DecodedClip* d = decoded(&clip);
+        const DecodedClip* d
+            = decoded(&clip, clampedSourceTimeUs(clip, fc.frame, fc.timeline->fps));
         if (!d || !d->frame)
             return false;
         auto planes = std::static_pointer_cast<PlaneTextures>(d->entry->userData);
@@ -469,6 +532,32 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         src.texture = t->texture;
         src.quad = QRectF(t->rect.x() / canvas.width(), t->rect.y() / canvas.height(),
             t->rect.width() / canvas.width(), t->rect.height() / canvas.height());
+        return true;
+    }
+    case ClipKind::Nested: {
+        // The nested timeline is composited into its own target at the size it covers in
+        // the output (fitted like media: aspect kept), then drawn like a texture source, so
+        // the instance's transform, crop, opacity, effects and transitions apply to the
+        // whole nested picture.
+        const TimelineData* n = fc.nested ? fc.nested->find(clip.nestedUid) : nullptr;
+        if (!n || n->width <= 0 || n->height <= 0 || fc.depth + 1 > kMaxNestingDepth)
+            return false;
+        const QSizeF native(n->width, n->height);
+        const QSizeF content = fitSize(native, frameSize);
+        const double scale = std::max(fc.sx, fc.sy) * content.width() / native.width()
+            * std::clamp(maxZoomValue, 1.0, kMaxNestedZoom);
+        QSize size(std::max(1, int(std::ceil(native.width() * scale))),
+            std::max(1, int(std::ceil(native.height() * scale))));
+        if (size.width() > kMaxTargetEdge || size.height() > kMaxTargetEdge)
+            size.scale(kMaxTargetEdge, kMaxTargetEdge, Qt::KeepAspectRatio);
+        const RenderTarget* target = nestedComposite(
+            *n, nestedFrameAt(clip, fc.frame, fc.timeline->fps, n->fps), size, fc);
+        if (!target)
+            return false;
+        src.kind = ClipSource::Kind::Texture;
+        src.content = content;
+        src.sourcePx = native; // crop in nested timeline pixels
+        src.texture = target->texture;
         return true;
     }
     case ClipKind::Solid: {

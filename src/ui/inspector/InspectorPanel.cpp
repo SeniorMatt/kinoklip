@@ -840,6 +840,16 @@ void InspectorPanel::updateHeader()
     case ClipKind::Solid:
         info = tr("Solid color");
         break;
+    case ClipKind::Nested: {
+        // Compound clip or nested timeline: transform, opacity, effects and volume act on
+        // the nested result as a whole.
+        const auto nested = m_ctx.project->timelineData(c->nestedUid);
+        if (!nested)
+            info = tr("Compound clip (offline)");
+        else
+            info = nested->compound ? tr("Compound clip") : tr("Timeline clip");
+        break;
+    }
     }
     const int selected = selectedItemCount();
     if (selected > 1)
@@ -878,14 +888,27 @@ void InspectorPanel::dragEnterEvent(QDragEnterEvent* event)
 {
     if (m_clipId && event->mimeData()->hasFormat(QLatin1String(mime::Effect)))
         event->acceptProposedAction();
+    else
+        event->ignore();
+}
+
+void InspectorPanel::dragMoveEvent(QDragMoveEvent* event)
+{
+    // Answer every move explicitly (Wayland: each one becomes wl_data_offer.accept).
+    if (m_clipId && event->mimeData()->hasFormat(QLatin1String(mime::Effect)))
+        event->acceptProposedAction();
+    else
+        event->ignore();
 }
 
 void InspectorPanel::dropEvent(QDropEvent* event)
 {
     const QString id = QString::fromUtf8(event->mimeData()->data(QLatin1String(mime::Effect)));
     const EffectDescriptor* desc = EffectRegistry::instance().find(id);
-    if (!desc || !m_clipId)
+    if (!desc || !m_clipId) {
+        event->ignore();
         return;
+    }
     bool done = false;
     if (desc->category == EffectCategory::Transition) {
         const ClipData* c = clip(m_clipId);

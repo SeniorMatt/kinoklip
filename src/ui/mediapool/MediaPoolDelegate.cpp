@@ -27,6 +27,20 @@ void paintPlaceholder(QPainter* p, const QRect& r, int kind, const QPalette& pal
     p->setBrush(Qt::NoBrush);
     const QPointF c = QRectF(r).center();
     switch (kind) {
+    case MediaPoolModel::TimelineKind:
+    case MediaPoolModel::CompoundKind: {
+        // Track bars of a timeline; a compound clip frames them in a clip outline.
+        const qreal w = 36;
+        const qreal rows[3][2] = {{0, 20}, {8, 32}, {4, 26}};
+        for (int i = 0; i < 3; ++i) {
+            const qreal y = c.y() - 8 + i * 8;
+            p->drawLine(
+                QPointF(c.x() - w / 2 + rows[i][0], y), QPointF(c.x() - w / 2 + rows[i][1], y));
+        }
+        if (kind == MediaPoolModel::CompoundKind)
+            p->drawRoundedRect(QRectF(c.x() - 22, c.y() - 14, 44, 28), 2, 2);
+        break;
+    }
     case MediaPoolModel::AudioKind: {
         // Symmetric bars like a waveform.
         const qreal heights[] = {6, 14, 22, 12, 26, 16, 8, 18, 10, 4};

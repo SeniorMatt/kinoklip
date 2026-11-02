@@ -46,28 +46,11 @@ public:
         const TimelineData& tl = *rq.timeline;
         const QSize requested = rq.outSize.isEmpty() ? QSize(tl.width, tl.height) : rq.outSize;
         const QSize out = scaledRenderSize(requested, rq.quality);
-        m_timeline = &tl;
         m_media = job.media.get();
-        m_frame = rq.frame;
-        m_out = out;
-        m_scale = QTransform::fromScale(
-            double(out.width()) / tl.width, double(out.height()) / tl.height);
-
-        QImage image(out, QImage::Format_ARGB32_Premultiplied);
-        image.fill(Qt::transparent);
+        m_nested = &tl.nested;
+        m_depth = 0;
         m_decoders.beginFrame();
-        {
-            QPainter painter(&image);
-            for (const TrackData& track : tl.videoTracks) {
-                if (!track.enabled)
-                    continue;
-                const TrackFrame tf = evaluateTrack(track, rq.frame);
-                if (tf.single)
-                    drawClip(painter, *tf.single, 1.0);
-                else if (tf.transition)
-                    drawTransition(painter, *tf.transition);
-            }
-        }
+        QImage image = renderTimeline(tl, rq.frame, out);
         m_decoders.collectIdle();
         frame->size = out;
         frame->ok = true;
@@ -77,6 +60,43 @@ public:
     }
 
 private:
+    /// Deepest nesting rendered (guards against damaged data only).
+    static constexpr int kMaxNestingDepth = 16;
+
+    /// Paints every video track of @p tl at @p frame into a new image of @p out pixels.
+    /// Re-entrant for nested timelines (the per-timeline members are saved and restored).
+    QImage renderTimeline(const TimelineData& tl, int64_t frame, QSize out)
+    {
+        const TimelineData* savedTimeline = m_timeline;
+        const int64_t savedFrame = m_frame;
+        const QSize savedOut = m_out;
+        const QTransform savedScale = m_scale;
+        m_timeline = &tl;
+        m_frame = frame;
+        m_out = out;
+        m_scale = QTransform::fromScale(
+            double(out.width()) / tl.width, double(out.height()) / tl.height);
+        QImage image(out, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        {
+            QPainter painter(&image);
+            for (const TrackData& track : tl.videoTracks) {
+                if (!track.enabled)
+                    continue;
+                const TrackFrame tf = evaluateTrack(track, frame);
+                if (tf.single)
+                    drawClip(painter, *tf.single, 1.0);
+                else if (tf.transition)
+                    drawTransition(painter, *tf.transition);
+            }
+        }
+        m_timeline = savedTimeline;
+        m_frame = savedFrame;
+        m_out = savedOut;
+        m_scale = savedScale;
+        return image;
+    }
+
     /// Dissolve approximation of every transition: temp = A·(1 − t) + B·t (CompositionMode_Plus
     /// adds premultiplied values), then temp over the output.
     void drawTransition(QPainter& painter, const TransitionSpan& span)
@@ -160,6 +180,22 @@ private:
             pictureRect = QRectF(title.rect.x() / outScale - frameSize.width() / 2,
                 title.rect.y() / outScale - frameSize.height() / 2, title.rect.width() / outScale,
                 title.rect.height() / outScale);
+            break;
+        }
+        case ClipKind::Nested: {
+            const TimelineData* n = m_nested ? m_nested->find(clip.nestedUid) : nullptr;
+            if (!n || n->width <= 0 || n->height <= 0 || m_depth >= kMaxNestingDepth)
+                return;
+            sourcePx = QSizeF(n->width, n->height);
+            content = fitSize(sourcePx, frameSize);
+            const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
+            const QSize want = (content * outScale * zoom).toSize().expandedTo(QSize(1, 1));
+            ++m_depth;
+            picture
+                = renderTimeline(*n, nestedFrameAt(clip, m_frame, m_timeline->fps, n->fps), want);
+            --m_depth;
+            pictureRect = QRectF(
+                -content.width() / 2, -content.height() / 2, content.width(), content.height());
             break;
         }
         case ClipKind::Solid:
@@ -248,6 +284,8 @@ private:
     QSet<QString> m_warned;
     const TimelineData* m_timeline = nullptr;
     const MediaPathMap* m_media = nullptr;
+    const NestedTimelines* m_nested = nullptr;
+    int m_depth = 0;
     int64_t m_frame = 0;
     QSize m_out;
     QTransform m_scale;

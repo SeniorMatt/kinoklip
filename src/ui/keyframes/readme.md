@@ -18,7 +18,7 @@ ParamAccess); never on `ui/timeline`.
 | `KeyframeRuler.h` | panel ruler: timecodes, clip spans, playhead; drag scrubs the playhead |
 | `KeyframeItemModel.h` | pure: selection -> items (linked pair = one item) -> rows grouped like the Inspector |
 | `KeyframeParamTree.h` | panel tree: curve check box, prev / diamond / next, inline value (ValueField) |
-| `KeyframesPanel.h` | the panel: tool row, tree, ruler, dope sheet + curves, time scroll bar, view modes, persistence |
+| `KeyframesPanel.h` | the panel: tool row, tree, ruler, dope sheet + curves, time scroll bar, view modes, persistence; header gestures: the labelled Float / Dock button, a double-click on the header floats / docks, dragging the docked header out of the panel tears it off (`tearOffRequested()`), dragging a floating panel's header moves its window (`QWindow::startSystemMove()`, the only way on Wayland) |
 
 ## Shared code vs. specific code
 

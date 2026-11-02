@@ -3,15 +3,24 @@
 #include "ui/common/ClipGeometry.h"
 
 #include "core/MediaPool.h"
+#include "core/Project.h"
 #include "render/TimelineEval.h"
 
 namespace kk {
 
-QSizeF clipContentSize(const MediaPool* pool, const ClipData& clip, QSizeF frameSize)
+QSizeF clipContentSize(const Project* project, const ClipData& clip, QSizeF frameSize)
 {
-    if (clip.kind != ClipKind::Media || !pool)
+    if (!project)
         return frameSize;
-    const MediaItem* item = pool->item(clip.mediaId);
+    if (clip.kind == ClipKind::Nested) {
+        const auto nested = project->timelineData(clip.nestedUid);
+        if (!nested || nested->width <= 0 || nested->height <= 0)
+            return frameSize;
+        return render::fitSize(QSizeF(nested->width, nested->height), frameSize);
+    }
+    if (clip.kind != ClipKind::Media)
+        return frameSize;
+    const MediaItem* item = project->mediaPool()->item(clip.mediaId);
     if (!item || item->info.displayWidth <= 0 || item->info.displayHeight <= 0)
         return frameSize;
     return render::fitSize(QSizeF(item->info.displayWidth, item->info.displayHeight), frameSize);

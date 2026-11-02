@@ -49,6 +49,9 @@ public:
     bool removeItem(const QString& id);
     /// Renames an item. Returns false if it does not exist.
     bool renameItem(const QString& id, const QString& name);
+    /// Replaces name and info of item @p id (timeline items, kept in sync by the Project).
+    /// Emits itemChanged() only when something differs. Returns false if it does not exist.
+    bool updateItem(const QString& id, const QString& name, const media::MediaInfo& info);
     /// Relinks offline items: every item whose file is missing and whose file name exists in
     /// @p folder points there afterwards (the cached probe result is kept; the media must be
     /// the same file, as with Resolve's "Relink Clips"). Returns the number relinked.

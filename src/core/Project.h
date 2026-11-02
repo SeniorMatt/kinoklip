@@ -9,12 +9,19 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QVector>
 
+#include <memory>
+#include <optional>
+#include <vector>
+
+class QDir;
 class QUndoStack;
 
 namespace kk {
 
-/// Project-wide settings. Resolution and frame rate are applied to the timeline.
+/// Project-wide settings. Resolution and frame rate are applied to every timeline that uses
+/// the project settings (TimelineData::useProjectSettings).
 struct ProjectSettings
 {
     QString name = QStringLiteral("Untitled Project");
@@ -25,11 +32,31 @@ struct ProjectSettings
     friend bool operator==(const ProjectSettings&, const ProjectSettings&) = default;
 };
 
-/// The document: media pool + timeline + undo history + settings + file path.
+/// Per-timeline view state remembered across tab switches and saved with the project (not
+/// undoable, does not make the project modified).
+struct TimelineViewState
+{
+    double pixelsPerFrame = 0.0; ///< horizontal zoom; 0 = not set yet (view default)
+    int scrollX = 0; ///< horizontal scroll in px
+    int scrollY = 0; ///< vertical scroll in px
+
+    friend bool operator==(const TimelineViewState&, const TimelineViewState&) = default;
+};
+
+/// The document: media pool + timelines + undo history + settings + file path.
 ///
-/// Undo is snapshot based: beginEdit() remembers the timeline and media pool state, endEdit()
-/// pushes one QUndoCommand holding the before/after copies (nothing is pushed if nothing
-/// changed). Edits nest: only the outermost begin/end pair creates a command.
+/// **Timelines.** A project holds any number of timelines (TimelineData::uid), each listed in
+/// the media pool as a Timeline or CompoundClip item. One of them is *active*: its data lives
+/// in the single Timeline object returned by timeline() (what the timeline view, viewer,
+/// inspector, keyframes panel and Deliver page show); the others are kept as immutable
+/// shared copies. setActiveTimeline() swaps them (tabs, see tabs()). Nested clips reference
+/// other timelines by uid; Timeline::snapshot() carries their data for rendering.
+///
+/// Undo is snapshot based: beginEdit() remembers every timeline (the inactive ones as shared
+/// pointers, so this is cheap), the media pool and the project format; endEdit() pushes one
+/// QUndoCommand holding the before/after state of what changed (nothing is pushed if nothing
+/// changed). Edits nest: only the outermost begin/end pair creates a command. Undoing a step
+/// made in another timeline first switches to that timeline, so the user sees what changes.
 ///
 /// Thread-safety: GUI thread only.
 class Project : public QObject
@@ -42,7 +69,8 @@ public:
 
     /// The media pool (owned by the project, never null).
     [[nodiscard]] MediaPool* mediaPool() const { return m_mediaPool; }
-    /// The timeline (owned by the project, never null).
+    /// The active timeline (owned by the project, never null; the same object for the whole
+    /// project lifetime, its data changes when another timeline becomes active).
     [[nodiscard]] Timeline* timeline() const { return m_timeline; }
     /// The undo stack (owned by the project, never null). Prefer undo()/redo() below, which
     /// refuse to run while an edit is open.
@@ -82,6 +110,79 @@ public:
     bool loadRecovered(
         const QString& autosavePath, const QString& documentPath, QString* error = nullptr);
 
+    // ---- Timelines (ProjectTimelines.cpp) ----
+
+    /// Uids of every timeline (regular and compound), in creation order.
+    [[nodiscard]] QVector<quint64> timelineUids() const;
+    /// True if timeline @p uid exists.
+    [[nodiscard]] bool hasTimeline(quint64 uid) const;
+    /// Current data of timeline @p uid (the active one included), or nullptr. The pointer is
+    /// immutable; it stays valid as long as the caller holds it.
+    [[nodiscard]] std::shared_ptr<const TimelineData> timelineData(quint64 uid) const;
+    /// Render snapshot of timeline @p uid (TimelineData::nested filled, like
+    /// Timeline::snapshot() for the active one), or nullptr. Thumbnails, export of other
+    /// timelines.
+    [[nodiscard]] std::shared_ptr<const TimelineData> renderSnapshot(quint64 uid) const;
+    /// Uid of the active timeline.
+    [[nodiscard]] quint64 activeTimelineUid() const { return m_activeUid; }
+    /// Makes timeline @p uid the active one (opens a tab for it). Refused (false) while an
+    /// edit is open or for an unknown uid. Not undoable.
+    bool setActiveTimeline(quint64 uid);
+    /// Media pool item id of timeline @p uid (empty if none).
+    [[nodiscard]] QString timelineItemId(quint64 uid) const;
+
+    /// Creates an empty timeline (V1, V2, A1, A2; project resolution and frame rate) and its
+    /// media pool item in bin @p binId. One undo step. Returns the uid. Does not activate it.
+    quint64 createTimeline(const QString& name, const QString& binId = {});
+    /// Copies timeline @p uid (all clips; name + " copy") into the same bin. One undo step.
+    /// Returns the new uid, or 0 if @p uid does not exist.
+    quint64 duplicateTimeline(quint64 uid);
+    /// Renames timeline @p uid and its media pool item. One undo step. False if unknown.
+    bool renameTimeline(quint64 uid, const QString& name);
+    /// Deletes timeline @p uid and its media pool item (one undo step). Nested clips showing
+    /// it become offline. The last regular (non-compound) timeline cannot be deleted. When
+    /// it is the active timeline, another one is activated first. False if refused.
+    bool deleteTimeline(quint64 uid);
+    /// Number of Nested clips (in every timeline) that show timeline @p uid.
+    [[nodiscard]] int timelineUseCount(quint64 uid) const;
+    /// Applies per-timeline format settings to timeline @p uid (one undo step): follow the
+    /// project settings, or the given resolution and frame rate.
+    bool setTimelineFormat(
+        quint64 uid, bool useProjectSettings, int width, int height, Rational fps);
+    /// Generates a free name like "Timeline 2" / "Compound Clip 3".
+    [[nodiscard]] QString uniqueTimelineName(const QString& base) const;
+
+    // ---- Nesting / compound clips (ProjectTimelines.cpp) ----
+
+    /// True if a clip showing timeline @p inner may be placed into timeline @p outer (it
+    /// would not make a timeline contain itself, directly or indirectly).
+    [[nodiscard]] bool canNest(quint64 inner, quint64 outer) const;
+    /// Clip > New Compound Clip: collapses clips @p clipIds of the active timeline into a new
+    /// compound clip named @p name (media pool item in bin @p binId), see compound::collapse().
+    /// One undo step. Returns the uid of the compound timeline, or 0 with @p error set.
+    quint64 createCompoundClip(const QVector<quint64>& clipIds, const QString& name,
+        const QString& binId = {}, QString* error = nullptr);
+    /// Clip > Decompose in Place for the Nested clip @p clipId of the active timeline (and
+    /// the clips linked to it that show the same timeline). One undo step. Returns the ids of
+    /// the restored clips, or nothing with @p error set.
+    std::optional<QVector<quint64>> decomposeCompoundClip(quint64 clipId, QString* error = nullptr);
+
+    // ---- Tabs and per-timeline view state (ProjectTimelines.cpp) ----
+
+    /// Timelines open as tabs, in tab order (always contains the active timeline).
+    [[nodiscard]] const QVector<quint64>& tabs() const { return m_tabs; }
+    /// Opens timeline @p uid in a tab (after the active one) and activates it.
+    bool openTab(quint64 uid);
+    /// Closes the tab of @p uid; activates the neighbour if it was active. The last tab
+    /// cannot be closed (false).
+    bool closeTab(quint64 uid);
+    /// Moves the tab at @p from to index @p to.
+    void moveTab(int from, int to);
+    /// View state (zoom, scroll) of timeline @p uid.
+    [[nodiscard]] TimelineViewState viewState(quint64 uid) const;
+    /// Remembers the view state of timeline @p uid.
+    void setViewState(quint64 uid, const TimelineViewState& state);
+
     // ---- Editing protocol ----
 
     /// Starts an undoable edit labelled @p label (shown in Edit ▸ Undo). Nesting-safe.
@@ -103,8 +204,23 @@ public:
     /// Imports files into the media pool as one undoable step. Returns ids + warnings.
     ImportResult importMedia(const QStringList& paths, const QString& binId = {});
 
-    /// Restores a timeline + media pool state (used by undo commands; not undoable itself).
+    /// Restores the active timeline + media pool state (not undoable itself).
     void restoreState(const TimelineData& timeline, const MediaPoolState& pool);
+
+    /// Every timeline's data, in creation order (undo snapshots; immutable).
+    using TimelineSet = std::vector<std::shared_ptr<const TimelineData>>;
+    /// Resolution + frame rate of the project (part of the undo state).
+    struct Format
+    {
+        int width = 1920;
+        int height = 1080;
+        Rational fps {25, 1};
+        friend bool operator==(const Format&, const Format&) = default;
+    };
+    /// Restores a complete state (undo commands). @p primary: the timeline the step was made
+    /// in; it is activated first when it exists and is not active.
+    void restoreProjectState(const TimelineSet& timelines, const MediaPoolState& pool,
+        const Format& format, quint64 primary);
 
 signals:
     /// The modified state changed.
@@ -115,15 +231,60 @@ signals:
     void filePathChanged(const QString& path);
     /// The whole project was replaced (new or load); views should rebuild themselves.
     void projectReset();
+    /// The active timeline is about to change from @p uid (views save their view state).
+    void activeTimelineAboutToChange(quint64 uid);
+    /// Timeline @p uid became the active one (Timeline::changed() was emitted as well).
+    void activeTimelineChanged(quint64 uid);
+    /// A timeline was added, removed or renamed.
+    void timelinesChanged();
+    /// The tabs (open timelines or their order) changed.
+    void tabsChanged();
 
 private:
+    /// One timeline of the project. `data` is null for the active timeline (its data lives
+    /// in m_timeline).
+    struct TimelineSlot
+    {
+        quint64 uid = 0;
+        std::shared_ptr<const TimelineData> data;
+        int64_t playhead = 0;
+        TimelineViewState view;
+    };
+
     bool loadFrom(const QString& path, const QString& documentPath, QString* error);
+    [[nodiscard]] QJsonObject toJson(const QString& path) const;
+    bool fromJson(const QJsonObject& root, int version, const QDir& projectDir,
+        const QString& fallbackName, QString* error);
+    TimelineSlot* slot(quint64 uid);
+    const TimelineSlot* slot(quint64 uid) const;
+    const TimelineData* lookup(quint64 uid) const;
+    TimelineSet currentSet() const;
+    /// Replaces the data of an inactive timeline (or the active one through m_timeline).
+    void replaceTimeline(quint64 uid, std::shared_ptr<const TimelineData> data);
+    /// Adds a timeline + media pool item (inside an open edit).
+    void addTimeline(TimelineData data, const QString& binId);
+    /// Derived data after every edit: nested clip lengths, media pool items of timelines.
+    void syncDerived();
+    /// Applies a set (undo/redo/cancel); emits the change signals.
+    void applySet(const TimelineSet& set);
+    /// Activates @p uid without storing the current active data (it no longer exists).
+    void activateSlot(quint64 uid, bool storeCurrent);
+    void resetTimelines(
+        std::vector<TimelineSlot> timelineSlots, quint64 active, QVector<quint64> tabs);
+    void installResolver();
+    [[nodiscard]] NestedTimelines nestedFor(const TimelineData& data) const;
+    void notifyNestedChanges(const TimelineSet& before);
     void setFilePath(const QString& path);
     void setSettingsDirty(bool dirty);
     void emitDirtyIfChanged();
 
     MediaPool* m_mediaPool = nullptr;
     Timeline* m_timeline = nullptr;
+    std::vector<TimelineSlot> m_slots; ///< every timeline, creation order
+    quint64 m_activeUid = 0;
+    QVector<quint64> m_tabs;
+    quint64 m_nextTimelineUid = 1;
+    Format m_format;
     QUndoStack* m_undoStack = nullptr;
     QString m_name;
     QString m_filePath;
@@ -133,8 +294,10 @@ private:
     int m_editDepth = 0;
     bool m_editCancelled = false;
     QString m_editLabel;
-    TimelineData m_editTimelineBefore;
+    TimelineSet m_editBefore;
     MediaPoolState m_editPoolBefore;
+    Format m_editFormatBefore;
+    quint64 m_editPrimary = 0;
 };
 
 } // namespace kk

@@ -123,12 +123,27 @@ bool MediaPool::removeItem(const QString& id)
     return true;
 }
 
+bool MediaPool::updateItem(const QString& id, const QString& name, const media::MediaInfo& info)
+{
+    const int i = indexOfItem(id);
+    if (i < 0)
+        return false;
+    MediaItem& item = m_state.items[i];
+    if (item.name == name && sameMediaInfo(item.info, info))
+        return true;
+    item.name = name;
+    item.info = info;
+    emit itemChanged(id);
+    touch();
+    return true;
+}
+
 int MediaPool::relinkFromFolder(const QString& folder)
 {
     const QDir dir(folder);
     int relinked = 0;
     for (MediaItem& item : m_state.items) {
-        if (QFileInfo::exists(item.path))
+        if (item.isTimeline() || QFileInfo::exists(item.path))
             continue;
         const QString candidate = dir.filePath(QFileInfo(item.path).fileName());
         if (!QFileInfo(candidate).isFile())

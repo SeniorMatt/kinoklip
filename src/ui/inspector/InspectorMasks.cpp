@@ -249,8 +249,7 @@ void InspectorPanel::addMask(MaskShape shape)
     if (!c)
         return;
     const TimelineData& data = m_ctx.project->timeline()->data();
-    const QSizeF content
-        = clipContentSize(m_ctx.project->mediaPool(), *c, QSizeF(data.width, data.height));
+    const QSizeF content = clipContentSize(m_ctx.project, *c, QSizeF(data.width, data.height));
     quint64 newId = 0;
     editClip(tr("Add %1 Mask").arg(maskShapeName(shape)), m_clipId, [&](ClipData& target) {
         // Ids come from the timeline's allocator (unique across clips: keyframe paths).

@@ -18,6 +18,7 @@ class QComboBox;
 class QKeyEvent;
 class QHBoxLayout;
 class QLabel;
+class QTimer;
 class QToolButton;
 
 namespace kk {
@@ -169,6 +170,8 @@ private:
     Zoom m_zoom = Zoom::Fit;
     QPoint m_dragStart;
     bool m_dragArmed = false;
+    QTimer* m_resizeSettle = nullptr; ///< coalesces output-size updates while resizing
+    bool m_outputSized = false; ///< the engine has an output size for this viewer
     Rational m_fps;
 };
 

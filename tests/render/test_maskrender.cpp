@@ -3,6 +3,8 @@
 // opacity, feather monotonicity, expansion, point paths, animated masks at exact frames, masks
 // following the clip transform, and a 1080p timing comparison (spec section 27).
 #include "RenderTestUtil.h"
+#include "core/CompoundOps.h"
+#include "core/EditOps.h"
 #include "core/Mask.h"
 #include "render/Compositor.h"
 
@@ -55,6 +57,28 @@ MaskData pathMask(TimelineData& tl, MaskShape shape, const MaskPath& points)
     m.closed = true;
     m.path.setShape(0, points);
     return m;
+}
+
+/// @p parent's snapshot with @p nested in its nested-timeline map (Timeline::snapshot() does
+/// this inside a project).
+std::shared_ptr<const TimelineData> withNested(
+    const TimelineData& parent, const TimelineData& nested)
+{
+    auto map = std::make_shared<NestedTimelineMap>();
+    map->insert(nested.uid, std::make_shared<const TimelineData>(nested));
+    auto copy = std::make_shared<TimelineData>(parent);
+    copy->nested.map = std::move(map);
+    return copy;
+}
+
+/// Collapses every clip of @p tl into one compound clip (nested timeline uid 9).
+std::optional<compound::CollapseResult> collapseAll(TimelineData& tl)
+{
+    QVector<quint64> ids;
+    for (const TrackData& t : tl.videoTracks)
+        for (const ClipData& c : t.clips)
+            ids.append(c.id);
+    return compound::collapse(tl, ids, 9, QStringLiteral("cc"), nullptr);
 }
 
 int alphaAt(const QImage& image, int x, int y)
@@ -321,6 +345,72 @@ private slots:
             QVERIFY2(alphaAt(img, x, 20) >= 250, QByteArray::number(i));
             QVERIFY(alphaAt(img, x + 10, 20) <= 5);
         }
+    }
+
+    void masksInsideCompoundClips_data()
+    {
+        QTest::addColumn<bool>("useGpu");
+        QTest::newRow("gpu") << true;
+        QTest::newRow("cpu") << false;
+    }
+    void masksInsideCompoundClips()
+    {
+        // A masked clip collapsed into a compound clip renders exactly like before collapsing
+        // (the nested pass draws its clips with their masks).
+        QFETCH(bool, useGpu);
+        if (useGpu && !m_gpu->isGpu())
+            QSKIP("no OpenGL");
+        Compositor& c = useGpu ? *m_gpu : *m_cpu;
+        TimelineData flat = solidTimeline();
+        flat.uid = 1;
+        theClip(flat).masks.append(ellipseMask(flat, 201, 100));
+        MaskData hole = rectMask(flat, 0, 0, 20, 20, MaskMode::Subtract);
+        theClip(flat).masks.append(hole);
+        TimelineData parent = flat;
+        const auto r = collapseAll(parent);
+        QVERIFY(r);
+        QCOMPARE(parent.videoTracks[0].clips[0].kind, ClipKind::Nested);
+        QCOMPARE(r->nested.videoTracks[0].clips[0].masks.size(), 2);
+        const QImage a = c.renderImage(snap(flat), 5);
+        const QImage b = c.renderImage(withNested(parent, r->nested), 5);
+        QCOMPARE(alphaAt(b, 160, 90), 0); // the hole
+        QVERIFY(alphaAt(b, 200, 90) >= 250);
+        QCOMPARE(alphaAt(b, 10, 10), 0);
+        int worst = 0;
+        for (int y = 0; y < kH; y += 3)
+            for (int x = 0; x < kW; x += 3)
+                worst = std::max(worst, std::abs(alphaAt(a, x, y) - alphaAt(b, x, y)));
+        QVERIFY2(worst <= 2, QByteArray::number(worst));
+    }
+
+    void masksOnCompoundClips_data() { masksInsideCompoundClips_data(); }
+    void masksOnCompoundClips()
+    {
+        // A mask on the compound (Nested) clip itself cuts the whole nested picture, in the
+        // instance's content coordinates (the nested frame fitted into the parent).
+        QFETCH(bool, useGpu);
+        if (useGpu && !m_gpu->isGpu())
+            QSKIP("no OpenGL");
+        Compositor& c = useGpu ? *m_gpu : *m_cpu;
+        TimelineData parent = solidTimeline();
+        parent.uid = 1;
+        // Inside: red background, a blue solid over its right half (x 160..320, 180..340 once
+        // the instance moves by 20).
+        addClip(parent, TrackType::Video, 1, solidClip(parent, QColor(0, 0, 255), 0, 50));
+        parent.videoTracks[1].clips[0].transform.setBase(keys::PosX, 80);
+        parent.videoTracks[1].clips[0].transform.setBase(keys::ZoomX, 0.5);
+        const auto r = collapseAll(parent);
+        QVERIFY(r);
+        ClipData& instance = parent.videoTracks[0].clips[0];
+        QCOMPARE(instance.kind, ClipKind::Nested);
+        instance.masks.append(ellipseMask(parent, 201, 100));
+        instance.transform.setBase(keys::PosX, 20); // the mask moves with the instance
+        const QImage img = c.renderImage(withNested(parent, r->nested), 5);
+        QVERIFY2(near(px(img, 120, 90), 255, 0, 0, 255, 2), describe(px(img, 120, 90)));
+        QVERIFY(near(px(img, 270, 90), 0, 0, 255, 255, 2)); // blue half, inside the ellipse
+        QCOMPARE(alphaAt(img, 290, 90), 0); // outside the ellipse (edge at 280.5)
+        QCOMPARE(alphaAt(img, 25, 90), 0);
+        QCOMPARE(alphaAt(img, 180, 20), 0);
     }
 
     void cpuFallback()

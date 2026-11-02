@@ -58,12 +58,15 @@ struct EditBehaviour
     /// Dynamic trim (spec 8.17): J/K/L trim the selected edit point while playing, instead of
     /// only moving the playhead. Off: W just toggles the mode without J/K/L trimming.
     bool dynamicTrimWithJkl = true;
+    /// Open timelines are shown as tabs above the timeline (owner default, v2); off: one
+    /// timeline at a time, chosen from a drop-down like Resolve's single-timeline mode.
+    bool timelineTabs = true;
 
     /// Values stored in QSettings (group "edit/": stillSeconds, generatorSeconds,
     /// transitionSeconds, multiFrameNudge, threePointEditing, rippleDeleteGapAtPlayhead,
     /// selectToolRollsAtCut, trimToolSlideInNameBar, zoomAnchor
     /// ("playhead" / "mouse", shared with prefs::kZoomAnchor), wheelScheme ("resolve" / "classic"),
-    /// dynamicTrimWithJkl); defaults where unset.
+    /// dynamicTrimWithJkl, timelineTabs); defaults where unset.
     [[nodiscard]] static EditBehaviour fromSettings();
 
     /// @p seconds as a frame count at @p fps (at least 1 frame).

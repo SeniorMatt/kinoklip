@@ -330,33 +330,61 @@ private slots:
         QCOMPARE(serialization::clipFromJson(clip).masks[0], f.clip().masks[0]);
     }
 
-    void formatVersion2Loads()
+    void olderFormatVersionsLoad()
     {
-        // A version-2 project (no masks) still loads, and saving writes version 3.
+        // The migration chain: a version-2 file (one "timeline" object) and a version-3 file
+        // ("timelines", no masks) both load; saving writes version 4 with the masks.
         QTemporaryDir dir;
-        Project project;
-        project.timeline()->mutableData() = timeline();
-        const QString path = dir.filePath(QStringLiteral("old.kkproj"));
-        QVERIFY(project.save(path));
-        QFile file(path);
+        auto write = [](const QString& path, const QJsonObject& root) {
+            QFile f(path);
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write(QJsonDocument(root).toJson());
+        };
+        TimelineData t = timeline();
+        t.uid = 0;
+        const QString v2 = dir.filePath(QStringLiteral("v2.kkproj"));
+        write(v2,
+            QJsonObject {{QStringLiteral("formatVersion"), 2},
+                {QStringLiteral("project"),
+                    QJsonObject {{QStringLiteral("name"), QStringLiteral("Old")}}},
+                {QStringLiteral("mediaPool"), QJsonObject {}},
+                {QStringLiteral("timeline"), serialization::timelineToJson(t)}});
+        Project p2;
+        QString error;
+        QVERIFY2(p2.load(v2, &error), qPrintable(error));
+        QCOMPARE(p2.timeline()->data().videoTracks.size(), size_t(2));
+
+        // Add a masked clip, save (version 4), then label the file version 3 without masks.
+        Fixture f;
+        p2.beginEdit(QStringLiteral("t"));
+        TimelineData& d = p2.timeline()->mutableData();
+        ClipData c = f.clip();
+        c.masks[0].id = d.allocateId();
+        editops::overwriteClip(d, kV1, c);
+        p2.endEdit();
+        const QString v4 = dir.filePath(QStringLiteral("v4.kkproj"));
+        QVERIFY(p2.save(v4));
+        QFile file(v4);
         QVERIFY(file.open(QIODevice::ReadOnly));
         QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
         file.close();
-        QCOMPARE(root[QStringLiteral("formatVersion")].toInt(), 3);
-        root[QStringLiteral("formatVersion")] = 2;
-        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-        file.write(QJsonDocument(root).toJson());
-        file.close();
-        Project loaded;
-        QString error;
-        QVERIFY2(loaded.load(path, &error), qPrintable(error));
-        QCOMPARE(loaded.timeline()->data().videoTracks.size(), size_t(2));
+        QCOMPARE(root[QStringLiteral("formatVersion")].toInt(), 4);
+        Project p4;
+        QVERIFY2(p4.load(v4, &error), qPrintable(error));
+        QCOMPARE(p4.timeline()->data().videoTracks[0].clips[0].masks.size(), 1);
+        QCOMPARE(p4.timeline()->data().videoTracks[0].clips[0].masks[0].path,
+            p2.timeline()->data().videoTracks[0].clips[0].masks[0].path);
+
+        root[QStringLiteral("formatVersion")] = 3;
+        const QString v3 = dir.filePath(QStringLiteral("v3.kkproj"));
+        write(v3, root);
+        Project p3;
+        QVERIFY2(p3.load(v3, &error), qPrintable(error));
+        QCOMPARE(p3.timeline()->data().videoTracks[0].clips.size(), size_t(1));
         // A newer version is refused instead of losing data.
         root[QStringLiteral("formatVersion")] = serialization::kFormatVersion + 1;
-        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-        file.write(QJsonDocument(root).toJson());
-        file.close();
-        QVERIFY(!loaded.load(path, &error));
+        write(v3, root);
+        QVERIFY(!p3.load(v3, &error));
     }
 };
 

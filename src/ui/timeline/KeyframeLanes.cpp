@@ -186,6 +186,15 @@ void KeyframeLanes::toggleForSelection(bool keyframes)
     setOpen(id, keyframes, keyframes ? !isKeyframeEditorOpen(id) : !isCurveEditorOpen(id));
 }
 
+void KeyframeLanes::reset()
+{
+    const QList<quint64> ids = m_lanes.keys();
+    for (const quint64 id : ids)
+        dropLane(id);
+    m_states.clear();
+    emit layoutChanged();
+}
+
 void KeyframeLanes::dropLane(quint64 clipId)
 {
     const Lane lane = m_lanes.take(clipId);

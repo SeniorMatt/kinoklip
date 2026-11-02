@@ -15,7 +15,10 @@ for thumbnails and waveforms).
 | `TimelineTransitions.cpp` | controller part 3: Ctrl+T with the insufficient-handles question, transition alignment and length |
 | `TimelineMarkers.cpp` | controller part 4: timeline / clip markers and the marker editor hook, paste attributes, dynamic trim |
 | `TimelineGestures.cpp` | widget gestures: transition edge drag, Ctrl+Shift shuffle drag, ruler marker double-click |
-| `TimelineDialogs.h` | the modal questions (handles, marker editor, paste attributes) installed by the panel |
+| `TimelineDialogs.h` | the modal questions (handles, marker editor, paste attributes, name of a new timeline / compound clip, Timeline Settings) installed by the panel |
+| `TimelineCompound.cpp` | controller part 5: New Timeline / Duplicate / Delete, tab cycling and closing, New Compound Clip, Open in Timeline, Decompose in Place |
+| `TimelineTabs.h` | the row above the tracks: tabs of the open timelines (switch, drag to reorder, close, context menu) or, with tabs off (Preferences > Editing), a drop-down |
+| `NestedPreview.h` | thumbnails / waveforms of compound clips and nested timelines, rendered in the background from the nested timeline and cached until it changes; the painter reaches it through the `kk-nested:<uid>` pseudo path |
 | `TimelineEditUtil.h` | private: `runEdit()` (one undo step or none) and `applyClipSpeed()` |
 | `TimelineLayout.h` | pure geometry: frame <-> x, rows, header buttons, clip ranges, hit-testing (unit-tested) |
 | `TimelinePainter.h` | draws ruler, headers, clips, transitions, overlays for one paint event |
@@ -122,6 +125,19 @@ Keyframes Panel" button in its lane (the lane menus always have the entry):
 `KeyframeLanes::openInPanelRequested(clipId)`, wired by EditPage. `TimelineWidget::viewChanged()`
 (zoom / scroll) feeds the panel's Follow Timeline mode.
 
+## Timelines, tabs and compound clips (v2)
+
+The widget always shows `Project::timeline()`, the active timeline. On
+`Project::activeTimelineAboutToChange` it stores its zoom / scroll in the project
+(`setViewState()`), clears the selection and closes the keyframe lanes (clip ids belong to the
+old timeline); on `activeTimelineChanged` it restores the new timeline's view (fit the first
+time). Nested clips (`ClipKind::Nested`) are drawn in their own colour with thumbnails and a
+waveform from `NestedPreview`; `makeMediaClips()` turns a timeline / compound clip item of the
+media pool into Nested clips (refused when it would make the timeline contain itself), so drops
+and F9/F10/F12 work unchanged. Actions: `timeline.new` (Ctrl+N), `timeline.duplicate`,
+`timeline.delete`, `timeline.settings`, `timeline.next_tab`, `timeline.prev_tab`,
+`timeline.close_tab`, `clip.new_compound`, `clip.open_in_timeline`, `clip.decompose`.
+
 ## Coordinates and time
 
 Timeline positions are frames (PLAN 5.1). `TimelineLayout` maps them:
@@ -188,6 +204,16 @@ the position; the same plan draws the ghost preview and performs the drop (one u
 - transition: head or tail of the clip under the mouse (nearest half); a tail touching the next
   clip becomes that clip's `transitionIn`, centred on the cut; 1 s.
 - generator / title: a new 5 s clip on the video track under the mouse (V1 otherwise).
+- empty space of the track area (Resolve): above the top video track a new video track is
+  created for the drop, below the last audio track a new audio track; the other half of a
+  linked clip goes to the same index, created when missing (V3 pairs with A3); a title or
+  generator only goes above. The gap between V1 and A1 counts as the nearer row. The ghost is
+  drawn in the band where the new track will appear. Ruler and headers refuse drops.
+- files from a file manager (`platform::droppedLocalFiles()`): imported into the media pool
+  (one undo step, the usual report for unsupported files) from the event loop after the drop,
+  then placed like a media pool drag at the drop position (a second step).
+Every `DragEnter` / `DragMove` is answered explicitly (see src/ui/common/readme.md, "Drag and
+drop", for the Wayland rules); `kk.ui.dnd` logs them. Tests: `test_timelinedrop.cpp`.
 
 ## How to extend
 

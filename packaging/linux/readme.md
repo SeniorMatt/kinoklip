@@ -57,7 +57,7 @@ kinoklip-x86_64/
                                       KWidgetsAddons, KGuiAddons, KArchive, KI18n,
                                       libKF6BreezeIcons with the icons compiled in)
   usr/lib/qt/*.so*                    Qt 6.12 libraries and libraries only Qt needs (ICU, ...)
-  usr/lib/qt/qt-version.txt           Qt version built against (minimum for host-Qt mode)
+  usr/lib/qt/qt-version.txt           exact Qt version built against (host-Qt mode needs it)
   usr/lib/qt/plugins/                 platforms (wayland: libqwayland.so from Qt 6.10 on,
                                       wayland-egl/-generic before; xcb, offscreen, minimal),
                                       wayland shell/decoration/graphics integration,
@@ -159,10 +159,17 @@ done | grep -E 'undefined symbol|not found'
      theme nor Qt's built-in KDE theme can restyle the app: Breeze style, KDE colour scheme and
      Breeze icons come from the bundle and look identical on every system (the user changes
      them in Settings > Color Theme / Style). `QT_MEDIA_BACKEND=ffmpeg` (unless set).
-   - **Opt-in: `KINOKLIP_HOST_QT=1`** uses the system Qt if it is Qt 6 and at least the
-     version in `usr/lib/qt/qt-version.txt` (6.12), has every module in
-     `host-qt-requirements.txt` from the same release, and has a wayland or xcb platform
-     plugin; otherwise it falls back to the bundled Qt. Nothing Qt-related is set, so the host
+   - **Opt-in: `KINOKLIP_HOST_QT=1`** uses the system Qt only if it is **exactly** the Qt
+     release in `usr/lib/qt/qt-version.txt` (major.minor.patch, e.g. 6.12.0), has every module
+     in `host-qt-requirements.txt` from that same release, and has a wayland or xcb platform
+     plugin; otherwise it falls back to the bundled Qt and logs why (`host Qt 6.12.1 is not the
+     Qt 6.12.0 the app was built with`). The exact match is required because the app links Qt
+     GuiPrivate (the Wayland parent-window handle for the portal file dialog,
+     src/platform/PortalFileChooser.cpp): private Qt ABI changes with every release, patch
+     releases included, and a mismatch can crash at any point. Bundles that recorded only
+     "6.12" (alpha.3 and older) never use the host Qt. In practice host-Qt mode only helps on
+     a distribution that ships the very Qt the bundle was built with (Arch, right after a
+     release); it exists for debugging Qt-side problems against a host Qt build. Nothing Qt-related is set, so the host
      Qt finds its own plugins (incl. the host's Breeze). FFmpeg, codecs and the KF6 libraries
      still come from the bundle.
    - `KINOKLIP_BUNDLED_QT=1` forces the bundled Qt (wins over `KINOKLIP_HOST_QT`).

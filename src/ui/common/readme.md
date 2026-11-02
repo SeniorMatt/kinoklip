@@ -13,6 +13,8 @@ Used by every panel and page. Depends on `core` only.
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
 | `MediaImport.h` | import with user feedback; media file patterns/filters |
 | `Resources.h` | `initResources()` — call in `main()` and in tests that need icons/keymap |
+| `PanelSplitter.h` | `QSplitter` for every split between and inside panels: handles that highlight on hover / press and never trigger Breeze's mouse-grabbing splitter proxy (see "Wayland") |
+| `DragAndDrop.h` | `execCopyDrag()`, `logDropEvent()`, the `kk.ui.dnd` logging category; `DragMime.h` holds the MIME contract between drag sources and drop targets |
 | `ShortcutFallback.h` | app event filter (MainWindow installs it): an unmatched key with a shifted US character (`Ctrl+Shift+{`) triggers the action bound to the unshifted form (`Ctrl+Shift+[`); never in text input or popups |
 
 ## Panel conventions
@@ -20,6 +22,54 @@ Used by every panel and page. Depends on `core` only.
 - Derive from `PanelFrame` for a consistent look; put small tool buttons in the title bar with
   `addTitleBarAction(ctx.actions->action("..."))`.
 - Never create model singletons; everything comes through `AppContext`.
+
+## Wayland
+
+Plasma's default session is Wayland, and Qt Wayland enforces rules X11 never did:
+
+- **No explicit mouse grabs.** `QWidget::grabMouse()` / `QWindow::setMouseGrabEnabled()` only
+  work for popups; anything else prints "This plugin supports grabbing the mouse only for popup
+  windows". Use the implicit grab of a press: the widget that got the press receives every move
+  and the release. Drag-to-change fields (`ValueField`) measure motion relative to the press
+  position, never warp the pointer (`QCursor::setPos()` does nothing on Wayland). Third-party
+  grabs we neutralise: Breeze's splitter proxy (`PanelSplitter` eats the hover events that would
+  show it) and QMenuBar's grab when the open menu's title is clicked (`MainWindow`'s
+  `MenuBarGrabGuard` closes the menu first).
+- **Windows cannot position themselves.** `move()` on a top-level is ignored; to let the user
+  move a window from inside it (a panel header), call `QWindow::startSystemMove()` while the
+  button is still pressed (the Keyframes panel header does).
+- **Drag and drop** (below) needs the serial of the press that started it.
+
+## Drag and drop
+
+Payloads are defined in `DragMime.h`; sources and targets never parse each other's widgets.
+
+Sources: start the drag from the press/move handlers while the left button is held (Wayland's
+`wl_data_device.start_drag` needs the press serial; never from a timer or after the release),
+offer **Copy only** (`execCopyDrag()`, or `supportedDragActions()` = `Qt::CopyAction` and
+`setDefaultDropAction(Qt::CopyAction)` for item views; with Move an accepting target made
+`QAbstractItemView` delete the dragged rows).
+
+Targets: answer every `DragEnter` **and** `DragMove` with `acceptProposedAction()` or
+`ignore()` (Qt Wayland turns each answer into `wl_data_offer.accept` + `set_actions`), log
+with `logDropEvent()`, and never open a modal dialog inside `dropEvent()` (read the payload,
+accept, then do the work from the event loop: `QTimer::singleShot(0, ...)`). Files from file
+managers go through `platform::hasDroppedFiles()` / `platform::droppedLocalFiles()`
+(src/platform), which also handle the formats Qt Wayland loses.
+
+| Source | Payload | Targets |
+|---|---|---|
+| media pool items (grid / list) | `MediaItems` | timeline, bins tree (move to bin) |
+| source viewer picture | `SourceRange` | timeline |
+| effects library | `Effect` | timeline (clip, edit point, new clip), inspector |
+| file managers, desktop | `text/uri-list`, `application/x-kde4-urilist`, `application/vnd.portal.filetransfer` | media pool, bins tree, timeline |
+
+Diagnosing a drag on a user's machine: `QT_LOGGING_RULES="kk.ui.dnd.debug=true;kinoklip.drop.debug=true"`
+logs every drag start, enter, move and drop with the formats and the accept state; with
+`WAYLAND_DEBUG=1` the `wl_data_device` traffic (`start_drag`, `enter`, `drop`) shows what the
+compositor did. Tests: `tests/timeline/test_timelinedrop.cpp`,
+`tests/panels/test_droptargets.cpp` (synthetic events, every target), `tests/app/test_wayland.cpp`
+(real drags under weston, see `scripts/wayland_session.sh`).
 
 ## Action ids and owners
 Behaviour is connected by the module that owns it:

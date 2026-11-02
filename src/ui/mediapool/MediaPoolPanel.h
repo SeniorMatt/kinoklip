@@ -104,9 +104,16 @@ signals:
     void currentMediaChanged(const QString& mediaId);
     /// The user double-clicked an item: show it in the source viewer.
     void openInSourceViewer(const QString& mediaId);
+    /// A timeline / compound clip item was opened in a timeline tab (double-click, menu).
+    void timelineOpened(quint64 uid);
+
+public:
+    /// Opens timeline @p uid in a tab (Project::openTab) and emits timelineOpened().
+    void openTimeline(quint64 uid);
 
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 

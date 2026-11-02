@@ -48,6 +48,9 @@ public:
     [[nodiscard]] QHBoxLayout* titleBarToolsLayout() const { return m_toolsLayout; }
     /// Shows or hides the title bar (e.g. for the viewer in full-screen mode).
     void setTitleBarVisible(bool visible);
+    /// The title bar widget, e.g. to install an event filter for header gestures
+    /// (the Keyframes panel floats / docks on a header double-click or drag).
+    [[nodiscard]] QWidget* titleBar() const { return m_titleBar; }
 
 private:
     QWidget* m_titleBar = nullptr;

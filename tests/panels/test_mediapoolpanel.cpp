@@ -26,6 +26,18 @@ using namespace kk::test;
 
 namespace {
 
+/// @p ids without the project's timeline items (the media pool lists "Timeline 1" too).
+QStringList files(const Project& project, const QStringList& ids)
+{
+    QStringList result;
+    for (const QString& id : ids) {
+        const MediaItem* item = project.mediaPool()->item(id);
+        if (item && !item->isTimeline())
+            result.append(id);
+    }
+    return result;
+}
+
 /// Adds a fake (unprobed) media item; @p path decides the offline state.
 QString addItem(Project& project, const QString& name, const QString& path,
     const QString& binId = {}, bool video = true)
@@ -90,18 +102,20 @@ private slots:
         const QString b = addItem(f.project, QStringLiteral("Anna take 1"), self, bin);
         const QString c = addItem(f.project, QStringLiteral("Anna take 2"), self, sub);
 
-        QCOMPARE(panel.visibleMediaIds(), QStringList {a}); // Master shows root items only
+        QCOMPARE(files(f.project, panel.visibleMediaIds()),
+            QStringList {a}); // Master shows root items only
         panel.setCurrentBin(bin);
-        QCOMPARE(panel.visibleMediaIds(), QStringList {b});
+        QCOMPARE(files(f.project, panel.visibleMediaIds()), QStringList {b});
         panel.setSearchText(QStringLiteral("ANNA"));
-        QCOMPARE(panel.visibleMediaIds(), QStringList({b, c})); // search includes sub-bins
+        QCOMPARE(files(f.project, panel.visibleMediaIds()),
+            QStringList({b, c})); // search includes sub-bins
         panel.setSearchText(QStringLiteral("take 2"));
-        QCOMPARE(panel.visibleMediaIds(), QStringList {c});
+        QCOMPARE(files(f.project, panel.visibleMediaIds()), QStringList {c});
         panel.setCurrentBin({});
         panel.setSearchText(QStringLiteral("beach"));
-        QCOMPARE(panel.visibleMediaIds(), QStringList {a});
+        QCOMPARE(files(f.project, panel.visibleMediaIds()), QStringList {a});
         panel.setSearchText({});
-        QCOMPARE(panel.visibleMediaIds(), QStringList {a});
+        QCOMPARE(files(f.project, panel.visibleMediaIds()), QStringList {a});
 
         QVERIFY(panel.selectMedia(c)); // jumps to its bin
         QCOMPARE(panel.currentBin(), sub);
@@ -125,12 +139,12 @@ private slots:
         QCOMPARE(panel.moveItemsToBin({item}, bin), 0); // already there: no undo step
         QCOMPARE(f.project.mediaPool()->item(item)->binId, bin);
         panel.setCurrentBin(bin);
-        QCOMPARE(panel.visibleMediaIds(), QStringList {item});
+        QCOMPARE(files(f.project, panel.visibleMediaIds()), QStringList {item});
 
         QVERIFY(panel.deleteBin(bin)); // items move to the parent
         QCOMPARE(f.project.mediaPool()->item(item)->binId, QString());
         QCOMPARE(panel.currentBin(), QString()); // current bin vanished -> Master
-        QCOMPARE(panel.visibleMediaIds(), QStringList {item});
+        QCOMPARE(files(f.project, panel.visibleMediaIds()), QStringList {item});
         QCOMPARE(f.project.undoStack()->count(), commands + 4);
 
         f.project.undo();
@@ -150,18 +164,18 @@ private slots:
         const QString b = addItem(f.project, QStringLiteral("Two"), self);
         MediaPoolModel* model = panel.model();
         std::unique_ptr<QMimeData> data(
-            model->mimeData({model->index(0, 0), model->index(1, 0), model->index(1, 2)}));
+            model->mimeData({model->index(1, 0), model->index(2, 0), model->index(2, 2)}));
         QCOMPARE(QString::fromUtf8(data->data(QLatin1String(mime::MediaItems))),
             a + QLatin1Char('\n') + b);
 
-        QVERIFY(model->setData(model->index(0, 0), QStringLiteral("Renamed"), Qt::EditRole));
+        QVERIFY(model->setData(model->index(1, 0), QStringLiteral("Renamed"), Qt::EditRole));
         QCOMPARE(f.project.mediaPool()->item(a)->name, QStringLiteral("Renamed"));
-        QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("Renamed"));
-        QCOMPARE(model->index(0, MediaPoolModel::ResolutionColumn).data().toString(),
+        QCOMPARE(model->index(1, 0).data().toString(), QStringLiteral("Renamed"));
+        QCOMPARE(model->index(1, MediaPoolModel::ResolutionColumn).data().toString(),
             QStringLiteral("1920 x 1080"));
         QCOMPARE(
-            model->index(0, MediaPoolModel::FpsColumn).data().toString(), QStringLiteral("25"));
-        QCOMPARE(model->index(0, MediaPoolModel::DurationColumn).data().toString(),
+            model->index(1, MediaPoolModel::FpsColumn).data().toString(), QStringLiteral("25"));
+        QCOMPARE(model->index(1, MediaPoolModel::DurationColumn).data().toString(),
             QStringLiteral("00:00:10:00"));
     }
 
@@ -171,10 +185,10 @@ private slots:
         MediaPoolPanel panel(f.ctx);
         const QString missing
             = addItem(f.project, QStringLiteral("Gone"), QStringLiteral("/nonexistent/x.mp4"));
-        QVERIFY(panel.model()->index(0, 0).data(MediaPoolModel::OfflineRole).toBool());
+        QVERIFY(panel.model()->index(1, 0).data(MediaPoolModel::OfflineRole).toBool());
         QSignalSpy open(&panel, &MediaPoolPanel::openInSourceViewer);
         auto* grid = panel.findChild<QListView*>();
-        emit grid->doubleClicked(grid->model()->index(0, 0));
+        emit grid->doubleClicked(grid->model()->index(1, 0));
         QCOMPARE(open.count(), 1);
         QCOMPARE(open.front().front().toString(), missing);
     }
@@ -190,10 +204,10 @@ private slots:
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.close();
         QCOMPARE(panel.relinkFromFolder(dir.path()), 1);
-        QVERIFY(!panel.model()->index(0, 0).data(MediaPoolModel::OfflineRole).toBool());
-        QVERIFY(panel.model()->index(1, 0).data(MediaPoolModel::OfflineRole).toBool());
+        QVERIFY(!panel.model()->index(1, 0).data(MediaPoolModel::OfflineRole).toBool());
+        QVERIFY(panel.model()->index(2, 0).data(MediaPoolModel::OfflineRole).toBool());
         f.project.undo(); // one undo step
-        QVERIFY(!QFileInfo::exists(f.project.mediaPool()->state().items[0].path));
+        QVERIFY(!QFileInfo::exists(f.project.mediaPool()->state().items[1].path));
     }
 
     void postersAreLazyAndAsync()
@@ -209,7 +223,7 @@ private slots:
         const QString self = QCoreApplication::applicationFilePath();
         addItem(f.project, QStringLiteral("Video"), self);
         QVERIFY(asked.isEmpty()); // nothing requested until painted
-        const QModelIndex index = panel.model()->index(0, 0);
+        const QModelIndex index = panel.model()->index(1, 0);
         QVERIFY(index.data(MediaPoolModel::PosterRole).value<QPixmap>().isNull());
         QCOMPARE(asked.size(), 1);
         QVERIFY(index.data(MediaPoolModel::PosterRole).value<QPixmap>().isNull());
@@ -290,7 +304,7 @@ private slots:
         timer.restart();
         panel.setSearchText(QStringLiteral("clip_19"));
         const qint64 filterMs = timer.elapsed();
-        QCOMPARE(panel.visibleMediaIds().size(), 111); // 19, 190-199, 1900-1999
+        QCOMPARE(files(f.project, panel.visibleMediaIds()).size(), 111); // 19, 190-199, 1900-1999
         qInfo("search filter over 2000 items: %lld ms", filterMs);
         QVERIFY(filterMs < 500);
     }

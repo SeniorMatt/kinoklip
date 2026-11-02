@@ -13,8 +13,8 @@
 #      the bundled one (compared by their highest GLIBCXX_/GCC_ version tag).
 #   2. Chooses the Qt: the bundled Qt (with KDE Frameworks 6 and the Breeze style: identical
 #      look everywhere) by default. KINOKLIP_HOST_QT=1 opts in to the host Qt instead (only if
-#      it has every needed module, is at least the Qt the app was built with, and has a
-#      wayland/xcb platform plugin).
+#      it is exactly the Qt release the app was built with -- the app uses Qt private API --,
+#      has every needed module from that release, and has a wayland/xcb platform plugin).
 #   3. Points XDG_DATA_DIRS at usr/share (KDE colour schemes) and LIBHEIF_PLUGIN_PATH at the
 #      bundled libheif decoder plugins.
 #   4. Records the original value of every variable it changes (KINOKLIP_ORIG_VARS +
@@ -22,7 +22,8 @@
 #      starts, e.g. xdg-open), then execs usr/bin/kinoklip with all arguments.
 #
 # Environment it reads:
-#   KINOKLIP_HOST_QT=1      try the host Qt (falls back to the bundled one if unsuitable)
+#   KINOKLIP_HOST_QT=1      try the host Qt (exact version match only; falls back to the
+#                           bundled one otherwise)
 #   KINOKLIP_BUNDLED_QT=1   force the bundled Qt (wins over KINOKLIP_HOST_QT)
 #   KINOKLIP_HOST_LIBDIRS   test hook: colon-separated dirs searched for host libraries
 #                           instead of the ld.so cache
@@ -186,26 +187,32 @@ host_qt_ok() {
         HOST_QT_REASON="no host libQt6Core.so.6"
         return 1
     fi
-    # Version from the real file name: libQt6Core.so.6.10.1 -> 6 10
+    # Version from the real file name: libQt6Core.so.6.12.0 -> 6.12.0
     _real="$(readlink -f "$_core")"
     _ver="${_real##*/libQt6Core.so.}"
-    _maj="${_ver%%.*}"
-    _min="${_ver#*.}"
-    _min="${_min%%.*}"
-    case "$_maj.$_min" in
-    *[!0-9.]* | .* | *.)
+    case "$_ver" in
+    *[!0-9.]* | .* | *. | '')
         HOST_QT_REASON="cannot tell the host Qt version from $_real"
         return 1
         ;;
     esac
-    # at least the Qt the app was built with (usr/lib/qt/qt-version.txt, e.g. "6.12")
-    _need="$(cat "$QTDIR/qt-version.txt" 2>/dev/null || echo 6.4)"
-    _need_min="${_need#*.}"
-    if [ "$_maj" -ne 6 ] || [ "$_min" -lt "$_need_min" ]; then
-        HOST_QT_REASON="host Qt $_maj.$_min is older than $_need"
+    # Exactly the Qt the app was built with (usr/lib/qt/qt-version.txt, e.g. "6.12.0"): the
+    # binary links Qt GuiPrivate (Wayland portal parent window), whose ABI changes with every
+    # Qt release, patch releases included. An older bundle wrote only "6.12": then major.minor
+    # must match and the patch level cannot be checked, so refuse.
+    _need="$(cat "$QTDIR/qt-version.txt" 2>/dev/null)"
+    case "$_need" in
+    *.*.*) ;;
+    *)
+        HOST_QT_REASON="the bundle does not record its exact Qt version"
+        return 1
+        ;;
+    esac
+    if [ "$_ver" != "$_need" ]; then
+        HOST_QT_REASON="host Qt $_ver is not the Qt $_need the app was built with"
         return 1
     fi
-    HOST_QT_VERSION="$_maj.$_min"
+    HOST_QT_VERSION="$_ver"
     # every module the binary needs, all from the same Qt release as Core
     while read -r _q; do
         case "$_q" in '' | '#'*) continue ;; esac
@@ -215,9 +222,9 @@ host_qt_ok() {
             return 1
         fi
         case "$(readlink -f "$_p")" in
-        *".so.$_maj.$_min."*) ;;
+        *".so.$_ver") ;;
         *)
-            HOST_QT_REASON="$_q is not from Qt $_maj.$_min"
+            HOST_QT_REASON="$_q is not from Qt $_ver"
             return 1
             ;;
         esac
