@@ -14,8 +14,8 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `PageBar.h` | bottom strip: Media · Edit · Color (disabled) · Deliver |
 | `pages/EditPage.h` | PLAN §4 Edit layout with nested `QSplitter`s; accessors for every panel |
 | `pages/MediaPage.h` | browser · source viewer · metadata over the media pool |
-| `ProjectController.h` | new / open / save / save as / import media + "save changes?" |
-| `AutosaveController.h` | autosave every `prefs::autosaveMinutes()` (2) to `AppDataLocation/autosave/` |
+| `ProjectController.h` | new / open / save / save as / import media + "save changes?"; File > Open Recent; start-up crash recovery prompt |
+| `AutosaveController.h` | autosave every `prefs::autosaveMinutes()` (2) to `AppDataLocation/autosave/`; the file is deleted when saved / replaced / on normal quit, so one left at start-up means a crash (`findRecoverable()`) |
 | `Theme.h` | the real KDE Breeze look: widget style, KDE colour schemes, Breeze icons, panel style sheet; Settings > Color Theme / Style; "appearance" settings page |
 | `ColorSchemeFile.h` | reads a KDE `.colors` file into a QPalette (fallback build without KF6) |
 | `CommandLine.h` | `QCommandLineParser` → `CommandLineOptions` |
@@ -30,11 +30,12 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 3. `Project`, `SelectionModel`, `ActionRegistry` (+ `loadDefaultKeymap()` +
    `registerStandardActions()` + `theme::registerActions()`), `SettingsPageRegistry`
    (standard pages + `theme::registerSettingsPage()`), `AppContext`.
-4. Non-interactive modes (screenshot) or `MainWindow::showRestored()`.
+4. Non-interactive modes (screenshot) or `MainWindow::showRestored()`, then
+   `ProjectController::offerRecovery()` (autosaves of a crashed session) and the project argument.
 
 ## Settings keys used here
 `mainWindow/geometry`, `mainWindow/state`, `mainWindow/page`, `pages/<pageId>/...` (splitter
-states and `visible/<panel>` flags), `paths/lastProjectDir`, `paths/lastMediaDir`. User
+states and `visible/<panel>` flags), `paths/lastProjectDir`, `paths/lastMediaDir`, `paths/recentProjects` (File > Open Recent, 10 entries). User
 preferences (theme, hw acceleration, autosave) are in `core/Preferences.h`.
 
 ## Theme system (the real KDE Breeze, the Kdenlive way)

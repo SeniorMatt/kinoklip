@@ -186,12 +186,30 @@ bool Project::save(const QString& path, QString* error)
     return true;
 }
 
-bool Project::saveCopy(const QString& path, QString* error) const
+bool Project::saveCopy(const QString& path, QString* error, const QJsonObject& extra) const
 {
-    return writeJson(path, projectToJson(m_name, *m_timeline, *m_mediaPool, path), error);
+    QJsonObject root = projectToJson(m_name, *m_timeline, *m_mediaPool, path);
+    if (!extra.isEmpty())
+        root[QLatin1String("autosave")] = extra;
+    return writeJson(path, root, error);
 }
 
 bool Project::load(const QString& path, QString* error)
+{
+    return loadFrom(path, path, error);
+}
+
+bool Project::loadRecovered(
+    const QString& autosavePath, const QString& documentPath, QString* error)
+{
+    if (!loadFrom(autosavePath, documentPath, error))
+        return false;
+    setFilePath(documentPath.isEmpty() ? QString() : QFileInfo(documentPath).absoluteFilePath());
+    setSettingsDirty(true);
+    return true;
+}
+
+bool Project::loadFrom(const QString& path, const QString& documentPath, QString* error)
 {
     auto fail = [error](const QString& message) {
         if (error)
@@ -221,7 +239,9 @@ bool Project::load(const QString& path, QString* error)
             root.value(QLatin1String("timeline")).toObject(), timeline, &timelineError)) {
         return fail(tr("%1: %2").arg(path, timelineError));
     }
-    const QDir projectDir = QFileInfo(path).absoluteDir();
+    // Media paths stored relative to the document resolve against the document's folder
+    // (for a recovered autosave that is the original project file, not the autosave dir).
+    const QDir projectDir = QFileInfo(documentPath.isEmpty() ? path : documentPath).absoluteDir();
     MediaPoolState pool = serialization::mediaPoolFromJson(
         root.value(QLatin1String("mediaPool")).toObject(), projectDir);
 

@@ -122,8 +122,10 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
         setCurrentPage(QStringLiteral("edit"));
     if (currentPageId().isEmpty() || m_stack->currentWidget() == nullptr)
         setCurrentPage(QStringLiteral("edit"));
-    if (m_options.autosave)
+    if (m_options.autosave) {
         m_autosave = new AutosaveController(ctx.project, this);
+        m_projectController->setAutosave(m_autosave);
+    }
 }
 
 MainWindow::~MainWindow() = default;
@@ -215,6 +217,9 @@ void MainWindow::buildMenus()
         menuBar()->insertMenu(helpMenu ? helpMenu->menuAction() : nullptr, menu);
         fillMenu(menu, category);
     }
+    // File > Open Recent lists files, not registered commands: filled by ProjectController.
+    if (auto* recent = menuBar()->findChild<QMenu*>(QStringLiteral("menu:file.recent")))
+        m_projectController->attachRecentMenu(recent);
 }
 
 void MainWindow::buildInterfaceBar()
@@ -335,6 +340,10 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     if (m_options.saveLayout)
         saveSettings();
+    // Normal shutdown: the user saved or discarded the changes, so the autosave is obsolete
+    // (one left behind means a crash, see AutosaveController).
+    if (m_autosave)
+        m_autosave->discard();
     event->accept();
 }
 
