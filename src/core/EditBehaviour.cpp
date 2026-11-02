@@ -28,6 +28,15 @@ EditBehaviour EditBehaviour::fromSettings()
     b.trimToPlayheadRipples = flag("edit/trimToPlayheadRipples", b.trimToPlayheadRipples);
     b.selectToolRollsAtCut = flag("edit/selectToolRollsAtCut", b.selectToolRollsAtCut);
     b.trimToolSlideInNameBar = flag("edit/trimToolSlideInNameBar", b.trimToolSlideInNameBar);
+    // Same key and values as prefs::kZoomAnchor / prefs::zoomAroundMouse().
+    b.zoomAnchor = s.value(QStringLiteral("edit/zoomAnchor")).toString() == QLatin1String("mouse")
+        ? ZoomAnchor::Cursor
+        : ZoomAnchor::Playhead;
+    b.wheelScheme
+        = s.value(QStringLiteral("edit/wheelScheme")).toString() == QLatin1String("classic")
+        ? WheelScheme::Classic
+        : WheelScheme::Resolve;
+    b.dynamicTrimWithJkl = flag("edit/dynamicTrimWithJkl", b.dynamicTrimWithJkl);
     return b;
 }
 
@@ -36,6 +45,22 @@ int64_t EditBehaviour::frames(double seconds, Rational fps)
     // fps.num / fps.den frames per second; round to the nearest frame.
     const double f = seconds * double(fps.num) / double(fps.den);
     return std::max<int64_t>(1, int64_t(std::llround(f)));
+}
+
+} // namespace kk
+
+namespace kk {
+
+void EditBehaviour::setZoomAnchor(ZoomAnchor anchor)
+{
+    QSettings().setValue(QStringLiteral("edit/zoomAnchor"),
+        anchor == ZoomAnchor::Cursor ? QStringLiteral("mouse") : QStringLiteral("playhead"));
+}
+
+void EditBehaviour::setWheelScheme(WheelScheme scheme)
+{
+    QSettings().setValue(QStringLiteral("edit/wheelScheme"),
+        scheme == WheelScheme::Classic ? QStringLiteral("classic") : QStringLiteral("resolve"));
 }
 
 } // namespace kk

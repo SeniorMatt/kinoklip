@@ -2,14 +2,23 @@
 // TimelineLayout implementation: row stacking, zoom maths and hit-testing.
 #include "ui/timeline/TimelineLayout.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace kk {
 
 using namespace timelinemetrics;
 
+void TimelineLayout::setHeightScale(double scale)
+{
+    m_heightScale = std::clamp(scale, kMinHeightScale, kMaxHeightScale);
+}
+
 void TimelineLayout::rebuild(const TimelineData& data)
 {
+    // Scaled row height; at least the smallest track height so the header buttons fit.
+    auto scaled
+        = [this](int h) { return std::max(kMinTrackHeight, int(std::lround(h * m_heightScale))); };
     m_rows.clear();
     m_rows.reserve(data.videoTracks.size() + data.audioTracks.size());
     int y = 0;
@@ -17,7 +26,7 @@ void TimelineLayout::rebuild(const TimelineData& data)
     for (int i = int(data.videoTracks.size()) - 1; i >= 0; --i) {
         const TrackData& t = data.videoTracks[size_t(i)];
         const int lane = m_laneHeights.value(t.id, 0);
-        const int h = trackHeight(t) + lane;
+        const int h = scaled(trackHeight(t)) + lane;
         m_rows.push_back({TrackRef {TrackType::Video, i}, y, h, lane});
         y += h;
     }
@@ -26,7 +35,7 @@ void TimelineLayout::rebuild(const TimelineData& data)
     for (int i = 0; i < int(data.audioTracks.size()); ++i) {
         const TrackData& t = data.audioTracks[size_t(i)];
         const int lane = m_laneHeights.value(t.id, 0);
-        const int h = trackHeight(t) + lane;
+        const int h = scaled(trackHeight(t)) + lane;
         m_rows.push_back({TrackRef {TrackType::Audio, i}, y, h, lane});
         y += h;
     }

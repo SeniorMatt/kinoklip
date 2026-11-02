@@ -353,6 +353,26 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     if (r.height() >= 24)
         paintKeyframes(p, in, clip, r);
 
+    // Clip markers (spec 18.4): small coloured diamonds in the name band. Markers are
+    // clip-local frames; only those inside the visible part of the clip are drawn.
+    if (!clip.markers.isEmpty() && bandH >= 8) {
+        p.setRenderHint(QPainter::Antialiasing, true);
+        const double cy = r.top() + bandH / 2.0;
+        for (const Marker& m : clip.markers) {
+            if (m.frame < 0 || m.frame >= clip.duration)
+                continue;
+            const double x = L.frameToX(double(clip.start + m.frame));
+            if (x < visLeft - 4 || x > visRight + 4)
+                continue;
+            const QPointF pts[4] = {{x, cy - 4}, {x + 4, cy}, {x, cy + 4}, {x - 4, cy}};
+            p.setPen(m.color.darker(170));
+            p.setBrush(m.color);
+            p.drawConvexPolygon(pts, 4);
+        }
+        p.setBrush(Qt::NoBrush);
+        p.setRenderHint(QPainter::Antialiasing, false);
+    }
+
     if (!clip.enabled)
         p.fillRect(visible, QColor(12, 12, 14, 150));
     if (selected) {
@@ -538,7 +558,7 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
     const TrackData& track, size_t first, size_t last)
 {
     const TimelineLayout& L = *in.layout;
-    // Centred transitions reach half their length into the neighbour: look one clip further.
+    // Transitions at a cut reach into the neighbour: look one clip further.
     const size_t from = first > 0 ? first - 1 : 0;
     const size_t to = std::min(track.clips.size(), last + 1);
     const QRect rr = L.rowRect(row);
@@ -549,7 +569,8 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
         if (c.transitionIn) {
             const bool touching = i > 0 && track.clips[i - 1].end() == c.start;
             const double d = double(c.transitionIn->duration);
-            const double f0 = touching ? c.start - d / 2 : double(c.start);
+            const double f0
+                = touching ? double(c.start - c.transitionIn->framesBeforeCut()) : double(c.start);
             const double x0 = L.frameToX(f0);
             const double x1 = L.frameToX(f0 + d);
             if (x1 - x0 >= 3)
@@ -558,7 +579,8 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
         if (c.transitionOut) {
             const bool touching = i + 1 < track.clips.size() && track.clips[i + 1].start == c.end();
             const double d = double(c.transitionOut->duration);
-            const double f1 = touching ? c.end() + d / 2 : double(c.end());
+            const double f1 = touching ? double(c.end() - c.transitionOut->framesBeforeCut()) + d
+                                       : double(c.end());
             const double x0 = L.frameToX(f1 - d);
             const double x1 = L.frameToX(f1);
             if (x1 - x0 >= 3)

@@ -6,13 +6,16 @@
 #include "ui/common/StandardActions.h"
 
 #include <QAction>
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTreeWidget>
@@ -109,6 +112,41 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
     resize(760, 620);
     for (const QString& id : registry.ids())
         m_original.insert(id, registry.shortcuts(id));
+    m_originalProfile = registry.activeProfile();
+
+    // Profile selector (like a preset selector): built-in profiles are read-only bases whose
+    // changes are kept per profile; user profiles are copies with their own file.
+    m_profiles = new QComboBox;
+    m_profiles->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_profileMenu = new QPushButton(tr("Profile"));
+    auto* menu = new QMenu(m_profileMenu);
+    menu->addAction(tr("Duplicate…"), this, &KeyboardCustomizationDialog::duplicateProfile);
+    QAction* renameAction
+        = menu->addAction(tr("Rename…"), this, &KeyboardCustomizationDialog::renameProfile);
+    QAction* deleteAction
+        = menu->addAction(tr("Delete"), this, &KeyboardCustomizationDialog::deleteProfile);
+    connect(menu, &QMenu::aboutToShow, this, [this, renameAction, deleteAction] {
+        const auto p = m_registry.profile(m_registry.activeProfile());
+        renameAction->setEnabled(p && !p->builtIn);
+        deleteAction->setEnabled(p && !p->builtIn);
+    });
+    m_profileMenu->setMenu(menu);
+    auto* profileRow = new QHBoxLayout;
+    profileRow->addWidget(new QLabel(tr("Keyboard profile:")));
+    profileRow->addWidget(m_profiles);
+    profileRow->addWidget(m_profileMenu);
+    profileRow->addStretch(1);
+    fillProfiles();
+    connect(m_profiles, &QComboBox::activated, this, [this](int index) {
+        QString error;
+        if (!m_registry.setActiveProfile(m_profiles->itemData(index).toString(), &error))
+            QMessageBox::warning(this, tr("Keyboard Profile"), error);
+        fillProfiles();
+        refreshAllRows();
+        updateButtons();
+    });
+    connect(&m_registry, &ActionRegistry::profilesChanged, this,
+        &KeyboardCustomizationDialog::fillProfiles);
 
     m_search = new QLineEdit;
     m_search->setPlaceholderText(tr("Search commands or keys"));
@@ -149,6 +187,7 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
     buttons->addButton(exportButton, QDialogButtonBox::ActionRole);
 
     auto* layout = new QVBoxLayout(this);
+    layout->addLayout(profileRow);
     layout->addWidget(m_search);
     layout->addWidget(m_tree, 1);
     layout->addLayout(editRow);
@@ -233,6 +272,7 @@ void KeyboardCustomizationDialog::refreshRow(const QString& id)
         return;
     const QList<QKeySequence> current = m_registry.shortcuts(id);
     row->setText(ShortcutColumn, keysText(current));
+    row->setText(DefaultColumn, keysText(m_registry.defaultShortcuts(id)));
     // Customised keys stand out in the accent colour.
     const bool custom = current != m_registry.defaultShortcuts(id);
     QFont font = m_tree->font();
@@ -404,37 +444,103 @@ void KeyboardCustomizationDialog::resetAll()
     updateButtons();
 }
 
+void KeyboardCustomizationDialog::fillProfiles()
+{
+    const QSignalBlocker blocker(m_profiles);
+    m_profiles->clear();
+    for (const ActionRegistry::KeymapProfile& p : m_registry.profiles()) {
+        const QString label = p.builtIn ? p.name : tr("%1 (user)").arg(p.name);
+        m_profiles->addItem(label, p.id);
+        if (p.id == m_registry.activeProfile())
+            m_profiles->setCurrentIndex(m_profiles->count() - 1);
+    }
+}
+
+void KeyboardCustomizationDialog::duplicateProfile()
+{
+    const auto current = m_registry.profile(m_registry.activeProfile());
+    bool ok = false;
+    const QString name = QInputDialog::getText(this, tr("Duplicate Keyboard Profile"), tr("Name:"),
+        QLineEdit::Normal, tr("%1 (copy)").arg(current ? current->name : QString()), &ok);
+    if (!ok)
+        return;
+    QString error;
+    const QString id = m_registry.duplicateProfile(m_registry.activeProfile(), name, &error);
+    if (id.isEmpty() || !m_registry.setActiveProfile(id, &error)) {
+        QMessageBox::warning(this, tr("Duplicate Keyboard Profile"), error);
+        return;
+    }
+    fillProfiles();
+    refreshAllRows();
+    updateButtons();
+}
+
+void KeyboardCustomizationDialog::renameProfile()
+{
+    const auto current = m_registry.profile(m_registry.activeProfile());
+    if (!current || current->builtIn)
+        return;
+    bool ok = false;
+    const QString name = QInputDialog::getText(
+        this, tr("Rename Keyboard Profile"), tr("Name:"), QLineEdit::Normal, current->name, &ok);
+    QString error;
+    if (ok && !m_registry.renameProfile(current->id, name, &error))
+        QMessageBox::warning(this, tr("Rename Keyboard Profile"), error);
+}
+
+void KeyboardCustomizationDialog::deleteProfile()
+{
+    const auto current = m_registry.profile(m_registry.activeProfile());
+    if (!current || current->builtIn)
+        return;
+    if (QMessageBox::question(this, tr("Delete Keyboard Profile"),
+            tr("Delete the keyboard profile “%1”?").arg(current->name))
+        != QMessageBox::Yes)
+        return;
+    QString error;
+    if (!m_registry.deleteProfile(current->id, &error))
+        QMessageBox::warning(this, tr("Delete Keyboard Profile"), error);
+    fillProfiles();
+    refreshAllRows();
+    updateButtons();
+}
+
 void KeyboardCustomizationDialog::importKeymap()
 {
     const QString path = QFileDialog::getOpenFileName(
-        this, tr("Import Keyboard Shortcuts"), QString(), tr("Keymap (*.json)"));
+        this, tr("Import Keyboard Profile"), QString(), tr("Keymap (*.json)"));
     if (path.isEmpty())
         return;
     QString error;
-    if (!m_registry.importKeymap(path, &error)) {
-        QMessageBox::warning(this, tr("Import Keyboard Shortcuts"), error);
+    const QString id = m_registry.importProfile(path, {}, &error);
+    if (id.isEmpty() || !m_registry.setActiveProfile(id, &error)) {
+        QMessageBox::warning(this, tr("Import Keyboard Profile"), error);
         return;
     }
+    fillProfiles();
     refreshAllRows();
     updateButtons();
 }
 
 void KeyboardCustomizationDialog::exportKeymap()
 {
-    QString path = QFileDialog::getSaveFileName(this, tr("Export Keyboard Shortcuts"),
-        QStringLiteral("keymap.json"), tr("Keymap (*.json)"));
+    QString path = QFileDialog::getSaveFileName(this, tr("Export Keyboard Profile"),
+        m_registry.activeProfile() + QStringLiteral(".json"), tr("Keymap (*.json)"));
     if (path.isEmpty())
         return;
     if (!path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive))
         path += QStringLiteral(".json");
     QString error;
-    if (!m_registry.exportKeymap(path, &error))
-        QMessageBox::warning(this, tr("Export Keyboard Shortcuts"), error);
+    if (!m_registry.exportProfile(m_registry.activeProfile(), path, &error))
+        QMessageBox::warning(this, tr("Export Keyboard Profile"), error);
 }
 
 void KeyboardCustomizationDialog::reject()
 {
-    // Undo every change made while the dialog was open.
+    // Undo every change made while the dialog was open: back to the profile it was opened
+    // with (if it still exists), then its shortcuts.
+    if (m_registry.activeProfile() != m_originalProfile && m_registry.profile(m_originalProfile))
+        m_registry.setActiveProfile(m_originalProfile);
     for (auto it = m_original.cbegin(); it != m_original.cend(); ++it) {
         if (m_registry.shortcuts(it.key()) != it.value())
             m_registry.setShortcuts(it.key(), it.value());

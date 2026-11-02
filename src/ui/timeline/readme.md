@@ -11,6 +11,12 @@ for thumbnails and waveforms).
 | `TimelinePanel.h` | `PanelFrame` with the tool bar, owns the controller and the widget; wires the zoom actions |
 | `TimelineController.h` | commands (split, delete, ripple delete, nudge, marks, markers, copy/cut/paste, default transition, link, enable), editor state (tool, snapping, linked selection, track targeting), `insertSource()` for F9/F10/F12, clip factories; connects the actions this module owns |
 | `TimelineWidget.h` | `QAbstractScrollArea`; the view. Implementation split in three files: `TimelineWidget.cpp` (setup, paint, zoom, scroll, follow playhead, context menus), `TimelineInput.cpp` (mouse state machine), `TimelineDrop.cpp` (drag and drop) |
+| `TimelineCommands.cpp` | controller part 2: delete / ripple delete / ripple cut of clips, gaps and in-out ranges, clipboard, select forward / nearest edit / nearest clip, join, swap, match frame, track targeting by number, clip duration / speed |
+| `TimelineTransitions.cpp` | controller part 3: Ctrl+T with the insufficient-handles question, transition alignment and length |
+| `TimelineMarkers.cpp` | controller part 4: timeline / clip markers and the marker editor hook, paste attributes, dynamic trim |
+| `TimelineGestures.cpp` | widget gestures: transition edge drag, Ctrl+Shift shuffle drag, ruler marker double-click |
+| `TimelineDialogs.h` | the modal questions (handles, marker editor, paste attributes) installed by the panel |
+| `TimelineEditUtil.h` | private: `runEdit()` (one undo step or none) and `applyClipSpeed()` |
 | `TimelineLayout.h` | pure geometry: frame <-> x, rows, header buttons, clip ranges, hit-testing (unit-tested) |
 | `TimelinePainter.h` | draws ruler, headers, clips, transitions, overlays for one paint event |
 | `TimelineMedia.h` | thumbnail / waveform provider types and the MediaCache-backed defaults |
@@ -57,6 +63,24 @@ clear_both/go_to_in/go_to_out/add_marker`, `edit.paste_insert` (Ctrl+Shift+V),
 `transport.prev_edit/next_edit/go_to_start/go_to_end/prev_marker/next_marker`
 (Up/Down/Home/End/Shift+Up/Shift+Down). **The playback module must not connect those
 transport actions a second time** (they would step twice).
+
+Added on the resolveedit branch (keys in docs/keymap-resolve-windows.md): `edit.ripple_cut`
+(Ctrl+Shift+X), `edit.ripple_overwrite` (Shift+F10), `edit.delete_gaps`, `edit.join`
+(Alt+\\), `edit.select_forward/backward(_all)` (Y family), `edit.paste_attributes` (Alt+V),
+`trim.dynamic` (W), `trim.select_nearest_edit/clip` (V / Shift+V), `trim.swap_left/right`
+(Ctrl+Shift+, / .), `clip.match_frame` (F), `clip.change_duration/change_speed` (Ctrl+D / R,
+dialogs in TimelinePanel), `mark.modify_marker` (Ctrl+M), `mark.delete_marker` (Alt+M),
+`timeline.target_video_n/target_audio_n/auto_select_video_n/auto_select_audio_n`. With no clip
+selected and in + out marks set, Backspace lifts and Delete extracts the marked range on the
+auto-select tracks; Ctrl+C / Ctrl+X copy / cut it. Ripple delete of clips makes the other
+auto-select tracks follow where they have room. Mouse wheel: `EditBehaviour::wheelScheme`
+(Resolve: Alt zooms, Ctrl scrolls time, Shift scales the track heights) and `zoomAnchor`.
+
+Hooks the page / panel wire: `setSourceProvider()`, `setMatchFrameHandler()`,
+`setHandlePrompt()`, `setMarkerEditor()`, `setPasteAttributesPrompt()`, `setPlayingProvider()`
+(dynamic trim; default: AppContext::playback). Never call a `runEdit()`-based command inside
+an open edit: a nested `cancelEdit()` cancels the outer edit too (use the data-level helpers,
+e.g. `applyEditTrim()`).
 
 Behaviour is specified item by item in `docs/behavior-spec.md`; conventions that differ
 between editors are read from `EditBehaviour` (src/core), never inline constants.
@@ -138,7 +162,7 @@ the position; the same plan draws the ghost preview and performs the drop (one u
 
 **A new tool:**
 1. Add the action to `StandardActions.cpp` (group `trim`, checkable, in the tools
-   `QActionGroup`) and a key to `resources/keymap_default.json`.
+   `QActionGroup`) and a key to `resources/keymaps/resolve-windows.json`.
 2. Add a value to `TimelineTool` and map its action in `TimelineController::connectActions()`
    and `setTool()`.
 3. In `TimelineWidget::mousePressEvent()` decide the `DragMode` for the new tool (add one to
