@@ -53,3 +53,4 @@
 - 06:14 Heartbeat: qa 3 commits, resolveedit 2, resolveui active (no commits yet); 17 GB free (falling, watch).
 - 06:47 resolveui merged: Resolve page bar (Media/Cut/Edit/Compositing/Color/Audio/Deliver), viewer/timeline toolbar layout, menu arrow + combo + preset-row + Preferences fixes, one spacing scale, Resolve-style Render Settings / Project Settings / Preferences (System/User), unsupported options disabled with tooltips. Keyframe editor agent starting.
 - 07:15 resolveedit merged (45/45 tests): keymap profiles, Windows Resolve default keymap (152 commands, 25 unsure -> docs/keymap-resolve-windows.md), ripple cut/delete, lift/extract on in/out, Resolve wheel mapping (+Classic option), 11 of 13 deferred behaviours. Running: qa, keyframes.
+- 07:15 Heartbeat: qa 7 commits, keyframes 1 commit, both active; 17 GB free.
