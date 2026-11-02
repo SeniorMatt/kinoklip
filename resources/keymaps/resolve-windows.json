@@ -135,6 +135,7 @@
         "view.toggle_media_pool": [],
         "view.toggle_effects": [],
         "view.toggle_edit_index": [],
+        "view.toggle_keyframes": [],
         "view.toggle_mixer": [],
         "view.toggle_metadata": [],
         "view.toggle_inspector": [],

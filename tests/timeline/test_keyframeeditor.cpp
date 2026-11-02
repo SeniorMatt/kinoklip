@@ -10,6 +10,7 @@
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
+#include <QSignalSpy>
 #include <QTest>
 #include <QToolButton>
 #include <QUndoStack>
@@ -122,8 +123,8 @@ private slots:
         // Rows: master, Transform group, Position X, Opacity.
         const auto rows = v.keys()->rows();
         QCOMPARE(rows.size(), 4);
-        QCOMPARE(rows[0].kind, KeyframeTrackWidget::Row::Kind::Master);
-        QCOMPARE(rows[1].kind, KeyframeTrackWidget::Row::Kind::Group);
+        QCOMPARE(rows[0].kind, KeyRow::Kind::Master);
+        QCOMPARE(rows[1].kind, KeyRow::Kind::Group);
         // Deleting the clip drops its editor.
         v.f.project.beginEdit(QStringLiteral("del"));
         ops::liftClips(v.f.data(), {v.clipId});
@@ -291,6 +292,24 @@ private slots:
         QVERIFY(ease);
         ease->click();
         QCOMPARE(keyInterp(v.value(kPosX).keys[1]), Interp::EaseInOut);
+    }
+
+    // 15.20: a clip too narrow to edit its keys inline offers the Keyframes panel.
+    void spec15_20_narrowClipOffersKeyframesPanel()
+    {
+        View v;
+        v.lanes()->setCurveEditorOpen(v.clipId, true);
+        QApplication::processEvents();
+        QToolButton* open = v.lanes()->openPanelButton(v.clipId);
+        QVERIFY(!open || !open->isVisible()); // 600 px wide at 10 px per frame
+        v.w.setPixelsPerFrame(1.0, kHeaderWidth); // 60 px: cramped
+        QApplication::processEvents();
+        open = v.lanes()->openPanelButton(v.clipId);
+        QVERIFY(open && open->isVisible());
+        QSignalSpy spy(v.lanes(), &KeyframeLanes::openInPanelRequested);
+        QTest::mouseClick(open, Qt::LeftButton);
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(spy.front().front().toULongLong(), v.clipId);
     }
 };
 

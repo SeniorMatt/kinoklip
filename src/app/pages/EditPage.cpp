@@ -2,6 +2,10 @@
 // EditPage layout and panel visibility handling.
 #include "app/pages/EditPage.h"
 
+#include "core/EditOps.h"
+#include "core/Project.h"
+#include "core/SelectionModel.h"
+#include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
 #include "playback/SourcePlayer.h"
 #include "ui/common/ActionRegistry.h"
@@ -11,14 +15,17 @@
 #include "ui/common/PanelFrame.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
+#include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/mediapool/MetadataPanel.h"
+#include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
+#include <QCloseEvent>
 #include <QSettings>
 #include <QSplitter>
 #include <QToolButton>
@@ -38,6 +45,11 @@ constexpr int kRightColumnWidth = 420;
 constexpr int kTopRowHeight = 520;
 constexpr int kBottomRowHeight = 440;
 constexpr int kMixerWidth = 260;
+constexpr int kKeyframesMinDockHeight = 160; ///< below this a shown docked panel is resized
+constexpr double kKeyframesDockShare = 0.40; ///< of the page height when it opens docked
+constexpr int kMinTimelineHeight = 200; ///< the timeline keeps at least this much
+constexpr int kMinViewerRowHeight = 260; ///< and the viewer row this much
+const QSize kKeyframesWindowSize(1400, 520); ///< first floating window size
 constexpr int kReferenceWidth = kLeftColumnWidth + 2 * kViewerWidth + kRightColumnWidth;
 
 QSplitter* makeSplitter(Qt::Orientation orientation)
@@ -64,6 +76,7 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_metadata = new MetadataPanel(ctx);
     m_timeline = new TimelinePanel(ctx);
     m_mixer = createPlaceholderPanel(tr("Mixer"), tr("Track levels and meters will appear here."));
+    m_keyframes = new KeyframesPanel(ctx);
 
     m_leftColumn = makeSplitter(Qt::Vertical);
     m_leftColumn->addWidget(m_mediaPool);
@@ -91,8 +104,9 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
 
     m_main = makeSplitter(Qt::Vertical);
     m_main->addWidget(m_topRow);
+    m_main->addWidget(m_keyframes);
     m_main->addWidget(m_bottomRow);
-    m_main->setStretchFactor(1, 1);
+    m_main->setStretchFactor(2, 1);
     m_main->setSizes({kTopRowHeight, kBottomRowHeight});
 
     auto* layout = new QVBoxLayout(this);
@@ -106,9 +120,11 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
         {PanelId::Mixer, m_mixer},
         {PanelId::Metadata, m_metadata},
         {PanelId::Inspector, m_inspector},
+        {PanelId::Keyframes, m_keyframes},
     };
     // Default visibility (first start): media pool + inspector, like PLAN §4.
-    for (PanelId id : {PanelId::Effects, PanelId::EditIndex, PanelId::Mixer, PanelId::Metadata})
+    for (PanelId id : {PanelId::Effects, PanelId::EditIndex, PanelId::Mixer, PanelId::Metadata,
+             PanelId::Keyframes})
         m_panels.value(id)->hide();
     updateColumns();
 
@@ -173,6 +189,21 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
                 target == TimelineWidget::InspectTarget::Transition ? InspectorPanel::TransitionTab
                                                                     : InspectorPanel::EffectsTab);
         });
+    // Keyframes panel: float / dock, Follow Timeline, "Open in Keyframes Panel" from a lane.
+    connect(m_keyframes, &KeyframesPanel::floatToggleRequested, this,
+        [this] { setKeyframesFloating(!m_keyframesFloating); });
+    TimelineWidget* timelineWidget = m_timeline->timelineWidget();
+    connect(timelineWidget, &TimelineWidget::viewChanged, m_keyframes, [this, timelineWidget] {
+        const auto [first, last] = timelineWidget->visibleFrameRange();
+        m_keyframes->setTimelineView(first, last);
+    });
+    connect(timelineWidget->keyframeLanes(), &KeyframeLanes::openInPanelRequested, this,
+        [this](quint64 clipId) {
+            if (!m_ctx.selection->isSelected(clipId))
+                m_ctx.selection->selectClip(clipId);
+            setPanelVisible(PanelId::Keyframes, true);
+        });
+
     // Focus in the timeline makes the program viewer the transport target (ViewerTransport);
     // in single viewer mode the one viewer follows the active one, like Resolve.
     m_timeline->setProperty("kkProgramFocus", true);
@@ -268,6 +299,17 @@ void EditPage::showEvent(QShowEvent* event)
         m_proportionsApplied = true;
         applyDefaultProportions();
     }
+    if (m_keyframesFloating && m_keyframesShown && m_keyframesWindow && !event->spontaneous())
+        m_keyframesWindow->show();
+}
+
+void EditPage::hideEvent(QHideEvent* event)
+{
+    Page::hideEvent(event);
+    // The floating Keyframes window belongs to the Edit page: it goes away with the page
+    // (another page, minimised main window) and comes back with it.
+    if (m_keyframesFloating && m_keyframesWindow && !event->spontaneous())
+        m_keyframesWindow->hide();
 }
 
 void EditPage::applyDefaultProportions()
@@ -290,6 +332,13 @@ void EditPage::applyDefaultProportions()
 
 void EditPage::setPanelVisible(PanelId id, bool visible)
 {
+    if (id == PanelId::Keyframes) {
+        if (visible == m_keyframesShown)
+            return;
+        showKeyframes(visible);
+        emit panelVisibilityChanged(id, visible);
+        return;
+    }
     QWidget* panel = m_panels.value(id);
     if (!panel || panel->isHidden() == !visible)
         return;
@@ -300,6 +349,8 @@ void EditPage::setPanelVisible(PanelId id, bool visible)
 
 bool EditPage::isPanelVisible(PanelId id) const
 {
+    if (id == PanelId::Keyframes)
+        return m_keyframesShown;
     const QWidget* panel = m_panels.value(id);
     return panel && !panel->isHidden();
 }
@@ -312,6 +363,103 @@ void EditPage::updateColumns()
     };
     m_leftColumn->setVisible(anyVisible({m_mediaPool, m_effects, m_editIndex}));
     m_rightColumn->setVisible(anyVisible({m_inspector, m_metadata}));
+}
+
+// ---- Keyframes panel ----
+
+void EditPage::showKeyframes(bool visible)
+{
+    m_keyframesShown = visible;
+    if (m_keyframesFloating) {
+        m_keyframes->setVisible(true); // lives in its window; the window is shown / hidden
+        if (visible) {
+            m_keyframesWindow->show();
+            m_keyframesWindow->raise();
+            m_keyframesWindow->activateWindow();
+        } else {
+            m_keyframesWindow->hide();
+        }
+        return;
+    }
+    m_keyframes->setVisible(visible);
+    if (visible)
+        ensureKeyframesHeight();
+}
+
+void EditPage::ensureKeyframesHeight()
+{
+    QList<int> sizes = m_main->sizes();
+    const int index = m_main->indexOf(m_keyframes);
+    const int bottom = m_main->indexOf(m_bottomRow);
+    const int top = m_main->indexOf(m_topRow);
+    if (index < 0 || sizes.size() != 3 || sizes[index] >= kKeyframesMinDockHeight)
+        return;
+    const int total = sizes[0] + sizes[1] + sizes[2];
+    if (total <= 0)
+        return;
+    // Like opening a panel row in Resolve: the viewers and the timeline both give up height
+    // (each keeps a usable minimum), in proportion to what they have.
+    const int want = std::max(kKeyframesMinDockHeight, int(total * kKeyframesDockShare));
+    const int spareTop = std::max(0, sizes[top] - kMinViewerRowHeight);
+    const int spareBottom = std::max(0, sizes[bottom] - kMinTimelineHeight);
+    const int spare = spareTop + spareBottom;
+    if (spare <= 0)
+        return;
+    const int give = std::min(want - sizes[index], spare);
+    const int fromTop = int(qint64(give) * spareTop / spare);
+    sizes[top] -= fromTop;
+    sizes[bottom] -= give - fromTop;
+    sizes[index] += give;
+    m_main->setSizes(sizes);
+}
+
+void EditPage::setKeyframesFloating(bool floating)
+{
+    if (floating == m_keyframesFloating)
+        return;
+    m_keyframesFloating = floating;
+    if (floating) {
+        if (!m_keyframesWindow) {
+            // A top-level window owned by the page (transient for the main window; can be moved
+            // to a second monitor). The application's actions are added so shortcuts (Space,
+            // J/K/L, undo, ...) keep working while it has focus.
+            m_keyframesWindow = new QWidget(this, Qt::Window);
+            m_keyframesWindow->setObjectName(QStringLiteral("KeyframesWindow"));
+            m_keyframesWindow->setWindowTitle(tr("Keyframes"));
+            m_keyframesWindow->resize(kKeyframesWindowSize);
+            auto* layout = new QVBoxLayout(m_keyframesWindow);
+            layout->setContentsMargins(0, 0, 0, 0);
+            if (m_ctx.actions)
+                m_keyframesWindow->addActions(m_ctx.actions->actions());
+            m_keyframesWindow->installEventFilter(this);
+        }
+        m_keyframesWindow->layout()->addWidget(m_keyframes); // reparents out of the splitter
+        m_keyframes->show();
+        m_keyframes->setFloating(true);
+        if (m_keyframesShown) {
+            m_keyframesWindow->show();
+            m_keyframesWindow->raise();
+        }
+    } else {
+        if (m_keyframesWindow)
+            m_keyframesWindow->hide();
+        m_main->insertWidget(1, m_keyframes);
+        m_keyframes->setFloating(false);
+        m_keyframes->setVisible(m_keyframesShown);
+        if (m_keyframesShown)
+            ensureKeyframesHeight();
+    }
+}
+
+bool EditPage::eventFilter(QObject* watched, QEvent* event)
+{
+    // Closing the floating window hides the panel (the interface-bar toggle follows); it opens
+    // again floating.
+    if (watched == m_keyframesWindow && event->type() == QEvent::Close && m_keyframesShown) {
+        m_keyframesShown = false;
+        emit panelVisibilityChanged(PanelId::Keyframes, false);
+    }
+    return Page::eventFilter(watched, event);
 }
 
 void EditPage::setSingleViewer(bool single)
@@ -346,6 +494,11 @@ void EditPage::saveLayout(QSettings& settings) const
     settings.setValue(QStringLiteral("leftColumn"), m_leftColumn->saveState());
     settings.setValue(QStringLiteral("rightColumn"), m_rightColumn->saveState());
     settings.setValue(QStringLiteral("singleViewer"), isSingleViewer());
+    settings.setValue(QStringLiteral("keyframes/floating"), m_keyframesFloating);
+    if (m_keyframesWindow)
+        settings.setValue(
+            QStringLiteral("keyframes/windowGeometry"), m_keyframesWindow->saveGeometry());
+    m_keyframes->saveState(settings, QStringLiteral("keyframes/"));
     for (PanelId id : kAllPanels)
         settings.setValue(QStringLiteral("visible/") + panelIdToString(id), isPanelVisible(id));
 }
@@ -366,6 +519,15 @@ void EditPage::restoreLayout(const QSettings& settings)
     }
     updateColumns();
     setSingleViewer(settings.value(QStringLiteral("singleViewer"), false).toBool());
+    m_keyframes->restoreState(settings, QStringLiteral("keyframes/"));
+    if (settings.value(QStringLiteral("keyframes/floating"), false).toBool()) {
+        setKeyframesFloating(true);
+        if (settings.contains(QStringLiteral("keyframes/windowGeometry")))
+            m_keyframesWindow->restoreGeometry(
+                settings.value(QStringLiteral("keyframes/windowGeometry")).toByteArray());
+    }
+    // The splitter state may have changed the docked panel's visibility: the flag wins.
+    showKeyframes(m_keyframesShown);
 }
 
 } // namespace kk

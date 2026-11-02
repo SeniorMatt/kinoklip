@@ -59,6 +59,9 @@
         <file>icons/panel_media_pool.svg</file>
         <file>icons/panel_metadata.svg</file>
         <file>icons/panel_mixer.svg</file>
+        <file>icons/panel_keyframes.svg</file>
+        <file>icons/window_float.svg</file>
+        <file>icons/window_dock.svg</file>
         <file>icons/pause.svg</file>
         <file>icons/place_on_top.svg</file>
         <file>icons/play.svg</file>

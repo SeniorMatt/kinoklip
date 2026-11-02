@@ -8,13 +8,17 @@
 #include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/keyframes/KeyframeCommands.h"
 #include "ui/timeline/CurveEditorWidget.h"
 #include "ui/timeline/KeyframeTrackWidget.h"
+#include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineLayout.h"
 
 #include <QAction>
+#include <QMenu>
 #include <QPainter>
 #include <QPainterPath>
+#include <QToolButton>
 #include <QWidget>
 
 namespace kk {
@@ -29,6 +33,7 @@ constexpr int kButtonGap = 2;
 constexpr int kMinClipWidthForButtons = 2 * kButtonW + 3 * kButtonGap + 8;
 constexpr int kMinClipHeightForButtons = 26;
 const QColor kButtonOn(0xff, 0xa8, 0x3a); ///< timeline selection colour: editor open
+constexpr int kOpenPanelGap = 6; ///< gap between the clip and its "open in panel" button
 
 bool clipIsAnimated(const ClipData& c)
 {
@@ -46,6 +51,7 @@ KeyframeLanes::KeyframeLanes(AppContext& ctx, const TimelineLayout& layout,
     , m_layout(layout)
     , m_controller(controller)
     , m_viewport(viewport)
+    , m_timeMap(layout)
 {
     if (ActionRegistry* actions = ctx.actions) {
         auto bind = [&](const char* id, auto fn) {
@@ -61,6 +67,74 @@ KeyframeLanes::KeyframeLanes(AppContext& ctx, const TimelineLayout& layout,
 }
 
 KeyframeLanes::~KeyframeLanes() = default;
+
+double KeyframeLanes::LayoutTimeMap::frameToX(double frame) const
+{
+    return m_layout.frameToX(frame);
+}
+
+double KeyframeLanes::LayoutTimeMap::xToFrame(double x) const
+{
+    return m_layout.xToFrame(x);
+}
+
+double KeyframeLanes::LayoutTimeMap::pixelsPerFrame() const
+{
+    return m_layout.pixelsPerFrame();
+}
+
+void KeyframeLanes::setupLaneWidget(KeyframeViewBase* w, quint64 clipId)
+{
+    w->setSnappingProvider([this] { return m_controller && m_controller->snapping(); });
+    w->setMenuExtender([this, clipId](QMenu& menu) {
+        connect(menu.addAction(tr("Open in Keyframes Panel")), &QAction::triggered, this,
+            [this, clipId] { emit openInPanelRequested(clipId); });
+    });
+}
+
+QToolButton* KeyframeLanes::openPanelButton(quint64 clipId) const
+{
+    return m_lanes.value(clipId).openPanel;
+}
+
+void KeyframeLanes::placeOpenPanelButton(
+    Lane& l, quint64 clipId, const ClipData& clip, const QRect& lane)
+{
+    const double x0 = m_layout.frameToX(double(clip.start));
+    const double x1 = m_layout.frameToX(double(clip.start + clip.duration));
+    const bool narrow = x1 - x0 < kMinUsableClipWidthPx;
+    if (!narrow || lane.isEmpty()) {
+        if (l.openPanel)
+            l.openPanel->hide();
+        return;
+    }
+    if (!l.openPanel) {
+        l.openPanel = new QToolButton(m_viewport);
+        l.openPanel->setObjectName(QStringLiteral("OpenInKeyframesPanel"));
+        l.openPanel->setText(tr("Open in Keyframes Panel"));
+        l.openPanel->setToolTip(
+            tr("The clip is too narrow to edit its keyframes here: edit them in the Keyframes "
+               "panel"));
+        l.openPanel->setFocusPolicy(Qt::NoFocus);
+        connect(l.openPanel, &QToolButton::clicked, this,
+            [this, clipId] { emit openInPanelRequested(clipId); });
+    }
+    QToolButton* b = l.openPanel;
+    b->adjustSize();
+    // Right of the clip when there is room, else left of it; at the top of the lane.
+    int x = int(x1) + kOpenPanelGap;
+    if (x + b->width() > m_viewport->width())
+        x = int(x0) - kOpenPanelGap - b->width();
+    x = std::max(x, kHeaderWidth + kOpenPanelGap);
+    const int y = lane.top() + kButtonGap * 2;
+    if (y < kRulerHeight || y + b->height() > m_viewport->height()) {
+        b->hide();
+        return;
+    }
+    b->move(x, y);
+    b->show();
+    b->raise();
+}
 
 // ---- State ----
 
@@ -116,6 +190,8 @@ void KeyframeLanes::dropLane(quint64 clipId)
         lane.keys->deleteLater();
     if (lane.curves)
         lane.curves->deleteLater();
+    if (lane.openPanel)
+        lane.openPanel->deleteLater();
 }
 
 int KeyframeLanes::keyTrackHeight(const ClipData& clip) const
@@ -179,13 +255,16 @@ void KeyframeLanes::syncGeometry()
                 l.keys->hide();
             if (l.curves)
                 l.curves->hide();
+            if (l.openPanel)
+                l.openPanel->hide();
             continue;
         }
         const int keysH = it->keyframes ? keyTrackHeight(*clip) : 0;
         if (it->keyframes) {
-            if (!l.keys)
-                l.keys
-                    = new KeyframeTrackWidget(m_ctx, m_layout, m_controller, this, id, m_viewport);
+            if (!l.keys) {
+                l.keys = new KeyframeTrackWidget(m_ctx, m_timeMap, id, m_viewport);
+                setupLaneWidget(l.keys, id);
+            }
             l.keys->placeLane(QRect(lane.left(), lane.top(), lane.width(), keysH), kRulerHeight);
             l.keys->update();
         } else if (l.keys) {
@@ -193,9 +272,10 @@ void KeyframeLanes::syncGeometry()
             l.keys = nullptr;
         }
         if (it->curves) {
-            if (!l.curves)
-                l.curves
-                    = new CurveEditorWidget(m_ctx, m_layout, m_controller, this, id, m_viewport);
+            if (!l.curves) {
+                l.curves = new CurveEditorWidget(m_ctx, m_timeMap, id, m_viewport);
+                setupLaneWidget(l.curves, id);
+            }
             l.curves->placeLane(
                 QRect(lane.left(), lane.top() + keysH, lane.width(), lane.height() - keysH),
                 kRulerHeight);
@@ -204,6 +284,7 @@ void KeyframeLanes::syncGeometry()
             l.curves->deleteLater();
             l.curves = nullptr;
         }
+        placeOpenPanelButton(l, id, *clip, lane);
     }
 }
 
@@ -314,60 +395,32 @@ bool KeyframeLanes::clickClipButton(QPointF pos)
 
 bool KeyframeLanes::deleteSelectedKeys()
 {
-    const QVector<KeyframeRef> refs = m_ctx.selection->keyframes();
-    if (refs.isEmpty())
-        return false;
-    m_ctx.project->beginEdit(tr("Delete Keyframes"));
-    const int n = ko::deleteKeys(m_ctx.project->timeline()->mutableData(), refs);
-    m_ctx.project->endEdit();
-    m_ctx.selection->setKeyframes({});
-    return n > 0;
+    return keyframecommands::deleteSelected(m_ctx);
 }
 
 bool KeyframeLanes::copySelectedKeys()
 {
-    const QVector<KeyframeRef> refs = m_ctx.selection->keyframes();
-    if (refs.isEmpty())
-        return false;
-    m_clipboard = ko::copyKeys(m_ctx.project->timeline()->data(), refs);
-    return !m_clipboard.isEmpty();
+    return keyframecommands::copySelected(m_ctx);
+}
+
+bool KeyframeLanes::hasCopiedKeys() const
+{
+    return keyframecommands::hasCopied();
 }
 
 bool KeyframeLanes::pasteKeys()
 {
-    const quint64 id = m_ctx.selection->currentClip();
-    const ClipData* clip = editops::clipById(m_ctx.project->timeline()->data(), id);
-    if (!clip || m_clipboard.isEmpty())
-        return false;
-    const int64_t local = m_ctx.project->timeline()->playhead() - clip->start;
-    m_ctx.project->beginEdit(tr("Paste Keyframes"));
-    const QVector<KeyframeRef> refs
-        = ko::pasteKeys(m_ctx.project->timeline()->mutableData(), id, m_clipboard, local);
-    m_ctx.project->endEdit();
-    m_ctx.selection->setKeyframes(refs);
-    return !refs.isEmpty();
+    return keyframecommands::paste(m_ctx);
 }
 
 bool KeyframeLanes::setSelectedInterp(Interp interp)
 {
-    const QVector<KeyframeRef> refs = m_ctx.selection->keyframes();
-    if (refs.isEmpty())
-        return false;
-    m_ctx.project->beginEdit(tr("Change Keyframe Interpolation"));
-    const int n = ko::setInterp(m_ctx.project->timeline()->mutableData(), refs, interp);
-    m_ctx.project->endEdit();
-    return n > 0;
+    return keyframecommands::setSelectedInterp(m_ctx, interp);
 }
 
 bool KeyframeLanes::flattenSelected()
 {
-    const QVector<KeyframeRef> refs = m_ctx.selection->keyframes();
-    if (refs.isEmpty())
-        return false;
-    m_ctx.project->beginEdit(tr("Flatten Keyframe Handles"));
-    const int n = ko::flattenHandles(m_ctx.project->timeline()->mutableData(), refs);
-    m_ctx.project->endEdit();
-    return n > 0;
+    return keyframecommands::flattenSelected(m_ctx);
 }
 
 } // namespace kk
