@@ -4,6 +4,7 @@
 #include "ui/timeline/TimelineWidget.h"
 
 #include "core/EditBehaviour.h"
+#include "core/Multicam.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -41,6 +42,8 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     , m_ctx(ctx)
     , m_controller(controller)
 {
+    if (ctx.project)
+        m_timelineLookup = ctx.project->timelineLookup();
     setFrameShape(QFrame::NoFrame);
     setFocusPolicy(Qt::StrongFocus);
     setAcceptDrops(true);
@@ -205,6 +208,7 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     in.selected = &m_selected;
     in.overlay = &m_overlay;
     in.mediaPool = m_ctx.project->mediaPool();
+    in.timelines = &m_timelineLookup;
     in.playhead = m_ctx.project->timeline()->playhead();
     in.targetVideo = m_controller->targetVideoTrack();
     in.targetAudio = m_controller->targetAudioTrack();
@@ -546,7 +550,40 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         const ClipData* clip = editops::clipById(data, id);
         // Compound clips (spec 26): create from the selection; open / decompose an instance.
         addAction("clip.new_compound");
-        if (clip && clip->kind == ClipKind::Nested) {
+        const auto lookup = m_ctx.project->timelineLookup();
+        if (clip && multicam::isMulticamClip(*clip, lookup)) {
+            // Multicam clips: angle switch per side, edit the angles, flatten.
+            const TimelineData* mc = lookup(clip->nestedUid);
+            QMenu* angles = menu.addMenu(tr("Switch Multicam Clip Angle"));
+            angles->setObjectName(QStringLiteral("SwitchAngleMenu"));
+            const multicam::MulticamParts parts = multicam::parts(data, id);
+            const std::pair<multicam::AngleTarget, QString> sides[] = {
+                {multicam::AngleTarget::Both, tr("Video and Audio")},
+                {multicam::AngleTarget::Video, tr("Video")},
+                {multicam::AngleTarget::Audio, tr("Audio")},
+            };
+            for (const auto& [target, text] : sides) {
+                const multicam::AngleTarget side = target;
+                if ((side == multicam::AngleTarget::Video && parts.video.isEmpty())
+                    || (side == multicam::AngleTarget::Audio && parts.audio.isEmpty()))
+                    continue;
+                QMenu* sub = angles->addMenu(text);
+                const quint64 shownBy
+                    = side == multicam::AngleTarget::Audio && !parts.audio.isEmpty()
+                    ? parts.audio.first()
+                    : (!parts.video.isEmpty() ? parts.video.first() : id);
+                const int current = editops::clipById(data, shownBy)->multicamAngle;
+                for (int a = 0; a < multicam::angleCount(*mc); ++a) {
+                    QAction* act = sub->addAction(
+                        QStringLiteral("%1  %2").arg(a + 1).arg(multicam::angleName(*mc, a)), this,
+                        [this, id, a, side] { m_controller->switchMulticamAngle(id, a, side); });
+                    act->setCheckable(true);
+                    act->setChecked(side != multicam::AngleTarget::Both && a == current);
+                }
+            }
+            addAction("clip.open_in_timeline");
+            addAction("multicam.flatten");
+        } else if (clip && clip->kind == ClipKind::Nested) {
             addAction("clip.open_in_timeline");
             addAction("clip.decompose");
         }

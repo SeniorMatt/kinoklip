@@ -26,6 +26,7 @@ namespace kk {
 struct AppContext;
 class PlaybackEngine;
 class MaskOverlay;
+class MulticamOverlay;
 class ScrubBar;
 class Timeline;
 class ViewerSurface;
@@ -113,6 +114,28 @@ public:
     /// Source mode key handling: the action ids claimed while focus is inside the viewer.
     [[nodiscard]] static QStringList sourceKeyActionIds();
 
+    // ---- Multicam viewer (Source mode; ViewerMulticam.cpp) ----
+
+    /// Shows the angle grid instead of the source clip (View > Multicam Viewer, the header's
+    /// mode menu): the multicam clip under the timeline playhead (following the timeline,
+    /// also while it plays), else the loaded multicam clip.
+    void setMulticamMode(bool on);
+    [[nodiscard]] bool multicamMode() const { return m_multicam; }
+    /// Grid columns (2, 3, 4; 0 = automatic from the angle count).
+    void setMulticamColumns(int columns);
+    /// Shows grid page @p page (0-based, clamped).
+    void setMulticamPage(int page);
+    /// The angle choice of a click on cell @p angle or a number key: emits
+    /// multicamAngleChosen() when following a timeline clip, else changes the angle the loaded
+    /// multicam clip shows here.
+    void chooseMulticamAngle(int angle);
+    /// The grid overlay (nullptr in Timeline mode).
+    [[nodiscard]] MulticamOverlay* multicamOverlay() const { return m_multicamOverlay; }
+    /// Uid of the multicam timeline shown in the grid (0 = none).
+    [[nodiscard]] quint64 multicamUid() const { return m_mc.uid; }
+    /// True while the grid follows the multicam clip under the timeline playhead.
+    [[nodiscard]] bool multicamFollowsTimeline() const { return m_mc.followClip != 0; }
+
 Q_SIGNALS:
     /// Source mode transport requests (kept for compatibility; the buttons also drive the
     /// source player directly).
@@ -125,6 +148,9 @@ Q_SIGNALS:
     void activated();
     /// Source mode: a different clip was loaded.
     void sourceMediaChanged(const QString& mediaId);
+    /// Multicam viewer following the timeline: the user chose @p angle (0-based) to cut or
+    /// switch to at the playhead (EditPage: TimelineController::chooseMulticamAngle()).
+    void multicamAngleChosen(int angle);
 
 protected:
     bool event(QEvent* event) override;
@@ -148,6 +174,21 @@ private:
     bool handleSourceKey(const QString& actionId);
     [[nodiscard]] QString matchSourceKey(const QKeyEvent* key) const;
     [[nodiscard]] Timeline* boundTimeline() const { return m_boundTimeline; }
+    void setupMulticam();
+    void updateMulticam();
+    void leaveMulticamContent();
+
+    /// What the multicam grid currently shows.
+    struct MulticamShown
+    {
+        quint64 uid = 0; ///< multicam timeline (0 = no grid)
+        QString itemId; ///< its media pool item
+        quint64 followClip = 0; ///< the timeline clip followed (0 = the loaded source)
+        std::shared_ptr<const TimelineData> data; ///< version of the multicam timeline used
+        int columns = 0;
+        int page = 0;
+        int audioAngle = -1;
+    };
 
     AppContext& m_ctx;
     Mode m_mode;
@@ -158,6 +199,16 @@ private:
     QMetaObject::Connection m_tlChanged, m_tlPlayhead;
     ViewerSurface* m_surface = nullptr;
     MaskOverlay* m_maskOverlay = nullptr; ///< Timeline mode: on-screen mask controls
+    MulticamOverlay* m_multicamOverlay = nullptr; ///< Source mode: angle grid chrome
+    QComboBox* m_modeBox = nullptr; ///< Source mode: Source / Multicam
+    QComboBox* m_gridBox = nullptr; ///< multicam grid size (Auto, 2x2, 3x3, 4x4)
+    bool m_multicam = false;
+    bool m_multicamPrefersSource = false; ///< the loaded multicam clip wins over the timeline
+    int m_multicamColumns = 0;
+    int m_multicamPage = 0;
+    int m_localVideoAngle = 0; ///< angles of the loaded multicam clip (not following)
+    int m_localAudioAngle = 0;
+    MulticamShown m_mc;
     QWidget* m_body = nullptr;
     ScrubBar* m_scrub = nullptr;
     QWidget* m_transport = nullptr;

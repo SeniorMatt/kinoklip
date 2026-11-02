@@ -51,7 +51,12 @@ namespace kk::serialization {
 ///   "cues": [[startUs, endUs, text], ...]). Older
 ///   files have none of these and load unchanged; older builds refuse version 7 instead of silently
 ///   dropping captions and adjustment clips.
-inline constexpr int kFormatVersion = 7;
+/// - 8: multicam clips. Timelines may carry "multicam": true (always with "compound"), clips
+///   "multicamAngle" (0-based angle of a Nested clip showing a multicam timeline), media
+///   pool items "kind": "multicam", and media info "timecode" (embedded start timecode).
+///   Every field is optional, so files of versions 1 - 7 load unchanged; older builds refuse
+///   version 8 instead of showing every angle of a multicam clip stacked.
+inline constexpr int kFormatVersion = 8;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
