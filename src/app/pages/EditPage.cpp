@@ -19,6 +19,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/editindex/EditIndexPanel.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/keyframes/KeyframesPanel.h"
@@ -80,8 +81,7 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
 {
     m_mediaPool = new MediaPoolPanel(ctx);
     m_effects = new EffectsLibraryPanel(ctx);
-    m_editIndex = createPlaceholderPanel(
-        tr("Edit Index"), tr("A list of all edits, markers and clips will appear here."));
+    m_editIndex = new EditIndexPanel(ctx);
     m_sourceViewer = new ViewerPanel(ViewerPanel::Mode::Source, ctx);
     m_timelineViewer = new ViewerPanel(ViewerPanel::Mode::Timeline, ctx);
     m_inspector = new InspectorPanel(ctx);
