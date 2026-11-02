@@ -302,10 +302,20 @@ private Q_SLOTS:
         QCOMPARE(e->outputSize(), QSize(160, 90));
         QVERIFY(waitFor(
             [&] { return e->currentFrame() && e->currentFrame()->size == QSize(160, 90); }));
+        QCOMPARE(e->qualityMode(), PlaybackEngine::QualityMode::Full); // the default
+        // Proxy resolutions are fractions of the timeline resolution, capped by the viewer:
+        // Half of 320x180 is what this 160x90 viewer shows anyway; Quarter is smaller.
         e->setQualityMode(PlaybackEngine::QualityMode::Half);
         QCOMPARE(e->currentQuality(), Quality::Half);
+        QCOMPARE(e->renderSize(), QSize(160, 90));
+        e->setQualityMode(PlaybackEngine::QualityMode::Quarter);
+        QCOMPARE(e->renderSize(), QSize(80, 45));
         QVERIFY(
             waitFor([&] { return e->currentFrame() && e->currentFrame()->size == QSize(80, 45); }));
+        e->setOutputClient(&b, QSize(1000, 1000), false);
+        QCOMPARE(e->renderSize(), QSize(80, 45));
+        e->setQualityMode(PlaybackEngine::QualityMode::Half);
+        QCOMPARE(e->renderSize(), QSize(160, 90));
         e->setQualityMode(PlaybackEngine::QualityMode::Auto);
         QCOMPARE(e->currentQuality(), Quality::Full); // paused: always full
     }

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "playback/AudioOutput.h"
+#include "playback/AutoQuality.h"
 #include "playback/FrameScheduler.h"
 #include "playback/PlaybackClock.h"
 #include "playback/ShuttleControl.h"
@@ -63,14 +64,17 @@ struct PlaybackBehaviour
 /// never drift apart. While paused, playhead moves (scrub) and timeline edits render one
 /// coalesced still frame at Full quality.
 ///
-/// **Quality.** QualityMode::Auto renders at Full while paused; during playback it steps down
-/// to Half (then Quarter) when the average render time exceeds kDownshiftLoad of the frame
-/// interval or frames are being dropped, and back up after kUpshiftHoldMs of headroom.
+/// **Quality** (Resolve's "Timeline Proxy Resolution"). Full (the default) renders every frame
+/// at full resolution and drops frames when rendering cannot keep up. Half / Quarter cap the
+/// render resolution at 1/2 or 1/4 of the *timeline* resolution. Auto (opt-in) renders Full
+/// while paused and lets AutoQuality switch between Full and Half during playback.
 ///
 /// **Output size.** Viewers register as output clients (setOutputClient()) with their picture
-/// size in device pixels; frames are rendered at the timeline aspect fitted into the largest
-/// client, never above timeline resolution. Textures (zero copy) are requested when the GPU
-/// compositor is active and every client can draw them, otherwise images.
+/// size in device pixels; outputSize() is the timeline aspect fitted into the largest client,
+/// never above timeline resolution, and frames are rendered at renderSize() = the smaller of
+/// outputSize() and the proxy resolution (so Half changes nothing for a viewer that shows
+/// fewer pixels than half the timeline resolution anyway). Textures (zero copy) are requested
+/// when the GPU compositor is active and every client can draw them, otherwise images.
 ///
 /// **Timeline sync.** The engine follows Timeline::playheadChanged (scrub/seek from the
 /// timeline, keyboard navigation) and writes the playhead back at most every
@@ -91,7 +95,7 @@ public:
     };
     Q_ENUM(State)
 
-    /// Preview quality setting.
+    /// Timeline proxy resolution setting (the values are stored in settings: keep the order).
     enum class QualityMode {
         Auto,
         Full,
@@ -118,6 +122,10 @@ public:
         int64_t dropped = 0; ///< frames skipped at |rate| = 1 (gaps in the presented sequence)
         double playSeconds = 0.0; ///< wall time spent playing
         double averageRenderMs = 0.0; ///< compositor time per presented frame (moving average)
+        double averageDecodeMs = 0.0; ///< of averageRenderMs: decoding (+ hw download)
+        double averageUploadMs = 0.0; ///< ... texture uploads
+        double averageCompositeMs = 0.0; ///< ... drawing (excluding uploads)
+        double averageOutputMs = 0.0; ///< ... output texture / readback
         bool audioMaster = false; ///< current clock source
         double avOffsetFrames = 0.0; ///< last audio - clock error seen by the clock (frames)
         [[nodiscard]] double fps() const { return playSeconds > 0 ? presented / playSeconds : 0.0; }
@@ -126,10 +134,6 @@ public:
     static constexpr int kTickMs = 4; ///< clock poll / presentation interval
     static constexpr int kPlayheadIntervalMs = 33; ///< Timeline::setPlayhead throttle (~30 Hz)
     static constexpr int kAudioStartTimeoutMs = 600; ///< no device position -> wall clock
-    static constexpr double kDownshiftLoad
-        = 0.85; ///< render time / frame interval -> lower quality
-    static constexpr double kUpshiftLoad = 0.35; ///< ... below this for kUpshiftHoldMs -> higher
-    static constexpr int kUpshiftHoldMs = 2000;
 
     /// Creates an engine with its own Compositor and the default audio output.
     explicit PlaybackEngine(QObject* parent = nullptr);
@@ -173,8 +177,10 @@ public:
     void setOutputClient(const void* client, QSize pixelSize, bool canDrawTextures);
     /// Unregisters @p client.
     void removeOutputClient(const void* client);
-    /// Size frames are rendered at (before Quality scaling).
+    /// Picture size of the largest client (timeline aspect, never above timeline resolution).
     [[nodiscard]] QSize outputSize() const;
+    /// Size frames are rendered at now: outputSize() capped by the proxy resolution.
+    [[nodiscard]] QSize renderSize() const;
     void setQualityMode(QualityMode mode);
     [[nodiscard]] QualityMode qualityMode() const { return m_qualityMode; }
     /// Quality used for the next requests.
@@ -260,6 +266,7 @@ private:
     void writePlayhead();
     void ensureTicking();
     void updateAutoQuality(int64_t nowUs);
+    void logStats(int64_t nowUs);
     void setRateInternal(double rate);
     [[nodiscard]] double wrap(double unwrapped) const;
     [[nodiscard]] int64_t clampFrame(int64_t frame) const;
@@ -312,19 +319,18 @@ private:
         bool textures = false;
     };
     QHash<const void*, Client> m_clients;
-    QualityMode m_qualityMode = QualityMode::Auto;
-    Quality m_autoQuality = Quality::Full; ///< Auto mode's playback quality
-    int64_t m_headroomSinceUs = -1; ///< Auto: since when the load is below kUpshiftLoad
-    int64_t m_lastQualityChangeUs = 0;
-    int64_t m_qualityEvalUs = 0;
-    int64_t m_upshiftBlockedUntilUs[3] = {0, 0, 0}; ///< by Quality: no upshift to it before
-    int64_t m_upshiftBackoffUs[3] = {0, 0, 0}; ///< by Quality: current back-off
-    int m_overloadWindows = 0; ///< consecutive Auto windows above kDownshiftLoad ///< start of the
-                               ///< current Auto evaluation window
-    int64_t m_droppedAtQualityCheck = 0;
+    QualityMode m_qualityMode = QualityMode::Full;
+    AutoQuality m_auto;
     Quality m_lastEmittedQuality = Quality::Full;
+    bool m_logStats = false; ///< KK_PLAYBACK_STATS=1: one line of statistics per second
+    int64_t m_statsLogUs = 0;
+    Stats m_statsAtLog;
 
     Stats m_stats;
+    double m_stageSum[4] = {0, 0, 0, 0}; ///< decode, upload, composite, output (ms)
+    int64_t m_stageCount = 0;
+    double m_winSum[4] = {0, 0, 0, 0}; ///< the same since the last stats log line
+    int64_t m_winCount = 0;
 };
 
 } // namespace kk

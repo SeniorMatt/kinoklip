@@ -101,6 +101,7 @@ private:
     DecoderPool m_decoders;
     QThreadPool m_decodeThreads; ///< parallel decoding of the clips visible in one frame
     std::vector<DecodedClip> m_decoded; ///< per-frame scratch (capacity reused)
+    qint64 m_uploadNs = 0; ///< plane upload time of the current frame (statistics)
     std::vector<TrackFrame> m_trackFrames; ///< per-frame scratch
     std::vector<GlEffect*> m_activeEffects; ///< per-clip scratch
     std::vector<const EffectInstance*> m_activeInstances; ///< parallel to m_activeEffects

@@ -326,6 +326,8 @@ void GlRenderer::render(RenderJob& job)
         }
     }
     decodeQueued();
+    const qint64 decodedNs = timer.nsecsElapsed();
+    m_uploadNs = 0;
 
     // 3. Composite.
     PooledTarget accumulator = m_kit->acquire(out);
@@ -335,11 +337,16 @@ void GlRenderer::render(RenderJob& job)
         drawTrack(tf, fc, *accumulator);
 
     // 4. Output.
+    const qint64 compositedNs = timer.nsecsElapsed();
     PooledTarget scratch;
     GLuint readFbo = 0;
     std::shared_ptr<RenderedFrame> result
         = m_output->produce(*accumulator, (rq.outputs & OutputTexture) != 0, scratch, &readFbo);
     result->frame = rq.frame;
+    result->decodeMs = double(decodedNs) / 1e6;
+    result->uploadMs = double(m_uploadNs) / 1e6;
+    result->compositeMs = double(compositedNs - decodedNs - m_uploadNs) / 1e6;
+    result->outputMs = double(timer.nsecsElapsed() - compositedNs) / 1e6; // + readback below
     if (rq.outputs & OutputImage) {
         m_output->startReadback(job, std::move(result), readFbo, timer);
     } else {
@@ -406,7 +413,10 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
             planes = std::make_shared<PlaneTextures>();
             d->entry->userData = planes;
         }
+        QElapsedTimer uploadTimer;
+        uploadTimer.start();
         m_video.upload(*m_kit, *planes, d->frame);
+        m_uploadNs += uploadTimer.nsecsElapsed();
         const media::VideoFrame& f = *d->frame;
         src.kind = ClipSource::Kind::Video;
         src.sourcePx = displaySize(f.width, f.height, f.sampleAspectRatio, f.rotation);
