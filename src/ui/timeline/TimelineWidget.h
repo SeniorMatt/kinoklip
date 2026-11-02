@@ -254,6 +254,12 @@ private:
     /// Ruler double-click: opens the marker editor for a marker near @p pos. Returns whether
     /// one was there.
     bool editMarkerNear(QPointF pos);
+    /// Double-click on a compound clip / nested timeline body: opens its timeline in a tab
+    /// with the playhead at the frame under @p pos. Returns whether it did (spec 26.14).
+    bool openNestedAt(QPointF pos);
+    /// Whether @p y lies past the outermost track of @p type: above the top video track or
+    /// below the bottom audio track (moves there create a new track, spec 21.8).
+    [[nodiscard]] bool beyondOutermostTrack(TrackType type, double y) const;
     void scrubTo(QPointF pos);
     void bladeAt(const TimelineHit& hit);
     void clickSelect(const TimelineHit& hit, Qt::KeyboardModifiers modifiers);

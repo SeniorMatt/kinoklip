@@ -198,6 +198,47 @@ private slots:
         KK_VERIFY_TIMELINE(v.f.view());
     }
 
+    void movingPastOutermostTrackCreatesTrack()
+    {
+        // Like Resolve: dragging a clip above the top video track creates V3 for it; its linked
+        // audio gets A3. One undo step removes both again.
+        View v;
+        const quint64 a = v.put(kV2, solidClip(10, 20));
+        const quint64 b = v.put(kA2, solidClip(10, 20));
+        v.f.project.beginEdit(QStringLiteral("link"));
+        ops::linkClips(v.f.data(), {a, b});
+        v.f.project.endEdit();
+        const int steps = v.undoCount();
+        const TimelineLayout& L = v.w.layout();
+        const QRect top = L.rowRect(L.rowOf(kV2));
+        QVERIFY(top.top() - 12 > kRulerHeight);
+        v.drag(v.at(20, kV2), QPoint(v.at(20, kV2).x(), top.top() - 12));
+        const TimelineData& d = v.f.project.timeline()->data();
+        QCOMPARE(int(d.videoTracks.size()), 3);
+        QCOMPARE(int(d.audioTracks.size()), 3);
+        const TrackRef v3 {TrackType::Video, 2};
+        const TrackRef a3 {TrackType::Audio, 2};
+        QCOMPARE(layout(v.f.view(), v3), QStringLiteral("10:20"));
+        QCOMPARE(layout(v.f.view(), a3), QStringLiteral("10:20"));
+        QCOMPARE(layout(v.f.view(), kV2), QString());
+        QCOMPARE(v.undoCount(), steps + 1);
+        v.f.project.undoStack()->undo();
+        QCOMPARE(int(v.f.project.timeline()->data().videoTracks.size()), 2);
+        QCOMPARE(layout(v.f.view(), kV2), QStringLiteral("10:20"));
+
+        // An audio clip dragged below the bottom audio track gets a new A3 (only one, however
+        // far the pointer goes).
+        const quint64 c = v.put(kA1, solidClip(40, 10));
+        Q_UNUSED(c);
+        const QRect bottom = L.rowRect(L.rowOf(kA2));
+        QVERIFY(bottom.bottom() + 40 < v.vp()->height());
+        v.drag(v.at(45, kA1), QPoint(v.at(45, kA1).x(), bottom.bottom() + 40));
+        QCOMPARE(int(v.f.project.timeline()->data().audioTracks.size()), 3);
+        QCOMPARE(int(v.f.project.timeline()->data().videoTracks.size()), 2);
+        QCOMPARE(layout(v.f.view(), a3), QStringLiteral("40:10"));
+        KK_VERIFY_TIMELINE(v.f.view());
+    }
+
     void altDragDuplicates()
     {
         View v;
