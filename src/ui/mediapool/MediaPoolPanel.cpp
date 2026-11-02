@@ -6,6 +6,7 @@
 #include "core/MediaPool.h"
 #include "core/Project.h"
 #include "media/MediaCache.h"
+#include "platform/ChildProcessEnv.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
@@ -15,7 +16,6 @@
 
 #include <QAction>
 #include <QApplication>
-#include <QDesktopServices>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -604,7 +604,9 @@ void MediaPoolPanel::revealInFileManager(const QString& id)
         return;
     // Opening the containing folder works on every desktop; selecting the file itself would
     // need the platform-specific FileManager1 D-Bus interface (TODO(panels): src/platform).
-    QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(item->path).absolutePath()));
+    // platform::openUrl: the file manager must start with the user's environment, not the
+    // bundle's library/plugin paths.
+    platform::openUrl(QUrl::fromLocalFile(QFileInfo(item->path).absolutePath()));
 }
 
 void MediaPoolPanel::showItemMenu(const QPoint& globalPos)

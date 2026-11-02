@@ -20,8 +20,13 @@ Preferences dialog stored new values.
 - **UI scale** is stored as `ui/scaleFactor` ("auto" or a factor like "1.25", constant
   `prefs::kUiScale` in `PreferencesDialog.h`). It needs `main()` to set `QT_SCALE_FACTOR` from
   it before creating `QApplication` (app owner) — until then the setting has no effect.
-- **System colours** go through the `view.use_system_colors` action so the app's theme code
-  stays the only place that applies themes.
+- **Settings pages are registered** (`ui/common/SettingsPages.h`, plan.md 5.9 rule 4): the
+  dialog stacks every page of the `SettingsPageRegistry` in `AppContext` as a titled group.
+  Standard pages: `registerStandardSettingsPages()` (playback, project, interface); the app's
+  theme adds "appearance" (colour theme + widget style), which applies through the
+  `settings.color_scheme.*` / `settings.style.*` actions so the theme code stays the only
+  place that applies themes. To add a page: subclass `SettingsPage` (read values in the
+  constructor, store them in `apply()`) and `registry.add({id, title, icon, order, factory})`.
 - **Frame-rate changes** keep clip positions in frames (see `Project::setSettings()`); the dialog
   warns when the timeline has clips.
 - Keyboard changes apply live so they can be tried; Cancel restores the state from when the

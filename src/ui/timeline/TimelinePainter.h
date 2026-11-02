@@ -121,7 +121,7 @@ private:
     QFont m_smallFont;
     QFont m_boldFont;
     int m_fontAscent = 10;
-    QColor m_base, m_window, m_text, m_textDim, m_accent, m_lane, m_laneAlt, m_line;
+    QColor m_base, m_window, m_text, m_textDim, m_accent, m_lane, m_laneAlt, m_line, m_timecode;
     QPixmap m_iconLock, m_iconUnlock, m_iconVisible, m_iconHidden, m_iconMute, m_iconSolo;
 
     // Caches / scratch buffers reused across paints.

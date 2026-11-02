@@ -36,6 +36,7 @@ void PageBar::addPageAction(QAction* pageAction)
     button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     button->setIconSize(QSize(kIconSize, kIconSize));
     button->setMinimumWidth(kButtonMinWidth);
+    button->setAutoRaise(true); // flat until hovered/checked: the Breeze toolbar look
     button->setFocusPolicy(Qt::NoFocus);
     m_buttons->addWidget(button);
 }

@@ -71,7 +71,6 @@
         "view.single_viewer": [],
         "view.fullscreen_viewer": ["Ctrl+F"],
         "view.fullscreen": ["F11"],
-        "view.use_system_colors": [],
 
         "transport.play_pause": ["Space"],
         "transport.shuttle_reverse": ["J"],

@@ -96,7 +96,11 @@ ProjectSettingsDialog::ProjectSettingsDialog(Project* project, QWidget* parent)
     m_warning = new QLabel;
     m_warning->setWordWrap(true);
     QPalette warn = m_warning->palette();
-    warn.setColor(QPalette::WindowText, QColor(0xe0, 0xb0, 0x50));
+    // KDE "neutral" (warning) text colours of Breeze Dark / Breeze Light, picked by the
+    // lightness of the active scheme so the warning stays readable in both.
+    const bool darkScheme = warn.color(QPalette::Window).lightness() < 128;
+    warn.setColor(
+        QPalette::WindowText, darkScheme ? QColor(0xf6, 0x74, 0x00) : QColor(0xc6, 0x5c, 0x00));
     m_warning->setPalette(warn);
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);

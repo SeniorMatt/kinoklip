@@ -156,6 +156,8 @@ protected:
 
 private:
     void updateBinSet();
+    /// Re-runs filterAcceptsRow() for every row after m_bin / m_search changed.
+    void refilter();
 
     Project* m_project = nullptr;
     QString m_bin;
