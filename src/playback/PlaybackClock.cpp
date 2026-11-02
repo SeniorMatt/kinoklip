@@ -19,9 +19,9 @@ void PlaybackClock::startFree(double startFrame, double rate, int64_t nowUs)
     m_lastError = 0.0;
 }
 
-void PlaybackClock::startAudio(double startFrame, int64_t nowUs)
+void PlaybackClock::startAudio(double startFrame, int64_t nowUs, double rate)
 {
-    startFree(startFrame, 1.0, nowUs);
+    startFree(startFrame, rate, nowUs);
     m_audio = true;
 }
 
@@ -32,6 +32,8 @@ double PlaybackClock::position(int64_t nowUs, int64_t audioPlayedFrames, int64_t
     }
     const double framesPerUs = m_fps * 1e-6;
     if (m_audio) {
+        // Timeline frames per wall-clock microsecond at this rate (negative in reverse).
+        const double speed = m_rate * framesPerUs;
         if (audioPlayedFrames <= 0) {
             // Device not started yet (or nothing known): hold, and keep the wall-clock base at
             // "now" so the clock does not jump ahead once the first samples are heard.
@@ -44,27 +46,32 @@ double PlaybackClock::position(int64_t nowUs, int64_t audioPlayedFrames, int64_t
             // was measured (at most one audio period).
             m_lastReportUs = audioSampleTimeUs;
             const int64_t sampleUs = audioSampleTimeUs >= 0 ? audioSampleTimeUs : nowUs;
-            const double heardFrame = m_startFrame + double(audioPlayedFrames) * m_fps / kSampleRate
-                + double(std::max<int64_t>(0, nowUs - sampleUs)) * framesPerUs;
+            const double heardFrame = m_startFrame
+                + m_rate * double(audioPlayedFrames) * m_fps / kSampleRate
+                + double(std::max<int64_t>(0, nowUs - sampleUs)) * speed;
             if (!m_audioStarted) {
                 m_audioStarted = true;
                 m_baseFrame = heardFrame;
                 m_baseUs = nowUs;
             }
-            const double predicted = m_baseFrame + double(nowUs - m_baseUs) * framesPerUs;
+            const double predicted = m_baseFrame + double(nowUs - m_baseUs) * speed;
+            // In playing direction: > 0 = the device is ahead of the clock.
             const double error = heardFrame - predicted;
+            const double ahead = m_rate >= 0 ? error : -error;
             m_lastError = error;
             // Slew once per report (not per call), so the correction rate does not depend on
             // how often the engine polls and repeated stale reports are not counted twice.
             // Device positions are lower bounds of what is heard (quantised to periods, measured
             // a little before they are read), so the clock follows their upper envelope: a
             // report ahead of the clock pulls it quickly, one behind only slowly.
-            const double gain = error > 0 ? kSlewGainAhead : kSlewGainBehind;
-            m_baseFrame = std::abs(error) > kSnapFrames ? heardFrame : predicted + error * gain;
+            const double gain = ahead > 0 ? kSlewGainAhead : kSlewGainBehind;
+            // The snap threshold scales with the speed (a device period covers more frames).
+            const double snap = kSnapFrames * std::max(1.0, std::abs(m_rate));
+            m_baseFrame = std::abs(error) > snap ? heardFrame : predicted + error * gain;
             m_baseUs = nowUs;
         }
-        const double pos = m_baseFrame + double(nowUs - m_baseUs) * framesPerUs;
-        m_last = std::max(m_last, pos); // forward-only
+        const double pos = m_baseFrame + double(nowUs - m_baseUs) * speed;
+        m_last = m_rate >= 0 ? std::max(m_last, pos) : std::min(m_last, pos); // monotonic
         return m_last;
     }
     const double pos = m_baseFrame + m_rate * double(nowUs - m_baseUs) * framesPerUs;

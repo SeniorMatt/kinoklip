@@ -11,9 +11,11 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 namespace kk {
 
+class AudioMixer;
 class AudioRing;
 
 /// Loop range in 48 kHz timeline samples, [start, end); inactive when end <= start.
@@ -32,8 +34,18 @@ struct SampleLoop
 /// can take several ms, which the ring (~170 ms) absorbs.
 ///
 /// Sample mapping: the n-th frame written after start() carries timeline sample
-/// `startSample + n`, wrapped into the loop range when one is set (the mix jumps from
+/// `startSample + rate * n`, wrapped into the loop range when one is set (the mix jumps from
 /// loop.end - 1 to loop.start, so a loop plays seamlessly).
+///
+/// Varispeed (rate != 1: shuttle, reverse, slow play; spec 1.16): like a tape, the pitch
+/// follows the speed. Each chunk mixes the span of timeline samples it covers (|rate| times
+/// the chunk, read forwards) and resamples it by linear interpolation into the output, in
+/// reverse order for negative rates. Linear interpolation aliases a little at high speeds,
+/// which is acceptable for shuttling (it is a navigation aid, not a render path).
+///
+/// Scrubbing (startScrub(); spec 23.7): the ring is kept nearly empty (kScrubFillFrames) so
+/// what is heard follows the playhead closely; each scrubTo() plays one short snippet
+/// (kScrubSnippetFrames, faded in and out) from that position, silence otherwise.
 ///
 /// Thread-safety: all public methods on one controlling thread (GUI). start()/stop() hand
 /// over the ring: after stop() returns the feeder no longer writes to it.
@@ -41,6 +53,10 @@ class AudioFeeder
 {
 public:
     static constexpr int kChunkFrames = 1024; ///< mix block (21 ms at 48 kHz)
+    /// Scrubbing: frames kept in the ring at most (low latency, ~43 ms at 48 kHz).
+    static constexpr size_t kScrubFillFrames = 2048;
+    /// Scrubbing: length of the snippet played per scrubTo() (~80 ms at 48 kHz).
+    static constexpr int kScrubSnippetFrames = 3840;
 
     /// @p ring is not owned and must outlive the feeder.
     explicit AudioFeeder(AudioRing* ring);
@@ -48,8 +64,16 @@ public:
     AudioFeeder(const AudioFeeder&) = delete;
     AudioFeeder& operator=(const AudioFeeder&) = delete;
 
-    /// Starts filling the (empty) ring from timeline sample @p startSample.
-    void start(std::shared_ptr<const TimelineData> timeline, int64_t startSample, SampleLoop loop);
+    /// Starts filling the (empty) ring from timeline sample @p startSample at speed @p rate
+    /// (1 = normal; negative = reverse; see the class comment for varispeed).
+    void start(std::shared_ptr<const TimelineData> timeline, int64_t startSample, SampleLoop loop,
+        double rate = 1.0);
+    /// Starts scrub mode on the (empty) ring: silence until scrubTo().
+    void startScrub(std::shared_ptr<const TimelineData> timeline);
+    /// Scrub mode: plays a snippet from timeline sample @p sample (replaces one not yet mixed).
+    void scrubTo(int64_t sample);
+    /// True while in scrub mode (between startScrub() and stop()).
+    [[nodiscard]] bool isScrubbing() const;
     /// Stops writing (blocks until the current chunk is done).
     void stop();
     /// Replaces the timeline mixed from the next chunk on (live edits during playback).
@@ -62,10 +86,12 @@ public:
 
 private:
     void run();
+    /// Mixes @p count output frames at m_rate from m_srcPos into @p out (varispeed path).
+    void mixVarispeed(AudioMixer& mixer, const TimelineData& timeline, int count, float* out);
 
     AudioRing* m_ring;
     std::thread m_thread;
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;
     std::condition_variable m_wake;
     std::condition_variable m_filled;
     bool m_quit = false;
@@ -74,8 +100,15 @@ private:
     std::shared_ptr<const TimelineData> m_timeline;
     std::shared_ptr<const MediaPathMap> m_media;
     bool m_mediaDirty = false;
-    int64_t m_position = 0; ///< next timeline sample to write
+    int64_t m_position = 0; ///< next timeline sample to write (rate 1)
     SampleLoop m_loop;
+    double m_rate = 1.0;
+    double m_srcPos = 0.0; ///< varispeed: timeline sample of the next output frame
+    std::vector<float> m_span; ///< varispeed: mixed source span (worker thread only)
+    bool m_scrub = false; ///< scrub mode
+    int64_t m_scrubTarget = -1; ///< pending snippet start (-1 = none)
+    int64_t m_scrubPos = 0; ///< current snippet position
+    int m_scrubLeft = 0; ///< frames of the current snippet still to mix
 };
 
 } // namespace kk

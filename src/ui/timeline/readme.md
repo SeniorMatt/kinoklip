@@ -15,6 +15,8 @@ for thumbnails and waveforms).
 | `TimelineTransitions.cpp` | controller part 3: Ctrl+T with the insufficient-handles question, transition alignment and length |
 | `TimelineMarkers.cpp` | controller part 4: timeline / clip markers and the marker editor hook, paste attributes, dynamic trim |
 | `TimelineGestures.cpp` | widget gestures: transition edge drag, Ctrl+Shift shuffle drag, ruler marker double-click |
+| `TimelineDragInfo.cpp` / `DragInfo.h` | widget part: the offset label next to the pointer while moving / trimming (spec 21.9) and the `TrimPreview` for the two-up view (`trimPreviewChanged()`, spec 8.15) |
+| `TimelineEntryEdits.cpp` | controller part: typed timecodes (`enterTimecode()`, spec 2.10) and the viewer edit overlay's edits (`editSources()`, spec 4.14) |
 | `TimelineDialogs.h` | the modal questions (handles, marker editor, paste attributes, name of a new timeline / compound clip, Timeline Settings) installed by the panel |
 | `TimelineCompound.cpp` | controller part 5: New Timeline / Duplicate / Delete, tab cycling and closing, New Compound Clip, Open in Timeline, Decompose in Place |
 | `TimelineTabs.h` | the row above the tracks: tabs of the open timelines (switch, drag to reorder, close, context menu) or, with tabs off (Preferences > Editing), a drop-down |

@@ -423,7 +423,7 @@ private Q_SLOTS:
         QCOMPARE(device->starts(), 1);
     }
 
-    void mutedOrShuttlingUsesWallClock()
+    void mutedUsesWallClock()
     {
         Timeline tl;
         tl.setData(solidTimeline(2000));
@@ -438,8 +438,12 @@ private Q_SLOTS:
         e->setMuted(false); // switches to the device while playing
         QVERIFY(e->stats().audioMaster);
         QCOMPARE(device->starts(), 1);
+        // Shuttling is heard too (varispeed, spec 1.16): the device stays the clock.
         e->setRate(2.0);
+        QVERIFY(e->stats().audioMaster);
+        e->setMuted(true);
         QVERIFY(!e->stats().audioMaster);
+        e->setMuted(false);
         e->setRate(1.0);
         QVERIFY(e->stats().audioMaster);
         e->pause();

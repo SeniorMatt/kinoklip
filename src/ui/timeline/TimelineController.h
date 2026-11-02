@@ -83,12 +83,17 @@ struct PasteAttributeSet
     [[nodiscard]] bool any() const { return transform || effects || volume || pan || speed; }
 };
 
+struct TypedTimecode;
+
 /// A ranged source clip, as offered by the source viewer.
 struct SourceSelection
 {
     QString mediaId;
     int64_t inUs = 0;
     int64_t outUs = 0; ///< exclusive; <= inUs means "to the end of the media"
+    /// Source time of the source viewer's playhead when the clip has no in mark (Replace
+    /// lines that frame up with the timeline playhead, spec 4.7); -1 = align on inUs.
+    int64_t playheadUs = -1;
 };
 
 /// Timeline commands and editor state shared by the timeline widget and the panel.
@@ -284,9 +289,30 @@ public:
 
     /// Puts source range [inUs, outUs) of media @p mediaId at the playhead on the targeted
     /// tracks with @p mode; moves the playhead to the end of the new clip. One undo step.
+    /// Replace with @p replaceAlignUs >= 0: the source frame at that time lands under the
+    /// timeline playhead (spec 4.7) instead of the in point at the clip start.
     /// Returns the new clip ids (empty if nothing was placed).
-    QVector<quint64> insertSource(
-        const QString& mediaId, int64_t inUs, int64_t outUs, SourceEditMode mode);
+    QVector<quint64> insertSource(const QString& mediaId, int64_t inUs, int64_t outUs,
+        SourceEditMode mode, int64_t replaceAlignUs = -1);
+    /// Several sources dropped on the viewer's edit overlay (spec 4.14), as one undo step:
+    /// Insert, Overwrite, Place on Top and Append at End place them one after the other;
+    /// Replace, Fit to Fill and Ripple Overwrite use the first. Returns the new clip ids.
+    QVector<quint64> editSources(const QVector<SourceSelection>& sources, SourceEditMode mode);
+    /// The source edit of action @p actionId ("edit.insert", ... "edit.ripple_overwrite"),
+    /// or std::nullopt for any other id.
+    [[nodiscard]] static std::optional<SourceEditMode> sourceEditModeFor(const QString& actionId);
+    /// A typed timecode (spec 2.10): an absolute one moves the playhead there; an offset moves
+    /// the selected clips (or trims the selected edit point, like the nudge keys) by it, else
+    /// the playhead. One undo step when clips move; the playhead never goes before frame 0.
+    void enterTimecode(const TypedTimecode& entry);
+    /// Alt+Up / Alt+Down (spec 21.10): moves the selected video clips (none selected: the
+    /// selected audio clips) one track up (@p up = 1) or down (-1) on screen; linked clips of
+    /// the other kind keep their tracks. Overwrites what is there; no track is created; one
+    /// undo step, none when blocked (top / bottom track, locked track).
+    void moveSelectionVertically(int up);
+    /// Removes every track without clips, keeping at least one video and one audio track and
+    /// every locked track (spec 12.8). One undo step.
+    void deleteEmptyTracks();
 
 public slots:
     // ---- Commands (each one undo step; no-ops when there is nothing to do) ----
