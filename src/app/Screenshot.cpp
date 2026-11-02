@@ -8,6 +8,8 @@
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
 #include "core/Project.h"
+#include "core/Retime.h"
+#include "core/RetimeOps.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
@@ -37,6 +39,7 @@
 #include <QScreen>
 #include <QTabWidget>
 #include <QTimer>
+#include <QUndoStack>
 
 #include <algorithm>
 #include <cstdio>
@@ -286,6 +289,55 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
                 w->scrollToFrame(double(range->first) - 60);
             });
         }
+    } else if (base == QLatin1String("retime")) {
+        // Retime controls of the first media video clip, turned into three speed segments
+        // (50 %, 100 % with a smooth ramp into it, 200 %) when it has no retime curve yet.
+        // "retime:curve" also opens its retime curve in the inline curve editor.
+        auto* timelinePanel = window.findChild<TimelinePanel*>();
+        const ClipData* clip = nullptr;
+        for (const TrackData& track : ctx.project->timeline()->data().videoTracks) {
+            for (const ClipData& c : track.clips) {
+                if (!clip && c.kind == ClipKind::Media && c.duration >= 30)
+                    clip = &c;
+            }
+        }
+        if (!timelinePanel || !clip) {
+            std::fprintf(stderr, "retime: needs a project with a video clip of 30+ frames\n");
+            return 2;
+        }
+        const quint64 id = clip->id;
+        if (!retime::hasCurve(*clip)) {
+            const int64_t start = clip->start;
+            const int64_t third = clip->duration / 3;
+            ctx.project->beginEdit(QStringLiteral("Retime"));
+            TimelineData& data = ctx.project->timeline()->mutableData();
+            retimeops::addSpeedPoint(data, id, start + third);
+            retimeops::addSpeedPoint(data, id, start + 2 * third);
+            retimeops::setSegmentSpeed(data, id, 0, 0.5);
+            retimeops::setSegmentSpeed(data, id, 2, 2.0);
+            retimeops::setPointRamp(data, id, 2 * third, Interp::Smooth);
+            ctx.project->endEdit();
+        }
+        // Demo edits only: closing must not ask to save them.
+        auto markClean = [&ctx] { ctx.project->undoStack()->setClean(); };
+        clip = editops::clipById(ctx.project->timeline()->data(), id);
+        TimelineController* tc = timelinePanel->controller();
+        ctx.selection->selectClip(id);
+        tc->setRetimeControlsShown(id, true);
+        ctx.project->timeline()->setPlayhead(clip->start + clip->duration / 2);
+        if (section == QLatin1String("curve"))
+            tc->showRetimeCurve();
+        markClean();
+        TimelineWidget* w = timelinePanel->timelineWidget();
+        const int64_t start = clip->start;
+        const int64_t duration = clip->duration;
+        QTimer::singleShot(0, w, [w, start, duration] {
+            // The clip fills about three quarters of the track area.
+            const double width = std::max(200, w->viewport()->width() - 220);
+            w->setPixelsPerFrame(width * 0.75 / double(duration), 0);
+            w->scrollToFrame(double(start) - double(duration) * 0.12);
+        });
+        panel = timelinePanel;
     } else if (base == QLatin1String("masks")) {
         // The first video clip with masks, its first mask active (on-screen controls shown)
         // and the Inspector scrolled to the Masks section. "masks:inspector" / "masks:viewer"

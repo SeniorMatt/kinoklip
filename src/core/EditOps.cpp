@@ -69,7 +69,7 @@ namespace {
 bool validPlacement(const TimelineData& data, const PlacedClip& placed)
 {
     const TrackData* track = data.track(placed.track);
-    return track && !track->locked && placed.clip.duration >= 1 && placed.clip.speed > 0;
+    return track && !track->locked && placed.clip.duration >= 1 && std::isfinite(placed.clip.speed);
 }
 
 } // namespace
@@ -292,6 +292,8 @@ int64_t maxHeadExtension(const ClipData& clip, Rational fps)
 {
     if (!isBounded(clip))
         return kUnbounded;
+    if (!isPlainForward(clip)) // retime curve, reverse or freeze: walk the curve
+        return retime::validRun(clip, -1, -1, fps, kUnbounded);
     const double perFrame = usPerFrame(clip, fps);
     if (perFrame <= 0)
         return 0;
@@ -303,6 +305,8 @@ int64_t maxTailExtension(const ClipData& clip, Rational fps)
 {
     if (!isBounded(clip))
         return kUnbounded;
+    if (!isPlainForward(clip))
+        return retime::validRun(clip, clip.duration, +1, fps, kUnbounded);
     const double perFrame = usPerFrame(clip, fps);
     if (perFrame <= 0)
         return 0;
@@ -376,10 +380,28 @@ int64_t slipClip(TimelineData& data, quint64 clipId, int64_t deltaFrames)
         return 0;
     // Slipping right shows later source material: the in point moves forward, limited by the
     // media left after the out point; slipping left is limited by the media before the in point.
-    const int64_t applied = std::clamp(
-        deltaFrames, -maxHeadExtension(*clip, data.fps), maxTailExtension(*clip, data.fps));
+    if (isPlainForward(*clip) || !isBounded(*clip)) {
+        const int64_t applied = std::clamp(
+            deltaFrames, -maxHeadExtension(*clip, data.fps), maxTailExtension(*clip, data.fps));
+        const int64_t us = isPlainForward(*clip)
+            ? clip->framesToSourceUs(applied, data.fps)
+            : int64_t(std::llround(double(applied) * usPerFrame(*clip, data.fps)));
+        clip->sourceInUs = std::max<int64_t>(0, clip->sourceInUs + us);
+        return applied;
+    }
+    // Retimed (curve, reverse, freeze): every shown source time moves by the same amount, one
+    // frame of slip = one source frame at |speed| (one frame at the timeline rate for curves),
+    // limited by the source range the clip shows.
+    const double unit
+        = usPerFrame(*clip, data.fps) > 0 ? usPerFrame(*clip, data.fps) : retime::frameUs(data.fps);
+    const retime::SourceRange shown = retime::shownSourceRange(*clip, 0, clip->duration, data.fps);
+    const int64_t lo
+        = -int64_t(std::floor(double(std::max<int64_t>(0, shown.minUs)) / unit + 1e-6));
+    const int64_t hi = int64_t(std::floor(
+        double(std::max<int64_t>(0, clip->sourceDurationUs - 1 - shown.maxUs)) / unit + 1e-6));
+    const int64_t applied = std::clamp(deltaFrames, lo, hi);
     clip->sourceInUs
-        = std::max<int64_t>(0, clip->sourceInUs + clip->framesToSourceUs(applied, data.fps));
+        = std::max<int64_t>(0, clip->sourceInUs + int64_t(std::llround(double(applied) * unit)));
     return applied;
 }
 
@@ -508,7 +530,7 @@ int64_t closeGap(TimelineData& data, TrackRef ref, int64_t frame, RippleScope sc
 QVector<quint64> placeOnTop(TimelineData& data, const QVector<PlacedClip>& clips)
 {
     for (const PlacedClip& placed : clips) {
-        if (placed.clip.duration < 1 || placed.clip.speed <= 0 || placed.track.index < 0
+        if (placed.clip.duration < 1 || !std::isfinite(placed.clip.speed) || placed.track.index < 0
             || placed.track.index > int(data.tracks(placed.track.type).size()))
             return {};
     }
@@ -871,8 +893,8 @@ bool checkInvariants(const TimelineData& data, QString* why)
                     return fail(clipName + QStringLiteral(" has duration < 1"));
                 if (c.start < 0)
                     return fail(clipName + QStringLiteral(" starts before 0"));
-                if (c.speed <= 0)
-                    return fail(clipName + QStringLiteral(" has speed <= 0"));
+                if (!std::isfinite(c.speed))
+                    return fail(clipName + QStringLiteral(" has a non-finite speed"));
                 if (c.sourceInUs < 0)
                     return fail(clipName + QStringLiteral(" has a negative source in point"));
                 if (c.linkGroup >= data.nextId)

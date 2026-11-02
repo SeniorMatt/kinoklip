@@ -204,8 +204,8 @@ bool TimelineController::pasteAttributes(const PasteAttributeSet& attributes)
                 }
             }
             changed |= !(c == before);
-            if (attributes.speed && src->speed != c.speed)
-                changed |= timelineedit::applyClipSpeed(data, id, src->speed);
+            if (attributes.speed)
+                changed |= timelineedit::applyClipRetime(data, id, *src);
         }
         return changed;
     });

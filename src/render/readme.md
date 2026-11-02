@@ -131,6 +131,21 @@ its transform, so they move with the clip and the clip opacity / transitions app
 * Masks are evaluated at the requested frame exactly (`AnimatedPath::evaluate`), so viewer,
   playback and export agree.
 
+### Retimed clips (speed changes, spec section 31)
+
+The source time of every frame comes from `core/Retime.h` (`clampedSourceTimeUs()`), so
+viewer, playback, export and the CPU fallback show the same frame. With Frame Blend or Optical
+Flow (`retime::effectiveProcess()`), a clip whose source time falls between two source frames
+decodes the next frame too, on a second decoder of the pool positioned one frame later (both
+keep decoding forward), converts both frames to RGB at the size the clip covers and builds the
+in-between in `GlRetime`: a one-pass blend, or the optical flow (luma pyramid with level 0 at
+most 640 px wide, per level a 5x5 search around the doubled coarser motion with a 3x3 SAD on
+the symmetric positions A(p - w v) / B(p + (1 - w) v), cost-weighted smoothing, sub-pixel
+parabola on level 0, then a warp that falls back to the blend where the two samples disagree).
+Costs (1080p): blend ~0.5 ms; flow ~2-4 ms on a GTX 1650 class GPU, ~0.3-0.6 s on llvmpipe
+(export fine, preview slow: use Nearest / Frame Blend). Nested clips use Nearest. Tests:
+`test_retimerender`.
+
 ### Nested timelines (compound clips)
 
 A `ClipKind::Nested` clip shows another timeline, found in the root snapshot's
@@ -198,6 +213,8 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 | `YuvMath.*` | YUV → RGB coefficients (unit-tested on the CPU) |
 | `DecoderPool.*` | `VideoDecoder` reuse by path and position |
 | `AudioMixer.*` | audio mixing |
+| `GlRetime.*` | in-between frames of retimed clips: frame blend, optical flow (coarse-to-fine symmetric block matching) |
+| `TimeStretch.*` | WSOLA time stretch (pitch-corrected retimed audio) + `SourceCache` |
 | `RenderFrameCommand.*` | `--render-frame` |
 
 ## Performance (1080p25, `build/test_renderperf`)
@@ -261,6 +278,7 @@ Add it in `media::PixelFormat` (see `src/media/readme.md`), map plane formats in
   streaming-load copy, see src/media) and uploads planes. Needs testing on Intel/AMD hardware
   with a session (the build machine's render nodes are not accessible to the agents).
 * The CPU fallback renders every transition as a dissolve and skips effects.
-* Audio speed changes resample linearly (pitch follows speed); no time stretching.
+* Retimed audio: time stretched (WSOLA, `TimeStretch`) with pitch correction, else resampled
+  along the retime curve; freeze / reverse parts are muted.
 * An output slot released while a viewer's draw that samples it is still in flight could in
   theory be overwritten early; keep the frame until the next one is displayed (documented above).
