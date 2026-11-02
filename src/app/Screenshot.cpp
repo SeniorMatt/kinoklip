@@ -6,13 +6,16 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "playback/PlaybackEngine.h"
 #include "ui/common/AppContext.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
+#include "ui/viewer/ViewerPanel.h"
 
 #include <QApplication>
+#include <QElapsedTimer>
 #include <QMenu>
 #include <QMenuBar>
 #include <QPainter>
@@ -54,6 +57,24 @@ QPixmap grabWithMenus(QWidget& window, const QList<QMenu*>& menus)
     return shot.copy(area & shot.rect());
 }
 
+constexpr int kFramePollMs = 50; // then wait for the viewers' first rendered frames...
+constexpr int kFrameTimeoutMs = 5000; // ...but never longer than this
+
+/// True when every visible viewer with content shows a rendered frame and has nothing in
+/// flight (decoders open and seek asynchronously, so a fixed delay is not enough).
+bool viewersSettled()
+{
+    for (ViewerPanel* viewer : ViewerPanel::allViewers()) {
+        PlaybackEngine* engine = viewer->engine();
+        if (!viewer->isVisible() || !engine || engine->duration() <= 0) {
+            continue;
+        }
+        if (!engine->currentFrame() || engine->scheduler().busy()) {
+            return false;
+        }
+    }
+    return true;
+}
 } // namespace
 
 int runScreenshot(MainWindow& window, const QString& target, const QString& pngPath)
@@ -113,7 +134,8 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         dialog->show();
 
     int exitCode = 1;
-    QTimer::singleShot(delayMs, &window, [&] {
+    QElapsedTimer waited;
+    auto grab = [&] {
         const QPixmap pixmap = dialog ? dialog->grab()
             : panel                   ? panel->grab()
             : menus.isEmpty()         ? window.grab()
@@ -124,6 +146,18 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             std::fprintf(stderr, "cannot write %s\n", qPrintable(pngPath));
         }
         QApplication::quit();
+    };
+    QTimer poll;
+    poll.setInterval(kFramePollMs);
+    QObject::connect(&poll, &QTimer::timeout, &window, [&] {
+        if (viewersSettled() || waited.elapsed() > kFrameTimeoutMs) {
+            poll.stop();
+            QTimer::singleShot(kFramePollMs, &window, grab); // one more paint
+        }
+    });
+    QTimer::singleShot(delayMs, &window, [&] {
+        waited.start();
+        poll.start();
     });
     QApplication::exec();
     return exitCode;

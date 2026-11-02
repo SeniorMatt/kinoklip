@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// OpenGL viewer surface: persistent texture + one textured quad.
+// OpenGL viewer surface: compositor texture (zero copy) or uploaded image, one textured quad.
 #include "ui/viewer/GlViewerSurface.h"
 
+#include <QCoreApplication>
 #include <QLabel>
 #include <QLoggingCategory>
 #include <QOpenGLContext>
+
+#include <cmath>
 
 namespace kk {
 
@@ -23,7 +26,8 @@ uniform vec4 rect; // x, y, width, height in normalised device coordinates
 out vec2 uv;
 void main()
 {
-    uv = vec2(position.x, 1.0 - position.y); // QImage rows are top-down
+    // Both QImage uploads and compositor textures store row 0 = top of the picture.
+    uv = vec2(position.x, 1.0 - position.y);
     gl_Position = vec4(rect.xy + position * rect.zw, 0.0, 1.0);
 }
 )";
@@ -34,7 +38,7 @@ uniform sampler2D frame;
 out vec4 color;
 void main()
 {
-    // Premultiplied colour over the opaque black letterbox = the colour itself.
+    // Premultiplied colour over the opaque black picture area = the colour itself.
     color = vec4(texture(frame, uv).rgb, 1.0);
 }
 )";
@@ -46,11 +50,11 @@ GlViewerSurface::GlViewerSurface(QWidget* parent)
 {
     setObjectName(QStringLiteral("ViewerSurface"));
     setMinimumSize(160, 90);
-    m_emptyText = new QLabel(this);
-    m_emptyText->setObjectName(QStringLiteral("ViewerEmptyText"));
-    m_emptyText->setAlignment(Qt::AlignCenter);
-    m_emptyText->setAttribute(Qt::WA_TransparentForMouseEvents);
-    m_emptyText->setStyleSheet(QStringLiteral("color: #5a5a60; background: transparent;"));
+    m_text = new QLabel(this);
+    m_text->setObjectName(QStringLiteral("ViewerEmptyText"));
+    m_text->setAlignment(Qt::AlignCenter);
+    m_text->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_text->setStyleSheet(QStringLiteral("color: #5a5a60; background: transparent;"));
 }
 
 GlViewerSurface::~GlViewerSurface()
@@ -65,44 +69,85 @@ void GlViewerSurface::setFrame(const QImage& frame)
         || frame.format() == QImage::Format_ARGB32 || frame.format() == QImage::Format_RGB32;
     m_frame = direct ? frame : frame.convertToFormat(QImage::Format_ARGB32_Premultiplied);
     m_frameDirty = true;
+    m_pending.reset();
     m_picture.setFrame(m_frame);
-    updateEmptyText();
+    updateText();
     update();
+}
+
+void GlViewerSurface::setRenderedFrame(const RenderedFramePtr& frame)
+{
+    if (!frame || !frame->ok) {
+        return;
+    }
+    if (frame->texture == 0) {
+        setFrame(frame->image); // CPU compositor, or image output requested
+        return;
+    }
+    m_pending = frame;
+    m_frame = QImage();
+    m_frameDirty = false;
+    m_picture.setExternalFrame(true);
+    updateText();
+    update();
+}
+
+bool GlViewerSurface::canDrawTextures() const
+{
+    return QCoreApplication::testAttribute(Qt::AA_ShareOpenGLContexts);
 }
 
 void GlViewerSurface::clear(const QString& text)
 {
     m_frame = QImage();
     m_frameDirty = false;
+    m_pending.reset();
     m_picture.clear(text);
-    m_emptyText->setText(text);
-    updateEmptyText();
+    updateText();
     update();
 }
 
 void GlViewerSurface::setAspect(QSize aspect)
 {
     if (m_picture.setAspect(aspect)) {
-        updateEmptyText();
+        updateText();
         update();
+    }
+}
+
+void GlViewerSurface::setZoom(double zoom)
+{
+    if (m_picture.setZoom(zoom)) {
+        updateText();
+        update();
+    }
+}
+
+void GlViewerSurface::setOverlayText(const QString& text)
+{
+    if (text != m_picture.overlayText()) {
+        m_picture.setOverlayText(text);
+        updateText();
     }
 }
 
 QRect GlViewerSurface::pictureRect() const
 {
-    return m_picture.pictureRect(size());
+    return m_picture.pictureRect(size(), devicePixelRatioF());
 }
 
 void GlViewerSurface::resizeEvent(QResizeEvent* event)
 {
     QOpenGLWidget::resizeEvent(event);
-    updateEmptyText();
+    updateText();
 }
 
-void GlViewerSurface::updateEmptyText()
+void GlViewerSurface::updateText()
 {
-    m_emptyText->setGeometry(pictureRect());
-    m_emptyText->setVisible(m_frame.isNull() && !m_emptyText->text().isEmpty());
+    const QString text = m_picture.hasFrame() ? m_picture.overlayText() : m_picture.emptyText();
+    m_text->setText(text);
+    m_text->setGeometry(pictureRect().intersected(rect()));
+    m_text->setVisible(!text.isEmpty());
 }
 
 void GlViewerSurface::initializeGL()
@@ -155,6 +200,13 @@ void GlViewerSurface::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Sampler for both paths: overrides the bound texture's filter state, so the compositor's
+    // shared textures are never modified from this context.
+    glGenSamplers(1, &m_sampler);
+    glSamplerParameteri(m_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(m_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
     m_textureSize = QSize();
     m_frameDirty = !m_frame.isNull();
     m_glReady = true;
@@ -182,8 +234,9 @@ void GlViewerSurface::paintGL()
 {
     glClearColor(kSurroundGrey, kSurroundGrey, kSurroundGrey, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    if (!m_glReady)
+    if (!m_glReady) {
         return;
+    }
 
     // Picture rectangle in framebuffer pixels (GL's origin is bottom-left).
     const qreal dpr = devicePixelRatioF();
@@ -191,40 +244,71 @@ void GlViewerSurface::paintGL()
     const int fbHeight = int(height() * dpr);
     const QRect r(int(logical.x() * dpr), fbHeight - int((logical.y() + logical.height()) * dpr),
         int(logical.width() * dpr), int(logical.height() * dpr));
+    const QRect fbRect(0, 0, int(width() * dpr), fbHeight);
+    const QRect visible = r.intersected(fbRect);
 
     glEnable(GL_SCISSOR_TEST);
-    glScissor(r.x(), r.y(), r.width(), r.height());
+    glScissor(visible.x(), visible.y(), visible.width(), visible.height());
     glClearColor(0.f, 0.f, 0.f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 
-    if (m_frame.isNull())
+    GLuint texture = 0;
+    if (m_pending && m_pending->texture != 0) {
+        // Cross-context synchronisation: the GPU waits for the render thread's commands that
+        // produced the texture; the CPU does not block.
+        if (m_pending->fence) {
+            glWaitSync(static_cast<GLsync>(m_pending->fence), 0, GL_TIMEOUT_IGNORED);
+        }
+        texture = m_pending->texture;
+    } else if (!m_frame.isNull()) {
+        if (m_frameDirty) {
+            uploadFrame();
+        }
+        texture = m_texture;
+    }
+    if (texture == 0) {
+        m_drawn.reset();
         return;
-    if (m_frameDirty)
-        uploadFrame();
+    }
+
+    // Exact 1:1 (or 2:1) zoom looks best unfiltered; everything else is scaled smoothly.
+    const double zoom = m_picture.zoom();
+    const GLint filter
+        = zoom >= 1.0 && std::abs(zoom - std::round(zoom)) < 1e-6 ? GL_NEAREST : GL_LINEAR;
+    glSamplerParameteri(m_sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glSamplerParameteri(m_sampler, GL_TEXTURE_MAG_FILTER, filter);
 
     const float fbWidth = float(width() * dpr);
     glUseProgram(m_program);
     glUniform4f(m_rectUniform, 2.f * r.x() / fbWidth - 1.f, 2.f * r.y() / float(fbHeight) - 1.f,
         2.f * r.width() / fbWidth, 2.f * r.height() / float(fbHeight));
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glBindSampler(0, m_sampler);
     glBindVertexArray(m_vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+    glBindSampler(0, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
     glUseProgram(0);
+    // The previous frame's draw was submitted before this one: it may be recycled now. The
+    // current frame stays referenced until the next paint replaces it.
+    m_drawn = m_pending;
 }
 
 void GlViewerSurface::releaseGl()
 {
-    if (!m_glReady || !context())
+    if (!m_glReady || !context()) {
         return;
+    }
     makeCurrent();
     glDeleteTextures(1, &m_texture);
+    glDeleteSamplers(1, &m_sampler);
     glDeleteBuffers(1, &m_vbo);
     glDeleteVertexArrays(1, &m_vao);
     glDeleteProgram(m_program);
-    m_texture = m_vbo = m_vao = m_program = 0;
+    m_texture = m_sampler = m_vbo = m_vao = m_program = 0;
     m_glReady = false;
     doneCurrent();
 }

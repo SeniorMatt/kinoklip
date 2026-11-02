@@ -1,0 +1,150 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Sustained playback measurement: a 1080p25 timeline with two video layers (1080p H.264 under a
+// 720p picture-in-picture with drop shadow) and a title, linked audio, played for several seconds
+// by the PlaybackEngine with a fake sound card as master clock. Prints fps, dropped frames, the
+// compositor time per frame and the quality Auto settled on, for a viewer-sized output (the
+// Edit page viewer, ~1000x560 device pixels) and a full-HD output (full-screen viewer).
+//
+// ctest runs it on the offscreen platform (whatever OpenGL that has: EGL on the GPU here,
+// otherwise the CPU fallback). Run it with llvmpipe or another driver explicitly with e.g.
+//   QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/test_playbackperf
+#include "../media/MediaTestUtil.h"
+#include "PlaybackTestUtil.h"
+#include "core/EffectRegistry.h"
+#include "core/ParamKeys.h"
+#include "core/Project.h"
+#include "playback/PlaybackEngine.h"
+#include "render/Compositor.h"
+
+#include <QGuiApplication>
+#include <QTest>
+
+using namespace kk;
+
+namespace {
+
+constexpr int kPlaySeconds = 6;
+
+void buildTimeline(Project& project)
+{
+    const ImportResult imported
+        = project.importMedia({test::fixture("perf_1080p.mp4"), test::fixture("h264_25fps.mp4")});
+    QCOMPARE(imported.importedIds.size(), 2);
+    project.beginEdit(QStringLiteral("perf"));
+    TimelineData& tl = project.timeline()->mutableData();
+    tl = makeDefaultTimeline(QStringLiteral("perf"), {25, 1}, 1920, 1080);
+    tl.videoTracks.push_back(TrackData {});
+    tl.videoTracks.back().id = tl.allocateId();
+    auto clip = [&](const QString& media, int64_t duration, int64_t durationUs) {
+        ClipData c;
+        c.id = tl.allocateId();
+        c.mediaId = media;
+        c.duration = duration;
+        c.sourceDurationUs = durationUs;
+        return c;
+    };
+    // V1: 1080p, 8 s.
+    tl.videoTracks[0].clips.push_back(clip(imported.importedIds[0], 200, 8'000'000));
+    // V2: 720p picture-in-picture with a drop shadow.
+    ClipData pip = clip(imported.importedIds[1], 200, 10'000'000);
+    pip.linkGroup = 1;
+    pip.transform.setBase(keys::ZoomX, 0.4);
+    pip.transform.setBase(keys::ZoomY, 0.4);
+    pip.transform.setBase(keys::PosX, 500);
+    pip.transform.setBase(keys::PosY, -250);
+    const EffectRegistry& registry = EffectRegistry::instance();
+    pip.effects.push_back(registry.createEffect(QStringLiteral("drop_shadow"), tl.allocateId()));
+    tl.videoTracks[1].clips.push_back(pip);
+    // V3: title.
+    ClipData title;
+    title.id = tl.allocateId();
+    title.kind = ClipKind::Title;
+    title.duration = 200;
+    title.title = registry.defaultParams(QStringLiteral("text_title"));
+    title.title.setStatic(keys::Text, QStringLiteral("Kinoklip playback"));
+    title.title.setBase(keys::Size, 90);
+    title.transform.setBase(keys::PosY, 350);
+    tl.videoTracks[2].clips.push_back(title);
+    // A1: the PiP's sound.
+    ClipData audio = clip(imported.importedIds[1], 200, 10'000'000);
+    audio.linkGroup = 1;
+    tl.audioTracks[0].clips.push_back(audio);
+    project.endEdit();
+}
+
+} // namespace
+
+class TestPlaybackPerf : public QObject
+{
+    Q_OBJECT
+private Q_SLOTS:
+    void sustainedPlayback_data()
+    {
+        QTest::addColumn<QSize>("viewer");
+        QTest::addColumn<int>("quality");
+        QTest::newRow("edit viewer 1000x562, Auto")
+            << QSize(1000, 562) << int(PlaybackEngine::QualityMode::Auto);
+        QTest::newRow("edit viewer 1000x562, Full")
+            << QSize(1000, 562) << int(PlaybackEngine::QualityMode::Full);
+        QTest::newRow("full screen 1920x1080, Auto")
+            << QSize(1920, 1080) << int(PlaybackEngine::QualityMode::Auto);
+    }
+
+    void sustainedPlayback()
+    {
+        QFETCH(QSize, viewer);
+        QFETCH(int, quality);
+        QString why;
+        if (!test::ensureFixtures(&why)) {
+            QSKIP(qPrintable(why));
+        }
+        Project project;
+        buildTimeline(project);
+        auto fake = std::make_unique<test::FakeAudioOutput>(10, 40);
+        test::FakeAudioOutput* device = fake.get();
+        PlaybackEngine::Options options;
+        options.audio = std::move(fake);
+        PlaybackEngine engine(std::move(options));
+        engine.setMediaPool(project.mediaPool());
+        engine.setTimeline(project.timeline());
+        int client = 0;
+        const bool gpu = engine.compositor()->isGpu();
+        engine.setOutputClient(&client, viewer, gpu);
+        engine.setQualityMode(PlaybackEngine::QualityMode(quality));
+        // Warm up: open decoders, compile shaders, rasterise the title.
+        QVERIFY(QTest::qWaitFor([&] { return engine.currentFrame() != nullptr; }, 10000));
+
+        engine.play();
+        QTest::qWait(500); // decoders reach steady state
+        engine.resetStats();
+        QTest::qWait(kPlaySeconds * 1000);
+        const PlaybackEngine::Stats s = engine.stats();
+        const Quality used = engine.currentQuality();
+        engine.pause();
+        const double expected = s.playSeconds * 25.0;
+        qInfo("%s | %s | output %dx%d | %.2f fps (%lld presented of %.0f due), %lld dropped, "
+              "render %.1f ms/frame, quality %.2f, audio master %d, A/V error %.3f frames, "
+              "underrun %lld",
+            qPrintable(engine.compositor()->backendDescription()), QTest::currentDataTag(),
+            engine.outputSize().width(), engine.outputSize().height(), s.fps(),
+            qlonglong(s.presented), expected, qlonglong(s.dropped), s.averageRenderMs,
+            qualityFactor(used), int(s.audioMaster), s.avOffsetFrames,
+            qlonglong(device->underrunFrames()));
+        QVERIFY(s.presented > 0);
+        QVERIFY(s.audioMaster);
+        if (gpu && qEnvironmentVariableIsEmpty("KK_PERF_NO_ASSERT")) {
+            // On a real GPU this timeline must play without drops.
+            QVERIFY2(s.dropped <= expected * 0.02, "more than 2 % dropped on the GPU backend");
+        }
+    }
+};
+
+int main(int argc, char** argv)
+{
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    QGuiApplication app(argc, argv);
+    TestPlaybackPerf test;
+    return QTest::qExec(&test, argc, argv);
+}
+
+#include "test_playbackperf.moc"

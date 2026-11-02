@@ -16,6 +16,7 @@
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
 #include "ui/dialogs/DialogActions.h"
+#include "ui/viewer/ViewerTransport.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -105,6 +106,9 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     buildInterfaceBar();
     connectAppActions();
     connectPanelToggles();
+    // Playback-owned actions (transport.*, view.fullscreen_viewer) -> the active viewer.
+    m_transport = new ViewerTransport(ctx, this);
+    m_transport->connectActions();
 
     connect(ctx.project, &Project::nameChanged, this, &MainWindow::updateTitle);
     connect(ctx.project, &Project::dirtyChanged, this, &MainWindow::updateTitle);
@@ -262,7 +266,7 @@ void MainWindow::connectAppActions()
         QMessageBox::about(this, tr("About %1").arg(QLatin1String(appinfo::name)),
             tr("<h3>%1 %2</h3><p>A non-linear video editor built with Qt and FFmpeg.</p>"
                "<p>Licensed under the GNU GPL v3 or later.</p>")
-                .arg(QLatin1String(appinfo::name), QLatin1String(appinfo::version)));
+                .arg(QLatin1String(appinfo::name), appinfo::displayVersion()));
     });
     connect(actions.action(QStringLiteral("help.about_qt")), &QAction::triggered, qApp,
         &QApplication::aboutQt);
@@ -305,7 +309,8 @@ void MainWindow::syncPanelToggles()
 void MainWindow::updateTitle()
 {
     const QString name = m_ctx.project->name();
-    setWindowTitle(QStringLiteral("%1[*] — %2").arg(name, QLatin1String(appinfo::name)));
+    setWindowTitle(QStringLiteral("%1[*] — %2 %3")
+                       .arg(name, QLatin1String(appinfo::name), appinfo::displayVersion()));
     setWindowModified(m_ctx.project->isDirty());
     m_interfaceBar->setTitle(m_ctx.project->isDirty() ? name + QStringLiteral(" •") : name);
 }
