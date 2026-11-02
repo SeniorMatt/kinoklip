@@ -115,3 +115,8 @@
 - 00:25 Heartbeat: animations 2 commits (testing), audiopage working (64 files uncommitted), editpolish audit committed + implementing; 17 GB free.
 - 00:34 Heartbeat: animations testing (2 commits), audiopage committed main work, editpolish building (41 files); 16 GB free.
 - 00:37 animations merged (spec renumbered 38 -> 36; Audio page will be 37). Version 0.2.2. Full host suite started.
+- 00:59 main 0.2.2: 95/95 pass; pushed; container release build started.
+- 01:25 Released 0.2.2-alpha.1 (Cut page + animations); Desktop copy. Merging editpolish next.
+- 01:27 Released 0.2.2-alpha.1 earlier; merged editpolish (v3 round 1) and audiopage (format 12; conflicts in AudioFeeder/PlaybackEngine resolved by hand); full suite running.
+- 01:27 Heartbeat: no agents running; full suite on merged main (editpolish + audiopage) in progress.
+- 01:34 main 102/102 pass, pushed. Version 0.3.0; release notes written; container release build started.
