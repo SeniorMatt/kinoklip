@@ -539,6 +539,10 @@ public:
         m_slideInName = new QCheckBox(tr("Trim tool slides in the clip name bar"));
         m_slideInName->setChecked(b.trimToolSlideInNameBar);
         form->addRow(QString(), m_slideInName);
+        m_twoUpLook = new QCheckBox(tr("Trim view shows effects and transforms (slower)"));
+        m_twoUpLook->setObjectName(QStringLiteral("TwoUpProgramLook"));
+        m_twoUpLook->setChecked(b.twoUpProgramLook);
+        form->addRow(QString(), m_twoUpLook);
         m_tabs = new QCheckBox(tr("Show open timelines as tabs"));
         m_tabs->setObjectName(QStringLiteral("TimelineTabs"));
         m_tabs->setToolTip(tr("Off: one timeline at a time, chosen from a drop-down above "
@@ -563,6 +567,7 @@ public:
         s.setValue(QStringLiteral("edit/rippleDeleteGapAtPlayhead"), m_rippleGap->isChecked());
         s.setValue(QStringLiteral("edit/selectToolRollsAtCut"), m_rollAtCut->isChecked());
         s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
+        s.setValue(QStringLiteral("edit/twoUpProgramLook"), m_twoUpLook->isChecked());
         s.setValue(QStringLiteral("edit/timelineTabs"), m_tabs->isChecked());
         s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
         prefs::setShowDefaultSmartBins(m_smartBins->isChecked());
@@ -577,6 +582,7 @@ private:
     QComboBox* m_wheel = nullptr;
     QComboBox* m_zoom = nullptr;
     QCheckBox* m_threePoint = nullptr;
+    QCheckBox* m_twoUpLook = nullptr;
     QCheckBox* m_rippleGap = nullptr;
     QCheckBox* m_rollAtCut = nullptr;
     QCheckBox* m_slideInName = nullptr;
