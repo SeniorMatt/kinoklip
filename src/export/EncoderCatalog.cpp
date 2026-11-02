@@ -5,11 +5,13 @@
 #include "export/ExportFFmpeg.h"
 #include "export/ExportLog.h"
 #include "export/VideoEncoder.h"
+#include "media/HwAccel.h"
 
 #include <QDir>
 #include <QElapsedTimer>
 #include <QHash>
 #include <QImage>
+#include <QSet>
 
 #include <mutex>
 
@@ -71,6 +73,7 @@ struct ProbeResult
     HwEncoderStatus status;
     AVBufferRef* device = nullptr; ///< VAAPI device (kept for the process lifetime)
     bool lowPower = false;
+    QString driver; ///< VAAPI driver ("iHD 24.1.0") for the summary line
 };
 
 /// Process-wide cache. Devices are never released (drivers must not be torn down during
@@ -80,6 +83,7 @@ struct Cache
     std::mutex mutex;
     QHash<QString, ProbeResult> results;
     QHash<QString, AVBufferRef*> vaapiDevices; ///< render node → device (nullptr = failed)
+    QSet<QString> summarised; ///< summary scopes already logged ("all", "h264", ...)
 };
 
 Cache& cache()
@@ -95,31 +99,40 @@ bool hardwareDisabled()
 }
 
 /// Opens @p config and encodes one grey frame. @return true if a packet came out.
+/// FFmpeg's messages during the probe (an unsupported profile, a missing entry point...) are
+/// expected failures: they are captured, the first one becomes part of @p error.
 bool tryEncode(VideoEncoderConfig config, QString* error)
 {
-    config.size = {kProbeWidth, kProbeHeight};
-    config.fps = {25, 1};
-    config.settings.rateControl = RateControl::Quality;
-    config.settings.quality = 30;
-    config.settings.speed = QStringLiteral("fast");
-    VideoEncoder encoder;
-    if (!encoder.open(config, error)) {
-        return false;
+    FfmpegQuiet capture;
+    const bool ok = [&] {
+        config.size = {kProbeWidth, kProbeHeight};
+        config.fps = {25, 1};
+        config.settings.rateControl = RateControl::Quality;
+        config.settings.quality = 30;
+        config.settings.speed = QStringLiteral("fast");
+        VideoEncoder encoder;
+        if (!encoder.open(config, error)) {
+            return false;
+        }
+        QImage frame(kProbeWidth, kProbeHeight, QImage::Format_ARGB32_Premultiplied);
+        frame.fill(QColor(128, 128, 128));
+        int packets = 0;
+        const PacketSink sink = [&](AVPacket*) {
+            ++packets;
+            return true;
+        };
+        if (!encoder.encode(frame, 0, sink, error) || !encoder.flush(sink, error)) {
+            return false;
+        }
+        if (packets == 0 && error) {
+            *error = QStringLiteral("no output");
+        }
+        return packets > 0;
+    }();
+    if (!ok && error && !capture.firstError().isEmpty()) {
+        *error += QStringLiteral(" [%1]").arg(capture.firstError());
     }
-    QImage frame(kProbeWidth, kProbeHeight, QImage::Format_ARGB32_Premultiplied);
-    frame.fill(QColor(128, 128, 128));
-    int packets = 0;
-    const PacketSink sink = [&](AVPacket*) {
-        ++packets;
-        return true;
-    };
-    if (!encoder.encode(frame, 0, sink, error) || !encoder.flush(sink, error)) {
-        return false;
-    }
-    if (packets == 0 && error) {
-        *error = QStringLiteral("no output");
-    }
-    return packets > 0;
+    return ok;
 }
 
 QStringList renderNodes()
@@ -147,12 +160,16 @@ AVBufferRef* vaapiDeviceFor(Cache& c, const QString& node, QString* error)
         return *it;
     }
     AVBufferRef* device = nullptr;
+    FfmpegQuiet capture; // e.g. no permission on the node: say it once
     const int err = av_hwdevice_ctx_create(
         &device, AV_HWDEVICE_TYPE_VAAPI, node.toUtf8().constData(), nullptr, 0);
     if (err < 0) {
         device = nullptr;
         if (error) {
             *error = QStringLiteral("cannot open VAAPI on %1: %2").arg(node, avError(err));
+            if (!capture.firstError().isEmpty()) {
+                *error += QStringLiteral(" [%1]").arg(capture.firstError());
+            }
         }
     }
     c.vaapiDevices.insert(node, device);
@@ -171,6 +188,16 @@ ProbeResult probe(Cache& c, const HwRow& row)
     }
     if (!avcodec_find_encoder_by_name(row.encoder)) {
         result.status.error = QStringLiteral("not in this FFmpeg build");
+        return result;
+    }
+    // Do not even try what cannot work: FFmpeg would log CUDA_ERROR_NO_DEVICE / "Error
+    // creating a MFX session" errors on every machine without the hardware.
+    if (row.backend == EncoderBackend::Nvenc && !media::nvidiaDriverPresent()) {
+        result.status.error = QStringLiteral("no NVIDIA driver");
+        return result;
+    }
+    if (row.backend == EncoderBackend::Qsv && !media::qsvRuntimePresent()) {
+        result.status.error = QStringLiteral("no Intel GPU with a oneVPL/MFX runtime");
         return result;
     }
     QElapsedTimer timer;
@@ -211,12 +238,15 @@ ProbeResult probe(Cache& c, const HwRow& row)
     if (!result.status.available) {
         result.status.error = error;
     }
-    qCInfo(lcExport).noquote() << "hardware encoder" << result.status.encoderName
-                               << (result.status.available ? QStringLiteral("available")
-                                                           : QStringLiteral("unavailable:"))
-                               << (result.status.available ? result.status.device
-                                                           : result.status.error)
-                               << QStringLiteral("(%1 ms)").arg(timer.elapsed());
+    if (result.status.available && result.device) {
+        result.driver = media::vaapiDriverName(result.device);
+    }
+    qCDebug(lcExport).noquote() << "hardware encoder" << result.status.encoderName
+                                << (result.status.available ? QStringLiteral("available")
+                                                            : QStringLiteral("unavailable:"))
+                                << (result.status.available ? result.status.device
+                                                            : result.status.error)
+                                << QStringLiteral("(%1 ms)").arg(timer.elapsed());
     return result;
 }
 
@@ -244,6 +274,83 @@ ProbeResult cachedProbe(const HwRow& row)
     ProbeResult result = probe(c, row);
     c.results.insert(key, result);
     return result;
+}
+
+const char* backendLabel(EncoderBackend backend)
+{
+    switch (backend) {
+    case EncoderBackend::Nvenc:
+        return "NVENC";
+    case EncoderBackend::Vaapi:
+        return "VAAPI";
+    case EncoderBackend::Qsv:
+        return "QSV";
+    default:
+        return "?";
+    }
+}
+
+/// One info line per probe scope instead of one per encoder (and none of FFmpeg's), e.g.
+/// "hardware encoders: VAAPI h264/hevc (iHD 24.1.0, /dev/dri/renderD128), NVENC unavailable
+/// (no NVIDIA driver), QSV unavailable (no Intel GPU with a oneVPL/MFX runtime)".
+/// @p scope is "" for every encoder or a codec id; logged once per scope.
+void logSummary(const QString& scope)
+{
+    Cache& c = cache();
+    QStringList parts;
+    {
+        std::lock_guard lock(c.mutex);
+        if (c.summarised.contains(scope)) {
+            return;
+        }
+        c.summarised.insert(scope);
+        for (EncoderBackend backend :
+            {EncoderBackend::Vaapi, EncoderBackend::Nvenc, EncoderBackend::Qsv}) {
+            QStringList codecs;
+            QString where;
+            QString why;
+            bool any = false;
+            for (const HwRow& row : kHardware) {
+                if (row.backend != backend
+                    || (!scope.isEmpty() && scope != QLatin1String(row.codec))) {
+                    continue;
+                }
+                const auto it = c.results.constFind(QString::fromLatin1(row.encoder));
+                if (it == c.results.constEnd()) {
+                    continue;
+                }
+                any = true;
+                if (it->status.available) {
+                    codecs << QString::fromLatin1(row.codec);
+                    QStringList details;
+                    if (!it->driver.isEmpty()) {
+                        details << it->driver;
+                    }
+                    if (!it->status.device.isEmpty()) {
+                        details << it->status.device;
+                    }
+                    if (!details.isEmpty()) {
+                        where = QStringLiteral(" (%1)").arg(details.join(QStringLiteral(", ")));
+                    }
+                } else if (why.isEmpty()) {
+                    why = it->status.error;
+                }
+            }
+            if (!any) {
+                continue;
+            }
+            parts << (codecs.isEmpty()
+                    ? QStringLiteral("%1 unavailable (%2)")
+                          .arg(QLatin1String(backendLabel(backend)), why)
+                    : QStringLiteral("%1 %2%3").arg(
+                          QLatin1String(backendLabel(backend)), codecs.join(u'/'), where));
+        }
+    }
+    qCInfo(lcExport).noquote() << (scope.isEmpty()
+            ? QStringLiteral("hardware encoders:")
+            : QStringLiteral("hardware encoders for %1:").arg(scope))
+                               << (parts.isEmpty() ? QStringLiteral("none")
+                                                   : parts.join(QStringLiteral(", ")));
 }
 
 } // namespace
@@ -275,6 +382,9 @@ QList<EncoderChoice> EncoderCatalog::candidates(const QString& codecId, EncoderB
                 out.push_back({QString::fromLatin1(row.encoder), row.backend});
             }
         }
+        if (!hardwareDisabled()) {
+            logSummary(codecId);
+        }
     }
     out += softwareEncoders(codecId);
     return out;
@@ -286,6 +396,9 @@ QList<HwEncoderStatus> EncoderCatalog::hardwareEncoders()
     QList<HwEncoderStatus> out;
     for (const HwRow& row : kHardware) {
         out.push_back(cachedProbe(row).status);
+    }
+    if (!hardwareDisabled()) {
+        logSummary(QString());
     }
     return out;
 }
