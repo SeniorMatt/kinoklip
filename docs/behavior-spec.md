@@ -319,6 +319,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 21.5 | D toggles the selected clips' enabled state. | OK (tc nudgeAndToggleEnabled) |
 | 21.6 | Ctrl+Shift drag performs a swap / shuffle insert move: the clip leaves its place (the hole closes) and lands on the nearest edit point of its track; linked parts move along. | Fixed (`editops::shuffleClip`; pe2 spec21_6, er shuffleMovesAndCloses) |
 | 21.7 | Ctrl+Shift+, / Ctrl+Shift+. swap the selected clip with its previous / next neighbour (linked parts too). | Fixed (new; pe2 spec21_7, er swapWithNeighbourKeepsGap) |
+| 21.8 | Dragging clips past the outermost track of their type (above the top video track, below the bottom audio track) creates a new track for them, one at a time however far the pointer goes; linked clips of the other type get a new track too when they need one (new V3 pairs with A3). Moving back removes the track again during the drag; the move and the new tracks are one undo step. | Fixed (owner request after 0.2.0-alpha.1; tw movingPastOutermostTrackCreatesTrack) |
 
 ## 22. End-to-end flow (running app)
 
@@ -410,6 +411,7 @@ Tests: `cp` = `tests/core/test_compound.cpp`, `tt` = `tests/timeline/test_timeli
 | 26.11 | Rendering, playback and export of nested content match the flattened clips (picture within 2/255 per channel, sound sample-exact), frame-accurately through several nesting levels. | Fixed (tn compoundMatchesFlattened, mediaThroughTwoLevels, audioMatchesFlattened) |
 | 26.12 | Nested clips show thumbnails and waveforms of their content on the timeline (rendered in the background, cached until the nested timeline changes) and have their own clip colour. | Fixed (new) |
 | 26.13 | Deleting a compound clip / timeline from the media pool asks first when clips use it; those clips become offline (draw and play nothing). | Fixed |
+| 26.14 | Double-clicking the body of a compound clip / nested timeline on the timeline opens it in a tab (like Open in Timeline) with its playhead at the moment under the pointer (the inner frame the clip shows there, speed changes included). An offline compound clip does nothing; a double-click elsewhere behaves as before. | Fixed (owner request after 0.2.0-alpha.1; test_timelinetabs doubleClickOpensCompoundAtHoveredFrame) |
 
 ## 27. Masks (masks branch, roadmap v2)
 
