@@ -49,6 +49,26 @@ PlaybackEngine::PlaybackEngine(QObject* parent)
     : PlaybackEngine(Options {}, parent)
 { }
 
+namespace {
+
+/// KK_PLAYBACK_STATS: any value except empty/0/false/off/no turns statistics on (so "1",
+/// "yes", "true" all work). Read once; the first engine says so in the log.
+bool statsEnabled()
+{
+    static const bool enabled = [] {
+        const QByteArray v = qgetenv("KK_PLAYBACK_STATS").trimmed().toLower();
+        const bool on = !v.isEmpty() && v != "0" && v != "false" && v != "off" && v != "no";
+        if (on) {
+            qCInfo(lcPlayback) << "KK_PLAYBACK_STATS: one stats line per second while playing "
+                                  "and a summary when playback stops";
+        }
+        return on;
+    }();
+    return enabled;
+}
+
+} // namespace
+
 PlaybackEngine::PlaybackEngine(Options options, QObject* parent)
     : QObject(parent)
     , m_scheduler(
@@ -66,7 +86,7 @@ void PlaybackEngine::init(Options options)
         m_ring = std::make_unique<AudioRing>(kRingFrames);
         m_feeder = std::make_unique<AudioFeeder>(m_ring.get());
     }
-    m_logStats = qEnvironmentVariableIntValue("KK_PLAYBACK_STATS") != 0;
+    m_logStats = statsEnabled();
     m_tick.setTimerType(Qt::PreciseTimer);
     m_tick.setInterval(kTickMs);
     connect(&m_tick, &QTimer::timeout, this, &PlaybackEngine::onTick);
@@ -78,6 +98,9 @@ void PlaybackEngine::init(Options options)
 
 PlaybackEngine::~PlaybackEngine()
 {
+    if (m_logStats && isPlaying()) {
+        logStatsSummary(); // quitting while playing
+    }
     m_tick.stop();
     stopAudio();
     m_feeder.reset(); // joins the mixer thread before the ring goes away
@@ -614,6 +637,7 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     }
 
     m_rate = rate;
+    m_statsPlayRate = rate;
     const bool useAudio = rate == 1.0 && hasAudio() && !m_muted;
     if (useAudio) {
         startAudioClock(start);
@@ -624,6 +648,12 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     if (fromRest) {
         m_auto.reset(now);
         m_scheduler.resetAverage(); // paused stills say nothing about playback
+        if (m_logStats) {
+            m_statsAtPlay = stats();
+            std::copy(std::begin(m_stageSum), std::end(m_stageSum), m_playStageSumAtStart);
+            m_playStageCountAtStart = m_stageCount;
+            m_playStatsActive = true;
+        }
     }
     m_parked = false;
     updateParams(false);
@@ -688,6 +718,9 @@ void PlaybackEngine::stopMotion()
     m_clock.stop();
     m_scheduler.clear();
     m_parked = false;
+    if (m_logStats) {
+        logStatsSummary(); // also covers plays shorter than one stats window (1 s)
+    }
     m_statsLogUs = 0; // the next play starts a new statistics window
     m_customRange = false;
     m_hasShownKey = false;
@@ -861,6 +894,34 @@ void PlaybackEngine::logStats(int64_t nowUs)
     m_statsAtLog = s;
     std::fill(std::begin(m_winSum), std::end(m_winSum), 0.0);
     m_winCount = 0;
+}
+
+void PlaybackEngine::logStatsSummary()
+{
+    if (!m_playStatsActive) {
+        return;
+    }
+    m_playStatsActive = false;
+    const Stats s = stats();
+    const double seconds = s.playSeconds - m_statsAtPlay.playSeconds;
+    const int64_t presented = s.presented - m_statsAtPlay.presented;
+    const int64_t frames = std::max<int64_t>(1, m_stageCount - m_playStageCountAtStart);
+    auto stage = [&](int i) { return (m_stageSum[i] - m_playStageSumAtStart[i]) / double(frames); };
+    qCInfo(lcPlayback).noquote() << QStringLiteral(
+        "stats summary: played %1 s, %2 frames shown (%3 fps of %4), %5 dropped, %6 seeks "
+        "while playing, render avg [decode %7, upload %8, composite %9, output %10] ms")
+                                        .arg(seconds, 0, 'f', 2)
+                                        .arg(presented)
+                                        .arg(seconds > 0 ? double(presented) / seconds : 0.0, 0,
+                                            'f', 1)
+                                        .arg(
+                                            fps().toDouble() * std::abs(m_statsPlayRate), 0, 'f', 2)
+                                        .arg(s.dropped - m_statsAtPlay.dropped)
+                                        .arg(s.seeksWhilePlaying - m_statsAtPlay.seeksWhilePlaying)
+                                        .arg(stage(0), 0, 'f', 1)
+                                        .arg(stage(1), 0, 'f', 1)
+                                        .arg(stage(2), 0, 'f', 1)
+                                        .arg(stage(3), 0, 'f', 1);
 }
 
 void PlaybackEngine::onTick()
