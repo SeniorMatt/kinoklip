@@ -94,6 +94,18 @@ public:
     /// Forgets everything cached in memory for `path` (call after the file changed).
     void invalidate(const QString& path);
 
+    /// How the preview decoders (thumbnails, posters, exact frames) decode.
+    enum class PreviewDecoding {
+        Software,
+        Hardware, ///< the global hardware preference (preferredHwAccel())
+        /// Default: software up to 1920x1200, hardware above. Small frames decode as fast in
+        /// software, and hardware decoders opened in parallel delayed the program playback's
+        /// own hardware decoder (first play after an import dropped frames; polish-v3,
+        /// Round 3); large HEVC / 4K frames are much faster on the hardware decoder.
+        BySize
+    };
+    /// Decoding of the preview decoders opened from now on (idle ones are closed).
+    void setPreviewDecoding(PreviewDecoding mode);
     /// Cancels queued work and waits for running jobs; afterwards all getters only return
     /// already cached results and no ...Ready signal is emitted any more (not even for jobs
     /// that were running during the call). Called automatically when the application quits.
@@ -150,6 +162,7 @@ private:
 
     std::mutex m_decoderMutex;
     std::list<std::pair<QString, std::unique_ptr<VideoDecoder>>> m_idleDecoders; ///< MRU first
+    std::atomic<PreviewDecoding> m_previewDecoding {PreviewDecoding::BySize};
 };
 
 } // namespace kk::media

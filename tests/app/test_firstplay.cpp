@@ -225,9 +225,15 @@ private slots:
         wo.autosave = false;
         wo.restoreLayout = false;
         wo.saveLayout = false;
-        if (qEnvironmentVariableIsSet("KK_FIRSTPLAY_NOTHUMBS")) { // experiment: no media cache work
-            QSettings().setValue(QStringLiteral("timeline/thumbnails"), QStringLiteral("none"));
-            QSettings().setValue(QStringLiteral("timeline/waveforms"), false);
+        // Experiments: KK_FIRSTPLAY_NOTHUMBS=1 (no media cache work), =thumbs, =waves (one).
+        if (const QString no = qEnvironmentVariable("KK_FIRSTPLAY_NOTHUMBS"); !no.isEmpty()) {
+            if (no != QLatin1String("waves"))
+                QSettings().setValue(QStringLiteral("timeline/thumbnails"), QStringLiteral("none"));
+            if (no != QLatin1String("thumbs"))
+                QSettings().setValue(QStringLiteral("timeline/waveforms"), false);
+        } else {
+            QSettings().remove(QStringLiteral("timeline/thumbnails"));
+            QSettings().remove(QStringLiteral("timeline/waveforms"));
         }
         MainWindow window(ctx, wo);
         if (!qEnvironmentVariableIsSet("KK_FIRSTPLAY_COLD"))
