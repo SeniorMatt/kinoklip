@@ -459,7 +459,9 @@ void TimelineWidget::wheelEvent(QWheelEvent* event)
     };
     QScrollBar* h = horizontalScrollBar();
     QScrollBar* v = verticalScrollBar();
-    const int timeStep = m_layout.trackAreaWidth() / 1200; // pixels of scroll per 1/8 degree
+    // One wheel notch (120 = 15 degrees) scrolls a tenth of the visible time at any width
+    // (the integer step used to truncate: 120 px per notch on any view under 2400 px).
+    const double timeStep = m_layout.trackAreaWidth() / 1200.0; // px per 1/8 degree
     if (resolve) {
         if (mods & Qt::AltModifier) {
             wheelZoom();
@@ -467,8 +469,8 @@ void TimelineWidget::wheelEvent(QWheelEvent* event)
             setTrackHeightScale(m_layout.heightScale() * std::pow(kWheelZoomPerDegree, anyDelta));
         } else if ((mods & Qt::ControlModifier) || angle.x() != 0) {
             // Ctrl+wheel and horizontal touchpad swipes scroll time.
-            h->setValue(
-                h->value() - (angle.x() != 0 ? angle.x() : angle.y()) * std::max(1, timeStep));
+            h->setValue(h->value()
+                - int(std::lround((angle.x() != 0 ? angle.x() : angle.y()) * timeStep)));
         } else {
             v->setValue(v->value() - angle.y() / 2);
         }
