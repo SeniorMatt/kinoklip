@@ -7,7 +7,10 @@
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
 
+#include <QApplication>
+#include <QContextMenuEvent>
 #include <QTest>
+#include <QTimer>
 #include <QUndoStack>
 
 using namespace kk;
@@ -67,6 +70,24 @@ struct View
     int undoCount() const { return f.project.undoStack()->count(); }
     QString undoText() const { return f.project.undoStack()->undoText(); }
 };
+
+/// Opens the context menu of @p w at @p pos and returns the texts of its entries (the popup
+/// is read and closed from a timer, since QMenu::exec() blocks).
+QStringList menuTexts(TimelineWidget& w, QPoint pos)
+{
+    QStringList texts;
+    QTimer::singleShot(0, [&texts] {
+        if (auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget())) {
+            for (QAction* a : menu->actions())
+                if (!a->isSeparator())
+                    texts.append(a->text());
+            menu->close();
+        }
+    });
+    QContextMenuEvent event(QContextMenuEvent::Mouse, pos, w.viewport()->mapToGlobal(pos));
+    QCoreApplication::sendEvent(w.viewport(), &event);
+    return texts;
+}
 
 } // namespace
 
@@ -229,6 +250,31 @@ private slots:
         v.c.editSources({SourceSelection {media, 0, 0}, SourceSelection {media, 0, 0}},
             SourceEditMode::AppendAtEnd);
         QCOMPARE(v.undoText(), QStringLiteral("Append at End"));
+    }
+
+    /// Context menus (round 2 audit C2 / C3): the header offers move, height and its buttons;
+    /// the ruler on a marker offers Modify Marker.
+    void contextMenusOfferTheBasics()
+    {
+        View v;
+        const TimelineLayout& L = v.w.layout();
+        const QRect v1 = L.rowRect(L.rowOf({TrackType::Video, 0}));
+        const QStringList header = menuTexts(v.w, QPoint(60, v1.center().y()));
+        for (const char* t : {"Move Track Up", "Move Track Down", "Track Height", "Disable Track",
+                 "Lock Track", "Delete Empty Tracks"})
+            QVERIFY2(std::any_of(header.cbegin(), header.cend(),
+                         [t](QString s) { return s.remove(QLatin1Char('&')) == QLatin1String(t); }),
+                t);
+        const QRect a1 = L.rowRect(L.rowOf({TrackType::Audio, 0}));
+        const QStringList audio = menuTexts(v.w, QPoint(60, a1.center().y()));
+        QVERIFY(audio.contains(QStringLiteral("Mute Track")));
+        QVERIFY(audio.contains(QStringLiteral("Solo Track")));
+        v.f.project.timeline()->setPlayhead(20);
+        v.c.addMarkerAtPlayhead();
+        const int x = int(L.frameToX(20));
+        const QStringList ruler = menuTexts(v.w, QPoint(x, kRulerHeight / 2));
+        QVERIFY(ruler.contains(QStringLiteral("Modify Marker…")));
+        QVERIFY(ruler.contains(QStringLiteral("Delete Marker")));
     }
 };
 

@@ -676,6 +676,18 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         });
         menu.addAction(track->locked ? tr("Unlock Track") : tr("Lock Track"), this,
             [this, ref] { m_controller->toggleTrackFlag(ref, TimelineController::FlagLocked); });
+        // The header buttons as menu entries (Resolve offers them in the header menu too).
+        if (ref.type == TrackType::Video)
+            menu.addAction(
+                track->enabled ? tr("Disable Track") : tr("Enable Track"), this, [this, ref] {
+                    m_controller->toggleTrackFlag(ref, TimelineController::FlagEnabled);
+                });
+        if (ref.type == TrackType::Audio) {
+            menu.addAction(track->muted ? tr("Unmute Track") : tr("Mute Track"), this,
+                [this, ref] { m_controller->toggleTrackFlag(ref, TimelineController::FlagMuted); });
+            menu.addAction(track->solo ? tr("Unsolo Track") : tr("Solo Track"), this,
+                [this, ref] { m_controller->toggleTrackFlag(ref, TimelineController::FlagSolo); });
+        }
         menu.addSeparator();
         // Move Track Up / Down (spec 12.9): on screen, so the outermost track cannot move out.
         const int count = int(data.tracks(ref.type).size());
@@ -861,6 +873,10 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
                 markerIndex = i;
         }
         if (markerIndex >= 0) {
+            // Name, colour and note (the marker editor, as a double-click on it).
+            const int64_t markerFrame = data.markers[markerIndex].frame;
+            menu.addAction(tr("Modify Marker…"), this,
+                [this, markerFrame] { m_controller->editTimelineMarker(markerFrame); });
             menu.addAction(tr("Delete Marker"), this, [this, markerIndex] {
                 m_ctx.project->beginEdit(tr("Delete Marker"));
                 auto& markers = m_ctx.project->timeline()->mutableData().markers;
