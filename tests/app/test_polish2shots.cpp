@@ -258,7 +258,11 @@ private slots:
         app.settle();
         QMimeData mime;
         mime.setData(QLatin1String(mime::MediaItems), id.toUtf8());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 12, 0)
+        const QPointF at = QRectF(program->rect()).center();
+#else
         const QPoint at = program->rect().center();
+#endif
         QDragEnterEvent enter(at, Qt::CopyAction, &mime, Qt::LeftButton, {});
         QCoreApplication::sendEvent(program, &enter);
         QVERIFY(program->editOverlay()->isVisible());
