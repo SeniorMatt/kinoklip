@@ -77,6 +77,8 @@ struct TimelinePaintInput
     int64_t gapEnd = 0;
     /// Selected transition (spec 13.10); clipId 0 = none.
     TransitionRef transition;
+    /// Clips showing their retime controls (Ctrl+R); nullptr = none.
+    const QSet<quint64>* retimeShown = nullptr;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and
@@ -123,6 +125,9 @@ private:
         const QRectF& content, const QRectF& visible, const QColor& color);
     void paintVolumeLine(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
         const QRectF& full, const QRectF& visible);
+    /// The speed bar, speed points and handles of a clip with retime controls (RetimeBar.h).
+    void paintRetime(QPainter& p, const TimelinePaintInput& in, const ClipData& clip,
+        const QRectF& rect, const QRectF& visible);
     void paintKeyframes(
         QPainter& p, const TimelinePaintInput& in, const ClipData& clip, const QRectF& rect);
     void paintTransitions(QPainter& p, const TimelinePaintInput& in, int row,

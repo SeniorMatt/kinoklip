@@ -3,7 +3,9 @@
 #pragma once
 
 #include "core/EditOps.h"
+#include "core/ParamKeys.h"
 #include "core/Project.h"
+#include "core/Retime.h"
 #include "core/Timeline.h"
 
 #include <QString>
@@ -52,6 +54,37 @@ inline bool applyClipSpeed(TimelineData& data, quint64 clipId, double speed)
     editops::clipById(data, clipId)->speed = speed;
     if (delta > 0)
         editops::trimTail(data, clipId, delta, true);
+    return true;
+}
+
+/// Paste attributes > Speed: gives clip @p clipId the retime of @p source (constant speed via
+/// applyClipSpeed(); a retime curve, process and pitch correction are copied and the clip takes
+/// the source's length, rippling). Returns whether anything changed.
+inline bool applyClipRetime(TimelineData& data, quint64 clipId, const ClipData& source)
+{
+    ClipData* c = editops::clipById(data, clipId);
+    if (!c || data.track(editops::findClip(data, clipId)->track)->locked)
+        return false;
+    bool changed
+        = c->retimeProcess != source.retimeProcess || c->pitchCorrection != source.pitchCorrection;
+    c->retimeProcess = source.retimeProcess;
+    c->pitchCorrection = source.pitchCorrection;
+    if (!retime::hasCurve(source)) {
+        if (retime::hasCurve(*c)) {
+            c->retime.values.remove(keys::RetimeFrame);
+            changed = true;
+        }
+        if (source.speed > 0.0)
+            return applyClipSpeed(data, clipId, source.speed) || changed;
+        changed |= c->speed != source.speed;
+        c->speed = source.speed; // reverse / freeze: same length
+        return changed;
+    }
+    if (c->retime == source.retime && c->duration == source.duration)
+        return changed;
+    c->retime = source.retime;
+    c->speed = source.speed;
+    editops::trimTail(data, clipId, source.duration - c->duration, true);
     return true;
 }
 

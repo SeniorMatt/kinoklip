@@ -23,6 +23,7 @@ const QString kTransform = QStringLiteral("transform");
 const QString kAudio = QStringLiteral("audio");
 const QString kTitle = QStringLiteral("title");
 const QString kEffect = QStringLiteral("effect");
+const QString kRetime = QStringLiteral("retime");
 const QString kMask = QStringLiteral("mask");
 
 // Parses "<head>/<id>/<key>" (effect and mask paths). Returns false for malformed paths.
@@ -81,6 +82,8 @@ auto resolveSet(Clip& clip, const QString& path, QString* key) -> decltype(&clip
         return &clip.audio;
     if (head == kTitle)
         return &clip.title;
+    if (head == kRetime)
+        return &clip.retime;
     return nullptr;
 }
 
@@ -147,6 +150,7 @@ void forEachValue(const ClipData& clip, F&& fn)
     }
     for (const EffectInstance& fx : clip.effects)
         visit(fx.params, effectPath(fx.id, QString()));
+    visit(clip.retime, kRetime + QLatin1Char('/'));
 }
 
 // The animated shape addressed by a "mask/<id>/shape" path, or nullptr.
@@ -308,6 +312,18 @@ QVector<AnimatedParam> animatedParams(const ClipData& clip)
         QSet<QString> listed;
         const QString prefix = effectPath(fx.id, QString());
         appendGroup(out, listed, fx.params, prefix, prefix.chopped(1), reg.find(fx.type), true);
+    }
+    // The retime curve (speed points, core/Retime.h): source frame over clip time.
+    if (const auto it = clip.retime.values.constFind(keys::RetimeFrame);
+        it != clip.retime.values.cend() && it->isAnimated()) {
+        double lo = 0.0, hi = 1.0;
+        for (const Keyframe& k : it->keys) {
+            lo = std::min(lo, k.value);
+            hi = std::max(hi, k.value);
+        }
+        out.append({memberPath(kRetime, keys::RetimeFrame), kRetime,
+            QCoreApplication::translate("kk::keyframeops", "Retime"),
+            QCoreApplication::translate("kk::keyframeops", "Retime Frame"), lo, hi});
     }
     return out;
 }
