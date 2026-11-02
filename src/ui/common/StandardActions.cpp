@@ -31,6 +31,7 @@ const ActionSpec kActions[] = {
     // ---- File ----
     {"file", "file.new",              QT_TRANSLATE_NOOP("kk::StandardActions", "&New Project")},
     {"file", "file.open",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Open Project…")},
+    {"file", ">file.recent",          QT_TRANSLATE_NOOP("kk::StandardActions", "Open &Recent")},
     {"file", "-"},
     {"file", "file.save",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Save Project")},
     {"file", "file.save_as",          QT_TRANSLATE_NOOP("kk::StandardActions", "Save Project &As…")},

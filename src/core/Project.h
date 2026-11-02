@@ -5,6 +5,7 @@
 #include "core/MediaPool.h"
 #include "core/Timeline.h"
 
+#include <QJsonObject>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -68,10 +69,18 @@ public:
     /// Returns false and sets @p error on failure.
     bool save(const QString& path, QString* error = nullptr);
     /// Writes a copy to @p path without changing filePath() or the modified state (autosave).
-    bool saveCopy(const QString& path, QString* error = nullptr) const;
+    /// @p extra is stored as the top-level "autosave" object (ignored by load()).
+    bool saveCopy(
+        const QString& path, QString* error = nullptr, const QJsonObject& extra = {}) const;
     /// Loads a project file, replacing the current contents and clearing the undo history.
     /// On failure the current project is unchanged and @p error describes the problem.
     bool load(const QString& path, QString* error = nullptr);
+    /// Crash recovery: loads the autosave file @p autosavePath as if it were the document
+    /// @p documentPath (empty = a never-saved project). Relative media paths resolve against
+    /// the document's folder, filePath() becomes @p documentPath and the project is marked
+    /// modified, so the user decides whether to save the recovered state over the file.
+    bool loadRecovered(
+        const QString& autosavePath, const QString& documentPath, QString* error = nullptr);
 
     // ---- Editing protocol ----
 
@@ -108,6 +117,7 @@ signals:
     void projectReset();
 
 private:
+    bool loadFrom(const QString& path, const QString& documentPath, QString* error);
     void setFilePath(const QString& path);
     void setSettingsDirty(bool dirty);
     void emitDirtyIfChanged();
