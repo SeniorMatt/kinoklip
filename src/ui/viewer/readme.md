@@ -66,10 +66,11 @@ Grid cost: one nested composite per angle at cell size; decoding is per angle at
 size, or the proxy's when proxies are linked (Playback > Proxy Handling, the source player
 gets the program's proxy map). Measured (KK_PLAYBACK_STATS, 4 x 1080p25 H.264 angles, CUDA
 decode, 552x311 viewer, llvmpipe software GL under Xvfb): 10-11 fps, render 85 ms = decode
-16 + upload 10 + composite 53 + output 7 ms; the composite is the software GL cost (YUV ->
-RGB of four 1080p frames on the CPU), so a hardware GPU (single-angle composite ~1 ms, see
-Performance) plays the grid in real time; with 960x540 proxies the decode and upload parts
-shrink about 4x.
+16 + upload 10 + composite 53 + output 7 ms. For comparison one 1080p clip composites in
+0.1-1.5 ms on the same software GL, so the cost is the four nested passes (an RGBA16F target
+per angle, see src/render/readme.md); not measured on a hardware GPU (none usable headless).
+TODO(viewer): composite the grid cells straight into the output (no nested target per angle)
+and decode angles at reduced size when no proxy exists.
 
 ## Actions connected here (ViewerTransport)
 
