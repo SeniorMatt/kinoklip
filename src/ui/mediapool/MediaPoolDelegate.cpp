@@ -3,6 +3,7 @@
 #include "ui/mediapool/MediaPoolDelegate.h"
 
 #include "core/ClipColors.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/mediapool/MediaPoolModel.h"
 
 #include <QApplication>
@@ -129,6 +130,9 @@ void MediaPoolDelegate::paint(
     const QRect tile = option.rect;
     const bool selected = option.state & QStyle::State_Selected;
     const bool hover = option.state & QStyle::State_MouseOver;
+    // Badges and plates over the poster use the scheme's complementary (dark) set; offline in
+    // negative, proxy badges in link / neutral. Flag and clip colours are user data (fixed).
+    const SchemeColors& sc = schemeColors();
     p->save();
     p->setRenderHint(QPainter::Antialiasing);
 
@@ -149,7 +153,7 @@ void MediaPoolDelegate::paint(
     if (poster.isNull()) {
         paintPlaceholder(p, posterRect, kind, pal);
     } else {
-        p->fillRect(posterRect, Qt::black);
+        p->fillRect(posterRect, Qt::black); // letterbox of the poster: video content
         const QSize size = poster.size() / poster.devicePixelRatio();
         const QPoint topLeft(posterRect.left() + (posterRect.width() - size.width()) / 2,
             posterRect.top() + (posterRect.height() - size.height()) / 2);
@@ -159,11 +163,11 @@ void MediaPoolDelegate::paint(
     // Offline: red wash and label over the poster.
     const bool offline = index.data(MediaPoolModel::OfflineRole).toBool();
     if (offline) {
-        p->fillRect(posterRect, QColor(0xb0, 0x30, 0x30, 140));
+        p->fillRect(posterRect, withAlpha(sc.negative.darker(130), 140));
         QFont bold = option.font;
         bold.setBold(true);
         p->setFont(bold);
-        p->setPen(Qt::white);
+        p->setPen(sc.overlayText);
         p->drawText(posterRect, Qt::AlignCenter, tr("Media Offline"));
     }
 
@@ -178,9 +182,9 @@ void MediaPoolDelegate::paint(
         const QRect badge = text.translated(
             posterRect.right() - text.width() - 3, posterRect.bottom() - text.height() - 3);
         p->setPen(Qt::NoPen);
-        p->setBrush(QColor(0, 0, 0, 170));
+        p->setBrush(sc.overlay);
         p->drawRoundedRect(QRectF(badge), 3, 3);
-        p->setPen(QColor(0xee, 0xee, 0xee));
+        p->setPen(sc.overlayText);
         p->drawText(badge, Qt::AlignCenter, duration);
     }
 
@@ -197,9 +201,10 @@ void MediaPoolDelegate::paint(
         const QRect badge = text.translated(posterRect.left() + 3, posterRect.top() + 3);
         const bool problem = index.data(MediaPoolModel::LinkProblemRole).toBool();
         p->setPen(Qt::NoPen);
-        p->setBrush(problem ? QColor(0xd0, 0x90, 0x20, 220) : QColor(0x2a, 0x6f, 0xc9, 220));
+        const QColor badgeColor = withAlpha(problem ? sc.neutral : sc.link, 220);
+        p->setBrush(badgeColor);
         p->drawRoundedRect(QRectF(badge), 3, 3);
-        p->setPen(Qt::white);
+        p->setPen(sc.textOn(badgeColor));
         p->drawText(badge, Qt::AlignCenter, linkBadge);
     }
 
@@ -212,7 +217,7 @@ void MediaPoolDelegate::paint(
             if (!(flags & (1u << i)))
                 continue;
             const QRectF mark(x, posterRect.top() + 3, kFlagSize, kFlagSize);
-            p->setPen(QPen(QColor(0, 0, 0, 160), 1));
+            p->setPen(QPen(withAlpha(sc.shadow, 160), 1));
             p->setBrush(flagColor(i));
             p->drawRoundedRect(mark, 1.5, 1.5);
             x -= kFlagSize + 2;
@@ -221,8 +226,8 @@ void MediaPoolDelegate::paint(
 
     // Usage: a small dot in the bottom-left corner of items used in a timeline.
     if (index.data(MediaPoolModel::UsageRole).toInt() > 0) {
-        p->setPen(QPen(QColor(0, 0, 0, 170), 1));
-        p->setBrush(QColor(0xf0, 0xf0, 0xf0));
+        p->setPen(QPen(withAlpha(sc.shadow, 170), 1));
+        p->setBrush(sc.overlayText);
         p->drawEllipse(QPointF(posterRect.left() + 7.5, posterRect.bottom() - 6.5), 3.0, 3.0);
     }
 
@@ -245,9 +250,9 @@ void MediaPoolDelegate::paint(
     }
     const QString name = option.fontMetrics.elidedText(
         index.data(Qt::DisplayRole).toString(), Qt::ElideMiddle, nameRect.width());
-    p->setPen(offline ? QColor(0xe0, 0x70, 0x70)
+    p->setPen(offline ? sc.negative
             : clipColor.isValid()
-            ? QColor(0xf6, 0xf6, 0xf6)
+            ? sc.textOn(clipColor)
             : pal.color(selected ? QPalette::HighlightedText : QPalette::Text));
     p->drawText(nameRect, Qt::AlignHCenter | Qt::AlignVCenter, name);
     p->restore();

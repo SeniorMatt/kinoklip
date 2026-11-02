@@ -14,6 +14,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/viewer/MaskOverlay.h"
 #include "ui/viewer/MulticamOverlay.h"
@@ -170,7 +171,14 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     m_proxyLabel->setContentsMargins(metrics::kSpaceS, 0, metrics::kSpaceS, 0);
     m_proxyLabel->setToolTip(tr("Playing proxy or optimized media (Playback > Proxy Handling). "
                                 "Export uses the camera originals."));
-    m_proxyLabel->setStyleSheet(QStringLiteral("color: #e0a030; font-weight: bold;"));
+    // The scheme's neutral (warning) colour, refreshed on a scheme switch.
+    const auto styleProxyLabel = [label = m_proxyLabel] {
+        label->setStyleSheet(QStringLiteral("color: %1; font-weight: bold;")
+                                 .arg(schemeColors().neutral.name(QColor::HexRgb)));
+    };
+    styleProxyLabel();
+    connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, m_proxyLabel,
+        styleProxyLabel);
     m_proxyLabel->setVisible(false);
     addTitleBarWidget(m_proxyLabel);
     addTitleBarWidget(m_qualityBox);

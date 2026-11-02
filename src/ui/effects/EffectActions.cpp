@@ -77,6 +77,7 @@ std::optional<ClipData> makeGeneratorClip(const QString& descriptorId, Rational 
         if (descriptorId == generators::SolidColor) {
             clip.kind = ClipKind::Solid;
             const ParamDescriptor* color = desc->param(QStringLiteral("color"));
+            // Fixed: the solid's colour is clip content (user data), not scheme chrome.
             clip.solidColor = color ? color->defStatic.value<QColor>() : QColor(Qt::black);
         } else {
             clip.kind = ClipKind::Generator;

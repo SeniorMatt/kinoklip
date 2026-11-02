@@ -6,6 +6,7 @@
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/keyframes/KeyframeGrid.h"
 #include "ui/keyframes/KeyframeTimeMap.h"
@@ -22,8 +23,7 @@ namespace {
 constexpr int kRulerHeight = 24;
 constexpr double kLabelSpacingPx = 90.0; ///< minimum distance of labelled ticks
 constexpr int kMinorTicks = 5; ///< minor ticks per labelled step
-const QColor kPlayheadColor(0xe5, 0x48, 0x4d); ///< matches the timeline's playhead
-const QColor kClipSpan(0x5c, 0x9c, 0xe8, 90); ///< shown clips, like a selected clip's tint
+constexpr int kClipSpanAlpha = 90; ///< shown clips: the video clip colour, translucent
 } // namespace
 
 KeyframeRuler::KeyframeRuler(AppContext& ctx, const KeyframeTimeMap& map, QWidget* parent)
@@ -74,7 +74,8 @@ void KeyframeRuler::paintEvent(QPaintEvent*)
         if (const ClipData* c = editops::clipById(data, id)) {
             const double x0 = m_map.frameToX(double(c->start));
             const double x1 = m_map.frameToX(double(c->start + c->duration));
-            p.fillRect(QRectF(x0, height() - 6, x1 - x0, 5), kClipSpan);
+            p.fillRect(QRectF(x0, height() - 6, x1 - x0, 5),
+                withAlpha(schemeColors().videoTrack, kClipSpanAlpha));
         }
     }
 
@@ -113,10 +114,10 @@ void KeyframeRuler::paintEvent(QPaintEvent*)
         p.setRenderHint(QPainter::Antialiasing, true);
         const QPointF tri[3] = {{px - 5, 0}, {px + 5, 0}, {px, 7}};
         p.setPen(Qt::NoPen);
-        p.setBrush(kPlayheadColor);
+        p.setBrush(schemeColors().playhead);
         p.drawConvexPolygon(tri, 3);
         p.setRenderHint(QPainter::Antialiasing, false);
-        p.setPen(kPlayheadColor);
+        p.setPen(schemeColors().playhead);
         p.drawLine(QPointF(px, 0), QPointF(px, height()));
     }
 }

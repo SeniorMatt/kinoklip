@@ -8,6 +8,7 @@
 #include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/keyframes/KeyframeCommands.h"
 #include "ui/keyframes/KeyframeTimeMap.h"
 
@@ -27,7 +28,6 @@ namespace kc = keyframecommands;
 
 namespace {
 constexpr int kSnapTolerancePx = 8; ///< same tolerance as clip snapping on the timeline
-const QColor kPlayheadColor(0xe5, 0x48, 0x4d); ///< matches TimelinePainter's playhead
 } // namespace
 
 QColor keyframeMix(const QColor& a, const QColor& b, double t)
@@ -311,7 +311,7 @@ void KeyframeViewBase::paintBackground(QPainter& p, const QRect& logicalRect) co
     const QColor base = pal.color(QPalette::Base);
     const QColor text = pal.color(QPalette::WindowText);
     // Data area: a shade darker than the lanes so the editor reads as a separate panel.
-    p.fillRect(logicalRect, keyframeMix(base, QColor(0, 0, 0), 0.12));
+    p.fillRect(logicalRect, keyframeMix(base, schemeColors().shadow, 0.12));
     if (m_labelWidth > 0) {
         p.fillRect(QRect(logicalRect.left(), logicalRect.top(), m_labelWidth, logicalRect.height()),
             keyframeMix(pal.color(QPalette::Window), text, 0.03));
@@ -348,7 +348,7 @@ void KeyframeViewBase::paintPlayhead(QPainter& p) const
         = std::round(m_map.frameToX(double(m_ctx.project->timeline()->playhead()))) + 0.5;
     if (x < m_labelWidth || x > width())
         return;
-    p.setPen(QPen(kPlayheadColor, 1));
+    p.setPen(QPen(schemeColors().playhead, 1));
     p.drawLine(QPointF(x, m_yOffset), QPointF(x, m_yOffset + height()));
 }
 

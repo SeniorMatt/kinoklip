@@ -13,6 +13,7 @@
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "ui/common/Icons.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/LevelLines.h"
 #include "ui/timeline/NestedPreview.h"
@@ -33,34 +34,14 @@ using namespace timelinemetrics;
 namespace {
 
 // ---- Colours ----
-// Clip, track-strip and state colours are content colours (like clip labels): saturated mid
-// tones with light text that read on light and dark colour schemes alike. Everything around
-// them (lanes, headers, ruler, lines, overlays) is derived from the palette in setStyle().
-const QColor kVideoClip(0x2f, 0x62, 0x96);
-const QColor kAudioClip(0x2c, 0x7a, 0x58);
-const QColor kTitleClip(0x80, 0x5c, 0xb0);
-const QColor kSolidClip(0x6c, 0x6c, 0x78);
-/// Compound clips / nested timelines (video and audio parts alike): a teal unlike the media
-/// colours, so a nested clip is recognisable at a glance.
-const QColor kNestedClip(0x2a, 0x7f, 0x8a);
-const QColor kNestedAudioClip(0x3b, 0x77, 0x6a);
-/// Adjustment clips: a cool slate with diagonal hatching (no picture of their own).
-const QColor kAdjustmentClip(0x5d, 0x6b, 0x84);
-const QColor kGeneratorClip(0xa0, 0x62, 0x3c);
-const QColor kSubtitleClip(0x8a, 0x7d, 0x55);
-const QColor kSubtitleStrip(0xb8, 0xa0, 0x58);
-const QColor kLevelLine(0xff, 0xe0, 0x80, 220); ///< audio level line and its keys
-const QColor kFadeShade(0, 0, 0, 90); ///< the faded part of a clip
-const QColor kFadeLine(0xf2, 0xf2, 0xf4, 200); ///< the fade curve
-const QColor kFadeHandleFill(0xf2, 0xf2, 0xf4); ///< fade handle squares
-const QColor kSelection(0xff, 0xa8, 0x3a);
-const QColor kPlayhead(0xe5, 0x48, 0x4d);
-const QColor kSnapLine(0xf4, 0xd6, 0x4e);
-const QColor kLockedOn(0xc8, 0x55, 0x4e);
-const QColor kMuteOn(0xd0, 0x6a, 0x3a);
-const QColor kSoloOn(0xd8, 0xb8, 0x3a);
-const QColor kVideoStrip(0x3d, 0x7f, 0xc4);
-const QColor kAudioStrip(0x3b, 0xa0, 0x6e);
+// Every colour comes from the active colour scheme (SchemeColors: clip and track colours from
+// the scheme's link / positive / visited roles, states from neutral / negative, lanes and
+// ruler from the backgrounds). Fixed exceptions: the user's clip colour labels, flag and
+// marker colours (project data) and solid clips' own colour.
+const SchemeColors& sc()
+{
+    return schemeColors();
+}
 
 constexpr double kBandHeight = levellines::kNameBand; ///< clip title band (name, fx badge)
 constexpr int kMinBandRow = levellines::kMinBandRow; ///< lower rows show only the band
@@ -101,19 +82,6 @@ int64_t minorTickFrames(int64_t major, double ppf)
     return 0;
 }
 
-/// Linear blend of @p a towards @p b (0 = a, 1 = b).
-QColor mixColor(const QColor& a, const QColor& b, double amount)
-{
-    const auto lerp = [amount](int x, int y) { return int(x + (y - x) * amount + 0.5); };
-    return QColor(lerp(a.red(), b.red()), lerp(a.green(), b.green()), lerp(a.blue(), b.blue()));
-}
-
-QColor withAlpha(QColor c, int alpha)
-{
-    c.setAlpha(alpha);
-    return c;
-}
-
 void drawDiamond(QPainter& p, QPointF c, double r)
 {
     const QPointF pts[4]
@@ -141,14 +109,13 @@ void TimelinePainter::setStyle(const QPalette& pal, const QFont& font)
     m_window = pal.color(QPalette::Window);
     m_text = pal.color(QPalette::WindowText);
     m_textDim = pal.color(QPalette::PlaceholderText);
-    m_accent = pal.color(QPalette::Highlight);
-    // Lanes: the view background nudged towards the text colour, so alternate rows stay
-    // distinguishable in light schemes too (lighter() does nothing on white).
-    m_lane = mixColor(m_base, m_text, 0.05);
-    m_laneAlt = mixColor(m_base, m_text, 0.08);
+    // Focus colour, not Highlight: in/out ranges, drop targets and rubber bands must stand
+    // out, and some schemes (Kinoklip) have a neutral grey selection background.
+    m_accent = sc().focus;
+    m_lane = sc().lane;
+    m_laneAlt = sc().laneAlt;
     m_line = pal.color(QPalette::Dark);
-    // Playhead timecode: warm orange (NLE convention), darker on light schemes for contrast.
-    m_timecode = m_window.lightness() < 128 ? QColor(0xff, 0x8a, 0x6a) : QColor(0xc4, 0x4a, 0x1c);
+    m_timecode = sc().timecode;
     m_names.clear();
     // Header icons are pre-rendered once per palette (the paint loop only blits pixmaps);
     // re-rendering here picks up the new colours after a colour scheme switch.
@@ -167,21 +134,21 @@ QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type)
         return clip.label;
     switch (clip.kind) {
     case ClipKind::Title:
-        return kTitleClip;
+        return sc().titleClip;
     case ClipKind::Solid:
-        return kSolidClip;
+        return sc().solidClip;
     case ClipKind::Nested:
-        return type == TrackType::Video ? kNestedClip : kNestedAudioClip;
+        return type == TrackType::Video ? sc().nestedClip : sc().nestedAudioClip;
     case ClipKind::Adjustment:
-        return kAdjustmentClip;
+        return sc().adjustmentClip;
     case ClipKind::Generator:
-        return kGeneratorClip;
+        return sc().generatorClip;
     case ClipKind::Subtitle:
-        return kSubtitleClip;
+        return sc().subtitleClip;
     case ClipKind::Media:
         break;
     }
-    return type == TrackType::Video ? kVideoClip : kAudioClip;
+    return type == TrackType::Video ? sc().videoClip : sc().audioClip;
 }
 
 QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type, const MediaItem* item)
@@ -314,7 +281,7 @@ void TimelinePainter::paintRow(QPainter& p, const TimelinePaintInput& in, int ro
     const bool off = info.ref.type == TrackType::Audio ? track->muted : !track->enabled;
     if (off || track->locked) {
         p.fillRect(QRect(kHeaderWidth, r.top(), width - kHeaderWidth, r.height()),
-            QColor(10, 10, 12, track->locked ? 70 : 110));
+            withAlpha(sc().shadow, track->locked ? 70 : 110));
     }
     if (track->locked) {
         // Diagonal hatching marks locked tracks (one drawLines call, buffer reused).
@@ -345,7 +312,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     // Sub-pixel / tiny clips (zoomed far out): one rectangle, nothing else.
     if (r.width() < 4) {
         p.fillRect(QRectF(r.left(), r.top(), std::max(1.0, r.width()), r.height()),
-            selected ? kSelection : (clip.enabled ? base.lighter(115) : base.darker(200)));
+            selected ? sc().selection : (clip.enabled ? base.lighter(115) : base.darker(200)));
         return;
     }
 
@@ -373,7 +340,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
             break;
         case ClipKind::Solid:
             p.fillRect(content.adjusted(0, 2, 0, -2),
-                clip.solidColor.isValid() ? clip.solidColor : kSolidClip);
+                clip.solidColor.isValid() ? clip.solidColor : sc().solidClip);
             break;
         case ClipKind::Adjustment: {
             // Diagonal hatching: the clip shows no picture, it processes what is below.
@@ -425,7 +392,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     const int nameRoom = int(visible.width() - 10 - badgeW);
     if (nameRoom > 12 && bandH >= 12) {
         p.setFont(m_smallFont);
-        p.setPen(clip.enabled ? QColor(0xf2, 0xf2, 0xf4) : m_textDim);
+        p.setPen(clip.enabled ? sc().textOn(base) : m_textDim);
         const QString& label = clipLabel(in, clip);
         const QString& name = elidedName(clip, label, nameRoom);
         const double baseline = r.top() + (bandH + m_fontAscent) / 2.0 - 1;
@@ -456,7 +423,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     }
     if (const QRectF badge = hasFx ? fxBadgeRect(r, viewRight) : QRectF(); !badge.isEmpty()) {
         p.fillRect(badge, base.darker(190));
-        p.setPen(QColor(0xf0, 0xc8, 0x6a));
+        p.setPen(sc().keyframe);
         p.setFont(m_smallFont);
         p.drawText(badge, Qt::AlignCenter, QStringLiteral("fx"));
     }
@@ -488,9 +455,9 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     }
 
     if (!clip.enabled)
-        p.fillRect(visible, QColor(12, 12, 14, 150));
+        p.fillRect(visible, withAlpha(sc().shadow, 150));
     if (selected) {
-        p.setPen(QPen(kSelection, 2));
+        p.setPen(QPen(sc().selection, 2));
         p.drawRect(QRectF(r.left() + 1, r.top() + 1, r.width() - 2, r.height() - 2));
     }
 }
@@ -539,23 +506,16 @@ void TimelinePainter::paintThumbnails(QPainter& p, const TimelinePaintInput& in,
 }
 
 namespace {
-// Speed bar field colours by kind of segment (dark enough for white text in both schemes).
-const QColor kSpeedNormal(0x3a, 0x40, 0x4a);
-const QColor kSpeedSlow(0x8a, 0x5a, 0x1e);
-const QColor kSpeedFast(0x1f, 0x6e, 0x66);
-const QColor kSpeedFreeze(0x8c, 0x32, 0x3a);
-const QColor kSpeedReverse(0x5e, 0x3c, 0x8c);
-const QColor kSpeedPoint(0xf4, 0xd6, 0x4e);
-
+// Speed bar field colours by kind of segment (SchemeColors speed* roles).
 QColor speedColor(const retime::Segment& s)
 {
     if (s.isFreeze())
-        return kSpeedFreeze;
+        return sc().speedFreeze;
     if (s.isReverse())
-        return kSpeedReverse;
+        return sc().speedReverse;
     if (std::abs(s.speed - 1.0) < 1e-6)
-        return kSpeedNormal;
-    return s.speed < 1.0 ? kSpeedSlow : kSpeedFast;
+        return sc().speedNormal;
+    return s.speed < 1.0 ? sc().speedSlow : sc().speedFast;
 }
 } // namespace
 
@@ -572,13 +532,13 @@ void TimelinePainter::paintRetime(QPainter& p, const TimelinePaintInput& in, con
     for (const retimebar::SegmentField& f : g.fields) {
         p.fillRect(f.rect, speedColor(f.segment));
         p.fillRect(
-            QRectF(f.rect.left(), f.rect.bottom() - 1, f.rect.width(), 1), QColor(0, 0, 0, 120));
+            QRectF(f.rect.left(), f.rect.bottom() - 1, f.rect.width(), 1), withAlpha(sc().shadow, 120));
         // Speed text (sticky inside the visible part of the field) and the menu arrow.
         const QRectF shown = f.rect.intersected(visible);
         const QString text
             = f.segment.isFreeze() ? qtr("Freeze 0%") : retime::formatPercent(f.segment.speed);
         if (shown.width() > fm.horizontalAdvance(text) + retimebar::kArrowWidth + 12) {
-            p.setPen(QColor(0xf2, 0xf2, 0xf4));
+            p.setPen(sc().textOn(speedColor(f.segment)));
             // Clear of a speed point's handle at the field start.
             const double inset = f.segment.startKey >= 0 && f.segment.startLocal > 0
                 ? retimebar::kHandleHalfWidth + 3
@@ -592,7 +552,7 @@ void TimelinePainter::paintRetime(QPainter& p, const TimelinePaintInput& in, con
                 = {{c.x() - 3, c.y() - 1.5}, {c.x() + 3, c.y() - 1.5}, {c.x(), c.y() + 2.5}};
             p.setRenderHint(QPainter::Antialiasing, true);
             p.setPen(Qt::NoPen);
-            p.setBrush(QColor(0xe8, 0xe8, 0xec));
+            p.setBrush(sc().textOn(speedColor(f.segment)));
             p.drawConvexPolygon(tri, 3);
             p.setRenderHint(QPainter::Antialiasing, false);
         }
@@ -602,15 +562,15 @@ void TimelinePainter::paintRetime(QPainter& p, const TimelinePaintInput& in, con
     const AnimatedValue* curve = retime::curve(clip);
     for (const retimebar::PointMarks& m : g.points) {
         p.fillRect(QRectF(m.x - 0.5, g.bar.bottom(), 1, rect.bottom() - g.bar.bottom()),
-            QColor(kSpeedPoint.red(), kSpeedPoint.green(), kSpeedPoint.blue(), 170));
+            withAlpha(sc().snap, 170));
         bool ramp = false;
         if (curve) {
             const qsizetype i = curve->indexOf(m.localFrame);
             ramp = i >= 0 && keyInterp(curve->keys[i]) != Interp::Linear;
         }
         p.setRenderHint(QPainter::Antialiasing, true);
-        p.setPen(QPen(QColor(0, 0, 0, 180), 1));
-        p.setBrush(kSpeedPoint);
+        p.setPen(QPen(withAlpha(sc().shadow, 180), 1));
+        p.setBrush(sc().snap);
         const QRectF top = m.top.adjusted(1, 2, -1, -2);
         if (ramp)
             p.drawEllipse(top);
@@ -623,7 +583,7 @@ void TimelinePainter::paintRetime(QPainter& p, const TimelinePaintInput& in, con
         p.setRenderHint(QPainter::Antialiasing, false);
     }
     // Retime handle of the clip end.
-    p.fillRect(g.endHandle.adjusted(1, 2, -1, -2), kSpeedPoint);
+    p.fillRect(g.endHandle.adjusted(1, 2, -1, -2), sc().snap);
     p.restore();
 }
 
@@ -724,7 +684,7 @@ void TimelinePainter::paintVolumeLine(QPainter& p, const TimelinePaintInput& in,
     p.save();
     p.setClipRect(visible, Qt::IntersectClip);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen(kLevelLine, 1.3));
+    p.setPen(QPen(sc().levelLine, 1.3));
     p.drawLines(m_lines.data(), int(m_lines.size()));
     if (animated) {
         // Keys on the line: diamonds, selected ones filled with the selection colour. The
@@ -739,8 +699,8 @@ void TimelinePainter::paintVolumeLine(QPainter& p, const TimelinePaintInput& in,
                 continue;
             const bool sel = anySelected
                 && in.selectedKeys->contains(KeyframeRef {clip.id, kVolumePath, k.frame});
-            p.setPen(QColor(20, 20, 20));
-            p.setBrush(sel ? kSelection : kLevelLine);
+            p.setPen(sc().shadow);
+            p.setBrush(sel ? sc().selection : sc().levelLine);
             drawDiamond(p, QPointF(x, ll::yForDb(area, k.value)), ll::kKeyRadius + 0.5);
         }
         p.setBrush(Qt::NoBrush);
@@ -767,9 +727,9 @@ void TimelinePainter::paintFades(QPainter& p, const TimelinePaintInput& in, cons
     const auto wedge = [&](double cornerX, double endX) {
         const QPointF pts[3] = {{cornerX, top}, {endX, top}, {cornerX, bottom}};
         p.setPen(Qt::NoPen);
-        p.setBrush(kFadeShade);
+        p.setBrush(withAlpha(sc().shadow, 90));
         p.drawConvexPolygon(pts, 3);
-        p.setPen(QPen(kFadeLine, 1.2));
+        p.setPen(QPen(withAlpha(sc().bright, 200), 1.2));
         p.drawLine(QPointF(cornerX, bottom), QPointF(endX, top));
     };
     if (clip.fadeInFrames > 0)
@@ -781,8 +741,8 @@ void TimelinePainter::paintFades(QPainter& p, const TimelinePaintInput& in, cons
             const QRectF h = ll::fadeHandleRect(clip, r, L, head);
             if (h.isEmpty() || (!hovered && (head ? clip.fadeInFrames : clip.fadeOutFrames) == 0))
                 continue;
-            p.setPen(QColor(20, 20, 20));
-            p.setBrush(kFadeHandleFill);
+            p.setPen(sc().shadow);
+            p.setBrush(sc().bright);
             p.drawRect(h.adjusted(0.5, 0.5, -0.5, -0.5));
         }
     }
@@ -804,8 +764,8 @@ void TimelinePainter::paintKeyframes(
                 if (x < left || x > right)
                     continue;
                 if (!penSet) {
-                    p.setPen(QColor(20, 20, 20));
-                    p.setBrush(QColor(0xf4, 0xe2, 0x9a));
+                    p.setPen(sc().shadow);
+                    p.setBrush(sc().keyframe);
                     p.setRenderHint(QPainter::Antialiasing, true);
                     penSet = true;
                 }
@@ -839,13 +799,13 @@ void TimelinePainter::paintTransitionBlock(QPainter& p, const QRectF& r, bool in
 {
     // A bevelled block: light face, bright top/left edges, dark bottom/right edges and a
     // diagonal showing the direction of the blend.
-    p.fillRect(r, QColor(0xd8, 0xd8, 0xe2, 150));
-    p.fillRect(QRectF(r.left(), r.top(), r.width(), 1), QColor(255, 255, 255, 200));
-    p.fillRect(QRectF(r.left(), r.top(), 1, r.height()), QColor(255, 255, 255, 160));
-    p.fillRect(QRectF(r.left(), r.bottom() - 1, r.width(), 1), QColor(0, 0, 0, 160));
-    p.fillRect(QRectF(r.right() - 1, r.top(), 1, r.height()), QColor(0, 0, 0, 160));
+    p.fillRect(r, withAlpha(mixColors(sc().transition, sc().bright, 0.6), 150));
+    p.fillRect(QRectF(r.left(), r.top(), r.width(), 1), withAlpha(sc().bright, 200));
+    p.fillRect(QRectF(r.left(), r.top(), 1, r.height()), withAlpha(sc().bright, 160));
+    p.fillRect(QRectF(r.left(), r.bottom() - 1, r.width(), 1), withAlpha(sc().shadow, 160));
+    p.fillRect(QRectF(r.right() - 1, r.top(), 1, r.height()), withAlpha(sc().shadow, 160));
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen(QColor(40, 40, 50, 200), 1));
+    p.setPen(QPen(withAlpha(sc().shadow, 200), 1));
     if (in)
         p.drawLine(r.bottomLeft() + QPointF(1, -1), r.topRight() + QPointF(-1, 1));
     else
@@ -853,7 +813,7 @@ void TimelinePainter::paintTransitionBlock(QPainter& p, const QRectF& r, bool in
     p.setRenderHint(QPainter::Antialiasing, false);
     if (selected) {
         // Same colour as a selected clip's outline.
-        p.setPen(QPen(kSelection, 2));
+        p.setPen(QPen(sc().selection, 2));
         p.setBrush(Qt::NoBrush);
         p.drawRect(r.adjusted(1, 1, -1, -1));
     }
@@ -929,7 +889,7 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
             const int row = L.rowOf(loc->track);
             const ClipData& c = in.data->track(loc->track)->clips[size_t(loc->clipIndex)];
             p.setPen(QPen(m_accent, 2));
-            p.setBrush(QColor(m_accent.red(), m_accent.green(), m_accent.blue(), 40));
+            p.setBrush(withAlpha(m_accent, 40));
             p.drawRect(L.clipRect(row, c).adjusted(1, 1, -1, -1));
             p.setBrush(Qt::NoBrush);
         }
@@ -948,7 +908,7 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
         const double x0 = L.frameToX(double(in.gapStart));
         const double x1 = L.frameToX(double(in.gapEnd));
         const QRectF r(x0, rr.top() + 2, std::max(2.0, x1 - x0), rr.height() - 4);
-        p.fillRect(r, QColor(m_accent.red(), m_accent.green(), m_accent.blue(), 55));
+        p.fillRect(r, withAlpha(m_accent, 55));
         p.setPen(QPen(m_accent, 1));
         p.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
     }
@@ -964,21 +924,21 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
         const QRectF cr = L.clipRect(row, c);
         const bool tail = id == in.editTailClip;
         const double x = tail ? cr.right() - 3 : cr.left();
-        p.fillRect(QRectF(x, cr.top(), 3, cr.height()), kSnapLine);
+        p.fillRect(QRectF(x, cr.top(), 3, cr.height()), sc().snap);
     }
     if (o.bladeFrame && o.bladeRow >= 0) {
         const QRect rr = L.rowRect(o.bladeRow);
         const double x = std::round(L.frameToX(double(*o.bladeFrame))) + 0.5;
-        p.setPen(QPen(kPlayhead, 1, Qt::DashLine));
+        p.setPen(QPen(sc().playhead, 1, Qt::DashLine));
         p.drawLine(QPointF(x, rr.top()), QPointF(x, rr.bottom()));
     }
     if (o.snapFrame) {
         const double x = std::round(L.frameToX(double(*o.snapFrame))) + 0.5;
-        p.setPen(QPen(kSnapLine, 1));
+        p.setPen(QPen(sc().snap, 1));
         p.drawLine(QPointF(x, kRulerHeight), QPointF(x, view.height()));
     }
     if (!o.rubberBand.isEmpty()) {
-        p.fillRect(o.rubberBand, QColor(m_accent.red(), m_accent.green(), m_accent.blue(), 40));
+        p.fillRect(o.rubberBand, withAlpha(m_accent, 40));
         p.setPen(m_accent);
         p.drawRect(o.rubberBand.adjusted(0, 0, -1, -1));
     }
@@ -1004,7 +964,7 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
         const TrackData& track = *in.data->track(ref);
         const bool video = ref.type == TrackType::Video;
         const bool subtitle = ref.type == TrackType::Subtitle;
-        const QColor strip = video ? kVideoStrip : subtitle ? kSubtitleStrip : kAudioStrip;
+        const QColor strip = video ? sc().videoTrack : subtitle ? sc().subtitleTrack : sc().audioTrack;
         p.fillRect(QRect(0, r.top(), kHeaderWidth, r.height()), m_window);
         p.fillRect(QRect(0, r.top(), 3, r.height()), strip);
         p.fillRect(QRect(0, r.bottom(), kHeaderWidth, 1), m_line);
@@ -1020,7 +980,7 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
         p.drawRoundedRect(QRectF(patch).adjusted(0.5, 0.5, -0.5, -0.5), 3, 3);
         p.setRenderHint(QPainter::Antialiasing, false);
         p.setFont(m_boldFont);
-        p.setPen(targeted ? QColor(Qt::white) : m_text);
+        p.setPen(targeted ? sc().textOn(patchColor) : m_text);
         const QString shortName = (video             ? QStringLiteral("V")
                                           : subtitle ? QStringLiteral("ST")
                                                      : QStringLiteral("A"))
@@ -1038,7 +998,7 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
             switch (b) {
             case HeaderButton::Lock:
                 on = track.locked;
-                onColor = kLockedOn;
+                onColor = sc().locked;
                 icon = on ? &m_iconLock : &m_iconUnlock;
                 break;
             case HeaderButton::Visible:
@@ -1048,12 +1008,12 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 break;
             case HeaderButton::Mute:
                 on = track.muted;
-                onColor = kMuteOn;
+                onColor = sc().muted;
                 icon = &m_iconMute;
                 break;
             case HeaderButton::Solo:
                 on = track.solo;
-                onColor = kSoloOn;
+                onColor = sc().soloed;
                 icon = &m_iconSolo;
                 break;
             case HeaderButton::AutoSelect:
@@ -1075,7 +1035,7 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 // Painted glyph (no icon file): a track bar with a selection tick; bright when
                 // the auto track selector is on.
                 p.setPen(Qt::NoPen);
-                p.setBrush(on ? QColor(Qt::white) : m_text.darker(160));
+                p.setBrush(on ? sc().textOn(onColor) : m_text.darker(160));
                 p.drawRect(QRect(br.left() + 4, br.top() + 5, br.width() - 8, 3));
                 p.drawRect(QRect(br.left() + 4, br.bottom() - 7, br.width() - 8, 3));
                 p.setBrush(Qt::NoBrush);
@@ -1114,7 +1074,7 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
     const TimelineLayout& L = *in.layout;
     const TimelineData& d = *in.data;
     const int width = L.viewSize().width();
-    const QColor bg = m_window.darker(112);
+    const QColor bg = sc().ruler;
     p.fillRect(QRect(0, 0, width, kRulerHeight), bg);
 
     // Top-left corner: playhead timecode.
@@ -1184,7 +1144,7 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
             const double x0 = L.frameToX(double(r.start));
             const double x1 = L.frameToX(double(r.end));
             p.fillRect(QRectF(x0, 0, std::max(1.0, x1 - x0), kCacheBarHeight),
-                r.cached ? QColor(0x3d, 0x8b, 0xf0) : QColor(0xd0, 0x3a, 0x3a));
+                r.cached ? sc().cached : sc().uncached);
         }
     }
 
@@ -1214,14 +1174,14 @@ void TimelinePainter::paintPlayhead(QPainter& p, const TimelinePaintInput& in)
     const QSize view = L.viewSize();
     if (x < kHeaderWidth || x > view.width())
         return;
-    p.setPen(QPen(kPlayhead, 1));
+    p.setPen(QPen(sc().playhead, 1));
     p.drawLine(QPointF(x, kRulerHeight - 10), QPointF(x, view.height()));
     // Head: a downward-pointing pentagon in the ruler.
     const QPointF pts[5] = {{x - 6, 2}, {x + 6, 2}, {x + 6, kRulerHeight - 12.0},
         {x, kRulerHeight - 5.0}, {x - 6, kRulerHeight - 12.0}};
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(kPlayhead.darker(140));
-    p.setBrush(kPlayhead);
+    p.setPen(sc().playhead.darker(140));
+    p.setBrush(sc().playhead);
     p.drawConvexPolygon(pts, 5);
     p.setBrush(Qt::NoBrush);
     p.setRenderHint(QPainter::Antialiasing, false);

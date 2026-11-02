@@ -4,6 +4,7 @@
 
 #include "core/KeyframeOps.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/keyframes/KeyframeTimeMap.h"
 
 #include <QApplication>
@@ -24,8 +25,6 @@ constexpr int kDiamondHitPx = 6; ///< click tolerance around a diamond centre
 constexpr double kParamDiamond = 4.5; ///< diamond radius in parameter rows
 constexpr double kSummaryDiamond = 3.5; ///< diamond radius in master / group rows
 constexpr int kLabelIndent = 10; ///< label x of group rows (parameters: twice that)
-const QColor kKeyFill(0xf4, 0xe2, 0x9a); ///< same as the marks on the clip body
-const QColor kKeySelected(0xff, 0xa8, 0x3a); ///< timeline selection colour
 } // namespace
 
 void DopeSheetView::setRows(const QVector<KeyRow>& rows)
@@ -148,9 +147,9 @@ void DopeSheetView::paintEvent(QPaintEvent*)
         const KeyRow& row = m_rows[i];
         const QRect r(0, i * m_rowHeight + kTopPadding, width(), m_rowHeight);
         if (row.kind == KeyRow::Kind::Item)
-            p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), QColor(127, 127, 127, 34));
+            p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), withAlpha(text, 22));
         else if (i % 2 == 1)
-            p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), QColor(127, 127, 127, 14));
+            p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), withAlpha(text, 9));
         if (lw > 0 && m_drawLabels) {
             const int indent = row.kind == KeyRow::Kind::Param ? 2 * kLabelIndent
                 : row.kind == KeyRow::Kind::Group              ? kLabelIndent
@@ -190,12 +189,13 @@ void DopeSheetView::paintEvent(QPaintEvent*)
                 }
             }
             // Keys outside the clip (trimmed away) are kept but drawn faded.
-            QColor fill = selected ? kKeySelected : kKeyFill;
+            // Same colours as the keyframe marks on the clip body and the timeline selection.
+            QColor fill = selected ? schemeColors().keyframeSelected : schemeColors().keyframe;
             if (row.kind != KeyRow::Kind::Param && !selected)
                 fill = fill.darker(125);
             if (m.outside)
                 fill.setAlpha(90);
-            p.setPen(QPen(QColor(20, 20, 20, m.outside ? 90 : 255), 1));
+            p.setPen(QPen(withAlpha(schemeColors().shadow, m.outside ? 90 : 255), 1));
             p.setBrush(fill);
             drawDiamond(p, QPointF(x, cy), radius);
         }

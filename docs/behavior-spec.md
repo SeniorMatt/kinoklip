@@ -611,3 +611,15 @@ mo = tests/panels/test_mediaorganize.cpp.
   stacked timelines).
 - The bins branch (v2) added 36.1 - 36.19 (nested bins, smart bins, power bins, clip colours,
   flags, metadata editing, usage commands).
+
+## Colour schemes (themecolors branch, alpha.3 feedback #6)
+
+Tests: sc = tests/app/test_schemecolors.cpp, ts = tests/app/test_themeswitch.cpp.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| C.1 | Without a stored choice the Kinoklip colour scheme is active, in the KF6 build and in the palette-only fallback build alike; it is listed once in Settings > Color Theme. If it cannot be found, Breeze Dark, then the widget style's palette. | Fixed (new; sc defaultSchemeIsKinoklip) |
+| C.2 | A scheme the user chose explicitly is kept on the next start. | Fixed (sc explicitChoiceIsKept) |
+| C.3 | Everything Kinoklip paints itself follows the active scheme: video clips and V badges use its link colour, audio clips, waveforms and A badges positive, titles / generators / subtitles visited, selection outlines and selected keyframes neutral, transitions focus, playhead and in/out marks negative; lanes, ruler, grids and panel backgrounds its window / view backgrounds, text its foreground roles. Plates over video (multicam labels, media pool badges) and the viewer surround use the complementary set, so they stay dark in light schemes. | Fixed (new; sc helperFollowsSchemeRoles) |
+| C.4 | Switching the scheme repaints the timeline, keyframe editors, rulers, viewer overlays, media pool tiles and the render range bar at once in the new colours; nothing keeps the old scheme's colours. | Fixed (sc timelineRepaintsOnSwitch; ts) |
+| C.5 | Fixed colours that do not follow the scheme: clip colour labels, flags and marker colours (user data), solid clips' own colour, video content (black letterbox, thumbnails) and the white-on-black outlines of on-screen mask controls. | Decision |
