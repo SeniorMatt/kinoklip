@@ -7,7 +7,19 @@ and `src/ui/**`; depends on Qt only.
 |---|---|
 | `ChildProcessEnv` | Gives programs we start (xdg-open, file managers) the user's environment back when running from the bundle (undoes `packaging/linux/apprun.sh`'s variables). |
 | `FileDialogs` | The one entry point for every open / save / folder dialog. |
+| `DroppedFiles` | Local files carried by a drop from a file manager: `text/uri-list`, the XDG document portal's `application/vnd.portal.filetransfer` (resolved with `RetrieveFiles`), and the `application/x-kde4-urilist` / `text/x-moz-url` fallbacks. |
 | `PortalFileChooser` | The XDG desktop portal's `org.freedesktop.portal.FileChooser` over D-Bus. |
+
+## Dropped files
+
+Qt 6 sources (Dolphin, the Plasma desktop) offer a document-portal key next to the
+`text/uri-list`, and Qt Wayland (6.7 - 6.12 at least) then reads the uri-list *through the
+portal*: when `RetrieveFiles` fails (no `xdg-document-portal`, a sandbox mismatch) it re-reads
+the key instead of the real list (`QWaylandMimeData::retrieveData_sys()`), so `QMimeData::urls()`
+comes back empty or garbage. `droppedLocalFiles()` therefore tries, in order: `urls()` (local
+files only; document-portal paths like `/run/user/1000/doc/<id>/clip.mp4` are ordinary files),
+its own `RetrieveFiles` call (3 s timeout), then the KDE / Mozilla list formats, which Qt reads
+raw. `hasDroppedFiles()` only looks at the offered formats, so it is cheap for `DragMove`.
 
 ## File dialogs
 

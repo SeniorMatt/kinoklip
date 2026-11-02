@@ -28,6 +28,7 @@
 #include <QHash>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QSettings>
 #include <QStackedWidget>
 #include <QUndoStack>
@@ -81,6 +82,34 @@ QString pageSettingsGroup(const QString& pageId)
 {
     return QStringLiteral("pages/") + pageId;
 }
+
+/// Closes an open menu when its title in the menu bar is clicked again, before QMenuBar does.
+/// QMenuBar::mousePressEvent() calls QWidget::grabMouse() in that case (to receive the
+/// release); Qt Wayland refuses explicit grabs outside popups and prints "This plugin supports
+/// grabbing the mouse only for popup windows" for the grab and again for the release. The
+/// implicit grab of the press already delivers the release, so nothing is lost.
+class MenuBarGrabGuard final : public QObject
+{
+public:
+    using QObject::QObject;
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (event->type() != QEvent::MouseButtonPress)
+            return false;
+        auto* bar = qobject_cast<QMenuBar*>(watched);
+        auto* mouse = static_cast<QMouseEvent*>(event);
+        if (!bar || mouse->button() != Qt::LeftButton)
+            return false;
+        QAction* action = bar->actionAt(mouse->position().toPoint());
+        QMenu* menu = action ? action->menu() : nullptr;
+        if (!menu || action != bar->activeAction() || !menu->isVisible())
+            return false;
+        menu->hide();
+        return true;
+    }
+};
 
 } // namespace
 
@@ -247,6 +276,11 @@ void MainWindow::buildMenus()
         menu->setObjectName(QStringLiteral("menu:") + category);
         menuBar()->insertMenu(helpMenu ? helpMenu->menuAction() : nullptr, menu);
         fillMenu(menu, category);
+    }
+    if (!menuBar()->findChild<QObject*>(QStringLiteral("MenuBarGrabGuard"))) {
+        auto* guard = new MenuBarGrabGuard(menuBar());
+        guard->setObjectName(QStringLiteral("MenuBarGrabGuard"));
+        menuBar()->installEventFilter(guard);
     }
     // File > Open Recent lists files, not registered commands: filled by ProjectController.
     if (auto* recent = menuBar()->findChild<QMenu*>(QStringLiteral("menu:file.recent")))

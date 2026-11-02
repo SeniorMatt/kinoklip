@@ -636,7 +636,7 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
         kHeaderWidth, kRulerHeight, view.width() - kHeaderWidth, view.height() - kRulerHeight));
 
     for (const TimelineGhost& g : o.ghosts) {
-        const QRect rr = L.rowRect(g.row);
+        const QRect rr = g.row >= 0 ? L.rowRect(g.row) : g.band;
         if (rr.isEmpty())
             continue;
         const double x0 = L.frameToX(double(g.start));
