@@ -18,9 +18,11 @@ namespace kk::keyframeops {
 // ---- Parameter paths ----
 //
 // A path addresses one AnimatedValue of a clip (SelectionModel's KeyframeRef::paramPath):
-//   "transform/<key>", "audio/<key>", "title/<key>", "effect/<instance id>/<key>".
+//   "transform/<key>", "audio/<key>", "title/<key>", "effect/<instance id>/<key>",
+//   "retime/retimeFrame" (the retime curve, core/Retime.h; group id "retime", listed last).
 
-/// Path of a parameter stored in a clip ParamSet member ("transform", "audio", "title").
+/// Path of a parameter stored in a clip ParamSet member ("transform", "audio", "title",
+/// "retime").
 [[nodiscard]] QString memberPath(const QString& member, const QString& key);
 /// Path of a parameter of effect instance @p effectId.
 [[nodiscard]] QString effectPath(quint64 effectId, const QString& key);

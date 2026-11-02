@@ -44,6 +44,11 @@ inline const QString VolumeDb
     = QStringLiteral("volumeDb"); ///< gain in dB (−96 = silence); default 0
 inline const QString Pan = QStringLiteral("pan"); ///< −1 (left) .. +1 (right); default 0
 
+// ---- Retime (ClipData::retime, animated; see core/Retime.h) ----
+/// Source position (in source frames counted at the timeline frame rate, relative: only
+/// differences matter) shown at a clip-local frame. Its keys are the speed points.
+inline const QString RetimeFrame = QStringLiteral("retimeFrame");
+
 // ---- Title (ClipData::title; Title clips only) ----
 inline const QString Text = QStringLiteral("text"); ///< static QString; default "Title"
 inline const QString Font
