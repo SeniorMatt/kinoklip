@@ -141,7 +141,12 @@ its transform, so they move with the clip and the clip opacity / transitions app
   removed: `GL_ZERO, GL_ONE_MINUS_SRC_ALPHA`) and `ClipBlend::Add` (the processed picture,
   `GL_ONE, GL_ONE`), so inside the footprint the result replaces the tracks below and outside
   it they are untouched. Transition frames use the transition shader over the copy. Cost: one
-  full-frame copy + one footprint pass per adjustment track; nothing without one. Works per
+  full-frame copy + one footprint pass per adjustment track; nothing without one. Fast path
+  (`hasIdentityFootprint()`: no transform / crop / mask, opacity 100 %, the usual "grade or
+  blur everything"): no copy and no footprint pass - the layer path reads the accumulator and
+  `ClipBlend::Replace` writes the result back; with no active effect the clip is skipped.
+  1080p under llvmpipe (`test_adjustment cost`): plain scene 36 ms, + identity adjustment clip
+  27 ms (skipped), + adjustment with saturation 71 ms (two full-frame passes). Works per
   nesting level. CPU fallback: the same with QImage copies, `DestinationOut` + `Plus`.
 * **Generators** (`ClipKind::Generator`, `render/Generators.*`, `render/GlGenerators.*`):
   `resolveGenerator()` turns the clip's parameters at a frame into a `GeneratorFrame`; the GPU

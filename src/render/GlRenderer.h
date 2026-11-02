@@ -117,12 +117,20 @@ private:
         /// footprint (crop, masks, transform) times its opacity; effects are skipped.
         Erase,
         /// Adjustment clips, pass 2: target += processed picture × opacity.
-        Add
+        Add,
+        /// Adjustment clips covering the whole frame unchanged (hasIdentityFootprint()): the
+        /// processed layer overwrites the target (blending off).
+        Replace
     };
     void drawClip(const ClipData& clip, const FrameContext& fc, const RenderTarget& target,
         ClipBlend blend = ClipBlend::Over);
     /// Sets the GL blend function for @p blend (blending enabled).
     void applyBlend(ClipBlend blend);
+    /// True if adjustment clip @p clip has an effect that changes the picture at @p local.
+    [[nodiscard]] bool hasActiveEffect(const ClipData& clip, int64_t local) const;
+    /// Draws the track frame @p tf showing an adjustment clip over @p accumulator (which holds
+    /// the tracks below); may replace @p accumulator.
+    void drawAdjustment(const TrackFrame& tf, const FrameContext& fc, PooledTarget& accumulator);
     bool resolveSource(const ClipData& clip, int64_t localFrame, const FrameContext& fc,
         double maxZoomValue, ClipSource& out);
     void drawSource(

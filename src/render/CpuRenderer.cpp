@@ -91,6 +91,9 @@ private:
                 const TrackFrame tf = evaluateTrack(track, frame);
                 if (tf.isEmpty())
                     continue;
+                if (tf.single && tf.single->kind == ClipKind::Adjustment
+                    && hasIdentityFootprint(*tf.single, tf.single->localFrame(frame)))
+                    continue; // effects are skipped here, so it would change nothing
                 if (showsAdjustment(tf)) {
                     // The tracks below become the adjustment clip's picture (see GlRenderer).
                     painter.end();
