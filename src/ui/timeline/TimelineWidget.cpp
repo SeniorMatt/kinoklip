@@ -10,6 +10,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/timeline/KeyframeLanes.h"
+#include "ui/timeline/NestedPreview.h"
 #include "ui/timeline/TimelineController.h"
 
 #include <QContextMenuEvent>
@@ -49,8 +50,11 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     setMinimumHeight(kRulerHeight + 2 * kDefaultAudioHeight);
 
     m_painter.setStyle(palette(), font());
-    m_painter.setThumbnailProvider(mediaCacheThumbnails());
-    m_painter.setWaveformProvider(mediaCacheWaveforms());
+    // Compound clips / nested timelines: previews rendered from the nested timeline.
+    m_nestedPreview = new NestedPreview(ctx.project, this);
+    connect(m_nestedPreview, &NestedPreview::ready, this, &TimelineWidget::refreshMedia);
+    m_painter.setThumbnailProvider(m_nestedPreview->wrap(mediaCacheThumbnails()));
+    m_painter.setWaveformProvider(m_nestedPreview->wrap(mediaCacheWaveforms()));
     connectMediaCache(this, [this] { refreshMedia(); });
 
     Timeline* timeline = ctx.project->timeline();
@@ -58,9 +62,23 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     connect(timeline, &Timeline::playheadChanged, this, &TimelineWidget::onPlayheadChanged);
     connect(ctx.selection, &SelectionModel::changed, this, &TimelineWidget::onSelectionChanged);
     connect(ctx.project, &Project::projectReset, this, [this] {
-        m_fitOnFirstShow = true;
         onTimelineChanged();
-        zoomToFit();
+        restoreViewState(m_ctx.project->activeTimelineUid());
+    });
+    // Timeline tabs: each timeline keeps its own zoom and scroll (Project::viewState()); the
+    // selection and the keyframe lanes refer to clip ids of the old timeline.
+    connect(ctx.project, &Project::activeTimelineAboutToChange, this, [this](quint64 uid) {
+        if (m_drag.mode != DragMode::None)
+            cancelDrag();
+        m_ctx.project->setViewState(uid,
+            TimelineViewState {m_layout.pixelsPerFrame(), int(std::lround(m_layout.scrollX())),
+                m_layout.scrollY()});
+        m_ctx.selection->clear();
+        m_keyframeLanes->reset();
+    });
+    connect(ctx.project, &Project::activeTimelineChanged, this, [this](quint64 uid) {
+        onTimelineChanged();
+        restoreViewState(uid);
     });
     connect(m_controller, &TimelineController::stateChanged, this, [this] {
         updateHover(viewport()->mapFromGlobal(QCursor::pos()));
@@ -79,6 +97,23 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     onSelectionChanged();
 }
 
+void TimelineWidget::restoreViewState(quint64 uid)
+{
+    const TimelineViewState v = m_ctx.project->viewState(uid);
+    if (v.pixelsPerFrame <= 0.0) {
+        // Never shown: fit, now or on the first show with a real width.
+        m_fitOnFirstShow = true;
+        zoomToFit();
+        return;
+    }
+    m_fitOnFirstShow = false;
+    m_layout.setPixelsPerFrame(v.pixelsPerFrame, kHeaderWidth);
+    m_layout.setScrollX(v.scrollX);
+    m_layout.setScrollY(v.scrollY);
+    updateScrollBars();
+    viewport()->update();
+}
+
 TimelineWidget::~TimelineWidget()
 {
     // Never leave an edit open (e.g. the widget is destroyed mid-drag).
@@ -88,13 +123,13 @@ TimelineWidget::~TimelineWidget()
 
 void TimelineWidget::setThumbnailProvider(ThumbnailProvider provider)
 {
-    m_painter.setThumbnailProvider(std::move(provider));
+    m_painter.setThumbnailProvider(m_nestedPreview->wrap(std::move(provider)));
     viewport()->update();
 }
 
 void TimelineWidget::setWaveformProvider(WaveformProvider provider)
 {
-    m_painter.setWaveformProvider(std::move(provider));
+    m_painter.setWaveformProvider(m_nestedPreview->wrap(std::move(provider)));
     viewport()->update();
 }
 
@@ -467,6 +502,13 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         menu.addSeparator();
         const quint64 id = hit.clipId;
         const ClipData* clip = editops::clipById(data, id);
+        // Compound clips (spec 26): create from the selection; open / decompose an instance.
+        addAction("clip.new_compound");
+        if (clip && clip->kind == ClipKind::Nested) {
+            addAction("clip.open_in_timeline");
+            addAction("clip.decompose");
+        }
+        menu.addSeparator();
         const TrackData* clipTrack = data.track(hit.track);
         const bool editable = clipTrack && !clipTrack->locked;
         if (editable && clip && (clip->transitionIn || clip->transitionOut)) {

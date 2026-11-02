@@ -18,6 +18,7 @@
 namespace kk {
 
 struct AppContext;
+struct MediaItem;
 class Project;
 class Timeline;
 
@@ -177,6 +178,48 @@ public:
     /// AppContext::playback; tests inject their own.
     void setPlayingProvider(std::function<bool()> provider) { m_playing = std::move(provider); }
 
+    // ---- Timelines and compound clips (TimelineCompound.cpp) ----
+
+    /// Asks for a name (dialog @p title, field @p label, prefilled with @p suggestion, accept
+    /// button @p okText); nothing = cancelled. Without a prompt the suggestion is used.
+    using NamePrompt = std::function<std::optional<QString>(const QString& title,
+        const QString& label, const QString& suggestion, const QString& okText)>;
+    void setNamePrompt(NamePrompt prompt) { m_namePrompt = std::move(prompt); }
+    /// Asks a yes/no question; without a prompt the answer is yes.
+    using ConfirmPrompt = std::function<bool(const QString& title, const QString& text)>;
+    void setConfirmPrompt(ConfirmPrompt prompt) { m_confirmPrompt = std::move(prompt); }
+    /// Tells the user why a command did nothing (e.g. "a timeline cannot contain itself").
+    using MessageSink = std::function<void(const QString& title, const QString& text)>;
+    void setMessageSink(MessageSink sink) { m_messageSink = std::move(sink); }
+    /// Shows the Timeline Settings dialog for timeline @p uid (installed by the panel).
+    void setTimelineSettingsPrompt(std::function<void(quint64 uid)> prompt)
+    {
+        m_timelineSettingsPrompt = std::move(prompt);
+    }
+    /// Media pool bin new timelines and compound clips go into (default: the root bin;
+    /// EditPage wires the media pool's current bin, as in Resolve).
+    void setBinProvider(std::function<QString()> provider) { m_binProvider = std::move(provider); }
+
+    /// Clip > New Compound Clip: collapses the selection (with linked clips when linked
+    /// selection is on) into a compound clip named @p name (empty: asks, suggesting
+    /// "Compound Clip N"). One undo step. Returns the compound timeline's uid, or 0.
+    quint64 newCompoundClip(const QString& name = {});
+    /// Clip > Decompose in Place for the selected compound clip(s) / nested timelines. One
+    /// undo step per instance pair. Returns whether anything was decomposed.
+    bool decomposeSelection();
+    /// Clip > Open in Timeline: opens the selected compound clip's timeline in a tab.
+    bool openSelectedInTimeline();
+    /// File > New Timeline: asks for the name (empty @p name), creates and opens it.
+    quint64 newTimeline(const QString& name = {});
+    /// Duplicates the active timeline and opens the copy.
+    quint64 duplicateActiveTimeline();
+    /// Deletes the active timeline after confirmation (refused for the last timeline).
+    bool deleteActiveTimeline();
+    /// Activates the next (@p step = 1) or previous (-1) tab, wrapping around.
+    void cycleTab(int step);
+    /// Closes the active tab (not the last one).
+    bool closeActiveTab();
+
     // ---- Clip factories ----
 
     /// Video and/or audio clips for media item @p mediaId covering source [inUs, outUs)
@@ -186,6 +229,11 @@ public:
     /// Does not modify the timeline (used for drop previews too). Empty if the id is unknown.
     [[nodiscard]] QVector<editops::PlacedClip> makeMediaClips(
         const QString& mediaId, int64_t inUs, int64_t outUs, int videoTrack, int audioTrack) const;
+    /// makeMediaClips() for a timeline / compound clip item: Nested clips (source times in the
+    /// nested timeline's µs). Empty when placing it would make the active timeline contain
+    /// itself (Project::canNest()).
+    [[nodiscard]] QVector<editops::PlacedClip> makeNestedClips(
+        const MediaItem& item, int64_t inUs, int64_t outUs, int videoTrack, int audioTrack) const;
     /// A Title or Solid clip for generator/title descriptor @p effectId (5 s), or nullopt if
     /// the id is not a generator or title.
     [[nodiscard]] static std::optional<ClipData> makeGeneratorClip(
@@ -391,6 +439,11 @@ private:
     MarkerEditor m_markerEditor;
     PasteAttributesPrompt m_pastePrompt;
     std::function<bool()> m_playing;
+    NamePrompt m_namePrompt;
+    ConfirmPrompt m_confirmPrompt;
+    MessageSink m_messageSink;
+    std::function<void(quint64)> m_timelineSettingsPrompt;
+    std::function<QString()> m_binProvider;
     bool m_dynamicTrim = false;
     bool m_dynamicOpen = false; ///< an undoable dynamic-trim run is in progress
     int64_t m_dynamicLast = 0; ///< playhead at the last dynamic-trim step

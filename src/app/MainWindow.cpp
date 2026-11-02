@@ -18,6 +18,7 @@
 #include "ui/deliver/DeliverPage.h"
 #include "ui/dialogs/DialogActions.h"
 #include "ui/dialogs/PreferencesDialog.h"
+#include "ui/timeline/TimelinePanel.h"
 #include "ui/viewer/ViewerTransport.h"
 
 #include <QAction>
@@ -317,6 +318,7 @@ void MainWindow::connectAppActions()
         if (m_autosave)
             m_autosave->setIntervalMinutes(prefs::autosaveMinutes());
         applyRuntimePreferences(m_ctx.playback);
+        m_editPage->timeline()->applyPreferences(); // timeline tabs on / off
     });
     applyRuntimePreferences(m_ctx.playback); // stored choices from start-up on
 }

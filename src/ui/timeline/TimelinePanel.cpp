@@ -2,6 +2,7 @@
 // TimelinePanel: assembles tool bar, controller and view; wires the zoom actions.
 #include "ui/timeline/TimelinePanel.h"
 
+#include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "ui/common/ActionRegistry.h"
@@ -11,11 +12,13 @@
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineDialogs.h"
 #include "ui/timeline/TimelineLayout.h"
+#include "ui/timeline/TimelineTabs.h"
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
 #include <QEvent>
 #include <QInputDialog>
+#include <QMessageBox>
 #include <QSlider>
 #include <QToolBar>
 #include <QVBoxLayout>
@@ -50,6 +53,18 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     });
     m_controller->setPasteAttributesPrompt(
         [this] { return timelinedialogs::askPasteAttributes(this); });
+    m_controller->setNamePrompt([this](const QString& title, const QString& label,
+                                    const QString& suggestion, const QString& okText) {
+        return timelinedialogs::askName(this, title, label, suggestion, okText);
+    });
+    m_controller->setConfirmPrompt([this](const QString& title, const QString& text) {
+        return QMessageBox::question(this, title, text) == QMessageBox::Yes;
+    });
+    m_controller->setMessageSink([this](const QString& title, const QString& text) {
+        QMessageBox::information(this, title, text);
+    });
+    m_controller->setTimelineSettingsPrompt(
+        [this](quint64 uid) { timelinedialogs::editTimelineSettings(this, *m_ctx.project, uid); });
 
     m_toolBar = new QToolBar(body);
     m_toolBar->setIconSize(QSize(metrics::kTransportIconSize, metrics::kTransportIconSize));
@@ -87,6 +102,22 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     if (ctx.actions)
         m_toolBar->addAction(ctx.actions->action(QStringLiteral("timeline.zoom_in")));
     layout->addWidget(m_toolBar);
+
+    // Open timelines (v2: tabs by default, Preferences > Editing > Timelines).
+    m_tabs = new TimelineTabs(ctx, body);
+    layout->addWidget(m_tabs);
+    connect(m_tabs, &TimelineTabs::renameRequested, this, [this](quint64 uid) {
+        const auto data = m_ctx.project->timelineData(uid);
+        if (!data)
+            return;
+        const std::optional<QString> name = timelinedialogs::askName(
+            this, tr("Rename Timeline"), tr("Timeline name"), data->name, tr("Rename"));
+        if (name && !name->trimmed().isEmpty())
+            m_ctx.project->renameTimeline(uid, name->trimmed());
+    });
+    connect(m_tabs, &TimelineTabs::settingsRequested, this,
+        [this](quint64 uid) { timelinedialogs::editTimelineSettings(this, *m_ctx.project, uid); });
+    applyPreferences();
 
     m_view = new TimelineWidget(ctx, m_controller, body);
     layout->addWidget(m_view, 1);
@@ -134,6 +165,11 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     };
     connect(timeline, &Timeline::changed, this, updateTitle);
     updateTitle();
+}
+
+void TimelinePanel::applyPreferences()
+{
+    m_tabs->setTabsMode(EditBehaviour::fromSettings().timelineTabs);
 }
 
 void TimelinePanel::askClipDuration()

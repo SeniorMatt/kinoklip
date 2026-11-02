@@ -374,6 +374,43 @@ how some layouts report the key.
 | 24.5 | In single mode the viewer shows the timeline; opening a clip (media pool double-click, match frame) shows the source viewer in its place instead of leaving single mode; Q swaps back and forth; activating the timeline viewer (e.g. working in the timeline) shows the timeline. | Fixed (test_mainwindow spec24_4) |
 | 24.6 | The viewer mode is saved with the page layout. | OK (test_mainwindow spec24_4) |
 
+## 25. Timelines and timeline tabs (compound branch, v2)
+
+Tests: `cp` = `tests/core/test_compound.cpp`, `tt` = `tests/timeline/test_timelinetabs.cpp`,
+`tn` = `tests/render/test_nested.cpp`.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 25.1 | A project holds any number of timelines. Each one is an item in the media pool (its own icon), lives in a bin like media, and can be renamed there (renaming the item renames the timeline). | Fixed (new; cp createSwitchRenameDeleteTimelines, renameInMediaPoolRenamesTimeline) |
+| 25.2 | File > New Timeline (Ctrl+N) asks for the name ("Timeline N" suggested), creates an empty timeline (V1, V2, A1, A2) in the media pool's current bin and opens it. | Fixed (new; tt tabsFollowProject). Decision: Ctrl+N was New Project before; Resolve uses it for New Timeline, New Project now has no key. |
+| 25.3 | Duplicate Timeline copies all clips ("&lt;name&gt; copy"); Delete Timeline asks first (and says how many nested clips go offline), is one undo step, and refuses to delete the last timeline. | Fixed (new; cp createSwitchRenameDeleteTimelines) |
+| 25.4 | Each timeline has its own playhead, in/out marks, markers, zoom and scroll; switching back restores them. | Fixed (new; tt zoomAndPlayheadPerTimeline) |
+| 25.5 | Each timeline can follow the project resolution and frame rate (default) or have its own (Timeline > Timeline Settings…). Changing the project settings updates only the timelines that follow them. | Fixed (new; cp projectSettingsFollowedOnlyByFollowingTimelines). As before, a new frame rate does not rescale existing clips. |
+| 25.6 | Timeline tabs are on by default: the open timelines are tabs above the timeline; double-clicking a timeline in the media pool opens (or shows) its tab; clicking a tab switches; tabs can be dragged to reorder and closed (button, context menu, Timeline > Close Timeline Tab); the last tab cannot be closed. The tab context menu also offers Close Other Tabs, Rename, Duplicate and Timeline Settings. | Fixed (new; tt tabsFollowProject, cp tabsOpenCloseMove) |
+| 25.7 | The timeline viewer, the Inspector, the Keyframes panel, the Deliver page and playback always show the active tab's timeline; switching clears the clip selection. | Fixed (new: they share the one active Timeline object) |
+| 25.8 | Preferences > Editing > Timelines turns tabs off: one timeline at a time, picked from a drop-down in the same place (compound clips are listed while open). | Fixed (new; tt dropDownWhenTabsAreOff). Decision: Resolve puts its timeline drop-down in the timeline viewer's header; ours sits above the timeline, where the tabs are, so the viewer chrome stays untouched. |
+| 25.9 | The open tabs, their order, the active timeline and each timeline's playhead and zoom are saved with the project. | Fixed (new; cp saveLoadRoundTrip) |
+| 25.10 | Undo covers every timeline: undoing a step that was made in another timeline first switches to that timeline. | Decision (Resolve keeps one undo history per timeline; ours is per project so cross-timeline steps like New Compound Clip stay one step; cp editsInOtherTimelineUndoWithSwitch) |
+| 25.11 | Timeline > Next / Previous Timeline Tab cycle through the tabs. | Fixed (new; tt tabsFollowProject). No default keys (Resolve has none known). |
+
+## 26. Compound clips and nested timelines (compound branch, v2)
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 26.1 | Clip > New Compound Clip… (also in the clip context menu) asks for the name ("Compound Clip N") and collapses the selected clips (with their linked clips when linked selection is on) into one clip on the lowest selected track at the selection's first frame, as long as the selection. Linked audio becomes a linked audio part of the compound clip on the lowest selected audio track. One undo step; the new clip is selected. | Fixed (new; cp collapseKeepsTimingTracksAndContent, compoundClipInProject; tt compoundCommands) |
+| 26.2 | Inside, the clips keep their relative timing and track order (lowest selected track = V1 / A1), effects, transitions, keyframes, markers and links. | Fixed (cp collapseKeepsTimingTracksAndContent) |
+| 26.3 | If an unselected clip still sits in the selection's range on the lowest track, the compound clip goes to the next free track above (a new top track if needed); it never overwrites. Locked tracks in the selection refuse the command. | Decision (cp collapseAvoidsUnselectedClipInRange, collapseRefusesEmptyAndLocked) |
+| 26.4 | The compound clip appears in the media pool (compound clip icon) and can be used again: dragged or edited (F9/F10/...) into any timeline, several times. | Fixed (tt timelineItemDropsAsNestedClipWithoutRecursion) |
+| 26.5 | Open in Timeline (context menu, Clip menu, double-click in the media pool) opens the compound clip's timeline in its own tab; edits there change every instance (picture, sound, and the length the instances can be trimmed to). | Fixed (cp compoundClipInProject; tt compoundCommands) |
+| 26.6 | Decompose in Place replaces the compound clip (and its linked part) with the clips it shows: only the visible part (cut at a trimmed edge), at the same timeline frames, nested track k on the clip's track + k or the next free track above. The compound clip's own transform and effects are dropped. Refused for speeds other than 100 % and a different frame rate. | Fixed (cp decomposeRestoresClipsExactly, decomposeTrimmedAndMovedInstance, decomposeRefusesSpeedAndForeignClip) |
+| 26.7 | A compound clip trims, slips, splits, moves and changes speed like a media clip; its "media" is the nested timeline (it cannot be extended past it). | Fixed (cp decomposeTrimmedAndMovedInstance) |
+| 26.8 | Inspector properties of a compound clip (transform, crop, opacity, effects, volume, pan) apply to the nested picture / mix as a whole, not to each clip inside. | Fixed (tn instanceTransformAppliesToWhole) |
+| 26.9 | Nested timelines: dragging a timeline from the media pool into another timeline uses it as a clip (same machinery as compound clips). | Fixed (tt timelineItemDropsAsNestedClipWithoutRecursion) |
+| 26.10 | A timeline can never contain itself, directly or through other nested timelines: such drops and edits are refused. | Fixed (cp recursionIsDetected; tt timelineItemDropsAsNestedClipWithoutRecursion) |
+| 26.11 | Rendering, playback and export of nested content match the flattened clips (picture within 2/255 per channel, sound sample-exact), frame-accurately through several nesting levels. | Fixed (tn compoundMatchesFlattened, mediaThroughTwoLevels, audioMatchesFlattened) |
+| 26.12 | Nested clips show thumbnails and waveforms of their content on the timeline (rendered in the background, cached until the nested timeline changes) and have their own clip colour. | Fixed (new) |
+| 26.13 | Deleting a compound clip / timeline from the media pool asks first when clips use it; those clips become offline (draw and play nothing). | Fixed |
+
 ---
 
 ## Summary
@@ -390,3 +427,5 @@ how some layouts report the key.
   Bezier interpolation, section diamonds).
 - The kfwindow branch (alpha.2 feedback #10) added 15.14 - 15.20 (the Keyframes panel, docked
   or floating, sharing its editing code with the inline lanes).
+- The compound branch (v2) added 25.1 - 25.11 (several timelines per project, timeline tabs on
+  by default, drop-down mode) and 26.1 - 26.13 (compound clips, nested timelines).

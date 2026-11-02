@@ -10,6 +10,7 @@
 #include "core/ParamKeys.h"
 #include "ui/common/Icons.h"
 #include "ui/common/TimecodeFormat.h"
+#include "ui/timeline/NestedPreview.h"
 
 #include <QCoreApplication>
 #include <QFontMetrics>
@@ -33,6 +34,10 @@ const QColor kVideoClip(0x2f, 0x62, 0x96);
 const QColor kAudioClip(0x2c, 0x7a, 0x58);
 const QColor kTitleClip(0x80, 0x5c, 0xb0);
 const QColor kSolidClip(0x6c, 0x6c, 0x78);
+/// Compound clips / nested timelines (video and audio parts alike): a teal unlike the media
+/// colours, so a nested clip is recognisable at a glance.
+const QColor kNestedClip(0x2a, 0x7f, 0x8a);
+const QColor kNestedAudioClip(0x3b, 0x77, 0x6a);
 const QColor kSelection(0xff, 0xa8, 0x3a);
 const QColor kPlayhead(0xe5, 0x48, 0x4d);
 const QColor kSnapLine(0xf4, 0xd6, 0x4e);
@@ -149,6 +154,8 @@ QColor TimelinePainter::clipColor(const ClipData& clip, TrackType type)
         return kTitleClip;
     case ClipKind::Solid:
         return kSolidClip;
+    case ClipKind::Nested:
+        return type == TrackType::Video ? kNestedClip : kNestedAudioClip;
     case ClipKind::Media:
         break;
     }
@@ -171,6 +178,14 @@ QString TimelinePainter::mediaPath(const TimelinePaintInput& in, const QString& 
     if (!in.mediaPool)
         return {};
     const MediaItem* item = in.mediaPool->item(mediaId);
+    return item ? item->path : QString();
+}
+
+QString TimelinePainter::clipPreviewPath(const ClipData& clip, const MediaItem* item)
+{
+    // Nested clips: the providers resolve the pseudo path to the nested timeline's preview.
+    if (clip.kind == ClipKind::Nested)
+        return nestedPreviewPath(clip.nestedUid);
     return item ? item->path : QString();
 }
 
@@ -288,6 +303,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     if (content.height() >= 6) {
         switch (clip.kind) {
         case ClipKind::Media:
+        case ClipKind::Nested:
             if (track.type == TrackType::Video)
                 paintThumbnails(p, in, clip,
                     QRectF(r.left(), content.top(), r.width(), content.height()), content);
@@ -409,9 +425,10 @@ void TimelinePainter::paintThumbnails(QPainter& p, const TimelinePaintInput& in,
             break;
         const QRectF tile(x, top, tileW, tileH);
         QImage image;
-        if (m_thumbnails && item) {
+        if (m_thumbnails && (item || clip.kind == ClipKind::Nested)) {
             const int64_t frame = clip.start + int64_t((x - full.left()) / L.pixelsPerFrame());
-            image = m_thumbnails(item->path, clip.sourceTimeUsAt(frame, in.data->fps), tileH);
+            image = m_thumbnails(
+                clipPreviewPath(clip, item), clip.sourceTimeUsAt(frame, in.data->fps), tileH);
         }
         if (image.isNull())
             p.fillRect(tile.adjusted(0, 0, -1, 0), placeholder);
@@ -434,13 +451,14 @@ void TimelinePainter::paintWaveform(QPainter& p, const TimelinePaintInput& in, c
     const Rational fps = in.data->fps;
     bool ok = false;
     if (m_waveforms && in.mediaPool) {
-        if (const MediaItem* item = in.mediaPool->item(clip.mediaId)) {
+        const MediaItem* item = in.mediaPool->item(clip.mediaId);
+        if (item || clip.kind == ClipKind::Nested) {
             const double usPerFrame = fps.isValid() ? 1e6 * fps.den / fps.num * clip.speed : 0;
             const double startFrame = L.xToFrame(visible.left()) - double(clip.start);
             const double startUs = double(clip.sourceInUs) + startFrame * usPerFrame;
             m_peaks.resize(size_t(columns)); // capacity is kept between paints
-            ok = m_waveforms(
-                item->path, startUs, usPerFrame / L.pixelsPerFrame(), columns, m_peaks.data());
+            ok = m_waveforms(clipPreviewPath(clip, item), startUs, usPerFrame / L.pixelsPerFrame(),
+                columns, m_peaks.data());
         }
     }
     p.setPen(color);
