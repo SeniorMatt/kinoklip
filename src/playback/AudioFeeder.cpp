@@ -3,12 +3,14 @@
 #include "playback/AudioFeeder.h"
 
 #include "playback/AudioRing.h"
+#include "playback/VarispeedResampler.h"
 #include "render/AudioMixer.h"
 #include "render/LoudnessMeter.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <vector>
 
 namespace kk {
@@ -66,6 +68,7 @@ void AudioFeeder::start(
         }
         m_rate = rate;
         m_srcPos = double(m_position);
+        m_spanFrames = 0; // the feeder thread is idle (after stop()): the window restarts
         m_scrub = false;
         m_running = true;
     }
@@ -106,29 +109,56 @@ void AudioFeeder::mixVarispeed(
     AudioMixer& mixer, const TimelineData& timeline, int count, float* out)
 {
     constexpr int ch = AudioRing::kChannels;
-    // Output frame k carries timeline sample m_srcPos + rate * k. The span read covers every
-    // position the chunk touches plus one sample for the interpolation.
+    // Output frame k carries timeline sample m_srcPos + rate * k. The window covers every
+    // position the chunk touches plus the resampling kernel's reach on both sides.
     const double last = m_srcPos + m_rate * double(count - 1);
-    const int64_t lo = int64_t(std::floor(std::min(m_srcPos, last)));
-    const int64_t hi = int64_t(std::floor(std::max(m_srcPos, last))) + 1;
-    const int span = int(hi - lo + 1);
-    m_span.resize(size_t(span) * ch); // grows to the largest span once, then reused
-    std::fill(m_span.begin(), m_span.end(), 0.0f);
-    // Nothing exists before the timeline start: mix only from sample 0 on.
-    const int64_t from = std::max<int64_t>(lo, 0);
-    if (hi >= from)
-        mixer.mix(timeline, from, int(hi - from + 1), m_span.data() + size_t(from - lo) * ch);
-    for (int k = 0; k < count; ++k) {
-        const double pos = m_srcPos + m_rate * double(k) - double(lo);
-        const int i = std::clamp(int(pos), 0, span - 2); // span >= 2 by construction
-        const float frac = float(std::clamp(pos - double(i), 0.0, 1.0));
-        for (int c = 0; c < ch; ++c) {
-            const float a = m_span[size_t(i) * ch + c];
-            const float b = m_span[size_t(std::min(i + 1, span - 1)) * ch + c];
-            out[size_t(k) * ch + c] = a + (b - a) * frac;
-        }
-    }
+    const int margin = VarispeedResampler::margin(m_rate);
+    const int64_t lo = int64_t(std::floor(std::min(m_srcPos, last))) - margin;
+    const int64_t hi = int64_t(std::floor(std::max(m_srcPos, last))) + margin;
+    ensureWindow(mixer, timeline, lo, hi);
+    m_resampler.process(m_span.data() + size_t(lo - m_spanStart) * ch, int(hi - lo + 1),
+        m_srcPos - double(lo), m_rate, count, out);
     m_srcPos += m_rate * double(count);
+}
+
+void AudioFeeder::ensureWindow(
+    AudioMixer& mixer, const TimelineData& timeline, int64_t lo, int64_t hi)
+{
+    constexpr int ch = AudioRing::kChannels;
+    const int64_t frames = hi - lo + 1;
+    // Mixes [from, from + n) into the window at its offset; silence before the timeline start.
+    auto mixInto = [&](int64_t from, int64_t n) {
+        float* dst = m_span.data() + size_t(from - m_spanStart) * ch;
+        std::fill(dst, dst + size_t(n) * ch, 0.0f);
+        const int64_t first = std::max<int64_t>(from, 0);
+        if (first < from + n)
+            mixer.mix(timeline, first, int(from + n - first), dst + size_t(first - from) * ch);
+    };
+    if (m_span.size() < size_t(frames) * ch)
+        m_span.resize(size_t(frames) * ch); // grows to the largest window once, then reused
+    const int64_t end = m_spanStart + m_spanFrames;
+    if (m_spanTimeline == &timeline && m_spanFrames > 0 && lo >= m_spanStart && lo <= end
+        && hi >= end - 1) {
+        // Forward continuation: keep the overlap, mix only the new samples. The mixer then
+        // continues where its last call ended, so EQ / dynamics memory runs on unbroken.
+        const int64_t drop = lo - m_spanStart;
+        const int64_t keep = m_spanFrames - drop;
+        if (drop > 0 && keep > 0)
+            std::memmove(m_span.data(), m_span.data() + size_t(drop) * ch,
+                size_t(keep) * ch * sizeof(float));
+        m_spanStart = lo;
+        m_spanFrames = std::max<int64_t>(0, keep);
+        const int64_t from = m_spanStart + m_spanFrames;
+        if (hi >= from)
+            mixInto(from, hi - from + 1);
+        m_spanFrames = frames;
+        return;
+    }
+    // Reverse play, a loop wrap or a new start: mix the whole window afresh.
+    m_spanStart = lo;
+    m_spanFrames = frames;
+    m_spanTimeline = &timeline;
+    mixInto(lo, frames);
 }
 
 void AudioFeeder::stop()
