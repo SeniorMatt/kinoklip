@@ -16,3 +16,9 @@ Resolve has its viewer-mode control), alpha2-11.png (a dissolve on the timeline 
 6. Transitions on the timeline cannot be clicked/selected.
 7. Colour-scheme switching: fixed, no crashes.
 8. Mouse wheel behaviour (Resolve mapping: Alt+wheel zoom etc.): owner likes it, keep as default.
+9. Ripple trim works on Shift+[ / ] already; owner wants Resolve's mapping: Ctrl+Shift+[ / ] =
+   ripple trim to playhead, Shift+[ / ] = trim leaving a gap (sent to editfix).
+10. Full keyframe editor window like the latest Resolve (alpha2-12.png: the inline curve editor under
+    a short clip is far too cramped to use). A large dockable/floating Keyframes panel synced with
+    the timeline, with dope-sheet rows and a big curve view for the selected clip(s). Queued after
+    the current round (it touches the keyframe/inspector UI).
