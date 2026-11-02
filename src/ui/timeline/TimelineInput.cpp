@@ -382,7 +382,9 @@ void TimelineWidget::updateDrag(QPointF pos)
         updateSlipSlide(pos);
         break;
     case DragMode::ResizeTrack: {
-        const int h = std::clamp(m_drag.originHeight + int(pos.y() - m_drag.pressPos.y()),
+        // The stored height is unscaled; the drag distance is in scaled view pixels.
+        const int h = std::clamp(m_drag.originHeight
+                + int(std::lround((pos.y() - m_drag.pressPos.y()) / m_layout.heightScale())),
             kMinTrackHeight, kMaxTrackHeight);
         if (TrackData* t = m_ctx.project->timeline()->mutableData().track(m_drag.hit.track))
             t->height = h;

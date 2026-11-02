@@ -65,6 +65,9 @@ public:
     [[nodiscard]] bool followPlayhead() const { return m_followPlayhead; }
 
 public slots:
+    /// View-only vertical zoom of all tracks (Shift+wheel in the Resolve wheel scheme).
+    void setTrackHeightScale(double scale);
+    [[nodiscard]] double trackHeightScale() const { return m_layout.heightScale(); }
     void zoomIn();
     void zoomOut();
     /// Fits the whole timeline into the view (Shift+Z).
