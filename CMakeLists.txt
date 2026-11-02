@@ -127,3 +127,36 @@ foreach(test_src ${KK_TESTS})
   endif()
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 300)
 endforeach()
+
+# Helper for the nested Wayland session checks (scripts/wayland_dnd_check.sh): an external drag
+# source standing in for Dolphin. Not a test itself.
+add_executable(kk_dragsource tests/tools/kk_dragsource.cpp)
+target_link_libraries(kk_dragsource PRIVATE Qt6::Widgets)
+
+# Input injector for the KWin variant of those checks (KWin's org_kde_kwin_fake_input
+# protocol). Optional: needs wayland-client, wayland-scanner and plasma-wayland-protocols
+# (present in the Arch container only).
+find_program(KK_WAYLAND_SCANNER wayland-scanner)
+pkg_check_modules(KK_WAYLAND_CLIENT IMPORTED_TARGET wayland-client)
+find_file(KK_FAKE_INPUT_XML fake-input.xml PATHS /usr/share/plasma-wayland-protocols NO_DEFAULT_PATH)
+if(KK_WAYLAND_SCANNER AND KK_WAYLAND_CLIENT_FOUND AND KK_FAKE_INPUT_XML)
+  enable_language(C)
+  set(_kk_fi ${CMAKE_BINARY_DIR}/kk_fakeinput_gen)
+  file(MAKE_DIRECTORY ${_kk_fi})
+  add_custom_command(
+    OUTPUT ${_kk_fi}/fake-input-client-protocol.h ${_kk_fi}/fake-input-protocol.c
+    COMMAND ${KK_WAYLAND_SCANNER} client-header ${KK_FAKE_INPUT_XML} ${_kk_fi}/fake-input-client-protocol.h
+    COMMAND ${KK_WAYLAND_SCANNER} private-code ${KK_FAKE_INPUT_XML} ${_kk_fi}/fake-input-protocol.c
+    DEPENDS ${KK_FAKE_INPUT_XML})
+  add_executable(kk_fakeinput tests/tools/kk_fakeinput.c ${_kk_fi}/fake-input-protocol.c
+    ${_kk_fi}/fake-input-client-protocol.h)
+  target_include_directories(kk_fakeinput PRIVATE ${_kk_fi})
+  target_link_libraries(kk_fakeinput PRIVATE PkgConfig::KK_WAYLAND_CLIENT)
+endif()
+
+# Writes a project with imported media for those checks (media pool items to drag).
+add_executable(kk_makeproject tests/tools/kk_makeproject.cpp)
+target_link_libraries(kk_makeproject PRIVATE kinoklip_core)
+# Screenshot of a KWin session for those checks (KWin's ScreenShot2 D-Bus API).
+add_executable(kk_kwinshot tests/tools/kk_kwinshot.cpp)
+target_link_libraries(kk_kwinshot PRIVATE Qt6::Gui Qt6::DBus)
