@@ -16,7 +16,7 @@ Tests: `tp` = `tests/timeline/test_parity.cpp` (test names start with the item n
 `tc` = `test_timelinecontroller`, `tw` = `test_timelinewidget`, `pe` = `test_playbackengine`,
 `vp` = `test_viewerpanel`, `eo` = `test_editops` / `test_editops_timeline`, `in` =
 `test_inspector`, `pe2` = `tests/timeline/test_parity_edit.cpp` (resolveedit branch), `er` =
-`tests/core/test_editops_ripple.cpp`, `ar` = `test_actionregistry`, `ke` =
+`tests/core/test_editops_ripple.cpp`, `kp` = `tests/app/test_keyframespanel.cpp` (kfwindow branch), `ar` = `test_actionregistry`, `ke` =
 `tests/timeline/test_keyframeeditor.cpp`, `ko` = `tests/core/test_keyframeops.cpp`, `an` =
 `tests/core/test_animation.cpp`, `am` = `test_audiomixer` (keyframes branch), `ts` = `tests/timeline/test_transitionselect.cpp`, `ek` = `tests/app/test_editkeys.cpp` (editfix branch).
 
@@ -251,6 +251,13 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 15.11 | Interpolation is exact everywhere: cubic Bezier segments from per-key in / out handles (linear, ease, smooth, free) plus static keys; compositor, playback, export and the audio gain envelope evaluate the same curve (audio between frames too). Projects saved with the version-1 per-segment model load converted. | Fixed (an spec15_11_*, am spec15_11_volumeCurvesExact, serialization spec15_11_loadsVersion1Keyframes) |
 | 15.12 | Bezier handles of selected curved keys can be dragged; the opposite handle stays collinear (Alt breaks it); Flatten makes handles horizontal. | Fixed (ke spec15_12_curveHandleDrag, ko spec15_12_flattenAndHandles) |
 | 15.13 | Each inspector section with animatable parameters (Transform, Cropping, Audio, Title) has a section diamond keying all of them at the playhead (filled when all have a key there). | Decision: Resolve's per-section keyframe controls are approximated by one diamond per section (in spec15_13_sectionKeyframeDiamond) |
+| 15.14 | Keyframes panel (alpha.2 feedback #10, the cramped inline editor of alpha2-12.png): toggled from the interface bar (Keyframes, left of Mixer) and View > Keyframes (`view.toggle_keyframes`, no default key: none is known for Resolve). Left a parameter tree grouped like the Inspector (Transform, Cropping, Title, Audio, each effect; animated parameters, Show All lists every animatable one), right a ruler, a dope sheet (master, item, group, parameter rows) and a large curve editor (all shown curves overlaid, colour per curve, value axis with labels, time and value grid), either or both (split). The header shows the item's name. | Fixed (kp spec15_14_showsAnimatedParams). Decision: Resolve's own keyframe window was not available to compare; the layout follows its Fusion / Color-page keyframe and spline editors. |
+| 15.15 | The panel shows the selected items: a linked video + audio pair is one item (Transform / Cropping / effects of the video member, Audio of the audio member, spec 24.1); several items each get an item row (at most 8). | Fixed (kp spec15_15_linkedPairIsOneItem) |
+| 15.16 | Tree rows: curve check box, previous / add-remove / next diamond with the Inspector's three states (disabled outside the clip), the value at the playhead editable inline (drag or type; keys at the playhead when animated, spec 15.3); a group diamond keys or unkeys all its parameters; a label click selects the row's keys. One undo step per gesture. | Fixed (kp spec15_16_*) |
+| 15.17 | Dope sheet and curves edit exactly like the inline lanes (shared code): click / Shift / Ctrl / box select, drag in time (whole frames, snapping to playhead and clip edges) and value (Shift locks the axis), Bezier handles (Alt breaks), interpolation buttons Linear, Smooth, Ease In, Ease Out, Ease In and Out, Static, Flatten, right-click menu, copy / paste / delete (shared clipboard), double-click adds a key on the active curve. Normalised (each curve its own range) or one shared value axis; Fit All, Fit Selection; Ctrl+Shift+wheel zooms values, plain wheel pans them, middle drag pans both axes. | Fixed (kp spec15_17_*) |
+| 15.18 | Time is the timeline's: one playhead (ruler scrub, double-click on a key, tree arrows; the panel follows the timeline), with the panel's own range: Fit Clip (default; refits on a new selection), Follow Timeline (same range as the timeline view), Free (Ctrl / Alt + wheel zooms at the pointer, Shift + wheel and the scroll bar scroll; page-scrolls when the playhead leaves the view). Clip spans and edges are marked. | Fixed (kp spec15_18_playheadSync) |
+| 15.19 | Docks as a full-width row between the viewers and the timeline (opens at about 40 % of the page height, taken from both) or floats in its own window (title-bar button; e.g. a second monitor; shortcuts keep working there); closing the window hides the panel; dock state, window geometry, splitters, views and options persist with the page layout. | Fixed (kp spec15_19_detachAndRedockPersist) |
+| 15.20 | A clip narrower than 160 px on screen shows "Open in Keyframes Panel" in its inline lane (the lane menus always have it); the inline curve editor's value labels are no longer cut at the lane edges. | Fixed (ke spec15_20_narrowClipOffersKeyframesPanel) |
 
 ## 16. Clipboard
 
@@ -381,3 +388,5 @@ how some layouts report the key.
   ripple), 23.5, and added 13.10 and 24.1 - 24.6.
 - The keyframes branch fixed 15.8 and added 15.9 - 15.13 (keyframe editor, curve editor,
   Bezier interpolation, section diamonds).
+- The kfwindow branch (alpha.2 feedback #10) added 15.14 - 15.20 (the Keyframes panel, docked
+  or floating, sharing its editing code with the inline lanes).

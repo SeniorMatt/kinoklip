@@ -211,6 +211,12 @@ void TimelineWidget::updateScrollBars()
     m_layout.setScrollY(v->value());
     m_syncingScrollBars = false;
     m_keyframeLanes->syncGeometry();
+    emit viewChanged();
+}
+
+std::pair<double, double> TimelineWidget::visibleFrameRange() const
+{
+    return {m_layout.xToFrame(kHeaderWidth), m_layout.xToFrame(viewport()->width())};
 }
 
 void TimelineWidget::scrollContentsBy(int, int)
@@ -225,6 +231,7 @@ void TimelineWidget::scrollContentsBy(int, int)
         updateDrag(m_drag.lastPos);
     m_keyframeLanes->syncGeometry();
     viewport()->update();
+    emit viewChanged();
 }
 
 void TimelineWidget::scrollToFrame(double frame)

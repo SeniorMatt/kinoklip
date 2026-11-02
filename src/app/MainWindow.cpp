@@ -54,6 +54,7 @@ constexpr PanelToggle kPanelToggles[] = {
     {"view.toggle_media_pool", PanelId::MediaPool, true},
     {"view.toggle_effects", PanelId::Effects, true},
     {"view.toggle_edit_index", PanelId::EditIndex, true},
+    {"view.toggle_keyframes", PanelId::Keyframes, false},
     {"view.toggle_mixer", PanelId::Mixer, false},
     {"view.toggle_metadata", PanelId::Metadata, false},
     {"view.toggle_inspector", PanelId::Inspector, false},

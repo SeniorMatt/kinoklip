@@ -81,9 +81,14 @@ public:
     /// The clip whose "fx" badge is at @p pos, or 0.
     [[nodiscard]] quint64 fxBadgeAt(QPointF pos) const;
 
+    /// Visible frame range of the track area (first, last; fractional).
+    [[nodiscard]] std::pair<double, double> visibleFrameRange() const;
+
 signals:
     /// The user asked to inspect @p clipId (the page shows the Inspector on that tab).
     void inspectRequested(quint64 clipId, kk::TimelineWidget::InspectTarget target);
+    /// Zoom or horizontal scroll changed (the Keyframes panel's Follow Timeline mode).
+    void viewChanged();
 
 public slots:
     /// View-only vertical zoom of all tracks (Shift+wheel in the Resolve wheel scheme).
