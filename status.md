@@ -126,3 +126,7 @@
 - 02:33 Heartbeat: polish2 9 commits (last 2 min ago), building; 17 GB free.
 - 02:55 polish2 merged (15 commits); full suite started.
 - 03:03 main after polish2: 105/105 pass; pushed. Starting polish3.
+- 03:26 Heartbeat: polish3 2 commits (Edit Index, viewer transform handles), working; 16 GB free.
+- 03:33 Heartbeat: polish3 3 commits (source timecode, speed nudges), building; 17 GB free.
+- 04:03 polish3 merged (10 commits); full suite started.
+- 04:08 main after polish3: 110/110 pass. Version 0.3.1; notes written; container release build started.
