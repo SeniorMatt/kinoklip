@@ -23,7 +23,7 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             "Render the window (1920x1080) showing <target> to the PNG given as the first "
             "positional argument, then exit. Targets: media, edit, deliver, preferences, "
             "keyboard, inspector, keyframes, keyframes-window, mediapool, menu-color-theme, "
-            "menu-style. Usage: --screenshot "
+            "menu-style, menu-playback-resolution. Usage: --screenshot "
             "edit out.png [project]"),
         QStringLiteral("target"));
     const QCommandLineOption resetLayout(QStringLiteral("reset-layout"),
