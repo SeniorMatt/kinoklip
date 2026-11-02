@@ -22,6 +22,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QHash>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QSettings>
@@ -54,6 +55,22 @@ constexpr PanelToggle kPanelToggles[] = {
     {"view.toggle_mixer", PanelId::Mixer, false},
     {"view.toggle_metadata", PanelId::Metadata, false},
     {"view.toggle_inspector", PanelId::Inspector, false},
+};
+
+/// Page bar slots in Resolve's order: page id, or nullptr for a page that is not built yet.
+struct PageSlot
+{
+    const char* actionId;
+    const char* pageId;
+};
+constexpr PageSlot kPageSlots[] = {
+    {"view.page_media", "media"},
+    {"view.page_cut", nullptr},
+    {"view.page_edit", "edit"},
+    {"view.page_compositing", nullptr},
+    {"view.page_color", nullptr},
+    {"view.page_audio", nullptr},
+    {"view.page_deliver", "deliver"},
 };
 
 QString pageSettingsGroup(const QString& pageId)
@@ -94,13 +111,21 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     m_mediaPage = new MediaPage(ctx);
     m_editPage = new EditPage(ctx);
     m_deliverPage = new DeliverPage(ctx);
-    addPage(m_mediaPage, QStringLiteral("view.page_media"));
-    addPage(m_editPage, QStringLiteral("view.page_edit"));
-    // Color page is reserved: a disabled button between Edit and Deliver.
-    QAction* colorAction = ctx.actions->action(QStringLiteral("view.page_color"));
-    colorAction->setToolTip(tr("Color — coming later"));
-    m_pageBar->addPageAction(colorAction);
-    addPage(m_deliverPage, QStringLiteral("view.page_deliver"));
+    // The page bar in Resolve's order; pages not built yet are disabled placeholders.
+    const QHash<QString, Page*> built {{QStringLiteral("media"), m_mediaPage},
+        {QStringLiteral("edit"), m_editPage}, {QStringLiteral("deliver"), m_deliverPage}};
+    for (const PageSlot& slot : kPageSlots) {
+        const QString actionId = QLatin1String(slot.actionId);
+        Page* page = slot.pageId ? built.value(QLatin1String(slot.pageId)) : nullptr;
+        if (page) {
+            addPage(page, actionId);
+            continue;
+        }
+        QAction* placeholder = ctx.actions->action(actionId);
+        placeholder->setToolTip(
+            tr("%1 page — coming in a later version").arg(placeholder->iconText()));
+        m_pageBar->addPageAction(placeholder);
+    }
 
     buildMenus();
     buildInterfaceBar();
@@ -304,6 +329,7 @@ void MainWindow::syncPanelToggles()
         const bool available = page && page->hasPanel(toggle.panel);
         action->setEnabled(available);
         action->setChecked(available && page->isPanelVisible(toggle.panel));
+        m_interfaceBar->setActionShown(action, available);
     }
     QAction* singleViewer = m_ctx.actions->action(QStringLiteral("view.single_viewer"));
     singleViewer->setEnabled(page == m_editPage);

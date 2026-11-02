@@ -70,8 +70,11 @@
         "mark.add_marker": ["M"],
 
         "view.page_media": ["Shift+2"],
+        "view.page_cut": [],
         "view.page_edit": ["Shift+4"],
+        "view.page_compositing": [],
         "view.page_color": ["Shift+5"],
+        "view.page_audio": [],
         "view.page_deliver": ["Shift+8"],
         "view.toggle_media_pool": [],
         "view.toggle_effects": [],
