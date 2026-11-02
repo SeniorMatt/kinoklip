@@ -86,7 +86,12 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
     QList<QMenu*> menus;
     if (!isPage)
         window.setCurrentPage(QStringLiteral("edit"));
-    window.resize(kScreenshotSize);
+    // KK_SCREENSHOT_SIZE=1366x768 checks the layout on small screens.
+    QSize size = kScreenshotSize;
+    const QStringList wh = qEnvironmentVariable("KK_SCREENSHOT_SIZE").split(QLatin1Char('x'));
+    if (wh.size() == 2 && wh[0].toInt() > 0 && wh[1].toInt() > 0)
+        size = QSize(wh[0].toInt(), wh[1].toInt());
+    window.resize(size);
     window.show();
 
     AppContext& ctx = window.context();

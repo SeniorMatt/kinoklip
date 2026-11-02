@@ -22,6 +22,7 @@
 #include <QVBoxLayout>
 #include <QtConcurrent/QtConcurrentRun>
 
+#include <algorithm>
 #include <chrono>
 
 namespace kk {
@@ -30,6 +31,10 @@ namespace {
 constexpr int kPreviewDebounceMs = 40; ///< coalesce bursts of playhead/timeline changes
 constexpr int kPreviewPollMs = 15; ///< check the in-flight preview at ~60 Hz
 constexpr int kHwDetectionDelayMs = 1500; ///< see showEvent()
+// Default column widths for a 1920 px window, scaled to the real width on the first show.
+constexpr int kSettingsWidth = 440;
+constexpr int kViewerWidth = 1060;
+constexpr int kQueueWidth = 420;
 } // namespace
 
 DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
@@ -48,7 +53,7 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     m_topRow->addWidget(m_viewer);
     m_topRow->addWidget(m_queuePanel);
     m_topRow->setStretchFactor(1, 1);
-    m_topRow->setSizes({440, 1060, 420});
+    m_topRow->setSizes({kSettingsWidth, kViewerWidth, kQueueWidth});
 
     m_rangeBar = new RenderRangeBar(ctx.project->timeline());
     m_main = new QSplitter(Qt::Vertical);
@@ -139,6 +144,17 @@ void DeliverPage::updateRange()
 void DeliverPage::showEvent(QShowEvent* event)
 {
     Page::showEvent(event);
+    if (!m_layoutRestored && !m_proportionsApplied && m_topRow->width() > 0) {
+        // QSplitter alone gives the whole size difference to the viewer; keep Resolve's
+        // proportions instead (render settings and queue about a quarter each).
+        m_proportionsApplied = true;
+        const int width = m_topRow->width();
+        const int total = kSettingsWidth + kViewerWidth + kQueueWidth;
+        const int settings = std::max(m_settingsPanel->minimumSizeHint().width(),
+            int(qint64(kSettingsWidth) * width / total));
+        const int queue = int(qint64(kQueueWidth) * width / total);
+        m_topRow->setSizes({settings, width - settings - queue, queue});
+    }
     m_viewer->setPosition(
         m_ctx.project->timeline()->playhead(), m_ctx.project->timeline()->data().fps);
     schedulePreview();
@@ -224,6 +240,7 @@ void DeliverPage::saveLayout(QSettings& settings) const
 
 void DeliverPage::restoreLayout(const QSettings& settings)
 {
+    m_layoutRestored = settings.contains(QStringLiteral("topRow"));
     m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
     m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
 }
