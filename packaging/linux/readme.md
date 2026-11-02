@@ -264,6 +264,23 @@ only from the bundle; `KINOKLIP_HOST_QT=1` loads `/lib/x86_64-linux-gnu/libQt6Co
 the host's platform plugin; with `KINOKLIP_HOST_LIBDIRS=<empty dir>` the host Qt is rejected
 and libva/libvdpau come from `fallback-active/`.
 
+File dialogs through the portal (needs `xdg-desktop-portal`, `xdg-desktop-portal-kde`,
+`xorg-server-xvfb`, `imagemagick`, `xdotool` in the container):
+
+```sh
+podman exec -w "$PWD" kk-arch scripts/portal_dialog_check.sh dist/kinoklip-x86_64/AppRun /tmp/pc
+# also choose two files in the KDE dialog and check they are imported:
+podman exec -w "$PWD" kk-arch env KK_PORTAL_CHOOSE='"/tmp/m/a.mp4" "/tmp/m/b.mp4"' \
+    KK_SCREENSHOT_DIALOG_DELAY=14000 KK_ROOT_GRAB_AFTER=4 scripts/portal_dialog_check.sh \
+    dist/kinoklip-x86_64/AppRun /tmp/pc
+```
+Done for this change: the KDE (KIO) dialog appears over the bundled app's window with the
+"Media files" filter selected, `dbus.log` shows `FileChooser.OpenFile` with `multiple=true`,
+`modal=true`, the `x11:` parent, case-insensitive globs and the remembered `current_folder`,
+the `Response` URIs (one with a space) are imported, and quitting with the dialog open sends
+`Request.Close`. Under headless weston (Wayland) the call is made too; weston has no
+xdg-foreign, so it goes without a parent there.
+
 ## Making a real AppImage later
 
 The folder is already AppDir-shaped (`AppRun`, top-level `.desktop`, icon, `.DirIcon`). With
