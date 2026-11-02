@@ -4,6 +4,7 @@
 
 #include "core/Project.h"
 #include "export/ExportPresets.h"
+#include "platform/FileDialogs.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
@@ -13,7 +14,6 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
-#include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -876,8 +876,8 @@ void RenderSettingsPanel::setDefaultOutput(const QString& folder, const QString&
 
 void RenderSettingsPanel::browseLocation()
 {
-    const QString dir
-        = QFileDialog::getExistingDirectory(this, tr("Render Location"), m_location->text());
+    const QString dir = platform::getExistingDirectory(
+        this, tr("Render Location"), QString(), m_location->text());
     if (!dir.isEmpty())
         m_location->setText(QDir::toNativeSeparators(dir));
 }
