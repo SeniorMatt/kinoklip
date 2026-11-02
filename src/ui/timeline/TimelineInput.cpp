@@ -124,6 +124,18 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
         m_drag.mode = DragMode::Pending;
         return;
     }
+    // A click on a transition block selects it (spec 13.10); the cut under it is reached
+    // from the clip edges outside the block or with the transition's outer edges.
+    if (const auto t = transitionAt(pos)) {
+        m_controller->selectTransition(*t);
+        return;
+    }
+    // The fx badge selects the clip and opens its effects in the Inspector.
+    if (const quint64 fx = fxBadgeAt(pos); fx && !(m_drag.modifiers & Qt::ControlModifier)) {
+        m_ctx.selection->setClips(clickedWithLinks(fx));
+        emit inspectRequested(fx, InspectTarget::Effects);
+        return;
+    }
     const EditBehaviour behaviour = EditBehaviour::fromSettings();
     if (!onClip) {
         // Empty track area: a plain click clears the selection and selects the gap under the
@@ -171,7 +183,7 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     if (tool == TimelineTool::Select
         && (m_drag.modifiers & (Qt::ControlModifier | Qt::ShiftModifier))
             == (Qt::ControlModifier | Qt::ShiftModifier)) {
-        m_ctx.selection->setClips(m_controller->withLinks({hit.clipId}));
+        m_ctx.selection->setClips(clickedWithLinks(hit.clipId));
         m_drag.pending = DragMode::Shuffle;
         m_drag.mode = DragMode::Pending;
         return;
@@ -239,7 +251,7 @@ void TimelineWidget::mouseReleaseEvent(QMouseEvent* event)
     if (m_drag.mode == DragMode::Pending) {
         // A click without drag on an already selected clip selects just that clip.
         if (m_drag.selectOnRelease)
-            m_ctx.selection->setClips(m_controller->withLinks({m_drag.hit.clipId}));
+            m_ctx.selection->setClips(clickedWithLinks(m_drag.hit.clipId));
         m_drag = Drag {};
         return;
     }
@@ -254,6 +266,15 @@ void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
         && editMarkerNear(event->position()))
         return;
+    // A double-click on a transition opens it in the Inspector (spec 13.10).
+    if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
+        && m_controller->tool() != TimelineTool::Blade) {
+        if (const auto t = transitionAt(event->position())) {
+            m_controller->selectTransition(*t);
+            emit inspectRequested(t->clipId, InspectTarget::Transition);
+            return;
+        }
+    }
     mousePressEvent(event);
 }
 
@@ -703,12 +724,19 @@ void TimelineWidget::bladeAt(const TimelineHit& hit)
     m_drag = Drag {};
 }
 
+QVector<quint64> TimelineWidget::clickedWithLinks(quint64 clipId) const
+{
+    QVector<quint64> ids = m_controller->withLinks({clipId});
+    ids.removeAll(clipId);
+    ids.append(clipId); // the clicked clip is the current one (the Inspector follows it)
+    return ids;
+}
+
 void TimelineWidget::clickSelect(const TimelineHit& hit, Qt::KeyboardModifiers modifiers)
 {
     // Alt-click picks just the clicked clip, not its linked partners (spec 7.3).
-    const QVector<quint64> ids = (modifiers & Qt::AltModifier)
-        ? QVector<quint64> {hit.clipId}
-        : m_controller->withLinks({hit.clipId});
+    const QVector<quint64> ids = (modifiers & Qt::AltModifier) ? QVector<quint64> {hit.clipId}
+                                                               : clickedWithLinks(hit.clipId);
     if (modifiers & (Qt::ShiftModifier | Qt::ControlModifier)) {
         if (m_ctx.selection->isSelected(hit.clipId))
             m_ctx.selection->removeClips(ids);

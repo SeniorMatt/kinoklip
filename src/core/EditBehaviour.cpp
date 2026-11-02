@@ -25,7 +25,6 @@ EditBehaviour EditBehaviour::fromSettings()
     b.threePointEditing = flag("edit/threePointEditing", b.threePointEditing);
     b.rippleDeleteGapAtPlayhead
         = flag("edit/rippleDeleteGapAtPlayhead", b.rippleDeleteGapAtPlayhead);
-    b.trimToPlayheadRipples = flag("edit/trimToPlayheadRipples", b.trimToPlayheadRipples);
     b.selectToolRollsAtCut = flag("edit/selectToolRollsAtCut", b.selectToolRollsAtCut);
     b.trimToolSlideInNameBar = flag("edit/trimToolSlideInNameBar", b.trimToolSlideInNameBar);
     // Same key and values as prefs::kZoomAnchor / prefs::zoomAroundMouse().
@@ -61,6 +60,13 @@ void EditBehaviour::setWheelScheme(WheelScheme scheme)
 {
     QSettings().setValue(QStringLiteral("edit/wheelScheme"),
         scheme == WheelScheme::Classic ? QStringLiteral("classic") : QStringLiteral("resolve"));
+}
+
+void EditBehaviour::migrateSettings()
+{
+    QSettings s;
+    if (s.contains(QStringLiteral("edit/trimToPlayheadRipples")))
+        s.remove(QStringLiteral("edit/trimToPlayheadRipples"));
 }
 
 } // namespace kk

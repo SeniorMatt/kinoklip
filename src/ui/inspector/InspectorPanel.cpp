@@ -30,6 +30,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSet>
 #include <QTabWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -139,8 +140,18 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
             this, [this] { goToKeyframe(true); });
     }
     if (ctx.selection) {
-        connect(ctx.selection, &SelectionModel::changed, this,
-            [this] { showClip(m_ctx.selection->currentClip()); });
+        connect(ctx.selection, &SelectionModel::changed, this, [this] {
+            // A selected transition shows its clip on the Transition tab (spec 13.10).
+            if (const auto t = m_ctx.selection->transition()) {
+                inspect(t->clipId, TransitionTab);
+                return;
+            }
+            const quint64 current = m_ctx.selection->currentClip();
+            showClip(current);
+            if (current != m_lastCurrent && m_clipId != 0)
+                followClickedPart(current);
+            m_lastCurrent = current;
+        });
     }
     Timeline* timeline = ctx.project->timeline();
     connect(timeline, &Timeline::changed, this, &InspectorPanel::onTimelineChanged);
@@ -176,6 +187,46 @@ void InspectorPanel::showClip(quint64 clipId)
         refreshValues();
     }
     updateHeader();
+}
+
+void InspectorPanel::followClickedPart(quint64 clickedId)
+{
+    // Clicking the audio part of a pair shows the Audio tab, the video part the Video tab
+    // (spec 24.2); other tabs (effects, title, transition) stay where the user put them.
+    const int tab = m_tabs->currentIndex();
+    if (tab != VideoTab && tab != AudioTab)
+        return;
+    const bool audio = clickedId == m_audioClipId && clickedId != 0;
+    m_tabs->setCurrentIndex(audio ? AudioTab : VideoTab);
+}
+
+int InspectorPanel::selectedItemCount() const
+{
+    if (!m_ctx.selection)
+        return 1;
+    // Linked clips count once (a video clip and its audio are one item, spec 24.1).
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    QSet<quint64> groups;
+    int items = 0;
+    for (quint64 id : m_ctx.selection->clips()) {
+        const ClipData* c = editops::clipById(data, id);
+        if (!c)
+            continue;
+        if (c->linkGroup == 0)
+            ++items;
+        else if (!groups.contains(c->linkGroup)) {
+            groups.insert(c->linkGroup);
+            ++items;
+        }
+    }
+    return items;
+}
+
+void InspectorPanel::inspect(quint64 clipId, Tab tab)
+{
+    showClip(clipId);
+    if (m_clipId == clipId && clipId != 0)
+        m_tabs->setCurrentIndex(tab);
 }
 
 void InspectorPanel::toggleKeyframeOnActiveParam()
@@ -292,9 +343,25 @@ InspectorPanel::Structure InspectorPanel::computeStructure(quint64 clipId) const
 {
     Structure s;
     const TimelineData& data = m_ctx.project->timeline()->data();
-    const auto location = clipId ? editops::findClip(data, clipId) : std::nullopt;
+    auto location = clipId ? editops::findClip(data, clipId) : std::nullopt;
     if (!location)
         return s;
+    // A linked video + audio pair is one item (spec 24.1): the Video tab edits the video
+    // member, the Audio tab the audio member, whichever of the two was clicked.
+    if (location->track.type == TrackType::Audio) {
+        const ClipData& a = data.track(location->track)->clips[size_t(location->clipIndex)];
+        if (a.linkGroup != 0) {
+            for (quint64 linked : editops::linkedClips(data, clipId)) {
+                const auto l = editops::findClip(data, linked);
+                if (l && l->track.type == TrackType::Video) {
+                    s.audioClipId = clipId;
+                    clipId = linked;
+                    location = l;
+                    break;
+                }
+            }
+        }
+    }
     const ClipData& c = data.track(location->track)->clips[size_t(location->clipIndex)];
     s.clipId = clipId;
     s.kind = c.kind;
@@ -306,7 +373,7 @@ InspectorPanel::Structure InspectorPanel::computeStructure(quint64 clipId) const
     s.transitionOut = c.transitionOut ? c.transitionOut->type : QString();
     if (!s.onVideoTrack) {
         s.audioClipId = clipId;
-    } else if (c.linkGroup != 0) {
+    } else if (s.audioClipId == 0 && c.linkGroup != 0) {
         for (quint64 linked : editops::linkedClips(data, clipId)) {
             const auto l = editops::findClip(data, linked);
             if (l && l->track.type == TrackType::Audio) {
@@ -751,7 +818,7 @@ void InspectorPanel::updateHeader()
         info = tr("Solid color");
         break;
     }
-    const int selected = m_ctx.selection ? int(m_ctx.selection->clips().size()) : 1;
+    const int selected = selectedItemCount();
     if (selected > 1)
         info = tr("%1 clips selected, showing the last one").arg(selected);
     if (m_clipInfo->text() != info)

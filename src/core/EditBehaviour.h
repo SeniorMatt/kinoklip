@@ -45,8 +45,6 @@ struct EditBehaviour
     /// Ripple delete with nothing selected closes the gap under the playhead (a Kinoklip
     /// extension). Off (default, spec 10.5): it does nothing, a gap has to be selected first.
     bool rippleDeleteGapAtPlayhead = false;
-    /// Trim start / end to playhead (Shift+[ / Shift+]) ripple the following clips (spec 8.10).
-    bool trimToPlayheadRipples = true;
     /// Selection tool: the exact centre of a cut between two touching clips rolls the edit
     /// (spec 8.2); off: the selection tool only trims one side.
     bool selectToolRollsAtCut = true;
@@ -63,7 +61,7 @@ struct EditBehaviour
 
     /// Values stored in QSettings (group "edit/": stillSeconds, generatorSeconds,
     /// transitionSeconds, multiFrameNudge, threePointEditing, rippleDeleteGapAtPlayhead,
-    /// trimToPlayheadRipples, selectToolRollsAtCut, trimToolSlideInNameBar, zoomAnchor
+    /// selectToolRollsAtCut, trimToolSlideInNameBar, zoomAnchor
     /// ("playhead" / "mouse", shared with prefs::kZoomAnchor), wheelScheme ("resolve" / "classic"),
     /// dynamicTrimWithJkl); defaults where unset.
     [[nodiscard]] static EditBehaviour fromSettings();
@@ -75,6 +73,11 @@ struct EditBehaviour
     static void setZoomAnchor(ZoomAnchor anchor);
     /// Stores the wheel scheme (QSettings "edit/wheelScheme").
     static void setWheelScheme(WheelScheme scheme);
+
+    /// Removes retired keys (called once at start-up): "edit/trimToPlayheadRipples" (until
+    /// alpha.2 Shift+[ / Shift+] rippled by default; now Shift+[ / ] leave a gap and
+    /// Ctrl+Shift+[ / ] ripple, as in Resolve, so the setting has no meaning any more).
+    static void migrateSettings();
 };
 
 } // namespace kk
