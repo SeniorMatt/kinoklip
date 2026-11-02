@@ -11,6 +11,7 @@ namespace kk {
 
 struct AppContext;
 class TimelineController;
+class TimelineTabs;
 class TimelineWidget;
 
 /// The Edit page's timeline: a tool bar in Resolve's order ([Select][Trim][Blade] |
@@ -33,6 +34,10 @@ public:
     [[nodiscard]] TimelineController* controller() const { return m_controller; }
     /// The track view.
     [[nodiscard]] TimelineWidget* timelineWidget() const { return m_view; }
+    /// The row of open timelines (tabs, or the drop-down when tabs are off).
+    [[nodiscard]] TimelineTabs* tabs() const { return m_tabs; }
+    /// Re-reads the preferences this panel follows (Preferences > Editing > Timelines).
+    void applyPreferences();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -50,6 +55,7 @@ private:
     bool m_syncingSlider = false;
     TimelineController* m_controller = nullptr;
     TimelineWidget* m_view = nullptr;
+    TimelineTabs* m_tabs = nullptr;
 };
 
 } // namespace kk

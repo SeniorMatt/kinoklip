@@ -15,6 +15,10 @@
 
 class QWidget;
 
+namespace kk {
+class Project;
+}
+
 namespace kk::timelinedialogs {
 
 /// The marker colours offered by the marker editor (name, colour), the usual NLE palette.
@@ -29,5 +33,14 @@ bool editMarker(QWidget* parent, Marker& marker, bool clipMarker);
 
 /// Paste attributes: check boxes per attribute group. std::nullopt when cancelled.
 [[nodiscard]] std::optional<PasteAttributeSet> askPasteAttributes(QWidget* parent);
+
+/// A name question in Resolve's style (New Compound Clip, New Timeline, Rename): one field
+/// prefilled with @p suggestion and selected, Cancel / @p okText. std::nullopt when cancelled.
+[[nodiscard]] std::optional<QString> askName(QWidget* parent, const QString& title,
+    const QString& label, const QString& suggestion, const QString& okText);
+
+/// Timeline Settings of timeline @p uid: use the project settings, or its own resolution and
+/// frame rate. Applies the change (one undo step) on OK.
+void editTimelineSettings(QWidget* parent, Project& project, quint64 uid);
 
 } // namespace kk::timelinedialogs

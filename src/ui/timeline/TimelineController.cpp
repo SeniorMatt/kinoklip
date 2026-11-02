@@ -2,6 +2,7 @@
 // TimelineController implementation: one undoable edit per command, action wiring.
 #include "ui/timeline/TimelineController.h"
 
+#include "core/CompoundOps.h"
 #include "core/EditBehaviour.h"
 #include "core/EffectRegistry.h"
 #include "core/MediaPool.h"
@@ -191,6 +192,8 @@ QVector<ops::PlacedClip> TimelineController::makeMediaClips(
     if (!item)
         return {};
     const TimelineData& data = timeline()->data();
+    if (item->isTimeline())
+        return makeNestedClips(*item, inUs, outUs, videoTrack, audioTrack);
     const media::MediaInfo& info = item->info;
     inUs = std::max<int64_t>(0, inUs);
     int64_t durationUs = outUs > inUs ? outUs - inUs : info.durationUs - inUs;
@@ -214,6 +217,30 @@ QVector<ops::PlacedClip> TimelineController::makeMediaClips(
     if (video)
         clips.append({TrackRef {TrackType::Video, videoTrack}, base});
     if (audio)
+        clips.append({TrackRef {TrackType::Audio, audioTrack}, base});
+    return clips;
+}
+
+QVector<ops::PlacedClip> TimelineController::makeNestedClips(
+    const MediaItem& item, int64_t inUs, int64_t outUs, int videoTrack, int audioTrack) const
+{
+    // A timeline / compound clip from the media pool (spec 26.x): one Nested clip per track
+    // type the timeline has content of, linked. A timeline can never contain itself.
+    const auto nested = project()->timelineData(item.timelineUid);
+    if (!nested || !project()->canNest(item.timelineUid, project()->activeTimelineUid()))
+        return {};
+    const TimelineData& data = timeline()->data();
+    ClipData base = compound::makeNestedClip(*nested, item.id);
+    base.name = item.name;
+    const int64_t lengthUs = compound::nestedDurationUs(*nested);
+    inUs = std::clamp<int64_t>(inUs, 0, lengthUs);
+    const int64_t endUs = outUs > inUs ? std::min(outUs, lengthUs) : lengthUs;
+    base.sourceInUs = inUs;
+    base.duration = std::max<int64_t>(1, usToFrames(endUs - inUs, data.fps));
+    QVector<ops::PlacedClip> clips;
+    if (item.info.hasVideo && videoTrack >= 0 && videoTrack < int(data.videoTracks.size()))
+        clips.append({TrackRef {TrackType::Video, videoTrack}, base});
+    if (item.info.hasAudio && audioTrack >= 0 && audioTrack < int(data.audioTracks.size()))
         clips.append({TrackRef {TrackType::Audio, audioTrack}, base});
     return clips;
 }
@@ -1038,6 +1065,20 @@ void TimelineController::connectActions()
     on("transport.go_to_end", &TimelineController::goToEnd);
     on("transport.prev_marker", &TimelineController::goToPreviousMarker);
     on("transport.next_marker", &TimelineController::goToNextMarker);
+    // Timelines and compound clips (TimelineCompound.cpp).
+    on("clip.new_compound", [this] { newCompoundClip(); });
+    on("clip.decompose", &TimelineController::decomposeSelection);
+    on("clip.open_in_timeline", &TimelineController::openSelectedInTimeline);
+    on("timeline.new", [this] { newTimeline(); });
+    on("timeline.duplicate", &TimelineController::duplicateActiveTimeline);
+    on("timeline.delete", &TimelineController::deleteActiveTimeline);
+    on("timeline.settings", [this] {
+        if (m_timelineSettingsPrompt)
+            m_timelineSettingsPrompt(project()->activeTimelineUid());
+    });
+    on("timeline.next_tab", [this] { cycleTab(1); });
+    on("timeline.prev_tab", [this] { cycleTab(-1); });
+    on("timeline.close_tab", &TimelineController::closeActiveTab);
 }
 
 } // namespace kk
