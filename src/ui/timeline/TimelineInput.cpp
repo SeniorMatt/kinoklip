@@ -23,6 +23,8 @@
 #include <QMouseEvent>
 #include <QScrollBar>
 
+#include <algorithm>
+#include <climits>
 #include <cmath>
 #include <limits>
 
@@ -295,8 +297,36 @@ void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
             emit inspectRequested(t->clipId, InspectTarget::Transition);
             return;
         }
+        // A double-click on the body of a compound clip / nested timeline opens it in a tab,
+        // with its playhead at the moment under the pointer (spec 26.14).
+        if (openNestedAt(event->position()))
+            return;
     }
     mousePressEvent(event);
+}
+
+bool TimelineWidget::openNestedAt(QPointF pos)
+{
+    Project* project = m_ctx.project;
+    const TimelineData& data = project->timeline()->data();
+    const TimelineHit hit = m_layout.hitTest(data, pos);
+    if (hit.area != TimelineHit::Area::Clip || hit.part != ClipPart::Body || hit.clipId == 0)
+        return false;
+    const ClipData* clip = ops::clipById(data, hit.clipId);
+    if (!clip || clip->kind != ClipKind::Nested)
+        return false;
+    const auto nested = project->timelineData(clip->nestedUid);
+    if (!nested)
+        return false; // offline: the menu command reports it
+    const int64_t frame
+        = std::clamp(m_layout.frameAtX(pos.x()), clip->start, clip->start + clip->duration - 1);
+    const int64_t inner = std::max<int64_t>(0, nestedFrameAt(*clip, frame, data.fps, nested->fps));
+    const quint64 uid = clip->nestedUid;
+    m_ctx.selection->setClips({hit.clipId});
+    if (!project->openTab(uid))
+        return false;
+    project->setTimelinePlayhead(uid, inner);
+    return true;
 }
 
 void TimelineWidget::keyPressEvent(QKeyEvent* event)
@@ -607,13 +637,43 @@ void TimelineWidget::updateMove(QPointF pos)
     dx = std::max(dx, -m_drag.minStart);
 
     // Vertical: only over a row of the grabbed clip's type; elsewhere keep the last value.
+    // Past the outermost track of that type (above the top video track, below the bottom
+    // audio track) a new track is created for the clips, like Resolve (spec 21.8).
+    const TrackType type = m_drag.primaryTrack.type;
     const int row = m_layout.rowAtY(pos.y());
-    if (row >= 0 && m_layout.rows()[size_t(row)].ref.type == m_drag.primaryTrack.type)
+    if (row >= 0 && m_layout.rows()[size_t(row)].ref.type == type)
         m_drag.lastDy = m_layout.rows()[size_t(row)].ref.index - m_drag.primaryTrack.index;
-    const int dy = m_drag.lastDy;
+    else if (beyondOutermostTrack(type, pos.y()))
+        m_drag.lastDy = INT_MAX / 2; // capped to one new track below
+    int dy = m_drag.lastDy;
+
+    // Highest track index of the dragged clips per type, in the origin.
+    int maxSame = -1;
+    int maxOther = -1;
+    for (quint64 id : m_drag.clips)
+        if (const auto loc = ops::findClip(origin, id))
+            (loc->track.type == type ? maxSame : maxOther)
+                = std::max(loc->track.type == type ? maxSame : maxOther, loc->track.index);
+    const auto trackCount = [&](TrackType t) {
+        return int(t == TrackType::Video ? origin.videoTracks.size()
+                : t == TrackType::Audio  ? origin.audioTracks.size()
+                                         : origin.subtitleTracks.size());
+    };
+    const TrackType otherType = type == TrackType::Video ? TrackType::Audio : TrackType::Video;
+    if (type != TrackType::Subtitle && maxSame >= 0)
+        dy = std::min(dy, trackCount(type) - maxSame); // at most one new track at a time
 
     restoreOrigin();
     TimelineData& data = m_ctx.project->timeline()->mutableData();
+    if (type != TrackType::Subtitle && maxSame >= 0 && maxSame + dy >= trackCount(type)) {
+        for (int n = trackCount(type); n <= maxSame + dy; ++n)
+            ops::addTrack(data, type);
+        // Linked clips of the other type get a new track too when they need one, so the new
+        // V3 pairs with A3 as for drops into the new-track area.
+        if (maxOther >= 0)
+            for (int n = trackCount(otherType); n <= maxOther + dy; ++n)
+                ops::addTrack(data, otherType);
+    }
     if (m_drag.duplicate) {
         // Linked halves move by the same track offset (V1->V2 takes A1->A2), like Resolve.
         const int vBase = m_drag.board.baseVideoTrack + dy;
@@ -641,6 +701,24 @@ void TimelineWidget::updateMove(QPointF pos)
             restoreOrigin(); // one half was blocked (locked track): keep V/A in sync
     }
     m_ctx.project->timeline()->notifyChanged();
+}
+
+bool TimelineWidget::beyondOutermostTrack(TrackType type, double y) const
+{
+    if (type == TrackType::Subtitle)
+        return false;
+    // The outermost row of the type: the top video track (highest index, drawn highest) or
+    // the bottom audio track (highest index, drawn lowest).
+    const auto& rows = m_layout.rows();
+    int outer = -1;
+    for (size_t i = 0; i < rows.size(); ++i)
+        if (rows[i].ref.type == type
+            && (outer < 0 || rows[i].ref.index > rows[size_t(outer)].ref.index))
+            outer = int(i);
+    if (outer < 0)
+        return false;
+    const QRect r = m_layout.rowRect(outer);
+    return type == TrackType::Video ? y < r.top() : y > r.bottom();
 }
 
 void TimelineWidget::updateTrim(QPointF pos)

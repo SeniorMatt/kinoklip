@@ -185,6 +185,41 @@ private slots:
         QCOMPARE(f.selection.clips().size(), 2);
     }
 
+    void doubleClickOpensCompoundAtHoveredFrame()
+    {
+        PanelFixture f;
+        TimelinePanel panel(f.ctx);
+        quiet(panel);
+        panel.resize(1400, 500);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        const quint64 a = f.addClip(TrackRef {TrackType::Video, 0}, 10, 40, ClipKind::Solid);
+        f.selection.setClips({a});
+        trigger(f, "clip.new_compound");
+        const ClipData inst = f.project.timeline()->data().videoTracks[0].clips[0];
+        QCOMPARE(inst.kind, ClipKind::Nested);
+        const quint64 outer = f.project.activeTimelineUid();
+
+        // Double-click 20 frames into the instance (timeline frame 30): the compound timeline
+        // opens in a tab with its playhead at the matching inner frame.
+        TimelineWidget* w = panel.timelineWidget();
+        const TimelineLayout& layout = w->layout();
+        const QRectF rect = layout.clipRect(layout.rowOf(TrackRef {TrackType::Video, 0}), inst);
+        const QPoint at(qRound(layout.frameToX(30.5)), qRound(rect.center().y()));
+        const int64_t expected = nestedFrameAt(inst, 30, f.project.timeline()->data().fps,
+            f.project.timelineData(inst.nestedUid)->fps);
+        QTest::mouseDClick(w->viewport(), Qt::LeftButton, {}, at);
+        QCOMPARE(f.project.activeTimelineUid(), inst.nestedUid);
+        QCOMPARE(f.project.timeline()->playhead(), expected);
+        QCOMPARE(panel.tabs()->tabBar()->count(), 2);
+
+        // Back in the outer timeline, a double-click on an empty track does not switch.
+        QVERIFY(f.project.setActiveTimeline(outer));
+        const QPoint empty(qRound(layout.frameToX(80.5)), at.y());
+        QTest::mouseDClick(w->viewport(), Qt::LeftButton, {}, empty);
+        QCOMPARE(f.project.activeTimelineUid(), outer);
+    }
+
     void timelineItemDropsAsNestedClipWithoutRecursion()
     {
         PanelFixture f;
