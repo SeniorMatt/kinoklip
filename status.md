@@ -66,3 +66,4 @@
 - 11:52 filedialog merged (53/53): every file dialog via XDG desktop portal (KDE KIO dialog on Plasma), Qt fallback, theme untouched, --version/--help without display. Running: playback2, kfwindow.
 - 12:06 playback2 merged (53/53): Full playback resolution default (Auto stepped to 1/4 of viewer after 3 drops = owner's pixelation), Playback > Playback Resolution menu, Auto opt-in + never below Half, seek-while-playing hold/resume (no freeze), decode-ahead, VAAPI streaming copy, KK_PLAYBACK_STATS. Running: kfwindow only.
 - 12:19 Heartbeat: kfwindow 7 commits, active; 22 GB free. alpha.3 after it.
+- 12:37 kfwindow merged (54/54 host + container). Built 0.1.0-alpha.3 in container (bundle check OK, 91 MB), smoke-tested via the .run (screenshots, 12 s 1080p render). Publishing pre-release.
