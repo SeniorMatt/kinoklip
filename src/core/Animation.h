@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Keyframe animation value types: Interp, Keyframe, AnimatedValue and ParamSet.
+// Keyframe animation value types: Interp, KeyHandle, Keyframe, AnimatedValue and ParamSet.
 #pragma once
 
 #include <QMap>
@@ -12,29 +12,81 @@
 
 namespace kk {
 
-/// How the value travels from one keyframe to the next. The interpolation mode stored on keyframe
-/// K governs the segment K → K+1 (the last key's mode is irrelevant).
+/// Keyframe type as the user picks it (timeline / inspector context menu, curve editor tool bar).
+/// It is a preset for the two handles of a key (see KeyHandle) plus the hold flag:
+///
+/// | Interp     | in handle | out handle | hold |
+/// |------------|-----------|------------|------|
+/// | Linear     | Linear    | Linear     | no   |
+/// | EaseIn     | Ease      | Linear     | no   |  arrives at the key slowly
+/// | EaseOut    | Linear    | Ease       | no   |  leaves the key slowly
+/// | EaseInOut  | Ease      | Ease       | no   |
+/// | Smooth     | Smooth    | Smooth     | no   |  automatic Bezier tangents through the key
+/// | Hold       | (kept)    | (kept)     | yes  |  "static": value jumps at the next key
+///
+/// Custom is never applied; keyInterp() reports it for keys whose handles were dragged in the
+/// curve editor (KeyHandle::Mode::Free) or that mix modes in a way no preset describes.
 enum class Interp {
-    Linear, ///< constant speed
-    EaseIn, ///< starts slowly, accelerates towards the next key (t²)
-    EaseOut, ///< starts fast, decelerates into the next key (1 − (1 − t)²)
-    EaseInOut, ///< slow at both ends (smoothstep 3t² − 2t³)
-    Hold ///< keeps this key's value until the next key, then jumps
+    Linear,
+    EaseIn,
+    EaseOut,
+    EaseInOut,
+    Hold,
+    Smooth,
+    Custom
 };
 
-/// Applies the easing curve of @p interp to a normalised segment position @p t in [0, 1].
-/// Returns the eased position in [0, 1] (Hold always returns 0).
-[[nodiscard]] double easeCurve(Interp interp, double t);
+/// One Bezier handle of a keyframe (the incoming one points back in time, the outgoing one
+/// forward). Handles live in (frame, value) space; the curve of a segment A -> B is the cubic
+/// Bezier through A, A + out(A), B - in(B), B, evaluated as value over time.
+///
+/// Except for Free, a handle has no stored geometry: it is resolved from the neighbouring keys
+/// (always one third of the segment length in time), so moving keys never distorts a curve.
+struct KeyHandle
+{
+    enum class Mode : quint8 {
+        Linear, ///< points at the neighbouring key: straight segment when both ends are Linear
+        Ease, ///< horizontal: the value arrives / leaves with zero speed
+        Smooth, ///< tangent from the neighbours (Catmull-Rom), flat at extrema and at the ends
+        Free ///< user-dragged geometry in dtFrames / dv
+    };
+    Mode mode = Mode::Linear;
+    /// Free only: time length of the handle in frames (> 0; clamped to the segment on use,
+    /// keeping the slope). Unused for the other modes.
+    double dtFrames = 0.0;
+    /// Free only: value offset of the handle tip from the key (for the incoming handle it is
+    /// key.value - tip.value, i.e. the same sign convention as a slope times dtFrames).
+    double dv = 0.0;
+
+    /// A handle of mode @p m without stored geometry.
+    [[nodiscard]] static KeyHandle withMode(Mode m)
+    {
+        KeyHandle h;
+        h.mode = m;
+        return h;
+    }
+
+    friend bool operator==(const KeyHandle&, const KeyHandle&) = default;
+};
 
 /// One keyframe of an AnimatedValue.
 struct Keyframe
 {
-    int64_t frame = 0; ///< clip-local frame (timeline frame − clip.start), see PLAN §5.1
+    int64_t frame = 0; ///< clip-local frame (timeline frame - clip.start), see PLAN 5.1
     double value = 0.0;
-    Interp interp = Interp::Linear; ///< curve of the segment that starts at this key
+    KeyHandle in; ///< handle of the segment arriving at this key
+    KeyHandle out; ///< handle of the segment leaving this key
+    /// "Static" key: the value stays at this key's value until the next key, then jumps.
+    bool hold = false;
 
     friend bool operator==(const Keyframe&, const Keyframe&) = default;
 };
+
+/// Sets the handles / hold flag of @p key to preset @p interp (Custom is ignored). Hold keeps
+/// the handles so switching back restores the previous shape.
+void applyInterp(Keyframe& key, Interp interp);
+/// The preset that describes @p key, or Interp::Custom.
+[[nodiscard]] Interp keyInterp(const Keyframe& key);
 
 /// A keyframeable scalar parameter (position, opacity, volume, blur radius, ...).
 ///
@@ -52,16 +104,25 @@ struct AnimatedValue
         : base(baseValue)
     { }
 
-    /// Value at clip-local frame @p localFrame (base if there are no keys).
+    /// Value at clip-local frame @p localFrame (base if there are no keys). Hot path: binary
+    /// search plus at most a few Newton steps (only for Free handles); never allocates.
     [[nodiscard]] double valueAt(int64_t localFrame) const;
+    /// Value at a fractional clip-local frame (audio gain envelopes evaluate between frames).
+    /// Hold keys jump exactly at the next key's frame.
+    [[nodiscard]] double valueAtTime(double localFrame) const;
 
-    /// Adds a key at @p localFrame or replaces the value/interp of the existing key there.
-    void setKey(int64_t localFrame, double value, Interp interp = Interp::Linear);
+    /// Adds a key at @p localFrame or replaces the value of the existing key there. A new key
+    /// gets preset @p interp; an existing key only changes its preset when @p interp is given.
+    void setKey(int64_t localFrame, double value, std::optional<Interp> interp = std::nullopt);
+    /// Inserts or replaces the complete key @p key (handles included).
+    void putKey(const Keyframe& key);
     /// Removes the key at @p localFrame (no-op if there is none). Removing the last remaining key
     /// copies its value into `base` so the parameter keeps its current look.
     void removeKey(int64_t localFrame);
+    /// Index of the key at exactly @p localFrame, or -1.
+    [[nodiscard]] qsizetype indexOf(int64_t localFrame) const;
     /// True if a key exists exactly at @p localFrame.
-    [[nodiscard]] bool hasKeyAt(int64_t localFrame) const;
+    [[nodiscard]] bool hasKeyAt(int64_t localFrame) const { return indexOf(localFrame) >= 0; }
     /// True if the value has at least one keyframe.
     [[nodiscard]] bool isAnimated() const { return !keys.isEmpty(); }
 
@@ -74,7 +135,19 @@ struct AnimatedValue
     /// Moves every key by @p deltaFrames (used when a clip's head is trimmed or a clip is split).
     void shiftKeys(int64_t deltaFrames);
 
+    /// Handle tip offsets of key @p index as they are evaluated (Free handles clamped to their
+    /// segment, the other modes resolved from the neighbours): returns {dtFrames, dv}, dt >= 0.
+    /// For the first key's in handle / the last key's out handle the neighbour is missing; the
+    /// handle then has the length of the existing segment (or 0 for a single key).
+    [[nodiscard]] std::pair<double, double> inHandle(qsizetype index) const;
+    /// Outgoing counterpart of inHandle().
+    [[nodiscard]] std::pair<double, double> outHandle(qsizetype index) const;
+
     friend bool operator==(const AnimatedValue&, const AnimatedValue&) = default;
+
+private:
+    [[nodiscard]] double segmentValue(qsizetype i, double localFrame) const;
+    [[nodiscard]] double smoothSlope(qsizetype index) const;
 };
 
 /// A named set of parameters: keyframeable scalars in `values`, non-animatable settings
@@ -105,9 +178,22 @@ struct ParamSet
     friend bool operator==(const ParamSet&, const ParamSet&) = default;
 };
 
-/// Stable string id of an interpolation mode (used in project files), e.g. "easeInOut".
+/// Stable string id of an interpolation preset (used in the UI and tests), e.g. "easeInOut".
 [[nodiscard]] QString interpToString(Interp interp);
 /// Parses a string produced by interpToString(); unknown strings yield Interp::Linear.
 [[nodiscard]] Interp interpFromString(const QString& text);
+/// Stable string id of a handle mode stored in project files ("linear", "ease", "smooth",
+/// "free").
+[[nodiscard]] QString handleModeToString(KeyHandle::Mode mode);
+/// Parses handleModeToString(); unknown strings yield Mode::Linear.
+[[nodiscard]] KeyHandle::Mode handleModeFromString(const QString& text);
+
+/// Converts keys stored with the format-version-1 meaning of "interp" (the curve of the segment
+/// that *starts* at the key: easeIn = t^2, easeOut = 1-(1-t)^2, easeInOut = smoothstep, hold)
+/// into handles: easeIn -> Ease out handle of the key, easeOut -> Ease in handle of the next
+/// key, easeInOut -> both, hold -> hold. Ease-in-out is reproduced exactly (cubic Bezier with
+/// flat thirds handles is the smoothstep); easeIn / easeOut become the closest Bezier ease.
+/// @p legacy holds one v1 interp per key, parallel to @p value.keys.
+void migrateLegacyInterp(AnimatedValue& value, const QVector<Interp>& legacy);
 
 } // namespace kk

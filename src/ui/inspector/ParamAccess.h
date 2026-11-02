@@ -79,7 +79,7 @@ bool toggleKey(
 /// Interpolation of the key at @p localFrame (std::nullopt if there is no key there).
 [[nodiscard]] std::optional<Interp> keyInterp(
     const ClipData& clip, const ParamRef& ref, int64_t localFrame);
-/// Sets the interpolation of the segment starting at the key at @p localFrame (spec 15.6).
+/// Applies interpolation preset @p interp to the key at @p localFrame (spec 15.6).
 /// Honours linked zoom like setScalar(). Returns false if there is no key at that frame.
 bool setKeyInterp(ClipData& clip, const ParamRef& ref, int64_t localFrame, Interp interp);
 /// Resets a parameter to its descriptor default (removes all keys of a scalar).
