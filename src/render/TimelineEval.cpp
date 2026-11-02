@@ -29,13 +29,15 @@ const ClipData* adjacentNext(const TrackData& track, int index)
     return next.start == track.clips[size_t(index)].end() ? &next : nullptr;
 }
 
-/// Window centred on the cut between @p a and @p b: [cut - d/2, cut - d/2 + d).
+/// Window on the cut between @p a and @p b, placed by the transition's alignment:
+/// [cut - before, cut - before + d) with before = d/2 (centre), 0 (start on cut) or d (end on
+/// cut), spec 13.5.
 TransitionSpan centredSpan(const TransitionData& t, const ClipData& a, const ClipData& b)
 {
     const int64_t d = std::max<int64_t>(1, t.duration);
     TransitionSpan span;
     span.transition = &t;
-    span.start = b.start - d / 2;
+    span.start = b.start - std::clamp<int64_t>(t.framesBeforeCut(), 0, d);
     span.end = span.start + d;
     span.centred = true;
     span.outgoing = &a;

@@ -38,6 +38,10 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+    /// Ctrl+D: asks for a new duration of the selected clips (timecode).
+    void askClipDuration();
+    /// R: asks for a new speed (percent) of the selected clips.
+    void askClipSpeed();
     void syncZoomSlider();
 
     AppContext& m_ctx;

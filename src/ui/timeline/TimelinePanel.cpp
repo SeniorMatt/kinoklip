@@ -2,16 +2,20 @@
 // TimelinePanel: assembles tool bar, controller and view; wires the zoom actions.
 #include "ui/timeline/TimelinePanel.h"
 
+#include "core/EditOps.h"
 #include "core/Project.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/TimelineController.h"
+#include "ui/timeline/TimelineDialogs.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
 #include <QEvent>
+#include <QInputDialog>
 #include <QSlider>
 #include <QToolBar>
 #include <QVBoxLayout>
@@ -37,6 +41,15 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
 
     m_controller = new TimelineController(ctx, this);
     m_controller->connectActions();
+    // The commands' questions are modal dialogs owned by this panel (tests set their own).
+    m_controller->setHandlePrompt([this](int64_t missing, bool canShorten) {
+        return timelinedialogs::askHandles(this, missing, canShorten);
+    });
+    m_controller->setMarkerEditor([this](Marker& marker, bool clipMarker) {
+        return timelinedialogs::editMarker(this, marker, clipMarker);
+    });
+    m_controller->setPasteAttributesPrompt(
+        [this] { return timelinedialogs::askPasteAttributes(this); });
 
     m_toolBar = new QToolBar(body);
     m_toolBar->setIconSize(QSize(metrics::kTransportIconSize, metrics::kTransportIconSize));
@@ -107,6 +120,10 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
         on("timeline.zoom_in", &TimelineWidget::zoomIn);
         on("timeline.zoom_out", &TimelineWidget::zoomOut);
         on("timeline.zoom_fit", &TimelineWidget::zoomToFit);
+        connect(m_ctx.actions->action(QStringLiteral("clip.change_duration")), &QAction::triggered,
+            this, &TimelinePanel::askClipDuration);
+        connect(m_ctx.actions->action(QStringLiteral("clip.change_speed")), &QAction::triggered,
+            this, &TimelinePanel::askClipSpeed);
     }
 
     // Title = timeline name (the program viewer is already called "Timeline").
@@ -117,6 +134,42 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     };
     connect(timeline, &Timeline::changed, this, updateTitle);
     updateTitle();
+}
+
+void TimelinePanel::askClipDuration()
+{
+    const QVector<quint64> ids = m_controller->effectiveSelection();
+    if (ids.isEmpty() || !isVisible())
+        return;
+    const TimelineData& d = m_ctx.project->timeline()->data();
+    const ClipData* clip = editops::clipById(d, ids.front());
+    if (!clip)
+        return;
+    bool ok = false;
+    const QString text
+        = QInputDialog::getText(this, tr("Change Clip Duration"), tr("Duration (hh:mm:ss:ff):"),
+            QLineEdit::Normal, timecode::format(clip->duration, d.fps), &ok);
+    if (!ok)
+        return;
+    const auto frames = timecode::parse(text, d.fps);
+    if (frames && *frames > 0)
+        m_controller->setSelectionDuration(*frames);
+}
+
+void TimelinePanel::askClipSpeed()
+{
+    const QVector<quint64> ids = m_controller->effectiveSelection();
+    if (ids.isEmpty() || !isVisible())
+        return;
+    const ClipData* clip = editops::clipById(m_ctx.project->timeline()->data(), ids.front());
+    if (!clip)
+        return;
+    bool ok = false;
+    // Percent: 100 = normal speed; 1..10000 % like the usual speed dialogs.
+    const double percent = QInputDialog::getDouble(
+        this, tr("Change Clip Speed"), tr("Speed (%):"), clip->speed * 100.0, 1.0, 10000.0, 2, &ok);
+    if (ok)
+        m_controller->setSelectionSpeed(percent / 100.0);
 }
 
 void TimelinePanel::syncZoomSlider()

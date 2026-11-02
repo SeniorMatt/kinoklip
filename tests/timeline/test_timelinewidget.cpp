@@ -3,6 +3,7 @@
 // roll, slip, blade, rubber band, scrub, header buttons, Esc), drag and drop, zoom and undo.
 // Every test asserts the resulting TimelineData and the undo behaviour.
 #include "TimelineTestUtils.h"
+#include "core/EditBehaviour.h"
 #include "core/MediaPool.h"
 #include "ui/common/DragMime.h"
 #include "ui/timeline/TimelineController.h"
@@ -397,7 +398,9 @@ private slots:
         v.w.zoomToFit();
         QVERIFY(v.w.pixelsPerFrame() * 5000 <= v.w.layout().trackAreaWidth());
         const double fit = v.w.pixelsPerFrame();
-        // Ctrl+wheel zooms around the mouse position.
+        // Classic wheel scheme with "zoom around: mouse cursor": Ctrl+wheel zooms at the pointer.
+        EditBehaviour::setWheelScheme(WheelScheme::Classic);
+        EditBehaviour::setZoomAnchor(ZoomAnchor::Cursor);
         const QPoint pos(700, 200);
         const double frameBefore = v.w.layout().xToFrame(pos.x());
         QWheelEvent wheel(pos, v.vp()->mapToGlobal(pos), {}, QPoint(0, 240), Qt::NoButton,
@@ -405,6 +408,7 @@ private slots:
         QCoreApplication::sendEvent(v.vp(), &wheel);
         QVERIFY(v.w.pixelsPerFrame() > fit);
         QVERIFY(qAbs(v.w.layout().xToFrame(pos.x()) - frameBefore) < 1.0);
+        QSettings().remove(QStringLiteral("edit"));
     }
 
     void followPlayheadPageScrolls()

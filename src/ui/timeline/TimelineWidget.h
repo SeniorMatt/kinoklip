@@ -65,6 +65,9 @@ public:
     [[nodiscard]] bool followPlayhead() const { return m_followPlayhead; }
 
 public slots:
+    /// View-only vertical zoom of all tracks (Shift+wheel in the Resolve wheel scheme).
+    void setTrackHeightScale(double scale);
+    [[nodiscard]] double trackHeightScale() const { return m_layout.heightScale(); }
     void zoomIn();
     void zoomOut();
     /// Fits the whole timeline into the view (Shift+Z).
@@ -106,7 +109,16 @@ private:
         Slip,
         Slide,
         ResizeTrack,
-        Pan
+        Pan,
+        TransitionEdge, ///< dragging an outer edge of a transition changes its length (13.9)
+        Shuffle ///< Ctrl+Shift drag: swap / shuffle insert within the track (21.6)
+    };
+    /// An outer edge of a transition under the pointer.
+    struct TransitionEdgeHit
+    {
+        quint64 clipId = 0; ///< clip holding the transition
+        bool head = true; ///< transitionIn (else transitionOut)
+        bool leftEdge = true; ///< the window's left edge (else its right edge)
     };
     struct Drag
     {
@@ -136,6 +148,7 @@ private:
         int originHeight = 0;
         int scrollXAtPress = 0;
         int scrollYAtPress = 0;
+        TransitionEdgeHit transition; ///< TransitionEdge: which edge is dragged
     };
 
     void startDrag(DragMode mode);
@@ -149,6 +162,13 @@ private:
     void updateRoll(QPointF pos);
     void updateSlipSlide(QPointF pos);
     void updateRubberBand(QPointF pos);
+    void updateTransitionEdge(QPointF pos);
+    void updateShuffle(QPointF pos);
+    /// The transition edge within grab distance of @p pos, if any (TimelineGestures.cpp).
+    [[nodiscard]] std::optional<TransitionEdgeHit> transitionEdgeAt(QPointF pos) const;
+    /// Ruler double-click: opens the marker editor for a marker near @p pos. Returns whether
+    /// one was there.
+    bool editMarkerNear(QPointF pos);
     void scrubTo(QPointF pos);
     void bladeAt(const TimelineHit& hit);
     void clickSelect(const TimelineHit& hit, Qt::KeyboardModifiers modifiers);

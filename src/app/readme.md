@@ -96,7 +96,7 @@ name exists: `ls /usr/share/icons/breeze/*/*/<name>.svg` in the container) and r
    `hasPanel()/setPanelVisible()/isPanelVisible()` + `saveLayout()/restoreLayout()`.
 2. In `MainWindow`'s constructor call `addPage(new MyPage(ctx), "view.page_<id>")`. The page
    action must exist in `ui/common/StandardActions.cpp` (and a shortcut in
-   `resources/keymap_default.json`). For Color, replace the disabled placeholder button.
+   `resources/keymaps/resolve-windows.json`). For Color, replace the disabled placeholder button.
 
 **Add a command-line mode** (e.g. `--render <project> <out.mp4>`):
 1. Add fields to `CommandLineOptions` and an option in `parseCommandLine()`.

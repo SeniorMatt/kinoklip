@@ -12,7 +12,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `ParamKeys.h` | well-known parameter keys (`keys::PosX`, `keys::Opacity`, ...) + defaults |
 | `TimelineData.h` | `ClipData`, `TrackData`, `Marker`, `EffectInstance`, `TransitionData`, `TimelineData`, `TrackRef` |
 | `MediaItem.h` | `MediaItem`, `Bin`, `MediaPoolState` |
-| `EditOps.h` | pure editing functions on `TimelineData&` (namespace `kk::editops`) |
+| `EditOps.h` | pure editing functions on `TimelineData&` (namespace `kk::editops`); implemented in `EditOps.cpp`, `EditOpsRipple.cpp` (ripple delete across tracks, in/out lift / extract / copy, delete gaps, join, swap, shuffle, ripple overwrite) and `EditOpsTransitions.cpp` (transition windows, alignment, length, handle checks); shared private helpers in `EditOpsInternal.h` |
 | `Timeline.h` | QObject: owns `TimelineData`, snapshot cache, playhead, `changed()` |
 | `MediaPool.h` | QObject: media items + bins, `importFiles()` |
 | `Project.h` | QObject: owns MediaPool + Timeline + QUndoStack, settings, save/load |
@@ -26,8 +26,10 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 ## Time conventions (PLAN §5.1)
 - Timeline positions and durations: `int64_t` frames at `TimelineData::fps`.
 - Source positions: `int64_t` microseconds (`ClipData::sourceInUs`).
-- Keyframes: clip-local frames (`frame - clip.start`); they move with the clip and follow the
-  content when the head is trimmed or the clip is split.
+- Keyframes and clip markers (`ClipData::markers`): clip-local frames (`frame - clip.start`);
+  they move with the clip and follow the content when the head is trimmed or the clip is split.
+- Transitions at a cut are placed by `TransitionData::alignment` (centre / start on cut / end
+  on cut); `TransitionData::framesBeforeCut()` is the one formula render, painter and EditOps use.
 - `ClipData::sourceDurationUs` (addition to the PLAN contract) caches the media length so EditOps
   can clamp trims without a media-pool lookup; 0 means unbounded (stills, titles, solids).
 
