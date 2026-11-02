@@ -54,6 +54,7 @@ TimelineData richTimeline()
     media.transitionOut = TransitionData {};
     media.transitionOut->alignment = TransitionAlignment::EndOnCut; // spec 13.5
     media.markers.append(Marker {3, QStringLiteral("clip marker"), QColor(0, 200, 0), {}});
+    media.cacheOutput = true;
     const quint64 v = ops::overwriteClip(d, kV1, media);
     const quint64 a = ops::overwriteClip(d, kA1, mediaClip(0, 50));
     ops::linkClips(d, {v, a});

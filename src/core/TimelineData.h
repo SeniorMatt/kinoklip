@@ -119,6 +119,9 @@ struct ClipData
     /// Clip markers, sorted by frame; clip-local frames (frame - start), may lie outside the
     /// visible part after a trim (kept like keyframes so undoing nothing is lost).
     QVector<Marker> markers;
+    /// Clip > Render Cache Clip Output: the render cache keeps this clip's frames in User
+    /// mode (src/render/RenderCacheKeys.h). Not part of the cache key itself.
+    bool cacheOutput = false;
 
     /// First frame after the clip.
     [[nodiscard]] int64_t end() const { return start + duration; }

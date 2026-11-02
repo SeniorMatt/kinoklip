@@ -2,6 +2,7 @@
 // Project — owns the media pool, the timeline, the undo stack and project-level settings.
 #pragma once
 
+#include "core/MediaLinks.h"
 #include "core/MediaPool.h"
 #include "core/Timeline.h"
 
@@ -82,6 +83,14 @@ public:
     [[nodiscard]] ProjectSettings settings() const;
     /// Applies new settings; resolution/fps changes are undoable timeline edits.
     void setSettings(const ProjectSettings& settings);
+    /// Proxy / optimized media links of the media pool items (owned by the project, never
+    /// null; saved with it, not undoable). Changing a link marks the project modified.
+    [[nodiscard]] MediaLinks* mediaLinks() const { return m_links; }
+    /// Optimized media, proxy and render cache settings + Playback menu modes.
+    [[nodiscard]] const MediaCacheSettings& cacheSettings() const { return m_cacheSettings; }
+    /// Applies new cache settings (not undoable, marks the project modified); emits
+    /// cacheSettingsChanged() if they differ.
+    void setCacheSettings(const MediaCacheSettings& settings);
     /// Project display name.
     [[nodiscard]] QString name() const { return m_name; }
     /// Renames the project (marks it modified).
@@ -239,6 +248,8 @@ signals:
     void timelinesChanged();
     /// The tabs (open timelines or their order) changed.
     void tabsChanged();
+    /// cacheSettings() changed (also after new/load).
+    void cacheSettingsChanged();
 
 private:
     /// One timeline of the project. `data` is null for the active timeline (its data lives
@@ -279,6 +290,8 @@ private:
     void emitDirtyIfChanged();
 
     MediaPool* m_mediaPool = nullptr;
+    MediaLinks* m_links = nullptr;
+    MediaCacheSettings m_cacheSettings;
     Timeline* m_timeline = nullptr;
     std::vector<TimelineSlot> m_slots; ///< every timeline, creation order
     quint64 m_activeUid = 0;
