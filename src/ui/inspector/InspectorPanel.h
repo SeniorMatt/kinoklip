@@ -66,6 +66,8 @@ public:
     [[nodiscard]] quint64 audioClipId() const { return m_audioClipId; }
     /// Shows the clip with id @p clipId (0 = empty state).
     void showClip(quint64 clipId);
+    /// Shows @p clipId on tab @p tab (a selected transition, the fx badge on the timeline).
+    void inspect(quint64 clipId, Tab tab);
 
     /// The tab widget (tests switch tabs and inspect the groups).
     [[nodiscard]] QTabWidget* tabs() const { return m_tabs; }
@@ -121,6 +123,11 @@ private:
     // ---- Building ----
     [[nodiscard]] Structure computeStructure(quint64 clipId) const;
     void onTimelineChanged();
+    /// Switches between the Video and Audio tab for the part of a pair that was clicked.
+    void followClickedPart(quint64 clickedId);
+    /// Selected clips, counting a linked group once.
+    [[nodiscard]] int selectedItemCount() const;
+    quint64 m_lastCurrent = 0; ///< SelectionModel::currentClip() at the last selection change
     void rebuild();
     void clearTabs();
     QVBoxLayout* tabLayout(Tab tab) const;
