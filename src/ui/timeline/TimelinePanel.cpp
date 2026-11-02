@@ -5,6 +5,7 @@
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
+#include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
@@ -118,6 +119,11 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     connect(m_tabs, &TimelineTabs::settingsRequested, this,
         [this](quint64 uid) { timelinedialogs::editTimelineSettings(this, *m_ctx.project, uid); });
     applyPreferences();
+    // Switching timelines stops playback (the transport belongs to the timeline shown).
+    connect(ctx.project, &Project::activeTimelineAboutToChange, this, [this] {
+        if (m_ctx.playback)
+            m_ctx.playback->pause();
+    });
 
     m_view = new TimelineWidget(ctx, m_controller, body);
     layout->addWidget(m_view, 1);
