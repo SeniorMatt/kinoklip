@@ -2,21 +2,97 @@
 // MediaPoolModel / MediaPoolFilterModel implementation.
 #include "ui/mediapool/MediaPoolModel.h"
 
+#include "core/ClipColors.h"
 #include "core/MediaPool.h"
 #include "core/Project.h"
+#include "core/SmartBins.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/TimecodeFormat.h"
 
+#include <QDateTime>
 #include <QFileInfo>
 #include <QIcon>
+#include <QLocale>
 #include <QMimeData>
+#include <QUndoStack>
 
 namespace kk {
 
 namespace {
 constexpr int kPosterCacheKiB = 48 * 1024; ///< ~48 MB of scaled posters (~1,700 tiles)
 constexpr Rational kFallbackFps {25, 1};
+/// Usage is recounted this long after the last timeline / pool change (a drag changes the
+/// timeline on every mouse move; one count at the end is enough).
+constexpr int kUsageDelayMs = 150;
+
+// Keys of the columns (settings, project bin views). Order = MediaPoolModel::Column.
+const char* const kColumnKeys[]
+    = {"name", "duration", "resolution", "fps", "codec", "audio", "proxy", "optimized", "clipColor",
+        "flags", "usage", "fileName", "path", "dateAdded", "dateModified", "description",
+        "comments", "keywords", "scene", "shot", "take", "camera", "angle", "goodTake", "rating"};
+static_assert(std::size(kColumnKeys) == MediaPoolModel::ColumnCount);
+
+QString dateText(qint64 ms)
+{
+    return ms > 0 ? QLocale().toString(QDateTime::fromMSecsSinceEpoch(ms), QLocale::ShortFormat)
+                  : QString();
+}
+
+QString stars(int rating)
+{
+    return QString(rating, QChar(0x2605)); // BLACK STAR
+}
+
+/// Drag payload of media pool items. Project ids are stored directly; power bin ids are
+/// offered as kPowerItemsMime and resolved to project ids only when a target asks for
+/// mime::MediaItems (QMimeData::retrieveData() is called for every data() request; in-process
+/// drags hand this very object to the drop target, also on Wayland).
+class MediaDragData final : public QMimeData
+{
+public:
+    MediaDragData(QStringList projectIds, QStringList powerIds, PowerResolver resolver)
+        : m_projectIds(std::move(projectIds))
+        , m_powerIds(std::move(powerIds))
+        , m_resolver(std::move(resolver))
+    { }
+
+    [[nodiscard]] bool hasFormat(const QString& mimeType) const override
+    {
+        return formats().contains(mimeType);
+    }
+
+    [[nodiscard]] QStringList formats() const override
+    {
+        QStringList f {QLatin1String(mime::MediaItems)};
+        if (!m_powerIds.isEmpty())
+            f.append(QLatin1String(kPowerItemsMime));
+        return f;
+    }
+
+protected:
+    QVariant retrieveData(const QString& mimeType, QMetaType type) const override
+    {
+        if (mimeType == QLatin1String(kPowerItemsMime))
+            return m_powerIds.join(QLatin1Char('\n')).toUtf8();
+        if (mimeType != QLatin1String(mime::MediaItems))
+            return QMimeData::retrieveData(mimeType, type);
+        if (!m_resolved) {
+            m_resolved = true;
+            m_all = m_projectIds;
+            if (!m_powerIds.isEmpty() && m_resolver)
+                m_all += m_resolver(m_powerIds);
+        }
+        return m_all.join(QLatin1Char('\n')).toUtf8();
+    }
+
+private:
+    QStringList m_projectIds;
+    QStringList m_powerIds;
+    PowerResolver m_resolver;
+    mutable QStringList m_all;
+    mutable bool m_resolved = false;
+};
 } // namespace
 
 // ---- MediaPoolModel ----
@@ -26,12 +102,92 @@ MediaPoolModel::MediaPoolModel(Project* project, QObject* parent)
     , m_project(project)
 {
     m_posters.setMaxCost(kPosterCacheKiB);
-    MediaPool* pool = project->mediaPool();
+    connectPool(project->mediaPool(), false);
+
+    m_usageTimer.setSingleShot(true);
+    m_usageTimer.setInterval(kUsageDelayMs);
+    connect(&m_usageTimer, &QTimer::timeout, this, &MediaPoolModel::refreshUsage);
+    connect(project->timeline(), &Timeline::changed, this, &MediaPoolModel::scheduleUsage);
+    connect(project, &Project::timelinesChanged, this, &MediaPoolModel::scheduleUsage);
+    connect(project, &Project::projectReset, this, &MediaPoolModel::refreshUsage);
+    connect(project->undoStack(), &QUndoStack::indexChanged, this, &MediaPoolModel::scheduleUsage);
+    m_usage = usage::compute(*project);
+    reload();
+}
+
+void MediaPoolModel::connectPool(MediaPool* pool, bool power)
+{
     connect(pool, &MediaPool::itemAdded, this, &MediaPoolModel::onItemAdded);
     connect(pool, &MediaPool::itemRemoved, this, &MediaPoolModel::onItemRemoved);
     connect(pool, &MediaPool::itemChanged, this, &MediaPoolModel::onItemChanged);
     connect(pool, &MediaPool::reset, this, &MediaPoolModel::reload);
+    if (!power)
+        connect(pool, &MediaPool::changed, this, &MediaPoolModel::scheduleUsage);
+}
+
+void MediaPoolModel::setPowerBins(MediaPool* power)
+{
+    if (m_power == power)
+        return;
+    if (m_power)
+        disconnect(m_power, nullptr, this, nullptr);
+    m_power = power;
+    if (m_power)
+        connectPool(m_power, true);
     reload();
+}
+
+MediaPool* MediaPoolModel::poolOf(const QString& id) const
+{
+    const int row = m_rowById.value(id, -1);
+    if (row < 0)
+        return nullptr;
+    return m_rows[row].power ? m_power : m_project->mediaPool();
+}
+
+const MediaItem* MediaPoolModel::item(const QString& id) const
+{
+    const MediaPool* pool = poolOf(id);
+    return pool ? pool->item(id) : nullptr;
+}
+
+void MediaPoolModel::scheduleUsage()
+{
+    m_usageTimer.start();
+}
+
+void MediaPoolModel::refreshUsage()
+{
+    m_usageTimer.stop();
+    m_usage = usage::compute(*m_project);
+    for (int r = 0; r < m_rows.size(); ++r) {
+        Row& row = m_rows[r];
+        const int count = row.power ? 0 : m_usage.value(row.id, 0);
+        if (count == row.usage)
+            continue;
+        row.usage = count;
+        emit dataChanged(
+            index(r, 0), index(r, ColumnCount - 1)); // all roles: re-filters smart bins
+    }
+}
+
+QString MediaPoolModel::columnKey(int column)
+{
+    return column >= 0 && column < ColumnCount ? QLatin1String(kColumnKeys[column]) : QString();
+}
+
+int MediaPoolModel::columnForKey(const QString& key)
+{
+    for (int c = 0; c < ColumnCount; ++c) {
+        if (key == QLatin1String(kColumnKeys[c]))
+            return c;
+    }
+    return -1;
+}
+
+bool MediaPoolModel::columnVisibleByDefault(int column)
+{
+    return column <= UsageColumn;
 }
 
 void MediaPoolModel::setThumbnailProvider(PosterProvider provider)
@@ -71,7 +227,7 @@ QString MediaPoolModel::idAt(int row) const
     return row >= 0 && row < m_rows.size() ? m_rows[row].id : QString();
 }
 
-MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item)
+MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item, bool power)
 {
     const media::MediaInfo& info = item.info;
     Row row;
@@ -79,22 +235,53 @@ MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item)
     row.name = item.name;
     row.path = item.path;
     row.binId = item.binId;
+    row.power = power;
     row.kind = info.isStillImage ? ImageKind : (info.hasVideo ? VideoKind : AudioKind);
+    row.durationUs = info.durationUs;
     if (info.durationUs > 0) {
         const Rational fps = info.frameRate.isValid() ? info.frameRate : kFallbackFps;
         row.durationText = timecode::format(usToFrames(info.durationUs, fps), fps);
     }
-    if (info.hasVideo && info.width > 0)
+    if (info.hasVideo && info.width > 0) {
         row.resolutionText = QStringLiteral("%1 x %2").arg(info.width).arg(info.height);
-    if (info.hasVideo && !info.isStillImage && info.frameRate.isValid())
-        row.fpsText = QString::number(info.frameRate.toDouble(), 'g', 5); // 25, 29.97, 23.976
+        row.pixels = qint64(info.width) * info.height;
+    }
+    if (info.hasVideo && !info.isStillImage && info.frameRate.isValid()) {
+        row.fps = info.frameRate.toDouble();
+        row.fpsText = QString::number(row.fps, 'g', 5); // 25, 29.97, 23.976
+    }
     row.codecText = info.hasVideo ? info.videoCodec : info.audioCodec;
     if (info.hasAudio) {
         row.audioText = QStringLiteral("%1 ch, %2 kHz")
                             .arg(info.audioChannels)
                             .arg(info.audioSampleRate / 1000.0, 0, 'g', 3);
     }
-    row.searchText = (item.name + QLatin1Char(' ') + item.path).toLower();
+    row.clipColorId = findClipColor(item.clipColor) ? item.clipColor : QString();
+    row.clipColor = clipColorValue(row.clipColorId);
+    row.colorText = clipColorName(row.clipColorId);
+    row.flags = item.flags;
+    QStringList flagNames;
+    for (int i = 0; i < int(flagPalette().size()); ++i) {
+        if (item.flags & (1u << i))
+            flagNames.append(flagName(i));
+    }
+    row.flagsText = flagNames.join(QStringLiteral(", "));
+    row.metadata = item.metadata;
+    row.keywordsText = item.metadata.keywords.join(QStringLiteral(", "));
+    row.addedMs = item.addedMs;
+    row.modifiedMs = item.fileModifiedMs;
+    row.addedText = dateText(item.addedMs);
+    row.modifiedText = dateText(item.fileModifiedMs);
+    if (!item.isTimeline())
+        row.fileName = QFileInfo(item.path).fileName();
+    // Search covers the name, the path and every piece of user metadata (colour and flag
+    // names included, so "teal" or "red" finds coloured / flagged items).
+    const MediaMetadata& md = item.metadata;
+    row.searchText
+        = QStringList {item.name, item.path, row.colorText, row.flagsText, row.keywordsText,
+            md.description, md.comments, md.scene, md.shot, md.take, md.camera, md.angle}
+              .join(QLatin1Char(' '))
+              .toLower();
     if (item.isTimeline()) {
         row.kind = item.kind == MediaItemKind::CompoundClip ? CompoundKind : TimelineKind;
         row.codecText
@@ -114,11 +301,17 @@ void MediaPoolModel::reload()
     m_rows.clear();
     m_rowById.clear();
     const QVector<MediaItem>& items = m_project->mediaPool()->items();
-    m_rows.reserve(items.size());
+    m_rows.reserve(items.size() + (m_power ? m_power->items().size() : 0));
     for (const MediaItem& item : items)
-        m_rows.append(makeRow(item));
-    for (Row& row : m_rows)
+        m_rows.append(makeRow(item, false));
+    if (m_power) {
+        for (const MediaItem& item : m_power->items())
+            m_rows.append(makeRow(item, true));
+    }
+    for (Row& row : m_rows) {
         fillLinks(row);
+        row.usage = row.power ? 0 : m_usage.value(row.id, 0);
+    }
     reindex(0);
     endResetModel();
 }
@@ -131,14 +324,23 @@ void MediaPoolModel::reindex(int fromRow)
 
 void MediaPoolModel::onItemAdded(const QString& id)
 {
-    const MediaItem* item = m_project->mediaPool()->item(id);
+    const bool power = m_power && sender() == m_power;
+    const MediaPool* pool = power ? m_power : m_project->mediaPool();
+    const MediaItem* item = pool->item(id);
     if (!item || m_rowById.contains(id))
         return;
-    const int row = int(m_rows.size());
+    // Project items stay before the power bin items (rows are in import order per pool).
+    int row = int(m_rows.size());
+    if (!power) {
+        row = 0;
+        while (row < m_rows.size() && !m_rows[row].power)
+            ++row;
+    }
     beginInsertRows({}, row, row);
-    m_rows.append(makeRow(*item));
-    fillLinks(m_rows.back());
-    m_rowById.insert(id, row);
+    m_rows.insert(row, makeRow(*item, power));
+    fillLinks(m_rows[row]);
+    m_rows[row].usage = power ? 0 : m_usage.value(id, 0);
+    reindex(row);
     endInsertRows();
 }
 
@@ -157,10 +359,12 @@ void MediaPoolModel::onItemRemoved(const QString& id)
 void MediaPoolModel::onItemChanged(const QString& id)
 {
     const int row = m_rowById.value(id, -1);
-    const MediaItem* item = m_project->mediaPool()->item(id);
-    if (row < 0 || !item)
+    const MediaItem* item = row >= 0 ? this->item(id) : nullptr;
+    if (!item)
         return;
-    m_rows[row] = makeRow(*item);
+    const int usage = m_rows[row].usage;
+    m_rows[row] = makeRow(*item, m_rows[row].power);
+    m_rows[row].usage = usage;
     fillLinks(m_rows[row]);
     emit dataChanged(index(row, 0), index(row, ColumnCount - 1));
 }
@@ -175,7 +379,7 @@ void MediaPoolModel::setLinkStatusProvider(
 void MediaPoolModel::fillLinks(Row& row) const
 {
     // A few stat() calls per item, only when its status may have changed (never per paint).
-    row.links = m_linkStatus ? m_linkStatus(row.id) : MediaLinkStatus {};
+    row.links = m_linkStatus && !row.power ? m_linkStatus(row.id) : MediaLinkStatus {};
 }
 
 void MediaPoolModel::linkStatusChanged(const QString& id)
@@ -228,6 +432,92 @@ QPixmap MediaPoolModel::poster(const Row& row) const
     return result;
 }
 
+QVariant MediaPoolModel::displayText(const Row& row, int column) const
+{
+    const MediaMetadata& md = row.metadata;
+    switch (column) {
+    case NameColumn:
+        return row.name;
+    case DurationColumn:
+        return row.durationText;
+    case ResolutionColumn:
+        return row.resolutionText;
+    case FpsColumn:
+        return row.fpsText;
+    case CodecColumn:
+        return row.codecText;
+    case AudioColumn:
+        return row.audioText;
+    case ProxyColumn:
+        return row.links.proxyText;
+    case OptimizedColumn:
+        return row.links.optimizedText;
+    case ClipColorColumn:
+        return row.colorText;
+    case FlagsColumn:
+        return row.flagsText;
+    case UsageColumn:
+        return row.power ? QString() : QString::number(row.usage);
+    case FileNameColumn:
+        return row.fileName;
+    case PathColumn:
+        return row.kind == TimelineKind || row.kind == CompoundKind ? QString() : row.path;
+    case DateAddedColumn:
+        return row.addedText;
+    case DateModifiedColumn:
+        return row.modifiedText;
+    case DescriptionColumn:
+        return md.description;
+    case CommentsColumn:
+        return md.comments;
+    case KeywordsColumn:
+        return row.keywordsText;
+    case SceneColumn:
+        return md.scene;
+    case ShotColumn:
+        return md.shot;
+    case TakeColumn:
+        return md.take;
+    case CameraColumn:
+        return md.camera;
+    case AngleColumn:
+        return md.angle;
+    case GoodTakeColumn:
+        return md.goodTake ? tr("Yes") : QString();
+    case RatingColumn:
+        return stars(md.rating);
+    default:
+        return {};
+    }
+}
+
+QVariant MediaPoolModel::sortValue(const Row& row, int column) const
+{
+    // Raw values: numbers sort numerically (25 < 100 fps), dates by time, text lower-case.
+    switch (column) {
+    case DurationColumn:
+        return row.durationUs;
+    case ResolutionColumn:
+        return row.pixels;
+    case FpsColumn:
+        return row.fps;
+    case UsageColumn:
+        return row.usage;
+    case DateAddedColumn:
+        return row.addedMs;
+    case DateModifiedColumn:
+        return row.modifiedMs;
+    case GoodTakeColumn:
+        return int(row.metadata.goodTake);
+    case RatingColumn:
+        return row.metadata.rating;
+    case FlagsColumn:
+        return row.flags == 0 ? QString() : row.flagsText.toLower();
+    default:
+        return displayText(row, column).toString().toLower();
+    }
+}
+
 QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
 {
     if (!index.isValid() || index.row() >= m_rows.size())
@@ -236,27 +526,18 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
     switch (role) {
     case Qt::DisplayRole:
     case Qt::EditRole:
-        switch (index.column()) {
-        case NameColumn:
-            return row.name;
-        case DurationColumn:
-            return row.durationText;
-        case ResolutionColumn:
-            return row.resolutionText;
-        case FpsColumn:
-            return row.fpsText;
-        case CodecColumn:
-            return row.codecText;
-        case AudioColumn:
-            return row.audioText;
-        case ProxyColumn:
-            return row.links.proxyText;
-        case OptimizedColumn:
-            return row.links.optimizedText;
-        default:
+        return displayText(row, index.column());
+    case Qt::DecorationRole:
+        if (index.column() == ClipColorColumn)
+            return row.clipColor.isValid() ? QVariant(row.clipColor) : QVariant();
+        if (index.column() == FlagsColumn) {
+            // The first flag's colour (the text names them all).
+            for (int i = 0; i < int(flagPalette().size()); ++i) {
+                if (row.flags & (1u << i))
+                    return flagColor(i);
+            }
             return {};
         }
-    case Qt::DecorationRole:
         if (index.column() != NameColumn)
             return {};
         // Icons are cached by kk::icon(); three shared instances for all rows.
@@ -272,12 +553,23 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
         default:
             return icon(QStringLiteral("film"));
         }
-    case Qt::ToolTipRole:
+    case Qt::ToolTipRole: {
+        QString tip;
         if (row.kind == TimelineKind || row.kind == CompoundKind)
-            return row.kind == TimelineKind
+            tip = row.kind == TimelineKind
                 ? tr("%1\nTimeline: double-click to open it in a tab").arg(row.name)
                 : tr("%1\nCompound clip: double-click to open it in a tab").arg(row.name);
-        return row.offline ? tr("%1\nMedia offline: the file is missing.").arg(row.path) : row.path;
+        else
+            tip = row.offline ? tr("%1\nMedia offline: the file is missing.").arg(row.path)
+                              : row.path;
+        if (row.power)
+            tip += QLatin1Char('\n') + tr("Power bin item (shared by every project)");
+        else if (row.usage > 0)
+            tip += QLatin1Char('\n') + tr("Used %n time(s) in timelines", nullptr, row.usage);
+        else
+            tip += QLatin1Char('\n') + tr("Not used in any timeline");
+        return tip;
+    }
     case Qt::ForegroundRole:
         if (row.offline)
             return QColor(0xe0, 0x60, 0x60);
@@ -300,6 +592,18 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
         return row.links.badge;
     case LinkProblemRole:
         return row.links.problem;
+    case ClipColorRole:
+        return row.clipColor;
+    case ClipColorIdRole:
+        return row.clipColorId;
+    case FlagsRole:
+        return uint(row.flags);
+    case UsageRole:
+        return row.usage;
+    case PowerRole:
+        return row.power;
+    case SortRole:
+        return sortValue(row, index.column());
     default:
         return {};
     }
@@ -326,6 +630,40 @@ QVariant MediaPoolModel::headerData(int section, Qt::Orientation orientation, in
         return tr("Proxy");
     case OptimizedColumn:
         return tr("Optimized Media");
+    case ClipColorColumn:
+        return tr("Clip Color");
+    case FlagsColumn:
+        return tr("Flags");
+    case UsageColumn:
+        return tr("Usage");
+    case FileNameColumn:
+        return tr("File Name");
+    case PathColumn:
+        return tr("File Path");
+    case DateAddedColumn:
+        return tr("Date Added");
+    case DateModifiedColumn:
+        return tr("Date Modified");
+    case DescriptionColumn:
+        return tr("Description");
+    case CommentsColumn:
+        return tr("Comments");
+    case KeywordsColumn:
+        return tr("Keywords");
+    case SceneColumn:
+        return tr("Scene");
+    case ShotColumn:
+        return tr("Shot");
+    case TakeColumn:
+        return tr("Take");
+    case CameraColumn:
+        return tr("Camera");
+    case AngleColumn:
+        return tr("Angle");
+    case GoodTakeColumn:
+        return tr("Good Take");
+    case RatingColumn:
+        return tr("Rating");
     default:
         return {};
     }
@@ -349,6 +687,10 @@ bool MediaPoolModel::setData(const QModelIndex& index, const QVariant& value, in
     const Row& row = m_rows[index.row()];
     if (name.isEmpty() || name == row.name)
         return false;
+    if (row.power) {
+        m_power->renameItem(row.id, name); // power bins: saved at once, not undoable
+        return true;
+    }
     m_project->beginEdit(tr("Rename Media"));
     m_project->mediaPool()->renameItem(row.id, name);
     m_project->endEdit();
@@ -363,16 +705,17 @@ QStringList MediaPoolModel::mimeTypes() const
 QMimeData* MediaPoolModel::mimeData(const QModelIndexList& indexes) const
 {
     QStringList ids;
+    QStringList powerIds;
     for (const QModelIndex& index : indexes) {
-        const QString id = idAt(index.row());
-        if (!id.isEmpty() && !ids.contains(id))
-            ids.append(id);
+        const int r = index.row();
+        const QString id = idAt(r);
+        if (id.isEmpty() || ids.contains(id) || powerIds.contains(id))
+            continue;
+        (m_rows[r].power ? powerIds : ids).append(id);
     }
-    if (ids.isEmpty())
+    if (ids.isEmpty() && powerIds.isEmpty())
         return nullptr;
-    auto* data = new QMimeData;
-    data->setData(QLatin1String(mime::MediaItems), ids.join(QLatin1Char('\n')).toUtf8());
-    return data;
+    return new MediaDragData(ids, powerIds, m_powerResolver);
 }
 
 Qt::DropActions MediaPoolModel::supportedDragActions() const
@@ -387,8 +730,44 @@ Qt::DropActions MediaPoolModel::supportedDragActions() const
 MediaPoolFilterModel::MediaPoolFilterModel(Project* project, QObject* parent)
     : QSortFilterProxyModel(parent)
     , m_project(project)
+    , m_defaults(smartbins::defaultSmartBins())
 {
+    setSortRole(MediaPoolModel::SortRole);
     updateBinSet();
+}
+
+bool MediaPoolFilterModel::isSmartKey(const QString& key)
+{
+    return key.startsWith(QLatin1String(kSmartPrefix));
+}
+
+bool MediaPoolFilterModel::isPowerKey(const QString& key)
+{
+    return key.startsWith(QLatin1String(kPowerPrefix));
+}
+
+QString MediaPoolFilterModel::idOfKey(const QString& key)
+{
+    if (isSmartKey(key))
+        return key.mid(int(qstrlen(kSmartPrefix)));
+    if (isPowerKey(key))
+        return key.mid(int(qstrlen(kPowerPrefix)));
+    return key;
+}
+
+const SmartBin* MediaPoolFilterModel::smartBinFor(const QString& key) const
+{
+    if (!isSmartKey(key))
+        return nullptr;
+    const QString id = idOfKey(key);
+    if (id.startsWith(QLatin1String(smartbins::kDefaultIdPrefix))) {
+        for (const SmartBin& b : m_defaults) {
+            if (b.id == id)
+                return &b;
+        }
+        return nullptr;
+    }
+    return m_project->mediaPool()->smartBin(id);
 }
 
 void MediaPoolFilterModel::refilter()
@@ -404,11 +783,11 @@ void MediaPoolFilterModel::refilter()
 #endif
 }
 
-void MediaPoolFilterModel::setBin(const QString& binId)
+void MediaPoolFilterModel::setBin(const QString& binKey)
 {
-    if (binId == m_bin)
+    if (binKey == m_bin)
         return;
-    m_bin = binId;
+    m_bin = binKey;
     updateBinSet();
     refilter();
 }
@@ -425,21 +804,50 @@ void MediaPoolFilterModel::setSearchText(const QString& text)
     refilter();
 }
 
+void MediaPoolFilterModel::setColorFilter(const QString& colorId)
+{
+    if (colorId == m_color)
+        return;
+    m_color = colorId;
+    refilter();
+}
+
 void MediaPoolFilterModel::binsChanged()
 {
-    if (!m_bin.isEmpty() && !m_project->mediaPool()->bin(m_bin))
-        m_bin.clear(); // the current bin was deleted
+    // The current bin was deleted: back to Master.
+    if (!isSmartKey(m_bin) && !isPowerKey(m_bin) && !m_bin.isEmpty()
+        && !m_project->mediaPool()->bin(m_bin))
+        m_bin.clear();
+    if (isPowerKey(m_bin) && !idOfKey(m_bin).isEmpty()) {
+        const auto* model = qobject_cast<const MediaPoolModel*>(sourceModel());
+        if (!model || !model->powerBins() || !model->powerBins()->bin(idOfKey(m_bin)))
+            m_bin = QLatin1String(kPowerPrefix);
+    }
     updateBinSet();
+    refilter();
+}
+
+void MediaPoolFilterModel::smartBinsChanged()
+{
+    if (isSmartKey(m_bin) && !smartBinFor(m_bin))
+        m_bin.clear(); // the smart bin was deleted
     refilter();
 }
 
 void MediaPoolFilterModel::updateBinSet()
 {
-    m_bins = {m_bin};
-    if (m_search.isEmpty())
+    m_bins = {idOfKey(m_bin)};
+    if (m_search.isEmpty() || isSmartKey(m_bin))
         return;
     // Searching covers the whole sub-tree: add descendants until no new bin is found.
-    const QVector<Bin>& bins = m_project->mediaPool()->bins();
+    const MediaPool* pool = m_project->mediaPool();
+    if (isPowerKey(m_bin)) {
+        const auto* model = qobject_cast<const MediaPoolModel*>(sourceModel());
+        pool = model ? model->powerBins() : nullptr;
+        if (!pool)
+            return;
+    }
+    const QVector<Bin>& bins = pool->bins();
     bool grew = true;
     while (grew) {
         grew = false;
@@ -455,8 +863,26 @@ void MediaPoolFilterModel::updateBinSet()
 bool MediaPoolFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const
 {
     const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
-    if (!m_bins.contains(index.data(MediaPoolModel::BinRole).toString()))
-        return false;
+    const bool power = index.data(MediaPoolModel::PowerRole).toBool();
+    if (const SmartBin* smart = smartBinFor(m_bin)) {
+        // Smart bins collect the project's items, wherever they are.
+        if (power)
+            return false;
+        const auto* model = static_cast<const MediaPoolModel*>(sourceModel());
+        const MediaItem* item = model->item(index.data(MediaPoolModel::IdRole).toString());
+        const smartbins::Context ctx {&model->usageCounts(), 0};
+        if (!item || !smartbins::matches(*smart, *item, ctx))
+            return false;
+    } else {
+        if (power != isPowerKey(m_bin)
+            || !m_bins.contains(index.data(MediaPoolModel::BinRole).toString()))
+            return false;
+    }
+    if (!m_color.isEmpty()) {
+        const QString color = index.data(MediaPoolModel::ClipColorIdRole).toString();
+        if (m_color == QLatin1String("none") ? !color.isEmpty() : color != m_color)
+            return false;
+    }
     return m_search.isEmpty()
         || index.data(MediaPoolModel::SearchTextRole).toString().contains(m_search);
 }

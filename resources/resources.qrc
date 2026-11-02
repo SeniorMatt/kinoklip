@@ -14,6 +14,9 @@
         <file>icons/blade.svg</file>
         <file>icons/film.svg</file>
         <file>icons/folder.svg</file>
+        <file>icons/smart_bin.svg</file>
+        <file>icons/power_bin.svg</file>
+        <file>icons/flag.svg</file>
         <file>icons/fullscreen.svg</file>
         <file>icons/go_end.svg</file>
         <file>icons/go_start.svg</file>
