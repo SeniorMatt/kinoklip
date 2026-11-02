@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MixerJson — JSON form of the mixer model (project format 13): "mix" on audio tracks and
+// MixerJson — JSON form of the mixer model (project format 12): "mix" on audio tracks and
 // "mixer" on timelines. Only values that differ from the defaults are written.
 #pragma once
 
@@ -22,7 +22,7 @@ namespace kk::serialization {
 
 /// Encodes a track's mixer settings ({} for the defaults: the loader then gives the defaults).
 [[nodiscard]] QJsonObject trackMixToJson(const TrackMix& mix);
-/// Decodes trackMixToJson(); a missing object (formats 1 - 12) yields the defaults.
+/// Decodes trackMixToJson(); a missing object (formats 1 - 11) yields the defaults.
 [[nodiscard]] TrackMix trackMixFromJson(const QJsonObject& json);
 
 /// Encodes the timeline's buses and output selection ({} for the defaults).

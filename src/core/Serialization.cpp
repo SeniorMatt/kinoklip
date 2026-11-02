@@ -171,7 +171,7 @@ TrackData trackFromJson(const QJsonObject& o, TrackType type)
     t.solo = o.value(QLatin1String("solo")).toBool(false);
     t.autoSelect = o.value(QLatin1String("autoSelect")).toBool(true);
     t.height = o.value(QLatin1String("height")).toInt(0);
-    if (type == TrackType::Audio) // formats 1 - 12 have no "mix": the defaults
+    if (type == TrackType::Audio) // formats 1 - 11 have no "mix": the defaults
         t.mix = trackMixFromJson(o.value(QLatin1String("mix")).toObject());
     if (type == TrackType::Subtitle) {
         t.subtitleStyle = paramSetFromJson(o.value(QLatin1String("subtitleStyle")).toObject());
@@ -689,7 +689,7 @@ QJsonObject timelineToJson(const TimelineData& data)
             subtitle.append(trackToJson(t));
         o[QLatin1String("subtitleTracks")] = subtitle;
     }
-    if (data.mixer != MixerData {}) // format 13; omitted when default (older files identical)
+    if (data.mixer != MixerData {}) // format 12; omitted when default (older files identical)
         o[QLatin1String("mixer")] = mixerToJson(data.mixer);
     return o;
 }

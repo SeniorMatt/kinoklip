@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Mixer model tests (Audio page, spec 37): bus and routing ops, automation writing, project
-// format 13 round trip, older formats (1 - 12) loading with a neutral mixer, damaged data
+// format 12 round trip, older formats (1 - 11) loading with a neutral mixer, damaged data
 // repaired, undo of mixer edits.
 #include "core/MixerJson.h"
 #include "core/MixerOps.h"
@@ -130,7 +130,7 @@ private slots:
         QTemporaryDir dir;
         const QString path = dir.filePath(QStringLiteral("mix.kkproj"));
         const QJsonObject root = saveToJson(project, path);
-        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), 13);
+        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), 12);
         Project loaded;
         QString error;
         QVERIFY2(loaded.load(path, &error), qPrintable(error));
@@ -154,13 +154,13 @@ private slots:
     void olderFormatsLoadWithANeutralMixer()
     {
         // A project saved without mixer data, labelled with every older format version
-        // (1 - 12; 12 is the colour page's), loads and gets the default mixer.
+        // (1 - 11), loads and gets the default mixer.
         Project project;
         QTemporaryDir dir;
         const QString path = dir.filePath(QStringLiteral("old.kkproj"));
         QJsonObject root = saveToJson(project, path);
         QVERIFY(!root.isEmpty());
-        for (int version = 3; version <= 12; ++version) {
+        for (int version = 3; version <= 11; ++version) {
             root[QLatin1String("formatVersion")] = version;
             writeJson(path, root);
             Project loaded;
