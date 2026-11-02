@@ -158,6 +158,10 @@
         "transport.loop": ["Ctrl+/"],
         "transport.play_in_out": ["Alt+/"],
         "transport.play_around": ["/"],
+        "playback.resolution_full": [],
+        "playback.resolution_half": [],
+        "playback.resolution_quarter": [],
+        "playback.resolution_auto": [],
         "help.about": [],
         "help.about_qt": []
     }
