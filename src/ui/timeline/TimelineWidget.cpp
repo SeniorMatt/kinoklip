@@ -401,6 +401,28 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
                 m_ctx.project->endEdit();
             });
         }
+        // Alignment of the transitions at a cut (spec 13.5).
+        if (editable && clip) {
+            for (const bool head : {true, false}) {
+                const auto& slot = head ? clip->transitionIn : clip->transitionOut;
+                if (!slot || !editops::cutNeighbour(data, id, head))
+                    continue;
+                QMenu* sub = menu.addMenu(
+                    head ? tr("Transition Alignment (Start)") : tr("Transition Alignment (End)"));
+                const std::pair<TransitionAlignment, QString> choices[] = {
+                    {TransitionAlignment::EndOnCut, tr("End on Edit")},
+                    {TransitionAlignment::Centre, tr("Centre on Edit")},
+                    {TransitionAlignment::StartOnCut, tr("Start on Edit")},
+                };
+                for (const auto& [alignment, text] : choices) {
+                    QAction* a = sub->addAction(text, this, [this, id, head, alignment] {
+                        m_controller->setTransitionAlignment(id, head, alignment);
+                    });
+                    a->setCheckable(true);
+                    a->setChecked(slot->alignment == alignment);
+                }
+            }
+        }
         if (editable && clip && !clip->effects.isEmpty()) {
             menu.addAction(tr("Remove Effects"), this, [this, id] {
                 m_ctx.project->beginEdit(tr("Remove Effects"));

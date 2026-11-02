@@ -6,6 +6,9 @@
 #include "ParityTestUtils.h"
 #include "TimelineTestUtils.h"
 #include "core/EditBehaviour.h"
+#include "core/EffectRegistry.h"
+#include "core/ParamKeys.h"
+#include "render/TimelineEval.h"
 #include "ui/common/SettingsPages.h"
 #include "ui/timeline/EditingSettingsPage.h"
 
@@ -379,6 +382,244 @@ private slots:
         QVERIFY(v.w.layout().rowRect(v.w.layout().rowOf(kV1)).height() > rowHeight);
         QCOMPARE(v.undoCount(), undo);
         QCOMPARE(v.f.view().videoTracks[0].height, 0);
+    }
+
+    // ---- 8 Dynamic trim ----
+
+    void spec8_17_dynamicTrimFollowsPlayback()
+    {
+        Ctl t;
+        bool playing = false;
+        t.c.setPlayingProvider([&] { return playing; });
+        const quint64 a = t.put(kV1, mediaClip(0, 20, 0));
+        const quint64 b = t.put(kV1, mediaClip(20, 20, 50));
+        t.tl()->setPlayhead(20);
+        t.c.setSelectedEdit({a, b});
+        t.action("trim.dynamic")->trigger(); // W
+        QVERIFY(t.c.dynamicTrim());
+        const int before = t.undoCount();
+        playing = true; // L: the engine plays and moves the playhead
+        for (int64_t f = 21; f <= 25; ++f)
+            t.tl()->setPlayhead(f);
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:25 25:15")); // the cut rolled along
+        playing = false;
+        t.c.playbackStopped(); // K
+        QCOMPARE(t.undoCount(), before + 1); // one undo step for the run
+        // Not playing: moving the playhead does not trim.
+        t.tl()->setPlayhead(10);
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:25 25:15"));
+        t.f.project.undoStack()->undo();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:20 20:20"));
+        t.action("trim.dynamic")->trigger();
+        QVERIFY(!t.c.dynamicTrim());
+    }
+
+    // ---- 13 Transitions ----
+
+    void spec13_5_transitionAlignment()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, mediaClip(0, 40, 50));
+        const quint64 b = t.put(kV1, mediaClip(40, 40, 50));
+        Q_UNUSED(a);
+        t.c.setSelectedEdit({a, b});
+        t.action("timeline.add_transition")->trigger(); // Ctrl+T, 25 frames centred
+        QCOMPARE(
+            ops::transitionWindow(t.f.view(), b, true), (std::make_pair<int64_t, int64_t>(28, 53)));
+        QVERIFY(t.c.setTransitionAlignment(b, true, TransitionAlignment::EndOnCut));
+        QCOMPARE(
+            ops::transitionWindow(t.f.view(), b, true), (std::make_pair<int64_t, int64_t>(15, 40)));
+        // The renderer uses the same window.
+        const render::TrackFrame before = render::evaluateTrack(t.f.view().videoTracks[0], 15);
+        QVERIFY(before.transition && before.transition->start == 15);
+        QVERIFY(!render::evaluateTrack(t.f.view().videoTracks[0], 40).transition);
+        QVERIFY(t.c.setTransitionAlignment(b, true, TransitionAlignment::StartOnCut));
+        QCOMPARE(
+            ops::transitionWindow(t.f.view(), b, true), (std::make_pair<int64_t, int64_t>(40, 65)));
+        QVERIFY(!t.c.setTransitionAlignment(b, true, TransitionAlignment::StartOnCut)); // no-op
+    }
+
+    void spec13_7_insufficientHandlesPrompt()
+    {
+        Ctl t;
+        // a shows the last 40 frames of its 200-frame source: no tail handle.
+        const quint64 a = t.put(kV1, mediaClip(0, 40, 160));
+        const quint64 b = t.put(kV1, mediaClip(40, 40, 50));
+        t.c.setSelectedEdit({a, b});
+        int64_t asked = -1;
+        bool shortenOffered = true;
+        HandleChoice answer = HandleChoice::Cancel;
+        t.c.setHandlePrompt([&](int64_t missing, bool canShorten) {
+            asked = missing;
+            shortenOffered = canShorten;
+            return answer;
+        });
+        const int before = t.undoCount();
+        t.action("timeline.add_transition")->trigger();
+        QCOMPARE(asked, int64_t(13)); // 13 of 25 frames lie after the cut
+        QVERIFY(!shortenOffered); // no handle at all: nothing shorter fits either
+        QCOMPARE(t.undoCount(), before); // cancelled
+        answer = HandleChoice::TrimClips;
+        t.action("timeline.add_transition")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:27 27:40"));
+        QVERIFY(
+            !ops::transitionShortfall(t.f.view(), b, true, 25, TransitionAlignment::Centre).any());
+        QCOMPARE(ops::clipById(t.f.view(), b)->transitionIn->duration, int64_t(25));
+        QCOMPARE(t.undoCount(), before + 1);
+
+        // Shorten: a has 5 frames of tail handle, so a centred transition can be 10 frames.
+        Ctl u;
+        const quint64 c = u.put(kV1, mediaClip(0, 40, 155));
+        const quint64 e = u.put(kV1, mediaClip(40, 40, 50));
+        u.c.setSelectedEdit({c, e});
+        u.c.setHandlePrompt([&](int64_t, bool canShorten) {
+            shortenOffered = canShorten;
+            return HandleChoice::Shorten;
+        });
+        u.action("timeline.add_transition")->trigger();
+        QVERIFY(shortenOffered);
+        QCOMPARE(ops::clipById(u.f.view(), e)->transitionIn->duration, int64_t(10));
+        QCOMPARE(layout(u.f.view(), kV1), QStringLiteral("0:40 40:40"));
+    }
+
+    void spec13_9_dragTransitionEdge()
+    {
+        View v;
+        const quint64 a = v.put(kV1, mediaClip(0, 40, 50));
+        const quint64 b = v.put(kV1, mediaClip(40, 40, 50));
+        v.c.setSelectedEdit({a, b});
+        v.action("timeline.add_transition")->trigger();
+        v.c.setSelectedEdit({});
+        v.c.setTransitionDuration(b, true, 10); // window [35, 45)
+        QCOMPARE(
+            ops::transitionWindow(v.f.view(), b, true), (std::make_pair<int64_t, int64_t>(35, 45)));
+        const int before = v.undoCount();
+        v.drag(v.at(45, kV1), v.at(50, kV1)); // the right edge, 5 frames further
+        QCOMPARE(ops::clipById(v.f.view(), b)->transitionIn->duration, int64_t(20)); // centred
+        QCOMPARE(v.undoCount(), before + 1);
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:40 40:40")); // clips untouched
+    }
+
+    // ---- 16 Clipboard ----
+
+    void spec16_4_pasteAttributes()
+    {
+        Ctl t;
+        ClipData src = solidClip(0, 20);
+        src.transform.animated(keys::PosX, 0.0).setKey(5, 100.0);
+        src.effects.append(
+            EffectRegistry::instance().createEffect(QStringLiteral("gaussian_blur"), 999));
+        const quint64 a = t.put(kV1, src);
+        t.f.project.beginEdit(QStringLiteral("ids"));
+        ops::normalizeIds(t.f.data()); // the hand-made effect id 999
+        t.f.project.endEdit();
+        ClipData srcAudio = solidClip(0, 20);
+        srcAudio.audio.setBase(keys::VolumeDb, -6.0);
+        const quint64 aa = t.put(kA1, srcAudio);
+        t.link({a, aa});
+        const quint64 b = t.put(kV1, solidClip(30, 20));
+        const quint64 ba = t.put(kA1, solidClip(30, 20));
+        t.link({b, ba});
+        t.f.selection.setClips({a});
+        t.action("edit.copy")->trigger();
+        t.f.selection.setClips({b});
+        int asked = 0;
+        t.c.setPasteAttributesPrompt([&]() -> std::optional<PasteAttributeSet> {
+            ++asked;
+            PasteAttributeSet s;
+            s.effects = false;
+            return s;
+        });
+        const int before = t.undoCount();
+        t.action("edit.paste_attributes")->trigger(); // Alt+V
+        QCOMPARE(asked, 1);
+        QCOMPARE(t.undoCount(), before + 1);
+        QCOMPARE(ops::clipById(t.f.view(), b)->transform, src.transform);
+        QVERIFY(ops::clipById(t.f.view(), b)->effects.isEmpty()); // not chosen
+        QCOMPARE(ops::clipById(t.f.view(), ba)->audio.value(keys::VolumeDb, 0), -6.0); // linked
+        // All groups, with fresh effect ids.
+        QVERIFY(t.c.pasteAttributes(PasteAttributeSet {}));
+        const auto& fx = ops::clipById(t.f.view(), b)->effects;
+        QCOMPARE(fx.size(), 1);
+        QVERIFY(fx.front().id != 999);
+        QString why;
+        QVERIFY2(ops::checkInvariants(t.f.view(), &why), qPrintable(why));
+    }
+
+    // ---- 18 Markers ----
+
+    void spec18_4_clipMarkersFollowTheContent()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, mediaClip(10, 40, 50));
+        t.f.selection.setClips({a});
+        t.tl()->setPlayhead(30);
+        t.action("mark.add_marker")->trigger(); // M on a selected clip: clip marker
+        QCOMPARE(t.f.view().markers.size(), 0);
+        QCOMPARE(ops::clipById(t.f.view(), a)->markers.size(), 1);
+        QCOMPARE(ops::clipById(t.f.view(), a)->markers.front().frame, int64_t(20));
+        // A head trim keeps the marker on the same picture.
+        t.f.project.beginEdit(QStringLiteral("trim"));
+        ops::trimHead(t.f.data(), a, 5, false);
+        t.f.project.endEdit();
+        QCOMPARE(ops::clipById(t.f.view(), a)->markers.front().frame, int64_t(15));
+        // M again on the marker opens the editor.
+        int edits = 0;
+        bool wasClipMarker = false;
+        t.c.setMarkerEditor([&](Marker& m, bool clip) {
+            ++edits;
+            wasClipMarker = clip;
+            m.name = QStringLiteral("Look here");
+            return true;
+        });
+        t.action("mark.add_marker")->trigger();
+        QCOMPARE(edits, 1);
+        QVERIFY(wasClipMarker);
+        QCOMPARE(ops::clipById(t.f.view(), a)->markers.front().name, QStringLiteral("Look here"));
+        QCOMPARE(ops::clipById(t.f.view(), a)->markers.size(), 1);
+    }
+
+    void spec18_5_markerEditor()
+    {
+        View v;
+        v.tl()->setPlayhead(20);
+        v.c.setMarkerEditor([](Marker& m, bool clip) {
+            if (clip)
+                return false;
+            m.note = QStringLiteral("check sync");
+            m.color = QColor(0xe0, 0x4a, 0x4a);
+            return true;
+        });
+        v.action("mark.modify_marker")->trigger(); // Ctrl+M: add and modify
+        QCOMPARE(v.f.view().markers.size(), 1);
+        QCOMPARE(v.f.view().markers.front().note, QStringLiteral("check sync"));
+        // Double-click on the ruler marker opens the editor again.
+        int calls = 0;
+        v.c.setMarkerEditor([&](Marker& m, bool) {
+            ++calls;
+            m.name = QStringLiteral("Renamed");
+            return true;
+        });
+        const QPoint ruler(int(v.w.layout().frameToX(20)), kRulerHeight - 8);
+        QTest::mouseDClick(v.vp(), Qt::LeftButton, {}, ruler);
+        QCOMPARE(calls, 1);
+        QCOMPARE(v.f.view().markers.front().name, QStringLiteral("Renamed"));
+    }
+
+    // ---- 21 Moving clips ----
+
+    void spec21_6_shuffleDrag()
+    {
+        View v;
+        const quint64 a = v.put(kV1, solidClip(0, 10, QStringLiteral("a")));
+        v.put(kV1, solidClip(10, 20, QStringLiteral("b")));
+        v.put(kV1, solidClip(30, 5, QStringLiteral("c")));
+        const int before = v.undoCount();
+        // Ctrl+Shift drag a to the right: it lands on the edit point between b and c.
+        v.drag(v.at(5, kV1), v.at(28, kV1), Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:20 20:10 30:5"));
+        QCOMPARE(v.f.view().videoTracks[0].clips[1].id, a);
+        QCOMPARE(v.undoCount(), before + 1);
     }
 
     // ---- 23 Other Edit page commands ----

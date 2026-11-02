@@ -42,6 +42,8 @@ inline void shiftClipKeys(ClipData& clip, int64_t deltaFrames)
     clip.title.shiftKeys(deltaFrames);
     for (EffectInstance& fx : clip.effects)
         fx.params.shiftKeys(deltaFrames);
+    for (Marker& m : clip.markers) // clip markers follow the content like keyframes
+        m.frame += deltaFrames;
 }
 
 // Moves the head of a clip by delta frames, keeping the content at every remaining timeline

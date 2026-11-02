@@ -59,6 +59,25 @@ struct GapSelection
     friend bool operator==(const GapSelection&, const GapSelection&) = default;
 };
 
+/// Answer to the "not enough media handles" question when adding a transition (spec 13.7).
+enum class HandleChoice {
+    Cancel, ///< add nothing
+    TrimClips, ///< ripple-trim the clips at the cut so the media covers the transition
+    Shorten, ///< make the transition as long as the handles allow
+    AddAnyway ///< add it at full length; missing frames repeat the edge frame
+};
+
+/// Attribute groups for paste attributes (Alt+V, spec 16.4).
+struct PasteAttributeSet
+{
+    bool transform = true; ///< position, zoom, rotation, crop, opacity, flips (with keyframes)
+    bool effects = true; ///< the video effect chain
+    bool volume = true; ///< audio volume (with keyframes)
+    bool pan = true; ///< audio pan (with keyframes)
+    bool speed = false; ///< clip speed (changes the duration; off by default)
+    [[nodiscard]] bool any() const { return transform || effects || volume || pan || speed; }
+};
+
 /// A ranged source clip, as offered by the source viewer.
 struct SourceSelection
 {
@@ -134,6 +153,25 @@ public:
     using MatchFrameHandler = std::function<void(
         const QString& mediaId, int64_t sourceUs, int64_t inUs, int64_t outUs)>;
     void setMatchFrameHandler(MatchFrameHandler handler) { m_matchFrame = std::move(handler); }
+    /// Asks what to do when a new transition lacks @p missingFrames frames of media handles;
+    /// @p canShorten tells whether a shorter transition fits. Without a prompt (tests) the
+    /// transition is added anyway (HandleChoice::AddAnyway).
+    using HandlePrompt = std::function<HandleChoice(int64_t missingFrames, bool canShorten)>;
+    void setHandlePrompt(HandlePrompt prompt) { m_handlePrompt = std::move(prompt); }
+    /// Marker editor (spec 18.5): edits @p marker in place (name, colour, note) and returns
+    /// true on OK. @p clipMarker tells whether it belongs to a clip. Wired by the panel.
+    using MarkerEditor = std::function<bool(Marker& marker, bool clipMarker)>;
+    void setMarkerEditor(MarkerEditor editor) { m_markerEditor = std::move(editor); }
+    /// Asks which attributes to paste (Alt+V); std::nullopt = cancelled. Wired by the panel;
+    /// without it every default group is pasted.
+    using PasteAttributesPrompt = std::function<std::optional<PasteAttributeSet>()>;
+    void setPasteAttributesPrompt(PasteAttributesPrompt prompt)
+    {
+        m_pastePrompt = std::move(prompt);
+    }
+    /// Whether the program engine is playing (dynamic trim follows playback). Default: asks
+    /// AppContext::playback; tests inject their own.
+    void setPlayingProvider(std::function<bool()> provider) { m_playing = std::move(provider); }
 
     // ---- Clip factories ----
 
@@ -238,7 +276,7 @@ public slots:
     void clearInOut();
     void goToIn();
     void goToOut();
-    void addMarker();
+    void addMarker(); ///< timeline marker at the playhead (never two on one frame)
     void toggleClipsEnabled();
     /// Ctrl+Alt+L: links the selected clips, or unlinks them if they already form one group.
     void linkSelection();
@@ -251,6 +289,33 @@ public slots:
     /// both ends of the selected clips, or at the edit nearest to the playhead on the
     /// auto-select video tracks; linked audio cut at the same frame gets a cross fade.
     void addDefaultTransition();
+    /// Changes the alignment of the transition at the head (@p head) or tail of @p clipId
+    /// (spec 13.5); one undo step. Returns whether it changed.
+    bool setTransitionAlignment(quint64 clipId, bool head, TransitionAlignment alignment);
+    /// Sets the length of that transition (clamped to the clips); one undo step.
+    bool setTransitionDuration(quint64 clipId, bool head, int64_t frames);
+    /// M (spec 18.1, 18.4, 18.5): a clip marker on the selected clip under the playhead, else
+    /// a timeline marker; on an existing marker opens the marker editor instead.
+    void addMarkerAtPlayhead();
+    /// Ctrl+M: adds the marker (as addMarkerAtPlayhead()) and opens the editor for it.
+    void addAndModifyMarker();
+    /// Opens the editor for the timeline marker at @p frame (double-click in the ruler).
+    /// Returns whether a marker was changed.
+    bool editTimelineMarker(int64_t frame);
+    /// Alt+V: asks for the attribute groups, then pastes them (pasteAttributes()).
+    void pasteAttributesInteractive();
+    /// Copies the chosen attributes of the first clipboard clip onto the selected clips (with
+    /// linked parts: video groups onto video clips, audio groups onto audio clips). One undo
+    /// step. Returns whether anything changed.
+    bool pasteAttributes(const PasteAttributeSet& attributes);
+    /// W (spec 8.17): dynamic trim mode. While on and an edit point is selected, playback
+    /// (J/K/L, Space) drags the edit point along with the playhead: a roll, or a ripple trim in
+    /// the trim tool. One undo step per playback run.
+    void setDynamicTrim(bool on);
+    [[nodiscard]] bool dynamicTrim() const { return m_dynamicTrim; }
+    /// Playback stopped: closes a dynamic-trim run (one undo step). Connected to the program
+    /// engine's rate changes.
+    void playbackStopped() { endDynamicRun(); }
     void sourceEdit(SourceEditMode mode); ///< uses the source provider
     void addTrack(TrackType type, int index = -1);
     void removeTrack(TrackRef ref);
@@ -284,7 +349,21 @@ private:
     void trimToPlayhead(bool head);
     /// Trims the selected edit point by @p frames (one undo step). Returns the applied delta.
     int64_t trimSelectedEdit(int64_t frames);
+    /// The trim of trimSelectedEdit() on @p data without opening an edit (roll when both
+    /// sides are set; linked clips follow). Returns the applied delta.
+    int64_t applyEditTrim(
+        TimelineData& data, const EditPointSelection& edit, int64_t frames, bool ripple) const;
+    /// M / Ctrl+M: a clip marker on the selected clip under the playhead, else a timeline
+    /// marker; opens the editor on an existing marker or with @p forceEdit.
+    void placeMarker(bool forceEdit);
+    /// Opens the editor for the marker at clip-local @p localFrame of @p clipId.
+    bool editClipMarker(quint64 clipId, int64_t localFrame);
     void onClipSelectionChanged();
+    /// Dynamic trim: the playhead moved to @p frame.
+    void onPlayheadMoved(int64_t frame);
+    /// Dynamic trim: closes the current run (one undo step).
+    void endDynamicRun();
+    [[nodiscard]] bool isPlaying() const;
 
     AppContext& m_ctx;
     TimelineTool m_tool = TimelineTool::Select;
@@ -297,6 +376,13 @@ private:
     std::optional<GapSelection> m_selectedGap;
     std::function<std::optional<SourceSelection>()> m_sourceProvider;
     MatchFrameHandler m_matchFrame;
+    HandlePrompt m_handlePrompt;
+    MarkerEditor m_markerEditor;
+    PasteAttributesPrompt m_pastePrompt;
+    std::function<bool()> m_playing;
+    bool m_dynamicTrim = false;
+    bool m_dynamicOpen = false; ///< an undoable dynamic-trim run is in progress
+    int64_t m_dynamicLast = 0; ///< playhead at the last dynamic-trim step
 };
 
 } // namespace kk

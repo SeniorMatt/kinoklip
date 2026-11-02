@@ -252,6 +252,39 @@ bool shuffleClip(TimelineData& data, quint64 clipId, int64_t frame);
 QVector<quint64> rippleOverwriteClips(TimelineData& data, const QVector<PlacedClip>& clips,
     int64_t rangeStart, int64_t rangeEnd, RippleScope scope = RippleScope::AllTracks);
 
+// ---- Transitions (EditOpsTransitions.cpp) ----
+
+/// Frames of media a transition still needs beyond the clips' handles (spec 13.7).
+struct HandleShortfall
+{
+    int64_t outgoing = 0; ///< frames missing after the outgoing clip's out point
+    int64_t incoming = 0; ///< frames missing before the incoming clip's in point
+    [[nodiscard]] bool any() const { return outgoing > 0 || incoming > 0; }
+};
+
+/// Timeline frames [first, second) covered by the transition at the head (@p head) or tail of
+/// clip @p clipId (placed by its alignment at a cut, a fade inside the clip otherwise).
+/// std::nullopt if there is no such transition.
+[[nodiscard]] std::optional<std::pair<int64_t, int64_t>> transitionWindow(
+    const TimelineData& data, quint64 clipId, bool head);
+/// Longest transition that fits at that edge with @p alignment: within the clip lengths and,
+/// with @p limitByHandles, within the media handles of both clips (a fade needs no handle).
+/// 0 if the clip is unknown.
+[[nodiscard]] int64_t maxTransitionDuration(const TimelineData& data, quint64 clipId, bool head,
+    TransitionAlignment alignment, bool limitByHandles);
+/// Handle frames missing for a transition of @p duration frames with @p alignment at that edge.
+[[nodiscard]] HandleShortfall transitionShortfall(const TimelineData& data, quint64 clipId,
+    bool head, int64_t duration, TransitionAlignment alignment);
+/// Sets the length of the existing transition at that edge (clamped to [1, the clip-length
+/// limit]). Returns the new length, or 0 if there is no transition or the track is locked.
+int64_t setTransitionDuration(TimelineData& data, quint64 clipId, bool head, int64_t frames);
+/// Changes the alignment of the transition at that edge (shortened if it no longer fits the
+/// clips). Returns whether anything changed.
+bool setTransitionAlignment(
+    TimelineData& data, quint64 clipId, bool head, TransitionAlignment alignment);
+/// The neighbour of clip @p clipId that shares its head (@p head) or tail cut, or 0.
+[[nodiscard]] quint64 cutNeighbour(const TimelineData& data, quint64 clipId, bool head);
+
 // ---- Tracks ----
 
 /// Adds an empty track of @p type at @p index (-1 = on top). Returns the index used.
