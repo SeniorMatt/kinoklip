@@ -39,9 +39,10 @@ private slots:
         theme::apply(*qApp);
     }
 
-    void defaultsAreBreeze()
+    void defaultsAreBreezeAndKinoklip()
     {
-        QCOMPARE(theme::currentColorScheme(), QStringLiteral("BreezeDark"));
+        // The default colour scheme is Kinoklip's own (dark), in both build modes.
+        QCOMPARE(theme::currentColorScheme(), QStringLiteral("Kinoklip"));
         QVERIFY(theme::isDark());
         if (theme::haveKdeFrameworks()) {
             // The container build ships the real Breeze style: it must be found and used.
@@ -53,8 +54,8 @@ private slots:
             QVERIFY(breeze);
             QCOMPARE(QString::fromLatin1(breeze->metaObject()->className()),
                 QStringLiteral("Breeze::Style"));
-            // KColorSchemeManager installed Breeze Dark's window colour.
-            QCOMPARE(QApplication::palette().color(QPalette::Window), QColor(32, 35, 38));
+            // KColorSchemeManager installed Kinoklip's window colour.
+            QCOMPARE(QApplication::palette().color(QPalette::Window), QColor(35, 35, 40));
         } else {
             QVERIFY(!theme::currentStyle().isEmpty()); // Breeze if installed, else Fusion
         }
@@ -67,7 +68,7 @@ private slots:
             ids.append(s.id);
         QVERIFY(ids.size() >= 4);
         QVERIFY(ids.first().isEmpty()); // system entry first
-        for (const char* id : {"BreezeDark", "BreezeLight", "BreezeClassic"})
+        for (const char* id : {"Kinoklip", "BreezeDark", "BreezeLight", "BreezeClassic"})
             QVERIFY2(ids.contains(QLatin1String(id)), id);
     }
 
@@ -99,7 +100,11 @@ private slots:
 
         QAction* light = registry.action(theme::colorSchemeActionId(QStringLiteral("BreezeLight")));
         QAction* dark = registry.action(theme::colorSchemeActionId(QStringLiteral("BreezeDark")));
-        QVERIFY(light && dark);
+        QAction* kinoklip
+            = registry.action(theme::colorSchemeActionId(QStringLiteral("Kinoklip")));
+        QVERIFY(light && dark && kinoklip);
+        QVERIFY(kinoklip->isChecked()); // the default
+        dark->trigger();
         QVERIFY(dark->isChecked());
         light->trigger();
         QVERIFY(!theme::isDark());
