@@ -21,6 +21,7 @@ class InterfaceBar;
 class MediaPage;
 class PageBar;
 class ProjectController;
+class ViewerTransport;
 
 /// Options for special runs (screenshots, tests).
 struct MainWindowOptions
@@ -96,6 +97,7 @@ private:
     DeliverPage* m_deliverPage = nullptr;
     ProjectController* m_projectController = nullptr;
     AutosaveController* m_autosave = nullptr;
+    ViewerTransport* m_transport = nullptr; ///< routes transport actions to the active viewer
     bool m_geometryRestored = false;
 };
 

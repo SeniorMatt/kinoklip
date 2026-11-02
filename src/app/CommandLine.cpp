@@ -42,6 +42,19 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
         QCoreApplication::translate("kk::CommandLine",
             "KDE colour scheme for this run (e.g. BreezeDark, BreezeLight, system)."),
         QStringLiteral("id"));
+    const QCommandLineOption render(QStringLiteral("render"),
+        QCoreApplication::translate("kk::CommandLine",
+            "Export the timeline of <project> to a file, then exit. Usage: --render "
+            "project.kkproj <out-file> [--preset id]. Without --preset the format follows the "
+            "file extension (mp4, mov, mkv, webm, wav, flac, mp3, m4a, opus, gif, png, jpg; "
+            "name_%05d.png etc. for image sequences)."),
+        QStringLiteral("project"));
+    const QCommandLineOption preset(QStringLiteral("preset"),
+        QCoreApplication::translate("kk::CommandLine",
+            "Render preset id for --render (e.g. youtube_1080p, master_prores_hq, audio_wav)."),
+        QStringLiteral("id"));
+    parser.addOption(render);
+    parser.addOption(preset);
     parser.addOption(screenshot);
     parser.addOption(style);
     parser.addOption(colorScheme);
@@ -63,6 +76,18 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             return false;
         }
         options.screenshotPath = positional.takeFirst();
+    }
+    if (parser.isSet(render)) {
+        options.renderProject = parser.value(render);
+        options.renderPreset = parser.value(preset);
+        if (positional.size() != 1) {
+            if (error)
+                *error
+                    = QStringLiteral("usage: --render <project.kkproj> <out-file> [--preset id]");
+            return false;
+        }
+        options.renderOutput = positional.first();
+        return true;
     }
     if (parser.isSet(renderFrame)) {
         bool ok = false;

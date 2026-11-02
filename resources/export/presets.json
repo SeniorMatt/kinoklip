@@ -1,0 +1,200 @@
+{
+    "version": 1,
+    "comment": "Built-in render presets of the Deliver page. 'settings' uses the ExportSettings JSON form (src/export/ExportSettings.h); keys left out keep the defaults. Output path and render range are never part of a preset.",
+    "presets": [
+        {
+            "id": "youtube_1080p",
+            "name": "YouTube 1080p",
+            "category": "Web",
+            "description": "H.264 MP4, 1920x1080, constant quality 18, AAC 320 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 18, "speed": "medium", "width": 1920, "height": 1080 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 320, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "youtube_4k",
+            "name": "YouTube 4K",
+            "category": "Web",
+            "description": "H.264 MP4, 3840x2160, constant quality 18, AAC 320 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 18, "speed": "medium", "width": 3840, "height": 2160 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 320, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "vimeo_1080p",
+            "name": "Vimeo 1080p",
+            "category": "Web",
+            "description": "H.264 MP4, 1920x1080, 20 Mb/s, AAC 320 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "bitrate", "bitrateKbps": 20000, "speed": "medium", "width": 1920, "height": 1080 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 320, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "h265_mp4",
+            "name": "H.265 MP4",
+            "category": "Web",
+            "description": "HEVC MP4 at timeline resolution, constant quality 24, AAC 256 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "hevc", "encoder": "auto", "rateControl": "quality", "quality": 24, "speed": "medium", "width": 0, "height": 0 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 256, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "av1_mp4",
+            "name": "AV1 MP4",
+            "category": "Web",
+            "description": "AV1 MP4 at timeline resolution, constant quality 32, AAC 256 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "av1", "encoder": "auto", "rateControl": "quality", "quality": 32, "speed": "fast", "width": 0, "height": 0 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 256, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "web_webm",
+            "name": "Web WebM",
+            "category": "Web",
+            "description": "VP9 WebM at timeline resolution, constant quality 32, Opus 160 kb/s",
+            "settings": {
+                "container": "webm",
+                "video": { "codec": "vp9", "encoder": "auto", "rateControl": "quality", "quality": 32, "speed": "fast", "width": 0, "height": 0 },
+                "audio": { "enabled": true, "codec": "opus", "bitrateKbps": 160, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "master_prores_hq",
+            "name": "Master ProRes 422 HQ",
+            "category": "Master",
+            "description": "ProRes 422 HQ QuickTime, 24-bit PCM",
+            "settings": {
+                "container": "mov",
+                "video": { "codec": "prores", "profile": "hq", "width": 0, "height": 0 },
+                "audio": { "enabled": true, "codec": "pcm_s24le", "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "master_prores_4444",
+            "name": "ProRes 4444 with alpha",
+            "category": "Master",
+            "description": "ProRes 4444 QuickTime with transparency, 24-bit PCM",
+            "settings": {
+                "container": "mov",
+                "video": { "codec": "prores", "profile": "4444", "alpha": true, "width": 0, "height": 0 },
+                "audio": { "enabled": true, "codec": "pcm_s24le", "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "archive_dnxhr_hq",
+            "name": "Archive DNxHR HQ",
+            "category": "Master",
+            "description": "DNxHR HQ QuickTime, 24-bit PCM",
+            "settings": {
+                "container": "mov",
+                "video": { "codec": "dnxhr", "profile": "hq", "width": 0, "height": 0 },
+                "audio": { "enabled": true, "codec": "pcm_s24le", "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "mkv_h264_flac",
+            "name": "MKV H.264 + FLAC",
+            "category": "Master",
+            "description": "H.264 Matroska, constant quality 16, lossless FLAC audio",
+            "settings": {
+                "container": "mkv",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 16, "speed": "medium", "width": 0, "height": 0 },
+                "audio": { "enabled": true, "codec": "flac", "sampleRate": 48000, "bitDepth": 24 }
+            }
+        },
+        {
+            "id": "audio_wav",
+            "name": "Audio WAV",
+            "category": "Audio",
+            "description": "Wave, 24-bit PCM, 48 kHz",
+            "settings": { "container": "wav", "audio": { "enabled": true, "codec": "pcm_s24le", "sampleRate": 48000 } }
+        },
+        {
+            "id": "audio_flac",
+            "name": "Audio FLAC",
+            "category": "Audio",
+            "description": "FLAC, 24-bit, 48 kHz",
+            "settings": { "container": "flac", "audio": { "enabled": true, "codec": "flac", "sampleRate": 48000, "bitDepth": 24 } }
+        },
+        {
+            "id": "audio_mp3",
+            "name": "Audio MP3",
+            "category": "Audio",
+            "description": "MP3, 320 kb/s, 48 kHz",
+            "settings": { "container": "mp3", "audio": { "enabled": true, "codec": "mp3", "bitrateKbps": 320, "sampleRate": 48000 } }
+        },
+        {
+            "id": "audio_aac",
+            "name": "Audio AAC",
+            "category": "Audio",
+            "description": "AAC in M4A, 256 kb/s, 48 kHz",
+            "settings": { "container": "m4a", "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 256, "sampleRate": 48000 } }
+        },
+        {
+            "id": "audio_opus",
+            "name": "Audio Opus",
+            "category": "Audio",
+            "description": "Opus, 160 kb/s, 48 kHz",
+            "settings": { "container": "opus", "audio": { "enabled": true, "codec": "opus", "bitrateKbps": 160, "sampleRate": 48000 } }
+        },
+        {
+            "id": "png_sequence",
+            "name": "PNG sequence",
+            "category": "Images",
+            "description": "One PNG per frame (name_00000.png ...)",
+            "settings": { "container": "png_seq", "video": { "codec": "png", "alpha": false, "width": 0, "height": 0 } }
+        },
+        {
+            "id": "jpeg_sequence",
+            "name": "JPEG sequence",
+            "category": "Images",
+            "description": "One JPEG per frame, best quality",
+            "settings": { "container": "jpeg_seq", "video": { "codec": "mjpeg", "rateControl": "quality", "quality": 2, "width": 0, "height": 0 } }
+        },
+        {
+            "id": "tiff_sequence",
+            "name": "TIFF sequence",
+            "category": "Images",
+            "description": "One TIFF per frame (deflate)",
+            "settings": { "container": "tiff_seq", "video": { "codec": "tiff", "width": 0, "height": 0 } }
+        },
+        {
+            "id": "exr_sequence",
+            "name": "OpenEXR sequence",
+            "category": "Images",
+            "description": "One half-float linear EXR per frame (zip16)",
+            "settings": { "container": "exr_seq", "video": { "codec": "exr", "width": 0, "height": 0 } }
+        },
+        {
+            "id": "frame_png",
+            "name": "Frame grab PNG",
+            "category": "Images",
+            "description": "The first frame of the render range as PNG",
+            "settings": { "container": "png_still", "video": { "codec": "png", "width": 0, "height": 0 } }
+        },
+        {
+            "id": "frame_jpeg",
+            "name": "Frame grab JPEG",
+            "category": "Images",
+            "description": "The first frame of the render range as JPEG",
+            "settings": { "container": "jpeg_still", "video": { "codec": "mjpeg", "quality": 2, "width": 0, "height": 0 } }
+        },
+        {
+            "id": "gif",
+            "name": "GIF",
+            "category": "Images",
+            "description": "Animated GIF, 480 px wide, optimised palette (keep it short)",
+            "settings": { "container": "gif", "video": { "codec": "gif", "width": 480, "height": 0 } }
+        }
+    ]
+}

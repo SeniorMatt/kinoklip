@@ -8,6 +8,8 @@
 #include "app/Theme.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "export/RenderCommand.h"
+#include "playback/PlaybackEngine.h"
 #include "render/RenderFrameCommand.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -17,6 +19,7 @@
 #include "ui/dialogs/PreferencesDialog.h"
 
 #include <QApplication>
+#include <QSettings>
 #include <QSurfaceFormat>
 
 #include <cstdio>
@@ -40,16 +43,39 @@ void configureOpenGL()
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 }
 
+/// Must run before QApplication exists: applies the "Interface scale" preference
+/// (ui/scaleFactor = "auto" or a factor like "1.25", written by the Preferences dialog) through
+/// QT_SCALE_FACTOR, unless the user already set that variable.
+void applyUiScale()
+{
+    if (qEnvironmentVariableIsSet("QT_SCALE_FACTOR")) {
+        return; // explicit environment wins
+    }
+    // QSettings needs the organisation/application names, which are static and may be set early.
+    QCoreApplication::setOrganizationName(QLatin1String(kk::appinfo::id));
+    QCoreApplication::setApplicationName(QLatin1String(kk::appinfo::name));
+    const QString value
+        = QSettings().value(QStringLiteral("ui/scaleFactor"), QStringLiteral("auto")).toString();
+    bool ok = false;
+    const double factor = value.toDouble(&ok);
+    constexpr double kMinScale = 0.5;
+    constexpr double kMaxScale = 4.0;
+    if (ok && factor >= kMinScale && factor <= kMaxScale && factor != 1.0) {
+        qputenv("QT_SCALE_FACTOR", QByteArray::number(factor));
+    }
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
+    applyUiScale();
     configureOpenGL();
     kk::theme::initBeforeApplication(); // bundled Breeze icons; must precede QApplication
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName(QLatin1String(kk::appinfo::id));
     QCoreApplication::setApplicationName(QLatin1String(kk::appinfo::name));
-    QCoreApplication::setApplicationVersion(QLatin1String(kk::appinfo::version));
+    QCoreApplication::setApplicationVersion(kk::appinfo::displayVersion());
     // Matches packaging/linux/org.kinoklip.Kinoklip.desktop: Wayland app_id / X11 WM_CLASS,
     // so the compositor shows the right icon and groups windows with the desktop entry.
     QGuiApplication::setDesktopFileName(QLatin1String(kk::appinfo::desktopId));
@@ -61,6 +87,8 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "%s\n", qPrintable(error));
         return 2;
     }
+    if (options.isRender())
+        return kk::runRender(options.renderProject, options.renderOutput, options.renderPreset);
     if (options.isRenderFrame())
         return kk::runRenderFrame(
             options.renderFrameProject, options.renderFrameIndex, options.renderFramePath);
@@ -78,11 +106,19 @@ int main(int argc, char** argv)
     kk::SettingsPageRegistry settingsPages;
     kk::registerStandardSettingsPages(settingsPages);
     kk::theme::registerSettingsPage(settingsPages, actions);
+    // Program playback: owns the compositor (render thread + GL context) shared by every
+    // viewer, follows the project's timeline and media pool.
+    kk::PlaybackEngine playback;
+    playback.setBehaviour(kk::PlaybackBehaviour::fromSettings());
+    playback.setMediaPool(project.mediaPool());
+    playback.setTimeline(project.timeline());
+
     kk::AppContext ctx;
     ctx.project = &project;
     ctx.selection = &selection;
     ctx.actions = &actions;
     ctx.settingsPages = &settingsPages;
+    ctx.playback = &playback;
 
     // ---- Non-interactive modes ----
     if (options.isScreenshot()) {
@@ -94,6 +130,10 @@ int main(int argc, char** argv)
         if (!options.projectFile.isEmpty() && !project.load(options.projectFile, &error)) {
             std::fprintf(stderr, "%s\n", qPrintable(error));
             return 1;
+        }
+        // Optional playhead for documentation screenshots (the viewer shows that frame).
+        if (qEnvironmentVariableIsSet("KK_SCREENSHOT_FRAME")) {
+            project.timeline()->setPlayhead(qEnvironmentVariableIntValue("KK_SCREENSHOT_FRAME"));
         }
         return kk::runScreenshot(window, options.screenshotPage, options.screenshotPath);
     }
