@@ -88,23 +88,30 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
     connect(ctx.selection, &SelectionModel::changed, this, &TimelineWidget::onSelectionChanged);
     connect(ctx.project, &Project::projectReset, this, [this] {
         onTimelineChanged();
-        restoreViewState(m_ctx.project->activeTimelineUid());
+        if (m_options.keepsViewState)
+            restoreViewState(m_ctx.project->activeTimelineUid());
+        else if (m_options.centredPlayhead)
+            centreOnPlayhead();
     });
     // Timeline tabs: each timeline keeps its own zoom and scroll (Project::viewState()); the
     // selection and the keyframe lanes refer to clip ids of the old timeline.
     connect(ctx.project, &Project::activeTimelineAboutToChange, this, [this](quint64 uid) {
         if (m_drag.mode != DragMode::None)
             cancelDrag();
-        m_ctx.project->setViewState(uid,
-            TimelineViewState {m_layout.pixelsPerFrame(), int(std::lround(m_layout.scrollX())),
-                m_layout.scrollY()});
+        if (m_options.keepsViewState)
+            m_ctx.project->setViewState(uid,
+                TimelineViewState {m_layout.pixelsPerFrame(), int(std::lround(m_layout.scrollX())),
+                    m_layout.scrollY()});
         m_ctx.selection->clear();
         m_keyframeLanes->reset();
         m_controller->clearRetimeControls();
     });
     connect(ctx.project, &Project::activeTimelineChanged, this, [this](quint64 uid) {
         onTimelineChanged();
-        restoreViewState(uid);
+        if (m_options.keepsViewState)
+            restoreViewState(uid);
+        else if (m_options.centredPlayhead)
+            centreOnPlayhead();
     });
     connect(m_controller, &TimelineController::retimeControlsChanged, viewport(),
         [this] { viewport()->update(); });
@@ -188,8 +195,35 @@ void TimelineWidget::onSelectionChanged()
 void TimelineWidget::onPlayheadChanged(int64_t)
 {
     // While the user scrubs, the view must not jump under the mouse.
-    if (m_drag.mode != DragMode::Scrub && m_followPlayhead)
+    if (m_drag.mode != DragMode::Scrub && m_options.centredPlayhead)
+        centreOnPlayhead();
+    else if (m_drag.mode != DragMode::Scrub && m_followPlayhead)
         ensurePlayheadVisible();
+    viewport()->update();
+}
+
+void TimelineWidget::setViewOptions(const TimelineViewOptions& options)
+{
+    m_options = options;
+    m_layout.setAudioHeightScale(options.audioHeightScale);
+    m_layout.rebuild(m_ctx.project->timeline()->data());
+    setHorizontalScrollBarPolicy(
+        options.centredPlayhead ? Qt::ScrollBarAlwaysOff : Qt::ScrollBarAlwaysOn);
+    if (options.centredPlayhead) {
+        m_fitOnFirstShow = false; // the page chooses the zoom
+        centreOnPlayhead();
+    }
+    updateScrollBars();
+    viewport()->update();
+}
+
+void TimelineWidget::centreOnPlayhead()
+{
+    const double frame = double(m_ctx.project->timeline()->playhead());
+    m_layout.setViewSize(viewport()->size());
+    m_layout.setScrollX(
+        std::max(0.0, frame * m_layout.pixelsPerFrame() - m_layout.trackAreaWidth() / 2.0));
+    updateScrollBars();
     viewport()->update();
 }
 
@@ -252,6 +286,8 @@ void TimelineWidget::resizeEvent(QResizeEvent* event)
         m_fitOnFirstShow = false;
         zoomToFit();
     }
+    if (m_options.centredPlayhead)
+        centreOnPlayhead();
     updateScrollBars();
 }
 
@@ -295,6 +331,12 @@ void TimelineWidget::scrollContentsBy(int, int)
         return;
     m_layout.setScrollX(horizontalScrollBar()->value());
     m_layout.setScrollY(verticalScrollBar()->value());
+    // Centred playhead: scrolling by hand (wheel) moves the playhead under the centre.
+    if (m_options.centredPlayhead && m_drag.mode == DragMode::None) {
+        const double centre = kHeaderWidth + m_layout.trackAreaWidth() / 2.0;
+        m_ctx.project->timeline()->setPlayhead(
+            std::max<int64_t>(0, int64_t(std::floor(m_layout.xToFrame(centre)))));
+    }
     // A drag in progress follows the content (e.g. edge auto-scroll).
     if (m_drag.mode != DragMode::None && m_drag.mode != DragMode::Pending
         && m_drag.mode != DragMode::Pan)
@@ -393,6 +435,10 @@ void TimelineWidget::zoomBy(double factor, double anchorX)
 void TimelineWidget::setPixelsPerFrame(double pixelsPerFrame, double anchorX)
 {
     m_layout.setPixelsPerFrame(pixelsPerFrame, anchorX);
+    if (m_options.centredPlayhead) {
+        centreOnPlayhead();
+        return;
+    }
     updateScrollBars();
     viewport()->update();
 }

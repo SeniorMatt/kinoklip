@@ -32,6 +32,25 @@ class KeyframeLanes;
 class NestedPreview;
 class TimelineController;
 
+/// Per-view behaviour that differs between pages: the Edit page uses the defaults, the Cut
+/// page's lower timeline turns on a centred playhead, ripple edge trims and compact audio.
+struct TimelineViewOptions
+{
+    /// The view scrolls so the playhead stays in the middle of the track area (playback,
+    /// navigation, zoom); scrolling the view by hand (wheel) moves the playhead instead. The
+    /// horizontal scroll bar is hidden.
+    bool centredPlayhead = false;
+    /// Selection tool: dragging a clip edge is a ripple trim (later clips follow) instead of a
+    /// trim that leaves a gap; the centre of a cut still rolls (Cut page default).
+    bool rippleEdgeTrims = false;
+    /// Height factor of the audio rows (below 1 = compact audio tracks; the row never gets
+    /// smaller than timelinemetrics::kMinTrackHeight).
+    double audioHeightScale = 1.0;
+    /// Remembers zoom and scroll per timeline in Project::viewState() and restores them on a
+    /// tab switch. Only one view per timeline should (the Edit page's).
+    bool keepsViewState = true;
+};
+
 /// The timeline editor view.
 ///
 /// Drawing is delegated to TimelinePainter, geometry to TimelineLayout; this class owns the
@@ -68,6 +87,12 @@ public:
     [[nodiscard]] double pixelsPerFrame() const { return m_layout.pixelsPerFrame(); }
     /// Scrolls so that frame @p frame is at the left edge of the track area.
     void scrollToFrame(double frame);
+
+    /// Page-specific behaviour (see TimelineViewOptions); applies at once.
+    void setViewOptions(const TimelineViewOptions& options);
+    [[nodiscard]] const TimelineViewOptions& viewOptions() const { return m_options; }
+    /// Centred-playhead views: scrolls so the playhead is in the middle of the track area.
+    void centreOnPlayhead();
 
     /// When on (default), a playhead that leaves the visible range (playback, keyboard
     /// navigation) scrolls the view by a page so it stays visible.
@@ -341,6 +366,7 @@ private:
     Drag m_drag;
     QTimer m_autoScroll;
     bool m_followPlayhead = true;
+    TimelineViewOptions m_options;
     bool m_syncingScrollBars = false;
     bool m_fitOnFirstShow = true;
     quint64 m_hoverClip = 0; ///< clip under the mouse (fade handles shown)

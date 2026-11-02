@@ -58,9 +58,10 @@ AppImage bundles the Qt Wayland plugin but uses the host's libva/libGL/libEGL/li
 
 ## 4. UI layout (Resolve-inspired, own look)
 
-Pages (tabs on a bottom page bar, Resolve's order): **Media · Edit · Deliver** active; **Cut,
-Compositing, Color, Audio** shown disabled ("coming in a later version"; own names for the
-trademarked pages). Shortcuts Shift+2 / Shift+4 / Shift+8 (Shift+5 reserved for Color).
+Pages (tabs on a bottom page bar, Resolve's order): **Media · Cut · Edit · Deliver** active (Cut
+since v2.5, docs/behavior-spec.md section 35); **Compositing, Color, Audio** shown disabled
+("coming in a later version"; own names for the trademarked pages). Shortcuts Shift+2 / Shift+3 /
+Shift+4 / Shift+8 (Shift+5 reserved for Color).
 
 **Edit page:**
 ```

@@ -414,6 +414,8 @@ QVector<quint64> TimelineController::insertSource(
 
 void TimelineController::sourceEdit(SourceEditMode mode)
 {
+    if (m_sourceEditHandler && m_sourceEditHandler(mode))
+        return;
     if (!m_sourceProvider)
         return;
     if (const auto source = m_sourceProvider())
