@@ -81,3 +81,6 @@
 - 15:30 masks merged (67/67): format v4. Format numbers reserved: retime v5, proxies v6, subtitles agent v7 (renumber at merge if order differs). Starting 'adjsubs' (adjustment clips, generators, subtitles).
 - 16:24 Heartbeat: retime merged locally, build+tests running (not pushed yet); proxies 9 commits, adjsubs 8; 19 GB free.
 - 16:24 retime merged (71/71): retime controls Ctrl+R, speed points + ramps, freeze Shift+R, reverse, frame blend + GPU optical flow, WSOLA pitch correction, format v5. Running: proxies, adjsubs; next: multicam.
+- 17:03 proxies merged (76/76): proxy + optimized media (H.264 fast-decode proxies, DNxHR LB optimized), proxy handling, render cache Smart/User with ruler bar, Deliver uses originals, X11 launcher fix, format v6. Starting 'bins' (smart/power bins, clip colours, flags, metadata). Running: adjsubs, multicam, bins.
+- 17:18 Heartbeat: linked V/A vertical move fix (owner request) built, full suite running; adjsubs 12 commits, multicam 5 (both in long builds since 17:05), bins started; 20 GB free.
+- 17:21 Linked V/A vertical move (owner request) committed: 75/76 in parallel run, test_resizebench timing flake under load 19 (passes alone).
