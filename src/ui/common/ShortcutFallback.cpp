@@ -100,7 +100,9 @@ bool ShortcutFallback::eventFilter(QObject* watched, QEvent* event)
         return false;
     // Only the first delivery (to the focus widget), never into text input or popups.
     auto* target = qobject_cast<QWidget*>(watched);
-    if (!target || target != QApplication::focusWidget() || QApplication::activePopupWidget())
+    QWidget* focus = QApplication::focusWidget();
+    const bool first = focus ? target == focus : target && target->isWindow();
+    if (!target || !first || QApplication::activePopupWidget())
         return false;
     if (target->testAttribute(Qt::WA_InputMethodEnabled))
         return false;
