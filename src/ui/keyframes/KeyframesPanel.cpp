@@ -41,6 +41,8 @@ constexpr double kMaxPpf = 80.0;
 constexpr double kWheelZoomPerStep = 1.2; ///< time zoom per wheel notch
 constexpr double kWheelScrollPx = 60.0; ///< time scroll per wheel notch
 constexpr int kToolButtonSize = 24;
+constexpr int kDopeShare = 2; ///< default dope sheet : curves height ratio
+constexpr int kCurvesShare = 3;
 } // namespace
 
 KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
@@ -111,7 +113,9 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     m_viewSplit->setHandleWidth(3);
     m_viewSplit->addWidget(m_dope);
     m_viewSplit->addWidget(m_curves);
-    m_viewSplit->setStretchFactor(1, 2);
+    // Proportional growth until the user drags the handle.
+    m_viewSplit->setStretchFactor(0, kDopeShare);
+    m_viewSplit->setStretchFactor(1, kCurvesShare);
     m_hscroll = new QScrollBar(Qt::Horizontal);
     rightLayout->addWidget(m_ruler);
     rightLayout->addWidget(m_viewSplit, 1);

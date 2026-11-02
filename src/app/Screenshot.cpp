@@ -185,8 +185,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             }
         }
         panel = window.findChild<InspectorPanel*>();
-    } else if (target == QLatin1String("keyframes")
-        || target == QLatin1String("keyframes-window")) {
+    } else if (base == QLatin1String("keyframes") || target == QLatin1String("keyframes-window")) {
         // Keyframe editor + curve editor of the first animated video clip, a few keys selected.
         auto* timelinePanel = window.findChild<TimelinePanel*>();
         const ClipData* animated = nullptr;
@@ -205,9 +204,19 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         const QVector<int64_t> frames = keyframeops::allKeyFrames(*animated);
         ctx.selection->setKeyframes(keyframeops::keysAt(*animated, frames.value(1)));
         KeyframeLanes* lanes = timelinePanel->timelineWidget()->keyframeLanes();
-        lanes->setKeyframeEditorOpen(id, true);
+        // keyframes:curves shows the curve lane only, keyframes:narrow zooms the timeline out
+        // so the clip is too narrow and its lane offers the Keyframes panel.
+        lanes->setKeyframeEditorOpen(id, section != QLatin1String("curves"));
         lanes->setCurveEditorOpen(id, true);
-        if (target == QLatin1String("keyframes"))
+        if (section == QLatin1String("narrow")) {
+            TimelineWidget* w = timelinePanel->timelineWidget();
+            const int64_t start = animated->start;
+            QTimer::singleShot(0, w, [w, start] {
+                w->setPixelsPerFrame(0.6, 0);
+                w->scrollToFrame(double(start) - 300);
+            });
+        }
+        if (base == QLatin1String("keyframes"))
             panel = timelinePanel;
     } else if (base == QLatin1String("keyframes-panel")) {
         // The Keyframes panel on the most animated video clip, a few keys selected, the
@@ -284,7 +293,8 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
     } else if (!isPage) {
         std::fprintf(stderr,
             "unknown screenshot target '%s' (use media, edit, deliver, preferences[:section], "
-            "project-settings[:section], keyboard, inspector, keyframes, keyframes-window, "
+            "project-settings[:section], keyboard, inspector, keyframes[:curves|narrow], "
+            "keyframes-window, "
             "keyframes-panel[:dope|curves|absolute|float], "
             "mediapool, "
             "effects, import-dialog, menu-color-theme "

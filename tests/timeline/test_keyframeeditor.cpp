@@ -10,6 +10,7 @@
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
+#include <QSignalSpy>
 #include <QTest>
 #include <QToolButton>
 #include <QUndoStack>
@@ -291,6 +292,24 @@ private slots:
         QVERIFY(ease);
         ease->click();
         QCOMPARE(keyInterp(v.value(kPosX).keys[1]), Interp::EaseInOut);
+    }
+
+    // 15.20: a clip too narrow to edit its keys inline offers the Keyframes panel.
+    void spec15_20_narrowClipOffersKeyframesPanel()
+    {
+        View v;
+        v.lanes()->setCurveEditorOpen(v.clipId, true);
+        QApplication::processEvents();
+        QToolButton* open = v.lanes()->openPanelButton(v.clipId);
+        QVERIFY(!open || !open->isVisible()); // 600 px wide at 10 px per frame
+        v.w.setPixelsPerFrame(1.0, kHeaderWidth); // 60 px: cramped
+        QApplication::processEvents();
+        open = v.lanes()->openPanelButton(v.clipId);
+        QVERIFY(open && open->isVisible());
+        QSignalSpy spy(v.lanes(), &KeyframeLanes::openInPanelRequested);
+        QTest::mouseClick(open, Qt::LeftButton);
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(spy.front().front().toULongLong(), v.clipId);
     }
 };
 
