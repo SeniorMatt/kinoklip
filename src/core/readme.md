@@ -14,9 +14,10 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `TimelineData.h` | `ClipData`, `TrackData`, `Marker`, `EffectInstance`, `TransitionData`, `TimelineData`, `TrackRef` |
 | `MediaItem.h` | `MediaItem`, `Bin`, `MediaPoolState` |
 | `EditOps.h` | pure editing functions on `TimelineData&` (namespace `kk::editops`); implemented in `EditOps.cpp`, `EditOpsRipple.cpp` (ripple delete across tracks, in/out lift / extract / copy, delete gaps, join, swap, shuffle, ripple overwrite) and `EditOpsTransitions.cpp` (transition windows, alignment, length, handle checks); shared private helpers in `EditOpsInternal.h` |
-| `Timeline.h` | QObject: owns `TimelineData`, snapshot cache, playhead, `changed()` |
-| `MediaPool.h` | QObject: media items + bins, `importFiles()` |
-| `Project.h` | QObject: owns MediaPool + Timeline + QUndoStack, settings, save/load |
+| `Timeline.h` | QObject: owns the active timeline's `TimelineData`, snapshot caches (render snapshot with nested timelines, plain snapshot), playhead, `changed()` |
+| `MediaPool.h` | QObject: media items (files, timelines, compound clips) + bins, `importFiles()` |
+| `Project.h` | QObject: owns MediaPool + Timeline + QUndoStack, every timeline of the project, tabs, settings, save/load; timelines / tabs / compound clips in `ProjectTimelines.cpp` |
+| `CompoundOps.h` | pure compound-clip / nesting functions (namespace `kk::compound`): `collapse()`, `decompose()`, `canNest()` / `reaches()` (recursion), `syncNestedSources()`, `timelineInfo()`, `makeNestedClip()` |
 | `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive) |
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
 | `BuiltinEffects.cpp` | the v0.1 descriptor catalogue |
@@ -58,6 +59,30 @@ leaves slowly, EaseInOut, Smooth, Hold); `keyInterp()` reports Custom for dragge
   drag are cheap. The undo snapshot is taken once in `beginEdit()` and compared once in
   `endEdit()`.
 
+## Timelines, tabs, compound clips (v2)
+- A project has any number of timelines, identified by `TimelineData::uid` (stable, never
+  reused within a session). The **active** one lives in the single `Timeline` object
+  (`Project::timeline()`), so every view connects once and follows tab switches through
+  `Timeline::changed()`; `Project::activeTimelineAboutToChange` / `activeTimelineChanged`
+  let views save and restore per-timeline state (`TimelineViewState`: zoom, scroll). Inactive
+  timelines are immutable `shared_ptr<const TimelineData>` in the project; changing one
+  replaces its pointer.
+- Every timeline has a media pool item (`MediaItemKind::Timeline` / `CompoundClip`,
+  `MediaItem::timelineUid`, no file). `Project::syncDerived()` runs at the end of every edit:
+  item name -> timeline name, timeline -> item info (duration, size, rate, video/audio),
+  missing items are recreated, orphan items removed, and `ClipData::sourceDurationUs` of every
+  Nested clip follows the length of the timeline it shows.
+- `ClipKind::Nested` + `ClipData::nestedUid`: a compound clip or nested timeline. Its source
+  time is the nested timeline's time (µs), so EditOps treat it like media. `nestedFrameAt()`
+  maps a parent frame to a nested frame. `compound::canNest()` refuses anything that would make
+  a timeline contain itself (directly or indirectly); renderers also stop at depth 16.
+- `Timeline::snapshot()` (render threads) fills `TimelineData::nested` with every timeline the
+  root reaches (shared pointers, no copies); `plainSnapshot()` is the same without the map
+  (undo history). `NestedTimelines` compares equal to everything, so it never makes undo
+  snapshots differ. `Project::renderSnapshot(uid)` does the same for any timeline.
+- Tabs (`Project::tabs()`, `openTab()`, `closeTab()`, `moveTab()`) are UI state saved with the
+  project, not undoable. `setActiveTimeline()` is refused while an edit is open.
+
 ## Editing protocol
 ```cpp
 project->beginEdit(tr("Move Clip"));                    // snapshot "before"
@@ -67,8 +92,12 @@ project->endEdit();                                      // pushes ONE undo comm
 // or project->cancelEdit();                             // restores the "before" state
 ```
 - Edits nest; only the outermost pair creates a command (its label wins).
-- An undo command stores complete before/after copies of `TimelineData` and `MediaPoolState`.
-  Its first `redo()` is a no-op because the change was already applied live.
+- An undo command stores before/after copies of every timeline (`Project::TimelineSet`: shared
+  pointers, so unchanged timelines cost nothing and compare by pointer), the `MediaPoolState`
+  and the project format. Its first `redo()` is a no-op because the change was already applied
+  live. Undoing a step made in another timeline first activates that timeline.
+- Assigning a whole `TimelineData` to `mutableData()` is fine: the active timeline keeps its
+  uid (endEdit restores it).
 - `Project::undo()/redo()` are ignored while an edit is open (e.g. mid-drag).
 - Never mutate `mutableData()` outside begin/endEdit — the change would not be undoable and the
   project would not become dirty.
@@ -87,12 +116,18 @@ locked tracks are never changed by EditOps. Ids come from `TimelineData::allocat
 
 ## Project file format (`.kkproj`, JSON)
 ```json
-{ "formatVersion": 2, "generator": "Kinoklip 0.1.0",
-  "project":   { "name": "My Film" },
-  "mediaPool": { "bins": [...], "items": [{ "id", "path", "relativePath", "name", "binId", "info": {...} }] },
-  "timeline":  { "name", "fps": {"num","den"}, "width", "height", "markIn", "markOut", "nextId",
-                 "markers": [...], "videoTracks": [...], "audioTracks": [...] } }
+{ "formatVersion": 3, "generator": "Kinoklip 0.1.0",
+  "project":   { "name": "My Film", "width", "height", "fps": {"num","den"} },
+  "mediaPool": { "bins": [...], "items": [{ "id", "path", "relativePath", "name", "binId", "info": {...} },
+                                          { "id", "kind": "timeline" | "compound", "timelineUid", "name", "binId", "info" }] },
+  "timelines": [{ "uid", "compound"?, "useProjectSettings"?, "name", "fps", "width", "height",
+                  "markIn", "markOut", "nextId", "markers": [...], "videoTracks": [...], "audioTracks": [...] }],
+  "activeTimeline": uid, "tabs": [uid, ...],
+  "timelineViews": [{ "uid", "playhead", "pixelsPerFrame", "scrollX", "scrollY" }] }
 ```
+Nested clips: `"kind": "nested", "nestedUid"`. Versions 1 and 2 had a single `"timeline"`
+object instead of `"timelines"`; `Project::fromJson()` loads it as timeline uid 1 and creates
+its media pool item, so old projects open unchanged.
 Static params are plain JSON values except colours (`{"color": "#aarrggbb"}`).
 Keyframes: `{"frame", "value"}` plus, when not default, `"in"` / `"out"` (handle mode string,
 or `{"mode": "free", "dt", "dv"}`) and `"hold": true`. Format version 1 stored one `"interp"`
