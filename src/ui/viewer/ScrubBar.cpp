@@ -2,6 +2,8 @@
 // ScrubBar painting and mouse handling.
 #include "ui/viewer/ScrubBar.h"
 
+#include "ui/common/SchemeColors.h"
+
 #include <QMouseEvent>
 #include <QPainter>
 #include <QWheelEvent>
@@ -16,10 +18,7 @@ constexpr int kHeight = 20; ///< widget height (px)
 constexpr int kSideMargin = 8; ///< track inset, matches the picture margin
 constexpr int kTrackHeight = 4;
 constexpr int kHeadSize = 5; ///< playhead triangle half-width
-const QColor kTrackColor(0x2a, 0x2a, 0x2e);
-const QColor kRangeColor(0x4c, 0x9b, 0xe8, 90);
-const QColor kMarkColor(0x8c, 0xc4, 0xf8);
-const QColor kPlayheadColor(0xe8, 0x4c, 0x4c);
+constexpr int kRangeAlpha = 90; ///< in/out band: the focus colour, translucent
 } // namespace
 
 ScrubBar::ScrubBar(QWidget* parent)
@@ -96,9 +95,11 @@ void ScrubBar::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
+    // Same roles as the timeline: in/out in the focus colour, the playhead in negative.
+    const SchemeColors& sc = schemeColors();
     const QRect t = trackRect();
     const int midY = height() / 2;
-    p.fillRect(QRect(t.left(), midY - kTrackHeight / 2, t.width(), kTrackHeight), kTrackColor);
+    p.fillRect(QRect(t.left(), midY - kTrackHeight / 2, t.width(), kTrackHeight), mixColors(sc.view, sc.shadow, 0.25));
     if (m_duration <= 0) {
         return;
     }
@@ -106,8 +107,8 @@ void ScrubBar::paintEvent(QPaintEvent*)
     if (m_in >= 0 || m_out > 0) {
         const double x0 = xOf(m_in >= 0 ? m_in : 0);
         const double x1 = xOf(m_out > 0 ? m_out : m_duration);
-        p.fillRect(QRectF(x0, 2, std::max(1.0, x1 - x0), height() - 4), kRangeColor);
-        p.setPen(QPen(kMarkColor, 2));
+        p.fillRect(QRectF(x0, 2, std::max(1.0, x1 - x0), height() - 4), withAlpha(sc.focus, kRangeAlpha));
+        p.setPen(QPen(sc.focus.lighter(130), 2));
         if (m_in >= 0) {
             p.drawLine(QPointF(x0 + 1, 2), QPointF(x0 + 1, height() - 2));
             p.drawLine(QPointF(x0 + 1, 2), QPointF(x0 + 5, 2));
@@ -122,10 +123,10 @@ void ScrubBar::paintEvent(QPaintEvent*)
     // Playhead: centred on its frame.
     const double frameWidth = double(t.width()) / double(m_duration);
     const double x = xOf(m_position) + std::min(frameWidth, 4.0) / 2.0;
-    p.setPen(QPen(kPlayheadColor, 1.5));
+    p.setPen(QPen(sc.playhead, 1.5));
     p.drawLine(QPointF(x, 0), QPointF(x, height()));
     p.setPen(Qt::NoPen);
-    p.setBrush(kPlayheadColor);
+    p.setBrush(sc.playhead);
     const QPointF head[] = {{x - kHeadSize, 0}, {x + kHeadSize, 0}, {x, double(kHeadSize)}};
     p.drawPolygon(head, 3);
 }

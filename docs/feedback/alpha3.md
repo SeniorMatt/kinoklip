@@ -22,3 +22,7 @@
    must follow the active colour scheme. Plan: semantic roles mapped to KColorScheme roles
    (link/positive/visited/neutral/negative/focus + window/view backgrounds); clip colour labels still
    override per clip. Agent 'themecolors' starts after bins + attrs are merged.
+   **Done (themecolors branch):** Kinoklip is the default scheme in every build (KF6 and fallback);
+   `ui/common/SchemeColors.h` maps the scheme roles to editor roles and every custom-painted widget
+   uses it; clip colour labels, flags, markers and video content stay fixed. Covered by
+   tests/app/test_schemecolors.cpp; behaviour spec section "Colour schemes".

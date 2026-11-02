@@ -44,6 +44,8 @@ QIcon swatch(const QColor& color)
 
 QList<std::pair<QString, QColor>> markerColors()
 {
+    // Fixed on purpose: marker colours are user data (named colours stored in the project,
+    // like clip colour labels), not scheme chrome.
     return {
         {tr("Blue"), QColor(0x4c, 0x9b, 0xe8)},
         {tr("Cyan"), QColor(0x3f, 0xc8, 0xd8)},
