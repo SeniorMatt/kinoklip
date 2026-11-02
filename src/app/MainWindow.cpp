@@ -113,8 +113,12 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     connect(ctx.project, &Project::dirtyChanged, this, &MainWindow::updateTitle);
     updateTitle();
 
+    // The stack shows the first added page (Media) until told otherwise, so without a restored
+    // layout the default page has to be selected explicitly.
     if (m_options.restoreLayout)
         restoreSettings();
+    else
+        setCurrentPage(QStringLiteral("edit"));
     if (currentPageId().isEmpty() || m_stack->currentWidget() == nullptr)
         setCurrentPage(QStringLiteral("edit"));
     if (m_options.autosave)
