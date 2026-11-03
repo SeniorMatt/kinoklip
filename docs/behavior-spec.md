@@ -303,7 +303,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 18.2 | Markers are drawn in the ruler and are snap targets. | OK |
 | 18.3 | Navigation with Shift+Up / Shift+Down (2.9). | Fixed |
 | 18.4 | With a clip selected under the playhead, M adds a clip marker; clip markers follow the content on trims and splits like keyframes and are drawn on the clip. | Fixed (`ClipData::markers`; pe2 spec18_4) |
-| 18.5 | Pressing M on an existing marker, Ctrl+M (add and modify) or double-clicking a ruler marker opens its name / colour / note editor. | Fixed (marker editor dialog; pe2 spec18_5) |
+| 18.5 | Pressing M on an existing marker, Ctrl+M (add and modify) or double-clicking a ruler marker opens its name / colour / note editor. | Fixed (marker editor dialog; pe2 spec18_5). Since 0.4.1 M on an existing marker removes it (18.16); Ctrl+M and the double-click still open the editor. |
 | 18.6 | Alt+M deletes the timeline marker at the playhead. | Fixed (new; pe2 spec18_6) |
 | 18.7 | Right-click on a marker in the ruler: Modify Marker… (the marker editor, as a double-click) and Delete Marker. | Fixed (polish round 2; p2 contextMenusOfferTheBasics) |
 | 18.8 | Edit Index (Edits): a table of the timeline's events like an EDL: #, Reel (source file name), Name, Track, Source In / Out (source timecode with the media's start timecode), Record In / Out, Duration, Notes (transitions, speed, disabled, offline). Clicking a row (or moving through the rows with the keyboard) moves the playhead to the record in and selects the clip; selecting a clip in the timeline makes its row current. Search over every column. Follows every edit live; colours from the scheme. | Fixed (polish round 3; test_editindex). Decision: one row per clip (linked video and audio are separate events, as on the tracks); Notes is read-only here (clips have no note field). |
@@ -314,6 +314,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 18.13 | File > Export > Timeline Markers to EDL (one event per marker, record out = its end, "* LOC: timecode COLOR name", "* COMMENT: notes") and to CSV (#, Name, Start, End, Duration, Color, Notes). Clip markers are not included. | Fixed (polish round 4; test_edlexport) |
 | 18.14 | Dragging a ruler marker's flag moves it by whole frames (snapping), one undo step "Move Marker"; it never lands on another marker. A click on a flag without dragging moves the playhead to the marker. | Fixed (polish round 4 audit A9; p4 spec18_14_markersMoveButNeverOntoAnother) |
 | 18.15 | Double-clicking a clip marker's diamond opens the marker editor; hovering a ruler or clip marker shows its name, timecode, duration and notes as a tool tip. | Fixed (polish round 4 audit A10 / A11; p4 spec18_15_clipMarkerDoubleClickOpensTheEditor) |
+| 18.16 | M toggles a marker: on an existing marker it removes it instead of adding a second one (with a clip selected under the playhead the clip marker starting at the playhead, otherwise the timeline marker starting there; a ranged marker counts at its start frame); one undo step "Delete Marker". Ctrl+M still opens the editor, Alt+M is unchanged. | Fixed (owner request on 0.4.0, supersedes "M on an existing marker" in 18.5; pe2 spec18_16_mTogglesAMarker). The Source viewer has no markers, so nothing changes there. |
 
 ## 19. Zoom and scrolling
 

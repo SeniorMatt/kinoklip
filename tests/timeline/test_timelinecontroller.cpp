@@ -178,11 +178,15 @@ private slots:
         t.action("mark.add_marker")->trigger();
         tl->setPlayhead(12);
         t.action("mark.add_marker")->trigger();
-        const int steps = t.undoCount();
-        t.action("mark.add_marker")->trigger(); // duplicate frame: no-op, no undo step
-        QCOMPARE(t.undoCount(), steps);
         QCOMPARE(t.f.view().markers.size(), 2);
         QCOMPARE(t.f.view().markers[0].frame, int64_t(12)); // kept sorted
+        const int steps = t.undoCount();
+        t.action("mark.add_marker")->trigger(); // same frame: M toggles it off (spec 18.16)
+        QCOMPARE(t.undoCount(), steps + 1);
+        QCOMPARE(t.f.view().markers.size(), 1);
+        QCOMPARE(t.f.view().markers[0].frame, int64_t(30));
+        t.action("mark.add_marker")->trigger(); // and on again
+        QCOMPARE(t.f.view().markers.size(), 2);
     }
 
     void navigation()
