@@ -749,6 +749,35 @@ tests/render/test_mixerdsp.cpp, md = tests/core/test_mixerdata.cpp.
 | 37.34 | Audio page track headers taller than two button rows keep the track name on the first line up to the meter and put the buttons and the channel format on the second line (with the arm button and meter on one line the name was cut to "A..."). | Fixed (polish round 2; ap timelineShowsTallAudioAndCollapsedVideo) |
 | 37.35 | Clip > Normalize Audio Levels (also in the clip context menu): Normalization Mode Sample Peak Program (dBFS), True Peak (dBTP) or ITU-R BS.1770-4 (LUFS), a Target Level (defaults -9 dBFS, -2 dBTP, -23 LUFS) and, for several clips, Set Level Relative (one common gain: the loudest clip reaches the target) or Independent (each clip reaches it). The clips' source audio is measured off the GUI thread with a progress bar; Cancel stops it and changes nothing. Then the clip volumes are set in one undo step "Normalize Audio Levels" (keyframed volumes move by the same change). Targets: the selected audio clips and the audio of selected video clips. | Fixed (polish round 4; test_audionormalize). Decision: Independent is the default (several clips to the same level); the measurement is the source audio before the clip volume, so normalizing twice gives the same result. |
 
+## 39. Single-file projects (kkpack branch, v4 part 2)
+
+A project can be one `.kinoklip` file holding the project document, every media file unchanged
+and a manifest (an open ZIP layout: stored entries, ZIP64), moved around like any other file.
+Media play straight from inside it. Format and crash-safety design: docs/single-file-project.md.
+The library is done; the Project Manager, File menu and import wiring follow in the integration
+step ("UI pending").
+
+Tests: ct = tests/pack/test_container.cpp, pp = tests/pack/test_projectpackage.cpp, em =
+tests/media/test_embeddedmedia.cpp, ee = tests/export/test_embeddedexport.cpp.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 39.1 | A single-file project is one file with the extension `.kinoklip`: a standard ZIP archive whose first entry is `mimetype` ("application/x-kinoklip"), then the media (`media/<id>/<original file name>`), the manifest (`manifest.json`) and the project document (`project.kkproj`, the same JSON as a linked project). Entries are stored uncompressed; media bytes are the original files. | Library done, UI pending (ct roundTrip; pp packAndOpen) |
+| 39.2 | Any standard unzip tool lists, tests and extracts the file, and the extracted folder opens in Kinoklip as an ordinary linked project. | Library done (ct standardZipTools, zip64Sparse; pp extractedWithStandardToolOpens) |
+| 39.3 | Media inside the file play in place, without unpacking: probing, frame-exact video seeking identical to the same file outside, hardware decoding, audio samples, every still format (Qt, HEIF/AVIF, EXR/DPX via FFmpeg, camera RAW), animated GIF / WebP, thumbnails, waveforms and the render / export path. | Library done (em probeMatches, videoSeekAccuracy, audioSamplesMatch, stillImagesMatch, animationsDecode, thumbnailsAndWaveforms; ee rendersFromInsideTheContainer) |
+| 39.4 | Many decoders on many threads read one file at the same time (own file handle each, no shared seek position); a save while they read does not disturb them. | Library done (ct concurrentReaders; em concurrentDecoders, readWhileSaving) |
+| 39.5 | Saving appends the new project document and manifest; media are never rewritten, so saving a 50 GB project takes as long as saving a linked one. | Library done, UI pending (pp saveDoesNotRewriteMedia; ct roundTrip) |
+| 39.6 | A crash or power loss at any moment of a save keeps the previously saved state: the file opens with the previous document (also after a torn central directory, damaged newest records, both header slots destroyed, or a media copy cut short). The next save cuts the torn tail off; Repair does it on request. | Library done (ct truncatedSaveKeepsPreviousState, tornRecordsAndDamage, cancelledCopy; pp repairAfterCrash) |
+| 39.7 | Files over 4 GB and single media files over 4 GB work (ZIP64). | Library done (ct zip64Sparse: 4 GiB + 120 KiB sparse entry and an entry beyond 4 GiB, read by Kinoklip and Python) |
+| 39.8 | Pack (Project Manager > Export as single file, File > Pack Project): a linked project and every media file it uses become one file, with progress and Cancel; offline media and image sequences stay linked and are listed. A cancelled or failed pack leaves no file behind. | Library done, UI pending (pp packAndOpen). Deferred: packing only the used parts of long clips with handles; image sequences inside the file. |
+| 39.9 | Unpack: the media are written to a chosen folder (`media/...`, original modification times) with a linked project file that uses them; nothing existing is overwritten. | Library done, UI pending (pp unpack) |
+| 39.10 | Import into a single-file project copies the media into the file with progress and Cancel (a cancelled import leaves the file as it was); a file already stored (same file, or the same content under another name) is stored once. | Library done, UI pending (pp addMediaDeduplicates; ct cancelledCopy) |
+| 39.11 | Compact (File > Compact Project): rewrites the file without media no media pool item uses and without old project versions, shows the size before (and a preview of the size after), writes a temporary file next to it and replaces the original atomically; damaged media make it stop with an error and leave the original untouched. | Library done, UI pending (pp compactAndVerify). Decision: media of clips that are in the Media Pool but on no timeline are kept; remove the clips from the pool first to drop them. |
+| 39.12 | Verify checks the index, the project document, the manifest, missing media and the checksum of every stored byte, and reports media the project no longer uses. | Library done, UI pending (pp compactAndVerify) |
+| 39.13 | Caches (thumbnails, waveforms, proxies, optimised media, render cache) are not stored in the file; their identity for embedded media is the container, the entry and its checksum. | Library done (em thumbnailsAndWaveforms) |
+| 39.14 | The project document format does not change (format 13): embedded media are media pool items with an `embedded` entry name, linked media keep their paths; older builds open an extracted archive. Moving clips between bins or renaming them never touches the media bytes (entry names are stable). | Library done (pp packAndOpen, extractedWithStandardToolOpens) |
+| 39.15 | The Media Pool shows whether a clip is stored in the project file or linked. | UI pending (integration step) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -791,3 +820,5 @@ tests/render/test_mixerdsp.cpp, md = tests/core/test_mixerdata.cpp.
   12.14, 18.8, 18.9, 24.11, 24.12 and 29.17, and updated 24.9 and 29.16.
 - The polish4 branch (v3, basic editing polish round 4, docs/polish-v3.md) added 17.6, 17.7,
   18.10 - 18.15 and 37.35, and updated 18.9 (ranged markers; project format 13).
+- The kkpack branch (v4 part 2) added 39.1 - 39.15 (single-file projects: container library and
+  in-place media reading; UI pending).

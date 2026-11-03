@@ -4,6 +4,7 @@
 
 #include "media/FFmpegUtil.h"
 #include "media/MediaLog.h"
+#include "media/MediaSource.h"
 #include "media/VideoDecoder.h"
 
 #include <QCoreApplication>
@@ -453,13 +454,16 @@ void MediaCache::finishWaveform(
 QString MediaCache::diskDirectory(const QString& path, const char* kind) const
 {
     // <cache>/<kind>/<sha1(absolute path, mtime, size)>: a changed file gets a new directory.
-    const QFileInfo fileInfo(path);
-    if (!fileInfo.isFile()) {
+    // Embedded media (single-file projects): container, entry, CRC and size instead.
+    const MediaSource source = MediaSource::resolve(path);
+    if (!source.exists()) {
         return {};
     }
-    const QByteArray identity = fileInfo.absoluteFilePath().toUtf8() + '\n'
-        + QByteArray::number(fileInfo.lastModified().toMSecsSinceEpoch()) + '\n'
-        + QByteArray::number(fileInfo.size());
+    const QFileInfo fileInfo(path);
+    const QByteArray identity = source.isEmbedded() ? source.identity().toUtf8()
+                                                    : fileInfo.absoluteFilePath().toUtf8() + '\n'
+            + QByteArray::number(fileInfo.lastModified().toMSecsSinceEpoch()) + '\n'
+            + QByteArray::number(fileInfo.size());
     const QString hash = QString::fromLatin1(
         QCryptographicHash::hash(identity, QCryptographicHash::Sha1).toHex().left(24));
     return cacheDirectory() + QLatin1Char('/') + QLatin1String(kind) + QLatin1Char('/') + hash;

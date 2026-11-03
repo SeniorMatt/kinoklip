@@ -4,6 +4,7 @@
 #include "media/FFmpegUtil.h"
 #include "media/ImageFrameList.h"
 #include "media/MediaInfo.h"
+#include "media/MediaSource.h"
 
 #include <QFileInfo>
 
@@ -231,7 +232,7 @@ MediaInfo probe(const QString& path)
     }
     MediaInfo info;
     info.path = path;
-    if (!QFileInfo(path).isFile()) {
+    if (!mediaExists(path)) {
         info.error = QStringLiteral("File not found: %1").arg(path);
         return info;
     }

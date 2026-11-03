@@ -14,6 +14,7 @@
 #include <memory>
 #include <vector>
 
+class QIODevice;
 class QImageReader;
 
 namespace kk::media::detail {
@@ -85,6 +86,7 @@ private:
     // Animation: sequential QImageReader; frames are kept while they fit kAnimationBudget.
     QString m_path;
     std::unique_ptr<QImageReader> m_reader;
+    std::unique_ptr<QIODevice> m_readerDevice; ///< embedded media: the bytes m_reader reads
     int m_readerNext = 0; ///< index of the frame the next read() returns
     std::vector<QImage> m_frames;
     int64_t m_cachedBytes = 0;

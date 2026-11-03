@@ -7,6 +7,7 @@
 #ifdef KK_HAVE_LIBRAW
 
 #include "media/MediaLog.h"
+#include "media/MediaSource.h"
 
 #include <QFile>
 
@@ -25,7 +26,10 @@ constexpr int kOutputSrgb = 1;
 
 /// The LibRaw object is large (several hundred KB of tables): heap-allocate it.
 /// We link libraw_r, the thread-safe build: separate instances may run concurrently.
-std::unique_ptr<LibRaw> openRaw(const QString& path, bool fullSize, QString* error)
+/// Media embedded in a single-file project are read into `buffer` (LibRaw keeps a pointer to
+/// it): the caller declares it before the returned object so it outlives it.
+std::unique_ptr<LibRaw> openRaw(
+    const QString& path, bool fullSize, QByteArray& buffer, QString* error)
 {
     auto raw = std::make_unique<LibRaw>();
     libraw_output_params_t& params = raw->imgdata.params;
@@ -34,8 +38,18 @@ std::unique_ptr<LibRaw> openRaw(const QString& path, bool fullSize, QString* err
     params.use_camera_wb = 1;
     params.output_color = kOutputSrgb;
     params.output_bps = 8;
-    const QByteArray file = QFile::encodeName(path);
-    const int ret = raw->open_file(file.constData());
+    const MediaSource source = MediaSource::resolve(path);
+    int ret = LIBRAW_SUCCESS;
+    if (source.isEmbedded()) {
+        buffer = source.readAll(error);
+        if (buffer.isNull()) {
+            return {};
+        }
+        ret = raw->open_buffer(buffer.constData(), size_t(buffer.size()));
+    } else {
+        const QByteArray file = QFile::encodeName(path);
+        ret = raw->open_file(file.constData());
+    }
     if (ret != LIBRAW_SUCCESS) {
         *error = QString::fromUtf8(libraw_strerror(ret));
         return {};
@@ -48,7 +62,8 @@ std::unique_ptr<LibRaw> openRaw(const QString& path, bool fullSize, QString* err
 bool readHeaderRaw(const QString& path, bool fullSize, ImageHeader& header)
 {
     QString error;
-    const std::unique_ptr<LibRaw> raw = openRaw(path, fullSize, &error);
+    QByteArray buffer;
+    const std::unique_ptr<LibRaw> raw = openRaw(path, fullSize, buffer, &error);
     if (!raw) {
         header.error = error;
         return false;
@@ -73,7 +88,8 @@ bool readHeaderRaw(const QString& path, bool fullSize, ImageHeader& header)
 
 bool loadRaw(const QString& path, bool fullSize, LoadedImage& result)
 {
-    const std::unique_ptr<LibRaw> raw = openRaw(path, fullSize, &result.error);
+    QByteArray buffer;
+    const std::unique_ptr<LibRaw> raw = openRaw(path, fullSize, buffer, &result.error);
     if (!raw) {
         return false;
     }
