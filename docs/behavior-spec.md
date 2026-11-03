@@ -199,6 +199,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 10.8 | With no clip selected and in + out marks set, Delete extracts the range: removed on the auto-select tracks and closed up; the playhead goes to the in point and the marks are cleared. A clip selection wins over the marks. | Fixed (new; pe2 spec10_8) |
 | 10.9 | Ctrl+Shift+X ripple cut: the selected clips (else the marked range) go to the clipboard and are ripple-deleted, in one undo step; Ctrl+Shift+V pastes them back in. | Fixed (new; pe2 spec10_9_*) |
 | 10.10 | Edit > Delete Gaps removes every gap common to the auto-select tracks, keeping them in sync. | Fixed (new; pe2 spec10_10, er deleteGapsKeepsSync) |
+| 10.11 | With a list or tree panel focused (the Effects library, the media pool, Edit Index, the bin list, the node library), Delete, Backspace, Ctrl+A, the arrow keys, Home / End and Page Up / Down act on that panel (arrows move its selection); the timeline's editing and navigation shortcuts act only while the timeline, a viewer or nothing in particular has the focus. Transport keys (Space, J / K / L) keep working from the panels. | Fixed (bughunt2: Delete with the Effects library focused ripple-deleted the clips selected on the timeline, the arrows stepped the playhead; one application filter, ListKeyGuard, claims these keys for every focused item view; test_bughuntkeys spec10_11_listPanelKeepsEditingKeys) |
 
 ## 11. Snapping
 

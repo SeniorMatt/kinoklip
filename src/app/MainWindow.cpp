@@ -13,11 +13,12 @@
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "app/pages/MediaPage.h"
+#include "core/Logging.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "ui/common/ActionRegistry.h"
-#include "core/Logging.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/ListKeyGuard.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/ResizeProfiler.h"
 #include "ui/common/ShortcutFallback.h"
@@ -142,6 +143,8 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     addActions(ctx.actions->actions());
     // Ctrl+Shift+[ etc. also when the layout reports Ctrl+Shift+{ (alpha.2 feedback).
     new ShortcutFallback(*ctx.actions, this);
+    // A focused list or tree panel keeps Delete, Ctrl+A and the arrow keys (spec 10.11).
+    new ListKeyGuard(this);
     // Per-step live-resize timings with QT_LOGGING_RULES=kk.ui.resize.debug=true.
     ResizeProfiler::attach(this);
 
@@ -348,8 +351,7 @@ void MainWindow::connectAppActions()
     // no mouse button down no gesture can be running: close it first, and say which it was.
     auto closeStale = [project] {
         if (project->isEditing() && QGuiApplication::mouseButtons() == Qt::NoButton)
-            qCWarning(lcCore).noquote()
-                << "closed an edit left open:" << project->closeStaleEdit();
+            qCWarning(lcCore).noquote() << "closed an edit left open:" << project->closeStaleEdit();
     };
     connect(undo, &QAction::triggered, project, [project, closeStale] {
         closeStale();
