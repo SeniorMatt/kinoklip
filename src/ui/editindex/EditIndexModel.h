@@ -66,15 +66,21 @@ public:
     /// Creates the model for @p project's active timeline (no rows until rebuild()).
     explicit EditIndexModel(Project* project, QObject* parent = nullptr);
 
+    /// Stable, untranslated key of @p column in @p mode ("reel", "sourceIn", ...): the
+    /// column chooser stores hidden columns by key so a new column never shifts the choice.
+    [[nodiscard]] static QString columnKey(Mode mode, int column);
+    /// Number of columns of @p mode.
+    [[nodiscard]] static int columnCountOf(Mode mode);
+
     /// Switches between events and markers (resets the model).
     void setMode(Mode mode);
     [[nodiscard]] Mode mode() const { return m_mode; }
     /// Re-reads the active timeline (model reset).
     void rebuild();
 
-    /// The event rows (Edits mode data; also filled in Markers mode).
+    /// The event rows (Edits mode only; empty in Markers mode).
     [[nodiscard]] const std::vector<editindex::EventRow>& eventRows() const { return m_events; }
-    /// The marker rows.
+    /// The marker rows (Markers mode only; empty in Edits mode).
     [[nodiscard]] const std::vector<editindex::MarkerRow>& markerRows() const { return m_markers; }
 
     int rowCount(const QModelIndex& parent = {}) const override;
