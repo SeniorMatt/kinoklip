@@ -65,6 +65,18 @@ public:
     /// never an exception).
     [[nodiscard]] std::future<RenderedFramePtr> renderAsync(RenderRequest request);
 
+    /// Compositing page viewers: queues a render of node @p nodeId (0 = MediaOut) of the
+    /// composition of clip @p clipId (a video clip of @p timeline's own tracks, e.g.
+    /// Project::renderSnapshot(uid)) at comp frame @p compFrame, at @p outSize (empty =
+    /// timeline resolution) scaled by @p quality. Same zero-copy texture / image output as
+    /// renderAsync(); a missing clip, composition or node gives a transparent frame. Cheap
+    /// enough to call on every scrub step: one decode per MediaIn plus one pass per node, no
+    /// readback unless OutputImage is asked for.
+    [[nodiscard]] std::future<RenderedFramePtr> renderCompositionNode(
+        std::shared_ptr<const TimelineData> timeline, quint64 clipId, quint64 nodeId,
+        int64_t compFrame, QSize outSize = {}, Quality quality = Quality::Full,
+        unsigned outputs = OutputTexture);
+
     /// Renders @p frame of @p timeline at @p outSize (empty = timeline resolution) scaled by
     /// @p quality, producing @p outputs (RenderOutput flags). Blocks until done.
     [[nodiscard]] RenderedFramePtr render(std::shared_ptr<const TimelineData> timeline,

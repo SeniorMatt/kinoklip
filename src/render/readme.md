@@ -227,6 +227,67 @@ its transform, so they move with the clip and the clip opacity / transitions app
   `resolveCaptionStyle()` (caption → track → default style) and placed by `captionOffset()`
   (bottom / top / middle, alignment, margins in percent of the frame).
 
+### Compositions (Compositing page, spec section 42a)
+
+A clip with a `ClipData::composition` (core/Composition.h, node types in core/NodeRegistry.h)
+shows the composition's output instead of its own picture; its crop, effects, masks,
+transform, opacity, transitions and compositing then apply on top, so the Edit page viewer,
+playback, the Cut page and the export (one `GlRenderer::resolveSource()`) all show it. A
+composition whose MediaOut reads (through disabled nodes) an enabled MediaIn of the clip
+itself (`compops::isPassThrough()`, e.g. the default MediaIn1 -> MediaOut1) is skipped: it
+costs nothing and renders bit-identically.
+* **Evaluation** (`GlComposition`): `compops::evaluationOrder()` lists the nodes the pulled
+  node (MediaOut, or any node for the page's viewers) depends on; each runs once into a
+  pooled RGBA16F target of the comp size (the frame at the resolution it covers in the
+  output, x zoom up to 2, like generators: 1080p at Full). Targets are reference counted and
+  go back to the pool after their last reader, so a chain of ten nodes keeps two or three
+  alive. Disabled nodes, MediaOut and identity nodes (an effect's `isIdentity()`, a
+  Transform at rest, a neutral Color Corrector, a Merge without foreground) alias their main
+  input: no pass, no copy. Re-entrant per depth (a MediaIn of a nested clip may evaluate
+  other compositions).
+* **Passes**: MediaIn = the clip's own source (`resolveSource(..., false)`) fitted and centred
+  like a clip at zoom 1, at the comp frame (timeline frame = clip start + comp frame, so the
+  clip's speed and retime curve apply), or another media pool item (`CompNode::mediaId`)
+  from its start through a per-frame stand-in clip in the decode stage (parallel decode and
+  decode-ahead like any clip). Merge = one shader: foreground through the inverse of its
+  centre / size / angle (edge antialiasing like the clip quads), blend mode on straight
+  colours with the separable compositing formula (`compmath::blendChannel()`), opacity,
+  then the mask. Dissolve and every mask input: `mix(input, result, mask alpha)` (one pass;
+  "the effect applies only inside the mask"). Transform, Crop, Resize: one textured quad.
+  Letterbox: copy + two bar fills. Background: the generator pattern pass (`GlGenerators`).
+  Text: the title texture cache (TitleRenderer). Fast Noise: fractal value noise with an
+  integer hash. Masks: `GlMasks` on a white layer (the clip-mask maths: analytic rectangle /
+  ellipse, polygon coverage, feathered by the soft edge), united with a mask input by
+  "over". Color Corrector / Channel Booleans: one pointwise pass each. Effect nodes
+  ("fx:<id>") call the Edit page `GlEffect` with the node's parameters (pixel sizes in
+  timeline px, `EffectInput::scale` = comp scale). Units and coordinates: core/NodeRegistry.h.
+* **Viewer API**: `Compositor::renderCompositionNode(snapshot, clipId, nodeId, compFrame,
+  size, quality, outputs)` = a `RenderRequest` with `compositionNode` set: the image of one
+  node (0 = MediaOut) as the usual zero-copy texture (or image), never through the render
+  cache. Cost per call: the MediaIn decodes (decode-ahead when the frame advances) plus the
+  passes of the nodes the shown node depends on; no readback for `OutputTexture`. Snapshot:
+  `Project::renderSnapshot(timelineUid)` (or `Timeline::snapshot()` for the active one).
+* **Cache and change detection**: the render cache key hashes the composition without node
+  positions, names, notes and view state (`compositionToJson(..., true)`) plus the media
+  keys of other MediaIn items; a non-trivial composition marks the chunk like an effect
+  (Smart mode caches it). `samePictures()` compares the whole clip, so playback re-renders
+  after every graph change. Timeline thumbnails show source frames (as with effects).
+* **CPU fallback** (`CpuComposition`): every built-in node with the same geometry and colour
+  formulas (`CompMath`); masks have hard edges (soft edge ignored, as for clip masks);
+  effect nodes: the pointwise ones (`fxmath::applyPointEffect()`), the others pass their
+  input through (one warning per type).
+* **Gaps**: time effects (Echo, Strobe) as nodes show the current frame only (no layer
+  history inside a composition); Merge has no per-pixel "edges" options; nodes always work
+  at comp resolution (no domain of definition yet: a small Text costs a full-frame pass);
+  the clip's Edit page crop is in timeline pixels for a clip with a composition.
+* **Cost** (1080p, `test_comprender performance1080p`, ten nodes: two merges with Background
+  and Text, masked Gaussian Blur, Color Corrector, Transform, Fast Noise screened over):
+  about two full-frame RGBA16F passes per node. llvmpipe (software GL, measured while the
+  machine was heavily loaded, load average about 26): 685 - 825 ms per frame at Full and 190 - 260 ms at
+  Half, against 46 - 61 ms for the same clip without a composition; single nodes cost
+  50 - 100 ms there (blur 200 - 300 ms). On a GPU a 1080p pass costs a fraction of a millisecond,
+  so the ten-node graph fits a 25 fps frame budget. Not measured on hardware here.
+
 ### Retimed clips (speed changes, spec section 29)
 
 The source time of every frame comes from `core/Retime.h` (`clampedSourceTimeUs()`), so
@@ -348,6 +409,9 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 | `Dynamics.*` | compressor (dB-domain attack / release, soft knee, make-up) and peak limiter |
 | `LoudnessMeter.*` | BS.1770-4 / EBU R128 loudness and 4x true peak |
 | `MixLevels.*` | meter readings of a mix call (`MixLevels`) and the time-stamped `MeterFrame` |
+| `GlComposition.*` | Compositing page: GPU evaluation of a node graph (passes, per-evaluation target reference counts) |
+| `CpuComposition.*` | Compositing page: CPU fallback evaluation |
+| `CompMath.*` | Compositing page: node geometry, Background / Text / noise resolution and colour formulas shared by GPU and CPU |
 | `GlRetime.*` | in-between frames of retimed clips: frame blend, optical flow (coarse-to-fine symmetric block matching) |
 | `TimeStretch.*` | WSOLA time stretch (pitch-corrected retimed audio) + `SourceCache` |
 | `RenderFrameCommand.*` | `--render-frame` |

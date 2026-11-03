@@ -158,8 +158,8 @@ std::future<RenderedFramePtr> Compositor::renderAsync(RenderRequest request)
     // Render cache hit: show the cached chunk (one media clip of the chunk file) instead of
     // the timeline. Only for the exact snapshot the view was made for (pointer identity), so
     // an edit (= new snapshot) can never show an outdated picture.
-    if (const RenderCacheView* view = job.request.renderCache.get();
-        view && view->snapshot && view->snapshot == job.request.timeline) {
+    if (const RenderCacheView* view = job.request.renderCache.get(); view && view->snapshot
+        && view->snapshot == job.request.timeline && !job.request.compositionNode) {
         if (const RenderCacheChunk* chunk = view->find(job.request.frame)) {
             job.request.timeline = chunk->timeline;
             job.request.media = chunk->media;
@@ -176,6 +176,20 @@ std::future<RenderedFramePtr> Compositor::renderAsync(RenderRequest request)
     }
     m_impl->wake.notify_one();
     return future;
+}
+
+std::future<RenderedFramePtr> Compositor::renderCompositionNode(
+    std::shared_ptr<const TimelineData> timeline, quint64 clipId, quint64 nodeId, int64_t compFrame,
+    QSize outSize, Quality quality, unsigned outputs)
+{
+    RenderRequest request;
+    request.timeline = std::move(timeline);
+    request.outSize = outSize;
+    request.quality = quality;
+    request.outputs = outputs;
+    request.subtitles = false;
+    request.compositionNode = CompositionNodeView {clipId, nodeId, compFrame};
+    return renderAsync(std::move(request));
 }
 
 RenderedFramePtr Compositor::render(std::shared_ptr<const TimelineData> timeline, int64_t frame,
