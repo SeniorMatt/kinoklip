@@ -22,6 +22,7 @@
 #include "ui/comp/CompSession.h"
 #include "ui/comp/CompTransport.h"
 #include "ui/comp/CompViewer.h"
+#include "ui/comp/CompViewerOverlay.h"
 #include "ui/comp/NodeEditor.h"
 #include "ui/comp/NodeLibrary.h"
 #include "ui/inspector/ParamGroupBox.h"
@@ -34,6 +35,7 @@
 #include <QDir>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMouseEvent>
 #include <QSettings>
 #include <QSplitter>
 #include <QStandardPaths>
@@ -322,6 +324,39 @@ private slots:
         // Header: the enable toggle is pass-through.
         f.page()->inspector()->enableToggle()->click();
         QVERIFY(!f.comp().node(t)->enabled);
+    }
+
+    void viewerHandlesMoveTheCentre()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("MediaIn1"))});
+        f.page()->toolButton(nodetypes::Transform)->click();
+        const quint64 t = f.nodeNamed(QStringLiteral("Transform1"));
+        QCOMPARE(f.session()->currentNode(), t);
+        CompViewerOverlay* overlay = f.page()->viewer(1)->controls();
+        QVERIFY(overlay->hasControls());
+        const auto centre = overlay->handlePos(CompViewerOverlay::Handle::Centre);
+        QVERIFY(centre);
+        QVERIFY(overlay->handlePos(CompViewerOverlay::Handle::Angle));
+        auto send = [overlay](QEvent::Type type, QPointF p, Qt::MouseButton b, Qt::MouseButtons bs) {
+            QMouseEvent e(type, p, overlay->mapToGlobal(p), b, bs, Qt::NoModifier);
+            QApplication::sendEvent(overlay, &e);
+        };
+        const int before = f.steps();
+        send(QEvent::MouseButtonPress, *centre, Qt::LeftButton, Qt::LeftButton);
+        for (int i = 1; i <= 4; ++i)
+            send(QEvent::MouseMove, *centre + QPointF(10 * i, -10 * i), Qt::NoButton, Qt::LeftButton);
+        send(QEvent::MouseButtonRelease, *centre + QPointF(40, -40), Qt::LeftButton, Qt::NoButton);
+        QCOMPARE(f.steps(), before + 1); // the whole drag is one step
+        const CompNode* n = f.comp().node(t);
+        QVERIFY(n->params.value(nodekeys::CenterX, 0, 0.5) > 0.5); // right
+        QVERIFY(n->params.value(nodekeys::CenterY, 0, 0.5) > 0.5); // up (y from bottom to top)
+        // A locked node shows no handles.
+        f.session()->toggleLock();
+        QCOMPARE(overlay->handleAt(*overlay->handlePos(CompViewerOverlay::Handle::Centre)),
+            CompViewerOverlay::Handle::None);
     }
 
     void resetComposition()

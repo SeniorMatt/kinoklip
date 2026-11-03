@@ -604,11 +604,23 @@ void NodeEditor::finishConnect(QPointF pos)
     const Composition& c = m_session->composition();
     // The input of a tile that a link dropped on it should take: the main input when free,
     // else the first free one, else the main input.
-    auto inputForTile = [&c](quint64 nodeId) -> QString {
+    // The input of a tile that a link dropped on it should take: for a mask source the first
+    // free mask input; else the main input when free, else the first free one, else the main.
+    const quint64 sourceId = m_drag == Drag::Reconnect ? m_linkSource : m_pressNode;
+    const CompNode* source = c.node(sourceId);
+    const compadapter::NodeTypeInfo* sourceInfo
+        = source ? compadapter::nodeType(source->type) : nullptr;
+    const bool maskSource = sourceInfo && sourceInfo->outputKind == PortKind::Mask;
+    auto inputForTile = [&c, maskSource](quint64 nodeId) -> QString {
         const CompNode* n = c.node(nodeId);
         const compadapter::NodeTypeInfo* info = n ? compadapter::nodeType(n->type) : nullptr;
         if (!info || info->inputs.isEmpty())
             return {};
+        if (maskSource) {
+            for (const compadapter::PortInfo& p : info->inputs)
+                if (p.kind == PortKind::Mask && !n->inputs.value(p.id).isConnected())
+                    return p.id;
+        }
         const QString main = info->mainInput();
         if (!main.isEmpty() && !n->inputs.value(main).isConnected())
             return main;
