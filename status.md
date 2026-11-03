@@ -140,3 +140,6 @@
 - 05:36 main after polish4: 116/116 pass. Version 0.3.2; notes written; container release build started.
 - 05:50 Released 0.3.2-alpha.1 (polish round 4; container 117/117). Desktop copy. Pausing new agents until owner feedback (4 polish rounds untested by owner); heartbeat stopped.
 - 06:25 Heartbeat (last queued one): idle, waiting for owner feedback on 0.3.2-alpha.1.
+- 08:36 0.3.3 prep: test_hwdecode fixed (VAAPI now usable on host; fallback log key per backend). README: screenshot, plain links, AI disclosure. Keyframes-left (kfleft) built, tests pass. Full suite + container release build started.
+- 08:37 kfleft committed (8772775, Keyframes in left column; test passes). Started agent 'resizesmooth' (owner: window-edge resize snaps/stutters on Plasma Wayland).
+- 09:03 Released 0.3.3-alpha.1 (wider side panels; container 117/117). Desktop copy.
