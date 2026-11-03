@@ -152,7 +152,19 @@ public:
     void resetShortcuts(const QString& id);
     /// Restores the defaults of every action.
     void resetAllShortcuts();
-    /// Id of the action (other than @p exceptId) bound to @p sequence, or empty (conflict check).
+    /// Where the keys of @p id act, for the conflict check: empty = the whole window (the
+    /// default), "page:<id>" = only while that page is shown, "widget:<name>" = only while that
+    /// widget has focus (it claims its keys before the window shortcuts, see NodeEditor).
+    void setShortcutScope(const QString& id, const QString& scope);
+    /// The scope of @p id (empty = window-wide, also for unknown ids).
+    [[nodiscard]] QString shortcutScope(const QString& id) const;
+    /// True if one key bound in scopes @p a and @p b is a real conflict: the same scope, or a
+    /// window-wide key and a page key (both act while the page is shown). A widget scope
+    /// overrides every other scope while it has focus, and two different pages are never shown
+    /// at once, so those never conflict.
+    [[nodiscard]] static bool scopesConflict(const QString& a, const QString& b);
+    /// Id of the action (other than @p exceptId) bound to @p sequence whose scope conflicts
+    /// with the scope of @p exceptId (window-wide when empty), or empty (conflict check).
     [[nodiscard]] QString actionForShortcut(
         const QKeySequence& sequence, const QString& exceptId = {}) const;
 
@@ -175,6 +187,7 @@ private:
         QString id;
         QString category;
         QAction* action = nullptr;
+        QString scope; ///< setShortcutScope() (empty = window-wide)
     };
 
     using KeyMap = QHash<QString, QList<QKeySequence>>;

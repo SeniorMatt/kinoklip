@@ -143,6 +143,10 @@ public:
     /// TimelineLayout::clipRect(), @p viewRight the right edge of the view (the badge sticks to
     /// the visible right end of the clip). Empty if the clip is too narrow to show it.
     [[nodiscard]] static QRectF fxBadgeRect(const QRectF& clipRect, double viewRight);
+    /// Where the node badge of a clip with a composition (Compositing page) is drawn: left of
+    /// the fx badge when the clip also has effects (@p hasFx), else in its place. Empty if the
+    /// clip is too narrow.
+    [[nodiscard]] static QRectF compBadgeRect(const QRectF& clipRect, double viewRight, bool hasFx);
 
     /// Updates fonts and colours (call on palette/font change).
     void setStyle(const QPalette& palette, const QFont& font);

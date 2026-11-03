@@ -36,6 +36,10 @@ general knowledge of node compositors, our own drawing, names and icons; never R
   Edit page Inspector).
 - Left (toggle): the **Nodes library** (every node by category; drag onto the node editor).
 - Interface bar toggles like the other pages (Nodes, Inspector, Keyframes later).
+- Keys: the node editor claims its own keys while it has focus (Delete, Ctrl+C / V / D, F2,
+  Ctrl+P, Ctrl+T, 1 / 2, Shift+Space); Keyboard Customization treats them as a separate scope,
+  so they never conflict with the Edit page's. The Edit page timeline is hidden here, so its
+  editing commands are disabled while the page is shown; transport, undo and the page keys stay.
 
 ## Nodes (first release)
 - **I/O**: MediaIn (the clip, or any media pool item), MediaOut.

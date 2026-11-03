@@ -262,7 +262,9 @@ costs nothing and renders bit-identically.
   ("fx:<id>") call the Edit page `GlEffect` with the node's parameters (pixel sizes in
   timeline px, `EffectInput::scale` = comp scale). Units and coordinates: core/NodeRegistry.h.
 * **Viewer API**: `Compositor::renderCompositionNode(snapshot, clipId, nodeId, compFrame,
-  size, quality, outputs)` = a `RenderRequest` with `compositionNode` set: the image of one
+  size, quality, outputs, media, proxies)` = a `RenderRequest` with `compositionNode` set
+  (MediaIn decodes through `media` / `proxies` like a timeline render; the page's viewers call
+  `PlaybackEngine::renderCompositionNode()`, which passes the engine's own): the image of one
   node (0 = MediaOut) as the usual zero-copy texture (or image), never through the render
   cache. Cost per call: the MediaIn decodes (decode-ahead when the frame advances) plus the
   passes of the nodes the shown node depends on; no readback for `OutputTexture`. Snapshot:

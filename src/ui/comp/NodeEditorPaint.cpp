@@ -146,7 +146,7 @@ void NodeEditor::paintLinks(QPainter& p, const QRectF& visible) const
             if (!QRectF(a, d).normalized().adjusted(-60, -60, 60, 60).intersects(visible))
                 continue;
             QPointF b, cc;
-            linkCurve(a, d, info && isTopPort(*info, it.key()), b, cc);
+            linkCurve(a, d, inputSide(to, it.key()), b, cc);
             QPainterPath path(a);
             path.cubicTo(b, cc, d);
             const bool highlighted = (insert.node == to.id && insert.port == it.key())
@@ -304,7 +304,7 @@ void NodeEditor::paintDragOverlay(QPainter& p) const
     case Drag::ConnectReverse:
     case Drag::Reconnect: {
         QPointF from, to;
-        bool top = false;
+        int side = 0;
         QColor color = sc.text;
         if (m_drag == Drag::Connect) {
             const CompNode* n = c.node(m_pressNode);
@@ -322,7 +322,7 @@ void NodeEditor::paintDragOverlay(QPainter& p) const
                     return;
                 from = m_mousePos;
                 to = inputPos(*target, m_pressPort);
-                top = info && isTopPort(*info, m_pressPort);
+                side = inputSide(*target, m_pressPort);
             } else {
                 const CompNode* source = c.node(m_linkSource);
                 if (!source)
@@ -332,7 +332,7 @@ void NodeEditor::paintDragOverlay(QPainter& p) const
             }
         }
         QPointF b, cc;
-        linkCurve(from, to, top, b, cc);
+        linkCurve(from, to, side, b, cc);
         QPainterPath path(from);
         path.cubicTo(b, cc, to);
         p.setPen(QPen(color, 2.0, Qt::DashLine, Qt::RoundCap));
