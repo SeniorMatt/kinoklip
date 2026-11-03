@@ -53,6 +53,7 @@ EditIndexPanel::EditIndexPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Edit Index"), parent)
     , m_ctx(ctx)
 {
+    setPanelKey(QStringLiteral("edit_index")); // in-app help: panel:edit_index
     setObjectName(QStringLiteral("EditIndexPanel"));
     m_model = new EditIndexModel(ctx.project, this);
     m_filter = new EditIndexFilter(this);

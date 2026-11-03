@@ -120,6 +120,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     , m_ctx(ctx)
     , m_mode(mode)
 {
+    setPanelKey(QStringLiteral("viewer")); // in-app help: panel:viewer
     registry().append(this);
     m_resizeSettle = new QTimer(this);
     m_resizeSettle->setSingleShot(true);

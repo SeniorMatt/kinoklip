@@ -131,6 +131,7 @@ RenderQueuePanel::RenderQueuePanel(RenderQueue* queue, QWidget* parent)
     : PanelFrame(tr("Render Queue"), parent)
     , m_queue(queue)
 {
+    setPanelKey(QStringLiteral("render_queue")); // in-app help: panel:render_queue
     auto* body = new QWidget;
     auto* layout = new QVBoxLayout(body);
     layout->setContentsMargins(6, 6, 6, 6);
