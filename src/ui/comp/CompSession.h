@@ -89,6 +89,17 @@ public:
     /// inserted into the link ending in input @p linkPort of @p linkTo. Selects it.
     quint64 addNodeAt(
         const QString& type, QPointF position, quint64 linkTo = 0, const QString& linkPort = {});
+    /// Adds one unconnected MediaIn node per media pool item of @p mediaIds (those that
+    /// canReadIntoMediaIn()), the first at @p position (grid units), the others below it: the
+    /// items dropped on the node editor (spec 42b.30). One undo step; selects them, the last
+    /// one current. Returns the new node ids.
+    QVector<quint64> addMediaIns(const QStringList& mediaIds, QPointF position);
+    /// Makes MediaIn node @p id read media pool item @p mediaId (empty: the clip's own
+    /// picture). One undo step; false for other nodes, locked nodes or no change.
+    bool setMediaInSource(quint64 id, const QString& mediaId);
+    /// True if media pool item @p mediaId can be read by a MediaIn node: a media file with a
+    /// picture (video or still), not a timeline, subtitle or audio-only item.
+    [[nodiscard]] bool canReadIntoMediaIn(const QString& mediaId) const;
     /// Adds a note at @p position (grid units). Returns its id.
     quint64 addNote(QPointF position, const QString& text = {});
     /// Changes the text of note @p id.

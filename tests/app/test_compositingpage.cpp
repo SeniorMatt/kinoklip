@@ -10,6 +10,7 @@
 #include "app/pages/CompositingPage.h"
 #include "core/CompOps.h"
 #include "core/EditOps.h"
+#include "core/MediaPool.h"
 #include "core/NodeRegistry.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -19,6 +20,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
+#include "ui/common/DragMime.h"
 #include "ui/common/StandardActions.h"
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompInspector.h"
@@ -29,6 +31,7 @@
 #include "ui/comp/NodeEditor.h"
 #include "ui/comp/NodeLibrary.h"
 #include "ui/inspector/ParamGroupBox.h"
+#include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/inspector/ParamRows.h"
 #include "ui/inspector/ValueField.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -36,6 +39,8 @@
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QMimeData>
 #include <QDir>
 #include <QLabel>
 #include <QLineEdit>
@@ -397,6 +402,74 @@ private slots:
         QVERIFY(f.page()->viewer(1)->controls()->hasControls());
         f.session()->setViewerNode(0, f.nodeNamed(QStringLiteral("Transform1")));
         QVERIFY(f.page()->viewer(0)->controls()->hasControls());
+    }
+
+    // Spec 42b.30: a media pool item dragged onto the node editor becomes an unconnected
+    // MediaIn reading it (one undo step); the MediaIn Inspector's Source picks or replaces
+    // the item. Items without a picture are refused. The page has a Media Pool panel.
+    void mediaPoolItemDropsAsMediaIn()
+    {
+        Fixture f;
+        MediaItem logo;
+        logo.name = QStringLiteral("logo.png");
+        logo.path = QStringLiteral("/nonexistent/logo.png");
+        logo.info.valid = true;
+        logo.info.hasVideo = true;
+        logo.info.width = 400;
+        logo.info.height = 200;
+        const QString logoId = f.project.mediaPool()->addItem(logo);
+        MediaItem music;
+        music.name = QStringLiteral("music.wav");
+        music.path = QStringLiteral("/nonexistent/music.wav");
+        music.info.valid = true;
+        music.info.hasAudio = true;
+        const QString musicId = f.project.mediaPool()->addItem(music);
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        QVERIFY(f.page()->hasPanel(PanelId::MediaPool));
+        QVERIFY(!f.page()->isPanelVisible(PanelId::MediaPool));
+        f.page()->setPanelVisible(PanelId::MediaPool, true);
+        QVERIFY(f.page()->mediaPool()->isVisible());
+
+        auto drop = [&](const QString& ids) {
+            QMimeData data;
+            data.setData(QLatin1String(mime::MediaItems), ids.toUtf8());
+            const QPointF at = f.editor()->rect().center();
+            QDragEnterEvent enter(at.toPoint(), Qt::CopyAction, &data, Qt::LeftButton, {});
+            QApplication::sendEvent(f.editor(), &enter);
+            if (!enter.isAccepted())
+                return false;
+            QDropEvent dropEvent(at, Qt::CopyAction, &data, Qt::LeftButton, {});
+            QApplication::sendEvent(f.editor(), &dropEvent);
+            return dropEvent.isAccepted();
+        };
+        const int nodes = int(f.comp().nodes.size());
+        QVERIFY(!drop(musicId)); // no picture: refused
+        QCOMPARE(int(f.comp().nodes.size()), nodes);
+        const int before = f.steps();
+        QVERIFY(drop(logoId));
+        QCOMPARE(f.steps(), before + 1);
+        QCOMPARE(int(f.comp().nodes.size()), nodes + 1);
+        const CompNode* in = f.comp().node(f.session()->currentNode());
+        QVERIFY(in);
+        QCOMPARE(in->type, nodetypes::MediaIn);
+        QCOMPARE(in->mediaId, logoId);
+        QVERIFY(in->inputs.isEmpty());
+
+        // The Inspector shows and changes the source.
+        QComboBox* source = f.page()->inspector()->sourcePicker();
+        QVERIFY(source);
+        QCOMPARE(source->currentData().toString(), logoId);
+        QCOMPARE(source->findData(musicId), -1);
+        const quint64 id = in->id;
+        const int index = source->findData(QString());
+        QVERIFY(index >= 0);
+        source->setCurrentIndex(index);
+        emit source->activated(index);
+        QCOMPARE(f.comp().node(id)->mediaId, QString());
+        QCOMPARE(f.steps(), before + 2);
+        f.project.undo();
+        QCOMPARE(f.comp().node(id)->mediaId, logoId);
     }
 
     void inspectorNoteForNodesWithoutParameters()
