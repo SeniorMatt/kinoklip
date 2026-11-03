@@ -34,6 +34,9 @@ struct ClipLocation
 [[nodiscard]] ClipData* clipById(TimelineData& data, quint64 clipId);
 /// Pointer to the clip with id @p clipId, or nullptr (const overload).
 [[nodiscard]] const ClipData* clipById(const TimelineData& data, quint64 clipId);
+/// Replaces the Compositing page composition of clip @p clipId (std::nullopt removes it).
+/// False if the clip does not exist or is on a locked track.
+bool setClipComposition(TimelineData& data, quint64 clipId, std::optional<Composition> composition);
 
 /// Predicate selecting the tracks an operation applies to.
 using TrackFilter = std::function<bool(TrackRef ref, const TrackData& track)>;
