@@ -179,7 +179,8 @@ bool ProjectController::openLastProject()
 
 ProjectLibrary* ProjectController::projectLibrary()
 {
-    const QString root = QDir::cleanPath(prefs::projectLibraryDirectory());
+    const QString root
+        = QDir::cleanPath(QFileInfo(prefs::projectLibraryDirectory()).absoluteFilePath());
     if (m_library && m_library->root() != root) {
         // Preferences moved the library: a new library (and window) for the new folder.
         delete m_manager.data();
