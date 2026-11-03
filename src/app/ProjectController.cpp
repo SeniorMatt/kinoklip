@@ -14,6 +14,7 @@
 #include "projects/ProjectLock.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/FolderImport.h"
 #include "ui/common/MediaImport.h"
 #include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectManagerWindow.h"
@@ -76,6 +77,8 @@ ProjectController::ProjectController(AppContext& ctx, QWidget* window)
         &ProjectController::saveAs);
     connect(actions.action(QStringLiteral("file.import_media")), &QAction::triggered, this,
         &ProjectController::importMedia);
+    connect(actions.action(QStringLiteral("file.import_media_folder")), &QAction::triggered, this,
+        &ProjectController::importMediaFolder);
     connect(actions.action(QStringLiteral("file.import_subtitle")), &QAction::triggered, this,
         &ProjectController::importSubtitle);
     connect(actions.action(QStringLiteral("file.pack_project")), &QAction::triggered, this,
@@ -226,6 +229,11 @@ void ProjectController::importMedia()
     if (paths.isEmpty())
         return;
     importMediaWithFeedback(m_ctx, paths, m_window);
+}
+
+void ProjectController::importMediaFolder()
+{
+    importMediaFolderWithDialogs(m_ctx, m_window, {});
 }
 
 void ProjectController::importSubtitle()

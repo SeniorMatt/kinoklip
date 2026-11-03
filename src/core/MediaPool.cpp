@@ -144,6 +144,38 @@ QStringList MediaPool::itemIdsInBin(const QString& binId) const
     return ids;
 }
 
+PreparedMedia MediaPool::prepareFile(const QString& absolutePath)
+{
+    PreparedMedia prepared;
+    MediaItem& item = prepared.item;
+    if (subtitles::isSubtitleFile(absolutePath)) {
+        // Subtitle files are parsed, not probed: the captions are stored in the item.
+        if (!subtitles::readFile(absolutePath, &item.cues, &prepared.error))
+            return prepared;
+        item.kind = MediaItemKind::Subtitle;
+        item.path = absolutePath;
+        item.info = subtitleInfo(absolutePath, item.cues);
+        prepared.ok = true;
+        return prepared;
+    }
+    media::MediaInfo info = media::probe(absolutePath);
+    if (!info.valid) {
+        prepared.error = info.error.isEmpty() ? tr("unsupported file") : info.error;
+        qCWarning(lcCore) << "import skipped" << absolutePath << prepared.error;
+        return prepared;
+    }
+    item.path = absolutePath;
+    item.info = std::move(info);
+    item.fileModifiedMs = fileModifiedMs(absolutePath);
+    prepared.ok = true;
+    return prepared;
+}
+
+qint64 MediaPool::modifiedMsOf(const QString& path)
+{
+    return fileModifiedMs(path);
+}
+
 ImportResult MediaPool::importFiles(const QStringList& paths, const QString& binId)
 {
     ImportResult result;
@@ -156,34 +188,13 @@ ImportResult MediaPool::importFiles(const QStringList& paths, const QString& bin
             result.warnings.append(tr("%1: already in the media pool").arg(absolute));
             continue;
         }
-        if (subtitles::isSubtitleFile(absolute)) {
-            // Subtitle files are parsed, not probed: the captions are stored in the item.
-            MediaItem item;
-            QString error;
-            if (!subtitles::readFile(absolute, &item.cues, &error)) {
-                result.warnings.append(tr("%1: %2").arg(absolute, error));
-                continue;
-            }
-            item.kind = MediaItemKind::Subtitle;
-            item.path = absolute;
-            item.binId = targetBin;
-            item.info = subtitleInfo(absolute, item.cues);
-            result.importedIds.append(addItem(std::move(item)));
+        PreparedMedia prepared = prepareFile(absolute);
+        if (!prepared.ok) {
+            result.warnings.append(tr("%1: %2").arg(absolute, prepared.error));
             continue;
         }
-        media::MediaInfo info = media::probe(absolute);
-        if (!info.valid) {
-            const QString reason = info.error.isEmpty() ? tr("unsupported file") : info.error;
-            result.warnings.append(tr("%1: %2").arg(absolute, reason));
-            qCWarning(lcCore) << "import skipped" << absolute << reason;
-            continue;
-        }
-        MediaItem item;
-        item.path = absolute;
-        item.binId = targetBin;
-        item.info = std::move(info);
-        item.fileModifiedMs = fileModifiedMs(absolute);
-        result.importedIds.append(addItem(std::move(item)));
+        prepared.item.binId = targetBin;
+        result.importedIds.append(addItem(std::move(prepared.item)));
     }
     return result;
 }

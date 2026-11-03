@@ -14,6 +14,7 @@
         "file.compact_project": [],
         "file.verify_project": [],
         "file.import_media": ["Ctrl+I"],
+        "file.import_media_folder": [],
         "file.import_subtitle": [],
         "file.export_edl": [],
         "file.export_markers_edl": [],

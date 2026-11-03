@@ -27,6 +27,7 @@
 #include "render/Compositor.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/FolderImport.h"
 #include "ui/common/MediaImport.h"
 #include "ui/common/ProgressTask.h"
 #include "ui/common/Resources.h"
@@ -50,6 +51,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QUndoStack>
 
 #include <functional>
 #include <memory>
@@ -257,6 +259,7 @@ private slots:
     {
         platform::setFileDialogHandlerForTests({});
         setProgressDialogHookForTests({});
+        setFolderImportOptionsHandlerForTests({});
         closeNotices();
         m_dir.reset();
     }
@@ -394,6 +397,43 @@ private slots:
         QVERIFY(isLinkedFile(app.project.mediaPool()->item(linked.importedIds.front())->path));
         QCOMPARE(storeItemsInProject(app.ctx, linked.importedIds, app.window.get()), 1);
         QVERIFY(isStoredInProject(app.project.mediaPool()->item(linked.importedIds.front())->path));
+    }
+
+    void importMediaFolderStoresTheFiles()
+    {
+        // File > Import Media Folder in a single-file project: the folder's files are copied
+        // into the project file through the same store as Import Media, bins and all.
+        App app;
+        const QString file = newSingleFile(app, QStringLiteral("Folders"));
+        copyMedia(QStringLiteral("Shoot/a.mp4"));
+        copyMedia(QStringLiteral("Shoot/Day1/b.jpg"), "still.jpg");
+        answerFileDialogs({path(QStringLiteral("Shoot"))});
+        setFolderImportOptionsHandlerForTests([](FolderImportOptions*) { return true; });
+        const int steps = app.project.undoStack()->count();
+        QVERIFY(app.action("file.import_media_folder"));
+        app.trigger("file.import_media_folder");
+        QCOMPARE(app.project.undoStack()->count(), steps + 1);
+        QCOMPARE(app.project.undoStack()->undoText(), QStringLiteral("Import Media Folder"));
+        const MediaPool* pool = app.project.mediaPool();
+        QCOMPARE(int(pool->bins().size()), 2); // Shoot, Shoot/Day1
+        int stored = 0;
+        for (const MediaItem& m : pool->state().items) {
+            if (m.isTimeline())
+                continue;
+            QVERIFY2(m.path.startsWith(file + QLatin1Char('/')), qPrintable(m.path));
+            QVERIFY(!m.binId.isEmpty());
+            QVERIFY(media::mediaExists(m.path));
+            ++stored;
+        }
+        QCOMPARE(stored, 2);
+        QCOMPARE(int(app.controller()->package()->media().size()), 2);
+        // Again: the stored content is recognised, nothing is added.
+        answerNextMessageBox(QStringLiteral("OK")); // the summary: 2 already in the pool
+        app.trigger("file.import_media_folder");
+        setFolderImportOptionsHandlerForTests({});
+        closeNotices();
+        QCOMPARE(app.project.undoStack()->count(), steps + 1);
+        QCOMPARE(int(app.controller()->package()->media().size()), 2);
     }
 
     void mediaPoolShowsWhereEachClipIs()
