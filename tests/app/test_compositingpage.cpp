@@ -340,14 +340,16 @@ private slots:
         const auto centre = overlay->handlePos(CompViewerOverlay::Handle::Centre);
         QVERIFY(centre);
         QVERIFY(overlay->handlePos(CompViewerOverlay::Handle::Angle));
-        auto send = [overlay](QEvent::Type type, QPointF p, Qt::MouseButton b, Qt::MouseButtons bs) {
-            QMouseEvent e(type, p, overlay->mapToGlobal(p), b, bs, Qt::NoModifier);
-            QApplication::sendEvent(overlay, &e);
-        };
+        auto send
+            = [overlay](QEvent::Type type, QPointF p, Qt::MouseButton b, Qt::MouseButtons bs) {
+                  QMouseEvent e(type, p, overlay->mapToGlobal(p), b, bs, Qt::NoModifier);
+                  QApplication::sendEvent(overlay, &e);
+              };
         const int before = f.steps();
         send(QEvent::MouseButtonPress, *centre, Qt::LeftButton, Qt::LeftButton);
         for (int i = 1; i <= 4; ++i)
-            send(QEvent::MouseMove, *centre + QPointF(10 * i, -10 * i), Qt::NoButton, Qt::LeftButton);
+            send(QEvent::MouseMove, *centre + QPointF(10 * i, -10 * i), Qt::NoButton,
+                Qt::LeftButton);
         send(QEvent::MouseButtonRelease, *centre + QPointF(40, -40), Qt::LeftButton, Qt::NoButton);
         QCOMPARE(f.steps(), before + 1); // the whole drag is one step
         const CompNode* n = f.comp().node(t);
@@ -437,6 +439,39 @@ private slots:
         QDir().mkpath(dir);
         QTest::qWait(200);
         QVERIFY(f.window->grab().save(QDir(dir).filePath(QStringLiteral("compositing-page.png"))));
+
+        // The same graph over real media as a project file, for the application's own
+        // screenshot with rendered viewers (--screenshot compositing <png> <project>).
+        Project demo;
+        const QString media = QStringLiteral(KK_TEST_DATA_DIR "/generated/h264_25fps.mp4");
+        const QString id = demo.importMedia({media}).importedIds.value(0);
+        if (id.isEmpty())
+            QSKIP("test media missing");
+        ClipData clip;
+        clip.kind = ClipKind::Media;
+        clip.mediaId = id;
+        clip.name = QStringLiteral("h264_25fps");
+        clip.duration = 100;
+        demo.beginEdit(QStringLiteral("Place"));
+        const quint64 clipId = editops::overwriteClip(
+            demo.timeline()->mutableData(), TrackRef {TrackType::Video, 0}, clip);
+        demo.endEdit();
+        Composition c = f.comp();
+        // A half-transparent blue background with the text "Kinoklip" as the mask.
+        for (CompNode& n : c.nodes) {
+            if (n.type == nodetypes::Background)
+                n.params.setStatic(nodekeys::Color, QColor(40, 90, 200));
+            if (n.type == nodetypes::Text) {
+                n.params.setStatic(nodekeys::Text, QStringLiteral("Kinoklip"));
+                n.params.setBase(nodekeys::FontSize, 260);
+            }
+            if (n.type == nodetypes::MediaIn)
+                c.leftViewerNode = n.id;
+        }
+        QVERIFY(demo.setClipComposition(
+            demo.activeTimelineUid(), clipId, c, QStringLiteral("Composition")));
+        demo.timeline()->setPlayhead(30);
+        QVERIFY(demo.save(QDir(dir).filePath(QStringLiteral("compositing-demo.kkproj"))));
     }
 };
 
