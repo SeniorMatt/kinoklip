@@ -33,9 +33,5 @@ This project was built with AI: the code, tests and documentation were written b
 and tested by the project owner. The only exception is the icon, which was drawn by hand.
 **We aren't appreciating AI art here.**
 
-## Wanted: an icon artist
-We are looking for someone who would like to make an icon for Kinoklip. If you are interested,
-get in touch through the Ko-fi page below.
-
 ## Support
 If you want to support the project: [ko-fi.com/seniormatthew](https://ko-fi.com/seniormatthew), it will be much appreciated.

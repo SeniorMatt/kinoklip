@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Regenerates the application icon PNGs from a PNG export of resources/icons/app/kinoklip.aseprite.
+"""Regenerates the application icon PNGs from a PNG of resources/icons/app/kinoklip.aseprite.
 
-The icon is pixel art on a 64 x 64 grid (128 x 128 canvas, 2 px per art pixel). Export it from
-Aseprite at any integer scale (File > Export As..., or `aseprite -b kinoklip.aseprite --scale 10
---save-as out.png`) and run:
+The icon is pixel art that fits a 64 x 64 grid (a 32 px sprite doubled works too). Render it
+without Aseprite and run this script on the result:
 
-    scripts/make_app_icons.py out.png
+    scripts/aseprite_to_png.py resources/icons/app/kinoklip.aseprite icon.png --scale 2
+    scripts/make_app_icons.py icon.png
 
-Sizes that are multiples of 64 are scaled with nearest neighbour (crisp pixels); the small sizes
-(16, 24, 32, 48) are box-filtered, as a desktop shows them. Needs Pillow.
+(an Aseprite export at any integer scale works as well). Sizes that are multiples of 64 are
+scaled with nearest neighbour (crisp pixels); the small sizes (16, 24, 32, 48) are
+box-filtered, as a desktop shows them. Needs Pillow.
 """
 import sys
 from pathlib import Path
