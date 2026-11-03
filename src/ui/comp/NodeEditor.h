@@ -5,8 +5,11 @@
 
 #include "ui/comp/CompAdapter.h"
 
-#include <QPointer>
+#include <QFont>
+#include <QFontMetricsF>
+#include <QLine>
 #include <QPointF>
+#include <QPointer>
 #include <QRectF>
 #include <QWidget>
 
@@ -211,6 +214,10 @@ private:
     QPlainTextEdit* m_noteEdit = nullptr;
     quint64 m_editNote = 0;
     double m_lastPaintMs = 0.0;
+    // Paint scratch (reused between paints: no allocation in steady state).
+    mutable QVector<QLine> m_gridLines;
+    mutable QFont m_tileFont;
+    mutable const QFontMetricsF* m_tileMetrics = nullptr; ///< valid during paintEvent() only
 };
 
 } // namespace kk

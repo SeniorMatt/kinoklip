@@ -123,8 +123,8 @@ void CompTimeRuler::paintEvent(QPaintEvent*)
         if (f < 0 || f >= count)
             continue;
         const QPointF c(xForFrame(f), height() - 6);
-        p.drawPolygon(QPolygonF({c + QPointF(0, -4), c + QPointF(4, 0), c + QPointF(0, 4),
-            c + QPointF(-4, 0)}));
+        p.drawPolygon(QPolygonF(
+            {c + QPointF(0, -4), c + QPointF(4, 0), c + QPointF(0, 4), c + QPointF(-4, 0)}));
     }
     // Playhead.
     const double x = xForFrame(m_session->compFrame());
@@ -153,8 +153,8 @@ CompTransport::CompTransport(AppContext& ctx, CompSession* session, QWidget* par
 {
     setObjectName(QStringLiteral("CompTransport"));
     auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(metrics::kSpaceM, metrics::kSpaceXs, metrics::kSpaceM,
-        metrics::kSpaceXs);
+    layout->setContentsMargins(
+        metrics::kSpaceM, metrics::kSpaceXs, metrics::kSpaceM, metrics::kSpaceXs);
     layout->setSpacing(metrics::kSpaceS);
     auto button = [this, layout](const char* iconName, const QString& tip) {
         auto* b = new QToolButton(this);
@@ -174,16 +174,18 @@ CompTransport::CompTransport(AppContext& ctx, CompSession* session, QWidget* par
     layout->addWidget(m_ruler, 1);
     m_position = new QLabel(this);
     m_position->setObjectName(QStringLiteral("CompPosition"));
-    m_position->setMinimumWidth(fontMetrics().horizontalAdvance(QStringLiteral("Frame 00000 / 00:00:00:00")));
+    m_position->setMinimumWidth(
+        fontMetrics().horizontalAdvance(QStringLiteral("Frame 00000 / 00:00:00:00")));
     layout->addWidget(m_position);
 
     connect(m_play, &QToolButton::clicked, this, &CompTransport::play);
     connect(m_stop, &QToolButton::clicked, this, &CompTransport::stop);
-    connect(ctx.project->timeline(), &Timeline::playheadChanged, this, &CompTransport::updatePosition);
+    connect(
+        ctx.project->timeline(), &Timeline::playheadChanged, this, &CompTransport::updatePosition);
     connect(session, &CompSession::clipChanged, this, &CompTransport::updatePosition);
     if (ctx.playback) {
-        connect(ctx.playback, &PlaybackEngine::positionChanged, this,
-            &CompTransport::onEnginePosition);
+        connect(
+            ctx.playback, &PlaybackEngine::positionChanged, this, &CompTransport::onEnginePosition);
         connect(ctx.playback, &PlaybackEngine::rateChanged, this, [this](double rate) {
             if (rate == 0.0)
                 m_playing = false;
@@ -207,8 +209,8 @@ void CompTransport::updatePosition()
     }
     const Timeline* tl = m_ctx.project->timeline();
     m_position->setText(tr("Frame %1 / %2")
-            .arg(m_session->compFrame())
-            .arg(timecode::format(tl->playhead(), tl->data().fps)));
+                            .arg(m_session->compFrame())
+                            .arg(timecode::format(tl->playhead(), tl->data().fps)));
 }
 
 void CompTransport::play()

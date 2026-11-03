@@ -32,26 +32,6 @@ QTransform rotation(double angleDeg)
     return t;
 }
 
-QVector<QPointF> parsePoints(const QString& text)
-{
-    QVector<QPointF> out;
-    for (const QString& pair : text.split(QLatin1Char(' '), Qt::SkipEmptyParts)) {
-        const QStringList xy = pair.split(QLatin1Char(','));
-        if (xy.size() == 2)
-            out.append(QPointF(xy[0].toDouble(), xy[1].toDouble()));
-    }
-    return out;
-}
-
-QString formatPoints(const QVector<QPointF>& points)
-{
-    QStringList parts;
-    for (const QPointF& p : points)
-        parts.append(QString::number(p.x(), 'g', 6) + QLatin1Char(',')
-            + QString::number(p.y(), 'g', 6));
-    return parts.join(QLatin1Char(' '));
-}
-
 double length(QPointF p)
 {
     return std::hypot(p.x(), p.y());
@@ -102,8 +82,10 @@ std::optional<CompViewerOverlay::State> CompViewerOverlay::state() const
     s.width = value(s.keys.width, 0.5);
     s.height = value(s.keys.height, 0.5);
     s.angleDeg = value(s.keys.angle, 0.0);
-    if (!s.keys.points.isEmpty())
-        s.points = parsePoints(n->params.staticValue(s.keys.points).toString());
+    if (s.keys.kind == compadapter::ViewerControl::Polygon) {
+        for (const MaskPoint& pt : n->path.at(double(f)))
+            s.points.append(QPointF(pt.x, pt.y));
+    }
     s.locked = n->locked;
     return s;
 }
@@ -120,10 +102,11 @@ void CompViewerOverlay::refresh()
     update();
 }
 
+// Node centres are normalised with y from bottom to top (NodeRegistry); widgets are y down.
 QPointF CompViewerOverlay::toWidget(QPointF n) const
 {
     const QRectF p = m_surface->pictureRect();
-    return p.topLeft() + QPointF(n.x() * p.width(), n.y() * p.height());
+    return QPointF(p.left() + n.x() * p.width(), p.top() + (1.0 - n.y()) * p.height());
 }
 
 QPointF CompViewerOverlay::toNormalised(QPointF w) const
@@ -131,7 +114,18 @@ QPointF CompViewerOverlay::toNormalised(QPointF w) const
     const QRectF p = m_surface->pictureRect();
     if (p.isEmpty())
         return {};
-    return QPointF((w.x() - p.left()) / p.width(), (w.y() - p.top()) / p.height());
+    return QPointF((w.x() - p.left()) / p.width(), 1.0 - (w.y() - p.top()) / p.height());
+}
+
+double CompViewerOverlay::pixelScale() const
+{
+    const QSize frame = m_session ? m_session->frameSize() : QSize();
+    return frame.width() > 0 ? m_surface->pictureRect().width() / double(frame.width()) : 1.0;
+}
+
+QPointF CompViewerOverlay::pointToWidget(const State& s, QPointF p) const
+{
+    return toWidget(s.centre) + rotation(s.angleDeg).map(p * (s.size * pixelScale()));
 }
 
 QSizeF CompViewerOverlay::halfExtents(const State& s) const
@@ -150,7 +144,7 @@ std::optional<QPointF> CompViewerOverlay::handlePos(Handle handle, int pointInde
     if (s->keys.kind == compadapter::ViewerControl::Polygon) {
         if (handle != Handle::Point || pointIndex < 0 || pointIndex >= s->points.size())
             return std::nullopt;
-        return toWidget(s->points[pointIndex]);
+        return pointToWidget(*s, s->points[pointIndex]);
     }
     const QPointF c = toWidget(s->centre);
     const QSizeF h = halfExtents(*s);
@@ -182,7 +176,7 @@ CompViewerOverlay::Handle CompViewerOverlay::handleAt(QPointF pos, int* pointInd
         return Handle::None;
     if (s->keys.kind == compadapter::ViewerControl::Polygon) {
         for (int i = 0; i < s->points.size(); ++i) {
-            if (length(toWidget(s->points[i]) - pos) <= kHandleHitPx) {
+            if (length(pointToWidget(*s, s->points[i]) - pos) <= kHandleHitPx) {
                 if (pointIndex)
                     *pointIndex = i;
                 return Handle::Point;
@@ -231,7 +225,7 @@ void CompViewerOverlay::paintEvent(QPaintEvent*)
     if (s->keys.kind == compadapter::ViewerControl::Polygon) {
         QPainterPath path;
         for (int i = 0; i < s->points.size(); ++i) {
-            const QPointF w = toWidget(s->points[i]);
+            const QPointF w = pointToWidget(*s, s->points[i]);
             if (i == 0)
                 path.moveTo(w);
             else
@@ -241,7 +235,7 @@ void CompViewerOverlay::paintEvent(QPaintEvent*)
             path.closeSubpath();
         stroke(path);
         for (const QPointF& pt : s->points)
-            handle(toWidget(pt));
+            handle(pointToWidget(*s, pt));
         return;
     }
     const QPointF c = toWidget(s->centre);
@@ -282,8 +276,8 @@ void CompViewerOverlay::paintEvent(QPaintEvent*)
 void CompViewerOverlay::mousePressEvent(QMouseEvent* event)
 {
     int point = -1;
-    const Handle h = event->button() == Qt::LeftButton ? handleAt(event->position(), &point)
-                                                       : Handle::None;
+    const Handle h
+        = event->button() == Qt::LeftButton ? handleAt(event->position(), &point) : Handle::None;
     if (h == Handle::None || !m_session) {
         event->ignore();
         return;
@@ -315,12 +309,12 @@ void CompViewerOverlay::applyDrag(QPointF pos)
         return;
     const QPointF c = toWidget(s0.centre);
     QMap<QString, double> scalars;
-    QString pointsText;
+    std::optional<std::pair<int, QPointF>> movedPoint; ///< polygon point index, new position
     switch (m_drag) {
     case Handle::Centre: {
         const QPointF d = pos - m_pressPos;
         scalars.insert(s0.keys.centerX, s0.centre.x() + d.x() / pic.width());
-        scalars.insert(s0.keys.centerY, s0.centre.y() + d.y() / pic.height());
+        scalars.insert(s0.keys.centerY, s0.centre.y() - d.y() / pic.height()); // y up
         break;
     }
     case Handle::Size:
@@ -347,10 +341,10 @@ void CompViewerOverlay::applyDrag(QPointF pos)
         break;
     }
     case Handle::Point: {
-        QVector<QPointF> pts = s0.points;
-        if (m_dragPoint >= 0 && m_dragPoint < pts.size())
-            pts[m_dragPoint] = toNormalised(pos);
-        pointsText = formatPoints(pts);
+        const double k = s0.size * pixelScale();
+        if (m_dragPoint >= 0 && m_dragPoint < s0.points.size() && k > 0)
+            movedPoint
+                = std::make_pair(m_dragPoint, rotation(s0.angleDeg).inverted().map(pos - c) / k);
         break;
     }
     case Handle::None:
@@ -358,7 +352,6 @@ void CompViewerOverlay::applyDrag(QPointF pos)
     }
     const quint64 id = m_session->currentNode();
     const int64_t frame = m_session->compFrame();
-    const QString pointsKey = s0.keys.points;
     m_session->modifyLive([&](Composition& comp) {
         CompNode* n = comp.node(id);
         if (!n)
@@ -367,8 +360,14 @@ void CompViewerOverlay::applyDrag(QPointF pos)
             if (!it.key().isEmpty())
                 n->params.animated(it.key(), it.value()).setValue(frame, it.value());
         }
-        if (!pointsKey.isEmpty() && !pointsText.isNull())
-            n->params.setStatic(pointsKey, pointsText);
+        if (movedPoint) {
+            MaskPath path = n->path.at(double(frame));
+            if (movedPoint->first < path.size()) {
+                path[movedPoint->first].x = movedPoint->second.x();
+                path[movedPoint->first].y = movedPoint->second.y();
+                n->path.setShape(frame, path);
+            }
+        }
     });
 }
 

@@ -180,7 +180,8 @@ void CompositingPage::connectActions()
     // Clip > Reset Composition (Edit page timeline menu too): the selected clips.
     if (QAction* reset = registryAction(m_ctx, QStringLiteral("clip.reset_composition"))) {
         connect(reset, &QAction::triggered, this, [this] {
-            QVector<quint64> clips = m_ctx.selection ? m_ctx.selection->clips() : QVector<quint64> {};
+            QVector<quint64> clips
+                = m_ctx.selection ? m_ctx.selection->clips() : QVector<quint64> {};
             if (isVisible() && m_session->clipId())
                 clips = {m_session->clipId()};
             compadapter::resetCompositions(*m_ctx.project, clips);
@@ -193,8 +194,9 @@ void CompositingPage::showSelectNode()
     if (!m_session->clipId())
         return;
     const QPoint local = m_editor->mapFromGlobal(QCursor::pos());
-    const QPoint at = m_editor->rect().contains(local) ? QCursor::pos()
-                                                       : m_editor->mapToGlobal(m_editor->rect().center());
+    const QPoint at = m_editor->rect().contains(local)
+        ? QCursor::pos()
+        : m_editor->mapToGlobal(m_editor->rect().center());
     m_selectNode->popup(at);
 }
 

@@ -42,8 +42,8 @@ CompInspector::CompInspector(AppContext& ctx, CompSession* session, QWidget* par
     m_header = new QWidget;
     m_header->setObjectName(QStringLiteral("CompInspectorHeader"));
     auto* header = new QHBoxLayout(m_header);
-    header->setContentsMargins(metrics::kSpaceM, metrics::kSpaceS, metrics::kSpaceM,
-        metrics::kSpaceS);
+    header->setContentsMargins(
+        metrics::kSpaceM, metrics::kSpaceS, metrics::kSpaceM, metrics::kSpaceS);
     m_enable = new QCheckBox;
     m_enable->setObjectName(QStringLiteral("CompNodeEnable"));
     m_enable->setToolTip(tr("Enabled (off: pass-through, the main input goes straight through)"));
@@ -153,9 +153,9 @@ void CompInspector::rebuild()
             m_scroll->setWidget(holder);
         }
     }
-    m_header->setVisible(n);
-    m_scroll->setVisible(n);
-    m_empty->setVisible(!n);
+    m_header->setVisible(n != nullptr);
+    m_scroll->setVisible(n != nullptr);
+    m_empty->setVisible(n == nullptr);
     if (n) {
         m_name->setText(n->name);
         const QSignalBlocker block(m_enable);

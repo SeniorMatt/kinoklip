@@ -38,7 +38,8 @@ CompViewer::CompViewer(int index, AppContext& ctx, CompSession* session, QWidget
     , m_session(session)
     , m_index(index)
 {
-    setObjectName(index == 0 ? QStringLiteral("CompViewerLeft") : QStringLiteral("CompViewerRight"));
+    setObjectName(
+        index == 0 ? QStringLiteral("CompViewerLeft") : QStringLiteral("CompViewerRight"));
     setTitleCentered(true);
     setAcceptDrops(true);
 
@@ -132,7 +133,8 @@ void CompViewer::refresh()
         return;
     }
     if (!node()) {
-        m_surface->clear(m_index == 0 ? tr("Select a node and press 1") : tr("Select a node and press 2"));
+        m_surface->clear(
+            m_index == 0 ? tr("Select a node and press 1") : tr("Select a node and press 2"));
         return;
     }
     // TODO(comp): the node's own image (core render API) once merged; until then the program

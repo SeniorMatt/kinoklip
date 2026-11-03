@@ -14,6 +14,8 @@
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace kk {
 
 namespace {
@@ -111,8 +113,8 @@ SelectNodePopup::SelectNodePopup(CompSession* session, QWidget* parent)
     setObjectName(QStringLiteral("SelectNodePopup"));
     setFrameShape(QFrame::StyledPanel);
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(metrics::kSpaceS, metrics::kSpaceS, metrics::kSpaceS,
-        metrics::kSpaceS);
+    layout->setContentsMargins(
+        metrics::kSpaceS, metrics::kSpaceS, metrics::kSpaceS, metrics::kSpaceS);
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("SelectNodeSearch"));
     m_search->setPlaceholderText(tr("Select Node"));
@@ -150,8 +152,7 @@ void SelectNodePopup::fill(const QString& text)
     for (const QString& type : matches(text)) {
         const compadapter::NodeTypeInfo* info = compadapter::nodeType(type);
         auto* item = new QListWidgetItem(
-            info->category.isEmpty() ? info->name
-                                     : tr("%1   (%2)").arg(info->name, info->category),
+            info->category.isEmpty() ? info->name : tr("%1   (%2)").arg(info->name, info->category),
             m_list);
         item->setData(kTypeRole, type);
     }

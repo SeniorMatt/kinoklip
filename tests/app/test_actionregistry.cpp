@@ -107,9 +107,9 @@ private slots:
             if (!action->icon().isNull())
                 QVERIFY(!action->icon().pixmap(16, 16).isNull());
         }
-        for (const char* name : {"play", "pause", "blade", "select", "trim", "snap", "link",
-                 "keyframe_on", "keyframe_off", "zoom_in", "zoom_out", "marker", "loop",
-                 "panel_inspector"}) {
+        for (const char* name :
+            {"play", "pause", "blade", "select", "trim", "snap", "link", "keyframe_on",
+                "keyframe_off", "zoom_in", "zoom_out", "marker", "loop", "panel_inspector"}) {
             QVERIFY2(hasIcon(QLatin1String(name)), name);
         }
         QVERIFY(!hasIcon(QStringLiteral("does_not_exist")));
