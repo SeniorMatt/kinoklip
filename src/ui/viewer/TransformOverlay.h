@@ -6,6 +6,7 @@
 #include "ui/viewer/TransformGesture.h"
 
 #include <QPointF>
+#include <QPointer>
 #include <QTransform>
 #include <QWidget>
 
@@ -17,6 +18,7 @@ namespace kk {
 
 struct AppContext;
 struct ClipData;
+class GuideOverlay;
 class ViewerSurface;
 
 /// Transparent child of a timeline viewer's picture surface, shown while the on-screen
@@ -55,6 +57,12 @@ public:
     [[nodiscard]] std::optional<QTransform> frameToWidget() const;
     /// Re-evaluates visibility and repaints (zoom, timeline or selection changes).
     void refresh();
+    /// Guides to snap to while dragging (spec 41.9): Move snaps the picture's edges and
+    /// centre, Anchor the anchor point, Scale and Crop the dragged edges onto guides within
+    /// kSnapPx when GuideOverlay::snapTargets() offers any; Ctrl held skips snapping.
+    void setGuideOverlay(GuideOverlay* guides);
+    /// Snap distance (widget px).
+    static constexpr double kSnapPx = 6.0;
 
 Q_SIGNALS:
     /// The user pressed on the overlay (the viewer activates itself).
@@ -74,6 +82,10 @@ private:
     void finishDrag(bool commit);
     /// Pointer cursor for the handle under @p pos.
     void updateCursor(QPointF pos);
+    /// The pointer (frame px) moved so the dragged feature lands on a guide in reach, or
+    /// @p pointer unchanged. Re-runs the drag maths on @p clip at @p localFrame.
+    [[nodiscard]] QPointF snapPointer(ClipData& clip, int64_t localFrame, QPointF pointer,
+        bool shift, const QTransform& toWidget);
 
     AppContext& m_ctx;
     ViewerSurface* m_surface;
@@ -83,6 +95,7 @@ private:
     bool m_dragging = false;
     quint64 m_dragClip = 0;
     transformgesture::TransformDrag m_drag;
+    QPointer<GuideOverlay> m_guides; ///< setGuideOverlay()
 };
 
 } // namespace kk

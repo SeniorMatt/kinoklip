@@ -15,6 +15,7 @@
 #include <optional>
 
 class QComboBox;
+class QGridLayout;
 class QKeyEvent;
 class QHBoxLayout;
 class QLabel;
@@ -27,6 +28,8 @@ namespace kk {
 struct AppContext;
 class PlaybackEngine;
 class ColorPickOverlay;
+class GuideOverlay;
+class ViewerRuler;
 class MaskOverlay;
 class TransformOverlay;
 class MulticamOverlay;
@@ -149,6 +152,11 @@ public:
     void setEditTileActions(const QStringList& actionIds);
     /// The on-screen Transform controls (nullptr in Source mode).
     [[nodiscard]] TransformOverlay* transformOverlay() const { return m_transformOverlay; }
+    /// The guides / safe areas / grid layer over the picture (both modes; spec 41).
+    [[nodiscard]] GuideOverlay* guideOverlay() const { return m_guideOverlay; }
+    /// The rulers along the top / left picture edges (View > Show Rulers).
+    [[nodiscard]] ViewerRuler* topRuler() const { return m_rulerTop; }
+    [[nodiscard]] ViewerRuler* leftRuler() const { return m_rulerLeft; }
     /// Timeline mode: the eyedropper overlay (null in Source mode).
     [[nodiscard]] ColorPickOverlay* colorPickOverlay() const { return m_colorPickOverlay; }
     /// The viewer's context menu (right-click on the picture): play, marks, markers, match
@@ -226,6 +234,8 @@ private:
     void onPositionChanged(int64_t frame);
     // ---- Media Offline notice (ViewerOffline.cpp) ----
     void setupOfflineNotice();
+    /// Creates the guide overlay and the rulers around the surface in @p grid.
+    void setupGuides(QGridLayout* grid);
     void showContextMenu(const QPoint& globalPos);
     /// Name of the offline clip shown at @p frame (source clip / top visible timeline clip),
     /// empty when what is shown is online.
@@ -272,6 +282,10 @@ private:
     QStringList m_editTileActions; ///< setEditTileActions(); empty = kEditTiles
     QLabel* m_offlineNotice = nullptr; ///< "Media Offline" over the picture
     TransformOverlay* m_transformOverlay = nullptr; ///< Timeline mode: on-screen Transform
+    GuideOverlay* m_guideOverlay = nullptr; ///< guides, safe areas, grid (both modes)
+    ViewerRuler* m_rulerTop = nullptr; ///< View > Show Rulers
+    ViewerRuler* m_rulerLeft = nullptr;
+    QWidget* m_rulerCorner = nullptr; ///< square where the rulers meet
     QComboBox* m_modeBox = nullptr; ///< Source mode: Source / Multicam
     QComboBox* m_gridBox = nullptr; ///< multicam grid size (Auto, 2x2, 3x3, 4x4)
     bool m_multicam = false;

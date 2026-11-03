@@ -9,6 +9,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/viewer/GuideOverlay.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QAction>
@@ -288,9 +289,79 @@ void TransformOverlay::mouseMoveEvent(QMouseEvent* event)
         return;
     const int64_t local = std::clamp<int64_t>(
         clip->localFrame(timeline->playhead()), 0, std::max<int64_t>(0, clip->duration - 1));
-    m_drag.update(clip->transform, local, toWidget->inverted().map(event->position()),
-        event->modifiers() & Qt::ShiftModifier);
+    const bool shift = event->modifiers() & Qt::ShiftModifier;
+    QPointF pointer = toWidget->inverted().map(event->position());
+    m_drag.update(clip->transform, local, pointer, shift);
+    if (m_guides && !(event->modifiers() & Qt::ControlModifier))
+        pointer = snapPointer(*clip, local, pointer, shift, *toWidget);
     timeline->notifyChanged(); // live picture and Inspector while dragging
+}
+
+void TransformOverlay::setGuideOverlay(GuideOverlay* guides)
+{
+    m_guides = guides;
+}
+
+QPointF TransformOverlay::snapPointer(
+    ClipData& clip, int64_t localFrame, QPointF pointer, bool shift, const QTransform& toWidget)
+{
+    const std::vector<double> xs = m_guides->snapTargets(Qt::Vertical); // vertical guides: x
+    const std::vector<double> ys = m_guides->snapTargets(Qt::Horizontal);
+    const TransformHandle h = m_drag.handle();
+    if ((xs.empty() && ys.empty()) || h.kind == TransformHandle::Kind::Rotate
+        || h.kind == TransformHandle::Kind::None || toWidget.m11() <= 0)
+        return pointer;
+    const double threshold = kSnapPx / toWidget.m11(); // frame px
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const QSizeF frame(data.width, data.height);
+    // The features that follow the pointer, in frame px, for the parameters written by the
+    // last update(): Move = the picture's bounding box edges and centre, Anchor = the anchor
+    // point, Scale = the dragged edges of the picture, Crop = the dragged crop edges.
+    auto features = [&](std::vector<double>& fx, std::vector<double>& fy) {
+        fx.clear();
+        fy.clear();
+        const TransformPicture pic
+            = tg::picture(clip, localFrame, frame, m_ctx.project->mediaPool());
+        if (h.kind == TransformHandle::Kind::Anchor) {
+            const QPointF a = pic.contentToFrame.map(pic.anchor);
+            fx.push_back(a.x());
+            fy.push_back(a.y());
+            return;
+        }
+        const QSizeF size = pic.content;
+        const QRectF shape = h.kind == TransformHandle::Kind::Crop
+            ? pic.crop
+            : QRectF(-size.width() / 2, -size.height() / 2, size.width(), size.height());
+        const QRectF box = pic.contentToFrame.map(QPolygonF(shape)).boundingRect();
+        if (h.kind == TransformHandle::Kind::Move) {
+            fx = {box.left(), box.center().x(), box.right()};
+            fy = {box.top(), box.center().y(), box.bottom()};
+            return;
+        }
+        // Scale / Crop: only the edges the handle drags.
+        if (h.sx < 0)
+            fx.push_back(box.left());
+        else if (h.sx > 0)
+            fx.push_back(box.right());
+        if (h.sy < 0)
+            fy.push_back(box.top());
+        else if (h.sy > 0)
+            fy.push_back(box.bottom());
+    };
+    // Move, Anchor and Crop follow the pointer 1:1, so one correction lands exactly; a scale
+    // edge moves by a factor of the pointer (around the anchor), so a few rounds converge.
+    constexpr int kRounds = 4;
+    std::vector<double> fx, fy;
+    for (int round = 0; round < kRounds; ++round) {
+        features(fx, fy);
+        const auto dx = guides::snapOffset(fx, xs, threshold);
+        const auto dy = guides::snapOffset(fy, ys, threshold);
+        if ((!dx || std::abs(*dx) < 1e-6) && (!dy || std::abs(*dy) < 1e-6))
+            break;
+        pointer += QPointF(dx.value_or(0.0), dy.value_or(0.0));
+        m_drag.update(clip.transform, localFrame, pointer, shift);
+    }
+    return pointer;
 }
 
 void TransformOverlay::mouseReleaseEvent(QMouseEvent* event)
