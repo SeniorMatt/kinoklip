@@ -410,6 +410,18 @@ void TimelineController::matchFrame()
         clip->sourceTimeUsAt(clip->end(), d.fps));
 }
 
+bool TimelineController::openClipInSourceViewer(quint64 clipId, int64_t frame)
+{
+    const TimelineData& d = timeline()->data();
+    const ClipData* clip = ops::clipById(d, clipId);
+    if (!m_matchFrame || !clip || clip->kind != ClipKind::Media || clip->mediaId.isEmpty())
+        return false;
+    const int64_t f = std::clamp(frame, clip->start, clip->end() - 1);
+    m_matchFrame(clip->mediaId, clip->sourceTimeUsAt(f, d.fps), clip->sourceInUs,
+        clip->sourceTimeUsAt(clip->end(), d.fps));
+    return true;
+}
+
 void TimelineController::setTargetByNumber(TrackType type, int number)
 {
     const int index = number - 1;

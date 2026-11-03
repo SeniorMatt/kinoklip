@@ -326,6 +326,15 @@ void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
         // with its playhead at the moment under the pointer (spec 26.14).
         if (openNestedAt(event->position()))
             return;
+        // On a media clip it opens the clip's source in the source viewer (spec 24.17); the
+        // first click of the double-click already selected the clip.
+        const TimelineHit hit
+            = m_layout.hitTest(m_ctx.project->timeline()->data(), event->position());
+        if (m_options.doubleClickOpensSource && hit.area == TimelineHit::Area::Clip
+            && hit.part == ClipPart::Body
+            && m_controller->openClipInSourceViewer(
+                hit.clipId, m_layout.frameAtX(event->position().x())))
+            return;
     }
     mousePressEvent(event);
 }

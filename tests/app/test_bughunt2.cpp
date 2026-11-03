@@ -227,6 +227,30 @@ private slots:
         QCOMPARE(f.project.undoStack()->count(), steps + 1);
     }
 
+    // Spec 24.17: double-clicking a media clip on the Edit page timeline opens its source in
+    // the source viewer (as Match Frame at the clicked frame).
+    void spec24_17_doubleClickOpensTheSource()
+    {
+        Fixture f;
+        const QVector<quint64> ids = f.window->editPage()->timeline()->controller()->insertSource(
+            f.ids[1], 0, 4 * kSecondUs, SourceEditMode::Overwrite);
+        QVERIFY(!ids.isEmpty());
+        QCoreApplication::processEvents();
+        ViewerPanel* source = f.window->editPage()->sourceViewer();
+        QVERIFY(source->sourceMedia().isEmpty());
+        TimelineWidget* w = f.timeline();
+        quint64 video = 0;
+        for (quint64 id : ids) {
+            if (ops::findClip(f.project.timeline()->data(), id)->track.type == TrackType::Video)
+                video = id;
+        }
+        QTest::mouseDClick(w->viewport(), Qt::LeftButton, Qt::NoModifier,
+            clipCentre(w, f.project.timeline()->data(), video));
+        QCOMPARE(source->sourceMedia(), f.ids[1]);
+        QCOMPARE(int(f.project.timeline()->data().track(TrackRef {TrackType::Video, 0})->clips.size()),
+            1); // nothing moved
+    }
+
     // Spec 33.32: counted messages read "1 caption" / "2 captions", never "1 caption(s)"
     // (Qt's %n plural forms need a translation, which Kinoklip does not ship).
     void spec33_32_countedMessagesArePlural()

@@ -66,6 +66,7 @@ CutPage::CutPage(AppContext& ctx, TimelineController* controller, QWidget* paren
     options.rippleEdgeTrims = true;
     options.audioHeightScale = kCompactAudio;
     options.keepsViewState = false; // the Edit page's view owns the per-timeline zoom
+    options.doubleClickOpensSource = false;
     m_lower->setViewOptions(options);
     // Focus in the lower timeline makes the program viewer the transport target.
     m_lower->setProperty("kkProgramFocus", true);
