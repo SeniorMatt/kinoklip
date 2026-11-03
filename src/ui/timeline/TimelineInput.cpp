@@ -298,6 +298,10 @@ void TimelineWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
 {
+    // A double-click on a track name in a header renames the track in place (spec 12.15).
+    if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
+        && beginTrackRename(event->position()))
+        return;
     // A double-click on a ruler marker opens the marker editor (spec 18.5); anywhere else it
     // behaves like a press.
     if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None

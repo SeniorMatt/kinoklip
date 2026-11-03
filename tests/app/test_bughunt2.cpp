@@ -152,6 +152,81 @@ private slots:
         QCOMPARE(inspector->tabs()->currentIndex(), int(InspectorPanel::VideoTab));
     }
 
+    // Spec 19.9: Shift+Z fits the timeline; pressed again it returns to the zoom and scroll
+    // from before; after a zoom by other means it fits again.
+    void spec19_9_shiftZTogglesZoomToFit()
+    {
+        Fixture f;
+        f.window->editPage()->timeline()->controller()->insertSource(
+            f.ids[0], 0, 4 * kSecondUs, SourceEditMode::Overwrite);
+        f.window->editPage()->timeline()->controller()->insertSource(
+            f.ids[1], 0, 4 * kSecondUs, SourceEditMode::Overwrite);
+        QCoreApplication::processEvents();
+        TimelineWidget* w = f.timeline();
+        w->setPixelsPerFrame(20.0, 300.0);
+        w->scrollToFrame(120.0);
+        QCoreApplication::processEvents();
+        const double ppf = w->layout().pixelsPerFrame();
+        const double scroll = w->layout().scrollX();
+        QVERIFY(scroll > 0.0);
+
+        f.action("timeline.zoom_fit")->trigger();
+        const double fitted = w->layout().pixelsPerFrame();
+        QVERIFY(fitted < ppf);
+        QCOMPARE(w->layout().scrollX(), 0.0);
+
+        f.action("timeline.zoom_fit")->trigger(); // back to before
+        QCOMPARE(w->layout().pixelsPerFrame(), ppf);
+        QCOMPARE(w->layout().scrollX(), scroll);
+
+        f.action("timeline.zoom_fit")->trigger(); // fits again
+        QCOMPARE(w->layout().pixelsPerFrame(), fitted);
+        f.action("timeline.zoom_in")->trigger(); // zoomed by other means: Shift+Z fits
+        QVERIFY(w->layout().pixelsPerFrame() > fitted);
+        f.action("timeline.zoom_fit")->trigger();
+        QCOMPARE(w->layout().pixelsPerFrame(), fitted);
+    }
+
+    // Spec 12.15: double-clicking a track name opens an inline editor; Enter renames the track
+    // in one undo step, Esc cancels.
+    void spec12_15_doubleClickRenamesTrack()
+    {
+        Fixture f;
+        TimelineWidget* w = f.timeline();
+        QCoreApplication::processEvents();
+        int row = -1;
+        for (int r = 0; r < int(w->layout().rows().size()); ++r) {
+            if (w->layout().rows()[size_t(r)].ref == TrackRef {TrackType::Video, 0})
+                row = r;
+        }
+        QVERIFY(row >= 0);
+        const QRect name = w->layout().headerNameRect(row);
+        QVERIFY(!name.isEmpty());
+        QTest::mouseDClick(w->viewport(), Qt::LeftButton, Qt::NoModifier, name.center());
+        QLineEdit* editor = w->trackNameEditor();
+        QVERIFY(editor);
+        QCOMPARE(editor->text(), QStringLiteral("Video 1"));
+        QVERIFY(editor->hasFocus());
+        const int steps = f.project.undoStack()->count();
+        QTest::keyClicks(editor, QStringLiteral("Interview"));
+        QTest::keyClick(editor, Qt::Key_Return);
+        QVERIFY(!w->trackNameEditor());
+        QCOMPARE(f.project.timeline()->data().track(TrackRef {TrackType::Video, 0})->name,
+            QStringLiteral("Interview"));
+        QCOMPARE(f.project.undoStack()->count(), steps + 1);
+        QCOMPARE(f.project.undoStack()->undoText(), QStringLiteral("Rename Track"));
+
+        QTest::mouseDClick(w->viewport(), Qt::LeftButton, Qt::NoModifier, name.center());
+        editor = w->trackNameEditor();
+        QVERIFY(editor);
+        QTest::keyClicks(editor, QStringLiteral("Other"));
+        QTest::keyClick(editor, Qt::Key_Escape);
+        QVERIFY(!w->trackNameEditor());
+        QCOMPARE(f.project.timeline()->data().track(TrackRef {TrackType::Video, 0})->name,
+            QStringLiteral("Interview"));
+        QCOMPARE(f.project.undoStack()->count(), steps + 1);
+    }
+
     // Spec 33.32: counted messages read "1 caption" / "2 captions", never "1 caption(s)"
     // (Qt's %n plural forms need a translation, which Kinoklip does not ship).
     void spec33_32_countedMessagesArePlural()
