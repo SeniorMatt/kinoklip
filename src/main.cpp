@@ -16,6 +16,7 @@
 #include "render/RenderFrameCommand.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/LiveResize.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/Resources.h"
 #include "ui/common/SettingsPages.h"
@@ -43,7 +44,7 @@ void configureOpenGL()
     format.setVersion(kGlMajor, kGlMinor);
     format.setProfile(QSurfaceFormat::CoreProfile);
     format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
-    format.setSwapInterval(1); // vsync: smooth playback without tearing
+    format.setSwapInterval(1); // vsync on X11 (no tearing); 0 on Wayland, see LiveResize.h
     QSurfaceFormat::setDefaultFormat(format);
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 }
@@ -110,6 +111,7 @@ int main(int argc, char** argv)
     configureOpenGL();
     kk::theme::initBeforeApplication(); // bundled Breeze icons; must precede QApplication
     QApplication app(argc, argv);
+    kk::liveresize::adjustSwapInterval(); // needs the platform name: after QApplication
     setApplicationIdentity();
     // Matches packaging/linux/org.kinoklip.Kinoklip.desktop: Wayland app_id / X11 WM_CLASS,
     // so the compositor shows the right icon and groups windows with the desktop entry.
