@@ -1071,7 +1071,7 @@ Grading engine and a minimal page; design in [color-page.md](color-page.md). Tes
 | 44b.4 | Wheel drags change the colour balance without changing luma, the bar under a wheel the master value; a drag is one undo step; double-click resets the wheel. Fields edit contrast, pivot, saturation, hue, temperature, tint, lum mix and mix; a keyframed value gets a key at the playhead. | Fixed (test_colorpage primariesAndCurvesEdit) |
 | 44b.5 | The curve editor adds a point with a click, drags points, removes one with a right-click or double-click; any of the nine curves can be chosen. | Fixed (test_colorpage primariesAndCurvesEdit) |
 | 44b.6 | View > Video Scopes (Ctrl+Shift+W) opens a floating window with two scopes of the program picture on any page. | Fixed (test_colorpage videoScopesWindow) |
-| 44b.7 | While the Color page is shown the Edit page's timeline commands are suspended and the Color commands enabled; leaving the page restores them. | Fixed (test_colorpage pageOpensAndScopesCommands) |
+| 44b.7 | While the Color page is shown the Edit page's timeline commands are suspended and the Color commands enabled; leaving the page restores them. | Fixed (test_colorpage pageOpensAndScopesCommands; test_pagecommands colorPageSuspendsTimelineButKeepsItsCommands, switchingBetweenSuspendingPagesKeepsCommandsOff). Uses the shared TimelineCommandSuspension. |
 
 ## Summary
 
