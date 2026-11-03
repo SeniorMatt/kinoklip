@@ -177,6 +177,17 @@ public:
     /// Edges clamp. @return a new target of src's size; empty handle when sigma is negligible.
     [[nodiscard]] PooledTarget gaussianBlur(const RenderTarget& src, double sigmaPx);
 
+    /// Separable box blur of @p src: every texel within @p radiusPx (target pixels; the
+    /// fraction weights the outermost texel) counts equally. Large radii run on a downscaled
+    /// copy like gaussianBlur(). @return a new target; empty handle when the radius is
+    /// negligible.
+    [[nodiscard]] PooledTarget boxBlur(const RenderTarget& src, double radiusPx);
+    /// Erodes (per-channel minimum, @p dilate false) or dilates (maximum) @p src over a
+    /// square of half-width @p radiusPx target pixels (fractional radii blend the outermost
+    /// texels). Used for matte shrink / grow and strokes. Edges clamp. @return a new target;
+    /// empty handle when the radius is negligible.
+    [[nodiscard]] PooledTarget morphology(const RenderTarget& src, double radiusPx, bool dilate);
+
     /// 1×1 transparent texture (stand-in for a missing transition side).
     [[nodiscard]] GLuint transparentTexture() const { return m_transparent; }
 
@@ -186,7 +197,14 @@ private:
     /// Uniform array size of the blur shader (centre tap + pairs of linear-filtered taps).
     static constexpr int kMaxBlurTaps = 16;
 
+    /// Taps of one morphology pass (more radius = more passes).
+    static constexpr int kMaxMorphTaps = 16;
+
     void blurPass(const RenderTarget& src, const RenderTarget& dst, double sigma, bool horizontal);
+    /// One separable pass of the symmetric kernel raw[0..radius] (any non-negative weights;
+    /// normalised here), using linear-sampled tap pairs.
+    void kernelPass(const RenderTarget& src, const RenderTarget& dst, const double* raw, int radius,
+        bool horizontal);
 
     GlFunctions* m_gl;
     TargetPool m_targets;
@@ -205,6 +223,11 @@ private:
     GLint m_blurTaps = -1;
     GLint m_blurWeights = -1;
     GLint m_blurOffsets = -1;
+    GlProgram m_morph;
+    GLint m_morphStep = -1;
+    GLint m_morphTaps = -1;
+    GLint m_morphFrac = -1;
+    GLint m_morphDilate = -1;
 };
 
 } // namespace kk::render
