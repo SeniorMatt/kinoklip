@@ -85,22 +85,21 @@ Detailed plan: [plan-v4.md](plan-v4.md). Three parts, each released on its own:
    distort, transform and time effects, all keyframable, previewed live on the GPU and identical
    in the render.
 
-## v5 - the other pages, and switching from Resolve (moved from v4 on 2026-11-03)
+## Public release and beta (owner decision 2026-11-03)
+- After v4, Kinoklip is **released to the public** (repository and releases made public).
+- From then on releases are called **beta** (`0.x.y-beta.N`); everything after v4 (v5 and the
+  sections below) is built during the beta.
+
+## v5 - the Color and Compositing pages (during the beta; moved from v4 on 2026-11-03)
 - **Color page** (colour grading): primaries wheels, curves, HSL qualifier, windows, nodes, LUTs,
   scopes, gallery stills. A started branch `colorpage` exists (paused 2026-11-03).
 - **Compositing page** (own name, node-based compositing: merge, transform, masks, text, keyers,
   tracker).
 - Media and Deliver pages extended (clone tool, render presets per platform).
-- **Import of Resolve projects** so users can move their work over.
-  - Primary path (safe): the interchange formats Resolve already exports — OpenTimelineIO (.otio),
-    FCPXML, AAF, EDL — covering timelines, clips, transitions, retimes, markers, transforms, basic
-    audio levels. Also export to these formats for round-tripping.
-  - Direct `.drp` (project) / `.dra` (project archive) import: these formats are undocumented and
-    reading them requires analysing files Resolve produces. This conflicts with the original
-    "no reverse engineering" rule, so it only happens after a legal check of the interoperability
-    exception in the relevant jurisdictions. Until then: interchange formats only.
-- Migration helpers: map colour grades and effects where an equivalent exists, report what could
-  not be converted.
+- **Import of Resolve projects: dropped** (owner decision 2026-11-03, because of the legal issues:
+  Resolve's own project files are undocumented and could only be read by analysing them). Moving
+  work over stays possible through the open interchange formats every editor exports (FCPXML,
+  AAF, EDL, OpenTimelineIO), which are generic import / export features, not Resolve-specific.
 
 ## Project website (later)
 A website presenting Kinoklip as a free replacement / alternative for DaVinci Resolve (in the spirit
