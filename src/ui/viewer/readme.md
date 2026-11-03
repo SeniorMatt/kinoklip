@@ -13,7 +13,10 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
 | `MaskOverlay.h` | on-screen mask controls of the timeline viewer: an additive transparent child of the picture surface (outlines, handles, drawing / editing gestures of the current clip's masks; follows `pictureRect()` and the clip transform); `createModeButton()` is the bottom-left on-screen controls menu (Off / Mask, `view.onscreen_masks`). See docs/behavior-spec.md section 27 |
 | `ColorPickOverlay.h` | Timeline mode: the colour eyedropper of effect parameters (Chroma Key's Key Color, spec 40.3): active while `SelectionModel::colorPicker()` names an effect of a clip under the playhead; click = 3 x 3 pixels, drag = the rectangle's mean; samples the frame rendered with that effect and the later ones switched off (program compositor, `setFrameSource()` in tests); one undo step, then off; Esc cancels |
 | `EditOverlay.h` | Timeline mode: the edit types drawn over the picture while media is dragged onto the viewer (spec 4.14); `ViewerEditAids.cpp` turns the drop into `sourceEditDropped(actionId, sources)`; `setEditTileActions()` replaces the tiles (the Cut page's smart edits, spec 35.26). `ViewerEditAids.cpp` also builds the viewer's context menu (`buildContextMenu()`, spec 24.7) |
-| `TransformOverlay.h` | Timeline mode: on-screen Transform and Crop controls (`view.onscreen_transform`, `view.onscreen_crop`, entries of the on-screen controls menu): outline, corner / edge scale handles, rotation knob, anchor cross, move; crop edges and corners; one named undo step per drag (spec 24.9, 24.11, 24.12) |
+| `TransformOverlay.h` | Timeline mode: on-screen Transform and Crop controls (`view.onscreen_transform`, `view.onscreen_crop`, entries of the on-screen controls menu): outline, corner / edge scale handles, rotation knob, anchor cross, move; crop edges and corners; one named undo step per drag (spec 24.9, 24.11, 24.12); edges, centre, anchor and crop edges snap to guides within 6 px (`setGuideOverlay()`, Ctrl skips; spec 41.9) |
+| `GuideOverlay.h` | both modes: guides, safe areas (action 90 %, title 80 %, centre mark), aspect marker and grid drawn over the picture (frame px through `pictureRect()`), never rendered; mouse-transparent, it filters the events of the surface and its child overlays so a guide within 4 px wins (hover cursor, drag, double-click dialog, context menu); timeline guides are `TimelineData::guides` (undo steps, project format 14), source guides per user; `setSuppressed()` hides every overlay for picture grabs and `--screenshot` (spec 41) |
+| `ViewerRuler.h` | the pixel rulers along the picture area's top and left edges (View > Show Rulers): frame px, 1 / 2 / 5 steps, guide marks; dragging out of a ruler adds a guide (`GuideOverlay::beginNewGuide()`) |
+| `ViewerOverlaySettings.h` | the user's overlay options (show / lock / snap guides, colour, rulers, safe areas, aspect marker, grid; QSettings `viewer/overlays/*`) and the View menu bindings: View > Show Rulers, Guides, Safe Area, Show Grid, Grid Type; guide commands act on `targetOverlay()`; preset menus (`attachPresetMenus()`, presets in `<AppData>/guide-presets.json`) |
 | `TransformGesture.h` | pure maths of those controls: picture geometry (fit size, crop rectangle), handle positions and hit-testing, `TransformDrag` (what a drag writes into `ClipData::transform`, the Shift conventions) |
 | `ViewerOffline.cpp` | ViewerPanel part: the "Media Offline" notice when the clip shown has no file (`MediaPool::isOffline()`, spec 24.8) |
 | `TrimTwoUpView.h` | Timeline mode: the two-up trim view (spec 8.15, 8.19): exact source frames from `MediaCache::frame()` (default), or with Preferences > Editing "Trim view shows effects and transforms" each clip alone rendered by the program compositor (`setProgramSource()`, `Pictures::Program`, GPU only); one request in flight per side; `ViewerPanel::setTrimPreview()` |
@@ -133,8 +136,14 @@ loop toggle, `kkProgramFocus`, full-screen viewer, F9 inserting the marked sourc
 
 * **A transport button**: `addButton(bar, "<action id>", icon, tr("Tip"), handler)` in the
   ViewerPanel constructor; the handler should call `activate()` and act on `engine()`.
-* **An overlay** (safe areas, timecode burn-in): draw it in `ViewerPicture::paintTexts()` for
-  the raster path and as a transparent child widget / extra GL pass in `GlViewerSurface`.
+* **An overlay** (timecode burn-in, a new safe-area shape): a transparent child widget of the
+  surface like `GuideOverlay` (both surface kinds), mapping frame px through
+  `pictureRect()`; a new safe-area or aspect entry is a row in `ViewerOverlaySettings`
+  (option, QSettings key, action), the action in `StandardActions.cpp` and the keymap script,
+  and its drawing in `GuideOverlay::paintSafeAreas()`. Anything that must never be exported
+  stays out of `src/render`; picture grabs call `GuideOverlay::setSuppressed()`.
+* **Snapping another gesture to guides**: ask `GuideOverlay::snapTargets()` for the axis and
+  use `guides::snapOffset()` (core/ViewerGuides.h) with a threshold in frame px.
 * **Panning when zoomed**: keep an offset in `ViewerPicture` and add it in `pictureRect()`;
   middle-drag in `ViewerPanel::eventFilter()`.
 
@@ -143,4 +152,5 @@ loop toggle, `kkProgramFocus`, full-screen viewer, F9 inserting the marked sourc
 * TODO(viewer): no panning when zoomed in (the picture stays centred).
 * TODO(viewer): dragging a source range shows a grab of the widget (the raster path draws
   the frame; on GL it is the widget's last frame).
-* TODO(viewer): no safe-area / overlay guides, no A/B comparison.
+* TODO(viewer): no A/B comparison.
+* TODO(viewer): mask points do not snap to guides yet (spec 41.17).

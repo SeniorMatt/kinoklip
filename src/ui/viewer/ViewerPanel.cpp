@@ -18,11 +18,14 @@
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/viewer/ColorPickOverlay.h"
+#include "ui/viewer/GuideOverlay.h"
 #include "ui/viewer/MaskOverlay.h"
 #include "ui/viewer/MulticamOverlay.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/TransformOverlay.h"
+#include "ui/viewer/ViewerOverlaySettings.h"
+#include "ui/viewer/ViewerRuler.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QAction>
@@ -30,6 +33,7 @@
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDrag>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -198,10 +202,20 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     auto* layout = new QVBoxLayout(m_body);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    m_surface = ViewerSurface::create(m_body);
+    // Picture area: the surface with the optional rulers along its top and left edges
+    // (View > Show Rulers; outside the picture, so they never cover it).
+    auto* pictureArea = new QWidget(m_body);
+    pictureArea->setObjectName(QStringLiteral("ViewerPictureArea"));
+    auto* grid = new QGridLayout(pictureArea);
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->setSpacing(0);
+    m_surface = ViewerSurface::create(pictureArea);
     m_surface->widget()->setFocusPolicy(Qt::ClickFocus);
     m_surface->widget()->installEventFilter(this);
-    layout->addWidget(m_surface->widget(), 1);
+    grid->addWidget(m_surface->widget(), 1, 1);
+    grid->setRowStretch(1, 1);
+    grid->setColumnStretch(1, 1);
+    layout->addWidget(pictureArea, 1);
     if (m_mode == Mode::Timeline) {
         // On-screen mask controls: an additive child layer over the picture surface.
         m_maskOverlay = new MaskOverlay(m_ctx, m_surface);
@@ -216,6 +230,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         setupEditingAids();
     }
     setupOfflineNotice();
+    setupGuides(grid);
 
     m_scrub = new ScrubBar(m_body);
     // While playing, scrubbing keeps playing from where the mouse leaves the playhead, like the
@@ -246,7 +261,8 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
             = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_transform"))
             ? m_ctx.actions->action(QStringLiteral("view.onscreen_transform"))
             : nullptr;
-        QAction* crop = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_crop"))
+        QAction* crop
+            = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_crop"))
             ? m_ctx.actions->action(QStringLiteral("view.onscreen_crop"))
             : nullptr;
         bar->addWidget(MaskOverlay::createModeButton(masks, m_transport, transform, crop));
@@ -516,6 +532,8 @@ void ViewerPanel::onTimelineChanged()
     const TimelineData& d = m_boundTimeline->data();
     m_fps = d.fps;
     m_surface->setAspect(QSize(d.width, d.height));
+    if (m_guideOverlay && m_mode == Mode::Source)
+        m_guideOverlay->setFrameSize(QSize(d.width, d.height)); // rulers count clip px
     if (m_maskOverlay)
         m_maskOverlay->refresh();
     if (m_multicamOverlay && m_multicamOverlay->isVisible())
@@ -717,6 +735,8 @@ void ViewerPanel::setZoom(Zoom zoom)
         m_transformOverlay->refresh();
     if (m_multicamOverlay)
         m_multicamOverlay->refresh();
+    if (m_guideOverlay)
+        m_guideOverlay->refresh(); // guides and rulers follow the new mapping
     updateOutputClient();
 }
 
@@ -900,12 +920,47 @@ void ViewerPanel::startSourceDrag()
         QLatin1String(mime::SourceRange), QJsonDocument(json).toJson(QJsonDocument::Compact));
     auto* drag = new QDrag(this);
     drag->setMimeData(data);
+    // The drag shows the picture, not the guides drawn over it (spec 41.12).
+    const bool suppressed = GuideOverlay::isSuppressed();
+    GuideOverlay::setSuppressed(true);
     const QPixmap picture = m_surface->widget()->grab(
         m_surface->pictureRect().intersected(m_surface->widget()->rect()));
+    GuideOverlay::setSuppressed(suppressed);
     if (!picture.isNull()) {
         drag->setPixmap(picture.scaledToWidth(kDragPixmapWidth, Qt::SmoothTransformation));
     }
     execCopyDrag(drag, "source viewer");
+}
+
+void ViewerPanel::setupGuides(QGridLayout* grid)
+{
+    // Guides, safe areas and grid over the picture (spec 41), in both viewer modes. Created
+    // after the other overlays and lowered below them: the transform and mask controls draw
+    // over the guides, while the guide gestures still win near a guide (event filter).
+    m_guideOverlay = new GuideOverlay(m_ctx, m_surface, m_mode == Mode::Timeline);
+    connect(m_guideOverlay, &GuideOverlay::pressed, this, [this] { activate(); });
+    if (m_transformOverlay)
+        m_transformOverlay->setGuideOverlay(m_guideOverlay);
+    m_rulerCorner = new QWidget;
+    m_rulerCorner->setObjectName(QStringLiteral("ViewerRulerCorner"));
+    m_rulerCorner->setFixedSize(ViewerRuler::kThickness, ViewerRuler::kThickness);
+    m_rulerCorner->setAutoFillBackground(true);
+    QPalette pal = m_rulerCorner->palette();
+    pal.setColor(QPalette::Window, schemeColors().ruler);
+    m_rulerCorner->setPalette(pal);
+    m_rulerTop = new ViewerRuler(Qt::Horizontal, m_guideOverlay);
+    m_rulerLeft = new ViewerRuler(Qt::Vertical, m_guideOverlay);
+    grid->addWidget(m_rulerCorner, 0, 0);
+    grid->addWidget(m_rulerTop, 0, 1);
+    grid->addWidget(m_rulerLeft, 1, 0);
+    auto applyRulers = [this] {
+        const bool on = ViewerOverlaySettings::instance().options().showRulers;
+        for (QWidget* w :
+            {m_rulerCorner, static_cast<QWidget*>(m_rulerTop), static_cast<QWidget*>(m_rulerLeft)})
+            w->setVisible(on);
+    };
+    applyRulers();
+    connect(&ViewerOverlaySettings::instance(), &ViewerOverlaySettings::changed, this, applyRulers);
 }
 
 } // namespace kk

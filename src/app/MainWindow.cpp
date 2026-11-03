@@ -25,6 +25,7 @@
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelinePanel.h"
+#include "ui/viewer/ViewerOverlaySettings.h"
 #include "ui/viewer/ViewerTransport.h"
 
 #include <QAction>
@@ -304,6 +305,10 @@ void MainWindow::buildMenus()
     // File > Open Recent lists files, not registered commands: filled by ProjectController.
     if (auto* recent = menuBar()->findChild<QMenu*>(QStringLiteral("menu:file.recent")))
         m_projectController->attachRecentMenu(recent);
+    // View > Guides > Load / Delete Guide Preset list preset files, not registered commands.
+    ViewerOverlaySettings::instance().attachPresetMenus(
+        menuBar()->findChild<QMenu*>(QStringLiteral("menu:view.guide_presets")),
+        menuBar()->findChild<QMenu*>(QStringLiteral("menu:view.guide_presets_delete")));
 }
 
 void MainWindow::buildInterfaceBar()
