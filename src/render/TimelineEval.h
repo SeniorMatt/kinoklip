@@ -113,4 +113,9 @@ struct TrackFrame
 /// change of a video or subtitle track, the format or a nested timeline counts as different.
 [[nodiscard]] bool samePictures(const TimelineData& a, const TimelineData& b);
 
+/// True if the nested-timeline maps of two render snapshots hold the same timeline states
+/// (same uids, same shared TimelineData). NestedTimelines::operator== cannot tell: it is
+/// always true by design.
+[[nodiscard]] bool sameNestedTimelines(const NestedTimelines& a, const NestedTimelines& b);
+
 } // namespace kk::render
