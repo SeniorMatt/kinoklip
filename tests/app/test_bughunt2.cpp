@@ -1,0 +1,169 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Second bug-hunting round on 1.0.0-beta.1, in the real main window: one test per fix, named
+// after the spec row it covers.
+#include "app/MainWindow.h"
+#include "app/Theme.h"
+#include "app/pages/CutPage.h"
+#include "app/pages/EditPage.h"
+#include "core/EditOps.h"
+#include "core/MediaPool.h"
+#include "core/Project.h"
+#include "core/Plural.h"
+#include "core/SelectionModel.h"
+#include "core/Subtitles.h"
+#include "core/Timeline.h"
+#include "ui/common/ActionRegistry.h"
+#include "ui/common/AppContext.h"
+#include "ui/common/Resources.h"
+#include "ui/common/StandardActions.h"
+#include "ui/cut/CutEditor.h"
+#include "ui/inspector/InspectorPanel.h"
+#include "ui/mediapool/MediaPoolModel.h"
+#include "ui/timeline/TimelineController.h"
+#include "ui/timeline/TimelineLayout.h"
+#include "ui/timeline/TimelinePanel.h"
+#include "ui/timeline/TimelineWidget.h"
+#include "ui/viewer/ViewerPanel.h"
+
+#include <QAction>
+#include <QApplication>
+#include <QContextMenuEvent>
+#include <QLineEdit>
+#include <QMenu>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QTabWidget>
+#include <QTimer>
+#include <QTest>
+#include <QUndoStack>
+
+#include <memory>
+
+using namespace kk;
+namespace ops = kk::editops;
+
+namespace {
+
+constexpr int64_t kSecondUs = 1'000'000;
+
+/// Everything main() creates, for one test, with two fake 4 s clips with video and audio.
+struct Fixture
+{
+    Project project;
+    SelectionModel selection;
+    ActionRegistry actions;
+    AppContext ctx;
+    std::unique_ptr<MainWindow> window;
+    QStringList ids;
+
+    Fixture()
+    {
+        actions.loadDefaultKeymap();
+        registerStandardActions(actions);
+        ctx.project = &project;
+        ctx.selection = &selection;
+        ctx.actions = &actions;
+        for (const char* name : {"alpha", "bravo"}) {
+            MediaItem m;
+            m.name = QLatin1String(name);
+            m.path = QStringLiteral("/nonexistent/%1.mp4").arg(m.name);
+            m.info.valid = true;
+            m.info.hasVideo = true;
+            m.info.hasAudio = true;
+            m.info.durationUs = 4 * kSecondUs;
+            m.info.frameRate = Rational {25, 1};
+            m.info.width = 1920;
+            m.info.height = 1080;
+            ids.append(project.mediaPool()->addItem(m));
+        }
+        MainWindowOptions options;
+        options.autosave = false;
+        window = std::make_unique<MainWindow>(ctx, options);
+        window->resize(1600, 1000);
+        window->show();
+        window->activateWindow();
+        QVERIFY(QTest::qWaitForWindowExposed(window.get()));
+    }
+
+    QAction* action(const char* id) const { return actions.action(QLatin1String(id)); }
+    TimelineWidget* timeline() const { return window->editPage()->timeline()->timelineWidget(); }
+};
+
+/// Texts of the context menu that a right-click at @p pos in @p w opens (closed again).
+QStringList menuTexts(TimelineWidget* w, QPoint pos)
+{
+    QStringList texts;
+    QTimer::singleShot(0, [&texts] {
+        if (auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget())) {
+            for (QAction* a : menu->actions())
+                if (!a->isSeparator())
+                    texts.append(a->text().remove(QLatin1Char('&')));
+            menu->close();
+        }
+    });
+    QContextMenuEvent event(QContextMenuEvent::Mouse, pos, w->viewport()->mapToGlobal(pos));
+    QCoreApplication::sendEvent(w->viewport(), &event);
+    return texts;
+}
+
+/// View position of the middle of clip @p id.
+QPoint clipCentre(TimelineWidget* w, const TimelineData& data, quint64 id)
+{
+    const auto loc = ops::findClip(data, id);
+    const ClipData* clip = ops::clipById(data, id);
+    const int row = w->layout().rowOf(loc->track);
+    return w->layout().clipRect(row, *clip).center().toPoint();
+}
+
+} // namespace
+
+class TestBughunt2 : public QObject
+{
+    Q_OBJECT
+private slots:
+    void initTestCase()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+        QCoreApplication::setOrganizationName(QStringLiteral("kinoklip-tests"));
+        QCoreApplication::setApplicationName(QStringLiteral("test_bughunt2"));
+        QSettings().clear();
+        initResources();
+        theme::apply(*qApp);
+    }
+    void init() { QSettings().clear(); }
+
+    // Spec 33.32: counted messages read "1 caption" / "2 captions", never "1 caption(s)"
+    // (Qt's %n plural forms need a translation, which Kinoklip does not ship).
+    void spec33_32_countedMessagesArePlural()
+    {
+        QCOMPARE(plural(1, QStringLiteral("%n clip"), QStringLiteral("%n clips")),
+            QStringLiteral("1 clip"));
+        QCOMPARE(plural(0, QStringLiteral("%n clip"), QStringLiteral("%n clips")),
+            QStringLiteral("0 clips"));
+        Project project;
+        MediaItem sub;
+        sub.kind = MediaItemKind::Subtitle;
+        sub.name = QStringLiteral("one.srt");
+        sub.path = QStringLiteral("/nonexistent/one.srt");
+        sub.cues.append(SubtitleCue {0, kSecondUs, QStringLiteral("Hello")});
+        project.mediaPool()->addItem(sub);
+        sub.name = QStringLiteral("two.srt");
+        sub.path = QStringLiteral("/nonexistent/two.srt");
+        sub.cues.append(SubtitleCue {kSecondUs, 2 * kSecondUs, QStringLiteral("again")});
+        project.mediaPool()->addItem(sub);
+        MediaPoolModel model(&project);
+        QStringList texts;
+        for (int r = 0; r < model.rowCount(); ++r) {
+            for (int c = 0; c < model.columnCount(); ++c) {
+                const QString t = model.index(r, c).data().toString();
+                if (t.contains(QLatin1String("caption")))
+                    texts.append(t);
+            }
+        }
+        texts.sort();
+        QCOMPARE(texts, (QStringList {QStringLiteral("1 caption"), QStringLiteral("2 captions")}));
+    }
+};
+
+QTEST_MAIN(TestBughunt2)
+#include "test_bughunt2.moc"

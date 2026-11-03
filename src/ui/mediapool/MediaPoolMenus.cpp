@@ -3,6 +3,7 @@
 // list header (columns), clip colour filter; plus the dialogs they open.
 #include "core/ClipColors.h"
 #include "core/MediaPool.h"
+#include "core/Plural.h"
 #include "core/PowerBins.h"
 #include "core/Project.h"
 #include "media/MediaSource.h"
@@ -178,8 +179,11 @@ void MediaPoolPanel::confirmAndDelete(const QStringList& ids)
         used += m_model->usageCounts().value(id, 0);
     if (used > 0) {
         const auto answer = QMessageBox::question(this, tr("Delete Media"),
-            tr("%n clip(s) on the timeline use this media and will show as offline. Delete anyway?",
-                nullptr, used));
+            plural(used,
+                tr("%n clip on the timeline uses this media and will show as offline. "
+                   "Delete anyway?"),
+                tr("%n clips on the timeline use this media and will show as offline. "
+                   "Delete anyway?")));
         if (answer != QMessageBox::Yes)
             return;
     }
@@ -428,11 +432,13 @@ void MediaPoolPanel::relinkWithDialog(const QStringList& onlyIds)
             && !media::mediaExists(m.path);
     });
     QMessageBox::information(this, tr("Relink Offline Media"),
-        tr("%n item(s) relinked.", nullptr, relinked)
+        plural(relinked, tr("%n item relinked."), tr("%n items relinked."))
             + (stillOffline > 0 ? QLatin1Char(' ')
-                        + tr("%n item(s) are still offline (no file with the same name in "
-                             "that folder).",
-                            nullptr, int(stillOffline))
+                        + plural(stillOffline,
+                            tr("%n item is still offline (no file with the same name in "
+                               "that folder)."),
+                            tr("%n items are still offline (no file with the same name in "
+                               "that folder)."))
                                 : QString()));
 }
 

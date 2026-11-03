@@ -4,6 +4,7 @@
 #include "ui/timeline/TimelineDialogs.h"
 
 #include "core/ClipColors.h"
+#include "core/Plural.h"
 #include "core/Project.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
@@ -56,10 +57,13 @@ QList<std::pair<QString, QColor>> markerColors()
 HandleChoice askHandles(QWidget* parent, int64_t missingFrames, bool canShorten)
 {
     QMessageBox box(QMessageBox::Question, tr("Insufficient Handles"),
-        QCoreApplication::translate("kk::TimelineDialogs",
-            "There is not enough media to create the transition: %n frame(s) are missing.\n\n"
-            "Trim the clips so the media covers the transition?",
-            nullptr, int(missingFrames)),
+        plural(missingFrames,
+            QCoreApplication::translate("kk::TimelineDialogs",
+                "There is not enough media to create the transition: %n frame is missing.\n\n"
+                "Trim the clips so the media covers the transition?"),
+            QCoreApplication::translate("kk::TimelineDialogs",
+                "There is not enough media to create the transition: %n frames are missing.\n\n"
+                "Trim the clips so the media covers the transition?")),
         QMessageBox::NoButton, parent);
     QPushButton* trim = box.addButton(tr("Trim Clips"), QMessageBox::AcceptRole);
     QPushButton* shorten

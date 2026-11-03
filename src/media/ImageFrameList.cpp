@@ -144,7 +144,9 @@ MediaInfo ImageFrameList::probeSequence(const QString& sequencePath)
     info.sequenceLastNumber = sequence.lastNumber;
     info.sequenceMissingFrames = int(sequence.missing.size());
     if (!sequence.missing.isEmpty()) {
-        info.error = QStringLiteral("%1 missing frame(s) in the sequence, first missing number %2")
+        info.error = QString(sequence.missing.size() == 1
+                ? QStringLiteral("%1 missing frame in the sequence, first missing number %2")
+                : QStringLiteral("%1 missing frames in the sequence, first missing number %2"))
                          .arg(sequence.missing.size())
                          .arg(sequence.missing.front());
     }

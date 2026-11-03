@@ -2,6 +2,7 @@
 // ProjectManagerWindow implementation: layout, navigation, actions, keys, drag and drop.
 #include "ui/projects/ProjectManagerWindow.h"
 
+#include "core/Plural.h"
 #include "pack/EmbeddedMedia.h"
 #include "pack/ProjectPackage.h"
 #include "platform/FileDialogs.h"
@@ -512,9 +513,9 @@ void ProjectManagerWindow::updateActions()
         else
             ++projects;
     }
-    QString text = tr("%n project(s)", nullptr, projects);
+    QString text = plural(projects, tr("%n project"), tr("%n projects"));
     if (folders > 0)
-        text += tr(", %n folder(s)", nullptr, folders);
+        text += plural(folders, tr(", %n folder"), tr(", %n folders"));
     m_status->setText(text);
 }
 
@@ -657,7 +658,7 @@ bool ProjectManagerWindow::trash(const QStringList& paths, bool ask)
         const QString what = paths.size() == 1
             ? (first.isDir() ? tr("the folder “%1” and everything in it").arg(first.fileName())
                              : tr("the project “%1”").arg(first.completeBaseName()))
-            : tr("%n item(s)", nullptr, int(paths.size()));
+            : plural(paths.size(), tr("%n item"), tr("%n items"));
         const auto answer
             = QMessageBox::question(this, tr("Delete"), tr("Move %1 to the trash?").arg(what),
                 QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
@@ -752,8 +753,9 @@ void ProjectManagerWindow::exportProject(bool singleFile)
     }
     if (!linked.isEmpty()) {
         QMessageBox::information(this, tr("Export Project"),
-            tr("%n media file(s) stay linked (not stored in the exported file):", nullptr,
-                int(linked.size()))
+            plural(linked.size(),
+                tr("%n media file stays linked (not stored in the exported file):"),
+                tr("%n media files stay linked (not stored in the exported file):"))
                 + QLatin1Char('\n') + linked.mid(0, 12).join(QLatin1Char('\n')));
     }
 }
