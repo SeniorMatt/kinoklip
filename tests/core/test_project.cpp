@@ -118,6 +118,24 @@ private slots:
         QCOMPARE(layout(p.timeline()->data(), kV1), QStringLiteral("0:10"));
     }
 
+    void staleEditIsClosedKeepingItsChanges()
+    {
+        Project p;
+        p.beginEdit(QStringLiteral("A"));
+        ops::overwriteClip(p.timeline()->mutableData(), kV1, mediaClip(0, 10));
+        p.endEdit();
+        p.beginEdit(QStringLiteral("Lost Drag"));
+        p.beginEdit(QStringLiteral("Nested"));
+        ops::overwriteClip(p.timeline()->mutableData(), kV1, mediaClip(20, 5));
+        QCOMPARE(p.openEditLabel(), QStringLiteral("Lost Drag"));
+        QCOMPARE(p.closeStaleEdit(), QStringLiteral("Lost Drag"));
+        QVERIFY(!p.isEditing());
+        QCOMPARE(p.undoStack()->undoText(), QStringLiteral("Lost Drag"));
+        p.undo();
+        QCOMPARE(layout(p.timeline()->data(), kV1), QStringLiteral("0:10"));
+        QCOMPARE(p.closeStaleEdit(), QString());
+    }
+
     void mediaPoolChangesAreUndoable()
     {
         Project p;

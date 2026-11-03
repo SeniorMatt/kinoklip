@@ -674,6 +674,14 @@ void Project::endEdit()
         belowCommand, std::move(poolBefore), m_mediaPool->state(), m_editFormatBefore, m_format));
 }
 
+QString Project::closeStaleEdit()
+{
+    const QString label = openEditLabel();
+    while (m_editDepth > 0)
+        endEdit();
+    return label;
+}
+
 void Project::cancelEdit()
 {
     if (m_editDepth == 0) {

@@ -269,6 +269,12 @@ public:
     void cancelEdit();
     /// True while an edit is open.
     [[nodiscard]] bool isEditing() const { return m_editDepth > 0; }
+    /// Name of the open edit (beginEdit()); empty when none is open.
+    [[nodiscard]] QString openEditLabel() const { return m_editDepth > 0 ? m_editLabel : QString(); }
+    /// Closes an edit that was left open (a gesture whose end never arrived), keeping its
+    /// changes as one undo step. Returns its name. Undo calls it when no mouse button is down,
+    /// so a lost mouse release can never block Undo for the rest of the session.
+    QString closeStaleEdit();
 
     /// Undoes the last command (ignored while an edit is open).
     void undo();
