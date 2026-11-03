@@ -156,7 +156,8 @@ private slots:
         const QString good = project(QStringLiteral("Good"));
         const auto write = [&](const QString& name, const QByteArray& bytes) {
             QFile f(m_root + QLatin1Char('/') + name);
-            f.open(QIODevice::WriteOnly);
+            if (!f.open(QIODevice::WriteOnly))
+                qFatal("cannot write %s", qPrintable(f.fileName()));
             f.write(bytes);
             return f.fileName();
         };
