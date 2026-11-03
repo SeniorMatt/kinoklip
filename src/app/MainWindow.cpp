@@ -423,6 +423,8 @@ void MainWindow::connectAppActions()
             m_mediaPage->mediaPool()->applyPreferences();
         if (m_cutPage)
             m_cutPage->mediaPool()->applyPreferences();
+        if (m_compositingPage)
+            m_compositingPage->mediaPool()->applyPreferences();
     });
     applyRuntimePreferences(m_ctx.playback); // stored choices from start-up on
 }
