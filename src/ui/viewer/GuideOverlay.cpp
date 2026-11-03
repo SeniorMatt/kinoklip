@@ -38,6 +38,7 @@ constexpr int kDimAlpha = 120; ///< outside the aspect marker
 constexpr int kRemoveAlpha = 110; ///< a guide that would be removed if released now
 constexpr double kCentreMarkHalf = 12.0; ///< half size of the centre cross (widget px)
 constexpr int kLabelMargin = 6; ///< distance of the drag position label from the pointer
+constexpr double kGuideSnapPx = 8.0; ///< Ctrl-drag of a guide: snap reach (widget px)
 
 QList<GuideOverlay*>& instances()
 {
@@ -337,8 +338,23 @@ void GuideOverlay::updateDrag(QPointF pos)
     if (map.m11() <= 0)
         return;
     const Qt::Orientation o = m_drag->guide.orientation;
+    m_drag->pointer = pos;
     // Whole frame px while dragging (the dialog takes fractions): what the rulers count.
-    const double p = std::round(along(o, map.inverted().map(pos)));
+    double p = std::round(along(o, map.inverted().map(pos)));
+    // Ctrl held: snap onto the frame edges, centre, thirds, quarters, safe areas, the grid,
+    // the aspect marker and the other guides (Ctrl flips snapping, as in transform drags).
+    if (m_drag->snap) {
+        const ViewerOverlayOptions& opts = ViewerOverlaySettings::instance().options();
+        std::vector<ViewerGuide> others = storedGuides();
+        if (m_drag->index >= 0 && m_drag->index < int(others.size()))
+            others.erase(others.begin() + m_drag->index);
+        const std::vector<double> targets = guides::guideSnapTargets(frameSize(), o,
+            guides::positions(others, o), opts.showGrid ? opts.gridDivisions : 0,
+            opts.aspectMarker);
+        const double feature[] = {p};
+        if (const auto offset = guides::snapOffset(feature, targets, kGuideSnapPx / map.m11()))
+            p += *offset;
+    }
     m_drag->guide.position = p;
     // Released outside the surface (on a ruler, outside the viewer) or with the guide off the
     // picture, the guide goes away.
@@ -347,8 +363,10 @@ void GuideOverlay::updateDrag(QPointF pos)
     emit changed();
 }
 
-void GuideOverlay::dragTo(QPointF pos)
+void GuideOverlay::dragTo(QPointF pos, Qt::KeyboardModifiers modifiers)
 {
+    if (m_drag)
+        m_drag->snap = modifiers & Qt::ControlModifier;
     updateDrag(pos);
 }
 
@@ -406,7 +424,22 @@ void GuideOverlay::keyPressEvent(QKeyEvent* event)
         finishDrag({}, false);
         return;
     }
+    if (m_drag && event->key() == Qt::Key_Control) {
+        m_drag->snap = true;
+        updateDrag(m_drag->pointer); // snap at once, without waiting for a mouse move
+        return;
+    }
     QWidget::keyPressEvent(event);
+}
+
+void GuideOverlay::keyReleaseEvent(QKeyEvent* event)
+{
+    if (m_drag && event->key() == Qt::Key_Control) {
+        m_drag->snap = false;
+        updateDrag(m_drag->pointer);
+        return;
+    }
+    QWidget::keyReleaseEvent(event);
 }
 
 bool GuideOverlay::eventFilter(QObject* watched, QEvent* event)
@@ -472,7 +505,7 @@ bool GuideOverlay::filterMouse(QWidget* widget, QEvent* event)
     switch (type) {
     case QEvent::MouseMove:
         if (m_drag) {
-            updateDrag(pos);
+            dragTo(pos, mouse->modifiers());
             return true;
         }
         if (mouse->buttons() == Qt::NoButton) {
@@ -497,6 +530,10 @@ bool GuideOverlay::filterMouse(QWidget* widget, QEvent* event)
             return false;
         emit pressed();
         beginMove(index, pos);
+        if (m_drag && (mouse->modifiers() & Qt::ControlModifier)) {
+            m_drag->snap = true;
+            updateDrag(pos);
+        }
         return true;
     }
     case QEvent::MouseButtonRelease:

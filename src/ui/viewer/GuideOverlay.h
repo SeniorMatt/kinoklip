@@ -94,13 +94,19 @@ public:
     void beginNewGuide(Qt::Orientation orientation, QPointF pos);
     /// Starts dragging existing guide @p index.
     void beginMove(int index, QPointF pos);
-    /// Moves the dragged guide to @p pos.
-    void dragTo(QPointF pos);
+    /// Moves the dragged guide to @p pos; with Ctrl in @p modifiers it snaps onto the frame
+    /// edges, centre, thirds, quarters, safe areas, grid, aspect marker and other guides.
+    void dragTo(QPointF pos, Qt::KeyboardModifiers modifiers = {});
     /// Ends the drag at @p pos: stores the guide, or removes it (or drops a new one) if
     /// @p pos is outside the surface or the guide outside the frame. @p commit false cancels.
     void finishDrag(QPointF pos, bool commit = true);
     /// True while a guide is being dragged.
     [[nodiscard]] bool isDragging() const { return m_drag.has_value(); }
+    /// The guide being dragged, where it is now (frame px); nullptr when not dragging.
+    [[nodiscard]] const ViewerGuide* draggedGuide() const
+    {
+        return m_drag ? &m_drag->guide : nullptr;
+    }
 
     /// Positions (frame px) the on-screen transform controls snap to on @p orientation's
     /// axis: the shown guides when Show Guides and Snap to Guides are on, else none.
@@ -123,6 +129,7 @@ Q_SIGNALS:
 protected:
     void paintEvent(QPaintEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
@@ -131,6 +138,8 @@ private:
         int index = -1; ///< guide being moved; -1 = a new guide from a ruler
         ViewerGuide guide; ///< where it is now (frame px)
         bool remove = false; ///< released here it would be removed
+        QPointF pointer; ///< last pointer position (overlay px), to re-snap when Ctrl changes
+        bool snap = false; ///< Ctrl held: the guide snaps (guides::guideSnapTargets)
     };
     /// Handles a mouse / context event of @p widget (the surface or a child overlay).
     bool filterMouse(QWidget* widget, QEvent* event);

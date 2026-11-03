@@ -181,7 +181,7 @@ void ViewerRuler::mousePressEvent(QMouseEvent* event)
 void ViewerRuler::mouseMoveEvent(QMouseEvent* event)
 {
     if (m_dragging && m_overlay)
-        m_overlay->dragTo(toOverlay(event->position()));
+        m_overlay->dragTo(toOverlay(event->position()), event->modifiers());
 }
 
 void ViewerRuler::mouseReleaseEvent(QMouseEvent* event)

@@ -7,6 +7,7 @@
 #include "core/Timeline.h"
 #include "core/ViewerGuides.h"
 
+#include <algorithm>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -229,6 +230,22 @@ private slots:
     }
 
     // 41.5: labelled ticks at least the given spacing apart, in 1 / 2 / 5 steps.
+    void guideSnapTargets()
+    {
+        const QSizeF frame(1920, 1080);
+        const std::vector<double> xs = guides::guideSnapTargets(frame, Qt::Vertical, {700.0});
+        for (const double x : {0.0, 480.0, 640.0, 960.0, 1280.0, 1440.0, 1920.0, 96.0, 1824.0,
+                 192.0, 1728.0, 700.0})
+            QVERIFY2(std::find(xs.begin(), xs.end(), x) != xs.end(), qPrintable(QString::number(x)));
+        QVERIFY(std::is_sorted(xs.begin(), xs.end()));
+        const std::vector<double> ys = guides::guideSnapTargets(frame, Qt::Horizontal, {}, 4, 2.39);
+        for (const double y : {0.0, 270.0, 540.0, 810.0, 1080.0, 54.0, 108.0})
+            QVERIFY2(std::find(ys.begin(), ys.end(), y) != ys.end(), qPrintable(QString::number(y)));
+        const QRectF marker = guides::aspectMarker(frame, 2.39);
+        QVERIFY(std::find(ys.begin(), ys.end(), marker.top()) != ys.end());
+        QVERIFY(guides::guideSnapTargets(QSizeF(), Qt::Vertical, {}).empty());
+    }
+
     void rulerSteps()
     {
         QCOMPARE(guides::rulerStep(1.0, 50), 50.0);

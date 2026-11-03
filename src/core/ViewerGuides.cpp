@@ -226,6 +226,42 @@ std::optional<double> snapOffset(
     return best;
 }
 
+std::vector<double> guideSnapTargets(QSizeF frame, Qt::Orientation orientation,
+    const std::vector<double>& others, int gridDivisions, double aspect)
+{
+    // A horizontal guide sits at a y position, a vertical one at an x position.
+    const bool horizontal = orientation == Qt::Horizontal;
+    const double extent = horizontal ? frame.height() : frame.width();
+    std::vector<double> out;
+    if (extent <= 0)
+        return out;
+    for (const double f : {0.0, 1.0 / 4, 1.0 / 3, 1.0 / 2, 2.0 / 3, 3.0 / 4, 1.0})
+        out.push_back(extent * f);
+    for (const double fraction : {kActionSafe, kTitleSafe}) {
+        const QRectF safe = safeArea(frame, fraction);
+        out.push_back(horizontal ? safe.top() : safe.left());
+        out.push_back(horizontal ? safe.bottom() : safe.right());
+    }
+    if (gridDivisions > 0) {
+        std::vector<double> xs;
+        std::vector<double> ys;
+        gridLines(frame, gridDivisions, xs, ys);
+        const std::vector<double>& lines = horizontal ? ys : xs;
+        out.insert(out.end(), lines.begin(), lines.end());
+    }
+    if (aspect > 0) {
+        const QRectF marker = aspectMarker(frame, aspect);
+        out.push_back(horizontal ? marker.top() : marker.left());
+        out.push_back(horizontal ? marker.bottom() : marker.right());
+    }
+    out.insert(out.end(), others.begin(), others.end());
+    std::sort(out.begin(), out.end());
+    out.erase(std::unique(out.begin(), out.end(),
+                  [](double a, double b) { return std::abs(a - b) < 1e-9; }),
+        out.end());
+    return out;
+}
+
 std::vector<double> positions(const std::vector<ViewerGuide>& list, Qt::Orientation orientation)
 {
     std::vector<double> out;

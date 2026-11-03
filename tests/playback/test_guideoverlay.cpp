@@ -230,6 +230,43 @@ private slots:
         QVERIFY(f.guides().empty());
     }
 
+    // 41.18: Ctrl while dragging a guide snaps it (owner request on 0.4.0).
+    void ctrlDragSnapsTheGuide()
+    {
+        resetOptions({.showRulers = true});
+        Fixture f;
+        Viewer v(f);
+        QVERIFY(QTest::qWaitForWindowExposed(&v.panel));
+        const QSizeF frame(v.overlay()->frameSize());
+        const double third = frame.width() / 3;
+        // A vertical guide dragged from the left ruler, released 2 frame px off the third.
+        ViewerRuler* left = v.panel.leftRuler();
+        const QPointF near = left->mapFromGlobal(
+            v.surface()->mapToGlobal(v.at({third + 2, frame.height() / 2})));
+        drag(left, QPointF(left->width() / 2.0, 60), near);
+        QCOMPARE(f.guides().back().position, std::round(third + 2)); // no Ctrl: free
+        // Ctrl: the dragged guide snaps onto the centre line.
+        const double centreX = frame.width() / 2;
+        drag(v.surface(), v.at({std::round(third + 2), 50}), v.at({centreX - 2, 50}),
+            Qt::ControlModifier);
+        QCOMPARE(f.guides().back().position, centreX);
+        // ... and a horizontal one onto the title safe edge and onto another guide.
+        v.overlay()->beginNewGuide(Qt::Horizontal, v.at({100, 30}));
+        v.overlay()->dragTo(v.at({100, frame.height() * 0.1 + 1.5}), Qt::ControlModifier);
+        v.overlay()->finishDrag(v.at({100, frame.height() * 0.1 + 1.5}));
+        QCOMPARE(f.guides().back().position, frame.height() * 0.1);
+        // Pressing Ctrl in the middle of a drag snaps at once; releasing it lets go.
+        send(v.surface(), QEvent::MouseButtonPress, v.at({centreX, 50}));
+        send(v.surface(), QEvent::MouseMove, v.at({centreX + 30, 50}));
+        QCOMPARE(v.overlay()->draggedGuide()->position, std::round(centreX + 30));
+        v.overlay()->dragTo(v.at({frame.width() * 2 / 3 - 1, 50}));
+        QTest::keyPress(v.overlay(), Qt::Key_Control);
+        QCOMPARE(v.overlay()->draggedGuide()->position, frame.width() * 2 / 3);
+        QTest::keyRelease(v.overlay(), Qt::Key_Control);
+        QCOMPARE(v.overlay()->draggedGuide()->position, std::round(frame.width() * 2 / 3 - 1));
+        v.overlay()->finishDrag({}, false);
+    }
+
     // 41.4: double-click opens the position dialog (px or %).
     void positionDialog()
     {
