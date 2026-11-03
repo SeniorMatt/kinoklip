@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 261 commands; sure 94, likely 88, unsure 79.
+Counts: 284 commands; sure 94, likely 88, unsure 102.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -241,6 +241,29 @@ that every command has an entry and that no key is used twice.
 | On-Screen Mask Controls (viewer on-screen controls: Mask) | `view.onscreen_masks` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
 | On-Screen Crop Controls (viewer on-screen controls: Crop) | `view.onscreen_crop` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
 | Full Screen Window | `view.fullscreen` | `Ctrl+Shift+F` | unsure |  |
+| Show Rulers (pixel rulers along the viewer's top and left edges) | `view.show_rulers` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Show Guides (viewer guide lines, never rendered) | `view.guides_show` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Lock Guides | `view.guides_lock` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Snap to Guides (on-screen transform drags) | `view.guides_snap` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Add Horizontal Guide (through the picture centre) | `view.guide_add_horizontal` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Add Vertical Guide (through the picture centre) | `view.guide_add_vertical` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Clear Guides | `view.guides_clear` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Guide Color | `view.guide_color` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Save Guides as Preset | `view.guide_save_preset` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Safe Area: Action Safe (90 %) | `view.safe_action` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Safe Area: Title Safe (80 %) | `view.safe_title` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Safe Area: Centre Mark | `view.safe_centre` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Aspect Marker: None | `view.aspect_none` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Aspect Marker: 2.39:1 | `view.aspect_2_39` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Aspect Marker: 1.85:1 | `view.aspect_1_85` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Aspect Marker: 4:3 | `view.aspect_4_3` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Aspect Marker: 1:1 | `view.aspect_1_1` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Aspect Marker: 4:5 | `view.aspect_4_5` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Aspect Marker: 9:16 | `view.aspect_9_16` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Show Grid | `view.grid_show` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Grid: Rule of Thirds | `view.grid_thirds` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Grid: 4 x 4 | `view.grid_quarters` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
+| Grid: Custom N x N | `view.grid_custom` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
 
 ## Playback and navigation
 

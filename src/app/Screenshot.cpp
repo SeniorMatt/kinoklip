@@ -40,6 +40,7 @@
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
+#include "ui/viewer/GuideOverlay.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
@@ -670,6 +671,9 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
     int exitCode = 1;
     QElapsedTimer waited;
     auto grab = [&] {
+        // Viewer guides, safe areas and grid are working aids, never part of an output
+        // picture (spec 41.12): hidden for the grab whatever the user's settings say.
+        GuideOverlay::setSuppressed(true);
         const QPixmap pixmap = dialog ? dialog->grab()
             : toolWindow              ? grabWithToolWindow(window, toolWindow)
             : panel                   ? panel->grab()
