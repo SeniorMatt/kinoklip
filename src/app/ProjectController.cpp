@@ -7,11 +7,15 @@
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "pack/EmbeddedMedia.h"
+#include "pack/ProjectPackage.h"
 #include "platform/FileDialogs.h"
 #include "projects/ProjectLibrary.h"
+#include "projects/ProjectLock.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaImport.h"
+#include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectManagerWindow.h"
 
 #include <QAction>
@@ -32,8 +36,20 @@ constexpr char kRecentProjectsKey[] = "paths/recentProjects";
 
 QString projectFilter()
 {
-    return QObject::tr("%1 projects (*.%2);;All files (*)")
-        .arg(QLatin1String(appinfo::name), QLatin1String(appinfo::projectExtension));
+    return QObject::tr("%1 projects (*.%2 *.%3);;All files (*)")
+        .arg(QLatin1String(appinfo::name), QLatin1String(pack::kContainerSuffix),
+            QLatin1String(appinfo::projectExtension));
+}
+
+/// Save As: both kinds, the open project's kind first (the dialog's default filter).
+QString saveFilter(bool singleFileFirst)
+{
+    const QString single
+        = QObject::tr("Single-file project (*.%1)").arg(QLatin1String(pack::kContainerSuffix));
+    const QString linked
+        = QObject::tr("Linked project (*.%1)").arg(QLatin1String(appinfo::projectExtension));
+    return singleFileFirst ? single + QStringLiteral(";;") + linked
+                           : linked + QStringLiteral(";;") + single;
 }
 
 void rememberDir(const char* key, const QString& filePath)
@@ -62,11 +78,26 @@ ProjectController::ProjectController(AppContext& ctx, QWidget* window)
         &ProjectController::importMedia);
     connect(actions.action(QStringLiteral("file.import_subtitle")), &QAction::triggered, this,
         &ProjectController::importSubtitle);
+    connect(actions.action(QStringLiteral("file.pack_project")), &QAction::triggered, this,
+        &ProjectController::packProject);
+    connect(actions.action(QStringLiteral("file.unpack_project")), &QAction::triggered, this,
+        &ProjectController::unpackProject);
+    connect(actions.action(QStringLiteral("file.compact_project")), &QAction::triggered, this,
+        &ProjectController::compactProject);
+    connect(actions.action(QStringLiteral("file.verify_project")), &QAction::triggered, this,
+        &ProjectController::verifyProject);
+    ctx.mediaStore = this;
+    updatePackageActions();
 }
 
 ProjectController::~ProjectController()
 {
     delete m_manager.data();
+    if (m_ctx.mediaStore == this)
+        m_ctx.mediaStore = nullptr;
+    // No releaseContainer(): the window is being destroyed, nobody may be told any more.
+    m_package.reset();
+    m_lock.reset();
 }
 
 bool ProjectController::maybeSave(QWidget* dialogParent)
@@ -88,6 +119,7 @@ void ProjectController::newProject()
         return;
     m_ctx.selection->clear();
     m_ctx.project->newProject();
+    releaseContainer();
 }
 
 void ProjectController::open()
@@ -105,9 +137,18 @@ bool ProjectController::openFile(const QString& path, bool askToSave, QWidget* d
     if (askToSave && !maybeSave(dialogParent))
         return false;
     QString error;
-    if (!m_ctx.project->load(path, &error)) {
-        QMessageBox::critical(dialogParent ? dialogParent : m_window, tr("Open Project"), error);
-        return false;
+    QWidget* parent = dialogParent ? dialogParent : m_window;
+    if (pack::isContainerFile(path)) {
+        if (!openContainer(path, &error, parent)) {
+            QMessageBox::critical(parent, tr("Open Project"), error);
+            return false;
+        }
+    } else {
+        if (!m_ctx.project->load(path, &error)) {
+            QMessageBox::critical(parent, tr("Open Project"), error);
+            return false;
+        }
+        releaseContainer();
     }
     m_ctx.selection->clear();
     rememberDir(kLastProjectDirKey, path);
@@ -120,6 +161,19 @@ bool ProjectController::save()
     if (m_ctx.project->filePath().isEmpty())
         return saveAs();
     QString error;
+    if (pack::isContainerFile(m_ctx.project->filePath())) {
+        if (!m_package || m_readOnly) {
+            QMessageBox::information(m_window, tr("Save Project"),
+                tr("“%1” is open read-only. Save it under another name.")
+                    .arg(QFileInfo(m_ctx.project->filePath()).fileName()));
+            return saveAs();
+        }
+        if (!saveContainer(&error)) {
+            QMessageBox::critical(m_window, tr("Save Project"), error);
+            return false;
+        }
+        return true;
+    }
     if (!m_ctx.project->save(m_ctx.project->filePath(), &error)) {
         QMessageBox::critical(m_window, tr("Save Project"), error);
         return false;
@@ -129,17 +183,36 @@ bool ProjectController::save()
 
 bool ProjectController::saveAs()
 {
-    QString path = platform::getSaveFileName(m_window, tr("Save Project As"), projectFilter(),
-        QLatin1String(kLastProjectDirKey),
-        m_ctx.project->name() + QLatin1Char('.') + QLatin1String(appinfo::projectExtension));
+    // A never-saved project offers the kind New Project would create; otherwise its own kind.
+    const QString current = m_ctx.project->filePath();
+    const bool single = current.isEmpty()
+        ? NewProjectDialog::preferredKindId() == QLatin1String(pack::kContainerSuffix)
+        : pack::isContainerFile(current);
+    const QString suffix
+        = single ? QLatin1String(pack::kContainerSuffix) : QLatin1String(appinfo::projectExtension);
+    QString path = platform::getSaveFileName(m_window, tr("Save Project As"), saveFilter(single),
+        QLatin1String(kLastProjectDirKey), m_ctx.project->name() + QLatin1Char('.') + suffix);
     if (path.isEmpty())
         return false;
     if (QFileInfo(path).suffix().isEmpty())
-        path += QLatin1Char('.') + QLatin1String(appinfo::projectExtension);
-    QString error;
-    if (!m_ctx.project->save(path, &error)) {
-        QMessageBox::critical(m_window, tr("Save Project"), error);
-        return false;
+        path += QLatin1Char('.') + suffix;
+    path = QFileInfo(path).absoluteFilePath();
+    if (pack::isContainerFile(path)) {
+        // The open single-file project itself: a plain save.
+        if (m_package && !m_readOnly && path == m_package->path())
+            return save();
+        if (!saveAsSingleFile(path))
+            return false;
+    } else if (isSingleFile()) {
+        if (!saveAsLinked(path))
+            return false;
+    } else {
+        QString error;
+        if (!m_ctx.project->save(path, &error)) {
+            QMessageBox::critical(m_window, tr("Save Project"), error);
+            return false;
+        }
+        releaseContainer(); // a never-saved or recovered project: nothing held
     }
     rememberDir(kLastProjectDirKey, path);
     addRecentProject(path);
@@ -258,6 +331,13 @@ bool ProjectController::offerRecovery(const QString& onlyDocument)
         if (!m_ctx.project->loadRecovered(c.autosavePath, c.documentPath, &error)) {
             QMessageBox::critical(m_window, tr("Recover Unsaved Changes"), error);
             continue;
+        }
+        // A single-file project's media stay in its file: hold it again for saving.
+        if (pack::isContainerFile(c.documentPath)) {
+            if (!attachContainer(c.documentPath, &error))
+                QMessageBox::warning(m_window, tr("Recover Unsaved Changes"), error);
+        } else {
+            releaseContainer();
         }
         m_ctx.selection->clear();
         if (m_autosave)

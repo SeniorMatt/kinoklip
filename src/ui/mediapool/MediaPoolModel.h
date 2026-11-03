@@ -85,6 +85,8 @@ public:
         AngleColumn,
         GoodTakeColumn,
         RatingColumn,
+        /// "Project file" (stored inside a single-file project) or "Linked" (a file on disk)
+        LocationColumn,
         ColumnCount
     };
 
@@ -104,6 +106,10 @@ public:
         FlagsRole, ///< uint flag bits (core/ClipColors.h)
         UsageRole, ///< int number of timeline uses
         PowerRole, ///< bool: a power bin item (shared by every project)
+        LocationRole, ///< int Location of the item's media
+        /// int Location for the thumbnail badge: set only in a single-file project (where
+        /// both kinds can be mixed), NoLocation otherwise
+        LocationBadgeRole,
         SortRole ///< raw value of the column for sorting (numbers, ms, lower-case text)
     };
 
@@ -116,6 +122,13 @@ public:
         CompoundKind, ///< a compound clip (its timeline)
         MulticamKind, ///< a multicam clip (its timeline; opens in the source viewer)
         SubtitleKind ///< an imported subtitle file (drag onto the timeline for captions)
+    };
+
+    /// Where an item's media is (LocationRole).
+    enum Location {
+        NoLocation, ///< timelines, compound and multicam clips
+        StoredLocation, ///< stored inside the open single-file project
+        LinkedLocation ///< a file on disk
     };
 
     /// Size poster frames are scaled to fit (16:9 tile).
@@ -210,10 +223,13 @@ private:
         MediaKind kind = VideoKind;
         bool offline = false;
         bool power = false; ///< item of the power bins
+        Location location = NoLocation;
         MediaLinkStatus links; ///< from the link status provider (cached)
     };
 
     static Row makeRow(const MediaItem& item, bool power);
+    /// True while the open project is a single-file project (location badges shown).
+    [[nodiscard]] bool singleFileProject() const;
     [[nodiscard]] QVariant displayText(const Row& row, int column) const;
     [[nodiscard]] QVariant sortValue(const Row& row, int column) const;
     void connectPool(MediaPool* pool, bool power);

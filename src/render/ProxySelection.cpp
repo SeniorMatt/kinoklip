@@ -3,6 +3,7 @@
 #include "render/ProxySelection.h"
 
 #include "core/MediaItem.h"
+#include "media/MediaSource.h"
 
 #include <QFileInfo>
 #include <QSet>
@@ -49,7 +50,7 @@ std::shared_ptr<const ProxyMap> makeProxyMap(
         if (handling == ProxyHandling::PreferProxies)
             useProxy = proxyReady;
         else if (handling == ProxyHandling::PreferOriginals)
-            useProxy = proxyReady && !optimizedReady && !QFileInfo::exists(item.path);
+            useProxy = proxyReady && !optimizedReady && !media::mediaExists(item.path);
         const LinkKind kind = useProxy ? LinkKind::Proxy : LinkKind::Optimized;
         if (!useProxy && !optimizedReady)
             continue;
@@ -73,7 +74,7 @@ std::shared_ptr<const MediaPathMap> makeAudioPathMap(
     for (const MediaItem& item : pool.items) {
         QString path = item.path;
         if (handling != ProxyHandling::Disabled && !item.isTimeline() && item.info.hasAudio
-            && !path.isEmpty() && !QFileInfo::exists(path)
+            && !path.isEmpty() && !media::mediaExists(path)
             && links.state(item.id, LinkKind::Proxy, item.path) == LinkState::Ready)
             path = links.link(item.id, LinkKind::Proxy).path;
         map->insert(item.id, path);

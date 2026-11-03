@@ -129,6 +129,17 @@ public:
     /// Loads a project file, replacing the current contents and clearing the undo history.
     /// On failure the current project is unchanged and @p error describes the problem.
     bool load(const QString& path, QString* error = nullptr);
+    /// Loads a project document given as JSON (a single-file project's document, read from the
+    /// container) as if it had been read from @p documentPath: relative media paths resolve
+    /// against its folder and filePath() becomes @p documentPath. Same rules as load().
+    bool loadDocument(
+        const QByteArray& json, const QString& documentPath, QString* error = nullptr);
+    /// The project file's JSON for the current state as save() would write it at @p path
+    /// (a single-file project stores it inside the container instead of writing the file).
+    [[nodiscard]] QByteArray documentJson(const QString& path) const;
+    /// After the document was stored somewhere other than a plain file (a single-file
+    /// project): makes @p path the current file and clears the modified state, like save().
+    void markSaved(const QString& path);
     /// Crash recovery: loads the autosave file @p autosavePath as if it were the document
     /// @p documentPath (empty = a never-saved project). Relative media paths resolve against
     /// the document's folder, filePath() becomes @p documentPath and the project is marked
@@ -352,6 +363,10 @@ private:
     };
 
     bool loadFrom(const QString& path, const QString& documentPath, QString* error);
+    /// loadFrom() on bytes already read; @p path names the source in messages and the
+    /// fallback name, @p documentPath (empty = @p path) is where relative paths resolve.
+    bool loadBytes(
+        const QByteArray& json, const QString& path, const QString& documentPath, QString* error);
     /// The project file's JSON for @p snapshot written at @p path (pure function).
     [[nodiscard]] static QJsonObject toJson(const SaveSnapshot& snapshot, const QString& path);
     bool fromJson(const QJsonObject& root, int version, const QDir& projectDir,

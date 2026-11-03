@@ -14,7 +14,12 @@ Namespace `kk::pack`. Depends only on QtCore (the media engine uses `EmbeddedMed
 
 The media engine reaches embedded media only through `media::MediaSource` (`src/media`).
 
-## Not here (integration step)
-Project Manager, File menu (Pack Project, Unpack, Compact), import into a self-contained
-project and the Media Pool location indicator call these functions; see the plan in
-docs/single-file-project.md and behavior-spec section 39.
+## Users (sfint integration)
+- `app/ProjectController` (`ProjectPackaging.cpp`): holds the open project's `ProjectPackage`
+  and `projects/ProjectLock`, loads / saves the document, Save As between the kinds, File >
+  Pack / Unpack / Compact / Verify, and copies imports in (`addMedia`, the AppContext's
+  `MediaStore`).
+- `projects/ProjectKinds` (the `.kinoklip` kind: metadata, rename, create) and
+  `ProjectLibrary::exportProject()` (Pack / Unpack on export).
+- The Media Pool's location indicator uses `splitEmbeddedPath()` (`ui/common/MediaImport.h`).
+Behaviour: behavior-spec section 39.

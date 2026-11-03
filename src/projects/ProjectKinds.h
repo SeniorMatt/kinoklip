@@ -48,10 +48,8 @@ enum class ProjectStorage {
 /// `.kinoklip` (plan-v4 part 2). The library lists every file whose extension belongs to a
 /// registered kind and asks that kind for the metadata.
 ///
-/// Integration point for the single-file container (kkpack branch): fill `readMetadata`,
-/// `writeName` and `create` of the "kinoklip" kind (registerKind() replaces the placeholder
-/// registered here), and opening / saving in ProjectController. Until then the placeholder
-/// lists `.kinoklip` files with a "not supported yet" error card and cannot create projects.
+/// Both built-in kinds read, rename and create their files here; opening and saving them in
+/// the editor is ProjectController's (the single-file kind through src/pack).
 struct ProjectKind
 {
     QString id; ///< stable id ("kkproj", "kinoklip")
@@ -94,6 +92,17 @@ void registerKind(const ProjectKind& kind);
 bool createKkproj(const QString& path, const QString& name, QString* error);
 /// Rewrites the "project" / "name" field of a `.kkproj` file (atomically, QSaveFile).
 bool writeKkprojName(const QString& path, const QString& name, QString* error);
+/// Metadata of a project document given as JSON (@p path: the file it belongs to; relative
+/// media paths resolve against its folder). Shared by both kinds.
+[[nodiscard]] ProjectMetadata readDocumentMetadata(const QByteArray& json, const QString& path);
+/// The `.kinoklip` metadata reader: the document inside the container (read-only; the media
+/// are never read).
+[[nodiscard]] ProjectMetadata readKinoklipMetadata(const QString& path);
+/// Writes a new empty single-file project (container + document); the single-file factory.
+bool createKinoklip(const QString& path, const QString& name, QString* error);
+/// Saves the document of a `.kinoklip` with a new project name (an appended save; refused
+/// while another window or process holds the project's lock).
+bool writeKinoklipName(const QString& path, const QString& name, QString* error);
 
 } // namespace projectkinds
 

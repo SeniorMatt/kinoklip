@@ -10,6 +10,7 @@ contain (without opening them in the editor), and the file operations on them. D
 | File | What |
 |---|---|
 | `ProjectKinds.h` | `ProjectMetadata` (name, resolution, fps, duration, timelines, media / missing media, poster source, error); `ProjectStorage` (Linked / SingleFile); `ProjectKind` (id, badge, extensions, metadata reader, name writer, creation factory) and its registry (`projectkinds::all()`, `registerKind()`, `forPath()`, `byId()`, `byStorage()`); the `.kkproj` reader / writer / factory |
+| `ProjectLock.h` | one writer per project file: a `QLockFile` per path in `<AppDataLocation>/locks` (never next to the project); also refuses a second holder in the same process (a second window); a crashed holder's lock is taken over |
 | `ProjectLibrary.h` | the library folder: `list()` (one readdir, no file opened), lazy `metadata()` on a 2-thread pool with the sidecar cache, posters, the open project's protection, create / rename / duplicate / move / trash / import / export |
 
 ## Data flow
@@ -32,20 +33,16 @@ contain (without opening them in the editor), and the file operations on them. D
   partition, `.Trash-<uid>` at the top of other partitions).
 - Rename changes the file name and the name stored inside the project (`ProjectKind::writeName`).
 - Import / duplicate / move copy or rename the file unchanged: media paths are stored absolute
-  (the relative path is only the fallback), so the copy finds the same media.
+  (the relative path is only the fallback), so the copy finds the same media; a single-file
+  project carries its media along.
 
 ## How to extend
 
-**The single-file project (`.kinoklip`, kkpack branch, plan-v4 part 2):** a placeholder kind
-with id `kinoklip`, storage `SingleFile` and extension `kinoklip` is registered in
-`ProjectKinds.cpp` (`builtinKinds()`): its files are listed with an error card and it cannot
-create projects, so the New Project dialog shows "Single file" disabled. To integrate:
-1. Fill `readMetadata` (thread-safe; read the project data from the container, never the
-   media), `writeName` and `create` of that kind, either in `builtinKinds()` or by
-   `projectkinds::registerKind()` at start-up (same id replaces it).
-2. Remove the "cannot open yet" guard in `ProjectManagerWindow::openPath()` and make
-   `ProjectController::openFile()` / `save()` handle the container.
-3. The New Project dialog then offers Single file as the default (`NewProjectDialog`).
+**The single-file project (`.kinoklip`, src/pack):** the built-in kind `kinoklip` reads the
+document inside the container read-only (`readKinoklipMetadata()`, never the media), renames
+by saving the document anew under the project lock (`writeKinoklipName()`) and creates an
+empty container with a document (`createKinoklip()`). Export to the other kind packs or
+unpacks (`ProjectLibrary::exportProject()`, may run on a worker thread).
 
 **Another kind of project file:** register a `ProjectKind` with a new id and extension; the
 library lists it, the cards show its badge, Import accepts it.

@@ -2,11 +2,14 @@
 // ProjectManagerWindow implementation: layout, navigation, actions, keys, drag and drop.
 #include "ui/projects/ProjectManagerWindow.h"
 
+#include "pack/EmbeddedMedia.h"
+#include "pack/ProjectPackage.h"
 #include "platform/FileDialogs.h"
 #include "platform/FileManager.h"
 #include "projects/ProjectLibrary.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/ProgressTask.h"
 #include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectCardDelegate.h"
 #include "ui/projects/ProjectLibraryModel.h"
@@ -531,13 +534,6 @@ void ProjectManagerWindow::openPath(const QString& path)
             tr("The project file %1 no longer exists.").arg(QDir::toNativeSeparators(path)));
         return;
     }
-    if (const ProjectKind* kind = projectkinds::forPath(path);
-        kind && kind->storage == ProjectStorage::SingleFile && !kind->canCreate()) {
-        // TODO(projects): opens once the single-file container (kkpack) is integrated.
-        reportError(tr("Single-file projects can be opened after the single-file project "
-                       "integration."));
-        return;
-    }
     if (QDir::cleanPath(path) != m_library->openProjectPath() && m_guard && !m_guard(this))
         return;
     emit openRequested(QDir::cleanPath(path));
@@ -694,16 +690,62 @@ void ProjectManagerWindow::importProject()
 
 void ProjectManagerWindow::exportSelected()
 {
+    exportProject(false);
+}
+
+void ProjectManagerWindow::exportAsSingleFile()
+{
+    exportProject(true);
+}
+
+void ProjectManagerWindow::exportProject(bool singleFile)
+{
     const QString path = currentPath();
     if (path.isEmpty() || !QFileInfo(path).isFile())
         return;
-    const QString target = platform::getSaveFileName(this, tr("Export Project"), projectFilter(),
-        QLatin1String(kLastDirKey), QFileInfo(path).fileName());
+    // Both kinds are offered: another kind than the project's converts it (Pack / Unpack).
+    const bool fromSingle = pack::isContainerFile(path);
+    const bool single = singleFile || fromSingle;
+    const QString singleFilter = tr("Single-file project with its media (*.%1)")
+                                     .arg(QLatin1String(pack::kContainerSuffix));
+    const QString linkedFilter = tr("Linked project (*.kkproj)");
+    const QString filter = single ? singleFilter + QStringLiteral(";;") + linkedFilter
+                                  : linkedFilter + QStringLiteral(";;") + singleFilter;
+    const QString suffix
+        = single ? QLatin1String(pack::kContainerSuffix) : QStringLiteral("kkproj");
+    QString target = platform::getSaveFileName(this,
+        singleFile ? tr("Export as Single File") : tr("Export Project"), filter,
+        QLatin1String(kLastDirKey), QFileInfo(path).completeBaseName() + QLatin1Char('.') + suffix);
     if (target.isEmpty())
         return;
+    if (QFileInfo(target).suffix().isEmpty())
+        target += QLatin1Char('.') + suffix;
     QString error;
-    if (!m_library->exportProject(path, target, &error))
+    bool cancelled = false;
+    QStringList linked;
+    bool ok = false;
+    if (fromSingle == pack::isContainerFile(target)) {
+        ok = m_library->exportProject(path, target, &error);
+    } else {
+        // Pack / Unpack copy media: on a worker, with progress and Cancel.
+        const ProjectLibrary* library = m_library;
+        runWithProgress(this, singleFile ? tr("Export as Single File") : tr("Export Project"),
+            tr("Exporting %1…").arg(QFileInfo(path).fileName()), [&](const TaskProgress& progress) {
+                ok = library->exportProject(path, target, &error, progress, &cancelled, &linked);
+            });
+    }
+    if (cancelled)
+        return;
+    if (!ok) {
         reportError(error);
+        return;
+    }
+    if (!linked.isEmpty()) {
+        QMessageBox::information(this, tr("Export Project"),
+            tr("%n media file(s) stay linked (not stored in the exported file):", nullptr,
+                int(linked.size()))
+                + QLatin1Char('\n') + linked.mid(0, 12).join(QLatin1Char('\n')));
+    }
 }
 
 void ProjectManagerWindow::reportError(const QString& message)
@@ -743,6 +785,11 @@ void ProjectManagerWindow::showContextMenu(QAbstractItemView* view, const QPoint
         if (!folder) {
             menu.addAction(tr("&Export..."), this, &ProjectManagerWindow::exportSelected)
                 ->setEnabled(exists);
+            if (!pack::isContainerFile(path)) {
+                menu.addAction(tr("Export as Single &File..."), this,
+                        &ProjectManagerWindow::exportAsSingleFile)
+                    ->setEnabled(exists);
+            }
             QAction* settings = menu.addAction(
                 tr("Project &Settings..."), this, &ProjectManagerWindow::projectSettingsRequested);
             settings->setEnabled(open);

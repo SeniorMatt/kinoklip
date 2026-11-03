@@ -7,6 +7,7 @@
 #include "core/Retime.h"
 #include "core/Serialization.h"
 #include "core/UndoSnapshots.h"
+#include "media/MediaSource.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -447,9 +448,9 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
         for (MediaItem& m : pool.items) {
             if (m.kind != MediaItemKind::File || m.fileModifiedMs > 0)
                 continue;
-            const QFileInfo fi(m.path);
-            if (fi.exists())
-                m.fileModifiedMs = fi.lastModified().toMSecsSinceEpoch();
+            const media::MediaSource source = media::MediaSource::resolve(m.path);
+            if (source.exists())
+                m.fileModifiedMs = source.modifiedMs();
             if (m.addedMs == 0)
                 m.addedMs = m.fileModifiedMs;
         }
@@ -486,11 +487,26 @@ bool Project::save(const QString& path, QString* error)
 {
     if (!saveCopy(path, error))
         return false;
+    markSaved(path);
+    return true;
+}
+
+void Project::markSaved(const QString& path)
+{
     setFilePath(QFileInfo(path).absoluteFilePath());
     m_undoStack->setClean();
     m_settingsDirty = false;
     emitDirtyIfChanged();
-    return true;
+}
+
+QByteArray Project::documentJson(const QString& path) const
+{
+    return QJsonDocument(toJson(captureSave(), path)).toJson(QJsonDocument::Indented);
+}
+
+bool Project::loadDocument(const QByteArray& json, const QString& documentPath, QString* error)
+{
+    return loadBytes(json, documentPath, documentPath, error);
 }
 
 bool Project::saveCopy(const QString& path, QString* error, const QJsonObject& extra) const
@@ -533,8 +549,20 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
         return fail(tr("Cannot open %1: %2").arg(path, file.errorString()));
+    return loadBytes(file.readAll(), path, documentPath, error);
+}
+
+bool Project::loadBytes(
+    const QByteArray& json, const QString& path, const QString& documentPath, QString* error)
+{
+    auto fail = [error](const QString& message) {
+        if (error)
+            *error = message;
+        qCWarning(lcCore) << "load failed:" << message;
+        return false;
+    };
     QJsonParseError parseError;
-    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    const QJsonDocument doc = QJsonDocument::fromJson(json, &parseError);
     if (doc.isNull() || !doc.isObject())
         return fail(tr("%1 is not a valid project file: %2").arg(path, parseError.errorString()));
 

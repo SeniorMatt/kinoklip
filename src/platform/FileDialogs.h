@@ -5,6 +5,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <functional>
+
 class QWidget;
 
 namespace kk::platform {
@@ -55,6 +57,10 @@ enum class FileDialogBackend {
 /// every mode but OpenFiles), or an empty list if cancelled. Remembers the folder in
 /// request.settingsKey on success. GUI thread only.
 [[nodiscard]] QStringList runFileDialog(QWidget* parent, const FileDialogRequest& request);
+
+/// Tests: while set, runFileDialog() returns what @p handler returns instead of showing a
+/// dialog (empty list = cancelled). Pass an empty function to restore the real dialogs.
+void setFileDialogHandlerForTests(std::function<QStringList(const FileDialogRequest&)> handler);
 
 /// Folder the dialog would start in: request.directory, else the remembered folder, else home.
 [[nodiscard]] QString startDirectory(const FileDialogRequest& request);

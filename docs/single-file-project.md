@@ -199,7 +199,17 @@ re-muxing per container format and keyframe-aware cut points; not done.
 TODO(pack): image sequences inside the container (one entry per frame, sequence scanning over
 entry names).
 TODO(pack): Compact on Windows must close every open reader first (rename over an open file
-fails there); on POSIX readers keep reading the old inode until they reopen.
+fails there); on POSIX readers keep reading the old inode until they reopen. The File menu's
+Compact (app/ProjectPackaging.cpp) stops playback, drops the preview decoders and closes the
+project's own handle; the playback engine's decoders are not closed yet.
+
+## In the editor (sfint)
+`app/ProjectController` holds the open project's `ProjectPackage` and its `ProjectLock`
+(`<AppDataLocation>/locks`, so a second window or process opens read-only), loads the runtime
+document with `Project::loadDocument()` and saves with `saveDocument(Project::documentJson())`.
+Autosaves stay in the autosave folder (runtime form, absolute embedded paths: outside the file,
+so privacy is unaffected); crash recovery re-attaches the container. Imports go through the
+AppContext's `MediaStore` (`addMedia()` on a worker thread). Behaviour: spec 39.17 - 39.25.
 
 ## Size limits
 
