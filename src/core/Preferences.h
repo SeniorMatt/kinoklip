@@ -51,6 +51,9 @@ inline constexpr char kTimelineThumbnails[] = "timeline/thumbnails";
 inline constexpr char kTimelineWaveforms[] = "timeline/waveforms";
 /// Timeline View Options > Show Source Timecode (bool, default false; spec 12.14).
 inline constexpr char kTimelineSourceTimecode[] = "timeline/sourceTimecode";
+/// Edit Index column chooser (spec 18.10): QStringList of the hidden column keys
+/// (EditIndexModel::columnKey()), one value per mode: this prefix + "/edits" or "/markers".
+inline constexpr char kEditIndexHiddenColumns[] = "editIndex/hiddenColumns";
 
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).

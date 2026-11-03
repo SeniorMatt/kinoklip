@@ -188,6 +188,23 @@ QVariant EditIndexModel::markerData(const editindex::MarkerRow& row, int column,
     return {};
 }
 
+QString EditIndexModel::columnKey(Mode mode, int column)
+{
+    // Order = the column enums; never reorder, only append (stored in the settings).
+    static const char* const kEditKeys[EditColumnCount] = {"number", "reel", "name", "track",
+        "sourceIn", "sourceOut", "recordIn", "recordOut", "duration", "notes"};
+    static const char* const kMarkerKeys[MarkerColumnCount]
+        = {"number", "color", "name", "timecode", "duration", "notes", "location"};
+    if (column < 0 || column >= columnCountOf(mode))
+        return {};
+    return QLatin1String(mode == Mode::Edits ? kEditKeys[column] : kMarkerKeys[column]);
+}
+
+int EditIndexModel::columnCountOf(Mode mode)
+{
+    return mode == Mode::Edits ? int(EditColumnCount) : int(MarkerColumnCount);
+}
+
 QVariant EditIndexModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
