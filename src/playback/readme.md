@@ -17,6 +17,8 @@ category `kk.playback`.
 | `FrameScheduler.h` | pure request bookkeeping: look-ahead, frame dropping, scrub coalescing, cancellation |
 | `AutoQuality.h` | pure Full/Half decision of the opt-in "Automatic" playback resolution |
 | `AudioOutput.h` | sound device interface + `createDefaultAudioOutput()` (QAudioSink, own thread), `monotonicUs()` |
+| `AudioDeviceMonitor.h` | process-wide choice of the output device (Automatic = system default, or the device chosen in Preferences, with fallback while it is missing); every QAudioSink output follows it, a playing one moves its stream without stopping; each switch is logged |
+| `AudioRouting.h` | pure parts of that: `chooseAudioOutput()`, `PlayedFramesTracker` (played count across device switches), `RingPuller` (ring to device, underrun skip) |
 | `AudioFeeder.h` | mixer thread (`AudioMixer`) filling the ring ahead of the device |
 | `VarispeedResampler.h` | windowed-sinc resampler of the varispeed path (low-passed at 2x - 16x, so shuttling does not alias) |
 | `AudioRing.h` | lock-free SPSC ring of stereo float frames |
