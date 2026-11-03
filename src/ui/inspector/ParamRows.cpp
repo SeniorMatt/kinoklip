@@ -20,6 +20,7 @@
 #include <QMenu>
 #include <QPainter>
 #include <QPlainTextEdit>
+#include <QSignalBlocker>
 #include <QSlider>
 #include <QTimer>
 #include <QToolButton>
@@ -383,6 +384,25 @@ public:
         m_swatch->setAutoRaise(true);
         m_swatch->setToolTip(tr("Click to choose a color"));
         grid->addWidget(m_swatch, gridRow, paramgrid::kEditor, 1, 2, Qt::AlignLeft);
+        if (desc.viewerPicker && ref.scope == ParamScope::Effect) {
+            // Eyedropper: while checked, a click (or a drag over an area) in the timeline
+            // viewer picks the colour (ColorPickOverlay); it unchecks itself after the pick.
+            m_picker = new QToolButton(parentWidget);
+            m_picker->setObjectName(QStringLiteral("ColorPickerButton"));
+            m_picker->setCheckable(true);
+            m_picker->setAutoRaise(true);
+            // The icon theme's eyedropper (Breeze has one); a text button otherwise.
+            const QIcon dropper = QIcon::fromTheme(QStringLiteral("color-picker"));
+            if (!dropper.isNull())
+                m_picker->setIcon(dropper);
+            else
+                m_picker->setText(tr("Pick"));
+            m_picker->setToolTip(tr("Pick the color in the timeline viewer: click a pixel or "
+                                    "drag over an area to average it"));
+            grid->addWidget(m_picker, gridRow, paramgrid::kKeyframe, Qt::AlignLeft);
+            connect(m_picker, &QToolButton::toggled, this,
+                [this](bool on) { m_host.setColorPicking(m_ref, on); });
+        }
         connect(m_swatch, &QToolButton::clicked, this, [this] {
             const QColor picked = m_host.pickColor(m_color, m_desc.label);
             if (!picked.isValid() || picked == m_color)
@@ -400,11 +420,19 @@ public:
             m_swatch->setIcon(swatchIcon(color));
             m_swatch->setText(color.name(QColor::HexRgb).toUpper());
         }
+        if (m_picker) {
+            const bool picking = m_host.isColorPicking(m_ref);
+            if (m_picker->isChecked() != picking) {
+                const QSignalBlocker block(m_picker);
+                m_picker->setChecked(picking);
+            }
+        }
         refreshReset(clip, localFrame);
     }
 
 private:
     QToolButton* m_swatch = nullptr;
+    QToolButton* m_picker = nullptr; ///< viewer eyedropper (ParamDescriptor::viewerPicker)
     QColor m_color;
 };
 

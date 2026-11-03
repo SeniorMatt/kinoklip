@@ -17,6 +17,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
+#include "ui/viewer/ColorPickOverlay.h"
 #include "ui/viewer/MaskOverlay.h"
 #include "ui/viewer/MulticamOverlay.h"
 #include "ui/viewer/PlaybackResolution.h"
@@ -208,6 +209,10 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         // On-screen Transform controls: drag the current clip (titles) in the viewer.
         m_transformOverlay = new TransformOverlay(m_ctx, m_surface);
         connect(m_transformOverlay, &TransformOverlay::pressed, this, [this] { activate(); });
+        // Eyedropper of colour parameters (Chroma Key): active while the Inspector's picker
+        // button is checked; above the other overlays.
+        m_colorPickOverlay = new ColorPickOverlay(m_ctx, m_surface);
+        connect(m_colorPickOverlay, &ColorPickOverlay::pressed, this, [this] { activate(); });
         setupEditingAids();
     }
     setupOfflineNotice();

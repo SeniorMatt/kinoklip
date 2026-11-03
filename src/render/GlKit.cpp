@@ -83,6 +83,27 @@ void main()
 }
 )";
 
+// Separable min / max (erode / dilate) over 2·uTaps + 1 texels along uStep, per channel. The
+// last tap pair counts with weight uFrac, so fractional radii change the result smoothly.
+const char* const kMorphFragment = R"(
+uniform sampler2D uTex;
+uniform vec2 uStep;
+uniform int uTaps;
+uniform float uFrac;
+uniform int uDilate;
+void main()
+{
+    vec4 r = texture(uTex, vUv);
+    for (int i = 1; i <= uTaps; ++i) {
+        vec4 a = texture(uTex, vUv + uStep * float(i));
+        vec4 b = texture(uTex, vUv - uStep * float(i));
+        vec4 e = uDilate == 1 ? max(r, max(a, b)) : min(r, min(a, b));
+        r = mix(r, e, i == uTaps ? uFrac : 1.0);
+    }
+    fragColor = r;
+}
+)";
+
 constexpr GLfloat kQuad[] = {0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f};
 
 GLuint compile(GlFunctions* gl, GLenum type, const char* const* sources, int count, QString* log)
@@ -247,7 +268,8 @@ bool GlKit::initialize(QString* why)
 {
     if (!m_blit.build(m_gl, "blit", kBlitFragment, why)
         || !m_fill.build(m_gl, "fill", kFillFragment, why)
-        || !m_blur.build(m_gl, "blur", kBlurFragment, why))
+        || !m_blur.build(m_gl, "blur", kBlurFragment, why)
+        || !m_morph.build(m_gl, "morphology", kMorphFragment, why))
         return false;
     m_blitOpacity = m_blit.uniform(m_gl, "uOpacity");
     m_blitCrop = m_blit.uniform(m_gl, "uCrop");
@@ -257,10 +279,16 @@ bool GlKit::initialize(QString* why)
     m_blurTaps = m_blur.uniform(m_gl, "uTaps");
     m_blurWeights = m_blur.uniform(m_gl, "uWeight");
     m_blurOffsets = m_blur.uniform(m_gl, "uOffset");
+    m_morphStep = m_morph.uniform(m_gl, "uStep");
+    m_morphTaps = m_morph.uniform(m_gl, "uTaps");
+    m_morphFrac = m_morph.uniform(m_gl, "uFrac");
+    m_morphDilate = m_morph.uniform(m_gl, "uDilate");
     m_gl->glUseProgram(m_blit.id);
     m_gl->glUniform1i(m_blit.uniform(m_gl, "uTex"), 0);
     m_gl->glUseProgram(m_blur.id);
     m_gl->glUniform1i(m_blur.uniform(m_gl, "uTex"), 0);
+    m_gl->glUseProgram(m_morph.id);
+    m_gl->glUniform1i(m_morph.uniform(m_gl, "uTex"), 0);
     m_gl->glUseProgram(0);
 
     m_gl->glGenVertexArrays(1, &m_vao);
@@ -292,6 +320,7 @@ void GlKit::destroy()
     m_blit.destroy(m_gl);
     m_fill.destroy(m_gl);
     m_blur.destroy(m_gl);
+    m_morph.destroy(m_gl);
     if (m_vbo)
         m_gl->glDeleteBuffers(1, &m_vbo);
     if (m_vao)
@@ -398,23 +427,33 @@ void GlKit::fill(const QTransform& quadToNdcMatrix, const float rgba[4], const Q
 void GlKit::blurPass(
     const RenderTarget& src, const RenderTarget& dst, double sigma, bool horizontal)
 {
-    // Discrete Gaussian over [-r, r], r = ceil(3σ), then merge neighbour pairs (i, i+1) into
+    // Discrete Gaussian over [-r, r], r = ceil(3σ).
+    double raw[2 * kMaxBlurTaps + 2] = {};
+    const int radius = std::min(int(std::ceil(3.0 * sigma)), 2 * (kMaxBlurTaps - 1));
+    for (int i = 0; i <= radius; ++i)
+        raw[i] = std::exp(-0.5 * i * i / (sigma * sigma));
+    kernelPass(src, dst, raw, radius, horizontal);
+}
+
+void GlKit::kernelPass(const RenderTarget& src, const RenderTarget& dst, const double* raw,
+    int radius, bool horizontal)
+{
+    // Normalise the symmetric kernel raw[0..radius], then merge neighbour pairs (i, i+1) into
     // one bilinear tap at their weighted centre.
     float weights[kMaxBlurTaps] = {};
     float offsets[kMaxBlurTaps] = {};
-    const int radius = std::min(int(std::ceil(3.0 * sigma)), 2 * (kMaxBlurTaps - 1));
-    double raw[2 * kMaxBlurTaps + 2] = {};
+    radius = std::min(radius, 2 * (kMaxBlurTaps - 1));
     double sum = 0;
-    for (int i = 0; i <= radius; ++i) {
-        raw[i] = std::exp(-0.5 * i * i / (sigma * sigma));
+    for (int i = 0; i <= radius; ++i)
         sum += i == 0 ? raw[i] : 2.0 * raw[i];
-    }
     weights[0] = float(raw[0] / sum);
     int taps = 1;
     for (int i = 1; i <= radius; i += 2) {
         const double w1 = raw[i];
         const double w2 = i + 1 <= radius ? raw[i + 1] : 0.0;
         const double w = w1 + w2;
+        if (w <= 0.0)
+            continue;
         weights[taps] = float(w / sum);
         offsets[taps] = float((i * w1 + (i + 1) * w2) / w);
         ++taps;
@@ -458,6 +497,78 @@ PooledTarget GlKit::gaussianBlur(const RenderTarget& src, double sigmaPx)
     if (level == &src)
         return vertical;
     return resample(*vertical, src.size); // blurred, so bilinear upsampling is invisible
+}
+
+PooledTarget GlKit::boxBlur(const RenderTarget& src, double radiusPx)
+{
+    constexpr double kNegligibleRadius = 0.25;
+    if (radiusPx < kNegligibleRadius)
+        return {};
+    // Same downscaling as gaussianBlur(): a box of radius r on a half-size copy is a box of
+    // radius 2r (plus the exact 2x2 prefilter), so the cost stays at most 16 taps per pass.
+    constexpr double kMaxDirectRadius = 2.0 * (kMaxBlurTaps - 1);
+    PooledTarget scaled;
+    const RenderTarget* level = &src;
+    double radius = radiusPx;
+    while (radius > kMaxDirectRadius && level->size.width() > 8 && level->size.height() > 8) {
+        const QSize half((level->size.width() + 1) / 2, (level->size.height() + 1) / 2);
+        scaled = resample(*level, half);
+        level = scaled.get();
+        radius *= 0.5;
+    }
+    // Weight 1 inside the radius, the fraction for the last texel: radius 2.5 = 2 full taps
+    // either side plus two half taps.
+    double raw[2 * kMaxBlurTaps + 2] = {};
+    const int whole = std::min(int(std::floor(radius)), int(kMaxDirectRadius));
+    for (int i = 0; i <= whole; ++i)
+        raw[i] = 1.0;
+    int extent = whole;
+    if (radius - whole > 1e-3 && whole + 1 <= int(kMaxDirectRadius)) {
+        raw[whole + 1] = radius - whole;
+        extent = whole + 1;
+    }
+    PooledTarget horizontal = acquire(level->size, src.format);
+    kernelPass(*level, *horizontal, raw, extent, true);
+    PooledTarget vertical = acquire(level->size, src.format);
+    kernelPass(*horizontal, *vertical, raw, extent, false);
+    if (level == &src)
+        return vertical;
+    return resample(*vertical, src.size);
+}
+
+PooledTarget GlKit::morphology(const RenderTarget& src, double radiusPx, bool dilate)
+{
+    if (radiusPx < 0.01)
+        return {};
+    // A square structuring element is separable (rows, then columns), and dilating by a then
+    // by b equals dilating by a + b, so large radii run as several passes of at most
+    // kMaxMorphTaps taps each. Cost: radius x 2 fetches per pixel per axis.
+    const RenderTarget* current = &src;
+    PooledTarget result;
+    for (int axis = 0; axis < 2; ++axis) {
+        double left = radiusPx;
+        while (left > 0.01) {
+            const double chunk = std::min(left, double(kMaxMorphTaps));
+            left -= chunk;
+            const int taps = int(std::ceil(chunk - 1e-6));
+            const double frac = chunk - (taps - 1);
+            PooledTarget next = acquire(src.size, src.format);
+            bindTarget(*next);
+            setBlendOver(false);
+            m_gl->glUseProgram(m_morph.id);
+            setFullscreen(m_morph);
+            m_gl->glUniform2f(m_morphStep, axis == 0 ? 1.0f / float(src.size.width()) : 0.0f,
+                axis == 0 ? 0.0f : 1.0f / float(src.size.height()));
+            m_gl->glUniform1i(m_morphTaps, taps);
+            m_gl->glUniform1f(m_morphFrac, float(frac));
+            m_gl->glUniform1i(m_morphDilate, dilate ? 1 : 0);
+            bindTexture(0, current->texture);
+            drawQuad();
+            result = std::move(next);
+            current = result.get();
+        }
+    }
+    return result;
 }
 
 } // namespace kk::render

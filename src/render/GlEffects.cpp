@@ -6,15 +6,22 @@
 // work on premultiplied values directly, which is exact and keeps transparent pixels black.
 #include "render/GlEffects.h"
 
+#include "render/GlEffectBase.h"
+
 #include <QColor>
 
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <vector>
 
 namespace kk::render {
 
 namespace {
+
+using fx::boolParam;
+using fx::make;
+using fx::PassEffect;
 
 // Parameter keys (must match the descriptors in core/BuiltinEffects.cpp). QStringLiteral
 // keeps lookups allocation-free.
@@ -39,56 +46,6 @@ const QString kColor = QStringLiteral("color");
 constexpr double kSigmaPerRadius = 0.5;
 /// Layer pixels below which a blur/sharpen radius has no visible effect.
 constexpr double kMinRadiusPx = 0.5;
-
-bool boolParam(const ParamSet& p, const QString& key, bool fallback)
-{
-    const auto it = p.statics.constFind(key);
-    return it == p.statics.constEnd() ? fallback : it->toBool();
-}
-
-/// Effect with one program sampling the layer at unit 0 (and optionally a second texture at
-/// unit 1). Subclasses set their uniforms, then call runPass().
-class PassEffect : public GlEffect
-{
-public:
-    void destroy(GlKit& kit) override { m_program.destroy(kit.gl()); }
-
-protected:
-    bool build(GlKit& kit, const char* name, const char* fragment, QString* why)
-    {
-        if (!m_program.build(kit.gl(), name, fragment, why))
-            return false;
-        kit.gl()->glUseProgram(m_program.id);
-        kit.gl()->glUniform1i(m_program.uniform(kit.gl(), "uTex"), 0);
-        kit.gl()->glUniform1i(m_program.uniform(kit.gl(), "uSecond"), 1);
-        kit.gl()->glUseProgram(0);
-        return true;
-    }
-
-    GLint uniform(GlKit& kit, const char* name) const { return m_program.uniform(kit.gl(), name); }
-
-    /// Binds the program and a new target of the layer's size (call before setting uniforms).
-    PooledTarget begin(GlKit& kit, const RenderTarget& src)
-    {
-        PooledTarget out = kit.acquire(src.size, src.format);
-        kit.bindTarget(*out);
-        kit.setBlendOver(false);
-        kit.gl()->glUseProgram(m_program.id);
-        kit.setFullscreen(m_program);
-        return out;
-    }
-
-    /// Draws the pass with @p src at unit 0 and @p second (if any) at unit 1.
-    void draw(GlKit& kit, const RenderTarget& src, GLuint second = 0)
-    {
-        kit.bindTexture(0, src.texture);
-        if (second)
-            kit.bindTexture(1, second);
-        kit.drawQuad();
-    }
-
-    GlProgram m_program;
-};
 
 // ---- gaussian_blur ----
 
@@ -440,12 +397,6 @@ private:
     GLint m_offset = -1, m_color = -1;
 };
 
-template<typename T>
-std::unique_ptr<GlEffect> make()
-{
-    return std::make_unique<T>();
-}
-
 /// THE registration table: descriptor id → implementation. Ids must match BuiltinEffects.cpp.
 const GlEffectFactory kEffectTable[] = {
     {"gaussian_blur", &make<GaussianBlur>},
@@ -462,7 +413,15 @@ const GlEffectFactory kEffectTable[] = {
 
 std::span<const GlEffectFactory> builtinGlEffects()
 {
-    return kEffectTable;
+    // Built once (thread-safe static initialisation); the renderer reads it at start-up.
+    static const std::vector<GlEffectFactory> all = [] {
+        std::vector<GlEffectFactory> rows(std::begin(kEffectTable), std::end(kEffectTable));
+        for (auto table : {keyerGlEffects(), colorGlEffects(), blurGlEffects(), stylizeGlEffects(),
+                 distortGlEffects()})
+            rows.insert(rows.end(), table.begin(), table.end());
+        return rows;
+    }();
+    return all;
 }
 
 } // namespace kk::render

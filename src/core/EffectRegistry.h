@@ -51,6 +51,9 @@ struct ParamDescriptor
     QStringList choiceLabels; ///< Choice: translated labels, parallel to choices
     QVariant defStatic; ///< default for Bool/Color/Choice/String
     bool animatable = true; ///< Double/Int only: may be keyframed
+    /// Color only: the Inspector shows an eyedropper button that picks the value from the
+    /// timeline viewer (SelectionModel::colorPicker(), the viewer's ColorPickOverlay).
+    bool viewerPicker = false;
 
     /// True if the value lives in ParamSet::values (keyframeable scalar).
     [[nodiscard]] bool isScalar() const
@@ -70,6 +73,9 @@ struct EffectDescriptor
     /// "transform", "audio" or "title" (ClipData member; generators keep their parameters in
     /// ClipData::title too), "solidColor"; empty = own ParamSet.
     QString storage;
+    /// Effects library folder of a video effect (one of effectgroups::, e.g. "key"); empty =
+    /// directly in its category section.
+    QString group;
     QVector<ParamDescriptor> params;
 
     /// Parameter descriptor with key @p key, or nullptr.
@@ -82,6 +88,18 @@ inline constexpr char Transform[] = "builtin.transform";
 inline constexpr char Cropping[] = "builtin.cropping";
 inline constexpr char Audio[] = "builtin.audio";
 } // namespace groups
+
+/// Effects library folders of the video effects (EffectDescriptor::group), named the way an
+/// editor user expects them. The library shows them in alphabetical order of their names.
+namespace effectgroups {
+inline constexpr char Blur[] = "blur";
+inline constexpr char Color[] = "color";
+inline constexpr char Distort[] = "distort";
+inline constexpr char Key[] = "key";
+inline constexpr char Light[] = "light";
+inline constexpr char Stylize[] = "stylize";
+inline constexpr char Transform[] = "transform";
+} // namespace effectgroups
 
 /// Process-wide catalogue of descriptors.
 ///
@@ -113,11 +131,17 @@ public:
 
     /// Translated name of a category, for section headers.
     [[nodiscard]] static QString categoryName(EffectCategory category);
+    /// Translated name of an effects library folder (effectgroups::), e.g. "Key"; the id
+    /// itself for an unknown folder.
+    [[nodiscard]] static QString groupName(const QString& group);
+    /// Every folder id used by a descriptor of @p category, sorted by groupName().
+    [[nodiscard]] QStringList groups(EffectCategory category) const;
 
 private:
     EffectRegistry();
     void registerBuiltins();
     void registerGenerators(); ///< the generator catalogue (BuiltinEffects.cpp)
+    void registerVideoEffects(); ///< the v4 video effects (BuiltinVideoEffects.cpp)
 
     QVector<EffectDescriptor> m_descriptors;
     QHash<QString, qsizetype> m_index; ///< id → position in m_descriptors (O(1) find())

@@ -193,6 +193,8 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     connect(ctx.project, &Project::projectReset, this, [this] { showClip(0); });
     if (ctx.selection) {
         // The mask groups' "edit in the viewer" buttons follow the active mask.
+        connect(ctx.selection, &SelectionModel::colorPickerChanged, this,
+            &InspectorPanel::refreshValues); // the eyedropper buttons' checked state
         connect(ctx.selection, &SelectionModel::activeMaskChanged, this,
             &InspectorPanel::refreshValues);
     }
@@ -458,6 +460,24 @@ void InspectorPanel::setActiveParam(const ParamRef& ref, const ParamDescriptor& 
 {
     m_activeRef = ref;
     m_activeDesc = desc;
+}
+
+void InspectorPanel::setColorPicking(const ParamRef& ref, bool on)
+{
+    if (!m_ctx.selection)
+        return;
+    if (on)
+        m_ctx.selection->setColorPicker({ref.clipId, ref.effectId, ref.key});
+    else if (isColorPicking(ref))
+        m_ctx.selection->setColorPicker({});
+}
+
+bool InspectorPanel::isColorPicking(const ParamRef& ref) const
+{
+    if (!m_ctx.selection)
+        return false;
+    const ColorPickTarget& t = m_ctx.selection->colorPicker();
+    return t.isActive() && t.clipId == ref.clipId && t.effectId == ref.effectId && t.key == ref.key;
 }
 
 QColor InspectorPanel::pickColor(const QColor& initial, const QString& title)
@@ -782,11 +802,24 @@ void InspectorPanel::buildEffectsTab(const ClipData& c)
     m_addEffect->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     m_addEffect->setPopupMode(QToolButton::InstantPopup);
     auto* menu = new QMenu(m_addEffect);
-    for (const EffectDescriptor* d : registry.byCategory(category)) {
+    const QVector<const EffectDescriptor*> effects = registry.byCategory(category);
+    auto addEntry = [&](QMenu* into, const EffectDescriptor* d) {
         const QString id = d->id;
         const quint64 clipId = m_clipId;
-        menu->addAction(d->name, this,
+        into->addAction(d->name, this,
             [this, id, clipId] { effectactions::applyEffect(*m_ctx.project, {clipId}, id); });
+    };
+    // One submenu per library folder (Blur, Color, Key, ...), like the Effects library.
+    for (const QString& group : registry.groups(category)) {
+        QMenu* sub = menu->addMenu(EffectRegistry::groupName(group));
+        for (const EffectDescriptor* d : effects) {
+            if (d->group == group)
+                addEntry(sub, d);
+        }
+    }
+    for (const EffectDescriptor* d : effects) {
+        if (d->group.isEmpty())
+            addEntry(menu, d);
     }
     m_addEffect->setMenu(menu);
     m_addEffect->setEnabled(!menu->isEmpty());
