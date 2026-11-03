@@ -161,6 +161,8 @@ private:
     void buildCaptionsTab(const ClipData& c);
     void buildEffectsTab(const ClipData& clip);
     void buildTransitionTab(const ClipData& clip);
+    /// Type of the track holding clip @p clipId (Video if it is not found).
+    [[nodiscard]] TrackType trackTypeOfClip(quint64 clipId) const;
     void addTransitionGroup(const ClipData& clip, bool atHead);
     void moveEffect(quint64 effectId, int delta);
     void removeEffect(quint64 effectId);

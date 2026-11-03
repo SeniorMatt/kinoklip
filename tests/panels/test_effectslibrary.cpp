@@ -37,9 +37,9 @@ private slots:
         QStringList sections;
         for (int i = 0; i < panel.tree()->topLevelItemCount(); ++i)
             sections.append(panel.tree()->topLevelItem(i)->text(0));
-        QCOMPARE(sections.mid(0, 5),
-            QStringList({QStringLiteral("Video Transitions"), QStringLiteral("Titles"),
-                QStringLiteral("Generators"), QStringLiteral("Effects"),
+        QCOMPARE(sections.mid(0, 6),
+            QStringList({QStringLiteral("Video Transitions"), QStringLiteral("Audio Transitions"),
+                QStringLiteral("Titles"), QStringLiteral("Generators"), QStringLiteral("Effects"),
                 QStringLiteral("Video Effects")}));
         QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
         saveScreenshot(panel, QStringLiteral("effects_library"));
@@ -62,6 +62,53 @@ private slots:
         panel.setFilterText({});
         panel.setCategoryFilter(-1);
         QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
+    }
+
+    void spec13_11_audioTransitionsSection()
+    {
+        PanelFixture f;
+        EffectsLibraryPanel panel(f.ctx);
+        QTreeWidgetItem* section = nullptr;
+        for (int i = 0; i < panel.tree()->topLevelItemCount(); ++i) {
+            if (panel.tree()->topLevelItem(i)->text(0) == QStringLiteral("Audio Transitions"))
+                section = panel.tree()->topLevelItem(i);
+        }
+        QVERIFY(section);
+        QStringList names;
+        for (int i = 0; i < section->childCount(); ++i) {
+            names.append(section->child(i)->text(0));
+            QVERIFY(!section->child(i)->icon(0).isNull());
+        }
+        QCOMPARE(names,
+            QStringList({QStringLiteral("Cross Fade 0 dB"), QStringLiteral("Cross Fade +3 dB"),
+                QStringLiteral("Cross Fade -3 dB"), QStringLiteral("Exponential"),
+                QStringLiteral("Logarithmic"), QStringLiteral("S-Curve")}));
+        // The sidebar entry shows just those six.
+        panel.setCategoryFilter(int(EffectCategory::AudioTransition));
+        QCOMPARE(panel.visibleDescriptorIds().size(), 6);
+        QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("audio_crossfade_3db")));
+    }
+
+    void spec13_15_audioTransitionActivation()
+    {
+        // Double-click with a linked video + audio pair selected: the audio clip gets it.
+        PanelFixture f;
+        const quint64 v = f.addClip({TrackType::Video, 0}, 100, 100);
+        const quint64 a = f.addClip({TrackType::Audio, 0}, 100, 100);
+        f.selection.setClips({a, v});
+        f.project.timeline()->setPlayhead(105);
+        QVERIFY(effectactions::activate(f.ctx, QStringLiteral("audio_crossfade_scurve")));
+        QVERIFY(!f.clip(v)->transitionIn);
+        QVERIFY(f.clip(a)->transitionIn);
+        QCOMPARE(f.clip(a)->transitionIn->type, QStringLiteral("audio_crossfade_scurve"));
+        // Video transitions never go onto audio clips, nor audio ones onto video clips.
+        QVERIFY(!effectactions::applyTransition(f.project, a, QStringLiteral("wipe"), false));
+        QVERIFY(!effectactions::applyTransition(
+            f.project, v, QStringLiteral("audio_crossfade_0db"), false));
+        QCOMPARE(effectactions::defaultTransitionId(TrackType::Audio),
+            QStringLiteral("audio_crossfade_3db"));
+        QCOMPARE(
+            effectactions::defaultTransitionId(TrackType::Video), QStringLiteral("cross_dissolve"));
     }
 
     void dragPayloadIsDescriptorId()

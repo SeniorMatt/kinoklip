@@ -22,7 +22,10 @@ enum class EffectCategory {
     Title, ///< text generators (ClipData::title)
     ClipProperties, ///< built-in parameter groups stored directly on ClipData (transform, ...)
     /// Library section "Effects": clips that process the tracks below them (Adjustment Clip)
-    Effects
+    Effects,
+    /// Audio clip transitions, stored in ClipData::transitionIn / transitionOut like video
+    /// ones; their gain curves are in core/AudioTransitions.h
+    AudioTransition
 };
 
 /// Value type of a parameter. Double/Int are animatable scalars (ParamSet::values) unless

@@ -7,6 +7,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/effects/EffectActions.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
@@ -20,9 +21,6 @@ namespace ops = editops;
 using timelineedit::runEdit;
 
 namespace {
-
-/// Default transition id (Ctrl+T); its length comes from EditBehaviour.
-const QString kDefaultTransition = QStringLiteral("cross_dissolve");
 
 /// Ripple-trims clip @p clipId (and, with @p linked, linked clips whose same edge is on the
 /// same frame) by @p delta frames at its head or tail.
@@ -105,6 +103,7 @@ void TimelineController::addDefaultTransition()
         quint64 clip;
         bool head;
         int64_t frames;
+        TrackType type; ///< picks the default transition: Cross Dissolve / Cross Fade +3 dB
         ops::HandleShortfall shortfall;
     };
     QVector<Edge> todo;
@@ -137,7 +136,7 @@ void TimelineController::addDefaultTransition()
         missing = std::max(missing, s.outgoing + s.incoming);
         canShorten |= s.any()
             && ops::maxTransitionDuration(d, clipId, head, TransitionAlignment::Centre, true) >= 1;
-        todo.append({clipId, head, frames, s});
+        todo.append({clipId, head, frames, loc->track.type, s});
     }
     if (todo.isEmpty())
         return;
@@ -170,7 +169,9 @@ void TimelineController::addDefaultTransition()
                 continue;
             ClipData* clip = ops::clipById(data, e.clip);
             std::optional<TransitionData>& slot = e.head ? clip->transitionIn : clip->transitionOut;
-            slot = EffectRegistry::instance().createTransition(kDefaultTransition, e.frames);
+            // Default transition (Ctrl+T); its length comes from EditBehaviour.
+            slot = EffectRegistry::instance().createTransition(
+                effectactions::defaultTransitionId(e.type), e.frames);
             changed = true;
         }
         return changed;

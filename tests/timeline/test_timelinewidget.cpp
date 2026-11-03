@@ -470,6 +470,37 @@ private slots:
         QCOMPARE(v.f.view().videoTracks[1].clips[0].kind, ClipKind::Title);
     }
 
+    void spec13_14_dropAudioTransitionOnAudioCut()
+    {
+        View v;
+        const quint64 va = v.put(kV1, solidClip(0, 50));
+        const quint64 vb = v.put(kV1, solidClip(50, 50));
+        const quint64 aa = v.put(kA1, solidClip(0, 50));
+        const quint64 ab = v.put(kA1, solidClip(50, 50));
+        v.c.setSnapping(false);
+        QMimeData audio;
+        audio.setData(QLatin1String(mime::Effect), "audio_crossfade_0db");
+        // On a video cut: refused, nothing changes.
+        QVERIFY(!drop(v.vp(), &audio, v.at(45, kV1)));
+        QVERIFY(!ops::clipById(v.f.view(), vb)->transitionIn);
+        QVERIFY(!ops::clipById(v.f.view(), va)->transitionOut);
+        // On the audio cut (tail of a touching clip): stored on the incoming clip, centred.
+        QVERIFY(drop(v.vp(), &audio, v.at(45, kA1)));
+        const auto& t = ops::clipById(v.f.view(), ab)->transitionIn;
+        QVERIFY(t);
+        QCOMPARE(t->type, QStringLiteral("audio_crossfade_0db"));
+        QCOMPARE(t->duration, int64_t(25));
+        QCOMPARE(t->alignment, TransitionAlignment::Centre);
+        // At the free start of the first audio clip: a fade from silence.
+        QVERIFY(drop(v.vp(), &audio, v.at(5, kA1)));
+        QVERIFY(ops::clipById(v.f.view(), aa)->transitionIn);
+        // A video transition is refused on audio.
+        QMimeData video;
+        video.setData(QLatin1String(mime::Effect), "cross_dissolve");
+        QVERIFY(!drop(v.vp(), &video, v.at(95, kA1)));
+        QVERIFY(!ops::clipById(v.f.view(), ab)->transitionOut);
+    }
+
     void zoomControls()
     {
         View v(1.0);
