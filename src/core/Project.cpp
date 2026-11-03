@@ -3,6 +3,7 @@
 // Timelines, tabs and compound clips: ProjectTimelines.cpp.
 #include "core/Project.h"
 
+#include "core/FileParams.h"
 #include "core/Logging.h"
 #include "core/Retime.h"
 #include "core/Serialization.h"
@@ -307,7 +308,15 @@ QJsonObject Project::toJson(const SaveSnapshot& snap, const QString& path)
     QJsonArray timelines;
     QJsonArray views;
     for (size_t i = 0; i < snap.timelines.size(); ++i) {
-        timelines.append(serialization::timelineToJson(*snap.timelines[i]));
+        const TimelineData& t = *snap.timelines[i];
+        if (fileparams::hasFileParams(t)) {
+            // File parameters (LUTs) are stored absolute + relative to the project.
+            TimelineData copy = t;
+            fileparams::encodeForSave(copy, projectDir);
+            timelines.append(serialization::timelineToJson(copy));
+        } else {
+            timelines.append(serialization::timelineToJson(t));
+        }
         const SaveSnapshot::View& v = snap.views[qsizetype(i)];
         views.append(QJsonObject {{QLatin1String("uid"), qint64(v.uid)},
             {QLatin1String("playhead"), qint64(v.playhead)},
@@ -371,6 +380,7 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
                 *error = why;
                 return false;
             }
+            fileparams::decodeAfterLoad(t, projectDir);
             timelines.append(std::move(t));
         }
         if (timelines.isEmpty()) {

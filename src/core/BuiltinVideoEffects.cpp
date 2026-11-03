@@ -50,6 +50,14 @@ ParamDescriptor center(const QString& key, const QString& label)
     return number(key, label, -10000, 10000, 0, 1, kPx);
 }
 
+/// "Repeat Edge Pixels" of the path blurs: on, the picture's edge pixels continue outwards
+/// (a full-frame clip keeps solid edges); off, the blur also spreads into the transparent
+/// area around the clip (titles, keyed or scaled-down clips).
+ParamDescriptor repeatEdges()
+{
+    return boolean(fxkeys::RepeatEdges, tr("Repeat Edge Pixels"), true);
+}
+
 } // namespace
 
 void EffectRegistry::registerVideoEffects()
@@ -87,10 +95,12 @@ void EffectRegistry::registerVideoEffects()
             boolean(k::Invert, tr("Invert"), false),
             viewMode(),
         }));
+    ParamDescriptor hue = number(k::Hue, tr("Hue"), 0, 360, 120, 1, kDegrees);
+    hue.viewerPicker = true; // eyedropper: the hue of the picked colour
     add(effect(fxid::HslKey, tr("HSL Key"), g::Key,
         tr("Makes a hue, saturation and luminance range transparent"),
         {
-            number(k::Hue, tr("Hue"), 0, 360, 120, 1, kDegrees),
+            hue,
             number(k::HueWidth, tr("Hue Width"), 0, 360, 60, 1, kDegrees),
             number(k::HueSoftness, tr("Hue Softness"), 0, 180, 20, 1, kDegrees),
             number(k::SatLow, tr("Saturation Low"), 0, 100, 20, 0.5, kPercent),
@@ -161,12 +171,14 @@ void EffectRegistry::registerVideoEffects()
         {
             number(k::Length, tr("Length"), 0, 500, 20, 0.5, kPx),
             number(k::Angle, tr("Angle"), -180, 180, 0, 0.5, kDegrees),
+            repeatEdges(),
         }));
     add(effect(fxid::RadialBlur, tr("Radial Blur"), g::Blur, tr("Spin blur around a centre"),
         {
             number(k::Angle, tr("Angle"), 0, 180, 10, 0.1, kDegrees),
             center(k::CenterX, tr("Center X")),
             center(k::CenterY, tr("Center Y")),
+            repeatEdges(),
         }));
     add(effect(fxid::ZoomBlur, tr("Zoom Blur"), g::Blur,
         tr("Blur streaking out of a centre, like a fast zoom"),
@@ -174,6 +186,7 @@ void EffectRegistry::registerVideoEffects()
             number(k::Amount, tr("Amount"), 0, 100, 20, 0.5, kPercent),
             center(k::CenterX, tr("Center X")),
             center(k::CenterY, tr("Center Y")),
+            repeatEdges(),
         }));
 
     // ---- Light ----

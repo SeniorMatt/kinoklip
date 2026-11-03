@@ -18,6 +18,7 @@
 #include "core/Retime.h"
 #include "render/CaptionRenderer.h"
 #include "render/RenderLog.h"
+#include "render/TimeEffects.h"
 
 #include <QElapsedTimer>
 #include <QOffscreenSurface>
@@ -278,6 +279,24 @@ void GlRenderer::queueDecode(const ClipData* clip, int64_t frame, int64_t nextFr
 {
     if (!clip || !clip->enabled)
         return;
+    queueDecodeAt(clip, frame, nextFrame, tl, nested, media, depth);
+    // Time effects (Echo, Strobe) also draw the clip at other frames: decode those too.
+    bool timed = false;
+    for (const EffectInstance& e : clip->effects)
+        timed = timed || (e.enabled && timefx::isTimeEffect(e.type));
+    if (!timed)
+        return;
+    const int64_t local = clip->localFrame(frame);
+    const std::vector<int64_t> frames = timefx::clipFrames(*clip, local);
+    for (size_t i = 1; i < frames.size(); ++i) {
+        const int64_t at = frame + (frames[i] - local);
+        queueDecodeAt(clip, at, at + 1, tl, nested, media, depth);
+    }
+}
+
+void GlRenderer::queueDecodeAt(const ClipData* clip, int64_t frame, int64_t nextFrame,
+    const TimelineData& tl, const NestedTimelines& nested, const MediaPathMap* media, int depth)
+{
     if (clip->kind == ClipKind::Nested) {
         const TimelineData* n = nested.findClip(*clip);
         if (!n || depth >= kMaxNestingDepth)
@@ -900,7 +919,7 @@ void GlRenderer::drawClip(
             continue;
         m_activeEffects.push_back(it->get());
         m_activeInstances.push_back(&e);
-        padding += (*it)->paddingPx(e.params, local);
+        padding += (*it)->contentPaddingPx(e.params, local, src.content);
     }
 
     // Masks cut the clip's own picture (after its effects, before its transform), so they
@@ -947,17 +966,37 @@ void GlRenderer::drawClip(
         src.quad.height() * ch * layerScale);
     drawSource(src, GlKit::quadToNdc(sourceRect, layerSize), cropInQuad(crop, src.quad), 1.0f);
 
-    for (size_t i = 0; i < m_activeEffects.size(); ++i) {
-        EffectInput in;
-        in.layer = layer.get();
-        in.scale = layerScale;
-        in.localFrame = local;
-        in.params = &m_activeInstances[i]->params;
-        in.paddingPx = padPx;
-        in.fps = fc.timeline->fps.isValid() ? fc.timeline->fps.toDouble() : 25.0;
-        PooledTarget next = m_activeEffects[i]->apply(*m_kit, in);
-        if (next)
-            layer = std::move(next);
+    bool timed = false;
+    for (const EffectInstance* e : m_activeInstances)
+        timed = timed || timefx::isTimeEffect(e->type);
+    if (timed) {
+        // Time effects read the clip at other frames: the job keeps its own copy of the
+        // active lists (drawing another frame may draw nested clips, reusing the scratch).
+        LayerJob job;
+        job.clip = &clip;
+        job.fc = &fc;
+        job.local = local;
+        job.zoom = zoom;
+        job.size = layerSize;
+        job.scale = layerScale;
+        job.padPx = padPx;
+        job.content = QSizeF(cw, ch);
+        job.effects = m_activeEffects;
+        job.instances = m_activeInstances;
+        applyEffects(job, local, job.effects.size(), layer);
+    } else {
+        for (size_t i = 0; i < m_activeEffects.size(); ++i) {
+            EffectInput in;
+            in.layer = layer.get();
+            in.scale = layerScale;
+            in.localFrame = local;
+            in.params = &m_activeInstances[i]->params;
+            in.paddingPx = padPx;
+            in.fps = fc.timeline->fps.isValid() ? fc.timeline->fps.toDouble() : 25.0;
+            PooledTarget next = m_activeEffects[i]->apply(*m_kit, in);
+            if (next)
+                layer = std::move(next);
+        }
     }
     if (masked) {
         const MaskLayerGeometry geometry {QSizeF(cw, ch), layerScale, padPx};
@@ -973,6 +1012,71 @@ void GlRenderer::drawClip(
     m_kit->blit(layer->texture, quad * toOutput * outputToNdc, opacity);
     if (blend != ClipBlend::Over)
         applyBlend(ClipBlend::Over);
+}
+
+// ---- Time effects: the clip's layer at other frames ----
+
+/// LayerHistory of one effect of a LayerJob: renders the layer with the effects before it.
+class GlRenderer::JobHistory final : public LayerHistory
+{
+public:
+    JobHistory(GlRenderer* renderer, const LayerJob& job, size_t upTo)
+        : m_renderer(renderer)
+        , m_job(job)
+        , m_upTo(upTo)
+    { }
+    PooledTarget layerAt(int64_t localFrame) override
+    {
+        return m_renderer->renderLayerAt(m_job, localFrame, m_upTo);
+    }
+
+private:
+    GlRenderer* m_renderer;
+    const LayerJob& m_job;
+    size_t m_upTo;
+};
+
+void GlRenderer::applyEffects(const LayerJob& job, int64_t at, size_t count, PooledTarget& layer)
+{
+    for (size_t i = 0; i < count; ++i) {
+        JobHistory history(this, job, i);
+        EffectInput in;
+        in.layer = layer.get();
+        in.scale = job.scale;
+        in.localFrame = at;
+        in.params = &job.instances[i]->params;
+        in.paddingPx = job.padPx;
+        in.fps = job.fc->timeline->fps.isValid() ? job.fc->timeline->fps.toDouble() : 25.0;
+        in.history = &history;
+        PooledTarget next = job.effects[i]->apply(*m_kit, in);
+        if (next)
+            layer = std::move(next);
+    }
+}
+
+PooledTarget GlRenderer::renderLayerAt(const LayerJob& job, int64_t at, size_t count)
+{
+    // The same clip, frame `at` of it: the timeline frame moves with it (the decode of that
+    // frame was queued by queueDecode(), see timefx::clipFrames()).
+    FrameContext fc = *job.fc;
+    fc.frame = job.fc->frame + (at - job.local);
+    ClipSource src;
+    if (!resolveSource(*job.clip, at, fc, job.zoom, src))
+        return {};
+    const QRectF crop = cropRect(*job.clip, at, src.sourcePx);
+    if (crop.width() <= 0 || crop.height() <= 0)
+        return {};
+    PooledTarget layer = m_kit->acquire(job.size);
+    m_kit->bindTarget(*layer);
+    m_kit->clearTransparent();
+    m_kit->setBlendOver(false);
+    const double cw = job.content.width(), ch = job.content.height();
+    const QRectF sourceRect(job.padPx + src.quad.x() * cw * job.scale,
+        job.padPx + src.quad.y() * ch * job.scale, src.quad.width() * cw * job.scale,
+        src.quad.height() * ch * job.scale);
+    drawSource(src, GlKit::quadToNdc(sourceRect, job.size), cropInQuad(crop, src.quad), 1.0f);
+    applyEffects(job, at, count, layer);
+    return layer;
 }
 
 // ---- Generators and captions ----

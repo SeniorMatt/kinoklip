@@ -204,6 +204,19 @@ void ColorPickOverlay::pick(QPoint a, QPoint b)
         for (EffectInstance& e : clip->effects) {
             if (e.id != target.effectId)
                 continue;
+            const EffectDescriptor* fx = EffectRegistry::instance().find(e.type);
+            const ParamDescriptor* param = fx ? fx->param(target.key) : nullptr;
+            if (param && param->isScalar()) {
+                // A hue parameter (HSL Key): the picked colour's hue, at the playhead (a key
+                // when the parameter is animated, else the constant value).
+                const double hue = std::max(0.0, double(color.hslHueF())) * 360.0;
+                AnimatedValue& value = e.params.animated(target.key, param->def);
+                if (value.isAnimated())
+                    value.setKey(clip->localFrame(m_ctx.project->timeline()->playhead()), hue);
+                else
+                    e.params.setBase(target.key, hue);
+                continue;
+            }
             e.params.setStatic(target.key, color);
             // An effect with a preset choice (Chroma Key's Screen) switches to the picked
             // colour.

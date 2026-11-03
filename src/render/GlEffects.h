@@ -8,6 +8,7 @@
 #include "core/Animation.h"
 #include "render/GlKit.h"
 
+#include <QSizeF>
 #include <QString>
 
 #include <cstdint>
@@ -15,6 +16,18 @@
 #include <span>
 
 namespace kk::render {
+
+/// The clip's layer at other clip-local frames, for the time effects (Echo, Strobe): the
+/// clip's picture with the effects before the asking effect applied, rendered at the same
+/// size and geometry as EffectInput::layer. Provided by the GPU renderer (GlRenderer), which
+/// decodes the frames timefx::clipFrames() lists before drawing.
+class LayerHistory
+{
+public:
+    virtual ~LayerHistory() = default;
+    /// The layer at @p localFrame; an empty handle if it cannot be rendered (not decoded).
+    [[nodiscard]] virtual PooledTarget layerAt(int64_t localFrame) = 0;
+};
 
 /// Input of one effect application.
 ///
@@ -32,6 +45,8 @@ struct EffectInput
     /// active effects' paddingPx() times scale). The content is the layer minus this margin.
     double paddingPx = 0.0;
     double fps = 25.0; ///< timeline frame rate (animated effects: speed in cycles per second)
+    /// Earlier frames of the clip (time effects); null where the renderer has none.
+    LayerHistory* history = nullptr;
 };
 
 /// One video effect, implemented as one or more fragment-shader passes over the layer.
@@ -50,6 +65,14 @@ public:
         Q_UNUSED(params);
         Q_UNUSED(localFrame);
         return 0.0;
+    }
+    /// paddingPx() for content of @p contentPx (timeline px): effects whose margin depends
+    /// on the clip's size (radial and zoom blurs) override this one. Default: paddingPx().
+    [[nodiscard]] virtual double contentPaddingPx(
+        const ParamSet& params, int64_t localFrame, QSizeF contentPx) const
+    {
+        Q_UNUSED(contentPx);
+        return paddingPx(params, localFrame);
     }
     /// True if the effect leaves the picture unchanged with these parameters (skipped).
     [[nodiscard]] virtual bool isIdentity(const ParamSet& params, int64_t localFrame) const
@@ -81,5 +104,13 @@ struct GlEffectFactory
 [[nodiscard]] std::span<const GlEffectFactory> blurGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> stylizeGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> distortGlEffects();
+/// Batch 2: GlGradeEffects.cpp, GlFocusEffects.cpp, GlLightEffects.cpp, GlLookEffects.cpp,
+/// GlWarpEffects.cpp, GlTimeEffects.cpp.
+[[nodiscard]] std::span<const GlEffectFactory> gradeGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> focusGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> lightGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> lookGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> warpGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> timeGlEffects();
 
 } // namespace kk::render
