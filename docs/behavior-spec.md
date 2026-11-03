@@ -749,6 +749,40 @@ tests/render/test_mixerdsp.cpp, md = tests/core/test_mixerdata.cpp.
 | 37.34 | Audio page track headers taller than two button rows keep the track name on the first line up to the meter and put the buttons and the channel format on the second line (with the arm button and meter on one line the name was cut to "A..."). | Fixed (polish round 2; ap timelineShowsTallAudioAndCollapsedVideo) |
 | 37.35 | Clip > Normalize Audio Levels (also in the clip context menu): Normalization Mode Sample Peak Program (dBFS), True Peak (dBTP) or ITU-R BS.1770-4 (LUFS), a Target Level (defaults -9 dBFS, -2 dBTP, -23 LUFS) and, for several clips, Set Level Relative (one common gain: the loudest clip reaches the target) or Independent (each clip reaches it). The clips' source audio is measured off the GUI thread with a progress bar; Cancel stops it and changes nothing. Then the clip volumes are set in one undo step "Normalize Audio Levels" (keyframed volumes move by the same change). Targets: the selected audio clips and the audio of selected video clips. | Fixed (polish round 4; test_audionormalize). Decision: Independent is the default (several clips to the same level); the measurement is the source audio before the clip volume, so normalizing twice gives the same result. |
 
+## 38. Project Manager (projmgr branch, roadmap v4 part 1)
+
+Where a Resolve user starts: a window listing the projects of a project library, to create,
+open and organise them, shown at start-up and from File > Project Manager. Written from general
+knowledge of how such a project manager behaves; our own layout drawing, names and icons. The
+library logic is in `src/projects`, the window in `src/ui/projects`.
+
+Tests: pl = tests/projects/test_projectlibrary.cpp, pm = tests/app/test_projectmanager.cpp.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 38.1 | A project library: one folder holding the projects, default `~/Videos/Kinoklip Projects` (created when missing), changeable in Preferences > Project Save and Load ("Project library location", Default button). Its sub-folders are the library's folders; a project is a file of a known kind (`.kkproj`, `.kinoklip`); other files are not listed. | Fixed (new; pl defaultFolderIsVideosKinoklipProjects, listsFoldersAndProjectsOnly) |
+| 38.2 | File > Project Manager and Shift+1 show the Project Manager over the editor (window-modal). Shift+1 no longer opens the file dialog; File > Open Project (Ctrl+O) still does. | Fixed (new; pm fileMenuAndSwitchingProjects) |
+| 38.3 | Start-up: crash recovery first; then a project given on the command line opens directly; otherwise the Project Manager is shown, or, with Preferences > "At start-up: Reopen the last project", the most recent project that still exists. `--screenshot`, `--render` and offscreen runs never show it. | Fixed (new; pm fileMenuAndSwitchingProjects for the reopen; the start-up order is in main.cpp) |
+| 38.4 | Thumbnail cards: the poster frame of the project's active timeline (the frame under its saved playhead, else its first video clip), name, last modified, and "duration · resolution · frame rate"; a list view with sortable columns Name, Date Modified, Duration, Resolution, Frame Rate, Kind, Location. Switching views keeps the selection. | Fixed (new; pm cardsListSearchAndSort, detailsAndBrokenCards; pl missingMediaAndPosterSource) |
+| 38.5 | Search filters the shown folder by name (case-insensitive); sort by Name, Date Modified or Duration, ascending or descending (default: newest first); folders always come first; the card size slider zooms the cards. View, sort and size are remembered. | Fixed (new; pm cardsListSearchAndSort) |
+| 38.6 | Folders: New Folder, double-click (or Enter) enters a folder, the path above the cards goes back (each part is a button), Backspace goes up. Projects and folders are dragged onto a folder card or a path button to move them; a folder never moves into itself. | Fixed (new; pm foldersAndDragging; pl foldersAndMoving) |
+| 38.7 | New Project asks for the name and the kind: Single file (everything in one file, media copied in; the default) or Linked (media stays where it is); the last choice is remembered. The project is written to the shown folder at once and opened. | Fixed (new; pm newProjectKinds; pl createRenameDuplicate). Decision: until the single-file container (kkpack branch, plan-v4 part 2) is integrated, Single file is shown disabled with the tooltip "Available after the single-file project integration" and Linked is chosen; a remembered Single file choice comes back once it can be created. |
+| 38.8 | Open (button, double-click, Enter, context menu) asks to save the open project's changes first (Save / Discard / Cancel; Cancel stays in the Project Manager), then opens the project and closes the window; opening the open project just closes it. A file that fails to load shows the error and the window stays. | Fixed (new; pm fileMenuAndSwitchingProjects, keysOpenRenameDelete) |
+| 38.9 | Rename (F2 or the context menu, typed on the card) renames the file and the project name stored in it; Duplicate makes "<name> copy" ("copy 2", ...) next to it with its own name. A name that is taken, empty or contains a slash is refused with a message. | Fixed (new; pm keysOpenRenameDelete; pl createRenameDuplicate) |
+| 38.10 | Delete (Delete key or the context menu) asks for confirmation and moves the project, or a folder with everything in it, to the system trash (freedesktop trash, restorable from the file manager). | Fixed (new; pl deleteGoesToTheTrash; pm keysOpenRenameDelete) |
+| 38.11 | The project open in the editor is marked "Open"; it and the folders containing it cannot be deleted, renamed or moved (a message says why); it can be duplicated and exported. | Fixed (new; pl theOpenProjectIsProtected; pm theOpenProjectCannotBeDeleted) |
+| 38.12 | Show in File Manager reveals and selects the project (freedesktop FileManager1), or opens its folder when no file manager offers that. | Fixed (new; not covered by a test: needs a desktop file manager) |
+| 38.13 | Import copies project files (file dialog, or dropped from a file manager) into the shown folder ("name 2" when taken); Export saves a copy of the selected project elsewhere. The media paths are kept (they are stored absolute). | Fixed (new; pl importAndExport; pm foldersAndDragging) |
+| 38.14 | Project Settings in the context menu for the open project (closes the Project Manager and opens the settings dialog). | Decision: other projects would have to be loaded to change their settings, so the entry is disabled for them ("Open the project to change its settings"). |
+| 38.15 | A card shows "Media offline (n)" when media files of the project are missing. | Fixed (new; pl missingMediaAndPosterSource; pm missingMediaIsMarked) |
+| 38.16 | A broken or unreadable project file (not JSON, not a Kinoklip project, from a newer version, damaged timeline, empty) shows an error card with the reason; the rest of the list is unaffected. | Fixed (new; pl brokenFilesGiveAnErrorAndDoNotStopTheOthers; pm detailsAndBrokenCards) |
+| 38.17 | Recent Projects (left side) lists File > Open Recent's projects wherever they are saved; a missing one is marked. | Fixed (new; pm foldersAndDragging) |
+| 38.18 | Two kinds of project are listed: linked `.kkproj` and single-file `.kinoklip`, each card with a kind badge ("Linked", "Single file"). | Fixed (new; pl singleFileProjectsAreListedButNotCreatedYet, projectKindsAreOpen; pm detailsAndBrokenCards). Decision: until the kkpack integration a `.kinoklip` card is an error card ("not supported by this build yet") and opening it says so. |
+| 38.19 | Metadata is read on worker threads only for the cards being painted (and for the sort column when it needs it); sorting by name or date never opens a project. Metadata and posters are cached in the application cache folder (`project-library/` under `$XDG_CACHE_HOME`, keyed by path, modification time and size); nothing is added to the project files (no format change). | Fixed (new; pl metadataIsReadOnAWorkerAndCached, postersAreCachedPerVersion) |
+| 38.20 | Hundreds of projects open instantly: with 300 projects the listing takes milliseconds without opening a file, and a cached library shows its cards with every detail at once. | Fixed (new; pl threeHundredProjects: list 6 ms, cold metadata of all 300 51 ms, warm 10 ms; pm threeHundredProjectsInTheWindow: cached show + sort by duration 37 ms) |
+| 38.21 | Crash recovery and autosave are unchanged: opening a project from the Project Manager is the same as File > Open Recent (Recent list, autosave of the new document). | Fixed (new) |
+| 38.22 | Several project libraries, Open in a New Window, export as a single file with media, a project's notes and a cloud / shared database library. | Deferred (plan-v4 lists more than one library and new windows as later; packed export is part 2). |
+
 ## 39. Single-file projects (kkpack branch, v4 part 2)
 
 A project can be one `.kinoklip` file holding the project document, every media file unchanged
@@ -821,5 +855,7 @@ tests/media/test_embeddedmedia.cpp, ee = tests/export/test_embeddedexport.cpp.
   12.14, 18.8, 18.9, 24.11, 24.12 and 29.17, and updated 24.9 and 29.16.
 - The polish4 branch (v3, basic editing polish round 4, docs/polish-v3.md) added 17.6, 17.7,
   18.10 - 18.15 and 37.35, and updated 18.9 (ranged markers; project format 13).
+- The projmgr branch (roadmap v4 part 1) added 38.1 - 38.22 (the Project Manager: project
+  library, cards and list, folders, project kinds, trash, caches; 38.22 deferred).
 - The kkpack branch (v4 part 2) added 39.1 - 39.16 (single-file projects: container library and
   in-place media reading; UI pending).

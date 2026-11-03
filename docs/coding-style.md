@@ -70,7 +70,8 @@ Frames vs microseconds confusion is the #1 bug source in NLEs; never write a bar
 - Each `src/<module>/` has a `readme.md`: responsibility, key classes, data flow,
   **"How to extend"** (step-by-step for the common extension: new effect, new action, new page,
   new export preset, new panel...).
-- Dependencies point one way: `core` ← `media` ← `render` ← `playback`/`export` ← `ui` ← `app`.
+- Dependencies point one way: `core` ← `media` ← `render` ← `playback`/`export` ← `ui` ← `app`;
+  `projects` (the project library) depends on `core` only and is used by `ui` and `app`.
   `core` never includes from `ui`/`app`. `media` never includes Qt Widgets.
 - Extension points use registries, not `switch` statements scattered through the code:
   `EffectRegistry` (effects/transitions/generators), `ActionRegistry` (menu actions & shortcuts),

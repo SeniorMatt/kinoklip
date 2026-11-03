@@ -8,6 +8,7 @@
 #include "app/Theme.h"
 #include "core/EditBehaviour.h"
 #include "core/PowerBins.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "export/RenderCommand.h"
@@ -192,9 +193,18 @@ int main(int argc, char** argv)
     kk::media::warmUpHwDecoding();
     window.showRestored();
     // Crash recovery first (an autosave newer than the project), then the project given on
-    // the command line, unless its recovered state was just restored.
-    if (!window.projectController()->offerRecovery(options.projectFile)
-        && !options.projectFile.isEmpty())
-        window.projectController()->openFile(options.projectFile, false);
+    // the command line, unless its recovered state was just restored. Without either, the
+    // Project Manager (or, by preference, the last project). Offscreen runs (CI, scripted
+    // checks) never get the Project Manager: nobody could close it.
+    kk::ProjectController* projects = window.projectController();
+    if (projects->offerRecovery(options.projectFile)) {
+        // restored: that project is open
+    } else if (!options.projectFile.isEmpty()) {
+        projects->openFile(options.projectFile, false);
+    } else if (!kk::prefs::startupShowsProjectManager()) {
+        projects->openLastProject();
+    } else if (QGuiApplication::platformName() != QLatin1String("offscreen")) {
+        projects->showProjectManager();
+    }
     return QApplication::exec();
 }

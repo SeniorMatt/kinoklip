@@ -79,6 +79,44 @@ void setAutosaveMinutes(int minutes)
     QSettings().setValue(QLatin1String(kAutosaveMinutes), qMax(0, minutes));
 }
 
+QString projectLibraryDirectoryOverride()
+{
+    return QSettings().value(QLatin1String(kProjectLibraryDirectory)).toString();
+}
+
+QString projectLibraryDefaultDirectory()
+{
+    QString videos = QStandardPaths::writableLocation(QStandardPaths::MoviesLocation);
+    if (videos.isEmpty())
+        videos = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
+    return videos + QStringLiteral("/" KK_APP_NAME " Projects");
+}
+
+QString projectLibraryDirectory()
+{
+    const QString dir = projectLibraryDirectoryOverride();
+    return dir.isEmpty() ? projectLibraryDefaultDirectory() : dir;
+}
+
+void setProjectLibraryDirectory(const QString& dir)
+{
+    if (dir.isEmpty() || dir == projectLibraryDefaultDirectory())
+        QSettings().remove(QLatin1String(kProjectLibraryDirectory));
+    else
+        QSettings().setValue(QLatin1String(kProjectLibraryDirectory), dir);
+}
+
+bool startupShowsProjectManager()
+{
+    return QSettings().value(QLatin1String(kStartupAction)).toString() != QLatin1String("last");
+}
+
+void setStartupShowsProjectManager(bool show)
+{
+    QSettings().setValue(
+        QLatin1String(kStartupAction), show ? QStringLiteral("manager") : QStringLiteral("last"));
+}
+
 int stillCacheMiB()
 {
     return qMax(kMinStillCacheMiB,
