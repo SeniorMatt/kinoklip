@@ -8,6 +8,7 @@ and `src/ui/**`; depends on Qt only.
 | `ChildProcessEnv` | Gives programs we start (xdg-open, file managers) the user's environment back when running from the bundle (undoes `packaging/linux/apprun.sh`'s variables). |
 | `FileDialogs` | The one entry point for every open / save / folder dialog. |
 | `DroppedFiles` | Local files carried by a drop from a file manager: `text/uri-list`, the XDG document portal's `application/vnd.portal.filetransfer` (resolved with `RetrieveFiles`), and the `application/x-kde4-urilist` / `text/x-moz-url` fallbacks. |
+| `FileManager` | "Show in File Manager": `showInFileManager(path)` reveals and selects a file through `org.freedesktop.FileManager1.ShowItems`, else opens its folder. |
 | `PortalFileChooser` | The XDG desktop portal's `org.freedesktop.portal.FileChooser` over D-Bus. |
 
 ## Dropped files

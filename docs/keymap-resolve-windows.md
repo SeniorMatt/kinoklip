@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 256 commands; sure 94, likely 88, unsure 74.
+Counts: 257 commands; sure 94, likely 88, unsure 75.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -30,7 +30,8 @@ that every command has an entry and that no key is used twice.
 |---|---|---|---|---|
 | New Project | `file.new` | (none) | unsure | no known default (projects are created in Resolve's Project Manager); Ctrl+N is New Timeline |
 | New Timeline | `timeline.new` | `Ctrl+N` | likely | File > New Timeline in Resolve; the dialog asks for the name |
-| Open Project / Project Manager | `file.open` | `Ctrl+O` / `Shift+1` | likely | Shift+1 is Resolve's Project Manager page; Kinoklip has no project manager yet and opens a project instead. Ctrl+O unsure. |
+| Project Manager | `file.project_manager` | `Shift+1` | likely | Shift+1 opens Resolve's Project Manager |
+| Open Project (file dialog) | `file.open` | `Ctrl+O` | unsure | Ctrl+O unsure: Resolve opens projects from its Project Manager |
 | Save Project | `file.save` | `Ctrl+S` | sure |  |
 | Save Project As | `file.save_as` | `Ctrl+Shift+S` | sure |  |
 | Import Media | `file.import_media` | `Ctrl+I` | sure |  |

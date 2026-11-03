@@ -4,12 +4,15 @@
 
 #include "app/AppInfo.h"
 #include "app/AutosaveController.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "platform/FileDialogs.h"
+#include "projects/ProjectLibrary.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaImport.h"
+#include "ui/projects/ProjectManagerWindow.h"
 
 #include <QAction>
 #include <QDir>
@@ -45,6 +48,8 @@ ProjectController::ProjectController(AppContext& ctx, QWidget* window)
     , m_window(window)
 {
     ActionRegistry& actions = *ctx.actions;
+    connect(actions.action(QStringLiteral("file.project_manager")), &QAction::triggered, this,
+        &ProjectController::showProjectManager);
     connect(actions.action(QStringLiteral("file.new")), &QAction::triggered, this,
         &ProjectController::newProject);
     connect(actions.action(QStringLiteral("file.open")), &QAction::triggered, this,
@@ -59,13 +64,19 @@ ProjectController::ProjectController(AppContext& ctx, QWidget* window)
         &ProjectController::importSubtitle);
 }
 
-bool ProjectController::maybeSave()
+ProjectController::~ProjectController()
+{
+    delete m_manager.data();
+}
+
+bool ProjectController::maybeSave(QWidget* dialogParent)
 {
     if (!m_ctx.project->isDirty())
         return true;
-    const auto answer = QMessageBox::warning(m_window, tr("Unsaved Changes"),
-        tr("Save the changes to “%1” before closing?").arg(m_ctx.project->name()),
-        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
+    const auto answer
+        = QMessageBox::warning(dialogParent ? dialogParent : m_window, tr("Unsaved Changes"),
+            tr("Save the changes to “%1” before closing?").arg(m_ctx.project->name()),
+            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
     if (answer == QMessageBox::Save)
         return save();
     return answer == QMessageBox::Discard;
@@ -89,13 +100,13 @@ void ProjectController::open()
         openFile(path, false);
 }
 
-bool ProjectController::openFile(const QString& path, bool askToSave)
+bool ProjectController::openFile(const QString& path, bool askToSave, QWidget* dialogParent)
 {
-    if (askToSave && !maybeSave())
+    if (askToSave && !maybeSave(dialogParent))
         return false;
     QString error;
     if (!m_ctx.project->load(path, &error)) {
-        QMessageBox::critical(m_window, tr("Open Project"), error);
+        QMessageBox::critical(dialogParent ? dialogParent : m_window, tr("Open Project"), error);
         return false;
     }
     m_ctx.selection->clear();
@@ -153,6 +164,63 @@ void ProjectController::importSubtitle()
     if (paths.isEmpty())
         return;
     importMediaWithFeedback(m_ctx, paths, m_window);
+}
+
+bool ProjectController::openLastProject()
+{
+    for (const QString& path : recentProjects()) {
+        if (QFileInfo::exists(path))
+            return openFile(path, false);
+    }
+    return false;
+}
+
+// ---- Project Manager ----
+
+ProjectLibrary* ProjectController::projectLibrary()
+{
+    const QString root
+        = QDir::cleanPath(QFileInfo(prefs::projectLibraryDirectory()).absoluteFilePath());
+    if (m_library && m_library->root() != root) {
+        // Preferences moved the library: a new library (and window) for the new folder.
+        delete m_manager.data();
+        delete m_library;
+        m_library = nullptr;
+    }
+    if (!m_library)
+        m_library = new ProjectLibrary(root, {}, this);
+    return m_library;
+}
+
+ProjectManagerWindow* ProjectController::projectManager() const
+{
+    return m_manager.data();
+}
+
+void ProjectController::showProjectManager()
+{
+    ProjectLibrary* library = projectLibrary();
+    if (!m_manager) {
+        m_manager = new ProjectManagerWindow(library, m_window);
+        // Over the editor like a dialog, but shown with show(): start-up and tests go on.
+        m_manager->setWindowModality(Qt::WindowModal);
+        m_manager->setSwitchGuard([this](QWidget* parent) { return maybeSave(parent); });
+        connect(m_manager, &ProjectManagerWindow::openRequested, this, [this](const QString& path) {
+            const bool alreadyOpen = QFileInfo(m_ctx.project->filePath()).absoluteFilePath()
+                == QFileInfo(path).absoluteFilePath();
+            if (alreadyOpen || openFile(path, false, m_manager))
+                m_manager->hide();
+        });
+        connect(m_manager, &ProjectManagerWindow::projectSettingsRequested, this, [this] {
+            m_manager->hide();
+            m_ctx.actions->action(QStringLiteral("file.project_settings"))->trigger();
+        });
+    }
+    m_manager->setRecentProjects(recentProjects());
+    m_manager->setOpenProjectPath(m_ctx.project->filePath());
+    m_manager->show();
+    m_manager->raise();
+    m_manager->activateWindow();
 }
 
 // ---- Crash recovery ----

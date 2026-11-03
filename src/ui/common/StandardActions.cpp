@@ -30,6 +30,8 @@ struct ActionSpec
 // clang-format off
 const ActionSpec kActions[] = {
     // ---- File ----
+    {"file", "file.project_manager",  QT_TRANSLATE_NOOP("kk::StandardActions", "Project &Manager…")},
+    {"file", "-"},
     {"file", "file.new",              QT_TRANSLATE_NOOP("kk::StandardActions", "&New Project")},
     {"file", "timeline.new",          QT_TRANSLATE_NOOP("kk::StandardActions", "New &Timeline…"), "timeline"},
     {"file", "mediapool.new_bin",     QT_TRANSLATE_NOOP("kk::StandardActions", "New &Bin"), "folder"},

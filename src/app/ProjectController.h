@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QObject>
+#include <QPointer>
 #include <QStringList>
 
 class QMenu;
@@ -12,6 +13,8 @@ namespace kk {
 
 struct AppContext;
 class AutosaveController;
+class ProjectLibrary;
+class ProjectManagerWindow;
 
 /// Implements the document commands (file.new, file.open, file.save, file.save_as,
 /// file.import_media) on top of Project, with the usual dialogs. Connects itself to the
@@ -22,12 +25,24 @@ class ProjectController : public QObject
 public:
     /// @p window parents the dialogs.
     ProjectController(AppContext& ctx, QWidget* window);
+    /// Closes the Project Manager before the library it shows goes away.
+    ~ProjectController() override;
 
-    /// If the project has unsaved changes, asks Save / Discard / Cancel.
-    /// Returns true if the caller may proceed (saved or discarded).
-    bool maybeSave();
+    /// If the project has unsaved changes, asks Save / Discard / Cancel (dialogs parented to
+    /// @p dialogParent, default the main window). Returns true if the caller may proceed
+    /// (saved or discarded).
+    bool maybeSave(QWidget* dialogParent = nullptr);
     /// Opens @p path (after maybeSave() if @p askToSave). Shows an error dialog on failure.
-    bool openFile(const QString& path, bool askToSave = true);
+    bool openFile(const QString& path, bool askToSave = true, QWidget* dialogParent = nullptr);
+    /// Start-up "reopen the last project": opens the most recent project that still exists.
+    /// Returns false (nothing opened) if there is none or it fails to load.
+    bool openLastProject();
+
+    /// The project library at prefs::projectLibraryDirectory() (created on first use, and
+    /// again when the preference changed).
+    ProjectLibrary* projectLibrary();
+    /// The Project Manager window, or null before it was first shown.
+    [[nodiscard]] ProjectManagerWindow* projectManager() const;
 
     /// Autosave of this window (for crash recovery); may stay null (tests, screenshots).
     void setAutosave(AutosaveController* autosave) { m_autosave = autosave; }
@@ -49,6 +64,9 @@ public:
     static constexpr int kMaxRecentProjects = 10;
 
 public slots:
+    /// File > Project Manager (Shift+1), and at start-up: shows the Project Manager over the
+    /// window (window-modal, never blocking the caller). Opening a project there closes it.
+    void showProjectManager();
     /// File ▸ New Project.
     void newProject();
     /// File ▸ Open Project… (file dialog).
@@ -68,6 +86,8 @@ private:
     AppContext& m_ctx;
     QWidget* m_window;
     AutosaveController* m_autosave = nullptr;
+    ProjectLibrary* m_library = nullptr; ///< owned (child)
+    QPointer<ProjectManagerWindow> m_manager; ///< child widget of m_window
 };
 
 } // namespace kk
