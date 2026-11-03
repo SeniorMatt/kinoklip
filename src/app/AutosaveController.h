@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QDateTime>
+#include <QFuture>
 #include <QObject>
 #include <QTimer>
 #include <QVector>
@@ -22,9 +23,14 @@ struct RecoveryCandidate
 };
 
 /// Every prefs::autosaveMinutes() minutes (default 2) writes the project, if it has unsaved
-/// changes since the last autosave, to `<AppDataLocation>/autosave/<name>-<hash>.kkproj` with
-/// Project::saveCopy() (the document's path and modified flag are untouched). The copy carries
-/// an "autosave" object: {documentPath, name, pid}.
+/// changes since the last autosave, to `<AppDataLocation>/autosave/<name>-<hash>.kkproj`
+/// (the document's path and modified flag are untouched). The copy carries an "autosave"
+/// object: {documentPath, name, pid}.
+///
+/// The timer's autosave runs in the background: the GUI thread only takes a
+/// Project::SaveSnapshot (shared immutable timelines, microseconds), a worker thread builds the
+/// JSON and writes the file (Project::writeSnapshot()), so editing never stalls on it
+/// (docs/polish-v3.md, round 4 stress pass: 21 ms on the GUI thread for 1,500 clips before).
 ///
 /// Life cycle of the file: it is deleted when it becomes obsolete, i.e. the project is saved,
 /// a different project is loaded/created (after the unsaved-changes prompt), or the window
@@ -57,14 +63,39 @@ public:
     /// one written by us once it is obsolete.
     void adopt(const QString& autosavePath);
 
+    /// Destroying the controller waits for a write in progress.
+    ~AutosaveController() override;
+
 public slots:
-    /// Writes the autosave file now if there is something new. Returns false on write errors.
+    /// Writes the autosave file now if there is something new and waits for the write.
+    /// Returns false on write errors.
     bool autosaveNow();
+    /// Starts writing the autosave file in the background if there is something new (the
+    /// timer calls this). Returns true if a write was started; a write still running makes
+    /// this a no-op (the next interval catches up).
+    bool startAutosave();
+    /// Waits for a background write started by startAutosave() and finishes it (file
+    /// bookkeeping). Returns false if that write failed; true if none was running.
+    bool waitForPendingWrite();
     /// Deletes this session's autosave file (normal shutdown, project saved or replaced).
     void discard();
 
 private:
+    /// Result of one background write.
+    struct WriteResult
+    {
+        bool ok = false;
+        QString error;
+    };
+    /// Bookkeeping after a background write (GUI thread).
+    bool finishWrite();
+
     Project* m_project;
+    QFuture<WriteResult> m_pending; ///< the running background write, if any
+    QString m_pendingPath;
+    quint64 m_pendingTimelineRevision = 0;
+    quint64 m_pendingPoolRevision = 0;
+    bool m_pendingDiscarded = false; ///< discard() ran while the write was in flight
     QTimer m_timer;
     QString m_lastWrittenPath; ///< file written (or adopted) by this session
     quint64 m_savedTimelineRevision = 0;

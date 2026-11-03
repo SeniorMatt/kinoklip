@@ -11,11 +11,13 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLoggingCategory>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
 
@@ -53,7 +55,7 @@ AutosaveController::AutosaveController(Project* project, QObject* parent)
     : QObject(parent)
     , m_project(project)
 {
-    connect(&m_timer, &QTimer::timeout, this, &AutosaveController::autosaveNow);
+    connect(&m_timer, &QTimer::timeout, this, &AutosaveController::startAutosave);
     // Saved (dirty -> clean) or replaced by New/Open (the unsaved-changes prompt ran first):
     // the autosave holds nothing the project file lacks any more.
     connect(project, &Project::dirtyChanged, this, [this](bool dirty) {
@@ -98,36 +100,91 @@ void AutosaveController::setIntervalMinutes(int minutes)
     m_timer.start(minutes * kMsPerMinute);
 }
 
+AutosaveController::~AutosaveController()
+{
+    waitForPendingWrite();
+}
+
 bool AutosaveController::autosaveNow()
 {
+    waitForPendingWrite(); // a write started by the timer first: it may hold an older state
+    startAutosave();
+    return waitForPendingWrite();
+}
+
+bool AutosaveController::startAutosave()
+{
+    if (m_pending.isValid() && !m_pending.isFinished())
+        return false;
+    if (m_pending.isValid())
+        finishWrite(); // a finished write whose result was not collected yet
     const quint64 timelineRevision = m_project->timeline()->revision();
     const quint64 poolRevision = m_project->mediaPool()->revision();
     if (!m_project->isDirty() || m_project->isEditing()
         || (timelineRevision == m_savedTimelineRevision && poolRevision == m_savedPoolRevision))
-        return true;
-
+        return false;
     QDir().mkpath(autosaveDirectory());
-    QString error;
     const QString path = autosavePath();
     const QJsonObject info {{QLatin1String(kDocumentKey), m_project->filePath()},
         {QLatin1String(kNameKey), m_project->name()},
         {QLatin1String(kPidKey), QCoreApplication::applicationPid()}};
-    if (!m_project->saveCopy(path, &error, info)) {
-        qCWarning(lcAutosave) << "autosave failed:" << error;
+    // The only GUI-thread work: a snapshot of shared, immutable values.
+    Project::SaveSnapshot snapshot = m_project->captureSave();
+    m_pendingPath = path;
+    m_pendingTimelineRevision = timelineRevision;
+    m_pendingPoolRevision = poolRevision;
+    m_pendingDiscarded = false;
+    m_pending = QtConcurrent::run([snapshot = std::move(snapshot), path, info] {
+        WriteResult result;
+        result.ok = Project::writeSnapshot(snapshot, path, &result.error, info);
+        return result;
+    });
+    // Collect the result on the GUI thread once the worker is done.
+    auto* watcher = new QFutureWatcher<WriteResult>(this);
+    connect(watcher, &QFutureWatcher<WriteResult>::finished, this, [this, watcher] {
+        watcher->deleteLater();
+        if (m_pending.isValid() && m_pending.isFinished())
+            finishWrite();
+    });
+    watcher->setFuture(m_pending);
+    return true;
+}
+
+bool AutosaveController::waitForPendingWrite()
+{
+    if (!m_pending.isValid())
+        return true;
+    m_pending.waitForFinished();
+    return finishWrite();
+}
+
+bool AutosaveController::finishWrite()
+{
+    const WriteResult result = m_pending.result();
+    m_pending = {};
+    if (m_pendingDiscarded) {
+        // The project was saved or replaced while we were writing: the copy is obsolete.
+        QFile::remove(m_pendingPath);
+        return result.ok;
+    }
+    if (!result.ok) {
+        qCWarning(lcAutosave) << "autosave failed:" << result.error;
         return false;
     }
     // A rename or Save As changes the file name: never leave the previous file behind.
-    if (!m_lastWrittenPath.isEmpty() && m_lastWrittenPath != path)
+    if (!m_lastWrittenPath.isEmpty() && m_lastWrittenPath != m_pendingPath)
         QFile::remove(m_lastWrittenPath);
-    m_lastWrittenPath = path;
-    m_savedTimelineRevision = timelineRevision;
-    m_savedPoolRevision = poolRevision;
-    qCDebug(lcAutosave) << "autosaved to" << autosavePath();
+    m_lastWrittenPath = m_pendingPath;
+    m_savedTimelineRevision = m_pendingTimelineRevision;
+    m_savedPoolRevision = m_pendingPoolRevision;
+    qCDebug(lcAutosave) << "autosaved to" << m_pendingPath;
     return true;
 }
 
 void AutosaveController::discard()
 {
+    if (m_pending.isValid())
+        m_pendingDiscarded = true; // finishWrite() removes the file once it is collected
     if (!m_lastWrittenPath.isEmpty()) {
         QFile::remove(m_lastWrittenPath);
         m_lastWrittenPath.clear();
