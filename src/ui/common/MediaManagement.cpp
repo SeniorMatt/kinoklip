@@ -3,6 +3,7 @@
 #include "ui/common/MediaManagement.h"
 
 #include "core/EditOps.h"
+#include "core/Plural.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -319,9 +320,11 @@ void MediaManagement::connectActions()
         const QStringList ids = selection("mediapool.delete_proxy");
         if (!ids.isEmpty()
             && QMessageBox::question(dialogParent(), tr("Delete Proxy Media"),
-                   tr("Delete the proxy media of %n clip(s)? Proxies you linked by hand are "
-                      "only unlinked.",
-                       nullptr, int(ids.size())))
+                   plural(ids.size(),
+                       tr("Delete the proxy media of %n clip? A proxy you linked by hand is "
+                          "only unlinked."),
+                       tr("Delete the proxy media of %n clips? Proxies you linked by hand are "
+                          "only unlinked.")))
                 == QMessageBox::Yes)
             deleteLinked(ids, LinkKind::Proxy);
     });
@@ -329,7 +332,8 @@ void MediaManagement::connectActions()
         const QStringList ids = selection("mediapool.delete_optimized");
         if (!ids.isEmpty()
             && QMessageBox::question(dialogParent(), tr("Delete Optimized Media"),
-                   tr("Delete the optimized media of %n clip(s)?", nullptr, int(ids.size())))
+                   plural(ids.size(), tr("Delete the optimized media of %n clip?"),
+                       tr("Delete the optimized media of %n clips?")))
                 == QMessageBox::Yes)
             deleteLinked(ids, LinkKind::Optimized);
     });

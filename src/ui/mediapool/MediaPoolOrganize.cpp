@@ -4,6 +4,7 @@
 // Project changes are one undo step each; power bin changes are saved at once (PowerBins).
 #include "core/MediaPool.h"
 #include "core/MediaUsage.h"
+#include "core/Plural.h"
 #include "core/PowerBins.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -142,12 +143,13 @@ bool MediaPoolPanel::deleteBin(const QString& binKey, bool confirm)
         used += pool == m_ctx.project->mediaPool() ? m_model->usageCounts().value(m.id, 0) : 0;
     }
     if (confirm && files > 0) {
-        QString text
-            = tr("Delete the bin \"%1\" with its bins and the %n clip(s) in it?", nullptr, files)
-                  .arg(bin->name);
+        QString text = plural(files, tr("Delete the bin \"%1\" with its bins and the clip in it?"),
+            tr("Delete the bin \"%1\" with its bins and the %n clips in it?"))
+                           .arg(bin->name);
         if (used > 0)
             text += QLatin1Char(' ')
-                + tr("%n timeline clip(s) use them and will show as offline.", nullptr, used);
+                + plural(used, tr("%n timeline clip uses them and will show as offline."),
+                    tr("%n timeline clips use them and will show as offline."));
         if (QMessageBox::question(this, tr("Delete Bin"), text) != QMessageBox::Yes)
             return false;
     }
@@ -415,9 +417,11 @@ int MediaPoolPanel::removeUnusedClips(bool confirm)
     }
     if (confirm
         && QMessageBox::question(this, tr("Remove Unused Clips"),
-               tr("Remove %n clip(s) that are not used in any timeline from the media pool? "
-                  "The files stay on disk.",
-                   nullptr, int(unused.size())))
+               plural(unused.size(),
+                   tr("Remove %n clip that is not used in any timeline from the media pool? "
+                      "The file stays on disk."),
+                   tr("Remove %n clips that are not used in any timeline from the media pool? "
+                      "The files stay on disk.")))
             != QMessageBox::Yes)
         return 0;
     m_ctx.project->beginEdit(tr("Remove Unused Clips"));

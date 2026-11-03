@@ -4,6 +4,7 @@
 
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
+#include "core/Plural.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -202,8 +203,9 @@ QWidget* ClipAttributesDialog::buildAudioTab(const MediaItem& item)
     const ClipAttributes& a = item.attributes;
     auto* page = new QWidget;
     auto* form = new QFormLayout(page);
-    auto* source = new QLabel(
-        m_channels > 0 ? tr("%n source channel(s)", nullptr, m_channels) : tr("No audio channels"));
+    auto* source = new QLabel(m_channels > 0
+            ? plural(m_channels, tr("%n source channel"), tr("%n source channels"))
+            : tr("No audio channels"));
     form->addRow(tr("Source:"), source);
 
     m_format = new QComboBox;

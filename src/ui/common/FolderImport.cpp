@@ -4,6 +4,7 @@
 #include "ui/common/FolderImport.h"
 
 #include "core/MediaPool.h"
+#include "core/Plural.h"
 #include "core/Project.h"
 #include "media/FolderScan.h"
 #include "media/SupportedFormats.h"
@@ -270,21 +271,24 @@ QStringList importMediaFoldersWithFeedback(AppContext& ctx, const QStringList& f
     // One summary for the whole import instead of a dialog per file.
     QStringList lines;
     if (r.duplicates > 0)
-        lines.append(
-            tr("%n file(s) already in the media pool were skipped.", nullptr, r.duplicates));
+        lines.append(plural(r.duplicates, tr("%n file already in the media pool was skipped."),
+            tr("%n files already in the media pool were skipped.")));
     if (r.skippedUnsupported > 0)
-        lines.append(tr("%n file(s) of other types were skipped.", nullptr, r.skippedUnsupported));
+        lines.append(plural(r.skippedUnsupported, tr("%n file of another type was skipped."),
+            tr("%n files of other types were skipped.")));
     if (r.skippedHidden > 0)
-        lines.append(tr("%n hidden or system file(s) were skipped.", nullptr, r.skippedHidden));
+        lines.append(plural(r.skippedHidden, tr("%n hidden or system file was skipped."),
+            tr("%n hidden or system files were skipped.")));
     if (!r.failures.isEmpty()) {
-        lines.append(tr("%n file(s) could not be imported:", nullptr, int(r.failures.size())));
+        lines.append(plural(r.failures.size(), tr("%n file could not be imported:"),
+            tr("%n files could not be imported:")));
         lines += r.failures.mid(0, kMaxListedFailures);
         if (r.failures.size() > kMaxListedFailures)
             lines.append(tr("… and %1 more").arg(r.failures.size() - kMaxListedFailures));
     }
     const QString text = r.importedIds.isEmpty()
         ? tr("No new media files were imported.")
-        : tr("%n file(s) imported.", nullptr, int(r.importedIds.size()));
+        : plural(r.importedIds.size(), tr("%n file imported."), tr("%n files imported."));
     QMessageBox box(r.failures.isEmpty() ? QMessageBox::Information : QMessageBox::Warning,
         tr("Import Media Folder"), text, QMessageBox::Ok, parent);
     box.setInformativeText(lines.join(QLatin1Char('\n')));

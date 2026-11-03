@@ -2,6 +2,7 @@
 // MulticamDialog — the New Multicam Clip dialog.
 #include "ui/mediapool/MulticamDialog.h"
 
+#include "core/Plural.h"
 #include "ui/mediapool/MulticamSync.h"
 
 #include <QCheckBox>
@@ -38,8 +39,9 @@ std::optional<MulticamOptions> askMulticamOptions(
     dialog.setObjectName(QStringLiteral("NewMulticamDialog"));
     dialog.setWindowTitle(tr("New Multicam Clip"));
     auto* layout = new QVBoxLayout(&dialog);
-    auto* intro = new QLabel(tr(
-        "Creates a multicam clip with %n angle(s) from the selected clips.", nullptr, clipCount));
+    auto* intro = new QLabel(
+        plural(clipCount, tr("Creates a multicam clip with %n angle from the selected clip."),
+            tr("Creates a multicam clip with %n angles from the selected clips.")));
     intro->setWordWrap(true);
     layout->addWidget(intro);
     auto* form = new QFormLayout;
