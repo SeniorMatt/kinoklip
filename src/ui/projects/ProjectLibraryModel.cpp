@@ -408,8 +408,14 @@ void ProjectSortProxy::setSearchText(const QString& text)
 {
     if (text == m_search)
         return;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+    m_search = text;
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
     m_search = text;
     invalidateFilter();
+#endif
 }
 
 bool ProjectSortProxy::filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const
