@@ -3,6 +3,7 @@
 // In the KF6 container build these run against the installed (latest) Breeze; in the Qt 6.4
 // fallback build they check the palette approximation instead.
 #include "app/ColorSchemeFile.h"
+#include "app/InstantPopups.h"
 #include "app/Theme.h"
 #include "core/Preferences.h"
 #include "ui/common/ActionRegistry.h"
@@ -12,9 +13,11 @@
 #include "ui/common/StandardActions.h"
 #include "ui/dialogs/PreferencesDialog.h"
 
+#include <QAbstractItemView>
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QMenu>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStyle>
@@ -100,8 +103,7 @@ private slots:
 
         QAction* light = registry.action(theme::colorSchemeActionId(QStringLiteral("BreezeLight")));
         QAction* dark = registry.action(theme::colorSchemeActionId(QStringLiteral("BreezeDark")));
-        QAction* kinoklip
-            = registry.action(theme::colorSchemeActionId(QStringLiteral("Kinoklip")));
+        QAction* kinoklip = registry.action(theme::colorSchemeActionId(QStringLiteral("Kinoklip")));
         QVERIFY(light && dark && kinoklip);
         QVERIFY(kinoklip->isChecked()); // the default
         dark->trigger();
@@ -161,6 +163,57 @@ private slots:
         // Editor glyphs without a Breeze equivalent keep our tinted SVG.
         QVERIFY(themeIconName(QStringLiteral("blade")).isEmpty());
         QVERIFY(!icon(QStringLiteral("blade")).isNull());
+    }
+
+    /// Instant popups (Reddit feedback on 1.0.0-beta.1, spec 36.13): even when the desktop
+    /// turns Qt's menu, combo and tooltip effects on (Windows does from its own settings), the
+    /// applied theme turns them off, menus close without fade or blink, and a menu or a
+    /// combo-box list is fully opaque right after it pops up.
+    void spec36_13_popupsAppearInstantly()
+    {
+        for (const Qt::UIEffect effect : {Qt::UI_General, Qt::UI_AnimateMenu, Qt::UI_FadeMenu,
+                 Qt::UI_AnimateCombo, Qt::UI_AnimateTooltip, Qt::UI_FadeTooltip})
+            QApplication::setEffectEnabled(effect, true);
+        theme::apply(*qApp);
+        QVERIFY(instantpopups::effectsOff());
+        QVERIFY(!QApplication::isEffectEnabled(Qt::UI_FadeMenu));
+        QVERIFY(!QApplication::isEffectEnabled(Qt::UI_AnimateMenu));
+        QVERIFY(!QApplication::isEffectEnabled(Qt::UI_AnimateCombo));
+        QVERIFY(!QApplication::isEffectEnabled(Qt::UI_FadeTooltip));
+        QVERIFY(!QApplication::isEffectEnabled(Qt::UI_AnimateTooltip));
+        QCOMPARE(qApp->style()->styleHint(QStyle::SH_Menu_FadeOutOnHide), 0);
+        QCOMPARE(qApp->style()->styleHint(QStyle::SH_Menu_FlashTriggeredItem), 0);
+
+        QWidget host;
+        host.resize(300, 200);
+        host.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&host));
+        QMenu menu(&host);
+        menu.addAction(QStringLiteral("Cut"));
+        menu.addAction(QStringLiteral("Copy"));
+        menu.popup(host.mapToGlobal(QPoint(20, 20)));
+        // At once, before any event loop turn: visible and fully opaque (a fade starts at 0).
+        QVERIFY(menu.isVisible());
+        QCOMPARE(menu.windowOpacity(), 1.0);
+        QVERIFY(menu.property("_kk_instant_popup").toBool()); // marked for the compositor
+        if (QGuiApplication::platformName() == QLatin1String("xcb")) // KWin hint set (X11)
+            QVERIFY(instantpopups::markWindow(&menu));
+        QTest::qWait(40); // a fade or roll would be under way now
+        QCOMPARE(menu.windowOpacity(), 1.0);
+        QCOMPARE(menu.geometry().size(), menu.sizeHint());
+        menu.hide();
+        QVERIFY(!menu.isVisible());
+
+        QComboBox combo(&host);
+        combo.addItems({QStringLiteral("Fit"), QStringLiteral("Fill"), QStringLiteral("Stretch")});
+        combo.show();
+        combo.showPopup();
+        QWidget* list = combo.view()->window();
+        QVERIFY(list->isVisible());
+        QCOMPARE(list->windowOpacity(), 1.0);
+        QTest::qWait(40);
+        QCOMPARE(list->windowOpacity(), 1.0);
+        combo.hidePopup();
     }
 };
 
