@@ -119,8 +119,34 @@ const ParamSet* paramSet(const ClipData& clip, const ParamRef& ref)
 
 ParamSet* paramSet(ClipData& clip, const ParamRef& ref)
 {
-    // Same lookup as the const overload; the const_cast is safe because `clip` is mutable.
-    return const_cast<ParamSet*>(paramSet(static_cast<const ClipData&>(clip), ref));
+    // The same lookup as the const overload, but through the non-const containers: the
+    // effect, mask and transition lists are implicitly shared with the undo snapshot taken at
+    // beginEdit(), and only a non-const access detaches them (a const_cast of the const
+    // lookup would write into the snapshot too, and the edit would leave no undo step).
+    switch (ref.scope) {
+    case ParamScope::Transform:
+        return &clip.transform;
+    case ParamScope::Audio:
+        return &clip.audio;
+    case ParamScope::Title:
+        return &clip.title;
+    case ParamScope::SolidColor:
+        return nullptr;
+    case ParamScope::Effect: {
+        EffectInstance* fx = effect(clip, ref.effectId);
+        return fx ? &fx->params : nullptr;
+    }
+    case ParamScope::TransitionIn:
+    case ParamScope::TransitionOut: {
+        TransitionData* t = transition(clip, ref.scope);
+        return t ? &t->params : nullptr;
+    }
+    case ParamScope::Mask: {
+        MaskData* m = mask(clip, ref.effectId);
+        return m ? &m->params : nullptr;
+    }
+    }
+    return nullptr;
 }
 
 const AnimatedValue* animated(const ClipData& clip, const ParamRef& ref)
