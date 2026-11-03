@@ -34,6 +34,7 @@
 #include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/mediapool/MulticamSync.h"
+#include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectManagerWindow.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
@@ -271,6 +272,9 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         manager->resize(1180, 720);
         dialog = std::move(manager);
         delayMs = kProjectManagerSettleDelayMs; // posters: metadata, then the media cache
+    } else if (target == QLatin1String("new-project")) {
+        // The Project Manager's New Project dialog (name and kind).
+        dialog = std::make_unique<NewProjectDialog>(QStringLiteral("Untitled Project"), &window);
     } else if (target == QLatin1String("keyboard")) {
         dialog = std::make_unique<KeyboardCustomizationDialog>(*ctx.actions, &window);
     } else if (target == QLatin1String("menu-color-theme") || target == QLatin1String("menu-style")
@@ -654,7 +658,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             "multicam[:viewer|timeline], "
             "keyframes-panel[:dope|curves|absolute|float], "
             "mediapool, levels, stacked, clip-attributes[:audio|timecode], "
-            "effects, import-dialog, project-manager, menu-color-theme "
+            "effects, import-dialog, project-manager, new-project, menu-color-theme "
             "or "
             "menu-style, menu-playback-resolution)\n",
             qPrintable(target));
