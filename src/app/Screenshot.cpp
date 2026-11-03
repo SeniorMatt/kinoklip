@@ -12,12 +12,14 @@
 #include "core/LevelOps.h"
 #include "core/MediaPool.h"
 #include "core/Multicam.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/Retime.h"
 #include "core/RetimeOps.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
+#include "projects/ProjectLibrary.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/cut/CutEditor.h"
@@ -32,6 +34,7 @@
 #include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/mediapool/MulticamSync.h"
+#include "ui/projects/ProjectManagerWindow.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
@@ -60,6 +63,7 @@ namespace {
 const QSize kScreenshotSize(1920, 1080);
 constexpr int kSettleDelayMs = 400; // let layouts, file system model and GL widgets settle
 constexpr int kDialogSettleDelayMs = 1500;
+constexpr int kProjectManagerSettleDelayMs = 4000;
 constexpr int kImportDialogDelayMs = 6000; // the portal and its dialog process start up //
                                            // Preferences probes the GPU on a worker thread
 constexpr int kMenuMargin = 24; // px of window around an open menu in menu shots
@@ -253,6 +257,20 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             return 2;
         }
         dialog = std::move(settings);
+    } else if (target == QLatin1String("project-manager")) {
+        // The Project Manager over the library of the preferences, or KK_PROJECT_LIBRARY (demo
+        // libraries for documentation); a project given on the command line is marked open.
+        const QString root = qEnvironmentVariableIsSet("KK_PROJECT_LIBRARY")
+            ? qEnvironmentVariable("KK_PROJECT_LIBRARY")
+            : prefs::projectLibraryDirectory();
+        static std::unique_ptr<ProjectLibrary> library; // outlives the dialog (static: one run)
+        library = std::make_unique<ProjectLibrary>(root);
+        auto manager = std::make_unique<ProjectManagerWindow>(library.get(), &window);
+        manager->setRecentProjects(ProjectController::recentProjects());
+        manager->setOpenProjectPath(ctx.project->filePath());
+        manager->resize(1180, 720);
+        dialog = std::move(manager);
+        delayMs = kProjectManagerSettleDelayMs; // posters: metadata, then the media cache
     } else if (target == QLatin1String("keyboard")) {
         dialog = std::make_unique<KeyboardCustomizationDialog>(*ctx.actions, &window);
     } else if (target == QLatin1String("menu-color-theme") || target == QLatin1String("menu-style")
@@ -636,7 +654,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             "multicam[:viewer|timeline], "
             "keyframes-panel[:dope|curves|absolute|float], "
             "mediapool, levels, stacked, clip-attributes[:audio|timecode], "
-            "effects, import-dialog, menu-color-theme "
+            "effects, import-dialog, project-manager, menu-color-theme "
             "or "
             "menu-style, menu-playback-resolution)\n",
             qPrintable(target));
