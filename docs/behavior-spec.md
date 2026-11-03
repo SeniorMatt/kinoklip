@@ -783,6 +783,7 @@ Tests: pl = tests/projects/test_projectlibrary.cpp, pm = tests/app/test_projectm
 | 38.21 | Crash recovery and autosave are unchanged: opening a project from the Project Manager is the same as File > Open Recent (Recent list, autosave of the new document). | Fixed (new) |
 | 38.22 | Several project libraries, Open in a New Window, export as a single file with media, a project's notes and a cloud / shared database library. | Export as a single file: Fixed (sfint, see 38.23). Deferred: the rest (plan-v4 lists more than one library and new windows as later). |
 | 38.23 | Export converts between the kinds: the save dialog offers both, and the context menu of a linked project has Export as Single File. A linked project exported as `.kinoklip` is packed with every media file it uses, a single-file project exported as `.kkproj` is unpacked (media into `media/...` next to it); with progress and Cancel (a cancelled export leaves nothing), media left linked are listed. | Fixed (new, sfint; pl exportConvertsBetweenKinds) |
+| 38.24 | Duplicate and Import copy the project file on a worker thread behind a progress dialog with Cancel (a single-file project holds all its media); the copy goes through "<name>.part" and a cancelled or failed copy leaves nothing behind. Move is a rename and copies nothing. | Fixed (new, sfint; pl largeCopiesReportProgressAndCancelCleanly; pm keysOpenRenameDelete) |
 
 ## 39. Single-file projects (kkpack branch, v4 part 2)
 
@@ -904,5 +905,5 @@ effects library behaves. Clean room: our own names, formulas and wording. Tests:
   viewer eyedropper, colour, blur, light, stylize, distort and transform effects, library
   folders; 40.10 and 40.20 deferred).
 - The sfint branch (v4 part 2, release 0.4.0: single-file projects in the editor, the Project
-  Manager, the File menu, import and the Media Pool) added 38.23 and 39.17 - 39.25, and updated
+  Manager, the File menu, import and the Media Pool) added 38.23, 38.24 and 39.17 - 39.25, and updated
   38.7, 38.18, 38.22, 39.1, 39.5, 39.8 - 39.12 and 39.15 (no "UI pending" rows left).

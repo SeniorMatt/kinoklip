@@ -412,6 +412,62 @@ private slots:
         QVERIFY(!QFileInfo::exists(copy));
     }
 
+    void largeCopiesReportProgressAndCancelCleanly()
+    {
+        // Duplicate / Import copy in chunks with progress (a single-file project holds its
+        // media); a cancelled copy leaves neither the copy nor its ".part" file.
+        auto lib = makeLibrary();
+        QString error;
+        const QString packed
+            = lib->createProject({}, QStringLiteral("Big"), QStringLiteral("kinoklip"), &error);
+        QVERIFY2(!packed.isEmpty(), qPrintable(error));
+        {
+            QFile f(packed); // grow it past one chunk (bytes after the end record are ignored)
+            QVERIFY(f.open(QIODevice::Append));
+            QVERIFY(f.resize(f.size() + (20 << 20)));
+        }
+        const QString copyPath = m_root + QStringLiteral("/Big copy.kinoklip");
+        bool cancelled = false;
+        int calls = 0;
+        QVERIFY(lib->duplicate(
+                       packed, &error,
+                       [&](qint64 done, qint64) {
+                           ++calls;
+                           return done < (8 << 20); // cancel after the first chunk
+                       },
+                       &cancelled)
+                    .isEmpty());
+        QVERIFY(cancelled);
+        QVERIFY(calls >= 2);
+        QVERIFY(!QFileInfo::exists(copyPath));
+        QVERIFY(!QFileInfo::exists(copyPath + QStringLiteral(".part")));
+        qint64 last = 0;
+        QCOMPARE(lib->duplicate(
+                     packed, &error,
+                     [&](qint64 done, qint64 total) {
+                         last = done;
+                         return total > 0;
+                     },
+                     &cancelled),
+            copyPath);
+        QVERIFY(!cancelled);
+        QCOMPARE(last, QFileInfo(packed).size());
+        // (the stored name is then saved anew, which also cuts the padding off the copy)
+        QCOMPARE(projectkinds::readKinoklipMetadata(copyPath).name, QStringLiteral("Big copy"));
+        // Import from outside, cancelled at once: nothing in the library.
+        const QString outside = m_dir->path() + QStringLiteral("/Outside.kinoklip");
+        QVERIFY(QFile::copy(packed, outside));
+        QDir().mkpath(m_root + QStringLiteral("/In"));
+        QVERIFY(lib->importProject(
+                       outside, m_root + QStringLiteral("/In"), &error,
+                       [](qint64, qint64) { return false; }, &cancelled)
+                    .isEmpty());
+        QVERIFY(cancelled);
+        QVERIFY(QDir(m_root + QStringLiteral("/In")).isEmpty());
+        QCOMPARE(lib->importProject(outside, m_root + QStringLiteral("/In"), &error),
+            m_root + QStringLiteral("/In/Outside.kinoklip"));
+    }
+
     void exportConvertsBetweenKinds()
     {
         // Export as a single file packs a linked project with its media; exporting a single

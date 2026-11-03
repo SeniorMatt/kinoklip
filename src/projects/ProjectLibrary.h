@@ -130,9 +130,15 @@ public:
     /// Renames a project (file and the name stored inside it) or a folder. Returns the new
     /// path, or empty with @p error (name taken, open project, I/O error).
     QString rename(const QString& path, const QString& newName, QString* error = nullptr);
+    /// Progress of a file copy: bytes done, total; false = cancel.
+    using CopyProgress = std::function<bool(qint64 done, qint64 total)>;
+
     /// Copies a project next to itself as "<name> copy" (the stored name follows). Returns the
-    /// new path, or empty with @p error.
-    QString duplicate(const QString& path, QString* error = nullptr);
+    /// new path, or empty with @p error. @p progress reports the copy (a single-file project
+    /// holds its media: may run on a worker thread, see copyFile()); a cancelled copy sets
+    /// @p cancelled and leaves nothing behind.
+    QString duplicate(const QString& path, QString* error = nullptr,
+        const CopyProgress& progress = {}, bool* cancelled = nullptr);
     /// Moves a project or folder into @p folder (a folder never into itself). Returns the new
     /// path (unchanged if already there), or empty with @p error.
     QString move(const QString& path, const QString& folder, QString* error = nullptr);
@@ -141,7 +147,13 @@ public:
     bool moveToTrash(const QString& path, QString* error = nullptr);
     /// Copies the project file @p source (anywhere) into @p folder of the library. Returns the
     /// new path, or empty with @p error (unknown kind, unreadable).
-    QString importProject(const QString& source, const QString& folder, QString* error = nullptr);
+    /// @p progress / @p cancelled as for duplicate().
+    QString importProject(const QString& source, const QString& folder, QString* error = nullptr,
+        const CopyProgress& progress = {}, bool* cancelled = nullptr);
+    /// Copies the file @p from to @p to in 8 MiB chunks through "<to>.part" (renamed when
+    /// complete; removed when cancelled or failed). Thread-safe (touches no member).
+    static bool copyFile(const QString& from, const QString& to, const CopyProgress& progress,
+        bool* cancelled, QString* error);
     /// Saves a copy of @p path as @p target (overwriting it). False with @p error on failure.
     /// A different kind converts: a linked project exported as `.kinoklip` is packed (every
     /// media file copied in), a single-file project exported as `.kkproj` is unpacked (the
