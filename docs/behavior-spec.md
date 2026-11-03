@@ -1119,3 +1119,10 @@ index `docs/guide/index.json`, see src/ui/help/readme.md). Section 42 is the Com
 - The bughunt branch (1.0.0-beta.1 bug hunt) added 24.15 (the Inspector stays on the Video
   tab after edits that select clips) and 33.31 (Delete, Backspace and Ctrl+A act on the focused
   media pool, not the timeline).
+- The bughunt2 branch (second bug hunt round) added 10.11 (list and tree panels keep Delete,
+  Ctrl+A and the arrow keys), 12.15 (double-click renames a track), 16.7 (Paste Attributes in
+  the clip menu), 19.9 (Shift+Z toggles), 23.9 (Alt+V / Alt+F / Alt+M win over the menu
+  mnemonics), 24.16 (Position Y and Anchor Y count up), 24.17 (double-click opens a clip's
+  source), 24.18 (a focused Inspector value takes Up / Down and Enter), 33.32 (singular and
+  plural messages), 35.27 (Cut page edits keep the Video tab), 42b.29 (a viewer without a node
+  draws no handles) and 42b.30 (choosing a MediaIn source, the Compositing page's media pool).
