@@ -2,6 +2,7 @@
 // RenderCacheKeys — chunk grid, edit hash per chunk, Smart / User selection, cache view.
 #include "render/RenderCacheKeys.h"
 
+#include "core/CompOps.h"
 #include "core/MediaItem.h"
 #include "core/Retime.h"
 #include "core/Serialization.h"
@@ -64,6 +65,9 @@ unsigned staticClipReasons(const ClipData& clip, const QJsonObject& json)
         || std::any_of(clip.effects.begin(), clip.effects.end(),
             [](const EffectInstance& e) { return e.enabled; }))
         r |= CacheEffects;
+    // A composition (Compositing page) costs like effects: Smart mode caches it.
+    if (clip.composition && !compops::isPassThrough(*clip.composition))
+        r |= CacheEffects;
     if (clip.cacheOutput)
         r |= CacheUserClip;
     return r;
@@ -113,6 +117,17 @@ private:
         e.reasons = staticClipReasons(clip, json);
         for (const char* key : kIgnoredClipKeys)
             json.remove(QLatin1String(key));
+        if (clip.composition) {
+            // Only what changes the picture: node names, positions, notes and the node
+            // editor's view do not invalidate the cache. MediaIns reading other media pool
+            // items add those items' keys.
+            json[QLatin1String("composition")]
+                = serialization::compositionToJson(*clip.composition, true);
+            for (const CompNode& n : clip.composition->nodes) {
+                if (!n.mediaId.isEmpty())
+                    h.addData(m_mediaKeys.value(n.mediaId, QByteArrayLiteral("unknown-media")));
+            }
+        }
         h.addData(canonicalJson(json));
         if (clip.kind == ClipKind::Media) {
             h.addData(m_mediaKeys.value(clip.mediaId, QByteArrayLiteral("unknown-media")));

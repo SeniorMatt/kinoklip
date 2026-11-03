@@ -14,6 +14,8 @@
 //     the layer is then drawn through the transform with opacity.
 #include "render/GlRenderer.h"
 
+#include "core/CompOps.h"
+#include "core/NodeRegistry.h"
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "render/CaptionRenderer.h"
@@ -174,7 +176,8 @@ bool GlRenderer::initialize(QString* why)
 
     m_kit = std::make_unique<GlKit>(m_gl);
     if (!m_kit->initialize(why) || !m_video.initialize(*m_kit, why)
-        || !m_masks.initialize(*m_kit, why) || !m_generators.initialize(*m_kit, why))
+        || !m_masks.initialize(*m_kit, why) || !m_generators.initialize(*m_kit, why)
+        || !m_comp.initialize(*m_kit, why))
         return false;
     m_output = std::make_unique<GlOutput>(*m_kit);
     {
@@ -200,6 +203,7 @@ bool GlRenderer::initialize(QString* why)
         else
             qCWarning(lcRender).noquote() << "transition" << f.id << "disabled:" << log;
     }
+    m_comp.setShared(&m_effects, &m_masks, &m_generators);
     const auto dissolve = m_transitions.constFind(QStringLiteral("cross_dissolve"));
     if (dissolve == m_transitions.constEnd()) {
         *why = QStringLiteral("cross_dissolve shader failed");
@@ -250,6 +254,7 @@ void GlRenderer::shutdown()
         m_video.destroy(*m_kit);
         m_masks.destroy(*m_kit);
         m_generators.destroy(*m_kit);
+        m_comp.destroy(*m_kit);
         m_generated.clear();
         m_kit->destroy();
         m_context->doneCurrent();
@@ -297,6 +302,8 @@ void GlRenderer::queueDecode(const ClipData* clip, int64_t frame, int64_t nextFr
 void GlRenderer::queueDecodeAt(const ClipData* clip, int64_t frame, int64_t nextFrame,
     const TimelineData& tl, const NestedTimelines& nested, const MediaPathMap* media, int depth)
 {
+    if (clip->composition)
+        queueCompositionDecodes(clip, frame, nextFrame, tl, nested, media, depth);
     if (clip->kind == ClipKind::Nested) {
         const TimelineData* n = nested.findClip(*clip);
         if (!n || depth >= kMaxNestingDepth)
@@ -483,17 +490,49 @@ void GlRenderer::render(RenderJob& job)
     m_decoders.beginFrame();
     m_decoded.clear();
     m_nested.clear();
+    m_compClips.clear();
     m_proxies = rq.proxies.get();
-    queueTimeline(tl, rq.frame, rq.frame + 1, tl.nested, job.media.get(), 0);
+    // Compositing page viewer: one node of one clip's composition instead of the timeline.
+    const ClipData* compClipOwner = nullptr;
+    if (rq.compositionNode) {
+        for (const TrackData& track : tl.videoTracks) {
+            const int i = track.indexOfClip(rq.compositionNode->clipId);
+            if (i >= 0)
+                compClipOwner = &track.clips[size_t(i)];
+        }
+        if (compClipOwner) {
+            fc.frame = compClipOwner->start + rq.compositionNode->compFrame;
+            queueDecode(compClipOwner, fc.frame, fc.frame + 1, tl, tl.nested, job.media.get(), 0);
+        }
+    } else {
+        queueTimeline(tl, rq.frame, rq.frame + 1, tl.nested, job.media.get(), 0);
+    }
     decodeQueued();
     const qint64 decodedNs = timer.nsecsElapsed();
     startDecodeAhead();
     m_uploadNs = 0;
 
     // 3. Composite (V1 = index 0 is the bottom layer, drawn first).
-    PooledTarget accumulator = compositeTimeline(fc);
-    if (fc.subtitles && !tl.subtitleTracks.empty())
-        drawSubtitles(fc, *accumulator);
+    PooledTarget accumulator;
+    if (rq.compositionNode) {
+        accumulator = m_kit->acquire(out);
+        m_kit->bindTarget(*accumulator);
+        m_kit->clearTransparent();
+        if (compClipOwner && compClipOwner->composition) {
+            const RenderTarget* node
+                = compositionTarget(*compClipOwner, rq.compositionNode->compFrame, fc, 1.0,
+                    rq.compositionNode->nodeId, out, std::min(fc.sx, fc.sy));
+            if (node) {
+                m_kit->bindTarget(*accumulator);
+                m_kit->setBlendOver(false);
+                m_kit->blit(node->texture, kFullscreenNdc);
+            }
+        }
+    } else {
+        accumulator = compositeTimeline(fc);
+        if (fc.subtitles && !tl.subtitleTracks.empty())
+            drawSubtitles(fc, *accumulator);
+    }
     m_nested.clear(); // the nested composites were consumed by the draws above
     m_generated.clear();
     m_retimeTargets.clear(); // ... and the in-between pictures of retimed clips
@@ -659,9 +698,28 @@ void GlRenderer::drawTrack(
 }
 
 bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const FrameContext& fc,
-    double maxZoomValue, ClipSource& src)
+    double maxZoomValue, ClipSource& src, bool useComposition)
 {
     const QSizeF frameSize(fc.timeline->width, fc.timeline->height);
+    if (useComposition && clip.composition && !compops::isPassThrough(*clip.composition)) {
+        // The composition's output replaces the clip's picture: a frame-sized texture at the
+        // resolution the frame covers in the output (x zoom up to 2, like generators), so
+        // the clip's crop (timeline px), effects, masks and transform apply on top of it.
+        const double scale = std::max(fc.sx, fc.sy) * std::clamp(maxZoomValue, 1.0, kMaxNestedZoom);
+        QSize size(std::max(1, int(std::ceil(frameSize.width() * scale))),
+            std::max(1, int(std::ceil(frameSize.height() * scale))));
+        if (size.width() > kMaxTargetEdge || size.height() > kMaxTargetEdge)
+            size.scale(kMaxTargetEdge, kMaxTargetEdge, Qt::KeepAspectRatio);
+        const RenderTarget* target = compositionTarget(
+            clip, localFrame, fc, maxZoomValue, 0, size, double(size.width()) / frameSize.width());
+        if (!target)
+            return false;
+        src.kind = ClipSource::Kind::Texture;
+        src.content = frameSize;
+        src.sourcePx = frameSize; // crop in timeline pixels
+        src.texture = target->texture;
+        return true;
+    }
     switch (clip.kind) {
     case ClipKind::Media: {
         const DecodedClip* d
@@ -1077,6 +1135,125 @@ PooledTarget GlRenderer::renderLayerAt(const LayerJob& job, int64_t at, size_t c
     drawSource(src, GlKit::quadToNdc(sourceRect, job.size), cropInQuad(crop, src.quad), 1.0f);
     applyEffects(job, at, count, layer);
     return layer;
+}
+
+// ---- Compositions (Compositing page) ----
+
+/// CompSources of one composition evaluation: MediaIn pictures and title textures.
+class GlRenderer::CompHost final : public CompSources
+{
+public:
+    CompHost(GlRenderer* r, const ClipData& owner, const FrameContext& fc, double zoom, QSize size,
+        double scale)
+        : m_r(r)
+        , m_owner(owner)
+        , m_fc(fc)
+        , m_zoom(zoom)
+        , m_size(size)
+        , m_scale(scale)
+    { }
+    bool drawMediaIn(const CompNode& node, int64_t compFrame, const RenderTarget& target) override
+    {
+        return m_r->drawCompositionInput(
+            m_owner, node, compFrame, m_fc, m_zoom, target, m_size, m_scale);
+    }
+    GLuint titleTexture(const TitleStyle& style, QRectF* rect) override
+    {
+        const TitleTexture* t = m_r->titleTexture(style);
+        if (!t)
+            return 0;
+        *rect = t->rect;
+        return t->texture;
+    }
+
+private:
+    GlRenderer* m_r;
+    const ClipData& m_owner;
+    const FrameContext& m_fc;
+    double m_zoom;
+    QSize m_size;
+    double m_scale;
+};
+
+const ClipData* GlRenderer::compClip(const ClipData* owner, const CompNode& node, bool create)
+{
+    for (const CompClip& c : m_compClips) {
+        if (c.owner == owner && c.node == node.id)
+            return &c.clip;
+    }
+    if (!create)
+        return nullptr;
+    CompClip c;
+    c.owner = owner;
+    c.node = node.id;
+    c.clip.id = owner->id;
+    c.clip.kind = ClipKind::Media;
+    c.clip.mediaId = node.mediaId;
+    c.clip.start = owner->start;
+    c.clip.duration = std::max<int64_t>(1, owner->duration);
+    // sourceInUs 0, speed 1, sourceDurationUs 0 (unbounded: the decoder holds the last frame).
+    m_compClips.push_back(std::move(c));
+    return &m_compClips.back().clip;
+}
+
+void GlRenderer::queueCompositionDecodes(const ClipData* clip, int64_t frame, int64_t nextFrame,
+    const TimelineData& tl, const NestedTimelines& nested, const MediaPathMap* media, int depth)
+{
+    if (compops::isPassThrough(*clip->composition))
+        return;
+    for (const CompNode& n : clip->composition->nodes) {
+        if (n.type != nodetypes::MediaIn || n.mediaId.isEmpty() || !n.enabled)
+            continue;
+        if (const ClipData* c = compClip(clip, n, true))
+            queueDecodeAt(c, frame, nextFrame, tl, nested, media, depth);
+    }
+}
+
+const RenderTarget* GlRenderer::compositionTarget(const ClipData& clip, int64_t compFrame,
+    const FrameContext& fc, double zoom, quint64 node, QSize size, double scale)
+{
+    if (!clip.composition)
+        return nullptr;
+    const Composition& comp = *clip.composition;
+    CompHost host(this, clip, fc, zoom, size, scale);
+    CompEval ev;
+    ev.comp = &comp;
+    ev.compFrame = compFrame;
+    ev.frame = QSizeF(fc.timeline->width, fc.timeline->height);
+    ev.size = size;
+    ev.scale = scale;
+    ev.fps = fc.timeline->fps.isValid() ? fc.timeline->fps.toDouble() : 25.0;
+    ev.sources = &host;
+    PooledTarget target = m_comp.evaluate(*m_kit, ev, node ? node : comp.mediaOutId);
+    m_generated.push_back(std::move(target));
+    return m_generated.back().get();
+}
+
+bool GlRenderer::drawCompositionInput(const ClipData& owner, const CompNode& node,
+    int64_t compFrame, const FrameContext& fc, double zoom, const RenderTarget& target, QSize size,
+    double scale)
+{
+    const ClipData* clip = node.mediaId.isEmpty() ? &owner : compClip(&owner, node, false);
+    if (!clip)
+        return false;
+    // The clip's own picture at that comp frame: the timeline frame moves with it.
+    FrameContext at = fc;
+    at.frame = owner.start + compFrame;
+    ClipSource src;
+    if (!resolveSource(*clip, compFrame, at, zoom, src, false))
+        return false;
+    // Fitted and centred in the frame like a clip at zoom 1 (content = its display size).
+    const QSizeF frame(fc.timeline->width, fc.timeline->height);
+    const double cw = src.content.width();
+    const double ch = src.content.height();
+    const double x0 = (frame.width() - cw) / 2;
+    const double y0 = (frame.height() - ch) / 2;
+    const QRectF rect((x0 + src.quad.x() * cw) * scale, (y0 + src.quad.y() * ch) * scale,
+        src.quad.width() * cw * scale, src.quad.height() * ch * scale);
+    m_kit->bindTarget(target);
+    m_kit->setBlendOver(false);
+    drawSource(src, GlKit::quadToNdc(rect, size), cropInQuad(QRectF(0, 0, 1, 1), src.quad), 1.0f);
+    return true;
 }
 
 // ---- Generators and captions ----
