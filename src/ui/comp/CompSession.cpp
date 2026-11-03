@@ -6,8 +6,8 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
-#include "ui/comp/CompAdapter.h"
 #include "ui/common/AppContext.h"
+#include "ui/comp/CompAdapter.h"
 
 #include <QCoreApplication>
 
@@ -18,11 +18,6 @@
 namespace kk {
 
 namespace {
-
-QString tr(const char* text)
-{
-    return QCoreApplication::translate("kk::CompSession", text);
-}
 
 /// Where pasted / duplicated nodes go relative to the originals (grid units).
 const QPointF kDuplicateOffset(1.0, 1.5);
@@ -110,8 +105,8 @@ void CompSession::reload()
     std::optional<Composition> stored
         = m_clipId ? compadapter::clipComposition(*m_ctx.project, m_clipId) : std::nullopt;
     m_stored = stored.has_value();
-    Composition next = m_clipId ? (stored ? *stored : compadapter::defaultComposition())
-                                : Composition();
+    Composition next
+        = m_clipId ? (stored ? *stored : compadapter::defaultComposition()) : Composition();
     if (next == m_comp)
         return;
     m_comp = std::move(next);
@@ -154,6 +149,12 @@ int64_t CompSession::compFrameCount() const
 {
     const ClipData* c = clip();
     return c ? c->duration : 0;
+}
+
+QSize CompSession::frameSize() const
+{
+    const TimelineData& d = m_ctx.project->timeline()->data();
+    return QSize(d.width, d.height);
 }
 
 void CompSession::seekCompFrame(int64_t frame)
@@ -282,9 +283,8 @@ bool CompSession::setNoteText(quint64 id, const QString& text)
 
 bool CompSession::connectNodes(quint64 fromId, quint64 toId, const QString& port)
 {
-    return edit(tr("Connect"), [&](Composition& c) {
-        return compadapter::connectNodes(c, fromId, 0, toId, port);
-    });
+    return edit(tr("Connect"),
+        [&](Composition& c) { return compadapter::connectNodes(c, fromId, 0, toId, port); });
 }
 
 bool CompSession::disconnectInput(quint64 toId, const QString& port)
@@ -351,7 +351,8 @@ bool CompSession::paste(QPointF position)
         return false;
     QPointF topLeft = fragment.nodes.first().position;
     for (const CompNode& n : fragment.nodes)
-        topLeft = QPointF(std::min(topLeft.x(), n.position.x()), std::min(topLeft.y(), n.position.y()));
+        topLeft
+            = QPointF(std::min(topLeft.x(), n.position.x()), std::min(topLeft.y(), n.position.y()));
     QVector<quint64> added;
     edit(tr("Paste Nodes"), [&](Composition& c) {
         added = compadapter::paste(c, fragment, position - topLeft);
@@ -382,8 +383,8 @@ bool CompSession::duplicateSelection()
 
 bool CompSession::renameNode(quint64 id, const QString& name)
 {
-    return edit(tr("Rename Node"),
-        [&](Composition& c) { return compadapter::renameNode(c, id, name); });
+    return edit(
+        tr("Rename Node"), [&](Composition& c) { return compadapter::renameNode(c, id, name); });
 }
 
 bool CompSession::togglePassThrough()

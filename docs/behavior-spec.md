@@ -897,6 +897,38 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.16 | None of the new commands has a default key (no known Resolve default); they are assignable in Keyboard Customization. | Fixed (scripts/keymap-resolve-windows.py rows) |
 | 41.17 | Snapping of mask points to guides; panning the zoomed viewer (the rulers follow `pictureRect()`, so a pan will move them too); colours per guide. | Deferred |
 
+## 42. Compositing page (compui / compcore branches, docs/compositing-page.md)
+
+### 42b Page
+
+The page UI of the node compositor: layout, node editor, viewers, inspector and transport,
+from general knowledge of node compositors. Clean room: our own names, drawing and wording.
+Tests: `ne` = `tests/panels/test_nodeeditor.cpp`, `cp` = `tests/app/test_compositingpage.cpp`,
+`ar` = `tests/app/test_actionregistry.cpp`.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 42b.1 | The Compositing page is in the page bar between Edit and Color, Shift+5 switches to it; the interface bar shows Effects (the Nodes library), Nodes (the node editor) and Inspector there. | Fixed (cp pageEnabledWithShift5) |
+| 42b.2 | On show the page opens the composition of the selected clip on a video track, else of the clip under the playhead on the top-most video track; Clip > Open in Compositing Page (also in the timeline clip menu) opens the selected clip. Without a clip every panel says "Select a clip on the Edit page". | Fixed (cp opensClipUnderPlayheadWithoutStoring, opensSelectedClipAndEmptyState) |
+| 42b.3 | A clip without a composition shows MediaIn1 -> MediaOut1 without storing it: the composition is created by the first edit (one undo step; undoing it leaves the clip without a composition again). | Fixed (ne viewingDoesNotStore, addNodeAfterSelectionIsOneStep, dragLinkEndAwayDisconnects) |
+| 42b.4 | Layout: two viewers at the top, the time ruler and transport under them, the node tool bar and the node editor at the bottom, the Inspector on the right, the Nodes library on the left (hidden by default). Splitter sizes and panel visibility are saved and restored like the other pages. | Fixed (cp layoutSaveRestore) |
+| 42b.5 | Node editor navigation: middle-drag or Space-drag pans, the wheel zooms around the cursor, Ctrl+F fits the graph; a Space tap without panning still plays / stops. | Fixed (ne panAndZoom) |
+| 42b.6 | Tiles show the node name, a pass-through node a dashed outline with a stroke and dimmed text, a locked node a padlock; inputs are coloured by kind (background yellow, foreground green, masks blue diamonds), the output is on the right; two dots under each tile show which viewer shows it. | Fixed (ne passThroughLockAndSwap paints; screenshot) |
+| 42b.7 | Selection: click, Ctrl / Shift click toggles, drag on the background box-selects (Ctrl / Shift adds). | Fixed (ne boxSelectAndMoveIsOneStep) |
+| 42b.8 | Dragging tiles moves the selection as one undo step ("Move Nodes"); Snap Nodes to Grid (context menu) rounds positions to the grid. | Fixed (ne boxSelectAndMoveIsOneStep) |
+| 42b.9 | Dragging from an output to an input (or onto a tile: its free main input) connects; dragging a connected input's end away disconnects, onto another input reconnects; one undo step each. | Fixed (ne connectByDraggingFromOutput, dragLinkEndAwayDisconnects) |
+| 42b.10 | Dropping a single unconnected node onto a link inserts it there; the move and the insert are one undo step ("Insert Node"). Nodes library entries dropped on a link are inserted the same way. | Fixed (ne dropNodeOnLinkInserts) |
+| 42b.11 | Node editor keys (while it has focus): Delete / Backspace delete (MediaOut stays), Ctrl+C / Ctrl+X / Ctrl+V / Ctrl+D copy / cut / paste / duplicate, F2 renames inline (Enter commits, Esc cancels), Ctrl+P pass-through, Ctrl+T swaps a Merge's background and foreground, Ctrl+A selects all. They are comp.* commands of the keymap, claimed only while the node editor has focus, so the same keys keep their Edit page meaning elsewhere. | Fixed (cp toolbarAndKeysAreUndoSteps, swapInputsWithCtrlT; ne deleteCopyPasteDuplicate, renameInline; ar noDuplicateDefaultShortcuts) |
+| 42b.12 | Notes: text boxes in the node editor (Add Note in the context menu / Edit menu; double-click edits, Ctrl+Enter commits). | Fixed (ne notes) |
+| 42b.13 | Shift+Space opens the searchable "Select Node" list (names starting with the text first); Enter adds the node after the selected one. The tool bar adds Background, Text, Merge, Transform, Rectangle, Ellipse, Polygon, Gaussian Blur, Color Corrector and Chroma Key the same way. | Fixed (ne selectNodePopupAddsAfterSelected; cp toolbarAndKeysAreUndoSteps) |
+| 42b.14 | Select a node and press 1 / 2 (or drag the node onto a viewer) to show it in the left / right viewer; the header shows the node name. The right viewer shows MediaOut by default. Choosing a viewer node is not an undo step; it is saved with the next edit. | Fixed (cp viewerAssignmentWith1And2) |
+| 42b.15 | The viewers draw the selected node's controls: centre / size / angle for Transform, Merge and Text; centre / width / height / angle for Rectangle and Ellipse masks; the points of a Polygon mask. A drag is one undo step and keys an animated parameter at the comp frame. | Fixed (code; no automated drag test yet) |
+| 42b.16 | The Inspector shows the selected node's parameters with the Edit page rows and keyframe buttons (keyframes in comp frames); the header has the name, an enable toggle (pass-through) and Reset. A typed value or a slider drag is one undo step. Locked nodes cannot be edited. | Fixed (cp inspectorEditsAreUndoSteps) |
+| 42b.17 | The time ruler covers the clip's frames with the playhead and the selected node's keyframe ticks; click or drag to seek; the transport plays the timeline over the clip range (looping at its end) and shows the comp frame and the timeline timecode. | Fixed (cp opensClipUnderPlayheadWithoutStoring, inspectorEditsAreUndoSteps) |
+| 42b.18 | Clips with a composition show a node badge on the Edit page timeline; Clip > Reset Composition (also in the timeline clip menu) removes the compositions of the selected clips in one undo step. | Fixed (cp resetComposition; badge: code) |
+| 42b.19 | A node editor with 200 nodes stays responsive: tiles outside the view are culled, the grid and tiles are drawn with fills instead of antialiased strokes. Measured (all 200 visible, 1600 x 900, thread CPU time on a heavily loaded machine): median 28 ms per paint (was 45 ms before the fill changes); the test bounds the median at 60 ms. | Fixed (ne twoHundredNodesPaintFast) |
+| 42b.20 | The viewers show the selected node's own image. | Deferred: until the core's node render is merged they show the program picture (the clip, what MediaIn delivers). |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

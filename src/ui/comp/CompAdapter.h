@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// CompAdapter — the Compositing page UI's only door to the composition core: the node
-// catalogue, the pure graph operations and the undoable "replace a clip's composition" call.
-// Everything in src/ui/comp and the page goes through these functions, so switching from a
-// stand-in to core/NodeRegistry + core/CompOps touches this file pair only.
+// CompAdapter — the Compositing page UI's only door to the composition core
+// (core/NodeRegistry, core/CompOps, Project::setClipComposition()): the node catalogue as the
+// UI needs it, the graph operations and the undoable "replace a clip's composition" call.
+// Everything in src/ui/comp and the page goes through these functions.
 #pragma once
 
 #include "core/Composition.h"
 #include "core/EffectRegistry.h"
+#include "core/NodeRegistry.h"
 
 #include <QSet>
 #include <QString>
@@ -19,12 +20,6 @@ namespace kk {
 class Project;
 
 namespace compadapter {
-
-/// What flows through a port.
-enum class PortKind {
-    Image,
-    Mask
-};
 
 /// Colour role of a link in the node editor (by the input port it ends in).
 enum class LinkRole {
@@ -52,13 +47,15 @@ struct NodeTypeInfo
     QString baseName; ///< prefix of new node names ("Merge" -> Merge1, Merge2)
     QVector<PortInfo> inputs;
     int outputCount = 1; ///< 0 for MediaOut
+    PortKind outputKind = PortKind::Image; ///< Mask for the mask nodes
     QVector<ParamDescriptor> params;
     bool singleton = false; ///< only one per composition (MediaOut)
+    QString main; ///< the main image input (pass-through, "add after"), or empty
 
     /// Index of input port @p id, or -1.
     [[nodiscard]] int inputIndex(const QString& id) const;
     /// The main image input (where "add after the selected node" connects), or empty.
-    [[nodiscard]] QString mainInput() const;
+    [[nodiscard]] QString mainInput() const { return main; }
 };
 
 // ---- Catalogue ----
@@ -78,16 +75,17 @@ enum class ViewerControl {
     Transform, ///< centre, size, angle of the picture (Transform; Merge's foreground)
     Rectangle, ///< centre, width, height, angle of a mask
     Ellipse, ///< same keys as Rectangle, drawn as an ellipse
-    Polygon ///< points of a polygon mask
+    Polygon ///< CompNode::path points plus the Transform keys of the whole shape
 };
 
-/// Parameter keys behind the on-viewer controls of a node type. Positions are normalised to
-/// the frame (0..1, y down); sizes relative to the frame; angles in degrees.
+/// Parameter keys behind the on-viewer controls of a node type (empty = no such handle).
+/// Units (NodeRegistry): centres normalised 0..1 with y from BOTTOM to TOP, size a factor,
+/// width / height fractions of the frame, angles degrees counter-clockwise. Polygon points
+/// are CompNode::path (timeline pixels around the centre, y down).
 struct ViewerControlKeys
 {
     ViewerControl kind = ViewerControl::None;
     QString centerX, centerY, size, width, height, angle;
-    QString points; ///< Polygon: static "x,y x,y ..." (normalised)
 };
 
 /// The on-viewer controls of node type @p type.
@@ -139,8 +137,8 @@ bool swapMainInputs(Composition& comp, quint64 id);
 /// Replaces the composition of clip @p clipId of the active timeline (std::nullopt removes it)
 /// as one undo step labelled @p label. Returns false if the clip does not exist or nothing
 /// changed (no step then).
-bool setClipComposition(Project& project, quint64 clipId, const std::optional<Composition>& comp,
-    const QString& label);
+bool setClipComposition(
+    Project& project, quint64 clipId, const std::optional<Composition>& comp, const QString& label);
 /// Removes the compositions of clips @p clipIds (those that have one) as one undo step
 /// "Reset Composition". Returns the number of clips changed.
 int resetCompositions(Project& project, const QVector<quint64>& clipIds);

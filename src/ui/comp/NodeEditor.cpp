@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace kk {
 
@@ -404,8 +405,7 @@ void NodeEditor::mousePressEvent(QMouseEvent* event)
     m_pressPort.clear();
     if (!m_session || !m_session->clipId())
         return;
-    if (event->button() == Qt::MiddleButton
-        || (event->button() == Qt::LeftButton && m_spaceHeld)) {
+    if (event->button() == Qt::MiddleButton || (event->button() == Qt::LeftButton && m_spaceHeld)) {
         setDrag(Drag::Pan);
         m_spacePanned = true;
         setCursor(Qt::ClosedHandCursor);
@@ -783,8 +783,8 @@ void NodeEditor::dropEvent(QDropEvent* event)
     m_dropLink = {};
     if (!m_session || type.isEmpty())
         return;
-    m_session->addNodeAt(type, toGrid(event->position()) - QPointF(kTileWidth / 2, 0.5),
-        link.node, link.port);
+    m_session->addNodeAt(
+        type, toGrid(event->position()) - QPointF(kTileWidth / 2, 0.5), link.node, link.port);
     event->acceptProposedAction();
     setFocus();
     update();
@@ -877,7 +877,8 @@ bool NodeEditor::eventFilter(QObject* watched, QEvent* event)
                 setFocus();
                 return true;
             }
-            if (watched == m_noteEdit && (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)
+            if (watched == m_noteEdit
+                && (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)
                 && (key->modifiers() & Qt::ControlModifier)) {
                 commitNoteEdit(true);
                 setFocus();
@@ -885,7 +886,8 @@ bool NodeEditor::eventFilter(QObject* watched, QEvent* event)
             }
         } else if (event->type() == QEvent::FocusOut) {
             if (watched == m_rename)
-                QMetaObject::invokeMethod(this, [this] { commitRename(true); }, Qt::QueuedConnection);
+                QMetaObject::invokeMethod(
+                    this, [this] { commitRename(true); }, Qt::QueuedConnection);
             else
                 QMetaObject::invokeMethod(
                     this, [this] { commitNoteEdit(true); }, Qt::QueuedConnection);

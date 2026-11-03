@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QPointF>
 #include <QSet>
+#include <QSize>
 #include <QVector>
 
 #include <cstdint>
@@ -60,6 +61,8 @@ public:
     [[nodiscard]] int64_t compFrame() const;
     /// Number of comp frames (the clip's duration; 0 without a clip).
     [[nodiscard]] int64_t compFrameCount() const;
+    /// Pixel size of the frame (the timeline resolution).
+    [[nodiscard]] QSize frameSize() const;
     /// Moves the playhead to comp frame @p frame (clamped).
     void seekCompFrame(int64_t frame);
 
@@ -84,8 +87,8 @@ public:
     quint64 addNode(const QString& type);
     /// Adds a node of @p type at @p position (grid units); with @p linkTo non-zero it is
     /// inserted into the link ending in input @p linkPort of @p linkTo. Selects it.
-    quint64 addNodeAt(const QString& type, QPointF position, quint64 linkTo = 0,
-        const QString& linkPort = {});
+    quint64 addNodeAt(
+        const QString& type, QPointF position, quint64 linkTo = 0, const QString& linkPort = {});
     /// Adds a note at @p position (grid units). Returns its id.
     quint64 addNote(QPointF position, const QString& text = {});
     /// Changes the text of note @p id.

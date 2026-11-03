@@ -70,7 +70,8 @@ private:
         double size = 1.0;
         double width = 0.5, height = 0.5; ///< normalised
         double angleDeg = 0.0;
-        QVector<QPointF> points; ///< normalised (Polygon)
+        QVector<QPointF>
+            points; ///< Polygon: CompNode::path points (timeline px around the centre, y down)
         bool locked = false;
     };
     [[nodiscard]] std::optional<State> state() const;
@@ -78,6 +79,10 @@ private:
     [[nodiscard]] QPointF toNormalised(QPointF widget) const;
     /// Half extents of the drawn box in widget pixels (before rotation).
     [[nodiscard]] QSizeF halfExtents(const State& s) const;
+    /// Widget position of polygon point @p p (timeline px around the centre).
+    [[nodiscard]] QPointF pointToWidget(const State& s, QPointF p) const;
+    /// Widget pixels per timeline pixel.
+    [[nodiscard]] double pixelScale() const;
     void applyDrag(QPointF pos);
 
     QPointer<CompSession> m_session;
