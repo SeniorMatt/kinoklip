@@ -3,7 +3,7 @@
 Everything that touches media files: probing, frame-exact video decoding (software and GPU),
 sample-exact audio decoding, still images, image sequences, the supported-format registry, and
 cached UI previews (thumbnails, poster frames, waveforms).
-Namespace `kk::media`, logging category `kk.media`. Depends only on `core` (for `Rational`),
+Namespace `kk::media`, logging category `kk.media`. Depends only on `core` (for `Rational`), `pack` (embedded media, QtCore only),
 QtCore/QtGui, FFmpeg and — optionally — libheif and LibRaw; never on Qt Widgets.
 
 ## Conventions (read this first)
@@ -22,6 +22,7 @@ contains *t* (exact for VFR too); requests before the first / after the last fra
 
 | File | What |
 |---|---|
+| `MediaSource.h` | Where a media path's bytes are: a file, or an entry inside a single-file project (`film.kinoklip/media/<id>/clip.mp4`, see `src/pack`). Every open, stat and cache identity in this module goes through it: FFmpeg reads entries through a custom `AVIOContext` (own handle, pread), Qt image readers through a `RangeDevice`, libheif / LibRaw from memory. `mediaExists(path)` replaces `QFileInfo::isFile()`. |
 | `MediaInfo.h` | `MediaInfo` struct + `probe(path)` (synchronous, any thread). Stills report `isStillImage`, `durationUs = 0`. |
 | `VideoDecoder.h` | `decodeFrame(timeUs)` → `shared_ptr<const VideoFrame>` (raw planes, GPU compositor path); `frameAt(timeUs, maxSize)` → `QImage` ARGB32_Premultiplied (thumbnails, tests). `Accuracy::{Exact, NearestKeyframe}`. Not thread-safe; one per thread. |
 | `VideoFrame.h` | Raw frame: `PixelFormat` (NV12, P010, YUV420P/422P/444P, 10-bit planar, BGRA premultiplied), plane pointers/strides, colour matrix/range/transfer, pts, duration, SAR, rotation. Immutable, refcounted, may outlive the decoder. |

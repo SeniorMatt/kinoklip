@@ -24,9 +24,11 @@ struct HwDecodeState;
 
 // ---- RAII wrappers (std::unique_ptr with FFmpeg's free functions) ----
 
+/// Closes an input context; one opened on an embedded path (custom AVIOContext over a byte
+/// range of a single-file project) also frees that I/O context and its reader.
 struct FormatContextDeleter
 {
-    void operator()(AVFormatContext* ctx) const { avformat_close_input(&ctx); }
+    void operator()(AVFormatContext* ctx) const;
 };
 struct CodecContextDeleter
 {
@@ -95,7 +97,9 @@ private:
 /// Human-readable text for an FFmpeg error code (AVERROR(...)).
 QString avErrorString(int errorCode);
 
-/// Opens `path` with libavformat and reads stream info.
+/// Opens `path` with libavformat and reads stream info. Embedded paths (media inside a
+/// single-file project, MediaSource.h) are read in place through a custom AVIOContext over the
+/// entry's byte range, with a file handle of their own (no shared seek position).
 /// @return the context, or nullptr with a message in `*error` (if non-null).
 FormatContextPtr openInput(const QString& path, QString* error);
 
