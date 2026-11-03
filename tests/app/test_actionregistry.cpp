@@ -124,7 +124,8 @@ private slots:
         for (const QString& category : reg.categories())
             QVERIFY2(menuIds.contains(category) || reg.isSubmenu(category), qPrintable(category));
         const QStringList file = reg.menuEntries(QStringLiteral("file"));
-        QCOMPARE(file.first(), QStringLiteral("file.new"));
+        QCOMPARE(file.first(), QStringLiteral("file.project_manager")); // spec 38.2
+        QVERIFY(file.contains(QStringLiteral("file.new")));
         QVERIFY(file.contains(QLatin1String(ActionRegistry::kSeparator)));
         QVERIFY(file.last() != QLatin1String(ActionRegistry::kSeparator));
     }
