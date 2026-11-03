@@ -58,7 +58,7 @@ include GPL FFmpeg components; third-party notices are inside the bundle under
   their limits are in [docs/clean-room.md](docs/clean-room.md); every asset and its licence is in
   [attribution.md](attribution.md).
 - **No warranty.** Kinoklip is provided "as is", without any warranty, as stated in the GPL
-  (sections 15 and 16 of [license.md](license.md)). It is alpha software: keep backups.
+  (sections 15 and 16 of [license.md](license.md)). It is beta software: keep backups.
 - **Codecs.** Some video and audio formats (for example H.264, H.265 and AAC) are covered by
   patents in some countries. The bundles use open-source implementations of them; whether you need
   a patent licence to use them depends on where you live and what you do with them, and is your
