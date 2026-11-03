@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // AudioNormalize — measuring clips for Clip > Normalize Audio Levels (sample peak, true peak,
-// BS.1770 integrated loudness) and turning the measurements into clip gains (spec 37.40).
+// BS.1770 integrated loudness) and turning the measurements into clip gains (spec 37.35).
 #pragma once
 
 #include "core/ClipAttributes.h"

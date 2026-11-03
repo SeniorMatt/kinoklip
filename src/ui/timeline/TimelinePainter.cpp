@@ -508,7 +508,8 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
                 continue;
             const double x = L.frameToX(double(clip.start + m.frame)) + animDx;
             if (m.duration > 1) {
-                // Ranged clip marker: a band to its end (cut at the clip's end).
+                // Ranged clip marker: a bar along the bottom of the name band to its end (cut
+                // at the clip's end), under the name instead of over it.
                 const int64_t endLocal = std::min(m.end(), clip.duration);
                 const double x1 = L.frameToX(double(clip.start + endLocal)) + animDx;
                 const double left = std::max(x, visLeft);
@@ -516,7 +517,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
                 if (right > left) {
                     p.setPen(Qt::NoPen);
                     p.setBrush(withAlpha(m.color, 120)); // user data: the marker's colour
-                    p.drawRoundedRect(QRectF(left, cy - 3, right - left, 6), 3, 3);
+                    p.drawRoundedRect(QRectF(left, r.top() + bandH - 4, right - left, 3), 1.5, 1.5);
                 }
             }
             if (x < visLeft - 4 || x > visRight + 4)

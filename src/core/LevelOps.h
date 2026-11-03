@@ -31,7 +31,7 @@ inline constexpr double kMaxVolumeDb = 24.0;
 bool offsetVolume(TimelineData& data, quint64 clipId, int64_t localFrame, double deltaDb);
 
 /// Sets the clip volume of clip @p clipId to @p gainDb (Clip > Normalize Audio Levels,
-/// spec 37.40): the constant volume becomes @p gainDb and, on a keyframed volume, every key
+/// spec 37.35): the constant volume becomes @p gainDb and, on a keyframed volume, every key
 /// moves by the same change, so the shape of the automation is kept. Clamped to the volume
 /// range. Returns whether anything changed (false for an unknown clip).
 bool setClipGain(TimelineData& data, quint64 clipId, double gainDb);

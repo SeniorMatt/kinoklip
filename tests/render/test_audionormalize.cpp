@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Tests for Clip > Normalize Audio Levels (spec 37.40): the measurements (sample peak, true
+// Tests for Clip > Normalize Audio Levels (spec 37.35): the measurements (sample peak, true
 // peak, BS.1770 loudness) of generated WAV files, the gain rules (relative / independent), the
 // volume change (keys move with the constant), the dialog flow (one undo step, progress,
 // cancel) and the command's targets.
