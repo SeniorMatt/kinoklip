@@ -131,3 +131,10 @@
 - 04:03 polish3 merged (10 commits); full suite started.
 - 04:08 main after polish3: 110/110 pass. Version 0.3.1; notes written; container release build started.
 - 04:21 Released 0.3.1-alpha.1 (polish rounds 2+3; container 111/111). Desktop copy.
+- 04:22 Started agent 'polish4' (normalize, ranged markers, EDL export, history window, column chooser, large-project stress pass).
+- 04:25 Heartbeat: polish4 just started (reading/auditing); 17 GB free.
+- 04:33 Heartbeat: polish4 12 files in progress, building; 16 GB free.
+- 05:26 Heartbeat: polish4 10 commits (docs/audit written), running final suites; 15 GB free.
+- 05:27 polish4 merged (format 13); full suite started.
+- 05:34 Heartbeat: no agents; full suite on main after polish4 running.
+- 05:36 main after polish4: 116/116 pass. Version 0.3.2; notes written; container release build started.
