@@ -60,14 +60,14 @@ constexpr int kViewerWidth = 490;
 constexpr int kRightColumnWidth = 480; ///< inspector / metadata column
 /// Version of the stored splitter layout. Layouts stored by older versions are ignored for the
 /// top row once (version 1 could store side columns squeezed by the resize problem above).
-constexpr int kLayoutVersion = 2;
+constexpr int kLayoutVersion = 3; ///< 3: Keyframes docks in the left column
 constexpr int kTopRowHeight = 520;
 constexpr int kBottomRowHeight = 440;
 constexpr int kMixerWidth = 260;
 constexpr int kKeyframesMinDockHeight = 160; ///< below this a shown docked panel is resized
-constexpr double kKeyframesDockShare = 0.40; ///< of the page height when it opens docked
-constexpr int kMinTimelineHeight = 200; ///< the timeline keeps at least this much
-constexpr int kMinViewerRowHeight = 260; ///< and the viewer row this much
+constexpr double kKeyframesDockShare = 0.55; ///< of the left column when it opens docked
+constexpr int kMinColumnPanelHeight = 120; ///< other left-column panels keep at least this
+constexpr int kKeyframesMinColumnWidth = 640; ///< left column width (of 1920) while it is docked
 const QSize kKeyframesWindowSize(1400, 520); ///< first floating window size
 constexpr int kTearOffGrabY = 12; ///< px below the window top where the pointer holds it
 constexpr int kTearOffMoveRetryMs = 15; ///< wait for the torn-off window to be mapped ...
@@ -106,6 +106,9 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_leftColumn->addWidget(m_mediaPool);
     m_leftColumn->addWidget(m_effects);
     m_leftColumn->addWidget(m_editIndex);
+    // Keyframes: its toggle sits on the left of the interface toolbar like Media Pool, Effects
+    // and Edit Index, and it docks in their column (Resolve 20); it can also float.
+    m_leftColumn->addWidget(m_keyframes);
 
     m_rightColumn = makeSplitter(Qt::Vertical);
     m_rightColumn->addWidget(m_inspector);
@@ -130,9 +133,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
 
     m_main = makeSplitter(Qt::Vertical);
     m_main->addWidget(m_topRow);
-    m_main->addWidget(m_keyframes);
     m_main->addWidget(m_bottomRow);
-    m_main->setStretchFactor(2, 1);
+    m_main->setStretchFactor(1, 1);
     m_main->setSizes({kTopRowHeight, kBottomRowHeight});
 
     auto* layout = new QVBoxLayout(this);
@@ -353,9 +355,9 @@ void EditPage::updateViewers()
 void EditPage::showEvent(QShowEvent* event)
 {
     Page::showEvent(event);
-    if (!m_proportionsApplied && (!m_layoutRestored || m_defaultWidths)) {
+    if (!m_proportionsApplied && !m_layoutRestored) {
         m_proportionsApplied = true;
-        applyDefaultProportions(m_layoutRestored);
+        applyDefaultProportions();
     }
     if (m_keyframesFloating && m_keyframesShown && m_keyframesWindow && !event->spontaneous())
         m_keyframesWindow->show();
@@ -387,7 +389,9 @@ void EditPage::applyDefaultWidths()
     const auto scaled = [width](int reference) {
         return int(qint64(reference) * width / kReferenceWidth);
     };
-    const int left = scaled(kLeftColumnWidth);
+    // The left column is wider while the docked Keyframes panel is in it (curve editor room).
+    const bool keyframesDocked = !m_keyframesFloating && m_keyframesShown;
+    const int left = scaled(keyframesDocked ? kKeyframesMinColumnWidth : kLeftColumnWidth);
     const int right = scaled(kRightColumnWidth);
     // The viewers share the rest; a hidden viewer (single viewer mode) gets nothing.
     const bool source = !m_sourceViewer->isHidden();
@@ -474,7 +478,8 @@ void EditPage::updateColumns()
     auto anyVisible = [](std::initializer_list<QWidget*> panels) {
         return std::any_of(panels.begin(), panels.end(), [](QWidget* w) { return !w->isHidden(); });
     };
-    m_leftColumn->setVisible(anyVisible({m_mediaPool, m_effects, m_editIndex}));
+    const bool keyframesDocked = !m_keyframesFloating && m_keyframesShown;
+    m_leftColumn->setVisible(keyframesDocked || anyVisible({m_mediaPool, m_effects, m_editIndex}));
     m_rightColumn->setVisible(anyVisible({m_inspector, m_metadata}));
 }
 
@@ -495,35 +500,59 @@ void EditPage::showKeyframes(bool visible)
         return;
     }
     m_keyframes->setVisible(visible);
+    updateColumns();
     if (visible)
         ensureKeyframesHeight();
 }
 
 void EditPage::ensureKeyframesHeight()
 {
-    QList<int> sizes = m_main->sizes();
-    const int index = m_main->indexOf(m_keyframes);
-    const int bottom = m_main->indexOf(m_bottomRow);
-    const int top = m_main->indexOf(m_topRow);
-    if (index < 0 || sizes.size() != 3 || sizes[index] >= kKeyframesMinDockHeight)
+    // Docked in the left column: it takes a good part of the column's height from the other
+    // visible panels there (each keeps a usable minimum) ...
+    QList<int> sizes = m_leftColumn->sizes();
+    const int index = m_leftColumn->indexOf(m_keyframes);
+    if (index >= 0 && sizes.size() == m_leftColumn->count() && sizes[index] < kKeyframesMinDockHeight) {
+        int total = 0;
+        int spare = 0;
+        for (int i = 0; i < sizes.size(); ++i) {
+            total += sizes[i];
+            if (i != index && !m_leftColumn->widget(i)->isHidden())
+                spare += std::max(0, sizes[i] - kMinColumnPanelHeight);
+        }
+        const int want = std::max(kKeyframesMinDockHeight, int(total * kKeyframesDockShare));
+        const int give = std::min(want - sizes[index], spare);
+        if (give > 0) {
+            int left = give;
+            for (int i = 0; i < sizes.size() && left > 0; ++i) {
+                if (i == index || m_leftColumn->widget(i)->isHidden())
+                    continue;
+                const int own = std::max(0, sizes[i] - kMinColumnPanelHeight);
+                const int take = std::min(left, int(qint64(give) * own / spare) + 1);
+                sizes[i] -= take;
+                left -= take;
+            }
+            sizes[index] += give - left;
+            m_leftColumn->setSizes(sizes);
+        }
+    }
+    // ... and the column gets wide enough for its curve editor (taken from the viewers).
+    QList<int> row = m_topRow->sizes();
+    const int col = m_topRow->indexOf(m_leftColumn);
+    const int width = m_topRow->width();
+    const int minWidth = int(qint64(kKeyframesMinColumnWidth) * width / kReferenceWidth);
+    if (col < 0 || width <= 0 || row[col] >= minWidth)
         return;
-    const int total = sizes[0] + sizes[1] + sizes[2];
-    if (total <= 0)
-        return;
-    // Like opening a panel row in Resolve: the viewers and the timeline both give up height
-    // (each keeps a usable minimum), in proportion to what they have.
-    const int want = std::max(kKeyframesMinDockHeight, int(total * kKeyframesDockShare));
-    const int spareTop = std::max(0, sizes[top] - kMinViewerRowHeight);
-    const int spareBottom = std::max(0, sizes[bottom] - kMinTimelineHeight);
-    const int spare = spareTop + spareBottom;
-    if (spare <= 0)
-        return;
-    const int give = std::min(want - sizes[index], spare);
-    const int fromTop = int(qint64(give) * spareTop / spare);
-    sizes[top] -= fromTop;
-    sizes[bottom] -= give - fromTop;
-    sizes[index] += give;
-    m_main->setSizes(sizes);
+    int need = minWidth - row[col];
+    for (QWidget* viewer : {m_sourceViewer, m_timelineViewer}) {
+        const int i = m_topRow->indexOf(viewer);
+        if (viewer->isHidden() || need <= 0)
+            continue;
+        const int take = std::min(need, std::max(0, row[i] - 200));
+        row[i] -= take;
+        row[col] += take;
+        need -= take;
+    }
+    m_topRow->setSizes(row);
 }
 
 void EditPage::setKeyframesFloating(bool floating)
@@ -559,9 +588,10 @@ void EditPage::setKeyframesFloating(bool floating)
     } else {
         if (m_keyframesWindow)
             m_keyframesWindow->hide();
-        m_main->insertWidget(1, m_keyframes);
+        m_leftColumn->addWidget(m_keyframes);
         m_keyframes->setFloating(false);
         m_keyframes->setVisible(m_keyframesShown);
+        updateColumns();
         if (m_keyframesShown)
             ensureKeyframesHeight();
     }
@@ -658,15 +688,19 @@ void EditPage::saveLayout(QSettings& settings) const
 
 void EditPage::restoreLayout(const QSettings& settings)
 {
-    m_layoutRestored = settings.contains(QStringLiteral("main"));
-    m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
-    // An outdated top row keeps the default column widths (kLayoutVersion).
-    m_defaultWidths = !m_layoutRestored
-        || settings.value(QStringLiteral("layoutVersion"), 1).toInt() < kLayoutVersion;
-    if (!m_defaultWidths)
+    // Splitter sizes stored by an older layout version are ignored (kLayoutVersion): version 1
+    // could hold squeezed side columns, version 2 still had the Keyframes panel in the page's
+    // main splitter. The page then starts with the default proportions; panel visibility below
+    // is restored either way.
+    m_layoutRestored = settings.contains(QStringLiteral("main"))
+        && settings.value(QStringLiteral("layoutVersion"), 1).toInt() >= kLayoutVersion;
+    m_defaultWidths = !m_layoutRestored;
+    if (m_layoutRestored) {
+        m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
         m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
+        m_leftColumn->restoreState(settings.value(QStringLiteral("leftColumn")).toByteArray());
+    }
     m_bottomRow->restoreState(settings.value(QStringLiteral("bottomRow")).toByteArray());
-    m_leftColumn->restoreState(settings.value(QStringLiteral("leftColumn")).toByteArray());
     m_rightColumn->restoreState(settings.value(QStringLiteral("rightColumn")).toByteArray());
     // Splitter states may carry visibility too; the explicit flags below win.
     for (PanelId id : kAllPanels) {
