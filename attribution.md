@@ -28,4 +28,6 @@ libraries they need. The full list and every licence text ship inside the bundle
 `usr/share/doc/kinoklip/`.
 
 ## Name and logo
-The name "Kinoklip" and the logos above are the project owner's.
+The name "Kinoklip" and the logos above belong to the project owner and are not under the GPL: they
+may be used unmodified as part of Kinoklip, but forks must replace them. Terms:
+[logo-license.md](logo-license.md).

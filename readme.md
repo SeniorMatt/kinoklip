@@ -27,8 +27,10 @@ All releases are alpha or beta pre-releases for now: expect bugs and keep backup
 - [Attribution](attribution.md): every asset with its author and licence
 
 ## License
-GPL-3.0-or-later, see [license.md](license.md). Release bundles include GPL FFmpeg components;
-third-party notices are inside the bundle under `usr/share/doc/kinoklip/`.
+The code is GPL-3.0-or-later, see [license.md](license.md). The Kinoklip name, icon and logos are
+not under the GPL: forks must replace them, see [logo-license.md](logo-license.md). Release bundles
+include GPL FFmpeg components; third-party notices are inside the bundle under
+`usr/share/doc/kinoklip/`.
 
 ## Legal
 - **Independent project.** Kinoklip is not affiliated with, sponsored by or endorsed by Blackmagic

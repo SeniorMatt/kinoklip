@@ -414,6 +414,18 @@ install -m 644 "$ROOT/resources/icons/app/kinoklip-256.png" "$APPDIR/$APP_ID.png
 ln -s "$APP_ID.png" "$APPDIR/.DirIcon"
 install -m 644 "$PKG/$APP_ID.xml" "$APPDIR/usr/share/mime/packages/$APP_ID.xml"
 echo "$VERSION" >"$APPDIR/usr/share/doc/kinoklip/version"
+# Kinoklip's own licence, the name/logo terms, the asset list and where the source code is.
+for doc in license.md logo-license.md attribution.md; do
+    install -m 644 "$ROOT/$doc" "$APPDIR/usr/share/doc/kinoklip/$doc"
+done
+PRERELEASE="$(sed -n 's/.*prerelease = "\([^"]*\)".*/\1/p' "$ROOT/src/app/AppInfo.h")"
+TAG="v$VERSION${PRERELEASE:+-$PRERELEASE}"
+cat >"$APPDIR/usr/share/doc/kinoklip/source-code.txt" <<SOURCE
+Kinoklip ${TAG#v} is free software under the GNU General Public License, version 3 or later
+(license.md). The Kinoklip name, icon and logos are not under the GPL (logo-license.md).
+Complete corresponding source code: https://github.com/SeniorMatt/kinoklip (tag $TAG).
+Third-party libraries in this bundle and their licences: bundled-libraries.txt, licenses/.
+SOURCE
 
 # Licence notices of the bundled libraries (GPL/LGPL compliance; see plan.md section 8).
 # Debian/Ubuntu: dpkg -S + /usr/share/doc/<pkg>/copyright. Arch: pacman -Qo + /usr/share/licenses/<pkg>/
