@@ -299,8 +299,18 @@ private slots:
         setProgressDialogHookForTests({});
         QVERIFY(!QFileInfo::exists(m_root + QStringLiteral("/Gamma copy.kkproj")));
         QVERIFY(!QFileInfo::exists(m_root + QStringLiteral("/Gamma copy.kkproj.part")));
-        // Duplicate.
-        QVERIFY(m_window->selectPath(gamma));
+        // Duplicate, with the card selected by a click like a user does (the card view selects
+        // a single cell, not a whole row; owner report on 0.4.0).
+        view->clearSelection();
+        QModelIndex card;
+        for (int r = 0; r < view->model()->rowCount(); ++r) {
+            const QModelIndex i = view->model()->index(r, 0);
+            if (i.data(ProjectLibraryModel::PathRole).toString() == gamma)
+                card = i;
+        }
+        QVERIFY(card.isValid());
+        QTest::mouseClick(view->viewport(), Qt::LeftButton, {}, view->visualRect(card).center());
+        QVERIFY(view->selectionModel()->isSelected(card));
         m_window->duplicateSelected();
         QVERIFY(QFileInfo::exists(m_root + QStringLiteral("/Gamma copy.kkproj")));
         // Delete: asks, then moves to the (isolated) trash; Cancel keeps it.

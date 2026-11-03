@@ -10,6 +10,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/ProgressTask.h"
+#include "ui/common/SelectedRows.h"
 #include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectCardDelegate.h"
 #include "ui/projects/ProjectLibraryModel.h"
@@ -458,7 +459,7 @@ QString ProjectManagerWindow::currentPath() const
     QAbstractItemView* v = activeView();
     QModelIndex i = v->currentIndex();
     if (!i.isValid() || !v->selectionModel()->isSelected(i)) {
-        const QModelIndexList rows = v->selectionModel()->selectedRows();
+        const QModelIndexList rows = selectedRowIndexes(v->selectionModel());
         i = rows.isEmpty() ? QModelIndex() : rows.first();
     }
     return i.isValid() ? i.data(ProjectLibraryModel::PathRole).toString() : QString();
@@ -467,7 +468,7 @@ QString ProjectManagerWindow::currentPath() const
 QStringList ProjectManagerWindow::selectedPaths() const
 {
     QModelIndexList rows
-        = activeView()->selectionModel()->selectedRows(ProjectLibraryModel::NameColumn);
+        = selectedRowIndexes(activeView()->selectionModel(), ProjectLibraryModel::NameColumn);
     std::sort(rows.begin(), rows.end(),
         [](const QModelIndex& a, const QModelIndex& b) { return a.row() < b.row(); });
     QStringList paths;

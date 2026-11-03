@@ -3,6 +3,8 @@
 // Context menus live in MediaPoolMenus.cpp, the undoable operations in MediaPoolOrganize.cpp.
 #include "ui/mediapool/MediaPoolPanel.h"
 
+#include "ui/common/SelectedRows.h"
+
 #include "core/ClipColors.h"
 #include "core/MediaPool.h"
 #include "core/PowerBins.h"
@@ -16,6 +18,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/DragAndDrop.h"
 #include "ui/common/Icons.h"
+#include "ui/common/SelectedRows.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/mediapool/BinList.h"
@@ -512,7 +515,7 @@ void MediaPoolPanel::publishSelection()
 QStringList MediaPoolPanel::selectedMediaIds() const
 {
     QStringList ids;
-    for (const QModelIndex& index : m_selection->selectedRows(MediaPoolModel::NameColumn))
+    for (const QModelIndex& index : selectedRowIndexes(m_selection, MediaPoolModel::NameColumn))
         ids.append(index.data(MediaPoolModel::IdRole).toString());
     return ids;
 }

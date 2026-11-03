@@ -624,6 +624,7 @@ mo = tests/panels/test_mediaorganize.cpp.
 | 33.18 | Find in Media Pool (Alt+F, timeline clip menu) shows the source of the selected clip (else the top clip under the playhead) in the media pool: its bin opens and the item is selected. | Fixed (mo usageCommands) |
 | 33.19 | Project format 11 stores colours, flags, metadata, dates, smart bins and bin views; older projects open unchanged (file dates are read from disk). | Fixed (bn serializationRoundTrip, migratesOlderProjects) |
 | 33.20 | Relink: Relink Offline Media… (the pool menu, every offline item) and Relink Selected Clips… (the item menu, when a selected item is offline) ask for a folder and find the files by name in it and its subfolders (the shallowest match), then say how many were relinked and how many are still offline; one undo step. | Fixed (polish round 2: only the chosen folder itself was searched; test_robustness offlineAndMovedMedia) |
+| 33.21 | Commands on the selected clips (Delete, Move to Bin, ...) act on clips selected by clicking in the thumbnail view too (owner report on 0.4.0: Delete did nothing there, because only whole selected rows were counted). | Fixed (test_singlefile deleteStoredMediaFromThePool) |
 
 ## 34. Colour schemes (themecolors branch, alpha.3 feedback #6)
 
@@ -784,6 +785,7 @@ Tests: pl = tests/projects/test_projectlibrary.cpp, pm = tests/app/test_projectm
 | 38.22 | Several project libraries, Open in a New Window, export as a single file with media, a project's notes and a cloud / shared database library. | Export as a single file: Fixed (sfint, see 38.23). Deferred: the rest (plan-v4 lists more than one library and new windows as later). |
 | 38.23 | Export converts between the kinds: the save dialog offers both, and the context menu of a linked project has Export as Single File. A linked project exported as `.kinoklip` is packed with every media file it uses, a single-file project exported as `.kkproj` is unpacked (media into `media/...` next to it); with progress and Cancel (a cancelled export leaves nothing), media left linked are listed. | Fixed (new, sfint; pl exportConvertsBetweenKinds) |
 | 38.24 | Duplicate and Import copy the project file on a worker thread behind a progress dialog with Cancel (a single-file project holds all its media); the copy goes through "<name>.part" and a cancelled or failed copy leaves nothing behind. Move is a rename and copies nothing. | Fixed (new, sfint; pl largeCopiesReportProgressAndCancelCleanly; pm keysOpenRenameDelete) |
+| 38.25 | Duplicate, Delete and Export act on cards selected by clicking (the card view selects single cells; same cause as 33 above). | Fixed (pm keysOpenRenameDelete) |
 
 ## 39. Single-file projects (kkpack branch, v4 part 2)
 

@@ -48,6 +48,9 @@
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QListView>
+#include <QMenu>
+#include <QAbstractItemView>
 #include <QTest>
 #include <QTimer>
 
@@ -445,6 +448,69 @@ private slots:
         // The thumbnails paint with the badges (smoke test; the screenshot shows them).
         app.window->resize(1600, 900);
         QVERIFY(!app.window->editPage()->mediaPool()->grab().isNull());
+    }
+
+    void deleteStoredMediaFromThePool()
+    {
+        // Owner report on 0.4.0: Media Pool > Delete did nothing in a single-file project.
+        App app;
+        newSingleFile(app, QStringLiteral("DeleteMe"));
+        const QStringList stored = importMediaWithFeedback(
+            app.ctx, {copyMedia(QStringLiteral("m/a.mp4"))}, app.window.get());
+        QCOMPARE(stored.size(), 1);
+        QVERIFY(app.project.mediaPool()->item(stored.front()));
+        // As the owner did: a saved project opened again (the item comes from the document).
+        app.trigger("file.save");
+        const QString saved = app.controller()->package()->path();
+        auto deleteThroughTheMenu = [&](App& app) {
+            MediaPoolPanel* panel = app.window->editPage()->mediaPool();
+            app.window->resize(1600, 900);
+            app.window->show();
+            QVERIFY(QTest::qWaitForWindowExposed(app.window.get()));
+            // Select by clicking the thumbnail (a single cell, as in the real thumbnail view),
+            // then use the real context menu, as the owner did.
+            QAbstractItemView* view = nullptr;
+            for (QAbstractItemView* v : panel->findChildren<QAbstractItemView*>()) {
+                if (v->isVisible() && qobject_cast<QListView*>(v) && v->model()
+                    && v->model()->rowCount() > 1) {
+                    view = v;
+                    break;
+                }
+            }
+            QVERIFY(view);
+            QModelIndex cell;
+            for (int r = 0; r < view->model()->rowCount(); ++r) {
+                const QModelIndex i = view->model()->index(r, 0);
+                if (i.data(MediaPoolModel::IdRole).toString() == stored.front())
+                    cell = i;
+            }
+            QVERIFY(cell.isValid());
+            view->scrollTo(cell);
+            QTest::mouseClick(view->viewport(), Qt::LeftButton, {}, view->visualRect(cell).center());
+            QVERIFY(view->selectionModel()->isSelected(cell));
+            bool triggered = false;
+            QTimer::singleShot(100, [&] {
+                auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+                QVERIFY(menu);
+                for (QAction* a : menu->actions()) {
+                    if (a->text() == QStringLiteral("Delete")) {
+                        triggered = true;
+                        a->trigger();
+                        break;
+                    }
+                }
+                menu->close();
+            });
+            emit view->customContextMenuRequested(QPoint(10, 10));
+            QTest::qWait(300);
+            QVERIFY(triggered);
+            QVERIFY(!app.project.mediaPool()->item(stored.front()));
+            QCOMPARE(app.poolModel()->rowOf(stored.front()), -1);
+        };
+        deleteThroughTheMenu(app);
+        QVERIFY(app.controller()->openFile(saved, false));
+        QVERIFY(app.project.mediaPool()->item(stored.front()));
+        deleteThroughTheMenu(app);
     }
 
     void packCompactVerifyUnpackThroughTheFileMenu()
