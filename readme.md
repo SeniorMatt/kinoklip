@@ -1,4 +1,5 @@
-<h1 align="center"><img src="resources/icons/app/kinoklip-64.png" width="64" height="64" alt="" align="middle"> Kinoklip</h1>
+<p align="center"><img src="resources/icons/app/kinoklip-128.png" width="128" height="128" alt="Kinoklip icon"></p>
+<h1 align="center">Kinoklip</h1>
 
 <h1 align="center"><a href="https://github.com/SeniorMatt/kinoklip/releases">Download here</a></h1>
 
