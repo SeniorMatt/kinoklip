@@ -164,3 +164,4 @@
 - 00:33 Compositing page merged into main (7da4e0c): host 143/143, container 144/144. Agent compfix: media table in renderCompositionNode, scoped shortcut conflicts, handle tests, polish, end-to-end. Then 0.5.0.
 - 01:38 Released 1.0.0-beta.1 (Compositing page; first public beta): host 143/143, container 144/144, smoke OK. Repo made public; owner name scrubbed from history.
 - 02:28 Owner asleep, autonomous night: codecs and patents notes done (readme, attribution). Agents: colorcore (Color page engine + minimal page, format 16, spec 44), guide2 (6+ guide articles + Compositing article), smallfix (Media/Deliver timeline-key suspend helper, Shift+Space list clamp). Next: colorui after colorcore.
+- 02:33 Owner added: bug hunt (bugs + Resolve differences, deliberate differences excluded). Agent bughunt started (Edit page first; skips Color/Compositing internals, ActionRegistry scopes, guide).
