@@ -143,3 +143,4 @@
 - 08:36 0.3.3 prep: test_hwdecode fixed (VAAPI now usable on host; fallback log key per backend). README: screenshot, plain links, AI disclosure. Keyframes-left (kfleft) built, tests pass. Full suite + container release build started.
 - 08:37 kfleft committed (8772775, Keyframes in left column; test passes). Started agent 'resizesmooth' (owner: window-edge resize snaps/stutters on Plasma Wayland).
 - 09:03 Released 0.3.3-alpha.1 (wider side panels; container 117/117). Desktop copy.
+- 09:46 Released 0.3.4-alpha.1 (Keyframes left column, Breeze placeholder icon, README centred title). Desktop copy. resizesmooth agent running.
