@@ -308,8 +308,9 @@ void unlinkClips(TimelineData& data, const QVector<quint64>& clipIds);
 
 // ---- Snapping & navigation ----
 
-/// Sorted, unique frames worth snapping to: 0, the playhead, in/out marks, markers (both
-/// ends of a ranged marker) and the start/end of every clip not listed in @p excludeClipIds
+/// Sorted, unique frames worth snapping to: 0, the playhead, in/out marks, timeline markers
+/// (both ends of a ranged marker), and the start/end and visible clip markers (at their
+/// timeline frames, both ends of a ranged one) of every clip not listed in @p excludeClipIds
 /// (typically the clips being dragged).
 [[nodiscard]] std::vector<int64_t> snapCandidates(
     const TimelineData& data, int64_t playheadFrame, const QVector<quint64>& excludeClipIds = {});

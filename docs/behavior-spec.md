@@ -202,6 +202,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 11.5 | Pressing N during a drag turns snapping off / on for the rest of the gesture. | OK (the drag reads the live state; shortcut works during a mouse grab) |
 | 11.6 | A moved clip snaps with whichever of its edges is closer to a target. | OK (tw moveSnapsToEdges) |
 | 11.7 | Dragged clips never snap to themselves. | OK (exclusion list) |
+| 11.8 | Clip markers snap too, at their timeline frame (both ends of a ranged one), for every gesture that snaps to edit points (moves, trims, the playhead scrub, marker drags, the blade, drops); markers trimmed out of the clip's visible part and those of the dragged clips do not. | Fixed (owner request on 0.4.0; eo snappingToClipMarkers) |
 
 ## 12. Track headers
 
