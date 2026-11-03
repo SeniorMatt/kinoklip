@@ -564,6 +564,7 @@ Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds)
     {
         TrackRef ref;
         const ClipData* clip;
+        const ClipData* next; ///< the touching right neighbour, if any
     };
     std::vector<Found> found;
     QSet<quint64> seen;
@@ -576,8 +577,13 @@ Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds)
         if (!loc || seen.contains(id))
             continue;
         seen.insert(id);
-        const ClipData* c = &data.track(loc->track)->clips[size_t(loc->clipIndex)];
-        found.push_back({loc->track, c});
+        const auto& clips = data.track(loc->track)->clips;
+        const ClipData* c = &clips[size_t(loc->clipIndex)];
+        const size_t nextIndex = size_t(loc->clipIndex) + 1;
+        const ClipData* next = nextIndex < clips.size() && clips[nextIndex].start == c->end()
+            ? &clips[nextIndex]
+            : nullptr;
+        found.push_back({loc->track, c, next});
         minStart = std::min(minStart, c->start);
         maxEnd = std::max(maxEnd, c->end());
         int& m = minIndex[trackTypeIndex(loc->track.type)];
@@ -600,6 +606,10 @@ Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds)
         entry.trackOffset = f.ref.index - boardBases[trackTypeIndex(f.ref.type)];
         entry.clip = *f.clip;
         entry.clip.start -= minStart;
+        // The cut after the clip keeps its transition on the right-hand clip; when that one
+        // stays behind, the copy takes the transition as its tail (owner request 0.4.0).
+        if (f.next && f.next->transitionIn && !seen.contains(f.next->id))
+            entry.clip.transitionOut = f.next->transitionIn;
         board.clips.append(std::move(entry));
     }
     return board;
@@ -642,8 +652,10 @@ QVector<quint64> pasteClips(TimelineData& data, const Clipboard& clipboard, int6
             mask.id = data.allocateId();
         placed.append(std::move(p));
     }
-    return insert ? insertClips(data, placed, RippleScope::AllTracks)
-                  : overwriteClips(data, placed);
+    const QVector<quint64> ids
+        = insert ? insertClips(data, placed, RippleScope::AllTracks) : overwriteClips(data, placed);
+    fitTransitions(data, ids);
+    return ids;
 }
 
 // ---- Tracks ----

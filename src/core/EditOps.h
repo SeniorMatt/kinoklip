@@ -192,14 +192,18 @@ struct Clipboard
     [[nodiscard]] bool isEmpty() const { return clips.isEmpty(); }
 };
 
-/// Copies the given clips (unknown ids ignored) into a Clipboard.
+/// Copies the given clips (unknown ids ignored) into a Clipboard. Transitions travel with
+/// them: those between two copied clips and those at a copied clip's head stay where they
+/// are; one at the cut after a copied clip whose right neighbour is not copied (stored on that
+/// neighbour) becomes the copy's tail transition.
 [[nodiscard]] Clipboard copyClips(const TimelineData& data, const QVector<quint64>& clipIds);
 
 /// Pastes @p clipboard with its origin at timeline frame @p frame. Clips go to
 /// base + trackOffset, where the base is @p videoBase / @p audioBase (-1 = the tracks they were
 /// copied from; captions always go back to the subtitle tracks they came from); missing tracks
 /// are added. Every pasted clip gets fresh clip, link-group and
-/// effect ids (linked clips stay linked to each other). Overwrites by default; with
+/// effect ids (linked clips stay linked to each other); their transitions are fitted to the
+/// new neighbours (fitTransitions()). Overwrites by default; with
 /// @p insert = true the timeline ripples (RippleScope::AllTracks) to make room.
 /// Returns the new clip ids (empty if nothing could be pasted, e.g. a locked destination).
 QVector<quint64> pasteClips(TimelineData& data, const Clipboard& clipboard, int64_t frame,
@@ -286,6 +290,16 @@ bool setTransitionAlignment(
     TimelineData& data, quint64 clipId, bool head, TransitionAlignment alignment);
 /// The neighbour of clip @p clipId that shares its head (@p head) or tail cut, or 0.
 [[nodiscard]] quint64 cutNeighbour(const TimelineData& data, quint64 clipId, bool head);
+/// Puts a copy of @p transition at the head (@p head) or tail of clip @p clipId, replacing
+/// the one there. A tail that touches the next clip is stored as that clip's head (the cut's
+/// one transition); the length is shortened to fit the clips. Returns false (nothing changed)
+/// for an unknown clip, a locked track or an edge with no room.
+bool placeTransition(
+    TimelineData& data, quint64 clipId, bool head, const TransitionData& transition);
+/// Fits the transitions of the given clips to their (new) neighbours, e.g. after a paste:
+/// each is shortened to the longest that fits the clip lengths, dropped where nothing fits or
+/// where it hides behind the incoming clip's own transition at the same cut.
+void fitTransitions(TimelineData& data, const QVector<quint64>& clipIds);
 
 // ---- Tracks ----
 
