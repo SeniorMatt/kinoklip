@@ -766,8 +766,9 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     m_parked = false;
     updateParams(false);
     setPositionInternal(int64_t(start), true);
-    // The picture on screen (the paused frame, a seek target) need not be rendered again.
-    if (m_current && m_current->frame == int64_t(start)) {
+    // The picture on screen (the paused frame, a seek target) need not be rendered again,
+    // unless an edit made it outdated (it may show a clip that is no longer there).
+    if (m_current && !m_currentStale && m_current->frame == int64_t(start)) {
         m_lastShownKey = int64_t(start);
         m_hasShownKey = true;
     }
@@ -805,7 +806,7 @@ void PlaybackEngine::seekWhilePlaying(int64_t frame, bool writePlayhead)
     }
     m_parkTarget = frame;
     m_lastSeekUs = now;
-    m_parkShown = m_current && m_current->frame == frame;
+    m_parkShown = m_current && !m_currentStale && m_current->frame == frame;
     if (m_parkShown) {
         m_stats.lastSeekMs = 0.0;
     }
