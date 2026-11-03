@@ -226,7 +226,8 @@ private:
         LevelLine, ///< the audio level line: volume up / down (spec 31.1)
         LevelKey, ///< a volume key on the level line: time and value (spec 31.2)
         MarkerDuration, ///< Alt+drag a ruler marker / drag a ranged marker's end (spec 18.11)
-        MarkerMove ///< drag a ruler marker's flag: moves the marker (spec 18.14)
+        MarkerMove, ///< drag a ruler marker's flag: moves the marker (spec 18.14)
+        TransitionCopy ///< Alt+drag a transition block onto another edit point (spec 13.11)
     };
     /// An outer edge of a transition under the pointer.
     struct TransitionEdgeHit
@@ -265,6 +266,8 @@ private:
         int scrollXAtPress = 0;
         int scrollYAtPress = 0;
         TransitionEdgeHit transition; ///< TransitionEdge: which edge is dragged
+        TransitionRef copySource; ///< TransitionCopy: the transition being copied
+        std::optional<TransitionRef> copyTarget; ///< TransitionCopy: where the copy is now
         retimebar::Hit retime; ///< RetimePoint: which handle
         quint64 retimeClip = 0;
         // Fade / LevelLine / LevelKey (TimelineLevelsInput.cpp)
@@ -292,6 +295,7 @@ private:
     void updateSlipSlide(QPointF pos);
     void updateRubberBand(QPointF pos);
     void updateTransitionEdge(QPointF pos);
+    void updateTransitionCopy(QPointF pos);
     void updateShuffle(QPointF pos);
     /// Updates the drag offset label and the trim preview from the live state of the gesture
     /// (TimelineDragInfo.cpp); clearDragInfo() when the gesture ends.

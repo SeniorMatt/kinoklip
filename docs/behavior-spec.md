@@ -140,6 +140,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 7.11 | Y / Ctrl+Y select the clips forward / backward from the playhead on the auto-select tracks; Alt+Y / Ctrl+Alt+Y on all tracks. | Fixed (new; pe2 spec7_11) |
 | 7.12 | V selects the edit point nearest to the playhead (video tracks first); at a cut both sides (roll). | Fixed (new; pe2 spec7_12) |
 | 7.13 | Shift+V selects the clip under the playhead, else the gap under it. | Fixed (new; pe2 spec7_13) |
+| 7.14 | An Alt-drag duplicate takes the clips' transitions along: one between two duplicated clips is copied as it is, one at the head or tail cut of a duplicated clip whose neighbour stays behind becomes the copy's head / tail transition, shortened to fit the copy's new neighbour (a fade from / to black without one, 13.6) and dropped where nothing fits or (at the tail) where the clip after the copy already has its own transition at that cut. The same rule as Ctrl+C / Ctrl+V (16.6). | Fixed (owner request on 0.4.0; tp spec7_3_altDragCarriesTransitions) |
 
 ## 8. Trimming
 
@@ -237,6 +238,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 13.8 | Transition length editable in the inspector. | OK (in transitionTab) |
 | 13.9 | Dragging a transition's outer edges in the timeline changes its length (centred: symmetrically), limited by the media handles; one undo step. | Fixed (drag mode TransitionEdge; pe2 spec13_9) |
 | 13.10 | A transition is an item of its own: clicking its block selects it (outlined like a selected clip; clips, edit point and gap deselect), the Inspector shows its Transition tab, Delete / Backspace remove it (one undo step; not on a locked track), double-click opens it in the Inspector, the right-click menu offers Open in Inspector, Change Transition Duration, Transition Alignment and Delete Transition. Its outer edges keep the length drag of 13.9. | Fixed (alpha.2 feedback #6; `SelectionModel::transition()`; ts spec13_10_*, in spec13_10_selectedTransitionShowsTransitionTab) |
+| 13.11 | Alt+drag a transition block onto a clip copies the transition to the clip edge nearer the pointer (at a cut: that cut); it replaces a transition already there, is shortened to fit the clips, and becomes the selected transition; one undo step "Copy Transition". | Fixed (owner request on 0.4.0; pe2 spec13_11_altDragCopiesATransition). Decision: the target is the clip under the pointer on a track of the source's type; no target outside clips or on a locked track. |
 
 ## 14. Titles, generators, stills
 
@@ -282,6 +284,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 16.3 | Ctrl+Shift+V paste insert ripples the timeline to make room. | Fixed (new; tp spec16_3_pasteInsertRipples) |
 | 16.4 | Paste attributes (Alt+V): a dialog picks transform, effects, volume, pan and speed; video groups go to video clips, audio groups to audio clips (linked parts included); one undo step. | Fixed (pe2 spec16_4) |
 | 16.5 | With no clip selected, Ctrl+C / Ctrl+X copy / cut the marked range of the auto-select tracks. | Fixed (new; pe2 spec16_5) |
+| 16.6 | Copied clips take their transitions along as in 7.14: Ctrl+V / Ctrl+Shift+V paste them, fitted to the pasted clips' new neighbours. | Fixed (owner request on 0.4.0; tp spec16_6_pasteCarriesTransitions) |
 
 ## 17. Undo
 

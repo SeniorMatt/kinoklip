@@ -506,6 +506,32 @@ private slots:
         QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:40 40:40")); // clips untouched
     }
 
+    void spec13_11_altDragCopiesATransition()
+    {
+        // Owner request on 0.4.0: Alt+drag a transition block onto another edit point.
+        View v;
+        v.put(kV1, mediaClip(0, 40, 50));
+        const quint64 b = v.put(kV1, mediaClip(40, 40, 50));
+        const quint64 c = v.put(kV1, mediaClip(80, 40, 50));
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        TransitionData t;
+        t.duration = 10;
+        ops::clipById(v.f.data(), b)->transitionIn = t; // window [35, 45)
+        v.f.project.endEdit();
+        const int before = v.undoCount();
+        v.drag(v.at(40, kV1), v.at(75, kV1), Qt::AltModifier); // onto the tail half of b
+        QCOMPARE(v.undoCount(), before + 1);
+        QCOMPARE(v.f.project.undoStack()->undoText(), QStringLiteral("Copy Transition"));
+        QVERIFY(ops::clipById(v.f.view(), b)->transitionIn); // the original stays
+        QVERIFY(!ops::clipById(v.f.view(), b)->transitionOut); // the cut's transition is c's
+        QCOMPARE(ops::clipById(v.f.view(), c)->transitionIn->duration, int64_t(10));
+        QCOMPARE(v.f.selection.transition(), (TransitionRef {c, true}));
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:40 40:40 80:40"));
+        // Without Alt the drag does not copy.
+        v.drag(v.at(40, kV1), v.at(115, kV1));
+        QVERIFY(!ops::clipById(v.f.view(), c)->transitionOut);
+    }
+
     // ---- 16 Clipboard ----
 
     void spec16_4_pasteAttributes()
