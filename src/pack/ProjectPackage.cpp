@@ -146,9 +146,17 @@ QByteArray rewriteItems(const QByteArray& json, const std::function<void(QJsonOb
 /// Atomic replace of @p target by @p temp (same folder), then fsync of the folder.
 bool replaceFile(const QString& temp, const QString& target, QString* error)
 {
+    // std::filesystem::rename replaces an existing target atomically (rename(2) on POSIX,
+    // MoveFileExW with MOVEFILE_REPLACE_EXISTING on Windows); QFile::rename refuses to.
+    const auto native = [](const QString& p) {
+#ifdef Q_OS_WIN
+        return std::filesystem::path(p.toStdWString());
+#else
+        return std::filesystem::path(QFile::encodeName(p).toStdString());
+#endif
+    };
     std::error_code ec;
-    std::filesystem::rename(std::filesystem::path(QFile::encodeName(temp).toStdString()),
-        std::filesystem::path(QFile::encodeName(target).toStdString()), ec);
+    std::filesystem::rename(native(temp), native(target), ec);
     if (ec) {
         setError(error,
             QStringLiteral("Cannot replace %1: %2")
