@@ -28,8 +28,8 @@ GPL-3.0-or-later, see [license.md](license.md). Release bundles include GPL FFmp
 third-party notices are inside the bundle under `usr/share/doc/kinoklip/`.
 
 ## AI disclosure
-This project was built entirely with AI: the code, tests and documentation were written by
-Anthropic's Claude (Claude Code), directed and tested by the project owner.
+This project was built entirely with AI: the code, tests and documentation were written by AI,
+directed and tested by the project owner.
 
 ## Support
-If you want to support the project: [ko-fi.com/seniormatthew](https://ko-fi.com/seniormatthew)
+If you want to support the project: [ko-fi.com/seniormatthew](https://ko-fi.com/seniormatthew), it will be much appreciated.
