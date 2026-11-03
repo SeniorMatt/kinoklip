@@ -2,6 +2,7 @@
 // EffectsLibraryPanel implementation: category tree with painted glyphs, search, drag source.
 #include "ui/effects/EffectsLibraryPanel.h"
 
+#include "core/AudioTransitions.h"
 #include "core/EffectRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
@@ -85,6 +86,9 @@ QIcon categoryGlyph(EffectCategory category)
     case EffectCategory::Transition:
         tint = sc.transition;
         break;
+    case EffectCategory::AudioTransition:
+        tint = mixColors(sc.transition, sc.positive, 0.5);
+        break;
     case EffectCategory::Title:
         tint = sc.visited;
         break;
@@ -162,6 +166,57 @@ QIcon categoryGlyph(EffectCategory category)
     return QIcon(pixmap);
 }
 
+/// Audio transition glyph: the category tile with the transition's two gain curves (incoming
+/// rising in full tint, outgoing falling lighter), so the six shapes tell apart at a glance.
+QIcon audioTransitionGlyph(const QString& descriptorId)
+{
+    QPixmap pixmap(kGlyphSize * 2, kGlyphSize * 2);
+    pixmap.setDevicePixelRatio(2);
+    pixmap.fill(Qt::transparent);
+    QPainter p(&pixmap);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF tile(1.5, 3.5, kGlyphSize - 3, kGlyphSize - 7);
+    const SchemeColors& sc = schemeColors();
+    const QColor tint = mixColors(sc.transition, sc.positive, 0.5);
+    QColor fill = tint;
+    fill.setAlphaF(0.22f);
+    p.setPen(QPen(tint, 1.2));
+    p.setBrush(fill);
+    p.drawRoundedRect(tile, 2.5, 2.5);
+
+    const QRectF plot = tile.adjusted(2.5, 2, -2.5, -2);
+    const audiotransitions::Curve curve = audiotransitions::curveFor(descriptorId);
+    QPainterPath in, out;
+    constexpr int kSteps = 16;
+    for (int i = 0; i <= kSteps; ++i) {
+        const double t = double(i) / kSteps;
+        const qreal x = plot.left() + t * plot.width();
+        const QPointF pi(x, plot.bottom() - audiotransitions::gainIn(curve, t) * plot.height());
+        const QPointF po(x, plot.bottom() - audiotransitions::gainOut(curve, t) * plot.height());
+        if (i == 0) {
+            in.moveTo(pi);
+            out.moveTo(po);
+        } else {
+            in.lineTo(pi);
+            out.lineTo(po);
+        }
+    }
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(tint.lighter(150), 1.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p.drawPath(out);
+    p.setPen(QPen(tint.lighter(115), 1.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p.drawPath(in);
+    return QIcon(pixmap);
+}
+
+/// Library icon of descriptor @p d: the audio transitions draw their curve, everything else
+/// its category glyph (@p categoryIcon, drawn once per section).
+QIcon effectGlyph(const EffectDescriptor& d, const QIcon& categoryIcon)
+{
+    return d.category == EffectCategory::AudioTransition ? audioTransitionGlyph(d.id)
+                                                         : categoryIcon;
+}
+
 /// Calls @p fn for every effect row (rows with a descriptor id) below @p parent, folders
 /// included.
 template<typename Fn>
@@ -181,6 +236,8 @@ QString sectionTitle(EffectCategory category)
     switch (category) {
     case EffectCategory::Transition:
         return EffectsLibraryPanel::tr("Video Transitions");
+    case EffectCategory::AudioTransition:
+        return EffectsLibraryPanel::tr("Audio Transitions");
     case EffectCategory::Title:
         return EffectsLibraryPanel::tr("Titles");
     case EffectCategory::Generator:
@@ -252,7 +309,11 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
             QTreeWidgetItem* section = m_tree->topLevelItem(i);
             const QIcon glyph
                 = categoryGlyph(EffectCategory(section->data(0, kCategoryRole).toInt()));
-            forEachEffect(section, [&](QTreeWidgetItem* item) { item->setIcon(0, glyph); });
+            forEachEffect(section, [&](QTreeWidgetItem* item) {
+                const EffectDescriptor* d
+                    = EffectRegistry::instance().find(item->data(0, kDescriptorRole).toString());
+                item->setIcon(0, d ? effectGlyph(*d, glyph) : glyph);
+            });
         }
     });
 
@@ -272,9 +333,9 @@ void EffectsLibraryPanel::populate()
     const EffectRegistry& registry = EffectRegistry::instance();
     QFont sectionFont = m_tree->font();
     sectionFont.setBold(true);
-    for (EffectCategory category :
-        {EffectCategory::Transition, EffectCategory::Title, EffectCategory::Generator,
-            EffectCategory::Effects, EffectCategory::VideoEffect, EffectCategory::AudioEffect}) {
+    for (EffectCategory category : {EffectCategory::Transition, EffectCategory::AudioTransition,
+             EffectCategory::Title, EffectCategory::Generator, EffectCategory::Effects,
+             EffectCategory::VideoEffect, EffectCategory::AudioEffect}) {
         const auto descriptors = registry.byCategory(category);
         if (descriptors.isEmpty())
             continue;
@@ -284,7 +345,7 @@ void EffectsLibraryPanel::populate()
         const QIcon glyph = categoryGlyph(category);
         auto addEffect = [&](QTreeWidgetItem* parent, const EffectDescriptor* d) {
             auto* item = new QTreeWidgetItem(parent, {d->name});
-            item->setIcon(0, glyph);
+            item->setIcon(0, effectGlyph(*d, glyph));
             item->setData(0, kDescriptorRole, d->id);
             item->setToolTip(0, d->description);
             item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
@@ -309,12 +370,13 @@ void EffectsLibraryPanel::populate()
         section->setData(0, kCategoryRole, int(category));
     }
 
-    // Sidebar: "Toolbox" (everything for the timeline picture) with its categories, then the
-    // audio effects, like Resolve's effects library.
+    // Sidebar: "Toolbox" (the transitions, titles, generators and effects) with its
+    // categories, then the audio effects, like Resolve's effects library.
     auto* toolbox = new QTreeWidgetItem(m_categories, {tr("Toolbox")});
     toolbox->setData(0, Qt::UserRole, -1);
-    for (EffectCategory category : {EffectCategory::Transition, EffectCategory::Title,
-             EffectCategory::Generator, EffectCategory::Effects, EffectCategory::VideoEffect}) {
+    for (EffectCategory category :
+        {EffectCategory::Transition, EffectCategory::AudioTransition, EffectCategory::Title,
+            EffectCategory::Generator, EffectCategory::Effects, EffectCategory::VideoEffect}) {
         if (registry.byCategory(category).isEmpty())
             continue;
         auto* item = new QTreeWidgetItem(toolbox, {sectionTitle(category)});

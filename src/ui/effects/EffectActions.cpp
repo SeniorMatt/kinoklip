@@ -2,6 +2,7 @@
 // EffectActions implementation.
 #include "ui/effects/EffectActions.h"
 
+#include "core/AudioTransitions.h"
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/Generators.h"
@@ -97,6 +98,18 @@ bool effectFitsTrack(EffectCategory category, TrackType type)
         || (category == EffectCategory::AudioEffect && type == TrackType::Audio);
 }
 
+bool transitionFitsTrack(EffectCategory category, TrackType type)
+{
+    return (category == EffectCategory::Transition && type == TrackType::Video)
+        || (category == EffectCategory::AudioTransition && type == TrackType::Audio);
+}
+
+QString defaultTransitionId(TrackType type)
+{
+    return type == TrackType::Audio ? audiotransitions::defaultId()
+                                    : QStringLiteral("cross_dissolve");
+}
+
 int applyEffect(Project& project, const QVector<quint64>& clipIds, const QString& descriptorId)
 {
     const EffectRegistry& registry = EffectRegistry::instance();
@@ -129,7 +142,10 @@ bool applyTransition(Project& project, quint64 clipId, const QString& descriptor
     const EffectRegistry& registry = EffectRegistry::instance();
     const EffectDescriptor* desc = registry.find(descriptorId);
     const ClipData* existing = editops::clipById(project.timeline()->data(), clipId);
-    if (!desc || desc->category != EffectCategory::Transition || !existing)
+    if (!desc || !existing)
+        return false;
+    const auto trackType = trackTypeOf(project.timeline()->data(), clipId);
+    if (!trackType || !transitionFitsTrack(desc->category, *trackType))
         return false;
     const auto& slot = atHead ? existing->transitionIn : existing->transitionOut;
     int64_t frames = durationFrames;
@@ -212,9 +228,20 @@ bool activate(AppContext& ctx, const QString& descriptorId)
     case EffectCategory::VideoEffect:
     case EffectCategory::AudioEffect:
         return ctx.selection && applyEffect(project, ctx.selection->clips(), descriptorId) > 0;
-    case EffectCategory::Transition: {
-        const quint64 clipId = ctx.selection ? ctx.selection->currentClip() : 0;
-        const ClipData* clip = editops::clipById(project.timeline()->data(), clipId);
+    case EffectCategory::Transition:
+    case EffectCategory::AudioTransition: {
+        // The current clip, else the most recent selected clip on a track the transition fits
+        // (an audio transition with a linked video + audio pair selected goes onto the audio).
+        const TimelineData& data = project.timeline()->data();
+        quint64 clipId = 0;
+        const QVector<quint64> selected
+            = ctx.selection ? ctx.selection->clips() : QVector<quint64> {};
+        for (auto it = selected.crbegin(); it != selected.crend() && !clipId; ++it) {
+            const auto type = trackTypeOf(data, *it);
+            if (type && transitionFitsTrack(desc->category, *type))
+                clipId = *it;
+        }
+        const ClipData* clip = editops::clipById(data, clipId);
         if (!clip)
             return false;
         // The end of the clip nearer to the playhead gets the transition.

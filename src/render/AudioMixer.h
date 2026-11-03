@@ -39,8 +39,11 @@ namespace kk {
 ///   +3 dB on the remaining side at the extremes; applied as a balance to stereo sources);
 /// * track mute/solo (any solo → only solo tracks play);
 /// * transitions: an audio clip's own transitionIn/Out, or — for clips linked to a video clip
-///   (same non-zero linkGroup) — the video clip's transition: equal-power crossfade (sin/cos)
-///   centred on the cut, using source handles; fades from/to silence at track ends;
+///   (same non-zero linkGroup) — the video clip's transition, centred on the cut, using source
+///   handles; fades from/to silence at track ends. The gain curve follows the audio
+///   transition type (core/AudioTransitions.h: 0 dB linear, -3 dB, +3 dB equal power,
+///   exponential, logarithmic, S-curve); a video transition (the linked clip's, or a video id
+///   stored on an audio clip by older projects) is the +3 dB equal-power crossfade (sin/cos);
 /// * Nested clips (compound clips, nested timelines): the nested timeline's own mix (all its
 ///   audio tracks, recursively, before the master clipper) is the clip's source, read through
 ///   a child mixer per clip so contiguous playback never re-opens anything;

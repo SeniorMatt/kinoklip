@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The built-in v0.1 catalogue: clip property groups, video effects, transitions, generators.
 // To add an effect: append a descriptor here, then implement it in src/render keyed by its id.
+#include "core/AudioTransitions.h"
 #include "core/EffectBuilders.h"
 #include "core/EffectRegistry.h"
 #include "core/Generators.h"
@@ -176,6 +177,21 @@ void EffectRegistry::registerBuiltins()
         tr("The next clip pushes the current one out"),
         {choice(QStringLiteral("direction"), tr("Direction"), directions(), directionLabels(),
             QStringLiteral("left"))}));
+
+    // ---- Audio transitions (gain curves in core/AudioTransitions.h) ----
+    namespace at = audiotransitions;
+    add(descriptor(at::kCrossFade0dB, tr("Cross Fade 0 dB"), C::AudioTransition,
+        tr("Linear crossfade: the level dips at the middle"), {}));
+    add(descriptor(at::kCrossFadePlus3dB, tr("Cross Fade +3 dB"), C::AudioTransition,
+        tr("Equal-power crossfade: constant loudness for unrelated sounds (default)"), {}));
+    add(descriptor(at::kCrossFadeMinus3dB, tr("Cross Fade -3 dB"), C::AudioTransition,
+        tr("Between linear and equal power"), {}));
+    add(descriptor(at::kExponential, tr("Exponential"), C::AudioTransition,
+        tr("The incoming sound rises slowly, then fast"), {}));
+    add(descriptor(at::kLogarithmic, tr("Logarithmic"), C::AudioTransition,
+        tr("The incoming sound rises fast, then slowly"), {}));
+    add(descriptor(at::kSCurve, tr("S-Curve"), C::AudioTransition,
+        tr("Gentle at both ends, quickest at the middle"), {}));
 
     // ---- Generators & titles (clip kinds of their own) ----
     add(descriptor("solid_color", tr("Solid Color"), C::Generator, tr("A full-frame solid color"),

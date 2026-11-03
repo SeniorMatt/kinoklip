@@ -14,6 +14,7 @@
 #include "ui/common/DragAndDrop.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/MediaImport.h"
+#include "ui/effects/EffectActions.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
 
@@ -266,8 +267,12 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
         plan.clipId = hit.clipId;
         return plan;
     }
-    case EffectCategory::Transition: {
-        if (hit.area != TimelineHit::Area::Clip)
+    case EffectCategory::Transition:
+    case EffectCategory::AudioTransition: {
+        // Video transitions go onto video clips, audio transitions onto audio clips; the other
+        // kind of track refuses the drop.
+        if (hit.area != TimelineHit::Area::Clip
+            || !effectactions::transitionFitsTrack(desc->category, hit.track.type))
             return plan;
         const auto loc = ops::findClip(data, hit.clipId);
         const TrackData& track = *data.track(loc->track);
