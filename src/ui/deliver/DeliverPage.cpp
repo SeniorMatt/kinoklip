@@ -10,6 +10,7 @@
 #include "render/ProxySelection.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/TimelineCommandSuspension.h"
 #include "ui/deliver/RenderQueuePanel.h"
 #include "ui/deliver/RenderRangeBar.h"
 #include "ui/deliver/RenderSettingsPanel.h"
@@ -97,6 +98,14 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     connect(&m_previewPoll, &QTimer::timeout, this, &DeliverPage::pollPreview);
     followMarks();
     updateRange();
+
+    // The timeline cannot be edited here: its commands are off while the page is shown
+    // (spec 42b.26). The marks stay, they set the render range ("In/Out Range").
+    new TimelineCommandSuspension(this, ctx.actions,
+        {QStringLiteral("mark.in"), QStringLiteral("mark.out"), QStringLiteral("mark.clip"),
+            QStringLiteral("mark.clear_in"), QStringLiteral("mark.clear_out"),
+            QStringLiteral("mark.clear_both"), QStringLiteral("mark.go_to_in"),
+            QStringLiteral("mark.go_to_out")});
 }
 
 DeliverPage::~DeliverPage()

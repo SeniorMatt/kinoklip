@@ -551,6 +551,48 @@ private slots:
             QVERIFY2(!ids.contains(QLatin1String(id)), id);
     }
 
+    void selectNodePopupStaysInsideTheWindow()
+    {
+        // Spec 42b.27: the Shift+Space list opens at the mouse but, like a menu, never runs
+        // past the window or screen edge.
+        const QSize size(280, 340);
+        const QRect bounds(100, 50, 1000, 700);
+        // Room around the point: centred on it, search field under it (unchanged).
+        const QPoint mid = SelectNodePopup::placement({500, 300}, size, bounds);
+        QCOMPARE(mid.x(), 500 - 140);
+        QVERIFY(mid.y() < 300 && mid.y() > 300 - 40);
+        // Near the bottom-right corner: pushed back in.
+        const QRect corner(SelectNodePopup::placement({1095, 745}, size, bounds), size);
+        QVERIFY(bounds.contains(corner));
+        QCOMPARE(corner.right(), bounds.right());
+        QCOMPARE(corner.bottom(), bounds.bottom());
+        // Near the top-left corner.
+        const QRect topLeft(SelectNodePopup::placement({102, 52}, size, bounds), size);
+        QVERIFY(bounds.contains(topLeft));
+        // Larger than the bounds: the left / top edge wins.
+        QCOMPARE(SelectNodePopup::placement({500, 300}, {2000, 2000}, bounds), bounds.topLeft());
+
+        // On the page: opened at the window's bottom-right corner it stays in the window.
+        Fixture f;
+        f.showPage();
+        QCoreApplication::processEvents();
+        SelectNodePopup* popup = f.page()->selectNodePopup();
+        const QRect window(f.window->mapToGlobal(QPoint(0, 0)), f.window->size());
+        const QPoint at = window.bottomRight() - QPoint(3, 3);
+        popup->popup(at);
+        QVERIFY(popup->isVisible());
+        const QRect onPage = popup->popupBounds(at);
+        QVERIFY(window.contains(onPage));
+        const QRect expected(SelectNodePopup::placement(at, popup->size(), onPage), popup->size());
+        QVERIFY(onPage.contains(expected));
+        QCOMPARE(expected.right(), onPage.right());
+        QCOMPARE(expected.bottom(), onPage.bottom());
+        // Where it went (the offscreen platform adds its 2 px frame margin to the position).
+        QVERIFY2((popup->pos() - expected.topLeft()).manhattanLength() <= 4,
+            qPrintable(QStringLiteral("%1,%2").arg(popup->x()).arg(popup->y())));
+        popup->hide();
+    }
+
     void viewerShowsMediaInThroughTheEngine()
     {
         // The viewers render through PlaybackEngine::renderCompositionNode(), which passes the

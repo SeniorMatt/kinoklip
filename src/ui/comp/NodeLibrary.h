@@ -50,8 +50,17 @@ class SelectNodePopup : public QFrame
 public:
     explicit SelectNodePopup(CompSession* session, QWidget* parent = nullptr);
 
-    /// Shows the popup centred on @p globalPos with an empty search.
+    /// Shows the popup centred on @p globalPos with an empty search, kept inside the window
+    /// and the screen like a menu (popupBounds()).
     void popup(const QPoint& globalPos);
+    /// Top-left of a popup of @p size opened at @p globalPos: centred horizontally on it, its
+    /// search field under it, moved to stay inside @p bounds (left / top win when it is
+    /// larger; empty bounds: not moved). Pure, for tests.
+    [[nodiscard]] static QPoint placement(
+        const QPoint& globalPos, const QSize& size, const QRect& bounds);
+    /// Global rectangle popup() keeps the popup in: the parent's window within the available
+    /// geometry of the screen at @p globalPos (either alone if they do not overlap).
+    [[nodiscard]] QRect popupBounds(const QPoint& globalPos) const;
     /// The search field (tests type into it).
     [[nodiscard]] QLineEdit* searchField() const { return m_search; }
     /// The list (tests).

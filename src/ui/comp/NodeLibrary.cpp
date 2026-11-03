@@ -7,10 +7,12 @@
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompSession.h"
 
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMimeData>
+#include <QScreen>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
@@ -160,12 +162,46 @@ void SelectNodePopup::fill(const QString& text)
         m_list->setCurrentRow(0);
 }
 
+QPoint SelectNodePopup::placement(const QPoint& globalPos, const QSize& size, const QRect& bounds)
+{
+    // Centred under the cursor like before, then pushed back inside like a menu (the left /
+    // top edge wins when the popup is larger than the bounds).
+    QPoint at = globalPos - QPoint(size.width() / 2, metrics::kSpaceXl);
+    if (bounds.isEmpty())
+        return at;
+    at.setX(std::max(bounds.left(), std::min(at.x(), bounds.right() + 1 - size.width())));
+    at.setY(std::max(bounds.top(), std::min(at.y(), bounds.bottom() + 1 - size.height())));
+    return at;
+}
+
+QRect SelectNodePopup::popupBounds(const QPoint& globalPos) const
+{
+    // The window (where the user works) within the screen under the point, as menus stay on
+    // the screen.
+    QRect bounds;
+    if (QScreen* screen = QGuiApplication::screenAt(globalPos))
+        bounds = screen->availableGeometry();
+    else if (QScreen* fallback = this->screen())
+        bounds = fallback->availableGeometry();
+    if (const QWidget* w = parentWidget() ? parentWidget()->window() : nullptr) {
+        const QRect window(w->mapToGlobal(QPoint(0, 0)), w->size());
+        const QRect both = bounds.isEmpty() ? window : bounds.intersected(window);
+        if (!both.isEmpty())
+            bounds = both;
+    }
+    return bounds;
+}
+
 void SelectNodePopup::popup(const QPoint& globalPos)
 {
     m_search->clear();
     fill({});
-    move(globalPos - QPoint(width() / 2, metrics::kSpaceXl));
+    const QRect bounds = popupBounds(globalPos);
+    move(placement(globalPos, size(), bounds));
     show();
+    // move() places the frame; its size is known once shown (window manager decorations).
+    if (frameGeometry().size() != size())
+        move(placement(globalPos, frameGeometry().size(), bounds));
     m_search->setFocus();
 }
 
