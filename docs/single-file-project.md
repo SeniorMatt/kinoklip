@@ -134,15 +134,31 @@ an unrelated file).
 
 ```json
 { "format": "kinoklip-project", "version": 1, "generator": "Kinoklip 0.3.6",
-  "document": "project.kkproj",
-  "media": [ { "entry": "media/3fa9c2d1/clip.mp4", "originalPath": "/home/me/clip.mp4",
+  "document": "project.kkproj", "salt": "<32 random hex digits>",
+  "media": [ { "entry": "media/3fa9c2d1/clip.mp4", "sourceKey": "<64 hex digits>",
                "size": 123, "modifiedMs": 1730000000000, "crc32": 305419896,
                "addedMs": 1730000000000 } ] }
 ```
 
-`originalPath`, `size` and `modifiedMs` recognise a re-import of the same file; Unpack restores
-the modification time. A reader refuses a manifest `version` newer than it knows.
-TODO(pack): an option to drop `originalPath` when sharing a project (privacy).
+`sourceKey` = SHA-256 of (salt, absolute path of the imported file, size, modification time),
+hex. It recognises a re-import of the same file without storing where the file came from; the
+salt is random per container (kept by Compact), so the same file in two containers gives
+unrelated keys. Unpack restores the original file name (part of the entry name) and the
+modification time. A reader refuses a manifest `version` newer than it knows.
+
+## Privacy
+
+By default nothing in the file reveals where the media came from: no absolute path, folder name
+or home directory appears in entry names, extra fields, the manifest or the document.
+* Embedded items store only their entry name (`path`, `relativePath`, `embedded`).
+* Proxy and optimised-media links of embedded items (absolute paths into the user's cache) are
+  dropped when the document is stored; they are caches and are found again in the proxy folder.
+* The only absolute paths a single-file project can hold are those of media the user keeps
+  **linked** on purpose (offline at Pack time, image sequences): a link needs its path. Pack
+  reports them. There is no option to keep original paths: nothing needs them (re-import
+  detection uses `sourceKey`, Unpack uses names and times).
+* Test: `test_projectpackage storesNoPaths` packs media from a folder with a distinctive name and
+  checks that the raw bytes contain neither that name nor `$HOME` (also JSON-escaped).
 
 ## Reading in place
 
@@ -169,9 +185,9 @@ copy in 8 MiB chunks. Cancelling, failing or crashing never leaves the file inva
 | Operation | Function | Notes |
 |---|---|---|
 | Save | `ProjectPackage::saveDocument()` | appends document + manifest, commits |
-| Add media (import) | `ProjectPackage::addMedia()` | copies files in and commits once; the same file is stored once (same original path, size and time; or same size, CRC and bytes); runs of zeros stay holes (sparse) |
+| Add media (import) | `ProjectPackage::addMedia()` | copies files in and commits once; the same file is stored once (same salted `sourceKey` of path, size and time; or same size, CRC and bytes); runs of zeros stay holes (sparse) |
 | Pack | `packProject(kkproj, out.kinoklip)` | copies every used media file; writes `out.kinoklip.part`, renames when complete; offline media and image sequences stay linked and are reported |
-| Unpack | `unpackProject(container, folder)` | media to `folder/media/<id>/<name>` (CRC checked, times restored) and `folder/<name>.kkproj`; never overwrites |
+| Unpack | `unpackProject(container, folder)` | media to `folder/media/<id>/<name>` (original names, CRC checked, modification times restored) and `folder/<name>.kkproj`; never overwrites |
 | Compact | `compactProject(container)` | rewrites without unreferenced media and old documents into `.<name>.compact-<pid>.part` in the same folder, fsync, atomic rename; CRC-checks everything it copies; reports size before / after; `compactedSizeEstimate()` previews |
 | Verify | `verifyContainer(container, checkData)` | index, overlaps, document, manifest, missing media, CRC of every byte |
 | Repair | `repairContainer(container)` | cuts a torn tail and writes a fresh end record |

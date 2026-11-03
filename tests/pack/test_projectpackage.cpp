@@ -259,8 +259,19 @@ private Q_SLOTS:
         package = ProjectPackage::open(container, false, &error);
         QVERIFY(package);
         QCOMPARE(package->media().size(), 3);
-        QCOMPARE(
-            package->record(clipEntry)->originalPath, QFileInfo(m_media[0]).absoluteFilePath());
+        // Re-imports are recognised by a salted key, not by a stored path.
+        const QFileInfo clipInfo(m_media[0]);
+        const QString key = package->sourceKey(clipInfo.absoluteFilePath(), clipInfo.size(),
+            clipInfo.lastModified().toMSecsSinceEpoch());
+        QCOMPARE(package->record(clipEntry)->sourceKey, key);
+        QCOMPARE(key.size(), 64);
+        // Another container has another salt: the same file gives an unrelated key.
+        auto other = ProjectPackage::create(path(QStringLiteral("salt.kinoklip")), &error);
+        QVERIFY(other);
+        QVERIFY(other->salt() != package->salt());
+        QVERIFY(other->sourceKey(clipInfo.absoluteFilePath(), clipInfo.size(),
+                    clipInfo.lastModified().toMSecsSinceEpoch())
+            != key);
         // Importing into the media pool by embedded path works like a file.
         Project project;
         const ImportResult imported = project.importMedia({embeddedPath(container, clipEntry)});
@@ -407,6 +418,57 @@ private Q_SLOTS:
         QCOMPARE(refused.status, Status::Failed);
         QVERIFY(refused.error.contains(QLatin1String("CRC")));
         QVERIFY(QFileInfo(container).size() == result.sizeAfter); // the original is untouched
+    }
+
+    /// No absolute path, folder name or home directory ends up anywhere in the file.
+    void storesNoPaths()
+    {
+        if (!m_skip.isEmpty())
+            QSKIP(qPrintable(m_skip));
+        const QString marker = QStringLiteral("KinoklipPrivacyProbe_7f3a9c");
+        const QString folder = path(marker);
+        QVERIFY(QDir().mkpath(folder + QStringLiteral("/footage")));
+        QStringList copies;
+        for (const QString& original : m_media) {
+            const QString copy
+                = folder + QStringLiteral("/footage/") + QFileInfo(original).fileName();
+            QVERIFY(QFile::copy(original, copy));
+            copies.append(copy);
+        }
+        Project project;
+        QCOMPARE(project.importMedia(copies).importedIds.size(), 3);
+        const QString linked = folder + QStringLiteral("/private.kkproj");
+        QString error;
+        QVERIFY(project.save(linked, &error));
+        const QString container = path(QStringLiteral("shared.kinoklip"));
+        const PackResult packed = packProject(linked, container);
+        QVERIFY2(packed.status == Status::Ok, qPrintable(packed.error));
+        QCOMPARE(packed.embedded, 3);
+        // Open and save once more (the document goes through the runtime form).
+        {
+            auto package = ProjectPackage::open(container, true, &error);
+            QVERIFY(package);
+            QVERIFY(package->saveDocument(package->document(), &error));
+            QCOMPARE(package->addMedia({copies[0]}, nullptr, {}, &error), Status::Ok);
+        }
+        const QByteArray bytes = readFile(container);
+        QVERIFY(!bytes.isEmpty());
+        const QStringList forbidden {marker, QDir::homePath(), m_dir.path(),
+            QFileInfo(m_media[0]).absolutePath(), QStringLiteral("footage")};
+        for (const QString& needle : forbidden) {
+            QVERIFY2(!bytes.contains(needle.toUtf8()), qPrintable(needle));
+            // Also not as JSON-escaped text ("\/").
+            QString escaped = needle;
+            escaped.replace(QLatin1Char('/'), QStringLiteral("\\/"));
+            QVERIFY2(!bytes.contains(escaped.toUtf8()), qPrintable(escaped));
+        }
+        // The packed film (fixtures under the source tree) has no home path either.
+        const QByteArray film = readFile(path(QStringLiteral("film.kinoklip")));
+        QVERIFY(!film.contains(QFileInfo(m_media[0]).absolutePath().toUtf8()));
+        // Unpack restores names and times, nothing else.
+        const UnpackResult out = unpackProject(container, path(QStringLiteral("unshared")));
+        QVERIFY2(out.status == Status::Ok, qPrintable(out.error));
+        QCOMPARE(out.extracted, 3);
     }
 
     void repairAfterCrash()

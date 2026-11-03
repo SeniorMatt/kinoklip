@@ -26,8 +26,11 @@ inline constexpr int kManifestVersion = 1;
 /// One embedded media file as listed in the manifest.
 struct MediaRecord
 {
-    QString entry; ///< "media/clip.mp4"
-    QString originalPath; ///< absolute path it was copied from (identifies re-imports)
+    QString entry; ///< "media/<id>/clip.mp4"
+    /// Recognises a re-import of the same file without storing where it came from:
+    /// hex SHA-256 of (container salt, absolute source path, size, modification time). The salt
+    /// is random per container, so the same file in two containers gives unrelated keys.
+    QString sourceKey;
     qint64 size = 0;
     qint64 modifiedMs = 0; ///< modification time of the original file (ms since the epoch, UTC)
     uint32_t crc32 = 0;
@@ -95,7 +98,16 @@ public:
         QString* error);
 
     /// Replaces the manifest's media records (written with the next save; Compact uses it).
-    void setMediaRecords(const QVector<MediaRecord>& records) { m_media = records; }
+    void setMediaRecords(const QVector<MediaRecord>& records, const QByteArray& salt)
+    {
+        m_media = records;
+        m_salt = salt;
+    }
+    /// The manifest's random salt (hex) for MediaRecord::sourceKey.
+    [[nodiscard]] QByteArray salt() const { return m_salt; }
+    /// sourceKey of a file at @p absolutePath with @p size and @p modifiedMs in this container.
+    [[nodiscard]] QString sourceKey(
+        const QString& absolutePath, qint64 size, qint64 modifiedMs) const;
     /// Writes the manifest alone and commits (a project without a document yet).
     bool saveManifest(QString* error);
 
@@ -113,6 +125,7 @@ private:
     QString m_path;
     std::unique_ptr<Container> m_container;
     QVector<MediaRecord> m_media;
+    QByteArray m_salt; ///< 32 hex digits, created with the container
 };
 
 // ---- Operations on files ------------------------------------------------------------------
