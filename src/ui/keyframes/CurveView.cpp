@@ -444,8 +444,7 @@ void CurveView::paintGrid(QPainter& p, const QRectF& g) const
         // "-0" from rounding looks odd on an axis.
         // In Normalised mode the axis is the active curve's: label its shown values.
         const double shown = r.lo > r.hi ? -v : v;
-        const QString label
-            = QString::number(std::abs(shown) < step * 1e-6 ? 0.0 : shown, 'g', 6);
+        const QString label = QString::number(std::abs(shown) < step * 1e-6 ? 0.0 : shown, 'g', 6);
         p.setPen(dim);
         if (m_labelsInColumn) {
             // Right-aligned in the axis column, centred on the line; skipped where it would be

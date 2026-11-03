@@ -168,8 +168,7 @@ void CompInspector::rebuild()
                 l->addWidget(row);
                 connect(m_source, &QComboBox::activated, this, [this](int index) {
                     if (m_session && m_source)
-                        m_session->setMediaInSource(
-                            m_node, m_source->itemData(index).toString());
+                        m_session->setMediaInSource(m_node, m_source->itemData(index).toString());
                 });
             } else if (!info || info->params.isEmpty()) {
                 // MediaIn / MediaOut: no empty group to unfold, a plain note instead.
