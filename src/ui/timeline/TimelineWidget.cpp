@@ -801,6 +801,12 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         // Clip Attributes of the clip's media pool item (spec 31.6).
         if (clip && clip->kind == ClipKind::Media)
             addAction("clip.attributes");
+        // Compositions (spec 42b): the clip's node graph on the Compositing page.
+        if (clip && hit.track.type == TrackType::Video) {
+            menu.addSeparator();
+            addAction("clip.open_in_compositing");
+            addAction("clip.reset_composition");
+        }
         menu.addSeparator();
         const TrackData* clipTrack = data.track(hit.track);
         const bool editable = clipTrack && !clipTrack->locked;
