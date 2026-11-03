@@ -130,7 +130,7 @@ private slots:
         QTemporaryDir dir;
         const QString path = dir.filePath(QStringLiteral("mix.kkproj"));
         const QJsonObject root = saveToJson(project, path);
-        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), 12);
+        QVERIFY(root.value(QLatin1String("formatVersion")).toInt() >= 12); // later formats too
         Project loaded;
         QString error;
         QVERIFY2(loaded.load(path, &error), qPrintable(error));

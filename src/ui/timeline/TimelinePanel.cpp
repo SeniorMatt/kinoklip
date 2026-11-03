@@ -66,7 +66,8 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
         return timelinedialogs::askHandles(this, missing, canShorten);
     });
     m_controller->setMarkerEditor([this](Marker& marker, bool clipMarker) {
-        return timelinedialogs::editMarker(this, marker, clipMarker);
+        return timelinedialogs::editMarker(
+            this, marker, clipMarker, m_ctx.project->timeline()->data().fps);
     });
     m_controller->setPasteAttributesPrompt(
         [this] { return timelinedialogs::askPasteAttributes(this); });

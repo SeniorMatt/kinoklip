@@ -102,6 +102,8 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
 
     switch (hit.area) {
     case TimelineHit::Area::Ruler:
+        if (pressRulerMarker(pos, event->modifiers()))
+            return;
         startDrag(DragMode::Scrub);
         return;
     case TimelineHit::Area::Header:
@@ -273,6 +275,9 @@ void TimelineWidget::mouseReleaseEvent(QMouseEvent* event)
     if (m_drag.mode != DragMode::Pan && event->button() != Qt::LeftButton)
         return;
     if (m_drag.mode == DragMode::Pending) {
+        // A click on a ruler marker (no drag) moves the playhead to it, like a scrub click.
+        if (m_drag.pending == DragMode::MarkerMove)
+            m_ctx.project->timeline()->setPlayhead(m_drag.markerFrame);
         // A click without drag on an already selected clip selects just that clip.
         if (m_drag.selectOnRelease)
             m_ctx.selection->setClips(clickedWithLinks(m_drag.hit.clipId));
@@ -290,6 +295,13 @@ void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
         && editMarkerNear(event->position()))
         return;
+    // A double-click on a clip marker's diamond opens its editor (spec 18.15).
+    if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None) {
+        if (const auto cm = clipMarkerNear(event->position())) {
+            m_controller->editClipMarker(cm->first, cm->second);
+            return;
+        }
+    }
     // A double-click on a transition opens it in the Inspector (spec 13.10).
     if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
         && m_controller->tool() != TimelineTool::Blade) {
@@ -392,6 +404,16 @@ void TimelineWidget::startDrag(DragMode mode)
         return;
     case DragMode::LevelKey:
         openEdit(tr("Move Keyframe"));
+        return;
+    case DragMode::MarkerDuration:
+        m_drag.snaps = ops::snapCandidates(data, playhead);
+        viewport()->setCursor(Qt::SizeHorCursor);
+        openEdit(tr("Change Marker Duration"));
+        return;
+    case DragMode::MarkerMove:
+        m_drag.snaps = ops::snapCandidates(data, playhead);
+        viewport()->setCursor(Qt::SizeHorCursor);
+        openEdit(tr("Move Marker"));
         return;
     case DragMode::Shuffle:
         m_drag.primary = hit.clipId;
@@ -529,6 +551,12 @@ void TimelineWidget::updateDrag(QPointF pos)
     case DragMode::LevelKey:
         updateLevelDrag(pos);
         break;
+    case DragMode::MarkerDuration:
+        updateMarkerDuration(pos);
+        break;
+    case DragMode::MarkerMove:
+        updateMarkerMove(pos);
+        break;
     case DragMode::Pan:
         horizontalScrollBar()->setValue(m_drag.scrollXAtPress - int(pos.x() - m_drag.pressPos.x()));
         verticalScrollBar()->setValue(m_drag.scrollYAtPress - int(pos.y() - m_drag.pressPos.y()));
@@ -570,7 +598,7 @@ void TimelineWidget::finishDrag()
     }
     if (mode == DragMode::Move && m_drag.duplicate && !m_drag.resultIds.isEmpty())
         m_ctx.selection->setClips(m_drag.resultIds);
-    if (mode == DragMode::Pan)
+    if (mode == DragMode::Pan || mode == DragMode::MarkerDuration || mode == DragMode::MarkerMove)
         viewport()->unsetCursor();
     m_drag = Drag {};
     clearDragInfo();

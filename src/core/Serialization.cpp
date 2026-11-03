@@ -345,6 +345,8 @@ QJsonArray markersToJson(const QVector<Marker>& list)
             {QLatin1String("color"), colorToString(m.color)}};
         if (!m.note.isEmpty())
             o[QLatin1String("note")] = m.note;
+        if (m.duration > 1) // single-frame markers stay as format 12 wrote them
+            o[QLatin1String("duration")] = qint64(m.duration);
         markers.append(o);
     }
     return markers;
@@ -360,6 +362,7 @@ QVector<Marker> markersFromJson(const QJsonArray& array)
         marker.frame = m.value(QLatin1String("frame")).toInteger();
         marker.name = m.value(QLatin1String("name")).toString();
         marker.note = m.value(QLatin1String("note")).toString();
+        marker.duration = std::max<int64_t>(1, m.value(QLatin1String("duration")).toInteger(1));
         if (m.contains(QLatin1String("color")))
             marker.color = colorFromString(m.value(QLatin1String("color")).toString());
         list.append(marker);

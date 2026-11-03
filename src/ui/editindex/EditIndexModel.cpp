@@ -10,11 +10,6 @@
 
 namespace kk {
 
-namespace {
-/// Markers are single-frame (no ranged markers): the Duration column shows one frame.
-constexpr int64_t kMarkerDurationFrames = 1;
-} // namespace
-
 EditIndexModel::EditIndexModel(Project* project, QObject* parent)
     : QAbstractTableModel(parent)
     , m_project(project)
@@ -152,6 +147,8 @@ QVariant EditIndexModel::markerData(const editindex::MarkerRow& row, int column,
             return row.color.name();
         case MarkerTimecode:
             return qint64(row.frame);
+        case MarkerDuration:
+            return qint64(row.duration);
         default:
             return markerData(row, column, Qt::DisplayRole);
         }
@@ -171,7 +168,7 @@ QVariant EditIndexModel::markerData(const editindex::MarkerRow& row, int column,
         case MarkerTimecode:
             return timecode::format(row.frame, fps);
         case MarkerDuration:
-            return timecode::format(kMarkerDurationFrames, fps);
+            return timecode::format(row.duration, fps);
         case MarkerNotes:
             // One line in the table; the tool tip keeps the line breaks.
             return role == Qt::ToolTipRole ? row.note

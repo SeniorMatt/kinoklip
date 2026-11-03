@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // TimelineWidget gestures added for Resolve parity: dragging the outer edges of a transition
-// (spec 13.9), Ctrl+Shift swap / shuffle drag (spec 21.6) and the ruler marker editor (18.5).
+// (spec 13.9), Ctrl+Shift swap / shuffle drag (spec 21.6), the ruler marker editor (18.5) and
+// ranged markers (Alt+drag a marker, drag a ranged marker's end; 18.11) and moving markers
+// (drag a flag; 18.14).
 // The drag lifecycle (start / update from the origin / finish) is the one of TimelineInput.cpp.
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/TimecodeFormat.h"
+#include "ui/timeline/LevelLines.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
+
+#include <QHelpEvent>
+#include <QToolTip>
 
 #include <algorithm>
 #include <cmath>
@@ -21,6 +28,7 @@ namespace ops = editops;
 namespace {
 constexpr double kTransitionGrabPx = 4.0; ///< distance at which a transition edge is grabbed
 constexpr double kMarkerGrabPx = 6.0; ///< ruler marker hit distance
+constexpr double kMarkerBandPx = 15.0; ///< height of the marker band at the ruler's bottom
 } // namespace
 
 std::optional<TimelineWidget::TransitionEdgeHit> TimelineWidget::transitionEdgeAt(QPointF pos) const
@@ -184,6 +192,178 @@ void TimelineWidget::updateShuffle(QPointF pos)
             ops::shuffleClip(data, id, target);
     }
     m_ctx.project->timeline()->notifyChanged();
+}
+
+int64_t TimelineWidget::markerFlagNear(QPointF pos) const
+{
+    if (pos.y() >= kRulerHeight || pos.x() < kHeaderWidth)
+        return -1;
+    int64_t frame = -1;
+    double best = kMarkerGrabPx;
+    for (const Marker& m : m_ctx.project->timeline()->data().markers) {
+        const double d = std::abs(m_layout.frameToX(double(m.frame)) - pos.x());
+        if (d <= best) {
+            best = d;
+            frame = m.frame;
+        }
+    }
+    return frame;
+}
+
+int64_t TimelineWidget::markerEndNear(QPointF pos) const
+{
+    // Only in the marker band at the bottom of the ruler: the timecode row above scrubs.
+    if (pos.y() >= kRulerHeight || pos.y() < kRulerHeight - kMarkerBandPx || pos.x() < kHeaderWidth)
+        return -1;
+    int64_t frame = -1;
+    double best = kMarkerGrabPx;
+    for (const Marker& m : m_ctx.project->timeline()->data().markers) {
+        if (m.duration <= 1)
+            continue;
+        const double d = std::abs(m_layout.frameToX(double(m.end())) - pos.x());
+        if (d <= best) {
+            best = d;
+            frame = m.frame;
+        }
+    }
+    return frame;
+}
+
+bool TimelineWidget::pressRulerMarker(QPointF pos, Qt::KeyboardModifiers modifiers)
+{
+    // Alt on a flag stretches the marker (Resolve: Alt+drag a marker); a ranged marker's end
+    // can be grabbed without Alt. Markers have no lock: always editable.
+    const int64_t flag = markerFlagNear(pos);
+    int64_t frame = (modifiers & Qt::AltModifier) ? flag : -1;
+    if (frame < 0)
+        frame = markerEndNear(pos);
+    if (frame >= 0) {
+        m_drag.markerFrame = frame;
+        startDrag(DragMode::MarkerDuration);
+        return true;
+    }
+    if (flag < 0)
+        return false;
+    // A plain press on a flag: a drag moves the marker, a click jumps to it.
+    m_drag.markerFrame = flag;
+    m_drag.pending = DragMode::MarkerMove;
+    m_drag.mode = DragMode::Pending;
+    return true;
+}
+
+void TimelineWidget::updateMarkerMove(QPointF pos)
+{
+    restoreOrigin();
+    const int64_t delta = m_layout.frameAtX(std::max<double>(pos.x(), kHeaderWidth))
+        - m_layout.frameAtX(std::max<double>(m_drag.pressPos.x(), kHeaderWidth));
+    int64_t target = std::max<int64_t>(0, m_drag.markerFrame + delta);
+    m_overlay.snapFrame.reset();
+    if (const auto s = snapFrame(target); s && *s != m_drag.markerFrame) {
+        target = *s;
+        m_overlay.snapFrame = *s;
+    }
+    QVector<Marker>& markers = m_ctx.project->timeline()->mutableData().markers;
+    m_drag.markerNow = m_drag.markerFrame;
+    const bool taken = std::any_of(markers.cbegin(), markers.cend(),
+        [&](const Marker& m) { return m.frame == target && m.frame != m_drag.markerFrame; });
+    if (!taken) {
+        for (Marker& m : markers) {
+            if (m.frame == m_drag.markerFrame) {
+                m.frame = target;
+                break;
+            }
+        }
+        m_drag.markerNow = target;
+        std::stable_sort(markers.begin(), markers.end(),
+            [](const Marker& a, const Marker& b) { return a.frame < b.frame; });
+    }
+    m_ctx.project->timeline()->notifyChanged();
+}
+
+void TimelineWidget::updateMarkerDuration(QPointF pos)
+{
+    restoreOrigin();
+    int64_t end = m_layout.frameAtX(std::max<double>(pos.x(), kHeaderWidth));
+    m_overlay.snapFrame.reset();
+    if (const auto s = snapFrame(end)) {
+        end = *s;
+        m_overlay.snapFrame = *s;
+    }
+    TimelineData& data = m_ctx.project->timeline()->mutableData();
+    for (Marker& m : data.markers) {
+        if (m.frame == m_drag.markerFrame) {
+            m.duration = std::max<int64_t>(1, end - m.frame);
+            break;
+        }
+    }
+    m_ctx.project->timeline()->notifyChanged();
+}
+
+std::optional<std::pair<quint64, int64_t>> TimelineWidget::clipMarkerNear(QPointF pos) const
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const TimelineHit hit = m_layout.hitTest(data, pos);
+    if (hit.area != TimelineHit::Area::Clip)
+        return std::nullopt;
+    const ClipData* clip = ops::clipById(data, hit.clipId);
+    if (!clip || clip->markers.isEmpty())
+        return std::nullopt;
+    const QRectF r = m_layout.clipRect(hit.row, *clip);
+    if (pos.y() > r.top() + levellines::kNameBand)
+        return std::nullopt; // the diamonds sit in the name band
+    std::optional<std::pair<quint64, int64_t>> best;
+    double bestDistance = kMarkerGrabPx;
+    for (const Marker& m : clip->markers) {
+        if (m.frame < 0 || m.frame >= clip->duration)
+            continue;
+        const double d = std::abs(m_layout.frameToX(double(clip->start + m.frame)) - pos.x());
+        if (d <= bestDistance) {
+            bestDistance = d;
+            best = std::pair {clip->id, m.frame};
+        }
+    }
+    return best;
+}
+
+QString TimelineWidget::markerToolTip(const Marker& marker, int64_t timelineFrame) const
+{
+    const Rational fps = m_ctx.project->timeline()->data().fps;
+    QString text = marker.name.toHtmlEscaped();
+    text += QStringLiteral("<br>") + timecode::format(timelineFrame, fps);
+    if (marker.duration > 1)
+        text += tr(" (duration %1)").arg(timecode::format(marker.duration, fps));
+    if (!marker.note.isEmpty())
+        text += QStringLiteral("<br><i>%1</i>").arg(marker.note.toHtmlEscaped());
+    return text;
+}
+
+bool TimelineWidget::viewportEvent(QEvent* event)
+{
+    if (event->type() != QEvent::ToolTip)
+        return QAbstractScrollArea::viewportEvent(event);
+    auto* help = static_cast<QHelpEvent*>(event);
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    QString tip;
+    if (const int64_t frame = markerFlagNear(help->pos()); frame >= 0) {
+        for (const Marker& m : data.markers) {
+            if (m.frame == frame)
+                tip = markerToolTip(m, frame);
+        }
+    } else if (const auto cm = clipMarkerNear(help->pos())) {
+        if (const ClipData* clip = ops::clipById(data, cm->first)) {
+            for (const Marker& m : clip->markers) {
+                if (m.frame == cm->second)
+                    tip = markerToolTip(m, clip->start + m.frame);
+            }
+        }
+    }
+    if (tip.isEmpty()) {
+        QToolTip::hideText();
+        event->ignore();
+    } else {
+        QToolTip::showText(help->globalPos(), tip, viewport());
+    }
+    return true;
 }
 
 bool TimelineWidget::editMarkerNear(QPointF pos)
