@@ -37,6 +37,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QDir>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMouseEvent>
@@ -379,6 +380,31 @@ private slots:
         f.session()->toggleLock();
         QCOMPARE(overlay->handleAt(*overlay->handlePos(CompViewerOverlay::Handle::Centre)),
             CompViewerOverlay::Handle::None);
+    }
+
+    void inspectorNoteForNodesWithoutParameters()
+    {
+        // Polish: MediaIn / MediaOut have no parameters; the Inspector says so instead of an
+        // empty group to unfold.
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        auto note = [&f] {
+            for (QLabel* l :
+                f.page()->inspector()->findChildren<QLabel*>(QStringLiteral("PlaceholderText")))
+                if (l->isVisibleTo(f.page()->inspector())
+                    && l->text() == QStringLiteral("This node has no parameters"))
+                    return true;
+            return false;
+        };
+        f.session()->setSelection({f.comp().mediaOutId});
+        QVERIFY(note());
+        f.session()->addNode(nodetypes::Transform);
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("Transform1"))});
+        QVERIFY(!note());
+        auto* group
+            = f.page()->inspector()->findChild<ParamGroupBox*>(QStringLiteral("CompNodeParams"));
+        QVERIFY(group && group->isVisibleTo(f.page()->inspector()));
     }
 
     void viewerMaskAndPolygonHandles()

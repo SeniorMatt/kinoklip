@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 namespace kk {
@@ -171,18 +172,56 @@ QPointF NodeEditor::inputPos(const CompNode& node, const QString& port) const
     if (!info || info->inputIndex(port) < 0)
         return {};
     const QRectF r = tileRect(node);
-    if (!isTopPort(*info, port))
+    const int side = inputSide(node, port);
+    if (side == 0)
         return QPointF(r.left(), r.center().y());
-    // Top edge: the non-main inputs spread evenly.
-    int count = 0, index = 0;
+    // Top / bottom edge: the inputs on that edge spread evenly, ordered by where their sources
+    // sit (left to right, so links do not cross); free inputs after them in descriptor order.
+    const auto sourceX = [this, &node](const QString& id) {
+        const NodeLink link = node.inputs.value(id);
+        const CompNode* source = m_session && link.isConnected()
+            ? m_session->composition().node(link.nodeId)
+            : nullptr;
+        return source ? outputPos(*source).x() : std::numeric_limits<double>::max();
+    };
+    QVector<std::pair<double, QString>> onEdge;
     for (const compadapter::PortInfo& p : info->inputs) {
-        if (!isTopPort(*info, p.id))
-            continue;
-        if (p.id == port)
-            index = count;
-        ++count;
+        if (inputSide(node, p.id) == side)
+            onEdge.append({sourceX(p.id), p.id});
     }
-    return QPointF(r.left() + r.width() * (index + 1) / (count + 1), r.top());
+    std::stable_sort(onEdge.begin(), onEdge.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; });
+    int index = 0;
+    for (int i = 0; i < onEdge.size(); ++i) {
+        if (onEdge[i].second == port)
+            index = i;
+    }
+    const int count = int(onEdge.size());
+    return QPointF(
+        r.left() + r.width() * (index + 1) / (count + 1), side > 0 ? r.bottom() : r.top());
+}
+
+int NodeEditor::inputSide(const CompNode& node, const QString& port) const
+{
+    const compadapter::NodeTypeInfo* info = compadapter::nodeType(node.type);
+    if (!info || info->inputIndex(port) < 0)
+        return 0;
+    const bool main = !isTopPort(*info, port);
+    const NodeLink link = node.inputs.value(port);
+    const CompNode* source
+        = m_session && link.isConnected() ? m_session->composition().node(link.nodeId) : nullptr;
+    if (!source || source->id == node.id)
+        return main ? 0 : -1;
+    const QRectF r = tileRect(node);
+    const QPointF s = outputPos(*source);
+    if (main) {
+        // The usual left-to-right flow keeps the left edge; a source above or below and to
+        // the right comes in across the top / bottom instead of looping back.
+        if (s.x() <= r.left() + r.width() * 0.25)
+            return 0;
+        return s.y() <= r.center().y() ? -1 : 1;
+    }
+    return s.y() > r.bottom() + r.height() * 0.5 ? 1 : -1;
 }
 
 QPointF NodeEditor::outputPos(const CompNode& node) const
@@ -191,13 +230,15 @@ QPointF NodeEditor::outputPos(const CompNode& node) const
     return QPointF(r.right(), r.center().y());
 }
 
-void NodeEditor::linkCurve(QPointF from, QPointF to, bool topEdge, QPointF& c1, QPointF& c2)
+void NodeEditor::linkCurve(QPointF from, QPointF to, int side, QPointF& c1, QPointF& c2)
 {
     const double dx = std::max(30.0, std::abs(to.x() - from.x()) * 0.5);
     c1 = from + QPointF(dx, 0);
-    if (topEdge) {
-        const double dy = std::max(30.0, std::abs(to.y() - from.y()) * 0.5);
-        c2 = to - QPointF(0, dy);
+    if (side != 0) {
+        // Across the top / bottom edge; a short lead-in when the source is about level, so
+        // a neighbour's link does not loop high over the tile.
+        const double dy = std::max(16.0, std::abs(to.y() - from.y()) * 0.5);
+        c2 = to + QPointF(0, side * dy);
     } else {
         c2 = to - QPointF(dx, 0);
     }
@@ -223,7 +264,7 @@ NodeEditor::Hit NodeEditor::linkAt(QPointF pos, quint64 exclude) const
             if (!box.contains(pos))
                 continue; // cheap reject before sampling the curve
             QPointF b, cc;
-            linkCurve(a, d, isTopPort(*info, it.key()), b, cc);
+            linkCurve(a, d, inputSide(to, it.key()), b, cc);
             QPointF prev = a;
             for (int i = 1; i <= kCurveSamples; ++i) {
                 const QPointF q = bezier(a, b, cc, d, double(i) / kCurveSamples);

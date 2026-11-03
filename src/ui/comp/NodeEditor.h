@@ -112,6 +112,12 @@ public:
     [[nodiscard]] QPointF inputPos(const CompNode& node, const QString& port) const;
     /// Centre of the output port of @p node.
     [[nodiscard]] QPointF outputPos(const CompNode& node) const;
+    /// Edge of input @p port of @p node, facing its source like in node compositors: 0 left,
+    /// -1 top, 1 bottom. The main input is on the left unless its source sits to the right
+    /// (then top or bottom, whichever faces it); side inputs (foreground, masks) are on the
+    /// top unless their source sits clearly below the tile. Links then never loop over or
+    /// behind the tile.
+    [[nodiscard]] int inputSide(const CompNode& node, const QString& port) const;
     /// Topmost item at @p pos.
     [[nodiscard]] Hit hitTest(QPointF pos) const;
 
@@ -172,9 +178,12 @@ private:
     [[nodiscard]] Hit linkAt(QPointF pos, quint64 exclude = 0) const;
     /// The link the moving node would be inserted into (Move drag of one unconnected node).
     [[nodiscard]] Hit insertTarget() const;
-    /// Points of the link curve from @p from (an output) to @p to (an input on @p topEdge).
-    static void linkCurve(QPointF from, QPointF to, bool topEdge, QPointF& c1, QPointF& c2);
-    /// True if input @p port of a node of type @p info sits on the top edge.
+    /// Points of the link curve from @p from (an output) to @p to (an input on edge @p side of
+    /// its tile: 0 left, -1 top, 1 bottom); the curve leaves the output to the right and enters
+    /// the input across its edge.
+    static void linkCurve(QPointF from, QPointF to, int side, QPointF& c1, QPointF& c2);
+    /// True if input @p port of a node of type @p info is a side input (not the main input);
+    /// see inputSide() for the edge it is drawn on.
     [[nodiscard]] static bool isTopPort(const compadapter::NodeTypeInfo& info, const QString& port);
     /// Ends a connect gesture at @p pos.
     void finishConnect(QPointF pos);
