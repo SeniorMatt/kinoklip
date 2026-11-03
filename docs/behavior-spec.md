@@ -299,6 +299,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 17.5 | Edit > Undo / Redo name the step after the action ("Undo Lock Track", "Undo Ripple Delete"): header buttons say Lock / Unlock, Mute / Unmute, Solo / Unsolo, Enable / Disable Track and Auto Track Selector, several dropped items the edit ("Append at End"); a step without a name logs a warning. | Fixed (polish round 2; p2 undoNamesTrackButtons) |
 | 17.6 | Edit > History > Open History Window: a floating window lists the undo steps by name ("Original State" first, the steps after the current one dimmed); clicking a step undoes or redoes everything up to it in one go. Clicks are ignored while an edit is open. | Fixed (polish round 4; p4 spec17_6_*). No default key (none known in Resolve). |
 | 17.7 | Undo memory grows with what a step changes, not with the size of the timeline: steps share every clip they did not change (a blade on a 1,500-clip timeline keeps about 0.16 MB instead of 0.85 MB). | Fixed (polish round 4; test_undosnapshots, test_largeproject) |
+| 17.8 | Undo / Redo close an edit that was left open (a gesture whose mouse release never arrived) when no mouse button is down, keep its changes as one step and log its name, so Undo can never stay blocked (owner report on 0.4.0: "Ctrl+Z doesn't work"). | Fixed (project staleEditIsClosedKeepingItsChanges, mainwindow undoClosesAnEditLeftOpen) |
 
 ## 18. Markers
 

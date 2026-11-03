@@ -15,6 +15,7 @@
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "ui/common/ActionRegistry.h"
+#include "core/Logging.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/ResizeProfiler.h"
@@ -32,6 +33,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QGuiApplication>
 #include <QHash>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -333,8 +335,22 @@ void MainWindow::connectAppActions()
     // ---- Undo / redo (through Project so they are refused mid-drag) ----
     QAction* undo = actions.action(QStringLiteral("edit.undo"));
     QAction* redo = actions.action(QStringLiteral("edit.redo"));
-    connect(undo, &QAction::triggered, project, &Project::undo);
-    connect(redo, &QAction::triggered, project, &Project::redo);
+    // An edit left open by a gesture whose mouse release never arrived would refuse every
+    // undo for the rest of the session (owner report on 0.4.0: "Ctrl+Z doesn't work"). With
+    // no mouse button down no gesture can be running: close it first, and say which it was.
+    auto closeStale = [project] {
+        if (project->isEditing() && QGuiApplication::mouseButtons() == Qt::NoButton)
+            qCWarning(lcCore).noquote()
+                << "closed an edit left open:" << project->closeStaleEdit();
+    };
+    connect(undo, &QAction::triggered, project, [project, closeStale] {
+        closeStale();
+        project->undo();
+    });
+    connect(redo, &QAction::triggered, project, [project, closeStale] {
+        closeStale();
+        project->redo();
+    });
     auto updateUndo = [undo, redo, undoStack] {
         undo->setEnabled(undoStack->canUndo());
         redo->setEnabled(undoStack->canRedo());

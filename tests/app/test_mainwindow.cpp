@@ -289,6 +289,23 @@ private slots:
         QVERIFY(f.window->windowTitle().startsWith(QLatin1String("Trip")));
     }
 
+    void undoClosesAnEditLeftOpen()
+    {
+        // Owner report on 0.4.0, "Ctrl+Z doesn't work": a gesture whose mouse release never
+        // arrived left an edit open, and every undo was refused afterwards.
+        Fixture f;
+        f.project.beginEdit(QStringLiteral("Add Clip"));
+        ClipData clip;
+        clip.duration = 10;
+        editops::overwriteClip(f.project.timeline()->mutableData(), TrackRef {}, clip);
+        f.project.endEdit();
+        f.project.beginEdit(QStringLiteral("Lost Drag"));
+        QTest::ignoreMessage(QtWarningMsg, "closed an edit left open: Lost Drag");
+        f.action("edit.undo")->trigger();
+        QVERIFY(!f.project.isEditing());
+        QCOMPARE(f.project.timeline()->data().videoTracks[0].clips.size(), size_t(0));
+    }
+
     void findInMediaPool()
     {
         // Alt+F: the selected timeline clip's media is selected in the media pool, in its bin.
