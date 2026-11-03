@@ -937,6 +937,25 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.25 | The panning part of 41.17 is done (41.20); snapping of mask points to guides and colours per guide stay deferred. | Fixed (see 41.20) |
 | 41.26 | View > Viewer Zoom to Fit (Z, owner request on 0.4.1) resets zoom and pan of the viewer under the pointer, else of the viewer with the focus, else of every visible viewer. | Fixed (gu zKeyFitsTheViewerUnderThePointer) |
 
+## 43. In-app help (owner request, 0.4.2)
+
+The app links each part of itself to the matching article of the user guide (`docs/guide/`,
+index `docs/guide/index.json`, see src/ui/help/readme.md). Section 42 is the Compositing page
+(compui branch). Tests: `tests/app/test_inapphelp.cpp`.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 43.1 | F1 (`help.guide_context`, Help > Help for This…) opens the user guide's article for what the user is on, in the web browser: the contexts of the widget under the pointer, then of the focus widget, then the visible page; the most specific kind with an article wins (effect > menu command > panel > page). Without a match it opens the guide's start page. | Fixed (test_inapphelp f1OnAChromaKeyInTheInspectorOpensTheGreenScreenArticle, f1OnTheDeliverPageOpensTheExportArticle, resolutionOrder). Decision: the pointer before the focus, because in an editor the focus usually stays on the timeline while the user points at what they ask about; an effect anywhere in either chain still beats a panel. |
+| 43.2 | Effect context: the entry selected in the Effects library (while the pointer or focus is in the library) and every Inspector section showing an effect, transition, title or generator report `effect:<id>`; F1 with the focus in a Chroma Key section opens "Remove a green screen". | Fixed (test_inapphelp f1OnAChromaKeyInTheInspectorOpensTheGreenScreenArticle, rightClickOffersHowToUse) |
+| 43.3 | F1 while a menu is open closes the menus and opens the article of the highlighted command (`action:<id>`), else the usual context. | Fixed (test_inapphelp f1InAnOpenMenuUsesTheHighlightedCommand) |
+| 43.4 | Panels report `panel:<key>` (media_pool, effects, edit_index, inspector, keyframes, mixer, metadata, timeline, viewer, render_settings, render_queue) and pages `page:<id>`; on the Deliver page F1 opens the export article. | Fixed (test_inapphelp f1OnTheDeliverPageOpensTheExportArticle) |
+| 43.5 | A small "?" (a 16 px question mark in a circle, in the scheme's dim text colour, brighter on hover) sits at the right of a panel's title bar and after the title of an Inspector effect section, only when the guide has an article for that panel or effect; clicking it opens the article. | Fixed (test_inapphelp helpButtonsOnlyWhereAnArticleExists) |
+| 43.6 | Right-click on an entry of the Effects library (effects, transitions, titles, generators) or on an Inspector section header offers "How to use <name>…" when the guide has an article for it; nothing is added otherwise. | Fixed (test_inapphelp rightClickOffersHowToUse) |
+| 43.7 | Help > Guide… opens a small dialog: a search field over the articles' titles, summaries and keywords (every word must match), the list with "Start page" always on top; Enter opens the current entry (the first match while searching), so does a double-click; the dialog then closes. Help > Getting Started opens the getting-started article and is hidden when the guide has none. | Fixed (test_inapphelp guideDialogFiltersAndOpens, gettingStartedFollowsTheIndex, searchLooksAtTitleSummaryAndKeywords) |
+| 43.8 | Articles open as `base + file` from the index in the default browser through `platform::openUrl`, so the browser starts with the user's environment, not the AppImage's. | Fixed (test_inapphelp: every test checks the opened URL through the injected opener; platform behaviour: test_childprocessenv) |
+| 43.9 | The index is `docs/guide/index.json` bundled as `:/guide/index.json` (resources/guide.qrc), read once. Bad JSON or an unknown `formatVersion` means no "?" buttons and no "How to use" entries, while F1 still opens the start page under the built-in base URL; articles without id / title or with a file that is not a plain relative path are skipped, and a base that is not http(s) falls back to the built-in one. | Fixed (test_inapphelp badIndexesFallBackToTheStartPage, f1WithABrokenIndexOpensTheBuiltInStartPage, helpButtonsOnlyWhereAnArticleExists, bundledIndexIsReadable) |
+| 43.10 | F1 has no Resolve meaning we know of in the Windows defaults and was free; Help > Guide… and Getting Started have no key. All three are assignable in Keyboard Customization. | Fixed (scripts/keymap-resolve-windows.py rows; test_actionregistry checks keys are unique) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -1000,3 +1019,5 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 - The viewerzoom branch (0.4.1, owner request) added 41.19 - 41.25 (mouse-wheel zoom about the
   cursor, middle-button and Space + drag panning, Zoom to Fit in the viewer; the panning part
   of 41.17).
+- The inapphelp branch (0.4.2, owner request) added 43.1 - 43.10 (in-app help: F1 for the
+  effect, command, panel or page the user is on, "?" buttons, "How to use" entries, Help > Guide).

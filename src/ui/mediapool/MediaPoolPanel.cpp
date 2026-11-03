@@ -91,6 +91,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Media Pool"), parent)
     , m_ctx(ctx)
 {
+    setPanelKey(QStringLiteral("media_pool")); // in-app help: panel:media_pool
     setAcceptDrops(true);
     Project* project = ctx.project;
     m_showDefaultSmartBins = prefs::showDefaultSmartBins();

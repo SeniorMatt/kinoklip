@@ -19,6 +19,7 @@ class DeliverPage;
 class AudioPage;
 class CutPage;
 class EditPage;
+class HelpController;
 class InterfaceBar;
 class MediaPage;
 class PageBar;
@@ -63,6 +64,8 @@ public:
     [[nodiscard]] EditPage* editPage() const { return m_editPage; }
     [[nodiscard]] DeliverPage* deliverPage() const { return m_deliverPage; }
     [[nodiscard]] ProjectController* projectController() const { return m_projectController; }
+    /// The in-app help (F1, Help > Guide).
+    [[nodiscard]] HelpController* helpController() const { return m_help; }
     /// The application objects this window was built with.
     [[nodiscard]] AppContext& context() const { return m_ctx; }
 
@@ -103,6 +106,7 @@ private:
     DeliverPage* m_deliverPage = nullptr;
     ProjectController* m_projectController = nullptr;
     AutosaveController* m_autosave = nullptr;
+    HelpController* m_help = nullptr;
     ViewerTransport* m_transport = nullptr; ///< routes transport actions to the active viewer
     bool m_geometryRestored = false;
 };

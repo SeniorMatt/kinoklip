@@ -180,6 +180,7 @@ RenderSettingsPanel::RenderSettingsPanel(AppContext& ctx, ExportPresets* presets
     , m_ctx(ctx)
     , m_presets(presets)
 {
+    setPanelKey(QStringLiteral("render_settings")); // in-app help: panel:render_settings
     auto* body = new QWidget;
     auto* layout = new QVBoxLayout(body);
     layout->setContentsMargins(0, 0, 0, metrics::kSpaceM);

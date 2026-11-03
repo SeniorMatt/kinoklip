@@ -287,6 +287,9 @@
         "audio.add_bus": [],
         "audio.reset_loudness": [],
         "audio.float_viewer": [],
+        "help.guide_context": ["F1"],
+        "help.guide": [],
+        "help.getting_started": [],
         "help.about": [],
         "help.about_qt": []
     }

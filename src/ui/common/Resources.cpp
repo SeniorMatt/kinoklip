@@ -9,6 +9,7 @@
 static void initKinoklipResources()
 {
     Q_INIT_RESOURCE(resources);
+    Q_INIT_RESOURCE(guide); // resources/guide.qrc: the user guide's index (src/ui/help)
 }
 
 namespace kk {
