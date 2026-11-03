@@ -60,9 +60,11 @@ image and sound), to move around like any other file.
   earlier saves, with a size preview before and after.
 - **Import into a self-contained project** copies the media into the file (with progress, and
   cancellable); the Media Pool shows where each clip lives.
-- Status (kkpack branch): the container library, in-place reading and the Pack / Unpack / Add
-  media / Compact / Verify functions are done (docs/single-file-project.md, spec section 39); the
-  UI integration (Project Manager, File menu, import, Media Pool indicator) is the next step.
+- Status: the container library, in-place reading and the Pack / Unpack / Add media / Compact /
+  Verify functions (kkpack) and their integration (sfint, 0.4.0: opening and saving, Save As
+  between the kinds, recovery, read-only opening, the Project Manager kind and export, import
+  copying media in, File > Pack / Unpack / Compact / Verify, the Media Pool location) are done
+  (docs/single-file-project.md, spec section 39).
   TODO: Pack with trimming (used parts of long clips plus handles: needs re-muxing per container
   and keyframe-aware cut points); image sequences inside the file.
 
