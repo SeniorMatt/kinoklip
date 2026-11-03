@@ -855,6 +855,34 @@ effects library behaves. Clean room: our own names, formulas and wording. Tests:
 | 40.19 | Real time: one keyer at 1080p is a single pass (Shrink / Grow and Edge Blur add separable passes on the matte only). | Fixed (ve chromaKeyPerformance prints the timings). Unverified on the owner's Iris Xe: only software GL (llvmpipe) was available to the tests. |
 | 40.20 | The other effects of plan-v4 part 3 (Curves, HSL adjust, LUT files, Lens blur, Tilt-Shift, Unsharp Mask, Noise Reduction, Light Rays, Lens Flare, Halation, Bloom, the further stylize, distort and time effects, Corner Pin) and an eyedropper for the HSL Key. | Deferred (next effects batches) |
 
+## 41. Viewer guides (guides branch, v4 part 4)
+
+Guide lines, rulers, safe areas and a grid on the viewers that help placing things but never
+appear in a render (docs/plan-v4.md part 4, owner request), from general knowledge of how
+editors offer guides (rulers you drag guides out of, safe-area and grid overlays). Clean room:
+our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu` =
+`tests/playback/test_guideoverlay.cpp`, `gr` = `tests/render/test_guidesrender.cpp`.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 41.1 | View > Guides > Add Horizontal Guide / Add Vertical Guide put a guide through the centre of the picture of the active viewer (else the visible timeline viewer). Adding a guide while Show Guides is off turns it on. Each addition is one undo step "Add Guide" and marks the project modified. Clear Guides removes them all ("Clear Guides"). | Fixed (gu addFromTheMenu) |
+| 41.2 | View > Show Rulers shows pixel rulers along the top and left edges of both viewers, beside the picture (they never cover it). Units are pixels of the timeline resolution (source viewer: of the clip shown), 0 at the picture's top / left edge; the scale follows Fit and the 50 / 100 / 200 % zoom, so a tick sits beside the pixel it names. Labels are 1, 2 or 5 x 10^n px apart (at least 56 screen px), with minor ticks between; guides are marked on the ruler in their colour. | Fixed (gu rulerMappingUnderZoom; vg rulerSteps) |
+| 41.3 | Dragging out of the top ruler adds a horizontal guide, out of the left ruler a vertical one, where the mouse is released; released over a ruler again, nothing is added. | Fixed (gu dragOutMoveAndRemove) |
+| 41.4 | Over a guide the cursor becomes a split cursor; dragging moves it in whole pixels with its position shown beside it ("Move Guide"). Dragging it back onto a ruler, or off the picture, removes it ("Remove Guide"; the line turns dashed while it would be removed). Esc during the drag cancels it. Near a guide (4 px) the guide wins over the on-screen transform and mask controls; elsewhere they work as before. | Fixed (gu dragOutMoveAndRemove; vg guideEditsAreUndoable, nearestGuideHitTest) |
+| 41.5 | Double-clicking a guide, or its context menu's Edit Guide Position, opens a small dialog with the distance from the top / left edge in px or % of the frame (switching the unit converts the value); OK is one undo step "Set Guide Position". The context menu also has Remove Guide. | Fixed (gu positionDialog) |
+| 41.6 | Show Guides hides and shows every guide (hidden guides are neither hit nor snapped to). Lock Guides stops every mouse edit of guides (drag, ruler drag-out, double-click); the menu commands still work. | Fixed (gu lockAndHide). Decision: locked guides still open their context menu, with its entries disabled, so the user sees why nothing happens. |
+| 41.7 | Guide Color picks the colour of all guides (default: the colour scheme's focus colour); the rulers mark guides in it. | Fixed (gu safeAreaAndGridActions) |
+| 41.8 | View > Guides > Load Guide Preset offers the built-in Centre Cross, Rule of Thirds and Centre and Thirds, then the user's presets; loading replaces the guides ("Load Guide Preset"). Save Guides as Preset stores the current guides under a name (an existing name is replaced) in `guide-presets.json` in the application data folder; Delete Guide Preset removes one. Presets are stored as fractions of the frame, so they fit any resolution. | Fixed (vg presets; gu presetsApplyAndSave) |
+| 41.9 | Snap to Guides (on by default): while an on-screen Transform drag moves a clip, its picture's left / centre / right and top / centre / bottom snap onto guides within 6 screen px; moving the anchor point snaps the anchor; scale and crop handles snap the edges they drag. Holding Ctrl during the drag skips snapping. | Fixed (gu transformDragSnapsToGuides). Decision: snapping needs the guides shown; rotation does not snap. |
+| 41.10 | The source viewer has guides too, kept per user (one list for every clip, in px of the clip shown), since a media clip has no document to store them in. | Fixed (gu sourceViewerGuides) |
+| 41.11 | Timeline guides are saved with the project, per timeline (project format 14: optional timeline `"guides": [{"o": "h" or "v", "pos": px}]`). Format 13 and older projects open without guides and are written back as 14; older builds refuse format 14 files instead of dropping the guides. | Fixed (vg jsonRoundTrip, projectRoundTripPerTimeline, version13FilesMigrate) |
+| 41.12 | Guides, rulers, safe areas, aspect markers and the grid never appear in a render, an export, `--render-frame`, the picture of a source drag or the `--screenshot` window grab: they are a layer over the viewer that the renderers never read, and grabs hide it first. | Fixed (gr rendersIgnoreGuides; gu grabsContainNoGuides) |
+| 41.13 | View > Safe Area: Action Safe (90 %, solid outline), Title Safe (80 %, dashed), Centre Mark (a small cross), each a toggle; plus one aspect marker (None, 2.39:1, 1.85:1, 4:3, 1:1, 4:5, 9:16) that outlines the largest centred rectangle of that shape and dims the rest of the picture. | Fixed (vg safeAreaAndGridGeometry; gu safeAreaAndGridActions) |
+| 41.14 | View > Show Grid draws a grid over the picture; View > Grid Type: Rule of Thirds (default), 4 x 4, or Custom Grid (2 - 32 columns and rows); choosing a type shows the grid. | Fixed (vg safeAreaAndGridGeometry; gu safeAreaAndGridActions) |
+| 41.15 | Show / lock / snap, guide colour, rulers, safe areas, aspect marker and grid are the user's settings (the same in every viewer and project, kept across sessions); only the guide positions belong to the project. | Fixed (gu safeAreaAndGridActions). Decision: per user in QSettings (`viewer/overlays/...`), because they are viewing preferences, not part of the edit. |
+| 41.16 | None of the new commands has a default key (no known Resolve default); they are assignable in Keyboard Customization. | Fixed (scripts/keymap-resolve-windows.py rows) |
+| 41.17 | Snapping of mask points to guides; panning the zoomed viewer (the rulers follow `pictureRect()`, so a pan will move them too); colours per guide. | Deferred |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -907,3 +935,6 @@ effects library behaves. Clean room: our own names, formulas and wording. Tests:
 - The sfint branch (v4 part 2, release 0.4.0: single-file projects in the editor, the Project
   Manager, the File menu, import and the Media Pool) added 38.23, 38.24 and 39.17 - 39.25, and updated
   38.7, 38.18, 38.22, 39.1, 39.5, 39.8 - 39.12 and 39.15 (no "UI pending" rows left).
+- The guides branch (v4 part 4) added 41.1 - 41.17 (viewer guides, rulers, guide presets,
+  snapping of on-screen transforms, safe areas, aspect markers and grid; project format 14;
+  41.17 deferred).

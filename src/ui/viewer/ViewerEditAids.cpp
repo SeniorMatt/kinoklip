@@ -103,6 +103,25 @@ QMenu* ViewerPanel::buildContextMenu(QWidget* parent)
             if (id && m_ctx.actions->contains(QLatin1String(id)))
                 menu->addAction(m_ctx.actions->action(QLatin1String(id)));
     }
+    // Viewer aids (spec 41): rulers, grid and the Guides / Safe Area submenus, built from
+    // the registry's View categories like the menu bar.
+    menu->addSeparator();
+    for (const char* id : {"view.show_rulers", "view.grid_show"})
+        if (m_ctx.actions->contains(QLatin1String(id)))
+            menu->addAction(m_ctx.actions->action(QLatin1String(id)));
+    const std::pair<const char*, QString> subs[]
+        = {{"view.guides", tr("Guides")}, {"view.safe_area", tr("Safe Area")}};
+    for (const auto& [category, title] : subs) {
+        QMenu* sub = menu->addMenu(title);
+        for (const QString& id : m_ctx.actions->menuEntries(QLatin1String(category))) {
+            if (id == QLatin1String(ActionRegistry::kSeparator))
+                sub->addSeparator();
+            else if (m_ctx.actions->contains(id))
+                sub->addAction(m_ctx.actions->action(id));
+        }
+        if (sub->isEmpty())
+            menu->removeAction(sub->menuAction());
+    }
     if (m_ctx.actions->contains(QStringLiteral("playback.resolution"))) {
         menu->addSeparator();
         QAction* res = m_ctx.actions->action(QStringLiteral("playback.resolution"));

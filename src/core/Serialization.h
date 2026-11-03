@@ -87,7 +87,11 @@ namespace kk::serialization {
 ///   (frames, > 1; absent = 1, a single-frame marker). Files of versions 1 - 12 load
 ///   unchanged; older builds refuse version 13 instead of silently turning ranged markers
 ///   into single frames.
-inline constexpr int kFormatVersion = 13;
+/// - 14 (guides branch): viewer guides. Timelines may carry "guides" ([{"o": "h" | "v",
+///   "pos": timeline frame px}], core/ViewerGuides.h). Files of versions 1 - 13 have none
+///   and load unchanged; older builds refuse version 14 instead of silently dropping the
+///   guides.
+inline constexpr int kFormatVersion = 14;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

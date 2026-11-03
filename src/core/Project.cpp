@@ -591,6 +591,8 @@ bool Project::loadBytes(
     // convert (serialization::trackMixFromJson() / mixerFromJson() give the defaults).
     // Versions <= 12 -> 13 only added the optional marker "duration" (absent = 1 frame, what
     // every older marker is): nothing to convert.
+    // Versions <= 13 -> 14 only added the optional timeline "guides" (absent = no guides,
+    // display only): nothing to convert.
 
     // Media paths stored relative to the document resolve against the document's folder
     // (for a recovered autosave that is the original project file, not the autosave dir).

@@ -6,6 +6,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/viewer/PlaybackResolution.h"
+#include "ui/viewer/ViewerOverlaySettings.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
@@ -149,6 +150,7 @@ void ViewerTransport::connectActions()
         }
     }
     PlaybackResolution::instance().connectActions(actions);
+    ViewerOverlaySettings::instance().connectActions(actions);
     if (actions->contains(QStringLiteral("view.fullscreen_viewer"))) {
         connect(actions->action(QStringLiteral("view.fullscreen_viewer")), &QAction::triggered,
             this, [this] { setFullScreenViewer(m_fullScreen.isNull()); });
