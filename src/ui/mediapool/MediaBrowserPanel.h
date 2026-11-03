@@ -24,6 +24,8 @@ struct AppContext;
 ///   see mediaFileNamePatterns()) with size and date.
 /// - Selecting a file emits fileSelected() (preview); double-click, the button or the context
 ///   menu adds the selected files to the media pool (one undo step).
+/// - The folder tree's context menu adds a whole folder: "Add Folder into Media Pool" (its own
+///   files) and "Add Folder and Subfolders into Media Pool (Create Bins)" (FolderImport.h).
 ///
 /// Both QFileSystemModels read the disk on Qt's own worker thread, so the GUI never blocks.
 /// Thread-safety: GUI thread only.
@@ -44,6 +46,10 @@ public:
     [[nodiscard]] QStringList selectedFiles() const;
     /// Imports the selected files into the media pool. Returns the new media ids.
     QStringList addSelectedToMediaPool();
+    /// Imports folder @p path into the media pool (Master): only its own files, or with
+    /// @p withSubfolders its subfolders too, as a bin named after it with sub-bins. One undo
+    /// step. Returns the new media ids.
+    QStringList addFolderToMediaPool(const QString& path, bool withSubfolders);
 
 signals:
     /// A file was selected (e.g. to preview it in the viewer).

@@ -296,6 +296,31 @@ private slots:
         QCOMPARE(v.clipCount(kA2), 0); // a still has no audio
     }
 
+    void folderGoesToTheMediaPoolOnly()
+    {
+        // Spec 33.24: a folder dropped on the timeline is imported (bins included) into the
+        // media pool, nothing of it is placed on the timeline; a file next to it still is.
+        View v;
+        QTemporaryDir dir;
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("Stills/Sub")));
+        QTemporaryDir other;
+        writeStill(dir, QStringLiteral("Stills/one.png"));
+        writeStill(dir, QStringLiteral("Stills/Sub/two.png"));
+        const QString loose = writeStill(other, QStringLiteral("loose.png"));
+        QMimeData mime;
+        mime.setUrls({QUrl::fromLocalFile(dir.filePath(QStringLiteral("Stills"))),
+            QUrl::fromLocalFile(loose)});
+        const auto itemsBefore = v.f.project.mediaPool()->items().size();
+        QVERIFY(sendDrag(v.vp(), &mime, v.at(10, kV2)).drop);
+        QTRY_COMPARE(v.f.project.mediaPool()->items().size(), itemsBefore + 3);
+        QTRY_COMPARE(v.clipCount(kV2), 1); // only the loose file
+        const MediaItem* placed
+            = v.f.project.mediaPool()->item(v.f.view().videoTracks[1].clips[0].mediaId);
+        QVERIFY(placed);
+        QCOMPARE(placed->path, loose);
+        QCOMPARE(int(v.f.project.mediaPool()->bins().size()), 2); // Stills, Stills/Sub
+    }
+
     void portalKeyAloneDoesNotCrash()
     {
         View v;

@@ -22,6 +22,14 @@ struct ImportResult
     QStringList warnings; ///< one human-readable line per skipped file
 };
 
+/// One file read for import by MediaPool::prepareFile(), ready for MediaPool::addItem().
+struct PreparedMedia
+{
+    bool ok = false; ///< false: the file cannot be imported (see error)
+    MediaItem item; ///< path, kind, info, cues and fileModifiedMs filled; no id, no bin
+    QString error; ///< why not (without the path), e.g. "unsupported file"
+};
+
 /// The project's media pool: imported files (MediaItem) organised in bins (Bin).
 ///
 /// Changes made through this class are not undoable on their own; wrap them in
@@ -54,6 +62,13 @@ public:
     /// Probes and adds each file to bin @p binId. Files that fail media::probe() or are already
     /// in the pool are skipped and reported in ImportResult::warnings.
     ImportResult importFiles(const QStringList& paths, const QString& binId = {});
+    /// Reads @p absolutePath for import without touching any pool: subtitle files are parsed,
+    /// everything else goes through media::probe(). importFiles() uses it; the folder import
+    /// calls it on a worker thread and adds the results with addItem(). Thread-safe.
+    [[nodiscard]] static PreparedMedia prepareFile(const QString& absolutePath);
+    /// Modification time of the media at @p path (also inside a single-file project) in ms
+    /// since the epoch, 0 if it does not exist (MediaItem::fileModifiedMs). Thread-safe.
+    [[nodiscard]] static qint64 modifiedMsOf(const QString& path);
     /// Adds a ready-made item (id assigned if empty or taken; name defaults to the file name).
     /// Returns the item's id.
     QString addItem(MediaItem item);

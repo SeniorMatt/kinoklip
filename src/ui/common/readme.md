@@ -16,6 +16,7 @@ Used by every panel and page. Depends on `core` only.
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
 | `TimecodeEntry.h` | typed timecodes (spec 2.10): `timecode::parseTyped()` (calculator-style digits, + / - offsets) and the application key filter `TimecodeEntry` collecting them while the timeline has focus (EditPage wires it) |
 | `MediaImport.h` | import with user feedback (a single-file project copies the files in first through `AppContext::mediaStore`); `storeItemsInProject()` (relink, Store in Project File); `isStoredInProject()` / `isLinkedFile()` / `mediaLocationText()`; media file patterns/filters |
+| `FolderImport.h` | Import Media Folder (File menu, Media Pool menus and folder drops, storage browser): scan + probe on a worker thread (`media/FolderScan.h`, `MediaPool::prepareFile()`), the single-file store, then one undo step that creates the bins and adds the items; cancel rolls back; one summary dialog; `takeFolders()` splits dropped folders from files |
 | `MediaStore.h` | where imported media go: the interface `app/ProjectController` implements for single-file projects (`AppContext::mediaStore`, null = linked) |
 | `ProgressTask.h` | `runWithProgress()`: a long file operation on a worker thread behind a window-modal progress dialog with Cancel (imports, Pack, Unpack, Compact, Verify, Project Manager export); a test hook presses Cancel |
 | `Resources.h` | `initResources()` — call in `main()` and in tests that need icons/keymap |

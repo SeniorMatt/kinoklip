@@ -48,6 +48,7 @@ const ActionSpec kActions[] = {
     {"file", "file.verify_project",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Verify Project File")},
     {"file", "-"},
     {"file", "file.import_media",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Import Media…"), "import"},
+    {"file", "file.import_media_folder", QT_TRANSLATE_NOOP("kk::StandardActions", "Import Media &Folder…"), "folder"},
     {"file", "file.import_subtitle",  QT_TRANSLATE_NOOP("kk::StandardActions", "Import S&ubtitle…")},
     // The media pool's proxy / optimized media commands also live here (act on the media
     // pool selection); Resolve offers them in the media pool context menu.

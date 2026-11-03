@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 284 commands; sure 94, likely 88, unsure 102.
+Counts: 285 commands; sure 94, likely 89, unsure 102.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -39,6 +39,7 @@ that every command has an entry and that no key is used twice.
 | Compact Project (remove unused media and old saves from a single-file project) | `file.compact_project` | (none) | unsure | Kinoklip's own; no Resolve equivalent, no key |
 | Verify Project File (check a single-file project; Repair after a crash) | `file.verify_project` | (none) | unsure | Kinoklip's own; no Resolve equivalent, no key |
 | Import Media | `file.import_media` | `Ctrl+I` | sure |  |
+| Import Media Folder (a folder and optionally its subfolders, as bins) | `file.import_media_folder` | (none) | likely | Resolve offers Add Folder (and SubFolders) into Media Pool from its media storage and media pool menus; no default key known |
 | Import Subtitle | `file.import_subtitle` | (none) | likely | File > Import > Subtitle in Resolve; no default key known |
 | Export Timeline as EDL (CMX3600: V, A, A2, dissolves, M2 speed) | `file.export_edl` | (none) | likely | File > Export > Timeline in Resolve (EDL among the formats); no default key known |
 | Export Timeline Markers to EDL | `file.export_markers_edl` | (none) | likely | Resolve exports timeline markers to an EDL from its menus; no default key known |
