@@ -2,7 +2,9 @@
 // MediaPage layout and panel toggles.
 #include "app/pages/MediaPage.h"
 
+#include "ui/common/AppContext.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/TimelineCommandSuspension.h"
 #include "ui/mediapool/MediaBrowserPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/mediapool/MetadataPanel.h"
@@ -46,6 +48,14 @@ MediaPage::MediaPage(AppContext& ctx, QWidget* parent)
     m_metadata->attach(m_mediaPool);
     connect(
         m_mediaPool, &MediaPoolPanel::currentMediaChanged, m_viewer, &ViewerPanel::setSourceMedia);
+
+    // No timeline here: the Edit page timeline's commands are off while the page is shown
+    // (spec 42b.26). The media pool's own commands in the Clip menu stay; the source viewer
+    // takes I / O and the other mark keys itself while it has focus.
+    new TimelineCommandSuspension(this, ctx.actions,
+        {QStringLiteral("clip.attributes"), QStringLiteral("mediapool.new_multicam"),
+            QStringLiteral("mediapool.sync_waveform"), QStringLiteral("mediapool.sync_timecode"),
+            QStringLiteral("mediapool.sync_in_points")});
 }
 
 QWidget* MediaPage::panel(PanelId id) const
