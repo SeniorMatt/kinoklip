@@ -139,3 +139,4 @@
 - 05:34 Heartbeat: no agents; full suite on main after polish4 running.
 - 05:36 main after polish4: 116/116 pass. Version 0.3.2; notes written; container release build started.
 - 05:50 Released 0.3.2-alpha.1 (polish round 4; container 117/117). Desktop copy. Pausing new agents until owner feedback (4 polish rounds untested by owner); heartbeat stopped.
+- 06:25 Heartbeat (last queued one): idle, waiting for owner feedback on 0.3.2-alpha.1.
