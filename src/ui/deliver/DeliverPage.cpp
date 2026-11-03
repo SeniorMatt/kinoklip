@@ -76,6 +76,7 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
 
     Timeline* timeline = ctx.project->timeline();
     connect(timeline, &Timeline::changed, this, &DeliverPage::schedulePreview);
+    connect(timeline, &Timeline::changed, this, &DeliverPage::followMarks);
     connect(timeline, &Timeline::changed, this, &DeliverPage::updateRange);
     connect(timeline, &Timeline::playheadChanged, this, &DeliverPage::schedulePreview);
     connect(timeline, &Timeline::playheadChanged, this, [this](int64_t frame) {
@@ -94,6 +95,7 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     connect(&m_previewDebounce, &QTimer::timeout, this, &DeliverPage::renderPreview);
     m_previewPoll.setInterval(kPreviewPollMs);
     connect(&m_previewPoll, &QTimer::timeout, this, &DeliverPage::pollPreview);
+    followMarks();
     updateRange();
 }
 
@@ -143,6 +145,23 @@ quint64 DeliverPage::addCurrentToQueue(bool confirmOverwrite)
     }
     return m_queue->addJob(name, s, timeline, makeMediaPathMap(m_ctx.project->mediaPool()->state()),
         std::move(proxies));
+}
+
+void DeliverPage::followMarks()
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const QPair<qint64, qint64> marks {data.markIn, data.markOut};
+    if (marks == m_seenMarks)
+        return;
+    m_seenMarks = marks;
+    const bool hasRange = data.markIn >= 0 && data.markOut > data.markIn;
+    ExportSettings s = m_settingsPanel->settings();
+    const RangeMode wanted = hasRange ? RangeMode::InOut : RangeMode::Entire;
+    if (s.range == wanted)
+        return;
+    s.range = wanted;
+    m_settingsPanel->setSettings(s);
+    updateRange();
 }
 
 void DeliverPage::updateRange()
