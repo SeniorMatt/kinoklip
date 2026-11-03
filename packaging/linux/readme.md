@@ -41,7 +41,7 @@ are collected with `pacman -Qo/-Qi` and `/usr/share/licenses`).
 | `runheader.sh` | shell header of the `.run` file (template filled by `package_linux.sh`) |
 | `org.kinoklip.Kinoklip.desktop` | desktop entry (validated with `desktop-file-validate`) |
 | `org.kinoklip.Kinoklip.xml` | MIME type `application/x-kinoklip-project` for `*.kkproj` |
-| `icons/org.kinoklip.Kinoklip.svg` | app icon (original: film frame, "K" with a clapper-stick arm) |
+| `icons/org.kinoklip.Kinoklip.svg` | app icon: placeholder, KDE Breeze "video-x-generic" (LGPL-3.0-or-later) until the owner provides one |
 
 ## Bundle layout (AppDir-shaped)
 
