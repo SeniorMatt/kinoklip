@@ -301,6 +301,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 16.4 | Paste attributes (Alt+V): a dialog picks transform, effects, volume, pan and speed; video groups go to video clips, audio groups to audio clips (linked parts included); one undo step. | Fixed (pe2 spec16_4) |
 | 16.5 | With no clip selected, Ctrl+C / Ctrl+X copy / cut the marked range of the auto-select tracks. | Fixed (new; pe2 spec16_5) |
 | 16.6 | Copied clips take their transitions along as in 7.14: Ctrl+V / Ctrl+Shift+V paste them, fitted to the pasted clips' new neighbours. | Fixed (owner request on 0.4.0; tp spec16_6_pasteCarriesTransitions) |
+| 16.7 | A timeline clip's context menu offers Paste Attributes… (Alt+V) right after Paste, as Resolve's clip menu does. | Fixed (bughunt2: only the Edit menu and Alt+V had it; test_bughunt2 spec16_7_clipMenuOffersPasteAttributes) |
 
 ## 17. Undo
 
