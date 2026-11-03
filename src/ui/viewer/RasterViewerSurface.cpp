@@ -48,6 +48,15 @@ void RasterViewerSurface::setZoom(double zoom)
     }
 }
 
+void RasterViewerSurface::setView(double zoom, QPointF pan)
+{
+    const bool zoomChanged = m_picture.setZoom(zoom);
+    const bool panChanged = m_picture.setPan(pan);
+    if (zoomChanged || panChanged) {
+        update();
+    }
+}
+
 void RasterViewerSurface::setOverlayText(const QString& text)
 {
     if (text != m_picture.overlayText()) {

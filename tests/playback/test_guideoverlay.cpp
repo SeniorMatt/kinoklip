@@ -2,7 +2,8 @@
 // Viewer guides in the real viewer (spec 41, offscreen raster surface): View menu commands,
 // dragging guides out of the rulers, moving and removing them, the position dialog, lock,
 // ruler mapping under zoom, snapping of on-screen transform drags, presets, the source
-// viewer's own guides, and that picture grabs never contain guides, safe areas or grid.
+// viewer's own guides, that picture grabs never contain guides, safe areas or grid, and the
+// viewer's wheel zoom / pan with everything over the picture following it.
 #include "core/EditOps.h"
 #include "core/ParamKeys.h"
 #include "core/Project.h"
@@ -22,6 +23,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QCursor>
 #include <QDialog>
 #include <QDoubleSpinBox>
 #include <QMouseEvent>
@@ -31,6 +33,7 @@
 #include <QTest>
 #include <QTimer>
 #include <QUndoStack>
+#include <QWheelEvent>
 
 #include <cmath>
 
@@ -130,6 +133,22 @@ void answerPositionDialog(double value, int unit)
         dialog->findChild<QDoubleSpinBox*>(QStringLiteral("GuidePosition"))->setValue(value);
         dialog->accept();
     });
+}
+
+/// Mouse event with an explicit button state (middle-button pans).
+void sendButton(
+    QWidget* w, QEvent::Type type, QPointF p, Qt::MouseButton button, Qt::MouseButtons buttons)
+{
+    QMouseEvent e(type, p, w->mapToGlobal(p), button, buttons, Qt::NoModifier);
+    QCoreApplication::sendEvent(w, &e);
+}
+
+/// One wheel event of @p delta eighths of a degree at @p p on @p w.
+void wheel(QWidget* w, QPointF p, int delta)
+{
+    QWheelEvent e(p, w->mapToGlobal(p), QPoint(), QPoint(0, delta), Qt::NoButton, Qt::NoModifier,
+        Qt::NoScrollPhase, false);
+    QCoreApplication::sendEvent(w, &e);
 }
 
 } // namespace
@@ -486,6 +505,186 @@ private slots:
         Viewer again(f, ViewerPanel::Mode::Source); // remembered per user
         QCOMPARE(again.overlay()->storedGuides(), o->storedGuides());
         o->clearGuides();
+    }
+
+    // 41.19: the wheel zooms in smooth steps about the cursor: the frame point under it stays.
+    void wheelZoomsAboutCursor()
+    {
+        resetOptions({.showRulers = true});
+        Fixture f;
+        Viewer v(f);
+        QVERIFY(QTest::qWaitForWindowExposed(&v.panel));
+        auto* box = v.panel.findChild<QComboBox*>(QStringLiteral("ViewerZoom"));
+        const QPointF frame(80, 45);
+        const QPointF cursor = v.at(frame);
+        const double fit = v.panel.effectiveZoom();
+        QCOMPARE(v.panel.zoomFactor(), 0.0);
+        // Over a child overlay too (the transform layer covers the picture).
+        QWidget* target = v.panel.transformOverlay() && v.panel.transformOverlay()->isVisible()
+            ? static_cast<QWidget*>(v.panel.transformOverlay())
+            : v.surface();
+        const QPointF local = target == v.surface() ? cursor : target->mapFrom(v.surface(), cursor);
+        wheel(target, local, 120);
+        QVERIFY(std::abs(v.panel.zoomFactor() / fit - 1.125) < 1e-6);
+        QCOMPARE(v.panel.zoom(), ViewerPanel::Zoom::Custom);
+        QCOMPARE(box->currentText(),
+            QStringLiteral("%1%").arg(int(std::lround(v.panel.zoomFactor() * 100))));
+        for (int i = 0; i < 12; ++i) {
+            wheel(v.surface(), cursor, 120);
+        }
+        // One widget px of rounding at most.
+        const QPointF back = v.overlay()->frameToWidget().map(frame);
+        QVERIFY2((back - cursor).manhattanLength() < 2.0,
+            qPrintable(QStringLiteral("%1,%2 vs %3,%4")
+                           .arg(back.x())
+                           .arg(back.y())
+                           .arg(cursor.x())
+                           .arg(cursor.y())));
+        // Rulers follow: frame 0 sits beside the picture's left edge.
+        const QRect pic = v.panel.surface()->pictureRect();
+        const QPoint picTopLeft
+            = v.panel.topRuler()->mapFromGlobal(v.surface()->mapToGlobal(pic.topLeft()));
+        QVERIFY(std::abs(v.panel.topRuler()->toRuler(0) - picTopLeft.x()) < 0.51);
+        // Out again, below Fit, down to the 10 % floor.
+        for (int i = 0; i < 60; ++i)
+            wheel(v.surface(), cursor, -120);
+        QVERIFY(std::abs(v.panel.zoomFactor() - ViewerPicture::kMinZoom) < 1e-9);
+        // In to the 1600 % ceiling.
+        for (int i = 0; i < 80; ++i)
+            wheel(v.surface(), cursor, 120);
+        QVERIFY(std::abs(v.panel.zoomFactor() - ViewerPicture::kMaxZoom) < 1e-9);
+        // A trackpad's small delta is a proportional step.
+        v.panel.setZoom(ViewerPanel::Zoom::Percent100);
+        QCOMPARE(box->currentIndex(), int(ViewerPanel::Zoom::Percent100));
+        QCOMPARE(box->count(), int(ViewerPanel::Zoom::Custom)); // the "137%" item is gone
+        wheel(v.surface(), cursor, 12);
+        QVERIFY(std::abs(v.panel.zoomFactor() - std::pow(1.125, 0.1)) < 1e-6);
+    }
+
+    // 41.20 / 41.23: middle drag pans; guides, rulers and the transform overlay follow.
+    void middleDragPans()
+    {
+        resetOptions({.showRulers = true});
+        Fixture f;
+        Viewer v(f);
+        QVERIFY(QTest::qWaitForWindowExposed(&v.panel));
+        v.overlay()->addGuide(Qt::Vertical, 77);
+        // At Fit there is nothing to pan.
+        const QRect fitPic = v.panel.surface()->pictureRect();
+        sendButton(
+            v.surface(), QEvent::MouseButtonPress, {50, 50}, Qt::MiddleButton, Qt::MiddleButton);
+        sendButton(v.surface(), QEvent::MouseMove, {80, 70}, Qt::NoButton, Qt::MiddleButton);
+        sendButton(
+            v.surface(), QEvent::MouseButtonRelease, {80, 70}, Qt::MiddleButton, Qt::NoButton);
+        QCOMPARE(v.panel.surface()->pictureRect(), fitPic);
+
+        v.panel.setZoom(ViewerPanel::Zoom::Percent200);
+        const QRect before = v.panel.surface()->pictureRect();
+        const QPointF guideBefore = v.at({77, 0});
+        const double rulerBefore = v.panel.topRuler()->toRuler(77);
+        sendButton(
+            v.surface(), QEvent::MouseButtonPress, {50, 50}, Qt::MiddleButton, Qt::MiddleButton);
+        sendButton(v.surface(), QEvent::MouseMove, {65, 60}, Qt::NoButton, Qt::MiddleButton);
+        sendButton(v.surface(), QEvent::MouseMove, {80, 70}, Qt::NoButton, Qt::MiddleButton);
+        sendButton(
+            v.surface(), QEvent::MouseButtonRelease, {80, 70}, Qt::MiddleButton, Qt::NoButton);
+        QCOMPARE(v.panel.surface()->pictureRect(), before.translated(30, 20));
+        QCOMPARE(v.panel.pan(), QPointF(30, 20));
+        QCOMPARE(v.panel.zoom(), ViewerPanel::Zoom::Percent200); // panning keeps the zoom
+        QCOMPARE(v.at({77, 0}), guideBefore + QPointF(30, 20));
+        QVERIFY(std::abs(v.panel.topRuler()->toRuler(77) - (rulerBefore + 30)) < 0.51);
+        // The same mapping drives the guide hit test.
+        QCOMPARE(v.overlay()->guideAt(v.at({77, 90})), 0);
+        // A drag far away keeps part of the picture in view.
+        v.panel.setPan({1e6, -1e6});
+        const QRect far = v.panel.surface()->pictureRect();
+        QVERIFY(far.intersects(v.surface()->rect()));
+        QVERIFY(far.intersected(v.surface()->rect()).width() >= 40);
+        // No guide was moved by the middle button.
+        QCOMPARE(f.guides().size(), size_t(1));
+        QCOMPARE(f.guides()[0].position, 77.0);
+    }
+
+    // 41.21: Shift+Z (focus in the viewer), the header's Fit and a middle double-click fit.
+    void fitResets()
+    {
+        resetOptions();
+        Fixture f;
+        Viewer v(f);
+        QVERIFY(QTest::qWaitForWindowExposed(&v.panel));
+        auto* box = v.panel.findChild<QComboBox*>(QStringLiteral("ViewerZoom"));
+        const QRect fitPic = v.panel.surface()->pictureRect();
+        auto zoomAndPan = [&] {
+            wheel(v.surface(), {60, 60}, 360);
+            v.panel.setPan({25, -15});
+            QVERIFY(v.panel.zoomFactor() > 0.0);
+            QVERIFY(v.panel.surface()->pictureRect() != fitPic);
+        };
+        zoomAndPan();
+        v.panel.activateWindow();
+        v.surface()->setFocus();
+        QVERIFY(v.surface()->hasFocus());
+        v.panel.addAction(f.action("timeline.zoom_fit")); // Shift+Z is live in this window
+        int timelineFits = 0;
+        connect(f.action("timeline.zoom_fit"), &QAction::triggered, this,
+            [&timelineFits] { ++timelineFits; });
+        QTest::keyClick(v.surface(), Qt::Key_Z, Qt::ShiftModifier);
+        QCOMPARE(v.panel.zoom(), ViewerPanel::Zoom::Fit);
+        QCOMPARE(v.panel.pan(), QPointF());
+        QCOMPARE(v.panel.surface()->pictureRect(), fitPic);
+        QCOMPARE(timelineFits, 0); // the viewer took the key
+        QCOMPARE(box->currentIndex(), int(ViewerPanel::Zoom::Fit));
+
+        zoomAndPan();
+        box->setCurrentIndex(int(ViewerPanel::Zoom::Fit));
+        QCOMPARE(v.panel.surface()->pictureRect(), fitPic);
+
+        zoomAndPan();
+        sendButton(
+            v.surface(), QEvent::MouseButtonDblClick, {60, 60}, Qt::MiddleButton, Qt::MiddleButton);
+        QCOMPARE(v.panel.surface()->pictureRect(), fitPic);
+        QCOMPARE(v.panel.pan(), QPointF());
+    }
+
+    // 41.20: Space held over the zoomed picture makes the left button pan; a tap still plays.
+    void spaceHandPans()
+    {
+        resetOptions();
+        Fixture f;
+        Viewer v(f);
+        QVERIFY(QTest::qWaitForWindowExposed(&v.panel));
+        QAction* play = f.action("transport.play_pause");
+        QVERIFY(play);
+        v.panel.addAction(play); // its Space shortcut is live in this window
+        int plays = 0;
+        connect(play, &QAction::triggered, this, [&plays] { ++plays; });
+        v.panel.setZoom(ViewerPanel::Zoom::Percent200);
+        const QPoint inside(v.surface()->width() / 2, v.surface()->height() / 2);
+        QCursor::setPos(v.surface()->mapToGlobal(inside));
+        if (!v.surface()->rect().contains(v.surface()->mapFromGlobal(QCursor::pos())))
+            QSKIP("the platform cannot move the cursor");
+        v.surface()->setFocus();
+        const QRect before = v.panel.surface()->pictureRect();
+        QTest::keyPress(v.surface(), Qt::Key_Space);
+        QCOMPARE(plays, 0); // held: no play yet
+        sendButton(
+            v.surface(), QEvent::MouseButtonPress, {100, 100}, Qt::LeftButton, Qt::LeftButton);
+        sendButton(v.surface(), QEvent::MouseMove, {90, 110}, Qt::NoButton, Qt::LeftButton);
+        sendButton(
+            v.surface(), QEvent::MouseButtonRelease, {90, 110}, Qt::LeftButton, Qt::NoButton);
+        QTest::keyRelease(v.surface(), Qt::Key_Space);
+        QCOMPARE(v.panel.surface()->pictureRect(), before.translated(-10, 10));
+        QCOMPARE(plays, 0); // used as a hand: no play
+        QCOMPARE(f.clip().transform.value(keys::PosX, 0), 0.0); // the clip was not moved
+        // A tap plays (on release).
+        QTest::keyClick(v.surface(), Qt::Key_Space);
+        QCOMPARE(plays, 1);
+        // At Fit, Space plays at once as before.
+        v.panel.zoomToFit();
+        QTest::keyPress(v.surface(), Qt::Key_Space);
+        QCOMPARE(plays, 2);
+        QTest::keyRelease(v.surface(), Qt::Key_Space);
+        QCOMPARE(plays, 2);
     }
 
     // 41.12: guides, safe areas and grid are drawn over the picture but never part of a
