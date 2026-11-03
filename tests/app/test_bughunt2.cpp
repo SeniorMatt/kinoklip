@@ -7,6 +7,7 @@
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
+#include "core/ParamKeys.h"
 #include "core/Plural.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -18,6 +19,7 @@
 #include "ui/common/StandardActions.h"
 #include "ui/cut/CutEditor.h"
 #include "ui/inspector/InspectorPanel.h"
+#include "ui/inspector/ValueField.h"
 #include "ui/mediapool/MediaPoolModel.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineLayout.h"
@@ -294,6 +296,37 @@ private slots:
         for (QAction* a : f.window->menuBar()->actions())
             view = view || a->text() == QLatin1String("&View");
         QVERIFY(view);
+    }
+
+    // Spec 24.18: Up / Down step a focused Inspector value and Enter opens it for typing;
+    // they used to reach the window shortcuts (previous / next edit) instead.
+    void spec24_18_focusedValueFieldKeepsArrowKeys()
+    {
+        Fixture f;
+        const QVector<quint64> ids = f.window->editPage()->timeline()->controller()->insertSource(
+            f.ids[0], 0, 4 * kSecondUs, SourceEditMode::Overwrite);
+        QVERIFY(!ids.isEmpty());
+        const quint64 video = f.selection.currentClip();
+        f.project.timeline()->setPlayhead(10);
+        QCoreApplication::processEvents();
+        auto* zoom = f.window->editPage()->inspector()->findChild<ValueField*>(
+            QStringLiteral("value:") + keys::ZoomX);
+        QVERIFY(zoom);
+        zoom->setFocus(Qt::MouseFocusReason);
+        QCoreApplication::processEvents();
+        QVERIFY(zoom->hasFocus());
+        QTest::keyClick(zoom, Qt::Key_Up);
+        QCOMPARE(f.project.timeline()->playhead(), int64_t(10));
+        QCOMPARE(
+            ops::clipById(f.project.timeline()->data(), video)->transform.value(keys::ZoomX, 0),
+            1.01);
+        QTest::keyClick(zoom, Qt::Key_Down);
+        QCOMPARE(f.project.timeline()->playhead(), int64_t(10));
+        QCOMPARE(
+            ops::clipById(f.project.timeline()->data(), video)->transform.value(keys::ZoomX, 0),
+            1.0);
+        QTest::keyClick(zoom, Qt::Key_Return);
+        QVERIFY(zoom->findChild<QLineEdit*>() && zoom->findChild<QLineEdit*>()->isVisible());
     }
 
     // Spec 33.32: counted messages read "1 caption" / "2 captions", never "1 caption(s)"
