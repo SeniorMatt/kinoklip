@@ -153,6 +153,10 @@ public:
     [[nodiscard]] QVector<quint64> effectiveSelection() const;
     /// @p ids expanded with linked clips when linked selection is on.
     [[nodiscard]] QVector<quint64> withLinks(const QVector<quint64>& ids) const;
+    /// @p ids reordered for a selection made by a command (an edit's new clips, Select All,
+    /// ...): a video clip goes last, so it is the current clip and the Inspector stays on its
+    /// Video tab; only a click on an audio part switches it to Audio (spec 24.2, 24.15).
+    [[nodiscard]] QVector<quint64> videoClipCurrent(QVector<quint64> ids) const;
 
     /// Callback that returns the source viewer's current clip and range (wired by the page;
     /// used by the edit.insert/overwrite/place_on_top actions).
