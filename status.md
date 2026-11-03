@@ -157,3 +157,4 @@
 - 16:15 Released 0.4.0-alpha.1 (Project Manager, single-file projects, viewer guides, 54 new effects; host 130/130, container 131/131). Desktop copy.
 - 16:28 Owner: work on the Compositing page now (design docs/compositing-page.md, contract src/core/Composition.h). Agents: compcore, compui, importfolder (owner: import a whole folder).
 - 16:40 Owner bugs: Media Pool Delete did nothing (icon view selects cells; fixed ed9b4c5, also Project Manager cards). AirPods: audio output chosen once and never follows default/pref -> agent audiodevice.
+- 17:08 Owner: small fixes ship fast as 0.4.1 from main (compositing stays on branches). Done: Alt-drag copies linked partners (34286c2). Agent markersnap: snap to markers, M toggles marker, Alt-drag copies transitions. 0.4.1 = Delete fix + Alt-drag + audio device + markersnap (+ folder import if ready).
