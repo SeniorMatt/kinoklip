@@ -129,7 +129,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 |---|---|---|
 | 7.1 | Clicking a clip selects it (and its linked clips when linked selection is on). | OK (tw clickAndRubberBandSelection) |
 | 7.2 | Ctrl- (or Shift-) click adds or removes a clip. | OK (tw clickAndRubberBandSelection). Decision: Shift does the same as Ctrl (no range-select semantics). |
-| 7.3 | Alt-click selects only the clicked part of a linked pair. | Fixed (tp spec7_3_altClickSelectsOneSide). Decision: an Alt-drag therefore duplicates just the clicked part. |
+| 7.3 | Alt-click selects only the clicked part of a linked pair. | Fixed (tp spec7_3_altClickSelectsOneSide). Owner request on 0.4.0: an Alt-drag duplicates the clip with its linked partners (Alt-click without a drag still selects one side; tp spec7_3_altDragDuplicatesTheLinkedPair). |
 | 7.4 | Linked selection toggles with Ctrl+Shift+L (and the toolbar button). | OK (tw linkedClipsMoveTogether) |
 | 7.5 | Dragging in an empty area draws a rubber band that selects every touched clip; with Ctrl/Shift it adds. | OK (tw clickAndRubberBandSelection) |
 | 7.6 | Clicking a clip edge selects that edit point (highlighted); at a cut the centre selects both sides (roll). | Fixed (new; tp spec7_6_clickEdgeSelectsEditPoint) |

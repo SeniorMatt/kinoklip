@@ -246,6 +246,7 @@ private:
         bool ripple = false; ///< trims: ripple (trim tool) or leave gaps (select tool)
         bool editOpen = false;
         bool selectOnRelease = false; ///< click on a selected clip without dragging
+        bool altOneSideOnRelease = false; ///< Alt-click without dragging: only the clicked side
         TimelineData origin; ///< state at drag start; restored before every live update
         QVector<quint64> clips; ///< affected clips (primary first)
         QVector<std::pair<quint64, quint64>> rolls; ///< roll: (left, right) pairs

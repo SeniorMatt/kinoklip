@@ -279,7 +279,9 @@ void TimelineWidget::mouseReleaseEvent(QMouseEvent* event)
         if (m_drag.pending == DragMode::MarkerMove)
             m_ctx.project->timeline()->setPlayhead(m_drag.markerFrame);
         // A click without drag on an already selected clip selects just that clip.
-        if (m_drag.selectOnRelease)
+        if (m_drag.altOneSideOnRelease)
+            m_ctx.selection->setClips({m_drag.hit.clipId});
+        else if (m_drag.selectOnRelease)
             m_ctx.selection->setClips(clickedWithLinks(m_drag.hit.clipId));
         m_drag = Drag {};
         return;
@@ -421,7 +423,8 @@ void TimelineWidget::startDrag(DragMode mode)
         openEdit(tr("Swap Edit"));
         break;
     case DragMode::Move: {
-        // Alt-drag: the clicked side only (linked partners are not expanded, spec 7.3).
+        // Alt-drag duplicates the selection the press made: the clicked clip with its linked
+        // partners, or the group it belongs to (spec 7.3).
         m_drag.clips = (m_drag.modifiers & Qt::AltModifier) ? m_ctx.selection->clips()
                                                             : m_controller->effectiveSelection();
         if (!m_drag.clips.contains(hit.clipId))
@@ -917,16 +920,22 @@ QVector<quint64> TimelineWidget::clickedWithLinks(quint64 clipId) const
 
 void TimelineWidget::clickSelect(const TimelineHit& hit, Qt::KeyboardModifiers modifiers)
 {
-    // Alt-click picks just the clicked clip, not its linked partners (spec 7.3).
-    const QVector<quint64> ids = (modifiers & Qt::AltModifier) ? QVector<quint64> {hit.clipId}
-                                                               : clickedWithLinks(hit.clipId);
+    // Alt-click picks just the clicked clip, not its linked partners (spec 7.3); an Alt-drag
+    // duplicates the clip together with its linked partners (owner request on 0.4.0), so the
+    // press keeps or selects the linked group and only a release without a drag reduces the
+    // selection to the clicked side.
+    const QVector<quint64> ids = clickedWithLinks(hit.clipId);
+    if ((modifiers & Qt::AltModifier) && !(modifiers & (Qt::ShiftModifier | Qt::ControlModifier))) {
+        if (!m_ctx.selection->isSelected(hit.clipId))
+            m_ctx.selection->setClips(ids);
+        m_drag.altOneSideOnRelease = true;
+        return;
+    }
     if (modifiers & (Qt::ShiftModifier | Qt::ControlModifier)) {
         if (m_ctx.selection->isSelected(hit.clipId))
             m_ctx.selection->removeClips(ids);
         else
             m_ctx.selection->addClips(ids);
-    } else if (modifiers & Qt::AltModifier) {
-        m_ctx.selection->setClips(ids);
     } else if (m_ctx.selection->isSelected(hit.clipId)) {
         m_drag.selectOnRelease = true; // keep the group for dragging; reduce on plain click
     } else {
