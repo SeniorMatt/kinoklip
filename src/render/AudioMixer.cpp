@@ -2,6 +2,7 @@
 // AudioMixer — per-clip decode, gain/pan automation, crossfades, mute/solo, soft clip.
 #include "render/AudioMixer.h"
 
+#include "core/AudioTransitions.h"
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "media/AudioDecoder.h"
@@ -38,6 +39,14 @@ constexpr int64_t kMaxVarispeedRead = int64_t(1) << 20;
 constexpr int kCurveStep = 64;
 
 /// The clip linked to @p clip on a video track (same non-zero linkGroup, overlapping).
+/// Gain curve of @p span: the audio transition's own, equal power for a video transition
+/// (a linked video clip's, or a video type id stored on an audio clip by older projects).
+audiotransitions::Curve curveOf(const render::TransitionSpan& span)
+{
+    return span.transition ? audiotransitions::curveFor(span.transition->type)
+                           : audiotransitions::Curve::EqualPower;
+}
+
 const ClipData* linkedVideo(
     const TimelineData& tl, const ClipData& clip, const TrackData** track, int* index)
 {
@@ -76,11 +85,13 @@ struct AudioMixer::Decoder
     bool stamped = false;
 };
 
-/// A gain ramp over [start, end) timeline samples: fade-in (sin) or fade-out (cos).
+/// A gain ramp over [start, end) timeline samples: fade-in (gainIn) or fade-out (gainOut) of
+/// the transition's curve (core/AudioTransitions.h; equal power for video transition ids).
 struct AudioMixer::Fade
 {
     int64_t start = 0;
     int64_t end = 0; ///< start == end: no fade
+    audiotransitions::Curve curve = audiotransitions::Curve::EqualPower;
     [[nodiscard]] bool active() const { return end > start; }
 };
 
@@ -285,13 +296,13 @@ bool AudioMixer::mixTrackClips(const TimelineData& tl, const NestedTimelines& ne
         Fade headFade, tailFade;
         if (head) {
             playStart = std::min(playStart, head->start);
-            headFade
-                = {framesToSamples48k(head->start, tl.fps), framesToSamples48k(head->end, tl.fps)};
+            headFade = {framesToSamples48k(head->start, tl.fps),
+                framesToSamples48k(head->end, tl.fps), curveOf(*head)};
         }
         if (tail) {
             playEnd = std::max(playEnd, tail->end);
-            tailFade
-                = {framesToSamples48k(tail->start, tl.fps), framesToSamples48k(tail->end, tl.fps)};
+            tailFade = {framesToSamples48k(tail->start, tl.fps),
+                framesToSamples48k(tail->end, tl.fps), curveOf(*tail)};
         }
         const int64_t s0 = std::max(framesToSamples48k(playStart, tl.fps), startSample48k);
         const int64_t s1 = std::min(framesToSamples48k(playEnd, tl.fps), mixEnd);
@@ -426,11 +437,12 @@ bool AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
         if (clip.fadeInFrames > 0 || clip.fadeOutFrames > 0) // fade handles (spec 31)
             g *= audioFadeGain(double(sample - clipStart) * framesPerSample, clip.duration,
                 clip.fadeInFrames, clip.fadeOutFrames);
-        constexpr double kHalfPi = std::numbers::pi / 2.0;
         if (head.active() && sample >= head.start && sample < head.end)
-            g *= std::sin(double(sample - head.start) / double(head.end - head.start) * kHalfPi);
+            g *= audiotransitions::gainIn(
+                head.curve, double(sample - head.start) / double(head.end - head.start));
         if (tail.active() && sample >= tail.start && sample < tail.end)
-            g *= std::cos(double(sample - tail.start) / double(tail.end - tail.start) * kHalfPi);
+            g *= audiotransitions::gainOut(
+                tail.curve, double(sample - tail.start) / double(tail.end - tail.start));
         // Freeze / reverse: silent (ramped over one block like any gain change).
         if (retimed
             && retime::speedAt(clip, double(sample - clipStart) * framesPerSample)

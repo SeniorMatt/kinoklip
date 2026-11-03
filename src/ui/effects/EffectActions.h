@@ -33,6 +33,15 @@ namespace effectactions {
 /// (video effects on video tracks, audio effects on audio tracks).
 [[nodiscard]] bool effectFitsTrack(EffectCategory category, TrackType type);
 
+/// True if a transition of @p category can sit on a clip on a track of @p type: video
+/// transitions on video tracks, audio transitions (EffectCategory::AudioTransition) on audio
+/// tracks. Other categories never fit.
+[[nodiscard]] bool transitionFitsTrack(EffectCategory category, TrackType type);
+
+/// The default transition for a track of @p type: Cross Dissolve on video, Cross Fade +3 dB
+/// (audiotransitions::defaultId()) on audio.
+[[nodiscard]] QString defaultTransitionId(TrackType type);
+
 /// Appends a new instance of effect @p descriptorId to every clip in @p clipIds whose track
 /// type fits the effect. One undo step. Returns the number of clips changed (0 = nothing done,
 /// e.g. unknown id or no fitting clip).
@@ -41,7 +50,8 @@ int applyEffect(Project& project, const QVector<quint64>& clipIds, const QString
 /// Sets transition @p descriptorId on the head (@p atHead) or tail of clip @p clipId, with
 /// @p durationFrames (< 1 = default, always clamped to the clip length). Replaces an existing
 /// transition there but keeps its length when @p durationFrames < 1. One undo step.
-/// Returns false if the clip or descriptor is unknown.
+/// Returns false if the clip or descriptor is unknown, or the transition does not fit the
+/// clip's track (transitionFitsTrack()).
 bool applyTransition(Project& project, quint64 clipId, const QString& descriptorId, bool atHead,
     int64_t durationFrames = -1);
 
