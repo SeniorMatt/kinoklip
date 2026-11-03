@@ -12,8 +12,10 @@ namespace kk::compops {
 
 namespace {
 
-/// Spacing of nodes placed automatically (grid units: 1 = one tile height).
-constexpr double kStepX = 2.5;
+/// Spacing of nodes placed automatically (grid units: 1 = one tile height). The node editor
+/// draws tiles 3.4 units wide (NodeEditor::kTileWidth), so a step of 4.5 leaves a gap for the
+/// link between neighbours.
+constexpr double kStepX = 4.5;
 constexpr double kStepY = 1.5;
 
 const NodeDescriptor* descriptorOf(const CompNode& n)

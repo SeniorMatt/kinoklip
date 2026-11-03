@@ -481,6 +481,7 @@ public:
     {
         addCommonWidgets(grid, gridRow, parentWidget);
         m_edit = new QLineEdit(parentWidget);
+        m_edit->setObjectName(QStringLiteral("text:") + desc.key); // tests, guide screenshots
         grid->addWidget(m_edit, gridRow, paramgrid::kEditor, 1, 2);
         connect(m_edit, &QLineEdit::editingFinished, this, [this] {
             const QString text = m_edit->text();
@@ -552,6 +553,7 @@ public:
     {
         addCommonWidgets(grid, gridRow, parentWidget);
         m_edit = new QPlainTextEdit(parentWidget);
+        m_edit->setObjectName(QStringLiteral("text:") + desc.key); // tests, guide screenshots
         m_edit->setTabChangesFocus(true);
         const int lineHeight = m_edit->fontMetrics().lineSpacing();
         m_edit->setFixedHeight(lineHeight * kTextEditLines + 12);

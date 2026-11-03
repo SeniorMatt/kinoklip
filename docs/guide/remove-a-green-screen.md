@@ -61,6 +61,10 @@ green colour is the "key" that is cut out.
   mask is removed, keyed or not. This is often called a "garbage matte".
 - **Status view:** set **View** to **Status**. It shows solid areas in white, transparent areas
   in black and half-transparent areas in grey, which makes small holes easy to find.
+- **Everything inside one clip:** on the [Compositing page](compositing-page.md) a **Chroma
+  Key** node, a **Background** node and a **Merge** do the same as the two tracks here, inside
+  the green screen clip itself. Useful when you want to add text or more layers to the keyed
+  shot as well.
 - **Other keys:** in the same **Key** folder, **Luma Key** removes dark or bright areas (for
   example a black background), and **HSL Key** removes a range of hue, saturation and
   brightness.
