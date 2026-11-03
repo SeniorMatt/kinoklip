@@ -7,25 +7,159 @@
       "id": "getting-started",
       "title": "Getting started",
       "file": "getting-started.md",
-      "summary": "Import your media, cut a first edit and look around the pages.",
-      "keywords": ["first steps", "import", "beginner", "tour"],
-      "contexts": ["page:edit", "page:media"]
+      "summary": "The pages, making a project, importing clips, editing on the timeline, a title, a transition and exporting.",
+      "keywords": [
+        "basics",
+        "first video",
+        "beginner",
+        "project",
+        "import",
+        "timeline",
+        "cut",
+        "split",
+        "blade",
+        "trim",
+        "delete",
+        "ripple delete",
+        "play",
+        "title",
+        "text",
+        "transition",
+        "cross dissolve",
+        "export"
+      ],
+      "contexts": [
+        "page:edit",
+        "page:media",
+        "page:cut",
+        "panel:media_pool",
+        "panel:timeline",
+        "panel:viewer",
+        "panel:inspector",
+        "panel:effects",
+        "action:file.project_manager",
+        "action:file.new",
+        "action:file.import_media",
+        "action:edit.insert",
+        "action:edit.overwrite",
+        "action:edit.place_on_top",
+        "action:edit.replace",
+        "action:edit.append_at_end",
+        "action:tool.select",
+        "action:tool.trim",
+        "action:tool.blade",
+        "action:edit.split",
+        "action:edit.delete",
+        "action:edit.ripple_delete",
+        "action:timeline.add_transition",
+        "effect:text_title",
+        "effect:cross_dissolve",
+        "effect:dip_to_color",
+        "effect:wipe",
+        "effect:push"
+      ]
+    },
+    {
+      "id": "export-for-youtube",
+      "title": "Export a video for YouTube",
+      "file": "export-for-youtube.md",
+      "summary": "Render the timeline to an MP4 file with the YouTube preset on the Deliver page.",
+      "keywords": [
+        "export",
+        "render",
+        "deliver",
+        "youtube",
+        "mp4",
+        "h.264",
+        "upload",
+        "save video",
+        "in/out range",
+        "render queue"
+      ],
+      "contexts": [
+        "page:deliver",
+        "panel:render_settings",
+        "panel:render_queue"
+      ]
     },
     {
       "id": "remove-a-green-screen",
       "title": "Remove a green screen",
       "file": "remove-a-green-screen.md",
-      "summary": "Key out a green or blue background with Chroma Key.",
-      "keywords": ["green screen", "chroma key", "blue screen", "keying"],
-      "contexts": ["effect:chroma_key"]
+      "summary": "Key out a green or blue background with Chroma Key: eyedropper, matte view and spill removal.",
+      "keywords": [
+        "green screen",
+        "blue screen",
+        "chroma key",
+        "keying",
+        "key",
+        "transparent background",
+        "matte",
+        "spill",
+        "luma key",
+        "hsl key"
+      ],
+      "contexts": [
+        "effect:chroma_key",
+        "effect:hsl_key",
+        "effect:luma_key"
+      ]
     },
     {
-      "id": "export-for-youtube",
-      "title": "Export for YouTube",
-      "file": "export-for-youtube.md",
-      "summary": "Render a finished timeline with settings that suit YouTube.",
-      "keywords": ["render", "export", "upload", "youtube", "deliver"],
-      "contexts": ["page:deliver"]
+      "id": "change-clip-speed",
+      "title": "Speed up or slow down a clip",
+      "file": "change-clip-speed.md",
+      "summary": "Slow motion, fast motion, speed ramps, reverse and freeze frames with Change Clip Speed and the retime controls.",
+      "keywords": [
+        "speed",
+        "slow motion",
+        "fast forward",
+        "time-lapse",
+        "speed ramp",
+        "retime",
+        "reverse",
+        "freeze frame",
+        "optical flow",
+        "frame blend"
+      ],
+      "contexts": [
+        "action:clip.change_speed",
+        "action:clip.retime_controls",
+        "action:clip.retime_curve",
+        "action:clip.speed_increase",
+        "action:clip.speed_decrease",
+        "action:clip.freeze_frame"
+      ]
+    },
+    {
+      "id": "fade-audio-and-add-music",
+      "title": "Fade audio in and out, and add music",
+      "file": "fade-audio-and-add-music.md",
+      "summary": "Put music under the video, lower its volume and fade it in and out with fade handles or audio transitions.",
+      "keywords": [
+        "music",
+        "audio",
+        "fade in",
+        "fade out",
+        "volume",
+        "background music",
+        "crossfade",
+        "level line",
+        "normalize",
+        "sound"
+      ],
+      "contexts": [
+        "effect:audio_crossfade_3db",
+        "effect:audio_crossfade_0db",
+        "effect:audio_crossfade_minus3db",
+        "effect:audio_crossfade_exponential",
+        "effect:audio_crossfade_logarithmic",
+        "effect:audio_crossfade_scurve",
+        "action:clip.normalize_audio",
+        "action:timeline.add_audio_track",
+        "page:audio",
+        "panel:mixer"
+      ]
     }
   ]
 }
