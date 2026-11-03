@@ -81,13 +81,19 @@ private slots:
         ActionRegistry reg;
         reg.loadDefaultKeymap();
         registerStandardActions(reg);
-        QHash<QKeySequence, QString> seen;
+        // The node editor's comp.* keys only act while it has focus (widget shortcuts claimed
+        // through ShortcutOverride), so they are unique among themselves, not app-wide.
+        QHash<QKeySequence, QString> seen, seenComp;
         for (const QString& id : reg.ids()) {
+            const bool comp = id.startsWith(QLatin1String("comp."));
+            if (comp)
+                QCOMPARE(reg.action(id)->shortcutContext(), Qt::WidgetShortcut);
+            QHash<QKeySequence, QString>& scope = comp ? seenComp : seen;
             for (const QKeySequence& key : reg.shortcuts(id)) {
-                QVERIFY2(!seen.contains(key),
-                    qPrintable(key.toString() + QStringLiteral(": ") + seen.value(key)
+                QVERIFY2(!scope.contains(key),
+                    qPrintable(key.toString() + QStringLiteral(": ") + scope.value(key)
                         + QStringLiteral(" and ") + id));
-                seen.insert(key, id);
+                scope.insert(key, id);
             }
         }
     }
@@ -101,9 +107,9 @@ private slots:
             if (!action->icon().isNull())
                 QVERIFY(!action->icon().pixmap(16, 16).isNull());
         }
-        for (const char* name : {"play", "pause", "blade", "select", "trim", "snap", "link",
-                 "keyframe_on", "keyframe_off", "zoom_in", "zoom_out", "marker", "loop",
-                 "panel_inspector"}) {
+        for (const char* name :
+            {"play", "pause", "blade", "select", "trim", "snap", "link", "keyframe_on",
+                "keyframe_off", "zoom_in", "zoom_out", "marker", "loop", "panel_inspector"}) {
             QVERIFY2(hasIcon(QLatin1String(name)), name);
         }
         QVERIFY(!hasIcon(QStringLiteral("does_not_exist")));

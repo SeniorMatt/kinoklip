@@ -81,6 +81,7 @@
         <file>icons/panel_effects.svg</file>
         <file>icons/panel_inspector.svg</file>
         <file>icons/panel_media_pool.svg</file>
+        <file>icons/panel_nodes.svg</file>
         <file>icons/panel_metadata.svg</file>
         <file>icons/panel_mixer.svg</file>
         <file>icons/panel_keyframes.svg</file>

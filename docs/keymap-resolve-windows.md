@@ -3,8 +3,8 @@
 The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id
 `resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and
 its global commands, written from general knowledge of how Resolve behaves (nothing copied from
-Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing and Color
-pages) keep their Resolve key but are
+Resolve's documentation). Commands of subsystems Kinoklip does not have yet (the Color page) keep
+their Resolve key but are
 disabled.
 
 **Confidence** says how sure we are that the key is Resolve's default:
@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 289 commands; sure 94, likely 89, unsure 106.
+Counts: 308 commands; sure 100, likely 96, unsure 112.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -183,6 +183,8 @@ that every command has an entry and that no key is used twice.
 | New Compound Clip | `clip.new_compound` | (none) | likely | Clip menu / clip context menu command without a default key in Resolve |
 | Open in Timeline (compound clip) | `clip.open_in_timeline` | (none) | likely | context menu command without a default key |
 | Decompose in Place (compound clip) | `clip.decompose` | (none) | likely | context menu command without a default key |
+| Open in Compositing Page (the clip's node graph) | `clip.open_in_compositing` | (none) | likely | timeline clip context menu command without a default key |
+| Reset Composition (remove the clip's node graph) | `clip.reset_composition` | (none) | likely | timeline clip context menu command without a default key |
 | Link / Unlink Clips | `clip.link` | `Ctrl+Alt+L` | likely | Resolve has one toggle; Kinoklip's Link toggles too. |
 | Unlink Clips | `clip.unlink` | (none) | likely |  |
 | Add Keyframe (inspector) | `clip.add_keyframe` | `Alt+K` | unsure | toggles a key on the last touched inspector parameter; Resolve default not confirmed |
@@ -223,13 +225,14 @@ that every command has an entry and that no key is used twice.
 | Media Page | `view.page_media` | `Shift+2` | sure |  |
 | Cut Page | `view.page_cut` | `Shift+3` | sure |  |
 | Edit Page | `view.page_edit` | `Shift+4` | sure |  |
-| Compositing Page (disabled; Resolve: Fusion) | `view.page_compositing` | `Shift+5` | sure |  |
+| Compositing Page (node compositing of the selected clip) | `view.page_compositing` | `Shift+5` | sure |  |
 | Color Page (disabled) | `view.page_color` | `Shift+6` | sure |  |
 | Audio Page | `view.page_audio` | `Shift+7` | sure |  |
 | Deliver Page | `view.page_deliver` | `Shift+8` | sure |  |
 | Media Pool panel | `view.toggle_media_pool` | (none) | likely |  |
 | Effects panel | `view.toggle_effects` | (none) | likely |  |
 | Edit Index panel | `view.toggle_edit_index` | (none) | likely |  |
+| Nodes panel (Compositing page node editor) | `view.toggle_nodes` | (none) | unsure | interface bar toggle; no default key known, none assigned |
 | Keyframes panel (keyframe editor window) | `view.toggle_keyframes` | (none) | unsure | Kinoklip's large keyframe editor; no default key is known, none assigned. |
 | Stacked Timelines (two timelines one above the other) | `view.stacked_timelines` | (none) | likely | a timeline view option in Resolve; no default key known |
 | Mixer panel | `view.toggle_mixer` | (none) | likely |  |
@@ -364,6 +367,27 @@ that every command has an entry and that no key is used twice.
 | Cut Viewer: Source Clip | `cut.viewer_source_clip` | (none) | unsure | Cut page viewer mode button; Q switches between the source and the timeline there |
 | Cut Viewer: Source Tape (all clips of the bin back to back) | `cut.viewer_source_tape` | (none) | unsure | Cut page viewer mode button; no default key known |
 | Cut Viewer: Timeline | `cut.viewer_timeline` | (none) | unsure | Cut page viewer mode button; Q switches between the source and the timeline there |
+
+## Compositing page node editor
+
+| Command | Action id | Key | Confidence | Note |
+|---|---|---|---|---|
+| Add Node (searchable Select Node list; adds after the selected node) | `comp.select_node` | `Shift+Space` | sure | acts while the node editor has focus |
+| Add Note (text box in the node editor) | `comp.add_note` | (none) | unsure | no default key known, none assigned |
+| Cut Nodes | `comp.cut` | `Ctrl+X` | likely | acts while the node editor has focus |
+| Copy Nodes | `comp.copy` | `Ctrl+C` | sure | acts while the node editor has focus |
+| Paste Nodes | `comp.paste` | `Ctrl+V` | sure | acts while the node editor has focus |
+| Duplicate Nodes | `comp.duplicate` | `Ctrl+D` | unsure | acts while the node editor has focus; Resolve's default not confirmed |
+| Delete Nodes | `comp.delete` | `Del` / `Backspace` | sure | acts while the node editor has focus |
+| Select All Nodes | `comp.select_all` | `Ctrl+A` | likely | acts while the node editor has focus |
+| Rename Node | `comp.rename` | `F2` | likely | acts while the node editor has focus |
+| Pass Through (disable the node: its main input goes straight through) | `comp.pass_through` | `Ctrl+P` | likely | acts while the node editor has focus |
+| Lock Node (parameters cannot be edited) | `comp.lock` | (none) | unsure | no default key known, none assigned |
+| Swap Inputs (background and foreground of Merge / Dissolve) | `comp.swap_inputs` | `Ctrl+T` | likely | acts while the node editor has focus |
+| View Node in Left Viewer | `comp.view_left` | `1` | sure | acts while the node editor has focus |
+| View Node in Right Viewer | `comp.view_right` | `2` | sure | acts while the node editor has focus |
+| Fit Nodes to View | `comp.fit` | `Ctrl+F` | unsure | acts while the node editor has focus; Resolve's default not confirmed |
+| Snap Nodes to Grid | `comp.snap_grid` | (none) | unsure | node editor context menu option; no default key known |
 
 ## Audio page
 

@@ -17,6 +17,7 @@ struct AppContext;
 class AutosaveController;
 class DeliverPage;
 class AudioPage;
+class CompositingPage;
 class CutPage;
 class EditPage;
 class HelpController;
@@ -62,6 +63,7 @@ public:
     [[nodiscard]] CutPage* cutPage() const { return m_cutPage; }
     [[nodiscard]] AudioPage* audioPage() const { return m_audioPage; }
     [[nodiscard]] EditPage* editPage() const { return m_editPage; }
+    [[nodiscard]] CompositingPage* compositingPage() const { return m_compositingPage; }
     [[nodiscard]] DeliverPage* deliverPage() const { return m_deliverPage; }
     [[nodiscard]] ProjectController* projectController() const { return m_projectController; }
     /// The in-app help (F1, Help > Guide).
@@ -103,6 +105,7 @@ private:
     CutPage* m_cutPage = nullptr;
     AudioPage* m_audioPage = nullptr;
     EditPage* m_editPage = nullptr;
+    CompositingPage* m_compositingPage = nullptr;
     DeliverPage* m_deliverPage = nullptr;
     ProjectController* m_projectController = nullptr;
     AutosaveController* m_autosave = nullptr;

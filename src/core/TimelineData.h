@@ -5,6 +5,7 @@
 
 #include "core/Animation.h"
 #include "core/ClipAttributes.h"
+#include "core/Composition.h"
 #include "core/Mask.h"
 #include "core/MixerData.h"
 #include "core/Rational.h"
@@ -189,6 +190,11 @@ struct ClipData
     /// Media clips: the Clip Attributes of the media pool item (MediaItem::attributes),
     /// mirrored by Project::syncDerived() so render snapshots need no media pool lookup.
     ClipAttributes attributes;
+    /// Compositing page node graph (core/Composition.h). When set, the clip shows the
+    /// composition's output instead of its source picture; the clip's effects, masks,
+    /// transform, opacity and compositing then apply on top. std::nullopt = no composition
+    /// (the clip's picture straight through). Keyframes in it are clip-local frames.
+    std::optional<Composition> composition;
 
     /// First frame after the clip.
     [[nodiscard]] int64_t end() const { return start + duration; }

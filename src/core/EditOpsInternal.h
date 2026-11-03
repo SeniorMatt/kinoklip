@@ -49,6 +49,12 @@ inline void shiftClipKeys(ClipData& clip, int64_t deltaFrames)
         mask.shiftKeys(deltaFrames);
     for (Marker& m : clip.markers) // clip markers follow the content like keyframes
         m.frame += deltaFrames;
+    if (clip.composition) { // comp frames are clip-local too
+        for (CompNode& n : clip.composition->nodes) {
+            n.params.shiftKeys(deltaFrames);
+            n.path.shiftKeys(deltaFrames);
+        }
+    }
 }
 
 // Moves the head of a clip by delta frames, keeping the content at every remaining timeline
