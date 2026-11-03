@@ -12,6 +12,7 @@
 #include "projects/ProjectLibrary.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/ProgressTask.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
 #include "ui/projects/NewProjectDialog.h"
@@ -28,6 +29,7 @@
 #include <QListView>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QProgressDialog>
 #include <QRadioButton>
 #include <QSettings>
 #include <QSignalSpy>
@@ -290,6 +292,13 @@ private slots:
         const QString gamma = m_root + QStringLiteral("/Gamma.kkproj");
         QTRY_VERIFY(QFileInfo::exists(gamma));
         QVERIFY(!QFileInfo::exists(b));
+        // Duplicate, cancelled in its progress dialog: nothing is left behind.
+        QVERIFY(m_window->selectPath(gamma));
+        setProgressDialogHookForTests([](QProgressDialog* d) { d->cancel(); });
+        m_window->duplicateSelected();
+        setProgressDialogHookForTests({});
+        QVERIFY(!QFileInfo::exists(m_root + QStringLiteral("/Gamma copy.kkproj")));
+        QVERIFY(!QFileInfo::exists(m_root + QStringLiteral("/Gamma copy.kkproj.part")));
         // Duplicate.
         QVERIFY(m_window->selectPath(gamma));
         m_window->duplicateSelected();
