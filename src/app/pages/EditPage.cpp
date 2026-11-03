@@ -32,6 +32,7 @@
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
+#include <QResizeEvent>
 #include <QCloseEvent>
 #include <QCursor>
 #include <QGuiApplication>
@@ -51,10 +52,15 @@ namespace kk {
 namespace {
 
 // Default sizes for a 1920x1080 window; applyDefaultProportions() scales them to the real size
-// on the first show (QSplitter alone would give the whole difference to the stretching child).
-constexpr int kLeftColumnWidth = 380;
-constexpr int kViewerWidth = 560;
-constexpr int kRightColumnWidth = 420;
+// whenever the page is resized until the user drags a splitter (QSplitter alone would give the
+// whole difference to the stretching viewers, leaving the side columns narrow when the window
+// starts small and is then maximised).
+constexpr int kLeftColumnWidth = 460; ///< media pool / effects / edit index column
+constexpr int kViewerWidth = 490;
+constexpr int kRightColumnWidth = 480; ///< inspector / metadata column
+/// Version of the stored splitter layout. Layouts stored by older versions are ignored for the
+/// top row once (version 1 could store side columns squeezed by the resize problem above).
+constexpr int kLayoutVersion = 2;
 constexpr int kTopRowHeight = 520;
 constexpr int kBottomRowHeight = 440;
 constexpr int kMixerWidth = 260;
@@ -113,6 +119,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_topRow->setStretchFactor(1, 1);
     m_topRow->setStretchFactor(2, 1);
     m_topRow->setSizes({kLeftColumnWidth, kViewerWidth, kViewerWidth, kRightColumnWidth});
+    // A drag by the user ends the automatic default widths (resizeEvent()).
+    connect(m_topRow, &QSplitter::splitterMoved, this, [this] { m_defaultWidths = false; });
 
     m_bottomRow = makeSplitter(Qt::Horizontal);
     m_bottomRow->addWidget(m_timeline);
@@ -345,9 +353,9 @@ void EditPage::updateViewers()
 void EditPage::showEvent(QShowEvent* event)
 {
     Page::showEvent(event);
-    if (!m_layoutRestored && !m_proportionsApplied) {
+    if (!m_proportionsApplied && (!m_layoutRestored || m_defaultWidths)) {
         m_proportionsApplied = true;
-        applyDefaultProportions();
+        applyDefaultProportions(m_layoutRestored);
     }
     if (m_keyframesFloating && m_keyframesShown && m_keyframesWindow && !event->spontaneous())
         m_keyframesWindow->show();
@@ -362,18 +370,48 @@ void EditPage::hideEvent(QHideEvent* event)
         m_keyframesWindow->hide();
 }
 
-void EditPage::applyDefaultProportions()
+void EditPage::resizeEvent(QResizeEvent* event)
+{
+    Page::resizeEvent(event);
+    // Until the user drags a column splitter, keep the default column proportions at every
+    // size (the window often starts small and is maximised right after the first show).
+    if (m_defaultWidths && m_proportionsApplied)
+        applyDefaultWidths();
+}
+
+void EditPage::applyDefaultWidths()
+{
+    const int width = m_topRow->width();
+    if (width <= 0)
+        return;
+    const auto scaled = [width](int reference) {
+        return int(qint64(reference) * width / kReferenceWidth);
+    };
+    const int left = scaled(kLeftColumnWidth);
+    const int right = scaled(kRightColumnWidth);
+    // The viewers share the rest; a hidden viewer (single viewer mode) gets nothing.
+    const bool source = !m_sourceViewer->isHidden();
+    const bool program = !m_timelineViewer->isHidden();
+    const int viewers = std::max(0, width - left - right);
+    const int sourceWidth = source ? (program ? viewers / 2 : viewers) : 0;
+    const int programWidth = program ? viewers - sourceWidth : 0;
+    QList<int> sizes(m_topRow->count(), 0);
+    sizes[m_topRow->indexOf(m_leftColumn)] = left;
+    sizes[m_topRow->indexOf(m_sourceViewer)] = sourceWidth;
+    sizes[m_topRow->indexOf(m_timelineViewer)] = programWidth;
+    sizes[m_topRow->indexOf(m_rightColumn)] = right;
+    m_topRow->setSizes(sizes);
+}
+
+void EditPage::applyDefaultProportions(bool widthsOnly)
 {
     const auto scaled = [](int reference, int total, int referenceTotal) {
         return int(qint64(reference) * total / referenceTotal);
     };
-    const int width = m_topRow->width();
+    applyDefaultWidths();
     const int height = m_main->height();
-    if (width <= 0 || height <= 0)
+    if (widthsOnly || height <= 0)
         return;
-    m_topRow->setSizes({scaled(kLeftColumnWidth, width, kReferenceWidth),
-        scaled(kViewerWidth, width, kReferenceWidth), scaled(kViewerWidth, width, kReferenceWidth),
-        scaled(kRightColumnWidth, width, kReferenceWidth)});
     const int referenceHeight = kTopRowHeight + kBottomRowHeight;
     m_main->setSizes({scaled(kTopRowHeight, height, referenceHeight),
         scaled(kBottomRowHeight, height, referenceHeight)});
@@ -602,6 +640,7 @@ bool EditPage::isSingleViewer() const
 
 void EditPage::saveLayout(QSettings& settings) const
 {
+    settings.setValue(QStringLiteral("layoutVersion"), kLayoutVersion);
     settings.setValue(QStringLiteral("main"), m_main->saveState());
     settings.setValue(QStringLiteral("topRow"), m_topRow->saveState());
     settings.setValue(QStringLiteral("bottomRow"), m_bottomRow->saveState());
@@ -621,7 +660,11 @@ void EditPage::restoreLayout(const QSettings& settings)
 {
     m_layoutRestored = settings.contains(QStringLiteral("main"));
     m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
-    m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
+    // An outdated top row keeps the default column widths (kLayoutVersion).
+    m_defaultWidths = !m_layoutRestored
+        || settings.value(QStringLiteral("layoutVersion"), 1).toInt() < kLayoutVersion;
+    if (!m_defaultWidths)
+        m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
     m_bottomRow->restoreState(settings.value(QStringLiteral("bottomRow")).toByteArray());
     m_leftColumn->restoreState(settings.value(QStringLiteral("leftColumn")).toByteArray());
     m_rightColumn->restoreState(settings.value(QStringLiteral("rightColumn")).toByteArray());

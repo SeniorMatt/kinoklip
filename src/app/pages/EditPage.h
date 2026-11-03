@@ -96,6 +96,7 @@ public:
 protected:
     void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
@@ -108,7 +109,10 @@ private:
     [[nodiscard]] QAction* singleViewerAction() const;
     /// Resolve's default proportions for the page's actual size (first show without a
     /// stored layout): viewers about half the height, side columns about a fifth of the width.
-    void applyDefaultProportions();
+    void applyDefaultProportions(bool widthsOnly = false);
+    /// Sets the top row to the default column widths for its current width (side columns
+    /// scaled from 1920 px, the viewers share the rest).
+    void applyDefaultWidths();
     /// Shows / hides the Keyframes panel where it lives (docked row or its window).
     void showKeyframes(bool visible);
     /// Gives the docked Keyframes row a usable height (taken from the timeline row).
@@ -142,6 +146,9 @@ private:
     QMap<PanelId, QWidget*> m_panels;
     bool m_layoutRestored = false; ///< restoreLayout() found stored splitter states
     bool m_proportionsApplied = false;
+    /// The top row still has the default column widths (no user drag, no stored layout of the
+    /// current kLayoutVersion): resizes re-apply them.
+    bool m_defaultWidths = true;
     TimecodeEntry* m_timecodeEntry = nullptr; ///< typed timecode (spec 2.10)
 };
 
