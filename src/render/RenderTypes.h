@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace kk {
@@ -95,6 +96,15 @@ enum RenderOutput : unsigned {
     OutputImage = 1u << 1,
 };
 
+/// Compositing page viewers: render one node of a clip's composition instead of the
+/// timeline (RenderRequest::compositionNode, Compositor::renderCompositionNode()).
+struct CompositionNodeView
+{
+    quint64 clipId = 0; ///< a video clip of the request's root timeline
+    quint64 nodeId = 0; ///< node of its composition (0 = its MediaOut)
+    int64_t compFrame = 0; ///< clip-local frame (0 = the clip's first frame)
+};
+
 /// One request for the Compositor.
 struct RenderRequest
 {
@@ -119,6 +129,10 @@ struct RenderRequest
     /// A frame inside a cached chunk is rendered from the chunk's file instead (the request is
     /// rewritten by Compositor::renderAsync(); RenderedFrame::fromCache tells).
     std::shared_ptr<const RenderCacheView> renderCache = nullptr;
+    /// Set: render the image of this composition node (at the timeline's resolution scaled
+    /// by outSize / quality, premultiplied, transparent where the node draws nothing) instead
+    /// of the timeline frame; `frame` is ignored and the render cache is never used.
+    std::optional<CompositionNodeView> compositionNode = std::nullopt;
 };
 
 /// Result of a render request. Immutable once handed out; share it as RenderedFramePtr.

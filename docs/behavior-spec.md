@@ -897,6 +897,39 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.16 | None of the new commands has a default key (no known Resolve default); they are assignable in Keyboard Customization. | Fixed (scripts/keymap-resolve-windows.py rows) |
 | 41.17 | Snapping of mask points to guides; panning the zoomed viewer (the rulers follow `pictureRect()`, so a pan will move them too); colours per guide. | Deferred |
 
+## 42. Compositing page (compcore / compui branches, v4)
+
+Kinoklip's node-based compositing page (docs/compositing-page.md): every video clip can get
+a node graph whose result replaces its picture. Clean room: behaviour from general
+knowledge of node compositors, our own names. Rows of the core (model, evaluation, render)
+are in 42a, the page itself (layout, node editor, viewers, inspector) in 42b. Tests: `co` =
+`tests/core/test_composition.cpp`, `cr` = `tests/render/test_comprender.cpp`, `ce` =
+`tests/export/test_compexport.cpp`.
+
+### 42a Core
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 42a.1 | core: A clip holds at most one composition. A new one is MediaIn1 (the clip's own picture) -> MediaOut1 and renders exactly like the clip without a composition (no extra cost). | Fixed (co defaultCompositionPassesThrough; cr defaultCompositionChangesNothing) |
+| 42a.2 | core: The node catalogue: MediaIn, MediaOut; Merge (background, foreground, mask; Normal, Screen, Multiply, Add, Overlay, Darken, Lighten, Difference, Subtract; blend, foreground centre / size / angle), Dissolve; Transform (centre, pivot, size, aspect, angle, flips), Crop, Resize, Letterbox; Background (solid, gradient, four corner), Text (font, size, colour, outline, shadow, position), Fast Noise; Rectangle, Ellipse and Polygon masks (soft edge, invert, level, centre, size, angle); Color Corrector (lift / gamma / gain, saturation, levels), Channel Booleans. Every Edit page video effect is also a node ("fx:<id>", one image input and a mask input) with the same parameters, so new effects appear on both pages. | Fixed (co registryHasBuiltins, everyEffectIsANode) |
+| 42a.3 | core: Node coordinates follow the node compositor convention a Resolve user knows: positions normalised 0..1 with (0.5, 0.5) the frame centre and y going up, sizes as factors, angles counter-clockwise, mask width / height as fractions of the frame, soft edge as a fraction of the frame width; effect nodes keep their Edit page units. | Fixed (cr mergeForegroundTransform, transformMovesPixels) |
+| 42a.4 | core: New nodes get unique names from their type ("Merge1", "Merge2", ...); a rename to an empty or taken name is refused. Node ids are never reused within a composition. | Fixed (co uniqueNames) |
+| 42a.5 | core: Adding a node "after" the selected node inserts it between that node and everything it fed, and pushes the downstream nodes right; adding a source (Background, Text, Fast Noise, MediaIn) adds a Merge with the selected node as background and the new node as foreground; adding a mask plugs it into the selected node's free mask input. With MediaOut selected the node goes before it; without a selection it is placed unconnected. | Fixed (co addAfterInsertsIntoChain, addGeneratorAutoMerges) |
+| 42a.6 | core: Deleting nodes keeps the chain connected (a reader of a deleted node reads that node's main input); MediaOut cannot be deleted; viewers showing a deleted node are cleared. | Fixed (co removeKeepsChain) |
+| 42a.7 | core: Connecting replaces what an input had; a link that would make a loop is refused, and so is a mask output into an image input (an image into a mask input is allowed: its alpha is the matte). A node dropped onto a link is inserted into it when its kinds fit and no loop results. | Fixed (co connectRefusesCyclesAndKinds, insertIntoLink) |
+| 42a.8 | core: Copy and paste of a set of nodes keeps the links between them, drops links to nodes outside the set, gives new ids and free names, never copies MediaOut, and works between clips through the clipboard JSON. | Fixed (co copyPasteRemapsIds) |
+| 42a.9 | core: Every graph or parameter change is one named undo step (Project::setClipComposition), also for clips of a timeline that is not open; changes during one drag are one step; setting the same value adds no step; Reset Composition removes the composition (undoable). | Fixed (co projectUndo, inactiveTimelineUndo) |
+| 42a.10 | core: Compositions are saved with the project (format 15) and survive copy / paste, split (keyframes stay with the content: comp frames are clip-local), duplicate, compound clips and nesting. Format 14 and older projects open with no compositions; damaged graph data is repaired on load. MediaIn nodes reading another media pool item count as uses of that item. | Fixed (co serializationRoundTrip, splitAndTrimKeepComposition, projectFileRoundTripAndMigration, damagedJsonIsRepaired, mediaInCountsAsUse) |
+| 42a.11 | core: A clip with a composition shows the composition's output instead of its picture in the Edit page viewer, playback, the Cut page and the render; its Edit page crop, effects, masks, transform, opacity, transitions and compositing apply on top. | Fixed (cr editPageAttributesApplyOnTop; ce compositionInExport) |
+| 42a.12 | core: Merge Normal of a half-transparent foreground over a background gives the premultiplied "over" result; the other modes follow the separable blend formulas; Blend scales the foreground. | Fixed (cr mergeHalfTransparentForeground, blendModesMatchCpu) |
+| 42a.13 | core: A mask input limits a node's effect to the inside of the mask (an inverted mask to the outside); masks plugged into a mask node combine (union). | Fixed (cr maskedBlurOnlyInside, masksAndLetterbox) |
+| 42a.14 | core: A disabled node passes its main input through unchanged; a disabled MediaIn (or a source without input) draws nothing. | Fixed (cr disabledNodePassesThrough) |
+| 42a.15 | core: MediaIn shows the owning clip's source at the comp frame with the clip's speed and retime, or another media pool item from its start. | Fixed (cr mediaInOfAnotherItem) |
+| 42a.16 | core: The viewers can show any node of a clip's composition at any comp frame (Compositor::renderCompositionNode, zero-copy texture, preview quality), never from the render cache; a missing clip or node shows nothing. | Fixed (cr viewerApiRendersAnyNode, masksAndLetterbox) |
+| 42a.17 | core: The render cache key covers the composition's picture-relevant part only (moving nodes or changing the node editor view keeps the cache); a composition counts like an effect for Smart caching. | Fixed (cr cacheKeyFollowsPictureOnly) |
+| 42a.18 | core: Without OpenGL the CPU fallback renders every built-in node (masks with hard edges) and the pointwise effect nodes; other effect nodes pass through. Time effects (Echo, Strobe) as nodes show the current frame only. | Fixed (cr GPU / CPU pairs). Decision: documented gaps in src/render/readme.md. |
+| 42a.19 | core: 1080p with about ten nodes plays in real time on an integrated GPU (one pass per node, intermediates released early, no readback). | Fixed (cr performance1080p prints the timing) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -952,3 +985,6 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 - The guides branch (v4 part 4) added 41.1 - 41.17 (viewer guides, rulers, guide presets,
   snapping of on-screen transforms, safe areas, aspect markers and grid; project format 14;
   41.17 deferred).
+- The compcore branch (v4, Compositing page core) added 42a.1 - 42a.19 (composition model,
+  node catalogue, graph operations, undo, project format 15, GPU / CPU evaluation, render
+  integration, viewer API).
