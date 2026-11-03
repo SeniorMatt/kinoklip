@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 252 commands; sure 94, likely 85, unsure 73.
+Counts: 255 commands; sure 94, likely 87, unsure 74.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -35,6 +35,9 @@ that every command has an entry and that no key is used twice.
 | Save Project As | `file.save_as` | `Ctrl+Shift+S` | sure |  |
 | Import Media | `file.import_media` | `Ctrl+I` | sure |  |
 | Import Subtitle | `file.import_subtitle` | (none) | likely | File > Import > Subtitle in Resolve; no default key known |
+| Export Timeline as EDL (CMX3600: V, A, A2, dissolves, M2 speed) | `file.export_edl` | (none) | likely | File > Export > Timeline in Resolve (EDL among the formats); no default key known |
+| Export Timeline Markers to EDL | `file.export_markers_edl` | (none) | likely | Resolve exports timeline markers to an EDL from its menus; no default key known |
+| Export Timeline Markers to CSV | `file.export_markers_csv` | (none) | unsure | a marker list as CSV; no default key known |
 | Project Settings | `file.project_settings` | `Shift+9` | sure |  |
 | Quit | `file.quit` | `Ctrl+Q` | sure |  |
 
