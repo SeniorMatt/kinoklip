@@ -5,6 +5,7 @@
 #include "app/MainWindow.h"
 #include "app/ProjectController.h"
 #include "app/ScreenshotAudio.h"
+#include "app/ScreenshotGeometry.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
@@ -24,6 +25,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/cut/CutEditor.h"
 #include "ui/cut/CutViewer.h"
+#include "ui/deliver/RenderSettingsPanel.h"
 #include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
@@ -36,6 +38,7 @@
 #include "ui/mediapool/MulticamSync.h"
 #include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectManagerWindow.h"
+#include "ui/timeline/ChangeSpeedDialog.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
@@ -43,16 +46,22 @@
 #include "ui/viewer/GuideOverlay.h"
 #include "ui/viewer/ViewerPanel.h"
 
+#include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QComboBox>
 #include <QElapsedTimer>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QPainter>
 #include <QPixmap>
+#include <QPushButton>
 #include <QScreen>
 #include <QTabWidget>
 #include <QTimer>
+#include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QUndoStack>
 
 #include <algorithm>
@@ -217,6 +226,35 @@ QWidget* setupMulticamShot(MainWindow& window, const QString& section, QString* 
         return source;
     if (section == QLatin1String("timeline"))
         return timelinePanel;
+    return nullptr;
+}
+
+/// Selects the Effects library row of descriptor @p id, expanding its folders and scrolling
+/// to it. False when there is no such row.
+bool selectLibraryItem(EffectsLibraryPanel* library, const QString& id)
+{
+    QTreeWidget* tree = library->tree();
+    QTreeWidgetItemIterator it(tree);
+    for (; *it; ++it) {
+        QTreeWidgetItem* item = *it;
+        if (item->data(0, Qt::UserRole).toString() != id)
+            continue;
+        for (QTreeWidgetItem* p = item->parent(); p; p = p->parent())
+            p->setExpanded(true);
+        tree->setCurrentItem(item);
+        QTimer::singleShot(0, tree, [tree, item] { tree->scrollToItem(item); });
+        return true;
+    }
+    return false;
+}
+
+/// The visible timeline viewer (Edit page), or nullptr.
+ViewerPanel* timelineViewer()
+{
+    for (ViewerPanel* viewer : ViewerPanel::allViewers()) {
+        if (viewer->mode() == ViewerPanel::Mode::Timeline && viewer->isVisible())
+            return viewer;
+    }
     return nullptr;
 }
 
@@ -600,10 +638,117 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         }
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
-    } else if (target == QLatin1String("effects")) {
+    } else if (base == QLatin1String("effects")) {
+        // "effects:<descriptor id>" also selects that item (its folders expanded, scrolled to).
         if (Page* edit = window.page(QStringLiteral("edit")))
             edit->setPanelVisible(PanelId::Effects, true);
-        panel = window.findChild<EffectsLibraryPanel*>();
+        auto* library = window.findChild<EffectsLibraryPanel*>();
+        if (library && !section.isEmpty() && !selectLibraryItem(library, section)) {
+            std::fprintf(stderr, "effects: no library item '%s'\n", qPrintable(section));
+            return 2;
+        }
+        panel = library;
+    } else if (base == QLatin1String("fx")) {
+        // "fx:<effect id>[:inspector|viewer]" (user guide): the top-most video clip carrying
+        // that effect selected, the playhead in its middle, the Inspector on its Effects tab.
+        // KK_SCREENSHOT_PICKER=1 also checks the first eyedropper of the Inspector.
+        const QString effectId = section.section(QLatin1Char(':'), 0, 0);
+        const QString part = section.section(QLatin1Char(':'), 1);
+        const ClipData* found = nullptr;
+        const auto& tracks = ctx.project->timeline()->data().videoTracks;
+        for (auto t = tracks.rbegin(); t != tracks.rend() && !found; ++t) {
+            for (const ClipData& c : t->clips) {
+                const bool has = std::any_of(c.effects.begin(), c.effects.end(),
+                    [&](const EffectInstance& fx) { return fx.type == effectId; });
+                if (!found && has)
+                    found = &c;
+            }
+        }
+        if (!found) {
+            std::fprintf(stderr, "fx: no video clip with effect '%s'\n", qPrintable(effectId));
+            return 2;
+        }
+        ctx.selection->selectClip(found->id);
+        if (!found->contains(ctx.project->timeline()->playhead()))
+            ctx.project->timeline()->setPlayhead(found->start + found->duration / 2);
+        auto* inspector = window.findChild<InspectorPanel*>();
+        if (inspector) {
+            inspector->tabs()->setCurrentIndex(InspectorPanel::EffectsTab);
+            if (qEnvironmentVariableIntValue("KK_SCREENSHOT_PICKER") == 1) {
+                QTimer::singleShot(0, inspector, [inspector] {
+                    if (auto* picker = inspector->findChild<QAbstractButton*>(
+                            QStringLiteral("ColorPickerButton")))
+                        picker->click();
+                });
+            }
+        }
+        if (part == QLatin1String("inspector"))
+            panel = inspector;
+        else if (part == QLatin1String("viewer"))
+            panel = timelineViewer();
+    } else if (target == QLatin1String("change-speed")) {
+        // Clip > Change Clip Speed (R) of the first media video clip (user guide).
+        const ClipData* clip = nullptr;
+        for (const TrackData& track : ctx.project->timeline()->data().videoTracks) {
+            for (const ClipData& c : track.clips) {
+                if (!clip && c.kind == ClipKind::Media)
+                    clip = &c;
+            }
+        }
+        if (!clip) {
+            std::fprintf(stderr, "change-speed: needs a project with a video clip\n");
+            return 2;
+        }
+        ctx.selection->selectClip(clip->id);
+        Rational sourceFps;
+        if (const MediaItem* item = ctx.project->mediaPool()->item(clip->mediaId))
+            sourceFps = item->info.frameRate;
+        auto d = std::make_unique<ChangeSpeedDialog>(
+            *clip, ctx.project->timeline()->data().fps, sourceFps, &window);
+        d->adjustSize();
+        dialog = std::move(d);
+        delayMs = kDialogSettleDelayMs;
+    } else if (target == QLatin1String("timeline")) {
+        // The timeline panel alone, zoomed to fit (user guide).
+        auto* timelinePanel = window.findChild<TimelinePanel*>();
+        if (timelinePanel) {
+            TimelineWidget* w = timelinePanel->timelineWidget();
+            QTimer::singleShot(0, w, [w] { w->zoomToFit(); });
+        }
+        panel = timelinePanel;
+    } else if (base == QLatin1String("deliver")) {
+        // "deliver:inout": the Deliver page with the YouTube 1080p preset (KK_SCREENSHOT_PRESET
+        // = another preset id) and Render: In/Out Range; "deliver:queue" also adds the job to
+        // the render queue (not rendered).
+        window.setCurrentPage(QStringLiteral("deliver"));
+        const QString preset = qEnvironmentVariableIsSet("KK_SCREENSHOT_PRESET")
+            ? qEnvironmentVariable("KK_SCREENSHOT_PRESET")
+            : QStringLiteral("youtube_1080p");
+        auto* tile = window.findChild<QAbstractButton*>(QStringLiteral("PresetTile_") + preset);
+        auto* range = window.findChild<QComboBox*>(QStringLiteral("RenderRange"));
+        if (!tile || !range) {
+            std::fprintf(stderr, "deliver: no preset '%s'\n", qPrintable(preset));
+            return 2;
+        }
+        tile->click();
+        range->setCurrentIndex(1); // In/Out Range
+        // KK_SCREENSHOT_LOCATION: the folder shown in Location (after a queued job took the
+        // real one), so pictures do not show the temporary folder the shot runs in.
+        const QString location = qEnvironmentVariable("KK_SCREENSHOT_LOCATION");
+        const bool queue = section == QLatin1String("queue");
+        QTimer::singleShot(0, &window, [&window, location, queue] {
+            if (queue) {
+                const auto buttons = window.findChildren<QPushButton*>();
+                for (QPushButton* b : buttons) {
+                    if (b->isVisible()
+                        && b->text() == RenderSettingsPanel::tr("Add to Render Queue"))
+                        b->click();
+                }
+            }
+            auto* field = window.findChild<QLineEdit*>(QStringLiteral("RenderLocation"));
+            if (field && !location.isEmpty())
+                field->setText(location);
+        });
     } else if (base == QLatin1String("cut")) {
         // Cut page (spec 35): files in KK_SCREENSHOT_IMPORT are imported; an empty timeline gets
         // every file of the media pool appended
@@ -659,7 +804,8 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             "multicam[:viewer|timeline], "
             "keyframes-panel[:dope|curves|absolute|float], "
             "mediapool, levels, stacked, clip-attributes[:audio|timecode], "
-            "effects, import-dialog, project-manager, new-project, menu-color-theme "
+            "effects[:<id>], fx:<id>[:inspector|viewer], change-speed, timeline, "
+            "deliver:inout|queue, import-dialog, project-manager, new-project, menu-color-theme "
             "or "
             "menu-style, menu-playback-resolution)\n",
             qPrintable(target));
@@ -674,6 +820,17 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         // Viewer guides, safe areas and grid are working aids, never part of an output
         // picture (spec 41.12): hidden for the grab whatever the user's settings say.
         GuideOverlay::setSuppressed(true);
+        // KK_SCREENSHOT_WINDOW=1: panel targets save the whole window (the panel's state stays).
+        if (panel && qEnvironmentVariableIntValue("KK_SCREENSHOT_WINDOW") == 1)
+            panel = nullptr;
+        // KK_SCREENSHOT_GEOMETRY=<file.json>: where the widgets are in the picture (user guide
+        // annotations; not written for menu shots, which are cropped).
+        const QString geometryPath = qEnvironmentVariable("KK_SCREENSHOT_GEOMETRY");
+        QWidget* root = dialog ? dialog.get() : panel ? panel : &window;
+        if (!geometryPath.isEmpty() && menus.isEmpty()
+            && !writeScreenshotGeometry(root, geometryPath, {}, &ctx.project->timeline()->data(),
+                ctx.project->timeline()->playhead()))
+            std::fprintf(stderr, "cannot write %s\n", qPrintable(geometryPath));
         const QPixmap pixmap = dialog ? dialog->grab()
             : toolWindow              ? grabWithToolWindow(window, toolWindow)
             : panel                   ? panel->grab()
@@ -717,6 +874,10 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             playThenGrab();
         }
     });
+    // KK_SCREENSHOT_DELAY_MS: a longer settle time (thumbnails and posters are made in the
+    // background; the user guide waits for them).
+    if (qEnvironmentVariableIsSet("KK_SCREENSHOT_DELAY_MS"))
+        delayMs = std::max(delayMs, qEnvironmentVariableIntValue("KK_SCREENSHOT_DELAY_MS"));
     QTimer::singleShot(delayMs, &window, [&] {
         waited.start();
         poll.start();

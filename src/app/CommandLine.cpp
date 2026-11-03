@@ -24,7 +24,8 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             "positional argument, then exit. Targets: media, edit, edit-single, edit-dual, "
             "transition, deliver, preferences, "
             "keyboard, inspector, keyframes, keyframes-window, retime, retime:curve, subtitles, "
-            "subtitles:inspector, mediapool, import-dialog (whole "
+            "subtitles:inspector, mediapool, effects[:<id>], fx:<id>[:inspector|viewer], "
+            "change-speed, timeline, deliver:inout, deliver:queue, import-dialog (whole "
             "screen with File > Import Media open), menu-color-theme, "
             "menu-style, menu-playback-resolution. Usage: --screenshot "
             "edit out.png [project]"),
