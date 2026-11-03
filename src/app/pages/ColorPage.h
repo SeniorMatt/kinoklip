@@ -38,7 +38,7 @@ class ViewerSurface;
 /// (Alt+S / Alt+P / Alt+L, Ctrl+D, Shift+D, Ctrl+Alt+G, ...) act while the page is shown and
 /// focus is on it: the page claims their keys (ShortcutOverride) like the node editor does,
 /// so they never clash with the Edit page's. The Edit page's timeline commands are suspended
-/// while the page is shown (same list as the Compositing page).
+/// while the page is shown (TimelineCommandSuspension).
 ///
 /// Thread-safety: GUI thread only.
 class ColorPage : public Page
@@ -77,7 +77,6 @@ private:
     void updateHeader();
     /// The color.* action bound to the key of @p event, or nullptr.
     [[nodiscard]] QAction* actionForKey(const QKeyEvent* event) const;
-    void suspendTimelineCommands(bool suspend);
 
     AppContext& m_ctx;
     ColorSession* m_session = nullptr;
@@ -94,7 +93,6 @@ private:
     QSplitter* m_rows = nullptr;
     QSplitter* m_top = nullptr;
     QSplitter* m_bottom = nullptr;
-    QList<QPointer<QAction>> m_suspended;
     bool m_filterInstalled = false;
 };
 

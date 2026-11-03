@@ -2,7 +2,6 @@
 // ColorPage layout and wiring of the color.* commands.
 #include "app/pages/ColorPage.h"
 
-#include "app/pages/CompositingPage.h"
 #include "core/GradeGallery.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
@@ -12,6 +11,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/TimelineCommandSuspension.h"
 #include "ui/scopes/ScopeFeeder.h"
 #include "ui/scopes/ScopeView.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -145,6 +145,11 @@ ColorPage::ColorPage(AppContext& ctx, QWidget* parent)
     connectActions();
     refreshGallery();
     updateHeader();
+
+    // No Edit page timeline here: its editing commands are off while the page is shown (so
+    // Ctrl+D is Enable / Disable Node, not Change Clip Duration); the transport, page keys,
+    // undo and the color.* commands stay.
+    new TimelineCommandSuspension(this, ctx.actions);
 }
 
 ColorPage::~ColorPage()
@@ -278,27 +283,6 @@ bool ColorPage::eventFilter(QObject* watched, QEvent* event)
     return Page::eventFilter(watched, event);
 }
 
-void ColorPage::suspendTimelineCommands(bool suspend)
-{
-    if (!m_ctx.actions)
-        return;
-    if (!suspend) {
-        for (const QPointer<QAction>& a : std::as_const(m_suspended)) {
-            if (a)
-                a->setEnabled(true);
-        }
-        m_suspended.clear();
-        return;
-    }
-    for (const QString& id : CompositingPage::suspendedCommandIds(*m_ctx.actions)) {
-        QAction* a = m_ctx.actions->action(id);
-        if (a->isEnabled()) {
-            a->setEnabled(false);
-            m_suspended.append(a);
-        }
-    }
-}
-
 void ColorPage::updateOutputClient()
 {
     if (!m_ctx.playback)
@@ -319,7 +303,6 @@ void ColorPage::showEvent(QShowEvent* event)
     Page::showEvent(event);
     if (event->spontaneous())
         return;
-    suspendTimelineCommands(true);
     if (m_ctx.actions) {
         for (const QString& id : commandIds(*m_ctx.actions))
             m_ctx.actions->action(id)->setEnabled(true);
@@ -341,7 +324,6 @@ void ColorPage::hideEvent(QHideEvent* event)
     Page::hideEvent(event);
     if (event->spontaneous())
         return; // minimised: keep the state
-    suspendTimelineCommands(false);
     if (m_ctx.actions) {
         for (const QString& id : commandIds(*m_ctx.actions))
             m_ctx.actions->action(id)->setEnabled(false);

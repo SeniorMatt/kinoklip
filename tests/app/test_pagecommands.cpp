@@ -197,6 +197,8 @@ private slots:
         f.page("view.page_compositing");
         QVERIFY(!f.action("edit.split")->isEnabled());
         QVERIFY(!f.action("edit.delete")->isEnabled());
+        f.page("view.page_color");
+        QVERIFY(!f.action("edit.split")->isEnabled());
         f.page("view.page_deliver");
         QVERIFY(!f.action("edit.split")->isEnabled());
         f.page("view.page_media");
@@ -205,6 +207,24 @@ private slots:
         for (const char* id : kTimelineCommands)
             QVERIFY2(f.action(id)->isEnabled(), id);
         QVERIFY(f.action("mark.in")->isEnabled());
+    }
+
+    void colorPageSuspendsTimelineButKeepsItsCommands()
+    {
+        // Spec 44b.7: the Color page grades clips, it does not edit the timeline.
+        Fixture f;
+        f.page("view.page_color");
+        QCOMPARE(f.window->currentPageId(), QStringLiteral("color"));
+        for (const char* id : kTimelineCommands)
+            QVERIFY2(!f.action(id)->isEnabled(), id);
+        for (const char* id : kKept)
+            QVERIFY2(f.action(id)->isEnabled(), id);
+        for (const char* id : {"color.add_serial", "color.bypass_node", "color.grab_still"})
+            QVERIFY2(f.action(id)->isEnabled(), id);
+        f.page("view.page_edit");
+        for (const char* id : kTimelineCommands)
+            QVERIFY2(f.action(id)->isEnabled(), id);
+        QVERIFY(!f.action("color.add_serial")->isEnabled());
     }
 
     void helpersShareACommand()
