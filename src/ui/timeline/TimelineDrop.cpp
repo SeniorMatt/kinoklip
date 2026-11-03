@@ -13,6 +13,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/DragAndDrop.h"
 #include "ui/common/DragMime.h"
+#include "ui/common/FolderImport.h"
 #include "ui/common/MediaImport.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
@@ -468,7 +469,13 @@ void TimelineWidget::dropEvent(QDropEvent* event)
         const QPointF pos = event->position();
         const Qt::KeyboardModifiers modifiers = event->modifiers();
         QTimer::singleShot(0, this, [this, paths, pos, modifiers] {
-            const QStringList ids = importMediaWithFeedback(m_ctx, paths, this);
+            // A folder goes into the media pool only (with its subfolders as bins), not onto
+            // the timeline: placing a whole folder tree as clips is rarely what was meant.
+            QStringList files = paths;
+            const QStringList folders = takeFolders(files);
+            if (!folders.isEmpty())
+                importMediaFoldersWithFeedback(m_ctx, folders, FolderImportOptions {}, this);
+            const QStringList ids = importMediaWithFeedback(m_ctx, files, this);
             if (ids.isEmpty())
                 return;
             QMimeData items;

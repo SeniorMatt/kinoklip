@@ -8,6 +8,7 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/FolderImport.h"
 #include "ui/common/MediaImport.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolPanel.h"
@@ -57,8 +58,19 @@ void MediaPoolPanel::editItems(const QString& label, const QStringList& ids,
 
 QStringList MediaPoolPanel::importFiles(const QStringList& paths, const QString& binKey)
 {
-    if (!Filter::isPowerKey(binKey))
-        return importMediaWithFeedback(m_ctx, paths, this, Filter::idOfKey(binKey));
+    if (!Filter::isPowerKey(binKey)) {
+        // Folders (dropped from a file manager) import with their subfolders as bins, like
+        // Resolve's "Add Folder and SubFolders into Media Pool (Create Bins)"; files as before.
+        QStringList files = paths;
+        const QStringList folders = takeFolders(files);
+        QStringList ids;
+        if (!files.isEmpty())
+            ids = importMediaWithFeedback(m_ctx, files, this, Filter::idOfKey(binKey));
+        if (!folders.isEmpty())
+            ids += importMediaFoldersWithFeedback(
+                m_ctx, folders, FolderImportOptions {}, this, Filter::idOfKey(binKey));
+        return ids;
+    }
     if (!m_ctx.powerBins)
         return {};
     const ImportResult result

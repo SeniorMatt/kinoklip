@@ -249,6 +249,8 @@ private:
     void addFlagMenu(QMenu& menu, const QStringList& ids);
     void fillColorFilterMenu(QMenu* menu);
     void importWithDialog();
+    /// "Import Media Folder…" of the context menus: into project bin @p binKey ("" = Master).
+    void importFolderWithDialog(const QString& binKey);
     void renameCurrentItem();
     void confirmAndDelete(const QStringList& ids);
     void revealInFileManager(const QString& id);

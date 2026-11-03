@@ -127,6 +127,8 @@ public slots:
     bool saveAs();
     /// File ▸ Import Media… (multi-file dialog → MediaPool).
     void importMedia();
+    /// File ▸ Import Media Folder… (folder chooser, options, folder → bins in the MediaPool).
+    void importMediaFolder();
     /// File > Import Subtitle: .srt / .vtt files into the media pool.
     void importSubtitle();
     /// File > Pack Project...: saves, then copies the project and every media file it uses
