@@ -31,4 +31,12 @@ QSize MenuMetricsStyle::sizeFromContents(
     return result;
 }
 
+int MenuMetricsStyle::styleHint(StyleHint hint, const QStyleOption* option, const QWidget* widget,
+    QStyleHintReturn* returnData) const
+{
+    if (hint == SH_Menu_FadeOutOnHide || hint == SH_Menu_FlashTriggeredItem)
+        return 0; // menus close at once, like Resolve's
+    return QProxyStyle::styleHint(hint, option, widget, returnData);
+}
+
 } // namespace kk

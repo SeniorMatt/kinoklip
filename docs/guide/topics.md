@@ -20,16 +20,17 @@ not a count.
 | 5 | Add music and fade audio in and out | Background music and a smooth fade at the end are part of almost every video. | [Fade audio and add music](fade-audio-and-add-music.md) |
 | 6 | Add text and titles | Captions, lower thirds and an opening title; people look for "the text tool". | [Getting started](getting-started.md#add-a-title) |
 | 7 | Add a transition between clips | Cross dissolves and where to find the other transitions. | [Getting started](getting-started.md#add-a-transition) |
-| 8 | Fade the picture to or from black | The ending of nearly every video; often confused with transitions. | planned (fade handles, spec 31.4) |
-| 9 | Freeze a frame | Holding one frame for a while, for comedy or emphasis. | planned (Shift+R, spec 29.8) |
-| 10 | Zoom, crop or make a picture-in-picture | Transform and Cropping in the Inspector, on-screen controls. | planned |
-| 11 | Choppy playback | Large or long-GOP files play badly; the answers are proxies, optimized media, playback resolution and the render cache. | planned |
-| 12 | Make a vertical video (9:16) for Shorts, Reels and TikTok | Timeline resolution versus render resolution confuses many people. | planned (Project Settings > Timeline resolution) |
-| 13 | Blur or hide part of the picture (a face, a number plate) | A mask plus a blur on a copy of the clip. | planned (masks, spec 27; Gaussian Blur) |
-| 14 | Add subtitles | Importing .srt files, typing captions, burning them in. | planned (spec 28) |
-| 15 | Separate the audio from the video | Unlinking a clip to move or delete only its sound. | planned (Clip > Unlink Clips) |
-| 16 | Animate with keyframes (a slow zoom, a moving title) | The step after basic edits. | planned (spec 15) |
-| 17 | Make quiet and loud clips the same volume | Normalize Audio Levels and the clip volume. | planned (Clip > Normalize Audio Levels) |
+| 8 | Fade the picture to or from black | The ending of nearly every video; often confused with transitions. | [Fade to or from black](fade-to-black.md) |
+| 9 | Freeze a frame | Holding one frame for a while, for comedy or emphasis. | [Freeze a frame](freeze-a-frame.md) |
+| 10 | Zoom, crop or make a picture-in-picture | Transform and Cropping in the Inspector, on-screen controls. | [Zoom, crop and picture-in-picture](zoom-crop-and-picture-in-picture.md) |
+| 11 | Choppy playback | Large or long-GOP files play badly; the answers are proxies, optimized media, playback resolution and the render cache. | [Fix choppy playback](smooth-playback.md) |
+| 12 | Make a vertical video (9:16) for Shorts, Reels and TikTok | Timeline resolution versus render resolution confuses many people. | [Make a vertical video](vertical-video.md) |
+| 13 | Blur or hide part of the picture (a face, a number plate) | A mask plus a blur on a copy of the clip. | [Blur or hide part of the picture](hide-part-of-the-picture.md) |
+| 14 | Add subtitles | Importing .srt files, typing captions, burning them in. | [Add subtitles](add-subtitles.md) |
+| 15 | Separate the audio from the video | Unlinking a clip to move or delete only its sound. | [Separate the audio from the video](separate-audio-from-video.md) |
+| 16 | Animate with keyframes (a slow zoom, a moving title) | The step after basic edits. | [Animate with keyframes](keyframe-animation.md) |
+| 17 | Make quiet and loud clips the same volume | Normalize Audio Levels and the clip volume. | [Make clip volumes even](even-out-clip-volumes.md) |
+| 18 | Put text or a logo over a clip with nodes | The Compositing page is new in 1.0.0 Beta; people coming from Resolve look for its node compositor. | [Put text over a clip on the Compositing page](compositing-page.md) |
 
 Topics that come up often but that Kinoklip cannot do yet (no article until it can):
 
@@ -39,3 +40,6 @@ Topics that come up often but that Kinoklip cannot do yet (no article until it c
 - needs: noise reduction for audio (voice clean-up); the Noise Reduction in the effects library is for video.
 - needs: Difference Key against a clean plate (spec 40.10), for screens that are not green or blue.
 - needs: rendering every timeline clip to its own file (Deliver > Individual clips is disabled).
+- needs: a picture or logo file inside a composition (a MediaIn node that reads another media
+  pool item exists in the core, but the Compositing page offers no way to choose the item); a
+  logo goes on a video track above the clip instead.

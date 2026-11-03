@@ -56,9 +56,11 @@ The other audio transitions (**Cross Fade 0 dB**, **Cross Fade -3 dB**, **Expone
   (a "keyframe") there. Add four points around the speech, then drag the two middle ones down.
   The volume now dips smoothly under the voice and comes back afterwards.
 - **Fade the picture too:** video clips have the same fade handles. Dragging them fades the
-  picture from or to black, which is a common way to start and end a video.
+  picture from or to black, which is a common way to start and end a video; see
+  [Fade to or from black](fade-to-black.md).
 - **Clips at very different volumes:** select them and choose **Clip > Normalize Audio Levels**
-  to bring them to the same level.
+  to bring them to the same level; see
+  [Make quiet and loud clips the same volume](even-out-clip-volumes.md).
 
 ## If something goes wrong
 

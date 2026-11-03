@@ -257,7 +257,7 @@ void TimelineController::selectClipsFromPlayhead(bool forward, bool allTracks)
             }
         }
     }
-    m_ctx.selection->setClips(ids);
+    m_ctx.selection->setClips(videoClipCurrent(ids));
 }
 
 void TimelineController::selectNearestEdit()
@@ -467,9 +467,9 @@ bool TimelineController::nudgeSelectionSpeed(int deltaPercent)
             if (!c || !(c->speed > 0.0) || retime::hasCurve(*c))
                 continue;
             // Whole tenths of a percent, so repeated nudges do not drift (1.1 + 0.1 ...).
-            const double speed = std::clamp(
-                std::round(c->speed * 1000.0 + deltaPercent * 10.0) / 1000.0, kMinNudgedSpeed,
-                kMaxNudgedSpeed);
+            const double speed
+                = std::clamp(std::round(c->speed * 1000.0 + deltaPercent * 10.0) / 1000.0,
+                    kMinNudgedSpeed, kMaxNudgedSpeed);
             any |= timelineedit::applyClipSpeed(data, id, speed);
         }
         return any;

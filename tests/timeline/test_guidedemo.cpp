@@ -1,14 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Builds the projects the user guide's screenshots are taken from (scripts/guide_screenshots.py):
 //   KK_GUIDE_MEDIA=<dir with interview.mp4, broll.mp4, texture.mp4, music.wav, greenscreen.mp4,
-//                   background.mp4>   (the script generates them with ffmpeg)
+//                   background.mp4, presenter.mp4>   (the script generates them with ffmpeg)
 //   KK_GUIDE_DIR=<out dir>            writes edit.kkproj, greenscreen-raw.kkproj,
-//                                     greenscreen.kkproj, greenscreen-matte.kkproj, music.kkproj
+//                                     greenscreen.kkproj, greenscreen-matte.kkproj, music.kkproj,
+//                                     fade, freeze, pip, vertical, blur, subtitles, keyframes and
+//                                     compositing.kkproj
 // Without KK_GUIDE_MEDIA the edit project uses stand-in solids and the media projects are
 // skipped; every project is checked (invariants, save and load round trip) either way.
 // Also checks the screenshot geometry sidecar (src/app/ScreenshotGeometry) the script draws from.
 #include "TimelineTestUtils.h"
 #include "app/ScreenshotGeometry.h"
+#include "core/CompOps.h"
+#include "core/Composition.h"
+#include "core/Mask.h"
+#include "core/NodeRegistry.h"
+#include "core/RetimeOps.h"
+#include "core/Subtitles.h"
 #include "core/VideoEffectKeys.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
@@ -135,6 +143,233 @@ private slots:
         project.timeline()->setPlayhead(6 * fps);
         project.setName(QStringLiteral("Music Video"));
         saveAndCheck(project, QStringLiteral("music.kkproj"));
+    }
+
+    /// Fade to black: a fade in at the start of the first clip, a fade out at the end of the
+    /// last one, the playhead in the fade out.
+    void fadeProject()
+    {
+        Project project;
+        if (!importAll(project, {"interview.mp4", "broll.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no interview.mp4 / broll.mp4");
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("Fades");
+        const int64_t fps = 25;
+        const quint64 first
+            = place(d, *itemNamed(project, QStringLiteral("interview")), 0, 8 * fps, 0, 0);
+        const quint64 last
+            = place(d, *itemNamed(project, QStringLiteral("broll")), 8 * fps, 8 * fps, 0, 0);
+        for (const quint64 part : editops::withLinkedClips(d, {first})) {
+            ClipData* c = editops::clipById(d, part);
+            QVERIFY(c);
+            c->fadeInFrames = fps * 3 / 2;
+        }
+        for (const quint64 part : editops::withLinkedClips(d, {last})) {
+            ClipData* c = editops::clipById(d, part);
+            QVERIFY(c);
+            c->fadeOutFrames = 2 * fps;
+        }
+        d.videoTracks[0].height = 80;
+        project.endEdit();
+        project.timeline()->setPlayhead(15 * fps);
+        project.setName(QStringLiteral("Fade to Black"));
+        saveAndCheck(project, QStringLiteral("fade.kkproj"));
+    }
+
+    /// Freeze frame: a two-second freeze inside a clip (retime controls).
+    void freezeProject()
+    {
+        Project project;
+        if (!importAll(project, {"presenter.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("Freeze");
+        const int64_t fps = 25;
+        const quint64 id
+            = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 8 * fps, 0, -1);
+        QVERIFY(retimeops::insertFreeze(d, id, 3 * fps, 2 * fps));
+        d.videoTracks[0].height = 80;
+        project.endEdit();
+        project.timeline()->setPlayhead(4 * fps);
+        project.setName(QStringLiteral("Freeze Frame"));
+        saveAndCheck(project, QStringLiteral("freeze.kkproj"));
+    }
+
+    /// Picture-in-picture: B-roll on V2 made smaller, cropped and moved to the top right.
+    void pipProject()
+    {
+        Project project;
+        if (!importAll(project, {"presenter.mp4", "broll.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no presenter.mp4 / broll.mp4");
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("Picture in Picture");
+        while (d.videoTracks.size() < 2)
+            editops::addTrack(d, TrackType::Video);
+        const int64_t fps = 25;
+        place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
+        const quint64 small
+            = place(d, *itemNamed(project, QStringLiteral("broll")), 0, 10 * fps, 1, -1);
+        ClipData* c = editops::clipById(d, small);
+        QVERIFY(c);
+        c->transform.setBase(keys::ZoomX, 0.35);
+        c->transform.setBase(keys::ZoomY, 0.35);
+        c->transform.setBase(keys::PosX, 580);
+        c->transform.setBase(keys::PosY, -300);
+        c->transform.setBase(keys::CropL, 120);
+        c->transform.setBase(keys::CropR, 120);
+        project.endEdit();
+        project.timeline()->setPlayhead(5 * fps);
+        project.setName(QStringLiteral("Picture in Picture"));
+        saveAndCheck(project, QStringLiteral("pip.kkproj"));
+    }
+
+    /// A vertical (9:16) project: the landscape presenter clip zoomed to fill the height.
+    void verticalProject()
+    {
+        Project project;
+        if (!importAll(project, {"presenter.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
+        ProjectSettings settings = project.settings();
+        settings.width = 1080;
+        settings.height = 1920;
+        project.setSettings(settings);
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("Vertical");
+        QCOMPARE(d.width, 1080);
+        const int64_t fps = 25;
+        const quint64 id
+            = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
+        ClipData* c = editops::clipById(d, id);
+        QVERIFY(c);
+        // Scaled to fit, a 16:9 picture is 1080 x 607.5 here; 3.16 fills the 1920 lines.
+        c->transform.setBase(keys::ZoomX, 3.16);
+        c->transform.setBase(keys::ZoomY, 3.16);
+        project.endEdit();
+        project.timeline()->setPlayhead(5 * fps);
+        project.setName(QStringLiteral("Vertical Video"));
+        saveAndCheck(project, QStringLiteral("vertical.kkproj"));
+    }
+
+    /// Hide a face: an adjustment clip on V2 with Mosaic and an ellipse mask over the head.
+    void blurProject()
+    {
+        Project project;
+        if (!importAll(project, {"presenter.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("Hide a Face");
+        while (d.videoTracks.size() < 2)
+            editops::addTrack(d, TrackType::Video);
+        const int64_t fps = 25;
+        place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
+        ClipData adj;
+        adj.kind = ClipKind::Adjustment;
+        adj.name = QStringLiteral("Adjustment Clip");
+        adj.start = 0;
+        adj.duration = 10 * fps;
+        EffectInstance mosaic
+            = EffectRegistry::instance().createEffect(QStringLiteral("mosaic"), d.allocateId());
+        mosaic.params.setBase(QStringLiteral("blockSize"), 40);
+        adj.effects.append(mosaic);
+        MaskData mask = makeMask(MaskShape::Ellipse, d.allocateId(), QSizeF(420, 440));
+        mask.params.setBase(maskkeys::PosY, -140);
+        mask.params.setBase(maskkeys::FeatherOut, 20);
+        adj.masks.append(mask);
+        editops::overwriteClip(d, TrackRef {TrackType::Video, 1}, adj);
+        project.endEdit();
+        project.timeline()->setPlayhead(5 * fps);
+        project.setName(QStringLiteral("Hide a Face"));
+        saveAndCheck(project, QStringLiteral("blur.kkproj"));
+    }
+
+    /// Subtitles: three captions on ST1 over two clips.
+    void subtitlesProject()
+    {
+        Project project;
+        if (!importAll(project, {"presenter.mp4", "broll.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no presenter.mp4 / broll.mp4");
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("With Subtitles");
+        const int64_t fps = 25;
+        place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 9 * fps, 0, 0);
+        place(d, *itemNamed(project, QStringLiteral("broll")), 9 * fps, 5 * fps, 0, 0);
+        editops::addTrack(d, TrackType::Subtitle);
+        const std::pair<const char*, int64_t> lines[] = {
+            {"Welcome to our little film.", 1 * fps},
+            {"Today we try something new.", 5 * fps},
+            {"Here is how it went.", 9 * fps},
+        };
+        for (const auto& [text, start] : lines)
+            editops::overwriteClip(d, TrackRef {TrackType::Subtitle, 0},
+                subtitles::makeCaption(QString::fromUtf8(text), start, 3 * fps));
+        project.endEdit();
+        project.timeline()->setPlayhead(6 * fps);
+        project.setName(QStringLiteral("Subtitles"));
+        saveAndCheck(project, QStringLiteral("subtitles.kkproj"));
+    }
+
+    /// Keyframes: a slow zoom in (Zoom 1.0 -> 1.4), the playhead on the last key.
+    void keyframesProject()
+    {
+        Project project;
+        if (!importAll(project, {"presenter.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("Slow Zoom");
+        const int64_t fps = 25;
+        const int64_t length = 8 * fps;
+        const quint64 id
+            = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, length, 0, 0);
+        ClipData* c = editops::clipById(d, id);
+        QVERIFY(c);
+        for (const QString& key : {keys::ZoomX, keys::ZoomY}) {
+            AnimatedValue& zoom = c->transform.animated(key, 1.0);
+            zoom.setKey(0, 1.0);
+            zoom.setKey(length - fps, 1.4);
+        }
+        d.videoTracks[0].height = 80;
+        project.endEdit();
+        project.timeline()->setPlayhead(length - fps);
+        project.setName(QStringLiteral("Keyframes"));
+        saveAndCheck(project, QStringLiteral("keyframes.kkproj"));
+    }
+
+    /// Compositing page: a Text node merged over the clip (MediaIn1 -> Merge1 <- Text1).
+    void compositingProject()
+    {
+        Project project;
+        if (!importAll(project, {"presenter.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("Compositing");
+        const int64_t fps = 25;
+        const quint64 id
+            = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
+        ClipData* c = editops::clipById(d, id);
+        QVERIFY(c);
+        Composition comp = compops::defaultComposition();
+        const compops::AddResult text
+            = compops::addNodeAfter(comp, nodetypes::Text, comp.mediaOutId);
+        QVERIFY(text.node && text.merge);
+        CompNode* t = comp.node(text.node);
+        t->params.setStatic(nodekeys::Text, QStringLiteral("Our Summer Trip"));
+        t->params.setBase(nodekeys::FontSize, 120);
+        t->params.setStatic(nodekeys::Bold, true);
+        t->params.setBase(nodekeys::OutlineWidth, 4);
+        t->params.setBase(nodekeys::CenterY, 0.18);
+        c->composition = comp;
+        project.endEdit();
+        project.timeline()->setPlayhead(5 * fps);
+        project.setName(QStringLiteral("Compositing"));
+        saveAndCheck(project, QStringLiteral("compositing.kkproj"));
     }
 
     /// The sidecar lists named widgets, tool bar buttons by action id, clips, transitions and
