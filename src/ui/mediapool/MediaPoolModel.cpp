@@ -6,8 +6,11 @@
 #include "core/MediaPool.h"
 #include "core/Project.h"
 #include "core/SmartBins.h"
+#include "media/MediaSource.h"
+#include "pack/ProjectPackage.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
+#include "ui/common/MediaImport.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 
@@ -28,10 +31,10 @@ constexpr Rational kFallbackFps {25, 1};
 constexpr int kUsageDelayMs = 150;
 
 // Keys of the columns (settings, project bin views). Order = MediaPoolModel::Column.
-const char* const kColumnKeys[]
-    = {"name", "duration", "resolution", "fps", "codec", "audio", "proxy", "optimized", "clipColor",
-        "flags", "usage", "fileName", "path", "dateAdded", "dateModified", "description",
-        "comments", "keywords", "scene", "shot", "take", "camera", "angle", "goodTake", "rating"};
+const char* const kColumnKeys[] = {"name", "duration", "resolution", "fps", "codec", "audio",
+    "proxy", "optimized", "clipColor", "flags", "usage", "fileName", "path", "dateAdded",
+    "dateModified", "description", "comments", "keywords", "scene", "shot", "take", "camera",
+    "angle", "goodTake", "rating", "location"};
 static_assert(std::size(kColumnKeys) == MediaPoolModel::ColumnCount);
 
 QString dateText(qint64 ms)
@@ -111,6 +114,11 @@ MediaPoolModel::MediaPoolModel(Project* project, QObject* parent)
     connect(project->timeline(), &Timeline::changed, this, &MediaPoolModel::scheduleUsage);
     connect(project, &Project::timelinesChanged, this, &MediaPoolModel::scheduleUsage);
     connect(project, &Project::projectReset, this, &MediaPoolModel::refreshUsage);
+    // Save As between the kinds: the location badges and tooltips depend on the project kind.
+    connect(project, &Project::filePathChanged, this, [this] {
+        if (!m_rows.isEmpty())
+            emit dataChanged(index(0, 0), index(int(m_rows.size()) - 1, ColumnCount - 1));
+    });
     connect(project->undoStack(), &QUndoStack::indexChanged, this, &MediaPoolModel::scheduleUsage);
     m_usage = usage::compute(*project);
     reload();
@@ -216,7 +224,7 @@ void MediaPoolModel::recheckOffline()
         if (m_rows[r].kind == TimelineKind || m_rows[r].kind == CompoundKind
             || m_rows[r].kind == MulticamKind)
             continue; // no file behind them
-        const bool offline = !QFileInfo::exists(m_rows[r].path);
+        const bool offline = !media::mediaExists(m_rows[r].path);
         if (offline != m_rows[r].offline) {
             m_rows[r].offline = offline;
             emit dataChanged(index(r, 0), index(r, ColumnCount - 1));
@@ -302,7 +310,8 @@ MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item, bool power)
         row.audioText = tr("%n caption(s)", nullptr, int(item.cues.size()));
     }
     // One stat() per item on add/reset, never while painting.
-    row.offline = !QFileInfo::exists(item.path);
+    row.offline = !media::mediaExists(item.path);
+    row.location = isStoredInProject(item.path) ? StoredLocation : LinkedLocation;
     return row;
 }
 
@@ -443,6 +452,11 @@ QPixmap MediaPoolModel::poster(const Row& row) const
     return result;
 }
 
+bool MediaPoolModel::singleFileProject() const
+{
+    return pack::isContainerFile(m_project->filePath());
+}
+
 QVariant MediaPoolModel::displayText(const Row& row, int column) const
 {
     const MediaMetadata& md = row.metadata;
@@ -497,6 +511,10 @@ QVariant MediaPoolModel::displayText(const Row& row, int column) const
         return md.goodTake ? tr("Yes") : QString();
     case RatingColumn:
         return stars(md.rating);
+    case LocationColumn:
+        return row.location == StoredLocation ? tr("Project file")
+            : row.location == LinkedLocation  ? tr("Linked")
+                                              : QString();
     default:
         return {};
     }
@@ -577,9 +595,16 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
             tip = row.kind == TimelineKind
                 ? tr("%1\nTimeline: double-click to open it in a tab").arg(row.name)
                 : tr("%1\nCompound clip: double-click to open it in a tab").arg(row.name);
+        else if (row.location == StoredLocation)
+            tip = row.offline
+                ? tr("%1\nMedia offline: no longer stored in the project file.").arg(row.fileName)
+                : tr("%1\nStored in the project file").arg(row.fileName);
         else
-            tip = row.offline ? tr("%1\nMedia offline: the file is missing.").arg(row.path)
-                              : row.path;
+            tip = row.offline
+                ? tr("%1\nMedia offline: the file is missing.").arg(row.path)
+                : (singleFileProject()
+                          ? tr("%1\nLinked: not stored in the project file").arg(row.path)
+                          : row.path);
         if (row.power)
             tip += QLatin1Char('\n') + tr("Power bin item (shared by every project)");
         else if (row.usage > 0)
@@ -620,6 +645,10 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
         return row.usage;
     case PowerRole:
         return row.power;
+    case LocationRole:
+        return int(row.location);
+    case LocationBadgeRole:
+        return singleFileProject() && !row.power ? int(row.location) : int(NoLocation);
     case SortRole:
         return sortValue(row, index.column());
     default:
@@ -682,6 +711,8 @@ QVariant MediaPoolModel::headerData(int section, Qt::Orientation orientation, in
         return tr("Good Take");
     case RatingColumn:
         return tr("Rating");
+    case LocationColumn:
+        return tr("Location");
     default:
         return {};
     }

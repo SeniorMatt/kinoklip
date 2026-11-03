@@ -69,7 +69,8 @@ NewProjectDialog::NewProjectDialog(const QString& suggestedName, QWidget* parent
     layout->addLayout(form);
 
     if (!creatable(ProjectStorage::SingleFile)) {
-        const QString why = tr("Available after the single-file project integration");
+        // Only a build without the single-file container (a kind registered without create).
+        const QString why = tr("This build cannot create single-file projects");
         m_single->setEnabled(false);
         m_single->setToolTip(why);
         singleNote->setToolTip(why);

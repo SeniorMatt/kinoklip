@@ -3,6 +3,8 @@
 #include "core/Subtitles.h"
 
 #include "core/ParamKeys.h"
+#include "media/MediaSource.h"
+#include "pack/EmbeddedMedia.h"
 
 #include <QColor>
 #include <QCoreApplication>
@@ -309,6 +311,20 @@ bool parse(
 
 bool readFile(const QString& path, QVector<SubtitleCue>* cues, QString* error)
 {
+    // Through MediaSource: a subtitle file stored inside a single-file project is read in place.
+    if (pack::mayBeEmbeddedPath(path)) {
+        const media::MediaSource source = media::MediaSource::resolve(path);
+        if (source.isEmbedded()) {
+            QString why;
+            const QByteArray bytes = source.readAll(&why, 64LL << 20);
+            if (bytes.isNull()) {
+                if (error)
+                    *error = why;
+                return false;
+            }
+            return parse(bytes, cues, error);
+        }
+    }
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         if (error)

@@ -231,6 +231,36 @@ void MediaPoolDelegate::paint(
         p->drawEllipse(QPointF(posterRect.left() + 7.5, posterRect.bottom() - 6.5), 3.0, 3.0);
     }
 
+    // Where the media is, in a single-file project (where both can be mixed): a small box
+    // glyph for media stored in the project file, a "Linked" badge for files on disk. Next to
+    // the usage dot in the bottom-left corner.
+    const int location = index.data(MediaPoolModel::LocationBadgeRole).toInt();
+    if (location == MediaPoolModel::StoredLocation) {
+        const QRectF box(posterRect.left() + 14.5, posterRect.bottom() - 11.5, 9, 8);
+        p->setPen(QPen(withAlpha(sc.shadow, 170), 1));
+        p->setBrush(withAlpha(sc.overlay, 200));
+        p->drawRoundedRect(box.adjusted(-2, -2, 2, 2), 2, 2);
+        p->setPen(QPen(sc.overlayText, 1.2));
+        p->setBrush(Qt::NoBrush);
+        p->drawRect(box);
+        p->drawLine(QPointF(box.left(), box.top() + 3), QPointF(box.right(), box.top() + 3));
+    } else if (location == MediaPoolModel::LinkedLocation) {
+        QFont small = option.font;
+        small.setPointSizeF(small.pointSizeF() * 0.75);
+        p->setFont(small);
+        const QFontMetrics fm(small);
+        const QString text = tr("Linked");
+        const QRect r(0, 0, fm.horizontalAdvance(text) + 8, fm.height() + 2);
+        const QRect badge
+            = r.translated(posterRect.left() + 13, posterRect.bottom() - r.height() - 3);
+        const QColor color = withAlpha(sc.neutral, 220);
+        p->setPen(Qt::NoPen);
+        p->setBrush(color);
+        p->drawRoundedRect(QRectF(badge), 3, 3);
+        p->setPen(sc.textOn(color));
+        p->drawText(badge, Qt::AlignCenter, text);
+    }
+
     // Selection outline around the poster.
     if (selected) {
         p->setPen(QPen(pal.color(QPalette::Highlight), 2));

@@ -7,6 +7,7 @@ namespace kk {
 class ActionRegistry;
 class PlaybackEngine; // src/playback; null in tests that do not need playback
 class MediaManagement; // proxies / optimized media / render cache; may be null in tests
+class MediaStore; // single-file projects copy imports in; may be null (= linked)
 class PowerBins; // bins shared by every project; may be null in tests
 class Project;
 class SelectionModel;
@@ -24,6 +25,8 @@ struct AppContext
     SettingsPageRegistry* settingsPages = nullptr; ///< preference pages (null: standard pages only)
     MediaManagement* media = nullptr; ///< proxies, optimized media, render cache; may be null
     PowerBins* powerBins = nullptr; ///< power bins (core/PowerBins.h); null = none shown
+    /// Where imported media go (ui/common/MediaStore.h); null = used where they are (linked).
+    MediaStore* mediaStore = nullptr;
 };
 
 } // namespace kk

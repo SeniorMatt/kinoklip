@@ -8,6 +8,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/MediaImport.h"
 #include "ui/common/TimecodeFormat.h"
 
 #include <QButtonGroup>
@@ -92,11 +93,16 @@ ClipAttributesDialog::ClipAttributesDialog(const MediaItem& item, int count, QWi
 
     auto* name = new QLabel(item.name);
     name->setObjectName(QStringLiteral("ClipAttributesName"));
+    // Where the media is: stored in a single-file project or a linked file.
+    auto* location = new QLabel(tr("Location: %1").arg(mediaLocationText(item.path)));
+    location->setObjectName(QStringLiteral("ClipAttributesLocation"));
+    location->setEnabled(false); // dim, like a form note
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     auto* layout = new QVBoxLayout(this);
     layout->addWidget(name);
+    layout->addWidget(location);
     layout->addWidget(m_tabs);
     layout->addWidget(buttons);
 }
