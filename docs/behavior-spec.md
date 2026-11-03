@@ -777,6 +777,7 @@ tests/media/test_embeddedmedia.cpp, ee = tests/export/test_embeddedexport.cpp.
 | 39.13 | Caches (thumbnails, waveforms, proxies, optimised media, render cache) are not stored in the file; their identity for embedded media is the container, the entry and its checksum. | Library done (em thumbnailsAndWaveforms) |
 | 39.14 | The project document format does not change (format 13): embedded media are media pool items with an `embedded` entry name, linked media keep their paths; older builds open an extracted archive. Moving clips between bins or renaming them never touches the media bytes (entry names are stable). | Library done (pp packAndOpen, extractedWithStandardToolOpens) |
 | 39.15 | The Media Pool shows whether a clip is stored in the project file or linked. | UI pending (integration step) |
+| 39.16 | Privacy: a single-file project does not reveal where its media came from. No absolute path, folder name or home directory is stored in the file (entry names, manifest, document); re-imports are recognised by a key salted per file, and proxy links of embedded media are not stored. Only media the user keeps linked keep their path. | Library done (pp storesNoPaths, addMediaDeduplicates) |
 
 ## Summary
 
@@ -820,5 +821,5 @@ tests/media/test_embeddedmedia.cpp, ee = tests/export/test_embeddedexport.cpp.
   12.14, 18.8, 18.9, 24.11, 24.12 and 29.17, and updated 24.9 and 29.16.
 - The polish4 branch (v3, basic editing polish round 4, docs/polish-v3.md) added 17.6, 17.7,
   18.10 - 18.15 and 37.35, and updated 18.9 (ranged markers; project format 13).
-- The kkpack branch (v4 part 2) added 39.1 - 39.15 (single-file projects: container library and
+- The kkpack branch (v4 part 2) added 39.1 - 39.16 (single-file projects: container library and
   in-place media reading; UI pending).

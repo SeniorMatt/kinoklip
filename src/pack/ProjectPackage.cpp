@@ -5,12 +5,14 @@
 #include "pack/EmbeddedMedia.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QRandomGenerator>
+#include <QSet>
 
 #include <algorithm>
 #include <cstring>
@@ -42,7 +44,7 @@ struct Source
     qint64 offset = 0;
     qint64 size = 0;
     qint64 modifiedMs = 0;
-    QString identity; ///< absolute path as given (manifest originalPath)
+    QString identity; ///< absolute path as given (hashed into MediaRecord::sourceKey)
     QString fileName; ///< for the entry name
 };
 
@@ -235,6 +237,9 @@ std::unique_ptr<ProjectPackage> ProjectPackage::create(const QString& path, QStr
     p->m_container = Container::create(p->m_path, error);
     if (!p->m_container)
         return {};
+    QByteArray salt(16, Qt::Uninitialized);
+    QRandomGenerator::system()->fillRange(reinterpret_cast<quint32*>(salt.data()), 4);
+    p->m_salt = salt.toHex();
     invalidateIndexCache(p->m_path);
     if (!p->m_container->addData(
             QLatin1String(kManifestEntry), p->manifestJson(), QDateTime::currentDateTime(), error)
@@ -274,11 +279,14 @@ bool ProjectPackage::loadManifest(QString* error)
         setError(error, QStringLiteral("%1 was written by a newer Kinoklip").arg(m_path));
         return false;
     }
+    m_salt = root.value(QLatin1String("salt")).toString().toLatin1();
+    if (m_salt.isEmpty())
+        m_salt = QByteArray::number(QRandomGenerator::system()->generate64(), 16);
     for (const QJsonValue& v : root.value(QLatin1String("media")).toArray()) {
         const QJsonObject o = v.toObject();
         MediaRecord r;
         r.entry = o.value(QLatin1String("entry")).toString();
-        r.originalPath = o.value(QLatin1String("originalPath")).toString();
+        r.sourceKey = o.value(QLatin1String("sourceKey")).toString();
         r.size = o.value(QLatin1String("size")).toInteger();
         r.modifiedMs = o.value(QLatin1String("modifiedMs")).toInteger();
         r.crc32 = uint32_t(o.value(QLatin1String("crc32")).toInteger());
@@ -294,15 +302,26 @@ QByteArray ProjectPackage::manifestJson() const
     QJsonArray media;
     for (const MediaRecord& r : m_media) {
         media.append(QJsonObject {{QLatin1String("entry"), r.entry},
-            {QLatin1String("originalPath"), r.originalPath}, {QLatin1String("size"), r.size},
+            {QLatin1String("sourceKey"), r.sourceKey}, {QLatin1String("size"), r.size},
             {QLatin1String("modifiedMs"), r.modifiedMs}, {QLatin1String("crc32"), qint64(r.crc32)},
             {QLatin1String("addedMs"), r.addedMs}});
     }
     const QJsonObject root {{QLatin1String("format"), QStringLiteral("kinoklip-project")},
         {QLatin1String("version"), kManifestVersion}, {QLatin1String("generator"), generator()},
         {QLatin1String("document"), QLatin1String(kDocumentEntry)},
-        {QLatin1String("media"), media}};
+        {QLatin1String("salt"), QString::fromLatin1(m_salt)}, {QLatin1String("media"), media}};
     return QJsonDocument(root).toJson(QJsonDocument::Indented);
+}
+
+QString ProjectPackage::sourceKey(const QString& absolutePath, qint64 size, qint64 modifiedMs) const
+{
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    hash.addData(m_salt);
+    hash.addData(QByteArrayView("\n"));
+    hash.addData(absolutePath.toUtf8());
+    hash.addData(QByteArrayView("\n"));
+    hash.addData(QByteArray::number(size) + '\n' + QByteArray::number(modifiedMs));
+    return QString::fromLatin1(hash.result().toHex());
 }
 
 const MediaRecord* ProjectPackage::record(const QString& entry) const
@@ -350,10 +369,42 @@ bool ProjectPackage::saveDocument(const QByteArray& runtimeDocument, QString* er
     return saveStoredDocument(stored, error);
 }
 
+namespace {
+
+/// Removes the proxy / optimized-media links of embedded items: they are caches outside the
+/// file (and their absolute paths would reveal the user's folders); the application finds
+/// proxies again in its proxy folder after loading.
+QByteArray withoutEmbeddedCacheLinks(const QByteArray& stored)
+{
+    QJsonObject root = QJsonDocument::fromJson(stored).object();
+    const QJsonArray links = root.value(QLatin1String("mediaLinks")).toArray();
+    if (links.isEmpty())
+        return stored;
+    QSet<QString> embedded;
+    for (const QJsonValue& v :
+        root.value(QLatin1String("mediaPool")).toObject().value(QLatin1String("items")).toArray()) {
+        const QJsonObject o = v.toObject();
+        if (o.contains(QLatin1String("embedded")))
+            embedded.insert(o.value(QLatin1String("id")).toString());
+    }
+    QJsonArray kept;
+    for (const QJsonValue& v : links) {
+        if (!embedded.contains(v.toObject().value(QLatin1String("mediaId")).toString()))
+            kept.append(v);
+    }
+    if (kept.size() == links.size())
+        return stored;
+    root[QLatin1String("mediaLinks")] = kept;
+    return QJsonDocument(root).toJson(QJsonDocument::Indented);
+}
+
+} // namespace
+
 bool ProjectPackage::saveStoredDocument(const QByteArray& storedDocument, QString* error)
 {
     const QDateTime now = QDateTime::currentDateTime();
-    if (!m_container->addData(QLatin1String(kDocumentEntry), storedDocument, now, error)
+    if (!m_container->addData(
+            QLatin1String(kDocumentEntry), withoutEmbeddedCacheLinks(storedDocument), now, error)
         || !m_container->addData(QLatin1String(kManifestEntry), manifestJson(), now, error)
         || !m_container->commit(error)) {
         m_container->rollback();
@@ -439,10 +490,10 @@ Status ProjectPackage::addMedia(
             a.entry = ownEntry;
             a.duplicate = true;
         }
-        // 1. Same original file (path, size, time) as a stored one.
+        // 1. Same original file (path, size, time) as a stored one, by its salted key.
+        const QString key = sourceKey(s.identity, s.size, s.modifiedMs);
         for (const MediaRecord& r : std::as_const(m_media)) {
-            if (a.entry.isEmpty() && r.originalPath == s.identity && r.size == s.size
-                && r.modifiedMs == s.modifiedMs) {
+            if (a.entry.isEmpty() && r.sourceKey == key) {
                 a.entry = r.entry;
                 a.duplicate = true;
             }
@@ -481,7 +532,7 @@ Status ProjectPackage::addMedia(
             done += s.size;
             MediaRecord r;
             r.entry = a.entry;
-            r.originalPath = s.identity;
+            r.sourceKey = key;
             r.size = s.size;
             r.modifiedMs = s.modifiedMs;
             r.crc32 = crc;
@@ -788,7 +839,7 @@ CompactResult compactProject(const QString& containerPath, const Progress& progr
             if (used.contains(r.entry))
                 records.append(r);
         }
-        out->setMediaRecords(records);
+        out->setMediaRecords(records, source->salt());
         const bool saved = source->hasDocument() ? out->saveStoredDocument(stored, &result.error)
                                                  : out->saveManifest(&result.error);
         if (!saved)
