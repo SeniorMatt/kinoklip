@@ -3,8 +3,6 @@
 // Context menus live in MediaPoolMenus.cpp, the undoable operations in MediaPoolOrganize.cpp.
 #include "ui/mediapool/MediaPoolPanel.h"
 
-#include "ui/common/SelectedRows.h"
-
 #include "core/ClipColors.h"
 #include "core/MediaPool.h"
 #include "core/PowerBins.h"
@@ -18,9 +16,9 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/DragAndDrop.h"
 #include "ui/common/Icons.h"
-#include "ui/common/SelectedRows.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/SelectedRows.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolDelegate.h"
 #include "ui/mediapool/MediaPoolStripDelegate.h"
@@ -32,6 +30,7 @@
 #include <QDropEvent>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QKeyEvent>
 #include <QLineEdit>
 #include <QListView>
 #include <QMenu>
@@ -145,6 +144,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
 
     m_bins = new BinList;
     m_bins->setObjectName(QStringLiteral("MediaPoolBins"));
+    m_bins->installEventFilter(this); // Delete / Backspace delete the current bin
     m_bins->onItemsDropped = [this](const QStringList& ids, const QStringList& powerIds,
                                  const QString& key) { moveItemsToBin(ids + powerIds, key); };
     m_bins->onFilesDropped
@@ -208,6 +208,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         view->setEditTriggers(QAbstractItemView::EditKeyPressed);
         view->setContextMenuPolicy(Qt::CustomContextMenu);
         view->setMouseTracking(true);
+        view->installEventFilter(this); // Delete / Backspace / Ctrl+A act on the media pool
         connect(view, &QAbstractItemView::doubleClicked, this, [this](const QModelIndex& index) {
             const QString id = index.data(MediaPoolModel::IdRole).toString();
             if (id.isEmpty())
@@ -764,6 +765,46 @@ bool MediaPoolPanel::selectMedia(const QString& id)
 void MediaPoolPanel::setThumbnailProvider(PosterProvider provider)
 {
     m_model->setThumbnailProvider(std::move(provider));
+}
+
+bool MediaPoolPanel::eventFilter(QObject* watched, QEvent* event)
+{
+    // With the media pool focused, the editing keys act on it, as in Resolve: Delete /
+    // Backspace delete the selected items (asking first when timeline clips use them) and
+    // Ctrl+A selects every item of the bin. As window shortcuts they would ripple-delete or
+    // select the timeline's clips instead (spec 33.31). A rename editor gets its own keys.
+    const bool view = watched == m_grid || watched == m_list || watched == m_strip;
+    const bool keyEvent
+        = event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress;
+    if (watched == m_bins && keyEvent) {
+        // In the bin list they delete the current bin (Master and smart bins stay).
+        const auto* key = static_cast<QKeyEvent*>(event);
+        if ((key->key() == Qt::Key_Delete || key->key() == Qt::Key_Backspace)
+            && (key->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier) {
+            if (event->type() == QEvent::KeyPress)
+                deleteBin(m_bins->currentKey(), true);
+            event->accept();
+            return true;
+        }
+    }
+    if (view && keyEvent) {
+        const auto* key = static_cast<QKeyEvent*>(event);
+        const Qt::KeyboardModifiers mods = key->modifiers() & ~Qt::KeypadModifier;
+        const bool del = (key->key() == Qt::Key_Delete || key->key() == Qt::Key_Backspace)
+            && (mods == Qt::NoModifier || mods == Qt::ShiftModifier);
+        const bool all = key->key() == Qt::Key_A && mods == Qt::ControlModifier;
+        if (del || all) {
+            if (event->type() == QEvent::KeyPress) {
+                if (del)
+                    confirmAndDelete(selectedMediaIds());
+                else
+                    static_cast<QAbstractItemView*>(watched)->selectAll();
+            }
+            event->accept(); // ShortcutOverride: the key goes to the view, not to a shortcut
+            return true;
+        }
+    }
+    return PanelFrame::eventFilter(watched, event);
 }
 
 QAbstractItemView* MediaPoolPanel::currentView() const
