@@ -30,6 +30,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QCursor>
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDrag>
@@ -737,6 +738,24 @@ ViewerPanel* ViewerPanel::activeViewer()
 QList<ViewerPanel*> ViewerPanel::allViewers()
 {
     return registry();
+}
+
+void ViewerPanel::zoomTargetToFit()
+{
+    auto owner = [](QWidget* w) -> ViewerPanel* {
+        for (; w; w = w->parentWidget()) {
+            if (auto* panel = qobject_cast<ViewerPanel*>(w); panel && registry().contains(panel))
+                return panel;
+        }
+        return nullptr;
+    };
+    ViewerPanel* target = owner(QApplication::widgetAt(QCursor::pos()));
+    if (!target)
+        target = owner(QApplication::focusWidget());
+    for (ViewerPanel* panel : registry()) {
+        if (target ? panel == target : panel->isVisible())
+            panel->zoomToFit();
+    }
 }
 
 // ---- Events ----

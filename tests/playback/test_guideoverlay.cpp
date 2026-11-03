@@ -606,6 +606,45 @@ private slots:
     }
 
     // 41.21: Shift+Z (focus in the viewer), the header's Fit and a middle double-click fit.
+    void zKeyFitsTheViewerUnderThePointer()
+    {
+        // Owner request on 0.4.1: Z resets the viewer's zoom and pan (View > Viewer Zoom to Fit).
+        resetOptions();
+        Fixture f;
+        Viewer a(f);
+        Viewer b(f, ViewerPanel::Mode::Source);
+        a.panel.move(0, 0);
+        b.panel.move(720, 0);
+        QVERIFY(QTest::qWaitForWindowExposed(&a.panel));
+        QVERIFY(QTest::qWaitForWindowExposed(&b.panel));
+        wheel(a.surface(), {60, 60}, 360);
+        wheel(b.surface(), {60, 60}, 360);
+        QVERIFY(a.panel.zoomFactor() > 0.0 && b.panel.zoomFactor() > 0.0);
+        // The viewer with the focus fits (the pointer is over neither here).
+        QCursor::setPos(QPoint(-50, -50));
+        b.panel.activateWindow();
+        b.surface()->setFocus();
+        QVERIFY(QApplication::widgetAt(QCursor::pos()) == nullptr);
+        QTRY_VERIFY(b.surface()->hasFocus());
+        ViewerPanel::zoomTargetToFit();
+        QCOMPARE(b.panel.zoom(), ViewerPanel::Zoom::Fit);
+        QVERIFY(a.panel.zoomFactor() > 0.0);
+        // No viewer under the pointer or with focus: every visible viewer fits.
+        wheel(b.surface(), {60, 60}, 360);
+        b.surface()->clearFocus();
+        QWidget other;
+        other.show();
+        other.activateWindow();
+        other.setFocus();
+        QTRY_VERIFY(!b.surface()->hasFocus());
+        ViewerPanel::zoomTargetToFit();
+        QCOMPARE(a.panel.zoom(), ViewerPanel::Zoom::Fit);
+        QCOMPARE(b.panel.zoom(), ViewerPanel::Zoom::Fit);
+        // The action is bound to Z.
+        QVERIFY(f.ctx.actions->shortcuts(QStringLiteral("view.viewer_zoom_fit"))
+                    .contains(QKeySequence(Qt::Key_Z)));
+    }
+
     void fitResets()
     {
         resetOptions();

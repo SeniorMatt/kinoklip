@@ -935,6 +935,7 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.23 | Everything drawn over the picture follows zoom and pan through the one picture rectangle (`ViewerSurface::pictureRect()`): guides and their hit test, rulers, safe areas, aspect marker, grid, the Transform / Crop / mask controls, the eyedropper, the multicam grid labels and the overlay text. The two-up trim view keeps its own layout and takes no zoom input while shown. | Fixed (gu middleDragPans, wheelZoomsAboutCursor) |
 | 41.24 | Zoom and pan are per viewer and per session: not saved in the project or the settings, and kept when another clip or timeline is shown (as the header zoom was before). | Decision |
 | 41.25 | The panning part of 41.17 is done (41.20); snapping of mask points to guides and colours per guide stay deferred. | Fixed (see 41.20) |
+| 41.26 | View > Viewer Zoom to Fit (Z, owner request on 0.4.1) resets zoom and pan of the viewer under the pointer, else of the viewer with the focus, else of every visible viewer. | Fixed (gu zKeyFitsTheViewerUnderThePointer) |
 
 ## Summary
 
