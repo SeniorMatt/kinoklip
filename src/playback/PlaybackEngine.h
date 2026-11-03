@@ -17,6 +17,7 @@
 #include <QTimer>
 
 #include <cstdint>
+#include <future>
 #include <memory>
 
 namespace kk {
@@ -186,6 +187,13 @@ public:
     void setRenderCache(std::shared_ptr<const RenderCacheView> view);
     /// The compositor (shareable with other engines).
     [[nodiscard]] std::shared_ptr<Compositor> compositor() const { return m_compositor; }
+    /// Compositing page viewers: Compositor::renderCompositionNode() of node @p nodeId (0 =
+    /// MediaOut) of clip @p clipId of @p timeline at comp frame @p compFrame, with the
+    /// engine's media table, proxies and current quality, so MediaIn decodes what the
+    /// program shows.
+    [[nodiscard]] std::future<RenderedFramePtr> renderCompositionNode(
+        std::shared_ptr<const TimelineData> timeline, quint64 clipId, quint64 nodeId,
+        int64_t compFrame, QSize outSize, unsigned outputs) const;
 
     // ---- State ----
 

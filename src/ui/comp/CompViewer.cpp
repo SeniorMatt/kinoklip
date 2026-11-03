@@ -177,20 +177,9 @@ void CompViewer::requestRender()
     const QSize logical = m_surface->pictureRect().size();
     const QSize pixels(int(logical.width() * dpr), int(logical.height() * dpr));
     const quint64 nodeId = node() == m_session->composition().mediaOutId ? 0 : node();
-    // The request of Compositor::renderCompositionNode(), plus the engine's media table and
-    // proxies: without them the compositor has no paths and MediaIn decodes nothing.
-    RenderRequest request;
-    request.timeline = m_ctx.project->timeline()->snapshot();
-    request.media = m_engine->mediaPaths();
-    request.proxies = m_engine->proxies();
-    request.outSize = pixels;
-    request.quality = m_engine->currentQuality();
-    request.outputs = m_surface->canDrawTextures() ? OutputTexture : OutputImage;
-    request.subtitles = false;
-    request.compositionNode
-        = CompositionNodeView {m_session->clipId(), nodeId, m_session->compFrame()};
-    auto future = std::make_shared<std::future<RenderedFramePtr>>(
-        m_engine->compositor()->renderAsync(std::move(request)));
+    auto future = std::make_shared<std::future<RenderedFramePtr>>(m_engine->renderCompositionNode(
+        m_ctx.project->timeline()->snapshot(), m_session->clipId(), nodeId, m_session->compFrame(),
+        pixels, m_surface->canDrawTextures() ? OutputTexture : OutputImage));
     // Wait on a pool thread, deliver on the GUI thread (the compositor's futures are std::).
     m_watcher->setFuture(QtConcurrent::run([future] { return future->get(); }));
 }

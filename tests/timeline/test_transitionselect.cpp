@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Transitions as timeline items (spec 13.10, alpha.2 feedback #6): click selects (exclusive with
 // clips), Delete / Backspace remove (one undo step), double-click asks for the Inspector, locked
-// tracks are left alone; the fx badge opens the clip's effects (spec 24.3).
+// tracks are left alone; the fx badge opens the clip's effects (spec 24.3); a clip with a
+// composition shows the node badge (spec 42b.18).
 #include "ParityTestUtils.h"
 #include "TimelineTestUtils.h"
+#include "core/Composition.h"
+#include "ui/common/SchemeColors.h"
+#include "ui/timeline/TimelinePainter.h"
 
 #include <QSignalSpy>
 #include <QTest>
@@ -133,6 +137,46 @@ private slots:
         QCOMPARE(spy.last().at(1).value<TimelineWidget::InspectTarget>(),
             TimelineWidget::InspectTarget::Effects);
         QCOMPARE(v.f.selection.currentClip(), id);
+    }
+
+    void spec42b_18_compositionBadge()
+    {
+        // A clip with a composition shows the node badge (keyframe-coloured node boxes) at its
+        // right end, left of the fx badge when it also has effects; a plain clip shows none.
+        View v;
+        ClipData plain = solidClip(10, 30);
+        ClipData comp = solidClip(50, 30);
+        comp.composition = Composition {};
+        ClipData both = solidClip(90, 30);
+        both.composition = Composition {};
+        EffectInstance fx;
+        fx.type = QStringLiteral("gaussian_blur");
+        both.effects.append(fx);
+        const quint64 plainId = v.put(kV1, plain);
+        const quint64 compId = v.put(kV1, comp);
+        const quint64 bothId = v.put(kV1, both);
+        QCoreApplication::processEvents();
+        const QImage img = v.vp()->grab().toImage();
+        const QColor mark = schemeColors().keyframe;
+        auto marked = [&](const QRectF& r) {
+            int n = 0;
+            const QRect area = r.toAlignedRect() & img.rect();
+            for (int y = area.top(); y <= area.bottom(); ++y)
+                for (int x = area.left(); x <= area.right(); ++x)
+                    n += img.pixelColor(x, y) == mark ? 1 : 0;
+            return n;
+        };
+        const double right = double(v.w.layout().viewSize().width());
+        const QRectF plainBadge = TimelinePainter::compBadgeRect(v.clipRect(plainId), right, false);
+        const QRectF compBadge = TimelinePainter::compBadgeRect(v.clipRect(compId), right, false);
+        const QRectF bothBadge = TimelinePainter::compBadgeRect(v.clipRect(bothId), right, true);
+        const QRectF bothFx = TimelinePainter::fxBadgeRect(v.clipRect(bothId), right);
+        QVERIFY(!compBadge.isEmpty() && !bothBadge.isEmpty());
+        QCOMPARE(marked(plainBadge), 0);
+        QVERIFY2(marked(compBadge) >= 20, qPrintable(QString::number(marked(compBadge))));
+        QVERIFY(marked(bothBadge) >= 20);
+        QVERIFY(bothBadge.right() <= bothFx.left());
+        QVERIFY(!bothBadge.intersects(bothFx));
     }
 };
 

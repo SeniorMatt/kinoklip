@@ -70,6 +70,18 @@ private slots:
         QVERIFY(f.actions.shortcuts(undo).isEmpty());
         QCOMPARE(f.actions.action(split)->shortcut(), undoKey);
 
+        // Node editor keys (widget scope) do not clash with the Edit page's (spec 42b): Copy
+        // Nodes keeps Ctrl+C next to Copy, and giving Delete Nodes Ctrl+C asks about Copy
+        // Nodes only, never removes the Edit page key.
+        const QKeySequence copyKey(QStringLiteral("Ctrl+C"));
+        QCOMPARE(dialog.conflictFor(QStringLiteral("comp.copy"), copyKey), QString());
+        QCOMPARE(dialog.conflictFor(QStringLiteral("comp.delete"), copyKey),
+            QStringLiteral("comp.copy"));
+        QVERIFY(dialog.assignShortcut(QStringLiteral("comp.delete"), copyKey,
+            KeyboardCustomizationDialog::ConflictPolicy::Reassign));
+        QVERIFY(f.actions.shortcuts(QStringLiteral("comp.copy")).isEmpty());
+        QCOMPARE(f.actions.shortcuts(QStringLiteral("edit.copy")), QList<QKeySequence> {copyKey});
+
         // A free key needs no policy at all.
         const QKeySequence free(QStringLiteral("Ctrl+Alt+Shift+F11"));
         QVERIFY(dialog.conflictFor(undo, free).isEmpty());
