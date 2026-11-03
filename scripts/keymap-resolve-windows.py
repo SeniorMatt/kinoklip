@@ -130,6 +130,8 @@ a("clip.retime_curve", "Retime Curve (opens the clip's retime curve in the curve
 a("clip.new_compound", "New Compound Clip", [], L, "Clip menu / clip context menu command without a default key in Resolve")
 a("clip.open_in_timeline", "Open in Timeline (compound clip)", [], L, "context menu command without a default key")
 a("clip.decompose", "Decompose in Place (compound clip)", [], L, "context menu command without a default key")
+a("clip.open_in_compositing", "Open in Compositing Page (the clip's node graph)", [], L, "timeline clip context menu command without a default key")
+a("clip.reset_composition", "Reset Composition (remove the clip's node graph)", [], L, "timeline clip context menu command without a default key")
 a("clip.link", "Link / Unlink Clips", ["Ctrl+Alt+L"], L, "Resolve has one toggle; Kinoklip's Link toggles too.")
 a("clip.unlink", "Unlink Clips", [], L)
 a("clip.add_keyframe", "Add Keyframe (inspector)", ["Alt+K"], U, "toggles a key on the last touched inspector parameter; Resolve default not confirmed")
@@ -164,13 +166,14 @@ sec("Pages and view")
 a("view.page_media", "Media Page", ["Shift+2"], S)
 a("view.page_cut", "Cut Page", ["Shift+3"], S)
 a("view.page_edit", "Edit Page", ["Shift+4"], S)
-a("view.page_compositing", "Compositing Page (disabled; Resolve: Fusion)", ["Shift+5"], S)
+a("view.page_compositing", "Compositing Page (node compositing of the selected clip)", ["Shift+5"], S)
 a("view.page_color", "Color Page (disabled)", ["Shift+6"], S)
 a("view.page_audio", "Audio Page", ["Shift+7"], S)
 a("view.page_deliver", "Deliver Page", ["Shift+8"], S)
 a("view.toggle_media_pool", "Media Pool panel", [], L)
 a("view.toggle_effects", "Effects panel", [], L)
 a("view.toggle_edit_index", "Edit Index panel", [], L)
+a("view.toggle_nodes", "Nodes panel (Compositing page node editor)", [], U, "interface bar toggle; no default key known, none assigned")
 a("view.toggle_keyframes", "Keyframes panel (keyframe editor window)", [], U, "Kinoklip's large keyframe editor; no default key is known, none assigned.")
 a("view.stacked_timelines", "Stacked Timelines (two timelines one above the other)", [], L, "a timeline view option in Resolve; no default key known")
 a("view.toggle_mixer", "Mixer panel", [], L)
@@ -288,6 +291,28 @@ a("cut.viewer_source_clip", "Cut Viewer: Source Clip", [], U, "Cut page viewer m
 a("cut.viewer_source_tape", "Cut Viewer: Source Tape (all clips of the bin back to back)", [], U, "Cut page viewer mode button; no default key known")
 a("cut.viewer_timeline", "Cut Viewer: Timeline", [], U, "Cut page viewer mode button; Q switches between the source and the timeline there")
 
+sec("Compositing page node editor")
+# Node editor keys only act while the node editor has focus (it claims them through
+# QEvent::ShortcutOverride), so they may repeat keys of the Edit page; test_actionregistry checks
+# the comp.* keys among themselves.
+NE = "acts while the node editor has focus"
+a("comp.select_node", "Add Node (searchable Select Node list; adds after the selected node)", ["Shift+Space"], S, NE)
+a("comp.add_note", "Add Note (text box in the node editor)", [], U, "no default key known, none assigned")
+a("comp.cut", "Cut Nodes", ["Ctrl+X"], L, NE)
+a("comp.copy", "Copy Nodes", ["Ctrl+C"], S, NE)
+a("comp.paste", "Paste Nodes", ["Ctrl+V"], S, NE)
+a("comp.duplicate", "Duplicate Nodes", ["Ctrl+D"], U, NE + "; Resolve's default not confirmed")
+a("comp.delete", "Delete Nodes", ["Del", "Backspace"], S, NE)
+a("comp.select_all", "Select All Nodes", ["Ctrl+A"], L, NE)
+a("comp.rename", "Rename Node", ["F2"], L, NE)
+a("comp.pass_through", "Pass Through (disable the node: its main input goes straight through)", ["Ctrl+P"], L, NE)
+a("comp.lock", "Lock Node (parameters cannot be edited)", [], U, "no default key known, none assigned")
+a("comp.swap_inputs", "Swap Inputs (background and foreground of Merge / Dissolve)", ["Ctrl+T"], L, NE)
+a("comp.view_left", "View Node in Left Viewer", ["1"], S, NE)
+a("comp.view_right", "View Node in Right Viewer", ["2"], S, NE)
+a("comp.fit", "Fit Nodes to View", ["Ctrl+F"], U, NE + "; Resolve's default not confirmed")
+a("comp.snap_grid", "Snap Nodes to Grid", [], U, "node editor context menu option; no default key known")
+
 sec("Audio page")
 a("audio.add_bus", "Add Bus (stereo; mono from the bus strip's menu)", [], U, "Audio page mixer command; no default key known, none assigned")
 a("audio.reset_loudness", "Reset Loudness Meter (integrated loudness, true peak max)", [], U, "loudness meter reset button; no default key known, none assigned")
@@ -325,8 +350,8 @@ out = ["# Keymap: DaVinci Resolve (Windows)", "",
 "The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id",
 "`resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and",
 "its global commands, written from general knowledge of how Resolve behaves (nothing copied from",
-"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (Compositing and Color",
-"pages) keep their Resolve key but are",
+"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (the Color page) keep",
+"their Resolve key but are",
 "disabled.", "",
 "**Confidence** says how sure we are that the key is Resolve's default:",
 "- **sure**: well-known default, used daily;",

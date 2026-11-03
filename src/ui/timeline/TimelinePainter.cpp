@@ -440,7 +440,9 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
     const double flagsW = flagMarks > 0 ? flagMarks * (kFlagMark + 2) + 2 : 0;
     // Name (sticky: stays readable when the clip start is scrolled off), duration, fx badge.
     const bool hasFx = !clip.effects.isEmpty();
-    const double badgeW = (hasFx ? 18 : 0) + flagsW;
+    // A clip with a composition (Compositing page) gets a node badge left of the fx badge.
+    const bool hasComp = clip.composition.has_value();
+    const double badgeW = (hasFx ? 18 : 0) + (hasComp ? 20 : 0) + flagsW;
     const int nameRoom = int(visible.width() - 10 - badgeW);
     if (nameRoom > 12 && bandH >= 12) {
         p.setFont(m_smallFont);
@@ -474,7 +476,8 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         }
     }
     if (flagMarks > 0 && visible.width() > flagsW + 24) {
-        const double right = std::min(r.right(), viewRight) - (hasFx ? 20 : 0) - 3;
+        const double right
+            = std::min(r.right(), viewRight) - (hasFx ? 20 : 0) - (hasComp ? 20 : 0) - 3;
         double x = right - kFlagMark;
         const double y = r.top() + (bandH - kFlagMark) / 2.0;
         for (int i = int(flagPalette().size()) - 1; i >= 0; --i) {
@@ -492,6 +495,18 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         p.drawText(badge, Qt::AlignCenter, QStringLiteral("fx"));
     }
 
+    if (const QRectF fx = hasComp ? fxBadgeRect(r, viewRight) : QRectF(); !fx.isEmpty()) {
+        // Two linked node boxes, the picture of a node graph.
+        const QRectF badge = fx.translated(hasFx ? -20 : 0, 0);
+        p.fillRect(badge, base.darker(190));
+        const double h = std::min(badge.height() - 4, 6.0);
+        const QRectF a(badge.left() + 3, badge.center().y() - h / 2, h, h);
+        const QRectF b(badge.right() - 3 - h, badge.center().y() - h / 2, h, h);
+        p.setPen(sc().keyframe);
+        p.drawLine(a.center(), b.center());
+        p.fillRect(a, sc().keyframe);
+        p.fillRect(b, sc().keyframe);
+    }
     paintFades(p, in, clip, r, visible);
     if (r.height() >= 24)
         paintKeyframes(p, in, clip, r);

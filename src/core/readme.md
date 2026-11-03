@@ -30,6 +30,9 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive); the active mask and the viewer eyedropper's target (`ColorPickTarget`) |
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
 | `AudioTransitions.h` | audio transition ids (Effects library "Audio Transitions") and their pure gain curves `gainIn()` / `gainOut()` (0 dB linear, -3 dB, +3 dB equal power, exponential, logarithmic, S-curve); any other id is +3 dB |
+| `Composition.h` | Compositing page node graph of a clip: `Composition`, `CompNode`, `NodeLink`, `CompNote` (`ClipData::composition`) |
+| `NodeRegistry.h` | node type descriptors (ports, parameters, viewer controls), ids / port ids / parameter keys, the `fx:<id>` node of every video effect |
+| `CompOps.h` | pure graph operations: default composition, add / add after (auto-merge) / remove / connect / disconnect / insert into link / paste, cycle and kind checks, evaluation order |
 | `Generators.h` | ids and parameter keys of the built-in generators and the adjustment clip |
 | `Subtitles.h` | `SubtitleCue`, SRT / WebVTT parse and write, caption style keys + defaults (caption → track → default chain), cue ↔ caption conversion (lanes for overlapping cues) |
 | `ViewerGuides.h` | `ViewerGuide` (orientation + position in timeline frame px; `TimelineData::guides`), its JSON, guide presets (built-in, user file `<AppData>/guide-presets.json`, in fractions of the frame), safe area / aspect marker / grid geometry, `snapOffset()` and ruler steps (spec 41) |
@@ -254,6 +257,9 @@ Format version 12 (audiopage) adds the mixer: audio tracks may carry
 "mix" (strip, channel format, bus routes, automation mode and curves), timelines "mixer" (buses,
 output bus); see `Serialization.h` / `MixerJson.h`. Absent = a neutral mixer, so older files
 load and play unchanged.
+Format version 15 (compcore) adds the optional clip `"composition"` (Compositing page node
+graph, `serialization::compositionToJson()`); versions 1 - 14 have none and load with no
+compositions.
 Media paths are stored absolute and relative to the project file; the relative one is used when
 the absolute path no longer exists.
 
@@ -282,6 +288,28 @@ the absolute path no longer exists.
    with the Inspector's curve graph) and **File** (an absolute path; `FileParams.h` stores it
    in project files as {file, relative} so a moved project folder finds it again;
    `ParamDescriptor::fileFilter` is the dialog filter). Every non-scalar type is a static.
+
+**A new Compositing page node:**
+1. Id, ports, parameters (`ParamDescriptor`, units as documented on `NodeDescriptor`) and
+   viewer controls in the `NodeRegistry` constructor (`NodeRegistry.cpp`), keys in
+   `nodekeys::`. A new Edit page video effect needs nothing here: it becomes an `fx:<id>`
+   node automatically.
+2. Its pass in `render/GlComposition.cpp` (`evalNode()`), the CPU twin in
+   `render/CpuComposition.cpp`, shared formulas in `render/CompMath.*`.
+3. Tests: `tests/core/test_composition.cpp` (registry, ops) and
+   `tests/render/test_comprender.cpp` (pixels, GPU vs CPU).
+
+## Compositing page (`Composition.h`, `NodeRegistry.h`, `CompOps.h`; spec section 42a)
+- `ClipData::composition` (std::optional): the clip shows the composition's output (the image
+  arriving at MediaOut) instead of its picture; its Edit page attributes apply on top
+  (src/render/readme.md, "Compositions"). Keyframes in it are clip-local (comp frames), so
+  trims and splits shift them like every clip keyframe (`shiftClipKeys()`); copy / paste,
+  duplicate, compound and nesting copy the clip value and keep it.
+- Every change goes through `Project::setClipComposition(timelineUid, clipId, comp, label)`:
+  one named undo step (or part of an open edit, e.g. a slider drag), in the active or any
+  other timeline. The UI builds the new value with `CompOps` first.
+- MediaIn nodes reading another media pool item count as a use of that item (`MediaUsage`);
+  File parameters of effect nodes are stored relative to the project like clip effects.
 
 **A new field in ClipData/TrackData/TimelineData:**
 1. Add it with a default and a `///` comment (units!).

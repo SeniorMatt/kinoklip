@@ -937,6 +937,69 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.25 | The panning part of 41.17 is done (41.20); snapping of mask points to guides and colours per guide stay deferred. | Fixed (see 41.20) |
 | 41.26 | View > Viewer Zoom to Fit (Z, owner request on 0.4.1) resets zoom and pan of the viewer under the pointer, else of the viewer with the focus, else of every visible viewer. | Fixed (gu zKeyFitsTheViewerUnderThePointer) |
 
+## 42. Compositing page (compcore / compui branches, v4)
+
+Kinoklip's node-based compositing page (docs/compositing-page.md): every video clip can get
+a node graph whose result replaces its picture. Clean room: behaviour from general
+knowledge of node compositors, our own names. Rows of the core (model, evaluation, render)
+are in 42a, the page itself (layout, node editor, viewers, inspector) in 42b. Tests: `co` =
+`tests/core/test_composition.cpp`, `cr` = `tests/render/test_comprender.cpp`, `ce` =
+`tests/export/test_compexport.cpp`.
+
+### 42a Core
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 42a.1 | core: A clip holds at most one composition. A new one is MediaIn1 (the clip's own picture) -> MediaOut1 and renders exactly like the clip without a composition (no extra cost). | Fixed (co defaultCompositionPassesThrough; cr defaultCompositionChangesNothing) |
+| 42a.2 | core: The node catalogue: MediaIn, MediaOut; Merge (background, foreground, mask; Normal, Screen, Multiply, Add, Overlay, Darken, Lighten, Difference, Subtract; blend, foreground centre / size / angle), Dissolve; Transform (centre, pivot, size, aspect, angle, flips), Crop, Resize, Letterbox; Background (solid, gradient, four corner), Text (font, size, colour, outline, shadow, position), Fast Noise; Rectangle, Ellipse and Polygon masks (soft edge, invert, level, centre, size, angle); Color Corrector (lift / gamma / gain, saturation, levels), Channel Booleans. Every Edit page video effect is also a node ("fx:<id>", one image input and a mask input) with the same parameters, so new effects appear on both pages. | Fixed (co registryHasBuiltins, everyEffectIsANode) |
+| 42a.3 | core: Node coordinates follow the node compositor convention a Resolve user knows: positions normalised 0..1 with (0.5, 0.5) the frame centre and y going up, sizes as factors, angles counter-clockwise, mask width / height as fractions of the frame, soft edge as a fraction of the frame width; effect nodes keep their Edit page units. | Fixed (cr mergeForegroundTransform, transformMovesPixels) |
+| 42a.4 | core: New nodes get unique names from their type ("Merge1", "Merge2", ...); a rename to an empty or taken name is refused. Node ids are never reused within a composition. | Fixed (co uniqueNames) |
+| 42a.5 | core: Adding a node "after" the selected node inserts it between that node and everything it fed, and pushes the downstream nodes right; adding a source (Background, Text, Fast Noise, MediaIn) adds a Merge with the selected node as background and the new node as foreground; adding a mask plugs it into the selected node's free mask input. With MediaOut selected the node goes before it; without a selection it is placed unconnected. | Fixed (co addAfterInsertsIntoChain, addGeneratorAutoMerges) |
+| 42a.6 | core: Deleting nodes keeps the chain connected (a reader of a deleted node reads that node's main input); MediaOut cannot be deleted; viewers showing a deleted node are cleared. | Fixed (co removeKeepsChain) |
+| 42a.7 | core: Connecting replaces what an input had; a link that would make a loop is refused, and so is a mask output into an image input (an image into a mask input is allowed: its alpha is the matte). A node dropped onto a link is inserted into it when its kinds fit and no loop results. | Fixed (co connectRefusesCyclesAndKinds, insertIntoLink) |
+| 42a.8 | core: Copy and paste of a set of nodes keeps the links between them, drops links to nodes outside the set, gives new ids and free names, never copies MediaOut, and works between clips through the clipboard JSON. | Fixed (co copyPasteRemapsIds) |
+| 42a.9 | core: Every graph or parameter change is one named undo step (Project::setClipComposition), also for clips of a timeline that is not open; changes during one drag are one step; setting the same value adds no step; Reset Composition removes the composition (undoable). | Fixed (co projectUndo, inactiveTimelineUndo) |
+| 42a.10 | core: Compositions are saved with the project (format 15) and survive copy / paste, split (keyframes stay with the content: comp frames are clip-local), duplicate, compound clips and nesting. Format 14 and older projects open with no compositions; damaged graph data is repaired on load. MediaIn nodes reading another media pool item count as uses of that item. | Fixed (co serializationRoundTrip, splitAndTrimKeepComposition, projectFileRoundTripAndMigration, damagedJsonIsRepaired, mediaInCountsAsUse) |
+| 42a.11 | core: A clip with a composition shows the composition's output instead of its picture in the Edit page viewer, playback, the Cut page and the render; its Edit page crop, effects, masks, transform, opacity, transitions and compositing apply on top. | Fixed (cr editPageAttributesApplyOnTop; ce compositionInExport) |
+| 42a.12 | core: Merge Normal of a half-transparent foreground over a background gives the premultiplied "over" result; the other modes follow the separable blend formulas; Blend scales the foreground. | Fixed (cr mergeHalfTransparentForeground, blendModesMatchCpu) |
+| 42a.13 | core: A mask input limits a node's effect to the inside of the mask (an inverted mask to the outside); masks plugged into a mask node combine (union). | Fixed (cr maskedBlurOnlyInside, masksAndLetterbox) |
+| 42a.14 | core: A disabled node passes its main input through unchanged; a disabled MediaIn (or a source without input) draws nothing. | Fixed (cr disabledNodePassesThrough) |
+| 42a.15 | core: MediaIn shows the owning clip's source at the comp frame with the clip's speed and retime, or another media pool item from its start. | Fixed (cr mediaInOfAnotherItem) |
+| 42a.16 | core: The viewers can show any node of a clip's composition at any comp frame (Compositor::renderCompositionNode, zero-copy texture, preview quality), never from the render cache; a missing clip or node shows nothing. | Fixed (cr viewerApiRendersAnyNode, masksAndLetterbox) |
+| 42a.17 | core: The render cache key covers the composition's picture-relevant part only (moving nodes or changing the node editor view keeps the cache); a composition counts like an effect for Smart caching. | Fixed (cr cacheKeyFollowsPictureOnly) |
+| 42a.18 | core: Without OpenGL the CPU fallback renders every built-in node (masks with hard edges) and the pointwise effect nodes; other effect nodes pass through. Time effects (Echo, Strobe) as nodes show the current frame only. | Fixed (cr GPU / CPU pairs). Decision: documented gaps in src/render/readme.md. |
+| 42a.19 | core: 1080p with about ten nodes plays in real time on an integrated GPU (one pass per node, intermediates released early, no readback). | Fixed (cr performance1080p prints the timing) |
+
+### 42b Page
+
+The page UI of the node compositor: layout, node editor, viewers, inspector and transport,
+from general knowledge of node compositors. Clean room: our own names, drawing and wording.
+Tests: `ne` = `tests/panels/test_nodeeditor.cpp`, `cp` = `tests/app/test_compositingpage.cpp`,
+`ar` = `tests/app/test_actionregistry.cpp`.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 42b.1 | The Compositing page is in the page bar between Edit and Color, Shift+5 switches to it; the interface bar shows Effects (the Nodes library), Nodes (the node editor) and Inspector there. | Fixed (cp pageEnabledWithShift5) |
+| 42b.2 | On show the page opens the composition of the selected clip on a video track, else of the clip under the playhead on the top-most video track; Clip > Open in Compositing Page (also in the timeline clip menu) opens the selected clip. Without a clip every panel says "Select a clip on the Edit page". | Fixed (cp opensClipUnderPlayheadWithoutStoring, opensSelectedClipAndEmptyState) |
+| 42b.3 | A clip without a composition shows MediaIn1 -> MediaOut1 without storing it: the composition is created by the first edit (one undo step; undoing it leaves the clip without a composition again). | Fixed (ne viewingDoesNotStore, addNodeAfterSelectionIsOneStep, dragLinkEndAwayDisconnects) |
+| 42b.4 | Layout: two viewers at the top, the time ruler and transport under them, the node tool bar and the node editor at the bottom, the Inspector on the right, the Nodes library on the left (hidden by default). Splitter sizes and panel visibility are saved and restored like the other pages. | Fixed (cp layoutSaveRestore) |
+| 42b.5 | Node editor navigation: middle-drag or Space-drag pans, the wheel zooms around the cursor, Ctrl+F fits the graph; a Space tap without panning still plays / stops. | Fixed (ne panAndZoom) |
+| 42b.6 | Tiles show the node name, a pass-through node a dashed outline with a stroke and dimmed text, a locked node a padlock; inputs are coloured by kind (background yellow, foreground green, masks blue diamonds), the output is on the right; two dots under each tile show which viewer shows it. | Fixed (ne passThroughLockAndSwap paints; screenshot) |
+| 42b.7 | Selection: click, Ctrl / Shift click toggles, drag on the background box-selects (Ctrl / Shift adds). | Fixed (ne boxSelectAndMoveIsOneStep) |
+| 42b.8 | Dragging tiles moves the selection as one undo step ("Move Nodes"); Snap Nodes to Grid (context menu) rounds positions to the grid. | Fixed (ne boxSelectAndMoveIsOneStep) |
+| 42b.9 | Dragging from an output to an input (or onto a tile: its free main input) connects; dragging a connected input's end away disconnects, onto another input reconnects; one undo step each. | Fixed (ne connectByDraggingFromOutput, dragLinkEndAwayDisconnects) |
+| 42b.10 | Dropping a single unconnected node onto a link inserts it there; the move and the insert are one undo step ("Insert Node"). Nodes library entries dropped on a link are inserted the same way. | Fixed (ne dropNodeOnLinkInserts) |
+| 42b.11 | Node editor keys (while it has focus): Delete / Backspace delete (MediaOut stays), Ctrl+C / Ctrl+X / Ctrl+V / Ctrl+D copy / cut / paste / duplicate, F2 renames inline (Enter commits, Esc cancels), Ctrl+P pass-through, Ctrl+T swaps a Merge's background and foreground, Ctrl+A selects all. They are comp.* commands of the keymap, claimed only while the node editor has focus, so the same keys keep their Edit page meaning elsewhere. | Fixed (cp toolbarAndKeysAreUndoSteps, swapInputsWithCtrlT; ne deleteCopyPasteDuplicate, renameInline; ar noDuplicateDefaultShortcuts) |
+| 42b.12 | Notes: text boxes in the node editor (Add Note in the context menu / Edit menu; double-click edits, Ctrl+Enter commits). | Fixed (ne notes) |
+| 42b.13 | Shift+Space opens the searchable "Select Node" list (names starting with the text first); Enter adds the node after the selected one. The tool bar adds Background, Text, Merge, Transform, Rectangle, Ellipse, Polygon, Gaussian Blur, Color Corrector and Chroma Key the same way. | Fixed (ne selectNodePopupAddsAfterSelected; cp toolbarAndKeysAreUndoSteps) |
+| 42b.14 | Select a node and press 1 / 2 (or drag the node onto a viewer) to show it in the left / right viewer; the header shows the node name. The right viewer shows MediaOut by default. Choosing a viewer node is not an undo step; it is saved with the next edit. | Fixed (cp viewerAssignmentWith1And2) |
+| 42b.15 | The viewers draw the selected node's controls: centre / size / angle for Transform, Merge and Text; centre / width / height / angle for Rectangle and Ellipse masks; the points of a Polygon mask. A drag is one undo step and keys an animated parameter at the comp frame; locked nodes show no handles. | Fixed (cp viewerHandlesMoveTheCentre; mask and polygon handles: code) |
+| 42b.16 | The Inspector shows the selected node's parameters with the Edit page rows and keyframe buttons (keyframes in comp frames); the header has the name, an enable toggle (pass-through) and Reset. A typed value or a slider drag is one undo step. Locked nodes cannot be edited. | Fixed (cp inspectorEditsAreUndoSteps) |
+| 42b.17 | The time ruler covers the clip's frames with the playhead and the selected node's keyframe ticks; click or drag to seek; the transport plays the timeline over the clip range (looping at its end) and shows the comp frame and the timeline timecode. | Fixed (cp opensClipUnderPlayheadWithoutStoring, inspectorEditsAreUndoSteps) |
+| 42b.18 | Clips with a composition show a node badge on the Edit page timeline; Clip > Reset Composition (also in the timeline clip menu) removes the compositions of the selected clips in one undo step. | Fixed (cp resetComposition; badge: code) |
+| 42b.19 | A node editor with 200 nodes stays responsive: tiles outside the view are culled, the grid and tiles are drawn with fills instead of antialiased strokes. Measured (all 200 visible, 1600 x 900, thread CPU time on a heavily loaded machine): median 28 ms per paint (was 45 ms before the fill changes); the test bounds the median at 60 ms. | Fixed (ne twoHundredNodesPaintFast) |
+| 42b.20 | The viewers show the image of their node at the comp frame (Compositor::renderCompositionNode(), zero copy, outside the render cache), re-rendered on graph, playhead, playback and viewer changes with one render in flight per viewer; a clip without a stored composition shows the program picture (identical: the default graph is a pass-through). | Fixed (code; screenshot) |
+
 ## 43. In-app help (owner request, 0.4.2)
 
 The app links each part of itself to the matching article of the user guide (`docs/guide/`,
@@ -1021,3 +1084,6 @@ index `docs/guide/index.json`, see src/ui/help/readme.md). Section 42 is the Com
   of 41.17).
 - The inapphelp branch (0.4.2, owner request) added 43.1 - 43.10 (in-app help: F1 for the
   effect, command, panel or page the user is on, "?" buttons, "How to use" entries, Help > Guide).
+- The compcore branch (v4, Compositing page core) added 42a.1 - 42a.19 (composition model,
+  node catalogue, graph operations, undo, project format 15, GPU / CPU evaluation, render
+  integration, viewer API).

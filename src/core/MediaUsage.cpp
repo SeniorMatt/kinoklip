@@ -45,6 +45,14 @@ Counts compute(
         for (const auto* tracks : {&t->videoTracks, &t->audioTracks}) {
             for (const TrackData& track : *tracks) {
                 for (const ClipData& clip : track.clips) {
+                    // MediaIn nodes of a composition that read another media pool item use
+                    // it too (Remove Unused Clips must keep it).
+                    if (clip.composition) {
+                        for (const CompNode& n : clip.composition->nodes) {
+                            if (!n.mediaId.isEmpty() && n.type == QLatin1String("media_in"))
+                                ++counts[n.mediaId];
+                        }
+                    }
                     const QString id = itemFor(clip, items);
                     if (id.isEmpty())
                         continue;

@@ -16,19 +16,27 @@ template<typename Timeline, typename Fn>
 void forEachFileParam(Timeline& timeline, Fn&& fn)
 {
     const EffectRegistry& registry = EffectRegistry::instance();
+    const auto visit = [&fn](const EffectDescriptor* d, auto& params) {
+        if (!d)
+            return;
+        for (const ParamDescriptor& p : d->params) {
+            if (p.type != ParamType::File)
+                continue;
+            auto it = params.statics.find(p.key);
+            if (it != params.statics.end())
+                fn(*it);
+        }
+    };
     for (auto* tracks : {&timeline.videoTracks, &timeline.audioTracks}) {
         for (auto& track : *tracks) {
             for (auto& clip : track.clips) {
-                for (auto& effect : clip.effects) {
-                    const EffectDescriptor* d = registry.find(effect.type);
-                    if (!d)
-                        continue;
-                    for (const ParamDescriptor& p : d->params) {
-                        if (p.type != ParamType::File)
-                            continue;
-                        auto it = effect.params.statics.find(p.key);
-                        if (it != effect.params.statics.end())
-                            fn(*it);
+                for (auto& effect : clip.effects)
+                    visit(registry.find(effect.type), effect.params);
+                // Effects used as Compositing page nodes ("fx:<id>") have the same parameters.
+                if (clip.composition) {
+                    for (auto& node : clip.composition->nodes) {
+                        if (node.type.startsWith(QLatin1String("fx:")))
+                            visit(registry.find(node.type.mid(3)), node.params);
                     }
                 }
             }

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/Animation.h"
+#include "core/Mask.h"
 
 #include <QColor>
 #include <QMap>
@@ -41,6 +42,10 @@ struct CompNode
     /// MediaIn only: MediaItem::id of the picture it reads; empty = the clip that owns the
     /// composition (its source at the clip's time, with the clip's speed and retime).
     QString mediaId;
+    /// Polygon mask node only: the closed point path (core/Mask.h AnimatedPath, shape
+    /// keyframes in comp frames). Points are mask-local frame pixels (timeline pixels, origin
+    /// at the node's centre, y down), like MaskData::path.
+    AnimatedPath path;
 
     friend bool operator==(const CompNode&, const CompNode&) = default;
 };

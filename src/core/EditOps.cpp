@@ -45,6 +45,16 @@ const ClipData* clipById(const TimelineData& data, quint64 clipId)
     return loc ? &data.track(loc->track)->clips[size_t(loc->clipIndex)] : nullptr;
 }
 
+bool setClipComposition(TimelineData& data, quint64 clipId, std::optional<Composition> composition)
+{
+    const auto loc = findClip(data, clipId);
+    TrackData* track = loc ? data.track(loc->track) : nullptr;
+    if (!track || track->locked)
+        return false;
+    track->clips[size_t(loc->clipIndex)].composition = std::move(composition);
+    return true;
+}
+
 TrackFilter autoSelectTracks()
 {
     return [](TrackRef, const TrackData& track) { return !track.locked && track.autoSelect; };

@@ -87,7 +87,7 @@ private slots:
         QVERIFY(p.save(path));
 
         const QJsonObject root = readJson(path);
-        QCOMPARE(root.value(QStringLiteral("formatVersion")).toInt(), 14);
+        QCOMPARE(root.value(QStringLiteral("formatVersion")).toInt(), serialization::kFormatVersion);
 
         Project back;
         QVERIFY(back.load(path));

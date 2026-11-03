@@ -7,9 +7,11 @@
 // and edge blur, colour effects; render/EffectMath.h) are applied to the clip's picture, the
 // others are skipped (one warning per effect id); masks are applied as hard-edged clip paths
 // (maskMatte()).
+#include "core/CompOps.h"
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "render/CaptionRenderer.h"
+#include "render/CpuComposition.h"
 #include "render/DecoderPool.h"
 #include "render/EffectMath.h"
 #include "render/Generators.h"
@@ -60,9 +62,14 @@ public:
         m_nested = &tl.nested;
         m_depth = 0;
         m_decoders.beginFrame();
-        QImage image = renderTimeline(tl, rq.frame, out);
-        if (rq.subtitles && !tl.subtitleTracks.empty())
-            drawSubtitles(image, tl, rq.frame);
+        QImage image;
+        if (rq.compositionNode) {
+            image = compositionNodeImage(tl, *rq.compositionNode, out);
+        } else {
+            image = renderTimeline(tl, rq.frame, out);
+            if (rq.subtitles && !tl.subtitleTracks.empty())
+                drawSubtitles(image, tl, rq.frame);
+        }
         m_decoders.collectIdle();
         frame->size = out;
         frame->ok = true;
@@ -75,6 +82,39 @@ public:
 private:
     /// Deepest nesting rendered (guards against damaged data only).
     static constexpr int kMaxNestingDepth = 16;
+
+    /// Compositing page viewer request: one node of one clip's composition (transparent if
+    /// the clip, its composition or the node is missing).
+    QImage compositionNodeImage(const TimelineData& tl, const CompositionNodeView& view, QSize out)
+    {
+        const ClipData* clip = nullptr;
+        for (const TrackData& track : tl.videoTracks) {
+            const int i = track.indexOfClip(view.clipId);
+            if (i >= 0)
+                clip = &track.clips[size_t(i)];
+        }
+        QImage image(out, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        if (!clip || !clip->composition)
+            return image;
+        m_timeline = &tl;
+        m_frame = clip->start + view.compFrame;
+        m_out = out;
+        m_scale = QTransform::fromScale(
+            double(out.width()) / tl.width, double(out.height()) / tl.height);
+        const double outScale = std::max(m_scale.m11(), m_scale.m22());
+        QSizeF content, sourcePx;
+        QImage picture;
+        QRectF pictureRect;
+        QColor solid;
+        if (!clipPicture(
+                *clip, view.compFrame, outScale, content, sourcePx, picture, pictureRect, solid))
+            pictureRect = QRectF();
+        image = compositionImage(
+            *clip, view.compFrame, view.nodeId, out, picture, pictureRect, solid);
+        m_timeline = nullptr;
+        return image;
+    }
 
     /// Paints every video track of @p tl at @p frame into a new image of @p out pixels.
     /// Re-entrant for nested timelines (the per-timeline members are saved and restored).
@@ -193,6 +233,69 @@ private:
         QImage picture;
         QRectF pictureRect; // in content coordinates (centred)
         QColor solid;
+        if (!clipPicture(clip, local, outScale, content, sourcePx, picture, pictureRect, solid))
+            return;
+        if (clip.composition && !compops::isPassThrough(*clip.composition)) {
+            // The composition's output replaces the picture (frame-sized, timeline px crop).
+            const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
+            const QSize canvas = (frameSize * outScale * zoom).toSize().expandedTo(QSize(1, 1));
+            picture = compositionImage(clip, local, 0, canvas, picture, pictureRect, solid);
+            content = sourcePx = frameSize;
+            pictureRect = QRectF(-frameSize.width() / 2, -frameSize.height() / 2, frameSize.width(),
+                frameSize.height());
+            solid = QColor();
+        }
+        if (picture.isNull() && !solid.isValid())
+            return;
+        if (blend != Blend::Erase)
+            applyPointEffects(clip, local,
+                m_timeline->fps.isValid() ? m_timeline->fps.toDouble() : 25.0, picture, solid);
+        if (blend == Blend::Erase) {
+            solid = QColor(Qt::white);
+            picture = QImage();
+        }
+
+        // Crop in source pixels → content coordinates.
+        const ParamSet& p = clip.transform;
+        const double sx = content.width() / sourcePx.width();
+        const double sy = content.height() / sourcePx.height();
+        const QRectF cropRect(QPointF(-content.width() / 2 + p.value(keys::CropL, local) * sx,
+                                  -content.height() / 2 + p.value(keys::CropT, local) * sy),
+            QPointF(content.width() / 2 - p.value(keys::CropR, local) * sx,
+                content.height() / 2 - p.value(keys::CropB, local) * sy));
+        if (cropRect.width() <= 0 || cropRect.height() <= 0)
+            return;
+
+        painter.save();
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setTransform(toOutput);
+        painter.setOpacity(opacity);
+        if (blend == Blend::Erase)
+            painter.setCompositionMode(QPainter::CompositionMode_DestinationOut);
+        else if (blend == Blend::Add)
+            painter.setCompositionMode(QPainter::CompositionMode_Plus);
+        painter.setClipRect(cropRect);
+        if (const auto matte = maskMatte(clip, local, content)) {
+            if (matte->isEmpty()) {
+                painter.restore();
+                return;
+            }
+            painter.setClipPath(*matte, Qt::IntersectClip);
+        }
+        if (solid.isValid())
+            painter.fillRect(pictureRect, solid);
+        else
+            painter.drawImage(pictureRect, picture);
+        painter.restore();
+    }
+
+    /// The picture of @p clip at @p local before its effects (its source): @p picture covering
+    /// @p pictureRect (content coordinates, centred) or a @p solid colour. False if nothing.
+    bool clipPicture(const ClipData& clip, int64_t local, double outScale, QSizeF& content,
+        QSizeF& sourcePx, QImage& picture, QRectF& pictureRect, QColor& solid)
+    {
+        const QSizeF frameSize(m_timeline->width, m_timeline->height);
         switch (clip.kind) {
         case ClipKind::Media: {
             // Proxy: decode the substitute, keep the original's geometry (see ProxyRef).
@@ -203,11 +306,11 @@ private:
                 : m_media                 ? m_media->value(clip.mediaId)
                                           : QString();
             if (path.isEmpty())
-                return;
+                return false;
             const int64_t timeUs = clampedSourceTimeUs(clip, m_frame, m_timeline->fps);
             DecoderPool::Entry* entry = m_decoders.acquire(path, timeUs);
             if (!entry)
-                return;
+                return false;
             const media::MediaInfo& info = entry->decoder->info();
             // Clip Attributes: the decoder applies the file's pixel aspect and rotation; an
             // override changes the display size (the picture is stretched into it) and an
@@ -267,7 +370,7 @@ private:
         case ClipKind::Nested: {
             const TimelineData* n = m_nested ? m_nested->findClip(clip) : nullptr;
             if (!n || n->width <= 0 || n->height <= 0 || m_depth >= kMaxNestingDepth)
-                return;
+                return false;
             sourcePx = QSizeF(n->width, n->height);
             content = fitSize(sourcePx, frameSize);
             const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
@@ -282,7 +385,7 @@ private:
         }
         case ClipKind::Adjustment:
             if (m_below.isNull())
-                return;
+                return false;
             picture = m_below;
             pictureRect = QRectF(
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
@@ -297,56 +400,66 @@ private:
             break;
         }
         case ClipKind::Subtitle:
-            return; // drawn over the picture by drawSubtitles()
+            return false; // drawn over the picture by drawSubtitles()
         case ClipKind::Solid:
             solid = clip.solidColor.isValid() ? clip.solidColor : QColor(0x30, 0x30, 0x34);
             pictureRect = QRectF(
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
             break;
         }
-        if (picture.isNull() && !solid.isValid())
-            return;
-        if (blend != Blend::Erase)
-            applyPointEffects(clip, local,
-                m_timeline->fps.isValid() ? m_timeline->fps.toDouble() : 25.0, picture, solid);
-        if (blend == Blend::Erase) {
-            solid = QColor(Qt::white);
-            picture = QImage();
-        }
+        return true;
+    }
 
-        // Crop in source pixels → content coordinates.
-        const ParamSet& p = clip.transform;
-        const double sx = content.width() / sourcePx.width();
-        const double sy = content.height() / sourcePx.height();
-        const QRectF cropRect(QPointF(-content.width() / 2 + p.value(keys::CropL, local) * sx,
-                                  -content.height() / 2 + p.value(keys::CropT, local) * sy),
-            QPointF(content.width() / 2 - p.value(keys::CropR, local) * sx,
-                content.height() / 2 - p.value(keys::CropB, local) * sy));
-        if (cropRect.width() <= 0 || cropRect.height() <= 0)
-            return;
-
-        painter.save();
-        painter.setRenderHint(QPainter::SmoothPixmapTransform);
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.setTransform(toOutput);
-        painter.setOpacity(opacity);
-        if (blend == Blend::Erase)
-            painter.setCompositionMode(QPainter::CompositionMode_DestinationOut);
-        else if (blend == Blend::Add)
-            painter.setCompositionMode(QPainter::CompositionMode_Plus);
-        painter.setClipRect(cropRect);
-        if (const auto matte = maskMatte(clip, local, content)) {
-            if (matte->isEmpty()) {
-                painter.restore();
-                return;
+    /// Node @p node (0 = MediaOut) of @p clip's composition at comp frame @p compFrame as an
+    /// image of @p canvas px. The clip's own picture (MediaIn) is @p picture / @p solid
+    /// covering @p pictureRect; MediaIns of other media pool items decode here.
+    QImage compositionImage(const ClipData& clip, int64_t compFrame, quint64 node, QSize canvas,
+        const QImage& picture, const QRectF& pictureRect, const QColor& solid)
+    {
+        const QSizeF frameSize(m_timeline->width, m_timeline->height);
+        const double scale = canvas.width() / frameSize.width();
+        CpuCompEval ev;
+        ev.comp = &*clip.composition;
+        ev.compFrame = compFrame;
+        ev.frame = frameSize;
+        ev.size = canvas;
+        ev.scale = scale;
+        ev.fps = m_timeline->fps.isValid() ? m_timeline->fps.toDouble() : 25.0;
+        ev.warned = &m_warned;
+        const QRectF own = pictureRect.translated(frameSize.width() / 2, frameSize.height() / 2);
+        ev.mediaIn = [&](const CompNode& n, int64_t at) -> QImage {
+            QImage out(canvas, QImage::Format_ARGB32_Premultiplied);
+            out.fill(Qt::transparent);
+            QPainter p(&out);
+            p.setRenderHint(QPainter::SmoothPixmapTransform);
+            p.scale(scale, scale);
+            if (n.mediaId.isEmpty()) {
+                if (solid.isValid())
+                    p.fillRect(own, solid);
+                else if (!picture.isNull())
+                    p.drawImage(own, picture);
+                return out;
             }
-            painter.setClipPath(*matte, Qt::IntersectClip);
-        }
-        if (solid.isValid())
-            painter.fillRect(pictureRect, solid);
-        else
-            painter.drawImage(pictureRect, picture);
-        painter.restore();
+            // Another media pool item, from its start (comp frame 0), fitted like a clip.
+            const QString path = m_media ? m_media->value(n.mediaId) : QString();
+            DecoderPool::Entry* entry = path.isEmpty()
+                ? nullptr
+                : m_decoders.acquire(path, framesToUs(at, m_timeline->fps));
+            if (!entry)
+                return out;
+            const media::MediaInfo& info = entry->decoder->info();
+            const QSizeF content
+                = fitSize(QSizeF(info.displayWidth, info.displayHeight), frameSize);
+            const QImage img = entry->decoder->frameAt(framesToUs(at, m_timeline->fps),
+                (content * scale).toSize().expandedTo(QSize(1, 1)));
+            p.drawImage(
+                QRectF((frameSize.width() - content.width()) / 2,
+                    (frameSize.height() - content.height()) / 2, content.width(), content.height()),
+                img);
+            return out;
+        };
+        const quint64 id = node ? node : clip.composition->mediaOutId;
+        return evaluateCompositionCpu(ev, id);
     }
 
     /// The pointwise effects (keyers, colour) on the clip's picture before its crop, masks

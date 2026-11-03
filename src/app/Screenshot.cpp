@@ -73,6 +73,8 @@ namespace kk {
 namespace {
 const QSize kScreenshotSize(1920, 1080);
 constexpr int kSettleDelayMs = 400; // let layouts, file system model and GL widgets settle
+/// Compositing page: the node renders of both viewers (about 1 s on llvmpipe at 1080p).
+constexpr int kCompositingSettleDelayMs = 2500;
 constexpr int kDialogSettleDelayMs = 1500;
 constexpr int kProjectManagerSettleDelayMs = 4000;
 constexpr int kImportDialogDelayMs = 6000; // the portal and its dialog process start up //
@@ -874,8 +876,11 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             playThenGrab();
         }
     });
+    // The Compositing page viewers render their nodes asynchronously (slow on software GL).
+    if (base == QLatin1String("compositing"))
+        delayMs = std::max(delayMs, kCompositingSettleDelayMs);
     // KK_SCREENSHOT_DELAY_MS: a longer settle time (thumbnails and posters are made in the
-    // background; the user guide waits for them).
+    // background; the user guide waits for them; slow machines, software GL).
     if (qEnvironmentVariableIsSet("KK_SCREENSHOT_DELAY_MS"))
         delayMs = std::max(delayMs, qEnvironmentVariableIntValue("KK_SCREENSHOT_DELAY_MS"));
     QTimer::singleShot(delayMs, &window, [&] {

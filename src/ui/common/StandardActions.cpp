@@ -98,6 +98,8 @@ const ActionSpec kActions[] = {
     {"edit", "edit.append_at_end",    QT_TRANSLATE_NOOP("kk::StandardActions", "Append at &End")},
     // Cut page smart edits and viewer modes (enabled while the Cut page is shown).
     {"edit", ">cut",                  QT_TRANSLATE_NOOP("kk::StandardActions", "C&ut Page")},
+    // Node editor commands of the Compositing page (keys act while the node editor has focus).
+    {"edit", ">comp",                 QT_TRANSLATE_NOOP("kk::StandardActions", "Co&mpositing Page")},
     {"edit", "-"},
     {"edit", "edit.keyboard_customization", QT_TRANSLATE_NOOP("kk::StandardActions", "&Keyboard Customization…")},
     {"edit", "edit.preferences",      QT_TRANSLATE_NOOP("kk::StandardActions", "Pr&eferences…")},
@@ -174,6 +176,9 @@ const ActionSpec kActions[] = {
     {"clip", "clip.open_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Open in Timeline")},
     {"clip", "clip.decompose",        QT_TRANSLATE_NOOP("kk::StandardActions", "Decompose in &Place")},
     {"clip", "clip.attributes",       QT_TRANSLATE_NOOP("kk::StandardActions", "Clip &Attributes…")},
+    // Compositions (src/app/pages/CompositingPage): open the clip's node graph, remove it.
+    {"clip", "clip.open_in_compositing", QT_TRANSLATE_NOOP("kk::StandardActions", "Open in Com&positing Page"), "page_compositing"},
+    {"clip", "clip.reset_composition", QT_TRANSLATE_NOOP("kk::StandardActions", "Reset Compos&ition")},
     {"clip", "clip.normalize_audio",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Normalize Audio Levels…")},
     {"clip", "clip.render_cache_output", QT_TRANSLATE_NOOP("kk::StandardActions", "Render Cache Clip O&utput"), "", true},
     {"clip", "-"},
@@ -248,6 +253,7 @@ const ActionSpec kActions[] = {
     {"view", "view.toggle_effects",   QT_TRANSLATE_NOOP("kk::StandardActions", "Effects"), "panel_effects", true},
     {"view", "view.toggle_edit_index", QT_TRANSLATE_NOOP("kk::StandardActions", "Edit Index"), "panel_edit_index", true},
     {"view", "view.toggle_keyframes", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframes"), "panel_keyframes", true},
+    {"view", "view.toggle_nodes",     QT_TRANSLATE_NOOP("kk::StandardActions", "Nodes"), "panel_nodes", true},
     {"view", "view.stacked_timelines", QT_TRANSLATE_NOOP("kk::StandardActions", "S&tacked Timelines"), "", true},
     {"view", "view.toggle_mixer",     QT_TRANSLATE_NOOP("kk::StandardActions", "Mixer"), "panel_mixer", true},
     {"view", "view.toggle_metadata",  QT_TRANSLATE_NOOP("kk::StandardActions", "Metadata"), "panel_metadata", true},
@@ -356,6 +362,27 @@ const ActionSpec kActions[] = {
     {"cut", "cut.viewer_source_clip", QT_TRANSLATE_NOOP("kk::StandardActions", "Viewer: Source &Clip"), "source_clip", true},
     {"cut", "cut.viewer_source_tape", QT_TRANSLATE_NOOP("kk::StandardActions", "Viewer: Source Ta&pe"), "source_tape", true},
     {"cut", "cut.viewer_timeline",    QT_TRANSLATE_NOOP("kk::StandardActions", "Viewer: Time&line"), "timeline", true},
+
+    // ---- Compositing page node editor (submenu of Edit; src/ui/comp, CompositingPage) ----
+    {"comp", "comp.select_node",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Add Node…"), "add"},
+    {"comp", "comp.add_note",         QT_TRANSLATE_NOOP("kk::StandardActions", "Add N&ote")},
+    {"comp", "-"},
+    {"comp", "comp.cut",              QT_TRANSLATE_NOOP("kk::StandardActions", "Cu&t Nodes")},
+    {"comp", "comp.copy",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Copy Nodes")},
+    {"comp", "comp.paste",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Paste Nodes")},
+    {"comp", "comp.duplicate",        QT_TRANSLATE_NOOP("kk::StandardActions", "D&uplicate Nodes")},
+    {"comp", "comp.delete",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete Nodes")},
+    {"comp", "comp.select_all",       QT_TRANSLATE_NOOP("kk::StandardActions", "Select &All Nodes")},
+    {"comp", "-"},
+    {"comp", "comp.rename",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Rename Node")},
+    {"comp", "comp.pass_through",     QT_TRANSLATE_NOOP("kk::StandardActions", "Pass &Through"), "", true},
+    {"comp", "comp.lock",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Lock Node"), "lock", true},
+    {"comp", "comp.swap_inputs",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Swap Inputs")},
+    {"comp", "-"},
+    {"comp", "comp.view_left",        QT_TRANSLATE_NOOP("kk::StandardActions", "View in &Left Viewer")},
+    {"comp", "comp.view_right",       QT_TRANSLATE_NOOP("kk::StandardActions", "View in &Right Viewer")},
+    {"comp", "comp.fit",              QT_TRANSLATE_NOOP("kk::StandardActions", "&Fit Nodes to View")},
+    {"comp", "comp.snap_grid",        QT_TRANSLATE_NOOP("kk::StandardActions", "Snap Nodes to &Grid"), "snap", true},
 
     // ---- Audio page / mixer (own "Audio" menu) ----
     {"audio", "audio.add_bus",          QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Bus"), "add"},
@@ -544,7 +571,15 @@ void registerStandardActions(ActionRegistry& registry)
             registry.action(id)->setEnabled(false);
     }
 
-    for (const char* id : {"view.page_compositing", "view.page_color"}) {
+    // Node editor keys act only while the node editor has focus (NodeEditor claims them through
+    // QEvent::ShortcutOverride); as window shortcuts they would clash with Copy, Delete, the
+    // multicam number keys and so on.
+    for (const QString& id : registry.menuEntries(QStringLiteral("comp"))) {
+        if (registry.contains(id))
+            registry.action(id)->setShortcutContext(Qt::WidgetShortcut);
+    }
+
+    for (const char* id : {"view.page_color"}) {
         QAction* a = registry.action(QLatin1String(id));
         a->setEnabled(false);
         a->setStatusTip(
