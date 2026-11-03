@@ -155,3 +155,4 @@
 - 14:49 Owner: 0.4.0 = single-file projects + viewer guides (ASAP, more agents allowed); effects -> 0.4.1. Split sfint: core (sfint) + menus/media pool/existence checks (sfmenus helper).
 - 15:46 sfint merged (single-file projects in app; Duplicate/Import async). main 125/125. Waiting for guides for 0.4.0.
 - 16:15 Released 0.4.0-alpha.1 (Project Manager, single-file projects, viewer guides, 54 new effects; host 130/130, container 131/131). Desktop copy.
+- 16:28 Owner: work on the Compositing page now (design docs/compositing-page.md, contract src/core/Composition.h). Agents: compcore, compui, importfolder (owner: import a whole folder).
