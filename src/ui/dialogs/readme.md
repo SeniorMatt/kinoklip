@@ -28,7 +28,7 @@ Preferences dialog stored new values.
 | System > Media Storage | cache files location | `system/cacheDirectory` | `media::MediaCache::setCacheDirectory()` (live) |
 | | proxy generation location, render cache size limit | `system/proxyDirectory`, `system/renderCacheLimitGiB` | `MediaManagement::preferencesChanged()` (live; optimized media and render cache live in the cache folder) |
 | System > Decode Options | hardware decoding (+ API table) | `playback/hwaccel` | `media::setPreferredHwAccel()` (new decoders) |
-| System > Audio I/O | output device | `system/audioOutputDevice` | `playback/AudioOutput` (first playback, i.e. next start) |
+| System > Audio I/O | output device ("Automatic (<system device>)" or a device; the list follows devices being connected) | `system/audioOutputDevice` | `playback/AudioDeviceMonitor::reloadPreference()` on Save: every output switches at once, also while playing |
 | User > UI Settings | colour theme, widget style (theme page), interface scale, animate timeline edits + animation speed | `ui/colorScheme`, `ui/widgetStyle`, `ui/scaleFactor`, `ui/animations`, `ui/animationSpeed` | theme actions (live), `main()` (next start), `uianim::reload()` (live) |
 | User > Project Save and Load | autosave interval | `project/autosaveMinutes` | `AutosaveController` (live) |
 | User > Editing | still / title+generator / transition durations, fast nudge, three-point editing, ripple delete gap, trim behaviour | `edit/*` (`core/EditBehaviour.h`) | read at each edit (live) |
