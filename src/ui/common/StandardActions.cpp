@@ -55,6 +55,8 @@ const ActionSpec kActions[] = {
     // ---- Edit ----
     {"edit", "edit.undo",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Undo")},
     {"edit", "edit.redo",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Redo")},
+    {"edit", ">edit.history",         QT_TRANSLATE_NOOP("kk::StandardActions", "&History")},
+    {"edit.history", "edit.history_window", QT_TRANSLATE_NOOP("kk::StandardActions", "Open History &Window…")},
     {"edit", "-"},
     {"edit", "edit.cut",              QT_TRANSLATE_NOOP("kk::StandardActions", "Cu&t")},
     {"edit", "edit.copy",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Copy")},

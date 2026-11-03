@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 251 commands; sure 94, likely 84, unsure 73.
+Counts: 252 commands; sure 94, likely 85, unsure 73.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -44,6 +44,7 @@ that every command has an entry and that no key is used twice.
 |---|---|---|---|---|
 | Undo | `edit.undo` | `Ctrl+Z` | sure |  |
 | Redo | `edit.redo` | `Ctrl+Shift+Z` | sure |  |
+| Open History Window (the undo steps by name; click one to go back or forward to it) | `edit.history_window` | (none) | likely | Edit > History > Open History Window in Resolve; no default key known |
 | Cut | `edit.cut` | `Ctrl+X` | sure |  |
 | Copy | `edit.copy` | `Ctrl+C` | sure |  |
 | Paste | `edit.paste` | `Ctrl+V` | sure |  |
