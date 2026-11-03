@@ -16,6 +16,11 @@ inline constexpr char kColorScheme[]
 inline constexpr char kUseSystemColors[] = "ui/useSystemColors";
 inline constexpr char kHwAccel[] = "playback/hwaccel"; ///< HwAccel id string, default "auto"
 inline constexpr char kAutosaveMinutes[] = "project/autosaveMinutes"; ///< int, 0 = off; default 2
+/// Folder of the project library (Project Manager); "" = projectLibraryDefaultDirectory().
+inline constexpr char kProjectLibraryDirectory[] = "project/libraryDirectory";
+/// What happens at start-up without a project argument: "manager" (default: show the Project
+/// Manager) or "last" (reopen the most recent project).
+inline constexpr char kStartupAction[] = "project/startupAction";
 /// int MiB, memory budget of the decoded still image cache (media::ImageLoader), default 256.
 inline constexpr char kStillCacheMiB[] = "system/stillCacheMiB";
 /// "auto" (OpenGL compositor when available) or "cpu" (QPainter compositor); start-up only.
@@ -82,6 +87,19 @@ void setHwAccel(HwAccel mode);
 [[nodiscard]] int autosaveMinutes();
 /// Stores the autosave interval.
 void setAutosaveMinutes(int minutes);
+
+/// Configured project library folder, or empty for the default.
+[[nodiscard]] QString projectLibraryDirectoryOverride();
+/// Default project library folder: "<Videos>/Kinoklip Projects" (QStandardPaths::MoviesLocation).
+[[nodiscard]] QString projectLibraryDefaultDirectory();
+/// Project library folder in use (the override, or the default).
+[[nodiscard]] QString projectLibraryDirectory();
+/// Stores the project library folder ("" = the default).
+void setProjectLibraryDirectory(const QString& dir);
+/// True (default) if start-up shows the Project Manager, false to reopen the last project.
+[[nodiscard]] bool startupShowsProjectManager();
+/// Stores the start-up choice (see kStartupAction).
+void setStartupShowsProjectManager(bool show);
 
 /// Still image cache budget in MiB (default 256, at least 16).
 [[nodiscard]] int stillCacheMiB();
