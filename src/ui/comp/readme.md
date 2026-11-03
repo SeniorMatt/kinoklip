@@ -32,4 +32,9 @@ into the composition with the next edit.
 - **New node editor command**: add a `comp.*` row to `kActions` (StandardActions.cpp) and to
   `scripts/keymap-resolve-windows.py`, run the script, and connect it in
   `CompositingPage::connectActions()` to a CompSession method. Its key works while the node
-  editor has focus.
+  editor has focus (scope "widget:node_editor": it may share a key with an Edit page command
+  without Keyboard Customization calling it a conflict). The Edit page timeline commands are
+  disabled while the page is shown (`CompositingPage::suspendedCommandIds()`); a command that
+  must stay available there goes into its keep list.
+- **Viewer pictures**: `PlaybackEngine::renderCompositionNode()` (the engine's media table,
+  proxies and quality); never build a `RenderRequest` by hand in the page.
