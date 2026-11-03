@@ -71,7 +71,7 @@ CompViewer::CompViewer(int index, AppContext& ctx, CompSession* session, QWidget
     m_surface->setAspect(QSize(data.width, data.height));
     m_guides = new GuideOverlay(ctx, m_surface, true);
     m_guides->setFrameSize(QSize(data.width, data.height));
-    m_controls = new CompViewerOverlay(session, m_surface);
+    m_controls = new CompViewerOverlay(session, m_surface, m_index);
 
     connect(session, &CompSession::viewersChanged, this, &CompViewer::refresh);
     connect(session, &CompSession::clipChanged, this, &CompViewer::refresh);

@@ -382,6 +382,23 @@ private slots:
             CompViewerOverlay::Handle::None);
     }
 
+    // Spec 42b.29: a viewer that shows no node ("No Node") draws no handles of the selected
+    // node; the viewer that shows one does.
+    void emptyViewerDrawsNoHandles()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("MediaIn1"))});
+        f.page()->toolButton(nodetypes::Transform)->click();
+        QVERIFY(f.page()->viewer(0)->headerText().contains(QStringLiteral("No Node")));
+        QVERIFY(!f.page()->viewer(0)->controls()->hasControls());
+        QVERIFY(!f.page()->viewer(0)->controls()->handlePos(CompViewerOverlay::Handle::Centre));
+        QVERIFY(f.page()->viewer(1)->controls()->hasControls());
+        f.session()->setViewerNode(0, f.nodeNamed(QStringLiteral("Transform1")));
+        QVERIFY(f.page()->viewer(0)->controls()->hasControls());
+    }
+
     void inspectorNoteForNodesWithoutParameters()
     {
         // Polish: MediaIn / MediaOut have no parameters; the Inspector says so instead of an
