@@ -617,8 +617,17 @@ void ProjectManagerWindow::duplicateSelected()
     for (const QString& p : selectedPaths()) {
         if (!QFileInfo(p).isFile())
             continue;
+        // A single-file project holds its media: the copy runs on a worker, with Cancel.
         QString error;
-        const QString copy = m_library->duplicate(p, &error);
+        QString copy;
+        bool cancelled = false;
+        ProjectLibrary* library = m_library;
+        runWithProgress(this, tr("Duplicate"), tr("Copying %1…").arg(QFileInfo(p).fileName()),
+            [&](const TaskProgress& progress) {
+                copy = library->duplicate(p, &error, progress, &cancelled);
+            });
+        if (cancelled)
+            break;
         if (copy.isEmpty())
             reportError(error);
         else

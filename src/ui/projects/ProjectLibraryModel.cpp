@@ -5,8 +5,10 @@
 #include "media/MediaCache.h"
 #include "platform/DroppedFiles.h"
 #include "ui/common/Icons.h"
+#include "ui/common/ProgressTask.h"
 #include "ui/common/TimecodeFormat.h"
 
+#include <QApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
@@ -379,7 +381,15 @@ int ProjectLibraryModel::dropPaths(const QStringList& paths, const QString& fold
                 continue; // dropped on itself
             result = m_library->move(p, folder, &error);
         } else {
-            result = m_library->importProject(p, folder, &error);
+            // A copy (single-file projects hold their media): on a worker, with Cancel.
+            bool cancelled = false;
+            ProjectLibrary* library = m_library;
+            runWithProgress(QApplication::activeWindow(), tr("Import Project"),
+                tr("Copying %1…").arg(QFileInfo(p).fileName()), [&](const TaskProgress& progress) {
+                    result = library->importProject(p, folder, &error, progress, &cancelled);
+                });
+            if (cancelled)
+                break;
         }
         if (result.isEmpty())
             errors << error;

@@ -90,22 +90,6 @@ QString pathHash(const QString& path)
 }
 
 /// Copies a file or a folder tree.
-bool copyRecursively(const QString& from, const QString& to)
-{
-    const QFileInfo info(from);
-    if (!info.isDir())
-        return QFile::copy(from, to);
-    if (!QDir().mkpath(to))
-        return false;
-    const QDir dir(from);
-    for (const QFileInfo& child :
-        dir.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden)) {
-        if (!copyRecursively(child.absoluteFilePath(), to + QLatin1Char('/') + child.fileName()))
-            return false;
-    }
-    return true;
-}
-
 } // namespace
 
 ProjectLibrary::ProjectLibrary(const QString& root, const QString& cacheDir, QObject* parent)
@@ -541,7 +525,50 @@ QString ProjectLibrary::rename(const QString& path, const QString& newName, QStr
     return to;
 }
 
-QString ProjectLibrary::duplicate(const QString& path, QString* error)
+bool ProjectLibrary::copyFile(const QString& from, const QString& to, const CopyProgress& progress,
+    bool* cancelled, QString* error)
+{
+    if (cancelled)
+        *cancelled = false;
+    const QString part = to + QStringLiteral(".part");
+    QFile in(from);
+    QFile out(part);
+    if (!in.open(QIODevice::ReadOnly) || !out.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return setError(error, tr("Cannot copy %1.").arg(QDir::toNativeSeparators(from)));
+    const qint64 total = in.size();
+    qint64 done = 0;
+    QByteArray buffer(8 << 20, Qt::Uninitialized);
+    const auto fail = [&](bool wasCancelled) {
+        out.close();
+        QFile::remove(part);
+        if (cancelled)
+            *cancelled = wasCancelled;
+        return setError(error,
+            wasCancelled ? tr("Cancelled")
+                         : tr("Cannot copy %1.").arg(QDir::toNativeSeparators(from)));
+    };
+    if (progress && !progress(0, total))
+        return fail(true);
+    while (done < total) {
+        const qint64 n = in.read(buffer.data(), buffer.size());
+        if (n <= 0 || out.write(buffer.constData(), n) != n)
+            return fail(false);
+        done += n;
+        if (progress && !progress(done, total))
+            return fail(true);
+    }
+    out.close();
+    out.setFileTime(
+        in.fileTime(QFileDevice::FileModificationTime), QFileDevice::FileModificationTime);
+    if (!QFile::rename(part, to)) {
+        QFile::remove(part);
+        return setError(error, tr("Cannot write %1.").arg(QDir::toNativeSeparators(to)));
+    }
+    return true;
+}
+
+QString ProjectLibrary::duplicate(
+    const QString& path, QString* error, const CopyProgress& progress, bool* cancelled)
 {
     const QString from = clean(path);
     const QFileInfo info(from);
@@ -551,10 +578,8 @@ QString ProjectLibrary::duplicate(const QString& path, QString* error)
     }
     const QString to
         = uniquePath(info.absolutePath(), info.completeBaseName() + tr(" copy"), info.suffix());
-    if (!QFile::copy(from, to)) {
-        setError(error, tr("Cannot copy %1.").arg(QDir::toNativeSeparators(from)));
+    if (!copyFile(from, to, progress, cancelled, error))
         return {};
-    }
     if (const ProjectKind* kind = projectkinds::forPath(to); kind && kind->writeName)
         kind->writeName(to, QFileInfo(to).completeBaseName(), nullptr);
     emit changed();
@@ -619,7 +644,8 @@ bool ProjectLibrary::moveToTrash(const QString& path, QString* error)
     return true;
 }
 
-QString ProjectLibrary::importProject(const QString& source, const QString& folder, QString* error)
+QString ProjectLibrary::importProject(const QString& source, const QString& folder, QString* error,
+    const CopyProgress& progress, bool* cancelled)
 {
     const QFileInfo info(source);
     if (!info.isFile() || !projectkinds::forPath(source)) {
@@ -630,11 +656,8 @@ QString ProjectLibrary::importProject(const QString& source, const QString& fold
     const QString to = uniquePath(dir, info.completeBaseName(), info.suffix());
     // The copy keeps the media paths: they are stored absolute (relative ones are only the
     // fallback when the absolute path is gone), so the copy finds the same media.
-    if (!copyRecursively(info.absoluteFilePath(), to)) {
-        setError(
-            error, tr("Cannot copy %1 into the library.").arg(QDir::toNativeSeparators(source)));
+    if (!copyFile(info.absoluteFilePath(), to, progress, cancelled, error))
         return {};
-    }
     emit changed();
     return to;
 }
