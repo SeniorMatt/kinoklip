@@ -257,6 +257,21 @@ public:
     /// Remembers the view settings of bin @p binKey (a default state forgets them).
     void setBinViewState(const QString& binKey, const BinViewState& state);
 
+    // ---- Compositing page (ProjectCompositions.cpp) ----
+
+    /// Replaces the composition of clip @p clipId in timeline @p timelineUid (the active one
+    /// or any other) as one undo step labelled @p label ("Add Node", "Connect", ...);
+    /// std::nullopt removes it (Clip > Reset Composition). Every Compositing page change goes
+    /// through here. Inside an open edit (beginEdit(), e.g. a slider drag) it joins that
+    /// edit, so repeated calls during a drag make one step. False (nothing changes) for an
+    /// unknown timeline or clip or a locked track.
+    bool setClipComposition(quint64 timelineUid, quint64 clipId,
+        std::optional<Composition> composition, const QString& label);
+    /// The composition of clip @p clipId in timeline @p timelineUid (std::nullopt when the
+    /// clip has none or does not exist).
+    [[nodiscard]] std::optional<Composition> clipComposition(
+        quint64 timelineUid, quint64 clipId) const;
+
     // ---- Editing protocol ----
 
     /// Starts an undoable edit labelled @p label (shown in Edit ▸ Undo). Nesting-safe.

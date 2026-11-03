@@ -6,6 +6,7 @@
 #include "core/TimelineData.h"
 
 #include <QDir>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QString>
@@ -91,7 +92,11 @@ namespace kk::serialization {
 ///   "pos": timeline frame px}], core/ViewerGuides.h). Files of versions 1 - 13 have none
 ///   and load unchanged; older builds refuse version 14 instead of silently dropping the
 ///   guides.
-inline constexpr int kFormatVersion = 14;
+/// - 15 (compcore branch): Compositing page. Clips may carry "composition" (the node graph of
+///   core/Composition.h, see compositionToJson()). Files of versions 1 - 14 have none and load
+///   unchanged (no clip has a composition); older builds refuse version 15 instead of
+///   silently dropping the compositions.
+inline constexpr int kFormatVersion = 15;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
@@ -111,6 +116,26 @@ inline constexpr int kFormatVersion = 14;
 [[nodiscard]] QJsonValue variantToJson(const QVariant& value);
 /// Decodes a value written by variantToJson().
 [[nodiscard]] QVariant variantFromJson(const QJsonValue& json);
+
+/// Writes @p path into @p o: "points" (a static shape) or "shapeKeys" (shape keyframes).
+void animatedPathToJson(const AnimatedPath& path, QJsonObject& o);
+/// Reads animatedPathToJson() from @p o into @p path.
+void animatedPathFromJson(const QJsonObject& o, AnimatedPath& path);
+
+/// Encodes a composition (core/Composition.h): {"nodes": [...], "notes": [...],
+/// "mediaOut", "nextId", "view": {...}}. Each node: {"id", "type", "name", "pos": [x, y],
+/// "enabled" (false only), "locked" (true only), "params", "inputs": {port: [node, output]},
+/// "mediaId", "points" / "shapeKeys"}. With @p pictureOnly the parts that cannot change the
+/// picture (node positions and names, notes, view state) are left out (render cache keys).
+[[nodiscard]] QJsonObject compositionToJson(const Composition& comp, bool pictureOnly = false);
+/// Decodes compositionToJson(). Repairs damaged data: duplicate or zero node ids are dropped,
+/// links to missing nodes are disconnected, nextId is raised above every id, and a missing
+/// MediaOut reference points to the first "media_out" node (if any).
+[[nodiscard]] Composition compositionFromJson(const QJsonObject& json);
+/// Encodes the nodes @p nodes on their own (Compositing page copy / paste clipboard).
+[[nodiscard]] QJsonArray compNodesToJson(const QVector<CompNode>& nodes);
+/// Decodes compNodesToJson().
+[[nodiscard]] QVector<CompNode> compNodesFromJson(const QJsonArray& json);
 
 /// Encodes Clip Attributes (only the fields that differ from the defaults).
 [[nodiscard]] QJsonObject attributesToJson(const ClipAttributes& attributes);
