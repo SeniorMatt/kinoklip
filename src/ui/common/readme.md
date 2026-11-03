@@ -24,6 +24,7 @@ Used by every panel and page. Depends on `core` only.
 | `PanelSplitter.h` | `QSplitter` for every split between and inside panels: handles that highlight on hover / press and never trigger Breeze's mouse-grabbing splitter proxy (see "Wayland") |
 | `DragAndDrop.h` | `execCopyDrag()`, `logDropEvent()`, the `kk.ui.dnd` logging category; `DragMime.h` holds the MIME contract between drag sources and drop targets |
 | `ShortcutFallback.h` | app event filter (MainWindow installs it): an unmatched key with a shifted US character (`Ctrl+Shift+{`) triggers the action bound to the unshifted form (`Ctrl+Shift+[`); never in text input or popups |
+| `ListKeyGuard.h` | app event filter (MainWindow installs it): a focused list or tree view (Effects library, media pool, Edit Index, bins, node library) claims Delete, Backspace, Ctrl+A, the arrows, Home / End and Page Up / Down through ShortcutOverride, so they act on the list instead of the timeline (spec 10.11); a view opts out with the property `kkTimelineKeys` |
 
 ## Panel conventions
 - Constructor `Panel(AppContext& ctx, QWidget* parent = nullptr)`; keep `AppContext&`.
