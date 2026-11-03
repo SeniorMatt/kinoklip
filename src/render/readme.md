@@ -133,6 +133,30 @@ playback engine keep the rendered frames (`PlaybackEngine::onTimelineChanged()`)
   parameters re-rasterise on each frame they change. Zoomed titles are rasterised at a
   quantised zoom (≤ 4×) to stay sharp.
 
+### Video effects (v4 batch 1: keyers, colour, blur, light, stylize, distort)
+
+Effects run on the clip's upright layer (premultiplied RGBA16F) in the Inspector's order, top
+to bottom; the masks follow (below), so a mask is a garbage matte for a keyer. Files: the v0.1
+effects in `GlEffects.cpp`, the v4 ones in `GlKeyers.cpp` (Chroma / Luma / HSL Key),
+`GlColorEffects.cpp`, `GlBlurEffects.cpp`, `GlStylizeEffects.cpp` (Glow, Film Grain,
+Chromatic Aberration, Edge Detect, Emboss, Stroke) and `GlDistortEffects.cpp` (Lens
+Distortion, Ripple, Wave, Feathered Crop); `GlEffectBase.h` holds `PassEffect`, the GLSL
+helpers (`kGlslCommon`: luma, straight colour, the keyers' view output) and the layer geometry
+(`EffectInput::paddingPx` = transparent margin, `EffectInput::fps` for animated waves).
+* **Keyers** compute a matte m from the straight colour and output premultiplied
+  (colour · a · m, a · m), so the keyed clip goes through the normal premultiplied "over"
+  everywhere (viewer and render). Chroma key distance: luma-normalised BT.709 CbCr (see
+  `fxmath::chromaDistance()`). Shrink / grow and edge blur run on a separate matte target
+  (`GlKit::morphology()`, `GlKit::gaussianBlur()`), never on the colour; without them the key
+  is one pass.
+* **CPU reference** `EffectMath.*` (`fxmath::`): the per-pixel formulas of the keyers and the
+  colour effects and their parameter resolution (`*Params`), shared by the GPU passes'
+  uniforms, the tests (GPU vs CPU within 3 / 255) and the CPU fallback (`applyPointEffect()`).
+* **Cost**: every v4 effect is bounded per pixel: colour / keys / distort one pass; box blur
+  separable with downscaling; path blurs (directional, radial, zoom) 24 samples, two passes
+  of 24 when the samples would be more than 1.5 px apart; morphology `2 x radius` fetches per
+  axis in passes of at most 16 taps.
+
 ### Masks (`GlMasks`)
 
 `ClipData::masks` (core/Mask.h) are applied to the clip's layer after its effects and before
@@ -266,7 +290,8 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
   renderer; each decoder is used by one thread at a time.
 * If context creation, `makeCurrent`, the version check (≥ 3.3, not ES) or shader compilation
   fails, the thread uses `CpuRenderer` instead (QPainter; transform, opacity, crop, titles,
-  solids; every transition as a dissolve; effects skipped with one warning per effect id).
+  solids; every transition as a dissolve; the pointwise effects (keyers, colour) through
+  `fxmath::applyPointEffect()`, the other effects skipped with one warning per effect id).
 * Decoders unused for 10 s are closed; render targets unused for 120 frames are deleted.
 * A decoder with a decode-ahead in flight (`DecoderPool::Entry::ahead`) is only used or closed
   after `waitAhead()`.
@@ -278,9 +303,12 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 | `Compositor.*` | public facade, request queue, render thread, backend selection |
 | `RenderBackend.h` | internal backend interface (GPU / CPU) |
 | `GlRenderer.*` | GPU backend: track walk, decode stage, clip drawing (direct and layer paths), title cache |
-| `GlKit.*` | GL toolkit: common vertex shader, `GlProgram`, pooled `RenderTarget`s, blit/fill, separable Gaussian blur (downscaled for large sigma) |
+| `GlKit.*` | GL toolkit: common vertex shader, `GlProgram`, pooled `RenderTarget`s, blit/fill, separable Gaussian and box blur (downscaled for large radii), separable erode / dilate (`morphology()`) |
 | `GlVideo.*` | persistent plane textures (R8/RG8/R16/RG16/RGBA8) + the YUV → RGB shader (crop, rotation, edge antialiasing) |
-| `GlEffects.*` | the eight built-in effects and **their registration table** |
+| `GlEffects.*` | the eight v0.1 effects and **the registration point** `builtinGlEffects()` (joins the tables of the files below) |
+| `GlEffectBase.h` | internal: `PassEffect`, GLSL helpers, layer geometry for the effect files |
+| `GlKeyers.cpp` / `GlColorEffects.cpp` / `GlBlurEffects.cpp` / `GlStylizeEffects.cpp` / `GlDistortEffects.cpp` | the v4 effects by library folder, each with its factory table |
+| `EffectMath.*` | CPU reference of the pointwise effects, parameter resolution shared with the GPU, CPU fallback |
 | `GlMasks.*` | clip mask pass (analytic shapes, path coverage, feather, combine) |
 | `GlTransitions.*` | the four built-in transitions and **their registration table** |
 | `GlOutput.*` | output slots (shared textures + fences), PBO readback |
@@ -330,17 +358,23 @@ core/MixerJson.cpp), run it from `ChannelProcessor::processInserts()` at its pla
 flow, and test it with synthesized signals (tests/render/test_mixerdsp.cpp).
 
 ### A new video effect
-1. **Descriptor**: append `descriptor("my_effect", ...)` with its parameters to
-   `EffectRegistry::registerBuiltins()` in `src/core/BuiltinEffects.cpp` (the Inspector builds
-   its UI from it; the id is stored in project files).
-2. **Shader + class**: in `GlEffects.cpp` derive from `PassEffect` (one pass over the layer,
+1. **Descriptor**: append `effect("my_effect", ..., effectgroups::Blur, ...)` with its
+   parameters to `EffectRegistry::registerVideoEffects()` in `src/core/BuiltinVideoEffects.cpp`
+   (ids and keys in `core/VideoEffectKeys.h`; the Inspector builds its UI from it, the library
+   puts it in its folder; the id is stored in project files).
+2. **Shader + class**: in the file of its folder derive from `PassEffect` (one pass over the layer,
    uniforms set between `begin()` and `draw()`), or from `GlEffect` for multi-pass effects
    (use `GlKit::gaussianBlur()`, `kit.acquire()` for temporaries). Read parameters with
    `in.params->value(key, in.localFrame, default)`; multiply pixel sizes by `in.scale`.
    Override `paddingPx()` if the effect draws outside the clip, `isIdentity()` to skip no-ops.
-3. **Registration**: add `{"my_effect", &make<MyEffect>}` to `kEffectTable` (one line).
-4. **Test**: a golden-pixel case in `tests/render/test_compositor.cpp` (`colourEffects` /
-   `geometricEffects` show the pattern). The CPU fallback skips unknown effects automatically.
+3. **Registration**: add `{fxid::MyEffect, &make<MyEffect>}` to that file's table (one line).
+4. **Pointwise effect?** Put the formula and its `*Params` into `EffectMath`, upload the same
+   values as uniforms, and list it in `fxmath::isPointEffect()` / `applyPointEffect()`: the CPU
+   fallback then applies it too.
+5. **Test**: in `tests/render/test_videoeffects.cpp` add a row to `pointEffectsMatchReference`
+   (pointwise: GPU and CPU fallback against `EffectMath`) or an analytic case like
+   `blursSmooth` / `distortAndCrop`, and the id to `kNewEffects` (defaults, round trip). The
+   CPU fallback skips other effects automatically.
 
 ### A new transition
 1. Descriptor (category `Transition`) in `BuiltinEffects.cpp`.
@@ -377,7 +411,8 @@ Add it in `media::PixelFormat` (see `src/media/readme.md`), map plane formats in
   context is EGL, CUDA → GL interop) — the GPU path still downloads hardware frames (VAAPI:
   streaming-load copy, see src/media) and uploads planes. Needs testing on Intel/AMD hardware
   with a session (the build machine's render nodes are not accessible to the agents).
-* The CPU fallback renders every transition as a dissolve and skips effects.
+* The CPU fallback renders every transition as a dissolve and skips the non-pointwise effects
+  (blurs, light, stylize, distort, the keyers' shrink / grow and edge blur).
 * Retimed audio: time stretched (WSOLA, `TimeStretch`) with pitch correction, else resampled
   along the retime curve; freeze / reverse parts are muted.
 * An output slot released while a viewer's draw that samples it is still in flight could in

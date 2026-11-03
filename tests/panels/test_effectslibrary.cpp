@@ -44,7 +44,7 @@ private slots:
         QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
         saveScreenshot(panel, QStringLiteral("effects_library"));
 
-        panel.setFilterText(QStringLiteral("blur"));
+        panel.setFilterText(QStringLiteral("gaussian"));
         QCOMPARE(panel.visibleDescriptorIds(), QStringList {QStringLiteral("gaussian_blur")});
         panel.setFilterText(QStringLiteral("DISSOLVE"));
         QCOMPARE(panel.visibleDescriptorIds(), QStringList {QStringLiteral("cross_dissolve")});
@@ -57,7 +57,7 @@ private slots:
         panel.setCategoryFilter(int(EffectCategory::Transition));
         QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("cross_dissolve")));
         QVERIFY(!panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
-        panel.setFilterText(QStringLiteral("blur"));
+        panel.setFilterText(QStringLiteral("gaussian"));
         QCOMPARE(panel.visibleDescriptorIds(), QStringList {QStringLiteral("gaussian_blur")});
         panel.setFilterText({});
         panel.setCategoryFilter(-1);

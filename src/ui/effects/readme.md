@@ -18,7 +18,11 @@ Owned by the panels agent.
     playhead (Preferences > Editing generator duration, 5 s by default), on the track above the
     highest video track that is busy there (a track is added if needed); it gets selected.
   Every call is exactly one undo step, and a no-op creates none.
-- **Search** filters by name and description (case-insensitive), hiding empty sections.
+- **Folders:** Video Effects are grouped by `EffectDescriptor::group` into folders (Blur,
+  Color, Distort, Key, Light, Stylize, Transform), sorted by their translated names; effects
+  without a folder follow them directly. The Inspector's Add Effect menu uses the same folders.
+- **Search** filters by name and description (case-insensitive), hiding empty sections and
+  folders.
 
 The timeline agent can reuse `effectactions::applyEffect/applyTransition/addGeneratorClip`
 for its drop handling so semantics stay identical.
