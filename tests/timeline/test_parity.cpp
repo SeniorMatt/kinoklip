@@ -308,6 +308,23 @@ private slots:
         QCOMPARE(v.f.selection.clips(), QVector<quint64>({a}));
     }
 
+    void spec7_3_altDragDuplicatesTheLinkedPair()
+    {
+        // Owner request on 0.4.0: Alt-dragging a clip copies its linked partner too; an
+        // Alt-click without a drag still selects one side only.
+        View v;
+        const quint64 a = v.put(kV1, solidClip(10, 20));
+        const quint64 b = v.put(kA1, solidClip(10, 20));
+        v.link({a, b});
+        v.drag(v.at(20, kV1), v.at(50, kV1), Qt::AltModifier);
+        QCOMPARE(v.f.view().track(kV1)->clips.size(), size_t(2));
+        QCOMPARE(v.f.view().track(kA1)->clips.size(), size_t(2));
+        QCOMPARE(v.f.view().track(kV1)->clips[1].start, int64_t(40));
+        QCOMPARE(v.f.view().track(kA1)->clips[1].start, int64_t(40));
+        v.click(v.at(20, kV1), Qt::AltModifier);
+        QCOMPARE(v.f.selection.clips(), QVector<quint64>({a}));
+    }
+
     void spec7_6_clickEdgeSelectsEditPoint()
     {
         View v;
