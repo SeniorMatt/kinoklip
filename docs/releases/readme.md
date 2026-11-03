@@ -14,6 +14,13 @@ Both made by `scripts/package_linux.sh` in the container, see
 [packaging/linux/readme.md](../../packaging/linux/readme.md). Keep the file names without the
 version: the update information inside the AppImage looks for `Kinoklip-*x86_64.AppImage.zsync`.
 
+## Download link in the main readme (update every release)
+The "Download here" heading of the repository's [readme.md](../../readme.md) links straight to
+the AppImage of the newest release, with the version in the URL:
+`https://github.com/SeniorMatt/kinoklip/releases/download/v<version>/Kinoklip-x86_64.AppImage`.
+Change the version there with each release. GitHub's `/releases/latest/download/...` URL would
+not need that, but it skips pre-releases, and every release is a pre-release for now.
+
 ## Download block (start of every release note, from 0.4.1 on)
 
 ```markdown
