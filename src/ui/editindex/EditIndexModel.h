@@ -89,6 +89,8 @@ public:
     bool deleteMarker(int row);
 
 private:
+    /// Builds the rows of the current mode from the active timeline (inside a model reset).
+    void fillRows();
     [[nodiscard]] QVariant eventData(const editindex::EventRow& row, int column, int role) const;
     [[nodiscard]] QVariant markerData(const editindex::MarkerRow& row, int column, int role) const;
 
