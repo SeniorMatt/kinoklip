@@ -153,3 +153,4 @@
 - 12:26 Owner: v4 = Project Manager, single-file projects, Edit page effects; Color/Compositing -> v5 (beta); public release after v4; Resolve import dropped. Agents started: projmgr, kkpack (container library only), fxkeying (green screen first).
 - 13:56 Merged kkpack (container), projmgr (Project Manager), fxkeying (24 effects incl. chroma key, spec 40); main 124/124. Started agents: sfint (single-file wiring -> 0.4.0), guides (viewer guides/safe areas/grid, owner request), fxbatch2 (more effects).
 - 14:49 Owner: 0.4.0 = single-file projects + viewer guides (ASAP, more agents allowed); effects -> 0.4.1. Split sfint: core (sfint) + menus/media pool/existence checks (sfmenus helper).
+- 15:46 sfint merged (single-file projects in app; Duplicate/Import async). main 125/125. Waiting for guides for 0.4.0.
