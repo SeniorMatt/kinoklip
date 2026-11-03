@@ -8,7 +8,7 @@ Used by every panel and page. Depends on `core` only.
 | `ActionRegistry.h` | every command as a `QAction` with a stable id; rebind/reset/import/export/conflict lookup; **keymap profiles** (implementation in `KeymapProfiles.cpp`, see below) |
 | `StandardActions.h` | the catalogue: ids, texts, menus, icons; `standardMenus()` |
 | `MediaManagement.h` | proxy / optimized media and render cache glue (created in `main()`, `AppContext::media`): `mediapool.*`, `playback.proxy_*`, `playback.use_*`, `playback.render_cache_*`, `clip.render_cache_output` commands; ProxyQueue + RenderCacheManager + a shared background Compositor; proxy map for every viewer, cache view for program playback, per-item status for the media pool |
-| `PanelFrame.h` | common panel chrome (title bar + tool area + body); `createPlaceholderPanel()` |
+| `PanelFrame.h` | common panel chrome (title bar + tool area + body); `setPanelKey()` names the panel for the in-app help (`panel:<key>`, src/ui/help); `createPlaceholderPanel()` |
 | `Page.h` | base class for main-window pages; `PanelId` for the interface-toolbar toggles |
 | `SchemeColors.h` | `kk::schemeColors()`: every colour of custom-painted widgets (clips, badges, playhead, lanes, keyframes, overlays...) derived from the active colour scheme's roles; `SchemeColorsNotifier::changed()` after a scheme switch. Never hard-code a colour in a widget: add a role here |
 | `UiAnimation.h` | `kk::uianim`: the global switch of the small UI animations (prefs `ui/animations`, `ui/animationSpeed`, KDE's animation speed; off offscreen unless `KK_ANIMATIONS`), standard durations (`duration(Kind)`, 120-220 ms) and easing (OutCubic moves, light OutBack pops), the clock (`setClockForTesting()`), `PlayheadGlide`, `Notifier::changed()` |
@@ -26,7 +26,8 @@ Used by every panel and page. Depends on `core` only.
 
 ## Panel conventions
 - Constructor `Panel(AppContext& ctx, QWidget* parent = nullptr)`; keep `AppContext&`.
-- Derive from `PanelFrame` for a consistent look; put small tool buttons in the title bar with
+- Derive from `PanelFrame` for a consistent look and call `setPanelKey()` with the panel's
+  help key (src/ui/help/readme.md); put small tool buttons in the title bar with
   `addTitleBarAction(ctx.actions->action("..."))`.
 - Never create model singletons; everything comes through `AppContext`.
 

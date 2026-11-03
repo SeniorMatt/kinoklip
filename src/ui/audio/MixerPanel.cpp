@@ -23,6 +23,7 @@ MixerPanel::MixerPanel(
     , m_controller(controller)
     , m_meters(meters)
 {
+    setPanelKey(QStringLiteral("mixer")); // in-app help: panel:mixer
     setObjectName(QStringLiteral("MixerPanel"));
     if (ctx.actions && ctx.actions->contains(QStringLiteral("audio.add_bus")))
         addTitleBarAction(ctx.actions->action(QStringLiteral("audio.add_bus")));

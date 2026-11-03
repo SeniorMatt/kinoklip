@@ -380,6 +380,11 @@ const ActionSpec kActions[] = {
     {"settings", ">settings.style",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Style")},
 
     // ---- Help ----
+    // In-app help (src/ui/help): links to the user guide in docs/guide.
+    {"help", "help.guide_context",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Help for This…")},
+    {"help", "help.guide",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Guide…")},
+    {"help", "help.getting_started",  QT_TRANSLATE_NOOP("kk::StandardActions", "Getting &Started")},
+    {"help", "-"},
     {"help", "help.about",            QT_TRANSLATE_NOOP("kk::StandardActions", "&About %1")},
     {"help", "help.about_qt",         QT_TRANSLATE_NOOP("kk::StandardActions", "About &Qt")},
 };

@@ -153,6 +153,10 @@ private:
     void addPlaceholder(Tab tab, const QString& text);
     ParamGroupBox* addGroup(Tab tab, const QString& key, const QString& title, quint64 clipId);
     /// Adds the section keyframe diamond (keys every animatable parameter of the group).
+    /// In-app help of a section showing EffectRegistry entry @p effectId: the help context
+    /// for F1, a "?" header button and "How to use <name>…" in the header menu when the
+    /// user guide has an article for it.
+    void attachHelp(ParamGroupBox* group, const QString& effectId, const QString& name);
     void addSectionKeyframeButton(
         ParamGroupBox* group, const EffectDescriptor& desc, ParamScope scope, quint64 clipId);
     void addDescriptorGroup(

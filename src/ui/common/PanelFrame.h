@@ -30,6 +30,11 @@ public:
     /// Changes the panel title.
     void setTitle(const QString& title);
 
+    /// Stable key of the panel for the in-app help ("inspector", "media_pool", ...; the
+    /// `panel:<key>` contexts of docs/guide/index.json, see src/ui/help). Empty = none.
+    void setPanelKey(const QString& key) { m_panelKey = key; }
+    [[nodiscard]] QString panelKey() const { return m_panelKey; }
+
     /// Sets the body widget (re-parented to the panel; the previous one is deleted).
     void setContentWidget(QWidget* widget);
     /// The body widget, or nullptr.
@@ -59,6 +64,7 @@ private:
     QHBoxLayout* m_leadingLayout = nullptr;
     QGridLayout* m_titleGrid = nullptr;
     QWidget* m_content = nullptr;
+    QString m_panelKey;
 };
 
 /// A centred, dimmed explanatory label used for empty states and not-yet-implemented panels.

@@ -15,6 +15,7 @@
 #include "ui/effects/EffectActions.h"
 #include "ui/inspector/KeyframeButton.h"
 #include "ui/inspector/MultiClipEdit.h"
+#include "ui/help/Guide.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
 
@@ -114,6 +115,7 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Inspector"), parent)
     , m_ctx(ctx)
 {
+    setPanelKey(QStringLiteral("inspector")); // in-app help: panel:inspector
     setAcceptDrops(true);
     setStyleSheet(inspectorStyleSheet(QApplication::palette()));
 
@@ -617,6 +619,7 @@ void InspectorPanel::addDescriptorGroup(
     Tab tab, const EffectDescriptor& desc, ParamScope scope, quint64 clipId)
 {
     ParamGroupBox* group = addGroup(tab, desc.id, desc.name, clipId);
+    attachHelp(group, desc.id, desc.name);
     for (const ParamDescriptor& p : desc.params)
         group->addParam(ParamRef {clipId, scope, 0, p.key}, p, *this);
     addSectionKeyframeButton(group, desc, scope, clipId);
@@ -630,6 +633,18 @@ void InspectorPanel::addDescriptorGroup(
                 paramaccess::reset(c, ref, desc);
         });
     });
+}
+
+void InspectorPanel::attachHelp(ParamGroupBox* group, const QString& effectId, const QString& name)
+{
+    if (effectId.isEmpty())
+        return;
+    const QString key = QStringLiteral("effect:") + effectId;
+    guide::setHelpContext(group, key);
+    if (guide::HelpButton* help = guide::createHelpButton(key))
+        group->addHeaderWidget(help);
+    if (QAction* howTo = guide::createHowToAction(key, name, group))
+        group->addHeaderMenuAction(howTo);
 }
 
 void InspectorPanel::addSectionKeyframeButton(
@@ -851,6 +866,7 @@ void InspectorPanel::buildEffectsTab(const ClipData& c)
         const quint64 effectId = fx.id;
 
         QCheckBox* enable = group->addEnableToggle();
+        attachHelp(group, fx.type, d ? d->name : fx.type);
         connect(enable, &QCheckBox::clicked, this, [this, clipId, effectId](bool on) {
             editClip(on ? tr("Enable Effect") : tr("Disable Effect"), clipId,
                 [effectId, on](ClipData& cd) {
@@ -958,6 +974,8 @@ void InspectorPanel::addTransitionGroup(const ClipData& c, bool atHead)
     ParamGroupBox* group = addGroup(TransitionTab,
         atHead ? QStringLiteral("transition.in") : QStringLiteral("transition.out"),
         atHead ? tr("Transition In") : tr("Transition Out"), clipId);
+    if (const EffectDescriptor* d = registry.find(t.type))
+        attachHelp(group, d->id, d->name);
     QToolButton* remove = group->addHeaderButton(InspectorGlyph::Remove, tr("Remove transition"));
     connect(remove, &QToolButton::clicked, this, [this, clipId, atHead] {
         effectactions::removeTransition(*m_ctx.project, clipId, atHead);

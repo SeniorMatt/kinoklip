@@ -294,6 +294,9 @@ a("audio.reset_loudness", "Reset Loudness Meter (integrated loudness, true peak 
 a("audio.float_viewer", "Float Viewer (Audio page)", [], U, "the Audio page viewer as a small floating window; no default key known, none assigned")
 
 sec("Help")
+a("help.guide_context", "Help for This (opens the user guide's article for the effect, panel or page you are on)", ["F1"], U, "Kinoklip's in-app help; F1 is the usual help key and is free in Resolve's Windows defaults as we know them")
+a("help.guide", "Guide (search the user guide's articles)", [], U, "Kinoklip's in-app help; no default key")
+a("help.getting_started", "Getting Started (the guide's first article)", [], U, "Kinoklip's in-app help; no default key")
 a("help.about", "About", [], S)
 a("help.about_qt", "About Qt", [], S)
 

@@ -56,6 +56,7 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Keyframes"), parent)
     , m_ctx(ctx)
 {
+    setPanelKey(QStringLiteral("keyframes")); // in-app help: panel:keyframes
     setObjectName(QStringLiteral("KeyframesPanel"));
     m_map.originX = kAxisWidth;
 
