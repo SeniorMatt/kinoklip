@@ -221,10 +221,11 @@ private slots:
         t.f.data().videoTracks[1].autoSelect = false;
         t.f.project.endEdit();
         t.tl()->setPlayhead(15);
+        // A video clip comes last: it is the current clip the Inspector shows (spec 24.15).
         t.action("edit.select_forward")->trigger();
-        QCOMPARE(t.f.selection.clips(), (QVector<quint64> {b, c}));
+        QCOMPARE(t.f.selection.clips(), (QVector<quint64> {c, b}));
         t.action("edit.select_forward_all")->trigger();
-        QCOMPARE(t.f.selection.clips(), (QVector<quint64> {b, v2, c}));
+        QCOMPARE(t.f.selection.clips(), (QVector<quint64> {b, c, v2}));
         t.action("edit.select_backward")->trigger();
         QCOMPARE(t.f.selection.clips(), (QVector<quint64> {a}));
     }
