@@ -1006,6 +1006,7 @@ Tests: `ne` = `tests/panels/test_nodeeditor.cpp`, `cp` = `tests/app/test_composi
 | 42b.23 | The viewer handles of Rectangle and Ellipse masks (drag inside: centre; corner: width and height; right edge: width only) and of Polygon masks (drag a point; the other points stay) are one undo step per drag; the timeline node badge sits at the clip's right end, left of the fx badge when the clip also has effects. | Fixed (cp viewerMaskAndPolygonHandles; ts spec42b_18_compositionBadge in tests/timeline/test_transitionselect.cpp) |
 | 42b.24 | Node editor links face their source: a side input (foreground, mask) is on the top edge, on the bottom edge when its source sits clearly below the tile; the main input leaves the left edge for a source to the right (then top or bottom); inputs on one edge are ordered like their sources, so links do not cross or loop over the tile. Picking up a link end works where the port is drawn. | Fixed (ne sideInputsFaceTheirSource; screenshot) |
 | 42b.25 | The Inspector shows "This node has no parameters" for MediaIn / MediaOut instead of an empty group. | Fixed (cp inspectorNoteForNodesWithoutParameters) |
+| 42b.26 | Nodes placed by the tool bar, the Select Node list and the context menu never overlap: the automatic step is 4.5 grid units, wider than a tile (3.4); before, a Merge added by Text or Background covered the node it was merged over (found while writing the guide). | Fixed (co addedNodesDoNotOverlap) |
 
 ## 43. In-app help (owner request, 0.4.2)
 

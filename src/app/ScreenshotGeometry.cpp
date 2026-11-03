@@ -79,7 +79,8 @@ void addTimelineClips(QJsonArray& out, TimelineWidget* widget, const QWidget* ro
 {
     const TimelineLayout& layout = widget->layout();
     const QWidget* vp = widget->viewport();
-    auto addTracks = [&](const std::vector<TrackData>& tracks, TrackType type, QChar letter) {
+    auto addTracks = [&](const std::vector<TrackData>& tracks, TrackType type,
+                         const QString& letter) {
         for (int t = 0; t < int(tracks.size()); ++t) {
             const int row = layout.rowOf(TrackRef {type, t});
             if (row < 0)
@@ -121,8 +122,9 @@ void addTimelineClips(QJsonArray& out, TimelineWidget* widget, const QWidget* ro
             }
         }
     };
-    addTracks(data.videoTracks, TrackType::Video, QLatin1Char('V'));
-    addTracks(data.audioTracks, TrackType::Audio, QLatin1Char('A'));
+    addTracks(data.videoTracks, TrackType::Video, QStringLiteral("V"));
+    addTracks(data.audioTracks, TrackType::Audio, QStringLiteral("A"));
+    addTracks(data.subtitleTracks, TrackType::Subtitle, QStringLiteral("ST"));
     if (playhead >= 0) {
         const int x = int(std::lround(layout.frameToX(double(playhead))));
         const QRect r = toPicture(vp, root, QRect(x, 0, 1, vp->height()), offset);

@@ -18,7 +18,10 @@ class MainWindow;
 /// menu with the submenu open, cropped to the menus); "import-dialog" (File > Import Media open,
 /// the whole screen grabbed: shows the desktop's portal dialog on X11). User guide targets
 /// (scripts/guide_screenshots.py): "effects:<id>" (that library item selected), "fx:<effect
-/// id>[:inspector|viewer]", "change-speed", "timeline", "deliver:inout" / "deliver:queue".
+/// id>[:inspector|viewer]", "change-speed", "timeline", "deliver:inout" / "deliver:queue",
+/// "clip:<track>[:<tab>]" (that track's clip selected, the Inspector on that tab),
+/// "menu:<category>[:<submenu>]" (menus open; geometry lists their items),
+/// "normalize-audio" (the Normalize Audio Levels dialog).
 /// KK_SCREENSHOT_GEOMETRY=<file.json> also writes where the widgets are in the picture
 /// (ScreenshotGeometry.h), KK_SCREENSHOT_WINDOW=1 saves the window for panel targets,
 /// KK_SCREENSHOT_DELAY_MS waits longer before the grab. Returns the process exit code
