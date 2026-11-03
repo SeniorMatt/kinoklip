@@ -22,6 +22,11 @@ struct PaletteColor
 
 /// The sixteen clip colours (media pool items and timeline clips), in menu order.
 [[nodiscard]] std::span<const PaletteColor> clipColorPalette();
+/// The sixteen marker colours (marker editor, Edit Index colour filter, EDL / CSV export),
+/// in menu order. Markers store the colour value itself (Marker::color).
+[[nodiscard]] std::span<const PaletteColor> markerColorPalette();
+/// The marker colour closest to @p color (exact for colours picked in the marker editor).
+[[nodiscard]] const PaletteColor& nearestMarkerColor(const QColor& color);
 /// The sixteen flag colours, in menu order. Flag i is bit i of MediaItem::flags.
 [[nodiscard]] std::span<const PaletteColor> flagPalette();
 
