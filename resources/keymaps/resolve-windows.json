@@ -5,7 +5,8 @@
     "shortcuts": {
         "file.new": [],
         "timeline.new": ["Ctrl+N"],
-        "file.open": ["Ctrl+O", "Shift+1"],
+        "file.project_manager": ["Shift+1"],
+        "file.open": ["Ctrl+O"],
         "file.save": ["Ctrl+S"],
         "file.save_as": ["Ctrl+Shift+S"],
         "file.import_media": ["Ctrl+I"],
