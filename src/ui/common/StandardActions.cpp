@@ -166,6 +166,7 @@ const ActionSpec kActions[] = {
     {"clip", "clip.open_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Open in Timeline")},
     {"clip", "clip.decompose",        QT_TRANSLATE_NOOP("kk::StandardActions", "Decompose in &Place")},
     {"clip", "clip.attributes",       QT_TRANSLATE_NOOP("kk::StandardActions", "Clip &Attributes…")},
+    {"clip", "clip.normalize_audio",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Normalize Audio Levels…")},
     {"clip", "clip.render_cache_output", QT_TRANSLATE_NOOP("kk::StandardActions", "Render Cache Clip O&utput"), "", true},
     {"clip", "-"},
     // Multicam clips (media pool commands in src/ui/mediapool/MediaPoolMulticam.cpp, angle

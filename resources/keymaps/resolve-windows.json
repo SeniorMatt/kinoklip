@@ -119,6 +119,7 @@
         "clip.change_duration": ["Ctrl+D"],
         "clip.change_speed": ["R"],
         "clip.retime_controls": ["Ctrl+R"],
+        "clip.normalize_audio": [],
         "clip.speed_increase": [],
         "clip.speed_decrease": [],
         "clip.freeze_frame": ["Shift+R"],
