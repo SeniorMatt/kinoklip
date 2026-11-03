@@ -41,7 +41,6 @@ are collected with `pacman -Qo/-Qi` and `/usr/share/licenses`).
 | `runheader.sh` | shell header of the `.run` file (template filled by `package_linux.sh`) |
 | `org.kinoklip.Kinoklip.desktop` | desktop entry (validated with `desktop-file-validate`) |
 | `org.kinoklip.Kinoklip.xml` | MIME type `application/x-kinoklip-project` for `*.kkproj` |
-| `icons/org.kinoklip.Kinoklip.svg` | app icon: placeholder, KDE Breeze "video-x-generic" (LGPL-3.0-or-later) until the owner provides one |
 
 ## Bundle layout (AppDir-shaped)
 
@@ -49,7 +48,7 @@ are collected with `pacman -Qo/-Qi` and `/usr/share/licenses`).
 kinoklip-x86_64/
   AppRun                              launcher (POSIX sh)
   org.kinoklip.Kinoklip.desktop       desktop entry   } AppImage expects these
-  org.kinoklip.Kinoklip.svg, .DirIcon icon            } at the top level
+  org.kinoklip.Kinoklip.png, .DirIcon icon (256 px)   } at the top level
   usr/bin/kinoklip                    RUNPATH $ORIGIN/../lib:$ORIGIN/../lib/fallback-active
   usr/lib/*.so*                       FFmpeg + codecs (x264, x265, dav1d, aom, svt-av1, vpx,
                                       rav1e, opus, lame, vorbis, webp, jxl, ...) and their deps
@@ -75,7 +74,7 @@ kinoklip-x86_64/
   usr/lib/fallback-active/            symlinks to the fallbacks the host lacks (made by AppRun)
   usr/share/color-schemes/            KDE colour schemes (Kinoklip = default, BreezeDark, BreezeLight, BreezeClassic)
   usr/share/icons/breeze/             Breeze icon theme (wins over an older host Breeze)
-  usr/share/applications, icons/hicolor/scalable/apps, mime/packages
+  usr/share/applications, icons/hicolor/<n>x<n>/apps (icon PNGs, 16-512 px), mime/packages
   usr/share/doc/kinoklip/             bundled-libraries.txt (soname, package, version) and
                                       licenses/<package>.copyright for every bundled library
 ```

@@ -18,7 +18,7 @@ Plan for a macOS build of Kinoklip. Nothing here is automated yet.
 - `MACOSX_BUNDLE ON` is already set on the target; add an `Info.plist` template
   (bundle id `org.kinoklip.Kinoklip`, version, `CFBundleDocumentTypes` for `.kkproj` and the
   video types, `NSMicrophoneUsageDescription` if recording is added) and an `.icns` rendered
-  from `packaging/linux/icons/org.kinoklip.Kinoklip.svg` (`iconutil -c icns`).
+  from `resources/icons/app/kinoklip-<size>.png` (`iconutil -c icns`).
 - Hardware: VideoToolbox decode/encode via FFmpeg. OpenGL 3.3 core works but is deprecated on
   macOS; Metal (via QRhi or a Metal backend of the compositor) is the long-term path.
 

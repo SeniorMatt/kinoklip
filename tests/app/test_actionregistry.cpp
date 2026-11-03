@@ -7,6 +7,7 @@
 
 #include <QAction>
 #include <QFile>
+#include <QImage>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSettings>
@@ -102,10 +103,15 @@ private slots:
         }
         for (const char* name : {"play", "pause", "blade", "select", "trim", "snap", "link",
                  "keyframe_on", "keyframe_off", "zoom_in", "zoom_out", "marker", "loop",
-                 "panel_inspector", "app"}) {
+                 "panel_inspector"}) {
             QVERIFY2(hasIcon(QLatin1String(name)), name);
         }
         QVERIFY(!hasIcon(QStringLiteral("does_not_exist")));
+        // The application icon: one PNG per size (resources/icons/app).
+        for (const int size : {16, 24, 32, 48, 64, 128, 256, 512}) {
+            const QImage icon(QStringLiteral(":/icons/app/kinoklip-%1.png").arg(size));
+            QCOMPARE(icon.size(), QSize(size, size));
+        }
     }
 
     void menusAreComplete()

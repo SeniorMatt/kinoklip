@@ -18,7 +18,14 @@
         <file>icons/append.svg</file>
         <file>icons/smart_insert.svg</file>
         <file>icons/strip_view.svg</file>
-        <file>icons/app.svg</file>
+        <file>icons/app/kinoklip-16.png</file>
+        <file>icons/app/kinoklip-24.png</file>
+        <file>icons/app/kinoklip-32.png</file>
+        <file>icons/app/kinoklip-48.png</file>
+        <file>icons/app/kinoklip-64.png</file>
+        <file>icons/app/kinoklip-128.png</file>
+        <file>icons/app/kinoklip-256.png</file>
+        <file>icons/app/kinoklip-512.png</file>
         <file>icons/audio_file.svg</file>
         <file>icons/subtitle.svg</file>
         <file>icons/compound_clip.svg</file>

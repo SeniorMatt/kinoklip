@@ -31,7 +31,7 @@ the portability rules in `plan.md` (Qt + FFmpeg + std only, platform code in `sr
    that nothing resolves outside the folder except Windows system DLLs.
 4. Bundle the MSVC runtime (`vcruntime140*.dll`, `msvcp140*.dll`) app-locally or require the
    VC++ redistributable in the installer.
-5. Icon: render `packaging/linux/icons/org.kinoklip.Kinoklip.svg` to a multi-size `.ico`
+5. Icon: pack `resources/icons/app/kinoklip-<size>.png` into a multi-size `.ico`
    (16-256 px) and add an `.rc` file with icon + version info to the executable.
 
 ## 4. Installer and signing
