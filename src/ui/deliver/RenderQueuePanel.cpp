@@ -4,6 +4,7 @@
 
 #include "export/RenderQueue.h"
 #include "ui/common/Icons.h"
+#include "ui/common/ThinProgressBar.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -12,7 +13,6 @@
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QToolButton>
@@ -53,10 +53,9 @@ public:
         m_details = new QLabel;
         m_details->setEnabled(false); // dimmed secondary text
         layout->addWidget(m_details);
-        m_progress = new QProgressBar;
+        m_progress = new ThinProgressBar;
+        m_progress->setObjectName(QStringLiteral("RenderJobProgress"));
         m_progress->setRange(0, 1000);
-        m_progress->setTextVisible(false);
-        m_progress->setMaximumHeight(8);
         layout->addWidget(m_progress);
         m_status = new QLabel;
         m_status->setWordWrap(true);
@@ -122,7 +121,7 @@ private:
     QLabel* m_name = nullptr;
     QLabel* m_details = nullptr;
     QLabel* m_status = nullptr;
-    QProgressBar* m_progress = nullptr;
+    ThinProgressBar* m_progress = nullptr;
     QToolButton* m_cancel = nullptr;
     QToolButton* m_reveal = nullptr;
     QToolButton* m_remove = nullptr;
