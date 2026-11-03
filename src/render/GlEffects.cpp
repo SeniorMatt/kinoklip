@@ -417,7 +417,8 @@ std::span<const GlEffectFactory> builtinGlEffects()
     static const std::vector<GlEffectFactory> all = [] {
         std::vector<GlEffectFactory> rows(std::begin(kEffectTable), std::end(kEffectTable));
         for (auto table : {keyerGlEffects(), colorGlEffects(), blurGlEffects(), stylizeGlEffects(),
-                 distortGlEffects()})
+                 distortGlEffects(), gradeGlEffects(), focusGlEffects(), lightGlEffects(),
+                 lookGlEffects(), warpGlEffects(), timeGlEffects()})
             rows.insert(rows.end(), table.begin(), table.end());
         return rows;
     }();

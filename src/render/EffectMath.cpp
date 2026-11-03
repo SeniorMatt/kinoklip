@@ -441,16 +441,18 @@ bool isPointEffect(const QString& type)
         if (type == QLatin1String(t))
             return true;
     }
-    return false;
+    return detail::isGradeEffect(type);
 }
 
 bool applyPointEffect(
-    const QString& type, const ParamSet& params, int64_t localFrame, QImage& image)
+    const QString& type, const ParamSet& params, int64_t localFrame, QImage& image, double fps)
 {
     if (!isPointEffect(type) || image.isNull())
         return false;
     if (image.format() != QImage::Format_ARGB32_Premultiplied)
         image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    if (detail::isGradeEffect(type))
+        return detail::applyGradeEffect(type, params, localFrame, image, fps);
 
     // One resolved parameter set per call; the per-pixel lambda only does arithmetic.
     enum class Kind {

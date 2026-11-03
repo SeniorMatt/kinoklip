@@ -13,6 +13,10 @@
 
 #include <cstdint>
 
+namespace kk::render {
+class CubeLut;
+}
+
 namespace kk::render::fxmath {
 
 /// Straight (not premultiplied) gamma-encoded RGB, 0..1.
@@ -164,6 +168,85 @@ struct ColorBalanceParams
 [[nodiscard]] ColorBalanceParams colorBalanceParams(const ParamSet& p, int64_t localFrame);
 [[nodiscard]] Rgb colorBalance(const ColorBalanceParams& p, const Rgb& c);
 
+// ---- Batch 2: colour (EffectMathGrade.cpp) ----
+
+/// Inverse of toHsl(): hue in degrees (any value, wrapped), saturation and lightness 0..1.
+[[nodiscard]] Rgb fromHsl(float h, float s, float l);
+
+/// Curves: composite tables (master, then the channel's own curve) of kCurveTableSize
+/// entries per channel, sampled with linear interpolation (like the GPU's linear filter).
+inline constexpr int kCurveTableSize = 256;
+struct CurvesParams
+{
+    float table[3][kCurveTableSize]; ///< red, green, blue
+    float amount = 1.f;
+    bool identity = true; ///< every curve is the diagonal
+};
+/// Builds the tables from the four Curve statics.
+void curvesParams(const ParamSet& p, int64_t localFrame, CurvesParams* out);
+/// Linear interpolation of @p table (kCurveTableSize entries) at @p x (0..1).
+[[nodiscard]] float curveLookup(const float* table, float x);
+[[nodiscard]] Rgb curves(const CurvesParams& p, const Rgb& c);
+
+/// HSL adjust: hue shift (degrees), saturation and lightness (−1..1), weighted by a soft
+/// hue range (all colours when `all`).
+struct HslAdjustParams
+{
+    bool all = true;
+    float centre = 0.f; ///< range centre hue, degrees
+    float halfWidth = 30.f; ///< half range width, degrees
+    float softness = 30.f; ///< degrees
+    float hueShift = 0.f;
+    float saturation = 0.f;
+    float lightness = 0.f;
+};
+[[nodiscard]] HslAdjustParams hslAdjustParams(const ParamSet& p, int64_t localFrame);
+/// Weight 0..1 of colour hue @p h with saturation @p s in the range of @p p.
+[[nodiscard]] float hslRangeWeight(const HslAdjustParams& p, float h, float s);
+[[nodiscard]] Rgb hslAdjust(const HslAdjustParams& p, const Rgb& c);
+
+/// Vibrance (−1..1, muted colours more, skin tones half) and saturation (−1..1).
+struct VibranceParams
+{
+    float vibrance = 0.3f;
+    float saturation = 0.f;
+};
+[[nodiscard]] VibranceParams vibranceParams(const ParamSet& p, int64_t localFrame);
+[[nodiscard]] Rgb vibrance(const VibranceParams& p, const Rgb& c);
+
+/// Channel mixer: out = m · c (row-major, rows = output red, green, blue).
+struct ChannelMixerParams
+{
+    float m[9] = {1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f};
+};
+[[nodiscard]] ChannelMixerParams channelMixerParams(const ParamSet& p, int64_t localFrame);
+[[nodiscard]] Rgb channelMixer(const ChannelMixerParams& p, const Rgb& c);
+
+/// Duotone: luma mapped from the shadow to the highlight colour, mixed by amount.
+struct DuotoneParams
+{
+    Rgb shadow;
+    Rgb highlight {1.f, 1.f, 1.f};
+    float amount = 1.f;
+};
+[[nodiscard]] DuotoneParams duotoneParams(const ParamSet& p, int64_t localFrame);
+[[nodiscard]] Rgb duotone(const DuotoneParams& p, const Rgb& c);
+
+/// Flicker: brightness gain of frame @p localFrame (a sine at the frequency blended with
+/// smooth value noise by the randomness, deterministic per seed), around 1 ± amount.
+[[nodiscard]] float flickerGain(const ParamSet& p, int64_t localFrame, double fps);
+/// Smooth 1D value noise in −1..1 at @p t (lattice step 1), pattern @p seed.
+[[nodiscard]] float valueNoise1d(double t, uint32_t seed);
+
+/// Camera shake at @p seconds (clip time; the motion blur passes sub-frame times) with the
+/// parameters of @p localFrame: offset in timeline px and rotation in radians, smooth
+/// deterministic noise (two octaves of valueNoise1d()) per seed.
+void cameraShake(const ParamSet& p, int64_t localFrame, double seconds, double* dx, double* dy,
+    double* rotation);
+
+/// Apply LUT: the LUT's colour mixed with the original by @p amount (0..1).
+[[nodiscard]] Rgb applyLut(const CubeLut& lut, float amount, const Rgb& c);
+
 // ---- Shared helpers ----
 
 /// Static Choice value @p key of @p p (@p fallback if absent).
@@ -182,10 +265,20 @@ struct ColorBalanceParams
 
 /// CPU fallback: applies effect @p type to @p image (ARGB32_Premultiplied) in place if it is a
 /// pointwise effect this file implements (keyers without shrink / grow and edge blur, every
-/// colour effect). @return false (image unchanged) for other effects.
-bool applyPointEffect(
-    const QString& type, const ParamSet& params, int64_t localFrame, QImage& image);
+/// colour effect, Duotone, Flicker). @p fps is the timeline rate (animated effects).
+/// @return false (image unchanged) for other effects (and Apply LUT without a readable file).
+bool applyPointEffect(const QString& type, const ParamSet& params, int64_t localFrame,
+    QImage& image, double fps = 25.0);
 /// True if applyPointEffect() implements @p type.
 [[nodiscard]] bool isPointEffect(const QString& type);
+
+namespace detail {
+/// The batch-2 part of applyPointEffect() (EffectMathGrade.cpp). @p image is
+/// ARGB32_Premultiplied. @return false for other types.
+bool applyGradeEffect(
+    const QString& type, const ParamSet& params, int64_t localFrame, QImage& image, double fps);
+/// True for the types applyGradeEffect() implements.
+[[nodiscard]] bool isGradeEffect(const QString& type);
+} // namespace detail
 
 } // namespace kk::render::fxmath

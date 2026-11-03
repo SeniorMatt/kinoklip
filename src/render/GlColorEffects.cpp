@@ -17,69 +17,6 @@ namespace {
 using namespace fx;
 namespace k = fxkeys;
 
-/// Shared main(): un-premultiply, apply(), clamp, premultiply. Transparent stays transparent.
-const char* const kColorMain = R"(
-uniform sampler2D uTex;
-vec3 apply(vec3 c);
-void main()
-{
-    vec4 t = texture(uTex, vUv);
-    if (t.a <= 0.0) {
-        fragColor = vec4(0.0);
-        return;
-    }
-    fragColor = vec4(clamp(apply(straight(t)), 0.0, 1.0) * t.a, t.a);
-}
-)";
-
-/// A pointwise colour effect: GLSL `vec3 apply(vec3 c)` plus up to four uniforms, filled by
-/// a per-effect setter from the ParamSet.
-class ColorEffect final : public PassEffect
-{
-public:
-    static constexpr int kMaxUniforms = 4;
-    using Setter = void (*)(GlFunctions* gl, const GLint* loc, const EffectInput& in);
-    using Identity = bool (*)(const ParamSet& p, int64_t frame);
-
-    ColorEffect(const char* name, const char* body, std::array<const char*, kMaxUniforms> names,
-        Setter setter, Identity identity)
-        : m_name(name)
-        , m_body(body)
-        , m_names(names)
-        , m_setter(setter)
-        , m_identity(identity)
-    { }
-
-    bool initialize(GlKit& kit, QString* why) override
-    {
-        const std::string source = std::string(kColorMain) + m_body;
-        if (!build(kit, m_name, source.c_str(), why, true))
-            return false;
-        for (int i = 0; i < kMaxUniforms; ++i)
-            m_loc[i] = m_names[size_t(i)] ? uniform(kit, m_names[size_t(i)]) : -1;
-        return true;
-    }
-    bool isIdentity(const ParamSet& p, int64_t f) const override
-    {
-        return m_identity && m_identity(p, f);
-    }
-    PooledTarget apply(GlKit& kit, const EffectInput& in) override
-    {
-        PooledTarget out = begin(kit, *in.layer);
-        m_setter(kit.gl(), m_loc, in);
-        draw(kit, *in.layer);
-        return out;
-    }
-
-private:
-    const char* m_name;
-    const char* m_body;
-    std::array<const char*, kMaxUniforms> m_names;
-    Setter m_setter;
-    Identity m_identity;
-    GLint m_loc[kMaxUniforms] = {-1, -1, -1, -1};
-};
-
 double val(const ParamSet& p, const QString& key, int64_t f, double fallback)
 {
     return p.value(key, f, fallback);
@@ -100,8 +37,9 @@ vec3 apply(vec3 c)
 std::unique_ptr<GlEffect> makeExposure()
 {
     return std::make_unique<ColorEffect>(
-        "exposure", kExposure, std::array<const char*, 4> {"uGain", "uInvGamma"},
-        [](GlFunctions* gl, const GLint* loc, const EffectInput& in) {
+        "exposure", kExposure, ColorEffect::Names {"uGain", "uInvGamma"},
+        [](GlKit& kit, const GLint* loc, const EffectInput& in) {
+            GlFunctions* gl = kit.gl();
             const fxmath::ExposureParams p = fxmath::exposureParams(*in.params, in.localFrame);
             gl->glUniform1f(loc[0], p.gain);
             gl->glUniform1f(loc[1], p.invGamma);
@@ -125,8 +63,9 @@ vec3 apply(vec3 c)
 std::unique_ptr<GlEffect> makeTemperatureTint()
 {
     return std::make_unique<ColorEffect>(
-        "temperature_tint", kLinearGains, std::array<const char*, 4> {"uGains"},
-        [](GlFunctions* gl, const GLint* loc, const EffectInput& in) {
+        "temperature_tint", kLinearGains, ColorEffect::Names {"uGains"},
+        [](GlKit& kit, const GLint* loc, const EffectInput& in) {
+            GlFunctions* gl = kit.gl();
             const fxmath::GainParams p = fxmath::temperatureTintParams(*in.params, in.localFrame);
             gl->glUniform3f(loc[0], p.r, p.g, p.b);
         },
@@ -150,8 +89,9 @@ vec3 apply(vec3 c)
 std::unique_ptr<GlEffect> makeLevels()
 {
     return std::make_unique<ColorEffect>(
-        "levels", kLevels, std::array<const char*, 4> {"uIn", "uOut"},
-        [](GlFunctions* gl, const GLint* loc, const EffectInput& in) {
+        "levels", kLevels, ColorEffect::Names {"uIn", "uOut"},
+        [](GlKit& kit, const GLint* loc, const EffectInput& in) {
+            GlFunctions* gl = kit.gl();
             const fxmath::LevelsParams p = fxmath::levelsParams(*in.params, in.localFrame);
             gl->glUniform3f(
                 loc[0], p.inBlack, std::max(p.inWhite - p.inBlack, 1.f / 255.f), p.invGamma);
@@ -174,8 +114,9 @@ vec3 apply(vec3 c) { return mix(c, 1.0 - c, uAmount); }
 std::unique_ptr<GlEffect> makeInvert()
 {
     return std::make_unique<ColorEffect>(
-        "invert", kInvert, std::array<const char*, 4> {"uAmount"},
-        [](GlFunctions* gl, const GLint* loc, const EffectInput& in) {
+        "invert", kInvert, ColorEffect::Names {"uAmount"},
+        [](GlKit& kit, const GLint* loc, const EffectInput& in) {
+            GlFunctions* gl = kit.gl();
             gl->glUniform1f(loc[0],
                 float(
                     std::clamp(val(*in.params, k::Amount, in.localFrame, 100) / 100.0, 0.0, 1.0)));
@@ -200,8 +141,9 @@ vec3 apply(vec3 c)
 std::unique_ptr<GlEffect> makeBlackWhite()
 {
     return std::make_unique<ColorEffect>(
-        "black_white", kBlackWhite, std::array<const char*, 4> {"uAmount", "uTint", "uTintAmount"},
-        [](GlFunctions* gl, const GLint* loc, const EffectInput& in) {
+        "black_white", kBlackWhite, ColorEffect::Names {"uAmount", "uTint", "uTintAmount"},
+        [](GlKit& kit, const GLint* loc, const EffectInput& in) {
+            GlFunctions* gl = kit.gl();
             const fxmath::BlackWhiteParams p = fxmath::blackWhiteParams(*in.params, in.localFrame);
             gl->glUniform1f(loc[0], p.amount);
             gl->glUniform3f(loc[1], p.tint.r, p.tint.g, p.tint.b);
@@ -223,8 +165,9 @@ vec3 apply(vec3 c)
 std::unique_ptr<GlEffect> makePosterize()
 {
     return std::make_unique<ColorEffect>(
-        "posterize", kPosterize, std::array<const char*, 4> {"uLevels"},
-        [](GlFunctions* gl, const GLint* loc, const EffectInput& in) {
+        "posterize", kPosterize, ColorEffect::Names {"uLevels"},
+        [](GlKit& kit, const GLint* loc, const EffectInput& in) {
+            GlFunctions* gl = kit.gl();
             const double n
                 = std::max(2.0, std::round(val(*in.params, k::Levels, in.localFrame, 6)));
             gl->glUniform1f(loc[0], float(n));
@@ -248,8 +191,9 @@ vec3 apply(vec3 c)
 std::unique_ptr<GlEffect> makeColorBalance()
 {
     return std::make_unique<ColorEffect>(
-        "color_balance", kColorBalance, std::array<const char*, 4> {"uLift", "uInvGamma", "uGain"},
-        [](GlFunctions* gl, const GLint* loc, const EffectInput& in) {
+        "color_balance", kColorBalance, ColorEffect::Names {"uLift", "uInvGamma", "uGain"},
+        [](GlKit& kit, const GLint* loc, const EffectInput& in) {
+            GlFunctions* gl = kit.gl();
             const fxmath::ColorBalanceParams p
                 = fxmath::colorBalanceParams(*in.params, in.localFrame);
             gl->glUniform3fv(loc[0], 1, p.lift);

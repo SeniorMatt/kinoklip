@@ -2,7 +2,11 @@
 // ParamRows implementation: the concrete row types and the factory.
 #include "ui/inspector/ParamRows.h"
 
+#include "core/CurveParam.h"
 #include "core/ParamKeys.h"
+#include "core/VideoEffectKeys.h"
+#include "ui/common/SchemeColors.h"
+#include "ui/inspector/CurveEditor.h"
 #include "ui/inspector/InspectorGlyphs.h"
 #include "ui/inspector/KeyframeButton.h"
 #include "ui/inspector/ParamEditHost.h"
@@ -10,7 +14,9 @@
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QEvent>
+#include <QFileInfo>
 #include <QFontComboBox>
 #include <QGridLayout>
 #include <QGuiApplication>
@@ -58,6 +64,25 @@ QToolButton* makeToolButton(QWidget* parent, InspectorGlyph glyph, const QString
     button->setToolTip(tip);
     button->setFocusPolicy(Qt::NoFocus);
     return button;
+}
+
+/// The viewer eyedropper button of ParamDescriptor::viewerPicker parameters: while checked,
+/// a click (or a drag over an area) in the timeline viewer picks the colour
+/// (ColorPickOverlay); it unchecks itself after the pick.
+QToolButton* makePickerButton(QWidget* parent, const QString& tip)
+{
+    auto* picker = new QToolButton(parent);
+    picker->setObjectName(QStringLiteral("ColorPickerButton"));
+    picker->setCheckable(true);
+    picker->setAutoRaise(true);
+    // The icon theme's eyedropper (Breeze has one); a text button otherwise.
+    const QIcon dropper = QIcon::fromTheme(QStringLiteral("color-picker"));
+    if (!dropper.isNull())
+        picker->setIcon(dropper);
+    else
+        picker->setText(QCoreApplication::translate("kk::ParamRow", "Pick"));
+    picker->setToolTip(tip);
+    return picker;
 }
 
 /// Lets a combo box shrink with the inspector instead of forcing a horizontal overflow
@@ -145,6 +170,15 @@ public:
             layout->addWidget(m_prev);
             layout->addWidget(m_diamond);
             layout->addWidget(m_next);
+            if (desc.viewerPicker && ref.scope == ParamScope::Effect) {
+                // A hue parameter (HSL Key): the eyedropper picks the hue of a colour.
+                m_picker = makePickerButton(box,
+                    tr("Pick the hue in the timeline viewer: click a pixel or drag over an "
+                       "area to average it"));
+                layout->addWidget(m_picker);
+                connect(m_picker, &QToolButton::toggled, this,
+                    [this](bool on) { m_host.setColorPicking(m_ref, on); });
+            }
             grid->addWidget(box, gridRow, paramgrid::kKeyframe);
             connect(m_diamond, &QAbstractButton::clicked, this, [this] { toggleKey(); });
             // Right-click on a key: interpolation of the segment that starts there (spec 15.6).
@@ -181,6 +215,13 @@ public:
             m_diamond->setEnabled(playheadInside);
             m_prev->setEnabled(animated && anim->previousKeyFrame(localFrame).has_value());
             m_next->setEnabled(animated && anim->nextKeyFrame(localFrame).has_value());
+        }
+        if (m_picker) {
+            const bool picking = m_host.isColorPicking(m_ref);
+            if (m_picker->isChecked() != picking) {
+                const QSignalBlocker block(m_picker);
+                m_picker->setChecked(picking);
+            }
         }
         refreshReset(clip, localFrame);
     }
@@ -286,6 +327,7 @@ private:
     KeyframeButton* m_diamond = nullptr;
     KeyframeArrowButton* m_prev = nullptr;
     KeyframeArrowButton* m_next = nullptr;
+    QToolButton* m_picker = nullptr; ///< hue eyedropper (ParamDescriptor::viewerPicker)
     bool m_inGesture = false; ///< an undo group is open for a drag (field or slider)
 };
 
@@ -387,18 +429,9 @@ public:
         if (desc.viewerPicker && ref.scope == ParamScope::Effect) {
             // Eyedropper: while checked, a click (or a drag over an area) in the timeline
             // viewer picks the colour (ColorPickOverlay); it unchecks itself after the pick.
-            m_picker = new QToolButton(parentWidget);
-            m_picker->setObjectName(QStringLiteral("ColorPickerButton"));
-            m_picker->setCheckable(true);
-            m_picker->setAutoRaise(true);
-            // The icon theme's eyedropper (Breeze has one); a text button otherwise.
-            const QIcon dropper = QIcon::fromTheme(QStringLiteral("color-picker"));
-            if (!dropper.isNull())
-                m_picker->setIcon(dropper);
-            else
-                m_picker->setText(tr("Pick"));
-            m_picker->setToolTip(tr("Pick the color in the timeline viewer: click a pixel or "
-                                    "drag over an area to average it"));
+            m_picker = makePickerButton(parentWidget,
+                tr("Pick the color in the timeline viewer: click a pixel or drag over an area "
+                   "to average it"));
             grid->addWidget(m_picker, gridRow, paramgrid::kKeyframe, Qt::AlignLeft);
             connect(m_picker, &QToolButton::toggled, this,
                 [this](bool on) { m_host.setColorPicking(m_ref, on); });
@@ -579,6 +612,130 @@ private:
     bool m_refreshing = false;
 };
 
+// ---- Curve: the tone-curve graph (Curves effect) ----
+
+class CurveRow final : public ParamRow
+{
+public:
+    CurveRow(const ParamRef& ref, const ParamDescriptor& desc, ParamEditHost& host,
+        QGridLayout* grid, int gridRow, QWidget* parentWidget)
+        : ParamRow(ref, desc, host, parentWidget)
+    {
+        addCommonWidgets(grid, gridRow, parentWidget);
+        m_label->setAlignment(Qt::AlignRight | Qt::AlignTop);
+        m_editor = new CurveEditor(parentWidget);
+        m_editor->setObjectName(QStringLiteral("curve:") + desc.key);
+        // The channel curves in their channel's colour (the scheme's red / green / blue).
+        const SchemeColors& sc = schemeColors();
+        if (desc.key == fxkeys::RedCurve)
+            m_editor->setCurveColor(sc.negative);
+        else if (desc.key == fxkeys::GreenCurve)
+            m_editor->setCurveColor(sc.positive);
+        else if (desc.key == fxkeys::BlueCurve)
+            m_editor->setCurveColor(sc.link);
+        grid->addWidget(m_editor, gridRow, paramgrid::kEditor, 1, 3);
+        connect(m_editor, &CurveEditor::editStarted, this, [this] {
+            m_host.beginParamEdit(changeLabel());
+            m_inGesture = true;
+        });
+        connect(m_editor, &CurveEditor::pointsEdited, this, [this](const curve::Points& points) {
+            const QString text = curve::format(points);
+            m_host.modifyClip(m_ref.clipId,
+                [this, text](ClipData& clip) { paramaccess::setStatic(clip, m_ref, text); });
+        });
+        connect(m_editor, &CurveEditor::editFinished, this, [this] { finishGesture(); });
+        connect(m_editor, &CurveEditor::pointsCommitted, this, [this](const curve::Points& points) {
+            const QString text = curve::format(points);
+            m_host.editClip(changeLabel(), m_ref.clipId,
+                [this, text](ClipData& clip) { paramaccess::setStatic(clip, m_ref, text); });
+        });
+    }
+
+    ~CurveRow() override { finishGesture(); }
+
+    void refresh(const ClipData& clip, int64_t localFrame, bool) override
+    {
+        if (!m_inGesture) {
+            const QString text = paramaccess::staticValue(clip, m_ref, m_desc).toString();
+            if (text != m_text) {
+                m_text = text;
+                m_editor->setPoints(curve::parse(text));
+            }
+        }
+        refreshReset(clip, localFrame);
+    }
+
+private:
+    void finishGesture()
+    {
+        if (!m_inGesture)
+            return;
+        m_inGesture = false;
+        m_host.endParamEdit();
+    }
+
+    CurveEditor* m_editor = nullptr;
+    QString m_text;
+    bool m_inGesture = false;
+};
+
+// ---- File: file name + Browse button ----
+
+class FileRow final : public ParamRow
+{
+public:
+    FileRow(const ParamRef& ref, const ParamDescriptor& desc, ParamEditHost& host,
+        QGridLayout* grid, int gridRow, QWidget* parentWidget)
+        : ParamRow(ref, desc, host, parentWidget)
+    {
+        addCommonWidgets(grid, gridRow, parentWidget);
+        auto* box = new QWidget(parentWidget);
+        auto* layout = new QHBoxLayout(box);
+        layout->setContentsMargins(0, 0, 0, 0);
+        m_name = new QLineEdit(box);
+        m_name->setObjectName(QStringLiteral("file:") + desc.key);
+        m_name->setReadOnly(true);
+        m_name->setPlaceholderText(tr("No file"));
+        m_browse = new QToolButton(box);
+        m_browse->setObjectName(QStringLiteral("browse:") + desc.key);
+        m_browse->setText(tr("Browse..."));
+        m_browse->setToolTip(tr("Choose the file"));
+        layout->addWidget(m_name, 1);
+        layout->addWidget(m_browse);
+        grid->addWidget(box, gridRow, paramgrid::kEditor, 1, 3);
+        connect(m_browse, &QToolButton::clicked, this, [this] {
+            const QString picked = m_host.pickFile(m_path, m_desc.label, m_desc.fileFilter);
+            if (picked.isEmpty() || picked == m_path)
+                return;
+            const QString absolute = QFileInfo(picked).absoluteFilePath();
+            m_host.editClip(changeLabel(), m_ref.clipId, [this, absolute](ClipData& clip) {
+                paramaccess::setStatic(clip, m_ref, absolute);
+            });
+        });
+    }
+
+    void refresh(const ClipData& clip, int64_t localFrame, bool) override
+    {
+        const QString path = paramaccess::staticValue(clip, m_ref, m_desc).toString();
+        if (path != m_path || m_name->text().isEmpty() != path.isEmpty()) {
+            m_path = path;
+            const QFileInfo info(path);
+            m_name->setText(path.isEmpty() ? QString() : info.fileName());
+            const bool missing = !path.isEmpty() && !info.exists();
+            m_name->setToolTip(missing ? tr("Missing: %1").arg(path) : path);
+            QFont font = m_name->font();
+            font.setItalic(missing);
+            m_name->setFont(font);
+        }
+        refreshReset(clip, localFrame);
+    }
+
+private:
+    QLineEdit* m_name = nullptr;
+    QToolButton* m_browse = nullptr;
+    QString m_path;
+};
+
 } // namespace
 
 // ---- ParamRow base ----
@@ -644,6 +801,10 @@ ParamRow* ParamRow::create(const ParamRef& ref, const ParamDescriptor& desc, Par
         if (desc.key == keys::Font)
             return new FontRow(ref, desc, host, grid, gridRow, parentWidget);
         return new LineRow(ref, desc, host, grid, gridRow, parentWidget);
+    case ParamType::Curve:
+        return new CurveRow(ref, desc, host, grid, gridRow, parentWidget);
+    case ParamType::File:
+        return new FileRow(ref, desc, host, grid, gridRow, parentWidget);
     }
     return nullptr;
 }
