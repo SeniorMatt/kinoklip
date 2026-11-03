@@ -27,7 +27,7 @@
 | `resources/` | icons, default keymap, KDE colour schemes (fallback build), `.qrc` |
 | `tests/<area>/test_*.cpp` | QtTest unit/smoke tests (each file is its own executable) |
 | `docs/` | roadmap, behaviour spec, keymap, coding style, release notes, feedback |
-| `packaging/` | Linux bundle (.run, tar.zst); Windows and macOS placeholders |
+| `packaging/` | Linux AppImage (AppRun launcher, desktop entry, AppStream metadata); Windows and macOS placeholders |
 | `scripts/` | packaging, formatting, keymap generator, test media generators |
 
 Each module directory has a `readme.md` with its responsibilities and a **How to extend** section.

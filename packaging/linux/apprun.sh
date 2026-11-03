@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# AppRun -- launcher of the portable Kinoklip bundle (copied to <bundle>/AppRun).
+# AppRun -- launcher of the Kinoklip AppImage / portable bundle (copied to <AppDir>/AppRun).
 #
 # Usage: AppRun [kinoklip arguments...]
 #        AppRun --install-desktop-entry     add Kinoklip to the application menu (~/.local/share)
@@ -29,10 +29,16 @@
 #                           instead of the ld.so cache
 #   KINOKLIP_FORCE_FALLBACK=1  test hook: use every bundled fallback library
 #   KINOKLIP_QUIET=1        no log line on stderr
-#   KINOKLIP_RUN_PATH       set by the .run wrapper: the .run file (used for desktop entries)
+#   APPIMAGE                set by the AppImage runtime: the .AppImage file. Then the menu
+#                           entry is left to Gear Lever / appimaged (no automatic install;
+#                           --install-desktop-entry points it at the AppImage file), and the
+#                           fallback links go to a private writable directory (the squashfs
+#                           mount is read-only), see shadow_fallback_dir
+#   KINOKLIP_RUN_PATH       set by the legacy .run wrapper: the .run file (desktop entries)
 #   KINOKLIP_NO_DESKTOP_ENTRY=1  do not install/refresh the menu entry on start (it is
-#                           installed automatically otherwise; --uninstall-desktop-entry
-#                           opts out permanently, --install-desktop-entry opts back in)
+#                           installed automatically otherwise, except in an AppImage;
+#                           --uninstall-desktop-entry opts out permanently,
+#                           --install-desktop-entry opts back in)
 #
 #   KINOKLIP_FORCE_GLIBC=1|0  test hook: force the bundled glibc on / off
 #
@@ -151,7 +157,18 @@ setup_fallback() {
         fi
     done
     if [ ! -w "$_active" ]; then
-        [ -n "$_missing" ] && log "warning: $LIB is read-only, cannot use bundled fallbacks for:$_missing"
+        # Read-only bundle (the AppImage's squashfs mount): the links go into a private
+        # writable directory instead, put in front through LD_LIBRARY_PATH (searched before
+        # RUNPATH; restored for child processes like every variable set_var changes).
+        [ -n "$_missing" ] || return 0
+        if _active="$(shadow_fallback_dir "$_missing")"; then
+            set_var LD_LIBRARY_PATH "$_active${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            log "using bundled fallbacks:$_missing (links in $_active)"
+        else
+            log "warning: $LIB is read-only and no private writable directory was found, cannot use bundled fallbacks for:$_missing"
+            return 0
+        fi
+        fallback_libva_drivers
         return 0
     fi
     # drop links that are no longer wanted (host gained the library), add the missing ones
@@ -163,8 +180,13 @@ setup_fallback() {
         [ -L "$_active/$_n" ] || ln -s "../fallback/$_n" "$_active/$_n"
     done
     [ -n "$_missing" ] && log "using bundled fallbacks:$_missing"
-    # A bundled libva searches the build host's driver dir; point it at the host drivers
-    # (only then, and never over a user setting).
+    fallback_libva_drivers
+    return 0
+}
+
+# A bundled libva searches the build host's driver dir; point it at the host drivers (only
+# when the bundled libva is used -- $_missing -- and never over a user setting).
+fallback_libva_drivers() {
     case " $_missing " in
     *" libva.so.2 "*)
         if [ -z "${LIBVA_DRIVERS_PATH:-}" ]; then
@@ -177,6 +199,52 @@ setup_fallback() {
         ;;
     esac
     return 0
+}
+
+# shadow_fallback_dir "<sonames>": prints a private writable directory holding links to the
+# given usr/lib/fallback libraries, for a read-only bundle. Layout, so that the fallbacks'
+# own RUNPATH ($ORIGIN/..:$ORIGIN:$ORIGIN/../qt; $ORIGIN is the directory of the link) works
+# exactly as in the bundle:
+#   <dir>/active/<soname> -> <bundle>/usr/lib/fallback/<soname>   (the LD_LIBRARY_PATH entry)
+#   <dir>/<lib>.so*       -> <bundle>/usr/lib/<lib>.so*
+#   <dir>/qt              -> <bundle>/usr/lib/qt
+# Lives in $XDG_RUNTIME_DIR (per user, mode 0700, cleared at logout), else ~/.cache/kinoklip;
+# never in a shared /tmp, where another user could plant libraries. The name hashes the
+# bundle path and the library list, so a ready directory is reused. An AppImage is mounted
+# at a new path on every start: directories whose bundle is gone (dangling qt link) are
+# removed first.
+shadow_fallback_dir() {
+    _base=""
+    if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "$XDG_RUNTIME_DIR" ] && [ -w "$XDG_RUNTIME_DIR" ] &&
+        [ -O "$XDG_RUNTIME_DIR" ]; then
+        _base="$XDG_RUNTIME_DIR"
+    elif [ -n "${HOME:-}" ]; then
+        _base="${XDG_CACHE_HOME:-$HOME/.cache}/kinoklip"
+        mkdir -p "$_base" 2>/dev/null || return 1
+    fi
+    [ -n "$_base" ] && [ -w "$_base" ] || return 1
+    for _d in "$_base"/kinoklip-fallback-*; do
+        case "$_d" in *.tmp*) continue ;; esac
+        [ -d "$_d" ] && [ ! -e "$_d/qt/" ] && rm -rf "$_d"
+    done
+    _key="$(printf '%s\n%s\n' "$HERE" "$1" | cksum | cut -d' ' -f1)"
+    _sd="$_base/kinoklip-fallback-$_key"
+    if [ ! -e "$_sd/.complete" ]; then
+        _tmp="$_sd.tmp$$"
+        rm -rf "$_tmp"
+        mkdir -p "$_tmp/active" || return 1
+        ln -s "$LIB"/*.so* "$_tmp/" 2>/dev/null
+        ln -s "$QTDIR" "$_tmp/qt" || return 1
+        for _n in $1; do
+            ln -s "$LIB/fallback/$_n" "$_tmp/active/$_n" || return 1
+        done
+        : >"$_tmp/.complete"
+        rm -rf "$_sd" # an incomplete one (interrupted start)
+        mv "$_tmp" "$_sd" 2>/dev/null
+        rm -rf "$_tmp" # still there if another start won the race
+        [ -e "$_sd/.complete" ] || return 1
+    fi
+    printf '%s\n' "$_sd/active"
 }
 
 # ---- 2. Qt selection -------------------------------------------------------------------
@@ -282,10 +350,11 @@ refresh_desktop_caches() {
     return 0
 }
 
-# write_desktop_file <out>: the bundle's desktop entry with Exec/TryExec pointing at the .run
-# (or this AppRun), quoted for paths with spaces.
+# write_desktop_file <out>: the bundle's desktop entry with Exec/TryExec pointing at the
+# AppImage file ($APPIMAGE, set by the AppImage runtime), the .run or this AppRun, quoted for
+# paths with spaces.
 write_desktop_file() {
-    _target="${KINOKLIP_RUN_PATH:-$HERE/AppRun}"
+    _target="${APPIMAGE:-${KINOKLIP_RUN_PATH:-$HERE/AppRun}}"
     # Desktop-entry rules: inside "..." the characters " ` $ need "\\" before them and a
     # backslash needs four (string escaping is applied before the quoting rule).
     _q="$(printf '%s' "$_target" | sed -e 's/\\/\\\\\\\\/g' -e 's/["`$]/\\\\&/g')"
@@ -314,7 +383,7 @@ install_desktop_entry() {
     [ "${1:-}" = quiet ] && return 0
     echo "Installed $_dh/applications/$APP_ID.desktop -> $_target"
     case "$_target" in
-    */.cache/*) echo "Note: this points into the extraction cache; prefer running --install-desktop-entry from the .run file." ;;
+    */.cache/* | /tmp/*) echo "Note: this points into a temporary extraction; prefer running --install-desktop-entry from the .AppImage file." ;;
     esac
 }
 
@@ -337,7 +406,12 @@ optout_file() { printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/kinoklip/no-des
 # uses the entry for the window/task-manager icon on Wayland. Rewritten only when the
 # content or the icon differs (first start, the .run moved, a new version), so normal starts
 # only read two small files. KINOKLIP_NO_DESKTOP_ENTRY=1 or the opt-out file skips it.
+#
+# Not for an AppImage ($APPIMAGE set): Gear Lever, appimaged or AppImageLauncher integrate it
+# (their own desktop file, Exec= the AppImage), and an entry of ours would be a second menu
+# item. --install-desktop-entry still works there for users without such a tool.
 ensure_desktop_entry() {
+    [ -n "${APPIMAGE:-}" ] && return 0
     [ "${KINOKLIP_NO_DESKTOP_ENTRY:-0}" = 1 ] && return 0
     [ -e "$(optout_file)" ] && return 0
     [ -n "${HOME:-}" ] || return 0
