@@ -6,6 +6,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/dialogs/ClipAttributesDialog.h"
+#include "ui/dialogs/HistoryWindow.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
@@ -39,6 +40,17 @@ void connectDialogActions(
             clipattributes::edit(*ctx.project, ids, window);
         });
     }
+    // Edit > History > Open History Window: one non-modal window per main window, kept
+    // (hidden) when closed so it reopens where the user left it.
+    QObject::connect(actions.action(QStringLiteral("edit.history_window")), &QAction::triggered,
+        window, [&ctx, window] {
+            auto* history = window->findChild<HistoryWindow*>();
+            if (!history)
+                history = new HistoryWindow(ctx.project, window);
+            history->show();
+            history->raise();
+            history->activateWindow();
+        });
     QObject::connect(actions.action(QStringLiteral("edit.keyboard_customization")),
         &QAction::triggered, window, [&ctx, window] {
             KeyboardCustomizationDialog dialog(*ctx.actions, window);

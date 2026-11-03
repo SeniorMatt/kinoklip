@@ -14,6 +14,7 @@
         "file.quit": ["Ctrl+Q"],
         "edit.undo": ["Ctrl+Z"],
         "edit.redo": ["Ctrl+Shift+Z"],
+        "edit.history_window": [],
         "edit.cut": ["Ctrl+X"],
         "edit.copy": ["Ctrl+C"],
         "edit.paste": ["Ctrl+V"],
