@@ -475,12 +475,55 @@ public:
         auto* location = note(QDir::toNativeSeparators(folder));
         location->setTextInteractionFlags(Qt::TextSelectableByMouse);
         form->addRow(tr("Autosave location"), location);
+
+        // Project library (the Project Manager's folder) and what start-up shows.
+        m_library = new QLineEdit(prefs::projectLibraryDirectoryOverride());
+        m_library->setObjectName(QStringLiteral("ProjectLibraryDirectory"));
+        m_library->setPlaceholderText(
+            QDir::toNativeSeparators(prefs::projectLibraryDefaultDirectory()));
+        auto* browse = new QPushButton(tr("Browse"));
+        browse->setToolTip(tr("Choose the project library folder"));
+        auto* reset = new QPushButton(tr("Default"));
+        reset->setToolTip(tr("Use the default project library folder"));
+        auto* row = new QWidget;
+        auto* layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(metrics::kSpaceS);
+        layout->addWidget(m_library, 1);
+        layout->addWidget(browse);
+        layout->addWidget(reset);
+        form->addRow(tr("Project library location"), row);
+        form->addRow(QString(),
+            note(tr("The Project Manager lists the projects in this folder and its sub-folders. "
+                    "Projects saved elsewhere appear under Recent Projects.")));
+        connect(browse, &QPushButton::clicked, this, [this] {
+            const QString dir
+                = platform::getExistingDirectory(this, tr("Project Library Location"), QString(),
+                    m_library->text().isEmpty() ? prefs::projectLibraryDefaultDirectory()
+                                                : m_library->text());
+            if (!dir.isEmpty())
+                m_library->setText(QDir::toNativeSeparators(dir));
+        });
+        connect(reset, &QPushButton::clicked, m_library, &QLineEdit::clear);
+        m_startup = new QComboBox;
+        m_startup->setObjectName(QStringLiteral("StartupAction"));
+        m_startup->addItem(tr("Show the Project Manager"), true);
+        m_startup->addItem(tr("Reopen the last project"), false);
+        m_startup->setCurrentIndex(prefs::startupShowsProjectManager() ? 0 : 1);
+        form->addRow(tr("At start-up"), m_startup);
     }
 
-    void apply() override { prefs::setAutosaveMinutes(m_autosave->value()); }
+    void apply() override
+    {
+        prefs::setAutosaveMinutes(m_autosave->value());
+        prefs::setProjectLibraryDirectory(QDir::fromNativeSeparators(m_library->text().trimmed()));
+        prefs::setStartupShowsProjectManager(m_startup->currentData().toBool());
+    }
 
 private:
     QSpinBox* m_autosave = nullptr;
+    QLineEdit* m_library = nullptr;
+    QComboBox* m_startup = nullptr;
 };
 
 // ---- User: Editing -------------------------------------------------------------------

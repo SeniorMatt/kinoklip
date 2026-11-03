@@ -113,6 +113,7 @@ kinoklip/
   src/main.cpp              app entry; also CLI: --render <proj> <out.mp4>, --screenshot <page> <png>
   src/app/                  Application, MainWindow, PageBar, Theme, Preferences, AppInfo.h
   src/core/                 data model, edit operations, undo, selection, serialization, effect registry
+  src/projects/             project library (Project Manager logic: kinds, metadata cache, folders, file ops; core only)
   src/media/                FFmpeg: probe, VideoDecoder, AudioDecoder, MediaCache (thumbs, waveforms)
   src/render/               Compositor (frame @ time), effects, transitions, titles, AudioMixer
   src/playback/             PlaybackEngine (clock, prefetch, QAudioSink, JKL shuttle)
@@ -123,7 +124,8 @@ kinoklip/
   src/ui/inspector/         InspectorPanel (generic param editors + keyframe controls)
   src/ui/effects/           EffectsLibraryPanel (drag effects/transitions/titles)
   src/ui/deliver/           DeliverPage, render queue
-  src/ui/dialogs/           ProjectManager, ProjectSettings, KeyboardCustomization, Preferences
+  src/ui/projects/          ProjectManagerWindow (cards / list over src/projects), NewProjectDialog
+  src/ui/dialogs/           ProjectSettings, KeyboardCustomization, Preferences
   src/export/               Exporter (libavcodec encode H.264/AAC MP4, ProRes MOV)
   src/platform/             platform-specific helpers (Linux impl only)
   resources/                icons, qrc, default keymap json
