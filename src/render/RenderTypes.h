@@ -133,6 +133,9 @@ struct RenderRequest
     /// by outSize / quality, premultiplied, transparent where the node draws nothing) instead
     /// of the timeline frame; `frame` is ignored and the render cache is never used.
     std::optional<CompositionNodeView> compositionNode = std::nullopt;
+    /// Color page "bypass all grades" (Shift+D, viewer only): render without the clip and
+    /// timeline grades. The render cache is not used then (its chunks hold graded pictures).
+    bool bypassGrades = false;
 };
 
 /// Result of a render request. Immutable once handed out; share it as RenderedFramePtr.

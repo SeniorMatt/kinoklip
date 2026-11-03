@@ -610,6 +610,8 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("markers")] = markersToJson(clip.markers);
     if (clip.composition)
         o[QLatin1String("composition")] = compositionToJson(*clip.composition);
+    if (!clip.grade.isEmpty()) // format 16; omitted when ungraded (older files identical)
+        o[QLatin1String("grade")] = gradeToJson(clip.grade);
     return o;
 }
 
@@ -671,6 +673,9 @@ ClipData clipFromJson(const QJsonObject& o)
     c.markers = markersFromJson(o.value(QLatin1String("markers")).toArray());
     if (o.contains(QLatin1String("composition")))
         c.composition = compositionFromJson(o.value(QLatin1String("composition")).toObject());
+    // Format 16: Color page grade (absent = ungraded, what every older clip is).
+    if (o.contains(QLatin1String("grade")))
+        c.grade = gradeFromJson(o.value(QLatin1String("grade")).toObject());
     return c;
 }
 
@@ -716,6 +721,8 @@ QJsonObject timelineToJson(const TimelineData& data)
         o[QLatin1String("mixer")] = mixerToJson(data.mixer);
     if (!data.guides.empty()) // format 14; omitted when none (older files identical)
         o[QLatin1String("guides")] = guides::toJson(data.guides);
+    if (!data.grade.isEmpty()) // format 16; omitted when ungraded
+        o[QLatin1String("grade")] = gradeToJson(data.grade);
     return o;
 }
 
@@ -764,6 +771,9 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
     repairRoutes(data.mixer, data.audioTracks);
     // Format 14: viewer guides (absent = none, what every older timeline has).
     data.guides = guides::fromJson(o.value(QLatin1String("guides")).toArray());
+    // Format 16: the timeline grade (absent = ungraded).
+    if (o.contains(QLatin1String("grade")))
+        data.grade = gradeFromJson(o.value(QLatin1String("grade")).toObject());
 
     for (TrackType type : {TrackType::Video, TrackType::Audio, TrackType::Subtitle}) {
         for (TrackData& track : data.tracks(type)) {

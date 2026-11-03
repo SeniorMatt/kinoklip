@@ -167,6 +167,60 @@ void CubeLut::apply(float* rgb) const
     }
 }
 
+void CubeLut::applyTetrahedral(float* rgb) const
+{
+    const int n = size();
+    if (!is3d() || n < 2 || m_data.isEmpty()) {
+        apply(rgb);
+        return;
+    }
+    int i0[3];
+    float f[3];
+    for (int i = 0; i < 3; ++i) {
+        const float u = std::clamp((rgb[i] - m_min[i]) / (m_max[i] - m_min[i]), 0.f, 1.f);
+        const float t = u * float(n - 1);
+        i0[i] = std::min(int(t), n - 2);
+        f[i] = t - float(i0[i]);
+    }
+    const float* d = m_data.constData();
+    auto at = [&](int dr, int dg, int db) {
+        return d + ((size_t(i0[2] + db) * n + size_t(i0[1] + dg)) * n + size_t(i0[0] + dr)) * 3;
+    };
+    // The tetrahedron containing (fr, fg, fb): walk from corner 000 to 111 along the axes in
+    // decreasing order of the fractions; the weights are the differences of the sorted
+    // fractions (the GLSL twin in render/GlGrade.cpp does the same six cases).
+    const float fr = f[0], fg = f[1], fb = f[2];
+    const float* c000 = at(0, 0, 0);
+    const float* c111 = at(1, 1, 1);
+    const float *a, *b;
+    float w0, w1, w2, w3;
+    if (fr >= fg) {
+        if (fg >= fb) { // r >= g >= b
+            a = at(1, 0, 0), b = at(1, 1, 0);
+            w0 = 1 - fr, w1 = fr - fg, w2 = fg - fb, w3 = fb;
+        } else if (fr >= fb) { // r >= b > g
+            a = at(1, 0, 0), b = at(1, 0, 1);
+            w0 = 1 - fr, w1 = fr - fb, w2 = fb - fg, w3 = fg;
+        } else { // b > r >= g
+            a = at(0, 0, 1), b = at(1, 0, 1);
+            w0 = 1 - fb, w1 = fb - fr, w2 = fr - fg, w3 = fg;
+        }
+    } else {
+        if (fb > fg) { // b > g > r
+            a = at(0, 0, 1), b = at(0, 1, 1);
+            w0 = 1 - fb, w1 = fb - fg, w2 = fg - fr, w3 = fr;
+        } else if (fb > fr) { // g >= b > r
+            a = at(0, 1, 0), b = at(0, 1, 1);
+            w0 = 1 - fg, w1 = fg - fb, w2 = fb - fr, w3 = fr;
+        } else { // g > r >= b
+            a = at(0, 1, 0), b = at(1, 1, 0);
+            w0 = 1 - fg, w1 = fg - fr, w2 = fr - fb, w3 = fb;
+        }
+    }
+    for (int c = 0; c < 3; ++c)
+        rgb[c] = w0 * c000[c] + w1 * a[c] + w2 * b[c] + w3 * c111[c];
+}
+
 std::shared_ptr<const CubeLut> loadCubeLut(const QString& path, QString* error)
 {
     struct Entry

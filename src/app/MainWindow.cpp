@@ -9,14 +9,15 @@
 #include "app/ProjectController.h"
 #include "app/TimelineExport.h"
 #include "app/pages/AudioPage.h"
+#include "app/pages/ColorPage.h"
 #include "app/pages/CompositingPage.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "app/pages/MediaPage.h"
+#include "core/Logging.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "ui/common/ActionRegistry.h"
-#include "core/Logging.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/ResizeProfiler.h"
@@ -27,6 +28,7 @@
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/help/HelpController.h"
 #include "ui/mediapool/MediaPoolPanel.h"
+#include "ui/scopes/ScopesWindow.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/viewer/ViewerOverlaySettings.h"
 #include "ui/viewer/ViewerPanel.h"
@@ -86,7 +88,7 @@ constexpr PageSlot kPageSlots[] = {
     {"view.page_cut", "cut"},
     {"view.page_edit", "edit"},
     {"view.page_compositing", "compositing"},
-    {"view.page_color", nullptr},
+    {"view.page_color", "color"},
     {"view.page_audio", "audio"},
     {"view.page_deliver", "deliver"},
 };
@@ -171,12 +173,13 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     // The Audio page too: one tool / target state for every timeline view.
     m_audioPage = new AudioPage(ctx, m_editPage->timeline()->controller());
     m_compositingPage = new CompositingPage(ctx);
+    m_colorPage = new ColorPage(ctx);
     m_deliverPage = new DeliverPage(ctx);
     // The page bar in Resolve's order; pages not built yet are disabled placeholders.
     const QHash<QString, Page*> built {{QStringLiteral("media"), m_mediaPage},
         {QStringLiteral("cut"), m_cutPage}, {QStringLiteral("edit"), m_editPage},
-        {QStringLiteral("compositing"), m_compositingPage}, {QStringLiteral("audio"), m_audioPage},
-        {QStringLiteral("deliver"), m_deliverPage}};
+        {QStringLiteral("compositing"), m_compositingPage}, {QStringLiteral("color"), m_colorPage},
+        {QStringLiteral("audio"), m_audioPage}, {QStringLiteral("deliver"), m_deliverPage}};
     for (const PageSlot& slot : kPageSlots) {
         const QString actionId = QLatin1String(slot.actionId);
         Page* page = slot.pageId ? built.value(QLatin1String(slot.pageId)) : nullptr;
@@ -340,6 +343,20 @@ void MainWindow::connectAppActions()
     Project* project = m_ctx.project;
     QUndoStack* undoStack = project->undoStack();
 
+    // ---- View > Video Scopes: the floating scopes window (any page) ----
+    if (QAction* scopes = actions.action(QStringLiteral("view.video_scopes"))) {
+        connect(scopes, &QAction::toggled, this, [this, scopes](bool on) {
+            if (!m_scopesWindow) {
+                if (!on)
+                    return;
+                m_scopesWindow = new ScopesWindow(m_ctx.playback, this);
+                connect(m_scopesWindow, &ScopesWindow::closed, scopes,
+                    [scopes] { scopes->setChecked(false); });
+            }
+            m_scopesWindow->setVisible(on);
+        });
+    }
+
     // ---- Undo / redo (through Project so they are refused mid-drag) ----
     QAction* undo = actions.action(QStringLiteral("edit.undo"));
     QAction* redo = actions.action(QStringLiteral("edit.redo"));
@@ -348,8 +365,7 @@ void MainWindow::connectAppActions()
     // no mouse button down no gesture can be running: close it first, and say which it was.
     auto closeStale = [project] {
         if (project->isEditing() && QGuiApplication::mouseButtons() == Qt::NoButton)
-            qCWarning(lcCore).noquote()
-                << "closed an edit left open:" << project->closeStaleEdit();
+            qCWarning(lcCore).noquote() << "closed an edit left open:" << project->closeStaleEdit();
     };
     connect(undo, &QAction::triggered, project, [project, closeStale] {
         closeStale();

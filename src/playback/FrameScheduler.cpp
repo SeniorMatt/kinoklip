@@ -54,6 +54,7 @@ std::future<RenderedFramePtr> FrameScheduler::issue(int64_t frame)
     request.media = m_params.media;
     request.proxies = m_params.proxies;
     request.renderCache = m_params.renderCache;
+    request.bypassGrades = m_params.bypassGrades;
     request.frame = frame;
     request.outSize = m_params.outSize;
     request.quality = m_params.quality;

@@ -90,6 +90,10 @@ private slots:
                 QCOMPARE(reg.action(id)->shortcutContext(), Qt::WidgetShortcut);
                 QCOMPARE(reg.shortcutScope(id), QStringLiteral("widget:node_editor"));
             }
+            if (id.startsWith(QLatin1String("color."))) { // spec 44b: claimed by the Color page
+                QCOMPARE(reg.action(id)->shortcutContext(), Qt::WidgetShortcut);
+                QCOMPARE(reg.shortcutScope(id), QStringLiteral("widget:color_page"));
+            }
             for (const QKeySequence& key : reg.shortcuts(id)) {
                 for (const QString& other : seen.value(key)) {
                     QVERIFY2(!ActionRegistry::scopesConflict(

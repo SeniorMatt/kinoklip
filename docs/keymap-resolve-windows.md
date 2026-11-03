@@ -3,16 +3,14 @@
 The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id
 `resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and
 its global commands, written from general knowledge of how Resolve behaves (nothing copied from
-Resolve's documentation). Commands of subsystems Kinoklip does not have yet (the Color page) keep
-their Resolve key but are
-disabled.
+Resolve's documentation).
 
 **Confidence** says how sure we are that the key is Resolve's default:
 - **sure**: well-known default, used daily;
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 308 commands; sure 100, likely 96, unsure 112.
+Counts: 320 commands; sure 106, likely 97, unsure 117.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -226,7 +224,7 @@ that every command has an entry and that no key is used twice.
 | Cut Page | `view.page_cut` | `Shift+3` | sure |  |
 | Edit Page | `view.page_edit` | `Shift+4` | sure |  |
 | Compositing Page (node compositing of the selected clip) | `view.page_compositing` | `Shift+5` | sure |  |
-| Color Page (disabled) | `view.page_color` | `Shift+6` | sure |  |
+| Color Page (grade the clip under the playhead) | `view.page_color` | `Shift+6` | sure |  |
 | Audio Page | `view.page_audio` | `Shift+7` | sure |  |
 | Deliver Page | `view.page_deliver` | `Shift+8` | sure |  |
 | Media Pool panel | `view.toggle_media_pool` | (none) | likely |  |
@@ -324,6 +322,7 @@ that every command has an entry and that no key is used twice.
 | Select Clips in Timeline (media pool selection) | `mediapool.select_in_timeline` | (none) | unsure | media pool context menu; Kinoklip's wording |
 | Remove Unused Clips | `mediapool.remove_unused` | (none) | likely | media pool context menu, asks first, no default key |
 | Show Bin List (media pool sidebar) | `view.show_bin_list` | (none) | likely | media pool toolbar button, no default key |
+| Video Scopes (floating window: waveform, parade, vectorscope, histogram) | `view.video_scopes` | `Ctrl+Shift+W` | likely | Workspace > Video Scopes in Resolve; Kinoklip's window shows two scopes of the program picture |
 | Find in Media Pool (timeline clip) | `timeline.find_in_media_pool` | `Alt+F` | likely | timeline clip context menu |
 
 ## Multicam and sync
@@ -388,6 +387,22 @@ that every command has an entry and that no key is used twice.
 | View Node in Right Viewer | `comp.view_right` | `2` | sure | acts while the node editor has focus |
 | Fit Nodes to View | `comp.fit` | `Ctrl+F` | unsure | acts while the node editor has focus; Resolve's default not confirmed |
 | Snap Nodes to Grid | `comp.snap_grid` | (none) | unsure | node editor context menu option; no default key known |
+
+## Color page
+
+| Command | Action id | Key | Confidence | Note |
+|---|---|---|---|---|
+| Add Serial Node (after the current node) | `color.add_serial` | `Alt+S` | sure | acts on the Color page |
+| Add Parallel Node (with a Parallel mixer) | `color.add_parallel` | `Alt+P` | sure | acts on the Color page |
+| Add Layer Node (with a Layer mixer) | `color.add_layer` | `Alt+L` | sure | acts on the Color page |
+| Delete Node (the current node) | `color.delete_node` | (none) | unsure | Delete in Resolve's node editor; no key until the node editor exists |
+| Enable / Disable Current Node | `color.bypass_node` | `Ctrl+D` | sure | acts on the Color page |
+| Bypass All Grades (viewer only; the render keeps them) | `color.bypass_all` | `Shift+D` | sure | acts on the Color page |
+| Reset Node Grade (the current node's corrections) | `color.reset_node` | (none) | unsure | no default key known, none assigned |
+| Reset Clip Grade (remove every node) | `color.reset_grade` | (none) | unsure | no default key known, none assigned |
+| Grade the Timeline (edit the timeline grade instead of the clip's) | `color.timeline_grade` | (none) | unsure | Resolve switches between clip and timeline nodes in the node editor; no default key known |
+| Grab Still (the current frame and grade into the gallery) | `color.grab_still` | `Ctrl+Alt+G` | sure | acts on the Color page |
+| Apply Grade from Still (the selected gallery still to the clip) | `color.apply_still` | (none) | unsure | middle-click on a still in Resolve; no default key known |
 
 ## Audio page
 

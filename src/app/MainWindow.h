@@ -17,7 +17,9 @@ struct AppContext;
 class AutosaveController;
 class DeliverPage;
 class AudioPage;
+class ColorPage;
 class CompositingPage;
+class ScopesWindow;
 class CutPage;
 class EditPage;
 class HelpController;
@@ -64,6 +66,9 @@ public:
     [[nodiscard]] AudioPage* audioPage() const { return m_audioPage; }
     [[nodiscard]] EditPage* editPage() const { return m_editPage; }
     [[nodiscard]] CompositingPage* compositingPage() const { return m_compositingPage; }
+    [[nodiscard]] ColorPage* colorPage() const { return m_colorPage; }
+    /// The Video Scopes window (View > Video Scopes), created on first use; may be null.
+    [[nodiscard]] ScopesWindow* scopesWindow() const { return m_scopesWindow; }
     [[nodiscard]] DeliverPage* deliverPage() const { return m_deliverPage; }
     [[nodiscard]] ProjectController* projectController() const { return m_projectController; }
     /// The in-app help (F1, Help > Guide).
@@ -106,6 +111,8 @@ private:
     AudioPage* m_audioPage = nullptr;
     EditPage* m_editPage = nullptr;
     CompositingPage* m_compositingPage = nullptr;
+    ColorPage* m_colorPage = nullptr;
+    ScopesWindow* m_scopesWindow = nullptr;
     DeliverPage* m_deliverPage = nullptr;
     ProjectController* m_projectController = nullptr;
     AutosaveController* m_autosave = nullptr;

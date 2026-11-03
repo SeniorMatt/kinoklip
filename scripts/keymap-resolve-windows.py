@@ -167,7 +167,7 @@ a("view.page_media", "Media Page", ["Shift+2"], S)
 a("view.page_cut", "Cut Page", ["Shift+3"], S)
 a("view.page_edit", "Edit Page", ["Shift+4"], S)
 a("view.page_compositing", "Compositing Page (node compositing of the selected clip)", ["Shift+5"], S)
-a("view.page_color", "Color Page (disabled)", ["Shift+6"], S)
+a("view.page_color", "Color Page (grade the clip under the playhead)", ["Shift+6"], S)
 a("view.page_audio", "Audio Page", ["Shift+7"], S)
 a("view.page_deliver", "Deliver Page", ["Shift+8"], S)
 a("view.toggle_media_pool", "Media Pool panel", [], L)
@@ -259,6 +259,7 @@ a("mediapool.new_smart_bin", "New Smart Bin", [], L, "File menu / bin list conte
 a("mediapool.select_in_timeline", "Select Clips in Timeline (media pool selection)", [], U, "media pool context menu; Kinoklip's wording")
 a("mediapool.remove_unused", "Remove Unused Clips", [], L, "media pool context menu, asks first, no default key")
 a("view.show_bin_list", "Show Bin List (media pool sidebar)", [], L, "media pool toolbar button, no default key")
+a("view.video_scopes", "Video Scopes (floating window: waveform, parade, vectorscope, histogram)", ["Ctrl+Shift+W"], L, "Workspace > Video Scopes in Resolve; Kinoklip's window shows two scopes of the program picture")
 a("timeline.find_in_media_pool", "Find in Media Pool (timeline clip)", ["Alt+F"], L, "timeline clip context menu")
 
 sec("Multicam and sync")
@@ -313,6 +314,22 @@ a("comp.view_right", "View Node in Right Viewer", ["2"], S, NE)
 a("comp.fit", "Fit Nodes to View", ["Ctrl+F"], U, NE + "; Resolve's default not confirmed")
 a("comp.snap_grid", "Snap Nodes to Grid", [], U, "node editor context menu option; no default key known")
 
+sec("Color page")
+# Color page keys act while the Color page is shown and has focus (ColorPage claims them through
+# QEvent::ShortcutOverride, scope "widget:color_page"), so Ctrl+D may repeat an Edit page key.
+CP = "acts on the Color page"
+a("color.add_serial", "Add Serial Node (after the current node)", ["Alt+S"], S, CP)
+a("color.add_parallel", "Add Parallel Node (with a Parallel mixer)", ["Alt+P"], S, CP)
+a("color.add_layer", "Add Layer Node (with a Layer mixer)", ["Alt+L"], S, CP)
+a("color.delete_node", "Delete Node (the current node)", [], U, "Delete in Resolve's node editor; no key until the node editor exists")
+a("color.bypass_node", "Enable / Disable Current Node", ["Ctrl+D"], S, CP)
+a("color.bypass_all", "Bypass All Grades (viewer only; the render keeps them)", ["Shift+D"], S, CP)
+a("color.reset_node", "Reset Node Grade (the current node's corrections)", [], U, "no default key known, none assigned")
+a("color.reset_grade", "Reset Clip Grade (remove every node)", [], U, "no default key known, none assigned")
+a("color.timeline_grade", "Grade the Timeline (edit the timeline grade instead of the clip's)", [], U, "Resolve switches between clip and timeline nodes in the node editor; no default key known")
+a("color.grab_still", "Grab Still (the current frame and grade into the gallery)", ["Ctrl+Alt+G"], S, CP)
+a("color.apply_still", "Apply Grade from Still (the selected gallery still to the clip)", [], U, "middle-click on a still in Resolve; no default key known")
+
 sec("Audio page")
 a("audio.add_bus", "Add Bus (stereo; mono from the bus strip's menu)", [], U, "Audio page mixer command; no default key known, none assigned")
 a("audio.reset_loudness", "Reset Loudness Meter (integrated loudness, true peak max)", [], U, "loudness meter reset button; no default key known, none assigned")
@@ -350,9 +367,7 @@ out = ["# Keymap: DaVinci Resolve (Windows)", "",
 "The built-in default keyboard profile (`resources/keymaps/resolve-windows.json`, profile id",
 "`resolve-windows`). It reproduces the default Windows shortcuts of DaVinci Resolve's Edit page and",
 "its global commands, written from general knowledge of how Resolve behaves (nothing copied from",
-"Resolve's documentation). Commands of subsystems Kinoklip does not have yet (the Color page) keep",
-"their Resolve key but are",
-"disabled.", "",
+"Resolve's documentation).", "",
 "**Confidence** says how sure we are that the key is Resolve's default:",
 "- **sure**: well-known default, used daily;",
 "- **likely**: believed correct, not verified against a running Resolve;",

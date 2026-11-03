@@ -159,7 +159,8 @@ std::future<RenderedFramePtr> Compositor::renderAsync(RenderRequest request)
     // the timeline. Only for the exact snapshot the view was made for (pointer identity), so
     // an edit (= new snapshot) can never show an outdated picture.
     if (const RenderCacheView* view = job.request.renderCache.get(); view && view->snapshot
-        && view->snapshot == job.request.timeline && !job.request.compositionNode) {
+        && view->snapshot == job.request.timeline && !job.request.compositionNode
+        && !job.request.bypassGrades) {
         if (const RenderCacheChunk* chunk = view->find(job.request.frame)) {
             job.request.timeline = chunk->timeline;
             job.request.media = chunk->media;
