@@ -29,6 +29,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `RetimeOps.h` | speed edits on a clip and its linked partners with ripple: speed points, segment speed, reverse / freeze segments, freeze frame, reset, retime / slide handles, ramps, Change Clip Speed (namespace `kk::retimeops`) |
 | `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive); the active mask and the viewer eyedropper's target (`ColorPickTarget`) |
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
+| `AudioTransitions.h` | audio transition ids (Effects library "Audio Transitions") and their pure gain curves `gainIn()` / `gainOut()` (0 dB linear, -3 dB, +3 dB equal power, exponential, logarithmic, S-curve); any other id is +3 dB |
 | `Generators.h` | ids and parameter keys of the built-in generators and the adjustment clip |
 | `Subtitles.h` | `SubtitleCue`, SRT / WebVTT parse and write, caption style keys + defaults (caption → track → default chain), cue ↔ caption conversion (lanes for overlapping cues) |
 | `ViewerGuides.h` | `ViewerGuide` (orientation + position in timeline frame px; `TimelineData::guides`), its JSON, guide presets (built-in, user file `<AppData>/guide-presets.json`, in fractions of the frame), safe area / aspect marker / grid geometry, `snapOffset()` and ruler steps (spec 41) |

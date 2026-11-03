@@ -104,6 +104,8 @@ QString EffectRegistry::categoryName(EffectCategory category)
         return QCoreApplication::translate("kk::EffectRegistry", "Clip Properties");
     case EffectCategory::Effects:
         return QCoreApplication::translate("kk::EffectRegistry", "Effects");
+    case EffectCategory::AudioTransition:
+        return QCoreApplication::translate("kk::EffectRegistry", "Audio Transitions");
     }
     return {};
 }

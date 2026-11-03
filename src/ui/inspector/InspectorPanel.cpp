@@ -2,6 +2,7 @@
 // InspectorPanel implementation: structure tracking, generic group building, edit protocol.
 #include "ui/inspector/InspectorPanel.h"
 
+#include "core/AudioTransitions.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -903,6 +904,12 @@ void InspectorPanel::removeEffect(quint64 effectId)
     });
 }
 
+TrackType InspectorPanel::trackTypeOfClip(quint64 clipId) const
+{
+    const auto loc = editops::findClip(m_ctx.project->timeline()->data(), clipId);
+    return loc ? loc->track.type : TrackType::Video;
+}
+
 void InspectorPanel::buildTransitionTab(const ClipData& c)
 {
     if (!c.transitionIn && !c.transitionOut) {
@@ -919,8 +926,8 @@ void InspectorPanel::buildTransitionTab(const ClipData& c)
     auto* bar = new QWidget;
     auto* layout = new QHBoxLayout(bar);
     layout->setContentsMargins(8, 6, 8, 6);
-    const QString defaultId = QStringLiteral("cross_dissolve");
     const quint64 clipId = m_clipId;
+    const QString defaultId = effectactions::defaultTransitionId(trackTypeOfClip(clipId));
     if (!c.transitionIn) {
         auto* addIn = new QPushButton(inspectorGlyph(InspectorGlyph::Add), tr("Transition In"));
         connect(addIn, &QPushButton::clicked, this, [this, clipId, defaultId] {
@@ -960,14 +967,46 @@ void InspectorPanel::addTransitionGroup(const ClipData& c, bool atHead)
     auto* type = new QComboBox;
     type->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     type->setMinimumContentsLength(6);
-    for (const EffectDescriptor* d : registry.byCategory(EffectCategory::Transition))
+    // The transitions of the clip's track kind: video transitions on video clips, audio
+    // transitions on audio clips. An audio clip still holding a video id (older projects)
+    // plays the +3 dB crossfade, so that entry is shown.
+    const TrackType trackType = trackTypeOfClip(clipId);
+    const EffectCategory category = trackType == TrackType::Audio ? EffectCategory::AudioTransition
+                                                                  : EffectCategory::Transition;
+    for (const EffectDescriptor* d : registry.byCategory(category))
         type->addItem(d->name, d->id);
-    type->setCurrentIndex(type->findData(t.type));
+    int current = type->findData(t.type);
+    if (current < 0 && category == EffectCategory::AudioTransition)
+        current = type->findData(audiotransitions::defaultId());
+    type->setCurrentIndex(current);
     connect(type, &QComboBox::activated, this, [this, type, clipId, atHead](int index) {
         effectactions::applyTransition(
             *m_ctx.project, clipId, type->itemData(index).toString(), atHead);
     });
     group->addWidgetRow(tr("Type"), type);
+
+    // Alignment on the cut: Centre / Start / End (only meaningful between two clips; a fade
+    // at a free end keeps its place).
+    auto* alignment = new QComboBox;
+    alignment->addItem(tr("Center on Edit"), int(TransitionAlignment::Centre));
+    alignment->addItem(tr("Start on Edit"), int(TransitionAlignment::StartOnCut));
+    alignment->addItem(tr("End on Edit"), int(TransitionAlignment::EndOnCut));
+    alignment->setCurrentIndex(alignment->findData(int(t.alignment)));
+    const int before = alignment->currentIndex();
+    connect(alignment, &QComboBox::activated, this,
+        [this, alignment, clipId, atHead, before](int index) {
+            const auto value = TransitionAlignment(alignment->itemData(index).toInt());
+            Project& project = *m_ctx.project;
+            project.beginEdit(tr("Transition Alignment"));
+            if (editops::setTransitionAlignment(
+                    project.timeline()->mutableData(), clipId, atHead, value))
+                project.endEdit();
+            else {
+                project.cancelEdit();
+                alignment->setCurrentIndex(before); // nothing changed (e.g. a fade at a free end)
+            }
+        });
+    group->addWidgetRow(tr("Alignment"), alignment);
 
     // Synthetic "Duration" parameter routed to TransitionData::duration.
     ParamDescriptor duration;
@@ -1124,7 +1163,8 @@ void InspectorPanel::dropEvent(QDropEvent* event)
         return;
     }
     bool done = false;
-    if (desc->category == EffectCategory::Transition) {
+    if (desc->category == EffectCategory::Transition
+        || desc->category == EffectCategory::AudioTransition) {
         const ClipData* c = clip(m_clipId);
         const int64_t playhead = m_ctx.project->timeline()->playhead();
         const bool atHead = !c || std::abs(playhead - c->start) <= std::abs(c->end() - playhead);

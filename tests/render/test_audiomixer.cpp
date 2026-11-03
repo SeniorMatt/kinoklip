@@ -7,6 +7,8 @@
 #include "render/AudioMixer.h"
 
 #include <QElapsedTimer>
+#include <QFile>
+#include <QTemporaryDir>
 
 #include <numbers>
 #include <vector>
@@ -26,6 +28,39 @@ double ramp(int64_t n)
 constexpr double kTolerance = 1.0 / 16384.0;
 
 const QString kRamp = QStringLiteral("ramp");
+
+/// Writes a 48 kHz mono 16-bit WAV of a sine at @p hz, amplitude @p amp, @p seconds long.
+bool writeTone(const QString& path, double hz, double amp, int seconds)
+{
+    const quint32 frames = quint32(48000 * seconds);
+    QByteArray bytes;
+    auto u32 = [&](quint32 v) {
+        for (int i = 0; i < 4; ++i)
+            bytes.append(char((v >> (8 * i)) & 0xff));
+    };
+    auto u16 = [&](quint16 v) {
+        bytes.append(char(v & 0xff));
+        bytes.append(char(v >> 8));
+    };
+    bytes.append("RIFF");
+    u32(36 + frames * 2);
+    bytes.append("WAVEfmt ");
+    u32(16);
+    u16(1); // PCM
+    u16(1); // mono
+    u32(48000);
+    u32(48000 * 2);
+    u16(2);
+    u16(16);
+    bytes.append("data");
+    u32(frames * 2);
+    for (quint32 n = 0; n < frames; ++n) {
+        const double v = amp * std::sin(2.0 * std::numbers::pi * hz * n / 48000.0);
+        u16(quint16(qint16(std::lround(v * 32767.0))));
+    }
+    QFile f(path);
+    return f.open(QIODevice::WriteOnly) && f.write(bytes) == bytes.size();
+}
 
 } // namespace
 
@@ -312,6 +347,69 @@ private slots:
         // At the cut both sides contribute equally (equal power: cos = sin = 0.707).
         mixer.mix(tl, cut, 1, out.data());
         QVERIFY(std::abs(out[0] - g * std::sqrt(0.5) * (ramp(cut) + ramp(96000))) < 0.003);
+    }
+
+    void spec13_13_crossfadeTypesBetweenTwoTones()
+    {
+        // A1: 440 Hz [0, 50) | 660 Hz [50, 100), a 50-frame (2 s) transition on the cut: window
+        // [48000, 144000) samples. Unrelated tones add in power, so at the cut the 0 dB
+        // (linear) crossfade sits 3 dB below the +3 dB (equal power) one, which keeps the
+        // level of either tone alone.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(writeTone(dir.filePath(QStringLiteral("a.wav")), 440.0, 0.5, 5));
+        QVERIFY(writeTone(dir.filePath(QStringLiteral("b.wav")), 660.0, 0.5, 5));
+        auto map = std::make_shared<MediaPathMap>();
+        map->insert(QStringLiteral("toneA"), dir.filePath(QStringLiteral("a.wav")));
+        map->insert(QStringLiteral("toneB"), dir.filePath(QStringLiteral("b.wav")));
+
+        // How the cut is made: the audio clip's own transition type, or (empty) none of its
+        // own but a linked video clip with a Cross Dissolve.
+        auto rmsAt = [&](const QString& audioType, int64_t centre) {
+            TimelineData tl = emptyTimeline();
+            ClipData aa = mediaClip(tl, QStringLiteral("toneA"), 0, 50, 0, 5'000'000);
+            ClipData ab = mediaClip(tl, QStringLiteral("toneB"), 50, 50, 2'000'000, 5'000'000);
+            if (audioType.isEmpty()) {
+                ClipData va = solidClip(tl, Qt::red, 0, 50);
+                ClipData vb = solidClip(tl, Qt::blue, 50, 50);
+                va.linkGroup = aa.linkGroup = 201;
+                vb.linkGroup = ab.linkGroup = 202;
+                vb.transitionIn = TransitionData {QStringLiteral("cross_dissolve"), 50, {}};
+                addClip(tl, TrackType::Video, 0, va);
+                addClip(tl, TrackType::Video, 0, vb);
+            } else {
+                ab.transitionIn = TransitionData {audioType, 50, {}};
+            }
+            addClip(tl, TrackType::Audio, 0, aa);
+            addClip(tl, TrackType::Audio, 0, ab);
+            AudioMixer mixer;
+            mixer.setMediaPaths(map);
+            constexpr int kWindow = 4800; // 0.1 s: the gains barely move inside it
+            std::vector<float> out(2 * kWindow);
+            mixer.mix(tl, centre - kWindow / 2, kWindow, out.data());
+            double sum = 0.0;
+            for (int i = 0; i < kWindow; ++i)
+                sum += double(out[size_t(2 * i)]) * out[size_t(2 * i)];
+            return std::sqrt(sum / kWindow);
+        };
+        auto db = [](double a, double b) { return 20.0 * std::log10(a / b); };
+        const int64_t cut = 96000;
+        const double steady = rmsAt(QStringLiteral("audio_crossfade_0db"), 24000); // A alone
+        QVERIFY(std::abs(steady - 0.5 / std::sqrt(2.0)) < 0.01);
+        const double linear = rmsAt(QStringLiteral("audio_crossfade_0db"), cut);
+        const double power = rmsAt(QStringLiteral("audio_crossfade_3db"), cut);
+        const double minus3 = rmsAt(QStringLiteral("audio_crossfade_minus3db"), cut);
+        const double linked = rmsAt(QString(), cut);
+        const double legacy = rmsAt(QStringLiteral("cross_dissolve"), cut);
+        qInfo("at the cut: 0 dB %.4f, -3 dB %.4f, +3 dB %.4f, steady %.4f", linear, minus3, power,
+            steady);
+        QVERIFY2(std::abs(db(power, linear) - 3.01) < 0.2,
+            qPrintable(QString::number(db(power, linear))));
+        QVERIFY(std::abs(db(power, steady)) < 0.2); // equal power: no dip
+        QVERIFY(minus3 > linear && minus3 < power);
+        // A linked video transition, or a video id on the audio clip: +3 dB.
+        QVERIFY(std::abs(db(linked, power)) < 0.05);
+        QVERIFY(std::abs(db(legacy, power)) < 0.05);
     }
 
     void fadeFromSilenceAtTrackStart()
