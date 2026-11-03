@@ -9,6 +9,8 @@ Owned by the panels agent.
 | `PreferencePages.cpp` | the standard pages + `applyStartupPreferences()` / `applyRuntimePreferences()` (see the table below) |
 | `KeyboardCustomizationDialog.h` | searchable command/shortcut table over `ActionRegistry`, `ShortcutRecorder`, conflict detection with reassign, reset one/all, import/export JSON, Cancel restores |
 | `DialogActions.h` | `connectDialogActions(ctx, window, onPreferencesChanged)` — the one call the main window makes |
+| `HistoryWindow.h` | Edit > History > Open History Window (spec 17.6): non-modal `QUndoView` over the project's undo stack, redo steps dimmed (`SchemeColors::textDisabled`), clicks ignored while an edit is open |
+| `NormalizeAudioDialog.h` | Clip > Normalize Audio Levels (spec 37.35): mode, target, relative / independent; measures on a worker thread (progress bar, Cancel), then sets the clip volumes in one undo step; `normalizeTargets()` |
 
 ## Wiring
 `MainWindow::connectAppActions()` calls `connectDialogActions()`, which connects

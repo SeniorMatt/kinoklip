@@ -108,7 +108,7 @@ bool TimelineController::editTimelineMarker(int64_t frame)
     Marker edited = *it;
     if (!m_markerEditor(edited, false))
         return false;
-    edited.frame = frame; // the editor changes name, colour and note only
+    edited.frame = frame; // the editor changes name, colour, duration and note only
     return runEdit(project(), tr("Modify Marker"), [&](TimelineData& data) {
         Marker* m = markerAt(data.markers, frame);
         if (!m || *m == edited)

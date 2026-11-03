@@ -198,6 +198,9 @@ protected:
     void dragLeaveEvent(QDragLeaveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     void changeEvent(QEvent* event) override;
+    /// Tool tips: a ruler marker or a clip marker under the pointer shows its name, timecode,
+    /// duration and notes (spec 18.15).
+    bool viewportEvent(QEvent* event) override;
 
 private:
     /// Applies the remembered zoom / scroll of timeline @p uid (fit when there is none).
@@ -221,7 +224,9 @@ private:
         Shuffle, ///< Ctrl+Shift drag: swap / shuffle insert within the track (21.6)
         Fade, ///< a fade handle at a clip's top corner (spec 31.4)
         LevelLine, ///< the audio level line: volume up / down (spec 31.1)
-        LevelKey ///< a volume key on the level line: time and value (spec 31.2)
+        LevelKey, ///< a volume key on the level line: time and value (spec 31.2)
+        MarkerDuration, ///< Alt+drag a ruler marker / drag a ranged marker's end (spec 18.11)
+        MarkerMove ///< drag a ruler marker's flag: moves the marker (spec 18.14)
     };
     /// An outer edge of a transition under the pointer.
     struct TransitionEdgeHit
@@ -269,6 +274,8 @@ private:
         double levelLastY = 0.0; ///< pointer y of the previous move
         QRectF levelArea; ///< LevelLine / LevelKey: the clip's waveform area at the press
         KeyframeRef levelKey; ///< LevelKey: the key at the press (origin)
+        int64_t markerFrame = -1; ///< MarkerDuration / MarkerMove: Marker::frame at the press
+        int64_t markerNow = -1; ///< MarkerMove: where the marker is now
         double levelKeyDb = 0.0; ///< LevelKey: its value at the press
     };
 
@@ -313,6 +320,27 @@ private:
     /// Ruler double-click: opens the marker editor for a marker near @p pos. Returns whether
     /// one was there.
     bool editMarkerNear(QPointF pos);
+    /// Timeline marker whose flag is within grab distance of @p pos in the ruler (its frame),
+    /// or -1.
+    [[nodiscard]] int64_t markerFlagNear(QPointF pos) const;
+    /// Ranged timeline marker whose end is within grab distance of @p pos in the ruler's
+    /// marker band (its frame), or -1.
+    [[nodiscard]] int64_t markerEndNear(QPointF pos) const;
+    /// Ruler press on a marker: Alt on its flag or a press on a ranged marker's end starts a
+    /// MarkerDuration drag (spec 18.11); a plain press on a flag waits to move the marker
+    /// (MarkerMove, spec 18.14; a click without moving jumps to it). Returns true if the
+    /// press was taken.
+    bool pressRulerMarker(QPointF pos, Qt::KeyboardModifiers modifiers);
+    /// The clip marker whose diamond is under @p pos (in the clip's name band): its clip and
+    /// clip-local frame.
+    [[nodiscard]] std::optional<std::pair<quint64, int64_t>> clipMarkerNear(QPointF pos) const;
+    /// Tool tip text of @p marker (name, timecode, duration of a ranged one, notes).
+    [[nodiscard]] QString markerToolTip(const Marker& marker, int64_t timelineFrame) const;
+    /// MarkerMove drag: the marker follows the pointer by whole frames (snapping); it never
+    /// lands on another marker's frame.
+    void updateMarkerMove(QPointF pos);
+    /// MarkerDuration drag: the marker's end follows the pointer (snapping), at least 1 frame.
+    void updateMarkerDuration(QPointF pos);
     /// Double-click on a compound clip / nested timeline body: opens its timeline in a tab
     /// with the playhead at the frame under @p pos. Returns whether it did (spec 26.14).
     bool openNestedAt(QPointF pos);

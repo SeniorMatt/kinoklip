@@ -14,7 +14,7 @@ for thumbnails and waveforms).
 | `TimelineCommands.cpp` | controller part 2: delete / ripple delete / ripple cut of clips, gaps and in-out ranges, clipboard, select forward / nearest edit / nearest clip, join, swap, match frame, track targeting by number, clip duration / speed |
 | `TimelineTransitions.cpp` | controller part 3: Ctrl+T with the insufficient-handles question, transition alignment and length |
 | `TimelineMarkers.cpp` | controller part 4: timeline / clip markers and the marker editor hook, paste attributes, dynamic trim |
-| `TimelineGestures.cpp` | widget gestures: transition edge drag, Ctrl+Shift shuffle drag, ruler marker double-click |
+| `TimelineGestures.cpp` | widget gestures: transition edge drag, Ctrl+Shift shuffle drag, ruler marker double-click; markers: move by dragging the flag (18.14), Alt+drag / end drag for ranged markers (18.11), clip marker hit test, marker tool tips (18.15) |
 | `TimelineDragInfo.cpp` / `DragInfo.h` | widget part: the offset label next to the pointer while moving / trimming (spec 21.9) and the `TrimPreview` for the two-up view (`trimPreviewChanged()`, spec 8.15) |
 | `TimelineEntryEdits.cpp` | controller part: typed timecodes (`enterTimecode()`, spec 2.10) and the viewer edit overlay's edits (`editSources()`, spec 4.14) |
 | `TimelineTrackCommands.cpp` | controller part: Alt+Up / Down clip moves (spec 21.10), Delete Empty Tracks (12.8), Move Track Up / Down (`moveTrack()`, 12.9), track height presets (`setTrackHeightPreset()`, 12.10) |

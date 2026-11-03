@@ -28,8 +28,10 @@ namespace kk::timelinedialogs {
 /// / Cancel. @p missingFrames is shown in the message.
 [[nodiscard]] HandleChoice askHandles(QWidget* parent, int64_t missingFrames, bool canShorten);
 
-/// Marker editor: name, colour and note of @p marker. Returns true on OK (marker updated).
-bool editMarker(QWidget* parent, Marker& marker, bool clipMarker);
+/// Marker editor: name, colour, duration (a timecode in @p fps; spec 18.11) and note of
+/// @p marker. Returns true on OK (marker updated; an invalid or zero duration keeps the old
+/// one).
+bool editMarker(QWidget* parent, Marker& marker, bool clipMarker, Rational fps);
 
 /// Paste attributes: check boxes per attribute group. std::nullopt when cancelled.
 [[nodiscard]] std::optional<PasteAttributeSet> askPasteAttributes(QWidget* parent);

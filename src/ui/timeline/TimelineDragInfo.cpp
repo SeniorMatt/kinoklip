@@ -145,6 +145,19 @@ void TimelineWidget::refreshDragInfo()
         preview.right = sideOf(neighbour(data, now->id, true), now->end(), fps);
         break;
     }
+    case DragMode::MarkerMove:
+        label.lines << draginfo::formatOffset(m_drag.markerNow - m_drag.markerFrame, fps)
+                    << tr("Marker %1").arg(timecode::format(m_drag.markerNow, fps));
+        break;
+    case DragMode::MarkerDuration:
+        for (const Marker& m : data.markers) {
+            if (m.frame == m_drag.markerFrame) {
+                label.lines << tr("Duration %1").arg(timecode::format(m.duration, fps))
+                            << tr("End %1").arg(timecode::format(m.end(), fps));
+                break;
+            }
+        }
+        break;
     default:
         break;
     }

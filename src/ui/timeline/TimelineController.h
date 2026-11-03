@@ -483,6 +483,9 @@ public slots:
     /// Opens the editor for the timeline marker at @p frame (double-click in the ruler).
     /// Returns whether a marker was changed.
     bool editTimelineMarker(int64_t frame);
+    /// Opens the editor for the marker at clip-local @p localFrame of @p clipId (M on it, a
+    /// double-click on its diamond; spec 18.15). One undo step "Modify Marker".
+    bool editClipMarker(quint64 clipId, int64_t localFrame);
     /// Alt+V: asks for the attribute groups, then pastes them (pasteAttributes()).
     void pasteAttributesInteractive();
     /// Copies the chosen attributes of the first clipboard clip onto the selected clips (with
@@ -550,8 +553,6 @@ private:
     /// M / Ctrl+M: a clip marker on the selected clip under the playhead, else a timeline
     /// marker; opens the editor on an existing marker or with @p forceEdit.
     void placeMarker(bool forceEdit);
-    /// Opens the editor for the marker at clip-local @p localFrame of @p clipId.
-    bool editClipMarker(quint64 clipId, int64_t localFrame);
     void onClipSelectionChanged();
     /// Dynamic trim: the playhead moved to @p frame.
     void onPlayheadMoved(int64_t frame);

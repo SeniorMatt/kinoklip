@@ -44,6 +44,11 @@ const ActionSpec kActions[] = {
     {"file", "file.import_subtitle",  QT_TRANSLATE_NOOP("kk::StandardActions", "Import S&ubtitle…")},
     // The media pool's proxy / optimized media commands also live here (act on the media
     // pool selection); Resolve offers them in the media pool context menu.
+    // File > Export: the timeline as an edit decision list, its markers as EDL / CSV.
+    {"file", ">file.export",          QT_TRANSLATE_NOOP("kk::StandardActions", "E&xport")},
+    {"file.export", "file.export_edl", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline as &EDL…")},
+    {"file.export", "file.export_markers_edl", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline &Markers to EDL…")},
+    {"file.export", "file.export_markers_csv", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline Markers to &CSV…")},
     {"file", ">mediapool",            QT_TRANSLATE_NOOP("kk::StandardActions", "Pro&xy and Optimized Media")},
     // Media pool organisation commands acting on the visible media pool (bins branch).
     {"file", ">mediapool.organize",   QT_TRANSLATE_NOOP("kk::StandardActions", "Media &Pool")},
@@ -55,6 +60,8 @@ const ActionSpec kActions[] = {
     // ---- Edit ----
     {"edit", "edit.undo",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Undo")},
     {"edit", "edit.redo",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Redo")},
+    {"edit", ">edit.history",         QT_TRANSLATE_NOOP("kk::StandardActions", "&History")},
+    {"edit.history", "edit.history_window", QT_TRANSLATE_NOOP("kk::StandardActions", "Open History &Window…")},
     {"edit", "-"},
     {"edit", "edit.cut",              QT_TRANSLATE_NOOP("kk::StandardActions", "Cu&t")},
     {"edit", "edit.copy",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Copy")},
@@ -159,6 +166,7 @@ const ActionSpec kActions[] = {
     {"clip", "clip.open_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Open in Timeline")},
     {"clip", "clip.decompose",        QT_TRANSLATE_NOOP("kk::StandardActions", "Decompose in &Place")},
     {"clip", "clip.attributes",       QT_TRANSLATE_NOOP("kk::StandardActions", "Clip &Attributes…")},
+    {"clip", "clip.normalize_audio",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Normalize Audio Levels…")},
     {"clip", "clip.render_cache_output", QT_TRANSLATE_NOOP("kk::StandardActions", "Render Cache Clip O&utput"), "", true},
     {"clip", "-"},
     // Multicam clips (media pool commands in src/ui/mediapool/MediaPoolMulticam.cpp, angle

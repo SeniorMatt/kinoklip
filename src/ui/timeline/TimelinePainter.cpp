@@ -209,7 +209,8 @@ const QString& TimelinePainter::sourceTimecodeText(
         || entry.tc.isEmpty()) {
         entry.tcSourceUs = clip.sourceInUs;
         entry.tcStartUs = base.startUs;
-        entry.tc = timecode::format(usToFrames(base.startUs + clip.sourceInUs, base.rate), base.rate);
+        entry.tc
+            = timecode::format(usToFrames(base.startUs + clip.sourceInUs, base.rate), base.rate);
     }
     return entry.tc;
 }
@@ -506,6 +507,19 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
             if (m.frame < 0 || m.frame >= clip.duration)
                 continue;
             const double x = L.frameToX(double(clip.start + m.frame)) + animDx;
+            if (m.duration > 1) {
+                // Ranged clip marker: a bar along the bottom of the name band to its end (cut
+                // at the clip's end), under the name instead of over it.
+                const int64_t endLocal = std::min(m.end(), clip.duration);
+                const double x1 = L.frameToX(double(clip.start + endLocal)) + animDx;
+                const double left = std::max(x, visLeft);
+                const double right = std::min(x1, visRight);
+                if (right > left) {
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(withAlpha(m.color, 120)); // user data: the marker's colour
+                    p.drawRoundedRect(QRectF(left, r.top() + bandH - 4, right - left, 3), 1.5, 1.5);
+                }
+            }
             if (x < visLeft - 4 || x > visRight + 4)
                 continue;
             const QPointF pts[4] = {{x, cy - 4}, {x + 4, cy}, {x, cy + 4}, {x - 4, cy}};
@@ -1359,10 +1373,19 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
         }
     }
 
-    // Markers: small coloured flags on the ruler bottom.
+    // Markers: small coloured flags on the ruler bottom. A ranged marker (spec 18.11) also
+    // gets a band in its colour across its range, at the height of the flag.
     p.setRenderHint(QPainter::Antialiasing, true);
     for (const Marker& m : d.markers) {
         const double x = L.frameToX(double(m.frame));
+        if (m.duration > 1) {
+            const double x1 = L.frameToX(double(m.end()));
+            if (x1 >= kHeaderWidth && x <= width) {
+                const QRectF band(x, kRulerHeight - 14.0, std::max(1.0, x1 - x), 8.0);
+                p.fillRect(band, withAlpha(m.color, 110)); // user data: the marker's colour
+                p.fillRect(QRectF(band.left(), band.bottom() - 2, band.width(), 2), m.color);
+            }
+        }
         if (x < kHeaderWidth - 8 || x > width + 8)
             continue;
         const QPointF pts[5] = {{x - 5, kRulerHeight - 14.0}, {x + 5, kRulerHeight - 14.0},

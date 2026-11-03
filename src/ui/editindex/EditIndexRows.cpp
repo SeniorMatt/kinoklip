@@ -6,9 +6,11 @@
 #include "core/EffectRegistry.h"
 #include "core/MediaPool.h"
 #include "ui/common/SourceTimecode.h"
+#include "ui/common/TimecodeFormat.h"
 
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QHash>
 #include <QStringList>
 
 #include <algorithm>
@@ -50,16 +52,25 @@ QString transitionName(const TransitionData& t)
     return d ? d->name : t.type;
 }
 
-QString notesOf(const ClipData& clip, const MediaPool* pool)
+/// What the rows of every clip of one media item share (looked up once per item: a long
+/// timeline has many clips of few files).
+struct MediaFacts
 {
+    QString reel;
+    SourceTimecodeBase base;
+    bool offline = false;
+};
+
+QString notesOf(const ClipData& clip, const MediaFacts* media)
+{
+    if (clip.enabled && !(media && media->offline) && !clip.transitionIn && !clip.transitionOut
+        && !clip.retime.isAnimated() && std::abs(clip.speed - 1.0) <= 1e-9)
+        return {}; // the common case: nothing to say, no string building
     QStringList notes;
     if (!clip.enabled)
         notes << tr("Disabled");
-    if (clip.kind == ClipKind::Media && pool) {
-        const MediaItem* item = pool->item(clip.mediaId);
-        if (!item || pool->isOffline(clip.mediaId))
-            notes << tr("Offline");
-    }
+    if (media && media->offline)
+        notes << tr("Offline");
     if (clip.transitionIn)
         notes << tr("In: %1 (%2 fr)")
                      .arg(transitionName(*clip.transitionIn))
@@ -80,27 +91,52 @@ QString notesOf(const ClipData& clip, const MediaPool* pool)
 std::vector<EventRow> events(const TimelineData& data, const MediaPool* pool)
 {
     std::vector<EventRow> rows;
+    size_t total = 0;
+    for (TrackType type : {TrackType::Video, TrackType::Audio, TrackType::Subtitle}) {
+        for (const TrackData& track : data.tracks(type))
+            total += track.clips.size();
+    }
+    rows.reserve(total);
+    QHash<QString, MediaFacts> media; // by MediaItem::id
     for (TrackType type : {TrackType::Video, TrackType::Audio, TrackType::Subtitle}) {
         const auto& tracks = data.tracks(type);
         for (int t = 0; t < int(tracks.size()); ++t) {
+            const QString trackName = trackDisplayName(tracks[size_t(t)], t);
             for (const ClipData& clip : tracks[size_t(t)].clips) {
                 EventRow row;
                 row.clipId = clip.id;
                 row.track = {type, t};
-                row.trackName = trackDisplayName(tracks[size_t(t)], t);
+                row.trackName = trackName;
                 row.name = clip.name;
-                const MediaItem* item
-                    = (pool && clip.kind == ClipKind::Media) ? pool->item(clip.mediaId) : nullptr;
-                row.reel = item ? QFileInfo(item->path).completeBaseName() : kindName(clip.kind);
-                if (row.reel.isEmpty() && item)
-                    row.reel = item->name;
+                const MediaFacts* facts = nullptr;
+                if (pool && clip.kind == ClipKind::Media) {
+                    auto it = media.find(clip.mediaId);
+                    if (it == media.end()) {
+                        MediaFacts f;
+                        const MediaItem* item = pool->item(clip.mediaId);
+                        if (item) {
+                            f.reel = QFileInfo(item->path).completeBaseName();
+                            if (f.reel.isEmpty())
+                                f.reel = item->name;
+                        }
+                        f.base = sourceTimecodeBase(clip, pool, data.fps);
+                        f.offline = !item || pool->isOffline(clip.mediaId);
+                        it = media.insert(clip.mediaId, f);
+                    }
+                    facts = &it.value();
+                }
+                const SourceTimecodeBase base
+                    = facts ? facts->base : sourceTimecodeBase(clip, pool, data.fps);
+                row.reel = facts ? facts->reel : kindName(clip.kind);
                 row.recordIn = clip.start;
                 row.recordOut = clip.end();
-                row.sourceIn = sourceTimecode(
-                    clip, clip.sourceTimeUsAt(clip.start, data.fps), pool, data.fps);
-                row.sourceOut = sourceTimecode(
-                    clip, clip.sourceTimeUsAt(clip.end(), data.fps), pool, data.fps);
-                row.notes = notesOf(clip, pool);
+                auto sourceTc = [&](int64_t frame) {
+                    const int64_t us = base.startUs + clip.sourceTimeUsAt(frame, data.fps);
+                    return timecode::format(usToFrames(us, base.rate), base.rate);
+                };
+                row.sourceIn = sourceTc(clip.start);
+                row.sourceOut = sourceTc(clip.end());
+                row.notes = notesOf(clip, facts);
                 row.enabled = clip.enabled;
                 rows.push_back(std::move(row));
             }
@@ -118,7 +154,8 @@ std::vector<MarkerRow> markers(const TimelineData& data)
 {
     std::vector<MarkerRow> rows;
     for (const Marker& m : data.markers) {
-        rows.push_back({0, 0, m.frame, m.frame, m.name, m.color, m.note, tr("Timeline"), false});
+        rows.push_back(
+            {0, 0, m.frame, m.frame, m.name, m.color, m.note, tr("Timeline"), false, m.duration});
     }
     for (TrackType type : {TrackType::Video, TrackType::Audio, TrackType::Subtitle}) {
         for (const TrackData& track : data.tracks(type)) {
@@ -128,7 +165,7 @@ std::vector<MarkerRow> markers(const TimelineData& data)
                     if (m.frame < 0 || m.frame >= clip.duration)
                         continue;
                     rows.push_back({0, clip.id, clip.start + m.frame, m.frame, m.name, m.color,
-                        m.note, clip.name, track.locked});
+                        m.note, clip.name, track.locked, m.duration});
                 }
             }
         }

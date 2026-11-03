@@ -7,6 +7,7 @@
 #include "app/InterfaceBar.h"
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
+#include "app/TimelineExport.h"
 #include "app/pages/AudioPage.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
@@ -143,6 +144,7 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     setCentralWidget(central);
 
     m_projectController = new ProjectController(ctx, this);
+    connectTimelineExportActions(ctx, this); // File > Export (EDL, marker lists)
     m_pageActions = new QActionGroup(this);
     m_pageActions->setExclusive(true);
 

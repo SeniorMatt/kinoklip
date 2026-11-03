@@ -6,6 +6,7 @@
 #include "ui/editindex/EditIndexModel.h"
 
 class QComboBox;
+class QMenu;
 class QLineEdit;
 class QTableView;
 class QTimer;
@@ -47,6 +48,12 @@ public:
     [[nodiscard]] QComboBox* colorFilter() const { return m_colorFilter; }
     /// Re-reads the timeline now (normally coalesced; tests call it to skip the wait).
     void rebuildNow();
+    /// Column chooser (spec 18.10): the header's context menu, one checkable entry per column
+    /// of the current mode (the "#" column always stays). Built fresh for each use.
+    [[nodiscard]] QMenu* createColumnMenu(QWidget* parent);
+    /// Shows or hides @p column of the current mode and stores the choice
+    /// (prefs::kEditIndexHiddenColumns). Column 0 ("#") cannot be hidden.
+    void setColumnVisible(int column, bool visible);
 
 protected:
     void showEvent(QShowEvent* event) override;
@@ -60,6 +67,8 @@ private:
     void activateRow(int row);
     /// Makes the row of the timeline's current clip (Edits) the table's current row.
     void syncFromSelection();
+    /// Hides the columns of the current mode stored in the settings.
+    void applyHiddenColumns();
     /// Selects the proxy row whose key matches (clip id, stored marker frame); false if none.
     bool selectKey(quint64 clipId, qint64 storedFrame);
 

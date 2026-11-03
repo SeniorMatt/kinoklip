@@ -16,20 +16,41 @@ int framesPerSecond(Rational fps)
 
 QString format(int64_t frames, Rational fps)
 {
+    // Hot path (Edit Index rows, ruler labels, drag info): written digit by digit into a
+    // stack buffer, about ten times cheaper than four QString::arg() calls.
     const int64_t fpsInt = framesPerSecond(fps);
     const bool negative = frames < 0;
-    const int64_t f = std::llabs(frames);
-    const int64_t ff = f % fpsInt;
-    const int64_t totalSeconds = f / fpsInt;
-    const int64_t ss = totalSeconds % 60;
-    const int64_t mm = (totalSeconds / 60) % 60;
-    const int64_t hh = totalSeconds / 3600;
-    const QString text = QStringLiteral("%1:%2:%3:%4")
-                             .arg(hh, 2, 10, QLatin1Char('0'))
-                             .arg(mm, 2, 10, QLatin1Char('0'))
-                             .arg(ss, 2, 10, QLatin1Char('0'))
-                             .arg(ff, 2, 10, QLatin1Char('0'));
-    return negative ? QLatin1Char('-') + text : text;
+    const uint64_t f = negative ? uint64_t(0) - uint64_t(frames) : uint64_t(frames);
+    const uint64_t ff = f % uint64_t(fpsInt);
+    const uint64_t totalSeconds = f / uint64_t(fpsInt);
+    const uint64_t ss = totalSeconds % 60;
+    const uint64_t mm = (totalSeconds / 60) % 60;
+    const uint64_t hh = totalSeconds / 3600;
+
+    // Fields from the right, each at least two digits (like arg(value, 2, 10, '0')).
+    constexpr int kMaxChars = 96; // sign + four fields of up to 20 digits + separators
+    char16_t buffer[kMaxChars];
+    int at = kMaxChars;
+    auto field = [&](uint64_t value) {
+        int digits = 0;
+        do {
+            buffer[--at] = char16_t(u'0' + value % 10);
+            value /= 10;
+            ++digits;
+        } while (value > 0);
+        if (digits < 2)
+            buffer[--at] = u'0';
+    };
+    field(ff);
+    buffer[--at] = u':';
+    field(ss);
+    buffer[--at] = u':';
+    field(mm);
+    buffer[--at] = u':';
+    field(hh);
+    if (negative)
+        buffer[--at] = u'-';
+    return QString(reinterpret_cast<const QChar*>(buffer + at), kMaxChars - at);
 }
 
 std::optional<int64_t> parse(QStringView text, Rational fps)
