@@ -227,6 +227,21 @@ private slots:
         QCOMPARE(f.project.undoStack()->count(), steps + 1);
     }
 
+    // Spec 16.7: a timeline clip's context menu offers Paste Attributes (Alt+V) next to Paste.
+    void spec16_7_clipMenuOffersPasteAttributes()
+    {
+        Fixture f;
+        const QVector<quint64> ids = f.window->editPage()->timeline()->controller()->insertSource(
+            f.ids[0], 0, 4 * kSecondUs, SourceEditMode::Overwrite);
+        QVERIFY(!ids.isEmpty());
+        QCoreApplication::processEvents();
+        TimelineWidget* w = f.timeline();
+        const QStringList texts = menuTexts(w, clipCentre(w, f.project.timeline()->data(), ids[0]));
+        QVERIFY2(texts.contains(QStringLiteral("Paste Attributes…")), qPrintable(texts.join('|')));
+        QCOMPARE(texts.indexOf(QStringLiteral("Paste Attributes…")),
+            texts.indexOf(QStringLiteral("Paste")) + 1);
+    }
+
     // Spec 24.17: double-clicking a media clip on the Edit page timeline opens its source in
     // the source viewer (as Match Frame at the clicked frame).
     void spec24_17_doubleClickOpensTheSource()

@@ -852,6 +852,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         addAction("edit.cut");
         addAction("edit.copy");
         addAction("edit.paste");
+        addAction("edit.paste_attributes"); // Resolve's clip menu offers it (spec 16.7)
         menu.addSeparator();
         addAction("edit.split");
         addAction("clip.toggle_enabled");
