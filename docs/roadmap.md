@@ -1,7 +1,7 @@
 # Kinoklip roadmap
 
 Owner's long-term plan (recorded 2026-11-02). v1 is done (0.1.0-alpha.1 - alpha.4); v2 is done
-(0.2.0-alpha.1) except mask tracking; v2.5 has started (Cut page, see below); later versions are **planned, not started**. Code written today must keep these doors open (see plan.md 5.9 / 5.9b /
+(0.2.0-alpha.1) except mask tracking; v2.5 and v3 are done (0.3.x); v4 is next; later versions are **planned, not started**. Code written today must keep these doors open (see plan.md 5.9 / 5.9b /
 5.10 for the profile-ready and command-based rules).
 
 Naming rule for all versions: pages and features get our own names. Generic words (Cut, Edit,
@@ -14,7 +14,7 @@ Color, Deliver, Media) are fine; Blackmagic product names (e.g. "Fusion", "Fairl
   still landing and things break, `0.x.y-beta.N` once a version's features are complete and the
   focus is stability. Current: **0.2.0-alpha.1**.
 - **1.0.0 is released only when the owner decides.** Until then no build is called "1.0".
-- The "v1 / v2 / v2.5 / v3 / v4" names below are feature milestones, not version numbers.
+- The "v1 / v2 / v2.5 / v3 / v4 / v5" names below are feature milestones, not version numbers.
 
 ## v1 - the basics (done)
 Media / Edit / Deliver pages with the Resolve-like layout and behaviour: import (all common formats),
@@ -63,15 +63,29 @@ export, real Breeze look, single-file Linux x86_64 binary. Color page visible bu
   true peak; project format 12); recording / ADR, plugins, surround formats, sound library,
   dialogue leveler, elastic wave, console mapping, VCAs and further effects deferred
   (docs/behavior-spec.md section 37).
-- The Color and Compositing pages moved to v4.
+- The Color and Compositing pages moved to v4, then to v5.
 
-## v3 - polish basic video editing (current focus)
+## v3 - polish basic video editing (done in rounds 1-4; leftovers in plan-v4.md)
 Make everyday editing on the Edit and Cut pages feel finished before adding more pages: the
 remaining Edit page behaviours and quirks of Resolve, the deferred spec items (shuttle audio,
 viewer edit overlay, two-up trim view, ...), smoothness and responsiveness, small animations
 (v2.2), and fixes from owner testing. Driven by `docs/behavior-spec.md` and the parity tests.
 
-## v4 - the other pages, and switching from Resolve
+## v4 - projects and effects (owner decision 2026-11-03, current focus after v3)
+Detailed plan: [plan-v4.md](plan-v4.md). Three parts, each released on its own:
+1. **Project Manager** (0.4.0): a start window and a manager like the one a Resolve user expects:
+   every project as a thumbnail card or list row, folders, new / open / rename / duplicate /
+   delete, search and sort, import and export of project files.
+2. **Single-file projects** (0.4.x): a project can be one self-contained file holding the
+   timelines and every video, image and sound it uses, to move or copy anywhere like any other
+   file; plus "pack" (copy all media into the file) and "compact" (drop unused media and old
+   data) commands.
+3. **Effects on the Edit page** (0.4.x): as many effects as we can do well, starting with keying
+   (green / blue screen with spill removal, luma and HSL keys), then colour, blur, light, stylize,
+   distort, transform and time effects, all keyframable, previewed live on the GPU and identical
+   in the render.
+
+## v5 - the other pages, and switching from Resolve (moved from v4 on 2026-11-03)
 - **Color page** (colour grading): primaries wheels, curves, HSL qualifier, windows, nodes, LUTs,
   scopes, gallery stills. A started branch `colorpage` exists (paused 2026-11-03).
 - **Compositing page** (own name, node-based compositing: merge, transform, masks, text, keyers,
