@@ -3,6 +3,7 @@
 #include "ui/editindex/EditIndexPanel.h"
 
 #include "core/MediaPool.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -16,8 +17,10 @@
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QMenu>
 #include <QPainter>
 #include <QPixmap>
+#include <QSettings>
 #include <QTableView>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -28,6 +31,14 @@ namespace {
 
 /// Side of the colour swatches in the colour filter menu (px).
 constexpr int kSwatchSize = 12;
+
+/// Settings key of the hidden columns of @p mode (prefs::kEditIndexHiddenColumns).
+QString hiddenColumnsKey(EditIndexModel::Mode mode)
+{
+    return QLatin1String(prefs::kEditIndexHiddenColumns)
+        + (mode == EditIndexModel::Mode::Edits ? QLatin1String("/edits")
+                                               : QLatin1String("/markers"));
+}
 
 QIcon swatch(const QColor& color)
 {
@@ -89,6 +100,14 @@ EditIndexPanel::EditIndexPanel(AppContext& ctx, QWidget* parent)
         m_table->fontMetrics().height() + 2 * metrics::kSpaceS);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setHighlightSections(false);
+    // Right-click on the header: the column chooser (Resolve's Edit Index column options).
+    m_table->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_table->horizontalHeader(), &QWidget::customContextMenuRequested, this,
+        [this](const QPoint& pos) {
+            QMenu* menu = createColumnMenu(this);
+            menu->setAttribute(Qt::WA_DeleteOnClose);
+            menu->popup(m_table->horizontalHeader()->mapToGlobal(pos));
+        });
     m_table->installEventFilter(this);
     layout->addWidget(m_table, 1);
     setContentWidget(body);
@@ -122,6 +141,44 @@ EditIndexPanel::EditIndexPanel(AppContext& ctx, QWidget* parent)
         connect(ctx.selection, &SelectionModel::changed, this, &EditIndexPanel::syncFromSelection);
     m_colorFilter->setVisible(false);
     rebuildNow();
+    applyHiddenColumns();
+}
+
+QMenu* EditIndexPanel::createColumnMenu(QWidget* parent)
+{
+    auto* menu = new QMenu(parent);
+    menu->setObjectName(QStringLiteral("EditIndexColumnMenu"));
+    const QHeaderView* header = m_table->horizontalHeader();
+    for (int column = 1; column < m_model->columnCount(); ++column) {
+        QAction* a = menu->addAction(
+            m_model->headerData(column, Qt::Horizontal, Qt::DisplayRole).toString());
+        a->setCheckable(true);
+        a->setChecked(!header->isSectionHidden(column));
+        a->setData(column);
+        connect(
+            a, &QAction::toggled, this, [this, column](bool on) { setColumnVisible(column, on); });
+    }
+    return menu;
+}
+
+void EditIndexPanel::setColumnVisible(int column, bool visible)
+{
+    if (column <= 0 || column >= m_model->columnCount())
+        return; // "#" always stays: rows must keep a handle
+    m_table->setColumnHidden(column, !visible);
+    QStringList hidden;
+    for (int c = 1; c < m_model->columnCount(); ++c) {
+        if (m_table->isColumnHidden(c))
+            hidden << EditIndexModel::columnKey(mode(), c);
+    }
+    QSettings().setValue(hiddenColumnsKey(mode()), hidden);
+}
+
+void EditIndexPanel::applyHiddenColumns()
+{
+    const QStringList hidden = QSettings().value(hiddenColumnsKey(mode())).toStringList();
+    for (int c = 0; c < m_model->columnCount(); ++c)
+        m_table->setColumnHidden(c, c > 0 && hidden.contains(EditIndexModel::columnKey(mode(), c)));
 }
 
 bool EditIndexPanel::eventFilter(QObject* watched, QEvent* event)
@@ -155,6 +212,7 @@ void EditIndexPanel::setMode(EditIndexModel::Mode mode)
     m_model->setMode(mode);
     m_syncing = false;
     m_colorFilter->setVisible(mode == EditIndexModel::Mode::Markers);
+    applyHiddenColumns(); // the other mode has its own columns and choice
     m_table->resizeColumnsToContents();
     syncFromSelection();
 }

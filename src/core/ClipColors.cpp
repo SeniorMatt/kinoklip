@@ -5,6 +5,7 @@
 #include <QCoreApplication>
 
 #include <bit>
+#include <climits>
 
 namespace kk {
 
@@ -62,6 +63,52 @@ static_assert(std::size(kFlags) <= 32, "flags are bits of a quint32");
 std::span<const PaletteColor> clipColorPalette()
 {
     return kClipColors;
+}
+
+/// Marker colours (timeline and clip markers; spec 18.5). Fixed on purpose: marker colours
+/// are user data stored in the project, not scheme chrome.
+const PaletteColor kMarkerColors[] = {
+    {"blue", QT_TRANSLATE_NOOP("kk::ClipColors", "Blue"), qRgb(0x4c, 0x9b, 0xe8)},
+    {"cyan", QT_TRANSLATE_NOOP("kk::ClipColors", "Cyan"), qRgb(0x3f, 0xc8, 0xd8)},
+    {"green", QT_TRANSLATE_NOOP("kk::ClipColors", "Green"), qRgb(0x4c, 0xb8, 0x4c)},
+    {"yellow", QT_TRANSLATE_NOOP("kk::ClipColors", "Yellow"), qRgb(0xe8, 0xc8, 0x3c)},
+    {"red", QT_TRANSLATE_NOOP("kk::ClipColors", "Red"), qRgb(0xe0, 0x4a, 0x4a)},
+    {"pink", QT_TRANSLATE_NOOP("kk::ClipColors", "Pink"), qRgb(0xe8, 0x7a, 0xb4)},
+    {"purple", QT_TRANSLATE_NOOP("kk::ClipColors", "Purple"), qRgb(0x9a, 0x6a, 0xd8)},
+    {"fuchsia", QT_TRANSLATE_NOOP("kk::ClipColors", "Fuchsia"), qRgb(0xc8, 0x44, 0xb4)},
+    {"rose", QT_TRANSLATE_NOOP("kk::ClipColors", "Rose"), qRgb(0xe8, 0x9a, 0x9a)},
+    {"lavender", QT_TRANSLATE_NOOP("kk::ClipColors", "Lavender"), qRgb(0xb4, 0xa4, 0xe8)},
+    {"sky", QT_TRANSLATE_NOOP("kk::ClipColors", "Sky"), qRgb(0x9a, 0xd0, 0xf0)},
+    {"mint", QT_TRANSLATE_NOOP("kk::ClipColors", "Mint"), qRgb(0x8c, 0xe0, 0xb4)},
+    {"lemon", QT_TRANSLATE_NOOP("kk::ClipColors", "Lemon"), qRgb(0xf0, 0xe8, 0x8c)},
+    {"sand", QT_TRANSLATE_NOOP("kk::ClipColors", "Sand"), qRgb(0xc8, 0xb0, 0x84)},
+    {"cocoa", QT_TRANSLATE_NOOP("kk::ClipColors", "Cocoa"), qRgb(0x8c, 0x6a, 0x4c)},
+    {"cream", QT_TRANSLATE_NOOP("kk::ClipColors", "Cream"), qRgb(0xf0, 0xe4, 0xc8)},
+};
+
+std::span<const PaletteColor> markerColorPalette()
+{
+    return kMarkerColors;
+}
+
+const PaletteColor& nearestMarkerColor(const QColor& color)
+{
+    // Squared RGB distance: markers keep the palette's exact values, so this is an exact
+    // match for every marker made in the editor; other colours (hand-edited files) get the
+    // closest name.
+    const PaletteColor* best = &kMarkerColors[0];
+    int bestDistance = INT_MAX;
+    for (const PaletteColor& c : kMarkerColors) {
+        const int dr = qRed(c.rgb) - color.red();
+        const int dg = qGreen(c.rgb) - color.green();
+        const int db = qBlue(c.rgb) - color.blue();
+        const int d = dr * dr + dg * dg + db * db;
+        if (d < bestDistance) {
+            bestDistance = d;
+            best = &c;
+        }
+    }
+    return *best;
 }
 
 std::span<const PaletteColor> flagPalette()

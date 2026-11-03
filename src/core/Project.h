@@ -8,6 +8,7 @@
 #include "core/Timeline.h"
 
 #include <QHash>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
 #include <QString>
@@ -285,6 +286,38 @@ public:
     void restoreProjectState(const TimelineSet& timelines, const MediaPoolState& pool,
         const Format& format, quint64 primary);
 
+    /// Everything a project file holds, captured as values: the immutable timeline snapshots
+    /// (shared, no copy), the implicitly shared media pool state and small settings. Taking
+    /// one costs microseconds on the GUI thread; writeSnapshot() turns it into the file on any
+    /// thread (the background autosave, AutosaveController).
+    struct SaveSnapshot
+    {
+        /// Per-timeline view and playhead.
+        struct View
+        {
+            quint64 uid = 0;
+            int64_t playhead = 0;
+            TimelineViewState view;
+        };
+        QString name;
+        Format format;
+        MediaPoolState pool;
+        TimelineSet timelines; ///< creation order
+        QVector<View> views; ///< same order as `timelines`
+        quint64 activeUid = 0;
+        QVector<quint64> tabs;
+        QJsonArray mediaLinks; ///< MediaLinks::toJson() (small; built at capture time)
+        QJsonObject cacheSettings;
+        QHash<QString, BinViewState> binViews;
+    };
+    /// The current state as a SaveSnapshot (GUI thread).
+    [[nodiscard]] SaveSnapshot captureSave() const;
+    /// Writes @p snapshot to @p path as a project file; media paths are stored relative to
+    /// @p path's folder where possible. @p extra becomes the top-level "autosave" object.
+    /// Thread-safe: reads only the snapshot. Returns false and sets @p error on failure.
+    static bool writeSnapshot(const SaveSnapshot& snapshot, const QString& path,
+        QString* error = nullptr, const QJsonObject& extra = {});
+
 signals:
     /// The modified state changed.
     void dirtyChanged(bool dirty);
@@ -319,7 +352,8 @@ private:
     };
 
     bool loadFrom(const QString& path, const QString& documentPath, QString* error);
-    [[nodiscard]] QJsonObject toJson(const QString& path) const;
+    /// The project file's JSON for @p snapshot written at @p path (pure function).
+    [[nodiscard]] static QJsonObject toJson(const SaveSnapshot& snapshot, const QString& path);
     bool fromJson(const QJsonObject& root, int version, const QDir& projectDir,
         const QString& fallbackName, QString* error);
     TimelineSlot* slot(quint64 uid);

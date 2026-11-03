@@ -10,11 +10,6 @@
 
 namespace kk {
 
-namespace {
-/// Markers are single-frame (no ranged markers): the Duration column shows one frame.
-constexpr int64_t kMarkerDurationFrames = 1;
-} // namespace
-
 EditIndexModel::EditIndexModel(Project* project, QObject* parent)
     : QAbstractTableModel(parent)
     , m_project(project)
@@ -26,16 +21,29 @@ void EditIndexModel::setMode(Mode mode)
         return;
     beginResetModel();
     m_mode = mode;
+    fillRows();
     endResetModel();
 }
 
 void EditIndexModel::rebuild()
 {
     beginResetModel();
-    const TimelineData& data = m_project->timeline()->data();
-    m_events = editindex::events(data, m_project->mediaPool());
-    m_markers = editindex::markers(data);
+    fillRows();
     endResetModel();
+}
+
+void EditIndexModel::fillRows()
+{
+    // Only the rows the table shows: the other mode's rows are built when it is switched to
+    // (an Edits rebuild of a 1,500-clip timeline is the expensive one).
+    const TimelineData& data = m_project->timeline()->data();
+    if (m_mode == Mode::Edits) {
+        m_events = editindex::events(data, m_project->mediaPool());
+        m_markers.clear();
+    } else {
+        m_markers = editindex::markers(data);
+        m_events.clear();
+    }
 }
 
 int EditIndexModel::rowCount(const QModelIndex& parent) const
@@ -139,6 +147,8 @@ QVariant EditIndexModel::markerData(const editindex::MarkerRow& row, int column,
             return row.color.name();
         case MarkerTimecode:
             return qint64(row.frame);
+        case MarkerDuration:
+            return qint64(row.duration);
         default:
             return markerData(row, column, Qt::DisplayRole);
         }
@@ -158,7 +168,7 @@ QVariant EditIndexModel::markerData(const editindex::MarkerRow& row, int column,
         case MarkerTimecode:
             return timecode::format(row.frame, fps);
         case MarkerDuration:
-            return timecode::format(kMarkerDurationFrames, fps);
+            return timecode::format(row.duration, fps);
         case MarkerNotes:
             // One line in the table; the tool tip keeps the line breaks.
             return role == Qt::ToolTipRole ? row.note
@@ -173,6 +183,23 @@ QVariant EditIndexModel::markerData(const editindex::MarkerRow& row, int column,
         break;
     }
     return {};
+}
+
+QString EditIndexModel::columnKey(Mode mode, int column)
+{
+    // Order = the column enums; never reorder, only append (stored in the settings).
+    static const char* const kEditKeys[EditColumnCount] = {"number", "reel", "name", "track",
+        "sourceIn", "sourceOut", "recordIn", "recordOut", "duration", "notes"};
+    static const char* const kMarkerKeys[MarkerColumnCount]
+        = {"number", "color", "name", "timecode", "duration", "notes", "location"};
+    if (column < 0 || column >= columnCountOf(mode))
+        return {};
+    return QLatin1String(mode == Mode::Edits ? kEditKeys[column] : kMarkerKeys[column]);
+}
+
+int EditIndexModel::columnCountOf(Mode mode)
+{
+    return mode == Mode::Edits ? int(EditColumnCount) : int(MarkerColumnCount);
 }
 
 QVariant EditIndexModel::headerData(int section, Qt::Orientation orientation, int role) const

@@ -3,7 +3,9 @@
 // application style).
 #include "ui/timeline/TimelineDialogs.h"
 
+#include "core/ClipColors.h"
 #include "core/Project.h"
+#include "ui/common/TimecodeFormat.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
 
 #include <QCheckBox>
@@ -44,26 +46,11 @@ QIcon swatch(const QColor& color)
 
 QList<std::pair<QString, QColor>> markerColors()
 {
-    // Fixed on purpose: marker colours are user data (named colours stored in the project,
-    // like clip colour labels), not scheme chrome.
-    return {
-        {tr("Blue"), QColor(0x4c, 0x9b, 0xe8)},
-        {tr("Cyan"), QColor(0x3f, 0xc8, 0xd8)},
-        {tr("Green"), QColor(0x4c, 0xb8, 0x4c)},
-        {tr("Yellow"), QColor(0xe8, 0xc8, 0x3c)},
-        {tr("Red"), QColor(0xe0, 0x4a, 0x4a)},
-        {tr("Pink"), QColor(0xe8, 0x7a, 0xb4)},
-        {tr("Purple"), QColor(0x9a, 0x6a, 0xd8)},
-        {tr("Fuchsia"), QColor(0xc8, 0x44, 0xb4)},
-        {tr("Rose"), QColor(0xe8, 0x9a, 0x9a)},
-        {tr("Lavender"), QColor(0xb4, 0xa4, 0xe8)},
-        {tr("Sky"), QColor(0x9a, 0xd0, 0xf0)},
-        {tr("Mint"), QColor(0x8c, 0xe0, 0xb4)},
-        {tr("Lemon"), QColor(0xf0, 0xe8, 0x8c)},
-        {tr("Sand"), QColor(0xc8, 0xb0, 0x84)},
-        {tr("Cocoa"), QColor(0x8c, 0x6a, 0x4c)},
-        {tr("Cream"), QColor(0xf0, 0xe4, 0xc8)},
-    };
+    // The palette lives in core (core/ClipColors.h) so the EDL / CSV export can name colours.
+    QList<std::pair<QString, QColor>> list;
+    for (const PaletteColor& c : markerColorPalette())
+        list.emplaceBack(QCoreApplication::translate("kk::ClipColors", c.name), QColor(c.rgb));
+    return list;
 }
 
 HandleChoice askHandles(QWidget* parent, int64_t missingFrames, bool canShorten)
@@ -88,7 +75,7 @@ HandleChoice askHandles(QWidget* parent, int64_t missingFrames, bool canShorten)
     return HandleChoice::Cancel;
 }
 
-bool editMarker(QWidget* parent, Marker& marker, bool clipMarker)
+bool editMarker(QWidget* parent, Marker& marker, bool clipMarker, Rational fps)
 {
     QDialog dialog(parent);
     dialog.setWindowTitle(clipMarker ? tr("Clip Marker") : tr("Timeline Marker"));
@@ -107,10 +94,15 @@ bool editMarker(QWidget* parent, Marker& marker, bool clipMarker)
         current = color->count() - 1;
     }
     color->setCurrentIndex(current);
+    // Duration as a timecode: 00:00:00:01 is a single-frame marker (spec 18.11).
+    auto* duration = new QLineEdit(timecode::format(marker.duration, fps));
+    duration->setObjectName(QStringLiteral("MarkerDuration"));
+    duration->setToolTip(tr("Length of the marker (hh:mm:ss:ff); one frame = a single marker"));
     auto* note = new QPlainTextEdit(marker.note);
     note->setTabChangesFocus(true);
     form->addRow(tr("Name"), name);
     form->addRow(tr("Color"), color);
+    form->addRow(tr("Duration"), duration);
     form->addRow(tr("Notes"), note);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
@@ -124,6 +116,8 @@ bool editMarker(QWidget* parent, Marker& marker, bool clipMarker)
     marker.name = name->text();
     marker.color = color->currentData().value<QColor>();
     marker.note = note->toPlainText();
+    if (const auto frames = timecode::parse(duration->text(), fps); frames && *frames > 0)
+        marker.duration = *frames;
     return true;
 }
 

@@ -15,7 +15,7 @@ markers, like Resolve's Edit Index.
   Track, Source In / Out (source timecode, `ui/common/SourceTimecode.h`: the media's start
   timecode and rate), Record In / Out, Duration, Notes (transitions, speed, disabled,
   offline; read-only). Ordered by record in, then video, audio, subtitle tracks.
-- **Markers:** #, Color, Name, Timecode, Duration (markers are single frames: 1 frame),
+- **Markers:** #, Color, Name, Timecode, Duration (the marker's length; 1 frame unless ranged, spec 18.11),
   Notes, Location ("Timeline" or the clip name). Clip markers trimmed out of their clip are
   not listed (they stay stored, spec 18.4).
 - **Click / current row change** moves the playhead to the record in / marker and selects
@@ -23,6 +23,11 @@ markers, like Resolve's Edit Index.
   (Edits mode) without moving the playhead.
 - **Live:** every `Timeline::changed()` / `MediaPool::changed()` schedules one rebuild per
   event loop pass; a hidden panel only marks itself dirty and rebuilds when it is shown.
+- **Column chooser** (spec 18.10): right-click on the header; one checkable entry per column
+  of the current mode ("#" stays). Hidden columns are stored per mode by stable keys
+  (`EditIndexModel::columnKey()`, `prefs::kEditIndexHiddenColumns`).
+- **Cost:** only the current mode's rows are built; media lookups happen once per media item
+  (stress project, 1,500 clips: 1 ms per Edits rebuild).
 - **Colours:** the table uses the palette (scheme); disabled clips use
   `SchemeColors::textDisabled`. Marker swatches show the marker's own colour (user data).
 

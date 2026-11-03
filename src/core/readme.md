@@ -12,12 +12,13 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `Mask.h` | clip masks: `MaskShape`, `MaskMode` (combine table), `MaskPoint` / `MaskPath`, `AnimatedPath` (keyframed shape), `maskkeys::*`, `MaskData`; pure helpers (mask transform, outline, bezier flattening, polygon offset, freehand simplification, point insertion) |
 | `KeyframeOps.h` | pure keyframe functions: parameter paths, grouped list of animated parameters, navigation, move / delete / interpolation / flatten / handles / copy and paste (namespace `kk::keyframeops`) |
 | `ParamKeys.h` | well-known parameter keys (`keys::PosX`, `keys::Opacity`, ...) + defaults |
-| `TimelineData.h` | `ClipData`, `TrackData`, `Marker`, `EffectInstance`, `TransitionData`, `TimelineData`, `TrackRef` |
+| `TimelineData.h` | `ClipData`, `TrackData`, `Marker` (frame, name, colour, note, duration: ranged markers, format 13), `EffectInstance`, `TransitionData`, `TimelineData`, `TrackRef` |
+| `UndoSnapshots.h` | compact undo storage (`undosnap::pack()` / `unpack()`): a timeline as a clip-less shell plus shared immutable clips, packed against the neighbouring step so a step owns only the clips it changed |
 | `MediaItem.h` | `MediaItem`, `Bin`, `MediaPoolState` |
 | `EditOps.h` | pure editing functions on `TimelineData&` (namespace `kk::editops`); implemented in `EditOps.cpp`, `EditOpsRipple.cpp` (ripple delete across tracks, in/out lift / extract / copy, delete gaps, join, swap, shuffle, ripple overwrite) and `EditOpsTransitions.cpp` (transition windows, alignment, length, handle checks); shared private helpers in `EditOpsInternal.h` |
 | `Timeline.h` | QObject: owns the active timeline's `TimelineData`, snapshot caches (render snapshot with nested timelines, plain snapshot), playhead, `changed()` |
 | `MediaPool.h` | QObject: media items (files, timelines, compound clips) + bins (nested, ordered, `moveBin()`, `removeBinWithContents()`), clip colours, flags, metadata, smart bins, `importFiles()` |
-| `ClipColors.h` | the sixteen clip colours and sixteen flag colours (stable ids, our own names), lookups |
+| `ClipColors.h` | the sixteen clip colours, sixteen flag colours and sixteen marker colours (stable ids, our own names), lookups, `nearestMarkerColor()` |
 | `SmartBins.h` | smart bin rules: field / operator catalogue, `ruleMatches()` / `matches()`, default smart bins |
 | `MediaUsage.h` | usage counts of media pool items over every timeline (`usage::compute()`), clips using items, unused files |
 | `PowerBins.h` | QObject: application-wide MediaPool saved to `<AppData>/power-bins.json` on every change |
@@ -154,9 +155,11 @@ project->endEdit();                                      // pushes ONE undo comm
 // or project->cancelEdit();                             // restores the "before" state
 ```
 - Edits nest; only the outermost pair creates a command (its label wins).
-- An undo command stores before/after copies of every timeline (`Project::TimelineSet`: shared
-  pointers, so unchanged timelines cost nothing and compare by pointer), the `MediaPoolState`
-  and the project format. Its first `redo()` is a no-op because the change was already applied
+- An undo command stores the before/after state of every timeline, the `MediaPoolState` and
+  the project format. Timelines are stored packed (`UndoSnapshots.h`): a clip-less shell plus
+  shared immutable clips, packed against the step below, so unchanged timelines and clips cost
+  a pointer (round 4 stress pass: 0.85 -> 0.16 MB per blade on a 1,500-clip timeline); undo
+  unpacks with one copy, or reuses the live data when it still exists. Its first `redo()` is a no-op because the change was already applied
   live. Undoing a step made in another timeline first activates that timeline.
 - Assigning a whole `TimelineData` to `mutableData()` is fine: the active timeline keeps its
   uid (endEdit restores it).
@@ -236,6 +239,10 @@ and subtitle media items (`"kind": "subtitle"`, `"cues": [[startUs, endUs, text]
 Format version 8 adds multicam: timeline `"multicam": true`, clip `"multicamAngle"`, media
 pool item `"kind": "multicam"`, media info `"timecode"` (all optional).
 Format version 10 (attrs) adds clip fades and Clip Attributes (see `Serialization.h`).
+Format version 13 (polish4) adds the optional marker `"duration"` (frames, written only when
+> 1: ranged markers); every older marker is one frame, so versions 1 - 12 load unchanged.
+`Project::captureSave()` / `writeSnapshot()` split saving into a microsecond capture of shared
+values (GUI thread) and the JSON build + write (any thread; the background autosave).
 Format version 11 (bins): items may carry "clipColor", "flags", "metadata", "added",
 "modified"; the media pool "smartBins"; the project "binViews" (see `Serialization.h`).
 Versions <= 10 get "modified" (and "added") from the file on disk when loading.

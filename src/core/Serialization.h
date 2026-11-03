@@ -83,7 +83,11 @@ namespace kk::serialization {
 ///   (core/MixerJson.h). Every field is optional and defaults to a neutral mixer (main bus
 ///   only, every track routed to it), so files of versions 1 - 11 load unchanged and play
 ///   exactly as before; older builds refuse version 12 instead of silently dropping the mix.
-inline constexpr int kFormatVersion = 12;
+/// - 13 (polish4 branch): ranged markers. Timeline and clip markers may carry "duration"
+///   (frames, > 1; absent = 1, a single-frame marker). Files of versions 1 - 12 load
+///   unchanged; older builds refuse version 13 instead of silently turning ranged markers
+///   into single frames.
+inline constexpr int kFormatVersion = 13;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

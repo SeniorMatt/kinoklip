@@ -478,8 +478,8 @@ void TimelineWidget::wheelEvent(QWheelEvent* event)
             setTrackHeightScale(m_layout.heightScale() * std::pow(kWheelZoomPerDegree, anyDelta));
         } else if ((mods & Qt::ControlModifier) || angle.x() != 0) {
             // Ctrl+wheel and horizontal touchpad swipes scroll time.
-            h->setValue(h->value()
-                - int(std::lround((angle.x() != 0 ? angle.x() : angle.y()) * timeStep)));
+            h->setValue(
+                h->value() - int(std::lround((angle.x() != 0 ? angle.x() : angle.y()) * timeStep)));
         } else {
             v->setValue(v->value() - angle.y() / 2);
         }
@@ -747,6 +747,8 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         addAction("clip.retime_controls");
         addAction("clip.freeze_frame");
         addAction("clip.retime_curve");
+        menu.addSeparator();
+        addAction("clip.normalize_audio");
         menu.addSeparator();
         addAction("clip.link");
         addAction("clip.unlink");
