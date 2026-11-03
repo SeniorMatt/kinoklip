@@ -27,6 +27,7 @@
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/viewer/ViewerOverlaySettings.h"
+#include "ui/viewer/ViewerPanel.h"
 #include "ui/viewer/ViewerTransport.h"
 
 #include <QAction>
@@ -373,6 +374,8 @@ void MainWindow::connectAppActions()
         else
             showNormal();
     });
+    connect(actions.action(QStringLiteral("view.viewer_zoom_fit")), &QAction::triggered, this,
+        [] { ViewerPanel::zoomTargetToFit(); });
     QAction* singleViewer = actions.action(QStringLiteral("view.single_viewer"));
     connect(singleViewer, &QAction::triggered, this,
         [this](bool on) { m_editPage->setSingleViewer(on); });

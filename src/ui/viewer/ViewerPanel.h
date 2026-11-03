@@ -141,6 +141,9 @@ public:
     [[nodiscard]] QPointF pan() const;
     /// Fit to window (Shift+Z with focus in the viewer, the header's Fit, middle double-click).
     void zoomToFit();
+    /// View > Viewer Zoom to Fit (Z): fits the viewer under the pointer, else the one that has
+    /// the focus, else every visible viewer (owner request on 0.4.1).
+    static void zoomTargetToFit();
     /// Shows/hides header, scrub bar and transport (full-screen viewer shows only the picture).
     void setChromeVisible(bool visible);
 

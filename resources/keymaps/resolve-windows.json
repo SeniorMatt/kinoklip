@@ -178,6 +178,7 @@
         "view.single_viewer": [],
         "view.toggle_source_timeline": ["Q"],
         "view.fullscreen_viewer": ["Ctrl+F"],
+        "view.viewer_zoom_fit": ["Z"],
         "view.onscreen_transform": [],
         "view.onscreen_masks": [],
         "view.onscreen_crop": [],
