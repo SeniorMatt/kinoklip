@@ -225,7 +225,7 @@ bool VideoDecoder::Impl::switchToSoftware(bool duringOpen)
                                  .arg(double(atUs) / 1e6, 0, 'f', 3)
                                  .arg(why)
                                  .arg(codec ? codec->thread_count : 0);
-        if (firstTime(QStringLiteral("fallback|") + info.path)) {
+        if (firstTime(QStringLiteral("fallback|") + name + QLatin1Char('|') + info.path)) {
             qCWarning(lcMedia).noquote() << line;
         } else {
             qCDebug(lcMedia).noquote() << line;
