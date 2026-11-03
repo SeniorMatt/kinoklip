@@ -17,9 +17,16 @@ namespace kk {
 namespace {
 
 Q_LOGGING_CATEGORY(lcResize, "kk.ui.resize", QtInfoMsg)
+/// Every timed event with its start time (where the gaps between steps are).
+Q_LOGGING_CATEGORY(lcResizeEvents, "kk.ui.resize.events", QtInfoMsg)
 
 constexpr int kSummaryDelayMs = 300; ///< a gesture ended when no new size came for this long
 constexpr double kFrameBudgetMs = 16.0; ///< one refresh at 60 Hz
+/// An expose / update request that took longer than this painted something (an empty one, with
+/// nothing dirty, takes a few microseconds).
+constexpr qint64 kPaintedNs = 100'000;
+/// Paints this long after a resize event belong to other things (playback, a timer).
+constexpr qint64 kStepNs = 100'000'000;
 
 double percentile(QVector<double> values, double p)
 {
@@ -82,7 +89,9 @@ bool ResizeProfiler::eventFilter(QObject* watched, QEvent* event)
     if (!onWidget && watched != m_window)
         return false;
     const bool resize = type == QEvent::Resize;
-    if (!resize && type != QEvent::Expose && type != QEvent::UpdateRequest)
+    // A QWindow also gets QEvent::Paint when the platform asks for a synchronous repaint.
+    const bool windowPaint = type == QEvent::Paint && !onWidget;
+    if (!resize && !windowPaint && type != QEvent::Expose && type != QEvent::UpdateRequest)
         return false;
 
     if (m_resending)
@@ -101,28 +110,45 @@ bool ResizeProfiler::eventFilter(QObject* watched, QEvent* event)
     const qint64 end = m_clock.nsecsElapsed();
     if (m_depth > 0 || !m_widget)
         return true;
+    qCDebug(lcResizeEvents, "t=%.1f ms %s on %s: %.2f ms", start / 1e6,
+        resize                       ? "resize"
+            : windowPaint            ? "paint"
+            : type == QEvent::Expose ? "expose"
+                                     : "update request",
+        onWidget ? "widget" : "window", (end - start) / 1e6);
 
     if (resize) {
         const QSize size = m_widget->size();
-        if (!m_steps.isEmpty() && m_steps.constLast().size == size && m_stepStartNs < 0)
+        if (!m_steps.isEmpty() && m_steps.constLast().size == size)
             return true;
+        finishStep();
         if (!m_summaryTimer->isActive())
             m_gestureStart = int(m_steps.size());
-        m_steps.append({size, (end - start) / 1e6, -1});
+        // On Wayland (and with OpenGL composition) Qt paints and commits inside the resize
+        // event already; otherwise the paint follows as an expose / update request.
+        const double ms = (end - start) / 1e6;
+        m_steps.append({size, ms, ms});
         m_stepStartNs = start;
         m_summaryTimer->start();
-    } else if (m_stepStartNs >= 0 && m_widget->isVisible()) {
-        Step& step = m_steps.last();
-        step.frameMs = (end - m_stepStartNs) / 1e6;
-        m_stepStartNs = -1;
-        qCDebug(lcResize).noquote()
-            << QStringLiteral("resize step %1x%2: layout %3 ms, frame %4 ms")
-                   .arg(step.size.width())
-                   .arg(step.size.height())
-                   .arg(step.resizeMs, 0, 'f', 1)
-                   .arg(step.frameMs, 0, 'f', 1);
+    } else if (m_stepStartNs >= 0 && end - start > kPaintedNs && start - m_stepStartNs < kStepNs
+        && m_widget->isVisible()) {
+        m_steps.last().frameMs = (end - m_stepStartNs) / 1e6;
     }
     return true;
+}
+
+void ResizeProfiler::finishStep()
+{
+    if (m_stepStartNs < 0)
+        return;
+    m_stepStartNs = -1;
+    const Step& step = m_steps.constLast();
+    qCDebug(lcResize).noquote() << QStringLiteral(
+        "resize step %1x%2: resize event %3 ms, frame %4 ms")
+                                       .arg(step.size.width())
+                                       .arg(step.size.height())
+                                       .arg(step.resizeMs, 0, 'f', 1)
+                                       .arg(step.frameMs, 0, 'f', 1);
 }
 
 ResizeProfiler::Summary ResizeProfiler::summarize(const QVector<Step>& steps)
@@ -131,8 +157,6 @@ ResizeProfiler::Summary ResizeProfiler::summarize(const QVector<Step>& steps)
     QVector<double> frames;
     QVector<double> layouts;
     for (const Step& step : steps) {
-        if (step.frameMs < 0)
-            continue;
         frames.append(step.frameMs);
         layouts.append(step.resizeMs);
         if (step.frameMs > kFrameBudgetMs)
@@ -148,12 +172,13 @@ ResizeProfiler::Summary ResizeProfiler::summarize(const QVector<Step>& steps)
 
 void ResizeProfiler::logSummary()
 {
+    finishStep();
     if (!loggingEnabled())
         return;
     const Summary s = summarize(m_steps.mid(m_gestureStart));
     qCDebug(lcResize).noquote() << QStringLiteral(
         "resize gesture: %1 steps, frame median %2 ms / p90 %3 ms / max %4 ms, "
-        "%5 over 16 ms; layout median %6 ms")
+        "%5 over 16 ms; resize event median %6 ms")
                                        .arg(s.steps)
                                        .arg(s.medianMs, 0, 'f', 1)
                                        .arg(s.p90Ms, 0, 'f', 1)

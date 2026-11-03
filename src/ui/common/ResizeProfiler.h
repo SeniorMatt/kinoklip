@@ -19,17 +19,19 @@ namespace kk {
 /// on Wayland the compositor shows the new size only after the client committed a frame at it.
 ///
 /// For each size the window receives, it records the time the resize event took (layout of
-/// every visible widget) and the time from the resize event to the end of the first paint +
-/// flush at that size (QWidget repaint, OpenGL composition of QOpenGLWidgets, the buffer
-/// commit; on Wayland the flush may also wait for the compositor's frame callback). With the
+/// every visible widget; on Wayland Qt also paints and commits inside it) and the time from the
+/// resize event to the end of the last paint + flush at that size (QWidget repaint, OpenGL
+/// composition of QOpenGLWidgets, the buffer commit; the flush may also wait for the
+/// compositor's frame callback). Verified against WAYLAND_DEBUG=client: the
+/// wl_surface.commit for a configure comes at the end of the step's resize event. With the
 /// logging category `kk.ui.resize` at debug level (QT_LOGGING_RULES=kk.ui.resize.debug=true)
 /// every step is logged, and a summary (median, 90th percentile, worst, steps over 16 ms)
 /// 300 ms after the last step of a gesture.
 ///
 /// It works by filtering the window's (QWidget and QWindow) resize / expose / update-request
-/// events and delivering each again itself, timed, instead of the original delivery: it is
-/// only attached when enabled (the window loses no events, but event filters installed on it
-/// after the profiler see those three event types twice).
+/// events (and the QWindow's paint requests) and delivering each again itself, timed, instead
+/// of the original delivery: it is only attached when enabled (the window loses no events, but
+/// event filters installed on it after the profiler see those event types twice).
 ///
 /// Thread-safety: GUI thread only.
 class ResizeProfiler : public QObject
@@ -40,8 +42,10 @@ public:
     struct Step
     {
         QSize size; ///< new window size, logical pixels
-        double resizeMs = 0; ///< handling the resize event (layout)
-        double frameMs = -1; ///< resize event start to the end of the first frame (-1: none yet)
+        double resizeMs = 0; ///< handling the resize event (layout; on Wayland also the paint)
+        /// Resize event start to the end of the last paint at this size (the commit); equal to
+        /// resizeMs when the resize event painted itself.
+        double frameMs = 0;
     };
     /// Distribution of Step::frameMs over a set of steps.
     struct Summary
@@ -64,7 +68,7 @@ public:
     [[nodiscard]] const QVector<Step>& steps() const { return m_steps; }
     /// Forgets the recorded steps.
     void reset() { m_steps.clear(); }
-    /// Statistics of the steps with a frame (Step::frameMs >= 0).
+    /// Statistics of @p steps.
     [[nodiscard]] static Summary summarize(const QVector<Step>& steps);
 
 protected:
@@ -73,6 +77,7 @@ protected:
 private:
     explicit ResizeProfiler(QWidget* window);
     void attachWindow();
+    void finishStep();
     void logSummary();
 
     QPointer<QWidget> m_widget;
@@ -81,7 +86,7 @@ private:
     QElapsedTimer m_clock;
     bool m_resending = false; ///< inside the timed re-delivery of an event
     int m_depth = 0; ///< nesting of timed events (QWindow resize -> widget resize)
-    qint64 m_stepStartNs = -1; ///< start of the step waiting for its frame, -1: none
+    qint64 m_stepStartNs = -1; ///< start of the last step while it may still paint, -1: none
     int m_gestureStart = 0; ///< index in m_steps of the current gesture's first step
     QTimer* m_summaryTimer = nullptr;
 };
