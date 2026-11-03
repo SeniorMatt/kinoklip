@@ -495,9 +495,9 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         p.drawText(badge, Qt::AlignCenter, QStringLiteral("fx"));
     }
 
-    if (const QRectF fx = hasComp ? fxBadgeRect(r, viewRight) : QRectF(); !fx.isEmpty()) {
+    if (const QRectF badge = hasComp ? compBadgeRect(r, viewRight, hasFx) : QRectF();
+        !badge.isEmpty()) {
         // Two linked node boxes, the picture of a node graph.
-        const QRectF badge = fx.translated(hasFx ? -20 : 0, 0);
         p.fillRect(badge, base.darker(190));
         const double h = std::min(badge.height() - 4, 6.0);
         const QRectF a(badge.left() + 3, badge.center().y() - h / 2, h, h);
@@ -885,6 +885,11 @@ void TimelinePainter::paintKeyframes(
         p.setRenderHint(QPainter::Antialiasing, false);
         p.setBrush(Qt::NoBrush);
     }
+}
+
+QRectF TimelinePainter::compBadgeRect(const QRectF& r, double viewRight, bool hasFx)
+{
+    return fxBadgeRect(r, viewRight).translated(hasFx ? -20 : 0, 0);
 }
 
 QRectF TimelinePainter::fxBadgeRect(const QRectF& r, double viewRight)

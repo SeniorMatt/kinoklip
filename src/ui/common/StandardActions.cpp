@@ -567,16 +567,21 @@ void registerStandardActions(ActionRegistry& registry)
     registry.action(QStringLiteral("cut.viewer_timeline"))->setChecked(true);
     // The Cut page enables its commands while it is shown (CutPage::showEvent()).
     for (const QString& id : registry.menuEntries(QStringLiteral("cut"))) {
-        if (registry.contains(id))
+        if (registry.contains(id)) {
             registry.action(id)->setEnabled(false);
+            registry.setShortcutScope(id, QStringLiteral("page:cut"));
+        }
     }
 
     // Node editor keys act only while the node editor has focus (NodeEditor claims them through
     // QEvent::ShortcutOverride); as window shortcuts they would clash with Copy, Delete, the
-    // multicam number keys and so on.
+    // multicam number keys and so on. Their scope tells Keyboard Customization that sharing a
+    // key with an Edit page command is no conflict.
     for (const QString& id : registry.menuEntries(QStringLiteral("comp"))) {
-        if (registry.contains(id))
+        if (registry.contains(id)) {
             registry.action(id)->setShortcutContext(Qt::WidgetShortcut);
+            registry.setShortcutScope(id, QStringLiteral("widget:node_editor"));
+        }
     }
 
     for (const char* id : {"view.page_color"}) {

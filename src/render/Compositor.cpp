@@ -180,10 +180,13 @@ std::future<RenderedFramePtr> Compositor::renderAsync(RenderRequest request)
 
 std::future<RenderedFramePtr> Compositor::renderCompositionNode(
     std::shared_ptr<const TimelineData> timeline, quint64 clipId, quint64 nodeId, int64_t compFrame,
-    QSize outSize, Quality quality, unsigned outputs)
+    QSize outSize, Quality quality, unsigned outputs, std::shared_ptr<const MediaPathMap> media,
+    std::shared_ptr<const ProxyMap> proxies)
 {
     RenderRequest request;
     request.timeline = std::move(timeline);
+    request.media = std::move(media);
+    request.proxies = std::move(proxies);
     request.outSize = outSize;
     request.quality = quality;
     request.outputs = outputs;

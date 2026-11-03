@@ -82,20 +82,67 @@ private slots:
         reg.loadDefaultKeymap();
         registerStandardActions(reg);
         // The node editor's comp.* keys only act while it has focus (widget shortcuts claimed
-        // through ShortcutOverride), so they are unique among themselves, not app-wide.
-        QHash<QKeySequence, QString> seen, seenComp;
+        // through ShortcutOverride, scope "widget:node_editor"), so they are unique among
+        // themselves, not app-wide; the conflict check follows the same scope rules.
+        QHash<QKeySequence, QStringList> seen;
         for (const QString& id : reg.ids()) {
-            const bool comp = id.startsWith(QLatin1String("comp."));
-            if (comp)
+            if (id.startsWith(QLatin1String("comp."))) {
                 QCOMPARE(reg.action(id)->shortcutContext(), Qt::WidgetShortcut);
-            QHash<QKeySequence, QString>& scope = comp ? seenComp : seen;
+                QCOMPARE(reg.shortcutScope(id), QStringLiteral("widget:node_editor"));
+            }
             for (const QKeySequence& key : reg.shortcuts(id)) {
-                QVERIFY2(!scope.contains(key),
-                    qPrintable(key.toString() + QStringLiteral(": ") + scope.value(key)
-                        + QStringLiteral(" and ") + id));
-                scope.insert(key, id);
+                for (const QString& other : seen.value(key)) {
+                    QVERIFY2(!ActionRegistry::scopesConflict(
+                                 reg.shortcutScope(id), reg.shortcutScope(other)),
+                        qPrintable(key.toString() + QStringLiteral(": ") + other
+                            + QStringLiteral(" and ") + id));
+                }
+                seen[key].append(id);
             }
         }
+    }
+
+    void conflictCheckFollowsShortcutScope()
+    {
+        // Spec 42b: widget keys override the window's while the widget has focus; two pages
+        // are never shown at once; a page key and a window key both act on that page.
+        QVERIFY(ActionRegistry::scopesConflict({}, {}));
+        QVERIFY(ActionRegistry::scopesConflict({}, QStringLiteral("page:cut")));
+        QVERIFY(ActionRegistry::scopesConflict(QStringLiteral("page:cut"), {}));
+        QVERIFY(ActionRegistry::scopesConflict(
+            QStringLiteral("widget:node_editor"), QStringLiteral("widget:node_editor")));
+        QVERIFY(!ActionRegistry::scopesConflict({}, QStringLiteral("widget:node_editor")));
+        QVERIFY(!ActionRegistry::scopesConflict(
+            QStringLiteral("page:cut"), QStringLiteral("page:audio")));
+        QVERIFY(!ActionRegistry::scopesConflict(
+            QStringLiteral("page:cut"), QStringLiteral("widget:node_editor")));
+
+        ActionRegistry reg;
+        reg.loadDefaultKeymap();
+        registerStandardActions(reg);
+        const QKeySequence copy(Qt::CTRL | Qt::Key_C);
+        // Ctrl+C is Copy on the Edit page and Copy Nodes in the node editor: no conflict.
+        QCOMPARE(reg.actionForShortcut(copy), QStringLiteral("edit.copy"));
+        QCOMPARE(reg.actionForShortcut(copy, QStringLiteral("edit.copy")), QString());
+        QCOMPARE(reg.actionForShortcut(copy, QStringLiteral("comp.copy")), QString());
+        QCOMPARE(
+            reg.actionForShortcut(copy, QStringLiteral("edit.split")), QStringLiteral("edit.copy"));
+        // Real conflicts stay: inside the node editor, and on the window.
+        QCOMPARE(reg.actionForShortcut(QKeySequence(Qt::Key_F2), QStringLiteral("comp.copy")),
+            QStringLiteral("comp.rename"));
+        QCOMPARE(
+            reg.actionForShortcut(copy, QStringLiteral("comp.paste")), QStringLiteral("comp.copy"));
+        // A Cut page key against a window key conflicts, against another page's does not.
+        reg.add(QStringLiteral("test.page_a"), QStringLiteral("A"), QStringLiteral("test"));
+        reg.add(QStringLiteral("test.page_b"), QStringLiteral("B"), QStringLiteral("test"));
+        reg.setShortcutScope(QStringLiteral("test.page_a"), QStringLiteral("page:a"));
+        reg.setShortcutScope(QStringLiteral("test.page_b"), QStringLiteral("page:b"));
+        const QKeySequence key(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F7);
+        reg.setShortcuts(QStringLiteral("test.page_a"), {key});
+        QCOMPARE(reg.actionForShortcut(key, QStringLiteral("test.page_b")), QString());
+        QCOMPARE(reg.actionForShortcut(key, QStringLiteral("edit.split")),
+            QStringLiteral("test.page_a"));
+        reg.resetShortcuts(QStringLiteral("test.page_a"));
     }
 
     void everyActionIconExists()

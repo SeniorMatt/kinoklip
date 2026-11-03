@@ -5,11 +5,17 @@
 
 #include "ui/common/Page.h"
 
+#include <QList>
+#include <QPointer>
+#include <QStringList>
+
+class QAction;
 class QSplitter;
 class QToolButton;
 
 namespace kk {
 
+class ActionRegistry;
 struct AppContext;
 class CompInspector;
 class CompSession;
@@ -34,6 +40,13 @@ class SelectNodePopup;
 /// video track, else the clip under the playhead on the top video track; "Open in Compositing
 /// Page" opens a specific clip. Without a clip every panel shows "Select a clip on the Edit
 /// page". The comp.* commands act while the page is shown.
+///
+/// The Edit page's timeline is hidden here, so its editing commands (Edit, Trim, Timeline,
+/// Clip and Mark menus: Delete, Copy / Paste, Blade, the number keys of the multicam angles,
+/// ...) are disabled while the page is shown and enabled again when it hides, the way the Cut
+/// and Audio pages switch their own commands; a key the node editor does not claim then does
+/// nothing instead of changing a timeline the user cannot see. Transport and navigation,
+/// undo / redo, the page keys, Open in / Reset Composition and the dialogs stay available.
 ///
 /// Thread-safety: GUI thread only.
 class CompositingPage : public Page
@@ -63,14 +76,21 @@ public:
     /// Tool bar button that adds node type @p type, or nullptr.
     [[nodiscard]] QToolButton* toolButton(const QString& type) const;
 
+    /// Ids of the timeline commands the page disables while it is shown (see the class doc).
+    [[nodiscard]] static QStringList suspendedCommandIds(const ActionRegistry& registry);
+
 protected:
     void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
 
 private:
     QWidget* buildToolBar();
     void connectActions();
     /// Opens the "Select Node" popup over the node editor.
     void showSelectNode();
+    /// Disables (true) the timeline commands of suspendedCommandIds() that are enabled, or
+    /// enables again (false) the ones it disabled.
+    void suspendTimelineCommands(bool suspend);
 
     AppContext& m_ctx;
     CompSession* m_session = nullptr;
@@ -86,6 +106,7 @@ private:
     QSplitter* m_columns = nullptr; ///< library | centre | inspector
     QSplitter* m_centre = nullptr; ///< viewers + transport | node area
     QSplitter* m_viewers = nullptr; ///< left | right viewer
+    QList<QPointer<QAction>> m_suspended; ///< commands suspendTimelineCommands() disabled
 };
 
 } // namespace kk
