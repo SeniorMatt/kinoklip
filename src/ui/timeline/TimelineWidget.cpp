@@ -618,8 +618,8 @@ QString shownTrackName(const TrackData& track, TrackRef ref)
     if (!track.name.isEmpty())
         return track.name;
     const QString pattern = ref.type == TrackType::Video ? TimelineWidget::tr("Video %1")
-        : ref.type == TrackType::Subtitle               ? TimelineWidget::tr("Subtitle %1")
-                                                        : TimelineWidget::tr("Audio %1");
+        : ref.type == TrackType::Subtitle                ? TimelineWidget::tr("Subtitle %1")
+                                                         : TimelineWidget::tr("Audio %1");
     return pattern.arg(ref.index + 1);
 }
 

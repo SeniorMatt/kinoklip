@@ -19,8 +19,8 @@
 #include "render/RenderTypes.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
-#include "ui/common/Resources.h"
 #include "ui/common/DragMime.h"
+#include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompInspector.h"
@@ -31,20 +31,20 @@
 #include "ui/comp/NodeEditor.h"
 #include "ui/comp/NodeLibrary.h"
 #include "ui/inspector/ParamGroupBox.h"
-#include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/inspector/ParamRows.h"
 #include "ui/inspector/ValueField.h"
+#include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
-#include <QMimeData>
 #include <QDir>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QSettings>
 #include <QSplitter>
