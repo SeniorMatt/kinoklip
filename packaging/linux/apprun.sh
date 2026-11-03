@@ -285,9 +285,16 @@ write_desktop_file() {
 
 install_desktop_entry() {
     _dh="$(data_home)"
-    mkdir -p "$_dh/applications" "$_dh/icons/hicolor/scalable/apps" "$_dh/mime/packages" || return 1
+    mkdir -p "$_dh/applications" "$_dh/mime/packages" || return 1
     write_desktop_file "$_dh/applications/$APP_ID.desktop" || return 1
-    cp "$HERE/$APP_ID.svg" "$_dh/icons/hicolor/scalable/apps/$APP_ID.svg" || return 1
+    # One PNG per size; the scalable SVG of versions up to 0.3.4 would win over them.
+    rm -f "$_dh/icons/hicolor/scalable/apps/$APP_ID.svg"
+    for _size in $ICON_SIZES; do
+        mkdir -p "$_dh/icons/hicolor/${_size}x${_size}/apps" || return 1
+        cp "$HERE/usr/share/icons/hicolor/${_size}x${_size}/apps/$APP_ID.png" \
+            "$_dh/icons/hicolor/${_size}x${_size}/apps/$APP_ID.png" || return 1
+    done
+    touch "$_dh/icons/hicolor" 2>/dev/null
     cp "$HERE/usr/share/mime/packages/$APP_ID.xml" "$_dh/mime/packages/$APP_ID.xml" || return 1
     rm -f "$(optout_file)"
     refresh_desktop_caches
@@ -298,6 +305,15 @@ install_desktop_entry() {
     esac
 }
 
+# Sizes of the bundled icon (usr/share/icons/hicolor/<n>x<n>/apps), see scripts/package_linux.sh.
+ICON_SIZES="16 24 32 48 64 128 256 512"
+
+# True when the installed icon is not this bundle's (a new icon in a new version).
+icon_outdated() {
+    ! cmp -s "$HERE/usr/share/icons/hicolor/256x256/apps/$APP_ID.png" \
+        "$(data_home)/icons/hicolor/256x256/apps/$APP_ID.png" 2>/dev/null
+}
+
 # Written by --uninstall-desktop-entry: the user does not want the menu entry, so the
 # automatic install below must not bring it back.
 optout_file() { printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/kinoklip/no-desktop-entry"; }
@@ -306,8 +322,8 @@ optout_file() { printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/kinoklip/no-des
 # points at this copy. Qt registers the app id with the XDG desktop portal at start-up
 # ("Failed to register with host portal ... App info not found" otherwise), and Plasma
 # uses the entry for the window/task-manager icon on Wayland. Rewritten only when the
-# content differs (first start, the .run moved, a new version), so normal starts only read
-# one small file. KINOKLIP_NO_DESKTOP_ENTRY=1 or the opt-out file skips it.
+# content or the icon differs (first start, the .run moved, a new version), so normal starts
+# only read two small files. KINOKLIP_NO_DESKTOP_ENTRY=1 or the opt-out file skips it.
 ensure_desktop_entry() {
     [ "${KINOKLIP_NO_DESKTOP_ENTRY:-0}" = 1 ] && return 0
     [ -e "$(optout_file)" ] && return 0
@@ -318,7 +334,7 @@ ensure_desktop_entry() {
         return 0
     }
     _have="$(data_home)/applications/$APP_ID.desktop"
-    if ! cmp -s "$_want" "$_have" 2>/dev/null; then
+    if ! cmp -s "$_want" "$_have" 2>/dev/null || icon_outdated; then
         if install_desktop_entry quiet >/dev/null 2>&1; then
             log "installed the desktop entry $_have"
         fi
@@ -331,6 +347,9 @@ uninstall_desktop_entry() {
     _dh="$(data_home)"
     rm -f "$_dh/applications/$APP_ID.desktop" "$_dh/icons/hicolor/scalable/apps/$APP_ID.svg" \
         "$_dh/mime/packages/$APP_ID.xml"
+    for _size in $ICON_SIZES; do
+        rm -f "$_dh/icons/hicolor/${_size}x${_size}/apps/$APP_ID.png"
+    done
     mkdir -p "$(dirname "$(optout_file)")" && : >"$(optout_file)"
     refresh_desktop_caches
     echo "Removed the Kinoklip desktop entry from $_dh"

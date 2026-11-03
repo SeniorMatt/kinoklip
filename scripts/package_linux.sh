@@ -265,7 +265,7 @@ log "assembling $APPDIR"
 rm -rf "$APPDIR"
 mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/lib/qt/plugins" "$APPDIR/usr/lib/fallback" \
     "$APPDIR/usr/lib/fallback-active" "$APPDIR/usr/share/applications" \
-    "$APPDIR/usr/share/icons/hicolor/scalable/apps" "$APPDIR/usr/share/mime/packages" \
+    "$APPDIR/usr/share/mime/packages" \
     "$APPDIR/usr/share/doc/kinoklip/licenses"
 
 install -m 755 "$BIN" "$APPDIR/usr/bin/kinoklip"
@@ -405,9 +405,13 @@ echo "$QT_BUILD_VERSION" >"$APPDIR/usr/lib/qt/qt-version.txt"
 install -m 755 "$PKG/apprun.sh" "$APPDIR/AppRun"
 install -m 644 "$PKG/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
 install -m 644 "$PKG/$APP_ID.desktop" "$APPDIR/usr/share/applications/$APP_ID.desktop"
-install -m 644 "$PKG/icons/$APP_ID.svg" "$APPDIR/$APP_ID.svg"
-install -m 644 "$PKG/icons/$APP_ID.svg" "$APPDIR/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
-ln -s "$APP_ID.svg" "$APPDIR/.DirIcon"
+# The icon: the owner's pixel art, one PNG per size (resources/icons/app, scripts/make_app_icons.py).
+for size in 16 24 32 48 64 128 256 512; do
+    install -D -m 644 "$ROOT/resources/icons/app/kinoklip-$size.png" \
+        "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
+done
+install -m 644 "$ROOT/resources/icons/app/kinoklip-256.png" "$APPDIR/$APP_ID.png"
+ln -s "$APP_ID.png" "$APPDIR/.DirIcon"
 install -m 644 "$PKG/$APP_ID.xml" "$APPDIR/usr/share/mime/packages/$APP_ID.xml"
 echo "$VERSION" >"$APPDIR/usr/share/doc/kinoklip/version"
 

@@ -124,7 +124,12 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     , m_options(options)
 {
     setMinimumSize(kMinimumWindowSize);
-    setWindowIcon(QIcon(QStringLiteral(":/icons/app.svg")));
+    // The owner's pixel-art icon (resources/icons/app), one file per size so none is rescaled.
+    QIcon appIcon;
+    for (const int size : {16, 24, 32, 48, 64, 128, 256, 512}) {
+        appIcon.addFile(QStringLiteral(":/icons/app/kinoklip-%1.png").arg(size), QSize(size, size));
+    }
+    setWindowIcon(appIcon);
     // Every registered action works as an application-wide shortcut, menu or not.
     addActions(ctx.actions->actions());
     // Ctrl+Shift+[ etc. also when the layout reports Ctrl+Shift+{ (alpha.2 feedback).
