@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // NormalizeAudioDialog — Clip > Normalize Audio Levels: mode, target level, relative or
 // independent levelling; measures the clips off the GUI thread and sets their volume as one
-// undo step (spec 37.40).
+// undo step (spec 37.35).
 #pragma once
 
 #include "render/AudioNormalize.h"
