@@ -45,6 +45,7 @@ struct MarkerRow
     QString note;
     QString location; ///< "Timeline" or the clip's name
     bool locked = false; ///< the clip's track is locked (name and notes are read-only)
+    int64_t duration = 1; ///< Marker::duration (frames; > 1 = a ranged marker)
 };
 
 /// Every clip of @p data as an event, ordered by record in, then video, audio, subtitle

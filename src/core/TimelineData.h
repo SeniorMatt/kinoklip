@@ -76,6 +76,12 @@ struct Marker
     QString name;
     QColor color = QColor(0x4c, 0x9b, 0xe8);
     QString note; ///< free text (marker editor, spec 18.5)
+    /// Length in frames (>= 1): 1 = a single-frame marker, more = a ranged marker covering
+    /// [frame, frame + duration) (spec 18.11). Saved only when > 1 (format 13).
+    int64_t duration = 1;
+
+    /// First frame after the marker's range.
+    [[nodiscard]] int64_t end() const { return frame + duration; }
 
     friend bool operator==(const Marker&, const Marker&) = default;
 };

@@ -561,6 +561,8 @@ bool Project::loadFrom(const QString& path, const QString& documentPath, QString
     // and "mixer" (timelines) objects; absent = a neutral mixer (main bus only, every track
     // routed to it, faders at 0 dB), which plays exactly like the older mix: nothing to
     // convert (serialization::trackMixFromJson() / mixerFromJson() give the defaults).
+    // Versions <= 12 -> 13 only added the optional marker "duration" (absent = 1 frame, what
+    // every older marker is): nothing to convert.
 
     // Media paths stored relative to the document resolve against the document's folder
     // (for a recovered autosave that is the original project file, not the autosave dir).

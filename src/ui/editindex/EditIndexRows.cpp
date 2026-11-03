@@ -154,7 +154,8 @@ std::vector<MarkerRow> markers(const TimelineData& data)
 {
     std::vector<MarkerRow> rows;
     for (const Marker& m : data.markers) {
-        rows.push_back({0, 0, m.frame, m.frame, m.name, m.color, m.note, tr("Timeline"), false});
+        rows.push_back(
+            {0, 0, m.frame, m.frame, m.name, m.color, m.note, tr("Timeline"), false, m.duration});
     }
     for (TrackType type : {TrackType::Video, TrackType::Audio, TrackType::Subtitle}) {
         for (const TrackData& track : data.tracks(type)) {
@@ -164,7 +165,7 @@ std::vector<MarkerRow> markers(const TimelineData& data)
                     if (m.frame < 0 || m.frame >= clip.duration)
                         continue;
                     rows.push_back({0, clip.id, clip.start + m.frame, m.frame, m.name, m.color,
-                        m.note, clip.name, track.locked});
+                        m.note, clip.name, track.locked, m.duration});
                 }
             }
         }

@@ -4,6 +4,7 @@
 #include "ui/timeline/TimelineDialogs.h"
 
 #include "core/Project.h"
+#include "ui/common/TimecodeFormat.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
 
 #include <QCheckBox>
@@ -88,7 +89,7 @@ HandleChoice askHandles(QWidget* parent, int64_t missingFrames, bool canShorten)
     return HandleChoice::Cancel;
 }
 
-bool editMarker(QWidget* parent, Marker& marker, bool clipMarker)
+bool editMarker(QWidget* parent, Marker& marker, bool clipMarker, Rational fps)
 {
     QDialog dialog(parent);
     dialog.setWindowTitle(clipMarker ? tr("Clip Marker") : tr("Timeline Marker"));
@@ -107,10 +108,15 @@ bool editMarker(QWidget* parent, Marker& marker, bool clipMarker)
         current = color->count() - 1;
     }
     color->setCurrentIndex(current);
+    // Duration as a timecode: 00:00:00:01 is a single-frame marker (spec 18.11).
+    auto* duration = new QLineEdit(timecode::format(marker.duration, fps));
+    duration->setObjectName(QStringLiteral("MarkerDuration"));
+    duration->setToolTip(tr("Length of the marker (hh:mm:ss:ff); one frame = a single marker"));
     auto* note = new QPlainTextEdit(marker.note);
     note->setTabChangesFocus(true);
     form->addRow(tr("Name"), name);
     form->addRow(tr("Color"), color);
+    form->addRow(tr("Duration"), duration);
     form->addRow(tr("Notes"), note);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
@@ -124,6 +130,8 @@ bool editMarker(QWidget* parent, Marker& marker, bool clipMarker)
     marker.name = name->text();
     marker.color = color->currentData().value<QColor>();
     marker.note = note->toPlainText();
+    if (const auto frames = timecode::parse(duration->text(), fps); frames && *frames > 0)
+        marker.duration = *frames;
     return true;
 }
 

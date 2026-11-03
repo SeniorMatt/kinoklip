@@ -751,8 +751,11 @@ std::vector<int64_t> snapCandidates(
         frames.push_back(data.markIn);
     if (data.markOut >= 0)
         frames.push_back(data.markOut);
-    for (const Marker& m : data.markers)
+    for (const Marker& m : data.markers) {
         frames.push_back(m.frame);
+        if (m.duration > 1)
+            frames.push_back(m.end()); // ranged markers: both ends (spec 18.11)
+    }
     forEachTrack(data, [&](TrackRef, const TrackData& track) {
         for (const ClipData& c : track.clips) {
             if (excludeClipIds.contains(c.id))
