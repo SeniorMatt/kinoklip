@@ -2,23 +2,22 @@
 // AudioOutput — QAudioSink (pull mode) on a dedicated thread, reading from an AudioRing.
 #include "playback/AudioOutput.h"
 
-#include "core/Preferences.h"
 #include "media/MediaLog.h"
+#include "playback/AudioDeviceMonitor.h"
 #include "playback/AudioRing.h"
+#include "playback/AudioRouting.h"
 #include "playback/PlaybackLog.h"
 
 #include <QAudioDevice>
 #include <QAudioFormat>
 #include <QAudioSink>
 #include <QIODevice>
-#include <QMediaDevices>
 #include <QThread>
 #include <QTimer>
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <vector>
 
 namespace kk {
 
@@ -37,8 +36,6 @@ constexpr int kChannels = 2;
 constexpr int kDeviceBufferMs = 60;
 /// How often the audio thread refreshes the played-position estimate between device pulls.
 constexpr int kPositionPollMs = 5;
-/// Initial size of the int16 conversion scratch buffer (frames); grows if a device asks more.
-constexpr size_t kScratchFrames = 16384;
 
 /// Played-position estimate shared between the audio thread (writer) and the GUI thread.
 struct PositionState
@@ -47,58 +44,24 @@ struct PositionState
     std::atomic<int64_t> atUs {0};
 };
 
-/// QIODevice the QAudioSink pulls from. Lives on (and is only used by) the audio thread.
+/// QIODevice the QAudioSink pulls from (a RingPuller behind the QIODevice interface). Lives on
+/// (and is only used by) the audio thread. One per play: a device switch keeps it, so the new
+/// stream continues at the ring position (and with the underrun debt) of the previous one.
 class RingDevice : public QIODevice
 {
 public:
     RingDevice(AudioRing* ring, bool int16)
-        : m_ring(ring)
-        , m_int16(int16)
-    {
-        if (m_int16) {
-            m_scratch.resize(kScratchFrames * kChannels);
-        }
-    }
+        : m_puller(ring, int16)
+    { }
 
-    /// Frames handed to the device so far, silence padding included.
-    [[nodiscard]] int64_t pulled() const { return m_pulled; }
+    [[nodiscard]] RingPuller& puller() { return m_puller; }
 
 protected:
     qint64 readData(char* data, qint64 maxlen) override
     {
-        const int bytesPerFrame = kChannels * (m_int16 ? int(sizeof(int16_t)) : int(sizeof(float)));
+        const int bytesPerFrame = m_puller.bytesPerFrame();
         const size_t frames = size_t(maxlen / bytesPerFrame);
-        if (frames == 0) {
-            return 0;
-        }
-        float* out = reinterpret_cast<float*>(data);
-        if (m_int16) {
-            if (m_scratch.size() < frames * kChannels) {
-                m_scratch.resize(frames * kChannels); // rare: device asked for a bigger chunk
-            }
-            out = m_scratch.data();
-        }
-        // Pay back earlier underruns first: the frames that should have played during the
-        // silence are dropped so the device position keeps matching the timeline position.
-        while (m_skipDebt > 0) {
-            const size_t skipped = m_ring->read(out, std::min<size_t>(size_t(m_skipDebt), frames));
-            if (skipped == 0) {
-                break;
-            }
-            m_skipDebt -= int64_t(skipped);
-        }
-        const size_t got = m_ring->read(out, frames);
-        if (got < frames) {
-            std::fill(out + got * kChannels, out + frames * kChannels, 0.0f);
-            m_skipDebt += int64_t(frames - got);
-        }
-        if (m_int16) {
-            auto* dst = reinterpret_cast<int16_t*>(data);
-            for (size_t i = 0; i < frames * kChannels; ++i) {
-                dst[i] = int16_t(std::clamp(out[i], -1.0f, 1.0f) * 32767.0f);
-            }
-        }
-        m_pulled += int64_t(frames);
+        m_puller.pull(data, frames);
         return qint64(frames) * bytesPerFrame;
     }
     qint64 writeData(const char*, qint64) override { return -1; }
@@ -110,16 +73,41 @@ protected:
     }
 
 private:
-    AudioRing* m_ring;
-    bool m_int16;
-    std::vector<float> m_scratch;
-    int64_t m_pulled = 0;
-    int64_t m_skipDebt = 0;
+    RingPuller m_puller;
 };
+
+/// 48 kHz stereo float, or int16 when @p device rejects float.
+QAudioFormat formatFor(const QAudioDevice& device)
+{
+    QAudioFormat format;
+    format.setSampleRate(kSampleRate);
+    format.setChannelCount(kChannels);
+    format.setSampleFormat(QAudioFormat::Float);
+    if (!device.isNull() && !device.isFormatSupported(format)) {
+        format.setSampleFormat(QAudioFormat::Int16);
+    }
+    return format;
+}
+
+QString describe(const QAudioDevice& device, const QAudioFormat& format)
+{
+    if (device.isNull()) {
+        return QStringLiteral("none");
+    }
+    return device.description()
+        + (format.sampleFormat() == QAudioFormat::Int16 ? QStringLiteral(" (int16)")
+                                                        : QStringLiteral(" (float)"));
+}
 
 /// QAudioSink-backed AudioOutput. The sink, its QIODevice and a position timer are created on
 /// the audio thread for every start() and destroyed on stop(): a fresh stream per play makes
 /// processedUSecs() start at 0 and discards whatever the previous play left in the device.
+///
+/// The device follows AudioDeviceMonitor (system default or the chosen device, see there).
+/// When it changes during a play, only the QAudioSink is replaced: the ring, its contents, the
+/// RingDevice (ring position, underrun debt) and the played-frame count are kept, so the engine
+/// clock continues (it steps forwards over the few ms the old device had buffered, never
+/// backwards) and playback goes on without a stop.
 class QtAudioOutput final : public AudioOutput
 {
 public:
@@ -143,11 +131,7 @@ public:
     QString description() const override
     {
         ensureInitialised();
-        if (m_device.isNull()) {
-            return QStringLiteral("none");
-        }
-        return m_device.description()
-            + (m_int16 ? QStringLiteral(" (int16)") : QStringLiteral(" (float)"));
+        return describe(m_device, m_format);
     }
 
     bool start(AudioRing* ring) override
@@ -161,9 +145,13 @@ public:
         m_position.atUs.store(monotonicUs());
         bool ok = false;
         // Blocking: creating a stream takes a few ms; afterwards the device pulls on its own.
+        const QAudioDevice device = m_device;
+        const QAudioFormat format = m_format;
         QMetaObject::invokeMethod(
-            &m_context, [this, ring, &ok] { ok = startOnAudioThread(ring); },
+            &m_context,
+            [this, ring, &device, &format, &ok] { ok = startOnAudioThread(ring, device, format); },
             Qt::BlockingQueuedConnection);
+        m_running = ok;
         return ok;
     }
 
@@ -172,13 +160,14 @@ public:
         if (!m_initialised) {
             return;
         }
+        m_running = false;
         QMetaObject::invokeMethod(
             &m_context, [this] { stopOnAudioThread(); }, Qt::BlockingQueuedConnection);
     }
 
     void setVolume(float volume) override
     {
-        m_volume = volume;
+        m_volume.store(volume);
         if (!m_initialised) {
             return; // applied when the sink is created
         }
@@ -199,7 +188,7 @@ public:
 
 private:
     /// Device query and audio thread are set up on first use: engines that never play (most
-    /// source viewers, tests) cost nothing. GUI thread (QMediaDevices).
+    /// source viewers, tests) cost nothing. GUI thread (AudioDeviceMonitor).
     void ensureInitialised() const
     {
         if (m_initialised) {
@@ -210,41 +199,63 @@ private:
         // KK_NO_AUDIO=1 (tests, CI, headless renders): behave as if there were no device, so
         // nothing ever becomes audible and the engine uses its wall clock.
         if (qEnvironmentVariableIntValue("KK_NO_AUDIO") == 0) {
-            self->m_device = QMediaDevices::defaultAudioOutput();
-            // Preferences > System > Audio I/O: a chosen device, if it is connected.
-            const QByteArray wanted = prefs::audioOutputDevice().toUtf8();
-            for (const QAudioDevice& device : QMediaDevices::audioOutputs()) {
-                if (!wanted.isEmpty() && device.id() == wanted)
-                    self->m_device = device;
-            }
+            AudioDeviceMonitor* monitor = AudioDeviceMonitor::instance();
+            self->m_device = monitor->current();
+            QObject::connect(monitor, &AudioDeviceMonitor::currentChanged, &self->m_guiContext,
+                [self](const QAudioDevice& device) { self->switchDevice(device); });
         }
-        // QMediaDevices just initialised Qt Multimedia, whose FFmpeg backend replaces FFmpeg's
+        // The monitor just initialised Qt Multimedia, whose FFmpeg backend replaces FFmpeg's
         // log callback: take FFmpeg's messages back into kk.media.
         media::installFfmpegLogRouting();
-        self->m_format.setSampleRate(kSampleRate);
-        self->m_format.setChannelCount(kChannels);
-        self->m_format.setSampleFormat(QAudioFormat::Float);
-        if (!m_device.isNull() && !m_device.isFormatSupported(m_format)) {
-            self->m_format.setSampleFormat(QAudioFormat::Int16);
-            self->m_int16 = true;
-        }
+        self->m_format = formatFor(m_device);
         self->m_thread.setObjectName(QStringLiteral("kk.audio"));
         self->m_context.moveToThread(&self->m_thread);
         self->m_thread.start(QThread::TimeCriticalPriority);
         qCInfo(lcPlayback).noquote() << "audio output:" << description();
     }
 
-    bool startOnAudioThread(AudioRing* ring)
+    /// AudioDeviceMonitor::currentChanged (GUI thread): an idle output just remembers the
+    /// device for its next start(); a playing one moves its stream now.
+    void switchDevice(const QAudioDevice& device)
     {
-        m_sink = new QAudioSink(m_device, m_format);
-        const int bytesPerFrame = m_format.bytesPerFrame();
-        m_sink->setBufferSize(kSampleRate * kDeviceBufferMs / 1000 * bytesPerFrame);
-        m_sink->setVolume(m_volume);
-        m_ringDevice = new RingDevice(ring, m_int16);
+        if (device.id() == m_device.id() && device.isNull() == m_device.isNull()) {
+            return;
+        }
+        const QString from = describe(m_device, m_format);
+        m_device = device;
+        m_format = formatFor(device);
+        if (!m_running) {
+            return;
+        }
+        if (device.isNull()) {
+            // Nothing left to play on: the engine notices the stalled position and falls back
+            // to its wall clock; the next start() reports no device.
+            stop();
+            qCInfo(lcPlayback).noquote()
+                << "audio output: stream on" << from << "stopped, no output device left";
+            return;
+        }
+        bool ok = false;
+        const QAudioFormat format = m_format;
+        QMetaObject::invokeMethod(
+            &m_context, [this, &device, &format, &ok] { ok = switchOnAudioThread(device, format); },
+            Qt::BlockingQueuedConnection);
+        if (ok) {
+            qCInfo(lcPlayback).noquote() << "audio output: playing stream moved from" << from
+                                         << "to" << describe(m_device, m_format);
+        } else {
+            qCWarning(lcPlayback).noquote()
+                << "audio output: could not move the playing stream" << "from" << from << "to"
+                << describe(m_device, m_format);
+        }
+    }
+
+    bool startOnAudioThread(AudioRing* ring, const QAudioDevice& device, const QAudioFormat& format)
+    {
+        m_tracker.reset();
+        m_ringDevice = new RingDevice(ring, format.sampleFormat() == QAudioFormat::Int16);
         m_ringDevice->open(QIODevice::ReadOnly);
-        m_sink->start(m_ringDevice);
-        if (m_sink->error() != QAudio::NoError) {
-            qCWarning(lcPlayback) << "audio sink failed to start, error" << m_sink->error();
+        if (!openSink(device, format)) {
             stopOnAudioThread();
             return false;
         }
@@ -255,15 +266,58 @@ private:
         return true;
     }
 
+    /// Opens a stream on @p device that continues pulling from m_ringDevice where the previous
+    /// stream (if any) stopped.
+    bool openSink(const QAudioDevice& device, const QAudioFormat& format)
+    {
+        m_sinkFormat = format;
+        m_ringDevice->puller().setInt16(format.sampleFormat() == QAudioFormat::Int16);
+        // The new stream's processedUSecs() starts at 0 at this ring frame.
+        m_tracker.beginStream(m_ringDevice->puller().pulled());
+        if (!m_ringDevice->isOpen()) {
+            m_ringDevice->open(QIODevice::ReadOnly); // some backends close it on stop()
+        }
+        m_sink = new QAudioSink(device, format);
+        m_sink->setBufferSize(kSampleRate * kDeviceBufferMs / 1000 * format.bytesPerFrame());
+        m_sink->setVolume(m_volume.load());
+        m_sink->start(m_ringDevice);
+        if (m_sink->error() != QAudio::NoError) {
+            qCWarning(lcPlayback) << "audio sink failed to start, error" << m_sink->error();
+            closeSink(false);
+            return false;
+        }
+        return true;
+    }
+
+    /// Stops and deletes the current stream; with @p measure, takes its last position first.
+    void closeSink(bool measure)
+    {
+        if (!m_sink) {
+            return;
+        }
+        if (measure) {
+            updatePosition();
+        }
+        m_sink->stop();
+        delete m_sink;
+        m_sink = nullptr;
+    }
+
+    /// Device switch during a play: a new stream on @p device, everything else kept.
+    bool switchOnAudioThread(const QAudioDevice& device, const QAudioFormat& format)
+    {
+        if (!m_ringDevice) {
+            return false; // stopped in the meantime
+        }
+        closeSink(true);
+        return openSink(device, format);
+    }
+
     void stopOnAudioThread()
     {
         delete m_timer;
         m_timer = nullptr;
-        if (m_sink) {
-            m_sink->stop();
-            delete m_sink;
-            m_sink = nullptr;
-        }
+        closeSink(false);
         delete m_ringDevice;
         m_ringDevice = nullptr;
     }
@@ -272,36 +326,41 @@ private:
     /// still queued in the sink's buffer). Backends differ: some report processedUSecs() as
     /// "written to the server" (then the second term is the right one), PulseAudio/PipeWire
     /// report the playing position (already latency compensated, then the first term is
-    /// smaller). Taking the minimum is right for both.
+    /// smaller). Taking the minimum is right for both. PlayedFramesTracker adds the frames of
+    /// earlier streams of this play (device switches).
     void updatePosition()
     {
         if (!m_sink || !m_ringDevice) {
             return;
         }
-        const int bytesPerFrame = m_format.bytesPerFrame();
+        const int bytesPerFrame = m_sinkFormat.bytesPerFrame();
         const int64_t processed = m_sink->processedUSecs() * kSampleRate / 1000000;
         const int64_t buffered = std::max<int64_t>(
             0, int64_t(m_sink->bufferSize() - m_sink->bytesFree()) / bytesPerFrame);
-        const int64_t queuedEstimate = m_ringDevice->pulled() - buffered;
-        const int64_t played = std::max<int64_t>(0, std::min(processed, queuedEstimate));
         const int64_t previous = m_position.played.load(std::memory_order_relaxed);
+        const int64_t played
+            = m_tracker.update(processed, buffered, m_ringDevice->puller().pulled());
         if (played > previous) {
             m_position.played.store(played, std::memory_order_release);
             m_position.atUs.store(monotonicUs(), std::memory_order_release);
         }
     }
 
+    // GUI thread:
     bool m_initialised = false;
+    bool m_running = false; ///< a stream exists (between a successful start() and stop())
     QAudioDevice m_device;
     QAudioFormat m_format;
-    bool m_int16 = false;
-    float m_volume = 1.0f;
+    QObject m_guiContext; ///< receiver of AudioDeviceMonitor signals (GUI thread)
+    std::atomic<float> m_volume {1.0f};
     QThread m_thread;
     QObject m_context; ///< lives on m_thread; target of invokeMethod()
     // Audio-thread objects:
     QAudioSink* m_sink = nullptr;
+    QAudioFormat m_sinkFormat;
     RingDevice* m_ringDevice = nullptr;
     QTimer* m_timer = nullptr;
+    PlayedFramesTracker m_tracker;
     PositionState m_position;
 };
 
