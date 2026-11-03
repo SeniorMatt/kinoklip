@@ -98,6 +98,13 @@ void gridLines(QSizeF frame, int divisions, std::vector<double>& xs, std::vector
 /// std::nullopt when nothing is in reach. Ties keep the first feature / target.
 [[nodiscard]] std::optional<double> snapOffset(
     std::span<const double> features, std::span<const double> targets, double threshold);
+/// Where a guide being dragged with Ctrl held snaps to, frame px along the axis the guide
+/// moves on (x for a vertical guide, y for a horizontal one): the frame edges and centre, the
+/// thirds and quarters, the action and title safe edges, the lines of a shown grid
+/// (@p gridDivisions, 0 = no grid), the edges of an aspect marker (@p aspect, 0 = off) and the
+/// other guides of that orientation (@p others). Sorted, without duplicates.
+[[nodiscard]] std::vector<double> guideSnapTargets(QSizeF frame, Qt::Orientation orientation,
+    const std::vector<double>& others, int gridDivisions = 0, double aspect = 0.0);
 /// Positions of the guides of @p list with @p orientation (snap targets of one axis).
 [[nodiscard]] std::vector<double> positions(
     const std::vector<ViewerGuide>& list, Qt::Orientation orientation);

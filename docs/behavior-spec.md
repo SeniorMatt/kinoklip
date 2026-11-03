@@ -898,6 +898,7 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.15 | Show / lock / snap, guide colour, rulers, safe areas, aspect marker and grid are the user's settings (the same in every viewer and project, kept across sessions); only the guide positions belong to the project. | Fixed (gu safeAreaAndGridActions). Decision: per user in QSettings (`viewer/overlays/...`), because they are viewing preferences, not part of the edit. |
 | 41.16 | None of the new commands has a default key (no known Resolve default); they are assignable in Keyboard Customization. | Fixed (scripts/keymap-resolve-windows.py rows) |
 | 41.17 | Snapping of mask points to guides; panning the zoomed viewer (the rulers follow `pictureRect()`, so a pan will move them too); colours per guide. | Deferred |
+| 41.18 | Holding Ctrl while dragging a guide (from a ruler or an existing one) snaps it within 8 screen px onto the frame edges, centre, thirds, quarters, action / title safe edges, the shown grid, the aspect marker and the other guides; pressing or releasing Ctrl mid-drag applies at once (owner request on 0.4.0; Ctrl flips snapping as in transform drags, 41.9). | Fixed (gu ctrlDragSnapsTheGuide, vg guideSnapTargets) |
 
 ## Summary
 
