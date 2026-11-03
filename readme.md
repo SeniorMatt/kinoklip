@@ -23,10 +23,30 @@ All releases are alpha or beta pre-releases for now: expect bugs and keep backup
 - [Resolve keymap](docs/keymap-resolve-windows.md): default keyboard shortcuts
 - [Release notes](docs/releases/): changes in each release
 - [Linux packaging](packaging/linux/readme.md): building the `.run` and portable bundle
+- [Clean-room policy](docs/clean-room.md): what may and may not be used to build Kinoklip
+- [Attribution](attribution.md): every asset with its author and licence
 
 ## License
 GPL-3.0-or-later, see [license.md](license.md). Release bundles include GPL FFmpeg components;
 third-party notices are inside the bundle under `usr/share/doc/kinoklip/`.
+
+## Legal
+- **Independent project.** Kinoklip is not affiliated with, sponsored by or endorsed by Blackmagic
+  Design. DaVinci Resolve, Fusion, Fairlight and Blackmagic Design are trademarks or registered
+  trademarks of Blackmagic Design Pty Ltd. They are named here only to describe the workflow and
+  shortcuts Kinoklip follows. Other names (Qt, KDE, FFmpeg, YouTube, Vimeo and others) are
+  trademarks of their owners.
+- **Clean room.** Kinoklip is written from general knowledge of how Resolve behaves and from public,
+  open specifications. It contains no Blackmagic code, icons, images, fonts, presets, LUTs or
+  documentation text, and Resolve is never installed, run or decompiled to build it. The rules and
+  their limits are in [docs/clean-room.md](docs/clean-room.md); every asset and its licence is in
+  [attribution.md](attribution.md).
+- **No warranty.** Kinoklip is provided "as is", without any warranty, as stated in the GPL
+  (sections 15 and 16 of [license.md](license.md)). It is alpha software: keep backups.
+- **Codecs.** Some video and audio formats (for example H.264, H.265 and AAC) are covered by
+  patents in some countries. The bundles use open-source implementations of them; whether you need
+  a patent licence to use them depends on where you live and what you do with them, and is your
+  responsibility.
 
 ## AI disclosure
 This project was built with AI: the code, tests and documentation were written by AI, directed

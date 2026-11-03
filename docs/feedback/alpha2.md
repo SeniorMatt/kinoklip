@@ -1,5 +1,8 @@
 # Owner feedback on 0.1.0-alpha.2
 
+The screenshots named below are kept only on the development machine (`local/feedback/`, not in the
+repository): they show private files and third-party images.
+
 Screenshots: alpha2-7.png (our Import Media dialog: Qt's own widget dialog), alpha2-8.png (the KDE /
 Dolphin file dialog the owner wants instead), alpha2-9.png (viewer during playback: very pixelated),
 alpha2-10.png (viewer paused: sharp; red arrow at the top-right of the timeline viewer header, where

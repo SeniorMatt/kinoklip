@@ -1,5 +1,8 @@
 # Owner feedback on 0.1.0-alpha.1 (tested on T14s Gen 2, KDE Linux, Wayland)
 
+The screenshots named below are kept only on the development machine (`local/feedback/`, not in the
+repository): they show private files and third-party images.
+
 Screenshots: alpha1-2.png (light/system scheme after switching: half-switched UI, menu arrow
 overlapping "Color Theme"), alpha1-3.png (submenu arrow overlaps text), alpha1-4.png (Fit/Auto
 combos cramped, no padding), alpha1-5.png (Deliver preset strip: clipped labels "YouTube ... 1080",

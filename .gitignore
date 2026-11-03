@@ -6,3 +6,6 @@ tests/data/generated/
 .cache/
 compile_commands.json
 logs/
+
+# Local-only material (owner feedback screenshots with private content): never committed
+/local/
