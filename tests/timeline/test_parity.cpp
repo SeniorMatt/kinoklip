@@ -325,6 +325,34 @@ private slots:
         QCOMPARE(v.f.selection.clips(), QVector<quint64>({a}));
     }
 
+    void spec7_3_altDragCarriesTransitions()
+    {
+        // Owner request on 0.4.0: the copy of an Alt-dragged clip keeps its transitions.
+        // The transition at the head cut and the one at the tail cut (stored on the clip to
+        // the right, which stays behind) both go with the copy.
+        View v;
+        v.put(kV1, mediaClip(0, 20));
+        const quint64 b = v.put(kV1, mediaClip(20, 20));
+        const quint64 c = v.put(kV1, mediaClip(40, 20));
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        TransitionData t;
+        t.duration = 6;
+        ops::clipById(v.f.data(), b)->transitionIn = t;
+        t.duration = 8;
+        ops::clipById(v.f.data(), c)->transitionIn = t;
+        v.f.project.endEdit();
+        v.drag(v.at(30, kV1), v.at(100, kV1), Qt::AltModifier);
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:20 20:20 40:20 90:20"));
+        const ClipData& copy = v.f.view().track(kV1)->clips[3];
+        QVERIFY(copy.transitionIn.has_value());
+        QCOMPARE(copy.transitionIn->duration, int64_t(6));
+        QVERIFY(copy.transitionOut.has_value());
+        QCOMPARE(copy.transitionOut->duration, int64_t(8));
+        QCOMPARE(v.f.view().track(kV1)->clips[1].transitionIn->duration, int64_t(6)); // kept
+        QCOMPARE(v.f.view().track(kV1)->clips[2].transitionIn->duration, int64_t(8));
+        QVERIFY(!v.f.view().track(kV1)->clips[1].transitionOut);
+    }
+
     void spec7_6_clickEdgeSelectsEditPoint()
     {
         View v;
@@ -599,6 +627,40 @@ private slots:
     }
 
     // ---- 16 Clipboard ----
+
+    void spec16_6_pasteCarriesTransitions()
+    {
+        // Owner request on 0.4.0: Ctrl+C / Ctrl+V of a clip takes its transitions along (as
+        // Alt-drag, spec 7.3), shortened to fit a new neighbour.
+        Ctl t;
+        t.put(kV1, mediaClip(0, 20));
+        const quint64 b = t.put(kV1, mediaClip(20, 20));
+        const quint64 c = t.put(kV1, mediaClip(40, 20));
+        t.put(kV1, mediaClip(198, 2)); // a 2-frame clip the second paste touches
+        t.f.project.beginEdit(QStringLiteral("setup"));
+        TransitionData tx;
+        tx.duration = 6;
+        ops::clipById(t.f.data(), b)->transitionIn = tx;
+        tx.duration = 8;
+        ops::clipById(t.f.data(), c)->transitionIn = tx;
+        t.f.project.endEdit();
+        t.f.selection.setClips({b});
+        t.action("edit.copy")->trigger();
+        t.tl()->setPlayhead(100);
+        t.action("edit.paste")->trigger();
+        const ClipData* copy = ops::clipById(t.f.view(), t.f.selection.clips().value(0));
+        QVERIFY(copy && copy->start == 100);
+        QCOMPARE(copy->transitionIn->duration, int64_t(6));
+        QCOMPARE(copy->transitionOut->duration, int64_t(8));
+        // After a 2-frame clip the centred head transition fits 5 frames (2 * 2 + 1).
+        t.tl()->setPlayhead(200);
+        t.action("edit.paste")->trigger();
+        copy = ops::clipById(t.f.view(), t.f.selection.clips().value(0));
+        QVERIFY(copy && copy->start == 200);
+        QCOMPARE(copy->transitionIn->duration, int64_t(5));
+        QString why;
+        QVERIFY2(ops::checkInvariants(t.f.view(), &why), qPrintable(why));
+    }
 
     void spec16_3_pasteInsertRipples()
     {

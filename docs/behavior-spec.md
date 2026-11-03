@@ -147,6 +147,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 7.11 | Y / Ctrl+Y select the clips forward / backward from the playhead on the auto-select tracks; Alt+Y / Ctrl+Alt+Y on all tracks. | Fixed (new; pe2 spec7_11) |
 | 7.12 | V selects the edit point nearest to the playhead (video tracks first); at a cut both sides (roll). | Fixed (new; pe2 spec7_12) |
 | 7.13 | Shift+V selects the clip under the playhead, else the gap under it. | Fixed (new; pe2 spec7_13) |
+| 7.14 | An Alt-drag duplicate takes the clips' transitions along: one between two duplicated clips is copied as it is, one at the head or tail cut of a duplicated clip whose neighbour stays behind becomes the copy's head / tail transition, shortened to fit the copy's new neighbour (a fade from / to black without one, 13.6) and dropped where nothing fits or (at the tail) where the clip after the copy already has its own transition at that cut. The same rule as Ctrl+C / Ctrl+V (16.6). | Fixed (owner request on 0.4.0; tp spec7_3_altDragCarriesTransitions) |
 
 ## 8. Trimming
 
@@ -209,6 +210,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 11.5 | Pressing N during a drag turns snapping off / on for the rest of the gesture. | OK (the drag reads the live state; shortcut works during a mouse grab) |
 | 11.6 | A moved clip snaps with whichever of its edges is closer to a target. | OK (tw moveSnapsToEdges) |
 | 11.7 | Dragged clips never snap to themselves. | OK (exclusion list) |
+| 11.8 | Clip markers snap too, at their timeline frame (both ends of a ranged one), for every gesture that snaps to edit points (moves, trims, the playhead scrub, marker drags, the blade, drops); markers trimmed out of the clip's visible part and those of the dragged clips do not. | Fixed (owner request on 0.4.0; eo snappingToClipMarkers) |
 
 ## 12. Track headers
 
@@ -249,6 +251,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 13.14 | Dropping an audio transition on an audio cut stores it on the incoming clip, centred, the standard drop length; on the free start or end of an audio clip it fades from / to silence. Audio transitions are refused on video clips and video transitions on audio clips (before 0.4.1 a video transition could be dropped on audio). | Fixed (`effectactions::transitionFitsTrack()`; test_timelinewidget spec13_14_dropAudioTransitionOnAudioCut) |
 | 13.15 | Double-clicking an audio transition in the library adds it to the selected audio clip (the end nearer the playhead; with a linked video + audio pair selected, the audio clip). Ctrl+T and the Inspector's add buttons put Cross Fade +3 dB on audio clips (Cross Dissolve on video). The Inspector's Transition tab shows Type (audio transitions only, for audio clips), Alignment (Center / Start / End on Edit) and Duration. | Fixed (`effectactions::defaultTransitionId()`; test_effectslibrary spec13_15_audioTransitionActivation) |
 | 13.16 | Audio transitions save and load with their type, length and alignment; older projects load unchanged (a video id such as cross_dissolve on an audio clip, or none, plays as +3 dB). No project format change. | Fixed (test_audiotransitions spec13_16_saveLoadRoundTrip) |
+| 13.17 | Alt+drag a transition block onto a clip copies the transition to the clip edge nearer the pointer (at a cut: that cut); it replaces a transition already there, is shortened to fit the clips, and becomes the selected transition; one undo step "Copy Transition". | Fixed (owner request on 0.4.0; pe2 spec13_17_altDragCopiesATransition). Decision: the target is the clip under the pointer on a track of the source's type; no target outside clips or on a locked track. |
 
 ## 14. Titles, generators, stills
 
@@ -294,6 +297,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 16.3 | Ctrl+Shift+V paste insert ripples the timeline to make room. | Fixed (new; tp spec16_3_pasteInsertRipples) |
 | 16.4 | Paste attributes (Alt+V): a dialog picks transform, effects, volume, pan and speed; video groups go to video clips, audio groups to audio clips (linked parts included); one undo step. | Fixed (pe2 spec16_4) |
 | 16.5 | With no clip selected, Ctrl+C / Ctrl+X copy / cut the marked range of the auto-select tracks. | Fixed (new; pe2 spec16_5) |
+| 16.6 | Copied clips take their transitions along as in 7.14: Ctrl+V / Ctrl+Shift+V paste them, fitted to the pasted clips' new neighbours. | Fixed (owner request on 0.4.0; tp spec16_6_pasteCarriesTransitions) |
 
 ## 17. Undo
 
@@ -316,7 +320,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 18.2 | Markers are drawn in the ruler and are snap targets. | OK |
 | 18.3 | Navigation with Shift+Up / Shift+Down (2.9). | Fixed |
 | 18.4 | With a clip selected under the playhead, M adds a clip marker; clip markers follow the content on trims and splits like keyframes and are drawn on the clip. | Fixed (`ClipData::markers`; pe2 spec18_4) |
-| 18.5 | Pressing M on an existing marker, Ctrl+M (add and modify) or double-clicking a ruler marker opens its name / colour / note editor. | Fixed (marker editor dialog; pe2 spec18_5) |
+| 18.5 | Pressing M on an existing marker, Ctrl+M (add and modify) or double-clicking a ruler marker opens its name / colour / note editor. | Fixed (marker editor dialog; pe2 spec18_5). Since 0.4.1 M on an existing marker removes it (18.16); Ctrl+M and the double-click still open the editor. |
 | 18.6 | Alt+M deletes the timeline marker at the playhead. | Fixed (new; pe2 spec18_6) |
 | 18.7 | Right-click on a marker in the ruler: Modify Marker… (the marker editor, as a double-click) and Delete Marker. | Fixed (polish round 2; p2 contextMenusOfferTheBasics) |
 | 18.8 | Edit Index (Edits): a table of the timeline's events like an EDL: #, Reel (source file name), Name, Track, Source In / Out (source timecode with the media's start timecode), Record In / Out, Duration, Notes (transitions, speed, disabled, offline). Clicking a row (or moving through the rows with the keyboard) moves the playhead to the record in and selects the clip; selecting a clip in the timeline makes its row current. Search over every column. Follows every edit live; colours from the scheme. | Fixed (polish round 3; test_editindex). Decision: one row per clip (linked video and audio are separate events, as on the tracks); Notes is read-only here (clips have no note field). |
@@ -327,6 +331,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 18.13 | File > Export > Timeline Markers to EDL (one event per marker, record out = its end, "* LOC: timecode COLOR name", "* COMMENT: notes") and to CSV (#, Name, Start, End, Duration, Color, Notes). Clip markers are not included. | Fixed (polish round 4; test_edlexport) |
 | 18.14 | Dragging a ruler marker's flag moves it by whole frames (snapping), one undo step "Move Marker"; it never lands on another marker. A click on a flag without dragging moves the playhead to the marker. | Fixed (polish round 4 audit A9; p4 spec18_14_markersMoveButNeverOntoAnother) |
 | 18.15 | Double-clicking a clip marker's diamond opens the marker editor; hovering a ruler or clip marker shows its name, timecode, duration and notes as a tool tip. | Fixed (polish round 4 audit A10 / A11; p4 spec18_15_clipMarkerDoubleClickOpensTheEditor) |
+| 18.16 | M toggles a marker: on an existing marker it removes it instead of adding a second one (with a clip selected under the playhead the clip marker starting at the playhead, otherwise the timeline marker starting there; a ranged marker counts at its start frame); one undo step "Delete Marker". Ctrl+M still opens the editor, Alt+M is unchanged. | Fixed (owner request on 0.4.0, supersedes "M on an existing marker" in 18.5; pe2 spec18_16_mTogglesAMarker). The Source viewer has no markers, so nothing changes there. |
 
 ## 19. Zoom and scrolling
 
