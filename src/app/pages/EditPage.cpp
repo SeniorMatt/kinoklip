@@ -32,7 +32,6 @@
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
-#include <QResizeEvent>
 #include <QCloseEvent>
 #include <QCursor>
 #include <QGuiApplication>
@@ -122,8 +121,9 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_topRow->setStretchFactor(1, 1);
     m_topRow->setStretchFactor(2, 1);
     m_topRow->setSizes({kLeftColumnWidth, kViewerWidth, kViewerWidth, kRightColumnWidth});
-    // A drag by the user ends the automatic default widths (resizeEvent()).
+    // A drag by the user ends the automatic default widths (eventFilter()).
     connect(m_topRow, &QSplitter::splitterMoved, this, [this] { m_defaultWidths = false; });
+    m_topRow->installEventFilter(this);
 
     m_bottomRow = makeSplitter(Qt::Horizontal);
     m_bottomRow->addWidget(m_timeline);
@@ -372,23 +372,13 @@ void EditPage::hideEvent(QHideEvent* event)
         m_keyframesWindow->hide();
 }
 
-void EditPage::resizeEvent(QResizeEvent* event)
-{
-    Page::resizeEvent(event);
-    // Until the user drags a column splitter, keep the default column proportions at every
-    // size (the window often starts small and is maximised right after the first show).
-    if (m_defaultWidths && m_proportionsApplied)
-        applyDefaultWidths();
-}
-
 void EditPage::applyDefaultWidths()
 {
     const int width = m_topRow->width();
     if (width <= 0)
         return;
-    const auto scaled = [width](int reference) {
-        return int(qint64(reference) * width / kReferenceWidth);
-    };
+    const auto scaled
+        = [width](int reference) { return int(qint64(reference) * width / kReferenceWidth); };
     // The left column is wider while the docked Keyframes panel is in it (curve editor room).
     const bool keyframesDocked = !m_keyframesFloating && m_keyframesShown;
     const int left = scaled(keyframesDocked ? kKeyframesMinColumnWidth : kLeftColumnWidth);
@@ -511,7 +501,8 @@ void EditPage::ensureKeyframesHeight()
     // visible panels there (each keeps a usable minimum) ...
     QList<int> sizes = m_leftColumn->sizes();
     const int index = m_leftColumn->indexOf(m_keyframes);
-    if (index >= 0 && sizes.size() == m_leftColumn->count() && sizes[index] < kKeyframesMinDockHeight) {
+    if (index >= 0 && sizes.size() == m_leftColumn->count()
+        && sizes[index] < kKeyframesMinDockHeight) {
         int total = 0;
         int spare = 0;
         for (int i = 0; i < sizes.size(); ++i) {
@@ -635,6 +626,15 @@ void EditPage::tearOffKeyframes()
 
 bool EditPage::eventFilter(QObject* watched, QEvent* event)
 {
+    // Until the user drags a column splitter, keep the default column proportions at every
+    // size (the window often starts small and is maximised right after the first show). Done
+    // when the top row receives its new size, before QSplitter::resizeEvent() lays it out:
+    // then the row is laid out once per resize step, at the default widths (QSplitter's own
+    // pass finds every child at its size already). Re-applying from EditPage::resizeEvent()
+    // laid every panel of the row out twice per live-resize step (test_resizebench sweep).
+    if (watched == m_topRow && event->type() == QEvent::Resize && m_defaultWidths
+        && m_proportionsApplied)
+        applyDefaultWidths();
     // Closing the floating window hides the panel (the interface-bar toggle follows); it opens
     // again floating.
     if (watched == m_keyframesWindow && event->type() == QEvent::Close && m_keyframesShown) {
