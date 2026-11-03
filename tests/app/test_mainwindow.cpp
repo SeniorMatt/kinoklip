@@ -12,6 +12,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/viewer/ViewerPanel.h"
 
@@ -236,6 +237,34 @@ private slots:
             QTRY_VERIFY(shares(h.window->editPage()).first > 0.21);
             h.window->close();
         }
+        QSettings().clear();
+    }
+
+    void keyframesDockInLeftColumn()
+    {
+        // Resolve 20: the Keyframes toggle is on the left of the interface bar and the docked
+        // panel shares the left column with the Media Pool (spec 15.21).
+        QSettings().clear();
+        Fixture f;
+        f.window->resize(1920, 1080);
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        EditPage* edit = f.window->editPage();
+        f.action("view.toggle_keyframes")->trigger();
+        QVERIFY(edit->isPanelVisible(PanelId::Keyframes));
+        auto* keyframes = edit->findChild<KeyframesPanel*>();
+        auto* pool = edit->findChild<MediaPoolPanel*>();
+        QVERIFY(keyframes && pool);
+        auto* column = qobject_cast<QSplitter*>(keyframes->parentWidget());
+        QVERIFY(column);
+        QCOMPARE(column->orientation(), Qt::Vertical);
+        QCOMPARE(column->indexOf(pool) >= 0, true);
+        QTRY_VERIFY(keyframes->isVisible() && keyframes->height() >= 160);
+        // The column is wide enough for the curve editor: about a third of the width.
+        QTRY_VERIFY(column->width() > f.window->width() * 0.30);
+        f.action("view.toggle_keyframes")->trigger();
+        QVERIFY(!keyframes->isVisible());
+        f.window->close();
         QSettings().clear();
     }
 
