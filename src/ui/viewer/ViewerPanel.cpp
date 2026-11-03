@@ -532,8 +532,7 @@ void ViewerPanel::onTimelineChanged()
     const TimelineData& d = m_boundTimeline->data();
     m_fps = d.fps;
     m_surface->setAspect(QSize(d.width, d.height));
-    if (m_guideOverlay && m_mode == Mode::Source)
-        m_guideOverlay->setFrameSize(QSize(d.width, d.height)); // rulers count clip px
+    updateGuideFrame();
     if (m_maskOverlay)
         m_maskOverlay->refresh();
     if (m_multicamOverlay && m_multicamOverlay->isVisible())
@@ -672,6 +671,7 @@ void ViewerPanel::setSourceMedia(const QString& mediaId)
     }
     updateTitle();
     updateMarksLabel();
+    updateGuideFrame();
     Q_EMIT sourceMediaChanged(m_sourceMediaId);
 }
 
@@ -696,6 +696,7 @@ void ViewerPanel::setSourceContent(const MediaItem& item, TimelineData content)
     }
     updateTitle();
     updateMarksLabel();
+    updateGuideFrame();
 }
 
 void ViewerPanel::setMulticamAllowed(bool allowed)
@@ -961,6 +962,17 @@ void ViewerPanel::setupGuides(QGridLayout* grid)
     };
     applyRulers();
     connect(&ViewerOverlaySettings::instance(), &ViewerOverlaySettings::changed, this, applyRulers);
+}
+
+void ViewerPanel::updateGuideFrame()
+{
+    // Source viewers: guides, safe areas and grid in px of the clip shown, and none while no
+    // clip is loaded (nothing to place). Timeline viewers use the timeline resolution.
+    if (!m_guideOverlay || m_mode != Mode::Source)
+        return;
+    const bool loaded = (!m_sourceMediaId.isEmpty() || m_customContent) && m_boundTimeline;
+    m_guideOverlay->setFrameSize(
+        loaded ? QSize(m_boundTimeline->data().width, m_boundTimeline->data().height) : QSize());
 }
 
 } // namespace kk

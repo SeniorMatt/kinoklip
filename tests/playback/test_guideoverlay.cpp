@@ -438,6 +438,10 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(&v.panel));
         GuideOverlay* o = v.overlay();
         QVERIFY(o && !o->isTimeline());
+        // No clip loaded: nothing to place guides on (and nothing is drawn).
+        QVERIFY(o->frameSize().isEmpty());
+        o->addGuide(Qt::Horizontal);
+        QVERIFY(o->storedGuides().empty());
         o->setFrameSize(QSize(1280, 720));
         o->addGuide(Qt::Horizontal);
         QCOMPARE(o->storedGuides(), (std::vector<ViewerGuide> {{Qt::Horizontal, 360}}));
