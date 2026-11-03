@@ -177,7 +177,7 @@ bool GlRenderer::initialize(QString* why)
     m_kit = std::make_unique<GlKit>(m_gl);
     if (!m_kit->initialize(why) || !m_video.initialize(*m_kit, why)
         || !m_masks.initialize(*m_kit, why) || !m_generators.initialize(*m_kit, why)
-        || !m_comp.initialize(*m_kit, why))
+        || !m_comp.initialize(*m_kit, why) || !m_grade.initialize(*m_kit, why))
         return false;
     m_output = std::make_unique<GlOutput>(*m_kit);
     {
@@ -253,6 +253,7 @@ void GlRenderer::shutdown()
         m_retime.destroy(*m_kit);
         m_video.destroy(*m_kit);
         m_masks.destroy(*m_kit);
+        m_grade.destroy(*m_kit);
         m_generators.destroy(*m_kit);
         m_comp.destroy(*m_kit);
         m_generated.clear();
@@ -484,6 +485,7 @@ void GlRenderer::render(RenderJob& job)
 
     fc.nested = &tl.nested;
     fc.subtitles = rq.subtitles;
+    fc.grades = !rq.bypassGrades;
 
     // 1 + 2. Decode every visible media clip, including the clips inside visible nested
     //        timelines (in parallel when there are several).
@@ -584,6 +586,16 @@ PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
         }
         drawAdjustment(frames[i], fc, accumulator);
     }
+    // The timeline grade (Color page): over the composite of every track, before the captions.
+    if (fc.grades && !fc.timeline->grade.isEmpty()
+        && !gradeops::isIdentity(fc.timeline->grade, fc.frame)) {
+        grademath::PictureGeometry g;
+        g.width = fc.outSize.width();
+        g.height = fc.outSize.height();
+        const PreparedGrade prepared = prepareGrade(fc.timeline->grade, fc.frame, g);
+        if (PooledTarget graded = m_grade.apply(*m_kit, *accumulator, prepared))
+            accumulator = std::move(graded);
+    }
     return accumulator;
 }
 
@@ -611,7 +623,8 @@ void GlRenderer::drawAdjustment(
             // The common case (a grade or blur over everything): nothing to do without an
             // active effect; otherwise the layer path reads the accumulator into its layer and
             // the result overwrites it - no copy, no footprint pass.
-            if (!hasActiveEffect(clip, local))
+            if (!hasActiveEffect(clip, local)
+                && (!fc.grades || gradeops::isIdentity(clip.grade, local)))
                 return;
             adjust.below = accumulator->texture;
             drawClip(clip, adjust, *accumulator, ClipBlend::Replace);
@@ -646,6 +659,7 @@ const RenderTarget* GlRenderer::nestedComposite(
     fc.sy = double(size.height()) / tl.height;
     fc.nested = parent.nested;
     fc.depth = parent.depth + 1;
+    fc.grades = parent.grades;
     PooledTarget target = compositeTimeline(fc);
     m_nested.push_back({&tl, frame, size, std::move(target)});
     return m_nested.back().target.get();
@@ -981,9 +995,12 @@ void GlRenderer::drawClip(
     }
 
     // Masks cut the clip's own picture (after its effects, before its transform), so they
-    // need the layer path too.
+    // need the layer path too; so does the Color page grade (after the effects, before the
+    // masks).
     const bool masked = GlMasks::hasActiveMasks(clip);
-    if (m_activeEffects.empty() && !masked) {
+    const bool graded
+        = !erase && fc.grades && !clip.grade.isEmpty() && !gradeops::isIdentity(clip.grade, local);
+    if (m_activeEffects.empty() && !masked && !graded) {
         // Direct path: one pass from the source into the target.
         const QTransform quad(src.quad.width() * cw, 0, 0, src.quad.height() * ch,
             (src.quad.x() - 0.5) * cw, (src.quad.y() - 0.5) * ch);
@@ -1055,6 +1072,16 @@ void GlRenderer::drawClip(
             if (next)
                 layer = std::move(next);
         }
+    }
+    if (graded) {
+        // Picture fractions (windows) map onto the content inside the layer's margin.
+        grademath::PictureGeometry g;
+        g.originX = g.originY = padPx;
+        g.width = cw * layerScale;
+        g.height = ch * layerScale;
+        const PreparedGrade prepared = prepareGrade(clip.grade, local, g);
+        if (PooledTarget next = m_grade.apply(*m_kit, *layer, prepared))
+            layer = std::move(next);
     }
     if (masked) {
         const MaskLayerGeometry geometry {QSizeF(cw, ch), layerScale, padPx};

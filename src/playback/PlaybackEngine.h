@@ -188,6 +188,16 @@ public:
     void setRenderCache(std::shared_ptr<const RenderCacheView> view);
     /// The compositor (shareable with other engines).
     [[nodiscard]] std::shared_ptr<Compositor> compositor() const { return m_compositor; }
+    /// Color page "bypass all grades" (Shift+D): the viewers show the pictures without clip
+    /// and timeline grades (and without the render cache, whose chunks are graded). Not part
+    /// of the project; export always renders the grades.
+    void setBypassGrades(bool bypass);
+    /// Renders program frame @p frame of the engine's current snapshot as an image of
+    /// @p outSize (what the viewer shows, without captions: scopes, gallery stills), with the
+    /// engine's media table, proxies, render cache and bypass state. Any thread may wait on
+    /// the future.
+    [[nodiscard]] std::future<RenderedFramePtr> renderImage(int64_t frame, QSize outSize) const;
+    [[nodiscard]] bool bypassGrades() const { return m_bypassGrades; }
     /// Compositing page viewers: Compositor::renderCompositionNode() of node @p nodeId (0 =
     /// MediaOut) of clip @p clipId of @p timeline at comp frame @p compFrame, with the
     /// engine's media table, proxies and current quality, so MediaIn decodes what the
@@ -324,6 +334,8 @@ Q_SIGNALS:
     void proxiesInUseChanged(bool inUse);
     /// meters() changed (throttled to kMeterIntervalMs; once more, silent, on stop).
     void metersUpdated();
+    /// setBypassGrades() changed the state.
+    void bypassGradesChanged(bool bypass);
 
 private:
     void init(Options options);
@@ -376,6 +388,7 @@ private:
     std::shared_ptr<const MediaPathMap> m_audioOverride; ///< setSubstitutes()
     std::shared_ptr<const ProxyMap> m_proxies;
     std::shared_ptr<const RenderCacheView> m_renderCache;
+    bool m_bypassGrades = false;
     bool m_proxiesInUse = false;
     QMetaObject::Connection m_timelineChanged, m_playheadChanged, m_poolChanged;
 

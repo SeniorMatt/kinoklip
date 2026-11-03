@@ -1035,6 +1035,44 @@ index `docs/guide/index.json`, see src/ui/help/readme.md). Section 42 is the Com
 | 43.9 | The index is `docs/guide/index.json` bundled as `:/guide/index.json` (resources/guide.qrc), read once. Bad JSON or an unknown `formatVersion` means no "?" buttons and no "How to use" entries, while F1 still opens the start page under the built-in base URL; articles without id / title or with a file that is not a plain relative path are skipped, and a base that is not http(s) falls back to the built-in one. | Fixed (test_inapphelp badIndexesFallBackToTheStartPage, f1WithABrokenIndexOpensTheBuiltInStartPage, helpButtonsOnlyWhereAnArticleExists, bundledIndexIsReadable) |
 | 43.10 | F1 has no Resolve meaning we know of in the Windows defaults and was free; Help > Guide… and Getting Started have no key. All three are assignable in Keyboard Customization. | Fixed (scripts/keymap-resolve-windows.py rows; test_actionregistry checks keys are unique) |
 
+## 44. Color page (colorcore branch, owner request 2026-11-04)
+
+Grading engine and a minimal page; design in [color-page.md](color-page.md). Tests:
+`tests/core/test_grade.cpp`, `tests/render/test_graderender.cpp`, `tests/render/test_scopes.cpp`,
+`tests/export/test_gradeexport.cpp`, `tests/app/test_colorpage.cpp`.
+
+### 44a. Grading core (model, maths, format, rendering, scopes)
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 44a.1 | Every clip and every timeline can carry a grade: a node graph of corrector nodes in series, combined by Parallel mixers (equal average) and Layer mixers (each further input laid over the result with its key; the last input on top). An empty or neutral grade renders exactly like no grade. | Fixed (test_grade serialChain, parallelAndLayerMixers, layerFormula; test_graderender bypassAndIdentity) |
+| 44a.2 | Primaries: Lift / Gamma / Gain / Offset with R, G, B and master, Contrast about Pivot, Saturation, Hue, Temperature, Tint, Lum Mix and the node's Mix, every one keyframeable. | Fixed (test_grade liftGammaGainReference, primariesReference, keyframedPrimaries) |
+| 44a.3 | Curves: Custom Y, R, G, B (monotone, no overshoot), Hue vs Hue, Hue vs Sat, Hue vs Lum (wrapping), Lum vs Sat, Sat vs Sat; a new point on a curve keeps the curve's shape at its neighbours. | Fixed (test_grade customCurves, addCurvePointAnchorsNeighbours, hslCurves, hslRoundTrip) |
+| 44a.4 | HSL qualifier with soft edges, per-channel enable and invert limits a node's correction (key = qualifier x windows x Mix). | Fixed (test_grade qualifierKeys) |
+| 44a.5 | Power windows Circle, Linear, Polygon and Gradient with inside / outside softness, opacity, invert, position, size and rotation (keyframeable); several windows combine as a union; windows are in the clip's picture coordinates and move, scale and fade with the clip. | Fixed (test_grade windowShapes, windowsShareTheIdSpace; test_graderender windowsMoveWithTheClip) |
+| 44a.6 | A corrector can apply a .cube LUT (1D or 3D), tetrahedral by default or trilinear, after its other corrections. | Fixed (test_graderender gpuMatchesCpuReference, cpuBackendMatchesReference) |
+| 44a.7 | Pipeline: source (or composition) -> Edit page effects -> clip grade -> masks, crop, transform, opacity -> composite -> timeline grade -> captions. The timeline grade applies over the composite of all tracks. A composition's MediaIn shows the clip ungraded. | Fixed (test_graderender gradeComesAfterEditPageEffects, timelineGradeOverComposite). Decision: Resolve's page order (compositing before colour), docs/color-page.md. |
+| 44a.8 | GPU and CPU render the same pixels within 2 levels for every feature (primaries, curves, qualifier, windows, LUTs, mixers); the CPU backend gives the same picture as the GPU backend. | Fixed (test_graderender gpuMatchesCpuReference, cpuBackendMatchesReference, gpuAndCpuBackendsAgree, sharedImageGradesEveryRow) |
+| 44a.9 | Render, Edit page viewer and playback show the same graded pixels; "bypass all grades" changes only the viewers (render and render cache always graded). | Fixed (test_gradeexport gradedRenderMatchesEverywhere; test_graderender bypassAndIdentity) |
+| 44a.10 | Render cache chunks are invalidated by a clip grade, a timeline grade or a change of a LUT file used by a grade; graded clips count as "with effects" for Smart caching. | Fixed (test_graderender renderCacheKeys) |
+| 44a.11 | Keyframed grade values animate over the clip and move with split / trim like other clip keys; a through edit joins only when both halves carry the same grade; the keyframe editors list a "Color NN" group per keyed node. | Fixed (test_graderender keyframedGradeAnimates; test_grade keyframePaths, splitShiftsGradeKeys) |
+| 44a.12 | Every grade change is one undo step (dragging a wheel too), on the active or an inactive timeline; an unchanged grade makes no step. | Fixed (test_grade projectUndo, inactiveTimelineUndo; test_colorpage pageKeysAreUndoSteps, primariesAndCurvesEdit) |
+| 44a.13 | Project format 16: grades and the gallery are saved; format 15 files load unchanged (nothing graded); damaged grade data is repaired on load. | Fixed (test_grade serializationRoundTrip, damagedJsonIsRepaired, formatVersionAndMigration, projectFileRoundTrip; test_composition) |
+| 44a.14 | Gallery: a still keeps a small picture and the grade at grab time, is saved with the project and can be renamed, removed and applied to clips (one undo step for any number of clips). | Fixed (test_grade gallery; test_colorpage galleryAndScopesWithEngine) |
+| 44a.15 | Scopes: luma waveform, RGB waveform, RGB parade, vectorscope (Rec. 709, 75 % targets, skin tone line) and histogram of the graded program picture. | Fixed (test_scopes solidColourVectorscopePoint, rampWaveform, histogramCounts, scopeInputIsSmall, viewsDraw) |
+
+### 44b. Color page (minimal)
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 44b.1 | The Color page button and Shift+6 open the Color page: viewer, scopes, node list, Primaries wheels and fields, curve editor, gallery. | Fixed (test_colorpage pageOpensAndScopesCommands; test_mainwindow) |
+| 44b.2 | The page grades the clip under the playhead on the highest enabled video track and follows the playhead; with no clip there it has nothing to grade. "Grade the Timeline" switches to the timeline grade. | Fixed (test_colorpage gradesTheClipUnderThePlayhead, timelineGradeTarget) |
+| 44b.3 | Alt+S adds a serial node, Alt+P a parallel node, Alt+L a layer node, Ctrl+D enables / disables the current node, Shift+D bypasses all grades, Ctrl+Alt+G grabs a still. These keys act only on the Color page (Ctrl+D stays Change Clip Duration on the Edit page). | Fixed (test_colorpage pageKeysAreUndoSteps, galleryAndScopesWithEngine; test_actionregistry). Decision: the brief named Shift+8 for the Color page; Shift+8 is the Deliver page in Resolve and in the keymap, the Color page is Shift+6. |
+| 44b.4 | Wheel drags change the colour balance without changing luma, the bar under a wheel the master value; a drag is one undo step; double-click resets the wheel. Fields edit contrast, pivot, saturation, hue, temperature, tint, lum mix and mix; a keyframed value gets a key at the playhead. | Fixed (test_colorpage primariesAndCurvesEdit) |
+| 44b.5 | The curve editor adds a point with a click, drags points, removes one with a right-click or double-click; any of the nine curves can be chosen. | Fixed (test_colorpage primariesAndCurvesEdit) |
+| 44b.6 | View > Video Scopes (Ctrl+Shift+W) opens a floating window with two scopes of the program picture on any page. | Fixed (test_colorpage videoScopesWindow) |
+| 44b.7 | While the Color page is shown the Edit page's timeline commands are suspended and the Color commands enabled; leaving the page restores them. | Fixed (test_colorpage pageOpensAndScopesCommands; test_pagecommands colorPageSuspendsTimelineButKeepsItsCommands, switchingBetweenSuspendingPagesKeepsCommandsOff). Uses the shared TimelineCommandSuspension. |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

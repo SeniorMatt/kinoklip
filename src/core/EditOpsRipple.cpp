@@ -279,6 +279,13 @@ bool canJoin(const TimelineData& data, quint64 leftClipId, quint64 rightClipId)
         if (shifted != b.retime)
             return false;
     }
+    // Grades likewise (a split keeps the grade on both halves, keys shifted).
+    {
+        ClipGrade shifted = a.grade;
+        shifted.shiftKeys(-a.duration);
+        if (shifted != b.grade)
+            return false;
+    }
     switch (a.kind) {
     case ClipKind::Nested:
         if (a.nestedUid != b.nestedUid)

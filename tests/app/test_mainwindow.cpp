@@ -80,8 +80,10 @@ private slots:
         QCOMPARE(f.window->currentPageId(), QStringLiteral("media"));
         QVERIFY(f.window->setCurrentPage(QStringLiteral("deliver")));
         QVERIFY(f.action("view.page_deliver")->isChecked());
-        QVERIFY(!f.window->setCurrentPage(QStringLiteral("color")));
-        QVERIFY(!f.action("view.page_color")->isEnabled());
+        // The Color page (spec 44b) is built: Shift+6 opens it.
+        QVERIFY(f.action("view.page_color")->isEnabled());
+        f.action("view.page_color")->trigger();
+        QCOMPARE(f.window->currentPageId(), QStringLiteral("color"));
     }
 
     void panelTogglesFollowPage()

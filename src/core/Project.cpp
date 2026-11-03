@@ -17,6 +17,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSaveFile>
+#include <QScopedValueRollback>
 #include <QSet>
 #include <QUndoCommand>
 #include <QUndoStack>
@@ -154,11 +155,16 @@ Project::Project(QObject* parent)
     : QObject(parent)
     , m_mediaPool(new MediaPool(this))
     , m_links(new MediaLinks(this))
+    , m_gallery(new GradeGallery(this))
     , m_timeline(new Timeline(this))
     , m_undoStack(new QUndoStack(this))
 {
     connect(m_undoStack, &QUndoStack::cleanChanged, this, [this] { emitDirtyIfChanged(); });
     connect(m_links, &MediaLinks::changed, this, [this] { setSettingsDirty(true); });
+    connect(m_gallery, &GradeGallery::changed, this, [this] {
+        if (!m_galleryLoading)
+            setSettingsDirty(true);
+    });
     installResolver();
     newProject();
 }
@@ -255,6 +261,10 @@ void Project::newProject()
     m_format = Format {kDefaultWidth, kDefaultHeight, kDefaultFps};
     m_mediaPool->clear();
     m_links->clear();
+    {
+        const QScopedValueRollback guard(m_galleryLoading, true);
+        m_gallery->clear();
+    }
     m_cacheSettings = {};
     m_binViews.clear();
     TimelineData first
@@ -289,6 +299,8 @@ Project::SaveSnapshot Project::captureSave() const
     snap.activeUid = m_activeUid;
     snap.tabs = m_tabs;
     snap.mediaLinks = m_links->toJson(snap.pool);
+    if (!m_gallery->stills().isEmpty())
+        snap.gallery = m_gallery->toJson();
     snap.cacheSettings = m_cacheSettings.toJson();
     snap.binViews = m_binViews;
     return snap;
@@ -332,6 +344,8 @@ QJsonObject Project::toJson(const SaveSnapshot& snap, const QString& path)
     root[QLatin1String("tabs")] = tabs;
     root[QLatin1String("timelineViews")] = views;
     root[QLatin1String("mediaLinks")] = snap.mediaLinks;
+    if (!snap.gallery.isEmpty()) // format 16; omitted when empty (older files identical)
+        root[QLatin1String("gallery")] = snap.gallery;
     root[QLatin1String("cacheSettings")] = snap.cacheSettings;
     if (!snap.binViews.isEmpty()) {
         QJsonArray binViews;
@@ -479,6 +493,11 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
     // Version 3 -> 4: no links and default cache settings (both keys are simply absent); the
     // application links proxies found in the proxy folder after loading.
     m_links->fromJson(root.value(QLatin1String("mediaLinks")).toArray());
+    {
+        // Version <= 15: no "gallery" (an empty array).
+        const QScopedValueRollback guard(m_galleryLoading, true);
+        m_gallery->fromJson(root.value(QLatin1String("gallery")).toArray());
+    }
     m_cacheSettings
         = MediaCacheSettings::fromJson(root.value(QLatin1String("cacheSettings")).toObject());
     resetTimelines(std::move(timelineSlots), active, tabs);
