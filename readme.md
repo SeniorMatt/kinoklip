@@ -1,4 +1,4 @@
-# Kinoklip
+<h1 align="center">Kinoklip</h1>
 
 <h1 align="center"><a href="https://github.com/SeniorMatt/kinoklip/releases">Download here</a></h1>
 
