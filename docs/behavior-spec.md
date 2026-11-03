@@ -1096,3 +1096,6 @@ index `docs/guide/index.json`, see src/ui/help/readme.md). Section 42 is the Com
 - The compcore branch (v4, Compositing page core) added 42a.1 - 42a.19 (composition model,
   node catalogue, graph operations, undo, project format 15, GPU / CPU evaluation, render
   integration, viewer API).
+- The bughunt branch (1.0.0-beta.1 bug hunt) added 24.15 (the Inspector stays on the Video
+  tab after edits that select clips) and 33.31 (Delete, Backspace and Ctrl+A act on the focused
+  media pool, not the timeline).
