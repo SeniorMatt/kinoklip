@@ -150,3 +150,4 @@
 - 12:02 Released 0.3.6-alpha.1 (owner's updated icon, KDE icon reload; 116/117). README header from owner sprites.
 - 12:11 Legal: docs/clean-room.md, attribution.md, logo-license.md (owner: name/logos reserved), readme Legal section, bundle ships licence + source notice. Feedback screenshots moved to gitignored local/ and erased from history (filter-branch, force-pushed main + tags; backup bundle in scratchpad).
 - 12:15 Privacy scan of all history + release bundle: no keys/passwords/home paths. Commit/tag emails rewritten to GitHub noreply (force-pushed; repo config user.email set to noreply). Backup bundle in scratchpad.
+- 12:26 Owner: v4 = Project Manager, single-file projects, Edit page effects; Color/Compositing -> v5 (beta); public release after v4; Resolve import dropped. Agents started: projmgr, kkpack (container library only), fxkeying (green screen first).
