@@ -302,6 +302,42 @@ private slots:
         }
     }
 
+    /// Every context of the bundled guide index names something the app has: a registered
+    /// command, an effect of the EffectRegistry, a page or a panel key (a typo would make F1
+    /// silently fall back to another article).
+    void bundledContextsExist()
+    {
+        Fixture f; // registers the commands of the main window
+        guide::reloadBundledIndex();
+        const QStringList pages {QStringLiteral("media"), QStringLiteral("cut"),
+            QStringLiteral("edit"), QStringLiteral("compositing"), QStringLiteral("color"),
+            QStringLiteral("audio"), QStringLiteral("deliver")};
+        const QStringList panels {QStringLiteral("media_pool"), QStringLiteral("effects"),
+            QStringLiteral("edit_index"), QStringLiteral("inspector"), QStringLiteral("keyframes"),
+            QStringLiteral("mixer"), QStringLiteral("metadata"), QStringLiteral("timeline"),
+            QStringLiteral("viewer"), QStringLiteral("render_settings"),
+            QStringLiteral("render_queue")};
+        int checked = 0;
+        for (const GuideArticle& a : guide::index().articles()) {
+            for (const QString& context : a.contexts) {
+                const QString kind = context.section(QLatin1Char(':'), 0, 0);
+                const QString id = context.section(QLatin1Char(':'), 1);
+                bool known = false;
+                if (kind == QLatin1String("action"))
+                    known = f.actions.contains(id);
+                else if (kind == QLatin1String("effect"))
+                    known = EffectRegistry::instance().find(id) != nullptr;
+                else if (kind == QLatin1String("page"))
+                    known = pages.contains(id);
+                else if (kind == QLatin1String("panel"))
+                    known = panels.contains(id);
+                QVERIFY2(known, qPrintable(a.id + QLatin1String(": ") + context));
+                ++checked;
+            }
+        }
+        QVERIFY(checked > 0);
+    }
+
     // ---- F1 ---------------------------------------------------------------------------
 
     void f1OnAChromaKeyInTheInspectorOpensTheGreenScreenArticle()

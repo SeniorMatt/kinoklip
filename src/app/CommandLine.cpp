@@ -27,7 +27,8 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             "subtitles:inspector, mediapool, effects[:<id>], fx:<id>[:inspector|viewer], "
             "change-speed, timeline, deliver:inout, deliver:queue, import-dialog (whole "
             "screen with File > Import Media open), menu-color-theme, "
-            "menu-style, menu-playback-resolution. Usage: --screenshot "
+            "menu-style, menu-playback-resolution, clip:<track>[:<tab>], "
+            "menu:<category>[:<submenu>], normalize-audio. Usage: --screenshot "
             "edit out.png [project]"),
         QStringLiteral("target"));
     const QCommandLineOption resetLayout(QStringLiteral("reset-layout"),

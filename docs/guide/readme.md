@@ -6,7 +6,7 @@ uses the same keyboard shortcuts, so most Resolve tutorials for the Edit page al
 This guide starts with the basics and then shows, step by step, how to do the things people
 ask about most.
 
-Kinoklip is still an alpha version: save often and keep a copy of your original files.
+Kinoklip is still a beta version: save often and keep a copy of your original files.
 
 ## Install and start
 
@@ -46,6 +46,17 @@ search field.
 - [Remove a green screen](remove-a-green-screen.md)
 - [Speed up or slow down a clip](change-clip-speed.md)
 - [Fade audio in and out, and add music](fade-audio-and-add-music.md)
+- [Fade to or from black](fade-to-black.md)
+- [Freeze a frame](freeze-a-frame.md)
+- [Zoom, crop and picture-in-picture](zoom-crop-and-picture-in-picture.md)
+- [Fix choppy playback](smooth-playback.md)
+- [Make a vertical video for Shorts, Reels and TikTok](vertical-video.md)
+- [Blur or hide part of the picture](hide-part-of-the-picture.md)
+- [Add subtitles](add-subtitles.md)
+- [Separate the audio from the video](separate-audio-from-video.md)
+- [Animate with keyframes](keyframe-animation.md)
+- [Make quiet and loud clips the same volume](even-out-clip-volumes.md)
+- [Put text over a clip on the Compositing page](compositing-page.md)
 
 More articles are planned; see [the topic list](topics.md). Every keyboard shortcut is listed
 in the [keymap](../keymap-resolve-windows.md).

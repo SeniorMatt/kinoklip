@@ -54,7 +54,6 @@
         "action:timeline.add_transition",
         "effect:text_title",
         "effect:cross_dissolve",
-        "effect:dip_to_color",
         "effect:wipe",
         "effect:push"
       ]
@@ -127,8 +126,7 @@
         "action:clip.retime_controls",
         "action:clip.retime_curve",
         "action:clip.speed_increase",
-        "action:clip.speed_decrease",
-        "action:clip.freeze_frame"
+        "action:clip.speed_decrease"
       ]
     },
     {
@@ -155,10 +153,279 @@
         "effect:audio_crossfade_exponential",
         "effect:audio_crossfade_logarithmic",
         "effect:audio_crossfade_scurve",
-        "action:clip.normalize_audio",
         "action:timeline.add_audio_track",
         "page:audio",
         "panel:mixer"
+      ]
+    },
+    {
+      "id": "fade-to-black",
+      "title": "Fade to or from black",
+      "file": "fade-to-black.md",
+      "summary": "Start a video from black and end it fading to black, with fade handles or a transition.",
+      "keywords": [
+        "fade",
+        "fade to black",
+        "fade in",
+        "fade out",
+        "fade from black",
+        "ending",
+        "dip to black",
+        "dip to color",
+        "opacity"
+      ],
+      "contexts": [
+        "effect:dip_to_color"
+      ]
+    },
+    {
+      "id": "freeze-a-frame",
+      "title": "Freeze a frame",
+      "file": "freeze-a-frame.md",
+      "summary": "Hold one frame for a moment inside a clip, or turn a whole clip into a still frame.",
+      "keywords": [
+        "freeze",
+        "freeze frame",
+        "still",
+        "hold frame",
+        "pause picture",
+        "retime"
+      ],
+      "contexts": [
+        "action:clip.freeze_frame"
+      ]
+    },
+    {
+      "id": "zoom-crop-and-picture-in-picture",
+      "title": "Zoom, crop and picture-in-picture",
+      "file": "zoom-crop-and-picture-in-picture.md",
+      "summary": "Make a clip bigger or smaller, move and crop it, and put a small video over another with Transform and Cropping.",
+      "keywords": [
+        "zoom",
+        "scale",
+        "crop",
+        "position",
+        "picture in picture",
+        "pip",
+        "face cam",
+        "resize",
+        "move",
+        "transform",
+        "rotate",
+        "flip",
+        "on-screen controls"
+      ],
+      "contexts": [
+        "action:view.onscreen_transform",
+        "action:view.onscreen_crop"
+      ]
+    },
+    {
+      "id": "smooth-playback",
+      "title": "Fix choppy playback",
+      "file": "smooth-playback.md",
+      "summary": "Smooth playback with a lower playback resolution, proxy media and the render cache.",
+      "keywords": [
+        "choppy",
+        "stutter",
+        "lag",
+        "slow playback",
+        "playback resolution",
+        "proxy",
+        "proxies",
+        "optimized media",
+        "render cache",
+        "performance"
+      ],
+      "contexts": [
+        "action:playback.resolution_full",
+        "action:playback.resolution_half",
+        "action:playback.resolution_quarter",
+        "action:playback.resolution_auto",
+        "action:playback.proxy_prefer",
+        "action:playback.proxy_originals",
+        "action:playback.proxy_disable",
+        "action:playback.use_proxy",
+        "action:playback.use_optimized",
+        "action:playback.render_cache_none",
+        "action:playback.render_cache_smart",
+        "action:playback.render_cache_user",
+        "action:playback.delete_render_cache",
+        "action:clip.render_cache_output",
+        "action:mediapool.generate_proxy",
+        "action:mediapool.generate_optimized",
+        "action:mediapool.stop_generation",
+        "action:mediapool.link_proxy",
+        "action:mediapool.unlink_proxy",
+        "action:mediapool.delete_proxy",
+        "action:mediapool.delete_optimized"
+      ]
+    },
+    {
+      "id": "vertical-video",
+      "title": "Make a vertical video for Shorts, Reels and TikTok",
+      "file": "vertical-video.md",
+      "summary": "A 9:16 timeline, landscape clips reframed to fill it, and a vertical export.",
+      "keywords": [
+        "vertical",
+        "9:16",
+        "portrait",
+        "shorts",
+        "reels",
+        "tiktok",
+        "1080x1920",
+        "timeline resolution",
+        "project settings",
+        "aspect ratio"
+      ],
+      "contexts": [
+        "action:file.project_settings",
+        "action:timeline.settings",
+        "action:view.aspect_9_16"
+      ]
+    },
+    {
+      "id": "hide-part-of-the-picture",
+      "title": "Blur or hide part of the picture",
+      "file": "hide-part-of-the-picture.md",
+      "summary": "Pixelate or blur a face, a number plate or a logo with an adjustment clip and a mask.",
+      "keywords": [
+        "blur",
+        "pixelate",
+        "mosaic",
+        "hide face",
+        "censor",
+        "number plate",
+        "license plate",
+        "mask",
+        "adjustment clip",
+        "gaussian blur"
+      ],
+      "contexts": [
+        "effect:adjustment_clip",
+        "effect:mosaic",
+        "effect:gaussian_blur",
+        "action:mask.add_rectangle",
+        "action:mask.add_ellipse",
+        "action:mask.add_polygon",
+        "action:mask.add_bezier",
+        "action:mask.add_freehand",
+        "action:view.onscreen_masks"
+      ]
+    },
+    {
+      "id": "add-subtitles",
+      "title": "Add subtitles",
+      "file": "add-subtitles.md",
+      "summary": "Type captions or import an .srt file, style them, and export them burnt in or as a separate file.",
+      "keywords": [
+        "subtitles",
+        "captions",
+        "srt",
+        "vtt",
+        "webvtt",
+        "closed captions",
+        "burn in",
+        "subtitle track",
+        "text"
+      ],
+      "contexts": [
+        "action:file.import_subtitle",
+        "action:timeline.add_subtitle_track",
+        "action:timeline.add_subtitle"
+      ]
+    },
+    {
+      "id": "separate-audio-from-video",
+      "title": "Separate the audio from the video",
+      "file": "separate-audio-from-video.md",
+      "summary": "Select, move or delete only the sound or only the picture of a clip; unlink and link clips.",
+      "keywords": [
+        "unlink",
+        "link",
+        "separate audio",
+        "detach audio",
+        "remove sound",
+        "delete audio",
+        "linked selection",
+        "alt click"
+      ],
+      "contexts": [
+        "action:clip.link",
+        "action:clip.unlink",
+        "action:timeline.linked_selection"
+      ]
+    },
+    {
+      "id": "keyframe-animation",
+      "title": "Animate with keyframes",
+      "file": "keyframe-animation.md",
+      "summary": "Make a value change over time: a slow zoom, a moving title, a fade, with keyframes in the Inspector.",
+      "keywords": [
+        "keyframe",
+        "keyframes",
+        "animate",
+        "animation",
+        "slow zoom",
+        "ken burns",
+        "move title",
+        "ease",
+        "curve"
+      ],
+      "contexts": [
+        "action:clip.add_keyframe",
+        "action:clip.prev_keyframe",
+        "action:clip.next_keyframe",
+        "action:clip.delete_keyframe",
+        "action:clip.copy_keyframes",
+        "action:clip.paste_keyframes",
+        "action:clip.toggle_keyframe_editor",
+        "action:clip.toggle_curve_editor",
+        "action:view.toggle_keyframes",
+        "panel:keyframes"
+      ]
+    },
+    {
+      "id": "even-out-clip-volumes",
+      "title": "Make quiet and loud clips the same volume",
+      "file": "even-out-clip-volumes.md",
+      "summary": "Even out the volume of several clips with Normalize Audio Levels.",
+      "keywords": [
+        "normalize",
+        "normalise",
+        "loudness",
+        "volume",
+        "lufs",
+        "even volume",
+        "too quiet",
+        "too loud",
+        "audio levels"
+      ],
+      "contexts": [
+        "action:clip.normalize_audio"
+      ]
+    },
+    {
+      "id": "compositing-page",
+      "title": "Put text over a clip on the Compositing page",
+      "file": "compositing-page.md",
+      "summary": "Add a Text node to a clip on the Compositing page: nodes, viewers and the Inspector.",
+      "keywords": [
+        "compositing",
+        "nodes",
+        "node editor",
+        "text",
+        "merge",
+        "composite",
+        "overlay",
+        "compositing page"
+      ],
+      "contexts": [
+        "page:compositing",
+        "action:view.page_compositing",
+        "action:clip.open_in_compositing",
+        "action:clip.reset_composition",
+        "action:view.toggle_nodes"
       ]
     }
   ]
