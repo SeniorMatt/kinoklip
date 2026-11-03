@@ -146,3 +146,4 @@
 - 09:46 Released 0.3.4-alpha.1 (Keyframes left column, Breeze placeholder icon, README centred title). Desktop copy. resizesmooth agent running.
 - 10:22 Owner icon (pixel art, .aseprite in repo) committed; resizesmooth merged (swap interval 0 on Wayland, single layout pass, kk.ui.resize log). 0.3.5 build started.
 - 10:45 Released 0.3.5-alpha.1 (owner icon, Wayland resize mitigation; 116/117 pass). Desktop copy. Waiting for owner's resize feedback.
+- 11:21 Owner: resize now works perfectly (0.3.5). Taskbar icon still old on Plasma -> AppRun now sends KIconLoader.iconChanged; asked owner to run a check/fix command.
