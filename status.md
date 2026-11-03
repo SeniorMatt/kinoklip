@@ -161,3 +161,4 @@
 - 22:34 Released 0.4.1-alpha.1 (AppImage only; host 136/136, container 137/137, smoke render + screenshot OK). Next: user guide + in-app help, then Compositing page (branches compcore/compui ready).
 - 22:48 0.4.2 work: Z fits the viewer (8a8ee57). Agents: guide (docs/guide, topic research, annotated screenshots, README link) and inapphelp (F1 context help, ? buttons, Help > Guide) against scratchpad/guide-contract.md. Compositing (compcore/compui) waits until after.
 - 23:59 Released 0.4.2-alpha.1 (guide + in-app help + Z fit; host 138/138, container 139/139, smoke OK; guide screenshots retaken with the AppImage). Next: Compositing page (merge compcore/compui).
+- 00:33 Compositing page merged into main (7da4e0c): host 143/143, container 144/144. Agent compfix: media table in renderCompositionNode, scoped shortcut conflicts, handle tests, polish, end-to-end. Then 0.5.0.
