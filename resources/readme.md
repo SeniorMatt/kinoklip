@@ -5,7 +5,7 @@
 | `resources.qrc` | list of every compiled-in file (CMake compiles all `resources/*.qrc` into `kinoklip_core`) |
 | `keymaps/<profile>.json` | built-in keymap profiles (read-only); `resolve-windows.json` is the default (docs/keymap-resolve-windows.md). User overrides live in QSettings or in user profiles under AppData/keymaps |
 | `icons/*.svg` | the app's own 24×24 single-colour icons, tinted at runtime by `kk::icon()` |
-| `icons/app.svg` | coloured application icon (not tinted; packaging may replace it) |
+| `icons/app.svg` | application (window) icon: placeholder, KDE Breeze "video-x-generic" (LGPL-3.0-or-later) until the owner provides one; same file as packaging/linux/icons/org.kinoklip.Kinoklip.svg |
 
 Resources live in a static library, so `kk::initResources()` must be called once (main and
 tests) — see `src/ui/common/Resources.h`.
