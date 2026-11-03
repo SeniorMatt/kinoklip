@@ -170,7 +170,7 @@ bool CutEditor::run(CutEdit edit, const QVector<SourceSelection>& material)
         return false;
     }
     project->endEdit();
-    m_ctx.selection->setClips(result.ids);
+    m_ctx.selection->setClips(m_controller->videoClipCurrent(result.ids));
     timeline->setPlayhead(result.end);
     emit edited(edit);
     return true;
