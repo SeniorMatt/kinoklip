@@ -26,6 +26,9 @@ All releases are alpha or beta pre-releases for now: expect bugs and keep backup
 - [Clean-room policy](docs/clean-room.md): what may and may not be used to build Kinoklip
 - [Attribution](attribution.md): every asset with its author and licence
 
+## Support
+If you want to support the project: [ko-fi.com/seniormatthew](https://ko-fi.com/seniormatthew), it will be much appreciated.
+
 ## License
 The code is GPL-3.0-or-later, see [license.md](license.md). The Kinoklip name, icon and logos are
 not under the GPL: forks must replace them, see [logo-license.md](logo-license.md). Release bundles
@@ -54,6 +57,3 @@ include GPL FFmpeg components; third-party notices are inside the bundle under
 This project was built with AI: the code, tests and documentation were written by AI, directed
 and tested by the project owner. The only exception is the icon, which was drawn by hand.
 **We aren't appreciating AI art here.**
-
-## Support
-If you want to support the project: [ko-fi.com/seniormatthew](https://ko-fi.com/seniormatthew), it will be much appreciated.
