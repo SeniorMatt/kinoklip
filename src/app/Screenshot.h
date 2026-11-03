@@ -16,8 +16,13 @@ class MainWindow;
 /// dialog over the Edit page; only the dialog is saved); "inspector" (first video clip selected) /
 /// "mediapool" (only that Edit-page panel is saved); "menu-color-theme" / "menu-style" (Settings
 /// menu with the submenu open, cropped to the menus); "import-dialog" (File > Import Media open,
-/// the whole screen grabbed: shows the desktop's portal dialog on X11). Returns the process exit
-/// code (0 = success). Runs the event loop itself.
+/// the whole screen grabbed: shows the desktop's portal dialog on X11). User guide targets
+/// (scripts/guide_screenshots.py): "effects:<id>" (that library item selected), "fx:<effect
+/// id>[:inspector|viewer]", "change-speed", "timeline", "deliver:inout" / "deliver:queue".
+/// KK_SCREENSHOT_GEOMETRY=<file.json> also writes where the widgets are in the picture
+/// (ScreenshotGeometry.h), KK_SCREENSHOT_WINDOW=1 saves the window for panel targets,
+/// KK_SCREENSHOT_DELAY_MS waits longer before the grab. Returns the process exit code
+/// (0 = success). Runs the event loop itself.
 int runScreenshot(MainWindow& window, const QString& target, const QString& pngPath);
 
 } // namespace kk

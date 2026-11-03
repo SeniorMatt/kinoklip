@@ -381,6 +381,7 @@ public:
     {
         addCommonWidgets(grid, gridRow, parentWidget);
         m_combo = new QComboBox(parentWidget);
+        m_combo->setObjectName(QStringLiteral("choice:") + desc.key); // tests, guide screenshots
         makeCompact(m_combo);
         for (int i = 0; i < desc.choices.size(); ++i) {
             const QString label
