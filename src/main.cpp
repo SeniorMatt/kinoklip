@@ -13,6 +13,7 @@
 #include "core/SelectionModel.h"
 #include "export/RenderCommand.h"
 #include "media/HwAccel.h"
+#include "pack/ProjectPackage.h"
 #include "playback/PlaybackEngine.h"
 #include "render/RenderFrameCommand.h"
 #include "ui/common/ActionRegistry.h"
@@ -173,7 +174,11 @@ int main(int argc, char** argv)
         windowOptions.saveLayout = false;
         windowOptions.autosave = false;
         kk::MainWindow window(ctx, windowOptions);
-        if (!options.projectFile.isEmpty() && !project.load(options.projectFile, &error)) {
+        // A single-file project opens through the controller (it holds the container).
+        if (!options.projectFile.isEmpty() && kk::pack::isContainerFile(options.projectFile)) {
+            if (!window.projectController()->openFile(options.projectFile, false))
+                return 1;
+        } else if (!options.projectFile.isEmpty() && !project.load(options.projectFile, &error)) {
             std::fprintf(stderr, "%s\n", qPrintable(error));
             return 1;
         }

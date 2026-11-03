@@ -7,7 +7,9 @@
 #include "core/MediaPool.h"
 #include "core/PowerBins.h"
 #include "core/Project.h"
+#include "media/MediaSource.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/MediaImport.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 
@@ -308,12 +310,17 @@ void MetadataPanel::fillDetails(const QVector<const MediaItem*>& items)
     const media::MediaInfo& info = item->info;
     addRow(tr("Name"), item->name);
     if (!item->isTimeline()) {
-        // The file is checked once per selection (not per paint).
+        // The file is checked once per selection (not per paint). Media stored inside a
+        // single-file project have no folder: the location says where they are.
         const QFileInfo file(item->path);
+        const media::MediaSource source = media::MediaSource::resolve(item->path);
         addRow(tr("File"), file.fileName());
-        addRow(tr("Folder"), file.absolutePath());
-        if (file.exists())
-            addRow(tr("Size"), QLocale().formattedDataSize(file.size()));
+        if (source.isEmbedded())
+            addRow(tr("Location"), mediaLocationText(item->path));
+        else
+            addRow(tr("Folder"), file.absolutePath());
+        if (source.exists())
+            addRow(tr("Size"), QLocale().formattedDataSize(source.size()));
         else
             addRow(tr("Status"), tr("Media offline (file not found)"));
         addRow(tr("Container"), info.container);

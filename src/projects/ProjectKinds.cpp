@@ -7,6 +7,10 @@
 #include "core/Retime.h"
 #include "core/Serialization.h"
 #include "core/TimelineData.h"
+#include "media/MediaSource.h"
+#include "pack/EmbeddedMedia.h"
+#include "pack/ProjectPackage.h"
+#include "projects/ProjectLock.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -18,6 +22,7 @@
 #include <QSaveFile>
 
 #include <algorithm>
+#include <memory>
 
 namespace kk::projectkinds {
 
@@ -40,19 +45,16 @@ QVector<ProjectKind> builtinKinds()
     kkproj.writeName = &writeKkprojName;
     kkproj.create = &createKkproj;
 
-    // Placeholder for the single-file container (kkpack branch): listed, not readable or
-    // creatable yet. TODO(projects): replaced by the container's kind at integration.
+    // The single-file container (src/pack, docs/single-file-project.md).
     ProjectKind single;
     single.id = QStringLiteral("kinoklip");
     single.displayName = tr("Single-file project");
     single.badge = tr("Single file");
     single.storage = ProjectStorage::SingleFile;
-    single.extensions = {QStringLiteral("kinoklip")};
-    single.readMetadata = [](const QString&) {
-        ProjectMetadata m;
-        m.error = tr("Single-file projects are not supported by this build yet");
-        return m;
-    };
+    single.extensions = {QLatin1String(pack::kContainerSuffix)};
+    single.readMetadata = &readKinoklipMetadata;
+    single.writeName = &writeKinoklipName;
+    single.create = &createKinoklip;
     return {kkproj, single};
 }
 
@@ -166,8 +168,37 @@ ProjectMetadata readKkprojMetadata(const QString& path)
         meta.error = tr("Cannot open the file: %1").arg(file.errorString());
         return meta;
     }
+    return readDocumentMetadata(file.readAll(), path);
+}
+
+ProjectMetadata readKinoklipMetadata(const QString& path)
+{
+    // Only the document is read (the index and one small entry), never the media.
+    ProjectMetadata meta;
+    QString error;
+    const std::unique_ptr<pack::ProjectPackage> package
+        = pack::ProjectPackage::open(path, false, &error);
+    if (!package) {
+        meta.error = tr("Cannot open the file: %1").arg(error);
+        return meta;
+    }
+    if (!package->hasDocument()) {
+        meta.error = tr("The project file holds no project yet");
+        return meta;
+    }
+    const QByteArray document = package->document(&error);
+    if (document.isEmpty()) {
+        meta.error = tr("Damaged project file: %1").arg(error);
+        return meta;
+    }
+    return readDocumentMetadata(document, path);
+}
+
+ProjectMetadata readDocumentMetadata(const QByteArray& json, const QString& path)
+{
+    ProjectMetadata meta;
     QJsonParseError parseError;
-    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    const QJsonDocument doc = QJsonDocument::fromJson(json, &parseError);
     if (doc.isNull() || !doc.isObject()) {
         meta.error = tr("Not a valid project file: %1").arg(parseError.errorString());
         return meta;
@@ -226,7 +257,7 @@ ProjectMetadata readKkprojMetadata(const QString& path)
         if (m.isTimeline() || m.path.isEmpty())
             continue;
         ++meta.mediaCount;
-        if (!QFileInfo::exists(m.path))
+        if (!media::mediaExists(m.path))
             ++meta.missingMediaCount;
     }
 
@@ -267,6 +298,53 @@ bool createKkproj(const QString& path, const QString& name, QString* error)
     project.setSettings(settings);
     project.setName(name);
     return project.save(path, error);
+}
+
+bool createKinoklip(const QString& path, const QString& name, QString* error)
+{
+    Project project;
+    ProjectSettings settings = project.settings();
+    settings.name = name;
+    project.setSettings(settings);
+    project.setName(name);
+    const QString absolute = QFileInfo(path).absoluteFilePath();
+    std::unique_ptr<pack::ProjectPackage> package = pack::ProjectPackage::create(absolute, error);
+    if (!package)
+        return false;
+    if (!package->saveDocument(project.documentJson(absolute), error)) {
+        package.reset();
+        QFile::remove(absolute);
+        return false;
+    }
+    pack::invalidateIndexCache(absolute);
+    return true;
+}
+
+bool writeKinoklipName(const QString& path, const QString& name, QString* error)
+{
+    // The window that has the project open writes it; nobody else may (one writer per file).
+    const std::unique_ptr<ProjectLock> lock = ProjectLock::acquire(path);
+    if (!lock) {
+        if (error)
+            *error = tr("The project is open in another window or program");
+        return false;
+    }
+    std::unique_ptr<pack::ProjectPackage> package = pack::ProjectPackage::open(path, true, error);
+    if (!package)
+        return false;
+    const QByteArray stored = package->storedDocument(error);
+    if (stored.isEmpty())
+        return false;
+    QJsonObject root = QJsonDocument::fromJson(stored).object();
+    QJsonObject project = root.value(QLatin1String("project")).toObject();
+    if (project.value(QLatin1String("name")).toString() == name)
+        return true; // nothing to change: keep the file as it is
+    project[QLatin1String("name")] = name;
+    root[QLatin1String("project")] = project;
+    const bool ok
+        = package->saveStoredDocument(QJsonDocument(root).toJson(QJsonDocument::Indented), error);
+    pack::invalidateIndexCache(package->path());
+    return ok;
 }
 
 bool writeKkprojName(const QString& path, const QString& name, QString* error)

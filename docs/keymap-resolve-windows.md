@@ -12,7 +12,7 @@ disabled.
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 257 commands; sure 94, likely 88, unsure 75.
+Counts: 261 commands; sure 94, likely 88, unsure 79.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -34,6 +34,10 @@ that every command has an entry and that no key is used twice.
 | Open Project (file dialog) | `file.open` | `Ctrl+O` | unsure | Ctrl+O unsure: Resolve opens projects from its Project Manager |
 | Save Project | `file.save` | `Ctrl+S` | sure |  |
 | Save Project As | `file.save_as` | `Ctrl+Shift+S` | sure |  |
+| Pack Project (copy the project and its media into one single-file project) | `file.pack_project` | (none) | unsure | Kinoklip's own single-file projects; Resolve has no equivalent command, so no key |
+| Unpack Project (write a single-file project's media to a folder, continue linked) | `file.unpack_project` | (none) | unsure | Kinoklip's own; no Resolve equivalent, no key |
+| Compact Project (remove unused media and old saves from a single-file project) | `file.compact_project` | (none) | unsure | Kinoklip's own; no Resolve equivalent, no key |
+| Verify Project File (check a single-file project; Repair after a crash) | `file.verify_project` | (none) | unsure | Kinoklip's own; no Resolve equivalent, no key |
 | Import Media | `file.import_media` | `Ctrl+I` | sure |  |
 | Import Subtitle | `file.import_subtitle` | (none) | likely | File > Import > Subtitle in Resolve; no default key known |
 | Export Timeline as EDL (CMX3600: V, A, A2, dissolves, M2 speed) | `file.export_edl` | (none) | likely | File > Export > Timeline in Resolve (EDL among the formats); no default key known |

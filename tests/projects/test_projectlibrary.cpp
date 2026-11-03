@@ -3,6 +3,7 @@
 // rename / duplicate / move / trash / import / export, the open project's protection, and a
 // library of 300 generated projects.
 #include "ProjectTestUtil.h"
+#include "core/MediaPool.h"
 #include "core/Preferences.h"
 #include "projects/ProjectKinds.h"
 #include "projects/ProjectLibrary.h"
@@ -368,33 +369,100 @@ private slots:
         QVERIFY(loaded.load(target));
     }
 
-    void singleFileProjectsAreListedButNotCreatedYet()
+    void singleFileProjectsAreCreatedAndRead()
     {
-        // Owner decision: two kinds, linked (.kkproj) and single file (.kinoklip). The container
-        // comes from the kkpack branch; until it is integrated, .kinoklip files are listed with
-        // an error card and cannot be created.
+        // Owner decision: two kinds, linked (.kkproj) and single file (.kinoklip); both are
+        // created, listed with their details, renamed and duplicated by the library.
         const ProjectKind* single = projectkinds::byStorage(ProjectStorage::SingleFile);
         QVERIFY(single);
         QCOMPARE(single->extensions, QStringList {QStringLiteral("kinoklip")});
-        QVERIFY(!single->canCreate());
+        QVERIFY(single->canCreate());
         QVERIFY(projectkinds::byStorage(ProjectStorage::Linked)->canCreate());
         auto lib = makeLibrary();
         QString error;
-        QVERIFY(lib->createProject({}, QStringLiteral("Packed"), single->id, &error).isEmpty());
-        QVERIFY(!error.isEmpty());
-        QFile f(m_root + QStringLiteral("/Trip.kinoklip"));
+        const QString packed = lib->createProject({}, QStringLiteral("Packed"), single->id, &error);
+        QCOMPARE(packed, m_root + QStringLiteral("/Packed.kinoklip"));
+        QFile f(m_root + QStringLiteral("/Empty.kinoklip")); // not a container: an error card
         QVERIFY(f.open(QIODevice::WriteOnly));
         f.close();
         project(QStringLiteral("Linked One"));
         const QVector<ProjectEntry> entries = lib->list();
-        QCOMPARE(entries.size(), 2);
+        QCOMPARE(entries.size(), 3);
         for (const ProjectEntry& e : entries) {
             const ProjectMetadata m = lib->metadataNow(e);
-            if (e.kindId == QLatin1String("kinoklip"))
+            if (e.name == QLatin1String("Empty")) {
                 QVERIFY(!m.isValid());
-            else
-                QVERIFY(m.isValid());
+                continue;
+            }
+            QVERIFY2(m.isValid(), qPrintable(m.error));
+            if (e.kindId == QLatin1String("kinoklip")) {
+                QCOMPARE(m.name, QStringLiteral("Packed"));
+                QCOMPARE(m.timelineCount, 1);
+                QCOMPARE(m.width, 1920);
+            }
         }
+        // Rename changes the name stored inside the container; Duplicate gets its own name.
+        const QString renamed = lib->rename(packed, QStringLiteral("Trip"), &error);
+        QCOMPARE(renamed, m_root + QStringLiteral("/Trip.kinoklip"));
+        QCOMPARE(projectkinds::readKinoklipMetadata(renamed).name, QStringLiteral("Trip"));
+        const QString copy = lib->duplicate(renamed, &error);
+        QCOMPARE(copy, m_root + QStringLiteral("/Trip copy.kinoklip"));
+        QCOMPARE(projectkinds::readKinoklipMetadata(copy).name, QStringLiteral("Trip copy"));
+        QVERIFY(lib->moveToTrash(copy, &error));
+        QVERIFY(!QFileInfo::exists(copy));
+    }
+
+    void exportConvertsBetweenKinds()
+    {
+        // Export as a single file packs a linked project with its media; exporting a single
+        // file as .kkproj unpacks it (media next to the exported project).
+        const QString media = testMedia("h264_25fps.mp4");
+        if (!QFileInfo::exists(media))
+            QSKIP("test media missing (tests/data/generated)");
+        test::ProjectSpec spec;
+        spec.mediaFile = media;
+        const QString linked = project(QStringLiteral("Holiday"), spec);
+        auto lib = makeLibrary();
+        QString error;
+        const QString single = m_dir->path() + QStringLiteral("/out/Holiday.kinoklip");
+        QDir().mkpath(QFileInfo(single).absolutePath());
+        int calls = 0;
+        bool cancelled = false;
+        QVERIFY2(lib->exportProject(
+                     linked, single, &error,
+                     [&](qint64, qint64) {
+                         ++calls;
+                         return true;
+                     },
+                     &cancelled),
+            qPrintable(error));
+        QVERIFY(calls > 0);
+        QVERIFY(!cancelled);
+        const ProjectMetadata m = projectkinds::readKinoklipMetadata(single);
+        QVERIFY2(m.isValid(), qPrintable(m.error));
+        QCOMPARE(m.mediaCount, 1);
+        QCOMPARE(m.missingMediaCount, 0);
+        QVERIFY(m.posterMediaPath.startsWith(single + QLatin1Char('/')));
+        // Cancelled: nothing is left behind.
+        const QString never = m_dir->path() + QStringLiteral("/out/Never.kinoklip");
+        QVERIFY(!lib->exportProject(
+            linked, never, &error, [](qint64, qint64) { return false; }, &cancelled));
+        QVERIFY(cancelled);
+        QVERIFY(!QFileInfo::exists(never));
+        // Back to a linked project in another folder.
+        const QString back = m_dir->path() + QStringLiteral("/back/Holiday linked.kkproj");
+        QDir().mkpath(QFileInfo(back).absolutePath());
+        QVERIFY2(lib->exportProject(single, back, &error), qPrintable(error));
+        Project loaded;
+        QVERIFY(loaded.load(back));
+        QCOMPARE(loaded.name(), QStringLiteral("Holiday linked"));
+        QString path;
+        for (const MediaItem& item : loaded.mediaPool()->state().items) {
+            if (!item.isTimeline())
+                path = item.path;
+        }
+        QVERIFY2(path.startsWith(m_dir->path() + QStringLiteral("/back/media/")), qPrintable(path));
+        QVERIFY(QFileInfo(path).isFile());
     }
 
     void projectKindsAreOpen()

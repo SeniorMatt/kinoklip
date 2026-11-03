@@ -2,6 +2,8 @@
 // ProjectLibrary implementation: listing, the metadata / poster caches and file operations.
 #include "projects/ProjectLibrary.h"
 
+#include "pack/ProjectPackage.h"
+
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
@@ -637,12 +639,52 @@ QString ProjectLibrary::importProject(const QString& source, const QString& fold
     return to;
 }
 
-bool ProjectLibrary::exportProject(const QString& path, const QString& target, QString* error)
+bool ProjectLibrary::exportProject(const QString& path, const QString& target, QString* error,
+    const std::function<bool(qint64, qint64)>& progress, bool* cancelled,
+    QStringList* keptLinked) const
 {
     const QString from = clean(path);
     const QString to = clean(target);
+    if (cancelled)
+        *cancelled = false;
     if (from == to)
         return true;
+    const bool fromSingle = pack::isContainerFile(from);
+    const bool toSingle = pack::isContainerFile(to);
+    if (!fromSingle && toSingle) {
+        // Export as a single file: Pack (writes "<to>.part", renamed over `to` when complete).
+        const pack::PackResult r = pack::packProject(from, to, progress);
+        if (cancelled)
+            *cancelled = r.status == pack::Status::Cancelled;
+        if (keptLinked)
+            *keptLinked = r.skipped;
+        if (r.status != pack::Status::Ok)
+            return setError(error, r.error);
+        return true;
+    }
+    if (fromSingle && !toSingle) {
+        // Export as a linked project: Unpack next to the target, then give it the chosen name.
+        const QString folder = QFileInfo(to).absolutePath();
+        const QString unpacked = QDir(folder).absoluteFilePath(
+            QFileInfo(from).completeBaseName() + QStringLiteral(".kkproj"));
+        if (QFileInfo::exists(to) && to != unpacked)
+            return setError(error, tr("%1 already exists.").arg(QDir::toNativeSeparators(to)));
+        if (unpacked != to && QFileInfo::exists(unpacked))
+            return setError(
+                error, tr("%1 already exists.").arg(QDir::toNativeSeparators(unpacked)));
+        if (unpacked == to && QFileInfo::exists(to) && !QFile::remove(to))
+            return setError(error, tr("Cannot replace %1.").arg(QDir::toNativeSeparators(to)));
+        const pack::UnpackResult r = pack::unpackProject(from, folder, progress);
+        if (cancelled)
+            *cancelled = r.status == pack::Status::Cancelled;
+        if (r.status != pack::Status::Ok)
+            return setError(error, r.error);
+        if (r.projectFile != to && !QFile::rename(r.projectFile, to))
+            return setError(error, tr("Cannot write %1.").arg(QDir::toNativeSeparators(to)));
+        if (const ProjectKind* kind = projectkinds::forPath(to); kind && kind->writeName)
+            kind->writeName(to, QFileInfo(to).completeBaseName(), nullptr);
+        return true;
+    }
     if (QFileInfo::exists(to) && !QFile::remove(to))
         return setError(error, tr("Cannot replace %1.").arg(QDir::toNativeSeparators(to)));
     if (!QFile::copy(from, to))

@@ -8,6 +8,7 @@
 #include "core/Preferences.h"
 #include "core/SelectionModel.h"
 #include "playback/PlaybackEngine.h"
+#include "projects/ProjectKinds.h"
 #include "projects/ProjectLibrary.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -200,12 +201,15 @@ private slots:
         QVERIFY(bad.open(QIODevice::WriteOnly));
         bad.write("{ this is not json");
         bad.close();
-        QFile single(m_root + QStringLiteral("/Packed.kinoklip"));
+        QFile single(m_root + QStringLiteral("/Packed.kinoklip")); // empty: not a container
         QVERIFY(single.open(QIODevice::WriteOnly));
         single.close();
+        QString error;
+        QVERIFY(projectkinds::createKinoklip(
+            m_root + QStringLiteral("/Real.kinoklip"), QStringLiteral("Real"), &error));
         open();
         ProjectLibraryModel* model = m_window->model();
-        QCOMPARE(model->rowCount(), 3);
+        QCOMPARE(model->rowCount(), 4);
         m_window->grab(); // paints every card: schedules the metadata reads
         m_library->waitForIdle();
         const QModelIndex good
@@ -225,6 +229,16 @@ private slots:
         QCOMPARE(packed.data(ProjectLibraryModel::KindBadgeRole).toString(),
             QStringLiteral("Single file"));
         QVERIFY(!packed.data(ProjectLibraryModel::ErrorRole).toString().isEmpty());
+        // A real single-file project gets a normal card with its details and badge.
+        const QModelIndex real
+            = model->index(model->rowOf(m_root + QStringLiteral("/Real.kinoklip")), 0);
+        QVERIFY2(real.data(ProjectLibraryModel::ErrorRole).toString().isEmpty(),
+            qPrintable(real.data(ProjectLibraryModel::ErrorRole).toString()));
+        QCOMPARE(real.data(ProjectLibraryModel::KindBadgeRole).toString(),
+            QStringLiteral("Single file"));
+        QVERIFY(real.data(ProjectLibraryModel::DetailsRole)
+                    .toString()
+                    .contains(QStringLiteral("1920 x 1080")));
         QVERIFY(!m_window->grab().isNull()); // error cards paint
         // Opening the broken one fails in the controller, not here: the request is made.
         QSignalSpy requested(m_window.get(), &ProjectManagerWindow::openRequested);
@@ -346,26 +360,36 @@ private slots:
 
     void newProjectKinds()
     {
-        // Single file is the owner's default, but the container is not integrated in this
-        // build: the option is disabled with a tooltip and Linked is chosen.
-        NewProjectDialog dialog(QStringLiteral("Untitled Project"));
-        QVERIFY(!dialog.singleFileButton()->isEnabled());
-        QVERIFY(dialog.singleFileButton()->toolTip().contains(
-            QStringLiteral("single-file project integration")));
-        QVERIFY(dialog.linkedButton()->isChecked());
-        QCOMPARE(dialog.kindId(), QStringLiteral("kkproj"));
-        QCOMPARE(NewProjectDialog::preferredKindId(), QStringLiteral("kkproj"));
-        // A remembered single-file choice is ignored while it cannot be created.
+        // Single file is the owner's default (nothing remembered yet); both are enabled.
+        QSettings().remove(QStringLiteral("projectManager/newProjectKind"));
+        {
+            NewProjectDialog dialog(QStringLiteral("Untitled Project"));
+            QVERIFY(dialog.singleFileButton()->isEnabled());
+            QVERIFY(dialog.linkedButton()->isEnabled());
+            QVERIFY(dialog.singleFileButton()->isChecked());
+            QCOMPARE(dialog.kindId(), QStringLiteral("kinoklip"));
+            QCOMPARE(NewProjectDialog::preferredKindId(), QStringLiteral("kinoklip"));
+            // The choice is remembered when the dialog is accepted.
+            dialog.linkedButton()->setChecked(true);
+            dialog.accept();
+            QCOMPARE(NewProjectDialog::preferredKindId(), QStringLiteral("kkproj"));
+        }
+        {
+            NewProjectDialog dialog(QStringLiteral("Untitled Project"));
+            QVERIFY(dialog.linkedButton()->isChecked());
+        }
         NewProjectDialog::rememberKind(QStringLiteral("kinoklip"));
-        QCOMPARE(NewProjectDialog::preferredKindId(), QStringLiteral("kkproj"));
-        NewProjectDialog::rememberKind(QStringLiteral("kkproj"));
-        QCOMPARE(NewProjectDialog::preferredKindId(), QStringLiteral("kkproj"));
+        QCOMPARE(NewProjectDialog::preferredKindId(), QStringLiteral("kinoklip"));
 
         open();
         QSignalSpy requested(m_window.get(), &ProjectManagerWindow::openRequested);
+        const QString single = m_window->createProject(QStringLiteral("Packed"));
+        QCOMPARE(single, m_root + QStringLiteral("/Packed.kinoklip"));
+        QCOMPARE(projectkinds::readKinoklipMetadata(single).name, QStringLiteral("Packed"));
+        NewProjectDialog::rememberKind(QStringLiteral("kkproj"));
         const QString p = m_window->createProject(QStringLiteral("Fresh"));
         QCOMPARE(p, m_root + QStringLiteral("/Fresh.kkproj"));
-        QCOMPARE(requested.size(), 1);
+        QCOMPARE(requested.size(), 2);
         // A cancelled "save changes?" creates nothing.
         m_window->setSwitchGuard([](QWidget*) { return false; });
         QVERIFY(m_window->createProject(QStringLiteral("Never")).isEmpty());

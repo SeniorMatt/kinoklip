@@ -41,6 +41,11 @@ const ActionSpec kActions[] = {
     {"file", "-"},
     {"file", "file.save",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Save Project")},
     {"file", "file.save_as",          QT_TRANSLATE_NOOP("kk::StandardActions", "Save Project &As…")},
+    // Single-file projects (src/app/ProjectPackaging.cpp): convert between the kinds, clean up.
+    {"file", "file.pack_project",     QT_TRANSLATE_NOOP("kk::StandardActions", "Pac&k Project…")},
+    {"file", "file.unpack_project",   QT_TRANSLATE_NOOP("kk::StandardActions", "U&npack Project…")},
+    {"file", "file.compact_project",  QT_TRANSLATE_NOOP("kk::StandardActions", "Co&mpact Project…")},
+    {"file", "file.verify_project",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Verify Project File")},
     {"file", "-"},
     {"file", "file.import_media",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Import Media…"), "import"},
     {"file", "file.import_subtitle",  QT_TRANSLATE_NOOP("kk::StandardActions", "Import S&ubtitle…")},

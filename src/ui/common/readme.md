@@ -15,7 +15,9 @@ Used by every panel and page. Depends on `core` only.
 | `Icons.h` | `kk::icon("play")` — own SVGs tinted from the palette (On state = accent) |
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
 | `TimecodeEntry.h` | typed timecodes (spec 2.10): `timecode::parseTyped()` (calculator-style digits, + / - offsets) and the application key filter `TimecodeEntry` collecting them while the timeline has focus (EditPage wires it) |
-| `MediaImport.h` | import with user feedback; media file patterns/filters |
+| `MediaImport.h` | import with user feedback (a single-file project copies the files in first through `AppContext::mediaStore`); `storeItemsInProject()` (relink, Store in Project File); `isStoredInProject()` / `isLinkedFile()` / `mediaLocationText()`; media file patterns/filters |
+| `MediaStore.h` | where imported media go: the interface `app/ProjectController` implements for single-file projects (`AppContext::mediaStore`, null = linked) |
+| `ProgressTask.h` | `runWithProgress()`: a long file operation on a worker thread behind a window-modal progress dialog with Cancel (imports, Pack, Unpack, Compact, Verify, Project Manager export); a test hook presses Cancel |
 | `Resources.h` | `initResources()` — call in `main()` and in tests that need icons/keymap |
 | `PanelSplitter.h` | `QSplitter` for every split between and inside panels: handles that highlight on hover / press and never trigger Breeze's mouse-grabbing splitter proxy (see "Wayland") |
 | `DragAndDrop.h` | `execCopyDrag()`, `logDropEvent()`, the `kk.ui.dnd` logging category; `DragMime.h` holds the MIME contract between drag sources and drop targets |
