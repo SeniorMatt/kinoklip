@@ -913,9 +913,30 @@ bool PlaybackEngine::audioScrubbing()
     return g_audioScrubbing;
 }
 
+namespace {
+/// Live PlaybackEngine::SilentPlayheadMove scopes (GUI thread only).
+int g_silentPlayheadMoves = 0;
+} // namespace
+
+PlaybackEngine::SilentPlayheadMove::SilentPlayheadMove()
+{
+    ++g_silentPlayheadMoves;
+}
+
+PlaybackEngine::SilentPlayheadMove::~SilentPlayheadMove()
+{
+    --g_silentPlayheadMoves;
+}
+
+bool PlaybackEngine::playheadMovesSilent()
+{
+    return g_silentPlayheadMoves > 0;
+}
+
 void PlaybackEngine::scrubAudio(int64_t frame)
 {
-    if (!g_audioScrubbing || isPlaying() || m_muted || !hasAudio() || !m_snapshot)
+    if (!g_audioScrubbing || g_silentPlayheadMoves > 0 || isPlaying() || m_muted || !hasAudio()
+        || !m_snapshot)
         return;
     if (!m_scrubActive) {
         // Open the device once per scrub gesture; snippets then only feed the ring.
