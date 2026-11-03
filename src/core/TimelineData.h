@@ -8,6 +8,7 @@
 #include "core/Mask.h"
 #include "core/MixerData.h"
 #include "core/Rational.h"
+#include "core/ViewerGuides.h"
 
 #include <QColor>
 #include <QHash>
@@ -336,6 +337,9 @@ struct TimelineData
     quint64 nextId = 1; ///< id allocator for clips, tracks and effect instances
     /// Buses and the output bus of the Audio page's mixer (core/MixerData.h).
     MixerData mixer;
+    /// Viewer guide lines of this timeline (View > Guides; core/ViewerGuides.h). Display
+    /// only: the renderers never read them, so they never appear in a render or export.
+    std::vector<ViewerGuide> guides;
     /// Render snapshots only (Timeline::snapshot()): every timeline the nested clips of this
     /// one reach, directly or indirectly. Empty in editable data; never serialized.
     NestedTimelines nested;

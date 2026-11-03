@@ -31,6 +31,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
 | `Generators.h` | ids and parameter keys of the built-in generators and the adjustment clip |
 | `Subtitles.h` | `SubtitleCue`, SRT / WebVTT parse and write, caption style keys + defaults (caption → track → default chain), cue ↔ caption conversion (lanes for overlapping cues) |
+| `ViewerGuides.h` | `ViewerGuide` (orientation + position in timeline frame px; `TimelineData::guides`), its JSON, guide presets (built-in, user file `<AppData>/guide-presets.json`, in fractions of the frame), safe area / aspect marker / grid geometry, `snapOffset()` and ruler steps (spec 41) |
 | `BuiltinEffects.cpp` | the v0.1 descriptor catalogue |
 | `CutEdits.h` | the Cut page's smart edits as pure functions (namespace `kk::cutedits`): `nearestEditPoint()`, `smartInsert()`, `append()`, `rippleOverwrite()`, `placeOnTop()` (one free track for the whole edit), `closeUp()` (zoomed video on top), `sourceOverwrite()` + `sourceOverwriteStart()` (line up by timecode), `fastReviewRate()`; spec section 35 |
 | `SourceTape.h` | the Cut page's source tape: a bin's clips back to back at the timeline rate; tape frame <-> (clip, source µs), a marked range split at the clip boundaries (`segments()`), a playable private timeline (`toTimeline()`) |
@@ -239,6 +240,8 @@ and subtitle media items (`"kind": "subtitle"`, `"cues": [[startUs, endUs, text]
 Format version 8 adds multicam: timeline `"multicam": true`, clip `"multicamAngle"`, media
 pool item `"kind": "multicam"`, media info `"timecode"` (all optional).
 Format version 10 (attrs) adds clip fades and Clip Attributes (see `Serialization.h`).
+Format version 14 (guides) adds the optional timeline `"guides"` (`[{"o": "h" | "v", "pos":
+px}]`, core/ViewerGuides.h, display only); versions 1 - 13 have none and load unchanged.
 Format version 13 (polish4) adds the optional marker `"duration"` (frames, written only when
 > 1: ranged markers); every older marker is one frame, so versions 1 - 12 load unchanged.
 `Project::captureSave()` / `writeSnapshot()` split saving into a microsecond capture of shared
