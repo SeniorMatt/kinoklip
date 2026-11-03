@@ -229,6 +229,22 @@ private slots:
         QCOMPARE(f.project.timeline()->data().track(TrackRef {TrackType::Video, 0})->name,
             QStringLiteral("Interview"));
         QCOMPARE(f.project.undoStack()->count(), steps + 1);
+
+        // Clicking another panel commits, and the focus stays where the user clicked.
+        QTest::mouseDClick(w->viewport(), Qt::LeftButton, Qt::NoModifier, name.center());
+        editor = w->trackNameEditor();
+        QVERIFY(editor);
+        editor->setText(QStringLiteral("Wide"));
+        QWidget* inspector = f.window->editPage()->inspector();
+        auto* other = new QLineEdit(inspector);
+        other->show();
+        other->setFocus(Qt::MouseFocusReason);
+        QCoreApplication::processEvents();
+        QVERIFY(!w->trackNameEditor());
+        QCOMPARE(f.project.timeline()->data().track(TrackRef {TrackType::Video, 0})->name,
+            QStringLiteral("Wide"));
+        QVERIFY(other->hasFocus());
+        delete other;
     }
 
     // Spec 16.7: a timeline clip's context menu offers Paste Attributes (Alt+V) next to Paste.

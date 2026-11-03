@@ -572,7 +572,9 @@ class TrackNameEditor : public QLineEdit
 {
 public:
     using QLineEdit::QLineEdit;
-    std::function<void(bool commit)> done;
+    /// Called once: @p commit false for Esc; @p keyboard true for Enter / Esc (the focus then
+    /// goes back to the timeline), false when the focus moved elsewhere (it stays there).
+    std::function<void(bool commit, bool keyboard)> done;
 
 protected:
     bool event(QEvent* event) override
@@ -589,11 +591,11 @@ protected:
     void keyPressEvent(QKeyEvent* event) override
     {
         if (event->key() == Qt::Key_Escape) {
-            finish(false);
+            finish(false, true);
             return;
         }
         if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
-            finish(true);
+            finish(true, true);
             return;
         }
         QLineEdit::keyPressEvent(event);
@@ -601,14 +603,14 @@ protected:
     void focusOutEvent(QFocusEvent* event) override
     {
         QLineEdit::focusOutEvent(event);
-        finish(true);
+        finish(true, false);
     }
 
 private:
-    void finish(bool commit)
+    void finish(bool commit, bool keyboard)
     {
         if (auto d = std::exchange(done, nullptr))
-            d(commit);
+            d(commit, keyboard);
     }
 };
 
@@ -643,7 +645,7 @@ bool TimelineWidget::beginTrackRename(QPointF pos)
     editor->setObjectName(QStringLiteral("TrackNameEditor"));
     editor->setGeometry(rect.adjusted(-3, -1, 3, 1));
     editor->selectAll();
-    editor->done = [this, editor, ref, shown](bool commit) {
+    editor->done = [this, editor, ref, shown](bool commit, bool keyboard) {
         const QString name = editor->text().trimmed();
         editor->hide();
         editor->deleteLater();
@@ -651,7 +653,8 @@ bool TimelineWidget::beginTrackRename(QPointF pos)
             m_trackNameEditor = nullptr;
         if (commit && name != shown && m_ctx.project->timeline()->data().track(ref))
             m_controller->renameTrack(ref, name);
-        setFocus(Qt::OtherFocusReason);
+        if (keyboard)
+            setFocus(Qt::OtherFocusReason);
     };
     m_trackNameEditor = editor;
     editor->show();
