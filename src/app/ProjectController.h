@@ -93,6 +93,13 @@ public:
     /// The open single-file project's container (null for a linked project).
     [[nodiscard]] pack::ProjectPackage* package() const { return m_package.get(); }
 
+    /// Closes the open container's file (the lock stays held), e.g. before a rewrite of the
+    /// file (Compact, Repair). package() is null until reopenPackage().
+    void releasePackage();
+    /// Opens the container of the open single-file project again after releasePackage();
+    /// false (and read-only) if that fails.
+    bool reopenPackage(QString* error = nullptr);
+
     // MediaStore
     [[nodiscard]] bool storesMedia() const override;
     [[nodiscard]] QString containerPath() const override;

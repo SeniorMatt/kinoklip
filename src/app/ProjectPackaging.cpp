@@ -232,6 +232,28 @@ bool ProjectController::saveContainer(QString* error)
     return true;
 }
 
+void ProjectController::releasePackage()
+{
+    m_package.reset();
+}
+
+bool ProjectController::reopenPackage(QString* error)
+{
+    if (!isSingleFile())
+        return false;
+    const QString path = QFileInfo(m_ctx.project->filePath()).absoluteFilePath();
+    pack::invalidateIndexCache(path);
+    m_package = pack::ProjectPackage::open(path, m_lock && !m_readOnly, error);
+    if (!m_package) {
+        m_lock.reset();
+        m_readOnly = true;
+        updatePackageActions();
+        emit storageChanged();
+        return false;
+    }
+    return true;
+}
+
 void ProjectController::releaseContainer()
 {
     const bool had = m_package || m_lock || m_readOnly;
