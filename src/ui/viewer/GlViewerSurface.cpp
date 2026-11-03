@@ -17,7 +17,6 @@ namespace {
 
 Q_LOGGING_CATEGORY(lcGlViewer, "kk.ui.viewer.gl", QtInfoMsg)
 
-
 // Unit quad as a triangle strip; the vertex shader maps it onto the picture rectangle.
 constexpr GLfloat kQuad[] = {0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 1.f, 1.f};
 
@@ -58,9 +57,9 @@ GlViewerSurface::GlViewerSurface(QWidget* parent)
     // Same colour as the raster surface's empty text (SchemeColors viewer roles).
     const auto styleText = [label = m_text] {
         const SchemeColors& sc = schemeColors();
-        label->setStyleSheet(QStringLiteral("color: %1; background: transparent;")
-                                 .arg(mixColors(sc.viewerText, sc.viewerSurround, 0.45)
-                                         .name(QColor::HexRgb)));
+        label->setStyleSheet(
+            QStringLiteral("color: %1; background: transparent;")
+                .arg(mixColors(sc.viewerText, sc.viewerSurround, 0.45).name(QColor::HexRgb)));
     };
     styleText();
     connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, m_text, styleText);
@@ -129,6 +128,16 @@ void GlViewerSurface::setAspect(QSize aspect)
 void GlViewerSurface::setZoom(double zoom)
 {
     if (m_picture.setZoom(zoom)) {
+        updateText();
+        update();
+    }
+}
+
+void GlViewerSurface::setView(double zoom, QPointF pan)
+{
+    const bool zoomChanged = m_picture.setZoom(zoom);
+    const bool panChanged = m_picture.setPan(pan);
+    if (zoomChanged || panChanged) {
         updateText();
         update();
     }

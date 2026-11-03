@@ -24,6 +24,8 @@ public:
     void clear(const QString& text = {}) override;
     void setAspect(QSize aspect) override;
     void setZoom(double zoom) override;
+    void setView(double zoom, QPointF pan) override;
+    [[nodiscard]] const ViewerPicture& picture() const override { return m_picture; }
     [[nodiscard]] QRect pictureRect() const override;
     void setOverlayText(const QString& text) override;
 
