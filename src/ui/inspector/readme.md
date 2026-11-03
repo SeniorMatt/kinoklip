@@ -49,6 +49,10 @@ Edits the parameters of the selected clip. Owned by the panels agent.
   keyframe and curve editors edit the same keys (src/ui/timeline/KeyframeLanes.h).
 - **Shortcuts.** `clip.add_keyframe` toggles a key on the parameter the user touched last;
   `clip.prev_keyframe` / `clip.next_keyframe` jump across every animated parameter shown.
+- **Eyedropper.** A Color row whose descriptor has `viewerPicker` (Chroma Key's Key Color)
+  has a checkable picker button in the keyframe column. It calls
+  `ParamEditHost::setColorPicking()`, which sets `SelectionModel::colorPicker()`; the timeline
+  viewer's `ColorPickOverlay` does the pick and clears it, and `refresh()` unchecks the button.
 - **Drops.** `mime::Effect` dropped on the inspector applies an effect to the shown clip, or a
   transition to the end nearer the playhead.
 
