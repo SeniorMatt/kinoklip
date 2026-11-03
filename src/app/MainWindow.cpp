@@ -17,6 +17,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaManagement.h"
+#include "ui/common/ResizeProfiler.h"
 #include "ui/common/ShortcutFallback.h"
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
@@ -129,6 +130,8 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     addActions(ctx.actions->actions());
     // Ctrl+Shift+[ etc. also when the layout reports Ctrl+Shift+{ (alpha.2 feedback).
     new ShortcutFallback(*ctx.actions, this);
+    // Per-step live-resize timings with QT_LOGGING_RULES=kk.ui.resize.debug=true.
+    ResizeProfiler::attach(this);
 
     auto* central = new QWidget(this);
     central->setObjectName(QStringLiteral("CentralWidget"));
