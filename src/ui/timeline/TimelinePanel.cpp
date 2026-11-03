@@ -204,7 +204,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
         };
         on("timeline.zoom_in", &TimelineWidget::zoomIn);
         on("timeline.zoom_out", &TimelineWidget::zoomOut);
-        on("timeline.zoom_fit", &TimelineWidget::zoomToFit);
+        on("timeline.zoom_fit", &TimelineWidget::toggleZoomToFit);
         connect(m_ctx.actions->action(QStringLiteral("clip.change_duration")), &QAction::triggered,
             this, &TimelinePanel::askClipDuration);
         connect(m_ctx.actions->action(QStringLiteral("clip.change_speed")), &QAction::triggered,

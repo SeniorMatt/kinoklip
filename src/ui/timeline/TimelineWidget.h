@@ -13,6 +13,7 @@
 #include "ui/timeline/TimelinePainter.h"
 
 #include <QAbstractScrollArea>
+#include <QLineEdit>
 #include <QMenu>
 #include <QPointer>
 #include <QSet>
@@ -172,8 +173,17 @@ public slots:
     [[nodiscard]] double trackHeightScale() const { return m_layout.heightScale(); }
     void zoomIn();
     void zoomOut();
-    /// Fits the whole timeline into the view (Shift+Z).
+    /// Opens the inline track name editor if @p pos is on a track name in a header (a
+    /// double-click, spec 12.15): Enter commits in one undo step, Esc cancels, clicking away
+    /// commits. Returns false if @p pos is not on a track name.
+    bool beginTrackRename(QPointF pos);
+    /// The open inline track name editor, or null.
+    [[nodiscard]] QLineEdit* trackNameEditor() const { return m_trackNameEditor; }
+    /// Fits the whole timeline into the view.
     void zoomToFit();
+    /// Shift+Z (spec 19.9): fits the whole timeline into the view; pressed again before the
+    /// zoom was changed by other means, it returns to the zoom and scroll from before the fit.
+    void toggleZoomToFit();
     /// Repaints clips after thumbnails/waveforms became available.
     void refreshMedia();
     /// Page-scrolls if the playhead is outside the visible range.
@@ -430,6 +440,7 @@ private:
     /// Project timelines by uid for the painter (multicam angle names); set once.
     std::function<const TimelineData*(quint64)> m_timelineLookup;
     KeyframeLanes* m_keyframeLanes = nullptr; ///< child QObject: keyframe / curve editor lanes
+    QPointer<QLineEdit> m_trackNameEditor; ///< beginTrackRename()
     QPointer<QMenu> m_retimeMenu; ///< open speed / speed point menu
     NestedPreview* m_nestedPreview = nullptr; ///< child QObject: compound clip previews
     TimelineOverlay m_overlay;
@@ -444,6 +455,13 @@ private:
     bool m_showSourceTimecode = false;
     bool m_syncingScrollBars = false;
     bool m_fitOnFirstShow = true;
+    /// toggleZoomToFit(): the zoom and scroll before the fit, and the fitted zoom (0 = none).
+    struct
+    {
+        double pixelsPerFrame = 0.0;
+        double scrollX = 0.0;
+        double fitted = 0.0;
+    } m_beforeFit;
     quint64 m_hoverClip = 0; ///< clip under the mouse (fade handles shown)
     ClipDragOut m_clipDragOut;
     TimelineAnimator m_anim; ///< display-only tweens (TimelineAnimator.h)

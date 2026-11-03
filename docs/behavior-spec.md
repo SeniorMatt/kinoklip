@@ -232,6 +232,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 12.12 | The header menu also offers the header buttons: Disable / Enable Track (video), Mute / Unmute and Solo / Unsolo Track (audio), next to Lock Track. | Fixed (polish round 2; p2 contextMenusOfferTheBasics) |
 | 12.13 | Clips of offline media (the file was moved, renamed or its drive unmounted) are drawn red with "Media Offline" instead of thumbnails or waveforms. The media pool keeps the offline set (checked on add, load, undo, relink and when the application becomes active; no file access while painting). | Fixed (polish round 2; p2 spec12_11_viewOptionsThumbnails, test_robustness offlineAndMovedMedia) |
 | 12.14 | Timeline View Options > Show Source Timecode: media and nested clips show the source timecode of their first frame (the media's start timecode, or the Clip Attributes override, plus the source in) after the name in the name band, dimmed; the name keeps the room first. Off by default, stored in the settings. | Fixed (polish round 3; test_polish3 spec12_14). Decision: off by default, as Resolve shows only names on clips by default. |
+| 12.15 | Double-clicking a track name in the header opens an inline editor with the name selected: Enter (or clicking away) renames the track in one undo step "Rename Track", Esc cancels. The header menu's Rename Track entry stays. | Fixed (bughunt2: only the menu entry existed; test_bughunt2 spec12_15_doubleClickRenamesTrack) |
 
 ## 13. Transitions
 
@@ -347,6 +348,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 19.6 | Mouse-wheel zoom keeps the playhead in place (Resolve); Preferences > Editing > "Timeline zooms around: Mouse pointer" anchors it at the pointer instead (key `edit/zoomAnchor`). | Fixed (new; pe2 spec19_6_*) |
 | 19.7 | Shift+wheel makes all tracks taller / shorter (view only, not saved, no undo step). | Fixed (new; pe2 spec19_3) |
 | 19.8 | Ctrl+wheel (Resolve scheme) and horizontal swipes scroll a tenth of the visible time per wheel notch at any view width. | Fixed (polish round 2: the step was truncated to whole pixels, 120 px per notch on every view under 2400 px; p2 ctrlWheelScrollsATenthOfTheView) |
+| 19.9 | Shift+Z toggles: the first press fits the whole timeline, the second returns to the zoom and scroll from before the fit. After a zoom by other means (Ctrl+= / -, the slider, the wheel) or a switch to another timeline it fits again. | Fixed (bughunt2: Shift+Z only fitted; test_bughunt2 spec19_9_shiftZTogglesZoomToFit) |
 
 ## 20. Timeline follow during playback
 
