@@ -27,6 +27,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QElapsedTimer>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
@@ -141,6 +142,65 @@ private Q_SLOTS:
         QTest::mouseClick(
             scrub, Qt::LeftButton, {}, QPoint(int(scrub->xOf(80)) + 1, scrub->height() / 2));
         QCOMPARE(f.project.timeline()->playhead(), int64_t(80));
+    }
+
+    // 41.21: zoomed and panned, the raster surface draws only the visible part of the frame,
+    // pixel for pixel where the picture mapping says.
+    void zoomedRasterDrawsVisiblePart()
+    {
+        Fixture f(false);
+        f.solidTimeline();
+        ViewerPanel viewer(ViewerPanel::Mode::Timeline, f.ctx);
+        viewer.resize(700, 500);
+        viewer.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&viewer));
+        QImage frame(320, 180, QImage::Format_ARGB32_Premultiplied);
+        for (int y = 0; y < frame.height(); ++y)
+            for (int x = 0; x < frame.width(); ++x)
+                frame.setPixel(x, y, qRgb(x % 256, y, (x / 256) * 128));
+        viewer.showFrame(frame);
+        viewer.setZoomFactor(4.0);
+        viewer.setPan({-150, 90});
+        QCoreApplication::processEvents();
+        QWidget* surface = viewer.surface()->widget();
+        const QRect pic = viewer.surface()->pictureRect();
+        QVERIFY(!surface->rect().contains(pic)); // partly outside: the clipped path
+        const QImage shown = surface->grab().toImage();
+        const qreal dpr = surface->devicePixelRatioF();
+        const double scale = pic.width() / 320.0;
+        QCOMPARE(scale, 4.0 / dpr);
+        int checked = 0;
+        // The centres of frame pixels that land inside the widget.
+        for (const QPoint px : {QPoint(130, 90), QPoint(150, 30), QPoint(200, 60), QPoint(250, 80),
+                 QPoint(300, 170)}) {
+            const QPoint w(
+                int(pic.x() + (px.x() + 0.5) * scale), int(pic.y() + (px.y() + 0.5) * scale));
+            if (!surface->rect().contains(w))
+                continue;
+            QCOMPARE(QColor(shown.pixel(QPoint(int(w.x() * dpr), int(w.y() * dpr)))).rgb(),
+                QColor(frame.pixel(px)).rgb());
+            ++checked;
+        }
+        QVERIFY(checked >= 3);
+
+        // Paint cost of a 4K frame at 400 % against Fit (reported, not asserted: the host may
+        // be loaded). Scaling only the visible part keeps the zoomed paint about as cheap.
+        QImage uhd(3840, 2160, QImage::Format_ARGB32_Premultiplied);
+        uhd.fill(QColor(0x40, 0x80, 0xc0));
+        viewer.surface()->setAspect(uhd.size()); // a UHD timeline
+        viewer.showFrame(uhd);
+        auto paintMs = [surface] {
+            QElapsedTimer t;
+            t.start();
+            for (int i = 0; i < 5; ++i)
+                surface->repaint();
+            return t.elapsed() / 5.0;
+        };
+        viewer.zoomToFit();
+        const double fitMs = paintMs();
+        viewer.setZoomFactor(4.0);
+        const double zoomedMs = paintMs();
+        qInfo("4K raster paint: Fit %.1f ms, 400 %% %.1f ms", fitMs, zoomedMs);
     }
 
     void zoomModes()

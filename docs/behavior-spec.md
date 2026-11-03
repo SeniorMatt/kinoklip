@@ -898,6 +898,13 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.15 | Show / lock / snap, guide colour, rulers, safe areas, aspect marker and grid are the user's settings (the same in every viewer and project, kept across sessions); only the guide positions belong to the project. | Fixed (gu safeAreaAndGridActions). Decision: per user in QSettings (`viewer/overlays/...`), because they are viewing preferences, not part of the edit. |
 | 41.16 | None of the new commands has a default key (no known Resolve default); they are assignable in Keyboard Customization. | Fixed (scripts/keymap-resolve-windows.py rows) |
 | 41.17 | Snapping of mask points to guides; panning the zoomed viewer (the rulers follow `pictureRect()`, so a pan will move them too); colours per guide. | Deferred |
+| 41.18 | The mouse wheel over the picture of any viewer (Source, Timeline, Cut page; also over the on-screen controls) zooms in or out by 12.5 % per notch, trackpads in proportion to their delta, keeping the picture point under the cursor in place; from Fit it starts at the fitted size. The range is 10 % - 1600 % (smaller than Fit is allowed). The header's zoom box shows the current percentage ("137%") when it is not one of Fit / 50% / 100% / 200%; choosing an item still works and keeps the point at the centre of the viewer. | Fixed (gu wheelZoomsAboutCursor) |
+| 41.19 | Dragging with the middle button pans the zoomed picture; holding Space over the zoomed picture turns the left button into a hand (open / closed hand cursor) that pans too, and a tap of Space there without a drag still plays / stops, on release. A plain left drag keeps doing what it did (Transform / Crop / mask handles, guides, source drag): neither the middle button nor the Space hand ever starts those. The pan stops when only about 48 px of the picture is left in view. At Fit there is nothing to pan. | Fixed (gu middleDragPans). Decision: Space + drag, as in most picture tools, rather than a hand button, because Space alone must keep playing everywhere else; the release-time play applies only while the cursor is over a zoomed picture. |
+| 41.20 | Fit to window: Shift+Z (the Zoom to Fit key, `timeline.zoom_fit`) while the focus is in a viewer fits that viewer instead of the timeline; the header's Fit item and a middle-button double-click fit too. Fit always centres the picture again. | Fixed (gu fitResets) |
+| 41.21 | Zoomed playback draws only what is visible: the GL surface draws the frame texture as one quad clipped by the viewport, the raster surface scales only the visible part of the frame, and the engine renders at most the timeline resolution however far the viewer is zoomed (wheel steps update the render size coalesced, like a resize). | Fixed (vp zoomedRasterDrawsVisiblePart, zoomModes) |
+| 41.22 | Everything drawn over the picture follows zoom and pan through the one picture rectangle (`ViewerSurface::pictureRect()`): guides and their hit test, rulers, safe areas, aspect marker, grid, the Transform / Crop / mask controls, the eyedropper, the multicam grid labels and the overlay text. The two-up trim view keeps its own layout and takes no zoom input while shown. | Fixed (gu middleDragPans, wheelZoomsAboutCursor) |
+| 41.23 | Zoom and pan are per viewer and per session: not saved in the project or the settings, and kept when another clip or timeline is shown (as the header zoom was before). | Decision |
+| 41.24 | The panning part of 41.17 is done (41.19); snapping of mask points to guides and colours per guide stay deferred. | Fixed (see 41.19) |
 
 ## Summary
 
@@ -954,3 +961,6 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 - The guides branch (v4 part 4) added 41.1 - 41.17 (viewer guides, rulers, guide presets,
   snapping of on-screen transforms, safe areas, aspect markers and grid; project format 14;
   41.17 deferred).
+- The viewerzoom branch (0.4.1, owner request) added 41.18 - 41.24 (mouse-wheel zoom about the
+  cursor, middle-button and Space + drag panning, Zoom to Fit in the viewer; the panning part
+  of 41.17).

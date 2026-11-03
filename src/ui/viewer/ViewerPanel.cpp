@@ -93,21 +93,6 @@ QIcon bracketed(const QIcon& base, const QString& cacheKey)
     });
 }
 
-double zoomFactor(ViewerPanel::Zoom zoom)
-{
-    switch (zoom) {
-    case ViewerPanel::Zoom::Percent50:
-        return 0.5;
-    case ViewerPanel::Zoom::Percent100:
-        return 1.0;
-    case ViewerPanel::Zoom::Percent200:
-        return 2.0;
-    case ViewerPanel::Zoom::Fit:
-        break;
-    }
-    return 0.0;
-}
-
 QString rateText(double rate)
 {
     if (rate == 0.0 || rate == 1.0) {
@@ -156,7 +141,10 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     m_zoomBox->setFocusPolicy(Qt::NoFocus);
     m_zoomBox->setToolTip(tr("Viewer zoom"));
     m_zoomBox->setMinimumWidth(metrics::kTitleComboMinWidth);
-    connect(m_zoomBox, &QComboBox::currentIndexChanged, this, [this](int i) { setZoom(Zoom(i)); });
+    connect(m_zoomBox, &QComboBox::currentIndexChanged, this, [this](int i) {
+        if (i >= 0 && i < int(Zoom::Custom))
+            setZoom(Zoom(i));
+    });
     addTitleBarLeadingWidget(m_zoomBox);
 
     m_qualityBox = new QComboBox;
@@ -231,6 +219,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     }
     setupOfflineNotice();
     setupGuides(grid);
+    setupNavigation();
 
     m_scrub = new ScrubBar(m_body);
     // While playing, scrubbing keeps playing from where the mouse leaves the playhead, like the
@@ -404,6 +393,8 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
 
 ViewerPanel::~ViewerPanel()
 {
+    delete m_navigationFilter; // before anything it reads goes away
+    setHandArmed(false);
     registry().removeAll(this);
     if (s_active == this) {
         s_active = nullptr;
@@ -721,24 +712,6 @@ ViewerSurface* ViewerPanel::surface() const
 std::optional<SourceRange> ViewerPanel::sourceSelection() const
 {
     return m_player ? m_player->selection() : std::nullopt;
-}
-
-void ViewerPanel::setZoom(Zoom zoom)
-{
-    m_zoom = zoom;
-    if (m_zoomBox->currentIndex() != int(zoom)) {
-        m_zoomBox->setCurrentIndex(int(zoom));
-    }
-    m_surface->setZoom(zoomFactor(zoom));
-    if (m_maskOverlay)
-        m_maskOverlay->refresh(); // handles follow the new picture rectangle
-    if (m_transformOverlay)
-        m_transformOverlay->refresh();
-    if (m_multicamOverlay)
-        m_multicamOverlay->refresh();
-    if (m_guideOverlay)
-        m_guideOverlay->refresh(); // guides and rulers follow the new mapping
-    updateOutputClient();
 }
 
 void ViewerPanel::setChromeVisible(bool visible)
