@@ -14,8 +14,8 @@ podman exec -w "$PWD" kk-arch sh -c 'cmake -S . -B build-arch -G Ninja && cmake 
 podman exec -w "$PWD" kk-arch sh -c 'QT_QPA_PLATFORM=offscreen ctest --test-dir build-arch -j4'
 podman exec -w "$PWD" kk-arch ./build-arch/kinoklip [project.kkproj]     # needs a display, see below
 ```
-CMake reports `KDE Frameworks 6 (Breeze colour schemes + icons): ON`. Release bundle
-(`dist/Kinoklip-x86_64.run`) from the container: see [packaging/linux/readme.md](../packaging/linux/readme.md).
+CMake reports `KDE Frameworks 6 (Breeze colour schemes + icons): ON`. Release AppImage
+(`dist/Kinoklip-x86_64.AppImage`) from the container: see [packaging/linux/readme.md](../packaging/linux/readme.md).
 
 ## Fallback: host toolchain without KF6 (e.g. Linux Mint 22: Qt 6.4.2, FFmpeg 6.1)
 
