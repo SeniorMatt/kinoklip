@@ -61,9 +61,9 @@ public:
     /// Replaces the stored guides; timeline viewers make it one undo step named @p undoLabel.
     void setGuides(const std::vector<ViewerGuide>& list, const QString& undoLabel);
     /// Native picture size in frame px: the timeline resolution, or (source viewers) the size
-    /// given to setFrameSize().
+    /// given to setFrameSize(); empty while a source viewer shows no clip (nothing is drawn).
     [[nodiscard]] QSize frameSize() const;
-    /// Source viewers: native size of the clip shown (rulers and guide units).
+    /// Source viewers: native size of the clip shown (rulers and guide units); empty = none.
     void setFrameSize(QSize size);
     /// Frame px -> widget px of this overlay (= of the surface widget).
     [[nodiscard]] QTransform frameToWidget() const;

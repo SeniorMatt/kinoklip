@@ -236,6 +236,8 @@ private:
     void setupOfflineNotice();
     /// Creates the guide overlay and the rulers around the surface in @p grid.
     void setupGuides(QGridLayout* grid);
+    /// Source mode: gives the guide overlay the loaded clip's size (empty: none loaded).
+    void updateGuideFrame();
     void showContextMenu(const QPoint& globalPos);
     /// Name of the offline clip shown at @p frame (source clip / top visible timeline clip),
     /// empty when what is shown is online.

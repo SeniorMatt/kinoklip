@@ -163,7 +163,7 @@ QSize GuideOverlay::frameSize() const
         const TimelineData& d = m_ctx.project->timeline()->data();
         return QSize(d.width, d.height);
     }
-    return m_frameSize.isEmpty() ? QSize(1920, 1080) : m_frameSize;
+    return m_frameSize;
 }
 
 void GuideOverlay::setFrameSize(QSize size)
@@ -213,6 +213,8 @@ int GuideOverlay::guideAt(QPointF pos, bool editableOnly) const
 
 void GuideOverlay::addGuide(Qt::Orientation orientation, std::optional<double> position)
 {
+    if (frameSize().isEmpty())
+        return; // a source viewer without a clip: nothing to place a guide on
     ViewerOverlayOptions o = ViewerOverlaySettings::instance().options();
     if (!o.showGuides) {
         o.showGuides = true; // a guide the user just added must be visible
