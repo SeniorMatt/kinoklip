@@ -16,6 +16,7 @@ log-routing hook), `render` (Compositor, AudioMixer) and FFmpeg; never on widget
 | `ExportJob.h` | one render job: blocking `run(progress)`, `cancel()`, `ExportResult` |
 | `RenderQueue.h` | GUI-side sequential background queue (Deliver page) |
 | `RenderCommand.h` | `kinoklip --render <project.kkproj> <out-file> [--preset id]` |
+| `EdlExport.h` | `edl::timelineToEdl()` (CMX3600: V1 / A1 / A2 events, dissolves, M2 speed lines, source timecode offsets through a callback), `edl::markersToEdl()` / `markersToCsv()` (timeline markers), `writeTextFile()`; pure, tested by parsing the EDL back (File > Export, spec 18.12 / 18.13) |
 
 ```cpp
 kk::ExportSettings s;

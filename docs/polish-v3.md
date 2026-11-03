@@ -9,7 +9,8 @@ knowledge of Resolve (clean room); decisions are recorded in docs/behavior-spec.
 Priorities: **P1** = noticed in every session, or a deferred spec item; **P2** = noticed
 often; **P3** = nice to have / rare.
 Round 1 was the `editpolish` branch, round 2 the `polish2` branch (section "Round 2" below),
-round 3 the `polish3` branch (section "Round 3").
+round 3 the `polish3` branch (section "Round 3"), round 4 the `polish4` branch (section
+"Round 4").
 
 Status: **Done** (on this branch, with tests), **OK** (already fine, verified), **Open**
 (not done in this round), **Partial**. Tests: `ea` = tests/timeline/test_editaids.cpp, `vs` =
@@ -271,11 +272,11 @@ frame, and at once the still render opens it anyway.
 |---|---|---|---|
 | A1 | Edit Index, Markers: a row selects the marker's clip, and Delete then reached the window's Delete commands and ripple deleted the clip instead of the marker. | P1 | Done: Delete / Backspace delete the marker, one undo step (spec 18.9; ei deleteKeyDeletesTheMarker) |
 | A2 | On-screen Transform / Crop controls hid themselves when the audio part of a linked clip was clicked last (the Inspector shows the pair as one item). | P1 | Done: they act on the video part (spec 24.11; tc3 linkedAudioPartShowsTheVideoControls) |
-| A3 | Clip > Normalize Audio Levels (Resolve's clip menu; sets the clip gain so the peak reaches a target). | P2 | Open |
-| A4 | Edit Index export: Resolve exports the list as an EDL / marker list. | P3 | Open |
-| A5 | Edit > History (a list of the undo steps to jump back several at once). | P3 | Open |
-| A6 | Edit Index columns are fixed (Resolve lets the user hide columns from the panel menu). | P3 | Open |
-| A7 | Ranged markers (a marker with a duration, Alt+drag in the ruler). | P3 | Open (markers are single frames; Duration shows one frame) |
+| A3 | Clip > Normalize Audio Levels (Resolve's clip menu; sets the clip gain so the peak reaches a target). | P2 | Done in round 4 (spec 37.35; test_audionormalize) |
+| A4 | Edit Index export: Resolve exports the list as an EDL / marker list. | P3 | Done in round 4 (spec 18.12, 18.13; test_edlexport) |
+| A5 | Edit > History (a list of the undo steps to jump back several at once). | P3 | Done in round 4 (spec 17.6; p4) |
+| A6 | Edit Index columns are fixed (Resolve lets the user hide columns from the panel menu). | P3 | Done in round 4 (spec 18.10; p4) |
+| A7 | Ranged markers (a marker with a duration, Alt+drag in the ruler). | P3 | Done in round 4 (spec 18.11; p4; project format 13) |
 | A8 | Typed timecode, J/K/L, Space and the marker / speed commands with the Edit Index focused. | - | OK (window-scoped commands; the table only takes Delete in Markers mode and text keys while a cell is edited) |
 
 ### Shortcuts changed in round 3
@@ -295,3 +296,111 @@ frame, and at once the still render opens it anyway.
 - 2160p HEVC first play at once still drops 1 - 2 frames (the 4K previews keep the hardware
   decoder).
 
+## Round 4: the round 3 leftovers, a large-project stress pass and a last audit
+
+Branch `polish4` (after 0.3.1-alpha.1). Tests: `p4` = tests/timeline/test_polish4.cpp,
+`lp` = tests/timeline/test_largeproject.cpp (the stress benchmark), `us` =
+tests/core/test_undosnapshots.cpp, test_edlexport, test_audionormalize, test_polish4shots
+(the real main window; screenshots with KK_SCREENSHOT_DIR).
+
+### Round 3 leftovers
+
+| # | Item | Pri | Status |
+|---|---|---|---|
+| L1 (A3) | Clip > Normalize Audio Levels: Sample Peak Program / True Peak / ITU-R BS.1770-4, target level, Relative / Independent for several clips; measured off the GUI thread with the Audio page's `dsp::LoudnessMeter`, progress bar, Cancel; sets `audio/volumeDb` in one undo step. | P2 | Done (spec 37.35; test_audionormalize) |
+| L2 (A7) | Ranged markers: Alt+drag a ruler marker or drag a ranged marker's end, Duration in the marker editor; bands on the ruler and bars on clips, Edit Index Duration, snap to both ends. | P3 | Done (spec 18.11; p4; format 13) |
+| L3 (A4) | File > Export > Timeline as EDL (CMX3600 V, A, A2, dissolves, M2), Timeline Markers to EDL / CSV. | P3 | Done (spec 18.12, 18.13; test_edlexport parses the EDL back) |
+| L4 (A5) | Edit > History > Open History Window (QUndoView, scheme colours, click to jump). | P3 | Done (spec 17.6; p4) |
+| L5 (A6) | Edit Index column chooser on the header's context menu, stored per mode. | P3 | Done (spec 18.10; p4) |
+
+Decisions (details in the spec):
+- Ranged markers (18.11): Alt+drag on the flag sets the end (Resolve's gesture); the end of
+  a ranged marker can also be dragged without Alt. Shift+Up / Down stop at the start only.
+  Clip markers get a duration from the marker editor (Alt+drag on a clip body moves clips).
+  Format 13 writes "duration" only when it is above one frame.
+- EDL (18.12): one video track per EDL (CMX3600 has one), V1 by default; reels are the file
+  name cut to 8 characters, "AX" for sources without a file; every timecode in the timeline
+  rate; a ramp is written at its average speed with a comment.
+- Normalize (37.35): Independent is the default; "Relative" applies one gain so the loudest
+  clip reaches the target. The source audio is measured (before the clip volume), so the
+  result does not depend on the current volume; keyframed volumes move by the same change.
+
+### Large-project stress pass
+
+`tests/timeline/test_largeproject.cpp` builds a synthetic project (`LargeProject.h`): one hour
+at 25 fps, 8 video and 8 audio tracks, 1,492 clips (V1 / A1 a linked cut, sparser upper
+tracks), 284 transitions, 614 keyframes, 254 markers, 40 media items. Measured on the owner's
+laptop, Release, offscreen raster, the timeline 1920 px wide. Before = main at 0.3.1-alpha.1
+(only the benchmark added), after = this branch.
+
+| Measure | Before | After |
+|---|---|---|
+| Memory: project in RSS / per undo step (blade on every track) | +4.3 MB / +0.85 MB | +5.1 MB / +0.16 MB |
+| Save (1.2 MB file) / load | 26.8 ms / 12.2 ms | 24 ms / 11 ms |
+| Autosave: GUI thread blocked | 25.8 ms | 0.2 ms (write on a worker) |
+| Paint while scrolling, fully zoomed out (mean / worst) | 7.5 / 9.0 ms | 6.6 / 8.0 ms |
+| Paint while scrolling, 2 px/frame | 3.4 / 3.9 ms | 2.9 / 3.3 ms |
+| Paint while scrolling, 10 px/frame | 2.6 / 3.0 ms | 2.2 / 2.6 ms |
+| Paint while zooming (12 steps, worst) | 12.6 ms | 11.1 ms |
+| Blade incl. views and one paint (Edit Index open) | 17.6 ms | 11.9 ms |
+| Ripple delete incl. views / the edit alone | 18.3 / 0.4 ms | 12.2 / 0.7 ms |
+| Undo / redo incl. views | 19.1 / 17.9 ms | 12.2 / 12.0 ms |
+| Edit Index rebuild: events (1,492) / markers / whole panel | 5.8 / 5.8 / 6.3 ms | 1.2 / 0.06 / 1.7 ms |
+| Animator: modelChanged after a ripple delete / tick | 0.19 / 0.001 ms | 0.20 / 0.001 ms |
+
+The paint and save gains come from the faster `timecode::format()` (ruler labels, JSON is
+unchanged). The edit alone got 0.3 ms slower: packing the undo step (comparing the clips
+with the step below) is the price of the memory saving. The benchmark's ceilings: save
+400 ms, load 600 ms, autosave block 50 ms, paint 60 ms, edit with views 100 ms, Edit Index
+60 ms, animator 30 ms, 8 MB per undo step.
+
+Findings and fixes:
+- **Undo memory** was the real problem: the snapshot undo kept a full `TimelineData` copy
+  per step (0.85 MB here, so 1,000 edits = 850 MB). Steps are now stored packed
+  (`core/UndoSnapshots.h`): a clip-less shell plus shared immutable clips, packed against the
+  neighbouring step; a step owns only what it changed. The packing compares clips by id
+  and value (a fraction of a millisecond here); undo copies once, or reuses the live data.
+- **Autosave** built the JSON and wrote the file on the GUI thread (21 - 26 ms here, more for
+  longer projects). The timer now captures a `Project::SaveSnapshot` (shared immutable values)
+  and builds / writes the file on a worker; a discard during the write removes the file.
+- **Edit latency** was dominated by the Edit Index rebuild (both modes, two
+  `QString::arg()` timecodes per row, three media lookups per row). Now only the shown mode
+  is built, media facts are looked up once per item, notes are skipped when empty and
+  `timecode::format()` writes into a stack buffer.
+- Timeline painting, project load / save and the animator were already well inside a
+  frame; the animator's guards (50,000 clips / 200 appearing) never trigger here. Nothing was
+  changed there. The remaining paint cost is text shaping of clip names (audit A17).
+
+### Audit
+
+| # | Item | Pri | Status |
+|---|---|---|---|
+| A9 | Markers could not be moved: a drag on a ruler marker scrubbed the playhead. | P1 | Done: dragging the flag moves it, a click jumps to it (spec 18.14; p4) |
+| A10 | Clip markers could only be edited with M on the playhead with the clip selected. | P2 | Done: double-click on the diamond (spec 18.15; p4) |
+| A11 | Hovering a marker showed nothing (its name / notes only in the editor or the Edit Index). | P2 | Done: tool tip with name, timecode, duration, notes (spec 18.15) |
+| A12 | Undo memory grew by a full timeline copy per step on long timelines. | P1 | Done (spec 17.7; us, lp) |
+| A13 | Autosave blocked the GUI thread for the whole JSON build and write. | P1 | Done (background write; lp) |
+| A14 | Every edit rebuilt both Edit Index modes, the largest part of the edit latency on long timelines. | P2 | Done (lp) |
+| A15 | Marker Duration cannot be typed in the Edit Index table (name and notes can). | P3 | Open |
+| A16 | EDL export writes one video track; no AAF / FCPXML interchange. | P3 | Open (Decision: CMX3600 has one video track) |
+| A17 | Timeline paint shapes every visible clip name on every paint (6 - 7 ms fully zoomed out on 1,500 clips). | P3 | Open (inside a frame; cache shaped names later) |
+| A18 | Timeline markers stay put on ripple edits. | - | OK (Resolve behaves the same) |
+
+### Shortcuts changed in round 4
+
+| Command | Key | Confidence |
+|---|---|---|
+| Open History Window (`edit.history_window`) | none (Edit > History) | likely |
+| Export Timeline as EDL (`file.export_edl`) | none (File > Export) | likely |
+| Export Timeline Markers to EDL (`file.export_markers_edl`) | none | likely |
+| Export Timeline Markers to CSV (`file.export_markers_csv`) | none | unsure |
+| Normalize Audio Levels (`clip.normalize_audio`) | none (Clip menu, clip context menu) | likely |
+
+Gestures (not commands): Alt+drag a ruler marker (duration), drag a marker flag (move),
+double-click a clip marker (editor).
+
+### Left after round 4
+
+- A15 Duration editing in the Edit Index, A16 multi-track interchange (AAF / FCPXML), A17
+  cached shaped clip names.
+- The program-look two-up and the 4K HEVC first-play drops from round 3.

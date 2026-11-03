@@ -17,7 +17,8 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `pages/EditPage.h` | PLAN §4 Edit layout with nested `QSplitter`s; accessors for every panel |
 | `pages/MediaPage.h` | browser · source viewer · metadata over the media pool |
 | `ProjectController.h` | new / open / save / save as / import media + "save changes?"; File > Open Recent; start-up crash recovery prompt |
-| `AutosaveController.h` | autosave every `prefs::autosaveMinutes()` (2) to `AppDataLocation/autosave/`; the file is deleted when saved / replaced / on normal quit, so one left at start-up means a crash (`findRecoverable()`) |
+| `TimelineExport.h` | File > Export: Timeline as EDL, Timeline Markers to EDL / CSV (save dialog + `export/EdlExport.h`) |
+| `AutosaveController.h` | autosave every `prefs::autosaveMinutes()` (2) to `AppDataLocation/autosave/`; the file is deleted when saved / replaced / on normal quit, so one left at start-up means a crash (`findRecoverable()`); the timer writes in the background (`Project::captureSave()` on the GUI thread, JSON + file on a worker) |
 | `Theme.h` | the real KDE Breeze look: widget style, KDE colour schemes, Breeze icons, panel style sheet; Settings > Color Theme / Style; "appearance" settings page |
 | `ColorSchemeFile.h` | reads a KDE `.colors` file into a QPalette (fallback build without KF6) |
 | `CommandLine.h` | `QCommandLineParser` → `CommandLineOptions` |
