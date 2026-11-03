@@ -319,13 +319,35 @@ void ActionRegistry::resetAllShortcuts()
     persistOverrides();
 }
 
+void ActionRegistry::setShortcutScope(const QString& id, const QString& scope)
+{
+    if (const auto it = m_index.constFind(id); it != m_index.cend())
+        m_entries[*it].scope = scope;
+}
+
+QString ActionRegistry::shortcutScope(const QString& id) const
+{
+    const auto it = m_index.constFind(id);
+    return it == m_index.cend() ? QString() : m_entries[*it].scope;
+}
+
+bool ActionRegistry::scopesConflict(const QString& a, const QString& b)
+{
+    if (a == b)
+        return true;
+    const QLatin1String page("page:");
+    return (a.isEmpty() && b.startsWith(page)) || (b.isEmpty() && a.startsWith(page));
+}
+
 QString ActionRegistry::actionForShortcut(
     const QKeySequence& sequence, const QString& exceptId) const
 {
     if (sequence.isEmpty())
         return {};
+    const QString scope = shortcutScope(exceptId);
     for (const Entry& e : m_entries) {
-        if (e.id != exceptId && e.action->shortcuts().contains(sequence))
+        if (e.id != exceptId && scopesConflict(scope, e.scope)
+            && e.action->shortcuts().contains(sequence))
             return e.id;
     }
     return {};

@@ -375,6 +375,14 @@ void PlaybackEngine::setQualityMode(QualityMode mode)
     updateParams(true);
 }
 
+std::future<RenderedFramePtr> PlaybackEngine::renderCompositionNode(
+    std::shared_ptr<const TimelineData> timeline, quint64 clipId, quint64 nodeId, int64_t compFrame,
+    QSize outSize, unsigned outputs) const
+{
+    return m_compositor->renderCompositionNode(std::move(timeline), clipId, nodeId, compFrame,
+        outSize, currentQuality(), outputs, m_media, m_proxies);
+}
+
 Quality PlaybackEngine::currentQuality() const
 {
     switch (m_qualityMode) {

@@ -71,11 +71,14 @@ public:
     /// timeline resolution) scaled by @p quality. Same zero-copy texture / image output as
     /// renderAsync(); a missing clip, composition or node gives a transparent frame. Cheap
     /// enough to call on every scrub step: one decode per MediaIn plus one pass per node, no
-    /// readback unless OutputImage is asked for.
+    /// readback unless OutputImage is asked for. MediaIn nodes decode through @p media (nullptr
+    /// = the table of setMediaPaths()) and @p proxies (nullptr = the camera originals), as a
+    /// timeline render does; PlaybackEngine::renderCompositionNode() passes the engine's own.
     [[nodiscard]] std::future<RenderedFramePtr> renderCompositionNode(
         std::shared_ptr<const TimelineData> timeline, quint64 clipId, quint64 nodeId,
         int64_t compFrame, QSize outSize = {}, Quality quality = Quality::Full,
-        unsigned outputs = OutputTexture);
+        unsigned outputs = OutputTexture, std::shared_ptr<const MediaPathMap> media = nullptr,
+        std::shared_ptr<const ProxyMap> proxies = nullptr);
 
     /// Renders @p frame of @p timeline at @p outSize (empty = timeline resolution) scaled by
     /// @p quality, producing @p outputs (RenderOutput flags). Blocks until done.

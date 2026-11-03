@@ -380,6 +380,39 @@ private slots:
         }
     }
 
+    void viewerApiDecodesMediaInThroughItsTable()
+    {
+        QString why;
+        if (!ensureFixtures(&why))
+            QSKIP(qPrintable(why));
+        // A media clip with a stored default composition: the viewer API's MediaIn decodes the
+        // clip through the media table it is given (the compositor itself has none).
+        TimelineData tl = emptyTimeline(kW, kH);
+        ClipData clip = mediaClip(tl, QStringLiteral("clip"), 0, 50);
+        clip.composition = co::defaultComposition();
+        const quint64 in = mediaIn(*clip.composition);
+        const quint64 clipId = clip.id;
+        addClip(tl, TrackType::Video, 0, clip);
+        auto paths = std::make_shared<MediaPathMap>();
+        paths->insert(QStringLiteral("clip"), fixture("h264_25fps.mp4"));
+        const auto s = snap(tl);
+        for (Compositor* comp : {m_gpu.get(), m_cpu.get()}) {
+            comp->setMediaPaths(nullptr);
+            for (int64_t f : {0, 6}) {
+                const RenderedFramePtr shown = comp->renderCompositionNode(s, clipId, in, f, {},
+                                                       Quality::Full, OutputImage, paths, nullptr)
+                                                   .get();
+                QVERIFY(shown && shown->ok);
+                QCOMPARE(readFrameIndex(shown->image), int(f));
+            }
+            // Without a table nothing is decoded (the old viewer bug: a black MediaIn).
+            const RenderedFramePtr none
+                = comp->renderCompositionNode(s, clipId, in, 6, {}, Quality::Full, OutputImage)
+                      .get();
+            QCOMPARE(readFrameIndex(none->image), -1);
+        }
+    }
+
     void cacheKeyFollowsPictureOnly()
     {
         quint64 bg = 0;

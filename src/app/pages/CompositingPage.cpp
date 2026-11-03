@@ -19,6 +19,7 @@
 
 #include <QAction>
 #include <QHBoxLayout>
+#include <QHideEvent>
 #include <QSettings>
 #include <QShowEvent>
 #include <QSplitter>
@@ -205,11 +206,66 @@ void CompositingPage::openClip(quint64 clipId)
     m_session->openClip(clipId ? clipId : m_session->clipForPage());
 }
 
+QStringList CompositingPage::suspendedCommandIds(const ActionRegistry& registry)
+{
+    // Menus whose commands edit the timeline (submenus included), minus what makes sense
+    // without it.
+    static const char* const kMenus[] = {"edit", "trim", "timeline", "timeline.tracks", "clip",
+        "clip.sync", "clip.multicam", "clip.masks", "mark"};
+    static const char* const kKept[] = {"edit.undo", "edit.redo", "edit.history_window",
+        "edit.keyboard_customization", "edit.preferences", "timeline.audio_scrubbing",
+        "clip.open_in_compositing", "clip.reset_composition", "mark.go_to_in", "mark.go_to_out"};
+    QStringList kept;
+    for (const char* id : kKept)
+        kept.append(QLatin1String(id));
+    QStringList ids;
+    for (const char* menu : kMenus) {
+        for (const QString& id : registry.menuEntries(QLatin1String(menu))) {
+            if (registry.contains(id) && !kept.contains(id) && !ids.contains(id))
+                ids.append(id);
+        }
+    }
+    return ids;
+}
+
+void CompositingPage::suspendTimelineCommands(bool suspend)
+{
+    if (!m_ctx.actions)
+        return;
+    if (!suspend) {
+        for (const QPointer<QAction>& a : std::as_const(m_suspended)) {
+            if (a)
+                a->setEnabled(true);
+        }
+        m_suspended.clear();
+        return;
+    }
+    if (!m_suspended.isEmpty())
+        return; // already suspended
+    for (const QString& id : suspendedCommandIds(*m_ctx.actions)) {
+        QAction* a = m_ctx.actions->action(id);
+        if (a->isEnabled()) {
+            a->setEnabled(false);
+            m_suspended.append(a);
+        }
+    }
+}
+
 void CompositingPage::showEvent(QShowEvent* event)
 {
     Page::showEvent(event);
-    if (!event->spontaneous())
-        openClip();
+    if (event->spontaneous())
+        return;
+    suspendTimelineCommands(true);
+    openClip();
+}
+
+void CompositingPage::hideEvent(QHideEvent* event)
+{
+    Page::hideEvent(event);
+    if (event->spontaneous())
+        return; // minimised: keep the state
+    suspendTimelineCommands(false);
 }
 
 // ---- Panels and layout ----
