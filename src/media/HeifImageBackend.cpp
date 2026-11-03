@@ -6,6 +6,7 @@
 #ifdef KK_HAVE_LIBHEIF
 
 #include "media/MediaLog.h"
+#include "media/MediaSource.h"
 
 #include <QFile>
 
@@ -46,8 +47,11 @@ void initHeif()
     });
 }
 
-/// Opens `path` and returns its primary image handle (nullptr + `error` on failure).
-HeifHandlePtr openPrimary(const QString& path, HeifContextPtr& ctx, QString* error)
+/// Opens `path` and returns its primary image handle (nullptr + `error` on failure). Media
+/// embedded in a single-file project are read into `buffer`, which libheif then reads without
+/// copying: the caller declares it before `ctx` so it outlives the context.
+HeifHandlePtr openPrimary(
+    const QString& path, QByteArray& buffer, HeifContextPtr& ctx, QString* error)
 {
     initHeif();
     ctx.reset(heif_context_alloc());
@@ -55,8 +59,19 @@ HeifHandlePtr openPrimary(const QString& path, HeifContextPtr& ctx, QString* err
         *error = QStringLiteral("Out of memory");
         return {};
     }
-    const QByteArray file = QFile::encodeName(path);
-    heif_error err = heif_context_read_from_file(ctx.get(), file.constData(), nullptr);
+    const MediaSource source = MediaSource::resolve(path);
+    heif_error err {};
+    if (source.isEmbedded()) {
+        buffer = source.readAll(error);
+        if (buffer.isNull()) {
+            return {};
+        }
+        err = heif_context_read_from_memory_without_copy(
+            ctx.get(), buffer.constData(), size_t(buffer.size()), nullptr);
+    } else {
+        const QByteArray file = QFile::encodeName(path);
+        err = heif_context_read_from_file(ctx.get(), file.constData(), nullptr);
+    }
     if (err.code != heif_error_Ok) {
         *error = QString::fromUtf8(err.message);
         return {};
@@ -73,9 +88,9 @@ HeifHandlePtr openPrimary(const QString& path, HeifContextPtr& ctx, QString* err
 /// Brand of the file for MediaInfo::container ("avif" for AV1 files, else "heif").
 QString formatName(const QString& path)
 {
-    QFile file(path);
-    if (file.open(QIODevice::ReadOnly)) {
-        const QByteArray head = file.read(12); // ftyp box: size, "ftyp", major brand
+    const std::unique_ptr<QIODevice> file = MediaSource::resolve(path).openDevice();
+    if (file) {
+        const QByteArray head = file->read(12); // ftyp box: size, "ftyp", major brand
         if (head.size() == 12 && head.mid(8, 4).startsWith("avi")) {
             return QStringLiteral("avif");
         }
@@ -87,9 +102,10 @@ QString formatName(const QString& path)
 
 bool readHeaderHeif(const QString& path, ImageHeader& header)
 {
+    QByteArray buffer;
     HeifContextPtr ctx;
     QString error;
-    const HeifHandlePtr handle = openPrimary(path, ctx, &error);
+    const HeifHandlePtr handle = openPrimary(path, buffer, ctx, &error);
     if (!handle) {
         header.error = error;
         return false;
@@ -108,8 +124,9 @@ bool readHeaderHeif(const QString& path, ImageHeader& header)
 
 bool loadHeif(const QString& path, LoadedImage& result)
 {
+    QByteArray buffer;
     HeifContextPtr ctx;
-    const HeifHandlePtr handle = openPrimary(path, ctx, &result.error);
+    const HeifHandlePtr handle = openPrimary(path, buffer, ctx, &result.error);
     if (!handle) {
         return false;
     }

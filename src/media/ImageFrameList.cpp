@@ -6,6 +6,7 @@
 #include "media/ImageBackends.h"
 #include "media/ImageSequence.h"
 #include "media/MediaLog.h"
+#include "media/MediaSource.h"
 
 #include <QFileInfo>
 #include <QImageReader>
@@ -35,7 +36,9 @@ int64_t frameStartUs(int64_t index, Rational rate)
 /// Frame delays (ms) of an animation, read with the image plugin's frame iteration.
 std::vector<int> readFrameDelays(const QString& path, int frameCount)
 {
-    QImageReader reader(path);
+    QImageReader reader;
+    std::unique_ptr<QIODevice> device;
+    setImageReaderSource(reader, path, device);
     std::vector<int> delays;
     const int count = frameCount > 0 ? frameCount : reader.imageCount();
     delays.reserve(size_t(std::max(count, 1)));
@@ -283,7 +286,8 @@ QImage ImageFrameList::animationFrame(int index)
     // Animations composite each frame onto the previous one, so frames can only be decoded in
     // order: restart the reader when stepping backwards.
     if (!m_reader || m_readerNext > index) {
-        m_reader = std::make_unique<QImageReader>(m_path);
+        m_reader = std::make_unique<QImageReader>();
+        setImageReaderSource(*m_reader, m_path, m_readerDevice);
         m_readerNext = 0;
     }
     QImage image;

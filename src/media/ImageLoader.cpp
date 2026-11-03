@@ -5,6 +5,7 @@
 
 #include "media/ImageBackends.h"
 #include "media/MediaLog.h"
+#include "media/MediaSource.h"
 #include "media/SupportedFormats.h"
 
 #include <QDateTime>
@@ -17,6 +18,7 @@
 #include <array>
 #include <atomic>
 #include <list>
+#include <memory>
 #include <mutex>
 
 namespace kk::media {
@@ -148,10 +150,7 @@ StillCache& stillCache()
 /// Identity of a decoded still: absolute path + mtime + size (a changed file misses) + RAW mode.
 QString cacheKey(const QString& path)
 {
-    const QFileInfo info(path);
-    return info.absoluteFilePath() + QLatin1Char('|')
-        + QString::number(info.lastModified().toMSecsSinceEpoch()) + QLatin1Char('|')
-        + QString::number(info.size())
+    return MediaSource::resolve(path).identity()
         + (s_rawFullSize ? QLatin1String("|f") : QLatin1String("|h"));
 }
 
@@ -186,7 +185,9 @@ void raiseQtAllocationLimit()
 bool readHeaderQt(const QString& path, ImageHeader& header)
 {
     raiseQtAllocationLimit();
-    QImageReader reader(path);
+    QImageReader reader;
+    std::unique_ptr<QIODevice> device; // embedded media: the entry's bytes
+    setImageReaderSource(reader, path, device);
     reader.setAutoTransform(true);
     if (!reader.canRead()) {
         return false;
@@ -218,7 +219,9 @@ bool readHeaderQt(const QString& path, ImageHeader& header)
 bool loadQt(const QString& path, LoadedImage& result)
 {
     raiseQtAllocationLimit();
-    QImageReader reader(path);
+    QImageReader reader;
+    std::unique_ptr<QIODevice> device;
+    setImageReaderSource(reader, path, device);
     reader.setAutoTransform(true); // EXIF orientation
     QImage image = reader.read();
     if (image.isNull()) {
@@ -261,7 +264,7 @@ bool ImageLoader::handlesExtension(const QString& path)
 ImageHeader ImageLoader::readHeader(const QString& path)
 {
     ImageHeader header;
-    if (!QFileInfo(path).isFile()) {
+    if (!mediaExists(path)) {
         header.error = QStringLiteral("File not found: %1").arg(path);
         return header;
     }
@@ -279,7 +282,7 @@ ImageHeader ImageLoader::readHeader(const QString& path)
 LoadedImage ImageLoader::load(const QString& path)
 {
     LoadedImage result;
-    if (!QFileInfo(path).isFile()) {
+    if (!mediaExists(path)) {
         result.error = QStringLiteral("File not found: %1").arg(path);
         return result;
     }

@@ -5,9 +5,11 @@
 #include "media/HwDevices.h"
 #include "media/MediaLog.h"
 #include "media/SupportedFormats.h"
+#include "pack/EmbeddedMedia.h"
 
 #include <QByteArray>
 #include <QFile>
+#include <QFileInfo>
 #include <QRegularExpression>
 
 #include <cstdarg>
@@ -171,18 +173,117 @@ QString avErrorString(int errorCode)
     return QString::fromUtf8(buffer);
 }
 
+namespace {
+
+/// Reader state of a custom AVIOContext over an embedded entry (owned through pb->opaque).
+struct AvioRange
+{
+    pack::RangeFile file;
+    int64_t pos = 0;
+};
+
+/// 256 KiB reads: large enough for few syscalls on high-bitrate media, small enough for seeks.
+constexpr int kAvioBufferSize = 256 * 1024;
+
+int avioRead(void* opaque, uint8_t* buffer, int size)
+{
+    auto* r = static_cast<AvioRange*>(opaque);
+    const qint64 n = r->file.read(r->pos, buffer, size);
+    if (n < 0)
+        return AVERROR(EIO);
+    if (n == 0)
+        return AVERROR_EOF;
+    r->pos += n;
+    return int(n);
+}
+
+int64_t avioSeek(void* opaque, int64_t offset, int whence)
+{
+    auto* r = static_cast<AvioRange*>(opaque);
+    const int64_t size = r->file.size();
+    whence &= ~AVSEEK_FORCE;
+    int64_t target = 0;
+    switch (whence) {
+    case AVSEEK_SIZE:
+        return size;
+    case SEEK_SET:
+        target = offset;
+        break;
+    case SEEK_CUR:
+        target = r->pos + offset;
+        break;
+    case SEEK_END:
+        target = size + offset;
+        break;
+    default:
+        return AVERROR(EINVAL);
+    }
+    if (target < 0)
+        return AVERROR(EINVAL);
+    r->pos = target;
+    return target;
+}
+
+void freeCustomIo(AVIOContext* pb)
+{
+    delete static_cast<AvioRange*>(pb->opaque);
+    av_freep(&pb->buffer);
+    avio_context_free(&pb);
+}
+
+} // namespace
+
+void FormatContextDeleter::operator()(AVFormatContext* ctx) const
+{
+    AVIOContext* custom = ctx && (ctx->flags & AVFMT_FLAG_CUSTOM_IO) ? ctx->pb : nullptr;
+    avformat_close_input(&ctx);
+    if (custom)
+        freeCustomIo(custom);
+}
+
 FormatContextPtr openInput(const QString& path, QString* error)
 {
     initFfmpeg();
-    if (!QFile::exists(path)) {
+    AVFormatContext* raw = nullptr;
+    AVIOContext* custom = nullptr;
+    QByteArray url;
+    if (QFileInfo(path).isFile()) {
+        url = encodePath(path);
+    } else if (pack::mayBeEmbeddedPath(path)) {
+        auto range = std::make_unique<AvioRange>();
+        QString why;
+        if (!range->file.openPath(path, &why)) {
+            setError(error, why);
+            return {};
+        }
+        auto* buffer = static_cast<uint8_t*>(av_malloc(kAvioBufferSize));
+        custom = buffer ? avio_alloc_context(
+                              buffer, kAvioBufferSize, 0, range.get(), avioRead, nullptr, avioSeek)
+                        : nullptr;
+        raw = custom ? avformat_alloc_context() : nullptr;
+        if (!raw) {
+            if (custom) {
+                custom->opaque = nullptr; // range is still owned by the unique_ptr
+                freeCustomIo(custom); // also frees the buffer
+            } else
+                av_free(buffer);
+            setError(error, QStringLiteral("Out of memory"));
+            return {};
+        }
+        range.release(); // owned by custom->opaque from here on
+        raw->pb = custom;
+        raw->flags |= AVFMT_FLAG_CUSTOM_IO;
+        // The entry's file name lets demuxers that score by extension recognise the file.
+        url = QFileInfo(path).fileName().toUtf8();
+    } else {
         setError(error, QStringLiteral("File not found: %1").arg(path));
         return {};
     }
-    AVFormatContext* raw = nullptr;
-    const QByteArray url = encodePath(path);
     int ret = avformat_open_input(&raw, url.constData(), nullptr, nullptr);
     if (ret < 0) {
-        // avformat_open_input() frees the context on failure.
+        // avformat_open_input() frees the context on failure, but never a custom pb.
+        if (custom)
+            freeCustomIo(custom);
         setError(error, QStringLiteral("Unsupported or damaged file (%1)").arg(avErrorString(ret)));
         return {};
     }
