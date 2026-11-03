@@ -184,6 +184,12 @@ void CutOverview::paintEvent(QPaintEvent*)
         = frameToX(m_glide.frame(m_ctx.project->timeline()->playhead(), uianim::nowMs()));
     p.setPen(QPen(sc.playhead, 2));
     p.drawLine(QPointF(px, 0), QPointF(px, height()));
+    // Head in the ruler: the part to grab for an audible scrub (spec 1.28).
+    const QPointF head[3] = {{px - 5, 0}, {px + 5, 0}, {px, kRulerHeight - 3.0}};
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(sc.playhead.darker(140));
+    p.setBrush(sc.playhead);
+    p.drawConvexPolygon(head, 3);
 }
 
 void CutOverview::onPlayheadChanged(int64_t frame)
@@ -201,6 +207,12 @@ void CutOverview::onPlayheadChanged(int64_t frame)
 
 void CutOverview::scrubTo(double x)
 {
+    if (m_audibleScrub) {
+        m_ctx.project->timeline()->setPlayhead(xToFrame(x));
+        return;
+    }
+    // Below the ruler the press grabbed the playhead line: it moves, without scrub audio.
+    const PlaybackEngine::SilentPlayheadMove silent;
     m_ctx.project->timeline()->setPlayhead(xToFrame(x));
 }
 
@@ -209,7 +221,13 @@ void CutOverview::mousePressEvent(QMouseEvent* event)
     if (event->button() != Qt::LeftButton)
         return QWidget::mousePressEvent(event);
     m_scrubbing = true;
+    m_audibleScrub = event->position().y() < kRulerHeight;
     scrubTo(event->position().x());
+}
+
+bool CutOverview::isRulerY(double y)
+{
+    return y >= 0 && y < kRulerHeight;
 }
 
 void CutOverview::mouseMoveEvent(QMouseEvent* event)

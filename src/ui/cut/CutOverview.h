@@ -19,8 +19,10 @@ struct AppContext;
 /// Draws every track of the active timeline compressed into a short strip (video tracks above,
 /// compact audio below), always fitted to the width, so the whole edit is visible; a frame
 /// band marks the range the lower timeline shows (setDetailRange()) and the playhead line
-/// moves with playback. Clicking or dragging anywhere moves the playhead (scrubbing), which
-/// the lower timeline follows. All colours come from kk::schemeColors().
+/// moves with playback. Clicking or dragging anywhere moves the playhead, which the lower
+/// timeline follows; only a press in the ruler strip at the top (where the playhead's head is)
+/// scrubs with audio, a press below it moves the line silently (spec 1.28). All colours come
+/// from kk::schemeColors().
 ///
 /// Geometry is exposed (frameToX(), xToFrame()) so tests can check that both timelines stay in
 /// sync. Thread-safety: GUI thread only.
@@ -43,6 +45,9 @@ public:
     /// Timeline frame at widget x @p x (clamped to >= 0).
     [[nodiscard]] int64_t xToFrame(double x) const;
 
+    /// True if widget y @p y is in the ruler strip (audible scrubbing; tests).
+    [[nodiscard]] static bool isRulerY(double y);
+
     [[nodiscard]] QSize sizeHint() const override;
     [[nodiscard]] QSize minimumSizeHint() const override;
 
@@ -60,6 +65,7 @@ private:
     double m_detailFirst = 0.0;
     double m_detailLast = 0.0;
     bool m_scrubbing = false;
+    bool m_audibleScrub = false; ///< the drag started in the ruler (scrub audio plays)
     uianim::PlayheadGlide m_glide; ///< the drawn playhead line glides to clicked frames
     QTimer m_glideTimer;
     int64_t m_lastPlayhead = 0;

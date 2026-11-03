@@ -63,7 +63,8 @@ struct PlaybackBehaviour
 ///
 /// **Audio scrubbing** (setAudioScrubbing(), Shift+S; spec 23.7): while paused, every
 /// playhead move (ruler or scrub bar drag, frame steps, navigation) plays a short snippet
-/// from the new position; the device stops kScrubIdleMs after the last move.
+/// from the new position; the device stops kScrubIdleMs after the last move. Moves made by
+/// the playhead line rather than its head (SilentPlayheadMove; spec 1.27) stay silent.
 ///
 /// **Video.** A precise ~4 ms GUI timer polls the clock; FrameScheduler keeps 2-3
 /// Compositor::renderAsync() requests ahead of it and presents the newest finished frame that
@@ -250,6 +251,19 @@ public:
     [[nodiscard]] static bool audioScrubbing();
     /// True while a scrub snippet is playing or the scrub device is still open (tests).
     [[nodiscard]] bool isScrubbingAudio() const { return m_scrubActive; }
+    /// While one of these lives, playhead moves (on every engine) render their frame as usual
+    /// but play no scrub snippet: the playhead was moved by its line, not by its head in a
+    /// ruler (spec 1.27). Nestable. GUI thread only.
+    class SilentPlayheadMove
+    {
+    public:
+        SilentPlayheadMove();
+        ~SilentPlayheadMove();
+        SilentPlayheadMove(const SilentPlayheadMove&) = delete;
+        SilentPlayheadMove& operator=(const SilentPlayheadMove&) = delete;
+    };
+    /// True while a SilentPlayheadMove lives.
+    [[nodiscard]] static bool playheadMovesSilent();
 
     // ---- Statistics ----
     [[nodiscard]] Stats stats() const;

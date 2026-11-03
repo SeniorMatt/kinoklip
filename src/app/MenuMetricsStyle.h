@@ -12,6 +12,10 @@ namespace kk {
 /// of long titles ("Color Theme" in the Settings menu, owner feedback on alpha.1). Drawing is
 /// left entirely to the base style.
 ///
+/// It also closes menus at once (instant popups, see InstantPopups.h): no fade-out on hide
+/// (SH_Menu_FadeOutOnHide) and no blink of the triggered item before the menu closes
+/// (SH_Menu_FlashTriggeredItem), whatever the base style asks for.
+///
 /// Thread-safety: GUI thread only (like every QStyle).
 class MenuMetricsStyle : public QProxyStyle
 {
@@ -22,6 +26,8 @@ public:
 
     QSize sizeFromContents(ContentsType type, const QStyleOption* option, const QSize& size,
         const QWidget* widget) const override;
+    int styleHint(StyleHint hint, const QStyleOption* option = nullptr,
+        const QWidget* widget = nullptr, QStyleHintReturn* returnData = nullptr) const override;
 };
 
 } // namespace kk

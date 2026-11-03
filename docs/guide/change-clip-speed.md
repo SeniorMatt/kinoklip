@@ -52,7 +52,7 @@ To start over, choose **Reset Clip** in the speed menu.
 - **Freeze a frame:** move the playhead to the frame and press **Shift+R** (**Clip > Freeze
   Frame**). The whole clip then shows that one frame. To freeze for just a moment inside a clip,
   use **Freeze Frame** in the speed menu of the retime controls: it adds a one-second freeze at
-  the playhead.
+  the playhead. More in [Freeze a frame](freeze-a-frame.md).
 - **Smoother slow motion:** footage slowed down a lot can look jerky, because every frame is
   shown several times. In the speed menu, choose **Retime Process > Frame Blend** (mixes
   neighbouring frames) or **Optical Flow** (creates new in-between frames; best for smooth
