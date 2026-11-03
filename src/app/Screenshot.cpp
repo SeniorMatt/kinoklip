@@ -6,6 +6,7 @@
 #include "app/ProjectController.h"
 #include "app/ScreenshotAudio.h"
 #include "app/ScreenshotGeometry.h"
+#include "app/pages/CompositingPage.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
@@ -23,11 +24,13 @@
 #include "projects/ProjectLibrary.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/comp/CompSession.h"
 #include "ui/cut/CutEditor.h"
 #include "ui/cut/CutViewer.h"
 #include "ui/deliver/RenderSettingsPanel.h"
 #include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
+#include "ui/dialogs/NormalizeAudioDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
 #include "ui/effects/EffectsLibraryPanel.h"
@@ -49,8 +52,13 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QElapsedTimer>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
@@ -88,21 +96,66 @@ QMenu* findMenu(QWidget* root, const QString& category)
 
 /// Window grab with the open popup menus painted on top (popups are separate windows, so
 /// QWidget::grab() of the main window does not contain them), cropped around the menus.
+QRect menuRect(QWidget& window, QMenu* menu)
+{
+    return QRect(window.mapFromGlobal(menu->mapToGlobal(QPoint(0, 0))), menu->size());
+}
+
+/// The part of the window a menu shot keeps: the open menus with a margin, from the window's
+/// top left (the menu bar stays in the picture).
+QRect menuShotArea(QWidget& window, const QList<QMenu*>& menus)
+{
+    QRect area;
+    for (QMenu* menu : menus)
+        area |= menuRect(window, menu);
+    area = area.adjusted(-kMenuMargin, -kMenuMargin, kMenuMargin, kMenuMargin);
+    area.setTop(0);
+    area.setLeft(0);
+    return area & window.rect();
+}
+
 QPixmap grabWithMenus(QWidget& window, const QList<QMenu*>& menus)
 {
     QPixmap shot = window.grab();
     QPainter painter(&shot);
-    QRect area;
-    for (QMenu* menu : menus) {
-        const QRect r(window.mapFromGlobal(menu->mapToGlobal(QPoint(0, 0))), menu->size());
-        painter.drawPixmap(r.topLeft(), menu->grab());
-        area |= r;
-    }
+    for (QMenu* menu : menus)
+        painter.drawPixmap(menuRect(window, menu).topLeft(), menu->grab());
     painter.end();
-    area = area.adjusted(-kMenuMargin, -kMenuMargin, kMenuMargin, kMenuMargin);
-    area.setTop(0); // keep the menu bar in the picture
-    area.setLeft(0);
-    return shot.copy(area & shot.rect());
+    return shot.copy(menuShotArea(window, menus));
+}
+
+/// Geometry sidecar of a menu shot (ScreenshotGeometry.h format): one `menu` entry per open
+/// menu and one `menuitem` entry per visible command (`action` = its id, `text` without the
+/// mnemonic, `submenu` = the submenu it opens), in the cropped picture's coordinates.
+bool writeMenuGeometry(QWidget& window, const QList<QMenu*>& menus, const QString& jsonPath)
+{
+    const QRect area = menuShotArea(window, menus);
+    QJsonArray entries;
+    auto rectJson = [](const QRect& r) { return QJsonArray {r.x(), r.y(), r.width(), r.height()}; };
+    for (QMenu* menu : menus) {
+        const QRect m = menuRect(window, menu).translated(-area.topLeft());
+        entries.append(QJsonObject {{QStringLiteral("kind"), QStringLiteral("menu")},
+            {QStringLiteral("name"), menu->objectName()}, {QStringLiteral("rect"), rectJson(m)}});
+        for (QAction* a : menu->actions()) {
+            if (!a->isVisible() || a->isSeparator())
+                continue;
+            const QRect r = menu->actionGeometry(a).translated(m.topLeft());
+            QJsonObject o {{QStringLiteral("kind"), QStringLiteral("menuitem")},
+                {QStringLiteral("text"), a->text().remove(QLatin1Char('&'))},
+                {QStringLiteral("rect"), rectJson(r)}};
+            if (!a->objectName().isEmpty())
+                o.insert(QStringLiteral("action"), a->objectName());
+            if (a->menu())
+                o.insert(QStringLiteral("submenu"), a->menu()->objectName());
+            entries.append(o);
+        }
+    }
+    QFile file(jsonPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return false;
+    const QJsonObject doc {{QStringLiteral("width"), area.width()},
+        {QStringLiteral("height"), area.height()}, {QStringLiteral("entries"), entries}};
+    return file.write(QJsonDocument(doc).toJson()) > 0;
 }
 
 constexpr int kFramePollMs = 50; // then wait for the viewers' first rendered frames...
@@ -638,6 +691,82 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             QTimer::singleShot(0, w, [w] { w->zoomToFit(); });
             panel = timelinePanel;
         }
+    } else if (base == QLatin1String("clip")) {
+        // "clip:<track>[:video|audio|effects|title]" (user guide): the clip of that track
+        // ("V2", "A1", "ST1") under the playhead, else its first clip, selected with the
+        // Inspector on that tab. KK_SCREENSHOT_ONSCREEN=transform|crop|masks turns on those
+        // on-screen controls of the timeline viewer.
+        const QString trackName = section.section(QLatin1Char(':'), 0, 0);
+        const QString tab = section.section(QLatin1Char(':'), 1);
+        const TimelineData& data = ctx.project->timeline()->data();
+        const QHash<QChar, TrackType> types {{QLatin1Char('V'), TrackType::Video},
+            {QLatin1Char('A'), TrackType::Audio}, {QLatin1Char('S'), TrackType::Subtitle}};
+        const int digits = trackName.startsWith(QLatin1String("ST")) ? 2 : 1;
+        const int index = trackName.mid(digits).toInt() - 1;
+        const TrackData* track = trackName.isEmpty() || index < 0
+            ? nullptr
+            : data.track(TrackRef {types.value(trackName.front(), TrackType::Video), index});
+        if (!track || track->clips.empty()) {
+            std::fprintf(stderr, "clip: no clip on track '%s'\n", qPrintable(trackName));
+            return 2;
+        }
+        const ClipData* clip = track->clipAt(ctx.project->timeline()->playhead());
+        if (!clip)
+            clip = &track->clips.front();
+        ctx.selection->selectClip(clip->id);
+        if (auto* inspector = window.findChild<InspectorPanel*>()) {
+            const QHash<QString, int> tabs {{QStringLiteral("video"), InspectorPanel::VideoTab},
+                {QStringLiteral("audio"), InspectorPanel::AudioTab},
+                {QStringLiteral("effects"), InspectorPanel::EffectsTab},
+                {QStringLiteral("title"), InspectorPanel::TitleTab}};
+            if (tabs.contains(tab))
+                inspector->tabs()->setCurrentIndex(tabs.value(tab));
+        }
+        const QString onscreen = qEnvironmentVariable("KK_SCREENSHOT_ONSCREEN");
+        const QString onscreenId = QStringLiteral("view.onscreen_") + onscreen;
+        if (!onscreen.isEmpty() && ctx.actions->contains(onscreenId))
+            ctx.actions->action(onscreenId)->setChecked(true);
+    } else if (base == QLatin1String("menu")) {
+        // "menu:<category>[:<submenu category>]" (user guide): that menu of the menu bar open
+        // (and its submenu), KK_SCREENSHOT_MENU_ITEM=<action id> highlighted in the last one.
+        const QString category = section.section(QLatin1Char(':'), 0, 0);
+        const QString subCategory = section.section(QLatin1Char(':'), 1);
+        QMenu* top = findMenu(&window, category);
+        QMenu* sub = subCategory.isEmpty() ? nullptr : findMenu(&window, subCategory);
+        if (!top || (!subCategory.isEmpty() && !sub)) {
+            std::fprintf(stderr, "menu: no menu '%s'\n", qPrintable(section));
+            return 2;
+        }
+        QMenuBar* bar = window.menuBar();
+        const QRect barItem = bar->actionGeometry(top->menuAction());
+        top->popup(bar->mapToGlobal(barItem.bottomLeft()));
+        menus = {top};
+        if (sub) {
+            top->setActiveAction(sub->menuAction());
+            const QRect subItem = top->actionGeometry(sub->menuAction());
+            sub->popup(top->mapToGlobal(subItem.topRight()));
+            menus.append(sub);
+        }
+        const QString itemId = qEnvironmentVariable("KK_SCREENSHOT_MENU_ITEM");
+        if (!itemId.isEmpty() && ctx.actions->contains(itemId))
+            menus.last()->setActiveAction(ctx.actions->action(itemId));
+    } else if (target == QLatin1String("normalize-audio")) {
+        // Clip > Normalize Audio Levels of every audio clip of the timeline (user guide).
+        QVector<quint64> ids;
+        for (const TrackData& track : ctx.project->timeline()->data().audioTracks) {
+            for (const ClipData& c : track.clips)
+                ids.append(c.id);
+        }
+        if (ids.isEmpty()) {
+            std::fprintf(stderr, "normalize-audio: needs a project with audio clips\n");
+            return 2;
+        }
+        ctx.selection->setClips(ids);
+        auto d = std::make_unique<NormalizeAudioDialog>(
+            ctx.project, normalizeTargets(*ctx.project, *ctx.selection), &window);
+        d->adjustSize();
+        dialog = std::move(d);
+        delayMs = kDialogSettleDelayMs;
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
     } else if (base == QLatin1String("effects")) {
@@ -751,6 +880,26 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             if (field && !location.isEmpty())
                 field->setText(location);
         });
+        // User guide: KK_SCREENSHOT_RENDER_RESOLUTION=<index> picks a Resolution entry,
+        // KK_SCREENSHOT_RENDER_TAB=<index> a settings tab (0 Video, 1 Audio, 2 File),
+        // KK_SCREENSHOT_RENDER_SUBTITLES=<format index> ticks Export subtitle with that format.
+        if (qEnvironmentVariableIsSet("KK_SCREENSHOT_RENDER_RESOLUTION")) {
+            if (auto* res = window.findChild<QComboBox*>(QStringLiteral("RenderResolution")))
+                res->setCurrentIndex(
+                    qEnvironmentVariableIntValue("KK_SCREENSHOT_RENDER_RESOLUTION"));
+        }
+        if (qEnvironmentVariableIsSet("KK_SCREENSHOT_RENDER_SUBTITLES")) {
+            if (auto* box = window.findChild<QCheckBox*>(QStringLiteral("RenderSubtitleExport")))
+                box->setChecked(true);
+            if (auto* mode = window.findChild<QComboBox*>(QStringLiteral("RenderSubtitleMode")))
+                mode->setCurrentIndex(
+                    qEnvironmentVariableIntValue("KK_SCREENSHOT_RENDER_SUBTITLES"));
+        }
+        if (qEnvironmentVariableIsSet("KK_SCREENSHOT_RENDER_TAB")) {
+            auto* settings = window.findChild<RenderSettingsPanel*>();
+            if (auto* tabs = settings ? settings->findChild<QTabWidget*>() : nullptr)
+                tabs->setCurrentIndex(qEnvironmentVariableIntValue("KK_SCREENSHOT_RENDER_TAB"));
+        }
     } else if (base == QLatin1String("cut")) {
         // Cut page (spec 35): files in KK_SCREENSHOT_IMPORT are imported; an empty timeline gets
         // every file of the media pool appended
@@ -809,7 +958,8 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             "effects[:<id>], fx:<id>[:inspector|viewer], change-speed, timeline, "
             "deliver:inout|queue, import-dialog, project-manager, new-project, menu-color-theme "
             "or "
-            "menu-style, menu-playback-resolution)\n",
+            "menu-style, menu-playback-resolution, clip:<track>[:<tab>], "
+            "menu:<category>[:<submenu>], normalize-audio)\n",
             qPrintable(target));
         return 2;
     }
@@ -832,6 +982,9 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         if (!geometryPath.isEmpty() && menus.isEmpty()
             && !writeScreenshotGeometry(root, geometryPath, {}, &ctx.project->timeline()->data(),
                 ctx.project->timeline()->playhead()))
+            std::fprintf(stderr, "cannot write %s\n", qPrintable(geometryPath));
+        if (!geometryPath.isEmpty() && !menus.isEmpty()
+            && !writeMenuGeometry(window, menus, geometryPath))
             std::fprintf(stderr, "cannot write %s\n", qPrintable(geometryPath));
         const QPixmap pixmap = dialog ? dialog->grab()
             : toolWindow              ? grabWithToolWindow(window, toolWindow)
@@ -877,8 +1030,21 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         }
     });
     // The Compositing page viewers render their nodes asynchronously (slow on software GL).
-    if (base == QLatin1String("compositing"))
+    if (base == QLatin1String("compositing")) {
         delayMs = std::max(delayMs, kCompositingSettleDelayMs);
+        // KK_SCREENSHOT_NODE=<node name> (user guide): that node selected (Inspector, handles).
+        const QString nodeName = qEnvironmentVariable("KK_SCREENSHOT_NODE");
+        CompositingPage* comp = window.compositingPage();
+        if (!nodeName.isEmpty() && comp) {
+            QTimer::singleShot(0, comp, [comp, nodeName] {
+                CompSession* session = comp->session();
+                for (const CompNode& node : session->composition().nodes) {
+                    if (node.name == nodeName)
+                        session->setSelection({node.id}, {}, node.id);
+                }
+            });
+        }
+    }
     // KK_SCREENSHOT_DELAY_MS: a longer settle time (thumbnails and posters are made in the
     // background; the user guide waits for them; slow machines, software GL).
     if (qEnvironmentVariableIsSet("KK_SCREENSHOT_DELAY_MS"))

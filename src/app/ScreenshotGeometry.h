@@ -22,7 +22,7 @@ struct TimelineData;
 /// - `tab`: each tab of a visible tab bar (`text`);
 /// - `item`: each visible row of an item view (`text`, and `data` = its Qt::UserRole string,
 ///   e.g. the effect id in the Effects library);
-/// - `clip`: each clip of @p timeline drawn by the main timeline widget (`track` "V1", "A2",
+/// - `clip`: each clip of @p timeline drawn by the main timeline widget (`track` "V1", "A2", "ST1",
 ///   `index` on its track, `text` = clip name), `transition` (the frames a clip's transition
 ///   covers; `track`, `index`, `head` true for the transition at its start), `track` (each
 ///   track header) and `playhead` (a 1 px wide rect).

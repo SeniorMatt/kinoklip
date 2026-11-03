@@ -1008,6 +1008,7 @@ Tests: `ne` = `tests/panels/test_nodeeditor.cpp`, `cp` = `tests/app/test_composi
 | 42b.25 | The Inspector shows "This node has no parameters" for MediaIn / MediaOut instead of an empty group. | Fixed (cp inspectorNoteForNodesWithoutParameters) |
 | 42b.26 | The pages without an editable timeline switch the hidden Edit page timeline's commands off the way the Compositing page does (42b.22), through one shared helper (TimelineCommandSuspension, src/ui/common; a new page adopts it with one line in its constructor): on the Media page Delete / Backspace, blade (B, Ctrl+\\), Copy / Paste, Select All, trim, track and multicam keys do nothing; the media pool's own Clip menu commands (New Multicam Clip, Sync, Clip Attributes) stay, and the source viewer still takes I / O while it has focus. The Deliver page does the same but keeps Mark In / Out / Clip, the Clear and Go to In / Out commands, which set the render range. Transport, undo / redo, history, the page keys, Keyboard Customization and Preferences stay everywhere. The Cut and Audio pages edit the timeline and keep everything. Switching between two such pages keeps the commands off (a command is held by every page that suspends it and comes back with the last one); a command its owner disabled stays disabled. | Fixed (pc mediaPageSuspendsTimelineCommands, deliverPageSuspendsEditingButKeepsMarks, cutAndAudioPagesKeepTimelineCommands, switchingBetweenSuspendingPagesKeepsCommandsOff, helpersShareACommand in tests/app/test_pagecommands.cpp; cp timelineCommandsSuspendedOnThePage) |
 | 42b.27 | The Shift+Space "Select Node" list opens at the mouse (centred on it, search field under it) but, like a menu, is moved back inside the window and the screen when it would run past the right or bottom edge (the left / top edge wins when it is larger). | Fixed (cp selectNodePopupStaysInsideTheWindow) |
+| 42b.28 | Nodes placed by the tool bar, the Select Node list and the context menu never overlap: the automatic step is 4.5 grid units, wider than a tile (3.4); before, a Merge added by Text or Background covered the node it was merged over (found while writing the guide). | Fixed (co addedNodesDoNotOverlap) |
 
 ## 43. In-app help (owner request, 0.4.2)
 
@@ -1099,3 +1100,5 @@ index `docs/guide/index.json`, see src/ui/help/readme.md). Section 42 is the Com
 - The smallfix branch added 42b.26 (the Media and Deliver pages suspend the Edit page timeline's
   commands through the shared TimelineCommandSuspension helper) and 42b.27 (the Select Node list
   stays inside the window).
+- The guide2 branch added 42b.28 (nodes added by the tool bar and the Select Node list never overlap;
+  numbered 42b.26 on the branch, renumbered at the merge).

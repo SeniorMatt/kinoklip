@@ -19,6 +19,8 @@
 #include <QTest>
 #include <QUndoStack>
 
+#include <cmath>
+
 using namespace kk;
 using namespace kk::test;
 namespace co = kk::compops;
@@ -219,6 +221,27 @@ private slots:
         // A polygon starts with a closed default shape.
         const quint64 poly = co::addNode(c, nodetypes::PolygonMask, {});
         QCOMPARE(c.node(poly)->path.pointCount(), 5);
+    }
+
+    /// Nodes placed by the tool bar / Select Node commands never overlap in the node editor
+    /// (tiles are 3.4 units wide and 1 high; the step used to be 2.5, so Merge covered MediaIn).
+    void addedNodesDoNotOverlap()
+    {
+        Composition c = co::defaultComposition();
+        co::addNodeAfter(c, nodetypes::Text, c.mediaOutId); // Merge1 + Text1 before MediaOut
+        co::addNodeAfter(c, nodetypes::Transform, mediaInOf(c));
+        co::addNodeAfter(c, nodetypes::Background, c.mediaOutId);
+        constexpr double kTileWidth = 3.4; // NodeEditor::kTileWidth
+        constexpr double kTileHeight = 1.0;
+        for (const CompNode& a : c.nodes) {
+            for (const CompNode& b : c.nodes) {
+                if (a.id >= b.id)
+                    continue;
+                const QPointF d = a.position - b.position;
+                QVERIFY2(std::abs(d.x()) >= kTileWidth || std::abs(d.y()) >= kTileHeight,
+                    qPrintable(a.name + QLatin1String(" overlaps ") + b.name));
+            }
+        }
     }
 
     void connectRefusesCyclesAndKinds()

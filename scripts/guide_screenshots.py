@@ -3,8 +3,8 @@
 """Makes the annotated screenshots of the user guide (docs/guide/images/<article>/).
 
 Reproducible from the real app:
-  1. generates the demo media with ffmpeg (a sky, a presenter on a pure green screen, three
-     clips with sound, a music bed) into <work>/media, once;
+  1. generates the demo media with ffmpeg (a sky, a presenter on a pure green screen and in
+     front of a wall, three clips with sound, a music bed) into <work>/media, once;
   2. builds the guide projects with the test_guidedemo test (tests/timeline/test_guidedemo.cpp);
   3. runs `kinoklip --screenshot <target> <png> <project>` for every shot, with
      KK_SCREENSHOT_GEOMETRY so the app reports where its widgets are (src/app/ScreenshotGeometry);
@@ -54,12 +54,14 @@ AAC = ["-c:a", "aac", "-b:a", "128k"]
 
 def make_media(media: Path) -> None:
     media.mkdir(parents=True, exist_ok=True)
-    stamp = media / ".complete-v1"
+    stamp = media / ".complete-v3"
     if stamp.exists():
         return
     size = "1920x1080"
 
     def video(name, vsrc, asrc=None, seconds=30):
+        if (media / name).exists():
+            return
         cmd = FF + ["-f", "lavfi", "-i", vsrc]
         if asrc:
             cmd += ["-f", "lavfi", "-i", asrc]
@@ -80,15 +82,29 @@ def make_media(media: Path) -> None:
            ":b='if({h},150,if({b},170,64))'").format(h=head, b=body)
     video("greenscreen.mp4", "color=c=0x00b140:s={}:r=25:d=10,format=rgb24,{},format=yuv420p"
           .format(size, geq), None, 10)
+    # The same presenter in front of a plain wall (picture-in-picture, vertical video, hiding
+    # a face, freeze frame, keyframes, the Compositing page).
+    # A face: two eyes and a mouth on the head (so a blur or mosaic over it shows).
+    cx = "(960+60*sin(T))"
+    face = ("(lt(hypot(X-{c}+45,Y-370),16)+lt(hypot(X-{c}-45,Y-370),16)"
+            "+lt(abs(Y-462),9)*lt(abs(X-{c}),52))").format(c=cx)
+    wall = ("geq=r='if({f},60,if({h},232,if({b},45,96+20*Y/1080)))'"
+            ":g='if({f},40,if({h},186,if({b},80,104+20*Y/1080)))'"
+            ":b='if({f},40,if({h},150,if({b},170,120+20*Y/1080)))'").format(h=head, b=body,
+                                                                          f=face)
+    video("presenter.mp4", "color=c=black:s={}:r=25:d=12,format=rgb24,{},format=yuv420p"
+          .format(size, wall), "sine=f=262:sample_rate=48000:d=12,volume=0.15,"
+          "aformat=channel_layouts=stereo", 12)
     tone = "sine=f={}:sample_rate=48000:d=30,volume=0.15,aformat=channel_layouts=stereo"
     video("interview.mp4", grad.format(size, 30, 0.01, "0x614385", "0x516395"), tone.format(220))
     video("broll.mp4", grad.format(size, 30, 0.02, "0xff7e5f", "0xfeb47b"), tone.format(330))
     video("texture.mp4", grad.format(size, 30, 0.015, "0x11998e", "0x38ef7d"), tone.format(440))
     chord = ("aevalsrc='(0.12*sin(2*PI*220*t)+0.08*sin(2*PI*277.18*t)+0.08*sin(2*PI*329.63*t))"
              "*(0.7+0.3*sin(2*PI*0.5*t))':s=48000:d=40")
-    print("  media: music.wav")
-    subprocess.run(FF + ["-f", "lavfi", "-i", chord, "-ac", "2", str(media / "music.wav")],
-                   check=True)
+    if not (media / "music.wav").exists():
+        print("  media: music.wav")
+        subprocess.run(FF + ["-f", "lavfi", "-i", chord, "-ac", "2", str(media / "music.wav")],
+                       check=True)
     stamp.touch()
 
 
@@ -148,8 +164,10 @@ class Geometry:
         """Rectangle (x, y, w, h) of the entry matching every key of @p sel.
 
         Special keys: "nth" picks among several matches (default 0); "part" = left / right /
-        top / bottom with "frac" keeps that fraction of the rectangle; "pad" grows it."""
-        keys = {k: v for k, v in sel.items() if k not in ("nth", "part", "frac", "pad")}
+        top / bottom with "frac" keeps that fraction of the rectangle; "fx" / "fy" = (a, b)
+        keep the horizontal / vertical span from fraction a to b; "pad" grows it."""
+        keys = {k: v for k, v in sel.items()
+                if k not in ("nth", "part", "frac", "pad", "fx", "fy")}
         hits = [e for e in self.entries
                 if all(str(e.get(k)) == str(v) for k, v in keys.items())]
         nth = sel.get("nth", 0)
@@ -165,6 +183,12 @@ class Geometry:
             h = max(8, int(h * frac))
         elif part == "bottom":
             y, h = y + h - max(8, int(h * frac)), max(8, int(h * frac))
+        if "fx" in sel:
+            a, b = sel["fx"]
+            x, w = x + int(w * a), max(8, int(w * (b - a)))
+        if "fy" in sel:
+            a, b = sel["fy"]
+            y, h = y + int(h * a), max(8, int(h * (b - a)))
         pad = sel.get("pad", 3)
         return (x - pad, y - pad, w + 2 * pad, h + 2 * pad)
 
@@ -392,6 +416,119 @@ SHOTS = {
         dict(name="2-audio-transitions", target="effects:audio_crossfade_3db",
              project="music.kkproj", width=900,
              marks=[("box", dict(kind="item", data="audio_crossfade_3db"))]),
+    ],
+    "fade-to-black": [
+        dict(name="1-fade-handles", target="timeline", project="fade.kkproj",
+             marks=[("num", dict(kind="clip", track="V1", index=0, part="left", frac=0.2, pad=0),
+                     1, "t"),
+                    ("num", dict(kind="clip", track="V1", index=1, part="right", frac=0.27, pad=0),
+                     2, "t"),
+                    ("num", dict(kind="clip", track="A1", index=1, part="right", frac=0.27, pad=0),
+                     3, "b")]),
+        dict(name="2-transitions", target="effects:cross_dissolve", project="fade.kkproj",
+             width=900,
+             marks=[("num", dict(kind="item", data="cross_dissolve"), 1, "r"),
+                    ("num", dict(kind="item", data="dip_to_color"), 2, "r")]),
+    ],
+    "freeze-a-frame": [
+        dict(name="1-freeze-segment", target="retime", project="freeze.kkproj",
+             crop=[dict(kind="track", track="V1"), dict(kind="clip", track="V1", index=0)],
+             margin=40,
+             marks=[("num", dict(kind="clip", track="V1", index=0, fx=(0.3, 0.5), fy=(0.2, 0.4),
+                             pad=1), 1, "t"),
+                    ("num", dict(kind="clip", track="V1", index=0, fx=(0.49, 0.51),
+                                 fy=(0.82, 1.0), pad=4), 2, "b")]),
+    ],
+    "zoom-crop-and-picture-in-picture": [
+        dict(name="1-picture-in-picture", target="clip:V2:video", project="pip.kkproj",
+             env={"KK_SCREENSHOT_ONSCREEN": "transform"},
+             marks=[("num", dict(kind="clip", track="V2", index=0), 1, "t"),
+                    ("num", W(name="value:zoomX"), 2, "l"),
+                    ("num", W(name="value:posX"), 3, "l"),
+                    ("num", W(name="value:cropL"), 4, "l"),
+                    ("num", W(name="ViewerOnScreenControls"), 5, "t")]),
+    ],
+    "smooth-playback": [
+        dict(name="1-playback-resolution", target="menu:playback:playback.resolution",
+             project="edit.kkproj", width=900, upscale=False,
+             env={"KK_SCREENSHOT_MENU_ITEM": "playback.resolution_half"},
+             marks=[("box", dict(kind="menuitem", action="playback.resolution_half"))]),
+        dict(name="2-viewer-resolution", target="edit", project="edit.kkproj",
+             crop=[W(name="TimelineViewer")], margin=0, width=900,
+             marks=[("num", W(name="ViewerQuality"), 1, "b")]),
+    ],
+    "vertical-video": [
+        dict(name="1-project-settings", target="project-settings:master",
+             project="vertical.kkproj", width=820,
+             marks=[("num", W(name="TimelineResolution"), 1, "r")]),
+        dict(name="2-fill-the-frame", target="clip:V1:video", project="vertical.kkproj",
+             crop=[W(name="TimelineViewer"), W(**{"class": "kk::InspectorPanel"})], margin=0,
+             marks=[("num", W(name="value:zoomX"), 1, "l"),
+                    ("num", W(name="value:posX"), 2, "l")]),
+        dict(name="3-render-resolution", target="deliver:inout", project="vertical.kkproj",
+             crop=[W(**{"class": "kk::RenderSettingsPanel"})], margin=0, width=700,
+             env={"KK_SCREENSHOT_SIZE": "1440x900", "KK_SCREENSHOT_RENDER_RESOLUTION": "0"},
+             marks=[("num", W(name="RenderResolution"), 1, "t")]),
+    ],
+    "hide-part-of-the-picture": [
+        dict(name="0-before", target="edit", project="freeze.kkproj",
+             crop=[W(name="TimelineViewer")], margin=0, width=960, marks=[]),
+        dict(name="1-adjustment-clip", target="effects:adjustment_clip", project="blur.kkproj",
+             env={"KK_SCREENSHOT_WINDOW": "1"},
+             crop=[W(**{"class": "kk::EffectsLibraryPanel"}), W(**{"class": "kk::TimelinePanel"})],
+             marks=[("num", dict(kind="item", data="adjustment_clip"), 1, "r"),
+                    ("num", dict(kind="clip", track="V2", index=0), 2, "t"),
+                    ("arrow", dict(kind="item", data="adjustment_clip"),
+                     dict(kind="clip", track="V2", index=0))]),
+        dict(name="2-mask", target="masks", project="blur.kkproj",
+             crop=[W(name="TimelineViewer"), W(**{"class": "kk::InspectorPanel"})], margin=0,
+             marks=[("num", W(name="add-mask:ellipse"), 1, "b"),
+                    ("num", W(name="value:featherOut"), 2, "l")]),
+        dict(name="3-result", target="edit", project="blur.kkproj",
+             crop=[W(name="TimelineViewer")], margin=0, width=960, marks=[]),
+    ],
+    "add-subtitles": [
+        dict(name="1-captions", target="subtitles", project="subtitles.kkproj",
+             marks=[("num", dict(kind="clip", track="ST1", index=1), 1, "t"),
+                    ("num", W(name="text:text"), 2, "l"),
+                    ("num", W(name="value:size"), 3, "l")]),
+        dict(name="2-export", target="deliver:inout", project="subtitles.kkproj",
+             crop=[W(**{"class": "kk::RenderSettingsPanel"})], margin=0, width=700,
+             env={"KK_SCREENSHOT_SIZE": "1440x900", "KK_SCREENSHOT_RENDER_TAB": "2",
+                  "KK_SCREENSHOT_RENDER_SUBTITLES": "0"},
+             marks=[("num", W(name="RenderSubtitleExport"), 1, "l"),
+                    ("num", W(name="RenderSubtitleMode"), 2, "l")]),
+    ],
+    "separate-audio-from-video": [
+        dict(name="1-linked-selection", target="timeline", project="edit.kkproj",
+             crop=[W(action="tool.select"), W(action="timeline.linked_selection")], margin=40,
+             width=760, upscale=True,
+             marks=[("num", W(action="timeline.linked_selection", pad=1), 1, "b")]),
+        dict(name="2-unlink-clips", target="menu:clip", project="edit.kkproj", width=900,
+             env={"KK_SCREENSHOT_MENU_ITEM": "clip.unlink"},
+             marks=[("box", dict(kind="menuitem", action="clip.unlink"))]),
+    ],
+    "keyframe-animation": [
+        dict(name="1-inspector-keyframes", target="clip:V1:video", project="keyframes.kkproj",
+             crop=[W(**{"class": "kk::InspectorPanel"})], margin=0, width=700,
+             marks=[("num", W(name="value:zoomX"), 1, "l")]),
+        dict(name="2-keyframe-editor", target="keyframes", project="keyframes.kkproj",
+             marks=[]),
+    ],
+    "even-out-clip-volumes": [
+        dict(name="1-normalize", target="normalize-audio", project="edit.kkproj", width=560,
+             upscale=True,
+             marks=[("num", W(name="NormalizeMode"), 1, "r"),
+                    ("num", W(name="NormalizeTarget"), 2, "r"),
+                    ("num", W(text="Independent"), 3, "b")]),
+    ],
+    "compositing-page": [
+        dict(name="1-compositing-page", target="compositing", project="compositing.kkproj",
+             env={"KK_SCREENSHOT_NODE": "Text1"},
+             marks=[("num", W(name="CompTool:text"), 1, "t"),
+                    ("num", W(name="NodeEditor"), 2, "bl"),
+                    ("num", W(name="text:text"), 3, "l"),
+                    ("num", W(name="CompViewerRight"), 4, "tl")]),
     ],
 }
 
