@@ -9,6 +9,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/TimelineCommandSuspension.h"
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompInspector.h"
 #include "ui/comp/CompSession.h"
@@ -19,7 +20,6 @@
 
 #include <QAction>
 #include <QHBoxLayout>
-#include <QHideEvent>
 #include <QSettings>
 #include <QShowEvent>
 #include <QSplitter>
@@ -99,6 +99,8 @@ CompositingPage::CompositingPage(AppContext& ctx, QWidget* parent)
     layout->addWidget(m_columns);
 
     m_selectNode = new SelectNodePopup(m_session, this);
+    // Disables the hidden Edit page timeline's commands while the page is shown (spec 42b.22).
+    new TimelineCommandSuspension(this, ctx.actions, keptCommandIds());
     connect(m_editor, &NodeEditor::viewChanged, m_session, &CompSession::setViewState);
     connectActions();
 }
@@ -206,49 +208,17 @@ void CompositingPage::openClip(quint64 clipId)
     m_session->openClip(clipId ? clipId : m_session->clipForPage());
 }
 
-QStringList CompositingPage::suspendedCommandIds(const ActionRegistry& registry)
+QStringList CompositingPage::keptCommandIds()
 {
-    // Menus whose commands edit the timeline (submenus included), minus what makes sense
-    // without it.
-    static const char* const kMenus[] = {"edit", "trim", "timeline", "timeline.tracks", "clip",
-        "clip.sync", "clip.multicam", "clip.masks", "mark"};
-    static const char* const kKept[] = {"edit.undo", "edit.redo", "edit.history_window",
-        "edit.keyboard_customization", "edit.preferences", "timeline.audio_scrubbing",
-        "clip.open_in_compositing", "clip.reset_composition", "mark.go_to_in", "mark.go_to_out"};
-    QStringList kept;
-    for (const char* id : kKept)
-        kept.append(QLatin1String(id));
-    QStringList ids;
-    for (const char* menu : kMenus) {
-        for (const QString& id : registry.menuEntries(QLatin1String(menu))) {
-            if (registry.contains(id) && !kept.contains(id) && !ids.contains(id))
-                ids.append(id);
-        }
-    }
-    return ids;
+    // Besides TimelineCommandSuspension::alwaysKept(): the page's own clip commands and the
+    // in / out marks it shows on its time ruler.
+    return {QStringLiteral("clip.open_in_compositing"), QStringLiteral("clip.reset_composition"),
+        QStringLiteral("mark.go_to_in"), QStringLiteral("mark.go_to_out")};
 }
 
-void CompositingPage::suspendTimelineCommands(bool suspend)
+QStringList CompositingPage::suspendedCommandIds(const ActionRegistry& registry)
 {
-    if (!m_ctx.actions)
-        return;
-    if (!suspend) {
-        for (const QPointer<QAction>& a : std::as_const(m_suspended)) {
-            if (a)
-                a->setEnabled(true);
-        }
-        m_suspended.clear();
-        return;
-    }
-    if (!m_suspended.isEmpty())
-        return; // already suspended
-    for (const QString& id : suspendedCommandIds(*m_ctx.actions)) {
-        QAction* a = m_ctx.actions->action(id);
-        if (a->isEnabled()) {
-            a->setEnabled(false);
-            m_suspended.append(a);
-        }
-    }
+    return TimelineCommandSuspension::commandIds(registry, keptCommandIds());
 }
 
 void CompositingPage::showEvent(QShowEvent* event)
@@ -256,16 +226,7 @@ void CompositingPage::showEvent(QShowEvent* event)
     Page::showEvent(event);
     if (event->spontaneous())
         return;
-    suspendTimelineCommands(true);
-    openClip();
-}
-
-void CompositingPage::hideEvent(QHideEvent* event)
-{
-    Page::hideEvent(event);
-    if (event->spontaneous())
-        return; // minimised: keep the state
-    suspendTimelineCommands(false);
+    openClip(); // the timeline commands are already suspended (TimelineCommandSuspension)
 }
 
 // ---- Panels and layout ----

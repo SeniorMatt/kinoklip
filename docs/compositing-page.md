@@ -39,7 +39,9 @@ general knowledge of node compositors, our own drawing, names and icons; never R
 - Keys: the node editor claims its own keys while it has focus (Delete, Ctrl+C / V / D, F2,
   Ctrl+P, Ctrl+T, 1 / 2, Shift+Space); Keyboard Customization treats them as a separate scope,
   so they never conflict with the Edit page's. The Edit page timeline is hidden here, so its
-  editing commands are disabled while the page is shown; transport, undo and the page keys stay.
+  editing commands are disabled while the page is shown; transport, undo and the page keys stay
+  (TimelineCommandSuspension, shared with the Media and Deliver pages). The Select Node list
+  opens at the mouse but stays inside the window like a menu.
 
 ## Nodes (first release)
 - **I/O**: MediaIn (the clip, or any media pool item), MediaOut.

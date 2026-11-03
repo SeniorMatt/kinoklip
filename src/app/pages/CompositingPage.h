@@ -5,11 +5,8 @@
 
 #include "ui/common/Page.h"
 
-#include <QList>
-#include <QPointer>
 #include <QStringList>
 
-class QAction;
 class QSplitter;
 class QToolButton;
 
@@ -76,21 +73,20 @@ public:
     /// Tool bar button that adds node type @p type, or nullptr.
     [[nodiscard]] QToolButton* toolButton(const QString& type) const;
 
-    /// Ids of the timeline commands the page disables while it is shown (see the class doc).
+    /// Ids of the timeline commands the page disables while it is shown (see the class doc and
+    /// TimelineCommandSuspension).
     [[nodiscard]] static QStringList suspendedCommandIds(const ActionRegistry& registry);
+    /// Timeline menu commands the page keeps enabled (TimelineCommandSuspension's kept ids).
+    [[nodiscard]] static QStringList keptCommandIds();
 
 protected:
     void showEvent(QShowEvent* event) override;
-    void hideEvent(QHideEvent* event) override;
 
 private:
     QWidget* buildToolBar();
     void connectActions();
     /// Opens the "Select Node" popup over the node editor.
     void showSelectNode();
-    /// Disables (true) the timeline commands of suspendedCommandIds() that are enabled, or
-    /// enables again (false) the ones it disabled.
-    void suspendTimelineCommands(bool suspend);
 
     AppContext& m_ctx;
     CompSession* m_session = nullptr;
@@ -106,7 +102,6 @@ private:
     QSplitter* m_columns = nullptr; ///< library | centre | inspector
     QSplitter* m_centre = nullptr; ///< viewers + transport | node area
     QSplitter* m_viewers = nullptr; ///< left | right viewer
-    QList<QPointer<QAction>> m_suspended; ///< commands suspendTimelineCommands() disabled
 };
 
 } // namespace kk
