@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<!-- AppStream metadata (software centres, Gear Lever, appimagetool). Installed by
+     scripts/package_linux.sh as usr/share/metainfo/org.kinoklip.Kinoklip.appdata.xml;
+     @VERSION@ and @DATE@ are filled in from CMakeLists.txt / src/app/AppInfo.h and the commit
+     date. Validate with: appstreamcli validate - -no-net <file> -->
+<component type="desktop-application">
+  <id>org.kinoklip.Kinoklip</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Kinoklip</name>
+  <summary>Non-linear video editor</summary>
+  <developer id="io.github.seniormatt">
+    <name>Senior Matthew</name>
+  </developer>
+  <description>
+    <p>
+      Kinoklip is a non-linear video editor written from scratch in C++ with Qt and FFmpeg. Its
+      layout, behaviour and default shortcuts follow DaVinci Resolve's Edit page, with the KDE
+      Breeze look.
+    </p>
+    <ul>
+      <li>Multi-track timeline with trimming, ripple and roll edits, markers and snapping</li>
+      <li>Source and timeline viewers, media pool and inspector</li>
+      <li>Video effects, transitions and audio crossfades</li>
+      <li>Single-file projects and a project manager</li>
+      <li>Export through FFmpeg</li>
+    </ul>
+    <p>
+      Kinoklip is an independent project and is not affiliated with Blackmagic Design.
+      All releases are pre-releases for now: expect bugs and keep backups.
+    </p>
+  </description>
+  <launchable type="desktop-id">org.kinoklip.Kinoklip.desktop</launchable>
+  <url type="homepage">https://github.com/SeniorMatt/kinoklip</url>
+  <url type="bugtracker">https://github.com/SeniorMatt/kinoklip/issues</url>
+  <url type="donation">https://ko-fi.com/seniormatthew</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The Edit page: media pool, viewers, inspector and timeline</caption>
+      <image>https://raw.githubusercontent.com/SeniorMatt/kinoklip/main/docs/images/edit-page.png</image>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Video</category>
+  </categories>
+  <keywords>
+    <keyword>video</keyword>
+    <keyword>editor</keyword>
+    <keyword>timeline</keyword>
+    <keyword>nle</keyword>
+  </keywords>
+  <provides>
+    <binary>kinoklip</binary>
+    <mediatype>application/x-kinoklip-project</mediatype>
+  </provides>
+  <requires>
+    <display_length compare="ge">1280</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="@VERSION@" date="@DATE@" type="development"/>
+  </releases>
+</component>

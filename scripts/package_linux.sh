@@ -1,24 +1,32 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# package_linux.sh -- builds the portable Linux bundle of Kinoklip and the single-file .run.
+# package_linux.sh -- builds the Kinoklip AppImage: dist/Kinoklip-x86_64.AppImage (+ .zsync).
 #
-# Usage: scripts/package_linux.sh [--no-build] [--no-run] [--no-tarball]
+# Usage: scripts/package_linux.sh [--no-build] [--no-appimage] [--run] [--tarball]
+#
+#   --no-build     reuse $KK_BUILD_DIR/kinoklip instead of building it
+#   --no-appimage  stop after the AppDir (dist/kinoklip-x86_64/, start it with ./AppRun)
+#   --run          also make the legacy self-extracting dist/Kinoklip-x86_64.run (not released)
+#   --tarball      also make dist/kinoklip-x86_64.tar.zst, the AppDir as an archive (not released)
 #
 # Outputs (all under dist/, which is gitignored):
-#   dist/kinoklip-x86_64/            AppDir-shaped portable folder (start it with ./AppRun)
-#   dist/kinoklip-x86_64.tar.zst     the same folder as an archive (.tar.gz without zstd)
-#   dist/Kinoklip-x86_64.run         self-extracting single file (double-click it)
+#   dist/Kinoklip-x86_64.AppImage        the release artefact (type 2, static runtime)
+#   dist/Kinoklip-x86_64.AppImage.zsync  delta-update file for Gear Lever / AppImageUpdate
+#   dist/kinoklip-x86_64/                the AppDir it is made from
 #
 # Environment knobs:
-#   KK_BUILD_DIR      CMake build dir (default: build)
+#   KK_BUILD_DIR      CMake build dir (default: build; may be outside the source tree)
 #   KK_JOBS           parallel build jobs (default: 4)
-#   KK_COMPRESSION    zstd | xz | gzip for the archive/.run payload (default: zstd if present)
-#   KK_ZSTD_LEVEL     zstd level (default: 19)
+#   KK_TOOLS_CACHE    where the pinned appimagetool + runtime are cached (default: .cache/appimage-tools)
+#   KK_UPDATE_INFO    update information embedded in the AppImage ("" = none)
+#   KK_COMPRESSION    zstd | xz | gzip for --run / --tarball (default: zstd if present)
+#   KK_ZSTD_LEVEL     zstd level of the AppImage squashfs and --run / --tarball (default: 19)
 #   KK_QT_PLUGINS     host Qt plugin dir (default: from qtpaths6)
 #
-# Only tools from the distribution are used (ldd, readelf, patchelf, tar, zstd); no
-# linuxdeploy/appimagetool. See packaging/linux/readme.md for the bundle layout and the
-# reasoning behind every excluded library.
+# The AppDir is assembled with distribution tools only (ldd, readelf, patchelf); the AppImage
+# is made with the official appimagetool and type 2 runtime, downloaded once at the pinned
+# versions below and checked against their SHA-256. See packaging/linux/readme.md for the
+# layout and the reasoning behind every excluded library.
 #
 # Primary build host: the Arch Linux container kk-arch (Qt 6.12 + KDE Frameworks 6 + Breeze):
 #   podman exec -w "$PWD" kk-arch env KK_BUILD_DIR=build-arch-release scripts/package_linux.sh
@@ -33,15 +41,17 @@ APPDIR="$DIST/kinoklip-x86_64"
 APP_ID="org.kinoklip.Kinoklip"
 
 DO_BUILD=1
-DO_RUN=1
-DO_TARBALL=1
+DO_APPIMAGE=1
+DO_RUN=0
+DO_TARBALL=0
 for arg in "$@"; do
     case "$arg" in
     --no-build) DO_BUILD=0 ;;
-    --no-run) DO_RUN=0 ;;
-    --no-tarball) DO_TARBALL=0 ;;
+    --no-appimage) DO_APPIMAGE=0 ;;
+    --run) DO_RUN=1 ;;
+    --tarball) DO_TARBALL=1 ;;
     -h | --help)
-        sed -n '3,20p' "$0"
+        sed -n '3,32p' "$0"
         exit 0
         ;;
     *)
@@ -401,25 +411,47 @@ QT_BUILD_VERSION="$(readlink -f "${PATH_OF[libQt6Core.so.6]}")"
 QT_BUILD_VERSION="${QT_BUILD_VERSION##*/libQt6Core.so.}"
 echo "$QT_BUILD_VERSION" >"$APPDIR/usr/lib/qt/qt-version.txt"
 
-# Launcher, desktop entry, icon, MIME type
+# Launcher, desktop entry, icon, MIME type, AppStream metadata
+PRERELEASE="$(sed -n 's/.*prerelease = "\([^"]*\)".*/\1/p' "$ROOT/src/app/AppInfo.h")"
+TAG="v$VERSION${PRERELEASE:+-$PRERELEASE}"
+FULL_VERSION="${TAG#v}" # as the app shows it, e.g. 0.4.1-alpha.1
 install -m 755 "$PKG/apprun.sh" "$APPDIR/AppRun"
-install -m 644 "$PKG/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
-install -m 644 "$PKG/$APP_ID.desktop" "$APPDIR/usr/share/applications/$APP_ID.desktop"
+# X-AppImage-Version: the version Gear Lever / appimaged show (after [Desktop Entry]'s keys).
+{
+    cat "$PKG/$APP_ID.desktop"
+    echo "X-AppImage-Version=$FULL_VERSION"
+} >"$APPDIR/$APP_ID.desktop"
+chmod 644 "$APPDIR/$APP_ID.desktop"
+cp "$APPDIR/$APP_ID.desktop" "$APPDIR/usr/share/applications/$APP_ID.desktop"
+# AppStream: appimagetool looks for usr/share/metainfo/<desktop file stem>.appdata.xml. The
+# release date is the commit date (reproducible), else today.
+RELEASE_DATE="$(git -c safe.directory="*" -C "$ROOT" log -1 --format=%cs 2>/dev/null || date -u +%F)"
+mkdir -p "$APPDIR/usr/share/metainfo"
+sed -e "s/@VERSION@/$FULL_VERSION/" -e "s/@DATE@/$RELEASE_DATE/" "$PKG/$APP_ID.metainfo.xml" \
+    >"$APPDIR/usr/share/metainfo/$APP_ID.appdata.xml"
+if command -v appstreamcli >/dev/null; then
+    appstreamcli validate --no-net --explain "$APPDIR/usr/share/metainfo/$APP_ID.appdata.xml" >&2 ||
+        die "AppStream metadata does not validate (packaging/linux/$APP_ID.metainfo.xml)"
+else
+    log "appstreamcli not found: AppStream metadata not validated"
+fi
+if command -v desktop-file-validate >/dev/null; then
+    desktop-file-validate "$APPDIR/$APP_ID.desktop" >&2 || die "desktop entry does not validate"
+fi
 # The icon: the owner's pixel art, one PNG per size (resources/icons/app, scripts/make_app_icons.py).
 for size in 16 24 32 48 64 128 256 512; do
     install -D -m 644 "$ROOT/resources/icons/app/kinoklip-$size.png" \
         "$APPDIR/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
 done
 install -m 644 "$ROOT/resources/icons/app/kinoklip-256.png" "$APPDIR/$APP_ID.png"
-ln -s "$APP_ID.png" "$APPDIR/.DirIcon"
+# a real file, not a symlink: some AppImage extractors (7-Zip in Gear Lever) handle links badly
+install -m 644 "$ROOT/resources/icons/app/kinoklip-256.png" "$APPDIR/.DirIcon"
 install -m 644 "$PKG/$APP_ID.xml" "$APPDIR/usr/share/mime/packages/$APP_ID.xml"
 echo "$VERSION" >"$APPDIR/usr/share/doc/kinoklip/version"
 # Kinoklip's own licence, the name/logo terms, the asset list and where the source code is.
 for doc in license.md logo-license.md attribution.md; do
     install -m 644 "$ROOT/$doc" "$APPDIR/usr/share/doc/kinoklip/$doc"
 done
-PRERELEASE="$(sed -n 's/.*prerelease = "\([^"]*\)".*/\1/p' "$ROOT/src/app/AppInfo.h")"
-TAG="v$VERSION${PRERELEASE:+-$PRERELEASE}"
 cat >"$APPDIR/usr/share/doc/kinoklip/source-code.txt" <<SOURCE
 Kinoklip ${TAG#v} is free software under the GNU General Public License, version 3 or later
 (license.md). The Kinoklip name, icon and logos are not under the GPL (logo-license.md).
@@ -496,7 +528,69 @@ for pkg in $(awk 'NR > 4 && $2 != "?" { print $2 }' "$APPDIR/usr/share/doc/kinok
 done
 
 # ---------------------------------------------------------------------------------------
-# 6. Archive + single-file .run
+# 6. AppImage (official appimagetool + type 2 static runtime, pinned and checksummed)
+# ---------------------------------------------------------------------------------------
+# Update with the release page's sha256 digests (gh api repos/AppImage/appimagetool/releases).
+APPIMAGETOOL_VERSION=1.9.1
+APPIMAGETOOL_SHA256=ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+RUNTIME_VERSION=20251108 # github.com/AppImage/type2-runtime: static, needs no libfuse on the host
+RUNTIME_SHA256=2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+# gh-releases-zsync: Gear Lever and AppImageUpdate look up the GitHub release and compare the
+# .zsync's SHA-1 with the installed file. "latest-all" instead of "latest": every Kinoklip
+# release is a GitHub pre-release, and "latest" (GitHub's /releases/latest) never returns
+# pre-releases; "latest-all" takes the newest release, pre-release or not.
+UPDATE_INFO="${KK_UPDATE_INFO-gh-releases-zsync|SeniorMatt|kinoklip|latest-all|Kinoklip-*x86_64.AppImage.zsync}"
+APPIMAGE="$DIST/Kinoklip-x86_64.AppImage"
+TOOLS="${KK_TOOLS_CACHE:-$ROOT/.cache/appimage-tools}"
+
+# fetch <url> <sha256> <dest>: download once, verify every time.
+fetch() {
+    if [ ! -f "$3" ] || ! echo "$2  $3" | sha256sum -c --status; then
+        command -v curl >/dev/null || die "curl is needed to download $1"
+        log "downloading $1"
+        mkdir -p "$(dirname "$3")"
+        curl -fsSL --retry 3 -o "$3.part" "$1" || die "download failed: $1"
+        echo "$2  $3.part" | sha256sum -c --status || die "checksum mismatch: $1"
+        mv "$3.part" "$3"
+    fi
+    chmod 755 "$3"
+}
+
+rm -f "$APPIMAGE" "$APPIMAGE.zsync"
+if [ "$DO_APPIMAGE" = 1 ]; then
+    TOOL="$TOOLS/appimagetool-$APPIMAGETOOL_VERSION-x86_64.AppImage"
+    RUNTIME="$TOOLS/runtime-$RUNTIME_VERSION-x86_64"
+    fetch "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-x86_64.AppImage" \
+        "$APPIMAGETOOL_SHA256" "$TOOL"
+    fetch "https://github.com/AppImage/type2-runtime/releases/download/$RUNTIME_VERSION/runtime-x86_64" \
+        "$RUNTIME_SHA256" "$RUNTIME"
+    log "making $APPIMAGE"
+    # APPIMAGE_EXTRACT_AND_RUN: appimagetool is itself an AppImage and containers have no FUSE.
+    # SOURCE_DATE_EPOCH (honoured by mksquashfs): file times from the commit, so unchanged
+    # content gives an identical squashfs. -b 1M and zstd level 19: 101 MB instead of 110 MB
+    # (1M blocks, appimagetool's default level); decompression is as fast at any level.
+    # appimagetool writes the .zsync into the current directory (with -u and its bundled zsyncmake).
+    # --no-appstream: the metadata was validated offline above; appimagetool's own check also
+    # fetches every URL and fails while the GitHub repository is private.
+    export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -c safe.directory="*" -C "$ROOT" log -1 --format=%ct 2>/dev/null || date +%s)}"
+    UPDATE_ARGS=()
+    [ -n "$UPDATE_INFO" ] && UPDATE_ARGS=(-u "$UPDATE_INFO")
+    (
+        cd "$DIST"
+        ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$TOOL" --no-appstream \
+            --runtime-file "$RUNTIME" --comp zstd --mksquashfs-opt -b --mksquashfs-opt 1M \
+            --mksquashfs-opt -Xcompression-level --mksquashfs-opt "${KK_ZSTD_LEVEL:-19}" \
+            "${UPDATE_ARGS[@]}" "$APPDIR" "$APPIMAGE" >&2
+    ) || die "appimagetool failed"
+    [ -x "$APPIMAGE" ] || die "appimagetool made no $APPIMAGE"
+    if [ -n "$UPDATE_INFO" ] && [ ! -f "$APPIMAGE.zsync" ]; then
+        die "no $APPIMAGE.zsync was written"
+    fi
+fi
+
+# ---------------------------------------------------------------------------------------
+# 7. Legacy outputs, only on request: archive (--tarball) and self-extracting .run (--run).
+#    Not release artefacts any more (the AppImage replaced them in 0.4.1).
 # ---------------------------------------------------------------------------------------
 COMP="${KK_COMPRESSION:-}"
 if [ -z "$COMP" ]; then
@@ -509,9 +603,10 @@ gzip) EXT=gz COMPRESS=(gzip -9 -n -c) ;;
 *) die "KK_COMPRESSION must be zstd, xz or gzip" ;;
 esac
 
+# stale outputs of earlier runs must not end up in a release
+rm -f "$DIST"/kinoklip-x86_64.tar.* "$DIST/Kinoklip-x86_64.run"
 if [ "$DO_TARBALL" = 1 ] || [ "$DO_RUN" = 1 ]; then
     TARBALL="$DIST/kinoklip-x86_64.tar.$EXT"
-    rm -f "$DIST"/kinoklip-x86_64.tar.*
     log "compressing ($COMP) -> $TARBALL"
     # Reproducible archive: sorted entries, fixed owner and mtime, so identical contents give
     # an identical hash (and the .run reuses its existing cache directory).
@@ -538,12 +633,13 @@ if [ "$DO_RUN" = 1 ]; then
 fi
 
 # ---------------------------------------------------------------------------------------
-# 7. Report
+# 8. Report
 # ---------------------------------------------------------------------------------------
-log "bundle: $(du -sh "$APPDIR" | cut -f1) in $APPDIR"
+log "AppDir: $(du -sh "$APPDIR" | cut -f1) in $APPDIR"
 log "  usr/lib: $(ls "$APPDIR/usr/lib" | grep -c '\.so') libs, usr/lib/qt: $(ls "$APPDIR/usr/lib/qt" | grep -c '\.so') libs," \
     "fallback: $(ls "$APPDIR/usr/lib/fallback" | grep -c '\.so') libs, plugins: ${#PLUGIN_FILES[@]} Qt + ${#HEIF_PLUGINS[@]} libheif"
-for f in "$DIST"/kinoklip-x86_64.tar.* "$DIST"/Kinoklip-x86_64.run; do
+for f in "$APPIMAGE" "$APPIMAGE.zsync" "$DIST"/kinoklip-x86_64.tar.* "$DIST"/Kinoklip-x86_64.run; do
     [ -f "$f" ] && log "$(du -h "$f" | cut -f1)	$f"
 done
+[ -z "$UPDATE_INFO" ] || [ "$DO_APPIMAGE" = 0 ] || log "update information: $UPDATE_INFO"
 exit 0

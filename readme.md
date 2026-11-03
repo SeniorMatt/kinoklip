@@ -9,6 +9,16 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 
 All releases are alpha or beta pre-releases for now: expect bugs and keep backups.
 
+## Download (Linux x86_64)
+1. Download `Kinoklip-x86_64.AppImage` from the [latest release](https://github.com/SeniorMatt/kinoklip/releases).
+2. Either open it with [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever), which adds
+   Kinoklip to the application menu and keeps it updated, or make it executable
+   (right-click > Properties > Permissions > "Is executable", or `chmod +x Kinoklip-x86_64.AppImage`).
+3. Run it: start Kinoklip from the menu, double-click the file, or `./Kinoklip-x86_64.AppImage`.
+
+Needs OpenGL 3.3 and FUSE (present on almost every desktop system); without FUSE run
+`./Kinoklip-x86_64.AppImage --appimage-extract-and-run`. Wayland and X11.
+
 ![The Kinoklip Edit page: media pool, source and timeline viewers, inspector and a multi-track timeline](docs/images/edit-page.png)
 
 ## Documentation
@@ -22,7 +32,7 @@ All releases are alpha or beta pre-releases for now: expect bugs and keep backup
 - [Behaviour spec](docs/behavior-spec.md): how each feature behaves, with test references
 - [Resolve keymap](docs/keymap-resolve-windows.md): default keyboard shortcuts
 - [Release notes](docs/releases/): changes in each release
-- [Linux packaging](packaging/linux/readme.md): building the `.run` and portable bundle
+- [Linux packaging](packaging/linux/readme.md): building the AppImage
 - [Clean-room policy](docs/clean-room.md): what may and may not be used to build Kinoklip
 - [Attribution](attribution.md): every asset with its author and licence
 
