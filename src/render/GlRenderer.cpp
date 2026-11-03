@@ -953,6 +953,8 @@ void GlRenderer::drawClip(
         in.scale = layerScale;
         in.localFrame = local;
         in.params = &m_activeInstances[i]->params;
+        in.paddingPx = padPx;
+        in.fps = fc.timeline->fps.isValid() ? fc.timeline->fps.toDouble() : 25.0;
         PooledTarget next = m_activeEffects[i]->apply(*m_kit, in);
         if (next)
             layer = std::move(next);

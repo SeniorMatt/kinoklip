@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The built-in v0.1 catalogue: clip property groups, video effects, transitions, generators.
 // To add an effect: append a descriptor here, then implement it in src/render keyed by its id.
+#include "core/EffectBuilders.h"
 #include "core/EffectRegistry.h"
 #include "core/Generators.h"
 #include "core/ParamKeys.h"
@@ -8,98 +9,17 @@
 
 #include <QCoreApplication>
 
+#include <utility>
+
 namespace kk {
+
+using namespace builders;
 
 namespace {
 
 QString tr(const char* text)
 {
     return QCoreApplication::translate("kk::BuiltinEffects", text);
-}
-
-// ---- Descriptor builders (keep the catalogue below readable) ----
-
-ParamDescriptor number(const QString& key, const QString& label, double min, double max, double def,
-    double step, const QString& unit = {})
-{
-    ParamDescriptor p;
-    p.key = key;
-    p.label = label;
-    p.type = ParamType::Double;
-    p.min = min;
-    p.max = max;
-    p.def = def;
-    p.step = step;
-    p.unit = unit;
-    return p;
-}
-
-ParamDescriptor integer(
-    const QString& key, const QString& label, int min, int max, int def, const QString& unit = {})
-{
-    ParamDescriptor p = number(key, label, min, max, def, 1.0, unit);
-    p.type = ParamType::Int;
-    return p;
-}
-
-ParamDescriptor boolean(const QString& key, const QString& label, bool def)
-{
-    ParamDescriptor p;
-    p.key = key;
-    p.label = label;
-    p.type = ParamType::Bool;
-    p.defStatic = def;
-    p.animatable = false;
-    return p;
-}
-
-ParamDescriptor color(const QString& key, const QString& label, const QColor& def)
-{
-    ParamDescriptor p;
-    p.key = key;
-    p.label = label;
-    p.type = ParamType::Color;
-    p.defStatic = def;
-    p.animatable = false;
-    return p;
-}
-
-ParamDescriptor choice(const QString& key, const QString& label, const QStringList& values,
-    const QStringList& labels, const QString& def)
-{
-    ParamDescriptor p;
-    p.key = key;
-    p.label = label;
-    p.type = ParamType::Choice;
-    p.choices = values;
-    p.choiceLabels = labels;
-    p.defStatic = def;
-    p.animatable = false;
-    return p;
-}
-
-ParamDescriptor text(const QString& key, const QString& label, const QString& def)
-{
-    ParamDescriptor p;
-    p.key = key;
-    p.label = label;
-    p.type = ParamType::String;
-    p.defStatic = def;
-    p.animatable = false;
-    return p;
-}
-
-EffectDescriptor descriptor(const QString& id, const QString& name, EffectCategory category,
-    const QString& description, QVector<ParamDescriptor> params, const QString& storage = {})
-{
-    EffectDescriptor d;
-    d.id = id;
-    d.name = name;
-    d.category = category;
-    d.description = description;
-    d.storage = storage;
-    d.params = std::move(params);
-    return d;
 }
 
 // Common unit suffixes.
@@ -223,6 +143,21 @@ void EffectRegistry::registerBuiltins()
             number(QStringLiteral("opacity"), tr("Opacity"), 0, 100, 60, 1, kPercent),
             color(QStringLiteral("color"), tr("Color"), QColor(Qt::black)),
         }));
+
+    // Library folders of the v0.1 video effects.
+    static const std::pair<const char*, const char*> kFolders[] = {
+        {"gaussian_blur", effectgroups::Blur},
+        {"brightness_contrast", effectgroups::Color},
+        {"saturation", effectgroups::Color},
+        {"sharpen", effectgroups::Blur},
+        {"mirror", effectgroups::Transform},
+        {"vignette", effectgroups::Stylize},
+        {"mosaic", effectgroups::Stylize},
+        {"drop_shadow", effectgroups::Stylize},
+    };
+    for (const auto& [id, folder] : kFolders)
+        m_descriptors[m_index.value(QLatin1String(id))].group = QLatin1String(folder);
+    registerVideoEffects(); // keyers, colour, blurs, light, stylize, distort (v4)
 
     // ---- Transitions (ClipData::transitionIn / transitionOut) ----
     add(descriptor("cross_dissolve", tr("Cross Dissolve"), C::Transition,
