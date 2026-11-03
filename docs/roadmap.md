@@ -90,7 +90,10 @@ Detailed plan: [plan-v4.md](plan-v4.md). Three parts, each released on its own:
 - From then on releases are called **beta** (`0.x.y-beta.N`); everything after v4 (v5 and the
   sections below) is built during the beta.
 
-## v5 - the Color and Compositing pages (during the beta; moved from v4 on 2026-11-03)
+## Compositing page (owner decision 2026-11-03: started now, ahead of v5)
+Node-based compositing page; design in [compositing-page.md](compositing-page.md).
+
+## v5 - the Color page and more (during the beta; moved from v4 on 2026-11-03)
 - **Color page** (colour grading): primaries wheels, curves, HSL qualifier, windows, nodes, LUTs,
   scopes, gallery stills. A started branch `colorpage` exists (paused 2026-11-03).
 - **Compositing page** (own name, node-based compositing: merge, transform, masks, text, keyers,
