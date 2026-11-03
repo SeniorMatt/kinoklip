@@ -5,6 +5,7 @@
 
 #include "media/VideoFrame.h"
 #include "render/DecoderPool.h"
+#include "render/GlComposition.h"
 #include "render/GlEffects.h"
 #include "render/GlGenerators.h"
 #include "render/GlKit.h"
@@ -20,6 +21,7 @@
 #include <QHash>
 #include <QThreadPool>
 
+#include <deque>
 #include <memory>
 #include <vector>
 
@@ -170,8 +172,30 @@ private:
     /// Draws the track frame @p tf showing an adjustment clip over @p accumulator (which holds
     /// the tracks below); may replace @p accumulator.
     void drawAdjustment(const TrackFrame& tf, const FrameContext& fc, PooledTarget& accumulator);
+    /// What @p clip draws at @p localFrame. With @p useComposition (the default) a clip with
+    /// a composition draws the composition's output (compositionTarget()); false gives the
+    /// clip's own picture (its MediaIn).
     bool resolveSource(const ClipData& clip, int64_t localFrame, const FrameContext& fc,
-        double maxZoomValue, ClipSource& out);
+        double maxZoomValue, ClipSource& out, bool useComposition = true);
+    /// Evaluates node @p node (0 = MediaOut) of @p clip's composition at comp frame
+    /// @p compFrame into a per-frame target of @p size (@p scale target px per timeline px of
+    /// fc.timeline), kept until the end of the frame. nullptr if the clip has no composition.
+    const RenderTarget* compositionTarget(const ClipData& clip, int64_t compFrame,
+        const FrameContext& fc, double zoom, quint64 node, QSize size, double scale);
+    /// Draws @p clip's own picture (the MediaIn of its composition, or a MediaIn reading
+    /// another media pool item through its stand-in clip) at @p compFrame into @p target.
+    bool drawCompositionInput(const ClipData& owner, const CompNode& node, int64_t compFrame,
+        const FrameContext& fc, double zoom, const RenderTarget& target, QSize size, double scale);
+    /// The stand-in clip of a MediaIn node that reads media pool item CompNode::mediaId
+    /// (frame 0 of the comp = the item's start, speed 1), per frame; created on demand when
+    /// @p create. nullptr if missing.
+    const ClipData* compClip(const ClipData* owner, const CompNode& node, bool create);
+    /// Queues the decodes of the MediaIn nodes of @p clip's composition at timeline frame
+    /// @p frame that read other media pool items.
+    void queueCompositionDecodes(const ClipData* clip, int64_t frame, int64_t nextFrame,
+        const TimelineData& tl, const NestedTimelines& nested, const MediaPathMap* media,
+        int depth);
+    class CompHost;
     void drawSource(
         const ClipSource& src, const QTransform& quadToNdc, const QRectF& crop, float opacity);
     /// Renders generator clip @p clip into a per-frame target (cached for the frame).
@@ -194,6 +218,16 @@ private:
     GlVideo m_video;
     GlMasks m_masks; ///< clip mask pass (applied on the layer path)
     GlGenerators m_generators; ///< generator patterns
+    GlComposition m_comp; ///< Compositing page node graphs
+    /// Stand-in clips of MediaIn nodes reading other media pool items (per frame; a deque
+    /// keeps the addresses the decode list refers to stable).
+    struct CompClip
+    {
+        const ClipData* owner = nullptr;
+        quint64 node = 0;
+        ClipData clip;
+    };
+    std::deque<CompClip> m_compClips;
     GlRetime m_retime;
     bool m_retimeOk = false; ///< retime shaders built (else every clip uses Nearest)
     std::vector<PooledTarget> m_retimeTargets; ///< per-frame in-between pictures
