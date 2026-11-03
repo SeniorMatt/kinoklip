@@ -75,6 +75,18 @@ void TimelineController::placeMarker(bool forceEdit)
     }
     if (clipId) {
         const int64_t local = f - ops::clipById(d, clipId)->start;
+        const QVector<Marker>& existing = ops::clipById(d, clipId)->markers;
+        const bool exists = std::any_of(existing.cbegin(), existing.cend(),
+            [local](const Marker& m) { return m.frame == local; });
+        if (exists && !forceEdit) {
+            // M toggles: a clip marker starting at the playhead is removed (owner request 0.4.0).
+            runEdit(project(), tr("Delete Marker"), [&](TimelineData& data) {
+                ClipData* clip = ops::clipById(data, clipId);
+                return clip->markers.removeIf([local](const Marker& m) { return m.frame == local; })
+                    > 0;
+            });
+            return;
+        }
         bool added = false;
         runEdit(project(), tr("Add Marker"), [&](TimelineData& data) {
             ClipData* clip = ops::clipById(data, clipId);
@@ -90,9 +102,13 @@ void TimelineController::placeMarker(bool forceEdit)
     }
     const bool exists = std::any_of(
         d.markers.cbegin(), d.markers.cend(), [f](const Marker& m) { return m.frame == f; });
+    if (exists && !forceEdit) {
+        deleteMarkerAtPlayhead(); // M toggles a timeline marker (owner request 0.4.0)
+        return;
+    }
     if (!exists)
         addMarker();
-    if (exists || forceEdit)
+    if (forceEdit)
         editTimelineMarker(f);
 }
 
