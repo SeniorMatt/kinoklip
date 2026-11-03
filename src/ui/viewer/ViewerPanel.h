@@ -26,6 +26,7 @@ namespace kk {
 
 struct AppContext;
 class PlaybackEngine;
+class ColorPickOverlay;
 class MaskOverlay;
 class TransformOverlay;
 class MulticamOverlay;
@@ -148,6 +149,8 @@ public:
     void setEditTileActions(const QStringList& actionIds);
     /// The on-screen Transform controls (nullptr in Source mode).
     [[nodiscard]] TransformOverlay* transformOverlay() const { return m_transformOverlay; }
+    /// Timeline mode: the eyedropper overlay (null in Source mode).
+    [[nodiscard]] ColorPickOverlay* colorPickOverlay() const { return m_colorPickOverlay; }
     /// The viewer's context menu (right-click on the picture): play, marks, markers, match
     /// frame and the viewer modes, all registry commands. Owned by @p parent.
     [[nodiscard]] QMenu* buildContextMenu(QWidget* parent);
@@ -260,6 +263,7 @@ private:
     QMetaObject::Connection m_tlChanged, m_tlPlayhead;
     ViewerSurface* m_surface = nullptr;
     MaskOverlay* m_maskOverlay = nullptr; ///< Timeline mode: on-screen mask controls
+    ColorPickOverlay* m_colorPickOverlay = nullptr; ///< Timeline mode: colour eyedropper
     MulticamOverlay* m_multicamOverlay = nullptr; ///< Source mode: angle grid chrome
     EditOverlay* m_editOverlay = nullptr; ///< Timeline mode: edit types while dragging media
     TrimTwoUpView* m_twoUp = nullptr; ///< Timeline mode: two-up trim view
