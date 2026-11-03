@@ -182,6 +182,19 @@ QVector<quint64> TimelineController::withLinks(const QVector<quint64>& ids) cons
     return m_linked ? ops::withLinkedClips(timeline()->data(), ids) : ids;
 }
 
+QVector<quint64> TimelineController::videoClipCurrent(QVector<quint64> ids) const
+{
+    const TimelineData& data = timeline()->data();
+    for (qsizetype i = ids.size() - 1; i >= 0; --i) {
+        const auto loc = ops::findClip(data, ids[i]);
+        if (loc && loc->track.type == TrackType::Video) {
+            ids.append(ids.takeAt(i));
+            break;
+        }
+    }
+    return ids;
+}
+
 QVector<quint64> TimelineController::effectiveSelection() const
 {
     return withLinks(m_ctx.selection->clips());
@@ -411,7 +424,7 @@ QVector<quint64> TimelineController::insertSource(const QString& mediaId, int64_
         return !ids.isEmpty();
     });
     if (!ids.isEmpty()) {
-        m_ctx.selection->setClips(ids);
+        m_ctx.selection->setClips(videoClipCurrent(ids));
         timeline()->setPlayhead(end);
     }
     return ids;
@@ -459,7 +472,7 @@ void TimelineController::selectAll()
                 ids.append(c.id);
         }
     }
-    m_ctx.selection->setClips(ids);
+    m_ctx.selection->setClips(videoClipCurrent(ids));
 }
 
 void TimelineController::deselectAll()
@@ -852,7 +865,7 @@ void TimelineController::paste()
         return !ids.isEmpty();
     });
     if (!ids.isEmpty()) {
-        m_ctx.selection->setClips(ids);
+        m_ctx.selection->setClips(videoClipCurrent(ids));
         timeline()->setPlayhead(at + m_clipboard.duration);
     }
 }
@@ -868,7 +881,7 @@ void TimelineController::pasteInsert()
         return !ids.isEmpty();
     });
     if (!ids.isEmpty()) {
-        m_ctx.selection->setClips(ids);
+        m_ctx.selection->setClips(videoClipCurrent(ids));
         timeline()->setPlayhead(at + m_clipboard.duration);
     }
 }

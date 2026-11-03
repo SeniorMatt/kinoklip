@@ -389,7 +389,7 @@ bool TimelineWidget::executeDrop(const DropPlan& plan)
             return false;
         }
         project->endEdit();
-        m_ctx.selection->setClips(created);
+        m_ctx.selection->setClips(m_controller->videoClipCurrent(created));
         return true;
     }
     case DropPlan::Kind::Effect: {
