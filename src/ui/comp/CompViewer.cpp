@@ -5,6 +5,7 @@
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
+#include "render/Compositor.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
@@ -19,6 +20,10 @@
 #include <QLabel>
 #include <QMimeData>
 #include <QVBoxLayout>
+#include <QtConcurrent/QtConcurrentRun>
+
+#include <future>
+#include <memory>
 
 namespace kk {
 
@@ -70,8 +75,10 @@ CompViewer::CompViewer(int index, AppContext& ctx, CompSession* session, QWidget
 
     connect(session, &CompSession::viewersChanged, this, &CompViewer::refresh);
     connect(session, &CompSession::clipChanged, this, &CompViewer::refresh);
-    connect(session, &CompSession::compositionChanged, this, &CompViewer::updateHeader);
-    connect(ctx.project->timeline(), &Timeline::playheadChanged, this, &CompViewer::updateHeader);
+    connect(session, &CompSession::compositionChanged, this, &CompViewer::refresh);
+    connect(ctx.project->timeline(), &Timeline::playheadChanged, this, &CompViewer::refresh);
+    m_watcher = new QFutureWatcher<RenderedFramePtr>(this);
+    connect(m_watcher, &QFutureWatcher<RenderedFramePtr>::finished, this, &CompViewer::onRendered);
     connect(ctx.project->timeline(), &Timeline::changed, this, [this] {
         const TimelineData& d = m_ctx.project->timeline()->data();
         m_surface->setAspect(QSize(d.width, d.height));
@@ -137,16 +144,73 @@ void CompViewer::refresh()
             m_index == 0 ? tr("Select a node and press 1") : tr("Select a node and press 2"));
         return;
     }
-    // TODO(comp): the node's own image (core render API) once merged; until then the program
-    // picture under the playhead (what MediaIn delivers).
+    if (rendersNodes()) {
+        requestRender();
+        return;
+    }
+    // No stored composition: the default MediaIn -> MediaOut shows exactly the clip's picture,
+    // which the program engine already renders (no second render needed).
     if (m_engine && m_engine->currentFrame())
         m_surface->setRenderedFrame(m_engine->currentFrame());
     else
         m_surface->clear();
 }
 
+bool CompViewer::rendersNodes() const
+{
+    return m_engine && m_engine->compositor() && m_session && m_session->isStored();
+}
+
+void CompViewer::requestRender()
+{
+    if (!isVisible() || !rendersNodes() || !node())
+        return;
+    // One render in flight per viewer: requests while it runs (scrubbing, playback, slider
+    // drags) collapse into one more render of the newest state when it finishes.
+    if (m_inFlight) {
+        m_renderAgain = true;
+        return;
+    }
+    m_inFlight = true;
+    m_renderAgain = false;
+    const qreal dpr = m_surface->widget()->devicePixelRatioF();
+    const QSize logical = m_surface->pictureRect().size();
+    const QSize pixels(int(logical.width() * dpr), int(logical.height() * dpr));
+    const quint64 nodeId = node() == m_session->composition().mediaOutId ? 0 : node();
+    // The request of Compositor::renderCompositionNode(), plus the engine's media table and
+    // proxies: without them the compositor has no paths and MediaIn decodes nothing.
+    RenderRequest request;
+    request.timeline = m_ctx.project->timeline()->snapshot();
+    request.media = m_engine->mediaPaths();
+    request.proxies = m_engine->proxies();
+    request.outSize = pixels;
+    request.quality = m_engine->currentQuality();
+    request.outputs = m_surface->canDrawTextures() ? OutputTexture : OutputImage;
+    request.subtitles = false;
+    request.compositionNode
+        = CompositionNodeView {m_session->clipId(), nodeId, m_session->compFrame()};
+    auto future = std::make_shared<std::future<RenderedFramePtr>>(
+        m_engine->compositor()->renderAsync(std::move(request)));
+    // Wait on a pool thread, deliver on the GUI thread (the compositor's futures are std::).
+    m_watcher->setFuture(QtConcurrent::run([future] { return future->get(); }));
+}
+
+void CompViewer::onRendered()
+{
+    m_inFlight = false;
+    const RenderedFramePtr frame = m_watcher->result();
+    if (frame && frame->ok && rendersNodes() && node())
+        m_surface->setRenderedFrame(frame);
+    if (m_renderAgain)
+        requestRender();
+}
+
 void CompViewer::showFrame(const RenderedFramePtr& frame)
 {
+    if (rendersNodes()) {
+        requestRender(); // the program moved on (playback): render the node at the new frame
+        return;
+    }
     if (isVisible() && node() && frame)
         m_surface->setRenderedFrame(frame);
 }
@@ -183,6 +247,7 @@ void CompViewer::resizeEvent(QResizeEvent* event)
 {
     PanelFrame::resizeEvent(event);
     updateOutputClient();
+    requestRender();
 }
 
 void CompViewer::dragEnterEvent(QDragEnterEvent* event)

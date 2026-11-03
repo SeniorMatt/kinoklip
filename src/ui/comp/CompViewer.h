@@ -6,6 +6,7 @@
 #include "render/RenderTypes.h"
 #include "ui/common/PanelFrame.h"
 
+#include <QFutureWatcher>
 #include <QPointer>
 
 class QComboBox;
@@ -29,9 +30,10 @@ class ViewerSurface;
 /// the same guide / safe area layer, and a CompViewerOverlay with the on-viewer controls of
 /// the selected node.
 ///
-/// Picture: until the composition evaluation is merged, a viewer with a node shows the
-/// program picture (the clip under the playhead, i.e. what MediaIn delivers); see
-/// CompAdapter for the switch to the node render.
+/// Picture: the node's own image at the comp frame (Compositor::renderCompositionNode(), zero
+/// copy, outside the render cache), re-rendered on graph, playhead and viewer changes with at
+/// most one render in flight. A clip without a stored composition shows the program picture
+/// (the default graph renders exactly the clip).
 ///
 /// Thread-safety: GUI thread only.
 class CompViewer : public PanelFrame
@@ -69,6 +71,11 @@ private:
     void updateHeader();
     void updateOutputClient();
     void showFrame(const RenderedFramePtr& frame);
+    /// True when the viewer renders its node itself (a stored composition and a compositor).
+    [[nodiscard]] bool rendersNodes() const;
+    /// Queues Compositor::renderCompositionNode() for the node at the comp frame.
+    void requestRender();
+    void onRendered();
 
     AppContext& m_ctx;
     QPointer<CompSession> m_session;
@@ -79,6 +86,9 @@ private:
     CompViewerOverlay* m_controls = nullptr;
     QComboBox* m_zoom = nullptr;
     QLabel* m_frameLabel = nullptr;
+    QFutureWatcher<RenderedFramePtr>* m_watcher = nullptr;
+    bool m_inFlight = false;
+    bool m_renderAgain = false;
 };
 
 } // namespace kk
