@@ -7,6 +7,7 @@
 #include "core/MixerJson.h"
 #include "core/Retime.h"
 #include "core/SmartBins.h"
+#include "media/MediaSource.h"
 
 #include <QFileInfo>
 #include <QJsonArray>
@@ -1001,14 +1002,16 @@ MediaPoolState mediaPoolFromJson(const QJsonObject& json, const QDir& projectDir
         }
         m.path = o.value(QLatin1String("path")).toString();
         const QString relative = o.value(QLatin1String("relativePath")).toString();
-        if (!QFileInfo::exists(m.path) && !relative.isEmpty()) {
+        // media::mediaExists(): media inside a single-file project ("film.kinoklip/media/a.mp4")
+        // exist although no file has that path.
+        if (!media::mediaExists(m.path) && !relative.isEmpty()) {
             const QString candidate = projectDir.absoluteFilePath(relative);
             if (QFileInfo::exists(candidate))
                 m.path = QFileInfo(candidate).absoluteFilePath();
         }
         // Moved media: same file name next to the project file (project folder copied or
         // media collected into it). One stat per offline item, so loading stays cheap.
-        if (!QFileInfo::exists(m.path) && !m.path.isEmpty()) {
+        if (!media::mediaExists(m.path) && !m.path.isEmpty()) {
             const QString candidate = projectDir.filePath(QFileInfo(m.path).fileName());
             if (QFileInfo(candidate).isFile())
                 m.path = QFileInfo(candidate).absoluteFilePath();
