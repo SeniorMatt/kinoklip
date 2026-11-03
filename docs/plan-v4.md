@@ -91,6 +91,13 @@ Batches, in order:
    Crop with feather, Stroke / Border, Corner Pin.
 7. **Time**: Echo / Ghosting, Strobe, Freeze Frame, Flicker.
 
+## 4. Viewer guides (owner request 2026-11-03)
+Guides on the viewer that help placing things but never appear in the render, like the ones a
+Premiere Pro user knows: horizontal and vertical guide lines added from the View menu or dragged
+out of rulers along the viewer edges, moved and removed by dragging, snapping for on-screen
+transforms, lock, clear, colour; plus safe-area overlays (action / title safe) and a grid. Saved
+with the project per timeline.
+
 ## v3 leftovers (when a slot is free)
 Duration typing in the Edit Index (A15), AAF / FCPXML interchange (A16), cached clip names (A17),
 the program-look two-up, the 4K HEVC first-play drops.
