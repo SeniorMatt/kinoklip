@@ -31,6 +31,18 @@ struct TransitionRef
     friend bool operator==(const TransitionRef&, const TransitionRef&) = default;
 };
 
+/// Target of the viewer eyedropper: a Color parameter of an effect instance on a clip
+/// (EffectRegistry ParamDescriptor::viewerPicker). clipId 0 = no eyedropper.
+struct ColorPickTarget
+{
+    quint64 clipId = 0;
+    quint64 effectId = 0; ///< EffectInstance::id
+    QString key; ///< parameter key, e.g. "keyColor"
+
+    [[nodiscard]] bool isActive() const { return clipId != 0; }
+    friend bool operator==(const ColorPickTarget&, const ColorPickTarget&) = default;
+};
+
 /// Holds the selected clip ids (ordered by selection time) and selected keyframes.
 /// Ids of clips that no longer exist are harmless; call prune() after big edits if needed.
 /// Thread-safety: GUI thread only.
@@ -90,17 +102,26 @@ public:
     /// Sets activeMask() (emits activeMaskChanged() when it changes).
     void setActiveMask(quint64 maskId);
 
+    /// The parameter the timeline viewer's eyedropper writes (set by the Inspector's picker
+    /// button, cleared after a pick or with Esc). Independent of the clip selection.
+    [[nodiscard]] const ColorPickTarget& colorPicker() const { return m_colorPicker; }
+    /// Sets colorPicker() (emits colorPickerChanged() when it changes).
+    void setColorPicker(const ColorPickTarget& target);
+
 signals:
     /// The selection changed.
     void changed();
     /// activeMask() changed.
     void activeMaskChanged(quint64 maskId);
+    /// colorPicker() changed.
+    void colorPickerChanged();
 
 private:
     QVector<quint64> m_clips;
     QVector<KeyframeRef> m_keyframes;
     std::optional<TransitionRef> m_transition;
     quint64 m_activeMask = 0;
+    ColorPickTarget m_colorPicker;
 };
 
 } // namespace kk

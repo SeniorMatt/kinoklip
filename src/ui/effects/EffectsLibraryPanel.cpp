@@ -29,6 +29,7 @@ namespace {
 constexpr int kGlyphSize = 20;
 constexpr int kDescriptorRole = Qt::UserRole; ///< descriptor id (empty for section rows)
 constexpr int kCategoryRole = Qt::UserRole + 1; ///< EffectCategory of a section row
+constexpr int kFolderRole = Qt::UserRole + 2; ///< EffectDescriptor::group of a folder row
 constexpr int kSidebarWidth = 150; ///< px, category sidebar
 constexpr int kListWidth = 230;
 
@@ -161,6 +162,20 @@ QIcon categoryGlyph(EffectCategory category)
     return QIcon(pixmap);
 }
 
+/// Calls @p fn for every effect row (rows with a descriptor id) below @p parent, folders
+/// included.
+template<typename Fn>
+void forEachEffect(QTreeWidgetItem* parent, Fn&& fn)
+{
+    for (int i = 0; i < parent->childCount(); ++i) {
+        QTreeWidgetItem* item = parent->child(i);
+        if (item->data(0, kDescriptorRole).toString().isEmpty())
+            forEachEffect(item, fn);
+        else
+            fn(item);
+    }
+}
+
 QString sectionTitle(EffectCategory category)
 {
     switch (category) {
@@ -237,8 +252,7 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
             QTreeWidgetItem* section = m_tree->topLevelItem(i);
             const QIcon glyph
                 = categoryGlyph(EffectCategory(section->data(0, kCategoryRole).toInt()));
-            for (int c = 0; c < section->childCount(); ++c)
-                section->child(c)->setIcon(0, glyph);
+            forEachEffect(section, [&](QTreeWidgetItem* item) { item->setIcon(0, glyph); });
         }
     });
 
@@ -268,12 +282,28 @@ void EffectsLibraryPanel::populate()
         section->setFlags(Qt::ItemIsEnabled);
         section->setFont(0, sectionFont);
         const QIcon glyph = categoryGlyph(category);
-        for (const EffectDescriptor* d : descriptors) {
-            auto* item = new QTreeWidgetItem(section, {d->name});
+        auto addEffect = [&](QTreeWidgetItem* parent, const EffectDescriptor* d) {
+            auto* item = new QTreeWidgetItem(parent, {d->name});
             item->setIcon(0, glyph);
             item->setData(0, kDescriptorRole, d->id);
             item->setToolTip(0, d->description);
             item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
+        };
+        // Video effects sit in folders (Blur, Color, Key, ...) in alphabetical order, like an
+        // editor's effects library; effects without a folder follow directly.
+        for (const QString& group : registry.groups(category)) {
+            auto* folder = new QTreeWidgetItem(section, {EffectRegistry::groupName(group)});
+            folder->setFlags(Qt::ItemIsEnabled);
+            folder->setData(0, kFolderRole, group);
+            for (const EffectDescriptor* d : descriptors) {
+                if (d->group == group)
+                    addEffect(folder, d);
+            }
+            folder->setExpanded(true);
+        }
+        for (const EffectDescriptor* d : descriptors) {
+            if (d->group.isEmpty())
+                addEffect(section, d);
         }
         section->setExpanded(true);
         section->setData(0, kCategoryRole, int(category));
@@ -321,14 +351,25 @@ void EffectsLibraryPanel::applyFilters()
         const bool inCategory = !needle.isEmpty() || m_category < 0
             || section->data(0, kCategoryRole).toInt() == m_category;
         int visible = 0;
-        for (int i = 0; i < section->childCount(); ++i) {
-            QTreeWidgetItem* item = section->child(i);
+        forEachEffect(section, [&](QTreeWidgetItem* item) {
             const EffectDescriptor* d = registry.find(item->data(0, kDescriptorRole).toString());
             const bool match = needle.isEmpty()
                 || item->text(0).contains(needle, Qt::CaseInsensitive)
                 || (d && d->description.contains(needle, Qt::CaseInsensitive));
             item->setHidden(!match);
             visible += match ? 1 : 0;
+        });
+        // Folders: hidden without a matching effect, opened while searching.
+        for (int i = 0; i < section->childCount(); ++i) {
+            QTreeWidgetItem* folder = section->child(i);
+            if (folder->data(0, kFolderRole).toString().isEmpty())
+                continue;
+            int inFolder = 0;
+            forEachEffect(
+                folder, [&](QTreeWidgetItem* item) { inFolder += item->isHidden() ? 0 : 1; });
+            folder->setHidden(inFolder == 0);
+            if (!needle.isEmpty() && inFolder > 0)
+                folder->setExpanded(true);
         }
         section->setHidden(!inCategory || visible == 0);
         if (!needle.isEmpty() && visible > 0)
@@ -343,10 +384,10 @@ QStringList EffectsLibraryPanel::visibleDescriptorIds() const
         const QTreeWidgetItem* section = m_tree->topLevelItem(s);
         if (section->isHidden())
             continue;
-        for (int i = 0; i < section->childCount(); ++i) {
-            if (!section->child(i)->isHidden())
-                ids.append(section->child(i)->data(0, kDescriptorRole).toString());
-        }
+        forEachEffect(const_cast<QTreeWidgetItem*>(section), [&](QTreeWidgetItem* item) {
+            if (!item->isHidden() && !(item->parent() && item->parent()->isHidden()))
+                ids.append(item->data(0, kDescriptorRole).toString());
+        });
     }
     return ids;
 }
