@@ -683,10 +683,13 @@ private slots:
         first.trigger("file.new");
         QVERIFY(!ProjectLock::isLocked(file));
         QFile::setPermissions(file, QFileDevice::ReadOwner);
-        App third;
-        QVERIFY(third.controller()->openFile(file, false));
-        QVERIFY(third.controller()->isReadOnly());
-        closeNotices();
+        // (root, e.g. in the release container, may write it anyway: nothing to check then)
+        if (!QFileInfo(file).isWritable()) {
+            App third;
+            QVERIFY(third.controller()->openFile(file, false));
+            QVERIFY(third.controller()->isReadOnly());
+            closeNotices();
+        }
         QFile::setPermissions(file, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     }
 };
