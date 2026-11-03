@@ -26,16 +26,29 @@ void EditIndexModel::setMode(Mode mode)
         return;
     beginResetModel();
     m_mode = mode;
+    fillRows();
     endResetModel();
 }
 
 void EditIndexModel::rebuild()
 {
     beginResetModel();
-    const TimelineData& data = m_project->timeline()->data();
-    m_events = editindex::events(data, m_project->mediaPool());
-    m_markers = editindex::markers(data);
+    fillRows();
     endResetModel();
+}
+
+void EditIndexModel::fillRows()
+{
+    // Only the rows the table shows: the other mode's rows are built when it is switched to
+    // (an Edits rebuild of a 1,500-clip timeline is the expensive one).
+    const TimelineData& data = m_project->timeline()->data();
+    if (m_mode == Mode::Edits) {
+        m_events = editindex::events(data, m_project->mediaPool());
+        m_markers.clear();
+    } else {
+        m_markers = editindex::markers(data);
+        m_events.clear();
+    }
 }
 
 int EditIndexModel::rowCount(const QModelIndex& parent) const
