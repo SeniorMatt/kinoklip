@@ -8,10 +8,12 @@
 #include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/dialogs/HistoryWindow.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
+#include "ui/dialogs/NormalizeAudioDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
 
 #include <QAction>
+#include <QMessageBox>
 #include <QWidget>
 
 namespace kk {
@@ -40,6 +42,21 @@ void connectDialogActions(
             clipattributes::edit(*ctx.project, ids, window);
         });
     }
+    // Clip > Normalize Audio Levels: the selected audio clips (and the audio of selected video
+    // clips); with none, a hint instead of an empty dialog.
+    QObject::connect(actions.action(QStringLiteral("clip.normalize_audio")), &QAction::triggered,
+        window, [&ctx, window] {
+            const QVector<quint64> clips = ctx.selection
+                ? normalizeTargets(*ctx.project, *ctx.selection)
+                : QVector<quint64>();
+            if (clips.isEmpty()) {
+                QMessageBox::information(window, NormalizeAudioDialog::tr("Normalize Audio Levels"),
+                    NormalizeAudioDialog::tr("Select one or more audio clips in the timeline."));
+                return;
+            }
+            NormalizeAudioDialog dialog(ctx.project, clips, window);
+            dialog.exec();
+        });
     // Edit > History > Open History Window: one non-modal window per main window, kept
     // (hidden) when closed so it reopens where the user left it.
     QObject::connect(actions.action(QStringLiteral("edit.history_window")), &QAction::triggered,

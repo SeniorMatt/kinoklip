@@ -33,6 +33,24 @@ double volumeDbAt(const ClipData& clip, double localFrame)
     return it->valueAtTime(localFrame);
 }
 
+bool setClipGain(TimelineData& data, quint64 clipId, double gainDb)
+{
+    ClipData* clip = editops::clipById(data, clipId);
+    if (!clip || !std::isfinite(gainDb))
+        return false;
+    AnimatedValue& v = clip->audio.animated(keys::VolumeDb, keys::defaultValue(keys::VolumeDb));
+    const double target = clampDb(gainDb);
+    const double delta = target - v.base;
+    bool changed = v.base != target;
+    v.base = target;
+    for (Keyframe& k : v.keys) {
+        const double before = k.value;
+        k.value = clampDb(k.value + delta);
+        changed |= k.value != before;
+    }
+    return changed;
+}
+
 bool offsetVolume(TimelineData& data, quint64 clipId, int64_t localFrame, double deltaDb)
 {
     ClipData* clip = editops::clipById(data, clipId);
