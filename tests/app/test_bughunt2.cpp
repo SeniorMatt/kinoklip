@@ -132,6 +132,26 @@ private slots:
     }
     void init() { QSettings().clear(); }
 
+    // Spec 35.27: a Cut page edit selects the new clip with its video part current, so the
+    // Edit page Inspector stays on the Video tab (it switched to Audio after every Cut edit).
+    void spec35_27_cutEditKeepsVideoTab()
+    {
+        Fixture f;
+        f.action("view.page_cut")->trigger();
+        QCoreApplication::processEvents();
+        InspectorPanel* inspector = f.window->editPage()->inspector();
+        QCOMPARE(inspector->tabs()->currentIndex(), int(InspectorPanel::VideoTab));
+        CutEditor* editor = f.window->cutPage()->editor();
+        QVERIFY(editor->run(CutEdit::Append, {SourceSelection {f.ids[0], 0, 0}}));
+        QCOMPARE(f.selection.clips().size(), 2);
+        const auto loc = ops::findClip(f.project.timeline()->data(), f.selection.currentClip());
+        QVERIFY(loc);
+        QCOMPARE(loc->track.type, TrackType::Video);
+        f.action("view.page_edit")->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(inspector->tabs()->currentIndex(), int(InspectorPanel::VideoTab));
+    }
+
     // Spec 33.32: counted messages read "1 caption" / "2 captions", never "1 caption(s)"
     // (Qt's %n plural forms need a translation, which Kinoklip does not ship).
     void spec33_32_countedMessagesArePlural()

@@ -707,6 +707,7 @@ tests/core/test_sourcetape.cpp.
 | 35.24 | Camera-angle features (multicam source tape, sync by angle, Source Overwrite searching every angle). | Deferred: multicam editing is on the Edit page. |
 | 35.25 | Inspector, effects and titles panels on the Cut page. | Deferred: use the Edit page (the selection carries over). |
 | 35.26 | Dragging media onto the Cut page's timeline viewer shows the smart edits as an overlay (Smart Insert, Append, Ripple Overwrite, Close Up, Place On Top, Source Overwrite, with their keys); dropping on one runs it with the dropped clips (one undo step, named after the edit). | Fixed (polish round 2; cp dropOnTheViewerOffersTheSmartEdits). Decision: only the timeline viewer takes the drop (as on the Edit page); the source modes keep their own drag. |
+| 35.27 | A Cut page edit selects the new clip with its video part current, so the Edit page Inspector stays on the Video tab (as 24.15). | Fixed (bughunt2: CutEditor selected the audio part last and the Inspector switched to Audio after every Cut page edit; test_bughunt2 spec35_27_cutEditKeepsVideoTab) |
 
 ## 36. Animations (v2.2)
 
