@@ -458,6 +458,23 @@ private slots:
         QCOMPARE(ops::snapToNearest({}, 5, 10), std::nullopt);
     }
 
+    void snappingToClipMarkers()
+    {
+        // Owner request on 0.4.0: clip markers snap at their timeline frame, both ends of a
+        // ranged one; markers trimmed out of view and those of excluded clips do not.
+        TimelineData d = timeline();
+        ClipData clip = mediaClip(100, 50);
+        clip.markers.append(Marker {-5, QStringLiteral("hidden"), {}}); // before the head
+        clip.markers.append(Marker {10, QStringLiteral("single"), {}});
+        Marker ranged {20, QStringLiteral("ranged"), {}};
+        ranged.duration = 15;
+        clip.markers.append(ranged);
+        const quint64 a = ops::overwriteClip(d, kV1, clip);
+        QCOMPARE(ops::snapCandidates(d, 0), (std::vector<int64_t> {0, 100, 110, 120, 135, 150}));
+        QCOMPARE(ops::snapCandidates(d, 0, {a}), (std::vector<int64_t> {0}));
+        QCOMPARE(ops::nextEditPoint(d, 100), std::optional<int64_t>(150)); // not edit points
+    }
+
     void editPoints()
     {
         TimelineData d = timeline();

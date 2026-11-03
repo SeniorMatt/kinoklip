@@ -506,6 +506,32 @@ private slots:
         QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:40 40:40")); // clips untouched
     }
 
+    void spec13_17_altDragCopiesATransition()
+    {
+        // Owner request on 0.4.0: Alt+drag a transition block onto another edit point.
+        View v;
+        v.put(kV1, mediaClip(0, 40, 50));
+        const quint64 b = v.put(kV1, mediaClip(40, 40, 50));
+        const quint64 c = v.put(kV1, mediaClip(80, 40, 50));
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        TransitionData t;
+        t.duration = 10;
+        ops::clipById(v.f.data(), b)->transitionIn = t; // window [35, 45)
+        v.f.project.endEdit();
+        const int before = v.undoCount();
+        v.drag(v.at(40, kV1), v.at(75, kV1), Qt::AltModifier); // onto the tail half of b
+        QCOMPARE(v.undoCount(), before + 1);
+        QCOMPARE(v.f.project.undoStack()->undoText(), QStringLiteral("Copy Transition"));
+        QVERIFY(ops::clipById(v.f.view(), b)->transitionIn); // the original stays
+        QVERIFY(!ops::clipById(v.f.view(), b)->transitionOut); // the cut's transition is c's
+        QCOMPARE(ops::clipById(v.f.view(), c)->transitionIn->duration, int64_t(10));
+        QCOMPARE(v.f.selection.transition(), (TransitionRef {c, true}));
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:40 40:40 80:40"));
+        // Without Alt the drag does not copy.
+        v.drag(v.at(40, kV1), v.at(115, kV1));
+        QVERIFY(!ops::clipById(v.f.view(), c)->transitionOut);
+    }
+
     // ---- 16 Clipboard ----
 
     void spec16_4_pasteAttributes()
@@ -569,7 +595,7 @@ private slots:
         ops::trimHead(t.f.data(), a, 5, false);
         t.f.project.endEdit();
         QCOMPARE(ops::clipById(t.f.view(), a)->markers.front().frame, int64_t(15));
-        // M again on the marker opens the editor.
+        // Ctrl+M on the marker opens the editor.
         int edits = 0;
         bool wasClipMarker = false;
         t.c.setMarkerEditor([&](Marker& m, bool clip) {
@@ -578,11 +604,61 @@ private slots:
             m.name = QStringLiteral("Look here");
             return true;
         });
-        t.action("mark.add_marker")->trigger();
+        t.action("mark.modify_marker")->trigger();
         QCOMPARE(edits, 1);
         QVERIFY(wasClipMarker);
         QCOMPARE(ops::clipById(t.f.view(), a)->markers.front().name, QStringLiteral("Look here"));
         QCOMPARE(ops::clipById(t.f.view(), a)->markers.size(), 1);
+    }
+
+    void spec18_16_mTogglesAMarker()
+    {
+        // Owner request on 0.4.0: M on an existing marker removes it (one "Delete Marker"
+        // step); Ctrl+M still opens the editor.
+        Ctl t;
+        int edits = 0;
+        t.c.setMarkerEditor([&](Marker&, bool) {
+            ++edits;
+            return false;
+        });
+        const quint64 a = t.put(kV1, mediaClip(10, 40, 50));
+        t.f.selection.setClips({a});
+        t.tl()->setPlayhead(30);
+        t.action("mark.add_marker")->trigger();
+        QCOMPARE(ops::clipById(t.f.view(), a)->markers.size(), 1);
+        int before = t.undoCount();
+        t.action("mark.add_marker")->trigger(); // clip marker at the playhead: removed
+        QCOMPARE(ops::clipById(t.f.view(), a)->markers.size(), 0);
+        QCOMPARE(t.undoCount(), before + 1);
+        QCOMPARE(t.f.project.undoStack()->undoText(), QStringLiteral("Delete Marker"));
+        QCOMPARE(edits, 0);
+        t.f.project.undoStack()->undo();
+        QCOMPARE(ops::clipById(t.f.view(), a)->markers.size(), 1);
+
+        // No clip selected: timeline markers. A ranged marker toggles at its start frame.
+        t.f.selection.clear();
+        t.tl()->setPlayhead(60);
+        t.action("mark.add_marker")->trigger();
+        QCOMPARE(t.f.view().markers.size(), 1);
+        t.f.project.beginEdit(QStringLiteral("setup"));
+        t.f.data().markers[0].duration = 20;
+        t.f.project.endEdit();
+        t.tl()->setPlayhead(70); // inside the range, not its start: a second marker
+        t.action("mark.add_marker")->trigger();
+        QCOMPARE(t.f.view().markers.size(), 2);
+        t.tl()->setPlayhead(60);
+        before = t.undoCount();
+        t.action("mark.add_marker")->trigger();
+        QCOMPARE(t.f.view().markers.size(), 1);
+        QCOMPARE(t.f.view().markers[0].frame, int64_t(70));
+        QCOMPARE(t.undoCount(), before + 1);
+        QCOMPARE(t.f.project.undoStack()->undoText(), QStringLiteral("Delete Marker"));
+        QCOMPARE(edits, 0);
+        // Ctrl+M on an existing marker opens the editor and removes nothing.
+        t.tl()->setPlayhead(70);
+        t.action("mark.modify_marker")->trigger();
+        QCOMPARE(edits, 1);
+        QCOMPARE(t.f.view().markers.size(), 1);
     }
 
     void spec18_5_markerEditor()

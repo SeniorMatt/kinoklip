@@ -137,6 +137,12 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     // from the clip edges outside the block or with the transition's outer edges.
     if (const auto t = transitionAt(pos)) {
         m_controller->selectTransition(*t);
+        // Alt+drag copies it onto another edit point (owner request 0.4.0).
+        if ((m_drag.modifiers & Qt::AltModifier) && tool == TimelineTool::Select) {
+            m_drag.copySource = *t;
+            m_drag.pending = DragMode::TransitionCopy;
+            m_drag.mode = DragMode::Pending;
+        }
         return;
     }
     // The fx badge selects the clip and opens its effects in the Inspector.
@@ -417,6 +423,10 @@ void TimelineWidget::startDrag(DragMode mode)
         viewport()->setCursor(Qt::SizeHorCursor);
         openEdit(tr("Move Marker"));
         return;
+    case DragMode::TransitionCopy:
+        viewport()->setCursor(Qt::DragCopyCursor);
+        openEdit(tr("Copy Transition"));
+        return;
     case DragMode::Shuffle:
         m_drag.primary = hit.clipId;
         m_drag.clips = m_controller->withLinks({hit.clipId});
@@ -560,6 +570,9 @@ void TimelineWidget::updateDrag(QPointF pos)
     case DragMode::MarkerMove:
         updateMarkerMove(pos);
         break;
+    case DragMode::TransitionCopy:
+        updateTransitionCopy(pos);
+        break;
     case DragMode::Pan:
         horizontalScrollBar()->setValue(m_drag.scrollXAtPress - int(pos.x() - m_drag.pressPos.x()));
         verticalScrollBar()->setValue(m_drag.scrollYAtPress - int(pos.y() - m_drag.pressPos.y()));
@@ -601,7 +614,10 @@ void TimelineWidget::finishDrag()
     }
     if (mode == DragMode::Move && m_drag.duplicate && !m_drag.resultIds.isEmpty())
         m_ctx.selection->setClips(m_drag.resultIds);
-    if (mode == DragMode::Pan || mode == DragMode::MarkerDuration || mode == DragMode::MarkerMove)
+    if (mode == DragMode::TransitionCopy && m_drag.copyTarget)
+        m_controller->selectTransition(*m_drag.copyTarget);
+    if (mode == DragMode::Pan || mode == DragMode::MarkerDuration || mode == DragMode::MarkerMove
+        || mode == DragMode::TransitionCopy)
         viewport()->unsetCursor();
     m_drag = Drag {};
     clearDragInfo();
@@ -669,6 +685,36 @@ void TimelineWidget::scrubTo(QPointF pos)
         m_overlay.snapFrame = *s;
     }
     m_ctx.project->timeline()->setPlayhead(frame);
+}
+
+void TimelineWidget::updateTransitionCopy(QPointF pos)
+{
+    // The copy goes to the clip edge under the pointer (the nearer end of the clip) on a track
+    // of the source's type; at a cut that is the cut, stored on the right-hand clip.
+    restoreOrigin();
+    m_drag.copyTarget.reset();
+    const TimelineData& origin = m_drag.origin;
+    const ClipData* source = ops::clipById(origin, m_drag.copySource.clipId);
+    const auto sourceLoc = ops::findClip(origin, m_drag.copySource.clipId);
+    const TimelineHit hit = m_layout.hitTest(origin, pos);
+    std::optional<TransitionData> slot;
+    if (source)
+        slot = m_drag.copySource.head ? source->transitionIn : source->transitionOut;
+    if (slot && hit.area == TimelineHit::Area::Clip && hit.track.type == sourceLoc->track.type) {
+        const ClipData* target = ops::clipById(origin, hit.clipId);
+        bool head = hit.frame < (target->start + target->end()) / 2.0;
+        quint64 id = target->id;
+        if (!head) {
+            if (const quint64 next = ops::cutNeighbour(origin, id, false)) {
+                id = next;
+                head = true;
+            }
+        }
+        TimelineData& data = m_ctx.project->timeline()->mutableData();
+        if (ops::placeTransition(data, id, head, *slot))
+            m_drag.copyTarget = TransitionRef {id, head};
+    }
+    m_ctx.project->timeline()->notifyChanged();
 }
 
 void TimelineWidget::updateMove(QPointF pos)

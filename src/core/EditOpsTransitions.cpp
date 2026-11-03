@@ -159,4 +159,50 @@ bool setTransitionAlignment(
     return true;
 }
 
+bool placeTransition(
+    TimelineData& data, quint64 clipId, bool head, const TransitionData& transition)
+{
+    if (!head) {
+        if (const quint64 next = cutNeighbour(data, clipId, false)) {
+            clipId = next;
+            head = true;
+        }
+    }
+    const auto loc = findClip(data, clipId);
+    if (!loc || data.track(loc->track)->locked)
+        return false;
+    const int64_t limit = maxTransitionDuration(data, clipId, head, transition.alignment, false);
+    if (limit < 1)
+        return false;
+    const quint64 previous = head ? cutNeighbour(data, clipId, true) : 0;
+    ClipData& clip = data.track(loc->track)->clips[size_t(loc->clipIndex)];
+    std::optional<TransitionData>& slot = head ? clip.transitionIn : clip.transitionOut;
+    slot = transition;
+    slot->duration = std::clamp<int64_t>(slot->duration, 1, limit);
+    if (ClipData* left = previous ? clipById(data, previous) : nullptr)
+        left->transitionOut.reset(); // one transition per cut
+    return true;
+}
+
+void fitTransitions(TimelineData& data, const QVector<quint64>& clipIds)
+{
+    for (quint64 id : clipIds) {
+        if (!clipById(data, id))
+            continue;
+        for (const bool head : {true, false}) {
+            ClipData* clip = clipById(data, id);
+            std::optional<TransitionData>& slot = head ? clip->transitionIn : clip->transitionOut;
+            if (!slot)
+                continue;
+            const quint64 next = head ? 0 : cutNeighbour(data, id, false);
+            const ClipData* incoming = next ? clipById(data, next) : nullptr;
+            const int64_t limit = maxTransitionDuration(data, id, head, slot->alignment, false);
+            if (limit < 1 || (incoming && incoming->transitionIn))
+                slot.reset();
+            else
+                slot->duration = std::clamp<int64_t>(slot->duration, 1, limit);
+        }
+    }
+}
+
 } // namespace kk::editops

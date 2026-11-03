@@ -475,10 +475,11 @@ public slots:
     /// Removes the transition @p ref (not on a locked track); one undo step. Delete and
     /// Backspace call it when a transition is selected (spec 13.10).
     bool deleteTransition(const TransitionRef& ref);
-    /// M (spec 18.1, 18.4, 18.5): a clip marker on the selected clip under the playhead, else
-    /// a timeline marker; on an existing marker opens the marker editor instead.
+    /// M (spec 18.1, 18.4, 18.16): a clip marker on the selected clip under the playhead, else
+    /// a timeline marker; on an existing marker (at its start frame) removes it instead.
     void addMarkerAtPlayhead();
-    /// Ctrl+M: adds the marker (as addMarkerAtPlayhead()) and opens the editor for it.
+    /// Ctrl+M: adds the marker (as addMarkerAtPlayhead(), but never removes one) and opens
+    /// the editor for it.
     void addAndModifyMarker();
     /// Opens the editor for the timeline marker at @p frame (double-click in the ruler).
     /// Returns whether a marker was changed.
@@ -551,7 +552,8 @@ private:
     int64_t applyEditTrim(
         TimelineData& data, const EditPointSelection& edit, int64_t frames, bool ripple) const;
     /// M / Ctrl+M: a clip marker on the selected clip under the playhead, else a timeline
-    /// marker; opens the editor on an existing marker or with @p forceEdit.
+    /// marker. On an existing marker (one starting at the playhead) M removes it as one
+    /// "Delete Marker" step; with @p forceEdit (Ctrl+M) the editor opens instead.
     void placeMarker(bool forceEdit);
     void onClipSelectionChanged();
     /// Dynamic trim: the playhead moved to @p frame.
