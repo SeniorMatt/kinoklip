@@ -428,21 +428,8 @@ QJsonObject maskToJson(const MaskData& m)
         o[QLatin1String("closed")] = false;
     if (m.params != ParamSet {})
         o[QLatin1String("params")] = paramSetToJson(m.params);
-    if (m.isPathShape()) {
-        if (!m.path.isAnimated()) {
-            o[QLatin1String("points")] = maskPathToJson(m.path.shapes.value(0));
-        } else {
-            // Shape keys: the keyframe (frame + easing) with the points of that key.
-            QJsonArray keys;
-            for (qsizetype i = 0; i < m.path.timing.keys.size(); ++i) {
-                QJsonObject k = keyframeToJson(m.path.timing.keys[i]);
-                k.remove(QLatin1String("value")); // the index; implied by the order
-                k[QLatin1String("points")] = maskPathToJson(m.path.shapes.value(i));
-                keys.append(k);
-            }
-            o[QLatin1String("shapeKeys")] = keys;
-        }
-    }
+    if (m.isPathShape())
+        animatedPathToJson(m.path, o);
     return o;
 }
 
@@ -457,26 +444,48 @@ MaskData maskFromJson(const QJsonObject& o)
     m.invert = o.value(QLatin1String("invert")).toBool(false);
     m.closed = o.value(QLatin1String("closed")).toBool(true);
     m.params = paramSetFromJson(o.value(QLatin1String("params")).toObject());
-    const QJsonArray keys = o.value(QLatin1String("shapeKeys")).toArray();
-    if (keys.isEmpty()) {
-        m.path.shapes = {maskPathFromJson(o.value(QLatin1String("points")).toArray())};
-    } else {
-        m.path.shapes.clear();
-        for (const QJsonValue& v : keys) {
-            const QJsonObject ko = v.toObject();
-            Keyframe k = keyframeFromJson(ko);
-            if (m.path.timing.hasKeyAt(k.frame))
-                continue; // duplicate frame in a hand-edited file: first one wins
-            k.value = double(m.path.shapes.size());
-            m.path.shapes.append(maskPathFromJson(ko.value(QLatin1String("points")).toArray()));
-            m.path.timing.putKey(k);
-        }
-        m.path.normalize(); // sorts the shapes into frame order
-    }
+    animatedPathFromJson(o, m.path);
     return m;
 }
 
 } // namespace
+
+void animatedPathToJson(const AnimatedPath& path, QJsonObject& o)
+{
+    if (!path.isAnimated()) {
+        o[QLatin1String("points")] = maskPathToJson(path.shapes.value(0));
+        return;
+    }
+    // Shape keys: the keyframe (frame + easing) with the points of that key.
+    QJsonArray keys;
+    for (qsizetype i = 0; i < path.timing.keys.size(); ++i) {
+        QJsonObject k = keyframeToJson(path.timing.keys[i]);
+        k.remove(QLatin1String("value")); // the index; implied by the order
+        k[QLatin1String("points")] = maskPathToJson(path.shapes.value(i));
+        keys.append(k);
+    }
+    o[QLatin1String("shapeKeys")] = keys;
+}
+
+void animatedPathFromJson(const QJsonObject& o, AnimatedPath& path)
+{
+    const QJsonArray keys = o.value(QLatin1String("shapeKeys")).toArray();
+    if (keys.isEmpty()) {
+        path.shapes = {maskPathFromJson(o.value(QLatin1String("points")).toArray())};
+    } else {
+        path.shapes.clear();
+        for (const QJsonValue& v : keys) {
+            const QJsonObject ko = v.toObject();
+            Keyframe k = keyframeFromJson(ko);
+            if (path.timing.hasKeyAt(k.frame))
+                continue; // duplicate frame in a hand-edited file: first one wins
+            k.value = double(path.shapes.size());
+            path.shapes.append(maskPathFromJson(ko.value(QLatin1String("points")).toArray()));
+            path.timing.putKey(k);
+        }
+        path.normalize(); // sorts the shapes into frame order
+    }
+}
 
 QJsonObject attributesToJson(const ClipAttributes& a)
 {
@@ -599,6 +608,8 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("transitionOut")] = transitionToJson(*clip.transitionOut);
     if (!clip.markers.isEmpty())
         o[QLatin1String("markers")] = markersToJson(clip.markers);
+    if (clip.composition)
+        o[QLatin1String("composition")] = compositionToJson(*clip.composition);
     return o;
 }
 
@@ -658,6 +669,8 @@ ClipData clipFromJson(const QJsonObject& o)
     if (o.contains(QLatin1String("transitionOut")))
         c.transitionOut = transitionFromJson(o.value(QLatin1String("transitionOut")).toObject());
     c.markers = markersFromJson(o.value(QLatin1String("markers")).toArray());
+    if (o.contains(QLatin1String("composition")))
+        c.composition = compositionFromJson(o.value(QLatin1String("composition")).toObject());
     return c;
 }
 
