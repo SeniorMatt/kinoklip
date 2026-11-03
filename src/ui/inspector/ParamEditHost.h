@@ -48,6 +48,19 @@ public:
         (void)desc;
         return false;
     }
+    /// Turns the timeline viewer's eyedropper for colour parameter @p ref on or off
+    /// (SelectionModel::colorPicker()). Default: no eyedropper.
+    virtual void setColorPicking(const ParamRef& ref, bool on)
+    {
+        (void)ref;
+        (void)on;
+    }
+    /// True while the viewer's eyedropper writes @p ref.
+    [[nodiscard]] virtual bool isColorPicking(const ParamRef& ref) const
+    {
+        (void)ref;
+        return false;
+    }
     /// Asks the user for a colour (modal). Returns an invalid colour if cancelled.
     [[nodiscard]] virtual QColor pickColor(const QColor& initial, const QString& title) = 0;
 };

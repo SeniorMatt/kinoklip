@@ -98,6 +98,14 @@ void SelectionModel::setActiveMask(quint64 maskId)
     emit activeMaskChanged(maskId);
 }
 
+void SelectionModel::setColorPicker(const ColorPickTarget& target)
+{
+    if (m_colorPicker == target)
+        return;
+    m_colorPicker = target;
+    emit colorPickerChanged();
+}
+
 void SelectionModel::clear()
 {
     if (isEmpty())

@@ -27,7 +27,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `Retime.h` | the speed model: constant speed or retime curve (`ClipData::retime`, keys = speed points), exact source-time mapping, segments, media limits, retime process (namespace `kk::retime`) |
 | `Multicam.h` | multicam clips (namespace `kk::multicam`): `build()` from synced `AngleSource`s, `angleView()`, `gridTimeline()` (the viewer grid), `cutToAngle()` / `switchAngle()` / `flatten()`, `placeSynced()`, timecode parsing and sync offsets |
 | `RetimeOps.h` | speed edits on a clip and its linked partners with ripple: speed points, segment speed, reverse / freeze segments, freeze frame, reset, retime / slide handles, ramps, Change Clip Speed (namespace `kk::retimeops`) |
-| `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive) |
+| `SelectionModel.h` | QObject: selected clip ids + keyframes, or one transition (`TransitionRef`, exclusive); the active mask and the viewer eyedropper's target (`ColorPickTarget`) |
 | `EffectRegistry.h` | effect/transition/generator/parameter-group descriptors |
 | `Generators.h` | ids and parameter keys of the built-in generators and the adjustment clip |
 | `Subtitles.h` | `SubtitleCue`, SRT / WebVTT parse and write, caption style keys + defaults (caption → track → default chain), cue ↔ caption conversion (lanes for overlapping cues) |
@@ -265,9 +265,13 @@ the absolute path no longer exists.
 
 **A new effect, transition or generator:**
 1. Append a `descriptor(...)` to `EffectRegistry::registerBuiltins()` in `BuiltinEffects.cpp`
-   (id = stable snake_case string stored in project files).
+   (id = stable snake_case string stored in project files); v4 video effects go to
+   `registerVideoEffects()` in `BuiltinVideoEffects.cpp` with a library folder
+   (`EffectDescriptor::group`, one of `effectgroups::`), their ids and keys in
+   `VideoEffectKeys.h`. Builders: `EffectBuilders.h`.
 2. Implement the pixels in `src/render` keyed by the same id. The Inspector picks it up
-   automatically from the descriptor.
+   automatically from the descriptor; a Color parameter with `viewerPicker` gets the viewer
+   eyedropper (`SelectionModel::colorPicker()`).
 
 **A new field in ClipData/TrackData/TimelineData:**
 1. Add it with a default and a `///` comment (units!).

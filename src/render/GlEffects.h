@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // GlEffects — GPU implementations of the video effects of the EffectRegistry catalogue
-// (gaussian_blur, brightness_contrast, saturation, sharpen, mirror, vignette, mosaic,
-// drop_shadow). To add one: implement GlEffect and add a row to kEffectTable in GlEffects.cpp.
+// (v0.1: gaussian_blur, brightness_contrast, saturation, sharpen, mirror, vignette, mosaic,
+// drop_shadow; v4: the keyers, colour, blur, light, stylize and distort files). To add one:
+// implement GlEffect (PassEffect in GlEffectBase.h helps) and add a row to a factory table.
 #pragma once
 
 #include "core/Animation.h"
@@ -27,6 +28,10 @@ struct EffectInput
     double scale = 1.0; ///< layer pixels per timeline pixel
     int64_t localFrame = 0; ///< clip-local frame for ParamSet::value()
     const ParamSet* params = nullptr;
+    /// Transparent margin around the content on each side, in layer pixels (the sum of the
+    /// active effects' paddingPx() times scale). The content is the layer minus this margin.
+    double paddingPx = 0.0;
+    double fps = 25.0; ///< timeline frame rate (animated effects: speed in cycles per second)
 };
 
 /// One video effect, implemented as one or more fragment-shader passes over the layer.
@@ -65,7 +70,16 @@ struct GlEffectFactory
     std::unique_ptr<GlEffect> (*create)();
 };
 
-/// All built-in GPU effects (the single registration point).
+/// All built-in GPU effects (the single registration point: the v0.1 table in GlEffects.cpp
+/// plus the tables of GlKeyers.cpp, GlColorEffects.cpp, GlBlurEffects.cpp,
+/// GlStylizeEffects.cpp and GlDistortEffects.cpp).
 [[nodiscard]] std::span<const GlEffectFactory> builtinGlEffects();
+
+/// Registration tables of the v4 effect files (see builtinGlEffects()).
+[[nodiscard]] std::span<const GlEffectFactory> keyerGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> colorGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> blurGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> stylizeGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> distortGlEffects();
 
 } // namespace kk::render

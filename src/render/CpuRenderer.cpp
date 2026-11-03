@@ -3,12 +3,15 @@
 //
 // Same timeline semantics as the GPU path (TimelineEval): transform, opacity, crop, titles,
 // solids, display rotation/SAR (VideoDecoder::frameAt applies them) and transitions — the
-// latter all rendered as a cross dissolve. Effects are skipped (one warning per effect id);
-// masks are applied as hard-edged clip paths (maskMatte()).
+// latter all rendered as a cross dissolve. The pointwise effects (keyers without shrink / grow
+// and edge blur, colour effects; render/EffectMath.h) are applied to the clip's picture, the
+// others are skipped (one warning per effect id); masks are applied as hard-edged clip paths
+// (maskMatte()).
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "render/CaptionRenderer.h"
 #include "render/DecoderPool.h"
+#include "render/EffectMath.h"
 #include "render/Generators.h"
 #include "render/RenderBackend.h"
 #include "render/RenderLog.h"
@@ -98,8 +101,12 @@ private:
                 if (tf.isEmpty())
                     continue;
                 if (tf.single && tf.single->kind == ClipKind::Adjustment
-                    && hasIdentityFootprint(*tf.single, tf.single->localFrame(frame)))
-                    continue; // effects are skipped here, so it would change nothing
+                    && hasIdentityFootprint(*tf.single, tf.single->localFrame(frame))
+                    && std::none_of(tf.single->effects.cbegin(), tf.single->effects.cend(),
+                        [](const EffectInstance& e) {
+                            return e.enabled && fxmath::isPointEffect(e.type);
+                        }))
+                    continue; // only non-pointwise effects (skipped here): it changes nothing
                 if (showsAdjustment(tf)) {
                     // The tracks below become the adjustment clip's picture (see GlRenderer).
                     painter.end();
@@ -172,7 +179,7 @@ private:
         if (opacity <= 0.0)
             return;
         for (const EffectInstance& e : clip.effects) {
-            if (e.enabled && !m_warned.contains(e.type)) {
+            if (e.enabled && !fxmath::isPointEffect(e.type) && !m_warned.contains(e.type)) {
                 m_warned.insert(e.type);
                 qCWarning(lcRender) << "CPU fallback: effect" << e.type << "skipped";
             }
@@ -299,6 +306,8 @@ private:
         }
         if (picture.isNull() && !solid.isValid())
             return;
+        if (blend != Blend::Erase)
+            applyPointEffects(clip, local, picture, solid);
         if (blend == Blend::Erase) {
             solid = QColor(Qt::white);
             picture = QImage();
@@ -337,6 +346,26 @@ private:
         else
             painter.drawImage(pictureRect, picture);
         painter.restore();
+    }
+
+    /// The pointwise effects (keyers, colour) on the clip's picture before its crop, masks
+    /// and transform, in the clip's order (fxmath::applyPointEffect(); the GPU's other
+    /// effects are skipped). A solid becomes a small image first so it can be keyed.
+    static void applyPointEffects(
+        const ClipData& clip, int64_t local, QImage& picture, QColor& solid)
+    {
+        constexpr int kSolidImageEdge = 8; // a solid is uniform: any small size is exact
+        for (const EffectInstance& e : clip.effects) {
+            if (!e.enabled || !fxmath::isPointEffect(e.type))
+                continue;
+            if (solid.isValid()) {
+                picture = QImage(
+                    QSize(kSolidImageEdge, kSolidImageEdge), QImage::Format_ARGB32_Premultiplied);
+                picture.fill(solid);
+                solid = QColor();
+            }
+            fxmath::applyPointEffect(e.type, e.params, local, picture);
+        }
     }
 
     static bool showsAdjustment(const TrackFrame& tf)

@@ -4,6 +4,8 @@
 
 #include <QCoreApplication>
 
+#include <algorithm>
+
 namespace kk {
 
 const ParamDescriptor* EffectDescriptor::param(const QString& key) const
@@ -104,6 +106,42 @@ QString EffectRegistry::categoryName(EffectCategory category)
         return QCoreApplication::translate("kk::EffectRegistry", "Effects");
     }
     return {};
+}
+
+QString EffectRegistry::groupName(const QString& group)
+{
+    // Folder names as a Resolve user knows them from the effects library (general knowledge).
+    static const struct
+    {
+        const char* id;
+        const char* name;
+    } kNames[] = {
+        {effectgroups::Blur, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Blur")},
+        {effectgroups::Color, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Color")},
+        {effectgroups::Distort, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Distort")},
+        {effectgroups::Key, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Key")},
+        {effectgroups::Light, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Light")},
+        {effectgroups::Stylize, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Stylize")},
+        {effectgroups::Transform, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Transform")},
+    };
+    for (const auto& n : kNames) {
+        if (group == QLatin1String(n.id))
+            return QCoreApplication::translate("kk::EffectRegistry", n.name);
+    }
+    return group;
+}
+
+QStringList EffectRegistry::groups(EffectCategory category) const
+{
+    QStringList result;
+    for (const EffectDescriptor& d : m_descriptors) {
+        if (d.category == category && !d.group.isEmpty() && !result.contains(d.group))
+            result.append(d.group);
+    }
+    std::sort(result.begin(), result.end(), [](const QString& a, const QString& b) {
+        return groupName(a).localeAwareCompare(groupName(b)) < 0;
+    });
+    return result;
 }
 
 } // namespace kk
