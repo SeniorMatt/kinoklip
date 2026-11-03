@@ -4,6 +4,7 @@
 #include "app/Theme.h"
 
 #include "app/ColorSchemeFile.h"
+#include "app/InstantPopups.h"
 #include "app/MenuMetricsStyle.h"
 #include "core/Preferences.h"
 #include "ui/common/ActionRegistry.h"
@@ -575,6 +576,7 @@ void apply(QApplication& app)
     applyStyleAndScheme(app, storedStyle(), storedScheme());
     refreshChrome(app);
     syncActionChecks();
+    instantpopups::install(app); // menus and popups open and close at once
     qCInfo(lcTheme) << "style" << s.activeStyle << "colour scheme"
                     << (s.activeScheme.isEmpty() ? QStringLiteral("(system)") : s.activeScheme)
                     << "icon theme" << QIcon::themeName()
