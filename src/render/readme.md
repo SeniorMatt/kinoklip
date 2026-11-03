@@ -152,6 +152,24 @@ helpers (`kGlslCommon`: luma, straight colour, the keyers' view output) and the 
 * **CPU reference** `EffectMath.*` (`fxmath::`): the per-pixel formulas of the keyers and the
   colour effects and their parameter resolution (`*Params`), shared by the GPU passes'
   uniforms, the tests (GPU vs CPU within 3 / 255) and the CPU fallback (`applyPointEffect()`).
+* **Second batch** (`GlGradeEffects.cpp` Curves / HSL Adjust / Apply LUT / Vibrance /
+  Channel Mixer / Duotone, `GlFocusEffects.cpp` Unsharp Mask / Tilt-Shift / Lens Blur / Noise
+  Reduction, `GlLightEffects.cpp` Light Rays / Bloom / Halation / Lens Flare,
+  `GlLookEffects.cpp` Pixelate / Halftone / Scanlines / Pencil Sketch / Abstraction / Prism,
+  `GlWarpEffects.cpp` Twirl / Bulge / Kaleidoscope / Mirror Split / Corner Pin / Camera Shake /
+  Tile, `GlTimeEffects.cpp` Echo / Strobe / Flicker). Pointwise ones use `fx::ColorEffect`
+  (GlEffectBase.h: GLSL `apply()` + up to 6 uniforms) and the formulas of `EffectMathGrade.cpp`;
+  Curves upload a 256 x 1 composite table, Apply LUT a 3D (or N x 1) float texture of the
+  `CubeLut` (re-uploaded only when the cached LUT object changes).
+* **Time effects** (Echo, Strobe) read the clip at other frames through
+  `EffectInput::history` (`LayerHistory::layerAt()`): `GlRenderer::queueDecode()` also decodes
+  the frames `timefx::clipFrames()` lists, and `renderLayerAt()` draws the clip's source at
+  such a frame into a layer of the same geometry and applies the effects above the asking
+  one. Deterministic (no state carried between frames), so scrubbing and the render agree.
+  Clips without time effects take the unchanged path. The CPU fallback skips them.
+* **Margins that depend on the clip size**: `GlEffect::contentPaddingPx()` (default
+  `paddingPx()`) gets the content size; the radial and zoom blurs use it when Repeat Edge
+  Pixels is off.
 * **Cost**: every v4 effect is bounded per pixel: colour / keys / distort one pass; box blur
   separable with downscaling; path blurs (directional, radial, zoom) 24 samples, two passes
   of 24 when the samples would be more than 1.5 px apart; morphology `2 x radius` fetches per
@@ -308,7 +326,10 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 | `GlEffects.*` | the eight v0.1 effects and **the registration point** `builtinGlEffects()` (joins the tables of the files below) |
 | `GlEffectBase.h` | internal: `PassEffect`, GLSL helpers, layer geometry for the effect files |
 | `GlKeyers.cpp` / `GlColorEffects.cpp` / `GlBlurEffects.cpp` / `GlStylizeEffects.cpp` / `GlDistortEffects.cpp` | the v4 effects by library folder, each with its factory table |
-| `EffectMath.*` | CPU reference of the pointwise effects, parameter resolution shared with the GPU, CPU fallback |
+| `GlGradeEffects.cpp` / `GlFocusEffects.cpp` / `GlLightEffects.cpp` / `GlLookEffects.cpp` / `GlWarpEffects.cpp` / `GlTimeEffects.cpp` | the second batch: colour (curves, LUT, ...), blur and sharpen, light, stylize, distort and tile, time |
+| `EffectMath.*`, `EffectMathGrade.cpp` | CPU reference of the pointwise effects, parameter resolution shared with the GPU, CPU fallback |
+| `CubeLut.*` | .cube 1D / 3D LUT parser, interpolation, thread-safe file cache (via `media::MediaSource`) |
+| `TimeEffects.*` | pure: the clip-local frames Echo and Strobe read (decode planning and the effects share it) |
 | `GlMasks.*` | clip mask pass (analytic shapes, path coverage, feather, combine) |
 | `GlTransitions.*` | the four built-in transitions and **their registration table** |
 | `GlOutput.*` | output slots (shared textures + fences), PBO readback |

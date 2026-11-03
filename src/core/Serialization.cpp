@@ -4,6 +4,7 @@
 
 #include "core/ClipColors.h"
 #include "core/EditOps.h"
+#include "core/FileParams.h"
 #include "core/MixerJson.h"
 #include "core/Retime.h"
 #include "core/SmartBins.h"
@@ -204,6 +205,8 @@ QJsonValue variantToJson(const QVariant& value)
         return value.toDouble();
     case QMetaType::QColor:
         return QJsonObject {{QLatin1String("color"), colorToString(value.value<QColor>())}};
+    case QMetaType::QVariantMap: // a File parameter in its stored form (core/FileParams.h)
+        return QJsonObject::fromVariantMap(value.toMap());
     default:
         return value.toString();
     }
@@ -215,6 +218,8 @@ QVariant variantFromJson(const QJsonValue& json)
         const QJsonObject o = json.toObject();
         if (o.contains(QLatin1String("color")))
             return colorFromString(o.value(QLatin1String("color")).toString());
+        if (o.contains(QLatin1String(fileparams::kFileKey)))
+            return o.toVariantMap(); // decoded by fileparams::decodeAfterLoad()
         return {};
     }
     return json.toVariant();

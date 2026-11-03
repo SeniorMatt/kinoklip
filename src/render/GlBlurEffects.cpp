@@ -7,6 +7,8 @@
 // blur runs as two passes: the first averages over 1/kPathTaps of the path, the second over
 // the whole path with kPathTaps samples, which together equal a continuous average over the
 // path (a box convolved with a comb of the box's width). So at most 2 × 24 taps per pixel.
+// Repeat Edge Pixels (default) keeps every sample inside the clip; switched off, the layer
+// gets a margin (contentPaddingPx()) and the blur spreads beyond the clip's shape.
 #include "core/VideoEffectKeys.h"
 #include "render/GlEffectBase.h"
 
@@ -59,6 +61,9 @@ uniform float uAngle;     // arc: whole angle in radians (centred)
 uniform float uLogScale;  // ray: log of the smallest scale (one-sided towards the centre)
 uniform vec2 uCentre;     // arc / ray centre in uv
 uniform vec2 uSize;       // layer size in pixels (keeps arcs round)
+uniform int uClamp;       // 1 = Repeat Edge Pixels: samples stay inside the content
+uniform vec4 uRect;       // content rectangle (uv), half a texel inside
+vec4 at(vec2 uv) { return texture(uTex, uClamp == 1 ? clamp(uv, uRect.xy, uRect.zw) : uv); }
 void main()
 {
     vec4 sum = vec4(0.0);
@@ -76,7 +81,7 @@ void main()
         } else {
             uv = uCentre + p * exp(uLogScale * t) / uSize;
         }
-        sum += texture(uTex, uv);
+        sum += at(uv);
     }
     fragColor = sum / float(uTaps);
 }
@@ -98,7 +103,18 @@ public:
         m_logScale = uniform(kit, "uLogScale");
         m_centre = uniform(kit, "uCentre");
         m_size = uniform(kit, "uSize");
+        m_clamp = uniform(kit, "uClamp");
+        m_rect = uniform(kit, "uRect");
         return true;
+    }
+
+    double contentPaddingPx(const ParamSet& p, int64_t f, QSizeF content) const override
+    {
+        // Repeat Edge Pixels keeps the blur inside the clip; otherwise the margin the blur
+        // spreads into (timeline px).
+        if (boolParam(p, k::RepeatEdges, true))
+            return 0.0;
+        return extentPx(p, f, content) + 1.0;
     }
 
     PooledTarget apply(GlKit& kit, const EffectInput& in) override
@@ -122,11 +138,18 @@ protected:
     /// Sets uKind and the path uniforms for @p fraction of the full path.
     virtual void setPath(GlKit& kit, const EffectInput& in, double fraction) = 0;
 
+    /// How far the blur reaches beyond the content (timeline px) for content of @p content.
+    [[nodiscard]] virtual double extentPx(const ParamSet& p, int64_t f, QSizeF content) const = 0;
+
     PooledTarget pass(GlKit& kit, const EffectInput& in, const RenderTarget& src, double fraction)
     {
         PooledTarget out = begin(kit, src);
         kit.gl()->glUniform1i(m_taps, kPathTaps);
         kit.gl()->glUniform2f(m_size, float(src.size.width()), float(src.size.height()));
+        const LayerGeometry g = layerGeometry(in);
+        const float hx = 0.5f / g.width, hy = 0.5f / g.height;
+        kit.gl()->glUniform1i(m_clamp, boolParam(*in.params, k::RepeatEdges, true) ? 1 : 0);
+        kit.gl()->glUniform4f(m_rect, g.x0 + hx, g.y0 + hy, g.x1 - hx, g.y1 - hy);
         setPath(kit, in, fraction);
         draw(kit, src);
         return out;
@@ -141,7 +164,7 @@ protected:
     }
 
     GLint m_kind = -1, m_taps = -1, m_span = -1, m_angle = -1, m_logScale = -1, m_centre = -1,
-          m_size = -1;
+          m_size = -1, m_clamp = -1, m_rect = -1;
 };
 
 class DirectionalBlur final : public PathBlur
@@ -156,6 +179,10 @@ protected:
     double pathLengthPx(const EffectInput& in) const override
     {
         return in.params->value(k::Length, in.localFrame, 20.0) * in.scale;
+    }
+    double extentPx(const ParamSet& p, int64_t f, QSizeF) const override
+    {
+        return 0.5 * std::max(0.0, p.value(k::Length, f, 20.0)); // the path is centred
     }
     void setPath(GlKit& kit, const EffectInput& in, double fraction) override
     {
@@ -182,6 +209,13 @@ protected:
         float u = 0, v = 0;
         centre(in, &u, &v);
         return angle(in) * maxRadiusPx(in, u, v);
+    }
+    double extentPx(const ParamSet& p, int64_t f, QSizeF content) const override
+    {
+        // Turned about the centre, the corners sweep out to the farthest corner's distance.
+        const double dx = 0.5 * content.width() + std::abs(p.value(k::CenterX, f, 0.0));
+        const double dy = 0.5 * content.height() + std::abs(p.value(k::CenterY, f, 0.0));
+        return std::hypot(dx, dy) - 0.5 * std::min(content.width(), content.height());
     }
     void setPath(GlKit& kit, const EffectInput& in, double fraction) override
     {
@@ -218,6 +252,16 @@ protected:
         float u = 0, v = 0;
         centre(in, &u, &v);
         return amount(in) * maxRadiusPx(in, u, v);
+    }
+    double extentPx(const ParamSet& p, int64_t f, QSizeF content) const override
+    {
+        // A pixel at distance r averages towards the centre down to r (1 - amount): the
+        // streaks reach r = R / (1 - amount); capped at R (the layer at most doubles).
+        const double a = std::clamp(p.value(k::Amount, f, 20.0) / 100.0, 0.0, kMaxZoomAmount);
+        const double radius
+            = std::hypot(0.5 * content.width() + std::abs(p.value(k::CenterX, f, 0.0)),
+                0.5 * content.height() + std::abs(p.value(k::CenterY, f, 0.0)));
+        return std::min(radius, radius * a / (1.0 - a));
     }
     void setPath(GlKit& kit, const EffectInput& in, double fraction) override
     {

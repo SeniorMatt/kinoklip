@@ -307,7 +307,8 @@ private:
         if (picture.isNull() && !solid.isValid())
             return;
         if (blend != Blend::Erase)
-            applyPointEffects(clip, local, picture, solid);
+            applyPointEffects(clip, local,
+                m_timeline->fps.isValid() ? m_timeline->fps.toDouble() : 25.0, picture, solid);
         if (blend == Blend::Erase) {
             solid = QColor(Qt::white);
             picture = QImage();
@@ -352,7 +353,7 @@ private:
     /// and transform, in the clip's order (fxmath::applyPointEffect(); the GPU's other
     /// effects are skipped). A solid becomes a small image first so it can be keyed.
     static void applyPointEffects(
-        const ClipData& clip, int64_t local, QImage& picture, QColor& solid)
+        const ClipData& clip, int64_t local, double fps, QImage& picture, QColor& solid)
     {
         constexpr int kSolidImageEdge = 8; // a solid is uniform: any small size is exact
         for (const EffectInstance& e : clip.effects) {
@@ -364,7 +365,7 @@ private:
                 picture.fill(solid);
                 solid = QColor();
             }
-            fxmath::applyPointEffect(e.type, e.params, local, picture);
+            fxmath::applyPointEffect(e.type, e.params, local, picture, fps);
         }
     }
 

@@ -24,6 +24,7 @@
 #include <QComboBox>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
@@ -485,6 +486,14 @@ QColor InspectorPanel::pickColor(const QColor& initial, const QString& title)
     if (m_colorPicker)
         return m_colorPicker(initial, title);
     return QColorDialog::getColor(initial, this, title);
+}
+
+QString InspectorPanel::pickFile(
+    const QString& current, const QString& title, const QString& filter)
+{
+    if (m_filePicker)
+        return m_filePicker(current, title, filter);
+    return QFileDialog::getOpenFileName(this, title, current, filter);
 }
 
 // ---- Structure ----

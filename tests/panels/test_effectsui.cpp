@@ -1,20 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Edit page effects UI (docs/behavior-spec.md section 40): the Effects library folders, applying
 // a keyer from the library, the Inspector's eyedropper button and the timeline viewer's
-// ColorPickOverlay (click and drag picks, one undo step, Esc, the picture before the key).
+// ColorPickOverlay (click and drag picks, one undo step, Esc, the picture before the key), the
+// HSL Key's hue eyedropper, the Curves graph rows and the File rows.
 #include "PanelTestUtils.h"
 #include "app/Theme.h"
+#include "core/CurveParam.h"
 #include "core/EffectRegistry.h"
 #include "core/Timeline.h"
 #include "core/VideoEffectKeys.h"
 #include "ui/common/Resources.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/effects/EffectsLibraryPanel.h"
+#include "ui/inspector/CurveEditor.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/viewer/ColorPickOverlay.h"
 #include "ui/viewer/ViewerSurface.h"
 
 #include <QApplication>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QStandardPaths>
@@ -113,7 +117,7 @@ private slots:
         QCOMPARE(folders,
             QStringList({QStringLiteral("Blur"), QStringLiteral("Color"), QStringLiteral("Distort"),
                 QStringLiteral("Key"), QStringLiteral("Light"), QStringLiteral("Stylize"),
-                QStringLiteral("Transform")}));
+                QStringLiteral("Time"), QStringLiteral("Transform")}));
         QTreeWidgetItem* key = video->child(3);
         QStringList keyers;
         for (int i = 0; i < key->childCount(); ++i)
@@ -156,7 +160,7 @@ private slots:
         QStringList menus;
         for (QAction* a : add->menu()->actions())
             menus.append(a->text());
-        QCOMPARE(menus.size(), 7);
+        QCOMPARE(menus.size(), 8);
         QCOMPARE(menus[3], QStringLiteral("Key"));
     }
 
@@ -249,6 +253,124 @@ private slots:
         QCOMPARE(ColorPickOverlay::averageColor(image, QRect(0, 0, 4, 1)), QColor(100, 50, 0));
         QVERIFY(!ColorPickOverlay::averageColor(image, QRect(2, 0, 2, 1)).isValid());
         QVERIFY(!ColorPickOverlay::averageColor(image, QRect(10, 10, 2, 2)).isValid());
+    }
+    // Spec 40.21: the HSL Key's hue has an eyedropper too; a pick writes the colour's hue.
+    void hslKeyHuePick()
+    {
+        PickFixture p;
+        QVERIFY(effectactions::applyEffect(p.f.project, {p.clipId}, QLatin1String(fxid::HslKey)));
+        const quint64 hslId = p.f.clip(p.clipId)->effects.last().id;
+        InspectorPanel inspector(p.f.ctx);
+        p.f.selection.clear();
+        p.f.selection.selectClip(p.clipId);
+        // Chroma Key's colour and HSL Key's hue.
+        QCOMPARE(
+            inspector.findChildren<QToolButton*>(QStringLiteral("ColorPickerButton")).size(), 2);
+        p.f.selection.setColorPicker({p.clipId, hslId, fxkeys::Hue});
+        QVERIFY(p.overlay->isPicking());
+        const int before = p.undoCount();
+        QTest::mouseClick(p.overlay, Qt::LeftButton, {}, p.at(40, 90)); // (0, 200, 80)
+        QCOMPARE(p.undoCount(), before + 1);
+        const double hue = p.f.clip(p.clipId)->effects.last().params.value(fxkeys::Hue, 0, -1);
+        QVERIFY2(
+            std::abs(hue - QColor(0, 200, 80).hslHueF() * 360.0) < 0.5, QByteArray::number(hue));
+        QVERIFY(!p.f.selection.colorPicker().isActive());
+        // An animated hue gets a key at the playhead.
+        AnimatedValue& v = p.f.project.timeline()
+                               ->mutableData()
+                               .videoTracks[0]
+                               .clips[0]
+                               .effects.last()
+                               .params.values[fxkeys::Hue];
+        v.setKey(0, 10.0);
+        v.setKey(50, 20.0);
+        p.f.project.timeline()->setPlayhead(30);
+        p.f.selection.setColorPicker({p.clipId, hslId, fxkeys::Hue});
+        QTest::mouseClick(p.overlay, Qt::LeftButton, {}, p.at(250, 90)); // (40, 100, 220)
+        const AnimatedValue& after
+            = p.f.clip(p.clipId)->effects.last().params.values.value(fxkeys::Hue);
+        QVERIFY(after.hasKeyAt(30));
+        QVERIFY(std::abs(after.valueAt(30) - QColor(40, 100, 220).hslHueF() * 360.0) < 0.5);
+    }
+
+    // Spec 40.21: Curves rows show a curve graph; dragging bends the curve in one undo step.
+    void curveRowEdits()
+    {
+        PickFixture p;
+        QVERIFY(effectactions::applyEffect(p.f.project, {p.clipId}, QLatin1String(fxid::Curves)));
+        InspectorPanel inspector(p.f.ctx);
+        inspector.resize(420, 1600);
+        inspector.show();
+        p.f.selection.clear();
+        p.f.selection.selectClip(p.clipId);
+        QCoreApplication::processEvents();
+        auto* editor = inspector.findChild<CurveEditor*>(QStringLiteral("curve:masterCurve"));
+        QVERIFY(editor);
+        QVERIFY(inspector.findChild<CurveEditor*>(QStringLiteral("curve:blueCurve")));
+        QCOMPARE(editor->points(), curve::identity());
+        const int before = p.undoCount();
+        const QPoint start = editor->toWidget({0.5, 0.5}).toPoint();
+        const QPoint end = editor->toWidget({0.5, 0.75}).toPoint();
+        QTest::mousePress(editor, Qt::LeftButton, {}, start);
+        QMouseEvent move(QEvent::MouseMove, QPointF(end), editor->mapToGlobal(QPointF(end)),
+            Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(editor, &move);
+        QTest::mouseRelease(editor, Qt::LeftButton, {}, end);
+        QCOMPARE(p.undoCount(), before + 1);
+        const curve::Points edited = curve::parse(
+            p.f.clip(p.clipId)->effects.last().params.staticValue(fxkeys::MasterCurve).toString());
+        QCOMPARE(edited.size(), 3);
+        QVERIFY(std::abs(edited[1].y - 0.75) < 0.03);
+        // Right-click removes the point (one more step); undo brings it back.
+        QTest::mouseClick(editor, Qt::RightButton, {}, editor->toWidget(edited[1]).toPoint());
+        QCOMPARE(p.undoCount(), before + 2);
+        QVERIFY(curve::isIdentity(curve::parse(p.f.clip(p.clipId)
+                                                   ->effects.last()
+                                                   .params.staticValue(fxkeys::MasterCurve)
+                                                   .toString())));
+        p.f.project.undoStack()->undo();
+        QCOMPARE(curve::parse(p.f.clip(p.clipId)
+                                  ->effects.last()
+                                  .params.staticValue(fxkeys::MasterCurve)
+                                  .toString())
+                     .size(),
+            3);
+    }
+
+    // Spec 40.21: a File row chooses the LUT file through the file dialog, in one undo step.
+    void fileRowPicks()
+    {
+        PickFixture p;
+        QVERIFY(effectactions::applyEffect(p.f.project, {p.clipId}, QLatin1String(fxid::ApplyLut)));
+        InspectorPanel inspector(p.f.ctx);
+        QString askedFilter;
+        inspector.setFilePicker([&](const QString&, const QString&, const QString& filter) {
+            askedFilter = filter;
+            return QStringLiteral("/luts/look.cube");
+        });
+        p.f.selection.clear();
+        p.f.selection.selectClip(p.clipId);
+        auto* browse = inspector.findChild<QToolButton*>(QStringLiteral("browse:lutFile"));
+        auto* name = inspector.findChild<QLineEdit*>(QStringLiteral("file:lutFile"));
+        QVERIFY(browse && name);
+        QVERIFY(name->text().isEmpty());
+        const int before = p.undoCount();
+        browse->click();
+        QVERIFY(askedFilter.contains(QLatin1String("*.cube")));
+        QCOMPARE(p.undoCount(), before + 1);
+        QCOMPARE(p.f.clip(p.clipId)->effects.last().params.staticValue(fxkeys::LutFile).toString(),
+            QStringLiteral("/luts/look.cube"));
+        QCoreApplication::processEvents();
+        QCOMPARE(name->text(), QStringLiteral("look.cube"));
+        QVERIFY(name->font().italic()); // the file does not exist
+        // Undo restores the empty path: the edit did not write into the undo snapshot (the
+        // effect list is shared with it until the edit detaches it).
+        p.f.project.undoStack()->undo();
+        QVERIFY(p.f.clip(p.clipId)
+                    ->effects.last()
+                    .params.staticValue(fxkeys::LutFile)
+                    .toString()
+                    .isEmpty());
     }
 };
 

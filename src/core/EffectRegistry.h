@@ -33,7 +33,13 @@ enum class ParamType {
     Bool,
     Color,
     Choice, ///< static QString holding one of ParamDescriptor::choices
-    String
+    String,
+    /// Static QString of tone-curve points "x,y x,y ..." (0..1, core/CurveParam.h); edited
+    /// by the Inspector's curve widget. Not keyframable.
+    Curve,
+    /// Static QString holding an absolute file path (e.g. a .cube LUT). Project files store
+    /// it absolute and relative to the project (core/FileParams.h). Not keyframable.
+    File
 };
 
 /// Describes one parameter so the Inspector can build an editor generically.
@@ -51,9 +57,12 @@ struct ParamDescriptor
     QStringList choiceLabels; ///< Choice: translated labels, parallel to choices
     QVariant defStatic; ///< default for Bool/Color/Choice/String
     bool animatable = true; ///< Double/Int only: may be keyframed
-    /// Color only: the Inspector shows an eyedropper button that picks the value from the
-    /// timeline viewer (SelectionModel::colorPicker(), the viewer's ColorPickOverlay).
+    /// Color, or a Double hue in degrees: the Inspector shows an eyedropper button that picks
+    /// the value from the timeline viewer (SelectionModel::colorPicker(), the viewer's
+    /// ColorPickOverlay). A hue parameter receives the hue of the picked colour.
     bool viewerPicker = false;
+    /// File only: name filter of the file dialog, e.g. "LUT files (*.cube)".
+    QString fileFilter;
 
     /// True if the value lives in ParamSet::values (keyframeable scalar).
     [[nodiscard]] bool isScalar() const
@@ -98,6 +107,7 @@ inline constexpr char Distort[] = "distort";
 inline constexpr char Key[] = "key";
 inline constexpr char Light[] = "light";
 inline constexpr char Stylize[] = "stylize";
+inline constexpr char Time[] = "time";
 inline constexpr char Transform[] = "transform";
 } // namespace effectgroups
 
@@ -142,6 +152,8 @@ private:
     void registerBuiltins();
     void registerGenerators(); ///< the generator catalogue (BuiltinEffects.cpp)
     void registerVideoEffects(); ///< the v4 video effects (BuiltinVideoEffects.cpp)
+    /// The second batch of v4 video effects (BuiltinVideoEffects2.cpp).
+    void registerVideoEffects2();
 
     QVector<EffectDescriptor> m_descriptors;
     QHash<QString, qsizetype> m_index; ///< id → position in m_descriptors (O(1) find())

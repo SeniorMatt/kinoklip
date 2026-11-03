@@ -104,6 +104,10 @@ private:
     /// asks for next); a Nested clip queues the clips visible in its timeline (recursive).
     void queueDecode(const ClipData* clip, int64_t frame, int64_t nextFrame, const TimelineData& tl,
         const NestedTimelines& nested, const MediaPathMap* media, int depth);
+    /// queueDecode() of one frame (without the time effects' extra frames).
+    void queueDecodeAt(const ClipData* clip, int64_t frame, int64_t nextFrame,
+        const TimelineData& tl, const NestedTimelines& nested, const MediaPathMap* media,
+        int depth);
     /// queueDecode() for every visible clip of @p tl at @p frame.
     void queueTimeline(const TimelineData& tl, int64_t frame, int64_t nextFrame,
         const NestedTimelines& nested, const MediaPathMap* media, int depth);
@@ -137,6 +141,28 @@ private:
     };
     void drawClip(const ClipData& clip, const FrameContext& fc, const RenderTarget& target,
         ClipBlend blend = ClipBlend::Over);
+    /// The layer path of a clip with time effects (Echo, Strobe): geometry and active effects
+    /// of the frame drawn, reused to draw the clip at the other frames the effects read.
+    struct LayerJob
+    {
+        const ClipData* clip = nullptr;
+        const FrameContext* fc = nullptr;
+        int64_t local = 0; ///< clip-local frame drawn
+        double zoom = 1.0;
+        QSize size; ///< layer size
+        double scale = 1.0; ///< layer px per timeline px
+        double padPx = 0.0;
+        QSizeF content; ///< content size (timeline px)
+        std::vector<GlEffect*> effects; ///< active effects (a copy of m_activeEffects)
+        std::vector<const EffectInstance*> instances;
+    };
+    class JobHistory;
+    /// Applies the first @p count effects of @p job at clip-local frame @p at to @p layer
+    /// (each with a LayerHistory of the effects before it).
+    void applyEffects(const LayerJob& job, int64_t at, size_t count, PooledTarget& layer);
+    /// The clip's layer at clip-local frame @p at with the first @p count effects applied;
+    /// empty if the frame's source is not available.
+    PooledTarget renderLayerAt(const LayerJob& job, int64_t at, size_t count);
     /// Sets the GL blend function for @p blend (blending enabled).
     void applyBlend(ClipBlend blend);
     /// True if adjustment clip @p clip has an effect that changes the picture at @p local.

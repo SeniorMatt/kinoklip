@@ -85,6 +85,23 @@ inline ParamDescriptor text(const QString& key, const QString& label, const QStr
     return p;
 }
 
+/// Curve static (core/CurveParam.h text form); the identity curve by default.
+inline ParamDescriptor curve(const QString& key, const QString& label, const QString& def)
+{
+    ParamDescriptor p = text(key, label, def);
+    p.type = ParamType::Curve;
+    return p;
+}
+
+/// File static (absolute path, empty by default); @p filter is the file dialog's filter.
+inline ParamDescriptor file(const QString& key, const QString& label, const QString& filter)
+{
+    ParamDescriptor p = text(key, label, QString());
+    p.type = ParamType::File;
+    p.fileFilter = filter;
+    return p;
+}
+
 /// Descriptor of @p id with @p params.
 inline EffectDescriptor descriptor(const QString& id, const QString& name, EffectCategory category,
     const QString& description, QVector<ParamDescriptor> params, const QString& storage = {})

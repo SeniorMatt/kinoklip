@@ -201,7 +201,7 @@ private slots:
         QCOMPARE(registry.groups(EffectCategory::VideoEffect),
             QStringList({QStringLiteral("blur"), QStringLiteral("color"), QStringLiteral("distort"),
                 QStringLiteral("key"), QStringLiteral("light"), QStringLiteral("stylize"),
-                QStringLiteral("transform")}));
+                QStringLiteral("time"), QStringLiteral("transform")}));
         QCOMPARE(EffectRegistry::groupName(QStringLiteral("key")), QStringLiteral("Key"));
         // The chroma key's colour has the viewer eyedropper.
         const ParamDescriptor* keyColor = registry.find(fxid::ChromaKey)->param(k::KeyColor);
