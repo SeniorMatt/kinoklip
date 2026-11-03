@@ -6,6 +6,7 @@
 #include "core/Logging.h"
 #include "core/Retime.h"
 #include "core/Serialization.h"
+#include "core/UndoSnapshots.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -28,29 +29,36 @@ constexpr Rational kDefaultFps {25, 1};
 constexpr int kDefaultWidth = 1920;
 constexpr int kDefaultHeight = 1080;
 
-/// One undo step: before/after copies of every timeline (shared, immutable), the media pool
-/// and the project format. The first redo() is skipped because the change has already been
-/// applied live.
+/// One undo step: before/after states of every timeline, the media pool and the project
+/// format. The timelines are stored packed (core/UndoSnapshots.h): the before state is
+/// packed against the after state of the step below it and the after state against the
+/// before state, so a step only owns the clips it changed. The first redo() is skipped
+/// because the change has already been applied live.
 class SnapshotCommand : public QUndoCommand
 {
 public:
+    using PackedSet = std::vector<std::shared_ptr<const undosnap::PackedTimeline>>;
+
     SnapshotCommand(Project* project, const QString& label, quint64 primary,
-        Project::TimelineSet before, Project::TimelineSet after, MediaPoolState poolBefore,
-        MediaPoolState poolAfter, Project::Format formatBefore, Project::Format formatAfter)
+        const Project::TimelineSet& before, const Project::TimelineSet& after,
+        const SnapshotCommand* below, MediaPoolState poolBefore, MediaPoolState poolAfter,
+        Project::Format formatBefore, Project::Format formatAfter)
         : QUndoCommand(label)
         , m_project(project)
         , m_primary(primary)
-        , m_before(std::move(before))
-        , m_after(std::move(after))
         , m_poolBefore(std::move(poolBefore))
         , m_poolAfter(std::move(poolAfter))
         , m_formatBefore(formatBefore)
         , m_formatAfter(formatAfter)
-    { }
+    {
+        m_before = packSet(before, below ? &below->m_after : nullptr);
+        m_after = packSet(after, &m_before);
+    }
 
     void undo() override
     {
-        m_project->restoreProjectState(m_before, m_poolBefore, m_formatBefore, m_primary);
+        m_project->restoreProjectState(
+            unpackSet(m_before), m_poolBefore, m_formatBefore, m_primary);
     }
 
     void redo() override
@@ -59,14 +67,43 @@ public:
             m_firstRedo = false;
             return;
         }
-        m_project->restoreProjectState(m_after, m_poolAfter, m_formatAfter, m_primary);
+        m_project->restoreProjectState(unpackSet(m_after), m_poolAfter, m_formatAfter, m_primary);
     }
 
 private:
+    /// Packs every timeline of @p set against the entry of the same uid in @p reference.
+    static PackedSet packSet(const Project::TimelineSet& set, const PackedSet* reference)
+    {
+        PackedSet out;
+        out.reserve(set.size());
+        for (const auto& t : set) {
+            std::shared_ptr<const undosnap::PackedTimeline> ref;
+            if (reference) {
+                for (const auto& r : *reference) {
+                    if (r && r->shell && r->shell->uid == t->uid) {
+                        ref = r;
+                        break;
+                    }
+                }
+            }
+            out.push_back(undosnap::pack(t, ref));
+        }
+        return out;
+    }
+
+    static Project::TimelineSet unpackSet(const PackedSet& set)
+    {
+        Project::TimelineSet out;
+        out.reserve(set.size());
+        for (const auto& p : set)
+            out.push_back(undosnap::unpack(*p));
+        return out;
+    }
+
     Project* m_project;
     quint64 m_primary;
-    Project::TimelineSet m_before;
-    Project::TimelineSet m_after;
+    PackedSet m_before;
+    PackedSet m_after;
     MediaPoolState m_poolBefore;
     MediaPoolState m_poolAfter;
     Project::Format m_formatBefore;
@@ -562,9 +599,12 @@ void Project::endEdit()
         return;
     if (timelinesChanged)
         notifyNestedChanges(before);
-    m_undoStack->push(
-        new SnapshotCommand(this, m_editLabel, m_editPrimary, std::move(before), std::move(after),
-            std::move(poolBefore), m_mediaPool->state(), m_editFormatBefore, m_format));
+    // The step below (the last done one) shares its after state with this step's before.
+    const int below = m_undoStack->index() - 1;
+    const auto* belowCommand
+        = below >= 0 ? dynamic_cast<const SnapshotCommand*>(m_undoStack->command(below)) : nullptr;
+    m_undoStack->push(new SnapshotCommand(this, m_editLabel, m_editPrimary, before, after,
+        belowCommand, std::move(poolBefore), m_mediaPool->state(), m_editFormatBefore, m_format));
 }
 
 void Project::cancelEdit()
