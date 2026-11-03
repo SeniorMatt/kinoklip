@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# check_bundle.sh -- verifies that every ELF file of the Linux bundle resolves all of its
-# libraries either inside the bundle or to a library the exclude list leaves to the host.
+# check_bundle.sh -- verifies the Kinoklip AppDir / AppImage: every ELF file resolves all of
+# its libraries either inside the bundle or to a library the exclude list leaves to the host,
+# and the AppImage parts (desktop entry, icon, .DirIcon, AppRun, AppStream) are in place.
 #
-# Usage: scripts/check_bundle.sh [bundle dir]     (default: dist/kinoklip-x86_64)
+# Usage: scripts/check_bundle.sh [AppDir | .AppImage]
+#   default: dist/kinoklip-x86_64, then dist/Kinoklip-x86_64.AppImage if it exists.
+#   An .AppImage is unpacked (--appimage-extract, no FUSE needed) into a temporary directory
+#   and checked like an AppDir, plus its embedded update information.
 #
 # Two passes, both with ldd (the dynamic loader's real search order):
 #   1. normal:   LD_LIBRARY_PATH=usr/lib/qt, like AppRun in bundled-Qt mode
@@ -15,7 +19,31 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-B="$(readlink -f "${1:-$ROOT/dist/kinoklip-x86_64}")"
+APP_ID=org.kinoklip.Kinoklip
+
+# Without an argument: the AppDir and then the AppImage made from it.
+if [ $# -eq 0 ]; then
+    "$0" "$ROOT/dist/kinoklip-x86_64" || exit 1
+    if [ -f "$ROOT/dist/Kinoklip-x86_64.AppImage" ]; then
+        echo
+        exec "$0" "$ROOT/dist/Kinoklip-x86_64.AppImage"
+    fi
+    exit 0
+fi
+
+B="$(readlink -f "$1")"
+IMAGE=""
+if [ -f "$B" ]; then
+    IMAGE="$B"
+    TMP="$(mktemp -d)"
+    trap 'rm -rf "$TMP"' EXIT
+    echo "unpacking $IMAGE"
+    (cd "$TMP" && "$IMAGE" --appimage-extract >/dev/null) || {
+        echo "cannot unpack $IMAGE" >&2
+        exit 2
+    }
+    B="$TMP/squashfs-root"
+fi
 [ -x "$B/usr/bin/kinoklip" ] || {
     echo "no bundle at $B" >&2
     exit 2
@@ -92,6 +120,45 @@ for want in 'platforms/libqwayland*.so' 'platforms/libqxcb.so' \
     fi
 done
 
+# AppImage requirements (AppImageSpec type 2; what Gear Lever and appimaged read): the desktop
+# entry, an icon named like its Icon= key and a PNG .DirIcon at the top, AppRun, AppStream
+# metadata, and the version Gear Lever shows (X-AppImage-Version).
+appdir_fail() {
+    echo "APPDIR: $*"
+    errors=$((errors + 1))
+}
+D="$B/$APP_ID.desktop"
+if [ ! -f "$D" ]; then
+    appdir_fail "missing $APP_ID.desktop at the top"
+else
+    icon="$(sed -n 's/^Icon=//p' "$D")"
+    [ -f "$B/$icon.png" ] || appdir_fail "no top-level icon $icon.png for Icon=$icon"
+    [ -f "$B/usr/share/icons/hicolor/256x256/apps/$icon.png" ] || appdir_fail "no hicolor 256 px icon $icon.png"
+    grep -q '^X-AppImage-Version=.' "$D" || appdir_fail "no X-AppImage-Version in the desktop entry"
+    if command -v desktop-file-validate >/dev/null; then
+        desktop-file-validate "$D" || appdir_fail "desktop entry does not validate"
+    fi
+fi
+file -bL "$B/.DirIcon" 2>/dev/null | grep -q '^PNG image data, 256 x 256' || appdir_fail ".DirIcon is not a 256 px PNG"
+[ -x "$B/AppRun" ] || appdir_fail "AppRun is missing or not executable"
+M="$B/usr/share/metainfo/$APP_ID.appdata.xml"
+if [ ! -f "$M" ]; then
+    appdir_fail "missing usr/share/metainfo/$APP_ID.appdata.xml"
+elif grep -q '@VERSION@\|@DATE@' "$M"; then
+    appdir_fail "AppStream placeholders not filled in"
+elif command -v appstreamcli >/dev/null; then
+    appstreamcli validate --no-net "$M" >/dev/null || appdir_fail "AppStream metadata does not validate"
+fi
+if [ -n "$IMAGE" ]; then
+    upd="$("$IMAGE" --appimage-updateinformation 2>/dev/null || true)"
+    echo "update information: ${upd:-none}"
+    case "$upd" in
+    gh-releases-zsync\|*) ;;
+    *) appdir_fail "no gh-releases-zsync update information embedded" ;;
+    esac
+    [ -f "$IMAGE.zsync" ] || appdir_fail "no $(basename "$IMAGE").zsync next to the AppImage"
+fi
+
 echo "checking ${#ELFS[@]} ELF files in $B"
 check_pass normal "$B/usr/lib/qt"
 check_pass fallback "$B/usr/lib/fallback:$B/usr/lib/qt"
@@ -114,4 +181,4 @@ if [ "$errors" -gt 0 ]; then
     exit 1
 fi
 echo "OK: all libraries resolve inside the bundle or to excluded host libraries"
-echo "bundle size: $(du -sh "$B" | cut -f1)"
+echo "bundle size: $(du -sh "$B" | cut -f1)${IMAGE:+, AppImage: $(du -h "$IMAGE" | cut -f1)}"

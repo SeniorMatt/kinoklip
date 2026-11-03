@@ -413,10 +413,10 @@ Rules for every agent:
   "SPDX-License-Identifier: GPL-3.0-or-later" by default.
 
 ## 8b. Distribution formats
-Now: **only the x86_64 binary bundle** (`dist/Kinoklip-x86_64.run` + portable folder).
+Now: **only the x86_64 AppImage** (`dist/Kinoklip-x86_64.AppImage` + `.zsync` for Gear Lever /
+AppImageUpdate updates; the self-made `.run` was released up to 0.4.0).
 Later (keep the build relocatable and data paths via QStandardPaths so these stay easy):
-Flatpak (org.kinoklip.Kinoklip, KDE runtime — ships Breeze natively), AppImage (bundle is already
-AppDir-shaped), distro packages (Arch PKGBUILD/AUR, .deb, .rpm), Windows installer, macOS .dmg.
+Flatpak (org.kinoklip.Kinoklip, KDE runtime — ships Breeze natively), distro packages (Arch PKGBUILD/AUR, .deb, .rpm), Windows installer, macOS .dmg.
 App id everywhere: `org.kinoklip.Kinoklip`.
 
 ## 9. Later (after v0.1)

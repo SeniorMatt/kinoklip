@@ -1,36 +1,49 @@
 # Linux packaging
 
-Produces one file the user can double-click -- `dist/Kinoklip-x86_64.run` -- plus a portable
-folder and an archive of it. Built only from distribution tools (`ldd`, `readelf`,
-`patchelf`, `tar`, `zstd`); no linuxdeploy/appimagetool (downloading them is not allowed in
-the build environment). Primary target: ThinkPad T14s Gen 2 (Iris Xe), KDE Linux (Arch
-based, Wayland). **Build host: the Arch Linux container `kk-arch`** (Qt 6.12, KDE Frameworks
-6.31, Breeze 6.8.2, FFmpeg 9, glibc 2.44, GCC 16), so the bundle carries the real Breeze look
-(plan.md 4): the Breeze style plugin, KDE's icon engine, the Breeze icons and the KDE colour
-schemes. Verified to run on the build container and, from a clean environment, on Linux
-Mint 22 (glibc 2.39, Breeze 5 icons on the host) with identical rendering.
+Produces **one release file, `dist/Kinoklip-x86_64.AppImage`** (type 2 AppImage with the static
+runtime, ~100 MB), plus `Kinoklip-x86_64.AppImage.zsync` for delta updates and the AppDir it is
+made from. The AppDir is assembled with distribution tools only (`ldd`, `readelf`, `patchelf`);
+the AppImage is made with the official `appimagetool`, downloaded once at a pinned version and
+checked against its SHA-256 (see "The AppImage" below). Primary target: ThinkPad T14s Gen 2
+(Iris Xe), KDE Linux (Arch based, Wayland). **Build host: the Arch Linux container `kk-arch`**
+(Qt 6.12, KDE Frameworks 6.31, Breeze 6.8.2, FFmpeg 9, glibc 2.44, GCC 16), so the bundle
+carries the real Breeze look (plan.md 4): the Breeze style plugin, KDE's icon engine, the Breeze
+icons and the KDE colour schemes. Verified to run on the build container and, from a clean
+environment, on Linux Mint 22 / Ubuntu 24.04 (glibc 2.39, Breeze 5 icons on the host) with
+identical rendering.
+
+Other formats (Flatpak, distribution packages, ...) may come later; for now the AppImage is
+the only release artefact.
 
 ## Build
 
 ```sh
 # in the container (repository mounted at the same path):
-podman exec -w "$PWD" kk-arch env KK_BUILD_DIR=build-arch scripts/package_linux.sh   # Release build + bundle + .tar.zst + .run
-podman exec -w "$PWD" kk-arch scripts/check_bundle.sh                                 # verify library resolution
+podman exec -w "$PWD" kk-arch env KK_BUILD_DIR=build-arch-release scripts/package_linux.sh  # Release build + AppDir + AppImage
+podman exec -w "$PWD" kk-arch scripts/check_bundle.sh                                         # verify the AppDir and the AppImage
 ```
 
-Options: `--no-build` (reuse `$KK_BUILD_DIR/kinoklip`), `--no-run`, `--no-tarball`.
-Environment: `KK_BUILD_DIR`, `KK_JOBS`, `KK_COMPRESSION=zstd|xz|gzip`, `KK_ZSTD_LEVEL`,
-`KK_QT_PLUGINS`. The script still works on a Debian/Ubuntu host (Qt 6.4, no KF6: no Breeze
-parts, licences via dpkg) as a fallback.
+`KK_BUILD_DIR` may also point at an existing build outside the source tree (with
+`--no-build`), e.g. a worktree packaging the main checkout's `build-arch-release`.
 
-Packages the container needs beyond the build dependencies: `patchelf zstd file` (licences
-are collected with `pacman -Qo/-Qi` and `/usr/share/licenses`).
+Options: `--no-build` (reuse `$KK_BUILD_DIR/kinoklip`), `--no-appimage` (stop after the
+AppDir), `--run` / `--tarball` (also make the legacy self-extracting `.run` / the `.tar.zst`
+archive of the AppDir; neither is released any more). Environment: `KK_BUILD_DIR`, `KK_JOBS`,
+`KK_TOOLS_CACHE` (default `.cache/appimage-tools`, gitignored), `KK_UPDATE_INFO` (embedded
+update information, `""` for none), `KK_ZSTD_LEVEL` (default 19), `KK_COMPRESSION`
+(`--run`/`--tarball` only), `KK_QT_PLUGINS`. The script still works on a Debian/Ubuntu host
+(Qt 6.4, no KF6: no Breeze parts, licences via dpkg) as a fallback.
 
-| Output | Size (v0.1.0, container build) | What |
+Packages the container needs beyond the build dependencies: `patchelf file curl`
+(`appstreamcli` validates the AppStream file when present; licences are collected with
+`pacman -Qo/-Qi` and `/usr/share/licenses`). No FUSE is needed to build: appimagetool, itself
+an AppImage, runs with `APPIMAGE_EXTRACT_AND_RUN=1`.
+
+| Output | Size (0.4.0-alpha.1, container build) | What |
 |---|---|---|
-| `dist/kinoklip-x86_64/` | 322 MB | portable folder, start `./AppRun` |
-| `dist/kinoklip-x86_64.tar.zst` | 90 MB | the folder as an archive |
-| `dist/Kinoklip-x86_64.run` | 90 MB | self-extracting single file |
+| `dist/Kinoklip-x86_64.AppImage` | 101 MB | **the release file** |
+| `dist/Kinoklip-x86_64.AppImage.zsync` | 0.2 MB | delta-update metadata, uploaded next to it |
+| `dist/kinoklip-x86_64/` | 330 MB | the AppDir (start `./AppRun` for quick tests) |
 
 ## Files in this directory
 
@@ -38,17 +51,18 @@ are collected with `pacman -Qo/-Qi` and `/usr/share/licenses`).
 |---|---|
 | `excludelist.txt` | which libraries come from the host (`host`), are only a fallback (`fallback`) or a fallback that also replaces an older host copy (`newer`), with reasons |
 | `apprun.sh` | the launcher, copied to `<bundle>/AppRun` |
-| `runheader.sh` | shell header of the `.run` file (template filled by `package_linux.sh`) |
-| `org.kinoklip.Kinoklip.desktop` | desktop entry (validated with `desktop-file-validate`) |
+| `runheader.sh` | shell header of the legacy `.run` file (`--run` only; template filled by `package_linux.sh`) |
+| `org.kinoklip.Kinoklip.desktop` | desktop entry (validated with `desktop-file-validate`); `X-AppImage-Version` is appended in the AppDir |
+| `org.kinoklip.Kinoklip.metainfo.xml` | AppStream metadata, installed as `usr/share/metainfo/org.kinoklip.Kinoklip.appdata.xml` with the version and date filled in (validated with `appstreamcli validate --no-net`) |
 | `org.kinoklip.Kinoklip.xml` | MIME type `application/x-kinoklip-project` for `*.kkproj` |
 
-## Bundle layout (AppDir-shaped)
+## AppDir layout
 
 ```
 kinoklip-x86_64/
   AppRun                              launcher (POSIX sh)
-  org.kinoklip.Kinoklip.desktop       desktop entry   } AppImage expects these
-  org.kinoklip.Kinoklip.png, .DirIcon icon (256 px)   } at the top level
+  org.kinoklip.Kinoklip.desktop       desktop entry + X-AppImage-Version  } read by appimagetool,
+  org.kinoklip.Kinoklip.png, .DirIcon icon (256 px PNG; .DirIcon a copy)  } Gear Lever, appimaged
   usr/bin/kinoklip                    RUNPATH $ORIGIN/../lib:$ORIGIN/../lib/fallback-active
   usr/lib/*.so*                       FFmpeg + codecs (x264, x265, dav1d, aom, svt-av1, vpx,
                                       rav1e, opus, lame, vorbis, webp, jxl, ...) and their deps
@@ -75,6 +89,7 @@ kinoklip-x86_64/
   usr/share/color-schemes/            KDE colour schemes (Kinoklip = default, BreezeDark, BreezeLight, BreezeClassic)
   usr/share/icons/breeze/             Breeze icon theme (wins over an older host Breeze)
   usr/share/applications, icons/hicolor/<n>x<n>/apps (icon PNGs, 16-512 px), mime/packages
+  usr/share/metainfo/org.kinoklip.Kinoklip.appdata.xml   AppStream metadata
   usr/share/doc/kinoklip/             bundled-libraries.txt (soname, package, version) and
                                       licenses/<package>.copyright for every bundled library
 ```
@@ -149,8 +164,14 @@ done | grep -E 'undefined symbol|not found'
    the `ldconfig -p` cache, else the usual lib dirs), plus the "newer" ones whose host copy
    is older (highest `GLIBCXX_`/`GCC_` tag in the file, or the version in the real file name,
    against `usr/lib/fallback/newer.txt`). RUNPATH is searched before the system paths, so
-   only those may be linked there. Needs a writable bundle (true for the `.run` cache and a
-   user-unpacked folder; otherwise a warning is printed).
+   only those may be linked there. In a read-only bundle -- the AppImage's squashfs mount --
+   the links go into a private writable directory instead
+   (`$XDG_RUNTIME_DIR/kinoklip-fallback-<hash>/active`, else `~/.cache/kinoklip/...`; never a
+   shared `/tmp`), which is put first in `LD_LIBRARY_PATH` (recorded like every other variable,
+   so child processes do not inherit it). That directory also links `usr/lib/*.so*` and
+   `usr/lib/qt`, so the fallbacks' own RUNPATH (`$ORIGIN/..`) resolves as in the bundle.
+   An AppImage is mounted at a new path on every start; directories of mounts that are gone
+   are removed on the next start.
 2. Chooses the Qt:
    - **Default: bundled Qt 6.12 + KF6 + Breeze.** `LD_LIBRARY_PATH=usr/lib/qt`,
      `QT_PLUGIN_PATH=usr/lib/qt/plugins` (host plugins are built for another Qt/KF6),
@@ -188,11 +209,16 @@ done | grep -E 'undefined symbol|not found'
    host glibc is too old (see above; `KINOKLIP_FORCE_GLIBC=1|0` test hook).
 
 `AppRun --install-desktop-entry` writes the desktop entry, icon and MIME type to
-`${XDG_DATA_HOME:-~/.local/share}` with `Exec=` pointing at the `.run` file (or at AppRun for
-the folder), then refreshes the MIME/desktop/KDE caches if the tools exist.
-`--uninstall-desktop-entry` removes them.
+`${XDG_DATA_HOME:-~/.local/share}` with `Exec=` pointing at the AppImage file (`$APPIMAGE`, set
+by the AppImage runtime), the legacy `.run` file or AppRun for a plain folder, then refreshes
+the MIME/desktop/KDE caches if the tools exist. `--uninstall-desktop-entry` removes them.
 
-Every normal start also does this automatically (quietly) when
+**Not automatic in the AppImage.** When `$APPIMAGE` is set the launcher leaves desktop
+integration to Gear Lever (or appimaged / AppImageLauncher): they write their own entry with
+`Exec=` the AppImage, and a second entry of ours would show the app twice in the menu. Users
+without such a tool can run `./Kinoklip-x86_64.AppImage --install-desktop-entry` once.
+
+For the plain AppDir and the legacy `.run`, every normal start also does this automatically (quietly) when
 `~/.local/share/applications/org.kinoklip.Kinoklip.desktop` is missing or differs (first start,
 the `.run` moved, a new version): Qt registers the app id with the XDG desktop portal at
 start-up and logs `Failed to register with host portal ... App info not found` without it, and
@@ -209,8 +235,63 @@ Wayland platform plugin because Qt 6.10 renamed it). Manual Wayland check in the
 Test hooks: `KINOKLIP_FORCE_FALLBACK=1` (use every fallback), `KINOKLIP_HOST_LIBDIRS=dir:dir`
 (search only these dirs for host libraries, e.g. an empty dir to simulate a bare host).
 
-## The single-file `.run`
+## The AppImage
 
+`package_linux.sh` runs **appimagetool 1.9.1** with the **type 2 static runtime 20251108**
+(github.com/AppImage/appimagetool, github.com/AppImage/type2-runtime), both downloaded into
+`$KK_TOOLS_CACHE` and checked against the SHA-256 pinned in the script (update both together:
+`gh api repos/AppImage/appimagetool/releases` lists the digests). The squashfs uses zstd level
+19 with 1 MiB blocks (101 MB instead of 110 MB at the defaults) and file times from the last
+commit (`SOURCE_DATE_EPOCH`). appimagetool's own AppStream check is switched off
+(`--no-appstream`) because it fetches every URL in the file and fails while the GitHub
+repository is private; the script validates it offline instead.
+
+**Update information** (embedded, read by Gear Lever and AppImageUpdate):
+
+```
+gh-releases-zsync|SeniorMatt|kinoklip|latest-all|Kinoklip-*x86_64.AppImage.zsync
+```
+
+`latest-all`, not `latest`: `latest` means GitHub's `/releases/latest`, which never returns a
+pre-release, and every Kinoklip release is a pre-release (alpha now, beta later). With `latest`
+no update would ever be found. `latest-all` takes the newest release, pre-release or not, so
+it keeps working after 1.0 too. Gear Lever 4.6 (`GithubUpdater`) and AppImageUpdate
+(`GithubReleasesZsyncUpdateInformation`) both support it; checked with Gear Lever on a public
+repository that has only pre-releases: `latest` finds nothing, `latest-all` reports the
+update. Gear Lever compares the SHA-1 in the release's `.zsync` with the installed file, so
+**every release must upload both `Kinoklip-x86_64.AppImage` and
+`Kinoklip-x86_64.AppImage.zsync`** (file names without the version, so the pattern and the
+`URL:` line of the `.zsync` stay valid). While the repository is private the GitHub API answers
+404 to anonymous requests and update checks find nothing.
+
+**FUSE.** The static runtime needs no libfuse on the host, only the kernel FUSE module and
+`fusermount`/`fusermount3` (present on KDE Linux, Arch, Ubuntu, Fedora ...). Without them:
+`./Kinoklip-x86_64.AppImage --appimage-extract-and-run` (or `APPIMAGE_EXTRACT_AND_RUN=1`)
+unpacks into a temporary directory and runs from there; `--appimage-extract` unpacks to
+`squashfs-root/` permanently. Other runtime flags: `--appimage-help`,
+`--appimage-updateinformation`, `--appimage-version`.
+
+**Gear Lever** (Flatpak `it.mijorus.gearlever`, the owner's AppImage manager) reads the name,
+the version (`X-AppImage-Version`) and the icon (`.DirIcon`) from the image, **moves** it to
+`~/AppImages/kinoklip.appimage`, writes `~/.local/share/applications/kinoklip.desktop` with
+`Exec=` that file and the icon in `~/AppImages/.icons/`, and lists the GitHub update source as
+"GithubUpdater | embedded". Its 7-Zip extractor prints "Dangerous link path was ignored" for the
+relative symlinks of the bundled Breeze icon theme; harmless, it only needs the top-level files.
+CLI check (in a throwaway `HOME`; `FLATPAK_USER_DIR` keeps the user's Flatpak installation):
+
+```sh
+G=$(mktemp -d); R=$(mktemp -d /tmp/glr.XXXX)    # short path: it holds Flatpak's sockets
+gl() { env -i HOME=$G PATH=/usr/bin:/bin FLATPAK_USER_DIR=$HOME/.local/share/flatpak \
+    XDG_RUNTIME_DIR=$R dbus-run-session -- flatpak run --user it.mijorus.gearlever "$@"; }
+gl --integrate dist/Kinoklip-x86_64.AppImage -y
+gl --list-installed -v     # Kinoklip (0.4.0-alpha.1)  [0.4.0-alpha.1]  [GithubUpdater|embedded]
+gl --list-updates -v
+gl --remove $G/AppImages/kinoklip.appimage -y; rm -rf $G $R
+```
+
+## The legacy single-file `.run` (`--run`, not released)
+
+Released up to 0.4.0; replaced by the AppImage. Kept behind `--run` while it costs nothing.
 `runheader.sh` (POSIX sh, starts with `#!/bin/sh`, mode 755) followed directly by the
 `.tar.zst` payload. On start it unpacks once into
 `${XDG_CACHE_HOME:-~/.cache}/kinoklip/<version>-<sha256 prefix of the payload>/`: into a
@@ -259,8 +340,18 @@ podman exec -w "$PWD" kk-arch env -i HOME=/root PATH=/usr/bin:/bin QT_QPA_PLATFO
     KINOKLIP_FORCE_GLIBC=1 dist/kinoklip-x86_64/AppRun --screenshot edit /tmp/edit.png
 # on another distribution (done on Linux Mint 22: glibc 2.39, GCC 13 runtime, Breeze 5 icons)
 env -i HOME=$HOME PATH=/usr/bin:/bin QT_QPA_PLATFORM=offscreen \
-    dist/Kinoklip-x86_64.run --color-scheme BreezeLight --screenshot preferences /tmp/prefs.png
+    dist/Kinoklip-x86_64.AppImage --color-scheme BreezeLight --screenshot preferences /tmp/prefs.png
+# the real window under Xvfb, from the FUSE mount and without FUSE
+xvfb-run -a -s '-screen 0 1920x1080x24' dist/Kinoklip-x86_64.AppImage
+xvfb-run -a -s '-screen 0 1920x1080x24' dist/Kinoklip-x86_64.AppImage --appimage-extract-and-run
 ```
+AppImage, 0.4.0-alpha.1, on the Ubuntu 24.04-based host (glibc 2.39) in a clean environment
+(`env -i`, empty `HOME`/XDG dirs): from the FUSE mount the launcher reports `using bundled
+fallbacks: libfontconfig.so.1 libstdc++.so.6 libva-drm.so.2 libva-x11.so.2 libva.so.2
+libwayland-client.so.0 libwayland-cursor.so.0 (links in $XDG_RUNTIME_DIR/kinoklip-fallback-<n>/active)`
+and the bundled glibc; the window shows with the Breeze look, and no desktop entry is written.
+`--appimage-extract-and-run` and the Gear Lever menu entry give the same result.
+
 On Mint the launcher reports `using bundled fallbacks: libfontconfig.so.1 libstdc++.so.6
 libva-drm.so.2 libva-x11.so.2 libva.so.2 libwayland-client.so.0 libwayland-cursor.so.0` and
 `using the bundled glibc (host: 2.39, bundle needs: 2.44)`; the screenshots are pixel-identical
@@ -289,26 +380,19 @@ the `Response` URIs (one with a space) are imported, and quitting with the dialo
 `Request.Close`. Under headless weston (Wayland) the call is made too; weston has no
 xdg-foreign, so it goes without a parent there.
 
-## Making a real AppImage later
-
-The folder is already AppDir-shaped (`AppRun`, top-level `.desktop`, icon, `.DirIcon`). With
-`appimagetool` available:
-
-```sh
-scripts/package_linux.sh --no-run --no-tarball
-ARCH=x86_64 appimagetool dist/kinoklip-x86_64 dist/Kinoklip-x86_64.AppImage
-```
-
-Caveats: an AppImage mounts read-only, so `fallback-active/` cannot be populated; either
-make the launcher create it under `$XDG_RUNTIME_DIR` and add that path via `LD_LIBRARY_PATH`
-or move the fallbacks to plain `usr/lib` for the AppImage. AppImage tooling prefers a PNG
-`.DirIcon` (render the SVG to 256x256). The AppImage runtime also needs FUSE 2 on the host
-(or `--appimage-extract-and-run`); the `.run` file avoids that dependency.
-
 ## Known risks on the target
 
-- Dolphin asks "Execute / Open" for executable scripts on double-click (the `.run` is a
-  shell script). Choose Execute, or use `--install-desktop-entry` once and start from the menu.
+- A downloaded AppImage is not executable: Dolphin offers to make it executable on
+  double-click (or Properties > Permissions > "Is executable", `chmod +x`); opening it with
+  Gear Lever avoids that and adds it to the menu.
+- Under Gear Lever the menu entry is `kinoklip.desktop`, while the app's Wayland app id is
+  `org.kinoklip.Kinoklip`. Plasma may then not match the running window to the entry (a
+  generic task-manager icon on Wayland) and Qt may log "Failed to register with host portal".
+  Not yet checked on a real Plasma session; if it shows, the fix is a hidden
+  (`NoDisplay=true`) `org.kinoklip.Kinoklip.desktop` written by AppRun.
+- Users who ran an older `.run`/folder have `~/.local/share/applications/org.kinoklip.Kinoklip.desktop`
+  pointing at it; with Gear Lever the menu then shows Kinoklip twice. Remove the old one with
+  `<old bundle>/AppRun --uninstall-desktop-entry` (or delete the file).
 - Programs the app starts get the original environment back only where the app goes through
   `src/platform/ChildProcessEnv` (currently: reveal in file manager). New `QProcess` /
   `QDesktopServices` call sites must use it too.
