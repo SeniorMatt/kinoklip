@@ -272,45 +272,64 @@ void Project::newProject()
 
 // ---- Save / load ----
 
-QJsonObject Project::toJson(const QString& path) const
+Project::SaveSnapshot Project::captureSave() const
+{
+    SaveSnapshot snap;
+    snap.name = m_name;
+    snap.format = m_format;
+    snap.pool = m_mediaPool->state();
+    snap.timelines = currentSet();
+    snap.views.reserve(qsizetype(m_slots.size()));
+    for (const TimelineSlot& s : m_slots) {
+        const bool active = s.uid == m_activeUid;
+        snap.views.append({s.uid, active ? m_timeline->playhead() : s.playhead, s.view});
+    }
+    snap.activeUid = m_activeUid;
+    snap.tabs = m_tabs;
+    snap.mediaLinks = m_links->toJson(snap.pool);
+    snap.cacheSettings = m_cacheSettings.toJson();
+    snap.binViews = m_binViews;
+    return snap;
+}
+
+QJsonObject Project::toJson(const SaveSnapshot& snap, const QString& path)
 {
     const QDir projectDir = QFileInfo(path).absoluteDir();
     QJsonObject root;
     root[QLatin1String("formatVersion")] = serialization::kFormatVersion;
     root[QLatin1String("generator")] = QStringLiteral(KK_APP_NAME " " KK_APP_VERSION);
-    root[QLatin1String("project")] = QJsonObject {{QLatin1String("name"), m_name},
-        {QLatin1String("width"), m_format.width}, {QLatin1String("height"), m_format.height},
-        {QLatin1String("fps"), fpsToJson(m_format.fps)},
-        {QLatin1String("retimeProcess"), retime::processToString(m_format.retimeProcess)}};
-    root[QLatin1String("mediaPool")]
-        = serialization::mediaPoolToJson(m_mediaPool->state(), projectDir);
+    root[QLatin1String("project")] = QJsonObject {{QLatin1String("name"), snap.name},
+        {QLatin1String("width"), snap.format.width}, {QLatin1String("height"), snap.format.height},
+        {QLatin1String("fps"), fpsToJson(snap.format.fps)},
+        {QLatin1String("retimeProcess"), retime::processToString(snap.format.retimeProcess)}};
+    root[QLatin1String("mediaPool")] = serialization::mediaPoolToJson(snap.pool, projectDir);
     QJsonArray timelines;
     QJsonArray views;
-    for (const TimelineSlot& s : m_slots) {
-        timelines.append(serialization::timelineToJson(*timelineData(s.uid)));
-        const bool active = s.uid == m_activeUid;
-        const TimelineViewState v = s.view;
-        views.append(QJsonObject {{QLatin1String("uid"), qint64(s.uid)},
-            {QLatin1String("playhead"), qint64(active ? m_timeline->playhead() : s.playhead)},
-            {QLatin1String("pixelsPerFrame"), v.pixelsPerFrame},
-            {QLatin1String("scrollX"), v.scrollX}, {QLatin1String("scrollY"), v.scrollY}});
+    for (size_t i = 0; i < snap.timelines.size(); ++i) {
+        timelines.append(serialization::timelineToJson(*snap.timelines[i]));
+        const SaveSnapshot::View& v = snap.views[qsizetype(i)];
+        views.append(QJsonObject {{QLatin1String("uid"), qint64(v.uid)},
+            {QLatin1String("playhead"), qint64(v.playhead)},
+            {QLatin1String("pixelsPerFrame"), v.view.pixelsPerFrame},
+            {QLatin1String("scrollX"), v.view.scrollX},
+            {QLatin1String("scrollY"), v.view.scrollY}});
     }
     root[QLatin1String("timelines")] = timelines;
-    root[QLatin1String("activeTimeline")] = qint64(m_activeUid);
+    root[QLatin1String("activeTimeline")] = qint64(snap.activeUid);
     QJsonArray tabs;
-    for (const quint64 uid : m_tabs)
+    for (const quint64 uid : snap.tabs)
         tabs.append(qint64(uid));
     root[QLatin1String("tabs")] = tabs;
     root[QLatin1String("timelineViews")] = views;
-    root[QLatin1String("mediaLinks")] = m_links->toJson(m_mediaPool->state());
-    root[QLatin1String("cacheSettings")] = m_cacheSettings.toJson();
-    if (!m_binViews.isEmpty()) {
+    root[QLatin1String("mediaLinks")] = snap.mediaLinks;
+    root[QLatin1String("cacheSettings")] = snap.cacheSettings;
+    if (!snap.binViews.isEmpty()) {
         QJsonArray binViews;
         // Sorted keys: saving the same project twice writes the same file.
-        QStringList keys = m_binViews.keys();
+        QStringList keys = snap.binViews.keys();
         keys.sort();
         for (const QString& key : std::as_const(keys)) {
-            const BinViewState& v = m_binViews[key];
+            const BinViewState& v = snap.binViews[key];
             QJsonObject o {{QLatin1String("bin"), key}};
             if (!v.mode.isEmpty())
                 o[QLatin1String("mode")] = v.mode;
@@ -476,7 +495,13 @@ bool Project::save(const QString& path, QString* error)
 
 bool Project::saveCopy(const QString& path, QString* error, const QJsonObject& extra) const
 {
-    QJsonObject root = toJson(path);
+    return writeSnapshot(captureSave(), path, error, extra);
+}
+
+bool Project::writeSnapshot(
+    const SaveSnapshot& snapshot, const QString& path, QString* error, const QJsonObject& extra)
+{
+    QJsonObject root = toJson(snapshot, path);
     if (!extra.isEmpty())
         root[QLatin1String("autosave")] = extra;
     return writeJson(path, root, error);
