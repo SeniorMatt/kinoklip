@@ -1,6 +1,5 @@
 <p align="center"><img src="docs/images/logo/kinoklip-icon.png" width="128" height="128" alt="Kinoklip icon"></p>
 <p align="center"><img src="docs/images/logo/kinoklip-text-horizontal.png" width="480" height="104" alt="Kino Klip"></p>
-<h1 align="center">Kinoklip</h1>
 
 <h1 align="center"><a href="https://github.com/SeniorMatt/kinoklip/releases">Download here</a></h1>
 
