@@ -11,11 +11,13 @@
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/effects/EffectActions.h"
+#include "ui/help/Guide.h"
 
 #include <QApplication>
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMimeData>
 #include <QPainter>
 #include <QPainterPath>
@@ -260,6 +262,7 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Effects"), parent)
     , m_ctx(ctx)
 {
+    setPanelKey(QStringLiteral("effects")); // in-app help: panel:effects
     // Resolve's layout: a category sidebar on the left, search + the effects on the right.
     m_categories = new QTreeWidget;
     m_categories->setObjectName(QStringLiteral("EffectsCategories"));
@@ -326,6 +329,39 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
         if (!id.isEmpty())
             activate(id);
     });
+    // In-app help: F1 over the list opens the selected entry's article (effect:<id>), the
+    // context menu offers "How to use <name>…" when the guide has one.
+    connect(m_tree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* item) {
+        const QString id = item ? item->data(0, kDescriptorRole).toString() : QString();
+        guide::setHelpContext(m_tree, id.isEmpty() ? QString() : QStringLiteral("effect:") + id);
+    });
+    m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tree, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
+        QTreeWidgetItem* item = m_tree->itemAt(pos);
+        if (!item)
+            return;
+        m_tree->setCurrentItem(item);
+        QMenu* menu = createContextMenu(item->data(0, kDescriptorRole).toString());
+        if (!menu)
+            return;
+        menu->setAttribute(Qt::WA_DeleteOnClose);
+        menu->popup(m_tree->viewport()->mapToGlobal(pos));
+    });
+}
+
+QMenu* EffectsLibraryPanel::createContextMenu(const QString& descriptorId)
+{
+    const EffectDescriptor* d = EffectRegistry::instance().find(descriptorId);
+    if (!d)
+        return nullptr;
+    auto* menu = new QMenu(this);
+    if (QAction* howTo = guide::createHowToAction(QStringLiteral("effect:") + d->id, d->name, menu))
+        menu->addAction(howTo);
+    if (menu->isEmpty()) {
+        delete menu;
+        return nullptr;
+    }
+    return menu;
 }
 
 void EffectsLibraryPanel::populate()

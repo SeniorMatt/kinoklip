@@ -54,6 +54,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Timeline"), parent)
     , m_ctx(ctx)
 {
+    setPanelKey(QStringLiteral("timeline")); // in-app help: panel:timeline
     auto* body = new QWidget;
     auto* layout = new QVBoxLayout(body);
     layout->setContentsMargins(0, 0, 0, 0);

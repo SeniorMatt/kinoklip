@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "base": "https://github.com/SeniorMatt/kinoklip/blob/main/docs/guide/",
+  "start": "readme.md",
+  "articles": [
+    {
+      "id": "getting-started",
+      "title": "Getting started",
+      "file": "getting-started.md",
+      "summary": "Import your media, cut a first edit and look around the pages.",
+      "keywords": ["first steps", "import", "beginner", "tour"],
+      "contexts": ["page:edit", "page:media"]
+    },
+    {
+      "id": "remove-a-green-screen",
+      "title": "Remove a green screen",
+      "file": "remove-a-green-screen.md",
+      "summary": "Key out a green or blue background with Chroma Key.",
+      "keywords": ["green screen", "chroma key", "blue screen", "keying"],
+      "contexts": ["effect:chroma_key"]
+    },
+    {
+      "id": "export-for-youtube",
+      "title": "Export for YouTube",
+      "file": "export-for-youtube.md",
+      "summary": "Render a finished timeline with settings that suit YouTube.",
+      "keywords": ["render", "export", "upload", "youtube", "deliver"],
+      "contexts": ["page:deliver"]
+    }
+  ]
+}

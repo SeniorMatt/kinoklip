@@ -24,6 +24,7 @@
 #include "ui/deliver/DeliverPage.h"
 #include "ui/dialogs/DialogActions.h"
 #include "ui/dialogs/PreferencesDialog.h"
+#include "ui/help/HelpController.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/viewer/ViewerOverlaySettings.h"
@@ -192,6 +193,8 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     // Playback-owned actions (transport.*, view.fullscreen_viewer) -> the active viewer.
     m_transport = new ViewerTransport(ctx, this);
     m_transport->connectActions();
+    // In-app help (src/ui/help): F1, Help > Guide, the "?" buttons of the panels.
+    m_help = new HelpController(*ctx.actions, this, [this] { return currentPageId(); }, this);
 
     connect(ctx.project, &Project::nameChanged, this, &MainWindow::updateTitle);
     connect(ctx.project, &Project::dirtyChanged, this, &MainWindow::updateTitle);

@@ -4,6 +4,7 @@
 
 #include "ui/inspector/ParamRows.h"
 
+#include <QAction>
 #include <QCheckBox>
 #include <QEvent>
 #include <QGridLayout>
@@ -119,6 +120,17 @@ void ParamGroupBox::addHeaderWidget(QWidget* widget)
 void ParamGroupBox::setTitle(const QString& title)
 {
     m_title->setText(title);
+}
+
+void ParamGroupBox::addHeaderMenuAction(QAction* action)
+{
+    m_header->setContextMenuPolicy(Qt::ActionsContextMenu);
+    m_header->addAction(action);
+}
+
+QList<QAction*> ParamGroupBox::headerMenuActions() const
+{
+    return m_header->actions();
 }
 
 void ParamGroupBox::setCollapsed(bool collapsed)

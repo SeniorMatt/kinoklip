@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<!-- The user guide's index (docs/guide/index.json, written with the guide); src/ui/help loads
+     :/guide/index.json to link the app to the guide's articles. -->
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file alias="guide/index.json">../docs/guide/index.json</file>
+    </qresource>
+</RCC>

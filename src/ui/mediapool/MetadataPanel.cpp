@@ -71,6 +71,7 @@ MetadataPanel::MetadataPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Metadata"), parent)
     , m_ctx(ctx)
 {
+    setPanelKey(QStringLiteral("metadata")); // in-app help: panel:metadata
     m_stack = new QStackedWidget;
     m_stack->addWidget(createPlaceholderContent(tr("Select a clip in the media pool.")));
     auto* scroll = new QScrollArea;

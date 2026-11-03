@@ -10,6 +10,7 @@
 
 #include <functional>
 
+class QAction;
 class QCheckBox;
 class QGridLayout;
 class QHBoxLayout;
@@ -50,6 +51,10 @@ public:
     void addHeaderWidget(QWidget* widget);
     /// Changes the header title.
     void setTitle(const QString& title);
+    /// Adds @p action to the header's right-click menu (e.g. "How to use <name>…").
+    void addHeaderMenuAction(QAction* action);
+    /// The header's right-click menu entries.
+    [[nodiscard]] QList<QAction*> headerMenuActions() const;
 
     /// True if the body is hidden.
     [[nodiscard]] bool isCollapsed() const { return m_collapsed; }
