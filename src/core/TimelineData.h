@@ -6,6 +6,7 @@
 #include "core/Animation.h"
 #include "core/ClipAttributes.h"
 #include "core/Composition.h"
+#include "core/Grade.h"
 #include "core/Mask.h"
 #include "core/MixerData.h"
 #include "core/Rational.h"
@@ -195,6 +196,11 @@ struct ClipData
     /// transform, opacity and compositing then apply on top. std::nullopt = no composition
     /// (the clip's picture straight through). Keyframes in it are clip-local frames.
     std::optional<Composition> composition;
+    /// Color page grade (core/Grade.h, docs/color-page.md): applied to the clip's picture
+    /// after its composition and Edit page effects, before its masks, crop, transform and
+    /// opacity. Empty = ungraded. Node and window ids are local to the grade; keyframes are
+    /// clip-local frames like every clip key.
+    ClipGrade grade;
 
     /// First frame after the clip.
     [[nodiscard]] int64_t end() const { return start + duration; }
@@ -346,6 +352,9 @@ struct TimelineData
     /// Viewer guide lines of this timeline (View > Guides; core/ViewerGuides.h). Display
     /// only: the renderers never read them, so they never appear in a render or export.
     std::vector<ViewerGuide> guides;
+    /// Timeline grade (Color page): applied to the composite of every video track, after the
+    /// clip grades and before the captions and the output. Keyframes in timeline frames.
+    ClipGrade grade;
     /// Render snapshots only (Timeline::snapshot()): every timeline the nested clips of this
     /// one reach, directly or indirectly. Empty in editable data; never serialized.
     NestedTimelines nested;

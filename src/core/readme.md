@@ -33,6 +33,9 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `Composition.h` | Compositing page node graph of a clip: `Composition`, `CompNode`, `NodeLink`, `CompNote` (`ClipData::composition`) |
 | `NodeRegistry.h` | node type descriptors (ports, parameters, viewer controls), ids / port ids / parameter keys, the `fx:<id>` node of every video effect |
 | `CompOps.h` | pure graph operations: default composition, add / add after (auto-merge) / remove / connect / disconnect / insert into link / paste, cycle and kind checks, evaluation order |
+| `Grade.h` | Color page grade of a clip or timeline: `ClipGrade`, `GradeNode` (corrector / Parallel / Layer), curves, qualifier, power windows, LUT; parameter keys (`gradekeys`, `gradewindowkeys`); pure graph operations (`gradeops`). `Project::setClipGrade()` / `setTimelineGrade()` (ProjectGrades.cpp) are the undoable entry points (docs/color-page.md) |
+| `GradeMath.h` | the grading maths shared by the CPU evaluator and mirrored in GLSL: primaries, curves (monotone cubic, HSL curves), qualifier key, window coverage, layer formula |
+| `GradeGallery.h` | gallery stills (picture + grade), saved with the project, `Project::gallery()` |
 | `Generators.h` | ids and parameter keys of the built-in generators and the adjustment clip |
 | `Subtitles.h` | `SubtitleCue`, SRT / WebVTT parse and write, caption style keys + defaults (caption → track → default chain), cue ↔ caption conversion (lanes for overlapping cues) |
 | `ViewerGuides.h` | `ViewerGuide` (orientation + position in timeline frame px; `TimelineData::guides`), its JSON, guide presets (built-in, user file `<AppData>/guide-presets.json`, in fractions of the frame), safe area / aspect marker / grid geometry, `snapOffset()` and ruler steps (spec 41) |

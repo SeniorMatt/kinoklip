@@ -8,6 +8,7 @@
 #include "render/GlComposition.h"
 #include "render/GlEffects.h"
 #include "render/GlGenerators.h"
+#include "render/GlGrade.h"
 #include "render/GlKit.h"
 #include "render/GlMasks.h"
 #include "render/GlOutput.h"
@@ -61,6 +62,7 @@ private:
         /// (output-sized texture), the source of every adjustment clip. 0 otherwise.
         GLuint below = 0;
         bool subtitles = false; ///< draw the subtitle tracks (root timeline only)
+        bool grades = true; ///< apply clip and timeline grades (false: RenderRequest::bypassGrades)
     };
     /// A media clip decoded for the current frame. A clip inside a nested timeline can be
     /// shown at several times in one frame (two instances), so (clip, timeUs) is the key.
@@ -217,6 +219,7 @@ private:
     std::unique_ptr<GlOutput> m_output;
     GlVideo m_video;
     GlMasks m_masks; ///< clip mask pass (applied on the layer path)
+    GlGrade m_grade; ///< Color page grade pass (clip layers and the timeline composite)
     GlGenerators m_generators; ///< generator patterns
     GlComposition m_comp; ///< Compositing page node graphs
     /// Stand-in clips of MediaIn nodes reading other media pool items (per frame; a deque

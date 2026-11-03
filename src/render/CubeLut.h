@@ -38,6 +38,9 @@ public:
     /// Looks up straight colour @p rgb (in/out, 3 floats): trilinear (3D) or per-channel
     /// linear (1D) interpolation; inputs outside the domain clamp to it.
     void apply(float* rgb) const;
+    /// Like apply() with tetrahedral interpolation for 3D tables (each cube cell split into
+    /// six tetrahedra along its grey diagonal; exact on the neutral axis). 1D: apply().
+    void applyTetrahedral(float* rgb) const;
 
 private:
     QString m_title;

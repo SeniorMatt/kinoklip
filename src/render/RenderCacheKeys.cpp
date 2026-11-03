@@ -8,6 +8,7 @@
 #include "core/Serialization.h"
 
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -68,6 +69,9 @@ unsigned staticClipReasons(const ClipData& clip, const QJsonObject& json)
     // A composition (Compositing page) costs like effects: Smart mode caches it.
     if (clip.composition && !compops::isPassThrough(*clip.composition))
         r |= CacheEffects;
+    // So does a Color page grade.
+    if (!clip.grade.isEmpty())
+        r |= CacheEffects;
     if (clip.cacheOutput)
         r |= CacheUserClip;
     return r;
@@ -83,6 +87,19 @@ unsigned transitionReason(const ClipData& clip, int64_t start, int64_t end)
         || (clip.transitionOut && near(clip.end(), clip.transitionOut->duration)))
         return CacheTransition;
     return 0;
+}
+
+/// Adds the identity (path, size, modification time) of every LUT file of @p grade.
+void addGradeLuts(QCryptographicHash& h, const ClipGrade& grade)
+{
+    for (const GradeNode& n : grade.nodes) {
+        if (n.lutPath.isEmpty())
+            continue;
+        const QFileInfo info(n.lutPath);
+        h.addData(QByteArrayLiteral("lut:") + n.lutPath.toUtf8() + ':'
+            + QByteArray::number(info.size()) + ':'
+            + QByteArray::number(info.lastModified().toMSecsSinceEpoch()));
+    }
 }
 
 /// Hash of the picture-relevant part of one clip (cached per clip within one computation).
@@ -129,6 +146,7 @@ private:
             }
         }
         h.addData(canonicalJson(json));
+        addGradeLuts(h, clip.grade); // the grade JSON names its LUTs; their content counts too
         if (clip.kind == ClipKind::Media) {
             h.addData(m_mediaKeys.value(clip.mediaId, QByteArrayLiteral("unknown-media")));
         } else if (clip.kind == ClipKind::Nested) {
@@ -236,6 +254,12 @@ std::vector<CacheChunk> renderCacheChunks(
     // of every retimed clip that follows the project default. The clips' own retime state
     // (speed, curve, process, pitch) is part of their JSON.
     header.addData(QByteArrayLiteral(":retime:") + QByteArray::number(int(timeline.retimeProcess)));
+    // The timeline grade (Color page) changes every picture.
+    if (!timeline.grade.isEmpty()) {
+        header.addData(QByteArrayLiteral(":grade:"));
+        header.addData(canonicalJson(serialization::gradeToJson(timeline.grade)));
+        addGradeLuts(header, timeline.grade);
+    }
     const QByteArray headerHash = header.result();
 
     ClipHasher hasher(timeline, mediaKeys);

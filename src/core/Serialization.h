@@ -96,7 +96,12 @@ namespace kk::serialization {
 ///   core/Composition.h, see compositionToJson()). Files of versions 1 - 14 have none and load
 ///   unchanged (no clip has a composition); older builds refuse version 15 instead of
 ///   silently dropping the compositions.
-inline constexpr int kFormatVersion = 15;
+/// - 16 (colorcore branch): Color page. Clips and timelines may carry "grade"
+///   ({"nodes": [...], "output": node id}, see gradeToJson()); the project may carry
+///   "gallery" (stills: {"id", "name", "created" (ms), "grade", "image" (base64 JPEG)}). Files
+///   of versions 1 - 15 have neither and load unchanged (nothing graded, empty gallery); older
+///   builds refuse version 16 instead of silently dropping the grades.
+inline constexpr int kFormatVersion = 16;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
@@ -141,6 +146,16 @@ void animatedPathFromJson(const QJsonObject& o, AnimatedPath& path);
 [[nodiscard]] QJsonObject attributesToJson(const ClipAttributes& attributes);
 /// Decodes attributesToJson(); missing fields keep their defaults.
 [[nodiscard]] ClipAttributes attributesFromJson(const QJsonObject& json);
+
+/// Encodes a grade (format 16; core/GradeSerialization.cpp): nodes {"id", "type" ("corrector"
+/// | "parallel" | "layer"), "inputs" (node ids, 0 = the grade's input), "pos": [x, y], and only
+/// when not default: "label", "enabled", "params" (ParamSet of gradekeys), "curves" ({"luma" |
+/// "red" | "green" | "blue" | "hueHue" | "hueSat" | "hueLum" | "lumSat" | "satSat": [[x, y],
+/// ...]}), "qualifier" (GradeQualifier fields), "windows" ([{"id", "shape", "enabled",
+/// "invert", "params", "points": [[x, y], ...]}]), "lut" (path), "lutInterp" ("trilinear")}.
+[[nodiscard]] QJsonObject gradeToJson(const ClipGrade& grade);
+/// Decodes gradeToJson(); malformed nodes are dropped, ids repaired (unique, non-zero).
+[[nodiscard]] ClipGrade gradeFromJson(const QJsonObject& json);
 
 /// Encodes one clip (also used for copy/paste).
 [[nodiscard]] QJsonObject clipToJson(const ClipData& clip);

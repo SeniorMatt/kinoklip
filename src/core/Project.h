@@ -2,6 +2,7 @@
 // Project — owns the media pool, the timeline, the undo stack and project-level settings.
 #pragma once
 
+#include "core/GradeGallery.h"
 #include "core/MediaLinks.h"
 #include "core/MediaPool.h"
 #include "core/Multicam.h"
@@ -103,6 +104,9 @@ public:
     /// Proxy / optimized media links of the media pool items (owned by the project, never
     /// null; saved with it, not undoable). Changing a link marks the project modified.
     [[nodiscard]] MediaLinks* mediaLinks() const { return m_links; }
+    /// The Color page gallery (stills with grades); saved with the project, not undoable
+    /// (like a still store). Changing it marks the project modified.
+    [[nodiscard]] GradeGallery* gallery() const { return m_gallery; }
     /// Optimized media, proxy and render cache settings + Playback menu modes.
     [[nodiscard]] const MediaCacheSettings& cacheSettings() const { return m_cacheSettings; }
     /// Applies new cache settings (not undoable, marks the project modified); emits
@@ -272,6 +276,29 @@ public:
     [[nodiscard]] std::optional<Composition> clipComposition(
         quint64 timelineUid, quint64 clipId) const;
 
+    // ---- Color page (ProjectGrades.cpp) ----
+
+    /// Replaces the grade of clip @p clipId in timeline @p timelineUid (the active one or any
+    /// other) as one undo step labelled @p label ("Add Serial Node", "Lift", ...); an empty
+    /// grade removes it. Every Color page change of a clip goes through here. Inside an open
+    /// edit (beginEdit(), e.g. a wheel drag) it joins that edit, so repeated calls during a
+    /// drag make one step. False (nothing changes) for an unknown timeline or clip or a locked
+    /// track; true without an undo step when the grade is unchanged.
+    bool setClipGrade(
+        quint64 timelineUid, quint64 clipId, const ClipGrade& grade, const QString& label);
+    /// Gives every clip of @p clipIds (in timeline @p timelineUid) @p grade in one undo step
+    /// (apply a gallery still, copy a grade to the selected clips). Clips on locked tracks and
+    /// unknown ids are skipped. Returns the number of clips changed.
+    int setClipGrades(quint64 timelineUid, const QVector<quint64>& clipIds, const ClipGrade& grade,
+        const QString& label);
+    /// The grade of clip @p clipId (empty when ungraded or unknown).
+    [[nodiscard]] ClipGrade clipGrade(quint64 timelineUid, quint64 clipId) const;
+    /// Replaces the timeline grade of @p timelineUid as one undo step (same rules as
+    /// setClipGrade()).
+    bool setTimelineGrade(quint64 timelineUid, const ClipGrade& grade, const QString& label);
+    /// The timeline grade of @p timelineUid (empty when ungraded or unknown).
+    [[nodiscard]] ClipGrade timelineGrade(quint64 timelineUid) const;
+
     // ---- Editing protocol ----
 
     /// Starts an undoable edit labelled @p label (shown in Edit ▸ Undo). Nesting-safe.
@@ -285,7 +312,10 @@ public:
     /// True while an edit is open.
     [[nodiscard]] bool isEditing() const { return m_editDepth > 0; }
     /// Name of the open edit (beginEdit()); empty when none is open.
-    [[nodiscard]] QString openEditLabel() const { return m_editDepth > 0 ? m_editLabel : QString(); }
+    [[nodiscard]] QString openEditLabel() const
+    {
+        return m_editDepth > 0 ? m_editLabel : QString();
+    }
     /// Closes an edit that was left open (a gesture whose end never arrived), keeping its
     /// changes as one undo step. Returns its name. Undo calls it when no mouse button is down,
     /// so a lost mouse release can never block Undo for the rest of the session.
@@ -339,6 +369,7 @@ public:
         quint64 activeUid = 0;
         QVector<quint64> tabs;
         QJsonArray mediaLinks; ///< MediaLinks::toJson() (small; built at capture time)
+        QJsonArray gallery; ///< GradeGallery::toJson() (empty = no stills)
         QJsonObject cacheSettings;
         QHash<QString, BinViewState> binViews;
     };
@@ -416,6 +447,8 @@ private:
 
     MediaPool* m_mediaPool = nullptr;
     MediaLinks* m_links = nullptr;
+    GradeGallery* m_gallery = nullptr;
+    bool m_galleryLoading = false; ///< gallery reset by new / load: not a user change
     MediaCacheSettings m_cacheSettings;
     Timeline* m_timeline = nullptr;
     std::vector<TimelineSlot> m_slots; ///< every timeline, creation order

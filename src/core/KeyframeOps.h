@@ -22,12 +22,18 @@ namespace kk::keyframeops {
 //   "mask/<mask id>/<key>" (MaskData::params) and "mask/<mask id>/shape" (the animated path:
 //   its AnimatedPath::timing value; the operations below keep the shapes in step).
 //   "retime/retimeFrame" (the retime curve, core/Retime.h; group id "retime", listed last).
+//   "grade/<node id>/<key>" (GradeNode::params of the Color page grade, gradekeys::*) and
+//   "gradewin/<window id>/<key>" (GradeWindow::params, gradewindowkeys::*).
 
 /// Path of a parameter stored in a clip ParamSet member ("transform", "audio", "title",
 /// "retime").
 [[nodiscard]] QString memberPath(const QString& member, const QString& key);
 /// Path of a parameter of effect instance @p effectId.
 [[nodiscard]] QString effectPath(quint64 effectId, const QString& key);
+/// Path of a parameter of grade node @p nodeId (Color page, gradekeys::*).
+[[nodiscard]] QString gradePath(quint64 nodeId, const QString& key);
+/// Path of a parameter of grade window @p windowId (gradewindowkeys::*).
+[[nodiscard]] QString gradeWindowPath(quint64 windowId, const QString& key);
 /// Path of a parameter of mask @p maskId (maskkeys::Shape for the animated shape).
 [[nodiscard]] QString maskPath(quint64 maskId, const QString& key);
 /// True if @p path addresses a mask shape (its key values are shape indices, not numbers).
