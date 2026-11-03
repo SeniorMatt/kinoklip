@@ -25,6 +25,7 @@ a("file.unpack_project", "Unpack Project (write a single-file project's media to
 a("file.compact_project", "Compact Project (remove unused media and old saves from a single-file project)", [], U, "Kinoklip's own; no Resolve equivalent, no key")
 a("file.verify_project", "Verify Project File (check a single-file project; Repair after a crash)", [], U, "Kinoklip's own; no Resolve equivalent, no key")
 a("file.import_media", "Import Media", ["Ctrl+I"], S)
+a("file.import_media_folder", "Import Media Folder (a folder and optionally its subfolders, as bins)", [], L, "Resolve offers Add Folder (and SubFolders) into Media Pool from its media storage and media pool menus; no default key known")
 a("file.import_subtitle", "Import Subtitle", [], L, "File > Import > Subtitle in Resolve; no default key known")
 a("file.export_edl", "Export Timeline as EDL (CMX3600: V, A, A2, dissolves, M2 speed)", [], L, "File > Export > Timeline in Resolve (EDL among the formats); no default key known")
 a("file.export_markers_edl", "Export Timeline Markers to EDL", [], L, "Resolve exports timeline markers to an EDL from its menus; no default key known")

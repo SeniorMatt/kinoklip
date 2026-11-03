@@ -3,6 +3,7 @@
 #include "ui/mediapool/MediaBrowserPanel.h"
 
 #include "ui/common/AppContext.h"
+#include "ui/common/FolderImport.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
 #include "ui/common/PanelSplitter.h"
@@ -95,6 +96,7 @@ MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
     m_tree->setUniformRowHeights(true);
     for (int column = 1; column < m_dirs->columnCount(); ++column)
         m_tree->hideColumn(column);
+    m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
 
     // ---- Media files of the selected folder ----
     m_files = new QFileSystemModel(this);
@@ -162,6 +164,20 @@ MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
         menu.exec(m_list->viewport()->mapToGlobal(pos));
     });
 
+    connect(m_tree, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
+        const QModelIndex index = m_tree->indexAt(pos);
+        if (!index.isValid())
+            return;
+        const QString folder = m_dirs->filePath(index);
+        QMenu menu(this);
+        menu.addAction(icon(QStringLiteral("import")), tr("Add Folder into Media Pool"), this,
+            [this, folder] { addFolderToMediaPool(folder, false); });
+        menu.addAction(icon(QStringLiteral("folder")),
+            tr("Add Folder and Subfolders into Media Pool (Create Bins)"), this,
+            [this, folder] { addFolderToMediaPool(folder, true); });
+        menu.exec(m_tree->viewport()->mapToGlobal(pos));
+    });
+
     setRootPath(QDir::homePath());
     updateButton();
 }
@@ -202,6 +218,14 @@ QStringList MediaBrowserPanel::selectedFiles() const
 QStringList MediaBrowserPanel::addSelectedToMediaPool()
 {
     return importMediaWithFeedback(m_ctx, selectedFiles(), this);
+}
+
+QStringList MediaBrowserPanel::addFolderToMediaPool(const QString& path, bool withSubfolders)
+{
+    FolderImportOptions options;
+    options.includeSubfolders = withSubfolders;
+    options.createBins = withSubfolders; // the folder's own files go straight into Master
+    return importMediaFoldersWithFeedback(m_ctx, {path}, options, this);
 }
 
 void MediaBrowserPanel::updateButton()

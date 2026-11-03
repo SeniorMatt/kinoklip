@@ -12,6 +12,7 @@
 #include "platform/FileManager.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/FolderImport.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
 #include "ui/common/MediaStore.h"
@@ -148,6 +149,11 @@ void MediaPoolPanel::importWithDialog()
     if (!paths.isEmpty())
         importFiles(
             paths, MediaPoolFilterModel::isSmartKey(currentBinKey()) ? QString() : currentBinKey());
+}
+
+void MediaPoolPanel::importFolderWithDialog(const QString& binKey)
+{
+    importMediaFolderWithDialogs(m_ctx, this, MediaPoolFilterModel::idOfKey(binKey));
 }
 
 void MediaPoolPanel::renameCurrentItem()
@@ -309,6 +315,10 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
     }
     menu.addAction(icon(QStringLiteral("import")), tr("Import Media…"), this,
         &MediaPoolPanel::importWithDialog);
+    if (!MediaPoolFilterModel::isSmartKey(currentBinKey())
+        && !MediaPoolFilterModel::isPowerKey(currentBinKey()))
+        menu.addAction(icon(QStringLiteral("folder")), tr("Import Media Folder…"), this,
+            [this] { importFolderWithDialog(currentBinKey()); });
     menu.addAction(icon(QStringLiteral("folder")), tr("New Bin"), this,
         [this] { createBin(tr("New Bin"), currentBinKey()); });
     menu.addAction(icon(QStringLiteral("smart_bin")), tr("New Smart Bin…"), this,
@@ -363,6 +373,10 @@ void MediaPoolPanel::showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos)
     default:
         menu.addAction(icon(QStringLiteral("folder")), tr("New Bin"), this,
             [this, key] { createBin(tr("New Bin"), key); });
+        // Project bins (and Master) only: power bins hold no folder structure of their own.
+        if (kind != BinList::RowKind::PowerRoot && kind != BinList::RowKind::PowerBin)
+            menu.addAction(icon(QStringLiteral("import")), tr("Import Media Folder…"), this,
+                [this, key] { importFolderWithDialog(key); });
         if (kind != BinList::RowKind::PowerRoot && kind != BinList::RowKind::PowerBin)
             menu.addAction(icon(QStringLiteral("smart_bin")), tr("New Smart Bin…"), this,
                 &MediaPoolPanel::newSmartBinWithDialog);
