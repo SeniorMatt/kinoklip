@@ -6,6 +6,11 @@ projects and about effects on the Edit page. Each part below is released on its 
 milestone. After v4 Kinoklip goes public and releases become betas (roadmap.md). Everything follows [clean-room.md](clean-room.md): the Project Manager and the effects
 behave the way a Resolve user expects, written from general knowledge, never from Resolve itself.
 
+## Releases (owner decision 2026-11-03)
+- **0.4.0**: Project Manager, single-file projects (with Pack / Unpack / Compact) and viewer guides.
+  Effects batch 1 (keying and 23 more) was already merged and ships with it.
+- **0.4.1**: effects batch 2 and later effect batches.
+
 ## Order
 1. **Project Manager** first (owner: "first of all").
 2. **Single-file projects** next. The low-level container (reading and writing the file, playing
