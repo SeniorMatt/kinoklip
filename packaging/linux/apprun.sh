@@ -264,8 +264,21 @@ refresh_desktop_caches() {
     _dh="$(data_home)"
     command -v update-mime-database >/dev/null 2>&1 && update-mime-database "$_dh/mime" >/dev/null 2>&1
     command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$_dh/applications" >/dev/null 2>&1
-    # KDE reads its own cache; rebuild it in the background if available
-    command -v kbuildsycoca6 >/dev/null 2>&1 && (kbuildsycoca6 >/dev/null 2>&1 &)
+    # KDE reads its own cache; rebuild it in the background if available. Then tell running KDE
+    # apps (Plasma's task manager, menus) to drop their cached icons: without the iconChanged
+    # signal Plasma kept showing an old icon of ours until the next login.
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+        (
+            kbuildsycoca6 >/dev/null 2>&1
+            if command -v dbus-send >/dev/null 2>&1; then
+                dbus-send --session --type=signal /KIconLoader org.kde.KIconLoader.iconChanged \
+                    int32:0 >/dev/null 2>&1
+            elif command -v gdbus >/dev/null 2>&1; then
+                gdbus emit --session --object-path /KIconLoader \
+                    --signal org.kde.KIconLoader.iconChanged 0 >/dev/null 2>&1
+            fi
+        ) &
+    fi
     return 0
 }
 
