@@ -8,6 +8,7 @@
 #include "ui/common/PanelFrame.h"
 
 #include <QImage>
+#include <QPointF>
 #include <QPointer>
 
 #include <cstdint>
@@ -74,7 +75,8 @@ public:
         Fit,
         Percent50,
         Percent100,
-        Percent200
+        Percent200,
+        Custom ///< any other factor (mouse wheel); the header shows its percentage
     };
 
     /// Creates a viewer in @p mode.
@@ -116,9 +118,29 @@ public:
     /// Source mode: the marked range of the loaded clip (whole clip where unmarked).
     [[nodiscard]] std::optional<SourceRange> sourceSelection() const;
 
-    /// Picture zoom.
+    /// Picture zoom (a preset; Zoom::Custom is ignored). Fit also resets the pan.
     void setZoom(Zoom zoom);
-    [[nodiscard]] Zoom zoom() const { return m_zoom; }
+    /// The preset matching zoomFactor(), else Zoom::Custom.
+    [[nodiscard]] Zoom zoom() const;
+
+    // ---- Zoom and pan (ViewerNavigation.cpp, spec 41.18 - 41.24) ----
+
+    /// Sets the zoom in device px per timeline px (0 = Fit), clamped to ViewerPicture's
+    /// range, keeping the picture centre where it is.
+    void setZoomFactor(double zoom);
+    /// 0 at Fit, else device px per timeline px.
+    [[nodiscard]] double zoomFactor() const;
+    /// The zoom shown now: zoomFactor(), or the fitted picture's factor at Fit.
+    [[nodiscard]] double effectiveZoom() const;
+    /// Zooms to @p zoom (> 0) keeping the picture point under @p anchor (surface widget px)
+    /// in place (mouse wheel).
+    void zoomAt(double zoom, QPointF anchor);
+    /// Pan offset (surface widget px of the picture centre from the surface centre; only
+    /// while zoomed). Clamped so a part of the picture stays visible.
+    void setPan(QPointF pan);
+    [[nodiscard]] QPointF pan() const;
+    /// Fit to window (Shift+Z with focus in the viewer, the header's Fit, middle double-click).
+    void zoomToFit();
     /// Shows/hides header, scrub bar and transport (full-screen viewer shows only the picture).
     void setChromeVisible(bool visible);
 
@@ -251,6 +273,15 @@ private:
     [[nodiscard]] QString matchSourceKey(const QKeyEvent* key) const;
     [[nodiscard]] Timeline* boundTimeline() const { return m_boundTimeline; }
     void setupMulticam();
+    /// Applies zoom and pan to the surface; overlays, rulers, header and output follow.
+    void applyView(double zoom, QPointF pan);
+    void updateZoomBox();
+    /// Wheel / middle drag / Space+drag / Shift+Z handling (ViewerNavigation.cpp), fed by an
+    /// application event filter (the picture's child overlays get the mouse first).
+    bool navigationEvent(QObject* watched, QEvent* event);
+    void setHandArmed(bool armed);
+    void setupNavigation();
+    friend class ViewerNavigationFilter;
     void updateMulticam();
     void leaveMulticamContent();
 
@@ -309,7 +340,17 @@ private:
     QComboBox* m_zoomBox = nullptr;
     QComboBox* m_qualityBox = nullptr;
     QToolButton* m_playButton = nullptr;
-    Zoom m_zoom = Zoom::Fit;
+    /// Mouse pan in progress (middle button, or left while Space is held).
+    struct PanDrag
+    {
+        Qt::MouseButton button = Qt::NoButton;
+        QPointF lastGlobal;
+    };
+    PanDrag m_panDrag;
+    bool m_handArmed = false; ///< Space held over the zoomed picture: left drag pans
+    bool m_handUsed = false; ///< a pan happened while Space was held (no play on release)
+    QObject* m_navigationFilter = nullptr; ///< the application event filter (owned)
+    bool m_coalesceOutput = false; ///< applyView() from the wheel: output size update deferred
     QPoint m_dragStart;
     bool m_dragArmed = false;
     QTimer* m_resizeSettle = nullptr; ///< coalesces output-size updates while resizing
