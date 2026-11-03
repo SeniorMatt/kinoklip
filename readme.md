@@ -30,3 +30,6 @@ third-party notices are inside the bundle under `usr/share/doc/kinoklip/`.
 ## AI disclosure
 This project was built entirely with AI: the code, tests and documentation were written by
 Anthropic's Claude (Claude Code), directed and tested by the project owner.
+
+## Support
+If you want to support the project: [ko-fi.com/seniormatthew](https://ko-fi.com/seniormatthew)
