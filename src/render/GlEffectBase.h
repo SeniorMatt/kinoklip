@@ -9,6 +9,7 @@
 
 #include <QSizeF>
 
+#include <array>
 #include <memory>
 #include <string>
 
@@ -122,6 +123,71 @@ protected:
     }
 
     GlProgram m_program;
+};
+
+/// Shared main() of the pointwise colour effects: un-premultiply, apply(), clamp,
+/// premultiply. Transparent stays transparent. `uSecond` (unit 1) is free for a look-up
+/// texture, `uLut3d` (unit 2) for a 3D one.
+inline constexpr char kColorMain[] = R"(
+uniform sampler2D uTex;
+vec3 apply(vec3 c);
+void main()
+{
+    vec4 t = texture(uTex, vUv);
+    if (t.a <= 0.0) {
+        fragColor = vec4(0.0);
+        return;
+    }
+    fragColor = vec4(clamp(apply(straight(t)), 0.0, 1.0) * t.a, t.a);
+}
+)";
+
+/// A pointwise colour effect: GLSL `vec3 apply(vec3 c)` plus up to kMaxUniforms uniforms,
+/// filled by a per-effect setter from the ParamSet (which may also bind textures).
+class ColorEffect final : public PassEffect
+{
+public:
+    static constexpr int kMaxUniforms = 6;
+    using Names = std::array<const char*, kMaxUniforms>;
+    using Setter = void (*)(GlKit& kit, const GLint* loc, const EffectInput& in);
+    using Identity = bool (*)(const ParamSet& p, int64_t frame);
+
+    ColorEffect(const char* name, const char* body, Names names, Setter setter, Identity identity)
+        : m_name(name)
+        , m_body(body)
+        , m_names(names)
+        , m_setter(setter)
+        , m_identity(identity)
+    { }
+
+    bool initialize(GlKit& kit, QString* why) override
+    {
+        const std::string source = std::string(kColorMain) + m_body;
+        if (!build(kit, m_name, source.c_str(), why, true))
+            return false;
+        for (int i = 0; i < kMaxUniforms; ++i)
+            m_loc[i] = m_names[size_t(i)] ? uniform(kit, m_names[size_t(i)]) : -1;
+        return true;
+    }
+    bool isIdentity(const ParamSet& p, int64_t f) const override
+    {
+        return m_identity && m_identity(p, f);
+    }
+    PooledTarget apply(GlKit& kit, const EffectInput& in) override
+    {
+        PooledTarget out = begin(kit, *in.layer);
+        m_setter(kit, m_loc, in);
+        draw(kit, *in.layer);
+        return out;
+    }
+
+private:
+    const char* m_name;
+    const char* m_body;
+    Names m_names;
+    Setter m_setter;
+    Identity m_identity;
+    GLint m_loc[kMaxUniforms] = {-1, -1, -1, -1, -1, -1};
 };
 
 } // namespace kk::render::fx

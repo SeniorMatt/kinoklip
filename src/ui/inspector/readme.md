@@ -8,7 +8,8 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 |---|---|
 | `InspectorPanel.h` | the panel: header, five tabs (Video / Audio / Effects / Title / Transition), structure tracking, undo protocol (implements `ParamEditHost`) |
 | `ParamGroupBox.h` | one collapsible section (Transform, Cropping, an effect instance, a transition) with a shared `QGridLayout` |
-| `ParamRows.h` | one editor row per `ParamDescriptor`: number, bool, choice, colour, string, title text, font |
+| `ParamRows.h` | one editor row per `ParamDescriptor`: number, bool, choice, colour, string, title text, font, curve (a `CurveEditor` graph), file (name + Browse) |
+| `CurveEditor.h` | the tone-curve graph of Curve parameters: drag a point (one undo step), click to add, double-click / right-click to remove |
 | `InspectorMasks.cpp` | the Video tab's Masks section (part of `InspectorPanel`): add buttons per shape, one group per mask (enable, edit in the viewer = `SelectionModel::setActiveMask()`, reorder, delete, section diamond, shape row), rows from the `builtin.mask` descriptor with `ParamScope::Mask` |
 | `ParamAccess.h` | `ParamRef` (clip, scope, effect id, key) and the read/write functions that map a descriptor parameter onto `ClipData` |
 | `ParamEditHost.h` | the interface rows use to read clips and make undoable edits (`isMixed()`: the selected clips differ) |
@@ -50,9 +51,12 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 - **Shortcuts.** `clip.add_keyframe` toggles a key on the parameter the user touched last;
   `clip.prev_keyframe` / `clip.next_keyframe` jump across every animated parameter shown.
 - **Eyedropper.** A Color row whose descriptor has `viewerPicker` (Chroma Key's Key Color)
-  has a checkable picker button in the keyframe column. It calls
+  has a checkable picker button in the keyframe column; a Double row with `viewerPicker` (HSL
+  Key's Hue) has one after its keyframe buttons, and the pick writes the colour's hue. It calls
   `ParamEditHost::setColorPicking()`, which sets `SelectionModel::colorPicker()`; the timeline
   viewer's `ColorPickOverlay` does the pick and clears it, and `refresh()` unchecks the button.
+- **Files.** A File row asks `ParamEditHost::pickFile()` (the InspectorPanel shows a file
+  dialog; tests inject a picker with `setFilePicker()`) and stores the absolute path.
 - **Drops.** `mime::Effect` dropped on the inspector applies an effect to the shown clip, or a
   transition to the end nearer the playhead.
 

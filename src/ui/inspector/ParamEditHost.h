@@ -9,6 +9,7 @@
 #include <functional>
 
 class QColor;
+class QString;
 
 namespace kk {
 
@@ -63,6 +64,16 @@ public:
     }
     /// Asks the user for a colour (modal). Returns an invalid colour if cancelled.
     [[nodiscard]] virtual QColor pickColor(const QColor& initial, const QString& title) = 0;
+    /// Asks the user for a file to open (modal; File parameters). @p filter is a file dialog
+    /// name filter. Returns an empty string if cancelled. Default: cancelled.
+    [[nodiscard]] virtual QString pickFile(
+        const QString& current, const QString& title, const QString& filter)
+    {
+        (void)current;
+        (void)title;
+        (void)filter;
+        return {};
+    }
 };
 
 } // namespace kk

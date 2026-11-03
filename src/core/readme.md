@@ -268,10 +268,16 @@ the absolute path no longer exists.
    (id = stable snake_case string stored in project files); v4 video effects go to
    `registerVideoEffects()` in `BuiltinVideoEffects.cpp` with a library folder
    (`EffectDescriptor::group`, one of `effectgroups::`), their ids and keys in
-   `VideoEffectKeys.h`. Builders: `EffectBuilders.h`.
+   `VideoEffectKeys.h` (the second batch: `registerVideoEffects2()` in
+   `BuiltinVideoEffects2.cpp`). Builders: `EffectBuilders.h`.
 2. Implement the pixels in `src/render` keyed by the same id. The Inspector picks it up
-   automatically from the descriptor; a Color parameter with `viewerPicker` gets the viewer
-   eyedropper (`SelectionModel::colorPicker()`).
+   automatically from the descriptor; a Color parameter (or a Double hue) with `viewerPicker`
+   gets the viewer eyedropper (`SelectionModel::colorPicker()`).
+3. Parameter types: Double / Int (keyframable), Bool, Color, Choice, String, **Curve** (tone
+   curve points as text, `CurveParam.h`: `parse()`, `format()`, monotone `evaluate()`; edited
+   with the Inspector's curve graph) and **File** (an absolute path; `FileParams.h` stores it
+   in project files as {file, relative} so a moved project folder finds it again;
+   `ParamDescriptor::fileFilter` is the dialog filter). Every non-scalar type is a static.
 
 **A new field in ClipData/TrackData/TimelineData:**
 1. Add it with a default and a `///` comment (units!).

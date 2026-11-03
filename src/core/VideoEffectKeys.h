@@ -34,6 +34,37 @@ inline constexpr char Ripple[] = "ripple";
 inline constexpr char Wave[] = "wave";
 inline constexpr char FeatheredCrop[] = "feathered_crop";
 inline constexpr char Stroke[] = "stroke";
+// Batch 2 (BuiltinVideoEffects2.cpp)
+inline constexpr char Curves[] = "curves";
+inline constexpr char HslAdjust[] = "hsl_adjust";
+inline constexpr char ApplyLut[] = "apply_lut";
+inline constexpr char Vibrance[] = "vibrance";
+inline constexpr char ChannelMixer[] = "channel_mixer";
+inline constexpr char UnsharpMask[] = "unsharp_mask";
+inline constexpr char TiltShift[] = "tilt_shift";
+inline constexpr char LensBlur[] = "lens_blur";
+inline constexpr char NoiseReduction[] = "noise_reduction";
+inline constexpr char LightRays[] = "light_rays";
+inline constexpr char Bloom[] = "bloom";
+inline constexpr char Halation[] = "halation";
+inline constexpr char LensFlare[] = "lens_flare";
+inline constexpr char Pixelate[] = "pixelate";
+inline constexpr char Halftone[] = "halftone";
+inline constexpr char Scanlines[] = "scanlines";
+inline constexpr char PencilSketch[] = "pencil_sketch";
+inline constexpr char Abstraction[] = "abstraction";
+inline constexpr char Prism[] = "prism";
+inline constexpr char Duotone[] = "duotone";
+inline constexpr char Twirl[] = "twirl";
+inline constexpr char BulgePinch[] = "bulge_pinch";
+inline constexpr char Kaleidoscope[] = "kaleidoscope";
+inline constexpr char MirrorSplit[] = "mirror_split";
+inline constexpr char CornerPin[] = "corner_pin";
+inline constexpr char CameraShake[] = "camera_shake";
+inline constexpr char Echo[] = "echo";
+inline constexpr char Strobe[] = "strobe";
+inline constexpr char Flicker[] = "flicker";
+inline constexpr char Tile[] = "tile";
 } // namespace fxid
 
 /// Parameter keys. QStringLiteral keeps the renderer's per-frame lookups allocation-free.
@@ -114,6 +145,65 @@ inline const QString Feather = QStringLiteral("feather");
 inline const QString Width = QStringLiteral("width");
 inline const QString Position = QStringLiteral("position");
 inline const QString Opacity = QStringLiteral("opacity");
+// Batch 2: colour
+inline const QString MasterCurve = QStringLiteral("masterCurve");
+inline const QString RedCurve = QStringLiteral("redCurve");
+inline const QString GreenCurve = QStringLiteral("greenCurve");
+inline const QString BlueCurve = QStringLiteral("blueCurve");
+inline const QString HueShift = QStringLiteral("hueShift");
+inline const QString Saturation = QStringLiteral("saturation");
+inline const QString Lightness = QStringLiteral("lightness");
+inline const QString Range = QStringLiteral("range"); ///< HSL adjust: all or one hue range
+inline const QString LutFile = QStringLiteral("lutFile");
+inline const QString Vibrance = QStringLiteral("vibrance");
+/// Channel mixer: output channel from input channel (rg = red output from green input).
+inline const QString MixRR = QStringLiteral("rr");
+inline const QString MixRG = QStringLiteral("rg");
+inline const QString MixRB = QStringLiteral("rb");
+inline const QString MixGR = QStringLiteral("gr");
+inline const QString MixGG = QStringLiteral("gg");
+inline const QString MixGB = QStringLiteral("gb");
+inline const QString MixBR = QStringLiteral("br");
+inline const QString MixBG = QStringLiteral("bg");
+inline const QString MixBB = QStringLiteral("bb");
+inline const QString ShadowColor = QStringLiteral("shadowColor");
+inline const QString HighlightColor = QStringLiteral("highlightColor");
+// Batch 2: blur, light, stylize
+inline const QString FocusWidth = QStringLiteral("focusWidth");
+inline const QString Transition = QStringLiteral("transition");
+inline const QString Highlights = QStringLiteral("highlights");
+inline const QString Streaks = QStringLiteral("streaks");
+inline const QString Ghosts = QStringLiteral("ghosts");
+inline const QString Shape = QStringLiteral("shape");
+inline const QString BackgroundColor = QStringLiteral("backgroundColor");
+inline const QString Mode = QStringLiteral("mode");
+inline const QString Spacing = QStringLiteral("spacing");
+inline const QString Thickness = QStringLiteral("thickness");
+inline const QString ColorAmount = QStringLiteral("colorAmount");
+inline const QString Edges = QStringLiteral("edges");
+inline const QString RepeatEdges = QStringLiteral("repeatEdges");
+// Batch 2: distort, transform, time
+inline const QString Segments = QStringLiteral("segments");
+inline const QString TopLeftX = QStringLiteral("tlX");
+inline const QString TopLeftY = QStringLiteral("tlY");
+inline const QString TopRightX = QStringLiteral("trX");
+inline const QString TopRightY = QStringLiteral("trY");
+inline const QString BottomRightX = QStringLiteral("brX");
+inline const QString BottomRightY = QStringLiteral("brY");
+inline const QString BottomLeftX = QStringLiteral("blX");
+inline const QString BottomLeftY = QStringLiteral("blY");
+inline const QString Frequency = QStringLiteral("frequency");
+inline const QString Rotation = QStringLiteral("rotation");
+inline const QString MotionBlur = QStringLiteral("motionBlur");
+inline const QString Seed = QStringLiteral("seed");
+inline const QString Echoes = QStringLiteral("echoes");
+inline const QString Delay = QStringLiteral("delay");
+inline const QString Decay = QStringLiteral("decay");
+inline const QString Hold = QStringLiteral("hold");
+inline const QString Randomness = QStringLiteral("randomness");
+inline const QString OffsetX = QStringLiteral("offsetX");
+inline const QString OffsetY = QStringLiteral("offsetY");
+inline const QString Mirror = QStringLiteral("mirror");
 } // namespace fxkeys
 
 /// Values of the Choice parameters above.
@@ -128,6 +218,27 @@ inline const QString Matte = QStringLiteral("matte");
 inline const QString Status = QStringLiteral("status");
 inline const QString Outside = QStringLiteral("outside");
 inline const QString Inside = QStringLiteral("inside");
+// HSL adjust ranges (centre hues 0, 60, ..., 300 degrees)
+inline const QString All = QStringLiteral("all");
+inline const QString Reds = QStringLiteral("reds");
+inline const QString Yellows = QStringLiteral("yellows");
+inline const QString Greens = QStringLiteral("greens");
+inline const QString Cyans = QStringLiteral("cyans");
+inline const QString Blues = QStringLiteral("blues");
+inline const QString Magentas = QStringLiteral("magentas");
+// Pixelate shapes
+inline const QString Hexagons = QStringLiteral("hexagons");
+inline const QString Circles = QStringLiteral("circles");
+inline const QString Diamonds = QStringLiteral("diamonds");
+// Halftone modes
+inline const QString Mono = QStringLiteral("mono");
+inline const QString Colored = QStringLiteral("color");
+// Mirror split modes: which half is kept and mirrored onto the other
+inline const QString KeepLeft = QStringLiteral("left");
+inline const QString KeepRight = QStringLiteral("right");
+inline const QString KeepTop = QStringLiteral("top");
+inline const QString KeepBottom = QStringLiteral("bottom");
+inline const QString Quad = QStringLiteral("quad");
 } // namespace fxchoice
 
 } // namespace kk

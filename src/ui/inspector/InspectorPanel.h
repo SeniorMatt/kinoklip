@@ -84,6 +84,13 @@ public:
         m_colorPicker = std::move(picker);
     }
 
+    /// Replaces the file dialog of File parameters (tests). Returns an empty path to cancel.
+    void setFilePicker(
+        std::function<QString(const QString&, const QString&, const QString&)> picker)
+    {
+        m_filePicker = std::move(picker);
+    }
+
     /// Toggles a keyframe on the parameter the user touched last (Add Keyframe shortcut).
     void toggleKeyframeOnActiveParam();
     /// Moves the playhead to the previous / next keyframe of any parameter of the shown clips.
@@ -124,6 +131,8 @@ private:
     void seekLocalFrame(quint64 clipId, int64_t localFrame) override;
     void setActiveParam(const ParamRef& ref, const ParamDescriptor& desc) override;
     [[nodiscard]] QColor pickColor(const QColor& initial, const QString& title) override;
+    [[nodiscard]] QString pickFile(
+        const QString& current, const QString& title, const QString& filter) override;
     void setColorPicking(const ParamRef& ref, bool on) override;
     [[nodiscard]] bool isColorPicking(const ParamRef& ref) const override;
     [[nodiscard]] bool isMixed(const ParamRef& ref, const ParamDescriptor& desc) const override;
@@ -189,6 +198,7 @@ private:
     std::optional<ParamRef> m_activeRef;
     ParamDescriptor m_activeDesc;
     std::function<QColor(const QColor&, const QString&)> m_colorPicker;
+    std::function<QString(const QString&, const QString&, const QString&)> m_filePicker;
     bool m_updatingStyleSheet = false; ///< re-entrancy guard of changeEvent()
 };
 
