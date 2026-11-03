@@ -7,8 +7,8 @@
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
-#include "core/Project.h"
 #include "core/Plural.h"
+#include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Subtitles.h"
 #include "core/Timeline.h"
@@ -30,11 +30,13 @@
 #include <QContextMenuEvent>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMenuBar>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTabWidget>
-#include <QTimer>
 #include <QTest>
+#include <QTimer>
 #include <QUndoStack>
 
 #include <memory>
@@ -262,8 +264,36 @@ private slots:
         QTest::mouseDClick(w->viewport(), Qt::LeftButton, Qt::NoModifier,
             clipCentre(w, f.project.timeline()->data(), video));
         QCOMPARE(source->sourceMedia(), f.ids[1]);
-        QCOMPARE(int(f.project.timeline()->data().track(TrackRef {TrackType::Video, 0})->clips.size()),
+        QCOMPARE(
+            int(f.project.timeline()->data().track(TrackRef {TrackType::Video, 0})->clips.size()),
             1); // nothing moved
+    }
+
+    // Spec 23.9: Alt+V (Paste Attributes), Alt+F (Find in Media Pool) and Alt+M (Delete
+    // Marker) reach their commands: the menu bar titles drop the mnemonic of a bound
+    // Alt+letter (Qt ignored both as an ambiguous shortcut), the others keep theirs, and a
+    // rebind frees it again.
+    void spec23_9_altShortcutsWinOverMenuMnemonics()
+    {
+        Fixture f;
+        QStringList titles;
+        for (QAction* a : f.window->menuBar()->actions())
+            titles.append(a->text());
+        QVERIFY2(titles.contains(QStringLiteral("View")), qPrintable(titles.join('|')));
+        QVERIFY(titles.contains(QStringLiteral("File")));
+        QVERIFY(titles.contains(QStringLiteral("Mark")));
+        QVERIFY(titles.contains(QStringLiteral("&Edit")));
+        QVERIFY(titles.contains(QStringLiteral("&Playback")));
+
+        QSignalSpy paste(f.action("edit.paste_attributes"), &QAction::triggered);
+        QTest::keyClick(f.window.get(), Qt::Key_V, Qt::AltModifier);
+        QCOMPARE(paste.count(), 1);
+
+        f.actions.setShortcuts(QStringLiteral("edit.paste_attributes"), {});
+        bool view = false;
+        for (QAction* a : f.window->menuBar()->actions())
+            view = view || a->text() == QLatin1String("&View");
+        QVERIFY(view);
     }
 
     // Spec 33.32: counted messages read "1 caption" / "2 captions", never "1 caption(s)"

@@ -194,6 +194,10 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     }
 
     buildMenus();
+    // A rebound key may take or free a menu title's Alt+letter.
+    connect(ctx.actions, &ActionRegistry::shortcutsChanged, this, &MainWindow::updateMenuMnemonics);
+    connect(
+        ctx.actions, &ActionRegistry::activeProfileChanged, this, &MainWindow::updateMenuMnemonics);
     buildInterfaceBar();
     connectAppActions();
     connectPanelToggles();
@@ -296,6 +300,7 @@ void MainWindow::buildMenus()
         known.append(category.id);
         QMenu* menu = menuBar()->addMenu(category.title);
         menu->setObjectName(QStringLiteral("menu:") + category.id);
+        menu->menuAction()->setProperty("kkTitle", category.title);
         fillMenu(menu, category.id);
         if (category.id == QLatin1String("help"))
             helpMenu = menu;
@@ -317,6 +322,7 @@ void MainWindow::buildMenus()
         guard->setObjectName(QStringLiteral("MenuBarGrabGuard"));
         menuBar()->installEventFilter(guard);
     }
+    updateMenuMnemonics();
     // File > Open Recent lists files, not registered commands: filled by ProjectController.
     if (auto* recent = menuBar()->findChild<QMenu*>(QStringLiteral("menu:file.recent")))
         m_projectController->attachRecentMenu(recent);
@@ -324,6 +330,20 @@ void MainWindow::buildMenus()
     ViewerOverlaySettings::instance().attachPresetMenus(
         menuBar()->findChild<QMenu*>(QStringLiteral("menu:view.guide_presets")),
         menuBar()->findChild<QMenu*>(QStringLiteral("menu:view.guide_presets_delete")));
+}
+
+void MainWindow::updateMenuMnemonics()
+{
+    for (QAction* item : menuBar()->actions()) {
+        const QString title = item->property("kkTitle").toString();
+        const qsizetype amp = title.indexOf(QLatin1Char('&'));
+        if (amp < 0 || amp + 1 >= title.size())
+            continue;
+        const QKeySequence alt(QKeyCombination(
+            Qt::AltModifier, Qt::Key(QKeySequence(title.mid(amp + 1, 1).toUpper())[0].key())));
+        const bool taken = !m_ctx.actions->actionForShortcut(alt).isEmpty();
+        item->setText(taken ? QString(title).remove(amp, 1) : title);
+    }
 }
 
 void MainWindow::buildInterfaceBar()
