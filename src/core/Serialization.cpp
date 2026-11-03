@@ -7,6 +7,7 @@
 #include "core/MixerJson.h"
 #include "core/Retime.h"
 #include "core/SmartBins.h"
+#include "core/ViewerGuides.h"
 #include "media/MediaSource.h"
 
 #include <QFileInfo>
@@ -695,6 +696,8 @@ QJsonObject timelineToJson(const TimelineData& data)
     }
     if (data.mixer != MixerData {}) // format 12; omitted when default (older files identical)
         o[QLatin1String("mixer")] = mixerToJson(data.mixer);
+    if (!data.guides.empty()) // format 14; omitted when none (older files identical)
+        o[QLatin1String("guides")] = guides::toJson(data.guides);
     return o;
 }
 
@@ -741,6 +744,8 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
     // do not exist are dropped.
     data.mixer = mixerFromJson(o.value(QLatin1String("mixer")).toObject());
     repairRoutes(data.mixer, data.audioTracks);
+    // Format 14: viewer guides (absent = none, what every older timeline has).
+    data.guides = guides::fromJson(o.value(QLatin1String("guides")).toArray());
 
     for (TrackType type : {TrackType::Video, TrackType::Audio, TrackType::Subtitle}) {
         for (TrackData& track : data.tracks(type)) {
