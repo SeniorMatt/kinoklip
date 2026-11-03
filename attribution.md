@@ -27,6 +27,16 @@ FFmpeg (built with GPL components, GPL-2.0-or-later / GPL-3.0) and the codec lib
 libraries they need. The full list and every licence text ship inside the bundle under
 `usr/share/doc/kinoklip/`.
 
+### Codecs and patents
+FFmpeg in the bundles is configured with `--enable-gpl --enable-version3` and without
+`--enable-nonfree`, so no non-redistributable component (such as fdk-aac) is included; AAC is
+encoded by FFmpeg's own native encoder. H.264 (x264, OpenH264), H.265 / HEVC (x265) and AAC are
+covered by patents in some countries. Kinoklip is distributed free of charge as open-source software;
+whether a patent licence is needed to use these formats depends on the user's country and use, and
+is the user's responsibility. Builds for repositories that exclude patented codecs (for example
+Fedora or Flathub) would take these codecs from the system or a codecs extension instead of
+bundling them.
+
 ## Name and logo
 The name "Kinoklip" and the logos above belong to the project owner and are not under the GPL: they
 may be used unmodified as part of Kinoklip, but forks must replace them. Terms:

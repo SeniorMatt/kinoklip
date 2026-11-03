@@ -49,10 +49,15 @@ include GPL FFmpeg components; third-party notices are inside the bundle under
   [attribution.md](attribution.md).
 - **No warranty.** Kinoklip is provided "as is", without any warranty, as stated in the GPL
   (sections 15 and 16 of [license.md](license.md)). It is beta software: keep backups.
-- **Codecs.** Some video and audio formats (for example H.264, H.265 and AAC) are covered by
-  patents in some countries. The bundles use open-source implementations of them; whether you need
-  a patent licence to use them depends on where you live and what you do with them, and is your
-  responsibility.
+- **Codecs and patents.** The AppImage includes FFmpeg with open-source codec libraries, so common
+  formats work without extra downloads: H.264 (x264, OpenH264), H.265 / HEVC (x265), AAC (FFmpeg's
+  own encoder), AV1 (dav1d, libaom, SVT-AV1), VP8 / VP9 (libvpx), Opus, Vorbis and MP3 (LAME).
+  FFmpeg is built without its "non-free" option, so everything in the bundle can be shared under the
+  GPL. Some of these formats, mainly H.264, H.265 and AAC, are covered by patents in some countries
+  (for example the United States). Whether you need a patent licence to use them depends on where
+  you live and what you do with them (personal or commercial use), and is your responsibility. This
+  is general information, not legal advice. The full list of bundled libraries and their licences
+  is in [attribution.md](attribution.md).
 
 ## AI disclosure
 This project was built with AI: the code, tests and documentation were written by AI, directed
