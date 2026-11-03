@@ -150,6 +150,42 @@ private slots:
         QCOMPARE(f.node(merge)->inputs.value(nodeports::Background).nodeId, in);
     }
 
+    void sideInputsFaceTheirSource()
+    {
+        // Spec 42b.24: inputs face their source. A side input (foreground, mask) sits on the
+        // top edge and moves to the bottom when its source is clearly below the tile; the main
+        // input leaves the left edge for a source to the right. Links never loop round.
+        Fixture f;
+        const quint64 merge = f.session->addNodeAt(nodetypes::Merge, QPointF(6, 0));
+        const quint64 above = f.session->addNodeAt(nodetypes::Background, QPointF(0, -3));
+        const quint64 below = f.session->addNodeAt(nodetypes::Text, QPointF(0, 3));
+        const QRectF r = f.editor->tileRect(*f.node(merge));
+        QCOMPARE(f.editor->inputPos(*f.node(merge), nodeports::Mask).y(), r.top()); // free
+        QVERIFY(f.session->connectNodes(above, merge, nodeports::Foreground));
+        QVERIFY(f.session->connectNodes(below, merge, nodeports::Mask));
+        QCOMPARE(f.editor->inputSide(*f.node(merge), nodeports::Foreground), -1);
+        QCOMPARE(f.editor->inputSide(*f.node(merge), nodeports::Mask), 1);
+        QCOMPARE(f.editor->inputSide(*f.node(merge), nodeports::Background), 0);
+        const QPointF mask = f.editor->inputPos(*f.node(merge), nodeports::Mask);
+        QCOMPARE(mask.y(), r.bottom());
+        QCOMPARE(f.editor->inputPos(*f.node(merge), nodeports::Foreground).y(), r.top());
+        // A main input fed from above and to the right comes in across the top, next to the
+        // foreground (the two spread along the edge in the order of their sources).
+        QCOMPARE(f.editor->inputSide(*f.node(merge), nodeports::Background), 0);
+        const quint64 right = f.session->addNodeAt(nodetypes::Background, QPointF(8, -3));
+        QVERIFY(f.session->connectNodes(right, merge, nodeports::Background));
+        QCOMPARE(f.editor->inputSide(*f.node(merge), nodeports::Background), -1);
+        const QPointF bgPort = f.editor->inputPos(*f.node(merge), nodeports::Background);
+        const QPointF fgPort = f.editor->inputPos(*f.node(merge), nodeports::Foreground);
+        QCOMPARE(bgPort.y(), r.top());
+        QVERIFY(std::abs(bgPort.x() - fgPort.x()) > r.width() / 4);
+        QVERIFY(fgPort.x() < bgPort.x()); // ordered like their sources: no crossing links
+        // The port is grabbed where it is drawn: dragging it away disconnects.
+        f.drag(mask, QPointF(500, 450));
+        QVERIFY(!f.node(merge)->inputs.value(nodeports::Mask).isConnected());
+        QCOMPARE(f.editor->inputPos(*f.node(merge), nodeports::Mask).y(), r.top());
+    }
+
     void dragLinkEndAwayDisconnects()
     {
         Fixture f;

@@ -149,6 +149,11 @@ void CompInspector::rebuild()
             auto* l = new QVBoxLayout(holder);
             l->setContentsMargins(0, 0, 0, 0);
             l->addWidget(m_group);
+            if (!info || info->params.isEmpty()) {
+                // MediaIn / MediaOut: no empty group to unfold, a plain note instead.
+                m_group->hide();
+                l->addWidget(createPlaceholderContent(tr("This node has no parameters")));
+            }
             l->addStretch(1);
             m_scroll->setWidget(holder);
         }
