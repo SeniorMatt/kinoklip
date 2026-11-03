@@ -47,6 +47,10 @@ image and sound), to move around like any other file.
   - Prefer an open, documented layout (for example ZIP without compression, ZIP64) so the media can
     be recovered with standard tools even without Kinoklip.
   - Caches (thumbnails, waveforms, proxies, render cache) are not stored inside; they are rebuilt.
+- **Owner decision 2026-11-03:** New Project asks which kind to create, with **single file as
+  the default** (the choice is remembered); either kind converts to the other later. In a
+  single-file project the Media Pool bins are the only organisation needed: clips live inside the
+  file, so there are no folders on disk to keep in order.
 - **Two kinds of project**, chosen per project: **linked** (today's `.kkproj`: media stays where it
   is) and **self-contained** (the single file). Conversions both ways:
   - **Pack**: copy every used media file into the project file (Project Manager > Export as single
