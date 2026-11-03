@@ -55,6 +55,7 @@ inline void shiftClipKeys(ClipData& clip, int64_t deltaFrames)
             n.path.shiftKeys(deltaFrames);
         }
     }
+    clip.grade.shiftKeys(deltaFrames); // Color page grade: clip-local keys as well
 }
 
 // Moves the head of a clip by delta frames, keeping the content at every remaining timeline

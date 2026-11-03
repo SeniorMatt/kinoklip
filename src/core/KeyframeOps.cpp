@@ -25,6 +25,8 @@ const QString kTitle = QStringLiteral("title");
 const QString kEffect = QStringLiteral("effect");
 const QString kRetime = QStringLiteral("retime");
 const QString kMask = QStringLiteral("mask");
+const QString kGrade = QStringLiteral("grade");
+const QString kGradeWindow = QStringLiteral("gradewin");
 
 // Parses "<head>/<id>/<key>" (effect and mask paths). Returns false for malformed paths.
 bool splitIdPath(const QString& path, qsizetype slash, quint64* id, QString* key)
@@ -59,6 +61,17 @@ auto resolveSet(Clip& clip, const QString& path, QString* key) -> decltype(&clip
         }
         return nullptr;
     }
+    if (head == kGrade || head == kGradeWindow) {
+        quint64 id = 0;
+        if (!splitIdPath(path, slash, &id, key))
+            return nullptr;
+        if (head == kGradeWindow) {
+            auto* w = clip.grade.window(id);
+            return w ? &w->params : nullptr;
+        }
+        auto* node = clip.grade.node(id);
+        return node ? &node->params : nullptr;
+    }
     if (head == kEffect) {
         const qsizetype slash2 = path.indexOf(QLatin1Char('/'), slash + 1);
         if (slash2 < 0)
@@ -92,6 +105,10 @@ double defaultBase(const ClipData& clip, const QString& path, const QString& key
 {
     if (path.startsWith(kMask))
         return maskkeys::defaultValue(key);
+    if (path.startsWith(kGradeWindow + QLatin1Char('/')))
+        return gradewindowkeys::defaultValue(key);
+    if (path.startsWith(kGrade + QLatin1Char('/')))
+        return gradekeys::defaultValue(key);
     if (path.startsWith(kEffect)) {
         for (const EffectInstance& fx : clip.effects) {
             if (path.startsWith(effectPath(fx.id, QString()))) {
@@ -150,6 +167,11 @@ void forEachValue(const ClipData& clip, F&& fn)
     }
     for (const EffectInstance& fx : clip.effects)
         visit(fx.params, effectPath(fx.id, QString()));
+    for (const GradeNode& node : clip.grade.nodes) {
+        visit(node.params, gradePath(node.id, QString()));
+        for (const GradeWindow& w : node.windows)
+            visit(w.params, gradeWindowPath(w.id, QString()));
+    }
     visit(clip.retime, kRetime + QLatin1Char('/'));
 }
 
@@ -196,6 +218,16 @@ QString memberPath(const QString& member, const QString& key)
 QString effectPath(quint64 effectId, const QString& key)
 {
     return kEffect + QLatin1Char('/') + QString::number(effectId) + QLatin1Char('/') + key;
+}
+
+QString gradePath(quint64 nodeId, const QString& key)
+{
+    return kGrade + QLatin1Char('/') + QString::number(nodeId) + QLatin1Char('/') + key;
+}
+
+QString gradeWindowPath(quint64 windowId, const QString& key)
+{
+    return kGradeWindow + QLatin1Char('/') + QString::number(windowId) + QLatin1Char('/') + key;
 }
 
 QString maskPath(quint64 maskId, const QString& key)
@@ -314,6 +346,38 @@ QVector<AnimatedParam> animatedParams(const ClipData& clip)
         QSet<QString> listed;
         const QString prefix = effectPath(fx.id, QString());
         appendGroup(out, listed, fx.params, prefix, prefix.chopped(1), reg.find(fx.type), true);
+    }
+    // Color page grade: one group per node with keyframes ("Color 01", ...), node keys first,
+    // then its windows' keys ("Window 1: Center X").
+    for (int i = 0; i < clip.grade.nodes.size(); ++i) {
+        const GradeNode& node = clip.grade.nodes[i];
+        if (!node.isAnimated())
+            continue;
+        const QString groupId = gradePath(node.id, QString()).chopped(1);
+        const QString groupName = QCoreApplication::translate("kk::keyframeops", "Color %1")
+                                      .arg(gradeNodeName(clip.grade, i));
+        for (const QString& key : gradekeys::allKeys()) {
+            const auto it = node.params.values.constFind(key);
+            if (it == node.params.values.cend() || !it->isAnimated())
+                continue;
+            const auto [lo, hi] = gradekeys::range(key);
+            out.append(
+                {gradePath(node.id, key), groupId, groupName, gradekeys::label(key), lo, hi});
+        }
+        for (int w = 0; w < node.windows.size(); ++w) {
+            const GradeWindow& window = node.windows[w];
+            const QString prefix
+                = QCoreApplication::translate("kk::keyframeops", "Window %1: ").arg(w + 1);
+            for (const QString& key : gradewindowkeys::allKeys()) {
+                const auto it = window.params.values.constFind(key);
+                if (it == window.params.values.cend() || !it->isAnimated())
+                    continue;
+                const bool angle = key == gradewindowkeys::Rotation;
+                out.append({gradeWindowPath(window.id, key), groupId, groupName,
+                    prefix + gradewindowkeys::label(key), angle ? -180.0 : 0.0,
+                    angle ? 180.0 : 1.0});
+            }
+        }
     }
     // The retime curve (speed points, core/Retime.h): source frame over clip time.
     if (const auto it = clip.retime.values.constFind(keys::RetimeFrame);

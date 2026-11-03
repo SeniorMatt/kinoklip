@@ -15,6 +15,7 @@
 #include "render/DecoderPool.h"
 #include "render/EffectMath.h"
 #include "render/Generators.h"
+#include "render/GradeEval.h"
 #include "render/RenderBackend.h"
 #include "render/RenderLog.h"
 #include "render/TimelineEval.h"
@@ -61,6 +62,7 @@ public:
         m_proxies = rq.proxies.get();
         m_nested = &tl.nested;
         m_depth = 0;
+        m_grades = !rq.bypassGrades;
         m_decoders.beginFrame();
         QImage image;
         if (rq.compositionNode) {
@@ -142,6 +144,7 @@ private:
                     continue;
                 if (tf.single && tf.single->kind == ClipKind::Adjustment
                     && hasIdentityFootprint(*tf.single, tf.single->localFrame(frame))
+                    && !isGraded(*tf.single, tf.single->localFrame(frame))
                     && std::none_of(tf.single->effects.cbegin(), tf.single->effects.cend(),
                         [](const EffectInstance& e) {
                             return e.enabled && fxmath::isPointEffect(e.type);
@@ -163,6 +166,9 @@ private:
                     drawTransition(painter, *tf.transition);
             }
         }
+        // The timeline grade (Color page): over the composite, before the captions.
+        if (m_grades && !tl.grade.isEmpty() && !gradeops::isIdentity(tl.grade, frame))
+            applyGrade(tl.grade, frame, image);
         m_below = savedBelow;
         m_timeline = savedTimeline;
         m_frame = savedFrame;
@@ -250,6 +256,8 @@ private:
         if (blend != Blend::Erase)
             applyPointEffects(clip, local,
                 m_timeline->fps.isValid() ? m_timeline->fps.toDouble() : 25.0, picture, solid);
+        if (blend != Blend::Erase && isGraded(clip, local))
+            gradePicture(clip, local, content, outScale, picture, pictureRect, solid);
         if (blend == Blend::Erase) {
             solid = QColor(Qt::white);
             picture = QImage();
@@ -482,6 +490,46 @@ private:
         }
     }
 
+    /// True if the Color page grade of @p clip changes its picture at @p local.
+    bool isGraded(const ClipData& clip, int64_t local) const
+    {
+        return m_grades && !clip.grade.isEmpty() && !gradeops::isIdentity(clip.grade, local);
+    }
+
+    /// The clip's Color page grade on its picture (after the point effects, before the crop,
+    /// masks and transform), the twin of the GPU layer pass: picture fractions map onto the
+    /// content box (@p content, centred). A solid becomes an image first: a small one when the
+    /// grade has no windows (uniform result), else one at the output resolution.
+    static void gradePicture(const ClipData& clip, int64_t local, QSizeF content, double outScale,
+        QImage& picture, QRectF& pictureRect, QColor& solid)
+    {
+        constexpr int kSolidImageEdge = 8;
+        constexpr int kMaxSolidEdge = 4096;
+        if (solid.isValid()) {
+            const bool spatial = std::any_of(clip.grade.nodes.cbegin(), clip.grade.nodes.cend(),
+                [](const GradeNode& n) { return !n.windows.isEmpty(); });
+            QSize size(kSolidImageEdge, kSolidImageEdge);
+            if (spatial) {
+                size = (pictureRect.size() * outScale).toSize().expandedTo(QSize(1, 1));
+                size = size.boundedTo(QSize(kMaxSolidEdge, kMaxSolidEdge));
+            }
+            picture = QImage(size, QImage::Format_ARGB32_Premultiplied);
+            picture.fill(solid);
+            solid = QColor();
+        }
+        if (picture.isNull() || pictureRect.width() <= 0 || pictureRect.height() <= 0)
+            return;
+        // Picture pixel x <-> content x = rect.x + (x + 0.5) * rect.w / W (same for y).
+        const double px = picture.width() / pictureRect.width();
+        const double py = picture.height() / pictureRect.height();
+        grademath::PictureGeometry g;
+        g.originX = (-content.width() / 2 - pictureRect.x()) * px;
+        g.originY = (-content.height() / 2 - pictureRect.y()) * py;
+        g.width = content.width() * px;
+        g.height = content.height() * py;
+        applyGrade(prepareGrade(clip.grade, local, g), picture);
+    }
+
     static bool showsAdjustment(const TrackFrame& tf)
     {
         auto adjustment
@@ -565,6 +613,7 @@ private:
     const ProxyMap* m_proxies = nullptr;
     const NestedTimelines* m_nested = nullptr;
     int m_depth = 0;
+    bool m_grades = true; ///< apply grades (false: RenderRequest::bypassGrades)
     int64_t m_frame = 0;
     QSize m_out;
     QTransform m_scale;

@@ -522,7 +522,7 @@ private slots:
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
         f.close();
-        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), 15);
+        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), serialization::kFormatVersion);
         Project again;
         QVERIFY2(again.load(path, &error), qPrintable(error));
         QCOMPARE(*again.clipComposition(again.activeTimelineUid(), id), richComposition());

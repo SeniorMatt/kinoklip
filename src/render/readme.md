@@ -94,6 +94,7 @@ playback engine keep the rendered frames (`PlaybackEngine::onTimelineChanged()`)
         ├─ no effects/masks: ONE pass  source → crop → YUV→RGB → transform → opacity → accumulator
         └─ effects or masks: source → crop → layer (RGBA16F, layer resolution, optional margin)
                        → effect passes (ping-pong, pooled targets)
+                       → clip grade (GlGrade, Color page; a graded clip always takes this path)
                        → mask pass (GlMasks: matte × layer)
                        → transform → opacity → accumulator
         transition: A and B each drawn (as above) into an output-size temp,
@@ -174,6 +175,21 @@ helpers (`kGlslCommon`: luma, straight colour, the keyers' view output) and the 
   separable with downscaling; path blurs (directional, radial, zoom) 24 samples, two passes
   of 24 when the samples would be more than 1.5 px apart; morphology `2 x radius` fetches per
   axis in passes of at most 16 taps.
+
+### Grades (`GlGrade`, `GradeEval`, Color page)
+
+`ClipData::grade` is applied to the clip's layer after its effects and before the masks;
+`TimelineData::grade` over the accumulator after every track (before captions). `GlGrade`
+runs one pass per correcting node (plus a key pass for keyed nodes under a Layer mixer, a
+pass per mixer); curve tables, LUTs and polygon points are float textures read with
+`texelFetch`, so the CPU twin `GradeEval` (per pixel, `core/GradeMath`) gives the same pixels
+within 2 levels. `RenderRequest::bypassGrades` (viewer "bypass all") skips both and the render
+cache. Design: docs/color-page.md.
+
+### Scopes (`Scopes`)
+
+Waveform / parade / vectorscope / histogram data from a small QImage of the program frame
+(widgets in src/ui/scopes).
 
 ### Masks (`GlMasks`)
 

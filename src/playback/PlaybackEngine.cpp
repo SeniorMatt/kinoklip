@@ -185,6 +185,15 @@ void PlaybackEngine::setRenderCache(std::shared_ptr<const RenderCacheView> view)
     updateParams(false);
 }
 
+void PlaybackEngine::setBypassGrades(bool bypass)
+{
+    if (bypass == m_bypassGrades)
+        return;
+    m_bypassGrades = bypass;
+    updateParams(true);
+    Q_EMIT bypassGradesChanged(bypass);
+}
+
 void PlaybackEngine::setMediaPaths(std::shared_ptr<const MediaPathMap> media)
 {
     m_media = std::move(media);
@@ -383,6 +392,21 @@ std::future<RenderedFramePtr> PlaybackEngine::renderCompositionNode(
         outSize, currentQuality(), outputs, m_media, m_proxies);
 }
 
+std::future<RenderedFramePtr> PlaybackEngine::renderImage(int64_t frame, QSize outSize) const
+{
+    RenderRequest request;
+    request.timeline = m_videoSnapshot ? m_videoSnapshot : m_snapshot;
+    request.media = m_media;
+    request.proxies = m_proxies;
+    request.renderCache = m_renderCache;
+    request.bypassGrades = m_bypassGrades;
+    request.frame = frame;
+    request.outSize = outSize;
+    request.outputs = OutputImage;
+    request.subtitles = false;
+    return m_compositor->renderAsync(std::move(request));
+}
+
 Quality PlaybackEngine::currentQuality() const
 {
     switch (m_qualityMode) {
@@ -425,6 +449,7 @@ void PlaybackEngine::updateParams(bool rerender)
     params.media = m_media;
     params.proxies = m_proxies;
     params.renderCache = m_renderCache;
+    params.bypassGrades = m_bypassGrades;
     // The proxy resolution is applied here (relative to the timeline resolution, see
     // renderSize()); the compositor renders exactly that size.
     params.outSize = renderSize();
@@ -436,7 +461,7 @@ void PlaybackEngine::updateParams(bool rerender)
     params.outputs = m_compositor->isGpu() && allTextures ? OutputTexture : OutputImage;
     const RenderParams& old = m_scheduler.params();
     const bool contentChanged = old.timeline != params.timeline || old.media != params.media
-        || old.proxies != params.proxies;
+        || old.proxies != params.proxies || old.bypassGrades != params.bypassGrades;
     const bool changed
         = contentChanged || old.outSize != params.outSize || old.outputs != params.outputs;
     if (old.timeline != params.timeline || old.proxies != params.proxies) {

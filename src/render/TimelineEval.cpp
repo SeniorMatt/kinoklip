@@ -218,7 +218,8 @@ bool samePictures(const TimelineData& a, const TimelineData& b)
 {
     return a.uid == b.uid && a.fps == b.fps && a.width == b.width && a.height == b.height
         && a.retimeProcess == b.retimeProcess && a.videoTracks == b.videoTracks
-        && a.subtitleTracks == b.subtitleTracks && sameNestedTimelines(a.nested, b.nested);
+        && a.subtitleTracks == b.subtitleTracks && a.grade == b.grade
+        && sameNestedTimelines(a.nested, b.nested);
 }
 
 } // namespace kk::render

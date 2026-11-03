@@ -100,6 +100,8 @@ const ActionSpec kActions[] = {
     {"edit", ">cut",                  QT_TRANSLATE_NOOP("kk::StandardActions", "C&ut Page")},
     // Node editor commands of the Compositing page (keys act while the node editor has focus).
     {"edit", ">comp",                 QT_TRANSLATE_NOOP("kk::StandardActions", "Co&mpositing Page")},
+    // Grade commands of the Color page (enabled while it is shown; keys act on the page).
+    {"edit", ">color",                QT_TRANSLATE_NOOP("kk::StandardActions", "Co&lor Page")},
     {"edit", "-"},
     {"edit", "edit.keyboard_customization", QT_TRANSLATE_NOOP("kk::StandardActions", "&Keyboard Customization…")},
     {"edit", "edit.preferences",      QT_TRANSLATE_NOOP("kk::StandardActions", "Pr&eferences…")},
@@ -259,6 +261,7 @@ const ActionSpec kActions[] = {
     {"view", "view.toggle_metadata",  QT_TRANSLATE_NOOP("kk::StandardActions", "Metadata"), "panel_metadata", true},
     {"view", "view.toggle_inspector", QT_TRANSLATE_NOOP("kk::StandardActions", "Inspector"), "panel_inspector", true},
     {"view", "view.show_bin_list",    QT_TRANSLATE_NOOP("kk::StandardActions", "Show &Bin List"), "folder", true},
+    {"view", "view.video_scopes",     QT_TRANSLATE_NOOP("kk::StandardActions", "Video &Scopes"), "", true},
     {"view", "-"},
     {"view", "view.single_viewer",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Single Viewer Mode"), "single_viewer", true},
     {"view", "view.toggle_source_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Source / Timeline Viewer")},
@@ -383,6 +386,21 @@ const ActionSpec kActions[] = {
     {"comp", "comp.view_right",       QT_TRANSLATE_NOOP("kk::StandardActions", "View in &Right Viewer")},
     {"comp", "comp.fit",              QT_TRANSLATE_NOOP("kk::StandardActions", "&Fit Nodes to View")},
     {"comp", "comp.snap_grid",        QT_TRANSLATE_NOOP("kk::StandardActions", "Snap Nodes to &Grid"), "snap", true},
+
+    // ---- Color page (submenu of Edit; src/ui/color, ColorPage) ----
+    {"color", "color.add_serial",     QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Serial Node"), "add"},
+    {"color", "color.add_parallel",   QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Parallel Node")},
+    {"color", "color.add_layer",      QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Layer Node")},
+    {"color", "color.delete_node",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete Node")},
+    {"color", "-"},
+    {"color", "color.bypass_node",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Enable / Disable Current Node")},
+    {"color", "color.bypass_all",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Bypass All Grades"), "", true},
+    {"color", "color.reset_node",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Reset Node Grade")},
+    {"color", "color.reset_grade",    QT_TRANSLATE_NOOP("kk::StandardActions", "Reset &Clip Grade")},
+    {"color", "color.timeline_grade", QT_TRANSLATE_NOOP("kk::StandardActions", "Grade the &Timeline"), "", true},
+    {"color", "-"},
+    {"color", "color.grab_still",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Grab Still")},
+    {"color", "color.apply_still",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Apply Grade from Still")},
 
     // ---- Audio page / mixer (own "Audio" menu) ----
     {"audio", "audio.add_bus",          QT_TRANSLATE_NOOP("kk::StandardActions", "Add &Bus"), "add"},
@@ -584,11 +602,14 @@ void registerStandardActions(ActionRegistry& registry)
         }
     }
 
-    for (const char* id : {"view.page_color"}) {
-        QAction* a = registry.action(QLatin1String(id));
-        a->setEnabled(false);
-        a->setStatusTip(
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Coming in a later version")));
+    // Color page keys act while the page is shown and has focus (ColorPage claims them
+    // through QEvent::ShortcutOverride, like the node editor); as window shortcuts Ctrl+D and
+    // the Alt keys would clash with Edit page commands.
+    for (const QString& id : registry.menuEntries(QStringLiteral("color"))) {
+        if (registry.contains(id)) {
+            registry.action(id)->setShortcutContext(Qt::WidgetShortcut);
+            registry.setShortcutScope(id, QStringLiteral("widget:color_page"));
+        }
     }
 }
 
