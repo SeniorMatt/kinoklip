@@ -39,10 +39,11 @@ double length(QPointF p)
 
 } // namespace
 
-CompViewerOverlay::CompViewerOverlay(CompSession* session, ViewerSurface* surface)
+CompViewerOverlay::CompViewerOverlay(CompSession* session, ViewerSurface* surface, int viewerIndex)
     : QWidget(surface->widget())
     , m_session(session)
     , m_surface(surface)
+    , m_viewerIndex(viewerIndex)
 {
     setObjectName(QStringLiteral("CompViewerOverlay"));
     setAttribute(Qt::WA_NoSystemBackground);
@@ -51,6 +52,7 @@ CompViewerOverlay::CompViewerOverlay(CompSession* session, ViewerSurface* surfac
     surface->widget()->installEventFilter(this);
     connect(session, &CompSession::selectionChanged, this, &CompViewerOverlay::refresh);
     connect(session, &CompSession::compositionChanged, this, &CompViewerOverlay::refresh);
+    connect(session, &CompSession::viewersChanged, this, &CompViewerOverlay::refresh);
     refresh();
     show();
 }
@@ -64,7 +66,8 @@ bool CompViewerOverlay::eventFilter(QObject* watched, QEvent* event)
 
 std::optional<CompViewerOverlay::State> CompViewerOverlay::state() const
 {
-    if (!m_session)
+    // A viewer showing no node ("No Node") has nothing to control.
+    if (!m_session || !m_session->composition().node(m_session->viewerNode(m_viewerIndex)))
         return std::nullopt;
     const CompNode* n = m_session->composition().node(m_session->currentNode());
     if (!n)

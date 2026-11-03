@@ -42,7 +42,9 @@ public:
     };
 
     /// Creates the overlay over @p surface (its widget becomes the parent).
-    CompViewerOverlay(CompSession* session, ViewerSurface* surface);
+    /// The overlay of viewer @p viewerIndex (0 = left, 1 = right): it draws handles only while
+    /// that viewer shows a node (spec 42b.29).
+    CompViewerOverlay(CompSession* session, ViewerSurface* surface, int viewerIndex = 0);
 
     /// True if the selected node has controls (the overlay then takes the mouse).
     [[nodiscard]] bool hasControls() const;
@@ -87,6 +89,7 @@ private:
 
     QPointer<CompSession> m_session;
     ViewerSurface* m_surface;
+    int m_viewerIndex = 0;
     Handle m_drag = Handle::None;
     int m_dragPoint = -1;
     QPointF m_pressPos;
