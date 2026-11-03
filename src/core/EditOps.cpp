@@ -762,6 +762,17 @@ std::vector<int64_t> snapCandidates(
                 continue;
             frames.push_back(c.start);
             frames.push_back(c.end());
+            // Clip markers at their timeline position, both ends of a ranged one; markers
+            // trimmed out of the visible part are not targets (owner request 0.4.0).
+            const auto addVisible = [&](int64_t f) {
+                if (f >= c.start && f <= c.end())
+                    frames.push_back(f);
+            };
+            for (const Marker& m : c.markers) {
+                addVisible(c.start + m.frame);
+                if (m.duration > 1)
+                    addVisible(c.start + m.end());
+            }
         }
     });
     std::sort(frames.begin(), frames.end());
