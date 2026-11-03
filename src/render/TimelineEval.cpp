@@ -193,11 +193,32 @@ bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame)
         clip.masks.cbegin(), clip.masks.cend(), [](const MaskData& m) { return m.isRenderable(); });
 }
 
+bool sameNestedTimelines(const NestedTimelines& a, const NestedTimelines& b)
+{
+    // NestedTimelines::operator== is always true (derived data must not make timelines
+    // differ), so the maps are compared here. Their entries are the project's shared timeline
+    // states: an unchanged nested timeline keeps its pointer, an edited one gets a new one.
+    if (a.map == b.map)
+        return true;
+    const qsizetype sizeA = a.map ? a.map->size() : 0;
+    const qsizetype sizeB = b.map ? b.map->size() : 0;
+    if (sizeA != sizeB)
+        return false;
+    if (sizeA == 0)
+        return true;
+    for (auto it = a.map->cbegin(); it != a.map->cend(); ++it) {
+        const auto other = b.map->constFind(it.key());
+        if (other == b.map->cend() || other.value() != it.value())
+            return false;
+    }
+    return true;
+}
+
 bool samePictures(const TimelineData& a, const TimelineData& b)
 {
     return a.uid == b.uid && a.fps == b.fps && a.width == b.width && a.height == b.height
-        && a.retimeProcess == b.retimeProcess && a.nested == b.nested
-        && a.videoTracks == b.videoTracks && a.subtitleTracks == b.subtitleTracks;
+        && a.retimeProcess == b.retimeProcess && a.videoTracks == b.videoTracks
+        && a.subtitleTracks == b.subtitleTracks && sameNestedTimelines(a.nested, b.nested);
 }
 
 } // namespace kk::render
