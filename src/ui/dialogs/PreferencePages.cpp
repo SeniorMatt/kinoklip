@@ -6,6 +6,7 @@
 #include "media/ImageLoader.h"
 #include "media/MediaCache.h"
 #include "platform/FileDialogs.h"
+#include "playback/AudioDeviceMonitor.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/Metrics.h"
@@ -27,10 +28,10 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMediaDevices>
 #include <QPointer>
 #include <QPushButton>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -358,28 +359,47 @@ public:
         auto* form = makeForm(this);
         m_device = new QComboBox;
         m_device->setObjectName(QStringLiteral("AudioOutputDevice"));
-        m_device->addItem(tr("System default"), QString());
-        for (const QAudioDevice& device : QMediaDevices::audioOutputs())
-            m_device->addItem(device.description(), QString::fromUtf8(device.id()));
-        const QString stored = prefs::audioOutputDevice();
-        int index = m_device->findData(stored);
-        if (index < 0 && !stored.isEmpty()) {
-            m_device->addItem(tr("%1 (not connected)").arg(stored), stored);
-            index = m_device->count() - 1;
-        }
-        m_device->setCurrentIndex(std::max(0, index));
         form->addRow(tr("Output device"), m_device);
         form->addRow(QString(),
-            note(tr("Playback uses 48 kHz stereo. A new device is used the next time "
-                    "playback starts after a restart.")));
+            note(tr("Playback uses 48 kHz stereo. Automatic follows the system's output device "
+                    "(for example headphones connected while playing). A chosen device is "
+                    "used as soon as it is saved; while it is not connected, the system's "
+                    "device plays instead.")));
+        fillDevices(prefs::audioOutputDevice());
+        // Devices connected or removed (and a new system default) while the dialog is open.
+        connect(AudioDeviceMonitor::instance(), &AudioDeviceMonitor::outputsChanged, this,
+            [this] { fillDevices(m_device->currentData().toString()); });
     }
 
     void apply() override
     {
         QSettings().setValue(QLatin1String(prefs::kAudioOutputDevice), m_device->currentData());
+        // Every playback output switches now, also in the middle of a play.
+        AudioDeviceMonitor::instance()->reloadPreference();
     }
 
 private:
+    /// Rebuilds the list from the connected outputs and selects @p selectedId ("" = Automatic).
+    void fillDevices(const QString& selectedId)
+    {
+        const AudioDeviceMonitor* monitor = AudioDeviceMonitor::instance();
+        const QSignalBlocker blocker(m_device);
+        m_device->clear();
+        const QAudioDevice systemDefault = monitor->systemDefault();
+        m_device->addItem(systemDefault.isNull()
+                ? tr("Automatic (no output device)")
+                : tr("Automatic (%1)").arg(systemDefault.description()),
+            QString());
+        for (const QAudioDevice& device : monitor->outputs())
+            m_device->addItem(device.description(), QString::fromUtf8(device.id()));
+        int index = m_device->findData(selectedId);
+        if (index < 0 && !selectedId.isEmpty()) {
+            m_device->addItem(tr("%1 (not connected)").arg(selectedId), selectedId);
+            index = m_device->count() - 1;
+        }
+        m_device->setCurrentIndex(std::max(0, index));
+    }
+
     QComboBox* m_device = nullptr;
 };
 
