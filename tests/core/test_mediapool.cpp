@@ -125,7 +125,8 @@ private slots:
         for (const QString& id : expected)
             QVERIFY2(reg.find(id), qPrintable(id));
         QCOMPARE(reg.byCategory(EffectCategory::Transition).size(), 4);
-        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 8);
+        // 8 v0.1 effects + 24 of the v4 batch 1 (tests/render/test_videoeffects.cpp).
+        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 32);
 
         // Every descriptor is well-formed.
         for (const EffectDescriptor& d : reg.all()) {
