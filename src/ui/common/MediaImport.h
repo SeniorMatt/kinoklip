@@ -24,4 +24,18 @@ struct AppContext;
 QStringList importMediaWithFeedback(
     AppContext& ctx, const QStringList& paths, QWidget* parent, const QString& binId = {});
 
+/// Single-file project: copies the linked files of media pool items @p ids (empty = every
+/// item) into the project file and points the items at the stored copies, as one undoable
+/// step (relinked clips, "Store in Project"). Returns the number of items changed (0 for a
+/// linked project or when cancelled).
+int storeItemsInProject(AppContext& ctx, const QStringList& ids, QWidget* parent);
+
+/// True if @p path is an existing media file outside any single-file project (a linked file).
+[[nodiscard]] bool isLinkedFile(const QString& path);
+/// True if @p path names media stored inside a single-file project ("film.kinoklip/media/...").
+/// A cheap string test first; one stat of the container for candidates.
+[[nodiscard]] bool isStoredInProject(const QString& path);
+/// "Stored in the project file (film.kinoklip)" or "Linked" for the media at @p path.
+[[nodiscard]] QString mediaLocationText(const QString& path);
+
 } // namespace kk

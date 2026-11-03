@@ -73,6 +73,9 @@ public:
     /// probe result is kept: the media must be the same file, as with Resolve's "Relink
     /// Clips". Returns the number relinked.
     int relinkFromFolder(const QString& folder, const QStringList& onlyIds = {});
+    /// Points file item @p id at @p path (relink, or the copy stored inside a single-file
+    /// project); the probe result is kept. Call inside a Project edit. False if unknown.
+    bool relinkItem(const QString& id, const QString& path);
     /// Files relinkFromFolder() walks at most (a whole drive picked by mistake stays quick).
     static constexpr int kMaxRelinkScanFiles = 200000;
     /// Moves an item into bin @p binId ("" = root). Returns false if item or bin is unknown.

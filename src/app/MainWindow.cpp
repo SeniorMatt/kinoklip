@@ -191,6 +191,8 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
 
     connect(ctx.project, &Project::nameChanged, this, &MainWindow::updateTitle);
     connect(ctx.project, &Project::dirtyChanged, this, &MainWindow::updateTitle);
+    connect(
+        m_projectController, &ProjectController::storageChanged, this, &MainWindow::updateTitle);
     updateTitle();
 
     // The stack shows the first added page (Media) until told otherwise, so without a restored
@@ -414,7 +416,10 @@ void MainWindow::syncPanelToggles()
 
 void MainWindow::updateTitle()
 {
-    const QString name = m_ctx.project->name();
+    QString name = m_ctx.project->name();
+    // A single-file project locked elsewhere or on a read-only medium (spec 39.24).
+    if (m_projectController->isReadOnly())
+        name = tr("%1 (Read-Only)").arg(name);
     setWindowTitle(QStringLiteral("%1[*] — %2 %3")
                        .arg(name, QLatin1String(appinfo::name), appinfo::displayVersion()));
     setWindowModified(m_ctx.project->isDirty());

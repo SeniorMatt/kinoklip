@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QVector>
 
+#include <functional>
 #include <optional>
 
 namespace kk {
@@ -142,7 +143,14 @@ public:
     /// new path, or empty with @p error (unknown kind, unreadable).
     QString importProject(const QString& source, const QString& folder, QString* error = nullptr);
     /// Saves a copy of @p path as @p target (overwriting it). False with @p error on failure.
-    bool exportProject(const QString& path, const QString& target, QString* error = nullptr);
+    /// A different kind converts: a linked project exported as `.kinoklip` is packed (every
+    /// media file copied in), a single-file project exported as `.kkproj` is unpacked (the
+    /// media written to `<target folder>/media/...`, never overwriting). @p progress (bytes
+    /// done, total; false = cancel) reports the copy; a cancelled export sets
+    /// @p cancelled and leaves nothing behind. Touches no member: may run on a worker thread.
+    bool exportProject(const QString& path, const QString& target, QString* error = nullptr,
+        const std::function<bool(qint64, qint64)>& progress = {}, bool* cancelled = nullptr,
+        QStringList* keptLinked = nullptr) const;
 
 signals:
     /// metadata() of @p path is now available.

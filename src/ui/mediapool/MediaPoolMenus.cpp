@@ -5,12 +5,16 @@
 #include "core/MediaPool.h"
 #include "core/PowerBins.h"
 #include "core/Project.h"
+#include "media/MediaSource.h"
+#include "pack/EmbeddedMedia.h"
 #include "platform/ChildProcessEnv.h"
 #include "platform/FileDialogs.h"
+#include "platform/FileManager.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
+#include "ui/common/MediaStore.h"
 #include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolPanel.h"
@@ -181,6 +185,15 @@ void MediaPoolPanel::revealInFileManager(const QString& id)
     const MediaItem* item = m_model->item(id);
     if (!item)
         return;
+    // Media stored inside a single-file project have no file of their own: the project file
+    // is shown (and selected) instead.
+    QString container;
+    QString entry;
+    if (pack::mayBeEmbeddedPath(item->path)
+        && pack::splitEmbeddedPath(item->path, &container, &entry)) {
+        platform::showInFileManager(container);
+        return;
+    }
     // Opening the containing folder works on every desktop; selecting the file itself would
     // need the platform-specific FileManager1 D-Bus interface (TODO(panels): src/platform).
     // platform::openUrl: the file manager must start with the user's environment, not the
@@ -219,8 +232,23 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
             menu.addSeparator();
         }
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
+        const bool stored = currentItem && isStoredInProject(currentItem->path);
         menu.addAction(
-            tr("Reveal in File Manager"), this, [this, current] { revealInFileManager(current); });
+            stored ? tr("Reveal Project File in File Manager") : tr("Reveal in File Manager"), this,
+            [this, current] { revealInFileManager(current); });
+        // A single-file project: linked files of the selection can be copied in.
+        if (!power && m_ctx.mediaStore && m_ctx.mediaStore->storesMedia()) {
+            const QStringList targets = ids.contains(current) ? ids : QStringList {current};
+            const bool anyLinked
+                = std::any_of(targets.cbegin(), targets.cend(), [this](const QString& id) {
+                      const MediaItem* m = m_model->item(id);
+                      return m && !m->isTimeline() && isLinkedFile(m->path);
+                  });
+            if (anyLinked) {
+                menu.addAction(tr("Store in Project File"), this,
+                    [this, targets] { storeItemsInProject(m_ctx, targets, this); });
+            }
+        }
         // Resolve's "Relink Selected Clips": offered when one of the selected items is offline.
         const QStringList selectedIds = ids.contains(current) ? ids : QStringList {current};
         if (!power
@@ -294,7 +322,7 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
     // Only offered when something is offline (one stat per item when the menu opens).
     const auto& items = m_ctx.project->mediaPool()->state().items;
     if (std::any_of(items.cbegin(), items.cend(),
-            [](const MediaItem& m) { return !m.isTimeline() && !QFileInfo::exists(m.path); })) {
+            [](const MediaItem& m) { return !m.isTimeline() && !media::mediaExists(m.path); })) {
         menu.addSeparator();
         menu.addAction(tr("Relink Offline Media…"), this, [this] { relinkWithDialog(); });
     }
@@ -356,9 +384,18 @@ void MediaPoolPanel::showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos)
 int MediaPoolPanel::relinkFromFolder(const QString& folder, const QStringList& onlyIds)
 {
     Project* project = m_ctx.project;
+    QStringList wereOffline;
+    for (const MediaItem& m : project->mediaPool()->state().items) {
+        if (!m.isTimeline() && (onlyIds.isEmpty() || onlyIds.contains(m.id))
+            && project->mediaPool()->isOffline(m.id))
+            wereOffline.append(m.id);
+    }
     project->beginEdit(tr("Relink Media"));
     const int relinked = project->mediaPool()->relinkFromFolder(folder, onlyIds);
     project->endEdit();
+    // A single-file project keeps its media inside: the found files are copied in.
+    if (relinked > 0 && !wereOffline.isEmpty())
+        storeItemsInProject(m_ctx, wereOffline, this);
     m_model->recheckOffline();
     return relinked;
 }
@@ -374,7 +411,7 @@ void MediaPoolPanel::relinkWithDialog(const QStringList& onlyIds)
     const auto& items = m_ctx.project->mediaPool()->state().items;
     const auto stillOffline = std::count_if(items.cbegin(), items.cend(), [&](const MediaItem& m) {
         return !m.isTimeline() && (onlyIds.isEmpty() || onlyIds.contains(m.id))
-            && !QFileInfo::exists(m.path);
+            && !media::mediaExists(m.path);
     });
     QMessageBox::information(this, tr("Relink Offline Media"),
         tr("%n item(s) relinked.", nullptr, relinked)

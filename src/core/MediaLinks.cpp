@@ -3,6 +3,7 @@
 #include "core/MediaLinks.h"
 
 #include "core/MediaItem.h"
+#include "media/MediaSource.h"
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -109,10 +110,13 @@ MediaLink linkFromJson(const QJsonObject& o)
 
 SourceFingerprint SourceFingerprint::of(const QString& path)
 {
-    const QFileInfo fi(path);
-    if (!fi.exists() || !fi.isFile())
+    // MediaSource: media inside a single-file project have a size and a time too.
+    const media::MediaSource source = media::MediaSource::resolve(path);
+    if (!source.exists())
         return {};
-    return {fi.size(), fi.lastModified().toMSecsSinceEpoch()};
+    if (!source.isEmbedded() && !QFileInfo(path).isFile())
+        return {};
+    return {source.size(), source.modifiedMs()};
 }
 
 // ---- Settings ----

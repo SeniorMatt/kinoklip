@@ -3,6 +3,7 @@
 #include "core/MediaPool.h"
 
 #include "core/Logging.h"
+#include "media/MediaSource.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -24,8 +25,8 @@ QString newId()
 /// Modification time of @p path in ms since the epoch (0 if the file does not exist).
 qint64 fileModifiedMs(const QString& path)
 {
-    const QFileInfo fi(path);
-    return fi.exists() ? fi.lastModified().toMSecsSinceEpoch() : 0;
+    const media::MediaSource source = media::MediaSource::resolve(path);
+    return source.exists() ? source.modifiedMs() : 0;
 }
 } // namespace
 
@@ -70,7 +71,7 @@ bool MediaPool::recheckOffline()
 {
     QSet<QString> offline;
     for (const MediaItem& m : m_state.items)
-        if (!m.isTimeline() && !m.path.isEmpty() && !QFileInfo::exists(m.path))
+        if (!m.isTimeline() && !m.path.isEmpty() && !media::mediaExists(m.path))
             offline.insert(m.id);
     if (offline == m_offline)
         return false;
@@ -201,7 +202,7 @@ QString MediaPool::addItem(MediaItem item)
     m_state.items.append(std::move(item));
     m_index.insert(id, int(m_state.items.size()) - 1); // appending keeps every other index
     const MediaItem& added = m_state.items.back();
-    if (!added.isTimeline() && !added.path.isEmpty() && !QFileInfo::exists(added.path)) {
+    if (!added.isTimeline() && !added.path.isEmpty() && !media::mediaExists(added.path)) {
         m_offline.insert(id); // e.g. a project's item whose file was moved
         emit offlineChanged();
     }
@@ -238,6 +239,23 @@ bool MediaPool::updateItem(const QString& id, const QString& name, const media::
     return true;
 }
 
+bool MediaPool::relinkItem(const QString& id, const QString& path)
+{
+    const int i = indexOfItem(id);
+    if (i < 0 || m_state.items[i].isTimeline())
+        return false;
+    MediaItem& item = m_state.items[i];
+    if (item.path == path)
+        return true;
+    item.path = path;
+    item.info.path = path;
+    item.fileModifiedMs = fileModifiedMs(path);
+    emit itemChanged(id);
+    recheckOffline();
+    touch();
+    return true;
+}
+
 int MediaPool::relinkFromFolder(const QString& folder, const QStringList& onlyIds)
 {
     // The offline file names we look for (only those, so a big folder tree costs one walk).
@@ -245,7 +263,7 @@ int MediaPool::relinkFromFolder(const QString& folder, const QStringList& onlyId
     QHash<QString, int> depth;
     for (const MediaItem& item : m_state.items) {
         if (item.isTimeline() || (!onlyIds.isEmpty() && !onlyIds.contains(item.id))
-            || QFileInfo::exists(item.path))
+            || media::mediaExists(item.path))
             continue;
         found.insert(QFileInfo(item.path).fileName(), QString());
     }
@@ -270,7 +288,7 @@ int MediaPool::relinkFromFolder(const QString& folder, const QStringList& onlyId
     int relinked = 0;
     for (MediaItem& item : m_state.items) {
         if (item.isTimeline() || (!onlyIds.isEmpty() && !onlyIds.contains(item.id))
-            || QFileInfo::exists(item.path))
+            || media::mediaExists(item.path))
             continue;
         const QString candidate = found.value(QFileInfo(item.path).fileName());
         if (candidate.isEmpty())

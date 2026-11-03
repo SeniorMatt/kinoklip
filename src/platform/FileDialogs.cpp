@@ -116,8 +116,23 @@ QString startDirectory(const FileDialogRequest& request)
     return QDir::homePath();
 }
 
+namespace {
+std::function<QStringList(const FileDialogRequest&)>& testHandler()
+{
+    static std::function<QStringList(const FileDialogRequest&)> handler;
+    return handler;
+}
+} // namespace
+
+void setFileDialogHandlerForTests(std::function<QStringList(const FileDialogRequest&)> handler)
+{
+    testHandler() = std::move(handler);
+}
+
 QStringList runFileDialog(QWidget* parent, const FileDialogRequest& request)
 {
+    if (testHandler())
+        return testHandler()(request);
     const QString startDir = startDirectory(request);
     QStringList paths;
     bool done = false;

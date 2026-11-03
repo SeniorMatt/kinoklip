@@ -104,7 +104,9 @@ public slots:
     void deleteSelected(); ///< to the trash, with confirmation
     void showSelectedInFileManager(); ///< the current item, or the shown folder
     void importProject(); ///< file dialog, copies into the shown folder
-    void exportSelected(); ///< save dialog
+    void exportSelected(); ///< save dialog (either kind; another kind converts)
+    /// Export as a single file: the save dialog offers `.kinoklip` first (Pack).
+    void exportAsSingleFile();
     void goUp(); ///< parent folder (not above the library root)
 
 signals:
@@ -124,6 +126,8 @@ private:
     void showContextMenu(QAbstractItemView* view, const QPoint& pos);
     void applyCardWidth(int width);
     void reportError(const QString& message);
+    /// Export with the save dialog offering @p singleFile's kind first.
+    void exportProject(bool singleFile);
     void saveSettings() const;
     void restoreSettings();
     [[nodiscard]] QAbstractItemView* activeView() const;
