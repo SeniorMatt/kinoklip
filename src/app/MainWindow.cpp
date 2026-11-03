@@ -9,6 +9,7 @@
 #include "app/ProjectController.h"
 #include "app/TimelineExport.h"
 #include "app/pages/AudioPage.h"
+#include "app/pages/CompositingPage.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
 #include "app/pages/MediaPage.h"
@@ -64,6 +65,7 @@ constexpr PanelToggle kPanelToggles[] = {
     {"view.toggle_effects", PanelId::Effects, true},
     {"view.toggle_edit_index", PanelId::EditIndex, true},
     {"view.toggle_keyframes", PanelId::Keyframes, true}, // Resolve 20: top left
+    {"view.toggle_nodes", PanelId::Nodes, false}, // Compositing page node editor
     {"view.toggle_mixer", PanelId::Mixer, false},
     {"view.toggle_metadata", PanelId::Metadata, false},
     {"view.toggle_inspector", PanelId::Inspector, false},
@@ -79,7 +81,7 @@ constexpr PageSlot kPageSlots[] = {
     {"view.page_media", "media"},
     {"view.page_cut", "cut"},
     {"view.page_edit", "edit"},
-    {"view.page_compositing", nullptr},
+    {"view.page_compositing", "compositing"},
     {"view.page_color", nullptr},
     {"view.page_audio", "audio"},
     {"view.page_deliver", "deliver"},
@@ -164,11 +166,13 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     m_cutPage = new CutPage(ctx, m_editPage->timeline()->controller());
     // The Audio page too: one tool / target state for every timeline view.
     m_audioPage = new AudioPage(ctx, m_editPage->timeline()->controller());
+    m_compositingPage = new CompositingPage(ctx);
     m_deliverPage = new DeliverPage(ctx);
     // The page bar in Resolve's order; pages not built yet are disabled placeholders.
     const QHash<QString, Page*> built {{QStringLiteral("media"), m_mediaPage},
         {QStringLiteral("cut"), m_cutPage}, {QStringLiteral("edit"), m_editPage},
-        {QStringLiteral("audio"), m_audioPage}, {QStringLiteral("deliver"), m_deliverPage}};
+        {QStringLiteral("compositing"), m_compositingPage}, {QStringLiteral("audio"), m_audioPage},
+        {QStringLiteral("deliver"), m_deliverPage}};
     for (const PageSlot& slot : kPageSlots) {
         const QString actionId = QLatin1String(slot.actionId);
         Page* page = slot.pageId ? built.value(QLatin1String(slot.pageId)) : nullptr;
@@ -362,6 +366,15 @@ void MainWindow::connectAppActions()
         [this](bool on) { m_editPage->setSingleViewer(on); });
     // The page also leaves / enters the mode itself (viewer header button, restored layout).
     connect(m_editPage, &EditPage::singleViewerChanged, singleViewer, &QAction::setChecked);
+
+    // ---- Compositing page: Clip > Open in Compositing Page (the selected clip) ----
+    connect(actions.action(QStringLiteral("clip.open_in_compositing")), &QAction::triggered, this,
+        [this] {
+            if (currentPageId() == QLatin1String("compositing"))
+                m_compositingPage->openClip();
+            else
+                setCurrentPage(QStringLiteral("compositing"));
+        });
 
     // ---- Help ----
     connect(actions.action(QStringLiteral("help.about")), &QAction::triggered, this, [this] {

@@ -23,4 +23,12 @@ inline constexpr char Effect[] = "application/x-kinoklip-effect";
 /// grabFrames is the distance from the earliest dragged clip's start to the grab point.
 inline constexpr char TimelineClips[] = "application/x-kinoklip-timeline-clips";
 
+/// A node type from the Compositing page's Nodes library (dropped on the node editor).
+/// Payload: UTF-8 node type id ("merge", "fx:gaussian_blur", ...).
+inline constexpr char CompNodeType[] = "application/x-kinoklip-comp-node-type";
+
+/// A node of the open composition dragged from the node editor onto a viewer.
+/// Payload: UTF-8 decimal CompNode::id.
+inline constexpr char CompNode[] = "application/x-kinoklip-comp-node";
+
 } // namespace kk::mime

@@ -17,7 +17,8 @@ enum class PanelId {
     Mixer,
     Metadata,
     Inspector,
-    Keyframes ///< the large keyframe editor (dockable / floating)
+    Keyframes, ///< the large keyframe editor (dockable / floating)
+    Nodes ///< the Compositing page's node editor
 };
 
 /// Stable string of a PanelId, used for settings keys ("mediaPool", "inspector", ...).
@@ -38,13 +39,15 @@ enum class PanelId {
         return QStringLiteral("inspector");
     case PanelId::Keyframes:
         return QStringLiteral("keyframes");
+    case PanelId::Nodes:
+        return QStringLiteral("nodes");
     }
     return {};
 }
 
 /// All toggleable panels, in interface-toolbar order.
 inline constexpr PanelId kAllPanels[] = {PanelId::MediaPool, PanelId::Effects, PanelId::EditIndex,
-    PanelId::Keyframes, PanelId::Mixer, PanelId::Metadata, PanelId::Inspector};
+    PanelId::Keyframes, PanelId::Nodes, PanelId::Mixer, PanelId::Metadata, PanelId::Inspector};
 
 /// A full-window page selected from the page bar. Pages report which toggleable panels they
 /// have; the main window keeps the interface-toolbar toggles in sync with them.
