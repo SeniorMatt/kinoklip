@@ -66,6 +66,17 @@ struct ParamDescriptor
     bool viewerPicker = false;
     /// File only: name filter of the file dialog, e.g. "LUT files (*.cube)".
     QString fileFilter;
+    /// Double only: the Inspector, the Keyframes panel and the curve editors show, take and
+    /// draw the negated stored value. Transform Position Y / Anchor Y are stored in pixels
+    /// down from the centre (the renderer's convention, unchanged in project files) and shown
+    /// as Resolve shows them, positive up (spec 24.16).
+    bool displayNegated = false;
+
+    /// The value shown for stored value @p stored (and back: the same negation).
+    [[nodiscard]] double displayed(double stored) const
+    {
+        return displayNegated ? -stored : stored;
+    }
 
     /// True if the value lives in ParamSet::values (keyframeable scalar).
     [[nodiscard]] bool isScalar() const

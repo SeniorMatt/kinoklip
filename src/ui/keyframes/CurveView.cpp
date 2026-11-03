@@ -260,7 +260,9 @@ CurveView::Range CurveView::absoluteFit() const
     for (const CurveInfo& c : m_curves) {
         if (m_hidden.contains(c.id))
             continue;
-        const Range r = fittedRange(c.id);
+        Range r = fittedRange(c.id);
+        if (c.displayNegated)
+            r = Range {-r.hi, -r.lo}; // the shared axis is in shown values
         all = all ? Range {std::min(all->lo, r.lo), std::max(all->hi, r.hi)} : r;
     }
     return all.value_or(Range {});
@@ -276,12 +278,17 @@ CurveView::Range CurveView::rangeOf(const ParamId& id) const
                 return r;
         }
     }
+    // A curve shown negated (Position Y, shown +up) maps stored values through the mirrored
+    // range: the stored value v lands where the shown value -v would.
+    const CurveInfo* curve = id.path.isEmpty() ? nullptr : info(id);
+    const bool negated = curve && curve->displayNegated;
     if (m_axisMode == AxisMode::Absolute) {
         if (!m_absolute)
             const_cast<CurveView*>(this)->m_absolute = absoluteFit();
-        return *m_absolute;
+        return negated ? Range {-m_absolute->lo, -m_absolute->hi} : *m_absolute;
     }
-    return fittedRange(id);
+    const Range r = fittedRange(id);
+    return negated ? Range {r.hi, r.lo} : r;
 }
 
 double CurveView::valueToY(const Range& r, double value) const
@@ -435,7 +442,10 @@ void CurveView::paintGrid(QPainter& p, const QRectF& g) const
         p.setPen(grid);
         p.drawLine(QPointF(g.left(), y), QPointF(g.right(), y));
         // "-0" from rounding looks odd on an axis.
-        const QString label = QString::number(std::abs(v) < step * 1e-6 ? 0.0 : v, 'g', 6);
+        // In Normalised mode the axis is the active curve's: label its shown values.
+        const double shown = r.lo > r.hi ? -v : v;
+        const QString label
+            = QString::number(std::abs(shown) < step * 1e-6 ? 0.0 : shown, 'g', 6);
         p.setPen(dim);
         if (m_labelsInColumn) {
             // Right-aligned in the axis column, centred on the line; skipped where it would be
