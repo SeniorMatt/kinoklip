@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QFileInfo>
 #include <QSettings>
+#include <QSplitter>
 #include <QStandardPaths>
 #include <QTest>
 #include <QToolButton>
@@ -178,6 +179,63 @@ private slots:
         }
         Fixture g;
         QVERIFY(g.window->editPage()->isPanelVisible(PanelId::Mixer));
+        QSettings().clear();
+    }
+
+    void sideColumnsKeepDefaultShare()
+    {
+        // The window starts small and is then enlarged (maximised): the media pool / effects
+        // column and the inspector column keep their default share instead of only the
+        // viewers growing (owner feedback on 0.3.2-alpha.1).
+        QSettings().clear();
+        const auto topRow = [](EditPage* page) -> QSplitter* {
+            for (QSplitter* s : page->findChildren<QSplitter*>())
+                if (s->orientation() == Qt::Horizontal && s->count() == 4)
+                    return s;
+            return nullptr;
+        };
+        const auto shares = [&](EditPage* page) {
+            QSplitter* row = topRow(page);
+            const double w = row->width();
+            return std::pair {row->sizes().first() / w, row->sizes().last() / w};
+        };
+        {
+            Fixture f;
+            f.window->resize(1000, 700);
+            f.window->show();
+            QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+            f.window->resize(1920, 1080);
+            QTRY_VERIFY(topRow(f.window->editPage())->width() > 1500);
+            QTRY_VERIFY(shares(f.window->editPage()).first > 0.21);
+            const auto [left, right] = shares(f.window->editPage());
+            QVERIFY2(left > 0.21 && left < 0.27, qPrintable(QString::number(left)));
+            QVERIFY2(right > 0.22 && right < 0.28, qPrintable(QString::number(right)));
+
+            // A layout the user made is stored and kept.
+            QSplitter* row = topRow(f.window->editPage());
+            const int w = row->width();
+            row->setSizes({w / 8, w * 3 / 8, w * 3 / 8, w / 8});
+            emit row->splitterMoved(w / 8, 1);
+            f.window->close();
+        }
+        {
+            Fixture g;
+            g.window->resize(1920, 1080);
+            g.window->show();
+            QVERIFY(QTest::qWaitForWindowExposed(g.window.get()));
+            QTRY_VERIFY(shares(g.window->editPage()).first < 0.17);
+            g.window->close();
+        }
+        // A layout stored by version 1 (squeezed columns) is replaced by the defaults once.
+        QSettings().setValue(QStringLiteral("pages/edit/layoutVersion"), 1);
+        {
+            Fixture h;
+            h.window->resize(1920, 1080);
+            h.window->show();
+            QVERIFY(QTest::qWaitForWindowExposed(h.window.get()));
+            QTRY_VERIFY(shares(h.window->editPage()).first > 0.21);
+            h.window->close();
+        }
         QSettings().clear();
     }
 
