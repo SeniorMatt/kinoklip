@@ -51,6 +51,9 @@ struct TimelineViewOptions
     /// Remembers zoom and scroll per timeline in Project::viewState() and restores them on a
     /// tab switch. Only one view per timeline should (the Edit page's).
     bool keepsViewState = true;
+    /// Double-clicking a media clip opens its source in the source viewer (the Edit page's
+    /// view, spec 24.17; the Cut and Audio pages have no source viewer of their own).
+    bool doubleClickOpensSource = true;
     /// Height factor of the video and subtitle rows (below 1 = collapsed, the Audio page).
     double videoHeightScale = 1.0;
     /// Audio page headers: record arm (disabled), channel format and a level meter in the

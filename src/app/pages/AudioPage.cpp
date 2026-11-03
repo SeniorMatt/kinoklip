@@ -73,6 +73,7 @@ AudioPage::AudioPage(AppContext& ctx, TimelineController* controller, QWidget* p
     options.videoHeightScale = kVideoRowScale;
     options.audioPageHeaders = true;
     options.keepsViewState = false; // the Edit page's view owns the per-timeline zoom
+    options.doubleClickOpensSource = false;
     options.headerMeter = [this](quint64 trackId) {
         const MeterReading r = m_meterModel->track(trackId);
         return std::pair<float, float> {r.levelDb[0], r.mono ? r.levelDb[0] : r.levelDb[1]};

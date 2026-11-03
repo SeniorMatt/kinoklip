@@ -373,6 +373,10 @@ public slots:
     /// F: loads the source of the clip under the playhead into the source viewer at the same
     /// frame (via the match frame handler).
     void matchFrame();
+    /// Double-click on a media clip: loads its source into the source viewer at timeline frame
+    /// @p frame, with the part the clip uses marked (spec 24.17). False if @p clipId is not a
+    /// media clip or no handler is wired.
+    bool openClipInSourceViewer(quint64 clipId, int64_t frame);
     /// Alt+n / Ctrl+Alt+n: makes track number @p number (1 = V1/A1) the destination.
     void setTargetByNumber(TrackType type, int number);
     /// Ctrl+n / Ctrl+Shift+n: toggles the auto track selector of track number @p number.
