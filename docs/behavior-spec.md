@@ -88,6 +88,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 3.7 | The marked range is shown in the ruler and in the viewer's scrub bar. | OK (painter, ScrubBar; vp) |
 | 3.8 | Timeline mark changes are undoable steps. | Decision: kept undoable (marks are saved with the timeline, so undo restoring them is the safer choice). |
 | 3.9 | Source marks are remembered per clip. | OK (vp sourceViewerLoadsClipAndMarks) |
+| 3.10 | The Deliver page render range follows the timeline In / Out: with both set (or moved) it becomes In/Out Range, cleared it goes back to Entire Timeline; a manual choice stays until the marks change (owner report on 0.4.0: the whole timeline was rendered). | Fixed (deliverpage renderRangeFollowsInOutMarks) |
 
 ## 4. Source edits (insert, overwrite, ...)
 

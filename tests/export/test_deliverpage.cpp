@@ -107,6 +107,34 @@ private Q_SLOTS:
         QSettings().remove(QStringLiteral("deliver"));
     }
 
+    void renderRangeFollowsInOutMarks()
+    {
+        // Owner report on 0.4.0: with In / Out set the render still covered the whole
+        // timeline; a Resolve user expects In/Out Range to be picked from the marks.
+        PanelFixture fx;
+        Timeline* timeline = fx.project.timeline();
+        timeline->mutableData().markIn = 10;
+        timeline->mutableData().markOut = 40;
+        timeline->notifyChanged();
+        DeliverPage page(fx.ctx);
+        RenderSettingsPanel* panel = page.settingsPanel();
+        QCOMPARE(panel->settings().range, RangeMode::InOut);
+        // A manual choice stays while the marks do not change ...
+        ExportSettings s = panel->settings();
+        s.range = RangeMode::Entire;
+        panel->setSettings(s);
+        timeline->notifyChanged();
+        QCOMPARE(panel->settings().range, RangeMode::Entire);
+        // ... moving a mark picks the range again; clearing them goes back to the timeline.
+        timeline->mutableData().markOut = 30;
+        timeline->notifyChanged();
+        QCOMPARE(panel->settings().range, RangeMode::InOut);
+        timeline->mutableData().markIn = -1;
+        timeline->mutableData().markOut = -1;
+        timeline->notifyChanged();
+        QCOMPARE(panel->settings().range, RangeMode::Entire);
+    }
+
     void pageWorkflow()
     {
         PanelFixture fx;

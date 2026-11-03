@@ -66,6 +66,10 @@ private:
     void renderPreview();
     void pollPreview();
     void updateRange();
+    /// Render range follows the timeline's In / Out marks as a Resolve user expects: when
+    /// both marks are set (or move) the range becomes In/Out Range, when they are cleared it
+    /// goes back to Entire Timeline. A manual choice stays until the marks change again.
+    void followMarks();
     void detectHardware();
 
     AppContext& m_ctx;
@@ -74,6 +78,7 @@ private:
     RenderSettingsPanel* m_settingsPanel = nullptr;
     RenderQueuePanel* m_queuePanel = nullptr;
     RenderRangeBar* m_rangeBar = nullptr;
+    QPair<qint64, qint64> m_seenMarks {-2, -2}; ///< marks followMarks() last reacted to
     ViewerPanel* m_viewer = nullptr;
     QSplitter* m_topRow = nullptr;
     QSplitter* m_main = nullptr;
