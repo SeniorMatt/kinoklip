@@ -14,6 +14,7 @@
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
 #include "ui/viewer/DynamicZoomOverlay.h"
+#include "ui/viewer/TransformGesture.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
@@ -186,6 +187,21 @@ private slots:
         f.action("view.onscreen_dynamic_zoom")->setChecked(false);
         QVERIFY(!overlay->isEditing());
         QVERIFY(f.engine->dynamicZoomApplied());
+    }
+
+    // The on-screen Transform controls of a clip with Dynamic Zoom edit its Transform: their
+    // picture geometry leaves the Dynamic Zoom out, so a scale or anchor drag is exact.
+    void spec24_20_transformControlsIgnoreDynamicZoom()
+    {
+        Fixture f;
+        ClipData on = f.clip();
+        on.transform.setBase(keys::ZoomX, 0.5);
+        on.transform.setBase(keys::ZoomY, 0.5);
+        ClipData off = on;
+        off.transform.setStatic(keys::DynamicZoom, false);
+        const QSizeF frame(320, 180);
+        QCOMPARE(transformgesture::picture(on, 99, frame, nullptr).contentToFrame,
+            transformgesture::picture(off, 99, frame, nullptr).contentToFrame);
     }
 };
 
