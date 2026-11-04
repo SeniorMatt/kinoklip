@@ -421,8 +421,11 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
                 p.setPen(base.lighter(170));
                 // Rect-based drawText clips to the content; titles are rare, so the layout
                 // cost is acceptable here.
+                // One line: a lower third's "Name / Role" reads "Name Role".
                 p.drawText(content.adjusted(6, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft,
-                    clip.title.staticValue(keys::Text).toString());
+                    clip.title.staticValue(keys::Text)
+                        .toString()
+                        .replace(QLatin1Char('\n'), QLatin1Char(' ')));
             }
             break;
         }

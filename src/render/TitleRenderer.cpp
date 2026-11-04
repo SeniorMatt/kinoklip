@@ -74,6 +74,10 @@ size_t qHash(const TitleStyle& s, size_t seed)
     seed = hash(seed, s.lineSpacing);
     seed = hash(seed, s.outlineWidth);
     seed = hash(seed, s.bgOpacity);
+    seed = hash(seed, s.posX);
+    seed = hash(seed, s.posY);
+    seed = hash(seed, s.anchor | int(s.scroll) << 2);
+    seed = hash(seed, s.scrollProgress);
     seed = hash(seed, s.canvas.width());
     seed = hash(seed, s.canvas.height());
     seed = hash(seed, s.scale);
@@ -105,6 +109,15 @@ TitleStyle resolveTitleStyle(const ClipData& clip, int64_t localFrame, QSize can
     s.lineSpacing = p.value(keys::LineSpacing, localFrame);
     s.outlineWidth = std::max(0.0, p.value(keys::OutlineWidth, localFrame));
     s.bgOpacity = std::clamp(p.value(keys::BgOpacity, localFrame), 0.0, 100.0);
+    s.posX = p.value(keys::TextPosX, localFrame);
+    s.posY = p.value(keys::TextPosY, localFrame);
+    const QString anchor = stringStatic(p, keys::Anchor, QString());
+    s.anchor = anchor == kLeft ? 0 : anchor == kRight ? 2 : 1;
+    s.scroll = boolStatic(p, keys::Scroll, false);
+    if (s.scroll && clip.duration > 1) {
+        // Over the clip's whole length: the first frame just below, the last just above.
+        s.scrollProgress = std::clamp(double(localFrame) / double(clip.duration - 1), 0.0, 1.0);
+    }
     s.canvas = canvas;
     s.scale = scale;
     return s;
@@ -132,8 +145,18 @@ TitleImage renderTitle(const TitleStyle& s)
     for (const QString& line : lines)
         blockWidth = std::max(blockWidth, fm.horizontalAdvance(line));
     const double blockHeight = fm.ascent() + fm.descent() + (lines.size() - 1) * lineStep;
-    const QRectF block((s.canvas.width() - blockWidth) * 0.5,
-        (s.canvas.height() - blockHeight) * 0.5, blockWidth, blockHeight);
+    const double bgPad = s.bgEnabled ? pixelSize * kBgPaddingEm : 0.0;
+    const double anchorX = s.posX * s.canvas.width();
+    const double left = s.anchor == 0 ? anchorX
+        : s.anchor == 2               ? anchorX - blockWidth
+                                      : anchorX - blockWidth * 0.5;
+    // A scroll starts with the block (and its box) just below the bottom edge and ends with it
+    // just above the top edge.
+    const double h = s.canvas.height();
+    const double top = s.scroll
+        ? (h + bgPad) + (-(blockHeight + bgPad) - (h + bgPad)) * s.scrollProgress
+        : (1.0 - s.posY) * h - blockHeight * 0.5;
+    const QRectF block(left, top, blockWidth, blockHeight);
 
     QPainterPath path;
     for (int i = 0; i < lines.size(); ++i) {
@@ -145,7 +168,6 @@ TitleImage renderTitle(const TitleStyle& s)
     }
 
     const double outline = s.outlineWidth * s.scale;
-    const double bgPad = s.bgEnabled ? pixelSize * kBgPaddingEm : 0.0;
     const double shadowOffset = s.shadow ? std::max(kMinShadowPx, pixelSize * kShadowOffsetEm) : 0;
     const QRectF bgRect = block.adjusted(-bgPad, -bgPad, bgPad, bgPad);
 
@@ -156,10 +178,14 @@ TitleImage renderTitle(const TitleStyle& s)
     if (s.shadow)
         bounds = bounds.united(bounds.translated(shadowOffset, shadowOffset));
     bounds.adjust(-kAaMarginPx, -kAaMarginPx, kAaMarginPx, kAaMarginPx);
-    const QRectF limit(-s.canvas.width() * (kMaxCanvasMultiple - 1) * 0.5,
-        -s.canvas.height() * (kMaxCanvasMultiple - 1) * 0.5,
-        s.canvas.width() * double(kMaxCanvasMultiple),
-        s.canvas.height() * double(kMaxCanvasMultiple));
+    // A scroll (long credits) only rasterises what is inside the canvas at this frame.
+    const QRectF limit = s.scroll
+        ? QRectF(QPointF(0, 0), QSizeF(s.canvas))
+              .adjusted(-kAaMarginPx, -kAaMarginPx, kAaMarginPx, kAaMarginPx)
+        : QRectF(-s.canvas.width() * (kMaxCanvasMultiple - 1) * 0.5,
+              -s.canvas.height() * (kMaxCanvasMultiple - 1) * 0.5,
+              s.canvas.width() * double(kMaxCanvasMultiple),
+              s.canvas.height() * double(kMaxCanvasMultiple));
     const QRect pixelRect = bounds.intersected(limit).toAlignedRect();
     if (pixelRect.isEmpty())
         return result;

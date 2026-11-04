@@ -120,6 +120,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 5.2 | A modifier during the drop inserts instead of overwriting. | Decision: Ctrl inserts (no single convention is universal). |
 | 5.3 | Effects dropped on a clip are applied to it; transitions dropped near an edge go to that edge. | OK (tw dropEffectsTransitionsAndTitles) |
 | 5.4 | Titles / generators dropped on a video track create a clip of the standard generator length. | OK (tw dropEffectsTransitionsAndTitles) |
+| 5.5 | A drop in the empty space above the top video track or below the last audio track creates only the tracks its clips land on: a video-only clip makes a new video track and no empty audio track, an audio-only clip a new audio track and no empty video track. | Fixed (bughunt10: a video-only clip dropped above V1 also created an empty A2; `planDrop()` keeps only the needed new tracks; test_timelinedrop spec5_5_videoOnlyAboveCreatesNoAudioTrack, spec5_5_audioOnlyBelowCreatesNoVideoTrack) |
 
 ## 6. Destination controls and auto track selectors
 
@@ -276,6 +277,10 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 14.3 | Title text and style are edited in the inspector, one undo step per typing burst. | OK (in titleClipTextIsOneUndoStepPerBurst) |
 | 14.4 | Titles and generators can be trimmed to any length (no media limit). | OK (eo, sourceDurationUs = 0) |
 | 14.5 | A new Text title (Effects > Titles > Text) reads "Basic Title", as in Resolve; titles of older projects keep their text. | Fixed (bughunt7: it read "Title"; test_bughunt7edit spec14_5_newTextTitleReadsBasicTitle) |
+| 14.6 | Effects > Titles holds our own presets, as a Resolve user looks for them: Left Lower Third, Middle Lower Third, Right Lower Third (a name and a role low in the frame on a dark box), Scroll (rolling credits), Text and Text Box (text on a plain box). They are Title clips with the same parameters and only other defaults (our own simple design: system font, flat box); a preset clip is named after the preset, and the Inspector's Title tab shows one group named after it (text, font, size, colours, outline, background box, Position X / Y, Anchor, Scroll; reset goes back to the preset's defaults). Titles of different presets edit together when several are selected. | Fixed (bughunt10: the library had only Text; `EffectRegistry::registerTitles()`, core/TitlePresets.h, `ClipData::generator` of Title clips; test_bughunt10 spec14_6_titlePresetsInTheLibrary) |
+| 14.7 | A title's Position X / Position Y place its text block (0 .. 1 of the frame from the left and from the bottom, 0.5 = centre, keyframable), and Anchor says which side of the block sits at Position X (a left lower third grows to the right). The default (0.5, 0.5, centre) is the centred block titles always had. GPU and CPU draw the same pixels. | Fixed (bughunt10: a title could only be moved with the Video tab's transform; `TitleStyle::posX / posY / anchor`; test_compositor spec14_7_titlePositionAndAnchor) |
+| 14.8 | A title with Scroll on (the Scroll preset) rolls up through the frame over the clip's duration: the first frame has the text just below the bottom edge, the last frame just above the top, so a longer clip scrolls more slowly; Position Y is not used. GPU and CPU draw the same pixels. | Fixed (bughunt10: there was no scroll; `TitleStyle::scroll / scrollProgress`; test_compositor spec14_8_scrollRollsOverTheClip) |
+| 14.9 | Selecting a title clip shows the Inspector's Title tab, where its text and look are, as Resolve shows a Text title's controls first; selecting a clip without a title afterwards goes back to the Video tab (as captions, 28.15). | Fixed (bughunt10: the Inspector stayed on the Video tab; `InspectorPanel::showClip()`; test_bughunt10 spec14_9_selectingATitleShowsTheTitleTab) |
 
 ## 15. Keyframes (inspector, keyframe editor, curve editor)
 
@@ -756,6 +761,7 @@ tests/core/test_sourcetape.cpp.
 | 35.25 | Inspector, effects and titles panels on the Cut page. | Deferred: use the Edit page (the selection carries over). |
 | 35.26 | Dragging media onto the Cut page's timeline viewer shows the smart edits as an overlay (Smart Insert, Append, Ripple Overwrite, Close Up, Place On Top, Source Overwrite, with their keys); dropping on one runs it with the dropped clips (one undo step, named after the edit). | Fixed (polish round 2; cp dropOnTheViewerOffersTheSmartEdits). Decision: only the timeline viewer takes the drop (as on the Edit page); the source modes keep their own drag. |
 | 35.27 | A Cut page edit selects the new clip with its video part current, so the Edit page Inspector stays on the Video tab (as 24.15). | Fixed (bughunt2: CutEditor selected the audio part last and the Inspector switched to Audio after every Cut page edit; test_bughunt2 spec35_27_cutEditKeepsVideoTab) |
+| 35.28 | A marked source range edited into a timeline of another frame rate (Cut page Append and the other smart edits, Edit page insert / overwrite, drops) covers the whole range: every timeline frame that starts inside it, so the Out frame is shown. In 1:00 / Out 7:00 of a 25 fps source (151 frames, 6.04 s) is a 6:01 clip (145 frames) on a 24 fps timeline. Never longer than the media; same-rate ranges are exact. | Fixed (bughunt10: rounding bug, the frames were rounded down to 6:00 and the Out frame was lost; `TimelineController::makeMediaClips()`, `usToFramesCeil()`; test_bughunt10 spec35_28_appendOfAnotherRateCoversTheMarkedRange) |
 
 ## 36. Animations (v2.2)
 
@@ -1290,3 +1296,8 @@ Tests: `bh4` = `tests/app/test_bughunt4.cpp`.
   describes the Compositing and Color pages), 44b.30 (strip selection visible, right-click
   keeps it), 45.2 (no subtitle export for audio-only formats) and 45.3 (Deliver labels follow
   the timeline format).
+- The bughunt10 branch (tenth bug hunt round: title presets, round 9 leftovers) added 5.5 (a
+  drop in the empty space creates only the tracks its clips need), 14.6 (the title presets:
+  Left / Middle / Right Lower Third, Scroll, Text, Text Box), 14.7 (a title's Position X / Y
+  and Anchor), 14.8 (Scroll over the clip's duration), 14.9 (selecting a title shows the Title
+  tab) and 35.28 (a marked range at another frame rate covers the Out frame).

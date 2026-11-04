@@ -305,6 +305,120 @@ private slots:
         QCOMPARE(outside, 0); // text block centred
     }
 
+    /// Bounding box of the white pixels of @p img (empty: none).
+    static QRect whiteBox(const QImage& img)
+    {
+        QRect box;
+        for (int y = 0; y < img.height(); ++y) {
+            for (int x = 0; x < img.width(); ++x) {
+                const Px p = px(img, x, y);
+                if (p.r > 200 && p.g > 200 && p.b > 200)
+                    box = box.united(QRect(x, y, 1, 1));
+            }
+        }
+        return box;
+    }
+
+    /// Mean absolute difference per channel of two images of the same size.
+    static double meanDifference(const QImage& a, const QImage& b)
+    {
+        double sum = 0;
+        for (int y = 0; y < a.height(); ++y) {
+            for (int x = 0; x < a.width(); ++x) {
+                const Px p = px(a, x, y);
+                const Px q = px(b, x, y);
+                sum += std::abs(p.r - q.r) + std::abs(p.g - q.g) + std::abs(p.b - q.b);
+            }
+        }
+        return sum / (3.0 * a.width() * a.height());
+    }
+
+    // Spec 14.7: a title's Position X / Y place its text block (0..1, Y from the bottom), and
+    // Anchor says which side of the block sits at Position X; GPU and CPU agree.
+    void spec14_7_titlePositionAndAnchor_data() { backendRows(); }
+    void spec14_7_titlePositionAndAnchor()
+    {
+        Compositor* c = backend();
+        if (!c)
+            QSKIP("no OpenGL");
+        TimelineData tl = emptyTimeline(640, 360);
+        addClip(tl, TrackType::Video, 0, solidClip(tl, Qt::black, 0, 50));
+        ClipData title = titleClip(tl, QStringLiteral("HELLO"), 0, 50, 48);
+        title.title.setBase(keys::TextPosX, 0.1);
+        title.title.setBase(keys::TextPosY, 0.2);
+        title.title.setStatic(keys::Anchor, QStringLiteral("left"));
+        addClip(tl, TrackType::Video, 1, title);
+        const QRect left = whiteBox(renderWith(*c, tl, 0));
+        QVERIFY(!left.isEmpty());
+        QVERIFY2(left.left() >= 64 && left.left() <= 72, qPrintable(QString::number(left.left())));
+        QVERIFY2(
+            std::abs(left.center().y() - 288) <= 6, qPrintable(QString::number(left.center().y())));
+
+        tl.videoTracks[1].clips[0].title.setStatic(keys::Anchor, QStringLiteral("right"));
+        tl.videoTracks[1].clips[0].title.setBase(keys::TextPosX, 0.9);
+        const QRect right = whiteBox(renderWith(*c, tl, 0));
+        QVERIFY2(right.right() <= 576 && right.right() >= 568,
+            qPrintable(QString::number(right.right())));
+        QCOMPARE(right.width(), left.width());
+
+        // Defaults (0.5 / 0.5, centre): the block is centred, as titles always were.
+        ClipData& t = tl.videoTracks[1].clips[0];
+        t.title.values.remove(keys::TextPosX);
+        t.title.values.remove(keys::TextPosY);
+        t.title.statics.remove(keys::Anchor);
+        const QRect centred = whiteBox(renderWith(*c, tl, 0));
+        QVERIFY(std::abs(centred.center().x() - 320) <= 3);
+        QVERIFY(std::abs(centred.center().y() - 180) <= 6);
+
+        // The GPU and the CPU paths draw the same pixels.
+        if (m_gpu->isGpu()) {
+            t.title.setBase(keys::TextPosX, 0.25);
+            t.title.setBase(keys::TextPosY, 0.7);
+            t.title.setStatic(keys::BgEnabled, true);
+            const QImage g = renderWith(gpu(), tl, 0);
+            const QImage cpuImg = renderWith(*m_cpu, tl, 0);
+            QCOMPARE(whiteBox(g), whiteBox(cpuImg));
+            QVERIFY2(
+                meanDifference(g, cpuImg) < 1.0, QByteArray::number(meanDifference(g, cpuImg)));
+        }
+    }
+
+    // Spec 14.8: a Scroll title rolls up through the frame over the clip's duration: just
+    // below the bottom edge on the first frame, centred half-way, just above the top edge on
+    // the last frame; GPU and CPU agree.
+    void spec14_8_scrollRollsOverTheClip_data() { backendRows(); }
+    void spec14_8_scrollRollsOverTheClip()
+    {
+        Compositor* c = backend();
+        if (!c)
+            QSKIP("no OpenGL");
+        TimelineData tl = emptyTimeline(640, 360);
+        addClip(tl, TrackType::Video, 0, solidClip(tl, Qt::black, 0, 101));
+        ClipData title = titleClip(tl, QStringLiteral("ONE\nTWO\nTHREE"), 0, 101, 40);
+        title.title.setStatic(keys::Scroll, true);
+        addClip(tl, TrackType::Video, 1, title);
+        QVERIFY(whiteBox(renderWith(*c, tl, 0)).isEmpty());
+        QVERIFY(whiteBox(renderWith(*c, tl, 100)).isEmpty());
+        const QRect quarter = whiteBox(renderWith(*c, tl, 25));
+        const QRect half = whiteBox(renderWith(*c, tl, 50));
+        const QRect late = whiteBox(renderWith(*c, tl, 75));
+        QVERIFY(!half.isEmpty());
+        QVERIFY2(
+            std::abs(half.center().y() - 180) <= 8, qPrintable(QString::number(half.center().y())));
+        QVERIFY(quarter.center().y() > half.center().y() + 50); // still low: moving up
+        QVERIFY(late.center().y() < half.center().y() - 50);
+        // Position Y does not matter for a scroll.
+        tl.videoTracks[1].clips[0].title.setBase(keys::TextPosY, 0.9);
+        QCOMPARE(whiteBox(renderWith(*c, tl, 50)), half);
+        if (m_gpu->isGpu()) {
+            const QImage g = renderWith(gpu(), tl, 30);
+            const QImage cpuImg = renderWith(*m_cpu, tl, 30);
+            QCOMPARE(whiteBox(g), whiteBox(cpuImg));
+            QVERIFY2(
+                meanDifference(g, cpuImg) < 1.0, QByteArray::number(meanDifference(g, cpuImg)));
+        }
+    }
+
     void titleCacheIsStable()
     {
         if (!gpu().isGpu())

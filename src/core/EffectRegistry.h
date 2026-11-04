@@ -169,6 +169,7 @@ private:
     EffectRegistry();
     void registerBuiltins();
     void registerGenerators(); ///< the generator catalogue (BuiltinEffects.cpp)
+    void registerTitles(); ///< the title presets (BuiltinEffects.cpp, core/TitlePresets.h)
     void registerVideoEffects(); ///< the v4 video effects (BuiltinVideoEffects.cpp)
     /// The second batch of v4 video effects (BuiltinVideoEffects2.cpp).
     void registerVideoEffects2();

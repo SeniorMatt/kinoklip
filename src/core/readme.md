@@ -37,6 +37,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `GradeMath.h` | the grading maths shared by the CPU evaluator and mirrored in GLSL: primaries, curves (monotone cubic, HSL curves), qualifier key, window coverage, layer formula |
 | `GradeGallery.h` | gallery stills (picture + grade), saved with the project, `Project::gallery()` |
 | `Generators.h` | ids and parameter keys of the built-in generators and the adjustment clip |
+| `TitlePresets.h` | ids of the Effects library titles (Text, Left / Middle / Right Lower Third, Scroll, Text Box): one Title parameter set with each preset's defaults; `titles::descriptorOf()` finds the preset a Title clip shows (`ClipData::generator`) |
 | `Subtitles.h` | `SubtitleCue`, SRT / WebVTT parse and write, caption style keys + defaults (caption → track → default chain), cue ↔ caption conversion (lanes for overlapping cues) |
 | `ViewerGuides.h` | `ViewerGuide` (orientation + position in timeline frame px; `TimelineData::guides`), its JSON, guide presets (built-in, user file `<AppData>/guide-presets.json`, in fractions of the frame), safe area / aspect marker / grid geometry, `snapOffset()` and ruler steps (spec 41) |
 | `BuiltinEffects.cpp` | the v0.1 descriptor catalogue |
