@@ -155,6 +155,50 @@ private slots:
         QCOMPARE(f.project.timeline()->data().subtitleTracks[0].clips.size(), size_t(0));
     }
 
+    // Spec 23.13: the menu bar reads like Resolve's: an application menu first (About,
+    // Keyboard Customization, Preferences, Quit), File > Import > Media / Subtitle, and a
+    // Workspace menu (Full Screen Window and our look entries) where we had "Settings".
+    void spec23_13_menuBarLikeResolve()
+    {
+        Fixture f;
+        const QList<QAction*> bar = f.window->menuBar()->actions();
+        QVERIFY(bar.size() > 3);
+        QMenu* app = bar.first()->menu();
+        QVERIFY(app);
+        QCOMPARE(app->objectName(), QStringLiteral("menu:app"));
+        QCOMPARE(bar.first()->text(), QCoreApplication::applicationName());
+        const QList<QAction*> appItems = app->actions();
+        for (const char* id :
+            {"help.about", "edit.keyboard_customization", "edit.preferences", "file.quit"})
+            QVERIFY2(appItems.contains(f.action(id)), id);
+        QCOMPARE(appItems.last(), f.action("file.quit"));
+        QVERIFY(f.action("file.quit")->text().contains(QCoreApplication::applicationName()));
+        QCOMPARE(bar.at(1)->menu()->objectName(), QStringLiteral("menu:file"));
+
+        auto* file = f.window->findChild<QMenu*>(QStringLiteral("menu:file"));
+        auto* edit = f.window->findChild<QMenu*>(QStringLiteral("menu:edit"));
+        auto* help = f.window->findChild<QMenu*>(QStringLiteral("menu:help"));
+        auto* import = f.window->findChild<QMenu*>(QStringLiteral("menu:file.import"));
+        QVERIFY(file && edit && help && import);
+        QVERIFY(!file->actions().contains(f.action("file.quit")));
+        QVERIFY(!edit->actions().contains(f.action("edit.preferences")));
+        QVERIFY(!help->actions().contains(f.action("help.about")));
+        QVERIFY(file->actions().contains(import->menuAction()));
+        QVERIFY(import->actions().contains(f.action("file.import_media")));
+        QVERIFY(import->actions().contains(f.action("file.import_subtitle")));
+        QCOMPARE(QKeySequence(f.action("file.import_media")->shortcut()),
+            QKeySequence(QStringLiteral("Ctrl+I")));
+
+        auto* workspace = f.window->findChild<QMenu*>(QStringLiteral("menu:settings"));
+        QVERIFY(workspace);
+        QCOMPARE(
+            workspace->menuAction()->text().remove(QLatin1Char('&')), QStringLiteral("Workspace"));
+        QVERIFY(workspace->actions().contains(f.action("view.fullscreen")));
+        QCOMPARE(f.action("view.fullscreen")->text().remove(QLatin1Char('&')),
+            QStringLiteral("Full Screen Window"));
+        QCOMPARE(bar.last()->menu(), help);
+    }
+
     // Spec 28.17: a caption is named after its text: typing in the Captions tab renames the
     // clip (first line), so the Inspector header and the Edit Index show the caption.
     void spec28_17_captionNameFollowsItsText()

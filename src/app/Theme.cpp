@@ -488,7 +488,7 @@ QApplication* application()
 // ---- Settings page --------------------------------------------------------------------
 
 /// Settings page "appearance": colour theme and widget style. Applies by triggering the
-/// registered actions, so the Settings menu and the stored values cannot disagree.
+/// registered actions, so the Workspace menu and the stored values cannot disagree.
 class AppearancePage final : public SettingsPage
 {
 public:
