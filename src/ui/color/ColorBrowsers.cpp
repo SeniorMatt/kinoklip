@@ -92,6 +92,13 @@ public:
             p->setBrush(QColor(90, 200, 120));
             p->drawEllipse(QPointF(thumb.right() - 6, thumb.top() + 6), 3.5, 3.5);
         }
+        if (selected) {
+            // Selected clips (the targets of Copy / Paste Grade) are framed, so a Shift / Ctrl
+            // selection can be seen; the current clip's playhead-coloured frame sits inside.
+            p->setPen(QPen(pal.color(QPalette::Highlight), 2));
+            p->setBrush(Qt::NoBrush);
+            p->drawRect(QRectF(r).adjusted(1, 1, -1, -1));
+        }
         if (current) {
             p->setPen(QPen(schemeColors().playhead, 2));
             p->setBrush(Qt::NoBrush);
@@ -384,6 +391,12 @@ void ColorClipStrip::mousePressEvent(QMouseEvent* event)
         event->accept();
         return;
     }
+    if (event->button() == Qt::RightButton) {
+        // The right-click menu acts on the clicked clip and the selection as it is: pressing
+        // must not replace the selection (Copy Grade to Selected Clips would lose its targets).
+        event->accept();
+        return;
+    }
     QListWidget::mousePressEvent(event);
     if (event->button() == Qt::LeftButton && clip && m_session
         && !(event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier)))
@@ -398,8 +411,12 @@ void ColorClipStrip::contextMenuEvent(QContextMenuEvent* event)
     const quint64 clip = clipAt(row(it));
     QMenu menu(this);
     QAction* grade = menu.addAction(tr("Grade This Clip"));
+    QVector<quint64> others = m_session->selectedClips();
+    others.removeAll(clip);
     QAction* copy = menu.addAction(tr("Copy Grade to Selected Clips"));
-    copy->setEnabled(!m_session->selectedClips().isEmpty());
+    copy->setEnabled(!others.isEmpty());
+    if (others.isEmpty())
+        copy->setToolTip(tr("Ctrl- or Shift-click the clips that should get this clip's grade"));
     QAction* paste = menu.addAction(tr("Paste Grade"));
     paste->setEnabled(m_session->hasCopiedGrade());
     QAction* reset = menu.addAction(tr("Reset Grade"));
@@ -407,9 +424,7 @@ void ColorClipStrip::contextMenuEvent(QContextMenuEvent* event)
     if (chosen == grade) {
         m_session->gradeClip(clip);
     } else if (chosen == copy) {
-        QVector<quint64> targets = m_session->selectedClips();
-        targets.removeAll(clip);
-        m_session->copyGrade(clip, targets);
+        m_session->copyGrade(clip, others);
     } else if (chosen == paste) {
         m_session->pasteGrade(m_session->selectedClips().isEmpty() ? QVector<quint64> {clip}
                                                                    : m_session->selectedClips());
