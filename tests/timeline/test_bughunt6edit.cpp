@@ -129,6 +129,30 @@ private slots:
         QCOMPARE(t.tl()->playhead(), int64_t(5));
         QVERIFY(t.c.selectedEdit().isEmpty());
     }
+
+    // Spec 12.16: clips on a locked track cannot be selected: a click on one (or on its edge)
+    // acts like a click on the empty track area, and a rubber band passes over them.
+    void spec12_16_lockedClipsAreNotSelectable()
+    {
+        View v;
+        const quint64 a = v.put(kV1, mediaClip(0, 20));
+        const quint64 b = v.put(kV2, mediaClip(0, 20));
+        v.f.project.beginEdit(QStringLiteral("lock"));
+        v.f.data().track(kV1)->locked = true;
+        v.f.project.endEdit();
+        v.click(v.at(10, kV2));
+        QVERIFY(v.f.selection.isSelected(b));
+        v.click(v.at(10, kV1)); // clears the selection like the empty area
+        QVERIFY(!v.f.selection.isSelected(a));
+        QVERIFY(v.f.selection.clips().isEmpty());
+        // An edge press selects no edit point and a drag trims nothing.
+        v.drag(v.at(19.8, kV1), v.at(15, kV1));
+        QVERIFY(v.c.selectedEdit().isEmpty());
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:20"));
+        // A rubber band over both tracks picks only the unlocked clip.
+        v.drag(v.at(25, kV2) - QPoint(0, 20), v.at(5, kV1) + QPoint(0, 10));
+        QCOMPARE(v.f.selection.clips(), QVector<quint64> {b});
+    }
 };
 
 QTEST_MAIN(TestBughunt6Edit)
