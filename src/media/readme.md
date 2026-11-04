@@ -35,7 +35,7 @@ contains *t* (exact for VFR too); requests before the first / after the last fra
 | `FolderScan.h` | `scanMediaFolder()` for Import Media Folder: importable files per folder in natural order (`naturalCompare()`), numbered stills folded into sequence paths, hidden / junk files skipped (`isHiddenOrJunkName()`), symlink loops cut by canonical path; re-entrant, with a cancel callback |
 | `ImageSequence.h` | Sequence path convention (`/dir/name_%04d.png#fps=24`), `detectSequence(file)` for "import as sequence", scans with gap reporting. |
 | internal (formats) | `ImageBackends.h` + `*ImageBackend.cpp` (one file per library), `ImageFrameList` (sequences and Qt animations as frame-indexed sources; `routeFor()` = the routing decision shared by `probe()` and `VideoDecoder::open()`). |
-| internal | `FFmpegUtil` (RAII, open/seek helpers, log routing + `FfmpegLogCapture`), `HwDevices`/`HwAccel.cpp` (backend table, shared device contexts), `VideoFrameFactory` (hw download + pooling), `FrameConverter` (swscale → QImage). |
+| internal | `FFmpegUtil` (RAII, open/seek helpers, log routing + `FfmpegLogCapture`), `HwDevices`/`HwAccel.cpp` (backend table, shared device contexts), `VideoFrameFactory` (hw download + pooling), `FrameConverter` (swscale → QImage), `HdrToSdr` (HLG / PQ / BT.2020 → SDR BT.709, CPU and GLSL). |
 
 ## Data flow
 
@@ -276,7 +276,15 @@ no fixture (no encoder available). Results on the dev box: all tested rows pass,
   bottleneck of the hardware path today.
 * TODO(media): software seeks in long-GOP 1080p H.264 average ~200 ms (target 150 ms). Idea:
   `skip_frame = AVDISCARD_NONREF` while decoding towards a target that is still far ahead.
-* TODO(media): HDR (PQ/HLG) is reported in `VideoFrame::transfer` but not tone-mapped.
+* HDR (PQ / HLG) and BT.2020 video is mapped to the SDR BT.709 timeline (`HdrToSdr.h`: BT.2100
+  linearisation, reference white 203 cd/m2 = SDR white, BT.2020 → BT.709 primaries, a highlight
+  roll-off above 0.8) in the GPU shader and in `FrameConverter`; there is no HDR output or
+  per-clip input colour space choice yet. Colour tags other than the matrix, range, transfer and
+  BT.2020 primaries (e.g. untagged HD clips encoded with BT.601) are taken as they are.
+* Only one audio stream per file is used (the default one, else the first): a second stream
+  (a camera's second microphone, a commentary track) is ignored.
+* MP4 / MOV files cut off after their index are shortened to the samples present, with an
+  import note; files without an index ("moov atom not found") cannot be opened.
 * Display-matrix flips (mirrored phone video) are ignored; only rotation is applied.
 * Audio timestamp discontinuities inside a file are not repaired (assumed contiguous).
 * Animated WebP is decoded by Qt sequentially: stepping backwards re-decodes from frame 0 once
