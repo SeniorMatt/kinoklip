@@ -10,6 +10,7 @@
 #include "app/pages/CompositingPage.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
+#include "app/pages/MediaPage.h"
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
 #include "core/LevelOps.h"
@@ -40,6 +41,7 @@
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/keyframes/KeyframesPanel.h"
+#include "ui/mediapool/MediaBrowserPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/mediapool/MulticamSync.h"
 #include "ui/projects/NewProjectDialog.h"
@@ -58,8 +60,10 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -726,6 +730,12 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             if (tabs.contains(tab))
                 inspector->tabs()->setCurrentIndex(tabs.value(tab));
         }
+        // KK_SCREENSHOT_SOURCE=<media item name> (readme): that item in the source viewer.
+        const QString sourceName = qEnvironmentVariable("KK_SCREENSHOT_SOURCE");
+        for (const MediaItem& item : ctx.project->mediaPool()->items()) {
+            if (!sourceName.isEmpty() && item.name == sourceName)
+                window.editPage()->sourceViewer()->setSourceMedia(item.id);
+        }
         const QString onscreen = qEnvironmentVariable("KK_SCREENSHOT_ONSCREEN");
         const QString onscreenId = QStringLiteral("view.onscreen_") + onscreen;
         if (!onscreen.isEmpty() && ctx.actions->contains(onscreenId))
@@ -771,6 +781,36 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         d->adjustSize();
         dialog = std::move(d);
         delayMs = kDialogSettleDelayMs;
+    } else if (base == QLatin1String("media") && !section.isEmpty()) {
+        // "media:<item name>" (readme): the Media page with that media item selected, so the
+        // viewer shows it and the Metadata panel lists its properties; Media Storage shows
+        // the item's folder.
+        window.setCurrentPage(QStringLiteral("media"));
+        QString id;
+        QString path;
+        for (const MediaItem& item : ctx.project->mediaPool()->items()) {
+            if (item.name == section) {
+                id = item.id;
+                path = item.path;
+            }
+        }
+        if (id.isEmpty() || !window.mediaPage()->mediaPool()->selectMedia(id)) {
+            std::fprintf(stderr, "media: no media item '%s'\n", qPrintable(section));
+            return 2;
+        }
+        if (auto* storage = window.mediaPage()->findChild<MediaBrowserPanel*>()) {
+            const QDir folder = QFileInfo(path).absoluteDir();
+            QDir parent = folder;
+            parent.cdUp();
+            storage->setRootPath(parent.absolutePath());
+            storage->showFolder(folder.absolutePath());
+        }
+        // Halfway into the clip: a typical frame rather than the first one.
+        QTimer::singleShot(0, &window, [&window] {
+            ViewerPanel* viewer = window.mediaPage()->viewer();
+            if (PlaybackEngine* engine = viewer ? viewer->engine() : nullptr)
+                engine->seek(engine->duration() / 2);
+        });
     } else if (target == QLatin1String("mediapool")) {
         panel = window.findChild<MediaPoolPanel*>();
     } else if (base == QLatin1String("effects")) {
@@ -865,21 +905,46 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             std::fprintf(stderr, "deliver: no preset '%s'\n", qPrintable(preset));
             return 2;
         }
+        // KK_SCREENSHOT_QUEUE=<preset id,...> (readme): "deliver:queue" first queues a job of
+        // each of these presets (Entire Timeline), then the one shown.
+        const bool queue = section == QLatin1String("queue");
+        QList<QAbstractButton*> extraTiles;
+        const QStringList extraIds = queue ? qEnvironmentVariable("KK_SCREENSHOT_QUEUE")
+                                                 .split(QLatin1Char(','), Qt::SkipEmptyParts)
+                                           : QStringList();
+        for (const QString& id : extraIds) {
+            auto* other = window.findChild<QAbstractButton*>(QStringLiteral("PresetTile_") + id);
+            if (!other) {
+                std::fprintf(stderr, "deliver: no preset '%s'\n", qPrintable(id));
+                return 2;
+            }
+            extraTiles.append(other);
+        }
         tile->click();
         range->setCurrentIndex(1); // In/Out Range
         // KK_SCREENSHOT_LOCATION: the folder shown in Location (after a queued job took the
         // real one), so pictures do not show the temporary folder the shot runs in.
         const QString location = qEnvironmentVariable("KK_SCREENSHOT_LOCATION");
-        const bool queue = section == QLatin1String("queue");
-        QTimer::singleShot(0, &window, [&window, location, queue] {
-            if (queue) {
+        QTimer::singleShot(0, &window, [&window, location, queue, tile, range, extraTiles] {
+            auto addToQueue = [&window] {
                 const auto buttons = window.findChildren<QPushButton*>();
                 for (QPushButton* b : buttons) {
                     if (b->isVisible()
                         && b->text() == RenderSettingsPanel::tr("Add to Render Queue"))
                         b->click();
                 }
+            };
+            if (!extraTiles.isEmpty()) {
+                for (QAbstractButton* other : extraTiles) {
+                    other->click();
+                    range->setCurrentIndex(0); // Entire Timeline
+                    addToQueue();
+                }
+                tile->click();
+                range->setCurrentIndex(1);
             }
+            if (queue)
+                addToQueue();
             auto* field = window.findChild<QLineEdit*>(QStringLiteral("RenderLocation"));
             if (field && !location.isEmpty())
                 field->setText(location);
@@ -1006,7 +1071,7 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         return grabImportDialog(window, pngPath);
     } else if (!isPage) {
         std::fprintf(stderr,
-            "unknown screenshot target '%s' (use media, cut[:tape|clip|strip], edit, "
+            "unknown screenshot target '%s' (use media[:<item>], cut[:tape|clip|strip], edit, "
             "audio[:eq|dynamics], deliver, "
             "preferences[:section], "
             "project-settings[:section], keyboard, inspector, keyframes[:curves|narrow], "

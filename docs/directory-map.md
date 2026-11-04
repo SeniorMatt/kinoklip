@@ -29,6 +29,6 @@
 | `tests/<area>/test_*.cpp` | QtTest unit/smoke tests (each file is its own executable) |
 | `docs/` | roadmap, behaviour spec, keymap, coding style, release notes, feedback; `docs/guide/` the user guide (articles, annotated screenshots, `index.json` for the in-app help) |
 | `packaging/` | Linux AppImage (AppRun launcher, desktop entry, AppStream metadata); Windows and macOS placeholders |
-| `scripts/` | packaging, formatting, keymap generator, test media generators, user guide screenshots (`guide_screenshots.py`) |
+| `scripts/` | packaging, formatting, keymap generator, test media generators, user guide and readme screenshots (`guide_screenshots.py`, `readme_screenshots.py`) |
 
 Each module directory has a `readme.md` with its responsibilities and a **How to extend** section.
