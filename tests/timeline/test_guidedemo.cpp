@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Builds the projects the user guide's screenshots are taken from (scripts/guide_screenshots.py):
 //   KK_GUIDE_MEDIA=<dir with interview.mp4, broll.mp4, texture.mp4, music.wav, greenscreen.mp4,
-//                   background.mp4, presenter.mp4>   (the script generates them with ffmpeg)
+//                   background.mp4, presenter.mp4, presenter-cold.mp4, luts/warm-look.cube>
+//                   (the script generates them with ffmpeg and Python)
 //   KK_GUIDE_DIR=<out dir>            writes edit.kkproj, greenscreen-raw.kkproj,
 //                                     greenscreen.kkproj, greenscreen-matte.kkproj, music.kkproj,
-//                                     fade, freeze, pip, vertical, blur, subtitles, keyframes and
-//                                     compositing.kkproj
+//                                     fade, freeze, pip, vertical, blur, subtitles, keyframes,
+//                                     compositing and the Color page's color, color-graded,
+//                                     color-qualifier and color-lut.kkproj
 // Without KK_GUIDE_MEDIA the edit project uses stand-in solids and the media projects are
 // skipped; every project is checked (invariants, save and load round trip) either way.
 // Also checks the screenshot geometry sidecar (src/app/ScreenshotGeometry) the script draws from.
@@ -13,6 +15,7 @@
 #include "app/ScreenshotGeometry.h"
 #include "core/CompOps.h"
 #include "core/Composition.h"
+#include "core/Grade.h"
 #include "core/Mask.h"
 #include "core/NodeRegistry.h"
 #include "core/RetimeOps.h"
@@ -112,7 +115,7 @@ private slots:
         d.name = QStringLiteral("Green Screen");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
-        const int64_t length = 10 * 25;
+        const int64_t length = 10 * 24;
         place(d, *itemNamed(project, QStringLiteral("background")), 0, length, 0, 0);
         const quint64 fg
             = place(d, *itemNamed(project, QStringLiteral("greenscreen")), 0, length, 1, -1);
@@ -140,7 +143,7 @@ private slots:
         withGuideTracks(d);
         d.name = QStringLiteral("With Music");
         d.audioTracks[1].name = QStringLiteral("Music");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         place(d, *itemNamed(project, QStringLiteral("interview")), 0, 12 * fps, 0, 0);
         const quint64 music
             = place(d, *itemNamed(project, QStringLiteral("music")), 0, 12 * fps, -1, 1);
@@ -168,7 +171,7 @@ private slots:
         TimelineData& d = project.timeline()->mutableData();
         withGuideTracks(d);
         d.name = QStringLiteral("Fades");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const quint64 first
             = place(d, *itemNamed(project, QStringLiteral("interview")), 0, 8 * fps, 0, 0);
         const quint64 last
@@ -200,7 +203,7 @@ private slots:
         TimelineData& d = project.timeline()->mutableData();
         withGuideTracks(d);
         d.name = QStringLiteral("Freeze");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const quint64 id
             = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 8 * fps, 0, -1);
         QVERIFY(retimeops::insertFreeze(d, id, 3 * fps, 2 * fps));
@@ -223,7 +226,7 @@ private slots:
         d.name = QStringLiteral("Picture in Picture");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
         const quint64 small
             = place(d, *itemNamed(project, QStringLiteral("broll")), 0, 10 * fps, 1, -1);
@@ -256,7 +259,7 @@ private slots:
         withGuideTracks(d);
         d.name = QStringLiteral("Vertical");
         QCOMPARE(d.width, 1080);
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const quint64 id
             = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
         ClipData* c = editops::clipById(d, id);
@@ -282,7 +285,7 @@ private slots:
         d.name = QStringLiteral("Hide a Face");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
         ClipData adj;
         adj.kind = ClipKind::Adjustment;
@@ -314,7 +317,7 @@ private slots:
         TimelineData& d = project.timeline()->mutableData();
         withGuideTracks(d);
         d.name = QStringLiteral("With Subtitles");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 9 * fps, 0, 0);
         place(d, *itemNamed(project, QStringLiteral("broll")), 9 * fps, 5 * fps, 0, 0);
         editops::addTrack(d, TrackType::Subtitle);
@@ -342,7 +345,7 @@ private slots:
         TimelineData& d = project.timeline()->mutableData();
         withGuideTracks(d);
         d.name = QStringLiteral("Slow Zoom");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const int64_t length = 8 * fps;
         const quint64 id
             = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, length, 0, 0);
@@ -370,7 +373,7 @@ private slots:
         TimelineData& d = project.timeline()->mutableData();
         withGuideTracks(d);
         d.name = QStringLiteral("Compositing");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const quint64 id
             = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
         ClipData* c = editops::clipById(d, id);
@@ -390,6 +393,92 @@ private slots:
         project.timeline()->setPlayhead(5 * fps);
         project.setName(QStringLiteral("Compositing"));
         saveAndCheck(project, QStringLiteral("compositing.kkproj"));
+    }
+
+    void colorProjects_data()
+    {
+        QTest::addColumn<QString>("file");
+        QTest::addColumn<int>("stage"); // 0 ungraded, 1 basic grade, 2 + qualifier / window, 3 LUT
+        QTest::newRow("ungraded") << QStringLiteral("color.kkproj") << 0;
+        QTest::newRow("graded") << QStringLiteral("color-graded.kkproj") << 1;
+        QTest::newRow("qualifier") << QStringLiteral("color-qualifier.kkproj") << 2;
+        QTest::newRow("lut") << QStringLiteral("color-lut.kkproj") << 3;
+    }
+
+    /// Color page: a dark, cold shot of the presenter twice with B-roll between them (clips
+    /// 01 - 03). Stage 1 warms and brightens clip 01 (Gain, Temp); stage 2 adds node 02 (the
+    /// blue shirt qualified and turned red) and node 03 (a circle window brightening the
+    /// face); stage 3 adds node 02 with the demo LUT after the basic grade.
+    void colorProjects()
+    {
+        QFETCH(QString, file);
+        QFETCH(int, stage);
+        Project project;
+        if (!importAll(project, {"presenter-cold.mp4", "broll.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no presenter-cold.mp4 / broll.mp4");
+        project.beginEdit(QStringLiteral("Demo"));
+        TimelineData& d = project.timeline()->mutableData();
+        d.name = QStringLiteral("Interview");
+        const int64_t fps = 24; // a new project's frame rate
+        const MediaItem& cold = *itemNamed(project, QStringLiteral("presenter-cold"));
+        const quint64 first = place(d, cold, 0, 5 * fps, 0, 0);
+        place(d, *itemNamed(project, QStringLiteral("broll")), 5 * fps, 4 * fps, 0, 0);
+        place(d, cold, 9 * fps, 5 * fps, 0, 0);
+        project.endEdit();
+        namespace gk = gradekeys;
+        namespace wk = gradewindowkeys;
+        ClipGrade g;
+        if (stage >= 1) {
+            const quint64 n1 = gradeops::initialize(g);
+            ParamSet& p = g.node(n1)->params;
+            p.setBase(gk::GainY, 1.3);
+            p.setBase(gk::GammaY, 0.03);
+            p.setBase(gk::LiftY, -0.02);
+            p.setBase(gk::Temperature, 0.8);
+            p.setBase(gk::Tint, 0.04);
+            if (stage == 2) {
+                const quint64 n2 = gradeops::addSerialNode(g, n1);
+                GradeQualifier& q = g.node(n2)->qualifier;
+                q.enabled = true;
+                q.hueCenter = 0.62; // the blue shirt
+                q.hueWidth = 0.1;
+                q.hueSoft = 0.04;
+                q.satLow = 0.35;
+                q.satHigh = 1.0;
+                q.lumLow = 0.05;
+                q.lumHigh = 0.8;
+                g.node(n2)->params.setBase(gk::Hue, 140);
+                g.node(n2)->params.setBase(gk::Saturation, 1.2);
+                const quint64 n3 = gradeops::addSerialNode(g, n2);
+                const quint64 w = gradeops::addWindow(g, n3, GradeWindowShape::Circle);
+                QVERIFY(w);
+                GradeWindow* win = nullptr;
+                for (GradeWindow& candidate : g.node(n3)->windows) {
+                    if (candidate.id == w)
+                        win = &candidate;
+                }
+                QVERIFY(win);
+                win->params.setBase(wk::CenterX, 0.5);
+                win->params.setBase(wk::CenterY, 0.37);
+                win->params.setBase(wk::Width, 0.2);
+                win->params.setBase(wk::Height, 0.33);
+                win->params.setBase(wk::SoftOut, 0.05);
+                g.node(n3)->params.setBase(gk::GammaY, 0.06);
+            }
+            if (stage == 3) {
+                const QString lut
+                    = QDir(mediaDir()).filePath(QStringLiteral("luts/warm-look.cube"));
+                if (!QFileInfo::exists(lut))
+                    QSKIP("KK_GUIDE_MEDIA has no luts/warm-look.cube");
+                g.node(gradeops::addSerialNode(g, n1))->lutPath = lut;
+            }
+        }
+        if (!g.isEmpty())
+            QVERIFY(
+                project.setClipGrade(project.activeTimelineUid(), first, g, QStringLiteral("G")));
+        project.timeline()->setPlayhead(2 * fps);
+        project.setName(QStringLiteral("Interview"));
+        saveAndCheck(project, file);
     }
 
     /// The sidecar lists named widgets, tool bar buttons by action id, clips, transitions and

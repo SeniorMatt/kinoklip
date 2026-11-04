@@ -26,6 +26,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/common/TimecodeFormat.h"
 #include "ui/inspector/ValueField.h"
 #include "ui/viewer/ViewerSurface.h"
 
@@ -33,6 +34,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QFile>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
@@ -576,6 +578,27 @@ private slots:
         // The current clip is outlined and graded clips carry a mark (item data).
         QVERIFY(strip->item(0)->data(Qt::UserRole + 4).toBool());
         QVERIFY(strip->item(1)->data(Qt::UserRole + 3).toBool());
+    }
+
+    /// The viewer's timecode and the clips strip show record timecode (the timeline's starting
+    /// timecode added), like the Edit page.
+    void timecodesUseTheStartingTimecode()
+    {
+        Fixture f;
+        const TimelineData& d = f.project.timeline()->data();
+        QVERIFY(d.startTimecode > 0); // a new project's timeline starts at 01:00:00:00
+        f.project.timeline()->setPlayhead(60);
+        f.showPage();
+        auto* label = f.page()->findChild<QLabel*>(QStringLiteral("ColorTimecode"));
+        QVERIFY(label);
+        QCOMPARE(label->text(), timecode::formatRecord(60, d));
+        QVERIFY(label->text().startsWith(QLatin1String("01:")));
+        ColorClipStrip* strip = f.page()->clipStrip();
+        QCOMPARE(strip->item(1)->data(Qt::UserRole + 2).toString(), timecode::formatRecord(50, d));
+        // A new starting timecode follows at once.
+        QVERIFY(f.project.setTimelineStartTimecode(f.project.activeTimelineUid(), 0));
+        QCoreApplication::processEvents();
+        QCOMPARE(label->text(), timecode::format(60, f.project.timeline()->data().fps));
     }
 
     void interfaceBarToggles()
