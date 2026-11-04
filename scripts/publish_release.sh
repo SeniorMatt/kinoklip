@@ -1,6 +1,6 @@
 #!/bin/sh
-# Publishes the AppImage in dist/ as a GitHub pre-release and points the readme's
-# "Download here" link at it. Run from the repository root after packaging:
+# Publishes the AppImage in dist/ as a GitHub pre-release. (The readme's "Download here" link
+# points at the releases page, so it needs no update.) Run from the repository root after packaging:
 #   scripts/publish_release.sh v1.1.0-beta.1 "Kinoklip 1.1.0 Beta"
 # Needs: gh (logged in), dist/Kinoklip-x86_64.AppImage(.zsync), dist/SHA256SUMS.txt and
 # docs/releases/<tag>.md.
@@ -23,11 +23,4 @@ git push origin "$tag"
 gh release create "$tag" --prerelease --title "$title" --notes-file "$notes" \
     dist/Kinoklip-x86_64.AppImage dist/Kinoklip-x86_64.AppImage.zsync dist/SHA256SUMS.txt
 
-# Point the readme's download link at the new release.
-sed -i "s#releases/download/v[^/]*/Kinoklip-x86_64.AppImage#releases/download/$tag/Kinoklip-x86_64.AppImage#" readme.md
-git add readme.md
-git commit -m "readme: download link to $title" \
-    -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01X5N5x5ieBdJ1QWiroo1Sgc"
-git push origin main
 echo "Published $title: https://github.com/SeniorMatt/kinoklip/releases/tag/$tag"
