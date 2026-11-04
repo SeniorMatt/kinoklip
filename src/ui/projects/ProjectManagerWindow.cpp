@@ -317,6 +317,12 @@ void ProjectManagerWindow::buildUi()
     root->addLayout(bottom);
 }
 
+void ProjectManagerWindow::setTopBanner(QWidget* banner)
+{
+    if (auto* root = qobject_cast<QVBoxLayout*>(layout()); root && banner)
+        root->insertWidget(0, banner);
+}
+
 // ---- Navigation ----
 
 void ProjectManagerWindow::showFolder(const QString& folder)

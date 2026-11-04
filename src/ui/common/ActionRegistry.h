@@ -17,6 +17,10 @@ class QWidget;
 
 namespace kk {
 
+namespace foreignkeys {
+struct Result;
+}
+
 /// Central catalogue of user commands ("edit.split", "transport.play_pause", ...).
 ///
 /// - Commands are registered once at start-up (see StandardActions.cpp) with a display text,
@@ -92,10 +96,22 @@ public:
     /// Deletes user profile @p id (its file). Deleting the active profile activates the
     /// built-in profile it was based on. Built-in profiles cannot be deleted.
     bool deleteProfile(const QString& id, QString* error = nullptr);
+    /// What importProfile() read from another editor's file.
+    struct ImportSummary
+    {
+        QString format; ///< "Premiere Pro", "Final Cut Pro"; empty for a Kinoklip keymap
+        int imported = 0; ///< shortcuts given to Kinoklip commands
+        int skipped = 0; ///< shortcuts of unknown commands, unreadable keys or repeats
+    };
     /// Creates a user profile from keymap file @p path (an exported profile or any keymap
     /// JSON; commands missing in the file keep their defaults). @p name empty: the file's
     /// "name", else its base name. Returns the new id, or empty on failure.
-    QString importProfile(const QString& path, const QString& name = {}, QString* error = nullptr);
+    /// Premiere Pro `.kys` and Final Cut Pro `.commandset` files are read too (ForeignKeymaps.h):
+    /// the profile is based on that editor's built-in preset and the file's shortcuts of the
+    /// commands Kinoklip knows replace the preset's keys for those commands; a key they take
+    /// is removed from the other commands of a conflicting scope. @p summary gets the counts.
+    QString importProfile(const QString& path, const QString& name = {}, QString* error = nullptr,
+        ImportSummary* summary = nullptr);
     /// Writes the complete shortcuts of profile @p id (defaults + overrides) to @p path.
     bool exportProfile(const QString& id, const QString& path, QString* error = nullptr) const;
     /// True if profile @p id has shortcuts that differ from its base.
@@ -230,6 +246,9 @@ private:
     /// Applies m_defaults + m_overrides to every registered action.
     void applyAll();
     [[nodiscard]] QString uniqueUserId(const QString& name) const;
+    /// @p base with the shortcuts of another editor's file applied (importProfile()).
+    [[nodiscard]] KeyMap foreignKeys(
+        const KeyMap& base, const foreignkeys::Result& foreign, ImportSummary* summary) const;
 
     QString m_settingsGroup;
     QVector<Entry> m_entries;

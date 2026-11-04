@@ -17,6 +17,7 @@
 #include "ui/common/FolderImport.h"
 #include "ui/common/MediaImport.h"
 #include "ui/mediapool/MediaPoolPanel.h"
+#include "ui/projects/KeymapChoiceBanner.h"
 #include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectManagerWindow.h"
 
@@ -334,6 +335,9 @@ void ProjectController::showProjectManager()
             m_manager->hide();
             m_ctx.actions->action(QStringLiteral("file.project_settings"))->trigger();
         });
+        // First start: "Coming from another editor?" (spec 38.32).
+        if (KeymapChoiceBanner::shouldOffer())
+            m_manager->setTopBanner(new KeymapChoiceBanner(*m_ctx.actions));
     }
     m_manager->setRecentProjects(recentProjects());
     m_manager->setOpenProjectPath(m_ctx.project->filePath());

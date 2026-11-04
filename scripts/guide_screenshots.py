@@ -642,6 +642,10 @@ SHOTS = {
                     ("num", W(name="LutLoadFile"), 4, "t"),
                     ("num", W(name="LutCurrent", fx=(0, 0.3)), 5, "r")]),
     ],
+    "use-the-shortcuts-of-your-old-editor": [
+        dict(name="1-keyboard-profile", target="keyboard:vegas-pro", width=760,
+             marks=[("num", W(name="KeyboardProfile"), 1, "b")]),
+    ],
 }
 
 
