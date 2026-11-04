@@ -57,6 +57,9 @@ search field.
 - [Animate with keyframes](keyframe-animation.md)
 - [Make quiet and loud clips the same volume](even-out-clip-volumes.md)
 - [Put text over a clip on the Compositing page](compositing-page.md)
+- [Colour correct a clip](colour-correct-a-clip.md) (the Color page)
+- [Change the colour of one object](change-the-colour-of-one-object.md)
+- [Use a LUT](use-a-lut.md)
 
 More articles are planned; see [the topic list](topics.md). Every keyboard shortcut is listed
 in the [keymap](../keymap-resolve-windows.md).

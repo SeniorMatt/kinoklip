@@ -4,7 +4,8 @@
 
 Reproducible from the real app:
   1. generates the demo media with ffmpeg (a sky, a presenter on a pure green screen and in
-     front of a wall, three clips with sound, a music bed) into <work>/media, once;
+     front of a wall and a dark, cold copy of it, three clips with sound, a music bed, a small
+     .cube LUT of our own) into <work>/media, once;
   2. builds the guide projects with the test_guidedemo test (tests/timeline/test_guidedemo.cpp);
   3. runs `kinoklip --screenshot <target> <png> <project>` for every shot, with
      KK_SCREENSHOT_GEOMETRY so the app reports where its widgets are (src/app/ScreenshotGeometry);
@@ -41,6 +42,7 @@ RED = (229, 57, 53)
 WHITE = (255, 255, 255)
 LINE = 4          # px at full size
 MARGIN = 24       # px around a crop
+DELAY_MS = 3000   # settle time per shot (--delay: longer on a busy machine)
 FONT_FILES = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
               "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf"]
 
@@ -54,7 +56,7 @@ AAC = ["-c:a", "aac", "-b:a", "128k"]
 
 def make_media(media: Path) -> None:
     media.mkdir(parents=True, exist_ok=True)
-    stamp = media / ".complete-v3"
+    stamp = media / ".complete-v4"
     if stamp.exists():
         return
     size = "1920x1080"
@@ -95,6 +97,11 @@ def make_media(media: Path) -> None:
     video("presenter.mp4", "color=c=black:s={}:r=25:d=12,format=rgb24,{},format=yuv420p"
           .format(size, wall), "sine=f=262:sample_rate=48000:d=12,volume=0.15,"
           "aformat=channel_layouts=stereo", 12)
+    # The same shot too dark and too blue (the Color page articles correct it).
+    video("presenter-cold.mp4", "color=c=black:s={}:r=25:d=12,format=rgb24,{},"
+          "colorchannelmixer=rr=0.64:gg=0.70:bb=0.80,format=yuv420p".format(size, wall),
+          "sine=f=262:sample_rate=48000:d=12,volume=0.15,aformat=channel_layouts=stereo", 12)
+    write_lut(media / "luts" / "warm-look.cube")
     tone = "sine=f={}:sample_rate=48000:d=30,volume=0.15,aformat=channel_layouts=stereo"
     video("interview.mp4", grad.format(size, 30, 0.01, "0x614385", "0x516395"), tone.format(220))
     video("broll.mp4", grad.format(size, 30, 0.02, "0xff7e5f", "0xfeb47b"), tone.format(330))
@@ -106,6 +113,30 @@ def make_media(media: Path) -> None:
         subprocess.run(FF + ["-f", "lavfi", "-i", chord, "-ac", "2", str(media / "music.wav")],
                        check=True)
     stamp.touch()
+
+
+def write_lut(path: Path, size: int = 17) -> None:
+    """A gentle "warm look" 3D LUT of our own: a soft S-curve, warmer highlights, slightly
+    cooler shadows and a little less saturation (the LUT article loads it)."""
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ['TITLE "Warm look (Kinoklip guide demo)"', f"LUT_3D_SIZE {size}"]
+
+    for b in range(size):          # .cube order: red changes fastest
+        for g in range(size):
+            for r in range(size):
+                rgb = [r / (size - 1), g / (size - 1), b / (size - 1)]
+                luma = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+                out = []
+                for i, c in enumerate(rgb):
+                    c = luma + (c - luma) * 0.9                      # a little less colour
+                    c = c - 0.12 * c * (1 - c) * (1 - 2 * c)         # soft S-curve
+                    warm = (0.05 * luma, 0.015 * luma, -0.04 * luma)[i]
+                    cool = (-0.02, 0.0, 0.02)[i] * (1 - luma)
+                    out.append(min(1.0, max(0.0, c + warm + cool)))
+                lines.append(" ".join(f"{v:.6f}" for v in out))
+    path.write_text("\n".join(lines) + "\n")
 
 
 # ---------------------------------------------------------------------------------------------
@@ -137,13 +168,17 @@ def build_projects(tests: Path, media: Path, projects: Path) -> None:
 
 
 def run_shot(app: Path, target: str, project: Path, png: Path, geometry: Path,
-             extra_env: dict) -> None:
+             extra_env: dict, luts=()) -> None:
     with tempfile.TemporaryDirectory(prefix="kk-guide-home-") as home:
         env = clean_env(Path(home))
         env["KK_SCREENSHOT_GEOMETRY"] = str(geometry)
-        env["KK_SCREENSHOT_DELAY_MS"] = "3000"  # thumbnails, waveforms and posters
+        env["KK_SCREENSHOT_DELAY_MS"] = str(DELAY_MS)  # thumbnails, waveforms and posters
         env["KK_SCREENSHOT_LOCATION"] = "/home/you/Videos"  # not the temporary folder
         env.update(extra_env)
+        for lut in luts:  # the Color page's LUT folder (QStandardPaths::AppDataLocation/LUT)
+            folder = Path(home) / "data" / "kinoklip" / "Kinoklip" / "LUT"
+            folder.mkdir(parents=True, exist_ok=True)
+            shutil.copy(lut, folder / lut.name)
         cmd = [str(app), "--screenshot", target, str(png)]
         if project:
             cmd.append(str(project))
@@ -530,6 +565,83 @@ SHOTS = {
                     ("num", W(name="text:text"), 3, "l"),
                     ("num", W(name="CompViewerRight"), 4, "tl")]),
     ],
+    "colour-correct-a-clip": [
+        dict(name="1-color-page", target="color:primaries", project="color.kkproj",
+             marks=[("num", W(action="view.page_color"), 1, "t"),
+                    ("num", W(name="ColorGalleryPanel"), 2, "c"),
+                    ("num", W(name="ColorViewerOverlay"), 3, "c"),
+                    ("num", W(name="ColorNodeEditor"), 4, "c"),
+                    ("num", W(name="ColorClipStrip"), 5, "l"),
+                    ("num", W(name="ColorPalettes"), 6, "c"),
+                    ("num", W(**{"class": "kk::ScopesPanel"}), 7, "c")]),
+        dict(name="2-primaries", target="color:primaries", project="color-graded.kkproj",
+             crop=[W(name="ColorPalettes")], margin=0, width=1000,
+             marks=[("num", W(name="ColorWheel_Lift", fx=(0.38, 0.62), fy=(0, 0.09)), 1, "r"),
+                    ("num", W(name="ColorWheel_Gamma", fx=(0.33, 0.67), fy=(0, 0.09)), 2, "r"),
+                    ("num", W(name="ColorWheel_Gain", fx=(0.38, 0.62), fy=(0, 0.09)), 3, "r"),
+                    ("num", W(name="Primaries_temperature"), 4, "r"),
+                    ("num", W(name="Primaries_tint"), 5, "r")]),
+        dict(name="3-waveform-before", target="color:primaries", project="color.kkproj",
+             crop=[W(**{"class": "kk::ScopesPanel"})], margin=0, width=520, marks=[]),
+        dict(name="4-waveform-after", target="color:primaries", project="color-graded.kkproj",
+             crop=[W(**{"class": "kk::ScopesPanel"})], margin=0, width=520, marks=[]),
+        dict(name="5-parade", target="color:primaries", project="color-graded.kkproj",
+             env={"KK_SCREENSHOT_SCOPE": "parade"},
+             crop=[W(**{"class": "kk::ScopesPanel"})], margin=0, width=520,
+             marks=[("box", W(name="ScopeType"))]),
+        dict(name="6-bypass", target="color:primaries", project="color-graded.kkproj",
+             crop=[W(name="ColorClipTargetButton"), W(name="ColorBypassButton")], margin=40,
+             width=900,
+             marks=[("num", W(name="ColorBypassButton"), 1, "b")]),
+        dict(name="7-clips-strip", target="color:primaries", project="color-graded.kkproj",
+             env={"KK_SCREENSHOT_COLOR_SELECT": "3"},
+             crop=[dict(kind="item", view="ColorClipStrip", nth=0),
+                   dict(kind="item", view="ColorClipStrip", nth=2)], margin=40, width=700,
+             upscale=True,
+             marks=[("num", dict(kind="item", view="ColorClipStrip", nth=0), 1, "b"),
+                    ("num", dict(kind="item", view="ColorClipStrip", nth=2), 2, "b")]),
+        dict(name="8-gallery", target="color:primaries", project="color-graded.kkproj",
+             env={"KK_SCREENSHOT_COLOR_GRAB": "1"},
+             crop=[W(action="color.grab_still"), dict(kind="item", view="ColorGallery", nth=0)],
+             margin=40, width=420, upscale=True,
+             marks=[("num", W(action="color.grab_still"), 1, "l"),
+                    ("num", dict(kind="item", view="ColorGallery", nth=0), 2, "r")]),
+    ],
+    "change-the-colour-of-one-object": [
+        dict(name="1-qualifier", target="color:qualifier", project="color-qualifier.kkproj",
+             env={"KK_SCREENSHOT_COLOR_NODE": "2", "KK_SCREENSHOT_COLOR_PICK": "1"},
+             marks=[("num", W(name="ColorNodeEditor"), 1, "tl"),
+                    ("num", W(name="QualifierPick_0"), 2, "b"),
+                    ("num", W(name="QualifierHueBar"), 3, "r"),
+                    ("num", W(name="ColorViewerOverlay", fx=(0.38, 0.62), fy=(0.65, 1.0)), 4,
+                     "r")]),
+        dict(name="2-highlight", target="color:qualifier", project="color-qualifier.kkproj",
+             env={"KK_SCREENSHOT_COLOR_NODE": "2", "KK_SCREENSHOT_COLOR_HIGHLIGHT": "1"},
+             crop=[W(name="ColorClipTargetButton"), W(name="ColorViewerOverlay"),
+                   W(name="ColorBypassButton")], margin=4, width=960,
+             marks=[("num", W(name="ColorHighlightButton"), 1, "b")]),
+        dict(name="3-hue", target="color:primaries", project="color-qualifier.kkproj",
+             env={"KK_SCREENSHOT_COLOR_NODE": "2"},
+             marks=[("num", W(name="Primaries_hue"), 1, "t"),
+                    ("num", W(name="Primaries_saturation"), 2, "t"),
+                    ("num", W(name="ColorViewerOverlay", fx=(0.38, 0.62), fy=(0.65, 1.0)), 3,
+                     "r")]),
+        dict(name="4-window", target="color:windows", project="color-qualifier.kkproj",
+             env={"KK_SCREENSHOT_COLOR_NODE": "3"},
+             marks=[("num", W(name="WindowAdd_circle"), 1, "b"),
+                    ("num", W(name="ColorViewerOverlay", fx=(0.36, 0.64), fy=(0.12, 0.62)), 2,
+                     "r"),
+                    ("num", W(name="Window_softOut"), 3, "t")]),
+    ],
+    "use-a-lut": [
+        dict(name="1-luts", target="color:luts", project="color-lut.kkproj", luts=True,
+             env={"KK_SCREENSHOT_COLOR_NODE": "2"},
+             marks=[("num", W(name="ColorPaletteTab_4"), 1, "t"),
+                    ("num", dict(kind="item", view="LutTree", nth=1, fx=(0, 0.12)), 2, "r"),
+                    ("num", W(name="LutAddFolder"), 3, "t"),
+                    ("num", W(name="LutLoadFile"), 4, "t"),
+                    ("num", W(name="LutCurrent", fx=(0, 0.3)), 5, "r")]),
+    ],
 }
 
 
@@ -540,7 +652,10 @@ def main() -> None:
     parser.add_argument("--work", default=str(ROOT / "build" / "guide"))
     parser.add_argument("--only", help="article or article/shot")
     parser.add_argument("--keep", action="store_true", help="reuse raw shots from --work")
+    parser.add_argument("--delay", type=int, default=DELAY_MS,
+                        help="ms to wait for thumbnails and posters before each shot")
     args = parser.parse_args()
+    globals()["DELAY_MS"] = args.delay
 
     if "KK_GUIDE_UNDER_XVFB" not in os.environ:
         if not shutil.which("xvfb-run"):
@@ -574,7 +689,8 @@ def main() -> None:
             if not (args.keep and png.exists() and geo.exists()):
                 env = {k: v.format(library=library) for k, v in shot.get("env", {}).items()}
                 project = projects / shot["project"] if shot.get("project") else None
-                run_shot(app, shot["target"], project, png, geo, env)
+                luts = sorted((media / "luts").glob("*.cube")) if shot.get("luts") else []
+                run_shot(app, shot["target"], project, png, geo, env, luts)
             annotate(png, geo, shot, OUT / article / f"{shot['name']}.png")
 
 

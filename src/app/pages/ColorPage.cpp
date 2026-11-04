@@ -22,6 +22,7 @@
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/common/TimelineCommandSuspension.h"
+#include "ui/help/Guide.h"
 #include "ui/scopes/ScopeFeeder.h"
 #include "ui/scopes/ScopeView.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -207,6 +208,7 @@ ColorPage::ColorPage(AppContext& ctx, QWidget* parent)
         const TimelineData& d = m_ctx.project->timeline()->data();
         m_surface->setAspect(QSize(d.width, d.height));
         updateHeader();
+        updateTimecode(); // the starting timecode may have changed
     });
     connect(ctx.project->timeline(), &Timeline::playheadChanged, this, &ColorPage::updateTimecode);
     connect(m_session, &ColorSession::clipChanged, this, &ColorPage::updateHeader);
@@ -243,6 +245,16 @@ ColorPage::ColorPage(AppContext& ctx, QWidget* parent)
     connectActions();
     updateHeader();
     updateTimecode();
+
+    // In-app help (F1, the "?" buttons): the guide's Color page articles (docs/guide/index.json).
+    m_galleryFrame->setPanelKey(QStringLiteral("color_gallery"));
+    m_nodesFrame->setPanelKey(QStringLiteral("color_nodes"));
+    m_scopesFrame->setPanelKey(QStringLiteral("color_scopes"));
+    const std::pair<QWidget*, const char*> helpContexts[] = {{m_primaries, "color_primaries"},
+        {m_curves, "color_curves"}, {m_qualifier, "color_qualifier"}, {m_windows, "color_windows"},
+        {m_luts, "color_luts"}, {m_strip, "color_clips"}};
+    for (const auto& [widget, key] : helpContexts)
+        guide::setHelpContext(widget, QStringLiteral("panel:") + QLatin1String(key));
 
     // No Edit page timeline here: its editing commands are off while the page is shown (so
     // Ctrl+D is Enable / Disable Node, Ctrl+C copies the grade); the transport, page keys,
@@ -637,7 +649,7 @@ void ColorPage::updateHeader()
 void ColorPage::updateTimecode()
 {
     const TimelineData& data = m_ctx.project->timeline()->data();
-    m_timecode->setText(timecode::format(m_ctx.project->timeline()->playhead(), data.fps));
+    m_timecode->setText(timecode::formatRecord(m_ctx.project->timeline()->playhead(), data));
 }
 
 QAction* ColorPage::actionForKey(const QKeyEvent* event) const
