@@ -565,6 +565,20 @@ void MediaPoolPanel::setCurrentBin(const QString& binId)
     setCurrentBinKey(binId);
 }
 
+void MediaPoolPanel::showImportedItems(const QStringList& ids, const QString& targetBin)
+{
+    const MediaPool* pool = m_ctx.project ? m_ctx.project->mediaPool() : nullptr;
+    const MediaItem* first = pool && !ids.isEmpty() ? pool->item(ids.front()) : nullptr;
+    if (!first || first->binId == targetBin)
+        return;
+    // Walk up from the item's bin to the child of the target bin.
+    QString shown = first->binId;
+    for (const Bin* b = pool->bin(shown); b && b->parentId != targetBin; b = pool->bin(shown))
+        shown = b->parentId;
+    if (pool->bin(shown))
+        setCurrentBin(shown);
+}
+
 QString MediaPoolPanel::currentBinKey() const
 {
     return m_proxy->bin();

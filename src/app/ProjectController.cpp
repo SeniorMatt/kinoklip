@@ -16,6 +16,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/FolderImport.h"
 #include "ui/common/MediaImport.h"
+#include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectManagerWindow.h"
 
@@ -247,12 +248,29 @@ void ProjectController::importMedia()
         m_window, tr("Import Media"), mediaFileDialogFilter(), QLatin1String(kLastMediaDirKey));
     if (paths.isEmpty())
         return;
-    importMediaWithFeedback(m_ctx, paths, m_window);
+    const MediaPoolPanel* pool = shownMediaPool();
+    importMediaWithFeedback(m_ctx, paths, m_window, pool ? pool->currentBin() : QString());
 }
 
 void ProjectController::importMediaFolder()
 {
-    importMediaFolderWithDialogs(m_ctx, m_window, {});
+    MediaPoolPanel* pool = shownMediaPool();
+    const QString target = pool ? pool->currentBin() : QString();
+    const QStringList ids = importMediaFolderWithDialogs(m_ctx, m_window, target);
+    if (pool)
+        pool->showImportedItems(ids, target);
+}
+
+MediaPoolPanel* ProjectController::shownMediaPool() const
+{
+    // File > Import goes into the bin the user is looking at, as in Resolve (the media pool
+    // of the page shown; pages keep the same bin, MainWindow::setCurrentPage()).
+    const QList<MediaPoolPanel*> pools = m_window->findChildren<MediaPoolPanel*>();
+    for (MediaPoolPanel* pool : pools) {
+        if (pool->isVisible())
+            return pool;
+    }
+    return pools.isEmpty() ? nullptr : pools.front();
 }
 
 void ProjectController::importSubtitle()
@@ -263,7 +281,8 @@ void ProjectController::importSubtitle()
         subtitleFileDialogFilter(), QLatin1String(kLastMediaDirKey));
     if (paths.isEmpty())
         return;
-    importMediaWithFeedback(m_ctx, paths, m_window);
+    const MediaPoolPanel* pool = shownMediaPool();
+    importMediaWithFeedback(m_ctx, paths, m_window, pool ? pool->currentBin() : QString());
 }
 
 bool ProjectController::openLastProject()
