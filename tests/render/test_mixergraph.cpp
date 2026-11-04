@@ -85,7 +85,7 @@ class TestMixerGraph : public QObject
     TimelineData timeline(
         const QString& first = QStringLiteral("sine"), const QString& second = QString())
     {
-        TimelineData tl = makeDefaultTimeline(QStringLiteral("mix"), Rational {25, 1});
+        TimelineData tl = makeDefaultTimeline(QStringLiteral("mix"), Rational {25, 1}, 1920, 1080, 2, 2);
         int track = 0;
         for (const QString& id : {first, second}) {
             if (id.isEmpty())

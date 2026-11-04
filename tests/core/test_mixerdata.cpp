@@ -67,7 +67,7 @@ class TestMixerData : public QObject
 private slots:
     void defaultsAreNeutral()
     {
-        const TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1});
+        const TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 2, 2);
         QCOMPARE(int(d.mixer.buses.size()), 1);
         QCOMPARE(d.mixer.buses[0].id, kMainBusId);
         QCOMPARE(d.mixer.outputBus, kMainBusId);
@@ -81,7 +81,7 @@ private slots:
 
     void busOps()
     {
-        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 2, 2);
         const int b2 = mixerops::addBus(d, false);
         const int b3 = mixerops::addBus(d, true, QStringLiteral("Music"));
         QCOMPARE(b2, 2);
@@ -102,7 +102,7 @@ private slots:
 
     void automationValuesAndModes()
     {
-        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 2, 2);
         TrackData& t = d.audioTracks[0];
         t.mix.strip.volumeDb = -3.0;
         QCOMPARE(mixerops::faderDbAt(t, 5.0), -3.0); // no curve: the static fader
@@ -144,7 +144,7 @@ private slots:
 
     void defaultMixerWritesNothing()
     {
-        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 2, 2);
         const QJsonObject o = serialization::timelineToJson(d);
         QVERIFY(!o.contains(QLatin1String("mixer")));
         for (const QJsonValue& t : o.value(QLatin1String("audioTracks")).toArray())
@@ -217,7 +217,7 @@ private slots:
         QCOMPARE(s.eq.bands[0].frequencyHz, kEqMaxFrequencyHz);
         QCOMPARE(s.eq.bands[0].q, kEqMinQ);
         // Routes to missing buses are dropped on load.
-        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 2, 2);
         d.audioTracks[0].mix.buses = {kMainBusId, 5};
         TimelineData back;
         QString error;

@@ -53,7 +53,7 @@ struct PickFixture
     PickFixture()
     {
         f.project.timeline()->mutableData()
-            = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 320, 180);
+            = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 320, 180, 2, 2);
         clipId = f.addClip(kV1, 0, 100, ClipKind::Solid);
         QVERIFY(effectactions::applyEffect(f.project, {clipId}, QLatin1String(fxid::ChromaKey)));
         QVERIFY(effectactions::applyEffect(f.project, {clipId}, QLatin1String(fxid::Invert)));

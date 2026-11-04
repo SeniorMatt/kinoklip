@@ -126,7 +126,7 @@ private:
         const bool nested = variant == Compound;
         m_project->beginEdit(QStringLiteral("gap"));
         TimelineData& tl = m_project->timeline()->mutableData();
-        tl = makeDefaultTimeline(QStringLiteral("gap"), {25, 1}, 320, 180);
+        tl = makeDefaultTimeline(QStringLiteral("gap"), {25, 1}, 320, 180, 2, 2);
         ClipData media;
         media.kind = ClipKind::Media;
         media.mediaId = m_media;
@@ -308,7 +308,7 @@ private Q_SLOTS:
     {
         m_project->beginEdit(QStringLiteral("long"));
         TimelineData& tl = m_project->timeline()->mutableData();
-        tl = makeDefaultTimeline(QStringLiteral("gap"), {25, 1}, 320, 180);
+        tl = makeDefaultTimeline(QStringLiteral("gap"), {25, 1}, 320, 180, 2, 2);
         ClipData media;
         media.kind = ClipKind::Media;
         media.mediaId = m_media;
@@ -434,7 +434,7 @@ private Q_SLOTS:
     {
         m_project->beginEdit(QStringLiteral("clips"));
         TimelineData& tl = m_project->timeline()->mutableData();
-        tl = makeDefaultTimeline(QStringLiteral("gap"), {25, 1}, 320, 180);
+        tl = makeDefaultTimeline(QStringLiteral("gap"), {25, 1}, 320, 180, 2, 2);
         for (int i = 0; i < 4; ++i) {
             ClipData c;
             c.kind = ClipKind::Media;

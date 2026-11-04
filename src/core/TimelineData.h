@@ -410,8 +410,9 @@ struct TimelineData
 /// when the frame rate changes; frames beyond the new rate's last frame number are clamped).
 [[nodiscard]] int64_t convertTimecode(int64_t frames, Rational from, Rational to);
 
-/// A new timeline with two video (V1, V2) and two audio (A1, A2) tracks.
-[[nodiscard]] TimelineData makeDefaultTimeline(
-    const QString& name, Rational fps, int width = 1920, int height = 1080);
+/// A new timeline with @p videoTracks video and @p audioTracks audio tracks: one of each (V1,
+/// A1) by default, as a new Resolve timeline (spec 25.14). Older projects keep their tracks.
+[[nodiscard]] TimelineData makeDefaultTimeline(const QString& name, Rational fps, int width = 1920,
+    int height = 1080, int videoTracks = 1, int audioTracks = 1);
 
 } // namespace kk

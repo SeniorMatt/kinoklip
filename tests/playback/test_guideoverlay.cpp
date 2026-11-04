@@ -60,7 +60,7 @@ struct Fixture
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
-        TimelineData tl = makeDefaultTimeline(QStringLiteral("Demo"), {25, 1}, kWidth, kHeight);
+        TimelineData tl = makeDefaultTimeline(QStringLiteral("Demo"), {25, 1}, kWidth, kHeight, 2, 2);
         ClipData c;
         c.id = tl.allocateId();
         c.kind = ClipKind::Solid;
