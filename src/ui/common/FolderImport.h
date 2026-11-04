@@ -30,6 +30,7 @@ struct FolderImportResult
     QStringList importedIds; ///< new media pool items, in folder / natural order
     QStringList createdBinIds; ///< bins created for the folders
     QStringList failures; ///< "path: reason" of each file that could not be imported
+    QStringList notes; ///< "path: remark" of imported files worth telling about (empty cues)
     int duplicates = 0; ///< files skipped because they are already in the media pool
     int skippedHidden = 0; ///< hidden files and folders, system junk (.DS_Store ...)
     int skippedUnsupported = 0; ///< files of a type that is not imported

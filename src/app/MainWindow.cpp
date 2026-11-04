@@ -259,6 +259,12 @@ bool MainWindow::setCurrentPage(const QString& pageId)
     for (const PageEntry& entry : std::as_const(m_pages)) {
         if (entry.page->pageId() != pageId)
             continue;
+        // One media pool, as in Resolve: the page shown next shows the same bin.
+        auto* from = m_stack->currentWidget()
+            ? m_stack->currentWidget()->findChild<MediaPoolPanel*>()
+            : nullptr;
+        if (auto* to = entry.page->findChild<MediaPoolPanel*>(); from && to && from != to)
+            to->setCurrentBinKey(from->currentBinKey());
         m_stack->setCurrentWidget(entry.page);
         entry.action->setChecked(true);
         syncPanelToggles();

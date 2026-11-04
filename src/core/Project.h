@@ -396,6 +396,9 @@ signals:
     void dirtyChanged(bool dirty);
     /// The project name changed.
     void nameChanged(const QString& name);
+    /// A save is about to start (ProjectController): views close the undo groups they keep
+    /// open while the user types, so the saved project is clean afterwards.
+    void aboutToSave();
     /// The file path changed (save as, load, new).
     void filePathChanged(const QString& path);
     /// The whole project was replaced (new or load); views should rebuild themselves.

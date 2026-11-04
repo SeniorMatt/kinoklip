@@ -21,6 +21,7 @@ struct AppContext;
 class AutosaveController;
 class ProjectLibrary;
 class ProjectLock;
+class MediaPoolPanel;
 class ProjectManagerWindow;
 
 namespace pack {
@@ -165,6 +166,8 @@ private:
     void updatePackageActions();
     /// Shows @p text as a non-blocking information box over @p parent (notices).
     void notify(QWidget* parent, const QString& title, const QString& text);
+    /// The media pool on the page shown (any when none is visible; null without one).
+    [[nodiscard]] MediaPoolPanel* shownMediaPool() const;
 
     AppContext& m_ctx;
     QWidget* m_window;

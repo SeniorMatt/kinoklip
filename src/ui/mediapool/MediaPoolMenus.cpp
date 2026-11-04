@@ -155,7 +155,8 @@ void MediaPoolPanel::importWithDialog()
 
 void MediaPoolPanel::importFolderWithDialog(const QString& binKey)
 {
-    importMediaFolderWithDialogs(m_ctx, this, MediaPoolFilterModel::idOfKey(binKey));
+    const QString target = MediaPoolFilterModel::idOfKey(binKey);
+    showImportedItems(importMediaFolderWithDialogs(m_ctx, this, target), target);
 }
 
 void MediaPoolPanel::renameCurrentItem()

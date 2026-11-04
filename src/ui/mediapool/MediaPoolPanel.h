@@ -91,6 +91,10 @@ public:
     [[nodiscard]] QString currentBin() const;
     /// Shows project bin @p binId ("" = Master).
     void setCurrentBin(const QString& binId);
+    /// After an import into project bin @p targetBin: when the new items @p ids went into a
+    /// bin created below it (Import Media Folder makes one per folder), shows that bin (the
+    /// topmost new one), so the imported clips are in view.
+    void showImportedItems(const QStringList& ids, const QString& targetBin);
     /// Key of the bin shown (MediaPoolFilterModel keys: "", bin id, "smart:<id>",
     /// "power:", "power:<id>").
     [[nodiscard]] QString currentBinKey() const;
