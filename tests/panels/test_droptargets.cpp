@@ -155,10 +155,13 @@ private slots:
         QVERIFY(a.drop);
         QTRY_COMPARE(f.project.mediaPool()->items().size(), itemsBefore + 1);
 
-        // Our own media pool payload is not a file drop.
+        // Our own media pool payload is not a file drop: the panel follows it (a folder of the
+        // clip area takes it, spec 33.40) but refuses it away from a folder.
         QMimeData items;
         items.setData(QLatin1String(mime::MediaItems), "x");
-        QVERIFY(!sendDrag(&panel, &items, pos).enter);
+        const Answers own = sendDrag(&panel, &items, pos);
+        QVERIFY(!own.move);
+        QVERIFY(!own.drop);
     }
 
     void binTreeTakesItemsAndFiles()

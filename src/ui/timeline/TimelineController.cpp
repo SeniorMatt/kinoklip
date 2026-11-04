@@ -6,6 +6,7 @@
 #include "core/EditBehaviour.h"
 #include "core/EffectRegistry.h"
 #include "core/MediaPool.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Subtitles.h"
@@ -52,6 +53,13 @@ QVector<quint64> sameEdgeLinks(const TimelineData& data, quint64 clipId, bool he
 }
 
 } // namespace
+
+QString TimelineController::targetBin() const
+{
+    if (prefs::importIntoMasterBin())
+        return {};
+    return m_binProvider ? m_binProvider() : QString();
+}
 
 TimelineController::TimelineController(AppContext& ctx, QObject* parent)
     : QObject(parent)

@@ -44,6 +44,9 @@ inline constexpr char kZoomAnchor[] = "edit/zoomAnchor";
 /// bool: show the default smart bins (Video, Audio, Stills, Timelines) in the bin list;
 /// default false (Preferences > Editing).
 inline constexpr char kDefaultSmartBins[] = "mediaPool/defaultSmartBins";
+/// Where newly imported media go: "current" (the bin shown in the media pool; Resolve, default)
+/// or "master" (always the root bin). Preferences > Editing > "Import new media into".
+inline constexpr char kImportTarget[] = "mediaPool/importTarget";
 /// bool: small tweened animations of timeline edits, the playhead and the snap indicator
 /// (Preferences > UI Settings > "Animate timeline edits"); default true (v2.2).
 inline constexpr char kAnimations[] = "ui/animations";
@@ -141,6 +144,10 @@ void setPreviewQuality(const QString& id);
 [[nodiscard]] bool showDefaultSmartBins();
 /// Stores kDefaultSmartBins.
 void setShowDefaultSmartBins(bool show);
+/// True if imports go into the Master bin instead of the current bin (kImportTarget).
+[[nodiscard]] bool importIntoMasterBin();
+/// Stores kImportTarget ("master" when @p master, else "current").
+void setImportIntoMasterBin(bool master);
 /// True if timeline animations are on (kAnimations, default true).
 [[nodiscard]] bool animationsEnabled();
 /// Stores kAnimations.

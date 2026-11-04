@@ -19,6 +19,8 @@ public:
 
     /// The fixed tile size.
     [[nodiscard]] static QSize tileSize();
+    /// The name line of the tile at @p tile (a double-click there renames a folder).
+    [[nodiscard]] static QRect nameRect(const QRect& tile);
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option,
         const QModelIndex& index) const override;

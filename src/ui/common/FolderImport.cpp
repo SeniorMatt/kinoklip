@@ -263,10 +263,11 @@ FolderImportResult importMediaFolders(AppContext& ctx, const QStringList& folder
 }
 
 QStringList importMediaFoldersWithFeedback(AppContext& ctx, const QStringList& folders,
-    const FolderImportOptions& options, QWidget* parent, const QString& binId)
+    const FolderImportOptions& options, QWidget* parent, const std::optional<QString>& binId)
 {
     const bool firstImport = hasNoMediaYet(ctx);
-    const FolderImportResult r = importMediaFolders(ctx, folders, options, parent, binId);
+    const FolderImportResult r
+        = importMediaFolders(ctx, folders, options, parent, binId ? *binId : importTargetBin(ctx));
     if (r.cancelled)
         return {};
     if (r.failures.isEmpty() && r.duplicates == 0 && r.notes.isEmpty()

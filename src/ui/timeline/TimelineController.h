@@ -237,8 +237,11 @@ public:
     /// Media pool bin new timelines and compound clips go into (default: the root bin;
     /// EditPage wires the media pool's current bin, as in Resolve).
     void setBinProvider(std::function<QString()> provider) { m_binProvider = std::move(provider); }
-    /// The bin of setBinProvider() ("" = root): where files dropped on the timeline go too.
-    [[nodiscard]] QString targetBin() const { return m_binProvider ? m_binProvider() : QString(); }
+    /// Where files dropped on the timeline are imported ("" = root): the bin of
+    /// setBinProvider() (the media pool's current bin), or the root when Preferences > Editing >
+    /// "Import new media into" is "Master bin" (prefs::importIntoMasterBin(), the same rule as
+    /// importTargetBin() in ui/common/MediaImport.h).
+    [[nodiscard]] QString targetBin() const;
 
     /// Clip > New Compound Clip: collapses the selection (with linked clips when linked
     /// selection is on) into a compound clip named @p name (empty: asks, suggesting

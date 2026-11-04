@@ -15,6 +15,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragAndDrop.h"
+#include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/PanelSplitter.h"
@@ -35,6 +36,8 @@
 #include <QListView>
 #include <QMenu>
 #include <QMimeData>
+#include <QMouseEvent>
+#include <QPointer>
 #include <QSettings>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -105,6 +108,8 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     m_proxy->setSourceModel(m_model);
     m_proxy->setSortCaseSensitivity(Qt::CaseInsensitive);
     m_selection = new QItemSelectionModel(m_proxy, this);
+    if (!ctx.currentMediaPoolBin)
+        becomeImportTarget(); // until a media pool is shown
 
     // Default poster source: the shared media cache (async; repaint on posterFrameReady).
     setThumbnailProvider([](const QString& path, int height) {
@@ -210,6 +215,11 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         view->setMouseTracking(true);
         view->installEventFilter(this); // Delete / Backspace / Ctrl+A act on the media pool
         connect(view, &QAbstractItemView::doubleClicked, this, [this](const QModelIndex& index) {
+            if (index.data(MediaPoolModel::FolderRole).toBool()) {
+                // A folder opens its bin: the bin list selects it, the items show its contents.
+                setCurrentBinKey(index.data(MediaPoolModel::FolderBinRole).toString());
+                return;
+            }
             const QString id = index.data(MediaPoolModel::IdRole).toString();
             if (id.isEmpty())
                 return;
@@ -227,9 +237,16 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
             if (!projectIds.isEmpty())
                 emit openInSourceViewer(projectIds.front());
         });
-        connect(view, &QWidget::customContextMenuRequested, this,
-            [this, view](const QPoint& pos) { showItemMenu(view->viewport()->mapToGlobal(pos)); });
+        connect(view, &QWidget::customContextMenuRequested, this, [this, view](const QPoint& pos) {
+            const QModelIndex index = view->indexAt(pos);
+            if (index.data(MediaPoolModel::FolderRole).toBool())
+                showFolderMenu(view, index, view->viewport()->mapToGlobal(pos));
+            else
+                showItemMenu(view->viewport()->mapToGlobal(pos));
+        });
     }
+    // A double-click on a folder tile's name renames the bin (elsewhere it opens it).
+    m_grid->viewport()->installEventFilter(this);
     QHeaderView* header = m_list->header();
     header->setStretchLastSection(true);
     header->setSectionsMovable(true);
@@ -416,7 +433,7 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
     auto* sortMenu = new QMenu(sortButton);
     auto* columns = new QActionGroup(sortMenu);
     const std::pair<int, QString> keys[] = {{-1, tr("Import Order")},
-        {MediaPoolModel::NameColumn, tr("Clip Name")},
+        {MediaPoolModel::NameColumn, tr("Clip Name")}, {MediaPoolModel::TypeColumn, tr("Type")},
         {MediaPoolModel::DurationColumn, tr("Duration")},
         {MediaPoolModel::ResolutionColumn, tr("Resolution")},
         {MediaPoolModel::FpsColumn, tr("Frame Rate")}, {MediaPoolModel::CodecColumn, tr("Codec")},
@@ -517,8 +534,21 @@ void MediaPoolPanel::publishSelection()
 QStringList MediaPoolPanel::selectedMediaIds() const
 {
     QStringList ids;
-    for (const QModelIndex& index : selectedRowIndexes(m_selection, MediaPoolModel::NameColumn))
-        ids.append(index.data(MediaPoolModel::IdRole).toString());
+    for (const QModelIndex& index : selectedRowIndexes(m_selection, MediaPoolModel::NameColumn)) {
+        const QString id = index.data(MediaPoolModel::IdRole).toString();
+        if (!id.isEmpty()) // folders have no media id
+            ids.append(id);
+    }
+    return ids;
+}
+
+QStringList MediaPoolPanel::selectedBinIds() const
+{
+    QStringList ids;
+    for (const QModelIndex& index : selectedRowIndexes(m_selection, MediaPoolModel::NameColumn)) {
+        if (index.data(MediaPoolModel::FolderRole).toBool())
+            ids.append(index.data(MediaPoolModel::FolderBinRole).toString());
+    }
     return ids;
 }
 
@@ -547,8 +577,11 @@ QString MediaPoolPanel::currentMediaId() const
 QStringList MediaPoolPanel::visibleMediaIds() const
 {
     QStringList ids;
-    for (int r = 0; r < m_proxy->rowCount(); ++r)
-        ids.append(m_proxy->index(r, 0).data(MediaPoolModel::IdRole).toString());
+    for (int r = 0; r < m_proxy->rowCount(); ++r) {
+        const QString id = m_proxy->index(r, 0).data(MediaPoolModel::IdRole).toString();
+        if (!id.isEmpty()) // folders have no media id
+            ids.append(id);
+    }
     return ids;
 }
 
@@ -582,6 +615,27 @@ void MediaPoolPanel::showImportedItems(const QStringList& ids, const QString& ta
 QString MediaPoolPanel::currentBinKey() const
 {
     return m_proxy->bin();
+}
+
+QString MediaPoolPanel::importTargetKey() const
+{
+    if (prefs::importIntoMasterBin() || MediaPoolFilterModel::isSmartKey(currentBinKey()))
+        return {};
+    return currentBinKey();
+}
+
+void MediaPoolPanel::becomeImportTarget()
+{
+    // The shown media pool answers "which bin is current" for imports from elsewhere
+    // (File > Import, the media browser, timeline drops: importTargetBin()).
+    m_ctx.currentMediaPoolBin
+        = [pool = QPointer<MediaPoolPanel>(this)] { return pool ? pool->currentBin() : QString(); };
+}
+
+void MediaPoolPanel::showEvent(QShowEvent* event)
+{
+    PanelFrame::showEvent(event);
+    becomeImportTarget();
 }
 
 void MediaPoolPanel::setCurrentBinKey(const QString& key)
@@ -801,6 +855,18 @@ bool MediaPoolPanel::eventFilter(QObject* watched, QEvent* event)
             return true;
         }
     }
+    if (watched == m_grid->viewport() && event->type() == QEvent::MouseButtonDblClick) {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        const QModelIndex index = m_grid->indexAt(mouse->position().toPoint());
+        if (index.data(MediaPoolModel::FolderRole).toBool()
+            && MediaPoolDelegate::nameRect(m_grid->visualRect(index))
+                   .contains(mouse->position().toPoint())) {
+            m_selection->setCurrentIndex(
+                index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+            m_grid->edit(index);
+            return true;
+        }
+    }
     if (view && keyEvent) {
         const auto* key = static_cast<QKeyEvent*>(event);
         const Qt::KeyboardModifiers mods = key->modifiers() & ~Qt::KeypadModifier;
@@ -809,9 +875,13 @@ bool MediaPoolPanel::eventFilter(QObject* watched, QEvent* event)
         const bool all = key->key() == Qt::Key_A && mods == Qt::ControlModifier;
         if (del || all) {
             if (event->type() == QEvent::KeyPress) {
-                if (del)
+                if (del) {
+                    // Folders delete as bins (same question and undo as in the bin list).
+                    const QStringList bins = selectedBinIds();
                     confirmAndDelete(selectedMediaIds());
-                else
+                    for (const QString& bin : bins)
+                        deleteBin(bin, true);
+                } else
                     static_cast<QAbstractItemView*>(watched)->selectAll();
             }
             event->accept(); // ShortcutOverride: the key goes to the view, not to a shortcut
@@ -877,9 +947,34 @@ void MediaPoolPanel::openTimeline(quint64 uid)
 
 // ---- OS drops onto the item area ----
 
+namespace {
+/// True for drags of media pool items or of a bin (they can be dropped on a folder).
+bool isPoolDrag(const QMimeData* data)
+{
+    return data->hasFormat(QLatin1String(mime::MediaItems))
+        || data->hasFormat(QLatin1String(BinList::kBinMime));
+}
+} // namespace
+
+QString MediaPoolPanel::folderAt(const QPoint& pos) const
+{
+    const QAbstractItemView* view = currentView();
+    if (!view || !view->isVisible())
+        return {};
+    const QPoint local = view->viewport()->mapFrom(this, pos);
+    if (!view->viewport()->rect().contains(local))
+        return {};
+    const QModelIndex index = view->indexAt(local);
+    return index.data(MediaPoolModel::FolderRole).toBool()
+        ? index.data(MediaPoolModel::FolderBinRole).toString()
+        : QString();
+}
+
 void MediaPoolPanel::dragEnterEvent(QDragEnterEvent* event)
 {
-    if (platform::hasDroppedFiles(event->mimeData()))
+    // Files from the OS anywhere; clips and bins from the pool itself only onto a folder
+    // (dragMoveEvent() decides per position).
+    if (platform::hasDroppedFiles(event->mimeData()) || isPoolDrag(event->mimeData()))
         event->acceptProposedAction();
     else
         event->ignore();
@@ -890,7 +985,14 @@ void MediaPoolPanel::dragMoveEvent(QDragMoveEvent* event)
 {
     // Explicit, so every move answers the compositor (Wayland: wl_data_offer.accept +
     // set_actions per motion); an unanswered offer is treated as "cannot drop here".
-    if (platform::hasDroppedFiles(event->mimeData()))
+    const QMimeData* data = event->mimeData();
+    bool ok = platform::hasDroppedFiles(data);
+    if (!ok && isPoolDrag(data)) {
+        const QString folder = folderAt(event->position().toPoint());
+        ok = !folder.isEmpty()
+            && QString::fromUtf8(data->data(QLatin1String(BinList::kBinMime))) != folder;
+    }
+    if (ok)
         event->acceptProposedAction();
     else
         event->ignore();
@@ -899,16 +1001,39 @@ void MediaPoolPanel::dragMoveEvent(QDragMoveEvent* event)
 void MediaPoolPanel::dropEvent(QDropEvent* event)
 {
     logDropEvent("media pool", event);
-    const QStringList paths = platform::droppedLocalFiles(event->mimeData());
+    const QMimeData* data = event->mimeData();
+    const QString folder = folderAt(event->position().toPoint());
+    if (!folder.isEmpty() && isPoolDrag(data)) {
+        // Onto a folder: clips move into that bin (as onto the bin list), a bin moves inside.
+        event->acceptProposedAction();
+        if (data->hasFormat(QLatin1String(BinList::kBinMime))) {
+            const QString bin = QString::fromUtf8(data->data(QLatin1String(BinList::kBinMime)));
+            if (bin != folder)
+                QTimer::singleShot(0, this,
+                    [this, bin, folder] { moveBin(bin, folder, int(BinList::DropPlace::Into)); });
+            return;
+        }
+        // Power bin items carry their own ids (reading mime::MediaItems would copy them into
+        // the project first), as in BinList::dropEvent().
+        QStringList ids = QString::fromUtf8(data->data(QLatin1String(kPowerItemsMime)))
+                              .split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        if (ids.isEmpty())
+            ids = QString::fromUtf8(data->data(QLatin1String(mime::MediaItems)))
+                      .split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        // From the event loop: the source view is still inside its drag.
+        QTimer::singleShot(0, this, [this, ids, folder] { moveItemsToBin(ids, folder); });
+        return;
+    }
+    const QStringList paths = platform::droppedLocalFiles(data);
     if (paths.isEmpty()) {
         event->ignore();
         return;
     }
     event->acceptProposedAction();
     // From the event loop: importing may show a modal report, which must not run inside the
-    // drop (the source would wait for the drop to finish). Smart bins import into Master.
-    const QString key
-        = MediaPoolFilterModel::isSmartKey(currentBinKey()) ? QString() : currentBinKey();
+    // drop (the source would wait for the drop to finish). Onto a folder: into that bin;
+    // elsewhere the import target (the shown bin or Master, Preferences > Editing).
+    const QString key = !folder.isEmpty() ? folder : importTargetKey();
     QTimer::singleShot(0, this, [this, paths, key] { importFiles(paths, key); });
 }
 

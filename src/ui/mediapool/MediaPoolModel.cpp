@@ -14,6 +14,7 @@
 #include "ui/common/MediaImport.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
+#include "ui/mediapool/BinList.h"
 
 #include <QDateTime>
 #include <QFileInfo>
@@ -35,7 +36,7 @@ constexpr int kUsageDelayMs = 150;
 const char* const kColumnKeys[] = {"name", "duration", "resolution", "fps", "codec", "audio",
     "proxy", "optimized", "clipColor", "flags", "usage", "fileName", "path", "dateAdded",
     "dateModified", "description", "comments", "keywords", "scene", "shot", "take", "camera",
-    "angle", "goodTake", "rating", "location"};
+    "angle", "goodTake", "rating", "location", "type"};
 static_assert(std::size(kColumnKeys) == MediaPoolModel::ColumnCount);
 
 QString dateText(qint64 ms)
@@ -47,6 +48,31 @@ QString dateText(qint64 ms)
 QString stars(int rating)
 {
     return QString(rating, QChar(0x2605)); // BLACK STAR
+}
+
+/// Order of the kinds for Sort by Type: timelines, video, audio, stills, compound and
+/// multicam clips, subtitles (folders always come first, MediaPoolFilterModel::lessThan()).
+int typeRank(MediaPoolModel::MediaKind kind)
+{
+    switch (kind) {
+    case MediaPoolModel::FolderKind:
+        return 0;
+    case MediaPoolModel::TimelineKind:
+        return 1;
+    case MediaPoolModel::VideoKind:
+        return 2;
+    case MediaPoolModel::AudioKind:
+        return 3;
+    case MediaPoolModel::ImageKind:
+        return 4;
+    case MediaPoolModel::CompoundKind:
+        return 5;
+    case MediaPoolModel::MulticamKind:
+        return 6;
+    case MediaPoolModel::SubtitleKind:
+        return 7;
+    }
+    return 8;
 }
 
 /// Drag payload of media pool items. Project ids are stored directly; power bin ids are
@@ -108,6 +134,7 @@ MediaPoolModel::MediaPoolModel(Project* project, QObject* parent)
 {
     m_posters.setMaxCost(kPosterCacheKiB);
     connectPool(project->mediaPool(), false);
+    connect(project->mediaPool(), &MediaPool::binsChanged, this, &MediaPoolModel::rebuildFolders);
 
     m_usageTimer.setSingleShot(true);
     m_usageTimer.setInterval(kUsageDelayMs);
@@ -170,7 +197,7 @@ void MediaPoolModel::refreshUsage()
 {
     m_usageTimer.stop();
     m_usage = usage::compute(*m_project);
-    for (int r = 0; r < m_rows.size(); ++r) {
+    for (int r = m_folderCount; r < m_rows.size(); ++r) {
         Row& row = m_rows[r];
         const int count = row.power ? 0 : m_usage.value(row.id, 0);
         if (count == row.usage)
@@ -221,7 +248,7 @@ void MediaPoolModel::thumbnailReady(const QString& path)
 
 void MediaPoolModel::recheckOffline()
 {
-    for (int r = 0; r < m_rows.size(); ++r) {
+    for (int r = m_folderCount; r < m_rows.size(); ++r) {
         if (m_rows[r].kind == TimelineKind || m_rows[r].kind == CompoundKind
             || m_rows[r].kind == MulticamKind)
             continue; // no file behind them
@@ -238,6 +265,102 @@ QString MediaPoolModel::idAt(int row) const
     return row >= 0 && row < m_rows.size() ? m_rows[row].id : QString();
 }
 
+int MediaPoolModel::folderRowOf(const QString& binId) const
+{
+    for (int r = 0; r < m_folderCount; ++r) {
+        if (m_rows[r].folderBin == binId)
+            return r;
+    }
+    return -1;
+}
+
+MediaPoolModel::Row MediaPoolModel::makeFolderRow(const Bin& bin)
+{
+    Row row;
+    row.folder = true;
+    row.folderBin = bin.id;
+    row.binId = bin.parentId;
+    row.name = bin.name;
+    row.kind = FolderKind;
+    row.codecText = tr("Bin");
+    row.searchText = bin.name.toLower();
+    return row;
+}
+
+QVector<MediaPoolModel::Row> MediaPoolModel::folderRows() const
+{
+    QVector<Row> rows;
+    const QVector<Bin>& bins = m_project->mediaPool()->bins();
+    rows.reserve(bins.size());
+    for (const Bin& bin : bins)
+        rows.append(makeFolderRow(bin));
+    return rows;
+}
+
+void MediaPoolModel::rebuildFolders()
+{
+    const QVector<Row> rows = folderRows();
+    bool same = rows.size() == m_folderCount;
+    for (int r = 0; same && r < m_folderCount; ++r)
+        same = m_rows[r].folderBin == rows[r].folderBin;
+    m_folderCountsDirty = true;
+    if (same) {
+        // Renamed or moved bins: update in place (keeps the selection and an open editor).
+        for (int r = 0; r < m_folderCount; ++r)
+            m_rows[r] = rows[r];
+        if (m_folderCount > 0)
+            emit dataChanged(index(0, 0), index(m_folderCount - 1, ColumnCount - 1));
+        return;
+    }
+    if (m_folderCount > 0) {
+        beginRemoveRows({}, 0, m_folderCount - 1);
+        m_rows.remove(0, m_folderCount);
+        m_folderCount = 0;
+        m_rowById.clear();
+        reindex(0);
+        endRemoveRows();
+    }
+    if (!rows.isEmpty()) {
+        beginInsertRows({}, 0, int(rows.size()) - 1);
+        m_rows.insert(0, rows.size(), Row {});
+        for (int r = 0; r < rows.size(); ++r)
+            m_rows[r] = rows[r];
+        m_folderCount = int(rows.size());
+        m_rowById.clear();
+        reindex(0);
+        endInsertRows();
+    }
+}
+
+void MediaPoolModel::folderCountsChanged()
+{
+    if (m_folderCountsDirty || m_folderCount == 0) {
+        m_folderCountsDirty = true;
+        return; // a repaint since the last change will read the new counts
+    }
+    m_folderCountsDirty = true;
+    emit dataChanged(index(0, 0), index(m_folderCount - 1, ColumnCount - 1),
+        {Qt::DisplayRole, DurationTextRole, Qt::ToolTipRole});
+}
+
+int MediaPoolModel::folderItemCount(const Row& row) const
+{
+    if (m_folderCountsDirty) {
+        // One pass over the project's items and bins per change (never per folder).
+        m_folderCounts.clear();
+        const MediaPool* pool = m_project->mediaPool();
+        for (const MediaItem& item : pool->items()) {
+            if (!item.binId.isEmpty())
+                ++m_folderCounts[item.binId];
+        }
+        for (const Bin& bin : pool->bins()) {
+            if (!bin.parentId.isEmpty())
+                ++m_folderCounts[bin.parentId];
+        }
+        m_folderCountsDirty = false;
+    }
+    return m_folderCounts.value(row.folderBin, 0);
+}
 MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item, bool power)
 {
     const media::MediaInfo& info = item.info;
@@ -319,17 +442,20 @@ MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item, bool power)
 void MediaPoolModel::reload()
 {
     beginResetModel();
-    m_rows.clear();
+    m_rows = folderRows();
+    m_folderCount = int(m_rows.size());
+    m_folderCountsDirty = true;
     m_rowById.clear();
     const QVector<MediaItem>& items = m_project->mediaPool()->items();
-    m_rows.reserve(items.size() + (m_power ? m_power->items().size() : 0));
+    m_rows.reserve(m_folderCount + items.size() + (m_power ? m_power->items().size() : 0));
     for (const MediaItem& item : items)
         m_rows.append(makeRow(item, false));
     if (m_power) {
         for (const MediaItem& item : m_power->items())
             m_rows.append(makeRow(item, true));
     }
-    for (Row& row : m_rows) {
+    for (int r = m_folderCount; r < m_rows.size(); ++r) {
+        Row& row = m_rows[r];
         fillLinks(row);
         row.usage = row.power ? 0 : m_usage.value(row.id, 0);
     }
@@ -339,7 +465,7 @@ void MediaPoolModel::reload()
 
 void MediaPoolModel::reindex(int fromRow)
 {
-    for (int r = fromRow; r < m_rows.size(); ++r)
+    for (int r = std::max(fromRow, m_folderCount); r < m_rows.size(); ++r)
         m_rowById.insert(m_rows[r].id, r);
 }
 
@@ -353,7 +479,7 @@ void MediaPoolModel::onItemAdded(const QString& id)
     // Project items stay before the power bin items (rows are in import order per pool).
     int row = int(m_rows.size());
     if (!power) {
-        row = 0;
+        row = m_folderCount;
         while (row < m_rows.size() && !m_rows[row].power)
             ++row;
     }
@@ -363,6 +489,8 @@ void MediaPoolModel::onItemAdded(const QString& id)
     m_rows[row].usage = power ? 0 : m_usage.value(id, 0);
     reindex(row);
     endInsertRows();
+    if (!power)
+        folderCountsChanged();
 }
 
 void MediaPoolModel::onItemRemoved(const QString& id)
@@ -371,10 +499,13 @@ void MediaPoolModel::onItemRemoved(const QString& id)
     if (row < 0)
         return;
     beginRemoveRows({}, row, row);
+    const bool power = m_rows[row].power;
     m_rows.remove(row);
     m_rowById.remove(id);
     reindex(row);
     endRemoveRows();
+    if (!power)
+        folderCountsChanged();
 }
 
 void MediaPoolModel::onItemChanged(const QString& id)
@@ -388,6 +519,8 @@ void MediaPoolModel::onItemChanged(const QString& id)
     m_rows[row].usage = usage;
     fillLinks(m_rows[row]);
     emit dataChanged(index(row, 0), index(row, ColumnCount - 1));
+    if (!m_rows[row].power)
+        folderCountsChanged(); // the item may have moved to another bin
 }
 
 void MediaPoolModel::setLinkStatusProvider(
@@ -408,8 +541,8 @@ void MediaPoolModel::linkStatusChanged(const QString& id)
     if (m_rows.isEmpty())
         return;
     if (id.isEmpty()) {
-        for (Row& row : m_rows)
-            fillLinks(row);
+        for (int r = m_folderCount; r < m_rows.size(); ++r)
+            fillLinks(m_rows[r]);
         emit dataChanged(index(0, 0), index(int(m_rows.size()) - 1, ColumnCount - 1));
         return;
     }
@@ -433,7 +566,8 @@ int MediaPoolModel::columnCount(const QModelIndex& parent) const
 QPixmap MediaPoolModel::poster(const Row& row) const
 {
     if (row.kind == AudioKind || row.kind == TimelineKind || row.kind == CompoundKind
-        || row.kind == MulticamKind || row.kind == SubtitleKind || !m_provider)
+        || row.kind == MulticamKind || row.kind == SubtitleKind || row.kind == FolderKind
+        || !m_provider)
         return {};
     if (const QPixmap* cached = m_posters.object(row.path))
         return *cached;
@@ -460,6 +594,19 @@ bool MediaPoolModel::singleFileProject() const
 
 QVariant MediaPoolModel::displayText(const Row& row, int column) const
 {
+    if (row.folder) {
+        // A folder row: the name, its item count (Duration) and type; other columns empty.
+        switch (column) {
+        case NameColumn:
+            return row.name;
+        case DurationColumn:
+            return plural(folderItemCount(row), tr("%n item"), tr("%n items"));
+        case TypeColumn:
+            return tr("Bin");
+        default:
+            return QString();
+        }
+    }
     const MediaMetadata& md = row.metadata;
     switch (column) {
     case NameColumn:
@@ -516,6 +663,26 @@ QVariant MediaPoolModel::displayText(const Row& row, int column) const
         return row.location == StoredLocation ? tr("Project file")
             : row.location == LinkedLocation  ? tr("Linked")
                                               : QString();
+    case TypeColumn:
+        switch (row.kind) {
+        case TimelineKind:
+            return tr("Timeline");
+        case VideoKind:
+            return tr("Video");
+        case AudioKind:
+            return tr("Audio");
+        case ImageKind:
+            return tr("Still");
+        case CompoundKind:
+            return tr("Compound Clip");
+        case MulticamKind:
+            return tr("Multicam Clip");
+        case SubtitleKind:
+            return tr("Subtitle");
+        case FolderKind:
+            return tr("Bin");
+        }
+        return {};
     default:
         return {};
     }
@@ -543,6 +710,9 @@ QVariant MediaPoolModel::sortValue(const Row& row, int column) const
         return row.metadata.rating;
     case FlagsColumn:
         return row.flags == 0 ? QString() : row.flagsText.toLower();
+    case TypeColumn:
+        // By kind, then by name (Sort by Type).
+        return QString::number(typeRank(row.kind)) + QLatin1Char(' ') + row.name.toLower();
     default:
         return displayText(row, column).toString().toLower();
     }
@@ -572,6 +742,8 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
             return {};
         // Icons are cached by kk::icon(); three shared instances for all rows.
         switch (row.kind) {
+        case FolderKind:
+            return icon(QStringLiteral("folder"));
         case ImageKind:
             return icon(QStringLiteral("image"));
         case AudioKind:
@@ -588,6 +760,10 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
             return icon(QStringLiteral("film"));
         }
     case Qt::ToolTipRole: {
+        if (row.folder)
+            return tr("%1\nBin, %2: double-click to open it, drop clips on it to move them "
+                      "there")
+                .arg(row.name, plural(folderItemCount(row), tr("%n item"), tr("%n items")));
         QString tip;
         if (row.kind == MulticamKind)
             tip = tr("%1\nMulticam clip: double-click to show its angles in the source viewer")
@@ -630,7 +806,8 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
     case KindRole:
         return int(row.kind);
     case DurationTextRole:
-        return row.durationText;
+        return row.folder ? plural(folderItemCount(row), tr("%n item"), tr("%n items"))
+                          : row.durationText;
     case SearchTextRole:
         return row.searchText;
     case LinkBadgeRole:
@@ -653,6 +830,10 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
         return singleFileProject() && !row.power ? int(row.location) : int(NoLocation);
     case SortRole:
         return sortValue(row, index.column());
+    case FolderRole:
+        return row.folder;
+    case FolderBinRole:
+        return row.folderBin;
     default:
         return {};
     }
@@ -715,6 +896,8 @@ QVariant MediaPoolModel::headerData(int section, Qt::Orientation orientation, in
         return tr("Rating");
     case LocationColumn:
         return tr("Location");
+    case TypeColumn:
+        return tr("Type");
     default:
         return {};
     }
@@ -738,6 +921,15 @@ bool MediaPoolModel::setData(const QModelIndex& index, const QVariant& value, in
     const Row& row = m_rows[index.row()];
     if (name.isEmpty() || name == row.name)
         return false;
+    if (row.folder) {
+        // F2 / double-click on the name of a folder: renames the bin (one undo step, as from
+        // the bin list).
+        const QString bin = row.folderBin;
+        m_project->beginEdit(tr("Rename Bin"));
+        m_project->mediaPool()->renameBin(bin, name);
+        m_project->endEdit();
+        return true;
+    }
     if (row.power) {
         m_power->renameItem(row.id, name); // power bins: saved at once, not undoable
         return true;
@@ -750,7 +942,7 @@ bool MediaPoolModel::setData(const QModelIndex& index, const QVariant& value, in
 
 QStringList MediaPoolModel::mimeTypes() const
 {
-    return {QLatin1String(mime::MediaItems)};
+    return {QLatin1String(mime::MediaItems), QLatin1String(BinList::kBinMime)};
 }
 
 QMimeData* MediaPoolModel::mimeData(const QModelIndexList& indexes) const
@@ -764,8 +956,19 @@ QMimeData* MediaPoolModel::mimeData(const QModelIndexList& indexes) const
             continue;
         (m_rows[r].power ? powerIds : ids).append(id);
     }
-    if (ids.isEmpty() && powerIds.isEmpty())
+    if (ids.isEmpty() && powerIds.isEmpty()) {
+        // Only folders: the first one drags as a bin (onto the bin list or another folder,
+        // to move it there), like a bin dragged in the bin list.
+        for (const QModelIndex& index : indexes) {
+            const int r = index.row();
+            if (r >= 0 && r < m_folderCount) {
+                auto* data = new QMimeData;
+                data->setData(QLatin1String(BinList::kBinMime), m_rows[r].folderBin.toUtf8());
+                return data;
+            }
+        }
         return nullptr;
+    }
     return new MediaDragData(ids, powerIds, m_powerResolver);
 }
 
@@ -914,6 +1117,15 @@ void MediaPoolFilterModel::updateBinSet()
 bool MediaPoolFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const
 {
     const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
+    if (index.data(MediaPoolModel::FolderRole).toBool()) {
+        // The sub-bins of the shown project bin (Resolve shows them before the clips); with a
+        // search only those whose name matches; never in smart or power bins.
+        if (isSmartKey(m_bin) || isPowerKey(m_bin) || !m_color.isEmpty()
+            || index.data(MediaPoolModel::BinRole).toString() != m_bin)
+            return false;
+        return m_search.isEmpty()
+            || index.data(MediaPoolModel::SearchTextRole).toString().contains(m_search);
+    }
     const bool power = index.data(MediaPoolModel::PowerRole).toBool();
     if (const SmartBin* smart = smartBinFor(m_bin)) {
         // Smart bins collect the project's items, wherever they are.
@@ -936,6 +1148,27 @@ bool MediaPoolFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& so
     }
     return m_search.isEmpty()
         || index.data(MediaPoolModel::SearchTextRole).toString().contains(m_search);
+}
+
+bool MediaPoolFilterModel::lessThan(const QModelIndex& left, const QModelIndex& right) const
+{
+    // Folders come first whatever the column and order: QSortFilterProxyModel sorts
+    // descending by asking lessThan(right, left), so the answer depends on the order.
+    const bool leftFolder = left.data(MediaPoolModel::FolderRole).toBool();
+    const bool rightFolder = right.data(MediaPoolModel::FolderRole).toBool();
+    if (leftFolder != rightFolder)
+        return leftFolder == (sortOrder() == Qt::AscendingOrder);
+    if (leftFolder) {
+        // Folders among themselves: by name (reversed when descending).
+        const int byName = QString::compare(
+            left.siblingAtColumn(MediaPoolModel::NameColumn).data(Qt::DisplayRole).toString(),
+            right.siblingAtColumn(MediaPoolModel::NameColumn).data(Qt::DisplayRole).toString(),
+            Qt::CaseInsensitive);
+        if (byName != 0)
+            return byName < 0;
+        return left.row() < right.row();
+    }
+    return QSortFilterProxyModel::lessThan(left, right);
 }
 
 } // namespace kk
