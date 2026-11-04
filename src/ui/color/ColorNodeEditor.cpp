@@ -220,7 +220,9 @@ void ColorNodeEditor::paintTile(QPainter& p, const ClipGrade& g, int index) cons
     const GradeNode& n = g.nodes[index];
     const QRectF r = tileRect(n);
     const QPalette& pal = palette();
-    const bool selected = m_session && n.id == m_session->selectedNode();
+    // The node 01 of an ungraded clip is the current node.
+    const bool selected
+        = m_session && (n.id == m_session->selectedNode() || m_session->grade().isEmpty());
     const bool reached = [&] {
         for (const int i : gradeops::evaluationOrder(g)) {
             if (i == index)
@@ -256,11 +258,7 @@ void ColorNodeEditor::paintTile(QPainter& p, const ClipGrade& g, int index) cons
         const QRectF label(
             r.left() + 4 * m_zoom, r.top(), r.width() - 8 * m_zoom, kLabelHeight * m_zoom);
         p.setPen(text);
-        QString name = gradeNodeName(g, index);
-        if (!n.label.isEmpty() && name != n.label)
-            name = n.label;
-        else if (n.label.isEmpty())
-            name = QString::number(index + 1).rightJustified(2, QLatin1Char('0'));
+        const QString name = gradeNodeName(g, index); // the label, else "01" (correctors only)
         p.drawText(label, Qt::AlignLeft | Qt::AlignVCenter, name);
         // Markers of what the node uses: qualifier, windows, LUT.
         QStringList marks;
@@ -329,10 +327,12 @@ void ColorNodeEditor::paintEvent(QPaintEvent*)
         p.drawText(rect(), Qt::AlignCenter, tr("No clip to grade"));
         return;
     }
-    const ClipGrade& g = m_session->grade();
+    // An ungraded clip shows node 01, as in Resolve (the first edit creates it for real).
+    ClipGrade firstNode;
+    if (m_session->grade().isEmpty())
+        gradeops::initialize(firstNode);
+    const ClipGrade& g = m_session->grade().isEmpty() ? firstNode : m_session->grade();
     const QColor linkColour(120, 200, 140);
-    QColor dimLink = pal.color(QPalette::Text);
-    dimLink.setAlphaF(0.35f);
     // Links.
     for (const GradeNode& n : g.nodes) {
         for (int k = 0; k < n.inputs.size(); ++k) {
@@ -347,8 +347,6 @@ void ColorNodeEditor::paintEvent(QPaintEvent*)
     if (g.output && !(m_drag == Drag::Reconnect && m_pickNode == 0)) {
         if (const GradeNode* out = g.node(g.output))
             paintLink(p, outputPos(*out), gradeOutputPos(), linkColour);
-    } else if (g.isEmpty()) {
-        paintLink(p, sourcePos(), gradeOutputPos(), dimLink);
     }
     // Source and output ends.
     const double pr = std::max(3.0, kPortRadius * m_zoom * 1.2);
@@ -381,11 +379,6 @@ void ColorNodeEditor::paintEvent(QPaintEvent*)
         const GradeNode* from = src ? g.node(src) : nullptr;
         paintLink(
             p, from ? outputPos(*from) : sourcePos(), m_mousePos, pal.color(QPalette::Highlight));
-    }
-    if (g.isEmpty()) {
-        p.setPen(pal.color(QPalette::PlaceholderText));
-        p.drawText(rect().adjusted(0, 0, 0, -10), Qt::AlignHCenter | Qt::AlignBottom,
-            tr("Ungraded: Alt+S adds a node"));
     }
 }
 
@@ -629,6 +622,11 @@ QMenu* ColorNodeEditor::buildContextMenu(QPointF pos, QWidget* parent)
         if (s)
             s->removeNode();
     })->setEnabled(onNode);
+    const GradeNode* current = m_session ? m_session->currentNode() : nullptr;
+    add("color.keyframe", tr("Add / Remove Keyframe"), [s] {
+        if (s)
+            s->toggleKeyframe();
+    })->setEnabled(m_session && m_session->hasGrade() && (!current || !current->isMixer()));
     menu->addSeparator();
     add("color.reset_grade", tr("Reset Clip Grade"), [s] {
         if (s)

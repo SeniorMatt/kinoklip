@@ -72,10 +72,15 @@ void ColorSession::openClip(quint64 clipId)
 
 int64_t ColorSession::gradeFrame() const
 {
+    return gradeFrameOf(m_clipId);
+}
+
+int64_t ColorSession::gradeFrameOf(quint64 clipId) const
+{
     const int64_t playhead = m_ctx.project->timeline()->playhead();
     if (m_target == Target::Timeline)
         return playhead;
-    const ClipData* c = editops::clipById(m_ctx.project->timeline()->data(), m_clipId);
+    const ClipData* c = editops::clipById(m_ctx.project->timeline()->data(), clipId);
     return c ? c->localFrame(playhead) : 0;
 }
 
@@ -101,7 +106,12 @@ void ColorSession::reload()
         grade = data.grade;
     else if (const ClipData* c = editops::clipById(data, m_clipId))
         grade = c->grade;
-    const bool changed = grade != m_grade || otherClip;
+    // A keyframed grade has other values at another frame: the palettes, thumbnails and
+    // highlight follow the playhead.
+    const int64_t frame = m_target == Target::Timeline || clip ? gradeFrameOf(clip) : 0;
+    const bool otherFrame = frame != m_frame && grade.isAnimated();
+    m_frame = frame;
+    const bool changed = grade != m_grade || otherClip || otherFrame;
     m_grade = std::move(grade);
     if (otherClip || !m_grade.node(m_selected)) {
         quint64 sel = gradeops::defaultSelection(m_grade);
@@ -119,6 +129,11 @@ void ColorSession::reload()
         }
     }
     fixWindowSelection();
+    // The strip selection follows the graded clip: moving to a clip outside the selection
+    // (playhead, next clip) drops it, so Ctrl+V pastes to the clip on screen, not to clips
+    // selected earlier.
+    if (otherClip && m_clipId && !m_selectedClips.isEmpty() && !m_selectedClips.contains(m_clipId))
+        setSelectedClips({});
     if (otherClip)
         emit clipChanged();
     if (changed)
@@ -169,8 +184,9 @@ quint64 ColorSession::addSerialNode()
 {
     if (!hasGrade())
         return 0;
-    ClipGrade g = m_grade;
-    const quint64 id = gradeops::addSerialNode(g, m_selected);
+    quint64 after = m_selected;
+    ClipGrade g = withFirstNode(&after);
+    const quint64 id = gradeops::addSerialNode(g, after);
     if (!commit(g, tr("Add Serial Node")))
         return 0;
     selectNode(id);
@@ -181,8 +197,9 @@ quint64 ColorSession::addParallelNode()
 {
     if (!hasGrade())
         return 0;
-    ClipGrade g = m_grade;
-    const quint64 id = gradeops::addParallelNode(g, m_selected);
+    quint64 after = m_selected;
+    ClipGrade g = withFirstNode(&after);
+    const quint64 id = gradeops::addParallelNode(g, after);
     if (!commit(g, tr("Add Parallel Node")))
         return 0;
     selectNode(id);
@@ -193,8 +210,9 @@ quint64 ColorSession::addLayerNode()
 {
     if (!hasGrade())
         return 0;
-    ClipGrade g = m_grade;
-    const quint64 id = gradeops::addLayerNode(g, m_selected);
+    quint64 after = m_selected;
+    ClipGrade g = withFirstNode(&after);
+    const quint64 id = gradeops::addLayerNode(g, after);
     if (!commit(g, tr("Add Layer Node")))
         return 0;
     selectNode(id);
@@ -205,9 +223,9 @@ quint64 ColorSession::addSerialNodeBefore()
 {
     if (!hasGrade())
         return 0;
-    ClipGrade g = m_grade;
-    const quint64 id
-        = g.isEmpty() ? gradeops::initialize(g) : gradeops::addSerialNodeBefore(g, m_selected);
+    quint64 before = m_selected;
+    ClipGrade g = withFirstNode(&before);
+    const quint64 id = gradeops::addSerialNodeBefore(g, before);
     if (!commit(g, tr("Add Serial Node")))
         return 0;
     selectNode(id);
@@ -273,6 +291,14 @@ bool ColorSession::resetGrade()
     if (m_grade.isEmpty())
         return false;
     return commit(ClipGrade {}, tr("Reset Grade"));
+}
+
+ClipGrade ColorSession::withFirstNode(quint64* node) const
+{
+    ClipGrade g = m_grade;
+    if (g.isEmpty())
+        *node = gradeops::initialize(g);
+    return g;
 }
 
 ClipGrade ColorSession::editableGrade(quint64 wanted, quint64* node) const
@@ -362,6 +388,65 @@ bool ColorSession::setLut(quint64 nodeId, const QString& path)
         return false;
     n->lutPath = path;
     const bool ok = commit(g, path.isEmpty() ? tr("Remove LUT") : tr("Apply LUT"));
+    if (ok && m_selected != node)
+        selectNode(node);
+    return ok;
+}
+
+namespace {
+
+bool nodeHasKeyAt(const GradeNode& n, int64_t frame)
+{
+    for (const AnimatedValue& v : n.params.values) {
+        if (v.hasKeyAt(frame))
+            return true;
+    }
+    for (const GradeWindow& w : n.windows) {
+        for (const AnimatedValue& v : w.params.values) {
+            if (v.hasKeyAt(frame))
+                return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+bool ColorSession::hasKeyframe(quint64 nodeId) const
+{
+    const GradeNode* n = m_grade.node(nodeId ? nodeId : m_selected);
+    return n && nodeHasKeyAt(*n, gradeFrame());
+}
+
+bool ColorSession::toggleKeyframe(quint64 nodeId)
+{
+    if (!hasGrade())
+        return false;
+    quint64 node = 0;
+    ClipGrade g = editableGrade(nodeId, &node);
+    GradeNode* n = g.node(node);
+    if (!n || n->isMixer())
+        return false;
+    const int64_t frame = gradeFrame();
+    const bool remove = nodeHasKeyAt(*n, frame);
+    auto keyAll = [&](ParamSet& params, const QVector<QString>& keys, auto&& defaultOf) {
+        for (const QString& key : keys) {
+            if (remove) {
+                if (auto it = params.values.find(key); it != params.values.end())
+                    it->removeKey(frame);
+            } else {
+                AnimatedValue& v = params.animated(key, defaultOf(key));
+                v.setKey(frame, v.valueAt(frame));
+            }
+        }
+    };
+    keyAll(n->params, gradekeys::allKeys(),
+        [](const QString& k) { return gradekeys::defaultValue(k); });
+    for (GradeWindow& w : n->windows) {
+        keyAll(w.params, gradewindowkeys::allKeys(),
+            [](const QString& k) { return gradewindowkeys::defaultValue(k); });
+    }
+    const bool ok = commit(g, remove ? tr("Remove Keyframe") : tr("Add Keyframe"));
     if (ok && m_selected != node)
         selectNode(node);
     return ok;
