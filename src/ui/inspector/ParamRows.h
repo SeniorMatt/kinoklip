@@ -48,6 +48,10 @@ public:
     /// false when the playhead is outside the clip (keyframe toggling is then disabled).
     virtual void refresh(const ClipData& clip, int64_t localFrame, bool playheadInside) = 0;
 
+    /// Closes an undo group the row keeps open while the user types (title text), so a save
+    /// right now includes it as a finished step. Default: nothing open.
+    virtual void finishPendingEdit() { }
+
     /// Address of the parameter.
     [[nodiscard]] const ParamRef& ref() const { return m_ref; }
     /// Descriptor of the parameter (a copy, so synthetic descriptors work too).
