@@ -2,7 +2,10 @@
 // GlVideo — plane texture management and the YUV → RGB conversion shader.
 #include "render/GlVideo.h"
 
+#include "media/HdrToSdr.h"
 #include "render/YuvMath.h"
+
+#include <string>
 
 namespace kk::render {
 
@@ -22,6 +25,7 @@ uniform float uSampleScale;
 uniform vec4 uCrop;      // visible rect in quad coordinates: x0, y0, x1, y1
 uniform float uOpacity;
 uniform int uKeepField;  // deinterlace: -1 off, 0 keep the top field (even rows), 1 the bottom
+uniform int uHdr;        // media::HdrMapping: 0 SDR, 1 HLG, 2 PQ, 3 BT.2020 SDR (hdrToSdr())
 // Deinterlacing by field interpolation (Clip Attributes): only the rows of the kept field are
 // sampled, vertically interpolated between two rows of that field (2 rows apart), so the
 // other field's motion (combing) never shows. Rows are texel centres: row r at (r + 0.5) / h.
@@ -47,7 +51,8 @@ void main()
             yuv.yz = fieldSample(uPlane1, vUv).rg;
         else
             yuv.yz = vec2(fieldSample(uPlane1, vUv).r, fieldSample(uPlane2, vUv).r);
-        c = vec4(clamp(uYuvMatrix * (yuv * uSampleScale - uYuvOffset), 0.0, 1.0), 1.0);
+        c = vec4(hdrToSdr(clamp(uYuvMatrix * (yuv * uSampleScale - uYuvOffset), 0.0, 1.0), uHdr),
+            1.0);
     }
     vec2 inside = step(uCrop.xy, vQuad) * step(vQuad, uCrop.zw);
     fragColor = c * (uOpacity * inside.x * inside.y * edgeCoverage());
@@ -97,7 +102,9 @@ int layoutOf(media::PixelFormat format)
 bool GlVideo::initialize(GlKit& kit, QString* why)
 {
     GlFunctions* gl = kit.gl();
-    if (!m_program.build(gl, "yuv", kYuvFragment, why))
+    // HDR / BT.2020 frames are mapped to SDR BT.709 in the same pass (media/HdrToSdr.h).
+    static const std::string source = std::string(media::hdrToSdrGlsl()) + kYuvFragment;
+    if (!m_program.build(gl, "yuv", source.c_str(), why))
         return false;
     m_layout = m_program.uniform(gl, "uLayout");
     m_yuvMatrix = m_program.uniform(gl, "uYuvMatrix");
@@ -106,6 +113,7 @@ bool GlVideo::initialize(GlKit& kit, QString* why)
     m_crop = m_program.uniform(gl, "uCrop");
     m_opacity = m_program.uniform(gl, "uOpacity");
     m_keepField = m_program.uniform(gl, "uKeepField");
+    m_hdr = m_program.uniform(gl, "uHdr");
     gl->glUseProgram(m_program.id);
     gl->glUniform1i(m_program.uniform(gl, "uPlane0"), 0);
     gl->glUniform1i(m_program.uniform(gl, "uPlane1"), 1);
@@ -211,6 +219,7 @@ void GlVideo::draw(GlKit& kit, const PlaneTextures& t, const media::VideoFrame& 
         gl->glUniformMatrix3fv(m_yuvMatrix, 1, GL_FALSE, c.matrix.data());
         gl->glUniform3fv(m_yuvOffset, 1, c.offset.data());
         gl->glUniform1f(m_sampleScale, c.sampleScale);
+        gl->glUniform1i(m_hdr, int(media::hdrMappingOf(frame)));
     }
     gl->glUniform4f(
         m_crop, float(crop.left()), float(crop.top()), float(crop.right()), float(crop.bottom()));

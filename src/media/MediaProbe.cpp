@@ -108,6 +108,33 @@ int64_t streamEndUs(const AVFormatContext* fmt, const AVStream* stream)
         - detail::originUs(fmt);
 }
 
+/// MP4 / MOV files whose media data was cut off (a copy or download interrupted, a camera
+/// battery dying while the index was already written): the end (µs from media time 0) of the
+/// samples of @p stream that are completely in the file, or -1 when every sample is there.
+/// The demuxer's index lists every sample with its byte position; samples past the end of the
+/// file can never be decoded (the decoder would freeze on the last frame).
+int64_t truncatedEndUs(const AVFormatContext* fmt, const AVStream* stream)
+{
+    if (!fmt->pb || !fmt->iformat || !QByteArray(fmt->iformat->name).startsWith("mov"))
+        return -1;
+    const int64_t fileSize = avio_size(fmt->pb);
+    if (fileSize <= 0)
+        return -1;
+    const int count = avformat_index_get_entries_count(stream);
+    int64_t firstMissingTs = AV_NOPTS_VALUE;
+    for (int i = 0; i < count; ++i) {
+        const AVIndexEntry* e = avformat_index_get_entry(const_cast<AVStream*>(stream), i);
+        if (e && e->pos + e->size > fileSize
+            && (firstMissingTs == AV_NOPTS_VALUE || e->timestamp < firstMissingTs))
+            firstMissingTs = e->timestamp;
+    }
+    if (firstMissingTs == AV_NOPTS_VALUE)
+        return -1;
+    return std::max<int64_t>(0,
+        av_rescale_q(firstMissingTs, stream->time_base, detail::kMicrosecondsTb)
+            - detail::originUs(fmt));
+}
+
 /// Embedded start timecode ("HH:MM:SS:FF", ';' before the frames = drop frame): the
 /// container's "timecode" tag, else the video stream's, else any stream's (QuickTime keeps it
 /// on a "tmcd" data track, MXF on the container). Empty when the file has none.
@@ -202,6 +229,21 @@ MediaInfo infoFromFormatContext(const AVFormatContext* fmt, const QString& path)
             endUs = fmt->duration;
         }
         info.durationUs = std::max<int64_t>(0, endUs);
+        const int64_t cutUs = primary ? truncatedEndUs(fmt, primary) : -1;
+        if (cutUs >= 0 && cutUs < info.durationUs) {
+            if (cutUs == 0) {
+                info.hasVideo = info.hasAudio = false;
+                info.error = QStringLiteral("The file is incomplete: it was cut off before its "
+                                            "first frame (an interrupted copy or recording)");
+                return info;
+            }
+            // Usable up to the cut: the clip is that long, and the user is told why.
+            info.error = QStringLiteral("The file is incomplete: only the first %1 s of %2 s "
+                                        "are in it (an interrupted copy or recording)")
+                             .arg(double(cutUs) / 1e6, 0, 'f', 1)
+                             .arg(double(info.durationUs) / 1e6, 0, 'f', 1);
+            info.durationUs = cutUs;
+        }
     }
 
     info.startTimecode = startTimecode(fmt, video);

@@ -25,6 +25,9 @@
 # blue, bottom-right white). A format whose encoder/tool is missing is skipped with a message
 # (the test then QSKIPs it); scripts/make_test_images.py (python3) writes DNG, PSD, SVG, HEIC
 # and the EXIF-rotated JPEG, which ffmpeg cannot produce.
+#
+# Real-world media (phone, camera, screen recordings, audio, pictures, broken files) are made
+# by scripts/make_realworld_media.sh, called from here, into <outdir>/realworld/.
 set -euo pipefail
 
 FIXTURE_VERSION=6
@@ -32,12 +35,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${1:-$ROOT/tests/data/generated}"
 STAMP="$OUT/.complete-v$FIXTURE_VERSION"
 
-if [[ -f "$STAMP" ]]; then
-    exit 0
-fi
 if ! command -v ffmpeg > /dev/null; then
     echo "make_test_media.sh: ffmpeg not found in PATH" >&2
     exit 2
+fi
+# The real-world set (<outdir>/realworld/, test_realworld) has its own version stamp, so adding
+# to it never regenerates the fixtures below.
+bash "$ROOT/scripts/make_realworld_media.sh" "$OUT"
+if [[ -f "$STAMP" ]]; then
+    exit 0
 fi
 mkdir -p "$OUT"
 
