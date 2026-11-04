@@ -191,3 +191,4 @@
 - 16:41 Merged keypresets (333ccc2): 6 editor presets, .kys/.commandset import, first-run bar. Running main suite.
 - 17:35 Merged extdrop, poolbins. Breeze README shots (AppDir from container) + Metadata Breeze fix (33.45). Pushed. Next: host suite, then 1.1.1 package.
 - 18:06 1.1.1-beta.1 built (container 173/173, bundle OK, smoke OK: version, Breeze, Vegas S, Edit page). Local tag at d4c1f37. Awaiting owner's go to publish.
+- 18:13 PUBLISHED 1.1.1-beta.1 (owner said publish): https://github.com/SeniorMatt/kinoklip/releases/tag/v1.1.1-beta.1. Next: 1.1.2 bug report button.
