@@ -736,6 +736,15 @@ void ColorPage::showEvent(QShowEvent* event)
         m_rows->setSizes({h - middle - bottom, middle, bottom});
     }
     m_session->openClip(0);
+    // The page's keys act while focus is inside it (Alt+S right after Shift+6, as in
+    // Resolve): when the page that had the focus went away, the node editor takes it.
+    QTimer::singleShot(0, this, [this] {
+        const QWidget* focus = QApplication::focusWidget();
+        const bool elsewhereInWindow
+            = focus && focus->window() == window() && focus != this && !isAncestorOf(focus);
+        if (isVisible() && (!focus || !focus->isVisible() || elsewhereInWindow))
+            m_nodes->setFocus(Qt::OtherFocusReason);
+    });
     updateOutputClient();
     if (m_ctx.playback && m_ctx.playback->currentFrame())
         m_surface->setRenderedFrame(m_ctx.playback->currentFrame());
