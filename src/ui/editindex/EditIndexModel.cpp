@@ -108,9 +108,9 @@ QVariant EditIndexModel::eventData(const editindex::EventRow& row, int column, i
         case EditSourceOut:
             return row.sourceOut;
         case EditRecordIn:
-            return timecode::format(row.recordIn, fps);
+            return timecode::formatRecord(row.recordIn, m_project->timeline()->data());
         case EditRecordOut:
-            return timecode::format(row.recordOut, fps);
+            return timecode::formatRecord(row.recordOut, m_project->timeline()->data());
         case EditDuration:
             return timecode::format(row.recordOut - row.recordIn, fps);
         case EditNotes:
@@ -166,7 +166,7 @@ QVariant EditIndexModel::markerData(const editindex::MarkerRow& row, int column,
         case MarkerName:
             return row.name;
         case MarkerTimecode:
-            return timecode::format(row.frame, fps);
+            return timecode::formatRecord(row.frame, m_project->timeline()->data());
         case MarkerDuration:
             return timecode::format(row.duration, fps);
         case MarkerNotes:

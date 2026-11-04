@@ -3,6 +3,7 @@
 // by the UI tests, the benchmark and the screenshot check.
 #pragma once
 
+#include "../core/ClassicTimeline.h"
 #include "app/Theme.h"
 #include "core/EditOps.h"
 #include "core/EffectRegistry.h"
@@ -50,6 +51,7 @@ struct TimelineFixture
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
+        useClassicTimeline(project); // the tests count frames at 25 fps
     }
 
     TimelineData& data() { return project.timeline()->mutableData(); }

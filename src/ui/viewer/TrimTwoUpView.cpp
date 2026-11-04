@@ -289,7 +289,8 @@ void TrimTwoUpView::paintSide(
         p.drawText(caption.adjusted(2, 2, -2, 0), Qt::AlignLeft | Qt::AlignTop,
             fm.elidedText(side.name, Qt::ElideRight, caption.width() - 4));
         p.drawText(caption.adjusted(2, 0, -2, -2), Qt::AlignLeft | Qt::AlignBottom,
-            timecode::format(side.timelineFrame, m_fps));
+            timecode::format(
+                side.timelineFrame + (m_timeline ? m_timeline->data().startTimecode : 0), m_fps));
     }
 }
 

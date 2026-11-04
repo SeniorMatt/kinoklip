@@ -45,4 +45,8 @@ bool editMarker(QWidget* parent, Marker& marker, bool clipMarker, Rational fps);
 /// frame rate. Applies the change (one undo step) on OK.
 void editTimelineSettings(QWidget* parent, Project& project, quint64 uid);
 
+/// Asks for the starting timecode of timeline @p uid ("HH:MM:SS:FF") and sets it (one undo
+/// step, spec 25.12). False if cancelled or unchanged.
+bool editStartingTimecode(QWidget* parent, Project& project, quint64 uid);
+
 } // namespace kk::timelinedialogs

@@ -3,6 +3,7 @@
 // place clips and to save widget screenshots when KK_SCREENSHOT_DIR is set.
 #pragma once
 
+#include "../core/ClassicTimeline.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -32,6 +33,7 @@ struct PanelFixture
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
+        useClassicTimeline(project); // the tests count frames at 25 fps
     }
 
     /// Places a clip on a track (one undo step) and returns its id.

@@ -156,6 +156,24 @@ private:
                     m_below = image.copy();
                     painter.begin(&image);
                 }
+                if (const int mode = compositeModeIndex(tf, frame);
+                    mode != 0 && !showsAdjustment(tf)) {
+                    // Composite mode (spec 24.19): the track into a layer of its own, then
+                    // the Merge node's blend with everything below (as GlRenderer does).
+                    QImage layer(out, QImage::Format_ARGB32_Premultiplied);
+                    layer.fill(Qt::transparent);
+                    {
+                        QPainter lp(&layer);
+                        if (tf.single)
+                            drawClip(lp, *tf.single, 1.0);
+                        else if (tf.transition)
+                            drawTransition(lp, *tf.transition);
+                    }
+                    painter.end();
+                    blendLayerInto(image, layer, mode);
+                    painter.begin(&image);
+                    continue;
+                }
                 if (tf.single && tf.single->kind == ClipKind::Adjustment) {
                     // Replace the footprint with the processed picture (see GlRenderer).
                     drawClip(painter, *tf.single, 1.0, Blend::Erase);
@@ -402,7 +420,8 @@ private:
             const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
             const QSize canvas = (frameSize * outScale * zoom).toSize().expandedTo(QSize(1, 1));
             picture = renderGeneratorImage(
-                resolveGenerator(clip, local, m_frame, m_timeline->fps), canvas, frameSize);
+                resolveGenerator(clip, local, m_frame + m_timeline->startTimecode, m_timeline->fps),
+                canvas, frameSize);
             pictureRect = QRectF(
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
             break;

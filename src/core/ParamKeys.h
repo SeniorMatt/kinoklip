@@ -26,7 +26,11 @@ inline const QString AnchorX
     = QStringLiteral("anchorX"); ///< px offset of the pivot from clip centre; default 0
 inline const QString AnchorY
     = QStringLiteral("anchorY"); ///< px offset of the pivot from clip centre; default 0
+// ---- Composite (ClipData::transform; the Inspector's Composite group, spec 24.19) ----
 inline const QString Opacity = QStringLiteral("opacity"); ///< percent 0..100; default 100
+/// Static blend mode id of the clip over the tracks below (core/NodeRegistry.h blendmodes::;
+/// absent = "normal").
+inline const QString CompositeMode = QStringLiteral("compositeMode");
 // ---- Cropping (ClipData::transform, animated) ----
 inline const QString CropL
     = QStringLiteral("cropL"); ///< px cut from the left edge (source pixels); default 0

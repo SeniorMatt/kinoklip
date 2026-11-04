@@ -288,11 +288,13 @@ QVector<AnimatedParam> animatedParams(const ClipData& clip)
     QVector<AnimatedParam> out;
     const EffectRegistry& reg = EffectRegistry::instance();
     {
-        // Transform and Cropping share ClipData::transform.
+        // Transform, Cropping and Composite share ClipData::transform.
         QSet<QString> listed;
         const QString prefix = kTransform + QLatin1Char('/');
         appendGroup(out, listed, clip.transform, prefix, QString::fromLatin1(groups::Transform),
             reg.find(QString::fromLatin1(groups::Transform)), false);
+        appendGroup(out, listed, clip.transform, prefix, QString::fromLatin1(groups::Composite),
+            reg.find(QString::fromLatin1(groups::Composite)), false);
         appendGroup(out, listed, clip.transform, prefix, QString::fromLatin1(groups::Cropping),
             reg.find(QString::fromLatin1(groups::Cropping)), true);
     }

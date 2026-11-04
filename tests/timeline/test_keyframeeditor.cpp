@@ -120,9 +120,9 @@ private slots:
         v.f.actions.action(QStringLiteral("clip.toggle_curve_editor"))->trigger();
         QVERIFY(v.lanes()->isKeyframeEditorOpen(v.clipId));
         QVERIFY(v.lanes()->isCurveEditorOpen(v.clipId));
-        // Rows: master, Transform group, Position X, Opacity.
+        // Rows: master, Transform group, Position X, Composite group, Opacity.
         const auto rows = v.keys()->rows();
-        QCOMPARE(rows.size(), 4);
+        QCOMPARE(rows.size(), 5);
         QCOMPARE(rows[0].kind, KeyRow::Kind::Master);
         QCOMPARE(rows[1].kind, KeyRow::Kind::Group);
         // Deleting the clip drops its editor.

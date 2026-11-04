@@ -78,6 +78,12 @@ public:
     /// gives a transparent target.
     [[nodiscard]] PooledTarget evaluate(GlKit& kit, const CompEval& ev, quint64 nodeId);
 
+    /// The Merge node's blend of two full-frame pictures: @p layer (premultiplied, its
+    /// opacity already applied) over @p background with blend mode @p mode (blendmodes::
+    /// index), drawn into the bound target of the same size (blending off). The timeline's
+    /// composite modes (Inspector > Composite) use it, so both pages blend alike.
+    void blendLayers(GlKit& kit, GLuint background, GLuint layer, int mode);
+
 private:
     /// Result of one node during an evaluation.
     struct Slot

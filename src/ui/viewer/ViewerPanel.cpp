@@ -3,6 +3,7 @@
 #include "ui/viewer/ViewerPanel.h"
 
 #include "core/MediaPool.h"
+#include "core/Multicam.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
@@ -30,9 +31,9 @@
 
 #include <QAction>
 #include <QApplication>
-#include <QCursor>
 #include <QComboBox>
 #include <QContextMenuEvent>
+#include <QCursor>
 #include <QDrag>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -541,11 +542,23 @@ void ViewerPanel::onTimelineChanged()
 void ViewerPanel::onPositionChanged(int64_t frame)
 {
     // Source viewer: Clip Attributes > Timecode can give the media its own start timecode.
+    // The source viewer counts from the media's embedded start timecode as well (spec 25.12),
+    // the timeline viewer from the timeline's starting timecode.
     int64_t start = 0;
     if (m_mode == Mode::Source && m_ctx.project && !m_sourceMediaId.isEmpty()) {
         const MediaItem* item = m_ctx.project->mediaPool()->item(m_sourceMediaId);
         if (item && item->attributes.overrideTimecode)
             start = item->attributes.startTimecodeFrames;
+        else if (item)
+            start = usToFrames(
+                multicam::timecodeToUs(item->info.startTimecode, m_fps).value_or(0), m_fps);
+    } else if (m_mode == Mode::Timeline) {
+        // Unbound program viewers (Deliver, Audio page) show the active timeline.
+        const Timeline* shown = m_boundTimeline
+            ? m_boundTimeline
+            : (m_ctx.project ? m_ctx.project->timeline() : nullptr);
+        if (shown)
+            start = shown->data().startTimecode;
     }
     if (m_timecodeEntry.isEmpty()) // a typed timecode stays until it is entered or cancelled
         m_timecode->setText(timecode::format(start + frame, m_fps));
@@ -601,10 +614,10 @@ void ViewerPanel::updateMarksLabel()
     const int64_t out = d.markOut > 0 ? d.markOut : d.duration();
     QStringList parts;
     if (d.markIn >= 0) {
-        parts << tr("In %1").arg(timecode::format(d.markIn, d.fps));
+        parts << tr("In %1").arg(timecode::formatRecord(d.markIn, d));
     }
     if (d.markOut > 0) {
-        parts << tr("Out %1").arg(timecode::format(d.markOut - 1, d.fps));
+        parts << tr("Out %1").arg(timecode::formatRecord(d.markOut - 1, d));
     }
     // Duration of the marked range (or of everything), as Resolve shows it next to the marks.
     parts << tr("Dur %1").arg(timecode::format(std::max<int64_t>(0, out - in), d.fps));

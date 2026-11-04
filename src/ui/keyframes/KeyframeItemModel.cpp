@@ -224,6 +224,7 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
             if (video) {
                 group(groups::Transform, ParamScope::Transform);
                 group(groups::Cropping, ParamScope::Transform);
+                group(groups::Composite, ParamScope::Transform);
                 appendMasksGroup(model.entries, colorIndex, *clip, itemKey, depth, showAll);
                 if (clip->kind == ClipKind::Generator) {
                     if (const EffectDescriptor* d = reg.find(clip->generator))

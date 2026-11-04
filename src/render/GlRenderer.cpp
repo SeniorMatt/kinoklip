@@ -580,11 +580,25 @@ PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
     m_kit->clearTransparent();
     // Index loop: a nested clip composites at depth + 1 and never touches this list.
     for (size_t i = 0; i < frames.size(); ++i) {
-        if (!showsAdjustment(frames[i])) {
+        if (showsAdjustment(frames[i])) {
+            drawAdjustment(frames[i], fc, accumulator);
+            continue;
+        }
+        const int mode = compositeModeIndex(frames[i], fc.frame);
+        if (mode == 0) {
             drawTrack(frames[i], fc, *accumulator);
             continue;
         }
-        drawAdjustment(frames[i], fc, accumulator);
+        // Composite mode (spec 24.19): the track into a layer of its own, then the Merge
+        // node's blend of that layer with everything below.
+        PooledTarget layer = m_kit->acquire(fc.outSize);
+        m_kit->bindTarget(*layer);
+        m_kit->clearTransparent();
+        drawTrack(frames[i], fc, *layer);
+        PooledTarget blended = m_kit->acquire(fc.outSize);
+        m_kit->bindTarget(*blended);
+        m_comp.blendLayers(*m_kit, accumulator->texture, layer->texture, mode);
+        accumulator = std::move(blended);
     }
     // The timeline grade (Color page): over the composite of every track, before the captions.
     if (fc.grades && !fc.timeline->grade.isEmpty()
@@ -1288,7 +1302,8 @@ bool GlRenderer::drawCompositionInput(const ClipData& owner, const CompNode& nod
 const RenderTarget* GlRenderer::generatorTarget(
     const ClipData& clip, int64_t localFrame, const FrameContext& fc, double zoom)
 {
-    GeneratorFrame g = resolveGenerator(clip, localFrame, fc.frame, fc.timeline->fps);
+    GeneratorFrame g = resolveGenerator(
+        clip, localFrame, fc.frame + fc.timeline->startTimecode, fc.timeline->fps);
     if (g.kind == GeneratorFrame::Kind::Unknown)
         return nullptr;
     // Rendered at the size the frame covers in the output (sharper when zoomed in, up to 2x).

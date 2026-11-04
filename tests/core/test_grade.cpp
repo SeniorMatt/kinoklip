@@ -617,7 +617,7 @@ private slots:
 
     void formatVersionAndMigration()
     {
-        QCOMPARE(serialization::kFormatVersion, 16);
+        QVERIFY(serialization::kFormatVersion >= 16); // 17: starting timecodes (bughunt3)
         QTemporaryDir dir;
         // A format 15 file (a composition, no grade, no gallery) loads unchanged.
         const QByteArray v15 = R"({"formatVersion": 15, "project": {"name": "old"},
@@ -650,7 +650,7 @@ private slots:
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QByteArray saved = f.readAll();
         const QJsonObject root = QJsonDocument::fromJson(saved).object();
-        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), 16);
+        QCOMPARE(root.value(QLatin1String("formatVersion")).toInt(), serialization::kFormatVersion);
         QVERIFY(!root.contains(QLatin1String("gallery")));
         QVERIFY(!saved.contains("\"grade\""));
     }

@@ -109,6 +109,7 @@ struct EffectDescriptor
 namespace groups {
 inline constexpr char Transform[] = "builtin.transform";
 inline constexpr char Cropping[] = "builtin.cropping";
+inline constexpr char Composite[] = "builtin.composite"; ///< Composite Mode + Opacity
 inline constexpr char Audio[] = "builtin.audio";
 } // namespace groups
 

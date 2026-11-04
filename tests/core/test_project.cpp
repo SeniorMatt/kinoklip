@@ -20,7 +20,9 @@ private slots:
     {
         Project p;
         QCOMPARE(p.name(), QStringLiteral("Untitled Project"));
-        QCOMPARE(p.settings().fps, (Rational {25, 1}));
+        QCOMPARE(p.settings().fps, (Rational {24, 1})); // Resolve's default (spec 25.12)
+        QCOMPARE(p.settings().timelineStart, int64_t(24 * 3600)); // 01:00:00:00
+        QCOMPARE(p.timeline()->data().startTimecode, int64_t(24 * 3600));
         QCOMPARE(p.settings().width, 1920);
         QCOMPARE(p.settings().height, 1080);
         QCOMPARE(p.timeline()->data().videoTracks.size(), size_t(2));
@@ -196,6 +198,7 @@ private slots:
         s.height = 720;
         s.fps = Rational {30000, 1001};
         p.setSettings(s);
+        s.timelineStart = 30 * 3600; // still 01:00:00:00 at the new rate
         QCOMPARE(p.settings(), s);
         QVERIFY(p.isDirty());
         QCOMPARE(dirty.count(), 1);

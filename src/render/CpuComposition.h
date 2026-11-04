@@ -37,4 +37,9 @@ struct CpuCompEval
 /// their input through.
 [[nodiscard]] QImage evaluateCompositionCpu(const CpuCompEval& ev, quint64 nodeId);
 
+/// The Merge node's blend of @p layer over @p background in place (both
+/// ARGB32_Premultiplied, the same size; mode = blendmodes::index()): the CPU side of the
+/// timeline's composite modes (spec 24.19), the same maths as GlComposition::blendLayers().
+void blendLayerInto(QImage& background, const QImage& layer, int mode);
+
 } // namespace kk::render

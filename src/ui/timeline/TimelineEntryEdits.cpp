@@ -4,6 +4,7 @@
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "ui/common/TimecodeEntry.h"
+#include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/TimelineController.h"
 
 namespace kk {
@@ -50,7 +51,8 @@ QVector<quint64> TimelineController::editSources(
 void TimelineController::enterTimecode(const TypedTimecode& entry)
 {
     if (!entry.relative) {
-        setPlayheadClamped(entry.frames);
+        // A record timecode: the timeline's starting timecode comes off (spec 25.12).
+        setPlayheadClamped(timecode::recordToFrame(entry.frames, timeline()->data()));
         return;
     }
     if (entry.frames == 0)
