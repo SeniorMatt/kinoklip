@@ -460,6 +460,32 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("(colour-correct-a-clip.md)")));
         QVERIFY(text.contains(QStringLiteral("(compositing-page.md)")));
     }
+
+    // Spec 45.3: the Deliver page's "N fps" and "Match timeline (W x H)" follow a change of
+    // the timeline's format at once (Project Settings, the first import's question).
+    void spec45_3_deliverLabelsFollowTheTimelineFormat()
+    {
+        Fixture f(0);
+        f.show();
+        f.action("view.page_deliver")->trigger();
+        QCoreApplication::processEvents();
+        RenderSettingsPanel* panel = f.window->deliverPage()->settingsPanel();
+        auto* rate = panel->findChild<QComboBox*>(QStringLiteral("RenderFrameRate"));
+        QVERIFY(rate);
+        QCOMPARE(rate->itemText(0), QStringLiteral("24 fps"));
+        ProjectSettings s = f.project.settings();
+        s.fps = Rational {25, 1};
+        s.width = 1280;
+        s.height = 720;
+        f.project.setSettings(s);
+        QCoreApplication::processEvents();
+        QCOMPARE(rate->itemText(0), QStringLiteral("25 fps"));
+        const QList<QComboBox*> resolution = panel->findChildren<QComboBox*>();
+        bool matched = false;
+        for (QComboBox* box : resolution)
+            matched |= box->count() > 0 && box->itemText(0) == QStringLiteral("Match timeline (1280 x 720)");
+        QVERIFY(matched);
+    }
 };
 
 QTEST_MAIN(TestBughunt9)

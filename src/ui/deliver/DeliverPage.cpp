@@ -89,6 +89,17 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     connect(timeline, &Timeline::changed, this, &DeliverPage::schedulePreview);
     connect(timeline, &Timeline::changed, this, &DeliverPage::followMarks);
     connect(timeline, &Timeline::changed, this, &DeliverPage::updateRange);
+    // A new timeline format (Project Settings, the first import's frame rate question)
+    // updates the "Match timeline" and frame rate labels at once.
+    connect(timeline, &Timeline::changed, this, [this] {
+        const TimelineData& d = m_ctx.project->timeline()->data();
+        const QString format
+            = QStringLiteral("%1x%2@%3/%4").arg(d.width).arg(d.height).arg(d.fps.num).arg(d.fps.den);
+        if (format == m_shownFormat)
+            return;
+        m_shownFormat = format;
+        m_settingsPanel->setSettings(m_settingsPanel->settings());
+    });
     connect(timeline, &Timeline::playheadChanged, this, &DeliverPage::schedulePreview);
     connect(timeline, &Timeline::playheadChanged, this, [this](int64_t frame) {
         m_viewer->setPosition(frame, m_ctx.project->timeline()->data().fps);

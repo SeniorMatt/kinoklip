@@ -342,6 +342,7 @@ QWidget* RenderSettingsPanel::buildVideoTab()
     m_videoForm->addRow(QString(), m_sizeRow);
     m_frameRate = fixedCombo(QString(),
         tr("Renders use the timeline frame rate (no retiming); change it in Project Settings."));
+    m_frameRate->setObjectName(QStringLiteral("RenderFrameRate"));
     m_videoForm->addRow(tr("Frame rate"), m_frameRate);
 
     // Quality: Resolve's "Automatic [level]" / "Restrict to [n] Kb/s".
