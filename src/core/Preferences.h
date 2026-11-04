@@ -57,6 +57,9 @@ inline constexpr char kTimelineWaveforms[] = "timeline/waveforms";
 /// Colour of new markers: a markerColorPalette() id chosen in the marker button's menu
 /// (default "blue"; spec 18.17).
 inline constexpr char kNewMarkerColor[] = "timeline/markerColor";
+/// Flag of the tool bar's flag button (Clip > Flag Clip): a flagPalette() id chosen in its
+/// menu (default "blue"; spec 33.36).
+inline constexpr char kToolBarFlag[] = "timeline/flagColor";
 /// Timeline View Options > Show Source Timecode (bool, default false; spec 12.14).
 inline constexpr char kTimelineSourceTimecode[] = "timeline/sourceTimecode";
 /// Edit Index column chooser (spec 18.10): QStringList of the hidden column keys

@@ -7,6 +7,7 @@
 #include "app/pages/EditPage.h"
 #include "core/ClipColors.h"
 #include "core/EditOps.h"
+#include "core/MediaPool.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -215,6 +216,54 @@ private slots:
         f.project.timeline()->setPlayhead(60);
         f.action("mark.add_marker")->trigger();
         QCOMPARE(f.clip(1)->markers.value(0).color, redColour);
+    }
+
+    // Spec 33.36: the timeline tool bar's flag button (Clip > Flag Clip) flags the media of the
+    // selected clips with the flag picked in its drop-down (Blue by default); a second click
+    // removes it again. One undo step each.
+    void spec33_36_flagButtonFlagsTheSelectedClipsMedia()
+    {
+        Fixture f(0);
+        MediaItem item;
+        item.path = QStringLiteral("/nonexistent/shot.mp4");
+        item.name = QStringLiteral("shot.mp4");
+        item.info.valid = true;
+        item.info.hasVideo = true;
+        item.info.durationUs = 10'000'000;
+        const QString mediaId = f.project.mediaPool()->addItem(item);
+        ClipData clip;
+        clip.kind = ClipKind::Media;
+        clip.mediaId = mediaId;
+        clip.duration = 50;
+        clip.sourceDurationUs = 10'000'000;
+        f.project.beginEdit(QStringLiteral("Add Clip"));
+        const quint64 id = editops::overwriteClip(
+            f.project.timeline()->mutableData(), TrackRef {TrackType::Video, 0}, clip);
+        f.project.endEdit();
+        f.show();
+        auto* menu = f.window->editPage()->findChild<QMenu*>(QStringLiteral("FlagColorMenu"));
+        QVERIFY(menu);
+        QCOMPARE(
+            qobject_cast<QToolButton*>(menu->parent())->popupMode(), QToolButton::MenuButtonPopup);
+        auto flags = [&] { return f.project.mediaPool()->item(mediaId)->flags; };
+        f.selection.setClips({id});
+        const int before = f.project.undoStack()->index();
+        f.action("clip.flag")->trigger();
+        QCOMPARE(flags(), 1u << flagIndex(QStringLiteral("blue")));
+        QCOMPARE(f.project.undoStack()->index(), before + 1);
+        for (QAction* a : menu->actions())
+            if (a->data().toString() == QStringLiteral("green"))
+                a->trigger();
+        f.action("clip.flag")->trigger();
+        QCOMPARE(flags(),
+            (1u << flagIndex(QStringLiteral("blue"))) | (1u << flagIndex(QStringLiteral("green"))));
+        f.action("clip.flag")->trigger(); // toggles off
+        QCOMPARE(flags(), 1u << flagIndex(QStringLiteral("blue")));
+        // Nothing selected: nothing happens.
+        f.selection.clear();
+        const int steps = f.project.undoStack()->index();
+        f.action("clip.flag")->trigger();
+        QCOMPARE(f.project.undoStack()->index(), steps);
     }
 };
 

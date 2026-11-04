@@ -16,6 +16,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/ChangeSpeedDialog.h"
+#include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/StackedTimelinePane.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineDialogs.h"
@@ -102,7 +103,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
         {"tool.select", "tool.trim", "tool.blade", nullptr},
         {"edit.insert", "edit.overwrite", "edit.place_on_top", "edit.replace"},
         {"timeline.snapping", "timeline.linked_selection", nullptr, nullptr},
-        {"edit.split", "mark.add_marker", nullptr, nullptr},
+        {"edit.split", "clip.flag", "mark.add_marker", nullptr},
     };
     m_toolBar->addWidget(makeViewOptionsButton());
     m_toolBar->addSeparator();
@@ -417,19 +418,27 @@ bool TimelinePanel::eventFilter(QObject* watched, QEvent* event)
 
 void TimelinePanel::addMarkerColorMenu()
 {
-    QAction* marker = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("mark.add_marker"))
-        ? m_ctx.actions->action(QStringLiteral("mark.add_marker"))
+    // Resolve's flag and marker buttons have a drop-down of their colours: the one picked is
+    // what the button (and M, Ctrl+M for markers) uses from then on (spec 18.17, 33.36).
+    addColorMenu("mark.add_marker", markerColorPalette(), prefs::kNewMarkerColor,
+        QStringLiteral("MarkerColorMenu"));
+    addColorMenu("clip.flag", flagPalette(), prefs::kToolBarFlag, QStringLiteral("FlagColorMenu"));
+}
+
+void TimelinePanel::addColorMenu(const char* actionId, std::span<const PaletteColor> palette,
+    const char* settingsKey, const QString& objectName)
+{
+    QAction* action = m_ctx.actions && m_ctx.actions->contains(QLatin1String(actionId))
+        ? m_ctx.actions->action(QLatin1String(actionId))
         : nullptr;
     auto* button
-        = marker ? qobject_cast<QToolButton*>(m_toolBar->widgetForAction(marker)) : nullptr;
+        = action ? qobject_cast<QToolButton*>(m_toolBar->widgetForAction(action)) : nullptr;
     if (!button)
         return;
-    // Resolve's marker button has a drop-down of the marker colours: the one picked colours
-    // the markers added from then on (M, Ctrl+M, the button).
     auto* menu = new QMenu(button);
-    menu->setObjectName(QStringLiteral("MarkerColorMenu"));
+    menu->setObjectName(objectName);
     auto* group = new QActionGroup(menu);
-    for (const PaletteColor& c : markerColorPalette()) {
+    for (const PaletteColor& c : palette) {
         QPixmap swatch(12, 12);
         swatch.fill(QColor(c.rgb));
         QAction* a
@@ -437,16 +446,21 @@ void TimelinePanel::addMarkerColorMenu()
         a->setCheckable(true);
         a->setData(QString::fromLatin1(c.id));
         group->addAction(a);
-        connect(a, &QAction::triggered, this, [id = QString::fromLatin1(c.id)] {
-            QSettings().setValue(QLatin1String(prefs::kNewMarkerColor), id);
-        });
+        connect(a, &QAction::triggered, this,
+            [key = QString::fromLatin1(settingsKey), id = QString::fromLatin1(c.id)] {
+                QSettings().setValue(key, id);
+            });
     }
-    connect(menu, &QMenu::aboutToShow, menu, [menu] {
-        const QString current
-            = QLatin1String(nearestMarkerColor(TimelineController::newMarkerColor()).id);
-        for (QAction* a : menu->actions())
-            a->setChecked(a->data().toString() == current);
-    });
+    const QString fallback = QString::fromLatin1(palette.front().id);
+    connect(
+        menu, &QMenu::aboutToShow, menu, [menu, key = QString::fromLatin1(settingsKey), fallback] {
+            const QString current = QSettings().value(key, fallback).toString();
+            bool found = false;
+            for (QAction* a : menu->actions())
+                found |= a->data().toString() == current;
+            for (QAction* a : menu->actions())
+                a->setChecked(a->data().toString() == (found ? current : fallback));
+        });
     button->setMenu(menu);
     button->setPopupMode(QToolButton::MenuButtonPopup);
 }
