@@ -3,6 +3,8 @@
 // covers.
 #include "ParityTestUtils.h"
 #include "TimelineTestUtils.h"
+#include "core/ParamKeys.h"
+#include "ui/effects/EffectActions.h"
 
 #include <QAction>
 #include <QApplication>
@@ -42,6 +44,15 @@ class TestBughunt7Edit : public QObject
     Q_OBJECT
 private slots:
     void initTestCase() { initTimelineTestCase("test_bughunt7edit"); }
+
+    // Spec 14.5: a new Text title reads "Basic Title" (its clip is named after the text).
+    void spec14_5_newTextTitleReadsBasicTitle()
+    {
+        const auto clip = effectactions::makeGeneratorClip(QStringLiteral("text_title"), {25, 1});
+        QVERIFY(clip);
+        QCOMPARE(clip->title.staticValue(keys::Text).toString(), QStringLiteral("Basic Title"));
+        QCOMPARE(clip->name, QStringLiteral("Basic Title"));
+    }
 
     // Spec 18.18: a new marker is named "Marker N" with N one past the highest number in use,
     // so a name never repeats after a deletion; timeline and clip markers alike.

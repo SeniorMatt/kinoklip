@@ -275,6 +275,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 14.2 | Stills are 5 s long. | OK (tc stillsAndGenerators; `EditBehaviour::stillSeconds`) |
 | 14.3 | Title text and style are edited in the inspector, one undo step per typing burst. | OK (in titleClipTextIsOneUndoStepPerBurst) |
 | 14.4 | Titles and generators can be trimmed to any length (no media limit). | OK (eo, sourceDurationUs = 0) |
+| 14.5 | A new Text title (Effects > Titles > Text) reads "Basic Title", as in Resolve; titles of older projects keep their text. | Fixed (bughunt7: it read "Title"; test_bughunt7edit spec14_5_newTextTitleReadsBasicTitle) |
 
 ## 15. Keyframes (inspector, keyframe editor, curve editor)
 
@@ -1255,7 +1256,8 @@ Tests: `bh4` = `tests/app/test_bughunt4.cpp`.
   colour drop-down), 33.36 (the flag button) and 42b.31 (Compositing page keys right after
   Shift+5).
 - The bughunt7 branch (seventh bug hunt round) added 8.23 (Dynamic Trim tool bar button), 8.24
-  (dynamic trim always uses J / K / L: the unused setting was removed), 12.17 (right-click on
+  (dynamic trim always uses J / K / L: the unused setting was removed), 14.5 (new Text titles
+  read "Basic Title"), 12.17 (right-click on
   a locked clip), 18.18 (marker names never repeat), 24.20 (Dynamic Zoom: Inspector section,
   on-screen controls, GPU / CPU rendering), 24.21 (the Inspector's Speed Change and Retime and
   Scaling sections) and 37.36 (the Audio page's tracks start at the top), and updated 29.16.
