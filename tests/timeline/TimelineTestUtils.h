@@ -23,6 +23,8 @@
 #include <QSettings>
 #include <QStandardPaths>
 
+#include <cmath>
+
 namespace kk::test {
 
 /// One-time application setup for widget tests (test settings, resources, dark theme).
@@ -113,7 +115,8 @@ inline int buildDemoTimeline(Project& project, const QString& mediaDir = {})
     d.videoTracks[2].name = QStringLiteral("Titles");
     d.audioTracks[1].name = QStringLiteral("Music");
 
-    const int64_t fps = 25;
+    // 25 in the classic test timelines, 24 in new projects (the user guide's demo).
+    const int64_t fps = std::llround(d.fps.toDouble());
     int clips = 0;
     // Media clip (video + linked audio) or a stand-in solid when the file is missing.
     auto av = [&](const char* name, int64_t start, int64_t duration, int64_t srcSec, int vTrack) {
