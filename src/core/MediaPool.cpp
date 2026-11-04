@@ -169,6 +169,10 @@ PreparedMedia MediaPool::prepareFile(const QString& absolutePath)
         qCWarning(lcCore) << "import skipped" << absolutePath << prepared.error;
         return prepared;
     }
+    // A note of the probe worth telling at import (an incomplete file, spec 46.4; image
+    // sequences report their missing frames in the Metadata panel only).
+    if (!info.error.isEmpty() && !info.isImageSequence)
+        prepared.note = info.error;
     item.path = absolutePath;
     item.info = std::move(info);
     item.fileModifiedMs = fileModifiedMs(absolutePath);
