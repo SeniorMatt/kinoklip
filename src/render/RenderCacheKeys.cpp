@@ -250,6 +250,9 @@ std::vector<CacheChunk> renderCacheChunks(
     header.addData(':' + QByteArray::number(timeline.width) + 'x'
         + QByteArray::number(timeline.height) + '@' + QByteArray::number(timeline.fps.num) + '/'
         + QByteArray::number(timeline.fps.den));
+    // The starting timecode shows in timeline timecode burn-ins (absent at 0: older keys stay).
+    if (timeline.startTimecode != 0)
+        header.addData("+tc" + QByteArray::number(qint64(timeline.startTimecode)));
     // The timeline's default retime process (Frame Blend / Optical Flow) changes the pictures
     // of every retimed clip that follows the project default. The clips' own retime state
     // (speed, curve, process, pitch) is part of their JSON.

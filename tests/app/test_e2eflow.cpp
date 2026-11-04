@@ -4,6 +4,7 @@
 // the YouTube 1080p preset -> render -> probe the file. Everything goes through the widgets
 // and actions a user would touch (drops, mouse gestures, shortcuts' actions, inspector
 // buttons, Deliver page), so integration breaks between modules show up here.
+#include "../core/ClassicTimeline.h"
 #include "../media/MediaTestUtil.h"
 #include "app/MainWindow.h"
 #include "app/Theme.h"
@@ -72,6 +73,7 @@ struct App
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
+        kk::test::useClassicTimeline(project); // the tests count frames at 25 fps
         ctx.playback = playback.get();
         MainWindowOptions wo;
         wo.autosave = false;

@@ -555,6 +555,7 @@ quint64 Project::createTimeline(const QString& name, const QString& binId)
         m_format.fps, m_format.width, m_format.height);
     t.uid = m_nextTimelineUid++;
     t.retimeProcess = m_format.retimeProcess;
+    t.startTimecode = m_format.timelineStart;
     const quint64 uid = t.uid;
     beginEdit(tr("New Timeline"));
     addTimeline(std::move(t), binId);
@@ -662,10 +663,27 @@ bool Project::setTimelineFormat(
         if (fps.isValid())
             copy->fps = fps;
     }
+    copy->startTimecode = convertTimecode(source->startTimecode, source->fps, copy->fps);
     if (*copy == *source)
         return true;
     // TODO(core): changing fps does not rescale existing clip positions yet.
     beginEdit(tr("Timeline Settings"));
+    replaceTimeline(uid, std::move(copy));
+    endEdit();
+    return true;
+}
+
+bool Project::setTimelineStartTimecode(quint64 uid, int64_t frames)
+{
+    const auto source = timelineData(uid);
+    if (!source)
+        return false;
+    frames = std::max<int64_t>(0, frames);
+    if (source->startTimecode == frames)
+        return true;
+    auto copy = std::make_shared<TimelineData>(*source);
+    copy->startTimecode = frames;
+    beginEdit(tr("Starting Timecode"));
     replaceTimeline(uid, std::move(copy));
     endEdit();
     return true;

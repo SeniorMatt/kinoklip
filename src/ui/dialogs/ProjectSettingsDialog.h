@@ -24,14 +24,16 @@ namespace kk {
 ///
 /// Sections (left list, like Resolve):
 /// - Master Settings: timeline resolution presets (UHD, QHD, HD, 720p, vertical, square) or
-///   Custom, pixel aspect ratio (square only), timeline frame rate (23.976 ... 60), playback
+///   Custom, pixel aspect ratio (square only), timeline frame rate (23.976 ... 60; locked
+///   once a timeline that follows the project settings has clips, as in Resolve), playback
 ///   frame rate (= timeline), frame interpolation (the default retime process of retimed
 ///   clips: Nearest, Frame Blend, Optical Flow), video monitoring (no output devices yet).
 /// - Image Scaling: mismatched resolution handling ("scale entire image to fit", the
 ///   compositor's only mode for now), output scaling (= timeline).
 /// - Audio: sample rate 48 kHz and 32-bit float mixing (the mixer's fixed format, PLAN 5.1).
-/// - General Options: project name, autosave interval (the user preference
-///   `project/autosaveMinutes`, shared with Preferences > Project Save and Load).
+/// - General Options: project name, starting timecode of new timelines (spec 25.12),
+///   autosave interval (the user preference `project/autosaveMinutes`, shared with
+///   Preferences > Project Save and Load).
 /// - Render Cache: render cache / optimized media placeholders.
 /// Settings the engine cannot change yet are shown disabled with a tooltip saying why.
 class ProjectSettingsDialog : public QDialog
@@ -82,6 +84,7 @@ private:
     QComboBox* m_playbackFps = nullptr;
     QComboBox* m_retimeProcess = nullptr; ///< Frame Interpolation > Retime process
     QSpinBox* m_autosave = nullptr;
+    QLineEdit* m_timelineStart = nullptr; ///< General Options > starting timecode
     QLabel* m_warning = nullptr;
     QComboBox* m_proxyResolution = nullptr;
     QComboBox* m_proxyFormat = nullptr;

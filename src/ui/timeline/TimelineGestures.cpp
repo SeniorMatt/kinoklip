@@ -329,7 +329,8 @@ QString TimelineWidget::markerToolTip(const Marker& marker, int64_t timelineFram
 {
     const Rational fps = m_ctx.project->timeline()->data().fps;
     QString text = marker.name.toHtmlEscaped();
-    text += QStringLiteral("<br>") + timecode::format(timelineFrame, fps);
+    text += QStringLiteral("<br>")
+        + timecode::formatRecord(timelineFrame, m_ctx.project->timeline()->data());
     if (marker.duration > 1)
         text += tr(" (duration %1)").arg(timecode::format(marker.duration, fps));
     if (!marker.note.isEmpty())

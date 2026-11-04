@@ -1302,7 +1302,8 @@ bool GlRenderer::drawCompositionInput(const ClipData& owner, const CompNode& nod
 const RenderTarget* GlRenderer::generatorTarget(
     const ClipData& clip, int64_t localFrame, const FrameContext& fc, double zoom)
 {
-    GeneratorFrame g = resolveGenerator(clip, localFrame, fc.frame, fc.timeline->fps);
+    GeneratorFrame g = resolveGenerator(
+        clip, localFrame, fc.frame + fc.timeline->startTimecode, fc.timeline->fps);
     if (g.kind == GeneratorFrame::Kind::Unknown)
         return nullptr;
     // Rendered at the size the frame covers in the output (sharper when zoomed in, up to 2x).

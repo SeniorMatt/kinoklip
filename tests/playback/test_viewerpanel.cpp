@@ -3,6 +3,7 @@
 // (raster path), header/timecode/marks/zoom, source viewer loading a clip with its own marks
 // (I/O keys claimed from the timeline while focused), transport routing to the active viewer,
 // full-screen viewer, and F9 inserting the source viewer's marked range (EditPage wiring).
+#include "../core/ClassicTimeline.h"
 #include "../media/MediaTestUtil.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
@@ -60,6 +61,7 @@ struct Fixture
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
+        kk::test::useClassicTimeline(project); // the tests count frames at 25 fps
         if (withEngine) {
             PlaybackEngine::Options options;
             options.noAudio = true;
@@ -499,6 +501,7 @@ private Q_SLOTS:
         }
         Fixture f;
         f.project.newProject();
+        kk::test::useClassicTimeline(f.project); // a 25 fps timeline
         const QString id
             = f.project.importMedia({test::fixture("h264_25fps.mp4")}).importedIds.value(0);
         QMainWindow window;

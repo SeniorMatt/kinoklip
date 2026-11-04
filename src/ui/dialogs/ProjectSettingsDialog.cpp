@@ -7,6 +7,7 @@
 #include "export/ProxyMedia.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/common/TimecodeFormat.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -319,6 +320,12 @@ QWidget* ProjectSettingsDialog::buildGeneral()
     m_name = new QLineEdit;
     m_name->setObjectName(QStringLiteral("ProjectName"));
     form->addRow(tr("Project name"), m_name);
+    m_timelineStart = new QLineEdit;
+    m_timelineStart->setObjectName(QStringLiteral("TimelineStartTimecode"));
+    m_timelineStart->setInputMask(QStringLiteral("99:99:99:99"));
+    m_timelineStart->setToolTip(tr("Timecode of the first frame of new timelines. Each "
+                                   "timeline keeps its own (Timeline Settings)."));
+    form->addRow(tr("Timeline starting timecode"), m_timelineStart);
     m_autosave = new QSpinBox;
     m_autosave->setObjectName(QStringLiteral("AutosaveMinutes"));
     m_autosave->setRange(0, kMaxAutosaveMinutes);
@@ -433,6 +440,14 @@ ProjectSettings ProjectSettingsDialog::settings() const
     const QPoint fps = m_fps->currentData().toPoint();
     s.fps = Rational {fps.x(), fps.y()};
     s.retimeProcess = RetimeProcess(m_retimeProcess->currentData().toInt());
+    // The typed starting timecode, in frames of the chosen rate; unchanged text keeps the
+    // current value (Project::setSettings() carries it over to a new rate).
+    const ProjectSettings current = m_project->settings();
+    s.timelineStart = current.timelineStart;
+    if (m_timelineStart->text() != timecode::format(current.timelineStart, current.fps)) {
+        if (const auto frames = timecode::parse(m_timelineStart->text(), s.fps))
+            s.timelineStart = std::max<int64_t>(0, *frames);
+    }
     return s;
 }
 
@@ -459,6 +474,7 @@ void ProjectSettingsDialog::setSettings(const ProjectSettings& settings)
     m_playbackFps->setItemText(0, m_fps->currentText());
     const int process = m_retimeProcess->findData(int(settings.retimeProcess));
     m_retimeProcess->setCurrentIndex(std::max(0, process));
+    m_timelineStart->setText(timecode::format(settings.timelineStart, settings.fps));
     updateWarning();
 }
 
@@ -475,11 +491,21 @@ void ProjectSettingsDialog::presetChanged(int index)
 
 void ProjectSettingsDialog::updateWarning()
 {
-    const bool fpsChanged = settings().fps != m_project->settings().fps;
-    const bool hasClips = m_project->timeline()->data().duration() > 0;
-    m_warning->setVisible(fpsChanged && hasClips);
-    m_warning->setText(tr("Changing the frame rate keeps clip positions in frames, so the "
-                          "timeline will play faster or slower."));
+    // As in Resolve the timeline frame rate is locked once a timeline that follows the
+    // project settings has clips: their frame positions would no longer match their media
+    // (spec 25.13). A new timeline with its own frame rate is the way to change it.
+    bool hasClips = false;
+    for (const quint64 uid : m_project->timelineUids()) {
+        const auto data = m_project->timelineData(uid);
+        if (data && data->useProjectSettings && data->duration() > 0)
+            hasClips = true;
+    }
+    m_fps->setEnabled(!hasClips);
+    m_fps->setToolTip(hasClips ? tr("The frame rate cannot be changed once a timeline has "
+                                    "clips. Create a new timeline and turn off \"Use project "
+                                    "settings\" in its Timeline Settings to use another rate.")
+                               : QString());
+    m_warning->setVisible(false);
 }
 
 void ProjectSettingsDialog::apply()
