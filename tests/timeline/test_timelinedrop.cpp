@@ -6,6 +6,7 @@
 // by tests/app/test_wayland.cpp.
 #include "TimelineTestUtils.h"
 #include "core/MediaPool.h"
+#include "core/Preferences.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/MediaImport.h"
 #include "ui/timeline/TimelineController.h"
@@ -441,6 +442,30 @@ private slots:
         QCOMPARE(v.clipCount(kV2), 0);
         QCOMPARE(v.clipCount(kA2), 0);
         QCOMPARE(pool->items().size(), itemsBefore + 1); // the import is its own step
+    }
+
+    /// Spec 33.44: with Preferences > Editing > "Import new media into" = Master bin, a file
+    /// dropped on the timeline goes into Master, not the media pool's current bin.
+    void spec33_44_timelineDropFollowsTheImportPreference()
+    {
+        const QString still = testFile("still_alpha.png");
+        if (!QFileInfo::exists(still))
+            QSKIP("test media missing (tests/data/generated)");
+        View v;
+        MediaPool* pool = v.f.project.mediaPool();
+        const QString bin = pool->addBin(QStringLiteral("Shoot"));
+        v.c.setBinProvider([bin] { return bin; });
+        QCOMPARE(v.c.targetBin(), bin);
+        prefs::setImportIntoMasterBin(true);
+        QCOMPARE(v.c.targetBin(), QString());
+        const auto mime = fileMime({still});
+        QVERIFY(hover(v.vp(), mime.get(), v.at(5, kV1)));
+        QVERIFY(drop(v.vp(), mime.get(), v.at(5, kV1)));
+        QTRY_COMPARE(v.clipCount(kV1), 1);
+        const MediaItem* item = pool->item(v.f.view().videoTracks[0].clips[0].mediaId);
+        QVERIFY(item);
+        QCOMPARE(item->binId, QString());
+        prefs::setImportIntoMasterBin(false);
     }
 
     /// Spec 5.6: several files lay out one after another; a still gets the Preferences still

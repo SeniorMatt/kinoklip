@@ -625,6 +625,15 @@ public:
         m_smartBins->setObjectName(QStringLiteral("DefaultSmartBins"));
         m_smartBins->setChecked(prefs::showDefaultSmartBins());
         form->addRow(tr("Media pool"), m_smartBins);
+        m_importTarget = new QComboBox;
+        m_importTarget->setObjectName(QStringLiteral("ImportTarget"));
+        m_importTarget->addItem(tr("Current bin"), false);
+        m_importTarget->addItem(tr("Master bin"), true);
+        m_importTarget->setToolTip(tr("Where File > Import, the Media page's Add to Media Pool, "
+                                      "drops onto the media pool and timeline drops put new "
+                                      "media. A drop onto a bin always goes into that bin."));
+        m_importTarget->setCurrentIndex(prefs::importIntoMasterBin() ? 1 : 0);
+        form->addRow(tr("Import new media into"), m_importTarget);
     }
 
     void apply() override
@@ -642,6 +651,7 @@ public:
         s.setValue(QStringLiteral("edit/timelineTabs"), m_tabs->isChecked());
         s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
         prefs::setShowDefaultSmartBins(m_smartBins->isChecked());
+        prefs::setImportIntoMasterBin(m_importTarget->currentData().toBool());
         EditBehaviour::setWheelScheme(WheelScheme(m_wheel->currentData().toInt()));
     }
 
@@ -659,6 +669,7 @@ private:
     QCheckBox* m_slideInName = nullptr;
     QCheckBox* m_tabs = nullptr;
     QCheckBox* m_smartBins = nullptr;
+    QComboBox* m_importTarget = nullptr;
 };
 
 // ---- User: Playback Settings ---------------------------------------------------------

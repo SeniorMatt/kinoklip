@@ -44,11 +44,12 @@ public:
     [[nodiscard]] QString currentFolder() const { return m_folder; }
     /// Absolute paths of the selected files.
     [[nodiscard]] QStringList selectedFiles() const;
-    /// Imports the selected files into the media pool. Returns the new media ids.
+    /// Imports the selected files into the media pool (the import target bin,
+    /// importTargetBin()). Returns the new media ids.
     QStringList addSelectedToMediaPool();
-    /// Imports folder @p path into the media pool (Master): only its own files, or with
-    /// @p withSubfolders its subfolders too, as a bin named after it with sub-bins. One undo
-    /// step. Returns the new media ids.
+    /// Imports folder @p path into the media pool (the import target bin, importTargetBin()):
+    /// only its own files, or with @p withSubfolders its subfolders too, as a bin named after
+    /// it with sub-bins. One undo step. Returns the new media ids.
     QStringList addFolderToMediaPool(const QString& path, bool withSubfolders);
 
 signals:

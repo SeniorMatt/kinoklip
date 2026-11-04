@@ -37,8 +37,9 @@ using PowerResolver = std::function<QStringList(const QStringList& powerIds)>;
 /// Must not block: it is called while painting.
 using PosterProvider = std::function<QImage(const QString& path, int height)>;
 
-/// Table model of all media items, in import order: the project's items, then the power bin
-/// items (setPowerBins(); PowerRole = true).
+/// Table model of all media items, in import order: one folder row per project bin
+/// (FolderRole; the filter shows the sub-bins of the current bin before its clips, as in
+/// Resolve), the project's items, then the power bin items (setPowerBins(); PowerRole = true).
 ///
 /// Usage (UsageColumn, UsageRole, smart bin "Usage" rules) is recounted over every timeline
 /// shortly after the timelines or the pool change (coalesced: one count per burst of changes,
@@ -87,6 +88,9 @@ public:
         RatingColumn,
         /// "Project file" (stored inside a single-file project) or "Linked" (a file on disk)
         LocationColumn,
+        /// kind of item: "Bin", "Timeline", "Video", "Audio", "Still", "Compound Clip"...;
+        /// sorts by kind (Sort by Type), then by name
+        TypeColumn,
         ColumnCount
     };
 
@@ -110,7 +114,9 @@ public:
         /// int Location for the thumbnail badge: set only in a single-file project (where
         /// both kinds can be mixed), NoLocation otherwise
         LocationBadgeRole,
-        SortRole ///< raw value of the column for sorting (numbers, ms, lower-case text)
+        SortRole, ///< raw value of the column for sorting (numbers, ms, lower-case text)
+        FolderRole, ///< bool: a folder row (a project bin shown in its parent bin's items)
+        FolderBinRole ///< QString bin id of a folder row ("" for media rows)
     };
 
     /// Coarse media kind, for placeholder glyphs.
@@ -121,7 +127,8 @@ public:
         TimelineKind, ///< a timeline of the project (double-click opens it in a tab)
         CompoundKind, ///< a compound clip (its timeline)
         MulticamKind, ///< a multicam clip (its timeline; opens in the source viewer)
-        SubtitleKind ///< an imported subtitle file (drag onto the timeline for captions)
+        SubtitleKind, ///< an imported subtitle file (drag onto the timeline for captions)
+        FolderKind ///< a folder row (a sub-bin; double-click opens it)
     };
 
     /// Where an item's media is (LocationRole).
@@ -176,8 +183,12 @@ public:
 
     /// Row of media item @p id, or -1.
     [[nodiscard]] int rowOf(const QString& id) const { return m_rowById.value(id, -1); }
-    /// Media item id of @p row.
+    /// Media item id of @p row ("" for a folder row).
     [[nodiscard]] QString idAt(int row) const;
+    /// Row of the folder of project bin @p binId, or -1.
+    [[nodiscard]] int folderRowOf(const QString& binId) const;
+    /// Number of folder rows (they come first).
+    [[nodiscard]] int folderCount() const { return m_folderCount; }
 
     // ---- QAbstractItemModel ----
     [[nodiscard]] int rowCount(const QModelIndex& parent = {}) const override;
@@ -225,9 +236,20 @@ private:
         bool power = false; ///< item of the power bins
         Location location = NoLocation;
         MediaLinkStatus links; ///< from the link status provider (cached)
+        bool folder = false; ///< a folder row: binId = parent bin, folderBin = the bin
+        QString folderBin;
     };
 
     static Row makeRow(const MediaItem& item, bool power);
+    static Row makeFolderRow(const Bin& bin);
+    /// Folder rows for the project's bins, in bin order.
+    [[nodiscard]] QVector<Row> folderRows() const;
+    /// The project's bins changed: replaces the folder rows (or updates them in place when
+    /// the same bins remain).
+    void rebuildFolders();
+    /// Items or bins changed: the folder item counts are recounted when next shown.
+    void folderCountsChanged();
+    [[nodiscard]] int folderItemCount(const Row& row) const;
     /// True while the open project is a single-file project (location badges shown).
     [[nodiscard]] bool singleFileProject() const;
     [[nodiscard]] QVariant displayText(const Row& row, int column) const;
@@ -254,9 +276,17 @@ private:
     // Poster cache (mutable: filled lazily from the const data()).
     mutable QCache<QString, QPixmap> m_posters; ///< path → scaled poster; cost in KiB
     mutable QSet<QString> m_pending; ///< paths requested but not delivered yet
+    int m_folderCount = 0; ///< folder rows at the start of m_rows
+    mutable QHash<QString, int> m_folderCounts; ///< bin id -> items + sub-bins directly inside
+    mutable bool m_folderCountsDirty = true;
 };
 
 /// Filters MediaPoolModel rows by bin (or smart bin), search text and clip colour.
+///
+/// Folder rows (the sub-bins of the current project bin) are shown first, whatever the sort
+/// (Descending reverses the folders among themselves but keeps them first), only in project
+/// bins (never in smart or power bins), and with a search only when their name matches; a
+/// clip colour filter hides them.
 ///
 /// Bin keys: "" = Master, a project bin id, "smart:<id>" (a user or default smart bin: every
 /// project item matching its rules), "power:" (the power bins root) or "power:<id>".
@@ -301,6 +331,7 @@ public:
 protected:
     [[nodiscard]] bool filterAcceptsRow(
         int sourceRow, const QModelIndex& sourceParent) const override;
+    [[nodiscard]] bool lessThan(const QModelIndex& left, const QModelIndex& right) const override;
 
 private:
     void updateBinSet();

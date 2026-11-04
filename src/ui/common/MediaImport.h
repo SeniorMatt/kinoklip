@@ -8,6 +8,7 @@
 #include <QStringList>
 
 #include <functional>
+#include <optional>
 
 class QWidget;
 
@@ -23,10 +24,19 @@ struct AppContext;
 /// File dialog filter of File > Import Subtitle (SubRip .srt, WebVTT .vtt).
 [[nodiscard]] QString subtitleFileDialogFilter();
 
+/// The project bin new imports go into ("" = Master), for every import path that has no bin
+/// of its own (File > Import, Ctrl+I, the Media page's Add to Media Pool, drops onto the media
+/// pool's clip area, media imported by a timeline drop): the bin shown in the media pool
+/// (AppContext::currentMediaPoolBin), or Master when Preferences > Editing > "Import new media
+/// into" is "Master bin" (prefs::importIntoMasterBin()). A drop onto a bin passes that bin
+/// explicitly instead.
+[[nodiscard]] QString importTargetBin(const AppContext& ctx);
+
 /// Imports @p paths into the media pool as one undoable step and shows a warning dialog
 /// (parented to @p parent) listing files that could not be imported. Returns the new item ids.
-QStringList importMediaWithFeedback(
-    AppContext& ctx, const QStringList& paths, QWidget* parent, const QString& binId = {});
+/// @p binId: the bin ("" = Master); none = importTargetBin().
+QStringList importMediaWithFeedback(AppContext& ctx, const QStringList& paths, QWidget* parent,
+    const std::optional<QString>& binId = std::nullopt);
 
 /// Single-file project: copies the linked files of media pool items @p ids (empty = every
 /// item) into the project file and points the items at the stored copies, as one undoable

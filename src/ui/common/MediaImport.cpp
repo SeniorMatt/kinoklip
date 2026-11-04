@@ -4,6 +4,7 @@
 
 #include "core/MediaPool.h"
 #include "core/Plural.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "media/MediaSource.h"
 #include "pack/EmbeddedMedia.h"
@@ -70,8 +71,15 @@ QString subtitleFileDialogFilter()
     return tr("Subtitle files (*.srt *.vtt *.SRT *.VTT);;All files (*)");
 }
 
+QString importTargetBin(const AppContext& ctx)
+{
+    if (prefs::importIntoMasterBin() || !ctx.currentMediaPoolBin)
+        return {};
+    return ctx.currentMediaPoolBin();
+}
+
 QStringList importMediaWithFeedback(
-    AppContext& ctx, const QStringList& paths, QWidget* parent, const QString& binId)
+    AppContext& ctx, const QStringList& paths, QWidget* parent, const std::optional<QString>& binId)
 {
     if (paths.isEmpty() || !ctx.project)
         return {};
@@ -81,7 +89,8 @@ QStringList importMediaWithFeedback(
         && !ctx.mediaStore->storeMedia(toImport, parent))
         return {};
     const bool firstImport = hasNoMediaYet(ctx);
-    const ImportResult result = ctx.project->importMedia(toImport, binId);
+    const ImportResult result
+        = ctx.project->importMedia(toImport, binId ? *binId : importTargetBin(ctx));
     if (!result.warnings.isEmpty()) {
         QStringList shown = result.warnings.mid(0, kMaxListedWarnings);
         if (result.warnings.size() > kMaxListedWarnings)
