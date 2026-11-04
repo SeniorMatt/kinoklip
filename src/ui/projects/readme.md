@@ -29,3 +29,7 @@ put it in `showContextMenu()` and, if it needs a button, the bottom bar; refuse 
 open project through `ProjectLibrary::isOpenOrContainsOpen()` when it changes the file.
 **A new column:** add it to `ProjectLibraryModel::Column`, `headerData()` and `data()` (a
 `SortRole` value of one type per column).
+
+`KeymapChoiceBanner`: the first start's "Coming from another editor?" bar (keyboard preset
+choice, spec 38.32). ProjectController puts it on top of the Project Manager with
+`setTopBanner()` while `KeymapChoiceBanner::shouldOffer()` (no `keymap/profile` yet, never shown).

@@ -45,9 +45,11 @@ protected:
 ///   replaces the command's primary shortcut (secondary ones are kept); "Clear" removes all.
 /// - If the key is used by another command the dialog asks whether to reassign it (the other
 ///   command loses that key).
-/// - A profile combo at the top switches the keymap profile (built-in presets and user
-///   copies); its menu button duplicates, renames and deletes user profiles. Import creates a
-///   user profile from a keymap file, Export writes the active profile.
+/// - A profile combo at the top switches the keymap profile: the built-in presets (DaVinci
+///   Resolve, the default, then other editors' keys: Avid Media Composer, Final Cut Pro,
+///   Kdenlive, Premiere Pro, Shotcut, Vegas Pro) and user copies; its menu button duplicates,
+///   renames and deletes user profiles. Import creates a user profile from a keymap file (also
+///   Premiere Pro .kys and Final Cut Pro .commandset files), Export writes the active profile.
 /// - Changes apply immediately to the active profile (so they can be tried out); Cancel
 ///   reactivates the profile the dialog was opened with and restores its shortcuts. Reset /
 ///   Reset All restore the profile's defaults.
@@ -83,6 +85,13 @@ public:
     void setCurrentId(const QString& id);
     /// The profile combo (tests).
     [[nodiscard]] QComboBox* profileCombo() const { return m_profiles; }
+    /// Imports keymap file @p path (Kinoklip JSON, Premiere Pro .kys, Final Cut Pro
+    /// .commandset) as a new user profile and activates it; the status line tells how many
+    /// shortcuts of another editor's file were imported and skipped. Returns the new profile
+    /// id, or empty (with @p error) on failure. Cancel deletes the profile again.
+    QString importFile(const QString& path, QString* error = nullptr);
+    /// The status line's text (tests).
+    [[nodiscard]] QString statusText() const;
 
     void reject() override;
 

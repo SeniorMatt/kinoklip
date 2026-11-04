@@ -140,7 +140,7 @@ private slots:
         const QString builtIn = f.actions.activeProfile();
         KeyboardCustomizationDialog dialog(f.actions);
         QComboBox* combo = dialog.profileCombo();
-        QCOMPARE(combo->count(), 2);
+        QCOMPARE(combo->count(), int(f.actions.profiles().size())); // the presets and "Mine"
         QCOMPARE(combo->currentData().toString(), builtIn);
         const int userIndex = combo->findData(user);
         QVERIFY(userIndex >= 0);
