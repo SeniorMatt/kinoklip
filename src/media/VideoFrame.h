@@ -54,8 +54,8 @@ enum class ColorRange {
     Full,
 };
 
-/// Transfer function. v0.1 composites everything as SDR; PQ/HLG are only reported.
-/// TODO(media): HDR → SDR tone mapping in the compositor.
+/// Transfer function. The timeline is SDR BT.709: PQ / HLG frames (and BT.2020 primaries) are
+/// mapped to it when shown or rendered (media/HdrToSdr.h).
 enum class ColorTransfer {
     Sdr,
     Pq,
