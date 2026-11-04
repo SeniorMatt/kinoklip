@@ -210,7 +210,7 @@ void CompTransport::updatePosition()
     const Timeline* tl = m_ctx.project->timeline();
     m_position->setText(tr("Frame %1 / %2")
                             .arg(m_session->compFrame())
-                            .arg(timecode::format(tl->playhead(), tl->data().fps)));
+                            .arg(timecode::formatRecord(tl->playhead(), tl->data())));
 }
 
 void CompTransport::play()

@@ -83,7 +83,8 @@ void TimelineWidget::refreshDragInfo()
                     + trackLabel(loc->track);
         }
         label.lines << draginfo::formatOffset(offset, fps);
-        QString detail = tr("Start %1").arg(timecode::format(m_drag.primaryStart + offset, fps));
+        QString detail
+            = tr("Start %1").arg(timecode::formatRecord(m_drag.primaryStart + offset, data));
         if (!track.isEmpty())
             detail += QStringLiteral("  ") + track;
         label.lines << detail;
@@ -117,7 +118,7 @@ void TimelineWidget::refreshDragInfo()
         if (!left)
             break;
         label.lines << draginfo::formatOffset(left->end() - m_drag.primaryEnd, fps)
-                    << tr("Edit %1").arg(timecode::format(left->end(), fps));
+                    << tr("Edit %1").arg(timecode::formatRecord(left->end(), data));
         preview.left = sideOf(left, left->end() - 1, fps);
         preview.right = sideOf(right, left->end(), fps);
         break;
@@ -138,7 +139,7 @@ void TimelineWidget::refreshDragInfo()
         if (!now)
             break;
         label.lines << draginfo::formatOffset(now->start - m_drag.primaryStart, fps)
-                    << tr("Start %1").arg(timecode::format(now->start, fps));
+                    << tr("Start %1").arg(timecode::formatRecord(now->start, data));
         // Decision (spec 8.15): the neighbours' frames that change: the previous clip's new
         // last frame and the next clip's new first frame.
         preview.left = sideOf(neighbour(data, now->id, false), now->start - 1, fps);
@@ -147,13 +148,13 @@ void TimelineWidget::refreshDragInfo()
     }
     case DragMode::MarkerMove:
         label.lines << draginfo::formatOffset(m_drag.markerNow - m_drag.markerFrame, fps)
-                    << tr("Marker %1").arg(timecode::format(m_drag.markerNow, fps));
+                    << tr("Marker %1").arg(timecode::formatRecord(m_drag.markerNow, data));
         break;
     case DragMode::MarkerDuration:
         for (const Marker& m : data.markers) {
             if (m.frame == m_drag.markerFrame) {
                 label.lines << tr("Duration %1").arg(timecode::format(m.duration, fps))
-                            << tr("End %1").arg(timecode::format(m.end(), fps));
+                            << tr("End %1").arg(timecode::formatRecord(m.end(), data));
                 break;
             }
         }

@@ -4,6 +4,7 @@
 
 #include "core/TimelineData.h"
 #include "export/AudioEncoder.h"
+#include "export/EdlExport.h"
 #include "export/EncoderCatalog.h"
 #include "export/ExportLog.h"
 #include "export/MediaWriter.h"
@@ -261,6 +262,11 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
         }
     }
     const int videoStream = s.hasVideo() ? writer.addStream(video.context(), &error) : -1;
+    // The record timecode of the first rendered frame (a "tmcd" track in QuickTime / MP4, a
+    // tag elsewhere), so the file starts at the timeline's timecode as in Resolve.
+    if (videoStream >= 0 && !sequence)
+        writer.setStreamMetadata(
+            videoStream, "timecode", edl::timecode(first + tl.startTimecode, tl.fps));
 
     AudioEncoder audio;
     int audioStream = -1;

@@ -1329,7 +1329,7 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
     p.setFont(tcFont);
     p.setPen(m_timecode);
     p.drawText(QRect(10, 0, kHeaderWidth - 14, kRulerHeight), Qt::AlignVCenter | Qt::AlignLeft,
-        timecode::format(in.playhead, d.fps));
+        timecode::formatRecord(in.playhead, d));
 
     p.setClipRect(QRect(kHeaderWidth, 0, width - kHeaderWidth, kRulerHeight));
     // In/out shading.
@@ -1376,7 +1376,7 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
     // Start one step early so a label whose tick is just off-screen still shows its text.
     for (int64_t f = std::max<int64_t>(0, (f0 / major - 1) * major); f <= f1; f += major) {
         const double x = std::round(L.frameToX(double(f)));
-        p.drawText(QPointF(x + 4, 11), timecode::format(f, d.fps));
+        p.drawText(QPointF(x + 4, 11), timecode::formatRecord(f, d));
     }
 
     // Render cache status: a thin bar along the top of the ruler, red where a section needs

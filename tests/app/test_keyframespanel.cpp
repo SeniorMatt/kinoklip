@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Offscreen tests of the Keyframes panel (docs/behavior-spec.md 15.14 - 15.19): what it shows,
 // edits through undo, playhead sync, linked pairs, and docking / floating in the Edit page.
+#include "../core/ClassicTimeline.h"
 #include "app/MainWindow.h"
 #include "app/Theme.h"
 #include "app/pages/EditPage.h"
@@ -63,6 +64,7 @@ struct Fixture
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
+        kk::test::useClassicTimeline(project); // the tests count frames at 25 fps
         // A 100-frame clip at frame 50: posX keys 0 / 40 (0 -> 100), opacity key 40 (50 %);
         // linked to an audio clip with volume keys 0 / 60.
         ClipData v;
@@ -160,12 +162,13 @@ private slots:
         PanelView v(f.ctx);
         QCOMPARE(v.panel.tree()->rowCount(), 0); // nothing selected
         f.selection.selectClip(f.video);
-        // Keyframes, Transform, Position X, Opacity, Audio, Volume (linked audio member).
-        QCOMPARE(v.panel.tree()->rowCount(), 6);
+        // Keyframes, Transform, Position X, Composite, Opacity, Audio, Volume (linked audio
+        // member).
+        QCOMPARE(v.panel.tree()->rowCount(), 7);
         QCOMPARE(v.panel.tree()->entryAt(0).kind, KeyRow::Kind::Master);
         QVERIFY(v.rowOf(QStringLiteral("Position X")) > 0);
         QVERIFY(v.rowOf(QStringLiteral("Opacity")) > 0);
-        QCOMPARE(v.panel.dopeSheet()->rows().size(), 6);
+        QCOMPARE(v.panel.dopeSheet()->rows().size(), 7);
         QCOMPARE(v.panel.curveView()->curves().size(), 3);
         QCOMPARE(
             v.panel.model().firstItemName(f.project.timeline()->data()), QStringLiteral("Shot"));
@@ -174,12 +177,12 @@ private slots:
         QVERIFY(v.rowOf(QStringLiteral("Rotation")) > 0);
         QVERIFY(v.rowOf(QStringLiteral("Crop Left")) > 0);
         v.panel.setShowAllParameters(false);
-        QCOMPARE(v.panel.tree()->rowCount(), 6);
+        QCOMPARE(v.panel.tree()->rowCount(), 7);
         // Collapsing a group hides its rows in the tree and the dope sheet alike.
         const int transform = v.rowOf(QStringLiteral("Transform"));
         emit v.panel.tree()->collapseToggled(v.panel.tree()->entryAt(transform).key);
-        QCOMPARE(v.panel.tree()->rowCount(), 4);
-        QCOMPARE(v.panel.dopeSheet()->rows().size(), 4);
+        QCOMPARE(v.panel.tree()->rowCount(), 6);
+        QCOMPARE(v.panel.dopeSheet()->rows().size(), 6);
     }
 
     // 15.15 / spec 24.1: a linked pair is one item whichever part is selected; the video
@@ -246,8 +249,13 @@ private slots:
         const int transform = v.rowOf(QStringLiteral("Transform"));
         QTest::mouseClick(v.panel.tree()->diamond(transform), Qt::LeftButton);
         QVERIFY(f.value(f.video, kPosX).hasKeyAt(20));
-        QVERIFY(f.value(f.video, kOpacity).hasKeyAt(20));
+        QVERIFY(!f.value(f.video, kOpacity).hasKeyAt(20)); // Composite group (spec 24.19)
         QCOMPARE(f.undoCount(), 1);
+        const int composite = v.rowOf(QStringLiteral("Composite"));
+        QTest::mouseClick(v.panel.tree()->diamond(composite), Qt::LeftButton);
+        QVERIFY(f.value(f.video, kOpacity).hasKeyAt(20));
+        QCOMPARE(f.undoCount(), 2);
+        QTest::mouseClick(v.panel.tree()->diamond(composite), Qt::LeftButton);
         QTest::mouseClick(v.panel.tree()->diamond(transform), Qt::LeftButton);
         QVERIFY(!f.value(f.video, kPosX).hasKeyAt(20));
         QVERIFY(!f.value(f.video, kOpacity).hasKeyAt(20));

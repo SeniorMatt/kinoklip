@@ -104,7 +104,7 @@ void KeyframeRuler::paintEvent(QPaintEvent*)
         if (x + 3 < m_labelWidth)
             continue; // the label would be cut by the axis column
         p.setPen(text);
-        p.drawText(QPointF(x + 3, height() - 10), timecode::format(f, data.fps));
+        p.drawText(QPointF(x + 3, height() - 10), timecode::formatRecord(f, data));
     }
 
     // Playhead: a marker on the ruler (the views draw the line).

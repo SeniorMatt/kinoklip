@@ -32,10 +32,13 @@ struct ProjectSettings
     QString name = QStringLiteral("Untitled Project");
     int width = 1920;
     int height = 1080;
-    Rational fps {25, 1};
+    Rational fps {24, 1}; ///< 24 for new projects, as in Resolve (spec 25.12)
     /// Default retime process of clips set to "Project Settings" (Master Settings > Frame
     /// Interpolation); mirrored into every timeline's TimelineData::retimeProcess.
     RetimeProcess retimeProcess = RetimeProcess::Nearest;
+    /// Starting timecode of new timelines, in frames of `fps` (01:00:00:00 in new projects,
+    /// 0 in projects saved before format 17; spec 25.12). Existing timelines keep their own.
+    int64_t timelineStart = 0;
 
     friend bool operator==(const ProjectSettings&, const ProjectSettings&) = default;
 };
@@ -190,6 +193,9 @@ public:
     /// project settings, or the given resolution and frame rate.
     bool setTimelineFormat(
         quint64 uid, bool useProjectSettings, int width, int height, Rational fps);
+    /// Sets the starting timecode of timeline @p uid (frames of its rate, >= 0; one undo
+    /// step "Starting Timecode"; spec 25.12). False if there is no such timeline.
+    bool setTimelineStartTimecode(quint64 uid, int64_t frames);
     /// Generates a free name like "Timeline 2" / "Compound Clip 3".
     [[nodiscard]] QString uniqueTimelineName(const QString& base) const;
 
@@ -339,8 +345,9 @@ public:
     {
         int width = 1920;
         int height = 1080;
-        Rational fps {25, 1};
+        Rational fps {24, 1};
         RetimeProcess retimeProcess = RetimeProcess::Nearest;
+        int64_t timelineStart = 0; ///< ProjectSettings::timelineStart
         friend bool operator==(const Format&, const Format&) = default;
     };
     /// Restores a complete state (undo commands). @p primary: the timeline the step was made

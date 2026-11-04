@@ -420,7 +420,8 @@ private:
             const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
             const QSize canvas = (frameSize * outScale * zoom).toSize().expandedTo(QSize(1, 1));
             picture = renderGeneratorImage(
-                resolveGenerator(clip, local, m_frame, m_timeline->fps), canvas, frameSize);
+                resolveGenerator(clip, local, m_frame + m_timeline->startTimecode, m_timeline->fps),
+                canvas, frameSize);
             pictureRect = QRectF(
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
             break;

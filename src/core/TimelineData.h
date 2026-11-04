@@ -335,6 +335,11 @@ struct TimelineData
     bool useProjectSettings = true;
     QString name;
     Rational fps; ///< timeline frame rate; all frame values are in this rate
+    /// Starting timecode: the record timecode of frame 0, in frames of `fps` (Timeline
+    /// Settings; 01:00:00:00 for new timelines of new projects, 0 in files without it; spec
+    /// 25.12). Display only: every frame value stays 0-based; the ruler, viewers, Edit Index,
+    /// markers, typed timecodes, EDL export and burn-ins add it.
+    int64_t startTimecode = 0;
     int width = 1920;
     int height = 1080;
     std::vector<TrackData> videoTracks; ///< index 0 = V1 (bottom-most)
@@ -394,6 +399,16 @@ struct TimelineData
 /// Display name of a track: its user name, or "V<n>" / "A<n>" / "ST<n>" from the 0-based
 /// @p index.
 [[nodiscard]] QString trackDisplayName(const TrackData& track, int index);
+
+/// Whole frames per timecode second of @p fps (29.97 -> 30, 23.976 -> 24; 25 if invalid).
+[[nodiscard]] int timecodeBase(Rational fps);
+
+/// 01:00:00:00 at @p fps, in frames: the starting timecode of new timelines (spec 25.12).
+[[nodiscard]] int64_t oneHourTimecode(Rational fps);
+
+/// The same "HH:MM:SS:FF" timecode at @p to as @p frames is at @p from (a starting timecode
+/// when the frame rate changes; frames beyond the new rate's last frame number are clamped).
+[[nodiscard]] int64_t convertTimecode(int64_t frames, Rational from, Rational to);
 
 /// A new timeline with two video (V1, V2) and two audio (A1, A2) tracks.
 [[nodiscard]] TimelineData makeDefaultTimeline(

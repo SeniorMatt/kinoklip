@@ -31,7 +31,7 @@ struct EdlOptions
 };
 
 /// CMX3600 EDL of @p data (title = the timeline name, non-drop frame, every timecode in the
-/// timeline's rate):
+/// timeline's rate; record timecodes count from the timeline's starting timecode):
 ///
 /// * one event per clip of the chosen video and audio tracks, numbered in record order, with
 ///   the reel (the media file name without extension, cut to 8 characters, spaces as '_';

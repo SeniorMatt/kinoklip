@@ -101,7 +101,14 @@ namespace kk::serialization {
 ///   "gallery" (stills: {"id", "name", "created" (ms), "grade", "image" (base64 JPEG)}). Files
 ///   of versions 1 - 15 have neither and load unchanged (nothing graded, empty gallery); older
 ///   builds refuse version 16 instead of silently dropping the grades.
-inline constexpr int kFormatVersion = 16;
+/// - 17 (bughunt3 branch): starting timecodes and composite modes. Timelines may carry
+///   "startTimecode" (frames of the timeline rate, the record timecode of frame 0; absent =
+///   00:00:00:00), the project "timelineStart" (the same for new timelines; absent = 0, so
+///   older projects keep starting at 00:00:00:00), and a clip's "transform" statics
+///   "compositeMode" (blend mode id of core/NodeRegistry.h blendmodes::, absent = normal).
+///   Files of versions 1 - 16 load unchanged; older builds refuse version 17 instead of
+///   showing every timecode an hour off and compositing every clip as Normal.
+inline constexpr int kFormatVersion = 17;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

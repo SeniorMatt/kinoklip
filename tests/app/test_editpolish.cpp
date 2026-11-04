@@ -3,6 +3,7 @@
 // the timeline viewer's edit overlay (spec 4.14), typed timecodes with the timeline focused
 // (spec 2.10), the two-up trim view and the drag offset label while trimming (spec 8.15,
 // 21.9). With KK_SCREENSHOT_DIR set, each state is also saved as a PNG for review.
+#include "../core/ClassicTimeline.h"
 #include "../media/MediaTestUtil.h"
 #include "app/MainWindow.h"
 #include "app/pages/EditPage.h"
@@ -59,6 +60,7 @@ struct App
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
+        kk::test::useClassicTimeline(project); // the tests count frames at 25 fps
         ctx.playback = playback.get();
         MainWindowOptions wo;
         wo.autosave = false;

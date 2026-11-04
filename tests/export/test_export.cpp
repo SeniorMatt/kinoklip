@@ -540,7 +540,13 @@ private Q_SLOTS:
         int lastKey = -1;
         int longestGop = 0;
         bool reordered = false;
+        // Only the video stream (the file also has a timecode track, spec 25.12).
+        const int video = av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
         while (av_read_frame(format, packet) >= 0) {
+            if (packet->stream_index != video) {
+                av_packet_unref(packet);
+                continue;
+            }
             if (packet->flags & AV_PKT_FLAG_KEY) {
                 longestGop = std::max(longestGop, frames - lastKey);
                 lastKey = frames;
