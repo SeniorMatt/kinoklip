@@ -2,6 +2,7 @@
 // FrameConverter — libswscale based AVFrame → QImage conversion (scaling + colour conversion).
 #include "media/FrameConverter.h"
 
+#include "media/HdrToSdr.h"
 #include "media/MediaLog.h"
 
 extern "C" {
@@ -136,6 +137,9 @@ QImage FrameConverter::convert(const AVFrame* frame, QSize outSize)
     sws_scale(sws, frame->data, frame->linesize, 0, frame->height, dstData, dstLinesize);
     if (hasAlpha) {
         image.convertTo(QImage::Format_ARGB32_Premultiplied);
+    } else if (!srcIsRgb) {
+        // HLG / PQ / BT.2020 → SDR BT.709, as the GPU shader does (media/HdrToSdr.h).
+        mapImageToSdr(&image, hdrMappingOf(frame));
     }
     return image;
 }
