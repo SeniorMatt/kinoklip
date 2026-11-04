@@ -70,11 +70,8 @@ CutToolBar::CutToolBar(AppContext& ctx, QWidget* parent)
         b->setFocusPolicy(Qt::NoFocus);
         b->setIcon(icon(QStringLiteral("dissolve")));
         b->setIconSize(QSize(metrics::kTransportIconSize, metrics::kTransportIconSize));
-        const QList<QKeySequence> keys
-            = m_ctx.actions->shortcuts(QStringLiteral("timeline.add_transition"));
-        b->setToolTip(keys.isEmpty()
-                ? tr("Dissolve")
-                : tr("Dissolve (%1)").arg(keys.first().toString(QKeySequence::NativeText)));
+        // The key follows Keyboard Customization.
+        m_ctx.actions->bindToolTip(b, QStringLiteral("timeline.add_transition"), tr("Dissolve"));
         b->setEnabled(transition->isEnabled());
         connect(b, &QToolButton::clicked, transition, &QAction::trigger);
         connect(transition, &QAction::changed, b,
@@ -121,13 +118,8 @@ QToolButton* CutToolBar::addActionButton(const char* actionId, bool withText)
     b->setFocusPolicy(Qt::NoFocus);
     b->setIconSize(QSize(metrics::kTransportIconSize, metrics::kTransportIconSize));
     b->setToolButtonStyle(withText ? Qt::ToolButtonTextBesideIcon : Qt::ToolButtonIconOnly);
-    // The menu text without its accelerator, the shortcut (looked up) in the tooltip.
-    QString text = action->text();
-    text.remove(QLatin1Char('&'));
-    const QList<QKeySequence> keys = m_ctx.actions->shortcuts(QLatin1String(actionId));
-    b->setToolTip(keys.isEmpty()
-            ? text
-            : QStringLiteral("%1 (%2)").arg(text, keys.first().toString(QKeySequence::NativeText)));
+    // The tooltip is the action's own: its text and current shortcut, kept up to date by the
+    // registry (QToolButton copies it again whenever the action changes).
     return b;
 }
 
