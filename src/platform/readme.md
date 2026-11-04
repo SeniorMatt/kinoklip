@@ -7,6 +7,7 @@ and `src/ui/**`; depends on Qt only.
 |---|---|
 | `ChildProcessEnv` | Gives programs we start (xdg-open, file managers) the user's environment back when running from the bundle (undoes `packaging/linux/apprun.sh`'s variables). |
 | `FileDialogs` | The one entry point for every open / save / folder dialog. |
+| `DesktopNotifications` | System notifications with buttons: `org.freedesktop.Notifications` (app name Kinoklip, icon `org.kinoklip.Kinoklip`), or `org.freedesktop.portal.Notification` inside Flatpak (`/.flatpak-info`); `KINOKLIP_NOTIFICATIONS=freedesktop/portal/off` overrides. No service: nothing is shown, one `kk.notifications` log line. Offscreen / minimal runs get no notifier, so tests never reach the desktop. Uses `app/AppInfo.h` for the name and icon id. |
 | `DroppedFiles` | Local files carried by a drop from a file manager: `text/uri-list`, the XDG document portal's `application/vnd.portal.filetransfer` (resolved with `RetrieveFiles`), and the `application/x-kde4-urilist` / `text/x-moz-url` fallbacks. |
 | `FileManager` | "Show in File Manager": `showInFileManager(path)` reveals and selects a file through `org.freedesktop.FileManager1.ShowItems`, else opens its folder. |
 | `PortalFileChooser` | The XDG desktop portal's `org.freedesktop.portal.FileChooser` over D-Bus. |
