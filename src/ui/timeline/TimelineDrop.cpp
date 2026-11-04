@@ -16,10 +16,12 @@
 #include "ui/common/FolderImport.h"
 #include "ui/common/MediaImport.h"
 #include "ui/effects/EffectActions.h"
+#include "ui/timeline/DroppedFileProbe.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QDragEnterEvent>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMimeData>
@@ -152,32 +154,50 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
         return plan;
     }
 
-    // ---- Files from outside: their durations are only known after importing them, so the
-    // plan is just "here"; the drop imports them and re-plans as media items. ----
-    if (!hasInternalFormat(mime)) {
-        if (platform::hasDroppedFiles(mime) && videoTrack >= 0)
-            plan.kind = DropPlan::Kind::Files;
-        return plan;
-    }
-
-    // ---- Media items / source range: one group of clips per source, placed in sequence ----
-    QVector<SourceSelection> sources;
-    if (mime->hasFormat(QLatin1String(mime::SourceRange))) {
+    // ---- Media items / source range / files from outside: one group of clips per source,
+    // placed in sequence. Files (a file manager, the desktop) are planned from their probe
+    // (DroppedFileProbe, started on DragEnter) or the pool item of the same file, so the ghost
+    // shows their real length like a media pool drag; the drop imports them and re-plans the
+    // new items at the same position. ----
+    struct Source
+    {
+        const MediaItem* item = nullptr;
+        int64_t inUs = 0;
+        int64_t outUs = 0;
+    };
+    QVector<Source> sources;
+    const MediaPool* pool = m_ctx.project->mediaPool();
+    const bool files = !hasInternalFormat(mime);
+    if (files) {
+        if (!platform::hasDroppedFiles(mime) || videoTrack < 0)
+            return plan;
+        plan.kind = DropPlan::Kind::Files;
+        for (const QString& path : m_dragFiles) {
+            const QString absolute = QFileInfo(path).absoluteFilePath();
+            const MediaItem* item = pool->itemByPath(absolute);
+            if (!item && m_fileProbe)
+                item = m_fileProbe->item(absolute); // nullptr: a folder or not importable
+            if (item)
+                sources.append({item, 0, 0});
+        }
+    } else if (mime->hasFormat(QLatin1String(mime::SourceRange))) {
         const QJsonObject o
             = QJsonDocument::fromJson(mime->data(QLatin1String(mime::SourceRange))).object();
-        sources.append({o.value(QLatin1String("mediaId")).toString(),
+        sources.append({pool->item(o.value(QLatin1String("mediaId")).toString()),
             int64_t(o.value(QLatin1String("inUs")).toDouble()),
             int64_t(o.value(QLatin1String("outUs")).toDouble())});
     } else if (mime->hasFormat(QLatin1String(mime::MediaItems))) {
         const QString text = QString::fromUtf8(mime->data(QLatin1String(mime::MediaItems)));
         for (const QString& id : text.split(QLatin1Char('\n'), Qt::SkipEmptyParts))
-            sources.append({id.trimmed(), 0, 0});
+            sources.append({pool->item(id.trimmed()), 0, 0});
     }
-    if (!sources.isEmpty()) {
+    if (files || !sources.isEmpty()) {
         int64_t at = -1;
-        for (const SourceSelection& s : sources) {
-            const MediaItem* item = m_ctx.project->mediaPool()->item(s.mediaId);
-            if (item && item->isSubtitle()) {
+        for (const Source& s : sources) {
+            const MediaItem* item = s.item;
+            if (!item)
+                continue;
+            if (item->isSubtitle()) {
                 // A subtitle file: one caption per cue on subtitle tracks (the row under the
                 // mouse when it is a subtitle track, else ST1; overlapping cues on the tracks
                 // above), timed from the drop point. Missing tracks are created on drop.
@@ -202,8 +222,8 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
             }
             // makeMediaClips() only knows existing tracks: ask for track 0 of a type that will be
             // created and move the clip to the new index afterwards.
-            QVector<ops::PlacedClip> group = m_controller->makeMediaClips(s.mediaId, s.inUs,
-                s.outUs, videoTrack >= nv ? std::min(0, nv - 1) : videoTrack,
+            QVector<ops::PlacedClip> group = m_controller->makeMediaClips(*item, s.inUs, s.outUs,
+                videoTrack >= nv ? std::min(0, nv - 1) : videoTrack,
                 audioTrack >= na ? std::min(0, na - 1) : audioTrack);
             for (ops::PlacedClip& p : group)
                 p.track.index = p.track.type == TrackType::Video ? videoTrack : audioTrack;
@@ -235,7 +255,9 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
         };
         plan.newVideoTrack = plan.newVideoTrack && needs(TrackType::Video, nv);
         plan.newAudioTrack = plan.newAudioTrack && needs(TrackType::Audio, na);
-        if (!plan.groups.isEmpty())
+        if (files)
+            plan.kind = DropPlan::Kind::Files; // with or without ghosts: the drop imports
+        else if (!plan.groups.isEmpty())
             plan.kind = DropPlan::Kind::Clips;
         return plan;
     }
@@ -327,6 +349,7 @@ void TimelineWidget::showDropPreview(const DropPlan& plan)
     m_overlay.dropTransitionRow = -1;
     switch (plan.kind) {
     case DropPlan::Kind::Clips:
+    case DropPlan::Kind::Files: // probed files: the clips the drop will place
     case DropPlan::Kind::TimelineClips:
         for (const auto& group : plan.groups) {
             for (const ops::PlacedClip& p : group) {
@@ -342,7 +365,6 @@ void TimelineWidget::showDropPreview(const DropPlan& plan)
         }
         break;
     case DropPlan::Kind::None:
-    case DropPlan::Kind::Files: // nothing to show before the files are probed
         break;
     case DropPlan::Kind::Effect:
         m_overlay.dropClip = plan.clipId;
@@ -444,12 +466,42 @@ void TimelineWidget::dragEnterEvent(QDragEnterEvent* event)
         return;
     }
     event->acceptProposedAction();
+    startFileDrag(event->mimeData(), event->position(), event->modifiers());
     showDropPreview(planDrop(event->mimeData(), event->position(), event->modifiers()));
     logDropEvent("timeline", event);
 }
 
+void TimelineWidget::startFileDrag(
+    const QMimeData* mime, QPointF pos, Qt::KeyboardModifiers modifiers)
+{
+    m_dragFiles.clear();
+    if (hasInternalFormat(mime) || !platform::hasDroppedFiles(mime))
+        return;
+    // Read the paths once (on Wayland every read of another client's drag data is a pipe) and
+    // probe them on workers: the drag never waits, the ghost grows to the real length when a
+    // probe answers (onFileProbed()). A portal key alone has no paths before the drop.
+    m_dragFiles = platform::draggedLocalFiles(mime);
+    m_dragPos = pos;
+    m_dragModifiers = modifiers;
+    if (m_dragFiles.isEmpty())
+        return;
+    if (!m_fileProbe) {
+        m_fileProbe = new DroppedFileProbe(this);
+        connect(m_fileProbe, &DroppedFileProbe::probed, this, [this] {
+            if (m_dragFiles.isEmpty())
+                return; // the drag is over
+            QMimeData urls; // planDrop() reads m_dragFiles; the URLs only mark a file drag
+            urls.setUrls({QUrl::fromLocalFile(m_dragFiles.front())});
+            showDropPreview(planDrop(&urls, m_dragPos, m_dragModifiers));
+        });
+    }
+    m_fileProbe->request(m_dragFiles);
+}
+
 void TimelineWidget::dragMoveEvent(QDragMoveEvent* event)
 {
+    m_dragPos = event->position();
+    m_dragModifiers = event->modifiers();
     const DropPlan plan = planDrop(event->mimeData(), event->position(), event->modifiers());
     showDropPreview(plan);
     if (plan.kind == DropPlan::Kind::None)
@@ -461,12 +513,15 @@ void TimelineWidget::dragMoveEvent(QDragMoveEvent* event)
 
 void TimelineWidget::dragLeaveEvent(QDragLeaveEvent*)
 {
+    // Leaving the timeline, or Escape in the drag source: the ghost goes.
+    m_dragFiles.clear();
     clearDropPreview();
 }
 
 void TimelineWidget::dropEvent(QDropEvent* event)
 {
     DropPlan plan = planDrop(event->mimeData(), event->position(), event->modifiers());
+    m_dragFiles.clear();
     clearDropPreview();
     qCDebug(lcDnd) << "timeline drop at" << event->position() << "plan" << int(plan.kind)
                    << describeMime(event->mimeData());
@@ -474,8 +529,10 @@ void TimelineWidget::dropEvent(QDropEvent* event)
         // Read the paths now (the source's data is only available during the drop), finish
         // the drop, then import from the event loop: importing may show a modal report, and a
         // nested event loop inside the drop would keep the source (Dolphin) waiting and, on
-        // Wayland, the compositor's drag session open. Import is one undo step; placing the new
-        // media items exactly like a media pool drag at the same position is a second one.
+        // Wayland, the compositor's drag session open. Import is one undo step (into the media
+        // pool's current bin); placing the items exactly like a media pool drag at the same
+        // position is a second one, so one Undo takes the clips off the timeline and leaves
+        // the items in the pool, as after importing first and dragging from the pool.
         const QStringList paths = platform::droppedLocalFiles(event->mimeData());
         if (paths.isEmpty()) {
             event->ignore();
@@ -491,7 +548,7 @@ void TimelineWidget::dropEvent(QDropEvent* event)
             const QStringList folders = takeFolders(files);
             if (!folders.isEmpty())
                 importMediaFoldersWithFeedback(m_ctx, folders, FolderImportOptions {}, this);
-            const QStringList ids = importMediaWithFeedback(m_ctx, files, this);
+            const QStringList ids = importDroppedFiles(files);
             if (ids.isEmpty())
                 return;
             QMimeData items;
@@ -504,6 +561,35 @@ void TimelineWidget::dropEvent(QDropEvent* event)
         event->acceptProposedAction();
     else
         event->ignore();
+}
+
+QStringList TimelineWidget::importDroppedFiles(const QStringList& files)
+{
+    // A file already in the media pool is used as it is (Resolve does not import it twice);
+    // only the others are imported, and the ids come back in the order of the drag.
+    MediaPool* pool = m_ctx.project->mediaPool();
+    auto existing = [pool](const QString& path) {
+        const MediaItem* item = pool->itemByPath(QFileInfo(path).absoluteFilePath());
+        return item ? item->id : QString();
+    };
+    QStringList fresh;
+    for (const QString& path : files) {
+        if (existing(path).isEmpty())
+            fresh.append(path);
+    }
+    QStringList imported = fresh.isEmpty()
+        ? QStringList()
+        : importMediaWithFeedback(m_ctx, fresh, this, m_controller->targetBin());
+    QStringList ids;
+    for (const QString& path : files) {
+        const QString id = existing(path);
+        if (!id.isEmpty() && !ids.contains(id)) {
+            ids.append(id);
+            imported.removeAll(id);
+        }
+    }
+    ids += imported; // stored copies of a single-file project have other paths: in order
+    return ids;
 }
 
 } // namespace kk

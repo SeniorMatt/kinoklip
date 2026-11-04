@@ -26,6 +26,12 @@ inline constexpr char kPortalFileTransferMime[] = "application/vnd.portal.filetr
 /// be resolved. Call on drop only.
 [[nodiscard]] QStringList droppedLocalFiles(const QMimeData* data);
 
+/// The local file paths a drag shows while it is still moving (the timeline's ghost clips):
+/// application/x-kde4-urilist or text/uri-list, never the document portal (no blocking D-Bus
+/// call, and a text/uri-list next to a portal key is skipped because Qt Wayland would resolve
+/// it through the portal). Empty when only a portal key is offered: the drop still works then.
+[[nodiscard]] QStringList draggedLocalFiles(const QMimeData* data);
+
 /// Upper bound for the portal's RetrieveFiles call.
 inline constexpr int kPortalTimeoutMs = 3000;
 
