@@ -290,10 +290,10 @@ void ProjectManagerWindow::buildUi()
     // ---- Bottom bar ----
     auto* bottom = new QHBoxLayout;
     bottom->setSpacing(metrics::kSpaceS);
-    m_importButton = new QPushButton(icon(QStringLiteral("import")), tr("Importâ¦"));
+    m_importButton = new QPushButton(icon(QStringLiteral("import")), tr("Import…"));
     m_importButton->setToolTip(tr("Copy a project file into the library"));
     m_exportButton = new QPushButton(
-        iconOr(QStringLiteral("export"), QStyle::SP_DialogSaveButton, style()), tr("Exportâ¦"));
+        iconOr(QStringLiteral("export"), QStyle::SP_DialogSaveButton, style()), tr("Export…"));
     m_exportButton->setToolTip(tr("Save a copy of the selected project"));
     m_status = new QLabel;
     m_status->setObjectName(QStringLiteral("ProjectStatus"));
@@ -790,19 +790,19 @@ void ProjectManagerWindow::showContextMenu(QAbstractItemView* view, const QPoint
             menu.addAction(tr("D&uplicate"), this, &ProjectManagerWindow::duplicateSelected)
                 ->setEnabled(exists);
         QAction* del
-            = menu.addAction(tr("&Deleteâ¦"), this, &ProjectManagerWindow::deleteSelected);
+            = menu.addAction(tr("&Delete…"), this, &ProjectManagerWindow::deleteSelected);
         del->setShortcut(QKeySequence(Qt::Key_Delete));
         del->setEnabled(exists && !m_library->isOpenOrContainsOpen(path));
         menu.addSeparator();
         if (!folder) {
-            menu.addAction(tr("&Exportâ¦"), this, &ProjectManagerWindow::exportSelected)
+            menu.addAction(tr("&Export…"), this, &ProjectManagerWindow::exportSelected)
                 ->setEnabled(exists);
             if (!pack::isContainerFile(path)) {
-                menu.addAction(tr("Export as Single &Fileâ¦"), this,
+                menu.addAction(tr("Export as Single &File…"), this,
                         &ProjectManagerWindow::exportAsSingleFile)
                     ->setEnabled(exists);
             }
-            QAction* settings = menu.addAction(tr("Project &Settingsâ¦"), this,
+            QAction* settings = menu.addAction(tr("Project &Settings…"), this,
                 &ProjectManagerWindow::projectSettingsRequested);
             settings->setEnabled(open);
             if (!open)
@@ -813,10 +813,10 @@ void ProjectManagerWindow::showContextMenu(QAbstractItemView* view, const QPoint
             ->setEnabled(exists);
     } else {
         view->clearSelection();
-        menu.addAction(tr("New &Projectâ¦"), this, &ProjectManagerWindow::newProject);
-        menu.addAction(tr("New F&olderâ¦"), this, &ProjectManagerWindow::newFolder)
+        menu.addAction(tr("New &Project…"), this, &ProjectManagerWindow::newProject);
+        menu.addAction(tr("New F&older…"), this, &ProjectManagerWindow::newFolder)
             ->setEnabled(!m_model->isRecent());
-        menu.addAction(tr("&Importâ¦"), this, &ProjectManagerWindow::importProject);
+        menu.addAction(tr("&Import…"), this, &ProjectManagerWindow::importProject);
         menu.addSeparator();
         menu.addAction(
             tr("Show in &File Manager"), this, &ProjectManagerWindow::showSelectedInFileManager);
