@@ -3,6 +3,7 @@
 // (new, open, decompose). The work happens in core (Project / CompoundOps); this file adds
 // the questions, the selection handling and the user-facing messages.
 #include "core/EditOps.h"
+#include "core/Plural.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -164,7 +165,8 @@ bool TimelineController::deleteActiveTimeline()
     QString text = tr("Delete the timeline \"%1\"? This can be undone.").arg(data->name);
     if (uses > 0)
         text += QLatin1Char('\n')
-            + tr("%n clip(s) in other timelines show it and will become offline.", nullptr, uses);
+            + plural(uses, tr("%n clip in another timeline shows it and will become offline."),
+                tr("%n clips in other timelines show it and will become offline."));
     if (m_confirmPrompt && !m_confirmPrompt(tr("Delete Timeline"), text))
         return false;
     if (!p->deleteTimeline(uid)) {

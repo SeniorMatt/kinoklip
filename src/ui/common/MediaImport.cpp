@@ -3,6 +3,7 @@
 #include "ui/common/MediaImport.h"
 
 #include "core/MediaPool.h"
+#include "core/Plural.h"
 #include "core/Project.h"
 #include "media/MediaSource.h"
 #include "pack/EmbeddedMedia.h"
@@ -70,7 +71,8 @@ QStringList importMediaWithFeedback(
         if (result.warnings.size() > kMaxListedWarnings)
             shown.append(tr("… and %1 more").arg(result.warnings.size() - kMaxListedWarnings));
         QMessageBox box(QMessageBox::Warning, tr("Import Media"),
-            tr("%1 of %2 file(s) could not be imported.")
+            plural(paths.size(), tr("%1 of %2 file could not be imported."),
+                tr("%1 of %2 files could not be imported."))
                 .arg(result.warnings.size())
                 .arg(paths.size()),
             QMessageBox::Ok, parent);

@@ -22,6 +22,7 @@
 
 #include <QContextMenuEvent>
 #include <QInputDialog>
+#include <QKeyEvent>
 #include <QMenu>
 #include <QPainter>
 #include <QScrollBar>
@@ -153,6 +154,7 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
 
 void TimelineWidget::restoreViewState(quint64 uid)
 {
+    m_beforeFit = {}; // another timeline: Shift+Z fits it first
     const TimelineViewState v = m_ctx.project->viewState(uid);
     if (v.pixelsPerFrame <= 0.0) {
         // Never shown: fit, now or on the first show with a real width.
@@ -562,6 +564,122 @@ void TimelineWidget::zoomToFit()
     viewport()->update();
 }
 
+namespace {
+
+/// The inline track name editor: Enter commits, Esc cancels, losing the focus commits. The
+/// keys are its own, not the window's shortcuts.
+class TrackNameEditor : public QLineEdit
+{
+public:
+    using QLineEdit::QLineEdit;
+    /// Called once: @p commit false for Esc; @p keyboard true for Enter / Esc (the focus then
+    /// goes back to the timeline), false when the focus moved elsewhere (it stays there).
+    std::function<void(bool commit, bool keyboard)> done;
+
+protected:
+    bool event(QEvent* event) override
+    {
+        if (event->type() == QEvent::ShortcutOverride) {
+            const int key = static_cast<QKeyEvent*>(event)->key();
+            if (key == Qt::Key_Escape || key == Qt::Key_Return || key == Qt::Key_Enter) {
+                event->accept();
+                return true;
+            }
+        }
+        return QLineEdit::event(event);
+    }
+    void keyPressEvent(QKeyEvent* event) override
+    {
+        if (event->key() == Qt::Key_Escape) {
+            finish(false, true);
+            return;
+        }
+        if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+            finish(true, true);
+            return;
+        }
+        QLineEdit::keyPressEvent(event);
+    }
+    void focusOutEvent(QFocusEvent* event) override
+    {
+        QLineEdit::focusOutEvent(event);
+        finish(true, false);
+    }
+
+private:
+    void finish(bool commit, bool keyboard)
+    {
+        if (auto d = std::exchange(done, nullptr))
+            d(commit, keyboard);
+    }
+};
+
+/// The name a track header shows: its own, else "Video 1" / "Audio 1" / "Subtitle 1".
+QString shownTrackName(const TrackData& track, TrackRef ref)
+{
+    if (!track.name.isEmpty())
+        return track.name;
+    const QString pattern = ref.type == TrackType::Video ? TimelineWidget::tr("Video %1")
+        : ref.type == TrackType::Subtitle                ? TimelineWidget::tr("Subtitle %1")
+                                                         : TimelineWidget::tr("Audio %1");
+    return pattern.arg(ref.index + 1);
+}
+
+} // namespace
+
+bool TimelineWidget::beginTrackRename(QPointF pos)
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const TimelineHit hit = m_layout.hitTest(data, pos);
+    if (hit.area != TimelineHit::Area::Header || hit.button != HeaderButton::None)
+        return false;
+    const QRect rect = m_layout.headerNameRect(hit.row);
+    const TrackData* track = data.track(hit.track);
+    if (!track || rect.isEmpty() || !rect.adjusted(0, -4, 0, 4).contains(pos.toPoint()))
+        return false;
+    if (m_trackNameEditor)
+        m_trackNameEditor->clearFocus(); // commits the open one
+    const TrackRef ref = hit.track;
+    const QString shown = shownTrackName(*track, ref);
+    auto* editor = new TrackNameEditor(shown, viewport());
+    editor->setObjectName(QStringLiteral("TrackNameEditor"));
+    editor->setGeometry(rect.adjusted(-3, -1, 3, 1));
+    editor->selectAll();
+    editor->done = [this, editor, ref, shown](bool commit, bool keyboard) {
+        const QString name = editor->text().trimmed();
+        editor->hide();
+        editor->deleteLater();
+        if (m_trackNameEditor == editor)
+            m_trackNameEditor = nullptr;
+        if (commit && name != shown && m_ctx.project->timeline()->data().track(ref))
+            m_controller->renameTrack(ref, name);
+        if (keyboard)
+            setFocus(Qt::OtherFocusReason);
+    };
+    m_trackNameEditor = editor;
+    editor->show();
+    editor->setFocus(Qt::MouseFocusReason);
+    return true;
+}
+
+void TimelineWidget::toggleZoomToFit()
+{
+    if (m_beforeFit.fitted > 0.0 && m_layout.pixelsPerFrame() == m_beforeFit.fitted) {
+        m_layout.setPixelsPerFrame(m_beforeFit.pixelsPerFrame, kHeaderWidth);
+        m_layout.setScrollX(m_beforeFit.scrollX);
+        m_beforeFit = {};
+        if (m_options.centredPlayhead)
+            centreOnPlayhead();
+        updateScrollBars();
+        viewport()->update();
+        return;
+    }
+    const double ppf = m_layout.pixelsPerFrame();
+    const double scrollX = m_layout.scrollX();
+    zoomToFit();
+    m_beforeFit = {ppf, scrollX, m_layout.pixelsPerFrame()};
+}
+
 // ---- Context menus ----
 
 void TimelineWidget::transitionMenu(QMenu& menu, const TransitionRef& ref)
@@ -737,6 +855,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         addAction("edit.cut");
         addAction("edit.copy");
         addAction("edit.paste");
+        addAction("edit.paste_attributes"); // Resolve's clip menu offers it (spec 16.7)
         menu.addSeparator();
         addAction("edit.split");
         addAction("clip.toggle_enabled");

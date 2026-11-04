@@ -224,6 +224,25 @@ QRect TimelineLayout::headerButtonRect(int row, HeaderButton button) const
     return {};
 }
 
+QRect TimelineLayout::headerNameRect(int row) const
+{
+    const QRect patch = headerButtonRect(row, HeaderButton::Target);
+    if (patch.isEmpty())
+        return {};
+    // The same bounds as TimelinePainter's track name.
+    int right = kHeaderWidth;
+    if (twoLineHeader(row)) {
+        right = kHeaderWidth - 4 - kHeaderMeterWidth;
+    } else {
+        for (HeaderButton b : buttonsFor(m_rows[size_t(row)].ref.type))
+            right = std::min(right, headerButtonRect(row, b).left());
+    }
+    const int left = patch.right() + 4;
+    if (right - 2 - left < 14)
+        return {};
+    return QRect(left, patch.top(), right - 2 - left, patch.height());
+}
+
 // ---- Clips ----
 
 std::pair<size_t, size_t> TimelineLayout::clipRange(const TrackData& track, double f0, double f1)

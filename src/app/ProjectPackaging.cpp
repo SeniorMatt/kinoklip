@@ -6,6 +6,7 @@
 #include "app/AutosaveController.h"
 #include "app/ProjectController.h"
 #include "core/MediaPool.h"
+#include "core/Plural.h"
 #include "core/Project.h"
 #include "media/MediaCache.h"
 #include "pack/EmbeddedMedia.h"
@@ -344,7 +345,8 @@ bool ProjectController::storeMedia(QStringList& paths, QWidget* parent)
     pack::Status status = pack::Status::Failed;
     QString error;
     runWithProgress(dialogParent, tr("Import Media"),
-        tr("Copying %n file(s) into the project…", nullptr, int(sources.size())),
+        plural(sources.size(), tr("Copying %n file into the project…"),
+            tr("Copying %n files into the project…")),
         [&](const TaskProgress& progress) {
             status = package->addMedia(sources, &added, progress, &error);
         });
@@ -370,8 +372,9 @@ bool ProjectController::storeMedia(QStringList& paths, QWidget* parent)
     }
     if (!duplicates.isEmpty()) {
         notify(dialogParent, tr("Import Media"),
-            tr("%n file(s) were already stored in this project and were not copied again:", nullptr,
-                int(duplicates.size()))
+            plural(duplicates.size(),
+                tr("%n file was already stored in this project and was not copied again:"),
+                tr("%n files were already stored in this project and were not copied again:"))
                 + QLatin1Char('\n') + shortList(duplicates));
     }
     // The file changed (newer than the last autosave): autosave the import soon, so crash
@@ -423,8 +426,9 @@ bool ProjectController::saveAsSingleFile(const QString& target)
     }
     if (!result.skipped.isEmpty()) {
         notify(m_window, tr("Save Project As"),
-            tr("%n media file(s) stay linked (not stored in the project file):", nullptr,
-                int(result.skipped.size()))
+            plural(result.skipped.size(),
+                tr("%n media file stays linked (not stored in the project file):"),
+                tr("%n media files stay linked (not stored in the project file):"))
                 + QLatin1Char('\n') + shortList(result.skipped));
     }
     return true;
@@ -541,12 +545,14 @@ void ProjectController::packProject()
         return;
     }
     QMessageBox box(QMessageBox::Information, tr("Pack Project"),
-        tr("%n media file(s) were copied into %1 (%2).", nullptr, result.embedded)
+        plural(result.embedded, tr("%n media file was copied into %1 (%2)."),
+            tr("%n media files were copied into %1 (%2)."))
             .arg(native(target), sizeText(QFileInfo(target).size())),
         QMessageBox::NoButton, m_window);
     if (!result.skipped.isEmpty()) {
-        box.setInformativeText(tr("%n media file(s) stay linked (not stored in the file):", nullptr,
-                                   int(result.skipped.size()))
+        box.setInformativeText(plural(result.skipped.size(),
+                                   tr("%n media file stays linked (not stored in the file):"),
+                                   tr("%n media files stay linked (not stored in the file):"))
             + QLatin1Char('\n') + shortList(result.skipped));
         box.setDetailedText(result.skipped.join(QLatin1Char('\n')));
     }
@@ -583,8 +589,9 @@ void ProjectController::unpackProject()
         return;
     addRecentProject(target);
     notify(m_window, tr("Unpack Project"),
-        tr("%n media file(s) were written to %1. The project is now the linked project %2.",
-            nullptr, media)
+        plural(media,
+            tr("%n media file was written to %1. The project is now the linked project %2."),
+            tr("%n media files were written to %1. The project is now the linked project %2."))
             .arg(native(QDir(folder).absoluteFilePath(QLatin1String("media"))), native(target)));
 }
 
@@ -614,8 +621,8 @@ void ProjectController::compactProject()
     if (unused.isEmpty()) {
         ask.setInformativeText(tr("No unused media."));
     } else {
-        ask.setInformativeText(
-            tr("%n unused media file(s) will be removed:", nullptr, int(unused.size()))
+        ask.setInformativeText(plural(unused.size(), tr("%n unused media file will be removed:"),
+                                   tr("%n unused media files will be removed:"))
             + QLatin1Char('\n') + shortList(unused));
         ask.setDetailedText(unused.join(QLatin1Char('\n')));
     }
@@ -672,8 +679,8 @@ void ProjectController::compactProject()
                     sizeText(result.sizeAfter))
             + (result.removedMedia.isEmpty() ? QString()
                                              : QLatin1Char(' ')
-                        + tr("%n unused media file(s) removed.", nullptr,
-                            int(result.removedMedia.size()))));
+                        + plural(result.removedMedia.size(), tr("%n unused media file removed."),
+                            tr("%n unused media files removed."))));
 }
 
 void ProjectController::verifyProject()
@@ -690,7 +697,8 @@ void ProjectController::verifyProject()
         return;
     if (result.ok) {
         QString text
-            = tr("No problems found in “%1”: %n entries, %2 checked.", nullptr, result.entries)
+            = plural(result.entries, tr("No problems found in “%1”: %n entry, %2 checked."),
+                tr("No problems found in “%1”: %n entries, %2 checked."))
                   .arg(QFileInfo(path).fileName(), sizeText(result.checkedBytes));
         if (!result.notes.isEmpty())
             text += QLatin1Char('\n') + shortList(result.notes);
@@ -698,7 +706,7 @@ void ProjectController::verifyProject()
         return;
     }
     QMessageBox box(QMessageBox::Warning, tr("Verify Project File"),
-        tr("“%1” has %n problem(s).", nullptr, int(result.problems.size()))
+        plural(result.problems.size(), tr("“%1” has %n problem."), tr("“%1” has %n problems."))
             .arg(QFileInfo(path).fileName()),
         QMessageBox::NoButton, m_window);
     box.setObjectName(QStringLiteral("VerifyProblems"));

@@ -5,6 +5,7 @@
 
 #include "core/ClipColors.h"
 #include "core/MediaPool.h"
+#include "core/Plural.h"
 #include "core/PowerBins.h"
 #include "core/Project.h"
 #include "media/MediaSource.h"
@@ -355,7 +356,8 @@ void MetadataPanel::fillDetails(const QVector<const MediaItem*>& items)
     if (m_pool && m_ctx.project->mediaPool()->item(item->id)) {
         const int uses = m_pool->model()->usageCounts().value(item->id, 0);
         addRow(tr("Usage"),
-            uses > 0 ? tr("%n timeline clip(s)", nullptr, uses) : tr("Not used in any timeline"));
+            uses > 0 ? plural(uses, tr("%n timeline clip"), tr("%n timeline clips"))
+                     : tr("Not used in any timeline"));
     }
     if (!info.error.isEmpty())
         addRow(tr("Probe"), info.error);

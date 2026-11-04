@@ -11,8 +11,9 @@ recording). All of this is in the **Transform** and **Cropping** sections of the
 3. Under **Transform**, raise **Zoom X**: **1.00** is the normal size, **1.50** is one and a half
    times as big. With **Link Zoom** ticked, **Zoom Y** follows, so the picture keeps its
    shape.
-4. Change **Position X** (left and right) and **Position Y** (up and down) to choose which part
-   of the enlarged picture is seen.
+4. Change **Position X** and **Position Y** to choose which part of the enlarged picture is
+   seen: a positive Position X moves the picture right, a positive Position Y moves it up
+   (negative values move it left and down).
 
 To change a value, type it, or drag left and right on the number (hold **Shift** for fine
 steps). The round arrow at the end of a row puts it back to its default.

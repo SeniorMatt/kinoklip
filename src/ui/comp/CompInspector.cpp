@@ -2,6 +2,8 @@
 // CompInspector implementation: the stand-in clip, the header and the edit protocol.
 #include "ui/comp/CompInspector.h"
 
+#include "core/MediaPool.h"
+#include "core/NodeRegistry.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "platform/FileDialogs.h"
@@ -15,6 +17,7 @@
 
 #include <QCheckBox>
 #include <QColorDialog>
+#include <QComboBox>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -131,6 +134,7 @@ void CompInspector::rebuild()
         syncProxy();
         delete m_scroll->takeWidget();
         m_group = nullptr;
+        m_source = nullptr;
         if (n) {
             const compadapter::NodeTypeInfo* info = compadapter::nodeType(n->type);
             m_group = new ParamGroupBox(info ? info->name : n->type);
@@ -149,7 +153,24 @@ void CompInspector::rebuild()
             auto* l = new QVBoxLayout(holder);
             l->setContentsMargins(0, 0, 0, 0);
             l->addWidget(m_group);
-            if (!info || info->params.isEmpty()) {
+            if (n->type == nodetypes::MediaIn) {
+                // The picture it reads: the clip's own, or another media pool item (a logo).
+                auto* row = new QWidget;
+                auto* h = new QHBoxLayout(row);
+                h->setContentsMargins(
+                    metrics::kSpaceM, metrics::kSpaceS, metrics::kSpaceM, metrics::kSpaceS);
+                h->addWidget(new QLabel(tr("Source")));
+                m_source = new QComboBox;
+                m_source->setObjectName(QStringLiteral("CompMediaInSource"));
+                m_source->setToolTip(tr("The picture this node reads. Media pool items can "
+                                        "also be dragged onto the node editor."));
+                h->addWidget(m_source, 1);
+                l->addWidget(row);
+                connect(m_source, &QComboBox::activated, this, [this](int index) {
+                    if (m_session && m_source)
+                        m_session->setMediaInSource(m_node, m_source->itemData(index).toString());
+                });
+            } else if (!info || info->params.isEmpty()) {
                 // MediaIn / MediaOut: no empty group to unfold, a plain note instead.
                 m_group->hide();
                 l->addWidget(createPlaceholderContent(tr("This node has no parameters")));
@@ -169,8 +190,29 @@ void CompInspector::rebuild()
         m_reset->setEnabled(!n->locked);
         if (m_group)
             m_group->setEnabled(!n->locked);
+        if (m_source)
+            fillSourcePicker(*n);
     }
     refreshRows();
+}
+
+void CompInspector::fillSourcePicker(const CompNode& node)
+{
+    const QSignalBlocker block(m_source);
+    m_source->clear();
+    m_source->addItem(tr("This clip"), QString());
+    for (const MediaItem& item : m_ctx.project->mediaPool()->items()) {
+        if (m_session->canReadIntoMediaIn(item.id))
+            m_source->addItem(item.name, item.id);
+    }
+    int index = m_source->findData(node.mediaId);
+    if (index < 0) {
+        // An item no longer in the media pool: keep it visible as what is read.
+        m_source->addItem(tr("Missing media"), node.mediaId);
+        index = m_source->count() - 1;
+    }
+    m_source->setCurrentIndex(index);
+    m_source->setEnabled(!node.locked);
 }
 
 void CompInspector::refreshRows()

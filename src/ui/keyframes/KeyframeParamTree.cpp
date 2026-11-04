@@ -260,8 +260,10 @@ void KeyframeParamTree::buildRow(Row& row, int index)
             m_scrubOpen = true;
             m_ctx.project->beginEdit(tr("Change %1").arg(m_rows[index]->entry.label));
         });
-        connect(f, &ValueField::valueScrubbed, this,
-            [this, index](double v) { editValue(m_rows[index]->entry, v); });
+        // The field shows and takes shown values (Position Y +up, spec 24.16).
+        connect(f, &ValueField::valueScrubbed, this, [this, index](double v) {
+            editValue(m_rows[index]->entry, m_rows[index]->entry.desc.displayed(v));
+        });
         connect(f, &ValueField::scrubFinished, this, [this] {
             if (!m_scrubOpen)
                 return;
@@ -271,7 +273,7 @@ void KeyframeParamTree::buildRow(Row& row, int index)
         connect(f, &ValueField::valueCommitted, this, [this, index](double v) {
             const KeyframeEntry& entry = m_rows[index]->entry;
             m_ctx.project->beginEdit(tr("Change %1").arg(entry.label));
-            editValue(entry, v);
+            editValue(entry, entry.desc.displayed(v));
             m_ctx.project->endEdit();
         });
         h->addWidget(f);
@@ -348,7 +350,8 @@ void KeyframeParamTree::refreshRow(Row& row)
     row.next->setEnabled(anyAnimated);
     if (row.field && !row.field->isScrubbing()) {
         if (const ClipData* c = editops::clipById(data, e.ref.clipId))
-            row.field->setValue(paramaccess::scalar(*c, e.ref, e.desc, localFrame(*c)));
+            row.field->setValue(
+                e.desc.displayed(paramaccess::scalar(*c, e.ref, e.desc, localFrame(*c))));
     }
 }
 

@@ -3,6 +3,8 @@
 #include "ui/comp/CompSession.h"
 
 #include "core/EditOps.h"
+#include "core/MediaPool.h"
+#include "core/NodeRegistry.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -249,6 +251,50 @@ quint64 CompSession::addNodeAt(
     if (added)
         setSelection({added}, {}, added);
     return added;
+}
+
+bool CompSession::canReadIntoMediaIn(const QString& mediaId) const
+{
+    const MediaItem* item = m_ctx.project->mediaPool()->item(mediaId);
+    return item && item->kind == MediaItemKind::File && item->info.hasVideo;
+}
+
+QVector<quint64> CompSession::addMediaIns(const QStringList& mediaIds, QPointF position)
+{
+    QVector<quint64> added;
+    const bool stored = edit(tr("Add MediaIn"), [&](Composition& c) {
+        QPointF at = position;
+        for (const QString& id : mediaIds) {
+            if (!canReadIntoMediaIn(id))
+                continue;
+            const quint64 node
+                = compadapter::addNode(c, nodetypes::MediaIn, m_snap ? snapped(at) : at);
+            if (CompNode* n = c.node(node)) {
+                n->mediaId = id;
+                added.append(node);
+                at.ry() += 1.5;
+            }
+        }
+        return !added.isEmpty();
+    });
+    if (!stored)
+        added.clear();
+    if (!added.isEmpty())
+        setSelection(added, {}, added.last());
+    return added;
+}
+
+bool CompSession::setMediaInSource(quint64 id, const QString& mediaId)
+{
+    if (!mediaId.isEmpty() && !canReadIntoMediaIn(mediaId))
+        return false;
+    return edit(tr("Change MediaIn Source"), [&](Composition& c) {
+        CompNode* n = c.node(id);
+        if (!n || n->type != nodetypes::MediaIn || n->locked || n->mediaId == mediaId)
+            return false;
+        n->mediaId = mediaId;
+        return true;
+    });
 }
 
 quint64 CompSession::addNote(QPointF position, const QString& text)

@@ -298,6 +298,10 @@ void TimelineWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
 {
+    // A double-click on a track name in a header renames the track in place (spec 12.15).
+    if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
+        && beginTrackRename(event->position()))
+        return;
     // A double-click on a ruler marker opens the marker editor (spec 18.5); anywhere else it
     // behaves like a press.
     if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
@@ -321,6 +325,15 @@ void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
         // A double-click on the body of a compound clip / nested timeline opens it in a tab,
         // with its playhead at the moment under the pointer (spec 26.14).
         if (openNestedAt(event->position()))
+            return;
+        // On a media clip it opens the clip's source in the source viewer (spec 24.17); the
+        // first click of the double-click already selected the clip.
+        const TimelineHit hit
+            = m_layout.hitTest(m_ctx.project->timeline()->data(), event->position());
+        if (m_options.doubleClickOpensSource && hit.area == TimelineHit::Area::Clip
+            && hit.part == ClipPart::Body
+            && m_controller->openClipInSourceViewer(
+                hit.clipId, m_layout.frameAtX(event->position().x())))
             return;
     }
     mousePressEvent(event);

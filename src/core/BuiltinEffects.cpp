@@ -39,6 +39,13 @@ QStringList directionLabels()
     return {tr("Left"), tr("Right"), tr("Up"), tr("Down")};
 }
 
+/// A vertical offset stored +down and shown +up, as Resolve's Inspector shows it (spec 24.16).
+ParamDescriptor shownUp(ParamDescriptor p)
+{
+    p.displayNegated = true;
+    return p;
+}
+
 } // namespace
 
 void EffectRegistry::registerBuiltins()
@@ -53,10 +60,10 @@ void EffectRegistry::registerBuiltins()
             number(keys::ZoomY, tr("Zoom Y"), 0.01, 20.0, 1.0, 0.01),
             boolean(keys::ZoomLinked, tr("Link Zoom"), true),
             number(keys::PosX, tr("Position X"), -10000, 10000, 0, 1, kPx),
-            number(keys::PosY, tr("Position Y"), -10000, 10000, 0, 1, kPx),
+            shownUp(number(keys::PosY, tr("Position Y"), -10000, 10000, 0, 1, kPx)),
             number(keys::Rotation, tr("Rotation"), -3600, 3600, 0, 0.1, kDegrees),
             number(keys::AnchorX, tr("Anchor X"), -10000, 10000, 0, 1, kPx),
-            number(keys::AnchorY, tr("Anchor Y"), -10000, 10000, 0, 1, kPx),
+            shownUp(number(keys::AnchorY, tr("Anchor Y"), -10000, 10000, 0, 1, kPx)),
             boolean(keys::FlipH, tr("Flip Horizontal"), false),
             boolean(keys::FlipV, tr("Flip Vertical"), false),
             number(keys::Opacity, tr("Opacity"), 0, 100, 100, 1, kPercent),

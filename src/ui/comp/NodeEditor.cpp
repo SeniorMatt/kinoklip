@@ -805,17 +805,44 @@ void NodeEditor::contextMenuEvent(QContextMenuEvent* event)
 
 // ---- Drag and drop (Nodes library) ----
 
+namespace {
+
+/// Media pool items of a drag that a MediaIn node can read (spec 42b.30).
+QStringList droppedPictures(const QMimeData* data, const CompSession* session)
+{
+    QStringList out;
+    if (!session || !data->hasFormat(QLatin1String(mime::MediaItems)))
+        return out;
+    const QString text = QString::fromUtf8(data->data(QLatin1String(mime::MediaItems)));
+    for (const QString& id : text.split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+        if (session->canReadIntoMediaIn(id))
+            out.append(id);
+    }
+    return out;
+}
+
+} // namespace
+
 void NodeEditor::dragEnterEvent(QDragEnterEvent* event)
 {
     if (m_session && m_session->clipId()
-        && event->mimeData()->hasFormat(QLatin1String(mime::CompNodeType)))
+        && (event->mimeData()->hasFormat(QLatin1String(mime::CompNodeType))
+            || !droppedPictures(event->mimeData(), m_session).isEmpty()))
         event->acceptProposedAction();
+    else
+        event->ignore();
 }
 
 void NodeEditor::dragMoveEvent(QDragMoveEvent* event)
 {
-    if (!event->mimeData()->hasFormat(QLatin1String(mime::CompNodeType)))
+    if (!droppedPictures(event->mimeData(), m_session).isEmpty()) {
+        event->acceptProposedAction(); // a new unconnected MediaIn: no link to insert into
         return;
+    }
+    if (!event->mimeData()->hasFormat(QLatin1String(mime::CompNodeType))) {
+        event->ignore();
+        return;
+    }
     m_dropLink = linkAt(event->position());
     event->acceptProposedAction();
     update();
@@ -830,6 +857,17 @@ void NodeEditor::dragLeaveEvent(QDragLeaveEvent* event)
 
 void NodeEditor::dropEvent(QDropEvent* event)
 {
+    // Media pool items: one unconnected MediaIn each, stacked down from the drop point (as a
+    // clip dragged into Resolve's node editor), the last one selected.
+    const QStringList pictures = droppedPictures(event->mimeData(), m_session);
+    if (!pictures.isEmpty()) {
+        m_dropLink = {};
+        m_session->addMediaIns(pictures, toGrid(event->position()) - QPointF(kTileWidth / 2, 0.5));
+        event->acceptProposedAction();
+        setFocus();
+        update();
+        return;
+    }
     const QString type
         = QString::fromUtf8(event->mimeData()->data(QLatin1String(mime::CompNodeType)));
     const Hit link = linkAt(event->position());

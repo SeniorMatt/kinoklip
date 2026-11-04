@@ -2,6 +2,7 @@
 // MulticamSync — sync offsets of media pool clips + the progress / problem dialogs.
 #include "ui/mediapool/MulticamSync.h"
 
+#include "core/Plural.h"
 #include "media/AudioSync.h"
 
 #include <QApplication>
@@ -158,9 +159,9 @@ std::optional<QVector<int64_t>> runSyncWithFeedback(QWidget* parent,
     if (method == multicam::SyncMethod::Waveform) {
         auto cancel = std::make_shared<std::atomic<bool>>(false);
         auto progressValue = std::make_shared<std::atomic<int>>(0);
-        QProgressDialog dialog(
-            tr("Analysing the audio of %n clip(s)…", nullptr, int(inputs.size())), tr("Cancel"), 0,
-            int(inputs.size()), parent);
+        QProgressDialog dialog(plural(inputs.size(), tr("Analysing the audio of %n clip…"),
+                                   tr("Analysing the audio of %n clips…")),
+            tr("Cancel"), 0, int(inputs.size()), parent);
         dialog.setWindowTitle(title);
         dialog.setWindowModality(Qt::WindowModal);
         dialog.setMinimumDuration(300);

@@ -19,6 +19,7 @@ class CompSession;
 class CompTransport;
 class CompViewer;
 class NodeEditor;
+class MediaPoolPanel;
 class NodeLibraryPanel;
 class SelectNodePopup;
 
@@ -69,6 +70,9 @@ public:
     [[nodiscard]] CompInspector* inspector() const { return m_inspector; }
     [[nodiscard]] CompTransport* transport() const { return m_transport; }
     [[nodiscard]] NodeLibraryPanel* library() const { return m_library; }
+    /// The page's media pool (interface bar "Media Pool", off by default): its items are
+    /// dragged onto the node editor as MediaIn nodes (spec 42b.30).
+    [[nodiscard]] MediaPoolPanel* mediaPool() const { return m_mediaPool; }
     [[nodiscard]] SelectNodePopup* selectNodePopup() const { return m_selectNode; }
     /// Tool bar button that adds node type @p type, or nullptr.
     [[nodiscard]] QToolButton* toolButton(const QString& type) const;
@@ -97,9 +101,12 @@ private:
     QWidget* m_nodeArea = nullptr; ///< tool bar + node editor (the "Nodes" panel)
     CompInspector* m_inspector = nullptr;
     NodeLibraryPanel* m_library = nullptr;
+    MediaPoolPanel* m_mediaPool = nullptr;
+    QSplitter* m_leftColumn = nullptr; ///< media pool | library (hidden when both are)
+    void updateLeftColumn();
     SelectNodePopup* m_selectNode = nullptr;
     QWidget* m_toolBar = nullptr;
-    QSplitter* m_columns = nullptr; ///< library | centre | inspector
+    QSplitter* m_columns = nullptr; ///< left column | centre | inspector
     QSplitter* m_centre = nullptr; ///< viewers + transport | node area
     QSplitter* m_viewers = nullptr; ///< left | right viewer
 };

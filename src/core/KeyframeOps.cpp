@@ -137,7 +137,8 @@ void appendGroup(QVector<AnimatedParam>& out, QSet<QString>& listed, const Param
             if (it == set.values.cend() || !it->isAnimated() || listed.contains(pd.key))
                 continue;
             listed.insert(pd.key);
-            out.append({pathPrefix + pd.key, groupId, groupName, pd.label, pd.min, pd.max});
+            out.append({pathPrefix + pd.key, groupId, groupName, pd.label, pd.min, pd.max,
+                pd.displayNegated});
         }
     }
     if (!includeUndescribed)

@@ -40,6 +40,3 @@ Topics that come up often but that Kinoklip cannot do yet (no article until it c
 - needs: noise reduction for audio (voice clean-up); the Noise Reduction in the effects library is for video.
 - needs: Difference Key against a clean plate (spec 40.10), for screens that are not green or blue.
 - needs: rendering every timeline clip to its own file (Deliver > Individual clips is disabled).
-- needs: a picture or logo file inside a composition (a MediaIn node that reads another media
-  pool item exists in the core, but the Compositing page offers no way to choose the item); a
-  logo goes on a video track above the clip instead.

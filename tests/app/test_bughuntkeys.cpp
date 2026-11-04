@@ -12,15 +12,19 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/mediapool/MediaPoolModel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QItemSelectionModel>
 #include <QListView>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTest>
+#include <QTreeWidget>
 
 #include <memory>
 
@@ -171,6 +175,62 @@ private slots:
         QTest::keyClick(QApplication::focusWidget(), Qt::Key_A, Qt::ControlModifier);
         QVERIFY(f.selection.clips().isEmpty()); // the timeline's clips stay unselected
         QVERIFY(f.window->editPage()->mediaPool()->selectedMediaIds().size() >= 2);
+    }
+
+    // Spec 10.11: with a list or tree panel focused (here the Effects library), Delete,
+    // Backspace, Ctrl+A and the arrow keys act on the list, not on the timeline: they used to
+    // ripple-delete the clips selected on the timeline, select every clip or step the playhead.
+    // Space still plays the timeline from there.
+    void spec10_11_listPanelKeepsEditingKeys()
+    {
+        Fixture f;
+        f.project.beginEdit(QStringLiteral("setup"));
+        ClipData clip;
+        clip.kind = ClipKind::Solid;
+        clip.duration = 40;
+        clip.solidColor = Qt::darkCyan;
+        const quint64 id = ops::overwriteClip(f.project.timeline()->mutableData(), kV1, clip);
+        clip.start = 40;
+        ops::overwriteClip(f.project.timeline()->mutableData(), kV1, clip);
+        f.project.endEdit();
+        f.project.timeline()->setPlayhead(10);
+        QCoreApplication::processEvents();
+        EffectsLibraryPanel* fx = f.window->editPage()->effectsLibrary();
+        if (!fx->isVisible())
+            f.actions.action(QStringLiteral("view.toggle_effects"))->trigger();
+        QVERIFY(fx->isVisible());
+        QTreeWidget* tree = fx->tree();
+        tree->setFocus(Qt::MouseFocusReason);
+        QCoreApplication::processEvents();
+        QVERIFY(tree->hasFocus());
+        tree->setCurrentItem(tree->topLevelItem(0));
+        f.selection.setClips({id});
+
+        for (const Qt::Key key : {Qt::Key_Delete, Qt::Key_Backspace})
+            QTest::keyClick(tree, key);
+        QCOMPARE(int(f.project.timeline()->data().track(kV1)->clips.size()), 2);
+        QTest::keyClick(tree, Qt::Key_A, Qt::ControlModifier);
+        QCOMPARE(f.selection.clips(), QVector<quint64> {id});
+        QTest::keyClick(tree, Qt::Key_Right);
+        QTest::keyClick(tree, Qt::Key_Left);
+        const QTreeWidgetItem* before = tree->currentItem();
+        QTest::keyClick(tree, Qt::Key_Down);
+        QCOMPARE(f.project.timeline()->playhead(), int64_t(10));
+        QVERIFY(tree->currentItem() != before); // Down moved the list's selection
+
+        // Transport keys still reach the window: Space plays and stops the timeline.
+        QAction* play = f.actions.action(QStringLiteral("transport.play_pause"));
+        QVERIFY(play);
+        QSignalSpy played(play, &QAction::triggered);
+        QTest::keyClick(tree, Qt::Key_Space);
+        QCOMPARE(played.count(), 1);
+        QTest::keyClick(tree, Qt::Key_Space);
+
+        // With the timeline focused again the keys edit the timeline.
+        tree->clearFocus();
+        QCoreApplication::processEvents();
+        QTest::keyClick(f.window.get(), Qt::Key_Delete);
+        QCOMPARE(int(f.project.timeline()->data().track(kV1)->clips.size()), 1);
     }
 };
 

@@ -92,7 +92,8 @@ void CurveEditorWidget::refreshCurves()
     list.reserve(params.size());
     for (qsizetype i = 0; i < params.size(); ++i) {
         const ko::AnimatedParam& p = params[i];
-        list.append({{m_clipId, p.path}, p.label, p.groupName, p.min, p.max, int(i)});
+        list.append(
+            {{m_clipId, p.path}, p.label, p.groupName, p.min, p.max, int(i), p.displayNegated});
     }
     setCurves(list);
 }

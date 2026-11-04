@@ -4,6 +4,7 @@
 // "builtin.mask" descriptor rows and the shape keyframe row). Part of InspectorPanel.
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
+#include "core/Plural.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -222,9 +223,9 @@ void InspectorPanel::buildMasksSection(const ClipData& c)
             diamond->setEnabled(cd.contains(playhead));
             if (shapeInfo) {
                 const qsizetype n = m->path.pointCount();
-                const QString text = !m->closed
-                    ? tr("%n point(s), drawing in the viewer", nullptr, int(n))
-                    : tr("%n point(s)", nullptr, int(n));
+                const QString text = !m->closed ? plural(n, tr("%n point, drawing in the viewer"),
+                                                      tr("%n points, drawing in the viewer"))
+                                                : plural(n, tr("%n point"), tr("%n points"));
                 if (shapeInfo->text() != text)
                     shapeInfo->setText(text);
                 const AnimatedValue& t = m->path.timing;

@@ -194,7 +194,8 @@ public:
 
     void refresh(const ClipData& clip, int64_t localFrame, bool playheadInside) override
     {
-        const double v = paramaccess::scalar(clip, m_ref, m_desc, localFrame);
+        // Shown value (Position Y is shown +up, spec 24.16); apply() takes shown values too.
+        const double v = m_desc.displayed(paramaccess::scalar(clip, m_ref, m_desc, localFrame));
         if (!m_field->isScrubbing()) {
             m_field->setValue(v);
             m_field->setMixed(m_host.isMixed(m_ref, m_desc));
@@ -239,16 +240,18 @@ private:
         return range > 0 ? int(std::lround((value - m_desc.min) / range * kSliderSteps)) : 0;
     }
 
-    void apply(double value)
+    void apply(double shown)
     {
+        const double value = m_desc.displayed(shown);
         const quint64 clipId = m_ref.clipId;
         m_host.modifyClip(clipId, [this, clipId, value](ClipData& clip) {
             paramaccess::setScalar(clip, m_ref, m_desc, m_host.localFrame(clipId), value);
         });
     }
 
-    void applyOnce(double value)
+    void applyOnce(double shown)
     {
+        const double value = m_desc.displayed(shown);
         m_host.setActiveParam(m_ref, m_desc);
         const quint64 clipId = m_ref.clipId;
         m_host.editClip(changeLabel(), clipId, [this, clipId, value](ClipData& clip) {

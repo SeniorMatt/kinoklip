@@ -2,6 +2,7 @@
 // RenderQueuePanel — job cards and queue controls.
 #include "ui/deliver/RenderQueuePanel.h"
 
+#include "core/Plural.h"
 #include "export/RenderQueue.h"
 #include "ui/common/Icons.h"
 #include "ui/common/ThinProgressBar.h"
@@ -87,7 +88,7 @@ public:
         if (s.hasVideo()) {
             details += QStringLiteral(" · %1x%2").arg(size.width()).arg(size.height());
         }
-        details += tr(" · %n frame(s)", nullptr, int(end - first));
+        details += plural(end - first, tr(" · %n frame"), tr(" · %n frames"));
         m_details->setText(details);
         m_details->setToolTip(QDir::toNativeSeparators(s.outputPath));
         m_status->setText(RenderQueue::statusText(*job));

@@ -217,6 +217,9 @@ public:
     /// View rect of @p button in the header of row @p row (empty if the type has no such
     /// button).
     [[nodiscard]] QRect headerButtonRect(int row, HeaderButton button) const;
+    /// View rect of the track name in the header of row @p row, between the V1 / A1 patch and
+    /// the buttons (double-click renames the track there, spec 12.15; empty if no room).
+    [[nodiscard]] QRect headerNameRect(int row) const;
 
     // ---- Clips ----
 

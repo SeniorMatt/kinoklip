@@ -91,6 +91,10 @@ private:
     };
 
     void buildMenus();
+    /// Drops the Alt+letter mnemonic of a menu bar title whose Alt+letter is a keyboard
+    /// shortcut (Alt+V Paste Attributes, Alt+F Find in Media Pool, Alt+M Delete Marker), so the
+    /// shortcut wins instead of both being ignored as ambiguous (spec 23.9).
+    void updateMenuMnemonics();
     void buildInterfaceBar();
     void connectAppActions();
     void connectPanelToggles();
