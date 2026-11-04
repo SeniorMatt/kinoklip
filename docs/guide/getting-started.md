@@ -73,6 +73,10 @@ Do one of these:
 Your clips now appear in the media pool. Kinoklip reads common camera and phone formats (MP4,
 MOV, MKV, H.264, H.265, ...), audio files and pictures.
 
+If your clips were filmed at another frame rate than the project (for example 25 or 30 frames
+per second, where a new project uses 24), Kinoklip asks whether to change the project frame
+rate. Click **Change**, so your video plays as smoothly as it was filmed.
+
 ## Put clips on the timeline
 
 The easiest way: **drag a clip from the media pool onto the timeline**. It lands where you drop

@@ -265,11 +265,14 @@ FolderImportResult importMediaFolders(AppContext& ctx, const QStringList& folder
 QStringList importMediaFoldersWithFeedback(AppContext& ctx, const QStringList& folders,
     const FolderImportOptions& options, QWidget* parent, const QString& binId)
 {
+    const bool firstImport = hasNoMediaYet(ctx);
     const FolderImportResult r = importMediaFolders(ctx, folders, options, parent, binId);
     if (r.cancelled)
         return {};
-    if (r.failures.isEmpty() && r.duplicates == 0 && r.notes.isEmpty() && !r.importedIds.isEmpty())
+    if (r.failures.isEmpty() && r.duplicates == 0 && r.notes.isEmpty() && !r.importedIds.isEmpty()) {
+        offerProjectFrameRate(ctx, firstImport, r.importedIds, parent);
         return r.importedIds;
+    }
     // One summary for the whole import instead of a dialog per file.
     QStringList lines;
     if (r.duplicates > 0)
@@ -298,6 +301,7 @@ QStringList importMediaFoldersWithFeedback(AppContext& ctx, const QStringList& f
     if (!r.failures.isEmpty())
         box.setDetailedText(r.failures.join(QLatin1Char('\n')));
     box.exec();
+    offerProjectFrameRate(ctx, firstImport, r.importedIds, parent);
     return r.importedIds;
 }
 

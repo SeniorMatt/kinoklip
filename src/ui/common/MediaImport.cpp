@@ -9,10 +9,14 @@
 #include "pack/EmbeddedMedia.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaStore.h"
+#include "ui/dialogs/ProjectSettingsDialog.h"
 
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QPushButton>
+
+#include <algorithm>
 
 namespace kk {
 
@@ -23,6 +27,17 @@ QString tr(const char* text)
 }
 
 constexpr int kMaxListedWarnings = 12; // keep the dialog a sensible size
+
+std::function<bool(Rational, Rational)>& frameRatePromptHandler()
+{
+    static std::function<bool(Rational, Rational)> handler;
+    return handler;
+}
+
+QString rateText(Rational fps)
+{
+    return QString::number(fps.toDouble(), 'g', 5);
+}
 } // namespace
 
 QStringList mediaFileNamePatterns()
@@ -65,6 +80,7 @@ QStringList importMediaWithFeedback(
     if (ctx.mediaStore && ctx.mediaStore->storesMedia()
         && !ctx.mediaStore->storeMedia(toImport, parent))
         return {};
+    const bool firstImport = hasNoMediaYet(ctx);
     const ImportResult result = ctx.project->importMedia(toImport, binId);
     if (!result.warnings.isEmpty()) {
         QStringList shown = result.warnings.mid(0, kMaxListedWarnings);
@@ -88,6 +104,7 @@ QStringList importMediaWithFeedback(
         box.setInformativeText(result.notes.join(QLatin1Char('\n')));
         box.exec();
     }
+    offerProjectFrameRate(ctx, firstImport, result.importedIds, parent);
     return result.importedIds;
 }
 
@@ -143,6 +160,69 @@ QString mediaLocationText(const QString& path)
     if (pack::mayBeEmbeddedPath(path) && pack::splitEmbeddedPath(path, &container, &entry))
         return tr("Stored in the project file (%1)").arg(QFileInfo(container).fileName());
     return tr("Linked");
+}
+
+bool hasNoMediaYet(const AppContext& ctx)
+{
+    if (!ctx.project)
+        return false;
+    const auto& items = ctx.project->mediaPool()->state().items;
+    return std::none_of(items.cbegin(), items.cend(),
+        [](const MediaItem& m) { return !m.isTimeline() && !m.isSubtitle(); });
+}
+
+bool offerProjectFrameRate(
+    AppContext& ctx, bool firstImport, const QStringList& importedIds, QWidget* parent)
+{
+    if (!firstImport || !ctx.project)
+        return false;
+    const MediaPool* pool = ctx.project->mediaPool();
+    Rational clipRate {0, 1};
+    for (const QString& id : importedIds) {
+        const MediaItem* m = pool->item(id);
+        if (m && !m->isTimeline() && m->info.hasVideo && !m->info.isStillImage
+            && m->info.frameRate.isValid()) {
+            clipRate = m->info.frameRate;
+            break;
+        }
+    }
+    ProjectSettings settings = ctx.project->settings();
+    if (!clipRate.isValid() || clipRate == settings.fps
+        || !ProjectSettingsDialog::frameRates().contains(clipRate))
+        return false;
+    // Only while the rate can change: no timeline that follows the project has clips.
+    for (const quint64 uid : ctx.project->timelineUids()) {
+        const auto data = ctx.project->timelineData(uid);
+        if (data && data->useProjectSettings && data->duration() > 0)
+            return false;
+    }
+    bool change = false;
+    if (frameRatePromptHandler()) {
+        change = frameRatePromptHandler()(clipRate, settings.fps);
+    } else {
+        QMessageBox box(QMessageBox::Question, tr("Change Project Frame Rate"),
+            tr("The clips you added run at %1 fps, the project at %2 fps.")
+                .arg(rateText(clipRate), rateText(settings.fps)),
+            QMessageBox::NoButton, parent);
+        box.setInformativeText(tr("Change the project frame rate to %1 fps to match them? "
+                                  "Once a timeline has clips, its frame rate cannot change.")
+                                   .arg(rateText(clipRate)));
+        QPushButton* changeButton = box.addButton(tr("Change"), QMessageBox::AcceptRole);
+        box.addButton(tr("Don't Change"), QMessageBox::RejectRole);
+        box.setDefaultButton(changeButton);
+        box.exec();
+        change = box.clickedButton() == changeButton;
+    }
+    if (!change)
+        return false;
+    settings.fps = clipRate;
+    ctx.project->setSettings(settings);
+    return true;
+}
+
+void setFrameRatePromptHandlerForTests(std::function<bool(Rational, Rational)> handler)
+{
+    frameRatePromptHandler() = std::move(handler);
 }
 
 } // namespace kk
