@@ -76,6 +76,33 @@ private slots:
         QCOMPARE(cues[2].endUs, 3600'000'000LL);
     }
 
+    // Spec 28.18: subtitle files in UTF-16 (with or without BOM) and in Windows-1252 /
+    // Latin-1 keep their accented letters (they used to become U+FFFD or nothing parsed).
+    void parseOtherEncodings()
+    {
+        const QString text
+            = QStringLiteral("1\n00:00:01,000 --> 00:00:02,000\nCaf\u00e9 \u00e0 la cr\u00e8me\n");
+        const QString expected = QStringLiteral("Caf\u00e9 \u00e0 la cr\u00e8me");
+        QVector<QByteArray> files;
+        files.append(text.toLatin1()); // 8-bit, not UTF-8
+        QByteArray le("\xFF\xFE", 2);
+        for (QChar c : text)
+            le.append(char(c.unicode() & 0xff)).append(char(c.unicode() >> 8));
+        files.append(le); // UTF-16 LE with BOM
+        files.append(le.mid(2)); // without BOM
+        QByteArray be("\xFE\xFF", 2);
+        for (QChar c : text)
+            be.append(char(c.unicode() >> 8)).append(char(c.unicode() & 0xff));
+        files.append(be);
+        for (int i = 0; i < files.size(); ++i) {
+            QVector<SubtitleCue> cues;
+            QString error;
+            QVERIFY2(sub::parse(files[i], &cues, &error), qPrintable(QString::number(i) + error));
+            QCOMPARE(cues.size(), 1);
+            QCOMPARE(cues[0].text, expected);
+        }
+    }
+
     void parseWebVtt()
     {
         const QByteArray vtt = "WEBVTT - a title\n\n"
