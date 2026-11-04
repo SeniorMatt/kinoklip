@@ -1241,3 +1241,9 @@ Tests: `bh4` = `tests/app/test_bughunt4.cpp`.
   thumbnails under Shift+D and the timeline grade's input, gallery double-click wipe) and
   44b.28 (wheel drag sensitivity) and 44b.29 (page keys right after Shift+6); numbered 44b.19 -
   44b.27 on the branch, renumbered at the merge (guide3 took 44b.19 - 44b.20).
+- The bughunt6 branch (sixth bug hunt round: trimming, markers, the Compositing page) added
+  8.20 (trim tool , / . slip and slide), 8.21 (dynamic slip / slide of selected clips), 8.22
+  (Up / Down move the selected edit point), 12.16 (locked clips are not selectable), 13.18
+  (library double-click puts a transition on the selected edit), 18.17 (the marker button's
+  colour drop-down), 33.36 (the flag button) and 42b.31 (Compositing page keys right after
+  Shift+5).
