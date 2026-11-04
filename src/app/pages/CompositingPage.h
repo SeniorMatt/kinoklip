@@ -85,10 +85,12 @@ public:
 
 protected:
     void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
 
 private:
     QWidget* buildToolBar();
     void connectActions();
+    void setNodeCommandsEnabled(bool enabled);
     /// Opens the "Select Node" popup over the node editor.
     void showSelectNode();
 
