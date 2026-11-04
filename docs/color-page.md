@@ -137,12 +137,96 @@ pixel on the CPU (reference and CPU fallback).
   `ScopesWindow` (View > Video Scopes, Ctrl+Shift+W: two scopes in a floating window on any
   page).
 
-## Page (minimal, 44b)
-`src/app/pages/ColorPage` with `src/ui/color`: viewer + scopes on top; node list, Primaries
-(four wheels and the fields), the curve editor and a gallery strip below. Thin: everything goes
-through `ColorSession`. Keys (scope `widget:color_page`, claimed by the page through
-ShortcutOverride, so they never clash with the Edit page's): Alt+S, Alt+P, Alt+L, Ctrl+D,
-Shift+D, Ctrl+Alt+G; the Edit page's timeline commands are suspended while the page is shown.
+## Page (44b)
+`src/app/pages/ColorPage` with `src/ui/color`. Thin: everything goes through `ColorSession`.
+Owner request 2026-11-04 (second agent, branch colorui): the full Resolve-style page on the
+engine's API, replacing the minimal page (node list, curve picker, gallery strip).
+
+```
+| Gallery | viewer: Clip / Timeline, clip name, Highlight, Wipe, Bypass   | Nodes |
+|         | the picture + on-screen controls; transport, timecode         |       |
+|-----------------------------------------------------------------------------------|
+| clips strip: numbered thumbnails, timecode, track; the graded clip outlined     |
+| mini timeline (video tracks, playhead)                                          |
+|-----------------------------------------------------------------------------------|
+| Primaries | Curves | Qualifier | Windows | LUTs        Reset | Scopes | Key      |
+```
+
+- **Interface bar**: Gallery, Clips, Timeline (left), Nodes, Scopes (right); each hides its
+  panel (`PanelId::Gallery`, `Clips`, `ColorTimeline`, `Nodes`, `Scopes`). Layout, palette,
+  bars mode and panel visibility are saved per page (layout version 2).
+- **Viewer**: the program picture (graded); `ColorViewerOverlay` on top draws the window
+  controls, the highlight picture and the wipe. The transport buttons are the registry's
+  transport.* commands (they act on the program engine here).
+- **Node editor** (`ColorNodeEditor`): corrector tiles with their number ("01", the label if
+  set), markers (Q qualifier, W windows, LUT) and a thumbnail of the node's output; Parallel
+  ("P") and Layer ("L") mixers as small tiles with one port per input plus a free one; the
+  source and output ends left and right of the graph. Drag from an output (or the source) to
+  an input, a tile or the output end to connect; pick up a connected input and drop it on
+  another input to reconnect, into empty space to disconnect; drag the output end onto a node to
+  make it the output; drag a tile to move it (`GradeNode::pos`). Every gesture is one undo
+  step; middle-drag pans, the wheel zooms, a double-click on the background fits. Right-click:
+  add serial / serial before / parallel / layer, enable / disable, reset node, delete, reset
+  grade, fit.
+- **Primaries**: Lift / Gamma / Gain / Offset as wheels (relative puck drag, master strip,
+  Shift = fine, double-click resets the wheel or the strip) or as bars (Y R G B), the Y R G B
+  fields under each, Temp / Tint / Contrast / Pivot above and Mix / Sat / Hue / Lum Mix
+  below; drags of wheels, bars and fields are one undo step each.
+- **Curves**: Custom (Y / R / G / B; Link on: an edit of R, G or B sets all three, so the
+  colour channels move together while Y stays separate) and the five HSL curves; click adds,
+  drag moves, right-click or double-click removes; the palette's Reset clears the shown curve.
+- **Qualifier**: Pick / Pick + / Pick - eyedroppers (click or drag a rectangle over the viewer;
+  the colours come from the node's input picture through `grademath::rgbToHsl()`,
+  `ui/color/QualifierPick`), the Hue / Sat / Lum bars (drag the range or its ends) and fields,
+  Qualify / Invert / per-channel enables; Highlight (Shift+H) shows the node's key (qualifier
+  x windows x Mix) over a flat grey or as a black and white matte.
+- **Windows**: Circle / Linear / Polygon / Gradient buttons add windows to the current node
+  (several per node), the list (enable check boxes), Invert, Delete and the fields. In the
+  viewer (while the Windows palette is shown): drag inside to move, side handles for width /
+  height, the corner for both, the knob for rotation (Shift: 15 degree steps), the left diamond
+  for the outside softness; polygon points drag, a double-click on an edge inserts one, a
+  right-click deletes one (three stay).
+- **LUTs**: a browser of the .cube files in the LUT folders (the user's LUT folder in the
+  application data plus "Add Folder..."), double-click applies to the current node, "Load
+  File...", Remove, interpolation.
+- **Gallery**: Grab Still (title bar, Ctrl+Alt+G); double-click or middle-click applies a still
+  to the graded clip; its menu applies it to the clips selected in the strip, wipes, renames,
+  deletes. **Wipe** (Ctrl+W, the header's Wipe): the still left of a vertical line, drag the
+  line; the selected still, else the newest.
+- **Clips strip**: every video clip of the timeline in order (start, then track). Click grades a
+  clip (the playhead moves to its first frame when it is elsewhere; a lower-track clip is
+  pinned); Ctrl / Shift click select several; middle-click copies that clip's grade to the
+  selected clips (or the graded one); Ctrl+C / Ctrl+V copy the graded clip's grade and paste it
+  to the selected clips. The mini timeline below moves the playhead.
+- **Scopes / Key** (bottom right): the scope with its type menu; the Key tab shows the node's
+  key output gain (Mix), Invert and a small matte.
+- **Keys** (scope `widget:color_page`, claimed by the page through ShortcutOverride except while
+  a text field has focus): Alt+S, Shift+S, Alt+P, Alt+L, Delete / Backspace, Ctrl+D, Shift+D,
+  Shift+Home (reset node), Ctrl+Home (reset grade), Ctrl+Alt+G, Ctrl+C, Ctrl+V, Shift+H, Ctrl+W.
+  The Edit page's timeline commands are suspended while the page is shown.
+
+Decisions (colorui):
+- **Own node editor**, not the Compositing page's: a grade is a different graph (numbered
+  correctors with one input, mixers with an input list, no named ports, notes or node
+  library) and that editor is built on CompSession / CompAdapter; sharing it would mean an
+  abstraction layer over both models inside a page another agent is changing. The conventions
+  are the same (custom painting from the value, middle-drag pan, wheel zoom, cubic links).
+- **Pictures beside the viewer** come from `ColorFrameSource`: the ungraded program frame at the
+  playhead (960 px wide, `PlaybackEngine::renderImage(..., withGrades = false)`), graded on the
+  CPU with `render::applyGrade()` for node thumbnails, the highlight and the eyedropper. The
+  frame is the program composite, so these are exact for a clip that covers the frame
+  untransformed; the window overlay itself follows the clip's transform
+  (`render::clipTransform()`).
+- **Clip thumbnails** are the graded program frame at each clip's middle frame (112 x 63), so a
+  clip covered by a higher track shows the higher one there; they refresh when the clip, its
+  grade or the timeline grade change.
+- **Default node selection**: when the grade's output is a mixer the page starts on the last
+  corrector (the palettes edit correctors).
+- **Key / Sizing**: only a small Key tab (gain, invert, matte) beside the scopes; Sizing is
+  the Edit page's transform for now.
+- **Keys** not confirmed for Resolve's Windows defaults are marked "unsure" in the keymap
+  (Shift+Home, Ctrl+Home, Ctrl+W); Shift+S (serial before) shares its key with the Edit page's
+  audio scrubbing toggle, which the Color page claims while it has focus.
 
 ## API for the full page (second agent)
 - Model and maths: `core/Grade.h`, `core/GradeMath.h` (evaluateCurve / addCurvePoint for curve
@@ -154,12 +238,15 @@ Shift+D, Ctrl+Alt+G; the Edit page's timeline commands are suspended while the p
   `gradeops::connect / disconnect / removeNode` + `commit()`; GradeNode::pos is stored.
 - Rendering of a node's own output (for a node editor thumbnail): prepare a copy of the grade
   with `output` set to that node and render the clip (or use `render::applyGrade()` on a still).
-- Widgets to replace or extend: `ColorWheel`, `PrimariesPanel`, `GradeCurveEditor`, `NodeList`,
-  `ScopesPanel`; the page layout in `ColorPage`.
+- Page widgets (colorui): `ColorNodeEditor`, `ColorWheel` / `PrimaryBars` / `PrimariesPanel`,
+  `GradeCurveEditor` / `ColorCurvesPanel`, `QualifierPanel`, `WindowsPanel`, `LutBrowser`,
+  `KeyPanel`, `ColorGallery`, `ColorClipStrip`, `ColorMiniTimeline`, `ColorViewerOverlay`,
+  `ColorFrameSource`; `ScopesPanel` from src/ui/scopes.
 
 ## Left for later
-Node editor and the full Resolve layout (thumbnail timeline, palettes, keyframe strip),
-qualifier picker in the viewer and highlight view, window overlays and tracking, LUT browser,
-Midtone Detail, soft clip, HDR / log wheels, key mixer / splitter nodes, node presets and
-versions, ColorTrace / grade groups, relative LUT paths and packing LUTs into single-file
-projects, split-screen and wipe against stills.
+Tracking of windows, polygon shape keyframes and Bezier windows, Midtone Detail, soft clip,
+HDR / log wheels, key mixer / splitter / outside nodes, node presets and versions, ColorTrace
+and grade groups, keyframe strip on the Color page, Sizing palette, node labels typed in the
+editor, the qualifier's 3D / RGB / Luma modes, the lightbox, split-screen modes other than the
+split wipe, relative LUT paths and packing LUTs into single-file projects, thumbnails of the
+clip itself when a higher track covers it.

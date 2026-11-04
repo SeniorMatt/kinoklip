@@ -71,7 +71,11 @@ constexpr PanelToggle kPanelToggles[] = {
     {"view.toggle_effects", PanelId::Effects, true},
     {"view.toggle_edit_index", PanelId::EditIndex, true},
     {"view.toggle_keyframes", PanelId::Keyframes, true}, // Resolve 20: top left
-    {"view.toggle_nodes", PanelId::Nodes, false}, // Compositing page node editor
+    {"view.toggle_gallery", PanelId::Gallery, true}, // Color page
+    {"view.toggle_clips", PanelId::Clips, true}, // Color page
+    {"view.toggle_color_timeline", PanelId::ColorTimeline, true}, // Color page
+    {"view.toggle_nodes", PanelId::Nodes, false}, // Compositing and Color page node editors
+    {"view.toggle_scopes", PanelId::Scopes, false}, // Color page
     {"view.toggle_mixer", PanelId::Mixer, false},
     {"view.toggle_metadata", PanelId::Metadata, false},
     {"view.toggle_inspector", PanelId::Inspector, false},
