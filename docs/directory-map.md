@@ -16,7 +16,7 @@
 | `src/ui/timeline/` | timeline panel, tabs, stacked timelines, level lines |
 | `src/ui/viewer/` | source/timeline viewers (OpenGL surface + raster fallback) |
 | `src/ui/inspector/` | clip inspector |
-| `src/ui/effects/` | effects library |
+| `src/ui/effects/` | effects library, its apply actions and Live Preview (hovered entry shown in the timeline viewer) |
 | `src/ui/editindex/` | Edit Index panel: events and markers of the timeline |
 | `src/ui/cut/` | Cut page widgets: viewer modes and source tape, overview timeline, smart edit tool bar, fast review |
 | `src/ui/audio/` | Audio page widgets: mixer strips, faders, meters, loudness panel, EQ and dynamics windows |

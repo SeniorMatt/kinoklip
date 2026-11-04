@@ -54,6 +54,11 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
   after one was opened (media pool, match frame); Q swaps; activating the timeline viewer
   shows the timeline (spec 24.4 - 24.6).
 
+* **Temporary picture** (Timeline viewers): `showTemporaryFrame()` draws a frame rendered from
+  a private timeline copy (the Effects library's Live Preview, spec 47) instead of the
+  engine's; the engine's frames are held back until `clearTemporaryFrame()`, which draws the
+  engine's current frame again.
+
 * **On-screen mask controls** (Timeline viewers only): `MaskOverlay` sits on the picture
   surface and is shown while a mask of the selected clip is active (Inspector Masks section)
   or the Mask on-screen controls are on, with the playhead inside that clip. It takes the mouse

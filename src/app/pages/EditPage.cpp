@@ -21,6 +21,7 @@
 #include "ui/common/PanelSplitter.h"
 #include "ui/editindex/EditIndexPanel.h"
 #include "ui/effects/EffectsLibraryPanel.h"
+#include "ui/effects/EffectsLivePreview.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
@@ -101,6 +102,12 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
             return false;
         return c->addTransition(id);
     });
+    // Live Preview (spec 47): an entry under the pointer shows applied in the timeline viewer.
+    auto* livePreview = new EffectsLivePreview(ctx, m_timelineViewer, this);
+    connect(m_effects, &EffectsLibraryPanel::livePreviewRequested, livePreview,
+        &EffectsLivePreview::hover);
+    connect(m_effects, &EffectsLibraryPanel::livePreviewEnded, livePreview,
+        &EffectsLivePreview::stop);
     // The Edit page's Mixer panel: the Audio page's mixer strips (own controller and meter
     // ballistics; automation Write passes run only from the Audio page).
     auto* mixerController = new MixerController(ctx, this);
