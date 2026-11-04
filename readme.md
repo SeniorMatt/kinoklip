@@ -44,6 +44,7 @@ All releases are alpha or beta pre-releases for now: expect bugs and keep backup
 - [Keyboard presets](docs/keymaps/readme.md): the keys of Vegas Pro, Premiere Pro, Final Cut Pro, Avid Media Composer, Kdenlive and Shotcut
 - [Release notes](docs/releases/): changes in each release
 - [Linux packaging](packaging/linux/readme.md): building the AppImage
+- [Privacy](docs/privacy.md): what Kinoklip keeps on your computer, and what a bug report can share
 - [Clean-room policy](docs/clean-room.md): what may and may not be used to build Kinoklip
 - [Attribution](attribution.md): every asset with its author and licence
 
@@ -67,6 +68,9 @@ include GPL FFmpeg components; third-party notices are inside the bundle under
   documentation text, and Resolve is never installed, run or decompiled to build it. The rules and
   their limits are in [docs/clean-room.md](docs/clean-room.md); every asset and its licence is in
   [attribution.md](attribution.md).
+- **Privacy.** Kinoklip collects and sends nothing about you: no telemetry, analytics or automatic
+  crash reports. A bug report shares system info only when you choose to, see
+  [docs/privacy.md](docs/privacy.md).
 - **No warranty.** Kinoklip is provided "as is", without any warranty, as stated in the GPL
   (sections 15 and 16 of [license.md](license.md)). It is beta software: keep backups.
 - **Codecs and patents.** The AppImage includes FFmpeg with open-source codec libraries, so common

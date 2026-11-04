@@ -406,6 +406,7 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 | `Compositor.*` | public facade, request queue, render thread, backend selection |
 | `RenderBackend.h` | internal backend interface (GPU / CPU) |
 | `GlRenderer.*` | GPU backend: track walk, decode stage, clip drawing (direct and layer paths), title cache |
+| `GlInfo.*` | the OpenGL vendor / renderer / version strings of the context `GlRenderer` made (`knownGlDriverInfo()`), for Help > Report a Bug; never creates a context |
 | `GlKit.*` | GL toolkit: common vertex shader, `GlProgram`, pooled `RenderTarget`s, blit/fill, separable Gaussian and box blur (downscaled for large radii), separable erode / dilate (`morphology()`) |
 | `GlVideo.*` | persistent plane textures (R8/RG8/R16/RG16/RGBA8) + the YUV → RGB shader (crop, rotation, edge antialiasing) |
 | `GlEffects.*` | the eight v0.1 effects and **the registration point** `builtinGlEffects()` (joins the tables of the files below) |

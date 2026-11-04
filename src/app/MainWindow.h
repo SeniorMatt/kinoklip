@@ -5,6 +5,7 @@
 #include "ui/common/Page.h"
 
 #include <QMainWindow>
+#include <QPointer>
 #include <QVector>
 
 class QAction;
@@ -15,6 +16,7 @@ namespace kk {
 
 struct AppContext;
 class AutosaveController;
+class BugReportDialog;
 class DeliverPage;
 class AudioPage;
 class ColorPage;
@@ -73,6 +75,9 @@ public:
     [[nodiscard]] ProjectController* projectController() const { return m_projectController; }
     /// The in-app help (F1, Help > Guide).
     [[nodiscard]] HelpController* helpController() const { return m_help; }
+    /// Help > Report a Bug or Inconsistency…: shows (or raises) the report dialog, with the
+    /// system information read now (bugreport::collect(), in memory only).
+    BugReportDialog* showBugReportDialog();
     /// The application objects this window was built with.
     [[nodiscard]] AppContext& context() const { return m_ctx; }
 
@@ -117,6 +122,7 @@ private:
     CompositingPage* m_compositingPage = nullptr;
     ColorPage* m_colorPage = nullptr;
     ScopesWindow* m_scopesWindow = nullptr;
+    QPointer<BugReportDialog> m_bugReport;
     DeliverPage* m_deliverPage = nullptr;
     ProjectController* m_projectController = nullptr;
     AutosaveController* m_autosave = nullptr;
