@@ -1282,3 +1282,11 @@ Tests: `bh4` = `tests/app/test_bughunt4.cpp`.
   28.15 (a caption opens the Captions tab), 28.16 (Add Subtitle on the right-clicked track),
   28.17 (captions are named after their text), 28.18 (UTF-16 and Windows-1252 subtitle
   files) and 42b.32 (Edit > Compositing Page greyed out away from the page).
+- The bughunt9 branch (ninth bug hunt round: a beginner's whole project from the Project
+  Manager to the render, and round 8 leftovers) added 24.22 (saving right after typing a title
+  stays clean), 25.18 (the first import asks to change the project frame rate), 28.19 (caption
+  text is per caption), 28.20 (empty cues skipped and counted), 33.37 (one bin across pages,
+  File > Import into the bin shown), 38.31 (no double-encoded ellipses), 43.11 (the guide
+  describes the Compositing and Color pages), 44b.30 (strip selection visible, right-click
+  keeps it), 45.2 (no subtitle export for audio-only formats) and 45.3 (Deliver labels follow
+  the timeline format).
