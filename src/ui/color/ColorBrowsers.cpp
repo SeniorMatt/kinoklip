@@ -334,7 +334,7 @@ void ColorClipStrip::rebuild()
         it->setData(kClipRole, c.id);
         it->setData(kNumberRole, QString::number(i + 1).rightJustified(2, QLatin1Char('0')));
         it->setData(kTrackRole, QStringLiteral("V%1").arg(loc->track.index + 1));
-        it->setData(kStartRole, timecode::format(c.start, data.fps));
+        it->setData(kStartRole, timecode::formatRecord(c.start, data));
         it->setData(kGradedRole, !c.grade.isEmpty());
         it->setToolTip(c.name.isEmpty() ? tr("Clip %1").arg(i + 1) : c.name);
         if (m_frames)

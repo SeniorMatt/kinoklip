@@ -4,8 +4,8 @@ What beginners ask most when they start editing in a Resolve-style editor, ranke
 Kinoklip can do it today. This list is the plan for the guide's task articles; a topic gets an
 article when it is written (linked below).
 
-How the list was made (November 2026): public beginner questions about Resolve's Edit, Cut and
-Deliver pages, from the Blackmagic forum's beginner threads and user-written FAQ, the
+How the list was made (November 2026): public beginner questions about Resolve's Edit, Cut, Color
+and Deliver pages (the Color topics 19 - 21 were added with the Color page), from the Blackmagic forum's beginner threads and user-written FAQ, the
 r/davinciresolve wiki and "FAQ Friday" threads, and the many "beginner questions" tutorial
 pages that answer them. Only the topics were taken; no text or pictures (see
 [clean-room.md](../clean-room.md)). Ranks are a judgement of how often each question comes up,
@@ -31,11 +31,14 @@ not a count.
 | 16 | Animate with keyframes (a slow zoom, a moving title) | The step after basic edits. | [Animate with keyframes](keyframe-animation.md) |
 | 17 | Make quiet and loud clips the same volume | Normalize Audio Levels and the clip volume. | [Make clip volumes even](even-out-clip-volumes.md) |
 | 18 | Put text or a logo over a clip with nodes | The Compositing page is new in 1.0.0 Beta; people coming from Resolve look for its node compositor. | [Put text over a clip on the Compositing page](compositing-page.md) |
+| 19 | Colour correct a clip (too dark, too blue, white balance) | The Color page is new in 1.1.0 Beta and is why many people pick a Resolve-style editor; the first questions are the wheels, white balance, reading the scopes and copying a grade to other clips. | [Colour correct a clip](colour-correct-a-clip.md) |
+| 20 | Change the colour of one object, or make one colour pop | Qualifiers, power windows and serial nodes are the next step after a basic correction. | [Change the colour of one object](change-the-colour-of-one-object.md) |
+| 21 | Use a LUT (log footage, a film look) | Drone, phone and camera log recordings look grey until a LUT is applied; creative LUT packs are popular. | [Use a LUT](use-a-lut.md) |
 
 Topics that come up often but that Kinoklip cannot do yet (no article until it can):
 
 - needs: video stabilisation (no stabiliser effect yet).
-- needs: motion tracking (to make a blur or a title follow a moving object).
+- needs: motion tracking (to make a blur, a title or a Color page window follow a moving object).
 - needs: automatic subtitles from speech (speech-to-text).
 - needs: noise reduction for audio (voice clean-up); the Noise Reduction in the effects library is for video.
 - needs: Difference Key against a clean plate (spec 40.10), for screens that are not green or blue.

@@ -6,6 +6,7 @@
 #include "app/ProjectController.h"
 #include "app/ScreenshotAudio.h"
 #include "app/ScreenshotGeometry.h"
+#include "app/pages/ColorPage.h"
 #include "app/pages/CompositingPage.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
@@ -22,6 +23,8 @@
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
 #include "projects/ProjectLibrary.h"
+#include "ui/color/ColorPalettes.h"
+#include "ui/color/ColorSession.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/comp/CompSession.h"
@@ -41,6 +44,7 @@
 #include "ui/mediapool/MulticamSync.h"
 #include "ui/projects/NewProjectDialog.h"
 #include "ui/projects/ProjectManagerWindow.h"
+#include "ui/scopes/ScopeView.h"
 #include "ui/timeline/ChangeSpeedDialog.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
@@ -943,6 +947,61 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
             std::fprintf(stderr, "%s\n", qPrintable(why));
             return 2;
         }
+    } else if (base == QLatin1String("color")) {
+        // Color page (user guide): "color:<palette>" shows primaries | curves | qualifier |
+        // windows | luts, and "color:key" the Key tab beside it. KK_SCREENSHOT_COLOR_NODE=<n>
+        // selects node n (its number in the node editor), KK_SCREENSHOT_COLOR_HIGHLIGHT=1
+        // turns Highlight on, KK_SCREENSHOT_COLOR_PICK=1 arms the qualifier's Pick,
+        // KK_SCREENSHOT_SCOPE=<waveform|parade|...> picks the scope, KK_SCREENSHOT_COLOR_SELECT
+        // =<n,m> selects those clips of the clips strip (1-based) and grades the first,
+        // KK_SCREENSHOT_COLOR_GRAB=1 grabs a still into the gallery.
+        ColorPage* color = window.colorPage();
+        if (!color || !window.setCurrentPage(QStringLiteral("color"))) {
+            std::fprintf(stderr, "color: no Color page\n");
+            return 2;
+        }
+        const QStringList palettes {QStringLiteral("primaries"), QStringLiteral("curves"),
+            QStringLiteral("qualifier"), QStringLiteral("windows"), QStringLiteral("luts")};
+        if (const int p = int(palettes.indexOf(section)); p >= 0)
+            color->showPalette(ColorPage::Palette(p));
+        if (section == QLatin1String("key")) {
+            if (auto* tab = color->findChild<QAbstractButton*>(QStringLiteral("ColorRightTab_1")))
+                tab->click();
+        }
+        const QString scope = qEnvironmentVariable("KK_SCREENSHOT_SCOPE");
+        if (!scope.isEmpty())
+            color->scopes()->setType(scopes::scopeTypeFromId(scope));
+        QTimer::singleShot(0, color, [color] {
+            ColorSession* session = color->session();
+            const QStringList rows = qEnvironmentVariable("KK_SCREENSHOT_COLOR_SELECT")
+                                         .split(QLatin1Char(','), Qt::SkipEmptyParts);
+            QVector<quint64> clips;
+            const QVector<quint64> strip = session->stripClips();
+            for (const QString& r : rows) {
+                const int row = r.toInt() - 1;
+                if (row >= 0 && row < strip.size())
+                    clips.append(strip[row]);
+            }
+            if (!clips.isEmpty()) {
+                session->gradeClip(clips.front());
+                session->setSelectedClips(clips);
+            }
+            const int node = qEnvironmentVariableIntValue("KK_SCREENSHOT_COLOR_NODE") - 1;
+            if (node >= 0 && node < int(session->grade().nodes.size()))
+                session->selectNode(session->grade().nodes[node].id);
+            if (qEnvironmentVariableIntValue("KK_SCREENSHOT_COLOR_PICK") == 1)
+                color->qualifier()->setPickMode(qualifierpick::Mode::Pick);
+            if (qEnvironmentVariableIntValue("KK_SCREENSHOT_COLOR_HIGHLIGHT") == 1)
+                color->setHighlight(true);
+        });
+        // KK_SCREENSHOT_COLOR_GRAB=1: Grab Still once the picture is there (the gallery shot).
+        if (qEnvironmentVariableIntValue("KK_SCREENSHOT_COLOR_GRAB") == 1) {
+            QTimer::singleShot(1500, color, [&ctx] {
+                if (QAction* grab = ctx.actions->action(QStringLiteral("color.grab_still")))
+                    grab->trigger();
+            });
+        }
+        delayMs = std::max(delayMs, kCompositingSettleDelayMs);
     } else if (target == QLatin1String("import-dialog")) {
         return grabImportDialog(window, pngPath);
     } else if (!isPage) {
@@ -996,7 +1055,9 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         } else {
             std::fprintf(stderr, "cannot write %s\n", qPrintable(pngPath));
         }
-        QApplication::quit();
+        // exit(), not quit(): quit() first closes the window, which would ask to save a project
+        // the shot changed (a grabbed still) and wait for an answer forever.
+        QCoreApplication::exit(0);
     };
     QTimer poll;
     poll.setInterval(kFramePollMs);

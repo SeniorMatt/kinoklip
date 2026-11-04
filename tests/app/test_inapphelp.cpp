@@ -3,12 +3,17 @@
 // entries and the Help > Guide dialog. The URL opener is replaced: no browser opens.
 #include "app/MainWindow.h"
 #include "app/Theme.h"
+#include "app/pages/ColorPage.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/EffectRegistry.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/VideoEffectKeys.h"
+#include "ui/color/ColorBrowsers.h"
+#include "ui/color/ColorNodeEditor.h"
+#include "ui/color/ColorPalettes.h"
+#include "ui/color/ColorWidgets.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
@@ -21,6 +26,7 @@
 #include "ui/help/HelpController.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/inspector/ParamGroupBox.h"
+#include "ui/scopes/ScopeView.h"
 #include "ui/timeline/TimelinePanel.h"
 
 #include <QAction>
@@ -316,7 +322,11 @@ private slots:
             QStringLiteral("edit_index"), QStringLiteral("inspector"), QStringLiteral("keyframes"),
             QStringLiteral("mixer"), QStringLiteral("metadata"), QStringLiteral("timeline"),
             QStringLiteral("viewer"), QStringLiteral("render_settings"),
-            QStringLiteral("render_queue")};
+            QStringLiteral("render_queue"), QStringLiteral("color_gallery"),
+            QStringLiteral("color_nodes"), QStringLiteral("color_scopes"),
+            QStringLiteral("color_primaries"), QStringLiteral("color_curves"),
+            QStringLiteral("color_qualifier"), QStringLiteral("color_windows"),
+            QStringLiteral("color_luts"), QStringLiteral("color_clips")};
         int checked = 0;
         for (const GuideArticle& a : guide::index().articles()) {
             for (const QString& context : a.contexts) {
@@ -400,6 +410,35 @@ private slots:
         QCoreApplication::processEvents();
         f.action("help.guide_context")->trigger();
         QCOMPARE(f.opened.last(), articleUrl("readme.md"));
+    }
+
+    /// The Color page's panels and palettes lead to the guide's three Color page articles.
+    void f1OnTheColorPageOpensTheColorArticles()
+    {
+        guide::reloadBundledIndex();
+        const GuideIndex bundled = guide::index();
+        Fixture f(bundled);
+        f.showActive();
+        QVERIFY(f.window->setCurrentPage(QStringLiteral("color")));
+        QCoreApplication::processEvents();
+        ColorPage* page = f.window->colorPage();
+        HelpController* help = f.window->helpController();
+        auto fileFor
+            = [help](QWidget* w) { return help->urlFor(help->contexts(nullptr, w)).fileName(); };
+        const QString basics = QStringLiteral("colour-correct-a-clip.md");
+        const QString object = QStringLiteral("change-the-colour-of-one-object.md");
+        QCOMPARE(fileFor(page->primaries()), basics);
+        QCOMPARE(fileFor(page->curves()), basics);
+        QCOMPARE(fileFor(page->gallery()), basics);
+        QCOMPARE(fileFor(page->clipStrip()), basics);
+        QCOMPARE(fileFor(page->scopes()), basics);
+        QCOMPARE(fileFor(page->qualifier()), object);
+        QCOMPARE(fileFor(page->windows()), object);
+        QCOMPARE(fileFor(page->nodeEditor()), object);
+        QCOMPARE(fileFor(page->luts()), QStringLiteral("use-a-lut.md"));
+        // Elsewhere on the page: the basics.
+        f.action("help.guide_context")->trigger();
+        QCOMPARE(f.opened.last().fileName(), basics);
     }
 
     void f1WithABrokenIndexOpensTheBuiltInStartPage()
