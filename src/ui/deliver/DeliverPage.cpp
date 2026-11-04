@@ -270,7 +270,10 @@ void DeliverPage::followMarks()
     if (marks == m_seenMarks)
         return;
     m_seenMarks = marks;
-    const bool hasRange = data.markIn >= 0 && data.markOut > data.markIn;
+    // One mark is a range too (as in Resolve): Out alone runs from the start, In alone to the
+    // end (ExportSettings::frameRange keeps the edge of an unset mark). Spec 45.4.
+    const bool hasRange = (data.markIn >= 0 || data.markOut >= 0)
+        && (data.markIn < 0 || data.markOut < 0 || data.markOut > data.markIn);
     ExportSettings s = m_settingsPanel->settings();
     const RangeMode wanted = hasRange ? RangeMode::InOut : RangeMode::Entire;
     if (s.range == wanted)
