@@ -731,11 +731,18 @@ public:
         button->setEnabled(customize != nullptr);
         if (customize) {
             QPointer<QAction> action(customize);
-            const QList<QKeySequence> keys = customize->shortcuts();
-            if (!keys.isEmpty()) {
-                button->setToolTip(tr("Opens the keyboard shortcut editor (%1)")
-                                       .arg(keys.first().toString(QKeySequence::NativeText)));
-            }
+            // The key named in the tooltip follows the action (it can be rebound in the
+            // editor this button opens).
+            auto updateTip = [button, action] {
+                const QList<QKeySequence> keys
+                    = action ? action->shortcuts() : QList<QKeySequence> {};
+                button->setToolTip(keys.isEmpty()
+                        ? tr("Opens the keyboard shortcut editor")
+                        : tr("Opens the keyboard shortcut editor (%1)")
+                              .arg(keys.first().toString(QKeySequence::NativeText)));
+            };
+            updateTip();
+            connect(customize, &QAction::changed, button, updateTip);
             connect(button, &QPushButton::clicked, this, [action] {
                 if (action)
                     action->trigger();

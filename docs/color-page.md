@@ -159,7 +159,8 @@ engine's API, replacing the minimal page (node list, curve picker, gallery strip
   controls, the highlight picture and the wipe. The transport buttons are the registry's
   transport.* commands (they act on the program engine here).
 - **Node editor** (`ColorNodeEditor`): corrector tiles with their number ("01", the label if
-  set), markers (Q qualifier, W windows, LUT) and a thumbnail of the node's output; Parallel
+  set; only correctors are numbered, mixers are not, as in Resolve; an ungraded clip shows a
+  node 01 that the first edit creates), markers (Q qualifier, W windows, LUT) and a thumbnail of the node's output; Parallel
   ("P") and Layer ("L") mixers as small tiles with one port per input plus a free one; the
   source and output ends left and right of the graph. Drag from an output (or the source) to
   an input, a tile or the output end to connect; pick up a connected input and drop it on
@@ -189,9 +190,9 @@ engine's API, replacing the minimal page (node list, curve picker, gallery strip
 - **LUTs**: a browser of the .cube files in the LUT folders (the user's LUT folder in the
   application data plus "Add Folder..."), double-click applies to the current node, "Load
   File...", Remove, interpolation.
-- **Gallery**: Grab Still (title bar, Ctrl+Alt+G); double-click or middle-click applies a still
-  to the graded clip; its menu applies it to the clips selected in the strip, wipes, renames,
-  deletes. **Wipe** (Ctrl+W, the header's Wipe): the still left of a vertical line, drag the
+- **Gallery**: Grab Still (title bar, Ctrl+Alt+G); middle-click applies a still to the graded
+  clip, a double-click wipes the viewer with it (bughunt5, as in Resolve); its menu applies it
+  to the clips selected in the strip, wipes, renames, deletes. **Wipe** (Ctrl+W, the header's Wipe): the still left of a vertical line, drag the
   line; the selected still, else the newest.
 - **Clips strip**: every video clip of the timeline in order (start, then track). Click grades a
   clip (the playhead moves to its first frame when it is elsewhere; a lower-track clip is
@@ -222,6 +223,12 @@ Decisions (colorui):
   grade or the timeline grade change.
 - **Default node selection**: when the grade's output is a mixer the page starts on the last
   corrector (the palettes edit correctors).
+- **Keyframes** (bughunt5): Color > Add / Remove Keyframe keys every value of the current node
+  and its windows at the playhead (a Resolve corrector keyframe); edits elsewhere then add keys.
+  A keyframe strip on the page is still later.
+- **Input of the timeline grade** (bughunt5): the frame source renders the clips graded and the
+  timeline grade off (`PlaybackEngine::ImageGrades::ClipsOnly`); clip thumbnails are always
+  graded (`All`), also under Shift+D.
 - **Key / Sizing**: only a small Key tab (gain, invert, matte) beside the scopes; Sizing is
   the Edit page's transform for now.
 - **Keys** not confirmed for Resolve's Windows defaults are marked "unsure" in the keymap

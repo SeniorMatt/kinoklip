@@ -35,13 +35,16 @@ struct ResolutionPreset
     int height;
 };
 
+// Resolve's list (landscape by size, then vertical and square), then Custom.
 constexpr ResolutionPreset kPresets[] = {
-    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "UHD 3840 x 2160"), 3840, 2160},
-    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "QHD 2560 x 1440"), 2560, 1440},
-    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "HD 1920 x 1080"), 1920, 1080},
-    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "HD 1280 x 720"), 1280, 720},
-    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "Vertical 1080 x 1920"), 1080, 1920},
-    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "Square 1080 x 1080"), 1080, 1080},
+    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "1280 x 720 HD"), 1280, 720},
+    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "1920 x 1080 HD"), 1920, 1080},
+    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "2560 x 1440 QHD"), 2560, 1440},
+    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "3840 x 2160 Ultra HD"), 3840, 2160},
+    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "4096 x 2160 4K DCI"), 4096, 2160},
+    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "1080 x 1920 Vertical HD"), 1080, 1920},
+    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "2160 x 3840 Vertical Ultra HD"), 2160, 3840},
+    {QT_TRANSLATE_NOOP("kk::ProjectSettingsDialog", "1080 x 1080 Square"), 1080, 1080},
 };
 constexpr int kCustomPreset = int(std::size(kPresets));
 constexpr int kMinDimension = 16;
@@ -156,7 +159,6 @@ ProjectSettingsDialog::ProjectSettingsDialog(Project* project, QWidget* parent)
     layout->addLayout(body, 1);
     layout->addWidget(buttons);
 
-    connect(m_preset, &QComboBox::currentIndexChanged, this, &ProjectSettingsDialog::presetChanged);
     connect(m_fps, &QComboBox::currentIndexChanged, this, &ProjectSettingsDialog::updateWarning);
     connect(m_fps, &QComboBox::currentIndexChanged, this,
         [this] { m_playbackFps->setItemText(0, m_fps->currentText()); });
@@ -209,9 +211,6 @@ QWidget* ProjectSettingsDialog::buildMaster()
     auto* form = makeForm();
     m_preset = new QComboBox;
     m_preset->setObjectName(QStringLiteral("TimelineResolution"));
-    for (const ResolutionPreset& preset : kPresets)
-        m_preset->addItem(tr(preset.label));
-    m_preset->addItem(tr("Custom"));
     form->addRow(tr("Timeline resolution"), m_preset);
 
     m_width = new QSpinBox;
@@ -230,6 +229,7 @@ QWidget* ProjectSettingsDialog::buildMaster()
     size->addWidget(m_height);
     size->addStretch(1);
     form->addRow(QString(), size);
+    bindResolutionPresets(m_preset, m_width, m_height);
     form->addRow(tr("Pixel aspect ratio"),
         fixedCombo(tr("Square"),
             tr("Kinoklip works with square pixels; anamorphic pixel "
@@ -454,15 +454,9 @@ ProjectSettings ProjectSettingsDialog::settings() const
 void ProjectSettingsDialog::setSettings(const ProjectSettings& settings)
 {
     m_name->setText(settings.name);
-    int preset = kCustomPreset;
-    for (int i = 0; i < kCustomPreset; ++i) {
-        if (kPresets[i].width == settings.width && kPresets[i].height == settings.height)
-            preset = i;
-    }
     m_width->setValue(settings.width);
     m_height->setValue(settings.height);
-    m_preset->setCurrentIndex(preset);
-    presetChanged(preset);
+    selectResolutionPreset(m_preset, settings.width, settings.height);
     int fpsIndex = m_fps->findData(QPoint(settings.fps.num, settings.fps.den));
     if (fpsIndex < 0) {
         // A rate from an imported project that is not in the list: show it anyway.
@@ -478,15 +472,38 @@ void ProjectSettingsDialog::setSettings(const ProjectSettings& settings)
     updateWarning();
 }
 
-void ProjectSettingsDialog::presetChanged(int index)
+void ProjectSettingsDialog::bindResolutionPresets(
+    QComboBox* presets, QSpinBox* width, QSpinBox* height)
 {
-    const bool custom = index == kCustomPreset;
-    m_width->setEnabled(custom);
-    m_height->setEnabled(custom);
-    if (!custom && index >= 0) {
-        m_width->setValue(kPresets[index].width);
-        m_height->setValue(kPresets[index].height);
+    {
+        const QSignalBlocker block(presets);
+        presets->clear();
+        for (const ResolutionPreset& preset : kPresets)
+            presets->addItem(tr(preset.label), QSize(preset.width, preset.height));
+        presets->addItem(tr("Custom"));
     }
+    auto apply = [width, height](int index) {
+        const bool custom = index < 0 || index >= kCustomPreset;
+        width->setEnabled(custom);
+        height->setEnabled(custom);
+        if (!custom) {
+            width->setValue(kPresets[index].width);
+            height->setValue(kPresets[index].height);
+        }
+    };
+    QObject::connect(presets, &QComboBox::currentIndexChanged, presets, apply);
+    selectResolutionPreset(presets, width->value(), height->value());
+    apply(presets->currentIndex());
+}
+
+void ProjectSettingsDialog::selectResolutionPreset(QComboBox* presets, int width, int height)
+{
+    int index = kCustomPreset;
+    for (int i = 0; i < kCustomPreset; ++i) {
+        if (kPresets[i].width == width && kPresets[i].height == height)
+            index = i;
+    }
+    presets->setCurrentIndex(index); // the spin boxes' lock follows the index
 }
 
 void ProjectSettingsDialog::updateWarning()

@@ -70,12 +70,13 @@ public:
     /// Replaces the grade (undo label @p label). False when nothing is open or the edit is
     /// refused (locked track).
     bool commit(const ClipGrade& grade, const QString& label);
-    /// Alt+S / Alt+P / Alt+L: a corrector after / parallel to / layered over the selected node
-    /// (an ungraded clip gets its first node). The new node becomes selected. Returns its id.
+    /// Alt+S / Alt+P / Alt+L: a corrector after / parallel to / layered over the selected node.
+    /// An ungraded clip shows node 01 as Resolve does (the node editor draws it): it gets that
+    /// node and the new one after / beside it. The new node becomes selected. Returns its id.
     quint64 addSerialNode();
     quint64 addParallelNode();
     quint64 addLayerNode();
-    /// Shift+S: a corrector before the selected node (the first node of an ungraded clip).
+    /// Shift+S: a corrector before the selected node (before node 01 of an ungraded clip).
     quint64 addSerialNodeBefore();
     /// Node editor: connects node @p from (0 = the source picture) to input @p inputIndex of
     /// @p to (0 = the grade output); see gradeops::connect(). One undo step.
@@ -108,6 +109,15 @@ public:
     bool setQualifier(quint64 nodeId, const GradeQualifier& qualifier, const QString& label);
     /// Sets the LUT of node @p nodeId (0: selected; empty path removes it).
     bool setLut(quint64 nodeId, const QString& path);
+    /// Color > Add / Remove Keyframe: keys every parameter of node @p nodeId (0: selected; an
+    /// ungraded clip gets node 01) and of its windows at the current frame with its value
+    /// there, as a Resolve corrector keyframe does; later edits at other frames then add keys
+    /// (AnimatedValue::setValue()). When the node already has a key at this frame its keys at
+    /// this frame are removed instead. One undo step.
+    bool toggleKeyframe(quint64 nodeId = 0);
+    /// True if node @p nodeId (0: selected) or one of its windows has a key at the current
+    /// frame.
+    [[nodiscard]] bool hasKeyframe(quint64 nodeId = 0) const;
 
     // ---- Windows (of the selected node) ----
 
@@ -170,7 +180,8 @@ public:
 Q_SIGNALS:
     /// Another clip, the target or the playhead's clip changed.
     void clipChanged();
-    /// The grade changed (an edit, undo / redo, another clip).
+    /// The grade changed (an edit, undo / redo, another clip, or the playhead moved over a
+    /// keyframed grade: its values at the playhead changed).
     void gradeChanged();
     void selectedNodeChanged(quint64 id);
     void selectedWindowChanged(quint64 id);
@@ -179,9 +190,12 @@ Q_SIGNALS:
 
 private:
     void reload();
+    [[nodiscard]] int64_t gradeFrameOf(quint64 clipId) const;
     /// The grade as it would be after making sure it has a node (for setParam on an empty
     /// grade); @p node gets the node to edit.
     ClipGrade editableGrade(quint64 wanted, quint64* node) const;
+    /// The grade with node 01 when it is empty (@p node then gets its id, else stays).
+    ClipGrade withFirstNode(quint64* node) const;
     /// Edits window @p windowId (0: selected) of a copy of the grade with @p edit, commits.
     template<typename Fn>
     bool editWindow(quint64 windowId, const QString& label, Fn&& edit);
@@ -194,6 +208,7 @@ private:
     quint64 m_pinned = 0; ///< openClip() choice while the playhead stays on it
     quint64 m_selected = 0;
     ClipGrade m_grade;
+    int64_t m_frame = 0; ///< gradeFrame() at the last reload()
     int m_gesture = 0;
     quint64 m_selectedWindow = 0;
     QVector<quint64> m_selectedClips;

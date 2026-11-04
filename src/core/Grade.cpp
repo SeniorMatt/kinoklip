@@ -291,9 +291,20 @@ GradeNode* ClipGrade::node(quint64 id)
 
 QString gradeNodeName(const ClipGrade& grade, int index)
 {
-    if (index >= 0 && index < grade.nodes.size() && !grade.nodes[index].label.isEmpty())
-        return grade.nodes[index].label;
-    return QStringLiteral("%1").arg(index + 1, 2, 10, QLatin1Char('0'));
+    if (index < 0 || index >= grade.nodes.size())
+        return {};
+    const GradeNode& node = grade.nodes[index];
+    if (!node.label.isEmpty())
+        return node.label;
+    if (node.isMixer())
+        return {};
+    // As in Resolve only correctors are numbered: mixers do not use up a number.
+    int number = 0;
+    for (int i = 0; i <= index; ++i) {
+        if (!grade.nodes[i].isMixer())
+            ++number;
+    }
+    return QStringLiteral("%1").arg(number, 2, 10, QLatin1Char('0'));
 }
 
 QString gradeNodeTypeToString(GradeNodeType type)
