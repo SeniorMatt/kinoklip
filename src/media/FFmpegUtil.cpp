@@ -241,6 +241,39 @@ void FormatContextDeleter::operator()(AVFormatContext* ctx) const
         freeCustomIo(custom);
 }
 
+namespace {
+
+/// True if @p path starts like an ISO / QuickTime file (a top-level box: ftyp, mdat, ...).
+bool looksLikeIsoFile(const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+    const QByteArray head = file.read(8).mid(4);
+    for (const char* box : {"ftyp", "mdat", "moov", "free", "skip", "wide", "pnot"}) {
+        if (head == box)
+            return true;
+    }
+    return false;
+}
+
+/// The user's message for an avformat_open_input() failure @p ret on @p path; @p ffmpegError
+/// is the first error FFmpeg logged meanwhile.
+QString openErrorMessage(const QString& path, int ret, const QString& ffmpegError)
+{
+    if (ret == AVERROR(EACCES) || ret == AVERROR(EPERM))
+        return QStringLiteral("Cannot read the file: permission denied");
+    // A real MP4 / MOV without its index (random bytes named .mp4 say the same in FFmpeg).
+    if (ffmpegError.contains(QLatin1String("moov atom not found")) && looksLikeIsoFile(path))
+        return QStringLiteral("The file is incomplete: its index (the MP4 / MOV \"moov\" atom) "
+                              "is missing, as when a recording or a copy is interrupted");
+    if (ret == AVERROR_INVALIDDATA)
+        return QStringLiteral("Not a video, audio or image file, or the file is damaged");
+    return QStringLiteral("Unsupported or damaged file (%1)").arg(avErrorString(ret));
+}
+
+} // namespace
+
 FormatContextPtr openInput(const QString& path, QString* error)
 {
     initFfmpeg();
@@ -279,12 +312,24 @@ FormatContextPtr openInput(const QString& path, QString* error)
         setError(error, QStringLiteral("File not found: %1").arg(path));
         return {};
     }
-    int ret = avformat_open_input(&raw, url.constData(), nullptr, nullptr);
+    if (!custom && QFileInfo(path).size() == 0) {
+        setError(error, QStringLiteral("The file is empty (0 bytes)"));
+        return {};
+    }
+    // FFmpeg's own messages say what is wrong with a damaged file ("moov atom not found");
+    // capture them for the user's message instead of logging them as warnings.
+    int ret = 0;
+    QString ffmpegError;
+    {
+        FfmpegLogCapture capture;
+        ret = avformat_open_input(&raw, url.constData(), nullptr, nullptr);
+        ffmpegError = capture.firstError();
+    }
     if (ret < 0) {
         // avformat_open_input() frees the context on failure, but never a custom pb.
         if (custom)
             freeCustomIo(custom);
-        setError(error, QStringLiteral("Unsupported or damaged file (%1)").arg(avErrorString(ret)));
+        setError(error, openErrorMessage(path, ret, ffmpegError));
         return {};
     }
     FormatContextPtr fmt(raw);
