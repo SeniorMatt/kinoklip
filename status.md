@@ -188,3 +188,5 @@
 - 16:03 Owner (for 1.1.1): sub-bins shown as folders in the media pool clip view like Resolve; sort by Type; Workspace/View menu too long -> submenus. poolbins agent started.
 - 16:13 QUEUED 1.1.2 (start right after 1.1.1 is released): Help > Report a Bug... one button -> consent dialog listing exactly what is shared (app version, distro, Qt, FFmpeg, GPU/OpenGL, desktop/session, AppImage/repo build) -> opens GitHub issue form prefilled via URL params. Add .github/ISSUE_TEMPLATE bug + inconsistency forms (Qt-style: versions, steps to reproduce, actual, expected). Add privacy principle: never gather user info without explicit consent (no telemetry).
 - 16:40 Merged kittenshots: README shots with CC0 kittens, captions = names. Pushed.
+- 16:41 Merged keypresets (333ccc2): 6 editor presets, .kys/.commandset import, first-run bar. Running main suite.
+- 17:35 Merged extdrop, poolbins. Breeze README shots (AppDir from container) + Metadata Breeze fix (33.45). Pushed. Next: host suite, then 1.1.1 package.
