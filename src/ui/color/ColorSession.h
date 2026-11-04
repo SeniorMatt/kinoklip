@@ -75,6 +75,15 @@ public:
     quint64 addSerialNode();
     quint64 addParallelNode();
     quint64 addLayerNode();
+    /// Shift+S: a corrector before the selected node (the first node of an ungraded clip).
+    quint64 addSerialNodeBefore();
+    /// Node editor: connects node @p from (0 = the source picture) to input @p inputIndex of
+    /// @p to (0 = the grade output); see gradeops::connect(). One undo step.
+    bool connectNodes(quint64 from, quint64 to, int inputIndex);
+    /// Node editor: removes input @p inputIndex of @p to (gradeops::disconnect()).
+    bool disconnectInput(quint64 to, int inputIndex);
+    /// Node editor: moves nodes to new editor positions (GradeNode::pos), one undo step.
+    bool moveNodes(const QVector<std::pair<quint64, QPointF>>& positions);
     /// Deletes node @p id (0: the selected one).
     bool removeNode(quint64 id = 0);
     /// Ctrl+D: bypasses or enables node @p id (0: the selected one).
@@ -92,6 +101,53 @@ public:
     /// Replaces curve @p curve of node @p nodeId (0: selected).
     bool setCurve(
         quint64 nodeId, GradeCurve curve, const CurvePoints& points, const QString& label);
+    /// Several curves of one node in one commit (linked R, G, B editing, Reset).
+    bool setCurves(quint64 nodeId, const QVector<std::pair<GradeCurve, CurvePoints>>& curves,
+        const QString& label);
+    /// Replaces the qualifier of node @p nodeId (0: selected).
+    bool setQualifier(quint64 nodeId, const GradeQualifier& qualifier, const QString& label);
+    /// Sets the LUT of node @p nodeId (0: selected; empty path removes it).
+    bool setLut(quint64 nodeId, const QString& path);
+
+    // ---- Windows (of the selected node) ----
+
+    /// Adds a window of @p shape to the selected corrector (an ungraded clip gets its first
+    /// node) and selects it. Returns its id (0 when refused: a mixer, or the node is full).
+    quint64 addWindow(GradeWindowShape shape);
+    /// Removes window @p windowId (0: the selected window).
+    bool removeWindow(quint64 windowId = 0);
+    /// The selected window of the selected node (0: none).
+    [[nodiscard]] quint64 selectedWindow() const { return m_selectedWindow; }
+    void selectWindow(quint64 windowId);
+    /// The window @p windowId (0: selected) of the grade, or nullptr.
+    [[nodiscard]] const GradeWindow* window(quint64 windowId = 0) const;
+    /// Sets parameters of window @p windowId (0: selected) at the current frame.
+    bool setWindowParams(
+        quint64 windowId, const QVector<std::pair<QString, double>>& values, const QString& label);
+    /// Replaces the polygon points of window @p windowId (0: selected).
+    bool setWindowPoints(quint64 windowId, const QVector<QPointF>& points, const QString& label);
+    /// Sets the enabled / invert flags of window @p windowId (0: selected).
+    bool setWindowFlags(quint64 windowId, bool enabled, bool invert);
+
+    // ---- Clips strip ----
+
+    /// Every graded-able clip of the timeline (video tracks, not subtitles) in timeline order
+    /// (start, then track bottom to top): the Color page's thumbnail strip.
+    [[nodiscard]] QVector<quint64> stripClips() const;
+    /// Grades clip @p clipId: moves the playhead into it (to its first frame when it is not
+    /// there yet) and opens it even when a higher track covers it.
+    void gradeClip(quint64 clipId);
+    /// Clips selected in the strip (paste targets); empty = the current clip.
+    [[nodiscard]] const QVector<quint64>& selectedClips() const { return m_selectedClips; }
+    void setSelectedClips(const QVector<quint64>& clipIds);
+    /// Ctrl+C: remembers the current grade. False when nothing is open.
+    bool copyCurrentGrade();
+    /// True if copyCurrentGrade() holds a grade.
+    [[nodiscard]] bool hasCopiedGrade() const { return m_hasClipboard; }
+    /// Ctrl+V: gives the copied grade to @p clipIds (empty: the strip selection, else the
+    /// current clip), one undo step. Returns the number of clips changed.
+    int pasteGrade(const QVector<quint64>& clipIds = {});
+
     /// Starts / ends a drag: the commits in between are one undo step labelled @p label.
     void beginGesture(const QString& label);
     void endGesture();
@@ -117,6 +173,8 @@ Q_SIGNALS:
     /// The grade changed (an edit, undo / redo, another clip).
     void gradeChanged();
     void selectedNodeChanged(quint64 id);
+    void selectedWindowChanged(quint64 id);
+    void selectedClipsChanged();
     void bypassAllChanged(bool bypass);
 
 private:
@@ -124,6 +182,11 @@ private:
     /// The grade as it would be after making sure it has a node (for setParam on an empty
     /// grade); @p node gets the node to edit.
     ClipGrade editableGrade(quint64 wanted, quint64* node) const;
+    /// Edits window @p windowId (0: selected) of a copy of the grade with @p edit, commits.
+    template<typename Fn>
+    bool editWindow(quint64 windowId, const QString& label, Fn&& edit);
+    /// Keeps m_selectedWindow on a window of the selected node.
+    void fixWindowSelection();
 
     AppContext& m_ctx;
     Target m_target = Target::Clip;
@@ -132,6 +195,10 @@ private:
     quint64 m_selected = 0;
     ClipGrade m_grade;
     int m_gesture = 0;
+    quint64 m_selectedWindow = 0;
+    QVector<quint64> m_selectedClips;
+    ClipGrade m_clipboard;
+    bool m_hasClipboard = false;
 };
 
 } // namespace kk

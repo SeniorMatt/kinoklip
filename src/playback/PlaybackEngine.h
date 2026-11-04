@@ -195,8 +195,11 @@ public:
     /// Renders program frame @p frame of the engine's current snapshot as an image of
     /// @p outSize (what the viewer shows, without captions: scopes, gallery stills), with the
     /// engine's media table, proxies, render cache and bypass state. Any thread may wait on
-    /// the future.
-    [[nodiscard]] std::future<RenderedFramePtr> renderImage(int64_t frame, QSize outSize) const;
+    /// the future. @p withGrades false renders without clip and timeline grades whatever the
+    /// bypass state (the Color page's qualifier picker, highlight and node thumbnails grade
+    /// that picture themselves).
+    [[nodiscard]] std::future<RenderedFramePtr> renderImage(
+        int64_t frame, QSize outSize, bool withGrades = true) const;
     [[nodiscard]] bool bypassGrades() const { return m_bypassGrades; }
     /// Compositing page viewers: Compositor::renderCompositionNode() of node @p nodeId (0 =
     /// MediaOut) of clip @p clipId of @p timeline at comp frame @p compFrame, with the

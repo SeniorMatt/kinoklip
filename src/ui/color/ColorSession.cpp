@@ -104,16 +104,42 @@ void ColorSession::reload()
     const bool changed = grade != m_grade || otherClip;
     m_grade = std::move(grade);
     if (otherClip || !m_grade.node(m_selected)) {
-        const quint64 sel = gradeops::defaultSelection(m_grade);
+        quint64 sel = gradeops::defaultSelection(m_grade);
+        // The palettes edit correctors: when the output is a mixer, start on the last
+        // corrector it reaches.
+        if (const GradeNode* n = m_grade.node(sel); n && n->isMixer()) {
+            for (const int i : gradeops::evaluationOrder(m_grade)) {
+                if (!m_grade.nodes[i].isMixer())
+                    sel = m_grade.nodes[i].id;
+            }
+        }
         if (sel != m_selected) {
             m_selected = sel;
             emit selectedNodeChanged(m_selected);
         }
     }
+    fixWindowSelection();
     if (otherClip)
         emit clipChanged();
     if (changed)
         emit gradeChanged();
+}
+
+void ColorSession::fixWindowSelection()
+{
+    const GradeNode* n = m_grade.node(m_selected);
+    quint64 want = m_selectedWindow;
+    bool found = false;
+    if (n) {
+        for (const GradeWindow& w : n->windows)
+            found = found || w.id == want;
+    }
+    if (!found)
+        want = n && !n->windows.isEmpty() ? n->windows.first().id : 0;
+    if (want != m_selectedWindow) {
+        m_selectedWindow = want;
+        emit selectedWindowChanged(want);
+    }
 }
 
 void ColorSession::selectNode(quint64 id)
@@ -124,6 +150,7 @@ void ColorSession::selectNode(quint64 id)
         return;
     m_selected = id;
     emit selectedNodeChanged(id);
+    fixWindowSelection();
 }
 
 bool ColorSession::commit(const ClipGrade& grade, const QString& label)
@@ -172,6 +199,47 @@ quint64 ColorSession::addLayerNode()
         return 0;
     selectNode(id);
     return id;
+}
+
+quint64 ColorSession::addSerialNodeBefore()
+{
+    if (!hasGrade())
+        return 0;
+    ClipGrade g = m_grade;
+    const quint64 id
+        = g.isEmpty() ? gradeops::initialize(g) : gradeops::addSerialNodeBefore(g, m_selected);
+    if (!commit(g, tr("Add Serial Node")))
+        return 0;
+    selectNode(id);
+    return id;
+}
+
+bool ColorSession::connectNodes(quint64 from, quint64 to, int inputIndex)
+{
+    ClipGrade g = m_grade;
+    if (!gradeops::connect(g, from, to, inputIndex) || g == m_grade)
+        return false;
+    return commit(g, tr("Connect Nodes"));
+}
+
+bool ColorSession::disconnectInput(quint64 to, int inputIndex)
+{
+    ClipGrade g = m_grade;
+    if (!gradeops::disconnect(g, to, inputIndex))
+        return false;
+    return commit(g, tr("Disconnect Nodes"));
+}
+
+bool ColorSession::moveNodes(const QVector<std::pair<quint64, QPointF>>& positions)
+{
+    ClipGrade g = m_grade;
+    for (const auto& [id, pos] : positions) {
+        if (GradeNode* n = g.node(id))
+            n->pos = pos;
+    }
+    if (g == m_grade)
+        return false;
+    return commit(g, tr("Move Node"));
 }
 
 bool ColorSession::removeNode(quint64 id)
@@ -245,6 +313,12 @@ bool ColorSession::setParams(
 bool ColorSession::setCurve(
     quint64 nodeId, GradeCurve curve, const CurvePoints& points, const QString& label)
 {
+    return setCurves(nodeId, {{curve, points}}, label);
+}
+
+bool ColorSession::setCurves(
+    quint64 nodeId, const QVector<std::pair<GradeCurve, CurvePoints>>& curves, const QString& label)
+{
     if (!hasGrade())
         return false;
     quint64 node = 0;
@@ -252,11 +326,197 @@ bool ColorSession::setCurve(
     GradeNode* n = g.node(node);
     if (!n || n->isMixer())
         return false;
-    n->curves[curve] = points;
+    for (const auto& [curve, points] : curves)
+        n->curves[curve] = points;
     const bool ok = commit(g, label);
     if (ok && m_selected != node)
         selectNode(node);
     return ok;
+}
+
+bool ColorSession::setQualifier(
+    quint64 nodeId, const GradeQualifier& qualifier, const QString& label)
+{
+    if (!hasGrade())
+        return false;
+    quint64 node = 0;
+    ClipGrade g = editableGrade(nodeId, &node);
+    GradeNode* n = g.node(node);
+    if (!n || n->isMixer())
+        return false;
+    n->qualifier = qualifier;
+    const bool ok = commit(g, label);
+    if (ok && m_selected != node)
+        selectNode(node);
+    return ok;
+}
+
+bool ColorSession::setLut(quint64 nodeId, const QString& path)
+{
+    if (!hasGrade())
+        return false;
+    quint64 node = 0;
+    ClipGrade g = editableGrade(nodeId, &node);
+    GradeNode* n = g.node(node);
+    if (!n || n->isMixer())
+        return false;
+    n->lutPath = path;
+    const bool ok = commit(g, path.isEmpty() ? tr("Remove LUT") : tr("Apply LUT"));
+    if (ok && m_selected != node)
+        selectNode(node);
+    return ok;
+}
+
+quint64 ColorSession::addWindow(GradeWindowShape shape)
+{
+    if (!hasGrade())
+        return 0;
+    quint64 node = 0;
+    ClipGrade g = editableGrade(0, &node);
+    const quint64 id = gradeops::addWindow(g, node, shape);
+    if (!id || !commit(g, tr("Add Window")))
+        return 0;
+    selectNode(node);
+    selectWindow(id);
+    return id;
+}
+
+bool ColorSession::removeWindow(quint64 windowId)
+{
+    ClipGrade g = m_grade;
+    if (!gradeops::removeWindow(g, windowId ? windowId : m_selectedWindow))
+        return false;
+    return commit(g, tr("Delete Window"));
+}
+
+void ColorSession::selectWindow(quint64 windowId)
+{
+    const GradeNode* owner = nullptr;
+    if (windowId && (!m_grade.window(windowId, &owner) || !owner))
+        return;
+    if (owner && owner->id != m_selected)
+        selectNode(owner->id);
+    if (windowId == m_selectedWindow)
+        return;
+    m_selectedWindow = windowId;
+    emit selectedWindowChanged(windowId);
+}
+
+const GradeWindow* ColorSession::window(quint64 windowId) const
+{
+    return m_grade.window(windowId ? windowId : m_selectedWindow);
+}
+
+template<typename Fn>
+bool ColorSession::editWindow(quint64 windowId, const QString& label, Fn&& edit)
+{
+    ClipGrade g = m_grade;
+    GradeWindow* w = g.window(windowId ? windowId : m_selectedWindow);
+    if (!w)
+        return false;
+    edit(*w);
+    if (g == m_grade)
+        return false;
+    return commit(g, label);
+}
+
+bool ColorSession::setWindowParams(
+    quint64 windowId, const QVector<std::pair<QString, double>>& values, const QString& label)
+{
+    const int64_t frame = gradeFrame();
+    return editWindow(windowId, label, [&](GradeWindow& w) {
+        for (const auto& [key, value] : values)
+            w.params.animated(key, gradewindowkeys::defaultValue(key)).setValue(frame, value);
+    });
+}
+
+bool ColorSession::setWindowPoints(
+    quint64 windowId, const QVector<QPointF>& points, const QString& label)
+{
+    return editWindow(windowId, label, [&](GradeWindow& w) { w.points = points; });
+}
+
+bool ColorSession::setWindowFlags(quint64 windowId, bool enabled, bool invert)
+{
+    return editWindow(windowId, tr("Window"), [&](GradeWindow& w) {
+        w.enabled = enabled;
+        w.invert = invert;
+    });
+}
+
+QVector<quint64> ColorSession::stripClips() const
+{
+    struct Entry
+    {
+        int64_t start;
+        int track;
+        quint64 id;
+    };
+    std::vector<Entry> entries;
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    for (int t = 0; t < int(data.videoTracks.size()); ++t) {
+        for (const ClipData& c : data.videoTracks[size_t(t)].clips) {
+            if (c.kind != ClipKind::Subtitle)
+                entries.push_back({c.start, t, c.id});
+        }
+    }
+    std::sort(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) {
+        return a.start != b.start ? a.start < b.start : a.track < b.track;
+    });
+    QVector<quint64> ids;
+    ids.reserve(qsizetype(entries.size()));
+    for (const Entry& e : entries)
+        ids.append(e.id);
+    return ids;
+}
+
+void ColorSession::gradeClip(quint64 clipId)
+{
+    const ClipData* c = editops::clipById(m_ctx.project->timeline()->data(), clipId);
+    if (!c)
+        return;
+    if (m_target != Target::Clip)
+        setTarget(Target::Clip);
+    m_pinned = clipId;
+    Timeline* timeline = m_ctx.project->timeline();
+    if (!c->contains(timeline->playhead()))
+        timeline->setPlayhead(c->start); // reload() follows playheadChanged
+    openClip(clipId);
+}
+
+void ColorSession::setSelectedClips(const QVector<quint64>& clipIds)
+{
+    if (clipIds == m_selectedClips)
+        return;
+    m_selectedClips = clipIds;
+    emit selectedClipsChanged();
+}
+
+bool ColorSession::copyCurrentGrade()
+{
+    if (!hasGrade())
+        return false;
+    m_clipboard = m_grade;
+    m_hasClipboard = true;
+    return true;
+}
+
+int ColorSession::pasteGrade(const QVector<quint64>& clipIds)
+{
+    if (!m_hasClipboard)
+        return 0;
+    QVector<quint64> targets = clipIds.isEmpty() ? m_selectedClips : clipIds;
+    if (targets.isEmpty()) {
+        if (m_target == Target::Timeline)
+            return commit(m_clipboard, tr("Paste Grade")) ? 1 : 0;
+        if (!m_clipId)
+            return 0;
+        targets = {m_clipId};
+    }
+    const int n = m_ctx.project->setClipGrades(
+        m_ctx.project->activeTimelineUid(), targets, m_clipboard, tr("Paste Grade"));
+    reload();
+    return n;
 }
 
 void ColorSession::beginGesture(const QString& label)
