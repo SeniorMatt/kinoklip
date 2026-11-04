@@ -69,6 +69,12 @@ public:
     /// Uses @p compositor (owned by the caller, must outlive the queue) instead of creating
     /// one; lets background queues (proxies, render cache) share a single render thread.
     void setCompositor(Compositor* compositor) { m_external = compositor; }
+    /// Replaces the name, settings, timeline snapshot, media and proxies of job @p id (Resolve's
+    /// "Update Job" after editing a job); a finished job is queued again. @return false if the
+    /// job renders or is unknown.
+    bool updateJob(quint64 id, const QString& name, const ExportSettings& settings,
+        std::shared_ptr<const TimelineData> timeline, std::shared_ptr<const MediaPathMap> media,
+        std::shared_ptr<const ProxyMap> proxies = nullptr);
     /// Removes a job that is not rendering. @return false if it is rendering or unknown.
     bool removeJob(quint64 id);
     /// Starts rendering every queued job, one after another.

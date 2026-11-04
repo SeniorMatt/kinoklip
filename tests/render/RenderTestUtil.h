@@ -5,6 +5,7 @@
 #pragma once
 
 #include "../media/MediaTestUtil.h"
+#include "core/EditOps.h"
 #include "core/ParamKeys.h"
 #include "core/TimelineData.h"
 #include "render/RenderTypes.h"
@@ -26,7 +27,7 @@ namespace kk::test {
 /// Timeline with V1, V2, A1, A2 and nothing on them.
 inline TimelineData emptyTimeline(int width = 320, int height = 180, Rational fps = {25, 1})
 {
-    return makeDefaultTimeline(QStringLiteral("test"), fps, width, height);
+    return makeDefaultTimeline(QStringLiteral("test"), fps, width, height, 2, 2);
 }
 
 /// A Solid clip of @p color on [start, start + duration).
@@ -73,6 +74,9 @@ inline ClipData mediaClip(TimelineData& tl, const QString& mediaId, int64_t star
 /// Appends @p clip to track @p track (callers add clips in time order).
 inline void addClip(TimelineData& tl, TrackType type, int track, ClipData clip)
 {
+    // Project timelines start with V1 / A1 only (spec 25.14): add the tracks the test uses.
+    while (tl.tracks(type).size() <= size_t(track))
+        editops::addTrack(tl, type);
     tl.tracks(type)[size_t(track)].clips.push_back(std::move(clip));
 }
 

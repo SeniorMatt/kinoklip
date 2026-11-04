@@ -211,6 +211,7 @@ private slots:
         for (const char* id : {"m1", "m2", "m3", "m4"})
             pool->addItem(fileItem(QLatin1String(id), QStringLiteral("/%1.mp4").arg(id)));
         TimelineData& d = p.timeline()->mutableData();
+        ops::addTrack(d, TrackType::Video); // V2
         // m1: a linked V+A pair (one use) and a second video clip (two uses in total).
         const quint64 v = ops::overwriteClip(d, kV1, clipOf(QStringLiteral("m1"), 0));
         const quint64 a = ops::overwriteClip(d, kA1, clipOf(QStringLiteral("m1"), 0));

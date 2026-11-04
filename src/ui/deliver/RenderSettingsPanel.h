@@ -49,6 +49,12 @@ public:
     /// Advanced: render with proxy media / optimized media where it exists (default off).
     [[nodiscard]] bool useProxyMedia() const;
     [[nodiscard]] bool useOptimizedMedia() const;
+    void setUseProxyMedia(bool use);
+    void setUseOptimizedMedia(bool use);
+    /// Editing a queued job (the pencil on a job card): the queue button reads "Update Job"
+    /// and a Cancel button leaves the mode, as in Resolve.
+    void setEditingJob(bool editing);
+    [[nodiscard]] bool isEditingJob() const { return m_editingJob; }
     /// Shows @p settings in the widgets.
     void setSettings(const ExportSettings& settings);
     /// Applies a preset by id (no-op for unknown ids).
@@ -75,6 +81,10 @@ public:
 Q_SIGNALS:
     /// The user pressed "Add to Render Queue".
     void addToQueueRequested();
+    /// The user pressed "Update Job" while editing a job.
+    void updateJobRequested();
+    /// The user pressed Cancel while editing a job.
+    void cancelEditRequested();
     /// Any setting changed.
     void settingsChanged();
 
@@ -163,6 +173,8 @@ private:
     // Range
     QComboBox* m_range = nullptr;
     QPushButton* m_addButton = nullptr;
+    QPushButton* m_cancelEdit = nullptr;
+    bool m_editingJob = false;
 };
 
 } // namespace kk

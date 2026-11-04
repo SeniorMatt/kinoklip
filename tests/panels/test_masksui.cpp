@@ -78,7 +78,7 @@ struct OverlayFixture
     OverlayFixture()
     {
         f.project.timeline()->mutableData()
-            = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 320, 180);
+            = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 320, 180, 2, 2);
         clipId = f.addClip(kV1, 0, 100, ClipKind::Solid);
         f.selection.selectClip(clipId);
         host = std::make_unique<QWidget>();

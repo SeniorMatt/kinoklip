@@ -72,6 +72,16 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
 
     connect(m_settingsPanel, &RenderSettingsPanel::addToQueueRequested, this,
         [this] { addCurrentToQueue(); });
+    connect(m_settingsPanel, &RenderSettingsPanel::updateJobRequested, this,
+        [this] { updateEditedJob(); });
+    connect(
+        m_settingsPanel, &RenderSettingsPanel::cancelEditRequested, this, &DeliverPage::cancelEdit);
+    connect(m_queuePanel, &RenderQueuePanel::editRequested, this, &DeliverPage::editJob);
+    connect(m_queue, &RenderQueue::jobRemoved, this, [this](quint64 id) {
+        m_jobMediaChoice.remove(id);
+        if (id == m_editingJob)
+            leaveEditMode(false);
+    });
     connect(
         m_settingsPanel, &RenderSettingsPanel::settingsChanged, this, &DeliverPage::updateRange);
 
@@ -115,45 +125,128 @@ DeliverPage::~DeliverPage()
     m_previewCompositor.reset();
 }
 
-quint64 DeliverPage::addCurrentToQueue(bool confirmOverwrite)
+std::optional<DeliverPage::PreparedJob> DeliverPage::prepareJob(
+    const QString& title, bool confirmOverwrite)
 {
     const ExportSettings s = m_settingsPanel->settings();
     QString error;
     if (!s.validate(&error)) {
-        QMessageBox::warning(this, tr("Add to Render Queue"), error);
-        return 0;
+        QMessageBox::warning(this, title, error);
+        return std::nullopt;
     }
     const auto timeline = m_ctx.project->timeline()->snapshot();
     const auto [first, end] = s.frameRange(*timeline);
     if (end <= first) {
-        QMessageBox::warning(
-            this, tr("Add to Render Queue"), tr("Nothing to render: the timeline is empty."));
-        return 0;
+        QMessageBox::warning(this, title, tr("Nothing to render: the timeline is empty."));
+        return std::nullopt;
     }
     const bool sequence = s.kind() == OutputKind::ImageSequence;
     const QString existing
         = sequence ? QString::asprintf(qPrintable(sequencePattern(s.outputPath)), 0) : s.outputPath;
     if (confirmOverwrite && QFileInfo::exists(existing)
-        && QMessageBox::question(this, tr("Add to Render Queue"),
+        && QMessageBox::question(this, title,
                tr("%1 already exists. Overwrite it when the job renders?")
                    .arg(QFileInfo(existing).fileName()))
             != QMessageBox::Yes) {
-        return 0;
+        return std::nullopt;
     }
-    const QString name = QStringLiteral("%1 - %2").arg(
+    PreparedJob job;
+    job.name = QStringLiteral("%1 - %2").arg(
         timeline->name.isEmpty() ? m_ctx.project->name() : timeline->name,
         QFileInfo(s.outputPath).fileName());
     // Export renders the camera originals unless Advanced Settings asks for proxies /
     // optimized media.
-    std::shared_ptr<const ProxyMap> proxies;
     if (m_settingsPanel->useProxyMedia() || m_settingsPanel->useOptimizedMedia()) {
-        proxies = makeProxyMap(m_ctx.project->mediaPool()->state(), *m_ctx.project->mediaLinks(),
-            m_settingsPanel->useProxyMedia() ? ProxyHandling::PreferProxies
-                                             : ProxyHandling::Disabled,
-            m_settingsPanel->useOptimizedMedia());
+        job.proxies
+            = makeProxyMap(m_ctx.project->mediaPool()->state(), *m_ctx.project->mediaLinks(),
+                m_settingsPanel->useProxyMedia() ? ProxyHandling::PreferProxies
+                                                 : ProxyHandling::Disabled,
+                m_settingsPanel->useOptimizedMedia());
     }
-    return m_queue->addJob(name, s, timeline, makeMediaPathMap(m_ctx.project->mediaPool()->state()),
-        std::move(proxies));
+    job.settings = s;
+    job.timeline = timeline;
+    job.media = makeMediaPathMap(m_ctx.project->mediaPool()->state());
+    job.useProxies = m_settingsPanel->useProxyMedia();
+    job.useOptimized = m_settingsPanel->useOptimizedMedia();
+    return job;
+}
+
+quint64 DeliverPage::addCurrentToQueue(bool confirmOverwrite)
+{
+    std::optional<PreparedJob> job = prepareJob(tr("Add to Render Queue"), confirmOverwrite);
+    if (!job)
+        return 0;
+    const quint64 id = m_queue->addJob(
+        job->name, job->settings, job->timeline, job->media, std::move(job->proxies));
+    m_jobMediaChoice.insert(id, {job->useProxies, job->useOptimized});
+    return id;
+}
+
+void DeliverPage::editJob(quint64 id)
+{
+    const RenderQueue::Job* job = m_queue->job(id);
+    if (!job || job->status == RenderQueue::Status::Rendering)
+        return;
+    if (m_editingJob == 0)
+        m_settingsBeforeEdit = m_settingsPanel->settings();
+    m_editingJob = id;
+    m_settingsPanel->setSettings(job->settings);
+    const auto choice = m_jobMediaChoice.value(id);
+    m_settingsPanel->setUseProxyMedia(choice.first);
+    m_settingsPanel->setUseOptimizedMedia(choice.second);
+    m_settingsPanel->setEditingJob(true);
+    m_queuePanel->setEditingJob(id);
+    updateRange();
+}
+
+bool DeliverPage::updateEditedJob(bool confirmOverwrite)
+{
+    if (m_editingJob == 0)
+        return false;
+    const RenderQueue::Job* current = m_queue->job(m_editingJob);
+    if (!current || current->status == RenderQueue::Status::Rendering) {
+        QMessageBox::warning(this, tr("Update Job"),
+            current ? tr("The job is rendering and cannot be changed.")
+                    : tr("The job is no longer in the render queue."));
+        if (!current)
+            cancelEdit();
+        return false;
+    }
+    std::optional<PreparedJob> job = prepareJob(tr("Update Job"), confirmOverwrite);
+    if (!job)
+        return false;
+    // The job renders the timeline it was queued from: if another one is open now, it keeps
+    // its own snapshot and media.
+    if (current->timeline && current->timeline->uid != job->timeline->uid) {
+        job->timeline = current->timeline;
+        job->media = current->media;
+        job->name = QStringLiteral("%1 - %2").arg(
+            current->timeline->name.isEmpty() ? m_ctx.project->name() : current->timeline->name,
+            QFileInfo(job->settings.outputPath).fileName());
+    }
+    const quint64 id = m_editingJob;
+    if (!m_queue->updateJob(
+            id, job->name, job->settings, job->timeline, job->media, std::move(job->proxies)))
+        return false;
+    m_jobMediaChoice.insert(id, {job->useProxies, job->useOptimized});
+    leaveEditMode(false);
+    return true;
+}
+
+void DeliverPage::cancelEdit()
+{
+    if (m_editingJob != 0)
+        leaveEditMode(true);
+}
+
+void DeliverPage::leaveEditMode(bool restoreSettings)
+{
+    m_editingJob = 0;
+    m_settingsPanel->setEditingJob(false);
+    m_queuePanel->setEditingJob(0);
+    if (restoreSettings)
+        m_settingsPanel->setSettings(m_settingsBeforeEdit);
+    updateRange();
 }
 
 void DeliverPage::followMarks()

@@ -21,7 +21,7 @@ ClipData clip(int64_t start, int64_t duration)
 
 TimelineData timeline()
 {
-    return makeDefaultTimeline(QStringLiteral("T"), Rational {25, 1});
+    return makeDefaultTimeline(QStringLiteral("T"), Rational {25, 1}, 1920, 1080, 2, 2);
 }
 
 TimelineLayout layoutFor(const TimelineData& d, double ppf, QSize size = {1200, 600})

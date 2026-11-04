@@ -19,7 +19,7 @@ namespace {
 /// [blueFrom, frames) so frames differ visibly.
 TimelineData solidTimeline(int64_t frames, int64_t blueFrom = 1'000'000)
 {
-    TimelineData tl = makeDefaultTimeline(QStringLiteral("t"), {25, 1}, 320, 180);
+    TimelineData tl = makeDefaultTimeline(QStringLiteral("t"), {25, 1}, 320, 180, 2, 2);
     ClipData red;
     red.id = tl.allocateId();
     red.kind = ClipKind::Solid;

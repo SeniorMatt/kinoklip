@@ -126,6 +126,20 @@ quint64 TimelineController::newTimeline(const QString& name)
     if (p->isEditing())
         return 0;
     QString finalName = name;
+    if (finalName.isEmpty() && m_newTimelinePrompt) {
+        // Resolve's Create New Timeline: start timecode, name, video and audio track counts.
+        NewTimelineOptions suggestion;
+        suggestion.name = p->uniqueTimelineName(tr("Timeline"));
+        suggestion.startTimecode = p->settings().timelineStart;
+        const std::optional<NewTimelineOptions> answer = m_newTimelinePrompt(suggestion);
+        if (!answer)
+            return 0;
+        const QString chosen = answer->name.trimmed();
+        const quint64 uid = p->createTimeline(chosen.isEmpty() ? suggestion.name : chosen,
+            binOf(m_binProvider), answer->videoTracks, answer->audioTracks, answer->startTimecode);
+        p->openTab(uid);
+        return uid;
+    }
     if (finalName.isEmpty()) {
         const QString suggestion = p->uniqueTimelineName(tr("Timeline"));
         finalName = suggestion;

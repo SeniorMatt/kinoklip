@@ -78,7 +78,7 @@ struct Fixture
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
-        TimelineData tl = makeDefaultTimeline(QStringLiteral("Demo"), {25, 1}, 320, 180);
+        TimelineData tl = makeDefaultTimeline(QStringLiteral("Demo"), {25, 1}, 320, 180, 2, 2);
         ClipData c = solid();
         c.id = tl.allocateId();
         c.solidColor = QColor(0x30, 0x60, 0x90);

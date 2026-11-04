@@ -149,10 +149,14 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
         &KeyboardCustomizationDialog::fillProfiles);
 
     m_search = new QLineEdit;
+    m_search->setObjectName(QStringLiteral("KeyboardSearch"));
+    m_search->installEventFilter(this);
     m_search->setPlaceholderText(tr("Search commands or keys"));
     m_search->setClearButtonEnabled(true);
 
     m_tree = new QTreeWidget;
+    m_tree->setObjectName(QStringLiteral("KeyboardCommands"));
+    m_tree->installEventFilter(this);
     m_tree->setColumnCount(3);
     m_tree->setHeaderLabels({tr("Command"), tr("Shortcut"), tr("Default")});
     m_tree->setRootIsDecorated(true);
@@ -534,6 +538,29 @@ void KeyboardCustomizationDialog::exportKeymap()
     QString error;
     if (!m_registry.exportProfile(m_registry.activeProfile(), path, &error))
         QMessageBox::warning(this, tr("Export Keyboard Profile"), error);
+}
+
+bool KeyboardCustomizationDialog::eventFilter(QObject* watched, QEvent* event)
+{
+    if (event->type() == QEvent::KeyPress) {
+        const auto* key = static_cast<QKeyEvent*>(event);
+        const bool enter = (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)
+            && (key->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier;
+        if (enter && watched == m_search) {
+            const QStringList visible = visibleIds();
+            if (!visible.isEmpty()) {
+                if (!visible.contains(currentId()))
+                    setCurrentId(visible.first());
+                m_tree->setFocus();
+            }
+            return true;
+        }
+        if (enter && watched == m_tree) {
+            startRecording();
+            return true;
+        }
+    }
+    return QDialog::eventFilter(watched, event);
 }
 
 void KeyboardCustomizationDialog::reject()

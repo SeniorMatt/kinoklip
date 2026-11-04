@@ -192,6 +192,54 @@ std::optional<QString> askName(QWidget* parent, const QString& title, const QStr
     return edit->text();
 }
 
+std::optional<TimelineController::NewTimelineOptions> askNewTimeline(
+    QWidget* parent, const TimelineController::NewTimelineOptions& suggestion, Rational fps)
+{
+    const auto tr
+        = [](const char* text) { return QCoreApplication::translate("kk::timelinedialogs", text); };
+    QDialog dialog(parent);
+    dialog.setObjectName(QStringLiteral("NewTimelineDialog"));
+    dialog.setWindowTitle(tr("Create New Timeline"));
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* form = new QFormLayout;
+    auto* start = new QLineEdit(timecode::format(suggestion.startTimecode, fps));
+    start->setObjectName(QStringLiteral("StartTimecode"));
+    start->setInputMask(QStringLiteral("99:99:99:99"));
+    form->addRow(tr("Start Timecode"), start);
+    auto* name = new QLineEdit(suggestion.name);
+    name->setObjectName(QStringLiteral("Name"));
+    name->setMinimumWidth(260);
+    form->addRow(tr("Timeline Name"), name);
+    auto* video = new QSpinBox;
+    video->setObjectName(QStringLiteral("VideoTracks"));
+    auto* audio = new QSpinBox;
+    audio->setObjectName(QStringLiteral("AudioTracks"));
+    for (QSpinBox* spin : {video, audio})
+        spin->setRange(1, 32);
+    video->setValue(suggestion.videoTracks);
+    audio->setValue(suggestion.audioTracks);
+    form->addRow(tr("No. of Video Tracks"), video);
+    form->addRow(tr("No. of Audio Tracks"), audio);
+    layout->addLayout(form);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    buttons->button(QDialogButtonBox::Ok)->setText(tr("Create"));
+    layout->addWidget(buttons);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    // The name is what people change: it has the focus, selected, as in askName().
+    name->selectAll();
+    name->setFocus();
+    if (dialog.exec() != QDialog::Accepted)
+        return std::nullopt;
+    TimelineController::NewTimelineOptions result = suggestion;
+    result.name = name->text();
+    result.videoTracks = video->value();
+    result.audioTracks = audio->value();
+    if (const auto frames = timecode::parse(start->text(), fps))
+        result.startTimecode = *frames;
+    return result;
+}
+
 void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
 {
     const auto data = project.timelineData(uid);
@@ -241,6 +289,13 @@ void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
         fps->setEnabled(false);
         fps->setToolTip(QCoreApplication::translate("kk::timelinedialogs",
             "The frame rate cannot be changed once the timeline has clips."));
+        // Following the project would change the rate too: not offered (it was ignored).
+        if (!follow->isChecked() && project.settings().fps != data->fps) {
+            follow->setEnabled(false);
+            follow->setToolTip(QCoreApplication::translate("kk::timelinedialogs",
+                "The project runs at another frame rate, which cannot be used once the "
+                "timeline has clips."));
+        }
     }
     layout->addWidget(box);
     box->setEnabled(!follow->isChecked());

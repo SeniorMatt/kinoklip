@@ -110,6 +110,8 @@ inline int buildDemoTimeline(Project& project, const QString& mediaDir = {})
     d.name = QStringLiteral("Demo Timeline");
     while (d.videoTracks.size() < 3)
         ops::addTrack(d, TrackType::Video);
+    while (d.audioTracks.size() < 2) // new timelines have A1 only (spec 25.14)
+        ops::addTrack(d, TrackType::Audio);
     d.videoTracks[2].name = QStringLiteral("Titles");
     d.audioTracks[1].name = QStringLiteral("Music");
 

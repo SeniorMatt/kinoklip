@@ -69,6 +69,7 @@ class TestLevelLines : public QObject
         View()
         {
             panel.controller()->setNamePrompt({});
+            panel.controller()->setNewTimelinePrompt({});
             panel.controller()->setConfirmPrompt({});
             panel.controller()->setMessageSink({});
             panel.resize(1400, 600);
@@ -201,6 +202,7 @@ private slots:
         PanelFixture f;
         TimelinePanel panel(f.ctx);
         panel.controller()->setNamePrompt({});
+        panel.controller()->setNewTimelinePrompt({});
         panel.controller()->setConfirmPrompt({});
         panel.controller()->setMessageSink({});
         panel.resize(1400, 800);

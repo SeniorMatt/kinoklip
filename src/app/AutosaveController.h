@@ -23,9 +23,10 @@ struct RecoveryCandidate
 };
 
 /// Every prefs::autosaveMinutes() minutes (default 2) writes the project, if it has unsaved
-/// changes since the last autosave, to `<AppDataLocation>/autosave/<name>-<hash>.kkproj`
-/// (the document's path and modified flag are untouched). The copy carries an "autosave"
-/// object: {documentPath, name, pid}.
+/// changes since the last autosave, to `<AppDataLocation>/autosave/<name>-<hash>.kkproj`, the
+/// hash of the project file's path or, for a never-saved project, of a random id per project
+/// (spec 38.26; the document's path and modified flag are untouched). The copy carries an
+/// "autosave" object: {documentPath, name, pid}.
 ///
 /// The timer's autosave runs in the background: the GUI thread only takes a
 /// Project::SaveSnapshot (shared immutable timelines, microseconds), a worker thread builds the
@@ -98,6 +99,7 @@ private:
     bool m_pendingDiscarded = false; ///< discard() ran while the write was in flight
     QTimer m_timer;
     QString m_lastWrittenPath; ///< file written (or adopted) by this session
+    QString m_untitledId; ///< identity of a never-saved project (new for each project)
     quint64 m_savedTimelineRevision = 0;
     quint64 m_savedPoolRevision = 0;
 };

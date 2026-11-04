@@ -175,9 +175,12 @@ public:
     /// Media pool item id of timeline @p uid (empty if none).
     [[nodiscard]] QString timelineItemId(quint64 uid) const;
 
-    /// Creates an empty timeline (V1, V2, A1, A2; project resolution and frame rate) and its
-    /// media pool item in bin @p binId. One undo step. Returns the uid. Does not activate it.
-    quint64 createTimeline(const QString& name, const QString& binId = {});
+    /// Creates an empty timeline (project resolution and frame rate) with @p videoTracks video
+    /// and @p audioTracks audio tracks (V1, A1 by default, spec 25.14), starting at
+    /// @p startTimecode (default: the project's timeline start), and its media pool item in
+    /// bin @p binId. One undo step. Returns the uid. Does not activate it.
+    quint64 createTimeline(const QString& name, const QString& binId = {}, int videoTracks = 1,
+        int audioTracks = 1, std::optional<int64_t> startTimecode = std::nullopt);
     /// Copies timeline @p uid (all clips; name + " copy") into the same bin. One undo step.
     /// Returns the new uid, or 0 if @p uid does not exist.
     quint64 duplicateTimeline(quint64 uid);

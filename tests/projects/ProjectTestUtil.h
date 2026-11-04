@@ -71,6 +71,9 @@ inline bool writeProject(const QString& path, const ProjectSpec& spec = {})
             clip.duration = 25;
             clip.sourceInUs = 500'000;
             clip.sourceDurationUs = pool.items.last().info.durationUs;
+            // On V2 above the solid (new timelines have V1 only, spec 25.14).
+            while (project.timeline()->data().videoTracks.size() < 2)
+                editops::addTrack(project.timeline()->mutableData(), TrackType::Video);
             editops::overwriteClip(
                 project.timeline()->mutableData(), TrackRef {TrackType::Video, 1}, clip);
             project.endEdit();

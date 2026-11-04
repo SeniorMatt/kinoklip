@@ -64,6 +64,16 @@ const MediaItem* itemNamed(const Project& project, const QString& baseName)
     return nullptr;
 }
 
+/// The guide's demo timelines keep V1, V2, A1 and A2 (new timelines start with V1 / A1 only,
+/// spec 25.14), so the screenshots stay as they are.
+void withGuideTracks(TimelineData& d)
+{
+    while (d.videoTracks.size() < 2)
+        editops::addTrack(d, TrackType::Video);
+    while (d.audioTracks.size() < 2)
+        editops::addTrack(d, TrackType::Audio);
+}
+
 } // namespace
 
 class TestGuideDemo : public QObject
@@ -98,6 +108,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no background.mp4 / greenscreen.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("Green Screen");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
@@ -126,6 +137,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no interview.mp4 / music.wav");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("With Music");
         d.audioTracks[1].name = QStringLiteral("Music");
         const int64_t fps = 25;
@@ -154,6 +166,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no interview.mp4 / broll.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("Fades");
         const int64_t fps = 25;
         const quint64 first
@@ -185,6 +198,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("Freeze");
         const int64_t fps = 25;
         const quint64 id
@@ -205,6 +219,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no presenter.mp4 / broll.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("Picture in Picture");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
@@ -238,6 +253,7 @@ private slots:
         project.setSettings(settings);
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("Vertical");
         QCOMPARE(d.width, 1080);
         const int64_t fps = 25;
@@ -262,6 +278,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("Hide a Face");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
@@ -295,6 +312,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no presenter.mp4 / broll.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("With Subtitles");
         const int64_t fps = 25;
         place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 9 * fps, 0, 0);
@@ -322,6 +340,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("Slow Zoom");
         const int64_t fps = 25;
         const int64_t length = 8 * fps;
@@ -349,6 +368,7 @@ private slots:
             QSKIP("KK_GUIDE_MEDIA has no presenter.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
+        withGuideTracks(d);
         d.name = QStringLiteral("Compositing");
         const int64_t fps = 25;
         const quint64 id
