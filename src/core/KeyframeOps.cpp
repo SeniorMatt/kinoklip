@@ -5,6 +5,7 @@
 #include "core/EditOps.h"
 #include "core/EffectRegistry.h"
 #include "core/ParamKeys.h"
+#include "core/TitlePresets.h"
 
 #include <QCoreApplication>
 #include <QHash>
@@ -328,14 +329,9 @@ QVector<AnimatedParam> animatedParams(const ClipData& clip)
     if (clip.title.isAnimated()) {
         QSet<QString> listed;
         // Generator clips keep their parameters in ClipData::title too.
-        const EffectDescriptor* titleDesc
-            = clip.kind == ClipKind::Generator ? reg.find(clip.generator) : nullptr;
-        for (const EffectDescriptor* d : reg.byCategory(EffectCategory::Title)) {
-            if (titleDesc)
-                break;
-            if (d->storage == kTitle)
-                titleDesc = d;
-        }
+        const EffectDescriptor* titleDesc = clip.kind == ClipKind::Generator
+            ? reg.find(clip.generator)
+            : titles::descriptorOf(clip);
         appendGroup(out, listed, clip.title, kTitle + QLatin1Char('/'), kTitle, titleDesc, true);
     }
     if (clip.audio.isAnimated()) {

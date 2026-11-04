@@ -210,6 +210,44 @@ private slots:
         QCOMPARE(int(v.f.view().audioTracks.size()), 2);
     }
 
+    // Spec 5.5: a drop in the empty space creates only the tracks its clips land on: a
+    // video-only clip above the top video track makes a new video track and no empty audio
+    // track, an audio-only clip below the last audio track no empty video track.
+    void spec5_5_videoOnlyAboveCreatesNoAudioTrack()
+    {
+        View v;
+        MediaItem videoOnly;
+        videoOnly.path = QStringLiteral("/nonexistent/silent.mp4");
+        videoOnly.name = QStringLiteral("silent.mp4");
+        videoOnly.info.valid = videoOnly.info.hasVideo = true;
+        videoOnly.info.durationUs = 2'000'000;
+        const QString videoId = v.f.project.mediaPool()->addItem(videoOnly);
+        QMimeData mime;
+        mime.setData(QLatin1String(mime::MediaItems), videoId.toUtf8());
+        QVERIFY(sendDrag(v.vp(), &mime, QPoint(v.x(0), v.rowRect(kV2).top() - 10)).drop);
+        QCOMPARE(int(v.f.view().videoTracks.size()), 3);
+        QCOMPARE(v.clipCount(TrackRef {TrackType::Video, 2}), 1);
+        QCOMPARE(int(v.f.view().audioTracks.size()), 2);
+        KK_VERIFY_TIMELINE(v.f.view());
+    }
+    void spec5_5_audioOnlyBelowCreatesNoVideoTrack()
+    {
+        View v;
+        MediaItem audioOnly;
+        audioOnly.path = QStringLiteral("/nonexistent/music.wav");
+        audioOnly.name = QStringLiteral("music.wav");
+        audioOnly.info.valid = audioOnly.info.hasAudio = true;
+        audioOnly.info.durationUs = 2'000'000;
+        const QString audioId = v.f.project.mediaPool()->addItem(audioOnly);
+        QMimeData music;
+        music.setData(QLatin1String(mime::MediaItems), audioId.toUtf8());
+        QVERIFY(sendDrag(v.vp(), &music, QPoint(v.x(0), v.rowRect(kA2).bottom() + 10)).drop);
+        QCOMPARE(int(v.f.view().audioTracks.size()), 3);
+        QCOMPARE(v.clipCount(TrackRef {TrackType::Audio, 2}), 1);
+        QCOMPARE(int(v.f.view().videoTracks.size()), 2);
+        KK_VERIFY_TIMELINE(v.f.view());
+    }
+
     void dividerCountsAsNearestRow()
     {
         View v;

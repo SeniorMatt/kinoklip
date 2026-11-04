@@ -4,6 +4,7 @@
 
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
+#include "core/TitlePresets.h"
 
 #include <QCoreApplication>
 #include <QHash>
@@ -232,11 +233,9 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
                             itemKey, depth, showAll);
                 }
                 if (clip->kind == ClipKind::Title) {
-                    for (const EffectDescriptor* d : reg.byCategory(EffectCategory::Title)) {
-                        if (paramaccess::scopeForStorage(d->storage) == ParamScope::Title)
-                            appendGroup(model.entries, colorIndex, *clip, *d, ParamScope::Title, 0,
-                                itemKey, depth, showAll);
-                    }
+                    if (const EffectDescriptor* d = titles::descriptorOf(*clip))
+                        appendGroup(model.entries, colorIndex, *clip, *d, ParamScope::Title, 0,
+                            itemKey, depth, showAll);
                 }
             } else if (loc->track.type == TrackType::Audio) {
                 group(groups::Audio, ParamScope::Audio); // captions have no animated groups

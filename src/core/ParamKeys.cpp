@@ -23,6 +23,8 @@ double defaultValue(QStringView key)
         {Size, 72.0},
         {LineSpacing, 100.0},
         {BgOpacity, 60.0},
+        {TextPosX, 0.5},
+        {TextPosY, 0.5},
     };
     for (const KeyDefault& d : nonZeroDefaults) {
         if (key == d.key)

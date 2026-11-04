@@ -24,6 +24,12 @@ inline int64_t usToFrames(int64_t us, Rational fps)
 { // floor
     return fps.isValid() ? (int64_t)std::floor(double(us) * fps.num / (1e6 * fps.den) + 1e-9) : 0;
 }
+/// Frames of @p fps that start inside a span of @p us: ceil, with a tolerance for the
+/// microsecond rounding of framesToUs() (an exact multiple is never one frame more).
+inline int64_t usToFramesCeil(int64_t us, Rational fps)
+{
+    return fps.isValid() ? (int64_t)std::ceil(double(us) * fps.num / (1e6 * fps.den) - 1e-3) : 0;
+}
 inline int64_t framesToSamples48k(int64_t frames, Rational fps)
 {
     return fps.isValid() ? (int64_t)std::llround(double(frames) * 48000.0 * fps.den / fps.num) : 0;

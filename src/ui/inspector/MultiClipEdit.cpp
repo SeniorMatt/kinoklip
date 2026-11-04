@@ -86,8 +86,9 @@ QVector<quint64> peers(const TimelineData& data, const QVector<quint64>& selecti
             continue;
         const auto loc = editops::findClip(data, id);
         const ClipData* c = editops::clipById(data, id);
+        // Titles of different presets share their parameters, so they edit together.
         if (!loc || !c || loc->track.type != shownLoc->track.type || c->kind != shown->kind
-            || c->generator != shown->generator)
+            || (c->kind != ClipKind::Title && c->generator != shown->generator))
             continue;
         const TrackData* track = data.track(loc->track);
         if (!track || track->locked || out.contains(id))
@@ -134,7 +135,8 @@ bool propagate(const ClipData& before, const ClipData& after, ClipData& peer)
 {
     bool changed = copyChanged(before.transform, after.transform, peer.transform);
     changed = copyChanged(before.audio, after.audio, peer.audio) || changed;
-    if (peer.kind == after.kind && peer.generator == after.generator) {
+    if (peer.kind == after.kind
+        && (after.kind == ClipKind::Title || peer.generator == after.generator)) {
         if (after.kind == ClipKind::Subtitle) {
             // Typing a caption's words changes that caption only (spec 28.19); its style
             // settings still reach every selected caption.

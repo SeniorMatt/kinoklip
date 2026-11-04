@@ -53,6 +53,11 @@
         "action:edit.ripple_delete",
         "action:timeline.add_transition",
         "effect:text_title",
+        "effect:title_lower_third_left",
+        "effect:title_lower_third_middle",
+        "effect:title_lower_third_right",
+        "effect:title_scroll",
+        "effect:title_text_box",
         "effect:cross_dissolve",
         "effect:wipe",
         "effect:push"

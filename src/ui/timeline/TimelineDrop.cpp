@@ -224,6 +224,17 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
             plan.newVideoTrack = plan.newAudioTrack = false;
             plan.newTrackBandType = TrackType::Subtitle;
         }
+        // Only the tracks a clip lands on are created: a video-only clip dropped above the top
+        // video track makes a new video track and no empty audio track (and the reverse).
+        const auto needs = [&plan](TrackType type, int index) {
+            return std::any_of(plan.groups.cbegin(), plan.groups.cend(), [&](const auto& g) {
+                return std::any_of(g.cbegin(), g.cend(), [&](const ops::PlacedClip& p) {
+                    return p.track.type == type && p.track.index >= index;
+                });
+            });
+        };
+        plan.newVideoTrack = plan.newVideoTrack && needs(TrackType::Video, nv);
+        plan.newAudioTrack = plan.newAudioTrack && needs(TrackType::Audio, na);
         if (!plan.groups.isEmpty())
             plan.kind = DropPlan::Kind::Clips;
         return plan;
