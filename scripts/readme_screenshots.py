@@ -14,7 +14,7 @@ projects of tests/timeline/test_guidedemo.cpp (readme-edit, readme-compositing a
 readme-color.kkproj) and `kinoklip --screenshot <target> <png> <project>`.
 
 Usage (from the repository root, after building the app and the tests into build/):
-  scripts/readme_screenshots.py [--app build/kinoklip] [--tests build] [--work build/readme]
+  scripts/readme_screenshots.py [--app dist/kinoklip-x86_64/AppRun] [--tests build] [--work build/readme]
                                 [--only <name>] [--keep] [--delay 30000]
 
 Runs under xvfb-run (1920x1080x24) with a clean environment and a temporary HOME, so the
@@ -113,6 +113,17 @@ def store(raw: Path, out: Path) -> None:
           f"{out.stat().st_size // 1024} KB")
 
 
+def breeze_available(app: Path) -> bool:
+    """True when the app can load the Breeze widget style: bundled next to it (an AppDir), on
+    QT_PLUGIN_PATH or in the system's Qt 6 plugin folders. Without it Qt silently uses Fusion."""
+    folders = [app.parent / "usr" / "lib" / "qt" / "plugins" / "styles",
+               app.parent.parent / "lib" / "qt" / "plugins" / "styles",
+               Path("/usr/lib/x86_64-linux-gnu/qt6/plugins/styles"),
+               Path("/usr/lib/qt6/plugins/styles"), Path("/usr/lib64/qt6/plugins/styles")]
+    folders += [Path(p) / "styles" for p in os.environ.get("QT_PLUGIN_PATH", "").split(":") if p]
+    return any(folder.glob("breeze*.so") for folder in folders if folder.is_dir())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--app", default=str(ROOT / "build" / "kinoklip"))
@@ -124,6 +135,11 @@ def main() -> None:
                         help="ms to wait for thumbnails and waveforms before each shot")
     args = parser.parse_args()
     guide.DELAY_MS = args.delay
+    if not breeze_available(Path(args.app).resolve()):
+        sys.exit("readme_screenshots.py: no Breeze style for " + args.app + ". The app would fall "
+                 "back to Fusion and the pictures would not show the real look. Use an AppDir "
+                 "(scripts/package_linux.sh --no-appimage, then --app dist/kinoklip-x86_64/AppRun) "
+                 "or install the Qt 6 Breeze style.")
 
     if "KK_GUIDE_UNDER_XVFB" not in os.environ:
         if not shutil.which("xvfb-run"):
