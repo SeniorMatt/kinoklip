@@ -111,6 +111,8 @@ private:
     ActionRegistry& m_registry;
     QHash<QString, QList<QKeySequence>> m_original; ///< shortcuts when the dialog opened
     QString m_originalProfile; ///< profile active when the dialog opened
+    QStringList m_createdProfiles; ///< imported / duplicated while open (Cancel deletes them)
+    QHash<QString, QString> m_originalNames; ///< user profiles renamed while open: first name
     QComboBox* m_profiles = nullptr;
     QPushButton* m_profileMenu = nullptr;
     QHash<QString, QTreeWidgetItem*> m_rows;

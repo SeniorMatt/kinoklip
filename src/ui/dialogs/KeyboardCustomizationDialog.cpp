@@ -470,6 +470,8 @@ void KeyboardCustomizationDialog::duplicateProfile()
         return;
     QString error;
     const QString id = m_registry.duplicateProfile(m_registry.activeProfile(), name, &error);
+    if (!id.isEmpty())
+        m_createdProfiles.append(id);
     if (id.isEmpty() || !m_registry.setActiveProfile(id, &error)) {
         QMessageBox::warning(this, tr("Duplicate Keyboard Profile"), error);
         return;
@@ -488,8 +490,12 @@ void KeyboardCustomizationDialog::renameProfile()
     const QString name = QInputDialog::getText(
         this, tr("Rename Keyboard Profile"), tr("Name:"), QLineEdit::Normal, current->name, &ok);
     QString error;
-    if (ok && !m_registry.renameProfile(current->id, name, &error))
+    if (!ok)
+        return;
+    if (!m_registry.renameProfile(current->id, name, &error))
         QMessageBox::warning(this, tr("Rename Keyboard Profile"), error);
+    else if (!m_originalNames.contains(current->id))
+        m_originalNames.insert(current->id, current->name);
 }
 
 void KeyboardCustomizationDialog::deleteProfile()
@@ -517,6 +523,8 @@ void KeyboardCustomizationDialog::importKeymap()
         return;
     QString error;
     const QString id = m_registry.importProfile(path, {}, &error);
+    if (!id.isEmpty())
+        m_createdProfiles.append(id);
     if (id.isEmpty() || !m_registry.setActiveProfile(id, &error)) {
         QMessageBox::warning(this, tr("Import Keyboard Profile"), error);
         return;
@@ -572,6 +580,16 @@ void KeyboardCustomizationDialog::reject()
     for (auto it = m_original.cbegin(); it != m_original.cend(); ++it) {
         if (m_registry.shortcuts(it.key()) != it.value())
             m_registry.setShortcuts(it.key(), it.value());
+    }
+    // Profiles imported or duplicated in this session go again, renamed ones get their names
+    // back.
+    for (const QString& id : std::as_const(m_createdProfiles)) {
+        if (id != m_registry.activeProfile() && m_registry.profile(id))
+            m_registry.deleteProfile(id);
+    }
+    for (auto it = m_originalNames.cbegin(); it != m_originalNames.cend(); ++it) {
+        if (const auto p = m_registry.profile(it.key()); p && p->name != it.value())
+            m_registry.renameProfile(it.key(), it.value());
     }
     QDialog::reject();
 }
