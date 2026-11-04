@@ -20,6 +20,7 @@
 #include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolPanel.h"
+#include "ui/timeline/TimelineDialogs.h"
 
 #include <QAbstractItemView>
 #include <QFileInfo>
@@ -230,6 +231,16 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
                 : currentItem->kind == MediaItemKind::CompoundClip ? tr("Duplicate Compound Clip")
                                                                    : tr("Duplicate Timeline"),
             this, [this, uid] { m_ctx.project->duplicateTimeline(uid); });
+        if (currentItem->kind == MediaItemKind::Timeline) {
+            // Resolve's Timelines submenu items for a timeline (spec 25.12).
+            QMenu* timelines = menu.addMenu(tr("Timelines"));
+            timelines->addAction(tr("Starting Timecode…"), this, [this, uid] {
+                timelinedialogs::editStartingTimecode(this, *m_ctx.project, uid);
+            });
+            timelines->addAction(tr("Timeline Settings…"), this, [this, uid] {
+                timelinedialogs::editTimelineSettings(this, *m_ctx.project, uid);
+            });
+        }
         menu.addSeparator();
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
     } else if (!current.isEmpty()) {

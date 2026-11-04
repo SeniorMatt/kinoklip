@@ -193,6 +193,7 @@ std::optional<CollapseResult> collapse(TimelineData& parent, const QVector<quint
     nested.retimeProcess = parent.retimeProcess;
     nested.name = name;
     nested.fps = parent.fps;
+    nested.startTimecode = parent.startTimecode;
     nested.width = parent.width;
     nested.height = parent.height;
     nested.nextId = parent.nextId;

@@ -3,8 +3,11 @@
 #include "ui/common/ListKeyGuard.h"
 
 #include <QAbstractItemView>
+#include <QAbstractSpinBox>
 #include <QApplication>
+#include <QComboBox>
 #include <QKeyEvent>
+#include <QLineEdit>
 
 namespace kk {
 
@@ -20,13 +23,60 @@ ListKeyGuard::~ListKeyGuard()
         qApp->removeEventFilter(this);
 }
 
+namespace {
+
+/// The combo box that @p focus is or edits (an editable combo box's line edit), or null.
+const QComboBox* comboOf(const QWidget* focus)
+{
+    if (const auto* combo = qobject_cast<const QComboBox*>(focus))
+        return combo;
+    if (qobject_cast<const QLineEdit*>(focus))
+        return qobject_cast<const QComboBox*>(focus->parentWidget());
+    return nullptr;
+}
+
+/// The spin box that @p focus is or edits (its line edit), or null.
+const QAbstractSpinBox* spinOf(const QWidget* focus)
+{
+    if (const auto* spin = qobject_cast<const QAbstractSpinBox*>(focus))
+        return spin;
+    if (qobject_cast<const QLineEdit*>(focus))
+        return qobject_cast<const QAbstractSpinBox*>(focus->parentWidget());
+    return nullptr;
+}
+
+} // namespace
+
 bool ListKeyGuard::keyBelongsToList(const QWidget* focus, const QKeyEvent& key)
 {
+    const Qt::KeyboardModifiers mods = key.modifiers() & ~Qt::KeypadModifier;
+    // A focused combo box or spin box steps its value with Up / Down and Page Up / Down
+    // (and a closed combo box opens with Alt+Down); their text keys already go to the
+    // line edit (spec 10.12).
+    const QComboBox* combo = comboOf(focus);
+    const QAbstractSpinBox* spin = combo ? nullptr : spinOf(focus);
+    if ((combo || spin) && focus->isEnabled()) {
+        const QWidget* owner = combo ? static_cast<const QWidget*>(combo) : spin;
+        if (owner->property("kkTimelineKeys").toBool())
+            return false;
+        switch (key.key()) {
+        case Qt::Key_Up:
+        case Qt::Key_Down:
+            return mods == Qt::NoModifier || (combo && mods == Qt::AltModifier);
+        case Qt::Key_PageUp:
+        case Qt::Key_PageDown:
+            return mods == Qt::NoModifier;
+        case Qt::Key_Home:
+        case Qt::Key_End:
+            return combo && !combo->isEditable() && mods == Qt::NoModifier;
+        default:
+            return false;
+        }
+    }
     // The focus widget is the view itself (its viewport never takes focus).
     const auto* view = qobject_cast<const QAbstractItemView*>(focus);
     if (!view || view->property("kkTimelineKeys").toBool())
         return false;
-    const Qt::KeyboardModifiers mods = key.modifiers() & ~Qt::KeypadModifier;
     switch (key.key()) {
     case Qt::Key_Delete:
     case Qt::Key_Backspace:

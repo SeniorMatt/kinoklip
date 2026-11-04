@@ -101,7 +101,7 @@ private slots:
         QCOMPARE(merge->mainInput, nodeports::Background);
         QCOMPARE(merge->input(nodeports::Foreground)->kind, PortKind::Image);
         QCOMPARE(merge->input(nodeports::Mask)->kind, PortKind::Mask);
-        QCOMPARE(merge->param(nodekeys::BlendMode)->choices.size(), 9);
+        QCOMPARE(merge->param(nodekeys::BlendMode)->choices, blendmodes::ids()); // 19 modes
         QCOMPARE(merge->controls, ViewerControls::Transform);
         QCOMPARE(r.find(nodetypes::MediaOut)->outputs, 0);
         QCOMPARE(r.find(nodetypes::EllipseMask)->outputKind, PortKind::Mask);

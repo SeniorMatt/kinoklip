@@ -208,8 +208,27 @@ inline const QString Darken = QStringLiteral("darken");
 inline const QString Lighten = QStringLiteral("lighten");
 inline const QString Difference = QStringLiteral("difference");
 inline const QString Subtract = QStringLiteral("subtract");
-/// Index of @p mode in the choice list (0 = Normal for unknown values).
+inline const QString HardLight = QStringLiteral("hardLight");
+inline const QString SoftLight = QStringLiteral("softLight");
+inline const QString ColorDodge = QStringLiteral("colorDodge");
+inline const QString ColorBurn = QStringLiteral("colorBurn");
+inline const QString Exclusion = QStringLiteral("exclusion");
+inline const QString LinearBurn = QStringLiteral("linearBurn");
+inline const QString LinearLight = QStringLiteral("linearLight");
+inline const QString VividLight = QStringLiteral("vividLight");
+inline const QString PinLight = QStringLiteral("pinLight");
+inline const QString HardMix = QStringLiteral("hardMix");
+/// Index of @p mode (0 = Normal for unknown values): the number the blend functions
+/// (compmath::blendChannel(), the GLSL kBlendFunctionGlsl) switch on. Stable: new modes are
+/// appended.
 [[nodiscard]] int index(const QString& mode);
+/// Every mode id in index() order.
+[[nodiscard]] const QStringList& ids();
+/// The modes in the order of the Inspector's Composite Mode list (Resolve's order: Normal,
+/// Add, Subtract, Difference, Multiply, Screen, Overlay, Hard Light, Soft Light, ...).
+[[nodiscard]] const QStringList& compositeOrder();
+/// Translated name of mode @p id ("Soft Light"); @p id itself if unknown.
+[[nodiscard]] QString displayName(const QString& id);
 } // namespace blendmodes
 
 /// Background modes (nodekeys::Mode).

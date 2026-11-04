@@ -28,7 +28,7 @@ namespace kk {
 
 namespace {
 
-constexpr Rational kDefaultFps {25, 1};
+constexpr Rational kDefaultFps {24, 1}; // Resolve's default for new projects
 constexpr int kDefaultWidth = 1920;
 constexpr int kDefaultHeight = 1080;
 
@@ -184,19 +184,25 @@ void Project::setCacheSettings(const MediaCacheSettings& settings)
 
 ProjectSettings Project::settings() const
 {
-    return ProjectSettings {
-        m_name, m_format.width, m_format.height, m_format.fps, m_format.retimeProcess};
+    return ProjectSettings {m_name, m_format.width, m_format.height, m_format.fps,
+        m_format.retimeProcess, m_format.timelineStart};
 }
 
 void Project::setSettings(const ProjectSettings& settings)
 {
     setName(settings.name);
-    const Format format {settings.width, settings.height,
-        settings.fps.isValid() ? settings.fps : kDefaultFps,
+    const Rational fps = settings.fps.isValid() ? settings.fps : kDefaultFps;
+    // An unchanged starting timecode keeps its HH:MM:SS:FF when only the rate changes.
+    const int64_t start = settings.timelineStart == m_format.timelineStart
+        ? convertTimecode(m_format.timelineStart, m_format.fps, fps)
+        : settings.timelineStart;
+    const Format format {settings.width, settings.height, fps,
         settings.retimeProcess == RetimeProcess::ProjectDefault ? RetimeProcess::Nearest
-                                                                : settings.retimeProcess};
+                                                                : settings.retimeProcess,
+        std::max<int64_t>(0, start)};
     if (format == m_format)
         return;
+    const Rational oldFps = m_format.fps;
     // TODO(core): changing fps does not rescale existing clip positions yet.
     beginEdit(tr("Project Settings"));
     m_format = format;
@@ -208,6 +214,8 @@ void Project::setSettings(const ProjectSettings& settings)
             copy->width = format.width;
             copy->height = format.height;
             copy->fps = format.fps;
+            // The starting timecode keeps its HH:MM:SS:FF at the new rate.
+            copy->startTimecode = convertTimecode(data->startTimecode, oldFps, format.fps);
         }
         if (*copy == *data)
             continue;
@@ -258,7 +266,9 @@ void Project::newProject()
     m_editDepth = 0;
     m_undoStack->clear();
     m_name = ProjectSettings {}.name;
-    m_format = Format {kDefaultWidth, kDefaultHeight, kDefaultFps};
+    // New projects: 24 fps and timelines starting at 01:00:00:00, as in Resolve (spec 25.12).
+    m_format = Format {kDefaultWidth, kDefaultHeight, kDefaultFps, RetimeProcess::Nearest,
+        oneHourTimecode(kDefaultFps)};
     m_mediaPool->clear();
     m_links->clear();
     {
@@ -270,6 +280,7 @@ void Project::newProject()
     TimelineData first
         = makeDefaultTimeline(tr("Timeline 1"), kDefaultFps, kDefaultWidth, kDefaultHeight);
     first.uid = 1;
+    first.startTimecode = m_format.timelineStart;
     std::vector<TimelineSlot> timelineSlots;
     timelineSlots.push_back(
         {first.uid, std::make_shared<const TimelineData>(std::move(first)), 0, {}});
@@ -315,7 +326,8 @@ QJsonObject Project::toJson(const SaveSnapshot& snap, const QString& path)
     root[QLatin1String("project")] = QJsonObject {{QLatin1String("name"), snap.name},
         {QLatin1String("width"), snap.format.width}, {QLatin1String("height"), snap.format.height},
         {QLatin1String("fps"), fpsToJson(snap.format.fps)},
-        {QLatin1String("retimeProcess"), retime::processToString(snap.format.retimeProcess)}};
+        {QLatin1String("retimeProcess"), retime::processToString(snap.format.retimeProcess)},
+        {QLatin1String("timelineStart"), qint64(snap.format.timelineStart)}};
     root[QLatin1String("mediaPool")] = serialization::mediaPoolToJson(snap.pool, projectDir);
     QJsonArray timelines;
     QJsonArray views;
@@ -431,6 +443,9 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
             project.value(QLatin1String("retimeProcess")).toString(), RetimeProcess::Nearest);
         if (format.retimeProcess == RetimeProcess::ProjectDefault)
             format.retimeProcess = RetimeProcess::Nearest;
+        // Format <= 16: no starting timecode (new timelines keep starting at 00:00:00:00).
+        format.timelineStart
+            = std::max<qint64>(0, project.value(QLatin1String("timelineStart")).toInteger(0));
     }
     for (const QJsonValue& v : root.value(QLatin1String("timelineViews")).toArray()) {
         const QJsonObject o = v.toObject();

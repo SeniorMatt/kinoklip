@@ -59,7 +59,8 @@ until the bars are gone.
 - **Animate it:** a slow zoom or a picture-in-picture that slides in are made with keyframes;
   see [Animate with keyframes](keyframe-animation.md).
 - **Mirror a clip:** tick **Flip Horizontal** under **Transform**.
-- **Make it see-through:** lower **Opacity** under **Transform**.
+- **Make it see-through:** lower **Opacity** under **Composite**; **Composite Mode** blends it with
+  the picture below (Multiply, Screen, Overlay and more).
 - **Undo** a change with **Ctrl+Z**. To put the whole section back, click the round arrow in the
   title of **Transform** or **Cropping**.
 

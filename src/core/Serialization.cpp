@@ -695,6 +695,8 @@ QJsonObject timelineToJson(const TimelineData& data)
     o[QLatin1String("name")] = data.name;
     o[QLatin1String("fps")]
         = QJsonObject {{QLatin1String("num"), data.fps.num}, {QLatin1String("den"), data.fps.den}};
+    if (data.startTimecode != 0) // format 17; omitted at 00:00:00:00
+        o[QLatin1String("startTimecode")] = qint64(data.startTimecode);
     o[QLatin1String("width")] = data.width;
     o[QLatin1String("height")] = data.height;
     if (data.retimeProcess != RetimeProcess::Nearest)
@@ -739,6 +741,8 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
     const QJsonObject fps = o.value(QLatin1String("fps")).toObject();
     data.fps = Rational {
         fps.value(QLatin1String("num")).toInt(25), fps.value(QLatin1String("den")).toInt(1)};
+    data.startTimecode
+        = std::clamp<int64_t>(o.value(QLatin1String("startTimecode")).toInteger(0), 0, kMaxFrames);
     data.width = o.value(QLatin1String("width")).toInt(1920);
     data.height = o.value(QLatin1String("height")).toInt(1080);
     data.retimeProcess = retime::processFromString(

@@ -5,6 +5,7 @@
 #include "core/EffectBuilders.h"
 #include "core/EffectRegistry.h"
 #include "core/Generators.h"
+#include "core/NodeRegistry.h"
 #include "core/ParamKeys.h"
 #include "core/Subtitles.h"
 
@@ -54,7 +55,7 @@ void EffectRegistry::registerBuiltins()
 
     // ---- Clip property groups (stored on ClipData, always present in the Inspector) ----
     add(descriptor(groups::Transform, tr("Transform"), C::ClipProperties,
-        tr("Position, zoom, rotation, anchor point and opacity"),
+        tr("Position, zoom, rotation, anchor point and flips"),
         {
             number(keys::ZoomX, tr("Zoom X"), 0.01, 20.0, 1.0, 0.01),
             number(keys::ZoomY, tr("Zoom Y"), 0.01, 20.0, 1.0, 0.01),
@@ -66,7 +67,6 @@ void EffectRegistry::registerBuiltins()
             shownUp(number(keys::AnchorY, tr("Anchor Y"), -10000, 10000, 0, 1, kPx)),
             boolean(keys::FlipH, tr("Flip Horizontal"), false),
             boolean(keys::FlipV, tr("Flip Vertical"), false),
-            number(keys::Opacity, tr("Opacity"), 0, 100, 100, 1, kPercent),
         },
         QStringLiteral("transform")));
     add(descriptor(groups::Cropping, tr("Cropping"), C::ClipProperties,
@@ -78,6 +78,21 @@ void EffectRegistry::registerBuiltins()
             number(keys::CropB, tr("Crop Bottom"), 0, 10000, 0, 1, kPx),
         },
         QStringLiteral("transform")));
+    // Resolve's Composite group: how the clip combines with the tracks below, and its
+    // opacity (stored with the transform, key unchanged, so older projects load the same).
+    {
+        QStringList labels;
+        for (const QString& id : blendmodes::compositeOrder())
+            labels.append(blendmodes::displayName(id));
+        add(descriptor(groups::Composite, tr("Composite"), C::ClipProperties,
+            tr("Composite mode and opacity over the tracks below"),
+            {
+                choice(keys::CompositeMode, tr("Composite Mode"), blendmodes::compositeOrder(),
+                    labels, blendmodes::Normal),
+                number(keys::Opacity, tr("Opacity"), 0, 100, 100, 1, kPercent),
+            },
+            QStringLiteral("transform")));
+    }
     add(descriptor(groups::Audio, tr("Audio"), C::ClipProperties, tr("Clip volume and pan"),
         {
             number(keys::VolumeDb, tr("Volume"), -96, 24, 0, 0.1, QStringLiteral("dB")),

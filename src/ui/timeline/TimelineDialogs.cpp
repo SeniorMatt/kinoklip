@@ -234,9 +234,25 @@ void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
     }
     fps->setCurrentIndex(index);
     form->addRow(QCoreApplication::translate("kk::timelinedialogs", "Timeline frame rate"), fps);
+    // As in Resolve the frame rate is fixed once the timeline has clips (their frame
+    // positions would no longer match their media; spec 25.13).
+    const bool hasClips = data->duration() > 0;
+    if (hasClips) {
+        fps->setEnabled(false);
+        fps->setToolTip(QCoreApplication::translate("kk::timelinedialogs",
+            "The frame rate cannot be changed once the timeline has clips."));
+    }
     layout->addWidget(box);
     box->setEnabled(!follow->isChecked());
     QObject::connect(follow, &QCheckBox::toggled, box, [box](bool on) { box->setEnabled(!on); });
+    // Starting timecode (spec 25.12): the record timecode of the timeline's first frame.
+    auto* startForm = new QFormLayout;
+    auto* start = new QLineEdit(timecode::format(data->startTimecode, data->fps));
+    start->setObjectName(QStringLiteral("StartingTimecode"));
+    start->setInputMask(QStringLiteral("99:99:99:99"));
+    startForm->addRow(
+        QCoreApplication::translate("kk::timelinedialogs", "Starting timecode"), start);
+    layout->addLayout(startForm);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     layout->addWidget(buttons);
     QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
@@ -244,8 +260,45 @@ void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
     if (dialog.exec() != QDialog::Accepted)
         return;
     const QPoint rate = fps->currentData().toPoint();
-    project.setTimelineFormat(
-        uid, follow->isChecked(), width->value(), height->value(), Rational {rate.x(), rate.y()});
+    // A frame rate change with clips is refused (the combo box is disabled, but "Use project
+    // settings" could still switch to another rate).
+    const Rational chosen = hasClips ? data->fps : Rational {rate.x(), rate.y()};
+    const bool followProject
+        = follow->isChecked() && !(hasClips && project.settings().fps != data->fps);
+    project.beginEdit(QCoreApplication::translate("kk::timelinedialogs", "Timeline Settings"));
+    project.setTimelineFormat(uid, followProject, width->value(), height->value(), chosen);
+    if (const auto now = project.timelineData(uid)) {
+        if (const auto frames = timecode::parse(start->text(), now->fps);
+            frames && start->text() != timecode::format(data->startTimecode, data->fps))
+            project.setTimelineStartTimecode(uid, *frames);
+    }
+    project.endEdit();
+}
+
+bool editStartingTimecode(QWidget* parent, Project& project, quint64 uid)
+{
+    const auto data = project.timelineData(uid);
+    if (!data)
+        return false;
+    QDialog dialog(parent);
+    dialog.setObjectName(QStringLiteral("StartingTimecodeDialog"));
+    dialog.setWindowTitle(QCoreApplication::translate("kk::timelinedialogs", "Starting Timecode"));
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* form = new QFormLayout;
+    const QString before = timecode::format(data->startTimecode, data->fps);
+    auto* edit = new QLineEdit(before);
+    edit->setObjectName(QStringLiteral("StartingTimecode"));
+    edit->setInputMask(QStringLiteral("99:99:99:99"));
+    form->addRow(QCoreApplication::translate("kk::timelinedialogs", "Starting timecode"), edit);
+    layout->addLayout(form);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    layout->addWidget(buttons);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    if (dialog.exec() != QDialog::Accepted || edit->text() == before)
+        return false;
+    const auto frames = timecode::parse(edit->text(), data->fps);
+    return frames && project.setTimelineStartTimecode(uid, *frames);
 }
 
 } // namespace kk::timelinedialogs

@@ -2,6 +2,7 @@
 // Unit tests for multicam clips (core/Multicam.h, Project): building the multicam timeline
 // from synced sources, angle views, the viewer grid, timecode / in-point offsets, cut and
 // switch angle edits with undo, flatten, render snapshots, save / load and migration.
+#include "ClassicTimeline.h"
 #include "CoreTestUtils.h"
 #include "core/EditOps.h"
 #include "core/Multicam.h"
@@ -56,6 +57,7 @@ struct Fixture
 
     Fixture()
     {
+        kk::test::useClassicTimeline(project); // the angles run at 25 fps
         QString error;
         mcUid = project.createMulticamClip(
             {source(QStringLiteral("a"), 20, 0), source(QStringLiteral("b"), 15, 2000000),

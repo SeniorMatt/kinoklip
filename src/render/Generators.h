@@ -68,8 +68,9 @@ struct GeneratorFrame
     }
 };
 
-/// Resolves generator clip @p clip at clip-local frame @p localFrame (timeline frame
-/// @p timelineFrame of a timeline at @p fps). Allocation-free except for the text of the
+/// Resolves generator clip @p clip at clip-local frame @p localFrame (@p timelineFrame: the
+/// record frame, i.e. the timeline frame plus its starting timecode, of a timeline at @p fps;
+/// what a timeline timecode burn-in shows). Allocation-free except for the text of the
 /// countdown / timecode generators.
 [[nodiscard]] GeneratorFrame resolveGenerator(
     const ClipData& clip, int64_t localFrame, int64_t timelineFrame, Rational fps);

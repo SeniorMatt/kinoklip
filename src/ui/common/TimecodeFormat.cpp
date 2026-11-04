@@ -2,6 +2,8 @@
 // Timecode formatting and parsing.
 #include "ui/common/TimecodeFormat.h"
 
+#include "core/TimelineData.h"
+
 #include <QRegularExpression>
 
 #include <cmath>
@@ -81,6 +83,16 @@ std::optional<int64_t> parse(QStringView text, Rational fps)
         total += i == 0 ? value : value * kUnitSeconds[i] * fpsInt;
     }
     return negative ? -total : total;
+}
+
+QString formatRecord(int64_t frame, const TimelineData& data)
+{
+    return format(frame + data.startTimecode, data.fps);
+}
+
+int64_t recordToFrame(int64_t frames, const TimelineData& data)
+{
+    return frames >= data.startTimecode ? frames - data.startTimecode : frames;
 }
 
 } // namespace kk::timecode

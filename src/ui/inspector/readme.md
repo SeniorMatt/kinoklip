@@ -20,7 +20,8 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 
 ### Data flow
 - Everything is generated from `EffectRegistry` descriptors:
-  - Video tab: `solid_color` (Solid clips), `builtin.transform`, `builtin.cropping`, then the
+  - Video tab: `solid_color` (Solid clips), `builtin.transform`, `builtin.cropping`,
+    `builtin.composite` (Composite Mode and Opacity, spec 24.19), then the
     Masks section (`builtin.mask` rows per mask; width / height only for rectangles and
     ellipses; mode / invert map to `MaskData` fields, the synthetic `shape` key to the
     animated path, see `ParamAccess.h`).

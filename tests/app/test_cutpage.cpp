@@ -3,6 +3,7 @@
 // state with the Edit page, smart edits through the page (one undo step each, nearest edit
 // point), the source tape across clip boundaries, the dual timeline staying in sync, ripple
 // edge trims in the lower timeline, the strip view and fast review speeds.
+#include "../core/ClassicTimeline.h"
 #include "app/MainWindow.h"
 #include "app/Theme.h"
 #include "app/pages/CutPage.h"
@@ -65,6 +66,7 @@ struct Fixture
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
+        kk::test::useClassicTimeline(project); // the tests count frames at 25 fps
         int seconds = 2;
         for (const char* name : {"alpha", "bravo", "charlie"}) {
             MediaItem m;

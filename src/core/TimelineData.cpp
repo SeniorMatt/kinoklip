@@ -103,6 +103,28 @@ QString trackDisplayName(const TrackData& track, int index)
     return QLatin1String("ST") + number;
 }
 
+int timecodeBase(Rational fps)
+{
+    return fps.isValid() ? std::max(1, int(std::lround(fps.toDouble()))) : 25;
+}
+
+int64_t oneHourTimecode(Rational fps)
+{
+    return int64_t(3600) * timecodeBase(fps);
+}
+
+int64_t convertTimecode(int64_t frames, Rational from, Rational to)
+{
+    const int a = timecodeBase(from);
+    const int b = timecodeBase(to);
+    if (a == b)
+        return frames;
+    const bool negative = frames < 0;
+    const int64_t f = negative ? -frames : frames;
+    const int64_t converted = (f / a) * b + std::min<int64_t>(f % a, b - 1);
+    return negative ? -converted : converted;
+}
+
 TimelineData makeDefaultTimeline(const QString& name, Rational fps, int width, int height)
 {
     TimelineData t;

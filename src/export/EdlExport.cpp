@@ -60,7 +60,9 @@ QString reelOf(const ClipData& clip, const MediaPool* pool)
     return reel.left(kReelWidth);
 }
 
-QString formatLine(int number, const EventLine& l, Rational fps)
+/// One event line; @p recordStart (the timeline's starting timecode) is added to the record
+/// timecodes.
+QString formatLine(int number, const EventLine& l, Rational fps, int64_t recordStart)
 {
     // "001  REEL     V     C        00:00:00:00 00:00:05:00 00:00:00:00 00:00:05:00"
     const QString edit = l.edit == QLatin1String("D")
@@ -69,7 +71,8 @@ QString formatLine(int number, const EventLine& l, Rational fps)
     return QStringLiteral("%1  %2 %3 %4 %5 %6 %7 %8")
         .arg(number, 3, 10, QLatin1Char('0'))
         .arg(pad(l.reel, kReelWidth), pad(l.channel, kChannelWidth), edit, timecode(l.srcIn, fps),
-            timecode(l.srcOut, fps), timecode(l.recIn, fps), timecode(l.recOut, fps));
+            timecode(l.srcOut, fps), timecode(l.recIn + recordStart, fps),
+            timecode(l.recOut + recordStart, fps));
 }
 
 /// Source frame (timeline rate, with the source start offset) shown at timeline frame
@@ -221,7 +224,7 @@ QString timelineToEdl(const TimelineData& data, const MediaPool* pool, const Edl
     for (const Event& e : events) {
         ++number;
         for (const EventLine& l : e.lines)
-            out += formatLine(number, l, data.fps) + QLatin1Char('\n');
+            out += formatLine(number, l, data.fps, data.startTimecode) + QLatin1Char('\n');
         if (!e.speedLine.isEmpty())
             out += e.speedLine + QLatin1Char('\n');
         for (const QString& c : e.comments)
@@ -240,12 +243,15 @@ QString markersToEdl(const TimelineData& data)
         l.reel = QStringLiteral("001");
         l.channel = QStringLiteral("V");
         l.edit = QStringLiteral("C");
-        l.srcIn = l.recIn = m.frame;
-        l.srcOut = l.recOut = m.end();
-        out += formatLine(++number, l, data.fps) + QLatin1Char('\n');
+        const int64_t start = data.startTimecode;
+        l.recIn = m.frame;
+        l.recOut = m.end();
+        l.srcIn = m.frame + start;
+        l.srcOut = m.end() + start;
+        out += formatLine(++number, l, data.fps, start) + QLatin1Char('\n');
         out += QStringLiteral("* LOC: %1 %2 %3\n")
-                   .arg(
-                       timecode(m.frame, data.fps), pad(markerColorName(m.color, true), 8), m.name);
+                   .arg(timecode(m.frame + start, data.fps), pad(markerColorName(m.color, true), 8),
+                       m.name);
         if (!m.note.isEmpty())
             out += QStringLiteral("* COMMENT: %1\n")
                        .arg(QString(m.note).replace(QLatin1Char('\n'), QLatin1Char(' ')));
@@ -261,8 +267,9 @@ QString markersToCsv(const TimelineData& data)
     int number = 0;
     for (const Marker& m : data.markers) {
         out += QStringList {QString::number(++number), csvField(m.name),
-                   timecode(m.frame, data.fps), timecode(m.end(), data.fps),
-                   timecode(m.duration, data.fps), markerColorName(m.color), csvField(m.note)}
+                   timecode(m.frame + data.startTimecode, data.fps),
+                   timecode(m.end() + data.startTimecode, data.fps), timecode(m.duration, data.fps),
+                   markerColorName(m.color), csvField(m.note)}
                    .join(QLatin1Char(','))
             + crlf;
     }

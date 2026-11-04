@@ -285,18 +285,7 @@ private:
                 unpack(pf[x], s);
                 for (float& v : s)
                     v *= opacity;
-                if (mode == 0) {
-                    for (int i = 0; i < 4; ++i)
-                        o[i] = s[i] + b[i] * (1.0f - s[3]);
-                } else {
-                    for (int i = 0; i < 3; ++i) {
-                        const float cb = b[3] > 0 ? b[i] / b[3] : 0.0f;
-                        const float cs = s[3] > 0 ? s[i] / s[3] : 0.0f;
-                        o[i] = s[i] * (1 - b[3]) + b[i] * (1 - s[3])
-                            + s[3] * b[3] * compmath::blendChannel(mode, cb, cs);
-                    }
-                    o[3] = s[3] + b[3] * (1 - s[3]);
-                }
+                compmath::blendPremultiplied(mode, b, s, o);
                 if (pm) {
                     const float t = qAlpha(pm[x]) / 255.0f;
                     for (int i = 0; i < 4; ++i)
@@ -371,6 +360,25 @@ QImage evaluateCompositionCpu(const CpuCompEval& ev, quint64 nodeId)
     Evaluator e(ev);
     QImage out = normalized(e.eval(nodeId, 0), ev.size);
     return out.isNull() ? blank(ev.size) : out;
+}
+
+void blendLayerInto(QImage& background, const QImage& layer, int mode)
+{
+    if (layer.isNull() || layer.size() != background.size())
+        return;
+    for (int y = 0; y < background.height(); ++y) {
+        QRgb* pb = reinterpret_cast<QRgb*>(background.scanLine(y));
+        const QRgb* pl = reinterpret_cast<const QRgb*>(layer.constScanLine(y));
+        for (int x = 0; x < background.width(); ++x) {
+            if (qAlpha(pl[x]) == 0)
+                continue; // nothing over this pixel
+            float b[4], s[4], o[4];
+            unpack(pb[x], b);
+            unpack(pl[x], s);
+            compmath::blendPremultiplied(mode, b, s, o);
+            pb[x] = pack(o);
+        }
+    }
 }
 
 } // namespace kk::render

@@ -73,6 +73,13 @@ void applyChannels(const std::array<int, 4>& src, float rgba[4]);
 /// colour channels; the composite is co = cs·(1 − ab) + cb·(1 − as) + as·ab·B, ao = as + ab·(1 −
 /// as) (premultiplied cs, cb), Normal = plain "over".
 [[nodiscard]] float blendChannel(int mode, float cb, float cs);
+/// The same blend functions in GLSL: float kkBlend(int mode, float b, float s) and
+/// vec3 kkBlend3(int mode, vec3 b, vec3 s), for the Merge node (GlComposition) and the
+/// timeline's composite modes (GlRenderer).
+extern const char* const kBlendFunctionGlsl;
+/// The Merge composite of premultiplied @p s over premultiplied @p b (rgba 0..1) with mode
+/// @p mode into @p o (the formula above; mode 0 = plain "over").
+void blendPremultiplied(int mode, const float b[4], const float s[4], float o[4]);
 
 /// Background node as a generator pattern (render/Generators: solid = four equal corners,
 /// gradient = linear along the angle across the frame, four corner = TL, TR, BL, BR), so the
