@@ -59,6 +59,27 @@ QColor TimelineController::newMarkerColor()
     return QColor(markerColorPalette().front().rgb);
 }
 
+QString TimelineController::newMarkerName(const QVector<Marker>& existing)
+{
+    // Highest number of the default names (translated pattern); other names are ignored.
+    const QString pattern = tr("Marker %1");
+    const qsizetype at = pattern.indexOf(QLatin1String("%1"));
+    const QString prefix = pattern.left(at);
+    const QString suffix = pattern.mid(at + 2);
+    int highest = 0;
+    for (const Marker& m : existing) {
+        if (!m.name.startsWith(prefix) || !m.name.endsWith(suffix)
+            || m.name.size() <= prefix.size() + suffix.size())
+            continue;
+        bool ok = false;
+        const int n
+            = m.name.mid(prefix.size(), m.name.size() - prefix.size() - suffix.size()).toInt(&ok);
+        if (ok && n > highest)
+            highest = n;
+    }
+    return pattern.arg(highest + 1);
+}
+
 void TimelineController::addMarkerAtPlayhead()
 {
     placeMarker(false);
@@ -105,7 +126,7 @@ void TimelineController::placeMarker(bool forceEdit)
             ClipData* clip = ops::clipById(data, clipId);
             Marker m;
             m.frame = local;
-            m.name = tr("Marker %1").arg(clip->markers.size() + 1);
+            m.name = newMarkerName(clip->markers);
             m.color = newMarkerColor();
             added = insertMarker(clip->markers, m);
             return added;
