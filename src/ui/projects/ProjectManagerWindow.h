@@ -57,6 +57,9 @@ public:
     void setOpenProjectPath(const QString& path);
     /// Recent projects (File > Open Recent's list), shown under Recent Projects.
     void setRecentProjects(const QStringList& paths);
+    /// Puts @p banner (owned by the window from now on) above everything else, e.g. the
+    /// first start's keyboard preset choice (KeymapChoiceBanner).
+    void setTopBanner(QWidget* banner);
 
     /// Shows the library folder @p folder (absolute; empty = the library root).
     void showFolder(const QString& folder = {});

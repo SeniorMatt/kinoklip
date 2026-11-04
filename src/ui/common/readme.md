@@ -104,7 +104,15 @@ in their default state (snap on, linked on, select tool).
 Default keys come from the active keymap profile (plan.md 5.9 rule 1):
 
 - **Built-in** profiles: `resources/keymaps/<id>.json` (read-only, compiled in). The default is
-  `resolve-windows` (Resolve's Windows defaults, documented in docs/keymap-resolve-windows.md).
+  `resolve-windows` (Resolve's Windows defaults, documented in docs/keymap-resolve-windows.md),
+  listed first; the presets of other editors (`avid-media-composer`, `final-cut-pro`,
+  `kdenlive`, `premiere-pro`, `shotcut`, `vegas-pro`) are generated with their docs
+  (docs/keymaps/) by `scripts/keymap-presets.py`, which reads the Resolve table and never
+  changes it. A new command needs no row there: it keeps its Resolve key in every preset (or
+  none where that preset uses the key); add a row only for a real counterpart.
+- **Other editors' files**: `importProfile()` also reads Premiere Pro `.kys` and Final Cut Pro
+  `.commandset` (XML plist) files through ForeignKeymaps.h (defensive parsers; command names
+  mapped by an alias table; unknown entries counted as skipped, `ImportSummary`).
 - **User** profiles: `<AppData>/keymaps/<name>.json`, id `user-<name>`; each has a `basedOn`
   built-in profile and stores only its overrides.
 - Rebinding always changes the active profile: built-in profiles keep their overrides in

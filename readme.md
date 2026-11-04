@@ -22,6 +22,7 @@ All releases are alpha or beta pre-releases for now: expect bugs and keep backup
 - [Plan and architecture](plan.md): module contracts and design rules
 - [Behaviour spec](docs/behavior-spec.md): how each feature behaves, with test references
 - [Resolve keymap](docs/keymap-resolve-windows.md): default keyboard shortcuts
+- [Keyboard presets](docs/keymaps/readme.md): the keys of Vegas Pro, Premiere Pro, Final Cut Pro, Avid Media Composer, Kdenlive and Shotcut
 - [Release notes](docs/releases/): changes in each release
 - [Linux packaging](packaging/linux/readme.md): building the AppImage
 - [Clean-room policy](docs/clean-room.md): what may and may not be used to build Kinoklip
