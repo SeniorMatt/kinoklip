@@ -270,15 +270,33 @@ bool MediaPool::relinkItem(const QString& id, const QString& path)
 int MediaPool::relinkFromFolder(const QString& folder, const QStringList& onlyIds)
 {
     // The offline file names we look for (only those, so a big folder tree costs one walk).
-    QHash<QString, QString> found; // file name -> path (the shallowest match wins)
-    QHash<QString, int> depth;
+    // A file whose name differs only in case is found too (Windows and macOS file systems
+    // ignore case, and a copy from a camera card often changes it); a match with the same
+    // case wins.
+    struct Match
+    {
+        QString path;
+        int depth = 0;
+    };
+    QHash<QString, Match> exact; // file name -> path (the shallowest match wins)
+    QHash<QString, Match> folded; // case-folded file name -> path
+    auto offer = [](QHash<QString, Match>& map, const QString& key, const QString& path) {
+        const auto slot = map.find(key);
+        if (slot == map.end())
+            return;
+        const int d = int(path.count(QLatin1Char('/')));
+        if (slot->path.isEmpty() || d < slot->depth)
+            *slot = {path, d};
+    };
     for (const MediaItem& item : m_state.items) {
         if (item.isTimeline() || (!onlyIds.isEmpty() && !onlyIds.contains(item.id))
             || media::mediaExists(item.path))
             continue;
-        found.insert(QFileInfo(item.path).fileName(), QString());
+        const QString name = QFileInfo(item.path).fileName();
+        exact.insert(name, {});
+        folded.insert(name.toCaseFolded(), {});
     }
-    if (found.isEmpty())
+    if (exact.isEmpty())
         return 0;
     // Resolve's Relink searches the chosen folder and its subfolders.
     const QString root = QDir(folder).absolutePath();
@@ -287,21 +305,18 @@ int MediaPool::relinkFromFolder(const QString& folder, const QStringList& onlyId
     while (it.hasNext() && scanned++ < kMaxRelinkScanFiles) {
         const QString path = it.next();
         const QString name = it.fileName();
-        const auto slot = found.find(name);
-        if (slot == found.end())
-            continue;
-        const int d = int(path.count(QLatin1Char('/')));
-        if (slot->isEmpty() || d < depth.value(name)) {
-            *slot = path;
-            depth.insert(name, d);
-        }
+        offer(exact, name, path);
+        offer(folded, name.toCaseFolded(), path);
     }
     int relinked = 0;
     for (MediaItem& item : m_state.items) {
         if (item.isTimeline() || (!onlyIds.isEmpty() && !onlyIds.contains(item.id))
             || media::mediaExists(item.path))
             continue;
-        const QString candidate = found.value(QFileInfo(item.path).fileName());
+        const QString name = QFileInfo(item.path).fileName();
+        QString candidate = exact.value(name).path;
+        if (candidate.isEmpty())
+            candidate = folded.value(name.toCaseFolded()).path;
         if (candidate.isEmpty())
             continue;
         item.path = QFileInfo(candidate).absoluteFilePath();
