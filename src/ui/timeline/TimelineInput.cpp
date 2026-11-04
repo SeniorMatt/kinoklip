@@ -223,6 +223,7 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
         if (m_drag.modifiers & Qt::AltModifier)
             slide = !slide;
         m_drag.pending = slide ? DragMode::Slide : DragMode::Slip;
+        m_controller->setSlideClip(slide ? hit.clipId : 0); // , / . and dynamic trim (8.20)
     } else {
         m_drag.pending = DragMode::Move;
     }

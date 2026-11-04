@@ -251,7 +251,12 @@ void TimelineController::onPlayheadMoved(int64_t frame)
 {
     const int64_t delta = frame - m_dynamicLast;
     m_dynamicLast = frame;
-    const bool active = m_dynamicTrim && !m_selectedEdit.isEmpty() && isPlaying();
+    // An edit point, else selected clips (dynamic slip / slide, spec 8.21).
+    const QVector<quint64> clips = m_selectedEdit.isEmpty() && m_tool != TimelineTool::Blade
+        ? effectiveSelection()
+        : QVector<quint64> {};
+    const bool active
+        = m_dynamicTrim && (!m_selectedEdit.isEmpty() || !clips.isEmpty()) && isPlaying();
     if (!active) {
         endDynamicRun();
         return;
@@ -263,8 +268,16 @@ void TimelineController::onPlayheadMoved(int64_t frame)
         project()->beginEdit(tr("Dynamic Trim"));
         m_dynamicOpen = true;
     }
-    // The edit point follows the playhead: a roll, or a ripple trim in the trim tool.
-    applyEditTrim(timeline()->mutableData(), m_selectedEdit, delta, m_tool == TimelineTool::Trim);
+    if (!m_selectedEdit.isEmpty()) {
+        // The edit point follows the playhead: a roll, or a ripple trim in the trim tool.
+        applyEditTrim(
+            timeline()->mutableData(), m_selectedEdit, delta, m_tool == TimelineTool::Trim);
+    } else {
+        // Selected clips: the selection tool slides them, the trim tool slips them (slides
+        // them when they were picked by the name band), as a drag following the playhead.
+        const bool slide = m_tool == TimelineTool::Select || slideSelected();
+        applyBodyTrim(timeline()->mutableData(), clips, delta, slide);
+    }
     timeline()->notifyChanged();
 }
 

@@ -489,8 +489,38 @@ void TimelineController::nudge(int64_t frames)
     const QVector<quint64> ids = effectiveSelection();
     if (ids.isEmpty())
         return;
+    if (m_tool == TimelineTool::Trim) {
+        // Trim tool: the keys slip the selected clips, or slide them after a click in the name
+        // band, like the drags there (spec 8.20).
+        const bool slide = slideSelected();
+        runEdit(project(), slide ? tr("Slide Clip") : tr("Slip Clip"),
+            [&](TimelineData& data) { return applyBodyTrim(data, ids, frames, slide) != 0; });
+        return;
+    }
     runEdit(project(), tr("Nudge Clip"),
         [&](TimelineData& data) { return ops::moveClips(data, ids, frames, 0); });
+}
+
+bool TimelineController::slideSelected() const
+{
+    return m_slideClip && m_ctx.selection->isSelected(m_slideClip);
+}
+
+int64_t TimelineController::applyBodyTrim(
+    TimelineData& data, const QVector<quint64>& ids, int64_t frames, bool slide)
+{
+    int64_t applied = 0;
+    for (int i = 0; i < ids.size(); ++i) {
+        const int64_t want = i == 0 ? frames : applied;
+        if (want == 0)
+            break;
+        // A slip to the right reveals earlier material (the drag's direction, spec 8.6).
+        const int64_t got
+            = slide ? ops::slideClip(data, ids[i], want) : -ops::slipClip(data, ids[i], -want);
+        if (i == 0)
+            applied = got;
+    }
+    return applied;
 }
 
 int64_t TimelineController::applyEditTrim(

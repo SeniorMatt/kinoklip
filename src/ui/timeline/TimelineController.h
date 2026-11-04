@@ -442,8 +442,15 @@ public slots:
     void selectAll();
     void deselectAll();
     /// Moves the selected clips, or trims the selected edit point (ripple in the trim tool,
-    /// roll when both sides are selected), by @p frames.
+    /// roll when both sides are selected), by @p frames. In the trim tool selected clips are
+    /// slipped instead, or slid when they were picked by their name band (spec 8.20).
     void nudge(int64_t frames);
+    /// Trim tool: clip @p clipId was picked in its name band (slide; 0 = below it, slip), for
+    /// the , / . keys and dynamic trim (spec 8.20, 8.21). Forgotten once the selection no
+    /// longer holds the clip.
+    void setSlideClip(quint64 clipId) { m_slideClip = clipId; }
+    /// The selected clips slide rather than slip in the trim tool.
+    [[nodiscard]] bool slideSelected() const;
     /// Moves the selected edit point to the playhead (E; spec 8.11).
     void extendEditToPlayhead();
     /// U (spec 8.16): cycles the selected edit point at a cut between the outgoing tail, the
@@ -516,7 +523,9 @@ public slots:
     bool pasteAttributes(const PasteAttributeSet& attributes);
     /// W (spec 8.17): dynamic trim mode. While on and an edit point is selected, playback
     /// (J/K/L, Space) drags the edit point along with the playhead: a roll, or a ripple trim in
-    /// the trim tool. One undo step per playback run.
+    /// the trim tool. With clips selected instead it slides them (selection tool) or slips
+    /// them (trim tool; slides after a name band click), spec 8.21. One undo step per
+    /// playback run.
     void setDynamicTrim(bool on);
     [[nodiscard]] bool dynamicTrim() const { return m_dynamicTrim; }
     /// Playback stopped: closes a dynamic-trim run (one undo step). Connected to the program
@@ -572,6 +581,11 @@ private:
     /// sides are set; linked clips follow). Returns the applied delta.
     int64_t applyEditTrim(
         TimelineData& data, const EditPointSelection& edit, int64_t frames, bool ripple) const;
+    /// Slips (or with @p slide slides) the clips @p ids by @p frames as a drag of that many
+    /// frames to the right would: the first clip leads and the others follow by what it got,
+    /// so linked partners stay in sync. Returns the applied delta.
+    static int64_t applyBodyTrim(
+        TimelineData& data, const QVector<quint64>& ids, int64_t frames, bool slide);
     /// M / Ctrl+M: a clip marker on the selected clip under the playhead, else a timeline
     /// marker. On an existing marker (one starting at the playhead) M removes it as one
     /// "Delete Marker" step; with @p forceEdit (Ctrl+M) the editor opens instead.
@@ -608,6 +622,7 @@ private:
     QSet<quint64> m_retimeShown; ///< clips showing their speed bar (view state)
     bool m_dynamicTrim = false;
     bool m_dynamicOpen = false; ///< an undoable dynamic-trim run is in progress
+    quint64 m_slideClip = 0; ///< see setSlideClip()
     int64_t m_dynamicLast = 0; ///< playhead at the last dynamic-trim step
 };
 
