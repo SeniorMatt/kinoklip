@@ -219,8 +219,15 @@ QVector<ops::PlacedClip> TimelineController::makeMediaClips(
         return makeNestedClips(*item, inUs, outUs, videoTrack, audioTrack);
     const media::MediaInfo& info = item->info;
     inUs = std::max<int64_t>(0, inUs);
-    int64_t durationUs = outUs > inUs ? outUs - inUs : info.durationUs - inUs;
-    int64_t frames = durationUs > 0 ? usToFrames(durationUs, data.fps) : 0;
+    const int64_t remainingUs = info.durationUs - inUs;
+    int64_t frames = remainingUs > 0 ? usToFrames(remainingUs, data.fps) : 0;
+    if (outUs > inUs) {
+        // A marked range covers every timeline frame that starts inside it, so the Out frame
+        // is shown even when the source runs at another rate: 25 fps In 1:00 / Out 7:00 (6.04
+        // s) is 145 frames at 24 fps, not 144 (spec 35.28). Never longer than the media.
+        const int64_t marked = std::max<int64_t>(1, usToFramesCeil(outUs - inUs, data.fps));
+        frames = info.durationUs > 0 && frames > 0 ? std::min(marked, frames) : marked;
+    }
     if (info.isStillImage || frames < 1)
         frames = defaultStillFrames(data.fps);
 
