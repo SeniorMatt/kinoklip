@@ -54,6 +54,13 @@ public:
 
     /// Frame rates offered, in UI order.
     [[nodiscard]] static QVector<Rational> frameRates();
+    /// Resolve's timeline resolution presets ("1920 x 1080 HD", ...; Project Settings and
+    /// Timeline Settings): fills @p presets with them and "Custom", selects the one matching
+    /// @p width x @p height and keeps them in step: a preset sets both sizes and locks them,
+    /// Custom unlocks them. Call after the spin boxes have their values.
+    static void bindResolutionPresets(QComboBox* presets, QSpinBox* width, QSpinBox* height);
+    /// Selects the preset of @p presets (bound above) that matches the sizes, else Custom.
+    static void selectResolutionPreset(QComboBox* presets, int width, int height);
 
     void accept() override;
     /// Shows the section @p sectionId ("master", "scaling", "audio", "general", "cache").
@@ -71,7 +78,6 @@ private:
     QWidget* buildCache();
     void addSection(const QString& id, const QString& title, QWidget* page);
 
-    void presetChanged(int index);
     void updateWarning();
 
     Project* m_project = nullptr;
