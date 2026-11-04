@@ -183,6 +183,24 @@ void applyChannels(const std::array<int, 4>& src, float rgba[4])
         rgba[i] = in[std::clamp(src[size_t(i)], 0, 6)];
 }
 
+namespace {
+
+float colorDodge(float cb, float cs)
+{
+    if (cb <= 0.0f)
+        return 0.0f;
+    return cs >= 1.0f ? 1.0f : std::min(1.0f, cb / (1.0f - cs));
+}
+
+float colorBurn(float cb, float cs)
+{
+    if (cb >= 1.0f)
+        return 1.0f;
+    return cs <= 0.0f ? 0.0f : 1.0f - std::min(1.0f, (1.0f - cb) / cs);
+}
+
+} // namespace
+
 float blendChannel(int mode, float cb, float cs)
 {
     switch (mode) {
@@ -202,10 +220,84 @@ float blendChannel(int mode, float cb, float cs)
         return std::abs(cb - cs);
     case 8: // subtract
         return std::max(0.0f, cb - cs);
+    case 9: // hard light
+        return cs <= 0.5f ? 2.0f * cb * cs : 1.0f - 2.0f * (1.0f - cb) * (1.0f - cs);
+    case 10: { // soft light (the W3C compositing formula)
+        if (cs <= 0.5f)
+            return cb - (1.0f - 2.0f * cs) * cb * (1.0f - cb);
+        const float d = cb <= 0.25f ? ((16.0f * cb - 12.0f) * cb + 4.0f) * cb : std::sqrt(cb);
+        return cb + (2.0f * cs - 1.0f) * (d - cb);
+    }
+    case 11: // color dodge
+        return colorDodge(cb, cs);
+    case 12: // color burn
+        return colorBurn(cb, cs);
+    case 13: // exclusion
+        return cb + cs - 2.0f * cb * cs;
+    case 14: // linear burn
+        return std::max(0.0f, cb + cs - 1.0f);
+    case 15: // linear light
+        return std::clamp(cb + 2.0f * cs - 1.0f, 0.0f, 1.0f);
+    case 16: // vivid light
+        return cs <= 0.5f ? colorBurn(cb, 2.0f * cs) : colorDodge(cb, 2.0f * cs - 1.0f);
+    case 17: // pin light
+        return cs <= 0.5f ? std::min(cb, 2.0f * cs) : std::max(cb, 2.0f * cs - 1.0f);
+    case 18: // hard mix
+        return cb + cs >= 1.0f ? 1.0f : 0.0f;
     default:
         return cs;
     }
 }
+
+void blendPremultiplied(int mode, const float b[4], const float s[4], float o[4])
+{
+    if (mode == 0) {
+        for (int i = 0; i < 4; ++i)
+            o[i] = s[i] + b[i] * (1.0f - s[3]);
+        return;
+    }
+    for (int i = 0; i < 3; ++i) {
+        const float cb = b[3] > 0 ? b[i] / b[3] : 0.0f;
+        const float cs = s[3] > 0 ? s[i] / s[3] : 0.0f;
+        o[i] = s[i] * (1 - b[3]) + b[i] * (1 - s[3]) + s[3] * b[3] * blendChannel(mode, cb, cs);
+    }
+    o[3] = s[3] + b[3] * (1 - s[3]);
+}
+
+const char* const kBlendFunctionGlsl = R"(
+float kkDodge(float b, float s) { return b <= 0.0 ? 0.0 : (s >= 1.0 ? 1.0 : min(1.0, b / (1.0 - s))); }
+float kkBurn(float b, float s) { return b >= 1.0 ? 1.0 : (s <= 0.0 ? 0.0 : 1.0 - min(1.0, (1.0 - b) / s)); }
+float kkBlend(int m, float b, float s)
+{
+    if (m == 1) return b + s - b * s;
+    if (m == 2) return b * s;
+    if (m == 3) return min(1.0, b + s);
+    if (m == 4) return b <= 0.5 ? 2.0 * b * s : 1.0 - 2.0 * (1.0 - b) * (1.0 - s);
+    if (m == 5) return min(b, s);
+    if (m == 6) return max(b, s);
+    if (m == 7) return abs(b - s);
+    if (m == 8) return max(0.0, b - s);
+    if (m == 9) return s <= 0.5 ? 2.0 * b * s : 1.0 - 2.0 * (1.0 - b) * (1.0 - s);
+    if (m == 10) {
+        if (s <= 0.5) return b - (1.0 - 2.0 * s) * b * (1.0 - b);
+        float d = b <= 0.25 ? ((16.0 * b - 12.0) * b + 4.0) * b : sqrt(b);
+        return b + (2.0 * s - 1.0) * (d - b);
+    }
+    if (m == 11) return kkDodge(b, s);
+    if (m == 12) return kkBurn(b, s);
+    if (m == 13) return b + s - 2.0 * b * s;
+    if (m == 14) return max(0.0, b + s - 1.0);
+    if (m == 15) return clamp(b + 2.0 * s - 1.0, 0.0, 1.0);
+    if (m == 16) return s <= 0.5 ? kkBurn(b, 2.0 * s) : kkDodge(b, 2.0 * s - 1.0);
+    if (m == 17) return s <= 0.5 ? min(b, 2.0 * s) : max(b, 2.0 * s - 1.0);
+    if (m == 18) return b + s >= 1.0 ? 1.0 : 0.0;
+    return s;
+}
+vec3 kkBlend3(int m, vec3 b, vec3 s)
+{
+    return vec3(kkBlend(m, b.r, s.r), kkBlend(m, b.g, s.g), kkBlend(m, b.b, s.b));
+}
+)";
 
 std::array<float, 4> colorOf(const ParamSet& p, const QString& key, const QColor& fallback)
 {

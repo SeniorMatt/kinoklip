@@ -77,6 +77,12 @@ struct TrackFrame
 /// the fade handles (videoFadeFactor()). Shared by the GPU and CPU renderers.
 [[nodiscard]] double clipOpacity(const ClipData& clip, int64_t localFrame);
 
+/// Blend mode index (blendmodes::index(); 0 = Normal) with which track frame @p tf combines
+/// with the tracks below (Inspector > Composite > Composite Mode, spec 24.19): the clip's, or
+/// in a transition the clip that dominates at @p frame (the outgoing one in the first half).
+/// Adjustment clips always composite normally.
+[[nodiscard]] int compositeModeIndex(const TrackFrame& tf, int64_t frame);
+
 /// Source media time (µs) shown by @p clip at timeline frame @p frame, clamped to the media
 /// (>= 0 and < sourceDurationUs when that is known). Frames outside the clip (transition
 /// handles) extrapolate and therefore freeze on the first/last frame when there is no media.

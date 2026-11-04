@@ -98,9 +98,16 @@ private slots:
         for (int i = 0; i < transform->params.size(); ++i)
             QCOMPARE(group->rows()[i]->ref().key, transform->params[i].key);
         // Scalars get a value field and a keyframe diamond; bools do not.
-        QVERIFY(group->findChild<ValueField*>(QStringLiteral("value:") + keys::Opacity));
-        QVERIFY(group->findChild<KeyframeButton*>(QStringLiteral("keyframe:") + keys::Opacity));
+        QVERIFY(group->findChild<ValueField*>(QStringLiteral("value:") + keys::PosX));
+        QVERIFY(group->findChild<KeyframeButton*>(QStringLiteral("keyframe:") + keys::PosX));
         QVERIFY(!group->findChild<ValueField*>(QStringLiteral("value:") + keys::FlipH));
+        // Opacity is in the Composite group (spec 24.19).
+        ParamGroupBox* composite = groupTitled(
+            panel, EffectRegistry::instance().find(QLatin1String(groups::Composite))->name);
+        QVERIFY(composite);
+        QVERIFY(composite->findChild<ValueField*>(QStringLiteral("value:") + keys::Opacity));
+        QVERIFY(composite->findChild<KeyframeButton*>(QStringLiteral("keyframe:") + keys::Opacity));
+        QVERIFY(!group->findChild<ValueField*>(QStringLiteral("value:") + keys::Opacity));
         QVERIFY(groupTitled(
             panel, EffectRegistry::instance().find(QLatin1String(groups::Cropping))->name));
 

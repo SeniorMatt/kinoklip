@@ -23,7 +23,8 @@ const QTransform kFullscreenNdc(2, 0, 0, 2, -1, -1);
 
 /// Merge: foreground (through uFgMatrix: output uv -> foreground uv, antialiased at its
 /// edges) times opacity, combined with the background by blend mode; then the mask mixes
-/// between the background and the result. Blend functions as compmath::blendChannel().
+/// between the background and the result. Blend functions: compmath::kBlendFunctionGlsl,
+/// prepended (the same as compmath::blendChannel()).
 const char* const kMergeFragment = R"(
 uniform sampler2D uTex;     // background
 uniform sampler2D uSecond;  // foreground
@@ -34,18 +35,6 @@ uniform float uOpacity;
 uniform int uHasFg;
 uniform int uHasMask;
 vec3 straight(vec4 c) { return c.a > 0.0 ? c.rgb / c.a : vec3(0.0); }
-vec3 blendFn(vec3 b, vec3 s)
-{
-    if (uMode == 1) return b + s - b * s;
-    if (uMode == 2) return b * s;
-    if (uMode == 3) return min(b + s, vec3(1.0));
-    if (uMode == 4) return mix(2.0 * b * s, 1.0 - 2.0 * (1.0 - b) * (1.0 - s), step(vec3(0.5), b));
-    if (uMode == 5) return min(b, s);
-    if (uMode == 6) return max(b, s);
-    if (uMode == 7) return abs(b - s);
-    if (uMode == 8) return max(b - s, vec3(0.0));
-    return s;
-}
 void main()
 {
     vec4 bg = texture(uTex, vUv);
@@ -62,7 +51,7 @@ void main()
     if (uMode == 0) {
         o = fg + bg * (1.0 - fg.a);
     } else {
-        vec3 B = blendFn(straight(bg), straight(fg));
+        vec3 B = kkBlend3(uMode, straight(bg), straight(fg));
         o.rgb = fg.rgb * (1.0 - bg.a) + bg.rgb * (1.0 - fg.a) + fg.a * bg.a * B;
         o.a = fg.a + bg.a * (1.0 - fg.a);
     }
@@ -191,7 +180,8 @@ bool build(GlKit& kit, GlProgram& program, const char* name, const char* source,
 bool GlComposition::initialize(GlKit& kit, QString* why)
 {
     GlFunctions* gl = kit.gl();
-    if (!build(kit, m_merge, "comp.merge", kMergeFragment, why)
+    const QByteArray merge = QByteArray(compmath::kBlendFunctionGlsl) + kMergeFragment;
+    if (!build(kit, m_merge, "comp.merge", merge.constData(), why)
         || !build(kit, m_mix, "comp.mix", kMixFragment, why)
         || !build(kit, m_corrector, "comp.corrector", kCorrectorFragment, why)
         || !build(kit, m_channels, "comp.channels", kChannelsFragment, why)
@@ -467,6 +457,23 @@ PooledTarget GlComposition::merge(
     kit.bindTexture(2, textureOf(kit, mask));
     kit.drawQuad();
     return out;
+}
+
+void GlComposition::blendLayers(GlKit& kit, GLuint background, GLuint layer, int mode)
+{
+    kit.setBlendOver(false);
+    GlFunctions* gl = kit.gl();
+    gl->glUseProgram(m_merge.id);
+    kit.setFullscreen(m_merge);
+    kit.setMatrix(m_mergeFgMatrix, QTransform());
+    gl->glUniform1i(m_mergeMode, mode);
+    gl->glUniform1f(m_mergeOpacity, 1.0f);
+    gl->glUniform1i(m_mergeHasFg, 1);
+    gl->glUniform1i(m_mergeHasMask, 0);
+    kit.bindTexture(0, background);
+    kit.bindTexture(1, layer);
+    kit.bindTexture(2, kit.transparentTexture());
+    kit.drawQuad();
 }
 
 PooledTarget GlComposition::transformNode(
