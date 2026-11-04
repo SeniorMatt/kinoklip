@@ -1061,9 +1061,14 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         });
         // KK_SCREENSHOT_COLOR_GRAB=1: Grab Still once the picture is there (the gallery shot).
         if (qEnvironmentVariableIntValue("KK_SCREENSHOT_COLOR_GRAB") == 1) {
+            // KK_SCREENSHOT_SAVE=1 (readme): then save, so the title shows no unsaved bullet.
             QTimer::singleShot(1500, color, [&ctx] {
                 if (QAction* grab = ctx.actions->action(QStringLiteral("color.grab_still")))
                     grab->trigger();
+                if (qEnvironmentVariableIntValue("KK_SCREENSHOT_SAVE") == 1) {
+                    if (QAction* save = ctx.actions->action(QStringLiteral("file.save")))
+                        save->trigger();
+                }
             });
         }
         delayMs = std::max(delayMs, kCompositingSettleDelayMs);
