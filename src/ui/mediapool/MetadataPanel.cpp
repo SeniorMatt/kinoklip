@@ -91,6 +91,9 @@ MetadataPanel::MetadataPanel(AppContext& ctx, QWidget* parent)
     column->addWidget(m_heading);
     auto* detailsHost = new QWidget;
     m_details = new QFormLayout(detailsHost);
+    // Breeze's default (ExpandingFieldsGrow) keeps the value labels below, whose width policy
+    // is Ignored, at 1 px; Fusion grows them. Make it the same in every style.
+    m_details->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     m_details->setContentsMargins(0, 0, 0, 0);
     m_details->setLabelAlignment(Qt::AlignRight);
     m_details->setVerticalSpacing(5);
@@ -115,6 +118,7 @@ void MetadataPanel::buildEditors()
 {
     auto* host = findChild<QWidget*>(QStringLiteral("MetadataEditors"));
     auto* form = new QFormLayout(host);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow); // as m_details
     form->setContentsMargins(0, 0, 0, 0);
     form->setLabelAlignment(Qt::AlignRight);
     form->setVerticalSpacing(5);
