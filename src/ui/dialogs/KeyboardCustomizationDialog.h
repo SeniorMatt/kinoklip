@@ -86,6 +86,11 @@ public:
 
     void reject() override;
 
+protected:
+    /// Enter in the search field goes to the first match and Enter on a command records a
+    /// new key, instead of closing the dialog (spec 23.10).
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     void populate();
     void refreshRow(const QString& id);
