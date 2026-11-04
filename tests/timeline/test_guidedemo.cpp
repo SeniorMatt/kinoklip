@@ -104,7 +104,7 @@ private slots:
         d.name = QStringLiteral("Green Screen");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
-        const int64_t length = 10 * 25;
+        const int64_t length = 10 * 24;
         place(d, *itemNamed(project, QStringLiteral("background")), 0, length, 0, 0);
         const quint64 fg
             = place(d, *itemNamed(project, QStringLiteral("greenscreen")), 0, length, 1, -1);
@@ -131,7 +131,7 @@ private slots:
         TimelineData& d = project.timeline()->mutableData();
         d.name = QStringLiteral("With Music");
         d.audioTracks[1].name = QStringLiteral("Music");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         place(d, *itemNamed(project, QStringLiteral("interview")), 0, 12 * fps, 0, 0);
         const quint64 music
             = place(d, *itemNamed(project, QStringLiteral("music")), 0, 12 * fps, -1, 1);
@@ -158,7 +158,7 @@ private slots:
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
         d.name = QStringLiteral("Fades");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const quint64 first
             = place(d, *itemNamed(project, QStringLiteral("interview")), 0, 8 * fps, 0, 0);
         const quint64 last
@@ -189,7 +189,7 @@ private slots:
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
         d.name = QStringLiteral("Freeze");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const quint64 id
             = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 8 * fps, 0, -1);
         QVERIFY(retimeops::insertFreeze(d, id, 3 * fps, 2 * fps));
@@ -211,7 +211,7 @@ private slots:
         d.name = QStringLiteral("Picture in Picture");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
         const quint64 small
             = place(d, *itemNamed(project, QStringLiteral("broll")), 0, 10 * fps, 1, -1);
@@ -243,7 +243,7 @@ private slots:
         TimelineData& d = project.timeline()->mutableData();
         d.name = QStringLiteral("Vertical");
         QCOMPARE(d.width, 1080);
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const quint64 id
             = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
         ClipData* c = editops::clipById(d, id);
@@ -268,7 +268,7 @@ private slots:
         d.name = QStringLiteral("Hide a Face");
         while (d.videoTracks.size() < 2)
             editops::addTrack(d, TrackType::Video);
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
         ClipData adj;
         adj.kind = ClipKind::Adjustment;
@@ -299,7 +299,7 @@ private slots:
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
         d.name = QStringLiteral("With Subtitles");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 9 * fps, 0, 0);
         place(d, *itemNamed(project, QStringLiteral("broll")), 9 * fps, 5 * fps, 0, 0);
         editops::addTrack(d, TrackType::Subtitle);
@@ -326,7 +326,7 @@ private slots:
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
         d.name = QStringLiteral("Slow Zoom");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const int64_t length = 8 * fps;
         const quint64 id
             = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, length, 0, 0);
@@ -353,7 +353,7 @@ private slots:
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
         d.name = QStringLiteral("Compositing");
-        const int64_t fps = 25;
+        const int64_t fps = 24; // a new project's frame rate
         const quint64 id
             = place(d, *itemNamed(project, QStringLiteral("presenter")), 0, 10 * fps, 0, 0);
         ClipData* c = editops::clipById(d, id);

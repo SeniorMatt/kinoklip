@@ -42,6 +42,7 @@ RED = (229, 57, 53)
 WHITE = (255, 255, 255)
 LINE = 4          # px at full size
 MARGIN = 24       # px around a crop
+DELAY_MS = 3000   # settle time per shot (--delay: longer on a busy machine)
 FONT_FILES = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
               "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf"]
 
@@ -171,7 +172,7 @@ def run_shot(app: Path, target: str, project: Path, png: Path, geometry: Path,
     with tempfile.TemporaryDirectory(prefix="kk-guide-home-") as home:
         env = clean_env(Path(home))
         env["KK_SCREENSHOT_GEOMETRY"] = str(geometry)
-        env["KK_SCREENSHOT_DELAY_MS"] = "3000"  # thumbnails, waveforms and posters
+        env["KK_SCREENSHOT_DELAY_MS"] = str(DELAY_MS)  # thumbnails, waveforms and posters
         env["KK_SCREENSHOT_LOCATION"] = "/home/you/Videos"  # not the temporary folder
         env.update(extra_env)
         for lut in luts:  # the Color page's LUT folder (QStandardPaths::AppDataLocation/LUT)
@@ -651,7 +652,10 @@ def main() -> None:
     parser.add_argument("--work", default=str(ROOT / "build" / "guide"))
     parser.add_argument("--only", help="article or article/shot")
     parser.add_argument("--keep", action="store_true", help="reuse raw shots from --work")
+    parser.add_argument("--delay", type=int, default=DELAY_MS,
+                        help="ms to wait for thumbnails and posters before each shot")
     args = parser.parse_args()
+    globals()["DELAY_MS"] = args.delay
 
     if "KK_GUIDE_UNDER_XVFB" not in os.environ:
         if not shutil.which("xvfb-run"):
