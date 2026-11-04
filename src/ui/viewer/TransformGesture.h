@@ -44,7 +44,7 @@ struct TransformPicture
     QSizeF sourcePx; ///< source pixels (the unit of the crop parameters)
     QRectF crop; ///< visible (cropped) part, content coordinates
     QPointF anchor; ///< anchor point, content coordinates
-    QTransform contentToFrame; ///< render::clipTransform() of the clip
+    QTransform contentToFrame; ///< render::clipTransform() of the clip, without Dynamic Zoom
 };
 
 namespace transformgesture {
