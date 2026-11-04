@@ -41,6 +41,12 @@ bool editMarker(QWidget* parent, Marker& marker, bool clipMarker, Rational fps);
 [[nodiscard]] std::optional<QString> askName(QWidget* parent, const QString& title,
     const QString& label, const QString& suggestion, const QString& okText);
 
+/// Resolve's Create New Timeline dialog (File > New Timeline, spec 25.16): Start Timecode,
+/// Timeline Name, No. of Video Tracks and No. of Audio Tracks, prefilled with @p suggestion
+/// (timecodes at @p fps). std::nullopt when cancelled.
+[[nodiscard]] std::optional<TimelineController::NewTimelineOptions> askNewTimeline(
+    QWidget* parent, const TimelineController::NewTimelineOptions& suggestion, Rational fps);
+
 /// Timeline Settings of timeline @p uid: use the project settings, or its own resolution and
 /// frame rate. Applies the change (one undo step) on OK.
 void editTimelineSettings(QWidget* parent, Project& project, quint64 uid);
