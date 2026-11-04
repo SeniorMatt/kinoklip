@@ -25,6 +25,7 @@ struct RenderParams
     std::shared_ptr<const ProxyMap> proxies; ///< proxy / optimized media (viewers only)
     std::shared_ptr<const RenderCacheView> renderCache; ///< cached chunks of `timeline`
     bool bypassGrades = false; ///< Color page "bypass all grades" (viewer only)
+    bool dynamicZoom = true; ///< false: without Dynamic Zoom (on-screen controls, viewer only)
 };
 
 /// One frame the playback engine wants: `frame` is rendered, `key` orders the frames in play

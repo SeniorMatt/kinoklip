@@ -63,6 +63,7 @@ private:
         GLuint below = 0;
         bool subtitles = false; ///< draw the subtitle tracks (root timeline only)
         bool grades = true; ///< apply clip and timeline grades (false: RenderRequest::bypassGrades)
+        bool dynamicZoom = true; ///< RenderRequest::dynamicZoom
     };
     /// A media clip decoded for the current frame. A clip inside a nested timeline can be
     /// shown at several times in one frame (two instances), so (clip, timeUs) is the key.

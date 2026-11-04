@@ -33,6 +33,7 @@ class GuideOverlay;
 class ViewerRuler;
 class MaskOverlay;
 class TransformOverlay;
+class DynamicZoomOverlay;
 class MulticamOverlay;
 class EditOverlay;
 class TrimTwoUpView;
@@ -177,6 +178,7 @@ public:
     void setEditTileActions(const QStringList& actionIds);
     /// The on-screen Transform controls (nullptr in Source mode).
     [[nodiscard]] TransformOverlay* transformOverlay() const { return m_transformOverlay; }
+    [[nodiscard]] DynamicZoomOverlay* dynamicZoomOverlay() const { return m_dynamicZoomOverlay; }
     /// The guides / safe areas / grid layer over the picture (both modes; spec 41).
     [[nodiscard]] GuideOverlay* guideOverlay() const { return m_guideOverlay; }
     /// The rulers along the top / left picture edges (View > Show Rulers).
@@ -317,6 +319,7 @@ private:
     bool m_editOverlayEnabled = false; ///< setEditOverlayEnabled()
     QStringList m_editTileActions; ///< setEditTileActions(); empty = kEditTiles
     QLabel* m_offlineNotice = nullptr; ///< "Media Offline" over the picture
+    DynamicZoomOverlay* m_dynamicZoomOverlay = nullptr; ///< Timeline mode: on-screen Dynamic Zoom
     TransformOverlay* m_transformOverlay = nullptr; ///< Timeline mode: on-screen Transform
     GuideOverlay* m_guideOverlay = nullptr; ///< guides, safe areas, grid (both modes)
     ViewerRuler* m_rulerTop = nullptr; ///< View > Show Rulers

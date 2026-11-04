@@ -101,15 +101,24 @@ struct TrackFrame
 ///
 /// i.e. the anchor point is the pivot of zoom/rotation and stays where the position puts it,
 /// so changing only the anchor never moves an unscaled, unrotated picture.
-[[nodiscard]] QTransform clipTransform(const ClipData& clip, int64_t localFrame, QSizeF frameSize);
+///
+/// Dynamic Zoom (core/DynamicZoom.h) comes first, when it is on and @p dynamicZoom is true:
+/// the clip's framing rectangle at @p localFrame is scaled up to the whole frame before the
+/// transform above. @p dynamicZoom false (the viewer while the on-screen Dynamic Zoom controls
+/// are shown) leaves it out.
+[[nodiscard]] QTransform clipTransform(
+    const ClipData& clip, int64_t localFrame, QSizeF frameSize, bool dynamicZoom = true);
 
 /// True if @p clip at @p localFrame covers the frame exactly as its content: no move, zoom,
-/// rotation, flip or crop, opacity 100 % and no renderable mask. An adjustment clip with an
-/// identity footprint replaces the whole frame (and does nothing when its effects do nothing).
-[[nodiscard]] bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame);
+/// rotation, flip, crop or Dynamic Zoom, opacity 100 % and no renderable mask. An adjustment
+/// clip with an identity footprint replaces the whole frame (and does nothing when its effects
+/// do nothing).
+[[nodiscard]] bool hasIdentityFootprint(
+    const ClipData& clip, int64_t localFrame, bool dynamicZoom = true);
 
-/// Largest |zoom| of @p clip at @p localFrame (used to choose the layer resolution).
-[[nodiscard]] double maxZoom(const ClipData& clip, int64_t localFrame);
+/// Largest |zoom| of @p clip at @p localFrame, Dynamic Zoom included (used to choose the
+/// layer resolution).
+[[nodiscard]] double maxZoom(const ClipData& clip, int64_t localFrame, bool dynamicZoom = true);
 
 /// Display size of a coded picture: width × SAR, then swapped for 90/270° rotation.
 [[nodiscard]] QSizeF displaySize(int codedWidth, int codedHeight, Rational sar, int rotation);

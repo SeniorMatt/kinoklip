@@ -70,11 +70,12 @@ public:
     /// Selected point indices of the active point mask.
     [[nodiscard]] const QSet<int>& selectedPoints() const { return m_selected; }
 
-    /// The viewer's on-screen controls button (menu: Off / Transform / Crop / Mask, one mode
-    /// at a time), driving @p masksAction, @p transformAction and @p cropAction
-    /// (TransformOverlay; both may be null).
+    /// The viewer's on-screen controls button (menu: Off / Transform / Crop / Dynamic Zoom /
+    /// Mask, one mode at a time), driving @p masksAction, @p transformAction and @p cropAction
+    /// (TransformOverlay) and @p dynamicZoomAction (DynamicZoomOverlay; all three may be null).
     [[nodiscard]] static QToolButton* createModeButton(QAction* masksAction, QWidget* parent,
-        QAction* transformAction = nullptr, QAction* cropAction = nullptr);
+        QAction* transformAction = nullptr, QAction* cropAction = nullptr,
+        QAction* dynamicZoomAction = nullptr);
 
     /// Re-evaluates visibility and repaints (zoom, aspect, timeline or selection changes).
     void refresh();
