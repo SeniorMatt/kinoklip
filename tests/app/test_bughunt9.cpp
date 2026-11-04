@@ -188,6 +188,31 @@ private slots:
         QVERIFY(!subtitles::parse("1\n00:00:01,000 --> 00:00:02,000\n\n", &none, &error));
         QVERIFY(!error.isEmpty());
     }
+
+    // Spec 45.2: Export subtitle is greyed out for audio-only formats (no picture to burn into,
+    // nothing to embed into) and an audio render never carries subtitles.
+    void spec45_2_noSubtitleExportForAudio()
+    {
+        Fixture f;
+        f.window->setCurrentPage(QStringLiteral("deliver"));
+        RenderSettingsPanel* panel = f.window->deliverPage()->settingsPanel();
+        auto* box = panel->findChild<QCheckBox*>(QStringLiteral("RenderSubtitleExport"));
+        QVERIFY(box);
+        ExportSettings s = panel->settings();
+        s.subtitles.enabled = true;
+        panel->setSettings(s);
+        QVERIFY(box->isEnabled());
+        QVERIFY(panel->settings().subtitles.enabled);
+        for (const char* audio : {"wav", "mp3", "flac"}) {
+            s = panel->settings();
+            s.container = QLatin1String(audio);
+            s.normalize();
+            s.subtitles.enabled = true;
+            panel->setSettings(s);
+            QVERIFY2(!box->isEnabled(), audio);
+            QVERIFY2(!panel->settings().subtitles.enabled, audio);
+        }
+    }
 };
 
 QTEST_MAIN(TestBughunt9)
