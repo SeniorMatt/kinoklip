@@ -3,7 +3,8 @@
 // list or tree panel (the Effects library, the media pool, Edit Index, bins, the node library):
 // there Delete, Backspace, Ctrl+A, the arrow keys, Home / End and Page Up / Down act on the list,
 // as in Resolve, instead of ripple-deleting, selecting or stepping the timeline (spec 10.11
-// in docs/behavior-spec.md). Transport keys (Space, J / K / L) still reach the window.
+// in docs/behavior-spec.md). A focused combo box or spin box likewise keeps Up / Down and
+// Page Up / Down (spec 10.12). Transport keys (Space, J / K / L) still reach the window.
 #pragma once
 
 #include <QObject>
