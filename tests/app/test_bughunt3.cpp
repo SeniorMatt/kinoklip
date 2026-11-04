@@ -5,6 +5,7 @@
 #include "app/Theme.h"
 #include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
+#include "ui/deliver/DeliverPage.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
 #include "core/NodeRegistry.h"
@@ -29,7 +30,9 @@
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/inspector/ValueField.h"
 #include "ui/mediapool/MediaPoolModel.h"
+#include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelineController.h"
+#include "ui/timeline/TimelineDialogs.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
@@ -44,6 +47,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QListView>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
@@ -323,6 +327,15 @@ private slots:
             QStringLiteral("TimecodeLabel"));
         QVERIFY(label);
         QCOMPARE(label->text(), QStringLiteral("01:00:02:00"));
+        // The Deliver page's viewer (not bound to the timeline) as well.
+        f.action("view.page_deliver")->trigger();
+        QCoreApplication::processEvents();
+        auto* deliver = f.window->deliverPage()->viewer()->findChild<QLabel*>(
+            QStringLiteral("TimecodeLabel"));
+        QVERIFY(deliver);
+        QCOMPARE(deliver->text(), QStringLiteral("01:00:02:00"));
+        f.action("view.page_edit")->trigger();
+        QCoreApplication::processEvents();
 
         f.window->editPage()->editIndex()->rebuildNow();
         EditIndexModel* index = f.window->editPage()->editIndex()->model();
@@ -427,6 +440,65 @@ private slots:
         QVERIFY(!ops::clipById(f.project.timeline()->data(), video)
                      ->transform.staticValue(keys::CompositeMode)
                      .isValid());
+    }
+
+    // Spec 25.12: a timeline's media pool menu has Timelines > Starting Timecode... and
+    // Timeline Settings... (Resolve's place to change the start).
+    void spec25_12_mediaPoolTimelineMenuOffersStartingTimecode()
+    {
+        Fixture f;
+        MediaPoolPanel* panel = f.window->editPage()->mediaPool();
+        const QString timelineItem
+            = f.project.timelineItemId(f.project.timeline()->data().uid);
+        QAbstractItemView* view = nullptr;
+        for (QAbstractItemView* v : panel->findChildren<QAbstractItemView*>()) {
+            if (v->isVisible() && qobject_cast<QListView*>(v) && v->model()
+                && v->model()->rowCount() > 1) {
+                view = v;
+                break;
+            }
+        }
+        QVERIFY(view);
+        QModelIndex cell;
+        for (int r = 0; r < view->model()->rowCount(); ++r) {
+            const QModelIndex i = view->model()->index(r, 0);
+            if (i.data(MediaPoolModel::IdRole).toString() == timelineItem)
+                cell = i;
+        }
+        QVERIFY(cell.isValid());
+        QTest::mouseClick(view->viewport(), Qt::LeftButton, {}, view->visualRect(cell).center());
+        QStringList sub;
+        QTimer::singleShot(100, [&] {
+            auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+            if (!menu)
+                return;
+            for (QAction* a : menu->actions()) {
+                if (a->menu() && a->text() == QStringLiteral("Timelines")) {
+                    for (QAction* b : a->menu()->actions())
+                        sub << b->text();
+                }
+            }
+            menu->close();
+        });
+        emit view->customContextMenuRequested(view->visualRect(cell).center());
+        QTest::qWait(300);
+        QCOMPARE(sub, (QStringList {QStringLiteral("Starting Timecode…"),
+                          QStringLiteral("Timeline Settings…")}));
+
+        // The dialog sets the start in one undo step.
+        const int before = f.project.undoStack()->count();
+        QTimer::singleShot(100, [] {
+            auto* dialog = QApplication::activeModalWidget();
+            if (!dialog)
+                return;
+            auto* edit = dialog->findChild<QLineEdit*>(QStringLiteral("StartingTimecode"));
+            edit->setText(QStringLiteral("10:00:00:00"));
+            static_cast<QDialog*>(dialog)->accept();
+        });
+        QVERIFY(timelinedialogs::editStartingTimecode(
+            f.window.get(), f.project, f.project.timeline()->data().uid));
+        QCOMPARE(f.project.timeline()->data().startTimecode, int64_t(24 * 36000));
+        QCOMPARE(f.project.undoStack()->count(), before + 1);
     }
 };
 
