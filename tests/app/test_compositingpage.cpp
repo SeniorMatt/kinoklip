@@ -631,6 +631,9 @@ private slots:
         QCoreApplication::processEvents();
         QVERIFY(f.action("edit.ripple_delete")->isEnabled());
         QVERIFY(f.action("multicam.angle_1")->isEnabled());
+        // Spec 42b.32: Edit > Compositing Page is greyed out away from the page.
+        for (const char* id : {"comp.delete", "comp.copy", "comp.select_node", "comp.fit"})
+            QVERIFY2(!f.action(id)->isEnabled(), id);
         f.selection.setClips({f.clipId});
         f.action("edit.ripple_delete")->trigger();
         QVERIFY(!f.clip());
