@@ -789,8 +789,7 @@ void ProjectManagerWindow::showContextMenu(QAbstractItemView* view, const QPoint
         if (!folder)
             menu.addAction(tr("D&uplicate"), this, &ProjectManagerWindow::duplicateSelected)
                 ->setEnabled(exists);
-        QAction* del
-            = menu.addAction(tr("&Delete…"), this, &ProjectManagerWindow::deleteSelected);
+        QAction* del = menu.addAction(tr("&Delete…"), this, &ProjectManagerWindow::deleteSelected);
         del->setShortcut(QKeySequence(Qt::Key_Delete));
         del->setEnabled(exists && !m_library->isOpenOrContainsOpen(path));
         menu.addSeparator();
@@ -802,8 +801,8 @@ void ProjectManagerWindow::showContextMenu(QAbstractItemView* view, const QPoint
                         &ProjectManagerWindow::exportAsSingleFile)
                     ->setEnabled(exists);
             }
-            QAction* settings = menu.addAction(tr("Project &Settings…"), this,
-                &ProjectManagerWindow::projectSettingsRequested);
+            QAction* settings = menu.addAction(
+                tr("Project &Settings…"), this, &ProjectManagerWindow::projectSettingsRequested);
             settings->setEnabled(open);
             if (!open)
                 settings->setToolTip(tr("Open the project to change its settings"));

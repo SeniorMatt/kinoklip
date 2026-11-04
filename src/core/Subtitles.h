@@ -94,8 +94,8 @@ inline constexpr int64_t kMinCaptionFrames = 1;
 [[nodiscard]] bool parse(const QByteArray& data, QVector<SubtitleCue>* cues,
     QString* error = nullptr, SubtitleFormat* detected = nullptr, int* emptyCues = nullptr);
 /// Reads and parses a subtitle file. False with @p error when it cannot be read / parsed.
-[[nodiscard]] bool readFile(const QString& path, QVector<SubtitleCue>* cues, QString* error,
-    int* emptyCues = nullptr);
+[[nodiscard]] bool readFile(
+    const QString& path, QVector<SubtitleCue>* cues, QString* error, int* emptyCues = nullptr);
 /// Encodes @p cues (UTF-8, LF line endings, numbered from 1 for SRT).
 [[nodiscard]] QByteArray write(const QVector<SubtitleCue>& cues, SubtitleFormat format);
 /// Writes write() to @p path atomically. False with @p error on I/O failure.
