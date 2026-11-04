@@ -19,6 +19,7 @@
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/viewer/ColorPickOverlay.h"
+#include "ui/viewer/DynamicZoomOverlay.h"
 #include "ui/viewer/GuideOverlay.h"
 #include "ui/viewer/MaskOverlay.h"
 #include "ui/viewer/MulticamOverlay.h"
@@ -214,6 +215,9 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         // On-screen Transform controls: drag the current clip (titles) in the viewer.
         m_transformOverlay = new TransformOverlay(m_ctx, m_surface);
         connect(m_transformOverlay, &TransformOverlay::pressed, this, [this] { activate(); });
+        // On-screen Dynamic Zoom controls: the start and end rectangles (spec 24.20).
+        m_dynamicZoomOverlay = new DynamicZoomOverlay(m_ctx, m_surface);
+        connect(m_dynamicZoomOverlay, &DynamicZoomOverlay::pressed, this, [this] { activate(); });
         // Eyedropper of colour parameters (Chroma Key): active while the Inspector's picker
         // button is checked; above the other overlays.
         m_colorPickOverlay = new ColorPickOverlay(m_ctx, m_surface);
@@ -257,7 +261,12 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
             = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_crop"))
             ? m_ctx.actions->action(QStringLiteral("view.onscreen_crop"))
             : nullptr;
-        bar->addWidget(MaskOverlay::createModeButton(masks, m_transport, transform, crop));
+        QAction* dynamicZoom
+            = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("view.onscreen_dynamic_zoom"))
+            ? m_ctx.actions->action(QStringLiteral("view.onscreen_dynamic_zoom"))
+            : nullptr;
+        bar->addWidget(
+            MaskOverlay::createModeButton(masks, m_transport, transform, crop, dynamicZoom));
     }
     m_marksLabel = new QLabel;
     m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));

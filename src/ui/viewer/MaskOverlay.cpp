@@ -159,11 +159,11 @@ MaskOverlay::~MaskOverlay()
         finishGesture();
 }
 
-QToolButton* MaskOverlay::createModeButton(
-    QAction* masksAction, QWidget* parent, QAction* transformAction, QAction* cropAction)
+QToolButton* MaskOverlay::createModeButton(QAction* masksAction, QWidget* parent,
+    QAction* transformAction, QAction* cropAction, QAction* dynamicZoomAction)
 {
     // Resolve-like on-screen controls menu at the bottom left of the viewer: one mode at a
-    // time (Off, Transform, Crop, Mask).
+    // time (Off, Transform, Crop, Dynamic Zoom, Mask).
     auto* button = new QToolButton(parent);
     button->setObjectName(QStringLiteral("ViewerOnScreenControls"));
     button->setAutoRaise(true);
@@ -180,6 +180,8 @@ QToolButton* MaskOverlay::createModeButton(
         modes.append({transformAction, tr("Transform")});
     if (cropAction)
         modes.append({cropAction, tr("Crop")});
+    if (dynamicZoomAction)
+        modes.append({dynamicZoomAction, tr("Dynamic Zoom")});
     modes.append({mask, tr("Mask")});
     for (const auto& [action, text] : std::as_const(modes)) {
         menu->addAction(action);

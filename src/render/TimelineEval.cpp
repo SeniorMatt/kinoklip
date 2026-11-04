@@ -2,6 +2,7 @@
 // TimelineEval — transition windows, per-track evaluation and clip geometry (pure functions).
 #include "render/TimelineEval.h"
 
+#include "core/DynamicZoom.h"
 #include "core/NodeRegistry.h"
 #include "core/ParamKeys.h"
 
@@ -130,7 +131,8 @@ QSizeF fitSize(QSizeF source, QSizeF frame)
     return QSizeF(source.width() * s, source.height() * s);
 }
 
-QTransform clipTransform(const ClipData& clip, int64_t localFrame, QSizeF frameSize)
+QTransform clipTransform(
+    const ClipData& clip, int64_t localFrame, QSizeF frameSize, bool dynamicZoom)
 {
     const ParamSet& p = clip.transform;
     const double posX = p.value(keys::PosX, localFrame);
@@ -152,13 +154,18 @@ QTransform clipTransform(const ClipData& clip, int64_t localFrame, QSizeF frameS
     m.rotate(rotation); // y-down coordinates: positive angle = clockwise on screen
     m.scale(zoomX, zoomY);
     m.translate(-anchorX, -anchorY);
+    if (dynamicZoom && dynamiczoom::isEnabled(p))
+        return dynamiczoom::transform(clip, localFrame, frameSize) * m; // applied first
     return m;
 }
 
-double maxZoom(const ClipData& clip, int64_t localFrame)
+double maxZoom(const ClipData& clip, int64_t localFrame, bool dynamicZoom)
 {
-    return std::max(std::abs(clip.transform.value(keys::ZoomX, localFrame)),
+    const double zoom = std::max(std::abs(clip.transform.value(keys::ZoomX, localFrame)),
         std::abs(clip.transform.value(keys::ZoomY, localFrame)));
+    if (!dynamicZoom || !dynamiczoom::isEnabled(clip.transform))
+        return zoom;
+    return zoom / std::max(dynamiczoom::kMinSize, dynamiczoom::at(clip, localFrame).size);
 }
 
 QSizeF displaySize(int codedWidth, int codedHeight, Rational sar, int rotation)
@@ -193,9 +200,12 @@ double clipOpacity(const ClipData& clip, int64_t localFrame)
         * videoFadeFactor(localFrame, clip.duration, clip.fadeInFrames, clip.fadeOutFrames);
 }
 
-bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame)
+bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame, bool dynamicZoom)
 {
     if (clipOpacity(clip, localFrame) < 1.0)
+        return false;
+    if (dynamicZoom && dynamiczoom::isEnabled(clip.transform)
+        && dynamiczoom::at(clip, localFrame) != dynamiczoom::Rect {})
         return false;
     const ParamSet& p = clip.transform;
     if (p.value(keys::PosX, localFrame) != 0.0 || p.value(keys::PosY, localFrame) != 0.0

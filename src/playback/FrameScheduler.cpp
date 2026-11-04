@@ -55,6 +55,7 @@ std::future<RenderedFramePtr> FrameScheduler::issue(int64_t frame)
     request.proxies = m_params.proxies;
     request.renderCache = m_params.renderCache;
     request.bypassGrades = m_params.bypassGrades;
+    request.dynamicZoom = m_params.dynamicZoom;
     request.frame = frame;
     request.outSize = m_params.outSize;
     request.quality = m_params.quality;

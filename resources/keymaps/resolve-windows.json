@@ -190,6 +190,7 @@
         "view.onscreen_transform": [],
         "view.onscreen_masks": [],
         "view.onscreen_crop": [],
+        "view.onscreen_dynamic_zoom": [],
         "view.fullscreen": ["Ctrl+Shift+F"],
         "view.show_rulers": [],
         "view.guides_show": [],
