@@ -14,6 +14,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/effects/EffectActions.h"
+#include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
 #include <QAction>
@@ -1203,6 +1204,7 @@ void TimelineController::connectActions()
     on("timeline.add_subtitle_track", [this] { addTrack(TrackType::Subtitle); });
     on("timeline.add_subtitle", &TimelineController::addSubtitleAtPlayhead);
     on("clip.toggle_enabled", &TimelineController::toggleClipsEnabled);
+    on("clip.flag", [this] { toggleFlag(m_ctx, effectiveSelection(), toolBarFlag()); });
     on("clip.link", &TimelineController::linkSelection);
     on("clip.unlink", &TimelineController::unlinkSelection);
     on("mark.in", &TimelineController::markIn);

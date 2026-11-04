@@ -163,6 +163,7 @@ const ActionSpec kActions[] = {
 
     // ---- Clip ----
     {"clip", "clip.toggle_enabled",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Enable / Disable Clip")},
+    {"clip", "clip.flag",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Flag Clip"), "flag"},
     {"clip", "clip.match_frame",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Match Frame")},
     {"clip", "timeline.find_in_media_pool", QT_TRANSLATE_NOOP("kk::StandardActions", "&Find in Media Pool")},
     {"clip", "-"},

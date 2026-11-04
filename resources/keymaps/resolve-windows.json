@@ -121,6 +121,7 @@
         "timeline.auto_select_audio_7": ["Ctrl+Shift+7"],
         "timeline.auto_select_audio_8": ["Ctrl+Shift+8"],
         "clip.toggle_enabled": ["D"],
+        "clip.flag": [],
         "clip.match_frame": ["F"],
         "clip.change_duration": ["Ctrl+D"],
         "clip.change_speed": ["R"],
