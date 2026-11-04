@@ -741,7 +741,7 @@ void InspectorPanel::rebuild()
                 if (const EffectDescriptor* d = registry.find(QStringLiteral("solid_color")))
                     addDescriptorGroup(VideoTab, *d, ParamScope::SolidColor, m_clipId);
             }
-            for (const char* id : {groups::Transform, groups::Cropping}) {
+            for (const char* id : {groups::Transform, groups::Cropping, groups::Composite}) {
                 if (const EffectDescriptor* d = registry.find(QLatin1String(id)))
                     addDescriptorGroup(VideoTab, *d, ParamScope::Transform, m_clipId);
             }

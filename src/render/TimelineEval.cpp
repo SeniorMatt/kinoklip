@@ -2,6 +2,7 @@
 // TimelineEval — transition windows, per-track evaluation and clip geometry (pure functions).
 #include "render/TimelineEval.h"
 
+#include "core/NodeRegistry.h"
 #include "core/ParamKeys.h"
 
 #include <algorithm>
@@ -165,6 +166,21 @@ QSizeF displaySize(int codedWidth, int codedHeight, Rational sar, int rotation)
     const double sarValue = sar.isValid() ? sar.toDouble() : 1.0;
     const QSizeF s(codedWidth * sarValue, codedHeight);
     return (rotation == 90 || rotation == 270) ? s.transposed() : s;
+}
+
+int compositeModeIndex(const TrackFrame& tf, int64_t frame)
+{
+    const ClipData* clip = tf.single;
+    if (tf.transition) {
+        const TransitionSpan& span = *tf.transition;
+        clip = span.progress(frame) < 0.5 ? span.outgoing : span.incoming;
+        if (!clip)
+            clip = span.outgoing ? span.outgoing : span.incoming;
+    }
+    if (!clip || clip->kind == ClipKind::Adjustment)
+        return 0;
+    const QVariant mode = clip->transform.staticValue(keys::CompositeMode);
+    return mode.isValid() ? blendmodes::index(mode.toString()) : 0;
 }
 
 double clipOpacity(const ClipData& clip, int64_t localFrame)

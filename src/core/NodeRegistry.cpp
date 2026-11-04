@@ -6,6 +6,7 @@
 #include "core/EffectBuilders.h"
 
 #include <QCoreApplication>
+#include <QHash>
 
 namespace kk {
 
@@ -92,13 +93,52 @@ QString nameBaseOf(const QString& name)
     return s.isEmpty() ? QStringLiteral("Node") : s;
 }
 
+/// Translated names of the blend modes in blendmodes::ids() order (the Merge choice list).
+QStringList blendModeNames()
+{
+    QStringList names;
+    for (const QString& id : blendmodes::ids())
+        names.append(blendmodes::displayName(id));
+    return names;
+}
+
 } // namespace
+
+const QStringList& blendmodes::ids()
+{
+    static const QStringList modes {Normal, Screen, Multiply, Add, Overlay, Darken, Lighten,
+        Difference, Subtract, HardLight, SoftLight, ColorDodge, ColorBurn, Exclusion, LinearBurn,
+        LinearLight, VividLight, PinLight, HardMix};
+    return modes;
+}
 
 int blendmodes::index(const QString& mode)
 {
-    static const QStringList modes {
-        Normal, Screen, Multiply, Add, Overlay, Darken, Lighten, Difference, Subtract};
-    return std::max<int>(0, int(modes.indexOf(mode)));
+    return std::max<int>(0, int(ids().indexOf(mode)));
+}
+
+const QStringList& blendmodes::compositeOrder()
+{
+    static const QStringList order {Normal, Add, Subtract, Difference, Multiply, Screen, Overlay,
+        HardLight, SoftLight, Darken, Lighten, ColorDodge, ColorBurn, Exclusion, LinearBurn,
+        LinearLight, VividLight, PinLight, HardMix};
+    return order;
+}
+
+QString blendmodes::displayName(const QString& id)
+{
+    static const QHash<QString, const char*> names {{Normal, QT_TR_NOOP("Normal")},
+        {Screen, QT_TR_NOOP("Screen")}, {Multiply, QT_TR_NOOP("Multiply")},
+        {Add, QT_TR_NOOP("Add")}, {Overlay, QT_TR_NOOP("Overlay")}, {Darken, QT_TR_NOOP("Darken")},
+        {Lighten, QT_TR_NOOP("Lighten")}, {Difference, QT_TR_NOOP("Difference")},
+        {Subtract, QT_TR_NOOP("Subtract")}, {HardLight, QT_TR_NOOP("Hard Light")},
+        {SoftLight, QT_TR_NOOP("Soft Light")}, {ColorDodge, QT_TR_NOOP("Color Dodge")},
+        {ColorBurn, QT_TR_NOOP("Color Burn")}, {Exclusion, QT_TR_NOOP("Exclusion")},
+        {LinearBurn, QT_TR_NOOP("Linear Burn")}, {LinearLight, QT_TR_NOOP("Linear Light")},
+        {VividLight, QT_TR_NOOP("Vivid Light")}, {PinLight, QT_TR_NOOP("Pin Light")},
+        {HardMix, QT_TR_NOOP("Hard Mix")}};
+    const auto it = names.constFind(id);
+    return it == names.constEnd() ? id : QCoreApplication::translate("kk::blendmodes", it.value());
 }
 
 int channelsources::index(const QString& source)
@@ -218,12 +258,7 @@ NodeRegistry::NodeRegistry()
         d.inputs = {port(nodeports::Background, tr("Background"), PortKind::Image, true),
             port(nodeports::Foreground, tr("Foreground"), PortKind::Image, true), maskPort()};
         d.mainInput = nodeports::Background;
-        d.params = {choice(k::BlendMode, tr("Apply Mode"),
-                        {blendmodes::Normal, blendmodes::Screen, blendmodes::Multiply,
-                            blendmodes::Add, blendmodes::Overlay, blendmodes::Darken,
-                            blendmodes::Lighten, blendmodes::Difference, blendmodes::Subtract},
-                        {tr("Normal"), tr("Screen"), tr("Multiply"), tr("Add"), tr("Overlay"),
-                            tr("Darken"), tr("Lighten"), tr("Difference"), tr("Subtract")},
+        d.params = {choice(k::BlendMode, tr("Apply Mode"), blendmodes::ids(), blendModeNames(),
                         blendmodes::Normal),
             number(k::Opacity, tr("Blend"), 0, 1, 1, 0.01)};
         d.params += centre();
