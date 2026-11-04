@@ -90,6 +90,16 @@ inline const QString LineSpacing = QStringLiteral("lineSpacing"); ///< animated 
 inline const QString OutlineWidth = QStringLiteral("outlineWidth"); ///< animated px; default 0
 inline const QString BgOpacity
     = QStringLiteral("bgOpacity"); ///< animated percent 0..100; default 60
+/// Animated position of the text block in the frame, 0..1 from the left (X) and from the bottom
+/// (Y), as Resolve's Text title; default 0.5 / 0.5 (centred, as titles were before).
+inline const QString TextPosX = QStringLiteral("textPosX");
+inline const QString TextPosY = QStringLiteral("textPosY");
+/// static choice "left"|"center"|"right": which side of the text block sits at Position X
+/// (a left lower third grows to the right); default center.
+inline const QString Anchor = QStringLiteral("anchor");
+/// static bool: the text rolls up through the frame over the clip's duration, from just
+/// below the bottom edge to just above the top (rolling credits); Position Y is not used.
+inline const QString Scroll = QStringLiteral("scroll");
 
 /// Documented default of an animated well-known key (see the comments above).
 /// Unknown keys return 0.

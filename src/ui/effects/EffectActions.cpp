@@ -9,6 +9,7 @@
 #include "core/ParamKeys.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/TitlePresets.h"
 #include "ui/common/AppContext.h"
 
 #include <QCoreApplication>
@@ -69,7 +70,14 @@ std::optional<ClipData> makeGeneratorClip(const QString& descriptorId, Rational 
     case EffectCategory::Title:
         clip.kind = ClipKind::Title;
         clip.title = registry.defaultParams(descriptorId);
-        clip.name = clip.title.staticValue(keys::Text, desc->name).toString();
+        if (descriptorId == titles::Text) {
+            clip.name = clip.title.staticValue(keys::Text, desc->name).toString();
+        } else {
+            // A preset is remembered (the Inspector names it and resets to its defaults); the
+            // clip is named after it, as Resolve names a Left Lower Third clip.
+            clip.generator = descriptorId;
+            clip.name = desc->name;
+        }
         break;
     case EffectCategory::Effects:
         clip.kind = ClipKind::Adjustment; // the only "Effects" entry: Adjustment Clip
