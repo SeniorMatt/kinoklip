@@ -17,6 +17,7 @@
 #include <QLoggingCategory>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QUuid>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
@@ -49,11 +50,17 @@ bool otherProcessAlive(qint64 pid)
     return false;
 #endif
 }
+/// A random id for a project that has no file yet.
+QString newUntitledId()
+{
+    return QUuid::createUuid().toString(QUuid::WithoutBraces);
+}
 } // namespace
 
 AutosaveController::AutosaveController(Project* project, QObject* parent)
     : QObject(parent)
     , m_project(project)
+    , m_untitledId(newUntitledId())
 {
     connect(&m_timer, &QTimer::timeout, this, &AutosaveController::startAutosave);
     // Saved (dirty -> clean) or replaced by New/Open (the unsaved-changes prompt ran first):
@@ -65,6 +72,7 @@ AutosaveController::AutosaveController(Project* project, QObject* parent)
     connect(project, &Project::projectReset, this, [this] {
         discard();
         m_savedTimelineRevision = m_savedPoolRevision = 0;
+        m_untitledId = newUntitledId(); // a new or opened project is a different project
     });
     setIntervalMinutes(prefs::autosaveMinutes());
 }
@@ -80,8 +88,9 @@ QString AutosaveController::autosavePath() const
     static const QRegularExpression unsafe(QStringLiteral("[^A-Za-z0-9 _.-]"));
     QString base = m_project->name();
     base.replace(unsafe, QStringLiteral("_"));
-    const QString identity
-        = m_project->filePath().isEmpty() ? QStringLiteral("unsaved") : m_project->filePath();
+    // A saved project is told apart by its file, a never-saved one by this session's id: two
+    // untitled projects with the same name (two windows or processes) never share a file.
+    const QString identity = m_project->filePath().isEmpty() ? m_untitledId : m_project->filePath();
     const QString hash
         = QString::fromLatin1(QCryptographicHash::hash(identity.toUtf8(), QCryptographicHash::Sha1)
                                   .toHex()
