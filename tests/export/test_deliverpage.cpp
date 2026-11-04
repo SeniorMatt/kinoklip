@@ -135,6 +135,45 @@ private Q_SLOTS:
         QCOMPARE(panel->settings().range, RangeMode::Entire);
     }
 
+    /// Owner report on 1.1.0: with only an Out mark (In at the timeline start, as the viewer
+    /// shows it) Deliver kept "Entire Timeline". As in Resolve, one mark is a range too: Out
+    /// alone renders from the start to Out, In alone from In to the end (spec 45.4).
+    void renderRangeFollowsASingleMark()
+    {
+        PanelFixture fx;
+        Timeline* timeline = fx.project.timeline();
+        DeliverPage page(fx.ctx);
+        RenderSettingsPanel* panel = page.settingsPanel();
+        QCOMPARE(panel->settings().range, RangeMode::Entire);
+
+        timeline->mutableData().markOut = 40;
+        timeline->notifyChanged();
+        QCOMPARE(panel->settings().range, RangeMode::InOut);
+        auto [first, end] = panel->settings().frameRange(timeline->data());
+        QCOMPARE(first, int64_t(0));
+        QCOMPARE(end, int64_t(40));
+
+        // A second range after the first: clear the Out, set only an In.
+        timeline->mutableData().markOut = -1;
+        timeline->notifyChanged();
+        QCOMPARE(panel->settings().range, RangeMode::Entire);
+        timeline->mutableData().markIn = 20;
+        timeline->notifyChanged();
+        QCOMPARE(panel->settings().range, RangeMode::InOut);
+
+        // The owner's sequence: In/Out Range chosen by hand with only an Out mark, then the Out
+        // mark moved. The old rule saw "no range" and switched to Entire Timeline.
+        timeline->mutableData().markIn = -1;
+        timeline->mutableData().markOut = 50;
+        timeline->notifyChanged();
+        ExportSettings s = panel->settings();
+        s.range = RangeMode::InOut;
+        panel->setSettings(s);
+        timeline->mutableData().markOut = 60;
+        timeline->notifyChanged();
+        QCOMPARE(panel->settings().range, RangeMode::InOut);
+    }
+
     void pageWorkflow()
     {
         PanelFixture fx;

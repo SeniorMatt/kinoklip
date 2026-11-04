@@ -11,6 +11,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/TimelineCommandSuspension.h"
+#include "ui/deliver/RenderFinishNotifier.h"
 #include "ui/deliver/RenderQueuePanel.h"
 #include "ui/deliver/RenderRangeBar.h"
 #include "ui/deliver/RenderSettingsPanel.h"
@@ -49,6 +50,7 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     m_settingsPanel = new RenderSettingsPanel(ctx, m_presets.get());
     m_viewer = new ViewerPanel(ViewerPanel::Mode::Timeline, ctx);
     m_queuePanel = new RenderQueuePanel(m_queue);
+    m_finishNotifier = new RenderFinishNotifier(m_queue, this, this); // spec 45.5
 
     m_topRow = new PanelSplitter(Qt::Horizontal);
     m_topRow->setChildrenCollapsible(false);
@@ -270,7 +272,10 @@ void DeliverPage::followMarks()
     if (marks == m_seenMarks)
         return;
     m_seenMarks = marks;
-    const bool hasRange = data.markIn >= 0 && data.markOut > data.markIn;
+    // One mark is a range too (as in Resolve): Out alone runs from the start, In alone to the
+    // end (ExportSettings::frameRange keeps the edge of an unset mark). Spec 45.4.
+    const bool hasRange = (data.markIn >= 0 || data.markOut >= 0)
+        && (data.markIn < 0 || data.markOut < 0 || data.markOut > data.markIn);
     ExportSettings s = m_settingsPanel->settings();
     const RangeMode wanted = hasRange ? RangeMode::InOut : RangeMode::Entire;
     if (s.range == wanted)
