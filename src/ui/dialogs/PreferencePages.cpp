@@ -294,7 +294,7 @@ public:
         m_table->header()->setStretchLastSection(true);
         m_table->setWordWrap(false);
         m_table->setTextElideMode(Qt::ElideRight);
-        auto* checking = new QTreeWidgetItem(m_table, {QString(), tr("Checking...")});
+        auto* checking = new QTreeWidgetItem(m_table, {QString(), tr("Checkingâ¦")});
         checking->setFirstColumnSpanned(true);
         form->addRow(tr("Available hardware"), m_table);
 
@@ -726,7 +726,7 @@ public:
         : SettingsPage(parent)
     {
         auto* form = makeForm(this);
-        auto* button = new QPushButton(tr("Keyboard Customization..."));
+        auto* button = new QPushButton(tr("Keyboard Customizationâ¦"));
         button->setObjectName(QStringLiteral("OpenKeyboardCustomization"));
         button->setEnabled(customize != nullptr);
         if (customize) {
