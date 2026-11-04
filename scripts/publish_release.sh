@@ -14,7 +14,11 @@ for f in dist/Kinoklip-x86_64.AppImage dist/Kinoklip-x86_64.AppImage.zsync dist/
 done
 (cd dist && sha256sum -c SHA256SUMS.txt)
 
-git tag -a "$tag" -m "$title"
+# The tag may already exist locally (made at the commit the AppImage was built from).
+if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+    git tag -a "$tag" -m "$title"
+fi
+echo "Tag $tag -> $(git rev-list -n1 "$tag")"
 git push origin "$tag"
 gh release create "$tag" --prerelease --title "$title" --notes-file "$notes" \
     dist/Kinoklip-x86_64.AppImage dist/Kinoklip-x86_64.AppImage.zsync dist/SHA256SUMS.txt
