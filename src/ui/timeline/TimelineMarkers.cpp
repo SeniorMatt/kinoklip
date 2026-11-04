@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // TimelineController, part 4: timeline and clip markers with the marker editor (spec 18),
 // paste attributes (spec 16.4) and dynamic trim (spec 8.17).
+#include "core/ClipColors.h"
 #include "core/ParamKeys.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
@@ -12,6 +14,7 @@
 #include "ui/timeline/TimelineEditUtil.h"
 
 #include <QAction>
+#include <QSettings>
 
 #include <algorithm>
 
@@ -45,6 +48,16 @@ Marker* markerAt(QVector<Marker>& list, int64_t frame)
 } // namespace
 
 // ---- Markers ----
+
+QColor TimelineController::newMarkerColor()
+{
+    const QString id = QSettings().value(QLatin1String(prefs::kNewMarkerColor)).toString();
+    for (const PaletteColor& c : markerColorPalette()) {
+        if (id == QLatin1String(c.id))
+            return QColor(c.rgb);
+    }
+    return QColor(markerColorPalette().front().rgb);
+}
 
 void TimelineController::addMarkerAtPlayhead()
 {
@@ -93,6 +106,7 @@ void TimelineController::placeMarker(bool forceEdit)
             Marker m;
             m.frame = local;
             m.name = tr("Marker %1").arg(clip->markers.size() + 1);
+            m.color = newMarkerColor();
             added = insertMarker(clip->markers, m);
             return added;
         });

@@ -54,6 +54,9 @@ inline constexpr char kAnimationSpeed[] = "ui/animationSpeed";
 inline constexpr char kTimelineThumbnails[] = "timeline/thumbnails";
 /// Timeline View Options: bool, audio clips draw waveforms (default true).
 inline constexpr char kTimelineWaveforms[] = "timeline/waveforms";
+/// Colour of new markers: a markerColorPalette() id chosen in the marker button's menu
+/// (default "blue"; spec 18.17).
+inline constexpr char kNewMarkerColor[] = "timeline/markerColor";
 /// Timeline View Options > Show Source Timecode (bool, default false; spec 12.14).
 inline constexpr char kTimelineSourceTimecode[] = "timeline/sourceTimecode";
 /// Edit Index column chooser (spec 18.10): QStringList of the hidden column keys

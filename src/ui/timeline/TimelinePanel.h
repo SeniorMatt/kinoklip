@@ -78,6 +78,8 @@ private:
     QToolBar* m_toolBar = nullptr;
     /// The Timeline View Options button and its menu (filled on every show).
     QWidget* makeViewOptionsButton();
+    /// The marker button's drop-down: the colour of new markers (spec 18.17).
+    void addMarkerColorMenu();
     void fillViewOptionsMenu(QMenu& menu);
     ClipThumbnails m_viewThumbnails = ClipThumbnails::Filmstrip;
     bool m_viewWaveforms = true;

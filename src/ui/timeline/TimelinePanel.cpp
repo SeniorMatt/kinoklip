@@ -2,6 +2,7 @@
 // TimelinePanel: assembles tool bar, controller and view; wires the zoom actions.
 #include "ui/timeline/TimelinePanel.h"
 
+#include "core/ClipColors.h"
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
@@ -24,15 +25,18 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QCoreApplication>
 #include <QDrag>
 #include <QEvent>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPainter>
+#include <QPixmap>
 #include <QSettings>
 #include <QSlider>
 #include <QSplitter>
@@ -110,6 +114,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
                 m_toolBar->addAction(ctx.actions->action(QLatin1String(id)));
         }
     }
+    addMarkerColorMenu();
     auto* spacer = new QWidget(m_toolBar);
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     m_toolBar->addWidget(spacer);
@@ -408,6 +413,42 @@ bool TimelinePanel::eventFilter(QObject* watched, QEvent* event)
     if (event->type() == QEvent::Paint && watched == m_view->viewport())
         syncZoomSlider();
     return PanelFrame::eventFilter(watched, event);
+}
+
+void TimelinePanel::addMarkerColorMenu()
+{
+    QAction* marker = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("mark.add_marker"))
+        ? m_ctx.actions->action(QStringLiteral("mark.add_marker"))
+        : nullptr;
+    auto* button
+        = marker ? qobject_cast<QToolButton*>(m_toolBar->widgetForAction(marker)) : nullptr;
+    if (!button)
+        return;
+    // Resolve's marker button has a drop-down of the marker colours: the one picked colours
+    // the markers added from then on (M, Ctrl+M, the button).
+    auto* menu = new QMenu(button);
+    menu->setObjectName(QStringLiteral("MarkerColorMenu"));
+    auto* group = new QActionGroup(menu);
+    for (const PaletteColor& c : markerColorPalette()) {
+        QPixmap swatch(12, 12);
+        swatch.fill(QColor(c.rgb));
+        QAction* a
+            = menu->addAction(QIcon(swatch), QCoreApplication::translate("kk::ClipColors", c.name));
+        a->setCheckable(true);
+        a->setData(QString::fromLatin1(c.id));
+        group->addAction(a);
+        connect(a, &QAction::triggered, this, [id = QString::fromLatin1(c.id)] {
+            QSettings().setValue(QLatin1String(prefs::kNewMarkerColor), id);
+        });
+    }
+    connect(menu, &QMenu::aboutToShow, menu, [menu] {
+        const QString current
+            = QLatin1String(nearestMarkerColor(TimelineController::newMarkerColor()).id);
+        for (QAction* a : menu->actions())
+            a->setChecked(a->data().toString() == current);
+    });
+    button->setMenu(menu);
+    button->setPopupMode(QToolButton::MenuButtonPopup);
 }
 
 QWidget* TimelinePanel::makeViewOptionsButton()
