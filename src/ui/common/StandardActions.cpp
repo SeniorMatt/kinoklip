@@ -111,7 +111,7 @@ const ActionSpec kActions[] = {
     {"trim", "tool.trim",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Trim Edit Mode"), "trim", true},
     {"trim", "tool.blade",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Blade Edit Mode"), "blade", true},
     {"trim", "-"},
-    {"trim", "trim.dynamic",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Dynamic Trim Mode"), "", true},
+    {"trim", "trim.dynamic",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Dynamic Trim Mode"), "dynamic_trim", true},
     {"trim", "-"},
     {"trim", "trim.nudge_left",       QT_TRANSLATE_NOOP("kk::StandardActions", "Nudge One Frame &Left")},
     {"trim", "trim.nudge_right",      QT_TRANSLATE_NOOP("kk::StandardActions", "Nudge One Frame &Right")},
