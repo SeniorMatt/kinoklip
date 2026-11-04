@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 320 commands; sure 106, likely 97, unsure 117.
+Counts: 329 commands; sure 106, likely 102, unsure 121.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -232,6 +232,10 @@ that every command has an entry and that no key is used twice.
 | Edit Index panel | `view.toggle_edit_index` | (none) | likely |  |
 | Nodes panel (Compositing page node editor) | `view.toggle_nodes` | (none) | unsure | interface bar toggle; no default key known, none assigned |
 | Keyframes panel (keyframe editor window) | `view.toggle_keyframes` | (none) | unsure | Kinoklip's large keyframe editor; no default key is known, none assigned. |
+| Gallery panel (Color page stills) | `view.toggle_gallery` | (none) | unsure | Color page interface bar toggle; no default key known, none assigned |
+| Clips panel (Color page thumbnail strip) | `view.toggle_clips` | (none) | unsure | Color page interface bar toggle; no default key known, none assigned |
+| Timeline panel (Color page mini timeline) | `view.toggle_color_timeline` | (none) | unsure | Color page interface bar toggle; no default key known, none assigned |
+| Scopes panel (Color page scopes) | `view.toggle_scopes` | (none) | unsure | Color page interface bar toggle (Resolve docks the scopes in a Color page palette); no default key known |
 | Stacked Timelines (two timelines one above the other) | `view.stacked_timelines` | (none) | likely | a timeline view option in Resolve; no default key known |
 | Mixer panel | `view.toggle_mixer` | (none) | likely |  |
 | Metadata panel | `view.toggle_metadata` | (none) | likely |  |
@@ -395,14 +399,19 @@ that every command has an entry and that no key is used twice.
 | Add Serial Node (after the current node) | `color.add_serial` | `Alt+S` | sure | acts on the Color page |
 | Add Parallel Node (with a Parallel mixer) | `color.add_parallel` | `Alt+P` | sure | acts on the Color page |
 | Add Layer Node (with a Layer mixer) | `color.add_layer` | `Alt+L` | sure | acts on the Color page |
-| Delete Node (the current node) | `color.delete_node` | (none) | unsure | Delete in Resolve's node editor; no key until the node editor exists |
+| Add Serial Node Before (the current node) | `color.add_serial_before` | `Shift+S` | likely | acts on the Color page |
+| Delete Node (the current node) | `color.delete_node` | `Del` / `Backspace` | likely | acts on the Color page; Delete in Resolve's node editor |
 | Enable / Disable Current Node | `color.bypass_node` | `Ctrl+D` | sure | acts on the Color page |
 | Bypass All Grades (viewer only; the render keeps them) | `color.bypass_all` | `Shift+D` | sure | acts on the Color page |
-| Reset Node Grade (the current node's corrections) | `color.reset_node` | (none) | unsure | no default key known, none assigned |
-| Reset Clip Grade (remove every node) | `color.reset_grade` | (none) | unsure | no default key known, none assigned |
+| Reset Node Grade (the current node's corrections) | `color.reset_node` | `Shift+Home` | unsure | acts on the Color page; Resolve's reset of the selected node as we remember it, not confirmed |
+| Reset Clip Grade (remove every node) | `color.reset_grade` | `Ctrl+Home` | unsure | acts on the Color page; Resolve's reset of grades and nodes as we remember it, not confirmed |
 | Grade the Timeline (edit the timeline grade instead of the clip's) | `color.timeline_grade` | (none) | unsure | Resolve switches between clip and timeline nodes in the node editor; no default key known |
 | Grab Still (the current frame and grade into the gallery) | `color.grab_still` | `Ctrl+Alt+G` | sure | acts on the Color page |
 | Apply Grade from Still (the selected gallery still to the clip) | `color.apply_still` | (none) | unsure | middle-click on a still in Resolve; no default key known |
+| Copy Grade (of the current clip) | `color.copy_grade` | `Ctrl+C` | likely | acts on the Color page; the Edit page's Copy rests while the Color page is shown |
+| Paste Grade (to the selected clips of the clips strip) | `color.paste_grade` | `Ctrl+V` | likely | acts on the Color page; middle-click on a thumbnail copies that clip's grade to the selected clips |
+| Highlight (show the current node's key in the viewer) | `color.highlight` | `Shift+H` | likely | acts on the Color page |
+| Wipe with Still (split the viewer with the selected gallery still) | `color.wipe` | `Ctrl+W` | unsure | acts on the Color page; Resolve's wipe toggle as we remember it, not confirmed |
 
 ## Audio page
 

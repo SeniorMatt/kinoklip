@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Offscreen tests of the minimal Color page (docs/behavior-spec.md 44b): Shift+6 opens it, the
+// Offscreen tests of the Color page basics (docs/behavior-spec.md 44b): Shift+6 opens it, the
 // clip under the playhead is graded, the page keys (Alt+S / Alt+P / Alt+L, Ctrl+D, Shift+D,
 // Ctrl+Alt+G) act only there and each change is one undo step, the wheels / fields / curves
 // edit the selected node, the gallery grabs and applies stills, the scopes get the graded
@@ -12,12 +12,15 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
+#include "ui/color/ColorBrowsers.h"
+#include "ui/color/ColorNodeEditor.h"
 #include "ui/color/ColorSession.h"
 #include "ui/color/ColorWidgets.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/inspector/ValueField.h"
 #include "ui/scopes/ScopeFeeder.h"
 #include "ui/scopes/ScopeView.h"
 #include "ui/scopes/ScopesWindow.h"
@@ -106,11 +109,11 @@ struct Fixture
         action("view.page_color")->trigger();
         QCoreApplication::processEvents();
     }
-    /// Key @p key (with @p mods) on the page's node list (focus inside the page).
+    /// Key @p key (with @p mods) on the page's node editor (focus inside the page).
     void key(Qt::Key key, Qt::KeyboardModifiers mods = Qt::NoModifier)
     {
-        page()->nodeList()->setFocus();
-        QTest::keyClick(page()->nodeList(), key, mods);
+        page()->nodeEditor()->setFocus();
+        QTest::keyClick(page()->nodeEditor(), key, mods);
         QCoreApplication::processEvents();
     }
 };
@@ -193,18 +196,12 @@ private slots:
         QCOMPARE(f.grade(f.first).nodes.size(), g.nodes.size()); // not Change Clip Duration
         f.action("edit.undo")->trigger();
         QVERIFY(f.grade(f.first).node(current)->enabled);
-        // The node list shows the nodes and bypasses through its check boxes.
-        QListWidget* list = f.page()->nodeList();
-        QCOMPARE(list->count(), int(g.nodes.size()));
-        QListWidgetItem* corrector = nullptr;
-        for (int i = 0; i < list->count(); ++i) {
-            if (list->item(i)->flags() & Qt::ItemIsUserCheckable)
-                corrector = list->item(i);
-        }
-        QVERIFY(corrector);
-        const quint64 id = corrector->data(Qt::UserRole).toULongLong();
-        corrector->setCheckState(Qt::Unchecked);
-        QVERIFY(!f.grade(f.first).node(id)->enabled);
+        // Delete removes the current node (one step).
+        const int count = int(f.grade(f.first).nodes.size());
+        f.key(Qt::Key_Delete);
+        QVERIFY(int(f.grade(f.first).nodes.size()) < count);
+        f.action("edit.undo")->trigger();
+        QCOMPARE(int(f.grade(f.first).nodes.size()), count);
         // On the Edit page the Color keys do nothing.
         f.action("view.page_edit")->trigger();
         QCoreApplication::processEvents();
@@ -220,9 +217,9 @@ private slots:
         f.showPage();
         const int base = f.steps();
         // A field on an ungraded clip creates the first node.
-        QDoubleSpinBox* contrast = f.page()->primaries()->field(gk::Contrast);
+        ValueField* contrast = f.page()->primaries()->field(gk::Contrast);
         QVERIFY(contrast);
-        contrast->setValue(1.25);
+        Q_EMIT contrast->valueCommitted(1.25);
         ClipGrade g = f.grade(f.first);
         QCOMPARE(g.nodes.size(), 1);
         QCOMPARE(g.nodes[0].value(gk::Contrast, 0), 1.25);
@@ -230,7 +227,7 @@ private slots:
         // A wheel drag is one step, whatever the number of moves.
         ColorWheel* gain = f.page()->primaries()->wheel(gk::Wheel::Gain);
         gain->resize(140, 170);
-        const QPointF centre(70, 16 + (170 - 16 - 14 - 10) / 2.0);
+        const QPointF centre = gain->discRect().center();
         QTest::mousePress(gain, Qt::LeftButton, {}, centre.toPoint());
         for (int i = 1; i <= 5; ++i)
             QTest::mouseMove(gain, (centre + QPointF(4 * i, -3 * i)).toPoint());
@@ -247,7 +244,7 @@ private slots:
         const auto back = gain->deltaFor(puck);
         QVERIFY(std::abs(back[0] - (r - 1)) < 1e-9 && std::abs(back[2] - (b - 1)) < 1e-9);
         // Curves: a click adds a point to the Y curve (one step).
-        GradeCurveEditor* curves = f.page()->curves();
+        GradeCurveEditor* curves = f.page()->curves()->editor();
         curves->resize(300, 240);
         const QRectF plot = curves->plotRect();
         const QPoint at(
@@ -262,7 +259,7 @@ private slots:
         animated.nodes[0].params.values[gk::Saturation].setKey(0, 1.0);
         QVERIFY(f.session()->commit(animated, QStringLiteral("Key")));
         f.project.timeline()->setPlayhead(20);
-        f.page()->primaries()->field(gk::Saturation)->setValue(0.5);
+        Q_EMIT f.page()->primaries()->field(gk::Saturation)->valueCommitted(0.5);
         const AnimatedValue& sat = f.grade(f.first).nodes[0].params.values[gk::Saturation];
         QCOMPARE(sat.keys.size(), 2);
         QCOMPARE(sat.valueAt(20), 0.5);
@@ -305,7 +302,7 @@ private slots:
         // The still shows the graded (grey) picture.
         const QColor c = still.image.pixelColor(still.image.width() / 2, still.image.height() / 2);
         QVERIFY2(std::abs(c.red() - c.blue()) < 8, qPrintable(c.name()));
-        QCOMPARE(f.page()->gallery()->count(), 1);
+        QCOMPARE(f.page()->gallery()->list()->count(), 1);
         const int steps = f.steps();
         QCOMPARE(f.session()->applyStill(still.id, {f.second}), 1);
         QCOMPARE(f.grade(f.second), f.grade(f.first));
