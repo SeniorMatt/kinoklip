@@ -197,15 +197,15 @@ int main(int argc, char** argv)
     // background now, so the first frame after an import does not wait 200 - 300 ms for it.
     kk::media::warmUpHwDecoding();
     window.showRestored();
-    // Crash recovery first (an autosave newer than the project), then the project given on
-    // the command line, unless its recovered state was just restored. Without either, the
-    // Project Manager (or, by preference, the last project). Offscreen runs (CI, scripted
-    // checks) never get the Project Manager: nobody could close it.
+    // The project given on the command line (openFile() first offers its autosave if a crash
+    // left one), otherwise crash recovery of any project. Without either, the Project Manager (or,
+    // by preference, the last project). Offscreen runs (CI, scripted checks) never get the Project
+    // Manager: nobody could close it.
     kk::ProjectController* projects = window.projectController();
-    if (projects->offerRecovery(options.projectFile)) {
+    if (!options.projectFile.isEmpty()) {
+        projects->openFile(options.projectFile, false); // offers that project's autosave
+    } else if (projects->offerRecovery()) {
         // restored: that project is open
-    } else if (!options.projectFile.isEmpty()) {
-        projects->openFile(options.projectFile, false);
     } else if (!kk::prefs::startupShowsProjectManager()) {
         projects->openLastProject();
     } else if (QGuiApplication::platformName() != QLatin1String("offscreen")) {

@@ -139,6 +139,13 @@ bool ProjectController::openFile(const QString& path, bool askToSave, QWidget* d
 {
     if (askToSave && !maybeSave(dialogParent))
         return false;
+    // An autosave of this project left by a crash (the start-up prompt was answered "Not
+    // Now") is offered again: opening the file without asking would soon autosave over it.
+    if (offerRecovery(path)) {
+        rememberDir(kLastProjectDirKey, path);
+        addRecentProject(path);
+        return true;
+    }
     QString error;
     QWidget* parent = dialogParent ? dialogParent : m_window;
     if (pack::isContainerFile(path)) {
@@ -200,20 +207,30 @@ bool ProjectController::saveAs()
     if (QFileInfo(path).suffix().isEmpty())
         path += QLatin1Char('.') + suffix;
     path = QFileInfo(path).absoluteFilePath();
+    // The project takes the name it is saved under, as with Resolve's Save Project As (the
+    // title bar showed "Untitled Project" after the first save), when it is new or its name
+    // was its file's; a name set in Project Settings stays.
+    const QString oldName = m_ctx.project->name();
+    if (current.isEmpty() || oldName == QFileInfo(current).completeBaseName())
+        m_ctx.project->setName(QFileInfo(path).completeBaseName());
+    const auto failed = [&] {
+        m_ctx.project->setName(oldName);
+        return false;
+    };
     if (pack::isContainerFile(path)) {
         // The open single-file project itself: a plain save.
         if (m_package && !m_readOnly && path == m_package->path())
-            return save();
+            return save() || failed();
         if (!saveAsSingleFile(path))
-            return false;
+            return failed();
     } else if (isSingleFile()) {
         if (!saveAsLinked(path))
-            return false;
+            return failed();
     } else {
         QString error;
         if (!m_ctx.project->save(path, &error)) {
             QMessageBox::critical(m_window, tr("Save Project"), error);
-            return false;
+            return failed();
         }
         releaseContainer(); // a never-saved or recovered project: nothing held
     }
@@ -268,8 +285,10 @@ ProjectLibrary* ProjectController::projectLibrary()
         delete m_library;
         m_library = nullptr;
     }
-    if (!m_library)
+    if (!m_library) {
         m_library = new ProjectLibrary(root, {}, this);
+        connect(m_library, &ProjectLibrary::moved, this, &ProjectController::followMovedProject);
+    }
     return m_library;
 }
 
@@ -373,6 +392,28 @@ void ProjectController::addRecentProject(const QString& path)
     QSettings().setValue(QLatin1String(kRecentProjectsKey), list);
 }
 
+void ProjectController::followMovedProject(const QString& from, const QString& to)
+{
+    // A renamed or moved project (or folder of projects) stays in File > Open Recent.
+    const QString prefix = from + QLatin1Char('/');
+    QStringList list = recentProjects();
+    bool changed = false;
+    for (QString& path : list) {
+        if (path == from) {
+            path = to;
+            changed = true;
+        } else if (path.startsWith(prefix)) {
+            path = to + QLatin1Char('/') + path.mid(prefix.size());
+            changed = true;
+        }
+    }
+    if (!changed)
+        return;
+    QSettings().setValue(QLatin1String(kRecentProjectsKey), list);
+    if (m_manager)
+        m_manager->setRecentProjects(list);
+}
+
 void ProjectController::clearRecentProjects()
 {
     QSettings().remove(QLatin1String(kRecentProjectsKey));
@@ -395,9 +436,10 @@ void ProjectController::fillRecentMenu(QMenu* menu)
         const QFileInfo file(path);
         // "&1 name" accelerators for the first nine, like KDE's recent files menus.
         ++number;
-        const QString label = number < 10
-            ? QStringLiteral("&%1 %2").arg(number).arg(file.completeBaseName())
-            : file.completeBaseName();
+        // A "&" in the name is text, not a mnemonic.
+        QString name = file.completeBaseName();
+        name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        const QString label = number < 10 ? QStringLiteral("&%1 %2").arg(number).arg(name) : name;
         QAction* action = menu->addAction(label);
         action->setToolTip(QDir::toNativeSeparators(path));
         action->setStatusTip(QDir::toNativeSeparators(path));
