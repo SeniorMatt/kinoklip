@@ -453,7 +453,9 @@ bool MediaPoolPanel::replaceClip(const QString& id, const QString& path, QString
         return false;
     }
     // A name that was the file name follows the new file; a name given by the user stays.
-    const bool fileName = item->name == QFileInfo(item->path).fileName();
+    // Compared without case: "CLIP.MOV" shown as "clip.mov" is still the file name.
+    const bool fileName
+        = item->name.compare(QFileInfo(item->path).fileName(), Qt::CaseInsensitive) == 0;
     const QString name = fileName ? QFileInfo(absolute).fileName() : item->name;
     project->beginEdit(tr("Replace Clip"));
     project->mediaPool()->relinkItem(id, absolute);
