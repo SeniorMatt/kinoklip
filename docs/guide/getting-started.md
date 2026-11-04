@@ -85,6 +85,10 @@ The easiest way: **drag a clip from the media pool onto the timeline**. It lands
 it, with its picture on a video track and its sound on an audio track below. Hold **Ctrl**
 while you drop to push the other clips aside instead of covering them.
 
+You can also drag files straight from your file manager onto the timeline. While you drag, an
+outline shows where each clip lands and how long it is; when you drop, Kinoklip imports the
+files into the media pool and puts the clips there.
+
 To use only part of a clip:
 1. Double-click the clip in the media pool. It opens in the source viewer.
 2. Play to where the part should start and press **I** (mark in).
