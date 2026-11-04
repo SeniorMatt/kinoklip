@@ -7,15 +7,20 @@
 #include "TimelineTestUtils.h"
 #include "core/MediaPool.h"
 #include "ui/common/DragMime.h"
+#include "ui/common/MediaImport.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
 
+#include <QApplication>
+#include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMimeData>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #include <QUndoStack>
 #include <QUrl>
 
@@ -124,6 +129,61 @@ QString writeStill(const QTemporaryDir& dir, const QString& name)
     image.save(path);
     return path;
 }
+
+/// Shared generated test media (tests/data/generated).
+QString testFile(const char* name)
+{
+    return QStringLiteral(KK_TEST_DATA_DIR "/generated/") + QLatin1String(name);
+}
+
+/// DragEnter + DragMove of @p mime at @p pos, without the drop (the ghost stays).
+bool hover(QWidget* target, const QMimeData* mime, QPoint pos, Qt::KeyboardModifiers mods = {})
+{
+    QDragEnterEvent enter(DragPos(pos), Qt::CopyAction, mime, Qt::LeftButton, mods);
+    enter.setAccepted(false);
+    QCoreApplication::sendEvent(target, &enter);
+    QDragMoveEvent move(DragPos(pos), Qt::CopyAction, mime, Qt::LeftButton, mods);
+    move.setAccepted(false);
+    QCoreApplication::sendEvent(target, &move);
+    return enter.isAccepted() && move.isAccepted();
+}
+
+/// Ends a hover() with a drop at @p pos; returns whether it was accepted.
+bool drop(QWidget* target, const QMimeData* mime, QPoint pos, Qt::KeyboardModifiers mods = {})
+{
+    QDropEvent event(DragPos(pos), Qt::CopyAction, mime, Qt::LeftButton, mods);
+    event.setAccepted(false);
+    QCoreApplication::sendEvent(target, &event);
+    return event.isAccepted();
+}
+
+std::unique_ptr<QMimeData> fileMime(const QStringList& paths)
+{
+    auto mime = std::make_unique<QMimeData>();
+    QList<QUrl> urls;
+    for (const QString& p : paths)
+        urls.append(QUrl::fromLocalFile(p));
+    mime->setUrls(urls);
+    return mime;
+}
+
+/// Closes every modal dialog (the import report) that opens in the next @p ms; counts them.
+struct ModalCloser
+{
+    int closed = 0;
+    QTimer timer;
+    explicit ModalCloser()
+    {
+        timer.setInterval(20);
+        QObject::connect(&timer, &QTimer::timeout, [this] {
+            if (QWidget* w = QApplication::activeModalWidget()) {
+                ++closed;
+                w->close();
+            }
+        });
+        timer.start();
+    }
+};
 
 } // namespace
 
@@ -332,6 +392,200 @@ private slots:
         QTRY_COMPARE(v.clipCount(kV2), 1);
         QCOMPARE(v.f.view().videoTracks[1].clips[0].start, int64_t(10));
         QCOMPARE(v.clipCount(kA2), 0); // a still has no audio
+    }
+
+    /// Spec 5.6: files dragged in from a file manager show the ghost of a media pool drag
+    /// while the drag goes on: the real length (probed on a worker), the video on the track
+    /// under the cursor and its audio on the matching audio track. The drop imports into the
+    /// media pool's current bin and places the clips where the ghost was; one Undo takes them
+    /// off the timeline and keeps the pool item, as after importing and dragging from the pool.
+    void spec5_6_fileGhostShowsTheRealLengthAndDropsThere()
+    {
+        const QString video = testFile("h264_25fps.mp4"); // 10 s with audio
+        if (!QFileInfo::exists(video))
+            QSKIP("test media missing (tests/data/generated)");
+        View v;
+        MediaPool* pool = v.f.project.mediaPool();
+        const QString bin = pool->addBin(QStringLiteral("Shoot"));
+        v.c.setBinProvider([bin] { return bin; });
+        const auto mime = fileMime({video});
+        QVERIFY(hover(v.vp(), mime.get(), v.at(10, kV2)));
+        // A placeholder at once (the drag never waits), the real length when probed.
+        QVERIFY(!v.w.dropGhosts().empty());
+        QTRY_COMPARE(int(v.w.dropGhosts().size()), 2);
+        QTRY_COMPARE(v.w.dropGhosts()[0].duration, int64_t(250));
+        const auto& g = v.w.dropGhosts();
+        QCOMPARE(g[0].row, v.w.layout().rowOf(kV2));
+        QCOMPARE(g[1].row, v.w.layout().rowOf(kA2));
+        QCOMPARE(g[0].start, int64_t(10));
+        QCOMPARE(g[1].duration, int64_t(250));
+        QCOMPARE(g[0].name, QStringLiteral("h264_25fps.mp4"));
+        QCOMPARE(v.clipCount(kV2), 0); // only a preview
+
+        const auto itemsBefore = pool->items().size();
+        QVERIFY(drop(v.vp(), mime.get(), v.at(10, kV2)));
+        QVERIFY(v.w.dropGhosts().empty());
+        QTRY_COMPARE(v.clipCount(kV2), 1);
+        QCOMPARE(v.clipCount(kA2), 1);
+        const ClipData& c = v.f.view().videoTracks[1].clips[0];
+        QCOMPARE(c.start, int64_t(10));
+        QCOMPARE(c.duration, int64_t(250));
+        QCOMPARE(v.f.view().audioTracks[1].clips[0].start, int64_t(10));
+        QVERIFY(c.linkGroup != 0);
+        QCOMPARE(pool->items().size(), itemsBefore + 1);
+        const MediaItem* item = pool->item(c.mediaId);
+        QVERIFY(item);
+        QCOMPARE(item->binId, bin);
+
+        v.f.project.undoStack()->undo();
+        QCOMPARE(v.clipCount(kV2), 0);
+        QCOMPARE(v.clipCount(kA2), 0);
+        QCOMPARE(pool->items().size(), itemsBefore + 1); // the import is its own step
+    }
+
+    /// Spec 5.6: several files lay out one after another; a still gets the Preferences still
+    /// duration, a WAV goes onto the audio track only.
+    void spec5_6_twoFilesLayOutOneAfterAnother()
+    {
+        const QString still = testFile("still_alpha.png");
+        const QString wav = testFile("mono_ramp_48k.wav"); // 5 s
+        if (!QFileInfo::exists(still) || !QFileInfo::exists(wav))
+            QSKIP("test media missing (tests/data/generated)");
+        View v;
+        const int64_t stillFrames = TimelineController::defaultStillFrames({25, 1});
+        const auto mime = fileMime({still, wav});
+        QVERIFY(hover(v.vp(), mime.get(), v.at(10, kV1)));
+        QTRY_COMPARE(int(v.w.dropGhosts().size()), 2);
+        QTRY_COMPARE(v.w.dropGhosts()[1].row, v.w.layout().rowOf(kA1));
+        const auto& g = v.w.dropGhosts();
+        QCOMPARE(g[0].row, v.w.layout().rowOf(kV1));
+        QCOMPARE(g[0].start, int64_t(10));
+        QCOMPARE(g[0].duration, stillFrames);
+        QCOMPARE(g[1].start, 10 + stillFrames);
+        QCOMPARE(g[1].duration, int64_t(125));
+        QVERIFY(drop(v.vp(), mime.get(), v.at(10, kV1)));
+        QTRY_COMPARE(v.clipCount(kA1), 1);
+        QCOMPARE(v.clipCount(kV1), 1);
+        QCOMPARE(v.f.view().videoTracks[0].clips[0].duration, stillFrames);
+        QCOMPARE(v.f.view().audioTracks[0].clips[0].start, 10 + stillFrames);
+        QCOMPARE(v.f.view().audioTracks[0].clips[0].duration, int64_t(125));
+    }
+
+    /// Spec 5.6: the ghost of a file snaps to clip edges like a media pool drag, and the drop
+    /// lands on the snapped frame.
+    void spec5_6_fileGhostSnapsToAClipEdge()
+    {
+        const QString still = testFile("still_alpha.png");
+        if (!QFileInfo::exists(still))
+            QSKIP("test media missing (tests/data/generated)");
+        View v;
+        v.w.setPixelsPerFrame(2.0, kHeaderWidth); // 8 px snap distance = 4 frames
+        v.w.scrollToFrame(0);
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        ops::overwriteClip(v.f.data(), kV1, solidClip(0, 40));
+        v.f.project.endEdit();
+        v.c.setSnapping(true);
+        const auto mime = fileMime({still});
+        QVERIFY(hover(v.vp(), mime.get(), v.at(42, kV2)));
+        QTRY_COMPARE(v.w.dropGhosts().size(), size_t(1));
+        QCOMPARE(v.w.dropGhosts()[0].start, int64_t(40));
+        QVERIFY(drop(v.vp(), mime.get(), v.at(42, kV2)));
+        QTRY_COMPARE(v.clipCount(kV2), 1);
+        QCOMPARE(v.f.view().videoTracks[1].clips[0].start, int64_t(40));
+    }
+
+    /// Spec 5.6: a file that cannot be decoded shows no ghost; the drop places nothing and
+    /// reports it like any import (the "could not be imported" message).
+    void spec5_6_unsupportedFileShowsNoGhost()
+    {
+        View v;
+        QTemporaryDir dir;
+        const QString bad = dir.filePath(QStringLiteral("notes.mp4"));
+        {
+            QFile f(bad);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("this is not a video");
+        }
+        const auto mime = fileMime({bad});
+        hover(v.vp(), mime.get(), v.at(10, kV1));
+        QTRY_VERIFY(v.w.dropGhosts().empty()); // the placeholder goes once the probe fails
+        QTest::qWait(100);
+        QVERIFY(v.w.dropGhosts().empty());
+        const auto itemsBefore = v.f.project.mediaPool()->items().size();
+        ModalCloser closer;
+        drop(v.vp(), mime.get(), v.at(10, kV1));
+        QTRY_COMPARE(closer.closed, 1);
+        QCOMPARE(v.clipCount(kV1), 0);
+        QCOMPARE(v.f.project.mediaPool()->items().size(), itemsBefore);
+    }
+
+    /// Spec 5.6: a file already in the media pool is not imported again: its pool item is
+    /// placed, with no "already in the media pool" report.
+    void spec5_6_fileAlreadyInThePoolIsReused()
+    {
+        const QString still = testFile("still_alpha.png");
+        if (!QFileInfo::exists(still))
+            QSKIP("test media missing (tests/data/generated)");
+        View v;
+        const QStringList ids = v.f.project.importMedia({still}).importedIds;
+        QCOMPARE(ids.size(), 1);
+        const auto itemsBefore = v.f.project.mediaPool()->items().size();
+        const auto mime = fileMime({still});
+        QVERIFY(hover(v.vp(), mime.get(), v.at(5, kV1)));
+        QCOMPARE(v.w.dropGhosts().size(), size_t(1)); // known at once: no probe needed
+        ModalCloser closer;
+        QVERIFY(drop(v.vp(), mime.get(), v.at(5, kV1)));
+        QTRY_COMPARE(v.clipCount(kV1), 1);
+        QCOMPARE(v.f.view().videoTracks[0].clips[0].mediaId, ids.front());
+        QCOMPARE(v.f.project.mediaPool()->items().size(), itemsBefore);
+        QTest::qWait(50);
+        QCOMPARE(closer.closed, 0);
+    }
+
+    /// Spec 5.6: leaving the timeline (or Escape in the drag, which Qt sends as a leave)
+    /// removes the ghost; nothing is imported.
+    void spec5_6_leavingRemovesTheGhost()
+    {
+        const QString still = testFile("still_alpha.png");
+        if (!QFileInfo::exists(still))
+            QSKIP("test media missing (tests/data/generated)");
+        View v;
+        const auto mime = fileMime({still});
+        QVERIFY(hover(v.vp(), mime.get(), v.at(5, kV1)));
+        QTRY_COMPARE(v.w.dropGhosts().size(), size_t(1));
+        QDragLeaveEvent leave;
+        QCoreApplication::sendEvent(v.vp(), &leave);
+        QVERIFY(v.w.dropGhosts().empty());
+        QTest::qWait(100); // a late probe answer does not bring it back
+        QVERIFY(v.w.dropGhosts().empty());
+        const auto itemsBefore = v.f.project.mediaPool()->items().size();
+        QMimeData nothing; // end the drag for QApplication with a refused drop
+        drop(v.vp(), &nothing, v.at(5, kV1));
+        QCOMPARE(v.f.project.mediaPool()->items().size(), itemsBefore);
+    }
+
+    /// Spec 5.6 with 25.18: the project's first import by a drop on the timeline still asks
+    /// to change the project frame rate, and the clip is placed after the answer.
+    void spec5_6_firstImportStillAsksTheFrameRate()
+    {
+        const QString video = testFile("h264_2997.mp4");
+        if (!QFileInfo::exists(video))
+            QSKIP("test media missing (tests/data/generated)");
+        View v;
+        v.f.project.mediaPool()->removeItem(v.mediaId); // an empty pool: the first import
+        int asked = 0;
+        setFrameRatePromptHandlerForTests([&](Rational, Rational) {
+            ++asked;
+            return true;
+        });
+        const auto mime = fileMime({video});
+        QVERIFY(hover(v.vp(), mime.get(), v.at(10, kV1)));
+        QVERIFY(drop(v.vp(), mime.get(), v.at(10, kV1)));
+        QTRY_COMPARE(v.clipCount(kV1), 1);
+        setFrameRatePromptHandlerForTests({});
+        QCOMPARE(asked, 1);
+        QCOMPARE(v.f.view().fps, (Rational {30000, 1001}));
+        QCOMPARE(v.f.view().videoTracks[0].clips[0].start, int64_t(10));
     }
 
     void folderGoesToTheMediaPoolOnly()

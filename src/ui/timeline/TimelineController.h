@@ -237,6 +237,8 @@ public:
     /// Media pool bin new timelines and compound clips go into (default: the root bin;
     /// EditPage wires the media pool's current bin, as in Resolve).
     void setBinProvider(std::function<QString()> provider) { m_binProvider = std::move(provider); }
+    /// The bin of setBinProvider() ("" = root): where files dropped on the timeline go too.
+    [[nodiscard]] QString targetBin() const { return m_binProvider ? m_binProvider() : QString(); }
 
     /// Clip > New Compound Clip: collapses the selection (with linked clips when linked
     /// selection is on) into a compound clip named @p name (empty: asks, suggesting
@@ -295,6 +297,10 @@ public:
     /// Does not modify the timeline (used for drop previews too). Empty if the id is unknown.
     [[nodiscard]] QVector<editops::PlacedClip> makeMediaClips(
         const QString& mediaId, int64_t inUs, int64_t outUs, int videoTrack, int audioTrack) const;
+    /// makeMediaClips() for @p item, which need not be in the media pool (the ghost of a file
+    /// dragged in from a file manager before it is imported: its clips carry item.id, empty).
+    [[nodiscard]] QVector<editops::PlacedClip> makeMediaClips(
+        const MediaItem& item, int64_t inUs, int64_t outUs, int videoTrack, int audioTrack) const;
     /// makeMediaClips() for a timeline / compound clip item: Nested clips (source times in the
     /// nested timeline's µs). Empty when placing it would make the active timeline contain
     /// itself (Project::canNest()).
