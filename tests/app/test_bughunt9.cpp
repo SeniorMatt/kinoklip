@@ -22,7 +22,11 @@
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
 #include "ui/deliver/RenderSettingsPanel.h"
+#include "ui/common/FolderImport.h"
 #include "ui/inspector/InspectorPanel.h"
+#include "ui/mediapool/MediaPoolPanel.h"
+#include "platform/FileDialogs.h"
+#include "app/pages/CutPage.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineLayout.h"
@@ -341,6 +345,59 @@ private slots:
         QVERIFY(!f.project.isDirty());
         QVERIFY(subtitles::captionText(*editops::clipById(f.project.timeline()->data(), id))
                     .contains(QStringLiteral("Hello")));
+    }
+
+    // Spec 33.37: the media pool shows the same bin on every page; File > Import > Media goes
+    // into the bin shown (as in Resolve), and Import Media Folder then shows the bin it made
+    // for the folder, so the imported clips are in view.
+    void spec33_37_importIntoTheShownBin()
+    {
+        Fixture f;
+        f.show();
+        f.project.beginEdit(QStringLiteral("Add Bin"));
+        const QString binId = f.project.mediaPool()->addBin(QStringLiteral("Footage"), {});
+        f.project.endEdit();
+        MediaPoolPanel* edit = f.window->editPage()->mediaPool();
+        edit->setCurrentBin(binId);
+        f.action("view.page_cut")->trigger();
+        QCoreApplication::processEvents();
+        MediaPoolPanel* cut = f.window->cutPage()->mediaPool();
+        QCOMPARE(cut->currentBin(), binId);
+        f.action("view.page_edit")->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(edit->currentBin(), binId);
+
+        const QString still = QStringLiteral(KK_TEST_DATA_DIR "/generated/still.jpg");
+        QVERIFY(QFileInfo::exists(still));
+        platform::setFileDialogHandlerForTests(
+            [&](const platform::FileDialogRequest&) { return QStringList {still}; });
+        f.action("file.import_media")->trigger();
+        const MediaItem* item = f.project.mediaPool()->itemByPath(QFileInfo(still).absoluteFilePath());
+        QVERIFY(item);
+        QCOMPARE(item->binId, binId);
+
+        QTemporaryDir dir;
+        const QString folder = dir.filePath(QStringLiteral("holiday"));
+        QVERIFY(QDir().mkpath(folder));
+        QVERIFY(QFile::copy(QStringLiteral(KK_TEST_DATA_DIR "/generated/still_alpha.png"),
+            folder + QStringLiteral("/logo.png")));
+        platform::setFileDialogHandlerForTests(
+            [&](const platform::FileDialogRequest&) { return QStringList {folder}; });
+        setFolderImportOptionsHandlerForTests([](FolderImportOptions* o) {
+            o->includeSubfolders = true;
+            o->createBins = true;
+            return true;
+        });
+        f.action("file.import_media_folder")->trigger();
+        platform::setFileDialogHandlerForTests({});
+        setFolderImportOptionsHandlerForTests({});
+        const MediaItem* logo = f.project.mediaPool()->itemByPath(folder + QStringLiteral("/logo.png"));
+        QVERIFY(logo);
+        const Bin* made = f.project.mediaPool()->bin(logo->binId);
+        QVERIFY(made);
+        QCOMPARE(made->name, QStringLiteral("holiday"));
+        QCOMPARE(made->parentId, binId); // inside the bin shown
+        QCOMPARE(edit->currentBin(), logo->binId); // and now in view
     }
 };
 
