@@ -20,6 +20,8 @@ struct ImportResult
 {
     QStringList importedIds; ///< ids of the new MediaItems, in input order
     QStringList warnings; ///< one human-readable line per skipped file
+    /// "path: remark" of imported files with something worth telling (empty cues skipped)
+    QStringList notes;
 };
 
 /// One file read for import by MediaPool::prepareFile(), ready for MediaPool::addItem().
@@ -28,6 +30,7 @@ struct PreparedMedia
     bool ok = false; ///< false: the file cannot be imported (see error)
     MediaItem item; ///< path, kind, info, cues and fileModifiedMs filled; no id, no bin
     QString error; ///< why not (without the path), e.g. "unsupported file"
+    QString note; ///< imported, but worth telling (without the path): "2 empty cues skipped"
 };
 
 /// The project's media pool: imported files (MediaItem) organised in bins (Bin).

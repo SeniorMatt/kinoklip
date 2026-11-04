@@ -554,6 +554,7 @@ subtitle track. Clean room: our own wording, icons and colours.
 | 28.17 | A caption is named after its text (its first line): typing in the Captions tab renames it, so the Inspector header and the Edit Index show the caption, not "Subtitle". | Fixed (bughunt8: the name stayed "Subtitle" after the text was typed; bh8 spec28_17_captionNameFollowsItsText) |
 | 28.18 | Subtitle files in UTF-16 (with or without BOM, as Windows tools write them) and 8-bit files that are not UTF-8 (Windows-1252, else Latin-1) import with their accented letters. | Fixed (bughunt8: UTF-16 files found no cues and Windows-1252 letters became replacement characters; test_subtitles parseOtherEncodings) |
 | 28.19 | With several captions selected, typing caption text in the Captions tab changes only the caption shown (each caption has its own words; its name follows only its own text); the style settings still reach every selected caption (24.1). | Fixed (bughunt9: the text was written into every selected caption; `multiclip::propagate()` and `peerRef()` leave a caption's keys::Text out; bh9 spec28_19_captionTextIsPerCaption) |
+| 28.20 | A cue without text (empty, or nothing left once markup is removed) would be an invisible caption: it is skipped on import, and the import says how many were skipped per file (Import Media and Import Media Folder); a file with only empty cues is not imported. | Fixed (bughunt9: empty cues became empty captions; `subtitles::parse(..., emptyCues)`, `PreparedMedia::note`, `ImportResult::notes`; bh9 spec28_20_emptyCuesSkippedAndCounted) |
 
 ---
 

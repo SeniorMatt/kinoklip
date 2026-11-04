@@ -88,11 +88,14 @@ inline constexpr int64_t kMinCaptionFrames = 1;
 /// BOM, UTF-16 and, for text that is not UTF-8, Windows-1252 are read; CRLF and
 /// both ',' and '.' millisecond separators are accepted). Cues are returned in file order;
 /// markup (<i>, <b>, <font>, <c.x>, {\an8}) is removed, HTML entities of WebVTT decoded.
+/// Cues without text (nothing left after the markup is removed) would be invisible captions:
+/// they are skipped and counted in @p emptyCues.
 /// Returns false with @p error when nothing could be parsed.
 [[nodiscard]] bool parse(const QByteArray& data, QVector<SubtitleCue>* cues,
-    QString* error = nullptr, SubtitleFormat* detected = nullptr);
+    QString* error = nullptr, SubtitleFormat* detected = nullptr, int* emptyCues = nullptr);
 /// Reads and parses a subtitle file. False with @p error when it cannot be read / parsed.
-[[nodiscard]] bool readFile(const QString& path, QVector<SubtitleCue>* cues, QString* error);
+[[nodiscard]] bool readFile(const QString& path, QVector<SubtitleCue>* cues, QString* error,
+    int* emptyCues = nullptr);
 /// Encodes @p cues (UTF-8, LF line endings, numbered from 1 for SRT).
 [[nodiscard]] QByteArray write(const QVector<SubtitleCue>& cues, SubtitleFormat format);
 /// Writes write() to @p path atomically. False with @p error on I/O failure.
