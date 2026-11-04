@@ -69,7 +69,7 @@ void setColorScheme(const QString& id);
 [[nodiscard]] bool isDark();
 
 /// Registers one checkable action per colour scheme / widget style in the categories
-/// "settings.color_scheme" and "settings.style" (shown as Settings > Color Theme / Style;
+/// "settings.color_scheme" and "settings.style" (shown as Workspace > Color Theme / Style;
 /// menus are data, see plan.md 5.9). Ids: settings.color_scheme.<id|system>,
 /// settings.style.<lower-case key>. Triggering one switches and persists the choice.
 void registerActions(ActionRegistry& registry);

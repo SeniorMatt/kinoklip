@@ -434,6 +434,7 @@ how some layouts report the key.
 | 23.10 | In Keyboard Customization, Enter in the search field goes to the first matching command and Enter on a command starts recording its key (Escape cancels the recording); neither closes the dialog. | Fixed (bughunt4: Enter pressed the dialog's OK button, closing it in the middle of a search; test_bughunt4 spec23_10_keyboardCustomizationEnterKeepsTheDialogOpen) |
 | 23.11 | Tooltips that name a key follow Keyboard Customization: the Cut page tool bar (Dissolve and the edit buttons), the viewer buttons, the Preferences' Keyboard Customization button and the Color page's Highlight, Wipe and Bypass buttons show the current key, never a key from when they were made. | Fixed (bughunt5: the Dissolve tool tip kept the key it was built with; `ActionRegistry::bindToolTip()`; bh5 spec23_11_toolTipsFollowTheKeymap) |
 | 23.12 | Cancel in Keyboard Customization also takes back the keyboard profiles imported or duplicated while the dialog was open (their files are deleted) and the renames, besides the active profile and its keys. | Fixed (bughunt5; bh5 spec23_12_cancelRemovesProfilesMadeInTheSession) |
+| 23.13 | The menu bar reads like Resolve's on Windows: an application menu first, named after the application (About, About Qt, Keyboard Customization, Preferences, Quit), then File, Edit, Trim, Timeline, Clip, Mark, View, Playback, Audio, Workspace and Help. File > Import holds Media (Ctrl+I), Media Folder (our own) and Subtitle; Workspace (formerly "Settings") holds Full Screen Window and our Color Theme and Style; Help keeps Help for This (F1), Guide and Getting Started. | Fixed (bughunt8: Preferences, Keyboard Customization and Quit sat in Edit / File and About in Help, imports were top-level File entries and the look menu was called Settings; bh8 spec23_13_menuBarLikeResolve) |
 
 ## 24. Inspector and viewers (editfix branch, alpha.2 feedback)
 
@@ -548,6 +549,10 @@ subtitle track. Clean room: our own wording, icons and colours.
 | 28.12 | Deliver > File > Subtitle Settings: Export subtitle (off by default), Format: Burn into video / As a separate file (Export as SRT or WebVTT, next to the render: "name.srt", or "name.<language or n>.srt" for several tracks) / As embedded captions (MP4 / QuickTime: timed text; MKV: SRT or ASS; WebM: WebVTT; one stream per enabled subtitle track, with language and title). Captions are clipped to the render range and timed from its first frame; hidden subtitle tracks are not exported. | Fixed (test_subtitleexport) |
 | 28.13 | Project format 7 stores adjustment / generator clips, subtitle tracks and subtitle media items; versions 1 - 6 load unchanged (5 = retiming, 6 = the proxy branch). | Fixed (test_subtitles projectFormatAndMigration) |
 | 28.14 | Subtitle styles per word (italic spans), karaoke timing, subtitle import from video containers and caption speed / reading-rate checks are not implemented. | Deferred |
+| 28.15 | Selecting a caption shows the Inspector's Captions tab, where its text and style are; selecting a clip that has no title afterwards goes back to the Video tab. | Fixed (bughunt8: the Inspector stayed on the Video tab, which only says "see Captions"; bh8 spec28_15_captionShowsCaptionsTab) |
+| 28.16 | Add Subtitle in a subtitle track's right-click menu (track header or empty track area) puts the caption on that track at the playhead (the next free unlocked track when it is locked or busy there). | Fixed (bughunt8: the caption always went to ST1 or the selected caption's track; bh8 spec28_16_addSubtitleOnTheClickedTrack) |
+| 28.17 | A caption is named after its text (its first line): typing in the Captions tab renames it, so the Inspector header and the Edit Index show the caption, not "Subtitle". | Fixed (bughunt8: the name stayed "Subtitle" after the text was typed; bh8 spec28_17_captionNameFollowsItsText) |
+| 28.18 | Subtitle files in UTF-16 (with or without BOM, as Windows tools write them) and 8-bit files that are not UTF-8 (Windows-1252, else Latin-1) import with their accented letters. | Fixed (bughunt8: UTF-16 files found no cues and Windows-1252 letters became replacement characters; test_subtitles parseOtherEncodings) |
 
 ---
 
@@ -1062,6 +1067,7 @@ Tests: `ne` = `tests/panels/test_nodeeditor.cpp`, `cp` = `tests/app/test_composi
 | 42b.29 | A viewer that shows no node ("No Node") draws no on-screen handles; the handles of the selected node appear only in a viewer that shows a node. | Fixed (bughunt2: the left viewer showed the selected Text node's handles over its empty picture; test_compositingpage emptyViewerDrawsNoHandles) |
 | 42b.30 | Choosing a MediaIn source: a media pool item with a picture (a video or a still such as a logo) dragged onto the node editor becomes an unconnected MediaIn node reading it, one undo step "Add MediaIn" (several items: one node each, stacked); the MediaIn Inspector has a Source list (This clip or a media pool picture) to pick or replace it ("Change MediaIn Source"). The page has a Media Pool panel (interface bar Media Pool, off by default) above the Effects library. Audio-only, timeline and subtitle items are refused. | Fixed (bughunt2: the core read other items but the page had no way to choose one; test_compositingpage mediaPoolItemDropsAsMediaIn) |
 | 42b.31 | The node editor's keys (1 / 2, Shift+Space, Delete, Ctrl+C ...) work right after switching to the page with the keyboard (Shift+5), without clicking into it first: when the focus was on the page that went away, the node editor takes it on show. | Fixed (bughunt6, as 44b.29 for the Color page; test_bughunt6 spec42b_31_pageKeysWorkAfterSwitchingPages) |
+| 42b.32 | Edit > Compositing Page (the node editor commands, in every page's menu bar) is greyed out while another page is shown, like Edit > Cut Page and Edit > Color Page. | Fixed (bughunt8: the commands looked available on the Edit page but did nothing there; test_compositingpage timelineCommandsSuspendedOnThePage) |
 
 ## 43. In-app help (owner request, 0.4.2)
 
@@ -1261,3 +1267,8 @@ Tests: `bh4` = `tests/app/test_bughunt4.cpp`.
   a locked clip), 18.18 (marker names never repeat), 24.20 (Dynamic Zoom: Inspector section,
   on-screen controls, GPU / CPU rendering), 24.21 (the Inspector's Speed Change and Retime and
   Scaling sections) and 37.36 (the Audio page's tracks start at the top), and updated 29.16.
+- The bughunt8 branch (eighth bug hunt round: subtitles, the menu bar, keymap confidence)
+  added 23.13 (the menu bar like Resolve's: application menu, File > Import, Workspace),
+  28.15 (a caption opens the Captions tab), 28.16 (Add Subtitle on the right-clicked track),
+  28.17 (captions are named after their text), 28.18 (UTF-16 and Windows-1252 subtitle
+  files) and 42b.32 (Edit > Compositing Page greyed out away from the page).

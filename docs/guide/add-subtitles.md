@@ -29,7 +29,7 @@ Subtitle** as well.
 If you already have subtitles as an **.srt** or **.vtt** file (for example from a
 transcription service):
 
-1. Choose **File > Import Subtitle** and pick the file. It appears in the media pool.
+1. Choose **File > Import > Subtitle** and pick the file. It appears in the media pool.
 2. Drag it from the media pool to the very **start** of the timeline, onto the subtitle track
    (or any track: the captions always go onto a subtitle track). Each line of the file becomes
    a caption with the file's timing, counted from where you drop it.

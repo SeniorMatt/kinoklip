@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 332 commands; sure 106, likely 103, unsure 123.
+Counts: 332 commands; sure 106, likely 113, unsure 113.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -107,7 +107,7 @@ that every command has an entry and that no key is used twice.
 | Command | Action id | Key | Confidence | Note |
 |---|---|---|---|---|
 | Split Clip (Razor) at Playhead | `edit.split` | `Ctrl+\` | sure | Ctrl+B is not a default (owner feedback alpha.1 #8). |
-| Join Clips (remove a through edit) | `edit.join` | `Alt+\` | unsure |  |
+| Join Clips (remove a through edit) | `edit.join` | `Alt+\` | likely | Resolve's Join Clips sits beside Split Clip (Ctrl+\) on Alt+\ |
 | Add Default Transition | `timeline.add_transition` | `Ctrl+T` | sure |  |
 | Snapping | `timeline.snapping` | `N` | sure |  |
 | Linked Selection | `timeline.linked_selection` | `Ctrl+Shift+L` | sure |  |
@@ -139,14 +139,14 @@ that every command has an entry and that no key is used twice.
 | Video Destination V6 | `timeline.target_video_6` | `Alt+6` | likely |  |
 | Video Destination V7 | `timeline.target_video_7` | `Alt+7` | likely |  |
 | Video Destination V8 | `timeline.target_video_8` | `Alt+8` | likely |  |
-| Audio Destination A1 | `timeline.target_audio_1` | `Ctrl+Alt+1` | unsure |  |
-| Audio Destination A2 | `timeline.target_audio_2` | `Ctrl+Alt+2` | unsure |  |
-| Audio Destination A3 | `timeline.target_audio_3` | `Ctrl+Alt+3` | unsure |  |
-| Audio Destination A4 | `timeline.target_audio_4` | `Ctrl+Alt+4` | unsure |  |
-| Audio Destination A5 | `timeline.target_audio_5` | `Ctrl+Alt+5` | unsure |  |
-| Audio Destination A6 | `timeline.target_audio_6` | `Ctrl+Alt+6` | unsure |  |
-| Audio Destination A7 | `timeline.target_audio_7` | `Ctrl+Alt+7` | unsure |  |
-| Audio Destination A8 | `timeline.target_audio_8` | `Ctrl+Alt+8` | unsure |  |
+| Audio Destination A1 | `timeline.target_audio_1` | `Ctrl+Alt+1` | likely | Timeline > Track Destination Selection in Resolve: Alt+n for video, Ctrl+Alt+n for audio |
+| Audio Destination A2 | `timeline.target_audio_2` | `Ctrl+Alt+2` | likely |  |
+| Audio Destination A3 | `timeline.target_audio_3` | `Ctrl+Alt+3` | likely |  |
+| Audio Destination A4 | `timeline.target_audio_4` | `Ctrl+Alt+4` | likely |  |
+| Audio Destination A5 | `timeline.target_audio_5` | `Ctrl+Alt+5` | likely |  |
+| Audio Destination A6 | `timeline.target_audio_6` | `Ctrl+Alt+6` | likely |  |
+| Audio Destination A7 | `timeline.target_audio_7` | `Ctrl+Alt+7` | likely |  |
+| Audio Destination A8 | `timeline.target_audio_8` | `Ctrl+Alt+8` | likely |  |
 | Toggle Auto Select V1 | `timeline.auto_select_video_1` | `Ctrl+1` | likely |  |
 | Toggle Auto Select V2 | `timeline.auto_select_video_2` | `Ctrl+2` | likely |  |
 | Toggle Auto Select V3 | `timeline.auto_select_video_3` | `Ctrl+3` | likely |  |
@@ -414,7 +414,7 @@ that every command has an entry and that no key is used twice.
 | Copy Grade (of the current clip) | `color.copy_grade` | `Ctrl+C` | likely | acts on the Color page; the Edit page's Copy rests while the Color page is shown |
 | Paste Grade (to the selected clips of the clips strip) | `color.paste_grade` | `Ctrl+V` | likely | acts on the Color page; middle-click on a thumbnail copies that clip's grade to the selected clips |
 | Highlight (show the current node's key in the viewer) | `color.highlight` | `Shift+H` | likely | acts on the Color page |
-| Wipe with Still (split the viewer with the selected gallery still) | `color.wipe` | `Ctrl+W` | unsure | acts on the Color page; Resolve's wipe toggle as we remember it, not confirmed |
+| Wipe with Still (split the viewer with the selected gallery still) | `color.wipe` | `Ctrl+W` | likely | acts on the Color page; Ctrl+W toggles the viewer wipe in Resolve's Color page |
 
 ## Audio page
 
