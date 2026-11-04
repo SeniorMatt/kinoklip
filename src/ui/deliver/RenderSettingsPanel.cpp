@@ -678,7 +678,8 @@ ExportSettings RenderSettingsPanel::settings() const
     s.audio.sampleRate = m_sampleRate->currentData().toInt();
     s.audio.bitDepth = m_bitDepth->currentData().toInt();
     s.range = RangeMode(m_range->currentData().toInt());
-    s.subtitles.enabled = m_subtitleExport->isChecked();
+    s.subtitles.enabled = m_subtitleExport->isChecked() && s.kind() != OutputKind::Audio
+        && s.kind() != OutputKind::Still;
     s.subtitles.mode = SubtitleExportMode(m_subtitleMode->currentData().toInt());
     s.subtitles.sidecarFormat = SubtitleFormat(m_subtitleFormat->currentData().toInt());
     if (m_subtitleCodec->currentIndex() >= 0)
@@ -904,8 +905,13 @@ void RenderSettingsPanel::updateVisibility()
     m_addButton->setEnabled(s.hasVideo() || s.hasAudio());
 
     // Subtitles: embedding needs a container with subtitle streams, burning in a picture.
-    const bool subtitlesOn = s.subtitles.enabled && kind != OutputKind::Still;
-    m_subtitleExport->setEnabled(kind != OutputKind::Still);
+    // An audio-only file or a still has no picture to carry them: the box is greyed out.
+    const bool subtitlesPossible = kind != OutputKind::Still && kind != OutputKind::Audio;
+    const bool subtitlesOn = s.subtitles.enabled && subtitlesPossible;
+    m_subtitleExport->setEnabled(subtitlesPossible);
+    m_subtitleExport->setToolTip(subtitlesPossible
+            ? tr("Include the enabled subtitle tracks in the render")
+            : tr("This format has no picture to carry subtitles"));
     m_fileForm->setRowVisible(m_subtitleMode, subtitlesOn);
     m_fileForm->setRowVisible(
         m_subtitleFormat, subtitlesOn && s.subtitles.mode == SubtitleExportMode::Sidecar);

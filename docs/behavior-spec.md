@@ -1157,6 +1157,7 @@ Tests: `bh4` = `tests/app/test_bughunt4.cpp`.
 | # | Expected behaviour | Status |
 |---|---|---|
 | 45.1 | Each render job card has an Edit button (pencil): it loads the job's render settings (and its proxy / optimized media choice) into Render Settings, highlights the card, and the Add to Render Queue button reads Update Job with a Cancel button beside it, as in Resolve. Update Job writes the settings into that job (no new job; a finished job is queued again, a rendering one cannot be edited) with a fresh snapshot of its timeline when that timeline is open; Cancel leaves the job unchanged and brings back the settings shown before; removing the job ends the mode. | Fixed (bughunt4: queued jobs could only be removed and added again; `RenderQueue::updateJob()`, `DeliverPage::editJob()`; bh4 spec45_1_editRenderJob) |
+| 45.2 | Export subtitle (File tab, Subtitle Settings) is greyed out for audio-only formats (WAV, MP3, FLAC, ...) as for stills, with a tooltip saying why; a job for such a format never carries subtitles, even when the setting was on before the format changed. | Fixed (bughunt9: the box could be ticked for audio-only formats; `RenderSettingsPanel::updateVisibility()`, `settings()`; bh9 spec45_2_noSubtitleExportForAudio) |
 
 ## Summary
 
