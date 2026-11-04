@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // GlVideo — uploads media::VideoFrame planes into persistent textures and draws them with the
-// YUV → RGB conversion shader (BT.601/709/2020, limited/full range, 8/10-bit, BGRA).
+// YUV → RGB conversion shader (BT.601/709/2020, limited/full range, 8/10-bit, BGRA; HLG / PQ
+// / BT.2020 frames mapped to SDR BT.709, media/HdrToSdr.h).
 #pragma once
 
 #include "core/ClipAttributes.h"
@@ -73,6 +74,7 @@ private:
     GLint m_crop = -1;
     GLint m_opacity = -1;
     GLint m_keepField = -1;
+    GLint m_hdr = -1;
 };
 
 } // namespace kk::render
