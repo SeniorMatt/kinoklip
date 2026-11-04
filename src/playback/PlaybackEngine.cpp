@@ -393,14 +393,21 @@ std::future<RenderedFramePtr> PlaybackEngine::renderCompositionNode(
 }
 
 std::future<RenderedFramePtr> PlaybackEngine::renderImage(
-    int64_t frame, QSize outSize, bool withGrades) const
+    int64_t frame, QSize outSize, ImageGrades grades) const
 {
     RenderRequest request;
     request.timeline = m_videoSnapshot ? m_videoSnapshot : m_snapshot;
+    if (grades == ImageGrades::ClipsOnly && request.timeline
+        && !request.timeline->grade.isEmpty()) {
+        auto copy = std::make_shared<TimelineData>(*request.timeline);
+        copy->grade = ClipGrade {};
+        request.timeline = std::move(copy);
+    }
     request.media = m_media;
     request.proxies = m_proxies;
     request.renderCache = m_renderCache;
-    request.bypassGrades = m_bypassGrades || !withGrades;
+    request.bypassGrades
+        = grades == ImageGrades::None || (grades == ImageGrades::Viewer && m_bypassGrades);
     request.frame = frame;
     request.outSize = outSize;
     request.outputs = OutputImage;
