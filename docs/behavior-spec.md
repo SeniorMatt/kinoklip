@@ -434,6 +434,7 @@ how some layouts report the key.
 | 23.10 | In Keyboard Customization, Enter in the search field goes to the first matching command and Enter on a command starts recording its key (Escape cancels the recording); neither closes the dialog. | Fixed (bughunt4: Enter pressed the dialog's OK button, closing it in the middle of a search; test_bughunt4 spec23_10_keyboardCustomizationEnterKeepsTheDialogOpen) |
 | 23.11 | Tooltips that name a key follow Keyboard Customization: the Cut page tool bar (Dissolve and the edit buttons), the viewer buttons, the Preferences' Keyboard Customization button and the Color page's Highlight, Wipe and Bypass buttons show the current key, never a key from when they were made. | Fixed (bughunt5: the Dissolve tool tip kept the key it was built with; `ActionRegistry::bindToolTip()`; bh5 spec23_11_toolTipsFollowTheKeymap) |
 | 23.12 | Cancel in Keyboard Customization also takes back the keyboard profiles imported or duplicated while the dialog was open (their files are deleted) and the renames, besides the active profile and its keys. | Fixed (bughunt5; bh5 spec23_12_cancelRemovesProfilesMadeInTheSession) |
+| 23.13 | The menu bar reads like Resolve's on Windows: an application menu first, named after the application (About, About Qt, Keyboard Customization, Preferences, Quit), then File, Edit, Trim, Timeline, Clip, Mark, View, Playback, Audio, Workspace and Help. File > Import holds Media (Ctrl+I), Media Folder (our own) and Subtitle; Workspace (formerly "Settings") holds Full Screen Window and our Color Theme and Style; Help keeps Help for This (F1), Guide and Getting Started. | Fixed (bughunt8: Preferences, Keyboard Customization and Quit sat in Edit / File and About in Help, imports were top-level File entries and the look menu was called Settings; bh8 spec23_13_menuBarLikeResolve) |
 
 ## 24. Inspector and viewers (editfix branch, alpha.2 feedback)
 
@@ -1266,3 +1267,8 @@ Tests: `bh4` = `tests/app/test_bughunt4.cpp`.
   a locked clip), 18.18 (marker names never repeat), 24.20 (Dynamic Zoom: Inspector section,
   on-screen controls, GPU / CPU rendering), 24.21 (the Inspector's Speed Change and Retime and
   Scaling sections) and 37.36 (the Audio page's tracks start at the top), and updated 29.16.
+- The bughunt8 branch (eighth bug hunt round: subtitles, the menu bar, keymap confidence)
+  added 23.13 (the menu bar like Resolve's: application menu, File > Import, Workspace),
+  28.15 (a caption opens the Captions tab), 28.16 (Add Subtitle on the right-clicked track),
+  28.17 (captions are named after their text), 28.18 (UTF-16 and Windows-1252 subtitle
+  files) and 42b.32 (Edit > Compositing Page greyed out away from the page).

@@ -5,7 +5,7 @@ fade in at the start and fade out at the end instead of starting and stopping ab
 
 ## Add the music
 
-1. Import the music file: **File > Import Media** (**Ctrl+I**). MP3, WAV, FLAC, AAC and other
+1. Import the music file: **File > Import > Media** (**Ctrl+I**). MP3, WAV, FLAC, AAC and other
    common audio files work.
 2. Drag the music from the media pool onto an empty audio track below your video's sound, for
    example **A2** (1 in the picture below). If there is no free audio track, choose
