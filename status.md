@@ -174,3 +174,4 @@
 - 08:58 Merged bughunt5 (739a990; Color page review, rows renumbered 44b.21-29); 158/158. 1.1.0-beta.1 not yet published: notes extended with rounds 4-5, AppImage rebuilt from current main.
 - 10:11 Tagged v1.1.0-beta.1 locally at 1b0ae82 (the AppImage's commit; publish script reuses it). Merged bughunt6 (272ea18), 160/160. Started bughunt7 (Dynamic Zoom, Speed Change section, Audio page layout, unique marker names, dead setting, locked right-click, Dynamic Trim button). Agents must not touch dist/ until 1.1.0 is published.
 - 11:00 Merged bughunt7 (1d27426: Dynamic Zoom, Speed Change / Retime in the Inspector, Audio page layout, unique marker names, Dynamic Trim button), 164/164. Started bughunt8 (subtitles, menu bar audit, unsure keymap entries).
+- 11:32 Merged bughunt8 (4661b38: Resolve-style menu bar, subtitle fixes, encodings). Started bughunt9 (real YouTuber workflow end to end + round 8 leftovers).
