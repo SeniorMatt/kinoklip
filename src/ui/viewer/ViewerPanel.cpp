@@ -487,7 +487,7 @@ void ViewerPanel::bindEngine(PlaybackEngine* e)
         return;
     }
     connect(e, &PlaybackEngine::frameReady, this, [this](const RenderedFramePtr& frame) {
-        if (frame) {
+        if (frame && !m_temporaryFrame) {
             m_surface->setRenderedFrame(frame);
         }
     });
@@ -631,6 +631,28 @@ void ViewerPanel::updateMarksLabel()
 }
 
 // ---- Public API ----
+
+void ViewerPanel::showTemporaryFrame(const RenderedFramePtr& frame)
+{
+    if (!frame || !frame->ok) {
+        return;
+    }
+    m_temporaryFrame = frame;
+    m_surface->setRenderedFrame(frame);
+}
+
+void ViewerPanel::clearTemporaryFrame()
+{
+    if (!m_temporaryFrame) {
+        return;
+    }
+    m_temporaryFrame.reset();
+    if (m_engine) {
+        if (RenderedFramePtr current = m_engine->currentFrame()) {
+            m_surface->setRenderedFrame(current);
+        }
+    }
+}
 
 void ViewerPanel::showFrame(const QImage& frame)
 {
