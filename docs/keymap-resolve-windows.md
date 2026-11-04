@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 329 commands; sure 106, likely 102, unsure 121.
+Counts: 330 commands; sure 106, likely 102, unsure 122.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -404,7 +404,8 @@ that every command has an entry and that no key is used twice.
 | Enable / Disable Current Node | `color.bypass_node` | `Ctrl+D` | sure | acts on the Color page |
 | Bypass All Grades (viewer only; the render keeps them) | `color.bypass_all` | `Shift+D` | sure | acts on the Color page |
 | Reset Node Grade (the current node's corrections) | `color.reset_node` | `Shift+Home` | unsure | acts on the Color page; Resolve's reset of the selected node as we remember it, not confirmed |
-| Reset Clip Grade (remove every node) | `color.reset_grade` | `Ctrl+Home` | unsure | acts on the Color page; Resolve's reset of grades and nodes as we remember it, not confirmed |
+| Reset Clip Grade (back to one empty node 01) | `color.reset_grade` | `Ctrl+Home` | unsure | acts on the Color page; Resolve's reset of grades and nodes as we remember it, not confirmed |
+| Add / Remove Keyframe (every value of the current node at the playhead) | `color.keyframe` | (none) | unsure | Resolve keys a node in the Color page's Keyframes panel; no default key known |
 | Grade the Timeline (edit the timeline grade instead of the clip's) | `color.timeline_grade` | (none) | unsure | Resolve switches between clip and timeline nodes in the node editor; no default key known |
 | Grab Still (the current frame and grade into the gallery) | `color.grab_still` | `Ctrl+Alt+G` | sure | acts on the Color page |
 | Apply Grade from Still (the selected gallery still to the clip) | `color.apply_still` | (none) | unsure | middle-click on a still in Resolve; no default key known |
