@@ -225,6 +225,24 @@ void ValueField::wheelEvent(QWheelEvent* event)
     event->accept();
 }
 
+bool ValueField::event(QEvent* event)
+{
+    // Up / Down step the focused value and Enter types one: as window shortcuts they would
+    // jump the playhead to the previous / next edit instead (spec 24.18).
+    if (event->type() == QEvent::ShortcutOverride) {
+        const auto* key = static_cast<QKeyEvent*>(event);
+        const Qt::KeyboardModifiers mods = key->modifiers() & ~Qt::KeypadModifier;
+        const bool arrow = key->key() == Qt::Key_Up || key->key() == Qt::Key_Down;
+        const bool enter = key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter;
+        if ((arrow && (mods & ~(Qt::ShiftModifier | Qt::ControlModifier)) == Qt::NoModifier)
+            || (enter && mods == Qt::NoModifier)) {
+            event->accept();
+            return true;
+        }
+    }
+    return QWidget::event(event);
+}
+
 void ValueField::keyPressEvent(QKeyEvent* event)
 {
     switch (event->key()) {

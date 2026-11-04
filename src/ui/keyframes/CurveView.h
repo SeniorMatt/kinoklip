@@ -22,6 +22,9 @@ struct CurveInfo
     double min = 0.0; ///< descriptor range: dragged values are clamped to it
     double max = 1.0;
     int colorIndex = 0; ///< index into CurveView::curveColor()
+    /// Drawn and labelled as the negated value (ParamDescriptor::displayNegated: Position Y
+    /// is stored +down and shown +up, so its curve rises when the picture moves up).
+    bool displayNegated = false;
 };
 
 /// Curve editor (spec 15.10 - 15.12 and the Keyframes panel, spec 15.14).

@@ -388,7 +388,7 @@ void KeyframesPanel::rebuild()
             }
         }
         curves.append({e.params.front(), e.label, group ? group->label : QString(), e.desc.min,
-            e.desc.max, e.colorIndex});
+            e.desc.max, e.colorIndex, e.desc.displayNegated});
     }
     m_dope->setClips(clips);
     m_dope->setRows(keyRows);

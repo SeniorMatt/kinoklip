@@ -60,9 +60,13 @@ composition.
   **Background**. The new Merge puts the background in front of the keyed picture; select the
   Merge and press **Ctrl+T** to swap its inputs, so the background is behind. This does what
   [Remove a green screen](remove-a-green-screen.md) does with two tracks, inside one clip.
-- **A logo picture:** the Compositing page cannot load a second picture file into a clip yet.
-  Put the logo on a video track above the clip on the Edit page and make it small with
-  **Zoom X**; see [Zoom, crop and picture-in-picture](zoom-crop-and-picture-in-picture.md).
+- **A logo picture:** import the logo into the media pool first. Click **Media Pool** in the
+  bar at the top of the page and drag the logo onto the node editor: a new **MediaIn2** node
+  reads it. Select **MediaOut1** and click **Merge**, then drag from the output of
+  **MediaIn2** to the foreground input of **Merge1** (foreground links are green). Select
+  **Merge1** and lower its **Size** and change **Center X** / **Center Y** to put the logo in a
+  corner. To read another picture into a MediaIn node, select it and choose the item under
+  **Source** in the Inspector (**This clip** goes back to the clip's own picture).
 - **Start over:** on the Edit page, select the clip and choose **Clip > Reset Composition**.
 
 ## If something goes wrong

@@ -86,6 +86,8 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
+    /// Claims its own keys (Up / Down, Enter) before the window shortcuts (spec 24.18).
+    bool event(QEvent* event) override;
 
 private:
     [[nodiscard]] double clamp(double value) const;

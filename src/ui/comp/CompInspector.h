@@ -10,6 +10,7 @@
 #include <QPointer>
 
 class QCheckBox;
+class QComboBox;
 class QLabel;
 class QScrollArea;
 class QToolButton;
@@ -18,6 +19,7 @@ namespace kk {
 
 struct AppContext;
 class CompSession;
+struct CompNode;
 class ParamGroupBox;
 
 /// Inspector panel of the Compositing page.
@@ -45,6 +47,9 @@ public:
     [[nodiscard]] quint64 shownNode() const { return m_node; }
     /// The parameter group (nullptr without a node).
     [[nodiscard]] ParamGroupBox* group() const { return m_group; }
+    /// MediaIn nodes: the Source picker (the clip's own picture or a media pool item), else
+    /// null (spec 42b.30).
+    [[nodiscard]] QComboBox* sourcePicker() const { return m_source; }
     /// The header's enable toggle (tests).
     [[nodiscard]] QCheckBox* enableToggle() const { return m_enable; }
 
@@ -82,6 +87,8 @@ private:
     QCheckBox* m_enable = nullptr;
     QToolButton* m_reset = nullptr;
     ParamGroupBox* m_group = nullptr;
+    QComboBox* m_source = nullptr; ///< sourcePicker()
+    void fillSourcePicker(const CompNode& node);
     QWidget* m_empty = nullptr;
     int m_openEdits = 0;
 };

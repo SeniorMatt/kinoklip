@@ -17,6 +17,7 @@
 #include "ui/comp/CompViewer.h"
 #include "ui/comp/NodeEditor.h"
 #include "ui/comp/NodeLibrary.h"
+#include "ui/mediapool/MediaPoolPanel.h"
 
 #include <QAction>
 #include <QHBoxLayout>
@@ -84,15 +85,24 @@ CompositingPage::CompositingPage(AppContext& ctx, QWidget* parent)
     m_centre->setSizes({kViewersHeight, kNodeAreaHeight});
 
     m_library = new NodeLibraryPanel(m_session);
+    m_mediaPool = new MediaPoolPanel(ctx);
+    m_mediaPool->setObjectName(QStringLiteral("CompMediaPool"));
+    m_leftColumn = new PanelSplitter(Qt::Vertical);
+    m_leftColumn->setObjectName(QStringLiteral("CompLeftColumn"));
+    m_leftColumn->addWidget(m_mediaPool);
+    m_leftColumn->addWidget(m_library);
     m_inspector = new CompInspector(ctx, m_session);
     m_columns = new PanelSplitter(Qt::Horizontal);
     m_columns->setObjectName(QStringLiteral("CompColumnsSplitter"));
-    m_columns->addWidget(m_library);
+    m_columns->addWidget(m_leftColumn);
     m_columns->addWidget(m_centre);
     m_columns->addWidget(m_inspector);
     m_columns->setStretchFactor(1, 1);
     m_columns->setSizes({kLibraryWidth, kCentreWidth, kInspectorWidth});
-    m_library->hide(); // toggle (interface bar "Effects"), off by default
+    // Toggles (interface bar "Media Pool" / "Effects"), off by default.
+    m_mediaPool->hide();
+    m_library->hide();
+    updateLeftColumn();
 
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -233,24 +243,34 @@ void CompositingPage::showEvent(QShowEvent* event)
 
 bool CompositingPage::hasPanel(PanelId id) const
 {
-    return id == PanelId::Effects || id == PanelId::Nodes || id == PanelId::Inspector;
+    return id == PanelId::MediaPool || id == PanelId::Effects || id == PanelId::Nodes
+        || id == PanelId::Inspector;
 }
 
 void CompositingPage::setPanelVisible(PanelId id, bool visible)
 {
-    QWidget* panel = id == PanelId::Effects ? static_cast<QWidget*>(m_library)
-        : id == PanelId::Nodes              ? m_nodeArea
-        : id == PanelId::Inspector          ? static_cast<QWidget*>(m_inspector)
-                                            : nullptr;
+    QWidget* panel = id == PanelId::MediaPool ? static_cast<QWidget*>(m_mediaPool)
+        : id == PanelId::Effects              ? static_cast<QWidget*>(m_library)
+        : id == PanelId::Nodes                ? m_nodeArea
+        : id == PanelId::Inspector            ? static_cast<QWidget*>(m_inspector)
+                                              : nullptr;
     if (!panel || panel->isHidden() == !visible)
         return;
     panel->setVisible(visible);
+    updateLeftColumn();
     emit panelVisibilityChanged(id, visible);
+}
+
+void CompositingPage::updateLeftColumn()
+{
+    m_leftColumn->setVisible(!m_mediaPool->isHidden() || !m_library->isHidden());
 }
 
 bool CompositingPage::isPanelVisible(PanelId id) const
 {
     switch (id) {
+    case PanelId::MediaPool:
+        return !m_mediaPool->isHidden();
     case PanelId::Effects:
         return !m_library->isHidden();
     case PanelId::Nodes:
@@ -268,7 +288,8 @@ void CompositingPage::saveLayout(QSettings& settings) const
     settings.setValue(QStringLiteral("columns"), m_columns->saveState());
     settings.setValue(QStringLiteral("centre"), m_centre->saveState());
     settings.setValue(QStringLiteral("viewers"), m_viewers->saveState());
-    for (PanelId id : {PanelId::Effects, PanelId::Nodes, PanelId::Inspector})
+    settings.setValue(QStringLiteral("leftColumn"), m_leftColumn->saveState());
+    for (PanelId id : {PanelId::MediaPool, PanelId::Effects, PanelId::Nodes, PanelId::Inspector})
         settings.setValue(QStringLiteral("visible/") + panelIdToString(id), isPanelVisible(id));
 }
 
@@ -278,9 +299,10 @@ void CompositingPage::restoreLayout(const QSettings& settings)
         m_columns->restoreState(settings.value(QStringLiteral("columns")).toByteArray());
         m_centre->restoreState(settings.value(QStringLiteral("centre")).toByteArray());
         m_viewers->restoreState(settings.value(QStringLiteral("viewers")).toByteArray());
+        m_leftColumn->restoreState(settings.value(QStringLiteral("leftColumn")).toByteArray());
     }
     // Splitter states carry visibility too; the explicit flags win.
-    for (PanelId id : {PanelId::Effects, PanelId::Nodes, PanelId::Inspector}) {
+    for (PanelId id : {PanelId::MediaPool, PanelId::Effects, PanelId::Nodes, PanelId::Inspector}) {
         const QString key = QStringLiteral("visible/") + panelIdToString(id);
         if (settings.contains(key))
             setPanelVisible(id, settings.value(key).toBool());

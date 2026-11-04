@@ -4,6 +4,7 @@
 
 #include "core/ClipColors.h"
 #include "core/MediaPool.h"
+#include "core/Plural.h"
 #include "core/Project.h"
 #include "core/SmartBins.h"
 #include "media/MediaSource.h"
@@ -307,7 +308,7 @@ MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item, bool power)
         row.kind = SubtitleKind;
         row.codecText = item.info.container == QLatin1String("vtt") ? tr("WebVTT Subtitle")
                                                                     : tr("SubRip Subtitle");
-        row.audioText = tr("%n caption(s)", nullptr, int(item.cues.size()));
+        row.audioText = plural(item.cues.size(), tr("%n caption"), tr("%n captions"));
     }
     // One stat() per item on add/reset, never while painting.
     row.offline = !media::mediaExists(item.path);
@@ -608,7 +609,8 @@ QVariant MediaPoolModel::data(const QModelIndex& index, int role) const
         if (row.power)
             tip += QLatin1Char('\n') + tr("Power bin item (shared by every project)");
         else if (row.usage > 0)
-            tip += QLatin1Char('\n') + tr("Used %n time(s) in timelines", nullptr, row.usage);
+            tip += QLatin1Char('\n')
+                + plural(row.usage, tr("Used once in timelines"), tr("Used %n times in timelines"));
         else
             tip += QLatin1Char('\n') + tr("Not used in any timeline");
         return tip;

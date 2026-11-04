@@ -57,6 +57,7 @@ struct AnimatedParam
     QString label; ///< translated parameter label (descriptor label, else the key)
     double min = 0.0; ///< descriptor range (curve editor fallback range)
     double max = 1.0;
+    bool displayNegated = false; ///< ParamDescriptor::displayNegated (Position Y, shown +up)
 };
 
 /// The parameters of @p clip that have keyframes, in inspector order: Transform, Cropping,
