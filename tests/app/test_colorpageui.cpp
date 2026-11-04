@@ -161,12 +161,12 @@ private slots:
         ColorNodeEditor* ne = f.page()->nodeEditor();
         const quint64 clip = f.clips[0];
         const int base = f.steps();
-        // Alt+S twice: two serial nodes; the editor shows both with a numbered tile.
-        f.key(Qt::Key_S, Qt::AltModifier);
+        // Alt+S on the ungraded clip: node 01 and a serial node 02 (spec 44b.20); the editor
+        // shows both with a numbered tile.
         f.key(Qt::Key_S, Qt::AltModifier);
         ClipGrade g = f.grade(clip);
         QCOMPARE(g.nodes.size(), 2);
-        QCOMPARE(f.steps(), base + 2);
+        QCOMPARE(f.steps(), base + 1);
         const quint64 n1 = g.nodes[0].id, n2 = g.nodes[1].id;
         QCOMPARE(g.output, n2);
         QVERIFY(ne->tileRect(g.nodes[0]).isValid());
@@ -178,7 +178,7 @@ private slots:
         drag(ne, ne->outputPos(g.nodes[0]), ne->gradeOutputPos());
         g = f.grade(clip);
         QCOMPARE(g.output, n1);
-        QCOMPARE(f.steps(), base + 3);
+        QCOMPARE(f.steps(), base + 2);
         f.action("edit.undo")->trigger();
         QCOMPARE(f.grade(clip).output, n2);
         // Drag the source onto node 2's input: it now reads the clip directly.
@@ -500,15 +500,23 @@ private slots:
         const quint64 id = f.project.gallery()->addStill(img, still);
         ColorGallery* gal = f.page()->gallery();
         QCOMPARE(gal->list()->count(), 1);
-        // Double-click applies it to the current clip (one step).
+        // Middle-click applies it to the current clip (one step); a double-click wipes with
+        // it instead (bughunt5, spec 44b.25), a second one ends the wipe.
         const int base = f.steps();
         QListWidgetItem* item = gal->list()->item(0);
         const QPoint at = gal->list()->visualItemRect(item).center();
-        QTest::mouseClick(gal->list()->viewport(), Qt::LeftButton, {}, at);
-        QTest::mouseDClick(gal->list()->viewport(), Qt::LeftButton, {}, at);
+        QTest::mouseClick(gal->list()->viewport(), Qt::MiddleButton, {}, at);
         QCOMPARE(f.grade(f.clips[0]), still);
         QCOMPARE(f.steps(), base + 1);
-        // Middle-click applies it too (to the clip being graded).
+        QTest::mouseClick(gal->list()->viewport(), Qt::LeftButton, {}, at);
+        QTest::mouseDClick(gal->list()->viewport(), Qt::LeftButton, {}, at);
+        QVERIFY(f.page()->overlay()->isWiping());
+        QCOMPARE(f.steps(), base + 1);
+        QTest::qWait(QApplication::doubleClickInterval() + 50); // a new double-click
+        QTest::mouseClick(gal->list()->viewport(), Qt::LeftButton, {}, at);
+        QTest::mouseDClick(gal->list()->viewport(), Qt::LeftButton, {}, at);
+        QVERIFY(!f.page()->overlay()->isWiping());
+        // Middle-click applies it to the clip being graded.
         f.session()->gradeClip(f.clips[1]);
         QTest::mouseClick(gal->list()->viewport(), Qt::MiddleButton, {}, at);
         QCOMPARE(f.grade(f.clips[1]), still);
