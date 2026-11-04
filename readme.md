@@ -14,20 +14,20 @@ All releases are alpha or beta pre-releases for now: expect bugs and keep backup
 
 <table>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/readme/media.png"><img src="docs/images/readme/media.png" width="100%" alt="The Media page of Kinoklip"></a><br><b>Media</b>: Browse folders, preview a clip and read its metadata.</td>
-<td width="50%" valign="top"><a href="docs/images/readme/cut.png"><img src="docs/images/readme/cut.png" width="100%" alt="The Cut page of Kinoklip"></a><br><b>Cut</b>: The dual timeline: the whole edit above, a close-up below.</td>
+<td width="50%" valign="top"><a href="docs/images/readme/media.png"><img src="docs/images/readme/media.png" width="100%" alt="The Media page of Kinoklip"></a><br><b>Media</b></td>
+<td width="50%" valign="top"><a href="docs/images/readme/cut.png"><img src="docs/images/readme/cut.png" width="100%" alt="The Cut page of Kinoklip"></a><br><b>Cut</b></td>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/readme/edit.png"><img src="docs/images/readme/edit.png" width="100%" alt="The Edit page of Kinoklip"></a><br><b>Edit</b>: B-roll, a lower third title, a dissolve, music with fades and the Inspector.</td>
-<td width="50%" valign="top"><a href="docs/images/readme/compositing.png"><img src="docs/images/readme/compositing.png" width="100%" alt="The Compositing page of Kinoklip"></a><br><b>Compositing</b>: A green screen keyed and merged over a background, with a Text node.</td>
+<td width="50%" valign="top"><a href="docs/images/readme/edit.png"><img src="docs/images/readme/edit.png" width="100%" alt="The Edit page of Kinoklip"></a><br><b>Edit</b></td>
+<td width="50%" valign="top"><a href="docs/images/readme/compositing.png"><img src="docs/images/readme/compositing.png" width="100%" alt="The Compositing page of Kinoklip"></a><br><b>Compositing</b></td>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/readme/color.png"><img src="docs/images/readme/color.png" width="100%" alt="The Color page of Kinoklip"></a><br><b>Color</b>: A three-node grade with colour wheels, the parade scope and a gallery still.</td>
-<td width="50%" valign="top"><a href="docs/images/readme/audio.png"><img src="docs/images/readme/audio.png" width="100%" alt="The Audio page of Kinoklip"></a><br><b>Audio</b>: The mixer with EQ, dynamics and buses, loudness meters and waveforms.</td>
+<td width="50%" valign="top"><a href="docs/images/readme/color.png"><img src="docs/images/readme/color.png" width="100%" alt="The Color page of Kinoklip"></a><br><b>Color</b></td>
+<td width="50%" valign="top"><a href="docs/images/readme/audio.png"><img src="docs/images/readme/audio.png" width="100%" alt="The Audio page of Kinoklip"></a><br><b>Audio</b></td>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/readme/deliver.png"><img src="docs/images/readme/deliver.png" width="100%" alt="The Deliver page of Kinoklip"></a><br><b>Deliver</b>: The YouTube 1080p preset and a render queue with several jobs.</td>
-<td width="50%" valign="top"><a href="docs/images/readme/project-manager.png"><img src="docs/images/readme/project-manager.png" width="100%" alt="The Project Manager window of Kinoklip"></a><br><b>Project Manager</b>: Every project with its poster frame, length and format.</td>
+<td width="50%" valign="top"><a href="docs/images/readme/deliver.png"><img src="docs/images/readme/deliver.png" width="100%" alt="The Deliver page of Kinoklip"></a><br><b>Deliver</b></td>
+<td width="50%" valign="top"><a href="docs/images/readme/project-manager.png"><img src="docs/images/readme/project-manager.png" width="100%" alt="The Project Manager window of Kinoklip"></a><br><b>Project Manager</b></td>
 </tr>
 </table>
 
