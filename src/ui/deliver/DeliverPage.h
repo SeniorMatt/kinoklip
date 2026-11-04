@@ -3,13 +3,17 @@
 // (right), over a mini timeline showing the render range.
 #pragma once
 
+#include "export/ExportJob.h"
 #include "render/RenderTypes.h"
 #include "ui/common/Page.h"
 
+#include <QHash>
+#include <QPair>
 #include <QTimer>
 
 #include <future>
 #include <memory>
+#include <optional>
 
 class QSplitter;
 
@@ -53,6 +57,17 @@ public:
     /// overwriting an existing file unless @p confirmOverwrite is false. @return the job id,
     /// 0 if nothing was queued.
     quint64 addCurrentToQueue(bool confirmOverwrite = true);
+    /// Loads job @p id's settings into the render settings for editing ("Update Job" mode;
+    /// the pencil on a job card). Not while the job renders.
+    void editJob(quint64 id);
+    /// The job being edited (0: none).
+    [[nodiscard]] quint64 editedJob() const { return m_editingJob; }
+    /// "Update Job": writes the current settings into the edited job (queued again if it had
+    /// finished) and leaves the mode. Asks before overwriting unless @p confirmOverwrite is
+    /// false. @return true if the job changed.
+    bool updateEditedJob(bool confirmOverwrite = true);
+    /// Leaves the edit mode without changing the job; the settings shown before come back.
+    void cancelEdit();
 
 Q_SIGNALS:
     /// The preview of timeline frame @p frame reached the viewer (tests, status).
@@ -72,6 +87,21 @@ private:
     void followMarks();
     void detectHardware();
 
+    /// A job built from the current settings, not queued yet.
+    struct PreparedJob
+    {
+        QString name;
+        ExportSettings settings;
+        std::shared_ptr<const TimelineData> timeline;
+        std::shared_ptr<const MediaPathMap> media;
+        std::shared_ptr<const ProxyMap> proxies;
+        bool useProxies = false;
+        bool useOptimized = false;
+    };
+    /// Validates the settings (messages titled @p title) and snapshots the timeline.
+    std::optional<PreparedJob> prepareJob(const QString& title, bool confirmOverwrite);
+    void leaveEditMode(bool restoreSettings);
+
     AppContext& m_ctx;
     std::unique_ptr<ExportPresets> m_presets;
     RenderQueue* m_queue = nullptr;
@@ -90,6 +120,10 @@ private:
     QTimer m_previewDebounce;
     QTimer m_previewPoll;
     bool m_hwDetectionStarted = false;
+    quint64 m_editingJob = 0; ///< editJob(): the job whose settings are shown
+    ExportSettings m_settingsBeforeEdit; ///< restored by cancelEdit()
+    /// Advanced Settings "use proxy / optimized media" of each job, for editJob().
+    QHash<quint64, QPair<bool, bool>> m_jobMediaChoice;
     bool m_layoutRestored = false; ///< restoreLayout() found a stored splitter state
     bool m_proportionsApplied = false;
 };
