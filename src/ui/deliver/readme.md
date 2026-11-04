@@ -24,7 +24,7 @@ Owned by the export work. Depends on `src/export` (settings, presets, render que
 | `DeliverPage.*` | the page (`kk::Page`, id `deliver`): splitters, owns `ExportPresets` + `RenderQueue`, debounced playhead preview through its own `Compositor` (one request in flight, rendered at the viewer size), hardware encoder detection on first show (worker thread), "Add to Render Queue" with overwrite confirmation |
 | `RenderSettingsPanel.*` | Resolve's Render Settings: preset row, filename + location, single / individual clips, Video / Audio / File tabs, render range; a view of one `ExportSettings` that is normalised after every change so invalid combinations cannot be chosen |
 | `RenderPresetRow.*` | the preset tiles (icon over a two-line name, elided with a tooltip), scrolled with arrow buttons instead of a scroll bar |
-| `RenderQueuePanel.*` | one card per job (status, progress bar, fps, ETA, cancel, reveal output folder, remove), Render All / Stop / Clear Finished |
+| `RenderQueuePanel.*` | one card per job (status, progress bar, fps, ETA, edit - loads the job into Render Settings with Update Job, spec 45.1 -, cancel, reveal output folder, remove), Render All / Stop / Clear Finished |
 | `RenderRangeBar.*` | mini timeline (clips per track, range, playhead; click/drag seeks) |
 
 Behaviour notes:

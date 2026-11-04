@@ -20,6 +20,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <functional>
+
 namespace kk {
 
 /// One job of the queue.
@@ -28,7 +30,8 @@ class RenderJobCard : public QFrame
     Q_DECLARE_TR_FUNCTIONS(kk::RenderJobCard)
 
 public:
-    RenderJobCard(RenderQueue* queue, quint64 id, QWidget* parent = nullptr)
+    RenderJobCard(RenderQueue* queue, quint64 id, std::function<void(quint64)> onEdit,
+        QWidget* parent = nullptr)
         : QFrame(parent)
         , m_queue(queue)
         , m_id(id)
@@ -44,9 +47,12 @@ public:
         bold.setBold(true);
         m_name->setFont(bold);
         top->addWidget(m_name, 1);
+        m_edit = toolButton(QStringLiteral("edit"), tr("Edit this job"));
+        m_edit->setObjectName(QStringLiteral("RenderJobEdit"));
         m_cancel = toolButton(QStringLiteral("stop"), tr("Cancel this render"));
         m_reveal = toolButton(QStringLiteral("folder"), tr("Show the output folder"));
         m_remove = toolButton(QStringLiteral("remove"), tr("Remove from the queue"));
+        top->addWidget(m_edit);
         top->addWidget(m_cancel);
         top->addWidget(m_reveal);
         top->addWidget(m_remove);
@@ -62,6 +68,8 @@ public:
         m_status->setWordWrap(true);
         layout->addWidget(m_status);
 
+        connect(m_edit, &QToolButton::clicked, this,
+            [this, onEdit = std::move(onEdit)] { onEdit(m_id); });
         connect(m_cancel, &QToolButton::clicked, this, [this] { m_queue->cancel(m_id); });
         connect(m_remove, &QToolButton::clicked, this, [this] { m_queue->removeJob(m_id); });
         connect(m_reveal, &QToolButton::clicked, this, [this] {
@@ -105,6 +113,15 @@ public:
         m_cancel->setVisible(!finished);
         m_reveal->setVisible(job->status == RenderQueue::Status::Done);
         m_remove->setEnabled(job->status != RenderQueue::Status::Rendering);
+        m_edit->setEnabled(job->status != RenderQueue::Status::Rendering);
+    }
+
+    /// Highlights the card while its settings are being edited on the left.
+    void setEditing(bool editing)
+    {
+        setProperty("editing", editing);
+        setFrameShadow(editing ? QFrame::Sunken : QFrame::Plain);
+        m_edit->setDown(editing);
     }
 
 private:
@@ -123,6 +140,7 @@ private:
     QLabel* m_details = nullptr;
     QLabel* m_status = nullptr;
     ThinProgressBar* m_progress = nullptr;
+    QToolButton* m_edit = nullptr;
     QToolButton* m_cancel = nullptr;
     QToolButton* m_reveal = nullptr;
     QToolButton* m_remove = nullptr;
@@ -239,10 +257,16 @@ void RenderQueuePanel::onRunningChanged(bool running)
 
 void RenderQueuePanel::addCard(quint64 id)
 {
-    auto* card = new RenderJobCard(m_queue, id);
+    auto* card = new RenderJobCard(m_queue, id, [this](quint64 job) { emit editRequested(job); });
     m_cards.insert(id, card);
     m_list->insertWidget(m_list->count() - 1, card); // before the stretch
     updateButtons();
+}
+
+void RenderQueuePanel::setEditingJob(quint64 id)
+{
+    for (auto it = m_cards.cbegin(); it != m_cards.cend(); ++it)
+        it.value()->setEditing(it.key() == id);
 }
 
 void RenderQueuePanel::removeCard(quint64 id)

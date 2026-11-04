@@ -171,6 +171,9 @@ signals:
     void posterReady(const QString& path);
     /// The library's files changed through one of the operations above (views refresh).
     void changed();
+    /// rename() or move() took project or folder @p from to @p to (before changed()); the
+    /// recent projects list follows (spec 38.29).
+    void moved(const QString& from, const QString& to);
 
 private:
     struct CachedMeta

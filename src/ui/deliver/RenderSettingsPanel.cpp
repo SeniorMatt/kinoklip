@@ -205,7 +205,7 @@ RenderSettingsPanel::RenderSettingsPanel(AppContext& ctx, ExportPresets* presets
     presetMenuButton->setAutoRaise(true);
     presetMenuButton->setFocusPolicy(Qt::NoFocus);
     auto* menu = new QMenu(presetMenuButton);
-    menu->addAction(tr("Save as New Preset..."), this, &RenderSettingsPanel::savePreset);
+    menu->addAction(tr("Save as New Presetâ¦"), this, &RenderSettingsPanel::savePreset);
     menu->addAction(tr("Delete Selected User Preset"), this, &RenderSettingsPanel::deletePreset);
     presetMenuButton->setMenu(menu);
     addTitleBarWidget(presetMenuButton);
@@ -234,12 +234,24 @@ RenderSettingsPanel::RenderSettingsPanel(AppContext& ctx, ExportPresets* presets
     bottom->addWidget(rangeLabel);
     bottom->addWidget(m_range);
     bottom->addStretch(1);
+    m_cancelEdit = new QPushButton(tr("Cancel"));
+    m_cancelEdit->setObjectName(QStringLiteral("RenderCancelEdit"));
+    m_cancelEdit->setToolTip(tr("Stop editing the job and keep it as it was"));
+    m_cancelEdit->hide();
+    bottom->addWidget(m_cancelEdit);
     m_addButton = new QPushButton(icon(QStringLiteral("add")), tr("Add to Render Queue"));
+    m_addButton->setObjectName(QStringLiteral("RenderAddToQueue"));
     m_addButton->setDefault(true);
     bottom->addWidget(m_addButton);
     layout->addLayout(bottom);
     connect(m_range, &QComboBox::currentIndexChanged, this, [this] { refresh(); });
-    connect(m_addButton, &QPushButton::clicked, this, &RenderSettingsPanel::addToQueueRequested);
+    connect(m_addButton, &QPushButton::clicked, this, [this] {
+        if (m_editingJob)
+            emit updateJobRequested();
+        else
+            emit addToQueueRequested();
+    });
+    connect(m_cancelEdit, &QPushButton::clicked, this, &RenderSettingsPanel::cancelEditRequested);
 
     setContentWidget(body);
     rebuildPresetRow();
@@ -614,6 +626,24 @@ bool RenderSettingsPanel::useProxyMedia() const
 bool RenderSettingsPanel::useOptimizedMedia() const
 {
     return m_useOptimized->isChecked();
+}
+
+void RenderSettingsPanel::setUseProxyMedia(bool use)
+{
+    m_useProxies->setChecked(use);
+}
+
+void RenderSettingsPanel::setUseOptimizedMedia(bool use)
+{
+    m_useOptimized->setChecked(use);
+}
+
+void RenderSettingsPanel::setEditingJob(bool editing)
+{
+    m_editingJob = editing;
+    m_addButton->setText(editing ? tr("Update Job") : tr("Add to Render Queue"));
+    m_addButton->setIcon(editing ? QIcon() : icon(QStringLiteral("add")));
+    m_cancelEdit->setVisible(editing);
 }
 
 ExportSettings RenderSettingsPanel::settings() const

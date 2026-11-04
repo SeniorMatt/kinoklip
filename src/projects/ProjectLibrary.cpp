@@ -521,6 +521,8 @@ QString ProjectLibrary::rename(const QString& path, const QString& newName, QStr
         }
     }
     forget(from);
+    if (to != from)
+        emit moved(from, to);
     emit changed();
     return to;
 }
@@ -617,6 +619,7 @@ QString ProjectLibrary::move(const QString& path, const QString& folder, QString
             storePoster(entryFor(to), it->image);
     }
     forget(from);
+    emit moved(from, to);
     emit changed();
     return to;
 }

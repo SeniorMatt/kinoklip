@@ -234,12 +234,10 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         if (currentItem->kind == MediaItemKind::Timeline) {
             // Resolve's Timelines submenu items for a timeline (spec 25.12).
             QMenu* timelines = menu.addMenu(tr("Timelines"));
-            timelines->addAction(tr("Starting Timecode…"), this, [this, uid] {
-                timelinedialogs::editStartingTimecode(this, *m_ctx.project, uid);
-            });
-            timelines->addAction(tr("Timeline Settings…"), this, [this, uid] {
-                timelinedialogs::editTimelineSettings(this, *m_ctx.project, uid);
-            });
+            timelines->addAction(tr("Starting Timecode…"), this,
+                [this, uid] { timelinedialogs::editStartingTimecode(this, *m_ctx.project, uid); });
+            timelines->addAction(tr("Timeline Settings…"), this,
+                [this, uid] { timelinedialogs::editTimelineSettings(this, *m_ctx.project, uid); });
         }
         menu.addSeparator();
         menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
@@ -277,6 +275,16 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
                 [this](const QString& id) { return m_ctx.project->mediaPool()->isOffline(id); }))
             menu.addAction(tr("Relink Selected Clips…"), this,
                 [this, selectedIds] { relinkWithDialog(selectedIds); });
+        // Replace Selected Clip: any file, also a renamed one Relink cannot find by name.
+        if (!power && selectedIds.size() == 1 && currentItem
+            && currentItem->kind == MediaItemKind::File)
+            menu.addAction(tr("Replace Selected Clip…"), this, [this, current] {
+                const QString path = platform::getOpenFileName(this, tr("Replace Selected Clip"),
+                    mediaFileDialogFilter(), QStringLiteral("paths/lastRelinkDir"));
+                QString error;
+                if (!path.isEmpty() && !replaceClip(current, path, &error))
+                    QMessageBox::warning(this, tr("Replace Selected Clip"), error);
+            });
         // Clip Attributes (attrs branch) of the selected file items; power bin items are
         // copied into the project first, the dialog edits project items only.
         if (currentItem && currentItem->kind == MediaItemKind::File) {
@@ -427,6 +435,35 @@ int MediaPoolPanel::relinkFromFolder(const QString& folder, const QStringList& o
         storeItemsInProject(m_ctx, wereOffline, this);
     m_model->recheckOffline();
     return relinked;
+}
+
+bool MediaPoolPanel::replaceClip(const QString& id, const QString& path, QString* error)
+{
+    Project* project = m_ctx.project;
+    const MediaItem* item = project->mediaPool()->item(id);
+    if (!item || item->kind != MediaItemKind::File)
+        return false;
+    const QString absolute = QFileInfo(path).absoluteFilePath();
+    PreparedMedia prepared = MediaPool::prepareFile(absolute);
+    if (!prepared.ok || prepared.item.kind != MediaItemKind::File) {
+        if (error)
+            *error = tr("%1 cannot be used: %2")
+                         .arg(QFileInfo(absolute).fileName(),
+                             prepared.ok ? tr("not a video, audio or image file") : prepared.error);
+        return false;
+    }
+    // A name that was the file name follows the new file; a name given by the user stays.
+    const bool fileName = item->name == QFileInfo(item->path).fileName();
+    const QString name = fileName ? QFileInfo(absolute).fileName() : item->name;
+    project->beginEdit(tr("Replace Clip"));
+    project->mediaPool()->relinkItem(id, absolute);
+    project->mediaPool()->updateItem(id, name, prepared.item.info);
+    project->endEdit();
+    // A single-file project keeps its media inside: the new file is copied in.
+    if (m_ctx.mediaStore && m_ctx.mediaStore->storesMedia())
+        storeItemsInProject(m_ctx, {id}, this);
+    m_model->recheckOffline();
+    return true;
 }
 
 void MediaPoolPanel::relinkWithDialog(const QStringList& onlyIds)

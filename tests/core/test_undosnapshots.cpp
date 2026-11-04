@@ -15,7 +15,7 @@ namespace {
 
 TimelineData sample(int clipsPerTrack)
 {
-    TimelineData d = makeDefaultTimeline(QStringLiteral("T"), Rational {25, 1});
+    TimelineData d = makeDefaultTimeline(QStringLiteral("T"), Rational {25, 1}, 1920, 1080, 2, 2);
     for (TrackData* t : {&d.videoTracks[0], &d.videoTracks[1], &d.audioTracks[0]}) {
         for (int i = 0; i < clipsPerTrack; ++i) {
             ClipData c;

@@ -76,6 +76,10 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
                                     const QString& suggestion, const QString& okText) {
         return timelinedialogs::askName(this, title, label, suggestion, okText);
     });
+    m_controller->setNewTimelinePrompt(
+        [this](const TimelineController::NewTimelineOptions& suggestion) {
+            return timelinedialogs::askNewTimeline(this, suggestion, m_ctx.project->settings().fps);
+        });
     m_controller->setConfirmPrompt([this](const QString& title, const QString& text) {
         return QMessageBox::question(this, title, text) == QMessageBox::Yes;
     });

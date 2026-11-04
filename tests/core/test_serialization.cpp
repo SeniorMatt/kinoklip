@@ -296,8 +296,8 @@ private slots:
         writeFile(QStringLiteral("future.kkproj"), R"({"formatVersion": 999})");
         QVERIFY(!p.load(dir.filePath(QStringLiteral("future.kkproj")), &error));
         QVERIFY(error.contains(QLatin1String("newer")));
-        // The current project is untouched after failures.
-        QCOMPARE(p.timeline()->data().videoTracks.size(), size_t(2));
+        // The current project is untouched after failures (a new project's V1).
+        QCOMPARE(p.timeline()->data().videoTracks.size(), size_t(1));
     }
 };
 

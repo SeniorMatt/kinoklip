@@ -32,6 +32,7 @@ class TestTimelineTabs : public QObject
     static void quiet(TimelinePanel& panel)
     {
         panel.controller()->setNamePrompt({});
+        panel.controller()->setNewTimelinePrompt({});
         panel.controller()->setConfirmPrompt({});
         panel.controller()->setMessageSink({});
     }

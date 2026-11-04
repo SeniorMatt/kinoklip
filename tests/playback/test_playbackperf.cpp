@@ -36,7 +36,7 @@ void buildTimeline(Project& project)
     QCOMPARE(imported.importedIds.size(), 2);
     project.beginEdit(QStringLiteral("perf"));
     TimelineData& tl = project.timeline()->mutableData();
-    tl = makeDefaultTimeline(QStringLiteral("perf"), {25, 1}, 1920, 1080);
+    tl = makeDefaultTimeline(QStringLiteral("perf"), {25, 1}, 1920, 1080, 2, 2);
     tl.videoTracks.push_back(TrackData {});
     tl.videoTracks.back().id = tl.allocateId();
     auto clip = [&](const QString& media, int64_t duration, int64_t durationUs) {
@@ -87,7 +87,7 @@ Rational buildSingleClipTimeline(Project& project, const QString& path)
     const Rational fps = info.frameRate.isValid() ? info.frameRate : Rational {25, 1};
     project.beginEdit(QStringLiteral("perf"));
     TimelineData& tl = project.timeline()->mutableData();
-    tl = makeDefaultTimeline(QStringLiteral("perf"), fps, info.displayWidth, info.displayHeight);
+    tl = makeDefaultTimeline(QStringLiteral("perf"), fps, info.displayWidth, info.displayHeight, 2, 2);
     ClipData c;
     c.id = tl.allocateId();
     c.mediaId = imported.importedIds[0];
@@ -238,7 +238,7 @@ private Q_SLOTS:
         project.beginEdit(QStringLiteral("perf"));
         TimelineData& tl = project.timeline()->mutableData();
         tl = makeDefaultTimeline(
-            QStringLiteral("perf"), fps, info.displayWidth, info.displayHeight);
+            QStringLiteral("perf"), fps, info.displayWidth, info.displayHeight, 2, 2);
         ClipData c;
         c.id = tl.allocateId();
         c.mediaId = imported.importedIds[0];

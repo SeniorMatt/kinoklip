@@ -335,7 +335,7 @@ void MixerStrip::showNameMenu(const QPoint& globalPos)
     QAction* remove = nullptr;
     if (bus) {
         menu.addSeparator();
-        rename = menu.addAction(tr("Rename Bus..."));
+        rename = menu.addAction(tr("Rename Busâ¦"));
         remove = menu.addAction(tr("Delete Bus"));
         remove->setEnabled(m_target.id != quint64(kMainBusId));
     }

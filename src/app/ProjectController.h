@@ -79,6 +79,8 @@ public:
     [[nodiscard]] static QStringList recentProjects();
     /// Puts @p path at the top of the recent projects list.
     static void addRecentProject(const QString& path);
+    /// The Project Manager renamed or moved @p from to @p to: recent entries follow.
+    void followMovedProject(const QString& from, const QString& to);
     /// Empties the recent projects list.
     static void clearRecentProjects();
     /// Length of the recent projects list.

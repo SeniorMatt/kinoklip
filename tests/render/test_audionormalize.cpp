@@ -103,7 +103,7 @@ private slots:
 
     void setClipGainKeepsTheAutomationShape()
     {
-        TimelineData d = makeDefaultTimeline(QStringLiteral("T"), {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("T"), {25, 1}, 1920, 1080, 2, 2);
         ClipData c = solidClip(0, 100);
         AnimatedValue& v = c.audio.animated(keys::VolumeDb, 0.0);
         v.base = -2.0;

@@ -25,8 +25,9 @@ private slots:
         QCOMPARE(p.timeline()->data().startTimecode, int64_t(24 * 3600));
         QCOMPARE(p.settings().width, 1920);
         QCOMPARE(p.settings().height, 1080);
-        QCOMPARE(p.timeline()->data().videoTracks.size(), size_t(2));
-        QCOMPARE(p.timeline()->data().audioTracks.size(), size_t(2));
+        // V1 and A1, as a new Resolve timeline (spec 25.14).
+        QCOMPARE(p.timeline()->data().videoTracks.size(), size_t(1));
+        QCOMPARE(p.timeline()->data().audioTracks.size(), size_t(1));
         QVERIFY(!p.isDirty());
         QVERIFY(p.filePath().isEmpty());
         QCOMPARE(p.undoStack()->count(), 0);

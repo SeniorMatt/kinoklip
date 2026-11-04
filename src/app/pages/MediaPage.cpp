@@ -48,6 +48,13 @@ MediaPage::MediaPage(AppContext& ctx, QWidget* parent)
     m_metadata->attach(m_mediaPool);
     connect(
         m_mediaPool, &MediaPoolPanel::currentMediaChanged, m_viewer, &ViewerPanel::setSourceMedia);
+    // Double-click (or Open in Source Viewer): the clip in the viewer, which takes the
+    // transport keys (Space, J / K / L, I / O), as on the Edit page (spec 33.33).
+    connect(m_mediaPool, &MediaPoolPanel::openInSourceViewer, this, [this](const QString& id) {
+        m_viewer->setSourceMedia(id);
+        m_viewer->activate();
+        m_viewer->setFocus();
+    });
 
     // No timeline here: the Edit page timeline's commands are off while the page is shown
     // (spec 42b.26). The media pool's own commands in the Clip menu stay; the source viewer
