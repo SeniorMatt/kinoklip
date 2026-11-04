@@ -96,6 +96,39 @@ private slots:
         t.tl()->setPlayhead(40);
         QCOMPARE(ops::clipById(t.f.view(), mid)->sourceInUs, src - 2 * 40000);
     }
+
+    // Spec 8.22: with an edit point selected, Up / Down move the selection to the previous /
+    // next edit of its track (keeping the side where it can) and the playhead follows; without
+    // one they only move the playhead.
+    void spec8_22_upDownMoveTheSelectedEdit()
+    {
+        Ctl t;
+        const quint64 a = t.put(kV1, mediaClip(0, 20));
+        const quint64 b = t.put(kV1, mediaClip(20, 20));
+        const quint64 c = t.put(kV1, mediaClip(50, 10)); // a gap 40 - 50 before it
+        t.put(kV2, mediaClip(5, 10)); // other tracks' edits are skipped
+        t.c.setSelectedEdit({a, b}); // roll at 20
+        t.action("transport.next_edit")->trigger();
+        QCOMPARE(t.tl()->playhead(), int64_t(40));
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {b, 0})); // free tail: that side
+        t.action("transport.next_edit")->trigger();
+        QCOMPARE(t.tl()->playhead(), int64_t(50));
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {0, c}));
+        t.action("transport.prev_edit")->trigger(); // incoming side kept where it can be
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {b, 0}));
+        t.action("transport.prev_edit")->trigger();
+        QCOMPARE(t.tl()->playhead(), int64_t(20));
+        QCOMPARE(t.c.selectedEdit(), (EditPointSelection {a, 0}));
+        // , trims the selection it moved to (here the outgoing side).
+        t.action("trim.nudge_left")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:19 20:20 50:10"));
+        // Without a selected edit point Up / Down only move the playhead (V2's edits count).
+        t.c.setSelectedEdit({});
+        t.tl()->setPlayhead(0);
+        t.action("transport.next_edit")->trigger();
+        QCOMPARE(t.tl()->playhead(), int64_t(5));
+        QVERIFY(t.c.selectedEdit().isEmpty());
+    }
 };
 
 QTEST_MAIN(TestBughunt6Edit)
