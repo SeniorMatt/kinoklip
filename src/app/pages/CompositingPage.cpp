@@ -20,10 +20,12 @@
 #include "ui/mediapool/MediaPoolPanel.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QHBoxLayout>
 #include <QSettings>
 #include <QShowEvent>
 #include <QSplitter>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -237,6 +239,16 @@ void CompositingPage::showEvent(QShowEvent* event)
     if (event->spontaneous())
         return;
     openClip(); // the timeline commands are already suspended (TimelineCommandSuspension)
+    // The node editor's keys act while it has the focus (1 / 2, Shift+Space, Delete right
+    // after Shift+5, as in Resolve): when the page that had the focus went away, it takes it.
+    QTimer::singleShot(0, this, [this] {
+        const QWidget* focus = QApplication::focusWidget();
+        const bool elsewhereInWindow
+            = focus && focus->window() == window() && focus != this && !isAncestorOf(focus);
+        if (isVisible() && m_editor->isVisible()
+            && (!focus || !focus->isVisible() || elsewhereInWindow))
+            m_editor->setFocus(Qt::OtherFocusReason);
+    });
 }
 
 // ---- Panels and layout ----
