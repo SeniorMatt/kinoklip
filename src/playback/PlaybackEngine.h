@@ -207,6 +207,15 @@ public:
     [[nodiscard]] std::future<RenderedFramePtr> renderImage(
         int64_t frame, QSize outSize, ImageGrades grades = ImageGrades::Viewer) const;
     [[nodiscard]] bool bypassGrades() const { return m_bypassGrades; }
+    /// Effects live preview (spec 47): renders frame @p frame of @p timeline (a private,
+    /// modified copy of the current snapshot) the way the viewer's next paused still would be
+    /// rendered: same size, quality, outputs (textures when every client draws them), media,
+    /// proxies, grade bypass and Dynamic Zoom, captions included; never from the render cache
+    /// (it holds the unmodified timeline). @p cancelled (optional) drops the request while it
+    /// still waits in the render queue. Nothing of the engine's state changes.
+    [[nodiscard]] std::future<RenderedFramePtr> renderAlternative(
+        std::shared_ptr<const TimelineData> timeline, int64_t frame,
+        std::shared_ptr<const std::atomic<bool>> cancelled = nullptr) const;
     /// false while the viewer's on-screen Dynamic Zoom controls are shown: the program frames
     /// are rendered without the clips' Dynamic Zoom, so the start and end rectangles can be
     /// drawn over the whole picture (spec 24.20). Default true.

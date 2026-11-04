@@ -1211,6 +1211,22 @@ Tests: `rw` = `tests/media/test_realworld.cpp` (fixtures: `scripts/make_realworl
 | 46.6 | Deliberate limits, listed in src/media/readme.md: only one audio stream per file is used (the default one, else the first), a second stream is ignored; the timeline and renders are SDR BT.709 (HDR sources are tone mapped, 46.2; no HDR output, no per-clip input colour space); MP4 / MOV files without their index cannot be opened (46.3); untagged HD clips are read as BT.709. | Decision (bughunt11; rw formats two_audio.mp4) |
 | 46.7 | Long file names (200 characters), Cyrillic and emoji in names, spaces in folder names and files in a read-only folder import, play, draw their waveform and make proxies; rendering into a read-only folder fails with "cannot write ...: Permission denied" instead of hanging. | Works (bughunt11 check; rw awkwardPaths) |
 
+## 47. Effects live preview (hoverpreview branch, owner request for 1.1.3)
+
+Tests: `lp` = `tests/panels/test_livepreview.cpp`.
+
+| # | Expected behaviour | Status |
+|---|---|---|
+| 47.1 | Live Preview, as in Resolve: while the pointer rests on a video effect in the Edit page's Effects library, the timeline viewer shows the frame at the playhead with that effect (default parameters) added to the topmost selected clip under the playhead, else to the topmost video clip there (enabled clips on enabled tracks). With no clip under the playhead nothing changes. | New (`livepreview::buildScene()`, `EffectsLivePreview`; lp effectHoverShowsAndLeaveRestores, effectTargetsTheSelectedClip) |
+| 47.2 | The normal picture comes back, pixel for pixel, when the pointer leaves the entry or the list, scrolls, starts a drag, a search or category filter changes, or the panel is hidden; also on playback (no preview while playing), any timeline edit, a timeline switch or a project reset. A playhead move or a selection change while hovering renders the preview again for the new frame / clip. | New (`ViewerPanel::showTemporaryFrame()` / `clearTemporaryFrame()`; lp effectHoverShowsAndLeaveRestores, editsAndPlaybackEndThePreview) |
+| 47.3 | A hovered video transition is previewed at the edit nearest the playhead: on the end of the target clip (47.1) nearer to the playhead, the same end a double-click would use; a tail that touches the next clip is that cut. An existing transition there keeps its length and alignment (only the type changes); otherwise one second, centred on a cut, clamped to the clips. The viewer shows a frame of the transition rather than the playhead frame, the playhead does not move. | Decision (owner request "at its midpoint on the nearest edit point"; lp transitionAtTheNearestEdit) |
+| 47.4 | A hovered title or generator is laid over the current frame: a clip of the default generator length (Preferences > Editing) with its default look on a new track above all others, the playhead's picture underneath. The Adjustment Clip and audio effects / transitions show nothing. | New (lp titleOverlaysTheFrame, effectTargetsTheSelectedClip) |
+| 47.5 | Moving horizontally over a transition or title entry scrubs it, as in Resolve: the pointer's place along the row (left edge = start, middle = midpoint, right edge = last frame) picks the transition frame shown, or how far into the title the playhead sits (so animated titles such as Scroll play through). Effects and generators without animation show the same picture wherever the pointer is. | New (lp transitionAtTheNearestEdit, titleOverlaysTheFrame) |
+| 47.6 | The preview never changes the project: it renders a private copy of the timeline; the dirty flag, the undo stack, the timeline data and the playhead stay as they were. | New (lp effectHoverShowsAndLeaveRestores, transitionAtTheNearestEdit, titleOverlaysTheFrame) |
+| 47.7 | The Effects library's options menu ("…" at the right of its title bar) has a checkable "Live Preview", on by default and remembered (Preferences key `effects/livePreview`); off, hovering shows nothing, and switching it off ends a preview being shown. | New (Resolve has a Live Preview option; the library's own menu was chosen because the toggle only affects this panel; lp toggleOffShowsNothing) |
+| 47.8 | The preview stays responsive: a new entry is rendered only after the pointer rested on it for 100 ms (sweeping over the list renders nothing); moving along the same entry re-renders at once with one render in flight, the newest position following. Renders run on the compositor's render thread at the viewer's size, quality and proxies (`PlaybackEngine::renderAlternative()`); a request made stale by another entry or the end of the hover is cancelled and its picture is never shown. | New (lp staleRequestsAreCancelled) |
+| 47.9 | Scope: the Edit page's Effects library only. The Color page has no LUT browser with a hover mechanism (its gallery and LUT choices are untouched); the Compositing page's node library could reuse `EffectsLivePreview` with a composition-node scene, not done. | Decision (owner request) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -1353,3 +1369,6 @@ Tests: `rw` = `tests/media/test_realworld.cpp` (fixtures: `scripts/make_realworl
 - The bugreport branch (owner request, 1.1.2) added 43.12 - 43.16 (Help > Report a Bug or
   Inconsistency: the consent dialog, what a report may carry, the GitHub issue-form link, the
   issue forms).
+- The hoverpreview branch (owner request, 1.1.3) added 47.1 - 47.9 (Live Preview of effects,
+  transitions, titles and generators in the timeline viewer while hovering the Effects
+  library; the options-menu toggle).

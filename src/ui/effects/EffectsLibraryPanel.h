@@ -7,6 +7,7 @@
 
 #include <functional>
 
+class QAction;
 class QLineEdit;
 class QMenu;
 class QTreeWidget;
@@ -24,6 +25,11 @@ struct AppContext;
 ///   the selected entry is the help context (`effect:<id>`) for F1.
 /// - Double-click (or Enter) runs effectactions::activate(): effects go onto the selected
 ///   clips, transitions onto the current clip, titles/generators are added at the playhead.
+/// - Live Preview (options menu "…", on by default, Preferences key effects/livePreview):
+///   while the pointer rests on an entry, livePreviewRequested() names it with the pointer's
+///   horizontal place over the row (0..1, scrubbing); leaving the entry, the panel, starting
+///   a drag, searching or hiding the panel emit livePreviewEnded(). The Edit page feeds them
+///   to an EffectsLivePreview of its timeline viewer (spec 47).
 ///
 /// Thread-safety: GUI thread only.
 class EffectsLibraryPanel : public PanelFrame
@@ -56,9 +62,28 @@ public:
         m_transitionHandler = std::move(handler);
     }
 
+    /// The options menu's checkable "Live Preview" entry.
+    [[nodiscard]] QAction* livePreviewAction() const { return m_livePreviewAction; }
+    /// True while Live Preview is on.
+    [[nodiscard]] bool livePreviewEnabled() const;
+    /// The pointer rests at @p viewportPos of the tree's viewport (the viewport's mouse moves
+    /// come here; tests call it directly).
+    void hoverAt(QPoint viewportPos);
+    /// The pointer left the entries: ends a live preview, if one was asked for.
+    void endHover();
+
 signals:
     /// The user activated descriptor @p descriptorId (after it was applied).
     void effectActivated(const QString& descriptorId);
+    /// Live Preview: the pointer rests on @p descriptorId at @p position (0 = the row's left
+    /// edge, 1 = its right edge).
+    void livePreviewRequested(const QString& descriptorId, double position);
+    /// Live Preview: the hover ended; the viewer shows the normal picture again.
+    void livePreviewEnded();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
 
 private:
     void populate();
@@ -71,6 +96,8 @@ private:
     QTreeWidget* m_tree = nullptr;
     QTreeWidget* m_categories = nullptr; ///< Resolve's sidebar: Toolbox > categories, Audio FX
     int m_category = -1; ///< EffectCategory shown, -1 = all
+    QAction* m_livePreviewAction = nullptr; ///< options menu: Live Preview
+    QString m_hoveredId; ///< entry a live preview was asked for (empty = none)
 };
 
 } // namespace kk

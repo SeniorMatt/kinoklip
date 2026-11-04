@@ -195,6 +195,17 @@ public:
     /// The notice (tests); hidden while the media shown is online.
     [[nodiscard]] QLabel* offlineNotice() const { return m_offlineNotice; }
 
+    // ---- Temporary picture (Effects live preview, spec 47) ----
+
+    /// Draws @p frame instead of the engine's picture until clearTemporaryFrame() (the
+    /// Effects library's live preview). The engine keeps rendering meanwhile; its frames are
+    /// drawn again from the clear on. Nothing else (project, playhead, overlays) changes.
+    void showTemporaryFrame(const RenderedFramePtr& frame);
+    /// Ends showTemporaryFrame(): the engine's current picture is drawn again.
+    void clearTemporaryFrame();
+    /// True while a temporary picture is drawn.
+    [[nodiscard]] bool showsTemporaryFrame() const { return m_temporaryFrame != nullptr; }
+
     // ---- Multicam viewer (Source mode; ViewerMulticam.cpp) ----
 
     /// Shows the angle grid instead of the source clip (View > Multicam Viewer, the header's
@@ -362,6 +373,7 @@ private:
     QTimer* m_resizeSettle = nullptr; ///< coalesces output-size updates while resizing
     bool m_outputSized = false; ///< the engine has an output size for this viewer
     Rational m_fps;
+    RenderedFramePtr m_temporaryFrame; ///< showTemporaryFrame(), kept alive while drawn
 };
 
 } // namespace kk
