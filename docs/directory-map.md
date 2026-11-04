@@ -25,10 +25,10 @@
 | `src/ui/dialogs/` | project settings, clip attributes and other dialogs |
 | `src/ui/keyframes/` | keyframes panel, dope sheet and curve editor |
 | `src/ui/help/` | in-app help: F1, "?" buttons, Help > Guide, links to the user guide (`docs/guide/`) |
-| `resources/` | icons, default keymap, KDE colour schemes (fallback build), `.qrc` |
+| `resources/` | icons, default keymap and other editors' keyboard presets, KDE colour schemes (fallback build), `.qrc` |
 | `tests/<area>/test_*.cpp` | QtTest unit/smoke tests (each file is its own executable) |
 | `docs/` | roadmap, behaviour spec, keymap, coding style, release notes, feedback; `docs/guide/` the user guide (articles, annotated screenshots, `index.json` for the in-app help) |
 | `packaging/` | Linux AppImage (AppRun launcher, desktop entry, AppStream metadata); Windows and macOS placeholders |
-| `scripts/` | packaging, formatting, keymap generator, test media generators, user guide and readme screenshots (`guide_screenshots.py`, `readme_screenshots.py`) |
+| `scripts/` | packaging, formatting, keymap generators (`keymap-resolve-windows.py`, `keymap-presets.py`), test media generators, user guide and readme screenshots (`guide_screenshots.py`, `readme_screenshots.py`) |
 
 Each module directory has a `readme.md` with its responsibilities and a **How to extend** section.
