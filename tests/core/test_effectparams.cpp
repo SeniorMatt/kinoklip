@@ -98,7 +98,7 @@ private slots:
         QVERIFY(dir.isValid());
         const QString lut = dir.filePath(QStringLiteral("project/luts/look.cube"));
         QVERIFY(writeFile(lut, "LUT_1D_SIZE 2\n0 0 0\n1 1 1\n"));
-        TimelineData tl = makeDefaultTimeline(QStringLiteral("t"), {25, 1}, 320, 180);
+        TimelineData tl = makeDefaultTimeline(QStringLiteral("t"), {25, 1}, 320, 180, 2, 2);
         ClipData clip;
         clip.id = tl.allocateId();
         clip.kind = ClipKind::Solid;

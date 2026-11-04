@@ -43,7 +43,7 @@ bool buildPair(Project& project, const QString& path)
     const Rational fps = info.frameRate.isValid() ? info.frameRate : Rational {25, 1};
     project.beginEdit(QStringLiteral("pair"));
     TimelineData& tl = project.timeline()->mutableData();
-    tl = makeDefaultTimeline(QStringLiteral("pair"), fps, info.displayWidth, info.displayHeight);
+    tl = makeDefaultTimeline(QStringLiteral("pair"), fps, info.displayWidth, info.displayHeight, 2, 2);
     for (int i = 0; i < 2; ++i) {
         ClipData c;
         c.id = tl.allocateId();

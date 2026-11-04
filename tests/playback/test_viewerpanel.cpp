@@ -75,7 +75,7 @@ struct Fixture
     /// 320x180 timeline with a red solid over 100 frames.
     void solidTimeline()
     {
-        TimelineData tl = makeDefaultTimeline(QStringLiteral("Demo"), {25, 1}, 320, 180);
+        TimelineData tl = makeDefaultTimeline(QStringLiteral("Demo"), {25, 1}, 320, 180, 2, 2);
         ClipData red;
         red.id = tl.allocateId();
         red.kind = ClipKind::Solid;

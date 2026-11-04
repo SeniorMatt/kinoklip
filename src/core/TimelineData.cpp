@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace kk {
 
@@ -125,19 +126,22 @@ int64_t convertTimecode(int64_t frames, Rational from, Rational to)
     return negative ? -converted : converted;
 }
 
-TimelineData makeDefaultTimeline(const QString& name, Rational fps, int width, int height)
+TimelineData makeDefaultTimeline(
+    const QString& name, Rational fps, int width, int height, int videoTracks, int audioTracks)
 {
     TimelineData t;
     t.name = name;
     t.fps = fps;
     t.width = width;
     t.height = height;
-    for (TrackType type :
-        {TrackType::Video, TrackType::Video, TrackType::Audio, TrackType::Audio}) {
-        TrackData track;
-        track.id = t.allocateId();
-        track.type = type;
-        t.tracks(type).push_back(track);
+    for (auto [type, count] :
+        {std::pair {TrackType::Video, videoTracks}, std::pair {TrackType::Audio, audioTracks}}) {
+        for (int i = 0; i < count; ++i) {
+            TrackData track;
+            track.id = t.allocateId();
+            track.type = type;
+            t.tracks(type).push_back(track);
+        }
     }
     return t;
 }

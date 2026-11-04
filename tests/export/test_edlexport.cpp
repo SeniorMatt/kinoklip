@@ -84,7 +84,7 @@ private slots:
         b.info.valid = b.info.hasVideo = true;
         const QString idb = pool.addItem(b);
 
-        TimelineData d = makeDefaultTimeline(QStringLiteral("Cut 1"), {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("Cut 1"), {25, 1}, 1920, 1080, 2, 2);
         // V1: A [0, 100) from 10 s, B [100, 200) from 20 s with a 20-frame centred dissolve,
         // then B again at 50 % speed [250, 300) from 40 s (a gap before it).
         ops::overwriteClip(
@@ -156,7 +156,7 @@ private slots:
 
     void reverseSpeedHasANegativeM2()
     {
-        TimelineData d = makeDefaultTimeline(QStringLiteral("R"), {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("R"), {25, 1}, 1920, 1080, 2, 2);
         ClipData c;
         c.kind = ClipKind::Title;
         c.name = QStringLiteral("Title");
@@ -173,7 +173,7 @@ private slots:
 
     void markersAsEdlAndCsv()
     {
-        TimelineData d = makeDefaultTimeline(QStringLiteral("M"), {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("M"), {25, 1}, 1920, 1080, 2, 2);
         Marker one;
         one.frame = 50;
         one.name = QStringLiteral("Intro, part 1");

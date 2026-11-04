@@ -59,6 +59,11 @@ QWidget* prepareAudioScreenshot(MainWindow& window, const QString& section, QStr
             return nullptr;
         }
         TimelineController* tc = window.editPage()->timeline()->controller();
+        // New timelines start with V1 / A1 (spec 25.14): the demo mix needs a second pair.
+        while (timeline->data().audioTracks.size() < 2)
+            tc->addTrack(TrackType::Audio);
+        while (timeline->data().videoTracks.size() < 2)
+            tc->addTrack(TrackType::Video);
         for (int track = 0; track < 2; ++track) {
             const MediaItem* item = sounds[std::min<qsizetype>(track, sounds.size() - 1)];
             timeline->setPlayhead(0);

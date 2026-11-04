@@ -31,7 +31,7 @@ inline ClipData mediaClip(int64_t start, int64_t duration, int64_t sourceInFrame
 /// Default 25 fps timeline with V1, V2, A1, A2.
 inline TimelineData timeline()
 {
-    return makeDefaultTimeline(QStringLiteral("Test"), Rational {25, 1});
+    return makeDefaultTimeline(QStringLiteral("Test"), Rational {25, 1}, 1920, 1080, 2, 2);
 }
 
 inline constexpr TrackRef kV1 {TrackType::Video, 0};

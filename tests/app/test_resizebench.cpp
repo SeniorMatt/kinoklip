@@ -137,7 +137,7 @@ Result runResize(int settleMs)
     engine.setMediaPool(project.mediaPool());
     engine.setTimeline(project.timeline());
     // A 1920x1080 timeline with a solid clip, so the viewers' output size follows their size.
-    TimelineData tl = makeDefaultTimeline(QStringLiteral("Bench"), {25, 1}, 1920, 1080);
+    TimelineData tl = makeDefaultTimeline(QStringLiteral("Bench"), {25, 1}, 1920, 1080, 2, 2);
     ClipData clip;
     clip.id = tl.allocateId();
     clip.kind = ClipKind::Solid;

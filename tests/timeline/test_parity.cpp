@@ -260,7 +260,7 @@ private slots:
 
     void spec6_3_autoSelectDefaultOnAndSaved()
     {
-        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 2, 2);
         QVERIFY(d.videoTracks[0].autoSelect);
         d.audioTracks[1].autoSelect = false;
         QString error;

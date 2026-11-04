@@ -52,7 +52,7 @@ int countStarting(const char* prefix)
 
 TimelineData solidTimeline(int64_t frames)
 {
-    TimelineData tl = makeDefaultTimeline(QStringLiteral("t"), {25, 1}, 320, 180);
+    TimelineData tl = makeDefaultTimeline(QStringLiteral("t"), {25, 1}, 320, 180, 2, 2);
     ClipData red;
     red.id = tl.allocateId();
     red.kind = ClipKind::Solid;

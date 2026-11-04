@@ -172,7 +172,7 @@ private slots:
 
     void spec18_11_rangedMarkersSerializeOptionally()
     {
-        TimelineData d = makeDefaultTimeline(QStringLiteral("T"), {25, 1});
+        TimelineData d = makeDefaultTimeline(QStringLiteral("T"), {25, 1}, 1920, 1080, 2, 2);
         Marker single;
         single.frame = 5;
         Marker ranged;
