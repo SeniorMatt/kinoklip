@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // RenderQueuePanel — the Deliver page's right panel: one card per RenderQueue job (name, output,
-// progress bar, speed/ETA, cancel / reveal / remove) and Render All / Stop / Clear Finished.
+// progress bar, speed/ETA, edit / cancel / reveal / remove) and Render All / Stop / Clear Finished.
 #pragma once
 
 #include "ui/common/PanelFrame.h"
@@ -26,8 +26,12 @@ public:
     explicit RenderQueuePanel(RenderQueue* queue, QWidget* parent = nullptr);
     /// The summary line of the last run (empty / hidden before the first one).
     [[nodiscard]] QString summaryText() const;
+    /// Marks the card of job @p id as the one being edited (0: none).
+    void setEditingJob(quint64 id);
 
 Q_SIGNALS:
+    /// The pencil of job @p id was clicked: load its settings for editing.
+    void editRequested(quint64 id);
     /// A render run ended (all jobs done, or stopped); @p summary is the line shown.
     void runFinished(const QString& summary);
 

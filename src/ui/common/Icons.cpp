@@ -37,6 +37,7 @@ constexpr ThemeIcon kThemeIcons[] = {
     {"add",              "list-add"},
     {"audio",            "audio-volume-high"},
     {"audio_file",       "audio-x-generic"},
+    {"edit",             "document-edit"},
     {"export",           "document-export"},
     {"film",             "video-x-generic"},
     {"folder",           "folder"},

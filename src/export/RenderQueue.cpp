@@ -46,6 +46,25 @@ quint64 RenderQueue::addJob(const QString& name, const ExportSettings& settings,
     return job.id;
 }
 
+bool RenderQueue::updateJob(quint64 id, const QString& name, const ExportSettings& settings,
+    std::shared_ptr<const TimelineData> timeline, std::shared_ptr<const MediaPathMap> media,
+    std::shared_ptr<const ProxyMap> proxies)
+{
+    Job* job = findJob(id);
+    if (!job || job->status == Status::Rendering)
+        return false;
+    job->name = name;
+    job->settings = settings;
+    job->timeline = std::move(timeline);
+    job->media = std::move(media);
+    job->proxies = std::move(proxies);
+    job->status = Status::Queued;
+    job->progress = {};
+    job->result = {};
+    Q_EMIT jobChanged(id);
+    return true;
+}
+
 bool RenderQueue::removeJob(quint64 id)
 {
     for (int i = 0; i < m_jobs.size(); ++i) {
