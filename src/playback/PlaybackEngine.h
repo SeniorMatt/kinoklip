@@ -207,6 +207,11 @@ public:
     [[nodiscard]] std::future<RenderedFramePtr> renderImage(
         int64_t frame, QSize outSize, ImageGrades grades = ImageGrades::Viewer) const;
     [[nodiscard]] bool bypassGrades() const { return m_bypassGrades; }
+    /// false while the viewer's on-screen Dynamic Zoom controls are shown: the program frames
+    /// are rendered without the clips' Dynamic Zoom, so the start and end rectangles can be
+    /// drawn over the whole picture (spec 24.20). Default true.
+    void setDynamicZoomApplied(bool applied);
+    [[nodiscard]] bool dynamicZoomApplied() const { return m_dynamicZoomApplied; }
     /// Compositing page viewers: Compositor::renderCompositionNode() of node @p nodeId (0 =
     /// MediaOut) of clip @p clipId of @p timeline at comp frame @p compFrame, with the
     /// engine's media table, proxies and current quality, so MediaIn decodes what the
@@ -398,6 +403,7 @@ private:
     std::shared_ptr<const ProxyMap> m_proxies;
     std::shared_ptr<const RenderCacheView> m_renderCache;
     bool m_bypassGrades = false;
+    bool m_dynamicZoomApplied = true; ///< setDynamicZoomApplied()
     bool m_proxiesInUse = false;
     QMetaObject::Connection m_timelineChanged, m_playheadChanged, m_poolChanged;
 

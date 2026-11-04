@@ -97,10 +97,15 @@ bool TransformOverlay::isCropMode() const
 const ClipData* TransformOverlay::currentClip(quint64* id) const
 {
     const bool on = (m_action && m_action->isChecked()) || isCropMode();
-    if (!m_ctx.selection || !on)
+    return on ? onScreenControlsClip(m_ctx, id) : nullptr;
+}
+
+const ClipData* onScreenControlsClip(const AppContext& ctx, quint64* id)
+{
+    if (!ctx.selection)
         return nullptr;
-    quint64 clipId = m_ctx.selection->currentClip();
-    const TimelineData& data = m_ctx.project->timeline()->data();
+    quint64 clipId = ctx.selection->currentClip();
+    const TimelineData& data = ctx.project->timeline()->data();
     auto loc = clipId ? editops::findClip(data, clipId) : std::nullopt;
     // The audio part of a linked pair was clicked: the controls act on its video part, as
     // the Inspector shows the pair as one item (spec 24.1).
@@ -121,7 +126,7 @@ const ClipData* TransformOverlay::currentClip(quint64* id) const
     if (!loc || loc->track.type != TrackType::Video || data.track(loc->track)->locked)
         return nullptr;
     const ClipData& clip = data.track(loc->track)->clips[size_t(loc->clipIndex)];
-    if (!clip.contains(m_ctx.project->timeline()->playhead()))
+    if (!clip.contains(ctx.project->timeline()->playhead()))
         return nullptr;
     if (id)
         *id = clipId;

@@ -110,6 +110,9 @@ namespace groups {
 inline constexpr char Transform[] = "builtin.transform";
 inline constexpr char Cropping[] = "builtin.cropping";
 inline constexpr char Composite[] = "builtin.composite"; ///< Composite Mode + Opacity
+/// Dynamic Zoom (spec 24.20): the switch is the group header's, the rectangles are edited in
+/// the viewer; the descriptor holds the ease.
+inline constexpr char DynamicZoom[] = "builtin.dynamic_zoom";
 inline constexpr char Audio[] = "builtin.audio";
 } // namespace groups
 

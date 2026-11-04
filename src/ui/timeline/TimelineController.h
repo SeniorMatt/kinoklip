@@ -139,6 +139,9 @@ public:
     /// selecting clips clears it.
     /// The colour new markers get (the marker button's menu, spec 18.17; Blue by default).
     [[nodiscard]] static QColor newMarkerColor();
+    /// The name a new marker in @p existing gets: "Marker N" with N one more than the highest
+    /// number any "Marker N" in the list has, so names never repeat after a deletion.
+    [[nodiscard]] static QString newMarkerName(const QVector<Marker>& existing);
     [[nodiscard]] const EditPointSelection& selectedEdit() const { return m_selectedEdit; }
     void setSelectedEdit(const EditPointSelection& edit);
     /// Selected gap, if any (cleared by selecting clips or an edit point).

@@ -56,6 +56,10 @@ struct TimelineViewOptions
     bool doubleClickOpensSource = true;
     /// Height factor of the video and subtitle rows (below 1 = collapsed, the Audio page).
     double videoHeightScale = 1.0;
+    /// The rows start at the top of the view even when they all fit (the Audio page: a thin
+    /// strip of collapsed video tracks, then the audio tracks, spec 37.36); false: the V/A
+    /// divider sits near the middle of the view (the Edit page).
+    bool rowsFromTop = false;
     /// Audio page headers: record arm (disabled), channel format and a level meter in the
     /// headers of audio tracks (the meter reads headerMeter).
     bool audioPageHeaders = false;

@@ -136,6 +136,9 @@ struct RenderRequest
     /// Color page "bypass all grades" (Shift+D, viewer only): render without the clip and
     /// timeline grades. The render cache is not used then (its chunks hold graded pictures).
     bool bypassGrades = false;
+    /// false: render the clips without their Dynamic Zoom (the viewer while its on-screen
+    /// Dynamic Zoom controls are shown, spec 24.20). The render cache is not used then.
+    bool dynamicZoom = true;
 };
 
 /// Result of a render request. Immutable once handed out; share it as RenderedFramePtr.

@@ -100,7 +100,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     // Resolve's timeline tool bar order: edit tools | source edit modes | snapping and
     // linking | flags and markers | (right) zoom. Data, not code: the groups are action ids.
     const char* const groups[][4] = {
-        {"tool.select", "tool.trim", "tool.blade", nullptr},
+        {"tool.select", "tool.trim", "trim.dynamic", "tool.blade"},
         {"edit.insert", "edit.overwrite", "edit.place_on_top", "edit.replace"},
         {"timeline.snapping", "timeline.linked_selection", nullptr, nullptr},
         {"edit.split", "clip.flag", "mark.add_marker", nullptr},

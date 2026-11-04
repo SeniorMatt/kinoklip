@@ -186,6 +186,12 @@ pass per mixer); curve tables, LUTs and polygon points are float textures read w
 within 2 levels. `RenderRequest::bypassGrades` (viewer "bypass all") skips both and the render
 cache. Design: docs/color-page.md.
 
+Dynamic Zoom (spec 24.20, core/DynamicZoom.h) is part of `clipTransform()`: the clip's framing
+rectangle at the frame is scaled onto the whole frame before the Transform, so both renderers
+apply it the same way; `maxZoom()` and `hasIdentityFootprint()` count it.
+`RenderRequest::dynamicZoom = false` (the viewer's on-screen Dynamic Zoom controls) leaves it
+out and skips the render cache.
+
 ### Scopes (`Scopes`)
 
 Waveform / parade / vectorscope / histogram data from a small QImage of the program frame

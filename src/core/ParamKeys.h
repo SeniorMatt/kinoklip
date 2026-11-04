@@ -42,6 +42,19 @@ inline const QString FlipH = QStringLiteral("flipH"); ///< bool; default false
 inline const QString FlipV = QStringLiteral("flipV"); ///< bool; default false
 inline const QString ZoomLinked
     = QStringLiteral("zoomLinked"); ///< bool, UI keeps zoomX == zoomY; default true
+// ---- Dynamic Zoom (ClipData::transform statics; core/DynamicZoom.h) ----
+inline const QString DynamicZoom = QStringLiteral("dynamicZoom"); ///< bool; default false
+/// Ease of the move from the start to the end rectangle: "linear" (default), "easeIn",
+/// "easeOut", "easeInOut".
+inline const QString DynamicZoomEase = QStringLiteral("dynamicZoomEase");
+/// Start / end rectangles: centre (fraction of the frame, 0.5 = middle) and width (fraction of
+/// the frame; the height is the same fraction, the rectangle keeps the frame's aspect).
+inline const QString DynamicZoomStartX = QStringLiteral("dynamicZoomStartX");
+inline const QString DynamicZoomStartY = QStringLiteral("dynamicZoomStartY");
+inline const QString DynamicZoomStartSize = QStringLiteral("dynamicZoomStartSize");
+inline const QString DynamicZoomEndX = QStringLiteral("dynamicZoomEndX");
+inline const QString DynamicZoomEndY = QStringLiteral("dynamicZoomEndY");
+inline const QString DynamicZoomEndSize = QStringLiteral("dynamicZoomEndSize");
 
 // ---- Audio (ClipData::audio, animated) ----
 inline const QString VolumeDb
@@ -54,7 +67,8 @@ inline const QString Pan = QStringLiteral("pan"); ///< −1 (left) .. +1 (right)
 inline const QString RetimeFrame = QStringLiteral("retimeFrame");
 
 // ---- Title (ClipData::title; Title clips only) ----
-inline const QString Text = QStringLiteral("text"); ///< static QString; default "Title"
+inline const QString Text
+    = QStringLiteral("text"); ///< static QString; new titles "Basic Title", absent "Title"
 inline const QString Font
     = QStringLiteral("font"); ///< static QString font family; default "Sans Serif"
 inline const QString Bold = QStringLiteral("bold"); ///< static bool; default false

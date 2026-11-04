@@ -71,6 +71,7 @@ AudioPage::AudioPage(AppContext& ctx, TimelineController* controller, QWidget* p
     TimelineViewOptions options;
     options.audioHeightScale = kAudioRowScale;
     options.videoHeightScale = kVideoRowScale;
+    options.rowsFromTop = true; // audio tracks from the top, under a thin strip of video
     options.audioPageHeaders = true;
     options.keepsViewState = false; // the Edit page's view owns the per-timeline zoom
     options.doubleClickOpensSource = false;

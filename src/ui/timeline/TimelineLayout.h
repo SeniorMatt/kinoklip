@@ -133,6 +133,10 @@ public:
     /// Extra height factor of the video and subtitle rows (below 1 = collapsed, the Audio
     /// page; never below kMinTrackHeight); takes effect on the next rebuild().
     void setVideoHeightScale(double scale) { m_videoHeightScale = std::clamp(scale, 0.1, 1.0); }
+    /// Rows start at the top of the view even when they all fit (no centred divider; the
+    /// Audio page).
+    void setRowsFromTop(bool on) { m_rowsFromTop = on; }
+    [[nodiscard]] bool rowsFromTop() const { return m_rowsFromTop; }
     [[nodiscard]] double videoHeightScale() const { return m_videoHeightScale; }
     /// Audio page headers: audio tracks get a record arm button and a level meter at the
     /// right edge of their header (buttons move left to make room).
@@ -188,7 +192,8 @@ public:
     [[nodiscard]] int maxScrollY() const { return std::max(0, m_contentHeight - rowAreaHeight()); }
     [[nodiscard]] int scrollY() const { return m_scrollY; }
     void setScrollY(int px) { m_scrollY = std::clamp(px, 0, maxScrollY()); }
-    /// Extra offset applied when the rows fit (centres the V/A divider), else 0.
+    /// Extra offset applied when the rows fit (centres the V/A divider), else 0 (always 0 with
+    /// rowsFromTop()).
     [[nodiscard]] int verticalOffset() const;
     /// View y of the divider between video and audio rows.
     [[nodiscard]] int dividerY() const;
@@ -243,6 +248,7 @@ private:
     double m_audioHeightScale = 1.0; ///< setAudioHeightScale()
     double m_videoHeightScale = 1.0; ///< setVideoHeightScale()
     bool m_audioPageHeaders = false; ///< setAudioPageHeaders()
+    bool m_rowsFromTop = false; ///< setRowsFromTop()
     double m_scrollX = 0;
     int m_scrollY = 0;
     std::vector<TimelineRow> m_rows;
