@@ -268,6 +268,7 @@ void TimelineWidget::setViewOptions(const TimelineViewOptions& options)
     m_options = options;
     m_layout.setAudioHeightScale(options.audioHeightScale);
     m_layout.setVideoHeightScale(options.videoHeightScale);
+    m_layout.setRowsFromTop(options.rowsFromTop);
     m_layout.setAudioPageHeaders(options.audioPageHeaders);
     m_layout.rebuild(m_ctx.project->timeline()->data());
     setHorizontalScrollBarPolicy(
