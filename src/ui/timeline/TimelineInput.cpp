@@ -120,7 +120,11 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     }
 
     const TimelineTool tool = m_controller->tool();
-    const bool onClip = hit.area == TimelineHit::Area::Clip;
+    // Clips on a locked track cannot be selected, trimmed or moved (Resolve): a press there
+    // acts like one on the empty track area (spec 12.16).
+    const TrackData* pressedTrack = data.track(hit.track);
+    const bool onClip
+        = hit.area == TimelineHit::Area::Clip && !(pressedTrack && pressedTrack->locked);
     if (tool == TimelineTool::Blade) {
         if (onClip)
             bladeAt(hit);
@@ -940,6 +944,8 @@ void TimelineWidget::updateRubberBand(QPointF pos)
         if (r.bottom() < band.top() || r.top() > band.bottom())
             continue;
         const TrackData* track = data.track(m_layout.rows()[size_t(row)].ref);
+        if (track->locked)
+            continue; // locked clips are not selectable (spec 12.16)
         const auto [first, last] = TimelineLayout::clipRange(*track, f0, f1);
         for (size_t i = first; i < last; ++i) {
             if (!ids.contains(track->clips[i].id))
