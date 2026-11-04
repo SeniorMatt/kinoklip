@@ -379,6 +379,13 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         dialog = std::make_unique<NewProjectDialog>(QStringLiteral("Untitled Project"), &window);
     } else if (target == QLatin1String("keyboard")) {
         dialog = std::make_unique<KeyboardCustomizationDialog>(*ctx.actions, &window);
+    } else if (base == QLatin1String("keyboard")) {
+        // keyboard:<profile id>: Keyboard Customization with that preset chosen, filtered to
+        // the split commands (the guide's "Use the shortcuts of your old editor").
+        ctx.actions->setActiveProfile(section);
+        auto keyboard = std::make_unique<KeyboardCustomizationDialog>(*ctx.actions, &window);
+        keyboard->setFilterText(QStringLiteral("split"));
+        dialog = std::move(keyboard);
     } else if (target == QLatin1String("menu-color-theme") || target == QLatin1String("menu-style")
         || target == QLatin1String("menu-playback-resolution")) {
         const bool playback = target == QLatin1String("menu-playback-resolution");
@@ -1061,9 +1068,14 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         });
         // KK_SCREENSHOT_COLOR_GRAB=1: Grab Still once the picture is there (the gallery shot).
         if (qEnvironmentVariableIntValue("KK_SCREENSHOT_COLOR_GRAB") == 1) {
+            // KK_SCREENSHOT_SAVE=1 (readme): then save, so the title shows no unsaved bullet.
             QTimer::singleShot(1500, color, [&ctx] {
                 if (QAction* grab = ctx.actions->action(QStringLiteral("color.grab_still")))
                     grab->trigger();
+                if (qEnvironmentVariableIntValue("KK_SCREENSHOT_SAVE") == 1) {
+                    if (QAction* save = ctx.actions->action(QStringLiteral("file.save")))
+                        save->trigger();
+                }
             });
         }
         delayMs = std::max(delayMs, kCompositingSettleDelayMs);

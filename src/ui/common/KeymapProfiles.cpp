@@ -2,12 +2,14 @@
 // ActionRegistry keymap profiles: built-in profiles (:/keymaps/*.json), user profiles in
 // <AppData>/keymaps, switching, duplicate / rename / delete, import / export.
 #include "ui/common/ActionRegistry.h"
+#include "ui/common/ForeignKeymaps.h"
 
 #include <QAction>
 #include <QDir>
 #include <QFileInfo>
 #include <QLoggingCategory>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSettings>
 #include <QStandardPaths>
 
@@ -91,7 +93,14 @@ void ActionRegistry::scanProfiles()
     auto byName = [](const auto& a, const auto& b) {
         return QString::localeAwareCompare(a.name, b.name) < 0;
     };
-    std::sort(m_builtIns.begin(), m_builtIns.end(), byName);
+    // The default profile first (the preset chooser lists it on top), then by name.
+    std::sort(m_builtIns.begin(), m_builtIns.end(), [&](const auto& a, const auto& b) {
+        const bool aDefault = a.id == QLatin1String(kDefaultProfile);
+        const bool bDefault = b.id == QLatin1String(kDefaultProfile);
+        if (aDefault != bDefault)
+            return aDefault;
+        return byName(a, b);
+    });
     std::sort(m_userProfiles.begin(), m_userProfiles.end(),
         [&](const UserProfile& a, const UserProfile& b) { return byName(a.info, b.info); });
 }
@@ -310,18 +319,83 @@ bool ActionRegistry::deleteProfile(const QString& id, QString* error)
     return true;
 }
 
-QString ActionRegistry::importProfile(const QString& path, const QString& name, QString* error)
+ActionRegistry::KeyMap ActionRegistry::foreignKeys(
+    const KeyMap& base, const foreignkeys::Result& foreign, ImportSummary* summary) const
+{
+    ImportSummary counts;
+    counts.format = foreign.format;
+    counts.skipped = foreign.skipped;
+    // The file's keys replace the preset's keys of the commands it names; the first command
+    // to claim a key in a scope keeps it.
+    KeyMap fromFile;
+    for (const foreignkeys::Binding& b : foreign.bindings) {
+        if (!contains(b.actionId)) {
+            ++counts.skipped;
+            continue;
+        }
+        bool taken = false;
+        for (auto it = fromFile.cbegin(); it != fromFile.cend() && !taken; ++it) {
+            taken = it.value().contains(b.key)
+                && (it.key() == b.actionId
+                    || scopesConflict(shortcutScope(it.key()), shortcutScope(b.actionId)));
+        }
+        if (taken) {
+            ++counts.skipped;
+            continue;
+        }
+        fromFile[b.actionId].append(b.key);
+        ++counts.imported;
+    }
+    KeyMap keys = base;
+    for (auto it = fromFile.cbegin(); it != fromFile.cend(); ++it)
+        keys.insert(it.key(), it.value());
+    // A key the file gave to one command leaves the preset's other commands of that scope.
+    for (auto it = keys.begin(); it != keys.end(); ++it) {
+        if (fromFile.contains(it.key()))
+            continue;
+        it.value().removeIf([&](const QKeySequence& k) {
+            for (auto f = fromFile.cbegin(); f != fromFile.cend(); ++f) {
+                if (f.value().contains(k)
+                    && scopesConflict(shortcutScope(f.key()), shortcutScope(it.key())))
+                    return true;
+            }
+            return false;
+        });
+    }
+    if (summary)
+        *summary = counts;
+    qCInfo(lcKeymaps) << "imported" << counts.imported << "shortcuts from a" << counts.format
+                      << "file, skipped" << counts.skipped;
+    return keys;
+}
+
+QString ActionRegistry::importProfile(
+    const QString& path, const QString& name, QString* error, ImportSummary* summary)
 {
     KeyMap keys;
     QString fileName;
     QString basedOn;
-    if (!readKeymap(path, keys, error, &fileName, &basedOn))
-        return {};
-    if (!profile(basedOn) || !profile(basedOn)->builtIn)
-        basedOn = QLatin1String(kDefaultProfile);
     KeyMap base;
-    if (!readKeymap(builtInPath(basedOn), base, error))
-        return {};
+    if (foreignkeys::isForeignKeymapFile(path)) {
+        foreignkeys::Result foreign;
+        if (!foreignkeys::readFile(path, foreign, error))
+            return {};
+        basedOn = foreign.basedOn;
+        if (!profile(basedOn) || !profile(basedOn)->builtIn)
+            basedOn = QLatin1String(kDefaultProfile);
+        if (!readKeymap(builtInPath(basedOn), base, error))
+            return {};
+        keys = foreignKeys(base, foreign, summary);
+    } else {
+        if (!readKeymap(path, keys, error, &fileName, &basedOn))
+            return {};
+        if (!profile(basedOn) || !profile(basedOn)->builtIn)
+            basedOn = QLatin1String(kDefaultProfile);
+        if (!readKeymap(builtInPath(basedOn), base, error))
+            return {};
+        if (summary)
+            *summary = ImportSummary {};
+    }
     // Store only what differs from the base, so later fixes of the base reach the profile.
     KeyMap overrides;
     for (auto it = keys.cbegin(); it != keys.cend(); ++it) {

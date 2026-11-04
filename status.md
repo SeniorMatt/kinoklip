@@ -182,3 +182,9 @@
 - 15:22 Queued (owner + Reddit tester): keyboard presets for Vegas Pro (S = split), Premiere Pro, Final Cut Pro, Avid Media Composer, Kdenlive, Shotcut; import Premiere .kys and Final Cut .commandset. Start after readmeshots and delivermarks (notification).
 - 15:23 Owner: 1.1.1 = In/Out fix + render notification + keyboard presets (+ rounds 10-11 already on main). Notify owner when screenshots are live and when 1.1.1 is released. keypresets agent started now.
 - 15:24 Merged readmeshots (8d88f3e): README Screenshots section (8 images, Kinoklip scheme = app default), scripts/readme_screenshots.py; kept docs/images/edit-page.png for 1.1.0's metainfo. Pushed.
+- 15:28 Owner: replace README shots with CC0 kitten photos (no generated presenter), captions = page names only. kittenshots agent started; photos in scratchpad/kittens/hero.
+- 15:49 Merged delivermarks (fb2ff33): In/Out from one mark (45.4), render-finished notification + pref (45.5/45.6). Main 169/169. Not pushed yet (goes with 1.1.1).
+- 15:58 Owner: dragging a file from the file manager onto the timeline should preview its length like Resolve (ghost clip at the cursor). extdrop agent started; for 1.1.1.
+- 16:03 Owner (for 1.1.1): sub-bins shown as folders in the media pool clip view like Resolve; sort by Type; Workspace/View menu too long -> submenus. poolbins agent started.
+- 16:13 QUEUED 1.1.2 (start right after 1.1.1 is released): Help > Report a Bug... one button -> consent dialog listing exactly what is shared (app version, distro, Qt, FFmpeg, GPU/OpenGL, desktop/session, AppImage/repo build) -> opens GitHub issue form prefilled via URL params. Add .github/ISSUE_TEMPLATE bug + inconsistency forms (Qt-style: versions, steps to reproduce, actual, expected). Add privacy principle: never gather user info without explicit consent (no telemetry).
+- 16:40 Merged kittenshots: README shots with CC0 kittens, captions = names. Pushed.
