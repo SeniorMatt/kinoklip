@@ -141,15 +141,23 @@ Made a mistake? **Ctrl+Z** undoes, **Ctrl+Shift+Z** redoes.
 ## Add a title
 
 1. Click **Effects** at the top left to open the effects library.
-2. In **Toolbox > Titles**, find **Text**.
-3. Drag **Text** onto an empty video track above your clips, where the title should appear. It
-   becomes a five-second title clip.
+2. In **Toolbox > Titles**, pick a title:
+   - **Text**: a plain line of text in the middle of the picture.
+   - **Left Lower Third**, **Middle Lower Third**, **Right Lower Third**: a name and a role low
+     in the picture, on a dark box, as used to introduce someone.
+   - **Scroll**: rolling credits that move up through the picture over the length of the clip.
+   - **Text Box**: a text on a plain background box.
+3. Drag the title onto an empty video track above your clips, where it should appear (or
+   double-click it to add it at the playhead). It becomes a five-second title clip.
 
    ![Dragging the Text title onto the timeline](images/getting-started/6-title.png)
 
-4. With the title clip selected, open the **Title** tab of the Inspector and type your text.
-   There you can also change the font, size, colour, outline and background. To move the title,
-   use **Position X** and **Position Y** on the **Video** tab.
+4. Select the title clip: the Inspector opens on its **Title** tab. Type your text there (press
+   **Enter** for a new line). There you can also change the font, size, colour, outline and
+   background box, and move the text with **Position X** and **Position Y** (0.5 is the
+   middle). **Anchor** says which side of the text stays at Position X, so a left lower third
+   grows to the right. Tick **Scroll** to make any title roll up like credits; a longer clip
+   scrolls more slowly.
 
 Drag the edges of the title clip to make it show for a shorter or longer time.
 
