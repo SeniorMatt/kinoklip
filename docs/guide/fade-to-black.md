@@ -46,8 +46,8 @@ another **Color** in the Inspector to dip to white or any other colour.
 - **The fade shows the clip below instead of black.** A fade makes the clip transparent, so
   whatever is on the track below shows through. Black appears only where nothing is below.
   That is also a quick way to blend between two layers.
-- **One second is a good start.** At 25 frames per second that is 25 frames; most endings use
-  one to three seconds.
+- **One second is a good start.** At 24 frames per second (the frame rate of new projects)
+  that is 24 frames; most endings use one to three seconds.
 
 ## If something goes wrong
 
