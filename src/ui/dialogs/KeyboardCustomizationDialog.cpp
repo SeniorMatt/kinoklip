@@ -117,6 +117,9 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
     // Profile selector (like a preset selector): built-in profiles are read-only bases whose
     // changes are kept per profile; user profiles are copies with their own file.
     m_profiles = new QComboBox;
+    m_profiles->setObjectName(QStringLiteral("KeyboardProfile"));
+    m_profiles->setToolTip(tr("Built-in presets follow DaVinci Resolve (the default) or another "
+                              "editor; user profiles are your own copies"));
     m_profiles->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     m_profileMenu = new QPushButton(tr("Profile"));
     auto* menu = new QMenu(m_profileMenu);
@@ -132,7 +135,7 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
     });
     m_profileMenu->setMenu(menu);
     auto* profileRow = new QHBoxLayout;
-    profileRow->addWidget(new QLabel(tr("Keyboard profile:")));
+    profileRow->addWidget(new QLabel(tr("Keyboard profile (or your old editor's keys):")));
     profileRow->addWidget(m_profiles);
     profileRow->addWidget(m_profileMenu);
     profileRow->addStretch(1);
@@ -453,7 +456,10 @@ void KeyboardCustomizationDialog::fillProfiles()
     const QSignalBlocker blocker(m_profiles);
     m_profiles->clear();
     for (const ActionRegistry::KeymapProfile& p : m_registry.profiles()) {
-        const QString label = p.builtIn ? p.name : tr("%1 (user)").arg(p.name);
+        const QString label = !p.builtIn ? tr("%1 (user)").arg(p.name)
+            : p.id == QLatin1String(ActionRegistry::kDefaultProfile)
+            ? tr("%1 (default)").arg(p.name)
+            : p.name;
         m_profiles->addItem(label, p.id);
         if (p.id == m_registry.activeProfile())
             m_profiles->setCurrentIndex(m_profiles->count() - 1);
@@ -518,20 +524,39 @@ void KeyboardCustomizationDialog::deleteProfile()
 void KeyboardCustomizationDialog::importKeymap()
 {
     const QString path = platform::getOpenFileName(this, tr("Import Keyboard Profile"),
-        tr("Keymap (*.json)"), QStringLiteral("paths/lastKeymapDir"));
+        tr("Keyboard shortcuts (*.json *.kys *.commandset);;Kinoklip keymap (*.json);;"
+           "Premiere Pro keyboard shortcuts (*.kys);;Final Cut Pro command set (*.commandset)"),
+        QStringLiteral("paths/lastKeymapDir"));
     if (path.isEmpty())
         return;
     QString error;
-    const QString id = m_registry.importProfile(path, {}, &error);
+    if (importFile(path, &error).isEmpty())
+        QMessageBox::warning(this, tr("Import Keyboard Profile"), error);
+}
+
+QString KeyboardCustomizationDialog::importFile(const QString& path, QString* error)
+{
+    ActionRegistry::ImportSummary summary;
+    const QString id = m_registry.importProfile(path, {}, error, &summary);
     if (!id.isEmpty())
         m_createdProfiles.append(id);
-    if (id.isEmpty() || !m_registry.setActiveProfile(id, &error)) {
-        QMessageBox::warning(this, tr("Import Keyboard Profile"), error);
-        return;
-    }
+    if (id.isEmpty() || !m_registry.setActiveProfile(id, error))
+        return {};
     fillProfiles();
     refreshAllRows();
     updateButtons();
+    if (!summary.format.isEmpty()) {
+        m_status->setText(tr("Imported %n shortcut(s) from the %1 file", nullptr, summary.imported)
+                              .arg(summary.format)
+            + tr("; skipped %n that Kinoklip has no command for or could not read.", nullptr,
+                summary.skipped));
+    }
+    return id;
+}
+
+QString KeyboardCustomizationDialog::statusText() const
+{
+    return m_status->text();
 }
 
 void KeyboardCustomizationDialog::exportKeymap()

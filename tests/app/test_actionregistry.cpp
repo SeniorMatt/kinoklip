@@ -16,6 +16,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <algorithm>
+
 using namespace kk;
 
 class TestActionRegistry : public QObject
@@ -286,7 +288,10 @@ private slots:
             userId = reg.duplicateProfile(reg.activeProfile(), QStringLiteral("My Keys"));
             QVERIFY(!userId.isEmpty());
             QCOMPARE(listSpy.count(), 1);
-            QCOMPARE(reg.profiles().size(), 2);
+            const auto list = reg.profiles();
+            const auto builtIns = std::count_if(list.cbegin(), list.cend(),
+                [](const ActionRegistry::KeymapProfile& p) { return p.builtIn; });
+            QCOMPARE(list.size(), qsizetype(builtIns + 1)); // the presets and the copy
             QCOMPARE(reg.profile(userId)->name, QStringLiteral("My Keys"));
             QCOMPARE(reg.profile(userId)->basedOn, QLatin1String(ActionRegistry::kDefaultProfile));
 
@@ -325,7 +330,8 @@ private slots:
             QCOMPARE(reg.activeProfile(), QLatin1String(ActionRegistry::kDefaultProfile));
             QCOMPARE(reg.shortcuts(split), builtInSplit);
             QVERIFY(reg.deleteProfile(userId));
-            QCOMPARE(reg.profiles().size(), 1);
+            for (const auto& p : reg.profiles())
+                QVERIFY(p.builtIn); // only the built-in presets are left
         }
     }
 

@@ -556,6 +556,39 @@
         "panel:color_luts",
         "effect:apply_lut"
       ]
+    },
+    {
+      "id": "use-the-shortcuts-of-your-old-editor",
+      "title": "Use the shortcuts of your old editor",
+      "file": "use-the-shortcuts-of-your-old-editor.md",
+      "summary": "Switch every key to Vegas Pro's, Premiere Pro's, Final Cut Pro's, Avid Media Composer's, Kdenlive's or Shotcut's, or import your own Premiere or Final Cut shortcut file.",
+      "keywords": [
+        "shortcuts",
+        "keyboard",
+        "keys",
+        "hotkeys",
+        "keymap",
+        "keyboard layout",
+        "vegas",
+        "vegas pro",
+        "sony vegas",
+        "premiere",
+        "premiere pro",
+        "final cut",
+        "final cut pro",
+        "fcp",
+        "avid",
+        "media composer",
+        "kdenlive",
+        "shotcut",
+        "kys",
+        "commandset",
+        "import shortcuts",
+        "s to split"
+      ],
+      "contexts": [
+        "action:edit.keyboard_customization"
+      ]
     }
   ]
 }
