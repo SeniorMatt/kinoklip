@@ -172,14 +172,15 @@ private slots:
         Fixture f;
         f.showPage();
         const int base = f.steps();
-        f.key(Qt::Key_S, Qt::AltModifier); // first node
-        QCOMPARE(f.grade(f.first).nodes.size(), 1);
-        f.key(Qt::Key_S, Qt::AltModifier); // serial after it
+        // The ungraded clip shows node 01: Alt+S adds 02 after it (bughunt5, spec 44b.20).
+        f.key(Qt::Key_S, Qt::AltModifier);
         QCOMPARE(f.grade(f.first).nodes.size(), 2);
+        f.key(Qt::Key_S, Qt::AltModifier); // serial after it
+        QCOMPARE(f.grade(f.first).nodes.size(), 3);
         QCOMPARE(f.steps(), base + 2);
         QCOMPARE(f.project.undoStack()->undoText(), QStringLiteral("Add Serial Node"));
         f.key(Qt::Key_P, Qt::AltModifier);
-        QCOMPARE(f.grade(f.first).nodes.size(), 4); // node + Parallel mixer
+        QCOMPARE(f.grade(f.first).nodes.size(), 5); // node + Parallel mixer
         f.key(Qt::Key_L, Qt::AltModifier);
         ClipGrade g = f.grade(f.first);
         int layers = 0;
@@ -273,8 +274,8 @@ private slots:
         f.action("color.timeline_grade")->trigger();
         QCOMPARE(f.session()->target(), ColorSession::Target::Timeline);
         QVERIFY(f.session()->hasGrade());
-        f.key(Qt::Key_S, Qt::AltModifier);
-        QCOMPARE(f.project.timeline()->data().grade.nodes.size(), 1);
+        f.key(Qt::Key_S, Qt::AltModifier); // 01 and 02 (spec 44b.20)
+        QCOMPARE(f.project.timeline()->data().grade.nodes.size(), 2);
         QVERIFY(f.grade(f.first).isEmpty());
         f.action("color.timeline_grade")->trigger();
         QCOMPARE(f.session()->target(), ColorSession::Target::Clip);
