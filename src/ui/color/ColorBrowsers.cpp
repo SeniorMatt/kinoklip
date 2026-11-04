@@ -122,15 +122,17 @@ ColorGallery::ColorGallery(ColorSession* session, Project* project, QWidget* par
     m_list->setMovement(QListView::Static);
     m_list->setSpacing(4);
     m_list->setUniformItemSizes(true);
-    m_list->setToolTip(tr("Double-click (or middle-click) a still to apply its grade; "
-                          "right-click for more"));
+    m_list->setToolTip(tr("Double-click a still to wipe the viewer with it, middle-click to "
+                          "apply its grade; right-click for more"));
     m_list->viewport()->installEventFilter(this);
     m_list->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(m_list, 1);
 
+    // As in Resolve a double-click shows the still as the viewer's reference wipe (again: off);
+    // the middle button applies its grade.
     connect(m_list, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
-        if (m_session)
-            m_session->applyStill(item->data(Qt::UserRole).toULongLong());
+        const quint64 id = item->data(Qt::UserRole).toULongLong();
+        setWipeStill(m_wipeStill == id ? 0 : id);
     });
     connect(m_list, &QListWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         QListWidgetItem* item = m_list->itemAt(pos);

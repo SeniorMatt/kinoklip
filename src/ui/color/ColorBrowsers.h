@@ -16,8 +16,9 @@ class ColorFrameSource;
 class ColorSession;
 class Project;
 
-/// The Gallery panel: the project's stills as thumbnails. Double-click or middle-click a still
-/// applies its grade to the current clip; its menu applies it to the clips selected in the
+/// The Gallery panel: the project's stills as thumbnails. Double-click a still to wipe the
+/// viewer with it (again: wipe off), middle-click applies its grade to the current clip; its
+/// menu applies it to the clips selected in the
 /// strip, wipes the viewer with it, renames or deletes it. (Grab Still is the page's
 /// color.grab_still command, in the panel's title bar.)
 class ColorGallery : public QWidget
