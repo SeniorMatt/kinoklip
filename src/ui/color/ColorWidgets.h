@@ -24,8 +24,9 @@ class ValueField;
 /// One colour wheel: a hue disc with a balance puck (drag to tint) and a master strip below
 /// it (drag left / right). Values are the deltas of the wheel's R, G, B and Y parameters from
 /// neutral: the puck adds a luma-neutral colour offset (moving towards a hue adds that hue and
-/// takes its opposite away, luma unchanged), the strip moves the master. Double-click resets
-/// the wheel (on the strip: only the master). Shift while dragging: fine control.
+/// takes its opposite away, luma unchanged), the strip moves the master. The reset arrow at the
+/// top right (Resolve's) or a double-click resets the wheel (a double-click on the strip: only
+/// the master). Shift while dragging: fine control.
 class ColorWheel : public QWidget
 {
     Q_OBJECT
@@ -44,6 +45,12 @@ public:
     /// The disc and the master strip (widget pixels; tests).
     [[nodiscard]] QRectF discRect() const;
     [[nodiscard]] QRectF stripRect() const;
+    /// The reset button at the top right (a click resets the wheel, as in Resolve).
+    [[nodiscard]] QRectF resetRect() const;
+    /// Mouse travel (pixels) of a full puck throw and of the master strip's -range() ..
+    /// +range(): the drag sensitivity, at least a fixed distance on small wheels.
+    [[nodiscard]] double puckThrowPx() const;
+    [[nodiscard]] double masterThrowPx() const;
 
     [[nodiscard]] QSize sizeHint() const override { return {120, 140}; }
     [[nodiscard]] QSize minimumSizeHint() const override { return {70, 90}; }
@@ -56,7 +63,7 @@ Q_SIGNALS:
     void balanceChanged(const std::array<double, 3>& rgbDelta);
     /// The master strip moved: new master delta.
     void masterChanged(double masterDelta);
-    /// Double-click on the disc: back to neutral.
+    /// The reset arrow or a double-click on the disc: back to neutral.
     void resetRequested();
     /// Double-click on the strip: master back to neutral.
     void masterResetRequested();
@@ -79,6 +86,7 @@ private:
     } m_drag = Drag::None;
     QPointF m_pressPos;
     QPointF m_pressPuck;
+    std::array<double, 3> m_pressRgb {};
     double m_pressMaster = 0.0;
 };
 

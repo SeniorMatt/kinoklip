@@ -265,11 +265,19 @@ void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
     }
     width->setValue(data->width);
     height->setValue(data->height);
+    width->setObjectName(QStringLiteral("TimelineWidth"));
+    height->setObjectName(QStringLiteral("TimelineHeight"));
+    // Resolve's resolution presets above the sizes (Custom unlocks them).
+    auto* presets = new QComboBox;
+    presets->setObjectName(QStringLiteral("TimelineResolution"));
+    ProjectSettingsDialog::bindResolutionPresets(presets, width, height);
+    form->addRow(
+        QCoreApplication::translate("kk::timelinedialogs", "Timeline resolution"), presets);
     auto* size = new QHBoxLayout;
     size->addWidget(width);
     size->addWidget(new QLabel(QStringLiteral("x")));
     size->addWidget(height);
-    form->addRow(QCoreApplication::translate("kk::timelinedialogs", "Timeline resolution"), size);
+    form->addRow(QString(), size);
     auto* fps = new QComboBox;
     for (const Rational& r : ProjectSettingsDialog::frameRates())
         fps->addItem(QStringLiteral("%1 fps").arg(QString::number(r.toDouble(), 'g', 5)),

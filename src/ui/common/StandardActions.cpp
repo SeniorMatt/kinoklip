@@ -403,6 +403,7 @@ const ActionSpec kActions[] = {
     {"color", "color.reset_node",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Reset Node Grade")},
     {"color", "color.reset_grade",    QT_TRANSLATE_NOOP("kk::StandardActions", "Reset &Clip Grade")},
     {"color", "color.timeline_grade", QT_TRANSLATE_NOOP("kk::StandardActions", "Grade the &Timeline"), "", true},
+    {"color", "color.keyframe",       QT_TRANSLATE_NOOP("kk::StandardActions", "Add / Remove &Keyframe"), "keyframe_on"},
     {"color", "-"},
     {"color", "color.grab_still",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Grab Still")},
     {"color", "color.apply_still",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Apply Grade from Still")},

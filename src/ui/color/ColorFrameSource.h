@@ -6,6 +6,7 @@
 #pragma once
 
 #include "core/Grade.h"
+#include "playback/PlaybackEngine.h"
 
 #include <QHash>
 #include <QImage>
@@ -23,21 +24,21 @@ class QFutureWatcher;
 namespace kk {
 
 class ColorSession;
-class PlaybackEngine;
 class Project;
 struct RenderedFrame;
 
 /// Pictures for the Color page.
 ///
-/// **Input picture.** input() is the program frame at the playhead rendered WITHOUT grades,
-/// kInputWidth wide: what the clip grade starts from when the clip covers the frame (the
+/// **Input picture.** input() is the program frame at the playhead rendered WITHOUT grades
+/// (for the timeline grade: with the clip grades, without the timeline grade; inputGrades()),
+/// kInputWidth wide: what the grade starts from when the clip covers the frame (the
 /// clip-content mapping of transformed clips is approximated by the full frame; see
 /// docs/color-page.md, "Full page"). It is refreshed a moment after the playhead stops or the
 /// timeline changes, never while playing.
 ///
 /// **Thumbnails.** thumbnail() is a clip's graded picture at its middle frame (the program
-/// composite there), kThumbSize; refreshed when the clip, its grade or the timeline grade
-/// change.
+/// composite there), kThumbSize, graded also while the viewers bypass the grades (Shift+D);
+/// refreshed when the clip, its grade or the timeline grade change.
 ///
 /// Thread-safety: GUI thread only (the renders complete on the compositor's threads).
 class ColorFrameSource : public QObject
@@ -67,6 +68,9 @@ public:
     void setInput(const QImage& image);
     /// Re-renders the input picture soon (debounced).
     void refreshInput();
+    /// The grades the input picture is rendered with: none for a clip grade, the clip grades
+    /// for the timeline grade (which comes after them).
+    [[nodiscard]] PlaybackEngine::ImageGrades inputGrades() const;
 
     /// The picture node @p nodeId receives, from input() (@p size: scaled first; empty = the
     /// input's size). Unknown node: input().
@@ -99,7 +103,8 @@ private:
     {
         int64_t frame = 0;
         QSize size;
-        bool graded = true;
+        PlaybackEngine::ImageGrades grades = PlaybackEngine::ImageGrades::All;
+        bool input = false; ///< the input picture (a newer one replaces it in the queue)
         std::function<void(const QImage&)> done;
     };
 

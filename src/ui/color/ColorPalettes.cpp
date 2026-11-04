@@ -276,7 +276,7 @@ QualifierPanel::QualifierPanel(ColorSession* session, QWidget* parent)
     tools->addStretch(1);
     m_highlight = toolButton(tr("Highlight"), this, true);
     m_highlight->setObjectName(QStringLiteral("QualifierHighlight"));
-    m_highlight->setToolTip(tr("Show the node's key in the viewer (Shift+H)"));
+    m_highlight->setToolTip(tr("Show the node's key in the viewer")); // the page adds the key
     m_highlightMode = new QComboBox(this);
     m_highlightMode->setObjectName(QStringLiteral("QualifierHighlightMode"));
     m_highlightMode->addItem(tr("Grey"));

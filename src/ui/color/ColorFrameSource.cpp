@@ -60,6 +60,9 @@ ColorFrameSource::ColorFrameSource(
         refreshInput();
         refreshThumbnails();
     });
+    // The timeline grade starts from another picture than a clip grade.
+    if (session)
+        connect(session, &ColorSession::clipChanged, this, &ColorFrameSource::refreshInput);
 }
 
 ColorFrameSource::~ColorFrameSource()
@@ -98,6 +101,13 @@ void ColorFrameSource::refreshThumbnails()
         m_thumbTimer->start();
 }
 
+PlaybackEngine::ImageGrades ColorFrameSource::inputGrades() const
+{
+    return m_session && m_session->target() == ColorSession::Target::Timeline
+        ? PlaybackEngine::ImageGrades::ClipsOnly
+        : PlaybackEngine::ImageGrades::None;
+}
+
 void ColorFrameSource::renderInputNow()
 {
     if (!m_engine || !m_engine->compositor() || !m_active)
@@ -113,11 +123,12 @@ void ColorFrameSource::renderInputNow()
     job.frame = m_project->timeline()->playhead();
     job.size = QSize(
         kInputWidth, std::max(1, int(std::lround(double(kInputWidth) * data.height / data.width))));
-    job.graded = false;
+    job.grades = inputGrades();
+    job.input = true;
     job.done = [this](const QImage& image) { setInput(image); };
     // A newer input request replaces a queued one.
     m_queue.erase(
-        std::remove_if(m_queue.begin(), m_queue.end(), [](const Job& j) { return !j.graded; }),
+        std::remove_if(m_queue.begin(), m_queue.end(), [](const Job& j) { return j.input; }),
         m_queue.end());
     m_queue.prepend(std::move(job));
     runNext();
@@ -168,7 +179,7 @@ void ColorFrameSource::renderThumbnailsNow()
         Job job;
         job.frame = c->start + std::max<int64_t>(0, c->duration / 2);
         job.size = kThumbSize;
-        job.graded = true;
+        job.grades = PlaybackEngine::ImageGrades::All; // the strip ignores Shift+D
         job.done = [this, id, sig](const QImage& image) {
             Thumb& t = m_thumbs[id];
             if (t.signature != sig)
@@ -193,7 +204,7 @@ void ColorFrameSource::runNext()
     m_running = m_queue.takeFirst();
     m_busy = true;
     auto future = std::make_shared<std::future<RenderedFramePtr>>(
-        m_engine->renderImage(m_running.frame, m_running.size, m_running.graded));
+        m_engine->renderImage(m_running.frame, m_running.size, m_running.grades));
     m_watcher->setFuture(QtConcurrent::run([future] { return future->get(); }));
 }
 

@@ -294,7 +294,8 @@ struct ClipGrade
     friend bool operator==(const ClipGrade&, const ClipGrade&) = default;
 };
 
-/// Display name of a node: its label, or its 1-based number in the node list ("01").
+/// Display name of a node: its label, or the corrector's 1-based number among the correctors
+/// of the node list ("01"; mixers are not numbered: empty without a label).
 [[nodiscard]] QString gradeNodeName(const ClipGrade& grade, int index);
 
 /// Stable string id of a node type in project files ("corrector", "parallel", "layer").

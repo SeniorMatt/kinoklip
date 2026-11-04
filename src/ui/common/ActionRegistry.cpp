@@ -13,6 +13,7 @@
 #include <QLoggingCategory>
 #include <QSaveFile>
 #include <QSettings>
+#include <QWidget>
 
 #include <optional>
 
@@ -302,6 +303,29 @@ void ActionRegistry::setShortcuts(const QString& id, const QList<QKeySequence>& 
     persistOverrides();
     applyShortcuts(id, shortcuts);
     emit shortcutsChanged(id);
+}
+
+QString ActionRegistry::shortcutText(const QString& id) const
+{
+    const QList<QKeySequence> keys = shortcuts(id);
+    return keys.isEmpty() ? QString() : keys.first().toString(QKeySequence::NativeText);
+}
+
+void ActionRegistry::watchShortcut(
+    QObject* context, const QString& id, const std::function<void(const QString&)>& apply)
+{
+    apply(shortcutText(id));
+    connect(this, &ActionRegistry::shortcutsChanged, context, [this, id, apply](const QString& c) {
+        if (c == id)
+            apply(shortcutText(id));
+    });
+}
+
+void ActionRegistry::bindToolTip(QWidget* widget, const QString& id, const QString& text)
+{
+    watchShortcut(widget, id, [widget, text](const QString& key) {
+        widget->setToolTip(key.isEmpty() ? text : QStringLiteral("%1 (%2)").arg(text, key));
+    });
 }
 
 void ActionRegistry::resetShortcuts(const QString& id)

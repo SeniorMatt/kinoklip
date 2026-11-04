@@ -36,6 +36,10 @@ constexpr double kCrScale = 1.5748;
 constexpr double kStripHeight = 12.0;
 /// Title height above each wheel (px).
 constexpr double kTitleHeight = 15.0;
+/// Least mouse travel (pixels) for a full puck throw / for the master strip's range of
+/// -range() .. +range() (wheel drag sensitivity, independent of the wheel's size).
+constexpr double kPuckThrowPx = 200.0;
+constexpr double kMasterThrowPx = 400.0;
 /// Pick radius of curve points (px).
 constexpr double kPointRadius = 6.0;
 constexpr Wheel kWheels[] = {Wheel::Lift, Wheel::Gamma, Wheel::Gain, Wheel::Offset};
@@ -95,7 +99,8 @@ ColorWheel::ColorWheel(Wheel wheel, QWidget* parent)
 {
     setObjectName(QStringLiteral("ColorWheel_") + wheelName(wheel));
     setToolTip(tr("%1: drag the centre to balance the colour, drag the bar below for the master "
-                  "level; Shift for fine control; double-click resets")
+                  "level; Shift for fine control; the arrow at the top right or a "
+                  "double-click resets")
                    .arg(wheelName(wheel)));
 }
 
@@ -140,6 +145,23 @@ QRectF ColorWheel::discRect() const
     return QRectF((width() - side) / 2, top, side, side);
 }
 
+double ColorWheel::puckThrowPx() const
+{
+    return std::max(discRect().width() / 2 - 6, kPuckThrowPx);
+}
+
+double ColorWheel::masterThrowPx() const
+{
+    return std::max(stripRect().width(), kMasterThrowPx);
+}
+
+QRectF ColorWheel::resetRect() const
+{
+    const QRectF d = discRect();
+    return QRectF(
+        std::min(d.right(), double(width())) - kTitleHeight, 0, kTitleHeight, kTitleHeight);
+}
+
 QRectF ColorWheel::stripRect() const
 {
     const QRectF d = discRect();
@@ -155,6 +177,17 @@ void ColorWheel::paintEvent(QPaintEvent*)
     p.setPen(pal.color(QPalette::WindowText));
     p.drawText(QRectF(0, 0, width(), kTitleHeight - 2), Qt::AlignHCenter | Qt::AlignVCenter,
         wheelName(m_wheel));
+    {
+        // The wheel's reset button (top right, as in Resolve); bright when there is something
+        // to reset.
+        const bool changed
+            = m_master != 0.0 || m_rgb[0] != 0.0 || m_rgb[1] != 0.0 || m_rgb[2] != 0.0;
+        QColor c = pal.color(QPalette::WindowText);
+        c.setAlphaF(changed ? 1.0f : 0.35f);
+        p.setPen(c);
+        p.drawText(resetRect(), Qt::AlignCenter, QStringLiteral("\u21BA"));
+        p.setPen(pal.color(QPalette::WindowText));
+    }
     const QRectF d = discRect();
     // Hue ring: Cr up, Cb right, so a hue sits where the puck adds it.
     QConicalGradient ring(d.center(), 0);
@@ -217,9 +250,14 @@ void ColorWheel::mousePressEvent(QMouseEvent* event)
     if (event->button() != Qt::LeftButton)
         return;
     const QPointF pos = event->position();
+    if (resetRect().contains(pos)) {
+        emit resetRequested();
+        return;
+    }
     m_pressPos = pos;
     m_pressMaster = m_master;
     m_pressPuck = puckFor(m_rgb);
+    m_pressRgb = m_rgb;
     if (stripRect().adjusted(-2, -4, 2, 4).contains(pos))
         m_drag = Drag::Strip;
     else if (discRect().contains(pos))
@@ -234,9 +272,10 @@ void ColorWheel::mouseMoveEvent(QMouseEvent* event)
     const QPointF pos = event->position();
     const bool fine = event->modifiers() & Qt::ShiftModifier;
     if (m_drag == Drag::Puck) {
-        // Relative drag (the puck follows the mouse from where it was), like a trackball.
-        const QRectF d = discRect();
-        QPointF delta = (pos - m_pressPos) / (d.width() / 2 - 6);
+        // Relative drag (the puck moves from where it was), like a trackball, at a fixed rate:
+        // a full throw takes at least kPuckThrowPx of mouse travel whatever the wheel's size,
+        // so a small wheel (a laptop screen) is not coarser than a big one.
+        QPointF delta = (pos - m_pressPos) / puckThrowPx();
         delta.setY(-delta.y());
         if (fine)
             delta *= 0.25;
@@ -244,7 +283,12 @@ void ColorWheel::mouseMoveEvent(QMouseEvent* event)
         const double len = std::hypot(v.x(), v.y());
         if (len > 1.0)
             v /= len;
-        m_rgb = deltaFor(v);
+        // The puck shows only the colour (luma-neutral) part of the R, G, B values: a luma
+        // part typed into the fields stays as it was.
+        const std::array<double, 3> colour = deltaFor(v);
+        const std::array<double, 3> pressColour = deltaFor(m_pressPuck);
+        for (int c = 0; c < 3; ++c)
+            m_rgb[size_t(c)] = colour[size_t(c)] + (m_pressRgb[size_t(c)] - pressColour[size_t(c)]);
         update();
         emit balanceChanged(m_rgb);
     } else if (m_drag == Drag::Strip) {
@@ -252,7 +296,7 @@ void ColorWheel::mouseMoveEvent(QMouseEvent* event)
         if (fine)
             dx *= 0.25;
         m_master = std::clamp(
-            m_pressMaster + dx / stripRect().width() * 2 * range(), -range() * 4, range() * 4);
+            m_pressMaster + dx / masterThrowPx() * 2 * range(), -range() * 4, range() * 4);
         update();
         emit masterChanged(m_master);
     }
@@ -268,6 +312,8 @@ void ColorWheel::mouseReleaseEvent(QMouseEvent* event)
 
 void ColorWheel::mouseDoubleClickEvent(QMouseEvent* event)
 {
+    if (resetRect().contains(event->position()))
+        return; // the press already reset
     if (stripRect().adjusted(-2, -4, 2, 4).contains(event->position()))
         emit masterResetRequested();
     else

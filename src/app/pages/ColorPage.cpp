@@ -96,6 +96,16 @@ QWidget* tabRow(
     return row;
 }
 
+/// Gives @p w the tooltip @p text with the current key of command @p id (it follows Keyboard
+/// Customization).
+void toolTipWithKey(const AppContext& ctx, QWidget* w, const char* id, const QString& text)
+{
+    if (ctx.actions && ctx.actions->contains(QLatin1String(id)))
+        ctx.actions->bindToolTip(w, QLatin1String(id), text);
+    else
+        w->setToolTip(text);
+}
+
 /// True when @p w takes typed text (the page then leaves the keys to it).
 bool isTextInput(const QWidget* w)
 {
@@ -293,11 +303,13 @@ QWidget* ColorPage::buildViewer()
     m_viewerFrame->addTitleBarLeadingWidget(targets);
     m_highlightButton
         = headerButton(tr("Highlight"), QStringLiteral("ColorHighlightButton"), nullptr);
-    m_highlightButton->setToolTip(tr("Show the current node's key (Shift+H)"));
+    toolTipWithKey(m_ctx, m_highlightButton, "color.highlight", tr("Show the current node's key"));
     m_wipeButton = headerButton(tr("Wipe"), QStringLiteral("ColorWipeButton"), nullptr);
-    m_wipeButton->setToolTip(tr("Split the viewer with the selected gallery still (Ctrl+W)"));
+    toolTipWithKey(
+        m_ctx, m_wipeButton, "color.wipe", tr("Split the viewer with the selected gallery still"));
     m_bypassButton = headerButton(tr("Bypass"), QStringLiteral("ColorBypassButton"), nullptr);
-    m_bypassButton->setToolTip(tr("Bypass every grade in the viewers (Shift+D)"));
+    toolTipWithKey(
+        m_ctx, m_bypassButton, "color.bypass_all", tr("Bypass every grade in the viewers"));
     m_viewerFrame->addTitleBarWidget(m_highlightButton);
     m_viewerFrame->addTitleBarWidget(m_wipeButton);
     m_viewerFrame->addTitleBarWidget(m_bypassButton);
@@ -355,6 +367,8 @@ QWidget* ColorPage::buildPalettes()
     m_primaries = new PrimariesPanel(m_session);
     m_curves = new ColorCurvesPanel(m_session);
     m_qualifier = new QualifierPanel(m_session);
+    toolTipWithKey(m_ctx, m_qualifier->highlightButton(), "color.highlight",
+        QualifierPanel::tr("Show the node's key in the viewer"));
     m_windows = new WindowsPanel(m_session);
     m_luts = new LutBrowser(m_session);
     m_paletteStack = new QStackedWidget;
@@ -451,6 +465,7 @@ void ColorPage::connectActions()
     on("color.bypass_node", [this] { m_session->toggleNodeBypass(); });
     on("color.reset_node", [this] { m_session->resetNode(); });
     on("color.reset_grade", [this] { m_session->resetGrade(); });
+    on("color.keyframe", [this] { m_session->toggleKeyframe(); });
     on("color.grab_still", [this] {
         const quint64 id = m_session->grabStill();
         if (id)
@@ -554,6 +569,12 @@ void ColorPage::refreshPictures()
     if (!m_frames->input().isNull()) {
         for (const GradeNode& n : m_session->grade().nodes)
             thumbs.insert(n.id, m_frames->nodeOutput(n.id, kNodeThumb));
+        // The node 01 the editor shows for an ungraded clip: the picture as it is.
+        if (m_session->grade().isEmpty() && m_session->hasGrade()) {
+            thumbs.insert(1,
+                m_frames->input().scaled(
+                    kNodeThumb, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+        }
     }
     m_nodes->setThumbnails(thumbs);
     // Highlight.
@@ -570,15 +591,12 @@ void ColorPage::pickQualifier(const QRectF& frameRect)
 {
     if (!m_session->hasGrade())
         return;
-    if (m_session->grade().isEmpty() || !m_session->currentNode()
-        || m_session->currentNode()->isMixer()) {
-        // The pick needs a corrector: an ungraded clip gets its first node.
-        if (m_session->grade().isEmpty())
-            m_session->addSerialNode();
-        if (!m_session->currentNode() || m_session->currentNode()->isMixer())
-            return;
-    }
-    const quint64 node = m_session->selectedNode();
+    // The pick needs a corrector: an ungraded clip's node 01 (setQualifier() creates it).
+    const GradeNode* current = m_session->currentNode();
+    if (!m_session->grade().isEmpty() && (!current || current->isMixer()))
+        return;
+    const quint64 node = current ? current->id : 0;
+    const GradeQualifier base = current ? current->qualifier : GradeQualifier {};
     QVector<qualifierpick::Hsl> samples;
     const int steps = frameRect.isEmpty() ? 1 : 6;
     for (int iy = 0; iy < steps; ++iy) {
@@ -595,8 +613,7 @@ void ColorPage::pickQualifier(const QRectF& frameRect)
     if (samples.isEmpty())
         return;
     const qualifierpick::Mode mode = m_qualifier->pickMode().value_or(qualifierpick::Mode::Pick);
-    const GradeQualifier q
-        = qualifierpick::apply(m_session->currentNode()->qualifier, samples, mode);
+    const GradeQualifier q = qualifierpick::apply(base, samples, mode);
     m_session->setQualifier(0, q,
         mode == qualifierpick::Mode::Pick      ? tr("Qualifier Pick")
             : mode == qualifierpick::Mode::Add ? tr("Qualifier Add")
@@ -731,6 +748,15 @@ void ColorPage::showEvent(QShowEvent* event)
         m_rows->setSizes({h - middle - bottom, middle, bottom});
     }
     m_session->openClip(0);
+    // The page's keys act while focus is inside it (Alt+S right after Shift+6, as in
+    // Resolve): when the page that had the focus went away, the node editor takes it.
+    QTimer::singleShot(0, this, [this] {
+        const QWidget* focus = QApplication::focusWidget();
+        const bool elsewhereInWindow
+            = focus && focus->window() == window() && focus != this && !isAncestorOf(focus);
+        if (isVisible() && (!focus || !focus->isVisible() || elsewhereInWindow))
+            m_nodes->setFocus(Qt::OtherFocusReason);
+    });
     updateOutputClient();
     if (m_ctx.playback && m_ctx.playback->currentFrame())
         m_surface->setRenderedFrame(m_ctx.playback->currentFrame());

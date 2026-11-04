@@ -317,6 +317,7 @@
         "color.bypass_all": ["Shift+D"],
         "color.reset_node": ["Shift+Home"],
         "color.reset_grade": ["Ctrl+Home"],
+        "color.keyframe": [],
         "color.timeline_grade": [],
         "color.grab_still": ["Ctrl+Alt+G"],
         "color.apply_still": [],
