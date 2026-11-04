@@ -253,4 +253,14 @@ void setAnimationSpeed(double factor)
         QLatin1String(kAnimationSpeed), std::clamp(factor, kMinAnimationSpeed, kMaxAnimationSpeed));
 }
 
+bool effectsLivePreview()
+{
+    return QSettings().value(QLatin1String(kEffectsLivePreview), true).toBool();
+}
+
+void setEffectsLivePreview(bool on)
+{
+    QSettings().setValue(QLatin1String(kEffectsLivePreview), on);
+}
+
 } // namespace kk::prefs

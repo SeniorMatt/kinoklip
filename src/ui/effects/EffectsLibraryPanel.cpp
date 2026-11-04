@@ -4,6 +4,7 @@
 
 #include "core/AudioTransitions.h"
 #include "core/EffectRegistry.h"
+#include "core/Preferences.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
@@ -19,11 +20,16 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QSplitter>
+#include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+#include <algorithm>
+#include <functional>
 
 namespace kk {
 
@@ -42,7 +48,17 @@ class EffectsTree final : public QTreeWidget
 public:
     using QTreeWidget::QTreeWidget;
 
+    /// Called before a drag starts (ends the live preview).
+    std::function<void()> dragStarting;
+
 protected:
+    void startDrag(Qt::DropActions supportedActions) override
+    {
+        if (dragStarting)
+            dragStarting();
+        QTreeWidget::startDrag(supportedActions);
+    }
+
     QStringList mimeTypes() const override { return {QLatin1String(mime::Effect)}; }
     /// Copy only (the drag source's actions come from here): the library never loses items,
     /// and Wayland negotiates one unambiguous action.
@@ -283,7 +299,9 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
         m_search->addAction(icon(QStringLiteral("search")), QLineEdit::LeadingPosition);
     layout->addWidget(m_search);
 
-    m_tree = new EffectsTree;
+    auto* tree = new EffectsTree;
+    tree->dragStarting = [this] { endHover(); }; // a drag ends the live preview
+    m_tree = tree;
     m_tree->setHeaderHidden(true);
     m_tree->setRootIsDecorated(true);
     m_tree->setFrameShape(QFrame::NoFrame);
@@ -294,7 +312,34 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     m_tree->setDragDropMode(QAbstractItemView::DragOnly);
     m_tree->setDefaultDropAction(Qt::CopyAction);
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
+    // Live Preview follows the pointer over the entries (hoverAt()).
+    m_tree->setMouseTracking(true);
+    m_tree->viewport()->setMouseTracking(true);
+    m_tree->viewport()->installEventFilter(this);
     layout->addWidget(m_tree, 1);
+
+    // Options menu ("…" at the right of the title bar), like the panels' option menus in
+    // Resolve: Live Preview, on by default and remembered.
+    auto* options = new QToolButton;
+    options->setObjectName(QStringLiteral("EffectsOptions"));
+    options->setText(QStringLiteral("\u2026"));
+    options->setToolTip(tr("Effects library options"));
+    options->setAutoRaise(true);
+    options->setPopupMode(QToolButton::InstantPopup);
+    auto* optionsMenu = new QMenu(options);
+    m_livePreviewAction = optionsMenu->addAction(tr("Live Preview"));
+    m_livePreviewAction->setObjectName(QStringLiteral("EffectsLivePreview"));
+    m_livePreviewAction->setCheckable(true);
+    m_livePreviewAction->setChecked(prefs::effectsLivePreview());
+    m_livePreviewAction->setToolTip(
+        tr("Show the entry under the pointer applied to the frame in the timeline viewer"));
+    connect(m_livePreviewAction, &QAction::toggled, this, [this](bool on) {
+        prefs::setEffectsLivePreview(on);
+        if (!on)
+            endHover();
+    });
+    options->setMenu(optionsMenu);
+    addTitleBarWidget(options);
 
     auto* splitter = new PanelSplitter(Qt::Horizontal);
     splitter->setChildrenCollapsible(false);
@@ -426,8 +471,66 @@ void EffectsLibraryPanel::populate()
     m_categories->setCurrentItem(toolbox);
 }
 
+bool EffectsLibraryPanel::livePreviewEnabled() const
+{
+    return m_livePreviewAction->isChecked();
+}
+
+void EffectsLibraryPanel::hoverAt(QPoint viewportPos)
+{
+    QTreeWidgetItem* item = m_tree->itemAt(viewportPos);
+    const QString id = item ? item->data(0, kDescriptorRole).toString() : QString();
+    if (id.isEmpty() || !livePreviewEnabled() || !isVisible()) {
+        endHover();
+        return;
+    }
+    // The pointer's place along the row scrubs transitions and titles (Resolve).
+    const QRect row = m_tree->visualItemRect(item);
+    const double position = row.width() > 1
+        ? std::clamp(double(viewportPos.x() - row.left()) / (row.width() - 1), 0.0, 1.0)
+        : 0.5;
+    m_hoveredId = id;
+    emit livePreviewRequested(id, position);
+}
+
+void EffectsLibraryPanel::endHover()
+{
+    if (m_hoveredId.isEmpty())
+        return;
+    m_hoveredId.clear();
+    emit livePreviewEnded();
+}
+
+bool EffectsLibraryPanel::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_tree->viewport()) {
+        switch (event->type()) {
+        case QEvent::MouseMove: {
+            const auto* move = static_cast<QMouseEvent*>(event);
+            if (move->buttons() == Qt::NoButton)
+                hoverAt(move->position().toPoint());
+            break;
+        }
+        case QEvent::Leave:
+        case QEvent::Wheel: // the entry under the pointer changes; the next move picks it
+            endHover();
+            break;
+        default:
+            break;
+        }
+    }
+    return PanelFrame::eventFilter(watched, event);
+}
+
+void EffectsLibraryPanel::hideEvent(QHideEvent* event)
+{
+    endHover();
+    PanelFrame::hideEvent(event);
+}
+
 void EffectsLibraryPanel::setCategoryFilter(int category)
 {
+    endHover();
     m_category = category;
     applyFilters();
 }
@@ -441,6 +544,7 @@ void EffectsLibraryPanel::setFilterText(const QString& text)
 
 void EffectsLibraryPanel::applyFilters()
 {
+    endHover(); // the rows move
     const QString needle = m_search->text().trimmed();
     const EffectRegistry& registry = EffectRegistry::instance();
     for (int s = 0; s < m_tree->topLevelItemCount(); ++s) {

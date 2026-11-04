@@ -424,6 +424,25 @@ std::future<RenderedFramePtr> PlaybackEngine::renderImage(
     return m_compositor->renderAsync(std::move(request));
 }
 
+std::future<RenderedFramePtr> PlaybackEngine::renderAlternative(
+    std::shared_ptr<const TimelineData> timeline, int64_t frame,
+    std::shared_ptr<const std::atomic<bool>> cancelled) const
+{
+    const RenderParams& params = m_scheduler.params();
+    RenderRequest request;
+    request.timeline = std::move(timeline);
+    request.media = m_media;
+    request.proxies = m_proxies;
+    request.bypassGrades = m_bypassGrades;
+    request.dynamicZoom = m_dynamicZoomApplied;
+    request.frame = frame;
+    request.outSize = params.outSize;
+    request.quality = currentQuality();
+    request.outputs = params.outputs;
+    request.cancelled = std::move(cancelled);
+    return m_compositor->renderAsync(std::move(request));
+}
+
 Quality PlaybackEngine::currentQuality() const
 {
     switch (m_qualityMode) {

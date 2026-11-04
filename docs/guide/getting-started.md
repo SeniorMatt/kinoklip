@@ -151,6 +151,9 @@ Made a mistake? **Ctrl+Z** undoes, **Ctrl+Shift+Z** redoes.
      in the picture, on a dark box, as used to introduce someone.
    - **Scroll**: rolling credits that move up through the picture over the length of the clip.
    - **Text Box**: a text on a plain background box.
+   Rest the pointer on a title to see it over the picture in the timeline viewer first
+   (**Live Preview**; it works for effects and transitions too, and moving along the name
+   plays the title or transition through). Turn it off in the effects library's **…** menu.
 3. Drag the title onto an empty video track above your clips, where it should appear (or
    double-click it to add it at the playhead). It becomes a five-second title clip.
 

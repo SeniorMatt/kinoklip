@@ -71,6 +71,9 @@ inline constexpr char kEditIndexHiddenColumns[] = "editIndex/hiddenColumns";
 /// bool: a desktop notification when the render queue finishes (Preferences > UI Settings >
 /// "Show a system notification when renders finish"); default true (spec 45.5).
 inline constexpr char kRenderNotifications[] = "deliver/notifyWhenFinished";
+/// bool: the Effects library's Live Preview (its options menu; spec 47): hovering an entry
+/// shows it applied in the timeline viewer; default true, as in Resolve.
+inline constexpr char kEffectsLivePreview[] = "effects/livePreview";
 
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).
@@ -160,5 +163,9 @@ void setAnimationSpeed(double factor);
 [[nodiscard]] bool renderNotificationsEnabled();
 /// Stores kRenderNotifications.
 void setRenderNotificationsEnabled(bool on);
+/// kEffectsLivePreview (default true).
+[[nodiscard]] bool effectsLivePreview();
+/// Stores kEffectsLivePreview.
+void setEffectsLivePreview(bool on);
 
 } // namespace kk::prefs
