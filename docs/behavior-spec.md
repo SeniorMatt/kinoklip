@@ -872,6 +872,7 @@ Tests: pl = tests/projects/test_projectlibrary.cpp, pm = tests/app/test_projectm
 | 38.28 | File > Open Recent shows a "&" in a project name as text. | Fixed (bughunt4: it was taken for a mnemonic and vanished; test_bughunt4 spec38_28_recentProjectNamesKeepAmpersands) |
 | 38.29 | Renaming or moving a project, or a folder of projects, in the Project Manager keeps its File > Open Recent and Recent Projects entries. | Fixed (bughunt4: they showed "(missing)"; `ProjectLibrary::moved`; test_bughunt4 spec38_29_recentProjectsFollowRenameAndMove) |
 | 38.30 | Save As names a never-saved project after the file it is saved as (as Resolve's Save Project As asks for the name); a project whose name was its file's name follows the new file; a name set in Project Settings stays. | Fixed (bughunt4: the title bar and the autosave kept "Untitled Project" after the first save; test_bughunt4 spec38_30_saveAsNamesTheProject) |
+| 38.31 | Interface texts with an ellipsis read "Import…", "Export…", "Rename Bus…", "Browse…", never the double-encoded "Importâ€¦" (the Project Manager's buttons and menus, the project list's Loading, Preferences, the mixer's bus menu, Save as New Preset, the Inspector's font list). | Fixed (bughunt9: a text clean-up had written the ellipsis as UTF-8 read as Latin-1 in six source files; bh9 spec38_31_noDoubleEncodedTexts scans the sources) |
 
 ## 39. Single-file projects (kkpack branch, v4 part 2)
 

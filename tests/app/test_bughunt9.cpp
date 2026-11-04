@@ -29,6 +29,8 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDir>
+#include <QDirIterator>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
 #include <QMenu>
@@ -212,6 +214,29 @@ private slots:
             QVERIFY2(!box->isEnabled(), audio);
             QVERIFY2(!panel->settings().subtitles.enabled, audio);
         }
+    }
+
+    // Spec 38.31: no interface text is double-encoded UTF-8 ("Importâ€¦" for "Import…"): the
+    // sources hold no such byte sequence, and the Project Manager's buttons read right.
+    void spec38_31_noDoubleEncodedTexts()
+    {
+        const QString src = QStringLiteral(KK_TEST_DATA_DIR "/../../src");
+        QVERIFY(QDir(src).exists());
+        // U+00E2 U+0080..U+00BF in UTF-8: a UTF-8 lead byte E2 (… — “ ” ’) read as Latin-1.
+        QStringList bad;
+        QDirIterator it(src, {QStringLiteral("*.cpp"), QStringLiteral("*.h")}, QDir::Files,
+            QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            QFile file(it.next());
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            const QByteArray bytes = file.readAll();
+            for (qsizetype i = bytes.indexOf("\xc3\xa2\xc2"); i >= 0;
+                 i = bytes.indexOf("\xc3\xa2\xc2", i + 1)) {
+                bad.append(QStringLiteral("%1 at byte %2").arg(file.fileName()).arg(i));
+                break;
+            }
+        }
+        QVERIFY2(bad.isEmpty(), qPrintable(bad.join(QLatin1Char('\n'))));
     }
 };
 

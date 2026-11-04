@@ -205,7 +205,7 @@ RenderSettingsPanel::RenderSettingsPanel(AppContext& ctx, ExportPresets* presets
     presetMenuButton->setAutoRaise(true);
     presetMenuButton->setFocusPolicy(Qt::NoFocus);
     auto* menu = new QMenu(presetMenuButton);
-    menu->addAction(tr("Save as New Presetâ¦"), this, &RenderSettingsPanel::savePreset);
+    menu->addAction(tr("Save as New Preset…"), this, &RenderSettingsPanel::savePreset);
     menu->addAction(tr("Delete Selected User Preset"), this, &RenderSettingsPanel::deletePreset);
     presetMenuButton->setMenu(menu);
     addTitleBarWidget(presetMenuButton);

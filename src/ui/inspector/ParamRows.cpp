@@ -704,7 +704,7 @@ public:
         m_name->setPlaceholderText(tr("No file"));
         m_browse = new QToolButton(box);
         m_browse->setObjectName(QStringLiteral("browse:") + desc.key);
-        m_browse->setText(tr("Browseâ¦"));
+        m_browse->setText(tr("Browse…"));
         m_browse->setToolTip(tr("Choose the file"));
         layout->addWidget(m_name, 1);
         layout->addWidget(m_browse);

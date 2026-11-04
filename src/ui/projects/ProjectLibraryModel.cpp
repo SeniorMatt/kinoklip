@@ -221,7 +221,7 @@ QVariant ProjectLibraryModel::data(const QModelIndex& index, int role) const
         return meta ? meta->missingMediaCount : 0;
     if (role == DetailsRole) {
         if (!meta)
-            return tr("Loadingâ¦");
+            return tr("Loading…");
         if (!meta->isValid())
             return meta->error;
         QStringList parts;
