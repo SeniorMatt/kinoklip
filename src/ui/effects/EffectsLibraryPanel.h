@@ -5,6 +5,8 @@
 
 #include "ui/common/PanelFrame.h"
 
+#include <functional>
+
 class QLineEdit;
 class QMenu;
 class QTreeWidget;
@@ -46,6 +48,14 @@ public:
     /// an article for it), or nullptr when it would be empty. The caller owns it.
     [[nodiscard]] QMenu* createContextMenu(const QString& descriptorId);
 
+    /// Double-clicked transitions go to @p handler first (the Edit page: the selected edit
+    /// point, else the edit nearest the playhead, spec 13.18); it returns whether it applied
+    /// the transition, else effectactions::activate() does.
+    void setTransitionHandler(std::function<bool(const QString&)> handler)
+    {
+        m_transitionHandler = std::move(handler);
+    }
+
 signals:
     /// The user activated descriptor @p descriptorId (after it was applied).
     void effectActivated(const QString& descriptorId);
@@ -56,6 +66,7 @@ private:
     void activate(const QString& descriptorId);
 
     AppContext& m_ctx;
+    std::function<bool(const QString&)> m_transitionHandler;
     QLineEdit* m_search = nullptr;
     QTreeWidget* m_tree = nullptr;
     QTreeWidget* m_categories = nullptr; ///< Resolve's sidebar: Toolbox > categories, Audio FX

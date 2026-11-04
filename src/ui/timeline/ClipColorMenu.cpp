@@ -6,6 +6,7 @@
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
 #include "core/MediaUsage.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
@@ -14,6 +15,7 @@
 #include <QMenu>
 #include <QPainter>
 #include <QPixmap>
+#include <QSettings>
 
 namespace kk {
 
@@ -121,6 +123,43 @@ void addClipColorMenus(
             project->mediaPool()->setFlags(id, 0);
         project->endEdit();
     });
+}
+
+int toolBarFlag()
+{
+    const int index = flagIndex(QSettings().value(QLatin1String(prefs::kToolBarFlag)).toString());
+    return index >= 0 ? index : 0;
+}
+
+bool toggleFlag(AppContext& ctx, const QVector<quint64>& clipIds, int flag)
+{
+    Project* project = ctx.project;
+    if (!project || flag < 0 || flag >= int(flagPalette().size()))
+        return false;
+    const TimelineData& data = project->timeline()->data();
+    QStringList items;
+    for (const quint64 id : clipIds) {
+        const ClipData* clip = editops::clipById(data, id);
+        const QString item
+            = clip ? usage::itemIdOf(*clip, project->mediaPool()->state()) : QString();
+        if (!item.isEmpty() && !items.contains(item))
+            items.append(item);
+    }
+    if (items.isEmpty())
+        return false;
+    const quint32 bit = 1u << flag;
+    bool allOn = true;
+    for (const QString& id : std::as_const(items)) {
+        const MediaItem* m = project->mediaPool()->item(id);
+        allOn = allOn && m && (m->flags & bit);
+    }
+    project->beginEdit(allOn ? tr("Remove Flag") : tr("Add Flag"));
+    for (const QString& id : std::as_const(items)) {
+        if (const MediaItem* m = project->mediaPool()->item(id))
+            project->mediaPool()->setFlags(id, allOn ? m->flags & ~bit : m->flags | bit);
+    }
+    project->endEdit();
+    return true;
 }
 
 } // namespace kk

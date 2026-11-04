@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 330 commands; sure 106, likely 102, unsure 122.
+Counts: 331 commands; sure 106, likely 103, unsure 122.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -169,6 +169,7 @@ that every command has an entry and that no key is used twice.
 | Command | Action id | Key | Confidence | Note |
 |---|---|---|---|---|
 | Enable / Disable Clip | `clip.toggle_enabled` | `D` | sure |  |
+| Flag Clip (toggles the flag colour picked in the tool bar's flag menu on the selected clips' media) | `clip.flag` | (none) | likely | Resolve's timeline tool bar flag button with its colour drop-down; no default key known |
 | Match Frame (load the source at this frame) | `clip.match_frame` | `F` | sure |  |
 | Change Clip Duration | `clip.change_duration` | `Ctrl+D` | sure |  |
 | Change Clip Speed | `clip.change_speed` | `R` | likely |  |

@@ -19,4 +19,12 @@ struct AppContext;
 void addClipColorMenus(
     QMenu& menu, AppContext& ctx, const QVector<quint64>& clipIds, QObject* context);
 
+/// Index in flagPalette() of the flag the tool bar's flag button sets (settings
+/// prefs::kToolBarFlag; Blue by default).
+[[nodiscard]] int toolBarFlag();
+/// Clip > Flag Clip (spec 33.36): toggles flag @p flag on the media pool items of @p clipIds
+/// of the active timeline: removed when every item has it, else added; one undo step.
+/// Returns whether anything changed.
+bool toggleFlag(AppContext& ctx, const QVector<quint64>& clipIds, int flag);
+
 } // namespace kk

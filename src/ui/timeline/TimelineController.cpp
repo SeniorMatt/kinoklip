@@ -14,6 +14,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/effects/EffectActions.h"
+#include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
 #include <QAction>
@@ -489,8 +490,38 @@ void TimelineController::nudge(int64_t frames)
     const QVector<quint64> ids = effectiveSelection();
     if (ids.isEmpty())
         return;
+    if (m_tool == TimelineTool::Trim) {
+        // Trim tool: the keys slip the selected clips, or slide them after a click in the name
+        // band, like the drags there (spec 8.20).
+        const bool slide = slideSelected();
+        runEdit(project(), slide ? tr("Slide Clip") : tr("Slip Clip"),
+            [&](TimelineData& data) { return applyBodyTrim(data, ids, frames, slide) != 0; });
+        return;
+    }
     runEdit(project(), tr("Nudge Clip"),
         [&](TimelineData& data) { return ops::moveClips(data, ids, frames, 0); });
+}
+
+bool TimelineController::slideSelected() const
+{
+    return m_slideClip && m_ctx.selection->isSelected(m_slideClip);
+}
+
+int64_t TimelineController::applyBodyTrim(
+    TimelineData& data, const QVector<quint64>& ids, int64_t frames, bool slide)
+{
+    int64_t applied = 0;
+    for (int i = 0; i < ids.size(); ++i) {
+        const int64_t want = i == 0 ? frames : applied;
+        if (want == 0)
+            break;
+        // A slip to the right reveals earlier material (the drag's direction, spec 8.6).
+        const int64_t got
+            = slide ? ops::slideClip(data, ids[i], want) : -ops::slipClip(data, ids[i], -want);
+        if (i == 0)
+            applied = got;
+    }
+    return applied;
 }
 
 int64_t TimelineController::applyEditTrim(
@@ -685,8 +716,57 @@ void TimelineController::setPlayheadClamped(int64_t frame)
     timeline()->setPlayhead(std::max<int64_t>(0, frame));
 }
 
+bool TimelineController::moveSelectedEdit(bool forward)
+{
+    const EditPointSelection e = m_selectedEdit;
+    if (e.isEmpty())
+        return false;
+    const TimelineData& d = timeline()->data();
+    const quint64 known = e.headClip ? e.headClip : e.tailClip;
+    const auto loc = ops::findClip(d, known);
+    if (!loc)
+        return false;
+    const auto& clips = d.track(loc->track)->clips;
+    const ClipData& clip = clips[size_t(loc->clipIndex)];
+    const int64_t at = e.headClip ? clip.start : clip.end();
+    // The nearest clip edge of the track beyond the current one.
+    std::optional<int64_t> target;
+    for (const ClipData& c : clips) {
+        for (const int64_t edge : {c.start, c.end()}) {
+            if (forward ? edge > at && (!target || edge < *target)
+                        : edge < at && (!target || edge > *target))
+                target = edge;
+        }
+    }
+    if (!target)
+        return false;
+    quint64 left = 0;
+    quint64 right = 0;
+    for (const ClipData& c : clips) {
+        if (c.end() == *target)
+            left = c.id;
+        if (c.start == *target)
+            right = c.id;
+    }
+    // Keep the side: a roll where both sides exist, else the side that is there.
+    EditPointSelection next;
+    if (e.headClip && e.tailClip)
+        next = left && right ? EditPointSelection {left, right}
+            : left           ? EditPointSelection {left, 0}
+                             : EditPointSelection {0, right};
+    else if (e.headClip)
+        next = right ? EditPointSelection {0, right} : EditPointSelection {left, 0};
+    else
+        next = left ? EditPointSelection {left, 0} : EditPointSelection {0, right};
+    setSelectedEdit(next);
+    setPlayheadClamped(*target);
+    return true;
+}
+
 void TimelineController::goToPreviousEdit()
 {
+    if (moveSelectedEdit(false))
+        return;
     // Only tracks with the auto track selector on count (spec 2.3).
     if (const auto f = ops::previousEditPoint(
             timeline()->data(), timeline()->playhead(), ops::autoSelectTracks()))
@@ -695,6 +775,8 @@ void TimelineController::goToPreviousEdit()
 
 void TimelineController::goToNextEdit()
 {
+    if (moveSelectedEdit(true))
+        return;
     if (const auto f
         = ops::nextEditPoint(timeline()->data(), timeline()->playhead(), ops::autoSelectTracks()))
         setPlayheadClamped(*f);
@@ -815,6 +897,7 @@ void TimelineController::addMarker()
         Marker m;
         m.frame = frame;
         m.name = tr("Marker %1").arg(data.markers.size() + 1);
+        m.color = newMarkerColor();
         data.markers.insert(it, m);
         return true;
     });
@@ -1121,6 +1204,7 @@ void TimelineController::connectActions()
     on("timeline.add_subtitle_track", [this] { addTrack(TrackType::Subtitle); });
     on("timeline.add_subtitle", &TimelineController::addSubtitleAtPlayhead);
     on("clip.toggle_enabled", &TimelineController::toggleClipsEnabled);
+    on("clip.flag", [this] { toggleFlag(m_ctx, effectiveSelection(), toolBarFlag()); });
     on("clip.link", &TimelineController::linkSelection);
     on("clip.unlink", &TimelineController::unlinkSelection);
     on("mark.in", &TimelineController::markIn);

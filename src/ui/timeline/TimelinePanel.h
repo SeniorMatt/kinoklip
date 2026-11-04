@@ -5,6 +5,8 @@
 #include "ui/common/PanelFrame.h"
 #include "ui/timeline/TimelinePainter.h"
 
+#include <span>
+
 class QMenu;
 class QSlider;
 class QSplitter;
@@ -13,6 +15,7 @@ class QToolBar;
 namespace kk {
 
 struct AppContext;
+struct PaletteColor;
 class StackedTimelinePane;
 class TimelineController;
 class TimelineTabs;
@@ -78,6 +81,13 @@ private:
     QToolBar* m_toolBar = nullptr;
     /// The Timeline View Options button and its menu (filled on every show).
     QWidget* makeViewOptionsButton();
+    /// The drop-downs of the marker and flag buttons: the colour of new markers (spec 18.17)
+    /// and the flag the flag button sets (spec 33.36).
+    void addMarkerColorMenu();
+    /// A drop-down of @p palette on the tool bar button of action @p actionId, storing the
+    /// picked colour's id under @p settingsKey (the first colour by default).
+    void addColorMenu(const char* actionId, std::span<const PaletteColor> palette,
+        const char* settingsKey, const QString& objectName);
     void fillViewOptionsMenu(QMenu& menu);
     ClipThumbnails m_viewThumbnails = ClipThumbnails::Filmstrip;
     bool m_viewWaveforms = true;

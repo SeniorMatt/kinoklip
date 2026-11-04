@@ -118,6 +118,7 @@ for n in range(1, 9):
 
 sec("Clip")
 a("clip.toggle_enabled", "Enable / Disable Clip", ["D"], S)
+a("clip.flag", "Flag Clip (toggles the flag colour picked in the tool bar's flag menu on the selected clips' media)", [], L, "Resolve's timeline tool bar flag button with its colour drop-down; no default key known")
 a("clip.match_frame", "Match Frame (load the source at this frame)", ["F"], S)
 a("clip.change_duration", "Change Clip Duration", ["Ctrl+D"], S)
 a("clip.change_speed", "Change Clip Speed", ["R"], L)
