@@ -448,6 +448,18 @@ private slots:
         platform::setFileDialogHandlerForTests({});
         setFrameRatePromptHandlerForTests({});
     }
+
+    // Spec 43.11: the getting-started guide describes the Compositing and Color pages that
+    // ship (it called them "not finished yet") and links their articles.
+    void spec43_11_guideDescribesTheShippedPages()
+    {
+        QFile guide(QStringLiteral(KK_TEST_DATA_DIR "/../../docs/guide/getting-started.md"));
+        QVERIFY(guide.open(QIODevice::ReadOnly));
+        const QString text = QString::fromUtf8(guide.readAll());
+        QVERIFY(!text.contains(QStringLiteral("not finished yet")));
+        QVERIFY(text.contains(QStringLiteral("(colour-correct-a-clip.md)")));
+        QVERIFY(text.contains(QStringLiteral("(compositing-page.md)")));
+    }
 };
 
 QTEST_MAIN(TestBughunt9)

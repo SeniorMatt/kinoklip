@@ -22,8 +22,10 @@ along the bottom of the window.
 1. **Media**: look through your files and bring them into the project.
 2. **Cut**: a quick, simple editor for fast rough cuts.
 3. **Edit**: the main editor, where you will spend most of your time. This guide uses it.
-4. **Compositing**: not finished yet.
-5. **Color**: not finished yet.
+4. **Compositing**: build the picture of one clip from nodes, for effects with several
+   layers; see [Put text over a clip on the Compositing page](compositing-page.md).
+5. **Color**: correct and grade the colours of your clips; see
+   [Colour correct a clip](colour-correct-a-clip.md).
 6. **Audio**: mix the sound: track levels, meters, equaliser and dynamics.
 7. **Deliver**: export the finished video to a file.
 
@@ -191,3 +193,4 @@ folder with your new video. You can keep editing while it renders.
 - [Remove a green screen](remove-a-green-screen.md)
 - [Speed up or slow down a clip](change-clip-speed.md)
 - [Fade audio in and out, and add music](fade-audio-and-add-music.md)
+- [Colour correct a clip](colour-correct-a-clip.md)
