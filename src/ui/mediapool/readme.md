@@ -43,6 +43,15 @@ Owned by the panels agent.
 - List columns: `MediaPoolModel::Column`, keys `columnKey()`; visibility in
   `mediaPool/columns`; sorting through `SortRole` (raw numbers and times).
 - `mediapool.*` organisation commands act only in the visible panel (both pages own one).
+- Folders (poolbins branch): `MediaPoolModel` keeps one folder row per project bin before
+  the media rows (`FolderRole`, `FolderBinRole`, `KindRole` = `FolderKind`, empty `IdRole`);
+  `MediaPoolFilterModel` shows the sub-bins of the shown project bin and `lessThan()` keeps
+  them first in every sort. `selectedMediaIds()` / `visibleMediaIds()` skip them,
+  `selectedBinIds()` lists them. Drops on a folder are handled by the panel
+  (`MediaPoolPanel::dropEvent()`); a folder drags as `BinList::kBinMime`.
+- Import target: imports without a bin of their own ask `importTargetBin()`
+  (ui/common/MediaImport.h): the shown panel's current bin (`AppContext::currentMediaPoolBin`,
+  set in `MediaPoolPanel::showEvent()`) or Master (`prefs::importIntoMasterBin()`).
 
 ## Proxy / optimized media
 `MediaPoolModel::setLinkStatusProvider()` (the app passes `MediaManagement::status()`) fills

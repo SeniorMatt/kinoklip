@@ -149,8 +149,7 @@ void MediaPoolPanel::importWithDialog()
     const QStringList paths = platform::getOpenFileNames(
         this, tr("Import Media"), mediaFileDialogFilter(), QStringLiteral("paths/lastMediaDir"));
     if (!paths.isEmpty())
-        importFiles(
-            paths, MediaPoolFilterModel::isSmartKey(currentBinKey()) ? QString() : currentBinKey());
+        importFiles(paths, importTargetKey());
 }
 
 void MediaPoolPanel::importFolderWithDialog(const QString& binKey)
@@ -360,6 +359,44 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         menu.addSeparator();
         menu.addAction(tr("Relink Offline Media…"), this, [this] { relinkWithDialog(); });
     }
+    menu.exec(globalPos);
+}
+
+void MediaPoolPanel::showFolderMenu(
+    QAbstractItemView* view, const QModelIndex& index, const QPoint& globalPos)
+{
+    // A folder in the clip area: the bin commands of the bin list, acting on that bin.
+    const QString bin = index.data(MediaPoolModel::FolderBinRole).toString();
+    if (!m_selection->isSelected(index))
+        m_selection->setCurrentIndex(
+            index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    QMenu menu(this);
+    menu.setObjectName(QStringLiteral("FolderMenu"));
+    menu.addAction(
+        icon(QStringLiteral("folder")), tr("Open"), this, [this, bin] { setCurrentBinKey(bin); });
+    menu.addSeparator();
+    const QPersistentModelIndex name = index.siblingAtColumn(MediaPoolModel::NameColumn);
+    menu.addAction(tr("Rename Bin"), this, [view, name] {
+        if (name.isValid())
+            view->edit(name);
+    });
+    // Several selected folders delete together; otherwise the one under the pointer.
+    QStringList bins = selectedBinIds();
+    if (!bins.contains(bin))
+        bins = {bin};
+    menu.addAction(icon(QStringLiteral("remove")),
+        bins.size() > 1 ? tr("Delete %1 Bins").arg(bins.size()) : tr("Delete Bin"), this,
+        [this, bins] {
+            for (const QString& b : bins)
+                deleteBin(b, true);
+        });
+    menu.addSeparator();
+    menu.addAction(icon(QStringLiteral("folder")), tr("New Bin"), this,
+        [this] { createBin(tr("New Bin"), currentBinKey()); });
+    menu.addAction(icon(QStringLiteral("import")), tr("Import Media Folder…"), this,
+        [this, bin] { importFolderWithDialog(bin); });
+    menu.addAction(icon(QStringLiteral("smart_bin")), tr("New Smart Bin…"), this,
+        &MediaPoolPanel::newSmartBinWithDialog);
     menu.exec(globalPos);
 }
 

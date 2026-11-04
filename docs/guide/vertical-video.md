@@ -58,8 +58,8 @@ keyframes; see [Animate with keyframes](keyframe-animation.md).
   a second timeline (**File > New Timeline**, **Ctrl+N**) for the vertical version. Right-click
   its tab, choose **Timeline Settings**, untick **Use project settings** and enter 1080 x 1920.
   Copy the clips into it and reframe them there.
-- **See the vertical frame on a landscape timeline:** **View > Safe Area > 9:16 (Vertical
-  Video)** draws the upright area over the viewer.
+- **See the vertical frame on a landscape timeline:** **View > Viewer Overlays > Safe
+  Area > 9:16 (Vertical Video)** draws the upright area over the viewer.
 
 ## If something goes wrong
 

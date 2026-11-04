@@ -44,6 +44,25 @@ void paintPlaceholder(QPainter* p, const QRect& r, int kind, const QPalette& pal
             p->drawRoundedRect(QRectF(c.x() - 22, c.y() - 14, 44, 28), 2, 2);
         break;
     }
+    case MediaPoolModel::FolderKind: {
+        // A folder: a tab on the top left of a wide body.
+        QPainterPath folder;
+        const QRectF body(c.x() - 24, c.y() - 12, 48, 30);
+        folder.moveTo(body.left(), body.top() - 6);
+        folder.lineTo(body.left() + 16, body.top() - 6);
+        folder.lineTo(body.left() + 21, body.top());
+        folder.lineTo(body.right(), body.top());
+        folder.lineTo(body.right(), body.bottom());
+        folder.lineTo(body.left(), body.bottom());
+        folder.closeSubpath();
+        ink.setAlphaF(0.6f);
+        p->setPen(QPen(ink, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        QColor fill = pal.color(QPalette::Highlight);
+        fill.setAlphaF(0.25f);
+        p->setBrush(fill);
+        p->drawPath(folder);
+        break;
+    }
     case MediaPoolModel::MulticamKind: {
         // A 2x2 grid of angle frames.
         for (int i = 0; i < 4; ++i) {
@@ -108,6 +127,12 @@ MediaPoolDelegate::MediaPoolDelegate(QObject* parent)
 QSize MediaPoolDelegate::tileSize()
 {
     return {kPoster.width() + 2 * kPadding, kPoster.height() + 2 * kPadding + kNameHeight};
+}
+
+QRect MediaPoolDelegate::nameRect(const QRect& tile)
+{
+    return {tile.left() + kPadding, tile.top() + kPadding + kPoster.height() + 2,
+        tile.width() - 2 * kPadding, kNameHeight};
 }
 
 QSize MediaPoolDelegate::sizeHint(const QStyleOptionViewItem&, const QModelIndex&) const
@@ -270,8 +295,7 @@ void MediaPoolDelegate::paint(
 
     // Name, elided, on the clip colour when there is one (Resolve colours the name label).
     p->setFont(option.font);
-    const QRect nameRect(
-        tile.left() + kPadding, posterRect.bottom() + 3, tile.width() - 2 * kPadding, kNameHeight);
+    const QRect nameRect = MediaPoolDelegate::nameRect(tile);
     const QColor clipColor = index.data(MediaPoolModel::ClipColorRole).value<QColor>();
     if (clipColor.isValid()) {
         p->setPen(Qt::NoPen);

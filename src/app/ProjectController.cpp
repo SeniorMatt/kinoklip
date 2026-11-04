@@ -248,14 +248,13 @@ void ProjectController::importMedia()
         m_window, tr("Import Media"), mediaFileDialogFilter(), QLatin1String(kLastMediaDirKey));
     if (paths.isEmpty())
         return;
-    const MediaPoolPanel* pool = shownMediaPool();
-    importMediaWithFeedback(m_ctx, paths, m_window, pool ? pool->currentBin() : QString());
+    importMediaWithFeedback(m_ctx, paths, m_window, importTargetBin(m_ctx));
 }
 
 void ProjectController::importMediaFolder()
 {
     MediaPoolPanel* pool = shownMediaPool();
-    const QString target = pool ? pool->currentBin() : QString();
+    const QString target = importTargetBin(m_ctx);
     const QStringList ids = importMediaFolderWithDialogs(m_ctx, m_window, target);
     if (pool)
         pool->showImportedItems(ids, target);
@@ -281,8 +280,7 @@ void ProjectController::importSubtitle()
         subtitleFileDialogFilter(), QLatin1String(kLastMediaDirKey));
     if (paths.isEmpty())
         return;
-    const MediaPoolPanel* pool = shownMediaPool();
-    importMediaWithFeedback(m_ctx, paths, m_window, pool ? pool->currentBin() : QString());
+    importMediaWithFeedback(m_ctx, paths, m_window, importTargetBin(m_ctx));
 }
 
 bool ProjectController::openLastProject()

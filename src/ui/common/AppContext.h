@@ -2,6 +2,10 @@
 // AppContext — the shared objects handed to every page and panel (dependency injection).
 #pragma once
 
+#include <QString>
+
+#include <functional>
+
 namespace kk {
 
 class ActionRegistry;
@@ -27,6 +31,10 @@ struct AppContext
     PowerBins* powerBins = nullptr; ///< power bins (core/PowerBins.h); null = none shown
     /// Where imported media go (ui/common/MediaStore.h); null = used where they are (linked).
     MediaStore* mediaStore = nullptr;
+    /// The project bin shown in the media pool ("" = Master), set by the shown MediaPoolPanel;
+    /// imports without a bin of their own go there (importTargetBin(), ui/common/MediaImport.h).
+    /// Null = Master.
+    std::function<QString()> currentMediaPoolBin;
 };
 
 } // namespace kk
