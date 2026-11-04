@@ -80,6 +80,21 @@ struct SpeedChange
 /// Applies @p change to the clip: one constant speed over the material the clip covers
 /// (replaces a retime curve). Returns whether anything changed.
 bool changeClipSpeed(TimelineData& data, quint64 clipId, const SpeedChange& change);
+
+/// The speed of a clip as the Change Clip Speed dialog and the Inspector's Speed Change
+/// section show it.
+struct SpeedState
+{
+    /// The material the clip covers in retime frames (frames at 100 %); a freeze frame
+    /// counts as its own length.
+    double material = 1.0;
+    double speed = 1.0; ///< magnitude (> 0; the average of a retime curve)
+    bool reverse = false; ///< a constant reverse speed
+    bool freeze = false; ///< a constant freeze frame
+    bool curve = false; ///< a retime curve (speed points or ramps)
+    int segments = 1; ///< speed segments (retime::segments())
+};
+[[nodiscard]] SpeedState speedState(const ClipData& clip);
 /// Sets the retime process of the clip (and partners).
 bool setProcess(TimelineData& data, quint64 clipId, RetimeProcess process);
 /// Turns pitch correction of the clip (and partners) on or off.

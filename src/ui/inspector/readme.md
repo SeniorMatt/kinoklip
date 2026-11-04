@@ -10,6 +10,7 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 | `ParamGroupBox.h` | one collapsible section (Transform, Cropping, an effect instance, a transition) with a shared `QGridLayout` |
 | `ParamRows.h` | one editor row per `ParamDescriptor`: number, bool, choice, colour, string, title text, font, curve (a `CurveEditor` graph), file (name + Browse) |
 | `CurveEditor.h` | the tone-curve graph of Curve parameters: drag a point (one undo step), click to add, double-click / right-click to remove |
+| `InspectorSpeed.cpp` | the Video tab's Dynamic Zoom, Speed Change and Retime and Scaling sections (part of `InspectorPanel`) |
 | `InspectorMasks.cpp` | the Video tab's Masks section (part of `InspectorPanel`): add buttons per shape, one group per mask (enable, edit in the viewer = `SelectionModel::setActiveMask()`, reorder, delete, section diamond, shape row), rows from the `builtin.mask` descriptor with `ParamScope::Mask` |
 | `ParamAccess.h` | `ParamRef` (clip, scope, effect id, key) and the read/write functions that map a descriptor parameter onto `ClipData` |
 | `ParamEditHost.h` | the interface rows use to read clips and make undoable edits (`isMixed()`: the selected clips differ) |
@@ -20,8 +21,12 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 
 ### Data flow
 - Everything is generated from `EffectRegistry` descriptors:
-  - Video tab: `solid_color` (Solid clips), `builtin.transform`, `builtin.cropping`,
-    `builtin.composite` (Composite Mode and Opacity, spec 24.19), then the
+  - Video tab: `solid_color` (Solid clips), `builtin.transform`, `builtin.cropping`, Dynamic
+    Zoom (`InspectorSpeed.cpp`: header switch, the `builtin.dynamic_zoom` ease row, Swap;
+    core/DynamicZoom.h, spec 24.20), `builtin.composite` (Composite Mode and Opacity, spec
+    24.19), Speed Change and Retime and Scaling for media and nested clips
+    (`InspectorSpeed.cpp`: plain widgets refreshed by the group's header refresh, running
+    `retimeops::changeClipSpeed()` like the Change Clip Speed dialog, spec 24.21), then the
     Masks section (`builtin.mask` rows per mask; width / height only for rectangles and
     ellipses; mode / invert map to `MaskData` fields, the synthetic `shape` key to the
     animated path, see `ParamAccess.h`).
