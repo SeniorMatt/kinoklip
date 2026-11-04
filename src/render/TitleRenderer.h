@@ -35,6 +35,11 @@ struct TitleStyle
     double lineSpacing = 100; ///< percent of the font's natural line spacing
     double outlineWidth = 0; ///< px at timeline resolution, drawn outside the glyphs
     double bgOpacity = 60; ///< percent
+    double posX = 0.5; ///< anchor point of the text block, 0..1 of the canvas from the left
+    double posY = 0.5; ///< centre of the text block, 0..1 of the canvas from the bottom
+    int anchor = 1; ///< 0 = block's left edge at posX, 1 = its centre, 2 = its right edge
+    bool scroll = false; ///< roll up through the canvas (posY unused)
+    double scrollProgress = 0; ///< 0 = just below the bottom edge, 1 = just above the top
     QSize canvas; ///< size of the full title frame in OUTPUT pixels (timeline size × scale)
     double scale = 1.0; ///< output pixels per timeline pixel
 
@@ -51,7 +56,8 @@ struct TitleStyle
     const ClipData& clip, int64_t localFrame, QSize canvas, double scale);
 
 /// A rasterised title: `image` (ARGB32_Premultiplied) covers `rect` of the title canvas.
-/// The text block is centred in the canvas (the clip transform positions it from there).
+/// The text block sits at posX / posY of the canvas (centred by default) or, for a scroll, at
+/// its scrollProgress; the clip transform positions the whole canvas from there.
 /// `image` is null when there is nothing to draw (empty text).
 struct TitleImage
 {

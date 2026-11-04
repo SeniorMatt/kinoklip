@@ -9,6 +9,7 @@
 #include "core/NodeRegistry.h"
 #include "core/ParamKeys.h"
 #include "core/Subtitles.h"
+#include "core/TitlePresets.h"
 
 #include <QCoreApplication>
 
@@ -228,28 +229,7 @@ void EffectRegistry::registerBuiltins()
         {color(QStringLiteral("color"), tr("Color"), QColor(0x30, 0x30, 0x34))},
         QStringLiteral("solidColor")));
     registerGenerators();
-    add(descriptor("text_title", tr("Text"), C::Title, tr("A simple text title"),
-        {
-            // New Text titles read "Basic Title", as in Resolve (spec 14.5).
-            text(keys::Text, tr("Text"), tr("Basic Title")),
-            text(keys::Font, tr("Font"), QStringLiteral("Sans Serif")),
-            number(keys::Size, tr("Size"), 1, 500, 72, 1, kPx),
-            boolean(keys::Bold, tr("Bold"), false),
-            boolean(keys::Italic, tr("Italic"), false),
-            choice(keys::Align, tr("Alignment"),
-                {QStringLiteral("left"), QStringLiteral("center"), QStringLiteral("right")},
-                {tr("Left"), tr("Center"), tr("Right")}, QStringLiteral("center")),
-            color(keys::Color, tr("Color"), QColor(Qt::white)),
-            number(keys::Tracking, tr("Tracking"), -50, 200, 0, 1, kPercent),
-            number(keys::LineSpacing, tr("Line Spacing"), 50, 300, 100, 1, kPercent),
-            color(keys::OutlineColor, tr("Outline Color"), QColor(Qt::black)),
-            number(keys::OutlineWidth, tr("Outline Width"), 0, 50, 0, 0.5, kPx),
-            boolean(keys::BgEnabled, tr("Background"), false),
-            color(keys::BgColor, tr("Background Color"), QColor(Qt::black)),
-            number(keys::BgOpacity, tr("Background Opacity"), 0, 100, 60, 1, kPercent),
-            boolean(keys::Shadow, tr("Drop Shadow"), false),
-        },
-        QStringLiteral("title")));
+    registerTitles();
 
     // ---- Subtitles (inspector groups of captions and subtitle tracks; not in the library) ----
     namespace st = subtitles;
@@ -289,6 +269,107 @@ void EffectRegistry::registerBuiltins()
     // ---- Effects (library section "Effects") ----
     add(descriptor(generators::AdjustmentClip, tr("Adjustment Clip"), C::Effects,
         tr("Applies its effects, transform and masks to every track below it"), {}, {}));
+}
+
+namespace {
+
+/// What sets one title preset apart: its own defaults of the shared title parameters.
+struct TitleLook
+{
+    QString text;
+    double size = 72;
+    QString align = QStringLiteral("center");
+    QString anchor = QStringLiteral("center");
+    double posX = 0.5;
+    double posY = 0.5;
+    bool background = false;
+    QColor bgColor = QColor(Qt::black);
+    double bgOpacity = 60;
+    bool scroll = false;
+    bool shadow = false;
+};
+
+/// The parameters every title has (Inspector > Title), with @p look's defaults. All the
+/// presets share them, so a preset is only a starting point: any title can become any other.
+QVector<ParamDescriptor> titleParams(const TitleLook& look)
+{
+    const QStringList sides {
+        QStringLiteral("left"), QStringLiteral("center"), QStringLiteral("right")};
+    const QStringList sideLabels {tr("Left"), tr("Center"), tr("Right")};
+    return {
+        text(keys::Text, tr("Text"), look.text),
+        text(keys::Font, tr("Font"), QStringLiteral("Sans Serif")),
+        number(keys::Size, tr("Size"), 1, 500, look.size, 1, kPx),
+        boolean(keys::Bold, tr("Bold"), false),
+        boolean(keys::Italic, tr("Italic"), false),
+        choice(keys::Align, tr("Alignment"), sides, sideLabels, look.align),
+        color(keys::Color, tr("Color"), QColor(Qt::white)),
+        number(keys::Tracking, tr("Tracking"), -50, 200, 0, 1, kPercent),
+        number(keys::LineSpacing, tr("Line Spacing"), 50, 300, 100, 1, kPercent),
+        number(keys::TextPosX, tr("Position X"), -1, 2, look.posX, 0.001),
+        number(keys::TextPosY, tr("Position Y"), -1, 2, look.posY, 0.001),
+        choice(keys::Anchor, tr("Anchor"), sides, sideLabels, look.anchor),
+        boolean(keys::Scroll, tr("Scroll"), look.scroll),
+        color(keys::OutlineColor, tr("Outline Color"), QColor(Qt::black)),
+        number(keys::OutlineWidth, tr("Outline Width"), 0, 50, 0, 0.5, kPx),
+        boolean(keys::BgEnabled, tr("Background"), look.background),
+        color(keys::BgColor, tr("Background Color"), look.bgColor),
+        number(keys::BgOpacity, tr("Background Opacity"), 0, 100, look.bgOpacity, 1, kPercent),
+        boolean(keys::Shadow, tr("Drop Shadow"), look.shadow),
+    };
+}
+
+} // namespace
+
+void EffectRegistry::registerTitles()
+{
+    using C = EffectCategory;
+    const QString storage = QStringLiteral("title"); // ClipData::title
+    // Our own simple designs: plain text, system font, an optional flat box.
+    const QColor box(0x14, 0x16, 0x1c);
+    TitleLook lowerThird;
+    lowerThird.text = tr("Name Surname\nRole or place");
+    lowerThird.size = 44;
+    lowerThird.posY = 0.16;
+    lowerThird.background = true;
+    lowerThird.bgColor = box;
+    lowerThird.bgOpacity = 75;
+
+    TitleLook left = lowerThird;
+    left.align = left.anchor = QStringLiteral("left");
+    left.posX = 0.07;
+    add(descriptor(titles::LeftLowerThird, tr("Left Lower Third"), C::Title,
+        tr("Name and role in the lower left of the frame"), titleParams(left), storage));
+    add(descriptor(titles::MiddleLowerThird, tr("Middle Lower Third"), C::Title,
+        tr("Name and role centred low in the frame"), titleParams(lowerThird), storage));
+    TitleLook right = lowerThird;
+    right.align = right.anchor = QStringLiteral("right");
+    right.posX = 0.93;
+    add(descriptor(titles::RightLowerThird, tr("Right Lower Third"), C::Title,
+        tr("Name and role in the lower right of the frame"), titleParams(right), storage));
+
+    TitleLook scroll;
+    scroll.text = tr("The End\n\nDirected by\nName\n\nEdited by\nName\n\nMusic by\nName\n\n"
+                     "Thank you for watching");
+    scroll.size = 48;
+    scroll.scroll = true;
+    add(descriptor(titles::Scroll, tr("Scroll"), C::Title,
+        tr("Rolling credits: the text moves up through the frame over the clip's length"),
+        titleParams(scroll), storage));
+
+    TitleLook basic;
+    basic.text = tr("Basic Title"); // as in Resolve (spec 14.5)
+    add(descriptor(titles::Text, tr("Text"), C::Title, tr("A simple text title"),
+        titleParams(basic), storage));
+
+    TitleLook boxed;
+    boxed.text = tr("Title");
+    boxed.size = 64;
+    boxed.background = true;
+    boxed.bgColor = box;
+    boxed.bgOpacity = 85;
+    add(descriptor(titles::TextBox, tr("Text Box"), C::Title,
+        tr("A text on a plain background box"), titleParams(boxed), storage));
 }
 
 void EffectRegistry::registerGenerators()

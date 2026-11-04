@@ -8,6 +8,7 @@
 #include "core/SelectionModel.h"
 #include "core/Subtitles.h"
 #include "core/Timeline.h"
+#include "core/TitlePresets.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
@@ -233,18 +234,19 @@ void InspectorPanel::showClip(quint64 clipId)
     m_clipId = structure.clipId;
     m_audioClipId = structure.audioClipId;
     if (structure != m_structure || m_groups.isEmpty()) {
-        const auto isCaption
-            = [](const Structure& s) { return s.clipId != 0 && s.kind == ClipKind::Subtitle; };
-        const bool wasCaption = isCaption(m_structure);
+        const auto hasTitleTab = [](const Structure& s) {
+            return s.clipId != 0 && (s.kind == ClipKind::Subtitle || s.kind == ClipKind::Title);
+        };
+        const bool hadTitleTab = hasTitleTab(m_structure);
         m_structure = structure;
         rebuild();
         // A caption's properties are all on the Captions tab (Resolve's subtitle inspector),
-        // so selecting one shows it; leaving captions for a clip that has no title goes back
-        // to the Video tab (spec 28.15).
-        if (isCaption(structure) && !wasCaption)
+        // and a title's text and look on the Title tab, so selecting one shows that tab;
+        // leaving them for a clip that has no title goes back to the Video tab (specs 28.15,
+        // 14.9).
+        if (hasTitleTab(structure) && !hadTitleTab)
             m_tabs->setCurrentIndex(TitleTab);
-        else if (wasCaption && !isCaption(structure) && m_tabs->currentIndex() == TitleTab
-            && structure.kind != ClipKind::Title)
+        else if (hadTitleTab && !hasTitleTab(structure) && m_tabs->currentIndex() == TitleTab)
             m_tabs->setCurrentIndex(VideoTab);
     } else {
         refreshValues();
@@ -797,10 +799,9 @@ void InspectorPanel::rebuild()
         if (c->kind == ClipKind::Subtitle) {
             // built by buildCaptionsTab()
         } else if (c->kind == ClipKind::Title) {
-            for (const EffectDescriptor* d : registry.byCategory(EffectCategory::Title)) {
-                if (paramaccess::scopeForStorage(d->storage) == ParamScope::Title)
-                    addDescriptorGroup(TitleTab, *d, ParamScope::Title, m_clipId);
-            }
+            // The clip's preset (Left Lower Third, Scroll, ...) or Text: one group.
+            if (const EffectDescriptor* d = titles::descriptorOf(*c))
+                addDescriptorGroup(TitleTab, *d, ParamScope::Title, m_clipId);
         } else {
             addPlaceholder(TitleTab,
                 tr("Not a title clip. Double-click a title in the Effects library to add one."));
