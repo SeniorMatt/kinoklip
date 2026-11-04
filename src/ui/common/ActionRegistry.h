@@ -9,9 +9,11 @@
 #include <QStringList>
 #include <QVector>
 
+#include <functional>
 #include <optional>
 
 class QAction;
+class QWidget;
 
 namespace kk {
 
@@ -167,6 +169,16 @@ public:
     /// with the scope of @p exceptId (window-wide when empty), or empty (conflict check).
     [[nodiscard]] QString actionForShortcut(
         const QKeySequence& sequence, const QString& exceptId = {}) const;
+
+    /// The first shortcut of @p id as shown to the user (NativeText), empty when it has none.
+    [[nodiscard]] QString shortcutText(const QString& id) const;
+    /// Calls @p apply with shortcutText(@p id) now and whenever the shortcuts of @p id change,
+    /// while @p context lives: a tooltip or label that names a key follows Keyboard
+    /// Customization.
+    void watchShortcut(
+        QObject* context, const QString& id, const std::function<void(const QString&)>& apply);
+    /// Keeps @p widget's tooltip at "@p text (key of @p id)" ("@p text" without a key).
+    void bindToolTip(QWidget* widget, const QString& id, const QString& text);
 
     /// Writes the current shortcuts of all actions as a keymap JSON file.
     bool exportKeymap(const QString& path, QString* error = nullptr) const;

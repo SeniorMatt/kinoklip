@@ -420,15 +420,12 @@ QToolButton* ViewerPanel::addButton(QHBoxLayout* layout, const QString& actionId
     button->setFocusPolicy(Qt::NoFocus); // keys stay with the viewer / application
     button->setIconSize(QSize(kTransportIconSize, kTransportIconSize));
     button->setIcon(buttonIcon);
-    // Tooltip with the action's current shortcut (looked up, never hard-coded).
-    QString shortcut;
-    if (m_ctx.actions && m_ctx.actions->contains(actionId)) {
-        const QList<QKeySequence> keys = m_ctx.actions->shortcuts(actionId);
-        if (!keys.isEmpty()) {
-            shortcut = keys.first().toString(QKeySequence::NativeText);
-        }
-    }
-    button->setToolTip(shortcut.isEmpty() ? tip : QStringLiteral("%1 (%2)").arg(tip, shortcut));
+    // Tooltip with the action's current shortcut (looked up, never hard-coded; it follows
+    // Keyboard Customization).
+    if (m_ctx.actions && m_ctx.actions->contains(actionId))
+        m_ctx.actions->bindToolTip(button, actionId, tip);
+    else
+        button->setToolTip(tip);
     connect(button, &QToolButton::clicked, this, handler);
     layout->addWidget(button);
     return button;
