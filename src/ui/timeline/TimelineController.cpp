@@ -715,8 +715,57 @@ void TimelineController::setPlayheadClamped(int64_t frame)
     timeline()->setPlayhead(std::max<int64_t>(0, frame));
 }
 
+bool TimelineController::moveSelectedEdit(bool forward)
+{
+    const EditPointSelection e = m_selectedEdit;
+    if (e.isEmpty())
+        return false;
+    const TimelineData& d = timeline()->data();
+    const quint64 known = e.headClip ? e.headClip : e.tailClip;
+    const auto loc = ops::findClip(d, known);
+    if (!loc)
+        return false;
+    const auto& clips = d.track(loc->track)->clips;
+    const ClipData& clip = clips[size_t(loc->clipIndex)];
+    const int64_t at = e.headClip ? clip.start : clip.end();
+    // The nearest clip edge of the track beyond the current one.
+    std::optional<int64_t> target;
+    for (const ClipData& c : clips) {
+        for (const int64_t edge : {c.start, c.end()}) {
+            if (forward ? edge > at && (!target || edge < *target)
+                        : edge < at && (!target || edge > *target))
+                target = edge;
+        }
+    }
+    if (!target)
+        return false;
+    quint64 left = 0;
+    quint64 right = 0;
+    for (const ClipData& c : clips) {
+        if (c.end() == *target)
+            left = c.id;
+        if (c.start == *target)
+            right = c.id;
+    }
+    // Keep the side: a roll where both sides exist, else the side that is there.
+    EditPointSelection next;
+    if (e.headClip && e.tailClip)
+        next = left && right ? EditPointSelection {left, right}
+            : left           ? EditPointSelection {left, 0}
+                             : EditPointSelection {0, right};
+    else if (e.headClip)
+        next = right ? EditPointSelection {0, right} : EditPointSelection {left, 0};
+    else
+        next = left ? EditPointSelection {left, 0} : EditPointSelection {0, right};
+    setSelectedEdit(next);
+    setPlayheadClamped(*target);
+    return true;
+}
+
 void TimelineController::goToPreviousEdit()
 {
+    if (moveSelectedEdit(false))
+        return;
     // Only tracks with the auto track selector on count (spec 2.3).
     if (const auto f = ops::previousEditPoint(
             timeline()->data(), timeline()->playhead(), ops::autoSelectTracks()))
@@ -725,6 +774,8 @@ void TimelineController::goToPreviousEdit()
 
 void TimelineController::goToNextEdit()
 {
+    if (moveSelectedEdit(true))
+        return;
     if (const auto f
         = ops::nextEditPoint(timeline()->data(), timeline()->playhead(), ops::autoSelectTracks()))
         setPlayheadClamped(*f);

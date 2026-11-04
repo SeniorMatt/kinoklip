@@ -467,6 +467,10 @@ public slots:
     /// left and the playhead lands on the old start (spec 8.10). One undo step.
     void rippleTrimStartToPlayhead();
     void rippleTrimEndToPlayhead();
+    /// Up / Down: the playhead goes to the previous / next edit point of the auto-select
+    /// tracks; with an edit point selected the selection moves to the previous / next edit of
+    /// its track instead, keeping its side (outgoing, roll, incoming) where it can, and the
+    /// playhead follows (spec 8.22).
     void goToPreviousEdit();
     void goToNextEdit();
     void goToPreviousMarker();
@@ -587,6 +591,9 @@ private:
     /// sides are set; linked clips follow). Returns the applied delta.
     int64_t applyEditTrim(
         TimelineData& data, const EditPointSelection& edit, int64_t frames, bool ripple) const;
+    /// goToPreviousEdit() / goToNextEdit() with an edit point selected. Returns false when
+    /// there is no edit point (or no further edit on its track).
+    bool moveSelectedEdit(bool forward);
     /// Slips (or with @p slide slides) the clips @p ids by @p frames as a drag of that many
     /// frames to the right would: the first clip leads and the others follow by what it got,
     /// so linked partners stay in sync. Returns the applied delta.
