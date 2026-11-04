@@ -106,4 +106,29 @@ QStringList droppedLocalFiles(const QMimeData* data)
     return paths;
 }
 
+QStringList draggedLocalFiles(const QMimeData* data)
+{
+    QStringList paths;
+    if (!data)
+        return paths;
+    auto addUrl = [&paths](const QUrl& url) {
+        if (url.isLocalFile() && !paths.contains(url.toLocalFile()))
+            paths.append(url.toLocalFile());
+    };
+    auto addLine = [&addUrl](const QString& line) {
+        if (!line.startsWith(QLatin1Char('#')))
+            addUrl(QUrl(line.trimmed()));
+    };
+    if (data->hasFormat(QLatin1String(kKdeUriListMime))) {
+        const QString text = QString::fromUtf8(data->data(QLatin1String(kKdeUriListMime)));
+        for (const QString& line :
+            text.split(QRegularExpression(QStringLiteral("[\r\n]+")), Qt::SkipEmptyParts))
+            addLine(line);
+    } else if (data->hasUrls() && !data->hasFormat(QLatin1String(kPortalFileTransferMime))) {
+        for (const QUrl& url : data->urls())
+            addUrl(url);
+    }
+    return paths;
+}
+
 } // namespace kk::platform
