@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
+#include <QStringDecoder>
 #include <QStringList>
 
 #include <algorithm>
@@ -157,6 +158,36 @@ QString compactLines(const QString& text)
     return lines.join(QLatin1Char('\n'));
 }
 
+/// Subtitle files come in UTF-8 (with or without BOM), UTF-16 (Windows tools; BOM or not) and
+/// legacy 8-bit code pages. Text that is not valid UTF-8 is read as Windows-1252 (Latin-1 when
+/// the codec is unavailable) instead of turning every accented letter into U+FFFD.
+QString decodeSubtitleText(const QByteArray& data)
+{
+    const auto utf16 = [&](QStringDecoder::Encoding encoding, qsizetype skip) {
+        QStringDecoder decoder(encoding);
+        return QString(decoder(QByteArrayView(data).sliced(skip)));
+    };
+    if (data.startsWith("\xFF\xFE"))
+        return utf16(QStringDecoder::Utf16LE, 2);
+    if (data.startsWith("\xFE\xFF"))
+        return utf16(QStringDecoder::Utf16BE, 2);
+    if (data.size() >= 2 && data[0] != 0 && data[1] == 0)
+        return utf16(QStringDecoder::Utf16LE, 0);
+    if (data.size() >= 2 && data[0] == 0 && data[1] != 0)
+        return utf16(QStringDecoder::Utf16BE, 0);
+    QStringDecoder utf8(QStringDecoder::Utf8);
+    QString text = utf8(data);
+    if (!utf8.hasError())
+        return text;
+    QStringDecoder cp1252("windows-1252");
+    if (cp1252.isValid()) {
+        text = cp1252(data);
+        if (!cp1252.hasError())
+            return text;
+    }
+    return QString::fromLatin1(data);
+}
+
 int64_t usToNearestFrame(int64_t us, Rational fps)
 {
     return fps.isValid() ? int64_t(std::llround(double(us) * fps.num / (1e6 * fps.den))) : 0;
@@ -258,7 +289,7 @@ bool parse(
     const QByteArray& data, QVector<SubtitleCue>* cues, QString* error, SubtitleFormat* detected)
 {
     cues->clear();
-    QString text = QString::fromUtf8(data);
+    QString text = decodeSubtitleText(data);
     if (text.startsWith(QChar(0xfeff)))
         text.remove(0, 1);
     text.replace(QLatin1String("\r\n"), QLatin1String("\n"));

@@ -84,7 +84,8 @@ inline constexpr int64_t kMinCaptionFrames = 1;
 
 // ---- Files ----
 
-/// Parses SRT or WebVTT data (format detected from the "WEBVTT" header; a UTF-8 BOM, CRLF and
+/// Parses SRT or WebVTT data (format detected from the "WEBVTT" header; UTF-8 with or without
+/// BOM, UTF-16 and, for text that is not UTF-8, Windows-1252 are read; CRLF and
 /// both ',' and '.' millisecond separators are accepted). Cues are returned in file order;
 /// markup (<i>, <b>, <font>, <c.x>, {\an8}) is removed, HTML entities of WebVTT decoded.
 /// Returns false with @p error when nothing could be parsed.
