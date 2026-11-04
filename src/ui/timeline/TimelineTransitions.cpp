@@ -48,9 +48,20 @@ void rippleTrimWithLinks(TimelineData& data, quint64 clipId, bool head, int64_t 
 
 } // namespace
 
-void TimelineController::addDefaultTransition()
+bool TimelineController::addTransition(const QString& typeId)
 {
     const TimelineData& d = timeline()->data();
+    // A given type fits only its own kind of track.
+    std::optional<TrackType> onlyType;
+    if (!typeId.isEmpty()) {
+        const EffectDescriptor* desc = EffectRegistry::instance().find(typeId);
+        if (!desc
+            || (desc->category != EffectCategory::Transition
+                && desc->category != EffectCategory::AudioTransition))
+            return false;
+        onlyType
+            = desc->category == EffectCategory::Transition ? TrackType::Video : TrackType::Audio;
+    }
     const int64_t playhead = timeline()->playhead();
 
     // Edges that get a transition: (clip id, head?).
@@ -107,6 +118,7 @@ void TimelineController::addDefaultTransition()
         ops::HandleShortfall shortfall;
     };
     QVector<Edge> todo;
+    QVector<std::pair<quint64, bool>> retype; ///< existing transitions to change to typeId
     const int64_t standard
         = EditBehaviour::frames(EditBehaviour::fromSettings().transitionSeconds, d.fps);
     int64_t missing = 0;
@@ -119,11 +131,15 @@ void TimelineController::addDefaultTransition()
             }
         }
         const auto loc = ops::findClip(d, clipId);
-        if (!loc || d.track(loc->track)->locked)
+        if (!loc || d.track(loc->track)->locked || (onlyType && loc->track.type != *onlyType))
             continue;
         const ClipData& clip = d.track(loc->track)->clips[size_t(loc->clipIndex)];
-        if ((head ? clip.transitionIn : clip.transitionOut).has_value())
+        if ((head ? clip.transitionIn : clip.transitionOut).has_value()) {
+            // Ctrl+T keeps it; a chosen type replaces the type only.
+            if (onlyType && (head ? clip.transitionIn : clip.transitionOut)->type != typeId)
+                retype.append({clipId, head});
             continue;
+        }
         if (std::any_of(todo.cbegin(), todo.cend(),
                 [&](const Edge& e) { return e.clip == clipId && e.head == head; }))
             continue;
@@ -138,18 +154,28 @@ void TimelineController::addDefaultTransition()
             && ops::maxTransitionDuration(d, clipId, head, TransitionAlignment::Centre, true) >= 1;
         todo.append({clipId, head, frames, loc->track.type, s});
     }
-    if (todo.isEmpty())
-        return;
+    if (todo.isEmpty() && retype.isEmpty())
+        return false;
 
     // Not enough media for the transition (spec 13.7): ask.
     HandleChoice choice = HandleChoice::AddAnyway;
     if (missing > 0 && m_handlePrompt)
         choice = m_handlePrompt(missing, canShorten);
     if (choice == HandleChoice::Cancel)
-        return;
+        return false;
 
-    runEdit(project(), tr("Add Transition"), [&](TimelineData& data) {
+    return runEdit(project(), tr("Add Transition"), [&](TimelineData& data) {
         bool changed = false;
+        for (const auto& [clipId, head] : std::as_const(retype)) {
+            ClipData* clip = ops::clipById(data, clipId);
+            std::optional<TransitionData>& slot = head ? clip->transitionIn : clip->transitionOut;
+            TransitionData made
+                = EffectRegistry::instance().createTransition(typeId, slot->duration);
+            made.duration = slot->duration;
+            made.alignment = slot->alignment;
+            slot = made;
+            changed = true;
+        }
         for (Edge e : std::as_const(todo)) {
             if (choice == HandleChoice::TrimClips && e.shortfall.any()) {
                 // Shorten the outgoing tail and the incoming head (rippling, so the cut stays
@@ -171,7 +197,7 @@ void TimelineController::addDefaultTransition()
             std::optional<TransitionData>& slot = e.head ? clip->transitionIn : clip->transitionOut;
             // Default transition (Ctrl+T); its length comes from EditBehaviour.
             slot = EffectRegistry::instance().createTransition(
-                effectactions::defaultTransitionId(e.type), e.frames);
+                typeId.isEmpty() ? effectactions::defaultTransitionId(e.type) : typeId, e.frames);
             changed = true;
         }
         return changed;

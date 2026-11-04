@@ -4,6 +4,7 @@
 #include "app/MainWindow.h"
 #include "app/Theme.h"
 #include "app/pages/CompositingPage.h"
+#include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -14,6 +15,9 @@
 #include "ui/common/StandardActions.h"
 #include "ui/comp/CompSession.h"
 #include "ui/comp/NodeEditor.h"
+#include "ui/effects/EffectsLibraryPanel.h"
+#include "ui/timeline/TimelineController.h"
+#include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
@@ -21,6 +25,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTest>
+#include <QTreeWidget>
 #include <QUndoStack>
 
 #include <memory>
@@ -68,6 +73,26 @@ struct Fixture
     }
 
     QAction* action(const char* id) const { return actions.action(QLatin1String(id)); }
+    const ClipData* clip(int i) const
+    {
+        return editops::clipById(project.timeline()->data(), clips[i]);
+    }
+    TimelineController* controller() const { return window->editPage()->timeline()->controller(); }
+    /// Double-clicks the Effects library entry named @p name on the Edit page.
+    void doubleClickEffect(const QString& name) const
+    {
+        auto* library = window->editPage()->findChild<EffectsLibraryPanel*>();
+        QVERIFY(library);
+        for (QTreeWidget* tree : library->findChildren<QTreeWidget*>()) {
+            const QList<QTreeWidgetItem*> items
+                = tree->findItems(name, Qt::MatchExactly | Qt::MatchRecursive);
+            if (!items.isEmpty()) {
+                emit tree->itemDoubleClicked(items.front(), 0);
+                return;
+            }
+        }
+        QFAIL("no such library entry");
+    }
     void show()
     {
         window->resize(1600, 900);
@@ -121,6 +146,35 @@ private slots:
         QTest::keyClick(focus, Qt::Key_2);
         QCoreApplication::processEvents();
         QCOMPARE(s->viewerNode(1), node);
+    }
+
+    // Spec 13.18: double-clicking a transition in the Effects library puts it on the selected
+    // edit point, or with nothing selected on the edit nearest the playhead (like Ctrl+T, with
+    // the chosen type); an edit that already has a transition gets the new type and keeps its
+    // length and alignment. One undo step each.
+    void spec13_18_libraryDoubleClickAddsTransitionAtEdit()
+    {
+        Fixture f;
+        f.show();
+        f.project.timeline()->setPlayhead(47);
+        int before = f.project.undoStack()->index();
+        f.doubleClickEffect(QStringLiteral("Wipe"));
+        QVERIFY(f.clip(1)->transitionIn);
+        QCOMPARE(f.clip(1)->transitionIn->type, QStringLiteral("wipe"));
+        QCOMPARE(f.project.undoStack()->index(), before + 1);
+        const int64_t length = f.clip(1)->transitionIn->duration;
+        // The selected edit point: the type changes, the length stays.
+        f.controller()->setSelectedEdit({f.clips[0], f.clips[1]});
+        f.project.timeline()->setPlayhead(0);
+        before = f.project.undoStack()->index();
+        f.doubleClickEffect(QStringLiteral("Dip to Color"));
+        QCOMPARE(f.clip(1)->transitionIn->type, QStringLiteral("dip_to_color"));
+        QCOMPARE(f.clip(1)->transitionIn->duration, length);
+        QCOMPARE(f.project.undoStack()->index(), before + 1);
+        QVERIFY(!f.clip(0)->transitionIn);
+        // Ctrl+T keeps an existing transition.
+        f.action("timeline.add_transition")->trigger();
+        QCOMPARE(f.clip(1)->transitionIn->type, QStringLiteral("dip_to_color"));
     }
 };
 

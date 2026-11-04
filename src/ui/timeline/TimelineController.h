@@ -494,7 +494,13 @@ public slots:
     /// Cross dissolve of the standard length (spec 13.1-13.3): at the selected edit point, at
     /// both ends of the selected clips, or at the edit nearest to the playhead on the
     /// auto-select video tracks; linked audio cut at the same frame gets a cross fade.
-    void addDefaultTransition();
+    void addDefaultTransition() { addTransition({}); }
+    /// The transition @p typeId (an EffectRegistry transition id; empty = the default of each
+    /// track type) at the same edges as addDefaultTransition(), video or audio edges only as
+    /// the type fits; an edge that already has a transition gets the new type, keeping its
+    /// length and alignment (the Effects library's double-click, spec 13.18). Returns whether
+    /// anything changed.
+    bool addTransition(const QString& typeId);
     /// Changes the alignment of the transition at the head (@p head) or tail of @p clipId
     /// (spec 13.5); one undo step. Returns whether it changed.
     bool setTransitionAlignment(quint64 clipId, bool head, TransitionAlignment alignment);
