@@ -275,4 +275,30 @@ void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
     project.endEdit();
 }
 
+bool editStartingTimecode(QWidget* parent, Project& project, quint64 uid)
+{
+    const auto data = project.timelineData(uid);
+    if (!data)
+        return false;
+    QDialog dialog(parent);
+    dialog.setObjectName(QStringLiteral("StartingTimecodeDialog"));
+    dialog.setWindowTitle(QCoreApplication::translate("kk::timelinedialogs", "Starting Timecode"));
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* form = new QFormLayout;
+    const QString before = timecode::format(data->startTimecode, data->fps);
+    auto* edit = new QLineEdit(before);
+    edit->setObjectName(QStringLiteral("StartingTimecode"));
+    edit->setInputMask(QStringLiteral("99:99:99:99"));
+    form->addRow(QCoreApplication::translate("kk::timelinedialogs", "Starting timecode"), edit);
+    layout->addLayout(form);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    layout->addWidget(buttons);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    if (dialog.exec() != QDialog::Accepted || edit->text() == before)
+        return false;
+    const auto frames = timecode::parse(edit->text(), data->fps);
+    return frames && project.setTimelineStartTimecode(uid, *frames);
+}
+
 } // namespace kk::timelinedialogs
