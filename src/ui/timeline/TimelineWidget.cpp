@@ -850,7 +850,10 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         addAction("timeline.add_subtitle_track");
         if (ref.type == TrackType::Subtitle) {
             menu.addSeparator();
-            addAction("timeline.add_subtitle");
+            // On this track (spec 28.16), with the menu command's text.
+            const QAction* command = action("timeline.add_subtitle");
+            menu.addAction(command ? command->text() : tr("Add Subtitle"), this,
+                [this, ref] { m_controller->addSubtitleAtPlayhead(ref.index); });
         }
         menu.addSeparator();
         QAction* del = menu.addAction(
@@ -997,9 +1000,9 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         menu.addSeparator();
         if (ref.type == TrackType::Subtitle) {
             // Resolve: right-click in a subtitle track adds a caption there (at the playhead).
-            menu.addAction(tr("Add Subtitle"), this, [this, frame] {
+            menu.addAction(tr("Add Subtitle"), this, [this, frame, ref] {
                 m_ctx.project->timeline()->setPlayhead(frame);
-                m_controller->addSubtitleAtPlayhead();
+                m_controller->addSubtitleAtPlayhead(ref.index);
             });
             menu.addSeparator();
         }

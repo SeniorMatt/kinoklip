@@ -984,7 +984,7 @@ void TimelineController::addTrack(TrackType type, int index)
     });
 }
 
-quint64 TimelineController::addSubtitleAtPlayhead()
+quint64 TimelineController::addSubtitleAtPlayhead(int track)
 {
     constexpr double kCaptionSeconds = 3.0; ///< default length of a new caption
     const TimelineData& before = timeline()->data();
@@ -992,9 +992,12 @@ quint64 TimelineController::addSubtitleAtPlayhead()
     // Preferred track: the one holding the current caption selection, else ST1 upwards; the
     // first one that is unlocked and free at the playhead gets the caption (a new subtitle
     // track when none is).
+    // A right-clicked track comes first (spec 28.16).
     int preferred = 0;
-    if (const auto loc = ops::findClip(before, m_ctx.selection->currentClip());
-        loc && loc->track.type == TrackType::Subtitle)
+    if (track >= 0 && track < int(before.subtitleTracks.size()))
+        preferred = track;
+    else if (const auto loc = ops::findClip(before, m_ctx.selection->currentClip());
+             loc && loc->track.type == TrackType::Subtitle)
         preferred = loc->track.index;
     int target = -1;
     const int count = int(before.subtitleTracks.size());
@@ -1202,7 +1205,7 @@ void TimelineController::connectActions()
     on("timeline.add_video_track", [this] { addTrack(TrackType::Video); });
     on("timeline.add_audio_track", [this] { addTrack(TrackType::Audio); });
     on("timeline.add_subtitle_track", [this] { addTrack(TrackType::Subtitle); });
-    on("timeline.add_subtitle", &TimelineController::addSubtitleAtPlayhead);
+    on("timeline.add_subtitle", [this] { addSubtitleAtPlayhead(); });
     on("clip.toggle_enabled", &TimelineController::toggleClipsEnabled);
     on("clip.flag", [this] { toggleFlag(m_ctx, effectiveSelection(), toolBarFlag()); });
     on("clip.link", &TimelineController::linkSelection);
