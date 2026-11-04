@@ -256,6 +256,8 @@ private slots:
             QDir::tempPath() + QStringLiteral("/kk-singlefile-originals-XXXXXX"));
         QVERIFY(m_dir->isValid());
         QDir(AutosaveController::autosaveDirectory()).removeRecursively();
+        // The first import's frame rate question (spec 25.18): keep the project's rate.
+        setFrameRatePromptHandlerForTests([](Rational, Rational) { return false; });
     }
 
     void cleanup()
@@ -263,6 +265,7 @@ private slots:
         platform::setFileDialogHandlerForTests({});
         setProgressDialogHookForTests({});
         setFolderImportOptionsHandlerForTests({});
+        setFrameRatePromptHandlerForTests({});
         closeNotices();
         m_dir.reset();
     }

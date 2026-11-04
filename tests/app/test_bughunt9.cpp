@@ -23,6 +23,7 @@
 #include "ui/deliver/DeliverPage.h"
 #include "ui/deliver/RenderSettingsPanel.h"
 #include "ui/common/FolderImport.h"
+#include "ui/common/MediaImport.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "platform/FileDialogs.h"
@@ -398,6 +399,54 @@ private slots:
         QCOMPARE(made->name, QStringLiteral("holiday"));
         QCOMPARE(made->parentId, binId); // inside the bin shown
         QCOMPARE(edit->currentBin(), logo->binId); // and now in view
+    }
+
+    // Spec 25.18: the first video imported into a project at another frame rate brings the
+    // question "Change the project frame rate?" (as in Resolve); Change sets the project and
+    // its empty timelines to the clip's rate. Not asked for stills, for later imports, or once
+    // a timeline that follows the project has clips.
+    void spec25_18_firstImportOffersTheClipFrameRate()
+    {
+        const QString video = QStringLiteral(KK_TEST_DATA_DIR "/generated/h264_25fps.mp4");
+        const QString still = QStringLiteral(KK_TEST_DATA_DIR "/generated/still.jpg");
+        QVERIFY(QFileInfo::exists(video));
+        int asked = 0;
+        Rational askedClip {0, 1};
+        setFrameRatePromptHandlerForTests([&](Rational clip, Rational project) {
+            ++asked;
+            askedClip = clip;
+            return project == Rational {24, 1};
+        });
+        QString pick;
+        platform::setFileDialogHandlerForTests(
+            [&](const platform::FileDialogRequest&) { return QStringList {pick}; });
+        {
+            Fixture f(0);
+            f.show();
+            QCOMPARE(f.project.settings().fps, (Rational {24, 1}));
+            pick = still; // a still has no frame rate: not asked
+            f.action("file.import_media")->trigger();
+            QCOMPARE(asked, 0);
+            f.project.undoStack()->undo(); // back to an empty pool
+            pick = video;
+            f.action("file.import_media")->trigger();
+            QCOMPARE(asked, 1);
+            QCOMPARE(askedClip, (Rational {25, 1}));
+            QCOMPARE(f.project.settings().fps, (Rational {25, 1}));
+            QCOMPARE(f.project.timeline()->data().fps, (Rational {25, 1}));
+            pick = QStringLiteral(KK_TEST_DATA_DIR "/generated/h264_2997.mp4");
+            f.action("file.import_media")->trigger(); // not the first import
+            QCOMPARE(asked, 1);
+        }
+        {
+            Fixture f(2); // the timeline already has clips: its rate is locked
+            pick = video;
+            f.action("file.import_media")->trigger();
+            QCOMPARE(asked, 1);
+            QCOMPARE(f.project.settings().fps, (Rational {24, 1}));
+        }
+        platform::setFileDialogHandlerForTests({});
+        setFrameRatePromptHandlerForTests({});
     }
 };
 
