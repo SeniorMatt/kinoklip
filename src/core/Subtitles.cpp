@@ -285,10 +285,11 @@ TrackData makeSubtitleTrack()
 
 // ---- Files ----
 
-bool parse(
-    const QByteArray& data, QVector<SubtitleCue>* cues, QString* error, SubtitleFormat* detected)
+bool parse(const QByteArray& data, QVector<SubtitleCue>* cues, QString* error,
+    SubtitleFormat* detected, int* emptyCues)
 {
     cues->clear();
+    int empty = 0;
     QString text = decodeSubtitleText(data);
     if (text.startsWith(QChar(0xfeff)))
         text.remove(0, 1);
@@ -329,7 +330,19 @@ bool parse(
         if (end <= start)
             continue; // zero-length / reversed cue: nothing to show
         const QString body = plainText(textLines.join(QLatin1Char('\n'))).trimmed();
+        if (body.isEmpty()) {
+            ++empty; // an invisible caption: skipped, the caller reports the count
+            continue;
+        }
         cues->append({start, end, body});
+    }
+    if (emptyCues)
+        *emptyCues = empty;
+    if (cues->isEmpty() && empty > 0) {
+        if (error)
+            *error = QCoreApplication::translate(
+                "kk::subtitles", "Every subtitle cue in the file is empty.");
+        return false;
     }
     if (cues->isEmpty()) {
         if (error)
@@ -340,7 +353,7 @@ bool parse(
     return true;
 }
 
-bool readFile(const QString& path, QVector<SubtitleCue>* cues, QString* error)
+bool readFile(const QString& path, QVector<SubtitleCue>* cues, QString* error, int* emptyCues)
 {
     // Through MediaSource: a subtitle file stored inside a single-file project is read in place.
     if (pack::mayBeEmbeddedPath(path)) {
@@ -353,7 +366,7 @@ bool readFile(const QString& path, QVector<SubtitleCue>* cues, QString* error)
                     *error = why;
                 return false;
             }
-            return parse(bytes, cues, error);
+            return parse(bytes, cues, error, nullptr, emptyCues);
         }
     }
     QFile file(path);
@@ -362,7 +375,7 @@ bool readFile(const QString& path, QVector<SubtitleCue>* cues, QString* error)
             *error = file.errorString();
         return false;
     }
-    return parse(file.readAll(), cues, error);
+    return parse(file.readAll(), cues, error, nullptr, emptyCues);
 }
 
 QString formatTimestamp(int64_t us, SubtitleFormat format)
