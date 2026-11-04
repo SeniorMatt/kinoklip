@@ -11,6 +11,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/TimelineCommandSuspension.h"
+#include "ui/deliver/RenderFinishNotifier.h"
 #include "ui/deliver/RenderQueuePanel.h"
 #include "ui/deliver/RenderRangeBar.h"
 #include "ui/deliver/RenderSettingsPanel.h"
@@ -49,6 +50,7 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     m_settingsPanel = new RenderSettingsPanel(ctx, m_presets.get());
     m_viewer = new ViewerPanel(ViewerPanel::Mode::Timeline, ctx);
     m_queuePanel = new RenderQueuePanel(m_queue);
+    m_finishNotifier = new RenderFinishNotifier(m_queue, this, this); // spec 45.5
 
     m_topRow = new PanelSplitter(Qt::Horizontal);
     m_topRow->setChildrenCollapsible(false);

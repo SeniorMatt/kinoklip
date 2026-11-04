@@ -65,6 +65,9 @@ inline constexpr char kTimelineSourceTimecode[] = "timeline/sourceTimecode";
 /// Edit Index column chooser (spec 18.10): QStringList of the hidden column keys
 /// (EditIndexModel::columnKey()), one value per mode: this prefix + "/edits" or "/markers".
 inline constexpr char kEditIndexHiddenColumns[] = "editIndex/hiddenColumns";
+/// bool: a desktop notification when the render queue finishes (Preferences > UI Settings >
+/// "Show a system notification when renders finish"); default true (spec 45.5).
+inline constexpr char kRenderNotifications[] = "deliver/notifyWhenFinished";
 
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).
@@ -146,5 +149,9 @@ void setAnimationsEnabled(bool on);
 [[nodiscard]] double animationSpeed();
 /// Stores kAnimationSpeed (clamped to [0.5, 2]).
 void setAnimationSpeed(double factor);
+/// True if finished renders show a system notification (kRenderNotifications, default true).
+[[nodiscard]] bool renderNotificationsEnabled();
+/// Stores kRenderNotifications.
+void setRenderNotificationsEnabled(bool on);
 
 } // namespace kk::prefs

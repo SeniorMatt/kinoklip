@@ -455,6 +455,12 @@ public:
             note(tr("Clips slide, appear and fade after edits, cuts flash and the playhead "
                     "glides on jumps. The timeline itself changes at once. The desktop's "
                     "animation speed applies as well.")));
+
+        // Our own (Resolve has none): HandBrake-style "Render complete" (spec 45.5).
+        m_renderNotify = new QCheckBox(tr("Show a system notification when renders finish"));
+        m_renderNotify->setObjectName(QStringLiteral("RenderNotifications"));
+        m_renderNotify->setChecked(prefs::renderNotificationsEnabled());
+        form->addRow(tr("Notifications"), m_renderNotify);
     }
 
     void apply() override
@@ -462,6 +468,7 @@ public:
         QSettings().setValue(QLatin1String(prefs::kUiScale), m_scale->currentData().toString());
         prefs::setAnimationsEnabled(m_animate->isChecked());
         prefs::setAnimationSpeed(m_speed->value() * kSpeedStep);
+        prefs::setRenderNotificationsEnabled(m_renderNotify->isChecked());
         uianim::reload(); // live: every timeline view follows at once
     }
 
@@ -472,6 +479,7 @@ private:
     QComboBox* m_scale = nullptr;
     QCheckBox* m_animate = nullptr;
     QSlider* m_speed = nullptr;
+    QCheckBox* m_renderNotify = nullptr;
 };
 
 // ---- User: Project Save and Load -----------------------------------------------------

@@ -23,6 +23,7 @@ struct AppContext;
 class Compositor;
 class ExportPresets;
 class RenderQueue;
+class RenderFinishNotifier;
 class RenderQueuePanel;
 class RenderRangeBar;
 class RenderSettingsPanel;
@@ -50,6 +51,8 @@ public:
     [[nodiscard]] ViewerPanel* viewer() const { return m_viewer; }
     /// The render queue (owned by the page).
     [[nodiscard]] RenderQueue* renderQueue() const { return m_queue; }
+    /// The "render finished" desktop notification of the queue (spec 45.5).
+    [[nodiscard]] RenderFinishNotifier* finishNotifier() const { return m_finishNotifier; }
     /// The settings panel.
     [[nodiscard]] RenderSettingsPanel* settingsPanel() const { return m_settingsPanel; }
 
@@ -107,6 +110,7 @@ private:
     RenderQueue* m_queue = nullptr;
     RenderSettingsPanel* m_settingsPanel = nullptr;
     RenderQueuePanel* m_queuePanel = nullptr;
+    RenderFinishNotifier* m_finishNotifier = nullptr;
     RenderRangeBar* m_rangeBar = nullptr;
     QPair<qint64, qint64> m_seenMarks {-2, -2}; ///< marks followMarks() last reacted to
     ViewerPanel* m_viewer = nullptr;
