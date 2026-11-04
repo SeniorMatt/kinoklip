@@ -22,6 +22,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QHBoxLayout>
+#include <QHideEvent>
 #include <QSettings>
 #include <QShowEvent>
 #include <QSplitter>
@@ -159,6 +160,9 @@ void CompositingPage::connectActions()
             });
     };
     CompSession* s = m_session;
+    // Edit > Compositing Page is in every page's menu bar: its commands are greyed out until
+    // the page is shown, like the Cut and Color page commands (spec 42b.32).
+    setNodeCommandsEnabled(false);
     on("comp.select_node", [this] { showSelectNode(); });
     on("comp.add_note", [this, s] { s->addNote(m_editor->pastePosition()); });
     on("comp.cut", [s] { s->cutSelection(); });
@@ -238,6 +242,7 @@ void CompositingPage::showEvent(QShowEvent* event)
     Page::showEvent(event);
     if (event->spontaneous())
         return;
+    setNodeCommandsEnabled(true);
     openClip(); // the timeline commands are already suspended (TimelineCommandSuspension)
     // The node editor's keys act while it has the focus (1 / 2, Shift+Space, Delete right
     // after Shift+5, as in Resolve): when the page that had the focus went away, it takes it.
@@ -249,6 +254,23 @@ void CompositingPage::showEvent(QShowEvent* event)
             && (!focus || !focus->isVisible() || elsewhereInWindow))
             m_editor->setFocus(Qt::OtherFocusReason);
     });
+}
+
+void CompositingPage::hideEvent(QHideEvent* event)
+{
+    Page::hideEvent(event);
+    if (!event->spontaneous())
+        setNodeCommandsEnabled(false);
+}
+
+void CompositingPage::setNodeCommandsEnabled(bool enabled)
+{
+    if (!m_ctx.actions)
+        return;
+    for (const QString& id : m_ctx.actions->menuEntries(QStringLiteral("comp"))) {
+        if (m_ctx.actions->contains(id))
+            m_ctx.actions->action(id)->setEnabled(enabled);
+    }
 }
 
 // ---- Panels and layout ----

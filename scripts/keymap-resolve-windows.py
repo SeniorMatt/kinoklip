@@ -86,7 +86,7 @@ a("trim.move_down", "Move Clips Down a Track", ["Alt+Down"], U)
 
 sec("Timeline")
 a("edit.split", "Split Clip (Razor) at Playhead", ["Ctrl+\\"], S, "Ctrl+B is not a default (owner feedback alpha.1 #8).")
-a("edit.join", "Join Clips (remove a through edit)", ["Alt+\\"], U)
+a("edit.join", "Join Clips (remove a through edit)", ["Alt+\\"], L, "Resolve's Join Clips sits beside Split Clip (Ctrl+\\) on Alt+\\")
 a("timeline.add_transition", "Add Default Transition", ["Ctrl+T"], S)
 a("timeline.snapping", "Snapping", ["N"], S)
 a("timeline.linked_selection", "Linked Selection", ["Ctrl+Shift+L"], S)
@@ -110,7 +110,7 @@ sec("Track destination and auto track selectors")
 for n in range(1, 9):
     a(f"timeline.target_video_{n}", f"Video Destination V{n}", [f"Alt+{n}"], L)
 for n in range(1, 9):
-    a(f"timeline.target_audio_{n}", f"Audio Destination A{n}", [f"Ctrl+Alt+{n}"], U)
+    a(f"timeline.target_audio_{n}", f"Audio Destination A{n}", [f"Ctrl+Alt+{n}"], L, "Timeline > Track Destination Selection in Resolve: Alt+n for video, Ctrl+Alt+n for audio" if n == 1 else "")
 for n in range(1, 9):
     a(f"timeline.auto_select_video_{n}", f"Toggle Auto Select V{n}", [f"Ctrl+{n}"], L)
 for n in range(1, 9):
@@ -340,7 +340,7 @@ a("color.apply_still", "Apply Grade from Still (the selected gallery still to th
 a("color.copy_grade", "Copy Grade (of the current clip)", ["Ctrl+C"], L, CP + "; the Edit page's Copy rests while the Color page is shown")
 a("color.paste_grade", "Paste Grade (to the selected clips of the clips strip)", ["Ctrl+V"], L, CP + "; middle-click on a thumbnail copies that clip's grade to the selected clips")
 a("color.highlight", "Highlight (show the current node's key in the viewer)", ["Shift+H"], L, CP)
-a("color.wipe", "Wipe with Still (split the viewer with the selected gallery still)", ["Ctrl+W"], U, CP + "; Resolve's wipe toggle as we remember it, not confirmed")
+a("color.wipe", "Wipe with Still (split the viewer with the selected gallery still)", ["Ctrl+W"], L, CP + "; Ctrl+W toggles the viewer wipe in Resolve's Color page")
 
 sec("Audio page")
 a("audio.add_bus", "Add Bus (stereo; mono from the bus strip's menu)", [], U, "Audio page mixer command; no default key known, none assigned")

@@ -142,7 +142,7 @@ int main(int argc, char** argv)
     kk::ActionRegistry actions;
     actions.loadDefaultKeymap();
     kk::registerStandardActions(actions);
-    kk::theme::registerActions(actions); // Settings > Color Theme / Style entries
+    kk::theme::registerActions(actions); // Workspace > Color Theme / Style entries
     kk::SettingsPageRegistry settingsPages;
     kk::registerStandardSettingsPages(settingsPages, &actions);
     kk::theme::registerSettingsPage(settingsPages, actions);

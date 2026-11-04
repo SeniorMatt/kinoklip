@@ -67,7 +67,7 @@ The buttons at the top of the window show or hide panels: **Media Pool**, **Effe
 ## Import your clips
 
 Do one of these:
-- Choose **File > Import Media** (**Ctrl+I**) and pick your video, audio and picture files.
+- Choose **File > Import > Media** (**Ctrl+I**) and pick your video, audio and picture files.
 - Or drag the files from your file manager into the media pool.
 
 Your clips now appear in the media pool. Kinoklip reads common camera and phone formats (MP4,

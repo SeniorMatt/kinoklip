@@ -29,6 +29,16 @@ struct ActionSpec
 
 // clang-format off
 const ActionSpec kActions[] = {
+    // ---- Application menu (Resolve's "DaVinci Resolve" menu, first in the bar on Windows
+    //      too): About, Keyboard Customization, Preferences, Quit ----
+    {"app", "help.about",             QT_TRANSLATE_NOOP("kk::StandardActions", "&About %1")},
+    {"app", "help.about_qt",          QT_TRANSLATE_NOOP("kk::StandardActions", "About &Qt")},
+    {"app", "-"},
+    {"app", "edit.keyboard_customization", QT_TRANSLATE_NOOP("kk::StandardActions", "&Keyboard Customization…")},
+    {"app", "edit.preferences",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Preferences…")},
+    {"app", "-"},
+    {"app", "file.quit",              QT_TRANSLATE_NOOP("kk::StandardActions", "&Quit %1")},
+
     // ---- File ----
     {"file", "file.project_manager",  QT_TRANSLATE_NOOP("kk::StandardActions", "Project &Manager…")},
     {"file", "-"},
@@ -47,9 +57,11 @@ const ActionSpec kActions[] = {
     {"file", "file.compact_project",  QT_TRANSLATE_NOOP("kk::StandardActions", "Co&mpact Project…")},
     {"file", "file.verify_project",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Verify Project File")},
     {"file", "-"},
-    {"file", "file.import_media",     QT_TRANSLATE_NOOP("kk::StandardActions", "&Import Media…"), "import"},
-    {"file", "file.import_media_folder", QT_TRANSLATE_NOOP("kk::StandardActions", "Import Media &Folder…"), "folder"},
-    {"file", "file.import_subtitle",  QT_TRANSLATE_NOOP("kk::StandardActions", "Import S&ubtitle…")},
+    // File > Import, as in Resolve (Media, Subtitle; Media Folder is our own).
+    {"file", ">file.import",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Import")},
+    {"file.import", "file.import_media", QT_TRANSLATE_NOOP("kk::StandardActions", "&Media…"), "import"},
+    {"file.import", "file.import_media_folder", QT_TRANSLATE_NOOP("kk::StandardActions", "Media &Folder…"), "folder"},
+    {"file.import", "file.import_subtitle", QT_TRANSLATE_NOOP("kk::StandardActions", "&Subtitle…")},
     // The media pool's proxy / optimized media commands also live here (act on the media
     // pool selection); Resolve offers them in the media pool context menu.
     // File > Export: the timeline as an edit decision list, its markers as EDL / CSV.
@@ -62,8 +74,6 @@ const ActionSpec kActions[] = {
     {"file", ">mediapool.organize",   QT_TRANSLATE_NOOP("kk::StandardActions", "Media &Pool")},
     {"file", "-"},
     {"file", "file.project_settings", QT_TRANSLATE_NOOP("kk::StandardActions", "Project Se&ttings…")},
-    {"file", "-"},
-    {"file", "file.quit",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Quit")},
 
     // ---- Edit ----
     {"edit", "edit.undo",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Undo")},
@@ -102,9 +112,6 @@ const ActionSpec kActions[] = {
     {"edit", ">comp",                 QT_TRANSLATE_NOOP("kk::StandardActions", "Co&mpositing Page")},
     // Grade commands of the Color page (enabled while it is shown; keys act on the page).
     {"edit", ">color",                QT_TRANSLATE_NOOP("kk::StandardActions", "Co&lor Page")},
-    {"edit", "-"},
-    {"edit", "edit.keyboard_customization", QT_TRANSLATE_NOOP("kk::StandardActions", "&Keyboard Customization…")},
-    {"edit", "edit.preferences",      QT_TRANSLATE_NOOP("kk::StandardActions", "Pr&eferences…")},
 
     // ---- Trim (edit tools; the three tools form an exclusive group) ----
     {"trim", "tool.select",           QT_TRANSLATE_NOOP("kk::StandardActions", "&Selection Mode"), "select", true},
@@ -277,7 +284,6 @@ const ActionSpec kActions[] = {
     {"view", "view.onscreen_masks",   QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Mask Controls"), "", true},
     {"view", "view.onscreen_crop",    QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Crop Controls"), "", true},
     {"view", "view.onscreen_dynamic_zoom", QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Dynamic Zoom Controls"), "", true},
-    {"view", "view.fullscreen",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen"), "", true},
     // Viewer guides, rulers, safe areas and grid (spec 41; ui/viewer/ViewerOverlaySettings).
     {"view", "-"},
     {"view", "view.show_rulers", QT_TRANSLATE_NOOP("kk::StandardActions", "Show &Rulers"), "", true},
@@ -433,7 +439,10 @@ const ActionSpec kActions[] = {
     {"mediapool.organize", "mediapool.select_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Select Clips in &Timeline")},
     {"mediapool.organize", "mediapool.remove_unused", QT_TRANSLATE_NOOP("kk::StandardActions", "Remove &Unused Clips…")},
 
-    // ---- Settings (look and feel; entries filled by src/app/Theme) ----
+    // ---- Workspace (Resolve's Workspace menu: the window; our look and feel entries are
+    //      filled by src/app/Theme; category id "settings" kept for stored data) ----
+    {"settings", "view.fullscreen",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen Window"), "", true},
+    {"settings", "-"},
     {"settings", ">settings.color_scheme", QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Theme")},
     {"settings", ">settings.style",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Style")},
 
@@ -442,9 +451,6 @@ const ActionSpec kActions[] = {
     {"help", "help.guide_context",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Help for This…")},
     {"help", "help.guide",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Guide…")},
     {"help", "help.getting_started",  QT_TRANSLATE_NOOP("kk::StandardActions", "Getting &Started")},
-    {"help", "-"},
-    {"help", "help.about",            QT_TRANSLATE_NOOP("kk::StandardActions", "&About %1")},
-    {"help", "help.about_qt",         QT_TRANSLATE_NOOP("kk::StandardActions", "About &Qt")},
 };
 // clang-format on
 
@@ -463,6 +469,8 @@ QString translate(const char* text)
 QVector<MenuCategory> standardMenus()
 {
     return {
+        // Resolve's first menu carries the application's name (About, Preferences, Quit).
+        {QStringLiteral("app"), QCoreApplication::applicationName()},
         {QStringLiteral("file"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&File"))},
         {QStringLiteral("edit"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Edit"))},
         {QStringLiteral("trim"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Trim"))},
@@ -475,7 +483,7 @@ QVector<MenuCategory> standardMenus()
             translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Playback"))},
         {QStringLiteral("audio"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Audio"))},
         {QStringLiteral("settings"),
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Settings"))},
+            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Workspace"))},
         {QStringLiteral("help"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Help"))},
     };
 }
@@ -499,6 +507,8 @@ void registerStandardActions(ActionRegistry& registry)
     // Initial states and groupings that are part of the command's definition.
     QAction* about = registry.action(QStringLiteral("help.about"));
     about->setText(about->text().arg(QCoreApplication::applicationName()));
+    QAction* quit = registry.action(QStringLiteral("file.quit"));
+    quit->setText(quit->text().arg(QCoreApplication::applicationName()));
     about->setMenuRole(QAction::AboutRole);
     registry.action(QStringLiteral("help.about_qt"))->setMenuRole(QAction::AboutQtRole);
     registry.action(QStringLiteral("file.quit"))->setMenuRole(QAction::QuitRole);

@@ -454,7 +454,8 @@ private slots:
     {
         Fixture f;
         f.showActive();
-        auto* help = f.window->findChild<QMenu*>(QStringLiteral("menu:help"));
+        // About sits in the application menu, Resolve's first menu.
+        auto* help = f.window->findChild<QMenu*>(QStringLiteral("menu:app"));
         QVERIFY(help);
         help->popup(f.window->mapToGlobal(QPoint(40, 40)));
         QVERIFY(QTest::qWaitForWindowExposed(help));

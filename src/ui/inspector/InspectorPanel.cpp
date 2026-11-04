@@ -226,8 +226,19 @@ void InspectorPanel::showClip(quint64 clipId)
     m_clipId = structure.clipId;
     m_audioClipId = structure.audioClipId;
     if (structure != m_structure || m_groups.isEmpty()) {
+        const auto isCaption
+            = [](const Structure& s) { return s.clipId != 0 && s.kind == ClipKind::Subtitle; };
+        const bool wasCaption = isCaption(m_structure);
         m_structure = structure;
         rebuild();
+        // A caption's properties are all on the Captions tab (Resolve's subtitle inspector),
+        // so selecting one shows it; leaving captions for a clip that has no title goes back
+        // to the Video tab (spec 28.15).
+        if (isCaption(structure) && !wasCaption)
+            m_tabs->setCurrentIndex(TitleTab);
+        else if (wasCaption && !isCaption(structure) && m_tabs->currentIndex() == TitleTab
+            && structure.kind != ClipKind::Title)
+            m_tabs->setCurrentIndex(VideoTab);
     } else {
         refreshValues();
     }
@@ -393,6 +404,16 @@ void InspectorPanel::modifyClip(quint64 clipId, const std::function<void(ClipDat
                     multiclip::propagate(*before, after, *peer);
             c = editops::clipById(data, clipId);
         }
+        // A caption is named after its text (first line), as in Resolve: the Edit Index and
+        // the Inspector header follow the typing (spec 28.17).
+        const auto nameCaption = [](ClipData& cd) {
+            if (cd.kind == ClipKind::Subtitle)
+                cd.name = subtitles::captionText(cd).section(QLatin1Char('\n'), 0, 0);
+        };
+        nameCaption(*c);
+        for (quint64 id : peers)
+            if (ClipData* peer = editops::clipById(data, id))
+                nameCaption(*peer);
         if (c->kind == ClipKind::Subtitle && !ownBefore && subtitles::hasOwnStyle(*c)) {
             // "Custom Style" switched on: start from the track's look (keys the caption does
             // not set yet), so nothing changes until the user edits it.
