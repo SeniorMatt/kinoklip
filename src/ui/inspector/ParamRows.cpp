@@ -581,6 +581,8 @@ public:
 
     ~TextRow() override { finishTyping(); }
 
+    void finishPendingEdit() override { finishTyping(); }
+
     void refresh(const ClipData& clip, int64_t localFrame, bool) override
     {
         if (!m_typing) {

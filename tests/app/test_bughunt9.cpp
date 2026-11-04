@@ -312,6 +312,36 @@ private slots:
         for (int i = 1; i < 4; ++i)
             QCOMPARE(f.project.clipGrade(f.project.activeTimelineUid(), f.clips[i]), graded);
     }
+
+    // Spec 24.22: Ctrl+S right after typing a title or caption text (before the typing pause
+    // closes its undo step) saves the text and leaves the project clean: no "•" and no
+    // "save changes?" question on closing.
+    void spec24_22_saveRightAfterTypingIsClean()
+    {
+        Fixture f;
+        f.show();
+        QTemporaryDir dir;
+        QVERIFY(f.project.save(dir.filePath(QStringLiteral("typed.kkproj"))));
+        QVERIFY(!f.project.isDirty());
+        f.project.timeline()->setPlayhead(10);
+        f.action("timeline.add_subtitle")->trigger();
+        const quint64 id = f.selection.currentClip();
+        QVERIFY(f.action("file.save")->isEnabled());
+        f.action("file.save")->trigger();
+        QVERIFY(!f.project.isDirty());
+        auto* edit
+            = f.inspector()->findChild<QPlainTextEdit*>(QStringLiteral("text:") + keys::Text);
+        QVERIFY(edit);
+        edit->setFocus();
+        QTest::keyClicks(edit, QStringLiteral("Hello"));
+        QVERIFY(f.project.isEditing()); // the typing step is still open
+        f.action("file.save")->trigger(); // well inside the typing pause
+        QVERIFY(!f.project.isDirty());
+        QTest::qWait(1200); // the pause passes: nothing is left to close
+        QVERIFY(!f.project.isDirty());
+        QVERIFY(subtitles::captionText(*editops::clipById(f.project.timeline()->data(), id))
+                    .contains(QStringLiteral("Hello")));
+    }
 };
 
 QTEST_MAIN(TestBughunt9)

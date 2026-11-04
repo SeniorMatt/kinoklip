@@ -195,6 +195,13 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     connect(timeline, &Timeline::changed, this, &InspectorPanel::onTimelineChanged);
     connect(timeline, &Timeline::playheadChanged, this, &InspectorPanel::refreshValues);
     connect(ctx.project, &Project::projectReset, this, [this] { showClip(0); });
+    // Ctrl+S right after typing a title: the typing step closes first (else the project is
+    // dirty again just after the save).
+    connect(ctx.project, &Project::aboutToSave, this, [this] {
+        for (ParamGroupBox* group : std::as_const(m_groups))
+            for (ParamRow* row : group->rows())
+                row->finishPendingEdit();
+    });
     if (ctx.selection) {
         // The mask groups' "edit in the viewer" buttons follow the active mask.
         connect(ctx.selection, &SelectionModel::colorPickerChanged, this,

@@ -168,6 +168,7 @@ bool ProjectController::openFile(const QString& path, bool askToSave, QWidget* d
 
 bool ProjectController::save()
 {
+    Q_EMIT m_ctx.project->aboutToSave();
     if (m_ctx.project->filePath().isEmpty())
         return saveAs();
     QString error;
@@ -193,6 +194,7 @@ bool ProjectController::save()
 
 bool ProjectController::saveAs()
 {
+    Q_EMIT m_ctx.project->aboutToSave();
     // A never-saved project offers the kind New Project would create; otherwise its own kind.
     const QString current = m_ctx.project->filePath();
     const bool single = current.isEmpty()
