@@ -220,6 +220,16 @@ void setAnimationsEnabled(bool on)
     QSettings().setValue(QLatin1String(kAnimations), on);
 }
 
+bool renderNotificationsEnabled()
+{
+    return QSettings().value(QLatin1String(kRenderNotifications), true).toBool();
+}
+
+void setRenderNotificationsEnabled(bool on)
+{
+    QSettings().setValue(QLatin1String(kRenderNotifications), on);
+}
+
 double animationSpeed()
 {
     return std::clamp(QSettings().value(QLatin1String(kAnimationSpeed), 1.0).toDouble(),

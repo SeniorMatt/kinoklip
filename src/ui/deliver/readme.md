@@ -25,6 +25,7 @@ Owned by the export work. Depends on `src/export` (settings, presets, render que
 | `RenderSettingsPanel.*` | Resolve's Render Settings: preset row, filename + location, single / individual clips, Video / Audio / File tabs, render range; a view of one `ExportSettings` that is normalised after every change so invalid combinations cannot be chosen |
 | `RenderPresetRow.*` | the preset tiles (icon over a two-line name, elided with a tooltip), scrolled with arrow buttons instead of a scroll bar |
 | `RenderQueuePanel.*` | one card per job (status, progress bar, fps, ETA, edit - loads the job into Render Settings with Update Job, spec 45.1 -, cancel, reveal output folder, remove), Render All / Stop / Clear Finished |
+| `RenderFinishNotifier.*` | the "render finished" system notification (spec 45.5, our own, like HandBrake's): one per queue run, "Render complete" / "Render finished with errors: 1 of 3 failed", Open Folder and Play buttons, none after a user Stop or with the Preferences option off (45.6); taskbar flash when the window is inactive. Sends through `platform/DesktopNotifications` |
 | `RenderRangeBar.*` | mini timeline (clips per track, range, playhead; click/drag seeks) |
 
 Behaviour notes:

@@ -35,7 +35,8 @@ inline constexpr char kUiScale[] = "ui/scaleFactor";
 /// Standard pages (registerStandardSettingsPages(), src/ui/dialogs/PreferencePages.cpp):
 /// - System: "memory" (still image cache, GPU processing mode), "storage" (cache folder),
 ///   "decode" (hardware decoding with the working APIs in a table), "audio_io" (output device).
-/// - User: "ui" (interface scale; the theme adds "appearance" to this section), "project"
+/// - User: "ui" (interface scale, animations, render notifications; the theme adds
+///   "appearance" to this section), "project"
 ///   (autosave), "editing" (EditBehaviour durations and conventions, zoom anchor), "playback"
 ///   (preview quality, pre/post-roll, play-around return, restart at end), "keyboard" (opens
 ///   Keyboard Customization).
