@@ -548,6 +548,9 @@ subtitle track. Clean room: our own wording, icons and colours.
 | 28.12 | Deliver > File > Subtitle Settings: Export subtitle (off by default), Format: Burn into video / As a separate file (Export as SRT or WebVTT, next to the render: "name.srt", or "name.<language or n>.srt" for several tracks) / As embedded captions (MP4 / QuickTime: timed text; MKV: SRT or ASS; WebM: WebVTT; one stream per enabled subtitle track, with language and title). Captions are clipped to the render range and timed from its first frame; hidden subtitle tracks are not exported. | Fixed (test_subtitleexport) |
 | 28.13 | Project format 7 stores adjustment / generator clips, subtitle tracks and subtitle media items; versions 1 - 6 load unchanged (5 = retiming, 6 = the proxy branch). | Fixed (test_subtitles projectFormatAndMigration) |
 | 28.14 | Subtitle styles per word (italic spans), karaoke timing, subtitle import from video containers and caption speed / reading-rate checks are not implemented. | Deferred |
+| 28.15 | Selecting a caption shows the Inspector's Captions tab, where its text and style are; selecting a clip that has no title afterwards goes back to the Video tab. | Fixed (bughunt8: the Inspector stayed on the Video tab, which only says "see Captions"; bh8 spec28_15_captionShowsCaptionsTab) |
+| 28.16 | Add Subtitle in a subtitle track's right-click menu (track header or empty track area) puts the caption on that track at the playhead (the next free unlocked track when it is locked or busy there). | Fixed (bughunt8: the caption always went to ST1 or the selected caption's track; bh8 spec28_16_addSubtitleOnTheClickedTrack) |
+| 28.17 | A caption is named after its text (its first line): typing in the Captions tab renames it, so the Inspector header and the Edit Index show the caption, not "Subtitle". | Fixed (bughunt8: the name stayed "Subtitle" after the text was typed; bh8 spec28_17_captionNameFollowsItsText) |
 
 ---
 
