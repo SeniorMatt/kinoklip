@@ -392,14 +392,15 @@ std::future<RenderedFramePtr> PlaybackEngine::renderCompositionNode(
         outSize, currentQuality(), outputs, m_media, m_proxies);
 }
 
-std::future<RenderedFramePtr> PlaybackEngine::renderImage(int64_t frame, QSize outSize) const
+std::future<RenderedFramePtr> PlaybackEngine::renderImage(
+    int64_t frame, QSize outSize, bool withGrades) const
 {
     RenderRequest request;
     request.timeline = m_videoSnapshot ? m_videoSnapshot : m_snapshot;
     request.media = m_media;
     request.proxies = m_proxies;
     request.renderCache = m_renderCache;
-    request.bypassGrades = m_bypassGrades;
+    request.bypassGrades = m_bypassGrades || !withGrades;
     request.frame = frame;
     request.outSize = outSize;
     request.outputs = OutputImage;
