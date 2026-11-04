@@ -21,6 +21,11 @@ struct ClipData;
 class GuideOverlay;
 class ViewerSurface;
 
+/// The clip the viewer's on-screen controls act on: the current clip (the last clicked,
+/// SelectionModel::currentClip(); the video part of a linked pair) when it is a video clip on
+/// an unlocked track under the playhead, else nullptr.
+[[nodiscard]] const ClipData* onScreenControlsClip(const AppContext& ctx, quint64* id = nullptr);
+
 /// Transparent child of a timeline viewer's picture surface, shown while the on-screen
 /// controls are set to Transform ("view.onscreen_transform") or Crop ("view.onscreen_crop")
 /// and the current clip (the last clicked, SelectionModel::currentClip()) is a video clip

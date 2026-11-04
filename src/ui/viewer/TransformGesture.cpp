@@ -74,7 +74,9 @@ TransformPicture picture(
         QPointF(w2 - std::max(0.0, p.value(keys::CropR, localFrame)) * sx,
             h2 - std::max(0.0, p.value(keys::CropB, localFrame)) * sy));
     pic.anchor = QPointF(p.value(keys::AnchorX, localFrame), p.value(keys::AnchorY, localFrame));
-    pic.contentToFrame = render::clipTransform(clip, localFrame, frame);
+    // Without Dynamic Zoom: the handles edit the Transform parameters, whose maths (pivot,
+    // lever, anchor) is exact only for the transform itself (spec 24.20).
+    pic.contentToFrame = render::clipTransform(clip, localFrame, frame, false);
     return pic;
 }
 

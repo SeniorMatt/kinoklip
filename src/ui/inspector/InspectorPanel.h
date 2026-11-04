@@ -22,6 +22,9 @@ class QVBoxLayout;
 namespace kk {
 
 class ParamGroupBox;
+namespace retimeops {
+struct SpeedChange;
+}
 struct AppContext;
 
 /// Shows and edits the current clip (SelectionModel::currentClip()).
@@ -170,6 +173,12 @@ private:
     void addTransitionGroup(const ClipData& clip, bool atHead);
     void moveEffect(quint64 effectId, int delta);
     void removeEffect(quint64 effectId);
+    // ---- Dynamic Zoom, Speed Change, Retime and Scaling (InspectorSpeed.cpp) ----
+    void buildDynamicZoomSection(quint64 clipId);
+    void buildSpeedSections(const ClipData& clip);
+    /// Changes the speed of @p clipId (and the selected peers) like the Change Clip Speed
+    /// dialog: @p edit adjusts the clip's current speed state.
+    void applySpeed(quint64 clipId, const std::function<void(retimeops::SpeedChange&)>& edit);
     // ---- Masks section (InspectorMasks.cpp) ----
     void buildMasksSection(const ClipData& clip);
     void addMask(MaskShape shape);
@@ -206,6 +215,8 @@ private:
     std::function<QColor(const QColor&, const QString&)> m_colorPicker;
     std::function<QString(const QString&, const QString&, const QString&)> m_filePicker;
     bool m_updatingStyleSheet = false; ///< re-entrancy guard of changeEvent()
+    /// Speed Change's Ripple Sequence (on by default, like Resolve; kept while the panel lives).
+    bool m_speedRipple = true;
 };
 
 } // namespace kk

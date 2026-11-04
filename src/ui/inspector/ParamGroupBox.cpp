@@ -122,6 +122,11 @@ void ParamGroupBox::setTitle(const QString& title)
     m_title->setText(title);
 }
 
+QString ParamGroupBox::title() const
+{
+    return m_title->text();
+}
+
 void ParamGroupBox::addHeaderMenuAction(QAction* action)
 {
     m_header->setContextMenuPolicy(Qt::ActionsContextMenu);

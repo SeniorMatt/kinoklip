@@ -194,6 +194,14 @@ void PlaybackEngine::setBypassGrades(bool bypass)
     Q_EMIT bypassGradesChanged(bypass);
 }
 
+void PlaybackEngine::setDynamicZoomApplied(bool applied)
+{
+    if (applied == m_dynamicZoomApplied)
+        return;
+    m_dynamicZoomApplied = applied;
+    updateParams(true);
+}
+
 void PlaybackEngine::setMediaPaths(std::shared_ptr<const MediaPathMap> media)
 {
     m_media = std::move(media);
@@ -408,6 +416,7 @@ std::future<RenderedFramePtr> PlaybackEngine::renderImage(
     request.renderCache = m_renderCache;
     request.bypassGrades
         = grades == ImageGrades::None || (grades == ImageGrades::Viewer && m_bypassGrades);
+    request.dynamicZoom = m_dynamicZoomApplied;
     request.frame = frame;
     request.outSize = outSize;
     request.outputs = OutputImage;
@@ -458,6 +467,7 @@ void PlaybackEngine::updateParams(bool rerender)
     params.proxies = m_proxies;
     params.renderCache = m_renderCache;
     params.bypassGrades = m_bypassGrades;
+    params.dynamicZoom = m_dynamicZoomApplied;
     // The proxy resolution is applied here (relative to the timeline resolution, see
     // renderSize()); the compositor renders exactly that size.
     params.outSize = renderSize();
@@ -469,7 +479,8 @@ void PlaybackEngine::updateParams(bool rerender)
     params.outputs = m_compositor->isGpu() && allTextures ? OutputTexture : OutputImage;
     const RenderParams& old = m_scheduler.params();
     const bool contentChanged = old.timeline != params.timeline || old.media != params.media
-        || old.proxies != params.proxies || old.bypassGrades != params.bypassGrades;
+        || old.proxies != params.proxies || old.bypassGrades != params.bypassGrades
+        || old.dynamicZoom != params.dynamicZoom;
     const bool changed
         = contentChanged || old.outSize != params.outSize || old.outputs != params.outputs;
     if (old.timeline != params.timeline || old.proxies != params.proxies) {

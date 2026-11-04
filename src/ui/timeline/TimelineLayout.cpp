@@ -106,7 +106,7 @@ double TimelineLayout::fitPixelsPerFrame(int64_t frames) const
 int TimelineLayout::verticalOffset() const
 {
     const int area = rowAreaHeight();
-    if (m_contentHeight >= area)
+    if (m_rowsFromTop || m_contentHeight >= area)
         return 0;
     // Put the divider at the vertical centre, as far as the rows allow.
     return std::clamp(area / 2 - m_videoHeight, 0, area - m_contentHeight);

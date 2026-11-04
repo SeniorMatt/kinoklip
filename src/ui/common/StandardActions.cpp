@@ -111,7 +111,7 @@ const ActionSpec kActions[] = {
     {"trim", "tool.trim",             QT_TRANSLATE_NOOP("kk::StandardActions", "&Trim Edit Mode"), "trim", true},
     {"trim", "tool.blade",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Blade Edit Mode"), "blade", true},
     {"trim", "-"},
-    {"trim", "trim.dynamic",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Dynamic Trim Mode"), "", true},
+    {"trim", "trim.dynamic",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Dynamic Trim Mode"), "dynamic_trim", true},
     {"trim", "-"},
     {"trim", "trim.nudge_left",       QT_TRANSLATE_NOOP("kk::StandardActions", "Nudge One Frame &Left")},
     {"trim", "trim.nudge_right",      QT_TRANSLATE_NOOP("kk::StandardActions", "Nudge One Frame &Right")},
@@ -276,6 +276,7 @@ const ActionSpec kActions[] = {
     {"view", "view.onscreen_transform", QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Transform Controls"), "", true},
     {"view", "view.onscreen_masks",   QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Mask Controls"), "", true},
     {"view", "view.onscreen_crop",    QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Crop Controls"), "", true},
+    {"view", "view.onscreen_dynamic_zoom", QT_TRANSLATE_NOOP("kk::StandardActions", "On-Screen &Dynamic Zoom Controls"), "", true},
     {"view", "view.fullscreen",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen"), "", true},
     // Viewer guides, rulers, safe areas and grid (spec 41; ui/viewer/ViewerOverlaySettings).
     {"view", "-"},

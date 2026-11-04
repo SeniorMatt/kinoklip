@@ -486,6 +486,7 @@ void GlRenderer::render(RenderJob& job)
     fc.nested = &tl.nested;
     fc.subtitles = rq.subtitles;
     fc.grades = !rq.bypassGrades;
+    fc.dynamicZoom = rq.dynamicZoom;
 
     // 1 + 2. Decode every visible media clip, including the clips inside visible nested
     //        timelines (in parallel when there are several).
@@ -633,7 +634,7 @@ void GlRenderer::drawAdjustment(
     if (tf.single) {
         const ClipData& clip = *tf.single;
         const int64_t local = clip.localFrame(fc.frame);
-        if (hasIdentityFootprint(clip, local)) {
+        if (hasIdentityFootprint(clip, local, fc.dynamicZoom)) {
             // The common case (a grade or blur over everything): nothing to do without an
             // active effect; otherwise the layer path reads the accumulator into its layer and
             // the result overwrites it - no copy, no footprint pass.
@@ -674,6 +675,7 @@ const RenderTarget* GlRenderer::nestedComposite(
     fc.nested = parent.nested;
     fc.depth = parent.depth + 1;
     fc.grades = parent.grades;
+    fc.dynamicZoom = parent.dynamicZoom;
     PooledTarget target = compositeTimeline(fc);
     m_nested.push_back({&tl, frame, size, std::move(target)});
     return m_nested.back().target.get();
@@ -962,7 +964,7 @@ void GlRenderer::drawClip(
     const float opacity = float(clipOpacity(clip, local));
     if (opacity <= 0.0f)
         return;
-    const double zoom = maxZoom(clip, local);
+    const double zoom = maxZoom(clip, local, fc.dynamicZoom);
     ClipSource src;
     if (zoom <= 0.0 || !resolveSource(clip, local, fc, zoom, src))
         return;
@@ -979,8 +981,8 @@ void GlRenderer::drawClip(
         return;
 
     // Content (centred, timeline px) → timeline frame px → output px.
-    const QTransform toOutput
-        = clipTransform(clip, local, QSizeF(fc.timeline->width, fc.timeline->height))
+    const QTransform toOutput = clipTransform(clip, local,
+                                    QSizeF(fc.timeline->width, fc.timeline->height), fc.dynamicZoom)
         * QTransform::fromScale(fc.sx, fc.sy);
     const QTransform outputToNdc = GlKit::pixelToNdc(fc.outSize);
     const double cw = src.content.width();

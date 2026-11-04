@@ -63,6 +63,7 @@ public:
         m_nested = &tl.nested;
         m_depth = 0;
         m_grades = !rq.bypassGrades;
+        m_dynamicZoom = rq.dynamicZoom;
         m_decoders.beginFrame();
         QImage image;
         if (rq.compositionNode) {
@@ -143,7 +144,7 @@ private:
                 if (tf.isEmpty())
                     continue;
                 if (tf.single && tf.single->kind == ClipKind::Adjustment
-                    && hasIdentityFootprint(*tf.single, tf.single->localFrame(frame))
+                    && hasIdentityFootprint(*tf.single, tf.single->localFrame(frame), m_dynamicZoom)
                     && !isGraded(*tf.single, tf.single->localFrame(frame))
                     && std::none_of(tf.single->effects.cbegin(), tf.single->effects.cend(),
                         [](const EffectInstance& e) {
@@ -250,7 +251,7 @@ private:
         }
         const QSizeF frameSize(m_timeline->width, m_timeline->height);
         const double outScale = std::max(m_scale.m11(), m_scale.m22());
-        const QTransform toOutput = clipTransform(clip, local, frameSize) * m_scale;
+        const QTransform toOutput = clipTransform(clip, local, frameSize, m_dynamicZoom) * m_scale;
 
         QSizeF content = frameSize;
         QSizeF sourcePx = frameSize;
@@ -261,7 +262,7 @@ private:
             return;
         if (clip.composition && !compops::isPassThrough(*clip.composition)) {
             // The composition's output replaces the picture (frame-sized, timeline px crop).
-            const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
+            const double zoom = std::clamp(maxZoom(clip, local, m_dynamicZoom), 1.0, 2.0);
             const QSize canvas = (frameSize * outScale * zoom).toSize().expandedTo(QSize(1, 1));
             picture = compositionImage(clip, local, 0, canvas, picture, pictureRect, solid);
             content = sourcePx = frameSize;
@@ -354,7 +355,7 @@ private:
             }
             content = fitSize(sourcePx, frameSize);
             // Decode at the size the picture occupies in the output (never above native).
-            const double zoom = std::max(1.0, maxZoom(clip, local));
+            const double zoom = std::max(1.0, maxZoom(clip, local, m_dynamicZoom));
             QSize want = (content * outScale * zoom).toSize().boundedTo(sourcePx.toSize());
             if (extraRotation % 180)
                 want.transpose(); // decoded in the file's orientation, turned below
@@ -399,7 +400,7 @@ private:
                 return false;
             sourcePx = QSizeF(n->width, n->height);
             content = fitSize(sourcePx, frameSize);
-            const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
+            const double zoom = std::clamp(maxZoom(clip, local, m_dynamicZoom), 1.0, 2.0);
             const QSize want = (content * outScale * zoom).toSize().expandedTo(QSize(1, 1));
             ++m_depth;
             picture
@@ -417,7 +418,7 @@ private:
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
             break;
         case ClipKind::Generator: {
-            const double zoom = std::clamp(maxZoom(clip, local), 1.0, 2.0);
+            const double zoom = std::clamp(maxZoom(clip, local, m_dynamicZoom), 1.0, 2.0);
             const QSize canvas = (frameSize * outScale * zoom).toSize().expandedTo(QSize(1, 1));
             picture = renderGeneratorImage(
                 resolveGenerator(clip, local, m_frame + m_timeline->startTimecode, m_timeline->fps),
@@ -633,6 +634,7 @@ private:
     const NestedTimelines* m_nested = nullptr;
     int m_depth = 0;
     bool m_grades = true; ///< apply grades (false: RenderRequest::bypassGrades)
+    bool m_dynamicZoom = true; ///< RenderRequest::dynamicZoom
     int64_t m_frame = 0;
     QSize m_out;
     QTransform m_scale;

@@ -511,6 +511,23 @@ bool changeClipSpeed(TimelineData& data, quint64 clipId, const SpeedChange& chan
         });
 }
 
+SpeedState speedState(const ClipData& clip)
+{
+    SpeedState s;
+    s.material
+        = std::abs(retime::position(clip, double(clip.duration)) - retime::position(clip, 0.0));
+    if (s.material < 1e-9)
+        s.material = double(std::max<int64_t>(1, clip.duration));
+    s.curve = retime::hasCurve(clip);
+    s.segments = int(retime::segments(clip).size());
+    s.speed = !s.curve && clip.speed != 0.0
+        ? std::abs(clip.speed)
+        : s.material / double(std::max<int64_t>(1, clip.duration));
+    s.reverse = !s.curve && clip.speed < 0;
+    s.freeze = !s.curve && clip.speed == 0.0;
+    return s;
+}
+
 bool setProcess(TimelineData& data, quint64 clipId, RetimeProcess process)
 {
     return applyToGroup(

@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 331 commands; sure 106, likely 103, unsure 122.
+Counts: 332 commands; sure 106, likely 103, unsure 123.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -248,6 +248,7 @@ that every command has an entry and that no key is used twice.
 | On-Screen Transform Controls (viewer on-screen controls: Transform) | `view.onscreen_transform` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
 | On-Screen Mask Controls (viewer on-screen controls: Mask) | `view.onscreen_masks` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
 | On-Screen Crop Controls (viewer on-screen controls: Crop) | `view.onscreen_crop` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
+| On-Screen Dynamic Zoom Controls (viewer on-screen controls: Dynamic Zoom) | `view.onscreen_dynamic_zoom` | (none) | unsure | Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned. |
 | Full Screen Window | `view.fullscreen` | `Ctrl+Shift+F` | unsure |  |
 | Show Rulers (pixel rulers along the viewer's top and left edges) | `view.show_rulers` | (none) | unsure | viewer overlay; no default key is known, none assigned. |
 | Show Guides (viewer guide lines, never rendered) | `view.guides_show` | (none) | unsure | viewer overlay; no default key is known, none assigned. |

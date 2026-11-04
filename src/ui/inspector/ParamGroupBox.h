@@ -51,6 +51,7 @@ public:
     void addHeaderWidget(QWidget* widget);
     /// Changes the header title.
     void setTitle(const QString& title);
+    [[nodiscard]] QString title() const;
     /// Adds @p action to the header's right-click menu (e.g. "How to use <name>…").
     void addHeaderMenuAction(QAction* action);
     /// The header's right-click menu entries.

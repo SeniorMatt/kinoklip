@@ -896,7 +896,7 @@ void TimelineController::addMarker()
             return false;
         Marker m;
         m.frame = frame;
-        m.name = tr("Marker %1").arg(data.markers.size() + 1);
+        m.name = newMarkerName(data.markers);
         m.color = newMarkerColor();
         data.markers.insert(it, m);
         return true;

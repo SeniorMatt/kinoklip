@@ -2,6 +2,7 @@
 // The built-in v0.1 catalogue: clip property groups, video effects, transitions, generators.
 // To add an effect: append a descriptor here, then implement it in src/render keyed by its id.
 #include "core/AudioTransitions.h"
+#include "core/DynamicZoom.h"
 #include "core/EffectBuilders.h"
 #include "core/EffectRegistry.h"
 #include "core/Generators.h"
@@ -76,6 +77,13 @@ void EffectRegistry::registerBuiltins()
             number(keys::CropR, tr("Crop Right"), 0, 10000, 0, 1, kPx),
             number(keys::CropT, tr("Crop Top"), 0, 10000, 0, 1, kPx),
             number(keys::CropB, tr("Crop Bottom"), 0, 10000, 0, 1, kPx),
+        },
+        QStringLiteral("transform")));
+    add(descriptor(groups::DynamicZoom, tr("Dynamic Zoom"), C::ClipProperties,
+        tr("Move from a start framing to an end framing over the clip (pan and zoom)"),
+        {
+            choice(keys::DynamicZoomEase, tr("Dynamic Zoom Ease"), dynamiczoom::easeIds(),
+                dynamiczoom::easeLabels(), dynamiczoom::easeIds().front()),
         },
         QStringLiteral("transform")));
     // Resolve's Composite group: how the clip combines with the tracks below, and its
@@ -222,7 +230,8 @@ void EffectRegistry::registerBuiltins()
     registerGenerators();
     add(descriptor("text_title", tr("Text"), C::Title, tr("A simple text title"),
         {
-            text(keys::Text, tr("Text"), tr("Title")),
+            // New Text titles read "Basic Title", as in Resolve (spec 14.5).
+            text(keys::Text, tr("Text"), tr("Basic Title")),
             text(keys::Font, tr("Font"), QStringLiteral("Sans Serif")),
             number(keys::Size, tr("Size"), 1, 500, 72, 1, kPx),
             boolean(keys::Bold, tr("Bold"), false),

@@ -13,9 +13,9 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
 #include "ui/effects/EffectActions.h"
+#include "ui/help/Guide.h"
 #include "ui/inspector/KeyframeButton.h"
 #include "ui/inspector/MultiClipEdit.h"
-#include "ui/help/Guide.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
 
@@ -741,10 +741,17 @@ void InspectorPanel::rebuild()
                 if (const EffectDescriptor* d = registry.find(QStringLiteral("solid_color")))
                     addDescriptorGroup(VideoTab, *d, ParamScope::SolidColor, m_clipId);
             }
-            for (const char* id : {groups::Transform, groups::Cropping, groups::Composite}) {
+            // Resolve's order: Transform, Cropping, Dynamic Zoom, Composite, Speed Change,
+            // Retime and Scaling (then our Masks).
+            for (const char* id : {groups::Transform, groups::Cropping}) {
                 if (const EffectDescriptor* d = registry.find(QLatin1String(id)))
                     addDescriptorGroup(VideoTab, *d, ParamScope::Transform, m_clipId);
             }
+            buildDynamicZoomSection(m_clipId);
+            if (const EffectDescriptor* d = registry.find(QLatin1String(groups::Composite)))
+                addDescriptorGroup(VideoTab, *d, ParamScope::Transform, m_clipId);
+            if (c->kind == ClipKind::Media || c->kind == ClipKind::Nested)
+                buildSpeedSections(*c);
             buildMasksSection(*c);
         } else {
             addPlaceholder(VideoTab, tr("Audio clips have no video properties."));

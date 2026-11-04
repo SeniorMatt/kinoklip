@@ -34,14 +34,10 @@ ChangeSpeedDialog::ChangeSpeedDialog(
 {
     setWindowTitle(tr("Change Clip Speed"));
     m_sourceFps = sourceFps.isValid() ? sourceFps.toDouble() : fps.toDouble();
-    // The material the clip covers (retime frames); a freeze frame counts as its own length.
-    m_material
-        = std::abs(retime::position(clip, double(clip.duration)) - retime::position(clip, 0.0));
-    if (m_material < 1e-9)
-        m_material = double(clip.duration);
-    const QVector<retime::Segment> segs = retime::segments(clip);
-    const bool constant = !retime::hasCurve(clip);
-    m_value = constant && clip.speed != 0.0 ? std::abs(clip.speed) : m_material / clip.duration;
+    // The material the clip covers (retime frames) and its speed, as the Inspector shows them.
+    const retimeops::SpeedState state = retimeops::speedState(clip);
+    m_material = state.material;
+    m_value = state.speed;
 
     m_speed = new QDoubleSpinBox;
     m_speed->setObjectName(QStringLiteral("SpeedPercent"));
@@ -57,10 +53,10 @@ ChangeSpeedDialog::ChangeSpeedDialog(
 
     m_reverse = new QCheckBox(tr("Reverse speed"));
     m_reverse->setObjectName(QStringLiteral("SpeedReverse"));
-    m_reverse->setChecked(constant ? clip.speed < 0 : false);
+    m_reverse->setChecked(state.reverse);
     m_freeze = new QCheckBox(tr("Freeze frame"));
     m_freeze->setObjectName(QStringLiteral("SpeedFreeze"));
-    m_freeze->setChecked(constant && clip.speed == 0.0);
+    m_freeze->setChecked(state.freeze);
     m_ripple = new QCheckBox(tr("Ripple sequence"));
     m_ripple->setObjectName(QStringLiteral("SpeedRipple"));
     m_ripple->setChecked(true);
@@ -80,12 +76,12 @@ ChangeSpeedDialog::ChangeSpeedDialog(
     for (QCheckBox* box : {m_reverse, m_freeze, m_ripple, m_pitch})
         options->addWidget(box);
     form->addRow(QString(), options);
-    if (!constant && segs.size() > 1) {
+    if (state.curve && state.segments > 1) {
         auto* note = new QLineEdit; // read-only hint: the curve is replaced
         note->setReadOnly(true);
         note->setFrame(false);
         note->setText(
-            tr("Replaces the %n speed segments with one speed.", nullptr, int(segs.size())));
+            tr("Replaces the %n speed segments with one speed.", nullptr, state.segments));
         form->addRow(QString(), note);
     }
 
