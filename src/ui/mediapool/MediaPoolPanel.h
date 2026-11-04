@@ -208,6 +208,10 @@ public:
     /// "Relink Offline Media…" (all) / "Relink Selected Clips…" (@p onlyIds): asks for a
     /// folder, then relinkFromFolder() and a summary.
     void relinkWithDialog(const QStringList& onlyIds = {});
+    /// Resolve's "Replace Selected Clip…": points file item @p id at another file @p path
+    /// (renamed or different media; probed again, one undo step "Replace Clip"). Timeline
+    /// clips keep their source ranges. Returns false if @p path is not a usable media file.
+    bool replaceClip(const QString& id, const QString& path, QString* error = nullptr);
 
     // ---- Multicam and sync (MediaPoolMulticam.cpp) ----
 
