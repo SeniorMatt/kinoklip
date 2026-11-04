@@ -38,7 +38,15 @@
   <screenshots>
     <screenshot type="default">
       <caption>The Edit page: media pool, viewers, inspector and timeline</caption>
-      <image>https://raw.githubusercontent.com/SeniorMatt/kinoklip/main/docs/images/edit-page.png</image>
+      <image>https://raw.githubusercontent.com/SeniorMatt/kinoklip/main/docs/images/readme/edit.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The Color page: node grade, colour wheels and parade scope</caption>
+      <image>https://raw.githubusercontent.com/SeniorMatt/kinoklip/main/docs/images/readme/color.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The Compositing page: a green screen key in the node editor</caption>
+      <image>https://raw.githubusercontent.com/SeniorMatt/kinoklip/main/docs/images/readme/compositing.png</image>
     </screenshot>
   </screenshots>
   <categories>
