@@ -774,7 +774,16 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
     if (levelKeyMenu(event->pos(), event->globalPos()))
         return; // a volume key on a level line (spec 31.2)
     const TimelineData& data = m_ctx.project->timeline()->data();
-    const TimelineHit hit = m_layout.hitTest(data, event->pos());
+    TimelineHit hit = m_layout.hitTest(data, event->pos());
+    // A clip on a locked track is not selectable (spec 12.16): the right-click acts on the empty
+    // track area there, so the selection stays and only the track menu shows (spec 12.17).
+    if (hit.area == TimelineHit::Area::Clip) {
+        const TrackData* t = data.track(hit.track);
+        if (t && t->locked) {
+            hit.area = TimelineHit::Area::Track;
+            hit.clipId = 0;
+        }
+    }
     ActionRegistry* reg = m_ctx.actions;
     auto action = [reg](const char* id) { return reg ? reg->action(QLatin1String(id)) : nullptr; };
     QMenu menu(this);
