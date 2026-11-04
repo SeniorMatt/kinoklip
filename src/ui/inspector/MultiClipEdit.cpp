@@ -3,6 +3,7 @@
 #include "ui/inspector/MultiClipEdit.h"
 
 #include "core/EditOps.h"
+#include "core/ParamKeys.h"
 #include "core/TimelineData.h"
 
 namespace kk::multiclip {
@@ -101,9 +102,13 @@ std::optional<ParamRef> peerRef(const ClipData& shown, const ClipData& peer, con
     ParamRef out = ref;
     out.clipId = peer.id;
     switch (ref.scope) {
+    case ParamScope::Title:
+        // A caption's text is its own (spec 28.19): never matched, never "Mixed".
+        if (shown.kind == ClipKind::Subtitle && ref.key == keys::Text)
+            return std::nullopt;
+        return out;
     case ParamScope::Transform:
     case ParamScope::Audio:
-    case ParamScope::Title:
     case ParamScope::SolidColor:
         return out;
     case ParamScope::Effect: {
@@ -129,8 +134,21 @@ bool propagate(const ClipData& before, const ClipData& after, ClipData& peer)
 {
     bool changed = copyChanged(before.transform, after.transform, peer.transform);
     changed = copyChanged(before.audio, after.audio, peer.audio) || changed;
-    if (peer.kind == after.kind && peer.generator == after.generator)
-        changed = copyChanged(before.title, after.title, peer.title) || changed;
+    if (peer.kind == after.kind && peer.generator == after.generator) {
+        if (after.kind == ClipKind::Subtitle) {
+            // Typing a caption's words changes that caption only (spec 28.19); its style
+            // settings still reach every selected caption.
+            ParamSet b = before.title;
+            ParamSet a = after.title;
+            for (ParamSet* set : {&b, &a}) {
+                set->values.remove(keys::Text);
+                set->statics.remove(keys::Text);
+            }
+            changed = copyChanged(b, a, peer.title) || changed;
+        } else {
+            changed = copyChanged(before.title, after.title, peer.title) || changed;
+        }
+    }
     if (before.solidColor != after.solidColor && peer.kind == ClipKind::Solid
         && peer.solidColor != after.solidColor) {
         peer.solidColor = after.solidColor;

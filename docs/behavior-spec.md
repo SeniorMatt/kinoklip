@@ -553,6 +553,7 @@ subtitle track. Clean room: our own wording, icons and colours.
 | 28.16 | Add Subtitle in a subtitle track's right-click menu (track header or empty track area) puts the caption on that track at the playhead (the next free unlocked track when it is locked or busy there). | Fixed (bughunt8: the caption always went to ST1 or the selected caption's track; bh8 spec28_16_addSubtitleOnTheClickedTrack) |
 | 28.17 | A caption is named after its text (its first line): typing in the Captions tab renames it, so the Inspector header and the Edit Index show the caption, not "Subtitle". | Fixed (bughunt8: the name stayed "Subtitle" after the text was typed; bh8 spec28_17_captionNameFollowsItsText) |
 | 28.18 | Subtitle files in UTF-16 (with or without BOM, as Windows tools write them) and 8-bit files that are not UTF-8 (Windows-1252, else Latin-1) import with their accented letters. | Fixed (bughunt8: UTF-16 files found no cues and Windows-1252 letters became replacement characters; test_subtitles parseOtherEncodings) |
+| 28.19 | With several captions selected, typing caption text in the Captions tab changes only the caption shown (each caption has its own words; its name follows only its own text); the style settings still reach every selected caption (24.1). | Fixed (bughunt9: the text was written into every selected caption; `multiclip::propagate()` and `peerRef()` leave a caption's keys::Text out; bh9 spec28_19_captionTextIsPerCaption) |
 
 ---
 
