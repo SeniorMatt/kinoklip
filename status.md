@@ -176,3 +176,4 @@
 - 11:00 Merged bughunt7 (1d27426: Dynamic Zoom, Speed Change / Retime in the Inspector, Audio page layout, unique marker names, Dynamic Trim button), 164/164. Started bughunt8 (subtitles, menu bar audit, unsure keymap entries).
 - 11:32 Merged bughunt8 (4661b38: Resolve-style menu bar, subtitle fixes, encodings). Started bughunt9 (real YouTuber workflow end to end + round 8 leftovers).
 - 13:00 Merged bughunt9 (9538326: full-project session; fixed the double-encoded ellipsis that was in the pending 1.1.0 build). Local tag v1.1.0-beta.1 moved to ade49e3; AppImage rebuilt: host 166/166, container 167/167, smoke OK. Still awaiting the owner's publish.
+- 13:58 Merged bughunt10 (a2c264a: title presets incl. Scroll, title Position / Anchor, Title tab on select, drop track creation, rate-conversion rounding), 167/167. 1.1.0-beta.1 still awaits the owner's publish (tag at ade49e3); round 10 goes into the next beta.
