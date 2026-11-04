@@ -1,7 +1,7 @@
 <p align="center"><img src="docs/images/logo/kinoklip-icon.png" width="128" height="128" alt="Kinoklip icon"></p>
 <p align="center"><img src="docs/images/logo/kinoklip-text-horizontal.png" width="480" height="104" alt="Kino Klip"></p>
 
-<h1 align="center"><a href="https://github.com/SeniorMatt/kinoklip/releases/download/v1.1.0-beta.1/Kinoklip-x86_64.AppImage">Download here</a></h1>
+<h1 align="center"><a href="https://github.com/SeniorMatt/kinoklip/releases/download/v1.1.1-beta.1/Kinoklip-x86_64.AppImage">Download here</a></h1>
 <p align="center"><a href="docs/guide/readme.md">How to use Kinoklip</a></p>
 
 A non-linear video editor written from scratch in C++20 with Qt 6 Widgets and FFmpeg. The layout,
