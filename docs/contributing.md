@@ -16,3 +16,14 @@
 5. Write tests for logic (`tests/<area>/test_*.cpp`) and run them before committing; see
    [building.md](building.md).
 6. Format before committing: `scripts/format.sh` (clang-format, `--check` for CI).
+7. **Privacy:** never add code that sends or collects user data without explicit, per-use consent.
+   Kinoklip has no telemetry, analytics, automatic crash reports or update pings, and makes no
+   network requests; see [privacy.md](privacy.md).
+
+## Reporting bugs
+The easiest way: in Kinoklip, **Help > Report a Bug or Inconsistency...**. Choose a bug, something
+that works differently from DaVinci Resolve, or an idea; the dialog shows exactly which version and
+system info it would add, and opens GitHub's report form in your browser with or without it. You
+then describe what you did, what happened and what you expected, and submit it there. Without the
+app, use [New issue](https://github.com/SeniorMatt/kinoklip/issues/new/choose) on GitHub; the forms
+live in `.github/ISSUE_TEMPLATE/` (`scripts/check_issue_forms.py` checks them).

@@ -19,6 +19,7 @@
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "render/CaptionRenderer.h"
+#include "render/GlInfo.h"
 #include "render/RenderLog.h"
 #include "render/TimeEffects.h"
 
@@ -169,6 +170,14 @@ bool GlRenderer::initialize(QString* why)
         return false;
     }
     const auto renderer = reinterpret_cast<const char*>(m_gl->glGetString(GL_RENDERER));
+    {
+        // Kept for Help > Report a Bug (shown to the user, shared only if they choose to).
+        auto glString = [this](GLenum name) {
+            const auto* s = reinterpret_cast<const char*>(m_gl->glGetString(name));
+            return s ? QString::fromLatin1(s) : QString();
+        };
+        rememberGlDriverInfo({glString(GL_VENDOR), glString(GL_RENDERER), glString(GL_VERSION)});
+    }
     m_description = QStringLiteral("OpenGL %1.%2 (%3)")
                         .arg(actual.majorVersion())
                         .arg(actual.minorVersion())

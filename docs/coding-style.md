@@ -24,6 +24,10 @@ Performance rules:
   (`readme.md`, `plan.md`, `coding-style.md`). C++ sources are PascalCase (`TimelineWidget.cpp`), which is not all-caps;
   `CMakeLists.txt` keeps the name CMake requires.
 - **No emojis** anywhere: code, comments, docs, commit messages, UI strings.
+- **Privacy: never add code that sends or collects user data without explicit, per-use
+  consent** (no telemetry, analytics, automatic crash reports or update pings; the app makes no
+  network requests). Anything that can leave the computer is shown to the user first and goes
+  only on their action, like Help > Report a Bug. See [privacy.md](privacy.md).
 - **Code produced by non-Claude tools/agents (Gemini, DeepSeek, ...) is untrusted**: it must be
   reviewed line by line, built with zero warnings and covered by tests before it is committed.
 

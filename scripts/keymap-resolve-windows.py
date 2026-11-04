@@ -351,6 +351,7 @@ sec("Help")
 a("help.guide_context", "Help for This (opens the user guide's article for the effect, panel or page you are on)", ["F1"], U, "Kinoklip's in-app help; F1 is the usual help key and is free in Resolve's Windows defaults as we know them")
 a("help.guide", "Guide (search the user guide's articles)", [], U, "Kinoklip's in-app help; no default key")
 a("help.getting_started", "Getting Started (the guide's first article)", [], U, "Kinoklip's in-app help; no default key")
+a("help.report_bug", "Report a Bug or Inconsistency (opens GitHub's report form, system info only if you choose)", [], U, "Kinoklip's own; Resolve has no such command; no default key")
 a("help.about", "About", [], S)
 a("help.about_qt", "About Qt", [], S)
 

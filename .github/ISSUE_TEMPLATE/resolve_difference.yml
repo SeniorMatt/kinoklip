@@ -1,0 +1,74 @@
+name: Works differently from DaVinci Resolve
+description: Kinoklip behaves, looks or uses a shortcut differently from Resolve.
+title: "[Resolve] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Kinoklip aims to work the way a DaVinci Resolve user expects. If something works
+        differently, tell us what you expected from Resolve. Please describe it in your own
+        words; do not paste text or screenshots from Resolve's manual.
+
+        Kinoklip is not affiliated with Blackmagic Design.
+  - type: input
+    id: version
+    attributes:
+      label: Kinoklip version
+      placeholder: "1.1.2-beta.1"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: System info
+      description: Filled in by the app (Help > Report a Bug or Inconsistency...).
+      render: text
+    validations:
+      required: false
+  - type: dropdown
+    id: page
+    attributes:
+      label: Where in Kinoklip?
+      options:
+        - Media
+        - Cut
+        - Edit
+        - Compositing
+        - Color
+        - Audio
+        - Deliver
+        - Project Manager
+        - Other
+    validations:
+      required: false
+  - type: textarea
+    id: kinoklip
+    attributes:
+      label: What Kinoklip does
+    validations:
+      required: true
+  - type: textarea
+    id: resolve
+    attributes:
+      label: What DaVinci Resolve does
+      description: Add the Resolve version if you know it (for example 19.1).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: How to see the difference.
+      placeholder: |
+        1. On the Edit page, select a clip
+        2. Press Shift+Delete
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Why it matters to your workflow
+      description: Optional. Helps us decide what to fix first.
+    validations:
+      required: false
