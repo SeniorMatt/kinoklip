@@ -29,7 +29,7 @@ already are:
 2. Click **Add Folder…** (3) and choose the folder with your LUTs. Kinoklip remembers it.
 3. Click **Refresh** after you have copied new files into a folder.
 
-![The LUTs palette with a LUT applied to node 01](images/use-a-lut/1-luts.png)
+![The LUTs palette: a LUT in node 02, after the correction in node 01](images/use-a-lut/1-luts.png)
 
 ## Apply a LUT to a clip
 
