@@ -205,6 +205,19 @@ public:
     using NamePrompt = std::function<std::optional<QString>(const QString& title,
         const QString& label, const QString& suggestion, const QString& okText)>;
     void setNamePrompt(NamePrompt prompt) { m_namePrompt = std::move(prompt); }
+    /// What the Create New Timeline dialog asks (spec 25.16).
+    struct NewTimelineOptions
+    {
+        QString name;
+        int64_t startTimecode = 0; ///< frames at the project rate
+        int videoTracks = 1;
+        int audioTracks = 1;
+    };
+    /// Asks for a new timeline's options, prefilled with @p suggestion; nothing = cancelled.
+    /// Without this prompt, New Timeline asks for the name only (NamePrompt).
+    using NewTimelinePrompt
+        = std::function<std::optional<NewTimelineOptions>(const NewTimelineOptions& suggestion)>;
+    void setNewTimelinePrompt(NewTimelinePrompt prompt) { m_newTimelinePrompt = std::move(prompt); }
     /// Asks a yes/no question; without a prompt the answer is yes.
     using ConfirmPrompt = std::function<bool(const QString& title, const QString& text)>;
     void setConfirmPrompt(ConfirmPrompt prompt) { m_confirmPrompt = std::move(prompt); }
@@ -587,6 +600,7 @@ private:
     PasteAttributesPrompt m_pastePrompt;
     std::function<bool()> m_playing;
     NamePrompt m_namePrompt;
+    NewTimelinePrompt m_newTimelinePrompt;
     ConfirmPrompt m_confirmPrompt;
     MessageSink m_messageSink;
     std::function<void(quint64)> m_timelineSettingsPrompt;
