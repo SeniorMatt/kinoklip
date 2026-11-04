@@ -230,7 +230,8 @@ void EffectRegistry::registerBuiltins()
     registerGenerators();
     add(descriptor("text_title", tr("Text"), C::Title, tr("A simple text title"),
         {
-            text(keys::Text, tr("Text"), tr("Title")),
+            // New Text titles read "Basic Title", as in Resolve (spec 14.5).
+            text(keys::Text, tr("Text"), tr("Basic Title")),
             text(keys::Font, tr("Font"), QStringLiteral("Sans Serif")),
             number(keys::Size, tr("Size"), 1, 500, 72, 1, kPx),
             boolean(keys::Bold, tr("Bold"), false),

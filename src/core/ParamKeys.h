@@ -67,7 +67,8 @@ inline const QString Pan = QStringLiteral("pan"); ///< −1 (left) .. +1 (right)
 inline const QString RetimeFrame = QStringLiteral("retimeFrame");
 
 // ---- Title (ClipData::title; Title clips only) ----
-inline const QString Text = QStringLiteral("text"); ///< static QString; default "Title"
+inline const QString Text
+    = QStringLiteral("text"); ///< static QString; new titles "Basic Title", absent "Title"
 inline const QString Font
     = QStringLiteral("font"); ///< static QString font family; default "Sans Serif"
 inline const QString Bold = QStringLiteral("bold"); ///< static bool; default false
