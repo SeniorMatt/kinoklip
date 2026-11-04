@@ -269,7 +269,8 @@ QStringList importMediaFoldersWithFeedback(AppContext& ctx, const QStringList& f
     const FolderImportResult r = importMediaFolders(ctx, folders, options, parent, binId);
     if (r.cancelled)
         return {};
-    if (r.failures.isEmpty() && r.duplicates == 0 && r.notes.isEmpty() && !r.importedIds.isEmpty()) {
+    if (r.failures.isEmpty() && r.duplicates == 0 && r.notes.isEmpty()
+        && !r.importedIds.isEmpty()) {
         offerProjectFrameRate(ctx, firstImport, r.importedIds, parent);
         return r.importedIds;
     }

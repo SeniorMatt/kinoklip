@@ -93,8 +93,11 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     // updates the "Match timeline" and frame rate labels at once.
     connect(timeline, &Timeline::changed, this, [this] {
         const TimelineData& d = m_ctx.project->timeline()->data();
-        const QString format
-            = QStringLiteral("%1x%2@%3/%4").arg(d.width).arg(d.height).arg(d.fps.num).arg(d.fps.den);
+        const QString format = QStringLiteral("%1x%2@%3/%4")
+                                   .arg(d.width)
+                                   .arg(d.height)
+                                   .arg(d.fps.num)
+                                   .arg(d.fps.den);
         if (format == m_shownFormat)
             return;
         m_shownFormat = format;

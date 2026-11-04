@@ -154,8 +154,9 @@ PreparedMedia MediaPool::prepareFile(const QString& absolutePath)
         if (!subtitles::readFile(absolutePath, &item.cues, &prepared.error, &emptyCues))
             return prepared;
         if (emptyCues > 0)
-            prepared.note = emptyCues == 1 ? tr("1 empty subtitle cue was skipped")
-                                           : tr("%1 empty subtitle cues were skipped").arg(emptyCues);
+            prepared.note = emptyCues == 1
+                ? tr("1 empty subtitle cue was skipped")
+                : tr("%1 empty subtitle cues were skipped").arg(emptyCues);
         item.kind = MediaItemKind::Subtitle;
         item.path = absolutePath;
         item.info = subtitleInfo(absolutePath, item.cues);

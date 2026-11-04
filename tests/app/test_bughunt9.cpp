@@ -4,9 +4,8 @@
 #include "app/MainWindow.h"
 #include "app/Theme.h"
 #include "app/pages/ColorPage.h"
+#include "app/pages/CutPage.h"
 #include "app/pages/EditPage.h"
-#include "ui/color/ColorBrowsers.h"
-#include "ui/color/ColorSession.h"
 #include "core/DynamicZoom.h"
 #include "core/EditOps.h"
 #include "core/Grade.h"
@@ -16,19 +15,20 @@
 #include "core/SelectionModel.h"
 #include "core/Subtitles.h"
 #include "core/Timeline.h"
+#include "platform/FileDialogs.h"
+#include "ui/color/ColorBrowsers.h"
+#include "ui/color/ColorSession.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/FolderImport.h"
+#include "ui/common/MediaImport.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
 #include "ui/deliver/RenderSettingsPanel.h"
-#include "ui/common/FolderImport.h"
-#include "ui/common/MediaImport.h"
 #include "ui/inspector/InspectorPanel.h"
-#include "ui/mediapool/MediaPoolPanel.h"
-#include "platform/FileDialogs.h"
-#include "app/pages/CutPage.h"
 #include "ui/inspector/ParamGroupBox.h"
+#include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelinePanel.h"
@@ -48,8 +48,8 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QStandardPaths>
-#include <QTemporaryDir>
 #include <QTabWidget>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
 #include <QToolBar>
@@ -149,7 +149,8 @@ private slots:
         f.project.timeline()->setPlayhead(200);
         const quint64 b = controller->addSubtitleAtPlayhead(0);
         QVERIFY(a && b && a != b);
-        const QString textA = subtitles::captionText(*editops::clipById(f.project.timeline()->data(), a));
+        const QString textA
+            = subtitles::captionText(*editops::clipById(f.project.timeline()->data(), a));
         f.selection.setClips({a, b}); // b is the shown (current) caption
         QCOMPARE(f.selection.currentClip(), b);
         auto* edit
@@ -261,7 +262,8 @@ private slots:
         ColorClipStrip* strip = f.window->colorPage()->clipStrip();
         ColorSession* session = f.window->colorPage()->session();
         QCOMPARE(strip->count(), 4);
-        const auto centre = [&](int row) { return strip->visualItemRect(strip->item(row)).center(); };
+        const auto centre
+            = [&](int row) { return strip->visualItemRect(strip->item(row)).center(); };
         // Grade clip 1.
         QTest::mouseClick(strip->viewport(), Qt::LeftButton, {}, centre(0));
         QCOMPARE(session->clipId(), f.clips[0]);
@@ -310,8 +312,8 @@ private slots:
             }
             menu->close();
         });
-        QContextMenuEvent menuEvent(QContextMenuEvent::Mouse, centre(0),
-            strip->viewport()->mapToGlobal(centre(0)));
+        QContextMenuEvent menuEvent(
+            QContextMenuEvent::Mouse, centre(0), strip->viewport()->mapToGlobal(centre(0)));
         QApplication::sendEvent(strip->viewport(), &menuEvent);
         QVERIFY(triggered);
         for (int i = 1; i < 4; ++i)
@@ -373,7 +375,8 @@ private slots:
         platform::setFileDialogHandlerForTests(
             [&](const platform::FileDialogRequest&) { return QStringList {still}; });
         f.action("file.import_media")->trigger();
-        const MediaItem* item = f.project.mediaPool()->itemByPath(QFileInfo(still).absoluteFilePath());
+        const MediaItem* item
+            = f.project.mediaPool()->itemByPath(QFileInfo(still).absoluteFilePath());
         QVERIFY(item);
         QCOMPARE(item->binId, binId);
 
@@ -392,7 +395,8 @@ private slots:
         f.action("file.import_media_folder")->trigger();
         platform::setFileDialogHandlerForTests({});
         setFolderImportOptionsHandlerForTests({});
-        const MediaItem* logo = f.project.mediaPool()->itemByPath(folder + QStringLiteral("/logo.png"));
+        const MediaItem* logo
+            = f.project.mediaPool()->itemByPath(folder + QStringLiteral("/logo.png"));
         QVERIFY(logo);
         const Bin* made = f.project.mediaPool()->bin(logo->binId);
         QVERIFY(made);
@@ -483,7 +487,8 @@ private slots:
         const QList<QComboBox*> resolution = panel->findChildren<QComboBox*>();
         bool matched = false;
         for (QComboBox* box : resolution)
-            matched |= box->count() > 0 && box->itemText(0) == QStringLiteral("Match timeline (1280 x 720)");
+            matched |= box->count() > 0
+                && box->itemText(0) == QStringLiteral("Match timeline (1280 x 720)");
         QVERIFY(matched);
     }
 };
