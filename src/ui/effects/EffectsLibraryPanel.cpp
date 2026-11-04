@@ -492,7 +492,12 @@ QStringList EffectsLibraryPanel::visibleDescriptorIds() const
 
 void EffectsLibraryPanel::activate(const QString& descriptorId)
 {
-    effectactions::activate(m_ctx, descriptorId);
+    const EffectDescriptor* desc = EffectRegistry::instance().find(descriptorId);
+    const bool transition = desc
+        && (desc->category == EffectCategory::Transition
+            || desc->category == EffectCategory::AudioTransition);
+    if (!(transition && m_transitionHandler && m_transitionHandler(descriptorId)))
+        effectactions::activate(m_ctx, descriptorId);
     emit effectActivated(descriptorId);
 }
 

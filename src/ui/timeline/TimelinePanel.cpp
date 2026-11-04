@@ -2,6 +2,7 @@
 // TimelinePanel: assembles tool bar, controller and view; wires the zoom actions.
 #include "ui/timeline/TimelinePanel.h"
 
+#include "core/ClipColors.h"
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
@@ -15,6 +16,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/ChangeSpeedDialog.h"
+#include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/StackedTimelinePane.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineDialogs.h"
@@ -24,15 +26,18 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QCoreApplication>
 #include <QDrag>
 #include <QEvent>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPainter>
+#include <QPixmap>
 #include <QSettings>
 #include <QSlider>
 #include <QSplitter>
@@ -98,7 +103,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
         {"tool.select", "tool.trim", "tool.blade", nullptr},
         {"edit.insert", "edit.overwrite", "edit.place_on_top", "edit.replace"},
         {"timeline.snapping", "timeline.linked_selection", nullptr, nullptr},
-        {"edit.split", "mark.add_marker", nullptr, nullptr},
+        {"edit.split", "clip.flag", "mark.add_marker", nullptr},
     };
     m_toolBar->addWidget(makeViewOptionsButton());
     m_toolBar->addSeparator();
@@ -110,6 +115,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
                 m_toolBar->addAction(ctx.actions->action(QLatin1String(id)));
         }
     }
+    addMarkerColorMenu();
     auto* spacer = new QWidget(m_toolBar);
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     m_toolBar->addWidget(spacer);
@@ -408,6 +414,55 @@ bool TimelinePanel::eventFilter(QObject* watched, QEvent* event)
     if (event->type() == QEvent::Paint && watched == m_view->viewport())
         syncZoomSlider();
     return PanelFrame::eventFilter(watched, event);
+}
+
+void TimelinePanel::addMarkerColorMenu()
+{
+    // Resolve's flag and marker buttons have a drop-down of their colours: the one picked is
+    // what the button (and M, Ctrl+M for markers) uses from then on (spec 18.17, 33.36).
+    addColorMenu("mark.add_marker", markerColorPalette(), prefs::kNewMarkerColor,
+        QStringLiteral("MarkerColorMenu"));
+    addColorMenu("clip.flag", flagPalette(), prefs::kToolBarFlag, QStringLiteral("FlagColorMenu"));
+}
+
+void TimelinePanel::addColorMenu(const char* actionId, std::span<const PaletteColor> palette,
+    const char* settingsKey, const QString& objectName)
+{
+    QAction* action = m_ctx.actions && m_ctx.actions->contains(QLatin1String(actionId))
+        ? m_ctx.actions->action(QLatin1String(actionId))
+        : nullptr;
+    auto* button
+        = action ? qobject_cast<QToolButton*>(m_toolBar->widgetForAction(action)) : nullptr;
+    if (!button)
+        return;
+    auto* menu = new QMenu(button);
+    menu->setObjectName(objectName);
+    auto* group = new QActionGroup(menu);
+    for (const PaletteColor& c : palette) {
+        QPixmap swatch(12, 12);
+        swatch.fill(QColor(c.rgb));
+        QAction* a
+            = menu->addAction(QIcon(swatch), QCoreApplication::translate("kk::ClipColors", c.name));
+        a->setCheckable(true);
+        a->setData(QString::fromLatin1(c.id));
+        group->addAction(a);
+        connect(a, &QAction::triggered, this,
+            [key = QString::fromLatin1(settingsKey), id = QString::fromLatin1(c.id)] {
+                QSettings().setValue(key, id);
+            });
+    }
+    const QString fallback = QString::fromLatin1(palette.front().id);
+    connect(
+        menu, &QMenu::aboutToShow, menu, [menu, key = QString::fromLatin1(settingsKey), fallback] {
+            const QString current = QSettings().value(key, fallback).toString();
+            bool found = false;
+            for (QAction* a : menu->actions())
+                found |= a->data().toString() == current;
+            for (QAction* a : menu->actions())
+                a->setChecked(a->data().toString() == (found ? current : fallback));
+        });
+    button->setMenu(menu);
+    button->setPopupMode(QToolButton::MenuButtonPopup);
 }
 
 QWidget* TimelinePanel::makeViewOptionsButton()

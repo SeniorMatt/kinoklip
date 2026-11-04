@@ -92,6 +92,15 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_inspector = new InspectorPanel(ctx);
     m_metadata = new MetadataPanel(ctx);
     m_timeline = new TimelinePanel(ctx);
+    // A double-clicked transition goes onto the selected edit point, or with nothing selected
+    // onto the edit nearest the playhead, like Ctrl+T (spec 13.18); selected clips keep the
+    // library's own rule.
+    m_effects->setTransitionHandler([this](const QString& id) {
+        TimelineController* c = m_timeline->controller();
+        if (c->selectedEdit().isEmpty() && !m_ctx.selection->clips().isEmpty())
+            return false;
+        return c->addTransition(id);
+    });
     // The Edit page's Mixer panel: the Audio page's mixer strips (own controller and meter
     // ballistics; automation Write passes run only from the Audio page).
     auto* mixerController = new MixerController(ctx, this);
