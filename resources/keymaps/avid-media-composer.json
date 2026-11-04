@@ -333,6 +333,7 @@
         "help.guide_context": ["F1"],
         "help.guide": [],
         "help.getting_started": [],
+        "help.report_bug": [],
         "help.about": [],
         "help.about_qt": []
     }

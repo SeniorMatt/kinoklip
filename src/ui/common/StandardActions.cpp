@@ -456,6 +456,10 @@ const ActionSpec kActions[] = {
     {"help", "help.guide_context",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Help for This…")},
     {"help", "help.guide",            QT_TRANSLATE_NOOP("kk::StandardActions", "&Guide…")},
     {"help", "help.getting_started",  QT_TRANSLATE_NOOP("kk::StandardActions", "Getting &Started")},
+    {"help", "-"},
+    // Opens GitHub's report form in the browser, with system info only if the user chooses
+    // (src/app/BugReportDialog, docs/privacy.md).
+    {"help", "help.report_bug",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Report a Bug or Inconsistency…")},
 };
 // clang-format on
 

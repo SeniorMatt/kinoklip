@@ -26,7 +26,7 @@ contains *t* (exact for VFR too); requests before the first / after the last fra
 | `MediaInfo.h` | `MediaInfo` struct + `probe(path)` (synchronous, any thread). Stills report `isStillImage`, `durationUs = 0`. |
 | `VideoDecoder.h` | `decodeFrame(timeUs)` → `shared_ptr<const VideoFrame>` (raw planes, GPU compositor path); `frameAt(timeUs, maxSize)` → `QImage` ARGB32_Premultiplied (thumbnails, tests). `Accuracy::{Exact, NearestKeyframe}`. Not thread-safe; one per thread. |
 | `VideoFrame.h` | Raw frame: `PixelFormat` (NV12, P010, YUV420P/422P/444P, 10-bit planar, BGRA premultiplied), plane pointers/strides, colour matrix/range/transfer, pts, duration, SAR, rotation. Immutable, refcounted, may outlive the decoder. |
-| `HwAccel.h` | `HwAccelMode {Auto, Off, Cuda, Vaapi, Vulkan}`, `setPreferredHwAccel()`, `hwCapabilities()` (for Preferences). |
+| `HwAccel.h` | `HwAccelMode {Auto, Off, Cuda, Vaapi, Vulkan}`, `setPreferredHwAccel()`, `hwCapabilities()` (for Preferences), `probedHwDevices()` (the backends already tried, opens nothing; for Help > Report a Bug). |
 | `AudioDecoder.h` | `read(startSample48k, dst, frames)`: sample-accurate, zero-filled outside the media. Not thread-safe. |
 | `MediaCache.h` | Singleton: `thumbnail()`, `posterFrame()`, `waveform()` — return cached result or null + async job + signal. Memory LRU + disk cache. |
 | `WaveformData.h` | min/max peaks per 1/100 s and channel, scaled to −127..127; compute/save/load. |

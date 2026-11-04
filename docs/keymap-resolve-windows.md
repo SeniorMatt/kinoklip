@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 332 commands; sure 106, likely 113, unsure 113.
+Counts: 333 commands; sure 106, likely 113, unsure 114.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -431,5 +431,6 @@ that every command has an entry and that no key is used twice.
 | Help for This (opens the user guide's article for the effect, panel or page you are on) | `help.guide_context` | `F1` | unsure | Kinoklip's in-app help; F1 is the usual help key and is free in Resolve's Windows defaults as we know them |
 | Guide (search the user guide's articles) | `help.guide` | (none) | unsure | Kinoklip's in-app help; no default key |
 | Getting Started (the guide's first article) | `help.getting_started` | (none) | unsure | Kinoklip's in-app help; no default key |
+| Report a Bug or Inconsistency (opens GitHub's report form, system info only if you choose) | `help.report_bug` | (none) | unsure | Kinoklip's own; Resolve has no such command; no default key |
 | About | `help.about` | (none) | sure |  |
 | About Qt | `help.about_qt` | (none) | sure |  |

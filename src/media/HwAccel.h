@@ -50,6 +50,10 @@ HwAccelMode preferredHwAccel();
 /// opened on first call, which can take ~0.1-1 s; cached afterwards). Thread-safe.
 QList<HwDeviceInfo> hwCapabilities();
 
+/// The backends this process already tried to open (by a decoder, the warm-up or the
+/// Preferences page), in Auto order; opens nothing. For Help > Report a Bug. Thread-safe.
+QList<HwDeviceInfo> probedHwDevices();
+
 /// Opens the hardware decoding device that Auto (or the preferred backend) will use, on a
 /// background thread, so the first decoder after start-up does not pay for it (creating a
 /// CUDA context takes 200 - 300 ms; the first frame after an import used to wait for it).

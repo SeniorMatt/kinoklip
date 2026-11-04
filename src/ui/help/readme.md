@@ -8,6 +8,7 @@ Links the app to the user guide (`docs/guide/`, rendered by GitHub). Depends on 
 | `GuideIndex` | the guide's index (`docs/guide/index.json`, format of the guide contract): defensive parsing, `resolve(contexts)` (pure), `search(text)`, article / start URLs |
 | `Guide.h` | `guide::index()` (the bundled `:/guide/index.json`, loaded once), `guide::openArticle()` / `openUrl()` through `platform::openUrl`, widget help contexts (`setHelpContext()`, `contextsAt()`), the "?" `HelpButton`, `createHowToAction()`; test hooks `setIndexForTesting()`, `setUrlOpenerForTesting()` |
 | `HelpController` | the main window's wiring: F1 (`help.guide_context`), Help > Guide… (`help.guide`), Help > Getting Started (`help.getting_started`), the "?" buttons in panel title bars |
+| (app) | Help > Report a Bug or Inconsistency lives in `src/app/BugReportDialog` (it reads app-level settings); it opens GitHub through `guide::openUrl` too, so the same test hook applies |
 | `GuideDialog` | Help > Guide…: search field + article list ("Start page" on top); Enter or double-click opens |
 
 ## The index

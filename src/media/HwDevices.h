@@ -55,6 +55,9 @@ public:
     /// Availability and details of backend `mode` (opens the device if not tried yet).
     HwDeviceInfo info(HwAccelMode mode);
 
+    /// The details of the backends that were already tried (never opens a device).
+    QList<HwDeviceInfo> probed();
+
     /// "VAAPI (iHD 24.1.0, /dev/dri/renderD128)": backend, driver and device for log lines.
     QString describe(HwAccelMode mode);
 

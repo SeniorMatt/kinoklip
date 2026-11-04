@@ -4,6 +4,7 @@
 
 #include "app/AppInfo.h"
 #include "app/AutosaveController.h"
+#include "app/BugReportDialog.h"
 #include "app/InterfaceBar.h"
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
@@ -236,6 +237,18 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
 
 MainWindow::~MainWindow() = default;
 
+BugReportDialog* MainWindow::showBugReportDialog()
+{
+    if (!m_bugReport) {
+        m_bugReport = new BugReportDialog(bugreport::collect(), this);
+        m_bugReport->setAttribute(Qt::WA_DeleteOnClose);
+    }
+    m_bugReport->show();
+    m_bugReport->raise();
+    m_bugReport->activateWindow();
+    return m_bugReport;
+}
+
 void MainWindow::addPage(Page* page, const QString& actionId)
 {
     QAction* action = m_ctx.actions->action(actionId);
@@ -456,6 +469,9 @@ void MainWindow::connectAppActions()
     });
     connect(actions.action(QStringLiteral("help.about_qt")), &QAction::triggered, qApp,
         &QApplication::aboutQt);
+    // Help > Report a Bug or Inconsistency: the user sees what would be shared and decides.
+    connect(actions.action(QStringLiteral("help.report_bug")), &QAction::triggered, this,
+        [this] { showBugReportDialog(); });
 
     // ---- Dialogs (src/ui/dialogs) ----
     connectDialogActions(m_ctx, this, [this] {
