@@ -1172,3 +1172,7 @@ Grading engine and a minimal page; design in [color-page.md](color-page.md). Tes
   source), 24.18 (a focused Inspector value takes Up / Down and Enter), 33.32 (singular and
   plural messages), 35.27 (Cut page edits keep the Video tab), 42b.29 (a viewer without a node
   draws no handles) and 42b.30 (choosing a MediaIn source, the Compositing page's media pool).
+- The bughunt3 branch (third bug hunt round) added 10.12 (focused combo boxes and spin boxes
+  keep Up / Down), 24.19 (the Inspector's Composite group: Composite Mode and Opacity, blended
+  like the Merge node), 25.12 (new projects at 24 fps with timelines starting at 01:00:00:00;
+  project format 17) and 25.13 (the frame rate is locked once a timeline has clips).
