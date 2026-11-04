@@ -148,6 +148,46 @@ private slots:
         QCOMPARE(subtitles::captionText(*editops::clipById(tl, a)), textA);
         QVERIFY(editops::clipById(tl, a)->name != QStringLiteral("Only me"));
     }
+
+    // Spec 28.20: a cue without text is skipped on import (it would be an invisible caption)
+    // and the import says how many were skipped.
+    void spec28_20_emptyCuesSkippedAndCounted()
+    {
+        const QByteArray srt = "1\n00:00:01,000 --> 00:00:02,000\nHello\n\n"
+                               "2\n00:00:03,000 --> 00:00:04,000\n<i></i>\n\n"
+                               "3\n00:00:05,000 --> 00:00:06,000\n\n"
+                               "4\n00:00:07,000 --> 00:00:08,000\nBye\n";
+        QVector<SubtitleCue> cues;
+        int empty = -1;
+        QVERIFY(subtitles::parse(srt, &cues, nullptr, nullptr, &empty));
+        QCOMPARE(cues.size(), 2);
+        QCOMPARE(cues[0].text, QStringLiteral("Hello"));
+        QCOMPARE(cues[1].text, QStringLiteral("Bye"));
+        QCOMPARE(empty, 2);
+
+        QTemporaryDir dir;
+        const QString path = dir.filePath(QStringLiteral("empty_cues.srt"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(srt);
+        file.close();
+        Project project;
+        const ImportResult result = project.importMedia({path});
+        QCOMPARE(result.importedIds.size(), 1);
+        QVERIFY(result.warnings.isEmpty());
+        QCOMPARE(result.notes.size(), 1);
+        QVERIFY2(result.notes[0].contains(QStringLiteral("2 empty subtitle cues were skipped")),
+            qPrintable(result.notes[0]));
+        const MediaItem* item = project.mediaPool()->item(result.importedIds[0]);
+        QVERIFY(item);
+        QCOMPARE(item->cues.size(), 2);
+
+        // A file of only empty cues is not imported.
+        QVector<SubtitleCue> none;
+        QString error;
+        QVERIFY(!subtitles::parse("1\n00:00:01,000 --> 00:00:02,000\n\n", &none, &error));
+        QVERIFY(!error.isEmpty());
+    }
 };
 
 QTEST_MAIN(TestBughunt9)

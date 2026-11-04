@@ -76,8 +76,16 @@ QStringList importMediaWithFeedback(
                 .arg(result.warnings.size())
                 .arg(paths.size()),
             QMessageBox::Ok, parent);
-        box.setDetailedText(result.warnings.join(QLatin1Char('\n')));
-        box.setInformativeText(shown.join(QLatin1Char('\n')));
+        box.setDetailedText((result.warnings + result.notes).join(QLatin1Char('\n')));
+        box.setInformativeText((shown + result.notes).join(QLatin1Char('\n')));
+        box.exec();
+    } else if (!result.notes.isEmpty()) {
+        // Imported, but with something the user should know (empty subtitle cues skipped).
+        QMessageBox box(QMessageBox::Information, tr("Import Media"),
+            plural(result.importedIds.size(), tr("%1 file imported."), tr("%1 files imported."))
+                .arg(result.importedIds.size()),
+            QMessageBox::Ok, parent);
+        box.setInformativeText(result.notes.join(QLatin1Char('\n')));
         box.exec();
     }
     return result.importedIds;

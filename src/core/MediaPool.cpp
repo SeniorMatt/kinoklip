@@ -150,8 +150,12 @@ PreparedMedia MediaPool::prepareFile(const QString& absolutePath)
     MediaItem& item = prepared.item;
     if (subtitles::isSubtitleFile(absolutePath)) {
         // Subtitle files are parsed, not probed: the captions are stored in the item.
-        if (!subtitles::readFile(absolutePath, &item.cues, &prepared.error))
+        int emptyCues = 0;
+        if (!subtitles::readFile(absolutePath, &item.cues, &prepared.error, &emptyCues))
             return prepared;
+        if (emptyCues > 0)
+            prepared.note = emptyCues == 1 ? tr("1 empty subtitle cue was skipped")
+                                           : tr("%1 empty subtitle cues were skipped").arg(emptyCues);
         item.kind = MediaItemKind::Subtitle;
         item.path = absolutePath;
         item.info = subtitleInfo(absolutePath, item.cues);
@@ -194,6 +198,8 @@ ImportResult MediaPool::importFiles(const QStringList& paths, const QString& bin
             continue;
         }
         prepared.item.binId = targetBin;
+        if (!prepared.note.isEmpty())
+            result.notes.append(tr("%1: %2").arg(absolute, prepared.note));
         result.importedIds.append(addItem(std::move(prepared.item)));
     }
     return result;

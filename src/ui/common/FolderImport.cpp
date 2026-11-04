@@ -247,6 +247,8 @@ FolderImportResult importMediaFolders(AppContext& ctx, const QStringList& folder
     };
     ctx.project->beginEdit(tr("Import Media Folder"));
     for (Candidate* c : ok) {
+        if (!c->prepared.note.isEmpty())
+            result.notes.append(tr("%1: %2").arg(c->path, c->prepared.note));
         MediaItem item = std::move(c->prepared.item);
         item.binId = binFor(c->folder);
         result.importedIds.append(pool->addItem(std::move(item)));
@@ -266,7 +268,7 @@ QStringList importMediaFoldersWithFeedback(AppContext& ctx, const QStringList& f
     const FolderImportResult r = importMediaFolders(ctx, folders, options, parent, binId);
     if (r.cancelled)
         return {};
-    if (r.failures.isEmpty() && r.duplicates == 0 && !r.importedIds.isEmpty())
+    if (r.failures.isEmpty() && r.duplicates == 0 && r.notes.isEmpty() && !r.importedIds.isEmpty())
         return r.importedIds;
     // One summary for the whole import instead of a dialog per file.
     QStringList lines;
@@ -286,6 +288,7 @@ QStringList importMediaFoldersWithFeedback(AppContext& ctx, const QStringList& f
         if (r.failures.size() > kMaxListedFailures)
             lines.append(tr("… and %1 more").arg(r.failures.size() - kMaxListedFailures));
     }
+    lines += r.notes;
     const QString text = r.importedIds.isEmpty()
         ? tr("No new media files were imported.")
         : plural(r.importedIds.size(), tr("%n file imported."), tr("%n files imported."));
