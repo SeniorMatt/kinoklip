@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.24)
 set(APP_NAME "Kinoklip")
 set(APP_ID   "kinoklip")
 
-project(${APP_NAME} VERSION 1.1.1 LANGUAGES CXX)
+project(${APP_NAME} VERSION 1.1.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -93,6 +93,17 @@ if(LIBRAW_FOUND)
   target_link_libraries(kinoklip_core PUBLIC PkgConfig::LIBRAW)
   target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_LIBRAW=1)
 endif()
+# The commit a build comes from, for Help > Report a Bug (read at configure time; set on that
+# one file so a new commit does not rebuild the library). Empty outside a git checkout.
+find_package(Git QUIET)
+set(KK_GIT_COMMIT "")
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+  execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short=10 HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE KK_GIT_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+set_source_files_properties(${CMAKE_SOURCE_DIR}/src/app/BugReport.cpp
+  PROPERTIES COMPILE_DEFINITIONS "KK_GIT_COMMIT=\"${KK_GIT_COMMIT}\"")
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(kinoklip_core PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()
@@ -127,6 +138,13 @@ foreach(test_src ${KK_TESTS})
   endif()
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 300)
 endforeach()
+
+# The GitHub issue forms (.github/ISSUE_TEMPLATE) and the field ids Help > Report a Bug fills.
+find_package(Python3 QUIET COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME check_issue_forms
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/check_issue_forms.py)
+endif()
 
 # test_wayland once more under a real compositor with real input (weston on Xvfb, xdotool):
 # drags through wl_data_device, no explicit grabs, floating panels. Only where the tools exist

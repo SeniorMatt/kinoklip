@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: User guide
+    url: https://github.com/SeniorMatt/kinoklip/blob/main/docs/guide/readme.md
+    about: How to do common things in Kinoklip, step by step.

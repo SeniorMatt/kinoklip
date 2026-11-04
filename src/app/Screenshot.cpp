@@ -2,6 +2,7 @@
 // Screenshot mode implementation: pages, dialogs and open menus rendered to PNG.
 #include "app/Screenshot.h"
 
+#include "app/BugReportDialog.h"
 #include "app/MainWindow.h"
 #include "app/ProjectController.h"
 #include "app/ScreenshotAudio.h"
@@ -377,6 +378,9 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
     } else if (target == QLatin1String("new-project")) {
         // The Project Manager's New Project dialog (name and kind).
         dialog = std::make_unique<NewProjectDialog>(QStringLiteral("Untitled Project"), &window);
+    } else if (target == QLatin1String("bug-report")) {
+        // Help > Report a Bug or Inconsistency (what this machine would share).
+        dialog = std::make_unique<BugReportDialog>(bugreport::collect(), &window);
     } else if (target == QLatin1String("keyboard")) {
         dialog = std::make_unique<KeyboardCustomizationDialog>(*ctx.actions, &window);
     } else if (base == QLatin1String("keyboard")) {

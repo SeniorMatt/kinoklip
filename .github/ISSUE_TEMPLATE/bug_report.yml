@@ -1,0 +1,96 @@
+name: Bug report
+description: Something is broken, looks wrong or crashes.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. You do not need to be an expert: tell us
+        what you did and what went wrong, in your own words.
+
+        **Tip:** in Kinoklip, **Help > Report a Bug or Inconsistency...** fills in the version and
+        system info for you. You see that text before anything is shared, and you can remove
+        anything you like below before you submit.
+  - type: input
+    id: version
+    attributes:
+      label: Kinoklip version
+      description: Shown in the app's About box (first menu > About Kinoklip).
+      placeholder: "1.1.2-beta.1"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: System info
+      description: Filled in by the app. Otherwise your Linux distribution and desktop are enough.
+      placeholder: "Linux Mint 22.1, KDE Plasma, Wayland"
+      render: text
+    validations:
+      required: false
+  - type: dropdown
+    id: page
+    attributes:
+      label: Where in Kinoklip?
+      options:
+        - Media
+        - Cut
+        - Edit
+        - Compositing
+        - Color
+        - Audio
+        - Deliver
+        - Project Manager
+        - Other
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What did you do, step by step, so we can make it happen again?
+      placeholder: |
+        1. Open a new project
+        2. Import a video and drag it onto the timeline
+        3. Press B and click in the middle of the clip
+        4. ...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Include any error message you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Always
+        - Sometimes
+        - Once
+    validations:
+      required: false
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots, a screen recording or a small sample project
+      description: Optional. Drag and drop files here; GitHub uploads them. Please share only media you are allowed to share.
+    validations:
+      required: false
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched existing issues and did not find this one.
+          required: false

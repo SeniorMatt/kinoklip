@@ -284,6 +284,19 @@ QList<HwDeviceInfo> hwCapabilities()
     return result;
 }
 
+QList<HwDeviceInfo> probedHwDevices()
+{
+    QList<HwDeviceInfo> result;
+    const QList<HwDeviceInfo> tried = detail::HwDeviceManager::instance().probed();
+    for (const Backend& backend : kBackends) {
+        for (const HwDeviceInfo& info : tried) {
+            if (info.mode == backend.mode)
+                result.append(info);
+        }
+    }
+    return result;
+}
+
 void warmUpHwDecoding()
 {
     static std::atomic<bool> started {false};
@@ -537,6 +550,17 @@ HwDeviceInfo HwDeviceManager::info(HwAccelMode mode)
 {
     const std::lock_guard lock(m_mutex);
     return ensure(mode).info;
+}
+
+QList<HwDeviceInfo> HwDeviceManager::probed()
+{
+    const std::lock_guard lock(m_mutex);
+    QList<HwDeviceInfo> result;
+    for (const Entry& entry : m_entries) {
+        if (entry.tried)
+            result.append(entry.info);
+    }
+    return result;
 }
 
 HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)

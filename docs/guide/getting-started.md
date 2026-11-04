@@ -206,3 +206,12 @@ folder with your new video. You can keep editing while it renders.
 - [Speed up or slow down a clip](change-clip-speed.md)
 - [Fade audio in and out, and add music](fade-audio-and-add-music.md)
 - [Colour correct a clip](colour-correct-a-clip.md)
+
+## Something went wrong?
+
+Choose **Help > Report a Bug or Inconsistency...**. Pick whether it is a bug, something that works
+differently from DaVinci Resolve, or an idea. The window shows exactly what it would add to your
+report (versions and settings, nothing personal) and opens GitHub's report form in your browser,
+with or without that text. Write what you did, what happened and what you expected, and submit it
+there. You need a free GitHub account. Kinoklip itself never sends anything; see
+[Privacy](../privacy.md).
