@@ -214,10 +214,17 @@ QVector<ops::PlacedClip> TimelineController::makeMediaClips(
     const MediaItem* item = project()->mediaPool()->item(mediaId);
     if (!item)
         return {};
+    return makeMediaClips(*item, inUs, outUs, videoTrack, audioTrack);
+}
+
+QVector<ops::PlacedClip> TimelineController::makeMediaClips(
+    const MediaItem& item, int64_t inUs, int64_t outUs, int videoTrack, int audioTrack) const
+{
     const TimelineData& data = timeline()->data();
-    if (item->isTimeline())
-        return makeNestedClips(*item, inUs, outUs, videoTrack, audioTrack);
-    const media::MediaInfo& info = item->info;
+    if (item.isTimeline())
+        return makeNestedClips(item, inUs, outUs, videoTrack, audioTrack);
+    const QString& mediaId = item.id;
+    const media::MediaInfo& info = item.info;
     inUs = std::max<int64_t>(0, inUs);
     const int64_t remainingUs = info.durationUs - inUs;
     int64_t frames = remainingUs > 0 ? usToFrames(remainingUs, data.fps) : 0;
@@ -234,7 +241,7 @@ QVector<ops::PlacedClip> TimelineController::makeMediaClips(
     ClipData base;
     base.kind = ClipKind::Media;
     base.mediaId = mediaId;
-    base.name = item->name;
+    base.name = item.name;
     base.duration = frames;
     base.sourceInUs = info.isStillImage ? 0 : inUs;
     base.sourceDurationUs = info.isStillImage ? 0 : info.durationUs;

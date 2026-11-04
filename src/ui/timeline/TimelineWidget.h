@@ -17,6 +17,7 @@
 #include <QMenu>
 #include <QPointer>
 #include <QSet>
+#include <QStringList>
 #include <QTimer>
 
 #include <cstdint>
@@ -31,6 +32,7 @@ namespace kk {
 
 struct AppContext;
 class KeyframeLanes;
+class DroppedFileProbe;
 class NestedPreview;
 class TimelineController;
 
@@ -150,6 +152,8 @@ public:
     void setClipDragOut(ClipDragOut handler) { m_clipDragOut = std::move(handler); }
     /// The offset label shown next to the pointer during a move / trim (empty otherwise).
     [[nodiscard]] const DragInfoLabel& dragInfo() const { return m_overlay.dragInfo; }
+    /// The ghost clips of the drag over the timeline (tests).
+    [[nodiscard]] const std::vector<TimelineGhost>& dropGhosts() const { return m_overlay.ghosts; }
     /// The frames on both sides of the edit being trimmed (inactive when not trimming).
     [[nodiscard]] const TrimPreview& trimPreview() const { return m_trimPreview; }
 
@@ -426,6 +430,12 @@ private:
     void showDropPreview(const DropPlan& plan);
     bool executeDrop(const DropPlan& plan);
     void clearDropPreview();
+    /// DragEnter of files from a file manager: remembers their paths and starts the probes
+    /// behind their ghost clips (spec 5.6).
+    void startFileDrag(const QMimeData* mime, QPointF pos, Qt::KeyboardModifiers modifiers);
+    /// Drop of files: imports those not in the media pool yet (current bin), returns the ids
+    /// of every file in drag order (existing pool items reused).
+    QStringList importDroppedFiles(const QStringList& files);
 
     // ---- Helpers (TimelineWidget.cpp) ----
     void onTimelineChanged();
@@ -451,6 +461,10 @@ private:
     QPointer<QMenu> m_retimeMenu; ///< open speed / speed point menu
     NestedPreview* m_nestedPreview = nullptr; ///< child QObject: compound clip previews
     TimelineOverlay m_overlay;
+    DroppedFileProbe* m_fileProbe = nullptr; ///< child: probes of dragged-in files (lazy)
+    QStringList m_dragFiles; ///< paths of the file drag over the timeline (empty: none)
+    QPointF m_dragPos; ///< last DragMove position of that drag (re-planned after a probe)
+    Qt::KeyboardModifiers m_dragModifiers;
     QVector<CacheBarRange> m_cacheBar; ///< render cache status on the ruler
     QSet<quint64> m_selected; ///< mirror of the SelectionModel for O(1) lookups while painting
     Drag m_drag;
