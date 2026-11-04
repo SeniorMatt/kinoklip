@@ -9,6 +9,7 @@
 #include <QStringList>
 
 #include <functional>
+#include <optional>
 
 class QWidget;
 
@@ -55,8 +56,10 @@ FolderImportResult importMediaFolders(AppContext& ctx, const QStringList& folder
 
 /// importMediaFolders() followed by one summary dialog when something was not imported
 /// (failures, duplicates) or nothing was found. Returns the new item ids.
+/// @p binId: the bin ("" = Master); none = importTargetBin() (ui/common/MediaImport.h).
 QStringList importMediaFoldersWithFeedback(AppContext& ctx, const QStringList& folders,
-    const FolderImportOptions& options, QWidget* parent, const QString& binId = {});
+    const FolderImportOptions& options, QWidget* parent,
+    const std::optional<QString>& binId = std::nullopt);
 
 /// File > Import Media Folder… and the media pool's context menu: asks for a folder (the
 /// platform folder chooser), then for the options (askFolderImportOptions()), then imports it

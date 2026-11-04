@@ -210,6 +210,17 @@ void setShowDefaultSmartBins(bool show)
     QSettings().setValue(QLatin1String(kDefaultSmartBins), show);
 }
 
+bool importIntoMasterBin()
+{
+    return QSettings().value(QLatin1String(kImportTarget)).toString() == QLatin1String("master");
+}
+
+void setImportIntoMasterBin(bool master)
+{
+    QSettings().setValue(QLatin1String(kImportTarget),
+        master ? QStringLiteral("master") : QStringLiteral("current"));
+}
+
 bool animationsEnabled()
 {
     return QSettings().value(QLatin1String(kAnimations), true).toBool();

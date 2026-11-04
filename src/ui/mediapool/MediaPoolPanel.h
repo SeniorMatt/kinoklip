@@ -36,7 +36,10 @@ class BinList;
 ///   bins from the context menu or the title bar; drag bins to reorder or re-parent them;
 ///   drop media items on a bin to move them; drop files from the OS on a bin to import them.
 ///   Show Bin List (button, `view.show_bin_list`) toggles it.
-/// - Right: items of the current bin, as a grid of poster frames or a list with selectable,
+/// - Right: the sub-bins of the current bin as folders (Resolve: before the clips, whatever
+///   the sort; double-click opens one, F2 or a double-click on a tile's name renames it, drop
+///   clips on it to move them there, its context menu has the bin commands), then the
+///   items of the current bin, as a grid of poster frames or a list with selectable,
 ///   sortable columns (right-click the header). View mode and sort order are remembered per
 ///   bin (Project::binViewState()). Search filters the current bin and its sub-bins by name,
 ///   path and metadata; the colour filter shows one clip colour.
@@ -65,8 +68,10 @@ public:
     /// Creates the panel for ctx.project's media pool (and ctx.powerBins when set).
     MediaPoolPanel(AppContext& ctx, QWidget* parent = nullptr);
 
-    /// Ids of the selected media items.
+    /// Ids of the selected media items (folders not included).
     [[nodiscard]] QStringList selectedMediaIds() const;
+    /// Bin ids of the selected folders (sub-bins shown in the clip area).
+    [[nodiscard]] QStringList selectedBinIds() const;
     /// Selects exactly the items @p ids that are visible in the current bin.
     void setSelectedMediaIds(const QStringList& ids);
     /// Stores the selected ids in the media pool commands (`mediapool.*` actions' data) and
@@ -74,7 +79,8 @@ public:
     void publishSelection();
     /// The current (focused) media item id, or empty.
     [[nodiscard]] QString currentMediaId() const;
-    /// Ids of the items currently shown (after bin + search filtering), in view order.
+    /// Ids of the items currently shown (after bin + search filtering), in view order;
+    /// folders not included.
     [[nodiscard]] QStringList visibleMediaIds() const;
 
     /// Selects (and scrolls to) media item @p id, switching to its bin and clearing the search
@@ -100,6 +106,10 @@ public:
     [[nodiscard]] QString currentBinKey() const;
     /// Shows the bin with key @p key (unknown keys show Master).
     void setCurrentBinKey(const QString& key);
+    /// Key of the bin imports from this panel go into when they have no bin of their own
+    /// (Import button, drops onto the clip area): the shown bin, or Master when Preferences >
+    /// Editing > "Import new media into" is "Master bin" (smart bins import into Master).
+    [[nodiscard]] QString importTargetKey() const;
     /// Filters the items by @p text (name, path, metadata, case-insensitive).
     void setSearchText(const QString& text);
     /// Shows only items of clip colour @p colorId ("" = all, "none" = without colour).
@@ -204,6 +214,7 @@ protected:
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 
 public:
     /// Relinks offline media found by file name in @p folder (one undo step). Returns the
@@ -253,6 +264,12 @@ private:
     // ---- Context menus (MediaPoolMenus.cpp) ----
     void showItemMenu(const QPoint& globalPos);
     void showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos);
+    /// Context menu of a folder (a sub-bin in the clip area) of @p view at @p index.
+    void showFolderMenu(QAbstractItemView* view, const QModelIndex& index, const QPoint& globalPos);
+    /// Bin id of the folder under @p pos (panel coordinates) in the shown view, or "" (none).
+    [[nodiscard]] QString folderAt(const QPoint& pos) const;
+    /// Makes this panel's current bin the import target of AppContext::currentMediaPoolBin.
+    void becomeImportTarget();
     void showHeaderMenu(const QPoint& globalPos);
     void addColorMenu(QMenu& menu, const QStringList& ids);
     void addFlagMenu(QMenu& menu, const QStringList& ids);

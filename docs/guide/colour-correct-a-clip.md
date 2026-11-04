@@ -112,7 +112,7 @@ blue there.
 
 The menu also has **Waveform RGB**, a **Vectorscope** (how strong the colours are and which
 way they lean) and a **Histogram**. To see two scopes in a separate window on any page, choose
-**View > Video Scopes** (**Ctrl+Shift+W**).
+**View > Show Panel in Workspace > Video Scopes** (**Ctrl+Shift+W**).
 
 ## Compare with the original
 
