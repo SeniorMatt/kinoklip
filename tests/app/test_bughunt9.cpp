@@ -3,9 +3,13 @@
 // window where it matters: one test per fix, named after the spec row it covers.
 #include "app/MainWindow.h"
 #include "app/Theme.h"
+#include "app/pages/ColorPage.h"
 #include "app/pages/EditPage.h"
+#include "ui/color/ColorBrowsers.h"
+#include "ui/color/ColorSession.h"
 #include "core/DynamicZoom.h"
 #include "core/EditOps.h"
+#include "core/Grade.h"
 #include "core/MediaPool.h"
 #include "core/ParamKeys.h"
 #include "core/Project.h"
@@ -42,12 +46,14 @@
 #include <QTemporaryDir>
 #include <QTabWidget>
 #include <QTest>
+#include <QTimer>
 #include <QToolBar>
 #include <QUndoStack>
 
 #include <memory>
 
 using namespace kk;
+namespace gk = kk::gradekeys;
 
 namespace {
 
@@ -237,6 +243,74 @@ private slots:
             }
         }
         QVERIFY2(bad.isEmpty(), qPrintable(bad.join(QLatin1Char('\n'))));
+    }
+    // Spec 44b.30: in the Color page's clips strip a Shift / Ctrl selection is framed in the
+    // highlight colour, and right-clicking the graded clip keeps that selection, so its menu's
+    // Copy Grade to Selected Clips reaches the selected clips (it is greyed out without them).
+    void spec44b_30_stripSelectionAndCopyGrade()
+    {
+        Fixture f(4);
+        f.show();
+        f.action("view.page_color")->trigger();
+        QCoreApplication::processEvents();
+        ColorClipStrip* strip = f.window->colorPage()->clipStrip();
+        ColorSession* session = f.window->colorPage()->session();
+        QCOMPARE(strip->count(), 4);
+        const auto centre = [&](int row) { return strip->visualItemRect(strip->item(row)).center(); };
+        // Grade clip 1.
+        QTest::mouseClick(strip->viewport(), Qt::LeftButton, {}, centre(0));
+        QCOMPARE(session->clipId(), f.clips[0]);
+        QVERIFY(session->setParam(0, gk::Saturation, 1.6, QStringLiteral("Sat")));
+        const ClipGrade graded = f.project.clipGrade(f.project.activeTimelineUid(), f.clips[0]);
+        QVERIFY(!graded.isEmpty());
+        // Ctrl-click clip 1 out of the selection, Ctrl-click clip 2 in, Shift-click clip 4.
+        QTest::mouseClick(strip->viewport(), Qt::LeftButton, Qt::ControlModifier, centre(0));
+        QTest::mouseClick(strip->viewport(), Qt::LeftButton, Qt::ControlModifier, centre(1));
+        QTest::mouseClick(strip->viewport(), Qt::LeftButton, Qt::ShiftModifier, centre(3));
+        QCOMPARE(session->selectedClips().size(), 3);
+        QVERIFY(!session->selectedClips().contains(f.clips[0]));
+
+        // Selected clips are framed in the highlight colour; unselected ones are not.
+        const QImage shot = strip->viewport()->grab().toImage();
+        const QColor highlight = strip->palette().color(QPalette::Highlight);
+        const auto framed = [&](int row) {
+            // Along the item's left edge, beside the thumbnail.
+            const QRect r = strip->visualItemRect(strip->item(row));
+            for (int x = r.left(); x < r.left() + 10; ++x) {
+                if (shot.pixelColor(x * shot.devicePixelRatio(), r.center().y()).rgb()
+                    == highlight.rgb())
+                    return true;
+            }
+            return false;
+        };
+        QVERIFY(framed(1) && framed(2) && framed(3));
+        QVERIFY(!framed(0));
+
+        // Right-click clip 1 (not selected): the selection stays; Copy Grade to Selected Clips.
+        QTest::mousePress(strip->viewport(), Qt::RightButton, {}, centre(0));
+        QTest::mouseRelease(strip->viewport(), Qt::RightButton, {}, centre(0));
+        QCOMPARE(session->selectedClips().size(), 3);
+        bool triggered = false;
+        QTimer::singleShot(0, [&] {
+            auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+            QVERIFY(menu);
+            for (QAction* a : menu->actions()) {
+                if (a->text() == QStringLiteral("Copy Grade to Selected Clips")) {
+                    QVERIFY(a->isEnabled());
+                    triggered = true;
+                    menu->setActiveAction(a);
+                    QTest::keyClick(menu, Qt::Key_Return);
+                    return;
+                }
+            }
+            menu->close();
+        });
+        QContextMenuEvent menuEvent(QContextMenuEvent::Mouse, centre(0),
+            strip->viewport()->mapToGlobal(centre(0)));
+        QApplication::sendEvent(strip->viewport(), &menuEvent);
+        QVERIFY(triggered);
+        for (int i = 1; i < 4; ++i)
+            QCOMPARE(f.project.clipGrade(f.project.activeTimelineUid(), f.clips[i]), graded);
     }
 };
 
