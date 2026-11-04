@@ -137,6 +137,8 @@ public:
 
     /// Selected edit point (empty = none). Selecting one clears the clip and gap selection;
     /// selecting clips clears it.
+    /// The colour new markers get (the marker button's menu, spec 18.17; Blue by default).
+    [[nodiscard]] static QColor newMarkerColor();
     [[nodiscard]] const EditPointSelection& selectedEdit() const { return m_selectedEdit; }
     void setSelectedEdit(const EditPointSelection& edit);
     /// Selected gap, if any (cleared by selecting clips or an edit point).

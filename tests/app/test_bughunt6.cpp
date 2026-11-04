@@ -5,6 +5,7 @@
 #include "app/Theme.h"
 #include "app/pages/CompositingPage.h"
 #include "app/pages/EditPage.h"
+#include "core/ClipColors.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -22,9 +23,11 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QMenu>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTest>
+#include <QToolButton>
 #include <QTreeWidget>
 #include <QUndoStack>
 
@@ -175,6 +178,43 @@ private slots:
         // Ctrl+T keeps an existing transition.
         f.action("timeline.add_transition")->trigger();
         QCOMPARE(f.clip(1)->transitionIn->type, QStringLiteral("dip_to_color"));
+    }
+
+    // Spec 18.17: the timeline tool bar's marker button has a drop-down of the sixteen marker
+    // colours; the colour picked there (the current one checked) colours the timeline and clip
+    // markers added from then on, and is kept in the settings.
+    void spec18_17_markerButtonPicksTheColourOfNewMarkers()
+    {
+        Fixture f;
+        f.show();
+        auto* menu = f.window->editPage()->findChild<QMenu*>(QStringLiteral("MarkerColorMenu"));
+        QVERIFY(menu);
+        auto* button = qobject_cast<QToolButton*>(menu->parent());
+        QVERIFY(button);
+        QCOMPARE(button->popupMode(), QToolButton::MenuButtonPopup);
+        QCOMPARE(menu->actions().size(), int(markerColorPalette().size()));
+        // Blue by default.
+        f.project.timeline()->setPlayhead(5);
+        f.action("mark.add_marker")->trigger();
+        QCOMPARE(f.project.timeline()->data().markers.value(0).color,
+            QColor(markerColorPalette()[0].rgb));
+        QAction* red = nullptr;
+        for (QAction* a : menu->actions())
+            if (a->data().toString() == QStringLiteral("red"))
+                red = a;
+        QVERIFY(red);
+        red->trigger();
+        emit menu->aboutToShow();
+        QVERIFY(red->isChecked());
+        f.project.timeline()->setPlayhead(20);
+        f.action("mark.add_marker")->trigger();
+        const QColor redColour = QColor(nearestMarkerColor(QColor(0xe0, 0x4a, 0x4a)).rgb);
+        QCOMPARE(f.project.timeline()->data().markers.value(1).color, redColour);
+        // A clip marker too.
+        f.selection.setClips({f.clips[1]});
+        f.project.timeline()->setPlayhead(60);
+        f.action("mark.add_marker")->trigger();
+        QCOMPARE(f.clip(1)->markers.value(0).color, redColour);
     }
 };
 
