@@ -192,3 +192,5 @@
 - 17:35 Merged extdrop, poolbins. Breeze README shots (AppDir from container) + Metadata Breeze fix (33.45). Pushed. Next: host suite, then 1.1.1 package.
 - 18:06 1.1.1-beta.1 built (container 173/173, bundle OK, smoke OK: version, Breeze, Vegas S, Edit page). Local tag at d4c1f37. Awaiting owner's go to publish.
 - 18:13 PUBLISHED 1.1.1-beta.1 (owner said publish): https://github.com/SeniorMatt/kinoklip/releases/tag/v1.1.1-beta.1. Next: 1.1.2 bug report button.
+- 18:56 Merged bugreport (1.1.2): Help > Report a Bug, issue forms live, docs/privacy.md. Host 173/174 (test_colorpage flaked under -j3, 6/6 alone). Packaging.
+- 19:18 1.1.2-beta.1 built (container 174/175, test_proxies flaked, 3/3 alone; bundle OK; smoke OK incl. bug-report dialog shows AppImage/Breeze). Local tag. Awaiting owner's go.
