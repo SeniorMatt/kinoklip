@@ -36,7 +36,6 @@ EditBehaviour EditBehaviour::fromSettings()
         = s.value(QStringLiteral("edit/wheelScheme")).toString() == QLatin1String("classic")
         ? WheelScheme::Classic
         : WheelScheme::Resolve;
-    b.dynamicTrimWithJkl = flag("edit/dynamicTrimWithJkl", b.dynamicTrimWithJkl);
     b.twoUpProgramLook = flag("edit/twoUpProgramLook", b.twoUpProgramLook);
     return b;
 }

@@ -55,9 +55,6 @@ struct EditBehaviour
     ZoomAnchor zoomAnchor = ZoomAnchor::Playhead;
     /// Mouse wheel modifier convention (spec 19.3).
     WheelScheme wheelScheme = WheelScheme::Resolve;
-    /// Dynamic trim (spec 8.17): J/K/L trim the selected edit point while playing, instead of
-    /// only moving the playhead. Off: W just toggles the mode without J/K/L trimming.
-    bool dynamicTrimWithJkl = true;
     /// Open timelines are shown as tabs above the timeline (owner default, v2); off: one
     /// timeline at a time, chosen from a drop-down like Resolve's single-timeline mode.
     bool timelineTabs = true;
@@ -70,7 +67,7 @@ struct EditBehaviour
     /// transitionSeconds, multiFrameNudge, threePointEditing, rippleDeleteGapAtPlayhead,
     /// selectToolRollsAtCut, trimToolSlideInNameBar, zoomAnchor
     /// ("playhead" / "mouse", shared with prefs::kZoomAnchor), wheelScheme ("resolve" / "classic"),
-    /// dynamicTrimWithJkl, timelineTabs, twoUpProgramLook); defaults where unset.
+    /// timelineTabs, twoUpProgramLook); defaults where unset.
     [[nodiscard]] static EditBehaviour fromSettings();
 
     /// @p seconds as a frame count at @p fps (at least 1 frame).
