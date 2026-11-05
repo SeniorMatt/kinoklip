@@ -306,6 +306,7 @@ void CutPage::saveLayout(QSettings& settings) const
     settings.setValue(QStringLiteral("main"), m_main->saveState());
     settings.setValue(QStringLiteral("topRow"), m_topRow->saveState());
     settings.setValue(QStringLiteral("timelines"), m_timelines->saveState());
+    m_mediaPool->saveSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
     settings.setValue(QStringLiteral("viewerMode"), int(m_viewer->mode()));
     settings.setValue(QStringLiteral("visible/mediaPool"), isPanelVisible(PanelId::MediaPool));
 }
@@ -315,6 +316,7 @@ void CutPage::restoreLayout(const QSettings& settings)
     m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
     m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
     m_timelines->restoreState(settings.value(QStringLiteral("timelines")).toByteArray());
+    m_mediaPool->restoreSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
     const int mode
         = settings.value(QStringLiteral("viewerMode"), int(CutViewer::Mode::Timeline)).toInt();
     if (mode >= int(CutViewer::Mode::SourceClip) && mode <= int(CutViewer::Mode::Timeline))

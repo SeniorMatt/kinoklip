@@ -193,6 +193,7 @@ a("view.onscreen_masks", "On-Screen Mask Controls (viewer on-screen controls: Ma
 a("view.onscreen_crop", "On-Screen Crop Controls (viewer on-screen controls: Crop)", [], U, "Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned.")
 a("view.onscreen_dynamic_zoom", "On-Screen Dynamic Zoom Controls (viewer on-screen controls: Dynamic Zoom)", [], U, "Resolve picks the viewer overlay from the on-screen controls menu; no default key is known, none assigned.")
 a("view.fullscreen", "Full Screen Window", ["Ctrl+Shift+F"], U)
+a("view.reset_ui_layout", "Reset UI Layout (Workspace menu: the default panels and sizes of every page)", [], U, "no default key is known, none assigned.")
 a("view.show_rulers", "Show Rulers (pixel rulers along the viewer's top and left edges)", [], U, "viewer overlay; no default key is known, none assigned.")
 a("view.guides_show", "Show Guides (viewer guide lines, never rendered)", [], U, "viewer overlay; no default key is known, none assigned.")
 a("view.guides_lock", "Lock Guides", [], U, "viewer overlay; no default key is known, none assigned.")

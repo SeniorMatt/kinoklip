@@ -101,6 +101,8 @@ void MediaPage::saveLayout(QSettings& settings) const
 {
     settings.setValue(QStringLiteral("topRow"), m_topRow->saveState());
     settings.setValue(QStringLiteral("main"), m_main->saveState());
+    m_browser->saveSplitterSizes(settings, QStringLiteral("browserPanel/"));
+    m_mediaPool->saveSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
     for (PanelId id : {PanelId::MediaPool, PanelId::Metadata})
         settings.setValue(QStringLiteral("visible/") + panelIdToString(id), isPanelVisible(id));
 }
@@ -109,6 +111,8 @@ void MediaPage::restoreLayout(const QSettings& settings)
 {
     m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
     m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
+    m_browser->restoreSplitterSizes(settings, QStringLiteral("browserPanel/"));
+    m_mediaPool->restoreSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
     for (PanelId id : {PanelId::MediaPool, PanelId::Metadata}) {
         const QString key = QStringLiteral("visible/") + panelIdToString(id);
         if (settings.contains(key))

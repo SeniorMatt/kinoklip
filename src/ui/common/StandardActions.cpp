@@ -447,6 +447,7 @@ const ActionSpec kActions[] = {
     // ---- Workspace (Resolve's Workspace menu: the window; our look and feel entries are
     //      filled by src/app/Theme; category id "settings" kept for stored data) ----
     {"settings", "view.fullscreen",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen Window"), "", true},
+    {"settings", "view.reset_ui_layout", QT_TRANSLATE_NOOP("kk::StandardActions", "&Reset UI Layout")},
     {"settings", "-"},
     {"settings", ">settings.color_scheme", QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Theme")},
     {"settings", ">settings.style",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Style")},
