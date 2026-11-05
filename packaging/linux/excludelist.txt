@@ -62,7 +62,8 @@ host libEGL.so.1
 host libGLX.so.0
 host libGLX_*.so.0
 host libEGL_*.so.0
-host libOpenGL.so.0
+# Only the glvnd dispatcher, no driver: Fedora ships it in a package GNOME does not pull in.
+fallback libOpenGL.so.0
 host libGLdispatch.so.0
 host libGLESv2.so.2
 host libgbm.so.1
@@ -196,7 +197,8 @@ host libpcre2-8.so.0
 host libz.so.1
 host libzstd.so.1
 host liblzma.so.5
-host libbz2.so.1.0
+# Fedora names it libbz2.so.1, so there is no libbz2.so.1.0 to find (GitHub issue 1).
+fallback libbz2.so.1.0
 host liblz4.so.1
 host libexpat.so.1
 host libffi.so.8
