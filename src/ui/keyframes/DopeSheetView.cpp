@@ -149,7 +149,8 @@ void DopeSheetView::paintEvent(QPaintEvent*)
         if (row.kind == KeyRow::Kind::Item)
             p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), withAlpha(text, 22));
         else if (i % 2 == 1)
-            p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), withAlpha(text, 9));
+            p.fillRect(QRect(lw, r.top(), width() - lw, r.height()),
+                panelColors() ? schemeColors().keyRowStripe : withAlpha(text, 9));
         if (lw > 0 && m_drawLabels) {
             const int indent = row.kind == KeyRow::Kind::Param ? 2 * kLabelIndent
                 : row.kind == KeyRow::Kind::Group              ? kLabelIndent

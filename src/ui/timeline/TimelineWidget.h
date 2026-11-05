@@ -392,6 +392,8 @@ private:
     void autoScrollTick();
     /// Snaps @p frame to the drag's candidates when snapping is on (and sets the indicator).
     [[nodiscard]] std::optional<int64_t> snapFrame(int64_t frame) const;
+    /// What a playhead scrub snaps to (spec 11.8, 11.9).
+    [[nodiscard]] std::vector<int64_t> scrubSnapCandidates() const;
     [[nodiscard]] int64_t snapToleranceFrames() const;
 
     // ---- Drag and drop (TimelineDrop.cpp) ----

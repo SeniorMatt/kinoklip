@@ -15,10 +15,10 @@ ParamAccess); never on `ui/timeline`.
 | `CurveView.h` | overlaid curves (`CurveInfo`), Normalised / Absolute value axis, value zoom and pan, fit all / fit selection, key and Bezier handle drags, double-click adds a key |
 | `KeyframeCommands.h` | delete / copy / paste / interpolation / flatten on the selected keys, one undo step each; the one keyframe clipboard |
 | `KeyframeGrid.h` | grid steps (values, frames / seconds) |
-| `KeyframeRuler.h` | panel ruler: timecodes, clip spans, playhead; drag scrubs the playhead |
+| `KeyframeRuler.h` | panel ruler: timecodes, clip spans, playhead; drag scrubs the playhead, snapping like the timeline ruler (spec 11.9) |
 | `KeyframeItemModel.h` | pure: selection -> items (linked pair = one item) -> rows grouped like the Inspector |
 | `KeyframeParamTree.h` | panel tree: curve check box, prev / diamond / next, inline value (ValueField) |
-| `KeyframesPanel.h` | the panel: tool row, tree, ruler, dope sheet + curves, time scroll bar, view modes, persistence; header gestures: the labelled Float / Dock button, a double-click on the header floats / docks, dragging the docked header out of the panel tears it off (`tearOffRequested()`), dragging a floating panel's header moves its window (`QWindow::startSystemMove()`, the only way on Wayland) |
+| `KeyframesPanel.h` | the panel: tool row, tree, ruler, dope sheet or curves (`setView()`, one at a time in a `QStackedWidget`; spec 15.22), time scroll bar, view modes, persistence; header gestures: the labelled Float / Dock button, a double-click on the header floats / docks, dragging the docked header out of the panel tears it off (`tearOffRequested()`), dragging a floating panel's header moves its window (`QWindow::startSystemMove()`, the only way on Wayland) |
 
 ## Shared code vs. specific code
 
@@ -34,6 +34,17 @@ functions of `core/KeyframeOps.h`. What differs is only geometry and chrome:
 | vertical window | cut under the timeline ruler | dope sheet scrolled with the tree |
 | clips | one clip | the selected items (linked pairs, several items) |
 | value axis | Normalised | Normalised or Absolute (toggle) |
+
+## Panel views, colours, snapping
+
+Both views stay alive and share `m_map`, the selection and the tree: switching only changes the
+stack's page and which of Normalised / Fit Selection show. `view.keyframes_panel_toggle_view` and the
+lane entry points are wired in `EditPage`. The panel's views call `setPanelColors(true)` and paint with
+`SchemeColors::keyRows`, `keyRowStripe` and `keyRowsOutside`; the inline lanes keep their own shades.
+
+Snap targets have one source: `editops::snapCandidates()`, with
+`keyframeops::withKeySnapTargets()` adding keys. The panel's ruler and the timeline's scrub use it for
+the playhead; `KeyframeViewBase::beginDragEdit()` for key drags, leaving out the selected keys.
 
 ## Data flow
 

@@ -26,9 +26,7 @@ namespace kk {
 namespace ko = keyframeops;
 namespace kc = keyframecommands;
 
-namespace {
-constexpr int kSnapTolerancePx = 8; ///< same tolerance as clip snapping on the timeline
-} // namespace
+namespace { } // namespace
 
 QColor keyframeMix(const QColor& a, const QColor& b, double t)
 {
@@ -47,13 +45,21 @@ KeyframeViewBase::KeyframeViewBase(AppContext& ctx, const KeyframeTimeMap& map, 
     setAttribute(Qt::WA_OpaquePaintEvent);
     connect(ctx.project->timeline(), &Timeline::playheadChanged, this, [this] { update(); });
     connect(ctx.selection, &SelectionModel::changed, this, [this] { update(); });
-    m_snapping = [this] {
-        const QAction* a
-            = m_ctx.actions && m_ctx.actions->contains(QStringLiteral("timeline.snapping"))
-            ? m_ctx.actions->action(QStringLiteral("timeline.snapping"))
-            : nullptr;
-        return a && a->isChecked();
-    };
+    m_snapping = [this] { return snappingAction(m_ctx); };
+}
+
+bool KeyframeViewBase::snappingAction(const AppContext& ctx)
+{
+    const QAction* a = ctx.actions && ctx.actions->contains(QStringLiteral("timeline.snapping"))
+        ? ctx.actions->action(QStringLiteral("timeline.snapping"))
+        : nullptr;
+    return a && a->isChecked();
+}
+
+void KeyframeViewBase::setPanelColors(bool on)
+{
+    m_panelColors = on;
+    update();
 }
 
 KeyframeViewBase::~KeyframeViewBase()
@@ -188,6 +194,9 @@ void KeyframeViewBase::beginDragEdit(const QString& label)
     if (m_editOpen)
         return;
     m_origin = m_ctx.project->timeline()->data();
+    m_dragSnaps = keyframeops::withKeySnapTargets(
+        editops::snapCandidates(m_origin, m_ctx.project->timeline()->playhead()), m_origin, m_clips,
+        m_ctx.selection->keyframes());
     m_ctx.project->beginEdit(label);
     m_editOpen = true;
 }
@@ -220,7 +229,7 @@ int64_t KeyframeViewBase::snapFrame(int64_t frame) const
 {
     if (!m_snapping || !m_snapping())
         return frame;
-    const double tolerance = kSnapTolerancePx / std::max(1e-6, pixelsPerFrame());
+    const double tolerance = editops::kSnapDistancePx / std::max(1e-6, pixelsPerFrame());
     int64_t best = frame;
     double bestDistance = tolerance;
     auto consider = [&](int64_t f) {
@@ -230,6 +239,9 @@ int64_t KeyframeViewBase::snapFrame(int64_t frame) const
             best = f;
         }
     };
+    // Same targets as the timeline's gestures; the ones below win a tie, as they did before.
+    for (const int64_t f : m_dragSnaps)
+        consider(f);
     consider(m_ctx.project->timeline()->playhead());
     for (quint64 id : m_clips) {
         if (const ClipData* c = clipData(id)) {
@@ -322,8 +334,9 @@ void KeyframeViewBase::paintBackground(QPainter& p, const QRect& logicalRect) co
     const QPalette& pal = palette();
     const QColor base = pal.color(QPalette::Base);
     const QColor text = pal.color(QPalette::WindowText);
+    const SchemeColors& sc = schemeColors();
     // Data area: a shade darker than the lanes so the editor reads as a separate panel.
-    p.fillRect(logicalRect, keyframeMix(base, schemeColors().shadow, 0.12));
+    p.fillRect(logicalRect, m_panelColors ? sc.keyRowsOutside : keyframeMix(base, sc.shadow, 0.12));
     if (m_labelWidth > 0) {
         p.fillRect(QRect(logicalRect.left(), logicalRect.top(), m_labelWidth, logicalRect.height()),
             keyframeMix(pal.color(QPalette::Window), text, 0.03));
@@ -343,7 +356,7 @@ void KeyframeViewBase::paintBackground(QPainter& p, const QRect& logicalRect) co
         const double x1 = std::min(double(width()), cx1);
         if (x1 > x0)
             p.fillRect(QRectF(x0, logicalRect.top(), x1 - x0, logicalRect.height()),
-                keyframeMix(base, text, 0.04));
+                m_panelColors ? sc.keyRows : keyframeMix(base, text, 0.04));
         p.setPen(QPen(edge, 1));
         for (const double x : {cx0, cx1}) {
             if (x >= m_labelWidth && x <= width()) {

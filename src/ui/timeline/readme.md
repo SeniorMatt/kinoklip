@@ -150,7 +150,8 @@ one undo step). Selected keys live in `SelectionModel::keyframes()` (paths from
 `src/ui/keyframes` (also used by the Keyframes panel) on a `KeyframeTimeMap` that goes through
 `TimelineLayout`. A clip narrower than `KeyframeLanes::kMinUsableClipWidthPx` shows an "Open in
 Keyframes Panel" button in its lane (the lane menus always have the entry):
-`KeyframeLanes::openInPanelRequested(clipId)`, wired by EditPage. `TimelineWidget::viewChanged()`
+`KeyframeLanes::openInPanelRequested(clipId, curves)`, wired by EditPage, which also follows
+`editorOpenedByUser(curves)` to show the same view in the panel (spec 15.22). `TimelineWidget::viewChanged()`
 (zoom / scroll) feeds the panel's Follow Timeline mode.
 
 ## Multicam clips (TimelineMulticam.cpp)

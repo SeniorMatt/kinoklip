@@ -68,7 +68,13 @@ public:
     {
         return m_logicalHeight > 0 ? m_logicalHeight : height();
     }
-    /// Snapping switch (default: the checked state of the "timeline.snapping" action).
+    /// The checked state of the "timeline.snapping" action (false without it).
+    [[nodiscard]] static bool snappingAction(const AppContext& ctx);
+    /// Panel colours (SchemeColors::keyRows...) instead of the inline lanes' (spec 15.23).
+    void setPanelColors(bool on);
+    /// An edit gesture is running in this view.
+    [[nodiscard]] bool dragActive() const { return m_editOpen; }
+    /// Snapping switch (default: snappingAction()).
     void setSnappingProvider(std::function<bool()> provider) { m_snapping = std::move(provider); }
     /// Adds entries at the end of the keyframe context menu (e.g. "Open in Keyframes Panel").
     void setMenuExtender(std::function<void(QMenu&)> extender)
@@ -120,8 +126,10 @@ protected:
     void endDragEdit(bool commit);
     [[nodiscard]] bool dragEditOpen() const { return m_editOpen; }
 
-    /// Snaps timeline frame @p frame to the playhead and the first / last frame of the shown
-    /// clips when snapping is on and one is within the snap tolerance; else returns it.
+    /// Snaps timeline frame @p frame when snapping is on and a target is within the snap
+    /// distance, else returns it. Targets: the playhead, the first / last frame of the shown
+    /// clips and, during a drag, editops::snapCandidates() plus the other keys of the shown
+    /// clips (spec 15.24).
     [[nodiscard]] int64_t snapFrame(int64_t frame) const;
     /// Moves the playhead to timeline frame @p frame.
     void jumpToFrame(int64_t frame);
@@ -138,6 +146,8 @@ protected:
     void paintPlayhead(QPainter& p) const;
     /// The rubber band (widget coordinates; call with an untranslated painter).
     void paintBand(QPainter& p, const QRectF& band) const;
+    /// True when setPanelColors() is on.
+    [[nodiscard]] bool panelColors() const { return m_panelColors; }
     /// Draws a keyframe diamond centred at @p c.
     static void drawDiamond(QPainter& p, QPointF c, double radius);
 
@@ -156,6 +166,8 @@ private:
     std::function<void(QMenu&)> m_menuExtender;
     TimelineData m_origin;
     bool m_editOpen = false;
+    std::vector<int64_t> m_dragSnaps; ///< snap targets of the open drag (sorted)
+    bool m_panelColors = false;
 };
 
 /// Colour helper shared by the keyframe views: linear mix of @p a and @p b.

@@ -10,11 +10,13 @@
 // which is cheap compared with a repaint (a few hundred microseconds for 2,000 clips).
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
+#include "core/KeyframeOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/UiAnimation.h"
+#include "ui/keyframes/KeyframeItemModel.h"
 #include "ui/timeline/KeyframeLanes.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
@@ -35,7 +37,6 @@ using namespace timelinemetrics;
 namespace ops = editops;
 
 namespace {
-constexpr int kSnapPx = 8; ///< snapping distance in pixels
 constexpr int kTrimThresholdPx = 2; ///< trims start almost immediately (frame accuracy)
 constexpr int kAutoScrollZonePx = 24; ///< near the left/right edge a drag scrolls the view
 constexpr int kAutoScrollMaxPx = 40; ///< per timer tick at the very edge
@@ -46,7 +47,7 @@ constexpr int kDragOutMarginPx = 12; ///< a move dragged this far out of the vie
 
 int64_t TimelineWidget::snapToleranceFrames() const
 {
-    return int64_t(kSnapPx / m_layout.pixelsPerFrame());
+    return int64_t(ops::kSnapDistancePx / m_layout.pixelsPerFrame());
 }
 
 std::optional<int64_t> TimelineWidget::snapFrame(int64_t frame) const
@@ -54,6 +55,17 @@ std::optional<int64_t> TimelineWidget::snapFrame(int64_t frame) const
     if (!m_controller->snapping())
         return std::nullopt;
     return ops::snapToNearest(m_drag.snaps, frame, snapToleranceFrames());
+}
+
+std::vector<int64_t> TimelineWidget::scrubSnapCandidates() const
+{
+    // Edges, marks and markers (not the playhead itself), plus the keys the user can see in an
+    // editor: those of the selected items (as the Keyframes panel shows them) and of the clips
+    // with an open lane. Every animated clip's keys would make the ruler sticky (spec 11.9).
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    QVector<quint64> clips = keyframeitems::build(data, m_ctx.selection->clips(), false).allClips();
+    clips += m_keyframeLanes->openClips();
+    return keyframeops::withKeySnapTargets(ops::snapCandidates(data, -1), data, clips);
 }
 
 void TimelineWidget::openEdit(const QString& label)
@@ -305,7 +317,7 @@ void TimelineWidget::mouseReleaseEvent(QMouseEvent* event)
             m_ctx.project->timeline()->setPlayhead(m_drag.markerFrame);
         // A ruler click with "jump at once" off (spec 48.1).
         if (m_drag.rulerClick) {
-            m_drag.snaps = ops::snapCandidates(m_ctx.project->timeline()->data(), -1);
+            m_drag.snaps = scrubSnapCandidates();
             scrubTo(m_drag.pressPos);
             m_overlay.snapFrame.reset();
             viewport()->update();
@@ -416,7 +428,7 @@ void TimelineWidget::startDrag(DragMode mode)
 
     switch (mode) {
     case DragMode::Scrub:
-        m_drag.snaps = ops::snapCandidates(data, -1); // edges, marks; not the playhead itself
+        m_drag.snaps = scrubSnapCandidates();
         scrubTo(m_drag.pressPos);
         return;
     case DragMode::RubberBand:
@@ -718,7 +730,7 @@ void TimelineWidget::pressRuler(QPointF pos)
         m_drag.scrubGrabbed = true;
         m_drag.scrubGrabPx = pos.x() - frameX;
         m_drag.mode = DragMode::Scrub;
-        m_drag.snaps = ops::snapCandidates(m_ctx.project->timeline()->data(), -1);
+        m_drag.snaps = scrubSnapCandidates();
         return;
     }
     if (EditBehaviour::fromSettings().rulerPressJumpsPlayhead) {
