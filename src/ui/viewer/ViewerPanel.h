@@ -21,6 +21,7 @@ class QKeyEvent;
 class QHBoxLayout;
 class QLabel;
 class QMenu;
+class QMouseEvent;
 class QTimer;
 class QToolButton;
 
@@ -298,6 +299,16 @@ private:
     void setHandArmed(bool armed);
     void setupNavigation();
     friend class ViewerNavigationFilter;
+    void trackMiddleClick(const QMouseEvent* mouse);
+    /// A middle button press that may still become a click (spec 41.28).
+    struct MiddlePress
+    {
+        QPointF surfacePos;
+        QPointF global;
+    };
+    std::optional<MiddlePress> m_middlePress;
+    QTimer* m_middleClickTimer = nullptr;
+    QPointF m_middleClickPos;
     void updateMulticam();
     void leaveMulticamContent();
 

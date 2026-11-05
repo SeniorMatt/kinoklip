@@ -77,6 +77,9 @@ public:
     /// Adds a guide through the centre of the picture (View > Guides > Add ...) and turns
     /// Show Guides on. @p position: frame px instead of the centre.
     void addGuide(Qt::Orientation orientation, std::optional<double> position = std::nullopt);
+    /// Adds a horizontal and a vertical guide crossing at widget point @p pos, as one undo step
+    /// (a middle click). Nothing happens outside the picture or while guides are locked.
+    void addCrossAt(QPointF pos);
     /// Removes guide @p index.
     void removeGuide(int index);
     /// Removes every guide (View > Guides > Clear Guides).

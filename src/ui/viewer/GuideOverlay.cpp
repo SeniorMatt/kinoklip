@@ -234,6 +234,24 @@ void GuideOverlay::addGuide(Qt::Orientation orientation, std::optional<double> p
     setGuides(list, tr("Add Guide"));
 }
 
+void GuideOverlay::addCrossAt(QPointF pos)
+{
+    ViewerOverlayOptions o = ViewerOverlaySettings::instance().options();
+    const QTransform map = frameToWidget();
+    if (o.lockGuides || frameSize().isEmpty() || map.m11() <= 0 || map.m22() <= 0
+        || !map.mapRect(QRectF(QPointF(0, 0), QSizeF(frameSize()))).contains(pos))
+        return;
+    if (!o.showGuides) {
+        o.showGuides = true; // a guide the user just added must be visible
+        ViewerOverlaySettings::instance().setOptions(o);
+    }
+    const QPointF f = map.inverted().map(pos);
+    std::vector<ViewerGuide> list = storedGuides();
+    list.push_back({Qt::Horizontal, f.y()});
+    list.push_back({Qt::Vertical, f.x()});
+    setGuides(list, tr("Add Guides"));
+}
+
 void GuideOverlay::removeGuide(int index)
 {
     std::vector<ViewerGuide> list = storedGuides();
