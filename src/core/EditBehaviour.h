@@ -62,12 +62,17 @@ struct EditBehaviour
     /// through the program compositor instead of showing the source frame. Off by default:
     /// it shares the viewer's render thread and lags behind fast drags (polish-v3, Round 3).
     bool twoUpProgramLook = false;
+    /// A press in the timeline ruler away from the playhead's head moves the playhead there at
+    /// once and drags it along (Resolve). Off: only a click (released without moving) moves it
+    /// there, so a slip of the mouse on the ruler leaves it alone; dragging the head itself
+    /// works either way (spec 48.1).
+    bool rulerPressJumpsPlayhead = true;
 
     /// Values stored in QSettings (group "edit/": stillSeconds, generatorSeconds,
     /// transitionSeconds, multiFrameNudge, threePointEditing, rippleDeleteGapAtPlayhead,
     /// selectToolRollsAtCut, trimToolSlideInNameBar, zoomAnchor
     /// ("playhead" / "mouse", shared with prefs::kZoomAnchor), wheelScheme ("resolve" / "classic"),
-    /// timelineTabs, twoUpProgramLook); defaults where unset.
+    /// timelineTabs, twoUpProgramLook, rulerPressJumpsPlayhead); defaults where unset.
     [[nodiscard]] static EditBehaviour fromSettings();
 
     /// @p seconds as a frame count at @p fps (at least 1 frame).

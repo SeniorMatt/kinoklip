@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -33,6 +34,8 @@ inline constexpr int kRollZonePx = 2;
 /// Height of the clip name band at the top of a clip (trim tool: slide zone, spec 8.6).
 inline constexpr int kClipNameBandPx = 15;
 inline constexpr int kResizeGrabPx = 3; ///< header bottom edge that resizes a track
+/// Half-width of the playhead's head in the ruler (drawn and grabbed, spec 48.1).
+inline constexpr int kPlayheadHeadHalfWidthPx = 6;
 inline constexpr int kHeaderButton = 18; ///< square header buttons (lock, mute, ...)
 inline constexpr int kHeaderButtonGap = 3;
 /// Audio page headers: width of the level meter at the right edge of audio track headers.
@@ -55,6 +58,14 @@ struct TimelineRow
     /// Height of the keyframe / curve editor lane at the bottom of the row (0 = none); the
     /// clips use the remaining height - laneHeight at the top.
     int laneHeight = 0;
+    quint64 trackId = 0; ///< TrackData::id of the row's track
+};
+
+/// The track shown at the top of the view and how far it is scrolled into (scrollAnchor()).
+struct ScrollAnchor
+{
+    quint64 trackId = 0;
+    int offset = 0; ///< scrollY minus the row's top
 };
 
 /// Buttons painted in a track header, from right to left.
@@ -192,6 +203,13 @@ public:
     [[nodiscard]] int maxScrollY() const { return std::max(0, m_contentHeight - rowAreaHeight()); }
     [[nodiscard]] int scrollY() const { return m_scrollY; }
     void setScrollY(int px) { m_scrollY = std::clamp(px, 0, maxScrollY()); }
+    /// The row at the top of the scrolled view, or nothing at the top (scrollY() == 0: new
+    /// rows added on top must come into view). With restoreScrollAnchor() after a rebuild()
+    /// the rows the user looks at stay put when rows above them are added, removed or change
+    /// height (spec 48.3).
+    [[nodiscard]] std::optional<ScrollAnchor> scrollAnchor() const;
+    /// Scrolls so the anchor's track is where it was; nothing if it is gone.
+    void restoreScrollAnchor(const ScrollAnchor& anchor);
     /// Extra offset applied when the rows fit (centres the V/A divider), else 0 (always 0 with
     /// rowsFromTop()).
     [[nodiscard]] int verticalOffset() const;

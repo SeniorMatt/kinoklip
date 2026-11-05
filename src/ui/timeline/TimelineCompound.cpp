@@ -11,6 +11,8 @@
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
+#include <algorithm>
+
 namespace kk {
 
 namespace {
@@ -115,9 +117,34 @@ bool TimelineController::openSelectedInTimeline()
                     tr("The compound clip is offline: its timeline was deleted."));
             return false;
         }
-        return project()->openTab(c->nestedUid);
+        // The nested timeline opens on the frame the parent's playhead shows in the clip, or
+        // on the clip's first visible frame when the playhead is outside it (spec 48.5).
+        const int64_t playhead = project()->timeline()->playhead();
+        const bool inside = playhead >= c->start && playhead < c->end();
+        return openNestedClip(id, inside ? playhead : c->start);
     }
     return false;
+}
+
+bool TimelineController::openNestedClip(quint64 clipId, int64_t parentFrame)
+{
+    Project* p = project();
+    const TimelineData& data = p->timeline()->data();
+    const ClipData* clip = editops::clipById(data, clipId);
+    if (!clip || clip->kind != ClipKind::Nested)
+        return false;
+    const auto nested = p->timelineData(clip->nestedUid);
+    if (!nested)
+        return false;
+    const int64_t frame = std::clamp(parentFrame, clip->start, clip->end() - 1);
+    const int64_t inner = std::max<int64_t>(0, nestedFrameAt(*clip, frame, data.fps, nested->fps));
+    const quint64 uid = clip->nestedUid;
+    if (!p->openTab(uid))
+        return false;
+    // Becoming the active timeline restored its own zoom and scroll; show the playhead.
+    p->setTimelinePlayhead(uid, inner);
+    emit revealPlayheadRequested();
+    return true;
 }
 
 quint64 TimelineController::newTimeline(const QString& name)
