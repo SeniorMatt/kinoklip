@@ -29,7 +29,7 @@ contains *t* (exact for VFR too); requests before the first / after the last fra
 | `HwAccel.h` | `HwAccelMode {Auto, Off, Cuda, Vaapi, Vulkan}`, `setPreferredHwAccel()`, `hwCapabilities()` (for Preferences), `probedHwDevices()` (the backends already tried, opens nothing; for Help > Report a Bug). |
 | `AudioDecoder.h` | `read(startSample48k, dst, frames)`: sample-accurate, zero-filled outside the media. Not thread-safe. |
 | `MediaCache.h` | Singleton: `thumbnail()`, `posterFrame()`, `waveform()` — return cached result or null + async job + signal. Memory LRU + disk cache. |
-| `WaveformData.h` | min/max peaks per 1/100 s and channel, scaled to −127..127; compute/save/load. |
+| `WaveformData.h` | per 5 ms block and channel: min/max and RMS, linear (0 dBFS = ±32767, never normalised), plus a 4x multi-resolution summary for per-pixel-column `range()` queries; compute/save/load (format version 2). |
 | `SupportedFormats.h` | The registry of import extensions per `MediaCategory` (Video, Audio, Image, RawImage, ImageSequence); `dialogFilter()` for QFileDialog, `categoryFor()`, `isLikelyMedia()`. UI-only: acceptance is decided by `probe()`. |
 | `ImageLoader.h` | Still images → ARGB32 premultiplied, upright: backend by extension (Qt, libheif, FFmpeg, LibRaw) with fall-back; `loadCached()` = process-wide LRU still cache (256 MiB); RAW half/full size. |
 | `FolderScan.h` | `scanMediaFolder()` for Import Media Folder: importable files per folder in natural order (`naturalCompare()`), numbered stills folded into sequence paths, hidden / junk files skipped (`isHiddenOrJunkName()`), symlink loops cut by canonical path; re-entrant, with a cancel callback |
