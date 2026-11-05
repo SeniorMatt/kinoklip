@@ -20,6 +20,8 @@ namespace {
 constexpr auto kIdleWait = std::chrono::milliseconds(4);
 /// Scrub snippets fade in and out over this many frames (no clicks at the cut points).
 constexpr int kScrubFadeFrames = 96;
+/// After remixUnheard() the new sound fades in over this many frames (no click).
+constexpr int kRemixFadeFrames = 128;
 
 /// Wraps varispeed position @p pos into @p loop (no-op when inactive).
 double wrapIntoLoop(double pos, const SampleLoop& loop)
@@ -70,6 +72,9 @@ void AudioFeeder::start(
         m_srcPos = double(m_position);
         m_spanFrames = 0; // the feeder thread is idle (after stop()): the window restarts
         m_scrub = false;
+        m_remixWanted = false;
+        m_remixWaiting = false;
+        m_fadeInLeft = 0;
         m_running = true;
     }
     m_wake.notify_all();
@@ -175,6 +180,15 @@ void AudioFeeder::setTimeline(std::shared_ptr<const TimelineData> timeline)
     m_timeline = std::move(timeline);
 }
 
+void AudioFeeder::remixUnheard()
+{
+    {
+        std::lock_guard lock(m_mutex);
+        m_remixWanted = m_running && !m_scrub;
+    }
+    m_wake.notify_all();
+}
+
 void AudioFeeder::setMediaPaths(std::shared_ptr<const MediaPathMap> media)
 {
     std::lock_guard lock(m_mutex);
@@ -226,6 +240,30 @@ void AudioFeeder::run()
     mixer.setLevels(levels.get());
     std::unique_lock lock(m_mutex);
     while (!m_quit) {
+        if (m_running && m_remixWanted && !m_remixWaiting) {
+            m_remixWanted = false;
+            m_remixWaiting = true;
+            m_ring->requestRewind(kRewindKeepFrames);
+        }
+        if (m_running && m_remixWaiting) {
+            // Only the device can carry it out; nothing may be written until it has.
+            if (m_ring->rewindPending()) {
+                m_wake.wait_for(lock, kIdleWait);
+                continue;
+            }
+            m_remixWaiting = false;
+            // Ring frame n plays timeline sample start + rate * n: step back over what was
+            // taken out of the ring (m_srcPos and the window belong to this thread).
+            const auto rewound = double(m_ring->rewoundFrames());
+            if (m_rate == 1.0) {
+                m_position = int64_t(wrapIntoLoop(double(m_position) - rewound, m_loop));
+            } else {
+                m_srcPos = wrapIntoLoop(m_srcPos - m_rate * rewound, m_loop);
+                m_position = int64_t(std::floor(m_srcPos));
+                m_spanFrames = 0;
+            }
+            m_fadeInLeft = kRemixFadeFrames;
+        }
         // Scrubbing keeps the ring nearly empty so the sound follows the playhead closely.
         const bool full = m_scrub ? m_ring->available() >= kScrubFillFrames
                                   : m_ring->space() < size_t(kChunkFrames);
@@ -321,6 +359,13 @@ void AudioFeeder::run()
                 }
             }
         }
+
+        for (int k = 0; k < m_fadeInLeft && k < kChunkFrames; ++k) {
+            const float gain = float(k + 1) / float(kRemixFadeFrames + 1);
+            for (int c = 0; c < ch; ++c)
+                chunk[size_t(k) * ch + size_t(c)] *= gain;
+        }
+        m_fadeInLeft = 0;
 
         // Meters: loudness of the output, then publish the time-stamped frame.
         if (m_resetLoudness.exchange(false))

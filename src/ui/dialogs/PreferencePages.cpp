@@ -740,6 +740,15 @@ public:
                                     "position (Resolve)."));
         m_stopOnMove->setChecked(b.stopOnPlayheadMove);
         form->addRow(tr("Moving the playhead"), m_stopOnMove);
+        m_afterEdit = new QComboBox;
+        m_afterEdit->setObjectName(QStringLiteral("AfterEditDuringPlayback"));
+        m_afterEdit->addItem(tr("Keep playing"), false);
+        m_afterEdit->addItem(tr("Stop playback"), true);
+        m_afterEdit->setToolTip(tr("What playback does after an edit of the timeline while it "
+                                   "plays (ripple delete, split, trim, move, insert, undo...). "
+                                   "Changing values in the Inspector never stops it."));
+        m_afterEdit->setCurrentIndex(b.stopOnEdit ? 1 : 0);
+        form->addRow(tr("After an edit during playback"), m_afterEdit);
     }
 
     void apply() override
@@ -752,6 +761,7 @@ public:
         s.setValue(QStringLiteral("playback/returnAfterPlayAround"), m_return->isChecked());
         s.setValue(QStringLiteral("playback/restartAtEnd"), m_restart->isChecked());
         s.setValue(QStringLiteral("playback/stopOnPlayheadMove"), m_stopOnMove->isChecked());
+        s.setValue(QStringLiteral("playback/stopOnEdit"), m_afterEdit->currentData().toBool());
     }
 
 private:
@@ -761,6 +771,7 @@ private:
     QCheckBox* m_return = nullptr;
     QCheckBox* m_restart = nullptr;
     QCheckBox* m_stopOnMove = nullptr;
+    QComboBox* m_afterEdit = nullptr;
 };
 
 // ---- User: Keyboard ------------------------------------------------------------------

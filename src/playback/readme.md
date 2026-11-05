@@ -131,6 +131,17 @@ of the sample being heard (`AudioFeeder::meterFrameAt()`, the mix runs ~170 ms a
 every `kMeterIntervalMs` (33 ms) and emits `metersUpdated()`; `meters()` returns it. Stopping
 emits one silent frame (the integrated loudness and the true-peak maximum stay until
 `resetLoudness()`). Without a sound device (`KK_NO_AUDIO`, tests) there are no readings.
+Edits while playing (spec 48.7): the clock runs on. A changed picture cancels the frames in
+flight and renders the frame due again; `followRange()` moves the end of the play range (a loop
+whose range changed restarts its clock). `noteEditCommitted()` (the program engine only, from
+`Project::editCommitted`) compares against the last committed timeline with
+`render::sameArrangement()`: an edit stops playback with `stopOnEdit` (spec 48.8), otherwise, if
+it changed the sound the ring holds, `AudioFeeder::remixUnheard()` mixes it again. That is a
+handshake, because only the device thread knows how far it has read: the feeder asks and stops
+writing, the next `AudioRing::read()` keeps 2048 frames (faded out) and moves the write counter
+back, and the feeder steps its position back by as many frames. Ring frame n stays frame n of
+the play, so nothing about the clock changes and the device is not restarted.
+
 Sound-only edits (`render::samePictures()`) only go to the feeder: the renderer keeps its
 snapshot, so moving a fader while playing never drops pictures.
 
@@ -169,9 +180,10 @@ plays headless (also in the bundle).
 
 Keys come from the ActionRegistry keymap (nothing is hard-coded); conventions that differ
 between editors live in `PlaybackBehaviour` (QSettings `playback/restartAtEnd`, `prerollMs`,
-`postrollMs`, `returnAfterPlayAround`, `stopOnPlayheadMove`) so interface profiles can swap
+`postrollMs`, `returnAfterPlayAround`, `stopOnPlayheadMove`, `stopOnEdit`) so interface profiles can swap
 them. A playhead move while playing (`seekWhilePlaying()`) parks and resumes from the new frame
-(Resolve); with `stopOnPlayheadMove` it pauses there instead (Premiere, spec 48.2).
+(Resolve); with `stopOnPlayheadMove` it pauses there instead (Premiere, spec 48.2). `stopOnEdit`
+pauses after an edit during playback (spec 48.8).
 
 ## Measurements
 

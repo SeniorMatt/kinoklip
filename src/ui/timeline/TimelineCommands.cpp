@@ -117,7 +117,7 @@ void TimelineController::rippleDeleteSelection()
             return true;
         });
         if (changed)
-            timeline()->setPlayhead(in);
+            setPlayheadAfterEdit(in);
         return;
     }
     // Nothing selected: optionally (EditBehaviour) ripple delete the clips under the playhead
@@ -181,7 +181,7 @@ void TimelineController::rippleCut()
     });
     if (changed) {
         m_clipboard = board;
-        timeline()->setPlayhead(in);
+        setPlayheadAfterEdit(in);
     }
 }
 

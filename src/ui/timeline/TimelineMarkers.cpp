@@ -301,6 +301,7 @@ void TimelineController::onPlayheadMoved(int64_t frame)
     if (!m_dynamicOpen) {
         // One undo step per playback run; closed when playback stops (endDynamicRun()).
         project()->beginEdit(tr("Dynamic Trim"));
+        project()->markEditKeepsPlaying(); // playback is what drives it (spec 8.17)
         m_dynamicOpen = true;
     }
     if (!m_selectedEdit.isEmpty()) {
