@@ -41,6 +41,8 @@ constexpr int kCategoryRole = Qt::UserRole + 1; ///< EffectCategory of a section
 constexpr int kFolderRole = Qt::UserRole + 2; ///< EffectDescriptor::group of a folder row
 constexpr int kSidebarWidth = 150; ///< px, category sidebar
 constexpr int kListWidth = 230;
+constexpr int kScrubLineWidth = 2; ///< px, Live Preview scrub line
+constexpr int kScrubFillAlpha = 48; ///< tint of the part of the row already passed
 
 /// Tree that exports mime::Effect for drags (QTreeWidget's default exports its own format).
 class EffectsTree final : public QTreeWidget
@@ -77,6 +79,55 @@ protected:
         return data;
     }
 
+public:
+    /// Live Preview scrub line: drawn over @p item at @p position (0..1) of its row.
+    void setScrub(QTreeWidgetItem* item, double position)
+    {
+        const QPersistentModelIndex index(indexFromItem(item));
+        if (index == m_scrubIndex && position == m_scrubPosition)
+            return;
+        updateScrubRow();
+        m_scrubIndex = index;
+        m_scrubPosition = position;
+        updateScrubRow();
+    }
+    void clearScrub()
+    {
+        if (!m_scrubIndex.isValid())
+            return;
+        updateScrubRow();
+        m_scrubIndex = QPersistentModelIndex();
+    }
+    /// Viewport x of the scrub line, -1 = none or scrolled out of view.
+    [[nodiscard]] int scrubX() const
+    {
+        if (!m_scrubIndex.isValid())
+            return -1;
+        const QRect row = visualRect(m_scrubIndex);
+        if (!row.isValid() || !row.intersects(viewport()->rect()))
+            return -1;
+        return row.left() + int(std::lround(m_scrubPosition * (row.width() - 1)));
+    }
+
+protected:
+    void paintEvent(QPaintEvent* event) override
+    {
+        QTreeWidget::paintEvent(event);
+        const int x = scrubX();
+        if (x < 0)
+            return;
+        // Resolve-style position line: the passed part tinted, a playhead-coloured line at
+        // the pointer, spanning the row. Computed from the row's current rectangle, so it
+        // follows scrolling and resizing.
+        const QRect row = visualRect(m_scrubIndex);
+        const SchemeColors& colors = schemeColors();
+        QPainter p(viewport());
+        p.fillRect(QRect(row.left(), row.top(), x - row.left(), row.height()),
+            withAlpha(colors.playhead, kScrubFillAlpha));
+        p.fillRect(QRect(x - kScrubLineWidth / 2, row.top(), kScrubLineWidth, row.height()),
+            colors.playhead);
+    }
+
     void keyPressEvent(QKeyEvent* event) override
     {
         if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && currentItem()) {
@@ -85,6 +136,16 @@ protected:
         }
         QTreeWidget::keyPressEvent(event);
     }
+
+private:
+    void updateScrubRow()
+    {
+        if (m_scrubIndex.isValid())
+            viewport()->update(visualRect(m_scrubIndex));
+    }
+
+    QPersistentModelIndex m_scrubIndex; ///< row of the scrub line (invalid = none)
+    double m_scrubPosition = 0.0;
 };
 
 /// A small rounded tile with a category-specific mark, drawn once per category. Text marks
@@ -490,11 +551,26 @@ void EffectsLibraryPanel::hoverAt(QPoint viewportPos)
         ? std::clamp(double(viewportPos.x() - row.left()) / (row.width() - 1), 0.0, 1.0)
         : 0.5;
     m_hoveredId = id;
+    // Transitions and titles scrub: a line shows where in them the pointer is (Resolve).
+    auto* tree = static_cast<EffectsTree*>(m_tree);
+    const EffectDescriptor* desc = EffectRegistry::instance().find(id);
+    if (desc
+        && (desc->category == EffectCategory::Transition
+            || desc->category == EffectCategory::Title))
+        tree->setScrub(item, position);
+    else
+        tree->clearScrub();
     emit livePreviewRequested(id, position);
+}
+
+int EffectsLibraryPanel::scrubLineX() const
+{
+    return static_cast<const EffectsTree*>(m_tree)->scrubX();
 }
 
 void EffectsLibraryPanel::endHover()
 {
+    static_cast<EffectsTree*>(m_tree)->clearScrub();
     if (m_hoveredId.isEmpty())
         return;
     m_hoveredId.clear();

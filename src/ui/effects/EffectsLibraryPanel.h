@@ -29,7 +29,8 @@ struct AppContext;
 ///   while the pointer rests on an entry, livePreviewRequested() names it with the pointer's
 ///   horizontal place over the row (0..1, scrubbing); leaving the entry, the panel, starting
 ///   a drag, searching or hiding the panel emit livePreviewEnded(). The Edit page feeds them
-///   to an EffectsLivePreview of its timeline viewer (spec 47).
+///   to an EffectsLivePreview of its timeline viewer (spec 47). Over a transition or title
+///   a playhead-coloured line (the passed part tinted) marks the scrub position.
 ///
 /// Thread-safety: GUI thread only.
 class EffectsLibraryPanel : public PanelFrame
@@ -71,6 +72,9 @@ public:
     void hoverAt(QPoint viewportPos);
     /// The pointer left the entries: ends a live preview, if one was asked for.
     void endHover();
+    /// Viewport x of the scrub line drawn over a hovered transition or title row (the
+    /// pointer's place: the point of the entry previewed), -1 = none (tests).
+    [[nodiscard]] int scrubLineX() const;
 
 signals:
     /// The user activated descriptor @p descriptorId (after it was applied).

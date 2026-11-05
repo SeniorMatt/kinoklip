@@ -56,13 +56,61 @@ struct Scene
 [[nodiscard]] std::optional<Scene> buildScene(const TimelineData& snapshot, int64_t playhead,
     const QVector<quint64>& selected, const QString& descriptorId, double position);
 
+/// A scene prepared once for an entry over one timeline state (snapshot, playhead,
+/// selection); scrubbing then only moves the time, without rebuilding the timeline copy:
+/// - effect: one picture whatever the position;
+/// - transition: the copy stays, only the frame changes;
+/// - title / generator: the copy stays, only the clip's start changes, in place when no
+///   render holds the copy any more (else on a fresh copy, counted in copyCount()).
+///
+/// Thread-safety: GUI thread; the scenes handed out are immutable while a render holds them.
+class PreparedScene
+{
+public:
+    /// std::nullopt when the entry has nothing to show (see buildScene()).
+    [[nodiscard]] static std::optional<PreparedScene> prepare(const TimelineData& snapshot,
+        int64_t playhead, const QVector<quint64>& selected, const QString& descriptorId);
+
+    /// Whether the position moves the picture (transitions, titles, generators).
+    [[nodiscard]] bool scrubs() const { return m_kind != Kind::Fixed; }
+    /// Frames the position runs over (1 for an effect).
+    [[nodiscard]] int64_t length() const { return m_length; }
+    /// The frame step (0 .. length() - 1) of @p position (0..1, clamped). Pass the step
+    /// currently shown as @p current to ignore jitter: a step is only left once the pointer
+    /// is kJitterFrames past the half-way mark to the next one.
+    [[nodiscard]] int64_t stepAt(double position, int64_t current = -1) const;
+    /// The scene at step @p step (clamped).
+    [[nodiscard]] Scene sceneAt(int64_t step);
+    /// Timeline copies made after prepare() (title scenes still held by a render).
+    [[nodiscard]] int copyCount() const { return m_copies; }
+
+    static constexpr double kJitterFrames = 0.25; ///< hysteresis around a step boundary
+
+private:
+    enum class Kind {
+        Fixed,
+        Transition,
+        Clip
+    };
+    Kind m_kind = Kind::Fixed;
+    std::shared_ptr<TimelineData> m_timeline;
+    int64_t m_frame = 0; ///< Fixed: the frame; Transition: window start; Clip: the playhead
+    int64_t m_length = 1;
+    size_t m_track = 0; ///< Clip: video track of the generator clip (alone on it)
+    int m_copies = 0;
+};
+
 } // namespace livepreview
 
 /// Drives the live preview of one timeline viewer: hover() asks for an entry, stop() ends it.
 ///
 /// - A new entry is rendered after kDebounceMs without a further change (the pointer sweeping
 ///   over the list renders nothing); moving along the same entry (scrubbing) renders at once,
-///   one render in flight, the newest wish following when it is done.
+///   one render in flight: moves during a render are coalesced, only the newest position is
+///   rendered when it is done (latest wins). A move that maps to the frame already shown
+///   renders nothing.
+/// - The scene is prepared once per entry and timeline state (livepreview::PreparedScene);
+///   scrubbing only moves its time.
 /// - Renders run on the compositor's render thread (PlaybackEngine::renderAlternative());
 ///   the GUI thread polls the future. A request made stale by another entry or stop() is
 ///   cancelled (skipped if still queued) and its result is never shown.
@@ -98,6 +146,18 @@ public:
     [[nodiscard]] int cancelledCount() const { return m_cancelled; }
     /// Issues the debounced request now (tests).
     void flushDebounce();
+    /// Scenes prepared since construction: one per entry and timeline state, not one per
+    /// scrub position (tests).
+    [[nodiscard]] int sceneBuildCount() const { return m_sceneBuilds; }
+    /// True while a render is in flight (tests).
+    [[nodiscard]] bool rendering() const { return m_running.has_value(); }
+    /// Frame step of the entry the viewer shows (-1 = none; tests).
+    [[nodiscard]] int64_t shownStep() const { return m_shownStep; }
+    /// The prepared scene of the hovered entry, if any (tests).
+    [[nodiscard]] const livepreview::PreparedScene* preparedScene() const
+    {
+        return m_prepared ? &*m_prepared : nullptr;
+    }
 
 Q_SIGNALS:
     /// The viewer now shows the preview of @p descriptorId.
@@ -112,6 +172,11 @@ private:
     void cancelRunning();
     /// Re-renders after a playhead or selection change, if a preview is active.
     void refresh();
+    /// Prepares the wanted entry's scene unless the one kept is for the same entry and
+    /// timeline state. False: nothing to show.
+    bool ensurePrepared();
+    /// Forgets the prepared scene and the shown step.
+    void dropPrepared();
 
     AppContext& m_ctx;
     QPointer<ViewerPanel> m_viewer;
@@ -127,9 +192,26 @@ private:
         std::future<RenderedFramePtr> future;
         std::shared_ptr<std::atomic<bool>> cancel;
         QString id;
+        int64_t step = 0;
+        quint64 generation = 0;
     };
     std::optional<Running> m_running;
-    bool m_pending = false; ///< the wish changed while a render ran
+    bool m_pending = false; ///< the wish changed while a render ran (latest wins)
+
+    /// The scene kept for scrubbing and the state it was made for.
+    struct PreparedKey
+    {
+        QString id;
+        std::shared_ptr<const TimelineData> snapshot;
+        int64_t playhead = 0;
+        QVector<quint64> selected;
+    };
+    std::optional<PreparedKey> m_preparedKey;
+    std::optional<livepreview::PreparedScene> m_prepared; ///< empty with a key: nothing to show
+    quint64 m_generation = 0; ///< increases with every prepared scene
+    quint64 m_shownGeneration = 0;
+    int64_t m_shownStep = -1;
+    int m_sceneBuilds = 0;
     int m_requests = 0;
     int m_cancelled = 0;
 };
