@@ -438,7 +438,7 @@ xdg-foreign, so it goes without a parent there.
 ### Checking other distributions
 
 ```sh
-scripts/check_distros.sh                        # outside the container, needs podman; about an hour
+scripts/check_distros.sh                        # outside the container, needs podman; one to two hours
 scripts/check_distros.sh --only fedora:44       # one image
 ```
 It starts the AppImage in official images of Fedora, Ubuntu, Debian, openSUSE Tumbleweed and Arch,
