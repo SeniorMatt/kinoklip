@@ -169,7 +169,9 @@ plays headless (also in the bundle).
 
 Keys come from the ActionRegistry keymap (nothing is hard-coded); conventions that differ
 between editors live in `PlaybackBehaviour` (QSettings `playback/restartAtEnd`, `prerollMs`,
-`postrollMs`, `returnAfterPlayAround`) so interface profiles can swap them.
+`postrollMs`, `returnAfterPlayAround`, `stopOnPlayheadMove`) so interface profiles can swap
+them. A playhead move while playing (`seekWhilePlaying()`) parks and resumes from the new frame
+(Resolve); with `stopOnPlayheadMove` it pauses there instead (Premiere, spec 48.2).
 
 ## Measurements
 

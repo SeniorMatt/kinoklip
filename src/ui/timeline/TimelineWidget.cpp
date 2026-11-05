@@ -126,6 +126,12 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
         [this] { viewport()->update(); });
     connect(m_controller, &TimelineController::retimeCurveRequested, this,
         &TimelineWidget::showRetimeCurve);
+    connect(m_controller, &TimelineController::revealPlayheadRequested, this, [this] {
+        if (m_options.centredPlayhead)
+            centreOnPlayhead();
+        else
+            ensurePlayheadVisible();
+    });
     connect(m_controller, &TimelineController::stateChanged, this, [this] {
         updateHover(viewport()->mapFromGlobal(QCursor::pos()));
         viewport()->update();
@@ -147,6 +153,7 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
         &TimelineWidget::onAnimationSettingsChanged);
 
     m_layout.rebuild(timeline->data());
+    m_rowsTimelineUid = ctx.project->activeTimelineUid();
     m_lastPlayhead = timeline->playhead();
     onSelectionChanged();
     syncAnimations(); // the first edit animates from the state at construction
@@ -215,8 +222,17 @@ void TimelineWidget::onTimelineChanged()
                 m_anim.pulseEditPoint();
         }
     }
+    // The tracks the user looks at stay where they are when tracks above them are added,
+    // removed or resized (video tracks stack upwards, so a new top track would push every
+    // row down; spec 48.3).
+    const quint64 uid = m_ctx.project->activeTimelineUid();
+    const std::optional<ScrollAnchor> anchor
+        = uid == m_rowsTimelineUid ? m_layout.scrollAnchor() : std::nullopt;
+    m_rowsTimelineUid = uid;
     m_layout.setLaneHeights(m_keyframeLanes->laneHeights(m_ctx.project->timeline()->data()));
     m_layout.rebuild(m_ctx.project->timeline()->data());
+    if (anchor)
+        m_layout.restoreScrollAnchor(*anchor);
     updateScrollBars();
     viewport()->update();
 }

@@ -26,7 +26,7 @@ void TimelineLayout::rebuild(const TimelineData& data)
     for (int i = int(data.subtitleTracks.size()) - 1; i >= 0; --i) {
         const TrackData& t = data.subtitleTracks[size_t(i)];
         const int h = scaled(int(std::lround(trackHeight(t) * m_videoHeightScale)));
-        m_rows.push_back({TrackRef {TrackType::Subtitle, i}, y, h, 0});
+        m_rows.push_back({TrackRef {TrackType::Subtitle, i}, y, h, 0, t.id});
         y += h;
     }
     // Video tracks grow upwards from the divider: V(n) first, V1 last.
@@ -34,7 +34,7 @@ void TimelineLayout::rebuild(const TimelineData& data)
         const TrackData& t = data.videoTracks[size_t(i)];
         const int lane = m_laneHeights.value(t.id, 0);
         const int h = scaled(int(std::lround(trackHeight(t) * m_videoHeightScale))) + lane;
-        m_rows.push_back({TrackRef {TrackType::Video, i}, y, h, lane});
+        m_rows.push_back({TrackRef {TrackType::Video, i}, y, h, lane, t.id});
         y += h;
     }
     m_videoHeight = y;
@@ -43,11 +43,33 @@ void TimelineLayout::rebuild(const TimelineData& data)
         const TrackData& t = data.audioTracks[size_t(i)];
         const int lane = m_laneHeights.value(t.id, 0);
         const int h = scaled(int(std::lround(trackHeight(t) * m_audioHeightScale))) + lane;
-        m_rows.push_back({TrackRef {TrackType::Audio, i}, y, h, lane});
+        m_rows.push_back({TrackRef {TrackType::Audio, i}, y, h, lane, t.id});
         y += h;
     }
     m_contentHeight = y;
     m_scrollY = std::clamp(m_scrollY, 0, maxScrollY());
+}
+
+std::optional<ScrollAnchor> TimelineLayout::scrollAnchor() const
+{
+    if (m_scrollY <= 0)
+        return std::nullopt;
+    // The first row reaching below the top edge (the divider gap belongs to the row above).
+    for (const TimelineRow& row : m_rows) {
+        if (row.top + row.height > m_scrollY || &row == &m_rows.back())
+            return ScrollAnchor {row.trackId, m_scrollY - row.top};
+    }
+    return std::nullopt;
+}
+
+void TimelineLayout::restoreScrollAnchor(const ScrollAnchor& anchor)
+{
+    for (const TimelineRow& row : m_rows) {
+        if (row.trackId == anchor.trackId) {
+            setScrollY(row.top + anchor.offset);
+            return;
+        }
+    }
 }
 
 int TimelineLayout::trackHeight(const TrackData& track)

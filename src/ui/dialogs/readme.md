@@ -31,9 +31,9 @@ Preferences dialog stored new values.
 | System > Audio I/O | output device ("Automatic (<system device>)" or a device; the list follows devices being connected) | `system/audioOutputDevice` | `playback/AudioDeviceMonitor::reloadPreference()` on Save: every output switches at once, also while playing |
 | User > UI Settings | colour theme, widget style (theme page), interface scale, animate timeline edits + animation speed | `ui/colorScheme`, `ui/widgetStyle`, `ui/scaleFactor`, `ui/animations`, `ui/animationSpeed` | theme actions (live), `main()` (next start), `uianim::reload()` (live) |
 | User > Project Save and Load | autosave interval | `project/autosaveMinutes` | `AutosaveController` (live) |
-| User > Editing | still / title+generator / transition durations, fast nudge, three-point editing, ripple delete gap, trim behaviour | `edit/*` (`core/EditBehaviour.h`) | read at each edit (live) |
+| User > Editing | still / title+generator / transition durations, fast nudge, three-point editing, ripple delete gap, trim behaviour, ruler press jumps the playhead (48.1) | `edit/*` (`core/EditBehaviour.h`) | read at each edit (live) |
 | | timeline zooms around playhead / mouse | `edit/zoomAnchor` (`prefs::zoomAroundMouse()`) | timeline wheel zoom (timeline module) |
-| User > Playback Settings | playback resolution (Full default / Half / Quarter / Automatic), pre/post-roll, return after play around, restart at end | `playback/previewQuality` (+ `previewQualityRevision`), `playback/*` (`PlaybackBehaviour`) | `PlaybackResolution::load()` (menu, viewer combos, engines) + `PlaybackEngine::setBehaviour()` (live) |
+| User > Playback Settings | playback resolution (Full default / Half / Quarter / Automatic), pre/post-roll, return after play around, restart at end, stop playback when the playhead is moved (48.2) | `playback/previewQuality` (+ `previewQualityRevision`), `playback/*` (`PlaybackBehaviour`) | `PlaybackResolution::load()` (menu, viewer combos, engines) + `PlaybackEngine::setBehaviour()` (live) |
 | User > Keyboard | opens Keyboard Customization | — | `edit.keyboard_customization` |
 
 ## Notes and known gaps
