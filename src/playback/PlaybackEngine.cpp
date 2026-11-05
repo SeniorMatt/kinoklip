@@ -48,6 +48,9 @@ PlaybackBehaviour PlaybackBehaviour::fromSettings()
     b.returnAfterPlayAround
         = settings.value(QStringLiteral("playback/returnAfterPlayAround"), b.returnAfterPlayAround)
               .toBool();
+    b.stopOnPlayheadMove
+        = settings.value(QStringLiteral("playback/stopOnPlayheadMove"), b.stopOnPlayheadMove)
+              .toBool();
     return b;
 }
 
@@ -859,9 +862,16 @@ void PlaybackEngine::startClock(double fromFrame, int64_t nowUs)
 
 void PlaybackEngine::seekWhilePlaying(int64_t frame, bool writePlayhead)
 {
+    frame = clampFrame(frame);
+    if (m_behaviour.stopOnPlayheadMove) {
+        // Preference (Premiere): the move ends playback; the new frame is the paused one.
+        m_position = frame;
+        stop(); // writes the playhead and shows exactly that frame (stopMotion())
+        Q_EMIT positionChanged(m_position);
+        return;
+    }
     const int64_t now = monotonicUs();
     m_prerollUntilUs = 0; // a seek parks: resuming starts the clock
-    frame = clampFrame(frame);
     ++m_stats.seeksWhilePlaying;
     if (!m_parked) {
         // Leave motion: stale look-ahead is cancelled, the sound stops until we resume.

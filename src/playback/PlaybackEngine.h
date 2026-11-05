@@ -41,9 +41,14 @@ struct PlaybackBehaviour
     int postrollMs = 2000;
     /// After play-around (and play in-to-out), return the playhead to where it started.
     bool returnAfterPlayAround = true;
+    /// Moving the playhead while playing (a ruler click or drag, the viewer's scrub bar, edit
+    /// and marker navigation keys) stops playback at the new frame, as Premiere does. Off
+    /// (default, Resolve): playback carries on from there (spec 48.2).
+    bool stopOnPlayheadMove = false;
 
     /// Values stored in QSettings ("playback/restartAtEnd", "playback/prerollMs",
-    /// "playback/postrollMs", "playback/returnAfterPlayAround"), defaults where unset.
+    /// "playback/postrollMs", "playback/returnAfterPlayAround", "playback/stopOnPlayheadMove"),
+    /// defaults where unset.
     [[nodiscard]] static PlaybackBehaviour fromSettings();
 };
 

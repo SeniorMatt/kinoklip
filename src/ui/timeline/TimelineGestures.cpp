@@ -27,6 +27,11 @@ namespace ops = editops;
 
 namespace {
 constexpr double kTransitionGrabPx = 4.0; ///< distance at which a transition edge is grabbed
+/// A transition block narrower than this on screen keeps no length handles: its centre selects
+/// it and the rest of the cut's trim zone trims (spec 48.4).
+constexpr double kNarrowTransitionPx = 16.0;
+/// Width around the centre of a narrow transition that selects it, however short it is drawn.
+constexpr double kMinTransitionHitPx = 8.0;
 constexpr double kMarkerGrabPx = 6.0; ///< ruler marker hit distance
 constexpr double kMarkerBandPx = 15.0; ///< height of the marker band at the ruler's bottom
 } // namespace
@@ -53,6 +58,11 @@ std::optional<TimelineWidget::TransitionEdgeHit> TimelineWidget::transitionEdgeA
         for (const bool head : {true, false}) {
             const auto window = ops::transitionWindow(data, c.id, head);
             if (!window)
+                continue;
+            // A short block's centre selects it and its outer parts trim the cut (48.4).
+            const double width = m_layout.frameToX(double(window->second))
+                - m_layout.frameToX(double(window->first));
+            if (width < kNarrowTransitionPx)
                 continue;
             // The anchor (the cut, or the clip edge of a fade) belongs to trimming.
             const int64_t anchor = head ? c.start : c.end();
@@ -92,9 +102,17 @@ std::optional<TransitionRef> TimelineWidget::transitionAt(QPointF pos) const
             const auto window = ops::transitionWindow(data, clips[i].id, head);
             if (!window)
                 continue;
-            const double x0 = m_layout.frameToX(double(window->first));
-            const double x1 = m_layout.frameToX(double(window->second));
-            if (x1 - x0 >= 3 && pos.x() >= x0 && pos.x() < x1)
+            double x0 = m_layout.frameToX(double(window->first));
+            double x1 = m_layout.frameToX(double(window->second));
+            // A short block (zoomed out) is selected from a band around its centre, wider than
+            // the block when it is drawn only a few pixels wide; outside that band the clip
+            // edges keep their trim zones (spec 48.4).
+            if (x1 - x0 < kNarrowTransitionPx) {
+                const double centre = (x0 + x1) / 2.0;
+                x0 = centre - kMinTransitionHitPx / 2.0;
+                x1 = centre + kMinTransitionHitPx / 2.0;
+            }
+            if (pos.x() >= x0 && pos.x() < x1)
                 return TransitionRef {clips[i].id, head};
         }
     }

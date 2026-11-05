@@ -39,6 +39,7 @@ EditBehaviour EditBehaviour::fromSettings()
         ? WheelScheme::Classic
         : WheelScheme::Resolve;
     b.twoUpProgramLook = flag("edit/twoUpProgramLook", b.twoUpProgramLook);
+    b.rulerPressJumpsPlayhead = flag("edit/rulerPressJumpsPlayhead", b.rulerPressJumpsPlayhead);
     return b;
 }
 

@@ -958,6 +958,17 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
     const QRect rr = L.rowRect(row);
     const double top = rr.top() + 3;
     const double h = rr.height() - 6;
+    // Zoomed out, a short transition is still drawn a few pixels wide around its centre, so
+    // it can be seen and clicked (TimelineWidget::transitionAt(), spec 48.4).
+    auto blockRect = [top, h](double x0, double x1) {
+        constexpr double kMinWidth = 4.0;
+        if (x1 - x0 < kMinWidth) {
+            const double centre = (x0 + x1) / 2.0;
+            x0 = centre - kMinWidth / 2.0;
+            x1 = centre + kMinWidth / 2.0;
+        }
+        return QRectF(x0, top, x1 - x0, h);
+    };
     for (size_t i = from; i < to; ++i) {
         const ClipData& c = track.clips[i];
         // Animations: the transition blocks move with their clip's drawn edges.
@@ -973,22 +984,16 @@ void TimelinePainter::paintTransitions(QPainter& p, const TimelinePaintInput& in
             const double d = double(c.transitionIn->duration);
             const double f0
                 = touching ? double(c.start - c.transitionIn->framesBeforeCut()) : double(c.start);
-            const double x0 = L.frameToX(f0) + dxIn;
-            const double x1 = L.frameToX(f0 + d) + dxIn;
-            if (x1 - x0 >= 3)
-                paintTransitionBlock(p, QRectF(x0, top, x1 - x0, h), true,
-                    in.transition == TransitionRef {c.id, true});
+            paintTransitionBlock(p, blockRect(L.frameToX(f0) + dxIn, L.frameToX(f0 + d) + dxIn),
+                true, in.transition == TransitionRef {c.id, true});
         }
         if (c.transitionOut) {
             const bool touching = i + 1 < track.clips.size() && track.clips[i + 1].start == c.end();
             const double d = double(c.transitionOut->duration);
             const double f1 = touching ? double(c.end() - c.transitionOut->framesBeforeCut()) + d
                                        : double(c.end());
-            const double x0 = L.frameToX(f1 - d) + dxOut;
-            const double x1 = L.frameToX(f1) + dxOut;
-            if (x1 - x0 >= 3)
-                paintTransitionBlock(p, QRectF(x0, top, x1 - x0, h), false,
-                    in.transition == TransitionRef {c.id, false});
+            paintTransitionBlock(p, blockRect(L.frameToX(f1 - d) + dxOut, L.frameToX(f1) + dxOut),
+                false, in.transition == TransitionRef {c.id, false});
         }
     }
 }
@@ -1454,8 +1459,9 @@ void TimelinePainter::paintPlayhead(QPainter& p, const TimelinePaintInput& in)
     p.setPen(QPen(sc().playhead, 1));
     p.drawLine(QPointF(x, kRulerHeight - 10), QPointF(x, view.height()));
     // Head: a downward-pointing pentagon in the ruler.
-    const QPointF pts[5] = {{x - 6, 2}, {x + 6, 2}, {x + 6, kRulerHeight - 12.0},
-        {x, kRulerHeight - 5.0}, {x - 6, kRulerHeight - 12.0}};
+    const double w = kPlayheadHeadHalfWidthPx;
+    const QPointF pts[5] = {{x - w, 2}, {x + w, 2}, {x + w, kRulerHeight - 12.0},
+        {x, kRulerHeight - 5.0}, {x - w, kRulerHeight - 12.0}};
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(sc().playhead.darker(140));
     p.setBrush(sc().playhead);

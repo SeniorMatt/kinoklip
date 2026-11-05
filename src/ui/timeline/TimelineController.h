@@ -250,8 +250,13 @@ public:
     /// Clip > Decompose in Place for the selected compound clip(s) / nested timelines. One
     /// undo step per instance pair. Returns whether anything was decomposed.
     bool decomposeSelection();
-    /// Clip > Open in Timeline: opens the selected compound clip's timeline in a tab.
+    /// Clip > Open in Timeline: opens the selected compound clip's timeline in a tab, on the
+    /// frame under the playhead (the clip's first frame when the playhead is outside it).
     bool openSelectedInTimeline();
+    /// Opens Nested clip @p clipId's timeline in a tab with its playhead on the inner frame the
+    /// clip shows at parent frame @p parentFrame (clamped to the clip; speed changes
+    /// included). False for other clips and offline compound clips.
+    bool openNestedClip(quint64 clipId, int64_t parentFrame);
     /// File > New Timeline: asks for the name (empty @p name), creates and opens it.
     quint64 newTimeline(const QString& name = {});
 
@@ -590,6 +595,9 @@ signals:
     /// The retime curve of @p clipId should be shown in the curve editor (Ctrl+Shift+R, the
     /// speed menu's Retime Curve entry).
     void retimeCurveRequested(quint64 clipId);
+    /// The views should scroll the playhead into view (a nested timeline was opened on the
+    /// frame matching its clip, spec 48.5).
+    void revealPlayheadRequested();
     /// A multicam angle choice changed the timeline (the multicam viewer refreshes its
     /// highlight at once, also while playing).
     void multicamAngleChosen();
