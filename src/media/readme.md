@@ -188,6 +188,9 @@ For resampled sources the input is additionally aligned to a common grid point o
   the hardware decoder (test_mediaperf filmstripLatency).
 * `shutdown()` (automatic on quit) drops queued jobs and waits for running ones.
 
+`prepareFrame()` is `decodeFrame()` for the render look-ahead: it gives up between two decoded
+frames when told to and leaves the decoder valid.
+
 ## Performance (dev box: i7 Comet Lake 8 threads + UHD 630 iHD 24.1 + GTX 1650, 1080p H.264, 2 s GOP)
 
 | Path | decodeFrame (raw) | frameAt 960x540 | random seek avg |

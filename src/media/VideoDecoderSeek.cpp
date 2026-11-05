@@ -99,6 +99,7 @@ bool VideoDecoder::Impl::decodeOne(DecodedFrame& out)
                 afterSeek = false;
             }
             lastDecodedTs = pts;
+            ++decodedFrames;
             release(out);
             out.av = takeFrame();
             if (!out.av) {
@@ -241,6 +242,10 @@ void VideoDecoder::Impl::advanceTo(int64_t ts)
             if (eof) {
                 return;
             }
+            if (stopCheck && (*stopCheck)()) {
+                stopped = true;
+                return;
+            }
             if (!decodeOne(next)) {
                 eof = !hwFailed;
                 return;
@@ -267,6 +272,9 @@ bool VideoDecoder::Impl::positionExact(int64_t ts)
     }
     for (int attempt = 0;; ++attempt) {
         advanceTo(ts);
+        if (stopped) {
+            return false;
+        }
         if (cur || hwFailed) {
             return cur && !hwFailed;
         }
@@ -331,6 +339,9 @@ bool VideoDecoder::Impl::position(int64_t ts, Accuracy accuracy)
         return accuracy == Accuracy::Exact ? positionExact(ts) : positionNearKeyframe(ts);
     };
     bool ok = run();
+    if (stopped) {
+        return false; // not a failure: prepareFrame() was told to give up
+    }
     if (activeHw != HwAccelMode::Off && (hwFailed || !ok)) {
         // Mid-stream hardware failure (or a stream the GPU cannot handle): redo in software.
         ok = switchToSoftware() && run();

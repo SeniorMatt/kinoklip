@@ -81,6 +81,16 @@ public:
     /// key of the returned frame.
     RenderedFramePtr poll(int64_t dueKey, int direction, int64_t* shownKey = nullptr);
 
+    /// Playback: asks the renderer to prepare the decoders of the clips coming into view up to
+    /// slot @p lastKey (the look-ahead past the render requests, so that the first frame after a
+    /// cut is ready when due; RenderRequest::prepare). Every slot goes out once: a call only
+    /// covers the slots not asked for since the last clear() or change of content. @p dueKey is
+    /// the slot due now, @p frameMs the wall time per slot; @p frameOfKey maps a slot to its
+    /// frame (loops). @return the requests issued (not counted in issuedCount() or inFlight();
+    /// they complete at once and nothing waits for them).
+    int prepareAhead(int64_t dueKey, int64_t lastKey, double frameMs,
+        const std::function<int64_t(int64_t)>& frameOfKey);
+
     /// Scrub/still: wants frame @p frame shown as soon as possible (coalesced, see above).
     /// @p force re-renders even if @p frame is the frame last shown (timeline edit).
     void requestStill(int64_t frame, bool force = false);
@@ -120,6 +130,8 @@ private:
     void noteRendered(const RenderedFramePtr& frame);
     /// Sets the cancellation flag of every request issued so far.
     void cancelOutstanding();
+    /// Stops the look-ahead in progress; the next prepareAhead() starts over.
+    void cancelPrepare();
 
     RenderFn m_render;
     RenderParams m_params;
@@ -135,6 +147,9 @@ private:
     int64_t m_issued = 0;
     double m_avgRenderMs = 0.0;
     std::shared_ptr<std::atomic<bool>> m_cancel; ///< flag of the current request generation
+    std::shared_ptr<std::atomic<bool>> m_prepareCancel; ///< flag of the current look-ahead
+    bool m_hasPrepareEdge = false;
+    int64_t m_prepareEdge = 0; ///< last slot the look-ahead has covered
 };
 
 } // namespace kk

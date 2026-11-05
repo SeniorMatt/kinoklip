@@ -1163,6 +1163,15 @@ void PlaybackEngine::logStatsSummary()
         return;
     }
     m_playStatsActive = false;
+    const render::DecoderPool::PrepareStats look = m_compositor->prepareStats();
+    qCInfo(lcPlayback).noquote()
+        << QStringLiteral("cut look-ahead (since the compositor started): %1 prepared, %2 ready "
+                          "at the cut, %3 waited, %4 cancelled, %5 unused")
+               .arg(look.started)
+               .arg(look.hitsReady)
+               .arg(look.hitsWaited)
+               .arg(look.cancelled)
+               .arg(look.expired);
     const Stats s = stats();
     const double seconds = s.playSeconds - m_statsAtPlay.playSeconds;
     const int64_t presented = s.presented - m_statsAtPlay.presented;
@@ -1293,6 +1302,17 @@ void PlaybackEngine::onTick()
         wanted.push_back({key, int64_t(wrap(double(key)))});
     }
     m_scheduler.prefetch(wanted);
+    // Forward at up to 2x, the decoders of the next clips get ready well before their cuts.
+    // (In reverse every frame seeks anyway, and J/K/L at 4x+ lands anywhere after a cut.)
+    // KK_NO_CUT_LOOKAHEAD: without it, to compare (tests/playback/test_cutperf).
+    static const bool lookAhead = qEnvironmentVariableIsEmpty("KK_NO_CUT_LOOKAHEAD");
+    if (lookAhead && m_rate > 0.0 && m_rate <= kCutLookAheadMaxRate) {
+        int64_t lastKey = dueKey + int64_t(kCutLookAheadMs / intervalMs * m_rate);
+        if (!m_rangeLoop)
+            lastKey = std::min(lastKey, m_rangeEnd - 1);
+        m_scheduler.prepareAhead(dueKey, lastKey, intervalMs / m_rate,
+            [this](int64_t key) { return int64_t(wrap(double(key))); });
+    }
 
     int64_t shownKey = 0;
     if (RenderedFramePtr frame = m_scheduler.poll(dueKey, dir, &shownKey)) {

@@ -160,6 +160,11 @@ public:
     static constexpr int kSeekMaxParkMs = 400; ///< resume even if the target is not shown yet
     /// Audio scrubbing: the device stops this long after the last playhead move.
     static constexpr int kScrubIdleMs = 350;
+    /// Decoders of upcoming clips are prepared this long before the cut. Worst case measured
+    /// (open + seek + 230 frames of 1080p H.264): 500 ms on a hot laptop (see readme.md).
+    static constexpr int kCutLookAheadMs = 1000;
+    /// Above this speed frames are skipped too widely to know which ones come after a cut.
+    static constexpr double kCutLookAheadMaxRate = 2.0;
 
     /// Creates an engine with its own Compositor and the default audio output.
     explicit PlaybackEngine(QObject* parent = nullptr);

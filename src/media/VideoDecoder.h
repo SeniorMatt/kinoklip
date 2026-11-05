@@ -11,6 +11,7 @@
 #include <QString>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 namespace kk::media {
@@ -94,6 +95,17 @@ public:
     /// @return nullptr on decoding failure or if nothing is open.
     std::shared_ptr<const VideoFrame> decodeFrame(
         int64_t timeUs, Accuracy accuracy = Accuracy::Exact);
+
+    /// Look-ahead (render::DecoderPool::prepare()): decodeFrame() that gives up between two
+    /// decoded frames once @p stop returns true. On success the decoder holds the frame, so the
+    /// decodeFrame() of the same time costs nothing; after a stop it is left in a valid state
+    /// (the next call continues or seeks as usual).
+    /// @return true if the frame is ready.
+    bool prepareFrame(int64_t timeUs, const std::function<bool()>& stop);
+
+    /// Frames this decoder took from libavcodec since open(), skipped ones included
+    /// (measurements and tests; not synchronised with a decode running on another thread).
+    int64_t decodedFrameCount() const;
 
     /// The frame shown at media time `timeUs` (microseconds), scaled to fit inside `maxSize`
     /// while keeping the display aspect ratio (scales up or down).

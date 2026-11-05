@@ -3,6 +3,7 @@
 // produces pixels (GlRenderer on the GPU, CpuRenderer as the fallback).
 #pragma once
 
+#include "render/DecoderPool.h"
 #include "render/RenderTypes.h"
 
 #include <QString>
@@ -39,6 +40,8 @@ public:
     /// Renders @p job. Either fulfils `job.promise` before returning or takes it over and
     /// fulfils it later from finishPending() (asynchronous PBO readback).
     virtual void render(RenderJob& job) = 0;
+    /// The decoders behind render(), for the look-ahead (RenderRequest::prepare).
+    [[nodiscard]] virtual DecoderPool& decoders() = 0;
     /// Completes deferred work. @p keepNewest: leave the most recent pending frame in flight
     /// (more requests are queued, so its readback can overlap the next render).
     virtual void finishPending(bool keepNewest) { Q_UNUSED(keepNewest); }

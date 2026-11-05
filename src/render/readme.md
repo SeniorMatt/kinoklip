@@ -377,6 +377,13 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
   `RenderCacheKeys.h`: chunk grid, keys, Smart / User selection, `makeRenderCacheView()`.
   Bump `kRenderCacheVersion` whenever rendering changes for the same input.
 
+### Decoder look-ahead
+
+`RenderRequest::prepare` (`PrepareRange`) renders nothing: `Compositor` walks the range with
+`DecodeTargets` and calls `DecoderPool::prepare()` for what comes into view, which opens, seeks
+and decodes on the backend's worker threads. See `src/playback/readme.md` (Cuts) and the class
+comment of `DecoderPool`. `Compositor::prepareStats()` has the counters.
+
 ## Threading and GL context model
 
 * `Compositor` (constructed on the GUI thread: it creates the `QOffscreenSurface`) starts one
@@ -389,7 +396,8 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
   referencing them is released (the deleter only flips a flag under a mutex).
 * Each output texture carries a `GLsync` fence created after its last command and flushed, so
   a viewer context can `glWaitSync` on it (cross-context synchronisation).
-* Decoding of the clips visible in one frame runs in parallel on a 4-thread pool owned by the
+* Decoding of the clips visible in one frame runs in parallel on a thread pool (4 + 2 for the
+  decoder look-ahead) owned by the
   renderer; each decoder is used by one thread at a time.
 * If context creation, `makeCurrent`, the version check (≥ 3.3, not ES) or shader compilation
   fails, the thread uses `CpuRenderer` instead (QPainter; transform, opacity, crop, titles,
@@ -405,6 +413,7 @@ decoding; `tests/render/test_nested.cpp` checks nested against flattened output.
 |---|---|
 | `Compositor.*` | public facade, request queue, render thread, backend selection |
 | `RenderBackend.h` | internal backend interface (GPU / CPU) |
+| `DecodeTargets.*` | the media positions a timeline frame needs, without any decoder (decoder look-ahead) |
 | `GlRenderer.*` | GPU backend: track walk, decode stage, clip drawing (direct and layer paths), title cache |
 | `GlInfo.*` | the OpenGL vendor / renderer / version strings of the context `GlRenderer` made (`knownGlDriverInfo()`), for Help > Report a Bug; never creates a context |
 | `GlKit.*` | GL toolkit: common vertex shader, `GlProgram`, pooled `RenderTarget`s, blit/fill, separable Gaussian and box blur (downscaled for large radii), separable erode / dilate (`morphology()`) |

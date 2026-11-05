@@ -79,6 +79,56 @@ While paused, playhead moves and edits go through `requestStill()`: one request 
 later wishes only replace the pending frame number (a fast scrub renders what it can and
 always ends on the last position).
 
+### Cuts: decoder look-ahead
+The render requests look only 3-4 frames ahead, far less than a jump into another clip costs:
+open + seek + decoding forward from the keyframe. Without the look-ahead the render thread did
+all that when the frame was already due (`test_cutperf`, below: the picture held 300 ms and ~14
+frames were lost at every cut into a long GOP, whatever the decoder).
+
+So while playing forward at up to 2x, `FrameScheduler::prepareAhead()` sends the frames entering
+the next `kCutLookAheadMs` (1 s; the worst case measured is ~0.5 s) to the compositor as
+`RenderRequest::prepare`, each frame once. On the render thread `render/DecodeTargets` compares
+each frame's media positions with the frame before it, so only clips really coming into view
+count: on any enabled track, inside compound clips, at a transition's start, at a loop's jump
+back, through a proxy or a render cache chunk. A razor cut or a jump under 100 ms in the same
+file is left to the playing decoder. `DecoderPool::prepare()` then gets a decoder ready on a
+decode worker thread (an idle one of that file if any, otherwise a new one) and reserves it
+for that position; `acquire()` finds it when the frame comes and the frame costs no decoding.
+
+Limits (`DecoderPool`): 3 decoders reserved, 2 preparing, 8 wishes waiting (memory: a decoder's
+reference pictures and its two frames; no extra picture queue). A reservation ends when used,
+when a later one is used, 250 ms after its due time, or on a seek or edit, which stop the work
+within one decoded frame through the request's `cancelled` flag (`FrameScheduler::clear()`,
+`setParams()` with other content). Reverse and 4x+ do not use it (spec 1.32). When a frame
+comes before its preparation is done it waits for the rest. `KK_NO_CUT_LOOKAHEAD=1` turns it
+off for comparisons; `KK_PLAYBACK_STATS` prints its counters in the summary.
+
+Sound needed no change: the feeder opens each clip's audio on its own thread, 6 - 38 ms inside
+the 170 ms ring (0 underrun frames at all cuts with the fake sound card).
+
+Measured with `test_cutperf` (1080p60 H.264, `-g 250`, in-points 230 frames past a keyframe
+unless noted, llvmpipe under xvfb, 3 plays per row alternating with/without on one laptop;
+`KK_NO_CUT_LOOKAHEAD=1` is "before"). Lateness of the first frame after each cut against the
+ordinary frames' presentation, median (max) ms; lost = frames missing of the 20 around a cut.
+
+| Clips, FFmpeg Vulkan decoder | before late | after late | before lost | after lost |
+|---|---|---|---|---|
+| same file, 1.5 s (11 cuts) | 317 (327) | 4.2 (8.6) | 14 | 0 |
+| two files, 1.5 s (11 cuts) | 312 (328) | 5.5 (9.1) | 14 | 0 |
+| two files, 0.4 s, 100 frames from a keyframe (23 cuts) | 131 (167) | 3.9 (307) | 7 | 0 |
+| two files, 0.4 s, overload (23 cuts) | 381 (1035) | 431 (1501) | 18 | 18 |
+
+| Clips, software decoder | before late | after late | before lost | after lost |
+|---|---|---|---|---|
+| same file, 1.5 s | 320 (419) | 3.3 (8.7) | 14 | 0 |
+| two files, 1.5 s | 227 (407) | 4.4 (9.0) | 12 | 0 |
+| two files, 0.4 s, 100 frames from a keyframe | 79 (182) | 3.2 (158) | 3 | 0 |
+| two files, 0.4 s, overload | 437 (990) | 141 (802) | 18 | 12 |
+
+"Overload" needs more frames decoded per second than the decoder delivers (254 frames per 0.4 s),
+which no look-ahead can fix: it stays about as bad, and its longest stall is longer (the frame
+waits for a preparation competing with another; 989 ms against 377 ms with Vulkan).
+
 ### Seeking while playing
 A playhead change while playing (ruler click or drag, viewer jog bar, Home/End, edit
 navigation) does not stop playback (Resolve keeps playing from the new position). The engine
@@ -201,6 +251,10 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
   proxy render size, audio master clock
   (|position − heard| < 1.5 frames), clock switching, dead-device fallback.
 * `test_viewerpanel` — viewers (src/ui/viewer), source marks, F9 integration.
+* `test_cutlookahead` — decoder look-ahead at cuts (spec 1.29 - 1.34): decoded-frame counts and
+  counters where possible, delivery on time with a stated margin, cancelling, limits, J/K/L.
+* `test_cutperf` — the measurement above (prints, asserts nothing; `KK_CUTPERF_DIR` keeps the
+  generated media, `KK_CUTPERF_RUNS`, `KK_CUTPERF_SIZE`).
 * `test_playbackperf` — playback and seek measurements (see above).
 
 ## How to extend
@@ -216,6 +270,9 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
 
 ## Known gaps / TODO
 
+* TODO(playback): the look-ahead's 1 s does not grow with the GOP: a preparation taking longer
+  (10 s GOPs, 4K) still saves what it finished, the frame waits for the rest. Media a
+  composition's nodes add and time-effect frames are not prepared.
 * TODO(playback): seeks show the exact target frame (decoder seek + decode forward from the
   keyframe, 70-140 ms here); showing the nearest keyframe first would be faster for long GOPs.
 * TODO(playback): presentation is timer-driven (4 ms) rather than locked to the display's
