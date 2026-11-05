@@ -6,11 +6,50 @@ and `src/ui/**`; depends on Qt only.
 | File | What it does |
 |---|---|
 | `ChildProcessEnv` | Gives programs we start (xdg-open, file managers) the user's environment back when running from the bundle (undoes `packaging/linux/apprun.sh`'s variables). |
+| `OpenUrl` | `openUrl(url)` / `openUrlWith(url)`: links, mail and local files / folders in the desktop's handler: the OpenURI portal, else xdg-open / kde-open / gio with the user's environment, else QDesktopServices (not on Wayland). Returns whether (and how) it opened. Every link of the app goes through it. |
 | `FileDialogs` | The one entry point for every open / save / folder dialog. |
 | `DesktopNotifications` | System notifications with buttons: `org.freedesktop.Notifications` (app name Kinoklip, icon `org.kinoklip.Kinoklip`), or `org.freedesktop.portal.Notification` inside Flatpak (`/.flatpak-info`); `KINOKLIP_NOTIFICATIONS=freedesktop/portal/off` overrides. No service: nothing is shown, one `kk.notifications` log line. Offscreen / minimal runs get no notifier, so tests never reach the desktop. Uses `app/AppInfo.h` for the name and icon id. |
 | `DroppedFiles` | Local files carried by a drop from a file manager: `text/uri-list`, the XDG document portal's `application/vnd.portal.filetransfer` (resolved with `RetrieveFiles`), and the `application/x-kde4-urilist` / `text/x-moz-url` fallbacks. |
 | `FileManager` | "Show in File Manager": `showInFileManager(path)` reveals and selects a file through `org.freedesktop.FileManager1.ShowItems`, else opens its folder. |
 | `PortalFileChooser` | The XDG desktop portal's `org.freedesktop.portal.FileChooser` over D-Bus. |
+
+## Opening links
+
+`platform::openUrl()` is the one way the app opens a link, a mail address, a file or a folder
+(Help > Report a Bug, the guide, Open Folder in the render notification and the render queue,
+Reveal in the Media Pool, the `FileManager` fallback). Never call `QDesktopServices::openUrl`
+directly. Steps, in order, until one works:
+
+1. **XDG desktop portal** `org.freedesktop.portal.OpenURI`: `OpenURI(parent, uri)` for links,
+   `OpenFile(parent, fd)` with a read-only descriptor for local files and folders (the portal
+   opens folders in the file manager without an app chooser). Only if the portal is running
+   or activatable. After the call we wait up to 1.5 s for its `Response`: 2 (no handler, a
+   rejected request) or a D-Bus error falls through to step 2; 0, 1 (the user cancelled an
+   app chooser) or no answer yet count as opened. The desktop starts the browser itself, so
+   the bundle's environment never reaches it.
+2. **A helper on the user's PATH**: `xdg-open`, `kde-open`, `kde-open5`, `gio open`, in that
+   order, with `childEnvironment()` (the launcher's `LD_LIBRARY_PATH`, `QT_PLUGIN_PATH`,
+   `XDG_DATA_DIRS`, ... undone, no `KINOKLIP_*`). Local files are passed as paths. It runs
+   under a small `/bin/sh` watcher: a non-zero exit within 1.5 s (no browser configured, ...)
+   tries the next one; still running after that (a browser in the foreground) counts as
+   opened and it outlives the app.
+3. **`QDesktopServices::openUrl`** inside `ScopedOriginalEnvironment`, for handlers only Qt
+   finds (`$BROWSER`, firefox without any helper). Skipped on Wayland with a focus window.
+   With Qt 6.12 there it is asynchronous: it asks the compositor for an xdg-activation token
+   and calls the portal or xdg-open only when the token arrives, after `openUrl()` has
+   returned true. By then the scoped environment is gone, so a helper gets the bundle's
+   `LD_LIBRARY_PATH`; and if the calling window is destroyed first, as a dialog with
+   `WA_DeleteOnClose` that `accept()`s right after the call is, the queued launch is dropped
+   and nothing opens. That was the 1.1.4-beta.1 "Open GitHub does nothing" bug on Plasma
+   Wayland.
+
+Nothing opened: `openUrl()` returns false and logs one `kk.openurl` warning;
+`guide::openUrl()` then shows `ui/help/CopyLinkDialog` (the link in a selectable field, Copy
+Link), and the bug report / guide dialogs stay open. Offscreen and minimal platforms (tests)
+open nothing unless `KINOKLIP_URL_OPENERS` is set. `KINOKLIP_URL_OPENERS=portal,helper,qt`
+(any subset, any order; `none` = nothing) picks the steps, for tests and as a workaround;
+`KINOKLIP_PORTAL_SERVICE` points step 1 at another bus name, like the file dialogs. Tested by
+tests/app/test_openurl (fake OpenURI portal on a private bus, stub helpers on PATH).
 
 ## Dropped files
 

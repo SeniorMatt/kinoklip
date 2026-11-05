@@ -3,7 +3,8 @@
 #include "ui/help/Guide.h"
 
 #include "core/Logging.h"
-#include "platform/ChildProcessEnv.h"
+#include "platform/OpenUrl.h"
+#include "ui/help/CopyLinkDialog.h"
 #include "ui/common/Page.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/common/SchemeColors.h"
@@ -64,19 +65,20 @@ void reloadBundledIndex()
         qCWarning(lcCore).noquote() << "guide index not usable (no \"?\" buttons):" << error;
 }
 
-bool openUrl(const QUrl& url)
+bool openUrl(const QUrl& url, QWidget* parent)
 {
     if (!url.isValid())
         return false;
-    if (opener())
-        return opener()(url);
-    return platform::openUrl(url);
+    const bool opened = opener() ? opener()(url) : platform::openUrl(url);
+    if (!opened) // never fail silently: the user can still paste the link into a browser
+        CopyLinkDialog::showFor(url, parent);
+    return opened;
 }
 
-bool openArticle(const GuideArticle* article)
+bool openArticle(const GuideArticle* article, QWidget* parent)
 {
     const GuideIndex& guideIndex = index();
-    return openUrl(article ? guideIndex.url(*article) : guideIndex.startUrl());
+    return openUrl(article ? guideIndex.url(*article) : guideIndex.startUrl(), parent);
 }
 
 void setUrlOpenerForTesting(std::function<bool(const QUrl&)> fn)
@@ -127,7 +129,7 @@ HelpButton::HelpButton(const GuideArticle& article, QWidget* parent)
     setToolTip(tr("Guide: %1").arg(article.title));
     setAccessibleName(tr("Open the guide: %1").arg(article.title));
     connect(this, &QAbstractButton::clicked, this,
-        [this] { openArticle(index().article(m_articleId)); });
+        [this] { openArticle(index().article(m_articleId), this); });
     connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this,
         qOverload<>(&QWidget::update));
 }

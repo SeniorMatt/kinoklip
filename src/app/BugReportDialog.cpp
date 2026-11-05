@@ -118,8 +118,9 @@ void BugReportDialog::updatePreview()
 
 void BugReportDialog::openGitHub(bool share)
 {
-    guide::openUrl(bugreport::issueLink(kind(), m_info, share).url);
-    accept();
+    // On failure the dialog stays open under the copy-link message (guide::openUrl).
+    if (guide::openUrl(bugreport::issueLink(kind(), m_info, share).url, this))
+        accept();
 }
 
 } // namespace kk

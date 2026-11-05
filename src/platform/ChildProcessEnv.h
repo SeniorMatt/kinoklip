@@ -6,7 +6,6 @@
 #include <QStringList>
 
 class QProcess;
-class QUrl;
 
 namespace kk::platform {
 
@@ -32,13 +31,9 @@ namespace kk::platform {
 /// Sets childEnvironment() on @p process (call before start()).
 void prepareChildProcess(QProcess& process);
 
-/// Opens @p url with the desktop's handler (QDesktopServices) such that the spawned helper
-/// (xdg-open, kde-open, ...) runs with the original environment. Returns QDesktopServices'
-/// result.
-bool openUrl(const QUrl& url);
-
 /// RAII: restores the original values in this process' environment for its lifetime, so
-/// APIs that spawn helpers internally (QDesktopServices) pass them on. Re-applies the bundle
+/// APIs that spawn helpers internally and synchronously pass them on (not enough for
+/// QDesktopServices on Wayland, which spawns later: use platform::openUrl, OpenUrl.h). Re-applies the bundle
 /// values afterwards.
 class ScopedOriginalEnvironment
 {
