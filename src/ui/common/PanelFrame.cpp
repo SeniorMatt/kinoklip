@@ -10,6 +10,7 @@
 #include <QLabel>
 #include <QSettings>
 #include <QSplitter>
+#include <QLineEdit>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -56,6 +57,15 @@ PanelFrame::PanelFrame(const QString& title, QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(m_titleBar);
+}
+
+bool PanelFrame::focusSearchField()
+{
+    if (!m_searchField || !m_searchField->isEnabled())
+        return false;
+    m_searchField->setFocus(Qt::ShortcutFocusReason);
+    m_searchField->selectAll();
+    return true;
 }
 
 QString PanelFrame::title() const

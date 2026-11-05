@@ -6,6 +6,7 @@
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/Generators.h"
+#include "core/Mask.h"
 #include "core/ParamKeys.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -20,6 +21,9 @@
 namespace kk::effectactions {
 
 namespace {
+
+constexpr double kRegionBlurRadius = 40.0; ///< px: enough to hide a face at 1080p
+constexpr double kRegionBlurFeather = 8.0; ///< px: a soft edge, as most privacy blurs have
 
 QString tr(const char* text)
 {
@@ -57,7 +61,8 @@ int64_t defaultGeneratorFrames(Rational fps)
     return EditBehaviour::frames(EditBehaviour::fromSettings().generatorSeconds, fps);
 }
 
-std::optional<ClipData> makeGeneratorClip(const QString& descriptorId, Rational fps)
+std::optional<ClipData> makeGeneratorClip(
+    const QString& descriptorId, Rational fps, QSizeF frameSize)
 {
     const EffectRegistry& registry = EffectRegistry::instance();
     const EffectDescriptor* desc = registry.find(descriptorId);
@@ -80,7 +85,17 @@ std::optional<ClipData> makeGeneratorClip(const QString& descriptorId, Rational 
         }
         break;
     case EffectCategory::Effects:
-        clip.kind = ClipKind::Adjustment; // the only "Effects" entry: Adjustment Clip
+        clip.kind = ClipKind::Adjustment; // Adjustment Clip, Region Blur
+        if (descriptorId == generators::RegionBlur) {
+            // Blur + rectangle mask: what Resolve users build from an adjustment clip by hand
+            // (spec 49.8). Ids are assigned when the clip is placed.
+            EffectInstance blur = registry.createEffect(QStringLiteral("gaussian_blur"), 0);
+            blur.params.setBase(QStringLiteral("radius"), kRegionBlurRadius);
+            clip.effects.append(std::move(blur));
+            MaskData box = makeMask(MaskShape::Rectangle, 0, frameSize / 3.0);
+            box.params.setBase(maskkeys::FeatherOut, kRegionBlurFeather);
+            clip.masks.append(std::move(box));
+        }
         break;
     case EffectCategory::Generator:
         if (descriptorId == generators::SolidColor) {
@@ -207,7 +222,8 @@ quint64 addGeneratorClip(
     while (target < int(current.videoTracks.size()) && current.videoTracks[size_t(target)].locked)
         ++target;
 
-    std::optional<ClipData> made = makeGeneratorClip(descriptorId, current.fps);
+    std::optional<ClipData> made
+        = makeGeneratorClip(descriptorId, current.fps, QSizeF(current.width, current.height));
     if (!made)
         return 0;
     ClipData clip = std::move(*made);

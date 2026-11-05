@@ -407,6 +407,21 @@ QVector<int64_t> allKeyFrames(const ClipData& clip)
     return frames;
 }
 
+QVector<int64_t> clipMarkFrames(const ClipData& clip)
+{
+    const QString retime = kRetime + QLatin1Char('/');
+    QVector<int64_t> frames;
+    forEachValue(clip, [&](const QString& path, const AnimatedValue& v) {
+        if (path.startsWith(retime))
+            return;
+        for (const Keyframe& k : v.keys)
+            frames.append(k.frame);
+    });
+    std::sort(frames.begin(), frames.end());
+    frames.erase(std::unique(frames.begin(), frames.end()), frames.end());
+    return frames;
+}
+
 std::optional<int64_t> adjacentKeyFrame(const ClipData& clip, int64_t localFrame, bool forward)
 {
     std::optional<int64_t> best;
@@ -549,14 +564,32 @@ int offsetKeyValues(TimelineData& data, const QVector<KeyframeRef>& refs, double
     return n;
 }
 
-int deleteKeys(TimelineData& data, const QVector<KeyframeRef>& refs)
+int deleteKeys(
+    TimelineData& data, const QVector<KeyframeRef>& refs, std::optional<int64_t> playhead)
 {
+    // The value each touched parameter shows at the playhead before anything is removed: a
+    // parameter whose every key goes keeps it (spec 49.1), whatever order the refs come in.
+    QHash<QPair<quint64, QString>, double> shown;
+    if (playhead) {
+        for (const KeyframeRef& r : refs) {
+            const QPair<quint64, QString> id(r.clipId, r.paramPath);
+            const ClipData* clip = editops::clipById(data, r.clipId);
+            const AnimatedValue* value = clip ? findValue(*clip, r.paramPath) : nullptr;
+            if (!value || shown.contains(id) || isShapePath(r.paramPath))
+                continue;
+            const int64_t last = std::max<int64_t>(0, clip->duration - 1);
+            shown.insert(id, value->valueAt(std::clamp<int64_t>(*playhead - clip->start, 0, last)));
+        }
+    }
     int n = 0;
     for (const KeyframeRef& r : refs) {
         ClipData* clip = editops::clipById(data, r.clipId);
         AnimatedValue* value = clip ? findValue(*clip, r.paramPath) : nullptr;
         if (value && value->hasKeyAt(r.frame)) {
             value->removeKey(r.frame); // the last key's value becomes the constant value
+            const auto it = shown.constFind(QPair<quint64, QString>(r.clipId, r.paramPath));
+            if (!value->isAnimated() && it != shown.cend())
+                value->base = *it;
             ++n;
         }
     }

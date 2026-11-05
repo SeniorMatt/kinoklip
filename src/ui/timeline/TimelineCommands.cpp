@@ -120,9 +120,32 @@ void TimelineController::rippleDeleteSelection()
             timeline()->setPlayhead(in);
         return;
     }
-    // Nothing selected: optionally (EditBehaviour) close the gap under the playhead on the
+    // Nothing selected: optionally (EditBehaviour) ripple delete the clips under the playhead
+    // on the auto-select tracks (spec 49.6), or close the gap under the playhead on the
     // target video track; by default nothing happens (spec 10.5).
-    if (EditBehaviour::fromSettings().rippleDeleteGapAtPlayhead) {
+    const EditBehaviour behaviour = EditBehaviour::fromSettings();
+    if (behaviour.rippleDeleteClipAtPlayhead) {
+        const TimelineData& d = timeline()->data();
+        const int64_t playhead = timeline()->playhead();
+        const ops::TrackFilter onTrack = ops::autoSelectTracks();
+        QVector<quint64> under;
+        auto collect = [&](TrackType type, const std::vector<TrackData>& tracks) {
+            for (int i = 0; i < int(tracks.size()); ++i) {
+                const ClipData* c = tracks[size_t(i)].clipAt(playhead);
+                if (c && onTrack(TrackRef {type, i}, tracks[size_t(i)]))
+                    under.append(c->id);
+            }
+        };
+        collect(TrackType::Video, d.videoTracks);
+        collect(TrackType::Audio, d.audioTracks);
+        if (!under.isEmpty()) {
+            runEdit(project(), tr("Ripple Delete"), [&](TimelineData& data) {
+                return ops::rippleDeleteClips(data, under, ops::RippleScope::AllTracks) > 0;
+            });
+            return;
+        }
+    }
+    if (behaviour.rippleDeleteGapAtPlayhead) {
         const TrackRef ref {TrackType::Video, std::max(0, m_targetVideo)};
         closeGapAt(ref, timeline()->playhead());
     }

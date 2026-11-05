@@ -45,6 +45,10 @@ struct EditBehaviour
     /// Ripple delete with nothing selected closes the gap under the playhead (a Kinoklip
     /// extension). Off (default, spec 10.5): it does nothing, a gap has to be selected first.
     bool rippleDeleteGapAtPlayhead = false;
+    /// Ripple delete with nothing selected (no gap, no in / out range) removes the clips under
+    /// the playhead on the auto-select tracks and closes up (spec 49.6). Off by default (spec
+    /// 10.5); Resolve's manual documents this for the Speed Editor's ripple delete key.
+    bool rippleDeleteClipAtPlayhead = false;
     /// Selection tool: the exact centre of a cut between two touching clips rolls the edit
     /// (spec 8.2); off: the selection tool only trims one side.
     bool selectToolRollsAtCut = true;
@@ -65,6 +69,7 @@ struct EditBehaviour
 
     /// Values stored in QSettings (group "edit/": stillSeconds, generatorSeconds,
     /// transitionSeconds, multiFrameNudge, threePointEditing, rippleDeleteGapAtPlayhead,
+    /// rippleDeleteClipAtPlayhead,
     /// selectToolRollsAtCut, trimToolSlideInNameBar, zoomAnchor
     /// ("playhead" / "mouse", shared with prefs::kZoomAnchor), wheelScheme ("resolve" / "classic"),
     /// timelineTabs, twoUpProgramLook); defaults where unset.

@@ -7,6 +7,7 @@
 
 #include "core/ClipColors.h"
 #include "core/EditOps.h"
+#include "core/KeyframeOps.h"
 #include "core/LevelOps.h"
 #include "core/MediaPool.h"
 #include "core/Multicam.h"
@@ -863,27 +864,19 @@ void TimelinePainter::paintKeyframes(
     const double left = std::max(r.left(), double(kHeaderWidth)) - 4;
     const double right = std::min(r.right(), double(L.viewSize().width())) + 4;
     bool penSet = false;
-    auto drawSet = [&](const ParamSet& set) {
-        for (auto it = set.values.cbegin(); it != set.values.cend(); ++it) {
-            for (const Keyframe& k : it->keys) {
-                const double x = L.frameToX(double(clip.start + k.frame));
-                if (x < left || x > right)
-                    continue;
-                if (!penSet) {
-                    p.setPen(sc().shadow);
-                    p.setBrush(sc().keyframe);
-                    p.setRenderHint(QPainter::Antialiasing, true);
-                    penSet = true;
-                }
-                drawDiamond(p, QPointF(x, y), 3.5);
-            }
+    // Every parameter's keys, masks and grade included (spec 49.3).
+    for (const int64_t frame : keyframeops::clipMarkFrames(clip)) {
+        const double x = L.frameToX(double(clip.start + frame));
+        if (x < left || x > right)
+            continue;
+        if (!penSet) {
+            p.setPen(sc().shadow);
+            p.setBrush(sc().keyframe);
+            p.setRenderHint(QPainter::Antialiasing, true);
+            penSet = true;
         }
-    };
-    drawSet(clip.transform);
-    drawSet(clip.audio);
-    drawSet(clip.title);
-    for (const EffectInstance& fx : clip.effects)
-        drawSet(fx.params);
+        drawDiamond(p, QPointF(x, y), 3.5);
+    }
     if (penSet) {
         p.setRenderHint(QPainter::Antialiasing, false);
         p.setBrush(Qt::NoBrush);

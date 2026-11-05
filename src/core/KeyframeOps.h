@@ -68,6 +68,10 @@ struct AnimatedParam
 
 /// Sorted, unique clip-local frames of every key of @p clip (the "master" keyframe row).
 [[nodiscard]] QVector<int64_t> allKeyFrames(const ClipData& clip);
+/// allKeyFrames() without the retime curve: the frames marked on the clip in the timeline, and
+/// whether it offers the keyframe and curve toggles (spec 15.8, 49.3). The retime curve has its
+/// own speed bar and its Ctrl+Shift+R command; its edge keys would mark every ramped clip.
+[[nodiscard]] QVector<int64_t> clipMarkFrames(const ClipData& clip);
 /// Nearest key frame of any parameter strictly after (@p forward) or before @p localFrame.
 [[nodiscard]] std::optional<int64_t> adjacentKeyFrame(
     const ClipData& clip, int64_t localFrame, bool forward);
@@ -94,8 +98,12 @@ QVector<KeyframeRef> moveKeys(
 /// restore the drag origin first, like every timeline drag). Mask shape keys are skipped.
 /// Returns the number changed.
 int offsetKeyValues(TimelineData& data, const QVector<KeyframeRef>& refs, double deltaValue);
-/// Removes keys @p refs. Returns the number removed.
-int deleteKeys(TimelineData& data, const QVector<KeyframeRef>& refs);
+/// Removes keys @p refs. Returns the number removed. A parameter that loses its last key keeps
+/// a constant value instead of falling back to its default: the value it showed at timeline
+/// frame @p playhead before the deletion (what the Inspector showed; clamped into the clip),
+/// or without a playhead the value of the last key removed.
+int deleteKeys(TimelineData& data, const QVector<KeyframeRef>& refs,
+    std::optional<int64_t> playhead = std::nullopt);
 /// Applies preset @p interp to keys @p refs. Returns the number changed.
 int setInterp(TimelineData& data, const QVector<KeyframeRef>& refs, Interp interp);
 /// "Flatten": makes both handles of keys @p refs horizontal, keeping their lengths (curve

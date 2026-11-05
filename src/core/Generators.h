@@ -23,6 +23,10 @@ inline const QString Countdown = QStringLiteral("countdown");
 inline const QString Timecode = QStringLiteral("timecode_burn_in");
 /// Effects library > Effects: creates a ClipKind::Adjustment clip (no parameters of its own).
 inline const QString AdjustmentClip = QStringLiteral("adjustment_clip");
+/// Effects library > Effects: an adjustment clip that comes with a Gaussian Blur and a
+/// rectangle mask, for blurring a region (faces, number plates; spec 49.8). Once placed it is
+/// an ordinary adjustment clip: the mask moves / sizes / keyframes in the viewer.
+inline const QString RegionBlur = QStringLiteral("region_blur");
 
 // ---- Parameter keys (ClipData::title of a Generator clip). Colours are statics, numbers
 //      animatable unless noted. Pixel values are timeline pixels. ----

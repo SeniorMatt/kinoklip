@@ -359,6 +359,7 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     if (hasIcon(QStringLiteral("search")))
         m_search->addAction(icon(QStringLiteral("search")), QLineEdit::LeadingPosition);
     layout->addWidget(m_search);
+    setSearchField(m_search); // spec 49.5
 
     auto* tree = new EffectsTree;
     tree->dragStarting = [this] { endHover(); }; // a drag ends the live preview

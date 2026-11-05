@@ -25,6 +25,8 @@ EditBehaviour EditBehaviour::fromSettings()
     b.threePointEditing = flag("edit/threePointEditing", b.threePointEditing);
     b.rippleDeleteGapAtPlayhead
         = flag("edit/rippleDeleteGapAtPlayhead", b.rippleDeleteGapAtPlayhead);
+    b.rippleDeleteClipAtPlayhead
+        = flag("edit/rippleDeleteClipAtPlayhead", b.rippleDeleteClipAtPlayhead);
     b.selectToolRollsAtCut = flag("edit/selectToolRollsAtCut", b.selectToolRollsAtCut);
     b.trimToolSlideInNameBar = flag("edit/trimToolSlideInNameBar", b.trimToolSlideInNameBar);
     b.timelineTabs = flag("edit/timelineTabs", b.timelineTabs);
