@@ -15,6 +15,10 @@
 #                of them (so their own dependencies are proven to resolve, too)
 # Fails on "not found" and on any library loaded from the host that is not in the exclude
 # list (it would be missing or a different version on the user's machine).
+# Also fails if the exclude list slips back towards what broke a real system (GitHub issue 1):
+# a host-only entry without a stated reason, a host-only soname known to differ between
+# distributions, a bundled file needing a host-only library other than glibc, or an ordinary
+# bundled library that only a fallback needs (it would shadow what host libraries need).
 # Finally prints the host libraries the bundle relies on: the list the target must provide.
 set -euo pipefail
 
@@ -65,6 +69,47 @@ excluded() {
 }
 
 errors=0
+
+# ---- the exclude list itself ----
+# Sonames that differ between distributions; this is how libbz2.so.1.0 (Debian, Arch) stayed host
+# while Fedora only has libbz2.so.1. Never host-only, even if nothing needs them today.
+KNOWN_DIFFERENT='libbz2.so.1.0 libbz2.so.1 libtinfo.so.5 libtinfo.so.6 libncursesw.so.5 libncursesw.so.6
+libcrypt.so.1 libcrypt.so.2 libpcre.so.1 libpcre.so.3 libffi.so.6 libffi.so.7 libffi.so.8
+libgcrypt.so.11 libgcrypt.so.20 libaio.so.1 libaio.so.1t64 libjpeg.so.8 libjpeg.so.62
+libsystemd.so.0 libudev.so.1 libOpenGL.so.0'
+GLIBC_HOST=''
+while read -r line; do
+    set -- $line
+    [ "${1:-}" = host ] || continue
+    pat="$2"
+    case "$line" in
+    *'#'*) ;;
+    *)
+        echo "EXCLUDE LIST: host entry without a reason (host <soname> # why): $pat"
+        errors=$((errors + 1))
+        ;;
+    esac
+    case "$line" in *'# glibc:'*) GLIBC_HOST="$GLIBC_HOST $pat" ;; esac
+    for k in $KNOWN_DIFFERENT; do
+        # shellcheck disable=SC2053
+        if [[ "$k" == $pat ]]; then
+            echo "EXCLUDE LIST: $k is named differently or missing on some distributions, so it must not be host-only"
+            errors=$((errors + 1))
+        fi
+    done
+done <"$ROOT/packaging/linux/excludelist.txt"
+HOST_PATS=()
+while read -r kind pat _; do
+    [ "$kind" = host ] && HOST_PATS+=("$pat")
+done <"$ROOT/packaging/linux/excludelist.txt"
+is_host_only() {
+    local p
+    for p in "${HOST_PATS[@]}"; do
+        # shellcheck disable=SC2053
+        [[ "$1" == $p ]] && return 0
+    done
+    return 1
+}
 
 # all ELF files of the bundle (binary, libraries, plugins); fallback-active only holds links
 mapfile -t ELFS < <(find "$B/usr" -path "$B/usr/lib/fallback-active" -prune -o -type f -print |
@@ -160,6 +205,35 @@ if [ -n "$IMAGE" ]; then
 fi
 
 echo "checking ${#ELFS[@]} ELF files in $B"
+
+# ---- what the bundle needs from the host: nothing but glibc, and every library it carries
+# only for a fallback is a fallback itself ----
+declare -A NEEDED_BY_NONFALLBACK=() NEEDED_BY_ANY=()
+for f in "${ELFS[@]}"; do
+    case "$f" in "$B/usr/lib/glibc/"*) continue ;; esac
+    while read -r name; do
+        NEEDED_BY_ANY[$name]=1
+        case "$f" in "$B/usr/lib/fallback/"*) ;; *) NEEDED_BY_NONFALLBACK[$name]=1 ;; esac
+        if is_host_only "$name"; then
+            case " $GLIBC_HOST " in
+            *" $name "*) ;;
+            *)
+                echo "HOST-ONLY BUT NEEDED: $name (needed by ${f#"$B"/}): a distribution without it could not start the app"
+                errors=$((errors + 1))
+                ;;
+            esac
+        fi
+    done < <(readelf -d "$f" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p')
+done
+for f in "$B"/usr/lib/*.so* "$B"/usr/lib/qt/*.so*; do
+    [ -f "$f" ] || continue
+    name="${f##*/}"
+    if [ -n "${NEEDED_BY_ANY[$name]+x}" ] && [ -z "${NEEDED_BY_NONFALLBACK[$name]+x}" ]; then
+        echo "ONLY A FALLBACK NEEDS IT: ${f#"$B"/}: make $name a fallback, or it shadows the copy host libraries need"
+        errors=$((errors + 1))
+    fi
+done
+
 check_pass normal "$B/usr/lib/qt"
 check_pass fallback "$B/usr/lib/fallback:$B/usr/lib/qt"
 

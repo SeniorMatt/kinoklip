@@ -19,7 +19,11 @@
 #      bundled libheif decoder plugins.
 #   4. Records the original value of every variable it changes (KINOKLIP_ORIG_VARS +
 #      KINOKLIP_ORIG_<NAME>; src/platform/ChildProcessEnv restores them for programs the app
-#      starts, e.g. xdg-open), then execs usr/bin/kinoklip with all arguments.
+#      starts, e.g. xdg-open).
+#   5. Asks the dynamic loader, without running anything, whether the app can load (see
+#      "preflight" below), then execs usr/bin/kinoklip with all arguments. Only if the loader
+#      reports a problem does it stay around as the app's parent, so that a failed start ends
+#      in a visible message instead of nothing (nothing is sent anywhere, see docs/privacy.md).
 #
 # Environment it reads:
 #   KINOKLIP_HOST_QT=1      try the host Qt (exact version match only; falls back to the
@@ -29,6 +33,8 @@
 #                           instead of the ld.so cache
 #   KINOKLIP_FORCE_FALLBACK=1  test hook: use every bundled fallback library
 #   KINOKLIP_QUIET=1        no log line on stderr
+#   KINOKLIP_NO_PREFLIGHT=1 skip the loader check and exec the app directly
+#   KINOKLIP_NO_FAILURE_DIALOG=1  a failed start only prints to stderr (test hook)
 #   APPIMAGE                set by the AppImage runtime: the .AppImage file. Then the menu
 #                           entry is left to Gear Lever / appimaged (no automatic install;
 #                           --install-desktop-entry points it at the AppImage file), and the
@@ -79,82 +85,172 @@ unset_var() {
     unset "$1"
 }
 
+# ---- glibc decision ----------------------------------------------------------------------
+# The bundle is built on a current Arch system. If the host glibc is older than what the
+# bundled libraries need (usr/lib/glibc/glibc-required.txt), the app runs through the bundled
+# loader with the bundled glibc. glibc is backwards compatible, so the host's GPU drivers and
+# other host libraries work with it. ld.so's --library-path is not inherited by child
+# processes. KINOKLIP_FORCE_GLIBC=1 / =0 forces it on / off (test hooks). Decided first, since
+# it also decides where the loader looks for host libraries.
+use_bundled_glibc() {
+    case "${KINOKLIP_FORCE_GLIBC:-}" in 1) return 0 ;; 0) return 1 ;; esac
+    [ -f "$LIB/glibc/glibc-required.txt" ] || return 1
+    _glibc_need="$(cat "$LIB/glibc/glibc-required.txt")"
+    _glibc_have="$(getconf GNU_LIBC_VERSION 2>/dev/null)"
+    _glibc_have="${_glibc_have#glibc }"
+    if [ -z "$_glibc_have" ]; then
+        # no getconf: the version is in the loader's --version banner
+        _glibc_have="$(ldd --version 2>/dev/null | sed -n '1s/.* \([0-9][0-9.]*\)$/\1/p')"
+    fi
+    [ -n "$_glibc_have" ] || return 1
+    [ "$(printf '%s\n%s\n' "$_glibc_have" "$_glibc_need" | sort -V | head -n 1)" != "$_glibc_need" ]
+}
+if use_bundled_glibc; then BUNDLED_GLIBC=1; else BUNDLED_GLIBC=0; fi
+
 # ---- host library lookup -------------------------------------------------------------
-# host_lib <soname>: prints the host path of a library, or nothing.
-# Uses the ld.so cache (what the loader really uses, incl. /etc/ld.so.conf.d dirs), else
-# the usual directories. The cache listing is read once and kept in a variable.
-HOST_CACHE=""
+# load_host_cache <soname>...: remembers where the ld.so cache puts these libraries, one shell
+# variable per library (HOST_CACHE_<key>). The launcher checks about a hundred libraries on every
+# start, each in a fixed small number of shell steps: extracting them from one long string would
+# cost 15 ms apiece. Line format: "<tab>libfoo.so.1 (libc6,x86-64) => /usr/lib/libfoo.so.1".
+# The first line of a library wins, as in the loader.
+cache_key() { # <soname>: sets KEY to the soname with all but [A-Za-z0-9] replaced by "_"
+    KEY=""
+    _r="$1"
+    while :; do
+        case "$_r" in
+        *[!A-Za-z0-9]*)
+            _h="${_r%%[!A-Za-z0-9]*}"
+            KEY="${KEY}${_h}_"
+            _r="${_r#"$_h"?}"
+            ;;
+        *)
+            KEY="$KEY$_r"
+            return 0
+            ;;
+        esac
+    done
+}
+load_host_cache() {
+    _pats=""
+    for _n in "$@"; do
+        _pats="${_pats:+$_pats
+}	$_n ("
+    done
+    [ -n "$_pats" ] || return 0
+    while read -r _n _rest; do
+        [ -n "$_n" ] || continue
+        cache_key "$_n"
+        eval "[ -n \"\${HOST_CACHE_$KEY+x}\" ]" || eval "HOST_CACHE_$KEY=\"\${_rest##*=> }\""
+    done <<EOF
+$( (ldconfig -p || /sbin/ldconfig -p || /usr/sbin/ldconfig -p) 2>/dev/null | grep -F "$_pats" | grep -F 'x86-64')
+EOF
+}
+
+# The directories the loader that will run the app searches after the cache. Not simply "all
+# the usual ones": a library is only a usable host copy if this loader will really find it.
+#   bundled glibc: Arch's ld.so knows only /usr/lib, so Fedora's /usr/lib64 and Debian's
+#                  multiarch directories are reachable through /etc/ld.so.cache alone
+#   native glibc:  Debian multiarch, or Fedora/openSUSE lib64, or Arch's plain /usr/lib
+if [ "$BUNDLED_GLIBC" = 1 ]; then
+    HOST_DEFAULT_DIRS="/usr/lib"
+elif [ -d /usr/lib/x86_64-linux-gnu ]; then
+    HOST_DEFAULT_DIRS="/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /lib /usr/lib"
+elif [ -d /usr/lib64 ] && [ ! -L /usr/lib64 ]; then
+    HOST_DEFAULT_DIRS="/lib64 /usr/lib64"
+else
+    HOST_DEFAULT_DIRS="/usr/lib /lib"
+fi
+
+# is_elf64 <file>: on Fedora /usr/lib holds 32-bit libraries (Steam pulls in many). The loader
+# skips them, so one of those must not count as "the host has it".
+is_elf64() {
+    [ "$(od -An -tu1 -j4 -N1 "$1" 2>/dev/null | tr -d ' ')" = 2 ]
+}
+
+# host_lib <soname>: sets HOST_LIB to the host path of a library the loader will find, or to
+# nothing. Runs without a subshell. The cache is what the loader really uses first (incl.
+# /etc/ld.so.conf.d directories); an entry whose file is gone falls through to the directories,
+# just as in the loader. Call load_host_cache for the name first.
 host_lib() {
+    HOST_LIB=""
     if [ -n "${KINOKLIP_HOST_LIBDIRS:-}" ]; then
         _old_ifs=$IFS
         IFS=:
         for _d in $KINOKLIP_HOST_LIBDIRS; do
             if [ -e "$_d/$1" ]; then
-                IFS=$_old_ifs
-                printf '%s\n' "$_d/$1"
-                return
+                HOST_LIB="$_d/$1"
+                break
             fi
         done
         IFS=$_old_ifs
-        return
+        return 0
     fi
-    if [ -z "$HOST_CACHE" ]; then
-        HOST_CACHE="$( (ldconfig -p || /sbin/ldconfig -p || /usr/sbin/ldconfig -p) 2>/dev/null | grep 'x86-64')"
-        [ -n "$HOST_CACHE" ] || HOST_CACHE=none
+    cache_key "$1"
+    eval "_p=\"\${HOST_CACHE_$KEY:-}\""
+    if [ -n "$_p" ] && [ -e "$_p" ]; then
+        HOST_LIB="$_p"
+        return 0
     fi
-    if [ "$HOST_CACHE" != none ]; then
-        # line format: "<tab>libfoo.so.1 (libc6,x86-64) => /usr/lib/libfoo.so.1"
-        _p="$(printf '%s\n' "$HOST_CACHE" | grep -F " $1 (" | head -n 1)"
-        _p="${_p#*=> }"
-        if [ -n "$_p" ] && [ -e "$_p" ]; then
-            printf '%s\n' "$_p"
-            return
-        fi
-    fi
-    for _d in /usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu /usr/lib64 /lib64 /usr/lib /lib; do
-        if [ -e "$_d/$1" ]; then
-            printf '%s\n' "$_d/$1"
-            return
+    for _d in $HOST_DEFAULT_DIRS; do
+        if [ -e "$_d/$1" ] && is_elf64 "$_d/$1"; then
+            HOST_LIB="$_d/$1"
+            return 0
         fi
     done
+    return 0
 }
 
 # ---- 1. fallback libraries -------------------------------------------------------------
-# newer_tag <soname>: the version tag recorded for a "newer" fallback (usr/lib/fallback/newer.txt)
-newer_tag() {
-    [ -f "$LIB/fallback/newer.txt" ] || return 0
-    while read -r _nn _nt; do
-        [ "$_nn" = "$1" ] && printf '%s\n' "$_nt" && return 0
-    done <"$LIB/fallback/newer.txt"
-    return 0
-}
 # fallback-active/ must contain exactly the fallback libs the host is missing: RUNPATH is
 # searched before the system, so anything linked there overrides the host copy.
 setup_fallback() {
     _active="$LIB/fallback-active"
     [ -d "$LIB/fallback" ] || return 0
-    _missing=""
+    # version tags of the "newer" fallbacks, "<soname> <tag>" per line
+    _newer=""
+    [ -f "$LIB/fallback/newer.txt" ] && _newer="
+$(cat "$LIB/fallback/newer.txt")"
+    set --
     for _f in "$LIB"/fallback/*.so*; do
-        [ -e "$_f" ] || continue
-        _n="${_f##*/}"
-        _host="$(host_lib "$_n")"
-        if [ "${KINOKLIP_FORCE_FALLBACK:-0}" = 1 ] || [ -z "$_host" ]; then
+        [ -e "$_f" ] && set -- "$@" "${_f##*/}"
+    done
+    [ -n "${KINOKLIP_HOST_LIBDIRS:-}" ] || load_host_cache "$@"
+    _missing=""
+    for _n in "$@"; do
+        host_lib "$_n"
+        case "$_n" in
+        libpulsecommon-*)
+            # libpulse's private part, in a subdirectory no cache lists: it goes with libpulse
+            host_lib libpulse.so.0
+            [ -n "$HOST_LIB" ] && continue
+            ;;
+        esac
+        if [ "${KINOKLIP_FORCE_FALLBACK:-0}" = 1 ] || [ -z "$HOST_LIB" ]; then
             _missing="$_missing $_n"
-        elif _tag="$(newer_tag "$_n")" && [ -n "$_tag" ]; then
+            continue
+        fi
+        case "$_newer" in
+        *"
+$_n "*)
             # "newer" fallback: use ours if the host's copy is older (by its highest version
             # tag, or for "file:" tags by the version in its real file name)
+            _tag="${_newer#*"
+$_n "}"
+            _tag="${_tag%%"
+"*}"
             case "$_tag" in
             file:*)
                 _tag="${_tag#file:}"
-                _hosttag="$(readlink -f "$_host")"
+                _hosttag="$(readlink -f "$HOST_LIB")"
                 _hosttag="${_hosttag##*.so.}"
                 ;;
-            *) _hosttag="$(grep -aoE "${_tag%%[0-9]*}[0-9.]+" "$_host" 2>/dev/null | sort -uV | tail -n 1)" ;;
+            *) _hosttag="$(grep -aoE "${_tag%%[0-9]*}[0-9.]+" "$HOST_LIB" 2>/dev/null | sort -uV | tail -n 1)" ;;
             esac
             if [ "$(printf '%s\n%s\n' "$_hosttag" "$_tag" | sort -V | tail -n 1)" != "$_hosttag" ]; then
                 _missing="$_missing $_n"
             fi
-        fi
+            ;;
+        esac
     done
     if [ ! -w "$_active" ]; then
         # Read-only bundle (the AppImage's squashfs mount): the links go into a private
@@ -165,8 +261,11 @@ setup_fallback() {
             set_var LD_LIBRARY_PATH "$_active${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             log "using bundled fallbacks:$_missing (links in $_active)"
         else
-            log "warning: $LIB is read-only and no private writable directory was found, cannot use bundled fallbacks for:$_missing"
-            return 0
+            # Nowhere to put the links. All bundled fallbacks win over the host's then, which is
+            # less tidy but starts; without them a host lacking one cannot start at all.
+            _active=""
+            set_var LD_LIBRARY_PATH "$LIB/fallback${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            log "warning: no private writable directory found, using all bundled fallbacks"
         fi
         fallback_libva_drivers
         return 0
@@ -208,11 +307,13 @@ fallback_libva_drivers() {
 #   <dir>/active/<soname> -> <bundle>/usr/lib/fallback/<soname>   (the LD_LIBRARY_PATH entry)
 #   <dir>/<lib>.so*       -> <bundle>/usr/lib/<lib>.so*
 #   <dir>/qt              -> <bundle>/usr/lib/qt
-# Lives in $XDG_RUNTIME_DIR (per user, mode 0700, cleared at logout), else ~/.cache/kinoklip;
-# never in a shared /tmp, where another user could plant libraries. The name hashes the
-# bundle path and the library list, so a ready directory is reused. An AppImage is mounted
-# at a new path on every start: directories whose bundle is gone (dangling qt link) are
-# removed first.
+# Lives in $XDG_RUNTIME_DIR (per user, mode 0700, cleared at logout), else ~/.cache/kinoklip,
+# else a new mktemp directory (mode 0700 under an unguessable name, so another user cannot plant
+# libraries; only for a read-only home without a runtime dir). Only symbolic links live here,
+# so a noexec mount does not matter: the loader maps the files they point to, on the bundle's
+# mount. The name hashes the bundle path and the library list, so a ready directory is reused.
+# An AppImage is mounted at a new path on every start: directories whose bundle is gone
+# (dangling qt link) are removed first.
 shadow_fallback_dir() {
     _base=""
     if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "$XDG_RUNTIME_DIR" ] && [ -w "$XDG_RUNTIME_DIR" ] &&
@@ -220,9 +321,11 @@ shadow_fallback_dir() {
         _base="$XDG_RUNTIME_DIR"
     elif [ -n "${HOME:-}" ]; then
         _base="${XDG_CACHE_HOME:-$HOME/.cache}/kinoklip"
-        mkdir -p "$_base" 2>/dev/null || return 1
+        mkdir -p "$_base" 2>/dev/null || _base=""
     fi
-    [ -n "$_base" ] && [ -w "$_base" ] || return 1
+    if [ -z "$_base" ] || [ ! -w "$_base" ]; then
+        _base="$(mktemp -d "${TMPDIR:-/tmp}/kinoklip-XXXXXX" 2>/dev/null)" || return 1
+    fi
     for _d in "$_base"/kinoklip-fallback-*; do
         case "$_d" in *.tmp*) continue ;; esac
         [ -d "$_d" ] && [ ! -e "$_d/qt/" ] && rm -rf "$_d"
@@ -235,9 +338,14 @@ shadow_fallback_dir() {
         mkdir -p "$_tmp/active" || return 1
         ln -s "$LIB"/*.so* "$_tmp/" 2>/dev/null
         ln -s "$QTDIR" "$_tmp/qt" || return 1
-        for _n in $1; do
-            ln -s "$LIB/fallback/$_n" "$_tmp/active/$_n" || return 1
-        done
+        # one ln for all of them: a host without a desktop can need a hundred
+        (
+            _names="$1"
+            cd "$_tmp/active" || exit 1
+            set --
+            for _n in $_names; do set -- "$@" "$LIB/fallback/$_n"; done
+            ln -s "$@" .
+        ) || return 1
         : >"$_tmp/.complete"
         rm -rf "$_sd" # an incomplete one (interrupted start)
         mv "$_tmp" "$_sd" 2>/dev/null
@@ -250,7 +358,10 @@ shadow_fallback_dir() {
 # ---- 2. Qt selection -------------------------------------------------------------------
 # host_qt_ok: succeeds if the host Qt can run the binary. Sets HOST_QT_REASON otherwise.
 host_qt_ok() {
-    _core="$(host_lib libQt6Core.so.6)"
+    # shellcheck disable=SC2046  # one soname per line
+    load_host_cache libQt6Core.so.6 $(grep -v '^#' "$QTDIR/host-qt-requirements.txt")
+    host_lib libQt6Core.so.6
+    _core="$HOST_LIB"
     if [ -z "$_core" ]; then
         HOST_QT_REASON="no host libQt6Core.so.6"
         return 1
@@ -284,12 +395,12 @@ host_qt_ok() {
     # every module the binary needs, all from the same Qt release as Core
     while read -r _q; do
         case "$_q" in '' | '#'*) continue ;; esac
-        _p="$(host_lib "$_q")"
-        if [ -z "$_p" ]; then
+        host_lib "$_q"
+        if [ -z "$HOST_LIB" ]; then
             HOST_QT_REASON="host Qt lacks $_q"
             return 1
         fi
-        case "$(readlink -f "$_p")" in
+        case "$(readlink -f "$HOST_LIB")" in
         *".so.$_ver") ;;
         *)
             HOST_QT_REASON="$_q is not from Qt $_ver"
@@ -494,29 +605,257 @@ fi
 KINOKLIP_APPDIR="$HERE"
 export KINOKLIP_APPDIR KINOKLIP_ORIG_VARS
 
-# ---- glibc -------------------------------------------------------------------------------
-# The bundle is built on a current Arch system. If the host glibc is older than what the
-# bundled libraries need (usr/lib/glibc/glibc-required.txt), run through the bundled loader
-# with the bundled glibc. glibc is backwards compatible, so the host's GPU drivers and other
-# host libraries work with it. ld.so's --library-path is not inherited by child processes.
-# KINOKLIP_FORCE_GLIBC=1 / =0 forces it on / off (test hooks).
-use_bundled_glibc() {
-    case "${KINOKLIP_FORCE_GLIBC:-}" in 1) return 0 ;; 0) return 1 ;; esac
-    [ -f "$LIB/glibc/glibc-required.txt" ] || return 1
-    _need="$(cat "$LIB/glibc/glibc-required.txt")"
-    _have="$(getconf GNU_LIBC_VERSION 2>/dev/null)"
-    _have="${_have#glibc }"
-    if [ -z "$_have" ]; then
-        # no getconf: the version is in the loader's --version banner
-        _have="$(ldd --version 2>/dev/null | sed -n '1s/.* \([0-9][0-9.]*\)$/\1/p')"
+# ---- start ------------------------------------------------------------------------------
+BIN="$HERE/usr/bin/kinoklip"
+if [ "$BUNDLED_GLIBC" = 1 ]; then
+    log "using the bundled glibc (host: ${_glibc_have:-forced}, bundle needs: ${_glibc_need:-forced})"
+    LDSO="$LIB/glibc/ld-linux-x86-64.so.2"
+    LDSO_PATH="$LIB/glibc${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+else
+    LDSO=/lib64/ld-linux-x86-64.so.2 # the x86-64 ABI's fixed path, on every distribution
+fi
+
+# start_app <args...>: becomes the app; called in a background subshell (the supervised path
+# below), whose process id is then the app's, so signals sent to that id reach it.
+start_app() {
+    if [ "$BUNDLED_GLIBC" = 1 ]; then
+        exec "$LDSO" --library-path "$LDSO_PATH" --argv0 "$BIN" "$BIN" "$@"
     fi
-    [ -n "$_have" ] || return 1
-    [ "$(printf '%s\n%s\n' "$_have" "$_need" | sort -V | head -n 1)" != "$_need" ]
+    exec "$BIN" "$@"
 }
 
-if use_bundled_glibc; then
-    log "using the bundled glibc (host: ${_have:-forced}, bundle needs: ${_need:-forced})"
-    exec "$LIB/glibc/ld-linux-x86-64.so.2" --library-path "$LIB/glibc${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-        --argv0 "$HERE/usr/bin/kinoklip" "$HERE/usr/bin/kinoklip" "$@"
+# ---- preflight: a failed start must never be silent -----------------------------------------
+# The app is exec'ed, so that it IS this process (signals, exit code, process id, no shell left
+# waiting), which means nothing can report a loader failure after the exec. So the loader is
+# asked first. Its trace mode (what ldd uses) resolves every library and checks symbol versions
+# without running any code of the app:
+#   - every start: the app binary, about 15 ms;
+#   - additionally, once per bundle + host library state (the size and time of ld.so.cache change
+#     with every package update) and remembered in ~/.cache/kinoklip: also every symbol, and
+#     the Qt platform plugins, which are only loaded at run time. That costs a few hundred ms,
+#     and the libraries are bound eagerly on Arch, so an undefined symbol is a real start failure.
+# A problem is first repaired where possible (preflight_repair). What is left never stops the app:
+# lazily bound symbols may never be used, so the app is started anyway, but as a child, to see
+# whether it fails. Everything stays on this computer
+# (docs/privacy.md); the optional dialog only shows text.
+preflight_trace() { # <deep: "" or 1> <file>: prints only the lines that report a problem
+    {
+        # An empty LD_WARN / LD_BIND_NOW counts as unset. LD_WARN alone adds 60 ms: it relocates.
+        if [ "$BUNDLED_GLIBC" = 1 ]; then
+            LD_TRACE_LOADED_OBJECTS=1 LD_WARN="$1" LD_BIND_NOW="$1" "$LDSO" --library-path "$LDSO_PATH" "$2" 2>&1
+        else
+            LD_TRACE_LOADED_OBJECTS=1 LD_WARN="$1" LD_BIND_NOW="$1" "$LDSO" "$2" 2>&1
+        fi || echo "loader exit status $?"
+    } | grep -E 'not found|undefined symbol|error while loading|cannot |wrong ELF|Permission denied|No such file|loader exit status'
+}
+# What the deep check last passed for, on one line.
+preflight_state_key() {
+    # shellcheck disable=SC2046  # flattening stat's two lines is intended
+    echo $(stat -L -c '%Y:%s' "$BIN" /etc/ld.so.cache 2>/dev/null) "glibc=$BUNDLED_GLIBC" \
+        "fallbacks=$_missing" "ldpath=${KINOKLIP_ORIG_LD_LIBRARY_PATH:-}"
+}
+preflight_state_file() {
+    [ -n "${HOME:-}" ] && printf '%s\n' "${XDG_CACHE_HOME:-$HOME/.cache}/kinoklip/loader-check"
+}
+remember_preflight_ok() { # second line: "all" if only all the fallbacks together passed
+    _state="$(preflight_state_file)" || return 0
+    if mkdir -p "${_state%/*}" 2>/dev/null; then
+        {
+            preflight_state_key
+            [ "${FORCED_ALL:-0}" = 0 ] || echo all
+        } >"$_state" 2>/dev/null
+    fi
+    return 0
+}
+
+# Bundled libraries are all from one Arch build, so one the host lacks can need a newer library than
+# the host's copy of another one: on Ubuntu 24.04 without a desktop, the bundled libgio wants a libmount
+# with MOUNT_2_40, and the host has an older libmount. The host's copy still wins by default, and is
+# replaced only where the loader shows it does not do, so that the host's graphics and font stack
+# keeps its libraries everywhere else. No shell variables change: the links go where the other
+# active fallbacks are, already on the search path.
+activate_fallback() { # <soname>
+    [ -n "$_active" ] && [ -e "$LIB/fallback/$1" ] && [ ! -e "$_active/$1" ] || return 1
+    if [ "$_active" = "$LIB/fallback-active" ]; then
+        ln -s "../fallback/$1" "$_active/$1"
+    else
+        ln -s "$LIB/fallback/$1" "$_active/$1"
+    fi 2>/dev/null
+}
+# Last step: every bundled fallback at once. They were built together, so this set fits together.
+force_all_fallbacks() {
+    [ "${FORCED_ALL:-0}" = 0 ] || return 1
+    FORCED_ALL=1
+    log "the host's libraries do not fit the bundled ones; using all bundled fallbacks"
+    for _f in "$LIB"/fallback/*.so*; do
+        activate_fallback "${_f##*/}"
+    done
+    return 0
+}
+# Sets PREFLIGHT_OUT for a file, repairing what can be repaired. Succeeds if nothing is left.
+preflight_repair() { # <deep: "" or 1> <file>
+    _round=0
+    while :; do
+        PREFLIGHT_OUT="$(preflight_trace "$1" "$2")"
+        [ -n "$PREFLIGHT_OUT" ] || return 0
+        _round=$((_round + 1))
+        [ "$_round" -le 8 ] || break
+        # "<x>: /usr/lib/libmount.so.1: version `MOUNT_2_40' not found (required by ...)"
+        _fixed=0
+        for _n in $(printf '%s\n' "$PREFLIGHT_OUT" | sed -n 's/^.*\/\(lib[^ \/:]*\): version .* not found.*$/\1/p' | sort -u); do
+            if activate_fallback "$_n"; then
+                log "the host's $_n is too old for a bundled library; using the bundled one"
+                _fixed=1
+            fi
+        done
+        [ "$_fixed" = 1 ] && continue
+        force_all_fallbacks && continue
+        break
+    done
+    return 1
+}
+# Succeeds if the app can be exec'ed; otherwise PREFLIGHT_OUT holds what the loader said.
+preflight() {
+    _old=""
+    _flag=""
+    if _state="$(preflight_state_file)" && [ -r "$_state" ]; then
+        { read -r _old; read -r _flag; } <"$_state"
+    fi
+    _key="$(preflight_state_key)"
+    [ "$_old" = "$_key" ] && [ "$_flag" = all ] && force_all_fallbacks
+    preflight_repair "" "$BIN" || return 1
+    [ "$_old" = "$_key" ] && return 0
+    for _pl in "$BIN" "$QTDIR"/plugins/platforms/libqwayland*.so "$QTDIR"/plugins/platforms/libqxcb.so; do
+        [ -e "$_pl" ] || continue
+        preflight_repair 1 "$_pl" || return 1
+    done
+    remember_preflight_ok
+    return 0
+}
+
+ISSUES_URL=https://github.com/SeniorMatt/kinoklip/issues
+
+# show_failure <details>: makes a failed start visible: always on stderr and in a log file,
+# and in a dialog or notification with whatever this desktop has. The tools run with the user's
+# original environment, not with the bundled libraries the launcher selected.
+show_failure() {
+    _msg="Kinoklip could not start.
+
+$1
+
+The bundled libraries could not make up for this on your system. Please report it, with this
+text and your Linux distribution, at $ISSUES_URL"
+    printf 'kinoklip-launcher: %s\n' "$_msg" >&2
+    _state="$(preflight_state_file)" && mkdir -p "${_state%/*}" 2>/dev/null &&
+        printf '%s\n' "$_msg" >"${_state%/*}/start-failure.log" 2>/dev/null
+    [ "${KINOKLIP_NO_FAILURE_DIALOG:-0}" = 1 ] && return 0
+    [ -t 2 ] && return 0 # started from a terminal: the message is on the screen already
+    [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] || return 0
+    (
+        for _v in $KINOKLIP_ORIG_VARS; do
+            if eval "[ -n \"\${KINOKLIP_ORIG_$_v+x}\" ]"; then
+                eval "$_v=\"\${KINOKLIP_ORIG_$_v}\""
+                export "${_v?}"
+            else
+                unset "$_v"
+            fi
+        done
+        case "${XDG_CURRENT_DESKTOP:-}" in
+        *KDE*) _tools="kdialog zenity" ;;
+        *) _tools="zenity kdialog" ;;
+        esac
+        # Dialogs exit with 0 or 1 once shown (closing one is 1); more means it could not show.
+        for _t in $_tools; do
+            command -v "$_t" >/dev/null 2>&1 || continue
+            case "$_t" in
+            kdialog) kdialog --title "Kinoklip" --error "$_msg" >/dev/null 2>&1 ;;
+            zenity) zenity --error --title="Kinoklip" --no-markup --text="$_msg" >/dev/null 2>&1 ;;
+            esac
+            [ $? -le 1 ] && exit 0
+        done
+        if command -v notify-send >/dev/null 2>&1 &&
+            notify-send -u critical -a Kinoklip "Kinoklip could not start" "$_msg" >/dev/null 2>&1; then
+            exit 0
+        fi
+        # gdbus comes with GLib, so a GNOME without zenity and libnotify's tools still has it
+        if command -v gdbus >/dev/null 2>&1 &&
+            gdbus call --session --dest org.freedesktop.Notifications \
+                --object-path /org/freedesktop/Notifications \
+                --method org.freedesktop.Notifications.Notify Kinoklip 0 "" \
+                "Kinoklip could not start" "$_msg" "[]" "{}" 0 >/dev/null 2>&1; then
+            exit 0
+        fi
+        command -v xmessage >/dev/null 2>&1 && xmessage -center "$_msg" >/dev/null 2>&1
+    )
+    return 0
+}
+
+# The loader reported a problem: the only path where this shell stays alive. The app runs as a
+# background child, since a shell runs traps only between commands, so that TERM, HUP and INT
+# can be passed on. Its stderr still reaches the same place, through tee, and is kept to name
+# the cause. A start that works is remembered, so the next one is exec'ed again.
+supervised_start() {
+    log "the loader reports a problem; starting the app under watch: ${PREFLIGHT_OUT%%"
+"*}"
+    _sv_dir="$(mktemp -d "${TMPDIR:-/tmp}/kinoklip-start-XXXXXX" 2>/dev/null)" || _sv_dir=""
+    if [ -n "$_sv_dir" ] && ! mkfifo "$_sv_dir/fifo" 2>/dev/null; then
+        rm -rf "$_sv_dir"
+        _sv_dir=""
+    fi
+    if [ -n "$_sv_dir" ]; then
+        tee "$_sv_dir/log" <"$_sv_dir/fifo" >&2 &
+        _tee=$!
+        exec 3>"$_sv_dir/fifo" # held open until the end, so tee does not stop with an early exit
+    else
+        exec 3>&2
+    fi
+    { true <&0; } 2>/dev/null || exec </dev/null # a background job needs an explicit stdin
+    trap 'kill -TERM "$_app" 2>/dev/null' TERM HUP
+    trap 'kill -INT "$_app" 2>/dev/null; kill -TERM "$_app" 2>/dev/null' INT
+    _started="$(date +%s)"
+    start_app "$@" <&0 2>&3 3>&- &
+    _app=$!
+    while :; do
+        wait "$_app"
+        _status=$?
+        kill -0 "$_app" 2>/dev/null || break
+    done
+    trap - TERM HUP INT
+    exec 3>&-
+    _why=""
+    if [ -n "$_sv_dir" ]; then
+        # tee ends now unless a program the app started still holds its stderr: not worth a hang
+        _i=0
+        while [ "$_i" -lt 10 ] && kill -0 "$_tee" 2>/dev/null; do
+            sleep 0.05
+            _i=$((_i + 1))
+        done
+        _why="$(grep -E 'error while loading shared libraries|symbol lookup error|version .* not found|undefined symbol|Qt platform plugin' \
+            "$_sv_dir/log" 2>/dev/null | head -n 3)"
+        rm -rf "$_sv_dir"
+    fi
+    case "$_status" in
+    126 | 127) ;;
+    *)
+        # Qt aborts when no platform plugin loads, without a word if the message goes elsewhere: an
+        # abort or crash right after the start counts. Anything later is the app's own business.
+        _failed=0
+        case "$_why" in *"Qt platform plugin"*) _failed=1 ;; esac
+        case "$_status" in 134 | 139) [ $(($(date +%s) - _started)) -le 3 ] && _failed=1 ;; esac
+        if [ "$_failed" = 0 ]; then
+            remember_preflight_ok
+            exit "$_status"
+        fi
+        ;;
+    esac
+    show_failure "${_why:-${PREFLIGHT_OUT:-The program exited with status $_status before it started.}}"
+    exit "$_status"
+}
+
+if [ "${KINOKLIP_NO_PREFLIGHT:-0}" != 1 ] && ! preflight; then
+    supervised_start "$@"
 fi
-exec "$HERE/usr/bin/kinoklip" "$@"
+if [ "$BUNDLED_GLIBC" = 1 ]; then
+    exec "$LDSO" --library-path "$LDSO_PATH" --argv0 "$BIN" "$BIN" "$@"
+fi
+exec "$BIN" "$@"
