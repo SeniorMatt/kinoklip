@@ -39,7 +39,9 @@ QString twoLineText(const QString& text, const QFont& font, int width)
             lines.append(metrics.elidedText(text.mid(start), Qt::ElideRight, width));
             break;
         }
-        lines.append(text.mid(line.textStart(), line.textLength()).trimmed());
+        // A word longer than the tile would overflow the line: elide it (the tooltip has it).
+        lines.append(metrics.elidedText(
+            text.mid(line.textStart(), line.textLength()).trimmed(), Qt::ElideRight, width));
         start = line.textStart() + line.textLength();
     }
     layout.endLayout();
