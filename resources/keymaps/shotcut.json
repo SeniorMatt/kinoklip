@@ -192,6 +192,7 @@
         "view.onscreen_crop": [],
         "view.onscreen_dynamic_zoom": [],
         "view.fullscreen": ["F11"],
+        "view.reset_ui_layout": [],
         "view.show_rulers": [],
         "view.guides_show": [],
         "view.guides_lock": [],

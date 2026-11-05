@@ -46,7 +46,9 @@
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QSettings>
+#include <QSplitter>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QUndoStack>
 #include <QVBoxLayout>
 
@@ -58,6 +60,8 @@ namespace {
 
 constexpr char kGeometryKey[] = "mainWindow/geometry";
 constexpr char kStateKey[] = "mainWindow/state";
+/// A dragged splitter is stored this long after the last move (not only on quitting).
+constexpr int kLayoutSaveDelayMs = 1000;
 constexpr char kPageKey[] = "mainWindow/page";
 const QSize kMinimumWindowSize(1024, 640);
 
@@ -173,6 +177,15 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     m_pageActions = new QActionGroup(this);
     m_pageActions->setExclusive(true);
 
+    // Panel sizes are stored shortly after a splitter drag, so a crash does not lose them.
+    m_layoutSaveTimer = new QTimer(this);
+    m_layoutSaveTimer->setSingleShot(true);
+    m_layoutSaveTimer->setInterval(kLayoutSaveDelayMs);
+    connect(m_layoutSaveTimer, &QTimer::timeout, this, [this] {
+        if (m_options.saveLayout)
+            saveSettings();
+    });
+
     // ---- Pages (extension point: new pages are added here) ----
     m_mediaPage = new MediaPage(ctx);
     m_editPage = new EditPage(ctx);
@@ -259,6 +272,11 @@ void MainWindow::addPage(Page* page, const QString& actionId)
     m_stack->addWidget(page);
     m_pages.append(PageEntry {page, action});
     m_pageBar->addPageAction(action);
+    // The layout as built is what Workspace > Reset UI Layout returns to.
+    page->captureDefaultLayout();
+    for (QSplitter* splitter : page->findChildren<QSplitter*>())
+        connect(splitter, &QSplitter::splitterMoved, m_layoutSaveTimer,
+            qOverload<>(&QTimer::start));
     const QString id = page->pageId();
     connect(action, &QAction::triggered, this, [this, id] { setCurrentPage(id); });
     connect(page, &Page::panelVisibilityChanged, this, [this, page] {
@@ -402,6 +420,10 @@ void MainWindow::connectAppActions()
             m_scopesWindow->setVisible(on);
         });
     }
+
+    // ---- Workspace > Reset UI Layout: every page back to its default panels and sizes ----
+    connect(actions.action(QStringLiteral("view.reset_ui_layout")), &QAction::triggered, this,
+        &MainWindow::resetUiLayout);
 
     // ---- Undo / redo (through Project so they are refused mid-drag) ----
     QAction* undo = actions.action(QStringLiteral("edit.undo"));
@@ -562,6 +584,14 @@ void MainWindow::changeEvent(QEvent* event)
     // Keep View ▸ Full Screen checked state right when the window manager changes it (Esc, ...).
     if (event->type() == QEvent::WindowStateChange)
         m_ctx.actions->action(QStringLiteral("view.fullscreen"))->setChecked(isFullScreen());
+}
+
+void MainWindow::resetUiLayout()
+{
+    for (const PageEntry& entry : std::as_const(m_pages))
+        entry.page->resetLayout();
+    syncPanelToggles();
+    m_layoutSaveTimer->start();
 }
 
 void MainWindow::saveSettings() const

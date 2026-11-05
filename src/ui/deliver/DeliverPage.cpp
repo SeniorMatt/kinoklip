@@ -295,23 +295,38 @@ void DeliverPage::updateRange()
 void DeliverPage::showEvent(QShowEvent* event)
 {
     Page::showEvent(event);
-    if (!m_layoutRestored && !m_proportionsApplied && m_topRow->width() > 0) {
-        // QSplitter alone gives the whole size difference to the viewer; keep Resolve's
-        // proportions instead (render settings and queue about a quarter each).
-        m_proportionsApplied = true;
-        const int width = m_topRow->width();
-        const int total = kSettingsWidth + kViewerWidth + kQueueWidth;
-        const int settings = std::max(m_settingsPanel->minimumSizeHint().width(),
-            int(qint64(kSettingsWidth) * width / total));
-        const int queue = int(qint64(kQueueWidth) * width / total);
-        m_topRow->setSizes({settings, width - settings - queue, queue});
-    }
+    if (!m_layoutRestored && !m_proportionsApplied)
+        applyDefaultWidths();
     m_viewer->setPosition(
         m_ctx.project->timeline()->playhead(), m_ctx.project->timeline()->data().fps);
     schedulePreview();
     // Detection opens GPU encoders (NVENC init ~0.5 s each); start it after the first preview
     // so both do not compete for the GPU driver when the page opens.
     QTimer::singleShot(kHwDetectionDelayMs, this, &DeliverPage::detectHardware);
+}
+
+void DeliverPage::applyDefaultWidths()
+{
+    const int width = m_topRow->width();
+    if (width <= 0)
+        return;
+    // QSplitter alone gives the whole size difference to the viewer; keep Resolve's
+    // proportions instead (render settings and queue about a quarter each).
+    m_proportionsApplied = true;
+    const int total = kSettingsWidth + kViewerWidth + kQueueWidth;
+    const int settings = std::max(m_settingsPanel->minimumSizeHint().width(),
+        int(qint64(kSettingsWidth) * width / total));
+    const int queue = int(qint64(kQueueWidth) * width / total);
+    m_topRow->setSizes({settings, width - settings - queue, queue});
+}
+
+void DeliverPage::resetLayout()
+{
+    Page::resetLayout();
+    m_layoutRestored = false;
+    m_proportionsApplied = false;
+    if (isVisible())
+        applyDefaultWidths();
 }
 
 void DeliverPage::detectHardware()

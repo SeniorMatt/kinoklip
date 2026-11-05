@@ -734,19 +734,8 @@ void ColorPage::showEvent(QShowEvent* event)
         qApp->installEventFilter(this);
         m_filterInstalled = true;
     }
-    if (m_defaultSizes) {
-        // First show: Resolve-like proportions (gallery and nodes narrow, palettes wide).
-        m_defaultSizes = false;
-        const int w = std::max(800, width());
-        const int side = std::clamp(w / 7, 170, 280);
-        const int nodes = std::clamp(w / 4, 260, 460);
-        m_top->setSizes({side, w - side - nodes, nodes});
-        m_bottom->setSizes({w * 2 / 3, w - w * 2 / 3});
-        const int h = std::max(500, height());
-        const int middle = m_middle->sizeHint().height();
-        const int bottom = std::clamp((h - middle) * 2 / 5, 230, 380);
-        m_rows->setSizes({h - middle - bottom, middle, bottom});
-    }
+    if (m_defaultSizes)
+        applyDefaultSizes();
     m_session->openClip(0);
     // The page's keys act while focus is inside it (Alt+S right after Shift+6, as in
     // Resolve): when the page that had the focus went away, the node editor takes it.
@@ -764,6 +753,29 @@ void ColorPage::showEvent(QShowEvent* event)
     m_frames->setActive(true);
     updateHeader();
     updateTimecode();
+}
+
+void ColorPage::applyDefaultSizes()
+{
+    // Resolve-like proportions (gallery and nodes narrow, palettes wide).
+    m_defaultSizes = false;
+    const int w = std::max(800, width());
+    const int side = std::clamp(w / 7, 170, 280);
+    const int nodes = std::clamp(w / 4, 260, 460);
+    m_top->setSizes({side, w - side - nodes, nodes});
+    m_bottom->setSizes({w * 2 / 3, w - w * 2 / 3});
+    const int h = std::max(500, height());
+    const int middle = m_middle->sizeHint().height();
+    const int bottom = std::clamp((h - middle) * 2 / 5, 230, 380);
+    m_rows->setSizes({h - middle - bottom, middle, bottom});
+}
+
+void ColorPage::resetLayout()
+{
+    Page::resetLayout();
+    m_defaultSizes = true;
+    if (isVisible())
+        applyDefaultSizes();
 }
 
 void ColorPage::hideEvent(QHideEvent* event)

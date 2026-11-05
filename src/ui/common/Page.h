@@ -2,10 +2,15 @@
 // Page — base class of the main window's pages (Media, Edit, Deliver, ...).
 #pragma once
 
+#include <QByteArray>
+#include <QList>
+#include <QPair>
+#include <QPointer>
 #include <QString>
 #include <QWidget>
 
 class QSettings;
+class QSplitter;
 
 namespace kk {
 
@@ -97,9 +102,20 @@ public:
     /// Restores what saveLayout() wrote (missing keys keep the defaults).
     virtual void restoreLayout(const QSettings& settings) { Q_UNUSED(settings); }
 
+    /// Remembers the page's splitters and panel visibility as built, the layout resetLayout()
+    /// returns to. The main window calls it right after building the page, before restoreLayout().
+    void captureDefaultLayout();
+    /// Workspace > Reset UI Layout: back to the layout captureDefaultLayout() saw. Pages whose
+    /// defaults depend on their size extend it.
+    virtual void resetLayout();
+
 signals:
     /// A panel was shown or hidden (by the toolbar or by the page itself).
     void panelVisibilityChanged(kk::PanelId id, bool visible);
+
+private:
+    QList<QPair<QPointer<QSplitter>, QByteArray>> m_defaultSplitters;
+    QList<QPair<PanelId, bool>> m_defaultPanels;
 };
 
 } // namespace kk
