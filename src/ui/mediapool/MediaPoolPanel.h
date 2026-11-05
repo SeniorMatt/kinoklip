@@ -10,6 +10,7 @@
 
 #include <QStringList>
 
+#include <array>
 #include <functional>
 
 class QAbstractItemView;
@@ -17,11 +18,14 @@ class QItemSelectionModel;
 class QLineEdit;
 class QListView;
 class QMenu;
+class QMouseEvent;
+class QSlider;
 class QSplitter;
 class QStackedWidget;
 class QToolButton;
 class QTreeView;
 class QTreeWidgetItem;
+class QWheelEvent;
 
 namespace kk {
 
@@ -43,6 +47,10 @@ class BinList;
 ///   sortable columns (right-click the header). View mode and sort order are remembered per
 ///   bin (Project::binViewState()). Search filters the current bin and its sub-bins by name,
 ///   path and metadata; the colour filter shows one clip colour.
+/// - The mouse's Back / Forward buttons (over the clip area or the bin list) go back to the
+///   bin opened before and forward again, like a file manager. The thumbnail size follows
+///   the slider in the toolbar or Ctrl+wheel over the grid (remembered in QSettings); the
+///   wheel scrolls the grid and the strips by a third of a row per notch.
 /// - Items drag out as mime::MediaItems (newline-separated ids). Double-click emits
 ///   openInSourceViewer(). Missing files are marked offline; tiles show the clip colour,
 ///   flags and whether the item is used in a timeline.
@@ -134,6 +142,26 @@ public:
     /// Re-reads the preferences (default smart bins on / off).
     void applyPreferences();
 
+    // ---- Bin history (mouse Back / Forward buttons) and thumbnail size ----
+
+    /// Shows the bin opened before the shown one (bins deleted since are skipped). Returns
+    /// false when there is none.
+    bool goBack();
+    /// Shows the bin that goBack() left again. Returns false when there is none.
+    bool goForward();
+    [[nodiscard]] bool canGoBack() const;
+    [[nodiscard]] bool canGoForward() const;
+
+    /// Poster widths of the grid's thumbnail sizes (16:9), px, smallest first; the default
+    /// is MediaPoolModel::kPosterSize's width.
+    static constexpr std::array<int, 9> kThumbnailWidths {64, 80, 96, 112, 128, 144, 176, 208, 240};
+    /// Poster width of the grid's thumbnails, one of kThumbnailWidths.
+    [[nodiscard]] int thumbnailWidth() const { return kThumbnailWidths[m_thumbnailStep]; }
+    /// Sets the thumbnail size to the step nearest @p width (remembered in QSettings).
+    void setThumbnailWidth(int width);
+    /// Larger (@p steps > 0) or smaller thumbnails, within kThumbnailWidths.
+    void zoomThumbnails(int steps);
+
     /// Replaces the poster frame provider (tests, or another cache). Call
     /// model()->thumbnailReady(path) when a pending poster becomes available.
     void setThumbnailProvider(PosterProvider provider);
@@ -213,6 +241,7 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
 
@@ -259,6 +288,22 @@ private:
     void applyBinView();
     void storeBinView();
     void applyColumnVisibility();
+    // ---- History and wheel ----
+    /// After the user opened bin @p key: drops the forward entries and appends it.
+    void recordHistory(const QString& key);
+    /// History index that goBack() (@p direction -1) / goForward() (+1) would show, or -1.
+    [[nodiscard]] int historyTarget(int direction) const;
+    /// Shows the bin at historyTarget(@p direction) without recording it.
+    bool stepHistory(int direction);
+    /// Back / Forward mouse buttons: navigates the history. Returns true if handled.
+    bool navigateByButton(const QMouseEvent* event);
+    /// Shows thumbnail size step @p step (clamped); @p remember stores it in QSettings.
+    void applyThumbnailStep(int step, bool remember);
+    /// Ctrl+wheel over the grid: one size step per notch (accumulated for touchpads).
+    void zoomByWheel(const QWheelEvent* event);
+    /// Plain wheel over @p view: pixel scrolling, a third of a row per notch (pixelDelta as is
+    /// for touchpads). Returns false for wheel events left to Qt.
+    bool scrollByWheel(QAbstractItemView* view, const QWheelEvent* event);
     [[nodiscard]] QVector<SmartBin> shownSmartBins() const;
     [[nodiscard]] MediaPool* poolForKey(const QString& key) const;
     // ---- Context menus (MediaPoolMenus.cpp) ----
@@ -304,6 +349,7 @@ private:
     QToolButton* m_stripButton = nullptr;
     QToolButton* m_binsButton = nullptr;
     QToolButton* m_colorButton = nullptr;
+    QSlider* m_zoomSlider = nullptr; ///< thumbnail size (grid view)
     ViewMode m_viewMode = ViewMode::Grid;
     bool m_stripAvailable = false;
     /// Stack page showing the items in @p mode (the strip page only where available).
@@ -311,6 +357,12 @@ private:
     bool m_binsAuto = true; ///< bins visibility follows the width until the user toggles it
     bool m_showDefaultSmartBins = false; ///< Preferences > Editing
     bool m_applyingView = false; ///< applyBinView() running: do not store the view back
+    QStringList m_history; ///< bin keys opened, oldest first (goBack() / goForward())
+    int m_historyIndex = 0; ///< the entry shown (or last shown) in m_history
+    bool m_recordHistory = true; ///< false while the history itself or a rebuild changes the bin
+    int m_thumbnailStep = 5; ///< index into kThumbnailWidths (144 px)
+    int m_zoomWheel = 0; ///< Ctrl+wheel angle not yet turned into a size step
+    double m_wheelRemainder = 0; ///< scroll pixels below 1 px left from high-resolution wheels
 };
 
 } // namespace kk

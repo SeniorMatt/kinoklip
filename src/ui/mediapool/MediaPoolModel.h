@@ -138,7 +138,7 @@ public:
         LinkedLocation ///< a file on disk
     };
 
-    /// Size poster frames are scaled to fit (16:9 tile).
+    /// Default size poster frames are scaled to fit (16:9 tile; setPosterSize() changes it).
     static constexpr QSize kPosterSize {144, 81};
 
     /// Creates the model for @p project's media pool.
@@ -171,6 +171,11 @@ public:
 
     /// Sets the poster frame provider (default: none = placeholders only).
     void setThumbnailProvider(PosterProvider provider);
+    /// Scales posters to fit @p size (the grid's thumbnail size). Posters are requested at
+    /// least at kPosterSize's height, so zooming out reuses the frames already decoded.
+    void setPosterSize(QSize size);
+    /// The size posters are scaled to fit.
+    [[nodiscard]] QSize posterSize() const { return m_posterSize; }
     /// A poster frame for @p path became available: drops the pending mark and repaints rows.
     void thumbnailReady(const QString& path);
     /// Re-checks which files are offline (e.g. when the application becomes active).
@@ -272,6 +277,7 @@ private:
     QVector<Row> m_rows;
     QHash<QString, int> m_rowById;
     PosterProvider m_provider;
+    QSize m_posterSize = kPosterSize;
     std::function<MediaLinkStatus(const QString&)> m_linkStatus;
     // Poster cache (mutable: filled lazily from the const data()).
     mutable QCache<QString, QPixmap> m_posters; ///< path → scaled poster; cost in KiB
