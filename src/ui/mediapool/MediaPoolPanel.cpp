@@ -38,13 +38,20 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPointer>
+#include <QScopedValueRollback>
+#include <QScrollBar>
 #include <QSettings>
+#include <QSlider>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
+#include <QWheelEvent>
+
+#include <algorithm>
+#include <cmath>
 
 namespace kk {
 
@@ -54,6 +61,16 @@ constexpr int kSearchMaxWidth = 280; ///< px; Resolve keeps the media pool searc
 constexpr char kViewModeKey[] = "mediaPool/viewMode";
 constexpr char kBinsVisibleKey[] = "mediaPool/binsVisible";
 constexpr char kColumnsKey[] = "mediaPool/columns"; ///< list of visible column keys
+constexpr char kThumbnailWidthKey[] = "mediaPool/thumbnailWidth"; ///< poster width, px
+constexpr int kDefaultThumbnailStep = 5;
+static_assert(
+    MediaPoolPanel::kThumbnailWidths[kDefaultThumbnailStep] == MediaPoolModel::kPosterSize.width());
+/// A wheel notch scrolls the grid / strips by this fraction of a row (QListView's own step is
+/// three whole rows of 115 px).
+constexpr int kWheelRowFraction = 3;
+constexpr int kWheelNotch = 120; ///< QWheelEvent::angleDelta() of one notch
+constexpr int kMaxHistory = 100; ///< bins kept in the Back / Forward history
+constexpr int kZoomSliderWidth = 70;
 /// Below this panel width the bins sidebar hides itself (unless the user chose explicitly), so
 /// the grid keeps at least two tile columns in the narrow Edit page column.
 constexpr int kAutoBinsMinWidth = 460;
@@ -86,6 +103,21 @@ MediaPoolPanel::ViewMode viewModeFromKey(const QString& key)
     if (key == QLatin1String("strip"))
         return MediaPoolPanel::ViewMode::Strip;
     return MediaPoolPanel::ViewMode::Grid;
+}
+
+/// Index of the thumbnail size nearest @p width.
+int nearestThumbnailStep(int width)
+{
+    const auto& widths = MediaPoolPanel::kThumbnailWidths;
+    const auto nearest = std::min_element(widths.begin(), widths.end(),
+        [width](int a, int b) { return std::abs(a - width) < std::abs(b - width); });
+    return int(nearest - widths.begin());
+}
+
+/// The thumbnail width stored by the last change of either page's media pool.
+int storedThumbnailWidth(int fallback)
+{
+    return QSettings().value(QLatin1String(kThumbnailWidthKey), fallback).toInt();
 }
 } // namespace
 
@@ -166,14 +198,14 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     m_grid->setBatchSize(200);
     m_grid->setSpacing(kGridSpacing);
     m_grid->setWrapping(true);
-    m_grid->setItemDelegate(new MediaPoolDelegate(m_grid));
-    m_grid->setGridSize(MediaPoolDelegate::tileSize() + QSize(kGridSpacing, kGridSpacing));
+    m_grid->setItemDelegate(new MediaPoolDelegate(m_grid)); // tile size: applyThumbnailStep()
 
     // Strip view (Cut page): one row per clip with a film strip of thumbnails across it.
     m_strip = new QListView;
     m_strip->setObjectName(QStringLiteral("MediaPoolStrip"));
     m_strip->setViewMode(QListView::ListMode);
     m_strip->setUniformItemSizes(true);
+    m_strip->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel); // scrollByWheel()
     m_strip->setResizeMode(QListView::Adjust);
     m_strip->setItemDelegate(new MediaPoolStripDelegate(
         [this](const QString& id) {
@@ -245,8 +277,12 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
                 showItemMenu(view->viewport()->mapToGlobal(pos));
         });
     }
-    // A double-click on a folder tile's name renames the bin (elsewhere it opens it).
-    m_grid->viewport()->installEventFilter(this);
+    // A double-click on a folder tile's name renames the bin (elsewhere it opens it); the
+    // wheel scrolls gently and Ctrl+wheel zooms; the Back / Forward mouse buttons go through
+    // the bin history (also over the bin list).
+    for (QWidget* viewport :
+        {m_grid->viewport(), m_list->viewport(), m_strip->viewport(), m_bins->viewport()})
+        viewport->installEventFilter(this);
     QHeaderView* header = m_list->header();
     header->setStretchLastSection(true);
     header->setSectionsMovable(true);
@@ -364,6 +400,8 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     const QString stored = QSettings().value(QLatin1String(kViewModeKey)).toString();
     setViewMode(viewModeFromKey(stored));
     applyBinView();
+    applyThumbnailStep(nearestThumbnailStep(storedThumbnailWidth(thumbnailWidth())), false);
+    m_history = {currentBinKey()};
 }
 
 void MediaPoolPanel::buildToolbar(QWidget* host)
@@ -404,6 +442,20 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
         [this, colorMenu] { fillColorFilterMenu(colorMenu); });
     m_colorButton->setMenu(colorMenu);
     layout->addWidget(m_colorButton);
+
+    // Thumbnail size (Resolve's media pool slider; Ctrl+wheel over the grid too). Shown with
+    // the grid only.
+    m_zoomSlider = new QSlider(Qt::Horizontal, host);
+    m_zoomSlider->setObjectName(QStringLiteral("MediaPoolThumbnailSize"));
+    m_zoomSlider->setToolTip(tr("Thumbnail size (Ctrl+wheel over the clips)"));
+    m_zoomSlider->setRange(0, int(kThumbnailWidths.size()) - 1);
+    m_zoomSlider->setPageStep(1);
+    m_zoomSlider->setValue(m_thumbnailStep);
+    m_zoomSlider->setFixedWidth(kZoomSliderWidth);
+    m_zoomSlider->setFocusPolicy(Qt::NoFocus);
+    connect(m_zoomSlider, &QSlider::valueChanged, this,
+        [this](int step) { applyThumbnailStep(step, true); });
+    layout->addWidget(m_zoomSlider);
 
     auto makeToggle = [host, layout](const QString& iconName, const QString& tip) {
         auto* button = new QToolButton(host);
@@ -636,6 +688,8 @@ void MediaPoolPanel::showEvent(QShowEvent* event)
 {
     PanelFrame::showEvent(event);
     becomeImportTarget();
+    // The other page's media pool may have changed the shared thumbnail size.
+    applyThumbnailStep(nearestThumbnailStep(storedThumbnailWidth(thumbnailWidth())), false);
 }
 
 void MediaPoolPanel::setCurrentBinKey(const QString& key)
@@ -651,6 +705,159 @@ void MediaPoolPanel::showBinKey(const QString& key)
         return;
     m_proxy->setBin(key);
     applyBinView();
+    if (m_recordHistory)
+        recordHistory(key);
+}
+
+// ---- Bin history ----
+
+void MediaPoolPanel::recordHistory(const QString& key)
+{
+    m_history.erase(
+        m_history.begin() + std::min(m_historyIndex + 1, int(m_history.size())), m_history.end());
+    if (m_history.isEmpty() || m_history.back() != key)
+        m_history.append(key);
+    if (m_history.size() > kMaxHistory)
+        m_history.remove(0, m_history.size() - kMaxHistory);
+    m_historyIndex = int(m_history.size()) - 1;
+}
+
+int MediaPoolPanel::historyTarget(int direction) const
+{
+    // Skips bins deleted since (no row in the bin list) and the bin shown (after a deleted
+    // bin fell back to Master, Master may be both the entry before and the bin shown).
+    for (int i = m_historyIndex + direction; i >= 0 && i < m_history.size(); i += direction) {
+        const QString& key = m_history[i];
+        if (key != currentBinKey() && m_bins->itemForKey(key))
+            return i;
+    }
+    return -1;
+}
+
+bool MediaPoolPanel::canGoBack() const
+{
+    return historyTarget(-1) >= 0;
+}
+
+bool MediaPoolPanel::canGoForward() const
+{
+    return historyTarget(+1) >= 0;
+}
+
+bool MediaPoolPanel::goBack()
+{
+    return stepHistory(-1);
+}
+
+bool MediaPoolPanel::goForward()
+{
+    return stepHistory(+1);
+}
+
+bool MediaPoolPanel::stepHistory(int direction)
+{
+    const int target = historyTarget(direction);
+    if (target < 0)
+        return false;
+    m_historyIndex = target;
+    const QScopedValueRollback paused(m_recordHistory, false);
+    setCurrentBinKey(m_history[target]);
+    return true;
+}
+
+bool MediaPoolPanel::navigateByButton(const QMouseEvent* event)
+{
+    if (event->button() == Qt::BackButton)
+        goBack();
+    else if (event->button() == Qt::ForwardButton)
+        goForward();
+    else
+        return false;
+    return true;
+}
+
+void MediaPoolPanel::mousePressEvent(QMouseEvent* event)
+{
+    // The toolbar, the empty placeholder and the panel's margins pass presses up to here.
+    if (navigateByButton(event)) {
+        event->accept();
+        return;
+    }
+    PanelFrame::mousePressEvent(event);
+}
+
+// ---- Thumbnail size and wheel ----
+
+void MediaPoolPanel::setThumbnailWidth(int width)
+{
+    applyThumbnailStep(nearestThumbnailStep(width), true);
+}
+
+void MediaPoolPanel::zoomThumbnails(int steps)
+{
+    applyThumbnailStep(m_thumbnailStep + steps, true);
+}
+
+void MediaPoolPanel::applyThumbnailStep(int step, bool remember)
+{
+    step = std::clamp(step, 0, int(kThumbnailWidths.size()) - 1);
+    const int width = kThumbnailWidths[step];
+    const QSize poster(width, (width * 9 + 8) / 16); // 16:9, rounded
+    auto* delegate = static_cast<MediaPoolDelegate*>(m_grid->itemDelegate());
+    const bool changed = step != m_thumbnailStep || delegate->posterSize() != poster;
+    m_thumbnailStep = step;
+    if (remember)
+        QSettings().setValue(QLatin1String(kThumbnailWidthKey), width);
+    {
+        const QSignalBlocker block(m_zoomSlider);
+        m_zoomSlider->setValue(step);
+    }
+    if (!changed && m_grid->gridSize().isValid())
+        return;
+    delegate->setPosterSize(poster);
+    m_model->setPosterSize(poster);
+    m_grid->setGridSize(MediaPoolDelegate::tileSize(poster) + QSize(kGridSpacing, kGridSpacing));
+    // Keep the current item in view across the relayout.
+    if (const QModelIndex current = m_selection->currentIndex(); current.isValid())
+        QTimer::singleShot(0, m_grid, [grid = m_grid, current = QPersistentModelIndex(current)] {
+            if (current.isValid())
+                grid->scrollTo(current);
+        });
+}
+
+void MediaPoolPanel::zoomByWheel(const QWheelEvent* event)
+{
+    const int delta = event->angleDelta().y();
+    if ((delta > 0) != (m_zoomWheel > 0))
+        m_zoomWheel = 0; // direction changed
+    m_zoomWheel += delta;
+    const int steps = m_zoomWheel / kWheelNotch;
+    if (steps == 0)
+        return;
+    m_zoomWheel -= steps * kWheelNotch;
+    zoomThumbnails(steps);
+}
+
+bool MediaPoolPanel::scrollByWheel(QAbstractItemView* view, const QWheelEvent* event)
+{
+    // Ctrl / Shift (page steps) and Alt (horizontal) keep Qt's handling.
+    if (event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier | Qt::AltModifier))
+        return false;
+    const QPoint pixels = event->pixelDelta();
+    const QPoint angle = event->angleDelta();
+    if (pixels.y() == 0 && angle.y() == 0)
+        return false; // horizontal
+    const int row
+        = view == m_grid ? m_grid->gridSize().height() : MediaPoolStripDelegate::rowHeight();
+    // Touchpads report pixels: follow the fingers. Wheels: a third of a row per notch.
+    double delta = pixels.y() != 0 ? double(pixels.y())
+                                   : angle.y() * (double(row) / kWheelRowFraction) / kWheelNotch;
+    delta += m_wheelRemainder;
+    const int scroll = int(delta);
+    m_wheelRemainder = delta - scroll;
+    QScrollBar* bar = view->verticalScrollBar();
+    bar->setValue(bar->value() - scroll);
+    return true;
 }
 
 void MediaPoolPanel::setSearchText(const QString& text)
@@ -693,6 +900,7 @@ void MediaPoolPanel::setViewMode(ViewMode mode)
     m_gridButton->setChecked(shown == ViewMode::Grid);
     m_listButton->setChecked(shown == ViewMode::List);
     m_stripButton->setChecked(shown == ViewMode::Strip);
+    m_zoomSlider->setVisible(shown == ViewMode::Grid);
     if (m_model->rowCount() > 0)
         m_stack->setCurrentIndex(stackIndexFor(mode));
     else
@@ -855,6 +1063,33 @@ bool MediaPoolPanel::eventFilter(QObject* watched, QEvent* event)
             return true;
         }
     }
+    const bool viewport = watched == m_grid->viewport() || watched == m_list->viewport()
+        || watched == m_strip->viewport() || watched == m_bins->viewport();
+    if (viewport
+        && (event->type() == QEvent::MouseButtonPress
+            || event->type() == QEvent::MouseButtonDblClick
+            || event->type() == QEvent::MouseButtonRelease)) {
+        // Back / Forward (quick repeated presses arrive as double-clicks); the views would
+        // select the item under the pointer.
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (mouse->button() == Qt::BackButton || mouse->button() == Qt::ForwardButton) {
+            if (event->type() != QEvent::MouseButtonRelease)
+                navigateByButton(mouse);
+            return true;
+        }
+    }
+    if (event->type() == QEvent::Wheel
+        && (watched == m_grid->viewport() || watched == m_strip->viewport())) {
+        const auto* wheel = static_cast<QWheelEvent*>(event);
+        if (watched == m_grid->viewport() && (wheel->modifiers() & Qt::ControlModifier)) {
+            zoomByWheel(wheel);
+            return true;
+        }
+        if (scrollByWheel(
+                watched == m_grid->viewport() ? static_cast<QAbstractItemView*>(m_grid) : m_strip,
+                wheel))
+            return true;
+    }
     if (watched == m_grid->viewport() && event->type() == QEvent::MouseButtonDblClick) {
         const auto* mouse = static_cast<QMouseEvent*>(event);
         const QModelIndex index = m_grid->indexAt(mouse->position().toPoint());
@@ -925,6 +1160,8 @@ MediaPool* MediaPoolPanel::poolForKey(const QString& key) const
 
 void MediaPoolPanel::rebuildBins()
 {
+    // Falling back to Master for a deleted bin is not a navigation of the user's.
+    const QScopedValueRollback paused(m_recordHistory, false);
     m_proxy->binsChanged();
     m_proxy->smartBinsChanged();
     // A default smart bin that was switched off: back to Master.
