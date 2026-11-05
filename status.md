@@ -198,3 +198,4 @@
 - 2026-11-04: 1.1.3-beta.1 published (Effects library Live Preview on hover). Host 175/175, container 176/176.
 - 2026-11-05: 1.1.4-beta.1 published (Media Pool back/forward, thumbnail size, gentler wheel; smoother transition preview with position line). Host 176/176, container 177/177.
 - 2026-11-05: 1.1.5-beta.1 published (Bog fixes, edit during playback, Keyframes panel views, stutter at cuts, waveforms, remembered panel sizes, browser links). Host 185/185, container 186 reported 100 % (test_cutperf excluded).
+- 2026-11-05: 1.1.6-beta.1 published (AppImage starts on Fedora, issue 1). Clean Fedora 44 container OK, container tests 186 passed (test_cutperf excluded).
