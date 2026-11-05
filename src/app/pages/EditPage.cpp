@@ -111,8 +111,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     auto* livePreview = new EffectsLivePreview(ctx, m_timelineViewer, this);
     connect(m_effects, &EffectsLibraryPanel::livePreviewRequested, livePreview,
         &EffectsLivePreview::hover);
-    connect(m_effects, &EffectsLibraryPanel::livePreviewEnded, livePreview,
-        &EffectsLivePreview::stop);
+    connect(
+        m_effects, &EffectsLibraryPanel::livePreviewEnded, livePreview, &EffectsLivePreview::stop);
     // The Edit page's Mixer panel: the Audio page's mixer strips (own controller and meter
     // ballistics; automation Write passes run only from the Audio page).
     auto* mixerController = new MixerController(ctx, this);
@@ -278,11 +278,30 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
         m_keyframes->setTimelineView(first, last);
     });
     connect(timelineWidget->keyframeLanes(), &KeyframeLanes::openInPanelRequested, this,
-        [this](quint64 clipId) {
+        [this](quint64 clipId, bool curves) {
             if (!m_ctx.selection->isSelected(clipId))
                 m_ctx.selection->selectClip(clipId);
+            m_keyframes->setView(
+                curves ? KeyframesPanel::View::Curves : KeyframesPanel::View::Keyframes);
             setPanelVisible(PanelId::Keyframes, true);
         });
+    connect(timelineWidget->keyframeLanes(), &KeyframeLanes::editorOpenedByUser, m_keyframes,
+        [this](bool curves) {
+            m_keyframes->setView(
+                curves ? KeyframesPanel::View::Curves : KeyframesPanel::View::Keyframes);
+        });
+    // Spec 15.22: flips the view; a hidden panel just opens, in the view it had.
+    if (m_ctx.actions) {
+        if (QAction* a = m_ctx.actions->action(QStringLiteral("view.keyframes_panel_toggle_view")))
+            connect(a, &QAction::triggered, this, [this] {
+                if (isPanelVisible(PanelId::Keyframes))
+                    m_keyframes->setView(m_keyframes->view() == KeyframesPanel::View::Curves
+                            ? KeyframesPanel::View::Keyframes
+                            : KeyframesPanel::View::Curves);
+                else
+                    setPanelVisible(PanelId::Keyframes, true);
+            });
+    }
 
     // Focus in the timeline makes the program viewer the transport target (ViewerTransport);
     // in single viewer mode the one viewer follows the active one, like Resolve.

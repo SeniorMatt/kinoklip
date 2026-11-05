@@ -85,9 +85,10 @@ double KeyframeLanes::LayoutTimeMap::pixelsPerFrame() const
 void KeyframeLanes::setupLaneWidget(KeyframeViewBase* w, quint64 clipId)
 {
     w->setSnappingProvider([this] { return m_controller && m_controller->snapping(); });
-    w->setMenuExtender([this, clipId](QMenu& menu) {
+    const bool curves = qobject_cast<CurveView*>(w) != nullptr;
+    w->setMenuExtender([this, clipId, curves](QMenu& menu) {
         connect(menu.addAction(tr("Open in Keyframes Panel")), &QAction::triggered, this,
-            [this, clipId] { emit openInPanelRequested(clipId); });
+            [this, clipId, curves] { emit openInPanelRequested(clipId, curves); });
     });
 }
 
@@ -115,8 +116,10 @@ void KeyframeLanes::placeOpenPanelButton(
             tr("The clip is too narrow to edit its keyframes here: edit them in the Keyframes "
                "panel"));
         l.openPanel->setFocusPolicy(Qt::NoFocus);
-        connect(l.openPanel, &QToolButton::clicked, this,
-            [this, clipId] { emit openInPanelRequested(clipId); });
+        connect(l.openPanel, &QToolButton::clicked, this, [this, clipId] {
+            // One button per clip: curves unless only the keyframe editor is open.
+            emit openInPanelRequested(clipId, isCurveEditorOpen(clipId));
+        });
     }
     QToolButton* b = l.openPanel;
     b->adjustSize();
@@ -179,7 +182,15 @@ void KeyframeLanes::toggleForSelection(bool keyframes)
     const quint64 id = m_ctx.selection->currentClip();
     if (id == 0)
         return;
-    setOpen(id, keyframes, keyframes ? !isKeyframeEditorOpen(id) : !isCurveEditorOpen(id));
+    userToggle(id, keyframes);
+}
+
+void KeyframeLanes::userToggle(quint64 clipId, bool keyframes)
+{
+    const bool open = keyframes ? !isKeyframeEditorOpen(clipId) : !isCurveEditorOpen(clipId);
+    setOpen(clipId, keyframes, open);
+    if (open)
+        emit editorOpenedByUser(!keyframes);
 }
 
 void KeyframeLanes::reset()
@@ -391,11 +402,11 @@ bool KeyframeLanes::clickClipButton(QPointF pos)
     const auto [keys, curves] = clipButtonRects(hit.row, *clip);
     const QPoint p = pos.toPoint();
     if (keys.contains(p)) {
-        setKeyframeEditorOpen(clip->id, !isKeyframeEditorOpen(clip->id));
+        userToggle(clip->id, true);
         return true;
     }
     if (curves.contains(p)) {
-        setCurveEditorOpen(clip->id, !isCurveEditorOpen(clip->id));
+        userToggle(clip->id, false);
         return true;
     }
     return false;

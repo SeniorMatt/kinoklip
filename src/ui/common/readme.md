@@ -88,7 +88,7 @@ Behaviour is connected by the module that owns it:
 
 | Ids | Connected by |
 |---|---|
-| `file.new/open/save/save_as/import_media`, `file.quit`, `edit.undo/redo`, `view.page_*`, `view.toggle_*` (incl. `view.toggle_keyframes`: EditPage docks / floats the Keyframes panel), `view.single_viewer`, `view.fullscreen`, `help.*`; `settings.color_scheme.*` / `settings.style.*` (registered by app/Theme into the Settings submenus) | app (done) |
+| `file.new/open/save/save_as/import_media`, `file.quit`, `edit.undo/redo`, `view.page_*`, `view.toggle_*` (incl. `view.toggle_keyframes`: EditPage docks / floats the Keyframes panel; `view.keyframes_panel_toggle_view`: flips its Keyframes / Curves view), `view.single_viewer`, `view.fullscreen`, `help.*`; `settings.color_scheme.*` / `settings.style.*` (registered by app/Theme into the Settings submenus) | app (done) |
 | `tool.*`, `trim.*`, `edit.split/delete/ripple_delete/cut/copy/paste/paste_insert/select_all/deselect_all/insert/overwrite/place_on_top/replace/fit_to_fill/append_at_end`, `timeline.*`, `clip.toggle_enabled/link/unlink`, `mark.*`, `transport.prev_edit/next_edit/go_to_start/go_to_end/prev_marker/next_marker` | timeline agent |
 | `transport.*`, `view.fullscreen_viewer` | playback agent |
 | `cut.*` (smart edits, `cut.fast_review`, `cut.viewer_*` exclusive group; disabled until the Cut page shows) | src/ui/cut (`CutEditor`, `CutViewer`) and `app/pages/CutPage` |

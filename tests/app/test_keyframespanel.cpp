@@ -14,6 +14,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/common/StandardActions.h"
 #include "ui/inspector/KeyframeButton.h"
 #include "ui/inspector/ValueField.h"
@@ -23,13 +24,18 @@
 #include "ui/keyframes/KeyframeParamTree.h"
 #include "ui/keyframes/KeyframeRuler.h"
 #include "ui/keyframes/KeyframesPanel.h"
+#include "ui/timeline/KeyframeLanes.h"
+#include "ui/timeline/TimelinePanel.h"
+#include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
+#include <QLabel>
 #include <QSettings>
 #include <QSplitter>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QToolButton>
 #include <QUndoStack>
@@ -289,7 +295,7 @@ private slots:
         Fixture f;
         PanelView v(f.ctx);
         f.selection.selectClip(f.video);
-        v.panel.setViews(false, true);
+        v.panel.setView(KeyframesPanel::View::Curves);
         CurveView* curves = v.panel.curveView();
         curves->setAxisMode(CurveView::AxisMode::Absolute);
         for (const CurveInfo& c : curves->curves())
@@ -388,6 +394,371 @@ private slots:
             QVERIFY(f.window->editPage()->isPanelVisible(PanelId::Keyframes));
         }
         QSettings().clear();
+    }
+
+    // 15.22: one view at a time, Keyframes by default; the switch's two buttons; the buttons
+    // of the value axis only with the curves; no splitter between the views any more.
+    void spec15_22_showsOneViewAtATime()
+    {
+        Fixture f;
+        PanelView v(f.ctx);
+        f.selection.selectClip(f.video);
+        QApplication::processEvents();
+        KeyframesPanel& p = v.panel;
+        QCOMPARE(p.view(), KeyframesPanel::View::Keyframes);
+        QVERIFY(p.dopeSheet()->isVisible());
+        QVERIFY(!p.curveView()->isVisible());
+        QVERIFY(p.keyframesViewButton()->isChecked());
+        QVERIFY(!p.normalisedButton()->isVisible());
+        QVERIFY(!p.fitSelectionButton()->isVisible());
+        const int minimumWidth = p.minimumSizeHint().width();
+        const auto fillOf = [](QToolButton* b) {
+            return b->grab().toImage().pixelColor(3, b->height() / 2).rgb();
+        };
+        QVERIFY(fillOf(p.keyframesViewButton()) != fillOf(p.curvesViewButton()));
+        QTest::mouseClick(p.curvesViewButton(), Qt::LeftButton);
+        QCOMPARE(p.minimumSizeHint().width(), minimumWidth); // a docked column stays put
+        QVERIFY(fillOf(p.keyframesViewButton()) != fillOf(p.curvesViewButton()));
+        QCOMPARE(p.view(), KeyframesPanel::View::Curves);
+        QVERIFY(!p.dopeSheet()->isVisible());
+        QVERIFY(p.curveView()->isVisible());
+        QVERIFY(p.curvesViewButton()->isChecked());
+        QVERIFY(!p.keyframesViewButton()->isChecked());
+        QVERIFY(p.normalisedButton()->isVisible());
+        QVERIFY(p.fitSelectionButton()->isVisible());
+        QVERIFY(p.dopeSheet()->width() > 0);
+        QCOMPARE(p.findChildren<QSplitter*>().size(), 1); // tree | views
+        QTest::mouseClick(p.keyframesViewButton(), Qt::LeftButton);
+        QVERIFY(p.dopeSheet()->isVisible());
+        QVERIFY(!p.curveView()->isVisible());
+    }
+
+    // 15.22: switching keeps the selection, the time zoom and scroll, the shown curves and the
+    // tree; both views use the same time map.
+    void spec15_22_switchKeepsSharedState()
+    {
+        Fixture f;
+        PanelView v(f.ctx);
+        f.selection.selectClip(f.video);
+        const QVector<KeyframeRef> keys = ko::keysAt(f.clip(f.video), 40);
+        f.selection.setKeyframes(keys);
+        KeyframesPanel& p = v.panel;
+        p.setViewMode(KeyframesPanel::ViewMode::FollowTimeline);
+        p.setTimelineView(20, 400);
+        p.setViewMode(KeyframesPanel::ViewMode::Free);
+        const ParamId opacity {f.video, kOpacity};
+        p.curveView()->setCurveShown(opacity, false);
+        QApplication::processEvents();
+        const double ppf = p.timeMap().pixelsPerFrame();
+        const double x50 = p.timeMap().frameToX(50);
+        const int rows = p.tree()->rowCount();
+        for (const auto view : {KeyframesPanel::View::Curves, KeyframesPanel::View::Keyframes}) {
+            p.setView(view);
+            QApplication::processEvents();
+            QCOMPARE(f.selection.keyframes(), keys);
+            QCOMPARE(p.timeMap().pixelsPerFrame(), ppf);
+            QCOMPARE(p.timeMap().frameToX(50), x50);
+            QCOMPARE(p.viewMode(), KeyframesPanel::ViewMode::Free);
+            QVERIFY(!p.curveView()->isCurveShown(opacity));
+            QCOMPARE(p.tree()->rowCount(), rows);
+        }
+        QCOMPARE(f.undoCount(), 0);
+    }
+
+    // 15.22: the choice survives a restart.
+    void spec15_22_viewSurvivesRestart()
+    {
+        QSettings().clear();
+        {
+            Fixture f;
+            f.makeWindow();
+            f.window->editPage()->keyframes()->setView(KeyframesPanel::View::Curves);
+            f.window->close();
+        }
+        {
+            Fixture f;
+            f.makeWindow();
+            QCOMPARE(f.window->editPage()->keyframes()->view(), KeyframesPanel::View::Curves);
+        }
+        QSettings().clear();
+    }
+
+    // 15.22: a layout stored by the stacked panel: its splitter value is ignored and dropped,
+    // the tree | views splitter keeps its own value, and curves alone stay curves.
+    void spec15_22_storedStackedLayoutIsIgnored()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QSettings s(dir.filePath(QStringLiteral("layout.ini")), QSettings::IniFormat);
+        Fixture f;
+        PanelView v(f.ctx);
+        const QByteArray split = v.panel.findChild<QSplitter*>()->saveState();
+        s.setValue(QStringLiteral("keyframes/split"), split);
+        // A state of a vertical splitter, as the old "viewSplit" held.
+        QSplitter old(Qt::Vertical);
+        old.addWidget(new QWidget);
+        old.addWidget(new QWidget);
+        s.setValue(QStringLiteral("keyframes/viewSplit"), old.saveState());
+        s.setValue(QStringLiteral("keyframes/dopeSheet"), true);
+        s.setValue(QStringLiteral("keyframes/curves"), true);
+        v.panel.restoreState(s, QStringLiteral("keyframes/"));
+        QCOMPARE(v.panel.view(), KeyframesPanel::View::Keyframes); // both on: the default
+        QCOMPARE(v.panel.findChild<QSplitter*>()->orientation(), Qt::Horizontal);
+        s.setValue(QStringLiteral("keyframes/dopeSheet"), false);
+        v.panel.restoreState(s, QStringLiteral("keyframes/"));
+        QCOMPARE(v.panel.view(), KeyframesPanel::View::Curves);
+        v.panel.saveState(s, QStringLiteral("keyframes/"));
+        QVERIFY(!s.contains(QStringLiteral("keyframes/viewSplit")));
+        QVERIFY(!s.contains(QStringLiteral("keyframes/dopeSheet")));
+        QVERIFY(!s.contains(QStringLiteral("keyframes/curves")));
+        QCOMPARE(s.value(QStringLiteral("keyframes/view")).toString(), QStringLiteral("curves"));
+    }
+
+    // 15.22: what asks for a view shows it: the toggle command (no default key), the clip's
+    // editors, "Open in Keyframes Panel", a curve ticked in the tree.
+    void spec15_22_entryPointsSwitchView()
+    {
+        QSettings().clear();
+        Fixture f;
+        f.makeWindow();
+        EditPage* edit = f.window->editPage();
+        KeyframesPanel* p = edit->keyframes();
+        const auto kCurves = KeyframesPanel::View::Curves;
+        const auto kKeys = KeyframesPanel::View::Keyframes;
+        const QString toggleId = QStringLiteral("view.keyframes_panel_toggle_view");
+        QVERIFY(f.actions.contains(toggleId));
+        QAction* toggle = f.actions.action(toggleId);
+        QVERIFY(toggle->shortcut().isEmpty());
+        QVERIFY(!edit->isPanelVisible(PanelId::Keyframes));
+        toggle->trigger(); // hidden: opens in the view it had
+        QCOMPARE(p->view(), kKeys);
+        QVERIFY(edit->isPanelVisible(PanelId::Keyframes));
+        QVERIFY(p->isVisible());
+        toggle->trigger();
+        QCOMPARE(p->view(), kCurves);
+        toggle->trigger();
+        QCOMPARE(p->view(), kKeys);
+
+        f.selection.selectClip(f.video);
+        // The clip's editors: opening switches, closing leaves the view alone.
+        f.actions.action(QStringLiteral("clip.toggle_curve_editor"))->trigger();
+        QCOMPARE(p->view(), kCurves);
+        f.actions.action(QStringLiteral("clip.toggle_keyframe_editor"))->trigger();
+        QCOMPARE(p->view(), kKeys);
+        f.actions.action(QStringLiteral("clip.toggle_curve_editor"))->trigger(); // closes
+        QCOMPARE(p->view(), kKeys);
+
+        auto* timeline = f.window->findChild<TimelinePanel*>();
+        QVERIFY(timeline);
+        KeyframeLanes* lanes = timeline->timelineWidget()->keyframeLanes();
+        edit->setPanelVisible(PanelId::Keyframes, false);
+        f.selection.clear();
+        emit lanes->openInPanelRequested(f.audio, true);
+        QCOMPARE(p->view(), kCurves);
+        QVERIFY(edit->isPanelVisible(PanelId::Keyframes));
+        QVERIFY(f.selection.isSelected(f.audio));
+        emit lanes->openInPanelRequested(f.audio, false);
+        QCOMPARE(p->view(), kKeys);
+
+        // A curve ticked on in the tree shows the curves; ticked off it stays where it is.
+        const QVector<ParamId> ids {ParamId {f.video, kPosX}};
+        emit p->tree()->curvesToggled(ids, false);
+        QCOMPARE(p->view(), kKeys);
+        emit p->tree()->curvesToggled(ids, true);
+        QCOMPARE(p->view(), kCurves);
+        f.window->close();
+        QSettings().clear();
+    }
+
+    // 15.23: the panel's regions differ without a selection, in a dark and a light scheme: the
+    // rows from the window background, every other row from its neighbour, the ruler band from
+    // the rows and from the window. Colours sampled from the painted panel.
+    void spec15_23_regionsAreDistinct_data()
+    {
+        QTest::addColumn<QString>("scheme");
+        QTest::newRow("Kinoklip") << QStringLiteral("Kinoklip");
+        QTest::newRow("BreezeLight") << QStringLiteral("BreezeLight");
+    }
+    void spec15_23_regionsAreDistinct()
+    {
+        QFETCH(QString, scheme);
+        theme::setColorScheme(scheme);
+        QApplication::processEvents();
+        Fixture f;
+        PanelView v(f.ctx);
+        // The clip's keys are selected as a clip, no key selected.
+        f.selection.selectClip(f.video);
+        v.panel.setViewMode(KeyframesPanel::ViewMode::FollowTimeline);
+        v.panel.setTimelineView(0, 400);
+        QApplication::processEvents();
+        const SchemeColors& sc = schemeColors();
+        const QColor window = v.panel.palette().color(QPalette::Window);
+        const auto apart = [](const QColor& a, const QColor& b, int minimum) {
+            const int d = std::abs(qGray(a.rgb()) - qGray(b.rgb()));
+            if (d < minimum)
+                qWarning() << a.name() << b.name() << "differ by" << d << "of" << minimum;
+            return d >= minimum;
+        };
+
+        const QImage dope = v.panel.dopeSheet()->grab().toImage();
+        const int inClip = int(v.panel.timeMap().frameToX(140)); // after the last key
+        QColor row, stripe;
+        const int rowCount = v.panel.dopeSheet()->rows().size();
+        // Rows 3 and 4 (Composite, Opacity: no item fill, no span line this far right).
+        const int rowH = KeyframeParamTree::kRowHeight;
+        stripe = dope.pixelColor(inClip, 3 * rowH + rowH / 2);
+        row = dope.pixelColor(inClip, 4 * rowH + rowH / 2);
+        QVERIFY(rowCount > 4);
+        QCOMPARE(row.rgb(), sc.keyRows.rgb());
+        QVERIFY(apart(row, stripe, 6));
+        QVERIFY(apart(row, window, 8));
+        QVERIFY(apart(stripe, window, 5));
+        // Outside the clip's span is its own shade.
+        const QColor outside
+            = dope.pixelColor(int(v.panel.timeMap().frameToX(300)), dope.height() - 2);
+        QCOMPARE(outside.rgb(), sc.keyRowsOutside.rgb());
+        QVERIFY(apart(outside, row, 4));
+        QVERIFY(apart(outside, window, 8));
+
+        // The curves share the rows' background.
+        v.panel.setView(KeyframesPanel::View::Curves);
+        QApplication::processEvents();
+        const QImage curvesImage = v.panel.curveView()->grab().toImage();
+        bool curvesOutside = false; // grid lines cross it: any pixel of a short stretch will do
+        for (int dx = 0; dx < 40 && !curvesOutside; ++dx) {
+            curvesOutside
+                = curvesImage.pixelColor(int(v.panel.timeMap().frameToX(300)) + dx, 3).rgb()
+                == sc.keyRowsOutside.rgb();
+        }
+        QVERIFY(curvesOutside);
+
+        // The ruler band (and the tree's header beside it).
+        const QColor ruler
+            = v.panel.ruler()->grab().toImage().pixelColor(v.panel.ruler()->width() - 2, 1);
+        QCOMPARE(ruler.rgb(), sc.keyRuler.rgb());
+        QVERIFY(apart(ruler, row, 8));
+        QVERIFY(apart(ruler, window, 4));
+        auto* header = v.panel.findChild<QLabel*>(QStringLiteral("KeyframesTreeHeader"));
+        QVERIFY(header);
+        QCOMPARE(header->grab().toImage().pixelColor(header->width() - 2, 1).rgb(), ruler.rgb());
+        theme::setColorScheme(QStringLiteral("Kinoklip"));
+    }
+
+    // 11.9: keys are snap targets of the playhead like markers, for the keys of the shown clips,
+    // not the keys trimmed away or being dragged, not the retime curve.
+    void spec11_9_keySnapTargets()
+    {
+        Fixture f;
+        const TimelineData& d = f.project.timeline()->data();
+        const auto targets = ko::withKeySnapTargets({0}, d, {f.video});
+        QCOMPARE(targets, (std::vector<int64_t> {0, 50, 90})); // clip at 50, keys 0 and 40
+        QCOMPARE(ko::withKeySnapTargets({0}, d, {}), (std::vector<int64_t> {0}));
+        // opacity also has a key at 40: 90 stays until both are excluded.
+        const QVector<KeyframeRef> posX40 {{f.video, kPosX, 40}};
+        QCOMPARE(
+            ko::withKeySnapTargets({0}, d, {f.video}, posX40), (std::vector<int64_t> {0, 50, 90}));
+        const QVector<KeyframeRef> both {{f.video, kPosX, 40}, {f.video, kOpacity, 40}};
+        QCOMPARE(ko::withKeySnapTargets({0}, d, {f.video}, both), (std::vector<int64_t> {0, 50}));
+        // Trimmed out of the clip: not a target.
+        f.project.beginEdit(QStringLiteral("trim"));
+        editops::clipById(f.project.timeline()->mutableData(), f.video)->duration = 30;
+        f.project.endEdit();
+        QCOMPARE(ko::withKeySnapTargets({}, f.project.timeline()->data(), {f.video}),
+            (std::vector<int64_t> {50}));
+    }
+
+    // 11.9: scrubbing the panel's ruler snaps to keys, in both views; the Snapping toggle turns
+    // it off, read live during the drag (11.5); timeline markers count too.
+    void spec11_9_panelRulerSnapsToKeys_data()
+    {
+        QTest::addColumn<bool>("curves");
+        QTest::newRow("keyframes") << false;
+        QTest::newRow("curves") << true;
+    }
+    void spec11_9_panelRulerSnapsToKeys()
+    {
+        QFETCH(bool, curves);
+        Fixture f;
+        PanelView v(f.ctx);
+        f.selection.selectClip(f.video);
+        KeyframesPanel& p = v.panel;
+        p.setView(curves ? KeyframesPanel::View::Curves : KeyframesPanel::View::Keyframes);
+        // About 2.4 px per frame: the snap distance (8 px) is 3 frames.
+        p.setViewMode(KeyframesPanel::ViewMode::FollowTimeline);
+        p.setTimelineView(0, 400);
+        QApplication::processEvents();
+        QVERIFY(p.timeMap().pixelsPerFrame() > 2.0);
+        QVERIFY(p.timeMap().pixelsPerFrame() < 4.0);
+        QAction* snapping = f.actions.action(QStringLiteral("timeline.snapping"));
+        snapping->setChecked(true);
+        Timeline* t = f.project.timeline();
+        KeyframeRuler* ruler = p.ruler();
+        const auto xOf
+            = [&](int frame) { return QPoint(int(std::lround(p.timeMap().frameToX(frame))), 5); };
+
+        QTest::mousePress(ruler, Qt::LeftButton, {}, xOf(92)); // key at 50 + 40
+        QCOMPARE(t->playhead(), int64_t(90));
+        QTest::mouseMove(ruler, xOf(110)); // volume key of the linked audio: 50 + 60
+        QCOMPARE(t->playhead(), int64_t(110));
+        QTest::mouseMove(ruler, xOf(130));
+        QCOMPARE(t->playhead(), int64_t(130)); // nothing near
+        snapping->setChecked(false);
+        QTest::mouseMove(ruler, xOf(92));
+        QCOMPARE(t->playhead(), int64_t(92));
+        snapping->setChecked(true);
+        QTest::mouseMove(ruler, xOf(92));
+        QCOMPARE(t->playhead(), int64_t(90));
+        QTest::mouseRelease(ruler, Qt::LeftButton, {}, xOf(92));
+        QVERIFY(!ruler->isScrubbing());
+
+        // Markers, which the panel's ruler ignored before.
+        f.project.beginEdit(QStringLiteral("marker"));
+        Marker marker;
+        marker.frame = 200;
+        t->mutableData().markers.append(marker);
+        f.project.endEdit();
+        QTest::mousePress(ruler, Qt::LeftButton, {}, xOf(201));
+        QCOMPARE(t->playhead(), int64_t(200));
+        QTest::mouseRelease(ruler, Qt::LeftButton, {}, xOf(201));
+        snapping->setChecked(false);
+    }
+
+    // 15.24: a dragged key snaps to the other keys of the shown clips and to markers, in the
+    // dope sheet and the curves (shared code), not to itself.
+    void spec15_24_keyDragSnapsToKeysAndMarkers()
+    {
+        Fixture f;
+        PanelView v(f.ctx);
+        f.selection.selectClip(f.video);
+        f.project.beginEdit(QStringLiteral("marker"));
+        Marker marker;
+        marker.frame = 70;
+        f.project.timeline()->mutableData().markers.append(marker);
+        f.project.endEdit();
+        f.project.undoStack()->clear();
+        KeyframesPanel& p = v.panel;
+        p.setViewMode(KeyframesPanel::ViewMode::FollowTimeline);
+        p.setTimelineView(0, 400);
+        QApplication::processEvents();
+        f.actions.action(QStringLiteral("timeline.snapping"))->setChecked(true);
+        DopeSheetView* dope = p.dopeSheet();
+        const int y = dope->diamondPosAt(v.rowOf(QStringLiteral("Position X")), 50).y();
+        const auto xOf = [&](int frame) { return int(std::lround(p.timeMap().frameToX(frame))); };
+
+        // Position X's first key (frame 50), dropped next to the marker at 70.
+        drag(dope, QPoint(xOf(50), y), QPoint(xOf(68), y));
+        QVERIFY(f.value(f.video, kPosX).hasKeyAt(20));
+        f.project.undo();
+        // ... and next to the volume key of the linked audio at 110 (local 60).
+        drag(dope, QPoint(xOf(50), y), QPoint(xOf(112), y));
+        QVERIFY(f.value(f.video, kPosX).hasKeyAt(60));
+        f.project.undo();
+        // Nothing near: where it was dropped. Its own old frame is no target either.
+        drag(dope, QPoint(xOf(50), y), QPoint(xOf(130), y));
+        QVERIFY(f.value(f.video, kPosX).hasKeyAt(80));
+        f.project.undo();
+        QVERIFY(f.value(f.video, kPosX).hasKeyAt(0));
+        f.actions.action(QStringLiteral("timeline.snapping"))->setChecked(false);
     }
 };
 

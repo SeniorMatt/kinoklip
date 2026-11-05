@@ -325,6 +325,9 @@ void unlinkClips(TimelineData& data, const QVector<quint64>& clipIds);
 
 // ---- Snapping & navigation ----
 
+/// Snapping distance in pixels: the same at every zoom (spec 11.3) and for every gesture.
+inline constexpr int kSnapDistancePx = 8;
+
 /// Sorted, unique frames worth snapping to: 0, the playhead, in/out marks, timeline markers
 /// (both ends of a ranged marker), and the start/end and visible clip markers (at their
 /// timeline frames, both ends of a ranged one) of every clip not listed in @p excludeClipIds

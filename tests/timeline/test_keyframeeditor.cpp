@@ -310,6 +310,45 @@ private slots:
         QTest::mouseClick(open, Qt::LeftButton);
         QCOMPARE(spy.count(), 1);
         QCOMPARE(spy.front().front().toULongLong(), v.clipId);
+        QCOMPARE(spy.front().at(1).toBool(), true); // only the curve editor is open: curves
+        v.lanes()->setKeyframeEditorOpen(v.clipId, true);
+        v.lanes()->setCurveEditorOpen(v.clipId, false);
+        QApplication::processEvents();
+        open = v.lanes()->openPanelButton(v.clipId);
+        QVERIFY(open && open->isVisible());
+        QTest::mouseClick(open, Qt::LeftButton);
+        QCOMPARE(spy.at(1).at(1).toBool(), false);
+    }
+
+    // 11.9: the timeline ruler's scrub snaps to the keys of the selected clips and of the clips
+    // with an open lane, not of other animated clips; the Snapping toggle turns it off.
+    void spec11_9_timelineScrubSnapsToKeys()
+    {
+        View v;
+        v.w.setPixelsPerFrame(2.0, kHeaderWidth); // the snap distance is 4 frames
+        QApplication::processEvents();
+        const auto rulerAt
+            = [&](int frame) { return QPoint(int(std::lround(v.w.layout().frameToX(frame))), 5); };
+        const auto scrub = [&](int frame) {
+            v.f.project.timeline()->setPlayhead(300); // a press on the head would grab it
+            QTest::mousePress(v.w.viewport(), Qt::LeftButton, {}, rulerAt(frame));
+            QTest::mouseRelease(v.w.viewport(), Qt::LeftButton, {}, rulerAt(frame));
+            return v.f.project.timeline()->playhead();
+        };
+        // Clip at 10: keys at 10, 30, 50. Not selected, no lane: frame 32 stays.
+        QCOMPARE(scrub(32), int64_t(32));
+        v.f.selection.selectClip(v.clipId);
+        QCOMPARE(scrub(32), int64_t(30));
+        QCOMPARE(scrub(52), int64_t(50));
+        v.f.selection.clear();
+        QCOMPARE(scrub(32), int64_t(32));
+        v.lanes()->setKeyframeEditorOpen(v.clipId, true);
+        QApplication::processEvents();
+        QCOMPARE(scrub(32), int64_t(30));
+        // The Snapping toggle, as for markers.
+        v.c.setSnapping(false);
+        QCOMPARE(scrub(32), int64_t(32));
+        v.c.setSnapping(true);
     }
 };
 

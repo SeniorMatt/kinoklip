@@ -69,6 +69,11 @@ struct SchemeColors
     QColor snap, locked, muted, soloed;
     QColor keyframe, keyframeSelected, levelLine;
     QColor lane, laneAlt, ruler, grid;
+    /// Regions of the Keyframes panel (spec 15.23): the rows area inside a clip's span, every
+    /// other row (a translucent stripe, painted over both), the area outside the clip's span,
+    /// and the band of the ruler and the parameter tree's header. Each differs visibly from
+    /// the panel's window background, with or without a selection.
+    QColor keyRows, keyRowStripe, keyRowsOutside, keyRuler;
     QColor cached, uncached; ///< render cache bar
     QColor overlay, overlayText; ///< plates and text drawn over video
     QColor viewerSurround, viewerText; ///< around the picture (dark in every scheme)
