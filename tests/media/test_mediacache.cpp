@@ -138,18 +138,21 @@ private slots:
         QVERIFY(spy.wait(kWaitMs));
         const std::shared_ptr<const WaveformData> data = m_cache->waveform(path);
         QVERIFY(data);
-        QCOMPARE(data->peaksPerSecond, 100);
-        QVERIFY(qAbs(data->size() - 1000) <= 2); // 10 s
+        QCOMPARE(data->peaksPerSecond, 200);
+        QVERIFY(qAbs(data->size() - 2000) <= 4); // 10 s
         QCOMPARE(data->maxL.size(), data->size());
+        QCOMPARE(data->rmsR.size(), data->size());
         // 440 Hz sine at amplitude 1/8, upmixed to stereo by ffmpeg's `-ac 2` at -3 dB
-        // → peaks ≈ ±0.125 × 0.707 × 127 ≈ ±11.
+        // → peaks ≈ ±0.125 × 0.707 × 32767 ≈ ±2896, RMS ≈ 2896 / √2 ≈ 2048.
         const int maxL = *std::max_element(data->maxL.begin(), data->maxL.end());
         const int minL = *std::min_element(data->minL.begin(), data->minL.end());
-        QVERIFY2(maxL >= 9 && maxL <= 14, qPrintable(QString::number(maxL)));
-        QVERIFY2(minL <= -9 && minL >= -14, qPrintable(QString::number(minL)));
-        // Same sine on both channels (AAC stereo coding may differ by a quantisation step).
+        QVERIFY2(maxL >= 2300 && maxL <= 3600, qPrintable(QString::number(maxL)));
+        QVERIFY2(minL <= -2300 && minL >= -3600, qPrintable(QString::number(minL)));
+        const int rmsL = data->rmsL[data->size() / 2];
+        QVERIFY2(rmsL >= 1650 && rmsL <= 2550, qPrintable(QString::number(rmsL)));
+        // Same sine on both channels (AAC stereo coding may differ a little).
         for (int i = 0; i < data->size(); ++i) {
-            QVERIFY(qAbs(data->maxR[i] - data->maxL[i]) <= 2);
+            QVERIFY(qAbs(data->maxR[i] - data->maxL[i]) <= 520);
         }
         QVERIFY(countFiles(m_cacheDir.path() + QStringLiteral("/waveforms")) == 1);
 
@@ -161,6 +164,8 @@ private slots:
         QVERIFY(reloaded);
         QCOMPARE(reloaded->maxL, data->maxL);
         QCOMPARE(reloaded->minR, data->minR);
+        QCOMPARE(reloaded->rmsL, data->rmsL);
+        QCOMPARE(reloaded->levels.size(), data->levels.size());
     }
 
     void failuresAreRememberedAndQuiet()

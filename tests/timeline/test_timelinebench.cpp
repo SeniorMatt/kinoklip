@@ -50,9 +50,12 @@ private slots:
         thumb.fill(QColor(80, 120, 160));
         w.setThumbnailProvider([&thumb](const QString&, int64_t, int) { return thumb; });
         w.setWaveformProvider(
-            [](const QString&, double startUs, double usPerColumn, int columns, float* peaks) {
-                for (int i = 0; i < columns; ++i)
+            [](const QString&, double startUs, double usPerColumn, int columns, float* peaks,
+                float* rms) {
+                for (int i = 0; i < columns; ++i) {
                     peaks[i] = float(0.5 + 0.45 * std::sin((startUs + i * usPerColumn) * 1e-5));
+                    rms[i] = 0.5f * peaks[i];
+                }
                 return true;
             });
         // Bench clips are solids; make every 3rd one a media clip so thumbnails/waveforms run.

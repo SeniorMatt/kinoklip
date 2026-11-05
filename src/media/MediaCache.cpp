@@ -440,7 +440,7 @@ void MediaCache::finishWaveform(
             m_failed.insert(key);
             return;
         }
-        const int costKb = data->size() * 4 / 1024 + 1;
+        const int costKb = int(data->memoryBytes() / 1024) + 1;
         m_waveforms.insert(path, new std::shared_ptr<const WaveformData>(data), costKb);
     }
     if (m_cancelled) {
