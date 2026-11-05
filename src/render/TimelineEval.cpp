@@ -240,12 +240,127 @@ bool sameNestedTimelines(const NestedTimelines& a, const NestedTimelines& b)
     return true;
 }
 
+namespace {
+
+/// The fields of a clip that cannot change a picture are ignored (a link, a colour, a flag or
+/// a marker during playback must not cancel the frames being rendered).
+bool samePictureClip(const ClipData& a, const ClipData& b)
+{
+    if (a.id != b.id || a.start != b.start || a.duration != b.duration)
+        return false;
+    if (a == b)
+        return true;
+    ClipData x = a;
+    ClipData y = b;
+    for (ClipData* c : {&x, &y}) {
+        c->name.clear();
+        c->label = QColor();
+        c->markers.clear();
+        c->linkGroup = 0;
+        c->cacheOutput = false;
+        c->audio = ParamSet();
+    }
+    return x == y;
+}
+
+bool samePictureTracks(const std::vector<TrackData>& a, const std::vector<TrackData>& b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        const TrackData& x = a[i];
+        const TrackData& y = b[i];
+        if (x.id != y.id || x.enabled != y.enabled || x.muted != y.muted || x.solo != y.solo
+            || x.clips.size() != y.clips.size())
+            return false;
+        for (size_t k = 0; k < x.clips.size(); ++k) {
+            if (!samePictureClip(x.clips[k], y.clips[k]))
+                return false;
+        }
+    }
+    return true;
+}
+
+bool sameTransitionPlace(
+    const std::optional<TransitionData>& a, const std::optional<TransitionData>& b)
+{
+    if (a.has_value() != b.has_value())
+        return false;
+    return !a || (a->type == b->type && a->duration == b->duration && a->alignment == b->alignment);
+}
+
+/// Clip fields that decide which sound or picture plays when.
+bool samePlace(const ClipData& a, const ClipData& b)
+{
+    return a.id == b.id && a.kind == b.kind && a.mediaId == b.mediaId && a.nestedUid == b.nestedUid
+        && a.start == b.start && a.duration == b.duration && a.sourceInUs == b.sourceInUs
+        && a.speed == b.speed && a.enabled == b.enabled && a.retime == b.retime;
+}
+
+bool sameArrangedTracks(const std::vector<TrackData>& a, const std::vector<TrackData>& b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (a[i].id != b[i].id || a[i].enabled != b[i].enabled
+            || a[i].clips.size() != b[i].clips.size())
+            return false;
+        for (size_t k = 0; k < a[i].clips.size(); ++k) {
+            const ClipData& x = a[i].clips[k];
+            const ClipData& y = b[i].clips[k];
+            if (!samePlace(x, y) || x.linkGroup != y.linkGroup
+                || !sameTransitionPlace(x.transitionIn, y.transitionIn)
+                || !sameTransitionPlace(x.transitionOut, y.transitionOut))
+                return false;
+        }
+    }
+    return true;
+}
+
+/// The clips of @p track overlapping [@p from, @p to), in order.
+std::vector<const ClipData*> clipsIn(const TrackData* track, int64_t from, int64_t to)
+{
+    std::vector<const ClipData*> out;
+    if (track) {
+        for (const ClipData& c : track->clips) {
+            if (c.start < to && c.end() > from)
+                out.push_back(&c);
+        }
+    }
+    return out;
+}
+
+} // namespace
+
 bool samePictures(const TimelineData& a, const TimelineData& b)
 {
     return a.uid == b.uid && a.fps == b.fps && a.width == b.width && a.height == b.height
-        && a.retimeProcess == b.retimeProcess && a.videoTracks == b.videoTracks
+        && a.retimeProcess == b.retimeProcess && samePictureTracks(a.videoTracks, b.videoTracks)
         && a.subtitleTracks == b.subtitleTracks && a.grade == b.grade
         && sameNestedTimelines(a.nested, b.nested);
+}
+
+bool sameArrangement(const TimelineData& a, const TimelineData& b)
+{
+    return a.uid == b.uid && sameArrangedTracks(a.videoTracks, b.videoTracks)
+        && sameArrangedTracks(a.audioTracks, b.audioTracks)
+        && sameArrangedTracks(a.subtitleTracks, b.subtitleTracks);
+}
+
+bool soundArrangementDiffers(const TimelineData& a, const TimelineData& b, int64_t from, int64_t to)
+{
+    const size_t tracks = std::max(a.audioTracks.size(), b.audioTracks.size());
+    for (size_t i = 0; i < tracks; ++i) {
+        const auto x = clipsIn(i < a.audioTracks.size() ? &a.audioTracks[i] : nullptr, from, to);
+        const auto y = clipsIn(i < b.audioTracks.size() ? &b.audioTracks[i] : nullptr, from, to);
+        if (x.size() != y.size())
+            return true;
+        for (size_t k = 0; k < x.size(); ++k) {
+            if (!samePlace(*x[k], *y[k]))
+                return true;
+        }
+    }
+    return false;
 }
 
 } // namespace kk::render

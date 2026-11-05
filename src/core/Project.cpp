@@ -62,6 +62,7 @@ public:
     {
         m_project->restoreProjectState(
             unpackSet(m_before), m_poolBefore, m_formatBefore, m_primary);
+        emit m_project->editCommitted(false);
     }
 
     void redo() override
@@ -71,6 +72,7 @@ public:
             return;
         }
         m_project->restoreProjectState(unpackSet(m_after), m_poolAfter, m_formatAfter, m_primary);
+        emit m_project->editCommitted(false);
     }
 
 private:
@@ -664,6 +666,7 @@ void Project::beginEdit(const QString& label)
         qCWarning(lcCore) << "undo step without a name";
     m_editLabel = label;
     m_editCancelled = false;
+    m_editKeepsPlaying = false;
     m_editBefore = currentSet();
     m_editPoolBefore = m_mediaPool->state();
     m_editFormatBefore = m_format;
@@ -706,6 +709,7 @@ void Project::endEdit()
         = below >= 0 ? dynamic_cast<const SnapshotCommand*>(m_undoStack->command(below)) : nullptr;
     m_undoStack->push(new SnapshotCommand(this, m_editLabel, m_editPrimary, before, after,
         belowCommand, std::move(poolBefore), m_mediaPool->state(), m_editFormatBefore, m_format));
+    emit editCommitted(m_editKeepsPlaying);
 }
 
 QString Project::closeStaleEdit()

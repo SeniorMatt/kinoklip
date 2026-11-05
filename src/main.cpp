@@ -153,6 +153,8 @@ int main(int argc, char** argv)
     playback.setBehaviour(kk::PlaybackBehaviour::fromSettings());
     playback.setMediaPool(project.mediaPool());
     playback.setTimeline(project.timeline());
+    QObject::connect(
+        &project, &kk::Project::editCommitted, &playback, &kk::PlaybackEngine::noteEditCommitted);
 
     kk::AppContext ctx;
     ctx.project = &project;

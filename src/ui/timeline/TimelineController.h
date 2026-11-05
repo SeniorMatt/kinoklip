@@ -202,6 +202,9 @@ public:
     /// Whether the program engine is playing (dynamic trim follows playback). Default: asks
     /// AppContext::playback; tests inject their own.
     void setPlayingProvider(std::function<bool()> provider) { m_playing = std::move(provider); }
+    /// The playhead's place after an edit (after the new clip, at a removed range). While the
+    /// program plays it stays where it is: playback goes on from there (spec 48.7).
+    void setPlayheadAfterEdit(int64_t frame);
 
     // ---- Timelines and compound clips (TimelineCompound.cpp) ----
 
