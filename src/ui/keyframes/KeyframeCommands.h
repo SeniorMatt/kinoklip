@@ -5,6 +5,9 @@
 #pragma once
 
 #include "core/Animation.h"
+#include "core/SelectionModel.h"
+
+#include <QVector>
 
 namespace kk {
 
@@ -29,6 +32,22 @@ bool paste(AppContext& ctx);
 bool setSelectedInterp(AppContext& ctx, Interp interp);
 /// Makes the handles of the selected keys horizontal.
 bool flattenSelected(AppContext& ctx);
+/// The keys the easing commands act on: the selected keys, else every key at the playhead of
+/// the selected clips (spec 49.4).
+[[nodiscard]] QVector<KeyframeRef> easingTargets(AppContext& ctx);
+/// Applies preset @p interp to easingTargets() in one undo step ("Keyframe Ease In", ...).
+bool easeTargets(AppContext& ctx, Interp interp);
+/// Connects the registry's easing commands (clip.keyframe_linear, clip.keyframe_ease_in,
+/// clip.keyframe_ease_out, clip.keyframe_ease_in_out) to easeTargets(), once per registry
+/// however many editors call it.
+void bindEasingActions(AppContext& ctx);
+/// The easing command ids with their presets, in menu order.
+struct EasingAction
+{
+    const char* id;
+    Interp interp;
+};
+[[nodiscard]] const QVector<EasingAction>& easingActions();
 /// Empties the clipboard (tests).
 void clearClipboard();
 

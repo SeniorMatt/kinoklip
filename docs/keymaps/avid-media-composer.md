@@ -14,9 +14,9 @@ X extracts, V splices in, B overwrites) and M , . / trim. I and O mark too.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 334 commands; 43 mapped to Media Composer's key (sure 35, likely 6,
+Counts: 338 commands; 43 mapped to Media Composer's key (sure 35, likely 6,
 unsure 2); 130 keep the default (Resolve) key; 13 have no key because
-Media Composer uses it for something else; 148 have no key in either.
+Media Composer uses it for something else; 152 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
 the JSON file and this page and stops when a key is used twice in one scope);

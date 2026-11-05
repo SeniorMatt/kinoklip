@@ -5,6 +5,7 @@
 
 #include "core/EffectRegistry.h"
 
+#include <QSizeF>
 #include <QString>
 #include <QVector>
 
@@ -27,7 +28,11 @@ namespace effectactions {
 /// A new clip (no id, start 0, default length) for a Title / Generator / Effects descriptor:
 /// a Title, Solid, Generator or Adjustment clip with the descriptor's default parameters.
 /// std::nullopt for other descriptors.
-[[nodiscard]] std::optional<ClipData> makeGeneratorClip(const QString& descriptorId, Rational fps);
+/// Region Blur (generators::RegionBlur) is an adjustment clip with a strong Gaussian Blur and
+/// a centred rectangle mask a third of @p frameSize (timeline px) wide and high; their ids are
+/// 0 and are assigned when the clip is placed (editops).
+[[nodiscard]] std::optional<ClipData> makeGeneratorClip(
+    const QString& descriptorId, Rational fps, QSizeF frameSize = QSizeF(1920, 1080));
 
 /// True if an effect of @p category can be applied to a clip on a track of @p type
 /// (video effects on video tracks, audio effects on audio tracks).

@@ -282,6 +282,18 @@ void KeyframeViewBase::showKeyMenu(const QPoint& globalPos)
         group->addAction(a);
         const Interp m = mode;
         connect(a, &QAction::triggered, this, [this, m] { kc::setSelectedInterp(m_ctx, m); });
+        // Shows the key of the matching easing command, when one is assigned (spec 49.4).
+        for (const kc::EasingAction& e : kc::easingActions()) {
+            const QString id = QLatin1String(e.id);
+            QAction* command = m_ctx.actions && m_ctx.actions->contains(id)
+                ? m_ctx.actions->action(id)
+                : nullptr;
+            if (e.interp == mode && command && !command->shortcut().isEmpty()) {
+                a->setShortcut(command->shortcut());
+                a->setShortcutContext(Qt::WidgetShortcut);
+                a->setShortcutVisibleInContextMenu(true);
+            }
+        }
     }
     QAction* flatten = menu.addAction(tr("Flatten Handles"));
     flatten->setEnabled(!keys.isEmpty());

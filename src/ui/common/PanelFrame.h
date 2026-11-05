@@ -10,6 +10,7 @@ class QGridLayout;
 class QHBoxLayout;
 class QLabel;
 class QSettings;
+class QLineEdit;
 class QToolButton;
 
 namespace kk {
@@ -35,6 +36,15 @@ public:
     /// `panel:<key>` contexts of docs/guide/index.json, see src/ui/help). Empty = none.
     void setPanelKey(const QString& key) { m_panelKey = key; }
     [[nodiscard]] QString panelKey() const { return m_panelKey; }
+
+    /// The panel's search field, if it has one (Media Pool, Effects, Edit Index): the field a
+    /// panel toggle focuses with Preferences > Keyboard > "Focus the search field ..." on
+    /// (spec 49.5). Not owned.
+    void setSearchField(QLineEdit* field) { m_searchField = field; }
+    [[nodiscard]] QLineEdit* searchField() const { return m_searchField; }
+    /// Gives the panel's search field the keyboard focus with its text selected, so typing
+    /// replaces the last search. False without a field (or while it cannot take the focus).
+    bool focusSearchField();
 
     /// Sets the body widget (re-parented to the panel; the previous one is deleted).
     void setContentWidget(QWidget* widget);
@@ -72,6 +82,7 @@ private:
     QGridLayout* m_titleGrid = nullptr;
     QWidget* m_content = nullptr;
     QString m_panelKey;
+    QLineEdit* m_searchField = nullptr;
 };
 
 /// A centred, dimmed explanatory label used for empty states and not-yet-implemented panels.

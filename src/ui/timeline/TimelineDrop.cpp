@@ -277,7 +277,8 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
     case EffectCategory::Effects: {
         if (videoTrack < 0)
             return plan;
-        std::optional<ClipData> clip = TimelineController::makeGeneratorClip(effectId, data.fps);
+        std::optional<ClipData> clip = effectactions::makeGeneratorClip(
+            effectId, data.fps, QSizeF(data.width, data.height)); // Region Blur: mask size
         if (!clip)
             return plan;
         clip->start = snapStart(frame, clip->duration);
