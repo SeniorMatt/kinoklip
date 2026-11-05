@@ -26,11 +26,11 @@ class DopeSheetView;
 class KeyframeParamTree;
 class KeyframeRuler;
 
-/// The Keyframes panel (spec 15.14 - 15.18).
+/// The Keyframes panel (spec 15.14 - 15.18, 15.22 - 15.23).
 ///
-/// Layout: tool row (dope sheet / curves switches, interpolation presets, Normalised, Fit All,
+/// Layout: tool row (Keyframes / Curves switch, interpolation presets, Normalised, Fit All,
 /// Fit Selection, view range, Show All); left the KeyframeParamTree, right a ruler above the
-/// dope sheet and the curve editor (either or both, split) and a time scroll bar.
+/// dope sheet or the curve editor (one at a time, spec 15.22) and a time scroll bar.
 ///
 /// What it shows: the selected items (a clip, or a linked video + audio pair as one item,
 /// spec 24.1; several items each get an item row). Time is the timeline's: the playhead is
@@ -60,6 +60,13 @@ public:
         Free
     };
 
+    /// Which view on the keys is shown; selection, time zoom and scroll and the shown curves
+    /// are shared by both.
+    enum class View {
+        Keyframes, ///< dope sheet
+        Curves ///< spline editor
+    };
+
     explicit KeyframesPanel(AppContext& ctx, QWidget* parent = nullptr);
     ~KeyframesPanel() override;
 
@@ -71,14 +78,15 @@ public:
 
     void setViewMode(ViewMode mode);
     [[nodiscard]] ViewMode viewMode() const { return m_viewMode; }
-    /// Shows the dope sheet and / or the curve editor (at least one stays on).
-    void setViews(bool dopeSheet, bool curves);
+    /// Shows that view. A running drag in the current view keeps it until it ends.
+    void setView(View view);
+    [[nodiscard]] View view() const { return m_view; }
     /// Normalised value axis (true, default) or one shared axis; keeps the tool button in step.
     void setNormalised(bool normalised);
     /// Lists every animatable parameter (true) or only animated ones (default).
     void setShowAllParameters(bool all);
 
-    /// Saves splitters, views and options under keys starting with @p prefix.
+    /// Saves the splitter, the view and options under keys starting with @p prefix.
     void saveState(QSettings& settings, const QString& prefix) const;
     /// Restores what saveState() wrote (missing keys keep the defaults).
     void restoreState(const QSettings& settings, const QString& prefix);
@@ -91,6 +99,10 @@ public:
     [[nodiscard]] KeyframeRuler* ruler() const { return m_ruler; }
     [[nodiscard]] const KeyframeTimeMap& timeMap() const { return m_map; }
     [[nodiscard]] QToolButton* floatButton() const { return m_floatButton; }
+    [[nodiscard]] QToolButton* keyframesViewButton() const { return m_keyframesViewButton; }
+    [[nodiscard]] QToolButton* curvesViewButton() const { return m_curvesViewButton; }
+    [[nodiscard]] QToolButton* normalisedButton() const { return m_normalisedButton; }
+    [[nodiscard]] QToolButton* fitSelectionButton() const { return m_fitSelectionButton; }
 
 signals:
     /// The user clicked the float / dock button or double-clicked the header.
@@ -109,6 +121,7 @@ private:
     QWidget* buildToolRow();
     void rebuild();
     void applyView();
+    void applyRegionColors();
     void updateScrollBar();
     void syncDopeWindow();
     void zoomTime(double factor, double anchorX);
@@ -126,6 +139,7 @@ private:
     bool m_showAll = false;
     bool m_floating = false;
     ViewMode m_viewMode = ViewMode::FitClip;
+    View m_view = View::Keyframes;
     double m_timelineFirst = 0.0;
     double m_timelineLast = 0.0;
     bool m_syncingScroll = false;
@@ -134,14 +148,17 @@ private:
 
     QLabel* m_itemLabel = nullptr;
     QToolButton* m_floatButton = nullptr;
-    QToolButton* m_dopeButton = nullptr;
-    QToolButton* m_curvesButton = nullptr;
+    QWidget* m_viewSwitch = nullptr;
+    QToolButton* m_keyframesViewButton = nullptr;
+    QToolButton* m_curvesViewButton = nullptr;
     QToolButton* m_normalisedButton = nullptr;
+    QToolButton* m_fitSelectionButton = nullptr;
     QToolButton* m_showAllButton = nullptr;
     QComboBox* m_viewCombo = nullptr;
     QStackedWidget* m_stack = nullptr;
     QSplitter* m_split = nullptr; ///< tree | right column
-    QSplitter* m_viewSplit = nullptr; ///< dope sheet over curves
+    QStackedWidget* m_viewStack = nullptr; ///< dope sheet or curves
+    QLabel* m_treeHeader = nullptr;
     QWidget* m_right = nullptr;
     KeyframeParamTree* m_tree = nullptr;
     KeyframeRuler* m_ruler = nullptr;

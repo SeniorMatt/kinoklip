@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 338 commands; sure 106, likely 113, unsure 119.
+Counts: 339 commands; sure 106, likely 113, unsure 120.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -237,6 +237,7 @@ that every command has an entry and that no key is used twice.
 | Edit Index panel | `view.toggle_edit_index` | (none) | likely |  |
 | Nodes panel (Compositing page node editor) | `view.toggle_nodes` | (none) | unsure | interface bar toggle; no default key known, none assigned |
 | Keyframes panel (keyframe editor window) | `view.toggle_keyframes` | (none) | unsure | Kinoklip's large keyframe editor; no default key is known, none assigned. |
+| Keyframes Panel: Toggle Keyframe / Curve | `view.keyframes_panel_toggle_view` | (none) | unsure | Third-party guides name a Toggle Keyframe/Curve command in Resolve's Keyboard Customization, with no default key; none assigned. |
 | Gallery panel (Color page stills) | `view.toggle_gallery` | (none) | unsure | Color page interface bar toggle; no default key known, none assigned |
 | Clips panel (Color page thumbnail strip) | `view.toggle_clips` | (none) | unsure | Color page interface bar toggle; no default key known, none assigned |
 | Timeline panel (Color page mini timeline) | `view.toggle_color_timeline` | (none) | unsure | Color page interface bar toggle; no default key known, none assigned |

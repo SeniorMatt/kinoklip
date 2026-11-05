@@ -68,6 +68,8 @@ public:
         quint64 order = 0; ///< opening order (newer wins on a shared track)
     };
 
+    /// Clips with an open keyframe or curve editor.
+    [[nodiscard]] QVector<quint64> openClips() const { return m_states.keys(); }
     /// True if the keyframe editor of @p clipId is open.
     [[nodiscard]] bool isKeyframeEditorOpen(quint64 clipId) const;
     /// True if the curve editor of @p clipId is open.
@@ -122,11 +124,17 @@ public:
 signals:
     /// Lane heights changed: the timeline must rebuild its layout (and call syncGeometry()).
     void layoutChanged();
-    /// The user asked to edit the keys of @p clipId in the Keyframes panel (the page selects
-    /// the clip and shows the panel).
-    void openInPanelRequested(quint64 clipId);
+    /// The user asked to edit the keys of @p clipId in the Keyframes panel, from a curve lane
+    /// (@p curves) or a keyframe lane (the page selects the clip, shows the panel in that view).
+    void openInPanelRequested(quint64 clipId, bool curves);
+    /// The user opened a clip's curve (@p curves) or keyframe editor: its toggle at the clip's
+    /// corner or clip.toggle_*_editor. The page shows the same view in the Keyframes panel.
+    void editorOpenedByUser(bool curves);
 
 private:
+    /// The user flipped a clip's editor (toggle, command): opening also signals the panel.
+    void userToggle(quint64 clipId, bool keyframes);
+
     struct Lane
     {
         QPointer<KeyframeTrackWidget> keys;

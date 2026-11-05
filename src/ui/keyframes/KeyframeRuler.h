@@ -6,6 +6,9 @@
 #include <QVector>
 #include <QWidget>
 
+#include <cstdint>
+#include <vector>
+
 namespace kk {
 
 struct AppContext;
@@ -38,6 +41,7 @@ protected:
 
 private:
     void scrubTo(double x);
+    std::vector<int64_t> m_snaps; ///< snap targets of the running scrub (spec 11.9)
 
     AppContext& m_ctx;
     const KeyframeTimeMap& m_map;

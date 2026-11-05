@@ -40,9 +40,8 @@ Store& store()
 
 double luminance(const QColor& c)
 {
-    const auto lin = [](double v) {
-        return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4);
-    };
+    const auto lin
+        = [](double v) { return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
     return 0.2126 * lin(c.redF()) + 0.7152 * lin(c.greenF()) + 0.0722 * lin(c.blueF());
 }
 
@@ -135,6 +134,13 @@ SchemeColors compute(const SchemeRoles& r, const QPalette& p, quint64 generation
     c.laneAlt = mixColors(c.view, c.text, 0.08);
     c.ruler = c.dark ? c.window.darker(112) : c.window.darker(104);
     c.grid = mixColors(c.view, c.text, 0.18);
+    // Dark schemes put the view only a shade below the window, too close to read as a separate
+    // area: go further towards the shadow. Light schemes already have white against grey.
+    c.keyRows = c.dark ? mixColors(c.view, c.shadow, 0.35) : c.view;
+    c.keyRowStripe = withAlpha(c.text, c.dark ? 16 : 10);
+    c.keyRowsOutside
+        = c.dark ? mixColors(c.keyRows, c.shadow, 0.45) : mixColors(c.window, c.text, 0.06);
+    c.keyRuler = c.header;
 
     c.cached = c.link;
     c.uncached = c.negative;
@@ -160,8 +166,8 @@ SchemeColors compute(const SchemeRoles& r, const QPalette& p, quint64 generation
 QColor mixColors(const QColor& a, const QColor& b, double amount)
 {
     const auto lerp = [amount](int x, int y) { return int(x + (y - x) * amount + 0.5); };
-    return QColor(lerp(a.red(), b.red()), lerp(a.green(), b.green()), lerp(a.blue(), b.blue()),
-        a.alpha());
+    return QColor(
+        lerp(a.red(), b.red()), lerp(a.green(), b.green()), lerp(a.blue(), b.blue()), a.alpha());
 }
 
 QColor withAlpha(QColor c, int alpha)
@@ -230,7 +236,7 @@ void setSchemeRoles(const SchemeRoles& roles)
     s.roles = roles;
     s.dirty = true;
     (void)schemeColors();
-    emit SchemeColorsNotifier::instance()->changed();
+    emit SchemeColorsNotifier::instance() -> changed();
 }
 
 SchemeColorsNotifier* SchemeColorsNotifier::instance()

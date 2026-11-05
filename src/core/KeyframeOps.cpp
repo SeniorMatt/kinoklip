@@ -422,6 +422,31 @@ QVector<int64_t> clipMarkFrames(const ClipData& clip)
     return frames;
 }
 
+std::vector<int64_t> withKeySnapTargets(std::vector<int64_t> candidates, const TimelineData& data,
+    const QVector<quint64>& clipIds, const QVector<KeyframeRef>& excludeKeys)
+{
+    const QString retime = kRetime + QLatin1Char('/');
+    for (const quint64 id : clipIds) {
+        const ClipData* clip = editops::clipById(data, id);
+        if (!clip)
+            continue;
+        forEachValue(*clip, [&](const QString& path, const AnimatedValue& v) {
+            if (path.startsWith(retime))
+                return;
+            for (const Keyframe& k : v.keys) {
+                if (k.frame < 0 || k.frame >= clip->duration)
+                    continue; // trimmed away: not on screen as a key of the clip's body
+                if (!excludeKeys.isEmpty() && excludeKeys.contains(KeyframeRef {id, path, k.frame}))
+                    continue;
+                candidates.push_back(clip->start + k.frame);
+            }
+        });
+    }
+    std::sort(candidates.begin(), candidates.end());
+    candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
+    return candidates;
+}
+
 std::optional<int64_t> adjacentKeyFrame(const ClipData& clip, int64_t localFrame, bool forward)
 {
     std::optional<int64_t> best;

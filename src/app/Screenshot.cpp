@@ -478,12 +478,13 @@ int runScreenshot(MainWindow& window, const QString& target, const QString& pngP
         edit->setPanelVisible(PanelId::Keyframes, true);
         KeyframesPanel* kf = edit->keyframes();
         if (section == QLatin1String("dope"))
-            kf->setViews(true, false);
+            kf->setView(KeyframesPanel::View::Keyframes);
         else if (section == QLatin1String("curves"))
-            kf->setViews(false, true);
-        else if (section == QLatin1String("absolute"))
+            kf->setView(KeyframesPanel::View::Curves);
+        else if (section == QLatin1String("absolute")) {
+            kf->setView(KeyframesPanel::View::Curves);
             kf->setNormalised(false);
-        else if (section == QLatin1String("float")) {
+        } else if (section == QLatin1String("float")) {
             edit->setKeyframesFloating(true);
             if (QWidget* w = edit->keyframesWindow()) {
                 w->resize(1600, 640);
