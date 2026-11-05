@@ -719,13 +719,15 @@ void TimelinePainter::paintWaveform(QPainter& p, const TimelinePaintInput& in, c
             const double startFrame = L.xToFrame(visible.left()) - double(clip.start);
             const double startUs = double(clip.sourceInUs) + startFrame * usPerFrame;
             m_peaks.resize(size_t(columns)); // capacity is kept between paints
+            m_rms.resize(size_t(columns));
             ok = m_waveforms(clipPreviewPath(clip, item), startUs, usPerFrame / L.pixelsPerFrame(),
-                columns, m_peaks.data());
+                columns, m_peaks.data(), m_rms.data());
         } else if (item || clip.kind == ClipKind::Nested) {
             // Retimed: the waveform follows the retime curve in chunks of kRetimeChunkPx
             // columns (each a straight piece of the curve); freeze and reverse pieces are drawn
             // silent, as the mixer plays them.
             m_peaks.assign(size_t(columns), 0.0f);
+            m_rms.assign(size_t(columns), 0.0f);
             const QString path = clipPreviewPath(clip, item);
             ok = true;
             for (int c0 = 0; c0 < columns && ok; c0 += kRetimeChunkPx) {
@@ -738,7 +740,7 @@ void TimelinePainter::paintWaveform(QPainter& p, const TimelinePaintInput& in, c
                 const double speed = perColumn * L.pixelsPerFrame() / retime::frameUs(fps);
                 if (speed < kMinAudibleSpeed)
                     continue; // muted
-                ok = m_waveforms(path, us0, perColumn, n, m_peaks.data() + c0);
+                ok = m_waveforms(path, us0, perColumn, n, m_peaks.data() + c0, m_rms.data() + c0);
             }
         }
     }
@@ -747,14 +749,37 @@ void TimelinePainter::paintWaveform(QPainter& p, const TimelinePaintInput& in, c
         p.drawLine(QPointF(visible.left(), mid), QPointF(visible.right(), mid));
         return;
     }
-    m_lines.clear();
+    // Like Resolve: mirrored around the centre, linear in amplitude (0 dBFS = the full half
+    // height, never normalised per clip), scaled by the clip's volume at each column (the
+    // level line, keys included) and clipped at the top. The peaks are drawn in the waveform
+    // colour, the RMS body over them a little lighter.
+    const auto vol = clip.audio.values.constFind(keys::VolumeDb);
+    const bool animated = vol != clip.audio.values.cend() && !vol->keys.isEmpty();
+    const auto gainAt = [](double db) { return db <= -144.0 ? 0.0 : std::pow(10.0, db / 20.0); };
+    const double constantGain = gainAt(vol == clip.audio.values.cend()
+            ? keys::defaultValue(keys::VolumeDb)
+            : vol->base);
+    const double clipStart = double(clip.start);
+    // m_lines: the peak lines in [0, columns), the RMS lines in [columns, 2 * columns).
+    m_lines.resize(size_t(columns) * 2);
     const double x0 = visible.left() + 0.5;
     for (int c = 0; c < columns; ++c) {
-        const double a = std::clamp(m_peaks[size_t(c)], 0.0f, 1.0f) * half;
-        if (a >= 0.5)
-            m_lines.emplace_back(x0 + c, mid - a, x0 + c, mid + a);
+        const double gain
+            = animated ? gainAt(vol->valueAtTime(L.xToFrame(x0 + c) - clipStart)) : constantGain;
+        const double a = std::clamp(double(m_peaks[size_t(c)]) * gain, 0.0, 1.0) * half;
+        const double r = std::clamp(double(m_rms[size_t(c)]) * gain, 0.0, 1.0) * half;
+        m_lines[size_t(c)] = QLineF(x0 + c, mid - a, x0 + c, mid + a);
+        m_lines[size_t(columns + c)] = QLineF(x0 + c, mid - r, x0 + c, mid + r);
     }
-    p.drawLines(m_lines.data(), int(m_lines.size()));
+    // Columns too small to show are dropped.
+    const auto tiny = [](const QLineF& l) { return l.y2() - l.y1() < 1.0; };
+    const auto rmsBegin = m_lines.begin() + columns;
+    const std::ptrdiff_t peakCount
+        = std::remove_if(m_lines.begin(), rmsBegin, tiny) - m_lines.begin();
+    const std::ptrdiff_t rmsCount = std::remove_if(rmsBegin, m_lines.end(), tiny) - rmsBegin;
+    p.drawLines(m_lines.data(), int(peakCount));
+    p.setPen(color.lighter(125));
+    p.drawLines(m_lines.data() + columns, int(rmsCount));
     p.fillRect(QRectF(visible.left(), mid, visible.width(), 1), color.darker(130));
 }
 

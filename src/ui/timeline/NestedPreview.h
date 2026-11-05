@@ -51,7 +51,8 @@ public:
     /// while it is being rendered.
     QImage thumbnail(quint64 uid, int64_t timeUs, int height);
     /// WaveformProvider semantics for nested timeline @p uid (false while computing).
-    bool waveform(quint64 uid, double startUs, double usPerColumn, int columns, float* peaks);
+    bool waveform(quint64 uid, double startUs, double usPerColumn, int columns, float* peaks,
+        float* rms);
 
     /// @p media extended with nested timelines (paths from nestedPreviewPath()).
     [[nodiscard]] ThumbnailProvider wrap(ThumbnailProvider media);
@@ -66,6 +67,7 @@ private:
     struct Peaks
     {
         std::vector<float> peak; ///< max |sample| per 10 ms, 0..1
+        std::vector<float> meanSquare; ///< mean square of both channels per 10 ms
     };
     struct Entry
     {

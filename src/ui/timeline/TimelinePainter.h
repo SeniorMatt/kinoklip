@@ -240,6 +240,7 @@ private:
     };
     QHash<quint64, NameCache> m_names;
     std::vector<float> m_peaks;
+    std::vector<float> m_rms;
     std::vector<QLineF> m_lines;
 };
 

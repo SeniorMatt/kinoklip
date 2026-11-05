@@ -6,8 +6,6 @@
 
 #include <QObject>
 
-#include <algorithm>
-#include <cmath>
 
 namespace kk {
 
@@ -21,32 +19,15 @@ ThumbnailProvider mediaCacheThumbnails()
 WaveformProvider mediaCacheWaveforms()
 {
     return [](const QString& path, double startUs, double usPerColumn, int columns,
-               float* peaks) -> bool {
+               float* peaks, float* rms) -> bool {
         const auto wave = media::MediaCache::instance().waveform(path);
         if (!wave || wave->size() == 0)
             return false;
-        const int n = wave->size();
-        const double peaksPerUs = wave->peaksPerSecond / 1e6;
-        const qint8* minL = wave->minL.constData();
-        const qint8* maxL = wave->maxL.constData();
-        const qint8* minR = wave->minR.constData();
-        const qint8* maxR = wave->maxR.constData();
-        constexpr float kScale = 1.0f / 127.0f;
-        // Each column takes the largest |sample| over the peaks it covers (at least one, so
-        // zoomed-in views repeat a peak rather than leaving holes).
         for (int c = 0; c < columns; ++c) {
             const double t0 = startUs + c * usPerColumn;
-            int i0 = int(std::floor(t0 * peaksPerUs));
-            int i1 = int(std::floor((t0 + usPerColumn) * peaksPerUs));
-            if (i1 <= i0)
-                i1 = i0 + 1;
-            i0 = std::clamp(i0, 0, n);
-            i1 = std::clamp(i1, 0, n);
-            int peak = 0;
-            for (int i = i0; i < i1; ++i) {
-                peak = std::max({peak, -int(minL[i]), int(maxL[i]), -int(minR[i]), int(maxR[i])});
-            }
-            peaks[c] = float(peak) * kScale;
+            const media::WaveformColumn v = wave->range(t0, t0 + usPerColumn);
+            peaks[c] = v.peak;
+            rms[c] = v.rms;
         }
         return true;
     };
