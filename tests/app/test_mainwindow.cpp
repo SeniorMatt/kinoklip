@@ -336,7 +336,8 @@ private slots:
             dualLeft = topRowOf(edit)->sizes().first();
             dualRight = topRowOf(edit)->sizes().last();
             const double w = topRowOf(edit)->width();
-            QVERIFY2(dualLeft / w > 0.21 && dualRight / w > 0.22, qPrintable(QString::number(dualLeft)));
+            // Below 1920 px the columns give way (spec 24.26): (1869 - 1065) * 480 / 940 = 410 px is 21.9 %.
+            QVERIFY2(dualLeft / w > 0.21 && dualRight / w > 0.215, qPrintable(QString::number(dualLeft)));
             QVERIFY(inspectorTabsFit(edit));
             f.action("view.single_viewer")->trigger();
             QCoreApplication::processEvents();
