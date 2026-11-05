@@ -541,6 +541,22 @@ std::shared_ptr<const VideoFrame> VideoDecoder::decodeFrame(int64_t timeUs, Accu
     return frame;
 }
 
+bool VideoDecoder::prepareFrame(int64_t timeUs, const std::function<bool()>& stop)
+{
+    Impl& d = *m_impl;
+    d.stopCheck = &stop;
+    d.stopped = false;
+    const bool ok = decodeFrame(timeUs) != nullptr;
+    d.stopCheck = nullptr;
+    d.stopped = false;
+    return ok;
+}
+
+int64_t VideoDecoder::decodedFrameCount() const
+{
+    return m_impl->decodedFrames;
+}
+
 QImage VideoDecoder::frameAt(int64_t timeUs, QSize maxSize, Accuracy accuracy)
 {
     Impl& d = *m_impl;

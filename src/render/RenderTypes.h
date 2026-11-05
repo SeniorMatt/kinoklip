@@ -105,6 +105,20 @@ struct CompositionNodeView
     int64_t compFrame = 0; ///< clip-local frame (0 = the clip's first frame)
 };
 
+/// Look-ahead over frames [first, end) of a playing timeline: no picture is rendered; decoders
+/// for the clips that come into view there are opened and positioned on worker threads, so
+/// the render thread finds them ready at the cut (RenderRequest::prepare).
+struct PrepareRange
+{
+    /// The frame played just before `first`; what it already shows needs no preparation. -1: the
+    /// play position jumps to `first` (loop wrap), nothing continues.
+    int64_t previous = -1;
+    int64_t first = 0;
+    int64_t end = 0;
+    double firstDueMs = 0.0; ///< when `first` will be on screen, from the time of the request
+    double frameMs = 0.0; ///< wall time between two frames of the range
+};
+
 /// One request for the Compositor.
 struct RenderRequest
 {
@@ -139,6 +153,10 @@ struct RenderRequest
     /// false: render the clips without their Dynamic Zoom (the viewer while its on-screen
     /// Dynamic Zoom controls are shown, spec 24.20). The render cache is not used then.
     bool dynamicZoom = true;
+    /// Set: prepare decoders for these frames instead of rendering (`frame` is ignored). The
+    /// future completes at once with an empty frame; `cancelled` also stops the preparation in
+    /// progress (a seek, an edit) within one decoded frame.
+    std::optional<PrepareRange> prepare = std::nullopt;
 };
 
 /// Result of a render request. Immutable once handed out; share it as RenderedFramePtr.

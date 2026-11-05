@@ -3,6 +3,7 @@
 // QPainter fallback). The API used by the viewer/playback engine and the exporter.
 #pragma once
 
+#include "render/DecoderPool.h"
 #include "render/RenderTypes.h"
 
 #include <QImage>
@@ -85,6 +86,9 @@ public:
     [[nodiscard]] RenderedFramePtr render(std::shared_ptr<const TimelineData> timeline,
         int64_t frame, QSize outSize, Quality quality = Quality::Full,
         unsigned outputs = OutputTexture);
+
+    /// Counters of the decoder look-ahead (RenderRequest::prepare): measurements and tests.
+    [[nodiscard]] render::DecoderPool::PrepareStats prepareStats() const;
 
     /// Convenience: render() with OutputImage and return the image (null on failure).
     [[nodiscard]] QImage renderImage(std::shared_ptr<const TimelineData> timeline, int64_t frame,

@@ -2,6 +2,7 @@
 // Compositor — request queue + render thread around a RenderBackend (GPU or CPU).
 #include "render/Compositor.h"
 
+#include "render/DecodeTargets.h"
 #include "render/RenderBackend.h"
 #include "render/RenderLog.h"
 
@@ -33,6 +34,43 @@ struct Compositor::Impl
     std::deque<RenderJob> queue;
     bool stopping = false;
     std::shared_ptr<const MediaPathMap> defaultMedia;
+
+    /// Look-ahead request: the decoders that frames of the range will need and the frames before
+    /// them do not have, on the render thread (cheap: a look at the timeline per frame, the
+    /// decoding runs on the backend's worker threads).
+    void prepareDecoders(const RenderJob& job)
+    {
+        const RenderRequest& rq = job.request;
+        const PrepareRange& range = *rq.prepare;
+        if (!rq.timeline)
+            return;
+        // A frame inside a cached chunk is decoded from the chunk's file (see renderAsync()).
+        const RenderCacheView* cache = rq.renderCache.get();
+        if (cache && cache->snapshot != rq.timeline)
+            cache = nullptr;
+        render::DecoderPool& pool = backend->decoders();
+        std::vector<render::DecodeTarget> before;
+        std::vector<render::DecodeTarget> now;
+        auto collect = [&](int64_t frame, std::vector<render::DecodeTarget>& out) {
+            out.clear();
+            const RenderCacheChunk* chunk = cache ? cache->find(frame) : nullptr;
+            const TimelineData& tl = chunk ? *chunk->timeline : *rq.timeline;
+            render::collectDecodeTargets(tl, frame, tl.nested,
+                chunk ? chunk->media.get() : job.media.get(),
+                chunk ? nullptr : rq.proxies.get(), out);
+        };
+        if (range.previous >= 0)
+            collect(range.previous, before);
+        for (int64_t frame = range.first; frame < range.end; ++frame) {
+            collect(frame, now);
+            const double dueMs = range.firstDueMs + double(frame - range.first) * range.frameMs;
+            for (const render::DecodeTarget& target : now) {
+                if (!render::continuesFrom(target, before))
+                    pool.prepare(target.path, target.timeUs, dueMs, rq.cancelled);
+            }
+            before.swap(now);
+        }
+    }
 
     /// Body of the render thread: initialise, then serve the queue until stopped.
     void run(bool forceCpu, std::promise<void>& ready)
@@ -79,6 +117,11 @@ struct Compositor::Impl
                 skipped->frame = job.request.frame;
                 skipped->cancelled = true;
                 job.promise.set_value(std::move(skipped));
+                continue;
+            }
+            if (job.request.prepare) {
+                prepareDecoders(job);
+                job.promise.set_value(std::make_shared<RenderedFrame>());
                 continue;
             }
             backend->render(job);
@@ -159,7 +202,8 @@ std::future<RenderedFramePtr> Compositor::renderAsync(RenderRequest request)
     // the timeline. Only for the exact snapshot the view was made for (pointer identity), so
     // an edit (= new snapshot) can never show an outdated picture.
     if (const RenderCacheView* view = job.request.renderCache.get(); view && view->snapshot
-        && view->snapshot == job.request.timeline && !job.request.compositionNode
+        && !job.request.prepare && view->snapshot == job.request.timeline
+        && !job.request.compositionNode
         && !job.request.bypassGrades && job.request.dynamicZoom) {
         if (const RenderCacheChunk* chunk = view->find(job.request.frame)) {
             job.request.timeline = chunk->timeline;
@@ -168,7 +212,8 @@ std::future<RenderedFramePtr> Compositor::renderAsync(RenderRequest request)
             job.fromCache = true;
         }
     }
-    job.request.renderCache = nullptr; // nothing below needs it; drop the reference early
+    if (!job.request.prepare) // only the look-ahead below still needs it; drop the reference
+        job.request.renderCache = nullptr;
     auto future = job.promise.get_future();
     {
         std::lock_guard lock(m_impl->mutex);
@@ -194,6 +239,12 @@ std::future<RenderedFramePtr> Compositor::renderCompositionNode(
     request.subtitles = false;
     request.compositionNode = CompositionNodeView {clipId, nodeId, compFrame};
     return renderAsync(std::move(request));
+}
+
+render::DecoderPool::PrepareStats Compositor::prepareStats() const
+{
+    return m_impl->backend ? m_impl->backend->decoders().prepareStats()
+                           : render::DecoderPool::PrepareStats {};
 }
 
 RenderedFramePtr Compositor::render(std::shared_ptr<const TimelineData> timeline, int64_t frame,

@@ -17,7 +17,15 @@ constexpr double kOutlierFactor = 3.0;
 FrameScheduler::FrameScheduler(RenderFn render)
     : m_render(std::move(render))
     , m_cancel(std::make_shared<std::atomic<bool>>(false))
+    , m_prepareCancel(std::make_shared<std::atomic<bool>>(false))
 { }
+
+void FrameScheduler::cancelPrepare()
+{
+    m_prepareCancel->store(true, std::memory_order_relaxed);
+    m_prepareCancel = std::make_shared<std::atomic<bool>>(false);
+    m_hasPrepareEdge = false;
+}
 
 void FrameScheduler::cancelOutstanding()
 {
@@ -28,6 +36,11 @@ void FrameScheduler::cancelOutstanding()
 
 void FrameScheduler::setParams(const RenderParams& params, bool discardPending)
 {
+    // Other clips or files: what the look-ahead is preparing may no longer come.
+    if (params.timeline != m_params.timeline || params.media != m_params.media
+        || params.proxies != m_params.proxies || params.renderCache != m_params.renderCache) {
+        cancelPrepare();
+    }
     m_params = params;
     if (!discardPending) {
         return;
@@ -173,6 +186,43 @@ RenderedFramePtr FrameScheduler::poll(int64_t due, int direction, int64_t* shown
     return result;
 }
 
+int FrameScheduler::prepareAhead(int64_t dueKey, int64_t lastKey, double frameMs,
+    const std::function<int64_t(int64_t)>& frameOfKey)
+{
+    int64_t key = m_hasPrepareEdge ? std::max(m_prepareEdge, dueKey) + 1 : dueKey + 1;
+    if (key > lastKey)
+        return 0;
+    m_hasPrepareEdge = true;
+    m_prepareEdge = lastKey;
+    int issued = 0;
+    while (key <= lastKey) {
+        // One request per run of consecutive frames; a loop's wrap starts a new one.
+        const int64_t first = frameOfKey(key);
+        const int64_t before = frameOfKey(key - 1);
+        int64_t count = 1;
+        while (key + count <= lastKey && frameOfKey(key + count) == first + count)
+            ++count;
+        RenderRequest request;
+        request.timeline = m_params.timeline;
+        request.media = m_params.media;
+        request.proxies = m_params.proxies;
+        request.renderCache = m_params.renderCache;
+        request.cancelled = m_prepareCancel;
+        request.frame = first;
+        PrepareRange range;
+        range.previous = before == first - 1 ? before : -1;
+        range.first = first;
+        range.end = first + count;
+        range.firstDueMs = double(key - dueKey) * frameMs;
+        range.frameMs = frameMs;
+        request.prepare = range;
+        (void)m_render(std::move(request));
+        ++issued;
+        key += count;
+    }
+    return issued;
+}
+
 void FrameScheduler::requestStill(int64_t frame, bool force)
 {
     if (m_stillActive) {
@@ -226,6 +276,7 @@ void FrameScheduler::clear()
     m_stillActive = false;
     m_still = Entry {};
     cancelOutstanding();
+    cancelPrepare();
 }
 
 void FrameScheduler::noteRendered(const RenderedFramePtr& frame)
