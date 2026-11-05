@@ -42,6 +42,7 @@ public:
     bool initialize(QString* why) override;
     [[nodiscard]] QString description() const override { return m_description; }
     [[nodiscard]] bool isGpu() const override { return true; }
+    [[nodiscard]] DecoderPool& decoders() override { return m_decoders; }
     void render(RenderJob& job) override;
     void finishPending(bool keepNewest) override;
     [[nodiscard]] bool hasPending() const override;
