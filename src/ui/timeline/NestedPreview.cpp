@@ -149,7 +149,7 @@ void NestedPreview::poll()
 }
 
 bool NestedPreview::waveform(
-    quint64 uid, double startUs, double usPerColumn, int columns, float* peaks)
+    quint64 uid, double startUs, double usPerColumn, int columns, float* peaks, float* rms)
 {
     Entry& e = entry(uid);
     if (!e.version)
@@ -167,15 +167,20 @@ bool NestedPreview::waveform(
                 const int64_t total = framesToSamples48k(shot->duration(), shot->fps);
                 constexpr int kBlock = AudioMixer::kSampleRate / kPeaksPerSecond;
                 result->peak.reserve(size_t(total / kBlock + 1));
+                result->meanSquare.reserve(result->peak.capacity());
                 AudioMixer mixer;
                 mixer.setMediaPaths(paths);
                 std::vector<float> buffer(size_t(kBlock) * AudioMixer::kChannels);
                 for (int64_t s = 0; s < total && !cancel->load(); s += kBlock) {
                     mixer.mix(*shot, s, kBlock, buffer.data());
                     float peak = 0.0f;
-                    for (const float v : buffer)
+                    double sum = 0.0;
+                    for (const float v : buffer) {
                         peak = std::max(peak, std::abs(v));
+                        sum += double(v) * v;
+                    }
                     result->peak.push_back(std::min(1.0f, peak));
+                    result->meanSquare.push_back(float(sum / double(buffer.size())));
                 }
                 return std::shared_ptr<const Peaks>(std::move(result));
             }).share();
@@ -184,6 +189,7 @@ bool NestedPreview::waveform(
         return false;
     }
     const std::vector<float>& p = e.peaks->peak;
+    const std::vector<float>& ms = e.peaks->meanSquare;
     const int n = int(p.size());
     const double perUs = kPeaksPerSecond / 1e6;
     for (int c = 0; c < columns; ++c) {
@@ -195,9 +201,13 @@ bool NestedPreview::waveform(
         i0 = std::clamp(i0, 0, n);
         i1 = std::clamp(i1, 0, n);
         float peak = 0.0f;
-        for (int i = i0; i < i1; ++i)
+        double sum = 0.0;
+        for (int i = i0; i < i1; ++i) {
             peak = std::max(peak, p[size_t(i)]);
+            sum += ms[size_t(i)];
+        }
         peaks[c] = peak;
+        rms[c] = i1 > i0 ? float(std::sqrt(std::min(1.0, sum / (i1 - i0)))) : 0.0f;
     }
     return true;
 }
@@ -214,10 +224,11 @@ ThumbnailProvider NestedPreview::wrap(ThumbnailProvider media)
 WaveformProvider NestedPreview::wrap(WaveformProvider media)
 {
     return [this, media = std::move(media)](
-               const QString& path, double startUs, double usPerColumn, int columns, float* peaks) {
+               const QString& path, double startUs, double usPerColumn, int columns, float* peaks,
+               float* rms) {
         if (const quint64 uid = nestedPreviewUid(path))
-            return waveform(uid, startUs, usPerColumn, columns, peaks);
-        return media ? media(path, startUs, usPerColumn, columns, peaks) : false;
+            return waveform(uid, startUs, usPerColumn, columns, peaks, rms);
+        return media ? media(path, startUs, usPerColumn, columns, peaks, rms) : false;
     };
 }
 

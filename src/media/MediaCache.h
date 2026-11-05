@@ -70,7 +70,7 @@ public:
     /// @return the cached image, or a null QImage → posterFrameReady(path) follows later.
     QImage posterFrame(const QString& path, int height);
 
-    /// Waveform peaks of the file's audio (WaveformData::peaksPerSecond = 100).
+    /// Waveform of the file's audio (peaks and RMS, WaveformData::peaksPerSecond = 200).
     /// @return the cached data, or nullptr → waveformReady(path) follows (unless the file has
     /// no audio, in which case it stays nullptr).
     std::shared_ptr<const WaveformData> waveform(const QString& path);
