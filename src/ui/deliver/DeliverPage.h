@@ -46,6 +46,7 @@ public:
     [[nodiscard]] QString pageId() const override { return QStringLiteral("deliver"); }
     void saveLayout(QSettings& settings) const override;
     void restoreLayout(const QSettings& settings) override;
+    void resetLayout() override;
 
     /// The page's program viewer.
     [[nodiscard]] ViewerPanel* viewer() const { return m_viewer; }
@@ -80,6 +81,9 @@ protected:
     void showEvent(QShowEvent* event) override;
 
 private:
+    /// Resolve's column proportions for the row's current width (first show without a stored
+    /// layout, Reset UI Layout).
+    void applyDefaultWidths();
     void schedulePreview();
     void renderPreview();
     void pollPreview();

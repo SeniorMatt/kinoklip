@@ -8,6 +8,8 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QSettings>
+#include <QSplitter>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -140,6 +142,24 @@ PanelFrame* createPlaceholderPanel(const QString& title, const QString& text, QW
     auto* panel = new PanelFrame(title, parent);
     panel->setContentWidget(createPlaceholderContent(text));
     return panel;
+}
+
+void PanelFrame::saveSplitterSizes(QSettings& settings, const QString& prefix) const
+{
+    // findChildren() lists them in creation order, the same in every run.
+    const QList<QSplitter*> splitters = findChildren<QSplitter*>();
+    for (qsizetype i = 0; i < splitters.size(); ++i)
+        settings.setValue(prefix + QStringLiteral("splitter%1").arg(i), splitters[i]->saveState());
+}
+
+void PanelFrame::restoreSplitterSizes(const QSettings& settings, const QString& prefix)
+{
+    const QList<QSplitter*> splitters = findChildren<QSplitter*>();
+    for (qsizetype i = 0; i < splitters.size(); ++i) {
+        const QString key = prefix + QStringLiteral("splitter%1").arg(i);
+        if (settings.contains(key))
+            splitters[i]->restoreState(settings.value(key).toByteArray());
+    }
 }
 
 } // namespace kk

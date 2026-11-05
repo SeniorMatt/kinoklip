@@ -323,6 +323,7 @@ void CompositingPage::saveLayout(QSettings& settings) const
     settings.setValue(QStringLiteral("centre"), m_centre->saveState());
     settings.setValue(QStringLiteral("viewers"), m_viewers->saveState());
     settings.setValue(QStringLiteral("leftColumn"), m_leftColumn->saveState());
+    m_mediaPool->saveSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
     for (PanelId id : {PanelId::MediaPool, PanelId::Effects, PanelId::Nodes, PanelId::Inspector})
         settings.setValue(QStringLiteral("visible/") + panelIdToString(id), isPanelVisible(id));
 }
@@ -335,6 +336,7 @@ void CompositingPage::restoreLayout(const QSettings& settings)
         m_viewers->restoreState(settings.value(QStringLiteral("viewers")).toByteArray());
         m_leftColumn->restoreState(settings.value(QStringLiteral("leftColumn")).toByteArray());
     }
+    m_mediaPool->restoreSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
     // Splitter states carry visibility too; the explicit flags win.
     for (PanelId id : {PanelId::MediaPool, PanelId::Effects, PanelId::Nodes, PanelId::Inspector}) {
         const QString key = QStringLiteral("visible/") + panelIdToString(id);

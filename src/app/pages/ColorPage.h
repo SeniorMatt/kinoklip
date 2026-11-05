@@ -81,6 +81,7 @@ public:
     [[nodiscard]] bool isPanelVisible(PanelId id) const override;
     void saveLayout(QSettings& settings) const override;
     void restoreLayout(const QSettings& settings) override;
+    void resetLayout() override;
 
     [[nodiscard]] ColorSession* session() const { return m_session; }
     [[nodiscard]] ColorFrameSource* frames() const { return m_frames; }
@@ -124,6 +125,8 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+    /// Resolve-like splitter proportions for the page's size (first show, Reset UI Layout).
+    void applyDefaultSizes();
     QWidget* buildViewer();
     QWidget* buildPalettes();
     void connectActions();
