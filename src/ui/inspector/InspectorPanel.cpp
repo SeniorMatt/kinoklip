@@ -371,6 +371,7 @@ void InspectorPanel::beginParamEdit(const QString& label)
 {
     ++m_openEdits;
     m_ctx.project->beginEdit(label);
+    m_ctx.project->markEditKeepsPlaying(); // a value, not an edit of the cut (spec 48.8)
 }
 
 void InspectorPanel::endParamEdit()
@@ -1052,6 +1053,7 @@ void InspectorPanel::addTransitionGroup(const ClipData& c, bool atHead)
             const auto value = TransitionAlignment(alignment->itemData(index).toInt());
             Project& project = *m_ctx.project;
             project.beginEdit(tr("Transition Alignment"));
+            project.markEditKeepsPlaying();
             if (editops::setTransitionAlignment(
                     project.timeline()->mutableData(), clipId, atHead, value))
                 project.endEdit();

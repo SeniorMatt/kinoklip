@@ -314,6 +314,9 @@ public:
     void beginEdit(const QString& label);
     /// Finishes the edit; the outermost call pushes one undo command if anything changed and
     /// notifies the timeline.
+    /// The open edit is a value change or follows playback (Inspector, Dynamic Trim): it does not
+    /// count as an edit for "After an edit during playback" (spec 48.8), whatever it changes.
+    void markEditKeepsPlaying() { m_editKeepsPlaying = true; }
     void endEdit();
     /// Abandons the edit. When the outermost edit closes (by endEdit() or cancelEdit()), the
     /// state from the outermost beginEdit() is restored and nothing is pushed.
@@ -401,6 +404,10 @@ signals:
     void aboutToSave();
     /// The file path changed (save as, load, new).
     void filePathChanged(const QString& path);
+    /// An undo step was finished, or one was undone or redone (the timeline is already updated).
+    /// @p keepsPlaying: markEditKeepsPlaying() was called for it; the program engine never stops
+    /// because of it (spec 48.8).
+    void editCommitted(bool keepsPlaying);
     /// The whole project was replaced (new or load); views should rebuild themselves.
     void projectReset();
     /// The active timeline is about to change from @p uid (views save their view state).
@@ -478,6 +485,7 @@ private:
 
     int m_editDepth = 0;
     bool m_editCancelled = false;
+    bool m_editKeepsPlaying = false;
     QString m_editLabel;
     TimelineSet m_editBefore;
     MediaPoolState m_editPoolBefore;

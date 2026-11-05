@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace kk {
 
@@ -51,6 +52,7 @@ PlaybackBehaviour PlaybackBehaviour::fromSettings()
     b.stopOnPlayheadMove
         = settings.value(QStringLiteral("playback/stopOnPlayheadMove"), b.stopOnPlayheadMove)
               .toBool();
+    b.stopOnEdit = settings.value(QStringLiteral("playback/stopOnEdit"), b.stopOnEdit).toBool();
     return b;
 }
 
@@ -227,17 +229,80 @@ void PlaybackEngine::onTimelineChanged()
     if (m_feeder && m_snapshot) {
         m_feeder->setTimeline(m_snapshot);
     }
-    if (soundOnly)
-        return;
-    m_videoSnapshot = m_snapshot;
-    if (!m_snapshot) {
-        setRateInternal(0.0);
-        m_scheduler.clear();
-        m_current.reset();
-        Q_EMIT frameReady(m_current);
+    if (!isPlaying())
+        m_committed = m_snapshot;
+    if (!soundOnly) {
+        m_videoSnapshot = m_snapshot;
+        if (!m_snapshot) {
+            setRateInternal(0.0);
+            m_scheduler.clear();
+            m_current.reset();
+            Q_EMIT frameReady(m_current);
+            return;
+        }
+        updateParams(true);
+    } else if (!isPlaying()) {
+        // Paused nothing is in flight to protect: render from the current snapshot (the render
+        // cache view only serves requests for exactly its snapshot).
+        m_videoSnapshot = m_snapshot;
+        RenderParams params = m_scheduler.params();
+        params.timeline = m_videoSnapshot;
+        m_scheduler.setParams(params, false);
+    }
+    followRange();
+}
+
+void PlaybackEngine::followRange()
+{
+    if (!isPlaying() || !m_snapshot) {
         return;
     }
-    updateParams(true);
+    int64_t start = 0;
+    int64_t end = 0;
+    range(&start, &end);
+    if (start == m_rangeStart && end == m_rangeEnd) {
+        return;
+    }
+    if (!m_rangeLoop || m_parked) {
+        // Without a loop the clock never reads the range. (Parked: the resume restarts anyway.)
+        m_rangeStart = start;
+        m_rangeEnd = end;
+        return;
+    }
+    // The clock's position wraps in the old loop and the feeder mixed it ahead: start again from
+    // the frame shown (a short stop of the sound, only when the loop itself changes).
+    m_resuming = true;
+    startMotion(m_rate, double(m_position));
+    m_resuming = false;
+}
+
+void PlaybackEngine::noteEditCommitted(bool keepsPlaying)
+{
+    const std::shared_ptr<const TimelineData> before = std::exchange(m_committed, m_snapshot);
+    if (keepsPlaying || !isPlaying() || !before || !m_snapshot
+        || render::sameArrangement(*before, *m_snapshot)) {
+        return;
+    }
+    if (m_behaviour.stopOnEdit) {
+        stop(); // shows the new timeline at the current frame (stopMotion())
+        return;
+    }
+    if (!m_feeder || !m_clock.isAudioMaster() || m_parked || m_prerollUntilUs > 0) {
+        return; // no sound running: it starts from the new timeline
+    }
+    // Only what the ring holds is out of date (edits further away need no remix).
+    const auto ringFrames = int64_t(std::ceil(double(m_ring->capacity()) / 48000.0
+                                * fps().toDouble() * std::abs(m_rate)))
+        + 2;
+    int64_t from = m_rate > 0 ? m_position - 1 : m_position - ringFrames;
+    int64_t to = m_rate > 0 ? m_position + ringFrames : m_position + 2;
+    if (m_rangeLoop && (to > m_rangeEnd || from < m_rangeStart)) {
+        from = m_rangeStart; // the ring holds both ends of the loop
+        to = m_rangeEnd;
+    }
+    if (render::soundArrangementDiffers(*before, *m_snapshot, from, to)) {
+        m_feeder->remixUnheard();
+    }
 }
 
 void PlaybackEngine::onPlayheadChanged(int64_t frame)
@@ -287,7 +352,7 @@ void PlaybackEngine::range(int64_t* start, int64_t* end) const
     *end = duration();
     if (m_customRange) {
         *start = m_customStart;
-        *end = m_customEnd;
+        *end = std::min(m_customEnd, *end); // an edit may have shortened the timeline
     } else if (m_loop && m_snapshot) {
         if (m_snapshot->markIn >= 0) {
             *start = m_snapshot->markIn;
@@ -514,11 +579,20 @@ void PlaybackEngine::updateParams(bool rerender)
             Q_EMIT proxiesInUseChanged(inUse);
         }
     }
-    if (contentChanged)
+    if (contentChanged) {
         m_currentStale = true; // the frame on screen shows the old pictures
+        if (isPlaying()) {
+            m_hasShownKey = false; // the frame due now is wanted again, in its new form
+            m_wantDueFrame = true;
+        }
+    }
     if (changed) {
         // Size/quality changes during playback keep the frames in flight (same picture).
         m_scheduler.setParams(params, contentChanged || !isPlaying());
+        if (contentChanged && m_parked) {
+            m_parkShown = false; // the seek target as well
+            m_scheduler.requestStill(m_parkTarget, true);
+        }
     } else if (old.renderCache != params.renderCache) {
         // A new cache view shows the same pictures: later requests use it, nothing in flight
         // or on screen needs to be redone.
@@ -927,6 +1001,9 @@ void PlaybackEngine::stopMotion()
     m_statsLogUs = 0; // the next play starts a new statistics window
     m_customRange = false;
     m_hasShownKey = false;
+    if (m_snapshot) {
+        m_videoSnapshot = m_snapshot; // see onTimelineChanged(); a still is rendered below anyway
+    }
     updateParams(false);
     m_lastPlayheadWriteUs = 0;
     writePlayhead();
@@ -1276,8 +1353,13 @@ void PlaybackEngine::onTick()
         ? std::min(10, int(std::ceil(avgMs * m_scheduler.maxInFlight() / intervalMs)))
         : 0;
     std::vector<FrameSlot> wanted;
-    wanted.reserve(size_t(m_scheduler.maxInFlight()) + 2);
+    wanted.reserve(size_t(m_scheduler.maxInFlight()) + 3);
     int64_t lastKey = INT64_MIN;
+    if (m_wantDueFrame) {
+        // The pictures changed: the frame due now first, even though it will be late, so the new
+        // timeline is on screen at once instead of at the far end of the look-ahead.
+        wanted.push_back({dueKey, int64_t(wrap(double(dueKey)))});
+    }
     for (int k = lead; k <= lead + m_scheduler.maxInFlight() + 1; ++k) {
         const int64_t key = int64_t(std::floor(unwrapped + m_rate * k));
         if (key == lastKey) {
@@ -1290,9 +1372,14 @@ void PlaybackEngine::onTick()
         if (m_hasShownKey && (key - m_lastShownKey) * dir <= 0) {
             continue; // already on screen (or older): never render a frame twice
         }
+        if (!wanted.empty() && wanted.front().key == key) {
+            continue;
+        }
         wanted.push_back({key, int64_t(wrap(double(key)))});
     }
-    m_scheduler.prefetch(wanted);
+    if (m_scheduler.prefetch(wanted) > 0) {
+        m_wantDueFrame = false;
+    }
 
     int64_t shownKey = 0;
     if (RenderedFramePtr frame = m_scheduler.poll(dueKey, dir, &shownKey)) {

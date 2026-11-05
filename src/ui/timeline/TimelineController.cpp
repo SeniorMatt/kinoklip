@@ -448,7 +448,7 @@ QVector<quint64> TimelineController::insertSource(const QString& mediaId, int64_
     });
     if (!ids.isEmpty()) {
         m_ctx.selection->setClips(videoClipCurrent(ids));
-        timeline()->setPlayhead(end);
+        setPlayheadAfterEdit(end);
     }
     return ids;
 }
@@ -710,7 +710,7 @@ void TimelineController::trimToPlayhead(bool head, bool ripple)
             return any;
         });
     if (changed && newPlayhead != f)
-        timeline()->setPlayhead(newPlayhead);
+        setPlayheadAfterEdit(newPlayhead);
 }
 
 void TimelineController::trimStartToPlayhead()
@@ -731,6 +731,12 @@ void TimelineController::rippleTrimStartToPlayhead()
 void TimelineController::rippleTrimEndToPlayhead()
 {
     trimToPlayhead(false, true);
+}
+
+void TimelineController::setPlayheadAfterEdit(int64_t frame)
+{
+    if (!isPlaying())
+        timeline()->setPlayhead(frame);
 }
 
 void TimelineController::setPlayheadClamped(int64_t frame)
@@ -971,7 +977,7 @@ void TimelineController::paste()
     });
     if (!ids.isEmpty()) {
         m_ctx.selection->setClips(videoClipCurrent(ids));
-        timeline()->setPlayhead(at + m_clipboard.duration);
+        setPlayheadAfterEdit(at + m_clipboard.duration);
     }
 }
 
@@ -987,7 +993,7 @@ void TimelineController::pasteInsert()
     });
     if (!ids.isEmpty()) {
         m_ctx.selection->setClips(videoClipCurrent(ids));
-        timeline()->setPlayhead(at + m_clipboard.duration);
+        setPlayheadAfterEdit(at + m_clipboard.duration);
     }
 }
 

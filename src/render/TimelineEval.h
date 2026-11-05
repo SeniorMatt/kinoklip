@@ -128,6 +128,18 @@ struct TrackFrame
 /// change of a video or subtitle track, the format or a nested timeline counts as different.
 [[nodiscard]] bool samePictures(const TimelineData& a, const TimelineData& b);
 
+/// True when @p a and @p b have the same arrangement: the same tracks and clips in the same places
+/// (track ids and enabled state; each clip's media, position, length, source range, speed, enabled
+/// state, link group, transitions). What "an edit" means for Preferences > Playback "After an edit
+/// during playback" (spec 48.8). Parameters, effects, grades, keyframes, mixer, marks, markers,
+/// colours and flags and track lock / mute / height / name are not part of it.
+[[nodiscard]] bool sameArrangement(const TimelineData& a, const TimelineData& b);
+
+/// True when audio clips overlapping timeline frames [@p from, @p to) differ in place, source or
+/// enabled state between @p a and @p b: what will be heard next is no longer what was mixed.
+[[nodiscard]] bool soundArrangementDiffers(
+    const TimelineData& a, const TimelineData& b, int64_t from, int64_t to);
+
 /// True if the nested-timeline maps of two render snapshots hold the same timeline states
 /// (same uids, same shared TimelineData). NestedTimelines::operator== cannot tell: it is
 /// always true by design.
