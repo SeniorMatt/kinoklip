@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 333 commands; sure 106, likely 113, unsure 114.
+Counts: 337 commands; sure 106, likely 113, unsure 118.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -197,6 +197,10 @@ that every command has an entry and that no key is used twice.
 | Delete Keyframes | `clip.delete_keyframe` | (none) | unsure | no known default; Delete / Backspace act on selected keys while the keyframe or curve editor has focus |
 | Copy Keyframes | `clip.copy_keyframes` | (none) | unsure | no known default; Ctrl+C acts on selected keys while the keyframe or curve editor has focus |
 | Paste Keyframes | `clip.paste_keyframes` | (none) | unsure | no known default; Ctrl+V pastes keys at the playhead while the keyframe or curve editor has focus |
+| Keyframe Linear (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_linear` | (none) | unsure | Resolve sets interpolation from the keyframe context menus; no default key |
+| Keyframe Ease In (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_ease_in` | (none) | unsure | no default key known |
+| Keyframe Ease Out (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_ease_out` | (none) | unsure | no default key known |
+| Keyframe Ease In and Out (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_ease_in_out` | (none) | unsure | no default key known |
 | Show Keyframe Editor | `clip.toggle_keyframe_editor` | (none) | likely | Resolve uses the clip's keyframe button; no default key |
 | Show Curve Editor | `clip.toggle_curve_editor` | (none) | likely | Resolve uses the clip's curve button; no default key |
 

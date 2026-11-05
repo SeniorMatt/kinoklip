@@ -604,6 +604,12 @@ public:
                                        "selected"));
         m_rippleGap->setChecked(b.rippleDeleteGapAtPlayhead);
         form->addRow(tr("Ripple delete"), m_rippleGap);
+        // Off by default, keeping spec 10.5 (see 49.6 for what is known of Resolve).
+        m_rippleClip = new QCheckBox(tr("Delete the clips under the playhead on the selected "
+                                        "tracks when nothing is selected"));
+        m_rippleClip->setObjectName(QStringLiteral("RippleDeleteClipAtPlayhead"));
+        m_rippleClip->setChecked(b.rippleDeleteClipAtPlayhead);
+        form->addRow(QString(), m_rippleClip);
         m_rollAtCut = new QCheckBox(tr("Selection tool rolls at the middle of an edit"));
         m_rollAtCut->setChecked(b.selectToolRollsAtCut);
         form->addRow(tr("Trimming"), m_rollAtCut);
@@ -645,6 +651,7 @@ public:
         s.setValue(QStringLiteral("edit/multiFrameNudge"), m_nudge->value());
         s.setValue(QStringLiteral("edit/threePointEditing"), m_threePoint->isChecked());
         s.setValue(QStringLiteral("edit/rippleDeleteGapAtPlayhead"), m_rippleGap->isChecked());
+        s.setValue(QStringLiteral("edit/rippleDeleteClipAtPlayhead"), m_rippleClip->isChecked());
         s.setValue(QStringLiteral("edit/selectToolRollsAtCut"), m_rollAtCut->isChecked());
         s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
         s.setValue(QStringLiteral("edit/twoUpProgramLook"), m_twoUpLook->isChecked());
@@ -665,6 +672,7 @@ private:
     QCheckBox* m_threePoint = nullptr;
     QCheckBox* m_twoUpLook = nullptr;
     QCheckBox* m_rippleGap = nullptr;
+    QCheckBox* m_rippleClip = nullptr;
     QCheckBox* m_rollAtCut = nullptr;
     QCheckBox* m_slideInName = nullptr;
     QCheckBox* m_tabs = nullptr;
@@ -776,9 +784,21 @@ public:
         form->addRow(QString(),
             note(tr("Search commands, record new keys, resolve conflicts and import or export "
                     "keyboard layouts.")));
+
+        // Off by default: a panel toggle leaves the focus where it was (spec 49.5).
+        m_focusSearch
+            = new QCheckBox(tr("Focus the search field when a panel is opened from the keyboard"));
+        m_focusSearch->setObjectName(QStringLiteral("FocusSearchOnPanelKey"));
+        m_focusSearch->setToolTip(tr("Media Pool, Effects and Edit Index: the shortcut that "
+                                     "opens the panel puts the cursor into its search field"));
+        m_focusSearch->setChecked(prefs::focusSearchOnPanelKey());
+        form->addRow(tr("Panels"), m_focusSearch);
     }
 
-    void apply() override { }
+    void apply() override { prefs::setFocusSearchOnPanelKey(m_focusSearch->isChecked()); }
+
+private:
+    QCheckBox* m_focusSearch = nullptr;
 };
 
 } // namespace

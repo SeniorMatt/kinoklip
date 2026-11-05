@@ -263,4 +263,14 @@ void setEffectsLivePreview(bool on)
     QSettings().setValue(QLatin1String(kEffectsLivePreview), on);
 }
 
+bool focusSearchOnPanelKey()
+{
+    return QSettings().value(QLatin1String(kFocusSearchOnPanelKey), false).toBool();
+}
+
+void setFocusSearchOnPanelKey(bool on)
+{
+    QSettings().setValue(QLatin1String(kFocusSearchOnPanelKey), on);
+}
+
 } // namespace kk::prefs

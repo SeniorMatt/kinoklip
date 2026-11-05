@@ -49,7 +49,8 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 - **Keyframes.** The diamond toggles a key at the playhead's clip-local frame (clamped into the
   clip; disabled when the playhead is outside). When a scalar is animated, editing its value
   sets a key at the current frame (`AnimatedValue::setValue`). Linked zoom (`zoomLinked`)
-  applies value and key edits to both zoom axes. Transition parameters are not keyframed.
+  applies value and key edits to both zoom axes (by the same factor, so an X:Y ratio is kept;
+  only the Link Zoom check box changes the link, spec 49.2). Transition parameters are not keyframed.
   Right-click on a filled diamond picks the key's preset (linear, ease in / out / in and out,
   smooth, static). Sections with animatable parameters (Transform, Cropping, Audio, Title)
   have a section diamond in the header that keys / unkeys all of them at once. The timeline's

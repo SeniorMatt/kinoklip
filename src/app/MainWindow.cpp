@@ -22,6 +22,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/ListKeyGuard.h"
 #include "ui/common/MediaManagement.h"
+#include "ui/common/PanelSearchFocus.h"
 #include "ui/common/ResizeProfiler.h"
 #include "ui/common/ShortcutFallback.h"
 #include "ui/common/StandardActions.h"
@@ -494,14 +495,22 @@ void MainWindow::connectAppActions()
 
 void MainWindow::connectPanelToggles()
 {
+    // Opened from the keyboard, a panel with a search field can take the focus there
+    // (Preferences > Keyboard, off by default; spec 49.5).
+    auto* shortcutWatch = new ShortcutTriggerWatch(this);
     for (const PanelToggle& toggle : kPanelToggles) {
         QAction* action = m_ctx.actions->action(QLatin1String(toggle.actionId));
         const PanelId panel = toggle.panel;
+        shortcutWatch->watch(action);
         // triggered (not toggled): only user actions drive the page; syncPanelToggles() sets
         // the checked state programmatically without feedback loops.
-        connect(action, &QAction::triggered, this, [this, panel](bool on) {
-            if (auto* page = qobject_cast<Page*>(m_stack->currentWidget()))
-                page->setPanelVisible(panel, on);
+        connect(action, &QAction::triggered, this, [this, panel, action, shortcutWatch](bool on) {
+            auto* page = qobject_cast<Page*>(m_stack->currentWidget());
+            if (!page)
+                return;
+            page->setPanelVisible(panel, on);
+            if (on && shortcutWatch->firedByShortcut(action) && prefs::focusSearchOnPanelKey())
+                panelsearch::focusSearch(page, panel);
         });
     }
 }

@@ -189,9 +189,19 @@ void setScalar(ClipData& clip, const ParamRef& ref, const ParamDescriptor& desc,
     ParamSet* set = paramSet(clip, ref);
     if (!set)
         return;
-    set->animated(ref.key, desc.def).setValue(localFrame, value);
-    if (const QString* partner = linkedZoomPartner(clip, ref))
-        set->animated(*partner, desc.def).setValue(localFrame, value);
+    AnimatedValue& own = set->animated(ref.key, desc.def);
+    const double before = own.valueAt(localFrame);
+    own.setValue(localFrame, value);
+    if (const QString* partner = linkedZoomPartner(clip, ref)) {
+        // Linked zoom changes both axes by the same factor: equal axes stay equal, and a
+        // different X:Y ratio (left by a free Shift scale in the viewer) is kept instead of
+        // snapping one axis to the other (spec 49.2).
+        AnimatedValue& other = set->animated(*partner, desc.def);
+        const double otherBefore = other.valueAt(localFrame);
+        const bool sameRatio = before <= 0.0 || std::abs(otherBefore - before) < 1e-9;
+        other.setValue(
+            localFrame, sameRatio ? value : normalise(desc, otherBefore * value / before));
+    }
 }
 
 bool toggleKey(ClipData& clip, const ParamRef& ref, const ParamDescriptor& desc, int64_t localFrame)

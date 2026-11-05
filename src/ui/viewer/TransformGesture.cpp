@@ -250,11 +250,9 @@ void TransformDrag::update(ParamSet& t, int64_t local, QPointF pointer, bool shi
         zy = roundTo(std::clamp(zy, kMinZoom, kMaxZoom), kZoomStep);
         set(keys::ZoomX, 1, zx);
         set(keys::ZoomY, 1, zy);
-        // A free scale of a linked zoom unlinks it, or the Inspector would snap Y to X.
-        if (m_linked && !uniform && std::abs(zx - zy) > kZoomStep / 2)
-            t.setStatic(keys::ZoomLinked, false);
-        else if (m_linked)
-            t.setStatic(keys::ZoomLinked, true);
+        // Shift only frees (or links) this one drag: the stored Link Zoom stays as the user
+        // set it with its button (spec 49.2). A linked Inspector edit afterwards keeps the
+        // X:Y ratio the drag left (paramaccess::setScalar).
         return;
     }
     case TransformHandle::Kind::Crop: {

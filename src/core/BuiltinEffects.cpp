@@ -269,6 +269,10 @@ void EffectRegistry::registerBuiltins()
     // ---- Effects (library section "Effects") ----
     add(descriptor(generators::AdjustmentClip, tr("Adjustment Clip"), C::Effects,
         tr("Applies its effects, transform and masks to every track below it"), {}, {}));
+    add(descriptor(generators::RegionBlur, tr("Region Blur"), C::Effects,
+        tr("An adjustment clip that blurs a rectangle of the picture below it: move and size "
+           "its mask in the viewer"),
+        {}, {}));
 }
 
 namespace {

@@ -428,6 +428,7 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
     connect(m_search, &QLineEdit::textChanged, this,
         [this](const QString& text) { m_proxy->setSearchText(text); });
     m_search->setMaximumWidth(kSearchMaxWidth);
+    setSearchField(m_search); // spec 49.5
     layout->addWidget(m_search, 1);
 
     // Clip colour filter: shows one colour (Resolve's media pool colour filter).
