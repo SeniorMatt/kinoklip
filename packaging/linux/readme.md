@@ -394,8 +394,10 @@ xdg-foreign, so it goes without a parent there.
   pointing at it; with Gear Lever the menu then shows Kinoklip twice. Remove the old one with
   `<old bundle>/AppRun --uninstall-desktop-entry` (or delete the file).
 - Programs the app starts get the original environment back only where the app goes through
-  `src/platform/ChildProcessEnv` (currently: reveal in file manager). New `QProcess` /
-  `QDesktopServices` call sites must use it too.
+  `src/platform/ChildProcessEnv` (`QProcess`) or `platform::openUrl` (links, files, folders:
+  the OpenURI portal first, src/platform/readme.md "Opening links"). Never call
+  `QDesktopServices::openUrl` directly: on Wayland Qt starts the helper later, with the
+  bundle's environment, and not at all when the calling dialog has closed (1.1.4-beta.1).
 - File dialogs come from the XDG desktop portal (the KDE/KIO dialog on Plasma) when the
   session has one; otherwise Qt's widget dialog. See "File dialogs" above. Not yet checked on
   a real Plasma 6 Wayland session: whether KWin stacks the portal dialog over our window

@@ -15,6 +15,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/help/CopyLinkDialog.h"
 #include "ui/help/Guide.h"
 
 #include <QAction>
@@ -45,11 +46,12 @@ namespace {
 struct FakeOpener
 {
     QList<QUrl> opened;
+    bool succeed = true; ///< false: no browser could be opened
     FakeOpener()
     {
         guide::setUrlOpenerForTesting([this](const QUrl& url) {
             opened.append(url);
-            return true;
+            return succeed;
         });
     }
     ~FakeOpener() { guide::setUrlOpenerForTesting({}); }
@@ -364,6 +366,22 @@ private slots:
         QCOMPARE(queryKeys(opener.opened[0]), QStringList {QStringLiteral("template")});
         QCOMPARE(queryValue(opener.opened[0], "template"), QStringLiteral("bug_report.yml"));
         QVERIFY(!opener.opened[0].toString().contains(QStringLiteral("Qt")));
+    }
+
+    void failureKeepsTheDialogAndShowsTheLink()
+    {
+        FakeOpener opener;
+        opener.succeed = false;
+        BugReportDialog dialog(sampleInfo());
+        dialog.show();
+        dialog.shareButton()->click();
+        QCOMPARE(opener.opened.size(), 1);
+        QVERIFY(dialog.isVisible()); // not closed: the user can retry or copy the info
+        auto* message = dialog.findChild<guide::CopyLinkDialog*>();
+        QVERIFY(message);
+        QVERIFY(message->isVisible());
+        QCOMPARE(message->linkText(), opener.opened[0].toString(QUrl::FullyEncoded));
+        message->close();
     }
 
     void copyPutsTheTextOnTheClipboard()

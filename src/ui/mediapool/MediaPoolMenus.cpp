@@ -8,7 +8,7 @@
 #include "core/Project.h"
 #include "media/MediaSource.h"
 #include "pack/EmbeddedMedia.h"
-#include "platform/ChildProcessEnv.h"
+#include "platform/OpenUrl.h"
 #include "platform/FileDialogs.h"
 #include "platform/FileManager.h"
 #include "ui/common/ActionRegistry.h"

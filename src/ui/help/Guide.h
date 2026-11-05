@@ -24,11 +24,13 @@ void setIndexForTesting(const GuideIndex& index);
 /// Reads `:/guide/index.json` again (undoes setIndexForTesting()).
 void reloadBundledIndex();
 
-/// Opens @p url in the user's browser (platform::openUrl: the browser gets the user's
-/// environment, not the bundle's). Returns whether the opener succeeded.
-bool openUrl(const QUrl& url);
-/// Opens @p article (or the start page for nullptr).
-bool openArticle(const GuideArticle* article);
+/// Opens @p url in the user's browser (platform::openUrl: the desktop portal, else xdg-open
+/// and friends with the user's environment, not the bundle's). Returns whether it opened;
+/// when it did not, a CopyLinkDialog over @p parent's window (or the active window) shows the
+/// link to copy by hand. A caller that closes itself on success should stay open on failure.
+bool openUrl(const QUrl& url, QWidget* parent = nullptr);
+/// Opens @p article (or the start page for nullptr); see openUrl().
+bool openArticle(const GuideArticle* article, QWidget* parent = nullptr);
 /// Test hook: replaces the URL opener (an empty function restores platform::openUrl).
 void setUrlOpenerForTesting(std::function<bool(const QUrl&)> opener);
 

@@ -2,9 +2,7 @@
 // ChildProcessEnv implementation.
 #include "platform/ChildProcessEnv.h"
 
-#include <QDesktopServices>
 #include <QProcess>
-#include <QUrl>
 
 namespace kk::platform {
 
@@ -42,12 +40,6 @@ QProcessEnvironment childEnvironment()
 void prepareChildProcess(QProcess& process)
 {
     process.setProcessEnvironment(childEnvironment());
-}
-
-bool openUrl(const QUrl& url)
-{
-    const ScopedOriginalEnvironment original;
-    return QDesktopServices::openUrl(url);
 }
 
 ScopedOriginalEnvironment::ScopedOriginalEnvironment()
