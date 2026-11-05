@@ -2,7 +2,7 @@
 // FileManager implementation: FileManager1.ShowItems with an open-the-folder fallback.
 #include "platform/FileManager.h"
 
-#include "platform/ChildProcessEnv.h"
+#include "platform/OpenUrl.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>

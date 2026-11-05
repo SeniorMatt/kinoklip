@@ -3,7 +3,7 @@
 #include "ui/deliver/RenderFinishNotifier.h"
 
 #include "core/Preferences.h"
-#include "platform/ChildProcessEnv.h"
+#include "platform/OpenUrl.h"
 #include "platform/DesktopNotifications.h"
 #include "platform/FileManager.h"
 
