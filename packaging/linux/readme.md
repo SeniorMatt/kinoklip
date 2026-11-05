@@ -82,7 +82,8 @@ kinoklip-x86_64/
   usr/lib/libheif/plugins/            libheif decoder plugins (dav1d, ffmpeg, j2k, rav1e, svt)
   usr/lib/glibc/                      the build host's glibc + glibc-required.txt (see below)
   usr/lib/qt/host-qt-requirements.txt Qt modules needed when running on a host Qt (opt-in)
-  usr/lib/fallback/                   prefer-host libraries (libvdpau, xcb-util, ...) and
+  usr/lib/fallback/                   prefer-host libraries (zlib, glib, X11, xcb, freetype,
+                                      the GL dispatchers, ... about 80 in all) and
                                       "newer" ones (libstdc++, libgcc_s, libva, fontconfig,
                                       wayland-client/-cursor) + newer.txt (their version tags)
   usr/lib/fallback-active/            symlinks to the fallbacks the host lacks (made by AppRun)
@@ -109,7 +110,11 @@ plugins. `qt.conf` is deliberately not used: Qt reads it from the binary's direc
 
 ## What comes from the host, and why
 
-Full list with comments: `excludelist.txt`. Summary:
+Full list with comments: `excludelist.txt`. The rule since GitHub issue 1 (Fedora names it
+`libbz2.so.1`, so `libbz2.so.1.0` was nowhere to be found, and the app silently did not start):
+**the bundle needs nothing from the host but glibc and a kernel.** Every other library it links
+is in the bundle, and the host copy wins whenever the host has one, so nothing changes on a system
+that has the library:
 
 - **glibc** (libc, libm, ld-linux, ...): the host's, when it is new enough. An Arch build
   references the newest libm symbol versions (`sqrtf@GLIBC_2.43`, `cosh@GLIBC_2.44`, from
@@ -120,34 +125,45 @@ Full list with comments: `excludelist.txt`. Summary:
   GPU drivers and other host libraries load fine; ld.so options are not inherited, so child
   processes use the host glibc. `/proc/self/exe` is then the loader (the app does not use
   `applicationDirPath()`; `KINOKLIP_APPDIR` is set). Locale data comes from the host.
+- **GPU drivers** (`libGLX_*`, `libEGL_*`, gbm, `libdrm_*`, CUDA/NVIDIA): the only other `host`
+  entries; nothing in the bundle links them, they are found at run time. They must match the
+  installed kernel module and hardware. A bundled driver could never be right.
 - **libstdc++/libgcc_s**: "newer" fallbacks: GCC 16's runtime (GLIBCXX_3.4.36) is used when
   the host's is older (Mint 22: 3.4.33); a host with the same or newer GCC runtime (KDE Linux)
   keeps its own, so host Mesa/LLVM never get an older one than they were built for.
-- **GPU stack** (libGL/EGL/GLX/OpenGL/GLdispatch, gbm, drm, vulkan, CUDA/NVIDIA): must match
-  the installed driver. **libvdpau** is a "fallback" (used only if missing). **libva** is a
+- **GPU front ends** (the glvnd dispatchers libGL/EGL/GLX/OpenGL/GLdispatch, libvulkan, libdrm,
+  libvdpau, libOpenCL): fallbacks. They contain no driver: they look for the host's drivers. On a
+  host without them the app still starts and draws in software. **libva** is a
   "newer" fallback (Arch FFmpeg calls `vaMapBuffer2`, libva >= 2.21); when the bundled libva
   is used, AppRun sets `LIBVA_DRIVERS_PATH` to the host's driver dirs (unless the user set
   it), otherwise `LIBVA_DRIVERS_PATH` is never touched.
-- **Wayland client libs, xkbcommon, X11/xcb core**: match the compositor / the host keymaps.
-  libwayland-client/-cursor are "newer" fallbacks (KF6GuiAddons uses
-  `wl_display_create_queue_with_name`, wayland >= 1.23; the protocol stays compatible).
-  The xcb-util libraries (icccm, image, keysyms, render-util, util), libSM/ICE and
-  xkbcommon-x11 are fallbacks, because a Wayland-only install may lack them and the xcb
-  platform plugin needs them.
-- **fontconfig/freetype/harfbuzz/graphite2**: host, so the host fonts and configuration are
-  found; harfbuzz and graphite2 because host freetype links them. fontconfig is a "newer"
+- **Wayland client libs, xkbcommon, X11/xcb core**: fallbacks; the host's follow the compositor
+  and keymaps. libwayland-client/-cursor are "newer" fallbacks (KF6GuiAddons uses
+  `wl_display_create_queue_with_name`, wayland >= 1.23; the protocol stays compatible), and
+  libxkbcommon and libxkbcommon-x11 too (with Fedora 43's 1.11.0 the bundled Qt crashed on exit
+  under X11). Measured: a GNOME install on Ubuntu 24.04 and 26.04 lacks `libxcb-shape`, `libxcb-xinput`
+  (26.04 also `libxcb-xkb`), which Qt's xcb platform plugin links, so `--version` worked while the
+  window did not open when the app had to use X11.
+- **fontconfig/freetype/harfbuzz/graphite2**: fallbacks, so the host fonts and configuration
+  are found; the host freetype links harfbuzz and graphite2. fontconfig is a "newer"
   fallback (pango/libass from Arch call `FcConfigSetDefaultSubstitute`, fontconfig 2.17); it
   reads the host's /etc/fonts.
-- **Audio** (libpulse, alsa, pipewire), **dbus, systemd/udev, glib/gio**: talk to host daemons
-  or are loaded by the host anyway (newer, backwards compatible).
-- **zlib, zstd, xz, bzip2, lz4, brotli, expat, libffi, libpng**: shared with Mesa/LLVM/
+- **Audio** (libpulse, with libsndfile, libasyncns and libFLAC, its dependencies), **dbus,
+  systemd/udev, glib/gio**: fallbacks. Distributions without systemd have no libsystemd, which Arch's
+  Qt links.
+- **zlib, zstd, xz, bzip2, lz4, brotli, expat, libffi, libpng**: fallbacks: shared with Mesa/LLVM/
   freetype/systemd. A bundled older copy would be loaded first and shadow the newer one those
-  host libraries were built against.
+  host libraries were built against, so the host's wins.
+
+A library the bundle carries only because a fallback needs it must be a fallback itself:
+an ordinary bundled one is on `LD_LIBRARY_PATH` and would shadow the copy host libraries want.
 
 `scripts/check_bundle.sh` proves that every direct dependency of every bundled ELF resolves
 inside the bundle or to one of these, once normally and once with all fallbacks forced, and
-prints the minimum host glibc without the bundled one plus the host libraries the target must
-provide. Symbol-level gaps against an older host (what decided the "newer" entries above) are
+prints the minimum host glibc without the bundled one plus the libraries the host may provide.
+It also fails on a `host` entry without a stated reason (`host <soname> # why`), a host-only soname
+known to differ between distributions, a bundled file needing anything host-only but glibc, and an
+ordinary bundled library that only a fallback needs. Symbol-level gaps against an older host (what decided the "newer" entries above) are
 found on that host with the bundled loader:
 
 ```sh
@@ -160,18 +176,27 @@ done | grep -E 'undefined symbol|not found'
 
 ## The launcher (`AppRun`)
 
-1. Links the fallback libraries the host lacks into `usr/lib/fallback-active/` (looked up in
-   the `ldconfig -p` cache, else the usual lib dirs), plus the "newer" ones whose host copy
+1. Links the fallback libraries the host lacks into `usr/lib/fallback-active/`, plus the "newer" ones whose host copy
    is older (highest `GLIBCXX_`/`GCC_` tag in the file, or the version in the real file name,
    against `usr/lib/fallback/newer.txt`). RUNPATH is searched before the system paths, so
    only those may be linked there. In a read-only bundle -- the AppImage's squashfs mount --
    the links go into a private writable directory instead
-   (`$XDG_RUNTIME_DIR/kinoklip-fallback-<hash>/active`, else `~/.cache/kinoklip/...`; never a
-   shared `/tmp`), which is put first in `LD_LIBRARY_PATH` (recorded like every other variable,
+   (`$XDG_RUNTIME_DIR/kinoklip-fallback-<hash>/active`, else `~/.cache/kinoklip/...`, else a new
+   private `mktemp` directory; a noexec mount is fine, these are only links, and with nowhere
+   writable left all fallbacks are used, the host copies losing out for that start),
+   which is put first in `LD_LIBRARY_PATH` (recorded like every other variable,
    so child processes do not inherit it). That directory also links `usr/lib/*.so*` and
    `usr/lib/qt`, so the fallbacks' own RUNPATH (`$ORIGIN/..`) resolves as in the bundle.
    An AppImage is mounted at a new path on every start; directories of mounts that are gone
    are removed on the next start.
+
+   "The host has it" means that the loader which will run the app will find it: an x86-64 entry of
+   the `ldconfig -p` cache whose file exists, else a 64-bit file in that loader's own default
+   directories. Those differ: Fedora/openSUSE `/lib64`, `/usr/lib64`; Debian/Ubuntu the multiarch
+   directories and `/lib`, `/usr/lib`; Arch `/usr/lib`; **the bundled Arch ld.so only `/usr/lib`**,
+   so with the bundled glibc Fedora's `/usr/lib64` is reached through the cache alone. A library
+   there that is missing from the cache (no `ldconfig` run yet) counts as absent in that mode. On
+   Fedora `/usr/lib` holds 32-bit libraries (Steam pulls in many), which never count.
 2. Chooses the Qt:
    - **Default: bundled Qt 6.12 + KF6 + Breeze.** `LD_LIBRARY_PATH=usr/lib/qt`,
      `QT_PLUGIN_PATH=usr/lib/qt/plugins` (host plugins are built for another Qt/KF6),
@@ -207,6 +232,36 @@ done | grep -E 'undefined symbol|not found'
    ...), so they never see the bundle's Qt, plugins or data dirs.
 5. Execs `usr/bin/kinoklip` with all arguments -- through the bundled glibc loader if the
    host glibc is too old (see above; `KINOKLIP_FORCE_GLIBC=1|0` test hook).
+
+**A failed start is never silent.** The launcher execs, so that the app is this process (signals,
+exit code, process id), which leaves nothing behind to report a loader failure. So it asks the loader
+first, in its trace mode (what `ldd` uses), which runs none of the app's code:
+
+- every start: the binary, about 15 ms: missing libraries and symbol versions;
+- once per state of the bundle and the host's libraries (time and size of `usr/bin/kinoklip` and
+  `/etc/ld.so.cache`, the fallback list, `LD_LIBRARY_PATH`; kept in `~/.cache/kinoklip/loader-check`)
+  also every symbol, plus the Qt platform plugins, which only load at run time: about 200 ms.
+
+If the loader reports nothing, which is the normal case, the app is exec'ed as always. Fallbacks can
+be a mixed set: a bundled library the host lacks can need a newer library than the host's copy of
+another (Ubuntu 24.04 without a desktop: the bundled libgio wants a newer libmount). So the launcher first
+repairs what the loader reports: `version ... not found` for a host library with a bundled copy
+activates that copy, and if problems remain, all fallbacks are used together, since they fit each other.
+The host copy stays everywhere the loader has nothing to say. A report that remains never
+stops the app, because lazily bound symbols may never be used: the launcher keeps running as the app's
+parent instead (passes on TERM, HUP and INT, exit status, stdin; stderr through `tee`). If the app
+then exits with 126 or 127, says it has no Qt platform plugin, or aborts or crashes within 3 seconds,
+the launcher shows the loader's line and a link to the issue tracker: on stderr, in
+`~/.cache/kinoklip/start-failure.log`, and, unless started from a terminal, through `kdialog` /
+`zenity` (the desktop's own first), `notify-send`, `gdbus` to the notification service or `xmessage`,
+with the user's original environment. Nothing is sent anywhere (docs/privacy.md). A start that works
+is remembered, so the next one execs again. `KINOKLIP_NO_PREFLIGHT=1` skips the check,
+`KINOKLIP_NO_FAILURE_DIALOG=1` keeps it to stderr.
+
+Not caught: a failure after the exec, once a state passed the once-per-state check (nothing
+changed in between, so it should not happen), and whatever happens before AppRun runs, in the
+AppImage runtime: FUSE missing or a read-only `TMPDIR` for its mount point only gives a message on
+stderr. Gear Lever users would see nothing in that case; see "Known risks".
 
 `AppRun --install-desktop-entry` writes the desktop entry, icon and MIME type to
 `${XDG_DATA_HOME:-~/.local/share}` with `Exec=` pointing at the AppImage file (`$APPIMAGE`, set
@@ -380,8 +435,38 @@ the `Response` URIs (one with a space) are imported, and quitting with the dialo
 `Request.Close`. Under headless weston (Wayland) the call is made too; weston has no
 xdg-foreign, so it goes without a parent there.
 
+### Checking other distributions
+
+```sh
+scripts/check_distros.sh                        # outside the container, needs podman; about an hour
+scripts/check_distros.sh --only fedora:44       # one image
+```
+It starts the AppImage in official images of Fedora, Ubuntu, Debian, openSUSE Tumbleweed and Arch,
+with a GNOME or KDE library set (no weak dependencies) or the bare image: `--version` from the
+read-only bundle and through the AppImage file, the same with no writable place or a noexec one for the
+launcher's links, and the edit page screenshot under Xvfb (X11) and on a headless weston (Wayland), then
+prints a pass or fail table with the loader's error. It removes the images it pulled.
+It cannot test real GPUs, real desktop sessions, FUSE or SELinux.
+
+### Release steps for Linux
+
+1. `podman exec -w "$PWD" kk-arch env KK_BUILD_DIR=build-arch-release scripts/package_linux.sh`
+2. `podman exec -w "$PWD" kk-arch scripts/check_bundle.sh`
+3. `scripts/check_distros.sh`: every row must pass. When an image's distribution has a new release,
+   add it to the list at the top of the script.
+4. `scripts/publish_release.sh <tag> "<title>"`, after the owner's go.
+
 ## Known risks on the target
 
+- The AppImage runtime starts before the launcher. Without FUSE (`fusermount3` or `fusermount`
+  missing: measured on a no-recommends Ubuntu 26.04 GNOME set) or without a writable `TMPDIR` for its
+  mount point, it only prints to stderr, so a start from a menu shows nothing. `--appimage-extract-and-run`
+  or `APPIMAGE_EXTRACT_AND_RUN=1` works around it. Fixing it would mean changing the upstream runtime.
+- SELinux could not be tested in a container. By the code: the links and files the launcher makes are
+  in the user's own directories, and the app's libraries are mapped from the FUSE mount (type
+  `fusefs_t`) as for every AppImage. On a default Fedora targeted policy a user session is unconfined.
+  No bundled ELF has text relocations or an executable stack (checked with `readelf`), so the
+  execmod/execstack denials do not apply. Not verified on an enforcing system.
 - A downloaded AppImage is not executable: Dolphin offers to make it executable on
   double-click (or Properties > Permissions > "Is executable", `chmod +x`); opening it with
   Gear Lever avoids that and adds it to the menu.

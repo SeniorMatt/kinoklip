@@ -486,7 +486,10 @@ copy_licence() {
     if command -v pacman >/dev/null; then
         if [ -d "/usr/share/licenses/$pkg" ]; then
             mkdir -p "$LICENSES/$pkg"
-            cp -rL "/usr/share/licenses/$pkg/." "$LICENSES/$pkg/"
+            # xz links to /usr/share/doc, which the container image does not extract: dangling
+            # links are skipped here, and its SPDX ids below bring the texts.
+            cp -rL "/usr/share/licenses/$pkg/." "$LICENSES/$pkg/" 2>/dev/null ||
+                log "warning: incomplete licence directory of $pkg, relying on its SPDX ids"
         fi
         # SPDX ids from the package metadata, e.g. "LGPL-2.1-or-later  GPL-3.0-only"
         for id in $(LC_ALL=C pacman -Qi "$pkg" 2>/dev/null | sed -n 's/^Licenses *: //p'); do
