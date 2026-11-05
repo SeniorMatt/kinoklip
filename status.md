@@ -196,3 +196,4 @@
 - 19:18 1.1.2-beta.1 built (container 174/175, test_proxies flaked, 3/3 alone; bundle OK; smoke OK incl. bug-report dialog shows AppImage/Breeze). Local tag. Awaiting owner's go.
 - 19:26 PUBLISHED 1.1.2-beta.1 (owner said Publish): https://github.com/SeniorMatt/kinoklip/releases/tag/v1.1.2-beta.1
 - 2026-11-04: 1.1.3-beta.1 published (Effects library Live Preview on hover). Host 175/175, container 176/176.
+- 2026-11-05: 1.1.4-beta.1 published (Media Pool back/forward, thumbnail size, gentler wheel; smoother transition preview with position line). Host 176/176, container 177/177.
