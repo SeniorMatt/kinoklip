@@ -137,7 +137,7 @@ SchemeColors compute(const SchemeRoles& r, const QPalette& p, quint64 generation
     // Dark schemes put the view only a shade below the window, too close to read as a separate
     // area: go further towards the shadow. Light schemes already have white against grey.
     c.keyRows = c.dark ? mixColors(c.view, c.shadow, 0.35) : c.view;
-    c.keyRowStripe = withAlpha(c.text, c.dark ? 16 : 10);
+    c.keyRowStripe = withAlpha(c.text, c.dark ? 9 : 10); // between the rows and the window
     c.keyRowsOutside
         = c.dark ? mixColors(c.keyRows, c.shadow, 0.45) : mixColors(c.window, c.text, 0.06);
     c.keyRuler = c.header;

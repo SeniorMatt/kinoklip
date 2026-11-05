@@ -70,6 +70,9 @@ constexpr int kTopRowHeight = 520;
 constexpr int kBottomRowHeight = 440;
 constexpr int kMixerWidth = 260;
 constexpr int kKeyframesMinDockHeight = 160; ///< below this a shown docked panel is resized
+/// Room kept for two viewers next to the default columns. A constant, not the viewers' size
+/// hints: those change while a viewer is hidden, and the columns must match in both modes.
+constexpr int kTwoViewersMinWidth = 1065; // with the splitter handles
 constexpr double kKeyframesDockShare = 0.55; ///< of the left column when it opens docked
 constexpr int kMinColumnPanelHeight = 120; ///< other left-column panels keep at least this
 constexpr int kKeyframesMinColumnWidth = 640; ///< left column width (of 1920) while it is docked
@@ -442,11 +445,9 @@ void EditPage::applyDefaultWidths()
     int right = scaled(kRightColumnWidth);
     // Room for two viewers at their minimum width, in single mode too: the side columns have
     // the same width in both viewer modes (spec 24.23).
-    const int viewerMinimum = std::max(
-        m_sourceViewer->minimumSizeHint().width(), m_timelineViewer->minimumSizeHint().width());
     const int sides
         = (m_leftColumn->isHidden() ? 0 : left) + (m_rightColumn->isHidden() ? 0 : right);
-    const int excess = sides + 2 * viewerMinimum - width;
+    const int excess = sides + kTwoViewersMinWidth - width;
     if (excess > 0 && sides > 0) {
         left = std::max(0, left - int(qint64(left) * excess / sides));
         right = std::max(0, right - int(qint64(right) * excess / sides));
