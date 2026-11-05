@@ -49,6 +49,9 @@ public:
     [[nodiscard]] bool isPanelVisible(PanelId id) const override;
     void saveLayout(QSettings& settings) const override;
     void restoreLayout(const QSettings& settings) override;
+    /// Workspace > Reset UI Layout: the default panels, dual viewers, docked Keyframes and the
+    /// default proportions for the current size (which follow resizes again).
+    void resetLayout() override;
 
     /// Single viewer mode (Resolve's Workspace > Single Viewer Mode): one viewer gets the
     /// width of both. It shows the timeline, or the source clip after one was opened (media pool
@@ -106,9 +109,9 @@ private:
     void showSourceInSingleViewer(bool source);
     void updateViewerModeButtons();
     [[nodiscard]] QAction* singleViewerAction() const;
-    /// Resolve's default proportions for the page's actual size (first show without a
-    /// stored layout): viewers about half the height, side columns about a fifth of the width.
-    void applyDefaultProportions(bool widthsOnly = false);
+    /// Resolve's default row heights for the page's actual size (first show without a stored
+    /// layout): viewers about half the height, the Mixer at its default width.
+    void applyDefaultHeights();
     /// Sets the top row to the default column widths for its current width (side columns
     /// scaled from 1920 px, the viewers share the rest).
     void applyDefaultWidths();
@@ -143,11 +146,17 @@ private:
     QSplitter* m_rightColumn = nullptr; ///< inspector / metadata
     QSplitter* m_bottomRow = nullptr; ///< timeline | mixer
     QMap<PanelId, QWidget*> m_panels;
-    bool m_layoutRestored = false; ///< restoreLayout() found stored splitter states
-    bool m_proportionsApplied = false;
+    bool m_heightsRestored = false; ///< restoreLayout() found stored row heights
+    bool m_proportionsApplied = false; ///< the first show applied the defaults
     /// The top row still has the default column widths (no user drag, no stored layout of the
     /// current kLayoutVersion): resizes re-apply them.
     bool m_defaultWidths = true;
+    /// The top row was laid out at least once: before that QSplitter::sizes() returns the
+    /// children's unrelated initial widths, not the splitter's sizes.
+    bool m_topRowLaidOut = false;
+    /// Share of the viewer width the source viewer has in dual viewer mode, kept while single
+    /// mode shows one viewer (and stored with the layout).
+    double m_sourceViewerShare = 0.5;
     TimecodeEntry* m_timecodeEntry = nullptr; ///< typed timecode (spec 2.10)
 };
 

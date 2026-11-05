@@ -11,6 +11,7 @@
 class QAction;
 class QActionGroup;
 class QStackedWidget;
+class QTimer;
 
 namespace kk {
 
@@ -105,6 +106,8 @@ private:
     void connectPanelToggles();
     void syncPanelToggles();
     void updateTitle();
+    /// Workspace > Reset UI Layout (Page::resetLayout() on every page).
+    void resetUiLayout();
     void saveSettings() const;
     void restoreSettings();
 
@@ -129,6 +132,7 @@ private:
     HelpController* m_help = nullptr;
     ViewerTransport* m_transport = nullptr; ///< routes transport actions to the active viewer
     bool m_geometryRestored = false;
+    QTimer* m_layoutSaveTimer = nullptr; ///< stores the layout after a splitter drag
 };
 
 } // namespace kk

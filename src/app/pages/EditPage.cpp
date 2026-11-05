@@ -36,6 +36,7 @@
 #include <QCloseEvent>
 #include <QCursor>
 #include <QGuiApplication>
+#include <QResizeEvent>
 #include <QSettings>
 #include <QSplitter>
 #include <QTimer>
@@ -44,6 +45,7 @@
 #include <QWindow>
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <memory>
 
@@ -51,16 +53,19 @@ namespace kk {
 
 namespace {
 
-// Default sizes for a 1920x1080 window; applyDefaultProportions() scales them to the real size
-// whenever the page is resized until the user drags a splitter (QSplitter alone would give the
-// whole difference to the stretching viewers, leaving the side columns narrow when the window
-// starts small and is then maximised).
+// Default sizes for a 1920x1080 window; applyDefaultWidths() and applyDefaultHeights() scale
+// them to the real size, the widths whenever the page is resized until the user drags a column
+// splitter (QSplitter alone would give the whole difference to the stretching viewers, leaving
+// the side columns narrow when the window starts small and is then maximised).
 constexpr int kLeftColumnWidth = 460; ///< media pool / effects / edit index column
 constexpr int kViewerWidth = 490;
 constexpr int kRightColumnWidth = 480; ///< inspector / metadata column
-/// Version of the stored splitter layout. Layouts stored by older versions are ignored for the
-/// top row once (version 1 could store side columns squeezed by the resize problem above).
-constexpr int kLayoutVersion = 3; ///< 3: Keyframes docks in the left column
+/// Version of the stored splitter layout. Layouts stored by older versions are ignored once:
+/// version 1 could store side columns squeezed by the resize problem above, version 2 had the
+/// Keyframes panel in the main splitter, version 3 (up to 1.1.4) stored squeezed side columns
+/// after a start in single viewer mode (updateViewers() before the first layout).
+constexpr int kLayoutVersion = 4;
+constexpr int kRowsLayoutVersion = 3; ///< oldest version whose row heights are still used
 constexpr int kTopRowHeight = 520;
 constexpr int kBottomRowHeight = 440;
 constexpr int kMixerWidth = 260;
@@ -351,16 +356,30 @@ void EditPage::updateViewers()
     const bool showTimeline = !m_singleViewer || !showSource;
     if (showSource == !m_sourceViewer->isHidden() && showTimeline == !m_timelineViewer->isHidden())
         return;
-    // Keep the width the viewers had together: one viewer gets all of it, two share it.
+    // Before the first layout (a stored single viewer mode restored at start-up) the sizes are
+    // not known yet: only the visibility changes, and the side columns get their stored or
+    // default widths when the row is laid out.
+    if (!m_topRowLaidOut) {
+        m_sourceViewer->setVisible(showSource);
+        m_timelineViewer->setVisible(showTimeline);
+        return;
+    }
+    // Keep the width the viewers had together and the side columns: one viewer gets all of
+    // it, two share it as they did before single mode.
     QList<int> sizes = m_topRow->sizes();
     const int source = m_topRow->indexOf(m_sourceViewer);
     const int program = m_topRow->indexOf(m_timelineViewer);
+    const bool bothShown = !m_sourceViewer->isHidden() && !m_timelineViewer->isHidden();
     const int space = (m_sourceViewer->isHidden() ? 0 : sizes[source])
         + (m_timelineViewer->isHidden() ? 0 : sizes[program]);
+    if (bothShown && space > 0)
+        m_sourceViewerShare = double(sizes[source]) / space;
     m_sourceViewer->setVisible(showSource);
     m_timelineViewer->setVisible(showTimeline);
     if (space > 0) {
-        sizes[source] = showSource ? (showTimeline ? space / 2 : space) : 0;
+        sizes[source] = showSource
+            ? (showTimeline ? int(std::lround(space * m_sourceViewerShare)) : space)
+            : 0;
         sizes[program] = showTimeline ? space - sizes[source] : 0;
         m_topRow->setSizes(sizes);
     }
@@ -371,9 +390,12 @@ void EditPage::updateViewers()
 void EditPage::showEvent(QShowEvent* event)
 {
     Page::showEvent(event);
-    if (!m_proportionsApplied && !m_layoutRestored) {
+    if (!m_proportionsApplied) {
         m_proportionsApplied = true;
-        applyDefaultProportions();
+        if (m_defaultWidths)
+            applyDefaultWidths();
+        if (!m_heightsRestored)
+            applyDefaultHeights();
     }
     if (m_keyframesFloating && m_keyframesShown && m_keyframesWindow && !event->spontaneous())
         m_keyframesWindow->show();
@@ -397,8 +419,19 @@ void EditPage::applyDefaultWidths()
         = [width](int reference) { return int(qint64(reference) * width / kReferenceWidth); };
     // The left column is wider while the docked Keyframes panel is in it (curve editor room).
     const bool keyframesDocked = !m_keyframesFloating && m_keyframesShown;
-    const int left = scaled(keyframesDocked ? kKeyframesMinColumnWidth : kLeftColumnWidth);
-    const int right = scaled(kRightColumnWidth);
+    int left = scaled(keyframesDocked ? kKeyframesMinColumnWidth : kLeftColumnWidth);
+    int right = scaled(kRightColumnWidth);
+    // Room for two viewers at their minimum width, in single mode too: the side columns have
+    // the same width in both viewer modes (spec 24.23).
+    const int viewerMinimum = std::max(
+        m_sourceViewer->minimumSizeHint().width(), m_timelineViewer->minimumSizeHint().width());
+    const int sides
+        = (m_leftColumn->isHidden() ? 0 : left) + (m_rightColumn->isHidden() ? 0 : right);
+    const int excess = sides + 2 * viewerMinimum - width;
+    if (excess > 0 && sides > 0) {
+        left = std::max(0, left - int(qint64(left) * excess / sides));
+        right = std::max(0, right - int(qint64(right) * excess / sides));
+    }
     // The viewers share the rest; a hidden viewer (single viewer mode) gets nothing.
     const bool source = !m_sourceViewer->isHidden();
     const bool program = !m_timelineViewer->isHidden();
@@ -413,18 +446,13 @@ void EditPage::applyDefaultWidths()
     m_topRow->setSizes(sizes);
 }
 
-void EditPage::applyDefaultProportions(bool widthsOnly)
+void EditPage::applyDefaultHeights()
 {
-    const auto scaled = [](int reference, int total, int referenceTotal) {
-        return int(qint64(reference) * total / referenceTotal);
-    };
-    applyDefaultWidths();
     const int height = m_main->height();
-    if (widthsOnly || height <= 0)
+    if (height <= 0)
         return;
-    const int referenceHeight = kTopRowHeight + kBottomRowHeight;
-    m_main->setSizes({scaled(kTopRowHeight, height, referenceHeight),
-        scaled(kBottomRowHeight, height, referenceHeight)});
+    const int top = int(qint64(kTopRowHeight) * height / (kTopRowHeight + kBottomRowHeight));
+    m_main->setSizes({top, height - top});
     m_bottomRow->setSizes({m_bottomRow->width() - kMixerWidth, kMixerWidth});
 }
 
@@ -513,6 +541,10 @@ void EditPage::showKeyframes(bool visible)
 
 void EditPage::ensureKeyframesHeight()
 {
+    // Not before the first layout (a docked panel restored at start-up): the sizes are not known
+    // yet, and the stored left column already has the panel's height.
+    if (!m_topRowLaidOut)
+        return;
     // Docked in the left column: it takes a good part of the column's height from the other
     // visible panels there (each keeps a usable minimum) ...
     QList<int> sizes = m_leftColumn->sizes();
@@ -648,9 +680,13 @@ bool EditPage::eventFilter(QObject* watched, QEvent* event)
     // then the row is laid out once per resize step, at the default widths (QSplitter's own
     // pass finds every child at its size already). Re-applying from EditPage::resizeEvent()
     // laid every panel of the row out twice per live-resize step (test_resizebench sweep).
-    if (watched == m_topRow && event->type() == QEvent::Resize && m_defaultWidths
-        && m_proportionsApplied)
-        applyDefaultWidths();
+    if (watched == m_topRow && event->type() == QEvent::Resize) {
+        if (m_defaultWidths && m_proportionsApplied)
+            applyDefaultWidths();
+        // QSplitter::resizeEvent() lays the row out right after this.
+        if (static_cast<QResizeEvent*>(event)->size().width() > 0)
+            m_topRowLaidOut = true;
+    }
     // Closing the floating window hides the panel (the interface-bar toggle follows); it opens
     // again floating.
     if (watched == m_keyframesWindow && event->type() == QEvent::Close && m_keyframesShown) {
@@ -689,10 +725,22 @@ void EditPage::saveLayout(QSettings& settings) const
     settings.setValue(QStringLiteral("layoutVersion"), kLayoutVersion);
     settings.setValue(QStringLiteral("main"), m_main->saveState());
     settings.setValue(QStringLiteral("topRow"), m_topRow->saveState());
+    settings.setValue(QStringLiteral("columnsDragged"), !m_defaultWidths);
     settings.setValue(QStringLiteral("bottomRow"), m_bottomRow->saveState());
     settings.setValue(QStringLiteral("leftColumn"), m_leftColumn->saveState());
     settings.setValue(QStringLiteral("rightColumn"), m_rightColumn->saveState());
     settings.setValue(QStringLiteral("singleViewer"), isSingleViewer());
+    double sourceShare = m_sourceViewerShare;
+    if (m_topRowLaidOut && !m_sourceViewer->isHidden() && !m_timelineViewer->isHidden()) {
+        const QList<int> sizes = m_topRow->sizes();
+        const int source = sizes[m_topRow->indexOf(m_sourceViewer)];
+        const int program = sizes[m_topRow->indexOf(m_timelineViewer)];
+        if (source + program > 0)
+            sourceShare = double(source) / (source + program);
+    }
+    settings.setValue(QStringLiteral("sourceViewerShare"), sourceShare);
+    m_mediaPool->saveSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
+    m_effects->saveSplitterSizes(settings, QStringLiteral("effectsPanel/"));
     settings.setValue(QStringLiteral("keyframes/floating"), m_keyframesFloating);
     if (m_keyframesWindow)
         settings.setValue(
@@ -704,20 +752,28 @@ void EditPage::saveLayout(QSettings& settings) const
 
 void EditPage::restoreLayout(const QSettings& settings)
 {
-    // Splitter sizes stored by an older layout version are ignored (kLayoutVersion): version 1
-    // could hold squeezed side columns, version 2 still had the Keyframes panel in the page's
-    // main splitter. The page then starts with the default proportions; panel visibility below
-    // is restored either way.
-    m_layoutRestored = settings.contains(QStringLiteral("main"))
-        && settings.value(QStringLiteral("layoutVersion"), 1).toInt() >= kLayoutVersion;
-    m_defaultWidths = !m_layoutRestored;
-    if (m_layoutRestored) {
+    // Splitter sizes stored by an older layout version are ignored (kLayoutVersion): the
+    // column widths of versions before 4, the row heights and the left column of versions
+    // before 3 (kRowsLayoutVersion). The page then starts with the default proportions for
+    // them; panel visibility below is restored either way.
+    const bool stored = settings.contains(QStringLiteral("main"));
+    const int version = settings.value(QStringLiteral("layoutVersion"), 1).toInt();
+    m_heightsRestored = stored && version >= kRowsLayoutVersion;
+    // Column widths nobody dragged stay the proportional defaults after a restart too.
+    m_defaultWidths = !(stored && version >= kLayoutVersion
+        && settings.value(QStringLiteral("columnsDragged"), false).toBool());
+    if (m_heightsRestored) {
         m_main->restoreState(settings.value(QStringLiteral("main")).toByteArray());
-        m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
         m_leftColumn->restoreState(settings.value(QStringLiteral("leftColumn")).toByteArray());
     }
+    if (!m_defaultWidths)
+        m_topRow->restoreState(settings.value(QStringLiteral("topRow")).toByteArray());
     m_bottomRow->restoreState(settings.value(QStringLiteral("bottomRow")).toByteArray());
     m_rightColumn->restoreState(settings.value(QStringLiteral("rightColumn")).toByteArray());
+    m_sourceViewerShare = std::clamp(
+        settings.value(QStringLiteral("sourceViewerShare"), 0.5).toDouble(), 0.05, 0.95);
+    m_mediaPool->restoreSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
+    m_effects->restoreSplitterSizes(settings, QStringLiteral("effectsPanel/"));
     // Splitter states may carry visibility too; the explicit flags below win.
     for (PanelId id : kAllPanels) {
         const QString key = QStringLiteral("visible/") + panelIdToString(id);
@@ -735,6 +791,23 @@ void EditPage::restoreLayout(const QSettings& settings)
     }
     // The splitter state may have changed the docked panel's visibility: the flag wins.
     showKeyframes(m_keyframesShown);
+}
+
+void EditPage::resetLayout()
+{
+    setKeyframesFloating(false);
+    setSingleViewer(false);
+    Page::resetLayout(); // splitters and panels as built
+    updateColumns();
+    m_sourceViewerShare = 0.5;
+    m_defaultWidths = true;
+    m_heightsRestored = false;
+    m_proportionsApplied = false;
+    if (isVisible()) {
+        m_proportionsApplied = true;
+        applyDefaultWidths();
+        applyDefaultHeights();
+    }
 }
 
 } // namespace kk

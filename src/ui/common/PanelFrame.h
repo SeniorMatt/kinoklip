@@ -9,6 +9,7 @@ class QAction;
 class QGridLayout;
 class QHBoxLayout;
 class QLabel;
+class QSettings;
 class QToolButton;
 
 namespace kk {
@@ -56,6 +57,12 @@ public:
     /// The title bar widget, e.g. to install an event filter for header gestures
     /// (the Keyframes panel floats / docks on a header double-click or drag).
     [[nodiscard]] QWidget* titleBar() const { return m_titleBar; }
+
+    /// Saves the sizes of the splitters inside the panel (Media Pool bin list | clips, Effects
+    /// sidebar | list, ...) under @p prefix of the page's settings group.
+    void saveSplitterSizes(QSettings& settings, const QString& prefix) const;
+    /// Restores what saveSplitterSizes() wrote (missing keys keep the built sizes).
+    void restoreSplitterSizes(const QSettings& settings, const QString& prefix);
 
 private:
     QWidget* m_titleBar = nullptr;
