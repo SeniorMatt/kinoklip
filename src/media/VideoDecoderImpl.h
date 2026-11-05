@@ -89,6 +89,9 @@ struct VideoDecoder::Impl
     bool eof = false; ///< decoder fully drained; `cur` is the last frame of the stream
     bool draining = false; ///< demuxer hit EOF, flush packet sent to the decoder
     bool afterSeek = false; ///< no frame delivered since the last seek
+    int64_t decodedFrames = 0; ///< see VideoDecoder::decodedFrameCount()
+    const std::function<bool()>* stopCheck = nullptr; ///< set during prepareFrame()
+    bool stopped = false; ///< prepareFrame() gave up before the target
     detail::DecodedFrame cur;
     detail::DecodedFrame next;
     QImage curImage; ///< `cur` converted for curImageMaxSize

@@ -127,7 +127,9 @@ struct GlRenderer::ClipSource
 GlRenderer::GlRenderer(QOffscreenSurface* surface)
     : m_surface(surface)
 {
-    m_decodeThreads.setMaxThreadCount(kDecodeThreads);
+    // The look-ahead's preparations come on top: they must not hold up a frame's decodes.
+    m_decodeThreads.setMaxThreadCount(kDecodeThreads + DecoderPool::kMaxPrepareRunning);
+    m_decoders.setPrepareThreads(&m_decodeThreads);
     m_decodeThreads.setObjectName(QStringLiteral("kk.render.decode"));
 }
 
@@ -246,6 +248,7 @@ void GlRenderer::shutdown()
 {
     if (!m_context)
         return;
+    m_decoders.stopPreparing();
     m_decodeThreads.waitForDone();
     if (m_kit && m_context->makeCurrent(m_surface)) {
         if (m_output)

@@ -25,6 +25,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QSet>
+#include <QThreadPool>
 
 #include <algorithm>
 #include <cmath>
@@ -43,6 +44,14 @@ public:
     bool initialize(QString*) override { return true; }
     QString description() const override { return QStringLiteral("CPU (QPainter fallback)"); }
     bool isGpu() const override { return false; }
+    DecoderPool& decoders() override { return m_decoders; }
+
+    CpuRenderer()
+    {
+        m_prepareThreads.setMaxThreadCount(DecoderPool::kMaxPrepareRunning);
+        m_prepareThreads.setObjectName(QStringLiteral("kk.render.prepare"));
+        m_decoders.setPrepareThreads(&m_prepareThreads);
+    }
 
     void render(RenderJob& job) override
     {
@@ -625,6 +634,7 @@ private:
         return matte;
     }
 
+    QThreadPool m_prepareThreads; ///< decoder look-ahead; outlives m_decoders
     DecoderPool m_decoders;
     QSet<QString> m_warned;
     QImage m_below; ///< composite below the adjustment track being drawn (output size)
