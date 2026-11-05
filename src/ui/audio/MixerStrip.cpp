@@ -11,6 +11,7 @@
 #include "ui/audio/MixerController.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/common/TextFit.h"
 
 #include <QComboBox>
 #include <QCoreApplication>
@@ -81,8 +82,6 @@ MixerStrip::MixerStrip(
 
     m_input = new QLabel;
     m_input->setAlignment(Qt::AlignCenter);
-    m_input->setToolTip(
-        bus ? tr("Input: the tracks routed to this bus") : tr("Input: the track's clips"));
     layout->addWidget(m_input);
 
     m_eq = toggleButton(tr("EQ"), tr("Equalizer: lit when on; click to edit"));
@@ -207,8 +206,6 @@ MixerStrip::MixerStrip(
     m_name->setAlignment(Qt::AlignCenter);
     m_name->setAutoFillBackground(true);
     m_name->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_name->setToolTip(tr("Right-click for the channel format%1")
-                           .arg(bus ? tr(", rename and delete") : QString()));
     connect(m_name, &QLabel::customContextMenuRequested, this,
         [this](const QPoint& pos) { showNameMenu(m_name->mapToGlobal(pos)); });
     layout->addWidget(m_name);
@@ -234,26 +231,29 @@ void MixerStrip::refresh(int64_t frame)
     m_dynamics->setChecked(s->dynamics.compressorEnabled || s->dynamics.limiterEnabled);
     if (m_target.isBus()) {
         const BusData* b = mixerops::bus(d, int(m_target.id));
-        m_input->setText(tr("Sum"));
-        m_name->setText(
-            QStringLiteral("%1\n%2").arg(busDisplayName(*b), b->mono ? tr("Mono") : tr("Stereo")));
+        // The strip has a fixed width (as in Resolve): long names are elided, in full as the tip.
+        textfit::setElidedText(m_input, tr("Sum"), tr("Input: the tracks routed to this bus"));
+        textfit::setElidedText(m_name,
+            QStringLiteral("%1\n%2").arg(busDisplayName(*b), b->mono ? tr("Mono") : tr("Stereo")),
+            tr("Right-click for the channel format, rename and delete"));
         m_bus->setChecked(d.mixer.outputBus == b->id);
         m_mute->setChecked(s->muted);
     } else {
         const TrackData* t = mixerops::audioTrack(d, m_target.id);
         const QString name = mixerops::targetName(d, m_target);
-        m_input->setText(name);
-        m_name->setText(
-            QStringLiteral("%1\n%2").arg(name, t->mix.mono ? tr("Mono") : tr("Stereo")));
+        textfit::setElidedText(m_input, name, tr("Input: the track's clips"));
+        textfit::setElidedText(m_name,
+            QStringLiteral("%1\n%2").arg(name, t->mix.mono ? tr("Mono") : tr("Stereo")),
+            tr("Right-click for the channel format"));
         QStringList buses;
         for (int id : t->mix.buses) {
             if (const BusData* b = mixerops::bus(d, id))
                 buses << busDisplayName(*b);
         }
-        m_bus->setText(buses.isEmpty() ? tr("No Bus")
-                : buses.size() == 1    ? buses.front()
-                                       : tr("%n Buses", nullptr, int(buses.size())));
-        m_bus->setToolTip(
+        textfit::setElidedText(m_bus,
+            buses.isEmpty()         ? tr("No Bus")
+                : buses.size() == 1 ? buses.front()
+                                    : tr("%n Buses", nullptr, int(buses.size())),
             tr("Bus assignment: %1")
                 .arg(buses.isEmpty() ? tr("none") : buses.join(QStringLiteral(", "))));
         m_mute->setChecked(t->muted);

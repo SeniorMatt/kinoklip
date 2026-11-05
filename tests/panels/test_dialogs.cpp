@@ -19,11 +19,16 @@
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QLabel>
+#include <QListWidget>
 #include <QPushButton>
+#include <QScopeGuard>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <QStyle>
+#include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTreeWidget>
@@ -31,6 +36,71 @@
 
 using namespace kk;
 using namespace kk::test;
+
+namespace {
+
+/// Every shown section name of @p list fits its item and the item the viewport, and the list
+/// cannot scroll sideways (spec 23.20).
+void verifySectionsFit(QListWidget* list)
+{
+    QCoreApplication::processEvents(); // the view lays its items out lazily
+    QVERIFY(!list->horizontalScrollBar()->isVisible());
+    QCOMPARE(list->horizontalScrollBar()->maximum(), 0);
+    const int viewport = list->viewport()->width();
+    const int margin = list->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, list) + 1;
+    int shown = 0;
+    for (int row = 0; row < list->count(); ++row) {
+        QListWidgetItem* item = list->item(row);
+        if (item->isHidden())
+            continue;
+        ++shown;
+        const QRect r = list->visualItemRect(item);
+        const int text = list->fontMetrics().horizontalAdvance(item->text());
+        QVERIFY2(r.left() >= 0 && r.right() < viewport, qPrintable(item->text()));
+        QVERIFY2(text + 2 * margin <= r.width(), qPrintable(item->text()));
+    }
+    QVERIFY(shown > 0);
+}
+
+/// The section lists of Project Settings and of both Preferences groups fit their names, in
+/// lists drawn at @p pointSize.
+void verifyDialogSectionsFit(PanelFixture& f, double pointSize)
+{
+    ProjectSettingsDialog settings(&f.project);
+    settings.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&settings));
+    auto* sections = settings.findChild<QListWidget*>(QStringLiteral("ProjectSettingsSections"));
+    QVERIFY(sections);
+    QCOMPARE(sections->font().pointSizeF(), pointSize);
+    verifySectionsFit(sections);
+
+    PreferencesDialog prefs(nullptr);
+    prefs.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&prefs));
+    auto* prefSections = prefs.findChild<QListWidget*>(QStringLiteral("PreferencesSections"));
+    auto* groups = prefs.findChild<QTabBar*>(QStringLiteral("PreferencesGroups"));
+    QVERIFY(prefSections && groups);
+    for (int g = 0; g < groups->count(); ++g) {
+        groups->setCurrentIndex(g);
+        verifySectionsFit(prefSections);
+    }
+
+    // A longer name (a section added or renamed, a translation) widens the list.
+    const int shorter = prefSections->width();
+    prefSections->item(0)->setText(QString(120, QLatin1Char('x')));
+    QTRY_VERIFY(prefSections->width() > shorter);
+    verifySectionsFit(prefSections);
+
+    // A font change while open widens the list again.
+    QFont larger = sections->font();
+    larger.setPointSizeF(larger.pointSizeF() * 2);
+    const int before = sections->width();
+    sections->setFont(larger);
+    QVERIFY(sections->width() > before);
+    verifySectionsFit(sections);
+}
+
+} // namespace
 
 class TestDialogs : public QObject
 {
@@ -298,6 +368,21 @@ private slots:
         QVERIFY(button && button->isEnabled());
         button->click();
         QCOMPARE(opened.count(), 1);
+    }
+
+    void spec23_20_sectionListsFitTheirNames()
+    {
+        PanelFixture f;
+        const QFont normal = QApplication::font();
+        verifyDialogSectionsFit(f, normal.pointSizeF());
+        if (QTest::currentTestFailed())
+            return;
+        // Also with a 1.5x larger application font.
+        QFont larger = normal;
+        larger.setPointSizeF(normal.pointSizeF() * 1.5);
+        QApplication::setFont(larger);
+        const auto restore = qScopeGuard([&normal] { QApplication::setFont(normal); });
+        verifyDialogSectionsFit(f, larger.pointSizeF());
     }
 };
 

@@ -5,6 +5,7 @@
 
 #include "ui/common/Metrics.h"
 #include "ui/common/SettingsPages.h"
+#include "ui/common/TextFit.h"
 
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -26,7 +27,7 @@ namespace kk {
 namespace {
 
 const QSize kDialogSize(860, 600); ///< Resolve's preferences window proportions
-constexpr int kSectionListWidth = 200;
+constexpr int kSectionListWidth = 200; ///< minimum; wider when a section name needs it
 constexpr int kTitlePointDelta = 2; ///< section title: base font + 2 pt
 constexpr int kSectionRole = Qt::UserRole; ///< section id on list items
 constexpr int kGroupRole = Qt::UserRole + 1; ///< group id on list items
@@ -139,9 +140,11 @@ PreferencesDialog::PreferencesDialog(const SettingsPageRegistry* registry, QWidg
     // ---- Section list | section pages ----
     m_sections = new QListWidget;
     m_sections->setObjectName(QStringLiteral("PreferencesSections"));
-    m_sections->setFixedWidth(kSectionListWidth);
     m_sections->setFrameShape(QFrame::NoFrame);
     m_sections->setSpacing(metrics::kSpaceXs);
+    // Not resizable, so at least as wide as its widest section name (also translated, or with
+    // a larger font): never cut off, never a horizontal scroll bar (owner report, spec 23.20).
+    textfit::fitListWidthToItems(m_sections, kSectionListWidth);
     m_stack = new QStackedWidget;
     for (const Section& section : sections) {
         auto* content = new QWidget;
