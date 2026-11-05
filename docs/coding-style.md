@@ -97,6 +97,15 @@ Frames vs microseconds confusion is the #1 bug source in NLEs; never write a bar
 - No magic numbers: named `constexpr` constants with a comment.
 - UI strings wrapped in `tr()` so the app can be translated later.
 
+## 5b. UI
+- **Text in a part the user cannot resize never runs off its widget** (owner rule): such a
+  widget grows to fit its text (font metrics of the actual font and style, so translations and
+  larger system fonts fit too), or, where its width is fixed by design (a Resolve-sized column
+  or strip), elides with "..." and shows the full text as its tooltip. Never a horizontal
+  scroll bar, never a hard clip. Use the helpers in `ui/common/TextFit.h`
+  (`fitListWidthToItems`, `elideListItems`, `setElidedText`); a fixed width for a value is
+  `std::max(width, sizeHint().width())`. Resizable panels and splitters are exempt.
+
 ## 6. Tests & commits
 - Logic gets QtTest unit tests in `tests/<module>/test_<thing>.cpp`.
 - Commits: `<area>: <imperative summary>` (e.g. `timeline: add ripple trim`), body explains why.

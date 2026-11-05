@@ -107,7 +107,10 @@ double ValueField::modifierStep(Qt::KeyboardModifiers modifiers) const
 QSize ValueField::sizeHint() const
 {
     const QFontMetrics fm(font());
-    const int width = fm.horizontalAdvance(textForValue(m_max)) + 2 * kHorizontalPadding;
+    // The widest of both ends of the range (a negative minimum can be the longer text).
+    const int text = std::max(
+        fm.horizontalAdvance(textForValue(m_min)), fm.horizontalAdvance(textForValue(m_max)));
+    const int width = text + 2 * kHorizontalPadding;
     return {std::max(width, kFieldMinWidth), std::max(kFieldHeight, fm.height() + 4)};
 }
 
