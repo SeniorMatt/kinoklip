@@ -275,6 +275,7 @@ const ActionSpec kActions[] = {
     {"view.panels", "view.toggle_effects",   QT_TRANSLATE_NOOP("kk::StandardActions", "Effects"), "panel_effects", true},
     {"view.panels", "view.toggle_edit_index", QT_TRANSLATE_NOOP("kk::StandardActions", "Edit Index"), "panel_edit_index", true},
     {"view.panels", "view.toggle_keyframes", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframes"), "panel_keyframes", true},
+    {"view.panels", "view.keyframes_panel_toggle_view", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframes Panel: Toggle Keyframe / Curve"), "curve_editor"},
     {"view.panels", "view.toggle_nodes",     QT_TRANSLATE_NOOP("kk::StandardActions", "Nodes"), "panel_nodes", true},
     {"view.panels", "view.toggle_gallery",   QT_TRANSLATE_NOOP("kk::StandardActions", "Gallery"), "image", true},
     {"view.panels", "view.toggle_clips",     QT_TRANSLATE_NOOP("kk::StandardActions", "Clips"), "strip_view", true},

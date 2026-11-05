@@ -179,6 +179,7 @@
         "view.toggle_edit_index": [],
         "view.toggle_nodes": [],
         "view.toggle_keyframes": [],
+        "view.keyframes_panel_toggle_view": [],
         "view.toggle_gallery": [],
         "view.toggle_clips": [],
         "view.toggle_color_timeline": [],

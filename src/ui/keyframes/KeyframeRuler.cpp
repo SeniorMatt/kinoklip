@@ -3,6 +3,7 @@
 #include "ui/keyframes/KeyframeRuler.h"
 
 #include "core/EditOps.h"
+#include "core/KeyframeOps.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
@@ -61,7 +62,7 @@ void KeyframeRuler::paintEvent(QPaintEvent*)
     const QPalette& pal = palette();
     const QColor text = pal.color(QPalette::WindowText);
     const QColor dim = pal.color(QPalette::PlaceholderText);
-    p.fillRect(rect(), keyframeMix(pal.color(QPalette::Window), text, 0.04));
+    p.fillRect(rect(), schemeColors().keyRuler);
     p.setPen(pal.color(QPalette::Dark));
     p.drawLine(0, height() - 1, width(), height() - 1);
     if (m_labelWidth > 0)
@@ -124,8 +125,14 @@ void KeyframeRuler::paintEvent(QPaintEvent*)
 
 void KeyframeRuler::scrubTo(double x)
 {
-    const int64_t frame
+    int64_t frame
         = std::max<int64_t>(0, std::llround(m_map.xToFrame(std::max<double>(x, m_labelWidth))));
+    // Read live: N during the drag turns snapping off / on (spec 11.5).
+    if (KeyframeViewBase::snappingAction(m_ctx)) {
+        const auto tolerance = int64_t(editops::kSnapDistancePx / m_map.pixelsPerFrame());
+        if (const auto snapped = editops::snapToNearest(m_snaps, frame, tolerance))
+            frame = *snapped;
+    }
     m_ctx.project->timeline()->setPlayhead(frame);
 }
 
@@ -134,6 +141,8 @@ void KeyframeRuler::mousePressEvent(QMouseEvent* event)
     if (event->button() != Qt::LeftButton)
         return;
     m_scrubbing = true;
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    m_snaps = keyframeops::withKeySnapTargets(editops::snapCandidates(data, -1), data, m_clips);
     scrubTo(event->position().x());
 }
 

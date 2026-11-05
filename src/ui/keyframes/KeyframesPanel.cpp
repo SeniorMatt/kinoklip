@@ -10,6 +10,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/keyframes/CurveView.h"
 #include "ui/keyframes/DopeSheetView.h"
 #include "ui/keyframes/KeyframeCommands.h"
@@ -45,8 +46,6 @@ constexpr double kMaxPpf = 80.0;
 constexpr double kWheelZoomPerStep = 1.2; ///< time zoom per wheel notch
 constexpr double kWheelScrollPx = 60.0; ///< time scroll per wheel notch
 constexpr int kToolButtonSize = 24;
-constexpr int kDopeShare = 2; ///< default dope sheet : curves height ratio
-constexpr int kCurvesShare = 3;
 /// How far (px) the pointer must leave the docked panel while dragging its header before it
 /// tears off into its own window.
 constexpr int kTearOffDistancePx = 24;
@@ -97,16 +96,18 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     m_tree = new KeyframeParamTree(ctx);
     m_ruler = new KeyframeRuler(ctx, m_map);
     m_ruler->setLabelWidth(kAxisWidth);
-    auto* treeHeader = new QLabel(tr("Parameters"));
-    treeHeader->setFixedHeight(m_ruler->sizeHint().height());
-    treeHeader->setContentsMargins(metrics::kSpaceM, 0, 0, 0);
-    QFont hf = treeHeader->font();
+    m_treeHeader = new QLabel(tr("Parameters"));
+    m_treeHeader->setObjectName(QStringLiteral("KeyframesTreeHeader"));
+    m_treeHeader->setFixedHeight(m_ruler->sizeHint().height());
+    m_treeHeader->setContentsMargins(metrics::kSpaceM, 0, 0, 0);
+    m_treeHeader->setAutoFillBackground(true);
+    QFont hf = m_treeHeader->font();
     hf.setBold(true);
-    treeHeader->setFont(hf);
-    leftLayout->addWidget(treeHeader);
+    m_treeHeader->setFont(hf);
+    leftLayout->addWidget(m_treeHeader);
     leftLayout->addWidget(m_tree, 1);
 
-    // Right: ruler, dope sheet over curves, time scroll bar.
+    // Right: ruler, dope sheet or curves, time scroll bar.
     m_right = new QWidget;
     auto* rightLayout = new QVBoxLayout(m_right);
     rightLayout->setContentsMargins(0, 0, 0, 0);
@@ -116,23 +117,21 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     m_dope->setDrawLabels(false);
     m_dope->setRowHeight(KeyframeParamTree::kRowHeight);
     m_dope->setMinimumHeight(40);
+    m_dope->setPanelColors(true);
     m_curves = new CurveView(ctx, m_map, nullptr);
     m_curves->setLabelWidth(kAxisWidth);
     m_curves->setAxisLabelsInColumn(true);
     m_curves->setTimeGrid(true);
     m_curves->setMinimumHeight(80);
+    m_curves->setPanelColors(true);
     m_curves->setTimePanner([this](double dx) { scrollTimePx(-dx); });
-    m_viewSplit = new PanelSplitter(Qt::Vertical);
-    m_viewSplit->setChildrenCollapsible(false);
-    m_viewSplit->setHandleWidth(3);
-    m_viewSplit->addWidget(m_dope);
-    m_viewSplit->addWidget(m_curves);
-    // Proportional growth until the user drags the handle.
-    m_viewSplit->setStretchFactor(0, kDopeShare);
-    m_viewSplit->setStretchFactor(1, kCurvesShare);
+    m_viewStack = new QStackedWidget;
+    m_viewStack->setObjectName(QStringLiteral("KeyframesViewStack"));
+    m_viewStack->addWidget(m_dope);
+    m_viewStack->addWidget(m_curves);
     m_hscroll = new QScrollBar(Qt::Horizontal);
     rightLayout->addWidget(m_ruler);
-    rightLayout->addWidget(m_viewSplit, 1);
+    rightLayout->addWidget(m_viewStack, 1);
     rightLayout->addWidget(m_hscroll);
     // Wheel events the views ignore propagate here (see eventFilter()).
     m_right->installEventFilter(this);
@@ -159,6 +158,8 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
         [this](const QVector<ParamId>& ids, bool shown) {
             for (const ParamId& id : ids)
                 m_curves->setCurveShown(id, shown);
+            if (shown) // a curve was asked for: show it (off has nothing to show)
+                setView(View::Curves);
         });
     connect(m_tree, &KeyframeParamTree::rowActivated, this, [this](const QVector<ParamId>& ids) {
         if (ids.size() == 1 && m_curves->isCurveShown(ids.front()))
@@ -184,6 +185,10 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     connect(ctx.project->timeline(), &Timeline::changed, this, &KeyframesPanel::rebuild);
     connect(ctx.project->timeline(), &Timeline::playheadChanged, this,
         &KeyframesPanel::onPlayheadChanged);
+    connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this,
+        &KeyframesPanel::applyRegionColors);
+    applyRegionColors();
+    setView(View::Keyframes);
     rebuild();
 }
 
@@ -217,12 +222,31 @@ QWidget* KeyframesPanel::buildToolRow()
           };
     auto separator = [&] { h->addSpacing(metrics::kSpaceL); };
 
-    m_dopeButton = button(QStringLiteral("keyframe_editor"), {}, tr("Dope Sheet"), true);
-    m_curvesButton = button(QStringLiteral("curve_editor"), {}, tr("Curve Editor"), true);
-    connect(m_dopeButton, &QToolButton::clicked, this,
-        [this](bool on) { setViews(on, m_curvesButton->isChecked() || !on); });
-    connect(m_curvesButton, &QToolButton::clicked, this,
-        [this](bool on) { setViews(m_dopeButton->isChecked() || !on, on); });
+    // The view switch: two buttons, one checked (spec 15.22).
+    auto segment = [&](const QString& text, const QString& name, const QString& tip, View view) {
+        auto* b = new QToolButton(row);
+        b->setText(text);
+        b->setObjectName(name);
+        b->setToolTip(tip);
+        b->setCheckable(true);
+        b->setAutoExclusive(true);
+        b->setFocusPolicy(Qt::NoFocus);
+        b->setFixedHeight(kToolButtonSize);
+        connect(b, &QToolButton::clicked, this, [this, view] { setView(view); });
+        return b;
+    };
+    m_keyframesViewButton = segment(tr("Keyframes"), QStringLiteral("KeyframesViewKeyframes"),
+        tr("Keyframes view: the keys of each parameter along time"), View::Keyframes);
+    m_curvesViewButton = segment(tr("Curves"), QStringLiteral("KeyframesViewCurves"),
+        tr("Curves view: the values of the parameters as curves"), View::Curves);
+    m_viewSwitch = new QWidget(row);
+    QWidget* viewSwitch = m_viewSwitch;
+    auto* viewSwitchLayout = new QHBoxLayout(viewSwitch);
+    viewSwitchLayout->setContentsMargins(0, 0, 0, 0);
+    viewSwitchLayout->setSpacing(0);
+    viewSwitchLayout->addWidget(m_keyframesViewButton);
+    viewSwitchLayout->addWidget(m_curvesViewButton);
+    h->addWidget(viewSwitch);
     separator();
 
     struct Preset
@@ -264,8 +288,10 @@ QWidget* KeyframesPanel::buildToolRow()
             m_curves->fitView();
             setViewMode(ViewMode::FitClip);
         });
-    connect(button({}, tr("Fit Selection"), tr("Zoom to the selected keyframes"), false),
-        &QToolButton::clicked, this, [this] { m_curves->fitSelection(); });
+    m_fitSelectionButton
+        = button({}, tr("Fit Selection"), tr("Zoom to the selected keyframes"), false);
+    connect(
+        m_fitSelectionButton, &QToolButton::clicked, this, [this] { m_curves->fitSelection(); });
     h->addStretch(1);
 
     auto* viewLabel = new QLabel(tr("Time:"), row);
@@ -289,8 +315,9 @@ QWidget* KeyframesPanel::buildToolRow()
         true);
     connect(m_showAllButton, &QToolButton::toggled, this, &KeyframesPanel::setShowAllParameters);
 
-    m_dopeButton->setChecked(true);
-    m_curvesButton->setChecked(true);
+    // As wide in both views: a docked column must not jump when the view switches and the
+    // curves' buttons appear (setView() has not hidden them yet).
+    row->setMinimumWidth(row->minimumSizeHint().width());
     return row;
 }
 
@@ -327,14 +354,26 @@ void KeyframesPanel::setFreeMode()
         setViewMode(ViewMode::Free);
 }
 
-void KeyframesPanel::setViews(bool dopeSheet, bool curves)
+void KeyframesPanel::setView(View view)
 {
-    if (!dopeSheet && !curves)
-        curves = true;
-    m_dopeButton->setChecked(dopeSheet);
-    m_curvesButton->setChecked(curves);
-    m_dope->setVisible(dopeSheet);
-    m_curves->setVisible(curves);
+    KeyframeViewBase* current = m_view == View::Curves ? static_cast<KeyframeViewBase*>(m_curves)
+                                                       : static_cast<KeyframeViewBase*>(m_dope);
+    if (view != m_view && current->dragActive()) {
+        // A shortcut in mid-drag: hiding the view would strand its mouse grab and open edit.
+        (m_view == View::Curves ? m_curvesViewButton : m_keyframesViewButton)->setChecked(true);
+        return;
+    }
+    KeyframeViewBase* next = view == View::Curves ? static_cast<KeyframeViewBase*>(m_curves)
+                                                  : static_cast<KeyframeViewBase*>(m_dope);
+    const bool hadFocus = current->hasFocus();
+    m_view = view;
+    (view == View::Curves ? m_curvesViewButton : m_keyframesViewButton)->setChecked(true);
+    m_viewStack->setCurrentWidget(next);
+    if (hadFocus)
+        next->setFocus(); // Delete and Ctrl+C keep acting on the selected keys
+    // These two act on the value axis, which only the curves have.
+    m_normalisedButton->setVisible(view == View::Curves);
+    m_fitSelectionButton->setVisible(view == View::Curves);
 }
 
 void KeyframesPanel::setNormalised(bool normalised)
@@ -400,6 +439,23 @@ void KeyframesPanel::rebuild()
     syncDopeWindow();
     if (newItems || m_viewMode == ViewMode::FitClip)
         applyView();
+}
+
+void KeyframesPanel::applyRegionColors()
+{
+    QPalette pal = m_treeHeader->palette();
+    const SchemeColors& sc = schemeColors();
+    pal.setColor(QPalette::Window, sc.keyRuler);
+    m_treeHeader->setPalette(pal);
+    // The style's checked tool button is barely visible in dark schemes: which view is showing
+    // has to read at a glance.
+    m_viewSwitch->setStyleSheet(QStringLiteral("QToolButton { background: %1; border: 1px solid %2;"
+                                               " padding: 0 8px; }"
+                                               "QToolButton:hover { background: %3; }"
+                                               "QToolButton:checked { background: %4; color: %5;"
+                                               " border-color: %4; }")
+                                    .arg(sc.button.name(), sc.line.name(), sc.hover.name(),
+                                        sc.highlight.name(), sc.highlightText.name()));
 }
 
 void KeyframesPanel::syncDopeWindow()
@@ -608,9 +664,11 @@ bool KeyframesPanel::eventFilter(QObject* watched, QEvent* event)
 void KeyframesPanel::saveState(QSettings& settings, const QString& prefix) const
 {
     settings.setValue(prefix + QStringLiteral("split"), m_split->saveState());
-    settings.setValue(prefix + QStringLiteral("viewSplit"), m_viewSplit->saveState());
-    settings.setValue(prefix + QStringLiteral("dopeSheet"), m_dopeButton->isChecked());
-    settings.setValue(prefix + QStringLiteral("curves"), m_curvesButton->isChecked());
+    settings.setValue(prefix + QStringLiteral("view"),
+        m_view == View::Curves ? QStringLiteral("curves") : QStringLiteral("keyframes"));
+    // Keys of the stacked layout (before 15.22): restoreState() has read them by now.
+    for (const char* old : {"viewSplit", "dopeSheet", "curves"})
+        settings.remove(prefix + QLatin1String(old));
     settings.setValue(prefix + QStringLiteral("normalised"), m_normalisedButton->isChecked());
     settings.setValue(prefix + QStringLiteral("showAll"), m_showAll);
     settings.setValue(prefix + QStringLiteral("viewMode"), int(m_viewMode));
@@ -623,9 +681,12 @@ void KeyframesPanel::restoreState(const QSettings& settings, const QString& pref
     };
     if (settings.contains(prefix + QStringLiteral("split")))
         m_split->restoreState(value("split", {}).toByteArray());
-    if (settings.contains(prefix + QStringLiteral("viewSplit")))
-        m_viewSplit->restoreState(value("viewSplit", {}).toByteArray());
-    setViews(value("dopeSheet", true).toBool(), value("curves", true).toBool());
+    // A layout stored before 15.22 showed curves alone only if the user had turned the dope
+    // sheet off; its "viewSplit" sizes have no splitter to go to any more and are ignored.
+    const bool oldCurvesOnly = !value("dopeSheet", true).toBool() && value("curves", true).toBool();
+    const QString view = value("view", QString()).toString();
+    setView(view == QLatin1String("curves") || (view.isEmpty() && oldCurvesOnly) ? View::Curves
+                                                                                 : View::Keyframes);
     m_normalisedButton->setChecked(value("normalised", true).toBool());
     setShowAllParameters(value("showAll", false).toBool());
     const int mode = value("viewMode", int(ViewMode::FitClip)).toInt();

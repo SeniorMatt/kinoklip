@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 namespace kk::keyframeops {
 
@@ -72,6 +73,13 @@ struct AnimatedParam
 /// whether it offers the keyframe and curve toggles (spec 15.8, 49.3). The retime curve has its
 /// own speed bar and its Ctrl+Shift+R command; its edge keys would mark every ramped clip.
 [[nodiscard]] QVector<int64_t> clipMarkFrames(const ClipData& clip);
+/// @p candidates (editops::snapCandidates()) plus the timeline frames of the keys of @p clipIds,
+/// sorted and unique, for editops::snapToNearest(): keys are snap targets like clip markers
+/// (spec 11.9). Like the marks on a clip, this leaves out the retime curve; keys trimmed out of
+/// the clip's visible part and the keys in @p excludeKeys (those being dragged) do not count.
+[[nodiscard]] std::vector<int64_t> withKeySnapTargets(std::vector<int64_t> candidates,
+    const TimelineData& data, const QVector<quint64>& clipIds,
+    const QVector<KeyframeRef>& excludeKeys = {});
 /// Nearest key frame of any parameter strictly after (@p forward) or before @p localFrame.
 [[nodiscard]] std::optional<int64_t> adjacentKeyFrame(
     const ClipData& clip, int64_t localFrame, bool forward);
