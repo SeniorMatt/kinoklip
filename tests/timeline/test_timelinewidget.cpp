@@ -373,6 +373,29 @@ private slots:
         QVERIFY(v.f.selection.isSelected(b));
     }
 
+    // 7.5: the band also starts in the empty space above the top track.
+    void rubberBandFromAboveTheTracks()
+    {
+        View v;
+        v.w.resize(v.w.width(), 900);
+        QTest::qWait(0);
+        const quint64 a = v.put(kV1, solidClip(10, 10));
+        const quint64 b = v.put(kV1, solidClip(30, 10));
+        const quint64 c = v.put(kV1, solidClip(60, 10));
+        QPoint above = v.at(5, kV2);
+        above.setY(kRulerHeight + 2);
+        const auto hit = v.w.layout().hitTest(v.f.project.timeline()->data(), above);
+        QCOMPARE(hit.area, TimelineHit::Area::None);
+
+        v.drag(above, v.at(35, kV1));
+        QCOMPARE(v.f.selection.clips().size(), 2);
+        QVERIFY(v.f.selection.isSelected(a) && v.f.selection.isSelected(b));
+        // A plain click there clears the selection.
+        QTest::mouseClick(v.vp(), Qt::LeftButton, {}, above);
+        QVERIFY(v.f.selection.clips().isEmpty());
+        Q_UNUSED(c);
+    }
+
     void scrubRulerMovesPlayhead()
     {
         View v;

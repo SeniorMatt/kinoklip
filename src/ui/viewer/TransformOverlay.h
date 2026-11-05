@@ -55,6 +55,8 @@ public:
     [[nodiscard]] bool isEditing() const { return m_editing; }
     /// True while the Crop controls are shown (false: Transform).
     [[nodiscard]] bool isCropMode() const;
+    /// True when a handle (not the plain move area) is under @p pos, in this widget's coordinates.
+    [[nodiscard]] bool handleAt(QPointF pos) const;
     /// Current picture geometry of the shown clip, or std::nullopt (tests aim with it).
     [[nodiscard]] std::optional<TransformPicture> picture() const;
     /// Timeline frame coordinates (px, origin at the top left) → overlay widget coordinates,

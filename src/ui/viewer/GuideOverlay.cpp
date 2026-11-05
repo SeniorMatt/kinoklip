@@ -192,7 +192,15 @@ bool GuideOverlay::mouseEditable() const
     return o.showGuides && !o.lockGuides && !g_suppressed;
 }
 
-int GuideOverlay::guideAt(QPointF pos, bool editableOnly) const
+int GuideOverlay::guideToTake(QPointF pos) const
+{
+    const int exact = guideAt(pos, true, kExactGrabPx);
+    if (exact >= 0)
+        return exact;
+    return m_controlAt && m_controlAt(pos) ? -1 : guideAt(pos);
+}
+
+int GuideOverlay::guideAt(QPointF pos, bool editableOnly, double reachPx) const
 {
     const ViewerOverlayOptions& o = ViewerOverlaySettings::instance().options();
     if (!o.showGuides || g_suppressed || (editableOnly && o.lockGuides))
@@ -203,13 +211,13 @@ int GuideOverlay::guideAt(QPointF pos, bool editableOnly) const
     // Only over the picture (guides are drawn there): outside it the surface keeps its own
     // gestures (source drag) and the controls theirs.
     if (!map.mapRect(QRectF(QPointF(0, 0), QSizeF(frameSize())))
-             .adjusted(-kGrabPx, -kGrabPx, kGrabPx, kGrabPx)
+             .adjusted(-reachPx, -reachPx, reachPx, reachPx)
              .contains(pos))
         return -1;
     const QPointF f = map.inverted().map(pos);
-    // Tolerance in frame px per axis: kGrabPx widget px. The axes scale equally (the
+    // Tolerance in frame px per axis: reachPx widget px. The axes scale equally (the
     // picture keeps its aspect), so one tolerance serves both.
-    return guides::nearestGuide(storedGuides(), f.x(), f.y(), kGrabPx / map.m11());
+    return guides::nearestGuide(storedGuides(), f.x(), f.y(), reachPx / map.m11());
 }
 
 void GuideOverlay::addGuide(Qt::Orientation orientation, std::optional<double> position)
@@ -509,7 +517,7 @@ bool GuideOverlay::filterMouse(QWidget* widget, QEvent* event)
             return true;
         }
         if (mouse->buttons() == Qt::NoButton) {
-            const int index = guideAt(pos);
+            const int index = guideToTake(pos);
             if (index >= 0) {
                 const bool horizontal = storedGuides()[size_t(index)].orientation == Qt::Horizontal;
                 widget->setCursor(horizontal ? Qt::SplitVCursor : Qt::SplitHCursor);
@@ -525,7 +533,7 @@ bool GuideOverlay::filterMouse(QWidget* widget, QEvent* event)
     case QEvent::MouseButtonPress: {
         if (mouse->button() != Qt::LeftButton)
             return false;
-        const int index = guideAt(pos);
+        const int index = guideToTake(pos);
         if (index < 0)
             return false;
         emit pressed();
@@ -545,7 +553,7 @@ bool GuideOverlay::filterMouse(QWidget* widget, QEvent* event)
     case QEvent::MouseButtonDblClick: {
         if (mouse->button() != Qt::LeftButton)
             return false;
-        const int index = guideAt(pos);
+        const int index = guideToTake(pos);
         if (index < 0)
             return false;
         editGuidePosition(index);

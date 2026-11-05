@@ -113,6 +113,18 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
         startDrag(DragMode::ResizeTrack);
         return;
     case TimelineHit::Area::None:
+        // The empty space above and below the tracks: a click deselects, a drag draws the
+        // rubber band like on an empty part of a track (spec 7.5).
+        if (pos.x() >= kHeaderWidth && pos.y() >= kRulerHeight
+            && m_controller->tool() != TimelineTool::Blade) {
+            if (!(m_drag.modifiers & (Qt::ShiftModifier | Qt::ControlModifier))) {
+                m_ctx.selection->clear();
+                m_controller->setSelectedEdit({});
+            }
+            m_drag.baseSelection = m_ctx.selection->clips();
+            m_drag.pending = DragMode::RubberBand;
+            m_drag.mode = DragMode::Pending;
+        }
         return;
     case TimelineHit::Area::Track:
     case TimelineHit::Area::Clip:

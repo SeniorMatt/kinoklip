@@ -974,8 +974,12 @@ void ViewerPanel::setupGuides(QGridLayout* grid)
     // over the guides, while the guide gestures still win near a guide (event filter).
     m_guideOverlay = new GuideOverlay(m_ctx, m_surface, m_mode == Mode::Timeline);
     connect(m_guideOverlay, &GuideOverlay::pressed, this, [this] { activate(); });
-    if (m_transformOverlay)
+    if (m_transformOverlay) {
         m_transformOverlay->setGuideOverlay(m_guideOverlay);
+        m_guideOverlay->setControlProbe([this](QPointF pos) {
+            return m_transformOverlay->handleAt(m_transformOverlay->mapFromParent(pos));
+        });
+    }
     m_rulerCorner = new QWidget;
     m_rulerCorner->setObjectName(QStringLiteral("ViewerRulerCorner"));
     m_rulerCorner->setFixedSize(ViewerRuler::kThickness, ViewerRuler::kThickness);

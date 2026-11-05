@@ -154,6 +154,18 @@ std::optional<TransformPicture> TransformOverlay::picture() const
         QSizeF(data.width, data.height), m_ctx.project->mediaPool());
 }
 
+bool TransformOverlay::handleAt(QPointF pos) const
+{
+    if (!m_editing || !isVisible())
+        return false;
+    const auto pic = picture();
+    const auto toWidget = frameToWidget();
+    if (!pic || !toWidget)
+        return false;
+    const TransformHandle::Kind kind = tg::hitTest(*pic, *toWidget, isCropMode(), pos).kind;
+    return kind != TransformHandle::Kind::None && kind != TransformHandle::Kind::Move;
+}
+
 void TransformOverlay::refresh()
 {
     if (parentWidget() && geometry() != parentWidget()->rect())
