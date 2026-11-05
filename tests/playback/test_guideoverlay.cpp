@@ -590,6 +590,43 @@ private slots:
     }
 
     // 41.20 / 41.23: middle drag pans; guides, rulers and the transform overlay follow.
+    // 41.28: a middle click puts two guides crossing there, one undo step; a drag pans and a
+    // double-click fits, neither adds a guide.
+    void middleClickAddsCrossingGuides()
+    {
+        Fixture f;
+        Viewer v(f);
+        QVERIFY(QTest::qWaitForWindowExposed(&v.panel));
+        const int undoBefore = f.project.undoStack()->count();
+        const QPoint point = v.at({100, 60}).toPoint();
+        const QPointF frame = v.overlay()->frameToWidget().inverted().map(QPointF(point));
+        QTest::mouseClick(v.surface(), Qt::MiddleButton, {}, point);
+        QTRY_COMPARE(v.overlay()->guides().size(), size_t(2));
+        const auto list = v.overlay()->guides();
+        QCOMPARE(list[0].orientation, Qt::Horizontal);
+        QVERIFY(std::abs(list[0].position - frame.y()) < 1e-6);
+        QCOMPARE(list[1].orientation, Qt::Vertical);
+        QVERIFY(std::abs(list[1].position - frame.x()) < 1e-6);
+        QCOMPARE(f.project.undoStack()->count(), undoBefore + 1);
+        f.project.undoStack()->undo();
+        QVERIFY(v.overlay()->guides().empty());
+
+        QTest::mouseDClick(v.surface(), Qt::MiddleButton, {}, point);
+        QTest::qWait(QApplication::doubleClickInterval() + 50);
+        QVERIFY(v.overlay()->guides().empty());
+
+        QTest::mousePress(v.surface(), Qt::MiddleButton, {}, point);
+        QTest::mouseMove(v.surface(), point + QPoint(30, 0));
+        QTest::mouseRelease(v.surface(), Qt::MiddleButton, {}, point + QPoint(30, 0));
+        QTest::qWait(QApplication::doubleClickInterval() + 50);
+        QVERIFY(v.overlay()->guides().empty());
+
+        f.action("view.guides_lock")->setChecked(true);
+        QTest::mouseClick(v.surface(), Qt::MiddleButton, {}, point);
+        QTest::qWait(QApplication::doubleClickInterval() + 50);
+        QVERIFY(v.overlay()->guides().empty());
+    }
+
     void middleDragPans()
     {
         resetOptions({.showRulers = true});

@@ -1035,6 +1035,7 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.25 | The panning part of 41.17 is done (41.20); snapping of mask points to guides and colours per guide stay deferred. | Fixed (see 41.20) |
 | 41.26 | View > Viewer Zoom to Fit (Z, owner request on 0.4.1) resets zoom and pan of the viewer under the pointer, else of the viewer with the focus, else of every visible viewer. | Fixed (gu zKeyFitsTheViewerUnderThePointer) |
 | 41.27 | A press, hover or double-click within 12 screen px of a guide takes it (owner request: "if I click near the guide it should still press it"; was 4 px), and the nearest guide wins, so guides close together stay precise. An exact tie goes to the later guide. Within 4 px a guide wins over the on-screen controls; between 4 and 12 px a Transform or Crop handle under the pointer goes first (the plain move area does not count), mask and Dynamic Zoom controls do not (the guide wins). | Fixed (gu pressNearAGuideTakesTheNearest, transformDragSnapsToGuides) |
+| 41.28 | A middle click (no drag) on the picture adds a horizontal and a vertical guide crossing at that point, as one undo step, and turns Show Guides on (owner request). Not while guides are locked or outside the picture. A middle drag still pans and a middle double-click still fits (41.20, 41.21), so the guides appear after the double-click time. | Fixed (gu middleClickAddsCrossingGuides) |
 
 ## 42. Compositing page (compcore / compui branches, v4)
 

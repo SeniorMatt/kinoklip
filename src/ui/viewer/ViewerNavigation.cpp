@@ -286,6 +286,7 @@ bool ViewerPanel::navigationEvent(QObject* watched, QEvent* event)
     if (!widget)
         return false;
     if (type == QEvent::MouseMove || type == QEvent::MouseButtonRelease) {
+        trackMiddleClick(static_cast<QMouseEvent*>(event));
         if (m_panDrag.button == Qt::NoButton)
             return false;
         auto* mouse = static_cast<QMouseEvent*>(event);
@@ -321,6 +322,9 @@ bool ViewerPanel::navigationEvent(QObject* watched, QEvent* event)
     }
     auto* mouse = static_cast<QMouseEvent*>(event);
     if (type == QEvent::MouseButtonDblClick && mouse->button() == Qt::MiddleButton) {
+        m_middlePress.reset();
+        if (m_middleClickTimer)
+            m_middleClickTimer->stop();
         zoomToFit();
         return true;
     }
@@ -329,6 +333,9 @@ bool ViewerPanel::navigationEvent(QObject* watched, QEvent* event)
     if ((type == QEvent::MouseButtonPress || type == QEvent::MouseButtonDblClick)
         && (middle || hand)) {
         activate();
+        if (middle && type == QEvent::MouseButtonPress)
+            m_middlePress = MiddlePress {widget->mapTo(surface, mouse->position()),
+                                         mouse->globalPosition()};
         if (zoomFactor() > 0.0) {
             m_panDrag = {mouse->button(), mouse->globalPosition()};
             m_handUsed = m_handUsed || hand;
@@ -338,6 +345,34 @@ bool ViewerPanel::navigationEvent(QObject* watched, QEvent* event)
         return true; // never a transform / mask / guide gesture
     }
     return false;
+}
+
+void ViewerPanel::trackMiddleClick(const QMouseEvent* mouse)
+{
+    // A middle click (no drag) puts two guides crossing there. It waits out the double-click
+    // time, because a middle double-click is Zoom to Fit (spec 41.21).
+    if (!m_middlePress)
+        return;
+    if (mouse->type() == QEvent::MouseMove) {
+        const QPointF moved = mouse->globalPosition() - m_middlePress->global;
+        if (moved.manhattanLength() >= QApplication::startDragDistance())
+            m_middlePress.reset(); // a pan
+        return;
+    }
+    if (mouse->button() != Qt::MiddleButton)
+        return;
+    const QPointF pos = m_middlePress->surfacePos;
+    m_middlePress.reset();
+    if (!m_middleClickTimer) {
+        m_middleClickTimer = new QTimer(this);
+        m_middleClickTimer->setSingleShot(true);
+        connect(m_middleClickTimer, &QTimer::timeout, this, [this] {
+            if (m_guideOverlay)
+                m_guideOverlay->addCrossAt(m_middleClickPos);
+        });
+    }
+    m_middleClickPos = pos;
+    m_middleClickTimer->start(QApplication::doubleClickInterval());
 }
 
 void ViewerPanel::setupNavigation()
