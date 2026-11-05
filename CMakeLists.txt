@@ -6,6 +6,12 @@ set(APP_ID   "kinoklip")
 
 project(${APP_NAME} VERSION 1.1.4 LANGUAGES CXX)
 
+# Reuse compiled files between build folders and worktrees when ccache is installed.
+find_program(KK_CCACHE ccache)
+if(KK_CCACHE AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${KK_CCACHE})
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
