@@ -640,6 +640,14 @@ public:
                                       "media. A drop onto a bin always goes into that bin."));
         m_importTarget->setCurrentIndex(prefs::importIntoMasterBin() ? 1 : 0);
         form->addRow(tr("Import new media into"), m_importTarget);
+        m_rulerJumps = new QCheckBox(tr("Pressing the ruler moves the playhead there at once"));
+        m_rulerJumps->setObjectName(QStringLiteral("RulerPressJumpsPlayhead"));
+        m_rulerJumps->setToolTip(tr("On (Resolve): the playhead jumps to a press anywhere in "
+                                    "the ruler and follows the drag. Off: only a click "
+                                    "without moving the mouse jumps it; drag the playhead's "
+                                    "head to scrub."));
+        m_rulerJumps->setChecked(b.rulerPressJumpsPlayhead);
+        form->addRow(tr("Timeline ruler"), m_rulerJumps);
     }
 
     void apply() override
@@ -660,6 +668,7 @@ public:
         prefs::setShowDefaultSmartBins(m_smartBins->isChecked());
         prefs::setImportIntoMasterBin(m_importTarget->currentData().toBool());
         EditBehaviour::setWheelScheme(WheelScheme(m_wheel->currentData().toInt()));
+        s.setValue(QStringLiteral("edit/rulerPressJumpsPlayhead"), m_rulerJumps->isChecked());
     }
 
 private:
@@ -678,6 +687,7 @@ private:
     QCheckBox* m_tabs = nullptr;
     QCheckBox* m_smartBins = nullptr;
     QComboBox* m_importTarget = nullptr;
+    QCheckBox* m_rulerJumps = nullptr;
 };
 
 // ---- User: Playback Settings ---------------------------------------------------------
@@ -722,6 +732,14 @@ public:
         m_restart = new QCheckBox(tr("Play from the start when the playhead is at the end"));
         m_restart->setChecked(b.restartAtEnd);
         form->addRow(tr("At the end"), m_restart);
+        m_stopOnMove = new QCheckBox(tr("Stop playback when the playhead is moved"));
+        m_stopOnMove->setObjectName(QStringLiteral("StopOnPlayheadMove"));
+        m_stopOnMove->setToolTip(tr("On: clicking or dragging in the ruler or the scrub bar, "
+                                    "or jumping to an edit or a marker while playing pauses "
+                                    "there (Premiere). Off: playback carries on from the new "
+                                    "position (Resolve)."));
+        m_stopOnMove->setChecked(b.stopOnPlayheadMove);
+        form->addRow(tr("Moving the playhead"), m_stopOnMove);
     }
 
     void apply() override
@@ -733,6 +751,7 @@ public:
             QStringLiteral("playback/postrollMs"), qRound(m_postroll->value() * kMsPerSecond));
         s.setValue(QStringLiteral("playback/returnAfterPlayAround"), m_return->isChecked());
         s.setValue(QStringLiteral("playback/restartAtEnd"), m_restart->isChecked());
+        s.setValue(QStringLiteral("playback/stopOnPlayheadMove"), m_stopOnMove->isChecked());
     }
 
 private:
@@ -741,6 +760,7 @@ private:
     QDoubleSpinBox* m_postroll = nullptr;
     QCheckBox* m_return = nullptr;
     QCheckBox* m_restart = nullptr;
+    QCheckBox* m_stopOnMove = nullptr;
 };
 
 // ---- User: Keyboard ------------------------------------------------------------------

@@ -302,6 +302,13 @@ private:
         int64_t markerFrame = -1; ///< MarkerDuration / MarkerMove: Marker::frame at the press
         int64_t markerNow = -1; ///< MarkerMove: where the marker is now
         double levelKeyDb = 0.0; ///< LevelKey: its value at the press
+        /// Scrub: the playhead's head itself was grabbed (it does not jump to the pointer);
+        /// scrubGrabPx = pointer x minus the playhead frame's x at the press (spec 48.1).
+        bool scrubGrabbed = false;
+        double scrubGrabPx = 0.0;
+        /// A ruler press away from the head with "jump at once" off: a click (no drag) moves
+        /// the playhead on release, a drag does nothing (spec 48.1).
+        bool rulerClick = false;
     };
 
     void startDrag(DragMode mode);
@@ -374,6 +381,8 @@ private:
     /// below the bottom audio track (moves there create a new track, spec 21.8).
     [[nodiscard]] bool beyondOutermostTrack(TrackType type, double y) const;
     void scrubTo(QPointF pos);
+    /// Left press in the ruler (no marker): grab the head, scrub, or a pending click (48.1).
+    void pressRuler(QPointF pos);
     void bladeAt(const TimelineHit& hit);
     void clickSelect(const TimelineHit& hit, Qt::KeyboardModifiers modifiers);
     /// @p clipId with its linked clips (linked selection on), @p clipId last = current clip.
@@ -487,6 +496,7 @@ private:
     ClipDragOut m_clipDragOut;
     TimelineAnimator m_anim; ///< display-only tweens (TimelineAnimator.h)
     int64_t m_lastPlayhead = 0; ///< playhead at the last playheadChanged() (glide start)
+    quint64 m_rowsTimelineUid = 0; ///< timeline of the layout rows (onTimelineChanged())
     TrimPreview m_trimPreview; ///< refreshDragInfo()
 };
 

@@ -8,6 +8,7 @@
 extern "C" {
 #include <libavutil/imgutils.h>
 #include <libavutil/mem.h>
+#include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 }
 
@@ -101,17 +102,26 @@ QImage FrameConverter::convert(const AVFrame* frame, QSize outSize)
     const bool hasAlpha = (desc->flags & AV_PIX_FMT_FLAG_ALPHA) != 0;
     const int colorspace = swsColorspace(frame);
 
+    const bool reconfigured = !m_sws || frame->width != m_srcWidth || frame->height != m_srcHeight
+        || int(srcFormat) != m_srcFormat || outSize != m_dstSize;
+    // swscale adds flags of its own while it initialises (SWS_FULL_CHR_H_INT for an odd output
+    // width and for sources without chroma subsampling). A cached call with the plain flags
+    // then no longer matches: it would rebuild the whole context on every frame and lose the
+    // colour details below. Ask again with the flags the context really has.
+    const int flags = reconfigured ? SWS_BICUBIC : m_swsFlags;
     SwsContext* sws = sws_getCachedContext(m_sws.release(), frame->width, frame->height, srcFormat,
-        outSize.width(), outSize.height(), kQtArgb32PixelFormat, SWS_BICUBIC, nullptr, nullptr,
-        nullptr);
+        outSize.width(), outSize.height(), kQtArgb32PixelFormat, flags, nullptr, nullptr, nullptr);
     m_sws.reset(sws);
     if (!sws) {
         qCWarning(
             lcMedia, "swscale cannot convert %s %dx%d", desc->name, frame->width, frame->height);
         return {};
     }
-    const bool reconfigured = frame->width != m_srcWidth || frame->height != m_srcHeight
-        || int(srcFormat) != m_srcFormat || outSize != m_dstSize;
+    if (reconfigured) {
+        int64_t actualFlags = SWS_BICUBIC;
+        (void)av_opt_get_int(sws, "sws_flags", 0, &actualFlags);
+        m_swsFlags = int(actualFlags);
+    }
     if (!srcIsRgb && (reconfigured || colorspace != m_colorspace || fullRange != m_fullRange)) {
         // YUV → RGB matrix and input range; output is always full-range RGB.
         const int* coefficients = sws_getCoefficients(colorspace);

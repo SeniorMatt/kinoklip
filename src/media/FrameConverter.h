@@ -29,6 +29,7 @@ private:
     int m_srcHeight = 0;
     int m_srcFormat = -1;
     QSize m_dstSize;
+    int m_swsFlags = 0; ///< flags m_sws really has (swscale adds some, see convert())
     int m_colorspace = -1;
     bool m_fullRange = false;
 };

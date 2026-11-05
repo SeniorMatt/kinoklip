@@ -104,7 +104,7 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     case TimelineHit::Area::Ruler:
         if (pressRulerMarker(pos, event->modifiers()))
             return;
-        startDrag(DragMode::Scrub);
+        pressRuler(pos);
         return;
     case TimelineHit::Area::Header:
         headerClick(hit);
@@ -252,6 +252,8 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
         if ((pos - m_drag.pressPos).manhattanLength() < threshold)
             return;
         startDrag(m_drag.pending);
+        if (m_drag.mode == DragMode::None)
+            return; // a gesture that ends once dragged (a ruler click, spec 48.1)
     }
     // Stacked timelines: a clip move dragged out of the view above or below becomes a copy
     // drag towards the other timeline (spec 31.9).
@@ -289,6 +291,13 @@ void TimelineWidget::mouseReleaseEvent(QMouseEvent* event)
         // A click on a ruler marker (no drag) moves the playhead to it, like a scrub click.
         if (m_drag.pending == DragMode::MarkerMove)
             m_ctx.project->timeline()->setPlayhead(m_drag.markerFrame);
+        // A ruler click with "jump at once" off (spec 48.1).
+        if (m_drag.rulerClick) {
+            m_drag.snaps = ops::snapCandidates(m_ctx.project->timeline()->data(), -1);
+            scrubTo(m_drag.pressPos);
+            m_overlay.snapFrame.reset();
+            viewport()->update();
+        }
         // A click without drag on an already selected clip selects just that clip.
         if (m_drag.altOneSideOnRelease)
             m_ctx.selection->setClips({m_drag.hit.clipId});
@@ -354,18 +363,10 @@ bool TimelineWidget::openNestedAt(QPointF pos)
     const ClipData* clip = ops::clipById(data, hit.clipId);
     if (!clip || clip->kind != ClipKind::Nested)
         return false;
-    const auto nested = project->timelineData(clip->nestedUid);
-    if (!nested)
+    if (!project->hasTimeline(clip->nestedUid))
         return false; // offline: the menu command reports it
-    const int64_t frame
-        = std::clamp(m_layout.frameAtX(pos.x()), clip->start, clip->start + clip->duration - 1);
-    const int64_t inner = std::max<int64_t>(0, nestedFrameAt(*clip, frame, data.fps, nested->fps));
-    const quint64 uid = clip->nestedUid;
     m_ctx.selection->setClips({hit.clipId});
-    if (!project->openTab(uid))
-        return false;
-    project->setTimelinePlayhead(uid, inner);
-    return true;
+    return m_controller->openNestedClip(hit.clipId, m_layout.frameAtX(pos.x()));
 }
 
 void TimelineWidget::keyPressEvent(QKeyEvent* event)
@@ -694,9 +695,38 @@ void TimelineWidget::autoScrollTick()
 
 // ---- Individual gestures ----
 
+void TimelineWidget::pressRuler(QPointF pos)
+{
+    // A press on the playhead's head grabs it where it is: dragging moves it by the pointer's
+    // motion, and a press on the half of the head left of the frame's start does not step it
+    // back a frame (Bog's "the playhead teleports to the mouse", spec 48.1).
+    const double frameX = m_layout.frameToX(double(m_ctx.project->timeline()->playhead()));
+    const double headX = std::round(frameX) + 0.5; // as TimelinePainter::paintPlayhead()
+    if (std::abs(pos.x() - headX) <= kPlayheadHeadHalfWidthPx) {
+        m_drag.scrubGrabbed = true;
+        m_drag.scrubGrabPx = pos.x() - frameX;
+        m_drag.mode = DragMode::Scrub;
+        m_drag.snaps = ops::snapCandidates(m_ctx.project->timeline()->data(), -1);
+        return;
+    }
+    if (EditBehaviour::fromSettings().rulerPressJumpsPlayhead) {
+        startDrag(DragMode::Scrub); // Resolve: the playhead jumps to the press and follows
+        return;
+    }
+    // Preference: a plain click jumps on release; a drag away from the head does nothing.
+    m_drag.rulerClick = true;
+    m_drag.pending = DragMode::None;
+    m_drag.mode = DragMode::Pending;
+}
+
 void TimelineWidget::scrubTo(QPointF pos)
 {
-    int64_t frame = m_layout.frameAtX(std::max<double>(pos.x(), kHeaderWidth));
+    // A grabbed head keeps its distance to the pointer and moves to the nearest frame line.
+    int64_t frame = m_drag.scrubGrabbed
+        ? std::max<int64_t>(0,
+              m_layout.nearestFrameAtX(
+                  std::max<double>(pos.x() - m_drag.scrubGrabPx, kHeaderWidth)))
+        : m_layout.frameAtX(std::max<double>(pos.x(), kHeaderWidth));
     m_overlay.snapFrame.reset();
     if (const auto s = snapFrame(frame)) {
         frame = *s;
@@ -1057,6 +1087,8 @@ void TimelineWidget::updateHover(QPointF pos)
         shape = Qt::SizeHorCursor; // speed point / retime handle (spec 29.4)
     } else if (tool != TimelineTool::Blade && transitionEdgeAt(pos)) {
         shape = Qt::SizeHorCursor; // transition length (spec 13.9)
+    } else if (tool != TimelineTool::Blade && transitionAt(pos)) {
+        shape = Qt::ArrowCursor; // a click selects the transition, not the cut under it (48.4)
     } else if (const auto level
         = hit.area == TimelineHit::Area::Clip && tool == TimelineTool::Select
             ? levelCursor(pos, hit)
