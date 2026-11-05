@@ -302,6 +302,34 @@ private slots:
         QCOMPARE(f.guides()[0].position, 33.5);
     }
 
+    // 41.27: a press near a guide takes it (kGrabPx screen px), and the nearest guide wins, so
+    // guides close together stay precise.
+    void pressNearAGuideTakesTheNearest()
+    {
+        Fixture f;
+        Viewer v(f);
+        QVERIFY(QTest::qWaitForWindowExposed(&v.panel));
+        v.overlay()->addGuide(Qt::Vertical, 100); // index 0
+        v.overlay()->addGuide(Qt::Vertical, 104); // index 1
+        v.overlay()->addGuide(Qt::Horizontal, 90); // index 2
+        const QPointF first = v.at({100, 20});
+        const QPointF second = v.at({104, 20});
+        QVERIFY(second.x() - first.x() > 2);
+
+        const double reach = GuideOverlay::kGrabPx;
+        QCOMPARE(v.overlay()->guideAt(first - QPointF(reach - 1, 0)), 0);
+        QCOMPARE(v.overlay()->guideAt(second + QPointF(reach - 1, 0)), 1);
+        QCOMPARE(v.overlay()->guideAt(first - QPointF(reach + 1, 0)), -1);
+        // Between two guides the closer one wins, either way.
+        const double gap = second.x() - first.x();
+        QCOMPARE(v.overlay()->guideAt(first + QPointF(gap * 0.25, 0)), 0);
+        QCOMPARE(v.overlay()->guideAt(first + QPointF(gap * 0.75, 0)), 1);
+        // Near a crossing, the axis the pointer is closer to wins.
+        const QPointF crossing = v.at({100, 90});
+        QCOMPARE(v.overlay()->guideAt(crossing + QPointF(-1, 5)), 0);
+        QCOMPARE(v.overlay()->guideAt(crossing + QPointF(-5, 1)), 2);
+    }
+
     // 41.6: Lock Guides stops every mouse edit; hidden guides are not hit.
     void lockAndHide()
     {

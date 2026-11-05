@@ -10,6 +10,7 @@
 #include <QTransform>
 #include <QWidget>
 
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -45,7 +46,10 @@ class GuideOverlay : public QWidget
     Q_OBJECT
 public:
     /// Distance (widget px) within which a guide is grabbed.
-    static constexpr double kGrabPx = 4.0;
+    static constexpr double kGrabPx = 12.0;
+    /// Within this reach a guide wins over the controls below it; between this and kGrabPx a
+    /// control handle under the pointer goes first.
+    static constexpr double kExactGrabPx = 4.0;
 
     /// Creates the layer over @p surface (its widget becomes the parent). @p timeline: guides
     /// of the project's active timeline; false: the source viewer's own list.
@@ -84,7 +88,10 @@ public:
 
     /// Index of the guide under widget point @p pos (within kGrabPx), or -1. Hidden guides
     /// are never hit; locked ones are (for the context menu) unless @p editableOnly.
-    [[nodiscard]] int guideAt(QPointF pos, bool editableOnly = true) const;
+    [[nodiscard]] int guideAt(
+        QPointF pos, bool editableOnly = true, double reachPx = kGrabPx) const;
+    /// Tells the overlay whether a control handle sits under a widget point of the surface.
+    void setControlProbe(std::function<bool(QPointF)> probe) { m_controlAt = std::move(probe); }
     /// True while guides can be changed with the mouse (shown and not locked).
     [[nodiscard]] bool mouseEditable() const;
 
@@ -133,6 +140,11 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+    /// The guide a press or hover at @p pos takes: see kExactGrabPx.
+    [[nodiscard]] int guideToTake(QPointF pos) const;
+
+    std::function<bool(QPointF)> m_controlAt;
+
     struct Drag
     {
         int index = -1; ///< guide being moved; -1 = a new guide from a ruler

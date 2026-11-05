@@ -153,6 +153,7 @@ convention switches live in `PlaybackBehaviour` (`src/playback/PlaybackEngine.h`
 | 7.12 | V selects the edit point nearest to the playhead (video tracks first); at a cut both sides (roll). | Fixed (new; pe2 spec7_12) |
 | 7.13 | Shift+V selects the clip under the playhead, else the gap under it. | Fixed (new; pe2 spec7_13) |
 | 7.14 | An Alt-drag duplicate takes the clips' transitions along: one between two duplicated clips is copied as it is, one at the head or tail cut of a duplicated clip whose neighbour stays behind becomes the copy's head / tail transition, shortened to fit the copy's new neighbour (a fade from / to black without one, 13.6) and dropped where nothing fits or (at the tail) where the clip after the copy already has its own transition at that cut. The same rule as Ctrl+C / Ctrl+V (16.6). | Fixed (owner request on 0.4.0; tp spec7_3_altDragCarriesTransitions) |
+| 7.15 | The rubber band (7.5) also starts in the empty space above the top track and below the bottom track (owner request); a plain click there deselects. | Fixed (tw rubberBandFromAboveTheTracks) |
 
 ## 8. Trimming
 
@@ -1033,6 +1034,7 @@ our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu
 | 41.24 | Zoom and pan are per viewer and per session: not saved in the project or the settings, and kept when another clip or timeline is shown (as the header zoom was before). | Decision |
 | 41.25 | The panning part of 41.17 is done (41.20); snapping of mask points to guides and colours per guide stay deferred. | Fixed (see 41.20) |
 | 41.26 | View > Viewer Zoom to Fit (Z, owner request on 0.4.1) resets zoom and pan of the viewer under the pointer, else of the viewer with the focus, else of every visible viewer. | Fixed (gu zKeyFitsTheViewerUnderThePointer) |
+| 41.27 | A press, hover or double-click within 12 screen px of a guide takes it (owner request: "if I click near the guide it should still press it"; was 4 px), and the nearest guide wins, so guides close together stay precise. An exact tie goes to the later guide. Within 4 px a guide wins over the on-screen controls; between 4 and 12 px a Transform or Crop handle under the pointer goes first (the plain move area does not count), mask and Dynamic Zoom controls do not (the guide wins). | Fixed (gu pressNearAGuideTakesTheNearest, transformDragSnapsToGuides) |
 
 ## 42. Compositing page (compcore / compui branches, v4)
 
