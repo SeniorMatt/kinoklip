@@ -197,11 +197,21 @@ inline bool rangeFree(const TrackData& track, int64_t s, int64_t e)
     return it == track.clips.cend() || it->start >= e;
 }
 
-// Assigns a fresh id unless the clip already carries one that is free.
+// Assigns a fresh id unless the clip already carries one that is free. Effect instances and
+// masks without an id (0: a new clip that comes with them, like the Region Blur adjustment
+// clip, spec 49.8) get one from the timeline's allocator too.
 inline void ensureId(TimelineData& data, ClipData& clip)
 {
     if (idInUse(data, clip.id))
         clip.id = data.allocateId();
+    for (EffectInstance& fx : clip.effects) {
+        if (fx.id == 0)
+            fx.id = data.allocateId();
+    }
+    for (MaskData& mask : clip.masks) {
+        if (mask.id == 0)
+            mask.id = data.allocateId();
+    }
 }
 
 } // namespace kk::editops::detail

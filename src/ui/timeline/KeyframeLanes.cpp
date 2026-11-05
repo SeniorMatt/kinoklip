@@ -4,6 +4,7 @@
 #include "ui/timeline/KeyframeLanes.h"
 
 #include "core/EditOps.h"
+#include "core/KeyframeOps.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
@@ -37,13 +38,7 @@ constexpr int kOpenPanelGap = 6; ///< gap between the clip and its "open in pane
 
 bool clipIsAnimated(const ClipData& c)
 {
-    if (c.transform.isAnimated() || c.audio.isAnimated() || c.title.isAnimated())
-        return true;
-    if (std::any_of(
-            c.masks.cbegin(), c.masks.cend(), [](const MaskData& m) { return m.isAnimated(); }))
-        return true;
-    return std::any_of(c.effects.cbegin(), c.effects.cend(),
-        [](const EffectInstance& fx) { return fx.params.isAnimated(); });
+    return !keyframeops::clipMarkFrames(c).isEmpty();
 }
 } // namespace
 
@@ -66,6 +61,7 @@ KeyframeLanes::KeyframeLanes(AppContext& ctx, const TimelineLayout& layout,
         bind("clip.delete_keyframe", [this] { deleteSelectedKeys(); });
         bind("clip.copy_keyframes", [this] { copySelectedKeys(); });
         bind("clip.paste_keyframes", [this] { pasteKeys(); });
+        keyframecommands::bindEasingActions(ctx); // spec 49.4
     }
 }
 

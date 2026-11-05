@@ -14,9 +14,9 @@ the page keys keep Kinoklip's (Resolve's) keys.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 333 commands; 39 mapped to Vegas Pro's key (sure 17, likely 20,
+Counts: 337 commands; 39 mapped to Vegas Pro's key (sure 17, likely 20,
 unsure 2); 142 keep the default (Resolve) key; 7 have no key because
-Vegas Pro uses it for something else; 145 have no key in either.
+Vegas Pro uses it for something else; 149 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
 the JSON file and this page and stops when a key is used twice in one scope);

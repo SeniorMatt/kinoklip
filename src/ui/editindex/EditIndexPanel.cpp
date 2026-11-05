@@ -77,6 +77,7 @@ EditIndexPanel::EditIndexPanel(AppContext& ctx, QWidget* parent)
     m_search->setPlaceholderText(tr("Search"));
     m_search->setClearButtonEnabled(true);
     filters->addWidget(m_search, 1);
+    setSearchField(m_search); // spec 49.5
     m_colorFilter = new QComboBox;
     m_colorFilter->setObjectName(QStringLiteral("EditIndexColorFilter"));
     m_colorFilter->addItem(tr("All Colors"), QColor());

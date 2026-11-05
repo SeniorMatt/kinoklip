@@ -59,6 +59,7 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     setPanelKey(QStringLiteral("keyframes")); // in-app help: panel:keyframes
     setObjectName(QStringLiteral("KeyframesPanel"));
     m_map.originX = kAxisWidth;
+    keyframecommands::bindEasingActions(ctx); // spec 49.4
 
     // Title bar: the shown item's name and the float / dock button.
     m_itemLabel = new QLabel;

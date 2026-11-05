@@ -74,6 +74,10 @@ inline constexpr char kRenderNotifications[] = "deliver/notifyWhenFinished";
 /// bool: the Effects library's Live Preview (its options menu; spec 47): hovering an entry
 /// shows it applied in the timeline viewer; default true, as in Resolve.
 inline constexpr char kEffectsLivePreview[] = "effects/livePreview";
+/// bool: a panel opened with its toggle's keyboard shortcut (Media Pool, Effects, Edit Index)
+/// gives its search field the focus (Preferences > Keyboard; spec 49.5). Default false: a
+/// panel toggle leaves the focus where it was (no Resolve behaviour to the contrary is known).
+inline constexpr char kFocusSearchOnPanelKey[] = "ui/focusSearchOnPanelKey";
 
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).
@@ -167,5 +171,9 @@ void setRenderNotificationsEnabled(bool on);
 [[nodiscard]] bool effectsLivePreview();
 /// Stores kEffectsLivePreview.
 void setEffectsLivePreview(bool on);
+/// kFocusSearchOnPanelKey (default false).
+[[nodiscard]] bool focusSearchOnPanelKey();
+/// Stores kFocusSearchOnPanelKey.
+void setFocusSearchOnPanelKey(bool on);
 
 } // namespace kk::prefs

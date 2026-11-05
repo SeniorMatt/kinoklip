@@ -7,8 +7,10 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 
+#include <QAction>
 #include <QCoreApplication>
 
 namespace kk::keyframecommands {
@@ -44,8 +46,12 @@ int runOnSelection(AppContext& ctx, const char* label, Op&& op)
 
 bool deleteSelected(AppContext& ctx)
 {
+    // A parameter losing every key keeps the value shown at the playhead (spec 49.1).
+    const int64_t playhead = ctx.project->timeline()->playhead();
     const int n = runOnSelection(ctx, QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Delete Keyframes"),
-        [](TimelineData& d, const QVector<KeyframeRef>& r) { return ko::deleteKeys(d, r); });
+        [playhead](TimelineData& d, const QVector<KeyframeRef>& r) {
+            return ko::deleteKeys(d, r, playhead);
+        });
     if (n > 0)
         ctx.selection->setKeyframes({});
     return n > 0;
@@ -103,6 +109,63 @@ bool flattenSelected(AppContext& ctx)
                    return ko::flattenHandles(d, r);
                })
         > 0;
+}
+
+const QVector<EasingAction>& easingActions()
+{
+    static const QVector<EasingAction> list {
+        {"clip.keyframe_linear", Interp::Linear},
+        {"clip.keyframe_ease_in", Interp::EaseIn},
+        {"clip.keyframe_ease_out", Interp::EaseOut},
+        {"clip.keyframe_ease_in_out", Interp::EaseInOut},
+    };
+    return list;
+}
+
+QVector<KeyframeRef> easingTargets(AppContext& ctx)
+{
+    QVector<KeyframeRef> refs = ctx.selection->keyframes();
+    if (!refs.isEmpty())
+        return refs;
+    const TimelineData& data = ctx.project->timeline()->data();
+    const int64_t playhead = ctx.project->timeline()->playhead();
+    for (quint64 id : ctx.selection->clips()) {
+        const ClipData* clip = editops::clipById(data, id);
+        if (clip && playhead >= clip->start && playhead < clip->start + clip->duration)
+            refs += ko::keysAt(*clip, playhead - clip->start);
+    }
+    return refs;
+}
+
+bool easeTargets(AppContext& ctx, Interp interp)
+{
+    const QVector<KeyframeRef> refs = easingTargets(ctx);
+    if (refs.isEmpty())
+        return false;
+    ctx.project->beginEdit(
+        tr(QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Change Keyframe Interpolation")));
+    const int n = ko::setInterp(ctx.project->timeline()->mutableData(), refs, interp);
+    ctx.project->endEdit();
+    return n > 0;
+}
+
+void bindEasingActions(AppContext& ctx)
+{
+    if (!ctx.actions)
+        return;
+    AppContext* context = &ctx;
+    for (const EasingAction& e : easingActions()) {
+        const QString id = QLatin1String(e.id);
+        QAction* action = ctx.actions->contains(id) ? ctx.actions->action(id) : nullptr;
+        // Several editors (each timeline's lanes, the Keyframes panel) call this; the first
+        // one connects, so one key press is one edit.
+        if (!action || action->property("kk_easingBound").toBool())
+            continue;
+        action->setProperty("kk_easingBound", true);
+        const Interp interp = e.interp;
+        QObject::connect(action, &QAction::triggered, ctx.actions,
+            [context, interp] { easeTargets(*context, interp); });
+    }
 }
 
 } // namespace kk::keyframecommands

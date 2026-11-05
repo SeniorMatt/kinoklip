@@ -222,6 +222,12 @@ const ActionSpec kActions[] = {
     {"clip", "clip.delete_keyframe",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete Keyframes")},
     {"clip", "clip.copy_keyframes",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Copy Keyframes")},
     {"clip", "clip.paste_keyframes",  QT_TRANSLATE_NOOP("kk::StandardActions", "Paste Key&frames")},
+    // Easing of the selected keys, else of the keys at the playhead (spec 49.4; no default key).
+    {"clip", ">clip.keyframe_interp", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe &Interpolation")},
+    {"clip.keyframe_interp", "clip.keyframe_linear", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe &Linear")},
+    {"clip.keyframe_interp", "clip.keyframe_ease_in", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe Ease &In")},
+    {"clip.keyframe_interp", "clip.keyframe_ease_out", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe Ease &Out")},
+    {"clip.keyframe_interp", "clip.keyframe_ease_in_out", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe Ease In &and Out")},
     {"clip", "clip.toggle_keyframe_editor", QT_TRANSLATE_NOOP("kk::StandardActions", "Show Keyframe &Editor"), "keyframe_editor"},
     {"clip", "clip.toggle_curve_editor", QT_TRANSLATE_NOOP("kk::StandardActions", "Show C&urve Editor"), "curve_editor"},
     {"clip", "-"},

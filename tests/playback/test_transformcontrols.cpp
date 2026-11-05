@@ -146,7 +146,7 @@ private slots:
     }
 
     // Corners scale around the anchor keeping the aspect while the zoom is linked; Shift
-    // frees it (and unlinks); edges stretch one axis only when unlinked.
+    // frees it for the drag; edges stretch one axis only when unlinked.
     void scaleHandles()
     {
         const ClipData c = solid(); // 320x180 content centred on the frame centre (160, 90)
@@ -157,11 +157,12 @@ private slots:
         // Off the diagonal the linked corner still keeps the aspect (best fit).
         t = dragHandle(c, {TransformHandle::Kind::Scale, 1, 1}, {320, 180}, {400, 180});
         QVERIFY(near(t.value(keys::ZoomX, 0), t.value(keys::ZoomY, 0)));
-        // Shift: free corner, unlinks the zoom.
+        // Shift: a free corner for this drag only; Link Zoom stays on (spec 49.2).
         t = dragHandle(c, {TransformHandle::Kind::Scale, 1, 1}, {320, 180}, {400, 180}, true);
         QVERIFY(near(t.value(keys::ZoomX, 0), 1.5));
         QVERIFY(near(t.value(keys::ZoomY, 0), 1.0));
-        QCOMPARE(t.staticValue(keys::ZoomLinked, true).toBool(), false);
+        QCOMPARE(t.staticValue(keys::ZoomLinked, true).toBool(), true);
+        QVERIFY(!t.statics.contains(keys::ZoomLinked)); // never written by a drag
         // Linked right edge: both axes follow.
         t = dragHandle(c, {TransformHandle::Kind::Scale, 1, 0}, {320, 90}, {240, 90});
         QVERIFY(near(t.value(keys::ZoomX, 0), 0.5));
