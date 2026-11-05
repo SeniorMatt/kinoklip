@@ -4,12 +4,12 @@
 
 #include "core/Plural.h"
 #include "export/RenderQueue.h"
+#include "platform/OpenUrl.h"
 #include "ui/common/Icons.h"
 #include "ui/common/ThinProgressBar.h"
 
 #include <QApplication>
 #include <QCoreApplication>
-#include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -76,7 +76,8 @@ public:
             if (const RenderQueue::Job* job = m_queue->job(m_id)) {
                 const QString path = job->result.outputPath.isEmpty() ? job->settings.outputPath
                                                                       : job->result.outputPath;
-                QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+                // platform::openUrl: the file manager gets the user's environment
+                platform::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
             }
         });
         refresh();

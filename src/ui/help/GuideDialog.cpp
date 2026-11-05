@@ -114,8 +114,9 @@ void GuideDialog::open(QListWidgetItem* item)
     if (!item)
         return;
     const QString id = item->data(kIdRole).toString();
-    guide::openArticle(id.isEmpty() ? nullptr : guide::index().article(id));
-    accept();
+    // Stay open when nothing opened: the copy-link message is shown over this dialog.
+    if (guide::openArticle(id.isEmpty() ? nullptr : guide::index().article(id), this))
+        accept();
 }
 
 bool GuideDialog::eventFilter(QObject* watched, QEvent* event)

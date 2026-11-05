@@ -10,6 +10,7 @@ Links the app to the user guide (`docs/guide/`, rendered by GitHub). Depends on 
 | `HelpController` | the main window's wiring: F1 (`help.guide_context`), Help > Guide… (`help.guide`), Help > Getting Started (`help.getting_started`), the "?" buttons in panel title bars |
 | (app) | Help > Report a Bug or Inconsistency lives in `src/app/BugReportDialog` (it reads app-level settings); it opens GitHub through `guide::openUrl` too, so the same test hook applies |
 | `GuideDialog` | Help > Guide…: search field + article list ("Start page" on top); Enter or double-click opens |
+| `CopyLinkDialog` | shown by `guide::openUrl()` when no browser could be opened: the link in a selectable read-only field, Copy Link, Close; callers that close on success (Guide…, the bug report) stay open |
 
 ## The index
 

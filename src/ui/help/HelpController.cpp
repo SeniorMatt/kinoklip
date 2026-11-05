@@ -89,7 +89,7 @@ QUrl HelpController::urlFor(const QStringList& contexts) const
 
 void HelpController::openContextHelp(const QStringList& extra)
 {
-    guide::openUrl(urlFor(extra + currentContexts()));
+    guide::openUrl(urlFor(extra + currentContexts()), m_window);
 }
 
 GuideDialog* HelpController::showGuideDialog()
