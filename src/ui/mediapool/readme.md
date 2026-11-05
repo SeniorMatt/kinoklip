@@ -88,6 +88,24 @@ The bins sidebar follows the panel width (hidden below 460 px so the narrow Edit
 keeps two tile columns) until the user toggles it with the folder button; that choice is then
 remembered (`mediaPool/binsVisible`). The grid/list choice is remembered as `mediaPool/viewMode`.
 
+## Navigation, thumbnail size, wheel (poolnav branch)
+- Bin history: `showBinKey()` records every bin the user opens (`recordHistory()`); the
+  mouse's Back / Forward buttons (event filter on the views' viewports and the bin list,
+  `mousePressEvent()` for the rest of the panel) call `goBack()` / `goForward()`, which skip
+  bins without a row in the bin list (deleted) and record nothing. `rebuildBins()` pauses the
+  recording, so a deleted bin falling back to Master is no entry. No keys: Alt+Left / Right
+  are taken in the Kdenlive and Premiere Pro presets.
+- Thumbnail size: `MediaPoolPanel::kThumbnailWidths` (poster widths, 16:9), the toolbar slider
+  `MediaPoolThumbnailSize` (grid view only) and Ctrl+wheel over the grid;
+  `applyThumbnailStep()` sets the delegate's and the model's poster size and the grid size,
+  stored as `mediaPool/thumbnailWidth` (re-read in `showEvent()`, so both pages agree).
+  `MediaPoolModel::setPosterSize()` clears the poster cache; posters are requested at least at
+  `kPosterSize`'s height, so zooming out reuses MediaCache's decoded frames. The delegate drops
+  badges that do not fit.
+- Wheel: QListView's own step is a whole grid row times three lines; `scrollByWheel()` scrolls
+  the grid and the strip view (per pixel) by a third of a row per notch, or by the touchpad's
+  pixel delta. The list view and the bin list keep Qt's per-row scrolling (short rows).
+
 ## Undo
 Import, rename, delete, bin create/rename/move/delete, smart bins, colours, flags, metadata and
 moves are each one

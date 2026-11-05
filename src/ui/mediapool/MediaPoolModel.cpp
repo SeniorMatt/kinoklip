@@ -236,6 +236,17 @@ void MediaPoolModel::setThumbnailProvider(PosterProvider provider)
         emit dataChanged(index(0, 0), index(int(m_rows.size()) - 1, 0), {PosterRole});
 }
 
+void MediaPoolModel::setPosterSize(QSize size)
+{
+    if (size == m_posterSize || size.isEmpty())
+        return;
+    m_posterSize = size;
+    m_posters.clear(); // scaled for the old size
+    m_pending.clear();
+    if (!m_rows.isEmpty())
+        emit dataChanged(index(0, 0), index(int(m_rows.size()) - 1, 0), {PosterRole});
+}
+
 void MediaPoolModel::thumbnailReady(const QString& path)
 {
     if (!m_pending.remove(path))
@@ -573,14 +584,15 @@ QPixmap MediaPoolModel::poster(const Row& row) const
         return *cached;
     if (m_pending.contains(row.path))
         return {};
-    const QImage image = m_provider(row.path, kPosterSize.height());
+    const QImage image
+        = m_provider(row.path, std::max(m_posterSize.height(), kPosterSize.height()));
     if (image.isNull()) {
         m_pending.insert(row.path); // thumbnailReady() will clear it
         return {};
     }
     // Scale once to the tile, so painting is a plain blit.
     auto* scaled = new QPixmap(QPixmap::fromImage(
-        image.scaled(kPosterSize, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+        image.scaled(m_posterSize, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
     const QPixmap result = *scaled;
     const int costKiB = std::max(1, int(qint64(scaled->width()) * scaled->height() * 4 / 1024));
     m_posters.insert(row.path, scaled, costKiB);

@@ -7,8 +7,11 @@
 #include "ui/mediapool/MediaPoolModel.h"
 
 #include <QApplication>
+#include <QFontMetrics>
 #include <QPainter>
 #include <QPainterPath>
+
+#include <algorithm>
 
 namespace kk {
 
@@ -17,7 +20,8 @@ namespace {
 constexpr int kPadding = 6; ///< around the poster inside the tile
 constexpr int kNameHeight = 18;
 constexpr int kFlagSize = 8; ///< px, flag markers on the poster
-const QSize kPoster = MediaPoolModel::kPosterSize;
+/// Narrower posters leave out the "Linked" badge (the usage dot and box glyph stay).
+constexpr int kLinkedBadgeMinWidth = 112;
 
 /// Neutral placeholder for items without a poster (pending, audio, failed decode): a dark tile
 /// with a simple line drawing of a film frame, a waveform or a landscape.
@@ -29,6 +33,13 @@ void paintPlaceholder(QPainter* p, const QRect& r, int kind, const QPalette& pal
     p->setPen(QPen(ink, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     p->setBrush(Qt::NoBrush);
     const QPointF c = QRectF(r).center();
+    // The glyphs are drawn for the default poster height; smaller posters shrink them.
+    const qreal scale = std::min(1.0, r.height() / qreal(MediaPoolModel::kPosterSize.height()));
+    if (scale < 1.0) {
+        p->translate(c);
+        p->scale(scale, scale);
+        p->translate(-c);
+    }
     switch (kind) {
     case MediaPoolModel::TimelineKind:
     case MediaPoolModel::CompoundKind: {
@@ -122,22 +133,24 @@ void paintPlaceholder(QPainter* p, const QRect& r, int kind, const QPalette& pal
 
 MediaPoolDelegate::MediaPoolDelegate(QObject* parent)
     : QStyledItemDelegate(parent)
+    , m_poster(MediaPoolModel::kPosterSize)
 { }
 
-QSize MediaPoolDelegate::tileSize()
+QSize MediaPoolDelegate::tileSize(QSize poster)
 {
-    return {kPoster.width() + 2 * kPadding, kPoster.height() + 2 * kPadding + kNameHeight};
+    return {poster.width() + 2 * kPadding, poster.height() + 2 * kPadding + kNameHeight};
 }
 
 QRect MediaPoolDelegate::nameRect(const QRect& tile)
 {
-    return {tile.left() + kPadding, tile.top() + kPadding + kPoster.height() + 2,
+    // Below the poster: the last kNameHeight px above the bottom padding (+2 px gap).
+    return {tile.left() + kPadding, tile.top() + tile.height() - kPadding - kNameHeight + 2,
         tile.width() - 2 * kPadding, kNameHeight};
 }
 
 QSize MediaPoolDelegate::sizeHint(const QStyleOptionViewItem&, const QModelIndex&) const
 {
-    return tileSize();
+    return tileSize(m_poster);
 }
 
 void MediaPoolDelegate::updateEditorGeometry(
@@ -172,17 +185,22 @@ void MediaPoolDelegate::paint(
 
     // Poster area: letterboxed pixmap centred in a fixed 16:9 rect.
     const QRect posterRect(
-        tile.left() + kPadding, tile.top() + kPadding, kPoster.width(), kPoster.height());
+        tile.left() + kPadding, tile.top() + kPadding, m_poster.width(), m_poster.height());
     const QPixmap poster = index.data(MediaPoolModel::PosterRole).value<QPixmap>();
     const int kind = index.data(MediaPoolModel::KindRole).toInt();
     if (poster.isNull()) {
+        p->save(); // the glyph may scale the painter
         paintPlaceholder(p, posterRect, kind, pal);
+        p->restore();
     } else {
         p->fillRect(posterRect, Qt::black); // letterbox of the poster: video content
         const QSize size = poster.size() / poster.devicePixelRatio();
         const QPoint topLeft(posterRect.left() + (posterRect.width() - size.width()) / 2,
             posterRect.top() + (posterRect.height() - size.height()) / 2);
+        p->save();
+        p->setClipRect(posterRect); // a poster of the previous size, until it is re-scaled
         p->drawPixmap(topLeft, poster);
+        p->restore();
     }
 
     // Offline: red wash and label over the poster.
@@ -193,24 +211,29 @@ void MediaPoolDelegate::paint(
         bold.setBold(true);
         p->setFont(bold);
         p->setPen(sc.overlayText);
-        p->drawText(posterRect, Qt::AlignCenter, tr("Media Offline"));
+        p->drawText(posterRect, Qt::AlignCenter,
+            QFontMetrics(bold).elidedText(
+                tr("Media Offline"), Qt::ElideRight, posterRect.width() - 4));
     }
 
-    // Duration badge in the bottom-right corner of the poster.
+    // Duration badge in the bottom-right corner of the poster; left out when the poster is
+    // too small for it (zoomed-out grid).
     const QString duration = index.data(MediaPoolModel::DurationTextRole).toString();
     if (!duration.isEmpty()) {
-        QFont small = option.font;
-        small.setPointSizeF(small.pointSizeF() * 0.8);
-        p->setFont(small);
-        const QFontMetrics fm(small);
+        QFont badgeFont = option.font;
+        badgeFont.setPointSizeF(badgeFont.pointSizeF() * 0.8);
+        const QFontMetrics fm(badgeFont);
         const QRect text(0, 0, fm.horizontalAdvance(duration) + 8, fm.height() + 2);
-        const QRect badge = text.translated(
-            posterRect.right() - text.width() - 3, posterRect.bottom() - text.height() - 3);
-        p->setPen(Qt::NoPen);
-        p->setBrush(sc.overlay);
-        p->drawRoundedRect(QRectF(badge), 3, 3);
-        p->setPen(sc.overlayText);
-        p->drawText(badge, Qt::AlignCenter, duration);
+        if (text.width() <= posterRect.width() - 6 && text.height() * 2 <= posterRect.height()) {
+            const QRect badge = text.translated(
+                posterRect.right() - text.width() - 3, posterRect.bottom() - text.height() - 3);
+            p->setFont(badgeFont);
+            p->setPen(Qt::NoPen);
+            p->setBrush(sc.overlay);
+            p->drawRoundedRect(QRectF(badge), 3, 3);
+            p->setPen(sc.overlayText);
+            p->drawText(badge, Qt::AlignCenter, duration);
+        }
     }
 
     // Proxy / optimized media badge in the top-left corner ("P", "O", "P 42%" while
@@ -269,7 +292,8 @@ void MediaPoolDelegate::paint(
         p->setBrush(Qt::NoBrush);
         p->drawRect(box);
         p->drawLine(QPointF(box.left(), box.top() + 3), QPointF(box.right(), box.top() + 3));
-    } else if (location == MediaPoolModel::LinkedLocation) {
+    } else if (location == MediaPoolModel::LinkedLocation
+        && posterRect.width() >= kLinkedBadgeMinWidth) {
         QFont small = option.font;
         small.setPointSizeF(small.pointSizeF() * 0.75);
         p->setFont(small);
