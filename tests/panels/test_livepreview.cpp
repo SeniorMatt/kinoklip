@@ -13,6 +13,7 @@
 #include "core/VideoEffectKeys.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/Resources.h"
+#include "ui/common/SchemeColors.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/effects/EffectsLivePreview.h"
 #include "ui/viewer/ViewerPanel.h"
@@ -20,6 +21,8 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QElapsedTimer>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -394,6 +397,256 @@ private Q_SLOTS:
         f.preview->hover(kBlackWhite, 0.5); // no preview while playing
         QVERIFY(f.preview->hoveredId().isEmpty());
         f.engine->pause();
+    }
+
+    // 47.10: over a transition or title row a playhead-coloured line marks the scrub
+    // position, following the pointer and the row through scrolling; it goes when the preview
+    // ends. Effects (no scrubbing) get none.
+    void scrubLineMarksThePosition()
+    {
+        Fixture f;
+        f.library->resize(420, 260); // short enough to scroll
+        QVERIFY(QTest::qWaitForWindowExposed(f.library.get()));
+        QTreeWidget* tree = f.library->tree();
+        const QColor playhead = schemeColors().playhead;
+        auto isPlayhead = [&](QPoint at) {
+            const QColor c = tree->viewport()->grab().toImage().pixelColor(at);
+            return std::abs(c.red() - playhead.red()) < 8
+                && std::abs(c.green() - playhead.green()) < 8
+                && std::abs(c.blue() - playhead.blue()) < 8;
+        };
+        QCOMPARE(f.library->scrubLineX(), -1);
+        const QPoint quarter = f.rowPoint(kDissolve, 0.25);
+        f.library->hoverAt(quarter);
+        QCOMPARE(f.preview->hoveredId(), kDissolve);
+        QVERIFY2(std::abs(f.library->scrubLineX() - quarter.x()) <= 1,
+            qPrintable(QStringLiteral("%1 vs %2").arg(f.library->scrubLineX()).arg(quarter.x())));
+        QVERIFY(isPlayhead(QPoint(f.library->scrubLineX(), quarter.y())));
+        QVERIFY(!isPlayhead(QPoint(quarter.x() + 40, quarter.y())));
+        // It follows the pointer.
+        const QPoint threeQuarters = f.rowPoint(kDissolve, 0.75);
+        f.library->hoverAt(threeQuarters);
+        QVERIFY(std::abs(f.library->scrubLineX() - threeQuarters.x()) <= 1);
+        QVERIFY(isPlayhead(QPoint(f.library->scrubLineX(), threeQuarters.y())));
+        QVERIFY(!isPlayhead(QPoint(quarter.x(), quarter.y())));
+        // Scrolled (programmatically, the wheel ends the hover): drawn on the row's new place.
+        QTreeWidgetItem* item = tree->itemAt(threeQuarters);
+        QVERIFY(item);
+        tree->verticalScrollBar()->setValue(tree->verticalScrollBar()->value() + 20);
+        QCoreApplication::processEvents();
+        const QRect moved = tree->visualItemRect(item);
+        if (moved.intersects(tree->viewport()->rect()) && moved.center().y() >= 0)
+            QVERIFY(isPlayhead(QPoint(f.library->scrubLineX(), moved.center().y())));
+        // The preview ends: the line goes.
+        QEvent leave(QEvent::Leave);
+        QCoreApplication::sendEvent(tree->viewport(), &leave);
+        QCOMPARE(f.library->scrubLineX(), -1);
+        if (moved.intersects(tree->viewport()->rect()))
+            QVERIFY(!isPlayhead(QPoint(threeQuarters.x(), moved.center().y())));
+        // Titles scrub too; plain effects do not.
+        f.library->hoverAt(f.rowPoint(titles::Text, 0.5));
+        QVERIFY(f.library->scrubLineX() >= 0);
+        f.library->hoverAt(f.rowPoint(kInvert, 0.5));
+        QCOMPARE(f.library->scrubLineX(), -1);
+        f.library->endHover();
+        QVERIFY(!f.project.isDirty());
+    }
+
+    // 47.11: moves during a render are coalesced: exactly one follow-up render, at the last
+    // position; moves within the frame shown render nothing.
+    void scrubMovesAreCoalesced()
+    {
+        Fixture f;
+        QVERIFY(QTest::qWaitForWindowExposed(f.viewer.get()));
+        f.project.timeline()->setPlayhead(90);
+        f.preview->hover(kDissolve, 0.0);
+        f.preview->flushDebounce();
+        QTRY_COMPARE_WITH_TIMEOUT(f.preview->shownId(), kDissolve, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(!f.preview->rendering(), 5000);
+        QCOMPARE(f.preview->shownStep(), int64_t(0));
+        const int before = f.preview->requestCount();
+
+        f.preview->hover(kDissolve, 0.5); // renders at once (no debounce on the same entry)
+        QCOMPARE(f.preview->requestCount(), before + 1);
+        QVERIFY(f.preview->rendering());
+        f.preview->hover(kDissolve, 0.6);
+        f.preview->hover(kDissolve, 0.7);
+        f.preview->hover(kDissolve, 0.9);
+        QCOMPARE(f.preview->requestCount(), before + 1); // nothing queued meanwhile
+        const int64_t last = f.preview->preparedScene()->stepAt(0.9);
+        QTRY_COMPARE_WITH_TIMEOUT(f.preview->shownStep(), last, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(!f.preview->rendering(), 5000);
+        QTest::qWait(50);
+        QCOMPARE(f.preview->requestCount(), before + 2); // exactly one follow-up
+        QCOMPARE(f.preview->shownStep(), last);
+
+        // Within the frame shown (25 frames over the row): nothing to render.
+        f.preview->hover(kDissolve, 0.9 + 0.1 / 24);
+        QCOMPARE(f.preview->requestCount(), before + 2);
+        // An effect: moving along it never re-renders the same picture.
+        f.preview->hover(kInvert, 0.1);
+        f.preview->flushDebounce();
+        QTRY_COMPARE_WITH_TIMEOUT(f.preview->shownId(), kInvert, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(!f.preview->rendering(), 5000);
+        const int effectRequests = f.preview->requestCount();
+        f.preview->hover(kInvert, 0.5);
+        f.preview->hover(kInvert, 0.9);
+        QCOMPARE(f.preview->requestCount(), effectRequests);
+        QVERIFY(!f.project.isDirty());
+        QCOMPARE(f.project.undoStack()->count(), 0);
+    }
+
+    // 47.12: the scene is prepared once per entry and timeline state; scrubbing only moves
+    // its time (frame-accurate, with a little hysteresis), and gives the same scenes as
+    // buildScene().
+    void scrubReusesTheScene()
+    {
+        Fixture f;
+        QVERIFY(QTest::qWaitForWindowExposed(f.viewer.get()));
+        f.project.timeline()->setPlayhead(90);
+        const TimelineData& d = f.project.timeline()->data();
+
+        // Transition: the copy is kept, the frame steps through the whole window.
+        auto prepared = livepreview::PreparedScene::prepare(d, 90, {}, kDissolve);
+        QVERIFY(prepared && prepared->scrubs());
+        QCOMPARE(prepared->length(), int64_t(25));
+        const livepreview::Scene first = prepared->sceneAt(0);
+        for (int step = 0; step < 25; ++step) {
+            const livepreview::Scene s = prepared->sceneAt(step);
+            QCOMPARE(s.timeline.get(), first.timeline.get());
+            QCOMPARE(s.frame, livepreview::buildScene(d, 90, {}, kDissolve, step / 24.0)->frame);
+        }
+        // Jitter: 12 stays until the pointer is a quarter frame past the half-way mark.
+        QCOMPARE(prepared->stepAt(0.5), int64_t(12));
+        QCOMPARE(prepared->stepAt(12.6 / 24, 12), int64_t(12));
+        QCOMPARE(prepared->stepAt(12.8 / 24, 12), int64_t(13));
+        QCOMPARE(prepared->stepAt(12.6 / 24), int64_t(13));
+        QCOMPARE(prepared->stepAt(11.2 / 24, 12), int64_t(11));
+
+        // Title: only the clip's start changes, in place when no one else holds the copy.
+        auto title = livepreview::PreparedScene::prepare(d, 90, {}, titles::Text);
+        QVERIFY(title && title->scrubs());
+        const TimelineData* copy = title->sceneAt(0).timeline.get();
+        for (int64_t step : {int64_t(0), int64_t(10), title->length() - 1}) {
+            const livepreview::Scene s = title->sceneAt(step);
+            QCOMPARE(s.timeline.get(), copy);
+            const auto expected = livepreview::buildScene(
+                d, 90, {}, titles::Text, double(step) / double(title->length() - 1));
+            QCOMPARE(s.frame, expected->frame);
+            QCOMPARE(s.timeline->videoTracks.back().clips.front().start,
+                expected->timeline->videoTracks.back().clips.front().start);
+        }
+        QCOMPARE(title->copyCount(), 0);
+        {
+            const livepreview::Scene held = title->sceneAt(3); // a render still holds it
+            const livepreview::Scene next = title->sceneAt(4);
+            QVERIFY(next.timeline.get() != held.timeline.get());
+            QCOMPARE(held.timeline->videoTracks.back().clips.front().start, int64_t(87));
+            QCOMPARE(next.timeline->videoTracks.back().clips.front().start, int64_t(86));
+            QCOMPARE(title->copyCount(), 1);
+        }
+        // Effects: one picture.
+        auto effect = livepreview::PreparedScene::prepare(d, 90, {}, kInvert);
+        QVERIFY(effect && !effect->scrubs());
+        QCOMPARE(effect->stepAt(0.9), int64_t(0));
+
+        // In the preview: one scene for a whole scrub, a new one on a playhead move.
+        f.preview->hover(kDissolve, 0.0);
+        f.preview->flushDebounce();
+        QTRY_COMPARE_WITH_TIMEOUT(f.preview->shownId(), kDissolve, 5000);
+        const int builds = f.preview->sceneBuildCount();
+        for (int i = 1; i <= 8; ++i) {
+            f.preview->hover(kDissolve, i / 8.0);
+            QTRY_VERIFY_WITH_TIMEOUT(!f.preview->rendering(), 5000);
+        }
+        QCOMPARE(f.preview->shownStep(), int64_t(24));
+        QCOMPARE(f.preview->sceneBuildCount(), builds);
+        f.preview->hover(titles::Text, 0.0);
+        f.preview->flushDebounce();
+        for (int i = 1; i <= 8; ++i) {
+            f.preview->hover(titles::Text, i / 8.0);
+            QTRY_VERIFY_WITH_TIMEOUT(!f.preview->rendering(), 5000);
+        }
+        QCOMPARE(f.preview->sceneBuildCount(), builds + 1);
+        // Usually 0; a copy is only made if the render thread had not dropped its reference.
+        QVERIFY(f.preview->preparedScene()->copyCount() <= 8);
+        qInfo("title scrub: %d timeline copies over 8 steps",
+            f.preview->preparedScene()->copyCount());
+        f.project.timeline()->setPlayhead(95);
+        QCOMPARE(f.preview->sceneBuildCount(), builds + 2);
+        f.preview->stop();
+        QVERIFY(!f.project.isDirty());
+        QCOMPARE(f.project.undoStack()->count(), 0);
+        QCOMPARE(f.project.timeline()->data().videoTracks.size(), size_t(2));
+        QVERIFY(!editops::clipById(f.project.timeline()->data(), f.blue)->transitionIn);
+    }
+
+    // Timings (printed, not asserted): time per scrub frame stepping through a transition,
+    // and a pointer sweep over its row, on a timeline with 3000 extra clips (copying it per
+    // position is what made scrubbing steppy).
+    void scrubTiming()
+    {
+        Fixture f;
+        TimelineData d = f.project.timeline()->data();
+        for (int i = 0; i < 3000; ++i) {
+            ClipData c;
+            c.id = d.allocateId();
+            c.kind = ClipKind::Solid;
+            c.solidColor = Qt::green;
+            c.start = 1000 + i * 10;
+            c.duration = 10;
+            d.videoTracks[1].clips.push_back(c);
+        }
+        f.project.timeline()->setData(d);
+        f.project.timeline()->setPlayhead(90);
+        f.project.undoStack()->clear();
+        QVERIFY(QTest::qWaitForWindowExposed(f.viewer.get()));
+        f.preview->hover(kDissolve, 0.0);
+        f.preview->flushDebounce();
+        QTRY_COMPARE_WITH_TIMEOUT(f.preview->shownId(), kDissolve, 5000);
+
+        QSignalSpy shown(f.preview.get(), &EffectsLivePreview::previewShown);
+        constexpr int kSteps = 24; // the 25-frame transition, one frame per step
+        qint64 hoverNs = 0;
+        QElapsedTimer total;
+        total.start();
+        for (int i = 1; i <= kSteps; ++i) {
+            QElapsedTimer h;
+            h.start();
+            f.preview->hover(kDissolve, double(i) / kSteps);
+            hoverNs += h.nsecsElapsed();
+            // Not QTRY (it polls every 50 ms): wake on every event, as the GUI does.
+            QElapsedTimer limit;
+            limit.start();
+            while (shown.count() < i && limit.elapsed() < 5000)
+                QCoreApplication::processEvents(QEventLoop::WaitForMoreEvents);
+            QCOMPARE(shown.count(), i);
+        }
+        const double perFrame = double(total.nsecsElapsed()) / 1e6 / kSteps;
+
+        // A sweep: one pointer move per pixel of a 400 px row every 4 ms, right to left.
+        const int requestsBefore = f.preview->requestCount();
+        qint64 lastShownNs = 0;
+        QElapsedTimer sweep;
+        QObject::connect(f.preview.get(), &EffectsLivePreview::previewShown, f.preview.get(),
+            [&] { lastShownNs = sweep.nsecsElapsed(); });
+        qint64 sweepHoverNs = 0;
+        sweep.start();
+        for (int x = 399; x >= 0; --x) {
+            QElapsedTimer h;
+            h.start();
+            f.preview->hover(kDissolve, x / 399.0);
+            sweepHoverNs += h.nsecsElapsed();
+            QTest::qWait(4);
+        }
+        const qint64 movesDoneNs = sweep.nsecsElapsed();
+        QTest::qWait(500);
+        qInfo("scrub step: %.2f ms per frame (GUI hover() %.3f ms); sweep of 400 moves: %d "
+              "renders, GUI hover() %.3f ms per move, last frame shown %.1f ms after the "
+              "last move",
+            perFrame, double(hoverNs) / 1e6 / kSteps, f.preview->requestCount() - requestsBefore,
+            double(sweepHoverNs) / 1e6 / 400, double(lastShownNs - movesDoneNs) / 1e6);
+        QVERIFY(!f.project.isDirty());
     }
 };
 

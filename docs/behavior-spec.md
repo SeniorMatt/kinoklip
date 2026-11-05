@@ -1226,6 +1226,9 @@ Tests: `lp` = `tests/panels/test_livepreview.cpp`.
 | 47.7 | The Effects library's options menu ("…" at the right of its title bar) has a checkable "Live Preview", on by default and remembered (Preferences key `effects/livePreview`); off, hovering shows nothing, and switching it off ends a preview being shown. | New (Resolve has a Live Preview option; the library's own menu was chosen because the toggle only affects this panel; lp toggleOffShowsNothing) |
 | 47.8 | The preview stays responsive: a new entry is rendered only after the pointer rested on it for 100 ms (sweeping over the list renders nothing); moving along the same entry re-renders at once with one render in flight, the newest position following. Renders run on the compositor's render thread at the viewer's size, quality and proxies (`PlaybackEngine::renderAlternative()`); a request made stale by another entry or the end of the hover is cancelled and its picture is never shown. | New (lp staleRequestsAreCancelled) |
 | 47.9 | Scope: the Edit page's Effects library only. The Color page has no LUT browser with a hover mechanism (its gallery and LUT choices are untouched); the Compositing page's node library could reuse `EffectsLivePreview` with a composition-node scene, not done. | Decision (owner request) |
+| 47.10 | While the pointer scrubs a transition or title entry (47.5), a position line is drawn over its row at the pointer, Resolve-style: a 2 px line in the playhead colour spanning the row's height, the part of the row already passed tinted with it. It follows the pointer and the row (scrolling, resizing) and goes when the preview ends (47.2). Effects and generators, which do not scrub, show none. | New (owner request "a clear line which shows at what point of a transition you are"; lp scrubLineMarksThePosition) |
+| 47.11 | Scrubbing is smooth: moves along the same entry are never debounced (only a new entry waits, 47.8); while a render runs only the newest position is remembered and rendered as soon as it finishes (latest wins, never a queue), and a move that maps to the frame already shown renders nothing (an effect, which looks the same along its row, is rendered once). | New (owner request "made smoother"; lp scrubMovesAreCoalesced) |
+| 47.12 | The pointer's place maps to frames of the whole transition (or title) frame-accurately: the row's width spans its first to last frame; a frame is left only when the pointer is a quarter frame past the half-way mark to the next one, so jitter around a boundary does not flicker. The preview's scene (the private timeline copy, 47.6) is made once per entry, playhead and selection; scrubbing only moves the frame (transitions) or the title clip's start (titles, in place when no render holds the copy). | New (lp scrubReusesTheScene) |
 
 ## Summary
 
@@ -1372,3 +1375,6 @@ Tests: `lp` = `tests/panels/test_livepreview.cpp`.
 - The hoverpreview branch (owner request, 1.1.3) added 47.1 - 47.9 (Live Preview of effects,
   transitions, titles and generators in the timeline viewer while hovering the Effects
   library; the options-menu toggle).
+- The transpreview branch (owner request) added 47.10 - 47.12 (the scrub position line over
+  transition and title rows; latest-wins coalescing of scrub renders; the scene made once per
+  entry and frame-accurate mapping with hysteresis).
