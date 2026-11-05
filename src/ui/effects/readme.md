@@ -35,7 +35,9 @@ Owned by the panels agent.
     the row scrubs through the title (the playhead's picture stays underneath);
   - nothing for audio entries and the Adjustment Clip.
   A new entry renders after 100 ms of rest; moving along the same entry re-renders at once
-  (one render in flight). Leaving the entry or the list, scrolling, a drag, a search, hiding
+  (one render in flight, latest position wins, nothing for a move within the frame shown;
+  the scene is made once per entry, `livepreview::PreparedScene`). Over a transition or
+  title row a playhead-coloured line marks the scrub position. Leaving the entry or the list, scrolling, a drag, a search, hiding
   the panel, playback, any edit, a timeline switch end it; a playhead move or a selection
   change re-render it. Renders go through `PlaybackEngine::renderAlternative()` (the
   viewer's size, quality and proxies, on the render thread); a stale request is cancelled.
