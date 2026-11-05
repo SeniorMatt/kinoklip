@@ -32,6 +32,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QLabel>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QSettings>
@@ -294,6 +295,32 @@ private slots:
         f.strip(MixTarget::bus(bus2))->busButton()->click();
         QCOMPARE(f.data().mixer.outputBus, bus2);
         QCOMPARE(f.steps(), steps + 3);
+    }
+
+    void spec23_22_longTrackNamesElideInTheStrip()
+    {
+        Fixture f;
+        f.showAudio();
+        const QString name = QStringLiteral("Dialogue Microphone Left Channel");
+        f.project.beginEdit(QStringLiteral("Rename"));
+        f.project.timeline()->mutableData().audioTracks[0].name = name;
+        f.project.endEdit();
+        QCoreApplication::processEvents();
+        MixerStrip* s = f.strip(MixTarget::track(f.a1()));
+        QVERIFY(s);
+        int elided = 0;
+        for (QLabel* label : s->findChildren<QLabel*>()) {
+            for (const QString& line : label->text().split(QLatin1Char('\n'))) {
+                QVERIFY2(
+                    label->fontMetrics().horizontalAdvance(line) <= label->contentsRect().width(),
+                    qPrintable(line));
+            }
+            if (label->text().contains(QChar(0x2026))) {
+                ++elided;
+                QVERIFY(label->toolTip().startsWith(name));
+            }
+        }
+        QCOMPARE(elided, 2); // the input and the name plate
     }
 
     void eqHandleDragIsOneUndoStep()

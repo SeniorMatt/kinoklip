@@ -425,6 +425,13 @@ private slots:
         QVERIFY(w);
         QCOMPARE(w->shape, GradeWindowShape::Circle);
         QCOMPARE(wp->list()->count(), 1);
+        // Spec 23.21: the capped list elides instead of scrolling sideways.
+        QCOMPARE(wp->list()->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+        QVERIFY(wp->list()->visualItemRect(wp->list()->item(0)).right()
+            < wp->list()->viewport()->width());
+        // Spec 23.23: its value fields are as wide as their widest value.
+        for (const ValueField* field : wp->findChildren<ValueField*>())
+            QVERIFY(field->width() >= field->sizeHint().width());
         const quint64 id = w->id;
         // Width handle: drag right = wider; one step.
         GradeWindow win = *w;

@@ -210,6 +210,7 @@ private slots:
         const int posX = v.rowOf(QStringLiteral("Position X"));
         ValueField* field = v.panel.tree()->valueField(posX);
         QVERIFY(field);
+        QVERIFY(field->minimumWidth() >= field->sizeHint().width()); // spec 23.23: never clipped
         QCOMPARE(field->value(), 100.0);
         QCOMPARE(v.panel.tree()->diamond(posX)->state(), KeyframeButton::State::OnKey);
         emit field->valueCommitted(42.0);

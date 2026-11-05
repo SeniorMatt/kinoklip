@@ -4,6 +4,7 @@
 
 #include "ui/color/ColorFrameSource.h"
 #include "ui/color/ColorSession.h"
+#include "ui/common/TextFit.h"
 #include "ui/inspector/ValueField.h"
 
 #include <QButtonGroup>
@@ -36,6 +37,7 @@ namespace {
 namespace wk = gradewindowkeys;
 
 constexpr char kLutFoldersKey[] = "color/lutFolders";
+constexpr int kFieldWidth = 64; ///< qualifier / window value fields (wider if a value needs it)
 
 QToolButton* toolButton(const QString& text, QWidget* parent, bool checkable = false)
 {
@@ -68,7 +70,7 @@ ValueField* makeField(QWidget* parent, double lo, double hi, double step, int de
     f->setRange(lo, hi);
     f->setStep(step);
     f->setDecimals(decimals);
-    f->setFixedWidth(64);
+    f->setFixedWidth(std::max(kFieldWidth, f->sizeHint().width())); // the widest value fits
     return f;
 }
 
@@ -522,6 +524,7 @@ WindowsPanel::WindowsPanel(ColorSession* session, QWidget* parent)
     m_list->setObjectName(QStringLiteral("WindowList"));
     m_list->setMinimumWidth(150);
     m_list->setMaximumWidth(300);
+    textfit::elideListItems(m_list); // capped width: long names end in "...", full in the tip
     left->addWidget(m_list, 1);
     auto* listTools = new QHBoxLayout;
     listTools->setSpacing(1);

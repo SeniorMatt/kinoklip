@@ -22,6 +22,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <limits>
 
 namespace kk {
@@ -244,7 +245,6 @@ void KeyframeParamTree::buildRow(Row& row, int index)
         && ko::isShapePath(e.params.front().path);
     if (e.kind == KeyRow::Kind::Param && !shapeRow) {
         auto* f = new ValueField(row.widget);
-        f->setFixedWidth(kValueFieldWidth);
         f->setRange(e.desc.min, e.desc.max);
         f->setStep(e.desc.step);
         const int decimals = e.desc.type == ParamType::Int || e.desc.step >= 1.0
@@ -252,6 +252,8 @@ void KeyframeParamTree::buildRow(Row& row, int index)
             : std::clamp(int(std::ceil(-std::log10(e.desc.step) - 1e-9)), 0, 4);
         f->setDecimals(decimals);
         f->setSuffix(e.desc.unit);
+        // The column width, unless the widest value with its unit needs more (never clipped).
+        f->setFixedWidth(std::max(kValueFieldWidth, f->sizeHint().width()));
         row.field = f;
         // One undo step per drag (press to release) and per typed / wheel value.
         connect(f, &ValueField::scrubStarted, this, [this, index] {

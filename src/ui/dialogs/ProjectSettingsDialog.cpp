@@ -7,6 +7,7 @@
 #include "export/ProxyMedia.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/common/TextFit.h"
 #include "ui/common/TimecodeFormat.h"
 
 #include <QCheckBox>
@@ -51,7 +52,7 @@ constexpr int kMinDimension = 16;
 constexpr int kMaxDimension = 8192;
 constexpr int kSampleRate = 48000; ///< the mixer's fixed rate (PLAN 5.1)
 const QSize kDialogSize(820, 560);
-constexpr int kSectionListWidth = 200;
+constexpr int kSectionListWidth = 200; ///< minimum; wider when a section name needs it
 constexpr int kTitlePointDelta = 2; ///< section title: base font + 2 pt
 constexpr int kMaxAutosaveMinutes = 120;
 
@@ -126,9 +127,11 @@ ProjectSettingsDialog::ProjectSettingsDialog(Project* project, QWidget* parent)
 
     m_sections = new QListWidget;
     m_sections->setObjectName(QStringLiteral("ProjectSettingsSections"));
-    m_sections->setFixedWidth(kSectionListWidth);
     m_sections->setFrameShape(QFrame::NoFrame);
     m_sections->setSpacing(metrics::kSpaceXs);
+    // Not resizable, so at least as wide as its widest section name (also translated, or with
+    // a larger font): never cut off, never a horizontal scroll bar (owner report, spec 23.20).
+    textfit::fitListWidthToItems(m_sections, kSectionListWidth);
     m_stack = new QStackedWidget;
     connect(m_sections, &QListWidget::currentRowChanged, m_stack, &QStackedWidget::setCurrentIndex);
 
