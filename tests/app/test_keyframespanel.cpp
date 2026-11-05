@@ -435,6 +435,35 @@ private slots:
 
     // 15.22: switching keeps the selection, the time zoom and scroll, the shown curves and the
     // tree; both views use the same time map.
+    // 15.25: a middle drag on the Keyframes view pans in time, without touching keys or selection.
+    void spec15_25_middleDragPansTheDopeSheet()
+    {
+        Fixture f;
+        PanelView v(f.ctx);
+        f.selection.selectClip(f.video);
+        KeyframesPanel& p = v.panel;
+        p.setViewMode(KeyframesPanel::ViewMode::FollowTimeline);
+        p.setTimelineView(20, 400);
+        p.setViewMode(KeyframesPanel::ViewMode::Free);
+        DopeSheetView* dope = p.dopeSheet();
+        const auto before = f.selection.keyframes();
+        const int undoBefore = f.project.undoStack()->count();
+        const double xBefore = p.timeMap().frameToX(50);
+
+        const QPoint from = dope->rect().center();
+        QTest::mousePress(dope, Qt::MiddleButton, {}, from);
+        const QPointF to(from + QPoint(-60, 0));
+        QMouseEvent move(QEvent::MouseMove, to, dope->mapToGlobal(to),
+            Qt::NoButton, Qt::MiddleButton, Qt::NoModifier);
+        QApplication::sendEvent(dope, &move);
+        QTest::mouseRelease(dope, Qt::MiddleButton, {}, from + QPoint(-60, 0));
+
+        QVERIFY2(std::abs(p.timeMap().frameToX(50) - (xBefore - 60)) < 2,
+            qPrintable(QString::number(p.timeMap().frameToX(50) - xBefore)));
+        QCOMPARE(f.selection.keyframes(), before);
+        QCOMPARE(f.project.undoStack()->count(), undoBefore);
+    }
+
     void spec15_22_switchKeepsSharedState()
     {
         Fixture f;
