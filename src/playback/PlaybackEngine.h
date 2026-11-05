@@ -45,10 +45,14 @@ struct PlaybackBehaviour
     /// and marker navigation keys) stops playback at the new frame, as Premiere does. Off
     /// (default, Resolve): playback carries on from there (spec 48.2).
     bool stopOnPlayheadMove = false;
+    /// An edit during playback (spec 48.8; render::sameArrangement() says what is one) stops
+    /// playback at the current frame. Off (default): playback carries on over the new timeline.
+    /// Only the engine told of the project's edits acts on it (the program, not source players).
+    bool stopOnEdit = false;
 
     /// Values stored in QSettings ("playback/restartAtEnd", "playback/prerollMs",
-    /// "playback/postrollMs", "playback/returnAfterPlayAround", "playback/stopOnPlayheadMove"),
-    /// defaults where unset.
+    /// "playback/postrollMs", "playback/returnAfterPlayAround", "playback/stopOnPlayheadMove",
+    /// "playback/stopOnEdit"), defaults where unset.
     [[nodiscard]] static PlaybackBehaviour fromSettings();
 };
 
@@ -100,6 +104,12 @@ struct PlaybackBehaviour
 /// timeline, keyboard navigation) and writes the playhead back at most every
 /// kPlayheadIntervalMs during playback (the timeline view follows it). Timeline::changed
 /// updates the snapshot used for new requests and the audio mix.
+///
+/// **Edits while playing** (spec 48.7): the clock runs on and the position stays. Timeline::changed
+/// cancels the frames in flight, renders the due frame of the new timeline and updates the play
+/// range (the timeline's end follows the edit; a loop whose range changed restarts its clock).
+/// noteEditCommitted() (the program engine, from Project::editCommitted) then has the unheard
+/// sound mixed again if the edit touched it, or stops playback (PlaybackBehaviour::stopOnEdit).
 ///
 /// Thread-safety: GUI thread only. Owns the audio feeder thread and (if not given one) the
 /// Compositor with its render thread.
@@ -347,6 +357,9 @@ public Q_SLOTS:
     /// Moves to the first / last frame.
     void goToStart();
     void goToEnd();
+    /// An undo step of the timeline played was finished, undone or redone; see "Edits while
+    /// playing". @p keepsPlaying: Project::markEditKeepsPlaying() (no stop, no remix).
+    void noteEditCommitted(bool keepsPlaying);
 
 Q_SIGNALS:
     /// A new frame is to be shown (also re-emitted for stills after scrubbing or edits).
@@ -370,6 +383,8 @@ private:
     void onTick();
     void onTimelineChanged();
     void onPlayheadChanged(int64_t frame);
+    /// Playing: the play range follows an edit of the timeline's end or the marks.
+    void followRange();
     void startMotion(double rate, double fromFrame);
     void seekWhilePlaying(int64_t frame, bool writePlayhead);
     void resumeFromPark();
@@ -443,6 +458,9 @@ private:
     /// Last snapshot handed to the renderer: an edit that only changes the sound (mixer,
     /// automation, clip volume) keeps it, so fader moves never re-render or drop pictures.
     std::shared_ptr<const TimelineData> m_videoSnapshot;
+    /// The timeline after the last committed edit (noteEditCommitted() compares against it, so
+    /// the moves of a drag count once, when it ends).
+    std::shared_ptr<const TimelineData> m_committed;
     int64_t m_motionStartUs = 0;
 
     bool m_parked = false; ///< playing, but held at a seek target (see seekWhilePlaying())
@@ -465,6 +483,7 @@ private:
     RenderedFramePtr m_current;
     int64_t m_lastShownKey = 0;
     bool m_hasShownKey = false;
+    bool m_wantDueFrame = false; ///< an edit changed the pictures: request the frame due first
 
     struct Client
     {

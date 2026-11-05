@@ -67,6 +67,8 @@ public:
     static constexpr size_t kScrubFillFrames = 2048;
     /// Scrubbing: length of the snippet played per scrubTo() (~80 ms at 48 kHz).
     static constexpr int kScrubSnippetFrames = 3840;
+    /// remixUnheard(): frames of the old sound still played (~43 ms at 48 kHz).
+    static constexpr size_t kRewindKeepFrames = 2048;
 
     /// @p ring is not owned and must outlive the feeder.
     explicit AudioFeeder(AudioRing* ring);
@@ -88,6 +90,10 @@ public:
     void stop();
     /// Replaces the timeline mixed from the next chunk on (live edits during playback).
     void setTimeline(std::shared_ptr<const TimelineData> timeline);
+    /// An edit changed what is about to be heard: the ring's unheard sound is mixed again from
+    /// the current timeline, except kRewindKeepFrames (the device needs something to read while
+    /// the first new chunk is mixed). No device restart: the position stays exact (spec 48.7).
+    void remixUnheard();
     /// Media id -> path table for the mixer.
     void setMediaPaths(std::shared_ptr<const MediaPathMap> media);
     /// Blocks until at least @p frames are in the ring or @p timeoutMs passed (pre-roll).
@@ -130,6 +136,9 @@ private:
     int64_t m_spanFrames = 0; ///< varispeed: valid frames in m_span (0 = none)
     const TimelineData* m_spanTimeline = nullptr; ///< timeline the window was mixed from
     VarispeedResampler m_resampler; ///< kernel table (read-only after construction)
+    bool m_remixWanted = false; ///< remixUnheard() was called
+    bool m_remixWaiting = false; ///< waiting for the device to carry out the ring's rewind
+    int m_fadeInLeft = 0; ///< frames of the new sound still to fade in (worker thread only)
     bool m_scrub = false; ///< scrub mode
     int64_t m_scrubTarget = -1; ///< pending snippet start (-1 = none)
     int64_t m_scrubPos = 0; ///< current snippet position

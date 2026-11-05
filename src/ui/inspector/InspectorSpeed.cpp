@@ -105,6 +105,7 @@ void InspectorPanel::applySpeed(quint64 clipId, const std::function<void(rops::S
     Project* project = m_ctx.project;
     const QVector<quint64> targets = rops::primaries(project->timeline()->data(), ids);
     project->beginEdit(tr("Change Clip Speed"));
+    project->markEditKeepsPlaying();
     bool any = false;
     for (quint64 id : targets)
         any |= rops::changeClipSpeed(project->timeline()->mutableData(), id, change);
@@ -202,6 +203,7 @@ void InspectorPanel::buildSpeedSections(const ClipData& c)
     connect(pitch, &QCheckBox::clicked, this, [this, clipId](bool on) {
         Project* project = m_ctx.project;
         project->beginEdit(tr("Pitch Correction"));
+        project->markEditKeepsPlaying();
         if (rops::setPitchCorrection(project->timeline()->mutableData(), clipId, on))
             project->endEdit();
         else
@@ -248,6 +250,7 @@ void InspectorPanel::buildSpeedSections(const ClipData& c)
         const auto value = RetimeProcess(process->itemData(index).toInt());
         Project* project = m_ctx.project;
         project->beginEdit(tr("Retime Process"));
+        project->markEditKeepsPlaying();
         bool any = false;
         QVector<quint64> ids {clipId};
         ids += editPeers(clipId);
