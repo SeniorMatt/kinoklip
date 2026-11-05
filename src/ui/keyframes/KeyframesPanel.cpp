@@ -125,6 +125,11 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     m_curves->setMinimumHeight(80);
     m_curves->setPanelColors(true);
     m_curves->setTimePanner([this](double dx) { scrollTimePx(-dx); });
+    m_dope->setPanner([this](double dx, double dy) {
+        scrollTimePx(-dx);
+        QScrollBar* rows = m_tree->verticalScrollBar();
+        rows->setValue(rows->value() - qRound(dy));
+    });
     m_viewStack = new QStackedWidget;
     m_viewStack->setObjectName(QStringLiteral("KeyframesViewStack"));
     m_viewStack->addWidget(m_dope);

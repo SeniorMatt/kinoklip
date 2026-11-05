@@ -11,6 +11,8 @@
 #include <QString>
 #include <QVector>
 
+#include <functional>
+
 namespace kk {
 
 /// One row of a dope sheet.
@@ -57,6 +59,12 @@ public:
     /// Widget-space centre of the diamond of row @p row at timeline frame @p frame (tests).
     [[nodiscard]] QPoint diamondPosAt(int row, int64_t frame) const;
 
+    /// A middle drag pans: time by @p dxPx, rows by @p dyPx (both follow the pointer).
+    void setPanner(std::function<void(double dxPx, double dyPx)> panner)
+    {
+        m_panner = std::move(panner);
+    }
+
 protected:
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
@@ -91,11 +99,14 @@ private:
 
     enum class Mode {
         None,
+        Pan, ///< middle button drag: time and rows follow the pointer
         Pending, ///< pressed on a diamond, waiting for the drag threshold
         Move,
         RubberBand
     };
     Mode m_mode = Mode::None;
+    std::function<void(double, double)> m_panner;
+    QPointF m_lastPanPos;
     QPoint m_pressPos;
     int64_t m_pressFrame = 0; ///< timeline frame of the grabbed diamond
     QVector<KeyframeRef> m_dragKeys; ///< selection at drag start

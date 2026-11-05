@@ -212,6 +212,12 @@ void DopeSheetView::paintEvent(QPaintEvent*)
 
 void DopeSheetView::mousePressEvent(QMouseEvent* event)
 {
+    if (event->button() == Qt::MiddleButton) {
+        m_mode = Mode::Pan;
+        m_lastPanPos = event->position();
+        setCursor(Qt::ClosedHandCursor);
+        return;
+    }
     if (event->button() != Qt::LeftButton) {
         QWidget::mousePressEvent(event);
         return;
@@ -241,6 +247,13 @@ void DopeSheetView::mousePressEvent(QMouseEvent* event)
 
 void DopeSheetView::mouseMoveEvent(QMouseEvent* event)
 {
+    if (m_mode == Mode::Pan) {
+        const QPointF delta = event->position() - m_lastPanPos;
+        m_lastPanPos = event->position();
+        if (m_panner)
+            m_panner(delta.x(), delta.y());
+        return;
+    }
     const QPoint pos = event->position().toPoint();
     if (m_mode == Mode::Pending
         && (pos - m_pressPos).manhattanLength() >= QApplication::startDragDistance()) {
@@ -292,6 +305,13 @@ void DopeSheetView::mouseMoveEvent(QMouseEvent* event)
 
 void DopeSheetView::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (m_mode == Mode::Pan) {
+        if (event->button() == Qt::MiddleButton) {
+            m_mode = Mode::None;
+            unsetCursor();
+        }
+        return;
+    }
     if (event->button() != Qt::LeftButton)
         return;
     if (m_mode == Mode::Move)
