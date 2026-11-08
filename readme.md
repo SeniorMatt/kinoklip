@@ -10,30 +10,29 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 
 All releases are alpha or beta pre-releases for now: expect bugs and keep backups.
 
-## Why Kinoklip instead of DaVinci Resolve?
+## Why use Kinoklip over Resolve?
 
-**On Windows or macOS:** use DaVinci Resolve. Kinoklip isn't available there yet, and even when
-it is, Resolve is the more complete and more mature editor. It's a great project, built and
-maintained by people who are paid to work on it full time, and that's worth supporting. Its
-free version is excellent, and buying Studio supports the people who made the workflow Kinoklip
-copies.
+**On Windows or macOS:** don't. Kinoklip isn't available there yet, and even when it is, Resolve
+is the more complete and more mature editor. It's a great project, built and maintained by
+people who are paid to work on it full time, and that's worth supporting. Its free version is
+excellent, and buying Studio supports the people who made the workflow Kinoklip copies.
 
 **On Linux,** Resolve runs, but its support is minimal: a short list of officially supported
 distributions, NVIDIA-first GPU support, and no H.264 or H.265 in the free version. Kinoklip has
 a few real advantages there:
 
-- **Much lighter on modest hardware.** On my ThinkPad T14s Gen 2 with Intel Iris Xe graphics,
-  Kinoklip feels around 10 times faster than Resolve: keyframes, titles and animations play
-  back without lag. That's my own experience on one laptop, not a benchmark, so your results
-  will vary.
-- **H.264, H.265 and AAC just work**, for import and export, for free. Resolve's free version on
-  Linux has none of them, and Studio adds H.264 and H.265 only with an NVIDIA GPU.
+- **Much lighter on modest hardware.** Kinoklip is a native C++ / Qt app that does only what an
+  editor needs: it decodes with the GPU's own video engine (VA-API) on Intel and AMD, composites
+  on the GPU with plain OpenGL, prepares the next clip before a cut, and keeps nothing running
+  in the background that you didn't ask for. On a laptop with integrated graphics, keyframes,
+  titles and animations play back without lag.
+- **H.264, H.265 and AAC for free**, for import and export. Resolve's free version on Linux has
+  none of them, and Studio adds H.264 and H.265 only with an NVIDIA GPU.
 - **Any GPU with OpenGL 3.3**: AMD, Intel and NVIDIA, including integrated graphics, which
   Resolve doesn't officially support.
-- **One AppImage**: download it, open it, done. No installer scripts, containers or extra
-  repositories.
-- **Free and open source** under the GPL-3.0: you can read, change and share the code.
-- **The same layout and shortcuts as Resolve**, so tutorials and muscle memory carry over.
+- **One AppImage**
+- **Free and open source (GPL-3.0)**
+- **The same layout and shortcuts as Resolve**
 
 It is still a beta, missing many of Resolve's features, so it's not a full replacement yet.
 
