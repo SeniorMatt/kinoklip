@@ -7,6 +7,10 @@ Bugs and ideas from users: [GitHub issues](https://github.com/SeniorMatt/kinokli
 Rules for all work: pages and features get their own names (no Blackmagic product names), and
 everything follows the [clean-room policy](clean-room.md).
 
+## Version 1.2 (starts right after 1.1.8)
+
+Everything below in "Now" is planned for 1.2, in this order: OpenTimelineIO, planar tracker and stabilization, audio effects, fade curves, Smooth Cut, hover preview, the text title layers, emoji, Inspector audio options, settings import/export, vim keys, then the command-line interface and the MCP server on top of it. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
+
 ## Now (next version)
 
 Shipped in 1.1.7: thumbnails give way to playback ([#2](https://github.com/SeniorMatt/kinoklip/issues/2)), the point tracker ([#3](https://github.com/SeniorMatt/kinoklip/issues/3)), Close Gap and Ripple Delete on gaps. Waiting for the reporter to confirm.
@@ -29,7 +33,7 @@ Editing
 - Smooth Cut transition in the Effects library
 - Stabilization
 - Emoji in subtitles and titles, in colour, in the viewer and in exports
-- One text title that does everything Text+ does; no separate Text+ type
+- Text title: more options on the existing title, mainly layers (several text and shape layers in one title); no new title type
 
 Audio
 - Audio effects on audio clips (Add Effect is disabled in Inspector > Effects)
