@@ -214,10 +214,13 @@ private:
             out = mixImages(in, input(n, nodeports::Foreground, depth), mask,
                 float(std::clamp(n.params.value(k::Mix, f, 0.0), 0.0, 1.0)), size);
             maskDone = true;
-        } else if ((n.type == nodetypes::Transform || n.type == nodetypes::Tracker)
+        } else if ((n.type == nodetypes::Transform || n.type == nodetypes::Tracker
+                       || n.type == nodetypes::PlanarTracker)
             && !in.isNull()) {
             out = blank(size);
-            const QTransform m = inImagePixels(n.type == nodetypes::Tracker
+            const QTransform m = inImagePixels(n.type == nodetypes::PlanarTracker
+                    ? compmath::planarMatrix(n.params, f, m_ev.frame)
+                    : n.type == nodetypes::Tracker
                     ? compmath::trackerMatrix(n.params, f, m_ev.frame)
                     : compmath::transformMatrix(n.params, f, m_ev.frame),
                 s);

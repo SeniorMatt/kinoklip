@@ -33,6 +33,18 @@ namespace kk::render::compmath {
 /// the opposite (Stabilize). Identity without a track.
 [[nodiscard]] QTransform trackerMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);
 
+/// The Planar Tracker's region at @p frame as four corners (top-left, top-right, bottom-right,
+/// bottom-left) in timeline pixels (y down).
+[[nodiscard]] std::array<QPointF, 4> planarCorners(
+    const ParamSet& p, int64_t frame, QSizeF frameSize);
+
+/// Planar Tracker node: maps a timeline pixel of the input to the output at @p frame.
+/// Corner Pin: the input frame's corners go to the tracked corners (a perspective map).
+/// Unsteady (Match Move): the move, turn and scale (a similarity, best fit to the four corners)
+/// the plane made from the Reference Frame to @p frame; Steady (Stabilize): the opposite. The
+/// last two are what other nodes can follow. Identity without a usable region.
+[[nodiscard]] QTransform planarMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);
+
 /// Merge node: maps a timeline pixel of the foreground to the output (the foreground's
 /// centre goes to Center, scaled by Size and turned by Angle about its centre).
 [[nodiscard]] QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);

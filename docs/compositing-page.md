@@ -58,8 +58,8 @@ general knowledge of node compositors, our own drawing, names and icons; never R
   EffectRegistry (type `fx:<id>`), so new effects appear on both pages.
 - **Color**: Color Corrector (the Color Balance / Levels / Saturation set in one node),
   Channel Booleans (copy / swap channels, alpha from luma).
-- **Tracking**: Tracker (point tracker, see "Tracker" below).
-- Later: planar tracker, B-spline / paint, particles, 3D, expressions, modifiers.
+- **Tracking**: Tracker (point tracker, see "Tracker" below), Planar Tracker.
+- Later: B-spline / paint, particles, 3D, expressions, modifiers.
 
 ## Data model and evaluation
 - `src/core/Composition.h`: value types (Composition, CompNode, NodeLink, CompNote). A clip
@@ -120,11 +120,49 @@ are rendered by `PlaybackEngine::renderCompositionNode()` of the tracking source
 path as the viewers, so decoding, proxies and quality are not duplicated), the next picture
 already rendering while the current one is matched. `storeTrack()` writes the result to the node.
 
-**Left for the planar tracker.** Follow a plane (four corners, a homography) instead of a
-point, so rotation, scale and perspective of a screen or a wall are tracked: a sibling of
-`PointTracker` with the same `reset()` / `track()` shape that refines eight parameters with the
-same pyramid and Gauss-Newton machinery, plus a corner-pin output (the Tracker's matrix would
-become a general `QTransform` and the Transform pass already draws one). Also open: tracking
-rotation and scale from several points, a track-to-node link (Center of a Transform or Merge
-following a Tracker), a motion-prediction search window for very fast movement, per-frame
-manual correction with re-tracking from the corrected frame, and tracking of masks.
+## Planar Tracker and track links (1.2, issue #3)
+
+**What the user does.** Add a Planar Tracker node (Transform folder) after the picture to pin or
+to move, and connect the plate to its Tracking Source (or leave the Input as the plate). The viewer
+shows a quad with four corner handles: drag the corners onto a flat, textured, fully visible
+surface (a screen, a wall, a poster) on the first frame, or drag inside to move the whole quad.
+**Track Forward / Backward / Stop / Clear** and the progress bar work as on the Tracker; the
+corners are stored as keyframes of the eight corner parameters, in one undo step. **Pattern Size**
+is the size of the patches that are followed, **Search Size** how far a patch may move between
+two frames. A track stops where the surface is lost (hidden, blurred, out of the picture).
+
+**What the node outputs** (Output): *Corner Pin* draws the Input with its four corners on the
+tracked corners (perspective), over transparency, so a Merge puts it onto the plate; *Unsteady*
+moves, turns and scales the Input the way the plane did since the **Reference Frame**; *Steady*
+does the opposite (the plane held still). Unsteady / Steady use the best-fit similarity of the
+four corners, so they are the position, rotation and scale of the plane without the perspective.
+
+**How it works** (`src/compositing/tracking`). `PlanarTracker` lays a grid of 7 x 7 patches on the
+region (spread over the surface through the homography of the unit square, so a region in
+perspective gets an even spread) and keeps those with enough contrast. For every new frame the
+patches are cut from the start frame warped by the previous frame's homography (so rotation, scale
+and perspective do not spoil the match), searched with the point tracker's matcher (normalised
+cross-correlation, a half-size search first, then full size, then the sub-pixel Gauss-Newton step;
+`PatchMatch.h`), and `estimateHomography()` (`Homography.h`: RANSAC over 4-point samples, normalised
+DLT, refit on the inliers) turns the matches into the plane's homography. A second pass with the
+patches re-warped by that result, a small radius and a stricter correlation limit refines it and
+drops patches that are partly covered by something in front of the plane. The patches come from the
+start frame (no drift) and are re-cut from the current frame when the mean correlation falls
+below 0.85. The corners are the homography applied to the start corners; a result that is not a
+convex quad, or whose area changed more than 40 times, or with too few agreeing patches, is a loss.
+`TrackerRunner` runs it exactly as it runs the point tracker (same thread, same pictures, same
+progress and stop); a job with `planar` set carries the four corners.
+
+**Linking other nodes to a track.** Kinoklip has no parameter links: every parameter is a constant
+or keyframes. The smallest mechanism that fits is *Connect to Tracker n*: nodes with a Center
+(Transform, Merge, Text, the shape masks, and so on) have a "Follow Track" row in the Inspector;
+Connect copies the chosen track (a Tracker's point, or the centre of a Planar Tracker's region)
+into the node's Center X / Y keyframes at the frames of the track, with a fixed offset that keeps
+the node where it is at the playhead, in one undo step (`tracking::linkToTrack()`). It is a copy,
+not a live link: after tracking again, press Connect again. Because the result is plain keyframes
+it can be edited in the Keyframes panel and needs no change to the data model, the project file or
+the renderers.
+
+**Not done yet.** Polygon regions (a bounding plane from more than four points), motion
+prediction for very fast movement, per-frame manual correction with re-tracking from the
+corrected frame, a live (re-resolving) link, linking sizes and angles, and tracking of masks.

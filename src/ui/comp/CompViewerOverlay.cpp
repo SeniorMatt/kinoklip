@@ -3,6 +3,7 @@
 // CompSession gestures (one undo step each).
 #include "ui/comp/CompViewerOverlay.h"
 
+#include "core/NodeRegistry.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/comp/CompSession.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -11,6 +12,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPolygonF>
 #include <QTransform>
 
 #include <cmath>
@@ -90,6 +92,15 @@ std::optional<CompViewerOverlay::State> CompViewerOverlay::state() const
         for (const MaskPoint& pt : n->path.at(double(f)))
             s.points.append(QPointF(pt.x, pt.y));
     }
+    if (s.keys.kind == compadapter::ViewerControl::Planar) {
+        QPointF sum;
+        for (int i = 0; i < nodekeys::kPlanarCorners; ++i) {
+            s.points.append(QPointF(value(nodekeys::planarCorner(i, false), 0.5),
+                value(nodekeys::planarCorner(i, true), 0.5)));
+            sum += s.points.last();
+        }
+        s.centre = sum / double(nodekeys::kPlanarCorners);
+    }
     s.locked = n->locked;
     return s;
 }
@@ -154,6 +165,12 @@ std::optional<QPointF> CompViewerOverlay::handlePos(Handle handle, int pointInde
             return std::nullopt;
         return pointToWidget(*s, s->points[pointIndex]);
     }
+    if (s->keys.kind == compadapter::ViewerControl::Planar) {
+        if (handle == Handle::Point && pointIndex >= 0 && pointIndex < s->points.size())
+            return toWidget(s->points[pointIndex]);
+        return handle == Handle::Centre ? std::optional<QPointF>(toWidget(s->centre))
+                                        : std::nullopt;
+    }
     const QPointF c = toWidget(s->centre);
     const QSizeF h = halfExtents(*s);
     const QTransform r = rotation(s->angleDeg);
@@ -205,6 +222,19 @@ CompViewerOverlay::Handle CompViewerOverlay::handleAt(QPointF pos, int* pointInd
         }
         return Handle::None;
     }
+    if (s->keys.kind == compadapter::ViewerControl::Planar) {
+        QPolygonF quad;
+        for (int i = 0; i < s->points.size(); ++i) {
+            quad << toWidget(s->points[i]);
+            if (length(quad.last() - pos) <= kHandleHitPx) {
+                if (pointIndex)
+                    *pointIndex = i;
+                return Handle::Point;
+            }
+        }
+        // Inside the quad: drag the whole region (the cross at its centre is the grip).
+        return quad.containsPoint(pos, Qt::OddEvenFill) ? Handle::Centre : Handle::None;
+    }
     for (Handle h : {Handle::Angle, Handle::Size, Handle::Width, Handle::Height, Handle::Centre}) {
         const std::optional<QPointF> p = handlePos(h);
         if (p && length(*p - pos) <= kHandleHitPx)
@@ -243,6 +273,35 @@ void CompViewerOverlay::paintEvent(QPaintEvent*)
         p.setBrush(sc.selection);
         p.drawRect(r);
     };
+    if (s->keys.kind == compadapter::ViewerControl::Planar) {
+        QPolygonF quad;
+        for (const QPointF& pt : s->points)
+            quad << toWidget(pt);
+        QPainterPath outline, diagonals, cross;
+        outline.addPolygon(quad);
+        outline.closeSubpath();
+        const QPointF mid = toWidget(s->centre);
+        if (quad.size() == 4) {
+            diagonals.moveTo(quad[0]);
+            diagonals.lineTo(quad[2]);
+            diagonals.moveTo(quad[1]);
+            diagonals.lineTo(quad[3]);
+        }
+        cross.moveTo(mid - QPointF(6, 0));
+        cross.lineTo(mid + QPointF(6, 0));
+        cross.moveTo(mid - QPointF(0, 6));
+        cross.lineTo(mid + QPointF(0, 6));
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(QColor(0, 0, 0, 160), 3.0));
+        p.drawPath(diagonals);
+        p.setPen(QPen(QColor(255, 255, 255, 170), 1.0, Qt::DashLine));
+        p.drawPath(diagonals);
+        stroke(outline);
+        stroke(cross);
+        for (const QPointF& corner : quad)
+            handle(corner);
+        return;
+    }
     if (s->keys.kind == compadapter::ViewerControl::Polygon) {
         QPainterPath path;
         for (int i = 0; i < s->points.size(); ++i) {
@@ -356,6 +415,15 @@ void CompViewerOverlay::applyDrag(QPointF pos)
     switch (m_drag) {
     case Handle::Centre: {
         const QPointF d = pos - m_pressPos;
+        if (s0.keys.kind == compadapter::ViewerControl::Planar) {
+            for (int i = 0; i < s0.points.size(); ++i) {
+                scalars.insert(
+                    nodekeys::planarCorner(i, false), s0.points[i].x() + d.x() / pic.width());
+                scalars.insert(
+                    nodekeys::planarCorner(i, true), s0.points[i].y() - d.y() / pic.height());
+            }
+            break;
+        }
         scalars.insert(s0.keys.centerX, s0.centre.x() + d.x() / pic.width());
         scalars.insert(s0.keys.centerY, s0.centre.y() - d.y() / pic.height()); // y up
         break;
@@ -396,6 +464,14 @@ void CompViewerOverlay::applyDrag(QPointF pos)
         break;
     }
     case Handle::Point: {
+        if (s0.keys.kind == compadapter::ViewerControl::Planar) {
+            if (m_dragPoint >= 0 && m_dragPoint < s0.points.size()) {
+                const QPointF n = toNormalised(pos);
+                scalars.insert(nodekeys::planarCorner(m_dragPoint, false), n.x());
+                scalars.insert(nodekeys::planarCorner(m_dragPoint, true), n.y());
+            }
+            break;
+        }
         const double k = s0.size * pixelScale();
         if (m_dragPoint >= 0 && m_dragPoint < s0.points.size() && k > 0)
             movedPoint

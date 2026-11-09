@@ -11,11 +11,27 @@ Pure maths for the Compositing page's Tracker node; no widgets, no threads, no p
   changes. The pattern is kept from the start frame and re-taken from the current frame when the
   match gets weak (`refreshBelow`); a match below `minCorrelation` is a loss.
 - **GrayImage** / `grayFromImage()`: the grey picture it works on.
+- **PatchMatch.h**: the matching steps of the PointTracker (exhaustive correlation search,
+  Gauss-Newton refinement) shared with the PlanarTracker.
+- **Homography**: the planar tracker's maths as small free functions: `homographyFromPoints()`
+  (normalised DLT, Jacobi eigen-decomposition of the 9 x 9 system, degenerate input refused),
+  `estimateHomography()` (RANSAC with a fixed seed, then refit on the inliers),
+  `similarityFromPoints()` (move / turn / scale best fit), quad helpers.
+- **PlanarTracker**: follows a four-corner region: a grid of patches warped by the previous
+  homography, matched with the PatchMatch steps, fitted with `estimateHomography()`, refined by a
+  second stricter pass; same `reset()` / `track()` shape as the PointTracker.
+- **TrackerRunner**: runs a point job or (`TrackJob::planar`) a planar job off the UI thread.
+- **TrackStore**: writes / clears a track in a Tracker or Planar Tracker node (keyframes).
+- **TrackLink**: "Connect to Tracker": copies a track's centre into another node's Center keys.
 
 ## How to extend
-Planar tracking (a plane's four corners) would be a sibling class with the same
-reset() / track() shape that follows a homography instead of a position; the Tracker node's
-UI (src/ui/comp/TrackerRunner) only needs the new class and a result with more values.
+A new kind of track (say an affine tracker, or tracking from feature points) is a class with the
+PointTracker's `reset()` / `track()` shape; give `TrackJob` the extra start data and
+`TrackSample` the extra result values, branch once in `TrackerRunner` (see `runPlanar()`), store
+the result in `TrackStore`, and add the node type to `trackSources()` / `trackCentre()` in
+`TrackLink` so other nodes can follow it. The maths stays in free functions with synthetic tests.
 
 Tests: tests/compositing/test_pointtracker.cpp (synthetic moving textures, known sub-pixel
-offsets, noise, loss).
+offsets, noise, loss), test_homography.cpp (DLT, RANSAC, similarity, degenerate input),
+test_planartracker.cpp (a plane moved by known homographies), test_planartrackernode.cpp (node,
+render, runner, save / load, track links).

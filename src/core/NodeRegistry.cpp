@@ -321,6 +321,44 @@ NodeRegistry::NodeRegistry()
         add(d);
     }
     {
+        NodeDescriptor d = node(nodetypes::PlanarTracker, tr("Planar Tracker"),
+            QStringLiteral("PTrk"), QStringLiteral("PlanarTracker"), C::Transform,
+            tr("Follows a flat surface (four corners); the input is pinned onto it (Corner Pin) "
+               "or moves with it (Unsteady) or is held steady (Steady)"));
+        d.inputs = {inputPort(),
+            port(nodeports::Source, tr("Tracking Source"), PortKind::Image, false, true)};
+        d.mainInput = nodeports::Input;
+        // Default region: the middle half of the frame. Corner order: top-left, top-right,
+        // bottom-right, bottom-left (names of the Inspector rows).
+        const char* const names[4] = {QT_TRANSLATE_NOOP("kk::NodeRegistry", "Top Left"),
+            QT_TRANSLATE_NOOP("kk::NodeRegistry", "Top Right"),
+            QT_TRANSLATE_NOOP("kk::NodeRegistry", "Bottom Right"),
+            QT_TRANSLATE_NOOP("kk::NodeRegistry", "Bottom Left")};
+        const double xs[4] = {0.25, 0.75, 0.75, 0.25}, ys[4] = {0.75, 0.75, 0.25, 0.25};
+        for (int i = 0; i < nodekeys::kPlanarCorners; ++i) {
+            d.params += number(
+                nodekeys::planarCorner(i, false), tr(names[i]) + tr(" X"), -10, 10, xs[i], 0.001);
+            d.params += number(
+                nodekeys::planarCorner(i, true), tr(names[i]) + tr(" Y"), -10, 10, ys[i], 0.001);
+        }
+        d.params += {number(nodekeys::PatternSize, tr("Pattern Size"), 8, 400, 21, 1, kPx),
+            number(nodekeys::SearchSize, tr("Search Size"), 4, 400, 48, 1, kPx),
+            choice(nodekeys::TrackMode, tr("Output"),
+                {trackmodes::CornerPin, trackmodes::MatchMove, trackmodes::Stabilize},
+                {tr("Corner Pin"), tr("Unsteady (Match Move)"), tr("Steady (Stabilize)")},
+                trackmodes::CornerPin),
+            integer(nodekeys::RefFrame, tr("Reference Frame"), 0, 1000000, 0)};
+        for (const QString& key :
+            {nodekeys::PatternSize, nodekeys::SearchSize, nodekeys::RefFrame}) {
+            for (ParamDescriptor& p : d.params) {
+                if (p.key == key)
+                    p.animatable = false;
+            }
+        }
+        d.controls = ViewerControls::Planar;
+        add(d);
+    }
+    {
         NodeDescriptor d
             = node(nodetypes::Crop, tr("Crop"), QStringLiteral("Crp"), QStringLiteral("Crop"),
                 C::Transform, tr("Cuts the edges off the picture (they become transparent)"));

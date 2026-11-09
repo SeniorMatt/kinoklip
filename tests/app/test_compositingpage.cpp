@@ -8,6 +8,7 @@
 #include "app/MainWindow.h"
 #include "app/Theme.h"
 #include "app/pages/CompositingPage.h"
+#include "compositing/tracking/TrackStore.h"
 #include "core/CompOps.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
@@ -631,6 +632,142 @@ private slots:
         QVERIFY(!panel->track(true));
         QVERIFY(panel->statusText().contains(QStringLiteral("Connect")));
         QVERIFY(!panel->isRunning());
+    }
+
+    void planarViewerCornersAreDragged()
+    {
+        // Spec 50.8: a Planar Tracker shows its quad with four corner handles; dragging a corner
+        // edits that corner's keys, dragging inside the quad moves the whole region; one undo
+        // step per drag.
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("MediaIn1"))});
+        const quint64 t = f.session()->addNode(nodetypes::PlanarTracker);
+        QVERIFY(t);
+        f.session()->setSelection({t});
+        CompViewerOverlay* overlay = f.page()->viewer(1)->controls();
+        QVERIFY(overlay->hasControls());
+        auto send
+            = [overlay](QEvent::Type type, QPointF p, Qt::MouseButton b, Qt::MouseButtons bs) {
+                  QMouseEvent e(type, p, overlay->mapToGlobal(p), b, bs, Qt::NoModifier);
+                  QApplication::sendEvent(overlay, &e);
+              };
+        auto drag = [&](QPointF from, QPointF to) {
+            send(QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
+            for (int i = 1; i <= 4; ++i)
+                send(QEvent::MouseMove, from + (to - from) * i / 4.0, Qt::NoButton, Qt::LeftButton);
+            send(QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
+        };
+        const int64_t frame = f.session()->compFrame();
+        auto value = [&](int corner, bool y) {
+            return f.comp().node(t)->params.value(nodekeys::planarCorner(corner, y), frame, -1.0);
+        };
+        int index = -1;
+        const QPointF topLeft = *overlay->handlePos(CompViewerOverlay::Handle::Point, 0);
+        QCOMPARE(overlay->handleAt(topLeft, &index), CompViewerOverlay::Handle::Point);
+        QCOMPARE(index, 0);
+        const double x0 = value(0, false), y0 = value(0, true), x2 = value(2, false);
+        int before = f.steps();
+        drag(topLeft, topLeft + QPointF(-20, -12));
+        QCOMPARE(f.steps(), before + 1);
+        QVERIFY(value(0, false) < x0 - 0.005); // moved left
+        QVERIFY(value(0, true) > y0 + 0.005); // and up (y is bottom-up)
+        QCOMPARE(value(2, false), x2); // the other corners stay
+        // Inside the quad: the whole region moves.
+        const QPointF centre = *overlay->handlePos(CompViewerOverlay::Handle::Centre);
+        QCOMPARE(overlay->handleAt(centre), CompViewerOverlay::Handle::Centre);
+        before = f.steps();
+        drag(centre, centre + QPointF(30, 0));
+        QCOMPARE(f.steps(), before + 1);
+        QVERIFY(value(2, false) > x2 + 0.01);
+        QVERIFY(value(1, false) > 0.75 + 0.01);
+    }
+
+    void planarPanelTracksCornersIntoOneUndoStep()
+    {
+        // Spec 50.9: the Planar Tracker has the same Track buttons as the Tracker; the corners of
+        // the region are stored as keys in one undo step. The picture is static noise, so the
+        // corners stay where they were put.
+        Fixture f(true, true);
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("MediaIn1"))});
+        const quint64 noise = f.session()->addNodeAt(nodetypes::FastNoise, QPointF(0, 5));
+        QVERIFY(noise);
+        f.session()->edit(QStringLiteral("Noise"), [noise](Composition& c) {
+            c.node(noise)->params.setBase(nodekeys::Scale, 60.0);
+            c.node(noise)->params.setBase(nodekeys::Detail, 3.0);
+            return true;
+        });
+        const quint64 t = f.session()->addNode(nodetypes::PlanarTracker);
+        QVERIFY(t);
+        f.session()->connectNodes(noise, t, nodeports::Input);
+        f.session()->setSelection({t});
+        TrackerPanel* panel = f.page()->inspector()->trackerPanel();
+        QVERIFY(panel && panel->isVisibleTo(f.page()->inspector()));
+        QVERIFY(panel->forwardButton()->isEnabled());
+        const int before = f.steps();
+        const int64_t start = f.session()->compFrame();
+        QSignalSpy done(panel->runner(), &tracking::TrackerRunner::finished);
+        panel->forwardButton()->click();
+        QVERIFY(panel->isRunning());
+        QVERIFY(done.wait(120000));
+        QVERIFY2(done.first().first().value<tracking::TrackOutcome>()
+                == tracking::TrackOutcome::Finished,
+            qPrintable(panel->statusText()));
+        QCOMPARE(f.steps(), before + 1);
+        const AnimatedValue& x
+            = f.comp().node(t)->params.values.value(nodekeys::planarCorner(1, false));
+        QCOMPARE(x.keys.size(), int(f.session()->compFrameCount() - start));
+        QVERIFY(std::abs(x.valueAt(f.session()->compFrameCount() - 1) - 0.75) < 0.01);
+        f.project.undoStack()->undo();
+        QVERIFY(
+            !f.comp().node(t)->params.values.value(nodekeys::planarCorner(1, false)).isAnimated());
+        f.project.undoStack()->redo();
+        panel->findChild<QToolButton*>(QStringLiteral("TrackClear"))->click();
+        QVERIFY(
+            !f.comp().node(t)->params.values.value(nodekeys::planarCorner(1, false)).isAnimated());
+    }
+
+    void followTrackConnectsAnotherNodeInOneUndoStep()
+    {
+        // Spec 50.10: a node with a Center has a "Follow Track" row; Connect copies the chosen
+        // track into its Center keys in one undo step, keeping its place at the playhead.
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("MediaIn1"))});
+        const quint64 tracker = f.session()->addNode(nodetypes::Tracker);
+        const quint64 xf = f.session()->addNode(nodetypes::Transform);
+        QVERIFY(tracker && xf);
+        f.session()->setSelection({xf});
+        CompInspector* inspector = f.page()->inspector();
+        QVERIFY(inspector->followPicker() && inspector->followButton());
+        QVERIFY(!inspector->followButton()->isEnabled()); // no track anywhere yet
+        f.session()->edit(QStringLiteral("Track"), [tracker](Composition& c) {
+            std::vector<tracking::TrackSample> samples;
+            for (int i = 0; i <= 6; ++i)
+                samples.push_back({i, 0.3 + 0.05 * i, 0.6, 1.0});
+            return tracking::storeTrack(*c.node(tracker), samples, 0);
+        });
+        QVERIFY(inspector->followButton()->isEnabled());
+        QCOMPARE(inspector->followPicker()->currentData().toULongLong(), tracker);
+        f.session()->seekCompFrame(3);
+        QCOMPARE(f.session()->compFrame(), int64_t(3));
+        const int before = f.steps();
+        inspector->followButton()->click();
+        QCOMPARE(f.steps(), before + 1);
+        const ParamSet& p = f.comp().node(xf)->params;
+        QCOMPARE(p.values.value(nodekeys::CenterX).keys.size(), 7);
+        const int64_t frame = f.session()->compFrame();
+        QVERIFY(std::abs(p.value(nodekeys::CenterX, frame, -1) - 0.5) < 1e-9);
+        QVERIFY(std::abs(p.value(nodekeys::CenterX, 6, -1) - (0.5 + 0.05 * (6 - frame))) < 1e-9);
+        f.project.undoStack()->undo();
+        QVERIFY(!f.comp().node(xf)->params.values.value(nodekeys::CenterX).isAnimated());
+        // The trackers themselves have no such row.
+        f.session()->setSelection({tracker});
+        QVERIFY(!inspector->followPicker());
     }
 
     void viewerMaskAndPolygonHandles()

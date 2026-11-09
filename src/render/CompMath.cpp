@@ -2,10 +2,14 @@
 // CompMath implementation: node geometry and the pointwise colour formulas.
 #include "render/CompMath.h"
 
+#include "compositing/tracking/Homography.h"
 #include "core/NodeRegistry.h"
+
+#include <QPolygonF>
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace kk::render::compmath {
 
@@ -58,6 +62,51 @@ QTransform trackerMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
     if (p.staticValue(k::TrackMode, trackmodes::MatchMove).toString() == trackmodes::Stabilize)
         move = -move;
     return translate(move);
+}
+
+std::array<QPointF, 4> planarCorners(const ParamSet& p, int64_t frame, QSizeF frameSize)
+{
+    // The default region (the middle half of the frame) matches the node descriptor.
+    static constexpr double kDefaultX[4] = {0.25, 0.75, 0.75, 0.25};
+    static constexpr double kDefaultY[4] = {0.75, 0.75, 0.25, 0.25};
+    std::array<QPointF, 4> q;
+    for (int i = 0; i < k::kPlanarCorners; ++i) {
+        q[size_t(i)] = toFrame(num(p, k::planarCorner(i, false), frame, kDefaultX[i]),
+            num(p, k::planarCorner(i, true), frame, kDefaultY[i]), frameSize);
+    }
+    return q;
+}
+
+QTransform planarMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
+{
+    const std::array<QPointF, 4> now = planarCorners(p, frame, frameSize);
+    const QString mode = p.staticValue(k::TrackMode, trackmodes::CornerPin).toString();
+    if (mode == trackmodes::CornerPin) {
+        QPolygonF from, to;
+        from << QPointF(0, 0) << QPointF(frameSize.width(), 0)
+             << QPointF(frameSize.width(), frameSize.height()) << QPointF(0, frameSize.height());
+        for (const QPointF& c : now)
+            to << c;
+        QTransform t;
+        return QTransform::quadToQuad(from, to, t) ? t : QTransform();
+    }
+    const int64_t ref = int64_t(std::llround(num(p, k::RefFrame, 0, 0.0)));
+    const std::array<QPointF, 4> then = planarCorners(p, ref, frameSize);
+    tracking::Quad a, b;
+    for (size_t i = 0; i < 4; ++i) {
+        a[i] = {then[i].x(), then[i].y()};
+        b[i] = {now[i].x(), now[i].y()};
+    }
+    std::optional<tracking::Similarity> sim = tracking::similarityFromQuads(a, b);
+    if (!sim)
+        return QTransform();
+    if (mode == trackmodes::Stabilize) {
+        if (sim->scale < 1e-9) // a region collapsed to a point cannot be undone
+            return QTransform();
+        sim = sim->inverse();
+    }
+    const double c = std::cos(sim->angleRad) * sim->scale, s = std::sin(sim->angleRad) * sim->scale;
+    return QTransform(c, s, -s, c, sim->dx, sim->dy);
 }
 
 QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)

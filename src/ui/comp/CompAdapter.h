@@ -76,7 +76,8 @@ enum class ViewerControl {
     Rectangle, ///< centre, width, height, angle of a mask
     Ellipse, ///< same keys as Rectangle, drawn as an ellipse
     Polygon, ///< CompNode::path points plus the Transform keys of the whole shape
-    Tracker ///< the tracked point with its pattern (size key) and search (width key) boxes, px
+    Tracker, ///< the tracked point with its pattern (size key) and search (width key) boxes, px
+    Planar ///< four draggable corners (Planar Tracker)
 };
 
 /// Parameter keys behind the on-viewer controls of a node type (empty = no such handle).

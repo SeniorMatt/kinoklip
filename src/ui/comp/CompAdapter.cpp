@@ -150,6 +150,9 @@ ViewerControlKeys viewerControls(const QString& type)
         k.size = has(nodekeys::PatternSize);
         k.width = has(nodekeys::SearchSize);
         break;
+    case ViewerControls::Planar:
+        k.kind = ViewerControl::Planar;
+        break;
     case ViewerControls::None:
         break;
     }

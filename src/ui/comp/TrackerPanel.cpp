@@ -134,8 +134,12 @@ void TrackerPanel::updateState()
     m_backward->setEnabled(editable && !running);
     m_forward->setEnabled(editable && !running);
     m_stop->setEnabled(running);
+    // The point tracker's track is its X key; the planar tracker's its first corner's.
+    const QString trackKey = n && n->type == nodetypes::PlanarTracker
+        ? nodekeys::planarCorner(0, false)
+        : nodekeys::CenterX;
     m_clear->setEnabled(
-        n && !n->locked && !running && n->params.values.value(nodekeys::CenterX).isAnimated());
+        n && !n->locked && !running && n->params.values.value(trackKey).isAnimated());
     m_bar->setVisible(running && m_runNode == m_node);
 }
 
@@ -143,7 +147,8 @@ bool TrackerPanel::track(bool forward)
 {
     m_discard = false;
     const CompNode* n = m_session ? m_session->composition().node(m_node) : nullptr;
-    if (!n || n->type != nodetypes::Tracker || n->locked || m_runner.isRunning())
+    const bool planar = n && n->type == nodetypes::PlanarTracker;
+    if (!n || (n->type != nodetypes::Tracker && !planar) || n->locked || m_runner.isRunning())
         return false;
     if (!m_ctx.playback || !m_ctx.playback->compositor() || !m_session->isStored()) {
         setStatus(tr("Tracking needs the playback engine."));
@@ -159,7 +164,7 @@ bool TrackerPanel::track(bool forward)
         }
     }
     if (!sourceNode) {
-        setStatus(tr("Connect a picture to the Tracker's input first."));
+        setStatus(tr("Connect a picture to the tracker's input first."));
         return false;
     }
     const int64_t start = m_session->compFrame();
@@ -177,6 +182,16 @@ bool TrackerPanel::track(bool forward)
     job.lastFrame = last;
     job.startU = n->params.value(nodekeys::CenterX, start, 0.5);
     job.startV = n->params.value(nodekeys::CenterY, start, 0.5);
+    if (planar) {
+        // Pattern Size is the side of a patch, Search Size the side of the box it may move in.
+        job.planar = true;
+        for (int i = 0; i < nodekeys::kPlanarCorners; ++i) {
+            job.startCorners[size_t(2 * i)]
+                = n->params.value(nodekeys::planarCorner(i, false), start, 0.5);
+            job.startCorners[size_t(2 * i + 1)]
+                = n->params.value(nodekeys::planarCorner(i, true), start, 0.5);
+        }
+    }
     job.patternFraction = n->params.value(nodekeys::PatternSize, 0, 48.0) / frame.width();
     job.searchFraction = n->params.value(nodekeys::SearchSize, 0, 160.0) / frame.width();
     // Analysis size: the timeline resolution, at most 960 wide (the engine may lower it further).

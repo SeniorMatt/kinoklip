@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// TrackerRunner — follows one point through a range of comp frames, off the UI thread, and
-// reports every position as it is found. The pictures come from a FrameSource the caller
-// supplies (the Compositing page gives it the playback engine's renderCompositionNode(), so
-// there is no second decode path); this class knows nothing about nodes or the project.
+// TrackerRunner — follows one point (or one plane, see TrackJob::planar) through a range of comp
+// frames, off the UI thread, and reports every position as it is found. The pictures come from a
+// FrameSource the caller supplies (the Compositing page gives it the playback engine's
+// renderCompositionNode(), so there is no second decode path); this class knows nothing about nodes
+// or the project.
 #pragma once
 
+#include "compositing/tracking/PlanarTracker.h"
 #include "compositing/tracking/PointTracker.h"
 #include "render/RenderTypes.h"
 
 #include <QFutureWatcher>
 #include <QObject>
 
+#include <array>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -28,6 +31,10 @@ struct TrackSample
     double u = 0.5;
     double v = 0.5;
     double correlation = 1.0; ///< quality of the match, -1..1 (1 at the start frame)
+    /// Planar jobs: the region's corners (top-left, top-right, bottom-right, bottom-left) as
+    /// u0, v0, u1, v1, ... in the same normalised coordinates; u, v is then the region's centre.
+    std::array<double, 8> corners {};
+    bool planar = false;
 };
 
 /// What to track.
@@ -39,6 +46,11 @@ struct TrackJob
     int64_t lastFrame = 0;
     double startU = 0.5;
     double startV = 0.5;
+    /// Planar tracking: follow the region with these corners (top-left, top-right, bottom-right,
+    /// bottom-left, u0, v0, u1, v1, ...) on firstFrame instead of a point. patternFraction is then
+    /// the side of a patch and searchFraction the side of the box a patch may move in.
+    bool planar = false;
+    std::array<double, 8> startCorners {};
     /// Box sides as a fraction of the picture width (resolution independent).
     double patternFraction = 0.05;
     double searchFraction = 0.15;
@@ -96,8 +108,11 @@ private:
     {
         TrackJob job;
         PointTracker tracker;
+        PlanarTracker planarTracker;
     };
 
+    /// One background step of a planar job (reset on the first frame, track on the others).
+    static void runPlanar(Run& run, const GrayImage& gray, bool first, Step& step);
     void requestFrame();
     void launchStep();
     void onStepDone(quint64 generation);

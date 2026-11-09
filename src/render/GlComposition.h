@@ -134,6 +134,8 @@ private:
     GLint m_ccLevels = -1, m_ccLgg = -1, m_ccSat = -1;
     GlProgram m_channels;
     GLint m_chSources = -1;
+    GlProgram m_warp;
+    GLint m_warpInverse = -1;
     GlProgram m_noise;
     GLint m_nSize = -1, m_nCentre = -1, m_nRot = -1, m_nScale = -1, m_nDetail = -1, m_nShape = -1,
           m_nTime = -1, m_nSeed = -1, m_nColor1 = -1, m_nColor2 = -1;
