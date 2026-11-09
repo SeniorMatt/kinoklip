@@ -214,3 +214,11 @@
 - Next-version list: docs/agent-guide.md "Planned for the next version" (plus issue 2). Nothing started.
 - Pending owner decisions: add "(answered by Claude)" to issue 1 comments?; rewrite history to drop Claude lines (needs explicit go, force-push).
 - Rules: no Claude lines in commits; replies to people say "answered by Claude"; releases only on the owner's go; manager at medium effort, delegate per ~/.claude/CLAUDE.md ladder.
+
+## Handoff 2026-11-09 (evening)
+- Released 1.1.7-beta.1: point Tracker (#3), thumbnails give way to playback (#2), gap close with blocked/linked tracks, distro bundle. Asked the #2 and #3 reporter (Uriziel01) to confirm; issues stay open until they do.
+- Checks: full suite 187/187 host, 188/188 kk-arch; check_distros 19 rows pass (Kinoite could not pull: disk 97 % full, 12 GB free).
+- check_distros.sh now reports INCOMPLETE instead of a false OK; KK_MIN_FREE_GB sets the free-space stop (default 15).
+- Merge lesson: worktree agents committed the tests/data/generated symlink twice; .gitignore now covers it. Check `git diff --stat main...branch` before merging.
+- Next (roadmap Now): search box squeeze, Keyframes/Curves switch look, FUSE-missing error, full licence texts, then Editing and Audio groups. Stereo 3D, raw, masks and removal are in "Next big release".
+- Owner rules: release without asking once checks pass; notify every finished task; no Claude lines in commits; "(answered by Claude)" on replies.
