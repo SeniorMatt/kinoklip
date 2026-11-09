@@ -48,6 +48,9 @@ Tools and settings
 A large feature, so it gets its own big release. Smaller fix releases will come out before it.
 
 - Stereo 3D: stereo footage support (clips with both eyes, a 3D viewer mode), then advanced stereo alignment for two-camera footage (vertical, rotation, scale and convergence correction, automatic from matched features, plus colour match between the eyes); builds on the tracker (user request)
+- Raw video: decode open raw formats (CinemaDNG, ProRes RAW where FFmpeg supports it) and a simple Darktable-style panel: exposure, white balance, highlights, shadows, and highlight recovery (user request)
+- Easy adaptable masks: a mask drawn once follows the subject by itself (tracked windows and shapes, built on the tracker) (user request)
+- Local replacement: hide people or objects that walk into a shot by filling the masked area from other frames (clean plate), steady shots first (user request)
 
 ## Later
 
