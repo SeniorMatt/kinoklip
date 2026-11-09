@@ -30,6 +30,7 @@
 #include "ui/comp/CompViewerOverlay.h"
 #include "ui/comp/NodeEditor.h"
 #include "ui/comp/NodeLibrary.h"
+#include "ui/comp/TrackerPanel.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
 #include "ui/inspector/ValueField.h"
@@ -46,7 +47,9 @@
 #include <QListWidget>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QProgressBar>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QTest>
@@ -495,6 +498,139 @@ private slots:
         auto* group
             = f.page()->inspector()->findChild<ParamGroupBox*>(QStringLiteral("CompNodeParams"));
         QVERIFY(group && group->isVisibleTo(f.page()->inspector()));
+    }
+
+    // ---- Tracker (spec 50) ----
+    void trackerViewerBoxesAreDragged()
+    {
+        // Spec 50.3: the viewer shows the point with its pattern and search boxes; dragging
+        // the point or a corner edits Center X / Y, Pattern Size or Search Size, one step each.
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("MediaIn1"))});
+        const quint64 t = f.session()->addNode(nodetypes::Tracker);
+        QVERIFY(t);
+        f.session()->setSelection({t});
+        CompViewerOverlay* overlay = f.page()->viewer(1)->controls();
+        QVERIFY(overlay->hasControls());
+        auto send
+            = [overlay](QEvent::Type type, QPointF p, Qt::MouseButton b, Qt::MouseButtons bs) {
+                  QMouseEvent e(type, p, overlay->mapToGlobal(p), b, bs, Qt::NoModifier);
+                  QApplication::sendEvent(overlay, &e);
+              };
+        auto drag = [&](QPointF from, QPointF to) {
+            send(QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
+            for (int i = 1; i <= 4; ++i)
+                send(QEvent::MouseMove, from + (to - from) * i / 4.0, Qt::NoButton, Qt::LeftButton);
+            send(QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
+        };
+        const int64_t frame = f.session()->compFrame();
+        auto value
+            = [&](const QString& key) { return f.comp().node(t)->params.value(key, frame, -1.0); };
+        const QPointF pattern = *overlay->handlePos(CompViewerOverlay::Handle::Size);
+        const QPointF search = *overlay->handlePos(CompViewerOverlay::Handle::Width);
+        QVERIFY(search.x() > pattern.x() && search.y() > pattern.y()); // the larger box
+        QVERIFY(!overlay->handlePos(CompViewerOverlay::Handle::Angle)); // no rotation knob
+        // Move the point right and down.
+        const QPointF c = *overlay->handlePos(CompViewerOverlay::Handle::Centre);
+        QCOMPARE(overlay->handleAt(c), CompViewerOverlay::Handle::Centre);
+        int before = f.steps();
+        const double x0 = value(nodekeys::CenterX), y0 = value(nodekeys::CenterY);
+        drag(c, c + QPointF(30, 20));
+        QCOMPARE(f.steps(), before + 1);
+        QVERIFY(value(nodekeys::CenterX) > x0 + 0.01);
+        QVERIFY(value(nodekeys::CenterY) < y0 - 0.01);
+        // Grow the pattern box and the search box.
+        const QPointF p2 = *overlay->handlePos(CompViewerOverlay::Handle::Size);
+        QCOMPARE(overlay->handleAt(p2), CompViewerOverlay::Handle::Size);
+        before = f.steps();
+        const double size0 = value(nodekeys::PatternSize);
+        drag(p2, p2 + QPointF(20, 20));
+        QCOMPARE(f.steps(), before + 1);
+        QVERIFY(value(nodekeys::PatternSize) > size0 + 5);
+        QVERIFY(value(nodekeys::SearchSize) >= value(nodekeys::PatternSize)); // never smaller
+        const QPointF s2 = *overlay->handlePos(CompViewerOverlay::Handle::Width);
+        QCOMPARE(overlay->handleAt(s2), CompViewerOverlay::Handle::Width);
+        before = f.steps();
+        const double search0 = value(nodekeys::SearchSize);
+        drag(s2, s2 + QPointF(25, 25));
+        QCOMPARE(f.steps(), before + 1);
+        QVERIFY(value(nodekeys::SearchSize) > search0 + 5);
+    }
+
+    void trackerPanelTracksIntoOneUndoStep()
+    {
+        // Spec 50.4 / 50.5: Track Forward from the playhead follows the picture off the UI
+        // thread, shows progress, ends by storing the positions as keys in ONE undo step;
+        // Clear removes them; Stop keeps what was tracked. The tracked picture is static noise,
+        // so the point stays where it was put.
+        Fixture f(true, true);
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("MediaIn1"))});
+        const quint64 noise = f.session()->addNodeAt(nodetypes::FastNoise, QPointF(0, 5));
+        QVERIFY(noise);
+        f.session()->edit(QStringLiteral("Noise"), [noise](Composition& c) {
+            c.node(noise)->params.setBase(nodekeys::Scale, 60.0);
+            c.node(noise)->params.setBase(nodekeys::Detail, 3.0);
+            return true;
+        });
+        const quint64 t = f.session()->addNode(nodetypes::Tracker);
+        QVERIFY(t);
+        f.session()->connectNodes(noise, t, nodeports::Input);
+        f.session()->setSelection({t});
+        TrackerPanel* panel = f.page()->inspector()->trackerPanel();
+        QVERIFY(panel && panel->isVisibleTo(f.page()->inspector()));
+        QVERIFY(panel->forwardButton()->isEnabled());
+        QVERIFY(!panel->stopButton()->isEnabled());
+        const int before = f.steps();
+        const int64_t start = f.session()->compFrame();
+        QSignalSpy done(panel->runner(), &tracking::TrackerRunner::finished);
+        panel->forwardButton()->click();
+        QVERIFY(panel->isRunning());
+        QVERIFY(panel->stopButton()->isEnabled());
+        QVERIFY(done.wait(60000));
+        QCOMPARE(
+            done.first().first().value<tracking::TrackOutcome>(), tracking::TrackOutcome::Finished);
+        QCOMPARE(f.steps(), before + 1); // one step for the whole track
+        const AnimatedValue& x = f.comp().node(t)->params.values.value(nodekeys::CenterX);
+        QCOMPARE(x.keys.size(), int(f.session()->compFrameCount() - start));
+        QVERIFY(std::abs(x.valueAt(f.session()->compFrameCount() - 1) - 0.5) < 0.01);
+        QCOMPARE(f.comp().node(t)->params.value(nodekeys::RefFrame, 0, -1), double(start));
+        QVERIFY(panel->statusText().contains(QStringLiteral("Tracked")));
+        // Undo takes the whole track back.
+        f.project.undoStack()->undo();
+        QVERIFY(!f.comp().node(t)->params.values.value(nodekeys::CenterX).isAnimated());
+        f.project.undoStack()->redo();
+        // Clear: one step, the point stays where it is.
+        const int beforeClear = f.steps();
+        panel->findChild<QToolButton*>(QStringLiteral("TrackClear"))->click();
+        QCOMPARE(f.steps(), beforeClear + 1);
+        QVERIFY(!f.comp().node(t)->params.values.value(nodekeys::CenterX).isAnimated());
+        // Backward from the last frame, stopped at once: the partial track is still stored.
+        f.session()->seekCompFrame(f.session()->compFrameCount() - 1);
+        QSignalSpy done2(panel->runner(), &tracking::TrackerRunner::finished);
+        QVERIFY(panel->track(false));
+        panel->stop();
+        QCOMPARE(done2.count(), 1);
+        QCOMPARE(
+            done2.first().first().value<tracking::TrackOutcome>(), tracking::TrackOutcome::Stopped);
+        QVERIFY(!panel->isRunning());
+    }
+
+    void trackerPanelNeedsAPicture()
+    {
+        Fixture f(true, true);
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        const quint64 t = f.session()->addNode(nodetypes::Tracker); // nothing connected
+        f.session()->disconnectInput(t, nodeports::Input);
+        f.session()->setSelection({t});
+        TrackerPanel* panel = f.page()->inspector()->trackerPanel();
+        QVERIFY(!panel->track(true));
+        QVERIFY(panel->statusText().contains(QStringLiteral("Connect")));
+        QVERIFY(!panel->isRunning());
     }
 
     void viewerMaskAndPolygonHandles()

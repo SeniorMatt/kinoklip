@@ -11,6 +11,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompSession.h"
+#include "ui/comp/TrackerPanel.h"
 #include "ui/inspector/InspectorGlyphs.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
@@ -73,6 +74,8 @@ CompInspector::CompInspector(AppContext& ctx, CompSession* session, QWidget* par
     m_empty = createPlaceholderContent(tr("Select a node to see its parameters"));
     layout->addWidget(m_empty, 1);
     setContentWidget(body);
+    m_tracker = new TrackerPanel(ctx, session, this);
+    m_tracker->hide();
 
     connect(m_enable, &QCheckBox::clicked, this, [this](bool on) {
         if (m_session && m_node)
@@ -132,6 +135,8 @@ void CompInspector::rebuild()
         m_nodeType = type;
         m_proxy.effects.clear();
         syncProxy();
+        m_tracker->setParent(this); // survives the rebuild: a track may be running
+        m_tracker->hide();
         delete m_scroll->takeWidget();
         m_group = nullptr;
         m_source = nullptr;
@@ -152,6 +157,11 @@ void CompInspector::rebuild()
             auto* holder = new QWidget;
             auto* l = new QVBoxLayout(holder);
             l->setContentsMargins(0, 0, 0, 0);
+            if (n->type == nodetypes::Tracker) {
+                m_tracker->setNode(n->id);
+                l->addWidget(m_tracker);
+                m_tracker->show();
+            }
             l->addWidget(m_group);
             if (n->type == nodetypes::MediaIn) {
                 // The picture it reads: the clip's own, or another media pool item (a logo).

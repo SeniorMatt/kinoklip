@@ -81,8 +81,9 @@ std::optional<CompViewerOverlay::State> CompViewerOverlay::state() const
         return key.isEmpty() ? fallback : n->params.value(key, f, fallback);
     };
     s.centre = QPointF(value(s.keys.centerX, 0.5), value(s.keys.centerY, 0.5));
-    s.size = value(s.keys.size, 1.0);
-    s.width = value(s.keys.width, 0.5);
+    const bool tracker = s.keys.kind == compadapter::ViewerControl::Tracker;
+    s.size = value(s.keys.size, tracker ? 48.0 : 1.0); // Tracker: pattern box, timeline px
+    s.width = value(s.keys.width, tracker ? 160.0 : 0.5); // Tracker: search box, timeline px
     s.height = value(s.keys.height, 0.5);
     s.angleDeg = value(s.keys.angle, 0.0);
     if (s.keys.kind == compadapter::ViewerControl::Polygon) {
@@ -134,6 +135,10 @@ QPointF CompViewerOverlay::pointToWidget(const State& s, QPointF p) const
 QSizeF CompViewerOverlay::halfExtents(const State& s) const
 {
     const QRectF p = m_surface->pictureRect();
+    if (s.keys.kind == compadapter::ViewerControl::Tracker) {
+        const double half = s.size * pixelScale() / 2;
+        return QSizeF(half, half);
+    }
     if (s.keys.kind == compadapter::ViewerControl::Transform)
         return QSizeF(p.width() * s.size / 2, p.height() * s.size / 2);
     return QSizeF(p.width() * s.width / 2, p.height() * s.height / 2);
@@ -152,6 +157,19 @@ std::optional<QPointF> CompViewerOverlay::handlePos(Handle handle, int pointInde
     const QPointF c = toWidget(s->centre);
     const QSizeF h = halfExtents(*s);
     const QTransform r = rotation(s->angleDeg);
+    if (s->keys.kind == compadapter::ViewerControl::Tracker) {
+        const double search = s->width * pixelScale() / 2;
+        switch (handle) {
+        case Handle::Centre:
+            return c;
+        case Handle::Size: // pattern box corner
+            return c + QPointF(h.width(), h.height());
+        case Handle::Width: // search box corner
+            return c + QPointF(search, search);
+        default:
+            return std::nullopt;
+        }
+    }
     switch (handle) {
     case Handle::Centre:
         return c;
@@ -243,6 +261,28 @@ void CompViewerOverlay::paintEvent(QPaintEvent*)
     }
     const QPointF c = toWidget(s->centre);
     const QSizeF h = halfExtents(*s);
+    if (s->keys.kind == compadapter::ViewerControl::Tracker) {
+        // Pattern box (solid), search box (the larger one, dashed), centre cross, two corners.
+        const double search = s->width * pixelScale() / 2;
+        QPainterPath patternBox, searchBox, cross;
+        patternBox.addRect(
+            QRectF(c.x() - h.width(), c.y() - h.height(), h.width() * 2, h.height() * 2));
+        searchBox.addRect(QRectF(c.x() - search, c.y() - search, search * 2, search * 2));
+        cross.moveTo(c - QPointF(6, 0));
+        cross.lineTo(c + QPointF(6, 0));
+        cross.moveTo(c - QPointF(0, 6));
+        cross.lineTo(c + QPointF(0, 6));
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(QColor(0, 0, 0, 160), 3.0));
+        p.drawPath(searchBox);
+        p.setPen(QPen(QColor(255, 255, 255), 1.2, Qt::DashLine));
+        p.drawPath(searchBox);
+        stroke(patternBox);
+        stroke(cross);
+        handle(*handlePos(Handle::Size));
+        handle(*handlePos(Handle::Width));
+        return;
+    }
     QTransform t = rotation(s->angleDeg);
     t = t * QTransform::fromTranslate(c.x(), c.y());
     QPainterPath shape;
@@ -323,6 +363,18 @@ void CompViewerOverlay::applyDrag(QPointF pos)
     case Handle::Size:
     case Handle::Width:
     case Handle::Height: {
+        if (s0.keys.kind == compadapter::ViewerControl::Tracker) {
+            // A square box: the farther of the two distances from the centre decides.
+            const QPointF d = pos - c;
+            const double side = 2 * std::max(std::abs(d.x()), std::abs(d.y())) / pixelScale();
+            if (m_drag == Handle::Size) {
+                scalars.insert(s0.keys.size, std::max(8.0, side));
+                // The search box stays larger than the pattern (it would cover its handle).
+                scalars.insert(s0.keys.width, std::max(s0.width, side * 1.25));
+            } else
+                scalars.insert(s0.keys.width, std::max(s0.size, side));
+            break;
+        }
         if (s0.keys.kind == compadapter::ViewerControl::Transform) {
             const double from = length(m_pressPos - c);
             if (from > 1)

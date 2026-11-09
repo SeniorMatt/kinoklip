@@ -47,6 +47,19 @@ QTransform transformMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
     return m;
 }
 
+QTransform trackerMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
+{
+    const int64_t ref = int64_t(std::llround(num(p, k::RefFrame, 0, 0.0)));
+    const QPointF now
+        = toFrame(num(p, k::CenterX, frame, 0.5), num(p, k::CenterY, frame, 0.5), frameSize);
+    const QPointF then
+        = toFrame(num(p, k::CenterX, ref, 0.5), num(p, k::CenterY, ref, 0.5), frameSize);
+    QPointF move = now - then;
+    if (p.staticValue(k::TrackMode, trackmodes::MatchMove).toString() == trackmodes::Stabilize)
+        move = -move;
+    return translate(move);
+}
+
 QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
 {
     const QPointF mid(frameSize.width() / 2, frameSize.height() / 2);

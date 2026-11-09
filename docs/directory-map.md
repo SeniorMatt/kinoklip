@@ -9,6 +9,7 @@
 | `src/core/` | data model (mixer model included), EditOps, snapshot undo, JSON project files, effect catalogue, preferences |
 | `src/media/` | FFmpeg probe/decoders/caches (`media::probe()` is the shared contract) |
 | `src/render/` | GPU compositor, CPU fallback renderer, masks, retime, audio mixer and mixer DSP (EQ, dynamics, loudness) |
+| `src/compositing/tracking/` | point tracking maths for the Tracker node (template matching, sub-pixel refinement) |
 | `src/playback/` | timeline and source players, audio output, meter readings |
 | `src/export/` | encoders and the render queue |
 | `src/ui/common/` | AppContext, ActionRegistry + standard actions, PanelFrame, Page, icons, timecode |

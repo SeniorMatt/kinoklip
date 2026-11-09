@@ -460,6 +460,8 @@ QVector<quint64> evaluationOrder(const Composition& comp, quint64 target)
             const NodeDescriptor* d = descriptorOf(*n);
             if (d) {
                 for (const NodePort& p : d->inputs) {
+                    if (p.analysisOnly)
+                        continue; // only looked at by the UI (tracking), never drawn
                     const auto it = n->inputs.constFind(p.id);
                     if (it != n->inputs.constEnd())
                         visit(it->nodeId);

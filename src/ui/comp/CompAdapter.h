@@ -75,7 +75,8 @@ enum class ViewerControl {
     Transform, ///< centre, size, angle of the picture (Transform; Merge's foreground)
     Rectangle, ///< centre, width, height, angle of a mask
     Ellipse, ///< same keys as Rectangle, drawn as an ellipse
-    Polygon ///< CompNode::path points plus the Transform keys of the whole shape
+    Polygon, ///< CompNode::path points plus the Transform keys of the whole shape
+    Tracker ///< the tracked point with its pattern (size key) and search (width key) boxes, px
 };
 
 /// Parameter keys behind the on-viewer controls of a node type (empty = no such handle).

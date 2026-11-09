@@ -1300,6 +1300,20 @@ the default and a Preference offers the alternative. Tests: `bi` = `tests/app/te
 | 49.7 | Guides: View > Guides, rulers dragged out into guides, Ctrl-snapping of a dragged guide, Snap to Guides for on-screen transform drags (match cuts can align on them), presets, safe areas and grids exist on both viewers (section 41). | Already handled (gu dragOutMoveAndRemove, ctrlDragSnapsTheGuide, transformDragSnapsToGuides) |
 | 49.8 | Shapes and blur without the Fusion or Color page: Generators > Solid Color (a coloured clip, cropped or masked into a rectangle), titles with a Background box (Text Box preset, 28.5 / title Background options), masks on any clip (section 27) and adjustment clips whose effects act through their masks on everything below (28.2). New: Effects > Region Blur places an adjustment clip with a Gaussian Blur (radius 40 px) and a centred rectangle mask (a third of the frame, 8 px soft edge) at the playhead (double-click, Enter or drag), one undo step; move, size and keyframe the mask in the viewer like any mask (faces, number plates). Once placed it is an ordinary adjustment clip. | Fixed (new; bi spec49_8_regionBlurIsAnAdjustmentClipWithBlurAndMask). Decision: a library entry built from existing pieces instead of a new effect type, so projects stay readable by older builds. |
 
+## 50. Tracker (tracker branch, issue #3)
+
+Basic tracking on the Compositing page: a point tracker node. Planar tracking is not part of it.
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 50.1 | A Tracker node (Transform folder, Select Node list) has an Input, an optional Tracking Source input (only analysed, never drawn or evaluated), Center X / Y (the tracked point), Pattern Size, Search Size (timeline px), Output (Match Move or Stabilize) and a Reference Frame. | Done (test_trackernode descriptor, trackingSourceIsNotEvaluated) |
+| 50.2 | Match Move: the input is moved by the tracked point's position at the frame minus its position at the Reference Frame; Stabilize moves it the opposite way. Without a track the node changes nothing. GPU and CPU renders agree. | Done (test_trackernode matchMoveMatrix, matchMoveFollowsTheTrackInTheRender, stabilizeCancelsTheTrack) |
+| 50.3 | With the Tracker selected the viewer shows the point, its pattern box and its larger search box; dragging the point or a box corner edits Center X / Y, Pattern Size, Search Size (one undo step per drag, a key at the frame when animated). | Done (viewer overlay; checked by hand, no pixel test) |
+| 50.4 | The Inspector of a Tracker has Track Backward, Stop and Track Forward, a progress bar and a status line, and Clear. Tracking starts at the playhead, runs off the UI thread on the pictures of the tracking source (or the input) rendered by the playback engine, moves the playhead along, can be stopped, and stops where the pattern is lost or the clip ends. | Done (test_trackernode runnerFollowsMovingNoise, runnerTracksBackwardsAndCanBeStopped, runnerReportsAFlatPattern; the buttons by hand) |
+| 50.5 | The tracked positions are stored as linear keyframes of Center X / Y in one undo step "Track <node>"; a later track replaces the keys it covers and keeps the Reference Frame; Clear removes the keys and leaves the point where it is. Opening another clip while tracking drops the result. | Done (test_trackernode storeTrackKeepsTheReferenceOfAnExistingTrack) |
+| 50.6 | The track data survives saving and loading the project (it is ordinary keyframed node parameters). | Done (test_trackernode trackDataSurvivesSaveAndLoad) |
+| 50.7 | The point tracker finds a pattern moved by a known sub-pixel offset to within 0.05 px (noise-free) and 0.15 px (noise), tolerates brightness changes, follows a steady movement over 40 frames within 0.4 px, finds a 30 px jump through the coarse levels, and reports a lost or detail-free pattern instead of a wrong position. | Done (test_pointtracker) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

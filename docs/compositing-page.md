@@ -58,7 +58,8 @@ general knowledge of node compositors, our own drawing, names and icons; never R
   EffectRegistry (type `fx:<id>`), so new effects appear on both pages.
 - **Color**: Color Corrector (the Color Balance / Levels / Saturation set in one node),
   Channel Booleans (copy / swap channels, alpha from luma).
-- Later: tracker, B-spline / paint, particles, 3D, expressions, modifiers.
+- **Tracking**: Tracker (point tracker, see "Tracker" below).
+- Later: planar tracker, B-spline / paint, particles, 3D, expressions, modifiers.
 
 ## Data model and evaluation
 - `src/core/Composition.h`: value types (Composition, CompNode, NodeLink, CompNote). A clip
@@ -83,4 +84,47 @@ general knowledge of node compositors, our own drawing, names and icons; never R
    the page UI (layout, node editor, viewers, inspector hookup) in parallel against
    `Composition.h` and this document.
 2. Integration, end-to-end tests (comp in the render), release.
-3. More nodes and tools (tracker, paint, particles, 3D).
+3. More nodes and tools (planar tracker, paint, particles, 3D).
+
+## Tracker (point tracker, issue #3)
+
+**What the user does.** Add a Tracker node (Transform folder) after the picture that should
+move. Select it: the viewer shows the tracked point with its **pattern box** (the detail to
+follow, solid) and **search box** (how far it may move between two frames, dashed); drag the
+cross to place the point, the corners to resize the boxes. Put the playhead on the first frame
+and press **Track Forward** (or **Track Backward** to go the other way) in the Inspector; the
+playhead follows, a progress bar shows how far it is and **Stop** ends it early (what is
+tracked so far is kept). The result is stored as keyframes on the node's Center X / Center Y,
+in one undo step; **Clear** removes them. A track stops where the pattern is lost, with a
+message.
+
+**What the node outputs.** The Tracker passes its *Input* picture through, moved by the track
+relative to the **Reference Frame** (the frame the first track started on): *Match Move* moves
+the input with the tracked point (an overlay stuck to a moving object); *Stabilize* moves it
+the opposite way (the shaky shot held steady). The picture that is analysed is the optional
+**Tracking Source** input if it is connected (typically the plate), otherwise the Input. The
+Tracking Source port is only read by the tracking, never drawn, so it costs nothing at render
+time. Because the track is plain keyframed X / Y, it can be edited in the Keyframes panel or
+by dragging the point on a frame, and (later) other nodes can link to it.
+
+**How it works** (`src/compositing/tracking`, clean-room maths, no OpenCV).
+`PointTracker` takes a grey picture, builds a half-size pyramid (the coarsest level keeps the
+pattern at least about 9 px wide) and matches the pattern with normalised cross-correlation:
+exhaustively over the search box on the coarsest level, then a few pixels around the
+scaled-up result on each finer level. A Gauss-Newton step on bicubic samples then refines the
+position to a fraction of a pixel. Normalised correlation ignores brightness and contrast
+changes. The pattern is taken from the first frame and re-taken from the current frame when
+the correlation falls below 0.85, so a slowly changing target stays followed; below 0.6 the
+point is lost. `TrackerRunner` feeds it one frame at a time, off the UI thread: the pictures
+are rendered by `PlaybackEngine::renderCompositionNode()` of the tracking source (the same
+path as the viewers, so decoding, proxies and quality are not duplicated), the next picture
+already rendering while the current one is matched. `storeTrack()` writes the result to the node.
+
+**Left for the planar tracker.** Follow a plane (four corners, a homography) instead of a
+point, so rotation, scale and perspective of a screen or a wall are tracked: a sibling of
+`PointTracker` with the same `reset()` / `track()` shape that refines eight parameters with the
+same pyramid and Gauss-Newton machinery, plus a corner-pin output (the Tracker's matrix would
+become a general `QTransform` and the Transform pass already draws one). Also open: tracking
+rotation and scale from several points, a track-to-node link (Center of a Transform or Merge
+following a Tracker), a motion-prediction search window for very fast movement, per-frame
+manual correction with re-tracking from the corrected frame, and tracking of masks.

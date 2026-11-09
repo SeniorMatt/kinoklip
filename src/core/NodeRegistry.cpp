@@ -22,9 +22,10 @@ QString tr(const char* text)
 const QString kPx = QStringLiteral("px");
 const QString kDegrees = QStringLiteral("°");
 
-NodePort port(const QString& id, const QString& label, PortKind kind, bool required)
+NodePort port(const QString& id, const QString& label, PortKind kind, bool required,
+    bool analysisOnly = false)
 {
-    return NodePort {id, label, kind, required};
+    return NodePort {id, label, kind, required, analysisOnly};
 }
 
 NodePort maskPort()
@@ -292,6 +293,31 @@ NodeRegistry::NodeRegistry()
             boolean(k::FlipH, tr("Flip Horizontal"), false),
             boolean(k::FlipV, tr("Flip Vertical"), false)};
         d.controls = ViewerControls::Transform;
+        add(d);
+    }
+    {
+        NodeDescriptor d = node(nodetypes::Tracker, tr("Tracker"), QStringLiteral("Trk"),
+            QStringLiteral("Tracker"), C::Transform,
+            tr("Follows a point in the picture; the input moves with it (Match Move) or is "
+               "held steady (Stabilize)"));
+        d.inputs = {inputPort(),
+            port(nodeports::Source, tr("Tracking Source"), PortKind::Image, false, true)};
+        d.mainInput = nodeports::Input;
+        d.params = centre();
+        d.params += {number(nodekeys::PatternSize, tr("Pattern Size"), 8, 400, 48, 1, kPx),
+            number(nodekeys::SearchSize, tr("Search Size"), 16, 1600, 160, 1, kPx),
+            choice(nodekeys::TrackMode, tr("Output"),
+                {trackmodes::MatchMove, trackmodes::Stabilize}, {tr("Match Move"), tr("Stabilize")},
+                trackmodes::MatchMove),
+            integer(nodekeys::RefFrame, tr("Reference Frame"), 0, 1000000, 0)};
+        for (const QString& key :
+            {nodekeys::PatternSize, nodekeys::SearchSize, nodekeys::RefFrame}) {
+            for (ParamDescriptor& p : d.params) {
+                if (p.key == key)
+                    p.animatable = false;
+            }
+        }
+        d.controls = ViewerControls::Tracker;
         add(d);
     }
     {
