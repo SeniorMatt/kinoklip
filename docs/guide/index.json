@@ -612,6 +612,30 @@
       "contexts": [
         "action:edit.keyboard_customization"
       ]
+    },
+    {
+      "id": "transitions",
+      "title": "Transitions between clips",
+      "file": "transitions.md",
+      "summary": "The transition folders (Dissolve, Iris, Shape, Wipe, Motion), their settings, and Smooth Cut for hiding a jump cut.",
+      "keywords": [
+        "transition",
+        "transitions",
+        "smooth cut",
+        "jump cut",
+        "dissolve",
+        "wipe",
+        "iris",
+        "barn door",
+        "slide",
+        "split",
+        "morph"
+      ],
+      "contexts": [
+        "effect:smooth_cut",
+        "effect:blur_dissolve",
+        "effect:star_shape"
+      ]
     }
   ]
 }

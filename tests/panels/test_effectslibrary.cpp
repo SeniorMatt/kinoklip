@@ -47,7 +47,13 @@ private slots:
         panel.setFilterText(QStringLiteral("gaussian"));
         QCOMPARE(panel.visibleDescriptorIds(), QStringList {QStringLiteral("gaussian_blur")});
         panel.setFilterText(QStringLiteral("DISSOLVE"));
-        QCOMPARE(panel.visibleDescriptorIds(), QStringList {QStringLiteral("cross_dissolve")});
+        // The Dissolve folder has four with "dissolve" in the name (spec 53.1); the old
+        // expectation of one predates the folders.
+        QStringList dissolves = panel.visibleDescriptorIds();
+        dissolves.sort();
+        QCOMPARE(dissolves,
+            QStringList({QStringLiteral("additive_dissolve"), QStringLiteral("blur_dissolve"),
+                QStringLiteral("cross_dissolve"), QStringLiteral("non_additive_dissolve")}));
         panel.setFilterText(QStringLiteral("nothing-matches"));
         QVERIFY(panel.visibleDescriptorIds().isEmpty());
         panel.setFilterText({});
@@ -62,6 +68,34 @@ private slots:
         panel.setFilterText({});
         panel.setCategoryFilter(-1);
         QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
+    }
+
+    void spec53_1_transitionFolders()
+    {
+        PanelFixture f;
+        EffectsLibraryPanel panel(f.ctx);
+        const QTreeWidgetItem* section = panel.tree()->topLevelItem(0);
+        QCOMPARE(section->text(0), QStringLiteral("Video Transitions"));
+        QStringList folders;
+        for (int i = 0; i < section->childCount(); ++i)
+            folders.append(section->child(i)->text(0));
+        QCOMPARE(folders,
+            QStringList({QStringLiteral("Dissolve"), QStringLiteral("Iris"),
+                QStringLiteral("Motion"), QStringLiteral("Shape"), QStringLiteral("Wipe")}));
+        auto names = [&](int folder) {
+            QStringList n;
+            for (int i = 0; i < section->child(folder)->childCount(); ++i)
+                n.append(section->child(folder)->child(i)->text(0));
+            return n;
+        };
+        QVERIFY(names(0).contains(QStringLiteral("Smooth Cut")));
+        QVERIFY(names(0).contains(QStringLiteral("Cross Dissolve")));
+        QCOMPARE(names(1).size(), 9);
+        QCOMPARE(names(2).size(), 4);
+        QCOMPARE(names(3).size(), 5);
+        QCOMPARE(names(4).size(), 8);
+        panel.setFilterText(QStringLiteral("smooth"));
+        QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("smooth_cut")));
     }
 
     void spec13_11_audioTransitionsSection()

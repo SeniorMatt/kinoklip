@@ -19,7 +19,7 @@ not a count.
 | 4 | Speed up or slow down a clip | Slow motion and time-lapse are asked about constantly, including ramps and why the audio sounds odd. | [Change the speed of a clip](change-clip-speed.md) |
 | 5 | Add music and fade audio in and out | Background music and a smooth fade at the end are part of almost every video. | [Fade audio and add music](fade-audio-and-add-music.md) |
 | 6 | Add text and titles | Captions, lower thirds and an opening title; people look for "the text tool". | [Getting started](getting-started.md#add-a-title) |
-| 7 | Add a transition between clips | Cross dissolves and where to find the other transitions. | [Getting started](getting-started.md#add-a-transition) |
+| 7 | Add a transition between clips | Cross dissolves, the other transition folders, and Smooth Cut for jump cuts. | [Transitions between clips](transitions.md) |
 | 8 | Fade the picture to or from black | The ending of nearly every video; often confused with transitions. | [Fade to or from black](fade-to-black.md) |
 | 9 | Freeze a frame | Holding one frame for a while, for comedy or emphasis. | [Freeze a frame](freeze-a-frame.md) |
 | 10 | Zoom, crop or make a picture-in-picture | Transform and Cropping in the Inspector, on-screen controls. | [Zoom, crop and picture-in-picture](zoom-crop-and-picture-in-picture.md) |

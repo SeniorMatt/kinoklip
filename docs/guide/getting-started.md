@@ -180,8 +180,9 @@ A transition blends one clip into the next instead of a hard cut.
 
 3. To make it longer or shorter, drag its left or right edge.
 
-Other transitions (**Dip to Color**, **Wipe**, **Push**) are in the effects library under
-**Toolbox > Video Transitions**: drag one onto a cut. To remove a transition, click it and press
+Other transitions (dissolves, irises, shapes, wipes, motion and **Smooth Cut**) are in the
+effects library under **Toolbox > Video Transitions**: drag one onto a cut. The
+[transitions guide](transitions.md) lists them. To remove a transition, click it and press
 **Delete**.
 
 ## Export your video
