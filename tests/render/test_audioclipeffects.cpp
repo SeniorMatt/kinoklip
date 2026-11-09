@@ -256,6 +256,17 @@ private slots:
         QVERIFY(peak(out, 1000 + 4801, 24000) < 1e-4); // no feedback: one echo only
     }
 
+    void delayReachesItsLongTimes()
+    {
+        // 1.5 s of the 2 s maximum: the stereo delay line must hold the whole time.
+        TimelineData tl = timeline({});
+        tl.audioTracks[0].clips[0].effects.append(fx(tl, afxid::Delay,
+            {{afxkeys::TimeMs, 1500.0}, {afxkeys::Feedback, 0.0}, {afxkeys::Mix, 50.0}}));
+        const auto out = render(tl, m_wavImpulse, 90000);
+        QVERIFY(std::abs(out[2 * (1000 + 72000)] - 0.4f) < 2e-3f); // echo after 1.5 s
+        QVERIFY(peak(out, 1001, 1000 + 71999) < 1e-4);
+    }
+
     void reverbAddsATail()
     {
         TimelineData tl = timeline({});
