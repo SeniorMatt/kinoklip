@@ -6,7 +6,7 @@ explicitly choose to share it.**
 ## What the app does not do
 - No telemetry and no analytics.
 - No automatic crash reports.
-- No update checks or other "pings" from the app itself. Gear Lever and AppImageUpdate look for
+- No update checks or other "pings" from the app itself. [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) and [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) look for
   new versions by reading the release files on GitHub; that happens in those tools, outside
   Kinoklip, when you ask them to.
 - Kinoklip makes no network requests at all. Links (the user guide, a bug report) open in your
@@ -15,7 +15,7 @@ explicitly choose to share it.**
 ## Reporting a bug
 **Help > Report a Bug or Inconsistency...** helps you write a useful report:
 
-1. You choose the kind of report: a bug, something that works differently from DaVinci Resolve,
+1. You choose the kind of report: a bug, something that works differently from [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve),
    or an idea.
 2. The dialog shows **exactly** the text that would be shared, so you can read every line before
    anything happens.
@@ -32,10 +32,10 @@ submit it yourself (you need a GitHub account). What you submit there is public 
 
 The text contains only versions and settings:
 - the Kinoklip version (and the source commit, if the build has it) and how it is packaged
-  (AppImage, Flatpak or built from source);
+  (AppImage, [Flatpak](https://flatpak.org) or built from source);
 - the Linux distribution name and version, and the kernel release;
-- the desktop, the session type (Wayland or X11) and Qt's platform plugin;
-- the Qt and FFmpeg library versions;
+- the desktop, the session type (Wayland or X11) and [Qt](https://www.qt.io)'s platform plugin;
+- the Qt and [FFmpeg](https://ffmpeg.org) library versions;
 - the OpenGL driver strings and the hardware decoding state, if Kinoklip already has them;
 - the number of screens, and the size and scale of the main one;
 - the widget style, colour theme and language.

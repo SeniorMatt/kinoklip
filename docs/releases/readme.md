@@ -6,7 +6,7 @@ release description. Every release is a GitHub **pre-release** until the owner d
 
 ## Assets to upload
 - `Kinoklip-x86_64.AppImage`
-- `Kinoklip-x86_64.AppImage.zsync` (Gear Lever and AppImageUpdate find updates through it;
+- `Kinoklip-x86_64.AppImage.zsync` (Gear Lever and [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) find updates through it;
   without it the update check fails)
 - `SHA256SUMS.txt` (`sha256sum Kinoklip-x86_64.AppImage > SHA256SUMS.txt`)
 

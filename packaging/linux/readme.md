@@ -6,13 +6,13 @@ made from. The AppDir is assembled with distribution tools only (`ldd`, `readelf
 the AppImage is made with the official `appimagetool`, downloaded once at a pinned version and
 checked against its SHA-256 (see "The AppImage" below). Primary target: ThinkPad T14s Gen 2
 (Iris Xe), KDE Linux (Arch based, Wayland). **Build host: the Arch Linux container `kk-arch`**
-(Qt 6.12, KDE Frameworks 6.31, Breeze 6.8.2, FFmpeg 9, glibc 2.44, GCC 16), so the bundle
+([Qt](https://www.qt.io) 6.12, KDE Frameworks 6.31, Breeze 6.8.2, [FFmpeg](https://ffmpeg.org) 9, glibc 2.44, GCC 16), so the bundle
 carries the real Breeze look (docs/archive/plan.md 4): the Breeze style plugin, KDE's icon engine, the Breeze
 icons and the KDE colour schemes. Verified to run on the build container and, from a clean
 environment, on Linux Mint 22 / Ubuntu 24.04 (glibc 2.39, Breeze 5 icons on the host) with
 identical rendering.
 
-Other formats (Flatpak, distribution packages, ...) may come later; for now the AppImage is
+Other formats ([Flatpak](https://flatpak.org), distribution packages, ...) may come later; for now the AppImage is
 the only release artefact.
 
 ## Build
@@ -261,7 +261,7 @@ is remembered, so the next one execs again. `KINOKLIP_NO_PREFLIGHT=1` skips the 
 Not caught: a failure after the exec, once a state passed the once-per-state check (nothing
 changed in between, so it should not happen), and whatever happens before AppRun runs, in the
 AppImage runtime: FUSE missing or a read-only `TMPDIR` for its mount point only gives a message on
-stderr. Gear Lever users would see nothing in that case; see "Known risks".
+stderr. [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) users would see nothing in that case; see "Known risks".
 
 `AppRun --install-desktop-entry` writes the desktop entry, icon and MIME type to
 `${XDG_DATA_HOME:-~/.local/share}` with `Exec=` pointing at the AppImage file (`$APPIMAGE`, set
@@ -269,7 +269,7 @@ by the AppImage runtime), the legacy `.run` file or AppRun for a plain folder, t
 the MIME/desktop/KDE caches if the tools exist. `--uninstall-desktop-entry` removes them.
 
 **Not automatic in the AppImage.** When `$APPIMAGE` is set the launcher leaves desktop
-integration to Gear Lever (or appimaged / AppImageLauncher): they write their own entry with
+integration to Gear Lever (or [appimaged](https://github.com/probonopd/go-appimage) / [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher)): they write their own entry with
 `Exec=` the AppImage, and a second entry of ours would show the app twice in the menu. Users
 without such a tool can run `./Kinoklip-x86_64.AppImage --install-desktop-entry` once.
 
@@ -301,7 +301,7 @@ commit (`SOURCE_DATE_EPOCH`). appimagetool's own AppStream check is switched off
 (`--no-appstream`) because it fetches every URL in the file and fails while the GitHub
 repository is private; the script validates it offline instead.
 
-**Update information** (embedded, read by Gear Lever and AppImageUpdate):
+**Update information** (embedded, read by Gear Lever and [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate)):
 
 ```
 gh-releases-zsync|SeniorMatt|kinoklip|latest-all|Kinoklip-*x86_64.AppImage.zsync

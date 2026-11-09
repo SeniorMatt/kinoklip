@@ -9,7 +9,7 @@ everything follows the [clean-room policy](clean-room.md).
 
 ## Version 1.2 (starts right after 1.1.8)
 
-Everything below in "Now" is planned for 1.2, in this order: OpenTimelineIO, planar tracker and stabilization, audio effects, fade curves, Smooth Cut, hover preview, the text title layers, emoji, Inspector audio options, settings import/export, vim keys, then the command-line interface and the MCP server on top of it. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
+Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](https://opentimeline.io), planar tracker and stabilization, audio effects, fade curves, Smooth Cut, hover preview, the text title layers, emoji, Inspector audio options, settings import/export, vim keys, then the command-line interface and the MCP server on top of it. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
 
 ## Now (next version)
 
@@ -23,7 +23,7 @@ From users (high priority)
 
 Bugs and fixes
 - Media Pool: the thumbnail slider squeezes the search box at the default width
-- Keyframes panel: the Keyframes / Curves switch should look like native Breeze / Qt
+- Keyframes panel: the Keyframes / Curves switch should look like native Breeze / [Qt](https://www.qt.io)
 - AppImage: show an error when FUSE is missing (today it fails silently)
 - Bundle: complete licence texts for every bundled library (xz is empty)
 
@@ -50,9 +50,9 @@ Tools and settings
 A large feature, so it gets its own big release. Smaller fix releases will come out before it.
 
 - Stereo 3D: stereo footage support (clips with both eyes, a 3D viewer mode), then advanced stereo alignment for two-camera footage (vertical, rotation, scale and convergence correction, automatic from matched features, plus colour match between the eyes); builds on the tracker (user request)
-- Raw video: decode open raw formats (CinemaDNG, ProRes RAW where FFmpeg supports it) and a simple Darktable-style panel: exposure, white balance, highlights, shadows, and highlight recovery (user request)
+- Raw video: decode open raw formats (CinemaDNG, ProRes RAW where [FFmpeg](https://ffmpeg.org) supports it) and a simple Darktable-style panel: exposure, white balance, highlights, shadows, and highlight recovery (user request)
 - Easy adaptable masks: a mask drawn once follows the subject by itself (tracked windows and shapes, built on the tracker) (user request)
-- Rule for every AI-assisted tool: optional, clearly labelled, downloaded only when the user asks, runs locally (no cloud, no account), and only open-source code and model weights with GPL-compatible licences (for example SAM 2 and LaMa, Apache-2.0). No proprietary software or models
+- Rule for every AI-assisted tool: optional, clearly labelled, downloaded only when the user asks, runs locally (no cloud, no account), and only open-source code and model weights with GPL-compatible licences (for example [SAM 2](https://github.com/facebookresearch/sam2) and [LaMa](https://github.com/advimman/lama), Apache-2.0). No proprietary software or models
 - Local replacement: hide people or objects that walk into a shot by filling the masked area from other frames (clean plate), steady shots first (user request)
 
 ## Later
@@ -106,9 +106,9 @@ Quality
 ## Long-term
 
 - Windows build, after the first stable (non-beta) release ([#4](https://github.com/SeniorMatt/kinoklip/issues/4)) (KDE Craft provides Qt, KF6 and Breeze there); the code already keeps platform code in `src/platform/`
-- Flatpak and distro packages (Arch PKGBUILD / AUR, .deb, .rpm), Windows installer
+- [Flatpak](https://flatpak.org) and distro packages (Arch PKGBUILD / AUR, .deb, .rpm), Windows installer
 - Interface profiles beyond the default (a Plasma profile)
-- Project website presenting Kinoklip as a free alternative to DaVinci Resolve: features, screenshots, downloads, roadmap, docs. It names Resolve only for comparison, uses no Blackmagic logos or screenshots, and claims only what the shipped build does
+- Project website presenting Kinoklip as a free alternative to [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve): features, screenshots, downloads, roadmap, docs. It names Resolve only for comparison, uses no Blackmagic logos or screenshots, and claims only what the shipped build does
 - Version 1.0.0: released only when the owner decides; until then every build is an alpha or beta
 
 ## Not planned

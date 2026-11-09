@@ -1,7 +1,7 @@
 # How to use Kinoklip
 
 Kinoklip is a free video editor for Linux. You put your clips on a timeline, cut them, add
-titles, music and effects, and export a finished video. It is laid out like DaVinci Resolve and
+titles, music and effects, and export a finished video. It is laid out like [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve) and
 uses the same keyboard shortcuts, so most Resolve tutorials for the Edit page also work here.
 This guide starts with the basics and then shows, step by step, how to do the things people
 ask about most.
@@ -60,8 +60,8 @@ search field.
 - [Colour correct a clip](colour-correct-a-clip.md) (the Color page)
 - [Change the colour of one object](change-the-colour-of-one-object.md)
 - [Use a LUT](use-a-lut.md)
-- [Use the shortcuts of your old editor](use-the-shortcuts-of-your-old-editor.md) (Vegas Pro,
-  Premiere Pro, Final Cut Pro, Avid, Kdenlive, Shotcut)
+- [Use the shortcuts of your old editor](use-the-shortcuts-of-your-old-editor.md) ([Vegas Pro](https://www.vegascreativesoftware.com),
+  [Premiere Pro](https://www.adobe.com/products/premiere.html), [Final Cut Pro](https://www.apple.com/final-cut-pro/), Avid, [Kdenlive](https://kdenlive.org), [Shotcut](https://shotcut.org))
 
 More articles are planned; see [the topic list](topics.md). Every keyboard shortcut is listed
 in the [keymap](../keymap-resolve-windows.md); the other editors' presets are in
