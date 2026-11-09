@@ -71,7 +71,7 @@ private slots:
         QVERIFY(panel.visibleDescriptorIds().contains(QStringLiteral("gaussian_blur")));
     }
 
-    void spec53_1_transitionFolders()
+    void spec54_1_transitionFolders()
     {
         PanelFixture f;
         EffectsLibraryPanel panel(f.ctx);
