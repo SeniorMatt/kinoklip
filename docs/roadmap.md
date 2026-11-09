@@ -94,6 +94,11 @@ Edit page polish
 Quality
 - Memory checks with ASan, UBSan and TSan (declined for now)
 
+## Rename
+
+- Rename Kinoklip to **Wolfgang Montage** (after Johann Wolfgang von Goethe, who also wrote a theory of colours). Not started: it happens only when the owner says so. It covers the app name, the repository, the AppImage and desktop files, settings and project paths (with a migration for existing users), the docs and the website
+- New logo, wordmark and icon, drawn by hand by a human artist, replacing the current artwork (no AI art). The rename waits for them
+
 ## Long-term
 
 - Windows build, after the first stable (non-beta) release ([#4](https://github.com/SeniorMatt/kinoklip/issues/4)) (KDE Craft provides Qt, KF6 and Breeze there); the code already keeps platform code in `src/platform/`
