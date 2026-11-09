@@ -80,26 +80,6 @@ old row describes, add a new row that says it supersedes the old one.
 
 ## Planned for the next version
 
-Pick only what the owner or reviewer assigns. Roughly from easiest to hardest:
-
-- Media Pool search box squeezed to "Searc..." by the thumbnail slider (fixed on branch
-  `searchbox`, being tested)
-- Keyframes panel: the Keyframes / Curves switch should look like native Breeze / Qt
-- Timeline: Close Gap in the context menu does nothing (check a gap after the last clip)
-- Timeline: Ripple Delete must work on a selected gap
-- Emoji in subtitles and titles (colour emoji in the viewer and in exports)
-- One text title that can do everything Resolve's Text+ can; no separate Text+ type
-- Inspector Audio tab: Pitch and the other audio options Resolve has
-- Audio effects on clips (Add Effect is disabled on audio clips)
-- Fade curves shaped with the mouse on the clip
-- Media Pool: hovering a clip previews it in the viewer
-- GitHub issue 2: playback drops frames while timeline thumbnails regenerate; thumbnails
-  should give way to playback
-- Settings import and export with one click
-- Smooth Cut transition
-- Stabilization
-- Vim keybindings, so nvim users can edit easily
-- CLI, then an MCP server
-
-Later, only when the owner asks: compare the Media, Cut, Compositing, Color, Audio and Deliver
-pages with Resolve and add what is missing. Not wanted: background removal.
+The list lives in [roadmap.md](roadmap.md) (section Now). Pick only what the owner or reviewer
+assigns. Wider work on the pages ("Later") starts only when the owner asks. Not wanted:
+background removal.

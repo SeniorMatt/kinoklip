@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// SupportedFormats — the one registry of importable file types (plan.md §5.8): categories,
+// SupportedFormats — the one registry of importable file types (docs/archive/plan.md §5.8): categories,
 // file name extensions, QFileDialog filters and quick "is this media?" checks.
 #pragma once
 

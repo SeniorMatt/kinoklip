@@ -21,7 +21,7 @@ Performance rules:
 
 ## 1b. Hard rules from the project owner
 - **No all-caps file names** (no `README.md`, `PLAN.md`, `LICENSE`...): docs are lowercase
-  (`readme.md`, `plan.md`, `coding-style.md`). C++ sources are PascalCase (`TimelineWidget.cpp`), which is not all-caps;
+  (`readme.md`, `roadmap.md`, `coding-style.md`). C++ sources are PascalCase (`TimelineWidget.cpp`), which is not all-caps;
   `CMakeLists.txt` keeps the name CMake requires.
 - **No emojis** anywhere: code, comments, docs, commit messages, UI strings.
 - **Privacy: never add code that sends or collects user data without explicit, per-use
@@ -31,11 +31,11 @@ Performance rules:
 - **Code produced by non-Claude tools/agents (Gemini, DeepSeek, ...) is untrusted**: it must be
   reviewed line by line, built with zero warnings and covered by tests before it is committed.
 
-## 1c. Profile-ready code (see plan.md 5.9)
+## 1c. Profile-ready code (see docs/archive/plan.md 5.9)
 Shortcuts, menus, panel layout, settings pages and convention-dependent behaviour are DATA or go
 through `ActionRegistry` / layout descriptions / an `InterfaceProfile` lookup. Never hard-code them
 inside widgets. A future Plasma profile must be addable without touching panel internals.
-A future Vim profile (plan.md 5.9b) needs every operation to be a command with explicit arguments
+A future Vim profile (docs/archive/plan.md 5.9b) needs every operation to be a command with explicit arguments
 (targets, range, count) and navigation primitives as pure functions in `core` — keep editing logic
 out of mouse handlers.
 

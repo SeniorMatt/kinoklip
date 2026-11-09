@@ -8,6 +8,8 @@ A non-linear video editor written from scratch in C++20 with Qt 6 Widgets and FF
 behaviour and default shortcuts follow DaVinci Resolve's Edit page, with the KDE Breeze look.
 Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 
+**[Roadmap](docs/roadmap.md)**
+
 All releases are alpha or beta pre-releases for now: expect bugs and keep backups.
 
 ## Why use Kinoklip over Resolve?
@@ -59,31 +61,38 @@ It is still a beta, missing many of Resolve's features, so it's not a full repla
 
 ## Documentation
 
-- [Building](docs/building.md): build from source (Arch container or host Qt), useful command-line options
-- [Contributing](docs/contributing.md): guidelines for code, shortcuts, naming and tests
-- [Coding style](docs/coding-style.md): naming, comments, file layout
-- [Directory map](docs/directory-map.md): what lives where in the source tree
-- [Roadmap](docs/roadmap.md): the milestones ahead
-- [Plan and architecture](plan.md): module contracts and design rules
-- [Behaviour spec](docs/behavior-spec.md): how each feature behaves, with test references
-- [Resolve keymap](docs/keymap-resolve-windows.md): default keyboard shortcuts
-- [Keyboard presets](docs/keymaps/readme.md): the keys of Vegas Pro, Premiere Pro, Final Cut Pro, Avid Media Composer, Kdenlive and Shotcut
+**Use it**
+- [How to use Kinoklip](docs/guide/readme.md): short how-to guides
+- [Resolve keymap](docs/keymap-resolve-windows.md): the default shortcuts
+- [Keyboard presets](docs/keymaps/readme.md): Vegas Pro, Premiere Pro, Final Cut Pro, Avid Media Composer, Kdenlive and Shotcut
 - [Release notes](docs/releases/): changes in each release
-- [Linux packaging](packaging/linux/readme.md): building the AppImage
 - [Privacy](docs/privacy.md): what Kinoklip keeps on your computer, and what a bug report can share
+
+**Build and contribute**
+- [Building](docs/building.md): from source (Arch container or host Qt), command-line options
+- [Contributing](docs/contributing.md): code, shortcuts, naming and tests
+- [Coding style](docs/coding-style.md) and [directory map](docs/directory-map.md)
+- [Behaviour spec](docs/behavior-spec.md): how each feature behaves, with test references
+- [Linux packaging](packaging/linux/readme.md): building the AppImage
+
+**Project records**
 - [Clean-room policy](docs/clean-room.md): what may and may not be used to build Kinoklip
 - [Attribution](attribution.md): every asset with its author and licence
+- [All documents](docs/readme.md): the full index, including old plans in the archive
 
 ## Support
+
 If you want to support the project: [ko-fi.com/seniormatthew](https://ko-fi.com/seniormatthew), it will be much appreciated.
 
 ## License
+
 The code is GPL-3.0-or-later, see [license.md](license.md). The Kinoklip name, icon and logos are
 not under the GPL: forks must replace them, see [logo-license.md](logo-license.md). Release bundles
 include GPL FFmpeg components; third-party notices are inside the bundle under
 `usr/share/doc/kinoklip/`.
 
 ## Legal
+
 - **Independent project.** Kinoklip is not affiliated with, sponsored by or endorsed by Blackmagic
   Design. DaVinci Resolve, Fusion, Fairlight and Blackmagic Design are trademarks or registered
   trademarks of Blackmagic Design Pty Ltd. They are named here only to describe the workflow and
@@ -110,6 +119,7 @@ include GPL FFmpeg components; third-party notices are inside the bundle under
   is in [attribution.md](attribution.md).
 
 ## AI disclosure
+
 This project was built with AI: the code, tests and documentation were written by AI, directed
 and tested by the project owner. The only exception is the icon, which was drawn by hand.
 **We aren't appreciating AI art here.**

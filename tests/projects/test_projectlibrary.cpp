@@ -523,7 +523,7 @@ private slots:
 
     void projectKindsAreOpen()
     {
-        // A second kind (the single-file project of plan-v4 part 2 will be one) is listed and
+        // A second kind (the single-file project of docs/archive/plan-v4 part 2 will be one) is listed and
         // read through its own reader.
         ProjectKind kind;
         kind.id = QStringLiteral("testkind");

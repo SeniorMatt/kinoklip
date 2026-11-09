@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ExportFormats — the export format matrix (plan.md §5.8) as data: containers, video codecs
+// ExportFormats — the export format matrix (docs/archive/plan.md §5.8) as data: containers, video codecs
 // and audio codecs with their capabilities. The Deliver page builds its combo boxes from these
 // tables and ExportSettings::validate() checks combinations against them.
 #pragma once

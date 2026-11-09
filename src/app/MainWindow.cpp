@@ -322,7 +322,7 @@ Page* MainWindow::page(const QString& pageId) const
 
 void MainWindow::buildMenus()
 {
-    // Menus are data (plan.md 5.9): each category lists action ids, separators and submenu
+    // Menus are data (docs/archive/plan.md 5.9): each category lists action ids, separators and submenu
     // markers; nothing here knows what a menu contains.
     const ActionRegistry& registry = *m_ctx.actions;
     std::function<void(QMenu*, const QString&)> fillMenu;

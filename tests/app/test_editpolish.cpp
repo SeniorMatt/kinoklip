@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The polish-v3 editing aids in the real main window (docs/polish-v3.md): media dropped on
+// The polish-v3 editing aids in the real main window (docs/archive/polish-v3.md): media dropped on
 // the timeline viewer's edit overlay (spec 4.14), typed timecodes with the timeline focused
 // (spec 2.10), the two-up trim view and the drag offset label while trimming (spec 8.15,
 // 21.9). With KK_SCREENSHOT_DIR set, each state is also saved as a PNG for review.

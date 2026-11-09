@@ -26,7 +26,7 @@ struct Result;
 /// - Commands are registered once at start-up (see StandardActions.cpp) with a display text,
 ///   a menu category and an optional icon. Owners of the behaviour connect later:
 ///   `connect(ctx.actions->action("edit.split"), &QAction::triggered, ...)`.
-/// - Default shortcuts come from the active **keymap profile** (plan.md 5.9 rule 1):
+/// - Default shortcuts come from the active **keymap profile** (docs/archive/plan.md 5.9 rule 1):
 ///   - built-in profiles are the read-only files `resources/keymaps/<id>.json` (`:/keymaps/`);
 ///     the default is kDefaultProfile ("resolve-windows", Resolve's Windows defaults);
 ///   - user profiles are JSON files in `<AppData>/keymaps/` (userProfileDirectory()); each one
@@ -130,7 +130,7 @@ public:
     void addSeparator(const QString& category);
     /// Appends a submenu to @p category whose entries are those of @p subCategory (which may be
     /// filled later, e.g. by the theme with one action per colour scheme). Menus are data: the
-    /// main window builds the nested menu from this marker (plan.md 5.9).
+    /// main window builds the nested menu from this marker (docs/archive/plan.md 5.9).
     void addSubmenu(const QString& category, const QString& subCategory, const QString& title);
     /// Title of a submenu category added with addSubmenu(), or empty.
     [[nodiscard]] QString submenuTitle(const QString& subCategory) const

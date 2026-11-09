@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// SupportedFormats — extension tables of plan.md §5.8 and the lookups built from them.
+// SupportedFormats — extension tables of docs/archive/plan.md §5.8 and the lookups built from them.
 #include "media/SupportedFormats.h"
 
 #include "media/ImageSequence.h"

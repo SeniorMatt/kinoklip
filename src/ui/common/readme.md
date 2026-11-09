@@ -102,7 +102,7 @@ in their default state (snap on, linked on, select tool).
 
 ## Keymap profiles
 
-Default keys come from the active keymap profile (plan.md 5.9 rule 1):
+Default keys come from the active keymap profile (docs/archive/plan.md 5.9 rule 1):
 
 - **Built-in** profiles: `resources/keymaps/<id>.json` (read-only, compiled in). The default is
   `resolve-windows` (Resolve's Windows defaults, documented in docs/keymap-resolve-windows.md),

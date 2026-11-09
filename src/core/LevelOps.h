@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // LevelOps — pure edits behind the timeline's audio level lines (clip volume "rubber band")
 // and the clip fade handles: offset the volume, add / move volume keys, set fades. Callable
-// without the mouse (plan.md 5.9b); the timeline gestures only fill in the arguments.
+// without the mouse (docs/archive/plan.md 5.9b); the timeline gestures only fill in the arguments.
 #pragma once
 
 #include "core/SelectionModel.h"

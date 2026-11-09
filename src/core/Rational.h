@@ -15,7 +15,7 @@ struct Rational
     friend constexpr bool operator==(const Rational&, const Rational&) = default;
 };
 
-// Timeline frame <-> microseconds helpers (see plan.md §5.1).
+// Timeline frame <-> microseconds helpers (see docs/archive/plan.md §5.1).
 inline int64_t framesToUs(int64_t frames, Rational fps)
 {
     return fps.isValid() ? (int64_t)std::llround(double(frames) * 1e6 * fps.den / fps.num) : 0;

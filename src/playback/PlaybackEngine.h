@@ -29,7 +29,7 @@ class MediaPool;
 class Timeline;
 
 /// Transport conventions that differ between editors (and future "interface profiles", see
-/// plan.md 5.10). Kept as data so a profile can swap them; read from QSettings by
+/// docs/archive/plan.md 5.10). Kept as data so a profile can swap them; read from QSettings by
 /// fromSettings() (keys under "playback/").
 struct PlaybackBehaviour
 {

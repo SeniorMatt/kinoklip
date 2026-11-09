@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Stress benchmark (polish round 4, docs/polish-v3.md "Large-project stress pass"): a one hour
+// Stress benchmark (polish round 4, docs/archive/polish-v3.md "Large-project stress pass"): a one hour
 // project with 8 video and 8 audio tracks and about 1,500 clips (tests/timeline/LargeProject.h)
 // in the Edit page's widgets (timeline, Edit Index). Measures project load / save and
 // autosave, timeline paint while scrolling and zooming, edit latency (blade, ripple delete,
@@ -35,7 +35,7 @@ using namespace kk::timelinemetrics;
 
 namespace {
 
-// Ceilings (ms). The measured numbers are recorded in docs/polish-v3.md; these are several
+// Ceilings (ms). The measured numbers are recorded in docs/archive/polish-v3.md; these are several
 // times higher so that a loaded CI machine does not fail them.
 constexpr double kMaxSaveMs = 400.0;
 constexpr double kMaxLoadMs = 600.0;

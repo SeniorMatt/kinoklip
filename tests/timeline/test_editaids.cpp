@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Editing aids of the polish-v3 round (docs/polish-v3.md): the drag offset label (spec 21.9),
+// Editing aids of the polish-v3 round (docs/archive/polish-v3.md): the drag offset label (spec 21.9),
 // the trim preview of the two-up view (spec 8.15), typed timecodes (spec 2.10) and the
 // edits of the viewer's edit overlay (spec 4.14), driven through the widget and controller.
 #include "TimelineTestUtils.h"

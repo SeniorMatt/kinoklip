@@ -1,3 +1,5 @@
+> Historical document, kept for reference. The current plan is [docs/roadmap.md](../roadmap.md).
+
 # Kinoklip — Master Plan (v0.1, overnight build)
 
 > "Kinoklip" is a **placeholder name**. Renaming = change `APP_NAME`/`APP_ID` in `CMakeLists.txt`

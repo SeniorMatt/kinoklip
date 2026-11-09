@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // MixerOps — pure edits of the Audio page's mixer (buses, routing, channel strips, fader / pan
-// automation). Callable without the mouse (plan.md 5.9b); the mixer widgets only fill in the
+// automation). Callable without the mouse (docs/archive/plan.md 5.9b); the mixer widgets only fill in the
 // arguments and wrap each gesture in one Project edit.
 #pragma once
 

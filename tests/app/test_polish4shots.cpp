@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Polish round 4 in the real main window (docs/polish-v3.md, Round 4), in the default
+// Polish round 4 in the real main window (docs/archive/polish-v3.md, Round 4), in the default
 // Kinoklip colour scheme: ranged markers on the ruler and on a clip, the Normalize Audio
 // Levels dialog, the History window and the Edit Index column menu. Checks that each state
 // appears; with KK_SCREENSHOT_DIR set each one is also saved as a PNG for review.

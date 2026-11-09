@@ -7,7 +7,7 @@ the AppImage is made with the official `appimagetool`, downloaded once at a pinn
 checked against its SHA-256 (see "The AppImage" below). Primary target: ThinkPad T14s Gen 2
 (Iris Xe), KDE Linux (Arch based, Wayland). **Build host: the Arch Linux container `kk-arch`**
 (Qt 6.12, KDE Frameworks 6.31, Breeze 6.8.2, FFmpeg 9, glibc 2.44, GCC 16), so the bundle
-carries the real Breeze look (plan.md 4): the Breeze style plugin, KDE's icon engine, the Breeze
+carries the real Breeze look (docs/archive/plan.md 4): the Breeze style plugin, KDE's icon engine, the Breeze
 icons and the KDE colour schemes. Verified to run on the build container and, from a clean
 environment, on Linux Mint 22 / Ubuntu 24.04 (glibc 2.39, Breeze 5 icons on the host) with
 identical rendering.

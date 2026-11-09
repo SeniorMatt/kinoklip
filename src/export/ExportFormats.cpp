@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ExportFormats — the tables of plan.md §5.8 (export side). To add a container or codec, add a
+// ExportFormats — the tables of docs/archive/plan.md §5.8 (export side). To add a container or codec, add a
 // row here, teach EncoderCatalog how to configure it, and add a preset if users should see it.
 #include "export/ExportFormats.h"
 

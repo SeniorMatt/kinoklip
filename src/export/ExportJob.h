@@ -52,7 +52,7 @@ struct ExportResult
     [[nodiscard]] double averageFps() const { return seconds > 0 ? double(frames) / seconds : 0.0; }
 };
 
-/// One render job (plan.md §5.6).
+/// One render job (docs/archive/plan.md §5.6).
 ///
 /// Pipeline: run() keeps up to kFramesInFlight Compositor::renderAsync() requests queued (the
 /// render thread renders frame N+1 while frame N is read back and encoded here), converts

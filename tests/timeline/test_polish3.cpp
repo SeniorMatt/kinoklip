@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Third polish round of the Edit page (docs/polish-v3.md, Round 3): source timecode on clips
+// Third polish round of the Edit page (docs/archive/polish-v3.md, Round 3): source timecode on clips
 // (spec 12.14) and the speed-change nudges (29.17).
 #include "TimelineTestUtils.h"
 #include "core/MediaPool.h"

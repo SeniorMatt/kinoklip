@@ -31,7 +31,7 @@ struct ClipData;
 ///   composition with the next edit, never as a step of its own.
 /// - **Selection** of nodes and notes is UI state (not undoable), pruned on every change.
 ///
-/// Commands are plain methods with explicit arguments (plan.md 5.9b): the widgets only map
+/// Commands are plain methods with explicit arguments (docs/archive/plan.md 5.9b): the widgets only map
 /// mouse and keys to them.
 ///
 /// Thread-safety: GUI thread only.

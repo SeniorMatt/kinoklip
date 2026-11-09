@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Polish round 2 in the real main window (docs/polish-v3.md, Round 2), in the default
+// Polish round 2 in the real main window (docs/archive/polish-v3.md, Round 2), in the default
 // Kinoklip colour scheme: offline media in the timeline and viewer, multi-clip "Mixed"
 // fields, the on-screen Transform controls on a title, the Timeline View Options and track
 // header menus, the viewer context menu, the Cut page's smart edit overlay and the Audio

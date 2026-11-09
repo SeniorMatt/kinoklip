@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// First play after import (docs/polish-v3.md R2): in the real main window, the time from the
+// First play after import (docs/archive/polish-v3.md R2): in the real main window, the time from the
 // import of a file to the first frame shown in the timeline viewer and to the first audio a
 // (fake) sound card plays, and the longest stall of the GUI event loop on the way. A cold
 // media cache (test mode paths) like a first import. The numbers go to the test log; the

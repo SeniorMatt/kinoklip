@@ -16,7 +16,7 @@ namespace kk {
 /// QSettings (or the module that owns them) in the constructor and store them in apply().
 /// They never assume which dialog shows them: today the Resolve-style PreferencesDialog shows
 /// them in a System / User section list, a future Plasma profile can put them into a
-/// KConfigDialog-style sidebar (plan.md 5.9, rule 4).
+/// KConfigDialog-style sidebar (docs/archive/plan.md 5.9, rule 4).
 class SettingsPage : public QWidget
 {
     Q_OBJECT
