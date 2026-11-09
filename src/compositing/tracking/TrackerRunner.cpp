@@ -13,6 +13,12 @@ namespace {
 
 constexpr int kPrefetch = 2; ///< pictures requested ahead of the one being matched
 
+/// Normalised (u from the left, v from the bottom) <-> image pixels of an image w x h.
+Vec2 toPixels(double u, double v, double w, double h)
+{
+    return {u * w - 0.5, (1.0 - v) * h - 0.5};
+}
+
 } // namespace
 
 TrackerRunner::TrackerRunner(QObject* parent)
@@ -97,6 +103,10 @@ void TrackerRunner::launchStep()
         }
         const GrayImage gray = grayFromImage(rendered->image);
         const double w = gray.width, h = gray.height;
+        if (run->job.planar) {
+            runPlanar(*run, gray, first, step);
+            return step;
+        }
         if (first) {
             TrackerSettings settings;
             settings.patternSize = std::max(8, int(std::lround(run->job.patternFraction * w)));
@@ -127,6 +137,49 @@ void TrackerRunner::launchStep()
         step.sample.v = 1.0 - (r.position.y + 0.5) / h;
         return step;
     }));
+}
+
+void TrackerRunner::runPlanar(Run& run, const GrayImage& gray, bool first, Step& step)
+{
+    const double w = gray.width, h = gray.height;
+    const TrackJob& job = run.job;
+    auto store = [&](const Quad& q) {
+        for (size_t i = 0; i < 4; ++i) {
+            step.sample.corners[2 * i] = (q[i].x + 0.5) / w;
+            step.sample.corners[2 * i + 1] = 1.0 - (q[i].y + 0.5) / h;
+        }
+        const Vec2 c = quadCentre(q);
+        step.sample.u = (c.x + 0.5) / w;
+        step.sample.v = 1.0 - (c.y + 0.5) / h;
+        step.sample.planar = true;
+    };
+    if (first) {
+        PlanarSettings settings;
+        settings.patchSize = std::max(9, int(std::lround(job.patternFraction * w)));
+        settings.searchRadius = std::max(2, int(std::lround(job.searchFraction * w / 2)));
+        settings.minCorrelation = job.minCorrelation;
+        run.planarTracker = PlanarTracker(settings);
+        Quad q;
+        for (size_t i = 0; i < 4; ++i)
+            q[i] = toPixels(job.startCorners[2 * i], job.startCorners[2 * i + 1], w, h);
+        if (!run.planarTracker.reset(gray, q)) {
+            step.outcome = TrackOutcome::Lost;
+            step.reason = QObject::tr("The region has no detail to follow. Move the corners "
+                                      "onto a textured, fully visible surface.");
+            return;
+        }
+        store(q);
+        step.sample.correlation = 1.0;
+        return;
+    }
+    const PlanarResult r = run.planarTracker.track(gray);
+    step.sample.correlation = r.correlation;
+    if (!r.ok) {
+        step.outcome = TrackOutcome::Lost;
+        step.reason = QObject::tr("The surface was lost.");
+        return;
+    }
+    store(r.corners);
 }
 
 void TrackerRunner::onStepDone(quint64 generation)

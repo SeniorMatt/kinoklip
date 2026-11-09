@@ -2,6 +2,8 @@
 // PointTracker implementation. See the header for the method.
 #include "compositing/tracking/PointTracker.h"
 
+#include "compositing/tracking/PatchMatch.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -66,6 +68,11 @@ double correlationAt(
         return 0.0;
     return dot / (std::sqrt(var) * norm);
 }
+
+} // namespace
+
+// The matching steps below are shared with the PlanarTracker (see PatchMatch.h).
+namespace detail {
 
 /// Normalised correlation at a real position (bicubic samples).
 double correlationReal(
@@ -170,7 +177,7 @@ Vec2 refine(const GrayImage& image, Vec2 start, const std::vector<float>& values
     return p;
 }
 
-} // namespace
+} // namespace detail
 
 float GrayImage::sample(double x, double y) const
 {
@@ -313,16 +320,16 @@ TrackResult PointTracker::track(const GrayImage& next)
         by = int(std::lround(m_position.y * topScale));
     double best = -2.0;
     const int radius = std::max(1, int(std::ceil((m_settings.searchSize - 1) / 2.0 * topScale)));
-    if (!bestInteger(pyramid[size_t(top)].image, bx, by, radius, topPatch.values, topPatch.size,
-            topPatch.norm, &bx, &by, &best))
+    if (!detail::bestInteger(pyramid[size_t(top)].image, bx, by, radius, topPatch.values,
+            topPatch.size, topPatch.norm, &bx, &by, &best))
         return result;
     // Finer levels: scale up and look a few pixels around.
     for (int l = top - 1; l >= 0; --l) {
         const Patch& patch = m_patches[size_t(l)];
         int nx = bx * 2, ny = by * 2;
         double c = -2.0;
-        if (!bestInteger(pyramid[size_t(l)].image, nx, ny, kRefineRadius, patch.values, patch.size,
-                patch.norm, &nx, &ny, &c))
+        if (!detail::bestInteger(pyramid[size_t(l)].image, nx, ny, kRefineRadius, patch.values,
+                patch.size, patch.norm, &nx, &ny, &c))
             return result;
         bx = nx;
         by = ny;
@@ -330,8 +337,9 @@ TrackResult PointTracker::track(const GrayImage& next)
     }
     const Patch& base = m_patches.front();
     const GrayImage& image = pyramid.front().image;
-    Vec2 p = refine(image, {double(bx), double(by)}, base.values, base.size, base.norm, 1.5);
-    double corr = correlationReal(image, p, base.values, base.size, base.norm);
+    Vec2 p
+        = detail::refine(image, {double(bx), double(by)}, base.values, base.size, base.norm, 1.5);
+    double corr = detail::correlationReal(image, p, base.values, base.size, base.norm);
     if (corr < best) { // refinement never makes the match worse
         p = {double(bx), double(by)};
         corr = best;

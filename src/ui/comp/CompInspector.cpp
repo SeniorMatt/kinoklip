@@ -2,6 +2,7 @@
 // CompInspector implementation: the stand-in clip, the header and the edit protocol.
 #include "ui/comp/CompInspector.h"
 
+#include "compositing/tracking/TrackLink.h"
 #include "core/MediaPool.h"
 #include "core/NodeRegistry.h"
 #include "core/Project.h"
@@ -140,6 +141,8 @@ void CompInspector::rebuild()
         delete m_scroll->takeWidget();
         m_group = nullptr;
         m_source = nullptr;
+        m_follow = nullptr;
+        m_followButton = nullptr;
         if (n) {
             const compadapter::NodeTypeInfo* info = compadapter::nodeType(n->type);
             m_group = new ParamGroupBox(info ? info->name : n->type);
@@ -157,7 +160,7 @@ void CompInspector::rebuild()
             auto* holder = new QWidget;
             auto* l = new QVBoxLayout(holder);
             l->setContentsMargins(0, 0, 0, 0);
-            if (n->type == nodetypes::Tracker) {
+            if (n->type == nodetypes::Tracker || n->type == nodetypes::PlanarTracker) {
                 m_tracker->setNode(n->id);
                 l->addWidget(m_tracker);
                 m_tracker->show();
@@ -185,6 +188,41 @@ void CompInspector::rebuild()
                 m_group->hide();
                 l->addWidget(createPlaceholderContent(tr("This node has no parameters")));
             }
+            if (tracking::canFollowTrack(*n)) {
+                // "Connect to > Tracker n": the track of a Tracker / Planar Tracker is copied
+                // into this node's Center keyframes (there are no live parameter links).
+                auto* row = new QWidget;
+                auto* h = new QHBoxLayout(row);
+                h->setContentsMargins(
+                    metrics::kSpaceM, metrics::kSpaceS, metrics::kSpaceM, metrics::kSpaceS);
+                h->addWidget(new QLabel(tr("Follow Track")));
+                m_follow = new QComboBox;
+                m_follow->setObjectName(QStringLiteral("CompFollowTrack"));
+                m_follow->setToolTip(tr("A track made by a Tracker or Planar Tracker node"));
+                h->addWidget(m_follow, 1);
+                m_followButton = new QToolButton;
+                m_followButton->setObjectName(QStringLiteral("CompFollowConnect"));
+                m_followButton->setText(tr("Connect"));
+                m_followButton->setToolTip(tr("Copy the track into this node's Center keyframes, "
+                                              "keeping its place at the playhead and following "
+                                              "the track's movement"));
+                h->addWidget(m_followButton);
+                l->addWidget(row);
+                connect(m_followButton, &QToolButton::clicked, this, [this] {
+                    if (!m_session || !m_follow || m_follow->currentData().isNull())
+                        return;
+                    const quint64 target = m_node;
+                    const quint64 source = m_follow->currentData().toULongLong();
+                    const int64_t frame = m_session->compFrame();
+                    const CompNode* from = m_session->composition().node(source);
+                    m_session->edit(tr("Connect to %1").arg(from ? from->name : QString()),
+                        [target, source, frame](Composition& c) {
+                            CompNode* t = c.node(target);
+                            const CompNode* s = c.node(source);
+                            return t && s && tracking::linkToTrack(*t, *s, frame);
+                        });
+                });
+            }
             l->addStretch(1);
             m_scroll->setWidget(holder);
         }
@@ -202,6 +240,8 @@ void CompInspector::rebuild()
             m_group->setEnabled(!n->locked);
         if (m_source)
             fillSourcePicker(*n);
+        if (m_follow)
+            fillFollowPicker(*n);
     }
     refreshRows();
 }
@@ -223,6 +263,24 @@ void CompInspector::fillSourcePicker(const CompNode& node)
     }
     m_source->setCurrentIndex(index);
     m_source->setEnabled(!node.locked);
+}
+
+void CompInspector::fillFollowPicker(const CompNode& node)
+{
+    const quint64 keep = m_follow->currentData().toULongLong();
+    const QSignalBlocker block(m_follow);
+    m_follow->clear();
+    for (const quint64 id : tracking::trackSources(m_session->composition())) {
+        if (const CompNode* src = m_session->composition().node(id))
+            m_follow->addItem(src->name, id);
+    }
+    if (m_follow->count() == 0)
+        m_follow->addItem(tr("No tracks yet"), QVariant());
+    const int index = m_follow->findData(keep);
+    m_follow->setCurrentIndex(index >= 0 ? index : 0);
+    const bool usable = !m_follow->currentData().isNull() && !node.locked;
+    m_follow->setEnabled(usable);
+    m_followButton->setEnabled(usable);
 }
 
 void CompInspector::refreshRows()

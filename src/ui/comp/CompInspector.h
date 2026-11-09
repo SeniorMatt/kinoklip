@@ -51,6 +51,10 @@ public:
     /// MediaIn nodes: the Source picker (the clip's own picture or a media pool item), else
     /// null (spec 42b.30).
     [[nodiscard]] QComboBox* sourcePicker() const { return m_source; }
+    /// Nodes with a position (Center X / Y) except the trackers: the list of tracks the node can
+    /// follow, and the button that connects it (writes the track into its keyframes), else null.
+    [[nodiscard]] QComboBox* followPicker() const { return m_follow; }
+    [[nodiscard]] QToolButton* followButton() const { return m_followButton; }
     /// The Tracker controls (a Tracker node must be shown to see them).
     [[nodiscard]] TrackerPanel* trackerPanel() const { return m_tracker; }
     /// The header's enable toggle (tests).
@@ -92,6 +96,9 @@ private:
     ParamGroupBox* m_group = nullptr;
     QComboBox* m_source = nullptr; ///< sourcePicker()
     void fillSourcePicker(const CompNode& node);
+    void fillFollowPicker(const CompNode& node);
+    QComboBox* m_follow = nullptr; ///< followPicker()
+    QToolButton* m_followButton = nullptr; ///< followButton()
     QWidget* m_empty = nullptr;
     TrackerPanel* m_tracker = nullptr; ///< owned by the inspector, shown inside the scroll area
     int m_openEdits = 0;

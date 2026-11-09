@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// TrackerPanel — the Tracker node's controls in the Compositing Inspector: track backward,
-// stop, track forward, a progress bar and a status line; runs the tracking and stores the
+// TrackerPanel — the Tracker and Planar Tracker nodes' controls in the Compositing Inspector: track
+// backward, stop, track forward, a progress bar and a status line; runs the tracking and stores the
 // result in the node.
 #pragma once
 
@@ -35,7 +35,7 @@ class TrackerPanel : public QWidget
 public:
     TrackerPanel(AppContext& ctx, CompSession* session, QWidget* parent = nullptr);
 
-    /// The Tracker node shown (0 = none).
+    /// The Tracker or Planar Tracker node shown (0 = none).
     void setNode(quint64 nodeId);
     /// Starts tracking the shown node from the playhead; false if it cannot start (no picture
     /// to track, no engine, nothing to track in that direction, locked node). The reason is in

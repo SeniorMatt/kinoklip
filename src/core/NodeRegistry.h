@@ -57,7 +57,10 @@ enum class ViewerControls : quint8 {
     Polygon,
     /// The tracked point (CenterX, CenterY) with its pattern and search boxes (PatternSize,
     /// SearchSize): Tracker.
-    Tracker
+    Tracker,
+    /// The four corner points of a region (nodekeys::planarCorner()) joined by a quad, each
+    /// corner draggable, the whole quad movable: Planar Tracker.
+    Planar
 };
 
 /// Describes one node type.
@@ -113,6 +116,7 @@ inline const QString Crop = QStringLiteral("crop");
 inline const QString Resize = QStringLiteral("resize");
 inline const QString Letterbox = QStringLiteral("letterbox");
 inline const QString Tracker = QStringLiteral("tracker");
+inline const QString PlanarTracker = QStringLiteral("planar_tracker");
 inline const QString Background = QStringLiteral("background");
 inline const QString Text = QStringLiteral("text");
 inline const QString FastNoise = QStringLiteral("fast_noise");
@@ -165,6 +169,17 @@ inline const QString PatternSize = QStringLiteral("patternSize"); ///< px, side 
 inline const QString SearchSize = QStringLiteral("searchSize"); ///< px, side of the search box
 inline const QString TrackMode = QStringLiteral("trackMode"); ///< choice (trackmodes::)
 inline const QString RefFrame = QStringLiteral("refFrame"); ///< comp frame where the offset is 0
+// Planar Tracker: the region's corners, normalised like CenterX / CenterY (y from the bottom),
+// keyframed by the tracking. Also uses PatternSize, SearchSize, TrackMode and RefFrame.
+inline constexpr int kPlanarCorners = 4;
+/// Key of corner @p corner (0 top-left, 1 top-right, 2 bottom-right, 3 bottom-left) of the
+/// Planar Tracker, "cornerNX" / "cornerNY" with N = corner + 1.
+inline QString planarCorner(int corner, bool y)
+{
+    return QStringLiteral("corner%1%2")
+        .arg(corner + 1)
+        .arg(y ? QLatin1Char('Y') : QLatin1Char('X'));
+}
 // Letterbox.
 inline const QString TargetAspect = QStringLiteral("targetAspect"); ///< width / height, e.g. 2.39
 inline const QString Color = QStringLiteral("color"); ///< colour static
@@ -256,6 +271,10 @@ inline const QString FourCorner = QStringLiteral("four"); ///< tl color, tr 2, b
 namespace trackmodes {
 inline const QString MatchMove = QStringLiteral("matchMove"); ///< the input follows the track
 inline const QString Stabilize = QStringLiteral("stabilize"); ///< the input cancels the track
+/// Planar Tracker only: the input is pinned onto the tracked plane (its corners go to the
+/// tracked corners). MatchMove is "unsteady" there (the input moves, turns and scales with the
+/// plane), Stabilize is "steady" (it cancels that).
+inline const QString CornerPin = QStringLiteral("cornerPin");
 } // namespace trackmodes
 
 /// Channel Booleans sources, in the order of the choice list.

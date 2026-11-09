@@ -61,6 +61,27 @@ void main()
 }
 )";
 
+/// Planar Tracker corner pin: every output pixel looks up the input through the inverse of
+/// the projective map (uInvMatrix: output uv -> input uv, divided by its third coordinate, which
+/// the shared vertex shader cannot do for us). Edges antialiased like the Merge foreground.
+const char* const kWarpFragment = R"(
+uniform sampler2D uTex;
+uniform mat3 uInvMatrix;
+void main()
+{
+    vec3 h = uInvMatrix * vec3(vUv, 1.0);
+    if (abs(h.z) < 1e-9) {
+        fragColor = vec4(0.0);
+        return;
+    }
+    vec2 f = h.xy / h.z;
+    vec2 px = max(fwidth(f), vec2(1e-6));
+    vec2 d = min(f, 1.0 - f) / px;
+    float cover = clamp(min(d.x, d.y) + 0.5, 0.0, 1.0);
+    fragColor = texture(uTex, f) * cover;
+}
+)";
+
 /// mix(a, b, amount · mask alpha): Dissolve, and the mask input of every other node.
 const char* const kMixFragment = R"(
 uniform sampler2D uTex;
@@ -185,8 +206,10 @@ bool GlComposition::initialize(GlKit& kit, QString* why)
         || !build(kit, m_mix, "comp.mix", kMixFragment, why)
         || !build(kit, m_corrector, "comp.corrector", kCorrectorFragment, why)
         || !build(kit, m_channels, "comp.channels", kChannelsFragment, why)
-        || !build(kit, m_noise, "comp.noise", kNoiseFragment, why))
+        || !build(kit, m_noise, "comp.noise", kNoiseFragment, why)
+        || !build(kit, m_warp, "comp.warp", kWarpFragment, why))
         return false;
+    m_warpInverse = m_warp.uniform(gl, "uInvMatrix");
     m_mergeFgMatrix = m_merge.uniform(gl, "uFgMatrix");
     m_mergeMode = m_merge.uniform(gl, "uMode");
     m_mergeOpacity = m_merge.uniform(gl, "uOpacity");
@@ -217,7 +240,7 @@ bool GlComposition::initialize(GlKit& kit, QString* why)
 
 void GlComposition::destroy(GlKit& kit)
 {
-    for (GlProgram* p : {&m_merge, &m_mix, &m_corrector, &m_channels, &m_noise})
+    for (GlProgram* p : {&m_merge, &m_mix, &m_corrector, &m_channels, &m_noise, &m_warp})
         p->destroy(kit.gl());
     m_stack.clear();
 }
@@ -368,7 +391,8 @@ void GlComposition::evalNode(GlKit& kit, const CompEval& ev, int index)
         out = mixPass(kit, ev, textureOf(kit, mainOwner), textureOf(kit, fg),
             maskOwner >= 0 ? textureOf(kit, maskOwner) : 0, t);
         handledMask = true;
-    } else if (n.type == nodetypes::Transform || n.type == nodetypes::Tracker) {
+    } else if (n.type == nodetypes::Transform || n.type == nodetypes::Tracker
+        || n.type == nodetypes::PlanarTracker) {
         out = transformNode(kit, ev, n, mainOwner);
     } else if (n.type == nodetypes::Crop || n.type == nodetypes::Resize
         || n.type == nodetypes::Letterbox) {
@@ -481,13 +505,34 @@ PooledTarget GlComposition::transformNode(
 {
     if (input < 0)
         return {};
-    const QTransform m = n.type == nodetypes::Tracker
-        ? compmath::trackerMatrix(n.params, ev.compFrame, ev.frame)
-        : compmath::transformMatrix(n.params, ev.compFrame, ev.frame);
+    QTransform m;
+    if (n.type == nodetypes::PlanarTracker)
+        m = compmath::planarMatrix(n.params, ev.compFrame, ev.frame);
+    else if (n.type == nodetypes::Tracker)
+        m = compmath::trackerMatrix(n.params, ev.compFrame, ev.frame);
+    else
+        m = compmath::transformMatrix(n.params, ev.compFrame, ev.frame);
     if (m.isIdentity())
         return {};
     PooledTarget out = newTarget(kit, ev, true);
     kit.setBlendOver(false);
+    if (!m.isAffine()) {
+        // A corner pin in perspective: the quad blit would interpolate affinely, so look the
+        // input up per output pixel through the inverse map instead.
+        const QTransform toUv
+            = QTransform::fromScale(1.0 / ev.frame.width(), 1.0 / ev.frame.height());
+        bool invertible = false;
+        const QTransform outToIn = (toUv.inverted() * m * toUv).inverted(&invertible);
+        if (!invertible)
+            return out; // collapsed quad: nothing visible
+        GlFunctions* gl = kit.gl();
+        gl->glUseProgram(m_warp.id);
+        kit.setFullscreen(m_warp);
+        kit.setMatrix(m_warpInverse, outToIn);
+        kit.bindTexture(0, textureOf(kit, input));
+        kit.drawQuad();
+        return out;
+    }
     // Unit quad -> timeline px -> transformed -> target px -> NDC.
     const QTransform quad = QTransform::fromScale(ev.frame.width(), ev.frame.height()) * m
         * QTransform::fromScale(ev.scale, ev.scale) * GlKit::pixelToNdc(ev.size);
