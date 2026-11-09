@@ -1007,8 +1007,11 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         const TrackRef ref = hit.track;
         const int64_t frame = m_layout.frameAtX(event->pos().x());
         if (editops::gapAt(data, ref, frame)) {
-            menu.addAction(tr("Close Gap"), this,
+            // Shown on gaps between clips only; greyed out when it cannot close (locked track
+            // or other tracks in the way), so it never silently does nothing.
+            QAction* close = menu.addAction(tr("Close Gap"), this,
                 [this, ref, frame] { m_controller->closeGapAt(ref, frame); });
+            close->setEnabled(m_controller->canCloseGapAt(ref, frame));
             menu.addSeparator();
         }
         addAction("edit.paste");

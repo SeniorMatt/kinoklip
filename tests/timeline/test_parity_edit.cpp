@@ -89,6 +89,53 @@ private slots:
         QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));
     }
 
+    void spec10_13_closeGapAvailability()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 10));
+        t.put(kV1, solidClip(30, 10));
+        QVERIFY(t.c.canCloseGapAt(kV1, 15));
+        QVERIFY(!t.c.canCloseGapAt(kV1, 60)); // after the last clip: nothing to close
+    }
+
+    void spec10_15_blockedGapStillClosesOnItsOwnTrack()
+    {
+        // The owner's case: a gap on V1 while the audio clip runs across it.
+        for (const char* id : {"edit.delete", "edit.ripple_delete", ""}) {
+            Ctl t;
+            t.put(kV1, solidClip(0, 10));
+            t.put(kV1, solidClip(30, 10));
+            t.put(kA1, solidClip(0, 50));
+            QVERIFY(t.c.canCloseGapAt(kV1, 15));
+            const int before = t.undoCount();
+            if (*id) {
+                QVERIFY(t.c.selectGapAt(kV1, 15));
+                t.action(id)->trigger();
+            } else {
+                t.c.closeGapAt(kV1, 15);
+            }
+            QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));
+            QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("0:50"));
+            QCOMPARE(t.undoCount(), before + 1);
+        }
+    }
+
+    void spec10_14_deleteKeysRemoveSelectedGapOnAllTracks()
+    {
+        for (const char* id : {"edit.delete", "edit.ripple_delete"}) {
+            Ctl t;
+            t.put(kV1, solidClip(0, 10));
+            t.put(kV1, solidClip(30, 10));
+            t.put(kA1, solidClip(0, 10));
+            t.put(kA1, solidClip(30, 10));
+            QVERIFY(t.c.selectGapAt(kV1, 15));
+            t.action(id)->trigger();
+            QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));
+            QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("0:10 10:10"));
+            QVERIFY(!t.c.selectedGap());
+        }
+    }
+
     void spec10_7_backspaceLiftsMarkedRange()
     {
         Ctl t;

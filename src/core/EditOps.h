@@ -167,6 +167,11 @@ int64_t slideClip(TimelineData& data, quint64 clipId, int64_t delta);
 int64_t closeGap(
     TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope = RippleScope::TargetTracks);
 
+/// True if closeGap() with the same arguments would remove at least one frame. False after the
+/// last clip (open end), on a locked track, or when other auto-select tracks leave no room.
+[[nodiscard]] bool canCloseGap(const TimelineData& data, TrackRef ref, int64_t frame,
+    RippleScope scope = RippleScope::TargetTracks);
+
 /// Place on top: for each clip, starts at its PlacedClip::track and walks up its track list to
 /// the first unlocked track whose range [start, end) is empty; adds a new track on top if none
 /// is. Nothing is overwritten or rippled. Returns ids in input order (empty on invalid input).
