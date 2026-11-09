@@ -3,12 +3,13 @@
 
 <h1 align="center"><a href="https://github.com/SeniorMatt/kinoklip/releases">Download here</a></h1>
 <p align="center"><a href="docs/guide/readme.md">How to use Kinoklip</a></p>
+<p align="center"><a href="https://discord.gg/pCeHnvDn3x">Join our community server</a></p>
 
 A non-linear video editor written from scratch in C++20 with Qt 6 Widgets and FFmpeg. The layout,
 behaviour and default shortcuts follow DaVinci Resolve's Edit page, with the KDE Breeze look.
 Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 
-**[Roadmap](docs/roadmap.md)** · **[Discord](https://discord.gg/pCeHnvDn3x)**
+**[Roadmap](docs/roadmap.md)**
 
 All releases are alpha or beta pre-releases for now: expect bugs and keep backups.
 
