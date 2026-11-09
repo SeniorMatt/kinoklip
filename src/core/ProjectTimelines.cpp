@@ -565,6 +565,26 @@ quint64 Project::createTimeline(const QString& name, const QString& binId, int v
     return uid;
 }
 
+quint64 Project::importTimeline(TimelineData data, const QString& binId)
+{
+    data.uid = m_nextTimelineUid++;
+    if (data.name.isEmpty())
+        data.name = tr("Timeline");
+    const bool nameTaken = std::any_of(m_slots.begin(), m_slots.end(),
+        [&](const TimelineSlot& s) { return lookup(s.uid)->name == data.name; });
+    if (nameTaken)
+        data.name = uniqueTimelineName(data.name);
+    data.width = m_format.width;
+    data.height = m_format.height;
+    data.retimeProcess = m_format.retimeProcess;
+    data.useProjectSettings = data.fps == m_format.fps;
+    const quint64 uid = data.uid;
+    beginEdit(tr("Import Timeline"));
+    addTimeline(std::move(data), binId);
+    endEdit();
+    return uid;
+}
+
 quint64 Project::duplicateTimeline(quint64 uid)
 {
     const auto source = timelineData(uid);

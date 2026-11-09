@@ -181,6 +181,13 @@ public:
     /// bin @p binId. One undo step. Returns the uid. Does not activate it.
     quint64 createTimeline(const QString& name, const QString& binId = {}, int videoTracks = 1,
         int audioTracks = 1, std::optional<int64_t> startTimecode = std::nullopt);
+    /// Adds a finished timeline (File > Import > Timeline, imported .otio files) and its media
+    /// pool item in bin @p binId. @p data gets a new uid and the project's picture size and
+    /// retime process; it follows the project's frame rate settings when its own rate equals
+    /// the project's, else it keeps its rate. One undo step (part of the open one inside an
+    /// edit, so the media it uses can be added in the same step). Returns the uid. Does not
+    /// activate it.
+    quint64 importTimeline(TimelineData data, const QString& binId = {});
     /// Copies timeline @p uid (all clips; name + " copy") into the same bin. One undo step.
     /// Returns the new uid, or 0 if @p uid does not exist.
     quint64 duplicateTimeline(quint64 uid);

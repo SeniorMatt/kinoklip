@@ -201,6 +201,29 @@
       ]
     },
     {
+      "id": "move-a-timeline-to-another-editor",
+      "title": "Move a timeline to or from another editor",
+      "file": "move-a-timeline-to-another-editor.md",
+      "summary": "Send a timeline to DaVinci Resolve or another editor, or bring one in, with an OpenTimelineIO (.otio) file.",
+      "keywords": [
+        "otio",
+        "opentimelineio",
+        "export timeline",
+        "import timeline",
+        "resolve",
+        "davinci resolve",
+        "interchange",
+        "exchange",
+        "another editor",
+        "relink",
+        "offline"
+      ],
+      "contexts": [
+        "action:file.import_timeline",
+        "action:file.export_otio"
+      ]
+    },
+    {
       "id": "zoom-crop-and-picture-in-picture",
       "title": "Zoom, crop and picture-in-picture",
       "file": "zoom-crop-and-picture-in-picture.md",

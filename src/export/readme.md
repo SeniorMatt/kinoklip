@@ -17,6 +17,7 @@ log-routing hook), `render` (Compositor, AudioMixer) and FFmpeg; never on widget
 | `RenderQueue.h` | GUI-side sequential background queue (Deliver page) |
 | `RenderCommand.h` | `kinoklip --render <project.kkproj> <out-file> [--preset id]` |
 | `EdlExport.h` | `edl::timelineToEdl()` (CMX3600: V1 / A1 / A2 events, dissolves, M2 speed lines, source timecode offsets through a callback), `edl::markersToEdl()` / `markersToCsv()` (timeline markers), `writeTextFile()`; pure, tested by parsing the EDL back (File > Export, spec 18.12 / 18.13) |
+| `Otio.h` | `otio::timelineToOtio()` (OpenTimelineIO JSON: tracks, Clip.2 / Clip.1, gaps, Transition.1 dissolves, LinearTimeWarp speed, markers; source times kept to the microsecond as fractional RationalTime values) and `otio::importOtio()` (reads Clip.1 / Clip.2 and the schemas of an editor timeline, skips and reports the rest; media is found through a callback, so it stays pure). No OpenTimelineIO library: the file is plain JSON read with QJsonDocument. `OtioExport.cpp`, `OtioImport.cpp`, `OtioCommon.cpp` (NTSC rate snapping, marker colour names); tested by round trip and hand-written files (File > Export / Import, spec 51) |
 
 ```cpp
 kk::ExportSettings s;

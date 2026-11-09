@@ -14,9 +14,9 @@ keep Kinoklip's keys or are left free where Shotcut uses the letter.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 340 commands; 32 mapped to Shotcut's key (sure 21, likely 11,
+Counts: 342 commands; 32 mapped to Shotcut's key (sure 21, likely 11,
 unsure 0); 147 keep the default (Resolve) key; 8 have no key because
-Shotcut uses it for something else; 153 have no key in either.
+Shotcut uses it for something else; 155 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
 the JSON file and this page and stops when a key is used twice in one scope);

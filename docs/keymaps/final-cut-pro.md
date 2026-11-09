@@ -16,9 +16,9 @@ leaves a gap.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 340 commands; 88 mapped to Final Cut Pro's key (sure 75, likely 12,
+Counts: 342 commands; 88 mapped to Final Cut Pro's key (sure 75, likely 12,
 unsure 1); 97 keep the default (Resolve) key; 9 have no key because
-Final Cut Pro uses it for something else; 146 have no key in either.
+Final Cut Pro uses it for something else; 148 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
 the JSON file and this page and stops when a key is used twice in one scope);

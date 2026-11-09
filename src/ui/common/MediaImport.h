@@ -21,6 +21,8 @@ struct AppContext;
 
 /// File dialog name filter for importable media ("Media files (*.mp4 *.mov ...);;All files (*)").
 [[nodiscard]] QString mediaFileDialogFilter();
+/// File dialog filter of File > Import > Timeline (OpenTimelineIO .otio).
+[[nodiscard]] QString otioFileDialogFilter();
 /// File dialog filter of File > Import Subtitle (SubRip .srt, WebVTT .vtt).
 [[nodiscard]] QString subtitleFileDialogFilter();
 
