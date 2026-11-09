@@ -212,8 +212,8 @@
 - On main, unreleased: distrofit (nearly all libs bundled as fallbacks, start-failure dialog, scripts/check_distros.sh), readme "Why use Kinoklip over Resolve?", docs/agent-guide.md + opencode.json, docs/recovery.md.
 - Open branch `searchbox` (~/cutwise-wt/searchbox): min-width fix breaks test_mainwindow (sideColumnsKeepDefaultShare, spec24_23_oldLayoutResetOnce). Better: hide/shrink the thumbnail slider when narrow. Not merged.
 - Next-version list: docs/agent-guide.md "Planned for the next version" (plus issue 2). Nothing started.
-- Pending owner decisions: add "(answered by Claude)" to issue 1 comments?; rewrite history to drop Claude lines (needs explicit go, force-push).
-- Rules: no Claude lines in commits; replies to people say "answered by Claude"; releases only on the owner's go; manager at medium effort, delegate per ~/.claude/CLAUDE.md ladder.
+- Pending owner decisions: rewrite history to drop Claude lines (needs explicit go, force-push).
+- Rules: no Claude lines in commits; no Claude note on replies either; releases only on the owner's go; manager at medium effort, delegate per ~/.claude/CLAUDE.md ladder.
 
 ## Handoff 2026-11-09 (evening)
 - Released 1.1.7-beta.1: point Tracker (#3), thumbnails give way to playback (#2), gap close with blocked/linked tracks, distro bundle. Asked the #2 and #3 reporter (Uriziel01) to confirm; issues stay open until they do.
@@ -221,4 +221,4 @@
 - check_distros.sh now reports INCOMPLETE instead of a false OK; KK_MIN_FREE_GB sets the free-space stop (default 15).
 - Merge lesson: worktree agents committed the tests/data/generated symlink twice; .gitignore now covers it. Check `git diff --stat main...branch` before merging.
 - Next (roadmap Now): search box squeeze, Keyframes/Curves switch look, FUSE-missing error, full licence texts, then Editing and Audio groups. Stereo 3D, raw, masks and removal are in "Next big release".
-- Owner rules: release without asking once checks pass; notify every finished task; no Claude lines in commits; "(answered by Claude)" on replies.
+- Owner rules: release without asking once checks pass; notify every finished task; no Claude lines in commits; no Claude mention in commits or comments.
