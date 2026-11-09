@@ -519,6 +519,12 @@ copy_licence() {
                 log "note: $pkg ships no licence text, using the $id text"
             fi
         done
+        # Upstream texts kept in the repository for packages whose metadata uses old, non-SPDX ids
+        if ! have_text "$LICENSES/$pkg" && have_text "$ROOT/packaging/linux/licenses/$pkg"; then
+            mkdir -p "$LICENSES/$pkg"
+            cp -L "$ROOT/packaging/linux/licenses/$pkg"/* "$LICENSES/$pkg/"
+            log "note: $pkg ships no licence text, using packaging/linux/licenses/$pkg"
+        fi
         have_text "$LICENSES/$pkg" || die "no licence text for bundled package $pkg"
     elif [ -s "/usr/share/doc/$pkg/copyright" ]; then
         cp -L "/usr/share/doc/$pkg/copyright" "$LICENSES/$pkg.copyright"
