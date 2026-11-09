@@ -1,0 +1,186 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Command — the command layer: named editor operations with typed parameters and a JSON result.
+// The command-line front end (app/CliRunner.h) calls it, and so will an MCP server.
+#pragma once
+
+#include "core/Rational.h"
+
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QString>
+#include <QStringList>
+#include <QVector>
+
+#include <cstdint>
+#include <functional>
+#include <optional>
+
+namespace kk {
+
+class Project;
+
+namespace commands {
+
+/// Type of a command parameter. Front ends convert text to it, so a value may arrive as a JSON
+/// value of that type or as a string the registry parses.
+enum class ParamType {
+    String,
+    Path, ///< a file or folder name
+    Integer,
+    Number,
+    Boolean,
+    /// A time: a frame count (JSON number or "125") or a timecode "HH:MM:SS:FF"; a leading '-'
+    /// makes it negative. Read with CommandArgs::time().
+    Time,
+    StringList ///< a JSON array of strings; the command line repeats the option
+};
+
+/// One parameter of a command.
+struct ParamSpec
+{
+    QString name; ///< lower case, words joined by '-' ("source-in")
+    ParamType type = ParamType::String;
+    QString description;
+    bool required = false;
+    QString defaultText; ///< shown in the help when not empty
+    QStringList choices; ///< allowed values of a String parameter (empty = any)
+};
+
+/// What a command does to the project file named by the `project` parameter.
+enum class ProjectUse {
+    None, ///< needs no project (version)
+    Read, ///< loads it, never writes it
+    Modify, ///< loads it, saves it afterwards (to `output` when given)
+    Create ///< makes a new project and saves it to `project`
+};
+
+/// The description of a command: everything a front end needs to list it and check input.
+/// The universal parameters `project`, `output` and `timeline` are added by the registry
+/// according to @c use and @c usesTimeline.
+struct CommandSpec
+{
+    QString name; ///< "group.verb" ("clip.add") or one word ("render")
+    QString description;
+    QVector<ParamSpec> params; ///< the command's own parameters
+    ProjectUse use = ProjectUse::Read;
+    bool usesTimeline = false; ///< accepts `timeline` (a timeline id or name; default: active)
+    bool timelineRequired = false; ///< `timeline` must be given (timeline.select)
+};
+
+/// Succeeded with a JSON object and a short human sentence, or failed with a code and a message.
+struct CommandResult
+{
+    bool ok = false;
+    QJsonObject data; ///< the result for machines
+    QString text; ///< one or a few lines for people
+    QString errorCode; ///< stable lower-case code of a failure ("unknown_clip")
+    QString error; ///< message of a failure
+
+    [[nodiscard]] static CommandResult success(QJsonObject data, QString text)
+    {
+        CommandResult r;
+        r.ok = true;
+        r.data = std::move(data);
+        r.text = std::move(text);
+        return r;
+    }
+    [[nodiscard]] static CommandResult failure(QString code, QString message)
+    {
+        CommandResult r;
+        r.errorCode = std::move(code);
+        r.error = std::move(message);
+        return r;
+    }
+    /// {"ok":true,"result":{...}} or {"ok":false,"error":{"code","message"}}.
+    [[nodiscard]] QJsonObject toJson() const;
+};
+
+/// The checked arguments of one call: every name is a declared parameter and every value has
+/// its parameter's type (strings of numbers were converted). Defaults are not filled in.
+class CommandArgs
+{
+public:
+    explicit CommandArgs(QJsonObject values = {})
+        : m_values(std::move(values))
+    { }
+    [[nodiscard]] bool has(const QString& name) const { return m_values.contains(name); }
+    [[nodiscard]] QString string(const QString& name, const QString& fallback = {}) const;
+    [[nodiscard]] qint64 integer(const QString& name, qint64 fallback = 0) const;
+    [[nodiscard]] double number(const QString& name, double fallback = 0) const;
+    [[nodiscard]] bool boolean(const QString& name, bool fallback = false) const;
+    [[nodiscard]] QStringList strings(const QString& name) const;
+    /// A Time parameter in frames of @p fps; std::nullopt when absent. Sets @p error (and
+    /// returns std::nullopt) when the text is not a time.
+    [[nodiscard]] std::optional<int64_t> time(
+        const QString& name, Rational fps, QString* error) const;
+    [[nodiscard]] const QJsonObject& values() const { return m_values; }
+
+private:
+    QJsonObject m_values;
+};
+
+/// Progress of a long command (render): @p fraction 0..1 and a short line.
+using ProgressFn = std::function<void(double fraction, const QString& message)>;
+
+/// What a running command can use.
+struct CommandContext
+{
+    Project* project = nullptr; ///< loaded (or new) project; null for ProjectUse::None
+    QString projectPath; ///< the file the project was loaded from / will be saved to
+    ProgressFn progress; ///< may be empty
+};
+
+using CommandHandler = std::function<CommandResult(CommandContext&, const CommandArgs&)>;
+
+/// A spec with the code that runs it.
+struct Command
+{
+    CommandSpec spec;
+    CommandHandler run;
+};
+
+/// All commands. Built once; execute() is the single entry point of every front end:
+/// it checks the arguments, loads the project, selects the timeline, runs the handler and
+/// saves the project when the command modifies it.
+/// Thread-safety: GUI thread only (commands use the project model).
+class CommandRegistry
+{
+public:
+    /// The registry with every built-in command (commands/*Commands.cpp).
+    [[nodiscard]] static const CommandRegistry& builtin();
+
+    void add(Command command);
+    [[nodiscard]] const Command* find(const QString& name) const;
+    [[nodiscard]] const QVector<Command>& all() const { return m_commands; }
+    /// The first words of the names ("project", "clip", "render", ...), for the command line.
+    [[nodiscard]] QStringList groups() const;
+
+    /// The spec with the universal parameters added.
+    [[nodiscard]] static QVector<ParamSpec> fullParams(const CommandSpec& spec);
+    /// {"name","description","parameters":[{"name","type","description","required","default",
+    /// "choices"}],"modifiesProject":bool}.
+    [[nodiscard]] static QJsonObject describe(const CommandSpec& spec);
+    /// describe() of every command, as {"commands":[...]}.
+    [[nodiscard]] QJsonObject describeAll() const;
+
+    /// Runs command @p name with @p arguments (JSON values or strings, by parameter name).
+    /// Never throws; every problem is a failed result.
+    [[nodiscard]] CommandResult execute(
+        const QString& name, const QJsonObject& arguments, const ProgressFn& progress = {}) const;
+
+private:
+    QVector<Command> m_commands;
+};
+
+// Registration, one function per file (called by CommandRegistry::builtin()).
+void registerProjectCommands(CommandRegistry& registry);
+void registerMediaCommands(CommandRegistry& registry);
+void registerTimelineCommands(CommandRegistry& registry);
+void registerClipCommands(CommandRegistry& registry);
+void registerMarkerCommands(CommandRegistry& registry);
+void registerTransitionCommands(CommandRegistry& registry);
+void registerExportCommands(CommandRegistry& registry);
+
+} // namespace commands
+} // namespace kk

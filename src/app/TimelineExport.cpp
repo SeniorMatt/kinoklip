@@ -46,6 +46,26 @@ void exportText(AppContext& ctx, QWidget* window, const QString& title, const QS
 
 } // namespace
 
+QString timelineEdlText(const TimelineData& data, const MediaPool* pool)
+{
+    edl::EdlOptions options;
+    // Source timecodes start at the media's own start timecode.
+    options.sourceStartUs = [pool, fps = data.fps](const ClipData& clip) {
+        return sourceTimecodeBase(clip, pool, fps).startUs;
+    };
+    return edl::timelineToEdl(data, pool, options);
+}
+
+QString timelineOtioText(const TimelineData& data, const MediaPool* pool)
+{
+    otio::ExportOptions options;
+    // Source times start at the media's own start timecode, as in the EDL.
+    options.sourceStartUs = [pool, fps = data.fps](const ClipData& clip) {
+        return sourceTimecodeBase(clip, pool, fps).startUs;
+    };
+    return QString::fromUtf8(otio::timelineToOtio(data, pool, options));
+}
+
 void connectTimelineExportActions(AppContext& ctx, QWidget* window)
 {
     ActionRegistry& actions = *ctx.actions;
@@ -53,13 +73,7 @@ void connectTimelineExportActions(AppContext& ctx, QWidget* window)
         [&ctx, window] {
             exportText(ctx, window, tr("Export Timeline as EDL"), tr("EDL files (*.edl)"),
                 QStringLiteral(".edl"), [&ctx](const TimelineData& data) {
-                    const MediaPool* pool = ctx.project->mediaPool();
-                    edl::EdlOptions options;
-                    // Source timecodes start at the media's own start timecode.
-                    options.sourceStartUs = [pool, fps = data.fps](const ClipData& clip) {
-                        return sourceTimecodeBase(clip, pool, fps).startUs;
-                    };
-                    return edl::timelineToEdl(data, pool, options);
+                    return timelineEdlText(data, ctx.project->mediaPool());
                 });
         });
     QObject::connect(actions.action(QStringLiteral("file.export_otio")), &QAction::triggered,
@@ -67,13 +81,7 @@ void connectTimelineExportActions(AppContext& ctx, QWidget* window)
             exportText(ctx, window, tr("Export Timeline as OpenTimelineIO"),
                 tr("OpenTimelineIO files (*.otio)"), QStringLiteral(".otio"),
                 [&ctx](const TimelineData& data) {
-                    const MediaPool* pool = ctx.project->mediaPool();
-                    otio::ExportOptions options;
-                    // Source times start at the media's own start timecode, as in the EDL.
-                    options.sourceStartUs = [pool, fps = data.fps](const ClipData& clip) {
-                        return sourceTimecodeBase(clip, pool, fps).startUs;
-                    };
-                    return QString::fromUtf8(otio::timelineToOtio(data, pool, options));
+                    return timelineOtioText(data, ctx.project->mediaPool());
                 });
         });
     QObject::connect(actions.action(QStringLiteral("file.export_markers_edl")), &QAction::triggered,

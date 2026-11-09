@@ -612,6 +612,29 @@
       "contexts": [
         "action:edit.keyboard_customization"
       ]
+    },
+    {
+      "id": "control-kinoklip-from-the-command-line",
+      "title": "Control Kinoklip from the command line",
+      "file": "control-kinoklip-from-the-command-line.md",
+      "summary": "Make a project, add and cut clips, and render, from a terminal or a script, without opening the window.",
+      "keywords": [
+        "command line",
+        "cli",
+        "terminal",
+        "script",
+        "scripting",
+        "automation",
+        "batch",
+        "headless",
+        "json",
+        "kinoklip commands",
+        "render from terminal",
+        "mcp",
+        "no window",
+        "cron"
+      ],
+      "contexts": []
     }
   ]
 }

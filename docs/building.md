@@ -40,3 +40,24 @@ QT_QPA_PLATFORM=offscreen ./build/kinoklip --screenshot edit out.png [project.kk
 #   targets: media edit deliver preferences keyboard inspector mediapool menu-color-theme menu-style
 KK_NO_OPENGL=1 ./build/kinoklip                     # force the raster viewer fallback
 ```
+
+### Command line (no window)
+
+`kinoklip <command> --option value ...` runs one command of the command layer
+(`src/app/commands/`) headless, on Qt's offscreen platform (no display needed), and exits.
+`--json` prints the result as JSON; exit code 0 = done, 1 = the command failed, 2 = wrong command
+line; messages and progress go to stderr. The window opens only when the first argument is not a
+command (a project file, an option, nothing). Guide: [docs/guide/control-kinoklip-from-the-command-line.md](guide/control-kinoklip-from-the-command-line.md).
+```sh
+./build/kinoklip commands [--json]                  # every command (with --json: every option)
+./build/kinoklip help clip add                      # options of one command
+./build/kinoklip project new --project demo.kkproj --fps 25
+./build/kinoklip media import --project demo.kkproj --file a.mp4
+./build/kinoklip clip add --project demo.kkproj --media a.mp4
+./build/kinoklip render --project demo.kkproj --output demo.mp4 --preset youtube_1080p
+```
+Commands: version; project new / info; media import / list / relink; timeline list / new /
+select; clip list / add / move / trim / split / delete / set; marker add / list / delete;
+transition add; export otio / edl; import otio; render. The older options above
+(`--render`, `--render-frame`, `--screenshot`, ...) are unchanged. Tests: `test_commands` (the
+layer) and `test_cli` (the built binary as a process).

@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Runs the built kinoklip binary as a process: `kinoklip <command> ...` works without a window,
+// prints JSON on request, exits non-zero with a message on stderr for errors, and a project given
+// as the first argument is still opened as before (checked through --help / unknown options only,
+// as the window needs a display).
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
+#include <QProcessEnvironment>
+#include <QTemporaryDir>
+#include <QTest>
+
+namespace {
+
+struct Run
+{
+    int exitCode = -1;
+    QByteArray out;
+    QByteArray err;
+    QJsonObject json() const { return QJsonDocument::fromJson(out).object(); }
+};
+
+/// obj["a"]["b"] for objects: json(r, "result", "clips").
+QJsonValue at(const QJsonObject& object, const QString& key, const QString& second = {})
+{
+    const QJsonValue v = object.value(key);
+    return second.isEmpty() ? v : v.toObject().value(second);
+}
+
+Run run(const QStringList& args)
+{
+    QProcess process;
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("offscreen"));
+    env.insert(QStringLiteral("KK_NO_AUDIO"), QStringLiteral("1"));
+    process.setProcessEnvironment(env);
+    process.start(QStringLiteral(KK_BINARY_PATH), args);
+    Run r;
+    if (!process.waitForFinished(120'000)) {
+        process.kill();
+        process.waitForFinished();
+    }
+    r.exitCode = process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -2;
+    r.out = process.readAllStandardOutput();
+    r.err = process.readAllStandardError();
+    return r;
+}
+
+} // namespace
+
+class TestCli : public QObject
+{
+    Q_OBJECT
+private slots:
+    void commandsJsonListsEveryCommand()
+    {
+        const Run r = run({"commands", "--json"});
+        QCOMPARE(r.exitCode, 0);
+        QJsonParseError error;
+        const QJsonDocument doc = QJsonDocument::fromJson(r.out, &error);
+        QVERIFY2(error.error == QJsonParseError::NoError, qPrintable(error.errorString()));
+        const QJsonArray list = doc.object()["commands"].toArray();
+        QStringList names;
+        for (const QJsonValue& v : list) {
+            const QJsonObject c = v.toObject();
+            names << c["name"].toString();
+            QVERIFY(!c["description"].toString().isEmpty());
+            QVERIFY(c["parameters"].isArray());
+        }
+        for (const char* expected : {"version", "project.new", "project.info", "media.import",
+                 "media.list", "media.relink", "timeline.list", "timeline.new", "timeline.select",
+                 "clip.list", "clip.add", "clip.move", "clip.trim", "clip.split", "clip.delete",
+                 "clip.set", "marker.add", "marker.list", "marker.delete", "transition.add",
+                 "export.otio", "export.edl", "import.otio", "render"})
+            QVERIFY2(names.contains(QLatin1String(expected)), expected);
+        // Every listed command has usage text.
+        for (const QString& name : names) {
+            const Run help = run({QStringLiteral("help"), name});
+            QCOMPARE(help.exitCode, 0);
+            QVERIFY2(help.out.contains("Usage: kinoklip"), qPrintable(name));
+        }
+    }
+
+    void projectMediaClipRoundTrip()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString project = dir.filePath("cli.kkproj");
+        const QString media = QStringLiteral(KK_TEST_DATA_DIR "/generated/h264_25fps.mp4");
+        Run r = run({"project", "new", "--project", project, "--width", "640", "--height", "360",
+            "--fps", "24"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        QVERIFY(r.out.contains("created"));
+        r = run({"media", "import", "--project", project, "--file", media, "--json"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        const QString id = at(r.json(), "result", "imported")
+                               .toArray()
+                               .first()
+                               .toObject()
+                               .value("id")
+                               .toString();
+        QVERIFY(!id.isEmpty());
+        r = run({"clip", "add", "--project", project, "--media", id, "--source-out", "00:00:02:00",
+            "--json"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        QCOMPARE(at(r.json(), "result", "clips").toArray().size(), 2);
+        r = run({"clip", "list", "--project", project, "--track", "V1", "--json"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        const QJsonArray clips = at(r.json(), "result", "clips").toArray();
+        QCOMPARE(clips.size(), 1);
+        QCOMPARE(clips[0].toObject()["duration"].toInteger(), 48);
+        QCOMPARE(clips[0].toObject()["track"].toString(), QString("V1"));
+        // Human output, an option with = and a negative time value.
+        r = run({"clip", "trim", "--project=" + project, "--clip",
+            QString::number(clips[0].toObject()["id"].toInteger()), "--edge", "tail", "--delta",
+            "-8"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        QVERIFY(r.out.contains("trimmed"));
+        r = run({"clip", "list", "--project", project});
+        QVERIFY(r.out.contains("00:00:01:16"));
+    }
+
+    void errorsExitNonZeroWithMessageOnStderr()
+    {
+        Run r = run({"clip", "frobnicate"});
+        QCOMPARE(r.exitCode, 2);
+        QVERIFY(r.err.contains("unknown command"));
+        r = run({"clip", "list", "--project", "/nonexistent/x.kkproj"});
+        QCOMPARE(r.exitCode, 1);
+        QVERIFY(r.err.contains("does not exist"));
+        r = run({"clip", "list", "--project", "/nonexistent/x.kkproj", "--json"});
+        QCOMPARE(r.exitCode, 1);
+        QVERIFY(!r.json()["ok"].toBool());
+        QCOMPARE(at(r.json(), "error", "code").toString(), QString("file_not_found"));
+        r = run({"clip", "list"});
+        QCOMPARE(r.exitCode, 2);
+        QVERIFY(r.err.contains("missing parameter"));
+        r = run({"clip", "list", "--nope", "1"});
+        QCOMPARE(r.exitCode, 2);
+        QVERIFY(r.err.contains("unknown option"));
+        r = run({"help", "nothing"});
+        QCOMPARE(r.exitCode, 2);
+    }
+
+    void versionAndExistingOptionsKeepWorking()
+    {
+        Run r = run({"version", "--json"});
+        QCOMPARE(r.exitCode, 0);
+        QVERIFY(!at(r.json(), "result", "version").toString().isEmpty());
+        r = run({"--version"});
+        QCOMPARE(r.exitCode, 0);
+        QVERIFY(r.out.contains("Kinoklip") || r.out.contains("kinoklip"));
+        r = run({"--help"});
+        QCOMPARE(r.exitCode, 0);
+        QVERIFY(r.out.contains("--render"));
+        r = run({"--no-such-option"});
+        QVERIFY(r.exitCode != 0);
+    }
+};
+
+QTEST_GUILESS_MAIN(TestCli)
+#include "test_cli.moc"
