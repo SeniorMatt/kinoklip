@@ -230,6 +230,8 @@ chmod a+rx "$WORK/inner.sh"
 PULLED=()
 fails=0
 printf '%-38s %-6s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %s\n' image set version appimage norun rotmp noexec xcb wayland 'first error' | tee "$LOGS/table.txt"
+ran=0
+stopped=0
 for row in "${ROWS[@]}"; do
     read -r image pm set <<<"$row"
     if [ "${#ONLY[@]}" -gt 0 ]; then
@@ -238,10 +240,12 @@ for row in "${ROWS[@]}"; do
         [ "$hit" = 1 ] || continue
     fi
     avail="$(df --output=avail -BG "$HOME" | tail -n 1 | tr -dc 0-9)"
-    if [ "$avail" -lt 15 ]; then
-        echo "stopping: only ${avail} GB free" >&2
+    if [ "$avail" -lt "${KK_MIN_FREE_GB:-15}" ]; then
+        echo "stopping: only ${avail} GB free (KK_MIN_FREE_GB=${KK_MIN_FREE_GB:-15})" >&2
+        stopped=1
         break
     fi
+    ran=$((ran + 1))
     if ! podman image exists "$image"; then
         podman pull -q "$image" >/dev/null || {
             printf '%-38s %-6s cannot pull\n' "${image#docker.io/}" "$set" | tee -a "$LOGS/table.txt"
@@ -270,5 +274,12 @@ done
 if [ "$KEEP" = 0 ] && [ "${#PULLED[@]}" -gt 0 ]; then
     podman rmi "${PULLED[@]}" >/dev/null 2>&1
 fi
-[ "$fails" = 0 ] && echo "OK: every row passed" || echo "FAILED: $fails row(s)"
+grep -q "cannot pull" "$LOGS/table.txt" && stopped=1
+if [ "$fails" != 0 ]; then
+    echo "FAILED: $fails row(s)"; exit 1
+elif [ "$ran" = 0 ] || [ "$stopped" = 1 ]; then
+    echo "INCOMPLETE: $ran row(s) checked before stopping"; exit 2
+else
+    echo "OK: all $ran row(s) passed"
+fi
 [ "$fails" = 0 ]
