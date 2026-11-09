@@ -109,15 +109,20 @@ public:
     /// Decoding of the preview decoders opened from now on (idle ones are closed).
     void setPreviewDecoding(PreviewDecoding mode);
     /// Tells the cache that the program is playing. While active, new thumbnail / poster /
-    /// frame / waveform jobs are parked instead of started, so background decoding never
-    /// competes with the playback decoder for cores (docs/behavior-spec.md, thumbnails during
-    /// playback). Jobs already running finish. Parked jobs start when playback stops; the
-    /// newest kMaxDeferredJobs are kept, older ones are forgotten (asked for again if still
-    /// drawn).
+    /// frame / waveform jobs are parked and trickle through one at a time per pool at the
+    /// lowest thread priority, so background decoding hardly competes with the playback decoder for
+    /// cores (docs/behavior-spec.md, thumbnails during playback). Jobs already running finish.
+    /// Parked jobs start when playback stops; the newest kMaxDeferredJobs are kept, older ones are
+    /// forgotten (asked for again if still drawn).
     void setPlaybackActive(bool active);
     [[nodiscard]] bool playbackActive() const { return m_playbackActive; }
     /// Number of parked jobs (tests).
     [[nodiscard]] int deferredJobCount() const;
+    /// Test hooks. Parked jobs trickle while playing: at most `limit` (default 1) per pool run
+    /// at a time, newest first, at the lowest thread priority. peakTrickleJobs() is the most
+    /// that ever ran at once in the image or the waveform pool.
+    void setTrickleJobLimit(int limit) { m_trickleLimit = limit; }
+    [[nodiscard]] int peakTrickleJobs(bool waveform) const { return m_tricklePeak[waveform]; }
 
     /// Cancels queued work and waits for running jobs; afterwards all getters only return
     /// already cached results and no ...Ready signal is emitted any more (not even for jobs
@@ -179,6 +184,10 @@ private:
         std::function<void()> job;
     };
     static constexpr int kMaxDeferredJobs = 256;
+    void pumpDeferred();
+    int m_trickleRunning[2] = {0, 0}; ///< parked jobs running now [image, waveform], m_mutex
+    std::atomic<int> m_tricklePeak[2] {0, 0};
+    std::atomic<int> m_trickleLimit {1};
     std::deque<Deferred> m_deferred; ///< parked while playing, guarded by m_mutex
     std::atomic<bool> m_playbackActive {false};
     std::atomic<bool> m_cancelled {false};

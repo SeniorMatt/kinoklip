@@ -285,17 +285,54 @@ QImage MediaCache::requestImage(const ImageRequest& request)
 void MediaCache::submit(QThreadPool& pool, const QString& key, std::function<void()> job)
 {
     {
-        const QMutexLocker lock(&m_mutex);
+        QMutexLocker lock(&m_mutex);
         if (m_playbackActive) {
             m_deferred.push_back({&pool, key, std::move(job)});
             while (m_deferred.size() > size_t(kMaxDeferredJobs)) {
                 m_inFlight.remove(m_deferred.front().key); // scrolled away: ask again if drawn
                 m_deferred.pop_front();
             }
+            lock.unlock();
+            pumpDeferred();
             return;
         }
     }
     pool.start(std::move(job));
+}
+
+void MediaCache::pumpDeferred()
+{
+    for (int kind = 0; kind < 2; ++kind) {
+        QThreadPool* pool = kind ? &m_waveformPool : &m_imagePool;
+        std::function<void()> job;
+        {
+            const QMutexLocker lock(&m_mutex);
+            if (!m_playbackActive || m_trickleRunning[kind] >= m_trickleLimit) {
+                continue;
+            }
+            const auto it = std::find_if(m_deferred.rbegin(), m_deferred.rend(),
+                [pool](const Deferred& d) { return d.pool == pool; });
+            if (it == m_deferred.rend()) {
+                continue;
+            }
+            job = std::move(it->job);
+            m_deferred.erase(std::next(it).base());
+            const int now = ++m_trickleRunning[kind];
+            int peak = m_tricklePeak[kind];
+            while (now > peak && !m_tricklePeak[kind].compare_exchange_weak(peak, now)) { }
+        }
+        pool->start([this, kind, job = std::move(job)] {
+            QThread* thread = QThread::currentThread();
+            thread->setPriority(QThread::LowestPriority);
+            job();
+            thread->setPriority(QThread::InheritPriority);
+            {
+                const QMutexLocker lock(&m_mutex);
+                --m_trickleRunning[kind];
+            }
+            pumpDeferred();
+        });
+    }
 }
 
 void MediaCache::setPlaybackActive(bool active)
