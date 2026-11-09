@@ -126,6 +126,7 @@ include GPL FFmpeg components; third-party notices are inside the bundle under
 
 ## AI disclosure
 
-This project was built with AI: the code, tests and documentation were written by AI, directed
-and tested by the project owner. The only exception is the icon, which was drawn by hand.
+This project was built with AI: almost all of the code, tests and documentation were written by
+AI, then checked and analysed by me, the project owner, who also directs and tests it. The icon
+was drawn by hand.
 **We aren't appreciating AI art here.**
