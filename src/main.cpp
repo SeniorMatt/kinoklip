@@ -9,6 +9,7 @@
 #include "core/EditBehaviour.h"
 #include "core/PowerBins.h"
 #include "core/Preferences.h"
+#include "media/MediaCache.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "export/RenderCommand.h"
@@ -155,6 +156,10 @@ int main(int argc, char** argv)
     playback.setTimeline(project.timeline());
     QObject::connect(
         &project, &kk::Project::editCommitted, &playback, &kk::PlaybackEngine::noteEditCommitted);
+
+    // Thumbnails / waveforms give way to playback (spec: thumbnails during playback).
+    QObject::connect(&playback, &kk::PlaybackEngine::rateChanged, &playback,
+        [](double rate) { kk::media::MediaCache::instance().setPlaybackActive(rate != 0.0); });
 
     kk::AppContext ctx;
     ctx.project = &project;
