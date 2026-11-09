@@ -30,6 +30,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QLabel>
 #include <QSettings>
@@ -431,6 +432,25 @@ private slots:
         QTest::mouseClick(p.keyframesViewButton(), Qt::LeftButton);
         QVERIFY(p.dopeSheet()->isVisible());
         QVERIFY(!p.curveView()->isVisible());
+    }
+
+    // The view switch is two standard checkable tool buttons in one exclusive group, raised
+    // like the other buttons of the row, with no style sheet of its own.
+    void viewSwitchUsesStandardButtons()
+    {
+        Fixture f;
+        PanelView v(f.ctx);
+        KeyframesPanel& p = v.panel;
+        QToolButton* a = p.keyframesViewButton();
+        QToolButton* b = p.curvesViewButton();
+        QVERIFY(a->isCheckable() && b->isCheckable());
+        QVERIFY(a->autoRaise() && b->autoRaise());
+        QVERIFY(p.viewGroup() && p.viewGroup()->exclusive());
+        QCOMPARE(p.viewGroup()->buttons().size(), 2);
+        QVERIFY(p.viewGroup()->buttons().contains(a) && p.viewGroup()->buttons().contains(b));
+        QVERIFY(a->styleSheet().isEmpty() && b->styleSheet().isEmpty());
+        QVERIFY(a->parentWidget()->styleSheet().isEmpty());
+        QCOMPARE(a->parentWidget(), p.normalisedButton()->parentWidget());
     }
 
     // 15.22: switching keeps the selection, the time zoom and scroll, the shown curves and the

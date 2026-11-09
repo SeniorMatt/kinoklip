@@ -18,6 +18,7 @@
 #include "ui/keyframes/KeyframeRuler.h"
 
 #include <QApplication>
+#include <QButtonGroup>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -227,31 +228,21 @@ QWidget* KeyframesPanel::buildToolRow()
           };
     auto separator = [&] { h->addSpacing(metrics::kSpaceL); };
 
-    // The view switch: two buttons, one checked (spec 15.22).
+    // The view switch: two checkable tool buttons in an exclusive group, like the other
+    // buttons of this row (spec 15.22).
     auto segment = [&](const QString& text, const QString& name, const QString& tip, View view) {
-        auto* b = new QToolButton(row);
-        b->setText(text);
+        QToolButton* b = button({}, text, tip, true);
         b->setObjectName(name);
-        b->setToolTip(tip);
-        b->setCheckable(true);
-        b->setAutoExclusive(true);
-        b->setFocusPolicy(Qt::NoFocus);
-        b->setFixedHeight(kToolButtonSize);
+        m_viewGroup->addButton(b);
         connect(b, &QToolButton::clicked, this, [this, view] { setView(view); });
         return b;
     };
+    m_viewGroup = new QButtonGroup(this);
+    m_viewGroup->setExclusive(true);
     m_keyframesViewButton = segment(tr("Keyframes"), QStringLiteral("KeyframesViewKeyframes"),
         tr("Keyframes view: the keys of each parameter along time"), View::Keyframes);
     m_curvesViewButton = segment(tr("Curves"), QStringLiteral("KeyframesViewCurves"),
         tr("Curves view: the values of the parameters as curves"), View::Curves);
-    m_viewSwitch = new QWidget(row);
-    QWidget* viewSwitch = m_viewSwitch;
-    auto* viewSwitchLayout = new QHBoxLayout(viewSwitch);
-    viewSwitchLayout->setContentsMargins(0, 0, 0, 0);
-    viewSwitchLayout->setSpacing(0);
-    viewSwitchLayout->addWidget(m_keyframesViewButton);
-    viewSwitchLayout->addWidget(m_curvesViewButton);
-    h->addWidget(viewSwitch);
     separator();
 
     struct Preset
@@ -452,15 +443,6 @@ void KeyframesPanel::applyRegionColors()
     const SchemeColors& sc = schemeColors();
     pal.setColor(QPalette::Window, sc.keyRuler);
     m_treeHeader->setPalette(pal);
-    // The style's checked tool button is barely visible in dark schemes: which view is showing
-    // has to read at a glance.
-    m_viewSwitch->setStyleSheet(QStringLiteral("QToolButton { background: %1; border: 1px solid %2;"
-                                               " padding: 0 8px; }"
-                                               "QToolButton:hover { background: %3; }"
-                                               "QToolButton:checked { background: %4; color: %5;"
-                                               " border-color: %4; }")
-                                    .arg(sc.button.name(), sc.line.name(), sc.hover.name(),
-                                        sc.highlight.name(), sc.highlightText.name()));
 }
 
 void KeyframesPanel::syncDopeWindow()

@@ -9,6 +9,7 @@
 
 #include <QSet>
 
+class QButtonGroup;
 class QCheckBox;
 class QComboBox;
 class QLabel;
@@ -101,6 +102,7 @@ public:
     [[nodiscard]] QToolButton* floatButton() const { return m_floatButton; }
     [[nodiscard]] QToolButton* keyframesViewButton() const { return m_keyframesViewButton; }
     [[nodiscard]] QToolButton* curvesViewButton() const { return m_curvesViewButton; }
+    [[nodiscard]] QButtonGroup* viewGroup() const { return m_viewGroup; }
     [[nodiscard]] QToolButton* normalisedButton() const { return m_normalisedButton; }
     [[nodiscard]] QToolButton* fitSelectionButton() const { return m_fitSelectionButton; }
 
@@ -148,7 +150,7 @@ private:
 
     QLabel* m_itemLabel = nullptr;
     QToolButton* m_floatButton = nullptr;
-    QWidget* m_viewSwitch = nullptr;
+    QButtonGroup* m_viewGroup = nullptr;
     QToolButton* m_keyframesViewButton = nullptr;
     QToolButton* m_curvesViewButton = nullptr;
     QToolButton* m_normalisedButton = nullptr;

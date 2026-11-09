@@ -11,11 +11,13 @@
 #include <QApplication>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QLineEdit>
 #include <QListView>
 #include <QMimeData>
 #include <QPainter>
 #include <QSettings>
 #include <QSignalSpy>
+#include <QSlider>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -89,6 +91,36 @@ private slots:
         QSettings().clear();
         initResources();
         theme::apply(*qApp);
+    }
+
+    // The thumbnail slider gives way to the search box: it shrinks and hides when the header
+    // is narrow, so the placeholder always shows in full; wide, it is visible.
+    void searchBoxStaysReadableBesideTheSlider()
+    {
+        PanelFixture f;
+        MediaPoolPanel panel(f.ctx);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        auto* search = panel.findChild<QLineEdit*>();
+        auto* slider = panel.findChild<QSlider*>(QStringLiteral("MediaPoolThumbnailSize"));
+        QVERIFY(search && slider);
+        const int need = search->fontMetrics().horizontalAdvance(search->placeholderText());
+        for (int w : {900, 420, 360, 320, 300}) {
+            panel.resize(w, 500);
+            QApplication::processEvents();
+            QVERIFY2(search->width() >= need + 40,
+                qPrintable(QStringLiteral("%1 %2 %3 %4")
+                               .arg(w)
+                               .arg(panel.width())
+                               .arg(search->width())
+                               .arg(need)));
+            if (w == 900)
+                QVERIFY(slider->isVisible());
+        }
+        QVERIFY(!slider->isVisible());
+        panel.resize(900, 500);
+        QApplication::processEvents();
+        QVERIFY(slider->isVisible());
     }
 
     void binAndSearchFiltering()
