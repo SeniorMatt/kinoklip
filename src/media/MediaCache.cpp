@@ -125,6 +125,10 @@ MediaCache::~MediaCache()
 void MediaCache::shutdown()
 {
     m_cancelled = true;
+    {
+        const QMutexLocker lock(&m_mutex);
+        m_deferred.clear();
+    }
     m_imagePool.clear();
     m_waveformPool.clear();
     m_imagePool.waitForDone();
@@ -209,7 +213,7 @@ std::shared_ptr<const WaveformData> MediaCache::waveform(const QString& path)
     }
     m_inFlight.insert(key);
     lock.unlock();
-    m_waveformPool.start([this, path] { runWaveformJob(path); });
+    submit(m_waveformPool, key, [this, path] { runWaveformJob(path); });
     return nullptr;
 }
 
@@ -274,8 +278,46 @@ QImage MediaCache::requestImage(const ImageRequest& request)
     }
     m_inFlight.insert(request.key);
     lock.unlock();
-    m_imagePool.start([this, request] { runImageJob(request); });
+    submit(m_imagePool, request.key, [this, request] { runImageJob(request); });
     return {};
+}
+
+void MediaCache::submit(QThreadPool& pool, const QString& key, std::function<void()> job)
+{
+    {
+        const QMutexLocker lock(&m_mutex);
+        if (m_playbackActive) {
+            m_deferred.push_back({&pool, key, std::move(job)});
+            while (m_deferred.size() > size_t(kMaxDeferredJobs)) {
+                m_inFlight.remove(m_deferred.front().key); // scrolled away: ask again if drawn
+                m_deferred.pop_front();
+            }
+            return;
+        }
+    }
+    pool.start(std::move(job));
+}
+
+void MediaCache::setPlaybackActive(bool active)
+{
+    std::deque<Deferred> toStart;
+    {
+        const QMutexLocker lock(&m_mutex);
+        m_playbackActive = active;
+        if (!active) {
+            toStart.swap(m_deferred);
+        }
+    }
+    // Newest first: those are the tiles the view shows now.
+    for (auto it = toStart.rbegin(); it != toStart.rend(); ++it) {
+        it->pool->start(std::move(it->job));
+    }
+}
+
+int MediaCache::deferredJobCount() const
+{
+    const QMutexLocker lock(&m_mutex);
+    return int(m_deferred.size());
 }
 
 void MediaCache::runImageJob(const ImageRequest& request)

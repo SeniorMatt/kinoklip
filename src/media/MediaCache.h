@@ -14,6 +14,8 @@
 
 #include <atomic>
 #include <cstdint>
+#include <deque>
+#include <functional>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -106,6 +108,17 @@ public:
     };
     /// Decoding of the preview decoders opened from now on (idle ones are closed).
     void setPreviewDecoding(PreviewDecoding mode);
+    /// Tells the cache that the program is playing. While active, new thumbnail / poster /
+    /// frame / waveform jobs are parked instead of started, so background decoding never
+    /// competes with the playback decoder for cores (docs/behavior-spec.md, thumbnails during
+    /// playback). Jobs already running finish. Parked jobs start when playback stops; the
+    /// newest kMaxDeferredJobs are kept, older ones are forgotten (asked for again if still
+    /// drawn).
+    void setPlaybackActive(bool active);
+    [[nodiscard]] bool playbackActive() const { return m_playbackActive; }
+    /// Number of parked jobs (tests).
+    [[nodiscard]] int deferredJobCount() const;
+
     /// Cancels queued work and waits for running jobs; afterwards all getters only return
     /// already cached results and no ...Ready signal is emitted any more (not even for jobs
     /// that were running during the call). Called automatically when the application quits.
@@ -139,6 +152,9 @@ private:
 
     explicit MediaCache(QObject* parent = nullptr);
 
+    /// Starts @p job on @p pool, or parks it while playback is active. @p key leaves m_inFlight
+    /// if the job is dropped from the parked list.
+    void submit(QThreadPool& pool, const QString& key, std::function<void()> job);
     QImage requestImage(const ImageRequest& request);
     void runImageJob(const ImageRequest& request);
     QImage renderImage(const ImageRequest& request, bool* hasAlpha);
@@ -156,6 +172,15 @@ private:
     QSet<QString> m_failed;
     QString m_cacheDirectory;
 
+    struct Deferred
+    {
+        QThreadPool* pool;
+        QString key;
+        std::function<void()> job;
+    };
+    static constexpr int kMaxDeferredJobs = 256;
+    std::deque<Deferred> m_deferred; ///< parked while playing, guarded by m_mutex
+    std::atomic<bool> m_playbackActive {false};
     std::atomic<bool> m_cancelled {false};
     QThreadPool m_imagePool; ///< thumbnails/posters: short jobs
     QThreadPool m_waveformPool; ///< waveforms: long jobs, kept apart so they cannot starve images

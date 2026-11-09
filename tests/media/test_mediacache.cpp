@@ -93,6 +93,39 @@ private slots:
         QCOMPARE(spy.count(), 1); // no duplicate deliveries
     }
 
+    void jobsWaitWhilePlaybackIsActive()
+    {
+        const QString path = test::fixture("h264_25fps.mp4");
+        m_cache->clearMemoryCache();
+        QSignalSpy spy(m_cache, &MediaCache::thumbnailReady);
+        m_cache->setPlaybackActive(true);
+        QVERIFY(m_cache->thumbnail(path, 2'000'000, 180).isNull());
+        QVERIFY(m_cache->thumbnail(path, 6'000'000, 180).isNull());
+        QCOMPARE(m_cache->deferredJobCount(), 2);
+        QTest::qWait(500); // generous: an unparked job would be done long before
+        QCOMPARE(spy.count(), 0);
+        QVERIFY(m_cache->thumbnail(path, 2'000'000, 180).isNull());
+        m_cache->setPlaybackActive(false); // catch up
+        QCOMPARE(m_cache->deferredJobCount(), 0);
+        QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 2, kWaitMs);
+        QVERIFY(!m_cache->thumbnail(path, 2'000'000, 180).isNull());
+        QVERIFY(!m_cache->thumbnail(path, 6'000'000, 180).isNull());
+    }
+
+    void parkedJobsAreBounded()
+    {
+        const QString path = QStringLiteral("/nonexistent/parked.mp4"); // jobs fail fast
+        m_cache->setPlaybackActive(true);
+        for (int i = 0; i < 400; ++i) {
+            (void)m_cache->thumbnail(path, int64_t(i) * 500'000, 180);
+        }
+        QCOMPARE(m_cache->deferredJobCount(), 256);
+        (void)m_cache->thumbnail(path, 0, 180); // a forgotten tile can be asked for again
+        QCOMPARE(m_cache->deferredJobCount(), 256);
+        m_cache->setPlaybackActive(false);
+        QCOMPARE(m_cache->deferredJobCount(), 0);
+    }
+
     void thumbnailComesBackFromDisk()
     {
         const QString path = test::fixture("h264_25fps.mp4");
