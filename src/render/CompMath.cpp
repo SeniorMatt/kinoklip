@@ -100,8 +100,11 @@ QTransform planarMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
     std::optional<tracking::Similarity> sim = tracking::similarityFromQuads(a, b);
     if (!sim)
         return QTransform();
-    if (mode == trackmodes::Stabilize)
+    if (mode == trackmodes::Stabilize) {
+        if (sim->scale < 1e-9) // a region collapsed to a point cannot be undone
+            return QTransform();
         sim = sim->inverse();
+    }
     const double c = std::cos(sim->angleRad) * sim->scale, s = std::sin(sim->angleRad) * sim->scale;
     return QTransform(c, s, -s, c, sim->dx, sim->dy);
 }
