@@ -368,7 +368,7 @@ void GlComposition::evalNode(GlKit& kit, const CompEval& ev, int index)
         out = mixPass(kit, ev, textureOf(kit, mainOwner), textureOf(kit, fg),
             maskOwner >= 0 ? textureOf(kit, maskOwner) : 0, t);
         handledMask = true;
-    } else if (n.type == nodetypes::Transform) {
+    } else if (n.type == nodetypes::Transform || n.type == nodetypes::Tracker) {
         out = transformNode(kit, ev, n, mainOwner);
     } else if (n.type == nodetypes::Crop || n.type == nodetypes::Resize
         || n.type == nodetypes::Letterbox) {
@@ -481,7 +481,9 @@ PooledTarget GlComposition::transformNode(
 {
     if (input < 0)
         return {};
-    const QTransform m = compmath::transformMatrix(n.params, ev.compFrame, ev.frame);
+    const QTransform m = n.type == nodetypes::Tracker
+        ? compmath::trackerMatrix(n.params, ev.compFrame, ev.frame)
+        : compmath::transformMatrix(n.params, ev.compFrame, ev.frame);
     if (m.isIdentity())
         return {};
     PooledTarget out = newTarget(kit, ev, true);

@@ -28,6 +28,11 @@ namespace kk::render::compmath {
 /// aspect, angle counter-clockwise, flips about the frame centre).
 [[nodiscard]] QTransform transformMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);
 
+/// Tracker node: the move of the input at @p frame, relative to the reference frame: the
+/// tracked point (CenterX / CenterY) at @p frame minus its place at RefFrame (Match Move), or
+/// the opposite (Stabilize). Identity without a track.
+[[nodiscard]] QTransform trackerMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);
+
 /// Merge node: maps a timeline pixel of the foreground to the output (the foreground's
 /// centre goes to Center, scaled by Size and turned by Angle about its centre).
 [[nodiscard]] QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);

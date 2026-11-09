@@ -176,12 +176,16 @@ private:
             out = mixImages(in, input(n, nodeports::Foreground, depth), mask,
                 float(std::clamp(n.params.value(k::Mix, f, 0.0), 0.0, 1.0)), size);
             maskDone = true;
-        } else if (n.type == nodetypes::Transform && !in.isNull()) {
+        } else if ((n.type == nodetypes::Transform || n.type == nodetypes::Tracker)
+            && !in.isNull()) {
             out = blank(size);
             QPainter p(&out);
             p.setRenderHint(QPainter::SmoothPixmapTransform);
             p.setRenderHint(QPainter::Antialiasing);
-            p.setTransform(inImagePixels(compmath::transformMatrix(n.params, f, m_ev.frame), s));
+            p.setTransform(inImagePixels(n.type == nodetypes::Tracker
+                    ? compmath::trackerMatrix(n.params, f, m_ev.frame)
+                    : compmath::transformMatrix(n.params, f, m_ev.frame),
+                s));
             p.drawImage(0, 0, in);
         } else if (n.type == nodetypes::Crop && !in.isNull()) {
             out = blank(size);

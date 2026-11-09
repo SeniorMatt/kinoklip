@@ -29,6 +29,9 @@ struct NodePort
     /// fails: an unconnected port reads as a transparent picture / an empty mask... except a
     /// "mask" port, which reads as "everywhere" when unconnected.
     bool required = false;
+    /// The picture is only analysed (the Tracker's tracking source), never drawn into the
+    /// node's output: evaluation of the node does not pull it.
+    bool analysisOnly = false;
 };
 
 /// Node library sections (Nodes panel, Select Node list).
@@ -51,7 +54,10 @@ enum class ViewerControls : quint8 {
     /// A rotated box: CenterX, CenterY, Width, Height, Angle (Rectangle and Ellipse masks).
     Rect,
     /// The editable point path CompNode::path plus the Transform handles (Polygon mask).
-    Polygon
+    Polygon,
+    /// The tracked point (CenterX, CenterY) with its pattern and search boxes (PatternSize,
+    /// SearchSize): Tracker.
+    Tracker
 };
 
 /// Describes one node type.
@@ -106,6 +112,7 @@ inline const QString Transform = QStringLiteral("transform");
 inline const QString Crop = QStringLiteral("crop");
 inline const QString Resize = QStringLiteral("resize");
 inline const QString Letterbox = QStringLiteral("letterbox");
+inline const QString Tracker = QStringLiteral("tracker");
 inline const QString Background = QStringLiteral("background");
 inline const QString Text = QStringLiteral("text");
 inline const QString FastNoise = QStringLiteral("fast_noise");
@@ -124,6 +131,8 @@ inline const QString Input = QStringLiteral("input");
 inline const QString Background = QStringLiteral("background");
 inline const QString Foreground = QStringLiteral("foreground");
 inline const QString Mask = QStringLiteral("mask");
+/// Tracker: the picture the point is followed in (the main input when not connected).
+inline const QString Source = QStringLiteral("source");
 } // namespace nodeports
 
 /// Parameter keys of the built-in nodes (see NodeDescriptor for the units).
@@ -151,6 +160,11 @@ inline const QString Bottom = QStringLiteral("bottom");
 inline const QString Width = QStringLiteral("width"); ///< Resize: px; masks: fraction of frame
 inline const QString Height = QStringLiteral("height");
 inline const QString KeepAspect = QStringLiteral("keepAspect"); ///< Resize: bool
+// Tracker. The tracked point itself is CenterX / CenterY (keyframed by the tracking).
+inline const QString PatternSize = QStringLiteral("patternSize"); ///< px, side of the pattern box
+inline const QString SearchSize = QStringLiteral("searchSize"); ///< px, side of the search box
+inline const QString TrackMode = QStringLiteral("trackMode"); ///< choice (trackmodes::)
+inline const QString RefFrame = QStringLiteral("refFrame"); ///< comp frame where the offset is 0
 // Letterbox.
 inline const QString TargetAspect = QStringLiteral("targetAspect"); ///< width / height, e.g. 2.39
 inline const QString Color = QStringLiteral("color"); ///< colour static
@@ -237,6 +251,12 @@ inline const QString Solid = QStringLiteral("solid");
 inline const QString Gradient = QStringLiteral("gradient"); ///< color -> color2 along the angle
 inline const QString FourCorner = QStringLiteral("four"); ///< tl color, tr 2, bl 3, br 4
 } // namespace backgroundmodes
+
+/// Tracker output modes (nodekeys::TrackMode values).
+namespace trackmodes {
+inline const QString MatchMove = QStringLiteral("matchMove"); ///< the input follows the track
+inline const QString Stabilize = QStringLiteral("stabilize"); ///< the input cancels the track
+} // namespace trackmodes
 
 /// Channel Booleans sources, in the order of the choice list.
 namespace channelsources {
