@@ -21,6 +21,7 @@ struct AppContext;
 class CompSession;
 struct CompNode;
 class ParamGroupBox;
+class TrackerPanel;
 
 /// Inspector panel of the Compositing page.
 ///
@@ -50,6 +51,8 @@ public:
     /// MediaIn nodes: the Source picker (the clip's own picture or a media pool item), else
     /// null (spec 42b.30).
     [[nodiscard]] QComboBox* sourcePicker() const { return m_source; }
+    /// The Tracker controls (a Tracker node must be shown to see them).
+    [[nodiscard]] TrackerPanel* trackerPanel() const { return m_tracker; }
     /// The header's enable toggle (tests).
     [[nodiscard]] QCheckBox* enableToggle() const { return m_enable; }
 
@@ -90,6 +93,7 @@ private:
     QComboBox* m_source = nullptr; ///< sourcePicker()
     void fillSourcePicker(const CompNode& node);
     QWidget* m_empty = nullptr;
+    TrackerPanel* m_tracker = nullptr; ///< owned by the inspector, shown inside the scroll area
     int m_openEdits = 0;
 };
 

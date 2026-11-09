@@ -27,7 +27,7 @@ LinkRole roleOf(const NodePort& port)
 {
     if (port.kind == PortKind::Mask)
         return LinkRole::Mask;
-    if (port.id == nodeports::Foreground)
+    if (port.id == nodeports::Foreground || port.id == nodeports::Source)
         return LinkRole::Foreground;
     return LinkRole::Background;
 }
@@ -144,6 +144,11 @@ ViewerControlKeys viewerControls(const QString& type)
     case ViewerControls::Polygon:
         k.kind = ViewerControl::Polygon;
         k.size = has(nodekeys::Size);
+        break;
+    case ViewerControls::Tracker:
+        k.kind = ViewerControl::Tracker;
+        k.size = has(nodekeys::PatternSize);
+        k.width = has(nodekeys::SearchSize);
         break;
     case ViewerControls::None:
         break;

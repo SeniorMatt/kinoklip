@@ -16,6 +16,9 @@ is `src/app/pages/CompositingPage`.
 - **CompInspector**: the Edit page parameter rows on a stand-in clip whose one effect carries the
   node's ParamSet (see the class doc).
 - **CompTransport** / **CompTimeRuler**: ruler and play / stop over the clip's frames.
+- **TrackerPanel**: the Tracker node's Track Backward / Stop / Track Forward buttons, progress and
+  status in the Inspector; runs `compositing/tracking/TrackerRunner` on pictures from
+  `PlaybackEngine::renderCompositionNode()` and stores the result as one undo step.
 - **NodeLibraryPanel**, **SelectNodePopup**: the Nodes library and the Shift+Space list.
 
 ## Data flow
