@@ -29,7 +29,7 @@ not need that, but it skips pre-releases, and every release is a pre-release for
 2. Open it with [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) (adds Kinoklip to the application menu and keeps it updated), or make it executable: right-click > Properties > Permissions > "Is executable", or `chmod +x Kinoklip-x86_64.AppImage`.
 3. Run it: from the menu, by double-clicking the file, or `./Kinoklip-x86_64.AppImage`.
 
-Needs: x86_64 Linux, OpenGL 3.3, FUSE (on almost every desktop system; without it: `./Kinoklip-x86_64.AppImage --appimage-extract-and-run`). Wayland and X11. `SHA256SUMS.txt` has checksums.
+Needs: x86_64 Linux, OpenGL 3.3, FUSE (on almost every desktop system). **If double-clicking shows nothing, FUSE is missing** (the AppImage runtime then only prints to a terminal): install `fuse3` (Debian/Ubuntu: `sudo apt install fuse3`), or run `./Kinoklip-x86_64.AppImage --appimage-extract-and-run` in a terminal. Wayland and X11. `SHA256SUMS.txt` has checksums.
 
 Coming from 0.4.0 or older (the `.run` file): the old menu entry still points at it. Remove it with `./Kinoklip-x86_64.run --uninstall-desktop-entry` (or delete `~/.local/share/applications/org.kinoklip.Kinoklip.desktop`); `./Kinoklip-x86_64.run --uninstall-cache` frees the unpacked copies in `~/.cache/kinoklip`.
 ```
