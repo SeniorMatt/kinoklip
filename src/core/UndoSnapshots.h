@@ -14,8 +14,8 @@ namespace kk::undosnap {
 /// One timeline as the undo history stores it: the timeline without its clips (`shell`, the
 /// tracks keep every other field) plus each track's clips as shared, immutable ClipData.
 ///
-/// Why: the snapshot undo (plan.md, "Undo") used to keep one full TimelineData copy per step,
-/// about 0.85 MB for a 1,500-clip timeline (docs/polish-v3.md, round 4 stress pass), so a long
+/// Why: the snapshot undo (docs/archive/plan.md, "Undo") used to keep one full TimelineData copy per step,
+/// about 0.85 MB for a 1,500-clip timeline (docs/archive/polish-v3.md, round 4 stress pass), so a long
 /// session grew by hundreds of MB. Packed against the previous step, a step only owns the
 /// clips it changed (plus one pointer per clip), and the shell is shared too when only clips
 /// changed.

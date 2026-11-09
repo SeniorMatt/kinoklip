@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Fourth polish round of the Edit page (docs/polish-v3.md, Round 4): ranged markers (spec
+// Fourth polish round of the Edit page (docs/archive/polish-v3.md, Round 4): ranged markers (spec
 // 18.11), moving markers and clip marker editing (18.14, 18.15), the Edit Index column chooser
 // (18.10) and the History window (17.6).
 #include "TimelineTestUtils.h"

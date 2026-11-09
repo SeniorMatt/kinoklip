@@ -1,3 +1,5 @@
+> Historical document, kept for reference. The current plan is [docs/roadmap.md](../roadmap.md).
+
 # Polish v3: basic editing on the Edit page
 
 Roadmap v3 (docs/roadmap.md): make everyday editing feel finished. This page is the audit of

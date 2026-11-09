@@ -2,7 +2,7 @@
 
 ## Primary: the Arch Linux container (Qt 6.12, KDE Frameworks 6, Breeze)
 
-The real KDE Breeze look (Breeze widget style, KDE colour schemes, Breeze icons; [plan.md](../plan.md) 4)
+The real KDE Breeze look (Breeze widget style, KDE colour schemes, Breeze icons; [docs/archive/plan.md](archive/plan.md) section 4)
 needs Qt >= 6.6 and KDE Frameworks 6, so the main toolchain is the podman container `kk-arch`
 (Arch Linux: latest Qt 6, KF6, Breeze, FFmpeg, clang; the repository is mounted at the same
 path). Packages it needs: `base-devel cmake ninja qt6-base qt6-multimedia qt6-svg

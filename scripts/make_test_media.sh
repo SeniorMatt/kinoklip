@@ -20,7 +20,7 @@
 #                        checks position accuracy through the 44.1 → 48 kHz resampler.
 #
 # Format matrix (tests/media/test_formats.cpp), in <outdir>/formats/: one small file per
-# import format of plan.md §5.8. Videos: testsrc2 320x240 25 fps 2 s (+ 440 Hz stereo sine);
+# import format of docs/archive/plan.md §5.8. Videos: testsrc2 320x240 25 fps 2 s (+ 440 Hz stereo sine);
 # audio: 440 Hz sine 2 s; stills: 256x192 quadrants (top-left red, top-right lime, bottom-left
 # blue, bottom-right white). A format whose encoder/tool is missing is skipped with a message
 # (the test then QSKIPs it); scripts/make_test_images.py (python3) writes DNG, PSD, SVG, HEIC

@@ -1,7 +1,7 @@
 # Windows packaging (not implemented yet)
 
 Plan for a Windows build of Kinoklip. Nothing here is automated yet; the code already follows
-the portability rules in `plan.md` (Qt + FFmpeg + std only, platform code in `src/platform/`).
+the portability rules in `docs/archive/plan.md` (Qt + FFmpeg + std only, platform code in `src/platform/`).
 
 ## 1. Toolchain
 - Visual Studio 2022 (MSVC v143, C++20), CMake >= 3.24, Ninja (from the VS developer prompt).
@@ -10,7 +10,7 @@ the portability rules in `plan.md` (Qt + FFmpeg + std only, platform code in `sr
 - FFmpeg 6.1 via vcpkg, manifest mode (`vcpkg.json` at the repo root):
   `ffmpeg[core,avcodec,avformat,avfilter,swscale,swresample,x264,x265,dav1d,aom,vpx,opus,mp3lame,webp,nvcodec,qsv,amf]`
   with triplet `x64-windows` (DLLs). x264/x265 make the build GPL, which matches the project
-  licence (plan.md section 8).
+  licence (docs/archive/plan.md section 8).
 - Configure: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
   -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake`. On Windows,
   `CMakeLists.txt` must find FFmpeg without pkg-config (vcpkg's `FindFFMPEG` /

@@ -38,14 +38,14 @@ struct ProjectMetadata
     friend bool operator==(const ProjectMetadata&, const ProjectMetadata&) = default;
 };
 
-/// Where a project keeps its media (owner decision, plan-v4 part 2).
+/// Where a project keeps its media (owner decision, docs/archive/plan-v4 part 2).
 enum class ProjectStorage {
     Linked, ///< `.kkproj`: the project file references media where it is
     SingleFile ///< `.kinoklip`: one file holding the project data and copies of the media
 };
 
 /// One kind of project file: the linked `.kkproj` (JSON) and the self-contained single-file
-/// `.kinoklip` (plan-v4 part 2). The library lists every file whose extension belongs to a
+/// `.kinoklip` (docs/archive/plan-v4 part 2). The library lists every file whose extension belongs to a
 /// registered kind and asks that kind for the metadata.
 ///
 /// Both built-in kinds read, rename and create their files here; opening and saving them in

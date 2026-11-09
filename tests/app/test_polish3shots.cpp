@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Polish round 3 in the real main window (docs/polish-v3.md, Round 3), in the default
+// Polish round 3 in the real main window (docs/archive/polish-v3.md, Round 3), in the default
 // Kinoklip colour scheme: the Edit Index in Edits and Markers mode, the on-screen Transform
 // controls (scale, rotation, anchor) and the Crop controls on a clip, and the source
 // timecode on timeline clips. Checks that each state appears; with KK_SCREENSHOT_DIR set each

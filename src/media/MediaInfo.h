@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // MediaInfo — what we know about a media file (streams, size, duration) + media::probe().
-// Shared contract between the media engine and the rest of the app (plan.md §5.3).
+// Shared contract between the media engine and the rest of the app (docs/archive/plan.md §5.3).
 #pragma once
 #include "core/Rational.h"
 

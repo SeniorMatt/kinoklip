@@ -40,7 +40,7 @@ Preferences dialog stored new values.
 - **UI scale** is stored as `ui/scaleFactor` ("auto" or a factor like "1.25", constant
   `prefs::kUiScale` in `PreferencesDialog.h`). It needs `main()` to set `QT_SCALE_FACTOR` from
   it before creating `QApplication` (app owner) — until then the setting has no effect.
-- **Settings pages are registered** (`ui/common/SettingsPages.h`, plan.md 5.9 rule 4): each
+- **Settings pages are registered** (`ui/common/SettingsPages.h`, docs/archive/plan.md 5.9 rule 4): each
   page names its group ("system" / "user") and section; the dialog lists the sections.
   Standard pages: `registerStandardSettingsPages()`; the app's theme adds "appearance"
   (colour theme + widget style) to the "ui" section, which applies through the

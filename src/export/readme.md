@@ -1,7 +1,7 @@
 # `src/export` — export engine
 
 Renders a timeline snapshot to files: movies, audio-only files, image sequences, single
-frames and GIFs (plan.md §5.6, §5.8). Namespace `kk` (public API) and `kk::exporter`
+frames and GIFs (docs/archive/plan.md §5.6, §5.8). Namespace `kk` (public API) and `kk::exporter`
 (internal helpers), logging category `kk.export`. Depends on `core`, `media` (probe, one
 log-routing hook), `render` (Compositor, AudioMixer) and FFmpeg; never on widgets.
 
@@ -113,7 +113,7 @@ frame. Tests: `tests/export/test_subtitleexport.cpp` (ffprobe / ffmpeg check the
 * `EncoderCatalog` is thread-safe (one mutex; detection is serialised).
 * Encoders, writer, mixer and decoders belong to the job thread only.
 
-## Format matrix (export side, plan.md §5.8)
+## Format matrix (export side, docs/archive/plan.md §5.8)
 
 | Container | Video | Audio | Tested by `test_export` |
 |---|---|---|---|

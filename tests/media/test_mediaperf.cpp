@@ -179,7 +179,7 @@ private slots:
 
     /// A timeline filmstrip of a cold file (20 thumbnails 64 px high spread over the clip,
     /// requested at once like a first paint), with software and with hardware preview
-    /// decoders (MediaCache::setPreviewDecoding(); polish-v3 Round 3). KK_PERF_MEDIA adds files.
+    /// decoders (MediaCache::setPreviewDecoding(); docs/archive/polish-v3 Round 3). KK_PERF_MEDIA adds files.
     void filmstripLatency_data()
     {
         QTest::addColumn<QString>("path");

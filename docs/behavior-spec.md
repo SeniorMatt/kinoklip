@@ -1,7 +1,7 @@
 # Edit page behaviour spec
 
 What a user coming from DaVinci Resolve's Edit page expects Kinoklip's Edit page to do, written
-in our own words from general knowledge of how NLEs behave (plan.md 5.10). Nothing here is copied
+in our own words from general knowledge of how NLEs behave (docs/archive/plan.md 5.10). Nothing here is copied
 from Resolve documentation. Every item has the expected behaviour and Kinoklip's status, found
 by testing it (unit / gesture tests, or the running app).
 
@@ -914,7 +914,7 @@ Tests: pl = tests/projects/test_projectlibrary.cpp, pm = tests/app/test_projectm
 | 38.19 | Metadata is read on worker threads only for the cards being painted (and for the sort column when it needs it); sorting by name or date never opens a project. Metadata and posters are cached in the application cache folder (`project-library/` under `$XDG_CACHE_HOME`, keyed by path, modification time and size); nothing is added to the project files (no format change). | Fixed (new; pl metadataIsReadOnAWorkerAndCached, postersAreCachedPerVersion) |
 | 38.20 | Hundreds of projects open instantly: with 300 projects the listing takes milliseconds without opening a file, and a cached library shows its cards with every detail at once. | Fixed (new; pl threeHundredProjects: list 6 ms, cold metadata of all 300 51 ms, warm 10 ms; pm threeHundredProjectsInTheWindow: cached show + sort by duration 37 ms) |
 | 38.21 | Crash recovery and autosave are unchanged: opening a project from the Project Manager is the same as File > Open Recent (Recent list, autosave of the new document). | Fixed (new) |
-| 38.22 | Several project libraries, Open in a New Window, export as a single file with media, a project's notes and a cloud / shared database library. | Export as a single file: Fixed (sfint, see 38.23). Deferred: the rest (plan-v4 lists more than one library and new windows as later). |
+| 38.22 | Several project libraries, Open in a New Window, export as a single file with media, a project's notes and a cloud / shared database library. | Export as a single file: Fixed (sfint, see 38.23). Deferred: the rest (docs/archive/plan-v4 lists more than one library and new windows as later). |
 | 38.23 | Export converts between the kinds: the save dialog offers both, and the context menu of a linked project has Export as Single File. A linked project exported as `.kinoklip` is packed with every media file it uses, a single-file project exported as `.kkproj` is unpacked (media into `media/...` next to it); with progress and Cancel (a cancelled export leaves nothing), media left linked are listed. | Fixed (new, sfint; pl exportConvertsBetweenKinds) |
 | 38.24 | Duplicate and Import copy the project file on a worker thread behind a progress dialog with Cancel (a single-file project holds all its media); the copy goes through "<name>.part" and a cancelled or failed copy leaves nothing behind. Move is a rename and copies nothing. | Fixed (new, sfint; pl largeCopiesReportProgressAndCancelCleanly; pm keysOpenRenameDelete) |
 | 38.25 | Duplicate, Delete and Export act on cards selected by clicking (the card view selects single cells; same cause as 33 above). | Fixed (pm keysOpenRenameDelete) |
@@ -968,7 +968,7 @@ tests/app/test_singlefile.cpp, pl = tests/projects/test_projectlibrary.cpp.
 
 ## 40. Edit page effects (fxkeying branch, v4)
 
-The first batches of docs/plan-v4.md part 3: keying (green screen) and a broad set of colour,
+The first batches of docs/archive/plan-v4.md part 3: keying (green screen) and a broad set of colour,
 blur, light, stylize, distort and transform effects, from general knowledge of how an editor's
 effects library behaves. Clean room: our own names, formulas and wording. Tests: `ve` =
 `tests/render/test_videoeffects.cpp`, `ve2` = `tests/render/test_videoeffects2.cpp`, `eu` =
@@ -995,7 +995,7 @@ effects library behaves. Clean room: our own names, formulas and wording. Tests:
 | 40.17 | Project files store the new effects (ids, values, keys, statics) without a format change; files with them open in older versions, which skip the unknown effects with a warning. | Fixed (ve projectRoundTrip). Decision: no new parameter types, so no format bump or migration. |
 | 40.18 | The CPU fallback (no OpenGL 3.3) applies the keyers (without Shrink / Grow and Edge Blur) and every Color folder effect with the GPU's formulas; the other new effects are skipped there like before. | Fixed (ve chromaKeyOnCpuFallback, pointEffectsMatchReference cpu rows) |
 | 40.19 | Real time: one keyer at 1080p is a single pass (Shrink / Grow and Edge Blur add separable passes on the matte only). | Fixed (ve chromaKeyPerformance prints the timings). Unverified on the owner's Iris Xe: only software GL (llvmpipe) was available to the tests. |
-| 40.20 | The other effects of plan-v4 part 3 (Curves, HSL adjust, LUT files, Lens blur, Tilt-Shift, Unsharp Mask, Noise Reduction, Light Rays, Lens Flare, Halation, Bloom, the further stylize, distort and time effects, Corner Pin) and an eyedropper for the HSL Key. | Fixed by the fxbatch2 branch (40.21 - 40.33); what is still open is listed in 40.33. |
+| 40.20 | The other effects of docs/archive/plan-v4 part 3 (Curves, HSL adjust, LUT files, Lens blur, Tilt-Shift, Unsharp Mask, Noise Reduction, Light Rays, Lens Flare, Halation, Bloom, the further stylize, distort and time effects, Corner Pin) and an eyedropper for the HSL Key. | Fixed by the fxbatch2 branch (40.21 - 40.33); what is still open is listed in 40.33. |
 | 40.21 | New parameter types. Curve: the Inspector shows a small graph per curve (input left to right, output bottom to top, the diagonal dashed); dragging a point bends the curve in one undo step, a click adds a point (at most 16), a double-click or right-click removes one (at least 2 stay); the curve passes through every point and never overshoots between two (monotone cubic). File: the file name with a Browse button (file dialog with the effect's filter), the full path as tooltip, in italics when the file is missing; Reset clears it. The HSL Key's Hue has an eyedropper like the key colour (spec 40.3): the pick writes the hue of the picked colour (a key at the playhead when Hue is animated). | Fixed (eu hslKeyHuePick, curveRowEdits, fileRowPicks; tests/core/test_effectparams curveParseAndFormat, curveInterpolation). Also fixed: an effect's static parameter changed in the Inspector right after another edit could leave no undo step (the edit wrote into the undo snapshot it shared); eu fileRowPicks undoes it. |
 | 40.22 | Color folder, second batch: Curves (master, red, green, blue; the channel curve applies to the master curve's output; Amount keyframable), HSL Adjust (Range: all colours or reds / yellows / greens / cyans / blues / magentas with width and softness, Hue Shift, Saturation, Lightness; greys belong to no range), Vibrance (muted colours gain more than strong ones, skin tones half as much; plus plain saturation), Channel Mixer (each output channel from percentages of the three inputs, Monochrome uses the red row for all). All on the straight colour, alpha unchanged, on the GPU and the CPU fallback alike. | Fixed (ve2 gradeMaths, pointEffectsMatchReference: GPU and CPU within 1 / 255 of the reference) |
 | 40.23 | Apply LUT (Color): a .cube file (LUT_1D_SIZE or LUT_3D_SIZE up to 129, DOMAIN_MIN / DOMAIN_MAX, TITLE, comments) applied with trilinear (3D) or linear (1D) interpolation, mixed by Strength. A missing or malformed file leaves the picture unchanged and logs one warning per file; an edited file is picked up within half a second. Files are read through media::MediaSource, so an entry of a single-file project works the same way. | Fixed (ve2 cubeLutParsing, applyLutMatchesReference). Limitation: a single-file project does not pack the LUT (the container's UI wiring is pending); it refers to the file on disk like a linked project. Rendered-frame cache entries made before a LUT file is edited in place are not invalidated. |
@@ -1013,7 +1013,7 @@ effects library behaves. Clean room: our own names, formulas and wording. Tests:
 ## 41. Viewer guides (guides branch, v4 part 4)
 
 Guide lines, rulers, safe areas and a grid on the viewers that help placing things but never
-appear in a render (docs/plan-v4.md part 4, owner request), from general knowledge of how
+appear in a render (docs/archive/plan-v4.md part 4, owner request), from general knowledge of how
 editors offer guides (rulers you drag guides out of, safe-area and grid overlays). Clean room:
 our own names and wording. Tests: `vg` = `tests/core/test_viewerguides.cpp`, `gu` =
 `tests/playback/test_guideoverlay.cpp`, `gr` = `tests/render/test_guidesrender.cpp`.
@@ -1305,7 +1305,7 @@ the default and a Preference offers the alternative. Tests: `bi` = `tests/app/te
   ones (4.11, 8.17, 13.5, 13.7, 13.9, 16.4, 18.4, 18.5, 21.6; 10.4 and 19.3 changed from
   Decision to Fixed).
 - The resolveedit branch left 1.16, 4.14 and 8.15 deferred; the editpolish branch (roadmap v3,
-  docs/polish-v3.md) fixed them and 23.7 audio scrubbing, and added 2.10 (typed timecodes) and
+  docs/archive/polish-v3.md) fixed them and 23.7 audio scrubbing, and added 2.10 (typed timecodes) and
   21.9 (drag offset label).
 - The editfix branch (alpha.2 feedback) changed 8.10 (Shift+[ / ] leave a gap, Ctrl+Shift+[ / ]
   ripple), 23.5, and added 13.10 and 24.1 - 24.6.
@@ -1333,12 +1333,12 @@ the default and a Preference offers the alternative. Tests: `bi` = `tests/app/te
   preference; 36.12 deferred).
 - The audiopage branch (v2.5) added 37.1 - 37.33 (the Audio page: mixer with buses, EQ,
   dynamics, automation, meters and loudness; 37.20 - 37.33 deferred).
-- The polish2 branch (v3, basic editing polish round 2, docs/polish-v3.md) added 1.18,
+- The polish2 branch (v3, basic editing polish round 2, docs/archive/polish-v3.md) added 1.18,
   12.9 - 12.13, 17.5, 18.7, 19.8, 23.8, 24.7 - 24.10, 33.20, 35.26 and 37.34, updated 1.16
   (band-limited shuttle audio) and changed the 24.1 Decision (multi-clip Inspector edits).
-- The polish3 branch (v3, basic editing polish round 3, docs/polish-v3.md) added 1.19, 8.19,
+- The polish3 branch (v3, basic editing polish round 3, docs/archive/polish-v3.md) added 1.19, 8.19,
   12.14, 18.8, 18.9, 24.11, 24.12 and 29.17, and updated 24.9 and 29.16.
-- The polish4 branch (v3, basic editing polish round 4, docs/polish-v3.md) added 17.6, 17.7,
+- The polish4 branch (v3, basic editing polish round 4, docs/archive/polish-v3.md) added 17.6, 17.7,
   18.10 - 18.15 and 37.35, and updated 18.9 (ranged markers; project format 13).
 - The projmgr branch (roadmap v4 part 1) added 38.1 - 38.22 (the Project Manager: project
   library, cards and list, folders, project kinds, trash, caches; 38.22 deferred).

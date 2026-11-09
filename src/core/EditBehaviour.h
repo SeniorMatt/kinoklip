@@ -25,7 +25,7 @@ enum class WheelScheme {
     Classic
 };
 
-/// Convention-dependent editing behaviour (plan.md 5.9 rule 5). The defaults follow the
+/// Convention-dependent editing behaviour (docs/archive/plan.md 5.9 rule 5). The defaults follow the
 /// Resolve-like profile described in docs/behavior-spec.md; a future interface profile can
 /// change them without touching the timeline code. Plain value type; read it where the
 /// behaviour happens (cheap: a few QSettings lookups).
@@ -64,7 +64,7 @@ struct EditBehaviour
     bool timelineTabs = true;
     /// Two-up trim view (spec 8.19): render each side with its clip's effects and transform
     /// through the program compositor instead of showing the source frame. Off by default:
-    /// it shares the viewer's render thread and lags behind fast drags (polish-v3, Round 3).
+    /// it shares the viewer's render thread and lags behind fast drags (docs/archive/polish-v3, Round 3).
     bool twoUpProgramLook = false;
     /// A press in the timeline ruler away from the playhead's head moves the playhead there at
     /// once and drags it along (Resolve). Off: only a click (released without moving) moves it

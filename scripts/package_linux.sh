@@ -459,7 +459,7 @@ Complete corresponding source code: https://github.com/SeniorMatt/kinoklip (tag 
 Third-party libraries in this bundle and their licences: bundled-libraries.txt, licenses/.
 SOURCE
 
-# Licence notices of the bundled libraries (GPL/LGPL compliance; see plan.md section 8).
+# Licence notices of the bundled libraries (GPL/LGPL compliance; see docs/archive/plan.md section 8).
 # Debian/Ubuntu: dpkg -S + /usr/share/doc/<pkg>/copyright. Arch: pacman -Qo + /usr/share/licenses/<pkg>/
 # (Arch packages put the licence text there unless it is a common licence, whose text is in
 # /usr/share/licenses/spdx/ -- copied for every SPDX id a bundled package names).

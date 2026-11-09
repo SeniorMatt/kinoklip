@@ -3,7 +3,7 @@
 // look (effects, transform) through the program compositor; Source mode shows the source
 // frames. Also the benchmark that decides the default: a roll dragged one frame per 16 ms over
 // a 1080p clip pair, measuring the GUI-thread time per step and how far behind the pictures
-// lag, in both modes (numbers in docs/polish-v3.md, Round 3).
+// lag, in both modes (numbers in docs/archive/polish-v3.md, Round 3).
 #include "../media/MediaTestUtil.h"
 #include "core/EffectRegistry.h"
 #include "core/MediaPool.h"

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Second polish round of the Edit page (docs/polish-v3.md, Round 2): Move Track Up / Down
+// Second polish round of the Edit page (docs/archive/polish-v3.md, Round 2): Move Track Up / Down
 // (spec 12.9), track height presets (12.10) and the Timeline View Options (12.11), driven
 // through the controller and the widget.
 #include "TimelineTestUtils.h"

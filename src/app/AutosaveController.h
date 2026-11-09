@@ -31,7 +31,7 @@ struct RecoveryCandidate
 /// The timer's autosave runs in the background: the GUI thread only takes a
 /// Project::SaveSnapshot (shared immutable timelines, microseconds), a worker thread builds the
 /// JSON and writes the file (Project::writeSnapshot()), so editing never stalls on it
-/// (docs/polish-v3.md, round 4 stress pass: 21 ms on the GUI thread for 1,500 clips before).
+/// (docs/archive/polish-v3.md, round 4 stress pass: 21 ms on the GUI thread for 1,500 clips before).
 ///
 /// Life cycle of the file: it is deleted when it becomes obsolete, i.e. the project is saved,
 /// a different project is loaded/created (after the unsaved-changes prompt), or the window

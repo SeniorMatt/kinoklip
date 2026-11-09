@@ -1,9 +1,11 @@
+> Historical document, kept for reference. The current plan is [docs/roadmap.md](../roadmap.md).
+
 # Plan v4: projects and effects
 
 Owner decision 2026-11-03: the Color and Compositing pages move to v5; v4 is about managing
 projects and about effects on the Edit page. Each part below is released on its own
 (0.4.0, 0.4.1, ...), with spec rows in `docs/behavior-spec.md` and tests, like every earlier
-milestone. After v4 Kinoklip goes public and releases become betas (roadmap.md). Everything follows [clean-room.md](clean-room.md): the Project Manager and the effects
+milestone. After v4 Kinoklip goes public and releases become betas (roadmap.md). Everything follows [clean-room.md](../clean-room.md): the Project Manager and the effects
 behave the way a Resolve user expects, written from general knowledge, never from Resolve itself.
 
 ## Releases (owner decision 2026-11-03)

@@ -100,7 +100,7 @@ public:
         Hardware, ///< the global hardware preference (preferredHwAccel())
         /// Default: software up to 1920x1200, hardware above. Small frames decode as fast in
         /// software, and hardware decoders opened in parallel delayed the program playback's
-        /// own hardware decoder (first play after an import dropped frames; polish-v3,
+        /// own hardware decoder (first play after an import dropped frames; docs/archive/polish-v3,
         /// Round 3); large HEVC / 4K frames are much faster on the hardware decoder.
         BySize
     };

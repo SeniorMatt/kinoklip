@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// test_formats — every import format of plan.md §5.8: probe + decode one frame / audio block of
+// test_formats — every import format of docs/archive/plan.md §5.8: probe + decode one frame / audio block of
 // a real fixture (scripts/make_test_media.sh, formats/), plus SupportedFormats, ImageLoader
 // (orientation, cache) and ImageSequence (detection, gaps, frame mapping).
 #include "MediaTestUtil.h"
