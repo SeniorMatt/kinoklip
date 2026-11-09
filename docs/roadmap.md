@@ -16,7 +16,6 @@ User requests come first: they are the most valuable tasks.
 From users (high priority)
 - Playback drops to a few FPS while timeline thumbnails regenerate; thumbnails should give way to playback ([#2](https://github.com/SeniorMatt/kinoklip/issues/2))
 - Compositing: basic tracking (point tracker first, then planar), the last missing piece for editing a full video for some users ([#3](https://github.com/SeniorMatt/kinoklip/issues/3))
-- Stereo 3D: advanced stereo alignment for two-camera footage (vertical, rotation, scale and convergence correction, automatic from matched features, plus colour match between the eyes); builds on the tracker (user request; planned for the next big release, after this one)
 
 Bugs and fixes
 - Timeline: Close Gap in the context menu does nothing on a gap after the last clip
@@ -43,6 +42,12 @@ Tools and settings
 - Vim keybindings, so nvim users can edit easily
 - Command-line interface
 - MCP server
+
+## Next big release
+
+A large feature, so it gets its own big release. Smaller fix releases will come out before it.
+
+- Stereo 3D: stereo footage support (clips with both eyes, a 3D viewer mode), then advanced stereo alignment for two-camera footage (vertical, rotation, scale and convergence correction, automatic from matched features, plus colour match between the eyes); builds on the tracker (user request)
 
 ## Later
 
