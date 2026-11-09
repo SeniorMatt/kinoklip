@@ -200,6 +200,22 @@ private slots:
         }
     }
 
+    void halfPixelMatchMoveBlendsEdgesLikeTheCpu()
+    {
+        // A 0.5 px track must give blended edge pixels (bilinear sampling), on the GPU as on the
+        // CPU; a whole-pixel jump would leave the edge hard.
+        quint64 tracker = 0;
+        Composition c = boxWithTracker(&tracker);
+        QVERIFY(storeTrack(*c.node(tracker), {{0, 0.5, 0.5, 1}, {10, 0.5 + 0.5 / kW, 0.5, 1}}, 0));
+        const TimelineData tl = compTimeline(c);
+        const QImage gpu = render(m_gpu.get(), tl, 10);
+        const QImage cpu = render(m_cpu.get(), tl, 10);
+        // Row 100, the box's left edge is at x = 90: pixel 90 is half covered after a 0.5 px move.
+        const int g = qRed(gpu.pixel(90, 100)), k = qRed(cpu.pixel(90, 100));
+        QVERIFY2(g > 90 && g < 170, qPrintable(QStringLiteral("gpu edge %1").arg(g)));
+        QVERIFY2(std::abs(g - k) <= 16, qPrintable(QStringLiteral("gpu %1 cpu %2").arg(g).arg(k)));
+    }
+
     void stabilizeCancelsTheTrack()
     {
         quint64 tracker = 0;
@@ -267,12 +283,12 @@ private slots:
 
     void runnerFollowsMovingNoise()
     {
-        // The noise moves by (2, 1) px per frame (whole pixels: the GPU Transform samples
-        // without interpolation; sub-pixel accuracy is covered by test_pointtracker); the runner
+        // The noise moves by (1.5, 0.75) px per frame (sub-pixel; both backends sample
+        // bilinearly); the runner
         // renders the Transform node through the compositor, like the Tracker panel does with the
         // playback engine.
         quint64 mover = 0, tracker = 0;
-        const Composition c = movingNoise(2.0, 1.0, &mover, &tracker);
+        const Composition c = movingNoise(1.5, 0.75, &mover, &tracker);
         const TimelineData tl = compTimeline(c);
         const quint64 clipId = tl.videoTracks[0].clips[0].id;
         for (Compositor* comp : {m_gpu.get(), m_cpu.get()}) {
@@ -299,7 +315,7 @@ private slots:
             QCOMPARE(int(runner.samples().size()), 13);
             QCOMPARE(progress.last().at(0).toInt(), 13);
             for (const TrackSample& s : runner.samples()) {
-                const double x = 159.5 + 2.0 * s.frame, y = 89.5 + 1.0 * s.frame; // px, y down
+                const double x = 159.5 + 1.5 * s.frame, y = 89.5 + 0.75 * s.frame; // px, y down
                 const double px = s.u * kW - 0.5, py = (1.0 - s.v) * kH - 0.5;
                 QVERIFY2(std::hypot(px - x, py - y) < 0.3,
                     qPrintable(QStringLiteral("frame %1: tracked %2,%3 expected %4,%5")

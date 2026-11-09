@@ -115,6 +115,44 @@ QTransform inImagePixels(const QTransform& m, double scale)
         * QTransform::fromScale(scale, scale);
 }
 
+/// @p in moved by (dx, dy) image pixels with bilinear sampling (premultiplied ARGB32, transparent
+/// outside). QPainter rounds a pure translation to whole pixels even with smooth
+/// transformation on, which would make a sub-pixel Match Move jump.
+QImage shifted(const QImage& in, double dx, double dy)
+{
+    QImage out(in.size(), QImage::Format_ARGB32_Premultiplied);
+    out.fill(Qt::transparent);
+    const int w = in.width(), h = in.height();
+    for (int y = 0; y < h; ++y) {
+        auto* dst = reinterpret_cast<QRgb*>(out.scanLine(y));
+        const double sy = y - dy;
+        const int y0 = int(std::floor(sy));
+        const double fy = sy - y0;
+        for (int x = 0; x < w; ++x) {
+            const double sx = x - dx;
+            const int x0 = int(std::floor(sx));
+            const double fx = sx - x0;
+            double acc[4] = {0, 0, 0, 0};
+            for (int j = 0; j < 2; ++j) {
+                for (int i = 0; i < 2; ++i) {
+                    const int xx = x0 + i, yy = y0 + j;
+                    if (xx < 0 || yy < 0 || xx >= w || yy >= h)
+                        continue;
+                    const double wgt = (i ? fx : 1 - fx) * (j ? fy : 1 - fy);
+                    const QRgb c = reinterpret_cast<const QRgb*>(in.constScanLine(yy))[xx];
+                    acc[0] += wgt * qRed(c);
+                    acc[1] += wgt * qGreen(c);
+                    acc[2] += wgt * qBlue(c);
+                    acc[3] += wgt * qAlpha(c);
+                }
+            }
+            dst[x] = qRgba(int(std::lround(acc[0])), int(std::lround(acc[1])),
+                int(std::lround(acc[2])), int(std::lround(acc[3])));
+        }
+    }
+    return out;
+}
+
 class Evaluator
 {
 public:
@@ -179,14 +217,21 @@ private:
         } else if ((n.type == nodetypes::Transform || n.type == nodetypes::Tracker)
             && !in.isNull()) {
             out = blank(size);
-            QPainter p(&out);
-            p.setRenderHint(QPainter::SmoothPixmapTransform);
-            p.setRenderHint(QPainter::Antialiasing);
-            p.setTransform(inImagePixels(n.type == nodetypes::Tracker
+            const QTransform m = inImagePixels(n.type == nodetypes::Tracker
                     ? compmath::trackerMatrix(n.params, f, m_ev.frame)
                     : compmath::transformMatrix(n.params, f, m_ev.frame),
-                s));
-            p.drawImage(0, 0, in);
+                s);
+            if (m.type() == QTransform::TxTranslate
+                && (std::abs(m.dx() - std::round(m.dx())) > 1e-3
+                    || std::abs(m.dy() - std::round(m.dy())) > 1e-3)) {
+                out = shifted(in, m.dx(), m.dy());
+            } else {
+                QPainter p(&out);
+                p.setRenderHint(QPainter::SmoothPixmapTransform);
+                p.setRenderHint(QPainter::Antialiasing);
+                p.setTransform(m);
+                p.drawImage(0, 0, in);
+            }
         } else if (n.type == nodetypes::Crop && !in.isNull()) {
             out = blank(size);
             const QRectF r = compmath::cropRect(n.params, f, m_ev.frame);
