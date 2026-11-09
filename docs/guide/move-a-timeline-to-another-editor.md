@@ -1,7 +1,7 @@
 # Move a timeline to or from another editor
 
-You will send your timeline to DaVinci Resolve (or another editor) and bring one back, using
-an **OpenTimelineIO** file (`.otio`). The file holds the cuts, not the pictures: tracks, where
+You will send your timeline to [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve) (or another editor) and bring one back, using
+an **[OpenTimelineIO](https://opentimeline.io)** file (`.otio`). The file holds the cuts, not the pictures: tracks, where
 each clip sits, which part of the file it plays, gaps, dissolves, speed changes and markers.
 The video and audio files themselves stay where they are.
 
