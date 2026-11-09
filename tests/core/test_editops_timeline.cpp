@@ -181,6 +181,58 @@ private slots:
         KK_VERIFY_INVARIANTS(d);
     }
 
+    void closeGapLinkedPartnerTrackMovesToo()
+    {
+        // V1's second clip is linked to an A1 clip that would stay (A1 is not auto-select):
+        // A1 has room, so it moves with V1 and the pair stays in sync (spec 10.16).
+        TimelineData d = timeline();
+        const quint64 v = ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        Q_UNUSED(v);
+        const quint64 v2 = ops::overwriteClip(d, kV1, mediaClip(30, 10));
+        const quint64 a = ops::overwriteClip(d, kA1, mediaClip(30, 10));
+        ops::linkClips(d, {v2, a});
+        d.audioTracks[0].autoSelect = false;
+        bool broke = true;
+        QCOMPARE(ops::closeGap(d, kV1, 15, ops::RippleScope::AllTracks, &broke), int64_t(20));
+        QVERIFY(!broke);
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("10:10"));
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void closeGapLinkedPartnerBlockedKeepsClickedTrackStill()
+    {
+        // The partner starts before the cut and runs across it: its track cannot move, so V1
+        // must not move either. An unlinked track with room is not held back by it.
+        TimelineData d = timeline();
+        ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        const quint64 v2 = ops::overwriteClip(d, kV1, mediaClip(30, 10));
+        const quint64 a = ops::overwriteClip(d, kA1, mediaClip(25, 15));
+        ops::linkClips(d, {v2, a});
+        bool broke = false;
+        QCOMPARE(ops::closeGap(d, kV1, 15, ops::RippleScope::AllTracks, &broke), int64_t(0));
+        QVERIFY(broke);
+        QVERIFY(!ops::canCloseGap(d, kV1, 15, ops::RippleScope::AllTracks));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:10 30:10"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("25:15"));
+        // Another track whose clips have no links still closes when the clicked track is free.
+        TimelineData e = timeline();
+        ops::overwriteClip(e, kV1, mediaClip(0, 10));
+        ops::overwriteClip(e, kV1, mediaClip(30, 10));
+        const quint64 w = ops::overwriteClip(e, kV2, mediaClip(30, 10));
+        const quint64 b = ops::overwriteClip(e, kA1, mediaClip(25, 15));
+        ops::linkClips(e, {w, b});
+        ops::overwriteClip(e, kA2, mediaClip(0, 10));
+        ops::overwriteClip(e, kA2, mediaClip(30, 10));
+        QCOMPARE(ops::closeGap(e, kV1, 15, ops::RippleScope::AllTracks, &broke), int64_t(20));
+        QVERIFY(!broke);
+        QCOMPARE(layout(e, kV1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(e, kV2), QStringLiteral("30:10")); // linked to the blocked A1: stays
+        QCOMPARE(layout(e, kA2), QStringLiteral("0:10 10:10"));
+        KK_VERIFY_INVARIANTS(d);
+        KK_VERIFY_INVARIANTS(e);
+    }
+
     void canCloseGapOnlyFalseWithoutGapOrOnLockedTrack()
     {
         TimelineData d = timeline();

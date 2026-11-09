@@ -123,6 +123,7 @@ CutPage::CutPage(AppContext& ctx, TimelineController* controller, QWidget* paren
     });
     m_editor->connectActions([this] { return isVisible(); });
     connect(m_editor, &CutEditor::editRefused, m_toolBar, &CutToolBar::showMessage);
+    connect(m_controller, &TimelineController::editRefused, m_toolBar, &CutToolBar::showMessage);
     connect(m_editor, &CutEditor::edited, m_toolBar, [this] { m_toolBar->showMessage({}); });
     // F9 / Shift+F10 / F12 / Shift+F12 run the Cut page versions while this page is shown.
     m_controller->setSourceEditHandler(

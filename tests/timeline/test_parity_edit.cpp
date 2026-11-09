@@ -15,6 +15,7 @@
 #include <QAction>
 #include <QComboBox>
 #include <QScrollBar>
+#include <QSignalSpy>
 #include <QTest>
 #include <QUndoStack>
 #include <QWheelEvent>
@@ -118,6 +119,40 @@ private slots:
             QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("0:50"));
             QCOMPARE(t.undoCount(), before + 1);
         }
+    }
+
+    void spec10_16_linkedPartnerTrackMovesWithTheGap()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 10));
+        const quint64 v = t.put(kV1, solidClip(30, 10));
+        const quint64 a = t.put(kA1, solidClip(30, 10));
+        t.link({v, a});
+        t.f.data().audioTracks[0].autoSelect = false;
+        QVERIFY(t.c.canCloseGapAt(kV1, 15));
+        t.c.closeGapAt(kV1, 15);
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("10:10"));
+    }
+
+    void spec10_16_blockedLinkedPartnerStopsTheClose()
+    {
+        Ctl t;
+        t.put(kV1, solidClip(0, 10));
+        const quint64 v = t.put(kV1, solidClip(30, 10));
+        const quint64 a = t.put(kA1, solidClip(25, 15));
+        t.link({v, a});
+        QVERIFY(!t.c.canCloseGapAt(kV1, 15));
+        QSignalSpy refused(&t.c, &TimelineController::editRefused);
+        const int before = t.undoCount();
+        QVERIFY(t.c.selectGapAt(kV1, 15));
+        t.action("edit.delete")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 30:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("25:15"));
+        QCOMPARE(t.undoCount(), before);
+        QCOMPARE(refused.size(), 1);
+        QCOMPARE(refused.at(0).at(0).toString(),
+            QStringLiteral("Close Gap would break sync with linked clips"));
     }
 
     void spec10_14_deleteKeysRemoveSelectedGapOnAllTracks()
