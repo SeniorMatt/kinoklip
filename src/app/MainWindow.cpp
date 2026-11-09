@@ -3,6 +3,7 @@
 #include "app/MainWindow.h"
 
 #include "app/AppInfo.h"
+#include "ui/help/Guide.h"
 #include "app/AutosaveController.h"
 #include "app/BugReportDialog.h"
 #include "app/InterfaceBar.h"
@@ -495,6 +496,9 @@ void MainWindow::connectAppActions()
     // Help > Report a Bug or Inconsistency: the user sees what would be shared and decides.
     connect(actions.action(QStringLiteral("help.report_bug")), &QAction::triggered, this,
         [this] { showBugReportDialog(); });
+    // Help > Join the Community on Discord: the invite opens in the browser.
+    connect(actions.action(QStringLiteral("help.community")), &QAction::triggered, this,
+        [this] { guide::openUrl(QUrl(QLatin1String(appinfo::communityUrl)), this); });
 
     // ---- Dialogs (src/ui/dialogs) ----
     connectDialogActions(m_ctx, this, [this] {

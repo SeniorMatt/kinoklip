@@ -14,6 +14,8 @@ inline QString displayVersion()
     const QString base = QLatin1String(version);
     return *prerelease ? base + QLatin1Char('-') + QLatin1String(prerelease) : base;
 }
+/// Permanent invite to the community Discord server (Help > Join the Community on Discord).
+inline constexpr const char* communityUrl = "https://discord.gg/pCeHnvDn3x";
 inline constexpr const char* projectExtension = "kkproj";
 /// Reverse-DNS application id: desktop entry name, Wayland app_id, icon name, MIME package
 /// (packaging/linux/org.kinoklip.Kinoklip.desktop).

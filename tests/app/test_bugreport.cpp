@@ -435,6 +435,45 @@ private slots:
         QVERIFY(opener.opened.isEmpty());
     }
 
+    void helpMenuOpensTheCommunityInvite()
+    {
+        FakeOpener opener;
+        Project project;
+        SelectionModel selection;
+        ActionRegistry actions;
+        actions.loadDefaultKeymap();
+        registerStandardActions(actions);
+        AppContext ctx;
+        ctx.project = &project;
+        ctx.selection = &selection;
+        ctx.actions = &actions;
+        MainWindowOptions options;
+        options.autosave = false;
+        options.restoreLayout = false;
+        options.saveLayout = false;
+        auto window = std::make_unique<MainWindow>(ctx, options);
+
+        const QString id = QStringLiteral("help.community");
+        QVERIFY(actions.contains(id));
+        QVERIFY(actions.shortcuts(id).isEmpty());
+        QAction* action = actions.action(id);
+        QCOMPARE(action->text(), QStringLiteral("Join the &Community on Discord"));
+        auto* help = window->findChild<QMenu*>(QStringLiteral("menu:help"));
+        QVERIFY(help);
+        const QList<QAction*> items = help->actions();
+        QVERIFY(items.contains(action));
+        QCOMPARE(items.indexOf(action),
+            items.indexOf(actions.action(QStringLiteral("help.report_bug"))) + 1);
+
+        action->trigger();
+        QCOMPARE(opener.opened.size(), 1);
+        const QUrl url = opener.opened.first();
+        QCOMPARE(url, QUrl(QLatin1String(appinfo::communityUrl)));
+        QCOMPARE(url.scheme(), QStringLiteral("https"));
+        QCOMPARE(url.host(), QStringLiteral("discord.gg"));
+        QVERIFY(url.path().size() > 1);
+    }
+
     // ---- The issue forms ----------------------------------------------------------------
 
     void issueFormsHaveTheFieldsTheAppFills()

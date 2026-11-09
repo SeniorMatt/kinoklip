@@ -468,6 +468,8 @@ const ActionSpec kActions[] = {
     // Opens GitHub's report form in the browser, with system info only if the user chooses
     // (src/app/BugReportDialog, docs/privacy.md).
     {"help", "help.report_bug",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Report a Bug or Inconsistency…")},
+    // Opens the community Discord server's invite in the browser (appinfo::communityUrl).
+    {"help", "help.community",        QT_TRANSLATE_NOOP("kk::StandardActions", "Join the &Community on Discord")},
 };
 // clang-format on
 

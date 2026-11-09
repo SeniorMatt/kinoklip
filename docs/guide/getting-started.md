@@ -218,3 +218,6 @@ report (versions and settings, nothing personal) and opens GitHub's report form 
 with or without that text. Write what you did, what happened and what you expected, and submit it
 there. You need a free GitHub account. Kinoklip itself never sends anything; see
 [Privacy](../privacy.md).
+
+Have a question, or want to show what you made? Choose **Help > Join the Community on Discord**
+to open the invite to the Kinoklip server in your browser.
