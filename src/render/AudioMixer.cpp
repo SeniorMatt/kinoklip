@@ -6,6 +6,7 @@
 #include "core/ParamKeys.h"
 #include "core/Retime.h"
 #include "media/AudioDecoder.h"
+#include "render/AudioClipEffects.h"
 #include "render/MixerChannel.h"
 #include "render/RenderLog.h"
 #include "render/TimeStretch.h"
@@ -83,6 +84,10 @@ struct AudioMixer::Decoder
     render::TimeStretch stretch;
     ClipData stamp;
     bool stamped = false;
+    /// The clip's audio effect stack (ClipData::effects) with its filter / delay memory, and
+    /// the timeline sample the next block must start at for that memory to be valid.
+    dsp::ClipEffectChain effects;
+    int64_t effectsNext = std::numeric_limits<int64_t>::min();
 };
 
 /// A gain ramp over [start, end) timeline samples: fade-in (gainIn) or fade-out (gainOut) of
@@ -417,6 +422,23 @@ bool AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
         src = m_source.data();
     } else {
         src = retimedSource(*d, nested, clip, tl.fps, clipStart, sourceIn, from, n);
+    }
+
+    // ---- Clip audio effects: on the clip's own source, before volume / pan / fades ----
+    // (the clip stage; the track's EQ, dynamics, pan and fader come after, in the track
+    // channel strip). The effects keep memory between blocks, so a block that does not
+    // continue the previous one (seek, loop, a new export) starts them clean.
+    if (dsp::ClipEffectChain::hasActive(clip.effects)) {
+        if (from != d->effectsNext)
+            d->effects.reset();
+        d->effectsNext = to;
+        if (m_effectBuffer.size() < size_t(n) * kChannels)
+            m_effectBuffer.resize(size_t(n) * kChannels);
+        std::copy(src, src + size_t(n) * kChannels, m_effectBuffer.begin());
+        d->effects.process(clip.effects, m_effectBuffer.data(), n);
+        src = m_effectBuffer.data();
+    } else {
+        d->effectsNext = std::numeric_limits<int64_t>::min();
     }
 
     // ---- Gain envelope: volume automation × transition fades, evaluated at block edges ----

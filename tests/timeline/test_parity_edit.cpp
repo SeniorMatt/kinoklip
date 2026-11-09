@@ -360,6 +360,35 @@ private slots:
         QCOMPARE(t.undoCount(), before + 1);
     }
 
+    // Spec 51.5: paste attributes copies the audio effect stack onto audio clips (own switch).
+    void spec51_5_pasteAttributesCopiesAudioEffects()
+    {
+        Ctl t;
+        ClipData srcAudio = solidClip(0, 20);
+        srcAudio.effects.append(
+            EffectRegistry::instance().createEffect(QStringLiteral("audio_gain"), 777));
+        const quint64 a = t.put(kA1, srcAudio);
+        t.f.project.beginEdit(QStringLiteral("ids"));
+        ops::normalizeIds(t.f.data());
+        t.f.project.endEdit();
+        const quint64 b = t.put(kA1, solidClip(30, 20));
+        t.f.selection.setClips({a});
+        t.action("edit.copy")->trigger();
+        t.f.selection.setClips({b});
+        PasteAttributeSet off;
+        off.audioEffects = false;
+        QVERIFY(!t.c.pasteAttributes(off)); // nothing else differs, so nothing changes
+        QVERIFY(ops::clipById(t.f.view(), b)->effects.isEmpty());
+        PasteAttributeSet only;
+        only.transform = only.effects = only.volume = only.pan = false;
+        QVERIFY(only.any());
+        QVERIFY(t.c.pasteAttributes(only));
+        const auto& fx = ops::clipById(t.f.view(), b)->effects;
+        QCOMPARE(fx.size(), 1);
+        QCOMPARE(fx.front().type, QStringLiteral("audio_gain"));
+        QVERIFY(fx.front().id != 777);
+    }
+
     // ---- 18 Markers ----
 
     void spec18_6_deleteMarkerAtPlayhead()

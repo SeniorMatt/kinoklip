@@ -582,6 +582,13 @@ InspectorPanel::Structure InspectorPanel::computeStructure(quint64 clipId) const
             }
         }
     }
+    // The audio part of a linked video + audio pair has its own effect stack.
+    if (s.audioClipId != 0 && s.audioClipId != s.clipId) {
+        if (const ClipData* audio = editops::clipById(data, s.audioClipId)) {
+            for (const EffectInstance& fx : audio->effects)
+                s.audioEffectIds.append(fx.id);
+        }
+    }
     return s;
 }
 
@@ -850,24 +857,47 @@ void InspectorPanel::buildCaptionsTab(const ClipData& c)
 
 void InspectorPanel::buildEffectsTab(const ClipData& c)
 {
+    // A linked video + audio pair shows two stacks, as Resolve separates the video effects
+    // from the audio effects: the video clip's, then the audio clip's (spec 51.2).
+    const bool pair = m_structure.onVideoTrack && m_audioClipId != 0 && m_audioClipId != m_clipId;
+    const ClipData* audio = pair ? clip(m_audioClipId) : nullptr;
+    if (!audio) {
+        buildEffectSection(c, m_clipId,
+            m_structure.onVideoTrack ? EffectCategory::VideoEffect : EffectCategory::AudioEffect,
+            {});
+        return;
+    }
+    buildEffectSection(c, m_clipId, EffectCategory::VideoEffect, tr("Video Effects"));
+    buildEffectSection(*audio, m_audioClipId, EffectCategory::AudioEffect, tr("Audio Effects"));
+}
+
+void InspectorPanel::buildEffectSection(
+    const ClipData& c, quint64 clipId, EffectCategory category, const QString& heading)
+{
     const EffectRegistry& registry = EffectRegistry::instance();
-    const EffectCategory category
-        = m_structure.onVideoTrack ? EffectCategory::VideoEffect : EffectCategory::AudioEffect;
 
     // Toolbar: "Add Effect" menu with every effect that fits this clip's track.
     auto* bar = new QWidget;
     auto* barLayout = new QHBoxLayout(bar);
     barLayout->setContentsMargins(8, 6, 8, 6);
-    m_addEffect = new QToolButton(bar);
-    m_addEffect->setText(tr("Add Effect"));
-    m_addEffect->setIcon(inspectorGlyph(InspectorGlyph::Add));
-    m_addEffect->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    m_addEffect->setPopupMode(QToolButton::InstantPopup);
-    auto* menu = new QMenu(m_addEffect);
+    if (!heading.isEmpty()) {
+        auto* label = new QLabel(heading, bar);
+        QFont font = label->font();
+        font.setBold(true);
+        label->setFont(font);
+        barLayout->addWidget(label);
+    }
+    auto* addEffect = new QToolButton(bar);
+    if (!m_addEffect)
+        m_addEffect = addEffect; // the first (or only) one
+    addEffect->setText(tr("Add Effect"));
+    addEffect->setIcon(inspectorGlyph(InspectorGlyph::Add));
+    addEffect->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    addEffect->setPopupMode(QToolButton::InstantPopup);
+    auto* menu = new QMenu(addEffect);
     const QVector<const EffectDescriptor*> effects = registry.byCategory(category);
     auto addEntry = [&](QMenu* into, const EffectDescriptor* d) {
         const QString id = d->id;
-        const quint64 clipId = m_clipId;
         into->addAction(d->name, this,
             [this, id, clipId] { effectactions::applyEffect(*m_ctx.project, {clipId}, id); });
     };
@@ -883,9 +913,9 @@ void InspectorPanel::buildEffectsTab(const ClipData& c)
         if (d->group.isEmpty())
             addEntry(menu, d);
     }
-    m_addEffect->setMenu(menu);
-    m_addEffect->setEnabled(!menu->isEmpty());
-    barLayout->addWidget(m_addEffect);
+    addEffect->setMenu(menu);
+    addEffect->setEnabled(!menu->isEmpty());
+    barLayout->addWidget(addEffect);
     barLayout->addStretch(1);
     tabLayout(EffectsTab)->addWidget(bar);
 
@@ -898,8 +928,7 @@ void InspectorPanel::buildEffectsTab(const ClipData& c)
         const EffectInstance& fx = c.effects[i];
         const EffectDescriptor* d = registry.find(fx.type);
         const QString key = QStringLiteral("fx:%1").arg(fx.id);
-        ParamGroupBox* group = addGroup(EffectsTab, key, d ? d->name : fx.type, m_clipId);
-        const quint64 clipId = m_clipId;
+        ParamGroupBox* group = addGroup(EffectsTab, key, d ? d->name : fx.type, clipId);
         const quint64 effectId = fx.id;
 
         QCheckBox* enable = group->addEnableToggle();
@@ -922,9 +951,12 @@ void InspectorPanel::buildEffectsTab(const ClipData& c)
         QToolButton* remove = group->addHeaderButton(InspectorGlyph::Remove, tr("Remove effect"));
         up->setEnabled(i > 0);
         down->setEnabled(i + 1 < c.effects.size());
-        connect(up, &QToolButton::clicked, this, [this, effectId] { moveEffect(effectId, -1); });
-        connect(down, &QToolButton::clicked, this, [this, effectId] { moveEffect(effectId, +1); });
-        connect(remove, &QToolButton::clicked, this, [this, effectId] { removeEffect(effectId); });
+        connect(up, &QToolButton::clicked, this,
+            [this, clipId, effectId] { moveEffect(clipId, effectId, -1); });
+        connect(down, &QToolButton::clicked, this,
+            [this, clipId, effectId] { moveEffect(clipId, effectId, +1); });
+        connect(remove, &QToolButton::clicked, this,
+            [this, clipId, effectId] { removeEffect(clipId, effectId); });
 
         if (!d) {
             group->addWidgetRow(
@@ -936,9 +968,9 @@ void InspectorPanel::buildEffectsTab(const ClipData& c)
     }
 }
 
-void InspectorPanel::moveEffect(quint64 effectId, int delta)
+void InspectorPanel::moveEffect(quint64 clipId, quint64 effectId, int delta)
 {
-    editClip(tr("Reorder Effects"), m_clipId, [effectId, delta](ClipData& c) {
+    editClip(tr("Reorder Effects"), clipId, [effectId, delta](ClipData& c) {
         for (int i = 0; i < c.effects.size(); ++i) {
             if (c.effects[i].id != effectId)
                 continue;
@@ -950,9 +982,9 @@ void InspectorPanel::moveEffect(quint64 effectId, int delta)
     });
 }
 
-void InspectorPanel::removeEffect(quint64 effectId)
+void InspectorPanel::removeEffect(quint64 clipId, quint64 effectId)
 {
-    editClip(tr("Remove Effect"), m_clipId, [effectId](ClipData& c) {
+    editClip(tr("Remove Effect"), clipId, [effectId](ClipData& c) {
         c.effects.removeIf([effectId](const EffectInstance& fx) { return fx.id == effectId; });
     });
 }
@@ -1228,7 +1260,11 @@ void InspectorPanel::dropEvent(QDropEvent* event)
         if (done)
             m_tabs->setCurrentIndex(TransitionTab);
     } else {
-        done = effectactions::applyEffect(*m_ctx.project, {m_clipId}, id) > 0;
+        // An audio effect goes onto the audio part of a linked pair.
+        const quint64 target
+            = desc->category == EffectCategory::AudioEffect && m_audioClipId ? m_audioClipId
+                                                                           : m_clipId;
+        done = effectactions::applyEffect(*m_ctx.project, {target}, id) > 0;
         if (done)
             m_tabs->setCurrentIndex(EffectsTab);
     }

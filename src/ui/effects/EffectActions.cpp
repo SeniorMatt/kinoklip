@@ -250,8 +250,20 @@ bool activate(AppContext& ctx, const QString& descriptorId)
     const int64_t playhead = project.timeline()->playhead();
     switch (desc->category) {
     case EffectCategory::VideoEffect:
-    case EffectCategory::AudioEffect:
         return ctx.selection && applyEffect(project, ctx.selection->clips(), descriptorId) > 0;
+    case EffectCategory::AudioEffect: {
+        // The audio part of a selected linked video clip gets the effect too.
+        if (!ctx.selection)
+            return false;
+        QVector<quint64> targets = ctx.selection->clips();
+        for (quint64 id : ctx.selection->clips()) {
+            for (quint64 linked : editops::linkedClips(project.timeline()->data(), id)) {
+                if (!targets.contains(linked))
+                    targets.append(linked);
+            }
+        }
+        return applyEffect(project, targets, descriptorId) > 0;
+    }
     case EffectCategory::Transition:
     case EffectCategory::AudioTransition: {
         // The current clip, else the most recent selected clip on a track the transition fits

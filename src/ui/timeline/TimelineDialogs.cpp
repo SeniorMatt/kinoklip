@@ -136,17 +136,20 @@ std::optional<PasteAttributeSet> askPasteAttributes(QWidget* parent)
     auto* audioBox = new QGroupBox(tr("Audio Attributes"));
     auto* volume = new QCheckBox(tr("Volume"));
     auto* pan = new QCheckBox(tr("Pan"));
+    auto* audioEffects = new QCheckBox(tr("Effects"));
     auto* otherBox = new QGroupBox(tr("Other"));
     auto* speed = new QCheckBox(tr("Speed Change"));
     transform->setChecked(defaults.transform);
     effects->setChecked(defaults.effects);
     volume->setChecked(defaults.volume);
     pan->setChecked(defaults.pan);
+    audioEffects->setChecked(defaults.audioEffects);
     speed->setChecked(defaults.speed);
     (new QVBoxLayout(videoBox))->addWidget(transform);
     videoBox->layout()->addWidget(effects);
     (new QVBoxLayout(audioBox))->addWidget(volume);
     audioBox->layout()->addWidget(pan);
+    audioBox->layout()->addWidget(audioEffects);
     (new QVBoxLayout(otherBox))->addWidget(speed);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     buttons->button(QDialogButtonBox::Ok)->setText(tr("Apply"));
@@ -164,6 +167,7 @@ std::optional<PasteAttributeSet> askPasteAttributes(QWidget* parent)
     s.effects = effects->isChecked();
     s.volume = volume->isChecked();
     s.pan = pan->isChecked();
+    s.audioEffects = audioEffects->isChecked();
     s.speed = speed->isChecked();
     return s;
 }

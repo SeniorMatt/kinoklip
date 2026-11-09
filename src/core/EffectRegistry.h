@@ -173,6 +173,8 @@ private:
     void registerVideoEffects(); ///< the v4 video effects (BuiltinVideoEffects.cpp)
     /// The second batch of v4 video effects (BuiltinVideoEffects2.cpp).
     void registerVideoEffects2();
+    /// The clip audio effects (BuiltinAudioEffects.cpp).
+    void registerAudioEffects();
 
     QVector<EffectDescriptor> m_descriptors;
     QHash<QString, qsizetype> m_index; ///< id → position in m_descriptors (O(1) find())
