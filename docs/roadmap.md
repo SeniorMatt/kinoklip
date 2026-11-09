@@ -9,17 +9,14 @@ everything follows the [clean-room policy](clean-room.md).
 
 ## Now (next version)
 
-Planned on 2026-11-05 for the version after 1.1.5. Not started.
+Shipped in 1.1.7: thumbnails give way to playback ([#2](https://github.com/SeniorMatt/kinoklip/issues/2)), the point tracker ([#3](https://github.com/SeniorMatt/kinoklip/issues/3)), Close Gap and Ripple Delete on gaps. Waiting for the reporter to confirm.
 
 User requests come first: they are the most valuable tasks.
 
 From users (high priority)
-- Playback drops to a few FPS while timeline thumbnails regenerate; thumbnails should give way to playback ([#2](https://github.com/SeniorMatt/kinoklip/issues/2))
-- Compositing: basic tracking (point tracker first, then planar), the last missing piece for editing a full video for some users ([#3](https://github.com/SeniorMatt/kinoklip/issues/3))
+- Compositing: planar tracker, and linking other nodes' positions to a track (the point tracker shipped in 1.1.7, [#3](https://github.com/SeniorMatt/kinoklip/issues/3))
 
 Bugs and fixes
-- Timeline: Close Gap in the context menu does nothing on a gap after the last clip
-- Timeline: Ripple Delete must work on empty space (a selected gap)
 - Media Pool: the thumbnail slider squeezes the search box at the default width
 - Keyframes panel: the Keyframes / Curves switch should look like native Breeze / Qt
 - AppImage: show an error when FUSE is missing (today it fails silently)
