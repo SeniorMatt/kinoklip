@@ -360,7 +360,7 @@ private slots:
         QCOMPARE(t.undoCount(), before + 1);
     }
 
-    // Spec 51.5: paste attributes copies the audio effect stack onto audio clips (own switch).
+    // Spec 52.5: paste attributes copies the audio effect stack onto audio clips (own switch).
     void spec51_5_pasteAttributesCopiesAudioEffects()
     {
         Ctl t;

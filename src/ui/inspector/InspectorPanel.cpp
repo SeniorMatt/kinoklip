@@ -858,7 +858,7 @@ void InspectorPanel::buildCaptionsTab(const ClipData& c)
 void InspectorPanel::buildEffectsTab(const ClipData& c)
 {
     // A linked video + audio pair shows two stacks, as Resolve separates the video effects
-    // from the audio effects: the video clip's, then the audio clip's (spec 51.2).
+    // from the audio effects: the video clip's, then the audio clip's (spec 52.2).
     const bool pair = m_structure.onVideoTrack && m_audioClipId != 0 && m_audioClipId != m_clipId;
     const ClipData* audio = pair ? clip(m_audioClipId) : nullptr;
     if (!audio) {

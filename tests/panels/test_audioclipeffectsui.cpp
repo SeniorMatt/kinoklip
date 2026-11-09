@@ -92,7 +92,7 @@ private slots:
         theme::apply(*qApp);
     }
 
-    // Spec 51.1: the Inspector's Add Effect is enabled for an audio clip and lists the audio
+    // Spec 52.1: the Inspector's Add Effect is enabled for an audio clip and lists the audio
     // effects only.
     void inspectorEnablesAddEffectForAnAudioClip()
     {
@@ -117,7 +117,7 @@ private slots:
         QVERIFY(!menuTexts(videoButtons[0]).contains(QStringLiteral("Gain")));
     }
 
-    // Spec 51.2: a linked video + audio pair shows the video stack and the audio stack, each
+    // Spec 52.2: a linked video + audio pair shows the video stack and the audio stack, each
     // with its own Add Effect, and the audio effect goes onto the audio clip.
     void linkedPairHasSeparateVideoAndAudioStacks()
     {
@@ -142,7 +142,7 @@ private slots:
         QVERIFY(groupTitled(panel, QStringLiteral("Gain")));
     }
 
-    // Spec 51.3: applying is one undo step, undo / redo restore it; a video effect is refused
+    // Spec 52.3: applying is one undo step, undo / redo restore it; a video effect is refused
     // by an audio clip and an audio effect by a video clip.
     void applyUndoRedoAndRefusals()
     {
@@ -164,7 +164,7 @@ private slots:
         QCOMPARE(f.project.undoStack()->count(), commands + 1);
     }
 
-    // Spec 51.3: Add Effect in the Effects library (double-click) puts the audio effect on the
+    // Spec 52.3: Add Effect in the Effects library (double-click) puts the audio effect on the
     // audio part of a selected linked video clip too.
     void libraryActivateReachesTheLinkedAudio()
     {
@@ -184,7 +184,7 @@ private slots:
             QCOMPARE(ids.count(d->id), 1);
     }
 
-    // Spec 51.3: parameters edit in the Inspector, bypass, reorder and remove, all undoable.
+    // Spec 52.3: parameters edit in the Inspector, bypass, reorder and remove, all undoable.
     void inspectorEditsBypassesReordersAndRemoves()
     {
         PanelFixture f;
@@ -243,7 +243,7 @@ private slots:
         QCOMPARE(f.clip(a)->effects.size(), 2);
     }
 
-    // Spec 51.3: the audio effects of a linked pair edit through the pair's one Inspector
+    // Spec 52.3: the audio effects of a linked pair edit through the pair's one Inspector
     // (the audio stack's buttons act on the audio clip).
     void linkedPairAudioStackEdits()
     {
@@ -267,7 +267,7 @@ private slots:
         QCOMPARE(f.clip(a)->effects.size(), 1);
     }
 
-    // Spec 51.5: the stack survives saving and loading a project.
+    // Spec 52.5: the stack survives saving and loading a project.
     void stackSurvivesSaveAndLoad()
     {
         PanelFixture f;
