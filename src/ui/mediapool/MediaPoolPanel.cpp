@@ -71,6 +71,8 @@ constexpr int kWheelRowFraction = 3;
 constexpr int kWheelNotch = 120; ///< QWheelEvent::angleDelta() of one notch
 constexpr int kMaxHistory = 100; ///< bins kept in the Back / Forward history
 constexpr int kZoomSliderWidth = 70;
+constexpr int kZoomSliderMinWidth = 30; ///< px; narrower than this the slider is hidden
+constexpr int kSearchChrome = 56; ///< px: search icon, clear button and text margins
 /// Below this panel width the bins sidebar hides itself (unless the user chose explicitly), so
 /// the grid keeps at least two tile columns in the narrow Edit page column.
 constexpr int kAutoBinsMinWidth = 460;
@@ -407,6 +409,8 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
 void MediaPoolPanel::buildToolbar(QWidget* host)
 {
     host->setObjectName(QStringLiteral("MediaPoolToolbar"));
+    m_toolbar = host;
+    host->installEventFilter(this);
     auto* layout = new QHBoxLayout(host);
     layout->setContentsMargins(6, 4, 6, 4);
     layout->setSpacing(4);
@@ -429,7 +433,7 @@ void MediaPoolPanel::buildToolbar(QWidget* host)
         [this](const QString& text) { m_proxy->setSearchText(text); });
     m_search->setMaximumWidth(kSearchMaxWidth);
     setSearchField(m_search); // spec 49.5
-    layout->addWidget(m_search, 1);
+    layout->addWidget(m_search, 100); // takes the room before the spacer does
 
     // Clip colour filter: shows one colour (Resolve's media pool colour filter).
     m_colorButton = new QToolButton(host);
@@ -901,7 +905,8 @@ void MediaPoolPanel::setViewMode(ViewMode mode)
     m_gridButton->setChecked(shown == ViewMode::Grid);
     m_listButton->setChecked(shown == ViewMode::List);
     m_stripButton->setChecked(shown == ViewMode::Strip);
-    m_zoomSlider->setVisible(shown == ViewMode::Grid);
+    m_zoomWanted = shown == ViewMode::Grid;
+    fitZoomSlider();
     if (m_model->rowCount() > 0)
         m_stack->setCurrentIndex(stackIndexFor(mode));
     else
@@ -1014,9 +1019,37 @@ void MediaPoolPanel::applyAutoBins()
     m_binsButton->setChecked(visible);
 }
 
+void MediaPoolPanel::fitZoomSlider()
+{
+    if (!m_toolbar || !m_zoomSlider)
+        return;
+    QLayout* box = m_toolbar->layout();
+    const QMargins m = box->contentsMargins();
+    int others = m.left() + m.right();
+    int items = 0;
+    for (int i = 0; i < box->count(); ++i) {
+        QWidget* w = box->itemAt(i)->widget();
+        if (w == m_zoomSlider || (w && w->isHidden()))
+            continue;
+        ++items;
+        if (w && w != m_search)
+            others += w->sizeHint().width();
+    }
+    const int spacing = box->spacing();
+    const int searchNeed
+        = m_search->fontMetrics().horizontalAdvance(m_search->placeholderText()) + kSearchChrome;
+    // Items plus the slider, each separated by the spacing.
+    const int room = m_toolbar->width() - others - items * spacing - searchNeed - spacing;
+    const bool fits = room >= kZoomSliderMinWidth;
+    if (fits)
+        m_zoomSlider->setFixedWidth(std::min(kZoomSliderWidth, room));
+    m_zoomSlider->setVisible(m_zoomWanted && fits);
+}
+
 void MediaPoolPanel::resizeEvent(QResizeEvent* event)
 {
     PanelFrame::resizeEvent(event);
+    fitZoomSlider();
     applyAutoBins();
 }
 
@@ -1046,6 +1079,11 @@ void MediaPoolPanel::setThumbnailProvider(PosterProvider provider)
 
 bool MediaPoolPanel::eventFilter(QObject* watched, QEvent* event)
 {
+    if (watched == m_toolbar) {
+        if (event->type() == QEvent::Resize)
+            fitZoomSlider();
+        return false;
+    }
     // With the media pool focused, the editing keys act on it, as in Resolve: Delete /
     // Backspace delete the selected items (asking first when timeline clips use them) and
     // Ctrl+A selects every item of the bin. As window shortcuts they would ripple-delete or

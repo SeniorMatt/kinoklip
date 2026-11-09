@@ -283,6 +283,9 @@ private:
     void addMulticamMenu(QMenu& menu, const QStringList& ids);
     void connectMulticamActions();
     void applyAutoBins();
+    /// Shrinks, then hides, the thumbnail size slider when the toolbar is too narrow to keep
+    /// the search box readable.
+    void fitZoomSlider();
     void rebuildBins();
     void showBinKey(const QString& key);
     void applyBinView();
@@ -349,6 +352,8 @@ private:
     QToolButton* m_stripButton = nullptr;
     QToolButton* m_binsButton = nullptr;
     QToolButton* m_colorButton = nullptr;
+    QWidget* m_toolbar = nullptr;
+    bool m_zoomWanted = true; ///< the grid is showing, so the slider is wanted
     QSlider* m_zoomSlider = nullptr; ///< thumbnail size (grid view)
     ViewMode m_viewMode = ViewMode::Grid;
     bool m_stripAvailable = false;
