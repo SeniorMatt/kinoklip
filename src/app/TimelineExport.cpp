@@ -5,6 +5,7 @@
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "export/EdlExport.h"
+#include "export/Otio.h"
 #include "platform/FileDialogs.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -59,6 +60,20 @@ void connectTimelineExportActions(AppContext& ctx, QWidget* window)
                         return sourceTimecodeBase(clip, pool, fps).startUs;
                     };
                     return edl::timelineToEdl(data, pool, options);
+                });
+        });
+    QObject::connect(actions.action(QStringLiteral("file.export_otio")), &QAction::triggered,
+        window, [&ctx, window] {
+            exportText(ctx, window, tr("Export Timeline as OpenTimelineIO"),
+                tr("OpenTimelineIO files (*.otio)"), QStringLiteral(".otio"),
+                [&ctx](const TimelineData& data) {
+                    const MediaPool* pool = ctx.project->mediaPool();
+                    otio::ExportOptions options;
+                    // Source times start at the media's own start timecode, as in the EDL.
+                    options.sourceStartUs = [pool, fps = data.fps](const ClipData& clip) {
+                        return sourceTimecodeBase(clip, pool, fps).startUs;
+                    };
+                    return QString::fromUtf8(otio::timelineToOtio(data, pool, options));
                 });
         });
     QObject::connect(actions.action(QStringLiteral("file.export_markers_edl")), &QAction::triggered,

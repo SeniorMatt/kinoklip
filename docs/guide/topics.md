@@ -34,6 +34,7 @@ not a count.
 | 19 | Colour correct a clip (too dark, too blue, white balance) | The Color page is new in 1.1.0 Beta and is why many people pick a Resolve-style editor; the first questions are the wheels, white balance, reading the scopes and copying a grade to other clips. | [Colour correct a clip](colour-correct-a-clip.md) |
 | 20 | Change the colour of one object, or make one colour pop | Qualifiers, power windows and serial nodes are the next step after a basic correction. | [Change the colour of one object](change-the-colour-of-one-object.md) |
 | 21 | Use a LUT (log footage, a film look) | Drone, phone and camera log recordings look grey until a LUT is applied; creative LUT packs are popular. | [Use a LUT](use-a-lut.md) |
+| 22 | Move a timeline to or from DaVinci Resolve or another editor | Users who start in one editor and finish in another, or who try Kinoklip on a project from Resolve, need an interchange file; OpenTimelineIO is the open one (GitHub issue 5). | [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md) |
 
 Topics that come up often but that Kinoklip cannot do yet (no article until it can):
 

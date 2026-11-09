@@ -66,6 +66,11 @@ QString mediaFileDialogFilter()
     return tr("Media files (%1);;All files (*)").arg(lower.join(QLatin1Char(' ')));
 }
 
+QString otioFileDialogFilter()
+{
+    return tr("OpenTimelineIO files (*.otio);;All files (*)");
+}
+
 QString subtitleFileDialogFilter()
 {
     return tr("Subtitle files (*.srt *.vtt *.SRT *.VTT);;All files (*)");

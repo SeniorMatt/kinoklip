@@ -61,12 +61,14 @@ const ActionSpec kActions[] = {
     {"file", ">file.import",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Import")},
     {"file.import", "file.import_media", QT_TRANSLATE_NOOP("kk::StandardActions", "&Media…"), "import"},
     {"file.import", "file.import_media_folder", QT_TRANSLATE_NOOP("kk::StandardActions", "Media &Folder…"), "folder"},
+    {"file.import", "file.import_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Timeline…")},
     {"file.import", "file.import_subtitle", QT_TRANSLATE_NOOP("kk::StandardActions", "&Subtitle…")},
     // The media pool's proxy / optimized media commands also live here (act on the media
     // pool selection); Resolve offers them in the media pool context menu.
     // File > Export: the timeline as an edit decision list, its markers as EDL / CSV.
     {"file", ">file.export",          QT_TRANSLATE_NOOP("kk::StandardActions", "E&xport")},
     {"file.export", "file.export_edl", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline as &EDL…")},
+    {"file.export", "file.export_otio", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline as &OpenTimelineIO (.otio)…")},
     {"file.export", "file.export_markers_edl", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline &Markers to EDL…")},
     {"file.export", "file.export_markers_csv", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline Markers to &CSV…")},
     {"file", ">mediapool",            QT_TRANSLATE_NOOP("kk::StandardActions", "Pro&xy and Optimized Media")},

@@ -10,6 +10,7 @@
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
 #include "app/TimelineExport.h"
+#include "app/TimelineImport.h"
 #include "app/pages/AudioPage.h"
 #include "app/pages/ColorPage.h"
 #include "app/pages/CompositingPage.h"
@@ -175,7 +176,8 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     setCentralWidget(central);
 
     m_projectController = new ProjectController(ctx, this);
-    connectTimelineExportActions(ctx, this); // File > Export (EDL, marker lists)
+    connectTimelineExportActions(ctx, this); // File > Export (EDL, OTIO, marker lists)
+    connectTimelineImportActions(ctx, this); // File > Import > Timeline (OTIO)
     m_pageActions = new QActionGroup(this);
     m_pageActions->setExclusive(true);
 
