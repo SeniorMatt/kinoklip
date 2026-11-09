@@ -9,7 +9,7 @@ everything follows the [clean-room policy](clean-room.md).
 
 ## Version 1.2 (starts right after 1.1.8)
 
-Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](https://opentimeline.io), planar tracker, audio effects, the command-line interface and the MCP server on top of it, then stabilization, fade curves, Smooth Cut, hover preview, the text title layers, emoji, Inspector audio options, settings import/export and vim keys. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
+Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](https://opentimeline.io), planar tracker, audio effects, the command-line interface and the MCP server on top of it, then the missing transitions, effects and generators (Smooth Cut first), stabilization, fade curves, hover preview, the text title layers, emoji, Inspector audio options, settings import/export and vim keys. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
 
 ## Now (next version)
 
@@ -30,7 +30,7 @@ Bugs and fixes
 Editing
 - Media Pool: hovering a clip thumbnail previews it in the viewer, as in Resolve
 - Fade curves on timeline clips that can be shaped with the mouse (the handles draw a straight line today)
-- Smooth Cut transition in the Effects library
+- Effects library: every video transition, video effect and generator that Resolve has and Kinoklip lacks, Smooth Cut first (owner request)
 - Stabilization
 - Emoji in subtitles and titles, in colour, in the viewer and in exports
 - Text title: more options on the existing title, mainly layers (several text and shape layers in one title); no new title type
