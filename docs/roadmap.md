@@ -98,13 +98,14 @@ Quality
 
 ## Long-term
 
-- Windows and macOS builds (KDE Craft provides Qt, KF6 and Breeze there); the code already keeps platform code in `src/platform/`
-- Flatpak and distro packages (Arch PKGBUILD / AUR, .deb, .rpm), Windows installer, macOS .dmg
+- Windows build, after the first stable (non-beta) release (KDE Craft provides Qt, KF6 and Breeze there); the code already keeps platform code in `src/platform/`
+- Flatpak and distro packages (Arch PKGBUILD / AUR, .deb, .rpm), Windows installer
 - Interface profiles beyond the default (a Plasma profile)
 - Project website presenting Kinoklip as a free alternative to DaVinci Resolve: features, screenshots, downloads, roadmap, docs. It names Resolve only for comparison, uses no Blackmagic logos or screenshots, and claims only what the shipped build does
 - Version 1.0.0: released only when the owner decides; until then every build is an alpha or beta
 
 ## Not planned
 
+- macOS version (OpenGL is frozen there, a port would need a Metal renderer, signing and a Mac to test on)
 - Background removal
 - Importing Resolve project files: they are undocumented and could only be read by analysing them (clean room). Moving work over stays possible through open formats (EDL today; see AAF and FCPXML under Later)
