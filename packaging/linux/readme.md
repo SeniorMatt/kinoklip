@@ -320,7 +320,12 @@ update. Gear Lever compares the SHA-1 in the release's `.zsync` with the install
 404 to anonymous requests and update checks find nothing.
 
 **FUSE.** The static runtime needs no libfuse on the host, only the kernel FUSE module and
-`fusermount`/`fusermount3` (present on KDE Linux, Arch, Ubuntu, Fedora ...). Without them:
+`fusermount`/`fusermount3` (present on KDE Linux, Arch, Ubuntu, Fedora ...). Checked in the runtime
+20251108 binary (strings): it has **no automatic fallback**. `APPIMAGE_EXTRACT_AND_RUN` and
+`--appimage-extract-and-run` are only read when the user sets them; without a usable `fusermount` it prints
+"Cannot mount AppImage, please check your FUSE setup" to stderr and exits, so a double-click shows nothing.
+The runtime cannot be changed (no custom runtime), so the release notes and the download block in
+docs/releases/readme.md tell users in advance. Without FUSE:
 `./Kinoklip-x86_64.AppImage --appimage-extract-and-run` (or `APPIMAGE_EXTRACT_AND_RUN=1`)
 unpacks into a temporary directory and runs from there; `--appimage-extract` unpacks to
 `squashfs-root/` permanently. Other runtime flags: `--appimage-help`,
@@ -461,7 +466,7 @@ It cannot test real GPUs, real desktop sessions, FUSE or SELinux.
 - The AppImage runtime starts before the launcher. Without FUSE (`fusermount3` or `fusermount`
   missing: measured on a no-recommends Ubuntu 26.04 GNOME set) or without a writable `TMPDIR` for its
   mount point, it only prints to stderr, so a start from a menu shows nothing. `--appimage-extract-and-run`
-  or `APPIMAGE_EXTRACT_AND_RUN=1` works around it. Fixing it would mean changing the upstream runtime.
+  or `APPIMAGE_EXTRACT_AND_RUN=1` works around it (no automatic fallback exists in the runtime; verified from its strings). Fixing it would mean changing the upstream runtime, so the release notes say what to do: install `fuse3` (Debian/Ubuntu: `sudo apt install fuse3`; Fedora: `fuse`; Arch: `fuse3`), or run from a terminal with `--appimage-extract-and-run`.
 - SELinux could not be tested in a container. By the code: the links and files the launcher makes are
   in the user's own directories, and the app's libraries are mapped from the FUSE mount (type
   `fusefs_t`) as for every AppImage. On a default Fedora targeted policy a user session is unconfined.

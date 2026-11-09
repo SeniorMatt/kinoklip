@@ -481,27 +481,49 @@ pkg_version() {
         dpkg-query -W -f='${Version}' "$1" 2>/dev/null
     fi
 }
+# Real licence files of one package into $LICENSES/<pkg>/. The package's own files come first
+# (cp -L; dangling links, e.g. xz's links into /usr/share/doc that the container image does not
+# extract, are skipped one by one and empty files are dropped). Only when that leaves no
+# non-empty file, the SPDX text of each licence id the package names is used: from
+# /usr/share/licenses/spdx, /usr/share/common-licenses or packaging/linux/licenses/<id>.txt.
+# Debian-style copyright files are used as they are. A package left without text is fatal.
+have_text() { [ -d "$1" ] && [ -n "$(find "$1" -type f -size +0 -print -quit)" ]; }
 copy_licence() {
-    local pkg="$1" id
+    local pkg="$1" id src f
     if command -v pacman >/dev/null; then
         if [ -d "/usr/share/licenses/$pkg" ]; then
             mkdir -p "$LICENSES/$pkg"
-            # xz links to /usr/share/doc, which the container image does not extract: dangling
-            # links are skipped here, and its SPDX ids below bring the texts.
-            cp -rL "/usr/share/licenses/$pkg/." "$LICENSES/$pkg/" 2>/dev/null ||
-                log "warning: incomplete licence directory of $pkg, relying on its SPDX ids"
+            for f in "/usr/share/licenses/$pkg"/*; do
+                [ -e "$f" ] && [ -s "$f" ] || [ -d "$f" ] || continue
+                cp -rL "$f" "$LICENSES/$pkg/" 2>/dev/null || true
+            done
+            find "$LICENSES/$pkg" -type f -empty -delete
         fi
         # SPDX ids from the package metadata, e.g. "LGPL-2.1-or-later  GPL-3.0-only"
         for id in $(LC_ALL=C pacman -Qi "$pkg" 2>/dev/null | sed -n 's/^Licenses *: //p'); do
             id="${id//[()]/}"
-            case "$id" in AND | OR | WITH | '') continue ;; esac
+            case "$id" in AND | OR | WITH | '' | LicenseRef-*) continue ;; esac
             if [ -f "/usr/share/licenses/spdx/$id.txt" ]; then
                 mkdir -p "$LICENSES/spdx"
                 cp -L "/usr/share/licenses/spdx/$id.txt" "$LICENSES/spdx/"
             fi
+            have_text "$LICENSES/$pkg" && continue
+            src=""
+            for f in "/usr/share/licenses/spdx/$id.txt" "/usr/share/common-licenses/$id" \
+                "$ROOT/packaging/linux/licenses/$id.txt"; do
+                [ -s "$f" ] && { src="$f"; break; }
+            done
+            if [ -n "$src" ]; then
+                mkdir -p "$LICENSES/$pkg"
+                cp -L "$src" "$LICENSES/$pkg/$id.txt"
+                log "note: $pkg ships no licence text, using the $id text"
+            fi
         done
-    elif [ -f "/usr/share/doc/$pkg/copyright" ]; then
+        have_text "$LICENSES/$pkg" || die "no licence text for bundled package $pkg"
+    elif [ -s "/usr/share/doc/$pkg/copyright" ]; then
         cp -L "/usr/share/doc/$pkg/copyright" "$LICENSES/$pkg.copyright"
+    else
+        die "no licence text for bundled package $pkg"
     fi
 }
 declare -A LICENCE_DONE=()
@@ -529,6 +551,7 @@ for pkg in $(awk 'NR > 4 && $2 != "?" { print $2 }' "$APPDIR/usr/share/doc/kinok
     LICENCE_DONE[$pkg]=1
     copy_licence "$pkg"
 done
+"$ROOT/scripts/check_licenses.sh" "$APPDIR" || die "licence check failed"
 
 # ---------------------------------------------------------------------------------------
 # 6. AppImage (official appimagetool + type 2 static runtime, pinned and checksummed)
