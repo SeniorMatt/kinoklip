@@ -164,8 +164,11 @@ int64_t slideClip(TimelineData& data, quint64 clipId, int64_t delta);
 /// amount, which
 /// is reduced to the room that is free on all of them in the gap range (keeps sync).
 /// Returns the number of frames removed (0 if there is no gap or the track is locked).
-int64_t closeGap(
-    TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope = RippleScope::TargetTracks);
+/// Linked clips never drift apart (spec 10.16): the track of a moving clip's partner moves too if
+/// it has room; otherwise the tracks that would split a link stay. If that leaves the clicked
+/// track unable to move, nothing changes and @p brokeSync (if given) is set to true.
+int64_t closeGap(TimelineData& data, TrackRef ref, int64_t frame,
+    RippleScope scope = RippleScope::TargetTracks, bool* brokeSync = nullptr);
 
 /// True if closeGap() with the same arguments would remove at least one frame. False after the
 /// last clip (open end), on a locked track, or when other auto-select tracks leave no room.

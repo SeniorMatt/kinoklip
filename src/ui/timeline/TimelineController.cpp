@@ -480,9 +480,12 @@ void TimelineController::splitAtPlayhead()
 
 void TimelineController::closeGapAt(TrackRef ref, int64_t frame)
 {
+    bool brokeSync = false;
     runEdit(project(), tr("Close Gap"), [&](TimelineData& data) {
-        return ops::closeGap(data, ref, frame, ops::RippleScope::AllTracks) > 0;
+        return ops::closeGap(data, ref, frame, ops::RippleScope::AllTracks, &brokeSync) > 0;
     });
+    if (brokeSync)
+        emit editRefused(tr("Close Gap would break sync with linked clips"));
 }
 
 bool TimelineController::canCloseGapAt(TrackRef ref, int64_t frame) const

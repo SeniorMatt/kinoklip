@@ -506,44 +506,107 @@ std::optional<std::pair<int64_t, int64_t>> gapAt(
 bool canCloseGap(const TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope)
 {
     TimelineData copy = data; // dry run: closeGap decides, so the answer cannot drift from it
-    return closeGap(copy, ref, frame, scope) > 0;
+    return closeGap(copy, ref, frame, scope, nullptr) > 0;
 }
 
-int64_t closeGap(TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope)
+int64_t closeGap(
+    TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope, bool* brokeSync)
 {
+    if (brokeSync)
+        *brokeSync = false;
     const auto gap = gapAt(data, ref, frame);
     const TrackData* target = data.track(ref);
     if (!gap || target->locked)
         return 0;
     const int64_t cut = gap->second; // clips starting here or later move left
     int64_t amount = gap->second - gap->first;
-    // Other auto-select tracks can only give up the empty room directly left of the cut. A track
-    // with no room at all (a clip straddles the cut, or it ends right at it) is left alone
-    // instead of blocking the close; the rest move by the same amount, reduced to the least
-    // room among them (keeps sync where possible, spec 10.15).
-    std::vector<TrackRef> blocked;
-    if (scope == RippleScope::AllTracks) {
-        forEachTrack(data, [&](TrackRef r, const TrackData& track) {
-            if (track.locked || !track.autoSelect || r == ref)
-                return;
+    // Other tracks can only give up the empty room directly left of the cut. A track with no
+    // room at all (a clip straddles the cut, or it ends right at it) is left alone instead of
+    // blocking the close; the rest move by the same amount, reduced to the least room among
+    // them (keeps sync where possible, spec 10.15).
+    struct Info
+    {
+        TrackRef ref;
+        int64_t room = 0;
+        bool moves = false;
+    };
+    std::vector<Info> tracks;
+    forEachTrack(data, [&](TrackRef r, const TrackData& track) {
+        Info info {r, 0, false};
+        if (r == ref) {
+            info.room = amount;
+            info.moves = true;
+        } else if (!track.locked) {
             int64_t lastEnd = 0;
             for (const ClipData& c : track.clips) {
                 if (c.start >= cut)
                     break;
                 lastEnd = std::max(lastEnd, c.end());
             }
-            const int64_t room = std::max<int64_t>(0, cut - lastEnd);
-            if (room == 0)
-                blocked.push_back(r);
-            else
-                amount = std::min(amount, room);
+            info.room = std::max<int64_t>(0, cut - lastEnd);
+            info.moves = scope == RippleScope::AllTracks && track.autoSelect && info.room > 0;
+        }
+        tracks.push_back(info);
+    });
+    auto infoOf = [&](TrackRef r) -> Info& {
+        return *std::find_if(tracks.begin(), tracks.end(), [&](const Info& i) { return i.ref == r; });
+    };
+
+    // Linked clips must never drift apart (spec 10.16). Pull in the track of a moving clip's
+    // partner when it has room, then drop every track whose moving clip still has a partner that
+    // stays; dropping one can strand another, so repeat until stable.
+    auto forEachLinked = [&](auto&& fn) { // fn(TrackRef, const ClipData&) for every grouped clip
+        forEachTrack(data, [&](TrackRef r, const TrackData& track) {
+            for (const ClipData& c : track.clips) {
+                if (c.linkGroup != 0)
+                    fn(r, c);
+            }
         });
+    };
+    auto isMoving = [&](TrackRef r, const ClipData& c) { return infoOf(r).moves && c.start >= cut; };
+    for (bool changed = true; changed;) {
+        changed = false;
+        QSet<quint64> movingGroups;
+        forEachLinked([&](TrackRef r, const ClipData& c) {
+            if (isMoving(r, c))
+                movingGroups.insert(c.linkGroup);
+        });
+        forEachLinked([&](TrackRef r, const ClipData& c) {
+            Info& info = infoOf(r);
+            if (!info.moves && info.room > 0 && c.start >= cut && movingGroups.contains(c.linkGroup)) {
+                info.moves = true;
+                changed = true;
+            }
+        });
+    }
+    for (bool changed = true; changed;) {
+        changed = false;
+        QSet<quint64> stayingGroups;
+        forEachLinked([&](TrackRef r, const ClipData& c) {
+            if (!isMoving(r, c))
+                stayingGroups.insert(c.linkGroup);
+        });
+        forEachLinked([&](TrackRef r, const ClipData& c) {
+            Info& info = infoOf(r);
+            if (info.moves && c.start >= cut && stayingGroups.contains(c.linkGroup)) {
+                info.moves = false;
+                changed = true;
+            }
+        });
+    }
+    if (!infoOf(ref).moves) {
+        if (brokeSync)
+            *brokeSync = true;
+        return 0;
+    }
+    for (const Info& info : tracks) {
+        if (info.moves && !(info.ref == ref))
+            amount = std::min(amount, info.room);
     }
     if (amount <= 0)
         return 0;
     forEachTrack(data, [&](TrackRef r, TrackData& track) {
-        if (track.locked || std::find(blocked.begin(), blocked.end(), r) != blocked.end()
-            || (!(r == ref) && (scope == RippleScope::TargetTracks || !track.autoSelect)))
+        if (!infoOf(r).moves)
             return;
         for (ClipData& c : track.clips) {
             if (c.start >= cut)

@@ -593,6 +593,8 @@ public:
     [[nodiscard]] const editops::Clipboard& clipboard() const { return m_clipboard; }
 
 signals:
+    /// An edit did nothing and the user should be told why (the Cut page shows it in its message line).
+    void editRefused(const QString& reason);
     /// tool(), snapping(), linkedSelection() or the targets changed (repaint).
     void stateChanged();
     /// Retime controls were shown or hidden on some clips (repaint).
