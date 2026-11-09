@@ -9,7 +9,7 @@ everything follows the [clean-room policy](clean-room.md).
 
 ## Version 1.2 (starts right after 1.1.8)
 
-Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](https://opentimeline.io), planar tracker and stabilization, audio effects, fade curves, Smooth Cut, hover preview, the text title layers, emoji, Inspector audio options, settings import/export, vim keys, then the command-line interface and the MCP server on top of it. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
+Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](https://opentimeline.io), planar tracker, audio effects, the command-line interface and the MCP server on top of it, then stabilization, fade curves, Smooth Cut, hover preview, the text title layers, emoji, Inspector audio options, settings import/export and vim keys. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
 
 ## Now (next version)
 
