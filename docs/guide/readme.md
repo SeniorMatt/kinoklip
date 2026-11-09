@@ -47,6 +47,7 @@ search field.
 - [Speed up or slow down a clip](change-clip-speed.md)
 - [Fade audio in and out, and add music](fade-audio-and-add-music.md)
 - [Fade to or from black](fade-to-black.md)
+- [Add a transition, and hide a jump cut with Smooth Cut](transitions.md)
 - [Freeze a frame](freeze-a-frame.md)
 - [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md) (OpenTimelineIO)
 - [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md)
