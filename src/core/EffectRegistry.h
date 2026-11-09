@@ -127,6 +127,14 @@ inline constexpr char Light[] = "light";
 inline constexpr char Stylize[] = "stylize";
 inline constexpr char Time[] = "time";
 inline constexpr char Transform[] = "transform";
+/// Folders of the video transitions (Resolve's Video Transitions bins).
+inline constexpr char Dissolve[] = "dissolve";
+inline constexpr char Iris[] = "iris";
+inline constexpr char Motion[] = "motion";
+inline constexpr char Shape[] = "shape";
+inline constexpr char Wipe[] = "wipe";
+inline constexpr char FusionTransitions[] = "fusion_transitions";
+inline constexpr char ResolveFxTransitions[] = "resolve_fx_transitions";
 } // namespace effectgroups
 
 /// Process-wide catalogue of descriptors.
@@ -170,6 +178,7 @@ private:
     void registerBuiltins();
     void registerGenerators(); ///< the generator catalogue (BuiltinEffects.cpp)
     void registerTitles(); ///< the title presets (BuiltinEffects.cpp, core/TitlePresets.h)
+    void registerTransitions(); ///< the video transitions of the folders (BuiltinTransitions.cpp)
     void registerVideoEffects(); ///< the v4 video effects (BuiltinVideoEffects.cpp)
     /// The second batch of v4 video effects (BuiltinVideoEffects2.cpp).
     void registerVideoEffects2();

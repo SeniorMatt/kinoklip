@@ -126,6 +126,15 @@ QString EffectRegistry::groupName(const QString& group)
         {effectgroups::Stylize, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Stylize")},
         {effectgroups::Time, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Time")},
         {effectgroups::Transform, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Transform")},
+        {effectgroups::Dissolve, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Dissolve")},
+        {effectgroups::Iris, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Iris")},
+        {effectgroups::Motion, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Motion")},
+        {effectgroups::Shape, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Shape")},
+        {effectgroups::Wipe, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Wipe")},
+        {effectgroups::FusionTransitions,
+            QT_TRANSLATE_NOOP("kk::EffectRegistry", "Fusion Transitions")},
+        {effectgroups::ResolveFxTransitions,
+            QT_TRANSLATE_NOOP("kk::EffectRegistry", "Resolve FX Transitions")},
     };
     for (const auto& n : kNames) {
         if (group == QLatin1String(n.id))

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// GlTransitions — the built-in transitions as single GLSL passes, and their registration table.
+// GlTransitions — the first four built-in transitions (cross dissolve, dip to color, wipe, push)
+// as single GLSL passes, and the table that collects every family.
 #include "render/GlTransitions.h"
+
+#include "render/GlShaderTransition.h"
 
 #include <QColor>
 
@@ -15,53 +18,6 @@ const QString kDirection = QStringLiteral("direction");
 const QString kSoftness = QStringLiteral("softness");
 const QString kAngle = QStringLiteral("angle");
 const QString kColor = QStringLiteral("color");
-
-/// A transition whose whole behaviour is one fragment shader with uniforms uA, uB, uProgress
-/// plus extra uniforms set by `setExtra`.
-class ShaderTransition : public GlTransition
-{
-public:
-    using SetExtra = void (*)(GlKit& kit, const GlProgram& program, const TransitionInput& in);
-
-    ShaderTransition(const char* name, const char* fragment, SetExtra setExtra)
-        : m_name(name)
-        , m_fragment(fragment)
-        , m_setExtra(setExtra)
-    { }
-
-    bool initialize(GlKit& kit, QString* why) override
-    {
-        if (!m_program.build(kit.gl(), m_name, m_fragment, why))
-            return false;
-        GlFunctions* gl = kit.gl();
-        gl->glUseProgram(m_program.id);
-        gl->glUniform1i(m_program.uniform(gl, "uA"), 0);
-        gl->glUniform1i(m_program.uniform(gl, "uB"), 1);
-        m_progress = m_program.uniform(gl, "uProgress");
-        gl->glUseProgram(0);
-        return true;
-    }
-    void destroy(GlKit& kit) override { m_program.destroy(kit.gl()); }
-    void draw(GlKit& kit, const TransitionInput& in) override
-    {
-        GlFunctions* gl = kit.gl();
-        gl->glUseProgram(m_program.id);
-        kit.setFullscreen(m_program);
-        gl->glUniform1f(m_progress, float(in.progress));
-        if (m_setExtra)
-            m_setExtra(kit, m_program, in);
-        kit.bindTexture(0, in.a);
-        kit.bindTexture(1, in.b);
-        kit.drawQuad();
-    }
-
-private:
-    const char* m_name;
-    const char* m_fragment;
-    SetExtra m_setExtra;
-    GlProgram m_program;
-    GLint m_progress = -1;
-};
 
 // ---- Shaders ----
 
@@ -126,12 +82,6 @@ void main()
 
 // ---- Uniform setters ----
 
-QString choice(const ParamSet& p, const QString& key)
-{
-    const auto it = p.statics.constFind(key);
-    return it == p.statics.constEnd() ? QString() : it->toString();
-}
-
 /// Travel direction: optional numeric "angle" (degrees, 0 = towards the right, clockwise)
 /// overrides the "direction" choice.
 QPointF travelDirection(const TransitionInput& in)
@@ -140,13 +90,12 @@ QPointF travelDirection(const TransitionInput& in)
         const double a = in.params->value(kAngle, in.localFrame, 0.0) * std::numbers::pi / 180.0;
         return QPointF(std::cos(a), std::sin(a));
     }
-    return directionVector(choice(*in.params, kDirection));
+    return directionVector(staticChoice(*in.params, kDirection));
 }
 
 void setDip(GlKit& kit, const GlProgram& program, const TransitionInput& in)
 {
-    const auto it = in.params->statics.constFind(kColor);
-    const QColor c = it != in.params->statics.constEnd() ? it->value<QColor>() : QColor(Qt::black);
+    const QColor c = staticColor(*in.params, kColor, QColor(Qt::black));
     const float a = float(c.alphaF());
     kit.gl()->glUniform4f(program.uniform(kit.gl(), "uColor"), float(c.redF()) * a,
         float(c.greenF()) * a, float(c.blueF()) * a, a);
@@ -186,19 +135,23 @@ std::unique_ptr<GlTransition> makePush()
     return std::make_unique<ShaderTransition>("push", kPush, &setPush);
 }
 
-/// THE registration table: descriptor id → implementation. Ids must match BuiltinEffects.cpp.
-const GlTransitionFactory kTransitionTable[] = {
-    {"cross_dissolve", &makeDissolve},
-    {"dip_to_color", &makeDip},
-    {"wipe", &makeWipe},
-    {"push", &makePush},
-};
-
 } // namespace
 
-std::span<const GlTransitionFactory> builtinGlTransitions()
+const std::vector<GlTransitionFactory>& builtinGlTransitions()
 {
-    return kTransitionTable;
+    static const std::vector<GlTransitionFactory> table = [] {
+        std::vector<GlTransitionFactory> t;
+        t.push_back({QStringLiteral("cross_dissolve"), &makeDissolve});
+        t.push_back({QStringLiteral("dip_to_color"), &makeDip});
+        t.push_back({QStringLiteral("wipe"), &makeWipe});
+        t.push_back({QStringLiteral("push"), &makePush});
+        appendDissolveTransitions(t);
+        appendShapeTransitions(t);
+        appendMotionTransitions(t);
+        appendFusionTransitions(t);
+        return t;
+    }();
+    return table;
 }
 
 QPointF directionVector(const QString& direction)

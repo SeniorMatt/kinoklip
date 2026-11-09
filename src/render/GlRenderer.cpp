@@ -210,7 +210,7 @@ bool GlRenderer::initialize(QString* why)
         std::shared_ptr<GlTransition> transition = f.create();
         QString log;
         if (transition->initialize(*m_kit, &log))
-            m_transitions.insert(QLatin1String(f.id), std::move(transition));
+            m_transitions.insert(f.id, std::move(transition));
         else
             qCWarning(lcRender).noquote() << "transition" << f.id << "disabled:" << log;
     }
@@ -734,6 +734,8 @@ void GlRenderer::drawTrack(
     in.params = &span.transition->params;
     in.localFrame = fc.frame - span.start;
     in.size = fc.outSize;
+    in.target = &accumulator;
+    in.retime = m_retimeOk ? &m_retime : nullptr;
     m_kit->bindTarget(accumulator);
     m_kit->setBlendOver(true);
     transition->draw(*m_kit, in);

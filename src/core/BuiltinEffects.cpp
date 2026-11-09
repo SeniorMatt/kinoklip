@@ -209,6 +209,7 @@ void EffectRegistry::registerBuiltins()
         tr("The next clip pushes the current one out"),
         {choice(QStringLiteral("direction"), tr("Direction"), directions(), directionLabels(),
             QStringLiteral("left"))}));
+    registerTransitions(); // the folders: Dissolve, Iris, Motion, Shape, Wipe, ... (v1.2)
 
     // ---- Audio transitions (gain curves in core/AudioTransitions.h) ----
     namespace at = audiotransitions;
