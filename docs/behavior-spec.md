@@ -1321,6 +1321,20 @@ Basic tracking on the Compositing page: a point tracker node. Planar tracking is
 | 50.6 | The track data survives saving and loading the project (it is ordinary keyframed node parameters). | Done (test_trackernode trackDataSurvivesSaveAndLoad) |
 | 50.7 | The point tracker finds a pattern moved by a known sub-pixel offset to within 0.05 px (noise-free) and 0.15 px (noise), tolerates brightness changes, follows a steady movement over 40 frames within 0.4 px, finds a 30 px jump through the coarse levels, and reports a lost or detail-free pattern instead of a wrong position. | Done (test_pointtracker) |
 
+## 51. Clip audio effects (audio-clip-effects branch, owner request for 1.2)
+
+Audio clips carry an effect stack like video clips do (`ClipData::effects`, the same
+`EffectInstance` model and the same undo, save / load and Inspector code). This supersedes 37.33
+for the effects listed here (reverb, delay); de-esser, noise reduction and pitch stay deferred.
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 51.1 | The Effects library has an Audio Effects section: Gain, Equalizer (low shelf, mid bell, high shelf), Compressor, Limiter, High-pass Filter, Low-pass Filter, Delay, Reverb. In the Inspector's Effects tab of an audio clip, Add Effect is enabled and lists these only (video clips keep listing video effects only). | Done (test_audioclipeffectsui inspectorEnablesAddEffectForAnAudioClip, test_audioclipeffects registryHasTheAudioEffects) |
+| 51.2 | A linked video + audio pair shows two stacks in the Effects tab, "Video Effects" (the video clip) and "Audio Effects" (the audio clip), each with its own Add Effect. Double-clicking an audio effect in the library with the video clip of a pair selected puts it on the audio part. Dropping a library audio effect on an audio clip of the timeline or on the Inspector works as for video effects. | Done (test_audioclipeffectsui linkedPairHasSeparateVideoAndAudioStacks, libraryActivateReachesTheLinkedAudio) |
+| 51.3 | Adding, editing a parameter, bypassing (the check box of the group), reordering and removing an audio effect are undoable steps, as for video effects; a video effect is refused by an audio clip and an audio effect by a video clip. Audio effect parameters are plain values (no keyframes). | Done (test_audioclipeffectsui applyUndoRedoAndRefusals, inspectorEditsBypassesReordersAndRemoves, linkedPairAudioStackEdits) |
+| 51.4 | Processing order of an audio clip: source (retimed if it is) -> the clip's effect stack, in list order -> clip volume, fades, transitions and pan -> the track's channel strip (EQ, dynamics, pan, fader) -> buses -> master soft clipper. Playback, export and the nested preview all go through `AudioMixer::mix`, so they give the same samples; effect memory (filters, delay, reverb) restarts when a clip is not read contiguously (seek, loop, new export) and is cleared when an effect is bypassed. A reverb or delay tail ends with the clip. Gain -6 dB halves the amplitude, a high-pass removes DC, a bypassed effect leaves the signal bit for bit, mixing in blocks of any size equals one long mix. | Done (test_audioclipeffects gainMinus6dBHalvesTheAmplitude, highPassRemovesDc, bypassRestoresTheOriginal, clipEffectsRunBeforeTheClipVolume, stackOrderMatters, playbackBlocksGiveTheSamplesOfAnExport, aSeekRestartsTheEffectMemory, and one test per effect) |
+| 51.5 | The stack is saved with the clip (the existing `effects` array, no format change; projects without it load as before) and loads back unchanged. Paste Attributes has an Effects switch under Audio Attributes that copies the stack onto audio clips (fresh effect ids). | Done (test_audioclipeffectsui stackSurvivesSaveAndLoad; test_parity_edit spec51_5_pasteAttributesCopiesAudioEffects) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

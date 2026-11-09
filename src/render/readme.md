@@ -437,6 +437,7 @@ comment of `DecoderPool`. `Compositor::prepareStats()` has the counters.
 | `YuvMath.*` | YUV → RGB coefficients (unit-tested on the CPU) |
 | `DecoderPool.*` | `VideoDecoder` reuse by path and position |
 | `AudioMixer.*` | audio mixing: clips, fades, transitions (`AudioMixer.cpp`) and the mixer graph of tracks and buses (`AudioMixerGraph.cpp`, state in `MixerChannel.h`) |
+| `AudioClipEffects.*` | the clip audio effect stack (`dsp::ClipEffectChain`): gain, EQ, compressor, limiter, high / low-pass, delay, reverb, run by `AudioMixer::mixClip` on the clip's source before volume / pan / fades; EQ and dynamics reuse `Equalizer` / `Dynamics` |
 | `ChannelProcessor.*` | one mixer channel: mono fold, EQ, dynamics, smoothed pan / fader gains, peaks |
 | `Biquad.*` | RBJ cookbook biquad design (high / low pass, shelves, bell, notch) and response |
 | `Equalizer.*` | smoothed 6-band EQ (real-time safe) |

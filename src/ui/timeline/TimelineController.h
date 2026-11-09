@@ -79,8 +79,9 @@ struct PasteAttributeSet
     bool effects = true; ///< the video effect chain
     bool volume = true; ///< audio volume (with keyframes)
     bool pan = true; ///< audio pan (with keyframes)
+    bool audioEffects = true; ///< the audio effect chain of audio clips
     bool speed = false; ///< clip speed (changes the duration; off by default)
-    [[nodiscard]] bool any() const { return transform || effects || volume || pan || speed; }
+    [[nodiscard]] bool any() const { return transform || effects || volume || pan || audioEffects || speed; }
 };
 
 struct TypedTimecode;

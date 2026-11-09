@@ -33,7 +33,9 @@ Edits the parameters of the selected clip. Owned by the panels agent.
   - Audio tab: `builtin.audio`, bound to the clip itself (audio track) or its first linked
     audio clip (a video clip with linked audio).
   - Effects tab: one group per `EffectInstance` (enable, move up/down, remove, reset all) and an
-    "Add Effect" menu listing all descriptors of the matching category.
+    "Add Effect" menu listing all descriptors of the matching category (audio effects on an
+    audio clip). A linked video + audio pair shows two stacks, Video Effects and Audio Effects
+    (`buildEffectSection()`, the second bound to the audio clip).
   - Title tab: every `Title` descriptor with `storage == "title"`.
   - Transition tab: head/tail transitions with a type combo, a synthetic `Duration` row
     (`paramaccess::kTransitionDuration`) and the descriptor params.

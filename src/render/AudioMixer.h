@@ -33,6 +33,9 @@ namespace kk {
 ///   (render/TimeStretch.h, WSOLA: tempo follows the curve, pitch stays); without it they are
 ///   resampled along the curve (pitch follows the speed). Freeze and reverse parts (speed
 ///   below 2 %) are muted;
+/// * clip audio effects (ClipData::effects of an audio clip, render/AudioClipEffects.h): the
+///   clip's source samples run through the enabled effects in list order, before volume, pan,
+///   fades and transitions, so everything after sees the processed sound;
 /// * volume in dB (ClipData::audio keys::VolumeDb, keyframed; interpolated between frames
 ///   and ramped linearly over kBlockFrames-sample blocks, so automation never clicks);
 /// * constant-power pan: θ = (pan + 1)·π/4, gains √2·cos θ / √2·sin θ (unity at centre,
@@ -153,6 +156,7 @@ private:
     std::unordered_map<quint64, std::unique_ptr<Decoder>> m_decoders; ///< by clip id
     std::vector<float> m_source; ///< decoded source samples (scratch)
     std::vector<float> m_resampled; ///< speed-adjusted samples (scratch)
+    std::vector<float> m_effectBuffer; ///< a clip's samples after its audio effects (scratch)
     std::vector<double> m_positions; ///< retime curve source positions per block (scratch)
     QElapsedTimer m_clock;
     qint64 m_idleCloseMs = 10000;

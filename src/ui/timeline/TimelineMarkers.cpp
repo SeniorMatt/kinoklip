@@ -243,6 +243,11 @@ bool TimelineController::pasteAttributes(const PasteAttributeSet& attributes)
                 for (EffectInstance& fx : c.effects)
                     fx.id = data.allocateId();
             }
+            if (!video && attributes.audioEffects) {
+                c.effects = src->effects;
+                for (EffectInstance& fx : c.effects)
+                    fx.id = data.allocateId();
+            }
             if (!video) {
                 for (const auto& [enabled, key] : {std::pair {attributes.volume, keys::VolumeDb},
                          std::pair {attributes.pan, keys::Pan}}) {

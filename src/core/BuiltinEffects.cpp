@@ -191,6 +191,7 @@ void EffectRegistry::registerBuiltins()
         m_descriptors[m_index.value(QLatin1String(id))].group = QLatin1String(folder);
     registerVideoEffects(); // keyers, colour, blurs, light, stylize, distort (v4)
     registerVideoEffects2(); // curves, LUTs, lens blur, light, looks, warps, time (v4)
+    registerAudioEffects(); // gain, EQ, dynamics, filters, delay, reverb
 
     // ---- Transitions (ClipData::transitionIn / transitionOut) ----
     add(descriptor("cross_dissolve", tr("Cross Dissolve"), C::Transition,

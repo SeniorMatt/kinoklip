@@ -3,6 +3,7 @@
 // Transition tabs), with editors built generically from EffectRegistry descriptors.
 #pragma once
 
+#include "core/EffectRegistry.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/inspector/ParamEditHost.h"
 
@@ -114,6 +115,7 @@ private:
         ClipKind kind = ClipKind::Media;
         bool onVideoTrack = true;
         QVector<quint64> effectIds; ///< in order
+        QVector<quint64> audioEffectIds; ///< the linked audio clip's effects, in order
         QVector<quint64> maskIds; ///< in order (a mask's shape type never changes)
         QString transitionIn; ///< type, empty = none
         QString transitionOut;
@@ -167,12 +169,16 @@ private:
     /// Subtitle clips: the Captions tab (caption text, own style, track style).
     void buildCaptionsTab(const ClipData& c);
     void buildEffectsTab(const ClipData& clip);
+    /// One effect stack (toolbar with Add Effect, then one group per effect) of clip @p clipId;
+    /// @p heading titles it when a linked pair shows two stacks.
+    void buildEffectSection(
+        const ClipData& clip, quint64 clipId, EffectCategory category, const QString& heading);
     void buildTransitionTab(const ClipData& clip);
     /// Type of the track holding clip @p clipId (Video if it is not found).
     [[nodiscard]] TrackType trackTypeOfClip(quint64 clipId) const;
     void addTransitionGroup(const ClipData& clip, bool atHead);
-    void moveEffect(quint64 effectId, int delta);
-    void removeEffect(quint64 effectId);
+    void moveEffect(quint64 clipId, quint64 effectId, int delta);
+    void removeEffect(quint64 clipId, quint64 effectId);
     // ---- Dynamic Zoom, Speed Change, Retime and Scaling (InspectorSpeed.cpp) ----
     void buildDynamicZoomSection(quint64 clipId);
     void buildSpeedSections(const ClipData& clip);
