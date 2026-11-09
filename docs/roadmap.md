@@ -97,7 +97,7 @@ Quality
 ## Rename
 
 - Rename Kinoklip to **Wolfgang Montage** (after Johann Wolfgang von Goethe, who also wrote a theory of colours). Not started: it happens only when the owner says so. It covers the app name, the repository, the AppImage and desktop files, settings and project paths (with a migration for existing users), the docs and the website
-- New logo, wordmark and icon, drawn by hand by a human artist, replacing the current artwork (no AI art). The rename waits for them
+- New logo, wordmark and icon for the new name, drawn by hand by a human artist (never AI-generated). The rename waits for them
 
 ## Long-term
 
