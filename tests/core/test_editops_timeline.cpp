@@ -144,20 +144,44 @@ private slots:
         QCOMPARE(ops::closeGap(d, kV1, 15, ops::RippleScope::AllTracks), int64_t(12));
         QCOMPARE(layout(d, kV1), QStringLiteral("0:10 18:10"));
         QCOMPARE(layout(d, kA1), QStringLiteral("0:18 18:10"));
-        // A clip straddling the cut on another track blocks the close entirely.
+        // A clip straddling the cut on another track no longer blocks the close (spec 10.15,
+        // which supersedes 6.4 here): V1 closes by the full gap, the straddling track stays.
         TimelineData e = timeline();
         ops::overwriteClip(e, kV1, mediaClip(0, 10));
         ops::overwriteClip(e, kV1, mediaClip(30, 10));
         ops::overwriteClip(e, kV2, mediaClip(20, 20));
-        QCOMPARE(ops::closeGap(e, kV1, 15, ops::RippleScope::AllTracks), int64_t(0));
-        e.videoTracks[1].locked = true; // locked tracks are ignored (and not shifted)
         QCOMPARE(ops::closeGap(e, kV1, 15, ops::RippleScope::AllTracks), int64_t(20));
-        QCOMPARE(layout(e, kV2), QStringLiteral("20:20"));
+        QCOMPARE(layout(e, kV1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(e, kV2), QStringLiteral("20:20")); // blocking track left alone
+        TimelineData f = timeline();
+        ops::overwriteClip(f, kV1, mediaClip(0, 10));
+        ops::overwriteClip(f, kV1, mediaClip(30, 10));
+        ops::overwriteClip(f, kV2, mediaClip(20, 20));
+        f.videoTracks[1].locked = true; // locked tracks are ignored (and not shifted)
+        QCOMPARE(ops::closeGap(f, kV1, 15, ops::RippleScope::AllTracks), int64_t(20));
+        QCOMPARE(layout(f, kV2), QStringLiteral("20:20"));
+        KK_VERIFY_INVARIANTS(f);
         KK_VERIFY_INVARIANTS(d);
         KK_VERIFY_INVARIANTS(e);
     }
 
-    void canCloseGapMatchesCloseGap()
+    void closeGapBlockedTrackIsLeftAlone()
+    {
+        // Gap on V1, a long clip on A1 across it, free room on A2: V1 and A2 close, A1 stays.
+        TimelineData d = timeline();
+        ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        ops::overwriteClip(d, kV1, mediaClip(30, 10));
+        ops::overwriteClip(d, kA1, mediaClip(0, 50));
+        ops::overwriteClip(d, kA2, mediaClip(0, 10));
+        ops::overwriteClip(d, kA2, mediaClip(30, 10));
+        QCOMPARE(ops::closeGap(d, kV1, 15, ops::RippleScope::AllTracks), int64_t(20));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(d, kA2), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("0:50"));
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void canCloseGapOnlyFalseWithoutGapOrOnLockedTrack()
     {
         TimelineData d = timeline();
         ops::overwriteClip(d, kV1, mediaClip(0, 10));
@@ -166,10 +190,7 @@ private slots:
         QVERIFY(ops::canCloseGap(d, kV1, 15, all));
         QVERIFY(!ops::canCloseGap(d, kV1, 5, all)); // on a clip
         QVERIFY(!ops::canCloseGap(d, kV1, 60, all)); // after the last clip: open end
-        ops::overwriteClip(d, kV2, mediaClip(20, 20)); // straddles the cut: no room
-        QVERIFY(!ops::canCloseGap(d, kV1, 15, all));
-        QVERIFY(ops::canCloseGap(d, kV1, 15)); // target track only: still closable
-        d.videoTracks[1].locked = true;
+        ops::overwriteClip(d, kV2, mediaClip(20, 20)); // straddles the cut: does not matter
         QVERIFY(ops::canCloseGap(d, kV1, 15, all));
         d.videoTracks[0].locked = true;
         QVERIFY(!ops::canCloseGap(d, kV1, 15, all));
