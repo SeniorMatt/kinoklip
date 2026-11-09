@@ -14,6 +14,7 @@ Shipped in 1.1.7: thumbnails give way to playback ([#2](https://github.com/Senio
 User requests come first: they are the most valuable tasks.
 
 From users (high priority)
+- OpenTimelineIO (.otio) import and export, to move timelines to and from Resolve and other editors (OpenTimelineIO C++ library, Apache-2.0) ([#5](https://github.com/SeniorMatt/kinoklip/issues/5))
 - Compositing: planar tracker, and linking other nodes' positions to a track (the point tracker shipped in 1.1.7, [#3](https://github.com/SeniorMatt/kinoklip/issues/3))
 
 Bugs and fixes
@@ -95,7 +96,7 @@ Quality
 
 ## Long-term
 
-- Windows build, after the first stable (non-beta) release (KDE Craft provides Qt, KF6 and Breeze there); the code already keeps platform code in `src/platform/`
+- Windows build, after the first stable (non-beta) release ([#4](https://github.com/SeniorMatt/kinoklip/issues/4)) (KDE Craft provides Qt, KF6 and Breeze there); the code already keeps platform code in `src/platform/`
 - Flatpak and distro packages (Arch PKGBUILD / AUR, .deb, .rpm), Windows installer
 - Interface profiles beyond the default (a Plasma profile)
 - Project website presenting Kinoklip as a free alternative to DaVinci Resolve: features, screenshots, downloads, roadmap, docs. It names Resolve only for comparison, uses no Blackmagic logos or screenshots, and claims only what the shipped build does
