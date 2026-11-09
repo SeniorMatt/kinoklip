@@ -577,6 +577,8 @@ public slots:
     void toggleTrackFlag(TrackRef ref, int flag);
     /// Closes the gap under @p frame on @p ref (all tracks, keeping sync).
     void closeGapAt(TrackRef ref, int64_t frame);
+    /// True if closeGapAt would change the timeline (the context menu greys the item otherwise).
+    [[nodiscard]] bool canCloseGapAt(TrackRef ref, int64_t frame) const;
 
 public:
     /// Track flags for toggleTrackFlag().

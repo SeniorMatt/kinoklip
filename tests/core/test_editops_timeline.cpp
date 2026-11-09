@@ -157,6 +157,25 @@ private slots:
         KK_VERIFY_INVARIANTS(e);
     }
 
+    void canCloseGapMatchesCloseGap()
+    {
+        TimelineData d = timeline();
+        ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        ops::overwriteClip(d, kV1, mediaClip(30, 10));
+        const auto all = ops::RippleScope::AllTracks;
+        QVERIFY(ops::canCloseGap(d, kV1, 15, all));
+        QVERIFY(!ops::canCloseGap(d, kV1, 5, all)); // on a clip
+        QVERIFY(!ops::canCloseGap(d, kV1, 60, all)); // after the last clip: open end
+        ops::overwriteClip(d, kV2, mediaClip(20, 20)); // straddles the cut: no room
+        QVERIFY(!ops::canCloseGap(d, kV1, 15, all));
+        QVERIFY(ops::canCloseGap(d, kV1, 15)); // target track only: still closable
+        d.videoTracks[1].locked = true;
+        QVERIFY(ops::canCloseGap(d, kV1, 15, all));
+        d.videoTracks[0].locked = true;
+        QVERIFY(!ops::canCloseGap(d, kV1, 15, all));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:10 30:10")); // a dry run changes nothing
+    }
+
     // ---- place on top ----
     void placeOnTopFindsFreeTrack()
     {

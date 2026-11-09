@@ -503,6 +503,12 @@ std::optional<std::pair<int64_t, int64_t>> gapAt(
     return std::make_pair(gapStart, it->start);
 }
 
+bool canCloseGap(const TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope)
+{
+    TimelineData copy = data; // dry run: closeGap decides, so the answer cannot drift from it
+    return closeGap(copy, ref, frame, scope) > 0;
+}
+
 int64_t closeGap(TimelineData& data, TrackRef ref, int64_t frame, RippleScope scope)
 {
     const auto gap = gapAt(data, ref, frame);

@@ -485,6 +485,11 @@ void TimelineController::closeGapAt(TrackRef ref, int64_t frame)
     });
 }
 
+bool TimelineController::canCloseGapAt(TrackRef ref, int64_t frame) const
+{
+    return ops::canCloseGap(timeline()->data(), ref, frame, ops::RippleScope::AllTracks);
+}
+
 void TimelineController::selectAll()
 {
     QVector<quint64> ids;
