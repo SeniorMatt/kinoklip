@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The video transitions of the Effects library folders: Dissolve (Additive, Blur, Non-Additive,
-// Smooth Cut), Iris, Shape, Wipe, Motion. The older four (Cross Dissolve, Dip to Color, Wipe,
-// Push) are registered in BuiltinEffects.cpp and only get their folder here. Pixel code:
-// src/render/GlTransitions.cpp and the Gl*Transitions.cpp files next to it. Behaviour:
-// docs/behavior-spec.md section 53.
+// Smooth Cut), Iris, Shape, Wipe, Motion, and the Fusion and Resolve FX style ones. The older four
+// (Cross Dissolve, Dip to Color, Wipe, Push) are registered in BuiltinEffects.cpp and only get
+// their folder here. Pixel code: src/render/GlTransitions.cpp and the Gl*Transitions.cpp files next
+// to it. Behaviour: docs/behavior-spec.md section 53.
 #include "core/EffectBuilders.h"
 #include "core/EffectRegistry.h"
 #include "core/TransitionKeys.h"
@@ -211,6 +211,65 @@ void EffectRegistry::registerTransitions()
         tr("The picture splits and the halves move apart in opposite directions"),
         {presets({"horizontal", "vertical"}, {tr("Horizontal"), tr("Vertical")}),
             boolean(k::Reverse, tr("Reverse"), false), blur}));
+
+    // ---- Fusion Transitions: designed from the one-line descriptions of such transitions ----
+    const auto centre = [] {
+        return Params {number(k::OffsetX, tr("Offset X"), -100, 100, 0, 1, kPercent),
+            number(k::OffsetY, tr("Offset Y"), -100, 100, 0, 1, kPercent)};
+    };
+    const auto strength
+        = [](double def) { return number(k::Strength, tr("Strength"), 0, 100, def, 1, kPercent); };
+    add(transition("brightness_flash", tr("Brightness Flash"), FusionTransitions,
+        tr("A flash of light covers the cut"),
+        {number(k::Brightness, tr("Brightness"), 0, 300, 100, 1, kPercent)}));
+    const auto zoomParams = [&](double def) {
+        return Params {number(k::Zoom, tr("Zoom Scale"), 10, 500, def, 1, kPercent)} + centre();
+    };
+    add(transition("zoom_in", tr("Zoom In"), FusionTransitions,
+        tr("The first clip zooms in while the next one zooms into place"), zoomParams(100)));
+    add(transition("zoom_in_out", tr("Zoom In and Out"), FusionTransitions,
+        tr("Zoom in on the first clip, zoom out to the next one"), zoomParams(100)));
+    add(transition("crash_zoom", tr("Crash Zoom"), FusionTransitions,
+        tr("A fast zoom into the first clip, a fast zoom out of the next one"), zoomParams(150)));
+    add(transition(
+        "rotate", tr("Rotate"), FusionTransitions, tr("Half a turn while dissolving"), {}));
+    add(transition("rotate_90", tr("Rotate 90"), FusionTransitions,
+        tr("A quarter turn while dissolving"), {}));
+    add(transition("noise_dissolve", tr("Noise Dissolve"), FusionTransitions,
+        tr("Dissolve through a noise pattern"),
+        {number(k::Size, tr("Grain Size"), 2, 400, 40, 1, kPx),
+            number(k::Softness, tr("Softness"), 0, 100, 20, 1, kPercent)}));
+    add(transition("glitch", tr("Glitch"), FusionTransitions,
+        tr("The picture breaks up in strips and colour channels"), {strength(50)}));
+    add(transition("camera_shake", tr("Camera Shake"), FusionTransitions,
+        tr("Shaking pictures with split colour channels"),
+        {number(k::Speed, tr("Shake Speed"), 1, 50, 12, 1), strength(30)}));
+    add(transition("circles", tr("Circles"), FusionTransitions,
+        tr("Rings open one after another and show the next clip"),
+        Params {number(k::Count, tr("Rings"), 1, 50, 8, 1)} + centre()));
+    add(transition("flip_3d", tr("Flip 3D"), FusionTransitions,
+        tr("The picture turns round like a card"), {}));
+    add(transition("slice_push", tr("Slice Push"), FusionTransitions,
+        tr("Strips slide out one after another and push the next clip in"),
+        {number(k::Count, tr("Slices"), 2, 40, 6, 1)}));
+    add(transition("warp", tr("Warp"), FusionTransitions,
+        tr("A swirl draws the picture into the next one"), Params {strength(50)} + centre()));
+    add(transition("drop_warp", tr("Drop Warp"), FusionTransitions,
+        tr("A ripple spreads from a drop and brings in the next clip"),
+        Params {strength(50)} + centre()));
+    add(transition("tunnel_of_light", tr("Tunnel of Light"), FusionTransitions,
+        tr("The first clip is sucked into a glowing point, the next one grows out of it"),
+        Params {number(k::Glow, tr("Glow Gain"), 0, 300, 100, 1, kPercent),
+            number(k::Size, tr("Glow Size"), 1, 100, 20, 1, kPercent)}
+            + centre()));
+
+    // ---- Resolve FX Transitions ----
+    add(transition("burn_away", tr("Burn Away"), ResolveFxTransitions,
+        tr("The first clip burns away from one side and shows the next one"),
+        {number(k::Angle, tr("Angle"), -360, 360, 0, 1, kDegrees),
+            number(k::Raggedness, tr("Raggedness"), 0, 100, 50, 1, kPercent),
+            number(k::Glow, tr("Glow Brightness"), 0, 300, 100, 1, kPercent),
+            number(k::Char, tr("Char"), 0, 100, 40, 1, kPercent)}));
 }
 
 } // namespace kk

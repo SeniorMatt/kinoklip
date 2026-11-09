@@ -148,6 +148,7 @@ const std::vector<GlTransitionFactory>& builtinGlTransitions()
         appendDissolveTransitions(t);
         appendShapeTransitions(t);
         appendMotionTransitions(t);
+        appendFusionTransitions(t);
         return t;
     }();
     return table;

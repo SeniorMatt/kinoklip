@@ -22,6 +22,11 @@ make it longer or shorter.
   Triangle Left and Triangle Right.
 - **Wipe.** Wipe (an edge that moves in a direction), Band, Center, Clock, Radial, Spiral,
   Venetian Blind and X.
+- **Fusion Transitions.** Brightness Flash, Zoom In, Zoom In and Out, Crash Zoom, Rotate,
+  Rotate 90, Noise Dissolve, Glitch, Camera Shake, Circles, Flip 3D, Slice Push, Warp, Drop Warp
+  and Tunnel of Light.
+- **Resolve FX Transitions.** Burn Away: the first clip burns away from one side (set the
+  direction with **Angle**) and shows the next one.
 - **Motion.** Push, Barn Door, Slide and Split. **Motion Blur** smears the moving pictures a
   little.
 
@@ -47,4 +52,6 @@ transition does. Smooth Cut needs the graphics card (OpenGL) to morph; without i
 simply dissolves. A big jump, such as a person who moves across the whole picture, is too much
 for it and the morph then looks like a dissolve.
 
-Transitions that Resolve groups under Fusion and Resolve FX are not in Kinoklip yet.
+Some transitions of the Fusion folder in other editors (Fall and Bounce, Film Strip, Foreground
+Wipe, Paint On, Round and Down, and the Pan and Slide ones) are not in Kinoklip yet; **Push** and
+**Slide** with **Motion Blur** do the work of the Pan and Slide ones.

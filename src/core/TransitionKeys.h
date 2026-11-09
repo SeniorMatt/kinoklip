@@ -31,6 +31,18 @@ inline const QString Clockwise = QStringLiteral("clockwise");
 inline const QString Repeat = QStringLiteral("repeat"); ///< slats / bands
 inline const QString Mode = QStringLiteral("mode");
 
+// Fusion and Resolve FX style transitions.
+inline const QString Brightness = QStringLiteral("brightness"); ///< %
+inline const QString Zoom = QStringLiteral("zoom"); ///< %
+inline const QString Strength = QStringLiteral("strength"); ///< %
+inline const QString Speed = QStringLiteral("speed");
+inline const QString Size = QStringLiteral("size"); ///< px or %, see the descriptor
+inline const QString Softness = QStringLiteral("softness"); ///< %
+inline const QString Count = QStringLiteral("count"); ///< rings, slices
+inline const QString Glow = QStringLiteral("glow"); ///< %
+inline const QString Raggedness = QStringLiteral("raggedness"); ///< %
+inline const QString Char = QStringLiteral("char"); ///< %
+
 // Motion.
 inline const QString Direction = QStringLiteral("direction");
 inline const QString MotionBlur = QStringLiteral("motionBlur"); ///< shutter, % of the transition

@@ -148,6 +148,23 @@ private slots:
         row("spiral_wipe", "wipe", edge);
         row("venetian_blind_wipe", "wipe", "repeat,angle," + edge);
         row("x_wipe", "wipe", edge);
+        const QString place = QStringLiteral("offsetX,offsetY");
+        row("brightness_flash", "fusion_transitions", "brightness");
+        row("zoom_in", "fusion_transitions", "zoom," + place);
+        row("zoom_in_out", "fusion_transitions", "zoom," + place);
+        row("crash_zoom", "fusion_transitions", "zoom," + place);
+        row("rotate", "fusion_transitions", {});
+        row("rotate_90", "fusion_transitions", {});
+        row("noise_dissolve", "fusion_transitions", "size,softness");
+        row("glitch", "fusion_transitions", "strength");
+        row("camera_shake", "fusion_transitions", "speed,strength");
+        row("circles", "fusion_transitions", "count," + place);
+        row("flip_3d", "fusion_transitions", {});
+        row("slice_push", "fusion_transitions", "count");
+        row("warp", "fusion_transitions", "strength," + place);
+        row("drop_warp", "fusion_transitions", "strength," + place);
+        row("tunnel_of_light", "fusion_transitions", "glow,size," + place);
+        row("burn_away", "resolve_fx_transitions", "angle,raggedness,glow,char");
         row("push", "motion", "direction");
         row("barn_door", "motion", "preset,reverse,motionBlur");
         row("slide", "motion", "direction,mode,motionBlur");
@@ -172,8 +189,10 @@ private slots:
     {
         const QStringList groups = EffectRegistry::instance().groups(EffectCategory::Transition);
         QCOMPARE(groups,
-            QStringList({QStringLiteral("dissolve"), QStringLiteral("iris"),
-                QStringLiteral("motion"), QStringLiteral("shape"), QStringLiteral("wipe")}));
+            QStringList({QStringLiteral("dissolve"), QStringLiteral("fusion_transitions"),
+                QStringLiteral("iris"), QStringLiteral("motion"),
+                QStringLiteral("resolve_fx_transitions"), QStringLiteral("shape"),
+                QStringLiteral("wipe")}));
         QCOMPARE(EffectRegistry::groupName(QStringLiteral("iris")), QStringLiteral("Iris"));
     }
 
@@ -242,6 +261,26 @@ private slots:
         row("split", "split");
         row("split vertical", "split", "preset", QStringLiteral("vertical"));
         row("split blur", "split", "motionBlur", 50.0);
+        row("brightness_flash", "brightness_flash");
+        row("zoom_in", "zoom_in");
+        row("zoom_in offset", "zoom_in", "offsetX", 30.0);
+        row("zoom_in_out", "zoom_in_out");
+        row("crash_zoom", "crash_zoom");
+        row("rotate", "rotate");
+        row("rotate_90", "rotate_90");
+        row("noise_dissolve", "noise_dissolve");
+        row("noise_dissolve soft", "noise_dissolve", "softness", 80.0);
+        row("glitch", "glitch");
+        row("camera_shake", "camera_shake");
+        row("circles", "circles");
+        row("circles few", "circles", "count", 2.0);
+        row("flip_3d", "flip_3d");
+        row("slice_push", "slice_push");
+        row("warp", "warp");
+        row("drop_warp", "drop_warp");
+        row("tunnel_of_light", "tunnel_of_light");
+        row("burn_away", "burn_away");
+        row("burn_away angled", "burn_away", "angle", 135.0);
     }
     void renders()
     {
@@ -296,7 +335,8 @@ private slots:
         const QImage refB = render(*m_gpu, soloTimeline(generators::FourColorGradient), 78);
         for (const char* id : {"cross_iris", "diamond_iris", "eye_iris", "oval_iris", "heart_shape",
                  "star_shape", "arrow_iris", "box_shape", "spiral_wipe", "x_wipe", "clock_wipe",
-                 "radial_wipe", "venetian_blind_wipe", "band_wipe", "center_wipe"}) {
+                 "radial_wipe", "venetian_blind_wipe", "band_wipe", "center_wipe", "circles",
+                 "noise_dissolve", "burn_away", "drop_warp", "slice_push"}) {
             TransitionData t = makeTransition(QString::fromLatin1(id), {}, {});
             t.duration = 60; // window [20, 81): frame 78 is at progress 0.95
             const QImage late = render(*m_gpu, transitionTimeline(t), 78);
