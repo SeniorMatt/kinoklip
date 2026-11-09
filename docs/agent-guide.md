@@ -42,6 +42,9 @@ rows about your area), docs/clean-room.md.
    ```
 2. Read the code you will change and its tests before editing. Find the existing way of doing
    something and reuse it; do not add a second mechanism.
+   Stuck on how to build something? Look at how other open-source editors do it first
+   (Kdenlive, Shotcut, Olive, OpenShot, Blender, Natron, Audacity, MLT). Licence rules for
+   copying their code are in docs/clean-room.md.
 3. Keep the change small and readable: the owner wants code that a human can read and extend.
    Follow docs/coding-style.md and run clang-format on the files you changed.
 4. Build: `cmake -S . -B build && cmake --build build -j4` (ccache is used automatically).

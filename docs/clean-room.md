@@ -12,6 +12,12 @@ Breaking them is the most serious mistake a contributor can make here.
 - **Public, open specifications and libraries**: Qt, KDE Frameworks, FFmpeg, OpenGL, the
   freedesktop.org standards, file-format specifications, papers.
 - **Feedback from the project owner** in words and screenshots of Kinoklip itself.
+- **Other open-source editors.** When we're stuck on how to do something, read how Kdenlive,
+  Shotcut, Olive, OpenShot, Blender's video editor, Natron, Ardour, Audacity or MLT solve it.
+  Reading their code for ideas is always fine. Copying code is fine only when its licence is
+  compatible with GPL-3.0-or-later (GPL-2.0-or-later, GPL-3.0, LGPL, MIT, BSD, Apache-2.0; not
+  GPL-2.0-only), and only with its copyright notice and a line in
+  [attribution.md](../attribution.md), see rule 6 below.
 
 ## What we never do
 1. **Never copy anything from Resolve or other Blackmagic products**: no code, shaders, icons,
