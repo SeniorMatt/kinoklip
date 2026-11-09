@@ -199,3 +199,11 @@
 - 2026-11-05: 1.1.4-beta.1 published (Media Pool back/forward, thumbnail size, gentler wheel; smoother transition preview with position line). Host 176/176, container 177/177.
 - 2026-11-05: 1.1.5-beta.1 published (Bog fixes, edit during playback, Keyframes panel views, stutter at cuts, waveforms, remembered panel sizes, browser links). Host 185/185, container 186 reported 100 % (test_cutperf excluded).
 - 2026-11-05: 1.1.6-beta.1 published (AppImage starts on Fedora, issue 1). Clean Fedora 44 container OK, container tests 186 passed (test_cutperf excluded).
+
+## Handoff 2026-11-09
+- Published: 1.1.6-beta.1 (Fedora fix, issue 1 closed; reporter never confirmed). Main pushed, clean.
+- On main, unreleased: distrofit (nearly all libs bundled as fallbacks, start-failure dialog, scripts/check_distros.sh), readme "Why use Kinoklip over Resolve?", docs/agent-guide.md + opencode.json, docs/recovery.md.
+- Open branch `searchbox` (~/cutwise-wt/searchbox): min-width fix breaks test_mainwindow (sideColumnsKeepDefaultShare, spec24_23_oldLayoutResetOnce). Better: hide/shrink the thumbnail slider when narrow. Not merged.
+- Next-version list: docs/agent-guide.md "Planned for the next version" (plus issue 2). Nothing started.
+- Pending owner decisions: add "(answered by Claude)" to issue 1 comments?; rewrite history to drop Claude lines (needs explicit go, force-push).
+- Rules: no Claude lines in commits; replies to people say "answered by Claude"; releases only on the owner's go; manager at medium effort, delegate per ~/.claude/CLAUDE.md ladder.
