@@ -3,6 +3,7 @@
 #include "export/RenderCommand.h"
 
 #include "core/Project.h"
+#include "core/Timeline.h"
 #include "export/ExportJob.h"
 #include "export/ExportPresets.h"
 #include "render/Compositor.h"
@@ -84,29 +85,26 @@ bool settingsForOutputFile(const QString& outPath, ExportSettings& settings, QSt
     return true;
 }
 
-int runRender(const QString& projectPath, const QString& outPath, const QString& presetId)
+RenderOutcome renderProject(Project& project, const QString& outPath, const QString& presetId,
+    const ExportJob::ProgressCallback& progress)
 {
-    Project project;
-    QString error;
-    if (!project.load(projectPath, &error)) {
-        std::fprintf(stderr, "render: %s\n", qPrintable(error));
-        return 1;
-    }
+    RenderOutcome outcome;
     ExportSettings settings;
+    QString error;
     if (presetId.isEmpty()) {
         if (!settingsForOutputFile(outPath, settings, &error)) {
-            std::fprintf(stderr, "render: %s\n", qPrintable(error));
-            return 1;
+            outcome.error = error;
+            return outcome;
         }
     } else {
         ExportPresets presets;
         if (!presets.apply(presetId, settings)) {
-            std::fprintf(stderr, "render: unknown preset \"%s\". Available:", qPrintable(presetId));
-            for (const ExportPreset& p : presets.all()) {
-                std::fprintf(stderr, " %s", qPrintable(p.id));
-            }
-            std::fprintf(stderr, "\n");
-            return 1;
+            QStringList ids;
+            for (const ExportPreset& p : presets.all())
+                ids.append(p.id);
+            outcome.error = QStringLiteral("unknown preset \"%1\". Available: %2")
+                                .arg(presetId, ids.join(QLatin1Char(' ')));
+            return outcome;
         }
         settings.outputPath = outPath; // exactly what was asked for, even with another suffix
     }
@@ -121,22 +119,38 @@ int runRender(const QString& projectPath, const QString& outPath, const QString&
     ExportJob job(
         settings, project.timeline()->snapshot(), makeMediaPathMap(project.mediaPool()->state()));
     job.setCompositor(compositor.get());
-    QElapsedTimer lastPrint;
-    lastPrint.start();
-    const ExportResult result = job.run([&](const ExportProgress& p) {
-        if (lastPrint.elapsed() < 1000 && p.framesDone < p.totalFrames) {
-            return;
-        }
-        lastPrint.restart();
-        std::printf("render: %3d%% %lld/%lld frames, %.1f fps, ETA %s\n", int(p.fraction() * 100),
-            static_cast<long long>(p.framesDone), static_cast<long long>(p.totalFrames), p.fps,
-            qPrintable(formatEta(p.etaSeconds)));
-        std::fflush(stdout);
-    });
-    if (!result.ok) {
-        std::fprintf(stderr, "render: %s\n", qPrintable(result.error));
+    outcome.result = job.run(progress);
+    outcome.ok = outcome.result.ok;
+    outcome.error = outcome.result.error;
+    return outcome;
+}
+
+int runRender(const QString& projectPath, const QString& outPath, const QString& presetId)
+{
+    Project project;
+    QString error;
+    if (!project.load(projectPath, &error)) {
+        std::fprintf(stderr, "render: %s\n", qPrintable(error));
         return 1;
     }
+    QElapsedTimer lastPrint;
+    lastPrint.start();
+    const RenderOutcome outcome = renderProject(
+        project, outPath, presetId, [&](const ExportProgress& p) {
+            if (lastPrint.elapsed() < 1000 && p.framesDone < p.totalFrames) {
+                return;
+            }
+            lastPrint.restart();
+            std::printf("render: %3d%% %lld/%lld frames, %.1f fps, ETA %s\n",
+                int(p.fraction() * 100), static_cast<long long>(p.framesDone),
+                static_cast<long long>(p.totalFrames), p.fps, qPrintable(formatEta(p.etaSeconds)));
+            std::fflush(stdout);
+        });
+    if (!outcome.ok) {
+        std::fprintf(stderr, "render: %s\n", qPrintable(outcome.error));
+        return 1;
+    }
+    const ExportResult& result = outcome.result;
     std::printf("render: %lld frames in %.2f s (%.1f fps), video encoder %s -> %s\n",
         static_cast<long long>(result.frames), result.seconds, result.averageFps(),
         result.videoEncoder.isEmpty() ? "none" : qPrintable(result.videoEncoder),

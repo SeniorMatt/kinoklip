@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Application entry point: graphics setup, application objects, command-line modes, main window.
 #include "app/AppInfo.h"
+#include "app/CliRunner.h"
 #include "app/CommandLine.h"
 #include "app/MainWindow.h"
 #include "app/ProjectController.h"
@@ -28,6 +29,7 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QGuiApplication>
 #include <QSettings>
 #include <QSurfaceFormat>
 
@@ -96,10 +98,36 @@ void setApplicationIdentity()
     QCoreApplication::setApplicationVersion(kk::appinfo::displayVersion());
 }
 
+/// `kinoklip <command> ...` (app/CliRunner.h): runs one command of the command layer without a
+/// window. A QGuiApplication on Qt's offscreen platform, so no display or desktop session is
+/// needed (rendering uses an offscreen OpenGL context, as in the tests).
+int runCommandLine(int argc, char** argv, const QStringList& arguments)
+{
+    qputenv("QT_QPA_PLATFORM", "offscreen"); // headless whatever the session says
+    configureOpenGL();
+    QGuiApplication app(argc, argv);
+    setApplicationIdentity();
+    return kk::cli::run(arguments, stdout, stderr);
+}
+
+/// True if the first argument is a command-line command rather than a project to open.
+bool wantsCommandLine(int argc, char** argv, QStringList* arguments)
+{
+    if (argc < 2 || argv[1][0] == '-')
+        return false;
+    kk::initResources(); // the command list reads the render presets
+    for (int i = 1; i < argc; ++i)
+        arguments->append(QString::fromLocal8Bit(argv[i]));
+    return kk::cli::isCommand(*arguments);
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
+    QStringList commandArguments;
+    if (wantsCommandLine(argc, argv, &commandArguments))
+        return runCommandLine(argc, argv, commandArguments);
     if (wantsTextOnly(argc, argv)) {
         // No GUI: QApplication would abort without a display before we could parse.
         QCoreApplication app(argc, argv);

@@ -49,6 +49,7 @@ search field.
 - [Fade to or from black](fade-to-black.md)
 - [Freeze a frame](freeze-a-frame.md)
 - [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md) (OpenTimelineIO)
+- [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md)
 - [Zoom, crop and picture-in-picture](zoom-crop-and-picture-in-picture.md)
 - [Fix choppy playback](smooth-playback.md)
 - [Make a vertical video for Shorts, Reels and TikTok](vertical-video.md)

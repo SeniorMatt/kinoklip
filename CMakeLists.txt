@@ -145,6 +145,12 @@ foreach(test_src ${KK_TESTS})
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 300)
 endforeach()
 
+# test_cli runs the built application as a process.
+if(TARGET test_cli)
+  target_compile_definitions(test_cli PRIVATE KK_BINARY_PATH="$<TARGET_FILE:${APP_ID}>")
+  add_dependencies(test_cli ${APP_ID})
+endif()
+
 # The GitHub issue forms (.github/ISSUE_TEMPLATE) and the field ids Help > Report a Bug fills.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)

@@ -3,7 +3,8 @@
 | Path | What |
 |---|---|
 | `src/main.cpp` | entry point: OpenGL setup, model objects, command-line modes, main window |
-| `src/app/` | main window, pages (Media, Cut, Edit, Audio), theme (Breeze style/colour schemes/icons), project/autosave controllers, CLI |
+| `src/app/` | main window, pages (Media, Cut, Edit, Audio), theme (Breeze style/colour schemes/icons), project/autosave controllers, command line (`CliRunner.h`) |
+| `src/app/commands/` | the command layer: named editor operations with typed parameters and JSON results (CLI today, MCP server next) |
 | `src/platform/` | OS integration helpers (child processes get the user's environment back when bundled) |
 | `src/projects/` | project library behind the Project Manager: project kinds and metadata readers, folders, metadata / poster caches, file operations |
 | `src/core/` | data model (mixer model included), EditOps, snapshot undo, JSON project files, effect catalogue, preferences |
