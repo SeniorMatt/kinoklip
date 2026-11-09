@@ -176,7 +176,7 @@ class DelayEffect final : public ClipEffect
 {
 public:
     DelayEffect()
-        : m_line(size_t(std::ceil(kAudioDelayMaxMs * 1e-3 * kRate)) + 1, 0.0f)
+        : m_line((size_t(std::ceil(kAudioDelayMaxMs * 1e-3 * kRate)) + 1) * 2, 0.0f) // stereo
         , m_size(int(m_line.size() / 2))
     { }
     void configure(const ParamSet& p) override
