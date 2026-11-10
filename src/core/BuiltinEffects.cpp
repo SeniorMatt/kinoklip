@@ -192,6 +192,7 @@ void EffectRegistry::registerBuiltins()
     registerVideoEffects(); // keyers, colour, blurs, light, stylize, distort (v4)
     registerVideoEffects2(); // curves, LUTs, lens blur, light, looks, warps, time (v4)
     registerVideoEffects3(); // 1.2: border, despill, transform, dent, noise, gamut, contrast
+    registerVideoEffects4(); // 1.2 second part: sharpen, damage, paint, optics, beauty (spec 57)
     registerAudioEffects(); // gain, EQ, dynamics, filters, delay, reverb
 
     // ---- Transitions (ClipData::transitionIn / transitionOut) ----

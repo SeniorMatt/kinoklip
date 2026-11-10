@@ -50,6 +50,7 @@ search field.
 - [Add a transition, and hide a jump cut with Smooth Cut](transitions.md)
 - [Freeze a frame](freeze-a-frame.md)
 - [Test patterns, generators and ready-made looks](test-patterns-and-looks.md)
+- [Sharpen, repair, damage and paint effects](sharpen-repair-and-damage-effects.md)
 - [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md) (OpenTimelineIO)
 - [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md)
 - [Control Kinoklip from an AI assistant (MCP)](control-kinoklip-from-an-ai-assistant.md)

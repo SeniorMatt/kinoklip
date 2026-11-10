@@ -116,7 +116,8 @@ private slots:
             folders.append(video->child(i)->text(0));
         QCOMPARE(folders,
             QStringList({QStringLiteral("Blur"), QStringLiteral("Color"), QStringLiteral("Distort"),
-                QStringLiteral("Key"), QStringLiteral("Light"), QStringLiteral("Stylize"),
+                QStringLiteral("Key"), QStringLiteral("Light"), QStringLiteral("Refine"),
+                QStringLiteral("Revival"), QStringLiteral("Sharpen"), QStringLiteral("Stylize"),
                 QStringLiteral("Texture"), QStringLiteral("Time"), QStringLiteral("Transform")}));
         QTreeWidgetItem* key = video->child(3);
         QStringList keyers;
@@ -124,7 +125,8 @@ private slots:
             keyers.append(key->child(i)->text(0));
         QCOMPARE(keyers,
             QStringList({QStringLiteral("Chroma Key"), QStringLiteral("Luma Key"),
-                QStringLiteral("HSL Key"), QStringLiteral("Alpha Matte Shrink and Grow")}));
+                QStringLiteral("HSL Key"), QStringLiteral("Alpha Matte Shrink and Grow"),
+                QStringLiteral("3D Keyer")}));
         // Every video effect is listed exactly once; searching hides empty folders.
         const QStringList all = panel.visibleDescriptorIds();
         for (const EffectDescriptor* d :
@@ -160,7 +162,7 @@ private slots:
         QStringList menus;
         for (QAction* a : add->menu()->actions())
             menus.append(a->text());
-        QCOMPARE(menus.size(), 9); // eight folders and Texture (spec 56.11)
+        QCOMPARE(menus.size(), 12); // eight folders, Texture (spec 56.11), Refine, Revival, Sharpen (57.1)
         QCOMPARE(menus[3], QStringLiteral("Key"));
     }
 

@@ -717,6 +717,51 @@
         "effect:despill",
         "effect:false_color"
       ]
+    },
+    {
+      "id": "sharpen-repair-and-damage-effects",
+      "title": "Sharpen, repair, damage and paint effects",
+      "file": "sharpen-repair-and-damage-effects.md",
+      "summary": "Sharpen Edges, Soften and Sharpen, Texture Pop, Detail Recovery, Deband, Dead Pixel Fixer, Beauty, Analog, Film and JPEG Damage, Watercolor, Stylize, Aperture Diffraction, Lens Reflections, Color Palette, 3D Keyer and Video Collage.",
+      "keywords": [
+        "sharpen",
+        "texture",
+        "detail",
+        "deband",
+        "banding",
+        "dead pixel",
+        "beauty",
+        "skin",
+        "vhs",
+        "film damage",
+        "jpeg",
+        "watercolor",
+        "stylize",
+        "starburst",
+        "reflections",
+        "palette",
+        "3d keyer",
+        "collage"
+      ],
+      "contexts": [
+        "effect:sharpen_edges",
+        "effect:soften_and_sharpen",
+        "effect:texture_pop",
+        "effect:detail_recovery",
+        "effect:deband",
+        "effect:dead_pixel_fixer",
+        "effect:beauty",
+        "effect:analog_damage",
+        "effect:film_damage",
+        "effect:jpeg_damage",
+        "effect:watercolor",
+        "effect:stylize",
+        "effect:aperture_diffraction",
+        "effect:lens_reflections",
+        "effect:color_palette",
+        "effect:keyer_3d",
+        "effect:video_collage"
+      ]
     }
   ]
 }

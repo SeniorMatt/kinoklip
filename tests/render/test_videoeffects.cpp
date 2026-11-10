@@ -200,7 +200,8 @@ private slots:
             QVERIFY2(!d->group.isEmpty(), qPrintable(d->id));
         QCOMPARE(registry.groups(EffectCategory::VideoEffect),
             QStringList({QStringLiteral("blur"), QStringLiteral("color"), QStringLiteral("distort"),
-                QStringLiteral("key"), QStringLiteral("light"), QStringLiteral("stylize"),
+                QStringLiteral("key"), QStringLiteral("light"), QStringLiteral("refine"),
+                QStringLiteral("revival"), QStringLiteral("sharpen"), QStringLiteral("stylize"),
                 QStringLiteral("texture"), QStringLiteral("time"), QStringLiteral("transform")}));
         QCOMPARE(EffectRegistry::groupName(QStringLiteral("key")), QStringLiteral("Key"));
         // The chroma key's colour has the viewer eyedropper.

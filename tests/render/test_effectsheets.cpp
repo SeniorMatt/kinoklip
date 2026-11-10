@@ -204,6 +204,126 @@ private slots:
         }
         QVERIFY(writeSheet(m_out + QStringLiteral("/templates.png"), templates));
     }
+
+    /// The second part of the 1.2 effects (spec 57) on the same picture: sheet effects-b.png.
+    void effectsB()
+    {
+        if (m_out.isEmpty() || !m_gpu->isGpu())
+            QSKIP("KK_EFFECT_SHEETS not set, or no OpenGL");
+        QDir().mkpath(m_out);
+        TimelineData t = emptyTimeline();
+        auto fx = [&](const char* type,
+                      std::initializer_list<std::pair<const QString, double>> values = {},
+                      std::initializer_list<std::pair<const QString, QVariant>> statics = {}) {
+            EffectInstance e
+                = EffectRegistry::instance().createEffect(QLatin1String(type), t.allocateId());
+            for (const auto& [key, v] : values)
+                e.params.setBase(key, v);
+            for (const auto& [key, v] : statics)
+                e.params.setStatic(key, v);
+            return e;
+        };
+        enum Extra { Plain, Lights, Defects, NoiseOnly, KeyWindow };
+        struct Row
+        {
+            QString label;
+            QVector<EffectInstance> effects;
+            Extra extra = Plain;
+        };
+        const QVector<Row> rows = {
+            {QStringLiteral("original"), {}},
+            {QStringLiteral("Sharpen Edges"), {fx(fxid::SharpenEdges, {{k::Amount, 300.0}})}},
+            {QStringLiteral("Soften and Sharpen"),
+                {fx(fxid::SoftenSharpen, {{k::Soften, 100.0}, {k::Sharpen, 150.0}})}},
+            {QStringLiteral("Texture Pop (on noise)"),
+                {fx(fxid::TexturePop, {{k::Amount, 200.0}})}, NoiseOnly},
+            {QStringLiteral("Detail Recovery"),
+                {fx(fxid::DetailRecovery, {{k::Shadows, 80.0}, {k::Highlights, 80.0}, {k::Detail, 100.0}})}},
+            {QStringLiteral("Deband"), {fx(fxid::Deband)}},
+            {QStringLiteral("Dead Pixel Fixer (blobs of 3 px)"),
+                {fx(fxid::DeadPixelFixer, {{k::Size, 3.0}})}, Defects},
+            {QStringLiteral("Beauty (on noise)"), {fx(fxid::Beauty, {{k::Smoothing, 100.0}})}, NoiseOnly},
+            {QStringLiteral("Analog Damage"), {fx(fxid::AnalogDamage)}},
+            {QStringLiteral("Film Damage"), {fx(fxid::FilmDamage, {{k::Dirt, 60.0}, {k::Scratches, 60.0}})}},
+            {QStringLiteral("JPEG Damage"), {fx(fxid::JpegDamage, {{k::Quality, 8.0}})}},
+            {QStringLiteral("Watercolor"), {fx(fxid::Watercolor)}},
+            {QStringLiteral("Stylize: relief"), {fx(fxid::Stylize)}},
+            {QStringLiteral("Stylize: ink outline"),
+                {fx(fxid::Stylize, {}, {{k::Style, fxchoice::Ink}})}},
+            {QStringLiteral("Stylize: cutout"),
+                {fx(fxid::Stylize, {}, {{k::Style, fxchoice::Cutout}})}},
+            {QStringLiteral("Aperture Diffraction"),
+                {fx(fxid::ApertureDiffraction, {{k::Length, 160.0}})}, Lights},
+            {QStringLiteral("Lens Reflections"), {fx(fxid::LensReflections)}, Lights},
+            {QStringLiteral("Color Palette"), {fx(fxid::ColorPalette)}},
+            {QStringLiteral("3D Keyer (green window)"), {fx(fxid::Keyer3d)}, KeyWindow},
+            {QStringLiteral("Video Collage"),
+                {fx(fxid::VideoCollage, {{k::Spacing, 14.0}, {k::Radius, 12.0}})}},
+        };
+        auto window = [&](TimelineData& tl, double w, double h, double cx, double cy,
+                          const QColor& inside, const QColor& outside, const QString& shape) {
+            ClipData win = generatorClip(tl, g::Window);
+            win.title.setBase(g::Width, w);
+            win.title.setBase(g::Height, h);
+            win.title.setBase(g::CenterX, cx);
+            win.title.setBase(g::CenterY, cy);
+            win.title.setStatic(g::Shape, shape);
+            win.title.setStatic(g::Color1, inside);
+            win.title.setStatic(g::Color2, outside);
+            return win;
+        };
+        QVector<Tile> tiles;
+        for (const Row& r : rows) {
+            TimelineData tl = emptyTimeline(640, 360);
+            int track = 0;
+            if (r.extra == NoiseOnly) {
+                ClipData noise = generatorClip(tl, g::Noise);
+                noise.title.setBase(g::Amount, 18);
+                noise.title.setBase(g::Grain, 1);
+                noise.title.setStatic(g::Monochrome, true);
+                addClip(tl, TrackType::Video, track++, noise);
+            } else {
+                addClip(tl, TrackType::Video, track++,
+                    generatorClip(tl, QStringLiteral("four_color_gradient")));
+                if (r.extra != Lights) { // bright grid lines would be lights too
+                    ClipData grid = generatorClip(tl, g::Grid);
+                    grid.title.setBase(g::LineWidth, 3);
+                    grid.title.setBase(g::MajorEvery, 0);
+                    addClip(tl, TrackType::Video, track++, grid);
+                }
+            }
+            if (r.extra == Lights) {
+                const QColor none(0, 0, 0, 0);
+                for (const QPointF& p : {QPointF(-150, -70), QPointF(130, 40), QPointF(40, -100)})
+                    addClip(tl, TrackType::Video, track++,
+                        window(tl, 16, 16, p.x(), p.y(), Qt::white, none, QStringLiteral("ellipse")));
+            }
+            if (r.extra == Defects) {
+                const QColor none(0, 0, 0, 0);
+                int n = 0;
+                for (const QPointF& p : {QPointF(-200, -90), QPointF(-60, 70), QPointF(90, -40),
+                         QPointF(220, 100), QPointF(10, 20)})
+                    addClip(tl, TrackType::Video, track++,
+                        window(tl, 3, 3, p.x(), p.y(), (n++ % 2) ? Qt::black : Qt::white, none,
+                            QStringLiteral("rectangle")));
+            }
+            ClipData adj;
+            adj.id = tl.allocateId();
+            adj.kind = ClipKind::Adjustment;
+            adj.duration = 100;
+            if (r.extra == KeyWindow) {
+                ClipData win = window(tl, 300, 200, 0, 0, QColor(0, 177, 64), QColor(230, 120, 30),
+                    QStringLiteral("ellipse"));
+                win.effects = r.effects;
+                addClip(tl, TrackType::Video, track++, win);
+            } else {
+                adj.effects = r.effects;
+                addClip(tl, TrackType::Video, track++, adj);
+            }
+            tiles.append({r.label, render(tl)});
+        }
+        QVERIFY(writeSheet(m_out + QStringLiteral("/effects-b.png"), tiles));
+    }
 };
 
 int main(int argc, char** argv)
