@@ -303,6 +303,37 @@ private slots:
                 lookhud::paint(id, params(fxid::LookCctv, {{k::TextSize, 60.0}}), hudFrame())));
     }
 
+    void textShadowDarkensAroundTheText()
+    {
+        // The camera name sits at the top left; with a bright text color the shadow adds dark
+        // pixels just around the letters and nothing far from them.
+        const QString id = QLatin1String(fxid::LookCctv);
+        const QImage none
+            = lookhud::paint(id, params(fxid::LookCctv, {{k::TextShadow, 0.0}}), hudFrame());
+        const QImage soft
+            = lookhud::paint(id, params(fxid::LookCctv, {{k::TextShadow, 60.0}}), hudFrame());
+        auto darkPixels = [](const QImage& premultiplied, QRect area) {
+            const QImage img = premultiplied.convertToFormat(QImage::Format_ARGB32);
+            int n = 0;
+            for (int y = area.top(); y <= area.bottom(); ++y)
+                for (int x = area.left(); x <= area.right(); ++x) {
+                    const QRgb c = img.pixel(x, y);
+                    n += (qAlpha(c) > 40 && qGray(c) < 60) ? 1 : 0;
+                }
+            return n;
+        };
+        const QRect nameArea(20, 15, 200, 40);
+        QCOMPARE(darkPixels(none, nameArea), 0);
+        QVERIFY(darkPixels(soft, nameArea) > 40);
+        // Far from any text or mark (the middle of the picture) nothing changes.
+        QCOMPARE(countDifferent(none, soft, 0, QRect(kW / 4, kH / 3, kW / 2, kH / 3)), 0);
+        // More shadow, more dark pixels.
+        QVERIFY(darkPixels(lookhud::paint(
+                               id, params(fxid::LookCctv, {{k::TextShadow, 100.0}}), hudFrame()),
+                    nameArea)
+            >= darkPixels(soft, nameArea));
+    }
+
     void clockFollowsTheClipTime()
     {
         const ParamSet p = params(fxid::LookCctv, {},

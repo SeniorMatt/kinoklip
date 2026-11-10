@@ -46,6 +46,7 @@ void addOverlayStyle(QVector<ParamDescriptor>& params)
     namespace k = fxkeys;
     params.append(text(k::LookFont, tr("Font"), QString()));
     params.append(percent(k::TextSize, tr("Text Size"), 25, 300, 100));
+    params.append(percent(k::TextShadow, tr("Text Shadow"), 0, 100, 60));
     params.append(percent(k::OverlayOpacity, tr("Overlay Opacity"), 0, 100, 100));
 }
 

@@ -63,6 +63,7 @@ struct Ctx
     QString family;
     const ParamSet& p;
     const Frame& f;
+    double shadow = 0.0; ///< Text Shadow, 0..1
 
     QPointF at(double x, double y) const { return {r.left() + x * ui, r.top() + y * ui}; }
     QPointF fromRight(double x, double y) const { return {r.right() - x * ui, r.top() + y * ui}; }
@@ -110,11 +111,19 @@ double drawText(Ctx& c, QPointF anchor, const QString& s, double designPx,
     path.addText(QPointF(x, baseline), font, s);
     c.g.setFont(font);
     c.g.setPen(Qt::NoPen);
-    c.g.setBrush(QColor(0, 0, 0, 120));
-    c.g.save();
-    c.g.translate(px * 0.05, px * 0.05);
-    c.g.drawPath(path);
-    c.g.restore();
+    if (c.shadow > 0.0) {
+        // A soft drop shadow and a dark outline round the letters.
+        c.g.setBrush(QColor(0, 0, 0, int(170 * c.shadow)));
+        c.g.save();
+        c.g.translate(px * 0.07, px * 0.07);
+        c.g.drawPath(path);
+        c.g.restore();
+        c.g.setPen(QPen(QColor(0, 0, 0, int(235 * c.shadow)), px * 0.14, Qt::SolidLine,
+            Qt::RoundCap, Qt::RoundJoin));
+        c.g.setBrush(Qt::NoBrush);
+        c.g.drawPath(path);
+        c.g.setPen(Qt::NoPen);
+    }
     c.g.setBrush(col.isValid() ? col : c.color);
     c.g.drawPath(path);
     return w;
@@ -131,9 +140,11 @@ QPen linePen(const Ctx& c, double widthDesign, const QColor& col = QColor())
 /// A dark edge under a line so thin white lines stay visible on bright pictures.
 void strokeLine(Ctx& c, QPointF a, QPointF b, double widthDesign, const QColor& col = QColor())
 {
-    QPen dark = linePen(c, widthDesign * 1.9, QColor(0, 0, 0, 90));
-    c.g.setPen(dark);
-    c.g.drawLine(a, b);
+    QPen dark = linePen(c, widthDesign * 2.4, QColor(0, 0, 0, int(230 * c.shadow)));
+    if (c.shadow > 0.0) {
+        c.g.setPen(dark);
+        c.g.drawLine(a, b);
+    }
     c.g.setPen(linePen(c, widthDesign, col));
     c.g.drawLine(a, b);
 }
@@ -167,8 +178,10 @@ void batteryIcon(Ctx& c, QPointF topLeft, double level, double scale = 1.0)
     const double w = 62 * c.ui * scale, h = 30 * c.ui * scale, line = 3 * c.ui * scale;
     const QRectF body(topLeft, QSizeF(w, h));
     c.g.setBrush(Qt::NoBrush);
-    c.g.setPen(QPen(QColor(0, 0, 0, 90), line * 1.9));
-    c.g.drawRoundedRect(body, 4 * c.ui * scale, 4 * c.ui * scale);
+    if (c.shadow > 0.0) {
+        c.g.setPen(QPen(QColor(0, 0, 0, int(230 * c.shadow)), line * 2.4));
+        c.g.drawRoundedRect(body, 4 * c.ui * scale, 4 * c.ui * scale);
+    }
     c.g.setPen(QPen(c.color, line));
     c.g.drawRoundedRect(body, 4 * c.ui * scale, 4 * c.ui * scale);
     c.g.setPen(Qt::NoPen);
@@ -456,10 +469,10 @@ void paintVideoCall(Ctx& c)
     // Name label: a dark pill at the lower left of the tile.
     const QString name = str(c.p, k::ParticipantName, QStringLiteral("Alex Morgan"));
     const bool muted = flag(c.p, k::Muted, false);
-    const double px = 30 * c.u;
+    const double px = 36 * c.u;
     const QFontMetricsF fm(fontFor(c, px, false));
-    const double padX = 18 * c.u, h = 54 * c.u;
-    const double iconW = 34 * c.u;
+    const double padX = 20 * c.u, h = 66 * c.u;
+    const double iconW = 42 * c.u;
     const double w = fm.horizontalAdvance(name) + 2 * padX + iconW;
     const QRectF pill(tile.left() + 22 * c.ui, tile.bottom() - 22 * c.ui - h, w, h);
     c.g.setPen(Qt::NoPen);
@@ -479,7 +492,7 @@ void paintVideoCall(Ctx& c)
     if (muted)
         c.g.drawLine(QPointF(mic.x() - 11 * c.u, mic.y() - 14 * c.u),
             QPointF(mic.x() + 11 * c.u, mic.y() + 14 * c.u));
-    drawText(c, QPointF(pill.left() + padX + iconW, pill.center().y()), name, 30, Qt::AlignLeft,
+    drawText(c, QPointF(pill.left() + padX + iconW, pill.center().y()), name, 36, Qt::AlignLeft,
         false, QColor(250, 250, 250));
     // Connection bars at the top right of the tile, call timer at the top left.
     const int bars = int(std::lround(num(c.p, k::Signal, fr, 4)));
@@ -493,14 +506,14 @@ void paintVideoCall(Ctx& c)
     }
     if (flag(c.p, k::ShowTimer, true)) {
         const QString t = elapsedText(fr, c.f.fps);
-        const QFontMetricsF tm(fontFor(c, 26 * c.u, true));
+        const QFontMetricsF tm(fontFor(c, 32 * c.u, true));
         const QRectF chip(tile.left() + 22 * c.ui, tile.top() + 22 * c.ui,
-            tm.horizontalAdvance(t) + 36 * c.u, 42 * c.u);
+            tm.horizontalAdvance(t) + 46 * c.u, 52 * c.u);
         c.g.setPen(Qt::NoPen);
         c.g.setBrush(QColor(12, 14, 18, 175));
         c.g.drawRoundedRect(chip, chip.height() / 2, chip.height() / 2);
-        filledCircle(c, QPointF(chip.left() + 16 * c.u, chip.center().y()), 5, QColor(235, 70, 60));
-        drawText(c, QPointF(chip.left() + 28 * c.u, chip.center().y()), t, 26, Qt::AlignLeft, true,
+        filledCircle(c, QPointF(chip.left() + 20 * c.u, chip.center().y()), 6, QColor(235, 70, 60));
+        drawText(c, QPointF(chip.left() + 34 * c.u, chip.center().y()), t, 32, Qt::AlignLeft, true,
             QColor(245, 245, 245));
     }
 }
@@ -626,7 +639,8 @@ QImage paint(const QString& id, const ParamSet& p, const Frame& f)
     QColor color = colorOf(p, k::Color, QColor(0xf4, 0xf4, 0xf0));
     Ctx ctx {g, f.content,
         unit * std::clamp(num(p, k::TextSize, f.localFrame, 100), 25.0, 300.0) / 100.0, unit, color,
-        sans ? sansFamily(p) : monoFamily(p), p, f};
+        sans ? sansFamily(p) : monoFamily(p), p, f, 0.0};
+    ctx.shadow = std::clamp(num(p, k::TextShadow, f.localFrame, 60), 0.0, 100.0) / 100.0;
     if (id == QLatin1String(fxid::LookCctv))
         paintCctv(ctx);
     else if (id == QLatin1String(fxid::LookDroneOverlay))

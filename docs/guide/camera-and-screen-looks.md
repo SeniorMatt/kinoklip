@@ -88,6 +88,6 @@ frame in the middle and marks in the corners. **Blink Recording Dot**, **Focus F
 ## Text, fonts and sizes
 
 Every text can be edited in the Inspector. **Font** takes the name of a font family; empty uses the
-default font of your system (a fixed-width one for the camera displays). **Text Size** scales all
+default font of your system (a fixed-width one for the camera displays). **Text Shadow** puts a dark outline and soft shadow round the letters and marks so they read on a bright picture (0 turns it off). **Text Size** scales all
 text and marks of an overlay at once, and everything is drawn in proportion to the picture height,
 so a look has the same layout at any resolution.

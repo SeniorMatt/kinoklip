@@ -23,6 +23,7 @@ namespace fxkeys {
 // Shared by the overlay looks (CCTV, Drone, DSLR, Video Call, Video Camera).
 inline const QString LookFont = QStringLiteral("font"); ///< family; empty = the default font
 inline const QString TextSize = QStringLiteral("textSize"); ///< percent of the design size
+inline const QString TextShadow = QStringLiteral("textShadow"); ///< percent, 0 = none
 inline const QString OverlayOpacity = QStringLiteral("overlayOpacity"); ///< percent
 // CCTV
 inline const QString CameraName = QStringLiteral("cameraName");
