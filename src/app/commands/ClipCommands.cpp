@@ -6,8 +6,10 @@
 #include "core/EditOps.h"
 #include "core/LevelOps.h"
 #include "core/MediaPool.h"
+#include "core/MixerData.h"
 #include "core/ParamKeys.h"
 #include "core/Project.h"
+#include "core/Retime.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
@@ -414,10 +416,14 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
             {"crop-left", &keys::CropL, 0, kMaxCrop}, {"crop-right", &keys::CropR, 0, kMaxCrop},
             {"crop-top", &keys::CropT, 0, kMaxCrop}, {"crop-bottom", &keys::CropB, 0, kMaxCrop}};
     bool any = false;
-    for (const char* name : {"speed", "volume", "enabled", "name", "zoom", "pos-x", "pos-y",
-             "rotation", "opacity", "crop-left", "crop-right", "crop-top", "crop-bottom", "pan",
-             "fade-in", "fade-out", "fade-in-curve", "fade-out-curve", "stabilization"})
+    for (const char* name :
+        {"speed", "volume", "enabled", "name", "zoom", "pos-x", "pos-y", "rotation", "opacity",
+            "crop-left", "crop-right", "crop-top", "crop-bottom", "pan", "fade-in", "fade-out",
+            "fade-in-curve", "fade-out-curve", "stabilization", "pitch", "eq"})
         any |= args.has(QString::fromLatin1(name));
+    for (int b = 1; b <= 4; ++b)
+        for (const char* part : {"freq", "gain", "q"})
+            any |= args.has(QStringLiteral("eq%1-%2").arg(b).arg(QLatin1String(part)));
     if (!any)
         return fail(
             "missing_parameter", QStringLiteral("nothing to set: give at least one option"));
@@ -444,6 +450,27 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
     if (args.has(QStringLiteral("pan"))) {
         if (auto r = range("pan", args.number(QStringLiteral("pan")), -1.0, 1.0); !r.ok)
             return r;
+    }
+    if (args.has(QStringLiteral("pitch"))) {
+        if (auto r = range("pitch", args.number(QStringLiteral("pitch")), -24.0, 24.0); !r.ok)
+            return r;
+    }
+    if (args.has(QStringLiteral("eq"))) {
+        const QString eq = args.string(QStringLiteral("eq"));
+        if (eq != QLatin1String("on") && eq != QLatin1String("off"))
+            return fail("bad_value", QStringLiteral("--eq must be \"on\" or \"off\""));
+    }
+    for (int b = 1; b <= 4; ++b) {
+        const QString o = QStringLiteral("eq%1-").arg(b);
+        for (const auto& [part, lo, hi] :
+            {std::tuple {QStringLiteral("freq"), kEqMinFrequencyHz, kEqMaxFrequencyHz},
+                std::tuple {QStringLiteral("gain"), -kEqMaxGainDb, kEqMaxGainDb},
+                std::tuple {QStringLiteral("q"), kEqMinQ, kEqMaxQ}}) {
+            const QString name = o + part;
+            if (args.has(name))
+                if (auto r = range(name.toLatin1().constData(), args.number(name), lo, hi); !r.ok)
+                    return r;
+        }
     }
     if (args.has(QStringLiteral("zoom"))) {
         if (auto r = range("zoom", args.number(QStringLiteral("zoom")), kMinZoom, kBig); !r.ok)
@@ -493,6 +520,24 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
             clip->audio.setBase(keys::VolumeDb, args.number(QStringLiteral("volume")));
         if (args.has(QStringLiteral("pan")))
             clip->audio.setBase(keys::Pan, args.number(QStringLiteral("pan")));
+        if (args.has(QStringLiteral("pitch"))) {
+            const double cents = std::round(args.number(QStringLiteral("pitch")) * 100.0);
+            const double semitones = std::trunc(cents / 100.0);
+            clip->audio.setBase(keys::PitchSemitones, semitones);
+            clip->audio.setBase(keys::PitchCents, cents - semitones * 100.0);
+        }
+        if (args.has(QStringLiteral("eq")))
+            clip->audio.setStatic(
+                keys::EqEnabled, args.string(QStringLiteral("eq")) == QLatin1String("on"));
+        for (int b = 0; b < 4; ++b) {
+            const QString o = QStringLiteral("eq%1-").arg(b + 1);
+            if (args.has(o + QLatin1String("freq")))
+                clip->audio.setBase(keys::EqBandFreq[b], args.number(o + QLatin1String("freq")));
+            if (args.has(o + QLatin1String("gain")))
+                clip->audio.setBase(keys::EqBandGain[b], args.number(o + QLatin1String("gain")));
+            if (args.has(o + QLatin1String("q")))
+                clip->audio.setBase(keys::EqBandQ[b], args.number(o + QLatin1String("q")));
+        }
         if (args.has(QStringLiteral("enabled")))
             clip->enabled = args.boolean(QStringLiteral("enabled"));
         if (args.has(QStringLiteral("name")))
@@ -518,8 +563,18 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
         }
         return true;
     });
-    return CommandResult::success(
+    CommandResult done = CommandResult::success(
         {{QStringLiteral("clip"), clipById(ctx, id)}}, QStringLiteral("updated clip %1").arg(id));
+    FoundClip after;
+    if (args.has(QStringLiteral("pitch")) && !findClipOrFail(dataOf(ctx), id, after)
+        && retime::isRetimed(*after.clip)) {
+        const QString warning = QStringLiteral(
+            "pitch is saved but ignored until the clip's speed is normal (no speed change or "
+            "retime)");
+        done.data.insert(QStringLiteral("warning"), warning);
+        done.text += QStringLiteral("\nwarning: ") + warning;
+    }
+    return done;
 }
 
 ParamSpec timeParam(const char* name, const char* description, bool required = false)
@@ -608,69 +663,81 @@ void registerClipCommands(CommandRegistry& registry)
                           kUnlinked},
                       ProjectUse::Modify, true},
         runDelete});
-    registry.add(
-        {{QStringLiteral("clip.set"),
-             QStringLiteral("Change properties of a clip: speed, volume, pan, enabled, name, basic "
-                            "transform, crop, the fades (lengths and curves) and "
-                            "stabilization on/off."),
-             {kClipParam,
-                 {QStringLiteral("speed"), ParamType::Number,
-                     QStringLiteral("constant speed, 1 = normal, 0.5 = half (0.01 - 100); linked "
-                                    "clips follow"),
-                     false, {}, {}},
-                 {QStringLiteral("volume"), ParamType::Number,
-                     QStringLiteral("gain in dB (-96 - 24)"), false, {}, {}},
-                 {QStringLiteral("enabled"), ParamType::Boolean,
-                     QStringLiteral("true or false: switch the clip on or off"), false, {}, {}},
-                 {QStringLiteral("name"), ParamType::String, QStringLiteral("clip name"), false, {},
-                     {}},
-                 {QStringLiteral("zoom"), ParamType::Number,
-                     QStringLiteral("scale factor, 1 = normal"), false, {}, {}},
-                 {QStringLiteral("pos-x"), ParamType::Number,
-                     QStringLiteral("horizontal position in pixels from the centre"), false, {},
-                     {}},
-                 {QStringLiteral("pos-y"), ParamType::Number,
-                     QStringLiteral(
-                         "vertical position in pixels from the centre (down is positive)"),
-                     false, {}, {}},
-                 {QStringLiteral("rotation"), ParamType::Number,
-                     QStringLiteral("degrees clockwise"), false, {}, {}},
-                 {QStringLiteral("opacity"), ParamType::Number, QStringLiteral("percent, 0 - 100"),
-                     false, {}, {}},
-                 {QStringLiteral("crop-left"), ParamType::Number,
-                     QStringLiteral("pixels cut from the left edge of the source (0 - 10000)"),
-                     false, {}, {}},
-                 {QStringLiteral("crop-right"), ParamType::Number,
-                     QStringLiteral("pixels cut from the right edge"), false, {}, {}},
-                 {QStringLiteral("crop-top"), ParamType::Number,
-                     QStringLiteral("pixels cut from the top edge"), false, {}, {}},
-                 {QStringLiteral("crop-bottom"), ParamType::Number,
-                     QStringLiteral("pixels cut from the bottom edge"), false, {}, {}},
-                 {QStringLiteral("pan"), ParamType::Number,
-                     QStringLiteral("stereo pan, -1 (left) to 1 (right)"), false, {}, {}},
-                 {QStringLiteral("fade-in"), ParamType::Time,
-                     QStringLiteral(
-                         "fade-in length (frames or timecode, 0 = none); only this clip"),
-                     false, {}, {}},
-                 {QStringLiteral("fade-out"), ParamType::Time,
-                     QStringLiteral(
-                         "fade-out length (frames or timecode, 0 = none); only this clip"),
-                     false, {}, {}},
-                 {QStringLiteral("fade-in-curve"), ParamType::Number,
-                     QStringLiteral("fade-in shape, -1 (fast start) to 1 (slow start), 0 = linear"),
-                     false, {}, {}},
-                 {QStringLiteral("fade-out-curve"), ParamType::Number,
-                     QStringLiteral(
-                         "fade-out shape, -1 (fast start) to 1 (slow start), 0 = linear"),
-                     false, {}, {}},
-                 {QStringLiteral("stabilization"), ParamType::String,
-                     QStringLiteral("\"off\" switches the clip's stabilization off (the "
-                                    "measurement is kept), \"on\" switches it on again; see "
-                                    "clip.stabilize to measure"),
-                     false, {}, {QStringLiteral("on"), QStringLiteral("off")}},
-                 kUnlinked},
-             ProjectUse::Modify, true},
-            runSet});
+    CommandSpec set {QStringLiteral("clip.set"),
+        QStringLiteral("Change properties of a clip: speed, volume, pan, pitch, the clip "
+                       "equalizer, enabled, name, basic "
+                       "transform, crop, the fades (lengths and curves) and "
+                       "stabilization on/off."),
+        {kClipParam,
+            {QStringLiteral("speed"), ParamType::Number,
+                QStringLiteral("constant speed, 1 = normal, 0.5 = half (0.01 - 100); linked "
+                               "clips follow"),
+                false, {}, {}},
+            {QStringLiteral("volume"), ParamType::Number, QStringLiteral("gain in dB (-96 - 24)"),
+                false, {}, {}},
+            {QStringLiteral("enabled"), ParamType::Boolean,
+                QStringLiteral("true or false: switch the clip on or off"), false, {}, {}},
+            {QStringLiteral("name"), ParamType::String, QStringLiteral("clip name"), false, {}, {}},
+            {QStringLiteral("zoom"), ParamType::Number, QStringLiteral("scale factor, 1 = normal"),
+                false, {}, {}},
+            {QStringLiteral("pos-x"), ParamType::Number,
+                QStringLiteral("horizontal position in pixels from the centre"), false, {}, {}},
+            {QStringLiteral("pos-y"), ParamType::Number,
+                QStringLiteral("vertical position in pixels from the centre (down is positive)"),
+                false, {}, {}},
+            {QStringLiteral("rotation"), ParamType::Number, QStringLiteral("degrees clockwise"),
+                false, {}, {}},
+            {QStringLiteral("opacity"), ParamType::Number, QStringLiteral("percent, 0 - 100"),
+                false, {}, {}},
+            {QStringLiteral("crop-left"), ParamType::Number,
+                QStringLiteral("pixels cut from the left edge of the source (0 - 10000)"), false,
+                {}, {}},
+            {QStringLiteral("crop-right"), ParamType::Number,
+                QStringLiteral("pixels cut from the right edge"), false, {}, {}},
+            {QStringLiteral("crop-top"), ParamType::Number,
+                QStringLiteral("pixels cut from the top edge"), false, {}, {}},
+            {QStringLiteral("crop-bottom"), ParamType::Number,
+                QStringLiteral("pixels cut from the bottom edge"), false, {}, {}},
+            {QStringLiteral("pan"), ParamType::Number,
+                QStringLiteral("stereo pan, -1 (left) to 1 (right)"), false, {}, {}},
+            {QStringLiteral("pitch"), ParamType::Number,
+                QStringLiteral("pitch in semitones, -24 to 24 (fractions are cents); the "
+                               "clip keeps its length"),
+                false, {}, {}},
+            {QStringLiteral("eq"), ParamType::String,
+                QStringLiteral("the clip equalizer, \"on\" or \"off\""), false, {},
+                {QStringLiteral("on"), QStringLiteral("off")}},
+            {QStringLiteral("fade-in"), ParamType::Time,
+                QStringLiteral("fade-in length (frames or timecode, 0 = none); only this clip"),
+                false, {}, {}},
+            {QStringLiteral("fade-out"), ParamType::Time,
+                QStringLiteral("fade-out length (frames or timecode, 0 = none); only this clip"),
+                false, {}, {}},
+            {QStringLiteral("fade-in-curve"), ParamType::Number,
+                QStringLiteral("fade-in shape, -1 (fast start) to 1 (slow start), 0 = linear"),
+                false, {}, {}},
+            {QStringLiteral("fade-out-curve"), ParamType::Number,
+                QStringLiteral("fade-out shape, -1 (fast start) to 1 (slow start), 0 = linear"),
+                false, {}, {}},
+            {QStringLiteral("stabilization"), ParamType::String,
+                QStringLiteral("\"off\" switches the clip's stabilization off (the "
+                               "measurement is kept), \"on\" switches it on again; see "
+                               "clip.stabilize to measure"),
+                false, {}, {QStringLiteral("on"), QStringLiteral("off")}},
+            kUnlinked},
+        ProjectUse::Modify, true};
+    // Equalizer bands: band 1 low shelf, 2 and 3 bells, 4 high shelf.
+    for (int b = 1; b <= 4; ++b) {
+        const QString o = QStringLiteral("eq%1-").arg(b);
+        set.params.append({o + QLatin1String("freq"), ParamType::Number,
+            QStringLiteral("clip equalizer band %1 frequency in Hz, 20 - 20000").arg(b), false, {},
+            {}});
+        set.params.append({o + QLatin1String("gain"), ParamType::Number,
+            QStringLiteral("clip equalizer band %1 gain in dB, -24 - 24").arg(b), false, {}, {}});
+        set.params.append({o + QLatin1String("q"), ParamType::Number,
+            QStringLiteral("clip equalizer band %1 Q, 0.1 - 18").arg(b), false, {}, {}});
+    }
+    registry.add({set, runSet});
 }
 
 } // namespace kk::commands

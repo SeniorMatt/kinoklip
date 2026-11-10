@@ -114,6 +114,8 @@ inline constexpr char Composite[] = "builtin.composite"; ///< Composite Mode + O
 /// the viewer; the descriptor holds the ease.
 inline constexpr char DynamicZoom[] = "builtin.dynamic_zoom";
 inline constexpr char Audio[] = "builtin.audio";
+/// The Audio tab's Equalizer section (4 bands, stored in ClipData::audio).
+inline constexpr char AudioEq[] = "builtin.audio_eq";
 } // namespace groups
 
 /// Effects library folders of the video effects (EffectDescriptor::group), named the way an
@@ -190,7 +192,8 @@ private:
     void registerVideoEffects3();
     void registerVideoEffects4(); ///< 1.2 second part (spec 57)
     void registerVideoEffects5(); ///< 1.2 multi-frame effects, Patch Replacer (spec 60)
-    void registerVideoEffects6(); ///< 1.2 template looks: CCTV, Glitch, Drone, DSLR, DVE, Call, Camera (spec 65)
+    void registerVideoEffects6(); ///< 1.2 template looks: CCTV, Glitch, Drone, DSLR, DVE, Call,
+                                  ///< Camera (spec 65)
     /// The clip audio effects (BuiltinAudioEffects.cpp).
     void registerAudioEffects();
 

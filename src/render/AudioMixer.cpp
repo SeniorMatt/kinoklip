@@ -7,6 +7,7 @@
 #include "core/Retime.h"
 #include "media/AudioDecoder.h"
 #include "render/AudioClipEffects.h"
+#include "render/Equalizer.h"
 #include "render/MixerChannel.h"
 #include "render/RenderLog.h"
 #include "render/TimeStretch.h"
@@ -88,6 +89,12 @@ struct AudioMixer::Decoder
     /// the timeline sample the next block must start at for that memory to be valid.
     dsp::ClipEffectChain effects;
     int64_t effectsNext = std::numeric_limits<int64_t>::min();
+    /// The clip's own equalizer (Inspector > Audio) and its continuation sample.
+    dsp::Equalizer eq;
+    int64_t eqNext = std::numeric_limits<int64_t>::min();
+    /// Pitch shift: the stretch ratio the grain chain was built for (0 = none).
+    double pitchRatio = 0.0;
+    int64_t pitchSourceIn = 0;
 };
 
 /// A gain ramp over [start, end) timeline samples: fade-in (gainIn) or fade-out (gainOut) of
@@ -319,6 +326,84 @@ bool AudioMixer::mixTrackClips(const TimelineData& tl, const NestedTimelines& ne
     return any;
 }
 
+const float* AudioMixer::pitchedSource(Decoder& d, const NestedTimelines& nested, double ratio,
+    int64_t clipStart, int64_t sourceIn, int64_t from, int n)
+{
+    // Pitch shift = time stretch by `ratio` (WSOLA keeps the pitch, so the stretched signal Z
+    // shows source position u / ratio at its sample u), read back at `ratio` samples per
+    // output sample: the length stays, the pitch is multiplied by `ratio`. The stretch is
+    // random access, so playback and export give the same samples.
+    if (d.pitchRatio != ratio || d.pitchSourceIn != sourceIn || d.stamped) {
+        d.stretch.invalidate();
+        d.pitchRatio = ratio;
+        d.pitchSourceIn = sourceIn;
+        d.stamped = false; // the retime path restarts its own chain
+    }
+    const int64_t t0 = from - clipStart; // clip-local output samples [t0, t0 + n)
+    // Above an octave up the read skips samples: a windowed-sinc low-pass at the new Nyquist
+    // (kTaps - 1 = 2 * margin taps) keeps what is above it from folding back.
+    constexpr int kMargin = 16;
+    const int margin = ratio > 2.0 ? kMargin : 0;
+    const int64_t i0 = int64_t(std::floor(double(t0) * ratio)) - 1 - margin;
+    const int64_t i1 = int64_t(std::floor(double(t0 + n - 1) * ratio)) + 2 + margin;
+    const int zn = int(i1 - i0 + 1);
+    if (m_pitchZ.size() < size_t(zn) * kChannels)
+        m_pitchZ.resize(size_t(zn) * kChannels);
+    const render::SourceCache::Reader reader
+        = [this, &d, &nested](
+              int64_t first, float* dst, int count) { readSource(d, nested, first, dst, count); };
+    d.stretch.render(
+        i0, zn, [&](int64_t u) { return double(sourceIn) + double(u) / ratio; }, d.cache, reader,
+        m_pitchZ.data());
+    if (m_resampled.size() < size_t(n) * kChannels)
+        m_resampled.resize(size_t(n) * kChannels);
+    const float* z = m_pitchZ.data();
+    if (margin > 0) {
+        double taps[2 * kMargin + 1];
+        const double fc = 0.45 / ratio; // cycles per sample of Z
+        double sum = 0.0;
+        for (int k = -kMargin; k <= kMargin; ++k) {
+            const double x = 2.0 * std::numbers::pi * fc * k;
+            const double sinc = k == 0 ? 2.0 * fc : std::sin(x) / (std::numbers::pi * k);
+            const double w = 0.5 + 0.5 * std::cos(std::numbers::pi * k / (kMargin + 1));
+            taps[k + kMargin] = sinc * w;
+            sum += taps[k + kMargin];
+        }
+        for (double& t : taps)
+            t /= sum; // unity at DC
+        if (m_pitchF.size() < size_t(zn) * kChannels)
+            m_pitchF.resize(size_t(zn) * kChannels);
+        std::copy(m_pitchZ.begin(), m_pitchZ.begin() + size_t(zn) * kChannels, m_pitchF.begin());
+        for (int j = kMargin; j < zn - kMargin; ++j) {
+            for (int ch = 0; ch < kChannels; ++ch) {
+                double acc = 0.0;
+                for (int k = -kMargin; k <= kMargin; ++k)
+                    acc += taps[k + kMargin] * double(m_pitchZ[size_t(j + k) * kChannels + ch]);
+                m_pitchF[size_t(j) * kChannels + ch] = float(acc);
+            }
+        }
+        z = m_pitchF.data();
+    }
+    for (int i = 0; i < n; ++i) {
+        const double x = double(t0 + i) * ratio;
+        const int64_t k = int64_t(std::floor(x));
+        const float f = float(x - double(k));
+        const size_t base = size_t(k - i0);
+        for (int ch = 0; ch < kChannels; ++ch) {
+            // Catmull-Rom between the samples k and k + 1.
+            const float p0 = z[(base - 1) * kChannels + ch], p1 = z[base * kChannels + ch];
+            const float p2 = z[(base + 1) * kChannels + ch], p3 = z[(base + 2) * kChannels + ch];
+            m_resampled[size_t(i) * kChannels + ch] = p1
+                + 0.5f * f
+                    * (p2 - p0
+                        + f
+                            * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3
+                                + f * (3.0f * (p1 - p2) + p3 - p0)));
+        }
+    }
+    return m_resampled.data();
+}
+
 const float* AudioMixer::retimedSource(Decoder& d, const NestedTimelines& nested,
     const ClipData& clip, Rational fps, int64_t clipStart, int64_t sourceIn, int64_t from, int n)
 {
@@ -422,6 +507,50 @@ bool AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
         src = m_source.data();
     } else {
         src = retimedSource(*d, nested, clip, tl.fps, clipStart, sourceIn, from, n);
+        d->pitchRatio = 0.0;
+    }
+
+    // ---- Pitch (Inspector > Audio): same length, other pitch; not on retimed clips ----
+    if (!retimed) {
+        const double semitones = clip.audio.value(keys::PitchSemitones, 0)
+            + clip.audio.value(keys::PitchCents, 0) / 100.0;
+        if (std::abs(semitones) > 1e-6) {
+            src = pitchedSource(
+                *d, nested, std::exp2(semitones / 12.0), clipStart, sourceIn, from, n);
+        } else {
+            d->pitchRatio = 0.0;
+        }
+    }
+
+    // ---- Clip equalizer ----
+    if (clip.audio.staticValue(keys::EqEnabled, false).toBool()) {
+        EqSettings s;
+        s.enabled = true;
+        for (EqBand& b : s.bands)
+            b.enabled = false;
+        static const double defaultHz[4] = {100, 500, 2000, 8000};
+        static const double defaultQ[4] = {0.7071, 1, 1, 0.7071};
+        static const EqBandType types[4]
+            = {EqBandType::LowShelf, EqBandType::Bell, EqBandType::Bell, EqBandType::HighShelf};
+        for (int b = 0; b < 4; ++b) {
+            s.bands[size_t(b + 1)] = {types[b], true,
+                std::clamp(clip.audio.value(keys::EqBandFreq[b], 0, defaultHz[b]),
+                    kEqMinFrequencyHz, kEqMaxFrequencyHz),
+                std::clamp(
+                    clip.audio.value(keys::EqBandGain[b], 0, 0.0), -kEqMaxGainDb, kEqMaxGainDb),
+                std::clamp(clip.audio.value(keys::EqBandQ[b], 0, defaultQ[b]), kEqMinQ, kEqMaxQ)};
+        }
+        d->eq.setTarget(s);
+        if (from != d->eqNext)
+            d->eq.reset(); // after the target: a new start jumps to the settings
+        d->eqNext = to;
+        if (m_effectBuffer.size() < size_t(n) * kChannels)
+            m_effectBuffer.resize(size_t(n) * kChannels);
+        std::copy(src, src + size_t(n) * kChannels, m_effectBuffer.begin());
+        d->eq.process(m_effectBuffer.data(), n);
+        src = m_effectBuffer.data();
+    } else {
+        d->eqNext = std::numeric_limits<int64_t>::min();
     }
 
     // ---- Clip audio effects: on the clip's own source, before volume / pan / fades ----

@@ -6,6 +6,7 @@
 #include "core/EffectBuilders.h"
 #include "core/EffectRegistry.h"
 #include "core/Generators.h"
+#include "core/MixerData.h"
 #include "core/NodeRegistry.h"
 #include "core/ParamKeys.h"
 #include "core/Stabilization.h"
@@ -41,6 +42,13 @@ QStringList directions()
 QStringList directionLabels()
 {
     return {tr("Left"), tr("Right"), tr("Up"), tr("Down")};
+}
+
+/// A parameter that cannot be keyframed (the processing reads one value per clip).
+ParamDescriptor notAnimated(ParamDescriptor p)
+{
+    p.animatable = false;
+    return p;
 }
 
 /// A vertical offset stored +down and shown +up, as Resolve's Inspector shows it (spec 24.16).
@@ -89,7 +97,8 @@ void EffectRegistry::registerBuiltins()
         },
         QStringLiteral("transform")));
     // Stabilization (spec 58): the Inspector builds the section itself (settings and data live in
-    // ClipData::stabilization); the descriptor gives it a name, a help key and a place in the catalogue.
+    // ClipData::stabilization); the descriptor gives it a name, a help key and a place in the
+    // catalogue.
     add(descriptor(stabilize::kDescriptorId, tr("Stabilization"), C::ClipProperties,
         tr("Steady a shaky clip: measure its camera movement and correct it"), {},
         QStringLiteral("transform")));
@@ -108,12 +117,33 @@ void EffectRegistry::registerBuiltins()
             },
             QStringLiteral("transform")));
     }
-    add(descriptor(groups::Audio, tr("Audio"), C::ClipProperties, tr("Clip volume and pan"),
+    add(descriptor(groups::Audio, tr("Audio"), C::ClipProperties, tr("Clip volume, pan and pitch"),
         {
             number(keys::VolumeDb, tr("Volume"), -96, 24, 0, 0.1, QStringLiteral("dB")),
             number(keys::Pan, tr("Pan"), -1, 1, 0, 0.01),
+            notAnimated(
+                number(keys::PitchSemitones, tr("Pitch"), -24, 24, 0, 1, QStringLiteral("st"))),
+            notAnimated(
+                number(keys::PitchCents, tr("Pitch Fine"), -100, 100, 0, 1, QStringLiteral("ct"))),
         },
         QStringLiteral("audio")));
+    {
+        // Resolve's clip equalizer: band 1 low shelf, bands 2 and 3 bells, band 4 high shelf.
+        static const double freqs[4] = {100, 500, 2000, 8000};
+        static const double qs[4] = {0.707, 1, 1, 0.707};
+        QVector<ParamDescriptor> eq {boolean(keys::EqEnabled, tr("Equalizer"), false)};
+        for (int b = 0; b < 4; ++b) {
+            const QString n = QString::number(b + 1);
+            eq.append(notAnimated(number(keys::EqBandFreq[b], tr("Band %1 Frequency").arg(n),
+                kEqMinFrequencyHz, kEqMaxFrequencyHz, freqs[b], 1, QStringLiteral("Hz"))));
+            eq.append(notAnimated(number(keys::EqBandGain[b], tr("Band %1 Gain").arg(n),
+                -kEqMaxGainDb, kEqMaxGainDb, 0, 0.1, QStringLiteral("dB"))));
+            eq.append(notAnimated(
+                number(keys::EqBandQ[b], tr("Band %1 Q").arg(n), kEqMinQ, kEqMaxQ, qs[b], 0.01)));
+        }
+        add(descriptor(groups::AudioEq, tr("Equalizer"), C::ClipProperties,
+            tr("Four-band clip equalizer"), eq, QStringLiteral("audio")));
+    }
 
     // Mask parameters (ClipData::masks[i]; the inspector shows one group per mask, the
     // keyframe editors one "Masks" group). Width / height apply to rectangles and ellipses.
@@ -300,8 +330,7 @@ void EffectRegistry::registerBuiltins()
         tr("An adjustment clip that breaks up the picture below it with digital glitches"), {},
         {}));
     add(descriptor(generators::DroneOverlayClip, tr("Drone Overlay"), C::Effects,
-        tr("An adjustment clip that adds a drone-camera display to the picture below it"), {},
-        {}));
+        tr("An adjustment clip that adds a drone-camera display to the picture below it"), {}, {}));
     add(descriptor(generators::DslrClip, tr("DSLR"), C::Effects,
         tr("An adjustment clip that adds a photo-camera viewfinder to the picture below it"), {},
         {}));
@@ -311,8 +340,7 @@ void EffectRegistry::registerBuiltins()
     add(descriptor(generators::VideoCallClip, tr("Video Call"), C::Effects,
         tr("An adjustment clip that puts the picture below it in a video-call tile"), {}, {}));
     add(descriptor(generators::VideoCameraClip, tr("Video Camera"), C::Effects,
-        tr("An adjustment clip that adds a camcorder viewfinder to the picture below it"), {},
-        {}));
+        tr("An adjustment clip that adds a camcorder viewfinder to the picture below it"), {}, {}));
     add(descriptor(generators::CompositionClip, tr("Composition Clip"), C::Effects,
         tr("A see-through clip with its own composition: build a node graph on the Compositing "
            "page"),

@@ -331,6 +331,45 @@ private slots:
         QCOMPARE(panel.clipId(), v); // the pair is one item (spec 24.1)
     }
 
+    // Spec 67: the Audio tab has Pitch and an Equalizer section; edits are one undo step each.
+    void spec67_audioTabHasPitchAndEqualizer()
+    {
+        PanelFixture f;
+        const quint64 a = f.addClip(kA1, 0, 50);
+        InspectorPanel panel(f.ctx);
+        panel.resize(420, 800);
+        panel.show();
+        f.selection.selectClip(a);
+        auto* pitch = panel.findChild<ValueField*>(QStringLiteral("value:") + keys::PitchSemitones);
+        auto* cents = panel.findChild<ValueField*>(QStringLiteral("value:") + keys::PitchCents);
+        auto* gain = panel.findChild<ValueField*>(QStringLiteral("value:") + keys::EqBandGain[1]);
+        QVERIFY(pitch && cents && gain);
+        QVERIFY(panel.findChild<ValueField*>(QStringLiteral("value:") + keys::EqBandFreq[3]));
+        const int steps = f.project.undoStack()->count();
+        emit pitch->valueCommitted(5.0);
+        QCOMPARE(f.clip(a)->audio.value(keys::PitchSemitones, 0), 5.0);
+        QCOMPARE(f.project.undoStack()->count(), steps + 1);
+        emit gain->valueCommitted(6.0);
+        QCOMPARE(f.clip(a)->audio.value(keys::EqBandGain[1], 0), 6.0);
+        f.project.undo();
+        QCOMPARE(f.clip(a)->audio.value(keys::EqBandGain[1], 0), 0.0);
+        f.project.undo();
+        QCOMPARE(f.clip(a)->audio.value(keys::PitchSemitones, 0), 0.0);
+        // A speed change greys the pitch out (it would be ignored), with a tooltip.
+        QVERIFY(pitch->isEnabled() && cents->isEnabled());
+        f.project.beginEdit(QStringLiteral("speed"));
+        f.project.timeline()->mutableData().audioTracks[0].clips[0].speed = 2.0;
+        f.project.endEdit();
+        QCoreApplication::processEvents();
+        QVERIFY(!pitch->isEnabled() && !cents->isEnabled());
+        QVERIFY(pitch->toolTip().contains(QLatin1String("normal speed")));
+        f.project.undo();
+        QCoreApplication::processEvents();
+        QVERIFY(pitch->isEnabled() && cents->isEnabled());
+        // Not keyframable: no keyframe button for the pitch.
+        QVERIFY(!f.clip(a)->audio.isAnimated());
+    }
+
     void spec24_1_linkedPairIsOneItem()
     {
         PanelFixture f;

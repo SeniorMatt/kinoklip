@@ -146,6 +146,10 @@ private:
     /// the clip has pitch correction, else resampled along the retime curve).
     const float* retimedSource(Decoder& d, const NestedTimelines& nested, const ClipData& clip,
         Rational fps, int64_t clipStart, int64_t sourceIn, int64_t from, int n);
+    /// Pitch-shifted source (ratio = frequency factor, same length) for timeline samples
+    /// [from, from + n) of a clip that is not retimed.
+    const float* pitchedSource(Decoder& d, const NestedTimelines& nested, double ratio,
+        int64_t clipStart, int64_t sourceIn, int64_t from, int n);
     /// Adds one clip over timeline samples [from, to) to @p out; false if it has no source.
     bool mixClip(const TimelineData& tl, const NestedTimelines& nested, const ClipData& clip,
         const Fade& head, const Fade& tail, int64_t from, int64_t to, float* out);
@@ -156,6 +160,8 @@ private:
     std::unordered_map<quint64, std::unique_ptr<Decoder>> m_decoders; ///< by clip id
     std::vector<float> m_source; ///< decoded source samples (scratch)
     std::vector<float> m_resampled; ///< speed-adjusted samples (scratch)
+    std::vector<float> m_pitchF; ///< m_pitchZ low-passed (pitch up above an octave)
+    std::vector<float> m_pitchZ; ///< a pitched clip's time-stretched source (scratch)
     std::vector<float> m_effectBuffer; ///< a clip's samples after its audio effects (scratch)
     std::vector<double> m_positions; ///< retime curve source positions per block (scratch)
     QElapsedTimer m_clock;

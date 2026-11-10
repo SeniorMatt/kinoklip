@@ -138,6 +138,28 @@
       ]
     },
     {
+      "id": "change-pitch-and-equalize-a-clip",
+      "title": "Change the pitch of a clip and equalize it",
+      "file": "change-pitch-and-equalize-a-clip.md",
+      "summary": "Raise or lower a clip's pitch without changing its length, and shape its sound with the four-band clip equalizer.",
+      "keywords": [
+        "pitch",
+        "semitones",
+        "cents",
+        "equalizer",
+        "eq",
+        "audio",
+        "inspector",
+        "voice",
+        "bass",
+        "treble"
+      ],
+      "contexts": [
+        "page:edit",
+        "panel:inspector"
+      ]
+    },
+    {
       "id": "fade-audio-and-add-music",
       "title": "Fade audio in and out, and add music",
       "file": "fade-audio-and-add-music.md",
