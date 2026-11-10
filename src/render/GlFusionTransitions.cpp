@@ -293,7 +293,7 @@ void appendFusionTransitions(std::vector<GlTransitionFactory>& out)
     add(out, "glitch", Glitch, [](GlKit& kit, const GlProgram& program, const TransitionInput& in) {
         setFloat(kit, program, "uStrength", percent(in, k::Strength, 50, 100));
     });
-    add(out, "camera_shake", CameraShake,
+    add(out, "camera_shake_transition", CameraShake,
         [](GlKit& kit, const GlProgram& program, const TransitionInput& in) {
             setFloat(kit, program, "uSpeed", std::clamp(numberParam(in, k::Speed, 12), 1.0, 50.0));
             setFloat(kit, program, "uStrength", percent(in, k::Strength, 30, 100));

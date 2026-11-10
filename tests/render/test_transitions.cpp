@@ -10,6 +10,7 @@
 #include "core/Generators.h"
 #include "core/Serialization.h"
 #include "render/Compositor.h"
+#include "render/GlEffects.h"
 #include "render/GlRenderer.h"
 
 #include <QOffscreenSurface>
@@ -165,7 +166,7 @@ private slots:
         row("rotate_90", "fusion_transitions", {});
         row("noise_dissolve", "fusion_transitions", "size,softness");
         row("glitch", "fusion_transitions", "strength");
-        row("camera_shake", "fusion_transitions", "speed,strength");
+        row("camera_shake_transition", "fusion_transitions", "speed,strength");
         row("circles", "fusion_transitions", "count," + place);
         row("flip_3d", "fusion_transitions", {});
         row("slice_push", "fusion_transitions", "count");
@@ -203,6 +204,16 @@ private slots:
         for (const ParamDescriptor& p : d->params)
             have.append(p.key);
         QCOMPARE(have.join(QLatin1Char(',')), keys);
+    }
+
+    /// A transition id that equals an effect id would replace the effect's descriptor in the
+    /// registry (camera_shake did, until the transition got its own id).
+    void noTransitionTakesAnEffectId()
+    {
+        for (const render::GlEffectFactory& f : render::builtinGlEffects()) {
+            const EffectDescriptor* d = EffectRegistry::instance().find(QLatin1String(f.id));
+            QVERIFY2(d && d->category != EffectCategory::Transition, f.id);
+        }
     }
 
     void foldersOfTheTransitions()
@@ -291,7 +302,7 @@ private slots:
         row("noise_dissolve", "noise_dissolve");
         row("noise_dissolve soft", "noise_dissolve", "softness", 80.0);
         row("glitch", "glitch");
-        row("camera_shake", "camera_shake");
+        row("camera_shake", "camera_shake_transition");
         row("circles", "circles");
         row("circles few", "circles", "count", 2.0);
         row("flip_3d", "flip_3d");

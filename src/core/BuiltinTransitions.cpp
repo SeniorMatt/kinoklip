@@ -272,7 +272,7 @@ void EffectRegistry::registerTransitions()
             number(k::Softness, tr("Softness"), 0, 100, 20, 1, kPercent)}));
     add(transition("glitch", tr("Glitch"), FusionTransitions,
         tr("The picture breaks up in strips and colour channels"), {strength(50)}));
-    add(transition("camera_shake", tr("Camera Shake"), FusionTransitions,
+    add(transition("camera_shake_transition", tr("Camera Shake"), FusionTransitions,
         tr("Shaking pictures with split colour channels"),
         {number(k::Speed, tr("Shake Speed"), 1, 50, 12, 1), strength(30)}));
     add(transition("circles", tr("Circles"), FusionTransitions,
@@ -340,7 +340,7 @@ void EffectRegistry::registerTransitions()
         {number(k::Count, tr("Strokes"), 2, 40, 8, 1),
             number(k::Shadow, tr("Shadow Blend"), 0, 100, 50, 1, kPercent)}));
     add(transition("round_and_down", tr("Round and Down"), FusionTransitions,
-        tr("The current clip swings down round a pivot while it dissolves into the next"),
+        tr("The current clip swings down round a pivot while it fades into the next"),
         Params {number(k::Angle, tr("Angle"), -360, 360, 90, 1, kDegrees),
             number(k::OffsetX, tr("Pivot X"), -100, 100, -50, 1, kPercent),
             number(k::OffsetY, tr("Pivot Y"), -100, 100, 0, 1, kPercent)}
