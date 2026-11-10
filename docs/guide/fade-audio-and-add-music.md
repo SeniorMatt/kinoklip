@@ -26,6 +26,19 @@ fade in at the start and fade out at the end instead of starting and stopping ab
 The shaded wedge shows the fade. Drag the handles again to change it, or all the way back to
 remove it.
 
+## Shape the fade
+
+A fade does not have to be a straight line. When a clip has a fade, a small round **dot** sits in the
+middle of the fade line (move the mouse over the clip to see it).
+
+- Drag the dot **down** for a slow start: the music stays quiet for longer and rises late.
+- Drag it **up** for a fast start: the music comes in quickly and then eases to full level.
+- While you drag, a small tip shows the value. Press **Esc** to cancel the drag.
+- **Double-click** the dot to make the fade straight again.
+
+The fade-in and the fade-out each have their own dot. The sound (and, on a video clip, the picture)
+follows the curve you see. The dot is hidden when the fade is very short.
+
 ## Make the music quieter
 
 The line across the music clip is its volume (the "level line").
