@@ -66,6 +66,7 @@ Still to do for 1.2:
 - [ ] Audio: Inspector Audio tab compared with every audio option Resolve has (public documentation only), adding the missing ones, Pitch first
 - [ ] Interface: import and export all settings with one click
 - [ ] Interface: vim keybindings, so nvim users can edit easily
+- [ ] Interface: Help > Export Log File: saves what the app did in this session (messages, warnings, the decoder chosen for each file, the graphics card, the playback statistics) as one text file to attach to a bug report. The log is kept in memory while you work and written only when you ask; the dialog says what the file contains (owner pick, idea from [Picasso Suite](https://github.com/fabox-os/Picasso-Suite))
 
 ## Next big release
 
@@ -83,6 +84,18 @@ Rule for every AI-assisted tool: optional, clearly labelled, downloaded only whe
 Planned, not started. Compare each page with Resolve and add most of what is missing, starting
 when the owner asks for it.
 
+- [ ] Audio: voice-over: record from the microphone straight onto an audio track while the timeline plays. An arm button and an input menu on the track header (Edit and Audio pages), an input level meter, a count-in, and each take saved as a WAV file beside the project and added to the Media Pool (owner pick)
+- [ ] Audio: Bounce Mix to Track and Bounce Selected Tracks (Timeline menu): render the whole mix, or each selected track with its effects, into a new audio track as one clip
+- [ ] Edit: Auto Align Clips (clip context menu): line up selected clips on different tracks by timecode or by matching their sound
+- [ ] Edit: Paste Mix to Current Track (Edit menu); its exact behaviour is read from public documentation first
+- [ ] Edit: Trim Editor as a window of its own: outgoing and incoming frames side by side with trim buttons
+- [ ] Project: Archive Project (File menu): copy the project and every media file it uses into one folder, and open such a folder again
+- [ ] Media: metadata import and export (File > Import / Export): clip metadata of the Media Pool to and from a CSV file
+- [ ] Interface: named layouts (Workspace > Layout > Save Layout / Load Layout): keep the panel sizes of every page under a name
+- [ ] Interface: translations: a language choice in Preferences and translation files that volunteers can fill in
+- [ ] Deliver: lossless FFV1 video and MP3 audio as export formats
+- [ ] Platform: `kinoklip --graphics-check`: draws a test picture with the graphics card, reads it back, says whether video decodes on the card and why not, and prints a report for bug reports
+- [ ] Platform: AppImage for ARM64 computers, and a Flathub submission once the Flatpak exists
 - [ ] Compositing: mask tracking on the Edit page
 - [ ] Compositing: Paint (B-spline and paint tools), particles, 3D, expressions, modifiers
 - [ ] Pages: compare the Media, Cut, Compositing, Color, Audio and Deliver pages with Resolve and add what is missing
@@ -215,6 +228,8 @@ when the owner asks for it.
 
 ## Not planned
 
+- In-app update check or automatic updates: Kinoklip sends nothing and fetches nothing by itself; new versions are on the releases page (owner decision)
+- Final Cut Pro 7 / Premiere XML import and export (owner decision)
 - macOS version (OpenGL is frozen there, a port would need a Metal renderer, signing and a Mac to test on)
 - Background removal
 - Importing Resolve project files: they are undocumented and could only be read by analysing them (clean room). Moving work over stays possible through open formats (EDL today; see AAF and FCPXML under Later)
