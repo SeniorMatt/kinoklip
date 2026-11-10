@@ -7,7 +7,8 @@
 - [releases/](releases/readme.md): release notes
 - [privacy.md](privacy.md): what Kinoklip stores and what a bug report can share
 - [recovery.md](recovery.md): what to do when something breaks (crash recovery, failing tests)
-- [roadmap.md](roadmap.md): what is planned and what is not
+- [roadmap.md](roadmap.md): what is planned and what is not, as one checklist
+- [effects-library-status.md](effects-library-status.md): every entry of the usual Effects library and whether Kinoklip has it
 
 ## For contributors
 - [building.md](building.md): build from source and command-line options
