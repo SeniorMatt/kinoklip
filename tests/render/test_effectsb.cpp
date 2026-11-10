@@ -468,6 +468,23 @@ private slots:
         QVERIFY(maxDifference(d0, d0b) == 0);
         QVERIFY(maxDifference(d0, d1) >= 1);
         QVERIFY(maxDifference(d0, smooth) >= 1 && maxDifference(d0, smooth) <= 4);
+        // At the defaults a smooth (unbanded) ramp or gradient is left clean: at most one level
+        // of change per pixel, no pattern.
+        const QImage smoothRamp = generatorWith(g::GreyScale, {}, [](ClipData& c) {
+            c.title.setBase(g::Steps, 0);
+            c.title.setStatic(g::Orientation, QStringLiteral("horizontal"));
+        });
+        const QImage smoothRampFixed
+            = generatorWith(g::GreyScale, {effect(t, fxid::Deband)}, [](ClipData& c) {
+                  c.title.setBase(g::Steps, 0);
+                  c.title.setStatic(g::Orientation, QStringLiteral("horizontal"));
+              });
+        QVERIFY(maxDifference(smoothRamp, smoothRampFixed) <= 1);
+        const QImage gradient
+            = generatorWith(QStringLiteral("four_color_gradient"), {}, [](ClipData&) { });
+        const QImage gradientFixed = generatorWith(
+            QStringLiteral("four_color_gradient"), {effect(t, fxid::Deband)}, [](ClipData&) { });
+        QVERIFY(maxDifference(gradient, gradientFixed) <= 1);
         // A real edge (60 levels) is kept.
         const QImage edge = windowWith({effect(t, fxid::Deband, {{k::Threshold, 8.0}})});
         QVERIFY(qGray(edge.pixel(103, 90)) >= 158);
@@ -951,6 +968,30 @@ private slots:
             {{k::Ghosts, 2.0}, {k::Threshold, 50.0}, {k::Softness, 4.0}, {k::Distance, 100.0}},
             {{k::Color, QColor(255, 255, 255)}});
         QVERIFY(qGray(two.pixel(120, 90)) > 20 && qGray(two.pixel(80, 90)) > 20);
+        // A mid-grey frame holds no light: nothing is added at the defaults.
+        const QColor midGrey(128, 128, 128);
+        QVERIFY(maxDifference(windowWith({effect(t, fxid::LensReflections)}, 0, midGrey, midGrey),
+                    windowWith({}, 0, midGrey, midGrey))
+            <= 1);
+        // A broad bright area is not a light either.
+        const QImage broad = windowWith(
+            {effect(t, fxid::LensReflections)}, 0, Qt::white, QColor(40, 40, 40), 200, 140);
+        QVERIFY(
+            maxDifference(broad, windowWith({}, 0, Qt::white, QColor(40, 40, 40), 200, 140)) <= 2);
+        // One dot: energy at the mirrored places, none along the mirrored frame border (the
+        // two reflections at 50 % and 100 % of the spread put the border at x = 240 and x = 80,
+        // y = 45 / 135 and 0 / 180).
+        const QImage dot
+            = lit({{k::Ghosts, 2.0}, {k::Distance, 100.0}}, {{k::Color, QColor(255, 255, 255)}});
+        QVERIFY(qGray(dot.pixel(120, 90)) > 10 || qGray(dot.pixel(80, 90)) > 10);
+        for (int y : {50, 55, 125, 130}) { // column x = 240 near the dot, away from it
+            QVERIFY2(qGray(dot.pixel(240, y)) <= 2, qPrintable(QString::number(y)));
+            QVERIFY2(qGray(dot.pixel(80, y)) <= 2, qPrintable(QString::number(y)));
+        }
+        for (int x : {100, 140, 200}) { // rows y = 45 and 135, the 50 % reflection's border
+            QVERIFY2(qGray(dot.pixel(x, 45)) <= 2, qPrintable(QString::number(x)));
+            QVERIFY2(qGray(dot.pixel(x, 135)) <= 2, qPrintable(QString::number(x)));
+        }
         // The default tint is warm.
         const Px warm = px(lit(one), 80, 90);
         QVERIFY(warm.r > warm.b);

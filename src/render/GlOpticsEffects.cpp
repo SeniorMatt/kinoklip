@@ -96,7 +96,20 @@ void main()
         vec2 src = uC - (vUv - uC) / f;
         if (src.x < 0.0 || src.x > 1.0 || src.y < 0.0 || src.y > 1.0)
             continue;
-        vec3 bright = max(straight(texture(uSecond, src)) - uP.y, vec3(0.0)) * scale;
+        // Only a light counts: a spot brighter than the threshold AND brighter than its
+        // surroundings (a broad bright area is not a light), faded out toward the frame edges so
+        // the frame border never shows up in a reflection.
+        vec3 s = straight(texture(uSecond, src));
+        float l = luma(s);
+        float around = 0.0;
+        for (int i = 0; i < 8; ++i) {
+            float a = 0.7853982 * float(i);
+            around += luma(straight(texture(uSecond, src + 0.06 * vec2(cos(a), sin(a)))));
+        }
+        around /= 8.0;
+        vec2 e = smoothstep(vec2(0.0), vec2(0.1), min(src, 1.0 - src));
+        float h = max(l - max(uP.y, around + 0.1), 0.0) * scale * e.x * e.y;
+        vec3 bright = s * (h / max(l, 1e-3));
         vec3 hue = 0.5 + 0.5 * cos(6.2831853 * (vec3(0.0, 0.33, 0.67) + float(k) * 0.17));
         acc += bright * mix(vec3(1.0), hue, 0.6) / (1.0 + 0.5 * float(k));
     }

@@ -163,14 +163,27 @@ std::unique_ptr<GlEffect> makeDeband()
 {
     return std::make_unique<ShaderEffect>(ShaderEffect::Spec {"deband", R"(
 uniform sampler2D uTex;
-uniform sampler2D uSecond;
-uniform vec3 uP;   // threshold (fraction of full scale), dither (0..1), frame
+uniform vec4 uP;   // threshold (fraction of full scale), dither (0..1), frame, radius px
 void main()
 {
     vec4 t = texture(uTex, vUv);
     if (t.a <= 0.0) { fragColor = vec4(0.0); return; }
     vec3 c = straight(t);
-    vec3 b = straight(texture(uSecond, vUv));
+    // The local average is 9 x 9 tent-weighted taps over the radius, shrunk symmetrically near the frame
+    // edges: on a smooth gradient it is exactly the pixel itself, so nothing changes there.
+    vec2 sz = vec2(textureSize(uTex, 0));
+    vec2 px = vUv * sz;
+    vec2 ext = vec2(min(uP.w, min(px.x, sz.x - px.x)), min(uP.w, min(px.y, sz.y - px.y)));
+    vec3 b = vec3(0.0);
+    float wsum = 0.0;
+    for (int j = -4; j <= 4; ++j) {
+        for (int i = -4; i <= 4; ++i) {
+            float w = float((5 - abs(i)) * (5 - abs(j))); // tent weights: a smooth average
+            b += w * straight(texture(uTex, vUv + vec2(i, j) * ext * 0.26 / sz));
+            wsum += w;
+        }
+    }
+    b /= wsum;
     // Where the pixel is close to its wide average the area is a gradient (or flat): use the
     // average. Where it differs more it is a real edge or texture: keep it.
     float thr = max(uP.x, 1e-5);
@@ -184,11 +197,11 @@ void main()
 )",
         {"uP"},
         [](GlKit& kit, const GLint* loc, const EffectInput& in) {
-            kit.gl()->glUniform3f(loc[0], float(pv(in, k::Threshold, 8) / 255.0),
-                float(pv(in, k::Dither, 40) / 100.0), float(std::max<int64_t>(0, in.localFrame)));
+            kit.gl()->glUniform4f(loc[0], float(pv(in, k::Threshold, 8) / 255.0),
+                float(pv(in, k::Dither, 40) / 100.0), float(std::max<int64_t>(0, in.localFrame)),
+                float(std::max(1.0, pv(in, k::Radius, 16) * in.scale)));
         },
-        [](const ParamSet& p, int64_t f) { return p.value(k::Threshold, f, 8) <= 0.0; },
-        [](const ParamSet& p, int64_t f, double s) { return sigmaOf(p, k::Radius, f, 16, s); }});
+        [](const ParamSet& p, int64_t f) { return p.value(k::Threshold, f, 8) <= 0.0; }, nullptr});
 }
 
 // ---- dead_pixel_fixer ----
