@@ -10,6 +10,7 @@
 #include "core/Mask.h"
 #include "core/MixerData.h"
 #include "core/Rational.h"
+#include "core/Stabilization.h"
 #include "core/ViewerGuides.h"
 
 #include <QColor>
@@ -201,6 +202,10 @@ struct ClipData
     /// opacity. Empty = ungraded. Node and window ids are local to the grade; keyframes are
     /// clip-local frames like every clip key.
     ClipGrade grade;
+    /// Stabilization (core/Stabilization.h, spec section 58): the Inspector's settings and the
+    /// measured camera path, keyed by source frame. Applied before Dynamic Zoom and the clip's
+    /// own transform. Default (off, no data) = a clip that never had it.
+    stabilize::ClipStabilization stabilization;
 
     /// First frame after the clip.
     [[nodiscard]] int64_t end() const { return start + duration; }

@@ -196,6 +196,13 @@ apply it the same way; `maxZoom()` and `hasIdentityFootprint()` count it.
 `RenderRequest::dynamicZoom = false` (the viewer's on-screen Dynamic Zoom controls) leaves it
 out and skips the render cache.
 
+Stabilization (spec 58, core/Stabilization.h) comes first in `clipTransform()`, before Dynamic Zoom:
+the correction of the clip's source frame (looked up through `ClipData::sourceTimeUsAt()`, so it
+needs the timeline's frame rate, the last argument) plus the Zoom scale. In Perspective mode the
+matrix is projective, so the shared vertex shader (`GlKit.cpp`) keeps the third row in `w`.
+`maxZoom()` counts the Zoom scale and `hasIdentityFootprint()` is false while it is active.
+On-screen controls that call `clipTransform()` without the frame rate leave it out.
+
 ### Scopes (`Scopes`)
 
 Waveform / parade / vectorscope / histogram data from a small QImage of the program frame

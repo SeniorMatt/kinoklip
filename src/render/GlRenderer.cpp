@@ -1019,8 +1019,9 @@ void GlRenderer::drawClip(
         return;
 
     // Content (centred, timeline px) → timeline frame px → output px.
-    const QTransform toOutput = clipTransform(clip, local,
-                                    QSizeF(fc.timeline->width, fc.timeline->height), fc.dynamicZoom)
+    const QTransform toOutput
+        = clipTransform(clip, local, QSizeF(fc.timeline->width, fc.timeline->height),
+              fc.dynamicZoom, fc.timeline->fps)
         * QTransform::fromScale(fc.sx, fc.sy);
     const QTransform outputToNdc = GlKit::pixelToNdc(fc.outSize);
     const double cw = src.content.width();

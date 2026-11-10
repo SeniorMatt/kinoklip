@@ -140,7 +140,8 @@ std::optional<QTransform> ColorViewerOverlay::pictureToWidget(QSizeF* pictureSiz
     // transform) -> widget.
     const int64_t local = clip->localFrame(m_project->timeline()->playhead());
     return QTransform::fromTranslate(-content.width() / 2, -content.height() / 2)
-        * render::clipTransform(*clip, local, frame) * frameToWidget;
+        * render::clipTransform(*clip, local, frame, true, m_project->timeline()->data().fps)
+        * frameToWidget;
 }
 
 std::optional<QTransform> ColorViewerOverlay::windowToWidget(const GradeWindow& w) const

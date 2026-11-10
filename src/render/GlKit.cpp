@@ -17,7 +17,10 @@ out vec2 vUv;
 out vec2 vQuad;
 void main()
 {
-    gl_Position = vec4((uPosMatrix * vec3(aPos, 1.0)).xy, 0.0, 1.0);
+    // A projective matrix (Stabilization in Perspective mode) leaves its third row in w, so the
+    // picture is warped with perspective-correct texture coordinates; affine ones have w = 1.
+    vec3 p = uPosMatrix * vec3(aPos, 1.0);
+    gl_Position = vec4(p.xy, 0.0, p.z);
     vUv = (uUvMatrix * vec3(aPos, 1.0)).xy;
     vQuad = aPos;
 }

@@ -8,6 +8,7 @@
 #include "core/Generators.h"
 #include "core/NodeRegistry.h"
 #include "core/ParamKeys.h"
+#include "core/Stabilization.h"
 #include "core/Subtitles.h"
 #include "core/TitlePresets.h"
 
@@ -86,6 +87,11 @@ void EffectRegistry::registerBuiltins()
             choice(keys::DynamicZoomEase, tr("Dynamic Zoom Ease"), dynamiczoom::easeIds(),
                 dynamiczoom::easeLabels(), dynamiczoom::easeIds().front()),
         },
+        QStringLiteral("transform")));
+    // Stabilization (spec 58): the Inspector builds the section itself (settings and data live in
+    // ClipData::stabilization); the descriptor gives it a name, a help key and a place in the catalogue.
+    add(descriptor(stabilize::kDescriptorId, tr("Stabilization"), C::ClipProperties,
+        tr("Steady a shaky clip: measure its camera movement and correct it"), {},
         QStringLiteral("transform")));
     // Resolve's Composite group: how the clip combines with the tracks below, and its
     // opacity (stored with the transform, key unchanged, so older projects load the same).

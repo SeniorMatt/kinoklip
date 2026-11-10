@@ -242,7 +242,7 @@ std::optional<MaskOverlay::View> MaskOverlay::view() const
     v.local = clip.localFrame(playhead);
     // Content → timeline frame (the compositor's own clip transform) → the viewer's picture
     // rectangle (Fit or zoom), so handles land exactly on the rendered picture.
-    v.toWidget = render::clipTransform(clip, v.local, QSizeF(data.width, data.height))
+    v.toWidget = render::clipTransform(clip, v.local, QSizeF(data.width, data.height), true, data.fps)
         * QTransform::fromScale(
             double(pic.width()) / data.width, double(pic.height()) / data.height)
         * QTransform::fromTranslate(pic.x(), pic.y());

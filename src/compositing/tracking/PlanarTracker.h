@@ -42,6 +42,11 @@ struct PlanarResult
     double correlation = 0; ///< mean correlation of the patches that agree
     int inliers = 0; ///< patches that agree with the homography
     int patches = 0; ///< patches that were matched at all
+    /// The patches that agree with `motion`: where each was on the plane (start-frame pixels) and
+    /// where it was found in this frame. Equal length; empty when the plane was lost. For callers
+    /// that fit a simpler model than a homography (the stabilizer).
+    std::vector<Vec2> inlierFrom;
+    std::vector<Vec2> inlierTo;
 };
 
 /// Follows one plane through a sequence of frames, in either direction (the caller decides the

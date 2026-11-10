@@ -20,6 +20,7 @@ Pure maths for the Compositing page's Tracker node; no widgets, no threads, no p
 - **PlanarTracker**: follows a four-corner region: a grid of patches warped by the previous
   homography, matched with the PatchMatch steps, fitted with `estimateHomography()`, refined by a
   second stricter pass; same `reset()` / `track()` shape as the PointTracker.
+- **Stabilizer** / **StabilizeJob**: Stabilization (spec 58). `estimateFrameMotion()` runs a PlanarTracker over the whole picture between two frames and fits the model of the chosen Mode to the agreeing patches (`PlanarResult::inlierFrom/inlierTo`); `stabilizeAnalyse()` chains the pairs into the camera path (`stabilize::Data`); `planStabilizeJob()` / `runStabilizeJob()` decide which source frames a clip shows and decode them (VideoDecoder); `StabilizeRunner` runs a job on a worker thread for the Inspector.
 - **TrackerRunner**: runs a point job or (`TrackJob::planar`) a planar job off the UI thread.
 - **TrackStore**: writes / clears a track in a Tracker or Planar Tracker node (keyframes).
 - **TrackLink**: "Connect to Tracker": copies a track's centre into another node's Center keys.
@@ -34,4 +35,4 @@ the result in `TrackStore`, and add the node type to `trackSources()` / `trackCe
 Tests: tests/compositing/test_pointtracker.cpp (synthetic moving textures, known sub-pixel
 offsets, noise, loss), test_homography.cpp (DLT, RANSAC, similarity, degenerate input),
 test_planartracker.cpp (a plane moved by known homographies), test_planartrackernode.cpp (node,
-render, runner, save / load, track links).
+render, runner, save / load, track links), test_stabilizer.cpp and test_stabilizejob.cpp (synthetic shaky footage, `ShakyFootage.h`).

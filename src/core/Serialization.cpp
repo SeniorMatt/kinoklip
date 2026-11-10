@@ -612,6 +612,8 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("composition")] = compositionToJson(*clip.composition);
     if (!clip.grade.isEmpty()) // format 16; omitted when ungraded (older files identical)
         o[QLatin1String("grade")] = gradeToJson(clip.grade);
+    if (!clip.stabilization.isDefault()) // spec 58; omitted when never used (older files identical)
+        o[QLatin1String("stabilization")] = stabilize::toJson(clip.stabilization);
     return o;
 }
 
@@ -676,6 +678,8 @@ ClipData clipFromJson(const QJsonObject& o)
     // Format 16: Color page grade (absent = ungraded, what every older clip is).
     if (o.contains(QLatin1String("grade")))
         c.grade = gradeFromJson(o.value(QLatin1String("grade")).toObject());
+    if (o.contains(QLatin1String("stabilization")))
+        c.stabilization = stabilize::fromJson(o.value(QLatin1String("stabilization")).toObject());
     return c;
 }
 

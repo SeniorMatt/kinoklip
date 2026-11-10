@@ -106,8 +106,12 @@ struct TrackFrame
 /// the clip's framing rectangle at @p localFrame is scaled up to the whole frame before the
 /// transform above. @p dynamicZoom false (the viewer while the on-screen Dynamic Zoom controls
 /// are shown) leaves it out.
-[[nodiscard]] QTransform clipTransform(
-    const ClipData& clip, int64_t localFrame, QSizeF frameSize, bool dynamicZoom = true);
+///
+/// Stabilization (core/Stabilization.h) comes before Dynamic Zoom, when the clip has it on and
+/// @p fps (the timeline's frame rate, to find the source frame) is valid; the default leaves it
+/// out (on-screen controls that work on the unstabilized picture).
+[[nodiscard]] QTransform clipTransform(const ClipData& clip, int64_t localFrame, QSizeF frameSize,
+    bool dynamicZoom = true, Rational fps = Rational {0, 1});
 
 /// True if @p clip at @p localFrame covers the frame exactly as its content: no move, zoom,
 /// rotation, flip, crop or Dynamic Zoom, opacity 100 % and no renderable mask. An adjustment
