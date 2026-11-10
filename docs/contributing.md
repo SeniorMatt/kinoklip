@@ -15,6 +15,9 @@
    in [attribution.md](../attribution.md) with its author and licence.
 5. Write tests for logic (`tests/<area>/test_*.cpp`) and run them before committing; see
    [building.md](building.md).
+   After changing [roadmap.md](roadmap.md) or [effects-library-status.md](effects-library-status.md),
+   run `python3 scripts/status.py`: it redraws the status picture and the table in the readme
+   (`--check` runs as the ctest `check_status`).
 6. Format before committing: `scripts/format.sh` (clang-format, `--check` for CI).
 7. **Privacy:** never add code that sends or collects user data without explicit, per-use consent.
    Kinoklip has no telemetry, analytics, automatic crash reports or update pings, and makes no

@@ -161,6 +161,8 @@ find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
   add_test(NAME check_issue_forms
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/check_issue_forms.py)
+  add_test(NAME check_status
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/status.py --check)
 endif()
 
 # test_wayland once more under a real compositor with real input (weston on Xvfb, xdotool):
