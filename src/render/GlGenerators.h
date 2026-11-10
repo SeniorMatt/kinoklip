@@ -36,6 +36,8 @@ private:
     GLint m_seed = -1;
     GLint m_sweep = -1;
     GLint m_dial = -1;
+    GLint m_pal = -1, m_bt = -1, m_band = -1, m_winSize = -1, m_winMisc = -1, m_ng = -1,
+          m_grid = -1, m_gridLine = -1;
 };
 
 } // namespace kk::render

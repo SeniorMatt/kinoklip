@@ -126,6 +126,8 @@ inline constexpr char Key[] = "key";
 inline constexpr char Light[] = "light";
 inline constexpr char Stylize[] = "stylize";
 inline constexpr char Time[] = "time";
+inline constexpr char Texture[] = "texture";
+inline constexpr char Revival[] = "revival";
 inline constexpr char Transform[] = "transform";
 /// Folders of the video transitions (Resolve's Video Transitions bins).
 inline constexpr char Dissolve[] = "dissolve";
@@ -182,6 +184,7 @@ private:
     void registerVideoEffects(); ///< the v4 video effects (BuiltinVideoEffects.cpp)
     /// The second batch of v4 video effects (BuiltinVideoEffects2.cpp).
     void registerVideoEffects2();
+    void registerVideoEffects3();
     /// The clip audio effects (BuiltinAudioEffects.cpp).
     void registerAudioEffects();
 

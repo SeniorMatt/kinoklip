@@ -678,6 +678,41 @@
         "effect:blur_dissolve",
         "effect:star_shape"
       ]
+    },
+    {
+      "id": "test-patterns-and-looks",
+      "title": "Test patterns, generators and ready-made looks",
+      "file": "test-patterns-and-looks.md",
+      "summary": "The test pattern generators (EBU, BT.2111, YCbCr, 100mV Steps), Window, Noise Gradient, Grid, the ready-made adjustment looks and the effects added in 1.2.",
+      "keywords": [
+        "test pattern",
+        "color bars",
+        "ebu",
+        "bt.2111",
+        "hdr",
+        "grid",
+        "window",
+        "noise",
+        "night vision",
+        "binoculars",
+        "border",
+        "dehaze",
+        "despill",
+        "false color",
+        "gamut",
+        "dent"
+      ],
+      "contexts": [
+        "effect:ebu_color_bars",
+        "effect:bt2111_hlg_narrow",
+        "effect:window",
+        "effect:grid",
+        "effect:noise_gradient",
+        "effect:ycbcr_ramp",
+        "effect:dehaze",
+        "effect:despill",
+        "effect:false_color"
+      ]
     }
   ]
 }

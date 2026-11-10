@@ -284,7 +284,8 @@ the absolute path no longer exists.
    `registerVideoEffects()` in `BuiltinVideoEffects.cpp` with a library folder
    (`EffectDescriptor::group`, one of `effectgroups::`), their ids and keys in
    `VideoEffectKeys.h` (the second batch: `registerVideoEffects2()` in
-   `BuiltinVideoEffects2.cpp`). Builders: `EffectBuilders.h`.
+   `BuiltinVideoEffects2.cpp`; the 1.2 batch: `registerVideoEffects3()` in
+   `BuiltinVideoEffects3.cpp`). Builders: `EffectBuilders.h`.
 2. Implement the pixels in `src/render` keyed by the same id. The Inspector picks it up
    automatically from the descriptor; a Color parameter (or a Double hue) with `viewerPicker`
    gets the viewer eyedropper (`SelectionModel::colorPicker()`).

@@ -3,6 +3,7 @@
 #include "ui/effects/EffectActions.h"
 
 #include "core/AudioTransitions.h"
+#include "core/CompOps.h"
 #include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/Generators.h"
@@ -11,6 +12,7 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/TitlePresets.h"
+#include "core/VideoEffectKeys.h"
 #include "ui/common/AppContext.h"
 
 #include <QCoreApplication>
@@ -28,6 +30,57 @@ constexpr double kRegionBlurFeather = 8.0; ///< px: a soft edge, as most privacy
 QString tr(const char* text)
 {
     return QCoreApplication::translate("kk::EffectActions", text);
+}
+
+/// Sets effect parameter @p key of @p effect to @p value.
+void setNumber(EffectInstance& effect, const QString& key, double value)
+{
+    effect.params.setBase(key, value);
+}
+
+/// Adds effect @p type (default parameters) to @p clip and returns it for setting parameters.
+EffectInstance& addEffect(ClipData& clip, const char* type)
+{
+    clip.effects.append(EffectRegistry::instance().createEffect(QLatin1String(type), 0));
+    return clip.effects.last();
+}
+
+/// Fills the adjustment clip @p clip with the stack of Effects > Colored Border / Binoculars /
+/// Night Vision (spec 56.4). Ids are assigned when the clip is placed.
+void fillTemplate(ClipData& clip, const QString& id, QSizeF frame)
+{
+    namespace k = fxkeys;
+    if (id == generators::ColoredBorderClip) {
+        EffectInstance& border = addEffect(clip, fxid::ColoredBorder);
+        setNumber(border, k::Width, frame.height() / 45.0);
+        setNumber(border, k::Radius, frame.height() / 36.0);
+    } else if (id == generators::BinocularsClip) {
+        // Everything outside the two lenses goes (nearly) black: a rectangle over the whole
+        // frame, minus two overlapping circles, softly edged.
+        EffectInstance& dark = addEffect(clip, fxid::Levels);
+        setNumber(dark, k::OutWhite, 8.0); // 8 of 255: all but black
+        const double lens = frame.height() * 0.8;
+        const double feather = frame.height() / 60.0;
+        MaskData all = makeMask(MaskShape::Rectangle, 0, frame * 1.2);
+        clip.masks.append(std::move(all));
+        for (const double side : {-1.0, 1.0}) {
+            MaskData circle = makeMask(MaskShape::Ellipse, 0, QSizeF(lens, lens));
+            circle.mode = MaskMode::Subtract;
+            circle.params.setBase(maskkeys::PosX, side * lens * 0.375);
+            circle.params.setBase(maskkeys::FeatherOut, feather);
+            clip.masks.append(std::move(circle));
+        }
+    } else {
+        EffectInstance& tint = addEffect(clip, fxid::Duotone);
+        tint.params.setStatic(k::ShadowColor, QColor(0x00, 0x14, 0x05));
+        tint.params.setStatic(k::HighlightColor, QColor(0x8c, 0xff, 0x96));
+        EffectInstance& grain = addEffect(clip, fxid::FilmGrain);
+        setNumber(grain, k::Amount, 35.0);
+        EffectInstance& lines = addEffect(clip, fxid::Scanlines);
+        setNumber(lines, k::Amount, 25.0);
+        EffectInstance& vignette = addEffect(clip, "vignette");
+        setNumber(vignette, k::Amount, 70.0);
+    }
 }
 
 /// Type of the track holding @p clipId, if the clip exists.
@@ -95,6 +148,17 @@ std::optional<ClipData> makeGeneratorClip(
             MaskData box = makeMask(MaskShape::Rectangle, 0, frameSize / 3.0);
             box.params.setBase(maskkeys::FeatherOut, kRegionBlurFeather);
             clip.masks.append(std::move(box));
+        }
+        if (descriptorId == generators::ColoredBorderClip
+            || descriptorId == generators::BinocularsClip
+            || descriptorId == generators::NightVisionClip)
+            fillTemplate(clip, descriptorId, frameSize);
+        if (descriptorId == generators::CompositionClip) {
+            // A transparent solid with an empty composition: nothing shows until the user
+            // adds generator or media nodes on the Compositing page.
+            clip.kind = ClipKind::Solid;
+            clip.solidColor = QColor(0, 0, 0, 0);
+            clip.composition = compops::defaultComposition();
         }
         break;
     case EffectCategory::Generator:

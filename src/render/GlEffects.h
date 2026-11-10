@@ -112,5 +112,8 @@ struct GlEffectFactory
 [[nodiscard]] std::span<const GlEffectFactory> lookGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> warpGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> timeGlEffects();
+/// 1.2 (spec 56): GlExtraColor.cpp, GlExtraEffects.cpp.
+[[nodiscard]] std::span<const GlEffectFactory> extraColorGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> extraGlEffects();
 
 } // namespace kk::render
