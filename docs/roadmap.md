@@ -9,7 +9,7 @@ everything follows the [clean-room policy](clean-room.md).
 
 Every feature is one checklist line, `- [x]` when made and `- [ ]` when not, with its area before the first colon. `python3 scripts/status.py` counts the lines (and the table in [effects-library-status.md](effects-library-status.md)) and draws the picture in the readme.
 
-## Version 1.2 (starts right after 1.1.8)
+## Version 1.2 (released 2026-11-11 as 1.2 Beta)
 
 Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](https://opentimeline.io), planar tracker, audio effects, the command-line interface and the MCP server on top of it, then the missing transitions, effects and generators (Smooth Cut first), stabilization, fade curves, hover preview, the text title layers, emoji, Inspector audio options, settings import/export and vim keys. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
 
@@ -27,7 +27,7 @@ Shipped in 1.1.8:
 - [x] Interface: the Keyframes / Curves switch looks like native Breeze / [Qt](https://www.qt.io)
 - [x] Platform: complete licence texts for every bundled library
 
-Done for 1.2 so far (on main, not released yet):
+Shipped in 1.2 ([release notes](releases/v1.2.0-beta.1.md)):
 - [x] Interchange: OpenTimelineIO import and export ([#5](https://github.com/SeniorMatt/kinoklip/issues/5))
 - [x] Tracking: the planar tracker and Follow Track
 - [x] Audio: 8 audio effects on audio clips (Gain, Equalizer, Compressor, Limiter, High-pass, Low-pass, Delay, Reverb)
