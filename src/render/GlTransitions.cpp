@@ -6,6 +6,7 @@
 #include "render/GlShaderTransition.h"
 
 #include <QColor>
+#include <QHash>
 
 #include <cmath>
 #include <numbers>
@@ -152,6 +153,17 @@ const std::vector<GlTransitionFactory>& builtinGlTransitions()
         return t;
     }();
     return table;
+}
+
+const GlTransitionFactory* findGlTransitionFactory(const QString& id)
+{
+    static const QHash<QString, const GlTransitionFactory*> byId = [] {
+        QHash<QString, const GlTransitionFactory*> h;
+        for (const GlTransitionFactory& f : builtinGlTransitions())
+            h.insert(f.id, &f);
+        return h;
+    }();
+    return byId.value(id, nullptr);
 }
 
 QPointF directionVector(const QString& direction)

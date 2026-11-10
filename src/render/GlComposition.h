@@ -16,6 +16,7 @@
 #include <QSize>
 #include <QSizeF>
 
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -63,12 +64,13 @@ public:
     /// Compiles the programs. False with a reason.
     bool initialize(GlKit& kit, QString* why);
     void destroy(GlKit& kit);
-    /// The renderer's effect implementations (descriptor id -> effect), masks and generators
-    /// (owned by the renderer, alive while this is used).
-    void setShared(const QHash<QString, std::shared_ptr<GlEffect>>* effects, GlMasks* masks,
-        GlGenerators* generators)
+    /// The renderer's effect lookup (descriptor id -> effect, nullptr when there is none; the
+    /// renderer builds an effect on its first use), masks and generators (owned by the
+    /// renderer, alive while this is used).
+    void setShared(
+        std::function<GlEffect*(const QString&)> effects, GlMasks* masks, GlGenerators* generators)
     {
-        m_effects = effects;
+        m_effects = std::move(effects);
         m_masks = masks;
         m_generators = generators;
     }
@@ -121,7 +123,7 @@ private:
     PooledTarget colorNode(GlKit& kit, const CompEval& ev, const CompNode& n, int input);
     PooledTarget effectNode(GlKit& kit, const CompEval& ev, const CompNode& n, int input);
 
-    const QHash<QString, std::shared_ptr<GlEffect>>* m_effects = nullptr;
+    std::function<GlEffect*(const QString&)> m_effects;
     GlMasks* m_masks = nullptr;
     GlGenerators* m_generators = nullptr;
 

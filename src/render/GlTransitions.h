@@ -56,6 +56,9 @@ struct GlTransitionFactory
 /// All built-in GPU transitions (the single registration point, built on first use).
 [[nodiscard]] const std::vector<GlTransitionFactory>& builtinGlTransitions();
 
+/// The factory of transition @p id, or nullptr when the id has none.
+[[nodiscard]] const GlTransitionFactory* findGlTransitionFactory(const QString& id);
+
 /// The families, each in its own file; builtinGlTransitions() collects them.
 void appendDissolveTransitions(
     std::vector<GlTransitionFactory>& out); ///< GlDissolveTransitions.cpp

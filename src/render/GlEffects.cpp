@@ -9,6 +9,7 @@
 #include "render/GlEffectBase.h"
 
 #include <QColor>
+#include <QHash>
 
 #include <algorithm>
 #include <cmath>
@@ -423,6 +424,17 @@ std::span<const GlEffectFactory> builtinGlEffects()
         return rows;
     }();
     return all;
+}
+
+const GlEffectFactory* findGlEffectFactory(const QString& id)
+{
+    static const QHash<QString, const GlEffectFactory*> byId = [] {
+        QHash<QString, const GlEffectFactory*> h;
+        for (const GlEffectFactory& f : builtinGlEffects())
+            h.insert(QLatin1String(f.id), &f);
+        return h;
+    }();
+    return byId.value(id, nullptr);
 }
 
 } // namespace kk::render
