@@ -34,6 +34,14 @@ InterfaceBar::InterfaceBar(QWidget* parent)
     m_title->setObjectName(QStringLiteral("ProjectTitle"));
     m_title->setAlignment(Qt::AlignCenter);
 
+    m_remote = new QLabel(tr("Assistant connected"), this);
+    m_remote->setObjectName(QStringLiteral("RemoteControlIndicator"));
+    m_remote->setToolTip(tr("A local tool (an AI assistant through MCP) is connected and can "
+                            "change this project. Each change is one step in Edit > Undo. Switch "
+                            "it off in Preferences > Local Control."));
+    m_remote->hide();
+    m_right->addWidget(m_remote);
+
     grid->addLayout(m_left, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
     grid->addWidget(m_title, 0, 1, Qt::AlignCenter);
     grid->addLayout(m_right, 0, 2, Qt::AlignRight | Qt::AlignVCenter);
@@ -69,6 +77,11 @@ void InterfaceBar::addLeftAction(QAction* action)
 void InterfaceBar::addRightAction(QAction* action)
 {
     addButton(m_right, action);
+}
+
+void InterfaceBar::setRemoteControlClients(int clients)
+{
+    m_remote->setVisible(clients > 0);
 }
 
 void InterfaceBar::setTitle(const QString& title)

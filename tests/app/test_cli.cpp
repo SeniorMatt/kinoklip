@@ -36,6 +36,9 @@ Run runMcp(const QByteArray& input)
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("offscreen"));
     env.insert(QStringLiteral("KK_NO_AUDIO"), QStringLiteral("1"));
+    // Never reach for the control socket of a Kinoklip window the person may have open.
+    env.insert(
+        QStringLiteral("KK_CONTROL_SOCKET"), QStringLiteral("/nonexistent/kinoklip-test.sock"));
     process.setProcessEnvironment(env);
     process.start(QStringLiteral(KK_BINARY_PATH), {QStringLiteral("mcp")});
     Run r;
@@ -59,6 +62,9 @@ Run run(const QStringList& args)
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("offscreen"));
     env.insert(QStringLiteral("KK_NO_AUDIO"), QStringLiteral("1"));
+    // Never reach for the control socket of a Kinoklip window the person may have open.
+    env.insert(
+        QStringLiteral("KK_CONTROL_SOCKET"), QStringLiteral("/nonexistent/kinoklip-test.sock"));
     process.setProcessEnvironment(env);
     process.start(QStringLiteral(KK_BINARY_PATH), args);
     Run r;

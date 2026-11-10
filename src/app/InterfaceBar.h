@@ -30,12 +30,17 @@ public:
     /// toggles of the panels it has; the action itself stays in the View menu).
     void setActionShown(QAction* action, bool shown);
 
+    /// Shows "Assistant connected" in the bar while @p clients > 0: a local tool (an AI assistant
+    /// through MCP) is connected to this window and may change the project. Hidden at 0.
+    void setRemoteControlClients(int clients);
+
 private:
     void addButton(QHBoxLayout* layout, QAction* action);
 
     QHBoxLayout* m_left = nullptr;
     QHBoxLayout* m_right = nullptr;
     QLabel* m_title = nullptr;
+    QLabel* m_remote = nullptr;
     QHash<QAction*, QWidget*> m_buttons;
 };
 

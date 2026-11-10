@@ -3,6 +3,7 @@
 #include "app/CliRunner.h"
 
 #include "app/commands/Command.h"
+#include "app/live/LiveClient.h"
 #include "app/mcp/McpStdio.h"
 
 #include <QElapsedTimer>
@@ -70,6 +71,10 @@ QString usage(const Command& command)
     text += QStringLiteral("  %1  %2\n")
                 .arg(QStringLiteral("--json"), -28)
                 .arg(QStringLiteral("print the result as JSON"));
+    text += QStringLiteral("  %1  %2\n")
+                .arg(QStringLiteral("--live"), -28)
+                .arg(QStringLiteral("run it in the open Kinoklip window (Preferences > Local "
+                                    "Control), not on a project file"));
     return text;
 }
 
@@ -97,11 +102,15 @@ QString overview(const CommandRegistry& registry)
 QString mcpUsage()
 {
     return QStringLiteral(
-        "Usage: kinoklip mcp\n\n"
+        "Usage: kinoklip mcp [--file]\n\n"
         "Starts a Model Context Protocol server on standard input and output: one JSON message "
         "per line. Every command is a tool (clip add is clip_add). The server is local, sends "
         "nothing anywhere and stops when its input closes. Put it in the configuration of an "
-        "MCP client as command \"kinoklip\" with the argument \"mcp\".\n");
+        "MCP client as command \"kinoklip\" with the argument \"mcp\".\n\n"
+        "When a Kinoklip window is open with Preferences > Local Control > \"Let local tools "
+        "control Kinoklip (MCP)\" switched on, the tools change the project open in that window "
+        "(one undo step per call) and `project` can be left out. Otherwise the tools change "
+        "project files. --file always works on project files.\n");
 }
 
 /// The command named by the first words of @p words; @p consumed tells how many words it used.
@@ -194,6 +203,7 @@ int run(const QStringList& arguments, std::FILE* out, std::FILE* err)
     const QVector<ParamSpec> params = CommandRegistry::fullParams(command->spec);
     QJsonObject call;
     bool json = false;
+    bool live = false;
     const QStringList rest = arguments.mid(consumed);
     for (qsizetype i = 0; i < rest.size(); ++i) {
         QString token = rest[i];
@@ -203,6 +213,10 @@ int run(const QStringList& arguments, std::FILE* out, std::FILE* err)
         }
         if (token == QLatin1String("--json")) {
             json = true;
+            continue;
+        }
+        if (token == QLatin1String("--live")) {
+            live = true;
             continue;
         }
         if (!token.startsWith(QLatin1String("--"))) {
@@ -267,7 +281,22 @@ int run(const QStringList& arguments, std::FILE* out, std::FILE* err)
                 .arg(message));
         std::fflush(err);
     };
-    const commands::CommandResult result = registry.execute(command->spec.name, call, progress);
+    commands::CommandResult result;
+    if (live) {
+        // Forward to the open window (it must have local control switched on).
+        live::LiveClient client;
+        QString why;
+        if (!client.connectToWindow(&why)) {
+            put(err,
+                QStringLiteral("kinoklip: %1 (switch on Preferences > Local Control in the "
+                               "window, or leave out --live)\n")
+                    .arg(why));
+            return 1;
+        }
+        result = client.call(command->spec.name, call, progress);
+    } else {
+        result = registry.execute(command->spec.name, call, progress);
+    }
     if (json)
         put(out,
             QString::fromUtf8(QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact))

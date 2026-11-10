@@ -60,7 +60,8 @@ Commands: version; project new / info; media import / list / relink; timeline li
 select; clip list / add / move / trim / split / delete / set; marker add / list / delete;
 transition add / set / remove; effect add / stack / set / remove / enable / list; title add / set;
 generator add; keyframe set / list / delete; track list / add / set; export otio / edl; import otio;
-frame export / view; transition list; render. `kinoklip mcp` serves the same commands to an AI assistant (MCP) on
-stdin / stdout, see [docs/guide/control-kinoklip-from-an-ai-assistant.md](guide/control-kinoklip-from-an-ai-assistant.md). The older options above
+frame export / view; transition list; session info; project save; render. `--live` after a command runs it in the
+open window (Preferences > Local Control). `kinoklip mcp` serves the same commands to an AI
+assistant (MCP) on stdin / stdout, see [docs/guide/control-kinoklip-from-an-ai-assistant.md](guide/control-kinoklip-from-an-ai-assistant.md). The older options above
 (`--render`, `--render-frame`, `--screenshot`, ...) are unchanged. Tests: `test_commands` (the
-layer) and `test_cli` (the built binary as a process).
+layer), `test_cli` (the built binary as a process) and `test_livecontrol` (the open window).

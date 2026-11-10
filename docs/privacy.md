@@ -20,6 +20,14 @@ sends nothing anywhere. What the assistant forwards to its own model (project an
 frames it asked to see) is decided by that assistant and its provider, not by Kinoklip. See
 [Control Kinoklip from an AI assistant](guide/control-kinoklip-from-an-ai-assistant.md).
 
+**Letting local tools control the open window** is a separate choice, **off by default**
+(Preferences > System > Local Control). When you switch it on, Kinoklip listens on a socket in
+your own runtime folder, made with permissions for your user only (other users of the computer
+cannot connect, and Kinoklip checks who is connecting); it never listens on the network, and
+Kinoklip itself still sends nothing anywhere. A program running as you can then edit the open
+project, each change being one step you can undo, and a note in the window shows while one is
+connected. Switch the option off and nothing listens any more.
+
 ## Reporting a bug
 **Help > Report a Bug or Inconsistency...** helps you write a useful report:
 

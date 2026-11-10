@@ -31,6 +31,9 @@ class MediaPage;
 class PageBar;
 class ProjectController;
 class ViewerTransport;
+namespace live {
+class LiveServer;
+}
 
 /// Options for special runs (screenshots, tests).
 struct MainWindowOptions
@@ -74,6 +77,12 @@ public:
     [[nodiscard]] ScopesWindow* scopesWindow() const { return m_scopesWindow; }
     [[nodiscard]] DeliverPage* deliverPage() const { return m_deliverPage; }
     [[nodiscard]] ProjectController* projectController() const { return m_projectController; }
+    /// The local control server (Preferences > Local Control); never null, listens only while
+    /// the preference is on.
+    [[nodiscard]] live::LiveServer* liveServer() const { return m_live; }
+    /// Starts or stops the local control server to match Preferences > Local Control. Called
+    /// at start-up and when the preferences were saved.
+    void applyLocalControlPreference();
     /// The in-app help (F1, Help > Guide).
     [[nodiscard]] HelpController* helpController() const { return m_help; }
     /// Help > Report a Bug or Inconsistency…: shows (or raises) the report dialog, with the
@@ -129,6 +138,7 @@ private:
     DeliverPage* m_deliverPage = nullptr;
     ProjectController* m_projectController = nullptr;
     AutosaveController* m_autosave = nullptr;
+    live::LiveServer* m_live = nullptr;
     HelpController* m_help = nullptr;
     ViewerTransport* m_transport = nullptr; ///< routes transport actions to the active viewer
     bool m_geometryRestored = false;

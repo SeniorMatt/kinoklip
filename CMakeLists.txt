@@ -150,6 +150,11 @@ if(TARGET test_cli)
   target_compile_definitions(test_cli PRIVATE KK_BINARY_PATH="$<TARGET_FILE:${APP_ID}>")
   add_dependencies(test_cli ${APP_ID})
 endif()
+# test_livecontrol starts the built application as `kinoklip mcp` / `kinoklip <command> --live`.
+if(TARGET test_livecontrol)
+  target_compile_definitions(test_livecontrol PRIVATE KK_BINARY_PATH="$<TARGET_FILE:${APP_ID}>")
+  add_dependencies(test_livecontrol ${APP_ID})
+endif()
 
 # The GitHub issue forms (.github/ISSUE_TEMPLATE) and the field ids Help > Report a Bug fills.
 find_package(Python3 QUIET COMPONENTS Interpreter)

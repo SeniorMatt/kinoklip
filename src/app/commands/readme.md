@@ -14,7 +14,7 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 |---|---|
 | `Command.h/.cpp` | `CommandSpec` / `ParamSpec` (name, type, description, required, default, choices), `CommandArgs` (typed access, `time()` through the timecode helpers), `CommandResult`, `CommandRegistry` (`builtin()`, `describe*()`, `execute()`). `execute()` is the one entry: checks arguments, loads the project (`ProjectUse`), selects `--timeline`, runs the handler, saves when the command modifies. Adds the universal parameters `project`, `output`, `timeline`, `force` |
 | `CommandSupport.h/.cpp` | track names (V1, A2), JSON of clips and timelines, id lists, time reading, frame-rate rationals |
-| `ProjectCommands.cpp` | `version`, `project.new`, `project.info` |
+| `ProjectCommands.cpp` | `version`, `project.new`, `project.info`, `project.save`, `session.info` |
 | `MediaCommands.cpp` | `media.import`, `media.list`, `media.relink` |
 | `TimelineCommands.cpp` | `timeline.list`, `timeline.new`, `timeline.select` |
 | `ClipCommands.cpp` | `clip.list`, `clip.add`, `clip.move`, `clip.trim`, `clip.split`, `clip.delete`, `clip.set` |
@@ -28,6 +28,18 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `TrackCommands.cpp` | `track.list`, `track.add`, `track.set` |
 | `ParamSupport.h/.cpp` | `key=value` settings checked against a `ParamDescriptor` (range, choices, colour, file) and written through `paramaccess`; finding a clip parameter by key |
 | `ExportCommands.cpp` | `export.otio`, `export.edl`, `import.otio`, `render` (uses `export/RenderCommand.h` `renderProject()`) |
+
+## File mode and live mode
+
+`CommandRegistry::execute()` is file mode: it loads the project file, runs the handler and saves.
+`CommandRegistry::executeLive()` runs the same handler against the project of an open window
+(`LiveTarget`; hosted by `../live/`): no load, no save, `project` optional and checked against the open
+project, the whole call wrapped in one `Project::beginEdit()` / `endEdit()` (an undo step; a failed
+call is cancelled). Handlers therefore never load, save or open an edit around a whole command
+themselves, and ask `ctx.live` only for the few things that differ (`project.save`, `session.info`).
+`CommandSpec::background` marks the long jobs (`render`, `frame.*`): the window runs them on a copy of
+the project (`executeOnSnapshot()`) in a worker thread. `CommandSpec::liveUndoStep = false` for a command that
+must not run inside an open edit.
 
 ## Rules
 

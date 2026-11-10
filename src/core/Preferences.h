@@ -79,6 +79,11 @@ inline constexpr char kEffectsLivePreview[] = "effects/livePreview";
 /// panel toggle leaves the focus where it was (no Resolve behaviour to the contrary is known).
 inline constexpr char kFocusSearchOnPanelKey[] = "ui/focusSearchOnPanelKey";
 
+/// bool: local tools (an AI assistant through `kinoklip mcp`, or `kinoklip <command> --live`) may
+/// control the open window over a per-user local socket (Preferences > Local Control; spec
+/// 55.8). Default false: nothing listens.
+inline constexpr char kLocalControl[] = "control/localTools";
+
 /// Hardware video acceleration choice for decode/encode (consumed by src/media, src/playback
 /// and src/export; the GPU compositor is always used when OpenGL 3.3 is available).
 enum class HwAccel {
@@ -171,6 +176,10 @@ void setRenderNotificationsEnabled(bool on);
 [[nodiscard]] bool effectsLivePreview();
 /// Stores kEffectsLivePreview.
 void setEffectsLivePreview(bool on);
+/// kLocalControl (default false).
+[[nodiscard]] bool localControlEnabled();
+/// Stores kLocalControl.
+void setLocalControlEnabled(bool on);
 /// kFocusSearchOnPanelKey (default false).
 [[nodiscard]] bool focusSearchOnPanelKey();
 /// Stores kFocusSearchOnPanelKey.

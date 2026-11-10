@@ -13,7 +13,9 @@ namespace kk::mcp {
 /// written to @p out. Returns 0.
 int serve(McpServer& server, std::FILE* in, std::FILE* out);
 
-/// `kinoklip mcp`: the server of the built-in command registry on stdin / stdout. Anything that
+/// `kinoklip mcp [--file]`: the server of the built-in command registry on stdin / stdout. When
+/// an open Kinoklip window accepts local control (live/LiveServer.h) the tool calls run in it;
+/// otherwise, or with `--file`, they work on project files. Anything that
 /// library code prints to standard output is redirected to standard error first (the protocol
 /// keeps a private copy of the real stdout), so the stream carries protocol messages only. Log
 /// lines go to @p err. Needs a QGuiApplication (offscreen is fine) and kk::initResources().

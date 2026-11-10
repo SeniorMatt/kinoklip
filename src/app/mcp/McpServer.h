@@ -40,6 +40,10 @@ public:
         m_notifier = std::move(notifier);
     }
 
+    /// Asked at every tools/list: true when the commands run on the project open in a Kinoklip
+    /// window (live mode), so `project` is optional in the schemas. Default: always false.
+    void setLiveProbe(std::function<bool()> probe) { m_liveProbe = std::move(probe); }
+
     /// Handles one message from the client and returns the reply (compact JSON, no newline), or
     /// an empty array when none is due (a notification). Malformed JSON gets error -32700, an
     /// unknown method -32601, a bad request -32600, bad parameters -32602.
@@ -57,6 +61,7 @@ private:
     const commands::CommandRegistry& m_registry;
     Executor m_executor;
     std::function<void(const QByteArray&)> m_notifier;
+    std::function<bool()> m_liveProbe;
     QString m_protocolVersion;
 };
 

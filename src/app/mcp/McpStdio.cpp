@@ -3,6 +3,7 @@
 #include "app/mcp/McpStdio.h"
 
 #include "app/AppInfo.h"
+#include "app/live/LiveClient.h"
 
 #include <QByteArray>
 
@@ -39,6 +40,55 @@ bool readLine(std::FILE* in, QByteArray& line)
     return any;
 }
 
+/// Where a tool call runs: in the open Kinoklip window when one accepts local control (checked at
+/// every call, so a window opened or closed meanwhile is noticed), else on project files.
+class Router
+{
+public:
+    Router(const commands::CommandRegistry& registry, bool forceFile, std::FILE* err)
+        : m_registry(registry)
+        , m_forceFile(forceFile)
+        , m_err(err)
+    { }
+
+    /// True if the window accepts calls now (connects when needed). Never in file mode.
+    bool live()
+    {
+        if (m_forceFile)
+            return false;
+        if (m_client.isConnected())
+            return true;
+        QString why;
+        const bool ok = m_client.connectToWindow(&why);
+        if (ok != m_wasLive) {
+            m_wasLive = ok;
+            if (ok)
+                std::fprintf(m_err, "kinoklip mcp: live mode, project %s\n",
+                    qPrintable(m_client.projectPath().isEmpty() ? m_client.projectName()
+                                                                : m_client.projectPath()));
+            else
+                std::fprintf(m_err, "kinoklip mcp: file mode (%s)\n", qPrintable(why));
+            std::fflush(m_err);
+        }
+        return ok;
+    }
+
+    commands::CommandResult run(
+        const QString& command, const QJsonObject& arguments, const commands::ProgressFn& progress)
+    {
+        if (live())
+            return m_client.call(command, arguments, progress);
+        return m_registry.execute(command, arguments, progress);
+    }
+
+private:
+    const commands::CommandRegistry& m_registry;
+    bool m_forceFile;
+    std::FILE* m_err;
+    live::LiveClient m_client;
+    bool m_wasLive = false;
+};
+
 } // namespace
 
 int serve(McpServer& server, std::FILE* in, std::FILE* out)
@@ -57,9 +107,14 @@ int serve(McpServer& server, std::FILE* in, std::FILE* out)
 
 int runStdioServer(const QStringList& options, std::FILE* in, std::FILE* out, std::FILE* err)
 {
-    if (!options.isEmpty()) {
-        std::fprintf(err, "kinoklip mcp: unknown option %s (usage: kinoklip mcp)\n",
-            qPrintable(options.first()));
+    bool forceFile = false;
+    for (const QString& option : options) {
+        if (option == QLatin1String("--file")) {
+            forceFile = true;
+            continue;
+        }
+        std::fprintf(err, "kinoklip mcp: unknown option %s (usage: kinoklip mcp [--file])\n",
+            qPrintable(option));
         return 2;
     }
     std::FILE* protocol = out;
@@ -76,7 +131,13 @@ int runStdioServer(const QStringList& options, std::FILE* in, std::FILE* out, st
 #endif
     std::fprintf(err, "kinoklip mcp: %s ready on stdin/stdout\n", appinfo::name);
     std::fflush(err);
-    McpServer server(commands::CommandRegistry::builtin());
+    Router router(commands::CommandRegistry::builtin(), forceFile, err);
+    McpServer server(commands::CommandRegistry::builtin(),
+        [&router](const QString& command, const QJsonObject& arguments,
+            const commands::ProgressFn& progress) {
+            return router.run(command, arguments, progress);
+        });
+    server.setLiveProbe([&router] { return router.live(); });
     return serve(server, in, protocol);
 }
 

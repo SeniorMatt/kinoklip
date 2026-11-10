@@ -3,7 +3,9 @@
 `kinoklip mcp` lets a language-model client (an assistant that speaks the open
 [Model Context Protocol](https://modelcontextprotocol.io)) control Kinoklip. It is a front end of
 the command layer (`../commands/`), like the command line: no editing logic lives here. Written from
-the public specification; no SDK. Local only: standard input and output, no socket, no network.
+the public specification; no SDK. Local only: standard input and output, no network. When a running
+window has Preferences > Local Control on, the tool calls are forwarded to it over a user-only local
+socket (`../live/`); `--file` keeps the server on project files.
 
 ## Files
 
@@ -17,7 +19,9 @@ the public specification; no SDK. Local only: standard input and output, no sock
 
 - Never write anything but protocol messages to stdout. Logs go to stderr.
 - The tool list always comes from `CommandRegistry`; a new command is a new tool with no change here. A command that returns `CommandResult::image` is sent as image content.
-- Commands run on the thread that reads the messages, one at a time.
+- Commands run on the thread that reads the messages, one at a time. `McpStdio.cpp` decides per call whether
+  it runs in the window (`live::LiveClient`) or on files (`CommandRegistry::execute()`); `McpServer` knows
+  only the `Executor` and, for `tools/list`, a probe saying whether the schemas are the live ones.
 
 ## How to extend
 

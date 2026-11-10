@@ -15,7 +15,7 @@ Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](ht
 
 Shipped in 1.1.7: thumbnails give way to playback ([#2](https://github.com/SeniorMatt/kinoklip/issues/2)), the point tracker ([#3](https://github.com/SeniorMatt/kinoklip/issues/3)), Close Gap and Ripple Delete on gaps. Waiting for the reporter to confirm.
 
-Done for 1.2 so far (on main, not released yet): OpenTimelineIO import and export ([#5](https://github.com/SeniorMatt/kinoklip/issues/5)), the planar tracker and Follow Track, audio effects on audio clips, the command-line interface, the MCP server, Smooth Cut and 44 more video transitions.
+Done for 1.2 so far (on main, not released yet): OpenTimelineIO import and export ([#5](https://github.com/SeniorMatt/kinoklip/issues/5)), the planar tracker and Follow Track, audio effects on audio clips, the command-line interface, the MCP server (with editing commands for effects, titles, keyframes and tracks, and optional live control of the open window), Smooth Cut and 44 more video transitions.
 
 User requests come first: they are the most valuable tasks.
 
