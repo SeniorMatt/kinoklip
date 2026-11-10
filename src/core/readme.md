@@ -326,7 +326,8 @@ the absolute path no longer exists.
 ## Fades, level lines, Clip Attributes (attrs branch, spec section 31)
 - `ClipData::fadeInFrames` / `fadeOutFrames`: fade handles (clip properties, not keyframes);
   `videoFadeFactor()` (linear) and `audioFadeGain()` (equal power) in `ClipAttributes.h` are the
-  one formula renderers and mixer use. Splits / range cuts drop the fade at the cut
+  one formula renderers and mixer use; `fadeInCurve` / `fadeOutCurve` (-1 ... +1, 0 = linear,
+  spec section 59) bend the progress through `fadeShape()` first. Splits / range cuts drop the fade at the cut
   (`EditOpsInternal.h`), joins keep the outer ones.
 - `LevelOps.h` (namespace `kk::levelops`): the edits behind the timeline's level lines and fade
   handles (offset the volume at a frame, add / move volume keys, set a fade), callable without
