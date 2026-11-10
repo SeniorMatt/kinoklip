@@ -75,6 +75,12 @@ Do one of these:
 Your clips now appear in the media pool. Kinoklip reads common camera and phone formats (MP4,
 MOV, MKV, H.264, H.265, ...), audio files and pictures.
 
+To look through a clip without opening it, move the pointer across its thumbnail (or film
+strip) in the media pool: the viewer shows the frame at that place, the left edge being the
+first frame and the right edge the end of the clip, and goes back to what it showed when the
+pointer leaves. A picture shows itself. Nothing changes while the viewer plays. Turn this
+**Live Media Preview** off in the media pool's **…** menu.
+
 If your clips were filmed at another frame rate than the project (for example 25 or 30 frames
 per second, where a new project uses 24), Kinoklip asks whether to change the project frame
 rate. Click **Change**, so your video plays as smoothly as it was filmed.

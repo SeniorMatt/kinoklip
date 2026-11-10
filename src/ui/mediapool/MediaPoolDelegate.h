@@ -20,6 +20,9 @@ public:
 
     /// The tile size for posters of @p poster size.
     [[nodiscard]] static QSize tileSize(QSize poster);
+    /// The poster area of the tile at @p tile for posters of @p poster size (the hover preview
+    /// maps the pointer's horizontal place over it to the clip's length).
+    [[nodiscard]] static QRect posterRect(const QRect& tile, QSize poster);
     /// The name line of the tile at @p tile (a double-click there renames a folder).
     [[nodiscard]] static QRect nameRect(const QRect& tile);
 

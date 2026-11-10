@@ -141,6 +141,11 @@ QSize MediaPoolDelegate::tileSize(QSize poster)
     return {poster.width() + 2 * kPadding, poster.height() + 2 * kPadding + kNameHeight};
 }
 
+QRect MediaPoolDelegate::posterRect(const QRect& tile, QSize poster)
+{
+    return {tile.left() + kPadding, tile.top() + kPadding, poster.width(), poster.height()};
+}
+
 QRect MediaPoolDelegate::nameRect(const QRect& tile)
 {
     // Below the poster: the last kNameHeight px above the bottom padding (+2 px gap).
@@ -184,8 +189,7 @@ void MediaPoolDelegate::paint(
     }
 
     // Poster area: letterboxed pixmap centred in a fixed 16:9 rect.
-    const QRect posterRect(
-        tile.left() + kPadding, tile.top() + kPadding, m_poster.width(), m_poster.height());
+    const QRect posterRect = MediaPoolDelegate::posterRect(tile, m_poster);
     const QPixmap poster = index.data(MediaPoolModel::PosterRole).value<QPixmap>();
     const int kind = index.data(MediaPoolModel::KindRole).toInt();
     if (poster.isNull()) {

@@ -10,6 +10,7 @@ Owned by the panels agent.
 | `MediaPoolModel.h` | `MediaPoolModel` (table over `MediaPool`, cached display strings, lazy posters) and `MediaPoolFilterModel` (bin + search) |
 | `MediaPoolStripDelegate.h` | strip view row painter (Cut page): name and duration over a film strip of thumbnails at evenly spaced times of the clip (`MediaCache::thumbnail()`, repaint on `thumbnailReady`) |
 | `MediaPoolDelegate.h` | grid tile painter (poster or placeholder glyph, duration badge, offline marker, name) |
+| `MediaHoverPreview.h` | Live Media Preview: the pointer over a thumbnail (grid) or film strip shows the frame at that place in a source viewer (`MediaCache::frame()`, one request in flight, latest wins, temporary picture; `MediaPoolPanel::showLivePreviewIn()`, option in the panel's "..." menu) |
 | `MediaBrowserPanel.h` | Media page file browser: places, folder tree, media-only file list, "Add to Media Pool"; the folder tree's menu adds a whole folder (with or without subfolders as bins, `ui/common/FolderImport.h`) |
 | `MetadataPanel.h` | Clip Details (read-only) + editable Shot and Scene / Notes fields; batch editing of several items (`attach()` follows a MediaPoolPanel) |
 

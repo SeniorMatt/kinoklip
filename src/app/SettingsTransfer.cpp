@@ -34,7 +34,15 @@ constexpr qsizetype kMaxBytesValue = 512 * 1024;
 constexpr int kMaxListItems = 1000;
 constexpr int kMaxListItemLength = 4096;
 
-enum class Kind { Bool, Int, Double, Choice, Text, TextList, Auto };
+enum class Kind {
+    Bool,
+    Int,
+    Double,
+    Choice,
+    Text,
+    TextList,
+    Auto
+};
 
 /// What one key (or a whole group, pattern ending in "/") must look like. First match wins.
 struct Rule
@@ -82,12 +90,13 @@ const QVector<Rule>& rules()
         add("playback/previewQualityRevision", Kind::Int, 0, 100);
         add("playback/prerollMs", Kind::Int, 0, 600000);
         add("playback/postrollMs", Kind::Int, 0, 600000);
-        for (const char* k : {"playback/audioScrubbing", "playback/restartAtEnd",
-                 "playback/returnAfterPlayAround", "playback/stopOnPlayheadMove",
-                 "playback/stopOnEdit"})
+        for (const char* k :
+            {"playback/audioScrubbing", "playback/restartAtEnd", "playback/returnAfterPlayAround",
+                "playback/stopOnPlayheadMove", "playback/stopOnEdit"})
             add(k, Kind::Bool);
         add("edit/zoomAnchor", Kind::Choice, 0, 0, {"playhead", "mouse"});
-        for (const char* k : {"edit/stillSeconds", "edit/generatorSeconds", "edit/transitionSeconds"})
+        for (const char* k :
+            {"edit/stillSeconds", "edit/generatorSeconds", "edit/transitionSeconds"})
             add(k, Kind::Double, 0.01, 3600);
         add("edit/multiFrameNudge", Kind::Int, 1, 1000);
         add("edit/wheelScheme", Kind::Auto);
@@ -102,14 +111,15 @@ const QVector<Rule>& rules()
         add("timeline/markerColor", Kind::Text, 0, 64);
         add("timeline/flagColor", Kind::Text, 0, 64);
         add("effects/livePreview", Kind::Bool);
+        add("mediapool/livePreview", Kind::Bool);
         add("deliver/notifyWhenFinished", Kind::Bool);
         add("editIndex/hiddenColumns/", Kind::TextList);
         // Layouts, view options and remembered choices of the panels and dialogs: any plain
         // value (text, number, flag, list, saved window state) of a bounded size.
-        for (const char* g : {"mainWindow/", "pages/", "projectManager/", "mediaPool/",
-                 "timeline/", "editIndex/", "effects/", "deliver/", "import/", "viewer/",
-                 "colorPage/", "dialogs/", "keyframes/", "scopesWindow/", "keymap/", "shortcuts/", "edit/",
-                 "ui/", "playback/", "project/", "system/", "multicam/", "scopes/"})
+        for (const char* g : {"mainWindow/", "pages/", "projectManager/", "mediaPool/", "timeline/",
+                 "editIndex/", "effects/", "deliver/", "import/", "viewer/", "colorPage/",
+                 "dialogs/", "keyframes/", "scopesWindow/", "keymap/", "shortcuts/", "edit/", "ui/",
+                 "playback/", "project/", "system/", "multicam/", "scopes/"})
             add(g, Kind::Auto);
         return r;
     }();
@@ -128,8 +138,8 @@ const Rule* ruleFor(const QString& key)
 
 bool keyIsSane(const QString& key)
 {
-    static const QRegularExpression ok(QStringLiteral(
-        "^[A-Za-z0-9_.@ +%-]+(/[A-Za-z0-9_.@ +%-]+)*$"));
+    static const QRegularExpression ok(
+        QStringLiteral("^[A-Za-z0-9_.@ +%-]+(/[A-Za-z0-9_.@ +%-]+)*$"));
     if (key.isEmpty() || key.size() > kMaxKeyLength || !ok.match(key).hasMatch())
         return false;
     const QStringList parts = key.split(QLatin1Char('/'));
@@ -141,7 +151,9 @@ bool plainText(const QString& s, int maxLength)
 {
     if (s.size() > maxLength)
         return false;
-    return std::none_of(s.cbegin(), s.cend(), [](QChar c) { return c.unicode() < 0x20 && c != QLatin1Char('\n') && c != QLatin1Char('\t'); });
+    return std::none_of(s.cbegin(), s.cend(), [](QChar c) {
+        return c.unicode() < 0x20 && c != QLatin1Char('\n') && c != QLatin1Char('\t');
+    });
 }
 
 /// A value read from QSettings (INI files give back strings for numbers and flags), as the JSON
@@ -228,10 +240,10 @@ QVariant fromJson(const QJsonValue& j, const Rule& rule)
     }
     case Kind::Choice:
         return j.isString() && rule.choices.contains(j.toString()) ? QVariant(j.toString())
-                                                                    : QVariant();
+                                                                   : QVariant();
     case Kind::Text:
         return j.isString() && plainText(j.toString(), int(rule.max)) ? QVariant(j.toString())
-                                                                       : QVariant();
+                                                                      : QVariant();
     case Kind::TextList:
     case Kind::Auto:
         break;
@@ -257,7 +269,8 @@ QVariant fromJson(const QJsonValue& j, const Rule& rule)
         const QByteArray text = o.value(QStringLiteral("bytes")).toString().toLatin1();
         if (text.size() > kMaxBytesValue * 4 / 3 + 8)
             return {};
-        const auto decoded = QByteArray::fromBase64Encoding(text, QByteArray::AbortOnBase64DecodingErrors);
+        const auto decoded
+            = QByteArray::fromBase64Encoding(text, QByteArray::AbortOnBase64DecodingErrors);
         if (decoded.decodingStatus != QByteArray::Base64DecodingStatus::Ok
             || decoded.decoded.size() > kMaxBytesValue)
             return {};
@@ -307,8 +320,8 @@ Locations standardLocations()
 {
     Locations l;
     l.dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    l.backupDir = QFileInfo(QSettings().fileName()).absolutePath()
-        + QStringLiteral("/settings-backups");
+    l.backupDir
+        = QFileInfo(QSettings().fileName()).absolutePath() + QStringLiteral("/settings-backups");
     return l;
 }
 
@@ -387,14 +400,15 @@ QByteArray exportDocument(const ExportOptions& options, const Locations& locatio
     return QJsonDocument(doc).toJson(QJsonDocument::Indented);
 }
 
-bool exportToFile(const QString& path, const ExportOptions& options, QString* error,
-    const Locations& locations)
+bool exportToFile(
+    const QString& path, const ExportOptions& options, QString* error, const Locations& locations)
 {
     const QByteArray data = exportDocument(options, locations);
     QSaveFile f(path);
     if (!f.open(QIODevice::WriteOnly) || f.write(data) != data.size() || !f.commit()) {
         if (error)
-            *error = QObject::tr("Cannot write %1: %2").arg(QDir::toNativeSeparators(path), f.errorString());
+            *error = QObject::tr("Cannot write %1: %2")
+                         .arg(QDir::toNativeSeparators(path), f.errorString());
         return false;
     }
     return true;
@@ -419,13 +433,14 @@ bool parse(const QByteArray& data, Parsed* out, QString* error)
         return fail(QObject::tr("This is not a Kinoklip settings file."));
     const QJsonObject header = headerValue.toObject();
     const QJsonValue format = header.value(QStringLiteral("format"));
-    if (!format.isDouble() || format.toDouble() < 1 || format.toDouble() != std::floor(format.toDouble()))
+    if (!format.isDouble() || format.toDouble() < 1
+        || format.toDouble() != std::floor(format.toDouble()))
         return fail(QObject::tr("This settings file has no valid format number."));
     if (format.toDouble() > kFormatNumber)
         return fail(QObject::tr("This settings file was made by a newer Kinoklip (format %1; this "
                                 "version reads up to format %2). Update Kinoklip to import it.")
-                        .arg(int(format.toDouble()))
-                        .arg(kFormatNumber));
+                .arg(int(format.toDouble()))
+                .arg(kFormatNumber));
 
     Parsed result;
     result.formatNumber = int(format.toDouble());
@@ -448,7 +463,8 @@ bool parse(const QByteArray& data, Parsed* out, QString* error)
         }
         const QVariant v = fromJson(it.value(), *rule);
         if (!v.isValid()) {
-            result.rejected.append(QObject::tr("Setting %1 has a value that is not allowed; skipped.").arg(key));
+            result.rejected.append(
+                QObject::tr("Setting %1 has a value that is not allowed; skipped.").arg(key));
             continue;
         }
         if (key == QLatin1String(kLocalControlKey) && v.toBool()) {
@@ -466,17 +482,22 @@ bool parse(const QByteArray& data, Parsed* out, QString* error)
     QMap<QString, int> perFileArea;
     for (auto it = files.begin(); it != files.end(); ++it) {
         if (result.files.size() >= kMaxFiles) {
-            result.rejected.append(QObject::tr("Too many files in the settings file; the rest were skipped."));
+            result.rejected.append(
+                QObject::tr("Too many files in the settings file; the rest were skipped."));
             break;
         }
         const QString rel = it.key();
         if (!fileNameAllowed(rel)) {
-            result.rejected.append(QObject::tr("File %1 is not a settings file of Kinoklip; skipped.").arg(rel.left(80)));
+            result.rejected.append(
+                QObject::tr("File %1 is not a settings file of Kinoklip; skipped.")
+                    .arg(rel.left(80)));
             continue;
         }
-        const QByteArray content = it.value().isString() ? it.value().toString().toUtf8() : QByteArray();
+        const QByteArray content
+            = it.value().isString() ? it.value().toString().toUtf8() : QByteArray();
         if (content.isEmpty() || content.size() > kMaxUserFileBytes || !jsonIsValid(content)) {
-            result.rejected.append(QObject::tr("File %1 is damaged or too large; skipped.").arg(rel));
+            result.rejected.append(
+                QObject::tr("File %1 is damaged or too large; skipped.").arg(rel));
             continue;
         }
         result.files.insert(rel, content);
@@ -506,7 +527,9 @@ bool parse(const QByteArray& data, Parsed* out, QString* error)
     for (auto it = perFileArea.cbegin(); it != perFileArea.cend(); ++it)
         result.summary.append(QObject::tr("%1: %n file(s)", nullptr, it.value()).arg(it.key()));
     if (result.hasRecentProjects)
-        result.summary.append(QObject::tr("Recent projects: %n project(s) (not applied unless you choose to)", nullptr, int(result.recentProjects.size())));
+        result.summary.append(
+            QObject::tr("Recent projects: %n project(s) (not applied unless you choose to)",
+                nullptr, int(result.recentProjects.size())));
     *out = result;
     return true;
 }
@@ -516,7 +539,8 @@ bool parseFile(const QString& path, Parsed* out, QString* error)
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {
         if (error)
-            *error = QObject::tr("Cannot open %1: %2").arg(QDir::toNativeSeparators(path), f.errorString());
+            *error = QObject::tr("Cannot open %1: %2")
+                         .arg(QDir::toNativeSeparators(path), f.errorString());
         return false;
     }
     if (f.size() > kMaxFileBytes) {
@@ -542,7 +566,9 @@ ApplyResult apply(const Parsed& parsed, const ApplyOptions& options)
                      .arg(QLatin1String(kFileSuffix));
     QString error;
     if (!exportToFile(backup, ExportOptions {true}, &error, options.locations)) {
-        result.error = QObject::tr("The backup of your current settings could not be written, so nothing was changed. %1").arg(error);
+        result.error = QObject::tr(
+            "The backup of your current settings could not be written, so nothing was changed. %1")
+                           .arg(error);
         return result;
     }
     result.backupPath = backup;
@@ -565,11 +591,13 @@ ApplyResult apply(const Parsed& parsed, const ApplyOptions& options)
 
     // 3. The settings.
     QSettings settings;
-    QSet<QString> keymapGroups; // "shortcuts/<profile>/" groups present in the file are replaced whole
+    QSet<QString>
+        keymapGroups; // "shortcuts/<profile>/" groups present in the file are replaced whole
     for (auto it = parsed.settings.cbegin(); it != parsed.settings.cend(); ++it) {
         const QStringList parts = it.key().split(QLatin1Char('/'));
         if (parts.size() >= 3
-            && (parts.first() == QLatin1String("keymap") || parts.first() == QLatin1String("shortcuts")))
+            && (parts.first() == QLatin1String("keymap")
+                || parts.first() == QLatin1String("shortcuts")))
             keymapGroups.insert(parts[0] + QLatin1Char('/') + parts[1] + QLatin1Char('/'));
     }
     if (!keymapGroups.isEmpty()) {
@@ -585,14 +613,17 @@ ApplyResult apply(const Parsed& parsed, const ApplyOptions& options)
         ++result.settingsApplied;
     }
     if (parsed.localControlStaysOff)
-        result.notes.append(QObject::tr("The file asked for Local Control to be on. It stays as it was: switch it on yourself in Preferences > Local Control."));
+        result.notes.append(
+            QObject::tr("The file asked for Local Control to be on. It stays as it was: switch it "
+                        "on yourself in Preferences > Local Control."));
     if (options.includeRecentProjects && parsed.hasRecentProjects) {
         settings.setValue(QLatin1String(kRecentKey), parsed.recentProjects);
         ++result.settingsApplied;
     }
     settings.sync();
     if (settings.status() != QSettings::NoError) {
-        result.error = QObject::tr("The settings could not be written. Your backup is %1.").arg(QDir::toNativeSeparators(backup));
+        result.error = QObject::tr("The settings could not be written. Your backup is %1.")
+                           .arg(QDir::toNativeSeparators(backup));
         return result;
     }
     for (const QString& r : parsed.rejected)
@@ -601,7 +632,7 @@ ApplyResult apply(const Parsed& parsed, const ApplyOptions& options)
     result.restartNeeded = result.settingsApplied > 0 || result.filesApplied > 0;
     if (result.restartNeeded) {
         g_importPending = true;
-        emit notifier()->applied();
+        emit notifier() -> applied();
     }
     return result;
 }

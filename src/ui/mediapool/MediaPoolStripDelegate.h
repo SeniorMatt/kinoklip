@@ -40,6 +40,9 @@ public:
     void setThumbnailSource(ThumbnailSource source) { m_thumbnails = std::move(source); }
     /// Fixed row height in px.
     [[nodiscard]] static int rowHeight();
+    /// The film strip of the row at @p row (the hover preview maps the pointer's horizontal
+    /// place over it to the clip's length).
+    [[nodiscard]] static QRect stripRect(const QRect& row);
     /// Times (µs) of the @p count thumbnails of a clip of @p durationUs: the middle of each of
     /// @p count equal parts (all 0 for stills).
     [[nodiscard]] static QVector<int64_t> thumbnailTimes(int64_t durationUs, int count);

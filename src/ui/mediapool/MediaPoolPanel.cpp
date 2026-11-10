@@ -22,6 +22,7 @@
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/SelectedRows.h"
 #include "ui/mediapool/BinList.h"
+#include "ui/mediapool/MediaHoverPreview.h"
 #include "ui/mediapool/MediaPoolDelegate.h"
 #include "ui/mediapool/MediaPoolStripDelegate.h"
 
@@ -176,6 +177,29 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
         newBin, &QAction::triggered, this, [this] { createBin(tr("New Bin"), currentBinKey()); });
     addTitleBarAction(newBin);
 
+    // Options menu ("..." at the right of the title bar), as in Resolve: Live Media Preview,
+    // on by default and remembered.
+    auto* options = new QToolButton;
+    options->setObjectName(QStringLiteral("MediaPoolOptions"));
+    options->setText(QStringLiteral("\u2026"));
+    options->setToolTip(tr("Media Pool options"));
+    options->setAutoRaise(true);
+    options->setPopupMode(QToolButton::InstantPopup);
+    auto* optionsMenu = new QMenu(options);
+    m_livePreviewAction = optionsMenu->addAction(tr("Live Media Preview"));
+    m_livePreviewAction->setObjectName(QStringLiteral("MediaPoolLivePreview"));
+    m_livePreviewAction->setCheckable(true);
+    m_livePreviewAction->setChecked(prefs::mediaLivePreview());
+    m_livePreviewAction->setToolTip(
+        tr("Show the frame under the pointer in the viewer while it moves over a thumbnail"));
+    connect(m_livePreviewAction, &QAction::toggled, this, [this](bool on) {
+        prefs::setMediaLivePreview(on);
+        if (!on)
+            endHover();
+    });
+    options->setMenu(optionsMenu);
+    addTitleBarWidget(options);
+
     // ---- Body ----
     auto* content = new QWidget;
     auto* layout = new QVBoxLayout(content);
@@ -196,6 +220,7 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
                                BinList::DropPlace place) { moveBin(key, target, int(place)); };
 
     m_grid = new QListView;
+    m_grid->setObjectName(QStringLiteral("MediaPoolGrid"));
     m_grid->setViewMode(QListView::IconMode);
     m_grid->setMovement(QListView::Static);
     m_grid->setResizeMode(QListView::Adjust);
@@ -1081,8 +1106,73 @@ void MediaPoolPanel::setThumbnailProvider(PosterProvider provider)
     m_model->setThumbnailProvider(std::move(provider));
 }
 
+bool MediaPoolPanel::liveMediaPreviewEnabled() const
+{
+    return m_livePreviewAction->isChecked();
+}
+
+void MediaPoolPanel::hoverAt(QListView* view, QPoint pos)
+{
+    const QModelIndex index = view->indexAt(pos);
+    const MediaItem* item = index.isValid() && !index.data(MediaPoolModel::FolderRole).toBool()
+        ? m_model->item(index.data(MediaPoolModel::IdRole).toString())
+        : nullptr;
+    // Video and image files with a picture to show; timelines, audio, subtitles and offline
+    // files have nothing to preview.
+    const bool still = item && item->info.isStillImage;
+    if (!item || !liveMediaPreviewEnabled() || !isVisible() || item->isTimeline()
+        || item->isSubtitle() || (!item->info.hasVideo && !still)
+        || index.data(MediaPoolModel::OfflineRole).toBool()) {
+        endHover();
+        return;
+    }
+    // Where the pointer is along the thumbnail (grid) or film strip (strip view) maps to the
+    // clip's whole length.
+    const QRect tile = view->visualRect(index);
+    const QRect area = view == m_strip
+        ? MediaPoolStripDelegate::stripRect(tile)
+        : MediaPoolDelegate::posterRect(
+              tile, static_cast<MediaPoolDelegate*>(view->itemDelegate())->posterSize());
+    if (!area.contains(pos)) {
+        endHover();
+        return;
+    }
+    const double position
+        = area.width() > 1 ? double(pos.x() - area.left()) / (area.width() - 1) : 0.5;
+    m_hovering = true;
+    emit livePreviewRequested(item->path, still ? 0 : item->info.durationUs, position);
+}
+
+MediaHoverPreview* MediaPoolPanel::showLivePreviewIn(ViewerPanel* viewer)
+{
+    auto* preview = new MediaHoverPreview(viewer, this);
+    connect(this, &MediaPoolPanel::livePreviewRequested, preview, &MediaHoverPreview::hover);
+    connect(this, &MediaPoolPanel::livePreviewEnded, preview, &MediaHoverPreview::stop);
+    return preview;
+}
+
+void MediaPoolPanel::endHover()
+{
+    if (!m_hovering)
+        return;
+    m_hovering = false;
+    emit livePreviewEnded();
+}
+
 bool MediaPoolPanel::eventFilter(QObject* watched, QEvent* event)
 {
+    if (event->type() == QEvent::MouseMove || event->type() == QEvent::Leave
+        || event->type() == QEvent::MouseButtonPress) {
+        // Live Media Preview over the thumbnail view and the strip view.
+        for (QListView* view : {m_grid, m_strip}) {
+            if (watched != view->viewport())
+                continue;
+            if (event->type() == QEvent::MouseMove)
+                hoverAt(view, static_cast<QMouseEvent*>(event)->position().toPoint());
+            else
+                endHover(); // left the view, or a press (a drag may start; the click loads)
+        }
+    }
     if (watched == m_toolbar) {
         if (event->type() == QEvent::Resize)
             fitZoomSlider();
@@ -1138,7 +1228,7 @@ bool MediaPoolPanel::eventFilter(QObject* watched, QEvent* event)
         const QModelIndex index = m_grid->indexAt(mouse->position().toPoint());
         if (index.data(MediaPoolModel::FolderRole).toBool()
             && MediaPoolDelegate::nameRect(m_grid->visualRect(index))
-                   .contains(mouse->position().toPoint())) {
+                .contains(mouse->position().toPoint())) {
             m_selection->setCurrentIndex(
                 index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
             m_grid->edit(index);
@@ -1210,7 +1300,7 @@ void MediaPoolPanel::rebuildBins()
     // A default smart bin that was switched off: back to Master.
     if (MediaPoolFilterModel::isSmartKey(m_proxy->bin()) && !m_showDefaultSmartBins
         && MediaPoolFilterModel::idOfKey(m_proxy->bin())
-               .startsWith(QLatin1String(smartbins::kDefaultIdPrefix)))
+            .startsWith(QLatin1String(smartbins::kDefaultIdPrefix)))
         m_proxy->setBin({});
     m_bins->setCurrentKey(m_proxy->bin());
     m_bins->rebuild(*m_ctx.project->mediaPool(), shownSmartBins(),

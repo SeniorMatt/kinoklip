@@ -46,6 +46,8 @@ MediaPage::MediaPage(AppContext& ctx, QWidget* parent)
 
     // The metadata panel follows the media pool selection (one item or batch editing).
     m_metadata->attach(m_mediaPool);
+    // Live Media Preview: the pointer over a thumbnail shows that clip in the viewer.
+    m_mediaPool->showLivePreviewIn(m_viewer);
     connect(
         m_mediaPool, &MediaPoolPanel::currentMediaChanged, m_viewer, &ViewerPanel::setSourceMedia);
     // Double-click (or Open in Source Viewer): the clip in the viewer, which takes the
