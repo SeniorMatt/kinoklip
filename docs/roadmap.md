@@ -15,11 +15,9 @@ Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](ht
 
 Shipped in 1.1.7: thumbnails give way to playback ([#2](https://github.com/SeniorMatt/kinoklip/issues/2)), the point tracker ([#3](https://github.com/SeniorMatt/kinoklip/issues/3)), Close Gap and Ripple Delete on gaps. Waiting for the reporter to confirm.
 
-User requests come first: they are the most valuable tasks.
+Done for 1.2 so far (on main, not released yet): OpenTimelineIO import and export ([#5](https://github.com/SeniorMatt/kinoklip/issues/5)), the planar tracker and Follow Track, audio effects on audio clips, the command-line interface, the MCP server, Smooth Cut and 44 more video transitions.
 
-From users (high priority)
-- OpenTimelineIO (.otio) import and export, to move timelines to and from Resolve and other editors (OpenTimelineIO C++ library, Apache-2.0) ([#5](https://github.com/SeniorMatt/kinoklip/issues/5))
-- Compositing: planar tracker, and linking other nodes' positions to a track (the point tracker shipped in 1.1.7, [#3](https://github.com/SeniorMatt/kinoklip/issues/3))
+User requests come first: they are the most valuable tasks.
 
 Bugs and fixes
 - Media Pool: the thumbnail slider squeezes the search box at the default width
@@ -30,20 +28,17 @@ Bugs and fixes
 Editing
 - Media Pool: hovering a clip thumbnail previews it in the viewer, as in Resolve
 - Fade curves on timeline clips that can be shaped with the mouse (the handles draw a straight line today)
-- Effects library: every video transition, video effect and generator that Resolve has and Kinoklip lacks, Smooth Cut first (owner request)
+- Effects library: every video effect and generator that Resolve has and Kinoklip lacks, and the last few transitions (owner request)
 - Stabilization
 - Emoji in subtitles and titles, in colour, in the viewer and in exports
 - Text title: more options on the existing title, mainly layers (several text and shape layers in one title); no new title type
 
 Audio
-- Audio effects on audio clips (Add Effect is disabled in Inspector > Effects)
 - Inspector Audio tab: compare with every audio option Resolve has (public documentation only) and add the missing ones, Pitch first
 
 Tools and settings
 - Import and export all settings with one click
 - Vim keybindings, so nvim users can edit easily
-- Command-line interface
-- MCP server
 
 ## Next big release
 
