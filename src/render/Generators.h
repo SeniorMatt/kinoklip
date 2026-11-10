@@ -36,7 +36,12 @@ struct GeneratorFrame
         GreyScale,
         Noise,
         Countdown,
-        Timecode
+        Timecode,
+        Window, ///< 1.2: window rectangle / ellipse
+        YCbCr, ///< 1.2: YCbCr ramp
+        NoiseGradient, ///< 1.2
+        Grid, ///< 1.2
+        Bt2111 ///< 1.2: ITU-R BT.2111 HDR colour bars (variant in `bt2111`)
     };
     Kind kind = Kind::Unknown;
     /// Premultiplied RGBA colours: gradients use [0..1] (four-colour: TL, TR, BL, BR);
@@ -48,6 +53,7 @@ struct GeneratorFrame
     double length = 1920; ///< linear gradient length (px)
     double radius = 800; ///< radial gradient radius (px)
     bool fullBars = false; ///< colour bars: full-field 100 % bars instead of SMPTE-style
+    bool ebuBars = false; ///< colour bars: the eight EBU bars (spec 56.2)
     int steps = 11; ///< grey scale steps (< 2 = smooth ramp)
     bool vertical = false; ///< grey scale orientation
     bool monochrome = true; ///< noise
@@ -56,6 +62,20 @@ struct GeneratorFrame
     double grain = 1.0; ///< noise cell size (timeline px, >= 1)
     uint32_t seed = 1; ///< noise seed, already mixed with the frame for animated noise
     double sweep = 0; ///< countdown: fraction of the current second (0..1)
+    // ---- 1.2 generators (spec 56); colours: Window [0] background [1] window, NoiseGradient
+    // [0] / [1] the two colours, Grid [0] background (premultiplied, alpha = opacity) [1] line.
+    int bt2111 = 0; ///< testpattern::Bt2111 variant
+    int ycbcrBand = -1; ///< ycbcr ramp: -1 = all three stacked, else 0 Y', 1 Cb, 2 Cr
+    double windowW = 960, windowH = 540; ///< window size, timeline px
+    bool windowEllipse = false;
+    double softness = 0; ///< window edge softness, px
+    double noiseScale = 400; ///< noise gradient feature size, px
+    int noiseOctaves = 4;
+    double noiseContrast = 2.0; ///< factor
+    double noiseEvolution = 0; ///< position on the noise gradient's time axis
+    int gridColumns = 16, gridRows = 9;
+    double lineWidth = 2, majorWidth = 4; ///< grid, px
+    int majorEvery = 4;
     /// Text drawn on top (countdown number, timecode); empty = none. `textStyle.canvas` and
     /// `scale` are filled by the renderer for its target.
     TitleStyle textStyle;

@@ -240,6 +240,12 @@ its transform, so they move with the clip and the clip opacity / transitions app
   1080p under llvmpipe (`test_adjustment cost`): plain scene 36 ms, + identity adjustment clip
   27 ms (skipped), + adjustment with saturation 71 ms (two full-frame passes). Works per
   nesting level. CPU fallback: the same with QImage copies, `DestinationOut` + `Plus`.
+* **1.2 effects** (spec 56): `GlExtraColor.cpp` Despill / Gamut Limiter / False Color (pointwise,
+  CPU reference `EffectMathExtra.cpp`) and Contrast Pop / Dehaze, `GlExtraEffects.cpp` Colored
+  Border / Alpha Matte Shrink and Grow / Transform / Dent / Fast Noise / Chromatic Aberration
+  Fix; descriptors in `core/BuiltinVideoEffects3.cpp`. The Effects-section templates
+  (Colored Border, Binoculars, Night Vision, Composition Clip) are built in
+  `ui/effects/EffectActions.cpp` (`makeGeneratorClip()`).
 * **Generators** (`ClipKind::Generator`, `render/Generators.*`, `render/GlGenerators.*`):
   `resolveGenerator()` turns the clip's parameters at a frame into a `GeneratorFrame`; the GPU
   draws its pattern with one shader (`uMode`: four-colour / linear / radial gradient, SMPTE or
@@ -438,6 +444,8 @@ comment of `DecoderPool`. `Compositor::prepareStats()` has the counters.
 | `CaptionRenderer.*` | caption style resolution and placement (subtitle tracks) |
 | `Generators.*` | generator parameter resolution, CPU raster, shared bar table / noise hash |
 | `GlGenerators.*` | the generator pattern shader |
+| `TestPatterns.*` | the numbers and formulas of the test pattern / procedural generators (EBU bars, BT.2111 tables and layout, YCbCr ramp, noise gradient, grid) and the shared GLSL noise |
+| `GlExtraColor.cpp` / `GlExtraEffects.cpp` / `EffectMathExtra.*` | the 1.2 effects (spec 56) and their CPU reference |
 | `YuvMath.*` | YUV → RGB coefficients (unit-tested on the CPU) |
 | `DecoderPool.*` | `VideoDecoder` reuse by path and position |
 | `AudioMixer.*` | audio mixing: clips, fades, transitions (`AudioMixer.cpp`) and the mixer graph of tracks and buses (`AudioMixerGraph.cpp`, state in `MixerChannel.h`) |
@@ -513,8 +521,10 @@ flow, and test it with synthesized signals (tests/render/test_mixerdsp.cpp).
    "title") in `registerGenerators()` (`core/BuiltinEffects.cpp`).
 2. A `GeneratorFrame::Kind`, its resolution in `resolveGenerator()`, the per-pixel formula in
    `patternAt()` (CPU) and the same in the `GlGenerators` shader (new `uMode`), or only a
-   `textStyle` for text generators.
-3. A case in `tests/render/test_generators.cpp` (determinism + GPU/CPU agreement).
+   `textStyle` for text generators. Test patterns keep their numbers and formulas in
+   `TestPatterns.cpp` (both renderers call or repeat them).
+3. A case in `tests/render/test_generators.cpp` (determinism + GPU/CPU agreement), or a row in
+   `tests/render/test_effectsgap.cpp`.
 
 ### A new clip kind
 Add the `ClipKind`, then a case in `GlRenderer::resolveSource()` producing a texture

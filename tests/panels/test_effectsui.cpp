@@ -117,14 +117,14 @@ private slots:
         QCOMPARE(folders,
             QStringList({QStringLiteral("Blur"), QStringLiteral("Color"), QStringLiteral("Distort"),
                 QStringLiteral("Key"), QStringLiteral("Light"), QStringLiteral("Stylize"),
-                QStringLiteral("Time"), QStringLiteral("Transform")}));
+                QStringLiteral("Texture"), QStringLiteral("Time"), QStringLiteral("Transform")}));
         QTreeWidgetItem* key = video->child(3);
         QStringList keyers;
         for (int i = 0; i < key->childCount(); ++i)
             keyers.append(key->child(i)->text(0));
         QCOMPARE(keyers,
             QStringList({QStringLiteral("Chroma Key"), QStringLiteral("Luma Key"),
-                QStringLiteral("HSL Key")}));
+                QStringLiteral("HSL Key"), QStringLiteral("Alpha Matte Shrink and Grow")}));
         // Every video effect is listed exactly once; searching hides empty folders.
         const QStringList all = panel.visibleDescriptorIds();
         for (const EffectDescriptor* d :
@@ -132,8 +132,8 @@ private slots:
             QCOMPARE(all.count(d->id), 1);
         panel.setFilterText(QStringLiteral("chroma"));
         QCOMPARE(panel.visibleDescriptorIds(),
-            QStringList(
-                {QLatin1String(fxid::ChromaKey), QLatin1String(fxid::ChromaticAberration)}));
+            QStringList({QLatin1String(fxid::ChromaticAberrationFix),
+                QLatin1String(fxid::ChromaKey), QLatin1String(fxid::ChromaticAberration)}));
         QVERIFY(!key->isHidden());
         QVERIFY(video->child(0)->isHidden()); // Blur: nothing matches
         saveScreenshot(panel, QStringLiteral("effects_library_folders"));
@@ -160,7 +160,7 @@ private slots:
         QStringList menus;
         for (QAction* a : add->menu()->actions())
             menus.append(a->text());
-        QCOMPARE(menus.size(), 8);
+        QCOMPARE(menus.size(), 9); // eight folders and Texture (spec 56.11)
         QCOMPARE(menus[3], QStringLiteral("Key"));
     }
 

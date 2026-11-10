@@ -8,6 +8,7 @@
 #include "core/EffectRegistry.h"
 #include "core/Generators.h"
 #include "core/ParamKeys.h"
+#include "render/TestPatterns.h"
 
 #include <QPainter>
 #include <QPainterPath>
@@ -93,7 +94,7 @@ std::array<float, 4> patternAt(const GeneratorFrame& gf, double x, double y, QSi
         return mix4(gf.colors[0], gf.colors[1], std::clamp(std::hypot(px, py) / gf.radius, 0., 1.));
     }
     case GeneratorFrame::Kind::Bars: {
-        const QRgb c = colorBarsAt(u, v, gf.fullBars);
+        const QRgb c = gf.ebuBars ? testpattern::ebuBarsAt(u) : colorBarsAt(u, v, gf.fullBars);
         return {qRed(c) / 255.f, qGreen(c) / 255.f, qBlue(c) / 255.f, 1.f};
     }
     case GeneratorFrame::Kind::GreyScale: {
@@ -134,6 +135,42 @@ std::array<float, 4> patternAt(const GeneratorFrame& gf, double x, double y, QSi
                 return gf.colors[1];
         }
         return gf.colors[0];
+    }
+    case GeneratorFrame::Kind::Bt2111: {
+        const auto c = testpattern::bt2111At(testpattern::Bt2111(gf.bt2111), u, v);
+        return {c.r, c.g, c.b, 1.f};
+    }
+    case GeneratorFrame::Kind::YCbCr: {
+        // Horizontal ramp (the grey scale's orientation flag turns it vertical); three bands
+        // stacked across the other axis when no single channel is chosen.
+        const double along = gf.vertical ? v : u;
+        const double across = gf.vertical ? u : v;
+        const int band = gf.ycbcrBand >= 0 ? gf.ycbcrBand : std::min(2, int(across * 3.0));
+        const auto c = testpattern::ycbcrRampAt(band, float(along));
+        return {c.r, c.g, c.b, 1.f};
+    }
+    case GeneratorFrame::Kind::NoiseGradient: {
+        const float n = testpattern::noiseGradientValue(float(x), float(y), float(gf.noiseScale),
+            gf.noiseOctaves, float(gf.noiseEvolution), gf.seed);
+        const float t = std::clamp(float((n - 0.5f) * gf.noiseContrast + 0.5f), 0.f, 1.f);
+        return mix4(gf.colors[0], gf.colors[1], t);
+    }
+    case GeneratorFrame::Kind::Window: {
+        const double px = x - frame.width() / 2 - gf.centerX;
+        const double py = y - frame.height() / 2 - gf.centerY;
+        const double hw = gf.windowW / 2, hh = gf.windowH / 2;
+        // Signed distance outside the shape in px (negative inside).
+        const double d = gf.windowEllipse ? (std::hypot(px / hw, py / hh) - 1.0) * std::min(hw, hh)
+                                          : std::max(std::abs(px) - hw, std::abs(py) - hh);
+        const double cover
+            = gf.softness > 0 ? std::clamp(0.5 - d / gf.softness, 0.0, 1.0) : (d < 0 ? 1.0 : 0.0);
+        return mix4(gf.colors[0], gf.colors[1], cover);
+    }
+    case GeneratorFrame::Kind::Grid: {
+        const float cover = testpattern::gridCoverage(float(x), float(y),
+            float(frame.width() / gf.gridColumns), float(frame.height() / gf.gridRows),
+            float(gf.lineWidth), gf.majorEvery, float(gf.majorWidth));
+        return mix4(gf.colors[0], gf.colors[1], cover);
     }
     case GeneratorFrame::Kind::Unknown:
     case GeneratorFrame::Kind::Timecode:
@@ -219,6 +256,57 @@ GeneratorFrame resolveGenerator(
     } else if (id == g::ColorBars) {
         gf.kind = K::Bars;
         gf.fullBars = staticParam(clip, g::Style).toString() == QLatin1String("full");
+    } else if (id == g::EbuBars) {
+        gf.kind = K::Bars;
+        gf.ebuBars = true;
+    } else if (id == g::Steps100mV) {
+        // Eight steps of 100 mV of the 700 mV signal: 0, 100, ... 700 mV = n / 7 of full scale.
+        gf.kind = K::GreyScale;
+        gf.steps = 8;
+        gf.vertical = staticParam(clip, g::Orientation).toString() == QLatin1String("vertical");
+    } else if (id == g::Bt2111HlgNarrow || id == g::Bt2111PqNarrow || id == g::Bt2111PqFull) {
+        gf.kind = K::Bt2111;
+        gf.bt2111 = int(id == g::Bt2111HlgNarrow ? testpattern::Bt2111::HlgNarrow
+                : id == g::Bt2111PqNarrow        ? testpattern::Bt2111::PqNarrow
+                                                 : testpattern::Bt2111::PqFull);
+    } else if (id == g::Window) {
+        gf.kind = K::Window;
+        gf.windowEllipse = staticParam(clip, g::Shape).toString() == QLatin1String("ellipse");
+        gf.windowW = std::max(1.0, numberParam(clip, g::Width, local));
+        gf.windowH = std::max(1.0, numberParam(clip, g::Height, local));
+        gf.centerX = numberParam(clip, g::CenterX, local);
+        gf.centerY = numberParam(clip, g::CenterY, local);
+        gf.softness = std::max(0.0, numberParam(clip, g::Softness, local));
+        gf.colors[1] = premultiplied(colorParam(clip, g::Color1));
+        gf.colors[0] = premultiplied(colorParam(clip, g::Color2));
+    } else if (id == g::YcbcrRamp) {
+        gf.kind = K::YCbCr;
+        gf.vertical = staticParam(clip, g::Orientation).toString() == QLatin1String("vertical");
+        const QString channel = staticParam(clip, g::Channel).toString();
+        gf.ycbcrBand = channel == QLatin1String("y") ? 0
+            : channel == QLatin1String("cb")         ? 1
+            : channel == QLatin1String("cr")         ? 2
+                                                     : -1;
+    } else if (id == g::NoiseGradient) {
+        gf.kind = K::NoiseGradient;
+        gf.colors[0] = premultiplied(colorParam(clip, g::Color1));
+        gf.colors[1] = premultiplied(colorParam(clip, g::Color2));
+        gf.noiseScale = std::max(1.0, numberParam(clip, g::Scale, local));
+        gf.noiseOctaves = std::clamp(int(std::lround(numberParam(clip, g::Detail, local))), 1, 8);
+        gf.noiseContrast = std::max(0.0, numberParam(clip, g::Contrast, local) / 100.0);
+        gf.noiseEvolution = numberParam(clip, g::Evolution, local);
+        gf.seed = uint32_t(std::lround(numberParam(clip, g::Seed, local)));
+    } else if (id == g::Grid) {
+        gf.kind = K::Grid;
+        gf.gridColumns = std::max(1, int(std::lround(numberParam(clip, g::Columns, local))));
+        gf.gridRows = std::max(1, int(std::lround(numberParam(clip, g::Rows, local))));
+        gf.lineWidth = std::max(0.0, numberParam(clip, g::LineWidth, local));
+        gf.majorWidth = std::max(0.0, numberParam(clip, g::MajorWidth, local));
+        gf.majorEvery = std::max(0, int(std::lround(numberParam(clip, g::MajorEvery, local))));
+        gf.colors[1] = premultiplied(colorParam(clip, g::LineColor));
+        QColor bg = colorParam(clip, g::Background);
+        bg.setAlphaF(std::clamp(numberParam(clip, g::BackgroundOpacity, local) / 100.0, 0.0, 1.0));
+        gf.colors[0] = premultiplied(bg);
     } else if (id == g::GreyScale) {
         gf.kind = K::GreyScale;
         gf.steps = int(std::lround(numberParam(clip, g::Steps, local)));

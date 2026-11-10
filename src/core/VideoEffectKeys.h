@@ -65,6 +65,18 @@ inline constexpr char Echo[] = "echo";
 inline constexpr char Strobe[] = "strobe";
 inline constexpr char Flicker[] = "flicker";
 inline constexpr char Tile[] = "tile";
+// 1.2 (spec 56, BuiltinVideoEffects3.cpp)
+inline constexpr char ColoredBorder[] = "colored_border";
+inline constexpr char Despill[] = "despill";
+inline constexpr char AlphaMatteShrinkGrow[] = "alpha_matte_shrink_grow";
+inline constexpr char Transform[] = "transform";
+inline constexpr char Dent[] = "dent";
+inline constexpr char FastNoise[] = "fast_noise";
+inline constexpr char GamutLimiter[] = "gamut_limiter";
+inline constexpr char ContrastPop[] = "contrast_pop";
+inline constexpr char ChromaticAberrationFix[] = "chromatic_aberration_fix";
+inline constexpr char FalseColor[] = "false_color";
+inline constexpr char Dehaze[] = "dehaze";
 } // namespace fxid
 
 /// Parameter keys. QStringLiteral keeps the renderer's per-frame lookups allocation-free.
@@ -204,6 +216,19 @@ inline const QString Randomness = QStringLiteral("randomness");
 inline const QString OffsetX = QStringLiteral("offsetX");
 inline const QString OffsetY = QStringLiteral("offsetY");
 inline const QString Mirror = QStringLiteral("mirror");
+// 1.2
+inline const QString Scale = QStringLiteral("scale"); ///< percent (transform) or px (noise)
+inline const QString Detail = QStringLiteral("detail");
+inline const QString Contrast = QStringLiteral("contrast");
+inline const QString Evolution = QStringLiteral("evolution");
+inline const QString SourceGamut = QStringLiteral("sourceGamut");
+inline const QString TargetGamut = QStringLiteral("targetGamut");
+inline const QString RedShift = QStringLiteral("redShift");
+inline const QString BlueShift = QStringLiteral("blueShift");
+inline const QString Defringe = QStringLiteral("defringe");
+inline const QString Blend = QStringLiteral("blend");
+inline const QString Palette = QStringLiteral("palette");
+inline const QString HazeColor = QStringLiteral("hazeColor");
 } // namespace fxkeys
 
 /// Values of the Choice parameters above.
@@ -239,6 +264,30 @@ inline const QString KeepRight = QStringLiteral("right");
 inline const QString KeepTop = QStringLiteral("top");
 inline const QString KeepBottom = QStringLiteral("bottom");
 inline const QString Quad = QStringLiteral("quad");
+// 1.2: despill channels, gamut limiter gamuts and methods, noise blend modes, dent types
+inline const QString Red = QStringLiteral("red");
+inline const QString Rec709 = QStringLiteral("rec709");
+inline const QString DciP3 = QStringLiteral("p3d65");
+inline const QString Rec2020 = QStringLiteral("rec2020");
+inline const QString Desaturate = QStringLiteral("desaturate");
+inline const QString Clip = QStringLiteral("clip");
+inline const QString Normal = QStringLiteral("normal");
+inline const QString Add = QStringLiteral("add");
+inline const QString Multiply = QStringLiteral("multiply");
+inline const QString Screen = QStringLiteral("screen");
+inline const QString Overlay = QStringLiteral("overlay");
+inline const QString Transparent = QStringLiteral("transparent");
+inline const QString Repeat = QStringLiteral("repeat");
+inline const QString Mirrored = QStringLiteral("mirrored");
+inline const QString Bulge = QStringLiteral("bulge");
+inline const QString Pinch = QStringLiteral("pinch");
+inline const QString BowHorizontal = QStringLiteral("bowHorizontal");
+inline const QString BowVertical = QStringLiteral("bowVertical");
+inline const QString SquareBulge = QStringLiteral("squareBulge");
+inline const QString SquarePinch = QStringLiteral("squarePinch");
+inline const QString Exposure = QStringLiteral("exposure");
+inline const QString Thermal = QStringLiteral("thermal");
+inline const QString Rainbow = QStringLiteral("rainbow");
 } // namespace fxchoice
 
 } // namespace kk

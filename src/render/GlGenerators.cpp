@@ -4,8 +4,11 @@
 // agree; tests/render/test_generators.cpp checks them against each other.
 #include "render/GlGenerators.h"
 
+#include "render/TestPatterns.h"
+
 #include <cmath>
 #include <numbers>
+#include <string>
 
 namespace kk::render {
 
@@ -20,6 +23,11 @@ constexpr int kModeBars = 4;
 constexpr int kModeGrey = 5;
 constexpr int kModeNoise = 6;
 constexpr int kModeCountdown = 7;
+constexpr int kModeWindow = 8;
+constexpr int kModeYcbcr = 9;
+constexpr int kModeNoiseGradient = 10;
+constexpr int kModeGrid = 11;
+constexpr int kModeBt2111 = 12;
 
 const char* const kFragment = R"(
 uniform int uMode;
@@ -37,20 +45,27 @@ uniform vec3 uNoise;      // brightness, amount, grain
 uniform uint uSeed;
 uniform float uSweep;
 uniform vec3 uDial;       // countdown radius, ring width, (unused) in timeline px
-
-uint noiseHash(uint x, uint y, uint seed)
-{
-    uint h = x * 0x8da6b343u ^ y * 0xd8163841u ^ seed * 0xcb1ab31fu;
-    h ^= h >> 16; h *= 0x7feb352du; h ^= h >> 15; h *= 0x846ca68bu; h ^= h >> 16;
-    return h;
-}
+// 1.2 generators (twins of render/TestPatterns.cpp)
+uniform vec3 uPal[39];    // BT.2111 palette (signal levels)
+uniform int uBt;          // BT.2111 variant: 0 HLG narrow, 1 PQ narrow, 2 PQ full
+uniform int uBand;        // YCbCr ramp: -1 = all three, else 0 Y', 1 Cb, 2 Cr
+uniform vec2 uWinSize;    // window half width, half height (px)
+uniform vec2 uWinMisc;    // window: ellipse (0 / 1), softness (px)
+uniform vec4 uNg;         // noise gradient: scale px, octaves, contrast factor, evolution
+uniform vec4 uGrid;       // grid: cell width, cell height, line width, major every
+uniform float uGridMajor; // grid: major line width
 
 vec3 rgb8(uint c) { return vec3(float((c >> 16) & 255u), float((c >> 8) & 255u), float(c & 255u)) / 255.0; }
 
 vec3 bars(vec2 uv)
 {
     uv = clamp(uv, 0.0, 0.999999);
-    if (uFull != 0) {
+    if (uFull == 2) {
+        const uint ebu[8] = uint[8](0xffffffu, 0xbfbf00u, 0x00bfbfu, 0x00bf00u, 0xbf00bfu,
+                                    0xbf0000u, 0x0000bfu, 0x000000u);
+        return rgb8(ebu[int(uv.x * 8.0)]);
+    }
+    if (uFull == 1) {
         const uint full[8] = uint[8](0xffffffu, 0xffff00u, 0x00ffffu, 0x00ff00u, 0xff00ffu,
                                      0xff0000u, 0x0000ffu, 0x000000u);
         return rgb8(full[int(uv.x * 8.0)]);
@@ -69,6 +84,86 @@ vec3 bars(vec2 uv)
     if (x < 5.0 + 2.0 / 3.0) return rgb8(0x0a0a0au);
     if (x < 6.0) return rgb8(0x141414u);
     return vec3(0.0);
+}
+
+const int kBarEdges[6] = int[6](446, 652, 858, 1062, 1268, 1474);
+const int kStairEdges[11] = int[11](549, 652, 755, 858, 960, 1062, 1165, 1268, 1371, 1474, 1577);
+
+int bt2111Patch(int ix, int iy)
+{
+    bool side = ix < 240 || ix >= 1680;
+    if (iy < 630) {
+        if (side) return 0;
+        int bar = 0;
+        for (int i = 0; i < 6; ++i) bar += ix >= kBarEdges[i] ? 1 : 0;
+        return (iy < 90 ? 1 : 8) + bar;
+    }
+    if (iy < 720) {
+        if (side) return 8;
+        if (ix < 446) return 16;
+        int stairStep = 0;
+        for (int i = 0; i < 11; ++i) stairStep += ix >= kStairEdges[i] ? 1 : 0;
+        return 17 + stairStep;
+    }
+    if (iy < 810) return ix < 240 ? 29 : -1;
+    if (ix < 80) return 33;
+    if (ix < 160) return 34;
+    if (ix < 240) return 35;
+    if (ix < 376) return 29;
+    if (ix < 446) return 30;
+    if (ix < 514) return 29;
+    if (ix < 584) return 31;
+    if (ix < 652) return 29;
+    if (ix < 722) return 32;
+    if (ix < 960) return 29;
+    if (ix < 1398) return 8;
+    if (ix < 1680) return 29;
+    if (ix < 1760) return 36;
+    if (ix < 1840) return 37;
+    return 38;
+}
+
+vec3 bt2111(vec2 uv)
+{
+    int ix = clamp(int(floor(uv.x * 1920.0)), 0, 1919);
+    int iy = clamp(int(floor(uv.y * 1080.0)), 0, 1079);
+    int p = bt2111Patch(ix, iy);
+    if (p >= 0) return uPal[p];
+    int x = ix - 240;
+    if (uBt == 2) {
+        int code = x < 618 ? 0 : (x < 1640 ? 1 + (x - 618) : 1023);
+        return vec3(float(code) / 1023.0);
+    }
+    int code = x < 559 ? 4 : (x < 1573 ? 5 + (x - 559) : 1019);
+    return vec3(clamp(float(code - 64) / 876.0, 0.0, 1.0));
+}
+
+vec3 ycbcrToRgb(float y, float cb, float cr)
+{
+    return clamp(vec3(y + 1.5748 * cr, y - 0.187324 * cb - 0.468124 * cr, y + 1.8556 * cb), 0.0, 1.0);
+}
+
+vec3 ycbcrRamp(int band, float t)
+{
+    t = clamp(t, 0.0, 1.0);
+    if (band == 0) return ycbcrToRgb(t, 0.0, 0.0);
+    if (band == 1) return ycbcrToRgb(0.5, t - 0.5, 0.0);
+    return ycbcrToRgb(0.5, 0.0, t - 0.5);
+}
+
+float noiseGradient(vec2 p)
+{
+    return fractalNoise(p, uNg.x, int(uNg.y), uNg.w, uSeed);
+}
+
+float gridAxis(float p, float cell)
+{
+    float line = floor(p / cell + 0.5);
+    float d = abs(p - line * cell);
+    int every = int(uGrid.w);
+    bool major = every > 0 && int(line) % every == 0;
+    float w = major ? uGridMajor : uGrid.z;
+    return w <= 0.0 ? 0.0 : clamp(w * 0.5 - d + 0.5, 0.0, 1.0);
 }
 
 void main()
@@ -111,6 +206,25 @@ void main()
         if (abs(r - outer) < ring || abs(r - outer * 0.86) < ring * 0.5
             || abs(c.x) < ring * 0.4 || abs(c.y) < ring * 0.4)
             o = uColors[2];
+    } else if (uMode == 8) {
+        vec2 q = c - uCenter;
+        float d = uWinMisc.x > 0.5 ? (length(q / uWinSize) - 1.0) * min(uWinSize.x, uWinSize.y)
+                                   : max(abs(q.x) - uWinSize.x, abs(q.y) - uWinSize.y);
+        float cover = uWinMisc.y > 0.0 ? clamp(0.5 - d / uWinMisc.y, 0.0, 1.0) : (d < 0.0 ? 1.0 : 0.0);
+        o = mix(uColors[0], uColors[1], cover);
+    } else if (uMode == 9) {
+        float along = uVertical != 0 ? vQuad.y : vQuad.x;
+        float across = uVertical != 0 ? vQuad.x : vQuad.y;
+        int band = uBand >= 0 ? uBand : min(2, int(across * 3.0));
+        o = vec4(ycbcrRamp(band, along), 1.0);
+    } else if (uMode == 10) {
+        float n = noiseGradient(p);
+        o = mix(uColors[0], uColors[1], clamp((n - 0.5) * uNg.z + 0.5, 0.0, 1.0));
+    } else if (uMode == 11) {
+        float cover = max(gridAxis(p.x, uGrid.x), gridAxis(p.y, uGrid.y));
+        o = mix(uColors[0], uColors[1], cover);
+    } else if (uMode == 12) {
+        o = vec4(bt2111(vQuad), 1.0);
     }
     fragColor = o;
 }
@@ -134,6 +248,16 @@ int modeOf(GeneratorFrame::Kind kind)
         return kModeNoise;
     case K::Countdown:
         return kModeCountdown;
+    case K::Window:
+        return kModeWindow;
+    case K::YCbCr:
+        return kModeYcbcr;
+    case K::NoiseGradient:
+        return kModeNoiseGradient;
+    case K::Grid:
+        return kModeGrid;
+    case K::Bt2111:
+        return kModeBt2111;
     case K::Unknown:
     case K::Timecode:
         break;
@@ -146,7 +270,8 @@ int modeOf(GeneratorFrame::Kind kind)
 bool GlGenerators::initialize(GlKit& kit, QString* why)
 {
     GlFunctions* gl = kit.gl();
-    if (!m_program.build(gl, "generators", kFragment, why))
+    const std::string source = std::string(testpattern::kGlslNoise) + kFragment;
+    if (!m_program.build(gl, "generators", source.c_str(), why))
         return false;
     m_mode = m_program.uniform(gl, "uMode");
     m_frame = m_program.uniform(gl, "uFrame");
@@ -163,6 +288,14 @@ bool GlGenerators::initialize(GlKit& kit, QString* why)
     m_seed = m_program.uniform(gl, "uSeed");
     m_sweep = m_program.uniform(gl, "uSweep");
     m_dial = m_program.uniform(gl, "uDial");
+    m_pal = m_program.uniform(gl, "uPal");
+    m_bt = m_program.uniform(gl, "uBt");
+    m_band = m_program.uniform(gl, "uBand");
+    m_winSize = m_program.uniform(gl, "uWinSize");
+    m_winMisc = m_program.uniform(gl, "uWinMisc");
+    m_ng = m_program.uniform(gl, "uNg");
+    m_grid = m_program.uniform(gl, "uGrid");
+    m_gridLine = m_program.uniform(gl, "uGridMajor");
     return true;
 }
 
@@ -195,7 +328,7 @@ void GlGenerators::drawPattern(GlKit& kit, const GeneratorFrame& g, QSizeF frame
     gl->glUniform2f(m_dir, float(std::cos(a)), float(std::sin(a)));
     gl->glUniform1f(m_length, float(g.length));
     gl->glUniform1f(m_radius, float(g.radius));
-    gl->glUniform1i(m_full, g.fullBars ? 1 : 0);
+    gl->glUniform1i(m_full, g.ebuBars ? 2 : (g.fullBars ? 1 : 0));
     gl->glUniform1i(m_steps, g.steps);
     gl->glUniform1i(m_vertical, g.vertical ? 1 : 0);
     gl->glUniform1i(m_mono, g.monochrome ? 1 : 0);
@@ -204,6 +337,25 @@ void GlGenerators::drawPattern(GlKit& kit, const GeneratorFrame& g, QSizeF frame
     gl->glUniform1f(m_sweep, float(g.sweep));
     gl->glUniform3f(m_dial, float(kCountdownRadius * frameSize.height()),
         float(kCountdownRing * frameSize.height()), 0.0f);
+    gl->glUniform1i(m_bt, g.bt2111);
+    if (g.kind == GeneratorFrame::Kind::Bt2111) {
+        float pal[testpattern::kBt2111Patches * 3];
+        const auto& palette = testpattern::bt2111Palette(testpattern::Bt2111(g.bt2111));
+        for (size_t i = 0; i < palette.size(); ++i) {
+            pal[i * 3] = palette[i].r;
+            pal[i * 3 + 1] = palette[i].g;
+            pal[i * 3 + 2] = palette[i].b;
+        }
+        gl->glUniform3fv(m_pal, testpattern::kBt2111Patches, pal);
+    }
+    gl->glUniform1i(m_band, g.ycbcrBand);
+    gl->glUniform2f(m_winSize, float(g.windowW / 2), float(g.windowH / 2));
+    gl->glUniform2f(m_winMisc, g.windowEllipse ? 1.f : 0.f, float(g.softness));
+    gl->glUniform4f(m_ng, float(g.noiseScale), float(g.noiseOctaves), float(g.noiseContrast),
+        float(g.noiseEvolution));
+    gl->glUniform4f(m_grid, float(frameSize.width() / g.gridColumns),
+        float(frameSize.height() / g.gridRows), float(g.lineWidth), float(g.majorEvery));
+    gl->glUniform1f(m_gridLine, float(g.majorWidth));
     kit.drawQuad();
 }
 

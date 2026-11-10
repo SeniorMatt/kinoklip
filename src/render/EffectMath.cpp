@@ -4,6 +4,7 @@
 #include "render/EffectMath.h"
 
 #include "core/VideoEffectKeys.h"
+#include "render/EffectMathExtra.h"
 
 #include <QColor>
 
@@ -441,7 +442,7 @@ bool isPointEffect(const QString& type)
         if (type == QLatin1String(t))
             return true;
     }
-    return detail::isGradeEffect(type);
+    return detail::isGradeEffect(type) || detail::isExtraEffect(type);
 }
 
 bool applyPointEffect(
@@ -453,6 +454,8 @@ bool applyPointEffect(
         image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
     if (detail::isGradeEffect(type))
         return detail::applyGradeEffect(type, params, localFrame, image, fps);
+    if (detail::isExtraEffect(type))
+        return detail::applyExtraEffect(type, params, localFrame, image);
 
     // One resolved parameter set per call; the per-pixel lambda only does arithmetic.
     enum class Kind {

@@ -191,6 +191,7 @@ void EffectRegistry::registerBuiltins()
         m_descriptors[m_index.value(QLatin1String(id))].group = QLatin1String(folder);
     registerVideoEffects(); // keyers, colour, blurs, light, stylize, distort (v4)
     registerVideoEffects2(); // curves, LUTs, lens blur, light, looks, warps, time (v4)
+    registerVideoEffects3(); // 1.2: border, despill, transform, dent, noise, gamut, contrast
     registerAudioEffects(); // gain, EQ, dynamics, filters, delay, reverb
 
     // ---- Transitions (ClipData::transitionIn / transitionOut) ----
@@ -274,6 +275,18 @@ void EffectRegistry::registerBuiltins()
     add(descriptor(generators::RegionBlur, tr("Region Blur"), C::Effects,
         tr("An adjustment clip that blurs a rectangle of the picture below it: move and size "
            "its mask in the viewer"),
+        {}, {}));
+    add(descriptor(generators::ColoredBorderClip, tr("Colored Border"), C::Effects,
+        tr("An adjustment clip that frames the picture below it with a colored border"), {}, {}));
+    add(descriptor(generators::BinocularsClip, tr("Binoculars"), C::Effects,
+        tr("An adjustment clip that shows the picture below it through two round lenses"), {}, {}));
+    add(descriptor(generators::NightVisionClip, tr("Night Vision"), C::Effects,
+        tr("An adjustment clip that turns the picture below it into a green night-vision "
+           "image with grain and scanlines"),
+        {}, {}));
+    add(descriptor(generators::CompositionClip, tr("Composition Clip"), C::Effects,
+        tr("A see-through clip with its own composition: build a node graph on the Compositing "
+           "page"),
         {}, {}));
 }
 
@@ -452,6 +465,67 @@ void EffectRegistry::registerGenerators()
             color(keys::BgColor, tr("Background Color"), QColor(Qt::black)),
             number(keys::BgOpacity, tr("Background Opacity"), 0, 100, 70, 1, kPercent),
             number(g::OffsetY, tr("Vertical Position"), -50, 50, 39, 0.5, kPercent)},
+        storage));
+
+    // ---- Test patterns and utility generators (1.2, spec 56) ----
+    const QStringList orientations {QStringLiteral("horizontal"), QStringLiteral("vertical")};
+    const QStringList orientationNames {tr("Horizontal"), tr("Vertical")};
+    add(descriptor(g::Steps100mV, tr("100mV Steps"), C::Generator,
+        tr("Test pattern: a grey ramp in eight steps of 100 mV, from 0 to 700 mV"),
+        {choice(g::Orientation, tr("Orientation"), orientations, orientationNames,
+            QStringLiteral("horizontal"))},
+        storage));
+    add(descriptor(g::EbuBars, tr("EBU Color Bar"), C::Generator,
+        tr("Test pattern: the eight EBU bars, 100% white and 75% colors"), {}, storage));
+    const QString bt2111Note = tr("HDR test pattern of ITU-R BT.2111: ");
+    add(descriptor(g::Bt2111HlgNarrow, tr("BT.2111 Color Bar HLG Narrow"), C::Generator,
+        bt2111Note + tr("hybrid log-gamma, narrow range code values"), {}, storage));
+    add(descriptor(g::Bt2111PqNarrow, tr("BT.2111 Color Bar PQ Narrow"), C::Generator,
+        bt2111Note + tr("perceptual quantizer, narrow range code values"), {}, storage));
+    add(descriptor(g::Bt2111PqFull, tr("BT.2111 Color Bar PQ Full"), C::Generator,
+        bt2111Note + tr("perceptual quantizer, full range code values"), {}, storage));
+    add(descriptor(g::Window, tr("Window"), C::Generator,
+        tr("A white rectangle or ellipse on black, for checking the edges of a display"),
+        {choice(g::Shape, tr("Shape"), {QStringLiteral("rectangle"), QStringLiteral("ellipse")},
+             {tr("Rectangle"), tr("Ellipse")}, QStringLiteral("rectangle")),
+            number(g::Width, tr("Width"), 1, 8000, 960, 1, kPx),
+            number(g::Height, tr("Height"), 1, 8000, 540, 1, kPx),
+            number(g::CenterX, tr("Center X"), -4000, 4000, 0, 1, kPx),
+            number(g::CenterY, tr("Center Y"), -4000, 4000, 0, 1, kPx),
+            number(g::Softness, tr("Softness"), 0, 500, 0, 0.5, kPx),
+            color(g::Color1, tr("Window Color"), QColor(Qt::white)),
+            color(g::Color2, tr("Background"), QColor(Qt::black))},
+        storage));
+    add(descriptor(g::YcbcrRamp, tr("YCbCr Ramp"), C::Generator,
+        tr("Test pattern: ramps of Y', Cb and Cr (Rec. 709), each from its lowest to its "
+           "highest value"),
+        {choice(g::Channel, tr("Channel"),
+             {QStringLiteral("all"), QStringLiteral("y"), QStringLiteral("cb"),
+                 QStringLiteral("cr")},
+             {tr("All Three"), tr("Y' (Luma)"), tr("Cb"), tr("Cr")}, QStringLiteral("all")),
+            choice(g::Orientation, tr("Orientation"), orientations, orientationNames,
+                QStringLiteral("horizontal"))},
+        storage));
+    add(descriptor(g::NoiseGradient, tr("Noise Gradient"), C::Generator,
+        tr("Smooth cloudy noise blended between two colors; move Evolution to animate it"),
+        {color(g::Color1, tr("Color 1"), QColor(Qt::black)),
+            color(g::Color2, tr("Color 2"), QColor(Qt::white)),
+            number(g::Scale, tr("Scale"), 4, 4000, 400, 1, kPx),
+            fixed(integer(g::Detail, tr("Detail"), 1, 8, 4)),
+            number(g::Contrast, tr("Contrast"), 0, 500, 200, 1, kPercent),
+            number(g::Evolution, tr("Evolution"), -10000, 10000, 0, 0.05, QString()),
+            fixed(integer(g::Seed, tr("Seed"), 0, 99999, 1))},
+        storage));
+    add(descriptor(g::Grid, tr("Grid"), C::Generator,
+        tr("A grid of lines over a see-through background, for lining things up"),
+        {fixed(integer(g::Columns, tr("Columns"), 1, 200, 16)),
+            fixed(integer(g::Rows, tr("Rows"), 1, 200, 9)),
+            number(g::LineWidth, tr("Line Width"), 0, 100, 2, 0.5, kPx),
+            color(g::LineColor, tr("Line Color"), QColor(Qt::white)),
+            fixed(integer(g::MajorEvery, tr("Major Line Every"), 0, 100, 4)),
+            number(g::MajorWidth, tr("Major Line Width"), 0, 100, 4, 0.5, kPx),
+            color(g::Background, tr("Background"), QColor(Qt::black)),
+            number(g::BackgroundOpacity, tr("Background Opacity"), 0, 100, 0, 1, kPercent)},
         storage));
 }
 
