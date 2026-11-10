@@ -23,6 +23,9 @@ class QVBoxLayout;
 namespace kk {
 
 class ParamGroupBox;
+namespace tracking {
+class StabilizeRunner;
+}
 namespace retimeops {
 struct SpeedChange;
 }
@@ -182,6 +185,9 @@ private:
     // ---- Dynamic Zoom, Speed Change, Retime and Scaling (InspectorSpeed.cpp) ----
     void buildDynamicZoomSection(quint64 clipId);
     void buildSpeedSections(const ClipData& clip);
+    // ---- Stabilization (InspectorStabilize.cpp) ----
+    void buildStabilizationSection(const ClipData& clip);
+    void onStabilizeFinished(quint64 clipId);
     /// Changes the speed of @p clipId (and the selected peers) like the Change Clip Speed
     /// dialog: @p edit adjusts the clip's current speed state.
     void applySpeed(quint64 clipId, const std::function<void(retimeops::SpeedChange&)>& edit);
@@ -223,6 +229,10 @@ private:
     bool m_updatingStyleSheet = false; ///< re-entrancy guard of changeEvent()
     /// Speed Change's Ripple Sequence (on by default, like Resolve; kept while the panel lives).
     bool m_speedRipple = true;
+    /// The Stabilize button's worker (one run at a time; survives rebuilds of the sections).
+    tracking::StabilizeRunner* m_stabilizer = nullptr;
+    QString m_stabilizeMessage; ///< last result line, shown in the section of m_stabilizeMessageClip
+    quint64 m_stabilizeMessageClip = 0;
 };
 
 } // namespace kk
