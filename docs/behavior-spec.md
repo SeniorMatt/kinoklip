@@ -1834,7 +1834,7 @@ with a bar along its bottom edge; when the sweep is full the page opens. Tests:
 | 71.2 | While a drag rests on the button of another page the button is highlighted and filled from left to right over `kSpringLoadDelayMs` (900 ms). When the fill is complete the page opens, exactly as if the button had been clicked; the drag goes on, so the files can be dropped on the new page. | Done (ps hoverSwitchesPage) |
 | 71.3 | Leaving the button before the fill is complete cancels it: the feedback disappears and the page does not change. | Done (ps leavingEarlyCancels) |
 | 71.4 | The button of the current page accepts the drag and shows nothing and does nothing. A disabled page button (a page not built yet) takes no drag. | Done (ps currentPageButtonDoesNothing) |
-| 71.5 | A drop on a page button opens that page at once and is ignored: nothing is imported. | Done (ps dropSwitchesAtOnceAndImportsNothing) |
+| 71.5 | A drop on a page button opens that page at once and is taken with no action (it does not pass on to the main window, which would import dropped files): nothing is imported. | Done (ps dropSwitchesAtOnceAndImportsNothing) |
 | 71.6 | With the UI animations off (Preferences, the desktop's no-animation setting or `KK_NO_ANIMATIONS`) the button shows the plain highlight without the moving fill; the page still opens after the same delay. | Done |
 | 71.7 | The helper is `kk::SpringLoad` (`src/ui/common/SpringLoad.h`), an event filter that any button can use with one line; the page bar installs it on its buttons. | Done |
 

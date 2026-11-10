@@ -94,11 +94,13 @@ bool SpringLoad::eventFilter(QObject* watched, QEvent* event)
         cancel();
         return true;
     case QEvent::Drop:
-        // The drop only switches the page at once; nothing is imported.
+        // The drop only switches the page at once; nothing is imported. The drop is taken with
+        // no action: ignoring it would pass it on to the main window, which imports dropped files.
         cancel();
         if (!m_button->isChecked())
             m_button->click();
-        event->ignore();
+        static_cast<QDropEvent*>(event)->setDropAction(Qt::IgnoreAction);
+        event->accept();
         return true;
     case QEvent::Resize:
         m_overlay->setGeometry(m_button->rect());

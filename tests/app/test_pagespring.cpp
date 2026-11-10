@@ -165,12 +165,13 @@ private slots:
         mime.setUrls({QUrl::fromLocalFile(QStringLiteral("/tmp/none.mp4"))});
         QDragEnterEvent enter(DragPos(5, 5), Qt::CopyAction, &mime, Qt::LeftButton, {});
         QCoreApplication::sendEvent(deliver, &enter);
+        const auto before = f.project.mediaPool()->items().size();
         QDropEvent drop(DragPos(5, 5), Qt::CopyAction, &mime, Qt::LeftButton, {});
         drop.setAccepted(true);
         QCoreApplication::sendEvent(deliver, &drop);
-        QVERIFY(!drop.isAccepted());
+        QCOMPARE(drop.dropAction(), Qt::IgnoreAction); // taken, so it does not reach the window
         QCOMPARE(f.window->currentPageId(), QStringLiteral("deliver"));
-        QCOMPARE(f.project.mediaPool()->items().size(), 0);
+        QCOMPARE(f.project.mediaPool()->items().size(), before); // nothing imported
     }
 };
 
