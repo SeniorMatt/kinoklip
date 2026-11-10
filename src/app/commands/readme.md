@@ -19,9 +19,14 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `TimelineCommands.cpp` | `timeline.list`, `timeline.new`, `timeline.select` |
 | `ClipCommands.cpp` | `clip.list`, `clip.add`, `clip.move`, `clip.trim`, `clip.split`, `clip.delete`, `clip.set` |
 | `MarkerCommands.cpp` | `marker.add`, `marker.list`, `marker.delete` |
-| `TransitionCommands.cpp` | `transition.add` |
+| `TransitionCommands.cpp` | `transition.add`, `transition.set`, `transition.remove` |
 | `FrameCommands.cpp` | `frame.export` (a timeline frame to a PNG file), `frame.view` (the picture in `CommandResult::image`; MCP sends it as image content) through `renderFrameImage()` |
 | `EffectCommands.cpp` | `transition.list`, `effect.list`: the ids of the effect catalogue (`EffectRegistry`) |
+| `ClipEffectCommands.cpp` | `effect.add`, `effect.stack`, `effect.set`, `effect.remove`, `effect.enable`: the effects of a clip, added with `effectactions::applyEffect()` (the Effects library's function) |
+| `GeneratorCommands.cpp` | `generator.add`, `title.add`, `title.set`: generated and title clips, made and placed with `effectactions::makeGeneratorClip()` / `addGeneratorClip()` |
+| `KeyframeCommands.cpp` | `keyframe.set`, `keyframe.list`, `keyframe.delete` through `paramaccess` and `keyframeops` (the Inspector's code) |
+| `TrackCommands.cpp` | `track.list`, `track.add`, `track.set` |
+| `ParamSupport.h/.cpp` | `key=value` settings checked against a `ParamDescriptor` (range, choices, colour, file) and written through `paramaccess`; finding a clip parameter by key |
 | `ExportCommands.cpp` | `export.otio`, `export.edl`, `import.otio`, `render` (uses `export/RenderCommand.h` `renderProject()`) |
 
 ## Rules

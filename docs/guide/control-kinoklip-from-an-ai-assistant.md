@@ -72,6 +72,9 @@ Be concrete about files. For example:
 - "List the clips of demo.kkproj, split the first at 00:00:04:00, and add a Cross Dissolve at
   the cut."
 - "Which transitions does Kinoklip have with 'wipe' in the name?"
+- "Add a title 'Summer 2026' at the start of the timeline for three seconds, and fade the first
+  clip in from black over one second." (a title, and keyframes on the clip's opacity)
+- "Make the second clip slightly blurred, turn it off for now, and mute the music track."
 - "Render demo.kkproj to ~/Videos/ai/demo.mp4 for YouTube."
 
 ## The tools
@@ -86,6 +89,17 @@ help the assistant to see its work:
 | `frame_view` | A picture of one frame of the timeline, at most 1024 pixels wide unless asked otherwise, so the assistant can look at what it built. Needs an assistant that can read pictures. |
 | `frame_export` | One frame as a PNG file (also on the command line: `kinoklip frame export`). |
 | `transition_list`, `effect_list` | The ids of the transitions, effects, generators and titles (for example the `type` of `transition_add`), with the settings of one when you give its `id`. |
+
+For editing beyond cuts the assistant has, besides the cutting tools:
+
+| Tools | What they do |
+|---|---|
+| `effect_add`, `effect_stack`, `effect_set`, `effect_remove`, `effect_enable` | Put an effect on a clip, list a clip's effects, change their settings by key (checked against the range the Inspector uses), take them off, switch them on or off. |
+| `transition_add`, `transition_set`, `transition_remove` | A transition at a clip's start or end; its length, alignment and settings. |
+| `title_add`, `title_set`, `generator_add` | A text title (text, font, size, colour, bold, italic, alignment, position), a solid colour, gradient, bars or adjustment clip, on a track at a time for a length. |
+| `keyframe_set`, `keyframe_list`, `keyframe_delete` | Animate a number of a clip or an effect (opacity, position, zoom, rotation, crop, volume, an effect's setting) over time. |
+| `clip_set` | Speed, volume, pan, on or off, name, zoom, position, rotation, opacity and crop of a clip. |
+| `track_list`, `track_add`, `track_set` | Add tracks; mute, lock, solo, enable or rename a track. |
 
 Times are frames (`125`) or timecode (`00:00:05:10`) counted from the start of the timeline. When
 a tool fails, the assistant gets the reason and a short code (for example `unknown_clip` or

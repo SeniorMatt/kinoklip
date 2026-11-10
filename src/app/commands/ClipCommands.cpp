@@ -28,6 +28,7 @@ constexpr double kMaxSpeed = 100.0;
 constexpr double kMinZoom = 0.001; ///< smallest scale factor
 constexpr double kMaxVolumeDb = 24.0;
 constexpr double kMinVolumeDb = -96.0; ///< silence, like the inspector
+constexpr double kMaxCrop = 10000; ///< pixels, like the Cropping group of the inspector
 
 const TimelineData& dataOf(CommandContext& ctx)
 {
@@ -408,10 +409,12 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
     static const double kBig = 1e6;
     static const Setting numeric[]
         = {{"pos-x", &keys::PosX, -kBig, kBig}, {"pos-y", &keys::PosY, -kBig, kBig},
-            {"rotation", &keys::Rotation, -kBig, kBig}, {"opacity", &keys::Opacity, 0, 100}};
+            {"rotation", &keys::Rotation, -kBig, kBig}, {"opacity", &keys::Opacity, 0, 100},
+            {"crop-left", &keys::CropL, 0, kMaxCrop}, {"crop-right", &keys::CropR, 0, kMaxCrop},
+            {"crop-top", &keys::CropT, 0, kMaxCrop}, {"crop-bottom", &keys::CropB, 0, kMaxCrop}};
     bool any = false;
-    for (const char* name :
-        {"speed", "volume", "enabled", "name", "zoom", "pos-x", "pos-y", "rotation", "opacity"})
+    for (const char* name : {"speed", "volume", "enabled", "name", "zoom", "pos-x", "pos-y",
+             "rotation", "opacity", "crop-left", "crop-right", "crop-top", "crop-bottom", "pan"})
         any |= args.has(QString::fromLatin1(name));
     if (!any)
         return fail(
@@ -436,6 +439,10 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
             !r.ok)
             return r;
     }
+    if (args.has(QStringLiteral("pan"))) {
+        if (auto r = range("pan", args.number(QStringLiteral("pan")), -1.0, 1.0); !r.ok)
+            return r;
+    }
     if (args.has(QStringLiteral("zoom"))) {
         if (auto r = range("zoom", args.number(QStringLiteral("zoom")), kMinZoom, kBig); !r.ok)
             return r;
@@ -457,6 +464,8 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
         }
         if (args.has(QStringLiteral("volume")))
             clip->audio.setBase(keys::VolumeDb, args.number(QStringLiteral("volume")));
+        if (args.has(QStringLiteral("pan")))
+            clip->audio.setBase(keys::Pan, args.number(QStringLiteral("pan")));
         if (args.has(QStringLiteral("enabled")))
             clip->enabled = args.boolean(QStringLiteral("enabled"));
         if (args.has(QStringLiteral("name")))
@@ -563,8 +572,8 @@ void registerClipCommands(CommandRegistry& registry)
         runDelete});
     registry.add(
         {{QStringLiteral("clip.set"),
-             QStringLiteral(
-                 "Change properties of a clip: speed, volume, enabled, name, basic transform."),
+             QStringLiteral("Change properties of a clip: speed, volume, pan, enabled, name, basic "
+                            "transform and crop."),
              {kClipParam,
                  {QStringLiteral("speed"), ParamType::Number,
                      QStringLiteral("constant speed, 1 = normal, 0.5 = half (0.01 - 100); linked "
@@ -589,6 +598,17 @@ void registerClipCommands(CommandRegistry& registry)
                      QStringLiteral("degrees clockwise"), false, {}, {}},
                  {QStringLiteral("opacity"), ParamType::Number, QStringLiteral("percent, 0 - 100"),
                      false, {}, {}},
+                 {QStringLiteral("crop-left"), ParamType::Number,
+                     QStringLiteral("pixels cut from the left edge of the source (0 - 10000)"),
+                     false, {}, {}},
+                 {QStringLiteral("crop-right"), ParamType::Number,
+                     QStringLiteral("pixels cut from the right edge"), false, {}, {}},
+                 {QStringLiteral("crop-top"), ParamType::Number,
+                     QStringLiteral("pixels cut from the top edge"), false, {}, {}},
+                 {QStringLiteral("crop-bottom"), ParamType::Number,
+                     QStringLiteral("pixels cut from the bottom edge"), false, {}, {}},
+                 {QStringLiteral("pan"), ParamType::Number,
+                     QStringLiteral("stereo pan, -1 (left) to 1 (right)"), false, {}, {}},
                  kUnlinked},
              ProjectUse::Modify, true},
             runSet});

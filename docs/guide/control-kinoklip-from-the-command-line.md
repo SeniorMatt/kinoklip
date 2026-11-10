@@ -51,9 +51,13 @@ the timeline. A minus sign makes it negative (`--delta -8` moves an edge 8 frame
 | `project new`, `project info` | Create a project; show its settings, timelines and media. |
 | `media import`, `media list`, `media relink` | Add files; list them (and which are offline); find moved files again. |
 | `timeline list`, `timeline new`, `timeline select` | List timelines; make an empty one; choose the active one. |
-| `clip list`, `clip add`, `clip move`, `clip trim`, `clip split`, `clip delete`, `clip set` | Look at and edit the clips of a timeline (speed, volume, on or off, name, zoom, position, rotation, opacity with `clip set`). |
+| `clip list`, `clip add`, `clip move`, `clip trim`, `clip split`, `clip delete`, `clip set` | Look at and edit the clips of a timeline (speed, volume, pan, on or off, name, zoom, position, rotation, opacity, crop with `clip set`). |
 | `marker add`, `marker list`, `marker delete` | Timeline markers. |
-| `transition add` | A dissolve (or an audio cross fade) at the start or end of a clip. |
+| `transition add`, `transition set`, `transition remove` | A dissolve (or an audio cross fade) at the start or end of a clip; change its length, alignment or settings; take it off. |
+| `effect add`, `effect stack`, `effect set`, `effect remove`, `effect enable` | Put an effect on a clip (`--set radius=12`), list a clip's effects, change their settings by key (checked against the range the Inspector uses), remove them, switch them on or off (`--enabled false`). |
+| `title add`, `title set`, `generator add` | A text title (`--text`, `--size`, `--color`, `--font`, `--bold`, `--align`) or a generated clip (solid colour, gradient, bars, adjustment clip) at a time (`--at`), for a length (`--duration`), on a track (`--track V2`). |
+| `keyframe set`, `keyframe list`, `keyframe delete` | Animate a number of a clip or an effect: `keyframe set --clip 3 --param opacity --at 00:00:01:00 --value 100`. |
+| `track list`, `track add`, `track set` | The tracks and their state; add one; mute, lock, solo, enable or rename one. |
 | `export otio`, `export edl`, `import otio` | Exchange a timeline with other editors (see [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md)). |
 | `frame export`, `frame view` | Render one frame of the timeline to a PNG file (`--at`, `--file`, `--width`); `frame view` hands the picture to a program that can show it (the AI assistant server below). |
 | `transition list`, `effect list` | The ids of the transitions, effects, generators and titles, for `transition add --type`; add `--id` for the settings of one. |

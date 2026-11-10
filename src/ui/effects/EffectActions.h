@@ -10,6 +10,7 @@
 #include <QVector>
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 
 namespace kk {
@@ -68,8 +69,13 @@ bool removeTransition(Project& project, quint64 clipId, bool atHead);
 /// timeline frame @p frame, placed on the lowest video track above everything that already
 /// occupies that range (a new track is added if needed). One undo step.
 /// Returns the new clip id, or 0 on failure.
-quint64 addGeneratorClip(
-    Project& project, const QString& descriptorId, int64_t frame, int64_t durationFrames = -1);
+/// @p videoTrack >= 0 puts the clip on that video track (0 = V1; anything under it is overwritten;
+/// 0 is returned for a track that does not exist or is locked) instead of the track above
+/// everything busy. @p prepare, when set, may change the new clip (its parameters) before it is
+/// placed, so the whole creation stays one undo step (the commands use it for title text).
+quint64 addGeneratorClip(Project& project, const QString& descriptorId, int64_t frame,
+    int64_t durationFrames = -1, int videoTrack = -1,
+    const std::function<void(ClipData&)>& prepare = {});
 
 /// "Double-click in the effects library": effects go onto the selected clips, transitions onto
 /// the nearer end of the current clip, titles/generators are added at the playhead (and the

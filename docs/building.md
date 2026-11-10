@@ -58,8 +58,9 @@ command (a project file, an option, nothing). Guide: [docs/guide/control-kinokli
 ```
 Commands: version; project new / info; media import / list / relink; timeline list / new /
 select; clip list / add / move / trim / split / delete / set; marker add / list / delete;
-transition add; export otio / edl; import otio; frame export / view; effect list;
-transition list; render. `kinoklip mcp` serves the same commands to an AI assistant (MCP) on
+transition add / set / remove; effect add / stack / set / remove / enable / list; title add / set;
+generator add; keyframe set / list / delete; track list / add / set; export otio / edl; import otio;
+frame export / view; transition list; render. `kinoklip mcp` serves the same commands to an AI assistant (MCP) on
 stdin / stdout, see [docs/guide/control-kinoklip-from-an-ai-assistant.md](guide/control-kinoklip-from-an-ai-assistant.md). The older options above
 (`--render`, `--render-frame`, `--screenshot`, ...) are unchanged. Tests: `test_commands` (the
 layer) and `test_cli` (the built binary as a process).

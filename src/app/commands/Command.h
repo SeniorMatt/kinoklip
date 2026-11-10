@@ -187,6 +187,10 @@ void registerTransitionCommands(CommandRegistry& registry);
 void registerExportCommands(CommandRegistry& registry);
 void registerFrameCommands(CommandRegistry& registry);
 void registerEffectCommands(CommandRegistry& registry);
+void registerClipEffectCommands(CommandRegistry& registry);
+void registerGeneratorCommands(CommandRegistry& registry);
+void registerKeyframeCommands(CommandRegistry& registry);
+void registerTrackCommands(CommandRegistry& registry);
 
 } // namespace commands
 } // namespace kk

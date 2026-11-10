@@ -49,6 +49,8 @@ std::optional<QJsonValue> coerce(const ParamSpec& param, const QJsonValue& value
             return value;
         if (value.isDouble())
             return QJsonValue(QString::number(value.toDouble(), 'g', 15));
+        if (value.isBool()) // a parameter value of an effect (effect.set value true)
+            return QJsonValue(value.toBool() ? QStringLiteral("true") : QStringLiteral("false"));
         break;
     }
     case ParamType::Integer: {
@@ -233,6 +235,10 @@ const CommandRegistry& CommandRegistry::builtin()
         registerExportCommands(r);
         registerFrameCommands(r);
         registerEffectCommands(r);
+        registerClipEffectCommands(r);
+        registerGeneratorCommands(r);
+        registerKeyframeCommands(r);
+        registerTrackCommands(r);
         return r;
     }();
     return registry;
