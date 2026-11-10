@@ -190,6 +190,7 @@ private:
     void registerVideoEffects3();
     void registerVideoEffects4(); ///< 1.2 second part (spec 57)
     void registerVideoEffects5(); ///< 1.2 multi-frame effects, Patch Replacer (spec 60)
+    void registerVideoEffects6(); ///< 1.2 template looks: CCTV, Glitch, Drone, DSLR, DVE, Call, Camera (spec 65)
     /// The clip audio effects (BuiltinAudioEffects.cpp).
     void registerAudioEffects();
 

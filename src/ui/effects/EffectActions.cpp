@@ -46,7 +46,8 @@ EffectInstance& addEffect(ClipData& clip, const char* type)
 }
 
 /// Fills the adjustment clip @p clip with the stack of Effects > Colored Border / Binoculars /
-/// Night Vision (spec 56.4). Ids are assigned when the clip is placed.
+/// Night Vision (spec 56.10) and the seven template looks (spec 65). Ids are assigned when the
+/// clip is placed.
 void fillTemplate(ClipData& clip, const QString& id, QSizeF frame)
 {
     namespace k = fxkeys;
@@ -70,6 +71,20 @@ void fillTemplate(ClipData& clip, const QString& id, QSizeF frame)
             circle.params.setBase(maskkeys::FeatherOut, feather);
             clip.masks.append(std::move(circle));
         }
+    } else if (id == generators::CctvClip) {
+        addEffect(clip, fxid::LookCctv);
+    } else if (id == generators::DigitalGlitchClip) {
+        addEffect(clip, fxid::LookDigitalGlitch);
+    } else if (id == generators::DroneOverlayClip) {
+        addEffect(clip, fxid::LookDroneOverlay);
+    } else if (id == generators::DslrClip) {
+        addEffect(clip, fxid::LookDslr);
+    } else if (id == generators::DveClip) {
+        addEffect(clip, fxid::LookDve);
+    } else if (id == generators::VideoCallClip) {
+        addEffect(clip, fxid::LookVideoCall);
+    } else if (id == generators::VideoCameraClip) {
+        addEffect(clip, fxid::LookVideoCamera);
     } else {
         EffectInstance& tint = addEffect(clip, fxid::Duotone);
         tint.params.setStatic(k::ShadowColor, QColor(0x00, 0x14, 0x05));
@@ -151,7 +166,12 @@ std::optional<ClipData> makeGeneratorClip(
         }
         if (descriptorId == generators::ColoredBorderClip
             || descriptorId == generators::BinocularsClip
-            || descriptorId == generators::NightVisionClip)
+            || descriptorId == generators::NightVisionClip || descriptorId == generators::CctvClip
+            || descriptorId == generators::DigitalGlitchClip
+            || descriptorId == generators::DroneOverlayClip
+            || descriptorId == generators::DslrClip || descriptorId == generators::DveClip
+            || descriptorId == generators::VideoCallClip
+            || descriptorId == generators::VideoCameraClip)
             fillTemplate(clip, descriptorId, frameSize);
         if (descriptorId == generators::CompositionClip) {
             // A transparent solid with an empty composition: nothing shows until the user

@@ -422,7 +422,7 @@ std::span<const GlEffectFactory> builtinGlEffects()
                  lookGlEffects(), warpGlEffects(), timeGlEffects(), extraColorGlEffects(),
                  extraGlEffects(), detailGlEffects(), damageGlEffects(), paintGlEffects(),
                  opticsGlEffects(), utilityGlEffects(), temporalGlEffects(),
-                 repairGlEffects()})
+                 repairGlEffects(), templateLookGlEffects()})
             rows.insert(rows.end(), table.begin(), table.end());
         return rows;
     }();

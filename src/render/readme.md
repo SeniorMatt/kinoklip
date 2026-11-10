@@ -465,6 +465,7 @@ comment of `DecoderPool`. `Compositor::prepareStats()` has the counters.
 | `TestPatterns.*` | the numbers and formulas of the test pattern / procedural generators (EBU bars, BT.2111 tables and layout, YCbCr ramp, noise gradient, grid) and the shared GLSL noise |
 | `GlExtraColor.cpp` / `GlExtraEffects.cpp` / `EffectMathExtra.*` | the 1.2 effects (spec 56) and their CPU reference |
 | `GlShaderEffect.h` / `GlDetailEffects.cpp` / `GlDamageEffects.cpp` / `GlPaintEffects.cpp` / `GlOpticsEffects.cpp` / `GlUtilityEffects.cpp` | the second part of the 1.2 effects (spec 57): `ShaderEffect` is a one-program effect (shader, uniform names, setter, optional blur as `uSecond`, frame-deterministic hash); the files hold sharpen / repair / Beauty, the damage looks, Watercolor and Stylize, aperture and reflections, Color Palette, 3D Keyer and Video Collage |
+| `GlTemplateLooks.cpp` / `LookHud.*` | the template looks (spec 65): CCTV, Digital Glitch, Drone Overlay, DSLR, DVE, Video Call, Video Camera. Glitch and DVE are one shader; the overlay looks paint their text and marks with QPainter (`LookHud`, tested without a GPU), keep the picture as a texture until something in it changes, and lay it over the picture |
 | `YuvMath.*` | YUV → RGB coefficients (unit-tested on the CPU) |
 | `DecoderPool.*` | `VideoDecoder` reuse by path and position |
 | `AudioMixer.*` | audio mixing: clips, fades, transitions (`AudioMixer.cpp`) and the mixer graph of tracks and buses (`AudioMixerGraph.cpp`, state in `MixerChannel.h`) |

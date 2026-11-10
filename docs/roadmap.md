@@ -54,13 +54,13 @@ Still to do for 1.2:
 - [ ] Tracking: Match Move
 - [ ] Tracking: Surface Tracker
 - [ ] Effects: Warper
-- [ ] Effects: CCTV look
-- [ ] Effects: Digital Glitch look
-- [ ] Effects: Drone Overlay look
-- [ ] Effects: DSLR look
-- [ ] Effects: DVE look
-- [ ] Effects: Video Call look
-- [ ] Effects: Video Camera look
+- [x] Effects: CCTV look
+- [x] Effects: Digital Glitch look
+- [x] Effects: Drone Overlay look
+- [x] Effects: DSLR look
+- [x] Effects: DVE look
+- [x] Effects: Video Call look
+- [x] Effects: Video Camera look
 - [ ] Titles: more options on the existing text title, mainly layers (several text and shape layers in one title); no new title type
 - [ ] Titles: emoji in subtitles and titles, in colour, in the viewer and in exports
 - [ ] Audio: Inspector Audio tab compared with every audio option Resolve has (public documentation only), adding the missing ones, Pitch first
