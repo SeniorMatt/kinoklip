@@ -37,11 +37,11 @@ Done for 1.2 so far (on main, not released yet):
 - [x] Effects: 9 more generators and test patterns (18 in all)
 - [x] Effects: 28 more video effects (90 in all) and the Colored Border, Binoculars and Night Vision looks
 - [x] Timeline: fade curves that are shaped with the mouse on the clip
+- [x] Tracking: stabilization in the Inspector (Perspective, Similarity and Translation modes, Camera Lock, Zoom) and from the command line
 
 Still to do for 1.2:
 - [ ] Platform: AppImage shows an error when FUSE is missing (today it fails silently)
 - [ ] Media: hovering a clip thumbnail in the Media Pool previews it in the viewer, as in Resolve
-- [x] Tracking: stabilization in the Inspector (Perspective, Similarity and Translation modes, Camera Lock, Zoom) and from the command line
 - [ ] Effects: Motion Trails
 - [ ] Effects: Smear
 - [ ] Effects: Frame Replacer
