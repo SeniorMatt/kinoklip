@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // OtioExport — writes a timeline as an OpenTimelineIO (.otio) JSON file.
 #include "core/MediaPool.h"
+#include "core/Serialization.h"
 #include "export/Otio.h"
 
 #include <QFileInfo>
@@ -121,9 +122,12 @@ private:
         o[QStringLiteral("out_offset")] = time(double(t.duration - before));
         o[QStringLiteral("transition_type")]
             = dissolve ? QStringLiteral("SMPTE_Dissolve") : QStringLiteral("Custom_Transition");
-        if (!dissolve) {
-            o[QStringLiteral("metadata")] = QJsonObject {
-                {QStringLiteral("kinoklip"), QJsonObject {{QStringLiteral("type"), t.type}}}};
+        // The Kinoklip id and the parameters travel in the metadata, so another Kinoklip reads
+        // the very transition back; a plain cross dissolve with no parameters needs none.
+        if (!dissolve || !t.params.values.isEmpty() || !t.params.statics.isEmpty()) {
+            o[QStringLiteral("metadata")] = QJsonObject {{QStringLiteral("kinoklip"),
+                QJsonObject {{QStringLiteral("type"), t.type},
+                    {QStringLiteral("params"), serialization::paramSetToJson(t.params)}}}};
         }
         return o;
     }

@@ -515,6 +515,88 @@ private slots:
         QCOMPARE(c.transitionIn->alignment, TransitionAlignment::StartOnCut);
     }
 
+    /// Every transition of the catalogue is written as an OTIO Transition (a Custom_Transition
+    /// for all but the plain cross dissolve) with its id and parameters in metadata.kinoklip,
+    /// and comes back with the same type and parameters (spec 54).
+    void everyTransitionRoundTrips_data()
+    {
+        QTest::addColumn<QString>("type");
+        const auto& registry = EffectRegistry::instance();
+        for (const EffectDescriptor* d : registry.byCategory(EffectCategory::Transition))
+            QTest::newRow(qPrintable(d->id)) << d->id;
+    }
+    void everyTransitionRoundTrips()
+    {
+        QFETCH(QString, type);
+        MediaPool pool;
+        TimelineData d = makeDefaultTimeline(QStringLiteral("T"), {24, 1}, 1920, 1080, 1, 1);
+        ops::overwriteClip(d, {TrackType::Video, 0},
+            mediaClip(QStringLiteral("x"), QStringLiteral("A"), 0, 100, 0));
+        ClipData second = mediaClip(QStringLiteral("x"), QStringLiteral("B"), 100, 100, 20);
+        second.transitionIn = EffectRegistry::instance().createTransition(type, 16);
+        // One value changed from its default: a number and a static one.
+        second.transitionIn->params.setBase(QStringLiteral("feather"), 33.0);
+        second.transitionIn->params.setStatic(QStringLiteral("preset"), QStringLiteral("down"));
+        ops::overwriteClip(d, {TrackType::Video, 0}, second);
+
+        const QByteArray file = otio::timelineToOtio(d, &pool, {});
+        QJsonObject item;
+        for (const QJsonValue& v : QJsonDocument::fromJson(file)
+                                       .object()
+                                       .value("tracks")
+                                       .toObject()
+                                       .value("children")
+                                       .toArray()[0]
+                                       .toObject()
+                                       .value("children")
+                                       .toArray()) {
+            if (v.toObject().value("OTIO_SCHEMA").toString() == QLatin1String("Transition.1"))
+                item = v.toObject();
+        }
+        QVERIFY2(!item.isEmpty(), "the transition is written, not turned into a cut");
+        QCOMPARE(item.value("transition_type").toString(),
+            type == QLatin1String("cross_dissolve") ? QStringLiteral("SMPTE_Dissolve")
+                                                    : QStringLiteral("Custom_Transition"));
+        const QJsonObject own = item.value("metadata").toObject().value("kinoklip").toObject();
+        QCOMPARE(own.value("type").toString(), type);
+        QVERIFY(own.contains("params"));
+
+        otio::ImportOptions io;
+        io.defaultFps = {24, 1};
+        io.resolveMedia = [](const otio::MediaRef&) {
+            return otio::ResolvedMedia {QStringLiteral("x"), 600 * 1000000LL};
+        };
+        const otio::TimelineImport r = otio::importOtio(file, io);
+        QVERIFY2(r.ok, qPrintable(r.error));
+        const ClipData& back = r.timeline.videoTracks[0].clips[1];
+        QVERIFY(back.transitionIn.has_value());
+        QCOMPARE(back.transitionIn->type, type);
+        QCOMPARE(back.transitionIn->params, second.transitionIn->params);
+        QCOMPARE(back.transitionIn->duration, int64_t(16));
+    }
+
+    /// A file from another editor: a custom transition whose Kinoklip id is unknown (or that has
+    /// no Kinoklip metadata at all) stays a cross dissolve.
+    void unknownCustomTransitionStaysACrossDissolve()
+    {
+        Media media;
+        for (const QString& metadata :
+            {QStringLiteral(R"({"kinoklip":{"type":"no_such_transition"}})"),
+                QStringLiteral(R"({"other_editor":{"preset":"x"}})")}) {
+            const QString custom = QStringLiteral(
+                R"({"OTIO_SCHEMA":"Transition.1","metadata":%3,"name":"","in_offset":%1,"out_offset":%2,"transition_type":"Custom_Transition"})")
+                                       .arg(rt(5, 24), rt(5, 24), metadata);
+            const QString text = timeline({track("Video",
+                {clip1("A", "file:///m/a.mov", 0, 48, 0, 480, 24), custom,
+                    clip1("B", "file:///m/b.mov", 0, 48, 0, 480, 24)})});
+            const otio::TimelineImport r = read(text, media);
+            QVERIFY2(r.ok, qPrintable(r.error));
+            const auto& clips = r.timeline.videoTracks[0].clips;
+            QVERIFY(clips[1].transitionIn.has_value());
+            QCOMPARE(clips[1].transitionIn->type, QStringLiteral("cross_dissolve"));
+        }
+    }
+
     void markersOnTheStackAndOnClips()
     {
         Media media;

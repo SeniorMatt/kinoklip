@@ -2,6 +2,7 @@
 // OtioImport — reads an OpenTimelineIO (.otio) JSON file into a TimelineData.
 #include "core/EditOps.h"
 #include "core/EffectRegistry.h"
+#include "core/Serialization.h"
 #include "export/Otio.h"
 
 #include <QCoreApplication>
@@ -119,6 +120,7 @@ private:
         int prevChild = -1;
         int64_t before = 0, after = 0; ///< frames before / after the cut
         QString type;
+        std::optional<ParamSet> params; ///< from metadata.kinoklip.params (a Kinoklip file)
     };
 
     void skip(const QString& what) { ++m_skipped[what]; }
@@ -395,16 +397,18 @@ private:
         // SMPTE_Dissolve is the cross dissolve; a Kinoklip type written by timelineToOtio() comes
         // back as it was; every other type is imported as a cross dissolve and reported.
         const QString otioType = item.value(QLatin1String("transition_type")).toString();
-        const QString own = item.value(QLatin1String("metadata"))
-                                .toObject()
-                                .value(QLatin1String("kinoklip"))
-                                .toObject()
-                                .value(QLatin1String("type"))
-                                .toString();
+        const QJsonObject ownData = item.value(QLatin1String("metadata"))
+                                        .toObject()
+                                        .value(QLatin1String("kinoklip"))
+                                        .toObject();
+        const QString own = ownData.value(QLatin1String("type")).toString();
         p.type = QStringLiteral("cross_dissolve");
-        if (!own.isEmpty() && EffectRegistry::instance().find(own))
+        if (!own.isEmpty() && EffectRegistry::instance().find(own)) {
             p.type = own;
-        else if (!otioType.isEmpty() && !sameText(otioType, "SMPTE_Dissolve"))
+            if (ownData.contains(QLatin1String("params")))
+                p.params = serialization::paramSetFromJson(
+                    ownData.value(QLatin1String("params")).toObject());
+        } else if (!otioType.isEmpty() && !sameText(otioType, "SMPTE_Dissolve"))
             skip(QStringLiteral("transition type %1 (imported as a cross dissolve)").arg(otioType));
         m_transitions.push_back(p);
     }
@@ -426,6 +430,8 @@ private:
                 continue;
             }
             TransitionData t = EffectRegistry::instance().createTransition(p.type, length);
+            if (p.params)
+                t.params = *p.params;
             t.alignment = p.before == 0 ? TransitionAlignment::StartOnCut
                 : p.after == 0          ? TransitionAlignment::EndOnCut
                                         : TransitionAlignment::Centre;
