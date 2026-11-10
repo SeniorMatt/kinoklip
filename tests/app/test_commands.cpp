@@ -509,6 +509,15 @@ private slots:
         QCOMPARE(d.audio.value(keys::PitchSemitones, 0), -3.0);
         QCOMPARE(d.audio.value(keys::PitchCents, 0), 0.0);
         QVERIFY(!d.audio.staticValue(keys::EqEnabled, true).toBool());
+        QVERIFY(!r.data.contains("warning")); // normal speed: no warning
+        // On a clip with a speed change the value is saved and the result says it is ignored.
+        ok("clip.set", {{"clip", a}, {"speed", 2}});
+        const CommandResult w = ok("clip.set", {{"clip", a}, {"pitch", 4}});
+        QVERIFY(w.data["warning"].toString().contains("ignored"));
+        QVERIFY(w.text.contains("warning"));
+        QCOMPARE(load()->timeline()->data().audioTracks[0].clips[0].audio.value(
+                     keys::PitchSemitones, 0),
+            4.0);
         bad("clip.set", {{"clip", a}, {"pitch", 25}}, "out_of_range");
         bad("clip.set", {{"clip", a}, {"eq", "maybe"}}, "bad_value");
         bad("clip.set", {{"clip", a}, {"eq1-gain", 30}}, "out_of_range");

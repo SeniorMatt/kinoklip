@@ -165,6 +165,20 @@ private slots:
         QVERIFY(std::abs(frequency(up, 24000, 72000) - 452.9) < 6.0);
     }
 
+    void highPitchUpDoesNotFoldHighFrequenciesBack()
+    {
+        // 10 kHz read at 4x would fold to an audible tone; the low-pass removes it.
+        const QString high = m_dir.filePath("high.wav");
+        QVERIFY(writeWav(high, 2, [](int64_t n) { return sine(n, 10000, 0.5); }));
+        const auto out = render(timeline(24), high, 96000);
+        QVERIFY2(
+            rms(out, 24000, 72000) < 0.02, qPrintable(QString::number(rms(out, 24000, 72000))));
+        // A low tone is not harmed: 440 Hz + 19 semitones = 1318.5 Hz at full level.
+        const auto low = render(timeline(19), m_wav, 96000);
+        QVERIFY(std::abs(frequency(low, 24000, 72000) - 1318.5) < 25.0);
+        QVERIFY(rms(low, 24000, 72000) > 0.3);
+    }
+
     void blocksOfAnySizeGiveTheSameSamples()
     {
         const TimelineData tl = timeline(7);

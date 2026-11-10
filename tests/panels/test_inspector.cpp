@@ -355,6 +355,17 @@ private slots:
         QCOMPARE(f.clip(a)->audio.value(keys::EqBandGain[1], 0), 0.0);
         f.project.undo();
         QCOMPARE(f.clip(a)->audio.value(keys::PitchSemitones, 0), 0.0);
+        // A speed change greys the pitch out (it would be ignored), with a tooltip.
+        QVERIFY(pitch->isEnabled() && cents->isEnabled());
+        f.project.beginEdit(QStringLiteral("speed"));
+        f.project.timeline()->mutableData().audioTracks[0].clips[0].speed = 2.0;
+        f.project.endEdit();
+        QCoreApplication::processEvents();
+        QVERIFY(!pitch->isEnabled() && !cents->isEnabled());
+        QVERIFY(pitch->toolTip().contains(QLatin1String("normal speed")));
+        f.project.undo();
+        QCoreApplication::processEvents();
+        QVERIFY(pitch->isEnabled() && cents->isEnabled());
         // Not keyframable: no keyframe button for the pitch.
         QVERIFY(!f.clip(a)->audio.isAnimated());
     }

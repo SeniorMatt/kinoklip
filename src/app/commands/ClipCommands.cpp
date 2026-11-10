@@ -9,6 +9,7 @@
 #include "core/MixerData.h"
 #include "core/ParamKeys.h"
 #include "core/Project.h"
+#include "core/Retime.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
@@ -562,8 +563,18 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
         }
         return true;
     });
-    return CommandResult::success(
+    CommandResult done = CommandResult::success(
         {{QStringLiteral("clip"), clipById(ctx, id)}}, QStringLiteral("updated clip %1").arg(id));
+    FoundClip after;
+    if (args.has(QStringLiteral("pitch")) && !findClipOrFail(dataOf(ctx), id, after)
+        && retime::isRetimed(*after.clip)) {
+        const QString warning = QStringLiteral(
+            "pitch is saved but ignored until the clip's speed is normal (no speed change or "
+            "retime)");
+        done.data.insert(QStringLiteral("warning"), warning);
+        done.text += QStringLiteral("\nwarning: ") + warning;
+    }
+    return done;
 }
 
 ParamSpec timeParam(const char* name, const char* description, bool required = false)

@@ -5,7 +5,9 @@
 #include "compositing/tracking/StabilizeJob.h"
 #include "core/AudioTransitions.h"
 #include "core/EditOps.h"
+#include "core/ParamKeys.h"
 #include "core/Project.h"
+#include "core/Retime.h"
 #include "core/SelectionModel.h"
 #include "core/Subtitles.h"
 #include "core/Timeline.h"
@@ -21,6 +23,7 @@
 #include "ui/inspector/MultiClipEdit.h"
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
+#include "ui/inspector/ValueField.h"
 
 #include <QAction>
 #include <QApplication>
@@ -1147,6 +1150,20 @@ void InspectorPanel::refreshValues()
         const int64_t local = std::clamp<int64_t>(
             cached->localFrame(playhead), 0, std::max<int64_t>(0, cached->duration - 1));
         m_groups[i]->refresh(*cached, local, cached->contains(playhead));
+        // Pitch only works at normal speed (spec 67.4): grey it out on a retimed clip.
+        if (!m_groups[i]->rows().isEmpty()
+            && m_groups[i]->rows().first()->ref().key == keys::VolumeDb) {
+            const bool retimed = retime::isRetimed(*cached);
+            for (const QString& key : {keys::PitchSemitones, keys::PitchCents}) {
+                if (auto* f = m_groups[i]->findChild<ValueField*>(QStringLiteral("value:") + key);
+                    f && f->isEnabled() == retimed) {
+                    f->setEnabled(!retimed);
+                    f->setToolTip(retimed ? tr("Pitch works on clips at normal speed; this clip "
+                                               "has a speed change")
+                                          : QString());
+                }
+            }
+        }
     }
 }
 

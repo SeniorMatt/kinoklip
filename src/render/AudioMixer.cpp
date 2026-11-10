@@ -340,8 +340,12 @@ const float* AudioMixer::pitchedSource(Decoder& d, const NestedTimelines& nested
         d.stamped = false; // the retime path restarts its own chain
     }
     const int64_t t0 = from - clipStart; // clip-local output samples [t0, t0 + n)
-    const int64_t i0 = int64_t(std::floor(double(t0) * ratio)) - 1;
-    const int64_t i1 = int64_t(std::floor(double(t0 + n - 1) * ratio)) + 2;
+    // Above an octave up the read skips samples: a windowed-sinc low-pass at the new Nyquist
+    // (kTaps - 1 = 2 * margin taps) keeps what is above it from folding back.
+    constexpr int kMargin = 16;
+    const int margin = ratio > 2.0 ? kMargin : 0;
+    const int64_t i0 = int64_t(std::floor(double(t0) * ratio)) - 1 - margin;
+    const int64_t i1 = int64_t(std::floor(double(t0 + n - 1) * ratio)) + 2 + margin;
     const int zn = int(i1 - i0 + 1);
     if (m_pitchZ.size() < size_t(zn) * kChannels)
         m_pitchZ.resize(size_t(zn) * kChannels);
@@ -354,6 +358,32 @@ const float* AudioMixer::pitchedSource(Decoder& d, const NestedTimelines& nested
     if (m_resampled.size() < size_t(n) * kChannels)
         m_resampled.resize(size_t(n) * kChannels);
     const float* z = m_pitchZ.data();
+    if (margin > 0) {
+        double taps[2 * kMargin + 1];
+        const double fc = 0.45 / ratio; // cycles per sample of Z
+        double sum = 0.0;
+        for (int k = -kMargin; k <= kMargin; ++k) {
+            const double x = 2.0 * std::numbers::pi * fc * k;
+            const double sinc = k == 0 ? 2.0 * fc : std::sin(x) / (std::numbers::pi * k);
+            const double w = 0.5 + 0.5 * std::cos(std::numbers::pi * k / (kMargin + 1));
+            taps[k + kMargin] = sinc * w;
+            sum += taps[k + kMargin];
+        }
+        for (double& t : taps)
+            t /= sum; // unity at DC
+        if (m_pitchF.size() < size_t(zn) * kChannels)
+            m_pitchF.resize(size_t(zn) * kChannels);
+        std::copy(m_pitchZ.begin(), m_pitchZ.begin() + size_t(zn) * kChannels, m_pitchF.begin());
+        for (int j = kMargin; j < zn - kMargin; ++j) {
+            for (int ch = 0; ch < kChannels; ++ch) {
+                double acc = 0.0;
+                for (int k = -kMargin; k <= kMargin; ++k)
+                    acc += taps[k + kMargin] * double(m_pitchZ[size_t(j + k) * kChannels + ch]);
+                m_pitchF[size_t(j) * kChannels + ch] = float(acc);
+            }
+        }
+        z = m_pitchF.data();
+    }
     for (int i = 0; i < n; ++i) {
         const double x = double(t0 + i) * ratio;
         const int64_t k = int64_t(std::floor(x));

@@ -160,6 +160,7 @@ private:
     std::unordered_map<quint64, std::unique_ptr<Decoder>> m_decoders; ///< by clip id
     std::vector<float> m_source; ///< decoded source samples (scratch)
     std::vector<float> m_resampled; ///< speed-adjusted samples (scratch)
+    std::vector<float> m_pitchF; ///< m_pitchZ low-passed (pitch up above an octave)
     std::vector<float> m_pitchZ; ///< a pitched clip's time-stretched source (scratch)
     std::vector<float> m_effectBuffer; ///< a clip's samples after its audio effects (scratch)
     std::vector<double> m_positions; ///< retime curve source positions per block (scratch)
