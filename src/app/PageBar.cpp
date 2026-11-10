@@ -3,6 +3,7 @@
 #include "app/PageBar.h"
 
 #include "ui/common/Metrics.h"
+#include "ui/common/SpringLoad.h"
 
 #include <QAction>
 #include <QHBoxLayout>
@@ -41,6 +42,7 @@ void PageBar::addPageAction(QAction* pageAction)
     button->setMinimumWidth(kButtonMinWidth);
     button->setAutoRaise(true); // flat until hovered/checked: the Breeze toolbar look
     button->setFocusPolicy(Qt::NoFocus);
+    new SpringLoad(button); // hovering a drag over the page switches to it (spec 71)
     m_buttons->addWidget(button);
 }
 

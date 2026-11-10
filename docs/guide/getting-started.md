@@ -29,6 +29,10 @@ along the bottom of the window.
 6. **Audio**: mix the sound: track levels, meters, equaliser and dynamics.
 7. **Deliver**: export the finished video to a file.
 
+While you drag files or clips, you do not have to let go to change page. Hold the drag over a
+page button: the button lights up and fills from left to right, and after about a second the
+page opens. Move away before it is full and nothing happens.
+
 You can also switch pages with the keyboard: **Shift+2** (Media) up to **Shift+8** (Deliver);
 **Shift+4** is the Edit page.
 
