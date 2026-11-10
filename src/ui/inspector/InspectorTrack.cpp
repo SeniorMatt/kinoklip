@@ -8,6 +8,7 @@
 #include "core/EffectTrack.h"
 #include "core/MatchMove.h"
 #include "core/Project.h"
+#include "core/SurfaceTracker.h"
 #include "core/Timeline.h"
 #include "core/VideoEffectKeys.h"
 #include "playback/PlaybackEngine.h"
@@ -97,7 +98,8 @@ void InspectorPanel::onEffectTrackFinished(tracking::TrackOutcome outcome, const
 void InspectorPanel::buildTrackingControls(
     ParamGroupBox* group, const EffectInstance& fx, quint64 clipId)
 {
-    if (fx.type != QLatin1String(fxid::MatchMove))
+    const bool surfaceFx = fx.type == QLatin1String(fxid::SurfaceTracker);
+    if (fx.type != QLatin1String(fxid::MatchMove) && !surfaceFx)
         return;
     const quint64 effectId = fx.id;
     auto* buttons = new QWidget;
@@ -140,7 +142,7 @@ void InspectorPanel::buildTrackingControls(
         m_trackMessage.clear();
     });
 
-    group->addHeaderRefresh([this, effectId, backward, forward, clear, cancel, progress,
+    group->addHeaderRefresh([this, surfaceFx, effectId, backward, forward, clear, cancel, progress,
                                 status](const ClipData& cd) {
         const EffectInstance* e = paramaccess::effect(cd, effectId);
         if (!e)
@@ -162,7 +164,7 @@ void InspectorPanel::buildTrackingControls(
             text = tr("Tracking...");
         else if (m_trackMessageEffect == effectId && !m_trackMessage.isEmpty())
             text = m_trackMessage;
-        else if (matchmove::needsTracking(*e))
+        else if (surfaceFx ? surface::needsTracking(*e) : matchmove::needsTracking(*e))
             text = tr("The region or the tracking changed since the track. Track again.");
         else if (!table)
             text = tr("Not tracked yet. Put the region over the feature, then press Track "

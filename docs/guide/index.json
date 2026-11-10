@@ -958,7 +958,8 @@
         "motion tracking"
       ],
       "contexts": [
-        "effect:match_move"
+        "effect:match_move",
+        "effect:surface_tracker"
       ]
     }
 

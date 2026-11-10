@@ -9,7 +9,10 @@
 #include "core/EffectRegistry.h"
 #include "core/EffectTrack.h"
 #include "core/MatchMove.h"
+#include "compositing/tracking/Homography.h"
+#include "compositing/tracking/MeshTracker.h"
 #include "core/Serialization.h"
+#include "core/SurfaceTracker.h"
 #include "core/VideoEffectKeys.h"
 #include "render/Compositor.h"
 #include "render/GlEffects.h"
@@ -192,8 +195,24 @@ private slots:
             QStringLiteral("[0][1]overlay=x='n*4':y=60[a];[a][2]overlay=x='n*4+8':y=68[out]"));
         auto map = std::make_shared<MediaPathMap>();
         map->insert(QStringLiteral("patch"), m_dir.filePath(QStringLiteral("patch.mkv")));
+        const QString tex = QStringLiteral(
+            "128+40*sin(0.35*X+0.2*Y)+30*sin(0.21*X-0.43*Y)+25*sin(0.67*X+0.11*Y)"
+            "+20*sin(0.13*X+0.71*Y)");
+        auto texture = [&](const QString& x, const QString& y) {
+            QString t = tex;
+            t.replace(QLatin1Char('X'), QStringLiteral("(") + x + QStringLiteral(")"));
+            t.replace(QLatin1Char('Y'), QStringLiteral("(") + y + QStringLiteral(")"));
+            return QStringLiteral("[0]geq=lum='%1':cb=128:cr=128[out]").arg(t);
+        };
+        const QString blank = QStringLiteral("color=c=black:s=320x180:r=25");
+        const bool ok2 = makeFootage(QStringLiteral("plane"), {blank},
+            texture(QStringLiteral("X-3*N"), QStringLiteral("Y-2*N")));
+        const bool ok3 = makeFootage(QStringLiteral("bend"), {blank},
+            texture(QStringLiteral("X"), QStringLiteral("Y-N*0.15*sin(0.04*X)")));
+        map->insert(QStringLiteral("plane"), m_dir.filePath(QStringLiteral("plane.mkv")));
+        map->insert(QStringLiteral("bend"), m_dir.filePath(QStringLiteral("bend.mkv")));
         m_gpu->setMediaPaths(map);
-        if (!ok)
+        if (!ok || !ok2 || !ok3)
             qWarning("footage: %s", qPrintable(m_footageError));
     }
     void cleanupTestCase() { m_gpu.reset(); }
@@ -398,6 +417,196 @@ private slots:
         }
         qInfo("Match Move (hold): worst distance %.3f px", worst);
         QVERIFY2(worst <= 1.5, qPrintable(QString::number(worst)));
+    }
+
+    // ---- Surface Tracker ----
+
+    void surfaceDescriptor()
+    {
+        const EffectDescriptor* d
+            = EffectRegistry::instance().find(QLatin1String(fxid::SurfaceTracker));
+        QVERIFY(d);
+        QCOMPARE(d->name, QStringLiteral("Surface Tracker"));
+        QCOMPARE(d->group, QLatin1String(effectgroups::Transform));
+        QVERIFY(d->param(k::TrackData)->hidden);
+        QCOMPARE(int(d->param(k::GridDensity)->def), 4);
+        QVERIFY(!d->param(k::GridDensity)->animatable);
+        // The signature follows the inputs of the tracker only.
+        ParamSet p = EffectRegistry::instance().defaultParams(QLatin1String(fxid::SurfaceTracker));
+        const QString a = surface::signature(p);
+        p.setBase(k::Strength, 50.0);
+        p.setStatic(k::SurfaceMode, fxchoice::SurfaceWarp);
+        QCOMPARE(surface::signature(p), a);
+        p.setBase(k::GridDensity, 5.0);
+        QVERIFY(surface::signature(p) != a);
+    }
+
+    void smoothingBlendsTowardsTheNeighbours()
+    {
+        // 3 x 3 grid: the middle point is off by 6 px, the others agree: smoothing pulls it in.
+        std::vector<Vec2> bend(9);
+        std::vector<bool> known(9, true);
+        bend[4] = {6, 0};
+        smoothBend(bend, known, 3, 3, 0.0);
+        QCOMPARE(bend[4].x, 6.0);
+        smoothBend(bend, known, 3, 3, 1.0);
+        QVERIFY(bend[4].x < 1.0);
+        // An unknown point takes the mean of its known neighbours.
+        std::vector<Vec2> b2(9);
+        std::vector<bool> k2(9, true);
+        b2[1] = {10, 0};
+        b2[3] = {20, 0};
+        k2[0] = false;
+        smoothBend(b2, k2, 3, 3, 0.0);
+        QCOMPARE(b2[0].x, 15.0);
+    }
+
+private:
+    /// 40 frames of the texture plane footage "plane"/"bend" as gray images.
+    GrayImage grayOf(const QString& media, int frame)
+    {
+        TimelineData tl = emptyTimeline(kW, kH);
+        addClip(tl, TrackType::Video, 0, mediaClip(tl, media, 0, 40, 0, 0));
+        return grayFromImage(render(tl, frame));
+    }
+
+    /// Mean distance of @p mesh from the truth @p truth(i), pixels.
+    template<typename F>
+    double meshError(const std::vector<Vec2>& mesh, F truth)
+    {
+        double sum = 0;
+        for (size_t i = 0; i < mesh.size(); ++i) {
+            const Vec2 t = truth(i);
+            sum += std::hypot(mesh[i].x - t.x, mesh[i].y - t.y);
+        }
+        return sum / double(mesh.size());
+    }
+
+private slots:
+    void meshFollowsAPlanarMotion()
+    {
+        if (!gpuReady())
+            QSKIP("no OpenGL");
+        // The textured plane moves 3 px right and 2 px down per frame.
+        const int n = 4;
+        std::vector<Vec2> rest;
+        for (int r = 0; r < n; ++r)
+            for (int c = 0; c < n; ++c)
+                rest.push_back({70.0 + 30 * c, 50.0 + 30 * r});
+        MeshSettings s;
+        s.cols = s.rows = n;
+        s.patchSize = 21;
+        s.searchSize = 41;
+        MeshTracker tracker(s);
+        QVERIFY(tracker.reset(grayOf(QStringLiteral("plane"), 0), rest));
+        double worst = 0;
+        for (int f = 1; f <= 10; ++f) { // the grid stays well inside the picture until then
+            const MeshResult r = tracker.track(grayOf(QStringLiteral("plane"), f));
+            QVERIFY2(r.ok, qPrintable(QString::number(f)));
+            worst = std::max(worst, meshError(r.points, [&](size_t i) {
+                return Vec2 {rest[i].x + 3.0 * f, rest[i].y + 2.0 * f};
+            }));
+        }
+        qInfo("Surface Tracker (plane): worst mean error %.3f px", worst);
+        QVERIFY2(worst <= 1.0, qPrintable(QString::number(worst)));
+    }
+
+    void meshFollowsABend()
+    {
+        if (!gpuReady())
+            QSKIP("no OpenGL");
+        // The picture bends: a feature at (x, y) is at y + N * 0.15 * sin(0.04 x) in frame N.
+        const int n = 5;
+        std::vector<Vec2> rest;
+        for (int r = 0; r < n; ++r)
+            for (int c = 0; c < n; ++c)
+                rest.push_back({60.0 + 50 * c, 40.0 + 25 * r});
+        auto truth = [&](size_t i, int f) {
+            return Vec2 {rest[i].x, rest[i].y + f * 0.15 * std::sin(0.04 * rest[i].x)};
+        };
+        MeshSettings s;
+        s.cols = s.rows = n;
+        s.patchSize = 21;
+        s.searchSize = 41;
+        s.smoothing = 0.0;
+        MeshTracker tracker(s);
+        QVERIFY(tracker.reset(grayOf(QStringLiteral("bend"), 0), rest));
+        MeshResult last;
+        for (int f = 1; f <= 24; ++f) {
+            last = tracker.track(grayOf(QStringLiteral("bend"), f));
+            QVERIFY2(last.ok, qPrintable(QString::number(f)));
+            if (f % 4 == 0)
+                qInfo("bend frame %d: good %d corr %.2f error %.2f", f, last.good, last.correlation,
+                    meshError(last.points, [&](size_t i) { return truth(i, f); }));
+        }
+        const double meshOnly = meshError(last.points, [&](size_t i) { return truth(i, 24); });
+        // A single perspective map (what the planar tracker can do) cannot follow the bend.
+        std::vector<Vec2> to;
+        for (size_t i = 0; i < rest.size(); ++i)
+            to.push_back(truth(i, 24));
+        const auto fit = homographyFromPoints(rest, to);
+        QVERIFY(fit);
+        const double planarOnly = meshError(
+            [&] {
+                std::vector<Vec2> m;
+                for (const Vec2& p : rest)
+                    m.push_back(fit->map(p));
+                return m;
+            }(),
+            [&](size_t i) { return truth(i, 24); });
+        qInfo("Surface Tracker (bend): mesh %.3f px, best single plane %.3f px", meshOnly, planarOnly);
+        QVERIFY2(meshOnly <= 1.2, qPrintable(QString::number(meshOnly)));
+        QVERIFY(meshOnly < planarOnly);
+    }
+
+
+private:
+    /// A stored 2 x 2 mesh track whose corners all move by (@p du, 0) at source second 1.
+    static EffectInstance shiftedMesh(TimelineData& tl, double du, const QString& mode)
+    {
+        EffectInstance fx = effect(tl, fxid::SurfaceTracker, {{k::GridDensity, 2.0}},
+            {{k::SurfaceMode, mode}});
+        const float u0 = 0.2f, u1 = 0.8f, v0 = 0.8f, v1 = 0.2f;
+        const float d = float(du);
+        const efftrack::Table table(surface::signature(fx.params), 0.0, 8, {0.0, 1.0},
+            {u0, v0, u1, v0, u0, v1, u1, v1, u0 + d, v0, u1 + d, v0, u0 + d, v1, u1 + d, v1});
+        fx.params.setStatic(k::TrackData, efftrack::encode(table));
+        return fx;
+    }
+
+private slots:
+    void surfacePinMovesTheClip()
+    {
+        TimelineData tl = emptyTimeline(kW, kH);
+        ClipData clip = mediaClip(tl, QStringLiteral("patch"), 0, 40, 0, 0);
+        clip.effects = {shiftedMesh(tl, 0.1, fxchoice::SurfacePin)};
+        QVERIFY(surface::hasActivePin(clip));
+        const QTransform t = surface::pinTransform(clip, 25, QSizeF(kW, kH), Rational {25, 1});
+        QVERIFY(std::abs(t.dx() - 0.1 * kW) < 0.05);
+        QVERIFY(std::abs(t.dy()) < 0.05);
+        clip.effects[0].params.setStatic(k::SurfaceMode, fxchoice::SurfaceWarp);
+        QVERIFY(!surface::hasActivePin(clip));
+        clip.effects[0].params.setBase(k::GridDensity, 3.0); // the inputs changed: stale
+        clip.effects[0].params.setStatic(k::SurfaceMode, fxchoice::SurfacePin);
+        QVERIFY(!surface::hasActivePin(clip));
+        QVERIFY(surface::needsTracking(clip.effects[0]));
+    }
+
+    void surfaceWarpBendsThePicture()
+    {
+        if (!gpuReady())
+            QSKIP("no OpenGL");
+        TimelineData tl = footageTimeline();
+        const QPointF before = whiteCentre(render(tl, 25));
+        tl.videoTracks[0].clips[0].effects = {shiftedMesh(tl, 0.1, fxchoice::SurfaceWarp)};
+        const QPointF after = whiteCentre(render(tl, 25));
+        QVERIFY2(std::abs(after.x() - before.x() - 0.1 * kW) < 3.0,
+            qPrintable(QStringLiteral("%1 -> %2").arg(before.x()).arg(after.x())));
+        QVERIFY(std::abs(after.y() - before.y()) < 2.0);
+        // Pin mode leaves the pixels to the transform: the plain render shows no warp pass.
+        tl.videoTracks[0].clips[0].effects[0].params.setStatic(k::SurfaceMode, fxchoice::SurfacePin);
+        const QPointF pinned = whiteCentre(render(tl, 25));
+        QVERIFY2(std::abs(pinned.x() - before.x() - 0.1 * kW) < 3.0, "pin");
     }
 
     void refusals()

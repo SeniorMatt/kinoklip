@@ -2,6 +2,7 @@
 #include "compositing/tracking/EffectTrackJob.h"
 
 #include "core/MatchMove.h"
+#include "core/SurfaceTracker.h"
 #include "core/VideoEffectKeys.h"
 
 #include <algorithm>
@@ -57,7 +58,8 @@ std::optional<EffectTrackPlan> planEffectTrack(const TimelineData& tl, quint64 c
         if (e.id == effectId)
             fx = &e;
     }
-    if (!fx || fx->type != QLatin1String(fxid::MatchMove))
+    const bool isSurface = fx && fx->type == QLatin1String(fxid::SurfaceTracker);
+    if (!fx || (fx->type != QLatin1String(fxid::MatchMove) && !isSurface))
         return fail(QStringLiteral("the effect is missing"));
     if (!clip->contains(playhead))
         return fail(QStringLiteral("move the playhead into the clip first"));
@@ -69,14 +71,19 @@ std::optional<EffectTrackPlan> planEffectTrack(const TimelineData& tl, quint64 c
         = p.staticValue(k::TrackSource, fxchoice::TrackClip).toString() == fxchoice::TrackBelow;
     if (below && trackIndex == 0)
         return fail(QStringLiteral("there is no track below the clip"));
-    const bool planar
-        = p.staticValue(k::TrackKind, fxchoice::KindPosition).toString() == fxchoice::KindPlanar;
+    const bool planar = !isSurface
+        && p.staticValue(k::TrackKind, fxchoice::KindPosition).toString() == fxchoice::KindPlanar;
+    const int density = isSurface
+        ? std::clamp(int(std::lround(p.value(k::GridDensity, 0, 4.0))), surface::kMinDensity,
+            surface::kMaxDensity)
+        : 0;
 
     EffectTrackPlan plan;
     plan.clipId = clipId;
     plan.effectId = effectId;
-    plan.signature = matchmove::signature(p);
-    plan.stride = planar ? matchmove::kRegionStride : matchmove::kPointStride;
+    plan.signature = isSurface ? surface::signature(p) : matchmove::signature(p);
+    plan.stride = isSurface ? 2 * density * density
+                            : (planar ? matchmove::kRegionStride : matchmove::kPointStride);
     plan.startFrame = playhead;
     const Rational fps = tl.fps;
     const ClipData clipCopy = *clip;
@@ -102,7 +109,8 @@ std::optional<EffectTrackPlan> planEffectTrack(const TimelineData& tl, quint64 c
         for (TrackData& track : copy->videoTracks) {
             for (ClipData& c : track.clips) {
                 for (EffectInstance& e : c.effects) {
-                    if (e.type == QLatin1String(fxid::MatchMove))
+                    if (e.type == QLatin1String(fxid::MatchMove)
+                        || e.type == QLatin1String(fxid::SurfaceTracker))
                         e.enabled = false;
                 }
             }
@@ -125,7 +133,22 @@ std::optional<EffectTrackPlan> planEffectTrack(const TimelineData& tl, quint64 c
     job.startU = u;
     job.startV = v;
     job.planar = planar;
-    if (planar) {
+    if (isSurface) {
+        const double w = std::clamp(p.value(k::RegionSize, 0, 30.0), 2.0, 100.0) / 100.0;
+        const double h = std::clamp(p.value(k::RegionHeight, 0, 30.0), 2.0, 100.0) / 100.0;
+        job.mesh = true;
+        job.meshCols = job.meshRows = density;
+        job.meshSmoothing = std::clamp(p.value(k::Smoothing, 0, 50.0), 0.0, 100.0) / 100.0;
+        for (int r = 0; r < density; ++r) {
+            for (int c = 0; c < density; ++c) {
+                job.startMesh.push_back(u - w / 2 + w * c / (density - 1));
+                job.startMesh.push_back(v + h / 2 - h * r / (density - 1));
+            }
+        }
+        const double spacing = w / (density - 1);
+        job.patternFraction = std::clamp(spacing * 0.7, 0.03, 0.1);
+        job.searchFraction = std::max(0.1, spacing * 1.2);
+    } else if (planar) {
         const double hw = size / 2;
         const double hh = hw * double(tl.width) / double(tl.height);
         job.startCorners = {u - hw, v + hh, u + hw, v + hh, u + hw, v - hh, u - hw, v - hh};
@@ -156,7 +179,10 @@ std::shared_ptr<const efftrack::Table> tableFromSamples(
         if (!seconds.empty() && std::abs(seconds.back() - second) < 1e-9)
             continue; // a retimed clip can show one source time twice
         seconds.push_back(second);
-        if (plan.stride == matchmove::kPointStride) {
+        if (!s->mesh.empty()) {
+            for (const double c : s->mesh)
+                values.push_back(float(c));
+        } else if (plan.stride == matchmove::kPointStride) {
             values.push_back(float(s->u));
             values.push_back(float(s->v));
         } else {

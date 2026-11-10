@@ -48,6 +48,8 @@ struct EffectInput
     double fps = 25.0; ///< timeline frame rate (animated effects: speed in cycles per second)
     /// Earlier frames of the clip (time effects); null where the renderer has none.
     LayerHistory* history = nullptr;
+    /// The clip's source time at this frame, seconds (the key of stored tracks, spec 70).
+    double sourceSeconds = 0.0;
 };
 
 /// One video effect, implemented as one or more fragment-shader passes over the layer.

@@ -513,7 +513,7 @@ std::future<RenderedFramePtr> PlaybackEngine::renderImageOf(
     request.timeline = std::move(timeline);
     request.media = m_media;
     request.proxies = m_proxies;
-    request.bypassGrades = m_bypassGrades;
+    request.bypassGrades = false; // tracking sees the graded picture, whatever the viewer bypass
     request.dynamicZoom = m_dynamicZoomApplied;
     request.frame = frame;
     request.outSize = outSize;

@@ -107,6 +107,10 @@ void TrackerRunner::launchStep()
             runPlanar(*run, gray, first, step);
             return step;
         }
+        if (run->job.mesh) {
+            runMesh(*run, gray, first, step);
+            return step;
+        }
         if (first) {
             TrackerSettings settings;
             settings.patternSize = std::max(8, int(std::lround(run->job.patternFraction * w)));
@@ -180,6 +184,52 @@ void TrackerRunner::runPlanar(Run& run, const GrayImage& gray, bool first, Step&
         return;
     }
     store(r.corners);
+}
+
+void TrackerRunner::runMesh(Run& run, const GrayImage& gray, bool first, Step& step)
+{
+    const double w = gray.width, h = gray.height;
+    const TrackJob& job = run.job;
+    auto store = [&](const std::vector<Vec2>& points) {
+        step.sample.mesh.clear();
+        for (const Vec2& p : points) {
+            step.sample.mesh.push_back((p.x + 0.5) / w);
+            step.sample.mesh.push_back(1.0 - (p.y + 0.5) / h);
+        }
+        step.sample.u = step.sample.mesh.empty() ? 0.5 : step.sample.mesh[0];
+        step.sample.v = step.sample.mesh.empty() ? 0.5 : step.sample.mesh[1];
+    };
+    if (first) {
+        MeshSettings settings;
+        settings.cols = job.meshCols;
+        settings.rows = job.meshRows;
+        settings.patchSize = std::max(9, int(std::lround(job.patternFraction * w)));
+        settings.searchSize
+            = std::max(settings.patchSize, int(std::lround(job.searchFraction * w)));
+        settings.minCorrelation = std::min(job.minCorrelation, 0.6);
+        settings.smoothing = job.meshSmoothing;
+        run.meshTracker = MeshTracker(settings);
+        std::vector<Vec2> points;
+        for (size_t i = 0; i + 1 < job.startMesh.size(); i += 2)
+            points.push_back(toPixels(job.startMesh[i], job.startMesh[i + 1], w, h));
+        if (!run.meshTracker.reset(gray, points)) {
+            step.outcome = TrackOutcome::Lost;
+            step.reason = QObject::tr("The region has no detail to follow. Move it onto a "
+                                      "textured, fully visible surface.");
+            return;
+        }
+        store(points);
+        step.sample.correlation = 1.0;
+        return;
+    }
+    const MeshResult r = run.meshTracker.track(gray);
+    step.sample.correlation = r.correlation;
+    if (!r.ok) {
+        step.outcome = TrackOutcome::Lost;
+        step.reason = QObject::tr("The surface was lost.");
+        return;
+    }
+    store(r.points);
 }
 
 void TrackerRunner::onStepDone(quint64 generation)

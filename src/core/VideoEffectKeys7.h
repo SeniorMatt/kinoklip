@@ -20,6 +20,8 @@ inline const QString TrackSource = QStringLiteral("trackSource");
 inline const QString TrackKind = QStringLiteral("trackKind");
 inline const QString TrackDirection = QStringLiteral("trackDirection");
 inline const QString RegionSize = QStringLiteral("regionSize"); ///< percent of the picture width
+inline const QString GridDensity = QStringLiteral("gridDensity"); ///< points per side
+inline const QString SurfaceMode = QStringLiteral("surfaceMode");
 inline const QString TrackData = QStringLiteral("trackData"); ///< hidden: core/EffectTrack.h
 } // namespace fxkeys
 
@@ -30,6 +32,8 @@ inline const QString KindPosition = QStringLiteral("position");
 inline const QString KindPlanar = QStringLiteral("planar");
 inline const QString DirectionFollow = QStringLiteral("follow");
 inline const QString DirectionLock = QStringLiteral("lock");
+inline const QString SurfacePin = QStringLiteral("pin");
+inline const QString SurfaceWarp = QStringLiteral("warp");
 } // namespace fxchoice
 
 } // namespace kk

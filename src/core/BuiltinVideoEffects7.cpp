@@ -40,6 +40,13 @@ ParamDescriptor fixedNumber(const QString& key, const QString& label, double min
     return p;
 }
 
+ParamDescriptor fixedInt(const QString& key, const QString& label, int min, int max, int def)
+{
+    ParamDescriptor p = integer(key, label, min, max, def);
+    p.animatable = false;
+    return p;
+}
+
 ParamDescriptor trackData()
 {
     ParamDescriptor p = text(fxkeys::TrackData, QStringLiteral("Track"), QString());
@@ -67,6 +74,29 @@ void EffectRegistry::registerVideoEffects7()
             fixedNumber(k::RegionX, tr("Region X"), 0, 100, 50, 0.1, kPercent),
             fixedNumber(k::RegionY, tr("Region Y"), 0, 100, 50, 0.1, kPercent),
             fixedNumber(k::RegionSize, tr("Region Size"), 2, 80, 12, 0.1, kPercent),
+            number(k::Strength, tr("Strength"), 0, 200, 100, 1, kPercent),
+            number(k::OffsetX, tr("Offset X"), -4000, 4000, 0, 0.5, kPx),
+            number(k::OffsetY, tr("Offset Y"), -4000, 4000, 0, 0.5, kPx),
+            trackData(),
+        }));
+
+    add(effect(fxid::SurfaceTracker, tr("Surface Tracker"),
+        tr("Tracks a bending surface with a mesh of points, then pins the clip to it or warps the "
+           "clip with it"),
+        g::Transform,
+        {
+            choice(k::TrackSource, tr("Track"), {c::TrackClip, c::TrackBelow},
+                {tr("This Clip"), tr("Footage Below")}, c::TrackClip),
+            choice(k::SurfaceMode, tr("Apply"), {c::SurfacePin, c::SurfaceWarp},
+                {tr("Pin to the Surface"), tr("Warp with the Surface")}, c::SurfacePin),
+            choice(k::TrackDirection, tr("Direction"), {c::DirectionFollow, c::DirectionLock},
+                {tr("Follow the Track"), tr("Hold the Track in Place")}, c::DirectionFollow),
+            fixedNumber(k::RegionX, tr("Region X"), 0, 100, 50, 0.1, kPercent),
+            fixedNumber(k::RegionY, tr("Region Y"), 0, 100, 50, 0.1, kPercent),
+            fixedNumber(k::RegionSize, tr("Region Width"), 2, 100, 30, 0.1, kPercent),
+            fixedNumber(k::RegionHeight, tr("Region Height"), 2, 100, 30, 0.1, kPercent),
+            fixedInt(k::GridDensity, tr("Grid Density"), 2, 8, 4),
+            fixedNumber(k::Smoothing, tr("Smoothing"), 0, 100, 50, 1, kPercent),
             number(k::Strength, tr("Strength"), 0, 200, 100, 1, kPercent),
             number(k::OffsetX, tr("Offset X"), -4000, 4000, 0, 0.5, kPx),
             number(k::OffsetY, tr("Offset Y"), -4000, 4000, 0, 0.5, kPx),

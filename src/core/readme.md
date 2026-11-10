@@ -292,7 +292,7 @@ the absolute path no longer exists.
    `registerVideoEffects5()` in `BuiltinVideoEffects5.cpp`, keys in `VideoEffectKeys5.h`; the template
    looks, spec 65: `registerVideoEffects6()` in `BuiltinVideoEffects6.cpp`, keys in `VideoEffectKeys6.h`; the tracking effects, spec 70: `registerVideoEffects7()` in
    `BuiltinVideoEffects7.cpp`, keys in `VideoEffectKeys7.h`, the stored track in `EffectTrack.h`,
-   Match Move's maths in `MatchMove.h`).
+   Match Move's maths in `MatchMove.h`, Surface Tracker's in `SurfaceTracker.h`).
    Builders: `EffectBuilders.h`.
 2. Implement the pixels in `src/render` keyed by the same id. The Inspector picks it up
    automatically from the descriptor; a Color parameter (or a Double hue) with `viewerPicker`

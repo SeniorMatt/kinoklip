@@ -77,6 +77,9 @@ public:
     TrackResult track(const GrayImage& next);
 
     [[nodiscard]] Vec2 position() const { return m_position; }
+    /// Moves the point to @p position without taking a new pattern (the mesh tracker carries a
+    /// point that was lost along with its neighbours).
+    void setPosition(Vec2 position) { m_position = position; }
     [[nodiscard]] const TrackerSettings& settings() const { return m_settings; }
 
 private:

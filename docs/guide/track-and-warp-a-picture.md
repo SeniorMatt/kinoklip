@@ -34,3 +34,20 @@ If you change **Track**, **Tracking** or the region after tracking, the old trac
 the effect says **Track again**. The other settings change the picture at once. **Clear Track**
 throws the track away. The track is saved in the project with the clip and follows it when you
 trim, split or change its speed, but if you move the graphic against the footage, track again.
+
+## Pin a graphic to a bending surface, or bend the picture (Surface Tracker)
+
+Use **Surface Tracker** when the thing moves and also bends or turns, like a flag, a sheet of
+paper or a screen filmed at an angle.
+
+1. Add **Surface Tracker** (**Transform** folder) to the clip, set **Track** (**Footage Below** for
+   a graphic above the footage), move the playhead to the frame where the graphic should sit.
+2. Cover the surface with the region (**Region X**, **Y**, **Width**, **Height**). **Grid Density**
+   is how many points follow the surface on each side: more points follow a stronger bend.
+3. Click **Track Forward** and **Track Backward**, as with Match Move.
+4. **Apply** chooses the result: **Pin to the Surface** moves the graphic with the surface, and
+   **Warp with the Surface** bends the clip's own picture the way the surface bends. **Smoothing**
+   calms jumpy points.
+
+Like Match Move, the track is stored with the clip and a change of region, grid or source needs a
+new track.

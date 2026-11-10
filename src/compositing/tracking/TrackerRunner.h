@@ -6,6 +6,7 @@
 // or the project.
 #pragma once
 
+#include "compositing/tracking/MeshTracker.h"
 #include "compositing/tracking/PlanarTracker.h"
 #include "compositing/tracking/PointTracker.h"
 #include "render/RenderTypes.h"
@@ -35,6 +36,8 @@ struct TrackSample
     /// u0, v0, u1, v1, ... in the same normalised coordinates; u, v is then the region's centre.
     std::array<double, 8> corners {};
     bool planar = false;
+    /// Mesh jobs: the grid points as u0, v0, u1, v1, ... (row by row), same coordinates.
+    std::vector<double> mesh;
 };
 
 /// What to track.
@@ -51,6 +54,14 @@ struct TrackJob
     /// the side of a patch and searchFraction the side of the box a patch may move in.
     bool planar = false;
     std::array<double, 8> startCorners {};
+    /// Mesh tracking (Surface Tracker): follow a grid of meshCols x meshRows points, given on
+    /// firstFrame as u0, v0, u1, v1, ... row by row. patternFraction is the side of a point's
+    /// pattern, searchFraction the side of its search box; meshSmoothing is MeshSettings::smoothing.
+    bool mesh = false;
+    int meshCols = 0;
+    int meshRows = 0;
+    std::vector<double> startMesh;
+    double meshSmoothing = 0.5;
     /// Box sides as a fraction of the picture width (resolution independent).
     double patternFraction = 0.05;
     double searchFraction = 0.15;
@@ -109,8 +120,11 @@ private:
         TrackJob job;
         PointTracker tracker;
         PlanarTracker planarTracker;
+        MeshTracker meshTracker;
     };
 
+    /// One background step of a mesh job (reset on the first frame, track on the others).
+    static void runMesh(Run& run, const GrayImage& gray, bool first, Step& step);
     /// One background step of a planar job (reset on the first frame, track on the others).
     static void runPlanar(Run& run, const GrayImage& gray, bool first, Step& step);
     void requestFrame();

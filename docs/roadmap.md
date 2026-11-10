@@ -52,7 +52,7 @@ Still to do for 1.2:
 - [x] Effects: Dust Buster
 - [x] Effects: Patch Replacer
 - [x] Tracking: Match Move
-- [ ] Tracking: Surface Tracker
+- [x] Tracking: Surface Tracker
 - [ ] Effects: Warper
 - [x] Effects: CCTV look
 - [x] Effects: Digital Glitch look
