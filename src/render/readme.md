@@ -10,7 +10,7 @@ logging category `kk.render`. Depends on `core` and `media`; never on widgets.
 |---|---|
 | `Compositor.h` | `Compositor`: render thread + GL context; `render()`, `renderAsync()`, `renderImage()`, `setMediaPaths()`, `isGpu()` |
 | `RenderTypes.h` | `Quality` (Full/Half/Quarter), `MediaPathMap` + `makeMediaPathMap()`, `RenderOutput` flags, `RenderRequest`, `RenderedFrame` / `RenderedFramePtr` |
-| `AudioMixer.h` | `AudioMixer::mix(timeline, startSample48k, frames, out)` — 48 kHz interleaved stereo float |
+| `AudioMixer.h` | `AudioMixer::mix(timeline, startSample48k, frames, out)` — 48 kHz interleaved stereo float; per clip: pitch shift (WSOLA stretch + resample, spec 67), clip EQ, clip effects, volume, pan |
 | `AudioNormalize.h` | Clip > Normalize Audio Levels (spec 37.35): `audionorm::measure()` decodes a clip's source range in 100 ms blocks into a `LoudnessMeter` (true peak, integrated LUFS) plus a sample peak, cancellable, with progress; `gains()` (relative / independent) |
 | `RenderFrameCommand.h` | `runRenderFrame()` behind `kinoklip --render-frame <project.kkproj> <frame> <out.png>` |
 

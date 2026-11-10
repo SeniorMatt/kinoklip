@@ -65,6 +65,7 @@ search field.
 - [Separate the audio from the video](separate-audio-from-video.md)
 - [Animate with keyframes](keyframe-animation.md)
 - [Make quiet and loud clips the same volume](even-out-clip-volumes.md)
+- [Change the pitch of a clip and equalize it](change-pitch-and-equalize-a-clip.md)
 - [Put text over a clip on the Compositing page](compositing-page.md)
 - [Colour correct a clip](colour-correct-a-clip.md) (the Color page)
 - [Change the colour of one object](change-the-colour-of-one-object.md)

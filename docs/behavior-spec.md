@@ -1713,6 +1713,36 @@ CCTV, Digital Glitch, Drone Overlay, DSLR, DVE, Video Call and Video Camera are 
 | 65.9 | Video Camera draws, with Recording on, a red dot (blinking, or steady with Blink Recording Dot off) and REC, or STBY with Recording off; the Format Label and Card Remaining texts; a battery icon and percent; the timecode HH:MM:SS:FF at the bottom left, which is Start Timecode plus the clip frame count at the nominal frame rate (rounded fps; a start in drop-frame form with a semicolon reads the same); a Zoom bar from W to T; a focus frame in the middle (Focus Frame) and corner marks (Corner Marks). | Done (test_looks timecodeAndTimers, blinkingDotsChangeThePicture) |
 | 65.10 | The seven looks do not change the existing 99 video effects: the catalogue now has 106 video effects and the Effects section (Toolbox) 13 entries. The guide page is camera-and-screen-looks.md; the Effects library status table lists the seven as works. | Done (test_mediapool, test_looks templatesRender) |
 
+## 67. Inspector Audio tab: Pitch and clip Equalizer (audio-inspector branch, roadmap: "Inspector Audio tab compared with every audio option Resolve has, Pitch first")
+
+Resolve's Inspector > Audio tab for a timeline audio clip, from its public manual and general knowledge, against Kinoklip:
+
+| Resolve control | Kinoklip | Status |
+|---|---|---|
+| Volume (dB, keyframable) | Volume | Done earlier |
+| Pan (keyframable) | Pan | Done earlier |
+| Pitch (semitones) and fine pitch (cents) | Pitch, Pitch Fine | Done (67.1 - 67.4) |
+| Equalizer (switch, four bands with type, frequency, gain, Q) | Equalizer section: switch, four bands (low shelf, bell, bell, high shelf), frequency, gain, Q | Done (67.5 - 67.7); the band type is fixed per band, no band-type choice |
+| Voice Isolation (Studio, machine learning) | none | Skipped on purpose: needs a model; the roadmap allows only optional, local, labelled AI tools |
+| Dialogue Leveler (Studio, machine learning) | none | Skipped on purpose, as above (Clip > Normalize Audio Levels and the compressor in the audio effects cover the plain cases) |
+| Audio effects on the clip (Fairlight FX / Effects tab) | Inspector > Effects tab, "Audio Effects" (spec 51) | Done earlier |
+| Retime / Elastic Wave (Fairlight retiming of audio) | clip speed, retime curve and "Pitch correction" (spec 29) | Done earlier |
+| Normalize Audio Levels, channel mapping (Clip Attributes) | Clip menu commands | Done earlier (spec 37) |
+| Equalizer band types (high-pass, low-pass, notch) and more than four bands | none | Left: the mixer's strip EQ has them, the clip EQ does not offer them |
+| Keyframes for Pitch and the Equalizer | none | Left on purpose: one value per clip |
+
+Code: `src/core/ParamKeys.h` (keys, stored in `ClipData::audio`), `src/core/BuiltinEffects.cpp` (the two Inspector groups), `src/render/AudioMixer.cpp` (`pitchedSource()` and the clip EQ stage in `mixClip()`), `src/app/commands/ClipCommands.cpp` (`clip.set`). Tests: `tests/render/test_audiopitch.cpp`, `tests/panels/test_inspector.cpp` (spec67), `tests/app/test_commands.cpp` (clipSetPitchAndEqualizer).
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 67.1 | The Audio tab has Pitch (-24 to 24 semitones, step 1) and Pitch Fine (-100 to 100 cents) under Volume and Pan. The pitch is the sum, a frequency factor of 2^((semitones + cents / 100) / 12). Neither has a keyframe button. | Done (test_inspector spec67, test_audiopitch octaveUp, centsAdd) |
+| 67.2 | A pitch shift keeps the clip's length and speed: +12 doubles the frequency of a sine, -12 halves it, the sound runs to the end of the clip and starts at its start (no delay). A pitch of 0 (including +1 semitone with -100 cents) leaves the samples bit for bit unchanged. | Done (test_audiopitch zeroLeaves..., octaveUp..., octaveDown..., centsAdd...) |
+| 67.3 | How: the clip's source is time stretched by the factor with the same WSOLA as retimed audio with pitch correction (`render/TimeStretch.h`, 1024-sample grains, no new library; FFmpeg's rubberband filter and librubberband are not used), then read back at the factor with cubic interpolation. The stretch is random access, so playback, scrubbing and export give the same samples whatever the block size. Cost is about the pitch-corrected retime (about 12 ms of CPU per second of audio), so it is real time. Quality: good for up to a few semitones; large shifts (an octave or more) on speech sound processed; shifting up more than an octave folds some high frequencies back (no band limiting before the read). | Done (test_audiopitch blocksOfAnySize...) |
+| 67.4 | Pitch applies to clips at normal speed. A clip with a speed change or retime keeps its own time handling and ignores the pitch value (the value is kept). | Done by design |
+| 67.5 | The Audio tab has an Equalizer section with a switch (off by default) and four bands: 1 low shelf (100 Hz), 2 bell (500 Hz), 3 bell (2 kHz), 4 high shelf (8 kHz). Each has Frequency (20 - 20000 Hz), Gain (-24 to 24 dB, 0 default) and Q (0.1 - 18; 0.707 for the shelves, 1 for the bells). Not keyframable. | Done (test_inspector spec67) |
+| 67.6 | The clip EQ uses the mixer's Equalizer (`render/Equalizer.h`, RBJ biquads) on the clip's source after pitch, before the clip's audio effects, volume, pan and fades. Switched off it leaves the samples bit for bit unchanged; switched on, a band boosts or cuts its range (a +12 dB bell on a sine at its frequency gives about four times the level, a band far away changes nothing). | Done (test_audiopitch equalizerBoostsItsBand, lowShelfCutsALowTone) |
+| 67.7 | Pitch and the Equalizer are saved in the project (`ClipData::audio`), each edit is one undo step, and the command line and MCP get them through `clip.set`: `--pitch` (semitones, -24 to 24, fractions are cents), `--eq on|off`, `--eq1-freq` ... `--eq4-freq`, `--eq1-gain` ... `--eq4-gain`, `--eq1-q` ... `--eq4-q`. Out-of-range values fail with `out_of_range`. `clip.list` shows `pitch`. | Done (test_commands clipSetPitchAndEqualizer, test_inspector spec67) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

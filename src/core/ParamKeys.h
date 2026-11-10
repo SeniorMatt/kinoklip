@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QStringView>
 
 namespace kk::keys {
@@ -60,6 +61,18 @@ inline const QString DynamicZoomEndSize = QStringLiteral("dynamicZoomEndSize");
 inline const QString VolumeDb
     = QStringLiteral("volumeDb"); ///< gain in dB (−96 = silence); default 0
 inline const QString Pan = QStringLiteral("pan"); ///< −1 (left) .. +1 (right); default 0
+/// Pitch (not animated): semitones −24 .. 24 plus cents −100 .. 100; the length stays.
+inline const QString PitchSemitones = QStringLiteral("pitchSemitones");
+inline const QString PitchCents = QStringLiteral("pitchCents");
+/// Clip equalizer (static bool, off by default) and its four bands (not animated): band 1
+/// low shelf, 2 and 3 bells, 4 high shelf; frequency in Hz, gain in dB, Q.
+inline const QString EqEnabled = QStringLiteral("eqEnabled");
+inline const QStringList EqBandFreq = {QStringLiteral("eq1Hz"), QStringLiteral("eq2Hz"),
+    QStringLiteral("eq3Hz"), QStringLiteral("eq4Hz")};
+inline const QStringList EqBandGain = {QStringLiteral("eq1Db"), QStringLiteral("eq2Db"),
+    QStringLiteral("eq3Db"), QStringLiteral("eq4Db")};
+inline const QStringList EqBandQ = {
+    QStringLiteral("eq1Q"), QStringLiteral("eq2Q"), QStringLiteral("eq3Q"), QStringLiteral("eq4Q")};
 
 // ---- Retime (ClipData::retime, animated; see core/Retime.h) ----
 /// Source position (in source frames counted at the timeline frame rate, relative: only

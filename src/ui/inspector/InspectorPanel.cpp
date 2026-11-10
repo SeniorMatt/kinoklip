@@ -804,8 +804,10 @@ void InspectorPanel::rebuild()
         }
         // Audio tab
         if (m_audioClipId) {
-            if (const EffectDescriptor* d = registry.find(QLatin1String(groups::Audio)))
-                addDescriptorGroup(AudioTab, *d, ParamScope::Audio, m_audioClipId);
+            for (const char* id : {groups::Audio, groups::AudioEq}) {
+                if (const EffectDescriptor* d = registry.find(QLatin1String(id)))
+                    addDescriptorGroup(AudioTab, *d, ParamScope::Audio, m_audioClipId);
+            }
         } else {
             addPlaceholder(AudioTab, tr("This clip has no audio."));
         }
@@ -1269,9 +1271,9 @@ void InspectorPanel::dropEvent(QDropEvent* event)
             m_tabs->setCurrentIndex(TransitionTab);
     } else {
         // An audio effect goes onto the audio part of a linked pair.
-        const quint64 target
-            = desc->category == EffectCategory::AudioEffect && m_audioClipId ? m_audioClipId
-                                                                           : m_clipId;
+        const quint64 target = desc->category == EffectCategory::AudioEffect && m_audioClipId
+            ? m_audioClipId
+            : m_clipId;
         done = effectactions::applyEffect(*m_ctx.project, {target}, id) > 0;
         if (done)
             m_tabs->setCurrentIndex(EffectsTab);
