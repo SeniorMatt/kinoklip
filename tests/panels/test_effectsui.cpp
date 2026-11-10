@@ -118,7 +118,8 @@ private slots:
             QStringList({QStringLiteral("Blur"), QStringLiteral("Color"), QStringLiteral("Distort"),
                 QStringLiteral("Key"), QStringLiteral("Light"), QStringLiteral("Refine"),
                 QStringLiteral("Revival"), QStringLiteral("Sharpen"), QStringLiteral("Stylize"),
-                QStringLiteral("Texture"), QStringLiteral("Time"), QStringLiteral("Transform")}));
+                QStringLiteral("Temporal"), QStringLiteral("Texture"), QStringLiteral("Time"),
+                QStringLiteral("Transform")}));
         QTreeWidgetItem* key = video->child(3);
         QStringList keyers;
         for (int i = 0; i < key->childCount(); ++i)

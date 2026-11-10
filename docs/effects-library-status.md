@@ -2,7 +2,7 @@
 
 151 of 183 entries work.
 
-Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve) is known to have from its public documentation (names only), and whether Kinoklip has it. `works` means an effect, transition, generator, title or clip of the same job is registered in Kinoklip (sometimes under its own name or with other settings); `planned` means it is not there yet. Nothing here is marked `not planned`. Kinoklip's own extras that Resolve lacks are not listed. The research behind the list is the gap list for version 1.2; the behaviour of what landed is in [behavior-spec.md](behavior-spec.md) sections 54, 56 and 57. [scripts/status.py](../scripts/status.py) counts this table for the picture in the readme; run it after changing a row.
+Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve) is known to have from its public documentation (names only), and whether Kinoklip has it. `works` means an effect, transition, generator, title or clip of the same job is registered in Kinoklip (sometimes under its own name or with other settings); `planned` means it is not there yet. Nothing here is marked `not planned`. Kinoklip's own extras that Resolve lacks are not listed. The research behind the list is the gap list for version 1.2; the behaviour of what landed is in [behavior-spec.md](behavior-spec.md) sections 54, 56, 57 and 60. [scripts/status.py](../scripts/status.py) counts this table for the picture in the readme; run it after changing a row.
 
 ## Video transitions
 
@@ -141,7 +141,7 @@ Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagic
 | Chromatic Adaptation | Color | Video effect | planned |
 | Color Compressor | Color | Video effect | planned |
 | Color Space Transform | Color | Video effect | planned |
-| Color Stabilizer | Color | Video effect | planned |
+| Color Stabilizer | Color | Video effect | works |
 | Contrast Pop | Color | Video effect | works |
 | DCTL | Color | Video effect | planned |
 | Dehaze | Color | Video effect | works |
@@ -168,16 +168,16 @@ Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagic
 | Depth Map | Refine | Video effect | planned |
 | Face Refinement | Refine | Video effect | planned |
 | Relight | Refine | Video effect | planned |
-| Automatic Dirt Removal | Revival | Video effect | planned |
+| Automatic Dirt Removal | Revival | Video effect | works |
 | Chromatic Aberration | Revival | Video effect | works |
 | Dead Pixel Fixer | Revival | Video effect | works |
 | Deband | Revival | Video effect | works |
-| Deflicker | Revival | Video effect | planned |
-| Dust Buster | Revival | Video effect | planned |
-| Frame Replacer | Revival | Video effect | planned |
+| Deflicker | Revival | Video effect | works |
+| Dust Buster | Revival | Video effect | works |
+| Frame Replacer | Revival | Video effect | works |
 | Noise Reduction | Revival | Video effect | works |
 | Object Removal | Revival | Video effect | planned |
-| Patch Replacer | Revival | Video effect | planned |
+| Patch Replacer | Revival | Video effect | works |
 | Sharpen | Sharpen | Video effect | works |
 | Sharpen Edges | Sharpen | Video effect | works |
 | Soften and Sharpen | Sharpen | Video effect | works |
@@ -194,9 +194,9 @@ Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagic
 | Tilt-Shift Blur | Stylize | Video effect | works |
 | Vignette | Stylize | Video effect | works |
 | Watercolor | Stylize | Video effect | works |
-| Motion Blur | Temporal | Video effect | planned |
-| Motion Trails | Temporal | Video effect | planned |
-| Smear | Temporal | Video effect | planned |
+| Motion Blur | Temporal | Video effect | works |
+| Motion Trails | Temporal | Video effect | works |
+| Smear | Temporal | Video effect | works |
 | Stop Motion | Temporal | Video effect | works |
 | Analog Damage | Texture | Video effect | works |
 | Detail Recovery | Texture | Video effect | works |

@@ -202,7 +202,8 @@ private slots:
             QStringList({QStringLiteral("blur"), QStringLiteral("color"), QStringLiteral("distort"),
                 QStringLiteral("key"), QStringLiteral("light"), QStringLiteral("refine"),
                 QStringLiteral("revival"), QStringLiteral("sharpen"), QStringLiteral("stylize"),
-                QStringLiteral("texture"), QStringLiteral("time"), QStringLiteral("transform")}));
+                QStringLiteral("temporal"), QStringLiteral("texture"), QStringLiteral("time"),
+                QStringLiteral("transform")}));
         QCOMPARE(EffectRegistry::groupName(QStringLiteral("key")), QStringLiteral("Key"));
         // The chroma key's colour has the viewer eyedropper.
         const ParamDescriptor* keyColor = registry.find(fxid::ChromaKey)->param(k::KeyColor);

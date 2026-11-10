@@ -223,7 +223,7 @@ PooledTarget GlRetime::luma(GlKit& kit, const RenderTarget& src, QSize size)
     return out;
 }
 
-PooledTarget GlRetime::interpolate(
+PooledTarget GlRetime::estimateFlow(
     GlKit& kit, const RenderTarget& a, const RenderTarget& b, float w)
 {
     GlFunctions* gl = kit.gl();
@@ -278,6 +278,15 @@ PooledTarget GlRetime::interpolate(
         kit.drawQuad();
         flow = std::move(smooth);
     }
+
+    return flow;
+}
+
+PooledTarget GlRetime::interpolate(
+    GlKit& kit, const RenderTarget& a, const RenderTarget& b, float w)
+{
+    GlFunctions* gl = kit.gl();
+    PooledTarget flow = estimateFlow(kit, a, b, w);
 
     // ---- Full resolution ----
     PooledTarget out = kit.acquire(a.size);

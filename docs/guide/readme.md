@@ -52,6 +52,7 @@ search field.
 - [Steady a shaky clip](stabilize-a-shaky-clip.md)
 - [Test patterns, generators and ready-made looks](test-patterns-and-looks.md)
 - [Sharpen, repair, damage and paint effects](sharpen-repair-and-damage-effects.md)
+- [Effects that use the frames around a frame](effects-that-use-other-frames.md) (trails, motion blur, deflicker, dust)
 - [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md) (OpenTimelineIO)
 - [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md)
 - [Control Kinoklip from an AI assistant (MCP)](control-kinoklip-from-an-ai-assistant.md)

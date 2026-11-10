@@ -129,8 +129,9 @@ private slots:
         // 8 v0.1 effects + 24 of the v4 batch 1 (tests/render/test_videoeffects.cpp) + 30 of
         // batch 2 (tests/render/test_videoeffects2.cpp) + 11 of version 1.2
         // (tests/render/test_effectsgap.cpp) + 17 of its second part
-        // (tests/render/test_effectsb.cpp).
-        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 90);
+        // (tests/render/test_effectsb.cpp) + 9 of the multi-frame effects
+        // (tests/render/test_effects5.cpp).
+        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 99);
 
         // Every descriptor is well-formed.
         for (const EffectDescriptor& d : reg.all()) {

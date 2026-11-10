@@ -126,6 +126,7 @@ inline constexpr char Key[] = "key";
 inline constexpr char Light[] = "light";
 inline constexpr char Stylize[] = "stylize";
 inline constexpr char Time[] = "time";
+inline constexpr char Temporal[] = "temporal";
 inline constexpr char Texture[] = "texture";
 inline constexpr char Revival[] = "revival";
 inline constexpr char Sharpen[] = "sharpen";
@@ -188,6 +189,7 @@ private:
     void registerVideoEffects2();
     void registerVideoEffects3();
     void registerVideoEffects4(); ///< 1.2 second part (spec 57)
+    void registerVideoEffects5(); ///< 1.2 multi-frame effects, Patch Replacer (spec 60)
     /// The clip audio effects (BuiltinAudioEffects.cpp).
     void registerAudioEffects();
 

@@ -1197,7 +1197,11 @@ void GlRenderer::applyEffects(const LayerJob& job, int64_t at, size_t count, Poo
 PooledTarget GlRenderer::renderLayerAt(const LayerJob& job, int64_t at, size_t count)
 {
     // The same clip, frame `at` of it: the timeline frame moves with it (the decode of that
-    // frame was queued by queueDecode(), see timefx::clipFrames()).
+    // frame was queued by queueDecode(), see timefx::clipFrames()). A clip without media
+    // (generator, title, nested timeline) has no frames outside itself: the edge frame repeats,
+    // as the decoder repeats the first and last frame of media.
+    if (job.clip->kind != ClipKind::Media && job.clip->duration > 0)
+        at = std::clamp<int64_t>(at, 0, job.clip->duration - 1);
     FrameContext fc = *job.fc;
     fc.frame = job.fc->frame + (at - job.local);
     ClipSource src;

@@ -17,7 +17,8 @@
 
 namespace kk::render {
 
-/// The clip's layer at other clip-local frames, for the time effects (Echo, Strobe): the
+/// The clip's layer at other clip-local frames, for the effects that read other frames (Echo,
+/// Strobe and the multi-frame effects of spec 60, see render/TimeEffects.h): the
 /// clip's picture with the effects before the asking effect applied, rendered at the same
 /// size and geometry as EffectInput::layer. Provided by the GPU renderer (GlRenderer), which
 /// decodes the frames timefx::clipFrames() lists before drawing.
@@ -125,5 +126,8 @@ struct GlEffectFactory
 [[nodiscard]] std::span<const GlEffectFactory> paintGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> opticsGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> utilityGlEffects();
+/// 1.2 multi-frame effects (spec 60): GlTemporalEffects.cpp, GlRepairEffects.cpp.
+[[nodiscard]] std::span<const GlEffectFactory> temporalGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> repairGlEffects();
 
 } // namespace kk::render

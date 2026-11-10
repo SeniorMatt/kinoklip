@@ -47,6 +47,14 @@ public:
     [[nodiscard]] PooledTarget interpolate(
         GlKit& kit, const RenderTarget& a, const RenderTarget& b, float w);
 
+    /// The motion field interpolate() uses, for effects that need the motion itself (Motion
+    /// Blur, spec 60): step 1 and 2 of the class comment. rg = motion A -> B in pixels of the
+    /// returned target (at most kFlowMaxWidth wide, the aspect of @p a), b = matching cost.
+    /// Defined at the in-between frame at weight @p w: with w = 0 at the pixels of A (where
+    /// A's content goes), with w = 1 at the pixels of B (where B's content came from).
+    [[nodiscard]] PooledTarget estimateFlow(
+        GlKit& kit, const RenderTarget& a, const RenderTarget& b, float w);
+
     static constexpr int kFlowMaxWidth = 640; ///< level 0 width limit (px)
     static constexpr int kFlowMinEdge = 24; ///< stop the pyramid below this edge (px)
     static constexpr int kMaxLevels = 5;
