@@ -33,8 +33,8 @@ Done for 1.2 so far (on main, not released yet):
 - [x] Audio: 8 audio effects on audio clips (Gain, Equalizer, Compressor, Limiter, High-pass, Low-pass, Delay, Reverb)
 - [x] Automation: the command-line interface
 - [x] Automation: the MCP server, with editing commands for effects, titles, keyframes and tracks, and optional live control of the open window
-- [x] Transitions: Smooth Cut and 56 more video transitions (61 in all)
-- [x] Generators: 9 more generators and test patterns (18 in all)
+- [x] Effects: Smooth Cut and 56 more video transitions (61 in all)
+- [x] Effects: 9 more generators and test patterns (18 in all)
 - [x] Effects: 28 more video effects (90 in all) and the Colored Border, Binoculars and Night Vision looks
 - [x] Timeline: fade curves that are shaped with the mouse on the clip
 
@@ -71,10 +71,10 @@ Still to do for 1.2:
 
 A large feature, so it gets its own big release. Smaller fix releases will come out before it.
 
-- [ ] Video: stereo 3D: stereo footage support (clips with both eyes, a 3D viewer mode), then advanced stereo alignment for two-camera footage (vertical, rotation, scale and convergence correction, automatic from matched features, plus colour match between the eyes); builds on the tracker (user request)
+- [ ] Media: stereo 3D: stereo footage support (clips with both eyes, a 3D viewer mode), then advanced stereo alignment for two-camera footage (vertical, rotation, scale and convergence correction, automatic from matched features, plus colour match between the eyes); builds on the tracker (user request)
 - [ ] Media: raw video: decode open raw formats (CinemaDNG, ProRes RAW where [FFmpeg](https://ffmpeg.org) supports it) and a simple Darktable-style panel: exposure, white balance, highlights, shadows, and highlight recovery (user request)
 - [ ] Tracking: easy adaptable masks: a mask drawn once follows the subject by itself (tracked windows and shapes, built on the tracker) (user request)
-- [ ] Tools: hide people or objects that walk into a shot by filling the masked area from other frames (clean plate), steady shots first (user request)
+- [ ] Effects: hide people or objects that walk into a shot by filling the masked area from other frames (clean plate), steady shots first (user request)
 
 Rule for every AI-assisted tool: optional, clearly labelled, downloaded only when the user asks, runs locally (no cloud, no account), and only open-source code and model weights with GPL-compatible licences (for example [SAM 2](https://github.com/facebookresearch/sam2) and [LaMa](https://github.com/advimman/lama), Apache-2.0). No proprietary software or models.
 
@@ -102,11 +102,11 @@ when the owner asks for it.
 - [ ] Project: more than one project library, Open in a New Window, a cloud / shared library
 - [ ] Interchange: AAF and FCPXML interchange, EDL export with more than one video track
 - [ ] Edit: type a marker Duration in the Edit Index table
-- [ ] Performance: cache shaped clip names so painting a 1,500-clip timeline is cheaper
+- [ ] Platform: cache shaped clip names so painting a 1,500-clip timeline is cheaper
 - [ ] Edit: two-up trim view with the program look (effects, transforms) without lag
-- [ ] Performance: fewer dropped frames on the first play of 4K HEVC
+- [ ] Platform: fewer dropped frames on the first play of 4K HEVC
 - [ ] Edit: every remaining Resolve behaviour and quirk, page by page, driven by [behavior-spec.md](behavior-spec.md) and the parity tests
-- [ ] Quality: memory checks with ASan, UBSan and TSan (declined for now)
+- [ ] Platform: memory checks with ASan, UBSan and TSan (declined for now)
 
 ## Long-term
 
@@ -120,14 +120,14 @@ when the owner asks for it.
 
 - [x] Playback: transport with J / K / L shuttle, frame stepping, looping and the sound following the output device (spec 1)
 - [x] Playback: moving the playhead during playback carries playback on from the new frame (spec 48)
-- [x] Navigation: playhead moves, edit and marker jumps, typing a timecode (spec 2)
-- [x] Navigation: zoom and scrolling of the timeline, Shift+Z back to the previous zoom, follow during playback (spec 19, 20)
-- [x] Marking: In and Out marks and clip marks, undoable (spec 3)
+- [x] Playback: playhead moves, edit and marker jumps, typing a timecode (spec 2)
+- [x] Playback: zoom and scrolling of the timeline, Shift+Z back to the previous zoom, follow during playback (spec 19, 20)
+- [x] Edit: In and Out marks and clip marks, undoable (spec 3)
 - [x] Edit: source edits Insert, Overwrite, Replace, Place on Top and Append at End (spec 4)
 - [x] Edit: drag and drop to the timeline with a ghost clip, also from the file manager (spec 5)
 - [x] Edit: destination controls and auto track selectors (spec 6)
 - [x] Edit: selection tools, linked selection, box select (spec 7)
-- [x] Trim: ripple, roll, slip, slide, Dynamic Trim and the two-up trim view (spec 8)
+- [x] Edit: ripple, roll, slip, slide, Dynamic Trim and the two-up trim view (spec 8)
 - [x] Edit: Blade and split at the playhead (spec 9)
 - [x] Edit: delete, ripple delete and closing gaps without splitting linked clips (spec 10)
 - [x] Timeline: snapping to edits, markers, keyframes and guides (spec 11)
@@ -136,24 +136,24 @@ when the owner asks for it.
 - [x] Edit: copy, cut, paste and paste attributes (spec 16)
 - [x] Edit: undo and redo of every step, across timelines (spec 17)
 - [x] Edit: Edit Index table of the timeline's events (spec 18)
-- [x] Markers: coloured markers and flags with notes, durations and navigation (spec 18)
+- [x] Edit: coloured markers and flags with notes, durations and navigation (spec 18)
 - [x] Timeline: several timelines in tabs; create, duplicate and delete timelines (spec 25)
 - [x] Timeline: compound clips and nested timelines (spec 26)
 - [x] Timeline: animations of timeline edits, switchable in Preferences (spec 36)
 - [x] Timeline: audio level lines and fade handles on audio clips (spec 31)
 - [x] Timeline: stacked timelines (spec 31)
 - [x] Timeline: clips of offline media drawn red as Media Offline (spec 12)
-- [x] Inspector: Transform, Cropping, Dynamic Zoom, Composite Mode with 19 blend modes, Audio volume and pan (spec 15, 24; v1.1.0 notes)
-- [x] Inspector: per-section keyframes with a Keyframes panel, dope sheet and curve editor (spec 15, 49)
-- [x] Retime: constant speed, reverse, freeze frames and speed ramps with a retime curve (spec 29)
-- [x] Clip: Clip Attributes and input interpretation (spec 31)
-- [x] Masks: rectangle, ellipse, polygon, bezier and freehand masks with feathering and modes (spec 27)
+- [x] Edit: Transform, Cropping, Dynamic Zoom, Composite Mode with 19 blend modes, Audio volume and pan (spec 15, 24; v1.1.0 notes)
+- [x] Edit: per-section keyframes with a Keyframes panel, dope sheet and curve editor (spec 15, 49)
+- [x] Edit: constant speed, reverse, freeze frames and speed ramps with a retime curve (spec 29)
+- [x] Edit: Clip Attributes and input interpretation (spec 31)
+- [x] Compositing: rectangle, ellipse, polygon, bezier and freehand masks with feathering and modes (spec 27)
 - [x] Edit: adjustment clips that apply effects to every track below (spec 28)
 - [x] Titles: text titles, lower thirds, scrolling credits, text box and title presets (spec 14; v1.1.1 notes)
 - [x] Titles: subtitle tracks with captions, styles and import of subtitle files in several encodings (spec 28; release notes)
 - [x] Edit: still images and generators on the timeline (spec 14)
-- [x] Transitions: Cross Dissolve, Dip to Color, Wipe and Push on cuts, with duration handling (spec 13)
-- [x] Transitions: audio crossfades Cross Fade 0 dB, +3 dB, -3 dB, Exponential, Logarithmic and S-Curve (spec 13)
+- [x] Effects: Cross Dissolve, Dip to Color, Wipe and Push on cuts, with duration handling (spec 13)
+- [x] Effects: audio crossfades Cross Fade 0 dB, +3 dB, -3 dB, Exponential, Logarithmic and S-Curve (spec 13)
 - [x] Effects: video effects in library folders with Live Preview on hover (spec 40, 47)
 - [x] Effects: Chroma Key with eyedropper, Luma Key and HSL Key (spec 40)
 - [x] Effects: blur, sharpen, stylize, distort, light and time effects with keyframes (spec 40; guide pages)
@@ -167,9 +167,9 @@ when the owner asks for it.
 - [x] Media: phone clips with rotation import upright, HDR phone video (HLG, PQ) looks right on an SDR timeline (spec 46)
 - [x] Media: clear messages for empty, unreadable or incomplete files (spec 46)
 - [x] Media: scanning and probing run in the background (spec 33)
-- [x] Multicam: multicam clips created from selected clips and synced by sound (spec 32)
-- [x] Cut page: dual timeline, Source Clip, Source Tape and Timeline viewer modes (spec 35)
-- [x] Cut page: Smart Insert, Append, Ripple Overwrite, Place On Top, Close Up and Source Overwrite (spec 35)
+- [x] Edit: multicam clips created from selected clips and synced by sound (spec 32)
+- [x] Pages: dual timeline, Source Clip, Source Tape and Timeline viewer modes (spec 35)
+- [x] Pages: Smart Insert, Append, Ripple Overwrite, Place On Top, Close Up and Source Overwrite (spec 35)
 - [x] Audio: Audio page with mixer strips, buses, 6-band EQ per track and bus (spec 37)
 - [x] Audio: compressor per track and bus, mute, solo, mono and stereo channel formats (spec 37)
 - [x] Audio: fader and pan automation (Read, Off, Touch) (spec 37)
