@@ -74,6 +74,10 @@ struct CommandSpec
     /// in a worker thread instead of the window's thread (CommandRegistry::executeOnSnapshot()).
     /// Only for ProjectUse::Read.
     bool background = false;
+    /// False for a command only the person at the keyboard may run (settings.import): the MCP
+    /// server neither lists nor runs it, and executeLive() (the local control socket) refuses it.
+    /// The command line, the dialogs and file-mode execute() keep it.
+    bool remoteAllowed = true;
 };
 
 /// Succeeded with a JSON object and a short human sentence, or failed with a code and a message.
@@ -232,6 +236,7 @@ void registerClipEffectCommands(CommandRegistry& registry);
 void registerGeneratorCommands(CommandRegistry& registry);
 void registerKeyframeCommands(CommandRegistry& registry);
 void registerTrackCommands(CommandRegistry& registry);
+void registerSettingsCommands(CommandRegistry& registry);
 
 } // namespace commands
 } // namespace kk

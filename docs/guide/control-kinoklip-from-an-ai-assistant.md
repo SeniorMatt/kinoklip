@@ -133,6 +133,7 @@ help the assistant to see its work:
 | `frame_view` | A picture of one frame of the timeline, at most 1024 pixels wide unless asked otherwise, so the assistant can look at what it built. Needs an assistant that can read pictures. |
 | `frame_export` | One frame as a PNG file (also on the command line: `kinoklip frame export`). |
 | `transition_list`, `effect_list` | The ids of the transitions, effects, generators and titles (for example the `type` of `transition_add`), with the settings of one when you give its `id`. |
+| `settings_export` | Write all of Kinoklip's settings to a `.kinoklip-settings` file. There is no tool to import settings: replacing your settings is something only you can do (Preferences > Import and Export, or `kinoklip settings import` in a terminal). |
 | `session_info` | Whether the tools change project files (`file`) or the open window (`live`), and which project is open. |
 
 For editing beyond cuts the assistant has, besides the cutting tools:

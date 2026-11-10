@@ -64,8 +64,8 @@ Still to do for 1.2:
 - [ ] Titles: more options on the existing text title, mainly layers (several text and shape layers in one title); no new title type
 - [ ] Titles: emoji in subtitles and titles, in colour, in the viewer and in exports
 - [ ] Audio: Inspector Audio tab compared with every audio option Resolve has (public documentation only), adding the missing ones, Pitch first
-- [ ] Interface: import and export all settings with one click
-- [ ] Interface: vim keybindings, so nvim users can edit easily
+- [x] Interface: import and export all settings with one click
+- [x] Interface: vim keybindings, so nvim users can edit easily
 - [ ] Interface: Help > Export Log File: saves what the app did in this session (messages, warnings, the decoder chosen for each file, the graphics card, the playback statistics) as one text file to attach to a bug report. The log is kept in memory while you work and written only when you ask; the dialog says what the file contains (owner pick, idea from [Picasso Suite](https://github.com/fabox-os/Picasso-Suite))
 
 ## Next big release

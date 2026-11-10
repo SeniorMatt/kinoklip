@@ -129,10 +129,27 @@ private slots:
         QVERIFY(!ping.contains("error"));
     }
 
+    void settingsImportIsNotForAttachedTools()
+    {
+        // settings.export is offered; settings.import is neither listed nor runnable.
+        QStringList names;
+        for (const QJsonValue& t : rpc("tools/list")["result"]["tools"].toArray())
+            names << t["name"].toString();
+        QVERIFY(names.contains("settings_export"));
+        QVERIFY(!names.contains("settings_import"));
+        const J reply = rpc("tools/call",
+            {{"name", "settings_import"}, {"arguments", QJsonObject {{"file", "/nonexistent"}}}});
+        QCOMPARE(reply["error"]["code"].toInt(), -32602);
+    }
+
     void toolListCoversEveryCommandWithAValidSchema()
     {
         const QJsonArray tools = rpc("tools/list")["result"]["tools"].toArray();
-        const auto& all = commands::CommandRegistry::builtin().all();
+        QVector<commands::Command> all; // the commands an attached tool may run
+        for (const commands::Command& c : commands::CommandRegistry::builtin().all()) {
+            if (c.spec.remoteAllowed)
+                all.append(c);
+        }
         QCOMPARE(tools.size(), all.size());
         QStringList names;
         for (qsizetype i = 0; i < tools.size(); ++i) {

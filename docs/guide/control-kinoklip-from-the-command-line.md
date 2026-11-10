@@ -63,6 +63,7 @@ the timeline. A minus sign makes it negative (`--delta -8` moves an edge 8 frame
 | `export otio`, `export edl`, `import otio` | Exchange a timeline with other editors (see [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md)). |
 | `frame export`, `frame view` | Render one frame of the timeline to a PNG file (`--at`, `--file`, `--width`); `frame view` hands the picture to a program that can show it (the AI assistant server below). |
 | `transition list`, `effect list` | The ids of the transitions, effects, generators and titles, for `transition add --type`; add `--id` for the settings of one. |
+| `settings export`, `settings import` | Write all your settings to one file, or read one back (see [Move your settings to another computer](move-your-settings-to-another-computer.md)). `settings import` can only be run by you at the command line, never with `--live`. |
 | `render` | Render to a file with a preset from the Deliver page, for example `--preset youtube_1080p`; progress is shown on the error output. |
 
 Commands that look at a timeline use the active one. Add `--timeline "Name"` (or its number

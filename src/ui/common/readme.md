@@ -6,6 +6,7 @@ Used by every panel and page. Depends on `core` only.
 |---|---|
 | `AppContext.h` | the struct of shared objects every panel receives: `Project*`, `SelectionModel*`, `ActionRegistry*`, `PlaybackEngine*` (null until src/playback exists) |
 | `ActionRegistry.h` | every command as a `QAction` with a stable id; rebind/reset/import/export/conflict lookup (scope aware: window, `page:<id>`, `widget:<name>`); **keymap profiles** (implementation in `KeymapProfiles.cpp`, see below) |
+| `VimInput.h` | the vim key layer (spec 62): `VimMachine` (counts, sequences, NORMAL / VISUAL; asks a `VimHost`, never edits) and `VimInput`, the application event filter that is active only with the keyboard profile `vim` and only while a widget with the property `kkVimScope` (timelines, viewers) has the focus and is not a text field |
 | `StandardActions.h` | the catalogue: ids, texts, menus, icons; `standardMenus()` |
 | `MediaManagement.h` | proxy / optimized media and render cache glue (created in `main()`, `AppContext::media`): `mediapool.*`, `playback.proxy_*`, `playback.use_*`, `playback.render_cache_*`, `clip.render_cache_output` commands; ProxyQueue + RenderCacheManager + a shared background Compositor; proxy map for every viewer, cache view for program playback, per-item status for the media pool |
 | `PanelFrame.h` | common panel chrome (title bar + tool area + body); `setPanelKey()` names the panel for the in-app help (`panel:<key>`, src/ui/help); `createPlaceholderPanel()` |

@@ -31,6 +31,7 @@ class MediaPage;
 class PageBar;
 class ProjectController;
 class ViewerTransport;
+class VimController;
 namespace live {
 class LiveServer;
 }
@@ -80,6 +81,8 @@ public:
     /// The local control server (Preferences > Local Control); never null, listens only while
     /// the preference is on.
     [[nodiscard]] live::LiveServer* liveServer() const { return m_live; }
+    /// The vim key layer and its `:` command line (active only with the Vim keyboard profile).
+    [[nodiscard]] VimController* vimController() const { return m_vim; }
     /// Starts or stops the local control server to match Preferences > Local Control. Called
     /// at start-up and when the preferences were saved.
     void applyLocalControlPreference();
@@ -139,6 +142,7 @@ private:
     ProjectController* m_projectController = nullptr;
     AutosaveController* m_autosave = nullptr;
     live::LiveServer* m_live = nullptr;
+    VimController* m_vim = nullptr;
     HelpController* m_help = nullptr;
     ViewerTransport* m_transport = nullptr; ///< routes transport actions to the active viewer
     bool m_geometryRestored = false;

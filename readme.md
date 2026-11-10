@@ -14,11 +14,11 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 ## Status
 
 <!-- status:start -->
-![Status: 64.41% of the roadmap items are done, 87.43% of the effects library works](docs/images/status.svg)
+![Status: 65.54% of the roadmap items are done, 87.43% of the effects library works](docs/images/status.svg)
 
 | | Done | Total | |
 |---|---|---|---|
-| Roadmap items* | 114 | 177 | 64.41% |
+| Roadmap items* | 116 | 177 | 65.54% |
 | Effects library | 160 | 183 | 87.43% |
 
 Green is made, grey is not. Roadmap items are the checklist lines of [`docs/roadmap.md`](docs/roadmap.md); the effects library is every entry of Resolve's Effects library that Kinoklip is compared with ([`docs/effects-library-status.md`](docs/effects-library-status.md)). \* To-do items are bigger than done ones, so this share looks better than the work left. Made by `python3 scripts/status.py`.
@@ -78,7 +78,7 @@ It is still a beta, missing many of Resolve's features, so it's not a full repla
 **Use it**
 - [How to use Kinoklip](docs/guide/readme.md): short how-to guides
 - [Resolve keymap](docs/keymap-resolve-windows.md): the default shortcuts
-- [Keyboard presets](docs/keymaps/readme.md): [Vegas Pro](https://www.vegascreativesoftware.com), [Premiere Pro](https://www.adobe.com/products/premiere.html), [Final Cut Pro](https://www.apple.com/final-cut-pro/), [Avid Media Composer](https://www.avid.com/media-composer), [Kdenlive](https://kdenlive.org) and [Shotcut](https://shotcut.org)
+- [Keyboard presets](docs/keymaps/readme.md): [Vegas Pro](https://www.vegascreativesoftware.com), [Premiere Pro](https://www.adobe.com/products/premiere.html), [Final Cut Pro](https://www.apple.com/final-cut-pro/), [Avid Media Composer](https://www.avid.com/media-composer), [Kdenlive](https://kdenlive.org), [Shotcut](https://shotcut.org) and [Vim](https://www.vim.org) / [Neovim](https://neovim.io) (modal keys on the timeline)
 - [Release notes](docs/releases/): changes in each release
 - [Privacy](docs/privacy.md): what Kinoklip keeps on your computer, and what a bug report can share
 
