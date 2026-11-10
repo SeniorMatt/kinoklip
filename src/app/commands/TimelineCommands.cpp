@@ -82,7 +82,7 @@ void registerTimelineCommands(CommandRegistry& registry)
     registry.add({{QStringLiteral("timeline.select"),
                       QStringLiteral(
                           "Make a timeline the project's active timeline (saved in the project)."),
-                      {}, ProjectUse::Modify, true, true},
+                      {}, ProjectUse::Modify, true, true, false},
         runSelect});
 }
 

@@ -101,6 +101,50 @@ CommandResult runProjectInfo(CommandContext& ctx, const CommandArgs&)
     return CommandResult::success(data, text);
 }
 
+CommandResult runProjectSave(CommandContext& ctx, const CommandArgs&)
+{
+    // File mode: the registry saves the project after the command (to `output` when given), so
+    // there is nothing to do here; this only makes `project save --output copy.kkproj` a copy.
+    if (!ctx.live)
+        return CommandResult::success({}, QStringLiteral("saved"));
+    if (!ctx.saveProject)
+        return fail("live_unsupported", QStringLiteral("this window cannot save from here"));
+    if (ctx.project->filePath().isEmpty())
+        return fail("no_file",
+            QStringLiteral("the open project has not been saved yet: save it once with File > "
+                           "Save Project, then this works"));
+    QString error;
+    if (!ctx.saveProject(&error))
+        return fail(
+            "save_failed", error.isEmpty() ? QStringLiteral("the project was not saved") : error);
+    return CommandResult::success({{QStringLiteral("project"), ctx.project->filePath()}},
+        QStringLiteral("saved %1").arg(ctx.project->filePath()));
+}
+
+CommandResult runSessionInfo(CommandContext& ctx, const CommandArgs&)
+{
+    if (!ctx.live || !ctx.project)
+        return CommandResult::success({{QStringLiteral("mode"), QStringLiteral("file")},
+                                          {QStringLiteral("project"), QJsonValue::Null}},
+            QStringLiteral("file mode: every command reads the project file given as `project`, "
+                           "changes it and saves it; no window is involved. To control an open "
+                           "Kinoklip window, switch on \"Let local tools control Kinoklip (MCP)\" "
+                           "in its Preferences."));
+    const Project& project = *ctx.project;
+    const QString path = project.filePath();
+    const QJsonValue pathValue = path.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(path);
+    return CommandResult::success(
+        {{QStringLiteral("mode"), QStringLiteral("live")}, {QStringLiteral("project"), pathValue},
+            {QStringLiteral("name"), project.name()},
+            {QStringLiteral("unsaved"), project.isDirty()},
+            {QStringLiteral("activeTimeline"), qint64(project.activeTimelineUid())}},
+        QStringLiteral("live mode: the open project \"%1\"%2. Edits appear in the window, one "
+                       "undo step per call; project.save saves it.")
+            .arg(project.name(),
+                path.isEmpty() ? QStringLiteral(" (not saved yet)")
+                               : QStringLiteral(" (") + path + QLatin1Char(')')));
+}
+
 } // namespace
 
 void registerProjectCommands(CommandRegistry& registry)
@@ -122,6 +166,18 @@ void registerProjectCommands(CommandRegistry& registry)
                      QStringLiteral("24"), {}}},
              ProjectUse::Create, false},
             runProjectNew});
+    registry.add({{QStringLiteral("session.info"),
+                      QStringLiteral("Tell which mode the commands run in: `file` (they change "
+                                     "project files) or `live` (they change the project open in "
+                                     "the Kinoklip window), and which project is open."),
+                      {}, ProjectUse::None, false},
+        runSessionInfo});
+    registry.add({{QStringLiteral("project.save"),
+                      QStringLiteral("Save the project: in live mode the open project, like File "
+                                     "> Save Project (it needs a file already); in file mode a "
+                                     "copy to `output`."),
+                      {}, ProjectUse::Modify, false, false, false},
+        runProjectSave});
     registry.add({{QStringLiteral("project.info"),
                       QStringLiteral("Show the project: settings, timelines, media count."), {},
                       ProjectUse::Read, false},

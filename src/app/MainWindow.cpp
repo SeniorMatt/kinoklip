@@ -3,7 +3,6 @@
 #include "app/MainWindow.h"
 
 #include "app/AppInfo.h"
-#include "ui/help/Guide.h"
 #include "app/AutosaveController.h"
 #include "app/BugReportDialog.h"
 #include "app/InterfaceBar.h"
@@ -11,6 +10,8 @@
 #include "app/ProjectController.h"
 #include "app/TimelineExport.h"
 #include "app/TimelineImport.h"
+#include "app/commands/Command.h"
+#include "app/live/LiveServer.h"
 #include "app/pages/AudioPage.h"
 #include "app/pages/ColorPage.h"
 #include "app/pages/CompositingPage.h"
@@ -31,6 +32,7 @@
 #include "ui/deliver/DeliverPage.h"
 #include "ui/dialogs/DialogActions.h"
 #include "ui/dialogs/PreferencesDialog.h"
+#include "ui/help/Guide.h"
 #include "ui/help/HelpController.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/scopes/ScopesWindow.h"
@@ -250,6 +252,33 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
         m_autosave = new AutosaveController(ctx.project, this);
         m_projectController->setAutosave(m_autosave);
     }
+
+    // Local control (Preferences > Local Control): commands from `kinoklip mcp` run on this
+    // window's project, one undo step per call. Listens only while the preference is on.
+    commands::LiveTarget target;
+    target.project = ctx.project;
+    target.save = [this](QString* error) {
+        if (m_projectController->save())
+            return true;
+        if (error)
+            *error = tr("the window could not save the project (see the message it showed)");
+        return false;
+    };
+    m_live = new live::LiveServer(commands::CommandRegistry::builtin(), target, this);
+    connect(m_live, &live::LiveServer::clientCountChanged, m_interfaceBar,
+        &InterfaceBar::setRemoteControlClients);
+    applyLocalControlPreference();
+}
+
+void MainWindow::applyLocalControlPreference()
+{
+    if (!prefs::localControlEnabled()) {
+        m_live->close();
+        return;
+    }
+    QString error;
+    if (!m_live->listen(&error))
+        qCWarning(lcCore).noquote() << "local control is on but not available:" << error;
 }
 
 MainWindow::~MainWindow() = default;
@@ -507,6 +536,7 @@ void MainWindow::connectAppActions()
         if (m_autosave)
             m_autosave->setIntervalMinutes(prefs::autosaveMinutes());
         applyRuntimePreferences(m_ctx.playback);
+        applyLocalControlPreference();
         if (m_ctx.media) // cache folder may have moved (Preferences > Media Storage)
             m_ctx.media->preferencesChanged();
         m_editPage->timeline()->applyPreferences(); // timeline tabs on / off

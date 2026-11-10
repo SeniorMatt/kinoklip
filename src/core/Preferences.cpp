@@ -263,6 +263,16 @@ void setEffectsLivePreview(bool on)
     QSettings().setValue(QLatin1String(kEffectsLivePreview), on);
 }
 
+bool localControlEnabled()
+{
+    return QSettings().value(QLatin1String(kLocalControl), false).toBool();
+}
+
+void setLocalControlEnabled(bool on)
+{
+    QSettings().setValue(QLatin1String(kLocalControl), on);
+}
+
 bool focusSearchOnPanelKey()
 {
     return QSettings().value(QLatin1String(kFocusSearchOnPanelKey), false).toBool();

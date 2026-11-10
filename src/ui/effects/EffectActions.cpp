@@ -260,8 +260,8 @@ bool removeTransition(Project& project, quint64 clipId, bool atHead)
     return true;
 }
 
-quint64 addGeneratorClip(
-    Project& project, const QString& descriptorId, int64_t frame, int64_t durationFrames)
+quint64 addGeneratorClip(Project& project, const QString& descriptorId, int64_t frame,
+    int64_t durationFrames, int videoTrack, const std::function<void(ClipData&)>& prepare)
 {
     const EffectRegistry& registry = EffectRegistry::instance();
     const EffectDescriptor* desc = registry.find(descriptorId);
@@ -285,6 +285,12 @@ quint64 addGeneratorClip(
     }
     while (target < int(current.videoTracks.size()) && current.videoTracks[size_t(target)].locked)
         ++target;
+    if (videoTrack >= 0) {
+        if (videoTrack >= int(current.videoTracks.size())
+            || current.videoTracks[size_t(videoTrack)].locked)
+            return 0;
+        target = videoTrack;
+    }
 
     std::optional<ClipData> made
         = makeGeneratorClip(descriptorId, current.fps, QSizeF(current.width, current.height));
@@ -293,6 +299,8 @@ quint64 addGeneratorClip(
     ClipData clip = std::move(*made);
     clip.start = start;
     clip.duration = length;
+    if (prepare)
+        prepare(clip);
 
     project.beginEdit(tr("Add %1").arg(desc->name));
     TimelineData& data = project.timeline()->mutableData();

@@ -49,6 +49,8 @@ std::optional<QJsonValue> coerce(const ParamSpec& param, const QJsonValue& value
             return value;
         if (value.isDouble())
             return QJsonValue(QString::number(value.toDouble(), 'g', 15));
+        if (value.isBool()) // a parameter value of an effect (effect.set value true)
+            return QJsonValue(value.toBool() ? QStringLiteral("true") : QStringLiteral("false"));
         break;
     }
     case ParamType::Integer: {
@@ -233,6 +235,10 @@ const CommandRegistry& CommandRegistry::builtin()
         registerExportCommands(r);
         registerFrameCommands(r);
         registerEffectCommands(r);
+        registerClipEffectCommands(r);
+        registerGeneratorCommands(r);
+        registerKeyframeCommands(r);
+        registerTrackCommands(r);
         return r;
     }();
     return registry;
@@ -263,15 +269,21 @@ QStringList CommandRegistry::groups() const
     return out;
 }
 
-QVector<ParamSpec> CommandRegistry::fullParams(const CommandSpec& spec)
+QVector<ParamSpec> CommandRegistry::fullParams(const CommandSpec& spec, bool live)
 {
     QVector<ParamSpec> params = spec.params;
+    // Live mode: the window's project is the target, so `project` only guards against a mix-up.
+    // A command that creates a file still takes its path.
+    const bool targetIsWindow = live && spec.use != ProjectUse::Create;
     if (spec.use != ProjectUse::None)
         params.append({QStringLiteral("project"), ParamType::Path,
             spec.use == ProjectUse::Create ? QStringLiteral("project file to create")
-                                           : QStringLiteral("project file (.kkproj)"),
-            true, {}, {}});
-    if (spec.use == ProjectUse::Modify)
+                : targetIsWindow
+                ? QStringLiteral("optional in live mode: the open project's file; refused if it "
+                                 "is another project")
+                : QStringLiteral("project file (.kkproj)"),
+            !targetIsWindow, {}, {}});
+    if (spec.use == ProjectUse::Modify && !live)
         params.append({QStringLiteral("output"), ParamType::Path,
             QStringLiteral("save the changed project here and leave --project untouched"), false,
             {}, {}});
@@ -285,10 +297,10 @@ QVector<ParamSpec> CommandRegistry::fullParams(const CommandSpec& spec)
     return params;
 }
 
-QJsonObject CommandRegistry::describe(const CommandSpec& spec)
+QJsonObject CommandRegistry::describe(const CommandSpec& spec, bool live)
 {
     QJsonArray params;
-    for (const ParamSpec& p : fullParams(spec)) {
+    for (const ParamSpec& p : fullParams(spec, live)) {
         QJsonObject o {{QStringLiteral("name"), p.name}, {QStringLiteral("type"), typeName(p.type)},
             {QStringLiteral("description"), p.description},
             {QStringLiteral("required"), p.required}};
@@ -370,6 +382,128 @@ CommandResult CommandRegistry::execute(
         result.data.insert(QStringLiteral("project"), savePath);
     }
     return result;
+}
+
+namespace {
+
+/// Same file or both unsaved/unknown: absolute and canonical paths compared.
+bool samePath(const QString& a, const QString& b)
+{
+    if (a.isEmpty() || b.isEmpty())
+        return false;
+    const QFileInfo fa(a);
+    const QFileInfo fb(b);
+    const QString ca = fa.canonicalFilePath();
+    const QString cb = fb.canonicalFilePath();
+    return (!ca.isEmpty() && ca == cb) || fa.absoluteFilePath() == fb.absoluteFilePath();
+}
+
+/// Live mode argument check shared by executeLive() and executeOnSnapshot(): the arguments
+/// against the live parameter list, `output` refused, `project` equal to the open project.
+std::optional<CommandResult> checkLiveArguments(const CommandSpec& spec,
+    const QJsonObject& arguments, const QString& openPath, const QString& openName,
+    QJsonObject& typed)
+{
+    if (spec.use == ProjectUse::Modify && arguments.contains(QStringLiteral("output")))
+        return CommandResult::failure(QStringLiteral("live_unsupported"),
+            QStringLiteral("\"output\" is not used on the open project: the change appears in "
+                           "the window; save it with project.save"));
+    if (auto bad = checkArguments(CommandRegistry::fullParams(spec, true), arguments, typed))
+        return bad;
+    if (spec.use != ProjectUse::None && typed.contains(QStringLiteral("project"))) {
+        const QString given
+            = QFileInfo(typed.value(QStringLiteral("project")).toString()).absoluteFilePath();
+        if (!samePath(given, openPath)) {
+            const QString open = openPath.isEmpty()
+                ? QStringLiteral("a project that has not been saved yet (\"%1\")").arg(openName)
+                : openPath;
+            return CommandResult::failure(QStringLiteral("wrong_project"),
+                QStringLiteral("the open project is %1, not %2; leave out `project` to use the "
+                               "open one")
+                    .arg(open, given));
+        }
+    }
+    return std::nullopt;
+}
+
+} // namespace
+
+CommandResult CommandRegistry::executeLive(const QString& name, const QJsonObject& arguments,
+    const LiveTarget& target, const ProgressFn& progress) const
+{
+    const Command* command = find(name);
+    if (!command)
+        return CommandResult::failure(
+            QStringLiteral("unknown_command"), QStringLiteral("unknown command \"%1\"").arg(name));
+    const CommandSpec& spec = command->spec;
+    // A command that makes a new project file does not touch the window.
+    if (spec.use == ProjectUse::Create)
+        return execute(name, arguments, progress);
+    Project& project = *target.project;
+    QJsonObject typed;
+    if (auto bad = checkLiveArguments(spec, arguments, project.filePath(), project.name(), typed))
+        return *bad;
+
+    CommandContext ctx;
+    ctx.progress = progress;
+    ctx.live = true;
+    ctx.saveProject = target.save;
+    ctx.project = &project; // even for commands that need none (session.info reports it)
+    ctx.projectPath = project.filePath();
+    if (spec.use == ProjectUse::None)
+        return command->run(ctx, CommandArgs(typed));
+    // The user is in the middle of a drag or a field edit: an outer edit here would swallow it.
+    if (project.isEditing())
+        return CommandResult::failure(QStringLiteral("window_busy"),
+            QStringLiteral("the window is in the middle of an edit (%1); try again in a moment")
+                .arg(project.openEditLabel()));
+
+    const quint64 originalTimeline = project.activeTimelineUid();
+    if (spec.usesTimeline && typed.contains(QStringLiteral("timeline"))) {
+        if (auto bad = selectTimeline(project, typed.value(QStringLiteral("timeline")).toString()))
+            return *bad;
+    }
+    // One undo step for the whole call; a failed call is rolled back, so it leaves nothing.
+    const bool wrap = spec.use == ProjectUse::Modify && spec.liveUndoStep;
+    if (wrap)
+        project.beginEdit(QStringLiteral("Assistant: %1")
+                              .arg(QString(name).replace(QLatin1Char('.'), QLatin1Char(' '))));
+    CommandResult result = command->run(ctx, CommandArgs(typed));
+    if (wrap) {
+        if (result.ok)
+            project.endEdit();
+        else
+            project.cancelEdit();
+    }
+    if (originalTimeline && !spec.timelineRequired)
+        project.setActiveTimeline(originalTimeline);
+    return result;
+}
+
+CommandResult CommandRegistry::executeOnSnapshot(const QString& name, const QJsonObject& arguments,
+    const QByteArray& documentJson, const QString& documentPath, const ProgressFn& progress) const
+{
+    const Command* command = find(name);
+    if (!command || !command->spec.background || command->spec.use != ProjectUse::Read)
+        return CommandResult::failure(QStringLiteral("unknown_command"),
+            QStringLiteral("\"%1\" cannot run on a copy of the project").arg(name));
+    QJsonObject typed;
+    if (auto bad = checkLiveArguments(command->spec, arguments, documentPath, {}, typed))
+        return *bad;
+    Project copy;
+    QString error;
+    if (!copy.loadDocument(documentJson, documentPath, &error))
+        return CommandResult::failure(QStringLiteral("project_error"), error);
+    if (command->spec.usesTimeline && typed.contains(QStringLiteral("timeline"))) {
+        if (auto bad = selectTimeline(copy, typed.value(QStringLiteral("timeline")).toString()))
+            return *bad;
+    }
+    CommandContext ctx;
+    ctx.project = &copy;
+    ctx.projectPath = documentPath;
+    ctx.progress = progress;
+    ctx.live = true;
+    return command->run(ctx, CommandArgs(typed));
 }
 
 } // namespace kk::commands

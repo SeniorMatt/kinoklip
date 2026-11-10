@@ -5,6 +5,7 @@
 #include "app/commands/Command.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
+#include "core/ParamKeys.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "media/MediaInfo.h"
@@ -104,6 +105,14 @@ private:
         }
         return files;
     }
+    /// The effects of the first clip on @p track, as the effect.stack command lists them.
+    QJsonArray effectsOf(const QString& track)
+    {
+        return call(
+            QStringLiteral("effect.stack"), {{"project", m_project}, {"clip", firstClipId(track)}})
+            .data["effects"]
+            .toArray();
+    }
     QString videoId()
     {
         for (const QJsonValue& v : mediaFiles()) {
@@ -140,7 +149,10 @@ private slots:
                  "clip.list", "clip.add", "clip.move", "clip.trim", "clip.split", "clip.delete",
                  "clip.set", "marker.add", "marker.list", "marker.delete", "transition.add",
                  "export.otio", "export.edl", "import.otio", "render", "frame.export", "frame.view",
-                 "effect.list", "transition.list"})
+                 "effect.list", "transition.list", "effect.add", "effect.stack", "effect.set",
+                 "effect.remove", "effect.enable", "transition.set", "transition.remove",
+                 "generator.add", "title.add", "title.set", "keyframe.set", "keyframe.list",
+                 "keyframe.delete", "track.list", "track.add", "track.set"})
             QVERIFY2(names.contains(QLatin1String(expected)), expected);
         QCOMPARE(names.size(), QSet<QString>(names.begin(), names.end()).size()); // unique
     }
@@ -525,6 +537,288 @@ private slots:
         bad("transition.add", {{"clip", 9999}, {"edge", "tail"}}, "unknown_clip");
         bad("transition.add", {{"clip", second}, {"edge", "tail"}, {"duration", 0}},
             "out_of_range");
+    }
+
+    // ---- Editing commands for assistants (effects, transitions, titles, keyframes, tracks) ----
+
+    void effectsOnAClip()
+    {
+        makeProject();
+        ok("clip.add", {{"media", videoId()}, {"source-out", "00:00:05:00"}});
+        const qint64 v = firstClipId("V1");
+        const qint64 a = firstClipId("A1");
+        const CommandResult added = ok("effect.add",
+            {{"clip", v}, {"type", "gaussian_blur"}, {"set", QJsonArray {"radius=12.5"}}});
+        const qint64 fx = added.data["effect"]["id"].toInteger();
+        QVERIFY(fx > 0);
+        QCOMPARE(added.data["effect"]["parameters"]["radius"].toDouble(), 12.5);
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].effects.size(), 1);
+        // The default value, then a change by key and value with the range of the descriptor.
+        const CommandResult second = ok("effect.add", {{"clip", v}, {"type", "gaussian_blur"}});
+        QCOMPARE(second.data["effect"]["parameters"]["radius"].toDouble(), 5.0);
+        ok("effect.set", {{"clip", v}, {"effect", fx}, {"key", "radius"}, {"value", 40}});
+        const CommandResult stack = ok("effect.stack", {{"clip", v}});
+        QCOMPARE(stack.data["effects"].toArray().size(), 2);
+        QCOMPARE(stack.data["effects"][0]["parameters"]["radius"].toDouble(), 40.0);
+        bad("effect.set", {{"clip", v}, {"effect", fx}, {"key", "radius"}, {"value", 101}},
+            "out_of_range");
+        bad("effect.set", {{"clip", v}, {"effect", fx}, {"key", "radius"}, {"value", "wide"}},
+            "bad_value");
+        bad("effect.set", {{"clip", v}, {"effect", fx}, {"key", "nope"}, {"value", 1}},
+            "unknown_parameter");
+        bad("effect.set", {{"clip", v}, {"effect", fx}}, "missing_parameter");
+        bad("effect.set", {{"clip", v}, {"effect", 9999}, {"key", "radius"}, {"value", 1}},
+            "unknown_effect");
+        QCOMPARE(effectsOf("V1").first().toObject()["parameters"].toObject()["radius"].toDouble(),
+            40.0); // refused edits left it
+        // Off and on, then removal.
+        QCOMPARE(ok("effect.enable", {{"clip", v}, {"effect", fx}, {"enabled", false}})
+                     .data["enabled"]
+                     .toBool(),
+            false);
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].effects[0].enabled, false);
+        ok("effect.enable", {{"clip", v}, {"effect", fx}});
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].effects[0].enabled, true);
+        ok("effect.remove", {{"clip", v}, {"effect", fx}});
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].effects.size(), 1);
+        bad("effect.remove", {{"clip", v}, {"effect", fx}}, "unknown_effect");
+        // Audio effects go on audio clips only.
+        bad("effect.add", {{"clip", v}, {"type", "audio_gain"}}, "bad_value");
+        bad("effect.add", {{"clip", a}, {"type", "gaussian_blur"}}, "bad_value");
+        bad("effect.add", {{"clip", v}, {"type", "no_such_effect"}}, "unknown_effect");
+        bad("effect.add", {{"clip", v}, {"type", "cross_dissolve"}}, "unknown_effect");
+        bad("effect.add", {{"clip", v}, {"type", "gaussian_blur"}, {"set", QJsonArray {"radius"}}},
+            "bad_value");
+        const CommandResult gain = ok("effect.add",
+            {{"clip", a}, {"type", "audio_gain"}, {"set", QJsonArray {"gain_db=-6"}}});
+        QCOMPARE(gain.data["effect"]["parameters"]["gain_db"].toDouble(), -6.0);
+        bad("effect.add", {{"clip", a}, {"type", "audio_gain"}, {"set", QJsonArray {"gain_db=99"}}},
+            "out_of_range");
+        QCOMPARE(effectsOf("A1").size(), 1); // the refused add left nothing behind
+        // A locked track refuses.
+        ok("track.set", {{"track", "V1"}, {"locked", true}});
+        bad("effect.add", {{"clip", v}, {"type", "gaussian_blur"}}, "track_locked");
+        bad("effect.remove", {{"clip", v}, {"effect", second.data["effect"]["id"].toInteger()}},
+            "track_locked");
+    }
+
+    void transitionSetAndRemove()
+    {
+        makeProject();
+        ok("clip.add",
+            {{"media", videoId()}, {"source-in", "00:00:01:00"}, {"source-out", "00:00:05:00"}});
+        ok("clip.add",
+            {{"media", videoId()}, {"source-in", "00:00:01:00"}, {"source-out", "00:00:05:00"}});
+        const qint64 second = clips("V1").last().toObject()["id"].toInteger();
+        bad("transition.set", {{"clip", second}, {"edge", "head"}, {"duration", 6}},
+            "no_transition");
+        bad("transition.remove", {{"clip", second}, {"edge", "head"}}, "no_transition");
+        ok("transition.add", {{"clip", second}, {"edge", "head"}, {"duration", 12}});
+        const CommandResult r
+            = ok("transition.set", {{"clip", second}, {"edge", "head"}, {"duration", 6}});
+        QCOMPARE(r.data["clip"]["transitionIn"]["duration"].toInteger(), 6);
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[1].transitionIn->duration, 6);
+        ok("transition.set", {{"clip", second}, {"edge", "head"}, {"alignment", "start-on-cut"}});
+        QVERIFY(load()->timeline()->data().videoTracks[0].clips[1].transitionIn->alignment
+            == TransitionAlignment::StartOnCut);
+        bad("transition.set", {{"clip", second}, {"edge", "head"}, {"duration", 0}},
+            "out_of_range");
+        bad("transition.set", {{"clip", second}, {"edge", "head"}}, "missing_parameter");
+        bad("transition.set", {{"clip", second}, {"edge", "head"}, {"set", QJsonArray {"nope=1"}}},
+            "unknown_parameter");
+        bad("transition.set", {{"clip", second}, {"edge", "head"}, {"alignment", "left"}},
+            "bad_value");
+        // The tail of the first clip is the same cut: it finds that transition.
+        const qint64 first = firstClipId("V1");
+        ok("transition.set", {{"clip", first}, {"edge", "tail"}, {"duration", 8}});
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[1].transitionIn->duration, 8);
+        ok("transition.remove", {{"clip", second}, {"edge", "head"}});
+        QVERIFY(!load()->timeline()->data().videoTracks[0].clips[1].transitionIn.has_value());
+        bad("transition.remove", {{"clip", second}, {"edge", "head"}}, "no_transition");
+        bad("transition.set", {{"clip", 9999}, {"edge", "head"}, {"duration", 5}}, "unknown_clip");
+    }
+
+    void generatorsAndTitles()
+    {
+        makeProject();
+        ok("track.add", {{"type", "video"}}); // a new project has V1 and A1 only
+        const CommandResult solid = ok("generator.add",
+            {{"generator", "solid_color"}, {"at", 24}, {"duration", 48},
+                {"set", QJsonArray {"color=#ff0000"}}});
+        const QJsonObject sc = solid.data["clip"].toObject();
+        QCOMPARE(sc["kind"].toString(), QString("solid"));
+        QCOMPARE(sc["start"].toInteger(), 24);
+        QCOMPARE(sc["duration"].toInteger(), 48);
+        QCOMPARE(sc["track"].toString(), QString("V1"));
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].solidColor, QColor("#ff0000"));
+        // A title on a chosen track, with its basic text settings.
+        const CommandResult title = ok("title.add",
+            {{"text", "Hello\nworld"}, {"at", "00:00:01:00"}, {"duration", 30}, {"track", "V2"},
+                {"size", 90}, {"color", "#00ff00"}, {"bold", true}, {"align", "left"},
+                {"font", "Serif"}});
+        const qint64 t = title.data["clip"]["id"].toInteger();
+        QCOMPARE(title.data["clip"]["track"].toString(), QString("V2"));
+        QCOMPARE(title.data["clip"]["kind"].toString(), QString("title"));
+        const ClipData& stored = load()->timeline()->data().videoTracks[1].clips[0];
+        QCOMPARE(stored.title.staticValue(keys::Text).toString(), QString("Hello\nworld"));
+        QCOMPARE(stored.title.value(keys::Size, 0), 90.0);
+        QCOMPARE(stored.title.staticValue(keys::Bold).toBool(), true);
+        QCOMPARE(stored.title.staticValue(keys::Align).toString(), QString("left"));
+        QCOMPARE(stored.title.staticValue(keys::Color).value<QColor>(), QColor("#00ff00"));
+        QCOMPARE(stored.start, 24);
+        ok("title.set", {{"clip", t}, {"text", "Bye"}, {"size", 50}});
+        QCOMPARE(load()
+                     ->timeline()
+                     ->data()
+                     .videoTracks[1]
+                     .clips[0]
+                     .title.staticValue(keys::Text)
+                     .toString(),
+            QString("Bye"));
+        // A gradient with a parameter of its descriptor, and the automatic track.
+        const CommandResult grad
+            = ok("generator.add", {{"generator", "linear_gradient"}, {"at", 0}});
+        QCOMPARE(grad.data["clip"]["kind"].toString(), QString("generator"));
+        // Errors.
+        bad("generator.add", {{"generator", "text_title"}}, "bad_value");
+        bad("generator.add", {{"generator", "gaussian_blur"}}, "unknown_effect");
+        bad("generator.add", {{"generator", "solid_color"}, {"set", QJsonArray {"color=plaid?"}}},
+            "bad_value");
+        bad("generator.add", {{"generator", "solid_color"}, {"track", "A1"}}, "unknown_track");
+        bad("generator.add", {{"generator", "solid_color"}, {"track", "V9"}}, "unknown_track");
+        bad("generator.add", {{"generator", "solid_color"}, {"at", -5}}, "out_of_range");
+        bad("generator.add", {{"generator", "solid_color"}, {"duration", 0}}, "out_of_range");
+        bad("title.add", {{"preset", "solid_color"}}, "unknown_effect");
+        bad("title.add", {{"text", "x"}, {"size", 100000}}, "out_of_range");
+        bad("title.add", {{"text", "x"}, {"align", "middle"}}, "bad_value");
+        bad("title.add", {{"text", "x"}, {"color", "nocolour"}}, "bad_value");
+        bad("title.set", {{"clip", t}}, "missing_parameter");
+        bad("title.set", {{"clip", sc["id"].toInteger()}, {"text", "x"}}, "bad_value");
+        ok("track.set", {{"track", "V2"}, {"locked", true}});
+        bad("title.add", {{"text", "x"}, {"track", "V2"}}, "track_locked");
+        bad("title.set", {{"clip", t}, {"text", "x"}}, "track_locked");
+    }
+
+    void keyframes()
+    {
+        makeProject();
+        ok("clip.add", {{"media", videoId()}, {"source-out", "00:00:05:00"}}); // 120 frames
+        const qint64 v = firstClipId("V1");
+        ok("keyframe.set", {{"clip", v}, {"param", "opacity"}, {"at", 0}, {"value", 0}});
+        ok("keyframe.set",
+            {{"clip", v}, {"param", "opacity"}, {"at", "00:00:02:00"}, {"value", 100},
+                {"interp", "easeInOut"}});
+        const ClipData* clip = &load()->timeline()->data().videoTracks[0].clips[0];
+        const AnimatedValue& opacity = clip->transform.values[keys::Opacity];
+        QCOMPARE(opacity.keys.size(), 2);
+        QCOMPARE(opacity.valueAt(0), 0.0);
+        QCOMPARE(opacity.valueAt(48), 100.0);
+        QVERIFY(opacity.valueAt(24) > 0.0 && opacity.valueAt(24) < 100.0);
+        // Changing the key at a time replaces it.
+        ok("keyframe.set", {{"clip", v}, {"param", "opacity"}, {"at", 48}, {"value", 80}});
+        const CommandResult list = ok("keyframe.list", {{"clip", v}});
+        QCOMPARE(list.data["parameters"].toArray().size(), 1);
+        const QJsonArray keysJson = list.data["parameters"][0]["keys"].toArray();
+        QCOMPARE(keysJson.size(), 2);
+        QCOMPARE(keysJson[1]["at"].toInteger(), 48);
+        QCOMPARE(keysJson[1]["value"].toDouble(), 80.0);
+        QCOMPARE(keysJson[1]["interp"].toString(), QString("easeInOut"));
+        // An effect parameter and an audio one.
+        const qint64 fx = ok("effect.add", {{"clip", v}, {"type", "gaussian_blur"}})
+                              .data["effect"]
+                              .toObject()["id"]
+                              .toInteger();
+        ok("keyframe.set",
+            {{"clip", v}, {"param", "radius"}, {"effect", fx}, {"at", 10}, {"value", 30}});
+        QCOMPARE(
+            ok("keyframe.list", {{"clip", v}, {"effect", fx}}).data["parameters"].toArray().size(),
+            1);
+        ok("keyframe.set",
+            {{"clip", firstClipId("A1")}, {"param", "volumeDb"}, {"at", 5}, {"value", -12}});
+        QCOMPARE(ok("keyframe.list", {{"clip", firstClipId("A1")}})
+                     .data["parameters"][0]["param"]
+                     .toString(),
+            QString("volumeDb"));
+        // Delete.
+        ok("keyframe.delete", {{"clip", v}, {"param", "opacity"}, {"at", 0}});
+        QCOMPARE(load()
+                     ->timeline()
+                     ->data()
+                     .videoTracks[0]
+                     .clips[0]
+                     .transform.values[keys::Opacity]
+                     .keys.size(),
+            1);
+        bad("keyframe.delete", {{"clip", v}, {"param", "opacity"}, {"at", 0}}, "no_keyframe");
+        // Errors.
+        bad("keyframe.set", {{"clip", v}, {"param", "opacity"}, {"at", 0}, {"value", 101}},
+            "out_of_range");
+        bad("keyframe.set", {{"clip", v}, {"param", "opacity"}, {"at", 120}, {"value", 1}},
+            "out_of_range");
+        bad("keyframe.set", {{"clip", v}, {"param", "opacity"}, {"at", -1}, {"value", 1}},
+            "out_of_range");
+        bad("keyframe.set", {{"clip", v}, {"param", "nope"}, {"at", 1}, {"value", 1}},
+            "unknown_parameter");
+        bad("keyframe.set",
+            {{"clip", v}, {"param", "radius"}, {"effect", 9999}, {"at", 1}, {"value", 1}},
+            "unknown_effect");
+        bad("keyframe.set", {{"clip", v}, {"param", "flipH"}, {"at", 1}, {"value", 1}},
+            "not_animatable");
+        bad("keyframe.set", {{"clip", v}, {"param", "opacity"}, {"at", 1}, {"value", "high"}},
+            "bad_value");
+        bad("keyframe.set",
+            {{"clip", v}, {"param", "opacity"}, {"at", 1}, {"value", 1}, {"interp", "wavy"}},
+            "bad_value");
+        bad("keyframe.set", {{"clip", 9999}, {"param", "opacity"}, {"at", 1}, {"value", 1}},
+            "unknown_clip");
+    }
+
+    void tracks()
+    {
+        makeProject();
+        const CommandResult list = ok("track.list", {});
+        QCOMPARE(list.data["tracks"].toArray().size(), 2); // V1 A1
+        const CommandResult added = ok("track.add", {{"type", "video"}});
+        QCOMPARE(added.data["track"]["track"].toString(), QString("V2"));
+        ok("track.add", {{"type", "audio"}});
+        QCOMPARE(ok("track.list", {}).data["tracks"].toArray().size(), 4);
+        const CommandResult set = ok("track.set",
+            {{"track", "A1"}, {"muted", true}, {"locked", true}, {"solo", true},
+                {"name", "Music"}});
+        QCOMPARE(set.data["track"]["muted"].toBool(), true);
+        const TrackData& a1 = load()->timeline()->data().audioTracks[0];
+        QVERIFY(a1.muted && a1.locked && a1.solo);
+        QCOMPARE(a1.name, QString("Music"));
+        ok("track.set", {{"track", "V1"}, {"enabled", false}, {"auto-select", false}});
+        const TrackData& v1 = load()->timeline()->data().videoTracks[0];
+        QVERIFY(!v1.enabled && !v1.autoSelect);
+        ok("track.set", {{"track", "V1"}, {"enabled", true}});
+        QVERIFY(load()->timeline()->data().videoTracks[0].enabled);
+        bad("track.set", {{"track", "V9"}, {"muted", true}}, "unknown_track");
+        bad("track.set", {{"track", "X1"}, {"muted", true}}, "unknown_track");
+        bad("track.set", {{"track", "V1"}}, "missing_parameter");
+        bad("track.add", {{"type", "subtitle"}}, "bad_value");
+    }
+
+    void clipSetCropAndPan()
+    {
+        makeProject();
+        ok("clip.add", {{"media", videoId()}, {"source-out", "00:00:05:00"}});
+        const qint64 v = firstClipId("V1");
+        const qint64 a = firstClipId("A1");
+        ok("clip.set",
+            {{"clip", v}, {"crop-left", 10}, {"crop-right", 20}, {"crop-top", 30},
+                {"crop-bottom", 40}});
+        const ClipData& c = load()->timeline()->data().videoTracks[0].clips[0];
+        QCOMPARE(c.transform.value(keys::CropL, 0), 10.0);
+        QCOMPARE(c.transform.value(keys::CropR, 0), 20.0);
+        QCOMPARE(c.transform.value(keys::CropT, 0), 30.0);
+        QCOMPARE(c.transform.value(keys::CropB, 0), 40.0);
+        ok("clip.set", {{"clip", a}, {"pan", -0.5}});
+        QCOMPARE(
+            load()->timeline()->data().audioTracks[0].clips[0].audio.value(keys::Pan, 0), -0.5);
+        bad("clip.set", {{"clip", a}, {"pan", 2}}, "out_of_range");
+        bad("clip.set", {{"clip", v}, {"crop-left", -1}}, "out_of_range");
     }
 
     void exportAndImportOtio()

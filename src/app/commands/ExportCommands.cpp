@@ -131,7 +131,7 @@ void registerExportCommands(CommandRegistry& registry)
                  {QStringLiteral("preset"), ParamType::String,
                      QStringLiteral("Deliver preset id (default: chosen by the file extension)"),
                      false, {}, {}}},
-             ProjectUse::Read, true},
+             ProjectUse::Read, true, false, true, true},
             runRender});
 }
 

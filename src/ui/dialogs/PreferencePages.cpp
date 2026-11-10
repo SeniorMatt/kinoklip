@@ -178,6 +178,36 @@ private:
     QComboBox* m_gpu = nullptr;
 };
 
+// ---- System: Local Control -----------------------------------------------------------
+
+/// The switch for live control of the open window by local tools (spec 55.8).
+class ControlPage final : public SettingsPage
+{
+public:
+    explicit ControlPage(QWidget* parent)
+        : SettingsPage(parent)
+    {
+        auto* form = makeForm(this);
+        m_enabled = new QCheckBox(tr("Let local tools control Kinoklip (MCP)"));
+        m_enabled->setObjectName(QStringLiteral("LocalControl"));
+        m_enabled->setToolTip(tr("Programs running as you on this computer, such as an AI "
+                                 "assistant started with \"kinoklip mcp\", can edit the open "
+                                 "project. Every call is one undo step."));
+        m_enabled->setChecked(prefs::localControlEnabled());
+        form->addRow(tr("Local tools"), m_enabled);
+        form->addRow(QString(),
+            note(tr("Lets programs you run on this computer, such as an AI assistant started "
+                    "with \"kinoklip mcp\", edit the project open in this window; each of their "
+                    "changes is one step you can undo. Only your own user account can connect, "
+                    "and nothing is opened on the network. Off by default.")));
+    }
+
+    void apply() override { prefs::setLocalControlEnabled(m_enabled->isChecked()); }
+
+private:
+    QCheckBox* m_enabled = nullptr;
+};
+
 // ---- System: Media Storage -----------------------------------------------------------
 
 class StoragePage final : public SettingsPage
@@ -853,6 +883,8 @@ void registerStandardSettingsPages(SettingsPageRegistry& registry, ActionRegistr
         [](QWidget* parent) { return new DecodePage(parent); });
     add("audio_io", tr("Audio I/O"), "audio-card", 40, system,
         [](QWidget* parent) { return new AudioIoPage(parent); });
+    add("control", tr("Local Control"), "network-disconnect", 50, system,
+        [](QWidget* parent) { return new ControlPage(parent); });
     // User sections. "ui" also receives the theme's "appearance" page.
     add("ui", tr("UI Settings"), "preferences-desktop-display", 100, user,
         [](QWidget* parent) { return new InterfacePage(parent); });

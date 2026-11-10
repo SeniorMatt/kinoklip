@@ -18,12 +18,16 @@ namespace kk::timelineedit {
 /// Runs @p fn on the mutable timeline inside one undoable edit. @p fn returns whether it
 /// changed anything; if not, the edit is cancelled so no empty undo step (or id allocation)
 /// is left behind. Returns whether something changed.
+/// Inside an edit that is already open (a live command made of several edits is one undo step,
+/// CommandRegistry::executeLive()) a call that changed nothing only closes its own level:
+/// cancelling would make the outer edit throw away what the earlier calls did.
 template<typename Fn>
 bool runEdit(Project* project, const QString& label, Fn&& fn)
 {
+    const bool nested = project->isEditing();
     project->beginEdit(label);
     const bool changed = fn(project->timeline()->mutableData());
-    if (changed)
+    if (changed || nested)
         project->endEdit();
     else
         project->cancelEdit();

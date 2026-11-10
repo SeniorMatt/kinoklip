@@ -17,11 +17,13 @@ namespace kk::mcp {
 /// JSON Schema (type "object") of the parameters of @p spec, universal parameters included.
 /// Required parameters are listed in "required"; a Time is a string described as "frames or
 /// timecode"; a choice list is an "enum"; a list of strings an array of strings.
-[[nodiscard]] QJsonObject inputSchema(const commands::CommandSpec& spec);
+/// In live mode (@p live: the commands run on the project open in a window) `project` is optional
+/// and `output` / `force` do not exist.
+[[nodiscard]] QJsonObject inputSchema(const commands::CommandSpec& spec, bool live = false);
 
 /// The "tools" array of tools/list: one entry (name, description, inputSchema, annotations)
 /// per command of @p registry.
-[[nodiscard]] QJsonArray toolList(const commands::CommandRegistry& registry);
+[[nodiscard]] QJsonArray toolList(const commands::CommandRegistry& registry, bool live = false);
 
 /// The command registered under tool name @p tool, or nullptr.
 [[nodiscard]] const commands::Command* findCommand(

@@ -60,11 +60,11 @@ QString toolName(const QString& commandName)
     return QString(commandName).replace(QLatin1Char('.'), QLatin1Char('_'));
 }
 
-QJsonObject inputSchema(const commands::CommandSpec& spec)
+QJsonObject inputSchema(const commands::CommandSpec& spec, bool live)
 {
     QJsonObject properties;
     QJsonArray required;
-    for (const ParamSpec& p : commands::CommandRegistry::fullParams(spec)) {
+    for (const ParamSpec& p : commands::CommandRegistry::fullParams(spec, live)) {
         properties.insert(p.name, propertySchema(p));
         if (p.required)
             required.append(p.name);
@@ -76,14 +76,15 @@ QJsonObject inputSchema(const commands::CommandSpec& spec)
     return schema;
 }
 
-QJsonArray toolList(const commands::CommandRegistry& registry)
+QJsonArray toolList(const commands::CommandRegistry& registry, bool live)
 {
     QJsonArray tools;
     for (const commands::Command& c : registry.all()) {
         const bool modifies
             = commands::CommandRegistry::describe(c.spec)[key("modifiesProject")].toBool();
         tools.append(QJsonObject {{key("name"), toolName(c.spec.name)},
-            {key("description"), c.spec.description}, {key("inputSchema"), inputSchema(c.spec)},
+            {key("description"), c.spec.description},
+            {key("inputSchema"), inputSchema(c.spec, live)},
             {key("annotations"), QJsonObject {{key("readOnlyHint"), !modifies}}}});
     }
     return tools;

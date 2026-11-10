@@ -45,11 +45,16 @@ QByteArray compact(const QJsonObject& object)
 QString serverInstructions()
 {
     return QStringLiteral(
-        "Kinoklip is a video editor. Each tool edits a project file given as the `project` "
+        "Kinoklip is a video editor. Call session_info first: it says whether the tools edit "
+        "project files (file mode) or the project open in the user's Kinoklip window (live "
+        "mode). In file mode each tool edits the project file given as the `project` "
         "argument (an absolute path ending in .kkproj; relative paths are relative to the "
-        "server's folder) and saves the change into it, so call tools one after another. Start "
+        "server's folder) and saves the change into it, so call tools one after another. In "
+        "live mode `project` can be left out: the change appears in the window as one undo step "
+        "the user can undo, and project_save saves it. Start "
         "with project_new, then media_import, clip_add, clip_trim, clip_split, marker_add, "
-        "transition_add. Use project_info, clip_list and media_list to see the state, "
+        "transition_add, effect_add, title_add, keyframe_set. Use project_info, clip_list and "
+        "media_list to see the state, "
         "transition_list and effect_list for ids, and frame_view to look at a frame of the "
         "timeline. Times are timeline frames or timecode HH:MM:SS:FF counted from the start of "
         "the timeline. Clip ids come from clip_list. Errors carry a stable code in the text.");
@@ -141,7 +146,7 @@ QJsonObject McpServer::handleOne(const QJsonObject& message)
     if (method == QLatin1String("ping"))
         return okReply(id, {});
     if (method == QLatin1String("tools/list"))
-        return okReply(id, {{k("tools"), toolList(m_registry)}});
+        return okReply(id, {{k("tools"), toolList(m_registry, m_liveProbe && m_liveProbe())}});
     if (method == QLatin1String("tools/call"))
         return callTool(id, params);
     return errorReply(id, kMethodNotFound, QStringLiteral("method not found: %1").arg(method));

@@ -67,6 +67,13 @@ struct CommandSpec
     ProjectUse use = ProjectUse::Read;
     bool usesTimeline = false; ///< accepts `timeline` (a timeline id or name; default: active)
     bool timelineRequired = false; ///< `timeline` must be given (timeline.select)
+    /// Live mode (an open window): one undo step for the whole call, cancelled if it fails.
+    /// False for commands that must not run inside an open edit (project.save, timeline.select).
+    bool liveUndoStep = true;
+    /// Live mode: a long job (render, frame export) that runs on a copy of the open project
+    /// in a worker thread instead of the window's thread (CommandRegistry::executeOnSnapshot()).
+    /// Only for ProjectUse::Read.
+    bool background = false;
 };
 
 /// Succeeded with a JSON object and a short human sentence, or failed with a code and a message.
@@ -133,6 +140,19 @@ struct CommandContext
     Project* project = nullptr; ///< loaded (or new) project; null for ProjectUse::None
     QString projectPath; ///< the file the project was loaded from / will be saved to
     ProgressFn progress; ///< may be empty
+    /// True when the project is the one open in a window (executeLive()): edits show there and
+    /// are one undo step per call; nothing is loaded or saved. False for a project file.
+    bool live = false;
+    /// Live mode only: the window's normal Save (project.save). Empty in file mode.
+    std::function<bool(QString* error)> saveProject;
+};
+
+/// The open project of a window, for CommandRegistry::executeLive().
+struct LiveTarget
+{
+    Project* project = nullptr; ///< the window's project (never null)
+    /// The window's File > Save; sets the message and returns false on failure. May be empty.
+    std::function<bool(QString* error)> save;
 };
 
 using CommandHandler = std::function<CommandResult(CommandContext&, const CommandArgs&)>;
@@ -161,10 +181,11 @@ public:
     [[nodiscard]] QStringList groups() const;
 
     /// The spec with the universal parameters added.
-    [[nodiscard]] static QVector<ParamSpec> fullParams(const CommandSpec& spec);
+    /// In live mode (@p live) `project` is optional and `output` / `force` do not exist.
+    [[nodiscard]] static QVector<ParamSpec> fullParams(const CommandSpec& spec, bool live = false);
     /// {"name","description","parameters":[{"name","type","description","required","default",
     /// "choices"}],"modifiesProject":bool}.
-    [[nodiscard]] static QJsonObject describe(const CommandSpec& spec);
+    [[nodiscard]] static QJsonObject describe(const CommandSpec& spec, bool live = false);
     /// describe() of every command, as {"commands":[...]}.
     [[nodiscard]] QJsonObject describeAll() const;
 
@@ -172,6 +193,25 @@ public:
     /// Never throws; every problem is a failed result.
     [[nodiscard]] CommandResult execute(
         const QString& name, const QJsonObject& arguments, const ProgressFn& progress = {}) const;
+
+    /// Runs command @p name on the project open in a window. The same handlers as execute(), no
+    /// file is loaded or saved: the call is one undo step of the project (cancelled and the
+    /// project left as it was when the command fails), so the user sees the change and can undo
+    /// it. `project` is optional and, when given, must be the open project (`wrong_project`);
+    /// `output` is refused (`live_unsupported`). A window with an edit in progress is
+    /// `window_busy`. Commands that create a file (ProjectUse::Create) do what execute() does.
+    /// Must run on the thread that owns the project.
+    [[nodiscard]] CommandResult executeLive(const QString& name, const QJsonObject& arguments,
+        const LiveTarget& target, const ProgressFn& progress = {}) const;
+
+    /// Runs a CommandSpec::background command (render, frame export) of the open project on a
+    /// copy of it: @p documentJson is Project::documentJson(@p documentPath) taken on the
+    /// project's thread. Safe to call from a worker thread; the open project is not touched.
+    /// @p documentPath is the open project's file (empty if it was never saved); a `project`
+    /// argument must match it, as in executeLive().
+    [[nodiscard]] CommandResult executeOnSnapshot(const QString& name, const QJsonObject& arguments,
+        const QByteArray& documentJson, const QString& documentPath,
+        const ProgressFn& progress = {}) const;
 
 private:
     QVector<Command> m_commands;
@@ -187,6 +227,10 @@ void registerTransitionCommands(CommandRegistry& registry);
 void registerExportCommands(CommandRegistry& registry);
 void registerFrameCommands(CommandRegistry& registry);
 void registerEffectCommands(CommandRegistry& registry);
+void registerClipEffectCommands(CommandRegistry& registry);
+void registerGeneratorCommands(CommandRegistry& registry);
+void registerKeyframeCommands(CommandRegistry& registry);
+void registerTrackCommands(CommandRegistry& registry);
 
 } // namespace commands
 } // namespace kk

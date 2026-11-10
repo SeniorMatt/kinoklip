@@ -125,7 +125,7 @@ void registerFrameCommands(CommandRegistry& registry)
                      QStringLiteral("picture width in pixels, 16 to 8192; the height keeps the "
                                     "aspect ratio"),
                      false, QStringLiteral("the timeline's width"), {}}},
-             ProjectUse::Read, true},
+             ProjectUse::Read, true, false, true, true},
             runExport});
     registry.add({{QStringLiteral("frame.view"),
                       QStringLiteral(
@@ -136,7 +136,7 @@ void registerFrameCommands(CommandRegistry& registry)
                           {QStringLiteral("width"), ParamType::Integer,
                               QStringLiteral("picture width in pixels, 16 to 8192"), false,
                               QString::number(kViewWidth), {}}},
-                      ProjectUse::Read, true},
+                      ProjectUse::Read, true, false, true, true},
         runView});
 }
 

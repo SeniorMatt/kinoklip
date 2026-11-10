@@ -640,7 +640,7 @@
       "id": "control-kinoklip-from-an-ai-assistant",
       "title": "Control Kinoklip from an AI assistant (MCP)",
       "file": "control-kinoklip-from-an-ai-assistant.md",
-      "summary": "Connect an AI assistant to Kinoklip through the Model Context Protocol, so it can build and cut a project and look at frames; local, over standard input and output only.",
+      "summary": "Connect an AI assistant to Kinoklip through the Model Context Protocol, so it can build and cut a project, add effects, titles and keyframes and look at frames; local only. Optionally let it work in the open window, with every change one undo step (Preferences > Local Control).",
       "keywords": [
         "mcp",
         "model context protocol",
@@ -651,7 +651,11 @@
         "agent",
         "mcp server",
         "kinoklip mcp",
-        "automation"
+        "automation",
+        "live control",
+        "local control",
+        "let local tools control kinoklip",
+        "assistant connected"
       ],
       "contexts": []
     },
