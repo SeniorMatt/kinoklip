@@ -34,6 +34,11 @@ const ParamSpec kEffect {QStringLiteral("effect"), ParamType::Integer,
     QStringLiteral("effect instance id (see effect.stack) when the parameter is an effect's"),
     false, {}, {}};
 
+const ParamSpec kLayer {QStringLiteral("layer"), ParamType::Integer,
+    QStringLiteral("title layer id (see title.layer_list) when the parameter is a layer's; 0 is "
+                   "the first layer"),
+    false, {}, {}};
+
 const TimelineData& dataOf(CommandContext& ctx)
 {
     return ctx.project->timeline()->data();
@@ -49,6 +54,8 @@ QString pathOf(const ResolvedParam& p)
         return keyframeops::memberPath(QStringLiteral("audio"), p.ref.key);
     case ParamScope::Title:
         return keyframeops::memberPath(QStringLiteral("title"), p.ref.key);
+    case ParamScope::TitleLayer:
+        return keyframeops::layerPath(p.ref.effectId, p.ref.key);
     default:
         return keyframeops::memberPath(QStringLiteral("transform"), p.ref.key);
     }
@@ -65,8 +72,12 @@ std::optional<CommandResult> locate(CommandContext& ctx, const CommandArgs& args
     if (d.track(found.track)->locked)
         return fail(
             "track_locked", QStringLiteral("track %1 is locked").arg(trackName(found.track)));
-    if (auto bad = resolveParam(*found.clip, quint64(args.integer(QStringLiteral("effect"))),
-            args.string(QStringLiteral("param")), param))
+    const QString layerName = QStringLiteral("layer");
+    if (auto bad = args.has(layerName)
+            ? resolveLayerParam(*found.clip, quint64(args.integer(layerName)),
+                  args.string(QStringLiteral("param")), param)
+            : resolveParam(*found.clip, quint64(args.integer(QStringLiteral("effect"))),
+                  args.string(QStringLiteral("param")), param))
         return bad;
     if (!param.descriptor->isScalar() || !param.descriptor->animatable)
         return fail("not_animatable",
@@ -154,14 +165,25 @@ CommandResult runList(CommandContext& ctx, const CommandArgs& args)
         const QString key = parts.last();
         const quint64 effect
             = parts.value(0) == QLatin1String("effect") ? parts.value(1).toULongLong() : 0;
+        const bool inLayer = parts.value(0) == QLatin1String("layer");
+        const quint64 layer = inLayer ? parts.value(1).toULongLong() : 0;
         if ((!only.isEmpty() && key != only) || (onlyEffect != 0 && effect != onlyEffect))
             continue;
+        if (args.has(QStringLiteral("layer"))) {
+            const quint64 wanted = quint64(args.integer(QStringLiteral("layer")));
+            const bool match = wanted == 0 ? parts.value(0) == QLatin1String("title")
+                                           : inLayer && layer == wanted;
+            if (!match)
+                continue;
+        }
         QJsonObject o = keysJson(clip, *value, d.fps);
         o.insert(QStringLiteral("param"), key);
         o.insert(QStringLiteral("label"), p.label);
         o.insert(QStringLiteral("group"), p.groupName);
         if (effect != 0)
             o.insert(QStringLiteral("effect"), qint64(effect));
+        if (inLayer)
+            o.insert(QStringLiteral("layer"), qint64(layer));
         total += int(value->keys.size());
         list.append(o);
     }
@@ -219,7 +241,7 @@ void registerKeyframeCommands(CommandRegistry& registry)
                             "volume, an effect's parameter) at a time of a clip; the "
                             "value changes between keyframes. Adds the key or changes "
                             "the one at that time."),
-             {kClip, kParam, kEffect, at,
+             {kClip, kParam, kEffect, kLayer, at,
                  {QStringLiteral("value"), ParamType::String,
                      QStringLiteral("the value, inside the range of the parameter"), true, {}, {}},
                  {QStringLiteral("interp"), ParamType::String,
@@ -233,13 +255,13 @@ void registerKeyframeCommands(CommandRegistry& registry)
                       {kClip,
                           {QStringLiteral("param"), ParamType::String,
                               QStringLiteral("only this parameter key"), false, {}, {}},
-                          kEffect},
+                          kEffect, kLayer},
                       ProjectUse::Read, true},
         runList});
     registry.add({{QStringLiteral("keyframe.delete"),
                       QStringLiteral("Delete the keyframe of a parameter at a time. The "
                                      "parameter keeps the value of the last key removed."),
-                      {kClip, kParam, kEffect, at}, ProjectUse::Modify, true},
+                      {kClip, kParam, kEffect, kLayer, at}, ProjectUse::Modify, true},
         runDelete});
 }
 

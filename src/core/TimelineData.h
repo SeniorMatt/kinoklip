@@ -99,6 +99,35 @@ enum class RetimeProcess : quint8 {
     OpticalFlow ///< motion-compensated interpolation (GPU block-matching flow, render/GlRetime)
 };
 
+/// What a title layer draws (spec section 68).
+enum class TitleLayerKind {
+    Text,
+    Shape
+};
+
+/// One extra layer of a Title clip (core/TitleLayers.h): its parameters use the keys of
+/// core/ParamKeys.h (a Text layer the text keys, a Shape layer the shape keys).
+struct TitleLayer
+{
+    quint64 id = 0; ///< unique within the clip, never 0 (0 is the first layer, ClipData::title)
+    TitleLayerKind kind = TitleLayerKind::Text;
+    QString name; ///< empty = the default name (core/TitleLayers.h displayName())
+    bool visible = true;
+    ParamSet params;
+
+    friend bool operator==(const TitleLayer&, const TitleLayer&) = default;
+};
+
+/// What the first layer of a Title clip (ClipData::title) has besides its parameters.
+struct TitleBaseLayer
+{
+    int slot = 0; ///< how many extra layers lie below it (0 = it is the bottom layer)
+    bool visible = true;
+    QString name;
+
+    friend bool operator==(const TitleBaseLayer&, const TitleBaseLayer&) = default;
+};
+
 /// What a clip shows.
 enum class ClipKind {
     Media, ///< a MediaItem from the media pool (video and/or audio)
@@ -168,6 +197,10 @@ struct ClipData
     /// generator descriptor. Subtitle clips: keys::Text plus the style keys that override the
     /// track's default style (core/Subtitles.h).
     ParamSet title;
+    /// Title clips: more layers drawn over (or, per titleBase.slot, under) the first layer,
+    /// which is `title`. Bottom to top. Empty for every title made before layers existed.
+    QVector<TitleLayer> titleLayers;
+    TitleBaseLayer titleBase;
     /// Generator clips only: EffectRegistry descriptor id of the generator.
     QString generator;
     QColor solidColor; ///< Solid clips only

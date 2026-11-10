@@ -102,6 +102,9 @@ public:
         m_filePicker = std::move(picker);
     }
 
+    /// Title clips: edits layer @p layerId in the Title tab (0 = the first layer).
+    void selectTitleLayer(quint64 layerId);
+    [[nodiscard]] quint64 selectedTitleLayer() const { return m_titleLayer; }
     /// Toggles a keyframe on the parameter the user touched last (Add Keyframe shortcut).
     void toggleKeyframeOnActiveParam();
     /// Moves the playhead to the previous / next keyframe of any parameter of the shown clips.
@@ -124,6 +127,9 @@ private:
         QVector<quint64> effectIds; ///< in order
         QVector<quint64> audioEffectIds; ///< the linked audio clip's effects, in order
         QVector<quint64> maskIds; ///< in order (a mask's shape type never changes)
+        QVector<quint64> titleOrder; ///< Title clips: layer ids bottom to top (0 = first layer)
+        QStringList titleLayerLabels; ///< Title clips: name and visibility of each layer
+        quint64 titleLayer = 0; ///< Title clips: the layer the controls edit
         QString transitionIn; ///< type, empty = none
         QString transitionOut;
         quint64 subtitleTrackId = 0; ///< Subtitle clips: TrackData::id of their track
@@ -169,10 +175,10 @@ private:
     /// for F1, a "?" header button and "How to use <name>…" in the header menu when the
     /// user guide has an article for it.
     void attachHelp(ParamGroupBox* group, const QString& effectId, const QString& name);
-    void addSectionKeyframeButton(
-        ParamGroupBox* group, const EffectDescriptor& desc, ParamScope scope, quint64 clipId);
-    void addDescriptorGroup(
-        Tab tab, const EffectDescriptor& desc, ParamScope scope, quint64 clipId);
+    void addSectionKeyframeButton(ParamGroupBox* group, const EffectDescriptor& desc,
+        ParamScope scope, quint64 clipId, quint64 effectId = 0);
+    void addDescriptorGroup(Tab tab, const EffectDescriptor& desc, ParamScope scope, quint64 clipId,
+        quint64 effectId = 0);
     /// Subtitle clips: the Captions tab (caption text, own style, track style).
     void buildCaptionsTab(const ClipData& c);
     void buildEffectsTab(const ClipData& clip);
@@ -201,6 +207,12 @@ private:
     /// Changes the speed of @p clipId (and the selected peers) like the Change Clip Speed
     /// dialog: @p edit adjusts the clip's current speed state.
     void applySpeed(quint64 clipId, const std::function<void(retimeops::SpeedChange&)>& edit);
+    // ---- Title layers (InspectorTitleLayers.cpp) ----
+    void buildTitleLayersSection(const ClipData& clip);
+    void addTitleLayer(TitleLayerKind kind, const QString& shape = {});
+    void duplicateTitleLayer(quint64 layerId);
+    void removeTitleLayer(quint64 layerId);
+    void moveTitleLayer(quint64 layerId, int delta);
     // ---- Masks section (InspectorMasks.cpp) ----
     void buildMasksSection(const ClipData& clip);
     void addMask(MaskShape shape);
@@ -221,6 +233,7 @@ private:
 
     quint64 m_clipId = 0;
     quint64 m_audioClipId = 0;
+    quint64 m_titleLayer = 0; ///< the title layer being edited (0 = the first layer)
     Structure m_structure;
     /// Stand-in clip for the style of a subtitle track (virtual clip id, see
     /// trackStyleClipId()): its `title` mirrors TrackData::subtitleStyle, so the generic

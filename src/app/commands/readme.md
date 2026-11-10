@@ -24,7 +24,7 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `FrameCommands.cpp` | `frame.export` (a timeline frame to a PNG file), `frame.view` (the picture in `CommandResult::image`; MCP sends it as image content) through `renderFrameImage()` |
 | `EffectCommands.cpp` | `transition.list`, `effect.list`: the ids of the effect catalogue (`EffectRegistry`) |
 | `ClipEffectCommands.cpp` | `effect.add`, `effect.stack`, `effect.set`, `effect.remove`, `effect.enable`: the effects of a clip, added with `effectactions::applyEffect()` (the Effects library's function) |
-| `GeneratorCommands.cpp` | `generator.add`, `title.add`, `title.set`: generated and title clips, made and placed with `effectactions::makeGeneratorClip()` / `addGeneratorClip()` |
+| `GeneratorCommands.cpp` | `generator.add`, `title.add`, `title.set`, `title.layer_list/add/remove/move/set` (spec 68): generated and title clips, made and placed with `effectactions::makeGeneratorClip()` / `addGeneratorClip()` |
 | `KeyframeCommands.cpp` | `keyframe.set`, `keyframe.list`, `keyframe.delete` through `paramaccess` and `keyframeops` (the Inspector's code) |
 | `TrackCommands.cpp` | `track.list`, `track.add`, `track.set` |
 | `ParamSupport.h/.cpp` | `key=value` settings checked against a `ParamDescriptor` (range, choices, colour, file) and written through `paramaccess`; finding a clip parameter by key |

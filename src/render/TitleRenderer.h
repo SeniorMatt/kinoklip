@@ -12,6 +12,7 @@
 #include <QString>
 
 #include <cstdint>
+#include <vector>
 
 namespace kk::render {
 
@@ -20,6 +21,20 @@ namespace kk::render {
 /// title is rasterised once and then costs nothing per frame.
 struct TitleStyle
 {
+    /// What the layer draws: its text (default) or a shape (spec section 68).
+    enum class Kind {
+        Text,
+        Shape
+    };
+    /// Shape layers: the outline drawn.
+    enum class Shape {
+        Rectangle,
+        Rounded,
+        Ellipse,
+        Line
+    };
+
+    Kind kind = Kind::Text;
     QString text;
     QString font;
     bool bold = false;
@@ -42,6 +57,18 @@ struct TitleStyle
     double scrollProgress = 0; ///< 0 = just below the bottom edge, 1 = just above the top
     QSize canvas; ///< size of the full title frame in OUTPUT pixels (timeline size × scale)
     double scale = 1.0; ///< output pixels per timeline pixel
+    double rotation = 0; ///< degrees clockwise around the layer's centre
+    double opacity = 100; ///< percent, of the whole layer
+    // Shape layers: the centre is posX / posY, the fill colour `color`, the stroke
+    // `outlineColor` / `outlineWidth`.
+    Shape shape = Shape::Rectangle;
+    double shapeWidth = 400; ///< px at timeline resolution
+    double shapeHeight = 200;
+    double cornerRadius = 0; ///< px at timeline resolution (rounded rectangles)
+    double fillOpacity = 100; ///< percent
+    /// A title with several layers: the shown layers bottom to top (each a plain Text or Shape
+    /// style on the same canvas and scale). When not empty the fields above are not used.
+    std::vector<TitleStyle> stack;
 
     friend bool operator==(const TitleStyle&, const TitleStyle&) = default;
 };
@@ -64,6 +91,11 @@ struct TitleImage
     QImage image;
     QRectF rect; ///< position of `image` inside the canvas, output pixels
 };
+
+/// Resolves one layer: the parameters @p p (a Title clip's first layer, or an extra layer of
+/// kind @p kind) at clip-local frame @p localFrame.
+[[nodiscard]] TitleStyle resolveLayerStyle(const ParamSet& p, TitleLayerKind kind,
+    const ClipData& clip, int64_t localFrame, QSize canvas, double scale);
 
 /// Rasterises @p style. Thread-safe (QPainter on a QImage); takes ~1-5 ms at 1080p.
 [[nodiscard]] TitleImage renderTitle(const TitleStyle& style);

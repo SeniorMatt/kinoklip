@@ -12,6 +12,7 @@
 #include "core/SelectionModel.h"
 #include "core/Subtitles.h"
 #include "core/Timeline.h"
+#include "core/TitleLayers.h"
 #include "core/TitlePresets.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -248,6 +249,8 @@ InspectorPanel::~InspectorPanel()
 
 void InspectorPanel::showClip(quint64 clipId)
 {
+    if (clipId != m_clipId)
+        m_titleLayer = 0; // layer ids are per clip
     const Structure structure = computeStructure(clipId);
     m_clipId = structure.clipId;
     m_audioClipId = structure.audioClipId;
@@ -580,6 +583,13 @@ InspectorPanel::Structure InspectorPanel::computeStructure(quint64 clipId) const
     s.effectIds.reserve(c.effects.size());
     for (const EffectInstance& fx : c.effects)
         s.effectIds.append(fx.id);
+    if (c.kind == ClipKind::Title) {
+        s.titleOrder = titlelayers::order(c);
+        for (const quint64 id : s.titleOrder)
+            s.titleLayerLabels.append(titlelayers::displayName(c, id)
+                + (titlelayers::visible(c, id) ? QStringLiteral("+") : QStringLiteral("-")));
+        s.titleLayer = s.titleOrder.contains(m_titleLayer) ? m_titleLayer : 0;
+    }
     s.maskIds.reserve(c.masks.size());
     for (const MaskData& m : c.masks)
         s.maskIds.append(m.id);
@@ -672,13 +682,13 @@ ParamGroupBox* InspectorPanel::addGroup(
 }
 
 void InspectorPanel::addDescriptorGroup(
-    Tab tab, const EffectDescriptor& desc, ParamScope scope, quint64 clipId)
+    Tab tab, const EffectDescriptor& desc, ParamScope scope, quint64 clipId, quint64 effectId)
 {
     ParamGroupBox* group = addGroup(tab, desc.id, desc.name, clipId);
     attachHelp(group, desc.id, desc.name);
     for (const ParamDescriptor& p : desc.params)
-        group->addParam(ParamRef {clipId, scope, 0, p.key}, p, *this);
-    addSectionKeyframeButton(group, desc, scope, clipId);
+        group->addParam(ParamRef {clipId, scope, effectId, p.key}, p, *this);
+    addSectionKeyframeButton(group, desc, scope, clipId, effectId);
     QToolButton* reset = group->addHeaderButton(InspectorGlyph::Reset, tr("Reset all"));
     connect(reset, &QToolButton::clicked, this, [this, group, clipId, name = desc.name] {
         QVector<std::pair<ParamRef, ParamDescriptor>> params;
@@ -703,8 +713,8 @@ void InspectorPanel::attachHelp(ParamGroupBox* group, const QString& effectId, c
         group->addHeaderMenuAction(howTo);
 }
 
-void InspectorPanel::addSectionKeyframeButton(
-    ParamGroupBox* group, const EffectDescriptor& desc, ParamScope scope, quint64 clipId)
+void InspectorPanel::addSectionKeyframeButton(ParamGroupBox* group, const EffectDescriptor& desc,
+    ParamScope scope, quint64 clipId, quint64 effectId)
 {
     // Spec 15.13: one diamond in the section header keys every animatable parameter of the
     // section at once (filled when all of them have a key at the playhead).
@@ -719,20 +729,22 @@ void InspectorPanel::addSectionKeyframeButton(
     diamond->setObjectName(QStringLiteral("keyframe-section:") + desc.id);
     diamond->setToolTip(tr("Add or remove keyframes of every %1 parameter").arg(desc.name));
     group->addHeaderWidget(diamond);
-    connect(diamond, &KeyframeButton::clicked, this, [this, params, scope, clipId, desc] {
+    connect(diamond, &KeyframeButton::clicked, this, [this, params, scope, clipId, effectId, desc] {
         const ClipData* c = clip(clipId);
         if (!c)
             return;
         const int64_t frame = localFrame(clipId);
         bool allOnKey = true;
         for (const ParamDescriptor& p : params) {
-            const AnimatedValue* v = paramaccess::animated(*c, ParamRef {clipId, scope, 0, p.key});
+            const AnimatedValue* v
+                = paramaccess::animated(*c, ParamRef {clipId, scope, effectId, p.key});
             allOnKey = allOnKey && v && v->hasKeyAt(frame);
         }
         editClip(allOnKey ? tr("Remove %1 Keyframes").arg(desc.name)
                           : tr("Add %1 Keyframes").arg(desc.name),
             clipId, [&](ClipData& target) {
-                ParamSet* set = paramaccess::paramSet(target, ParamRef {clipId, scope, 0, {}});
+                ParamSet* set
+                    = paramaccess::paramSet(target, ParamRef {clipId, scope, effectId, {}});
                 if (!set)
                     return;
                 for (const ParamDescriptor& p : params) {
@@ -744,13 +756,14 @@ void InspectorPanel::addSectionKeyframeButton(
                 }
             });
     });
-    group->setHeaderRefresh([this, diamond, params, scope, clipId](const ClipData& c) {
+    group->setHeaderRefresh([this, diamond, params, scope, clipId, effectId](const ClipData& c) {
         const int64_t playhead = m_ctx.project->timeline()->playhead();
         const int64_t frame = c.localFrame(playhead);
         bool any = false;
         bool all = true;
         for (const ParamDescriptor& p : params) {
-            const AnimatedValue* v = paramaccess::animated(c, ParamRef {clipId, scope, 0, p.key});
+            const AnimatedValue* v
+                = paramaccess::animated(c, ParamRef {clipId, scope, effectId, p.key});
             any = any || (v && v->isAnimated());
             all = all && v && v->hasKeyAt(frame);
         }
@@ -827,9 +840,27 @@ void InspectorPanel::rebuild()
         if (c->kind == ClipKind::Subtitle) {
             // built by buildCaptionsTab()
         } else if (c->kind == ClipKind::Title) {
-            // The clip's preset (Left Lower Third, Scroll, ...) or Text: one group.
-            if (const EffectDescriptor* d = titles::descriptorOf(*c))
-                addDescriptorGroup(TitleTab, *d, ParamScope::Title, m_clipId);
+            // The layer list, then the controls of the selected layer: the clip's preset
+            // (Left Lower Third, Scroll, ...) or Text for the first layer and Text layers,
+            // Shape for a shape layer.
+            buildTitleLayersSection(*c);
+            const quint64 layer = m_structure.titleLayer;
+            if (titlelayers::kind(*c, layer) == TitleLayerKind::Shape) {
+                if (const EffectDescriptor* d
+                    = registry.find(QLatin1String(titlelayers::kShapeDescriptorId))) {
+                    EffectDescriptor shape = *d;
+                    shape.name = titlelayers::displayName(*c, layer);
+                    addDescriptorGroup(TitleTab, shape, ParamScope::TitleLayer, m_clipId, layer);
+                }
+            } else if (const EffectDescriptor* d = titles::descriptorOf(*c)) {
+                if (layer == titlelayers::kBaseId) {
+                    addDescriptorGroup(TitleTab, *d, ParamScope::Title, m_clipId);
+                } else {
+                    EffectDescriptor text = *d;
+                    text.name = titlelayers::displayName(*c, layer);
+                    addDescriptorGroup(TitleTab, text, ParamScope::TitleLayer, m_clipId, layer);
+                }
+            }
         } else {
             addPlaceholder(TitleTab,
                 tr("Not a title clip. Double-click a title in the Effects library to add one."));

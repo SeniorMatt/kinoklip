@@ -47,7 +47,10 @@ QString typeHint(ParamType type)
 
 QString commandWords(const QString& name)
 {
-    return QString(name).replace(QLatin1Char('.'), QLatin1Char(' '));
+    // title.layer_add is typed "title layer add" (see resolve()).
+    return QString(name)
+        .replace(QLatin1Char('.'), QLatin1Char(' '))
+        .replace(QLatin1String("title layer_"), QLatin1String("title layer "));
 }
 
 QString usage(const Command& command)
@@ -118,6 +121,14 @@ const Command* resolve(const CommandRegistry& registry, const QStringList& words
 {
     if (words.isEmpty())
         return nullptr;
+    // "title layer add" is the command title.layer_add (the last two words joined by '_').
+    if (words.size() > 2) {
+        if (const Command* c
+            = registry.find(words[0] + QLatin1Char('.') + words[1] + QLatin1Char('_') + words[2])) {
+            *consumed = 3;
+            return c;
+        }
+    }
     if (words.size() > 1) {
         if (const Command* c = registry.find(words[0] + QLatin1Char('.') + words[1])) {
             *consumed = 2;

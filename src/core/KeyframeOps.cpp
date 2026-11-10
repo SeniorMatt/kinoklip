@@ -5,6 +5,7 @@
 #include "core/EditOps.h"
 #include "core/EffectRegistry.h"
 #include "core/ParamKeys.h"
+#include "core/TitleLayers.h"
 #include "core/TitlePresets.h"
 
 #include <QCoreApplication>
@@ -24,6 +25,7 @@ const QString kTransform = QStringLiteral("transform");
 const QString kAudio = QStringLiteral("audio");
 const QString kTitle = QStringLiteral("title");
 const QString kEffect = QStringLiteral("effect");
+const QString kLayer = QStringLiteral("layer");
 const QString kRetime = QStringLiteral("retime");
 const QString kMask = QStringLiteral("mask");
 const QString kGrade = QStringLiteral("grade");
@@ -72,6 +74,16 @@ auto resolveSet(Clip& clip, const QString& path, QString* key) -> decltype(&clip
         }
         auto* node = clip.grade.node(id);
         return node ? &node->params : nullptr;
+    }
+    if (head == kLayer) {
+        quint64 id = 0;
+        if (!splitIdPath(path, slash, &id, key))
+            return nullptr;
+        for (auto& layer : clip.titleLayers) {
+            if (layer.id == id)
+                return &layer.params;
+        }
+        return nullptr;
     }
     if (head == kEffect) {
         const qsizetype slash2 = path.indexOf(QLatin1Char('/'), slash + 1);
@@ -162,6 +174,8 @@ void forEachValue(const ClipData& clip, F&& fn)
     };
     visit(clip.transform, kTransform + QLatin1Char('/'));
     visit(clip.title, kTitle + QLatin1Char('/'));
+    for (const TitleLayer& layer : clip.titleLayers)
+        visit(layer.params, layerPath(layer.id, QString()));
     visit(clip.audio, kAudio + QLatin1Char('/'));
     for (const MaskData& mask : clip.masks) {
         visit(mask.params, maskPath(mask.id, QString()));
@@ -220,6 +234,11 @@ QString memberPath(const QString& member, const QString& key)
 QString effectPath(quint64 effectId, const QString& key)
 {
     return kEffect + QLatin1Char('/') + QString::number(effectId) + QLatin1Char('/') + key;
+}
+
+QString layerPath(quint64 layerId, const QString& key)
+{
+    return kLayer + QLatin1Char('/') + QString::number(layerId) + QLatin1Char('/') + key;
 }
 
 QString gradePath(quint64 nodeId, const QString& key)
@@ -333,6 +352,21 @@ QVector<AnimatedParam> animatedParams(const ClipData& clip)
             ? reg.find(clip.generator)
             : titles::descriptorOf(clip);
         appendGroup(out, listed, clip.title, kTitle + QLatin1Char('/'), kTitle, titleDesc, true);
+    }
+    for (const TitleLayer& layer : clip.titleLayers) {
+        if (!layer.params.isAnimated())
+            continue;
+        QSet<QString> listed;
+        const QString prefix = layerPath(layer.id, QString());
+        const EffectRegistry& registry = EffectRegistry::instance();
+        const EffectDescriptor* layerDesc = layer.kind == TitleLayerKind::Shape
+            ? registry.find(QLatin1String(titlelayers::kShapeDescriptorId))
+            : titles::descriptorOf(clip);
+        const qsizetype first = out.size();
+        appendGroup(out, listed, layer.params, prefix, prefix.chopped(1), layerDesc, true);
+        const QString name = titlelayers::displayName(clip, layer.id);
+        for (qsizetype i = first; i < out.size(); ++i)
+            out[i].groupName = name;
     }
     if (clip.audio.isAnimated()) {
         QSet<QString> listed;

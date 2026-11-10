@@ -962,6 +962,49 @@
         "effect:surface_tracker",
         "effect:warper"
       ]
+    },
+    {
+      "id": "add-layers-to-a-title",
+      "title": "Add layers to a title",
+      "file": "add-layers-to-a-title.md",
+      "summary": "Build a title from several text and shape layers, reorder, hide and animate them.",
+      "keywords": [
+        "title",
+        "layers",
+        "layer",
+        "shape",
+        "rectangle",
+        "ellipse",
+        "line",
+        "lower third",
+        "text",
+        "bar",
+        "overlay",
+        "stack",
+        "order",
+        "duplicate"
+      ],
+      "contexts": []
+    },
+    {
+      "id": "emoji-in-titles-and-captions",
+      "title": "Emoji in titles and captions",
+      "file": "emoji-in-titles-and-captions.md",
+      "summary": "Put emoji in a title or a subtitle, in colour, in the viewer and in the exported video.",
+      "keywords": [
+        "emoji",
+        "emoticon",
+        "smiley",
+        "colour emoji",
+        "color emoji",
+        "title",
+        "subtitle",
+        "caption",
+        "noto color emoji",
+        "font",
+        "flag"
+      ],
+      "contexts": []
     }
 
   ]

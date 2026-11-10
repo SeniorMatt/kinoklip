@@ -3,12 +3,16 @@
 #include "render/TitleRenderer.h"
 
 #include "core/ParamKeys.h"
+#include "core/TitleLayers.h"
+#include "render/EmojiText.h"
 
 #include <QFont>
 #include <QFontMetricsF>
 #include <QHashFunctions>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPolygonF>
+#include <QTransform>
 
 #include <algorithm>
 #include <cmath>
@@ -81,18 +85,61 @@ size_t qHash(const TitleStyle& s, size_t seed)
     seed = hash(seed, s.canvas.width());
     seed = hash(seed, s.canvas.height());
     seed = hash(seed, s.scale);
+    seed = hash(seed, int(s.kind) | int(s.shape) << 1);
+    seed = hash(seed, s.rotation);
+    seed = hash(seed, s.opacity);
+    seed = hash(seed, s.shapeWidth);
+    seed = hash(seed, s.shapeHeight);
+    seed = hash(seed, s.cornerRadius);
+    seed = hash(seed, s.fillOpacity);
+    for (const TitleStyle& layer : s.stack)
+        seed = hash(seed, qHash(layer, seed));
     return seed;
 }
 
-TitleStyle resolveTitleStyle(const ClipData& clip, int64_t localFrame, QSize canvas, double scale)
+namespace {
+
+TitleStyle::Shape shapeOf(const QString& name)
+{
+    if (name == QLatin1String("rounded"))
+        return TitleStyle::Shape::Rounded;
+    if (name == QLatin1String("ellipse"))
+        return TitleStyle::Shape::Ellipse;
+    if (name == QLatin1String("line"))
+        return TitleStyle::Shape::Line;
+    return TitleStyle::Shape::Rectangle;
+}
+
+} // namespace
+
+TitleStyle resolveLayerStyle(const ParamSet& p, TitleLayerKind kind, const ClipData& clip,
+    int64_t localFrame, QSize canvas, double scale)
 {
     static const QString kDefaultText = QStringLiteral("Title");
     static const QString kDefaultFont = QStringLiteral("Sans Serif");
     static const QString kLeft = QStringLiteral("left");
     static const QString kRight = QStringLiteral("right");
 
-    const ParamSet& p = clip.title;
     TitleStyle s;
+    s.canvas = canvas;
+    s.scale = scale;
+    s.rotation = p.value(keys::LayerRotation, localFrame);
+    s.opacity = std::clamp(p.value(keys::LayerOpacity, localFrame), 0.0, 100.0);
+    s.posX = p.value(keys::TextPosX, localFrame);
+    s.posY = p.value(keys::TextPosY, localFrame);
+    s.outlineColor = colorStatic(p, keys::OutlineColor, QColor(Qt::black));
+    s.outlineWidth = std::max(0.0, p.value(keys::OutlineWidth, localFrame));
+    if (kind == TitleLayerKind::Shape) {
+        s.kind = TitleStyle::Kind::Shape;
+        s.shape = shapeOf(stringStatic(p, keys::ShapeType, QString()));
+        s.color = colorStatic(p, keys::Color, QColor(0x2d, 0x7d, 0xd2));
+        s.outlineColor = colorStatic(p, keys::OutlineColor, QColor(Qt::white));
+        s.shapeWidth = std::max(1.0, p.value(keys::ShapeWidth, localFrame));
+        s.shapeHeight = std::max(1.0, p.value(keys::ShapeHeight, localFrame));
+        s.cornerRadius = std::max(0.0, p.value(keys::CornerRadius, localFrame));
+        s.fillOpacity = std::clamp(p.value(keys::FillOpacity, localFrame), 0.0, 100.0);
+        return s;
+    }
     s.text = stringStatic(p, keys::Text, kDefaultText);
     s.font = stringStatic(p, keys::Font, kDefaultFont);
     s.bold = boolStatic(p, keys::Bold, false);
@@ -100,17 +147,13 @@ TitleStyle resolveTitleStyle(const ClipData& clip, int64_t localFrame, QSize can
     const QString align = stringStatic(p, keys::Align, QString());
     s.align = align == kLeft ? 0 : align == kRight ? 2 : 1;
     s.color = colorStatic(p, keys::Color, QColor(Qt::white));
-    s.outlineColor = colorStatic(p, keys::OutlineColor, QColor(Qt::black));
     s.bgColor = colorStatic(p, keys::BgColor, QColor(Qt::black));
     s.bgEnabled = boolStatic(p, keys::BgEnabled, false);
     s.shadow = boolStatic(p, keys::Shadow, false);
     s.size = std::max(1.0, p.value(keys::Size, localFrame));
     s.tracking = p.value(keys::Tracking, localFrame);
     s.lineSpacing = p.value(keys::LineSpacing, localFrame);
-    s.outlineWidth = std::max(0.0, p.value(keys::OutlineWidth, localFrame));
     s.bgOpacity = std::clamp(p.value(keys::BgOpacity, localFrame), 0.0, 100.0);
-    s.posX = p.value(keys::TextPosX, localFrame);
-    s.posY = p.value(keys::TextPosY, localFrame);
     const QString anchor = stringStatic(p, keys::Anchor, QString());
     s.anchor = anchor == kLeft ? 0 : anchor == kRight ? 2 : 1;
     s.scroll = boolStatic(p, keys::Scroll, false);
@@ -118,17 +161,55 @@ TitleStyle resolveTitleStyle(const ClipData& clip, int64_t localFrame, QSize can
         // Over the clip's whole length: the first frame just below, the last just above.
         s.scrollProgress = std::clamp(double(localFrame) / double(clip.duration - 1), 0.0, 1.0);
     }
-    s.canvas = canvas;
-    s.scale = scale;
     return s;
 }
 
-TitleImage renderTitle(const TitleStyle& s)
+TitleStyle resolveTitleStyle(const ClipData& clip, int64_t localFrame, QSize canvas, double scale)
+{
+    if (titlelayers::isPlain(clip))
+        return resolveLayerStyle(clip.title, TitleLayerKind::Text, clip, localFrame, canvas, scale);
+    // Several layers (or a hidden first one): the shown ones, bottom to top.
+    TitleStyle s;
+    s.canvas = canvas;
+    s.scale = scale;
+    for (const quint64 id : titlelayers::order(clip)) {
+        if (!titlelayers::visible(clip, id))
+            continue;
+        s.stack.push_back(resolveLayerStyle(*titlelayers::params(clip, id),
+            titlelayers::kind(clip, id), clip, localFrame, canvas, scale));
+    }
+    return s;
+}
+
+namespace {
+
+/// Multiplies the whole image by @p percent (layer opacity).
+void applyLayerOpacity(QImage& image, double percent)
+{
+    if (percent >= 100.0)
+        return;
+    QPainter p(&image);
+    p.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+    p.fillRect(image.rect(), QColor(0, 0, 0, int(std::lround(percent * 2.55))));
+}
+
+/// Maps @p rect (degrees clockwise) around its own centre.
+QTransform rotationAround(const QPointF& centre, double degrees)
+{
+    QTransform t;
+    t.translate(centre.x(), centre.y());
+    t.rotate(degrees);
+    t.translate(-centre.x(), -centre.y());
+    return t;
+}
+
+TitleImage renderText(const TitleStyle& s)
 {
     TitleImage result;
     if (s.text.isEmpty() || s.canvas.isEmpty())
         return result;
 
+    emoji::registerBundledFont();
     QFont font(s.font);
     const double pixelSize = s.size * s.scale;
     font.setPixelSize(std::max(1, int(std::lround(pixelSize))));
@@ -137,13 +218,18 @@ TitleImage renderTitle(const TitleStyle& s)
     font.setLetterSpacing(QFont::PercentageSpacing, std::max(1.0, 100.0 + s.tracking));
     font.setHintingPreference(QFont::PreferNoHinting); // smooth scaling/animation
     const QFontMetricsF fm(font);
+    // The font of a text with emoji falls back to a colour emoji font for them.
+    QFont emojiFont = font;
+    if (emoji::containsEmoji(s.text))
+        emojiFont.setFamilies(emoji::familiesWithEmoji(s.font));
+    const QFontMetricsF emojiMetrics(emojiFont);
 
     // Lay out the lines: baselines lineStep apart, each aligned inside the block width.
     const QStringList lines = s.text.split(QLatin1Char('\n'));
     const double lineStep = fm.lineSpacing() * s.lineSpacing / 100.0;
     double blockWidth = 0;
     for (const QString& line : lines)
-        blockWidth = std::max(blockWidth, fm.horizontalAdvance(line));
+        blockWidth = std::max(blockWidth, emojiMetrics.horizontalAdvance(line));
     const double blockHeight = fm.ascent() + fm.descent() + (lines.size() - 1) * lineStep;
     const double bgPad = s.bgEnabled ? pixelSize * kBgPaddingEm : 0.0;
     const double anchorX = s.posX * s.canvas.width();
@@ -158,23 +244,61 @@ TitleImage renderTitle(const TitleStyle& s)
         : (1.0 - s.posY) * h - blockHeight * 0.5;
     const QRectF block(left, top, blockWidth, blockHeight);
 
+    // Colour emoji have no outline to put in the path: they are cut out of the lines and drawn
+    // as glyphs (spec section 69). Text without emoji takes the old path unchanged.
+    struct EmojiRun
+    {
+        QString text;
+        QPointF origin; ///< left end of the baseline
+        double advance = 0;
+    };
+    QVector<EmojiRun> emojiRuns;
     QPainterPath path;
     for (int i = 0; i < lines.size(); ++i) {
-        const double w = fm.horizontalAdvance(lines[i]);
+        const double w = emojiMetrics.horizontalAdvance(lines[i]);
         const double x = s.align == 0 ? 0.0
             : s.align == 2            ? blockWidth - w
                                       : (blockWidth - w) * 0.5;
-        path.addText(block.left() + x, block.top() + fm.ascent() + i * lineStep, font, lines[i]);
+        const double baseline = block.top() + fm.ascent() + i * lineStep;
+        if (!emoji::containsEmoji(lines[i])) {
+            path.addText(block.left() + x, baseline, font, lines[i]);
+            continue;
+        }
+        double runX = block.left() + x;
+        for (const emoji::Run& run : emoji::split(lines[i])) {
+            const double advance = emojiMetrics.horizontalAdvance(run.text);
+            if (run.emoji)
+                emojiRuns.append({run.text, QPointF(runX, baseline), advance});
+            else
+                path.addText(runX, baseline, font, run.text);
+            runX += advance;
+        }
     }
 
     const double outline = s.outlineWidth * s.scale;
     const double shadowOffset = s.shadow ? std::max(kMinShadowPx, pixelSize * kShadowOffsetEm) : 0;
     const QRectF bgRect = block.adjusted(-bgPad, -bgPad, bgPad, bgPad);
+    // A rotated layer turns the glyphs and the box around the middle of the block.
+    const bool rotated = s.rotation != 0.0;
+    QPolygonF bgPolygon(bgRect);
+    QTransform turn;
+    if (rotated) {
+        turn = rotationAround(block.center(), s.rotation);
+        path = turn.map(path);
+        bgPolygon = turn.map(bgPolygon);
+    }
 
     // Bounding box of everything we draw, padded for antialiasing; clipped to a sane maximum.
-    QRectF bounds = path.boundingRect().adjusted(-outline, -outline, outline, outline);
+    QRectF bounds = path.isEmpty() && !emojiRuns.isEmpty()
+        ? QRectF()
+        : path.boundingRect().adjusted(-outline, -outline, outline, outline);
+    for (const EmojiRun& run : std::as_const(emojiRuns)) {
+        const QRectF box(
+            run.origin.x(), run.origin.y() - fm.ascent(), run.advance, fm.ascent() + fm.descent());
+        bounds = bounds.united(rotated ? turn.mapRect(box) : box);
+    }
     if (s.bgEnabled)
-        bounds = bounds.united(bgRect);
+        bounds = bounds.united(rotated ? bgPolygon.boundingRect() : bgRect);
     if (s.shadow)
         bounds = bounds.united(bounds.translated(shadowOffset, shadowOffset));
     bounds.adjust(-kAaMarginPx, -kAaMarginPx, kAaMarginPx, kAaMarginPx);
@@ -196,10 +320,32 @@ TitleImage renderTitle(const TitleStyle& s)
     painter.setRenderHint(QPainter::Antialiasing);
     painter.translate(-pixelRect.topLeft());
 
+    // The emoji of the text on a layer of their own (shadow and opacity follow the text).
+    QImage emojiLayer;
+    if (!emojiRuns.isEmpty()) {
+        emojiLayer = QImage(pixelRect.size(), QImage::Format_ARGB32_Premultiplied);
+        emojiLayer.fill(Qt::transparent);
+        QPainter ep(&emojiLayer);
+        ep.setRenderHints(
+            QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
+        ep.translate(-pixelRect.topLeft());
+        if (rotated)
+            ep.setTransform(turn, true);
+        ep.setFont(emojiFont);
+        ep.setPen(Qt::white);
+        for (const EmojiRun& run : std::as_const(emojiRuns))
+            ep.drawText(run.origin, run.text);
+    }
+
     if (s.bgEnabled) {
         QColor bg = s.bgColor;
         bg.setAlphaF(float(bg.alphaF() * s.bgOpacity / 100.0));
-        painter.fillRect(bgRect, bg);
+        if (rotated) {
+            painter.setBrush(bg);
+            painter.setPen(Qt::NoPen);
+            painter.drawPolygon(bgPolygon);
+        } else
+            painter.fillRect(bgRect, bg);
     }
     const QPen outlinePen(
         s.outlineColor, 2.0 * outline, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -210,17 +356,127 @@ TitleImage renderTitle(const TitleStyle& s)
             painter.strokePath(shadowPath,
                 QPen(shadowColor, 2.0 * outline, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         painter.fillPath(shadowPath, shadowColor);
+        if (!emojiLayer.isNull()) {
+            QImage tint = emojiLayer;
+            QPainter tp(&tint);
+            tp.setCompositionMode(QPainter::CompositionMode_SourceIn);
+            tp.fillRect(tint.rect(), shadowColor);
+            tp.end();
+            painter.drawImage(pixelRect.topLeft() + QPointF(shadowOffset, shadowOffset), tint);
+        }
     }
     // The stroke is centred on the glyph edge; filling afterwards hides its inner half, so the
     // visible outline is `outline` px wide and lies outside the glyphs.
     if (outline > 0)
         painter.strokePath(path, outlinePen);
     painter.fillPath(path, s.color);
+    if (!emojiLayer.isNull())
+        painter.drawImage(pixelRect.topLeft(), emojiLayer);
     painter.end();
+    applyLayerOpacity(image, s.opacity);
 
     result.image = std::move(image);
     result.rect = QRectF(pixelRect);
     return result;
+}
+
+/// A shape layer: filled and stroked outline centred at posX / posY, turned by the rotation.
+TitleImage renderShape(const TitleStyle& s)
+{
+    TitleImage result;
+    if (s.canvas.isEmpty())
+        return result;
+    const double w = std::max(1.0, s.shapeWidth * s.scale);
+    const double h = std::max(1.0, s.shapeHeight * s.scale);
+    const QPointF centre(s.posX * s.canvas.width(), (1.0 - s.posY) * s.canvas.height());
+    const QRectF box(-w / 2, -h / 2, w, h);
+    QPainterPath path;
+    switch (s.shape) {
+    case TitleStyle::Shape::Rectangle:
+        path.addRect(box);
+        break;
+    case TitleStyle::Shape::Rounded: {
+        const double r = std::min(s.cornerRadius * s.scale, std::min(w, h) / 2);
+        path.addRoundedRect(box, r, r);
+        break;
+    }
+    case TitleStyle::Shape::Ellipse:
+        path.addEllipse(box);
+        break;
+    case TitleStyle::Shape::Line:
+        path.addRoundedRect(box, std::min(w, h) / 2, std::min(w, h) / 2);
+        break;
+    }
+    QTransform place;
+    place.translate(centre.x(), centre.y());
+    place.rotate(s.rotation);
+    path = place.map(path);
+
+    const double stroke = s.outlineWidth * s.scale;
+    const QRectF bounds = path.boundingRect().adjusted(-stroke / 2 - kAaMarginPx,
+        -stroke / 2 - kAaMarginPx, stroke / 2 + kAaMarginPx, stroke / 2 + kAaMarginPx);
+    const QRectF limit(-s.canvas.width() * (kMaxCanvasMultiple - 1) * 0.5,
+        -s.canvas.height() * (kMaxCanvasMultiple - 1) * 0.5,
+        s.canvas.width() * double(kMaxCanvasMultiple),
+        s.canvas.height() * double(kMaxCanvasMultiple));
+    const QRect pixelRect = bounds.intersected(limit).toAlignedRect();
+    if (pixelRect.isEmpty())
+        return result;
+
+    QImage image(pixelRect.size(), QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.translate(-pixelRect.topLeft());
+    QColor fill = s.color;
+    fill.setAlphaF(float(fill.alphaF() * s.fillOpacity / 100.0));
+    painter.fillPath(path, fill);
+    if (stroke > 0)
+        painter.strokePath(
+            path, QPen(s.outlineColor, stroke, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin));
+    painter.end();
+    applyLayerOpacity(image, s.opacity);
+
+    result.image = std::move(image);
+    result.rect = QRectF(pixelRect);
+    return result;
+}
+
+/// The shown layers of a title composited bottom to top into one image.
+TitleImage renderStack(const TitleStyle& s)
+{
+    std::vector<TitleImage> parts;
+    QRect united;
+    for (const TitleStyle& layer : s.stack) {
+        TitleImage part = renderTitle(layer);
+        if (part.image.isNull())
+            continue;
+        united = united.united(part.rect.toRect());
+        parts.push_back(std::move(part));
+    }
+    if (parts.empty())
+        return {};
+    if (parts.size() == 1)
+        return std::move(parts.front());
+    QImage image(united.size(), QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    for (const TitleImage& part : parts)
+        painter.drawImage(part.rect.toRect().topLeft() - united.topLeft(), part.image);
+    painter.end();
+    TitleImage result;
+    result.image = std::move(image);
+    result.rect = QRectF(united);
+    return result;
+}
+
+} // namespace
+
+TitleImage renderTitle(const TitleStyle& style)
+{
+    if (!style.stack.empty())
+        return renderStack(style);
+    return style.kind == TitleStyle::Kind::Shape ? renderShape(style) : renderText(style);
 }
 
 } // namespace kk::render

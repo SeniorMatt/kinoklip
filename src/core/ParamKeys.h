@@ -114,6 +114,23 @@ inline const QString Anchor = QStringLiteral("anchor");
 /// below the bottom edge to just above the top (rolling credits); Position Y is not used.
 inline const QString Scroll = QStringLiteral("scroll");
 
+/// Per layer (Text and Shape layers, spec section 68): rotation in degrees around the layer's
+/// centre (animated; default 0) and the opacity of the whole layer in percent (animated;
+/// default 100).
+inline const QString LayerRotation = QStringLiteral("layerRotation");
+inline const QString LayerOpacity = QStringLiteral("layerOpacity");
+
+// ---- Shape layers (ClipData::titleLayers; the position uses TextPosX / TextPosY, the fill
+// colour keys::Color, the stroke keys::OutlineColor / keys::OutlineWidth) ----
+/// static choice "rect"|"rounded"|"ellipse"|"line"; default rect. A line is a bar Shape Width
+/// long and Shape Height thick with round ends.
+inline const QString ShapeType = QStringLiteral("shapeType");
+inline const QString ShapeWidth = QStringLiteral("shapeWidth"); ///< animated px; default 400
+inline const QString ShapeHeight = QStringLiteral("shapeHeight"); ///< animated px; default 200
+/// animated px of the corners of a rounded rectangle; default 40
+inline const QString CornerRadius = QStringLiteral("cornerRadius");
+inline const QString FillOpacity = QStringLiteral("fillOpacity"); ///< animated percent; default 100
+
 /// Documented default of an animated well-known key (see the comments above).
 /// Unknown keys return 0.
 [[nodiscard]] double defaultValue(QStringView key);

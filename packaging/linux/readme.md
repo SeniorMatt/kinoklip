@@ -89,6 +89,8 @@ kinoklip-x86_64/
   usr/lib/fallback-active/            symlinks to the fallbacks the host lacks (made by AppRun)
   usr/share/color-schemes/            KDE colour schemes (Kinoklip = default, BreezeDark, BreezeLight, BreezeClassic)
   usr/share/icons/breeze/             Breeze icon theme (wins over an older host Breeze)
+  usr/share/kinoklip/fonts/           NotoColorEmoji.ttf (OFL 1.1) for emoji in titles and captions;
+                                      used only when the host has no colour emoji font
   usr/share/applications, icons/hicolor/<n>x<n>/apps (icon PNGs, 16-512 px), mime/packages
   usr/share/metainfo/org.kinoklip.Kinoklip.appdata.xml   AppStream metadata
   usr/share/doc/kinoklip/             bundled-libraries.txt (soname, package, version) and

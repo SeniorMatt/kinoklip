@@ -38,8 +38,8 @@ struct ParamSetting
 /// Writes checked @p settings into the parameter set that @p base addresses (scope, clip and
 /// effect id; the key is taken from each setting): constants through ParamAccess::setScalar()
 /// at clip-local @p localFrame (a keyframed parameter gets a key there), the rest as statics.
-void applySettings(ClipData& clip, const ParamRef& base,
-    const QVector<ParamSetting>& settings, int64_t localFrame = 0);
+void applySettings(ClipData& clip, const ParamRef& base, const QVector<ParamSetting>& settings,
+    int64_t localFrame = 0);
 
 /// "key=value" entries of the `key` + `value` pair and the `set` list of @p args (what effect.set,
 /// transition.set, title.set and generator.add accept).
@@ -59,6 +59,14 @@ struct ResolvedParam
 /// clip) or `unknown_parameter`.
 [[nodiscard]] std::optional<CommandResult> resolveParam(
     const ClipData& clip, quint64 effectId, const QString& key, ResolvedParam& out);
+
+/// Finds parameter @p key of layer @p layerId of a title clip (0 = its first layer, which
+/// resolveParam() also finds). Failure: `unknown_layer` or `unknown_parameter`.
+[[nodiscard]] std::optional<CommandResult> resolveLayerParam(
+    const ClipData& clip, quint64 layerId, const QString& key, ResolvedParam& out);
+
+/// The descriptor whose parameters layer @p layerId of @p clip has (nullptr: no such layer).
+[[nodiscard]] const EffectDescriptor* layerDescriptor(const ClipData& clip, quint64 layerId);
 
 /// The value of the parameter as JSON at clip-local @p localFrame: a number, bool or text.
 [[nodiscard]] QJsonValue paramValueJson(const ClipData& clip, const ParamRef& ref,

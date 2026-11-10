@@ -587,6 +587,32 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("audio")] = paramSetToJson(clip.audio);
     if (clip.title != ParamSet {})
         o[QLatin1String("title")] = paramSetToJson(clip.title);
+    // Title layers (spec section 68): `title` stays the first layer, so older readers still
+    // see a one-text title; the extra layers and the first layer's place are new keys.
+    if (!clip.titleLayers.isEmpty()) {
+        QJsonArray layers;
+        for (const TitleLayer& l : clip.titleLayers) {
+            QJsonObject lo {{QLatin1String("id"), qint64(l.id)},
+                {QLatin1String("kind"),
+                    l.kind == TitleLayerKind::Shape ? QLatin1String("shape")
+                                                    : QLatin1String("text")},
+                {QLatin1String("params"), paramSetToJson(l.params)}};
+            if (!l.name.isEmpty())
+                lo[QLatin1String("name")] = l.name;
+            if (!l.visible)
+                lo[QLatin1String("visible")] = false;
+            layers.append(lo);
+        }
+        o[QLatin1String("layers")] = layers;
+    }
+    if (clip.titleBase != TitleBaseLayer {}) {
+        QJsonObject bo {{QLatin1String("slot"), clip.titleBase.slot}};
+        if (!clip.titleBase.name.isEmpty())
+            bo[QLatin1String("name")] = clip.titleBase.name;
+        if (!clip.titleBase.visible)
+            bo[QLatin1String("visible")] = false;
+        o[QLatin1String("baseLayer")] = bo;
+    }
     if (clip.solidColor.isValid())
         o[QLatin1String("solidColor")] = colorToString(clip.solidColor);
     if (!clip.generator.isEmpty())
@@ -660,6 +686,27 @@ ClipData clipFromJson(const QJsonObject& o)
     c.transform = paramSetFromJson(o.value(QLatin1String("transform")).toObject());
     c.audio = paramSetFromJson(o.value(QLatin1String("audio")).toObject());
     c.title = paramSetFromJson(o.value(QLatin1String("title")).toObject());
+    for (const QJsonValue& v : o.value(QLatin1String("layers")).toArray()) {
+        const QJsonObject lo = v.toObject();
+        TitleLayer l;
+        l.id = quint64(lo.value(QLatin1String("id")).toInteger());
+        if (l.id == 0) // 0 is the first layer; a broken id gets a free one
+            l.id = c.titleLayers.size() + 1000;
+        l.kind = lo.value(QLatin1String("kind")).toString() == QLatin1String("shape")
+            ? TitleLayerKind::Shape
+            : TitleLayerKind::Text;
+        l.name = lo.value(QLatin1String("name")).toString();
+        l.visible = lo.value(QLatin1String("visible")).toBool(true);
+        l.params = paramSetFromJson(lo.value(QLatin1String("params")).toObject());
+        c.titleLayers.append(l);
+    }
+    if (o.contains(QLatin1String("baseLayer"))) {
+        const QJsonObject bo = o.value(QLatin1String("baseLayer")).toObject();
+        c.titleBase.slot = std::clamp(
+            int(bo.value(QLatin1String("slot")).toInt()), 0, int(c.titleLayers.size()));
+        c.titleBase.name = bo.value(QLatin1String("name")).toString();
+        c.titleBase.visible = bo.value(QLatin1String("visible")).toBool(true);
+    }
     if (o.contains(QLatin1String("solidColor")))
         c.solidColor = colorFromString(o.value(QLatin1String("solidColor")).toString());
     c.generator = o.value(QLatin1String("generator")).toString();

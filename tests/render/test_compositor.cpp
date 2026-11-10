@@ -4,6 +4,7 @@
 // display rotation, transitions, effects, quality levels and zero-copy texture output.
 // GPU cases skip without OpenGL; ctest re-runs this test under xvfb-run when available.
 #include "RenderTestUtil.h"
+#include "core/TitleLayers.h"
 #include "media/HwAccel.h"
 #include "render/Compositor.h"
 
@@ -413,6 +414,49 @@ private slots:
         if (m_gpu->isGpu()) {
             const QImage g = renderWith(gpu(), tl, 30);
             const QImage cpuImg = renderWith(*m_cpu, tl, 30);
+            QCOMPARE(whiteBox(g), whiteBox(cpuImg));
+            QVERIFY2(
+                meanDifference(g, cpuImg) < 1.0, QByteArray::number(meanDifference(g, cpuImg)));
+        }
+    }
+
+    // Spec 68.16: the layers of a title are drawn in order by the viewer's compositor (GPU and
+    // CPU alike): a red box over the text hides it, under the text it does not.
+    void spec68_16_titleLayersDrawInOrder_data() { backendRows(); }
+    void spec68_16_titleLayersDrawInOrder()
+    {
+        Compositor* c = backend();
+        if (!c)
+            QSKIP("no OpenGL");
+        TimelineData tl = emptyTimeline(640, 360);
+        addClip(tl, TrackType::Video, 0, solidClip(tl, Qt::black, 0, 50));
+        ClipData title = titleClip(tl, QStringLiteral("HELLO"), 0, 50, 90);
+        const quint64 box
+            = titlelayers::addLayer(title, TitleLayerKind::Shape, QStringLiteral("rect"));
+        ParamSet& p = *titlelayers::params(title, box);
+        p.setStatic(keys::Color, QColor(255, 0, 0));
+        p.setBase(keys::ShapeWidth, 400);
+        p.setBase(keys::ShapeHeight, 200);
+        addClip(tl, TrackType::Video, 1, title);
+        // Box on top: the text is covered (no white), the box is red.
+        QImage over = renderWith(*c, tl, 0);
+        QVERIFY(whiteBox(over).isEmpty());
+        QCOMPARE(QColor(over.pixel(320, 180)).red(), 255);
+        // Box moved below the text: the white text shows over the red.
+        titlelayers::moveLayer(tl.videoTracks[1].clips[0], box, -1);
+        QImage under = renderWith(*c, tl, 0);
+        const QRect text = whiteBox(under);
+        QVERIFY(!text.isEmpty());
+        QVERIFY(std::abs(text.center().x() - 320) <= 4);
+        QCOMPARE(QColor(under.pixel(240, 100)).red(), 255); // red box, left of the text
+        // Hiding the box leaves the text alone, like a title without layers.
+        titlelayers::setVisible(tl.videoTracks[1].clips[0], box, false);
+        QCOMPARE(whiteBox(renderWith(*c, tl, 0)), text);
+        // GPU and CPU draw the same pixels.
+        if (m_gpu->isGpu()) {
+            titlelayers::setVisible(tl.videoTracks[1].clips[0], box, true);
+            const QImage g = renderWith(gpu(), tl, 0);
+            const QImage cpuImg = renderWith(*m_cpu, tl, 0);
             QCOMPARE(whiteBox(g), whiteBox(cpuImg));
             QVERIFY2(
                 meanDifference(g, cpuImg) < 1.0, QByteArray::number(meanDifference(g, cpuImg)));

@@ -61,8 +61,8 @@ Still to do for 1.2:
 - [x] Effects: DVE look
 - [x] Effects: Video Call look
 - [x] Effects: Video Camera look
-- [ ] Titles: more options on the existing text title, mainly layers (several text and shape layers in one title); no new title type
-- [ ] Titles: emoji in subtitles and titles, in colour, in the viewer and in exports
+- [x] Titles: more options on the existing text title, mainly layers (several text and shape layers in one title); no new title type
+- [x] Titles: emoji in subtitles and titles, in colour, in the viewer and in exports
 - [x] Audio: Inspector Audio tab compared with every audio option Resolve has (public documentation only), adding the missing ones, Pitch first (spec 67: Pitch and a four-band clip Equalizer added; Voice Isolation and Dialogue Leveler skipped, they need a model)
 - [x] Interface: import and export all settings with one click
 - [x] Interface: vim keybindings, so nvim users can edit easily

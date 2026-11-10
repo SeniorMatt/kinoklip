@@ -14,11 +14,11 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 ## Status
 
 <!-- status:start -->
-![Status: 72.88% of the roadmap items are done, 92.90% of the effects library works](docs/images/status.svg)
+![Status: 74.01% of the roadmap items are done, 92.90% of the effects library works](docs/images/status.svg)
 
 | | Done | Total | |
 |---|---|---|---|
-| Roadmap items* | 129 | 177 | 72.88% |
+| Roadmap items* | 131 | 177 | 74.01% |
 | Effects library | 170 | 183 | 92.90% |
 
 Green is made, grey is not. Roadmap items are the checklist lines of [`docs/roadmap.md`](docs/roadmap.md); the effects library is every entry of Resolve's Effects library that Kinoklip is compared with ([`docs/effects-library-status.md`](docs/effects-library-status.md)). \* To-do items are bigger than done ones, so this share looks better than the work left. Made by `python3 scripts/status.py`.

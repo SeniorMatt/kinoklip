@@ -18,7 +18,8 @@ namespace kk {
 enum class ParamScope {
     Transform, ///< ClipData::transform (Transform + Cropping groups)
     Audio, ///< ClipData::audio
-    Title, ///< ClipData::title (Title clips)
+    Title, ///< ClipData::title (Title clips: their first layer)
+    TitleLayer, ///< ClipData::titleLayers[i].params, i found by ParamRef::effectId (= the layer id)
     SolidColor, ///< ClipData::solidColor (Solid clips; the single "color" static)
     Effect, ///< ClipData::effects[i].params, i found by ParamRef::effectId
     TransitionIn, ///< ClipData::transitionIn->params (+ the synthetic duration key)
