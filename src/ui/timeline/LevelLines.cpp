@@ -80,17 +80,27 @@ LevelHit hitLevel(
     return {LevelHit::Kind::Line, frame};
 }
 
+// Fade length as drawn: never longer than the clip (nor, with the other fade, than its length),
+// so bad data (an old file) still shows handles inside the clip where they can be grabbed.
+static int64_t shownFade(const ClipData& clip, bool head)
+{
+    const int64_t room = std::max<int64_t>(0, clip.duration);
+    const int64_t in = std::clamp<int64_t>(clip.fadeInFrames, 0, room);
+    const int64_t out = std::clamp<int64_t>(clip.fadeOutFrames, 0, room);
+    return head ? std::min(in, room - std::min(out, room)) : std::min(out, room - in);
+}
+
 QRectF fadeHandleRect(
     const ClipData& clip, const QRectF& clipRect, const TimelineLayout& layout, bool head)
 {
     if (clipRect.width() < kMinFadeClipWidth || clipRect.height() < 2 * kFadeHandle)
         return {};
     const double ppf = layout.pixelsPerFrame();
-    const double x = head ? clipRect.left() + double(clip.fadeInFrames) * ppf
-                          : clipRect.right() - double(clip.fadeOutFrames) * ppf;
+    const double x = head ? clipRect.left() + double(shownFade(clip, true)) * ppf
+                          : clipRect.right() - double(shownFade(clip, false)) * ppf;
     // At the corner the square sits inside the clip; once a fade exists it is centred on the
     // fade's end, so it marks exactly where the fade reaches full level.
-    const bool atCorner = (head ? clip.fadeInFrames : clip.fadeOutFrames) == 0;
+    const bool atCorner = shownFade(clip, head) == 0;
     const double left = atCorner ? (head ? x + 1 : x - kFadeHandle - 1) : x - kFadeHandle / 2;
     return QRectF(left, clipRect.top() + 1, kFadeHandle, kFadeHandle);
 }
@@ -125,7 +135,7 @@ QPointF fadeCurvePoint(
     const ClipData& clip, const QRectF& clipRect, const TimelineLayout& layout, bool head, double t)
 {
     const double ppf = layout.pixelsPerFrame();
-    const double frames = double(head ? clip.fadeInFrames : clip.fadeOutFrames);
+    const double frames = double(shownFade(clip, head));
     const double curve = head ? clip.fadeInCurve : clip.fadeOutCurve;
     const double dx = t * frames * ppf;
     const double x = head ? clipRect.left() + dx : clipRect.right() - dx;
@@ -137,7 +147,7 @@ QPointF fadeCurvePoint(
 QRectF fadeCurveHandleRect(
     const ClipData& clip, const QRectF& clipRect, const TimelineLayout& layout, bool head)
 {
-    const int64_t frames = head ? clip.fadeInFrames : clip.fadeOutFrames;
+    const int64_t frames = shownFade(clip, head);
     if (frames <= 0 || clipRect.width() < kMinFadeClipWidth
         || double(frames) * layout.pixelsPerFrame() < kMinCurveFadeWidth
         || fadeAreaBottom(clipRect) - fadeAreaTop(clipRect) < kMinCurveHeight)

@@ -327,6 +327,7 @@ std::optional<QVector<quint64>> decompose(TimelineData& parent, const QVector<qu
                     piece.transitionOut.reset();
                     piece.fadeOutFrames = 0;
                     piece.fadeOutCurve = 0.0;
+                    editops::clampFades(piece);
                 }
                 piece.start += shift;
                 pieces.push_back(std::move(piece));

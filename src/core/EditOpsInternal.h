@@ -67,6 +67,7 @@ inline void moveHead(ClipData& clip, int64_t delta, Rational fps)
     clip.sourceInUs = std::max<int64_t>(
         0, clip.sourceInUs + retime::sourceOffsetUs(clip, 0.0, double(delta), fps));
     shiftClipKeys(clip, -delta);
+    clampFades(clip, true); // a shorter head must not leave a fade longer than the clip
 }
 
 inline void insertSorted(TrackData& track, ClipData clip)
@@ -93,6 +94,7 @@ inline quint64 splitClipAtIndex(
     left.transitionOut.reset();
     left.fadeOutFrames = 0;
     left.fadeOutCurve = 0.0;
+    clampFades(left);
 
     right.id = data.allocateId();
     right.linkGroup = remap.map(data, right.linkGroup);
@@ -132,6 +134,7 @@ inline void clearRangeImpl(
             clip.transitionOut.reset();
             clip.fadeOutFrames = 0;
             clip.fadeOutCurve = 0.0;
+            clampFades(clip);
             out.push_back(std::move(clip));
             out.push_back(std::move(right));
         } else if (clip.start < s) {
@@ -139,6 +142,7 @@ inline void clearRangeImpl(
             clip.transitionOut.reset();
             clip.fadeOutFrames = 0;
             clip.fadeOutCurve = 0.0;
+            clampFades(clip);
             out.push_back(std::move(clip));
         } else {
             moveHead(clip, e - clip.start, data.fps); // head covered

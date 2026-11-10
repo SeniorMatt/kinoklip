@@ -370,5 +370,11 @@ inline constexpr int kSnapDistancePx = 8;
 [[nodiscard]] bool checkInvariants(const TimelineData& data, QString* why = nullptr);
 /// Raises nextId above every id used in @p data (repairs files edited by hand).
 void normalizeIds(TimelineData& data);
+/// Keeps the fade handles inside the clip: 0 <= fadeIn, 0 <= fadeOut and
+/// fadeIn + fadeOut <= duration (spec 59.13). Call it wherever a clip got shorter. When both do not
+/// fit, the fade at the edge that was NOT cut is kept: fade-out is shortened first, fade-in
+/// first when @p headCut. A fade that becomes 0 loses its curve. Transition lengths are held
+/// to 2 * duration (the longest a clip can carry at a cut).
+void clampFades(ClipData& clip, bool headCut = false);
 
 } // namespace kk::editops

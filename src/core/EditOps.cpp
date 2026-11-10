@@ -379,6 +379,7 @@ int64_t trimTail(TimelineData& data, quint64 clipId, int64_t delta, bool ripple)
         return 0;
 
     clip.duration += applied;
+    clampFades(clip);
     if (ripple) {
         for (size_t i = index + 1; i < track.clips.size(); ++i)
             track.clips[i].start += applied;
@@ -442,6 +443,7 @@ int64_t rollEdit(TimelineData& data, quint64 leftClipId, quint64 rightClipId, in
     if (applied == 0)
         return 0;
     a.duration += applied;
+    clampFades(a);
     moveHead(b, applied, data.fps);
     return applied;
 }
@@ -480,8 +482,10 @@ int64_t slideClip(TimelineData& data, quint64 clipId, int64_t delta)
     const int64_t applied = std::clamp(delta, std::min<int64_t>(lo, 0), std::max<int64_t>(hi, 0));
     if (applied == 0)
         return 0;
-    if (prevTouches)
+    if (prevTouches) {
         prev->duration += applied;
+        clampFades(*prev);
+    }
     track.clips[i].start += applied; // keyframes are clip-local and move with the clip
     if (nextTouches)
         moveHead(*next, applied, data.fps);
@@ -1032,6 +1036,28 @@ bool checkInvariants(const TimelineData& data, QString* why)
         }
     }
     return true;
+}
+
+void clampFades(ClipData& clip, bool headCut)
+{
+    const int64_t room = std::max<int64_t>(0, clip.duration);
+    clip.fadeInFrames = std::max<int64_t>(0, clip.fadeInFrames);
+    clip.fadeOutFrames = std::max<int64_t>(0, clip.fadeOutFrames);
+    if (headCut) {
+        clip.fadeOutFrames = std::min(clip.fadeOutFrames, room);
+        clip.fadeInFrames = std::min(clip.fadeInFrames, room - clip.fadeOutFrames);
+    } else {
+        clip.fadeInFrames = std::min(clip.fadeInFrames, room);
+        clip.fadeOutFrames = std::min(clip.fadeOutFrames, room - clip.fadeInFrames);
+    }
+    if (clip.fadeInFrames == 0)
+        clip.fadeInCurve = 0.0;
+    if (clip.fadeOutFrames == 0)
+        clip.fadeOutCurve = 0.0;
+    for (std::optional<TransitionData>* t : {&clip.transitionIn, &clip.transitionOut}) {
+        if (*t)
+            (*t)->duration = std::clamp<int64_t>((*t)->duration, 1, std::max<int64_t>(1, 2 * room));
+    }
 }
 
 void normalizeIds(TimelineData& data)
