@@ -5,6 +5,7 @@
 
 #include "core/Rational.h"
 
+#include <QImage>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
@@ -74,6 +75,9 @@ struct CommandResult
     bool ok = false;
     QJsonObject data; ///< the result for machines
     QString text; ///< one or a few lines for people
+    /// A picture the command made for the caller to look at (frame.view); null for most commands.
+    /// Front ends that cannot show a picture ignore it (the command line prints the text only).
+    QImage image;
     QString errorCode; ///< stable lower-case code of a failure ("unknown_clip")
     QString error; ///< message of a failure
 
@@ -181,6 +185,8 @@ void registerClipCommands(CommandRegistry& registry);
 void registerMarkerCommands(CommandRegistry& registry);
 void registerTransitionCommands(CommandRegistry& registry);
 void registerExportCommands(CommandRegistry& registry);
+void registerFrameCommands(CommandRegistry& registry);
+void registerEffectCommands(CommandRegistry& registry);
 
 } // namespace commands
 } // namespace kk

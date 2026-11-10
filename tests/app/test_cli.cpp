@@ -29,6 +29,30 @@ QJsonValue at(const QJsonObject& object, const QString& key, const QString& seco
     return second.isEmpty() ? v : v.toObject().value(second);
 }
 
+/// Starts `kinoklip mcp`, writes @p input to its standard input, closes it and waits.
+Run runMcp(const QByteArray& input)
+{
+    QProcess process;
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("offscreen"));
+    env.insert(QStringLiteral("KK_NO_AUDIO"), QStringLiteral("1"));
+    process.setProcessEnvironment(env);
+    process.start(QStringLiteral(KK_BINARY_PATH), {QStringLiteral("mcp")});
+    Run r;
+    if (!process.waitForStarted(30'000))
+        return r;
+    process.write(input);
+    process.closeWriteChannel();
+    if (!process.waitForFinished(120'000)) {
+        process.kill();
+        process.waitForFinished();
+    }
+    r.exitCode = process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -2;
+    r.out = process.readAllStandardOutput();
+    r.err = process.readAllStandardError();
+    return r;
+}
+
 Run run(const QStringList& args)
 {
     QProcess process;
@@ -73,7 +97,8 @@ private slots:
                  "media.list", "media.relink", "timeline.list", "timeline.new", "timeline.select",
                  "clip.list", "clip.add", "clip.move", "clip.trim", "clip.split", "clip.delete",
                  "clip.set", "marker.add", "marker.list", "marker.delete", "transition.add",
-                 "export.otio", "export.edl", "import.otio", "render"})
+                 "export.otio", "export.edl", "import.otio", "render", "frame.export", "frame.view",
+                 "effect.list", "transition.list"})
             QVERIFY2(names.contains(QLatin1String(expected)), expected);
         // Every listed command has usage text.
         for (const QString& name : names) {
@@ -142,6 +167,63 @@ private slots:
         QVERIFY(r.err.contains("unknown option"));
         r = run({"help", "nothing"});
         QCOMPARE(r.exitCode, 2);
+    }
+
+    void mcpServerAnswersOnStdio()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString project = dir.filePath("mcp.kkproj");
+        const QByteArray input
+            = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":"
+              "{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{}}}\n"
+              "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n"
+              "\n"
+              "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}\n"
+              "this is not json\n"
+              "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":"
+              "{\"name\":\"project_new\",\"arguments\":{\"project\":\""
+            + project.toUtf8()
+            + "\",\"fps\":25}}}\n"
+              "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":"
+              "{\"name\":\"project_info\",\"arguments\":{\"project\":\""
+            + project.toUtf8() + "\"}}}\n";
+        const Run r = runMcp(input);
+        QCOMPARE(r.exitCode, 0);
+        // Standard output holds protocol messages only: every line is one JSON object.
+        const QList<QByteArray> lines = r.out.split('\n');
+        QList<QJsonObject> replies;
+        for (const QByteArray& line : lines) {
+            if (line.isEmpty())
+                continue;
+            QJsonParseError error;
+            const QJsonDocument doc = QJsonDocument::fromJson(line, &error);
+            QVERIFY2(error.error == QJsonParseError::NoError && doc.isObject(), line.constData());
+            replies << doc.object();
+        }
+        QCOMPARE(replies.size(), 5); // initialize, tools/list, parse error, two calls
+        QCOMPARE(replies[0]["id"].toInt(), 1);
+        QCOMPARE(
+            replies[0]["result"].toObject()["protocolVersion"].toString(), QString("2025-06-18"));
+        QVERIFY(replies[1]["result"].toObject()["tools"].toArray().size() >= 28);
+        QCOMPARE(replies[2]["error"].toObject()["code"].toInt(), -32700);
+        QVERIFY(!replies[3]["result"].toObject()["isError"].toBool());
+        const QJsonObject info = replies[4]["result"].toObject();
+        QVERIFY(!info["isError"].toBool());
+        QCOMPARE(info["structuredContent"].toObject()["fps"].toDouble(), 25.0);
+        QVERIFY(QFile::exists(project));
+        QVERIFY(r.err.contains("ready")); // the log line is on stderr
+    }
+
+    void mcpRejectsOptionsAndHasHelp()
+    {
+        Run r = run({"mcp", "--bogus"});
+        QCOMPARE(r.exitCode, 2);
+        QVERIFY(r.err.contains("unknown option"));
+        QVERIFY(r.out.isEmpty());
+        r = run({"mcp", "--help"});
+        QCOMPARE(r.exitCode, 0);
+        QVERIFY(r.out.contains("Model Context Protocol"));
     }
 
     void versionAndExistingOptionsKeepWorking()

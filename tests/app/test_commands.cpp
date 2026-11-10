@@ -11,6 +11,7 @@
 #include "ui/common/Resources.h"
 
 #include <QFile>
+#include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QTemporaryDir>
@@ -138,7 +139,8 @@ private slots:
                  "media.list", "media.relink", "timeline.list", "timeline.new", "timeline.select",
                  "clip.list", "clip.add", "clip.move", "clip.trim", "clip.split", "clip.delete",
                  "clip.set", "marker.add", "marker.list", "marker.delete", "transition.add",
-                 "export.otio", "export.edl", "import.otio", "render"})
+                 "export.otio", "export.edl", "import.otio", "render", "frame.export", "frame.view",
+                 "effect.list", "transition.list"})
             QVERIFY2(names.contains(QLatin1String(expected)), expected);
         QCOMPARE(names.size(), QSet<QString>(names.begin(), names.end()).size()); // unique
     }
@@ -596,6 +598,45 @@ private slots:
         QCOMPARE(clips().size(), 2);
         bad("render", {{"output", path("x.mp4")}, {"preset", "no_such_preset"}}, "render_failed");
         bad("render", {{"output", path("x.unknown")}}, "render_failed");
+    }
+
+    void frameExportViewAndTheCatalogue()
+    {
+        makeProject("frames.kkproj");
+        const CommandResult empty = call("frame.view", {{"project", m_project}});
+        QCOMPARE(empty.errorCode, QString("empty_timeline"));
+        ok("clip.add", {{"media", videoId()}, {"source-out", "00:00:01:00"}});
+        // A file, at a given width; the project file is untouched.
+        const qint64 before = QFileInfo(m_project).size();
+        const CommandResult r
+            = ok("frame.export", {{"at", "00:00:00:12"}, {"file", path("f.png")}, {"width", 320}});
+        QCOMPARE(r.data["frame"].toInteger(), 12);
+        QCOMPARE(r.data["width"].toInt(), 320);
+        QCOMPARE(r.data["height"].toInt(), 180);
+        const QImage png(path("f.png"));
+        QCOMPARE(png.size(), QSize(320, 180));
+        QCOMPARE(QFileInfo(m_project).size(), before);
+        QCOMPARE(ok("frame.export", {{"file", path("full.png")}}).data["width"].toInt(), 640);
+        // The picture itself: never wider than the timeline, 1024 by default.
+        const CommandResult view = ok("frame.view", {{"at", 3}});
+        QVERIFY(!view.image.isNull());
+        QCOMPARE(view.image.width(), 640);
+        QCOMPARE(ok("frame.view", {{"width", 100}}).image.width(), 100);
+        bad("frame.view", {{"at", 24}}, "out_of_range"); // the clip is 24 frames: 0..23
+        bad("frame.view", {{"at", "soon"}}, "bad_time");
+        bad("frame.view", {{"width", 4}}, "out_of_range");
+        bad("frame.export", {{"file", path("f.jpg")}}, "bad_value");
+        // The catalogue needs no project.
+        const CommandResult transitions = call("transition.list", {});
+        QVERIFY(transitions.ok);
+        QVERIFY(transitions.data["items"].toArray().size() > 40);
+        const CommandResult wipe = call("transition.list", {{"id", "cross_dissolve"}});
+        QCOMPARE(wipe.data["items"].toArray().size(), 1);
+        QVERIFY(wipe.data["items"][0]["parameters"].isArray());
+        QCOMPARE(call("transition.list", {{"id", "gaussian_blur"}}).errorCode,
+            QString("unknown_effect"));
+        QVERIFY(call("effect.list", {{"category", "video"}}).data["items"].toArray().size() > 20);
+        QCOMPARE(call("effect.list", {{"category", "sound"}}).errorCode, QString("bad_value"));
     }
 };
 

@@ -24,6 +24,7 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 | `Theme.h` | the real KDE Breeze look: widget style, KDE colour schemes, Breeze icons, panel style sheet; Workspace > Color Theme / Style; "appearance" settings page |
 | `BugReport.h` / `BugReportDialog.h` | Help > Report a Bug or Inconsistency (`help.report_bug`, spec 43.12-43.16): `bugreport::collect()` reads the versions and settings a report may carry (in memory, scrubbed of home folder, user and host name; docs/privacy.md), `issueLink()` builds the GitHub issue-form URL (`.github/ISSUE_TEMPLATE`, field ids `version` / `environment`, at most 7,500 characters); the dialog shows exactly that text and opens the form with or without it through `guide::openUrl`, or copies it. The app makes no network request |
 | `ColorSchemeFile.h` | reads a KDE `.colors` file into a QPalette (fallback build without KF6) |
+| `mcp/` | `kinoklip mcp`: the Model Context Protocol server on stdio (see `mcp/readme.md`); `CliRunner` starts it |
 | `CliRunner.h` | `kinoklip <command> --option value`: the command-line front end of the command layer (`commands/`): turns options into a JSON call, prints the result as text or `--json`, exit code 0 / 1 / 2, progress on stderr; `main.cpp` starts it on the offscreen platform when the first argument is a command |
 | `commands/` | the command layer (see its readme.md): `Command.h` registry + argument checking, one `*Commands.cpp` per area |
 | `CommandLine.h` | `QCommandLineParser` → `CommandLineOptions` |
