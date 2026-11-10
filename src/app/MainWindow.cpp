@@ -8,6 +8,7 @@
 #include "app/InterfaceBar.h"
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
+#include "app/SettingsTransfer.h"
 #include "app/TimelineExport.h"
 #include "app/TimelineImport.h"
 #include "app/commands/Command.h"
@@ -268,6 +269,9 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     connect(m_live, &live::LiveServer::clientCountChanged, m_interfaceBar,
         &InterfaceBar::setRemoteControlClients);
     applyLocalControlPreference();
+    // A settings import may have switched Local Control off.
+    connect(settingstransfer::notifier(), &settingstransfer::Notifier::applied, this,
+        &MainWindow::applyLocalControlPreference, Qt::QueuedConnection);
 }
 
 void MainWindow::applyLocalControlPreference()
@@ -614,7 +618,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
         event->ignore();
         return;
     }
-    if (m_options.saveLayout)
+    // After a settings import the file's layout stays: this window's old one must not overwrite it.
+    if (m_options.saveLayout && !settingstransfer::importPending())
         saveSettings();
     // Normal shutdown: the user saved or discarded the changes, so the autosave is obsolete
     // (one left behind means a crash, see AutosaveController).

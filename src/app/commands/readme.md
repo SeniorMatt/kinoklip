@@ -29,6 +29,7 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `TrackCommands.cpp` | `track.list`, `track.add`, `track.set` |
 | `ParamSupport.h/.cpp` | `key=value` settings checked against a `ParamDescriptor` (range, choices, colour, file) and written through `paramaccess`; finding a clip parameter by key |
 | `ExportCommands.cpp` | `export.otio`, `export.edl`, `import.otio`, `render` (uses `export/RenderCommand.h` `renderProject()`) |
+| `SettingsCommands.cpp` | `settings.export`, `settings.import` (spec 61): the application's own settings, no project (`ProjectUse::None`); `app/SettingsTransfer.h` does the work |
 
 ## File mode and live mode
 

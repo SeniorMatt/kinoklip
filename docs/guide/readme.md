@@ -69,8 +69,8 @@ search field.
 - [Use a LUT](use-a-lut.md)
 - [Use the shortcuts of your old editor](use-the-shortcuts-of-your-old-editor.md) ([Vegas Pro](https://www.vegascreativesoftware.com),
   [Premiere Pro](https://www.adobe.com/products/premiere.html), [Final Cut Pro](https://www.apple.com/final-cut-pro/), Avid, [Kdenlive](https://kdenlive.org), [Shotcut](https://shotcut.org))
+- [Move your settings to another computer](move-your-settings-to-another-computer.md)
 
 More articles are planned; see [the topic list](topics.md). Every keyboard shortcut is listed
 in the [keymap](../keymap-resolve-windows.md); the other editors' presets are in
 [keymaps](../keymaps/readme.md).
-

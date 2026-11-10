@@ -240,6 +240,7 @@ const CommandRegistry& CommandRegistry::builtin()
         registerGeneratorCommands(r);
         registerKeyframeCommands(r);
         registerTrackCommands(r);
+        registerSettingsCommands(r);
         return r;
     }();
     return registry;

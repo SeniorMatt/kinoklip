@@ -6,6 +6,7 @@
 #include "app/MainWindow.h"
 #include "app/ProjectController.h"
 #include "app/Screenshot.h"
+#include "app/SettingsTransferDialog.h"
 #include "app/Theme.h"
 #include "core/EditBehaviour.h"
 #include "core/PowerBins.h"
@@ -175,6 +176,7 @@ int main(int argc, char** argv)
     kk::SettingsPageRegistry settingsPages;
     kk::registerStandardSettingsPages(settingsPages, &actions);
     kk::theme::registerSettingsPage(settingsPages, actions);
+    kk::registerSettingsTransferPage(settingsPages); // Preferences > Import and Export
     // Program playback: owns the compositor (render thread + GL context) shared by every
     // viewer, follows the project's timeline and media pool.
     kk::applyStartupPreferences(); // before the compositor exists (GPU processing mode)

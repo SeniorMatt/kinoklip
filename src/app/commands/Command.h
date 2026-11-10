@@ -232,6 +232,7 @@ void registerClipEffectCommands(CommandRegistry& registry);
 void registerGeneratorCommands(CommandRegistry& registry);
 void registerKeyframeCommands(CommandRegistry& registry);
 void registerTrackCommands(CommandRegistry& registry);
+void registerSettingsCommands(CommandRegistry& registry);
 
 } // namespace commands
 } // namespace kk

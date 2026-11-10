@@ -783,6 +783,27 @@
         "effect:keyer_3d",
         "effect:video_collage"
       ]
+    },
+    {
+      "id": "move-your-settings-to-another-computer",
+      "title": "Move your settings to another computer",
+      "file": "move-your-settings-to-another-computer.md",
+      "summary": "Export all preferences, keys, layout and presets to one file and import it on another computer, with a backup of the old settings.",
+      "keywords": [
+        "settings",
+        "export settings",
+        "import settings",
+        "backup",
+        "transfer",
+        "new computer",
+        "preferences",
+        "migrate",
+        "kinoklip-settings",
+        "restore",
+        "layout",
+        "keyboard profile"
+      ],
+      "contexts": []
     }
   ]
 }
