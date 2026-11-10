@@ -201,3 +201,8 @@ endif()
 # Writes a project with imported media for those checks (media pool items to drag).
 add_executable(kk_makeproject tests/tools/kk_makeproject.cpp)
 target_link_libraries(kk_makeproject PRIVATE kinoklip_core)
+
+# Contact sheets of the video transitions (tests/tools/kk_transitionsheets.cpp), to judge their
+# look by eye; a test tool, not installed. Run under xvfb-run with QT_QPA_PLATFORM=xcb.
+add_executable(kk_transitionsheets tests/tools/kk_transitionsheets.cpp)
+target_link_libraries(kk_transitionsheets PRIVATE kinoklip_core)
