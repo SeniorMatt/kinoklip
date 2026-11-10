@@ -320,11 +320,13 @@ std::optional<QVector<quint64>> decompose(TimelineData& parent, const QVector<qu
                     moveHead(piece, windowStart - piece.start, nested.fps);
                     piece.transitionIn.reset();
                     piece.fadeInFrames = 0;
+                    piece.fadeInCurve = 0.0;
                 }
                 if (piece.end() > windowEnd) {
                     piece.duration = windowEnd - piece.start;
                     piece.transitionOut.reset();
                     piece.fadeOutFrames = 0;
+                    piece.fadeOutCurve = 0.0;
                 }
                 piece.start += shift;
                 pieces.push_back(std::move(piece));

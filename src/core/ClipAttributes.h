@@ -107,17 +107,26 @@ bool channelMatrix(const ClipAttributes& attributes, int channels, double* matri
 
 // ---- Clip fades (fade handles at the top corners of a clip, spec section 31) ----
 
+/// Shape of a fade (spec section 59): maps the fade's progress @p t (0 at the outer end, the
+/// clip edge, to 1 at the inner end, where the fade reaches full level) through the power
+/// curve t^(4^curve). @p curve is clamped to -1 ... +1: 0 is exactly @p t (linear, bit-identical
+/// to fades without a curve), positive = slow start, negative = fast start. 0 maps to 0 and 1
+/// to 1 for every curve. The audio gain is sin(shape * pi / 2), the video factor the shape.
+[[nodiscard]] double fadeShape(double t, double curve);
+
 /// Video fade factor (0..1, multiplies the clip's opacity) at clip-local frame @p local of a
 /// clip @p duration frames long with fade-in @p fadeIn and fade-out @p fadeOut frames:
 /// linear, 0 on the clip's first frame and reaching 1 after `fadeIn` frames; mirrored at the
 /// end (the last frame is 0). Fades longer than the clip are clamped to it.
-[[nodiscard]] double videoFadeFactor(
-    int64_t local, int64_t duration, int64_t fadeIn, int64_t fadeOut);
+[[nodiscard]] double videoFadeFactor(int64_t local, int64_t duration, int64_t fadeIn,
+    int64_t fadeOut, double fadeInCurve = 0.0, double fadeOutCurve = 0.0);
 
 /// Audio fade gain (0..1) at the fractional clip-local frame @p local: the equal-power curve
 /// sin(t * pi / 2) over the fade-in (t from 0 at the clip start to 1 after `fadeIn` frames) and
 /// cos(...) over the fade-out (1 at its start, 0 at the clip end), like the mixer's
 /// crossfades. Fades longer than the clip are clamped to it.
-[[nodiscard]] double audioFadeGain(double local, int64_t duration, int64_t fadeIn, int64_t fadeOut);
+/// The progress of each fade goes through fadeShape() with its curve first.
+[[nodiscard]] double audioFadeGain(double local, int64_t duration, int64_t fadeIn, int64_t fadeOut,
+    double fadeInCurve = 0.0, double fadeOutCurve = 0.0);
 
 } // namespace kk

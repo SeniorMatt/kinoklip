@@ -96,30 +96,41 @@ ChannelFormat channelFormatFromString(const QString& s)
     return fromId<ChannelFormat>(s, kFormats);
 }
 
-double videoFadeFactor(int64_t local, int64_t duration, int64_t fadeIn, int64_t fadeOut)
+double fadeShape(double t, double curve)
+{
+    t = std::clamp(t, 0.0, 1.0);
+    curve = std::clamp(curve, -1.0, 1.0);
+    if (curve == 0.0 || t == 0.0 || t == 1.0)
+        return t;
+    return std::pow(t, std::pow(4.0, curve));
+}
+
+double videoFadeFactor(int64_t local, int64_t duration, int64_t fadeIn, int64_t fadeOut,
+    double fadeInCurve, double fadeOutCurve)
 {
     double f = 1.0;
     fadeIn = std::min(fadeIn, duration);
     fadeOut = std::min(fadeOut, duration);
     if (fadeIn > 0 && local < fadeIn)
-        f = std::max(0.0, double(local) / double(fadeIn));
+        f = fadeShape(std::max(0.0, double(local) / double(fadeIn)), fadeInCurve);
     const int64_t fromEnd = duration - 1 - local; // 0 on the last frame
     if (fadeOut > 0 && fromEnd < fadeOut)
-        f *= std::max(0.0, double(fromEnd) / double(fadeOut));
+        f *= fadeShape(std::max(0.0, double(fromEnd) / double(fadeOut)), fadeOutCurve);
     return std::clamp(f, 0.0, 1.0);
 }
 
-double audioFadeGain(double local, int64_t duration, int64_t fadeIn, int64_t fadeOut)
+double audioFadeGain(double local, int64_t duration, int64_t fadeIn, int64_t fadeOut,
+    double fadeInCurve, double fadeOutCurve)
 {
     constexpr double kHalfPi = std::numbers::pi / 2.0;
     double g = 1.0;
     fadeIn = std::min(fadeIn, duration);
     fadeOut = std::min(fadeOut, duration);
     if (fadeIn > 0 && local < double(fadeIn))
-        g = std::sin(std::clamp(local / double(fadeIn), 0.0, 1.0) * kHalfPi);
+        g = std::sin(fadeShape(local / double(fadeIn), fadeInCurve) * kHalfPi);
     const double fromEnd = double(duration) - local; // 0 at the clip's end
     if (fadeOut > 0 && fromEnd < double(fadeOut))
-        g *= std::sin(std::clamp(fromEnd / double(fadeOut), 0.0, 1.0) * kHalfPi);
+        g *= std::sin(fadeShape(fromEnd / double(fadeOut), fadeOutCurve) * kHalfPi);
     return g;
 }
 

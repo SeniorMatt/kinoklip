@@ -188,6 +188,11 @@ struct ClipData
     /// volume, are kept by trims, and a split / range cut drops the fade at the cut.
     int64_t fadeInFrames = 0;
     int64_t fadeOutFrames = 0;
+    /// Fade curves (spec section 59): the shape of each fade, -1 ... +1, 0 = linear (the
+    /// default, and what older projects load as). Positive = slow start (the level stays low
+    /// at first and rises late), negative = fast start (see core/ClipAttributes.h fadeShape()).
+    double fadeInCurve = 0.0;
+    double fadeOutCurve = 0.0;
     /// Media clips: the Clip Attributes of the media pool item (MediaItem::attributes),
     /// mirrored by Project::syncDerived() so render snapshots need no media pool lookup.
     ClipAttributes attributes;

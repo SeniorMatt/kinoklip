@@ -197,7 +197,8 @@ double clipOpacity(const ClipData& clip, int64_t localFrame)
     if (clip.fadeInFrames <= 0 && clip.fadeOutFrames <= 0)
         return opacity;
     return opacity
-        * videoFadeFactor(localFrame, clip.duration, clip.fadeInFrames, clip.fadeOutFrames);
+        * videoFadeFactor(localFrame, clip.duration, clip.fadeInFrames, clip.fadeOutFrames,
+            clip.fadeInCurve, clip.fadeOutCurve);
 }
 
 bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame, bool dynamicZoom)

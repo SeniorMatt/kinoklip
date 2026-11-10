@@ -328,6 +328,7 @@ bool joinClips(TimelineData& data, quint64 leftClipId, quint64 rightClipId)
         mergeKeys(a.effects[e].params, b.effects[e].params, a.duration);
     a.transitionOut = b.transitionOut;
     a.fadeOutFrames = b.fadeOutFrames;
+    a.fadeOutCurve = b.fadeOutCurve;
     a.duration += b.duration;
     track.clips.erase(track.clips.begin() + std::ptrdiff_t(i) + 1);
     return true;

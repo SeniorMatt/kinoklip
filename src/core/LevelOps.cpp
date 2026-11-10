@@ -135,6 +135,23 @@ bool setFade(TimelineData& data, quint64 clipId, bool head, int64_t frames)
     if (field == frames)
         return false;
     field = frames;
+    if (frames == 0) // no fade, no shape: a new fade starts linear
+        (head ? clip->fadeInCurve : clip->fadeOutCurve) = 0.0;
+    return true;
+}
+
+bool setFadeCurve(TimelineData& data, quint64 clipId, bool head, double curve)
+{
+    ClipData* clip = editops::clipById(data, clipId);
+    if (!clip)
+        return false;
+    if ((head ? clip->fadeInFrames : clip->fadeOutFrames) <= 0)
+        return false;
+    curve = std::clamp(curve, -1.0, 1.0);
+    double& field = head ? clip->fadeInCurve : clip->fadeOutCurve;
+    if (field == curve)
+        return false;
+    field = curve;
     return true;
 }
 
