@@ -2,7 +2,7 @@
 
 151 of 183 entries work.
 
-Every entry of the Effects library that DaVinci Resolve is known to have from its public documentation (names only), and whether Kinoklip has it. `works` means an effect, transition, generator, title or clip of the same job is registered in Kinoklip (sometimes under its own name or with other settings); `planned` means it is not there yet. Nothing here is marked `not planned`. Kinoklip's own extras that Resolve lacks are not listed. The research behind the list is the gap list for version 1.2; the behaviour of what landed is in [behavior-spec.md](behavior-spec.md) sections 54, 56 and 57. [scripts/status.py](../scripts/status.py) counts this table for the picture in the readme; run it after changing a row.
+Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve) is known to have from its public documentation (names only), and whether Kinoklip has it. `works` means an effect, transition, generator, title or clip of the same job is registered in Kinoklip (sometimes under its own name or with other settings); `planned` means it is not there yet. Nothing here is marked `not planned`. Kinoklip's own extras that Resolve lacks are not listed. The research behind the list is the gap list for version 1.2; the behaviour of what landed is in [behavior-spec.md](behavior-spec.md) sections 54, 56 and 57. [scripts/status.py](../scripts/status.py) counts this table for the picture in the readme; run it after changing a row.
 
 ## Video transitions
 

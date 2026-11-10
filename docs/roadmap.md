@@ -41,7 +41,7 @@ Done for 1.2 so far (on main, not released yet):
 Still to do for 1.2:
 - [ ] Platform: AppImage shows an error when FUSE is missing (today it fails silently)
 - [ ] Media: hovering a clip thumbnail in the Media Pool previews it in the viewer, as in Resolve
-- [ ] Tracking: stabilization (being built now)
+- [x] Tracking: stabilization in the Inspector (Perspective, Similarity and Translation modes, Camera Lock, Zoom) and from the command line
 - [ ] Effects: Motion Trails
 - [ ] Effects: Smear
 - [ ] Effects: Frame Replacer
