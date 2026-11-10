@@ -16,7 +16,8 @@ It looks for the media at the same places as on this computer. If the files are 
 computer or another drive, the other editor asks you to relink them.
 
 What is written: the video and audio tracks, clips with the part of the file they play, gaps,
-cross dissolves between touching clips, clips at another speed (a speed ramp is written as its
+transitions between touching clips (a cross dissolve as an ordinary dissolve, every other Kinoklip transition as a custom
+transition that carries its name and settings, so another Kinoklip reads it back as it was), clips at another speed (a speed ramp is written as its
 average speed), disabled clips, timeline markers and clip markers, and the timeline's starting
 timecode.
 
@@ -39,7 +40,7 @@ with its name, and the message after the import lists the missing files. Right-c
 Offline Media...** to point them at the right folder.
 
 After the import, a message lists what Kinoklip left out, for example effects it has no
-equivalent for, nested sequences, other kinds of transition (they become cross dissolves) and
+equivalent for, nested sequences, transitions of other editors that Kinoklip does not know (they become cross dissolves) and
 extra information other programs stored in the file. The rest of the timeline is imported
 anyway.
 
