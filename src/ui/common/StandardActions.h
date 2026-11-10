@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 namespace kk {
@@ -22,5 +23,11 @@ struct MenuCategory
 /// Registers every command of PLAN §5.7 and the main window. Behaviour is connected by the
 /// owning modules (see ui/common/readme.md for the id list and who owns what).
 void registerStandardActions(ActionRegistry& registry);
+
+/// Gives every standard command its one-line description as the status tip
+/// (ActionDescriptions.cpp), unless it already has one. Call it once all commands are registered.
+/// Returns the ids of descriptions that match no registered command (empty when the table is in
+/// step; a test checks).
+QStringList describeStandardActions(ActionRegistry& registry);
 
 } // namespace kk

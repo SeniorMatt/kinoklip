@@ -58,7 +58,27 @@ The text contains only versions and settings:
 
 It never contains your name, user name, computer name, home folder or any other path, file or
 project names, your IP address or serial numbers. The text is read only when you open the dialog,
-held in memory and never saved.
+held in memory and never saved. (The log file of the next section is separate, and does name
+files.)
+
+## Exporting a log file
+**Help > Export Log File...** saves what Kinoklip did in this session as one text file you can
+attach to a bug report:
+
+- The log is kept **in memory only** while Kinoklip runs (the last 20,000 lines or 4 MiB; older
+  lines are dropped) and **written only when you ask**, to the file you choose. It is gone when
+  Kinoklip closes. Kinoklip sends the file nowhere: you attach it to a report yourself, if you
+  want to.
+- The window says what the file contains and shows all of it before you save: the Kinoklip
+  version, operating system, desktop (Wayland or X11), graphics card and OpenGL renderer (the
+  same facts as a bug report), the decoder chosen for each media file, the playback statistics,
+  and the warnings, errors and other messages of the session.
+- Unlike a bug report's system info, the log **does name your media files** and some messages
+  contain **folder paths**. Paths under your home folder are written as `~/...`, and your user
+  name and computer name are removed. It has no project content, no picture or sound of your
+  media, and none of your settings.
+- `kinoklip log export --file <file>` does the same from the command line. Assistants connected
+  through `kinoklip mcp` and programs using Local Control cannot run it.
 
 ## What stays on your computer
 Kinoklip keeps some data on your computer to work. None of it ever leaves your computer.

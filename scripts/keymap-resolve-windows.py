@@ -360,6 +360,7 @@ a("help.guide_context", "Help for This (opens the user guide's article for the e
 a("help.guide", "Guide (search the user guide's articles)", [], U, "Kinoklip's in-app help; no default key")
 a("help.getting_started", "Getting Started (the guide's first article)", [], U, "Kinoklip's in-app help; no default key")
 a("help.report_bug", "Report a Bug or Inconsistency (opens GitHub's report form, system info only if you choose)", [], U, "Kinoklip's own; Resolve has no such command; no default key")
+a("help.export_log", "Export Log File (saves the session's messages, decoders and playback statistics as a text file for a bug report)", [], U, "Kinoklip's own; Resolve has no such command; no default key")
 a("help.community", "Join the Community on Discord (opens the invite in the browser)", [], U, "Kinoklip's own; Resolve has no such command; no default key")
 a("help.about", "About", [], S)
 a("help.about_qt", "About Qt", [], S)

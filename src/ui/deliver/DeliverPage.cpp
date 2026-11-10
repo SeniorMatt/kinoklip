@@ -9,6 +9,7 @@
 #include "render/Compositor.h"
 #include "render/ProxySelection.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/TimelineCommandSuspension.h"
 #include "ui/deliver/RenderFinishNotifier.h"
@@ -61,6 +62,8 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     m_topRow->setSizes({kSettingsWidth, kViewerWidth, kQueueWidth});
 
     m_rangeBar = new RenderRangeBar(ctx.project->timeline());
+    setPanelInfo(m_rangeBar, tr("Render Range"),
+        tr("The timeline overview under the viewer, showing the range that will be rendered."));
     m_main = new PanelSplitter(Qt::Vertical);
     m_main->setChildrenCollapsible(false);
     m_main->addWidget(m_topRow);

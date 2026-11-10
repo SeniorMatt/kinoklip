@@ -9,6 +9,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/keyframes/CurveView.h"
@@ -56,6 +57,9 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Keyframes"), parent)
     , m_ctx(ctx)
 {
+    setPanelInfo(this, tr("Keyframes"),
+        tr("Editor for the keyframes of the selected clips: a parameter list beside a dope sheet "
+           "or a curve view on the timeline's time."));
     setPanelKey(QStringLiteral("keyframes")); // in-app help: panel:keyframes
     setObjectName(QStringLiteral("KeyframesPanel"));
     m_map.originX = kAxisWidth;

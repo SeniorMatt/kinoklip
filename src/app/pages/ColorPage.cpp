@@ -19,6 +19,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelFrame.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/common/TimelineCommandSuspension.h"
@@ -129,6 +130,9 @@ ColorPage::ColorPage(AppContext& ctx, QWidget* parent)
 
     // ---- Top: gallery | viewer | nodes ----
     m_gallery = new ColorGallery(m_session, ctx.project);
+    setPanelInfo(m_gallery, tr("Gallery"),
+        tr("The stills grabbed from graded clips; use one to compare in the viewer or copy its "
+           "grade."));
     m_galleryFrame = new PanelFrame(tr("Gallery"));
     m_galleryFrame->setContentWidget(m_gallery);
     if (QAction* grab = registryAction(ctx, QStringLiteral("color.grab_still")))
@@ -137,6 +141,7 @@ ColorPage::ColorPage(AppContext& ctx, QWidget* parent)
     QWidget* viewer = buildViewer();
 
     m_nodes = new ColorNodeEditor(m_session, ctx.actions);
+    setPanelInfo(m_nodes, tr("Nodes"), tr("The node graph of the grade of the current clip."));
     m_nodesFrame = new PanelFrame(tr("Nodes"));
     m_nodesFrame->setContentWidget(m_nodes);
     m_top = new PanelSplitter(Qt::Horizontal);
@@ -156,7 +161,11 @@ ColorPage::ColorPage(AppContext& ctx, QWidget* parent)
     ml->setContentsMargins(0, 0, 0, 0);
     ml->setSpacing(0);
     m_strip = new ColorClipStrip(m_session, ctx.project, m_frames);
+    setPanelInfo(m_strip, tr("Clips"),
+        tr("Every clip of the timeline as a thumbnail; click one to grade it."));
     m_mini = new ColorMiniTimeline(m_session, ctx.project);
+    setPanelInfo(m_mini, tr("Timeline"),
+        tr("The video tracks fitted to the width; click or drag to move the playhead."));
     m_mini->setFixedHeight(30);
     ml->addWidget(m_strip);
     ml->addWidget(m_mini);
@@ -165,9 +174,14 @@ ColorPage::ColorPage(AppContext& ctx, QWidget* parent)
     // ---- Bottom: palettes | scopes / key ----
     QWidget* palettes = buildPalettes();
     m_scopes = new ScopesPanel(QStringLiteral("colorPage/scopeType"));
+    setPanelInfo(
+        m_scopes, tr("Scopes"), tr("A scope of the picture; choose the type from its menu."));
     m_feeder = new ScopeFeeder(ctx.playback, this);
     connect(m_feeder, &ScopeFeeder::imageReady, m_scopes, &ScopesPanel::setImage);
     m_key = new KeyPanel(m_session, m_frames);
+    setPanelInfo(m_key, tr("Key"),
+        tr("The key output gain of the current node, qualifier invert and a small view of the "
+           "key."));
     m_rightStack = new QStackedWidget;
     m_rightStack->addWidget(m_scopes);
     m_rightStack->addWidget(m_key);
@@ -283,6 +297,8 @@ ColorPage::~ColorPage()
 QWidget* ColorPage::buildViewer()
 {
     m_viewerFrame = new PanelFrame(QString());
+    setPanelInfo(m_viewerFrame, tr("Viewer"),
+        tr("The graded picture at the playhead, with transport controls."));
     m_viewerFrame->setTitleCentered(true);
     // Leading: Clip / Timeline grade.
     auto* targets = new QWidget;
@@ -365,12 +381,22 @@ QWidget* ColorPage::buildViewer()
 QWidget* ColorPage::buildPalettes()
 {
     m_primaries = new PrimariesPanel(m_session);
+    setPanelInfo(
+        m_primaries, tr("Primaries"), tr("Primary colour correction of the current node."));
     m_curves = new ColorCurvesPanel(m_session);
+    setPanelInfo(m_curves, tr("Curves"), tr("Curve adjustments of the current node."));
     m_qualifier = new QualifierPanel(m_session);
+    setPanelInfo(m_qualifier, tr("Qualifier"),
+        tr("Selects part of the picture by hue, saturation and luminance for the current node."));
     toolTipWithKey(m_ctx, m_qualifier->highlightButton(), "color.highlight",
         QualifierPanel::tr("Show the node's key in the viewer"));
     m_windows = new WindowsPanel(m_session);
+    setPanelInfo(m_windows, tr("Windows"),
+        tr("Circle, linear, polygon and gradient windows that limit the current node to part of "
+           "the picture."));
     m_luts = new LutBrowser(m_session);
+    setPanelInfo(
+        m_luts, tr("LUTs"), tr("Browser of .cube look-up tables; apply one to the current node."));
     m_paletteStack = new QStackedWidget;
     m_paletteStack->setObjectName(QStringLiteral("ColorPaletteStack"));
     for (QWidget* w : {static_cast<QWidget*>(m_primaries), static_cast<QWidget*>(m_curves),

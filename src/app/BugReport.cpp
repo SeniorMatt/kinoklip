@@ -158,13 +158,24 @@ bool hasEnvironment(Kind kind)
     return kind != Kind::Idea;
 }
 
+QString replaceHomeFolder(const QString& text, const QString& replacement)
+{
+    const QString home = QDir::homePath();
+    if (home.size() <= 1)
+        return text;
+    // Not followed by more of a name ("/home/annabel", "/home/anna.old", "/home/anna-2").
+    const QRegularExpression whole(
+        QStringLiteral("%1(?![\\w-]|\\.\\w)").arg(QRegularExpression::escape(home)));
+    QString out = text;
+    out.replace(whole, replacement);
+    return out;
+}
+
 QString scrub(const QString& text)
 {
     QString out = text;
     // The home folder first (a path contains the user name too).
-    const QString home = QDir::homePath();
-    if (home.size() > 1)
-        out.replace(home, QLatin1String(kRemoved));
+    out = replaceHomeFolder(out, QLatin1String(kRemoved));
     for (const char* var : {"USER", "LOGNAME"})
         removeWord(out, qEnvironmentVariable(var));
     removeWord(out, QSysInfo::machineHostName());

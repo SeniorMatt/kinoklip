@@ -472,6 +472,8 @@ const ActionSpec kActions[] = {
     {"help", "help.report_bug",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Report a Bug or Inconsistency…")},
     // Opens the community Discord server's invite in the browser (appinfo::communityUrl).
     {"help", "help.community",        QT_TRANSLATE_NOOP("kk::StandardActions", "Join the &Community on Discord")},
+    // Saves the session log as a text file for a bug report (src/app/LogExportDialog, spec 64).
+    {"help", "help.export_log",       QT_TRANSLATE_NOOP("kk::StandardActions", "Export &Log File…")},
 };
 // clang-format on
 

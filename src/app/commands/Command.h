@@ -237,6 +237,7 @@ void registerGeneratorCommands(CommandRegistry& registry);
 void registerKeyframeCommands(CommandRegistry& registry);
 void registerTrackCommands(CommandRegistry& registry);
 void registerSettingsCommands(CommandRegistry& registry);
+void registerLogCommands(CommandRegistry& registry);
 
 } // namespace commands
 } // namespace kk

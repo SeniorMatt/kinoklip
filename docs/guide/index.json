@@ -891,6 +891,28 @@
         "effect:look_video_call",
         "effect:look_video_camera"
       ]
+    },
+    {
+      "id": "send-a-log-file-with-a-bug-report",
+      "title": "Send a log file with a bug report",
+      "file": "send-a-log-file-with-a-bug-report.md",
+      "summary": "Save what Kinoklip did in this session (decoders, playback statistics, warnings) as one text file with Help > Export Log File, read it, and attach it to a bug report.",
+      "keywords": [
+        "log",
+        "log file",
+        "export log",
+        "bug",
+        "bug report",
+        "crash",
+        "error",
+        "warning",
+        "decoder",
+        "statistics",
+        "playback problem",
+        "attach",
+        "diagnostics"
+      ],
+      "contexts": []
     }
   ]
 }

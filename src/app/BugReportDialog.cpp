@@ -62,6 +62,15 @@ BugReportDialog::BugReportDialog(bugreport::SystemInfo info, QWidget* parent)
     note->setWordWrap(true);
     layout->addWidget(note);
 
+    // For crashes and playback trouble the text above is not enough: the log file is.
+    auto* logNote = new QLabel(tr("For a crash or a playback problem, also attach the log file: "
+                                  "Help > Export Log File... saves what Kinoklip did in this "
+                                  "session (decoders, playback statistics, warnings) as a text "
+                                  "file you can read first."));
+    logNote->setObjectName(QStringLiteral("BugReportLogNote"));
+    logNote->setWordWrap(true);
+    layout->addWidget(logNote);
+
     auto* buttons = new QHBoxLayout;
     m_copy = new QPushButton(tr("&Copy System Info"));
     m_copy->setToolTip(tr("Copies the text above, for reporting somewhere else"));

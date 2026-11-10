@@ -6,6 +6,7 @@
 #include "export/RenderQueue.h"
 #include "platform/OpenUrl.h"
 #include "ui/common/Icons.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/ThinProgressBar.h"
 
 #include <QApplication>
@@ -151,6 +152,8 @@ RenderQueuePanel::RenderQueuePanel(RenderQueue* queue, QWidget* parent)
     : PanelFrame(tr("Render Queue"), parent)
     , m_queue(queue)
 {
+    setPanelInfo(this, tr("Render Queue"),
+        tr("One card for each render job with its progress; Render All, Stop and Clear Finished."));
     setPanelKey(QStringLiteral("render_queue")); // in-app help: panel:render_queue
     auto* body = new QWidget;
     auto* layout = new QVBoxLayout(body);

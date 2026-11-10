@@ -7,7 +7,8 @@ Used by every panel and page. Depends on `core` only.
 | `AppContext.h` | the struct of shared objects every panel receives: `Project*`, `SelectionModel*`, `ActionRegistry*`, `PlaybackEngine*` (null until src/playback exists) |
 | `ActionRegistry.h` | every command as a `QAction` with a stable id; rebind/reset/import/export/conflict lookup (scope aware: window, `page:<id>`, `widget:<name>`); **keymap profiles** (implementation in `KeymapProfiles.cpp`, see below) |
 | `VimInput.h` | the vim key layer (spec 62): `VimMachine` (counts, sequences, NORMAL / VISUAL; asks a `VimHost`, never edits) and `VimInput`, the application event filter that is active only with the keyboard profile `vim` and only while a widget with the property `kkVimScope` (timelines, viewers) has the focus and is not a text field |
-| `StandardActions.h` | the catalogue: ids, texts, menus, icons; `standardMenus()` |
+| `StandardActions.h` | the catalogue: ids, texts, menus, icons; `standardMenus()`; `describeStandardActions()` gives each command its one-line description from `ActionDescriptions.cpp` (status tip; the menu reference, spec 63, is written from it) |
+| `PanelInfo.h` | `setPanelInfo(widget, name, description)`: the name and one-line description of a panel or page area, read by the menu reference (spec 63) |
 | `MediaManagement.h` | proxy / optimized media and render cache glue (created in `main()`, `AppContext::media`): `mediapool.*`, `playback.proxy_*`, `playback.use_*`, `playback.render_cache_*`, `clip.render_cache_output` commands; ProxyQueue + RenderCacheManager + a shared background Compositor; proxy map for every viewer, cache view for program playback, per-item status for the media pool |
 | `PanelFrame.h` | common panel chrome (title bar + tool area + body); `setPanelKey()` names the panel for the in-app help (`panel:<key>`, src/ui/help); `createPlaceholderPanel()` |
 | `Page.h` | base class for main-window pages; `PanelId` for the interface-toolbar toggles |
@@ -139,11 +140,17 @@ test in `test_actionregistry`).
    checkable flag). Order in the table = order in the menu; `"-"` adds a separator.
 2. Add its default shortcut to every built-in profile in `resources/keymaps/` (use `[]` for none) — the test
    `test_actionregistry` fails if an action is missing there or a shortcut is used twice.
-3. Connect `triggered` in the owning module.
+3. Add a one-line description of what it does to `ActionDescriptions.cpp` (read the slot first):
+   it becomes the status tip and the "What it does" column of `docs/menu-reference.md`.
+4. Connect `triggered` in the owning module.
+5. Regenerate the menu reference with `scripts/menu-reference.sh` (the test `check_menu_reference`
+   fails until you do).
 
 **Add an icon:** draw a 24×24 single-colour SVG (black strokes/fills; it is re-tinted at
 runtime) in `resources/icons/<name>.svg`, list it in `resources/resources.qrc`, use
 `kk::icon("<name>")`.
 
 **Add a panel:** subclass `PanelFrame` in `src/ui/<area>/`, take `AppContext&`, place it in a
-page (`src/app/pages/*`). If it should be toggleable, add a `PanelId` + toggle action.
+page (`src/app/pages/*`). Call `setPanelInfo()` with its name and a one-line description (the
+menu reference lists it) and regenerate `docs/menu-reference.md`. If it should be toggleable, add
+a `PanelId` + toggle action.

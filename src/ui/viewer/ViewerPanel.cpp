@@ -16,6 +16,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/MediaManagement.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/viewer/ColorPickOverlay.h"
@@ -122,6 +123,10 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     , m_ctx(ctx)
     , m_mode(mode)
 {
+    setPanelInfo(this, mode == Mode::Source ? tr("Source Viewer") : tr("Timeline Viewer"),
+        mode == Mode::Source
+            ? tr("Shows the clip chosen in the media pool, with in and out points and a scrub bar.")
+            : tr("Shows the picture of the timeline at the playhead, with transport controls."));
     setPanelKey(QStringLiteral("viewer")); // in-app help: panel:viewer
     setProperty("kkVimScope", true); // the vim key layer (ui/common/VimInput.h) works here
     registry().append(this);

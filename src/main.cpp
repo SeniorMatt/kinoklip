@@ -4,6 +4,7 @@
 #include "app/CliRunner.h"
 #include "app/CommandLine.h"
 #include "app/MainWindow.h"
+#include "app/MenuReference.h"
 #include "app/ProjectController.h"
 #include "app/Screenshot.h"
 #include "app/SettingsTransferDialog.h"
@@ -11,11 +12,12 @@
 #include "core/EditBehaviour.h"
 #include "core/PowerBins.h"
 #include "core/Preferences.h"
-#include "media/MediaCache.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/SessionLog.h"
 #include "export/RenderCommand.h"
 #include "media/HwAccel.h"
+#include "media/MediaCache.h"
 #include "pack/ProjectPackage.h"
 #include "playback/PlaybackEngine.h"
 #include "render/RenderFrameCommand.h"
@@ -33,8 +35,10 @@
 #include <QGuiApplication>
 #include <QSettings>
 #include <QSurfaceFormat>
+#include <QTemporaryDir>
 
 #include <cstdio>
+#include <memory>
 
 namespace {
 
@@ -92,6 +96,21 @@ bool wantsTextOnly(int argc, char** argv)
     return false;
 }
 
+/// True if --menu-reference was given. Checked before anything reads the settings: that mode
+/// must run with default settings and leave the user's alone (docs/menu-reference.md has to
+/// come out the same on every machine).
+bool wantsMenuReference(int argc, char** argv)
+{
+    for (int i = 1; i < argc; ++i) {
+        const QByteArray arg(argv[i]);
+        if (arg == "--")
+            return false;
+        if (arg == "--menu-reference" || arg.startsWith("--menu-reference="))
+            return true;
+    }
+    return false;
+}
+
 void setApplicationIdentity()
 {
     QCoreApplication::setOrganizationName(QLatin1String(kk::appinfo::id));
@@ -126,6 +145,9 @@ bool wantsCommandLine(int argc, char** argv, QStringList* arguments)
 
 int main(int argc, char** argv)
 {
+    // First of all: keep this session's messages for Help > Export Log File (in memory only;
+    // stderr is unchanged because the previous handler still gets every message).
+    kk::sessionlog::installMessageHandler();
     QStringList commandArguments;
     if (wantsCommandLine(argc, argv, &commandArguments))
         return runCommandLine(argc, argv, commandArguments);
@@ -138,6 +160,15 @@ int main(int argc, char** argv)
         kk::parseCommandLine(QCoreApplication::arguments(), options, &error); // prints, exits
         std::fprintf(stderr, "%s\n", qPrintable(error));
         return 2;
+    }
+    // A private, empty settings and data folder for --menu-reference (removed on exit).
+    std::unique_ptr<QTemporaryDir> isolatedSettings;
+    if (wantsMenuReference(argc, argv)) {
+        isolatedSettings = std::make_unique<QTemporaryDir>();
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+        qputenv("XDG_CONFIG_HOME", isolatedSettings->path().toLocal8Bit());
+        qputenv("XDG_DATA_HOME", isolatedSettings->path().toLocal8Bit());
+        qputenv("XDG_CACHE_HOME", isolatedSettings->path().toLocal8Bit());
     }
     applyUiScale();
     configureOpenGL();
@@ -205,6 +236,18 @@ int main(int argc, char** argv)
     kk::MediaManagement mediaManagement(ctx);
 
     // ---- Non-interactive modes ----
+    if (options.isMenuReference()) {
+        kk::MainWindowOptions windowOptions;
+        windowOptions.restoreLayout = false;
+        windowOptions.saveLayout = false;
+        windowOptions.autosave = false;
+        kk::MainWindow window(ctx, windowOptions);
+        if (!kk::menureference::writeFile(window, options.menuReferenceFile, &error)) {
+            std::fprintf(stderr, "%s\n", qPrintable(error));
+            return 1;
+        }
+        return 0;
+    }
     if (options.isScreenshot()) {
         kk::MainWindowOptions windowOptions;
         windowOptions.restoreLayout = false; // deterministic default layout

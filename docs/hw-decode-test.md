@@ -23,6 +23,11 @@ the systemd journal instead of the terminal when it thinks there is no console (
 `.run` is started from Dolphin); with the variable the lines always reach `tee`. (Already
 started without it? `journalctl --user -b | grep kk\.` finds them.)
 
+Since 1.2 the lines this test asks for (decoder per file, driver, playback statistics, warnings)
+are also kept in memory without any variable: **Help > Export Log File...** saves them as one
+text file (see [Send a log file with a bug report](guide/send-a-log-file-with-a-bug-report.md)).
+The steps below still work for a run from a terminal.
+
 Please run the steps below and send `kinoklip-*.txt` back. Each run takes about two minutes.
 
 ## 0. System facts (once)

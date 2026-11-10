@@ -4,6 +4,7 @@
 
 #include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompSession.h"
 
@@ -52,6 +53,9 @@ NodeLibraryPanel::NodeLibraryPanel(CompSession* session, QWidget* parent)
     : PanelFrame(tr("Nodes"), parent)
     , m_session(session)
 {
+    setPanelInfo(this, tr("Nodes"),
+        tr("Searchable list of every node type; drag one onto the node editor or double-click it "
+           "to add it."));
     setObjectName(QStringLiteral("NodeLibraryPanel"));
     auto* body = new QWidget;
     auto* layout = new QVBoxLayout(body);

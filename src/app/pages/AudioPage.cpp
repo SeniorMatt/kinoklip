@@ -12,6 +12,7 @@
 #include "ui/audio/MixerPanel.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineLayout.h"
@@ -67,6 +68,8 @@ AudioPage::AudioPage(AppContext& ctx, TimelineController* controller, QWidget* p
     m_meters = new LoudnessPanel(ctx, m_mixerController, m_meterModel);
 
     m_timeline = new TimelineWidget(ctx, controller);
+    setPanelInfo(m_timeline, tr("Audio Timeline"),
+        tr("The timeline with tall audio tracks, level lines and fade handles."));
     m_timeline->setObjectName(QStringLiteral("AudioTimeline"));
     TimelineViewOptions options;
     options.audioHeightScale = kAudioRowScale;

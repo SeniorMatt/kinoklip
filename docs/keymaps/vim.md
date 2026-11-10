@@ -22,9 +22,9 @@ the rest are listed below as unbound.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 342 commands; 4 mapped to Vim and Neovim's key (sure 1, likely 3,
+Counts: 343 commands; 4 mapped to Vim and Neovim's key (sure 1, likely 3,
 unsure 0); 129 keep the default (Resolve) key; 17 have no key because
-Vim and Neovim uses it for something else; 156 have no key in either.
+Vim and Neovim uses it for something else; 157 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
 the JSON file and this page and stops when a key is used twice in one scope);

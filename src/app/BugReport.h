@@ -58,6 +58,11 @@ struct SystemInfo
 /// "Label: value" lines, one per fact, as shared and copied.
 [[nodiscard]] QString environmentText(const QList<Line>& lines);
 
+/// Replaces the home folder in @p text by @p replacement, only where it is the whole folder
+/// ("/home/anna" in "/home/anna/Videos" but not in "/home/annabel"). Used by scrub() with
+/// "<removed>" and by the log export with "~".
+[[nodiscard]] QString replaceHomeFolder(const QString& text, const QString& replacement);
+
 /// Replaces the home folder, user name and host name in @p text (whole words) by
 /// "<removed>", so no value can leak them even if a library string contains them.
 [[nodiscard]] QString scrub(const QString& text);

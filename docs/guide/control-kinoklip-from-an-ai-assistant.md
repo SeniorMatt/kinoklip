@@ -136,6 +136,8 @@ help the assistant to see its work:
 | `settings_export` | Write all of Kinoklip's settings to a `.kinoklip-settings` file. There is no tool to import settings: replacing your settings is something only you can do (Preferences > Import and Export, or `kinoklip settings import` in a terminal). |
 | `session_info` | Whether the tools change project files (`file`) or the open window (`live`), and which project is open. |
 
+There is no tool to export the log file either (it can name your folders): that is **Help > Export Log File...**, or `kinoklip log export` in a terminal.
+
 For editing beyond cuts the assistant has, besides the cutting tools:
 
 | Tools | What they do |

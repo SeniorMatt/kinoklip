@@ -156,6 +156,12 @@ if(TARGET test_livecontrol)
   add_dependencies(test_livecontrol ${APP_ID})
 endif()
 
+# test_menureference starts the built application as `kinoklip --menu-reference`.
+if(TARGET test_menureference)
+  target_compile_definitions(test_menureference PRIVATE KK_BINARY_PATH="$<TARGET_FILE:${APP_ID}>")
+  add_dependencies(test_menureference ${APP_ID})
+endif()
+
 # The GitHub issue forms (.github/ISSUE_TEMPLATE) and the field ids Help > Report a Bug fills.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
@@ -163,6 +169,12 @@ if(Python3_Interpreter_FOUND)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/check_issue_forms.py)
   add_test(NAME check_status
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/status.py --check)
+  # docs/menu-reference.md is written by the application (kinoklip --menu-reference): a menu
+  # entry or panel added without regenerating it fails here.
+  add_test(NAME check_menu_reference
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/check_menu_reference.py
+            $<TARGET_FILE:${APP_ID}>)
+  set_tests_properties(check_menu_reference PROPERTIES TIMEOUT 300)
 endif()
 
 # test_wayland once more under a real compositor with real input (weston on Xvfb, xdotool):

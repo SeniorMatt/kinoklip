@@ -48,6 +48,8 @@ public:
     [[nodiscard]] static QString shortLabel(Mode mode);
     /// Explanation used as tooltip / status tip.
     [[nodiscard]] static QString toolTip();
+    /// One line for the menu entry of @p mode (status bar, docs/menu-reference.md).
+    [[nodiscard]] static QString statusTip(Mode mode);
 
     /// Fills @p combo with the modes (item data = int(Mode)) and keeps it in sync both ways.
     void bindCombo(QComboBox* combo);

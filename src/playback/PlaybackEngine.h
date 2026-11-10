@@ -499,7 +499,8 @@ private:
     QualityMode m_qualityMode = QualityMode::Full;
     AutoQuality m_auto;
     Quality m_lastEmittedQuality = Quality::Full;
-    bool m_logStats = false; ///< KK_PLAYBACK_STATS=1: one line per second + one per play
+    bool m_logStats = true; ///< one stats line per second + one per play, kept for the session log
+                            ///< (printed with KK_PLAYBACK_STATS=1)
     int64_t m_statsLogUs = 0;
     Stats m_statsAtLog;
     bool m_playStatsActive = false; ///< a play (from rest) is being summarised

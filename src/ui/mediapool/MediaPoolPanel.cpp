@@ -18,6 +18,7 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaManagement.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/SelectedRows.h"
 #include "ui/mediapool/BinList.h"
@@ -127,6 +128,9 @@ MediaPoolPanel::MediaPoolPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Media Pool"), parent)
     , m_ctx(ctx)
 {
+    setPanelInfo(this, tr("Media Pool"),
+        tr("The project's media in bins (Master, smart bins, power bins), as posters or a list, "
+           "with search and colour filter; clips are dragged from here to the timeline."));
     setPanelKey(QStringLiteral("media_pool")); // in-app help: panel:media_pool
     setAcceptDrops(true);
     Project* project = ctx.project;
