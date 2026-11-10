@@ -291,3 +291,5 @@ inline const QString Rainbow = QStringLiteral("rainbow");
 } // namespace fxchoice
 
 } // namespace kk
+
+#include "core/VideoEffectKeys4.h"

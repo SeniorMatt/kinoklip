@@ -118,5 +118,12 @@ struct GlEffectFactory
 /// 1.2 (spec 56): GlExtraColor.cpp, GlExtraEffects.cpp.
 [[nodiscard]] std::span<const GlEffectFactory> extraColorGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> extraGlEffects();
+/// 1.2 second part (spec 57): GlDetailEffects.cpp, GlDamageEffects.cpp, GlPaintEffects.cpp,
+/// GlOpticsEffects.cpp, GlUtilityEffects.cpp.
+[[nodiscard]] std::span<const GlEffectFactory> detailGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> damageGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> paintGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> opticsGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> utilityGlEffects();
 
 } // namespace kk::render

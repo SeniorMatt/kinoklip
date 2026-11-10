@@ -126,6 +126,8 @@ QString EffectRegistry::groupName(const QString& group)
         {effectgroups::Stylize, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Stylize")},
         {effectgroups::Texture, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Texture")},
         {effectgroups::Revival, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Revival")},
+        {effectgroups::Sharpen, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Sharpen")},
+        {effectgroups::Refine, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Refine")},
         {effectgroups::Time, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Time")},
         {effectgroups::Transform, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Transform")},
         {effectgroups::Dissolve, QT_TRANSLATE_NOOP("kk::EffectRegistry", "Dissolve")},
