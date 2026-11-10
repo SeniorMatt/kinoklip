@@ -287,7 +287,9 @@ the absolute path no longer exists.
    `VideoEffectKeys.h` (the second batch: `registerVideoEffects2()` in
    `BuiltinVideoEffects2.cpp`; the 1.2 batch: `registerVideoEffects3()` in
    `BuiltinVideoEffects3.cpp`; its second part, spec 57: `registerVideoEffects4()` in
-   `BuiltinVideoEffects4.cpp`, keys in `VideoEffectKeys4.h`). Builders: `EffectBuilders.h`.
+   `BuiltinVideoEffects4.cpp`, keys in `VideoEffectKeys4.h`; the multi-frame effects, spec 60:
+   `registerVideoEffects5()` in `BuiltinVideoEffects5.cpp`, keys in `VideoEffectKeys5.h`).
+   Builders: `EffectBuilders.h`.
 2. Implement the pixels in `src/render` keyed by the same id. The Inspector picks it up
    automatically from the descriptor; a Color parameter (or a Double hue) with `viewerPicker`
    gets the viewer eyedropper (`SelectionModel::colorPicker()`).

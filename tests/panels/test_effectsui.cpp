@@ -118,7 +118,8 @@ private slots:
             QStringList({QStringLiteral("Blur"), QStringLiteral("Color"), QStringLiteral("Distort"),
                 QStringLiteral("Key"), QStringLiteral("Light"), QStringLiteral("Refine"),
                 QStringLiteral("Revival"), QStringLiteral("Sharpen"), QStringLiteral("Stylize"),
-                QStringLiteral("Texture"), QStringLiteral("Time"), QStringLiteral("Transform")}));
+                QStringLiteral("Temporal"), QStringLiteral("Texture"), QStringLiteral("Time"),
+                QStringLiteral("Transform")}));
         QTreeWidgetItem* key = video->child(3);
         QStringList keyers;
         for (int i = 0; i < key->childCount(); ++i)
@@ -162,7 +163,7 @@ private slots:
         QStringList menus;
         for (QAction* a : add->menu()->actions())
             menus.append(a->text());
-        QCOMPARE(menus.size(), 12); // eight folders, Texture (spec 56.11), Refine, Revival, Sharpen (57.1)
+        QCOMPARE(menus.size(), 13); // eight folders, Texture (spec 56.11), Refine, Revival, Sharpen (57.1), Temporal (60.1)
         QCOMPARE(menus[3], QStringLiteral("Key"));
     }
 

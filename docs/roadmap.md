@@ -42,15 +42,15 @@ Done for 1.2 so far (on main, not released yet):
 Still to do for 1.2:
 - [ ] Platform: AppImage shows an error when FUSE is missing (today it fails silently)
 - [ ] Media: hovering a clip thumbnail in the Media Pool previews it in the viewer, as in Resolve
-- [ ] Effects: Motion Trails
-- [ ] Effects: Smear
-- [ ] Effects: Frame Replacer
-- [ ] Effects: Motion Blur
-- [ ] Effects: Automatic Dirt Removal
-- [ ] Effects: Deflicker
-- [ ] Effects: Color Stabilizer
-- [ ] Effects: Dust Buster
-- [ ] Effects: Patch Replacer
+- [x] Effects: Motion Trails
+- [x] Effects: Smear
+- [x] Effects: Frame Replacer
+- [x] Effects: Motion Blur
+- [x] Effects: Automatic Dirt Removal
+- [x] Effects: Deflicker
+- [x] Effects: Color Stabilizer
+- [x] Effects: Dust Buster
+- [x] Effects: Patch Replacer
 - [ ] Tracking: Match Move
 - [ ] Tracking: Surface Tracker
 - [ ] Effects: Warper

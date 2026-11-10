@@ -166,12 +166,22 @@ helpers (`kGlslCommon`: luma, straight colour, the keyers' view output) and the 
   (GlEffectBase.h: GLSL `apply()` + up to 6 uniforms) and the formulas of `EffectMathGrade.cpp`;
   Curves upload a 256 x 1 composite table, Apply LUT a 3D (or N x 1) float texture of the
   `CubeLut` (re-uploaded only when the cached LUT object changes).
-* **Time effects** (Echo, Strobe) read the clip at other frames through
+* **Time effects and multi-frame effects** (Echo, Strobe and, spec 60, Motion Trails, Smear,
+  Frame Replacer, Motion Blur, Deflicker, Color Stabilizer, Automatic Dirt Removal, Dust
+  Buster; `GlTemporalEffects.cpp`, `GlRepairEffects.cpp`) read the clip at other frames through
   `EffectInput::history` (`LayerHistory::layerAt()`): `GlRenderer::queueDecode()` also decodes
   the frames `timefx::clipFrames()` lists, and `renderLayerAt()` draws the clip's source at
   such a frame into a layer of the same geometry and applies the effects above the asking
   one. Deterministic (no state carried between frames), so scrubbing and the render agree.
-  Clips without time effects take the unchanged path. The CPU fallback skips them.
+  Clips without time effects take the unchanged path. The CPU fallback skips them. To make a
+  new effect read neighbours, list it in `timefx::framesRead()` (nearest frames first, at most
+  `kMaxClipFrames` = 6 per output frame over all effects) and fetch the layers with
+  `fx::FrameFetch` (GlTemporalBase.h): a frame that could not be rendered is replaced by the
+  nearest frame that could, so playback never stops for a late decode; frames before or after
+  a generated or nested clip repeat its edge frame (`renderLayerAt()`), those outside the media
+  repeat the media's edge frame (the source time is clamped). The render cache already hashes
+  the whole clip (effects, trim, speed, media key), which is everything the neighbours depend
+  on.
 * **Margins that depend on the clip size**: `GlEffect::contentPaddingPx()` (default
   `paddingPx()`) gets the content size; the radial and zoom blurs use it when Repeat Edge
   Pixels is off.
@@ -441,7 +451,8 @@ comment of `DecoderPool`. `Compositor::prepareStats()` has the counters.
 | `GlGradeEffects.cpp` / `GlFocusEffects.cpp` / `GlLightEffects.cpp` / `GlLookEffects.cpp` / `GlWarpEffects.cpp` / `GlTimeEffects.cpp` | the second batch: colour (curves, LUT, ...), blur and sharpen, light, stylize, distort and tile, time |
 | `EffectMath.*`, `EffectMathGrade.cpp` | CPU reference of the pointwise effects, parameter resolution shared with the GPU, CPU fallback |
 | `CubeLut.*` | .cube 1D / 3D LUT parser, interpolation, thread-safe file cache (via `media::MediaSource`) |
-| `TimeEffects.*` | pure: the clip-local frames Echo and Strobe read (decode planning and the effects share it) |
+| `TimeEffects.*` | pure: the clip-local frames Echo, Strobe and the multi-frame effects read (`framesRead()`; decode planning and the effects share it) |
+| `GlTemporalEffects.cpp` / `GlRepairEffects.cpp` / `GlTemporalBase.h` / `EffectMathTemporal.*` | the multi-frame effects and Patch Replacer (spec 60): trails, smear, frame replacer, motion blur (flow from `GlRetime::estimateFlow()`), deflicker and colour stabilizer (`MeanProbe`: mean colours into a strip of texels, no read-back), dirt removal and dust buster (temporal median); `FrameFetch` supplies the neighbour layers; the maths file is the CPU reference and the weights the GPU uses |
 | `GlMasks.*` | clip mask pass (analytic shapes, path coverage, feather, combine) |
 | `GlTransitions.*` | the four built-in transitions and **their registration table** |
 | `GlOutput.*` | output slots (shared textures + fences), PBO readback |

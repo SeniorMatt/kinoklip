@@ -421,7 +421,8 @@ std::span<const GlEffectFactory> builtinGlEffects()
                  distortGlEffects(), gradeGlEffects(), focusGlEffects(), lightGlEffects(),
                  lookGlEffects(), warpGlEffects(), timeGlEffects(), extraColorGlEffects(),
                  extraGlEffects(), detailGlEffects(), damageGlEffects(), paintGlEffects(),
-                 opticsGlEffects(), utilityGlEffects()})
+                 opticsGlEffects(), utilityGlEffects(), temporalGlEffects(),
+                 repairGlEffects()})
             rows.insert(rows.end(), table.begin(), table.end());
         return rows;
     }();

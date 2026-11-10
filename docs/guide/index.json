@@ -783,6 +783,37 @@
         "effect:keyer_3d",
         "effect:video_collage"
       ]
+    },
+    {
+      "id": "effects-that-use-other-frames",
+      "title": "Effects that use the frames around a frame",
+      "file": "effects-that-use-other-frames.md",
+      "summary": "Motion Trails, Smear, Motion Blur, Frame Replacer, Deflicker, Automatic Dirt Removal, Dust Buster, Patch Replacer and Color Stabilizer.",
+      "keywords": [
+        "trails",
+        "smear",
+        "motion blur",
+        "frame replacer",
+        "deflicker",
+        "flicker",
+        "dust",
+        "dirt",
+        "scratch",
+        "color stabilizer",
+        "patch",
+        "temporal"
+      ],
+      "contexts": [
+        "effect:motion_trails",
+        "effect:smear",
+        "effect:motion_blur",
+        "effect:frame_replacer",
+        "effect:deflicker",
+        "effect:automatic_dirt_removal",
+        "effect:dust_buster",
+        "effect:patch_replacer",
+        "effect:color_stabilizer"
+      ]
     }
   ]
 }
