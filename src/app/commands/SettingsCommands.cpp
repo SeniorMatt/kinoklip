@@ -78,7 +78,7 @@ void registerSettingsCommands(CommandRegistry& registry)
                           {QStringLiteral("recent-projects"), ParamType::Boolean,
                               QStringLiteral("also take over the list of recent projects"), false,
                               QStringLiteral("false"), {}}},
-                      ProjectUse::None, false, false, false},
+                      ProjectUse::None, false, false, false, false, false},
         runSettingsImport});
 }
 

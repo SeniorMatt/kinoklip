@@ -189,6 +189,8 @@ QString VimController::runCommand(const QString& rawText)
         command = registry.find(words[0]);
     if (!command)
         return tr("Not a command: %1").arg(words[0]);
+    if (!command->spec.remoteAllowed) // the line runs commands through the live path
+        return tr("%1 is not available here: use Preferences > Import and Export").arg(command->spec.name);
     const QVector<commands::ParamSpec> params = commands::CommandRegistry::fullParams(command->spec, true);
     QJsonObject call;
     for (qsizetype i = consumed; i < words.size(); ++i) {

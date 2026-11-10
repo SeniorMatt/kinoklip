@@ -22,6 +22,7 @@
 #include "ui/dialogs/PreferencesDialog.h"
 
 #include <QCheckBox>
+#include <QDir>
 #include <QFileInfo>
 #include <QImage>
 #include <QJsonArray>
@@ -394,6 +395,23 @@ private slots:
                         {{"project", m_project}, {"width", 640}, {"height", 360}, {"fps", 24}})
                     .ok);
         QVERIFY(file(QStringLiteral("media.import"), {{"file", QJsonArray {kVideo}}}).ok);
+    }
+
+    void settingsImportIsRefusedOnTheLiveSocket()
+    {
+        Fixture f;
+        enable(f);
+        const CommandResult refused
+            = live(QStringLiteral("settings.import"), {{"file", "/nonexistent"}});
+        QVERIFY(!refused.ok);
+        QCOMPARE(refused.errorCode, QString("not_allowed_remotely"));
+        // Typed by the user in file mode the command still runs (here: fails on the missing file).
+        const CommandResult typed = CommandRegistry::builtin().execute(
+            QStringLiteral("settings.import"), {{"file", "/nonexistent"}});
+        QCOMPARE(typed.errorCode, QString("bad_settings_file"));
+        QVERIFY(live(QStringLiteral("settings.export"),
+                    {{"file", QDir::tempPath() + "/kk-live-export.kinoklip-settings"}})
+                    .ok);
     }
 
     void sessionInfoTellsTheMode()

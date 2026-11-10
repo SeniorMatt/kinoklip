@@ -80,6 +80,8 @@ QJsonArray toolList(const commands::CommandRegistry& registry, bool live)
 {
     QJsonArray tools;
     for (const commands::Command& c : registry.all()) {
+        if (!c.spec.remoteAllowed)
+            continue;
         const bool modifies
             = commands::CommandRegistry::describe(c.spec)[key("modifiesProject")].toBool();
         tools.append(QJsonObject {{key("name"), toolName(c.spec.name)},
@@ -93,7 +95,7 @@ QJsonArray toolList(const commands::CommandRegistry& registry, bool live)
 const commands::Command* findCommand(const commands::CommandRegistry& registry, const QString& tool)
 {
     for (const commands::Command& c : registry.all()) {
-        if (toolName(c.spec.name) == tool)
+        if (c.spec.remoteAllowed && toolName(c.spec.name) == tool)
             return &c;
     }
     return nullptr;

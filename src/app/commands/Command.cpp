@@ -438,6 +438,11 @@ CommandResult CommandRegistry::executeLive(const QString& name, const QJsonObjec
         return CommandResult::failure(
             QStringLiteral("unknown_command"), QStringLiteral("unknown command \"%1\"").arg(name));
     const CommandSpec& spec = command->spec;
+    if (!spec.remoteAllowed)
+        return CommandResult::failure(QStringLiteral("not_allowed_remotely"),
+            QStringLiteral("\"%1\" can only be run by you: use the command line without --live, or "
+                           "Preferences > Import and Export")
+                .arg(name));
     // A command that makes a new project file does not touch the window.
     if (spec.use == ProjectUse::Create)
         return execute(name, arguments, progress);
