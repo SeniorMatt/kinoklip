@@ -12,6 +12,14 @@ explicitly choose to share it.**
 - Kinoklip makes no network requests at all. Links (the user guide, a bug report) open in your
   web browser, and only when you click them.
 
+## Working with other programs
+**`kinoklip mcp`** lets an AI assistant that you set up yourself control Kinoklip with the same
+commands as the command line. It is a local program: the assistant starts it, it talks to the
+assistant over standard input and output only, it opens no network connection, and Kinoklip
+sends nothing anywhere. What the assistant forwards to its own model (project and file names,
+frames it asked to see) is decided by that assistant and its provider, not by Kinoklip. See
+[Control Kinoklip from an AI assistant](guide/control-kinoklip-from-an-ai-assistant.md).
+
 ## Reporting a bug
 **Help > Report a Bug or Inconsistency...** helps you write a useful report:
 

@@ -9,6 +9,21 @@
 
 namespace kk {
 
+QImage renderFrameImage(
+    Project& project, int64_t frame, QSize outSize, QString* error, Quality quality)
+{
+    Compositor compositor;
+    compositor.setMediaPaths(makeMediaPathMap(project.mediaPool()->state()));
+    const RenderedFramePtr result
+        = compositor.render(project.timeline()->snapshot(), frame, outSize, quality, OutputImage);
+    if (!result || !result->ok || result->image.isNull()) {
+        if (error)
+            *error = QStringLiteral("rendering the frame failed");
+        return {};
+    }
+    return result->image;
+}
+
 int runRenderFrame(const QString& projectPath, int64_t frame, const QString& outPath, QSize outSize,
     Quality quality)
 {

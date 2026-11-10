@@ -231,6 +231,8 @@ const CommandRegistry& CommandRegistry::builtin()
         registerMarkerCommands(r);
         registerTransitionCommands(r);
         registerExportCommands(r);
+        registerFrameCommands(r);
+        registerEffectCommands(r);
         return r;
     }();
     return registry;

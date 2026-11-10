@@ -3,7 +3,7 @@
 Named editor operations that work on a project file, without a window. Each command has a name
 (`clip.add`), typed parameters, a description, and returns a JSON object (plus a short sentence
 for people) or an error with a stable code. Front ends only translate: the command line
-(`../CliRunner.h`) is one, an MCP server will be another and builds its tool list from
+(`../CliRunner.h`) is one, the MCP server (`../mcp/`) is another and builds its tool list from
 `CommandRegistry::describeAll()` (`kinoklip commands --json`). No editing logic lives in a front
 end, and a command never edits a timeline in a way the UI cannot: they call `editops::*`,
 `Project` and the same helpers as the timeline controller.
@@ -20,6 +20,8 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `ClipCommands.cpp` | `clip.list`, `clip.add`, `clip.move`, `clip.trim`, `clip.split`, `clip.delete`, `clip.set` |
 | `MarkerCommands.cpp` | `marker.add`, `marker.list`, `marker.delete` |
 | `TransitionCommands.cpp` | `transition.add` |
+| `FrameCommands.cpp` | `frame.export` (a timeline frame to a PNG file), `frame.view` (the picture in `CommandResult::image`; MCP sends it as image content) through `renderFrameImage()` |
+| `EffectCommands.cpp` | `transition.list`, `effect.list`: the ids of the effect catalogue (`EffectRegistry`) |
 | `ExportCommands.cpp` | `export.otio`, `export.edl`, `import.otio`, `render` (uses `export/RenderCommand.h` `renderProject()`) |
 
 ## Rules

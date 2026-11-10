@@ -3,6 +3,7 @@
 #include "app/CliRunner.h"
 
 #include "app/commands/Command.h"
+#include "app/mcp/McpStdio.h"
 
 #include <QElapsedTimer>
 #include <QFileInfo>
@@ -85,9 +86,22 @@ QString overview(const CommandRegistry& registry)
                 .arg(QStringLiteral("commands"), -18)
                 .arg(QStringLiteral("list the commands (--json: with every parameter)"));
     text += QStringLiteral("  %1  %2\n")
+                .arg(QStringLiteral("mcp"), -18)
+                .arg(QStringLiteral("serve the commands to a language model (MCP, stdio)"));
+    text += QStringLiteral("  %1  %2\n")
                 .arg(QStringLiteral("help"), -18)
                 .arg(QStringLiteral("this text, or the options of one command"));
     return text;
+}
+
+QString mcpUsage()
+{
+    return QStringLiteral(
+        "Usage: kinoklip mcp\n\n"
+        "Starts a Model Context Protocol server on standard input and output: one JSON message "
+        "per line. Every command is a tool (clip add is clip_add). The server is local, sends "
+        "nothing anywhere and stops when its input closes. Put it in the configuration of an "
+        "MCP client as command \"kinoklip\" with the argument \"mcp\".\n");
 }
 
 /// The command named by the first words of @p words; @p consumed tells how many words it used.
@@ -120,7 +134,8 @@ bool isCommand(const QStringList& arguments)
     const QString first = arguments.first();
     if (first.startsWith(QLatin1Char('-')) || QFileInfo::exists(first))
         return false;
-    if (first == QLatin1String("commands") || first == QLatin1String("help"))
+    if (first == QLatin1String("commands") || first == QLatin1String("help")
+        || first == QLatin1String("mcp"))
         return true;
     return CommandRegistry::builtin().groups().contains(first);
 }
@@ -140,6 +155,13 @@ int run(const QStringList& arguments, std::FILE* out, std::FILE* err)
         }
         put(out, overview(registry));
         return 0;
+    }
+    if (first == QLatin1String("mcp")) {
+        if (arguments.mid(1) == QStringList {QStringLiteral("--help")}) {
+            put(out, mcpUsage());
+            return 0;
+        }
+        return mcp::runStdioServer(arguments.mid(1), stdin, out, err);
     }
     if (first == QLatin1String("help")) {
         QStringList words = arguments.mid(1);

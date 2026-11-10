@@ -5,12 +5,21 @@
 
 #include "render/RenderTypes.h"
 
+#include <QImage>
 #include <QSize>
 #include <QString>
 
 #include <cstdint>
 
 namespace kk {
+
+class Project;
+
+/// Renders timeline frame @p frame of the active timeline of @p project at @p outSize (empty =
+/// timeline resolution), the way --render-frame does. A null image (and @p error) on failure.
+/// Needs a QGuiApplication; falls back to the CPU renderer without OpenGL.
+[[nodiscard]] QImage renderFrameImage(Project& project, int64_t frame, QSize outSize,
+    QString* error, Quality quality = Quality::Full);
 
 /// Loads @p projectPath, renders timeline frame @p frame at @p outSize (empty = timeline
 /// resolution) and writes it to @p outPath (format from the suffix; PNG keeps alpha).

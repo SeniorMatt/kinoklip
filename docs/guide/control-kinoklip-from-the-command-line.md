@@ -55,6 +55,8 @@ the timeline. A minus sign makes it negative (`--delta -8` moves an edge 8 frame
 | `marker add`, `marker list`, `marker delete` | Timeline markers. |
 | `transition add` | A dissolve (or an audio cross fade) at the start or end of a clip. |
 | `export otio`, `export edl`, `import otio` | Exchange a timeline with other editors (see [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md)). |
+| `frame export`, `frame view` | Render one frame of the timeline to a PNG file (`--at`, `--file`, `--width`); `frame view` hands the picture to a program that can show it (the AI assistant server below). |
+| `transition list`, `effect list` | The ids of the transitions, effects, generators and titles, for `transition add --type`; add `--id` for the settings of one. |
 | `render` | Render to a file with a preset from the Deliver page, for example `--preset youtube_1080p`; progress is shown on the error output. |
 
 Commands that look at a timeline use the active one. Add `--timeline "Name"` (or its number
@@ -83,8 +85,8 @@ and a failure looks like
 ```
 
 The `code` stays the same between versions; the message is for people. The same commands are
-the base for letting a program that talks to language models control Kinoklip; that will use the
-list from `kinoklip commands --json`.
+the base of `kinoklip mcp`, which lets an AI assistant control Kinoklip; see
+[Control Kinoklip from an AI assistant](control-kinoklip-from-an-ai-assistant.md).
 
 ## If something goes wrong
 
