@@ -324,6 +324,48 @@ private slots:
         }
         QVERIFY(writeSheet(m_out + QStringLiteral("/effects-b.png"), tiles));
     }
+
+    /// The template looks (spec 65) as the user gets them (Effects > Effects clips over the
+    /// test picture): before on the left, after on the right, at frame 26 of the clip.
+    void looks()
+    {
+        if (m_out.isEmpty() || !m_gpu->isGpu())
+            QSKIP("KK_EFFECT_SHEETS not set, or no OpenGL");
+        QDir().mkpath(m_out);
+        const QString ids[] = {g::CctvClip, g::DigitalGlitchClip, g::DroneOverlayClip, g::DslrClip,
+            g::DveClip, g::VideoCallClip, g::VideoCameraClip};
+        constexpr int w = 640, h = 360, gap = 8;
+        QImage sheet(2 * w + 3 * gap, 7 * (h + 24) + gap, QImage::Format_RGB32);
+        sheet.fill(QColor(30, 30, 34));
+        QPainter paint(&sheet);
+        paint.setPen(Qt::white);
+        int row = 0;
+        for (const QString& id : ids) {
+            for (int after = 0; after < 2; ++after) {
+                TimelineData tl = picture({}, {w, h});
+                ClipData grid = generatorClip(tl, g::Grid);
+                grid.title.setBase(g::LineWidth, 2);
+                grid.title.setBase(g::MajorEvery, 0);
+                addClip(tl, TrackType::Video, 1, grid);
+                if (after) {
+                    ClipData tpl
+                        = *effectactions::makeGeneratorClip(id, Rational {25, 1}, QSizeF(w, h));
+                    tpl.id = tl.allocateId();
+                    for (EffectInstance& e : tpl.effects)
+                        e.id = tl.allocateId();
+                    tpl.duration = 100;
+                    addClip(tl, TrackType::Video, 2, tpl);
+                }
+                const int x = gap + after * (w + gap), y = row * (h + 24) + 24;
+                paint.drawImage(x, y, render(tl, 26));
+                if (!after)
+                    paint.drawText(x, y - 7, EffectRegistry::instance().find(id)->name);
+            }
+            ++row;
+        }
+        paint.end();
+        QVERIFY(sheet.save(m_out + QStringLiteral("/looks.png")));
+    }
 };
 
 int main(int argc, char** argv)

@@ -858,6 +858,39 @@
         "colon"
       ],
       "contexts": []
+    },
+    {
+      "id": "camera-and-screen-looks",
+      "title": "Camera and screen looks: CCTV, glitch, drone, DSLR, video call and more",
+      "file": "camera-and-screen-looks.md",
+      "summary": "The CCTV, Digital Glitch, Drone Overlay, DSLR, DVE, Video Call and Video Camera looks: what each shows, its settings, and how to edit the text.",
+      "keywords": [
+        "cctv",
+        "security camera",
+        "glitch",
+        "drone",
+        "dslr",
+        "viewfinder",
+        "dve",
+        "picture in picture",
+        "video call",
+        "video camera",
+        "camcorder",
+        "rec",
+        "timecode",
+        "timestamp",
+        "overlay",
+        "hud"
+      ],
+      "contexts": [
+        "effect:look_cctv",
+        "effect:look_digital_glitch",
+        "effect:look_drone_overlay",
+        "effect:look_dslr",
+        "effect:look_dve",
+        "effect:look_video_call",
+        "effect:look_video_camera"
+      ]
     }
   ]
 }

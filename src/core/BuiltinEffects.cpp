@@ -200,6 +200,7 @@ void EffectRegistry::registerBuiltins()
     registerVideoEffects3(); // 1.2: border, despill, transform, dent, noise, gamut, contrast
     registerVideoEffects4(); // 1.2 second part: sharpen, damage, paint, optics, beauty (spec 57)
     registerVideoEffects5(); // 1.2 multi-frame effects: trails, deflicker, dirt (spec 60)
+    registerVideoEffects6(); // 1.2 template looks (spec 65)
     registerAudioEffects(); // gain, EQ, dynamics, filters, delay, reverb
 
     // ---- Transitions (ClipData::transitionIn / transitionOut) ----
@@ -292,6 +293,26 @@ void EffectRegistry::registerBuiltins()
         tr("An adjustment clip that turns the picture below it into a green night-vision "
            "image with grain and scanlines"),
         {}, {}));
+    add(descriptor(generators::CctvClip, tr("CCTV"), C::Effects,
+        tr("An adjustment clip that makes the picture below it look like a security camera"), {},
+        {}));
+    add(descriptor(generators::DigitalGlitchClip, tr("Digital Glitch"), C::Effects,
+        tr("An adjustment clip that breaks up the picture below it with digital glitches"), {},
+        {}));
+    add(descriptor(generators::DroneOverlayClip, tr("Drone Overlay"), C::Effects,
+        tr("An adjustment clip that adds a drone-camera display to the picture below it"), {},
+        {}));
+    add(descriptor(generators::DslrClip, tr("DSLR"), C::Effects,
+        tr("An adjustment clip that adds a photo-camera viewfinder to the picture below it"), {},
+        {}));
+    add(descriptor(generators::DveClip, tr("DVE"), C::Effects,
+        tr("An adjustment clip that shrinks the picture below it into a framed box with a shadow"),
+        {}, {}));
+    add(descriptor(generators::VideoCallClip, tr("Video Call"), C::Effects,
+        tr("An adjustment clip that puts the picture below it in a video-call tile"), {}, {}));
+    add(descriptor(generators::VideoCameraClip, tr("Video Camera"), C::Effects,
+        tr("An adjustment clip that adds a camcorder viewfinder to the picture below it"), {},
+        {}));
     add(descriptor(generators::CompositionClip, tr("Composition Clip"), C::Effects,
         tr("A see-through clip with its own composition: build a node graph on the Compositing "
            "page"),

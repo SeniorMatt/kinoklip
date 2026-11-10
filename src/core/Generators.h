@@ -47,6 +47,15 @@ inline const QString RegionBlur = QStringLiteral("region_blur");
 inline const QString ColoredBorderClip = QStringLiteral("template_colored_border");
 inline const QString BinocularsClip = QStringLiteral("template_binoculars");
 inline const QString NightVisionClip = QStringLiteral("template_night_vision");
+/// Effects library > Effects, 1.2 (spec 65): adjustment clips that each carry one template look
+/// effect (CCTV, Digital Glitch, Drone Overlay, DSLR, DVE, Video Call, Video Camera).
+inline const QString CctvClip = QStringLiteral("template_cctv");
+inline const QString DigitalGlitchClip = QStringLiteral("template_digital_glitch");
+inline const QString DroneOverlayClip = QStringLiteral("template_drone_overlay");
+inline const QString DslrClip = QStringLiteral("template_dslr");
+inline const QString DveClip = QStringLiteral("template_dve");
+inline const QString VideoCallClip = QStringLiteral("template_video_call");
+inline const QString VideoCameraClip = QStringLiteral("template_video_camera");
 /// Effects library > Effects: a see-through clip that carries an empty composition (the
 /// Compositing page opens it): a place to build a node graph that is not attached to footage.
 inline const QString CompositionClip = QStringLiteral("composition_clip");

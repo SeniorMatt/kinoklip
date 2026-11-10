@@ -51,6 +51,7 @@ search field.
 - [Freeze a frame](freeze-a-frame.md)
 - [Steady a shaky clip](stabilize-a-shaky-clip.md)
 - [Test patterns, generators and ready-made looks](test-patterns-and-looks.md)
+- [Camera and screen looks: CCTV, glitch, drone, DSLR, video call and more](camera-and-screen-looks.md)
 - [Sharpen, repair, damage and paint effects](sharpen-repair-and-damage-effects.md)
 - [Effects that use the frames around a frame](effects-that-use-other-frames.md) (trails, motion blur, deflicker, dust)
 - [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md) (OpenTimelineIO)

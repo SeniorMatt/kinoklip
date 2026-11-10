@@ -116,15 +116,15 @@ Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagic
 | Adjustment Clip | Effects section | Effects section entry | works |
 | Fusion Composition | Effects section | Effects section entry | works |
 | Binoculars | Effects section | Effects section entry | works |
-| CCTV | Effects section | Effects section entry | planned |
+| CCTV | Effects section | Effects section entry | works |
 | Colored Border | Effects section | Effects section entry | works |
-| Digital Glitch | Effects section | Effects section entry | planned |
-| Drone Overlay | Effects section | Effects section entry | planned |
-| DSLR | Effects section | Effects section entry | planned |
-| DVE | Effects section | Effects section entry | planned |
+| Digital Glitch | Effects section | Effects section entry | works |
+| Drone Overlay | Effects section | Effects section entry | works |
+| DSLR | Effects section | Effects section entry | works |
+| DVE | Effects section | Effects section entry | works |
 | Night Vision | Effects section | Effects section entry | works |
-| Video Call | Effects section | Effects section entry | planned |
-| Video Camera | Effects section | Effects section entry | planned |
+| Video Call | Effects section | Effects section entry | works |
+| Video Camera | Effects section | Effects section entry | works |
 
 ## Video effects
 

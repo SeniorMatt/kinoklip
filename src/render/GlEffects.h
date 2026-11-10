@@ -129,5 +129,7 @@ struct GlEffectFactory
 /// 1.2 multi-frame effects (spec 60): GlTemporalEffects.cpp, GlRepairEffects.cpp.
 [[nodiscard]] std::span<const GlEffectFactory> temporalGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> repairGlEffects();
+/// CCTV, Digital Glitch, Drone Overlay, DSLR, DVE, Video Call, Video Camera (GlTemplateLooks.cpp).
+[[nodiscard]] std::span<const GlEffectFactory> templateLookGlEffects();
 
 } // namespace kk::render
