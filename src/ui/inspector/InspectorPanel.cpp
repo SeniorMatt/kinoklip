@@ -2,6 +2,7 @@
 // InspectorPanel implementation: structure tracking, generic group building, edit protocol.
 #include "ui/inspector/InspectorPanel.h"
 
+#include "compositing/tracking/EffectTrackJob.h"
 #include "compositing/tracking/StabilizeJob.h"
 #include "core/AudioTransitions.h"
 #include "core/EditOps.h"
@@ -127,6 +128,12 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     setPanelKey(QStringLiteral("inspector")); // in-app help: panel:inspector
     setAcceptDrops(true);
     setStyleSheet(inspectorStyleSheet(QApplication::palette()));
+    m_effectTracker = new tracking::TrackerRunner(this);
+    connect(m_effectTracker, &tracking::TrackerRunner::finished, this,
+        &InspectorPanel::onEffectTrackFinished);
+    connect(m_effectTracker, &tracking::TrackerRunner::progress, this, [this](int, int) {
+        refreshValues();
+    });
     m_stabilizer = new tracking::StabilizeRunner(this);
     connect(m_stabilizer, &tracking::StabilizeRunner::finished, this,
         &InspectorPanel::onStabilizeFinished);
@@ -976,8 +983,11 @@ void InspectorPanel::buildEffectSection(
                 {}, createPlaceholderContent(tr("Unknown effect type “%1”.").arg(fx.type)));
             continue;
         }
-        for (const ParamDescriptor& p : d->params)
-            group->addParam(ParamRef {clipId, ParamScope::Effect, effectId, p.key}, p, *this);
+        for (const ParamDescriptor& p : d->params) {
+            if (!p.hidden)
+                group->addParam(ParamRef {clipId, ParamScope::Effect, effectId, p.key}, p, *this);
+        }
+        buildTrackingControls(group, fx, clipId);
     }
 }
 

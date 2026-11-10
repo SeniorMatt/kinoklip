@@ -11,6 +11,7 @@ Edits the parameters of the selected clip. Owned by the panels agent.
 | `ParamRows.h` | one editor row per `ParamDescriptor`: number, bool, choice, colour, string, title text, font, curve (a `CurveEditor` graph), file (name + Browse) |
 | `CurveEditor.h` | the tone-curve graph of Curve parameters: drag a point (one undo step), click to add, double-click / right-click to remove |
 | `InspectorSpeed.cpp` | the Video tab's Dynamic Zoom, Speed Change and Retime and Scaling sections (part of `InspectorPanel`) |
+| `InspectorTrack.cpp` | the Track Backward / Track Forward / Clear Track / Cancel buttons, progress and status of the tracking effects in the Effects tab (spec 70; `TrackerRunner` owned by the panel, pictures from `PlaybackEngine::renderImageOf()`, result stored in one undo step) |
 | `InspectorStabilize.cpp` | the Video tab's Stabilization section (part of `InspectorPanel`; spec 58): Mode, Camera Lock, Zoom, slider rows, Stabilize / Cancel / progress / status, `tracking::StabilizeRunner` owned by the panel, result stored with `editClip()` in one undo step |
 | `InspectorMasks.cpp` | the Video tab's Masks section (part of `InspectorPanel`): add buttons per shape, one group per mask (enable, edit in the viewer = `SelectionModel::setActiveMask()`, reorder, delete, section diamond, shape row), rows from the `builtin.mask` descriptor with `ParamScope::Mask` |
 | `ParamAccess.h` | `ParamRef` (clip, scope, effect id, key) and the read/write functions that map a descriptor parameter onto `ClipData` |

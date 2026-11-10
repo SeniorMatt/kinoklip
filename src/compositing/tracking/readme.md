@@ -21,6 +21,8 @@ Pure maths for the Compositing page's Tracker node; no widgets, no threads, no p
   homography, matched with the PatchMatch steps, fitted with `estimateHomography()`, refined by a
   second stricter pass; same `reset()` / `track()` shape as the PointTracker.
 - **Stabilizer** / **StabilizeJob**: Stabilization (spec 58). `estimateFrameMotion()` runs a PlanarTracker over the whole picture between two frames and fits the model of the chosen Mode to the agreeing patches (`PlanarResult::inlierFrom/inlierTo`); `stabilizeAnalyse()` chains the pairs into the camera path (`stabilize::Data`); `planStabilizeJob()` / `runStabilizeJob()` decide which source frames a clip shows and decode them (VideoDecoder); `StabilizeRunner` runs a job on a worker thread for the Inspector.
+- **EffectTrackJob**: the Track buttons of the tracking effects (spec 70): plans a `TrackJob` and the private timeline copy whose frames are tracked (`planEffectTrack()`), turns the samples into a `core/EffectTrack.h` table keyed by source time and stores it in the effect.
+- **MeshTracker**: the grid tracker of the Surface Tracker effect (a PointTracker per grid point, RANSAC perspective baseline, bend smoothing, lost points carried along); a `TrackJob` with `mesh` set runs it.
 - **TrackerRunner**: runs a point job or (`TrackJob::planar`) a planar job off the UI thread.
 - **TrackStore**: writes / clears a track in a Tracker or Planar Tracker node (keyframes).
 - **TrackLink**: "Connect to Tracker": copies a track's centre into another node's Center keys.

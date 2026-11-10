@@ -938,6 +938,31 @@
         "diagnostics"
       ],
       "contexts": []
+    },
+    {
+      "id": "track-and-warp-a-picture",
+      "title": "Track a moving thing and warp the picture",
+      "file": "track-and-warp-a-picture.md",
+      "summary": "Make a graphic follow a moving thing with Match Move, pin it to a bending surface, and bend a picture with the Warper.",
+      "keywords": [
+        "match move",
+        "track",
+        "tracking",
+        "tracker",
+        "follow",
+        "pin",
+        "surface tracker",
+        "warper",
+        "warp",
+        "mesh",
+        "motion tracking"
+      ],
+      "contexts": [
+        "effect:match_move",
+        "effect:surface_tracker",
+        "effect:warper"
+      ]
     }
+
   ]
 }

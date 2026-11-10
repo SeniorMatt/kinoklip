@@ -12,6 +12,7 @@
 #include <QVector>
 
 #include <functional>
+#include <memory>
 #include <optional>
 
 class QLabel;
@@ -25,6 +26,9 @@ namespace kk {
 class ParamGroupBox;
 namespace tracking {
 class StabilizeRunner;
+class TrackerRunner;
+enum class TrackOutcome;
+struct EffectTrackPlan;
 }
 namespace retimeops {
 struct SpeedChange;
@@ -185,6 +189,12 @@ private:
     // ---- Dynamic Zoom, Speed Change, Retime and Scaling (InspectorSpeed.cpp) ----
     void buildDynamicZoomSection(quint64 clipId);
     void buildSpeedSections(const ClipData& clip);
+    // ---- Tracking effects (InspectorTrack.cpp, spec 70) ----
+    /// Adds the Track buttons, progress and status line under the parameters of a tracking
+    /// effect (Match Move; Surface Tracker); other effects get nothing.
+    void buildTrackingControls(ParamGroupBox* group, const EffectInstance& fx, quint64 clipId);
+    void startEffectTrack(quint64 clipId, quint64 effectId, bool forward);
+    void onEffectTrackFinished(kk::tracking::TrackOutcome outcome, const QString& reason);
     // ---- Stabilization (InspectorStabilize.cpp) ----
     void buildStabilizationSection(const ClipData& clip);
     void onStabilizeFinished(quint64 clipId);
@@ -231,6 +241,11 @@ private:
     bool m_speedRipple = true;
     /// The Stabilize button's worker (one run at a time; survives rebuilds of the sections).
     tracking::StabilizeRunner* m_stabilizer = nullptr;
+    /// The Track buttons of the tracking effects: one run at a time.
+    tracking::TrackerRunner* m_effectTracker = nullptr;
+    std::shared_ptr<tracking::EffectTrackPlan> m_trackPlan;
+    QString m_trackMessage; ///< last result line, shown in the effect m_trackPlan names
+    quint64 m_trackMessageEffect = 0;
     QString m_stabilizeMessage; ///< last result line, shown in the section of m_stabilizeMessageClip
     quint64 m_stabilizeMessageClip = 0;
 };

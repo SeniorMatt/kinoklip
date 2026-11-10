@@ -75,6 +75,7 @@ search field.
 - [Edit with vim keys](edit-with-vim-keys.md) ([Vim](https://www.vim.org) and [Neovim](https://neovim.io) keys on the timeline)
 - [Move your settings to another computer](move-your-settings-to-another-computer.md)
 - [Send a log file with a bug report](send-a-log-file-with-a-bug-report.md)
+- [Track a moving thing and warp the picture](track-and-warp-a-picture.md)
 
 More articles are planned; see [the topic list](topics.md). Every keyboard shortcut is listed
 in the [keymap](../keymap-resolve-windows.md); the other editors' presets are in

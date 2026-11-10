@@ -71,6 +71,9 @@ struct ParamDescriptor
     /// down from the centre (the renderer's convention, unchanged in project files) and shown
     /// as Resolve shows them, positive up (spec 24.16).
     bool displayNegated = false;
+    /// The Inspector does not list the parameter (stored data such as a track, or the points
+    /// of a warp that have their own controls). It is still saved, keyframed and copied.
+    bool hidden = false;
 
     /// The value shown for stored value @p stored (and back: the same negation).
     [[nodiscard]] double displayed(double stored) const
@@ -194,6 +197,7 @@ private:
     void registerVideoEffects5(); ///< 1.2 multi-frame effects, Patch Replacer (spec 60)
     void registerVideoEffects6(); ///< 1.2 template looks: CCTV, Glitch, Drone, DSLR, DVE, Call,
                                   ///< Camera (spec 65)
+    void registerVideoEffects7(); ///< 1.2 tracking: Match Move, Surface Tracker, Warper (spec 70)
     /// The clip audio effects (BuiltinAudioEffects.cpp).
     void registerAudioEffects();
 

@@ -1123,6 +1123,9 @@ void GlRenderer::drawClip(
             in.params = &m_activeInstances[i]->params;
             in.paddingPx = padPx;
             in.fps = fc.timeline->fps.isValid() ? fc.timeline->fps.toDouble() : 25.0;
+            in.sourceSeconds = fc.timeline->fps.isValid()
+                ? double(clip.sourceTimeUsAt(clip.start + local, fc.timeline->fps)) / 1e6
+                : 0.0;
             PooledTarget next = m_activeEffects[i]->apply(*m_kit, in);
             if (next)
                 layer = std::move(next);
@@ -1188,6 +1191,9 @@ void GlRenderer::applyEffects(const LayerJob& job, int64_t at, size_t count, Poo
         in.paddingPx = job.padPx;
         in.fps = job.fc->timeline->fps.isValid() ? job.fc->timeline->fps.toDouble() : 25.0;
         in.history = &history;
+        in.sourceSeconds = job.fc->timeline->fps.isValid()
+            ? double(job.clip->sourceTimeUsAt(job.clip->start + at, job.fc->timeline->fps)) / 1e6
+            : 0.0;
         PooledTarget next = job.effects[i]->apply(*m_kit, in);
         if (next)
             layer = std::move(next);

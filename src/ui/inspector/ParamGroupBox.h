@@ -67,6 +67,17 @@ public:
     {
         m_headerRefresh = std::move(refresh);
     }
+    /// Adds @p refresh to the header refresh (after the one already set).
+    void addHeaderRefresh(std::function<void(const ClipData&)> refresh)
+    {
+        auto previous = std::move(m_headerRefresh);
+        m_headerRefresh = [previous = std::move(previous), refresh = std::move(refresh)](
+                              const ClipData& clip) {
+            if (previous)
+                previous(clip);
+            refresh(clip);
+        };
+    }
 
     /// Refreshes the header and every row from @p clip at @p localFrame.
     void refresh(const ClipData& clip, int64_t localFrame, bool playheadInside);
