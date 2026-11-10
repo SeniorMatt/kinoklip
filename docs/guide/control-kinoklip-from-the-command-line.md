@@ -52,6 +52,7 @@ the timeline. A minus sign makes it negative (`--delta -8` moves an edge 8 frame
 | `media import`, `media list`, `media relink` | Add files; list them (and which are offline); find moved files again. |
 | `timeline list`, `timeline new`, `timeline select` | List timelines; make an empty one; choose the active one. |
 | `clip list`, `clip add`, `clip move`, `clip trim`, `clip split`, `clip delete`, `clip set` | Look at and edit the clips of a timeline (speed, volume, pan, on or off, name, zoom, position, rotation, opacity, crop with `clip set`). |
+| `clip stabilize` | Measure the camera movement of a shaky clip and switch Stabilization on (`--mode perspective`, `similarity` or `translation`; `--smooth`, `--strength`, `--cropping-ratio`, `--zoom`, `--camera-lock`); `--settings-only` changes the settings without measuring again. `clip set --stabilization off` switches it off. See [Steady a shaky clip](stabilize-a-shaky-clip.md). |
 | `marker add`, `marker list`, `marker delete` | Timeline markers. |
 | `transition add`, `transition set`, `transition remove` | A dissolve (or an audio cross fade) at the start or end of a clip; change its length, alignment or settings; take it off. |
 | `effect add`, `effect stack`, `effect set`, `effect remove`, `effect enable` | Put an effect on a clip (`--set radius=12`), list a clip's effects, change their settings by key (checked against the range the Inspector uses), remove them, switch them on or off (`--enabled false`). |
