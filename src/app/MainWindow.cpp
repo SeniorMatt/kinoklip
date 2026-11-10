@@ -6,12 +6,13 @@
 #include "app/AutosaveController.h"
 #include "app/BugReportDialog.h"
 #include "app/InterfaceBar.h"
+#include "app/LogExportDialog.h"
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
 #include "app/SettingsTransfer.h"
-#include "app/VimController.h"
 #include "app/TimelineExport.h"
 #include "app/TimelineImport.h"
+#include "app/VimController.h"
 #include "app/commands/Command.h"
 #include "app/live/LiveServer.h"
 #include "app/pages/AudioPage.h"
@@ -562,6 +563,9 @@ void MainWindow::connectAppActions()
     // Help > Report a Bug or Inconsistency: the user sees what would be shared and decides.
     connect(actions.action(QStringLiteral("help.report_bug")), &QAction::triggered, this,
         [this] { showBugReportDialog(); });
+    // Help > Export Log File...: says what the file holds, shows it, saves it where you choose.
+    connect(actions.action(QStringLiteral("help.export_log")), &QAction::triggered, this,
+        [this] { LogExportDialog::run(this); });
     // Help > Join the Community on Discord: the invite opens in the browser.
     connect(actions.action(QStringLiteral("help.community")), &QAction::triggered, this,
         [this] { guide::openUrl(QUrl(QLatin1String(appinfo::communityUrl)), this); });

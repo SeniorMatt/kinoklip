@@ -14,6 +14,7 @@
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
+#include "core/SessionLog.h"
 #include "export/RenderCommand.h"
 #include "media/HwAccel.h"
 #include "media/MediaCache.h"
@@ -144,6 +145,9 @@ bool wantsCommandLine(int argc, char** argv, QStringList* arguments)
 
 int main(int argc, char** argv)
 {
+    // First of all: keep this session's messages for Help > Export Log File (in memory only;
+    // stderr is unchanged because the previous handler still gets every message).
+    kk::sessionlog::installMessageHandler();
     QStringList commandArguments;
     if (wantsCommandLine(argc, argv, &commandArguments))
         return runCommandLine(argc, argv, commandArguments);

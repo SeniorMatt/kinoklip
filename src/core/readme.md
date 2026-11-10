@@ -7,6 +7,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 
 | File | What |
 |---|---|
+| `SessionLog.h` | the session log for Help > Export Log File (spec 64): `RingBuffer` (last 20,000 lines / 4 MiB, oldest dropped and counted), `installMessageHandler()` (called first in `main()`; keeps warnings of every category and info of `kk.*` / `kinoklip.*`, then passes the message on to the previous handler, so stderr is unchanged), `record()` for lines that are not printed (the per-second playback statistics) |
 | `Rational.h` | exact frame rates + frame/µs/sample conversions (PLAN §5.1) |
 | `Animation.h` | `Interp` (per-key preset), `KeyHandle`, `Keyframe`, `AnimatedValue` (keyframed scalar, Bezier evaluation), `ParamSet` |
 | `Mask.h` | clip masks: `MaskShape`, `MaskMode` (combine table), `MaskPoint` / `MaskPath`, `AnimatedPath` (keyframed shape), `maskkeys::*`, `MaskData`; pure helpers (mask transform, outline, bezier flattening, polygon offset, freehand simplification, point insertion) |

@@ -81,6 +81,16 @@ body:
     validations:
       required: false
   - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: |
+        Optional, but very useful for crashes, a black picture or choppy playback. In Kinoklip choose
+        Help > Export Log File..., read the file, and drag it here. It names the media files you used
+        and some folders (your home folder is written as ~); delete anything you would rather not share.
+    validations:
+      required: false
+  - type: textarea
     id: attachments
     attributes:
       label: Screenshots, a screen recording or a small sample project

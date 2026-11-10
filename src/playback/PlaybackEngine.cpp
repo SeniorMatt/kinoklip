@@ -3,6 +3,7 @@
 #include "playback/PlaybackEngine.h"
 
 #include "core/MediaPool.h"
+#include "core/SessionLog.h"
 #include "core/Timeline.h"
 #include "playback/AudioFeeder.h"
 #include "playback/AudioOutput.h"
@@ -62,9 +63,10 @@ PlaybackEngine::PlaybackEngine(QObject* parent)
 
 namespace {
 
-/// KK_PLAYBACK_STATS: any value except empty/0/false/off/no turns statistics on (so "1",
-/// "yes", "true" all work). Read once; the first engine says so in the log.
-bool statsEnabled()
+/// KK_PLAYBACK_STATS: any value except empty/0/false/off/no prints the statistics lines (so
+/// "1", "yes", "true" all work). Read once; the first engine says so in the log. The lines are
+/// collected for the session log (Help > Export Log File) whether or not it is set.
+bool statsPrinted()
 {
     static const bool enabled = [] {
         const QByteArray v = qgetenv("KK_PLAYBACK_STATS").trimmed().toLower();
@@ -76,6 +78,17 @@ bool statsEnabled()
         return on;
     }();
     return enabled;
+}
+
+/// One statistics line: printed with KK_PLAYBACK_STATS (the session log's message handler keeps
+/// it then), otherwise only kept for the session log. No work per frame: this runs once a
+/// second while playing and once when playback stops.
+void emitStatsLine(const QString& line)
+{
+    if (statsPrinted())
+        qCInfo(lcPlayback).noquote() << line;
+    else
+        sessionlog::record(QtInfoMsg, "kk.playback", line);
 }
 
 } // namespace
@@ -97,7 +110,8 @@ void PlaybackEngine::init(Options options)
         m_ring = std::make_unique<AudioRing>(kRingFrames);
         m_feeder = std::make_unique<AudioFeeder>(m_ring.get());
     }
-    m_logStats = statsEnabled();
+    m_logStats = true; // always collected for the session log
+    statsPrinted(); // reads KK_PLAYBACK_STATS now, so the first engine says so (if set) up front
     m_tick.setTimerType(Qt::PreciseTimer);
     m_tick.setInterval(kTickMs);
     connect(&m_tick, &QTimer::timeout, this, &PlaybackEngine::onTick);
@@ -1210,24 +1224,22 @@ void PlaybackEngine::logStats(int64_t nowUs)
     const int64_t frames = std::max<int64_t>(1, m_winCount);
     auto stage = [&](int i) { return m_winSum[i] / double(frames); };
     const QSize size = renderSize();
-    qCInfo(lcPlayback).noquote() << QStringLiteral(
-        "stats: %1 fps (of %2), %3 dropped, quality %4 %5x%6, render %7 ms "
-        "[decode %8, upload %9, composite %10, output %11], %12, A/V %13")
-                                        .arg(double(s.presented - m_statsAtLog.presented) / seconds,
-                                            0, 'f', 1)
-                                        .arg(fps().toDouble() * std::abs(m_rate), 0, 'f', 2)
-                                        .arg(s.dropped - m_statsAtLog.dropped)
-                                        .arg(qualityFactor(currentQuality()))
-                                        .arg(size.width())
-                                        .arg(size.height())
-                                        .arg(s.averageRenderMs, 0, 'f', 1)
-                                        .arg(stage(0), 0, 'f', 1)
-                                        .arg(stage(1), 0, 'f', 1)
-                                        .arg(stage(2), 0, 'f', 1)
-                                        .arg(stage(3), 0, 'f', 1)
-                                        .arg(s.audioMaster ? QStringLiteral("audio clock")
-                                                           : QStringLiteral("wall clock"))
-                                        .arg(s.avOffsetFrames, 0, 'f', 2);
+    emitStatsLine(
+        QStringLiteral("stats: %1 fps (of %2), %3 dropped, quality %4 %5x%6, render %7 ms "
+                       "[decode %8, upload %9, composite %10, output %11], %12, A/V %13")
+            .arg(double(s.presented - m_statsAtLog.presented) / seconds, 0, 'f', 1)
+            .arg(fps().toDouble() * std::abs(m_rate), 0, 'f', 2)
+            .arg(s.dropped - m_statsAtLog.dropped)
+            .arg(qualityFactor(currentQuality()))
+            .arg(size.width())
+            .arg(size.height())
+            .arg(s.averageRenderMs, 0, 'f', 1)
+            .arg(stage(0), 0, 'f', 1)
+            .arg(stage(1), 0, 'f', 1)
+            .arg(stage(2), 0, 'f', 1)
+            .arg(stage(3), 0, 'f', 1)
+            .arg(s.audioMaster ? QStringLiteral("audio clock") : QStringLiteral("wall clock"))
+            .arg(s.avOffsetFrames, 0, 'f', 2));
     m_statsLogUs = nowUs;
     m_statsAtLog = s;
     std::fill(std::begin(m_winSum), std::end(m_winSum), 0.0);
@@ -1241,34 +1253,32 @@ void PlaybackEngine::logStatsSummary()
     }
     m_playStatsActive = false;
     const render::DecoderPool::PrepareStats look = m_compositor->prepareStats();
-    qCInfo(lcPlayback).noquote()
-        << QStringLiteral("cut look-ahead (since the compositor started): %1 prepared, %2 ready "
-                          "at the cut, %3 waited, %4 cancelled, %5 unused")
-               .arg(look.started)
-               .arg(look.hitsReady)
-               .arg(look.hitsWaited)
-               .arg(look.cancelled)
-               .arg(look.expired);
+    emitStatsLine(
+        QStringLiteral("cut look-ahead (since the compositor started): %1 prepared, %2 ready "
+                       "at the cut, %3 waited, %4 cancelled, %5 unused")
+            .arg(look.started)
+            .arg(look.hitsReady)
+            .arg(look.hitsWaited)
+            .arg(look.cancelled)
+            .arg(look.expired));
     const Stats s = stats();
     const double seconds = s.playSeconds - m_statsAtPlay.playSeconds;
     const int64_t presented = s.presented - m_statsAtPlay.presented;
     const int64_t frames = std::max<int64_t>(1, m_stageCount - m_playStageCountAtStart);
     auto stage = [&](int i) { return (m_stageSum[i] - m_playStageSumAtStart[i]) / double(frames); };
-    qCInfo(lcPlayback).noquote() << QStringLiteral(
+    emitStatsLine(QStringLiteral(
         "stats summary: played %1 s, %2 frames shown (%3 fps of %4), %5 dropped, %6 seeks "
         "while playing, render avg [decode %7, upload %8, composite %9, output %10] ms")
-                                        .arg(seconds, 0, 'f', 2)
-                                        .arg(presented)
-                                        .arg(seconds > 0 ? double(presented) / seconds : 0.0, 0,
-                                            'f', 1)
-                                        .arg(
-                                            fps().toDouble() * std::abs(m_statsPlayRate), 0, 'f', 2)
-                                        .arg(s.dropped - m_statsAtPlay.dropped)
-                                        .arg(s.seeksWhilePlaying - m_statsAtPlay.seeksWhilePlaying)
-                                        .arg(stage(0), 0, 'f', 1)
-                                        .arg(stage(1), 0, 'f', 1)
-                                        .arg(stage(2), 0, 'f', 1)
-                                        .arg(stage(3), 0, 'f', 1);
+            .arg(seconds, 0, 'f', 2)
+            .arg(presented)
+            .arg(seconds > 0 ? double(presented) / seconds : 0.0, 0, 'f', 1)
+            .arg(fps().toDouble() * std::abs(m_statsPlayRate), 0, 'f', 2)
+            .arg(s.dropped - m_statsAtPlay.dropped)
+            .arg(s.seeksWhilePlaying - m_statsAtPlay.seeksWhilePlaying)
+            .arg(stage(0), 0, 'f', 1)
+            .arg(stage(1), 0, 'f', 1)
+            .arg(stage(2), 0, 'f', 1)
+            .arg(stage(3), 0, 'f', 1));
 }
 
 void PlaybackEngine::onTick()

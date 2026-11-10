@@ -1,4 +1,4 @@
-347 menu entries in 12 menus; 48 panels
+348 menu entries in 12 menus; 48 panels
 
 # Menu and panel reference
 
@@ -412,6 +412,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Getting Started |  | Opens the getting-started page of the guide. |
 | Report a Bug or Inconsistency… |  | Shows what a bug report would contain and opens the report form on GitHub. |
 | Join the Community on Discord |  | Opens the Kinoklip community on Discord in the web browser. |
+| Export Log File… |  | Saves what Kinoklip did in this session (system facts, decoder for each file, playback statistics, warnings) as a text file to attach to a bug report. |
 
 ## Panels
 

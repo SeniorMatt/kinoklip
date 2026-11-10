@@ -197,8 +197,10 @@ snapshot, so moving a fader while playing never drops pictures.
 
 ### Statistics
 `Stats` (fps, drops, render time and its stages: decode, upload, composite, output; seeks).
-`KK_PLAYBACK_STATS=1` (any value but empty/0/false/off/no) logs one line per second while
-playing and a summary every time playback stops, e.g.
+The lines below are always collected for the session log (`core/SessionLog.h`, Help > Export Log
+File, spec 64) and cost one formatted line per second while playing. `KK_PLAYBACK_STATS=1` (any
+value but empty/0/false/off/no) also prints them: one line per second while playing and a
+summary every time playback stops, e.g.
 
 ```
 kk.playback: KK_PLAYBACK_STATS: one stats line per second while playing and a summary when playback stops

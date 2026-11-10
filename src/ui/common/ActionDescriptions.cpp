@@ -624,6 +624,8 @@ const Description kDescriptions[] = {
         "Opens the getting-started page of the guide."),
     KK_TIP("help.report_bug",
         "Shows what a bug report would contain and opens the report form on GitHub."),
+    KK_TIP("help.export_log",
+        "Saves what Kinoklip did in this session (system facts, decoder for each file, playback statistics, warnings) as a text file to attach to a bug report."),
     KK_TIP("help.community",
         "Opens the Kinoklip community on Discord in the web browser."),
 };

@@ -218,7 +218,8 @@ differently from [DaVinci Resolve](https://www.blackmagicdesign.com/products/dav
 report (versions and settings, nothing personal) and opens GitHub's report form in your browser,
 with or without that text. Write what you did, what happened and what you expected, and submit it
 there. You need a free GitHub account. Kinoklip itself never sends anything; see
-[Privacy](../privacy.md).
+[Privacy](../privacy.md). For a crash or a playback problem, also attach the log file from
+**Help > Export Log File...** ([how](send-a-log-file-with-a-bug-report.md)).
 
 Have a question, or want to show what you made? Choose **Help > Join the Community on Discord**
 to open the invite to the Kinoklip server in your browser.
