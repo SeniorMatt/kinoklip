@@ -263,6 +263,16 @@ void setEffectsLivePreview(bool on)
     QSettings().setValue(QLatin1String(kEffectsLivePreview), on);
 }
 
+bool mediaLivePreview()
+{
+    return QSettings().value(QLatin1String(kMediaLivePreview), true).toBool();
+}
+
+void setMediaLivePreview(bool on)
+{
+    QSettings().setValue(QLatin1String(kMediaLivePreview), on);
+}
+
 bool localControlEnabled()
 {
     return QSettings().value(QLatin1String(kLocalControl), false).toBool();

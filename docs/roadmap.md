@@ -41,7 +41,7 @@ Done for 1.2 so far (on main, not released yet):
 
 Still to do for 1.2:
 - [ ] Platform: AppImage shows an error when FUSE is missing (today it fails silently)
-- [ ] Media: hovering a clip thumbnail in the Media Pool previews it in the viewer, as in Resolve
+- [x] Media: hovering a clip thumbnail in the Media Pool previews it in the viewer, as in Resolve (spec 66)
 - [x] Effects: Motion Trails
 - [x] Effects: Smear
 - [x] Effects: Frame Replacer

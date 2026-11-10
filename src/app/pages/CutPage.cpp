@@ -185,6 +185,9 @@ void CutPage::connectMediaPool()
         m_viewer->setMode(CutViewer::Mode::SourceClip);
         m_viewer->clipViewer()->setFocus();
     });
+    // Live Media Preview: the pointer over a thumbnail or strip shows that clip in the viewer
+    // while it shows a single clip (not the tape or the timeline).
+    m_mediaPool->showLivePreviewIn(m_viewer->clipViewer());
     connect(m_mediaPool, &MediaPoolPanel::shownItemsChanged, this, &CutPage::updateTapeItems);
     connect(m_ctx.project->mediaPool(), &MediaPool::changed, this, &CutPage::updateTapeItems);
     connect(m_ctx.project, &Project::projectReset, this, &CutPage::updateTapeItems);

@@ -14,6 +14,7 @@
 #include <functional>
 
 class QAbstractItemView;
+class QAction;
 class QItemSelectionModel;
 class QLineEdit;
 class QListView;
@@ -31,8 +32,14 @@ namespace kk {
 
 struct AppContext;
 class BinList;
+class MediaHoverPreview;
+class ViewerPanel;
 
 /// The media pool panel (Edit page left column, Media page bottom).
+///
+/// Live Media Preview (options menu): moving the pointer across a video or image thumbnail
+/// (grid) or film strip shows the frame at that place of the clip in a source viewer, see
+/// showLivePreviewIn() and MediaHoverPreview.
 ///
 /// - Left: the bin list (BinList): "Master" with the project's nested bins, "Smart Bins"
 ///   (rule-based, live; the default ones when enabled in Preferences > Editing) and
@@ -231,8 +238,27 @@ signals:
     void shownItemsChanged();
     /// A timeline / compound clip item was opened in a timeline tab (double-click, menu).
     void timelineOpened(quint64 uid);
+    /// Live Media Preview: the pointer is at @p position (0..1) along the thumbnail of the
+    /// clip file @p path of @p durationUs (0 = still image). Emitted for every move over the
+    /// thumbnail of a video or image clip, while the option is on.
+    void livePreviewRequested(const QString& path, qint64 durationUs, double position);
+    /// Live Media Preview: the pointer left the thumbnail (or the option was switched off).
+    void livePreviewEnded();
 
 public:
+    /// Options menu: Live Media Preview (on by default, remembered).
+    [[nodiscard]] bool liveMediaPreviewEnabled() const;
+    /// The Live Media Preview option of the options menu (tests).
+    [[nodiscard]] QAction* liveMediaPreviewAction() const { return m_livePreviewAction; }
+    /// Feeds the hover preview as if the pointer were at viewport point @p pos of the grid or
+    /// strip view (the event filter calls it for mouse moves).
+    void hoverAt(QListView* view, QPoint pos);
+    /// Ends the hover preview, if one is active.
+    void endHover();
+    /// Live Media Preview shows in the source viewer @p viewer (not owned). Returns the preview
+    /// (owned by this panel; tests).
+    MediaHoverPreview* showLivePreviewIn(ViewerPanel* viewer);
+
     /// Opens timeline @p uid in a tab (Project::openTab) and emits timelineOpened().
     void openTimeline(quint64 uid);
 
@@ -353,6 +379,8 @@ private:
     QToolButton* m_binsButton = nullptr;
     QToolButton* m_colorButton = nullptr;
     QWidget* m_toolbar = nullptr;
+    QAction* m_livePreviewAction = nullptr;
+    bool m_hovering = false; ///< a livePreviewRequested() is open (no livePreviewEnded() yet)
     bool m_zoomWanted = true; ///< the grid is showing, so the slider is wanted
     QSlider* m_zoomSlider = nullptr; ///< thumbnail size (grid view)
     ViewMode m_viewMode = ViewMode::Grid;

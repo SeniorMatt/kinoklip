@@ -182,6 +182,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
 
     // The metadata panel follows the media pool selection (one item or batch editing).
     m_metadata->attach(m_mediaPool);
+    // Live Media Preview: the pointer over a thumbnail shows that clip in the source viewer.
+    m_mediaPool->showLivePreviewIn(m_sourceViewer);
     // Double-click in the media pool: load the clip into the source viewer and make it the
     // target of the transport keys (Space, J/K/L, I/O act on it).
     connect(m_mediaPool, &MediaPoolPanel::openInSourceViewer, this, [this](const QString& id) {

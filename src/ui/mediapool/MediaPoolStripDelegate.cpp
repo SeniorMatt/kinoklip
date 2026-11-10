@@ -35,6 +35,12 @@ int MediaPoolStripDelegate::rowHeight()
     return kNameHeight + kStripHeight + 2 * kPadding;
 }
 
+QRect MediaPoolStripDelegate::stripRect(const QRect& row)
+{
+    return {row.left() + kPadding, row.top() + kPadding + kNameHeight + 1,
+        row.width() - 2 * kPadding, kStripHeight};
+}
+
 QVector<int64_t> MediaPoolStripDelegate::thumbnailTimes(int64_t durationUs, int count)
 {
     QVector<int64_t> times;
@@ -72,8 +78,7 @@ void MediaPoolStripDelegate::paint(
     p->drawText(nameRect, Qt::AlignRight | Qt::AlignVCenter, duration);
 
     // The strip: thumbnails at evenly spaced times across the clip.
-    const QRect strip(
-        row.left() + kPadding, nameRect.bottom() + 1, row.width() - 2 * kPadding, kStripHeight);
+    const QRect strip = stripRect(row);
     p->fillRect(strip, sc.viewerSurround);
     const StripSource source
         = m_lookup ? m_lookup(index.data(MediaPoolModel::IdRole).toString()) : StripSource {};
