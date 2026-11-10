@@ -51,7 +51,7 @@ Still to do for 1.2:
 - [x] Effects: Color Stabilizer
 - [x] Effects: Dust Buster
 - [x] Effects: Patch Replacer
-- [ ] Tracking: Match Move
+- [x] Tracking: Match Move
 - [ ] Tracking: Surface Tracker
 - [ ] Effects: Warper
 - [x] Effects: CCTV look

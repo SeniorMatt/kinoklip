@@ -206,7 +206,7 @@ Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagic
 | JPEG Damage | Texture | Video effect | works |
 | Texture Pop | Texture | Video effect | works |
 | Camera Shake | Transform | Video effect | works |
-| Match Move | Transform | Video effect | planned |
+| Match Move | Transform | Video effect | works |
 | Surface Tracker | Transform | Video effect | planned |
 | Transform | Transform | Video effect | works |
 | Video Collage | Transform | Video effect | works |

@@ -2,6 +2,8 @@
 // TimelineEval — transition windows, per-track evaluation and clip geometry (pure functions).
 #include "render/TimelineEval.h"
 
+#include "core/MatchMove.h"
+
 #include "core/DynamicZoom.h"
 #include "core/NodeRegistry.h"
 #include "core/ParamKeys.h"
@@ -159,6 +161,9 @@ QTransform clipTransform(
         m = dynamiczoom::transform(clip, localFrame, frameSize) * m;
     if (stabilize::isActive(clip.stabilization) && fps.isValid())
         m = stabilize::transform(clip, localFrame, frameSize, fps) * m;
+    // Match Move (spec 70.1) follows the tracked thing in frame pixels: applied last.
+    if (fps.isValid() && matchmove::hasActive(clip))
+        m = m * matchmove::transform(clip, localFrame, frameSize, fps);
     return m;
 }
 
@@ -209,7 +214,7 @@ bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame, bool dynamic
 {
     if (clipOpacity(clip, localFrame) < 1.0)
         return false;
-    if (stabilize::isActive(clip.stabilization))
+    if (stabilize::isActive(clip.stabilization) || matchmove::hasActive(clip))
         return false;
     if (dynamicZoom && dynamiczoom::isEnabled(clip.transform)
         && dynamiczoom::at(clip, localFrame) != dynamiczoom::Rect {})

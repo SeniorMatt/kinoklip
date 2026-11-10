@@ -131,5 +131,7 @@ struct GlEffectFactory
 [[nodiscard]] std::span<const GlEffectFactory> repairGlEffects();
 /// CCTV, Digital Glitch, Drone Overlay, DSLR, DVE, Video Call, Video Camera (GlTemplateLooks.cpp).
 [[nodiscard]] std::span<const GlEffectFactory> templateLookGlEffects();
+/// Tracking effects (GlMeshEffects.cpp, spec 70).
+[[nodiscard]] std::span<const GlEffectFactory> meshGlEffects();
 
 } // namespace kk::render

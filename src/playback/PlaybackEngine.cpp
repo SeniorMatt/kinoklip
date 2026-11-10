@@ -506,6 +506,22 @@ std::future<RenderedFramePtr> PlaybackEngine::renderImage(
     return m_compositor->renderAsync(std::move(request));
 }
 
+std::future<RenderedFramePtr> PlaybackEngine::renderImageOf(
+    std::shared_ptr<const TimelineData> timeline, int64_t frame, QSize outSize) const
+{
+    RenderRequest request;
+    request.timeline = std::move(timeline);
+    request.media = m_media;
+    request.proxies = m_proxies;
+    request.bypassGrades = m_bypassGrades;
+    request.dynamicZoom = m_dynamicZoomApplied;
+    request.frame = frame;
+    request.outSize = outSize;
+    request.outputs = OutputImage;
+    request.subtitles = false;
+    return m_compositor->renderAsync(std::move(request));
+}
+
 std::future<RenderedFramePtr> PlaybackEngine::renderAlternative(
     std::shared_ptr<const TimelineData> timeline, int64_t frame,
     std::shared_ptr<const std::atomic<bool>> cancelled) const

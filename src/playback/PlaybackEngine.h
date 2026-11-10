@@ -227,6 +227,11 @@ public:
     [[nodiscard]] std::future<RenderedFramePtr> renderImage(
         int64_t frame, QSize outSize, ImageGrades grades = ImageGrades::Viewer) const;
     [[nodiscard]] bool bypassGrades() const { return m_bypassGrades; }
+    /// Tracking effects (spec 70): renders frame @p frame of @p timeline (a private, modified
+    /// copy of the current snapshot) as an image of @p outSize, with the engine's media table and
+    /// proxies, no grades bypass, never from the render cache. Any thread may wait on the future.
+    [[nodiscard]] std::future<RenderedFramePtr> renderImageOf(
+        std::shared_ptr<const TimelineData> timeline, int64_t frame, QSize outSize) const;
     /// Effects live preview (spec 47): renders frame @p frame of @p timeline (a private,
     /// modified copy of the current snapshot) the way the viewer's next paused still would be
     /// rendered: same size, quality, outputs (textures when every client draws them), media,

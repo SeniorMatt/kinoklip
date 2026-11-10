@@ -206,6 +206,7 @@ apply it the same way; `maxZoom()` and `hasIdentityFootprint()` count it.
 `RenderRequest::dynamicZoom = false` (the viewer's on-screen Dynamic Zoom controls) leaves it
 out and skips the render cache.
 
+Match Move (spec 70, core/MatchMove.h) comes last in `clipTransform()`, in frame pixels after the clip's own Transform.
 Stabilization (spec 58, core/Stabilization.h) comes first in `clipTransform()`, before Dynamic Zoom:
 the correction of the clip's source frame (looked up through `ClipData::sourceTimeUsAt()`, so it
 needs the timeline's frame rate, the last argument) plus the Zoom scale. In Perspective mode the

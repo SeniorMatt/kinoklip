@@ -130,8 +130,9 @@ private slots:
         // batch 2 (tests/render/test_videoeffects2.cpp) + 11 of version 1.2
         // (tests/render/test_effectsgap.cpp) + 17 of its second part
         // (tests/render/test_effectsb.cpp) + 9 of the multi-frame effects
-        // (tests/render/test_effects5.cpp) + 7 template looks (tests/render/test_looks.cpp).
-        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 106);
+        // (tests/render/test_effects5.cpp) + 7 template looks (tests/render/test_looks.cpp) + 1 of the
+        // tracking effects (Match Move, tests/render/test_trackers.cpp).
+        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 107);
 
         // Every descriptor is well-formed.
         for (const EffectDescriptor& d : reg.all()) {
