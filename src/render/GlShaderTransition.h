@@ -3,6 +3,7 @@
 // small helpers the families use to read transition parameters and set uniforms.
 #pragma once
 
+#include "core/TransitionKeys.h"
 #include "render/GlTransitions.h"
 
 #include <QColor>
@@ -107,6 +108,31 @@ inline void setColor(GlKit& kit, const GlProgram& program, const char* name, con
     const float a = float(c.alphaF());
     kit.gl()->glUniform4f(program.uniform(kit.gl(), name), float(c.redF()) * a,
         float(c.greenF()) * a, float(c.blueF()) * a, a);
+}
+
+/// Start Ratio, End Ratio and Reverse of the dissolves: the share (0..1) of the incoming picture
+/// at the first and at the last frame (defaults 0 and 100 %: the plain transition). Reverse
+/// plays that curve from the other end.
+inline std::pair<double, double> ratioRange(const TransitionInput& in)
+{
+    double start = std::clamp(numberParam(in, tkeys::StartRatio, 0), 0.0, 100.0) / 100.0;
+    double end = std::clamp(numberParam(in, tkeys::EndRatio, 100), 0.0, 100.0) / 100.0;
+    if (staticBool(*in.params, tkeys::Reverse, false))
+        return {1.0 - end, 1.0 - start};
+    return {start, end};
+}
+
+/// The border of the motion transitions (shaders with uBorder, uBorderColor): Color, Border
+/// (px) and Feather (%) of the transition, @p uvPerPixel = size of one pixel in uv along the
+/// axis the picture travels. A missing parameter reads as 0 (no border).
+inline void setBorder(
+    GlKit& kit, const GlProgram& program, const TransitionInput& in, double uvPerPixel)
+{
+    setVec2(kit, program, "uBorder",
+        std::clamp(numberParam(in, QStringLiteral("border"), 0), 0.0, 200.0) * uvPerPixel,
+        std::clamp(numberParam(in, QStringLiteral("feather"), 0), 0.0, 100.0) / 100.0);
+    setColor(kit, program, "uBorderColor",
+        staticColor(*in.params, QStringLiteral("color"), QColor(Qt::white)));
 }
 
 } // namespace kk::render

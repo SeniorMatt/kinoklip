@@ -21,6 +21,8 @@ uniform float uFlag;     // barn door / split: 1 = reverse; slide: 1 = slide out
 uniform float uAxis;     // barn door / split: 1 = horizontal preset
 uniform vec2 uDir;       // slide: the way the picture travels
 uniform float uBlur;     // 0..1
+uniform vec4 uBorderColor; // premultiplied
+uniform vec2 uBorder;    // x: border width in uv units of the travel axis (0 = none), y: feather 0..1
 
 vec4 inside(sampler2D tex, vec2 uv)
 {
@@ -28,6 +30,21 @@ vec4 inside(sampler2D tex, vec2 uv)
     return texture(tex, uv) * (ok.x * ok.y);
 }
 vec4 over(vec4 top, vec4 bottom) { return top + bottom * (1.0 - top.a); }
+
+// Distance (uv) from q to the unit square, 0 inside.
+float outside(vec2 q) { return max(max(-q.x, q.x - 1.0), max(-q.y, q.y - 1.0)); }
+
+// A border of the border colour along the edge of the moving picture, on the side of the
+// picture that stays. d = distance from that edge (negative: not near an edge). The border
+// swells and shrinks with sin(pi t) so both ends of the transition are untouched.
+vec4 withBorder(vec4 colour, float d, float t)
+{
+    float w = uBorder.x * sin(3.14159265 * t);
+    if (w <= 1e-6 || d <= 0.0)
+        return colour;
+    float m = 1.0 - clamp((d - w * (1.0 - uBorder.y)) / max(w * uBorder.y, 1e-6), 0.0, 1.0);
+    return mix(colour, uBorderColor, m);
+}
 
 // The two halves of the picture, moved apart by h (uv units) along the axis, and nothing in
 // the gap.
@@ -44,20 +61,26 @@ vec4 halves(sampler2D tex, float h)
 vec4 frameAt(float t)
 {
     if (uKind == 0) {
-        if (uFlag < 0.5)
-            return over(halves(uA, 0.5 * t), texture(uB, vUv));
-        return over(halves(uB, 0.5 * (1.0 - t)), texture(uA, vUv));
+        float h = 0.5 * (uFlag < 0.5 ? t : 1.0 - t);
+        float c = uAxis > 0.5 ? vUv.y : vUv.x;
+        vec4 col = uFlag < 0.5 ? over(halves(uA, h), texture(uB, vUv))
+                               : over(halves(uB, h), texture(uA, vUv));
+        return withBorder(col, h - abs(c - 0.5), t);
     }
     if (uKind == 1) {
-        if (uFlag < 0.5)
-            return over(inside(uB, vUv - uDir * (t - 1.0)), texture(uA, vUv));
-        return over(inside(uA, vUv - uDir * t), texture(uB, vUv));
+        if (uFlag < 0.5) {
+            vec2 q = vUv - uDir * (t - 1.0);
+            return withBorder(over(inside(uB, q), texture(uA, vUv)), outside(q), t);
+        }
+        vec2 q = vUv - uDir * t;
+        return withBorder(over(inside(uA, q), texture(uB, vUv)), outside(q), t);
     }
     // Split: the first half of the screen pushes one way, the second the other.
     bool first = (uAxis > 0.5 ? vUv.y : vUv.x) < 0.5;
     vec2 d = uAxis > 0.5 ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
     d *= (first ? -1.0 : 1.0) * (uFlag > 0.5 ? -1.0 : 1.0);
-    return inside(uA, vUv - d * t) + inside(uB, vUv - d * (t - 1.0));
+    vec2 q = vUv - d * t;
+    return withBorder(inside(uA, q) + inside(uB, vUv - d * (t - 1.0)), outside(q), t);
 }
 
 void main()
@@ -92,6 +115,12 @@ std::unique_ptr<GlTransition> make(const char* id, Kind kind)
             // Barn Door: "vertical" doors split along a vertical line (halves move sideways).
             // Split: "horizontal" cuts the picture into top and bottom, moving sideways.
             setFloat(kit, program, "uAxis", horizontal ? 1.0 : 0.0);
+            // The border is measured along the axis the pictures travel.
+            const QPointF dir
+                = directionVector(staticChoice(p, k::Direction, QStringLiteral("left")));
+            const bool alongX
+                = kind == Slide ? dir.x() != 0.0 : (kind == Barn ? !horizontal : horizontal);
+            setBorder(kit, program, in, 1.0 / double(alongX ? in.size.width() : in.size.height()));
             if (kind == Slide) {
                 const QPointF d
                     = directionVector(staticChoice(p, k::Direction, QStringLiteral("left")));

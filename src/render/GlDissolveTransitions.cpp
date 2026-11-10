@@ -65,10 +65,9 @@ std::unique_ptr<GlTransition> makeFamily(const char* id, Kind kind)
     return std::make_unique<ShaderTransition>(id, kDissolveFamily,
         [kind](GlKit& kit, const GlProgram& program, const TransitionInput& in) {
             setInt(kit, program, "uKind", kind);
-            setFloat(kit, program, "uStart",
-                std::clamp(numberParam(in, k::StartRatio, 0), 0.0, 100.0) / 100.0);
-            setFloat(kit, program, "uEnd",
-                std::clamp(numberParam(in, k::EndRatio, 100), 0.0, 100.0) / 100.0);
+            const auto [start, end] = ratioRange(in);
+            setFloat(kit, program, "uStart", start);
+            setFloat(kit, program, "uEnd", end);
             setVec2(kit, program, "uBlur",
                 std::clamp(numberParam(in, k::BlurH, 4), 0.0, 30.0) / 100.0,
                 std::clamp(numberParam(in, k::BlurV, 4), 0.0, 30.0) / 100.0);

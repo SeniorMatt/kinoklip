@@ -70,6 +70,20 @@ Params ratios()
         number(k::EndRatio, tr("End Ratio"), 0, 100, 100, 1, kPercent)};
 }
 
+/// The three dissolve parameters: Start Ratio, End Ratio, Reverse.
+Params dissolveParams()
+{
+    return ratios() + Params {boolean(k::Reverse, tr("Reverse"), false)};
+}
+
+/// Border colour, width and feather of the Motion transitions.
+Params motionEdge()
+{
+    return {color(k::Color, tr("Border Color"), QColor(Qt::white)),
+        number(k::Border, tr("Border"), 0, 200, 0, 1, kPx),
+        number(k::Feather, tr("Feather"), 0, 100, 0, 1, kPercent)};
+}
+
 ParamDescriptor presets(const QStringList& values, const QStringList& labels)
 {
     return choice(k::Preset, tr("Preset"), values, labels, values.first());
@@ -96,18 +110,32 @@ void EffectRegistry::registerTransitions()
     for (const auto& [id, folder] : kFolders)
         m_descriptors[m_index.value(QLatin1String(id))].group = QLatin1String(folder);
 
+    // Parameters the first four were missing (new ones default to what they always did, so
+    // saved projects load and render the same).
+    const auto extend = [this](const char* id, const Params& more) {
+        m_descriptors[m_index.value(QLatin1String(id))].params += more;
+    };
+    const auto reverse = [] { return boolean(k::Reverse, tr("Reverse"), false); };
+    extend("cross_dissolve", ratios() + Params {reverse()});
+    extend("dip_to_color", ratios() + Params {reverse()});
+    extend("wipe",
+        {color(k::Color, tr("Border Color"), QColor(Qt::white)),
+            number(k::Border, tr("Border"), 0, 200, 0, 1, kPx), reverse()});
+    extend("push", motionEdge());
+
     // ---- Dissolve ----
     add(transition("additive_dissolve", tr("Additive Dissolve"), Dissolve,
-        tr("Add the two pictures: brighter in the middle, back to normal at both ends"), ratios()));
+        tr("Add the two pictures: brighter in the middle, back to normal at both ends"),
+        dissolveParams()));
     {
-        Params params = ratios();
+        Params params = dissolveParams();
         params.append(number(k::BlurH, tr("Horizontal Strength"), 0, 30, 4, 0.5, kPercent));
         params.append(number(k::BlurV, tr("Vertical Strength"), 0, 30, 4, 0.5, kPercent));
         add(transition("blur_dissolve", tr("Blur Dissolve"), Dissolve,
             tr("Dissolve with a blur that peaks in the middle"), params));
     }
     add(transition("non_additive_dissolve", tr("Non-Additive Dissolve"), Dissolve,
-        tr("Dissolve that keeps the brighter of the two pictures"), ratios()));
+        tr("Dissolve that keeps the brighter of the two pictures"), dissolveParams()));
     add(transition("smooth_cut", tr("Smooth Cut"), Dissolve,
         tr("Hide a jump cut by morphing the pictures into each other along their motion (optical "
            "flow); use it on a short transition of 2 to 6 frames"),
@@ -200,17 +228,20 @@ void EffectRegistry::registerTransitions()
     const ParamDescriptor blur = number(k::MotionBlur, tr("Motion Blur"), 0, 100, 0, 1, kPercent);
     add(transition("barn_door", tr("Barn Door"), Motion,
         tr("The picture opens like a barn door from the centre"),
-        {presets({"vertical", "horizontal"}, {tr("Vertical"), tr("Horizontal")}),
-            boolean(k::Reverse, tr("Reverse"), false), blur}));
+        Params {presets({"vertical", "horizontal"}, {tr("Vertical"), tr("Horizontal")}),
+            boolean(k::Reverse, tr("Reverse"), false), blur}
+            + motionEdge()));
     add(transition("slide", tr("Slide"), Motion, tr("One clip slides over or off the other"),
-        {choice(k::Direction, tr("Direction"), dirs, dirLabels, QStringLiteral("left")),
+        Params {choice(k::Direction, tr("Direction"), dirs, dirLabels, QStringLiteral("left")),
             choice(k::Mode, tr("Mode"), {"in", "out"}, {tr("Slide In"), tr("Slide Out")},
                 QStringLiteral("in")),
-            blur}));
+            blur}
+            + motionEdge()));
     add(transition("split", tr("Split"), Motion,
         tr("The picture splits and the halves move apart in opposite directions"),
-        {presets({"horizontal", "vertical"}, {tr("Horizontal"), tr("Vertical")}),
-            boolean(k::Reverse, tr("Reverse"), false), blur}));
+        Params {presets({"horizontal", "vertical"}, {tr("Horizontal"), tr("Vertical")}),
+            boolean(k::Reverse, tr("Reverse"), false), blur}
+            + motionEdge()));
 
     // ---- Fusion Transitions: designed from the one-line descriptions of such transitions ----
     const auto centre = [] {
@@ -262,6 +293,58 @@ void EffectRegistry::registerTransitions()
         Params {number(k::Glow, tr("Glow Gain"), 0, 300, 100, 1, kPercent),
             number(k::Size, tr("Glow Size"), 1, 100, 20, 1, kPercent)}
             + centre()));
+
+    // The rest of the Fusion folder: slides, pans and the shape / motion ones.
+    const auto curveParams = [] {
+        return Params {choice(k::Curve, tr("Curve"), {"linear", "easing", "custom"},
+                           {tr("Linear"), tr("Easing"), tr("Custom")}, QStringLiteral("linear")),
+            number(k::Power, tr("Custom Curve"), 0.2, 5, 2, 0.1)};
+    };
+    const struct
+    {
+        const char* id;
+        const char* name;
+        const char* panName;
+        const char* panId;
+        const char* slideName;
+    } kWays[] = {{"slide_left", "Slide Left", "Pan Left", "pan_left", "left"},
+        {"slide_right", "Slide Right", "Pan Right", "pan_right", "right"},
+        {"slide_up", "Slide Up", "Pan Up", "pan_up", "up"},
+        {"slide_down", "Slide Down", "Pan Down", "pan_down", "down"}};
+    for (const auto& way : kWays) {
+        const QString dir = QLatin1String(way.slideName);
+        add(transition(way.id, tr(way.name), FusionTransitions,
+            tr("The next clip slides in over the current one, moving %1").arg(dir), curveParams()));
+        add(transition(way.panId, tr(way.panName), FusionTransitions,
+            tr("Both pictures pan %1 with a motion blur").arg(dir),
+            Params {number(k::MotionBlur, tr("Motion Blur"), 0, 100, 50, 1, kPercent)}
+                + curveParams()));
+    }
+    add(transition("fall_and_bounce", tr("Fall and Bounce"), FusionTransitions,
+        tr("The next clip falls in over the current one and bounces to rest"),
+        {number(k::Angle, tr("Fall Angle"), -360, 360, 90, 1, kDegrees)}));
+    add(transition("film_strip", tr("Film Strip"), FusionTransitions,
+        tr("The picture zooms out to a frame of a moving film strip and zooms back in on the "
+           "next one"),
+        Params {color(k::Color, tr("Film Color"), QColor(28, 28, 32)),
+            number(k::Zoom, tr("Frame Size"), 10, 100, 55, 1, kPercent)}
+            + curveParams()));
+    add(transition("foreground_wipe", tr("Foreground Wipe"), FusionTransitions,
+        tr("A magnifying column sweeps across and leaves the next clip behind it"),
+        {boolean(k::Invert, tr("Invert Wipe"), false),
+            number(k::Softness, tr("Shadow Softness"), 0, 100, 50, 1, kPercent),
+            number(k::Border, tr("Border Width"), 0, 200, 4, 1, kPx),
+            color(k::Color, tr("Border Color"), QColor(Qt::white))}));
+    add(transition("paint_on", tr("Paint On"), FusionTransitions,
+        tr("Brush strokes paint the next clip over the current one"),
+        {number(k::Count, tr("Strokes"), 2, 40, 8, 1),
+            number(k::Shadow, tr("Shadow Blend"), 0, 100, 50, 1, kPercent)}));
+    add(transition("round_and_down", tr("Round and Down"), FusionTransitions,
+        tr("The current clip swings down round a pivot while it dissolves into the next"),
+        Params {number(k::Angle, tr("Angle"), -360, 360, 90, 1, kDegrees),
+            number(k::OffsetX, tr("Pivot X"), -100, 100, -50, 1, kPercent),
+            number(k::OffsetY, tr("Pivot Y"), -100, 100, 0, 1, kPercent)}
+            + curveParams()));
 
     // ---- Resolve FX Transitions ----
     add(transition("burn_away", tr("Burn Away"), ResolveFxTransitions,
