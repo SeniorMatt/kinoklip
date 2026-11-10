@@ -69,10 +69,10 @@ private:
         m_project = path(file);
         QVERIFY(call(QStringLiteral("project.new"),
             {{"project", m_project}, {"force", true}, {"width", 640}, {"height", 360}, {"fps", 24}})
-                .ok);
+                    .ok);
         QVERIFY(call(QStringLiteral("media.import"),
             {{"project", m_project}, {"file", QJsonArray {kVideo, kAudio}}})
-                .ok);
+                    .ok);
     }
     Project* load()
     {
@@ -168,7 +168,7 @@ private slots:
         // Strings of numbers are accepted, as the command line passes strings.
         QVERIFY(call(
             "project.new", {{"project", path("s.kkproj")}, {"width", "800"}, {"height", "600"}})
-                .ok);
+                    .ok);
         QCOMPARE(call("version", {}).ok, true);
         QVERIFY(call("version", {}).data["version"].toString().size() > 0);
         QCOMPARE(call("project.info", {{"project", path("missing.kkproj")}}).errorCode,
@@ -485,6 +485,40 @@ private slots:
         bad("clip.set", {{"clip", v}, {"volume", 40}}, "out_of_range");
         bad("clip.set", {{"clip", v}, {"zoom", 0}}, "out_of_range");
         bad("clip.set", {{"clip", 9999}, {"speed", 1}}, "unknown_clip");
+    }
+
+    // Spec 59.9: fade lengths and curves through clip.set; the curve needs a fade, fades act on
+    // the named clip only (linked clips keep their own, like the fade handles).
+    void clipSetFades()
+    {
+        makeProject();
+        ok("clip.add", {{"media", videoId()}, {"source-out", "00:00:05:00"}}); // 120 frames
+        const qint64 v = firstClipId("V1");
+        const qint64 a = firstClipId("A1");
+        bad("clip.set", {{"clip", v}, {"fade-in-curve", 0.5}}, "no_fade");
+        bad("clip.set", {{"clip", v}, {"fade-in", 10}, {"fade-in-curve", 1.5}}, "out_of_range");
+        bad("clip.set", {{"clip", v}, {"fade-out", -3}}, "out_of_range");
+        const CommandResult r = ok("clip.set",
+            {{"clip", v}, {"fade-in", 24}, {"fade-in-curve", 0.5}, {"fade-out", "00:00:01:00"},
+                {"fade-out-curve", -0.75}});
+        const QJsonObject c = r.data["clip"].toObject();
+        QCOMPARE(c["fadeIn"].toInteger(), 24);
+        QCOMPARE(c["fadeInCurve"].toDouble(), 0.5);
+        QCOMPARE(c["fadeOut"].toInteger(), 24);
+        QCOMPARE(c["fadeOutCurve"].toDouble(), -0.75);
+        const ClipData& stored = load()->timeline()->data().videoTracks[0].clips[0];
+        QCOMPARE(stored.fadeInFrames, 24);
+        QCOMPARE(stored.fadeInCurve, 0.5);
+        QCOMPARE(stored.fadeOutCurve, -0.75);
+        QCOMPARE(load()->timeline()->data().audioTracks[0].clips[0].fadeInFrames, 0); // not linked
+        // The curve alone on a clip that has the fade; back to linear; fade 0 clears the curve.
+        ok("clip.set", {{"clip", v}, {"fade-in-curve", 0}});
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].fadeInCurve, 0.0);
+        ok("clip.set", {{"clip", v}, {"fade-out", 0}});
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].fadeOutFrames, 0);
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].fadeOutCurve, 0.0);
+        ok("clip.set", {{"clip", a}, {"fade-in", 12}, {"fade-in-curve", -1}});
+        QCOMPARE(load()->timeline()->data().audioTracks[0].clips[0].fadeInCurve, -1.0);
     }
 
     void markers()
