@@ -385,6 +385,34 @@ private slots:
         QCOMPARE(v.f.clip(right.front())->fadeInCurve, 0.0);
         QCOMPARE(v.f.clip(right.front())->fadeOutCurve, -0.25);
     }
+
+    // 59.13: after a cut the fade-out of the short right piece lies inside it, its handle can be
+    // grabbed and dragged, and drawing clamps even bad data.
+    void splitLeavesGrabbableHandle()
+    {
+        View v;
+        v.setFades(v.video, 0, 48);
+        v.f.project.beginEdit(QStringLiteral("Split"));
+        const QVector<quint64> right
+            = editops::splitClips(v.f.project.timeline()->mutableData(), {v.video}, 180);
+        v.f.project.endEdit();
+        QApplication::processEvents();
+        QCOMPARE(right.size(), 1);
+        const quint64 r = right.front();
+        QCOMPARE(v.f.clip(r)->fadeOutFrames, 20);
+        QCOMPARE(v.f.clip(v.video)->fadeOutFrames, 0);
+        const QRectF clipRect = v.w->layout().clipRect(v.w->layout().rowOf(kV1), *v.f.clip(r));
+        const QRectF handle = ll::fadeHandleRect(*v.f.clip(r), clipRect, v.w->layout(), false);
+        QVERIFY(!handle.isEmpty());
+        QVERIFY(clipRect.adjusted(-1, -1, 1, 1).contains(handle.center())); // it may straddle the clip edge
+        QVERIFY(levelops::setFade(v.f.project.timeline()->mutableData(), r, false, 10));
+        QCOMPARE(v.f.clip(r)->fadeOutFrames, 10);
+        // Bad data (fade longer than the clip, as an old file had) is drawn inside the clip.
+        ClipData bad = *v.f.clip(r);
+        bad.fadeOutFrames = 500;
+        const QRectF h = ll::fadeHandleRect(bad, clipRect, v.w->layout(), false);
+        QVERIFY(clipRect.adjusted(-1, -1, 1, 1).contains(h.center()));
+    }
 };
 
 QTEST_MAIN(TestFadeCurves)

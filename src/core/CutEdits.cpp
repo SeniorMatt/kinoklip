@@ -274,6 +274,7 @@ Result sourceOverwrite(TimelineData& data, const SourceGroups& groups, int64_t s
             if (from < 0) {
                 const int64_t drop = -from;
                 p.clip.duration -= drop;
+                ops::clampFades(p.clip, true);
                 if (p.clip.sourceDurationUs > 0)
                     p.clip.sourceInUs
                         += int64_t(std::llround(double(framesToUs(drop, data.fps)) * p.clip.speed));

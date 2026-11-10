@@ -271,6 +271,81 @@ private slots:
         QCOMPARE(back.fadeInFrames, 0);
         QVERIFY(back.attributes.isDefault());
     }
+
+    // 59.13: a fade never outlasts its clip after a cut or trim, and a file that has one loads clamped.
+    void splitKeepsFadesInsideThePieces()
+    {
+        TimelineData tl = timeline();
+        const quint64 id = audioClip(tl); // frames [10, 110)
+        ClipData* c = editops::clipById(tl, id);
+        c->fadeOutFrames = 48;
+        c->fadeOutCurve = 0.5;
+        const QVector<quint64> right = editops::splitClips(tl, {id}, 90); // right piece: 20 frames
+        QCOMPARE(right.size(), 1);
+        QCOMPARE(editops::clipById(tl, right.front())->duration, 20);
+        QCOMPARE(editops::clipById(tl, right.front())->fadeOutFrames, 20);
+        QCOMPARE(editops::clipById(tl, right.front())->fadeOutCurve, 0.5);
+        QCOMPARE(editops::clipById(tl, id)->fadeOutFrames, 0);
+        // Mirror: a fade-in longer than the left piece.
+        TimelineData t2 = timeline();
+        const quint64 id2 = audioClip(t2);
+        editops::clipById(t2, id2)->fadeInFrames = 48;
+        editops::clipById(t2, id2)->fadeInCurve = -0.5;
+        const QVector<quint64> r2 = editops::splitClips(t2, {id2}, 30); // left piece: 20 frames
+        QCOMPARE(editops::clipById(t2, id2)->fadeInFrames, 20);
+        QCOMPARE(editops::clipById(t2, r2.front())->fadeInFrames, 0);
+        QCOMPARE(editops::clipById(t2, r2.front())->fadeInCurve, 0.0);
+    }
+
+    void trimsClampFades()
+    {
+        TimelineData tl = timeline();
+        const quint64 id = audioClip(tl); // 100 frames
+        ClipData* c = editops::clipById(tl, id);
+        c->fadeInFrames = 30;
+        c->fadeOutFrames = 40;
+        c->fadeOutCurve = 0.25;
+        QCOMPARE(editops::trimTail(tl, id, -80, false), -80); // 20 frames left
+        c = editops::clipById(tl, id);
+        QCOMPARE(c->fadeInFrames, 20); // the fade at the cut edge goes first
+        QCOMPARE(c->fadeOutFrames, 0);
+        QCOMPARE(c->fadeOutCurve, 0.0);
+        // Head trim: the fade-in gives way first.
+        TimelineData t2 = timeline();
+        const quint64 id2 = audioClip(t2);
+        ClipData* d = editops::clipById(t2, id2);
+        d->fadeInFrames = 30;
+        d->fadeOutFrames = 40;
+        QCOMPARE(editops::trimHead(t2, id2, 50, false), 50); // 50 frames left
+        d = editops::clipById(t2, id2);
+        QCOMPARE(d->fadeOutFrames, 40);
+        QCOMPARE(d->fadeInFrames, 10);
+        // clampFades alone: negative and oversized values, curves of a vanished fade.
+        ClipData e = mediaClip(0, 10);
+        e.fadeInFrames = -4;
+        e.fadeOutFrames = 99;
+        e.fadeInCurve = 0.5;
+        editops::clampFades(e);
+        QCOMPARE(e.fadeInFrames, 0);
+        QCOMPARE(e.fadeInCurve, 0.0);
+        QCOMPARE(e.fadeOutFrames, 10);
+    }
+
+    void loadClampsFades()
+    {
+        TimelineData tl = timeline();
+        const quint64 id = audioClip(tl);
+        ClipData* c = editops::clipById(tl, id);
+        c->fadeInFrames = 80;
+        c->fadeOutFrames = 80;
+        TimelineData back;
+        QString error;
+        QVERIFY2(serialization::timelineFromJson(serialization::timelineToJson(tl), back, &error),
+            qPrintable(error));
+        const ClipData& l = back.audioTracks[0].clips[0];
+        QVERIFY(l.fadeInFrames >= 0 && l.fadeOutFrames >= 0);
+        QCOMPARE(l.fadeInFrames + l.fadeOutFrames, 100);
+    }
 };
 
 QTEST_GUILESS_MAIN(TestLevelOps)

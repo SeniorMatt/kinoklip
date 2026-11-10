@@ -66,6 +66,7 @@ bool applyToGroup(TimelineData& data, quint64 clipId, const ClipEdit& edit)
             continue;
         }
         clip.duration = std::max<int64_t>(1, clip.duration);
+        editops::clampFades(clip); // a shorter clip must not keep a longer fade (spec 59.13)
         const int64_t applied = *delta;
         for (size_t i = size_t(loc->clipIndex) + 1; i < track.clips.size(); ++i)
             track.clips[i].start += applied;

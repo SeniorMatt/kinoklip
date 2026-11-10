@@ -796,6 +796,7 @@ bool timelineFromJson(const QJsonObject& o, TimelineData& out, QString* error)
                     return fail(why);
                 clampTransition(c.transitionIn, c.duration);
                 clampTransition(c.transitionOut, c.duration);
+                editops::clampFades(c); // a fade longer than its clip (hand-edited, old bug)
             }
         }
     }
