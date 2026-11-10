@@ -79,6 +79,7 @@ It is still a beta, missing many of Resolve's features, so it's not a full repla
 - [How to use Kinoklip](docs/guide/readme.md): short how-to guides
 - [Resolve keymap](docs/keymap-resolve-windows.md): the default shortcuts
 - [Keyboard presets](docs/keymaps/readme.md): [Vegas Pro](https://www.vegascreativesoftware.com), [Premiere Pro](https://www.adobe.com/products/premiere.html), [Final Cut Pro](https://www.apple.com/final-cut-pro/), [Avid Media Composer](https://www.avid.com/media-composer), [Kdenlive](https://kdenlive.org), [Shotcut](https://shotcut.org) and [Vim](https://www.vim.org) / [Neovim](https://neovim.io) (modal keys on the timeline)
+- [Menu reference](docs/menu-reference.md): every menu entry and panel, what it does
 - [Release notes](docs/releases/): changes in each release
 - [Privacy](docs/privacy.md): what Kinoklip keeps on your computer, and what a bug report can share
 

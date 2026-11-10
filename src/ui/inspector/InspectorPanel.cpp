@@ -14,6 +14,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/help/Guide.h"
 #include "ui/inspector/KeyframeButton.h"
@@ -117,6 +118,9 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Inspector"), parent)
     , m_ctx(ctx)
 {
+    setPanelInfo(this, tr("Inspector"),
+        tr("Edits the parameters of the selected clip on the video, audio, effects, title and "
+           "transition tabs."));
     setPanelKey(QStringLiteral("inspector")); // in-app help: panel:inspector
     setAcceptDrops(true);
     setStyleSheet(inspectorStyleSheet(QApplication::palette()));

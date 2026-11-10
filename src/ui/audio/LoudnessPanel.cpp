@@ -9,6 +9,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/SchemeColors.h"
 
 #include <QFormLayout>
@@ -82,6 +83,9 @@ LoudnessPanel::LoudnessPanel(
     , m_controller(controller)
     , m_meters(meters)
 {
+    setPanelInfo(this, tr("Meters"),
+        tr("Output and bus meters, and the loudness of the output bus (momentary, short-term, "
+           "integrated, true peak)."));
     setObjectName(QStringLiteral("LoudnessPanel"));
     if (ctx.actions && ctx.actions->contains(QStringLiteral("audio.reset_loudness")))
         addTitleBarAction(ctx.actions->action(QStringLiteral("audio.reset_loudness")));

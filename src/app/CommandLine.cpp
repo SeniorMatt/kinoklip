@@ -59,8 +59,16 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
         QCoreApplication::translate("kk::CommandLine",
             "Render preset id for --render (e.g. youtube_1080p, master_prores_hq, audio_wav)."),
         QStringLiteral("id"));
+    const QCommandLineOption menuReference(QStringLiteral("menu-reference"),
+        QCoreApplication::translate("kk::CommandLine",
+            "Write the menu and panel reference (every menu entry with its default shortcut "
+            "and what it does, every panel of every page) as Markdown to <file>, then exit. "
+            "Uses default settings; the user's settings are neither read nor changed. This is "
+            "how docs/menu-reference.md is made."),
+        QStringLiteral("file"));
     parser.addOption(render);
     parser.addOption(preset);
+    parser.addOption(menuReference);
     parser.addOption(screenshot);
     parser.addOption(style);
     parser.addOption(colorScheme);
@@ -73,6 +81,7 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
     options.resetLayout = parser.isSet(resetLayout);
     options.style = parser.value(style);
     options.colorScheme = parser.value(colorScheme);
+    options.menuReferenceFile = parser.value(menuReference);
     if (parser.isSet(screenshot)) {
         options.screenshotPage = parser.value(screenshot);
         if (positional.isEmpty()) {

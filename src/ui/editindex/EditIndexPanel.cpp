@@ -9,6 +9,7 @@
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/editindex/EditIndexFilter.h"
 #include "ui/timeline/TimelineDialogs.h"
 
@@ -53,6 +54,8 @@ EditIndexPanel::EditIndexPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Edit Index"), parent)
     , m_ctx(ctx)
 {
+    setPanelInfo(this, tr("Edit Index"),
+        tr("Table of the timeline's events or markers; clicking a row moves the playhead there."));
     setPanelKey(QStringLiteral("edit_index")); // in-app help: panel:edit_index
     setObjectName(QStringLiteral("EditIndexPanel"));
     m_model = new EditIndexModel(ctx.project, this);

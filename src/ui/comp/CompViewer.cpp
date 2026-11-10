@@ -9,6 +9,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/comp/CompSession.h"
 #include "ui/comp/CompViewerOverlay.h"
 #include "ui/viewer/GuideOverlay.h"
@@ -43,6 +44,8 @@ CompViewer::CompViewer(int index, AppContext& ctx, CompSession* session, QWidget
     , m_session(session)
     , m_index(index)
 {
+    setPanelInfo(this, index == 0 ? tr("Left Viewer") : tr("Right Viewer"),
+        tr("Shows the output of one node of the open composition."));
     setObjectName(
         index == 0 ? QStringLiteral("CompViewerLeft") : QStringLiteral("CompViewerRight"));
     setTitleCentered(true);

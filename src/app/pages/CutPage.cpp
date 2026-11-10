@@ -7,6 +7,7 @@
 #include "core/Timeline.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/cut/CutEditor.h"
 #include "ui/cut/CutOverview.h"
@@ -57,9 +58,19 @@ CutPage::CutPage(AppContext& ctx, TimelineController* controller, QWidget* paren
     m_mediaPool->setObjectName(QStringLiteral("CutMediaPool"));
     m_mediaPool->setStripViewAvailable(true);
     m_viewer = new CutViewer(ctx);
+    setPanelInfo(m_viewer, tr("Cut Viewer"),
+        tr("The single large viewer, showing one source clip, all source clips as one tape, or the "
+           "timeline."));
     m_toolBar = new CutToolBar(ctx);
+    setPanelInfo(m_toolBar, tr("Cut Tool Bar"),
+        tr("The smart edit buttons, split, ripple delete, snapping, quick dissolve, Fast Review "
+           "and zoom."));
     m_overview = new CutOverview(ctx);
+    setPanelInfo(m_overview, tr("Overview Timeline"),
+        tr("The whole timeline fitted to the width; click or drag to move the playhead."));
     m_lower = new TimelineWidget(ctx, controller);
+    setPanelInfo(m_lower, tr("Detail Timeline"),
+        tr("The timeline zoomed in around a centred playhead, where clips are edited."));
     m_lower->setObjectName(QStringLiteral("CutLowerTimeline"));
     TimelineViewOptions options;
     options.centredPlayhead = true;

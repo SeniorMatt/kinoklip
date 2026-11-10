@@ -222,6 +222,7 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
         m_pageBar->addPageAction(placeholder);
     }
 
+    describeStandardActions(*ctx.actions); // status tips; the menu reference reads them
     buildMenus();
     // A rebound key may take or free a menu title's Alt+letter.
     connect(ctx.actions, &ActionRegistry::shortcutsChanged, this, &MainWindow::updateMenuMnemonics);
@@ -407,6 +408,33 @@ void MainWindow::buildMenus()
         menuBar()->installEventFilter(guard);
     }
     updateMenuMnemonics();
+    // Submenus whose entries depend on this computer or the user's files: the menu reference
+    // (MenuReference.h) lists each as one row instead of its entries.
+    const struct
+    {
+        const char* menu;
+        const char* what;
+    } dynamicMenus[] = {
+        {"menu:file.recent",
+            QT_TR_NOOP("Lists the projects opened lately, newest first; choosing one opens it.")},
+        {"menu:view.guide_presets",
+            QT_TR_NOOP("Lists the built-in and saved guide presets; choosing one applies it to "
+                       "the viewer.")},
+        {"menu:view.guide_presets_delete",
+            QT_TR_NOOP("Lists the guide presets you saved; choosing one deletes it.")},
+        {"menu:settings.color_scheme",
+            QT_TR_NOOP("Lists the colour schemes found on this computer; choosing one changes the "
+                       "colours of the whole window.")},
+        {"menu:settings.style",
+            QT_TR_NOOP("Lists the widget styles found on this computer; choosing one changes how "
+                       "buttons and panels are drawn.")},
+    };
+    for (const auto& entry : dynamicMenus) {
+        if (auto* menu = menuBar()->findChild<QMenu*>(QLatin1String(entry.menu))) {
+            menu->setProperty("kkDynamicMenu", true);
+            menu->menuAction()->setStatusTip(tr(entry.what));
+        }
+    }
     // File > Open Recent lists files, not registered commands: filled by ProjectController.
     if (auto* recent = menuBar()->findChild<QMenu*>(QStringLiteral("menu:file.recent")))
         m_projectController->attachRecentMenu(recent);

@@ -6,6 +6,7 @@
 #include "ui/common/FolderImport.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 
 #include <QComboBox>
@@ -54,6 +55,8 @@ MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Media Storage"), parent)
     , m_ctx(ctx)
 {
+    setPanelInfo(this, tr("Media Storage"),
+        tr("Browses the folders of this computer and adds media files to the media pool."));
     auto* content = new QWidget;
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(0, 0, 0, 0);

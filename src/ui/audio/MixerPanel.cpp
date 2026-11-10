@@ -9,6 +9,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 
 #include <QFrame>
 #include <QHBoxLayout>
@@ -23,6 +24,8 @@ MixerPanel::MixerPanel(
     , m_controller(controller)
     , m_meters(meters)
 {
+    setPanelInfo(this, tr("Mixer"),
+        tr("A strip for each audio track and each bus, with its level and meter."));
     setPanelKey(QStringLiteral("mixer")); // in-app help: panel:mixer
     setObjectName(QStringLiteral("MixerPanel"));
     if (ctx.actions && ctx.actions->contains(QStringLiteral("audio.add_bus")))

@@ -34,6 +34,7 @@ ctest --test-dir build --output-on-failure      # tests run with QT_QPA_PLATFORM
 Useful options:
 ```sh
 ./build/kinoklip --reset-layout                     # ignore the saved window layout
+QT_QPA_PLATFORM=offscreen ./build/kinoklip --menu-reference docs/menu-reference.md   # rewrite the menu and panel reference (scripts/menu-reference.sh)
 ./build/kinoklip --color-scheme BreezeLight         # colour scheme for this run (or "system")
 ./build/kinoklip --widget-style Fusion              # widget style for this run
 QT_QPA_PLATFORM=offscreen ./build/kinoklip --screenshot edit out.png [project.kkproj]

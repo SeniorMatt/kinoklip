@@ -9,6 +9,7 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/effects/EffectActions.h"
@@ -339,6 +340,9 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Effects"), parent)
     , m_ctx(ctx)
 {
+    setPanelInfo(this, tr("Effects"),
+        tr("Searchable library of video transitions, titles, generators and video and audio "
+           "effects; drag an entry onto the timeline or double-click it to apply it."));
     setPanelKey(QStringLiteral("effects")); // in-app help: panel:effects
     // Resolve's layout: a category sidebar on the left, search + the effects on the right.
     m_categories = new QTreeWidget;

@@ -8,6 +8,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/deliver/RenderPresetRow.h"
 
 #include <QButtonGroup>
@@ -180,6 +181,9 @@ RenderSettingsPanel::RenderSettingsPanel(AppContext& ctx, ExportPresets* presets
     , m_ctx(ctx)
     , m_presets(presets)
 {
+    setPanelInfo(this, tr("Render Settings"),
+        tr("Preset, file name and location, video, audio and file options and render range of the "
+           "export; Add to Render Queue is here."));
     setPanelKey(QStringLiteral("render_settings")); // in-app help: panel:render_settings
     auto* body = new QWidget;
     auto* layout = new QVBoxLayout(body);

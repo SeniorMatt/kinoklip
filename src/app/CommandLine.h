@@ -23,10 +23,12 @@ struct CommandLineOptions
     QString renderFramePath; ///< image written by --render-frame
     QString renderProject; ///< --render <project>: project to export
     QString renderOutput; ///< file written by --render
+    QString menuReferenceFile; ///< --menu-reference <file>: where the menu and panel reference goes
     QString renderPreset; ///< --preset <id> for --render (empty = chosen by extension)
 
     [[nodiscard]] bool isScreenshot() const { return !screenshotPage.isEmpty(); }
     [[nodiscard]] bool isRenderFrame() const { return !renderFrameProject.isEmpty(); }
+    [[nodiscard]] bool isMenuReference() const { return !menuReferenceFile.isEmpty(); }
     [[nodiscard]] bool isRender() const { return !renderProject.isEmpty(); }
 };
 

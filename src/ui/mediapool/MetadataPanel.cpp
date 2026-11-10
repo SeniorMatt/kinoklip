@@ -11,6 +11,7 @@
 #include "media/MediaSource.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaImport.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 
@@ -72,6 +73,9 @@ MetadataPanel::MetadataPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Metadata"), parent)
     , m_ctx(ctx)
 {
+    setPanelInfo(this, tr("Metadata"),
+        tr("Shows the details of the selected media and lets you edit its shot, scene and notes "
+           "fields."));
     setPanelKey(QStringLiteral("metadata")); // in-app help: panel:metadata
     m_stack = new QStackedWidget;
     m_stack->addWidget(createPlaceholderContent(tr("Select a clip in the media pool.")));

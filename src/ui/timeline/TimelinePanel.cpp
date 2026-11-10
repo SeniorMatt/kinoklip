@@ -14,6 +14,7 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/ChangeSpeedDialog.h"
 #include "ui/timeline/ClipColorMenu.h"
@@ -59,6 +60,8 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Timeline"), parent)
     , m_ctx(ctx)
 {
+    setPanelInfo(this, tr("Timeline"),
+        tr("The timeline with its tool bar: tracks, clips, editing tools, snapping and zoom."));
     setPanelKey(QStringLiteral("timeline")); // in-app help: panel:timeline
     auto* body = new QWidget;
     auto* layout = new QVBoxLayout(body);

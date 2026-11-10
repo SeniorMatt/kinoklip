@@ -8,6 +8,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/TimelineCommandSuspension.h"
 #include "ui/comp/CompAdapter.h"
@@ -63,6 +64,8 @@ CompositingPage::CompositingPage(AppContext& ctx, QWidget* parent)
     m_viewers->addWidget(m_left);
     m_viewers->addWidget(m_right);
     m_transport = new CompTransport(ctx, m_session);
+    setPanelInfo(m_transport, tr("Transport"),
+        tr("Play and stop, and a ruler over the frames of the open clip."));
     auto* viewerArea = new QWidget;
     auto* va = new QVBoxLayout(viewerArea);
     va->setContentsMargins(0, 0, 0, 0);
@@ -71,6 +74,8 @@ CompositingPage::CompositingPage(AppContext& ctx, QWidget* parent)
     va->addWidget(m_transport);
 
     m_editor = new NodeEditor(m_session, ctx.actions);
+    setPanelInfo(m_editor, tr("Node Editor"),
+        tr("The node graph of the open clip: select, move, connect and edit nodes."));
     m_toolBar = buildToolBar();
     m_nodeArea = new QWidget;
     m_nodeArea->setObjectName(QStringLiteral("CompNodeArea"));
