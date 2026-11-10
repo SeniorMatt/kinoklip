@@ -372,10 +372,10 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Loop Playback (toggle) | Ctrl+/ | Repeats playback instead of stopping at the end of the timeline. |
 | Play In to Out | Alt+/ | Plays from the in point to the out point. |
 | Play Around Current Frame | / | Plays a short stretch before and after the playhead and returns to it. |
-| Playback Resolution > Full Resolution (choice) |  | Playback resolution (also in Playback > Playback Resolution). |
-| Playback Resolution > Half Resolution (choice) |  | Playback resolution (also in Playback > Playback Resolution). |
-| Playback Resolution > Quarter Resolution (choice) |  | Playback resolution (also in Playback > Playback Resolution). |
-| Playback Resolution > Automatic (Half When Playback Cannot Keep Up) (choice) |  | Playback resolution (also in Playback > Playback Resolution). |
+| Playback Resolution > Full Resolution (choice) |  | Play every frame at full resolution; frames are skipped if the computer cannot keep up. |
+| Playback Resolution > Half Resolution (choice) |  | Play the viewer at half the timeline resolution, for smoother playback. |
+| Playback Resolution > Quarter Resolution (choice) |  | Play the viewer at a quarter of the timeline resolution, for smoother playback. |
+| Playback Resolution > Automatic (Half When Playback Cannot Keep Up) (choice) |  | Play at full resolution and drop to half only while playback cannot keep up; paused frames stay full. |
 | Proxy Handling > Prefer Proxies (choice) |  | Plays proxy media where it exists. |
 | Proxy Handling > Prefer Camera Originals (choice) |  | Plays the camera original files even where proxy media exists. |
 | Proxy Handling > Disable All Proxies (choice) |  | Ignores all proxy media. |

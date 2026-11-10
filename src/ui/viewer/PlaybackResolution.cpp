@@ -103,6 +103,24 @@ QString PlaybackResolution::toolTip()
               "Auto: Full, switching to Half only while playback cannot keep up (paused: Full).");
 }
 
+QString PlaybackResolution::statusTip(Mode mode)
+{
+    switch (mode) {
+    case Mode::Half:
+        return tr("Play the viewer at half the timeline resolution, for smoother playback.");
+    case Mode::Quarter:
+        return tr("Play the viewer at a quarter of the timeline resolution, for smoother "
+                  "playback.");
+    case Mode::Auto:
+        return tr("Play at full resolution and drop to half only while playback cannot keep "
+                  "up; paused frames stay full.");
+    case Mode::Full:
+        break;
+    }
+    return tr("Play every frame at full resolution; frames are skipped if the computer cannot "
+              "keep up.");
+}
+
 void PlaybackResolution::bindCombo(QComboBox* combo)
 {
     {
@@ -138,7 +156,7 @@ void PlaybackResolution::connectActions(ActionRegistry* actions)
         QAction* action = actions->action(id);
         action->setCheckable(true);
         action->setChecked(mode == m_mode);
-        action->setStatusTip(toolTip().section(QLatin1Char('\n'), 0, 0));
+        action->setStatusTip(statusTip(mode));
         connect(action, &QAction::triggered, this, [this, mode] { setMode(mode); });
         connect(this, &PlaybackResolution::changed, action,
             [action, mode](Mode current) { action->setChecked(current == mode); });
