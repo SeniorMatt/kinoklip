@@ -15,6 +15,8 @@ namespace kk::stabilize {
 
 namespace {
 
+/// Most frames a stored path may have (a day at 100 fps is 8.6 million).
+constexpr int64_t kMaxFrames = 20'000'000;
 constexpr double kEdgeTolerance = 1e-9;
 constexpr int kZoomSteps = 24; ///< bisection steps of the cover search
 constexpr double kFrameTolerance = 0.01; ///< of a frame, when turning a time into a frame number
@@ -59,8 +61,7 @@ std::vector<double> smoothed(const std::vector<double>& x, double sigma)
             t1 += w * d * v;
         }
         const double det = s0 * s2 - s1 * s1;
-        out[static_cast<size_t>(t)]
-            = det > 1e-9 * s0 * s2 ? (t0 * s2 - t1 * s1) / det : t0 / s0;
+        out[static_cast<size_t>(t)] = det > 1e-9 * s0 * s2 ? (t0 * s2 - t1 * s1) / det : t0 / s0;
     }
     return out;
 }
@@ -448,20 +449,30 @@ ClipStabilization fromJson(const QJsonObject& o)
         const QJsonArray fpsArray = d.value(QLatin1String("fps")).toArray();
         const Rational fps {fpsArray.at(0).toInt(25), fpsArray.at(1).toInt(1)};
         const int64_t frames = d.value(QLatin1String("frames")).toInteger();
+        const int64_t first = d.value(QLatin1String("first")).toInteger();
+        const double aspect = d.value(QLatin1String("aspect")).toDouble(0.0);
         const QByteArray bytes = qUncompress(
             QByteArray::fromBase64(d.value(QLatin1String("path")).toString().toLatin1()));
-        const size_t count = size_t(frames) * size_t(paramCount(mode));
-        if (fps.isValid() && frames > 0 && size_t(bytes.size()) == count * 4) {
+        // The file is untrusted: every number is range-checked before it is multiplied or used.
+        const int64_t perFrame = paramCount(mode);
+        const bool sane = fpsArray.size() == 2 && fps.isValid() && fps.num <= 100000 && fps.den <= 100000 && frames > 0
+            && frames <= kMaxFrames && int64_t(bytes.size()) / 4 / perFrame == frames
+            && int64_t(bytes.size()) == frames * perFrame * 4 && first >= -kMaxFrames
+            && first <= (int64_t(1) << 40) && std::isfinite(aspect) && aspect >= 0.05
+            && aspect <= 20.0;
+        if (sane) {
+            const size_t count = size_t(frames * perFrame);
             std::vector<float> path(count);
-            for (size_t i = 0; i < count; ++i) {
+            bool finite = true;
+            for (size_t i = 0; i < count && finite; ++i) {
                 uint32_t bits = 0;
                 for (int b = 0; b < 4; ++b)
                     bits |= uint32_t(uchar(bytes[qsizetype(i * 4 + size_t(b))])) << (8 * b);
                 std::memcpy(&path[i], &bits, 4);
+                finite = std::isfinite(path[i]);
             }
-            st.data = std::make_shared<const Data>(mode, fps,
-                d.value(QLatin1String("first")).toInteger(),
-                d.value(QLatin1String("aspect")).toDouble(9.0 / 16.0), std::move(path));
+            if (finite)
+                st.data = std::make_shared<const Data>(mode, fps, first, aspect, std::move(path));
         }
     }
     return st;

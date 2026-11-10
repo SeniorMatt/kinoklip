@@ -10,6 +10,7 @@
 #include "core/Timeline.h"
 
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QTemporaryDir>
 #include <QTest>
@@ -437,6 +438,80 @@ private slots:
         const ClipData damaged = serialization::clipFromJson(o);
         QVERIFY(!damaged.stabilization.data);
         QVERIFY(damaged.stabilization.settings.enabled);
+    }
+
+    // A project file is untrusted: damaged or hostile data loads as settings only, no crash,
+    // and the clip renders unstabilized (no data = identity transform).
+    void hostileDataIsDropped()
+    {
+        std::vector<Pose> poses;
+        for (int t = 0; t < 30; ++t)
+            poses.push_back({0.001 * t, 0});
+        ClipData c = stabilizedClip(makeData(st::Mode::Translation, poses));
+        const QJsonObject good = serialization::clipToJson(c);
+        QVERIFY(serialization::clipFromJson(good).stabilization.data); // the baseline loads
+
+        auto load = [&](const QString& key, const QJsonValue& value) {
+            QJsonObject o = good;
+            QJsonObject stab = o.value(QStringLiteral("stabilization")).toObject();
+            QJsonObject data = stab.value(QStringLiteral("data")).toObject();
+            data[key] = value;
+            stab[QStringLiteral("data")] = data;
+            o[QStringLiteral("stabilization")] = stab;
+            return serialization::clipFromJson(o);
+        };
+        auto expectDropped = [&](const QString& what, const ClipData& loaded) {
+            QVERIFY2(!loaded.stabilization.data, qPrintable(what));
+            QVERIFY2(loaded.stabilization.settings.enabled, qPrintable(what));
+            QVERIFY2(!st::isActive(loaded.stabilization), qPrintable(what));
+            QVERIFY2(
+                st::transform(loaded, 3, QSizeF(640, 360), kFps).isIdentity(), qPrintable(what));
+        };
+        // 2^62 / 2 + 30 frames wraps size_t(frames) * 2 * 4 to the real byte count.
+        expectDropped(QStringLiteral("wrapped frames"),
+            load(QStringLiteral("frames"), double((qint64(1) << 62) / 2 + 30)));
+        expectDropped(QStringLiteral("wrapped frames (exact)"),
+            load(QStringLiteral("frames"), qint64((quint64(1) << 63) / 8 + 30)));
+        expectDropped(QStringLiteral("negative frames"), load(QStringLiteral("frames"), -30));
+        expectDropped(QStringLiteral("zero frames"), load(QStringLiteral("frames"), 0));
+        expectDropped(QStringLiteral("too many frames"), load(QStringLiteral("frames"), 29));
+        for (const double aspect : {0.0, -1.0, 1e-9, 1e9, std::nan(""), HUGE_VAL})
+            expectDropped(
+                QStringLiteral("aspect %1").arg(aspect), load(QStringLiteral("aspect"), aspect));
+        expectDropped(
+            QStringLiteral("negative fps"), load(QStringLiteral("fps"), QJsonArray {-25, 1}));
+        expectDropped(QStringLiteral("zero fps"), load(QStringLiteral("fps"), QJsonArray {25, 0}));
+        expectDropped(QStringLiteral("short fps"), load(QStringLiteral("fps"), QJsonArray {25}));
+        expectDropped(
+            QStringLiteral("absurd first"), load(QStringLiteral("first"), double(qint64(1) << 62)));
+        expectDropped(QStringLiteral("not base64"),
+            load(QStringLiteral("path"), QStringLiteral("!!!not base64***")));
+        expectDropped(QStringLiteral("empty path"), load(QStringLiteral("path"), QString()));
+        const QString path = good.value(QStringLiteral("stabilization"))
+                                 .toObject()
+                                 .value(QStringLiteral("data"))
+                                 .toObject()
+                                 .value(QStringLiteral("path"))
+                                 .toString();
+        expectDropped(
+            QStringLiteral("truncated"), load(QStringLiteral("path"), path.left(path.size() / 2)));
+        // NaN / infinity in the numbers (a validly compressed block of the right size).
+        for (const float bad : {std::nanf(""), HUGE_VALF, -HUGE_VALF}) {
+            std::vector<float> values(30 * 2, 0.0f);
+            values[17] = bad;
+            QByteArray bytes(qsizetype(values.size() * 4), Qt::Uninitialized);
+            memcpy(bytes.data(), values.data(), size_t(bytes.size()));
+            expectDropped(QStringLiteral("non-finite path"),
+                load(QStringLiteral("path"), QString::fromLatin1(qCompress(bytes).toBase64())));
+        }
+        // Data's lookups never leave the path, whatever the frame number.
+        const auto data = makeData(st::Mode::Perspective, poses, 5);
+        st::Settings s;
+        s.zoom = true;
+        for (const int64_t k : {int64_t(-1'000'000'000'000), int64_t(-1), int64_t(4), int64_t(5),
+                 int64_t(34), int64_t(35), int64_t(1) << 62, INT64_MAX, INT64_MIN})
+            QCOMPARE(data->correction(s, k).m[8] != 0.0, true);
+        QVERIFY(data->zoomFactor(s) >= 1.0);
     }
 
     // In a project: stabilizing is one undo step, undo / redo bring the data back, save / load keep
