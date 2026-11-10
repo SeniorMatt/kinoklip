@@ -244,6 +244,7 @@ private:
         RetimePoint, ///< a speed point / clip end handle of the retime controls (31.4)
         Shuffle, ///< Ctrl+Shift drag: swap / shuffle insert within the track (21.6)
         Fade, ///< a fade handle at a clip's top corner (spec 31.4)
+        FadeCurve, ///< the dot on a fade line: the fade's shape (spec 59.2)
         LevelLine, ///< the audio level line: volume up / down (spec 31.1)
         LevelKey, ///< a volume key on the level line: time and value (spec 31.2)
         MarkerDuration, ///< Alt+drag a ruler marker / drag a ranged marker's end (spec 18.11)
@@ -293,7 +294,8 @@ private:
         quint64 retimeClip = 0;
         // Fade / LevelLine / LevelKey (TimelineLevelsInput.cpp)
         quint64 levelClip = 0;
-        bool fadeHead = true; ///< Fade: the fade-in handle (else the fade-out)
+        bool fadeHead = true; ///< Fade / FadeCurve: the fade-in handle (else the fade-out)
+        double curveGrabDy = 0.0; ///< FadeCurve: pointer y minus the dot's centre y at the press
         int64_t levelFrame = 0; ///< LevelLine: clip-local frame grabbed
         double levelDb = 0.0; ///< accumulated dB offset (Shift = fine steps)
         double levelLastY = 0.0; ///< pointer y of the previous move
@@ -333,6 +335,8 @@ private:
     /// Left press with the selection tool on a clip: a fade handle, a volume key or the
     /// level line (Alt+click adds a key). Returns whether the press was taken.
     bool pressLevels(QPointF pos, const TimelineHit& hit);
+    /// Double-click on a fade curve dot: back to linear, one undo step (spec 59.4).
+    bool resetFadeCurveAt(QPointF pos);
     void updateLevelDrag(QPointF pos);
     /// Cursor for @p pos over clip @p hit's level line / fade handles, if any.
     [[nodiscard]] std::optional<Qt::CursorShape> levelCursor(

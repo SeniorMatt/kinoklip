@@ -2,6 +2,7 @@
 // LevelLines — level line / fade handle geometry (see LevelLines.h).
 #include "ui/timeline/LevelLines.h"
 
+#include "core/ClipAttributes.h"
 #include "core/LevelOps.h"
 #include "core/ParamKeys.h"
 
@@ -108,6 +109,67 @@ int hitFadeHandle(
             .contains(pos))
         return 2;
     return 0;
+}
+
+double fadeAreaTop(const QRectF& clipRect)
+{
+    return clipRect.top() + 1;
+}
+
+double fadeAreaBottom(const QRectF& clipRect)
+{
+    return clipRect.bottom() - 1;
+}
+
+QPointF fadeCurvePoint(
+    const ClipData& clip, const QRectF& clipRect, const TimelineLayout& layout, bool head, double t)
+{
+    const double ppf = layout.pixelsPerFrame();
+    const double frames = double(head ? clip.fadeInFrames : clip.fadeOutFrames);
+    const double curve = head ? clip.fadeInCurve : clip.fadeOutCurve;
+    const double dx = t * frames * ppf;
+    const double x = head ? clipRect.left() + dx : clipRect.right() - dx;
+    const double top = fadeAreaTop(clipRect);
+    const double bottom = fadeAreaBottom(clipRect);
+    return {x, bottom - fadeShape(t, curve) * (bottom - top)};
+}
+
+QRectF fadeCurveHandleRect(
+    const ClipData& clip, const QRectF& clipRect, const TimelineLayout& layout, bool head)
+{
+    const int64_t frames = head ? clip.fadeInFrames : clip.fadeOutFrames;
+    if (frames <= 0 || clipRect.width() < kMinFadeClipWidth
+        || double(frames) * layout.pixelsPerFrame() < kMinCurveFadeWidth
+        || fadeAreaBottom(clipRect) - fadeAreaTop(clipRect) < kMinCurveHeight)
+        return {};
+    const QPointF c = fadeCurvePoint(clip, clipRect, layout, head, 0.5);
+    return QRectF(c.x() - kCurveHandle / 2, c.y() - kCurveHandle / 2, kCurveHandle, kCurveHandle);
+}
+
+int hitFadeCurveHandle(
+    const ClipData& clip, const QRectF& clipRect, const TimelineLayout& layout, QPointF pos)
+{
+    constexpr double kGrab = 2.0;
+    for (const bool head : {true, false}) {
+        const QRectF r = fadeCurveHandleRect(clip, clipRect, layout, head);
+        if (!r.isEmpty() && r.adjusted(-kGrab, -kGrab, kGrab, kGrab).contains(pos))
+            return head ? 1 : 2;
+    }
+    return 0;
+}
+
+double fadeCurveForY(const QRectF& clipRect, double y)
+{
+    const double top = fadeAreaTop(clipRect);
+    const double bottom = fadeAreaBottom(clipRect);
+    // Level of the fade's middle, kept inside what the curve range can reach (4^-1 ... 4^1).
+    const double lo = std::pow(0.5, 4.0);
+    const double hi = std::pow(0.5, 0.25);
+    const double level = std::clamp((bottom - y) / std::max(1.0, bottom - top), lo, hi);
+    // level = 0.5^(4^curve)  ->  curve = log4(ln(level) / ln(0.5))
+    double curve = std::log(std::log(level) / std::log(0.5)) / std::log(4.0);
+    curve = std::clamp(curve, -1.0, 1.0);
+    return std::abs(curve) < kCurveSnap ? 0.0 : curve;
 }
 
 } // namespace kk::levellines

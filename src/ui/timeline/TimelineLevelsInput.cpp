@@ -16,6 +16,7 @@
 
 #include <QGuiApplication>
 #include <QMenu>
+#include <QToolTip>
 
 #include <cmath>
 
@@ -29,6 +30,16 @@ namespace {
 bool hasFadeHandles(const ClipData& clip)
 {
     return clip.kind != ClipKind::Subtitle;
+}
+
+/// Tooltip text of a fade curve value while it is dragged.
+QString fadeCurveText(double curve)
+{
+    if (curve == 0.0)
+        return QObject::tr("Fade curve: linear");
+    return QObject::tr("Fade curve: %1 (%2)")
+        .arg(curve, 0, 'f', 2)
+        .arg(curve > 0 ? QObject::tr("slow start") : QObject::tr("fast start"));
 }
 
 /// Audio clips with a level line (media or nested sound).
@@ -48,6 +59,8 @@ std::optional<Qt::CursorShape> TimelineWidget::levelCursor(
     if (!clip || hit.row < 0)
         return std::nullopt;
     const QRectF r = m_layout.clipRect(hit.row, *clip);
+    if (hasFadeHandles(*clip) && ll::hitFadeCurveHandle(*clip, r, m_layout, pos) != 0)
+        return Qt::SplitVCursor; // the fade curve dot (spec 59.1)
     if (hasFadeHandles(*clip) && ll::hitFadeHandle(*clip, r, m_layout, pos) != 0)
         return Qt::SizeHorCursor;
     if (hasLevelLine(*clip, hit.track.type)) {
@@ -69,6 +82,18 @@ bool TimelineWidget::pressLevels(QPointF pos, const TimelineHit& hit)
         return false;
     const QRectF r = m_layout.clipRect(hit.row, *clip);
 
+    // The curve dot in the middle of a fade line (before the level line it may lie on).
+    if (hasFadeHandles(*clip)) {
+        if (const int dot = ll::hitFadeCurveHandle(*clip, r, m_layout, pos)) {
+            m_drag.levelClip = clip->id;
+            m_drag.fadeHead = dot == 1;
+            m_drag.curveGrabDy = pos.y()
+                - ll::fadeCurveHandleRect(*clip, r, m_layout, m_drag.fadeHead).center().y();
+            m_drag.pending = DragMode::FadeCurve;
+            m_drag.mode = DragMode::Pending;
+            return true;
+        }
+    }
     // Fade handles at the top corners.
     if (hasFadeHandles(*clip)) {
         if (const int handle = ll::hitFadeHandle(*clip, r, m_layout, pos)) {
@@ -138,6 +163,19 @@ void TimelineWidget::updateLevelDrag(QPointF pos)
         m_ctx.project->timeline()->notifyChanged();
         return;
     }
+    if (m_drag.mode == DragMode::FadeCurve) {
+        // The middle of the fade follows the pointer's height (kept relative to where the dot
+        // was grabbed, so it does not jump); near linear it snaps to exactly linear.
+        if (m_drag.hit.row >= 0) {
+            const QRectF r = m_layout.clipRect(m_drag.hit.row, *clip);
+            const double curve = ll::fadeCurveForY(r, pos.y() - m_drag.curveGrabDy);
+            levelops::setFadeCurve(data, clip->id, m_drag.fadeHead, curve);
+            QToolTip::showText(viewport()->mapToGlobal(pos.toPoint()) + QPoint(14, 14),
+                fadeCurveText(curve), viewport());
+        }
+        m_ctx.project->timeline()->notifyChanged();
+        return;
+    }
     // Vertical motion in dB, accumulated move by move so Shift (fine, a tenth) can be pressed
     // or released during the drag without the line jumping.
     const bool fine = QGuiApplication::keyboardModifiers() & Qt::ShiftModifier;
@@ -154,6 +192,27 @@ void TimelineWidget::updateLevelDrag(QPointF pos)
             m_ctx.selection->setKeyframes({*moved});
     }
     m_ctx.project->timeline()->notifyChanged();
+}
+
+bool TimelineWidget::resetFadeCurveAt(QPointF pos)
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const TimelineHit hit = m_layout.hitTest(data, pos);
+    if (hit.area != TimelineHit::Area::Clip || hit.row < 0
+        || m_controller->tool() != TimelineTool::Select)
+        return false;
+    const ClipData* clip = editops::clipById(data, hit.clipId);
+    const TrackData* track = data.track(hit.track);
+    if (!clip || !track || track->locked || !hasFadeHandles(*clip))
+        return false;
+    const int dot = ll::hitFadeCurveHandle(*clip, m_layout.clipRect(hit.row, *clip), m_layout, pos);
+    if (dot == 0)
+        return false;
+    const quint64 id = clip->id;
+    timelineedit::runEdit(m_ctx.project, tr("Reset Fade Curve"),
+        [&](TimelineData& d) { return levelops::setFadeCurve(d, id, dot == 1, 0.0); });
+    viewport()->update();
+    return true;
 }
 
 bool TimelineWidget::levelKeyMenu(QPointF pos, QPoint globalPos)
