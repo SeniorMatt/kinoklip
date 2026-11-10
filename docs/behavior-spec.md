@@ -1817,6 +1817,27 @@ PlanarTracker, the Homography fit) and the clip's transform. Tests: `tests/rende
 | 70.12 | Warper (Effects > Warp, `warper`) bends the picture with a grid of control points: Columns and Rows (2 - 4, default 3 x 3, not keyframable) and, for every point (row 1 at the top), a keyframable move in px on x and y (Point r, c X / Y, -2000 to 2000, 0 = in place). The picture follows the points smoothly (Catmull-Rom between the points, so a point moves what sits on it, and the part of the picture outside the grid takes the move of the nearest edge). With no point moved the pixels are untouched. Parameters of points outside the current Columns and Rows are kept and ignored. Same GPU pass as the Warp mode of Surface Tracker (70.10). | Done (tk warperDescriptorAndIdentity, warperMovesWhatSitsOnAPoint) |
 | 70.13 | Not done, on purpose: no on-screen handles for the Warper points (the points are numbers in the Inspector, keyframable like any parameter); 4 x 4 points at most. | Decision |
 
+## 71. Drag hover switches pages (drag-switch branch, owner request for 1.2)
+
+Holding a drag over a button of the page bar for a moment opens that page, so files can be dragged
+from a file manager (or clips from the Media Pool) to the Media, Edit or Cut page without letting
+go. Research, public documentation and common behaviour only, no code of any other program:
+spring-loaded folders in file managers, and tabs of browsers and panels that open while something
+is dragged over them. Common to them: a short delay of about a second, and feedback that shows the
+countdown. Chosen here: the button is highlighted and a fill sweeps across it from left to right
+with a bar along its bottom edge; when the sweep is full the page opens. Tests:
+`tests/app/test_pagespring.cpp` (ps).
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 71.1 | Every page button accepts every drag that enters it (file URLs from outside, the app's own media and clip drags), so the pointer never shows the forbidden cursor over the page bar. | Done (ps hoverSwitchesPage) |
+| 71.2 | While a drag rests on the button of another page the button is highlighted and filled from left to right over `kSpringLoadDelayMs` (900 ms). When the fill is complete the page opens, exactly as if the button had been clicked; the drag goes on, so the files can be dropped on the new page. | Done (ps hoverSwitchesPage) |
+| 71.3 | Leaving the button before the fill is complete cancels it: the feedback disappears and the page does not change. | Done (ps leavingEarlyCancels) |
+| 71.4 | The button of the current page accepts the drag and shows nothing and does nothing. A disabled page button (a page not built yet) takes no drag. | Done (ps currentPageButtonDoesNothing) |
+| 71.5 | A drop on a page button opens that page at once and is ignored: nothing is imported. | Done (ps dropSwitchesAtOnceAndImportsNothing) |
+| 71.6 | With the UI animations off (Preferences, the desktop's no-animation setting or `KK_NO_ANIMATIONS`) the button shows the plain highlight without the moving fill; the page still opens after the same delay. | Done |
+| 71.7 | The helper is `kk::SpringLoad` (`src/ui/common/SpringLoad.h`), an event filter that any button can use with one line; the page bar installs it on its buttons. | Done |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

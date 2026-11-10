@@ -58,6 +58,7 @@ Still to do for 1.2:
 - [x] Effects: Digital Glitch look
 - [x] Effects: Drone Overlay look
 - [x] Effects: DSLR look
+- [x] Pages: holding a drag over a page button for a moment switches to that page (spec 71)
 - [x] Effects: DVE look
 - [x] Effects: Video Call look
 - [x] Effects: Video Camera look

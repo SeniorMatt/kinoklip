@@ -14,6 +14,7 @@ Used by every panel and page. Depends on `core` only.
 | `Page.h` | base class for main-window pages; `PanelId` for the interface-toolbar toggles |
 | `SchemeColors.h` | `kk::schemeColors()`: every colour of custom-painted widgets (clips, badges, playhead, lanes, keyframes, overlays...) derived from the active colour scheme's roles; `SchemeColorsNotifier::changed()` after a scheme switch. Never hard-code a colour in a widget: add a role here |
 | `UiAnimation.h` | `kk::uianim`: the global switch of the small UI animations (prefs `ui/animations`, `ui/animationSpeed`, KDE's animation speed; off offscreen unless `KK_ANIMATIONS`), standard durations (`duration(Kind)`, 120-220 ms) and easing (OutCubic moves, light OutBack pops), the clock (`setClockForTesting()`), `PlayheadGlide`, `Notifier::changed()` |
+| `SpringLoad.h` | `kk::SpringLoad`: makes a button spring-loaded (spec 71): a drag resting on it for `kSpringLoadDelayMs` clicks it, with a highlight and a sweeping fill as the countdown; the page bar uses it |
 | `Icons.h` | `kk::icon("play")` — own SVGs tinted from the palette (On state = accent) |
 | `TextFit.h` | text in parts the user cannot resize never runs off its widget (docs/coding-style.md 5b, spec 23.20 - 23.23): `fitListWidthToItems()` (dialog section lists as wide as their widest item, refit on font / style change), `elideListItems()` (capped lists elide, full text as the tooltip), `setElidedText()` (labels and tool buttons in fixed-width strips) |
 | `TimecodeFormat.h` | `timecode::format(frames, fps)` → `HH:MM:SS:FF`, `timecode::parse()` |
