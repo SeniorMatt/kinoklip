@@ -90,9 +90,12 @@ struct Fixture
         for (QTreeWidget* tree : library->findChildren<QTreeWidget*>()) {
             const QList<QTreeWidgetItem*> items
                 = tree->findItems(name, Qt::MatchExactly | Qt::MatchRecursive);
-            if (!items.isEmpty()) {
-                emit tree->itemDoubleClicked(items.front(), 0);
-                return;
+            // A folder can carry the same name as an entry in it (Wipe): take the entry.
+            for (QTreeWidgetItem* item : items) {
+                if (item->childCount() == 0) {
+                    emit tree->itemDoubleClicked(item, 0);
+                    return;
+                }
             }
         }
         QFAIL("no such library entry");
