@@ -25,6 +25,11 @@ double defaultValue(QStringView key)
         {BgOpacity, 60.0},
         {TextPosX, 0.5},
         {TextPosY, 0.5},
+        {LayerOpacity, 100.0},
+        {ShapeWidth, 400.0},
+        {ShapeHeight, 200.0},
+        {CornerRadius, 40.0},
+        {FillOpacity, 100.0},
     };
     for (const KeyDefault& d : nonZeroDefaults) {
         if (key == d.key)

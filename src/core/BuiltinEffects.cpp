@@ -10,6 +10,7 @@
 #include "core/ParamKeys.h"
 #include "core/Stabilization.h"
 #include "core/Subtitles.h"
+#include "core/TitleLayers.h"
 #include "core/TitlePresets.h"
 
 #include <QCoreApplication>
@@ -89,7 +90,8 @@ void EffectRegistry::registerBuiltins()
         },
         QStringLiteral("transform")));
     // Stabilization (spec 58): the Inspector builds the section itself (settings and data live in
-    // ClipData::stabilization); the descriptor gives it a name, a help key and a place in the catalogue.
+    // ClipData::stabilization); the descriptor gives it a name, a help key and a place in the
+    // catalogue.
     add(descriptor(stabilize::kDescriptorId, tr("Stabilization"), C::ClipProperties,
         tr("Steady a shaky clip: measure its camera movement and correct it"), {},
         QStringLiteral("transform")));
@@ -300,8 +302,7 @@ void EffectRegistry::registerBuiltins()
         tr("An adjustment clip that breaks up the picture below it with digital glitches"), {},
         {}));
     add(descriptor(generators::DroneOverlayClip, tr("Drone Overlay"), C::Effects,
-        tr("An adjustment clip that adds a drone-camera display to the picture below it"), {},
-        {}));
+        tr("An adjustment clip that adds a drone-camera display to the picture below it"), {}, {}));
     add(descriptor(generators::DslrClip, tr("DSLR"), C::Effects,
         tr("An adjustment clip that adds a photo-camera viewfinder to the picture below it"), {},
         {}));
@@ -311,8 +312,7 @@ void EffectRegistry::registerBuiltins()
     add(descriptor(generators::VideoCallClip, tr("Video Call"), C::Effects,
         tr("An adjustment clip that puts the picture below it in a video-call tile"), {}, {}));
     add(descriptor(generators::VideoCameraClip, tr("Video Camera"), C::Effects,
-        tr("An adjustment clip that adds a camcorder viewfinder to the picture below it"), {},
-        {}));
+        tr("An adjustment clip that adds a camcorder viewfinder to the picture below it"), {}, {}));
     add(descriptor(generators::CompositionClip, tr("Composition Clip"), C::Effects,
         tr("A see-through clip with its own composition: build a node graph on the Compositing "
            "page"),
@@ -358,6 +358,8 @@ QVector<ParamDescriptor> titleParams(const TitleLook& look)
         number(keys::TextPosY, tr("Position Y"), -1, 2, look.posY, 0.001),
         choice(keys::Anchor, tr("Anchor"), sides, sideLabels, look.anchor),
         boolean(keys::Scroll, tr("Scroll"), look.scroll),
+        number(keys::LayerRotation, tr("Rotation"), -3600, 3600, 0, 0.1, kDegrees),
+        number(keys::LayerOpacity, tr("Opacity"), 0, 100, 100, 1, kPercent),
         color(keys::OutlineColor, tr("Outline Color"), QColor(Qt::black)),
         number(keys::OutlineWidth, tr("Outline Width"), 0, 50, 0, 0.5, kPx),
         boolean(keys::BgEnabled, tr("Background"), look.background),
@@ -373,6 +375,31 @@ void EffectRegistry::registerTitles()
 {
     using C = EffectCategory;
     const QString storage = QStringLiteral("title"); // ClipData::title
+    // The parameters of a Shape layer of a title (core/TitleLayers.h). Not a library entry:
+    // the Inspector shows them for the selected Shape layer.
+    {
+        const QStringList shapes {QStringLiteral("rect"), QStringLiteral("rounded"),
+            QStringLiteral("ellipse"), QStringLiteral("line")};
+        const QStringList shapeLabels {
+            tr("Rectangle"), tr("Rounded Rectangle"), tr("Ellipse"), tr("Line")};
+        add(descriptor(titlelayers::kShapeDescriptorId, tr("Shape"), C::ClipProperties,
+            tr("A shape layer of a title"),
+            {
+                choice(keys::ShapeType, tr("Shape"), shapes, shapeLabels, shapes.first()),
+                number(keys::ShapeWidth, tr("Width"), 1, 20000, 400, 1, kPx),
+                number(keys::ShapeHeight, tr("Height"), 1, 20000, 200, 1, kPx),
+                number(keys::CornerRadius, tr("Corner Radius"), 0, 10000, 40, 1, kPx),
+                number(keys::TextPosX, tr("Position X"), -1, 2, 0.5, 0.001),
+                number(keys::TextPosY, tr("Position Y"), -1, 2, 0.5, 0.001),
+                number(keys::LayerRotation, tr("Rotation"), -3600, 3600, 0, 0.1, kDegrees),
+                color(keys::Color, tr("Fill Color"), QColor(0x2d, 0x7d, 0xd2)),
+                number(keys::FillOpacity, tr("Fill Opacity"), 0, 100, 100, 1, kPercent),
+                color(keys::OutlineColor, tr("Stroke Color"), QColor(Qt::white)),
+                number(keys::OutlineWidth, tr("Stroke Width"), 0, 500, 0, 0.5, kPx),
+                number(keys::LayerOpacity, tr("Opacity"), 0, 100, 100, 1, kPercent),
+            },
+            storage));
+    }
     // Our own simple designs: plain text, system font, an optional flat box.
     const QColor box(0x14, 0x16, 0x1c);
     TitleLook lowerThird;

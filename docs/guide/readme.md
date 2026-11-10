@@ -47,6 +47,8 @@ search field.
 - [Speed up or slow down a clip](change-clip-speed.md)
 - [Fade audio in and out, and add music](fade-audio-and-add-music.md)
 - [Fade to or from black](fade-to-black.md)
+- [Add layers to a title](add-layers-to-a-title.md) (text and shape layers in one title)
+- [Emoji in titles and captions](emoji-in-titles-and-captions.md)
 - [Add a transition, and hide a jump cut with Smooth Cut](transitions.md)
 - [Freeze a frame](freeze-a-frame.md)
 - [Steady a shaky clip](stabilize-a-shaky-clip.md)

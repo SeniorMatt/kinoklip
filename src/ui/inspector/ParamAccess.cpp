@@ -98,6 +98,13 @@ const ParamSet* paramSet(const ClipData& clip, const ParamRef& ref)
         return &clip.audio;
     case ParamScope::Title:
         return &clip.title;
+    case ParamScope::TitleLayer: {
+        for (const TitleLayer& layer : clip.titleLayers) {
+            if (layer.id == ref.effectId)
+                return &layer.params;
+        }
+        return nullptr;
+    }
     case ParamScope::SolidColor:
         return nullptr;
     case ParamScope::Effect: {
@@ -130,6 +137,13 @@ ParamSet* paramSet(ClipData& clip, const ParamRef& ref)
         return &clip.audio;
     case ParamScope::Title:
         return &clip.title;
+    case ParamScope::TitleLayer: {
+        for (TitleLayer& layer : clip.titleLayers) {
+            if (layer.id == ref.effectId)
+                return &layer.params;
+        }
+        return nullptr;
+    }
     case ParamScope::SolidColor:
         return nullptr;
     case ParamScope::Effect: {

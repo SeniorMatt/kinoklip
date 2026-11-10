@@ -180,7 +180,10 @@ private slots:
         QStringList groupTitles;
         for (auto* label : page->findChildren<QLabel*>(QStringLiteral("InspectorGroupTitle")))
             groupTitles << label->text();
-        QCOMPARE(groupTitles, QStringList {QStringLiteral("Left Lower Third")});
+        // The preset's own group, and the Layers group the Title tab now starts with.
+        QVERIFY(groupTitles.contains(QStringLiteral("Left Lower Third")));
+        QVERIFY(groupTitles.contains(QStringLiteral("Layers")));
+        QCOMPARE(groupTitles.size(), 2);
         for (const QString& key : {keys::Size, keys::TextPosX, keys::TextPosY, keys::BgOpacity})
             QVERIFY2(page->findChild<ValueField*>(QStringLiteral("value:") + key), qPrintable(key));
         auto* textEdit = page->findChild<QPlainTextEdit*>(QStringLiteral("text:") + keys::Text);

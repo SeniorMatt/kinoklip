@@ -3,7 +3,9 @@
 #include "app/commands/ParamSupport.h"
 
 #include "app/commands/CommandSupport.h"
+#include "core/EffectRegistry.h"
 #include "core/Generators.h"
+#include "core/TitleLayers.h"
 #include "core/TitlePresets.h"
 
 #include <QColor>
@@ -121,8 +123,8 @@ std::optional<CommandResult> checkSettings(
     return std::nullopt;
 }
 
-void applySettings(ClipData& clip, const ParamRef& base,
-    const QVector<ParamSetting>& settings, int64_t localFrame)
+void applySettings(
+    ClipData& clip, const ParamRef& base, const QVector<ParamSetting>& settings, int64_t localFrame)
 {
     for (const ParamSetting& s : settings) {
         ParamRef ref = base;
@@ -202,8 +204,39 @@ std::optional<CommandResult> resolveParam(
             .arg(key));
 }
 
-QJsonValue paramValueJson(const ClipData& clip, const ParamRef& ref,
-    const ParamDescriptor& d, int64_t localFrame)
+const EffectDescriptor* layerDescriptor(const ClipData& clip, quint64 layerId)
+{
+    if (clip.kind != ClipKind::Title || !titlelayers::exists(clip, layerId))
+        return nullptr;
+    if (titlelayers::kind(clip, layerId) == TitleLayerKind::Shape)
+        return EffectRegistry::instance().find(QLatin1String(titlelayers::kShapeDescriptorId));
+    return titles::descriptorOf(clip);
+}
+
+std::optional<CommandResult> resolveLayerParam(
+    const ClipData& clip, quint64 layerId, const QString& key, ResolvedParam& out)
+{
+    const EffectDescriptor* d = layerDescriptor(clip, layerId);
+    if (!d)
+        return fail("unknown_layer",
+            QStringLiteral("clip %1 has no title layer %2 (see title.layer_list)")
+                .arg(clip.id)
+                .arg(layerId));
+    const ParamDescriptor* p = findIn(d, key);
+    if (!p)
+        return fail("unknown_parameter",
+            QStringLiteral("title layer %1 has no parameter \"%2\" (it has: %3)")
+                .arg(layerId)
+                .arg(key, keyList(*d)));
+    out.ref = {clip.id,
+        layerId == titlelayers::kBaseId ? ParamScope::Title : ParamScope::TitleLayer, layerId, key};
+    out.descriptor = p;
+    out.owner = d;
+    return std::nullopt;
+}
+
+QJsonValue paramValueJson(
+    const ClipData& clip, const ParamRef& ref, const ParamDescriptor& d, int64_t localFrame)
 {
     if (d.isScalar())
         return paramaccess::scalar(clip, ref, d, localFrame);

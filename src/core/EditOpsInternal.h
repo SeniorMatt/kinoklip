@@ -42,6 +42,8 @@ inline void shiftClipKeys(ClipData& clip, int64_t deltaFrames)
     clip.transform.shiftKeys(deltaFrames);
     clip.audio.shiftKeys(deltaFrames);
     clip.title.shiftKeys(deltaFrames);
+    for (TitleLayer& layer : clip.titleLayers)
+        layer.params.shiftKeys(deltaFrames);
     clip.retime.shiftKeys(deltaFrames); // speed points follow the content too
     for (EffectInstance& fx : clip.effects)
         fx.params.shiftKeys(deltaFrames);

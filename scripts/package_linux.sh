@@ -351,6 +351,26 @@ if [ -d "$COLOR_SCHEMES_DIR" ] && [ -f "$QT_PLUGINS/styles/breeze6.so" ]; then
     fi
 fi
 
+# Colour emoji for titles and captions (spec 69): Noto Color Emoji (SIL OFL 1.1) from the build
+# host's font package (Arch: noto-fonts-emoji, Debian: fonts-noto-color-emoji). Kinoklip registers
+# it at run time only when the system has no colour emoji font of its own
+# (src/render/EmojiText.cpp), so a user's own emoji font still wins.
+EMOJI_FONT=
+for f in /usr/share/fonts/noto/NotoColorEmoji.ttf /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf \
+    /usr/share/fonts/google-noto-color-emoji-fonts/NotoColorEmoji.ttf; do
+    if [ -f "$f" ]; then
+        EMOJI_FONT=$f
+        break
+    fi
+done
+if [ -n "$EMOJI_FONT" ]; then
+    log "bundling $EMOJI_FONT"
+    mkdir -p "$APPDIR/usr/share/kinoklip/fonts"
+    cp -L "$EMOJI_FONT" "$APPDIR/usr/share/kinoklip/fonts/NotoColorEmoji.ttf"
+else
+    log "WARNING: no Noto Color Emoji on this host (install noto-fonts-emoji): emoji in titles need the user's own font"
+fi
+
 # RUNPATHs. They make the bundle work without LD_LIBRARY_PATH for everything except Qt
 # (which the launcher selects per mode). Never include usr/lib/qt in the binary's RUNPATH,
 # or host-Qt mode could not use the system Qt.
@@ -546,6 +566,9 @@ declare -A LICENCE_DONE=()
         fi
         if [ -f "$APPDIR/usr/share/icons/breeze/index.theme" ]; then
             echo "icons/breeze /usr/share/icons/breeze/index.theme"
+        fi
+        if [ -f "$APPDIR/usr/share/kinoklip/fonts/NotoColorEmoji.ttf" ]; then
+            echo "NotoColorEmoji.ttf $EMOJI_FONT"
         fi
     } | sort | while read -r name path; do
         pkg="$(pkg_of "$path")"

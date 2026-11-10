@@ -4,6 +4,7 @@
 
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
+#include "core/TitleLayers.h"
 #include "core/TitlePresets.h"
 
 #include <QCoreApplication>
@@ -73,6 +74,9 @@ void appendGroup(QVector<KeyframeEntry>& out, int& colorIndex, const ClipData& c
             break;
         case ParamScope::Title:
             path = ko::memberPath(QStringLiteral("title"), pd.key);
+            break;
+        case ParamScope::TitleLayer:
+            path = ko::layerPath(effectId, pd.key);
             break;
         case ParamScope::Effect:
             path = ko::effectPath(effectId, pd.key);
@@ -236,6 +240,18 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
                     if (const EffectDescriptor* d = titles::descriptorOf(*clip))
                         appendGroup(model.entries, colorIndex, *clip, *d, ParamScope::Title, 0,
                             itemKey, depth, showAll);
+                    // The other layers of the title, each a group named after the layer.
+                    for (const TitleLayer& layer : clip->titleLayers) {
+                        const EffectDescriptor* ld = layer.kind == TitleLayerKind::Shape
+                            ? reg.find(QLatin1String(titlelayers::kShapeDescriptorId))
+                            : titles::descriptorOf(*clip);
+                        if (!ld)
+                            continue;
+                        EffectDescriptor named = *ld;
+                        named.name = titlelayers::displayName(*clip, layer.id);
+                        appendGroup(model.entries, colorIndex, *clip, named, ParamScope::TitleLayer,
+                            layer.id, itemKey, depth, showAll);
+                    }
                 }
             } else if (loc->track.type == TrackType::Audio) {
                 group(groups::Audio, ParamScope::Audio); // captions have no animated groups

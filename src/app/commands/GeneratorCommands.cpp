@@ -11,6 +11,7 @@
 #include "core/ParamKeys.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
+#include "core/TitleLayers.h"
 #include "core/TitlePresets.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/timeline/TimelineEditUtil.h"
@@ -202,6 +203,229 @@ CommandResult runTitleSet(CommandContext& ctx, const CommandArgs& args)
         QStringLiteral("updated title clip %1").arg(id));
 }
 
+// ---- Title layers (spec section 68) ----
+
+namespace tl = titlelayers;
+
+QJsonObject layerJson(const ClipData& clip, quint64 id, int index)
+{
+    const bool shape = tl::kind(clip, id) == TitleLayerKind::Shape;
+    QJsonObject o {{QStringLiteral("layer"), qint64(id)}, {QStringLiteral("index"), index},
+        {QStringLiteral("kind"), shape ? QStringLiteral("shape") : QStringLiteral("text")},
+        {QStringLiteral("name"), tl::displayName(clip, id)},
+        {QStringLiteral("visible"), tl::visible(clip, id)}};
+    if (const ParamSet* p = tl::params(clip, id)) {
+        if (shape)
+            o.insert(QStringLiteral("shape"),
+                p->staticValue(keys::ShapeType, QStringLiteral("rect")).toString());
+        else
+            o.insert(QStringLiteral("text"), p->staticValue(keys::Text).toString());
+    }
+    return o;
+}
+
+QJsonArray layersJson(const ClipData& clip)
+{
+    QJsonArray list;
+    int index = 0;
+    for (const quint64 id : tl::order(clip))
+        list.append(layerJson(clip, id, index++));
+    return list;
+}
+
+/// The title clip `clip` of the command, unlocked; failure otherwise.
+std::optional<CommandResult> titleClipOrFail(
+    const TimelineData& data, const CommandArgs& args, FoundClip& found, bool editing)
+{
+    const quint64 id = quint64(args.integer(QStringLiteral("clip")));
+    if (auto bad = findClipOrFail(data, id, found))
+        return bad;
+    if (found.clip->kind != ClipKind::Title)
+        return fail("bad_value", QStringLiteral("clip %1 is not a title clip").arg(id));
+    if (editing && data.track(found.track)->locked)
+        return fail(
+            "track_locked", QStringLiteral("track %1 is locked").arg(trackName(found.track)));
+    return std::nullopt;
+}
+
+std::optional<CommandResult> layerOrFail(
+    const ClipData& clip, const CommandArgs& args, const char* name, quint64& id)
+{
+    id = quint64(args.integer(QString::fromLatin1(name)));
+    if (!tl::exists(clip, id))
+        return fail("unknown_layer",
+            QStringLiteral("clip %1 has no title layer %2 (see title.layer_list)")
+                .arg(clip.id)
+                .arg(id));
+    return std::nullopt;
+}
+
+const ParamSpec kLayerClip {QStringLiteral("clip"), ParamType::Integer,
+    QStringLiteral("title clip id (see clip.list)"), true, {}, {}};
+const ParamSpec kLayerId {QStringLiteral("layer"), ParamType::Integer,
+    QStringLiteral("layer id (see title.layer_list); 0 is the first layer"), true, {}, {}};
+
+CommandResult layerDone(
+    Project& project, quint64 clipId, const QString& message, const QJsonObject& extra = {})
+{
+    const TimelineData& after = project.timeline()->data();
+    const auto loc = ops::findClip(after, clipId);
+    QJsonObject data = extra;
+    data.insert(QStringLiteral("layers"), layersJson(*ops::clipById(after, clipId)));
+    data.insert(
+        QStringLiteral("clip"), clipToJson(after, loc->track, *ops::clipById(after, clipId)));
+    return CommandResult::success(data, message);
+}
+
+CommandResult runLayerList(CommandContext& ctx, const CommandArgs& args)
+{
+    FoundClip found;
+    if (auto bad = titleClipOrFail(ctx.project->timeline()->data(), args, found, false))
+        return *bad;
+    const QJsonArray list = layersJson(*found.clip);
+    return CommandResult::success({{QStringLiteral("layers"), list}},
+        QStringLiteral("%1 layer(s) on clip %2, bottom to top")
+            .arg(list.size())
+            .arg(found.clip->id));
+}
+
+CommandResult runLayerAdd(CommandContext& ctx, const CommandArgs& args)
+{
+    Project& project = *ctx.project;
+    FoundClip found;
+    if (auto bad = titleClipOrFail(project.timeline()->data(), args, found, true))
+        return *bad;
+    const quint64 clipId = found.clip->id;
+    const QString kind = args.string(QStringLiteral("kind"), QStringLiteral("text"));
+    const QString shape = args.string(QStringLiteral("shape"));
+    quint64 copyOf = 0;
+    const bool duplicate = args.has(QStringLiteral("duplicate"));
+    if (duplicate) {
+        if (auto bad = layerOrFail(*found.clip, args, "duplicate", copyOf))
+            return *bad;
+    }
+    // Check the settings on the layer the new one will be, before anything is edited.
+    const bool isShape = duplicate ? tl::kind(*found.clip, copyOf) == TitleLayerKind::Shape
+                                   : kind == QLatin1String("shape");
+    const EffectDescriptor* d = isShape
+        ? EffectRegistry::instance().find(QLatin1String(tl::kShapeDescriptorId))
+        : titles::descriptorOf(*found.clip);
+    QStringList entries = args.strings(QStringLiteral("set"));
+    if (args.has(QStringLiteral("text")))
+        entries.prepend(keys::Text + QLatin1Char('=') + args.string(QStringLiteral("text")));
+    QVector<ParamSetting> settings;
+    if (auto bad = checkSettings(*d, entries, settings))
+        return *bad;
+    quint64 created = 0;
+    timelineedit::runEdit(&project, QStringLiteral("Add Title Layer"), [&](TimelineData& data) {
+        ClipData* clip = ops::clipById(data, clipId);
+        created = duplicate
+            ? tl::duplicateLayer(*clip, copyOf)
+            : tl::addLayer(*clip, isShape ? TitleLayerKind::Shape : TitleLayerKind::Text, shape);
+        if (created != 0 && !settings.isEmpty())
+            applySettings(*clip, {clipId, ParamScope::TitleLayer, created, {}}, settings);
+        if (created != 0 && args.has(QStringLiteral("name")))
+            tl::rename(*clip, created, args.string(QStringLiteral("name")));
+        return created != 0;
+    });
+    if (created == 0)
+        return fail("edit_refused", QStringLiteral("the layer was not added"));
+    return layerDone(project, clipId,
+        QStringLiteral("added layer %1 to clip %2").arg(created).arg(clipId),
+        {{QStringLiteral("layer"), qint64(created)}});
+}
+
+CommandResult runLayerRemove(CommandContext& ctx, const CommandArgs& args)
+{
+    Project& project = *ctx.project;
+    FoundClip found;
+    if (auto bad = titleClipOrFail(project.timeline()->data(), args, found, true))
+        return *bad;
+    quint64 id = 0;
+    if (auto bad = layerOrFail(*found.clip, args, "layer", id))
+        return *bad;
+    if (id == tl::kBaseId)
+        return fail("bad_value",
+            QStringLiteral("layer 0 is the title's first layer and cannot be removed; hide it "
+                           "with title.layer_set --visible false"));
+    const quint64 clipId = found.clip->id;
+    timelineedit::runEdit(&project, QStringLiteral("Delete Title Layer"),
+        [&](TimelineData& data) { return tl::removeLayer(*ops::clipById(data, clipId), id); });
+    return layerDone(
+        project, clipId, QStringLiteral("removed layer %1 of clip %2").arg(id).arg(clipId));
+}
+
+CommandResult runLayerMove(CommandContext& ctx, const CommandArgs& args)
+{
+    Project& project = *ctx.project;
+    FoundClip found;
+    if (auto bad = titleClipOrFail(project.timeline()->data(), args, found, true))
+        return *bad;
+    quint64 id = 0;
+    if (auto bad = layerOrFail(*found.clip, args, "layer", id))
+        return *bad;
+    const int by = int(args.integer(QStringLiteral("by")));
+    if (by == 0)
+        return fail("out_of_range", QStringLiteral("\"by\" cannot be 0 (positive moves up)"));
+    const quint64 clipId = found.clip->id;
+    bool moved = false;
+    timelineedit::runEdit(&project, QStringLiteral("Move Title Layer"), [&](TimelineData& data) {
+        moved = tl::moveLayer(*ops::clipById(data, clipId), id, by);
+        return moved;
+    });
+    if (!moved)
+        return fail(
+            "out_of_range", QStringLiteral("layer %1 is already at the end of the stack").arg(id));
+    return layerDone(
+        project, clipId, QStringLiteral("moved layer %1 of clip %2").arg(id).arg(clipId));
+}
+
+CommandResult runLayerSet(CommandContext& ctx, const CommandArgs& args)
+{
+    Project& project = *ctx.project;
+    FoundClip found;
+    if (auto bad = titleClipOrFail(project.timeline()->data(), args, found, true))
+        return *bad;
+    quint64 id = 0;
+    if (auto bad = layerOrFail(*found.clip, args, "layer", id))
+        return *bad;
+    QStringList entries = args.strings(QStringLiteral("set"));
+    for (const char* option : {"text", "font", "size", "color"}) {
+        const QString name = QString::fromLatin1(option);
+        if (!args.has(name))
+            continue;
+        const QString key = name == QLatin1String("text") ? keys::Text
+            : name == QLatin1String("font")               ? keys::Font
+            : name == QLatin1String("size")               ? keys::Size
+                                                          : keys::Color;
+        const QString value = name == QLatin1String("size")
+            ? QString::number(args.number(name), 'g', 15)
+            : args.string(name);
+        entries.append(key + QLatin1Char('=') + value);
+    }
+    const bool hasVisible = args.has(QStringLiteral("visible"));
+    const bool hasName = args.has(QStringLiteral("name"));
+    if (entries.isEmpty() && !hasVisible && !hasName)
+        return fail("missing_parameter",
+            QStringLiteral("nothing to set: give name, visible, text, font, size, color or set"));
+    QVector<ParamSetting> settings;
+    if (auto bad = checkSettings(*layerDescriptor(*found.clip, id), entries, settings))
+        return *bad;
+    const quint64 clipId = found.clip->id;
+    const ParamScope scope = id == tl::kBaseId ? ParamScope::Title : ParamScope::TitleLayer;
+    timelineedit::runEdit(&project, QStringLiteral("Set Title Layer"), [&](TimelineData& data) {
+        ClipData* clip = ops::clipById(data, clipId);
+        if (hasVisible)
+            tl::setVisible(*clip, id, args.boolean(QStringLiteral("visible")));
+        if (hasName)
+            tl::rename(*clip, id, args.string(QStringLiteral("name")));
+        applySettings(*clip, {clipId, scope, id, {}}, settings);
+        return true;
+    });
+    return layerDone(
+        project, clipId, QStringLiteral("updated layer %1 of clip %2").arg(id).arg(clipId));
+}
+
 QVector<ParamSpec> placementParams()
 {
     return {{QStringLiteral("at"), ParamType::Time, QStringLiteral("first frame on the timeline"),
@@ -249,6 +473,65 @@ void registerGeneratorCommands(CommandRegistry& registry)
                       QStringLiteral("Change the text and basic text settings of a title clip."),
                       set, ProjectUse::Modify, true},
         runTitleSet});
+
+    registry.add({{QStringLiteral("title.layer_list"),
+                      QStringLiteral("List the layers of a title clip, bottom to top."),
+                      {kLayerClip}, ProjectUse::Read, true},
+        runLayerList});
+    registry.add(
+        {{QStringLiteral("title.layer_add"),
+             QStringLiteral("Add a layer on top of a title clip: a text layer, a shape "
+                            "layer, or a copy of a layer (duplicate)."),
+             {kLayerClip,
+                 {QStringLiteral("kind"), ParamType::String, QStringLiteral("layer kind"), false,
+                     QStringLiteral("text"), {QStringLiteral("text"), QStringLiteral("shape")}},
+                 {QStringLiteral("shape"), ParamType::String,
+                     QStringLiteral("shape layers: rect, rounded, ellipse or line"), false,
+                     QStringLiteral("rect"),
+                     {QStringLiteral("rect"), QStringLiteral("rounded"), QStringLiteral("ellipse"),
+                         QStringLiteral("line")}},
+                 {QStringLiteral("duplicate"), ParamType::Integer,
+                     QStringLiteral("copy this layer (id) instead of adding a new one; "
+                                    "the copy sits directly above it"),
+                     false, {}, {}},
+                 {QStringLiteral("name"), ParamType::String,
+                     QStringLiteral("name in the layer list"), false, {}, {}},
+                 {QStringLiteral("text"), ParamType::String,
+                     QStringLiteral("text layers: the text"), false, {}, {}},
+                 setListParam("layer")},
+             ProjectUse::Modify, true},
+            runLayerAdd});
+    registry.add({{QStringLiteral("title.layer_remove"),
+                      QStringLiteral("Delete a layer of a title clip (not the first one)."),
+                      {kLayerClip, kLayerId}, ProjectUse::Modify, true},
+        runLayerRemove});
+    registry.add({{QStringLiteral("title.layer_move"),
+                      QStringLiteral("Move a layer up (positive) or down (negative) the stack."),
+                      {kLayerClip, kLayerId,
+                          {QStringLiteral("by"), ParamType::Integer,
+                              QStringLiteral("places to move: 1 up, -1 down"), true, {}, {}}},
+                      ProjectUse::Modify, true},
+        runLayerMove});
+    registry.add({{QStringLiteral("title.layer_set"),
+                      QStringLiteral("Change a layer of a title clip: its name, whether it is "
+                                     "shown, and its parameters."),
+                      {kLayerClip, kLayerId,
+                          {QStringLiteral("name"), ParamType::String,
+                              QStringLiteral("name in the layer list"), false, {}, {}},
+                          {QStringLiteral("visible"), ParamType::Boolean,
+                              QStringLiteral("show or hide the layer"), false, {}, {}},
+                          {QStringLiteral("text"), ParamType::String, QStringLiteral("the text"),
+                              false, {}, {}},
+                          {QStringLiteral("font"), ParamType::String, QStringLiteral("font family"),
+                              false, {}, {}},
+                          {QStringLiteral("size"), ParamType::Number,
+                              QStringLiteral("font size in pixels"), false, {}, {}},
+                          {QStringLiteral("color"), ParamType::String,
+                              QStringLiteral("text or fill colour: #rrggbb or a colour name"),
+                              false, {}, {}},
+                          setListParam("layer")},
+                      ProjectUse::Modify, true},
+        runLayerSet});
 }
 
 } // namespace kk::commands

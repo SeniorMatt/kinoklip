@@ -153,6 +153,50 @@ private slots:
         QVERIFY(r.out.contains("00:00:01:16"));
     }
 
+    // Spec 68.15: "title layer add" is the command title.layer_add, and the MCP tool is
+    // title_layer_add.
+    void spec68_15_titleLayerWords()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString project = dir.filePath("layers.kkproj");
+        Run r = run({"project", "new", "--project", project, "--width", "640", "--height", "360",
+            "--fps", "24"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        r = run({"title", "add", "--project", project, "--text", "Hello", "--json"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        const qint64 clip = at(r.json(), "result", "clip").toObject()["id"].toInteger();
+        const QString id = QString::number(clip);
+        r = run({"title", "layer", "add", "--project", project, "--clip", id, "--kind", "shape",
+            "--shape", "ellipse", "--json"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        QCOMPARE(at(r.json(), "result", "layers").toArray().size(), 2);
+        const QString layer = QString::number(at(r.json(), "result", "layer").toInteger());
+        r = run({"title", "layer", "move", "--project", project, "--clip", id, "--layer", layer,
+            "--by", "-1"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        r = run({"title", "layer", "set", "--project", project, "--clip", id, "--layer", layer,
+            "--visible", "false", "--name", "Ring", "--json"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        r = run({"title", "layer", "list", "--project", project, "--clip", id, "--json"});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        const QJsonArray layers = at(r.json(), "result", "layers").toArray();
+        QCOMPARE(layers.size(), 2);
+        QCOMPARE(layers[0].toObject()["name"].toString(), QString("Ring"));
+        QCOMPARE(layers[0].toObject()["visible"].toBool(), false);
+        r = run({"title", "layer", "remove", "--project", project, "--clip", id, "--layer", layer});
+        QVERIFY2(r.exitCode == 0, r.err.constData());
+        r = run({"commands"});
+        QVERIFY(r.out.contains("title layer add"));
+        // The MCP server names it title_layer_add.
+        const Run mcp = runMcp("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":"
+                               "{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{}}}\n"
+                               "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n"
+                               "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}\n");
+        QCOMPARE(mcp.exitCode, 0);
+        QVERIFY2(mcp.out.contains("title_layer_add"), mcp.out.left(300).constData());
+    }
+
     void errorsExitNonZeroWithMessageOnStderr()
     {
         Run r = run({"clip", "frobnicate"});

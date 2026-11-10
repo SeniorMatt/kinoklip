@@ -31,6 +31,8 @@ namespace kk::keyframeops {
 [[nodiscard]] QString memberPath(const QString& member, const QString& key);
 /// Path of a parameter of effect instance @p effectId.
 [[nodiscard]] QString effectPath(quint64 effectId, const QString& key);
+/// Path of a parameter of the extra title layer @p layerId (ClipData::titleLayers).
+[[nodiscard]] QString layerPath(quint64 layerId, const QString& key);
 /// Path of a parameter of grade node @p nodeId (Color page, gradekeys::*).
 [[nodiscard]] QString gradePath(quint64 nodeId, const QString& key);
 /// Path of a parameter of grade window @p windowId (gradewindowkeys::*).

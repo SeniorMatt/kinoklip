@@ -299,7 +299,19 @@ bool canJoin(const TimelineData& data, quint64 leftClipId, quint64 rightClipId)
             retime::frameUs(data.fps) * std::abs(retime::speedAt(a, double(a.duration))) / 2.0);
         return std::abs(double(b.sourceInUs - expected)) <= tolerance;
     }
-    case ClipKind::Title:
+    case ClipKind::Title: {
+        if (a.title.statics != b.title.statics || a.titleBase != b.titleBase
+            || a.titleLayers.size() != b.titleLayers.size())
+            return false;
+        for (qsizetype i = 0; i < a.titleLayers.size(); ++i) {
+            const TitleLayer& x = a.titleLayers[i];
+            const TitleLayer& y = b.titleLayers[i];
+            if (x.id != y.id || x.kind != y.kind || x.visible != y.visible || x.name != y.name
+                || x.params.statics != y.params.statics)
+                return false;
+        }
+        return true;
+    }
     case ClipKind::Subtitle:
         return a.title.statics == b.title.statics;
     case ClipKind::Generator:
@@ -324,6 +336,8 @@ bool joinClips(TimelineData& data, quint64 leftClipId, quint64 rightClipId)
     mergeKeys(a.transform, b.transform, a.duration);
     mergeKeys(a.audio, b.audio, a.duration);
     mergeKeys(a.title, b.title, a.duration);
+    for (qsizetype i = 0; i < a.titleLayers.size(); ++i)
+        mergeKeys(a.titleLayers[i].params, b.titleLayers[i].params, a.duration);
     for (qsizetype e = 0; e < a.effects.size(); ++e)
         mergeKeys(a.effects[e].params, b.effects[e].params, a.duration);
     a.transitionOut = b.transitionOut;

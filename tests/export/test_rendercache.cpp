@@ -6,6 +6,7 @@
 // snapshot they were made for, and a cache hit looks like the uncached render.
 #include "ExportTestUtil.h"
 #include "core/EditOps.h"
+#include "core/TitleLayers.h"
 #include "export/RenderCacheManager.h"
 #include "render/Compositor.h"
 
@@ -133,6 +134,32 @@ private slots:
         TimelineData k = keyTimeline();
         clipAt(k, 0, 0).transform.animated(keys::PosX, 0).setKey(10, 20.0);
         QCOMPARE(changed(before, chunkKeys(k)), (QVector<int> {0, 1}));
+    }
+
+    // Spec 68.14: the layers of a title are part of its cache key.
+    void titleLayersChangeTheKey()
+    {
+        TimelineData tl = keyTimeline();
+        const auto before = chunkKeys(tl);
+        // A layer added, then changed, then hidden: each changes the chunks of the title.
+        TimelineData added = tl;
+        const quint64 box = titlelayers::addLayer(clipAt(added, 1, 0), TitleLayerKind::Shape);
+        QCOMPARE(changed(before, chunkKeys(added)), (QVector<int> {1, 2}));
+        TimelineData tinted = added;
+        titlelayers::params(clipAt(tinted, 1, 0), box)->setStatic(keys::Color, QColor(0, 255, 0));
+        QCOMPARE(changed(chunkKeys(added), chunkKeys(tinted)), (QVector<int> {1, 2}));
+        TimelineData keyed = added;
+        titlelayers::params(clipAt(keyed, 1, 0), box)->animated(keys::TextPosX, 0.5).setKey(3, 0.8);
+        QCOMPARE(changed(chunkKeys(added), chunkKeys(keyed)), (QVector<int> {1, 2}));
+        TimelineData hidden = added;
+        titlelayers::setVisible(clipAt(hidden, 1, 0), box, false);
+        QCOMPARE(changed(chunkKeys(added), chunkKeys(hidden)), (QVector<int> {1, 2}));
+        TimelineData moved = added;
+        titlelayers::moveLayer(clipAt(moved, 1, 0), titlelayers::kBaseId, +1);
+        QCOMPARE(changed(chunkKeys(added), chunkKeys(moved)), (QVector<int> {1, 2}));
+        // Unrelated chunks keep their keys.
+        QCOMPARE(chunkKeys(added)[0], before[0]);
+        QCOMPARE(chunkKeys(added)[3], before[3]);
     }
 
     void trimInvalidates()

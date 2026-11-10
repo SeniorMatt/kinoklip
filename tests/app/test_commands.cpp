@@ -152,7 +152,8 @@ private slots:
                  "effect.list", "transition.list", "effect.add", "effect.stack", "effect.set",
                  "effect.remove", "effect.enable", "transition.set", "transition.remove",
                  "generator.add", "title.add", "title.set", "keyframe.set", "keyframe.list",
-                 "keyframe.delete", "track.list", "track.add", "track.set"})
+                 "keyframe.delete", "track.list", "track.add", "track.set", "title.layer_list",
+                 "title.layer_add", "title.layer_remove", "title.layer_move", "title.layer_set"})
             QVERIFY2(names.contains(QLatin1String(expected)), expected);
         QCOMPARE(names.size(), QSet<QString>(names.begin(), names.end()).size()); // unique
     }
@@ -731,6 +732,88 @@ private slots:
         ok("track.set", {{"track", "V2"}, {"locked", true}});
         bad("title.add", {{"text", "x"}, {"track", "V2"}}, "track_locked");
         bad("title.set", {{"clip", t}, {"text", "x"}}, "track_locked");
+    }
+
+    // Spec 68.13: the title layer commands.
+    void spec68_13_titleLayers()
+    {
+        makeProject();
+        const qint64 t = ok("title.add", {{"text", "Base"}, {"duration", 48}})
+                             .data["clip"]
+                             .toObject()["id"]
+                             .toInteger();
+        QCOMPARE(ok("title.layer_list", {{"clip", t}}).data["layers"].toArray().size(), 1);
+        // A shape and a text layer, set on creation.
+        const CommandResult box = ok("title.layer_add",
+            {{"clip", t}, {"kind", "shape"}, {"shape", "rounded"}, {"name", "Panel"},
+                {"set", QJsonArray {"shapeWidth=300", "color=#ff0000"}}});
+        const qint64 shape = box.data["layer"].toInteger();
+        QVERIFY(shape > 0);
+        const CommandResult text = ok(
+            "title.layer_add", {{"clip", t}, {"text", "Second"}, {"set", QJsonArray {"size=40"}}});
+        const qint64 second = text.data["layer"].toInteger();
+        QCOMPARE(text.data["layers"].toArray().size(), 3);
+        {
+            const ClipData& clip = load()->timeline()->data().videoTracks[0].clips[0];
+            QCOMPARE(clip.titleLayers.size(), 2);
+            QCOMPARE(clip.titleLayers[0].name, QString("Panel"));
+            QCOMPARE(clip.titleLayers[0].params.staticValue(keys::ShapeType).toString(),
+                QString("rounded"));
+            QCOMPARE(clip.titleLayers[0].params.value(keys::ShapeWidth, 0), 300.0);
+            QCOMPARE(clip.titleLayers[0].params.staticValue(keys::Color).value<QColor>(),
+                QColor("#ff0000"));
+            QCOMPARE(
+                clip.titleLayers[1].params.staticValue(keys::Text).toString(), QString("Second"));
+            QCOMPARE(clip.titleLayers[1].params.value(keys::Size, 0), 40.0);
+        }
+        // Move, hide, rename, change the first layer, duplicate.
+        ok("title.layer_move", {{"clip", t}, {"layer", second}, {"by", -1}});
+        QCOMPARE(
+            load()->timeline()->data().videoTracks[0].clips[0].titleLayers[0].id, quint64(second));
+        ok("title.layer_move", {{"clip", t}, {"layer", 0}, {"by", 2}});
+        ok("title.layer_set",
+            {{"clip", t}, {"layer", shape}, {"visible", false}, {"name", "Hidden"}});
+        ok("title.layer_set", {{"clip", t}, {"layer", 0}, {"text", "New base"}, {"size", 55}});
+        {
+            const ClipData& clip = load()->timeline()->data().videoTracks[0].clips[0];
+            QVERIFY(!clip.titleLayers[0].visible || !clip.titleLayers[1].visible);
+            QCOMPARE(clip.title.staticValue(keys::Text).toString(), QString("New base"));
+            QCOMPARE(clip.titleBase.slot, 2);
+        }
+        const CommandResult copy = ok("title.layer_add", {{"clip", t}, {"duplicate", shape}});
+        QCOMPARE(copy.data["layers"].toArray().size(), 4);
+        ok("title.layer_remove", {{"clip", t}, {"layer", copy.data["layer"].toInteger()}});
+        // Keyframes of a layer's parameter.
+        ok("keyframe.set",
+            {{"clip", t}, {"layer", second}, {"param", "size"}, {"at", 0}, {"value", "30"}});
+        ok("keyframe.set",
+            {{"clip", t}, {"layer", second}, {"param", "size"}, {"at", 20}, {"value", "90"}});
+        const CommandResult keyed = ok("keyframe.list", {{"clip", t}, {"layer", second}});
+        QCOMPARE(keyed.data["parameters"].toArray().size(), 1);
+        QCOMPARE(keyed.data["parameters"][0]["layer"].toInteger(), second);
+        QCOMPARE(keyed.data["parameters"][0]["keys"].toArray().size(), 2);
+        QCOMPARE(load()->timeline()->data().videoTracks[0].clips[0].titleLayers[0].params.value(
+                     keys::Size, 10),
+            60.0); // half way between the keys at 0 (30) and 20 (90)
+        // Errors.
+        bad("title.layer_remove", {{"clip", t}, {"layer", 0}}, "bad_value");
+        bad("title.layer_remove", {{"clip", t}, {"layer", 999}}, "unknown_layer");
+        bad("title.layer_set", {{"clip", t}, {"layer", shape}}, "missing_parameter");
+        bad("title.layer_set", {{"clip", t}, {"layer", shape}, {"text", "x"}}, "unknown_parameter");
+        bad("title.layer_move", {{"clip", t}, {"layer", second}, {"by", 0}}, "out_of_range");
+        bad("title.layer_add",
+            {{"clip", t}, {"kind", "shape"}, {"set", QJsonArray {"shapeWidth=0"}}}, "out_of_range");
+        bad("title.layer_list", {{"clip", firstClipId("V1") + 1000}}, "unknown_clip");
+        const qint64 solid = ok("generator.add", {{"generator", "solid_color"}, {"at", 100}})
+                                 .data["clip"]
+                                 .toObject()["id"]
+                                 .toInteger();
+        bad("title.layer_list", {{"clip", solid}}, "bad_value");
+        bad("keyframe.set",
+            {{"clip", t}, {"layer", 777}, {"param", "size"}, {"at", 0}, {"value", "30"}},
+            "unknown_layer");
+        ok("track.set", {{"track", "V1"}, {"locked", true}});
+        bad("title.layer_add", {{"clip", t}}, "track_locked");
     }
 
     void keyframes()
