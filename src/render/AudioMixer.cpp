@@ -458,7 +458,7 @@ bool AudioMixer::mixClip(const TimelineData& tl, const NestedTimelines& nested,
         double g = dbToGain(db);
         if (clip.fadeInFrames > 0 || clip.fadeOutFrames > 0) // fade handles (spec 31)
             g *= audioFadeGain(double(sample - clipStart) * framesPerSample, clip.duration,
-                clip.fadeInFrames, clip.fadeOutFrames);
+                clip.fadeInFrames, clip.fadeOutFrames, clip.fadeInCurve, clip.fadeOutCurve);
         if (head.active() && sample >= head.start && sample < head.end)
             g *= audiotransitions::gainIn(
                 head.curve, double(sample - head.start) / double(head.end - head.start));

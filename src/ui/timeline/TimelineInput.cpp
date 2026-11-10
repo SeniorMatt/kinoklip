@@ -25,6 +25,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QScrollBar>
+#include <QToolTip>
 
 #include <algorithm>
 #include <climits>
@@ -270,8 +271,8 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
         const bool trim = m_drag.pending == DragMode::TrimHead
             || m_drag.pending == DragMode::TrimTail || m_drag.pending == DragMode::Roll
             || m_drag.pending == DragMode::TransitionEdge || m_drag.pending == DragMode::RetimePoint
-            || m_drag.pending == DragMode::Fade || m_drag.pending == DragMode::LevelLine
-            || m_drag.pending == DragMode::LevelKey;
+            || m_drag.pending == DragMode::Fade || m_drag.pending == DragMode::FadeCurve
+            || m_drag.pending == DragMode::LevelLine || m_drag.pending == DragMode::LevelKey;
         const int threshold = trim ? kTrimThresholdPx : QApplication::startDragDistance();
         if ((pos - m_drag.pressPos).manhattanLength() < threshold)
             return;
@@ -339,6 +340,10 @@ void TimelineWidget::mouseDoubleClickEvent(QMouseEvent* event)
     // A double-click on a track name in a header renames the track in place (spec 12.15).
     if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
         && beginTrackRename(event->position()))
+        return;
+    // A double-click on a fade curve dot resets the curve to linear (spec 59.4).
+    if (event->button() == Qt::LeftButton && m_drag.mode == DragMode::None
+        && resetFadeCurveAt(event->position()))
         return;
     // A double-click on a ruler marker opens the marker editor (spec 18.5); anywhere else it
     // behaves like a press.
@@ -449,6 +454,9 @@ void TimelineWidget::startDrag(DragMode mode)
         return;
     case DragMode::Fade:
         openEdit(m_drag.fadeHead ? tr("Fade In") : tr("Fade Out"));
+        return;
+    case DragMode::FadeCurve:
+        openEdit(m_drag.fadeHead ? tr("Fade In Curve") : tr("Fade Out Curve"));
         return;
     case DragMode::LevelLine:
         openEdit(tr("Change Volume"));
@@ -603,6 +611,7 @@ void TimelineWidget::updateDrag(QPointF pos)
         updateShuffle(pos);
         break;
     case DragMode::Fade:
+    case DragMode::FadeCurve:
     case DragMode::LevelLine:
     case DragMode::LevelKey:
         updateLevelDrag(pos);
@@ -631,6 +640,8 @@ void TimelineWidget::updateDrag(QPointF pos)
 void TimelineWidget::finishDrag()
 {
     m_autoScroll.stop();
+    if (m_drag.mode == DragMode::FadeCurve)
+        QToolTip::hideText();
     const DragMode mode = m_drag.mode;
     const bool edited = m_drag.editOpen;
     if (m_drag.editOpen) {
@@ -675,6 +686,8 @@ void TimelineWidget::finishDrag()
 void TimelineWidget::cancelDrag()
 {
     m_autoScroll.stop();
+    if (m_drag.mode == DragMode::FadeCurve)
+        QToolTip::hideText();
     if (m_drag.editOpen) {
         m_drag.editOpen = false;
         m_ctx.project->cancelEdit();

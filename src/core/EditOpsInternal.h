@@ -92,11 +92,13 @@ inline quint64 splitClipAtIndex(
     left.duration = frame - left.start;
     left.transitionOut.reset();
     left.fadeOutFrames = 0;
+    left.fadeOutCurve = 0.0;
 
     right.id = data.allocateId();
     right.linkGroup = remap.map(data, right.linkGroup);
     right.transitionIn.reset();
     right.fadeInFrames = 0;
+    right.fadeInCurve = 0.0;
     for (MaskData& mask : right.masks) // mask ids are unique per timeline (KeyframeOps paths)
         mask.id = data.allocateId();
     moveHead(right, frame - right.start, data.fps);
@@ -124,21 +126,25 @@ inline void clearRangeImpl(
             right.linkGroup = remap.map(data, right.linkGroup);
             right.transitionIn.reset();
             right.fadeInFrames = 0;
+            right.fadeInCurve = 0.0;
             moveHead(right, e - right.start, data.fps);
             clip.duration = s - clip.start;
             clip.transitionOut.reset();
             clip.fadeOutFrames = 0;
+            clip.fadeOutCurve = 0.0;
             out.push_back(std::move(clip));
             out.push_back(std::move(right));
         } else if (clip.start < s) {
             clip.duration = s - clip.start; // tail covered
             clip.transitionOut.reset();
             clip.fadeOutFrames = 0;
+            clip.fadeOutCurve = 0.0;
             out.push_back(std::move(clip));
         } else {
             moveHead(clip, e - clip.start, data.fps); // head covered
             clip.transitionIn.reset();
             clip.fadeInFrames = 0;
+            clip.fadeInCurve = 0.0;
             out.push_back(std::move(clip));
         }
     }

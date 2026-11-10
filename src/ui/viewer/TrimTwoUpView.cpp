@@ -47,7 +47,9 @@ std::shared_ptr<const TimelineData> clipAlone(const TimelineData& snapshot, cons
     c.transitionIn.reset();
     c.transitionOut.reset();
     c.fadeInFrames = 0;
+    c.fadeInCurve = 0.0;
     c.fadeOutFrames = 0;
+    c.fadeOutCurve = 0.0;
     c.enabled = true;
     track.clips.push_back(std::move(c));
     data->videoTracks.push_back(std::move(track));

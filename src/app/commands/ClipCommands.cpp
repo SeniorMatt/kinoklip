@@ -4,6 +4,7 @@
 #include "app/commands/Command.h"
 #include "app/commands/CommandSupport.h"
 #include "core/EditOps.h"
+#include "core/LevelOps.h"
 #include "core/MediaPool.h"
 #include "core/ParamKeys.h"
 #include "core/Project.h"
@@ -414,7 +415,8 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
             {"crop-top", &keys::CropT, 0, kMaxCrop}, {"crop-bottom", &keys::CropB, 0, kMaxCrop}};
     bool any = false;
     for (const char* name : {"speed", "volume", "enabled", "name", "zoom", "pos-x", "pos-y",
-             "rotation", "opacity", "crop-left", "crop-right", "crop-top", "crop-bottom", "pan"})
+             "rotation", "opacity", "crop-left", "crop-right", "crop-top", "crop-bottom", "pan",
+             "fade-in", "fade-out", "fade-in-curve", "fade-out-curve"})
         any |= args.has(QString::fromLatin1(name));
     if (!any)
         return fail(
@@ -447,6 +449,31 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
         if (auto r = range("zoom", args.number(QStringLiteral("zoom")), kMinZoom, kBig); !r.ok)
             return r;
     }
+    // Fades: lengths are times (frames or timecode), curves -1 (fast start) ... 1 (slow start).
+    std::optional<int64_t> fadeLength[2]; // in, out
+    const char* const fadeNames[2] = {"fade-in", "fade-out"};
+    const char* const curveNames[2] = {"fade-in-curve", "fade-out-curve"};
+    for (int k = 0; k < 2; ++k) {
+        if (auto bad = readTime(args, QString::fromLatin1(fadeNames[k]), d.fps, fadeLength[k]))
+            return *bad;
+        if (fadeLength[k] && *fadeLength[k] < 0)
+            return fail("out_of_range",
+                QStringLiteral("--%1 must not be negative").arg(QString::fromLatin1(fadeNames[k])));
+        if (args.has(QString::fromLatin1(curveNames[k]))) {
+            if (auto r
+                = range(curveNames[k], args.number(QString::fromLatin1(curveNames[k])), -1.0, 1.0);
+                !r.ok)
+                return r;
+            const int64_t length = fadeLength[k]
+                ? *fadeLength[k]
+                : (k == 0 ? found.clip->fadeInFrames : found.clip->fadeOutFrames);
+            if (length <= 0)
+                return fail("no_fade",
+                    QStringLiteral("--%1 needs a fade: the clip has no %2; give --%2 too")
+                        .arg(
+                            QString::fromLatin1(curveNames[k]), QString::fromLatin1(fadeNames[k])));
+        }
+    }
     for (const Setting& s : numeric) {
         if (args.has(QString::fromLatin1(s.option)))
             if (auto r = range(s.option, args.number(QString::fromLatin1(s.option)), s.min, s.max);
@@ -477,6 +504,14 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
         for (const Setting& s : numeric) {
             if (args.has(QString::fromLatin1(s.option)))
                 clip->transform.setBase(*s.key, args.number(QString::fromLatin1(s.option)));
+        }
+        // Fades act on this clip only, like the fade handles (linked clips keep their own).
+        for (int k = 0; k < 2; ++k) {
+            if (fadeLength[k])
+                levelops::setFade(data, id, k == 0, *fadeLength[k]);
+            if (args.has(QString::fromLatin1(curveNames[k])))
+                levelops::setFadeCurve(
+                    data, id, k == 0, args.number(QString::fromLatin1(curveNames[k])));
         }
         return true;
     });
@@ -573,7 +608,7 @@ void registerClipCommands(CommandRegistry& registry)
     registry.add(
         {{QStringLiteral("clip.set"),
              QStringLiteral("Change properties of a clip: speed, volume, pan, enabled, name, basic "
-                            "transform and crop."),
+                            "transform, crop and the fades (lengths and curves)."),
              {kClipParam,
                  {QStringLiteral("speed"), ParamType::Number,
                      QStringLiteral("constant speed, 1 = normal, 0.5 = half (0.01 - 100); linked "
@@ -609,6 +644,21 @@ void registerClipCommands(CommandRegistry& registry)
                      QStringLiteral("pixels cut from the bottom edge"), false, {}, {}},
                  {QStringLiteral("pan"), ParamType::Number,
                      QStringLiteral("stereo pan, -1 (left) to 1 (right)"), false, {}, {}},
+                 {QStringLiteral("fade-in"), ParamType::Time,
+                     QStringLiteral(
+                         "fade-in length (frames or timecode, 0 = none); only this clip"),
+                     false, {}, {}},
+                 {QStringLiteral("fade-out"), ParamType::Time,
+                     QStringLiteral(
+                         "fade-out length (frames or timecode, 0 = none); only this clip"),
+                     false, {}, {}},
+                 {QStringLiteral("fade-in-curve"), ParamType::Number,
+                     QStringLiteral("fade-in shape, -1 (fast start) to 1 (slow start), 0 = linear"),
+                     false, {}, {}},
+                 {QStringLiteral("fade-out-curve"), ParamType::Number,
+                     QStringLiteral(
+                         "fade-out shape, -1 (fast start) to 1 (slow start), 0 = linear"),
+                     false, {}, {}},
                  kUnlinked},
              ProjectUse::Modify, true},
             runSet});

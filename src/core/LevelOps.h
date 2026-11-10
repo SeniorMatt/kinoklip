@@ -50,4 +50,9 @@ std::optional<KeyframeRef> setVolumeKey(
 /// fade-in + fade-out never exceed the clip. Returns whether anything changed.
 bool setFade(TimelineData& data, quint64 clipId, bool head, int64_t frames);
 
+/// Sets the shape of the fade-in (@p head) or fade-out of clip @p clipId (spec 59), clamped to
+/// -1 ... +1; 0 = linear. Refused (false) when that fade has no length. Returns whether
+/// anything changed. A fade set back to length 0 by setFade() also loses its curve.
+bool setFadeCurve(TimelineData& data, quint64 clipId, bool head, double curve);
+
 } // namespace kk::levelops

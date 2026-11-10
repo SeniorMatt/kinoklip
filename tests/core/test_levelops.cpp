@@ -106,6 +106,66 @@ private slots:
         QCOMPARE(editops::clipById(tl, right.front())->fadeOutFrames, 20);
     }
 
+    // Spec 59.5 - 59.7: the curve lives with the fade; split, trim and removing the fade.
+    void fadeCurves()
+    {
+        TimelineData tl = timeline();
+        const quint64 id = audioClip(tl);
+        QVERIFY(!lo::setFadeCurve(tl, id, true, 0.5)); // no fade-in yet: refused
+        QVERIFY(lo::setFade(tl, id, true, 30));
+        QVERIFY(lo::setFade(tl, id, false, 20));
+        QVERIFY(lo::setFadeCurve(tl, id, true, 0.5));
+        QVERIFY(!lo::setFadeCurve(tl, id, true, 0.5)); // unchanged
+        QVERIFY(lo::setFadeCurve(tl, id, false, 7.0)); // clamped
+        QCOMPARE(editops::clipById(tl, id)->fadeInCurve, 0.5);
+        QCOMPARE(editops::clipById(tl, id)->fadeOutCurve, 1.0);
+        // A longer or shorter fade keeps its shape.
+        QVERIFY(lo::setFade(tl, id, true, 10));
+        QCOMPARE(editops::clipById(tl, id)->fadeInCurve, 0.5);
+        // Split: the left part keeps the fade-in with its curve, the right part the fade-out.
+        const QVector<quint64> right = editops::splitClips(tl, {id}, 60);
+        QCOMPARE(editops::clipById(tl, id)->fadeInCurve, 0.5);
+        QCOMPARE(editops::clipById(tl, id)->fadeOutCurve, 0.0);
+        QCOMPARE(editops::clipById(tl, right.front())->fadeInCurve, 0.0);
+        QCOMPARE(editops::clipById(tl, right.front())->fadeOutCurve, 1.0);
+        // Removing a fade drops its curve, so a new fade starts linear.
+        QVERIFY(lo::setFade(tl, id, true, 0));
+        QCOMPARE(editops::clipById(tl, id)->fadeInCurve, 0.0);
+        QVERIFY(lo::setFade(tl, id, true, 10));
+        QCOMPARE(editops::clipById(tl, id)->fadeInCurve, 0.0);
+    }
+
+    void fadeCurveSerialization()
+    {
+        ClipData c = mediaClip(0, 50);
+        c.fadeInFrames = 12;
+        c.fadeOutFrames = 7;
+        c.fadeInCurve = 0.625;
+        c.fadeOutCurve = -0.25;
+        const QJsonObject o = serialization::clipToJson(c);
+        const ClipData back = serialization::clipFromJson(o);
+        QCOMPARE(back.fadeInCurve, 0.625);
+        QCOMPARE(back.fadeOutCurve, -0.25);
+        QVERIFY(back == c);
+        // Linear writes nothing; a project from before the curves loads linear.
+        c.fadeInCurve = 0.0;
+        c.fadeOutCurve = 0.0;
+        const QJsonObject lin = serialization::clipToJson(c);
+        QVERIFY(!lin.contains(QLatin1String("fadeInCurve")));
+        QVERIFY(!lin.contains(QLatin1String("fadeOutCurve")));
+        const ClipData old = serialization::clipFromJson(lin);
+        QCOMPARE(old.fadeInFrames, 12);
+        QCOMPARE(old.fadeInCurve, 0.0);
+        QCOMPARE(old.fadeOutCurve, 0.0);
+        // A curve without a fade is not written; out-of-range values load clamped.
+        ClipData none = mediaClip(0, 50);
+        none.fadeInCurve = 0.5;
+        QVERIFY(!serialization::clipToJson(none).contains(QLatin1String("fadeInCurve")));
+        QJsonObject wild = o;
+        wild[QLatin1String("fadeInCurve")] = 9.0;
+        QCOMPARE(serialization::clipFromJson(wild).fadeInCurve, 1.0);
+    }
+
     void serialization()
     {
         ClipData c = mediaClip(0, 50);

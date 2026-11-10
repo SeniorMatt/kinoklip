@@ -575,6 +575,10 @@ QJsonObject clipToJson(const ClipData& clip)
         o[QLatin1String("fadeIn")] = qint64(clip.fadeInFrames);
     if (clip.fadeOutFrames > 0)
         o[QLatin1String("fadeOut")] = qint64(clip.fadeOutFrames);
+    if (clip.fadeInFrames > 0 && clip.fadeInCurve != 0.0)
+        o[QLatin1String("fadeInCurve")] = clip.fadeInCurve;
+    if (clip.fadeOutFrames > 0 && clip.fadeOutCurve != 0.0)
+        o[QLatin1String("fadeOutCurve")] = clip.fadeOutCurve;
     if (!clip.attributes.isDefault())
         o[QLatin1String("attributes")] = attributesToJson(clip.attributes);
     if (clip.transform != ParamSet {})
@@ -647,6 +651,8 @@ ClipData clipFromJson(const QJsonObject& o)
     c.cacheOutput = o.value(QLatin1String("cacheOutput")).toBool(false);
     c.fadeInFrames = std::max<int64_t>(0, o.value(QLatin1String("fadeIn")).toInteger());
     c.fadeOutFrames = std::max<int64_t>(0, o.value(QLatin1String("fadeOut")).toInteger());
+    c.fadeInCurve = std::clamp(o.value(QLatin1String("fadeInCurve")).toDouble(0.0), -1.0, 1.0);
+    c.fadeOutCurve = std::clamp(o.value(QLatin1String("fadeOutCurve")).toDouble(0.0), -1.0, 1.0);
     if (o.contains(QLatin1String("attributes")))
         c.attributes = attributesFromJson(o.value(QLatin1String("attributes")).toObject());
     c.transform = paramSetFromJson(o.value(QLatin1String("transform")).toObject());

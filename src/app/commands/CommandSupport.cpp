@@ -83,6 +83,14 @@ QJsonObject clipToJson(const TimelineData& data, TrackRef track, const ClipData&
     static const char* const kinds[]
         = {"media", "title", "solid", "nested", "adjustment", "generator", "subtitle"};
     o.insert(QStringLiteral("kind"), QString::fromLatin1(kinds[int(clip.kind)]));
+    if (clip.fadeInFrames > 0) {
+        o.insert(QStringLiteral("fadeIn"), qint64(clip.fadeInFrames));
+        o.insert(QStringLiteral("fadeInCurve"), clip.fadeInCurve);
+    }
+    if (clip.fadeOutFrames > 0) {
+        o.insert(QStringLiteral("fadeOut"), qint64(clip.fadeOutFrames));
+        o.insert(QStringLiteral("fadeOutCurve"), clip.fadeOutCurve);
+    }
     if (clip.transitionIn)
         o.insert(QStringLiteral("transitionIn"),
             QJsonObject {{QStringLiteral("type"), clip.transitionIn->type},

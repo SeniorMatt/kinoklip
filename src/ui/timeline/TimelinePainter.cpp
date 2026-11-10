@@ -26,6 +26,7 @@
 #include <QFontMetrics>
 #include <QPainter>
 #include <QPalette>
+#include <QPolygonF>
 
 #include <algorithm>
 #include <cmath>
@@ -756,9 +757,8 @@ void TimelinePainter::paintWaveform(QPainter& p, const TimelinePaintInput& in, c
     const auto vol = clip.audio.values.constFind(keys::VolumeDb);
     const bool animated = vol != clip.audio.values.cend() && !vol->keys.isEmpty();
     const auto gainAt = [](double db) { return db <= -144.0 ? 0.0 : std::pow(10.0, db / 20.0); };
-    const double constantGain = gainAt(vol == clip.audio.values.cend()
-            ? keys::defaultValue(keys::VolumeDb)
-            : vol->base);
+    const double constantGain
+        = gainAt(vol == clip.audio.values.cend() ? keys::defaultValue(keys::VolumeDb) : vol->base);
     const double clipStart = double(clip.start);
     // m_lines: the peak lines in [0, columns), the RMS lines in [columns, 2 * columns).
     m_lines.resize(size_t(columns) * 2);
@@ -853,21 +853,29 @@ void TimelinePainter::paintFades(QPainter& p, const TimelinePaintInput& in, cons
     p.setClipRect(visible, Qt::IntersectClip);
     p.setRenderHint(QPainter::Antialiasing, true);
     // The faded part: a shaded wedge from the corner to where the fade reaches full level,
-    // its edge the fade curve (straight: video fades linearly; close enough for audio).
+    // its edge the fade curve: the fade's shape (spec 59), straight when linear. Audio gain
+    // is sin of that shape (like crossfades); the line shows the shape for both kinds.
     const double top = r.top() + 1;
     const double bottom = r.bottom() - 1;
-    const auto wedge = [&](double cornerX, double endX) {
-        const QPointF pts[3] = {{cornerX, top}, {endX, top}, {cornerX, bottom}};
+    const auto wedge = [&](bool head) {
+        constexpr int kSteps = 24;
+        QPolygonF poly;
+        QPolygonF line;
+        for (int i = 0; i <= kSteps; ++i)
+            line << ll::fadeCurvePoint(clip, r, L, head, double(i) / kSteps);
+        poly << QPointF(line.last().x(), top) << QPointF(line.first().x(), top);
+        poly += line;
         p.setPen(Qt::NoPen);
         p.setBrush(withAlpha(sc().shadow, 90));
-        p.drawConvexPolygon(pts, 3);
+        p.drawPolygon(poly);
+        p.setBrush(Qt::NoBrush);
         p.setPen(QPen(withAlpha(sc().bright, 200), 1.2));
-        p.drawLine(QPointF(cornerX, bottom), QPointF(endX, top));
+        p.drawPolyline(line);
     };
     if (clip.fadeInFrames > 0)
-        wedge(r.left(), r.left() + double(clip.fadeInFrames) * ppf);
+        wedge(true);
     if (clip.fadeOutFrames > 0)
-        wedge(r.right(), r.right() - double(clip.fadeOutFrames) * ppf);
+        wedge(false);
     if (hovered || clip.fadeInFrames > 0 || clip.fadeOutFrames > 0) {
         for (const bool head : {true, false}) {
             const QRectF h = ll::fadeHandleRect(clip, r, L, head);
@@ -876,6 +884,13 @@ void TimelinePainter::paintFades(QPainter& p, const TimelinePaintInput& in, cons
             p.setPen(sc().shadow);
             p.setBrush(sc().bright);
             p.drawRect(h.adjusted(0.5, 0.5, -0.5, -0.5));
+            // The curve handle: a dot in the middle of the fade line.
+            const QRectF dot = ll::fadeCurveHandleRect(clip, r, L, head);
+            if (!dot.isEmpty()) {
+                p.setPen(sc().shadow);
+                p.setBrush(sc().bright);
+                p.drawEllipse(dot.adjusted(0.5, 0.5, -0.5, -0.5));
+            }
         }
     }
     p.restore();

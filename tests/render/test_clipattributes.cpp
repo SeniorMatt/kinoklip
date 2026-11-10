@@ -47,6 +47,7 @@ class TestClipAttributes : public QObject
     QTemporaryDir m_dir;
     QString m_stereo; ///< left: 1 kHz sine at 0.5, right: silence (2 s)
     QString m_tone; ///< mono 1 kHz sine at 0.5 (2 s)
+    QString m_dc; ///< mono constant 0.5 (2 s), for exact gain checks
     QString m_black; ///< limited-range black YUV video (1 s, 64x64)
     QString m_halves; ///< 80x80 PNG: left half red, right half blue
     QString m_lines; ///< 64x64 PNG: even rows red, odd rows blue
@@ -105,6 +106,10 @@ private slots:
         m_stereo = m_dir.filePath(QStringLiteral("left_only.wav"));
         m_tone = m_dir.filePath(QStringLiteral("tone.wav"));
         m_black = m_dir.filePath(QStringLiteral("black.mkv"));
+        m_dc = m_dir.filePath(QStringLiteral("dc.wav"));
+        if (!runFfmpeg({QStringLiteral("-f"), QStringLiteral("lavfi"), QStringLiteral("-i"),
+                QStringLiteral("aevalsrc=0.5:s=48000:d=2"), m_dc}))
+            m_dc.clear();
         if (!runFfmpeg({QStringLiteral("-f"), QStringLiteral("lavfi"), QStringLiteral("-i"),
                 QStringLiteral("aevalsrc=0.5*sin(2*PI*1000*t)|0:s=48000:d=2"), m_stereo}))
             m_stereo.clear();
@@ -176,6 +181,171 @@ private slots:
             qPrintable(QString::number(mid)));
         QVERIFY(std::abs(peak(mix(mixer, tl, 30, 1), 0) - 0.5f) < 0.01f);
         QVERIFY(peak(mix(mixer, tl, 49, 1), 0) < 0.5f * 0.17f);
+    }
+
+    // ---- Fade curves (spec section 59) ----
+
+    /// The curve family written out independently of the code under test: progress t through
+    /// t^(4^curve), then the audio sine (or the plain value for video).
+    static double curved(double t, double curve) { return std::pow(t, std::pow(4.0, curve)); }
+
+    void fadeShapeMaths()
+    {
+        // Linear is exactly the old maths: the shape is the progress itself (bit-identical).
+        for (const double t : {0.0, 0.1, 0.25, 0.5, 0.9, 1.0})
+            QVERIFY(fadeShape(t, 0.0) == t);
+        QVERIFY(videoFadeFactor(5, 100, 10, 0, 0.0, 0.0) == videoFadeFactor(5, 100, 10, 0));
+        QVERIFY(audioFadeGain(3.7, 100, 10, 20, 0.0, 0.0) == audioFadeGain(3.7, 100, 10, 20));
+        QVERIFY(audioFadeGain(5.0, 100, 10, 0)
+            == std::sin(std::clamp(5.0 / 10.0, 0.0, 1.0) * (std::numbers::pi / 2.0)));
+        // Endpoints are exact for every curve; values at 0.25 / 0.5 / 0.75.
+        for (const double c : {-1.0, -0.5, 0.25, 0.5, 1.0}) {
+            QVERIFY(fadeShape(0.0, c) == 0.0);
+            QVERIFY(fadeShape(1.0, c) == 1.0);
+            QVERIFY(audioFadeGain(0.0, 100, 10, 0, c) == 0.0);
+            QVERIFY(audioFadeGain(10.0, 100, 10, 0, c) == 1.0);
+            QVERIFY(videoFadeFactor(0, 100, 10, 0, c) == 0.0);
+            QVERIFY(videoFadeFactor(10, 100, 10, 0, c) == 1.0);
+            QVERIFY(videoFadeFactor(99, 100, 0, 10, 0.0, c) == 0.0);
+            QVERIFY(audioFadeGain(100.0, 100, 0, 10, 0.0, c) == 0.0);
+            for (const double t : {0.25, 0.5, 0.75})
+                QVERIFY(std::abs(fadeShape(t, c) - curved(t, c)) < 1e-12);
+        }
+        QVERIFY(std::abs(fadeShape(0.5, 1.0) - 0.0625) < 1e-12); // slow start: low in the middle
+        QVERIFY(std::abs(fadeShape(0.5, -1.0) - std::sqrt(std::sqrt(0.5))) < 1e-12);
+        QVERIFY(fadeShape(0.5, 1.0) < 0.5 && fadeShape(0.5, -1.0) > 0.5);
+        // Curves outside the range are clamped; shapes rise monotonically.
+        QVERIFY(fadeShape(0.5, 5.0) == fadeShape(0.5, 1.0));
+        double last = 0.0;
+        for (int i = 0; i <= 100; ++i) {
+            const double v = fadeShape(i / 100.0, 0.7);
+            QVERIFY(v >= last);
+            last = v;
+        }
+        // The fade-out mirrors with its own curve.
+        QVERIFY(std::abs(videoFadeFactor(94, 100, 0, 10, 0.0, 1.0) - 0.0625) < 1e-12);
+    }
+
+    void audioFadeCurvesMix_data()
+    {
+        QTest::addColumn<double>("inCurve");
+        QTest::addColumn<double>("outCurve");
+        QTest::newRow("linear") << 0.0 << 0.0;
+        QTest::newRow("slow") << 1.0 << 0.5;
+        QTest::newRow("fast") << -1.0 << -0.5;
+        QTest::newRow("mixed") << 0.6 << -0.8;
+    }
+    void audioFadeCurvesMix()
+    {
+        QFETCH(double, inCurve);
+        QFETCH(double, outCurve);
+        QVERIFY(!m_dc.isEmpty());
+        TimelineData tl = emptyTimeline();
+        ClipData clip = mediaClip(tl, QStringLiteral("t"), 0, 50, 0, 2'000'000);
+        clip.fadeInFrames = 20; // 38400 samples
+        clip.fadeOutFrames = 10; // 19200 samples
+        clip.fadeInCurve = inCurve;
+        clip.fadeOutCurve = outCurve;
+        addClip(tl, TrackType::Audio, 0, clip);
+        AudioMixer mixer;
+        mixer.setMediaPaths(media(QStringLiteral("t"), m_dc));
+        const std::vector<float> out = mix(mixer, tl, 0, 50);
+        const double pi2 = std::numbers::pi / 2.0;
+        auto expected = [&](int64_t s) {
+            double g = 1.0;
+            if (s < 38400)
+                g = std::sin(curved(double(s) / 38400.0, inCurve) * pi2);
+            const double fromEnd = double(96000 - s);
+            if (fromEnd < 19200.0)
+                g *= std::sin(curved(fromEnd / 19200.0, outCurve) * pi2);
+            return 0.5 * g;
+        };
+        // Exact at the very start (silence) and at the inner end of the fade-in (clip gain).
+        QVERIFY(out[0] == 0.0f && out[1] == 0.0f);
+        QVERIFY(std::abs(out[size_t(38400) * 2] - 0.5f) < 1e-6f);
+        // Block edges (every 64th sample) follow the curve; the samples between them are
+        // ramped linearly between two edges (a first block of a steep curve is the exception).
+        for (int64_t s = 64 * 8; s < 96000 - 64 * 8; s += 64 * 37) {
+            const double want = expected(s);
+            QVERIFY2(std::abs(double(out[size_t(s) * 2]) - want) < 2e-3,
+                qPrintable(QStringLiteral("sample %1: %2 vs %3")
+                               .arg(s)
+                               .arg(out[size_t(s) * 2])
+                               .arg(want)));
+        }
+        for (const int64_t s :
+            {2000, 9600, 19200, 28800, 38000, 60000, 80000, 85000, 90000, 95000}) {
+            const double want = expected(s);
+            QVERIFY2(std::abs(double(out[size_t(s) * 2 + 1]) - want) < 3e-3,
+                qPrintable(QStringLiteral("sample %1: %2 vs %3")
+                               .arg(s)
+                               .arg(out[size_t(s) * 2 + 1])
+                               .arg(want)));
+        }
+        // The last samples are quiet and no sample jumps (no click) at either end.
+        QVERIFY(std::abs(out[size_t(96000 - 1) * 2]) < 2e-3f);
+        float maxStep = 0.0f;
+        for (size_t i = 1; i < 96000; ++i)
+            maxStep = std::max(maxStep, std::abs(out[i * 2] - out[(i - 1) * 2]));
+        QVERIFY2(maxStep < 0.02f, qPrintable(QString::number(maxStep)));
+    }
+
+    void audioFadeLinearMatchesOldMaths()
+    {
+        QVERIFY(!m_dc.isEmpty());
+        TimelineData tl = emptyTimeline();
+        ClipData clip = mediaClip(tl, QStringLiteral("t"), 0, 50, 0, 2'000'000);
+        clip.fadeInFrames = 25;
+        addClip(tl, TrackType::Audio, 0, clip);
+        AudioMixer mixer;
+        mixer.setMediaPaths(media(QStringLiteral("t"), m_dc));
+        const std::vector<float> out = mix(mixer, tl, 0, 30);
+        for (int64_t s = 64; s < 25 * 1920; s += 64 * 41) {
+            const double old
+                = 0.5 * std::sin(double(s) / (25.0 * 1920.0) * (std::numbers::pi / 2.0));
+            QVERIFY(std::abs(double(out[size_t(s) * 2]) - old) < 1e-5);
+        }
+    }
+
+    void videoFadeCurvesRender_data() { backendRows(); }
+    void videoFadeCurvesRender()
+    {
+        Compositor* c = backend();
+        if (!c)
+            QSKIP("no OpenGL 3.3");
+        for (const double curve : {-1.0, 0.0, 0.5, 1.0}) {
+            TimelineData tl = emptyTimeline(64, 36);
+            ClipData clip = solidClip(tl, Qt::white, 0, 50);
+            clip.fadeInFrames = 10;
+            clip.fadeOutFrames = 20;
+            clip.fadeInCurve = curve;
+            clip.fadeOutCurve = -curve;
+            addClip(tl, TrackType::Video, 0, clip);
+            const auto shot = snap(tl);
+            auto alphaAt = [&](int64_t f) { return qAlpha(c->renderImage(shot, f).pixel(32, 18)); };
+            QCOMPARE(alphaAt(0), 0); // exactly transparent at the outer ends
+            QCOMPARE(alphaAt(49), 0);
+            QCOMPARE(alphaAt(10), 255); // exactly the clip's opacity at the inner ends
+            QCOMPARE(alphaAt(29), 255);
+            for (const int f : {2, 5, 8}) {
+                const int want = int(std::lround(255.0 * curved(f / 10.0, curve)));
+                QVERIFY2(std::abs(alphaAt(f) - want) <= 2,
+                    qPrintable(QStringLiteral("curve %1 frame %2: %3 vs %4")
+                                   .arg(curve)
+                                   .arg(f)
+                                   .arg(alphaAt(f))
+                                   .arg(want)));
+            }
+            for (const int f : {35, 44}) { // fade-out: 20 frames, last frame 49 is 0
+                const int want = int(std::lround(255.0 * curved((49 - f) / 20.0, -curve)));
+                QVERIFY2(std::abs(alphaAt(f) - want) <= 2,
+                    qPrintable(QStringLiteral("curve %1 frame %2: %3 vs %4")
+                                   .arg(curve)
+                                   .arg(f)
+                                   .arg(alphaAt(f))
+                                   .arg(want)));
+            }
+        }
     }
 
     void volumeKeysMix()
