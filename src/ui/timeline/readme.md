@@ -10,6 +10,7 @@ for thumbnails and waveforms).
 |---|---|
 | `TimelinePanel.h` | `PanelFrame` with the tool bar, owns the controller and the widget; wires the zoom actions |
 | `TimelineController.h` | commands (split, delete, ripple delete, nudge, marks, markers, copy/cut/paste, default transition, link, enable), editor state (tool, snapping, linked selection, track targeting), `insertSource()` for F9/F10/F12, clip factories; connects the actions this module owns |
+| `VimTimelineHost.h` | the vim layer's host for a timeline: triggers registry actions, moves the playhead, selects the clip(s) at the playhead or a range, moves the target video track |
 | `TimelineWidget.h` | `QAbstractScrollArea`; the view. Implementation split in three files: `TimelineWidget.cpp` (setup, paint, zoom, scroll, follow playhead, context menus), `TimelineInput.cpp` (mouse state machine), `TimelineDrop.cpp` (drag and drop) |
 | `TimelineCommands.cpp` | controller part 2: delete / ripple delete / ripple cut of clips, gaps and in-out ranges, clipboard, select forward / nearest edit / nearest clip, join, swap, match frame, track targeting by number, clip duration / speed |
 | `TimelineTransitions.cpp` | controller part 3: Ctrl+T with the insufficient-handles question, transition alignment and length |

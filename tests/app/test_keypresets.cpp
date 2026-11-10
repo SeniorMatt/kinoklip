@@ -46,7 +46,7 @@ constexpr TrackRef kV1 {TrackType::Video, 0};
 const QStringList kPresets {QStringLiteral("resolve-windows"),
     QStringLiteral("avid-media-composer"), QStringLiteral("final-cut-pro"),
     QStringLiteral("kdenlive"), QStringLiteral("premiere-pro"), QStringLiteral("shotcut"),
-    QStringLiteral("vegas-pro")};
+    QStringLiteral("vegas-pro"), QStringLiteral("vim")};
 
 QKeySequence key(const char* text)
 {

@@ -9,6 +9,7 @@
 #include "app/PageBar.h"
 #include "app/ProjectController.h"
 #include "app/SettingsTransfer.h"
+#include "app/VimController.h"
 #include "app/TimelineExport.h"
 #include "app/TimelineImport.h"
 #include "app/commands/Command.h"
@@ -269,6 +270,8 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     connect(m_live, &live::LiveServer::clientCountChanged, m_interfaceBar,
         &InterfaceBar::setRemoteControlClients);
     applyLocalControlPreference();
+    // Vim keys (Keyboard profile "vim"): active only while that profile is chosen.
+    m_vim = new VimController(ctx, m_editPage->timeline(), this, target, this);
     // A settings import may have switched Local Control off.
     connect(settingstransfer::notifier(), &settingstransfer::Notifier::applied, this,
         &MainWindow::applyLocalControlPreference, Qt::QueuedConnection);

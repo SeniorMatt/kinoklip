@@ -123,6 +123,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     , m_mode(mode)
 {
     setPanelKey(QStringLiteral("viewer")); // in-app help: panel:viewer
+    setProperty("kkVimScope", true); // the vim key layer (ui/common/VimInput.h) works here
     registry().append(this);
     m_resizeSettle = new QTimer(this);
     m_resizeSettle->setSingleShot(true);

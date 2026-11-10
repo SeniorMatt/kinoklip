@@ -2,7 +2,7 @@
 
 Kinoklip's keys are [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve)'s. If your fingers know another editor, you can switch all
 of Kinoklip's keys to that editor's in one step: Vegas Pro (where **S** cuts the clip at the
-playhead), [Premiere Pro](https://www.adobe.com/products/premiere.html), [Final Cut Pro](https://www.apple.com/final-cut-pro/), [Avid Media Composer](https://www.avid.com/media-composer), [Kdenlive](https://kdenlive.org) or [Shotcut](https://shotcut.org).
+playhead), [Premiere Pro](https://www.adobe.com/products/premiere.html), [Final Cut Pro](https://www.apple.com/final-cut-pro/), [Avid Media Composer](https://www.avid.com/media-composer), [Kdenlive](https://kdenlive.org) or [Shotcut](https://shotcut.org). If you edit text with [Vim](https://www.vim.org) or [Neovim](https://neovim.io), see [Edit with vim keys](edit-with-vim-keys.md).
 
 ## The first time Kinoklip starts
 

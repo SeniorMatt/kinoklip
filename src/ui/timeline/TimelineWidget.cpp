@@ -53,6 +53,7 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
         m_timelineLookup = ctx.project->timelineLookup();
     setFrameShape(QFrame::NoFrame);
     setFocusPolicy(Qt::StrongFocus);
+    setProperty("kkVimScope", true); // the vim key layer (ui/common/VimInput.h) works here
     setAcceptDrops(true);
     viewport()->setAcceptDrops(true);
     viewport()->setMouseTracking(true);

@@ -804,6 +804,29 @@
         "keyboard profile"
       ],
       "contexts": []
+    },
+    {
+      "id": "edit-with-vim-keys",
+      "title": "Edit with vim keys",
+      "file": "edit-with-vim-keys.md",
+      "summary": "Switch to the Vim keyboard profile and edit the timeline with counts, dd, yy, gg, visual mode and a command line.",
+      "keywords": [
+        "vim",
+        "neovim",
+        "nvim",
+        "vi",
+        "keybindings",
+        "keybinds",
+        "modal",
+        "hjkl",
+        "dd",
+        "yy",
+        "normal mode",
+        "visual mode",
+        "command line",
+        "colon"
+      ],
+      "contexts": []
     }
   ]
 }
