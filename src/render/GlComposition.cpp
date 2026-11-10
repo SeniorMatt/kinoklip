@@ -706,15 +706,14 @@ PooledTarget GlComposition::effectNode(GlKit& kit, const CompEval& ev, const Com
 {
     if (input < 0 || !m_effects)
         return {};
-    const auto it = m_effects->constFind(n.type.mid(nodetypes::EffectPrefix.size()));
-    if (it == m_effects->constEnd()) {
+    GlEffect* effect = m_effects(n.type.mid(nodetypes::EffectPrefix.size()));
+    if (!effect) {
         if (!m_warned.contains(n.type)) {
             m_warned.insert(n.type);
             qCWarning(lcRender) << "composition: no GPU implementation for" << n.type;
         }
         return {};
     }
-    GlEffect* effect = it->get();
     if (effect->isIdentity(n.params, ev.compFrame))
         return {};
     const Slot& s = m_stack[size_t(m_depth)][size_t(input)];

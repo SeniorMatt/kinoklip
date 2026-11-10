@@ -98,6 +98,9 @@ struct GlEffectFactory
 /// GlStylizeEffects.cpp and GlDistortEffects.cpp).
 [[nodiscard]] std::span<const GlEffectFactory> builtinGlEffects();
 
+/// The factory of effect @p id, or nullptr when the id has none.
+[[nodiscard]] const GlEffectFactory* findGlEffectFactory(const QString& id);
+
 /// Registration tables of the v4 effect files (see builtinGlEffects()).
 [[nodiscard]] std::span<const GlEffectFactory> keyerGlEffects();
 [[nodiscard]] std::span<const GlEffectFactory> colorGlEffects();

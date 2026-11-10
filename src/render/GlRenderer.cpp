@@ -198,29 +198,15 @@ bool GlRenderer::initialize(QString* why)
             qCWarning(lcRender).noquote() << "frame interpolation disabled:" << log;
     }
 
-    for (const GlEffectFactory& f : builtinGlEffects()) {
-        std::shared_ptr<GlEffect> effect = f.create();
-        QString log;
-        if (effect->initialize(*m_kit, &log))
-            m_effects.insert(QLatin1String(f.id), std::move(effect));
-        else
-            qCWarning(lcRender).noquote() << "effect" << f.id << "disabled:" << log;
-    }
-    for (const GlTransitionFactory& f : builtinGlTransitions()) {
-        std::shared_ptr<GlTransition> transition = f.create();
-        QString log;
-        if (transition->initialize(*m_kit, &log))
-            m_transitions.insert(f.id, std::move(transition));
-        else
-            qCWarning(lcRender).noquote() << "transition" << f.id << "disabled:" << log;
-    }
-    m_comp.setShared(&m_effects, &m_masks, &m_generators);
-    const auto dissolve = m_transitions.constFind(QStringLiteral("cross_dissolve"));
-    if (dissolve == m_transitions.constEnd()) {
+    // Only the fallback is built now; every other transition builds its program the first
+    // time it is drawn (transitionFor()), so a start-up does not compile ~100 shaders it may
+    // never use.
+    if (!transitionFor(QStringLiteral("cross_dissolve"))) {
         *why = QStringLiteral("cross_dissolve shader failed");
         return false;
     }
-    m_fallbackTransition = dissolve->get();
+    m_comp.setShared([this](const QString& id) { return effectFor(id); }, &m_masks, &m_generators);
+    m_fallbackTransition = m_transitions.value(QStringLiteral("cross_dissolve")).get();
 
     // Plane textures live with their decoder; delete them when the pool closes it.
     m_decoders.setCloseHook([this](DecoderPool::Entry& e) {
@@ -242,6 +228,44 @@ bool GlRenderer::initialize(QString* why)
         return false;
     }
     return true;
+}
+
+GlEffect* GlRenderer::effectFor(const QString& id)
+{
+    if (const auto it = m_effects.constFind(id); it != m_effects.constEnd())
+        return it->get();
+    if (m_failedEffects.contains(id))
+        return nullptr;
+    const GlEffectFactory* factory = findGlEffectFactory(id);
+    if (!factory)
+        return nullptr;
+    std::shared_ptr<GlEffect> effect = factory->create();
+    QString log;
+    if (!effect->initialize(*m_kit, &log)) {
+        m_failedEffects.insert(id);
+        qCWarning(lcRender).noquote() << "effect" << id << "disabled:" << log;
+        return nullptr;
+    }
+    return m_effects.insert(id, std::move(effect))->get();
+}
+
+GlTransition* GlRenderer::transitionFor(const QString& id)
+{
+    if (const auto it = m_transitions.constFind(id); it != m_transitions.constEnd())
+        return it->get();
+    if (m_failedTransitions.contains(id))
+        return nullptr;
+    const GlTransitionFactory* factory = findGlTransitionFactory(id);
+    if (!factory)
+        return nullptr; // not a GPU transition (unknown id): the caller falls back
+    std::shared_ptr<GlTransition> transition = factory->create();
+    QString log;
+    if (!transition->initialize(*m_kit, &log)) {
+        m_failedTransitions.insert(id); // reported once, the fallback draws it from now on
+        qCWarning(lcRender).noquote() << "transition" << id << "disabled:" << log;
+        return nullptr;
+    }
+    return m_transitions.insert(id, std::move(transition))->get();
 }
 
 void GlRenderer::shutdown()
@@ -626,13 +650,13 @@ PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
     return accumulator;
 }
 
-bool GlRenderer::hasActiveEffect(const ClipData& clip, int64_t local) const
+bool GlRenderer::hasActiveEffect(const ClipData& clip, int64_t local)
 {
     for (const EffectInstance& e : clip.effects) {
         if (!e.enabled)
             continue;
-        const auto it = m_effects.constFind(e.type);
-        if (it != m_effects.constEnd() && !(*it)->isIdentity(e.params, local))
+        const GlEffect* effect = effectFor(e.type);
+        if (effect && !effect->isIdentity(e.params, local))
             return true;
     }
     return false;
@@ -724,9 +748,9 @@ void GlRenderer::drawTrack(
         m_kit->clearTransparent();
         drawClip(*span.incoming, fc, *b);
     }
-    GlTransition* transition = m_fallbackTransition;
-    if (auto it = m_transitions.constFind(span.transition->type); it != m_transitions.constEnd())
-        transition = it->get();
+    GlTransition* transition = transitionFor(span.transition->type);
+    if (!transition)
+        transition = m_fallbackTransition;
     TransitionInput in;
     in.a = a ? a->texture : m_kit->transparentTexture();
     in.b = b ? b->texture : m_kit->transparentTexture();
@@ -1009,19 +1033,19 @@ void GlRenderer::drawClip(
     for (const EffectInstance& e : clip.effects) {
         if (!e.enabled || erase)
             continue;
-        const auto it = m_effects.constFind(e.type);
-        if (it == m_effects.constEnd()) {
+        GlEffect* effect = effectFor(e.type);
+        if (!effect) {
             if (!m_warnedEffects.contains(e.type)) {
                 m_warnedEffects.insert(e.type);
                 qCWarning(lcRender) << "no GPU implementation for effect" << e.type;
             }
             continue;
         }
-        if ((*it)->isIdentity(e.params, local))
+        if (effect->isIdentity(e.params, local))
             continue;
-        m_activeEffects.push_back(it->get());
+        m_activeEffects.push_back(effect);
         m_activeInstances.push_back(&e);
-        padding += (*it)->contentPaddingPx(e.params, local, src.content);
+        padding += effect->contentPaddingPx(e.params, local, src.content);
     }
 
     // Masks cut the clip's own picture (after its effects, before its transform), so they

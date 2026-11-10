@@ -48,7 +48,20 @@ public:
     [[nodiscard]] bool hasPending() const override;
     void shutdown() override;
 
+    /// Number of transition programs built so far (a fresh renderer has built only the
+    /// fallback, cross_dissolve). Render thread only; for tests.
+    [[nodiscard]] int builtTransitionCount() const { return int(m_transitions.size()); }
+    /// Number of effect programs built so far. Render thread only; for tests.
+    [[nodiscard]] int builtEffectCount() const { return int(m_effects.size()); }
+
 private:
+    /// The implementation of transition @p id, built on first use; nullptr when the id is not
+    /// a GPU transition or its program failed to build (then the caller uses the fallback).
+    GlTransition* transitionFor(const QString& id);
+    /// The implementation of effect @p id, built on first use; nullptr when the id is not a
+    /// GPU effect or its program failed to build (reported once).
+    GlEffect* effectFor(const QString& id);
+
     /// Frame-wide values every clip draw needs.
     struct FrameContext
     {
@@ -172,7 +185,7 @@ private:
     /// Sets the GL blend function for @p blend (blending enabled).
     void applyBlend(ClipBlend blend);
     /// True if adjustment clip @p clip has an effect that changes the picture at @p local.
-    [[nodiscard]] bool hasActiveEffect(const ClipData& clip, int64_t local) const;
+    [[nodiscard]] bool hasActiveEffect(const ClipData& clip, int64_t local);
     /// Draws the track frame @p tf showing an adjustment clip over @p accumulator (which holds
     /// the tracks below); may replace @p accumulator.
     void drawAdjustment(const TrackFrame& tf, const FrameContext& fc, PooledTarget& accumulator);
@@ -238,8 +251,12 @@ private:
     std::vector<PooledTarget> m_retimeTargets; ///< per-frame in-between pictures
     QString m_description;
 
-    QHash<QString, std::shared_ptr<GlEffect>> m_effects; ///< descriptor id → implementation
+    /// Effects built so far (an effect builds when first used, see effectFor()).
+    QHash<QString, std::shared_ptr<GlEffect>> m_effects;
+    QSet<QString> m_failedEffects; ///< ids whose program did not build (logged once)
+    /// Transitions built so far (a transition builds when first drawn, see transitionFor()).
     QHash<QString, std::shared_ptr<GlTransition>> m_transitions;
+    QSet<QString> m_failedTransitions; ///< ids whose program did not build (logged once)
     GlTransition* m_fallbackTransition = nullptr; ///< cross_dissolve for unknown ids
 
     DecoderPool m_decoders;

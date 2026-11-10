@@ -56,12 +56,17 @@ struct GlTransitionFactory
 /// All built-in GPU transitions (the single registration point, built on first use).
 [[nodiscard]] const std::vector<GlTransitionFactory>& builtinGlTransitions();
 
+/// The factory of transition @p id, or nullptr when the id has none.
+[[nodiscard]] const GlTransitionFactory* findGlTransitionFactory(const QString& id);
+
 /// The families, each in its own file; builtinGlTransitions() collects them.
 void appendDissolveTransitions(
     std::vector<GlTransitionFactory>& out); ///< GlDissolveTransitions.cpp
 void appendShapeTransitions(std::vector<GlTransitionFactory>& out); ///< GlShapeTransitions.cpp
 void appendMotionTransitions(std::vector<GlTransitionFactory>& out); ///< GlMotionTransitions.cpp
 void appendFusionTransitions(std::vector<GlTransitionFactory>& out); ///< GlFusionTransitions.cpp
+void appendFusionMotionTransitions(
+    std::vector<GlTransitionFactory>& out); ///< GlFusionMotionTransitions.cpp
 
 /// Unit vector (x right, y down) of a direction choice "left"/"right"/"up"/"down": the way the
 /// incoming picture's edge travels. Unknown → left.

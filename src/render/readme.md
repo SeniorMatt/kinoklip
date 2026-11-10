@@ -126,7 +126,11 @@ playback engine keep the rendered frames (`PlaybackEngine::onTimelineChanged()`)
   from/to transparent over the clip's first/last d frames. B's `transitionIn` wins over A's
   `transitionOut` at the same cut. Progress `(f − start + 1) / (d + 1)`. Unknown transition
   ids render as a cross dissolve. Wipe/push take the `direction` choice; a numeric `angle`
-  parameter (degrees, 0 = right, clockwise), if present, overrides it.
+  parameter (degrees, 0 = right, clockwise), if present, overrides it. `GlRenderer` builds a
+  transition's (and an effect's) shader program on first use (`transitionFor()`, `effectFor()`);
+  only `cross_dissolve`, the fallback, is built at start. A new transition is a row in the
+  `append...Transitions()` function of its family file (`Gl*Transitions.cpp`) plus its descriptor
+  in `core/BuiltinTransitions.cpp`; `kk_transitionsheets` (tests/tools) draws contact sheets.
 * **Titles**: rasterised with QPainter into a tightly cropped image (outline = stroked
   `QPainterPath` under the fill, shadow, background box, alignment, size/tracking/line
   spacing), uploaded once and cached by a hash of every style value + raster scale

@@ -93,7 +93,7 @@ private slots:
         };
         QVERIFY(names(0).contains(QStringLiteral("Smooth Cut")));
         QVERIFY(names(0).contains(QStringLiteral("Cross Dissolve")));
-        QCOMPARE(names(1).size(), 15);
+        QCOMPARE(names(1).size(), 28); // Fusion Transitions: 15 + 13 added in 54.9
         QCOMPARE(names(2).size(), 9);
         QCOMPARE(names(3).size(), 4);
         QCOMPARE(names(4).size(), 1);

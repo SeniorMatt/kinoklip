@@ -43,6 +43,12 @@ inline const QString Glow = QStringLiteral("glow"); ///< %
 inline const QString Raggedness = QStringLiteral("raggedness"); ///< %
 inline const QString Char = QStringLiteral("char"); ///< %
 
+// Fusion style motion and reveal transitions (Slide, Pan, Fall and Bounce, Film Strip, ...).
+inline const QString Curve = QStringLiteral("curve"); ///< "linear", "easing" or "custom"
+inline const QString Power = QStringLiteral("power"); ///< steepness of the custom curve
+inline const QString Invert = QStringLiteral("invert"); ///< Foreground Wipe: run the other way
+inline const QString Shadow = QStringLiteral("shadow"); ///< Paint On: shadow at the brush edge, %
+
 // Motion.
 inline const QString Direction = QStringLiteral("direction");
 inline const QString MotionBlur = QStringLiteral("motionBlur"); ///< shutter, % of the transition
