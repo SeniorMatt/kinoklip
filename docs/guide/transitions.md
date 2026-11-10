@@ -63,7 +63,7 @@ for it and the morph then looks like a dissolve.
 
 ## Taking transitions to another editor
 
-When you export the timeline as OpenTimelineIO (**File > Export**, see
+When you export the timeline as [OpenTimelineIO](https://opentimeline.io) (**File > Export**, see
 [Move a timeline to another editor](move-a-timeline-to-another-editor.md)), every transition is
 written as a transition with its name and settings. The same Kinoklip reads it back as it was.
 Another program that does not know it shows a custom transition, and a transition from another
