@@ -51,3 +51,11 @@ paper or a screen filmed at an angle.
 
 Like Match Move, the track is stored with the clip and a change of region, grid or source needs a
 new track.
+
+## Bend a picture by hand (Warper)
+
+Add **Warper** (**Warp** folder). It lays a grid of points over the picture: **Columns** and
+**Rows** set how many (3 by 3 to start, up to 4 by 4). Each point has **Point row, column X** and
+**Y**, how many pixels it moves right and down (row 1 is the top row). The picture bends smoothly
+with the points, and the edge of the grid holds the picture there. Every point can be animated
+with keyframes, so a mouth, a flag or a logo can be made to ripple and sway.

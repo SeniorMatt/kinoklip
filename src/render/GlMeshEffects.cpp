@@ -134,6 +134,53 @@ private:
     GLint m_content = -1, m_cols = -1, m_rows = -1, m_rest = -1, m_d = -1;
 };
 
+// ---- warper ----
+
+class Warper final : public MeshEffect
+{
+protected:
+    const char* name() const override { return "warper"; }
+    bool identity(const ParamSet& p, int64_t f) const override
+    {
+        const int cols = sideOf(p, k::Columns), rows = sideOf(p, k::Rows);
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                for (int axis = 0; axis < 2; ++axis) {
+                    if (p.value(warper::pointKey(r, c, axis), f, 0.0) != 0.0)
+                        return false;
+                }
+            }
+        }
+        return true;
+    }
+    bool makeGrid(const EffectInput& in, MeshGrid* grid) const override
+    {
+        const ParamSet& p = *in.params;
+        grid->cols = sideOf(p, k::Columns);
+        grid->rows = sideOf(p, k::Rows);
+        const QSizeF size = contentPx(in);
+        if (size.width() < 1 || size.height() < 1)
+            return false;
+        grid->d.resize(size_t(grid->cols) * size_t(grid->rows) * 2);
+        for (int r = 0; r < grid->rows; ++r) {
+            for (int c = 0; c < grid->cols; ++c) {
+                const size_t i = (size_t(r) * size_t(grid->cols) + size_t(c)) * 2;
+                grid->d[i] = float(p.value(warper::pointKey(r, c, 0), in.localFrame, 0.0)
+                    * in.scale / size.width());
+                grid->d[i + 1] = float(p.value(warper::pointKey(r, c, 1), in.localFrame, 0.0)
+                    * in.scale / size.height());
+            }
+        }
+        return true;
+    }
+
+private:
+    static int sideOf(const ParamSet& p, const QString& key)
+    {
+        return std::clamp(int(p.value(key, 0, warper::kDefaultSide)), 2, warper::kMaxSide);
+    }
+};
+
 // ---- surface_tracker (warp mode) ----
 
 class SurfaceWarp final : public MeshEffect
@@ -180,6 +227,7 @@ public:
 
 const GlEffectFactory kMeshTable[] = {
     {fxid::MatchMove, &make<MovesTheClip>},
+    {fxid::Warper, &make<Warper>},
     {fxid::SurfaceTracker, &make<SurfaceWarp>},
 };
 

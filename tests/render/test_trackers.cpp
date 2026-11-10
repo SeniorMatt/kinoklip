@@ -609,6 +609,98 @@ private slots:
         QVERIFY2(std::abs(pinned.x() - before.x() - 0.1 * kW) < 3.0, "pin");
     }
 
+
+    // ---- Warper ----
+
+    void warperDescriptorAndIdentity()
+    {
+        const EffectDescriptor* d = EffectRegistry::instance().find(QLatin1String(fxid::Warper));
+        QVERIFY(d);
+        QCOMPARE(d->name, QStringLiteral("Warper"));
+        QVERIFY(d->param(warper::pointKey(3, 3, 1)));
+        QVERIFY(d->param(warper::pointKey(0, 0, 0))->animatable);
+        QVERIFY(!d->param(k::Columns)->animatable);
+        if (!gpuReady())
+            QSKIP("no OpenGL");
+        // No point moved: the picture is untouched.
+        TimelineData tl = footageTimeline();
+        const QImage plain = render(tl, 12);
+        tl.videoTracks[0].clips[0].effects = {effect(tl, fxid::Warper)};
+        QCOMPARE(render(tl, 12), plain);
+    }
+
+    void warperMovesWhatSitsOnAPoint()
+    {
+        if (!gpuReady())
+            QSKIP("no OpenGL");
+        // 2 x 2 grid: every point moves 30 px right and 10 px down: the picture shifts as a whole.
+        TimelineData tl = footageTimeline();
+        const QPointF before = whiteCentre(render(tl, 25));
+        EffectInstance fx = effect(tl, fxid::Warper, {{k::Columns, 2.0}, {k::Rows, 2.0}});
+        for (int r = 0; r < 2; ++r) {
+            for (int c = 0; c < 2; ++c) {
+                fx.params.setBase(warper::pointKey(r, c, 0), 30.0);
+                fx.params.setBase(warper::pointKey(r, c, 1), 10.0);
+            }
+        }
+        tl.videoTracks[0].clips[0].effects = {fx};
+        const QPointF after = whiteCentre(render(tl, 25));
+        QVERIFY2(std::abs(after.x() - before.x() - 30.0) < 2.0,
+            qPrintable(QStringLiteral("%1 -> %2").arg(before.x()).arg(after.x())));
+        QVERIFY2(std::abs(after.y() - before.y() - 10.0) < 2.0, "y");
+        // 3 x 3 grid with only the middle point moved: a feature on the edge stays.
+        EffectInstance mid = effect(tl, fxid::Warper);
+        mid.params.setBase(warper::pointKey(1, 1, 0), 40.0);
+        tl.videoTracks[0].clips[0].effects = {mid};
+        const QImage warped = render(tl, 25);
+        QVERIFY(warped != render(footageTimeline(), 25));
+        QCOMPARE(warped.pixel(2, 2), render(footageTimeline(), 25).pixel(2, 2));
+    }
+
+    void contactSheet()
+    {
+        const QString out = qEnvironmentVariable("KK_EFFECT_SHEETS");
+        if (out.isEmpty() || !gpuReady())
+            QSKIP("KK_EFFECT_SHEETS not set, or no OpenGL");
+        QDir().mkpath(out);
+        constexpr int tileW = 320, tileH = 180, label = 22, cols = 4;
+        QImage sheet(cols * tileW, 3 * (tileH + label), QImage::Format_RGB32);
+        sheet.fill(QColor(30, 30, 34));
+        QPainter p(&sheet);
+        p.setPen(Qt::white);
+        auto row = [&](int r, const QString& text, const QVector<QImage>& images) {
+            const int y = r * (tileH + label);
+            p.drawText(QRect(6, y, sheet.width() - 6, label), Qt::AlignVCenter, text);
+            for (int i = 0; i < images.size(); ++i)
+                p.drawImage(i * tileW, y + label, images[i]);
+        };
+        TimelineData base = footageTimeline();
+        QVector<QImage> plain;
+        for (const int f : {5, 15, 25, 35})
+            plain.append(render(base, f));
+        row(0, QStringLiteral("Footage: a square moving right (frames 5 15 25 35)"), plain);
+        // Warper: the middle point of a 3 x 3 grid pulled right, then 4 x 4 corners pulled.
+        QVector<QImage> warped;
+        for (const int f : {5, 15, 25, 35}) {
+            TimelineData tl = footageTimeline();
+            EffectInstance fx = effect(tl, fxid::Warper);
+            fx.params.setBase(warper::pointKey(1, 1, 0), 60.0);
+            fx.params.setBase(warper::pointKey(1, 1, 1), -30.0);
+            tl.videoTracks[0].clips[0].effects = {fx};
+            warped.append(render(tl, f));
+        }
+        row(1, QStringLiteral("Warper: middle point of the 3 x 3 grid moved 60 px right, 30 px up"), warped);
+        QVector<QImage> surfaceWarp;
+        for (const double du : {0.0, 0.05, 0.1, 0.2}) {
+            TimelineData tl = footageTimeline();
+            tl.videoTracks[0].clips[0].effects = {shiftedMesh(tl, du, fxchoice::SurfaceWarp)};
+            surfaceWarp.append(render(tl, 25));
+        }
+        row(2, QStringLiteral("Surface Tracker (Warp) with a stored mesh moved 0, 5, 10, 20 % right"), surfaceWarp);
+        p.end();
+        QVERIFY(sheet.save(out + QStringLiteral("/trackers.png")));
+    }
+
     void refusals()
     {
         TimelineData tl = footageTimeline();

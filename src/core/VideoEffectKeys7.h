@@ -36,4 +36,15 @@ inline const QString SurfacePin = QStringLiteral("pin");
 inline const QString SurfaceWarp = QStringLiteral("warp");
 } // namespace fxchoice
 
+/// Warper: a grid of control points the user moves (columns x rows, 2 - kMaxSide per side). Point
+/// (row, column) has two keyframable parameters, its movement in px on x and y; row 0 is at the top.
+namespace warper {
+inline constexpr int kDefaultSide = 3;
+inline constexpr int kMaxSide = 4;
+[[nodiscard]] inline QString pointKey(int row, int column, int axis)
+{
+    return QStringLiteral("point%1%2%3").arg(row).arg(column).arg(axis == 0 ? 'X' : 'Y');
+}
+} // namespace warper
+
 } // namespace kk

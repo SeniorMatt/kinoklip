@@ -959,7 +959,8 @@
       ],
       "contexts": [
         "effect:match_move",
-        "effect:surface_tracker"
+        "effect:surface_tracker",
+        "effect:warper"
       ]
     }
 

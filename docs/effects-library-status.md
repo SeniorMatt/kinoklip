@@ -214,5 +214,5 @@ Every entry of the Effects library that [DaVinci Resolve](https://www.blackmagic
 | Lens Distortion | Warp | Video effect | works |
 | Ripples | Warp | Video effect | works |
 | Vortex | Warp | Video effect | works |
-| Warper | Warp | Video effect | planned |
+| Warper | Warp | Video effect | works |
 | Waviness | Warp | Video effect | works |

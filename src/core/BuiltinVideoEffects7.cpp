@@ -102,6 +102,23 @@ void EffectRegistry::registerVideoEffects7()
             number(k::OffsetY, tr("Offset Y"), -4000, 4000, 0, 0.5, kPx),
             trackData(),
         }));
+
+    {
+        QVector<ParamDescriptor> params {
+            fixedInt(k::Columns, tr("Columns"), 2, warper::kMaxSide, warper::kDefaultSide),
+            fixedInt(k::Rows, tr("Rows"), 2, warper::kMaxSide, warper::kDefaultSide),
+        };
+        for (int r = 0; r < warper::kMaxSide; ++r) {
+            for (int c = 0; c < warper::kMaxSide; ++c) {
+                const QString name = tr("Point %1, %2").arg(r + 1).arg(c + 1);
+                params.append(number(warper::pointKey(r, c, 0), name + tr(" X"), -2000, 2000, 0, 0.5, kPx));
+                params.append(number(warper::pointKey(r, c, 1), name + tr(" Y"), -2000, 2000, 0, 0.5, kPx));
+            }
+        }
+        add(effect(fxid::Warper, tr("Warper"),
+            tr("Bends the picture with a grid of points that you move"), g::Distort,
+            std::move(params)));
+    }
 }
 
 } // namespace kk
