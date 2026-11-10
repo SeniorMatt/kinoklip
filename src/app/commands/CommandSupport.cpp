@@ -99,6 +99,16 @@ QJsonObject clipToJson(const TimelineData& data, TrackRef track, const ClipData&
         o.insert(QStringLiteral("transitionOut"),
             QJsonObject {{QStringLiteral("type"), clip.transitionOut->type},
                 {QStringLiteral("duration"), qint64(clip.transitionOut->duration)}});
+    if (!clip.stabilization.isDefault()) {
+        const stabilize::Settings& st = clip.stabilization.settings;
+        o.insert(QStringLiteral("stabilization"),
+            QJsonObject {{QStringLiteral("enabled"), st.enabled},
+                {QStringLiteral("mode"), stabilize::modeId(st.mode)},
+                {QStringLiteral("cameraLock"), st.cameraLock}, {QStringLiteral("zoom"), st.zoom},
+                {QStringLiteral("croppingRatio"), st.croppingRatio},
+                {QStringLiteral("smooth"), st.smooth}, {QStringLiteral("strength"), st.strength},
+                {QStringLiteral("analysed"), bool(clip.stabilization.data)}});
+    }
     return o;
 }
 

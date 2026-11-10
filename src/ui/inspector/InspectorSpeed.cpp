@@ -231,6 +231,9 @@ void InspectorPanel::buildSpeedSections(const ClipData& c)
             pitch->setChecked(cd.pitchCorrection);
     });
 
+    // ---- Stabilization (between Speed Change and Retime and Scaling, like Resolve) ----
+    buildStabilizationSection(c);
+
     // ---- Retime and Scaling ----
     ParamGroupBox* retime
         = addGroup(VideoTab, QStringLiteral("retime_scaling"), tr("Retime and Scaling"), clipId);

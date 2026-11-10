@@ -198,6 +198,7 @@ PlanarResult PlanarTracker::track(const GrayImage& next)
     Homography current = m_motion;
     std::vector<bool> inliers;
     std::vector<double> correlation; ///< of the matches of the latest pass, parallel to inliers
+    std::vector<Vec2> matchFrom, matchTo; ///< the latest pass's matches, parallel to inliers
     int matched = 0;
     bool coarsePass = true;
     for (const int radius : {m_settings.searchRadius, kFinePassRadius}) {
@@ -228,6 +229,8 @@ PlanarResult PlanarTracker::track(const GrayImage& next)
         current = fit->h;
         inliers = fit->inliers;
         correlation = corr;
+        matchFrom = std::move(from);
+        matchTo = std::move(to);
     }
 
     Quad found;
@@ -244,6 +247,8 @@ PlanarResult PlanarTracker::track(const GrayImage& next)
         if (inliers[i]) {
             sum += correlation[i];
             ++count;
+            result.inlierFrom.push_back(matchFrom[i]);
+            result.inlierTo.push_back(matchTo[i]);
         }
     }
     result.ok = true;

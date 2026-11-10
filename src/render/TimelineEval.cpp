@@ -132,7 +132,7 @@ QSizeF fitSize(QSizeF source, QSizeF frame)
 }
 
 QTransform clipTransform(
-    const ClipData& clip, int64_t localFrame, QSizeF frameSize, bool dynamicZoom)
+    const ClipData& clip, int64_t localFrame, QSizeF frameSize, bool dynamicZoom, Rational fps)
 {
     const ParamSet& p = clip.transform;
     const double posX = p.value(keys::PosX, localFrame);
@@ -154,8 +154,11 @@ QTransform clipTransform(
     m.rotate(rotation); // y-down coordinates: positive angle = clockwise on screen
     m.scale(zoomX, zoomY);
     m.translate(-anchorX, -anchorY);
+    // Applied first: Stabilization, then Dynamic Zoom, then the transform above.
     if (dynamicZoom && dynamiczoom::isEnabled(p))
-        return dynamiczoom::transform(clip, localFrame, frameSize) * m; // applied first
+        m = dynamiczoom::transform(clip, localFrame, frameSize) * m;
+    if (stabilize::isActive(clip.stabilization) && fps.isValid())
+        m = stabilize::transform(clip, localFrame, frameSize, fps) * m;
     return m;
 }
 
@@ -163,9 +166,10 @@ double maxZoom(const ClipData& clip, int64_t localFrame, bool dynamicZoom)
 {
     const double zoom = std::max(std::abs(clip.transform.value(keys::ZoomX, localFrame)),
         std::abs(clip.transform.value(keys::ZoomY, localFrame)));
+    const double stabilized = zoom * stabilize::zoomOf(clip);
     if (!dynamicZoom || !dynamiczoom::isEnabled(clip.transform))
-        return zoom;
-    return zoom / std::max(dynamiczoom::kMinSize, dynamiczoom::at(clip, localFrame).size);
+        return stabilized;
+    return stabilized / std::max(dynamiczoom::kMinSize, dynamiczoom::at(clip, localFrame).size);
 }
 
 QSizeF displaySize(int codedWidth, int codedHeight, Rational sar, int rotation)
@@ -204,6 +208,8 @@ double clipOpacity(const ClipData& clip, int64_t localFrame)
 bool hasIdentityFootprint(const ClipData& clip, int64_t localFrame, bool dynamicZoom)
 {
     if (clipOpacity(clip, localFrame) < 1.0)
+        return false;
+    if (stabilize::isActive(clip.stabilization))
         return false;
     if (dynamicZoom && dynamiczoom::isEnabled(clip.transform)
         && dynamiczoom::at(clip, localFrame) != dynamiczoom::Rect {})

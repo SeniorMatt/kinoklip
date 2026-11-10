@@ -36,6 +36,7 @@ The heart of Kinoklip. No widgets, no FFmpeg calls (only the `media::MediaInfo` 
 | `Grade.h` | Color page grade of a clip or timeline: `ClipGrade`, `GradeNode` (corrector / Parallel / Layer), curves, qualifier, power windows, LUT; parameter keys (`gradekeys`, `gradewindowkeys`); pure graph operations (`gradeops`). `Project::setClipGrade()` / `setTimelineGrade()` (ProjectGrades.cpp) are the undoable entry points (docs/color-page.md) |
 | `GradeMath.h` | the grading maths shared by the CPU evaluator and mirrored in GLSL: primaries, curves (monotone cubic, HSL curves), qualifier key, window coverage, layer formula |
 | `GradeGallery.h` | gallery stills (picture + grade), saved with the project, `Project::gallery()` |
+| `Stabilization.h` | Stabilization of a clip (spec 58): `Settings`, the measured camera path `Data` (one entry per source frame; Smooth / Camera Lock / Strength / Zoom worked out from it lazily), `ClipStabilization` (`ClipData::stabilization`), `transform()` for the compositor, JSON form |
 | `Generators.h` | ids and parameter keys of the built-in generators and the adjustment clip |
 | `TitlePresets.h` | ids of the Effects library titles (Text, Left / Middle / Right Lower Third, Scroll, Text Box): one Title parameter set with each preset's defaults; `titles::descriptorOf()` finds the preset a Title clip shows (`ClipData::generator`) |
 | `Subtitles.h` | `SubtitleCue`, SRT / WebVTT parse and write, caption style keys + defaults (caption → track → default chain), cue ↔ caption conversion (lanes for overlapping cues) |

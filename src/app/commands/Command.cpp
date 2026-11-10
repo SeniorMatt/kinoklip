@@ -230,6 +230,7 @@ const CommandRegistry& CommandRegistry::builtin()
         registerMediaCommands(r);
         registerTimelineCommands(r);
         registerClipCommands(r);
+        registerStabilizeCommands(r);
         registerMarkerCommands(r);
         registerTransitionCommands(r);
         registerExportCommands(r);

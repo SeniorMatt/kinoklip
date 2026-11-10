@@ -416,7 +416,7 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
     bool any = false;
     for (const char* name : {"speed", "volume", "enabled", "name", "zoom", "pos-x", "pos-y",
              "rotation", "opacity", "crop-left", "crop-right", "crop-top", "crop-bottom", "pan",
-             "fade-in", "fade-out", "fade-in-curve", "fade-out-curve"})
+             "fade-in", "fade-out", "fade-in-curve", "fade-out-curve", "stabilization"})
         any |= args.has(QString::fromLatin1(name));
     if (!any)
         return fail(
@@ -497,6 +497,9 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
             clip->enabled = args.boolean(QStringLiteral("enabled"));
         if (args.has(QStringLiteral("name")))
             clip->name = args.string(QStringLiteral("name"));
+        if (args.has(QStringLiteral("stabilization")))
+            clip->stabilization.settings.enabled
+                = args.string(QStringLiteral("stabilization")) == QLatin1String("on");
         if (args.has(QStringLiteral("zoom"))) {
             clip->transform.setBase(keys::ZoomX, args.number(QStringLiteral("zoom")));
             clip->transform.setBase(keys::ZoomY, args.number(QStringLiteral("zoom")));
@@ -608,7 +611,8 @@ void registerClipCommands(CommandRegistry& registry)
     registry.add(
         {{QStringLiteral("clip.set"),
              QStringLiteral("Change properties of a clip: speed, volume, pan, enabled, name, basic "
-                            "transform, crop and the fades (lengths and curves)."),
+                            "transform, crop, the fades (lengths and curves) and "
+                            "stabilization on/off."),
              {kClipParam,
                  {QStringLiteral("speed"), ParamType::Number,
                      QStringLiteral("constant speed, 1 = normal, 0.5 = half (0.01 - 100); linked "
@@ -659,6 +663,11 @@ void registerClipCommands(CommandRegistry& registry)
                      QStringLiteral(
                          "fade-out shape, -1 (fast start) to 1 (slow start), 0 = linear"),
                      false, {}, {}},
+                 {QStringLiteral("stabilization"), ParamType::String,
+                     QStringLiteral("\"off\" switches the clip's stabilization off (the "
+                                    "measurement is kept), \"on\" switches it on again; see "
+                                    "clip.stabilize to measure"),
+                     false, {}, {QStringLiteral("on"), QStringLiteral("off")}},
                  kUnlinked},
              ProjectUse::Modify, true},
             runSet});

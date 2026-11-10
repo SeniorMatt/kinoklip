@@ -72,6 +72,9 @@ unsigned staticClipReasons(const ClipData& clip, const QJsonObject& json)
     // So does a Color page grade.
     if (!clip.grade.isEmpty())
         r |= CacheEffects;
+    // And a stabilized clip (its keys include the camera path through the clip JSON).
+    if (stabilize::isActive(clip.stabilization))
+        r |= CacheEffects;
     if (clip.cacheOutput)
         r |= CacheUserClip;
     return r;

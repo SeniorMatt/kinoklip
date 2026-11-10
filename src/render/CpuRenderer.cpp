@@ -260,7 +260,7 @@ private:
         }
         const QSizeF frameSize(m_timeline->width, m_timeline->height);
         const double outScale = std::max(m_scale.m11(), m_scale.m22());
-        const QTransform toOutput = clipTransform(clip, local, frameSize, m_dynamicZoom) * m_scale;
+        const QTransform toOutput = clipTransform(clip, local, frameSize, m_dynamicZoom, m_timeline->fps) * m_scale;
 
         QSizeF content = frameSize;
         QSizeF sourcePx = frameSize;

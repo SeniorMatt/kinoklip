@@ -2,6 +2,7 @@
 // InspectorPanel implementation: structure tracking, generic group building, edit protocol.
 #include "ui/inspector/InspectorPanel.h"
 
+#include "compositing/tracking/StabilizeJob.h"
 #include "core/AudioTransitions.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
@@ -119,6 +120,9 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     setPanelKey(QStringLiteral("inspector")); // in-app help: panel:inspector
     setAcceptDrops(true);
     setStyleSheet(inspectorStyleSheet(QApplication::palette()));
+    m_stabilizer = new tracking::StabilizeRunner(this);
+    connect(m_stabilizer, &tracking::StabilizeRunner::finished, this,
+        &InspectorPanel::onStabilizeFinished);
 
     auto* content = new QWidget;
     auto* layout = new QVBoxLayout(content);

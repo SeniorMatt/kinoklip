@@ -49,6 +49,7 @@ search field.
 - [Fade to or from black](fade-to-black.md)
 - [Add a transition, and hide a jump cut with Smooth Cut](transitions.md)
 - [Freeze a frame](freeze-a-frame.md)
+- [Steady a shaky clip](stabilize-a-shaky-clip.md)
 - [Test patterns, generators and ready-made looks](test-patterns-and-looks.md)
 - [Sharpen, repair, damage and paint effects](sharpen-repair-and-damage-effects.md)
 - [Move a timeline to or from another editor](move-a-timeline-to-another-editor.md) (OpenTimelineIO)

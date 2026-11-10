@@ -201,6 +201,27 @@
       ]
     },
     {
+      "id": "stabilize-a-shaky-clip",
+      "title": "Steady a shaky clip",
+      "file": "stabilize-a-shaky-clip.md",
+      "summary": "Measure the camera movement of a handheld clip and correct it with the Stabilization section of the Inspector.",
+      "keywords": [
+        "stabilize",
+        "stabilization",
+        "stabilisation",
+        "shaky",
+        "shake",
+        "handheld",
+        "tripod",
+        "camera lock",
+        "smooth",
+        "warp stabilizer"
+      ],
+      "contexts": [
+        "effect:builtin.stabilization"
+      ]
+    },
+    {
       "id": "move-a-timeline-to-another-editor",
       "title": "Move a timeline to or from another editor",
       "file": "move-a-timeline-to-another-editor.md",
