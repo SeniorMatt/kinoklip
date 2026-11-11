@@ -9,6 +9,8 @@
 #include "ui/audio/FaderWidget.h"
 #include "ui/audio/LevelMeter.h"
 #include "ui/audio/MixerController.h"
+#include "ui/audio/VoiceOverController.h"
+#include "ui/audio/VoiceOverMenu.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TextFit.h"
@@ -19,8 +21,12 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QMenu>
+#include <QPainter>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#include <algorithm>
+#include <cmath>
 
 namespace kk {
 
@@ -43,6 +49,39 @@ QString modeLabel(AutomationMode m)
     }
     return {};
 }
+
+/// The input level of an armed track (dBFS scale from -48, red above -6, a clip mark).
+class InputLevelBar final : public QWidget
+{
+public:
+    explicit InputLevelBar(const VoiceOverController* vo, QWidget* parent = nullptr)
+        : QWidget(parent)
+        , m_vo(vo)
+    {
+        setFixedHeight(6);
+        setToolTip(QCoreApplication::translate("kk::MixerStrip", "Level of the microphone"));
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        const SchemeColors& sc = schemeColors();
+        QPainter p(this);
+        p.fillRect(rect(), palette().window().color().darker(150));
+        const float peak = m_vo ? m_vo->peak() : 0.0f;
+        const double db = peak > 0.0f ? 20.0 * std::log10(double(peak)) : -96.0;
+        const double t = std::clamp((db + 48.0) / 48.0, 0.0, 1.0);
+        p.fillRect(QRect(0, 0, int(t * width()), height()),
+            db > -6.0        ? sc.negative
+                : db > -18.0 ? sc.neutral
+                             : sc.positive);
+        if (m_vo && m_vo->clipped())
+            p.fillRect(QRect(width() - 4, 0, 4, height()), sc.negative);
+    }
+
+private:
+    const VoiceOverController* m_vo;
+};
 
 QToolButton* toggleButton(const QString& text, const QString& tip)
 {
@@ -152,9 +191,28 @@ MixerStrip::MixerStrip(
     auto* buttons = new QHBoxLayout;
     buttons->setSpacing(metrics::kSpaceXs);
     if (!bus) {
-        m_arm = toggleButton(tr("R"), tr("Record arm: recording comes in a later version"));
-        m_arm->setEnabled(false);
+        m_arm = toggleButton(tr("R"), tr("Record arm (voice-over)"));
+        m_arm->setContextMenuPolicy(Qt::CustomContextMenu);
         buttons->addWidget(m_arm);
+        if (VoiceOverController* vo = m_controller->voiceOver()) {
+            connect(m_arm, &QToolButton::clicked, this, [this, vo] {
+                vo->toggleArm(m_target.id);
+                m_arm->setChecked(vo->isArmed(m_target.id)); // a refused arm stays off
+            });
+            connect(m_arm, &QToolButton::customContextMenuRequested, this, [this, vo](QPoint pos) {
+                QMenu menu(this);
+                fillVoiceOverInputMenu(menu, vo, m_target.id);
+                menu.exec(m_arm->mapToGlobal(pos));
+            });
+            connect(vo, &VoiceOverController::armedChanged, this, [this] { refresh(m_frame); });
+            connect(vo, &VoiceOverController::inputChanged, this, [this] { refresh(m_frame); });
+            m_inputLevel = new InputLevelBar(vo);
+            m_inputLevel->hide();
+            connect(vo, &VoiceOverController::levelChanged, m_inputLevel,
+                qOverload<>(&QWidget::update));
+        } else {
+            m_arm->setEnabled(false);
+        }
     }
     m_mute = toggleButton(tr("M"), tr("Mute"));
     buttons->addWidget(m_mute);
@@ -177,6 +235,8 @@ MixerStrip::MixerStrip(
         });
     }
     layout->addLayout(buttons);
+    if (m_inputLevel)
+        layout->addWidget(m_inputLevel);
 
     auto* faderRow = new QHBoxLayout;
     faderRow->setSpacing(metrics::kSpaceXs);
@@ -258,6 +318,13 @@ void MixerStrip::refresh(int64_t frame)
                 .arg(buses.isEmpty() ? tr("none") : buses.join(QStringLiteral(", "))));
         m_mute->setChecked(t->muted);
         m_solo->setChecked(t->solo);
+        if (const VoiceOverController* vo = m_controller->voiceOver()) {
+            const bool armed = vo->isArmed(t->id);
+            m_arm->setChecked(armed);
+            m_arm->setToolTip(voiceOverArmTooltip(vo, t->id));
+            if (m_inputLevel)
+                m_inputLevel->setVisible(armed);
+        }
         m_automation->setCurrentIndex(m_automation->findData(int(t->mix.automation)));
     }
     using C = MixerController::Control;

@@ -31,6 +31,11 @@ MixerController::MixerController(AppContext& ctx, QObject* parent)
     }
 }
 
+VoiceOverController* MixerController::voiceOver() const
+{
+    return m_ctx.voiceOver;
+}
+
 MixerController::~MixerController()
 {
     if (m_gesture)

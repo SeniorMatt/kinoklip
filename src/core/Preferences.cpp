@@ -174,6 +174,26 @@ QString audioOutputDevice()
     return QSettings().value(QLatin1String(kAudioOutputDevice)).toString();
 }
 
+QString audioInputDevice()
+{
+    return QSettings().value(QLatin1String(kAudioInputDevice)).toString();
+}
+
+int voiceOverCountInSeconds()
+{
+    return std::clamp(QSettings().value(QLatin1String(kVoiceOverCountIn), 3).toInt(), 0, 10);
+}
+
+int voiceOverLatencyMs()
+{
+    return std::clamp(QSettings().value(QLatin1String(kVoiceOverLatencyMs), 0).toInt(), 0, 1000);
+}
+
+int voiceOverBits()
+{
+    return QSettings().value(QLatin1String(kVoiceOverBits), 24).toInt() == 16 ? 16 : 24;
+}
+
 QString previewQuality()
 {
     QSettings settings;

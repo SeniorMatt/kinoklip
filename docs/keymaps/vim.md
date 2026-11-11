@@ -22,8 +22,8 @@ the rest are listed below as unbound.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 343 commands; 4 mapped to Vim and Neovim's key (sure 1, likely 3,
-unsure 0); 129 keep the default (Resolve) key; 17 have no key because
+Counts: 344 commands; 4 mapped to Vim and Neovim's key (sure 1, likely 3,
+unsure 0); 130 keep the default (Resolve) key; 17 have no key because
 Vim and Neovim uses it for something else; 157 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
@@ -156,6 +156,7 @@ shares with a Vim and Neovim command was removed, see the note).
 | Full Screen Window | `view.fullscreen` | `Ctrl+Shift+F` |  |
 | Play / Stop | `transport.play_pause` | `Space` |  |
 | Play Reverse | `transport.play_reverse` | `Shift+Space` |  |
+| Record Voice-Over (count-in, then record the armed audio track while the timeline plays) | `transport.record` | `Ctrl+Alt+R` |  |
 | Previous Frame | `transport.prev_frame` | `Left` |  |
 | Next Frame | `transport.next_frame` | `Right` |  |
 | Back One Second | `transport.back_1s` | `Shift+Left` |  |

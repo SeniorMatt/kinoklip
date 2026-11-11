@@ -77,7 +77,7 @@ enum class HeaderButton {
     Mute, ///< audio
     Solo, ///< audio
     AutoSelect, ///< auto track selector (TrackData::autoSelect, spec 12.5)
-    Arm ///< audio, Audio page headers only: record arm (disabled; recording is deferred)
+    Arm ///< audio: voice-over record arm (spec 75); right-click opens the input menu
 };
 
 /// Which part of a clip a point is on.

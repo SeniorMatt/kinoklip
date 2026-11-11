@@ -33,6 +33,14 @@ inline constexpr char kProxyDirectory[] = "system/proxyDirectory";
 inline constexpr char kRenderCacheLimitGiB[] = "system/renderCacheLimitGiB";
 /// QAudioDevice id (UTF-8 bytes as a string) of the playback output; "" = system default.
 inline constexpr char kAudioOutputDevice[] = "system/audioOutputDevice";
+/// QAudioDevice id of the recording input (voice-over); "" = the system's default input.
+inline constexpr char kAudioInputDevice[] = "system/audioInputDevice";
+/// int seconds counted down before a voice-over starts (0 = none), default 3.
+inline constexpr char kVoiceOverCountIn[] = "voiceOver/countInSeconds";
+/// int ms added to the input's reported latency when a voice-over take is placed, default 0.
+inline constexpr char kVoiceOverLatencyMs[] = "voiceOver/latencyOffsetMs";
+/// int bit depth of voice-over WAV files: 16 or 24 (default).
+inline constexpr char kVoiceOverBits[] = "voiceOver/bitDepth";
 /// Playback resolution (Playback > Playback Resolution, the viewers' resolution combo,
 /// Preferences > Playback): "full" (default), "half", "quarter" or "auto".
 inline constexpr char kPreviewQuality[] = "playback/previewQuality";
@@ -146,6 +154,14 @@ void setStartupShowsProjectManager(bool show);
 [[nodiscard]] int renderCacheLimitGiB();
 /// Configured audio output device id, or empty for the system default.
 [[nodiscard]] QString audioOutputDevice();
+/// Configured recording input id, or empty for the system default input.
+[[nodiscard]] QString audioInputDevice();
+/// Voice-over count-in in seconds (0 to 10, default 3).
+[[nodiscard]] int voiceOverCountInSeconds();
+/// Extra voice-over latency in ms (0 to 1000, default 0).
+[[nodiscard]] int voiceOverLatencyMs();
+/// Voice-over WAV bit depth: 16 or 24 (default).
+[[nodiscard]] int voiceOverBits();
 /// Playback resolution id ("full", "half", "quarter", "auto"; default "full"). The first call
 /// migrates a stored "auto" from before revision 2 to "full" (see kPreviewQualityRevision).
 [[nodiscard]] QString previewQuality();

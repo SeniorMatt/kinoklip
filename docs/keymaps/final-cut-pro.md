@@ -16,8 +16,8 @@ leaves a gap.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 343 commands; 88 mapped to Final Cut Pro's key (sure 75, likely 12,
-unsure 1); 97 keep the default (Resolve) key; 9 have no key because
+Counts: 344 commands; 88 mapped to Final Cut Pro's key (sure 75, likely 12,
+unsure 1); 98 keep the default (Resolve) key; 9 have no key because
 Final Cut Pro uses it for something else; 149 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
@@ -200,6 +200,7 @@ shares with a Final Cut Pro command was removed, see the note).
 | Audio Page | `view.page_audio` | `Shift+7` |  |
 | Viewer Zoom to Fit (the viewer under the pointer, else the one with focus, else all) | `view.viewer_zoom_fit` | `Z` |  |
 | Play Reverse | `transport.play_reverse` | `Shift+Space` |  |
+| Record Voice-Over (count-in, then record the armed audio track while the timeline plays) | `transport.record` | `Ctrl+Alt+R` |  |
 | Cut / Switch to Multicam Angle 1 | `multicam.angle_1` | `1` |  |
 | Cut / Switch to Multicam Angle 2 | `multicam.angle_2` | `2` |  |
 | Cut / Switch to Multicam Angle 3 | `multicam.angle_3` | `3` |  |

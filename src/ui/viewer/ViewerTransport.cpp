@@ -3,6 +3,7 @@
 #include "ui/viewer/ViewerTransport.h"
 
 #include "playback/PlaybackEngine.h"
+#include "ui/audio/VoiceOverController.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/viewer/PlaybackResolution.h"
@@ -124,7 +125,22 @@ void ViewerTransport::connectActions()
             QSettings().setValue(QStringLiteral("playback/audioScrubbing"), checked);
         });
     }
-    on("transport.play_pause", [](PlaybackEngine* e) { e->togglePlay(); });
+    // Voice-over (spec 75): Record counts in and records; Space / K during the count-in cancel
+    // it (they must not start playback then); during the recording they stop playback, and the
+    // recording ends with it.
+    if (actions->contains(QStringLiteral("transport.record"))) {
+        connect(
+            actions->action(QStringLiteral("transport.record")), &QAction::triggered, this, [this] {
+                if (m_ctx.voiceOver)
+                    m_ctx.voiceOver->toggleRecording();
+            });
+        actions->action(QStringLiteral("transport.record"))->setAutoRepeat(false);
+    }
+    auto cancelsCountIn = [this] { return m_ctx.voiceOver && m_ctx.voiceOver->cancelCountIn(); };
+    on("transport.play_pause", [cancelsCountIn](PlaybackEngine* e) {
+        if (!cancelsCountIn())
+            e->togglePlay();
+    });
     // Shift+Space (spec 1.9): plays backwards at 1x; pressed again while reversing, pauses.
     on("transport.play_reverse", [](PlaybackEngine* e) {
         if (e->rate() < 0)
@@ -133,7 +149,10 @@ void ViewerTransport::connectActions()
             e->setRate(-1.0);
     });
     on("transport.shuttle_reverse", [](PlaybackEngine* e) { e->shuttleReverse(); });
-    on("transport.shuttle_stop", [](PlaybackEngine* e) { e->shuttleStop(); });
+    on("transport.shuttle_stop", [cancelsCountIn](PlaybackEngine* e) {
+        if (!cancelsCountIn())
+            e->shuttleStop();
+    });
     on("transport.shuttle_forward", [](PlaybackEngine* e) { e->shuttleForward(); });
     on("transport.prev_frame", [](PlaybackEngine* e) { e->step(-1); });
     on("transport.next_frame", [](PlaybackEngine* e) { e->step(1); });

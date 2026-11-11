@@ -339,6 +339,7 @@ const ActionSpec kActions[] = {
     {"playback", "transport.shuttle_reverse", QT_TRANSLATE_NOOP("kk::StandardActions", "Shuttle &Reverse")},
     {"playback", "transport.shuttle_stop",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Stop"), "stop"},
     {"playback", "transport.shuttle_forward", QT_TRANSLATE_NOOP("kk::StandardActions", "Shuttle &Forward")},
+    {"playback", "transport.record",          QT_TRANSLATE_NOOP("kk::StandardActions", "Record &Voice-Over"), "record"},
     {"playback", "-"},
     {"playback", "transport.prev_frame",      QT_TRANSLATE_NOOP("kk::StandardActions", "Previous Frame"), "prev_frame"},
     {"playback", "transport.next_frame",      QT_TRANSLATE_NOOP("kk::StandardActions", "Next Frame"), "next_frame"},

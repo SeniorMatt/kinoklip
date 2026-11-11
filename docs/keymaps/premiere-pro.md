@@ -13,8 +13,8 @@ Kinoklip's matching panels; its workspaces (Alt+Shift+1 ...) switch Kinoklip's p
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 343 commands; 87 mapped to Premiere Pro's key (sure 58, likely 22,
-unsure 7); 97 keep the default (Resolve) key; 7 have no key because
+Counts: 344 commands; 87 mapped to Premiere Pro's key (sure 58, likely 22,
+unsure 7); 98 keep the default (Resolve) key; 7 have no key because
 Premiere Pro uses it for something else; 152 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
@@ -191,6 +191,7 @@ shares with a Premiere Pro command was removed, see the note).
 | Viewer Zoom to Fit (the viewer under the pointer, else the one with focus, else all) | `view.viewer_zoom_fit` | `Z` |  |
 | Full Screen Window | `view.fullscreen` | `Ctrl+Shift+F` |  |
 | Play Reverse | `transport.play_reverse` | `Shift+Space` |  |
+| Record Voice-Over (count-in, then record the armed audio track while the timeline plays) | `transport.record` | `Ctrl+Alt+R` |  |
 | Loop | `transport.loop` | `Ctrl+/` |  |
 | Video Scopes (floating window: waveform, parade, vectorscope, histogram) | `view.video_scopes` | `Ctrl+Shift+W` |  |
 | Find in Media Pool (timeline clip) | `timeline.find_in_media_pool` | `Alt+F` |  |

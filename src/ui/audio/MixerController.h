@@ -15,6 +15,7 @@ namespace kk {
 
 struct AppContext;
 class PlaybackEngine;
+class VoiceOverController;
 
 /// Editing front end of the Audio page's mixer widgets (and of the Edit page's Mixer panel).
 ///
@@ -45,6 +46,8 @@ public:
     explicit MixerController(AppContext& ctx, QObject* parent = nullptr);
     ~MixerController() override;
 
+    /// The voice-over tool (AppContext::voiceOver), or nullptr: the strips' arm buttons use it.
+    [[nodiscard]] VoiceOverController* voiceOver() const;
     /// The active timeline's data.
     [[nodiscard]] const TimelineData& data() const;
     /// Applies @p change as one undo step named @p label; nothing is pushed if it returns

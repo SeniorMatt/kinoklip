@@ -21,6 +21,7 @@
 #include "pack/ProjectPackage.h"
 #include "playback/PlaybackEngine.h"
 #include "render/RenderFrameCommand.h"
+#include "ui/audio/VoiceOverController.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/LiveResize.h"
@@ -234,6 +235,8 @@ int main(int argc, char** argv)
     ctx.powerBins = &powerBins;
     // Proxy / optimized media and render cache (sets ctx.media; before any panel exists).
     kk::MediaManagement mediaManagement(ctx);
+    // Voice-over recording (arm buttons, Record, input level); sets ctx.voiceOver.
+    kk::VoiceOverController voiceOver(ctx);
 
     // ---- Non-interactive modes ----
     if (options.isMenuReference()) {

@@ -1005,6 +1005,28 @@
         "flag"
       ],
       "contexts": []
+    },
+    {
+      "id": "record-a-voice-over",
+      "title": "Record a voice-over",
+      "file": "record-a-voice-over.md",
+      "summary": "Arm an audio track, count in and record the microphone while the timeline plays.",
+      "keywords": [
+        "voice over",
+        "voiceover",
+        "voice-over",
+        "narration",
+        "record",
+        "microphone",
+        "mic",
+        "arm",
+        "count-in",
+        "audio input",
+        "record audio"
+      ],
+      "contexts": [
+        "action:transport.record"
+      ]
     }
 
   ]

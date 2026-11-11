@@ -16,6 +16,7 @@ class PowerBins; // bins shared by every project; may be null in tests
 class Project;
 class SelectionModel;
 class SettingsPageRegistry;
+class VoiceOverController; // voice-over recording (ui/audio); null in tests that do not need it
 
 /// Non-owning pointers to the application-wide objects. Created in main(), outlives every
 /// widget. Panels take `(AppContext& ctx, QWidget* parent)` and keep the reference.
@@ -31,6 +32,9 @@ struct AppContext
     PowerBins* powerBins = nullptr; ///< power bins (core/PowerBins.h); null = none shown
     /// Where imported media go (ui/common/MediaStore.h); null = used where they are (linked).
     MediaStore* mediaStore = nullptr;
+    /// Voice-over recording: the armed track, its input and the Record command; null = the
+    /// arm buttons do nothing (tests).
+    VoiceOverController* voiceOver = nullptr;
     /// The project bin shown in the media pool ("" = Master), set by the shown MediaPoolPanel;
     /// imports without a bin of their own go there (importTargetBin(), ui/common/MediaImport.h).
     /// Null = Master.

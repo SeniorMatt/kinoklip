@@ -14,8 +14,8 @@ the page keys keep Kinoklip's (Resolve's) keys.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 343 commands; 39 mapped to Vegas Pro's key (sure 17, likely 20,
-unsure 2); 142 keep the default (Resolve) key; 7 have no key because
+Counts: 344 commands; 39 mapped to Vegas Pro's key (sure 17, likely 20,
+unsure 2); 143 keep the default (Resolve) key; 7 have no key because
 Vegas Pro uses it for something else; 155 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
@@ -185,6 +185,7 @@ shares with a Vegas Pro command was removed, see the note).
 | Viewer Full Screen | `view.fullscreen_viewer` | `Ctrl+F` |  |
 | Viewer Zoom to Fit (the viewer under the pointer, else the one with focus, else all) | `view.viewer_zoom_fit` | `Z` |  |
 | Play Reverse | `transport.play_reverse` | `Shift+Space` |  |
+| Record Voice-Over (count-in, then record the armed audio track while the timeline plays) | `transport.record` | `Ctrl+Alt+R` |  |
 | Back One Second | `transport.back_1s` | `Shift+Left` |  |
 | Forward One Second | `transport.forward_1s` | `Shift+Right` |  |
 | Play In to Out | `transport.play_in_out` | `Alt+/` |  |

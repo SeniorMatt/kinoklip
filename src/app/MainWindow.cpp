@@ -24,6 +24,7 @@
 #include "core/Logging.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
+#include "ui/audio/VoiceOverController.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/ListKeyGuard.h"
@@ -182,6 +183,14 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     setCentralWidget(central);
 
     m_projectController = new ProjectController(ctx, this);
+    if (ctx.voiceOver) {
+        // Voice-over (spec 75): what the user must be told (a refused arm or Record, a failed
+        // take). The result of a take is the clip on the track.
+        connect(
+            ctx.voiceOver, &VoiceOverController::message, this, [this](const QString& text, bool) {
+                QMessageBox::warning(this, tr("Voice-Over"), text);
+            });
+    }
     connectTimelineExportActions(ctx, this); // File > Export (EDL, OTIO, marker lists)
     connectTimelineImportActions(ctx, this); // File > Import > Timeline (OTIO)
     m_pageActions = new QActionGroup(this);
@@ -318,8 +327,8 @@ void MainWindow::addPage(Page* page, const QString& actionId)
     // The layout as built is what Workspace > Reset UI Layout returns to.
     page->captureDefaultLayout();
     for (QSplitter* splitter : page->findChildren<QSplitter*>())
-        connect(splitter, &QSplitter::splitterMoved, m_layoutSaveTimer,
-            qOverload<>(&QTimer::start));
+        connect(
+            splitter, &QSplitter::splitterMoved, m_layoutSaveTimer, qOverload<>(&QTimer::start));
     const QString id = page->pageId();
     connect(action, &QAction::triggered, this, [this, id] { setCurrentPage(id); });
     connect(page, &Page::panelVisibilityChanged, this, [this, page] {
@@ -364,8 +373,8 @@ Page* MainWindow::page(const QString& pageId) const
 
 void MainWindow::buildMenus()
 {
-    // Menus are data (docs/archive/plan.md 5.9): each category lists action ids, separators and submenu
-    // markers; nothing here knows what a menu contains.
+    // Menus are data (docs/archive/plan.md 5.9): each category lists action ids, separators and
+    // submenu markers; nothing here knows what a menu contains.
     const ActionRegistry& registry = *m_ctx.actions;
     std::function<void(QMenu*, const QString&)> fillMenu;
     fillMenu = [&registry, &fillMenu](QMenu* menu, const QString& category) {

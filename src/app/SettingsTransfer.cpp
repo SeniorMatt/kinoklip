@@ -68,6 +68,7 @@ const QVector<Rule>& rules()
         skip("system/cacheDirectory");
         skip("system/proxyDirectory");
         skip("system/audioOutputDevice");
+        skip("system/audioInputDevice");
         skip("color/lutFolders");
         skip("compositing/paramFile");
         skip("paths/"); // last-used folders and the recent-projects list (a separate option)
@@ -94,6 +95,9 @@ const QVector<Rule>& rules()
             {"playback/audioScrubbing", "playback/restartAtEnd", "playback/returnAfterPlayAround",
                 "playback/stopOnPlayheadMove", "playback/stopOnEdit"})
             add(k, Kind::Bool);
+        add("voiceOver/countInSeconds", Kind::Int, 0, 10);
+        add("voiceOver/latencyOffsetMs", Kind::Int, 0, 1000);
+        add("voiceOver/bitDepth", Kind::Int, 16, 24);
         add("edit/zoomAnchor", Kind::Choice, 0, 0, {"playhead", "mouse"});
         for (const char* k :
             {"edit/stillSeconds", "edit/generatorSeconds", "edit/transitionSeconds"})
@@ -439,8 +443,8 @@ bool parse(const QByteArray& data, Parsed* out, QString* error)
     if (format.toDouble() > kFormatNumber)
         return fail(QObject::tr("This settings file was made by a newer Kinoklip (format %1; this "
                                 "version reads up to format %2). Update Kinoklip to import it.")
-                .arg(int(format.toDouble()))
-                .arg(kFormatNumber));
+                        .arg(int(format.toDouble()))
+                        .arg(kFormatNumber));
 
     Parsed result;
     result.formatNumber = int(format.toDouble());

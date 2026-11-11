@@ -14,6 +14,8 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "ui/audio/VoiceOverController.h"
+#include "ui/audio/VoiceOverMenu.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/UiAnimation.h"
 #include "ui/keyframes/KeyframeItemModel.h"
@@ -1100,7 +1102,15 @@ void TimelineWidget::headerClick(const TimelineHit& hit)
         else
             m_controller->toggleTrackFlag(hit.track, TimelineController::FlagAutoSelect);
         break;
-    case HeaderButton::Arm: // recording is deferred: the button is shown disabled
+    case HeaderButton::Arm:
+        // Voice-over (spec 75): arm / disarm; a refusal reaches the user through the
+        // controller's message() signal.
+        if (m_ctx.voiceOver) {
+            if (const TrackData* t = m_ctx.project->timeline()->data().track(hit.track);
+                t && hit.track.type == TrackType::Audio)
+                m_ctx.voiceOver->toggleArm(t->id);
+        }
+        break;
     case HeaderButton::None:
         break;
     }
@@ -1112,6 +1122,12 @@ void TimelineWidget::updateHover(QPointF pos)
     const TimelineHit hit = m_layout.hitTest(m_ctx.project->timeline()->data(), pos);
     const TimelineTool tool = m_controller->tool();
     Qt::CursorShape shape = Qt::ArrowCursor;
+    if (hit.area == TimelineHit::Area::Header && hit.button == HeaderButton::Arm
+        && m_ctx.voiceOver) {
+        const TrackData* t = m_ctx.project->timeline()->data().track(hit.track);
+        QToolTip::showText(viewport()->mapToGlobal(pos.toPoint()) + QPoint(14, 14),
+            voiceOverArmTooltip(m_ctx.voiceOver, t ? t->id : 0), viewport());
+    }
     std::optional<int64_t> blade;
     int bladeRow = -1;
     quint64 retimeClip = 0;

@@ -228,6 +228,7 @@
         "transport.shuttle_reverse": ["J"],
         "transport.shuttle_stop": ["K"],
         "transport.shuttle_forward": ["L"],
+        "transport.record": ["Ctrl+Alt+R"],
         "transport.prev_frame": ["Left"],
         "transport.next_frame": ["Right"],
         "transport.back_1s": ["Shift+Left"],

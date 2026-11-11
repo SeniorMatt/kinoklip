@@ -9,6 +9,7 @@
 #include "playback/PlaybackEngine.h"
 #include "render/Compositor.h"
 #include "render/RenderTypes.h"
+#include "ui/audio/VoiceOverController.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragAndDrop.h"
@@ -25,6 +26,7 @@
 #include "ui/viewer/MaskOverlay.h"
 #include "ui/viewer/MulticamOverlay.h"
 #include "ui/viewer/PlaybackResolution.h"
+#include "ui/viewer/RecordOverlay.h"
 #include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/TransformOverlay.h"
 #include "ui/viewer/ViewerOverlaySettings.h"
@@ -229,6 +231,10 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
         m_colorPickOverlay = new ColorPickOverlay(m_ctx, m_surface);
         connect(m_colorPickOverlay, &ColorPickOverlay::pressed, this, [this] { activate(); });
         setupEditingAids();
+        if (m_ctx.voiceOver) {
+            // Count-in numbers and the REC mark of the voice-over (spec 75).
+            new RecordOverlay(m_ctx.voiceOver, m_surface);
+        }
     }
     setupOfflineNotice();
     setupGuides(grid);
@@ -329,6 +335,9 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     addButton(bar, QStringLiteral("transport.shuttle_stop"), icon(QStringLiteral("stop")),
         tr("Stop"), [this] {
             activate();
+            if (m_ctx.voiceOver) {
+                m_ctx.voiceOver->cancelCountIn(); // the count-in is cancelled, nothing plays yet
+            }
             if (engine()) {
                 engine()->stop();
             }
@@ -337,11 +346,26 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     m_playButton = addButton(bar, QStringLiteral("transport.play_pause"),
         icon(QStringLiteral("play")), tr("Play / Pause"), [this] {
             activate();
+            if (m_ctx.voiceOver && m_ctx.voiceOver->cancelCountIn()) {
+                return;
+            }
             if (engine()) {
                 engine()->togglePlay();
             }
             Q_EMIT playPauseRequested();
         });
+    if (m_mode == Mode::Timeline && m_ctx.voiceOver) {
+        // Voice-over record (spec 75): lit while the count-in or the recording runs.
+        VoiceOverController* vo = m_ctx.voiceOver;
+        QToolButton* record = addButton(bar, QStringLiteral("transport.record"),
+            icon(QStringLiteral("record")), tr("Record Voice-Over"), [this, vo] {
+                activate();
+                vo->toggleRecording();
+            });
+        record->setCheckable(true);
+        connect(vo, &VoiceOverController::stateChanged, record,
+            [record, vo] { record->setChecked(vo->state() != VoiceOverController::State::Idle); });
+    }
     addButton(bar, QStringLiteral("transport.next_frame"), icon(QStringLiteral("next_frame")),
         tr("Next Frame"), [this] {
             activate();
