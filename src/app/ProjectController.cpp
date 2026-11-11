@@ -331,6 +331,10 @@ void ProjectController::showProjectManager()
             if (alreadyOpen || openFile(path, false, m_manager))
                 m_manager->hide();
         });
+        connect(m_manager, &ProjectManagerWindow::recentRemoved, this,
+            [](const QStringList& remaining) {
+                QSettings().setValue(QLatin1String(kRecentProjectsKey), remaining);
+            });
         connect(m_manager, &ProjectManagerWindow::projectSettingsRequested, this, [this] {
             m_manager->hide();
             m_ctx.actions->action(QStringLiteral("file.project_settings"))->trigger();

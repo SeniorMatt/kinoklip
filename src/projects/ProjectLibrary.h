@@ -145,6 +145,9 @@ public:
     /// Moves a project or folder to the system trash (freedesktop trash; refused for the open
     /// project and folders containing it). Cached metadata and posters are dropped.
     bool moveToTrash(const QString& path, QString* error = nullptr);
+    /// Drops the cached metadata and poster files of @p path (a project that is gone or
+    /// removed from the recent list); nothing else is touched.
+    void dropCache(const QString& path);
     /// Copies the project file @p source (anywhere) into @p folder of the library. Returns the
     /// new path, or empty with @p error (unknown kind, unreadable).
     /// @p progress / @p cancelled as for duplicate().

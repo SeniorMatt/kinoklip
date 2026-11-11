@@ -685,9 +685,58 @@ bool ProjectManagerWindow::trash(const QStringList& paths, bool ask)
     return all;
 }
 
+bool ProjectManagerWindow::removeFromRecent(const QStringList& paths)
+{
+    QStringList clean;
+    for (const QString& p : paths) {
+        if (m_library->isOpenOrContainsOpen(p)) {
+            reportError(tr("“%1” is open and cannot be removed. Open another project first.")
+                            .arg(QFileInfo(p).completeBaseName()));
+            return false;
+        }
+        clean << QDir::cleanPath(p);
+    }
+    if (clean.isEmpty())
+        return false;
+    QStringList remaining;
+    for (const QString& r : std::as_const(m_recent)) {
+        if (!clean.contains(QDir::cleanPath(r)))
+            remaining << r;
+    }
+    for (const QString& p : std::as_const(clean)) {
+        if (!QFileInfo::exists(p))
+            m_library->dropCache(p);
+    }
+    m_recent = remaining;
+    if (m_model->isRecent())
+        m_model->showRecent(m_recent);
+    emit recentRemoved(remaining);
+    return true;
+}
+
+void ProjectManagerWindow::removeSelectedFromRecent()
+{
+    if (m_model->isRecent())
+        removeFromRecent(selectedPaths());
+}
+
 void ProjectManagerWindow::deleteSelected()
 {
-    trash(selectedPaths(), true);
+    const QStringList selected = selectedPaths();
+    if (!m_model->isRecent()) {
+        trash(selected, true);
+        return;
+    }
+    // Recent Projects: a missing project has nothing to trash, it just leaves the list.
+    QStringList existing;
+    for (const QString& p : selected) {
+        if (QFileInfo::exists(p))
+            existing << p;
+    }
+    if (!existing.isEmpty() && !trash(existing, true))
+        return;
+    if (!selected.isEmpty())
+        removeFromRecent(selected); // trashed and missing projects both leave the list
 }
 
 void ProjectManagerWindow::showSelectedInFileManager()
@@ -798,7 +847,12 @@ void ProjectManagerWindow::showContextMenu(QAbstractItemView* view, const QPoint
                 ->setEnabled(exists);
         QAction* del = menu.addAction(tr("&Delete…"), this, &ProjectManagerWindow::deleteSelected);
         del->setShortcut(QKeySequence(Qt::Key_Delete));
-        del->setEnabled(exists && !m_library->isOpenOrContainsOpen(path));
+        del->setEnabled(!m_library->isOpenOrContainsOpen(path) && (exists || m_model->isRecent()));
+        if (m_model->isRecent()) {
+            menu.addAction(tr("Remo&ve from Recent Projects"), this,
+                    &ProjectManagerWindow::removeSelectedFromRecent)
+                ->setEnabled(!open);
+        }
         menu.addSeparator();
         if (!folder) {
             menu.addAction(tr("&Export…"), this, &ProjectManagerWindow::exportSelected)
