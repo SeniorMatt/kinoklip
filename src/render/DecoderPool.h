@@ -55,6 +55,7 @@ public:
     /// Counters of the look-ahead since the pool was created.
     struct PrepareStats
     {
+        int lastCostMs = 0; ///< wall time of the last finished preparation (open + seek + decode)
         int64_t requested = 0; ///< prepare() calls
         int64_t started = 0; ///< preparations started on a worker thread
         int64_t reused = 0; ///< ... of those on an idle open decoder instead of a new one
@@ -127,6 +128,10 @@ public:
     DecoderPool& operator=(const DecoderPool&) = delete;
 
     /// Sets the hook run before an entry is closed (e.g. to delete GL textures).
+    /// Test hook: every open() of a decoder takes this much longer (a hardware decoder's
+    /// session setup can take hundreds of ms). Process-wide; 0 = off.
+    static void setOpenDelayMs(int ms);
+
     void setCloseHook(CloseHook hook) { m_closeHook = std::move(hook); }
     /// Decoders idle longer than this are closed by collectIdle(). Default 10 s.
     void setIdleCloseMs(qint64 ms) { m_idleCloseMs = ms; }

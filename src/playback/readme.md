@@ -86,7 +86,7 @@ all that when the frame was already due (`test_cutperf`, below: the picture held
 frames were lost at every cut into a long GOP, whatever the decoder).
 
 So while playing forward at up to 2x, `FrameScheduler::prepareAhead()` sends the frames entering
-the next `kCutLookAheadMs` (1 s; the worst case measured is ~0.5 s) to the compositor as
+the next `kCutLookAheadMs` (2 s; twice the last preparation's measured cost when that is more, up to 4 s: a hardware decoder's open can take a second; software worst case ~0.5 s) to the compositor as
 `RenderRequest::prepare`, each frame once. On the render thread `render/DecodeTargets` compares
 each frame's media positions with the frame before it, so only clips really coming into view
 count: on any enabled track, inside compound clips, at a transition's start, at a loop's jump
@@ -269,6 +269,11 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
   counters where possible, delivery on time with a stated margin, cancelling, limits, J/K/L.
 * `test_cutperf` — the measurement above (prints, asserts nothing; `KK_CUTPERF_DIR` keeps the
   generated media, `KK_CUTPERF_RUNS`, `KK_CUTPERF_SIZE`).
+* `test_keyframecut` — crossing a cut into a clip with zoom + rotation keys from its first frame
+  (spec 72): keyed vs unkeyed, same file vs other file, start in the previous clip vs on the
+  clip; prints lost frames, longest hold and look-ahead counters, asserts only the relations
+  between the cases (`KK_KEYCUT_SIZE`, `KK_KEYCUT_FPS`). The owner's one-second lag was not
+  reproduced on CPU-only machines (0 frames lost in every case). `slowOpen` delays decoder opens (`DecoderPool::setOpenDelayMs`, test only) to check the look-ahead lead against a hardware decoder's slow open. `tests/app/test_playheadload` plays the same cut in the whole main window with the keyed clip selected and measures GUI event-loop stalls.
 * `test_playbackperf` — playback and seek measurements (see above).
 
 ## How to extend
