@@ -172,6 +172,11 @@ DecoderPool::Entry* DecoderPool::acquire(const QString& path, int64_t timeUs)
         chosen = entry.get();
         m_entries.push_back(std::move(entry));
     }
+    if (chosen->skipNonReference != m_catchUp) {
+        chosen->waitAhead(); // not while a decode-ahead uses the decoder
+        chosen->decoder->setSkipNonReference(m_catchUp);
+        chosen->skipNonReference = m_catchUp;
+    }
     chosen->busy = true;
     chosen->previousTimeUs = chosen->lastTimeUs;
     chosen->lastTimeUs = timeUs;

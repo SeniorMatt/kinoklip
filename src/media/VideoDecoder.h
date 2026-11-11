@@ -90,6 +90,12 @@ public:
     /// True while decodeFrame() returns DMA-BUF frames for the open file.
     bool zeroCopyActive() const;
 
+    /// Catch-up mode (the playback engine is far behind the clock): the decoder discards frames
+    /// no other frame refers to (FFmpeg AVDISCARD_NONREF, as mpv's framedrop does), which costs
+    /// about half the decoding in streams with B-frames; decodeFrame() then returns the nearest
+    /// decoded frame before the time asked for. Takes effect at once and for later open()s.
+    void setSkipNonReference(bool skip);
+
     /// Backend actually decoding the open file: Cuda/Vaapi/Vulkan, or Off for software
     /// (also after a fall-back). Never Auto.
     HwAccelMode activeHwAccel() const;

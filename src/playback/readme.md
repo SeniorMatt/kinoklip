@@ -229,6 +229,26 @@ line confirms the variable reached the process. `tests/playback/test_playbacksta
 both lines; `KK_SCREENSHOT_PLAY_MS=2000 kinoklip --screenshot edit out.png project.kkproj`
 plays headless (also in the bundle).
 
+### A decoder nearly as slow as the clock (spec 80.3, 80.4)
+Decoding cannot skip, so a request decodes every frame since the last one. Asking for the frame at the clock each
+time made the gap, and with it the cost, grow with the time the last request took: 4K60 HEVC that decodes at
+77 fps showed 13 fps. Two causes, both fixed:
+* The decoder compared a target with the keyframe index, which holds decode times; a keyframe is shown a few frames
+  after its decode time, so a request just before every GOP boundary looked like "a keyframe lies between here
+  and the target" and the decoder seeked back to the previous keyframe (1.6 s at 4K, once per GOP). Fixed in
+  `VideoDecoderSeek.cpp` (`canDecodeForwardTo()`): 5 - 12 fps -> 60 fps.
+* `lookAheadKeys()` (FrameScheduler.h, pure, tested with a model of a decoder that cannot skip): at 1x forward the next
+  request is the frame after the newest one requested while it is at most 5 x 110 ms behind the clock; frames are
+  shown late rather than dropped, `DisplayLag` presents up to 55 ms behind the clock to smooth bursts, and past
+  55 ms behind `RenderRequest::catchUp` makes the decoders discard non-reference frames (mpv's `framedrop`).
+  Past 550 ms the start jumps to the clock. Reverse, other rates and slow play keep the old rule.
+
+| 4K HEVC 1080p timeline, software, 4 cores, llvmpipe | raw decode | before | after |
+|---|---|---|---|
+| 60 fps 8-bit | 63 - 115 fps | 5.1 - 12.6 fps | 60.0 fps, 0 dropped |
+| 60 fps 10-bit, 100 Mbit/s | 51 fps | 5.4 - 6.0 fps | 20.9 - 22.0 fps |
+| 30 fps 8-bit / 10-bit | 86 / 71 fps | 30 fps | 30 fps |
+
 ### Background jobs yield to playback
 Proxy, optimized media and render cache generation (`ProxyQueue`, `RenderCacheManager`, the compositor
 `MediaManagement` gives them) run at nice 10 (`core/ThreadNice.h`, spec 80.1): `QThread::setPriority()` does nothing for
@@ -312,18 +332,7 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
 
 ## Known gaps / TODO
 
-* TODO(playback): **a decoder that is nearly as slow as the clock collapses the picture rate** (found with
-  `test_hevc4kperf`, 4K60 HEVC, software decoding: raw `decodeFrame()` 77 fps gave 12.9 fps shown, 31 fps gave
-  2.3 fps). A frame is due, the one requested for it is decoded through every frame since the last request
-  (decoding cannot skip), so the gap between two requests grows with the time the last one took: shown rate
-  ~ (1 - decode_ms / interval_ms) x 60 once per-frame cost nears the interval (a model of the scheduler
-  reproduces both numbers; with 3 ms of other work per frame it plays 60 fps up to 14 ms of decoding, 15 fps at
-  16 ms, 2 fps at 32 ms). The 1.4 zero-copy path keeps hardware decoding far below the interval; software
-  decoding of 4K60 and the download fall-back (X11 without `KINOKLIP_X11_EGL`, no EGL) are still in that regime.
-  Ideas: request consecutive frames while the lag is small and show them late instead of jumping to the
-  clock; skip decoding of non-reference frames (`skip_frame = AVDISCARD_NONREF`) when behind; suggest proxies.
-  The "playback is limited by decoding" log line (see Statistics) marks these plays.
-
+* TODO(playback): a decoder slower than about half the clock (4K60 10-bit 100 Mbit/s HEVC in software, raw 51 fps -> 21 fps shown) still shows far less than it decodes: it delivers in bursts and the catch-up (spec 80.4) cannot skip reference frames. Proxies (spec 80.5) or hardware decoding are the answer; a keyframe-aware jump when far behind would help long GOPs.
 * TODO(playback): the look-ahead's 1 s does not grow with the GOP: a preparation taking longer
   (10 s GOPs, 4K) still saves what it finished, the frame waits for the rest. Media a
   composition's nodes add and time-effect frames are not prepared.

@@ -108,6 +108,7 @@ public:
         std::future<void> ahead;
         qint64 lastUsedMs = 0; ///< pool clock of the last acquire()
         bool busy = false; ///< handed out during the current frame
+        bool skipNonReference = false; ///< what the decoder was last told (setSkipNonReference())
         /// Set while the look-ahead holds this decoder (see the class comment). `decoder` must
         /// not be touched before waitAhead(): it may still be opening on a worker thread.
         std::shared_ptr<Reservation> reservation;
@@ -153,6 +154,9 @@ public:
     /// Worker threads of the look-ahead (not owned, must outlive the pool). Without them
     /// prepare() does nothing.
     void setPrepareThreads(QThreadPool* threads) { m_prepareThreads = threads; }
+    /// Catch-up mode (RenderRequest::catchUp): decoders handed out from now on discard the
+    /// frames nothing refers to, see media::VideoDecoder::setSkipNonReference().
+    void setCatchUp(bool catchUp) { m_catchUp = catchUp; }
 
     /// Marks every decoder idle again, ends stale reservations and starts waiting
     /// preparations; call once at the start of each frame.
@@ -212,6 +216,7 @@ private:
     std::vector<std::unique_ptr<Entry>> m_entries;
     std::deque<Wish> m_waiting;
     QThreadPool* m_prepareThreads = nullptr;
+    bool m_catchUp = false;
     /// Counters; written by the owning thread and (ready) by workers, read from anywhere.
     struct AtomicStats
     {

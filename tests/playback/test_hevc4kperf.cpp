@@ -3,6 +3,7 @@
 // from the original or from a proxy, per stage (decode, upload, composite, output). Slow, so it
 // runs only with KK_PERF_HEVC=1. Settings (environment):
 //   KK_HEVC_FPS=25|60  KK_HEVC_BITS=8|10  KK_HEVC_TL=3840x2160|1920x1080  KK_HEVC_PROXY=0|1
+//   KK_HEVC_CRF=<x265 quality, default 24; 8 gives ~100 Mbit/s at 4K60> (the clip file name carries it when not 24)
 //   KK_HEVC_DIR=<folder for the generated clip>  KK_HEVC_HW=1 (allow hardware decoding)
 //   KK_HEVC_BGJOB=1  generate the clip's proxy in the background while it plays (the editor's
 //                    proxy / render cache queues: does a background job disturb playback?)
@@ -51,13 +52,13 @@ private slots:
         const int tw = tl.value(0).toInt(), th = tl.value(1).toInt();
         const QString dir = qEnvironmentVariable("KK_HEVC_DIR", QDir::tempPath());
         QDir().mkpath(dir);
-        const QString src = QStringLiteral("%1/hevc4k_%2fps_%3bit.mp4").arg(dir).arg(fps).arg(bits);
+        const QString src = QStringLiteral("%1/hevc4k_%2fps_%3bit%4.mp4").arg(dir).arg(fps).arg(bits).arg(qEnvironmentVariableIsSet("KK_HEVC_CRF") ? QStringLiteral("_crf") + qEnvironmentVariable("KK_HEVC_CRF") : QString());
         if (!QFile::exists(src)) {
             QProcess ff;
             ff.start(QStringLiteral("ffmpeg"),
                 {"-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-f", "lavfi", "-i",
                     QStringLiteral("testsrc2=size=3840x2160:rate=%1,noise=alls=6:allf=t").arg(fps),
-                    "-t", "6", "-c:v", "libx265", "-preset", "veryfast", "-crf", "24", "-g",
+                    "-t", "6", "-c:v", "libx265", "-preset", "veryfast", "-crf", qEnvironmentVariable("KK_HEVC_CRF", "24"), "-g",
                     QString::number(fps * 2), "-x265-params", "log-level=error:pools=2", "-pix_fmt",
                     bits == 10 ? "yuv420p10le" : "yuv420p", "-tag:v", "hvc1", src + ".tmp.mp4"});
             QVERIFY(ff.waitForFinished(1800000) && ff.exitCode() == 0);

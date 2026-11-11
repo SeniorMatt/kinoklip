@@ -60,7 +60,7 @@ void FrameScheduler::setParams(const RenderParams& params, bool discardPending)
     }
 }
 
-std::future<RenderedFramePtr> FrameScheduler::issue(int64_t frame)
+std::future<RenderedFramePtr> FrameScheduler::issue(int64_t frame, bool catchUp)
 {
     RenderRequest request;
     request.timeline = m_params.timeline;
@@ -70,6 +70,7 @@ std::future<RenderedFramePtr> FrameScheduler::issue(int64_t frame)
     request.bypassGrades = m_params.bypassGrades;
     request.dynamicZoom = m_params.dynamicZoom;
     request.frame = frame;
+    request.catchUp = catchUp;
     request.outSize = m_params.outSize;
     request.quality = m_params.quality;
     request.outputs = m_params.outputs;
@@ -137,12 +138,60 @@ int FrameScheduler::prefetch(const std::vector<FrameSlot>& wanted)
         Entry e;
         e.key = slot.key;
         e.frame = slot.frame;
-        e.future = issue(slot.frame);
+        e.future = issue(slot.frame, slot.catchUp);
         m_entries.push_back(std::move(e));
         ++unfinished;
         ++issued;
     }
     return issued;
+}
+
+bool FrameScheduler::newestRequestedKey(int direction, int64_t* key) const
+{
+    const int dir = direction >= 0 ? 1 : -1;
+    bool found = false;
+    for (const Entry& e : m_entries) {
+        if (!found || (e.key - *key) * dir > 0) {
+            *key = e.key;
+            found = true;
+        }
+    }
+    return found;
+}
+
+std::vector<int64_t> lookAheadKeys(const LookAhead& in, bool* catchUp)
+{
+    if (catchUp)
+        *catchUp = false;
+    std::vector<int64_t> keys;
+    keys.reserve(size_t(in.count));
+    if (in.sequential && in.rate == 1.0) {
+        // The lead only helps a start (nothing in flight yet); a catch-up jump to the clock
+        // plus the lead would decode that many extra frames only to hold them.
+        const int64_t clockKey = int64_t(std::floor(in.unwrapped)) + (in.haveNewest ? 0 : in.lead);
+        int64_t first = clockKey;
+        if (in.haveNewest) {
+            const int64_t late = in.dueKey - (in.newest + 1);
+            if (late <= 5 * in.maxLateFrames)
+                first = in.newest + 1;
+            // Behind by more than half the limit: skip the frames nothing refers to until the
+            // lag is gone; beyond twice the limit even that was not enough: jump to the clock.
+            if (catchUp)
+                *catchUp = late > in.maxLateFrames / 2;
+        }
+        const int64_t last = std::max(first, clockKey + in.count - 1);
+        for (int i = 0; i < in.count && first + i <= last; ++i)
+            keys.push_back(first + i);
+        return keys;
+    }
+    int64_t previous = INT64_MIN;
+    for (int k = in.lead; k < in.lead + in.count; ++k) {
+        const int64_t key = int64_t(std::floor(in.unwrapped + in.rate * k));
+        if (key != previous) // slow play: the same frame for several intervals
+            keys.push_back(key);
+        previous = key;
+    }
+    return keys;
 }
 
 RenderedFramePtr FrameScheduler::poll(int64_t due, int direction, int64_t* shownKey)
@@ -237,7 +286,7 @@ void FrameScheduler::requestStill(int64_t frame, bool force)
     m_stillActive = true;
     m_still = Entry {};
     m_still.frame = frame;
-    m_still.future = issue(frame);
+    m_still.future = issue(frame, false);
     m_hasPendingStill = false;
 }
 

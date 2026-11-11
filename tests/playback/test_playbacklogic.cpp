@@ -12,6 +12,7 @@
 #include <atomic>
 #include <cmath>
 #include <random>
+#include <set>
 
 using namespace kk;
 
@@ -47,12 +48,139 @@ struct FakeRenderer
     }
 };
 
+/// A render thread with a decoder that cannot skip: a request for frame f costs decodeMs for
+/// every frame since the last decoded one, plus otherMs (upload, composite, output); requests
+/// run one after the other in virtual time. Drives FrameScheduler + lookAheadKeys() like
+/// PlaybackEngine::onTick() does and returns the frames shown per second over @p seconds.
+double simulatePlayback(double fps, double decodeMs, double otherMs, bool sequential, int seconds)
+{
+    struct Job
+    {
+        double finishMs;
+        std::promise<RenderedFramePtr> promise;
+        RenderedFramePtr frame;
+    };
+    std::vector<Job> jobs;
+    double now = 0.0, busyUntil = 0.0;
+    int64_t decoded = -1;
+    std::set<int64_t> repeated; ///< catch-up: frames nothing refers to, shown as the one before
+    FrameScheduler scheduler([&](RenderRequest request) {
+        const int64_t f = request.frame;
+        const double start = std::max(now, busyUntil);
+        const int64_t frames = std::max<int64_t>(1, f - decoded);
+        // Catch-up: the frames nothing refers to are not decoded (about half of them).
+        const double decodeCost
+            = request.catchUp ? decodeMs * 0.5 * double(frames) : decodeMs * double(frames);
+        busyUntil = start + decodeCost + otherMs;
+        decoded = std::max(decoded, f);
+        if (request.catchUp && f % 2 == 1)
+            repeated.insert(f);
+        Job job;
+        job.finishMs = busyUntil;
+        auto frame = std::make_shared<RenderedFrame>();
+        frame->frame = f;
+        frame->ok = true;
+        frame->renderMs = busyUntil - start;
+        job.frame = frame;
+        auto future = job.promise.get_future();
+        jobs.push_back(std::move(job));
+        return future;
+    });
+    const double intervalMs = 1000.0 / fps;
+    int64_t lastShown = -1;
+    bool haveShown = false;
+    DisplayLag lag;
+    int64_t shownCount = 0;
+    for (now = 0.0; now < seconds * 1000.0; now += 1.0) {
+        for (auto it = jobs.begin(); it != jobs.end();) {
+            if (it->finishMs <= now) {
+                it->promise.set_value(it->frame);
+                it = jobs.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        if (std::fmod(now, 4.0) != 0.0)
+            continue;
+        const double unwrapped = now / intervalMs;
+        const int64_t due = int64_t(std::floor(unwrapped));
+        const double avg = scheduler.averageRenderMs();
+        LookAhead look;
+        look.unwrapped = unwrapped;
+        look.dueKey = due - (sequential ? lag.frames() : 0);
+        look.lead = avg > 0.5 * intervalMs
+            ? std::min(10, int(std::ceil(avg * scheduler.maxInFlight() / intervalMs)))
+            : 0;
+        look.count = scheduler.maxInFlight() + 2;
+        look.sequential = sequential;
+        look.maxLateFrames = int64_t(std::ceil(110.0 / intervalMs));
+        look.haveNewest = scheduler.newestRequestedKey(1, &look.newest);
+        if (haveShown && (!look.haveNewest || lastShown > look.newest)) {
+            look.newest = lastShown;
+            look.haveNewest = true;
+        }
+        std::vector<FrameSlot> wanted;
+        bool catchUp = false;
+        for (const int64_t key : lookAheadKeys(look, &catchUp)) {
+            if (haveShown && key <= lastShown)
+                continue;
+            wanted.push_back({key, key, catchUp});
+        }
+        scheduler.prefetch(wanted);
+        int64_t key = 0;
+        const int64_t displayKey = due - (sequential ? lag.frames() : 0);
+        const bool shown = bool(scheduler.poll(displayKey, 1, &key));
+        if (sequential)
+            lag.update(!shown && haveShown && displayKey > lastShown, int64_t(now * 1000.0),
+                int(55.0 / intervalMs));
+        if (shown) {
+            lastShown = key;
+            haveShown = true;
+            if (repeated.count(key) == 0)
+                ++shownCount; // a new picture (not the repeat of a skipped frame)
+        }
+    }
+    return double(shownCount) / seconds;
+}
+
 } // namespace
 
 class TestPlaybackLogic : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    // ---- Frame rate with a decoder nearly as slow as the clock ----
+
+    void slowDecoderKeepsItsThroughput()
+    {
+        // Per-frame cost (decode + other) against the 16.7 ms interval of 60 fps; the decoder
+        // cannot skip. Without the sequential look-ahead the shown rate collapsed (model: 15 fps
+        // at 16 ms, 2 fps at 32 ms).
+        struct Case
+        {
+            double decodeMs, otherMs;
+        };
+        for (const Case c : {Case {8, 3}, Case {12, 3}, Case {14, 3}, Case {16, 3}, Case {20, 3},
+                 Case {26, 3}, Case {32, 3}}) {
+            const double throughput = std::min(60.0, 1000.0 / (c.decodeMs + c.otherMs));
+            const double before = simulatePlayback(60.0, c.decodeMs, c.otherMs, false, 8);
+            const double after = simulatePlayback(60.0, c.decodeMs, c.otherMs, true, 8);
+            qInfo(
+                "decode %.0f + %.0f ms: throughput %.1f fps, shown %.1f fps before, %.1f fps after",
+                c.decodeMs, c.otherMs, throughput, before, after);
+            // The picture keeps the decoder's pace (the catch-up skips the frames nothing refers to
+            // while it is behind); when the decoder is slower than half the clock the model
+            // jumps to the clock now and then, still far from a slideshow.
+            const double bar = throughput >= 34.0 ? 0.8 : 0.5;
+            QVERIFY2(after >= bar * throughput,
+                qPrintable(QString("decode %1 ms: %2 fps shown of %3")
+                        .arg(c.decodeMs)
+                        .arg(after)
+                        .arg(throughput)));
+            QVERIFY2(after >= before, "never worse than before");
+        }
+    }
+
     // ---- ShuttleControl ----
 
     void shuttleRates()

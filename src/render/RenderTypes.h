@@ -161,6 +161,10 @@ struct RenderRequest
     /// is final (export, render cache). false: a result still being computed is replaced by
     /// the unprocessed picture so playback never stalls.
     bool waitForAi = false;
+    /// Playback is far behind the clock and decoding cannot keep up: decoders discard the frames
+    /// no other frame refers to, so the picture catches up (the discarded frames are not shown;
+    /// FrameScheduler / lookAheadKeys()).
+    bool catchUp = false;
 };
 
 /// Result of a render request. Immutable once handed out; share it as RenderedFramePtr.

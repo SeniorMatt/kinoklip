@@ -571,6 +571,7 @@ void GlRenderer::render(RenderJob& job)
     m_proxies = rq.proxies.get();
     m_media = job.media.get();
     m_waitForAi = rq.waitForAi;
+    m_decoders.setCatchUp(rq.catchUp);
     // Compositing page viewer: one node of one clip's composition instead of the timeline.
     const ClipData* compClipOwner = nullptr;
     if (rq.compositionNode) {
