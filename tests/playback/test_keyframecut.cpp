@@ -252,9 +252,13 @@ private Q_SLOTS:
         const Result plain = m_last;
         report("d keyed, start in the previous clip, other file", Case {true, true, false, 0, gap});
         const Result other = m_last;
-        // The keys must not make crossing worse than the same cut without keys, nor than a
-        // cut between files, nor than starting on the clip (margins: noise on a busy machine).
-        QVERIFY2(keyed.lost <= plain.lost + 3, "keys make the crossing lose frames");
+        // The keys must not make crossing worse than a cut between files, nor than starting on
+        // the clip (margins: noise on a busy machine). Keyed against plain is not compared by
+        // lost frames: the CPU fallback draws a zoomed 1080p frame slower than a plain one, so
+        // that number measures the compositor, not the cut. The cut itself must be prepared and
+        // shown on time, like the plain one.
+        QCOMPARE(keyed.look.hitsWaited, plain.look.hitsWaited);
+        QVERIFY2(keyed.lateMs <= plain.lateMs + 50.0, "the keyed cut frame is late");
         QVERIFY2(keyed.lost <= other.lost + 3, "same file loses more than another file");
         QVERIFY2(keyed.lost <= startOn.lost + 3, "crossing loses more than starting on the clip");
         QVERIFY2(keyed.hold <= std::max(plain.hold, startOn.hold) + 80.0,
