@@ -2,6 +2,7 @@
 // RenderQueue — job bookkeeping on the GUI thread, rendering on a worker QThread.
 #include "export/RenderQueue.h"
 
+#include "core/ThreadNice.h"
 #include "render/Compositor.h"
 
 #include <QCoreApplication>
@@ -182,7 +183,10 @@ void RenderQueue::startNext()
     const quint64 id = next->id;
     std::shared_ptr<ExportJob> job = m_running;
     QPointer<RenderQueue> self(this);
-    m_thread = QThread::create([job, id, self] {
+    const bool background = m_background;
+    m_thread = QThread::create([job, id, self, background] {
+        if (background)
+            yieldToOtherThreads(10);
         QElapsedTimer throttle;
         throttle.start();
         const ExportResult result = job->run([&](const ExportProgress& p) {

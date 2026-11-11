@@ -35,6 +35,7 @@ RenderCacheManager::RenderCacheManager(Project* project, QString folder, QObject
     , m_queue(std::make_unique<RenderQueue>())
     , m_view(std::make_shared<RenderCacheView>())
 {
+    m_queue->setBackground(true);
     m_refreshTimer.setSingleShot(true);
     m_refreshTimer.setInterval(kRefreshDelayMs);
     connect(&m_refreshTimer, &QTimer::timeout, this, &RenderCacheManager::refresh);

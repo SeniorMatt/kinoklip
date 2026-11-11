@@ -223,6 +223,14 @@ line confirms the variable reached the process. `tests/playback/test_playbacksta
 both lines; `KK_SCREENSHOT_PLAY_MS=2000 kinoklip --screenshot edit out.png project.kkproj`
 plays headless (also in the bundle).
 
+### Background jobs yield to playback
+Proxy, optimized media and render cache generation (`ProxyQueue`, `RenderCacheManager`, the compositor
+`MediaManagement` gives them) run at nice 10 (`core/ThreadNice.h`, spec 80.1): `QThread::setPriority()` does nothing for
+the normal Linux policy, so before they competed with the decode and render threads like equals. 4K30 HEVC, software
+decoding, 4 cores, a proxy job running: 12 fps (52 - 57 dropped) before, 28 - 29 fps (4 - 7 dropped) after
+(`KK_HEVC_BGJOB=1` of `test_hevc4kperf`; `KK_NO_BACKGROUND_NICE=1` is "before"). The audio mix is not a cost
+(`test_audioperf`: 4 tracks x Equalizer, Compressor, Reverb, Limiter = 3.4 % of a 21 ms chunk, no allocations).
+
 ## Transport semantics (Resolve-like)
 
 | Input | Result |
@@ -282,6 +290,8 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
   between the cases (`KK_KEYCUT_SIZE`, `KK_KEYCUT_FPS`). The owner's one-second lag was not
   reproduced on CPU-only machines (0 frames lost in every case). `slowOpen` delays decoder opens (`DecoderPool::setOpenDelayMs`, test only) to check the look-ahead lead against a hardware decoder's slow open. `tests/app/test_playheadload` plays the same cut in the whole main window with the keyed clip selected and measures GUI event-loop stalls.
 * `test_playbackperf` — playback and seek measurements (see above).
+* `test_audioperf` (tests/render) — cost of the audio mix per chunk with effect chains; asserts a generous bound.
+* `test_hevc4kperf` — 4K HEVC playback per stage, `KK_PERF_HEVC=1` (settings in the file header, `KK_HEVC_BGJOB=1`: with a proxy job running).
 
 ## How to extend
 

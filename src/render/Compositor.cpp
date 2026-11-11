@@ -2,6 +2,7 @@
 // Compositor — request queue + render thread around a RenderBackend (GPU or CPU).
 #include "render/Compositor.h"
 
+#include "core/ThreadNice.h"
 #include "render/DecodeTargets.h"
 #include "render/RenderBackend.h"
 #include "render/RenderLog.h"
@@ -19,6 +20,10 @@
 namespace kk {
 
 using render::RenderBackend;
+
+namespace {
+constexpr int kBackgroundNice = 10; ///< ~10 % of a core's share against normal threads
+}
 using render::RenderJob;
 
 struct Compositor::Impl
@@ -73,8 +78,10 @@ struct Compositor::Impl
     }
 
     /// Body of the render thread: initialise, then serve the queue until stopped.
-    void run(bool forceCpu, std::promise<void>& ready)
+    void run(bool forceCpu, bool background, std::promise<void>& ready)
     {
+        if (background)
+            yieldToOtherThreads(kBackgroundNice);
         if (!forceCpu && surface) {
             backend = render::createGlBackend(surface.get());
             QString why;
@@ -161,7 +168,9 @@ Compositor::Compositor(Options options)
     std::promise<void> ready;
     auto readyFuture = ready.get_future();
     Impl* impl = m_impl.get();
-    m_impl->thread.reset(QThread::create([impl, forceCpu, &ready] { impl->run(forceCpu, ready); }));
+    m_impl->thread.reset(QThread::create([impl, forceCpu, background = options.background, &ready] {
+        impl->run(forceCpu, background, ready);
+    }));
     m_impl->thread->setObjectName(QStringLiteral("kk.render"));
     m_impl->thread->start();
     readyFuture.wait();

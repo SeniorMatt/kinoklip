@@ -4,6 +4,8 @@
 // runs only with KK_PERF_HEVC=1. Settings (environment):
 //   KK_HEVC_FPS=25|60  KK_HEVC_BITS=8|10  KK_HEVC_TL=3840x2160|1920x1080  KK_HEVC_PROXY=0|1
 //   KK_HEVC_DIR=<folder for the generated clip>  KK_HEVC_HW=1 (allow hardware decoding)
+//   KK_HEVC_BGJOB=1  generate the clip's proxy in the background while it plays (the editor's
+//                    proxy / render cache queues: does a background job disturb playback?)
 // Run it under taskset to resemble a laptop.
 #include "../render/RenderTestUtil.h"
 #include "core/EditOps.h"
@@ -88,7 +90,7 @@ private slots:
 
         std::shared_ptr<const ProxyMap> proxies;
         QTemporaryDir tmp;
-        Compositor background;
+        Compositor background(Compositor::Options {.background = true});
         ProxyQueue queue(project.mediaLinks());
         if (proxy) {
             queue.setCompositor(&background);
@@ -101,6 +103,13 @@ private slots:
                 ProxyHandling::PreferProxies, true);
         }
 
+        if (qEnvironmentVariableIntValue("KK_HEVC_BGJOB") != 0 && !proxy) {
+            queue.setCompositor(&background);
+            ProxyJobSpec spec;
+            QVERIFY(makeProxyJob(item, LinkKind::Proxy, project.cacheSettings(),
+                tmp.filePath(QStringLiteral("ProxyMedia")), &spec, nullptr));
+            QVERIFY(queue.enqueue(spec));
+        }
         PlaybackEngine::Options options;
         options.noAudio = true;
         PlaybackEngine engine(std::move(options));

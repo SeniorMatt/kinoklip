@@ -2009,6 +2009,15 @@ paste; the owner asked for it. The shortcut stays Ctrl+V and the menu entry stay
 | 79.5 | Nothing usable on the clipboard: the status bar says "Nothing to paste: the clipboard has no files or picture." for four seconds; no dialog, nothing imported. | Done (`test_poolpaste` nothingUsableGivesAStatusMessageOnly) |
 | 79.6 | Paste is routed by focus. Outside the Media Pool, Ctrl+V and Edit > Paste do what they did (timeline clips, compositing nodes, colour grade, keyframes); with the pool focused the timeline's paste steps aside, so no clip is pasted at the playhead. | Done (`test_poolpaste` timelinePasteStillWorks) |
 
+## 80. Playback performance (perf14 branch, roadmap 1.4)
+
+Playback has to stay smooth for every file on modest laptops, also while the editor works in the background.
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 80.1 | Proxy, optimized media and render cache generation run at a lower thread priority (nice 10, `core/ThreadNice.h`; the render thread of their compositor and the decoder and encoder threads it starts inherit it), so a background job takes only the cores playback leaves free; on an idle machine it runs at full speed. Exports from the Deliver page keep the normal priority. `KK_NO_BACKGROUND_NICE=1` turns it off for comparisons. Measured (4K30 HEVC on a 1080p timeline, software decoding, 4 cores, a proxy job running): 12 fps and 52-57 dropped of 105 before, 28 - 29 fps and 4 - 7 dropped after. | Done (`test_hevc4kperf` with `KK_PERF_HEVC=1 KK_HEVC_BGJOB=1`) |
+| 80.2 | The audio mix costs far less than the sound it makes: 1024-frame chunks (21 ms) with one to four tracks and Equalizer, Compressor, Limiter, Delay and Reverb on every clip take at most half a chunk's duration (measured 0.01 - 0.19 ms per track chain, 3.4 % of the chunk for 4 tracks x 4 effects), with no heap allocation in steady state. | Done (`test_audioperf`) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -2206,3 +2215,5 @@ paste; the owner asked for it. The shortcut stays Ctrl+V and the menu entry stay
 - The bgremove branch (owner request, roadmap 1.4) added 78.1 - 78.11 (Background Removal, an optional AI tool:
   Robust Video Matting through ONNX Runtime, downloaded only on request and checked against a hard-coded SHA-256,
   mattes computed in the background and cached on disk, renders that wait for them).
+- The perf14 branch (roadmap 1.4, playback performance) added 80.1 - 80.2 (background jobs yield to playback; audio
+  mix cost measured and guarded).
