@@ -1838,6 +1838,25 @@ with a bar along its bottom edge; when the sweep is full the page opens. Tests:
 | 71.6 | With the UI animations off (Preferences, the desktop's no-animation setting or `KK_NO_ANIMATIONS`) the button shows the plain highlight without the moving fill; the page still opens after the same delay. | Done |
 | 71.7 | The helper is `kk::SpringLoad` (`src/ui/common/SpringLoad.h`), an event filter that any button can use with one line; the page bar installs it on its buttons. | Done |
 
+## 72. Playing into an animated clip across a cut (kf-stutter branch, owner report for 1.3)
+
+Report: several clips cut from one screen recording lie one after another; one has Transform
+keyframes (zoom and rotation, from its first frame). Started on that clip, playback is smooth;
+started in the clip before it and played across the cut, the viewer lags for about a second
+while the keys animate (export is fine). Guarantee: animated Transform values never change how
+a clip is prepared or presented; crossing a cut into a keyed clip loses no more frames than the
+same cut into an unkeyed clip, than a cut between two files, or than starting on the clip.
+Measured with `tests/playback/test_keyframecut.cpp` (kc) on a CPU-only machine (software
+decoder, CPU compositor and llvmpipe OpenGL, 720p30, 1080p60): 0 frames lost in the first second
+of the keyed clip in every case, longest hold one frame time; the lag of the report was not
+reproduced there, so the test compares the cases with each other (generous margins) and
+guards against the regression.
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 72.1 | Playing across a cut between two clips of the same file into a clip with Transform keys from frame 0 loses at most 3 frames more than the same cut without keys, than the same cut from another file, and than starting on the keyed clip, in the clip's first second. | Done (kc crossing) |
+| 72.2 | The longest hold between two shown frames in that second is at most 80 ms above the unkeyed crossing's or the start-on-clip's. | Done (kc crossing) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

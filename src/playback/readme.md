@@ -269,6 +269,11 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
   counters where possible, delivery on time with a stated margin, cancelling, limits, J/K/L.
 * `test_cutperf` — the measurement above (prints, asserts nothing; `KK_CUTPERF_DIR` keeps the
   generated media, `KK_CUTPERF_RUNS`, `KK_CUTPERF_SIZE`).
+* `test_keyframecut` — crossing a cut into a clip with zoom + rotation keys from its first frame
+  (spec 72): keyed vs unkeyed, same file vs other file, start in the previous clip vs on the
+  clip; prints lost frames, longest hold and look-ahead counters, asserts only the relations
+  between the cases (`KK_KEYCUT_SIZE`, `KK_KEYCUT_FPS`). The owner's one-second lag was not
+  reproduced on CPU-only machines (0 frames lost in every case).
 * `test_playbackperf` — playback and seek measurements (see above).
 
 ## How to extend
