@@ -171,7 +171,7 @@ private slots:
         const QString ripple = QStringLiteral("edit.ripple_delete");
         const QList<QKeySequence> defaults = f.actions.shortcuts(ripple);
         QCOMPARE(defaults.size(), 2);
-        const QKeySequence key(QStringLiteral("Ctrl+Alt+R"));
+        const QKeySequence key(QStringLiteral("Ctrl+Alt+Shift+F9"));
         QVERIFY(dialog.assignShortcut(ripple, key));
         QCOMPARE(f.actions.shortcuts(ripple), (QList<QKeySequence> {key, defaults[1]}));
         dialog.clearShortcuts(ripple);

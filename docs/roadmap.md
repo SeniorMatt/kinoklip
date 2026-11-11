@@ -69,6 +69,10 @@ Still to do for 1.2:
 - [x] Interface: vim keybindings, so nvim users can edit easily
 - [x] Interface: Help > Export Log File: saves what the app did in this session (messages, warnings, the decoder chosen for each file, the graphics card, the playback statistics) as one text file to attach to a bug report. The log is kept in memory while you work and written only when you ask; the dialog says what the file contains (owner pick, idea from Picasso Suite)
 
+## Version 1.3.1 (released 2026-11-11)
+
+Shipped in 1.3.1 ([release notes](releases/v1.3.1.md)): Remove from Recent Projects, cut lag after pressing Play, decoder line in the exported log.
+
 ## Version 1.3 (released 2026-11-11 as 1.3 Beta)
 
 Shipped in 1.3 ([release notes](releases/v1.3.0-beta.1.md)):

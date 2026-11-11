@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.24)
 set(APP_NAME "Kinoklip")
 set(APP_ID   "kinoklip")
 
-project(${APP_NAME} VERSION 1.3.0 LANGUAGES CXX)
+project(${APP_NAME} VERSION 1.3.1 LANGUAGES CXX)
 
 # Reuse compiled files between build folders and worktrees when ccache is installed.
 find_program(KK_CCACHE ccache)
