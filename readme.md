@@ -19,8 +19,6 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 Green is done, grey is still to do. Details: [roadmap](docs/roadmap.md) and [effects library](docs/effects-library-status.md).
 <!-- status:end -->
 
-Kinoklip is still a beta: expect bugs and keep backups.
-
 ## Why use Kinoklip over Resolve?
 
 **On Windows or macOS:** don't. Kinoklip isn't available there yet, and even when it is, Resolve
@@ -44,8 +42,6 @@ a few real advantages there:
 - **One AppImage**
 - **Free and open source (GPL-3.0)**
 - **The same layout and shortcuts as Resolve**
-
-It is still a beta, missing many of Resolve's features, so it's not a full replacement yet.
 
 ## Screenshots
 
@@ -118,7 +114,7 @@ include GPL FFmpeg components; third-party notices are inside the bundle under
   crash reports. A bug report shares system info only when you choose to, see
   [docs/privacy.md](docs/privacy.md).
 - **No warranty.** Kinoklip is provided "as is", without any warranty, as stated in the GPL
-  (sections 15 and 16 of [license.md](license.md)). It is beta software: keep backups.
+  (sections 15 and 16 of [license.md](license.md)).
 - **Codecs and patents.** The AppImage includes FFmpeg with open-source codec libraries, so common
   formats work without extra downloads: H.264 (x264, OpenH264), H.265 / HEVC (x265), AAC (FFmpeg's
   own encoder), AV1 (dav1d, libaom, SVT-AV1), VP8 / VP9 (libvpx), Opus, Vorbis and MP3 (LAME).
