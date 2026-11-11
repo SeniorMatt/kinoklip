@@ -410,21 +410,8 @@ std::shared_ptr<const VideoFrame> VideoDecoder::Impl::currentVideoFrame()
     return cur.video;
 }
 
-QImage VideoDecoder::Impl::currentImage(QSize maxSize)
+QImage VideoDecoder::Impl::convertFrame(const AVFrame* frame, QSize maxSize)
 {
-    if (curImageValid && maxSize == curImageMaxSize) {
-        return curImage;
-    }
-    // Hardware surfaces are converted from their downloaded copy (shared with decodeFrame()),
-    // software frames straight from the decoder output.
-    const AVFrame* frame = cur.av.get();
-    if (frame->hw_frames_ctx) {
-        const std::shared_ptr<const VideoFrame> video = currentVideoFrame();
-        if (!video || !video->avFrame) {
-            return {};
-        }
-        frame = video->avFrame;
-    }
     const AVRational sar {info.sampleAspectRatio.num, info.sampleAspectRatio.den};
     QSize display(int(std::lround(double(frame->width) * sar.num / sar.den)), frame->height);
     const bool quarterTurn = info.rotation == 90 || info.rotation == 270;
@@ -440,6 +427,36 @@ QImage VideoDecoder::Impl::currentImage(QSize maxSize)
             image.convertTo(QImage::Format_ARGB32_Premultiplied);
         }
     }
+    return image;
+}
+
+std::shared_ptr<const VideoFrame> VideoDecoder::Impl::readAheadAt(int64_t timeUs)
+{
+    for (const auto& f : readAhead) {
+        if (f->ptsUs <= timeUs && timeUs < f->ptsUs + f->durationUs) {
+            return f;
+        }
+    }
+    readAhead.clear();
+    return nullptr;
+}
+
+QImage VideoDecoder::Impl::currentImage(QSize maxSize)
+{
+    if (curImageValid && maxSize == curImageMaxSize) {
+        return curImage;
+    }
+    // Hardware surfaces are converted from their downloaded copy (shared with decodeFrame()),
+    // software frames straight from the decoder output.
+    const AVFrame* frame = cur.av.get();
+    if (frame->hw_frames_ctx) {
+        const std::shared_ptr<const VideoFrame> video = currentVideoFrame();
+        if (!video || !video->avFrame) {
+            return {};
+        }
+        frame = video->avFrame;
+    }
+    QImage image = convertFrame(frame, maxSize);
     curImage = image;
     curImageMaxSize = maxSize;
     curImageValid = !image.isNull();
@@ -547,6 +564,12 @@ std::shared_ptr<const VideoFrame> VideoDecoder::decodeFrame(int64_t timeUs, Accu
     // No upper clamp on purpose: container durations can be short of the real last frame
     // (e.g. VFR MP4s). A target past the end seeks to the last keyframe, decodes to EOF and
     // returns the last frame, which stays cached for further past-the-end requests.
+    if (!d.readAhead.empty() && accuracy == Accuracy::Exact) {
+        if (auto hit = d.readAheadAt(std::max<int64_t>(timeUs, 0))) {
+            d.lastReturnedUs = hit->ptsUs;
+            return hit;
+        }
+    }
     const int64_t ts = std::max(d.usToTs(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
     if (!d.position(ts, accuracy)) {
         return nullptr;
@@ -561,12 +584,32 @@ std::shared_ptr<const VideoFrame> VideoDecoder::decodeFrame(int64_t timeUs, Accu
     return frame;
 }
 
-bool VideoDecoder::prepareFrame(int64_t timeUs, const std::function<bool()>& stop)
+bool VideoDecoder::prepareFrame(
+    int64_t timeUs, const std::function<bool()>& stop, int readAheadFrames)
 {
     Impl& d = *m_impl;
+    d.readAhead.clear();
     d.stopCheck = &stop;
     d.stopped = false;
-    const bool ok = decodeFrame(timeUs) != nullptr;
+    std::shared_ptr<const VideoFrame> frame = decodeFrame(timeUs);
+    const bool ok = frame != nullptr;
+    // The frames after the first, decoded (and downloaded, for hardware decoding) now, so the
+    // first frames of a cut do not wait for the decoder one by one (spec 72.7).
+    std::vector<std::shared_ptr<const VideoFrame>> ahead;
+    if (ok && readAheadFrames > 0 && frame->durationUs > 0 && frame->avFrame) {
+        ahead.push_back(frame);
+        for (int i = 0; i < readAheadFrames && !stop(); ++i) {
+            // A quarter frame into the next one: durations are rounded down.
+            frame = decodeFrame(ahead.back()->ptsUs + ahead.back()->durationUs * 5 / 4);
+            if (d.stopped || !frame || frame->ptsUs <= ahead.back()->ptsUs || frame->durationUs <= 0
+                || !frame->avFrame) {
+                break;
+            }
+            ahead.push_back(frame);
+        }
+        if (ahead.size() > 1)
+            d.readAhead = std::move(ahead);
+    }
     d.stopCheck = nullptr;
     d.stopped = false;
     return ok;
@@ -593,6 +636,15 @@ QImage VideoDecoder::frameAt(int64_t timeUs, QSize maxSize, Accuracy accuracy)
         }
         d.lastReturnedUs = d.frameList->startUs(d.frameListIndex);
         return Impl::scaledCopy(d.frameListImage, maxSize, d.frameListScaled, d.frameListScaledFor);
+    }
+    if (!d.readAhead.empty() && accuracy == Accuracy::Exact) {
+        if (auto hit = d.readAheadAt(std::max<int64_t>(timeUs, 0))) {
+            QImage image = d.convertFrame(hit->avFrame, maxSize);
+            if (!image.isNull()) {
+                d.lastReturnedUs = hit->ptsUs;
+                return image;
+            }
+        }
     }
     const int64_t ts = std::max(d.usToTs(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
     if (!d.position(ts, accuracy)) {

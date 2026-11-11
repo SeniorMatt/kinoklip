@@ -9,8 +9,8 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <thread>
 #include <limits>
+#include <thread>
 
 namespace kk::render {
 
@@ -22,6 +22,7 @@ constexpr int kPreparePriority = -1;
 constexpr qint64 kSameFrameMs = 5;
 
 std::atomic<int> s_openDelayMs {0};
+std::atomic<int> s_readAheadFrames {DecoderPool::kReadAheadFrames};
 
 /// open() plus the test hook's delay.
 bool openDecoder(media::VideoDecoder& decoder, const QString& path, QString* error)
@@ -38,6 +39,11 @@ bool workerRunning(const DecoderPool::Entry& entry)
 }
 
 } // namespace
+
+void DecoderPool::setReadAheadFrames(int frames)
+{
+    s_readAheadFrames.store(frames, std::memory_order_relaxed);
+}
 
 void DecoderPool::setOpenDelayMs(int ms)
 {
@@ -349,7 +355,8 @@ void DecoderPool::startPreparation(const Wish& wish, qint64 now)
             timer.start();
             QString error;
             if (!stop() && (reuse || openDecoder(*decoder, path, &error)) && !stop()
-                && decoder->prepareFrame(timeUs, stop)) {
+                && decoder->prepareFrame(
+                    timeUs, stop, s_readAheadFrames.load(std::memory_order_relaxed))) {
                 stats->ready.fetch_add(1, std::memory_order_relaxed);
                 stats->lastCostMs.store(int(timer.elapsed()), std::memory_order_relaxed);
             }

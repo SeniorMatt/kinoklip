@@ -94,6 +94,10 @@ struct VideoDecoder::Impl
     bool stopped = false; ///< prepareFrame() gave up before the target
     detail::DecodedFrame cur;
     detail::DecodedFrame next;
+    /// Frames decoded ahead by prepareFrame() (the first frame of a cut and the few after it),
+    /// oldest first. decodeFrame()/frameAt() answer from them without touching the decoder,
+    /// which already stands after the last one; the first request they cannot answer drops them.
+    std::vector<std::shared_ptr<const VideoFrame>> readAhead;
     QImage curImage; ///< `cur` converted for curImageMaxSize
     QSize curImageMaxSize;
     bool curImageValid = false;
@@ -120,6 +124,10 @@ struct VideoDecoder::Impl
     bool softSeekPending = false; ///< demuxer moved, decoder not flushed yet
     intptr_t generation = 0; ///< tags packets/frames; frames of older generations are stale
 
+    /// The read-ahead frame shown at @p timeUs, or nullptr (and the read-ahead dropped).
+    std::shared_ptr<const VideoFrame> readAheadAt(int64_t timeUs);
+    /// @p frame (decoder output or downloaded copy) as an image of at most @p maxSize.
+    QImage convertFrame(const AVFrame* frame, QSize maxSize);
     bool openStill(const QString& path, const ImageHeader& header, QString* error);
     bool openFrameList(
         const QString& path, detail::MediaRoute route, const ImageHeader& header, QString* error);
