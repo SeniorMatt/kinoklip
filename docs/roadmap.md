@@ -69,6 +69,11 @@ Still to do for 1.2:
 - [x] Interface: vim keybindings, so nvim users can edit easily
 - [x] Interface: Help > Export Log File: saves what the app did in this session (messages, warnings, the decoder chosen for each file, the graphics card, the playback statistics) as one text file to attach to a bug report. The log is kept in memory while you work and written only when you ask; the dialog says what the file contains (owner pick, idea from [Picasso Suite](https://github.com/fabox-os/Picasso-Suite))
 
+## Version 1.3 (owner's picks, 2026-11-11)
+
+- [ ] Interface: every window and dialog opens at least big enough for its content, so no scrollbars appear when they are not needed (Project Settings first)
+- [ ] Audio: voice-over: record from the microphone straight onto an audio track while the timeline plays. An arm button and an input menu on the track header (Edit and Audio pages), an input level meter, a count-in, and each take saved as a WAV file beside the project and added to the Media Pool (owner pick)
+
 ## Next big release
 
 A large feature, so it gets its own big release. Smaller fix releases will come out before it.
@@ -85,7 +90,6 @@ Rule for every AI-assisted tool: optional, clearly labelled, downloaded only whe
 Planned, not started. Compare each page with Resolve and add most of what is missing, starting
 when the owner asks for it.
 
-- [ ] Audio: voice-over: record from the microphone straight onto an audio track while the timeline plays. An arm button and an input menu on the track header (Edit and Audio pages), an input level meter, a count-in, and each take saved as a WAV file beside the project and added to the Media Pool (owner pick)
 - [ ] Audio: Bounce Mix to Track and Bounce Selected Tracks (Timeline menu): render the whole mix, or each selected track with its effects, into a new audio track as one clip
 - [ ] Edit: Auto Align Clips (clip context menu): line up selected clips on different tracks by timecode or by matching their sound
 - [ ] Edit: Paste Mix to Current Track (Edit menu); its exact behaviour is read from public documentation first
