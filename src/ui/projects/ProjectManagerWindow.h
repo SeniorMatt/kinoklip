@@ -87,6 +87,9 @@ public:
     QString createFolder(const QString& name);
     /// Moves @p paths to the trash, after a confirmation when @p ask is set.
     bool trash(const QStringList& paths, bool ask);
+    /// Removes @p paths from the Recent Projects list (files stay); the open project is
+    /// refused. Cached posters of missing projects are dropped. Emits recentRemoved().
+    bool removeFromRecent(const QStringList& paths);
     /// Opens @p path: a folder is entered, a project is requested (switch guard first).
     void openPath(const QString& path);
 
@@ -104,7 +107,8 @@ public slots:
     void openSelected(); ///< the current item
     void renameSelected(); ///< inline editor on the current item
     void duplicateSelected();
-    void deleteSelected(); ///< to the trash, with confirmation
+    void deleteSelected(); ///< to the trash, with confirmation; missing projects leave Recent
+    void removeSelectedFromRecent();
     void showSelectedInFileManager(); ///< the current item, or the shown folder
     void importProject(); ///< file dialog, copies into the shown folder
     void exportSelected(); ///< save dialog (either kind; another kind converts)
@@ -113,6 +117,8 @@ public slots:
     void goUp(); ///< parent folder (not above the library root)
 
 signals:
+    /// The remaining Recent Projects list after removeFromRecent() (to be stored).
+    void recentRemoved(const QStringList& remaining);
     /// The user chose to open @p path (the switch guard already agreed).
     void openRequested(const QString& path);
     /// Project Settings for the open project.

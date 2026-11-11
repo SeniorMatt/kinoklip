@@ -647,6 +647,16 @@ bool ProjectLibrary::moveToTrash(const QString& path, QString* error)
     return true;
 }
 
+void ProjectLibrary::dropCache(const QString& path)
+{
+    const QString p = clean(path);
+    const QString posters = m_cacheDir + QStringLiteral("/posters");
+    for (const QString& f :
+        QDir(posters).entryList({pathHash(p) + QStringLiteral("-*")}, QDir::Files))
+        QFile::remove(posters + QLatin1Char('/') + f);
+    forget(p);
+}
+
 QString ProjectLibrary::importProject(const QString& source, const QString& folder, QString* error,
     const CopyProgress& progress, bool* cancelled)
 {

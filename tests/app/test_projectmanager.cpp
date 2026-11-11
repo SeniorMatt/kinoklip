@@ -340,6 +340,49 @@ private slots:
         QVERIFY(QFileInfo::exists(a));
     }
 
+    void recentProjectsCanBeRemoved()
+    {
+        open();
+        const QString alive = project(QStringLiteral("Alive"));
+        const QString alive2 = project(QStringLiteral("Alive2"));
+        const QString gone = m_dir->path() + QStringLiteral("/gone.kkproj");
+        const QString gone2 = m_dir->path() + QStringLiteral("/gone2.kkproj");
+        QStringList stored;
+        connect(m_window.get(), &ProjectManagerWindow::recentRemoved, m_window.get(),
+            [&](const QStringList& l) { stored = l; });
+        m_window->setRecentProjects({alive, gone, alive2, gone2});
+        m_window->showRecent();
+        QCOMPARE(m_window->model()->rowCount(), 4);
+        // A missing project: Delete removes it from the list, no message box, no files touched.
+        QVERIFY(m_window->selectPath(gone));
+        m_window->cardView()->setFocus();
+        QTest::keyClick(m_window->cardView(), Qt::Key_Delete);
+        QCOMPARE(stored, (QStringList {alive, alive2, gone2}));
+        QCOMPARE(m_window->model()->rowCount(), 3);
+        // Remove from Recent works for an existing project and leaves its file.
+        QVERIFY(m_window->removeFromRecent({alive}));
+        QVERIFY(QFileInfo::exists(alive));
+        QCOMPARE(stored, (QStringList {alive2, gone2}));
+        // Mixed selection through Delete: the existing one is trashed after confirmation.
+        QVERIFY(m_window->selectPath(alive2));
+        m_window->setRecentProjects({alive2, gone2});
+        m_window->showRecent();
+        m_window->cardView()->selectAll();
+        answerNextMessageBox(QStringLiteral("Yes"));
+        m_window->deleteSelected();
+        QVERIFY(!QFileInfo::exists(alive2));
+        QCOMPARE(stored, QStringList {});
+        QCOMPARE(m_window->model()->rowCount(), 0);
+        // The open project cannot be removed.
+        const QString current = project(QStringLiteral("Current"));
+        m_window->setOpenProjectPath(current);
+        m_window->setRecentProjects({current});
+        m_window->showRecent();
+        answerNextMessageBox(QStringLiteral("OK"));
+        QVERIFY(!m_window->removeFromRecent({current}));
+        QCOMPARE(m_window->model()->rowCount(), 1);
+    }
+
     void foldersAndDragging()
     {
         open();
