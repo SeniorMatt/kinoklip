@@ -116,6 +116,17 @@ public:
     /// bin created below it (Import Media Folder makes one per folder), shows that bin (the
     /// topmost new one), so the imported clips are in view.
     void showImportedItems(const QStringList& ids, const QString& targetBin);
+
+    /// Edit > Paste / Ctrl+V with the pool focused: imports what is on the clipboard into the
+    /// import target bin (spec 79). Local files (copied in a file manager) are imported like a
+    /// drop; with none, raw image data is saved as "Pasted image <date> <time>.png" (in
+    /// "<project folder>/Pasted Media", or the app data folder's "Pasted Media" for an unsaved
+    /// project) and imported. Nothing usable: a status-bar message. Returns the imported ids.
+    QStringList pasteFromClipboard();
+    /// Whether the keyboard focus is in this panel (a view, the bin list or the search box).
+    [[nodiscard]] bool hasFocusInside() const;
+    /// The folder pasted images are saved in (see pasteFromClipboard()).
+    [[nodiscard]] QString pastedMediaFolder() const;
     /// Key of the bin shown (MediaPoolFilterModel keys: "", bin id, "smart:<id>",
     /// "power:", "power:<id>").
     [[nodiscard]] QString currentBinKey() const;

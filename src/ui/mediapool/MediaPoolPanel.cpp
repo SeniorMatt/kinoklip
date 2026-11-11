@@ -572,6 +572,14 @@ void MediaPoolPanel::connectActions()
         QAction* toggle = reg->action(QStringLiteral("view.show_bin_list"));
         connect(toggle, &QAction::triggered, this, [this](bool on) { setBinsVisible(on); });
     }
+    // Edit > Paste with the pool focused (the timeline's paste steps aside, see
+    // TimelineController::paste()).
+    if (reg->contains(QStringLiteral("edit.paste"))) {
+        connect(reg->action(QStringLiteral("edit.paste")), &QAction::triggered, this, [this] {
+            if (isVisible() && hasFocusInside())
+                pasteFromClipboard();
+        });
+    }
     on("mediapool.new_bin", [this] { createBin(tr("New Bin"), currentBinKey()); });
     on("mediapool.new_smart_bin", [this] { newSmartBinWithDialog(); });
     on("mediapool.remove_unused", [this] { removeUnusedClips(true); });
@@ -1232,6 +1240,18 @@ bool MediaPoolPanel::eventFilter(QObject* watched, QEvent* event)
             m_selection->setCurrentIndex(
                 index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
             m_grid->edit(index);
+            return true;
+        }
+    }
+    if ((view || watched == m_bins) && keyEvent) {
+        // Ctrl+V imports the clipboard's files or picture (spec 79); as a window shortcut it
+        // would paste the timeline's clips instead.
+        const auto* key = static_cast<QKeyEvent*>(event);
+        if (key->key() == Qt::Key_V
+            && (key->modifiers() & ~Qt::KeypadModifier) == Qt::ControlModifier) {
+            if (event->type() == QEvent::KeyPress)
+                QTimer::singleShot(0, this, [this] { pasteFromClipboard(); });
+            event->accept();
             return true;
         }
     }

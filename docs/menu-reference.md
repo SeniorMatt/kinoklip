@@ -61,7 +61,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | History > Open History Window… |  | Opens a floating list of all undo steps; clicking one goes back or forward to it at once. |
 | Cut | Ctrl+X | Removes the selection and keeps it on the clipboard. |
 | Copy | Ctrl+C | Copies the selection to the clipboard. |
-| Paste | Ctrl+V | Puts the clipboard clips at the playhead, replacing what is there. |
+| Paste | Ctrl+V | Puts the clipboard clips at the playhead, replacing what is there. With the Media Pool focused it imports the files or picture on the clipboard into the current bin. |
 | Paste Insert | Ctrl+Shift+V | Puts the clipboard clips at the playhead, pushing later clips along. |
 | Paste Attributes… | Alt+V | Opens a dialog to copy chosen attributes (transform, effects, volume, pan, speed) from the clipboard clip to the selected clips. |
 | Ripple Cut | Ctrl+Shift+X | Cuts the selection to the clipboard and closes the gap it leaves. |
