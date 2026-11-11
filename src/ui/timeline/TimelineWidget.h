@@ -277,6 +277,9 @@ private:
         TrackRef primaryTrack;
         int64_t primaryStart = 0;
         int64_t primaryEnd = 0;
+        /// Trims: where in the trim zone the press was, in frames from the edge (set on the
+        /// first move), so the edge follows the pointer by the same offset instead of jumping.
+        std::optional<double> trimGrab;
         int64_t minStart = 0; ///< earliest start of the moved clips
         int lastDy = 0;
         editops::Clipboard board; ///< Alt-drag duplicate source

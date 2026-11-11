@@ -14,8 +14,9 @@ namespace kk {
 
 /// How long a drag has to rest on a spring-loaded button before it triggers, in milliseconds.
 /// Long enough not to fire while the pointer only crosses the button, short enough to feel
-/// like a deliberate "go there" (Finder opens spring-loaded folders after about a second).
-inline constexpr int kSpringLoadDelayMs = 900;
+/// like a deliberate "go there". Qt's own QTabBar drag switch waits 500 ms
+/// (SH_TabBar_ChangeCurrentDelay); the page bar is a bit quicker.
+inline constexpr int kSpringLoadDelayMs = 400;
 
 /// Event filter that makes @p button spring-loaded: it accepts every drag that enters it (no
 /// forbidden cursor), shows a highlight with a fill that sweeps across the button over

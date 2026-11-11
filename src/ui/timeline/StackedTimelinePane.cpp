@@ -398,6 +398,8 @@ StackedTimelinePane::StackedTimelinePane(AppContext& ctx, QWidget* parent)
     m_bar->setUsesScrollButtons(true);
     m_bar->setFocusPolicy(Qt::NoFocus);
     m_bar->setTabsClosable(true);
+    m_bar->setChangeCurrentOnDrag(
+        true); // Qt's native drag-over tab switch (QTabBar, as Dolphin and Kate)
     row->addWidget(m_bar, 1);
     m_open = new QToolButton(this);
     m_open->setObjectName(QStringLiteral("StackedTimelineOpen"));
