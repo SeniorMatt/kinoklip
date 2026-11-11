@@ -1,6 +1,6 @@
 # Edit with vim keys
 
-If you live in [Vim](https://www.vim.org) or [Neovim](https://neovim.io), Kinoklip has a keyboard
+If you live in Vim or Neovim, Kinoklip has a keyboard
 preset that edits the timeline with the keys you already know: `5l` steps five frames, `w` jumps to
 the next cut, `dd` removes the clip under the playhead, `u` undoes.
 

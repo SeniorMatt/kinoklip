@@ -1661,7 +1661,7 @@ track), `src/app/VimController.h` (mode indicator, `:` command line). Tests: `te
 
 `docs/menu-reference.md` is not written by hand: Kinoklip writes it from the tables its menus are
 built from and from a description every panel carries, so it cannot go stale (the idea is taken from
-[Picasso Suite](https://github.com/fabox-os/Picasso-Suite), whose program writes its own
+Picasso Suite, whose program writes its own
 `Menu-Status.md`). Code: `src/app/MenuReference.h` (the walk and the writer), `src/ui/common/ActionDescriptions.cpp`
 (one line of words for every standard command), `src/ui/common/PanelInfo.h` (the description of a
 panel). Tests: `tests/app/test_menureference.cpp` (mr), ctest `check_menu_reference`

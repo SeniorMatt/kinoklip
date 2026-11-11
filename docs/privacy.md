@@ -31,7 +31,7 @@ connected. Switch the option off and nothing listens any more.
 ## Reporting a bug
 **Help > Report a Bug or Inconsistency...** helps you write a useful report:
 
-1. You choose the kind of report: a bug, something that works differently from [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve),
+1. You choose the kind of report: a bug, something that works differently from DaVinci Resolve,
    or an idea.
 2. The dialog shows **exactly** the text that would be shared, so you can read every line before
    anything happens.
@@ -50,8 +50,8 @@ The text contains only versions and settings:
 - the Kinoklip version (and the source commit, if the build has it) and how it is packaged
   (AppImage, [Flatpak](https://flatpak.org) or built from source);
 - the Linux distribution name and version, and the kernel release;
-- the desktop, the session type (Wayland or X11) and [Qt](https://www.qt.io)'s platform plugin;
-- the Qt and [FFmpeg](https://ffmpeg.org) library versions;
+- the desktop, the session type (Wayland or X11) and Qt's platform plugin;
+- the Qt and FFmpeg library versions;
 - the OpenGL driver strings and the hardware decoding state, if Kinoklip already has them;
 - the number of screens, and the size and scale of the main one;
 - the widget style, colour theme and language.

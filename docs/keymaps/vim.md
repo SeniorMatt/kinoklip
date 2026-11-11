@@ -5,8 +5,8 @@ coming from Vim and Neovim. Choose it in Kinoklip menu > Keyboard Customization 
 profile (or in the Project Manager the first time Kinoklip starts). Written from general
 knowledge of how Vim and Neovim is used; nothing is copied from its documentation.
 
-A keyboard preset for people who edit text with [Vim](https://www.vim.org) or
-[Neovim](https://neovim.io). The keys are not shortcuts: while the **timeline or a viewer has
+A keyboard preset for people who edit text with Vim or
+Neovim. The keys are not shortcuts: while the **timeline or a viewer has
 the focus** a small input layer reads them as vim does, with counts (`5l`), two-key
 sequences (`gg`, `dd`, `yy`) and modes (NORMAL, VISUAL, shown in the timeline's tool bar).
 It is off in every text field, the Inspector, dialogs and the title editor, and it exists

@@ -11,7 +11,7 @@ Every feature is one checklist line, `- [x]` when made and `- [ ]` when not, wit
 
 ## Version 1.2 (released 2026-11-11 as 1.2 Beta)
 
-Everything below in "Now" is planned for 1.2, in this order: [OpenTimelineIO](https://opentimeline.io), planar tracker, audio effects, the command-line interface and the MCP server on top of it, then the missing transitions, effects and generators (Smooth Cut first), stabilization, fade curves, hover preview, the text title layers, emoji, Inspector audio options, settings import/export and vim keys. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
+Everything below in "Now" is planned for 1.2, in this order: OpenTimelineIO, planar tracker, audio effects, the command-line interface and the MCP server on top of it, then the missing transitions, effects and generators (Smooth Cut first), stabilization, fade curves, hover preview, the text title layers, emoji, Inspector audio options, settings import/export and vim keys. 1.1.8 has the small fixes (search box, Keyframes / Curves switch, licence texts, FUSE note).
 
 ## Now (next version)
 
@@ -24,7 +24,7 @@ Shipped in 1.1.7:
 
 Shipped in 1.1.8:
 - [x] Media: the thumbnail slider no longer squeezes the search box at the default width
-- [x] Interface: the Keyframes / Curves switch looks like native Breeze / [Qt](https://www.qt.io)
+- [x] Interface: the Keyframes / Curves switch looks like native Breeze / Qt
 - [x] Platform: complete licence texts for every bundled library
 
 Shipped in 1.2 ([release notes](releases/v1.2.0-beta.1.md)):
@@ -67,7 +67,7 @@ Still to do for 1.2:
 - [x] Audio: Inspector Audio tab compared with every audio option Resolve has (public documentation only), adding the missing ones, Pitch first (spec 67: Pitch and a four-band clip Equalizer added; Voice Isolation and Dialogue Leveler skipped, they need a model)
 - [x] Interface: import and export all settings with one click
 - [x] Interface: vim keybindings, so nvim users can edit easily
-- [x] Interface: Help > Export Log File: saves what the app did in this session (messages, warnings, the decoder chosen for each file, the graphics card, the playback statistics) as one text file to attach to a bug report. The log is kept in memory while you work and written only when you ask; the dialog says what the file contains (owner pick, idea from [Picasso Suite](https://github.com/fabox-os/Picasso-Suite))
+- [x] Interface: Help > Export Log File: saves what the app did in this session (messages, warnings, the decoder chosen for each file, the graphics card, the playback statistics) as one text file to attach to a bug report. The log is kept in memory while you work and written only when you ask; the dialog says what the file contains (owner pick, idea from Picasso Suite)
 
 ## Version 1.3 (released 2026-11-11 as 1.3 Beta)
 
@@ -82,7 +82,7 @@ Shipped in 1.3 ([release notes](releases/v1.3.0-beta.1.md)):
 A large feature, so it gets its own big release. Smaller fix releases will come out before it.
 
 - [ ] Media: stereo 3D: stereo footage support (clips with both eyes, a 3D viewer mode), then advanced stereo alignment for two-camera footage (vertical, rotation, scale and convergence correction, automatic from matched features, plus colour match between the eyes); builds on the tracker (user request)
-- [ ] Media: raw video: decode open raw formats (CinemaDNG, ProRes RAW where [FFmpeg](https://ffmpeg.org) supports it) and a simple Darktable-style panel: exposure, white balance, highlights, shadows, and highlight recovery (user request)
+- [ ] Media: raw video: decode open raw formats (CinemaDNG, ProRes RAW where FFmpeg supports it) and a simple Darktable-style panel: exposure, white balance, highlights, shadows, and highlight recovery (user request)
 - [ ] Tracking: easy adaptable masks: a mask drawn once follows the subject by itself (tracked windows and shapes, built on the tracker) (user request)
 - [ ] Effects: hide people or objects that walk into a shot by filling the masked area from other frames (clean plate), steady shots first (user request)
 
@@ -134,7 +134,7 @@ when the owner asks for it.
 - [ ] Platform: Windows build, after the first stable (non-beta) release ([#4](https://github.com/SeniorMatt/kinoklip/issues/4)) (KDE Craft provides Qt, KF6 and Breeze there); the code already keeps platform code in `src/platform/`
 - [ ] Platform: [Flatpak](https://flatpak.org) and distro packages (Arch PKGBUILD / AUR, .deb, .rpm), Windows installer
 - [ ] Interface: interface profiles beyond the default (a Plasma profile)
-- [ ] Project: project website presenting Kinoklip as a free alternative to [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve): features, screenshots, downloads, roadmap, docs. It names Resolve only for comparison, uses no Blackmagic logos or screenshots, and claims only what the shipped build does
+- [ ] Project: project website presenting Kinoklip as a free alternative to DaVinci Resolve: features, screenshots, downloads, roadmap, docs. It names Resolve only for comparison, uses no Blackmagic logos or screenshots, and claims only what the shipped build does
 - [ ] Project: version 1.0.0, released only when the owner decides; until then every build is an alpha or beta
 
 ## Done

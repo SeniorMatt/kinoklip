@@ -1,7 +1,7 @@
 # Transitions between clips
 
 A transition changes one clip into the next. Kinoklip has them in the same folders as
-[DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve): open the effects
+DaVinci Resolve: open the effects
 library (**Toolbox > Video Transitions**) and drag one onto the cut between two clips. Pressing
 **Ctrl+T** adds the standard one, a one-second **Cross Dissolve**. Double-clicking a transition
 in the library puts it on the selected cut, or on the cut nearest the playhead.
@@ -63,7 +63,7 @@ for it and the morph then looks like a dissolve.
 
 ## Taking transitions to another editor
 
-When you export the timeline as [OpenTimelineIO](https://opentimeline.io) (**File > Export**, see
+When you export the timeline as OpenTimelineIO (**File > Export**, see
 [Move a timeline to another editor](move-a-timeline-to-another-editor.md)), every transition is
 written as a transition with its name and settings. The same Kinoklip reads it back as it was.
 Another program that does not know it shows a custom transition, and a transition from another

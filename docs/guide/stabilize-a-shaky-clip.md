@@ -3,7 +3,7 @@
 You will take a clip filmed by hand, with the camera trembling or swaying, and make the picture
 calmer. Kinoklip measures how the camera moved during the clip, then moves the picture the
 opposite way, frame by frame. It works like the Stabilization section of
-[DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve)'s Inspector.
+DaVinci Resolve's Inspector.
 
 Only clips of video files can be stabilized. A still picture, a title or a frozen frame has no
 camera movement to measure.

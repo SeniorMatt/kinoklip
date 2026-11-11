@@ -3,7 +3,7 @@
 You will make a graphic or a clip follow something that moves in the footage, pin a graphic to a
 bending surface, and bend a picture by hand. The effects are in the **Effects** library, folders
 **Transform** (Match Move, Surface Tracker) and **Warp** (Warper), and work like the effects with
-the same names in [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve).
+the same names in DaVinci Resolve.
 
 ## Make a graphic follow a moving thing (Match Move)
 
