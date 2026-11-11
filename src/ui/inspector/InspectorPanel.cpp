@@ -1019,6 +1019,7 @@ void InspectorPanel::buildEffectSection(
                 group->addParam(ParamRef {clipId, ParamScope::Effect, effectId, p.key}, p, *this);
         }
         buildTrackingControls(group, fx, clipId);
+        buildBackgroundRemovalControls(group, fx, clipId);
     }
 }
 

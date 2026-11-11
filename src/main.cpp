@@ -17,6 +17,7 @@
 #include "core/SessionLog.h"
 #include "export/RenderCommand.h"
 #include "media/HwAccel.h"
+#include "matting/MatteService.h"
 #include "media/MediaCache.h"
 #include "pack/ProjectPackage.h"
 #include "playback/PlaybackEngine.h"
@@ -29,6 +30,7 @@
 #include "ui/common/Resources.h"
 #include "ui/common/SettingsPages.h"
 #include "ui/common/StandardActions.h"
+#include "ui/dialogs/AiModelDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 
 #include <QApplication>
@@ -37,6 +39,7 @@
 #include <QSettings>
 #include <QSurfaceFormat>
 #include <QTemporaryDir>
+#include <QTimer>
 
 #include <cstdio>
 #include <memory>
@@ -209,6 +212,7 @@ int main(int argc, char** argv)
     kk::registerStandardSettingsPages(settingsPages, &actions);
     kk::theme::registerSettingsPage(settingsPages, actions);
     kk::registerSettingsTransferPage(settingsPages); // Preferences > Import and Export
+    kk::registerAiModelsPage(settingsPages); // Preferences > AI Models (Background Removal)
     // Program playback: owns the compositor (render thread + GL context) shared by every
     // viewer, follows the project's timeline and media pool.
     kk::applyStartupPreferences(); // before the compositor exists (GPU processing mode)
@@ -218,6 +222,18 @@ int main(int argc, char** argv)
     playback.setTimeline(project.timeline());
     QObject::connect(
         &project, &kk::Project::editCommitted, &playback, &kk::PlaybackEngine::noteEditCommitted);
+
+    // A Background Removal matte finished in the background: draw the paused frame again
+    // (at most every 250 ms).
+    auto* matteRedraw = new QTimer(&playback);
+    matteRedraw->setSingleShot(true);
+    matteRedraw->setInterval(250);
+    QObject::connect(matteRedraw, &QTimer::timeout, &playback, &kk::PlaybackEngine::redrawStill);
+    QObject::connect(&kk::matting::MatteService::instance(), &kk::matting::MatteService::matteComputed,
+        matteRedraw, [matteRedraw] {
+            if (!matteRedraw->isActive())
+                matteRedraw->start();
+        });
 
     // Thumbnails / waveforms give way to playback (spec: thumbnails during playback).
     QObject::connect(&playback, &kk::PlaybackEngine::rateChanged, &playback,
