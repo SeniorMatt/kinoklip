@@ -14,8 +14,8 @@ keep Kinoklip's keys or are left free where Shotcut uses the letter.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 343 commands; 32 mapped to Shotcut's key (sure 21, likely 11,
-unsure 0); 147 keep the default (Resolve) key; 8 have no key because
+Counts: 344 commands; 32 mapped to Shotcut's key (sure 21, likely 11,
+unsure 0); 148 keep the default (Resolve) key; 8 have no key because
 Shotcut uses it for something else; 156 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
@@ -179,6 +179,7 @@ shares with a Shotcut command was removed, see the note).
 | Toggle Source / Timeline Viewer | `view.toggle_source_timeline` | `Q` |  |
 | Viewer Full Screen | `view.fullscreen_viewer` | `Ctrl+F` |  |
 | Play Reverse | `transport.play_reverse` | `Shift+Space` |  |
+| Record Voice-Over (count-in, then record the armed audio track while the timeline plays) | `transport.record` | `Ctrl+Alt+R` |  |
 | Back One Second | `transport.back_1s` | `Shift+Left` |  |
 | Forward One Second | `transport.forward_1s` | `Shift+Right` |  |
 | Previous Edit | `transport.prev_edit` | `Up` |  |

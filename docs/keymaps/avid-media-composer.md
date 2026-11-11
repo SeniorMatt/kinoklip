@@ -14,8 +14,8 @@ X extracts, V splices in, B overwrites) and M , . / trim. I and O mark too.
 - **likely**: believed correct, not checked against the program;
 - **unsure**: best guess; please correct it in `scripts/keymap-presets.py` if it differs.
 
-Counts: 343 commands; 43 mapped to Media Composer's key (sure 35, likely 6,
-unsure 2); 130 keep the default (Resolve) key; 13 have no key because
+Counts: 344 commands; 43 mapped to Media Composer's key (sure 35, likely 6,
+unsure 2); 131 keep the default (Resolve) key; 13 have no key because
 Media Composer uses it for something else; 157 have no key in either.
 
 To change a key: edit the preset's section in `scripts/keymap-presets.py` and run it (it writes
@@ -182,6 +182,7 @@ shares with a Media Composer command was removed, see the note).
 | Viewer Full Screen | `view.fullscreen_viewer` | `Ctrl+F` |  |
 | Full Screen Window | `view.fullscreen` | `Ctrl+Shift+F` |  |
 | Play Reverse | `transport.play_reverse` | `Shift+Space` |  |
+| Record Voice-Over (count-in, then record the armed audio track while the timeline plays) | `transport.record` | `Ctrl+Alt+R` |  |
 | Back One Second | `transport.back_1s` | `Shift+Left` |  |
 | Forward One Second | `transport.forward_1s` | `Shift+Right` |  |
 | Previous Marker | `transport.prev_marker` | `Shift+Up` |  |

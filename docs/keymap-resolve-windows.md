@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 343 commands; sure 106, likely 115, unsure 122.
+Counts: 344 commands; sure 106, likely 115, unsure 123.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -291,6 +291,7 @@ that every command has an entry and that no key is used twice.
 | Shuttle Reverse (J, again = faster) | `transport.shuttle_reverse` | `J` | sure |  |
 | Stop (K; K+J / K+L step and slow play) | `transport.shuttle_stop` | `K` | sure |  |
 | Shuttle Forward (L, again = faster) | `transport.shuttle_forward` | `L` | sure |  |
+| Record Voice-Over (count-in, then record the armed audio track while the timeline plays) | `transport.record` | `Ctrl+Alt+R` | unsure | Resolve records from the armed track of the Fairlight page; its key is not known, so Kinoklip's own free key is used |
 | Previous Frame | `transport.prev_frame` | `Left` | sure |  |
 | Next Frame | `transport.next_frame` | `Right` | sure |  |
 | Back One Second | `transport.back_1s` | `Shift+Left` | sure |  |

@@ -1,4 +1,4 @@
-348 menu entries in 12 menus; 48 panels
+349 menu entries in 12 menus; 48 panels
 
 # Menu and panel reference
 
@@ -359,6 +359,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Shuttle Reverse | J | Plays backwards; each further press doubles the speed. |
 | Stop | K | Stops playback. |
 | Shuttle Forward | L | Plays forwards; each further press doubles the speed. |
+| Record Voice-Over | Ctrl+Alt+R | Counts in, then plays the timeline from the playhead and records the microphone onto the armed audio track. Press Space or Stop to end the take. |
 | Previous Frame | Left | Moves the playhead back one frame. |
 | Next Frame | Right | Moves the playhead forward one frame. |
 | Back One Second | Shift+Left | Moves the playhead back one second. |
