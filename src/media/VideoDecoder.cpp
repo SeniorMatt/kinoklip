@@ -3,6 +3,7 @@
 // current frame into a VideoFrame/QImage, and the public API. Seeking: VideoDecoderSeek.cpp.
 #include "media/VideoDecoder.h"
 
+#include "core/SessionLog.h"
 #include "media/MediaLog.h"
 #include "media/VideoDecoderImpl.h"
 
@@ -272,8 +273,12 @@ void VideoDecoder::Impl::logOpened()
         qCDebug(lcMedia).noquote() << line;
     } else if (hwOpenFailed) {
         qCWarning(lcMedia).noquote() << line;
-    } else {
+    } else if (lcMedia().isInfoEnabled()) {
         qCInfo(lcMedia).noquote() << line;
+    } else {
+        // Logging rules of the system or the user (QT_LOGGING_RULES, qtlogging.ini) switch info
+        // off: the session log (Help > Export Log File) must still say which decoder is used.
+        sessionlog::record(QtInfoMsg, "kk.media", line);
     }
 }
 
