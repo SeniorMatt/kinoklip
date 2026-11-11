@@ -81,9 +81,13 @@ Shipped in 1.3 ([release notes](releases/v1.3.0-beta.1.md)):
 - [x] Audio: voice-over: record from the microphone straight onto an audio track while the timeline plays. An arm button and an input menu on the track header (Edit and Audio pages), an input level meter, a count-in, and each take saved as a WAV file beside the project and added to the Media Pool (owner pick) (spec 75; the capture itself could not be tested without a microphone)
 - [x] Interface: dragging files over a closed panel's toolbar button (Media Pool, Effects and every other panel that takes files) opens that panel after the same hover delay as the page buttons, so the drop can land in it
 
-## Version 1.4
+## Version 1.4 (released 2026-11-11)
+
+Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 
 - [x] Effects: Background Removal: an optional, clearly labelled AI tool in the Effects library (Key) that cuts the person out of a clip with a model that runs on your computer (Robust Video Matting, GPL-3.0, through ONNX Runtime, MIT). The model is downloaded only when you ask (name, size, licence and source shown first, checked against a checksum, removable in Preferences > AI Models); mattes are made in the background and cached, playback never waits, the render does (spec 78, [guide](guide/remove-a-background.md))
+- [x] Media Pool: Ctrl+V imports files or a picture from the clipboard into the current bin (spec 79)
+- [x] Playback: a prepared cut also holds its next 3 frames, so the first frames after a cut are not decoded late (spec 72.7)
 
 ## Next big release
 

@@ -90,7 +90,8 @@ const Description kDescriptions[] = {
     KK_TIP("edit.copy",
         "Copies the selection to the clipboard."),
     KK_TIP("edit.paste",
-        "Puts the clipboard clips at the playhead, replacing what is there."),
+        "Puts the clipboard clips at the playhead, replacing what is there. With the Media Pool "
+        "focused it imports the files or picture on the clipboard into the current bin."),
     KK_TIP("edit.paste_insert",
         "Puts the clipboard clips at the playhead, pushing later clips along."),
     KK_TIP("edit.paste_attributes",

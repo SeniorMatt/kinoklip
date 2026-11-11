@@ -127,7 +127,7 @@ private slots:
         QCOMPARE(keyers,
             QStringList({QStringLiteral("Chroma Key"), QStringLiteral("Luma Key"),
                 QStringLiteral("HSL Key"), QStringLiteral("Alpha Matte Shrink and Grow"),
-                QStringLiteral("3D Keyer")}));
+                QStringLiteral("3D Keyer"), QStringLiteral("Background Removal")}));
         // Every video effect is listed exactly once; searching hides empty folders.
         const QStringList all = panel.visibleDescriptorIds();
         for (const EffectDescriptor* d :
