@@ -828,7 +828,7 @@ Tests: an = tests/timeline/test_timelineanimation.cpp.
 | 36.2 | With animations off the view always shows the model; nothing extra runs (no snapshot, no timer). Offscreen (the tests) they default to off unless KK_ANIMATIONS is set; KK_NO_ANIMATIONS turns them off anywhere. | Fixed (new; an disabledShowsTheModelAtOnce) |
 | 36.3 | After a committed edit, every clip whose start, length or track changed slides from where it was drawn to its new place (OutCubic, about 180 ms): ripple delete and close gap (later clips slide left), insert / overwrite / append and the Cut page's smart edits (later clips slide right), keyboard trims (Shift+[ / ], Ctrl+Shift+[ / ], edit point trims), nudges (, and .), track changes and undo / redo. The tween always ends exactly on the model. | Fixed (new; an rippleDeleteSlidesAndLandsOnTheModel, newEditRestartsFromTheDisplayedState) |
 | 36.4 | New clips (inserts, drops from the media pool or a file manager, paste) grow in from about 70 % of their height and fade in (light OutBack, about 160 ms, no visible bounce); removed clips fade out and shrink where they were drawn. Undoing a delete slides the clip back from its fading ghost. | Fixed (new; an insertedClipAppears, rippleDeleteSlidesAndLandsOnTheModel) |
-| 36.5 | Blade (the blade tool, Ctrl+\ split at the playhead, the Cut page button): a bright line wipes down the cut and fades (about 220 ms) while the two halves are drawn a hair (4 px) apart and settle together. Undoing a cut lets the left half grow back without a ghost. | Fixed (new; an bladeFlashesAndSeparatesTheHalves) |
+| 36.5 | Blade (the blade tool, Ctrl+\ split at the playhead, the Cut page button): a soft glow in the palette highlight colour with a thin core line wipes down the cut and eases out (about 180 ms) while the two halves are drawn a hair (4 px) apart and settle together. Undoing a cut lets the left half grow back without a ghost. | Fixed (new; an bladeFlashesAndSeparatesTheHalves) |
 | 36.6 | Mouse trims, ripple trims and rolls follow the pointer 1:1 while dragging (no animation during any open edit, in this view or another view of the same timeline); on release the trimmed edges flash once. The selected edit point's highlight pulses once when it is selected and after a keyboard trim moves it. | Fixed (new; an liveDragsAreNotAnimated) |
 | 36.7 | A new edit during an animation restarts from what is drawn at that moment, never from the old model state, so nothing jumps. | Fixed (new; an newEditRestartsFromTheDisplayedState) |
 | 36.8 | Hit testing, snapping and every command use the model positions, also mid-animation. | Fixed (new; an hitTestsUseTheModelMidAnimation) |
@@ -1832,7 +1832,7 @@ with a bar along its bottom edge; when the sweep is full the page opens. Tests:
 | # | Behaviour | Status |
 |---|-----------|--------|
 | 71.1 | Every page button accepts every drag that enters it (file URLs from outside, the app's own media and clip drags), so the pointer never shows the forbidden cursor over the page bar. | Done (ps hoverSwitchesPage) |
-| 71.2 | While a drag rests on the button of another page the button is highlighted and filled from left to right over `kSpringLoadDelayMs` (900 ms). When the fill is complete the page opens, exactly as if the button had been clicked; the drag goes on, so the files can be dropped on the new page. | Done (ps hoverSwitchesPage) |
+| 71.2 | While a drag rests on the button of another page the button is highlighted and filled from left to right over `kSpringLoadDelayMs` (400 ms; Qt's own tab bars switch on drag after 500 ms). When the fill is complete the page opens, exactly as if the button had been clicked; the drag goes on, so the files can be dropped on the new page. | Done (ps hoverSwitchesPage) |
 | 71.3 | Leaving the button before the fill is complete cancels it: the feedback disappears and the page does not change. | Done (ps leavingEarlyCancels) |
 | 71.4 | The button of the current page accepts the drag and shows nothing and does nothing. A disabled page button (a page not built yet) takes no drag. | Done (ps currentPageButtonDoesNothing) |
 | 71.5 | A drop on a page button opens that page at once and is taken with no action (it does not pass on to the main window, which would import dropped files): nothing is imported. | Done (ps dropSwitchesAtOnceAndImportsNothing) |
@@ -1960,9 +1960,24 @@ decoding): the timeline size does not matter (4K and 1080p timelines play the sa
 plays 60 of 60 fps, 4K60 originals play 12 to 28 fps. Software decoding was capped at 4 threads for
 every frame size, so on an 8-core laptop half of the cores stay idle (the report's 55 %).
 
+The tester's second report (1.3, still choppy): the same Lunar Lake laptop plays 4K HEVC smoothly in VLC and in
+Filmcraft (both decode with VAAPI and show the picture without a CPU copy), the Resources monitor showed the CPU
+at 55 % and 81 degrees, the GPU at 11 %. The hardware path of Kinoklip copied every decoded 4K picture from the
+GPU surface to system memory (1.3: `av_hwframe_map` + streaming copy; on the Comet Lake UHD 630 test machine the
+1080p version of that copy was the limit, 86 fps) and the playback engine turns a decoder that is only
+as fast as the clock into a fraction of the picture rate (readme of `src/playback`, Known gaps). 1.4 removes the
+copy (77.2 - 77.4) and makes the log say what runs (77.5). Measured here with libx265 3840x2160 files, software
+decoding only (this container cannot open a render node): a 100 Mbit/s 4K60 10-bit file decodes at 25 fps (4
+threads), 31 fps (6) and 27 fps (8) in `decodeFrame()`, an easy 30 Mbit/s file at 77 fps (8-bit) and 64 fps
+(10-bit); played in the viewer, the 100 Mbit/s file showed 2.3 fps and the easy 8-bit 60 fps file 12.9 fps (6 threads, loaded machine, llvmpipe output, so the stage times are not a GPU's).
+
 | # | Behaviour | Status |
 |---|-----------|--------|
 | 77.1 | Software decoding above 1080p uses 3/4 of the cores (at least 4, at most 8); up to 1080p it stays at 4. `KINOKLIP_SW_THREADS=<n>` sets the number exactly. | Done (`test_videodecoder` softwareThreadsGrowWithFrameSize) |
+| 77.2 | Zero copy (1.4): when the GL context is an EGL context with `EGL_EXT_image_dma_buf_import` (Wayland; X11 with `KINOKLIP_X11_EGL=1`), a VAAPI NV12 / P010 decoder hands its frames to the compositor as DMA-BUF handles (`av_hwframe_map` to DRM PRIME, one layer per plane) and the GPU imports every plane as an EGLImage texture (R8 + GR88, R16 + GR1616), so the decoded picture is never copied through system memory (the download of a 4K surface was the stage the 1.3 playback waited for). The same shader converts colour, range, HDR and deinterlacing as for uploaded frames. | Done (`test_dmabuf` attribute lists, probe, software decoding never exports; the import of a real VAAPI surface is not covered by a test: it needs a GPU render node) |
+| 77.3 | Every failure of that path is a fallback, never a lost or black picture: no EGL / extension, FFmpeg without DRM export, a surface layout other than 8/10-bit 4:2:0, a GPU that refuses the import (that frame is downloaded through `VideoFrame::dmabuf->download()`, the gate that lets decoders export is closed for the session and one warning says why). `KINOKLIP_ZEROCOPY=0` switches the path off. CPU rendering, thumbnails (`frameAt()`) and software decoders are not affected. | Done (`test_dmabuf` aFrameThatCannotBeImportedIsDownloadedInstead, withoutAnImporterTheSameFrameIsDownloaded) |
+| 77.4 | Memory stays bounded: an exported frame holds its VA surface until the compositor drops it, so a zero-copy decoder's surface pool has 6 more surfaces (frame on screen, cut look-ahead of 3 frames); decoders reserved by the look-ahead are limited as before (3). | Done (by construction; measured only for the software side) |
+| 77.5 | The session log (Help > Export Log File) answers why a file plays the way it does: per file the decoder (`with VAAPI (iHD 24.x, /dev/dri/renderD128), output: DMA-BUF (zero-copy, no download)` or `with software (N threads); <backend> unavailable: <reason> [GPU PCI id, libva, driver files libva can see]` or `VAAPI failed: <reason> (<FFmpeg's first error>)`); once, which libva (host or bundled) and driver are loaded and which of H.264 / HEVC Main / HEVC Main10 / VP9 / AV1 the VAAPI driver decodes; whether zero-copy is ready, unavailable (and why) or off; the first imported frame; and, in every per-second statistics line and every summary, how the frames reached the GPU (`frames: 59 zero-copy (0.1 ms each), 0 downloaded (0.0 ms each), 0 software`) and, at every play, whether the timeline plays proxies or originals. | Done (`test_videodecoder` theOpenLineSaysWhyHardwareIsNotUsed, `test_dmabuf` theDecodeWindowIsDescribedForTheStatsLine) |
 
 ## 78. Background Removal: an optional AI tool (bgremove branch, roadmap 1.4)
 
@@ -2217,3 +2232,13 @@ Playback has to stay smooth for every file on modest laptops, also while the edi
   mattes computed in the background and cached on disk, renders that wait for them).
 - The perf14 branch (roadmap 1.4, playback performance) added 80.1 - 80.2 (background jobs yield to playback; audio
   mix cost measured and guarded).
+
+## 81. Polish pass for 1.4 (polish14 branch)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 81.1 | A ripple trim of a clip's head keeps the clip's start, so the drag label's offset shows how far the head moved (the change of the duration), not +0. | Fixed (te spec81_1_rippleHeadTrimLabelShowsTheOffset in test_editaids) |
+| 81.2 | A blade click just inside a clip's start or end does not snap to that edge (which would cut nothing): it cuts where the click was made. | Fixed (spec81_2_bladeNearClipStartStillCuts) |
+| 81.3 | A trim drag keeps the offset between the pointer and the edge from the press (the trim zone is 7 px wide), so the edge does not jump to the pointer on the first move; snapping applies to the edge, not the pointer. | Fixed (spec81_3_trimDoesNotJumpOnTheFirstMove) |
+| 81.4 | The timeline's tab bars (stacked timeline pane, timeline tabs) use Qt's own drag-over tab switch (`QTabBar::setChangeCurrentOnDrag`, as Dolphin and Kate). The page bar's spring load waits 400 ms instead of 900 ms (71.2). | Done |
+| 81.5 | Blade and trim flashes draw a soft glow in the palette highlight colour with a thin core line (no white, no yellow) and ease out in about 180 ms (36.5). The selected edit point's bracket keeps the snap colour and only blends towards the highlight colour while it pulses. | Done |

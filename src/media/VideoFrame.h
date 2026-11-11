@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 struct AVFrame;
@@ -62,6 +63,35 @@ enum class ColorTransfer {
     Hlg,
 };
 
+struct VideoFrame;
+
+/// A hardware surface (VAAPI) exported as DMA-BUF: the planes stay in GPU memory and the
+/// compositor imports them as textures (EGLImage), no copy through system memory. Created only
+/// for decoders with VideoDecoder::setZeroCopy(true).
+///
+/// The file descriptors belong to `owner` (an FFmpeg DRM frame that also holds the decoder's
+/// surface): they stay valid, and the surface is not reused by the decoder, as long as the
+/// DmaBufFrame lives. Plane i is one texture (NV12: R8 + GR88, P010: R16 + GR1616).
+struct DmaBufFrame
+{
+    struct Plane
+    {
+        uint32_t drmFormat = 0; ///< DRM fourcc of this plane as a texture (R8, GR88, R16, GR1616)
+        int fd = -1; ///< DMA-BUF of the object holding the plane (not owned)
+        uint32_t offset = 0; ///< bytes from the start of the object
+        uint32_t pitch = 0; ///< bytes per row
+        uint64_t modifier = 0; ///< DRM format modifier of the object (0 = linear)
+        int width = 0; ///< plane size in samples
+        int height = 0;
+    };
+    int planeCount = 0;
+    std::array<Plane, 3> planes {};
+    std::shared_ptr<const void> owner; ///< keeps descriptors, fds and the surface alive
+    /// The same picture in system memory (slow: waits for the GPU and copies); used when the
+    /// GPU side cannot import the buffers. May be called from any thread; null on failure.
+    std::function<std::shared_ptr<const VideoFrame>()> download;
+};
+
 /// A decoded video frame: plane pointers into reference-counted pixel memory, ready to be
 /// uploaded as textures (one texture per plane; YUV → RGB in a shader). Frames are immutable
 /// and shared as `std::shared_ptr<const VideoFrame>`; the pixel memory stays valid as long as
@@ -88,10 +118,17 @@ struct VideoFrame
     int rotation = 0; ///< display rotation, degrees clockwise (0/90/180/270)
 
     /// The FFmpeg frame that owns the planes, or nullptr when the frame wraps other memory
-    /// (still images). Useful for media-internal conversions and encoders; never modify it.
+    /// (still images). For zero-copy frames (`dmabuf`) a hardware frame: only its properties
+    /// (colour primaries...) may be read. Useful for media-internal conversions and encoders; never
+    /// modify it.
     const AVFrame* avFrame = nullptr;
     /// Keeps the pixel memory alive (an AVFrame reference or a QImage).
     std::shared_ptr<const void> storage;
+    /// Set instead of `data`/`linesize` (which are then empty) for zero-copy frames
+    /// (VideoDecoder::setZeroCopy()): `format` is Nv12 or P010. Only the GL compositor
+    /// (render/GlDmaBuf.h) reads such frames; everything else gets them through
+    /// `dmabuf->download()`.
+    std::shared_ptr<const DmaBufFrame> dmabuf;
 
     /// Width/height of plane `plane` in samples (chroma planes are subsampled).
     int planeWidth(int plane) const;

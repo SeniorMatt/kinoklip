@@ -217,6 +217,12 @@ kk.playback: stats summary: played 4.20 s, 252 frames shown (60.0 fps of 60.00),
              0 seeks while playing, render avg [decode 0.1, upload 0.9, composite 0.2, output 9.0] ms
 ```
 
+Each line also says how the decoded frames reached the GPU (`media/DecodeStats.h`): `frames: 59
+zero-copy (0.1 ms each), 0 downloaded (0.0 ms each), 0 software` (a hardware frame handed over as
+DMA-BUF, copied to system memory, or decoded in software), and every play starts with `playback
+sources: the timeline plays the original files | proxy or optimized media (... ready for N media
+items)`.
+
 The per-second line needs one full second of uninterrupted playback (no seek-while-playing
 park in between); alpha.3 had only that line, so short plays printed nothing at all. The first
 line confirms the variable reached the process. `tests/playback/test_playbackstats` checks
@@ -305,6 +311,18 @@ Numbers and before/after tables: `src/ui/viewer/readme.md` (Performance).
   time-stretcher (the window and the clock already handle every rate).
 
 ## Known gaps / TODO
+
+* TODO(playback): **a decoder that is nearly as slow as the clock collapses the picture rate** (found with
+  `test_hevc4kperf`, 4K60 HEVC, software decoding: raw `decodeFrame()` 77 fps gave 12.9 fps shown, 31 fps gave
+  2.3 fps). A frame is due, the one requested for it is decoded through every frame since the last request
+  (decoding cannot skip), so the gap between two requests grows with the time the last one took: shown rate
+  ~ (1 - decode_ms / interval_ms) x 60 once per-frame cost nears the interval (a model of the scheduler
+  reproduces both numbers; with 3 ms of other work per frame it plays 60 fps up to 14 ms of decoding, 15 fps at
+  16 ms, 2 fps at 32 ms). The 1.4 zero-copy path keeps hardware decoding far below the interval; software
+  decoding of 4K60 and the download fall-back (X11 without `KINOKLIP_X11_EGL`, no EGL) are still in that regime.
+  Ideas: request consecutive frames while the lag is small and show them late instead of jumping to the
+  clock; skip decoding of non-reference frames (`skip_frame = AVDISCARD_NONREF`) when behind; suggest proxies.
+  The "playback is limited by decoding" log line (see Statistics) marks these plays.
 
 * TODO(playback): the look-ahead's 1 s does not grow with the GOP: a preparation taking longer
   (10 s GOPs, 4K) still saves what it finished, the frame waits for the rest. Media a

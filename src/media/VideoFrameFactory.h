@@ -8,6 +8,7 @@
 
 #include <QImage>
 
+#include <atomic>
 #include <memory>
 
 namespace kk::media::detail {
@@ -39,6 +40,21 @@ public:
     VideoFrameFactory(const VideoFrameFactory&) = delete;
     VideoFrameFactory& operator=(const VideoFrameFactory&) = delete;
 
+    /// Zero-copy output: hardware frames of VAAPI in NV12/P010 are not downloaded but exported as
+    /// DMA-BUF (VideoFrame::dmabuf, no pixel data). Falls back to the download, for good, when
+    /// the export is not possible (no libdrm in FFmpeg, driver without PRIME export).
+    void setZeroCopy(bool enabled) { m_zeroCopy = enabled; }
+    /// Optional switch shared with the consumer: exports only while it reads true (the
+    /// compositor clears it when the GPU cannot import the buffers).
+    void setZeroCopyGate(std::shared_ptr<const std::atomic<bool>> gate)
+    {
+        m_gate = std::move(gate);
+    }
+    [[nodiscard]] bool zeroCopy() const
+    {
+        return m_zeroCopy && !m_exportFailed && (!m_gate || m_gate->load());
+    }
+
     /// Wraps/downloads/converts `decoded`. @return nullptr on failure (a failed hardware
     /// download means the caller should fall back to software decoding).
     std::shared_ptr<const VideoFrame> make(const AVFrame* decoded, const FrameMeta& meta);
@@ -61,6 +77,13 @@ private:
     /// (caller transfers instead), another error if the surface cannot be read at all.
     int copyMapped(AVFrame* dst, const AVFrame* hwFrame);
 
+    /// Exports @p hwFrame as DMA-BUF (see setZeroCopy()). nullptr when it cannot (the caller
+    /// downloads instead).
+    std::shared_ptr<const VideoFrame> makeDmaBuf(const AVFrame* hwFrame, const FrameMeta& meta);
+
+    bool m_zeroCopy = false;
+    std::shared_ptr<const std::atomic<bool>> m_gate;
+    bool m_exportFailed = false; ///< export impossible for this stream: always download
     AVBufferPool* m_pool = nullptr;
     bool m_mapFailed = false; ///< mapping failed once: always transfer
     size_t m_poolBufferSize = 0;

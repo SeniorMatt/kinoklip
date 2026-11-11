@@ -25,8 +25,13 @@ std::atomic<int> s_openDelayMs {0};
 std::atomic<int> s_readAheadFrames {DecoderPool::kReadAheadFrames};
 
 /// open() plus the test hook's delay.
-bool openDecoder(media::VideoDecoder& decoder, const QString& path, QString* error)
+bool openDecoder(media::VideoDecoder& decoder, const QString& path, QString* error,
+    const std::shared_ptr<const std::atomic<bool>>& zeroCopyGate)
 {
+    if (zeroCopyGate) {
+        decoder.setZeroCopyGate(zeroCopyGate);
+        decoder.setZeroCopy(true); // before open(): the surface pool is sized for it
+    }
     if (const int ms = s_openDelayMs.load(std::memory_order_relaxed); ms > 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     return decoder.open(path, error);
@@ -156,7 +161,7 @@ DecoderPool::Entry* DecoderPool::acquire(const QString& path, int64_t timeUs)
         auto entry = std::make_unique<Entry>();
         entry->decoder = std::make_unique<media::VideoDecoder>();
         QString error;
-        if (!openDecoder(*entry->decoder, path, &error)) {
+        if (!openDecoder(*entry->decoder, path, &error, m_zeroCopyGate)) {
             if (failed == m_failedAtMs.constEnd())
                 qCWarning(lcRender) << "cannot open" << path << ":" << error;
             m_failedAtMs.insert(path, now);
@@ -349,12 +354,13 @@ void DecoderPool::startPreparation(const Wish& wish, qint64 now)
     media::VideoDecoder* decoder = entry->decoder.get();
     AtomicStats* stats = &m_stats;
     m_prepareThreads->start(
-        [decoder, path = wish.path, timeUs = wish.timeUs, reuse, reservation, done, stats] {
+        [decoder, path = wish.path, timeUs = wish.timeUs, reuse, reservation, done, stats,
+            gate = m_zeroCopyGate] {
             const std::function<bool()> stop = [&reservation] { return reservation->stale(); };
             QElapsedTimer timer;
             timer.start();
             QString error;
-            if (!stop() && (reuse || openDecoder(*decoder, path, &error)) && !stop()
+            if (!stop() && (reuse || openDecoder(*decoder, path, &error, gate)) && !stop()
                 && decoder->prepareFrame(
                     timeUs, stop, s_readAheadFrames.load(std::memory_order_relaxed))) {
                 stats->ready.fetch_add(1, std::memory_order_relaxed);

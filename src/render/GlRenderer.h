@@ -6,6 +6,7 @@
 #include "media/VideoFrame.h"
 #include "render/DecoderPool.h"
 #include "render/GlComposition.h"
+#include "render/GlDmaBuf.h"
 #include "render/GlEffects.h"
 #include "render/GlGenerators.h"
 #include "render/GlGrade.h"
@@ -22,6 +23,7 @@
 #include <QHash>
 #include <QThreadPool>
 
+#include <atomic>
 #include <deque>
 #include <memory>
 #include <vector>
@@ -61,6 +63,13 @@ private:
     /// The implementation of effect @p id, built on first use; nullptr when the id is not a
     /// GPU effect or its program failed to build (reported once).
     GlEffect* effectFor(const QString& id);
+
+    /// Probes the DMA-BUF import and, when it works, lets the decoders export VAAPI frames
+    /// instead of downloading them (see GlDmaBuf.h). Logs the outcome either way.
+    void setUpZeroCopy();
+    /// After uploads: switches zero-copy decoding off for good when an import failed, and logs
+    /// the first successful import (the line that proves the path works on this machine).
+    void checkZeroCopy();
 
     /// Frame-wide values every clip draw needs.
     struct FrameContext
@@ -233,6 +242,9 @@ private:
     std::unique_ptr<GlKit> m_kit;
     std::unique_ptr<GlOutput> m_output;
     GlVideo m_video;
+    GlDmaBuf m_dmaBuf; ///< zero-copy import of VAAPI frames (probed at initialize())
+    std::shared_ptr<std::atomic<bool>> m_zeroCopyGate; ///< decoders export DMA-BUFs while true
+    bool m_loggedFirstImport = false;
     GlMasks m_masks; ///< clip mask pass (applied on the layer path)
     GlGrade m_grade; ///< Color page grade pass (clip layers and the timeline composite)
     GlGenerators m_generators; ///< generator patterns

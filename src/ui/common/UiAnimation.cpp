@@ -26,7 +26,7 @@ constexpr double kPopOvershoot = 0.8;
 constexpr int kBaseMs[] = {
     180, // Move
     160, // Pop
-    220, // Flash
+    180, // Flash
     140, // Glide
     120, // Fade
 };

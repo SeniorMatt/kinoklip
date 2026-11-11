@@ -148,6 +148,53 @@ private slots:
         QVERIFY(v.w.dragInfo().isEmpty());
     }
 
+    // A ripple trim of the head keeps the clip's start, so the label shows the head's move.
+    void spec81_1_rippleHeadTrimLabelShowsTheOffset()
+    {
+        View v;
+        v.put(kV1, solidClip(10, 20));
+        v.c.setTool(TimelineTool::Trim);
+        const QPoint head = v.at(10, kV1) + QPoint(2, 0);
+        v.press(head, head + QPoint(50, 0)); // +5 frames
+        const DragInfoLabel label = v.w.dragInfo();
+        QCOMPARE(label.lines.value(0), QStringLiteral("+00:00:00:05"));
+        QVERIFY(label.lines.value(1).contains(QStringLiteral("00:00:00:15")));
+        v.release(head + QPoint(50, 0));
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("10:15"));
+    }
+
+    // A blade click just inside a clip's start does not snap to that start (which cuts
+    // nothing): it cuts where the click was made.
+    void spec81_2_bladeNearClipStartStillCuts()
+    {
+        View v;
+        v.put(kV1, solidClip(10, 40));
+        v.w.setPixelsPerFrame(2.0, kHeaderWidth);
+        v.c.setSnapping(true);
+        v.c.setTool(TimelineTool::Blade);
+        const int before = v.undoCount();
+        QTest::mouseClick(v.vp(), Qt::LeftButton, {}, v.at(12, kV1));
+        QCOMPARE(v.undoCount(), before + 1);
+        QCOMPARE(v.f.view().track(kV1)->clips.size(), size_t(2));
+        QVERIFY(v.f.view().track(kV1)->clips[0].duration >= 1);
+    }
+
+    // Grabbing the trim zone a few pixels inside the edge and moving the pointer without
+    // changing its x does not move the edge (no jump to the pointer).
+    void spec81_3_trimDoesNotJumpOnTheFirstMove()
+    {
+        View v;
+        v.put(kV1, solidClip(10, 20));
+        const QPoint grab = v.at(10, kV1) + QPoint(6, 0);
+        v.press(grab, grab + QPoint(0, 4));
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("10:20"));
+        v.release(grab + QPoint(0, 4));
+        const QPoint tail = v.at(30, kV1) - QPoint(6, 0);
+        v.press(tail, tail + QPoint(0, 4));
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("10:20"));
+        v.release(tail + QPoint(0, 4));
+    }
+
     void spec21_9_formatOffset()
     {
         QCOMPARE(draginfo::formatOffset(0, kFps25), QStringLiteral("+00:00:00:00"));

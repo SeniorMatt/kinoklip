@@ -139,6 +139,14 @@ public:
     static void setReadAheadFrames(int frames);
 
     void setCloseHook(CloseHook hook) { m_closeHook = std::move(hook); }
+    /// Zero-copy decoding (media::VideoDecoder::setZeroCopy()): decoders opened from now on
+    /// hand VAAPI frames over as DMA-BUF handles while @p gate reads true. The owner (the GL
+    /// renderer, which can import them) clears the gate when it cannot. Without a gate the
+    /// decoders download as before. Call before the first acquire().
+    void setZeroCopyGate(std::shared_ptr<const std::atomic<bool>> gate)
+    {
+        m_zeroCopyGate = std::move(gate);
+    }
     /// Decoders idle longer than this are closed by collectIdle(). Default 10 s.
     void setIdleCloseMs(qint64 ms) { m_idleCloseMs = ms; }
 
@@ -217,6 +225,7 @@ private:
     QElapsedTimer m_clock;
     qint64 m_idleCloseMs = 10000;
     CloseHook m_closeHook;
+    std::shared_ptr<const std::atomic<bool>> m_zeroCopyGate;
 };
 
 } // namespace kk::render

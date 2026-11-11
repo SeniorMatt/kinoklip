@@ -142,6 +142,45 @@ QStringList vaapiRenderNodes()
     return paths;
 }
 
+/// Why-not hints for a VAAPI device that could not be created: the PCI id of the GPU (a driver
+/// too old for a new GPU, e.g. Lunar Lake, fails with just "unknown libva error"), the libva in
+/// use, and the driver files libva can find. Goes into the one log line about VAAPI.
+QString vaapiFailureHint(const QString& renderNode)
+{
+    QStringList parts;
+    const QString sys
+        = QStringLiteral("/sys/class/drm/%1/device/").arg(QFileInfo(renderNode).fileName());
+    auto readSys = [&](const char* file) {
+        QFile f(sys + QLatin1String(file));
+        return f.open(QIODevice::ReadOnly) ? QString::fromLatin1(f.readAll().trimmed()) : QString();
+    };
+    const QString vendor = readSys("vendor");
+    const QString device = readSys("device");
+    if (!vendor.isEmpty()) {
+        parts << QStringLiteral("GPU PCI id %1:%2").arg(vendor.mid(2), device.mid(2));
+    }
+    if (const QString libva = libvaDescription(); !libva.isEmpty()) {
+        parts << libva;
+    }
+    QStringList dirs;
+    if (const QString path = qEnvironmentVariable("LIBVA_DRIVERS_PATH"); !path.isEmpty()) {
+        dirs = path.split(u':', Qt::SkipEmptyParts);
+    } else {
+        dirs = {QStringLiteral("/usr/lib/x86_64-linux-gnu/dri"), QStringLiteral("/usr/lib64/dri"),
+            QStringLiteral("/usr/lib/dri")};
+    }
+    QStringList found;
+    for (const QString& dir : std::as_const(dirs)) {
+        for (const QString& file : QDir(dir).entryList({QStringLiteral("*_drv_video.so")})) {
+            found << dir + u'/' + file;
+        }
+    }
+    parts << (found.isEmpty()
+            ? QStringLiteral("no *_drv_video.so driver in %1").arg(dirs.join(u':'))
+            : QStringLiteral("drivers: %1").arg(found.join(QStringLiteral(" "))));
+    return parts.join(QStringLiteral("; "));
+}
+
 /// Device strings to try for a backend, best first.
 QStringList candidateDevices(HwAccelMode mode)
 {
@@ -377,6 +416,57 @@ QString vaapiDriverName(AVBufferRef* device)
     return text ? shortDriverName(QString::fromUtf8(text)) : QString();
 }
 
+QString vaapiDecodeProfiles(AVBufferRef* device)
+{
+    if (!device) {
+        return {};
+    }
+    const auto* ctx = reinterpret_cast<const AVHWDeviceContext*>(device->data);
+    if (ctx->type != AV_HWDEVICE_TYPE_VAAPI || !ctx->hwctx) {
+        return {};
+    }
+    void* display = *static_cast<void* const*>(ctx->hwctx);
+    using MaxFn = int (*)(void*);
+    using ProfilesFn = int (*)(void*, int*, int*);
+    using EntrypointsFn = int (*)(void*, int, int*, int*);
+    auto maxProfiles = reinterpret_cast<MaxFn>(libvaSymbol("vaMaxNumProfiles"));
+    auto maxEntrypoints = reinterpret_cast<MaxFn>(libvaSymbol("vaMaxNumEntrypoints"));
+    auto queryProfiles = reinterpret_cast<ProfilesFn>(libvaSymbol("vaQueryConfigProfiles"));
+    auto queryEntrypoints
+        = reinterpret_cast<EntrypointsFn>(libvaSymbol("vaQueryConfigEntrypoints"));
+    if (!display || !maxProfiles || !maxEntrypoints || !queryProfiles || !queryEntrypoints) {
+        return {};
+    }
+    // VAProfile / VAEntrypoint values of va.h (a stable ABI), so no libva headers are needed.
+    struct Wanted
+    {
+        int profile;
+        const char* name;
+    };
+    constexpr int kEntrypointVld = 1;
+    static constexpr Wanted kWanted[] = {{7, "H.264 High"}, {17, "HEVC Main"}, {18, "HEVC Main10"},
+        {19, "VP9"}, {21, "VP9 10-bit"}, {32, "AV1"}};
+    QVector<int> profiles(maxProfiles(display));
+    int count = 0;
+    if (queryProfiles(display, profiles.data(), &count) != 0) {
+        return QStringLiteral("profile query failed");
+    }
+    QVector<int> entrypoints(maxEntrypoints(display));
+    QStringList result;
+    for (const Wanted& wanted : kWanted) {
+        bool vld = false;
+        if (profiles.mid(0, count).contains(wanted.profile)) {
+            int n = 0;
+            if (queryEntrypoints(display, wanted.profile, entrypoints.data(), &n) == 0) {
+                vld = entrypoints.mid(0, n).contains(kEntrypointVld);
+            }
+        }
+        result << QStringLiteral("%1 %2").arg(
+            QLatin1String(wanted.name), vld ? QStringLiteral("yes") : QStringLiteral("NO"));
+    }
+    return result.join(QStringLiteral(", "));
+}
+
 QString libvaDescription()
 {
 #ifdef Q_OS_UNIX
@@ -441,12 +531,12 @@ AVPixelFormat hwPixelFormat(const AVCodec* codec, HwAccelMode mode)
 void attachHwDevice(AVCodecContext* ctx, AVBufferRef* device, HwDecodeState* state)
 {
     // Surfaces we keep referenced (current + look-ahead frame) on top of the decoder's DPB;
-    // VAAPI surface pools are fixed-size, so without these decoding would stall.
-    constexpr int kExtraHwFrames = 4;
+    // VAAPI surface pools are fixed-size, so without these decoding would stall. Zero-copy
+    // frames also hold their surface while the GPU shows them (state->extraFrames).
     ctx->hw_device_ctx = av_buffer_ref(device);
     ctx->get_format = selectHwFormat;
     ctx->opaque = state;
-    ctx->extra_hw_frames = kExtraHwFrames;
+    ctx->extra_hw_frames = state->extraFrames;
 }
 
 HwDeviceManager::HwDeviceManager()
@@ -613,6 +703,9 @@ HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)
         if (!capture.firstError().isEmpty()) {
             reason += QStringLiteral(": ") + capture.firstError();
         }
+        if (mode == HwAccelMode::Vaapi) {
+            reason += QStringLiteral(" [%1]").arg(vaapiFailureHint(device));
+        }
         entry.info.error = device.isEmpty() ? reason : QStringLiteral("%1: %2").arg(device, reason);
         if (mode == HwAccelMode::Vulkan) {
             // Physical devices are numbered densely: if index i cannot be created, no higher
@@ -637,6 +730,9 @@ HwDeviceManager::Entry& HwDeviceManager::ensure(HwAccelMode mode)
                 += QStringLiteral(", driver %1, %2")
                        .arg(entry.info.driver.isEmpty() ? QStringLiteral("?") : entry.info.driver,
                            libvaDescription());
+            if (const QString profiles = vaapiDecodeProfiles(entry.device); !profiles.isEmpty()) {
+                details += QStringLiteral(", decodes: ") + profiles;
+            }
             for (const char* var : {"LIBVA_DRIVER_NAME", "LIBVA_DRIVERS_PATH"}) {
                 if (qEnvironmentVariableIsSet(var)) {
                     details += QStringLiteral(", %1=%2").arg(

@@ -3,6 +3,7 @@
 // loop), audio-master clock, frame look-ahead through the Compositor, preview quality.
 #pragma once
 
+#include "media/DecodeStats.h"
 #include "playback/AudioOutput.h"
 #include "playback/AutoQuality.h"
 #include "playback/FrameScheduler.h"
@@ -524,6 +525,9 @@ private:
                             ///< (printed with KK_PLAYBACK_STATS=1)
     int64_t m_statsLogUs = 0;
     Stats m_statsAtLog;
+    bool m_warnedDecodeBound = false; ///< the "limited by decoding" line was logged in this play
+    media::DecodeCounters m_decodeAtLog; ///< decode counters at the last stats line
+    media::DecodeCounters m_decodeAtPlay; ///< ... when the current play started
     bool m_playStatsActive = false; ///< a play (from rest) is being summarised
     Stats m_statsAtPlay; ///< stats() when the current play started
     double m_playStageSumAtStart[4] = {0, 0, 0, 0};

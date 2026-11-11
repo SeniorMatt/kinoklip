@@ -95,8 +95,11 @@ void TimelineWidget::refreshDragInfo()
         if (!now)
             break;
         const bool head = m_drag.mode == DragMode::TrimHead;
-        const int64_t offset
-            = head ? now->start - m_drag.primaryStart : now->end() - m_drag.primaryEnd;
+        // A ripple head trim keeps the clip's start (the rest moves), so its offset is the
+        // change of the duration, the way far the head moved in the source.
+        const int64_t offset = head ? (m_drag.ripple && was ? was->duration - now->duration
+                                                            : now->start - m_drag.primaryStart)
+                                    : now->end() - m_drag.primaryEnd;
         label.lines << draginfo::formatOffset(offset, fps)
                     << tr("Duration %1").arg(timecode::format(now->duration, fps));
         // Head: the clip before the new start and the clip's new first frame; tail: the

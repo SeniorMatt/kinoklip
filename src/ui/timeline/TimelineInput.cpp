@@ -914,7 +914,9 @@ void TimelineWidget::updateTrim(QPointF pos)
 {
     const bool head = m_drag.mode == DragMode::TrimHead;
     const int64_t edge0 = head ? m_drag.primaryStart : m_drag.primaryEnd;
-    int64_t target = m_layout.nearestFrameAtX(pos.x());
+    if (!m_drag.trimGrab)
+        m_drag.trimGrab = m_layout.xToFrame(m_drag.pressPos.x()) - double(edge0);
+    int64_t target = int64_t(std::llround(m_layout.xToFrame(pos.x()) - *m_drag.trimGrab));
     m_overlay.snapFrame.reset();
     if (const auto s = snapFrame(target)) {
         target = *s;
@@ -1031,8 +1033,13 @@ void TimelineWidget::bladeAt(const TimelineHit& hit)
     if (m_controller->snapping()) {
         const auto snaps = ops::snapCandidates(
             m_ctx.project->timeline()->data(), m_ctx.project->timeline()->playhead());
-        if (const auto s = ops::snapToNearest(snaps, frame, snapToleranceFrames()))
-            frame = *s;
+        if (const auto s = ops::snapToNearest(snaps, frame, snapToleranceFrames())) {
+            // Snapping to the clicked clip's own first or last frame would cut nothing: a click
+            // just inside the clip's start or end cuts where it was made instead.
+            const ClipData* clicked = ops::clipById(m_ctx.project->timeline()->data(), hit.clipId);
+            if (!clicked || (*s > clicked->start && *s < clicked->end()))
+                frame = *s;
+        }
     }
     const QVector<quint64> ids = m_controller->withLinks({hit.clipId});
     m_ctx.project->beginEdit(tr("Blade"));

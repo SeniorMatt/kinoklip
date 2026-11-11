@@ -16,6 +16,8 @@ struct HwDecodeState
 {
     AVPixelFormat hwFormat = AV_PIX_FMT_NONE; ///< the hardware surface format we asked for
     bool rejected = false; ///< FFmpeg could not use hw for this stream → software frames
+    /// Surfaces kept on top of the decoder's reference pictures (see attachHwDevice()).
+    int extraFrames = 4;
 };
 
 /// Hardware backends to try for `mode`, best first (Auto → platform order; Off → none).

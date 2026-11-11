@@ -24,6 +24,12 @@ Rules for adding assets: [docs/clean-room.md](docs/clean-room.md).
 | `usr/share/kinoklip/fonts/NotoColorEmoji.ttf` (release bundles only; not in this repository) | [Noto Color Emoji](https://github.com/googlefonts/noto-emoji), the colour emoji font titles and captions fall back to when the system has none ([spec 69](docs/behavior-spec.md)); copied from the build host's `noto-fonts-emoji` / `fonts-noto-color-emoji` package by `scripts/package_linux.sh` | The Noto Project Authors (Google) | SIL Open Font License 1.1 (GPL-compatible for distribution with the program as a separate font file) |
 | AI model for Background Removal (not in this repository or the bundles; downloaded by the user, `src/matting/ModelCatalog.cpp`) | `rvm_mobilenetv3_fp32.onnx`, the MobileNetV3 weights of [Robust Video Matting](https://github.com/PeterL1n/RobustVideoMatting) (Shanchuan Lin, Linjie Yang, Imran Saleemi, Soumyadip Sengupta, "Robust High-Resolution Video Matting with Temporal Guidance", WACV 2022), release v1.0.0, 14,975,696 bytes, SHA-256 `88d4531297118f595bf2fd60f6f566aec2e559393802d1f436c380f0cbbd2828`. Licence evidence (checked 2026-11-11): the repository's `LICENSE` is the GNU GPL version 3 and its README says "[Sep 16 2021] Code is re-released under GPL-3.0 license"; the weights are published as release assets of that repository and the project states no separate licence for them, so they are taken to be under the same GPL-3.0. Downloaded only when the user presses Download in the dialog that shows this name, size, licence and source ([spec 78](docs/behavior-spec.md)). Not chosen (checked the same day): BRIA RMBG (non-commercial), BiRefNet and U^2-Net (code MIT / Apache-2.0, but no stated licence for the weights, which are on Google Drive), MODNet (Apache-2.0, but a single-image model that flickers on video) | Shanchuan Lin et al. (ByteDance) | GPL-3.0 |
 
+Design references, no code copied (checked 2026-11-11): VLC `modules/video_output/opengl/interop_vaapi.c`
+(LGPL-2.1-or-later, VLC authors and VideoLAN) and mpv `video/out/hwdec/hwdec_vaapi.c` (LGPL-2.1-or-later, mpv
+developers). Only the idea was taken for `src/render/GlDmaBuf.*` and `src/media/VideoFrame.cpp` (spec 77.2):
+export a VAAPI surface as DMA-BUF and import each plane as an EGLImage with the DRM formats R8 / GR88 (NV12) and
+R16 / GR1616 (P010), so decoded 4K pictures never go through system memory. The code is written for Kinoklip.
+
 Test media (`tests/data/generated`) is not in the repository: `scripts/make_test_media.sh`
 generates it with FFmpeg's test sources.
 

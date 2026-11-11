@@ -1072,17 +1072,24 @@ void TimelinePainter::paintGhosts(QPainter& p, const TimelinePaintInput& in, Tra
 void TimelinePainter::paintAnimationOverlays(QPainter& p, const TimelinePaintInput& in)
 {
     const TimelineLayout& L = *in.layout;
-    // Blade / trim flashes: a bright line wiping down the clip row, then fading.
+    // Blade / trim flashes: a soft highlight-colour glow with a thin core line, wiping down the
+    // clip row and easing out. Palette highlight only, no white or yellow.
     for (const TimelineAnimator::FlashView& f : in.anim->flashes()) {
         const QRect rr = L.rowRect(L.rowOf(f.track));
         if (rr.isEmpty() || f.strength <= 0.0)
             continue;
         const double x = std::round(L.frameToX(double(f.frame))) + 0.5;
         const double h = (rr.height() - 2) * f.wipe;
-        p.fillRect(QRectF(x - 5, rr.top() + 1, 10, h),
-            withAlpha(sc().focus, int(std::lround(150 * f.strength))));
-        p.fillRect(QRectF(x - 1.5, rr.top() + 1, 3, h),
-            withAlpha(sc().bright, int(std::lround(255 * f.strength))));
+        QLinearGradient glow(x - 6, 0, x + 6, 0);
+        const QColor edge = withAlpha(sc().highlight, 0);
+        const QColor mid = withAlpha(sc().highlight, int(std::lround(90 * f.strength)));
+        glow.setColorAt(0.0, edge);
+        glow.setColorAt(0.5, mid);
+        glow.setColorAt(1.0, edge);
+        p.fillRect(QRectF(x - 6, rr.top() + 1, 12, h), glow);
+        p.fillRect(QRectF(x - 0.75, rr.top() + 1, 1.5, h),
+            withAlpha(
+                mixColors(sc().highlight, sc().bright, 0.35), int(std::lround(200 * f.strength))));
     }
 }
 
@@ -1145,9 +1152,9 @@ void TimelinePainter::paintOverlays(QPainter& p, const TimelinePaintInput& in)
     // Selected edit point: a thick bracket on the selected side(s) of the cut. Animations:
     // it widens and brightens once when selected or trimmed (TimelineAnimator::editPulse()).
     const double pulse = in.anim ? in.anim->editPulse() : 0.0;
-    const double bracketW = 3.0 + 3.0 * pulse;
+    const double bracketW = 3.0 + 1.5 * pulse;
     const QColor bracket
-        = pulse > 0.0 ? mixColors(sc().snap, sc().bright, 0.55 * pulse) : sc().snap;
+        = pulse > 0.0 ? mixColors(sc().snap, sc().highlight, 0.6 * pulse) : sc().snap;
     for (const quint64 id : {in.editTailClip, in.editHeadClip}) {
         if (!id)
             continue;

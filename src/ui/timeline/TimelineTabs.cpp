@@ -38,6 +38,7 @@ TimelineTabs::TimelineTabs(AppContext& ctx, QWidget* parent)
     m_bar->setObjectName(QStringLiteral("TimelineTabBar"));
     m_bar->setDocumentMode(true);
     m_bar->setMovable(true);
+    m_bar->setChangeCurrentOnDrag(true);
     m_bar->setExpanding(false);
     m_bar->setElideMode(Qt::ElideRight);
     m_bar->setUsesScrollButtons(true);

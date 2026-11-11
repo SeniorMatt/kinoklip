@@ -75,6 +75,10 @@ bool qsvRuntimePresent();
 /// "Mesa Gallium 24.2.1"; empty if unknown. Used for log lines.
 QString vaapiDriverName(AVBufferRef* device);
 
+/// What the VAAPI driver of @p device decodes (VLD entrypoint), e.g. "H.264 High yes, HEVC Main
+/// yes, HEVC Main10 yes, VP9 yes, VP9 10-bit NO, AV1 yes"; empty if unknown. For log lines.
+QString vaapiDecodeProfiles(AVBufferRef* device);
+
 /// The libva library actually loaded, e.g. "libva 2.22.0 (host, /usr/lib/libva.so.2.2200.0)"
 /// or "... (bundled, ...)"; empty if libva is not loaded.
 QString libvaDescription();

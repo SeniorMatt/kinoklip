@@ -10,6 +10,7 @@
 #include <QSize>
 #include <QString>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -77,6 +78,18 @@ public:
     /// Hardware decoding for the next open(), overriding the global preferredHwAccel().
     void setHwAccel(HwAccelMode mode);
 
+    /// Zero-copy output of decodeFrame() (VAAPI only): frames come as DMA-BUF handles
+    /// (VideoFrame::dmabuf, no pixel data, no copy through system memory) for a consumer that
+    /// imports them as GPU textures (render/GlDmaBuf.h). Call before open() (a larger surface pool
+    /// is allocated for it); may be turned off any time, and turns itself off for a stream or
+    /// GPU that cannot export. frameAt() is not affected (it downloads). Default off.
+    void setZeroCopy(bool enabled);
+    /// A switch shared with the consumer (any thread may clear it): frames are exported only
+    /// while it reads true; the consumer clears it when it cannot import them.
+    void setZeroCopyGate(std::shared_ptr<const std::atomic<bool>> gate);
+    /// True while decodeFrame() returns DMA-BUF frames for the open file.
+    bool zeroCopyActive() const;
+
     /// Backend actually decoding the open file: Cuda/Vaapi/Vulkan, or Off for software
     /// (also after a fall-back). Never Auto.
     HwAccelMode activeHwAccel() const;
@@ -95,7 +108,8 @@ public:
     const MediaInfo& info() const;
 
     /// The frame shown at media time `timeUs` (microseconds) as raw planes (see VideoFrame):
-    /// hardware frames are downloaded to NV12/P010, software frames are shared without a copy.
+    /// hardware frames are downloaded to NV12/P010 (or, with setZeroCopy(), handed over as
+    /// DMA-BUF handles without pixel data), software frames are shared without a copy.
     /// The same pointer is returned while `timeUs` stays within one frame.
     /// @return nullptr on decoding failure or if nothing is open.
     std::shared_ptr<const VideoFrame> decodeFrame(
