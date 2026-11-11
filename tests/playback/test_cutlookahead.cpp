@@ -182,6 +182,45 @@ private Q_SLOTS:
         QVERIFY(entry->decoder->decodedFrameCount() - before <= 3);
     }
 
+    /// 72.7: the first frames after the cut are ready too, not only the cut frame: requests for
+    /// the next DecoderPool::kReadAheadFrames frames decode nothing (decoded, and for hardware
+    /// decoding downloaded, during the preparation), identical to what a fresh decoder returns,
+    /// and playing on from there still works.
+    void preparedDecoderHasTheFirstFramesAfterTheCut()
+    {
+        const int64_t target = farTime(2);
+        const int64_t step = 16667;
+        media::VideoDecoder fresh;
+        QVERIFY(fresh.open(m_a));
+        std::vector<QImage> expected;
+        for (int k = 0; k <= DecoderPool::kReadAheadFrames + 2; ++k)
+            expected.push_back(fresh.frameAt(target + k * step));
+
+        QThreadPool threads;
+        DecoderPool pool;
+        pool.setPrepareThreads(&threads);
+        pool.prepare(m_a, target, 5000.0, nullptr);
+        QVERIFY(QTest::qWaitFor([&] { return pool.prepareStats().ready == 1; }, 10000));
+        pool.beginFrame();
+        DecoderPool::Entry* entry = pool.acquire(m_a, target);
+        QVERIFY(entry);
+        const int64_t before = entry->decoder->decodedFrameCount();
+        for (int k = 0; k <= DecoderPool::kReadAheadFrames; ++k) {
+            const auto frame = entry->decoder->decodeFrame(target + k * step);
+            QVERIFY(frame);
+            QCOMPARE(entry->decoder->decodedFrameCount(), before);
+            QCOMPARE(frame->ptsUs, fresh.decodeFrame(target + k * step)->ptsUs);
+        }
+        // The same through the image path (CPU compositor), in play order.
+        for (int k = 0; k <= DecoderPool::kReadAheadFrames; ++k)
+            QCOMPARE(entry->decoder->frameAt(target + k * step), expected[size_t(k)]);
+        QCOMPARE(entry->decoder->decodedFrameCount(), before);
+        // On after the held frames, and back again: same pictures as a fresh decoder.
+        for (int k = DecoderPool::kReadAheadFrames + 1; k <= DecoderPool::kReadAheadFrames + 2; ++k)
+            QCOMPARE(entry->decoder->frameAt(target + k * step), expected[size_t(k)]);
+        QCOMPARE(entry->decoder->frameAt(target), expected[0]);
+    }
+
     /// 1.29: a request arriving before the preparation is done waits for the rest of it and
     /// gets the right frame.
     void requestDuringPreparationWaits()

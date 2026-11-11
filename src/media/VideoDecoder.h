@@ -106,7 +106,12 @@ public:
     /// decodeFrame() of the same time costs nothing; after a stop it is left in a valid state
     /// (the next call continues or seeks as usual).
     /// @return true if the frame is ready.
-    bool prepareFrame(int64_t timeUs, const std::function<bool()>& stop);
+    ///
+    /// With @p readAheadFrames > 0 the frames after it are decoded too (and held, bounded by that
+    /// number): the requests for them cost nothing either, as long as they come before any
+    /// request the held frames cannot answer.
+    bool prepareFrame(
+        int64_t timeUs, const std::function<bool()>& stop, int readAheadFrames = 0);
 
     /// Frames this decoder took from libavcodec since open(), skipped ones included
     /// (measurements and tests; not synchronised with a decode running on another thread).

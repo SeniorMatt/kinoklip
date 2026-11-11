@@ -52,9 +52,9 @@ bool makeScreenFile(const QString& path, const QString& source)
         {"-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-f", "lavfi", "-i",
             QStringLiteral("%1=s=%2:r=%3:d=%4").arg(source, size).arg(kFps).arg(kFileSeconds), "-f",
             "lavfi", "-i", QStringLiteral("sine=frequency=440:d=%1").arg(kFileSeconds), "-c:v",
-            "libx264", "-preset", "veryfast", "-crf", "20", "-g", QString::number(kGop),
-            "-keyint_min", QString::number(kGop), "-sc_threshold", "0", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-shortest", path + ".tmp.mp4"});
+            "libx264", "-preset", "veryfast", "-crf", qEnvironmentVariable("KK_KEYCUT_CRF", "20"),
+            "-g", QString::number(kGop), "-keyint_min", QString::number(kGop), "-sc_threshold", "0",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path + ".tmp.mp4"});
     if (!ffmpeg.waitForFinished(5 * 60 * 1000) || ffmpeg.exitCode() != 0)
         return false;
     return QFile::rename(path + ".tmp.mp4", path);
@@ -307,6 +307,151 @@ private Q_SLOTS:
         QFETCH(int, delayMs);
         report("keyed, jump in the same file", Case {true, false, false, delayMs, 2 * kFps});
         QVERIFY2(m_last.lateMs <= 100.0, "a slow decoder open at the cut loses frames");
+    }
+
+private:
+    /// Frame-by-frame view of the cut (spec 72.7): for each frame shown around the cut, when it
+    /// reached the screen compared with its ideal time (the schedule of the frames before the
+    /// cut). Starting 16 frames / 2 s before the cut must be as good as starting 4 before.
+    struct CutView
+    {
+        double worstLateMs = 0; ///< worst lateness of a shown frame in cut..cut+9
+        int skipped = 0; ///< frames of cut..cut+9 never shown
+        double decodeSumMs = 0; ///< decode time on the render path of the frames cut..cut+3
+        double firstLateMs = 0; ///< lateness of the cut frame itself (a skipped one: 1000)
+        std::vector<QString> lines;
+        render::DecoderPool::PrepareStats look;
+    };
+
+    CutView cutView(int leadFrames, bool full, int gap)
+    {
+        Case c {true, false, false, 0, gap, -1, leadFrames};
+        Project project;
+        buildTimeline(project, m_dir + QStringLiteral("/screen_a.mp4"),
+            m_dir + QStringLiteral("/screen_b.mp4"), c);
+        auto* audio = new test::FakeAudioOutput(10, 40);
+        PlaybackEngine::Options options;
+        options.audio.reset(audio);
+        PlaybackEngine engine(std::move(options));
+        engine.setQualityMode(
+            full ? PlaybackEngine::QualityMode::Full : PlaybackEngine::QualityMode::Half);
+        engine.setMediaPool(project.mediaPool());
+        engine.setTimeline(project.timeline());
+        int client = 0;
+        engine.setOutputClient(&client, QSize(1382, 778), engine.compositor()->isGpu());
+        render::DecoderPool::setReadAheadFrames(
+            qEnvironmentVariableIntValue("KK_KEYCUT_NO_READAHEAD")
+                ? 0
+                : render::DecoderPool::kReadAheadFrames);
+        const int64_t startFrame = kClipFrames - leadFrames;
+        engine.seek(startFrame);
+        QTest::qWait(3000); // resting: the cut's decoder is prepared meanwhile
+        struct Shown
+        {
+            int64_t frame;
+            double atMs;
+            double decodeMs, uploadMs, compositeMs;
+        };
+        std::vector<Shown> shown;
+        QElapsedTimer clock;
+        clock.start();
+        QObject::connect(
+            &engine, &PlaybackEngine::frameReady, &engine, [&](const RenderedFramePtr& f) {
+                if (f && f->ok)
+                    shown.push_back({f->frame, clock.nsecsElapsed() / 1e6, f->decodeMs, f->uploadMs,
+                        f->compositeMs});
+            });
+        engine.play();
+        (void)QTest::qWaitFor(
+            [&] { return engine.currentFrame() && engine.position() >= kClipFrames + 30; }, 20000);
+        engine.pause();
+        // Ideal time of a frame: the median offset of the frames shown 2..12 before the cut.
+        std::vector<double> offsets;
+        for (const Shown& s : shown) {
+            if (s.frame >= kClipFrames - 12 && s.frame < kClipFrames - 2)
+                offsets.push_back(s.atMs - double(s.frame - startFrame) * 1000.0 / kFps);
+        }
+        CutView v;
+        v.look = engine.compositor()->prepareStats();
+        if (offsets.empty())
+            offsets.push_back(shown.empty() ? 0.0 : shown.front().atMs);
+        std::sort(offsets.begin(), offsets.end());
+        const double base = offsets[offsets.size() / 2];
+        for (int64_t f = kClipFrames - 3; f < kClipFrames + 10; ++f) {
+            const auto it = std::find_if(
+                shown.begin(), shown.end(), [f](const Shown& s) { return s.frame == f; });
+            const bool after = f >= kClipFrames;
+            if (it == shown.end()) {
+                v.skipped += after;
+                if (f == kClipFrames)
+                    v.firstLateMs = 1000.0;
+                v.lines.push_back(QStringLiteral("  frame cut%1%2: NOT SHOWN")
+                                      .arg(f >= kClipFrames ? "+" : "")
+                                      .arg(f - kClipFrames));
+                continue;
+            }
+            const double late = it->atMs - (base + double(f - startFrame) * 1000.0 / kFps);
+            if (after)
+                v.worstLateMs = std::max(v.worstLateMs, late);
+            if (f == kClipFrames)
+                v.firstLateMs = late;
+            if (after && f < kClipFrames + 4)
+                v.decodeSumMs += it->decodeMs;
+            v.lines.push_back(QStringLiteral("  frame cut%1%2: late %3 ms (decode %4, upload %5, "
+                                             "composite %6)")
+                                  .arg(f >= kClipFrames ? "+" : "")
+                                  .arg(f - kClipFrames)
+                                  .arg(late, 0, 'f', 1)
+                                  .arg(it->decodeMs, 0, 'f', 1)
+                                  .arg(it->uploadMs, 0, 'f', 1)
+                                  .arg(it->compositeMs, 0, 'f', 1));
+        }
+        return v;
+    }
+
+private Q_SLOTS:
+    void firstFramesAtCut_data()
+    {
+        QTest::addColumn<bool>("full");
+        QTest::addColumn<int>("gap");
+        QTest::newRow("full, jump in the file") << true << 2 * kFps;
+        QTest::newRow("full, contiguous") << true << 0;
+        QTest::newRow("half, jump in the file") << false << 2 * kFps;
+    }
+
+    /// Spec 72.7: in steady playback the first frames after the cut are ready before their
+    /// display time, as when playing from 4 frames before the cut.
+    void firstFramesAtCut()
+    {
+        QFETCH(bool, full);
+        QFETCH(int, gap);
+        const int leads[] = {4, 16, 2 * kFps};
+        CutView views[3];
+        for (int i = 0; i < 3; ++i) {
+            views[i] = cutView(leads[i], full, gap);
+            qInfo("start %d frames before the cut: cut frame late %.1f ms, worst late %.1f ms, "
+                  "%d of 10 skipped, decode on the render path cut..cut+3 %.1f ms; look-ahead "
+                  "started %lld, ready %lld, hits ready %lld, "
+                  "waited %lld, expired %lld, cancelled %lld, last cost %d ms",
+                leads[i], views[i].firstLateMs, views[i].worstLateMs, views[i].skipped,
+                views[i].decodeSumMs, (long long)views[i].look.started,
+                (long long)views[i].look.ready, (long long)views[i].look.hitsReady,
+                (long long)views[i].look.hitsWaited, (long long)views[i].look.expired,
+                (long long)views[i].look.cancelled, views[i].look.lastCostMs);
+            for (const QString& l : views[i].lines)
+                qInfo("%s", qPrintable(l));
+        }
+        const double frameMs = 1000.0 / kFps;
+        // Generous margins (a busy machine may drop a frame anywhere): the frames of a start
+        // far before the cut are as late as those of a start right before it, and the cut frame
+        // is not the one that goes missing.
+        for (int i = 1; i < 3; ++i) {
+            QVERIFY2(views[i].skipped <= views[0].skipped + 2, "frames skipped after the cut");
+            QVERIFY2(views[i].worstLateMs <= std::max(views[0].worstLateMs, 0.0) + frameMs,
+                "a frame after the cut is shown more than a frame late");
+            QVERIFY2(views[i].decodeSumMs <= views[0].decodeSumMs + 20.0,
+                "the first frames after the cut are decoded on the render path");
+        }
     }
 
 private:

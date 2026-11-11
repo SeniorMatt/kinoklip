@@ -69,6 +69,9 @@ public:
     };
 
     /// Decoders reserved by the look-ahead at most.
+    /// Frames decoded after the first one of a preparation (VideoDecoder::prepareFrame()): the
+    /// first frames of a cut are ready too, not only the cut frame (spec 72.7).
+    static constexpr int kReadAheadFrames = 3;
     static constexpr int kMaxReserved = 3;
     /// Preparations running at the same time at most (leave threads for the visible clips).
     static constexpr int kMaxPrepareRunning = 2;
@@ -131,6 +134,9 @@ public:
     /// Test hook: every open() of a decoder takes this much longer (a hardware decoder's
     /// session setup can take hundreds of ms). Process-wide; 0 = off.
     static void setOpenDelayMs(int ms);
+    /// Test hook: frames decoded after the first one of a preparation (default
+    /// kReadAheadFrames; 0 = the cut frame only, as before 72.7). Process-wide.
+    static void setReadAheadFrames(int frames);
 
     void setCloseHook(CloseHook hook) { m_closeHook = std::move(hook); }
     /// Decoders idle longer than this are closed by collectIdle(). Default 10 s.
