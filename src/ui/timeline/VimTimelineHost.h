@@ -27,10 +27,13 @@ public:
     void moveTarget(int delta) override;
     void openCommandLine() override;
     void openSearch() override;
+    void runEx(const QString& line) override;
 
     /// Called for `:` and `/` (set by the window; empty = ignored).
     std::function<void()> onCommandLine;
     std::function<void()> onSearch;
+    /// Called for a key bound to an ex command (set by the window).
+    std::function<void(const QString&)> onEx;
 
 private:
     AppContext& m_ctx;

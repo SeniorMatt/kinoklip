@@ -15,6 +15,7 @@
 #include "ui/common/SettingsPages.h"
 #include "ui/common/UiAnimation.h"
 #include "ui/common/VimOptions.h"
+#include "ui/dialogs/KeyboardCustomizationDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ViewerPanel.h"
@@ -887,7 +888,7 @@ private:
 class KeyboardPage final : public SettingsPage
 {
 public:
-    KeyboardPage(QAction* customize, QAction* vimMode, QWidget* parent)
+    KeyboardPage(QAction* customize, QAction* vimMode, ActionRegistry* registry, QWidget* parent)
         : SettingsPage(parent)
         , m_vimAction(vimMode)
     {
@@ -942,7 +943,24 @@ public:
         m_vim->setChecked(m_vimAction ? m_vimAction->isChecked() : vimopts::enabled());
         if (m_vimAction) // the menu item can change it while this page is open
             connect(m_vimAction, &QAction::toggled, m_vim, &QCheckBox::setChecked);
-        form->addRow(tr("Vim"), m_vim);
+        auto* vimRow = new QWidget;
+        auto* vimLayout = new QHBoxLayout(vimRow);
+        vimLayout->setContentsMargins(0, 0, 0, 0);
+        vimLayout->addWidget(m_vim);
+        auto* vimKeys = new QPushButton(tr("Vim keys…"));
+        vimKeys->setObjectName(QStringLiteral("OpenVimKeys"));
+        vimKeys->setEnabled(registry != nullptr);
+        vimKeys->setToolTip(tr("Opens Keyboard Customization on the Vim keys tab"));
+        vimLayout->addWidget(vimKeys);
+        vimLayout->addStretch(1);
+        connect(vimKeys, &QPushButton::clicked, this, [this, registry] {
+            if (!registry)
+                return;
+            KeyboardCustomizationDialog dialog(*registry, window());
+            dialog.showVimKeys();
+            dialog.exec();
+        });
+        form->addRow(tr("Vim"), vimRow);
         form->addRow(QString(),
             note(tr("Works with every keyboard profile. The mode, the keys typed so far and the "
                     "focused panel show at the left of the page bar.")));
@@ -1002,8 +1020,8 @@ void registerStandardSettingsPages(SettingsPageRegistry& registry, ActionRegistr
         ? actions->action(QLatin1String(vimopts::kActionId))
         : nullptr;
     add("keyboard", tr("Keyboard"), "input-keyboard", 150, user,
-        [keyboard, vimMode](
-            QWidget* parent) { return new KeyboardPage(keyboard, vimMode, parent); });
+        [keyboard, vimMode, actions](
+            QWidget* parent) { return new KeyboardPage(keyboard, vimMode, actions, parent); });
 }
 
 void applyHwAccelPreference()

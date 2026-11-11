@@ -886,7 +886,7 @@
       "id": "edit-with-vim-keys",
       "title": "Edit with vim keys",
       "file": "edit-with-vim-keys.md",
-      "summary": "Turn on Vim mode (any keyboard profile) and edit the timeline with counts, dd, yy, gg, visual mode, INSERT mode and a command line.",
+      "summary": "Turn on Vim mode (any keyboard profile) and edit the timeline with counts, dd, yy, gg, visual mode, INSERT mode, a Space leader with a which-key list, a command line, keys you can change and a Russian layout.",
       "keywords": [
         "vim",
         "neovim",
@@ -901,7 +901,12 @@
         "normal mode",
         "visual mode",
         "command line",
-        "colon"
+        "colon",
+        "leader",
+        "which-key",
+        "vimrc",
+        "insert mode",
+        "russian layout"
       ],
       "contexts": []
     },

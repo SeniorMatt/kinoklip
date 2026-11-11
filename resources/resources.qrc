@@ -9,6 +9,7 @@
         <file>keymaps/premiere-pro.json</file>
         <file>keymaps/shotcut.json</file>
         <file>keymaps/vegas-pro.json</file>
+        <file>vim/default.json</file>
         <file>color-schemes/BreezeClassic.colors</file>
         <file>color-schemes/BreezeDark.colors</file>
         <file>color-schemes/BreezeLight.colors</file>

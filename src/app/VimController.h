@@ -22,7 +22,9 @@ class PageBar;
 class PanelFrame;
 class TimelinePanel;
 class VimInput;
+class VimKeymap;
 class VimModeLine;
+class VimWhichKey;
 class VimTimelineHost;
 
 class VimController : public QObject
@@ -38,6 +40,8 @@ public:
 
     [[nodiscard]] VimInput* input() const { return m_input; }
     [[nodiscard]] VimModeLine* modeLine() const { return m_modeLine; }
+    [[nodiscard]] VimKeymap* keymap() const;
+    [[nodiscard]] VimWhichKey* whichKey() const { return m_whichKey; }
     [[nodiscard]] QLineEdit* commandLine() const { return m_line; }
 
     /// Runs one command-line text (without the colon) and returns the message to show.
@@ -51,6 +55,7 @@ private:
     void closeCommandLine();
     void updateModeLine();
     void updateFocusFrame();
+    void updateWhichKey();
     bool eventFilter(QObject* watched, QEvent* event) override;
 
     AppContext& m_ctx;
@@ -60,6 +65,7 @@ private:
     VimTimelineHost* m_host = nullptr;
     PageBar* m_pageBar = nullptr;
     VimModeLine* m_modeLine = nullptr;
+    VimWhichKey* m_whichKey = nullptr;
     QPointer<PanelFrame> m_framed; ///< the panel drawn with the focus frame
     QPointer<QWidget> m_returnFocus; ///< where the focus goes when the `:` line closes
     QLineEdit* m_line = nullptr;

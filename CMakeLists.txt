@@ -180,6 +180,8 @@ find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
   add_test(NAME check_issue_forms
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/check_issue_forms.py)
+  add_test(NAME check_vim_docs
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/vim-docs.py --check)
   add_test(NAME check_status
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/status.py --check)
   # docs/menu-reference.md is written by the application (kinoklip --menu-reference): a menu

@@ -41,7 +41,7 @@ Type a count first to repeat: `5l`, `3w`, `2dd`, `3u`. **Esc** drops what you ha
 | `w` `b` | next / previous cut |
 | `gg` `0` | start of the timeline |
 | `G` `$` | end of the timeline |
-| `n` `N` | next / previous marker |
+| `n` `N` `]]` `[[` | next / previous marker |
 | `m` + letter, `'` + letter | remember the playhead, jump back to it |
 | `zi` `zo` `zf` | zoom in, out, to fit |
 | `j` `k` | target video track down / up |
@@ -50,8 +50,9 @@ Type a count first to repeat: `5l`, `3w`, `2dd`, `3u`. **Esc** drops what you ha
 | `X` | delete the selected clips and leave a gap |
 | `yy` | copy the clip under the playhead |
 | `p` `P` | paste at the playhead, inserting / overwriting |
-| `u` | undo (redo is your profile's key, Ctrl+Shift+Z in Resolve) |
-| `gi` `go` `ga` | insert / overwrite / append the clip from the Source viewer |
+| `u` `Ctrl+R` | undo / redo |
+| `Space` `Space` | play / pause |
+| `Space` `s` `i` / `o` / `a` | insert / overwrite / append the clip from the Source viewer |
 | `s` | split at the playhead |
 | `>` `<` | nudge the selected clips a frame right / left |
 | `M` | add a marker |
@@ -60,6 +61,50 @@ Type a count first to repeat: `5l`, `3w`, `2dd`, `3u`. **Esc** drops what you ha
 | `:` | command line |
 
 Each edit is one step, so one `u` takes back one `dd`.
+
+## Space is the leader
+
+Space starts a second group of keys. Wait half a second after it (or after `g`, `z`) and a list
+appears above the page bar with every key that can follow and what it does (the "which-key" list):
+
+| Keys | What it does |
+|---|---|
+| `Space` `Space` | play / pause |
+| `Space` `s` + `i` `o` `a` `r` `f` `t` | source edits: insert, overwrite, append, replace, fit to fill, ripple overwrite |
+| `Space` `m` + `a` `m` `d` `c` | markers: add, modify, delete, mark the clip |
+| `Space` `i` + `i` `o` `p` | Mark In, Mark Out, play In to Out |
+| `Space` `k` + `k` `d` `l` `i` `o` `b` | keyframes: add, delete, linear, ease in, ease out, both |
+| `Space` `e` `e` | add the default transition |
+| `Space` `t` + `v` `a` `d` | add a video track, an audio track, delete empty tracks |
+| `Space` `o` + `s` `l` `a` `L` | snapping, linked selection, audio scrubbing, loop |
+| `Space` `f` `p` / `n` / `x` | Project Manager / show the Media Pool / close the timeline tab |
+| `g` `j` `k` `l` | shuttle reverse, stop, forward |
+
+The full list is the [cheat sheet](../keymaps/vim-keys.md).
+
+## Change the keys
+
+The keys are a table, and you can change every one.
+
+- **Kinoklip > Keyboard Customization > Vim keys** (or **Vim keys...** in Preferences > Keyboard) shows
+  them by place (Leader, Global, Timeline, Viewer). **Add...**, **Change...** and **Remove** edit a row,
+  **Reset** brings one back, **Reset All** all of them. Keys are written as in Vim (`gg`,
+  `<leader>ff`, `<C-h>`, `<Space>`, `<CR>`); the command is a command id from the Shortcuts tab
+  (`edit.undo`), `vim:name`, or `:` and a command line. Saving checks the keys: one that is already
+  bound is refused unless you replace it, and a key that is also the start of longer ones is
+  allowed with a warning (it waits for `timeoutlen`, 400 ms, for the next key; `:set timeoutlen=300`).
+  **Export...** and **Import...** move your changes to another computer as a file.
+- On the command line: `:nmap Q edit.undo`, `:nmap <leader>w :w<CR>`, `:nunmap p`, `:map` lists
+  yours, `:set leader=,`.
+- In a text file named `vimrc` in Kinoklip's configuration folder (the **Open vimrc** button creates
+  it): one command per line, `"` starts a comment. It is plain text, so a dotfiles manager can keep
+  it. Its keys show in the tab, read only. `:source` reads it again.
+
+## A Russian (or other) layout
+
+Keys match their place on the keyboard when the layout is not Latin, so `д` is `l`, `ц` is `w` and
+`Shift+х` is `{` without switching to English. A German or French layout is not changed: `z` is the
+key that types `z`. `:set nophysicalkeys` turns this off.
 
 ## Visual mode
 
@@ -75,6 +120,7 @@ deletes them and leaves a gap, `y` copies them. **Esc** or `v` goes back to norm
 - `:set novim` switches Vim mode off, so you can never get stuck.
 - Any Kinoklip command works too, written as on the command line: `:marker add --at 120 --name Intro`.
   See [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md).
+- `:nmap`, `:nunmap`, `:map`, `:source` and `:set` change the Vim keys (see above).
 - **Up** and **Down** bring back what you typed before. There is no Tab completion.
 
 ## If you used the Vim keyboard profile
@@ -82,7 +128,8 @@ deletes them and leaves a gap, `y` copies them. **Esc** or `v` goes back to norm
 Versions 1.2 to 1.4 had a "Vim" keyboard profile. It is gone: on the first start Kinoklip turns Vim
 mode on instead and switches the profile to Resolve, keeping the keys you had changed. The commands
 that were moved to **Alt** + their key are back on their own keys, and work in INSERT mode. In NORMAL
-mode, `i` and `a` now switch to INSERT (as in Vim); the source edits are `gi`, `go` and `ga`.
+mode, `i` and `a` now switch to INSERT (as in Vim); the source edits are `Space` `s` `i` / `o` / `a`,
+and play / pause is `Space` `Space` (plain Space plays in INSERT).
 
 ## What is not there
 

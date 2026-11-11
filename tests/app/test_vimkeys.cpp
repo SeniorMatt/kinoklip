@@ -18,7 +18,10 @@
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
 #include "ui/common/VimInput.h"
+#include "ui/common/VimKeymap.h"
+#include "ui/common/VimKeys.h"
 #include "ui/common/VimOptions.h"
+#include "ui/common/VimWhichKey.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelinePanel.h"
@@ -26,7 +29,9 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QElapsedTimer>
 #include <QFile>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QSettings>
@@ -78,6 +83,7 @@ public:
     void moveTarget(int delta) override { log.append(QStringLiteral("target %1").arg(delta)); }
     void openCommandLine() override { log.append(QStringLiteral("colon")); }
     void openSearch() override { log.append(QStringLiteral("search")); }
+    void runEx(const QString& line) override { log.append(QStringLiteral("ex ") + line); }
 };
 
 struct Typer
@@ -275,9 +281,9 @@ private slots:
             (QStringList {QStringLiteral("edit.ripple_delete"), QStringLiteral("edit.delete"),
                 QStringLiteral("edit.paste_insert"), QStringLiteral("edit.paste"),
                 QStringLiteral("edit.split")}));
-        // The source edits are gi go ga for now (i and a start INSERT mode).
+        // The source edits are on the leader (Space s i / o / a); i and a start INSERT mode.
         host.log.clear();
-        type(QStringLiteral("gigoga"));
+        type(QStringLiteral(" si so sa"));
         QCOMPARE(host.log,
             (QStringList {QStringLiteral("edit.insert"), QStringLiteral("edit.overwrite"),
                 QStringLiteral("edit.append_at_end")}));
@@ -356,12 +362,13 @@ private slots:
         host.log.clear();
         type(QStringLiteral("'z")); // never set
         QVERIFY(host.log.isEmpty());
-        // Unbound printable keys are swallowed; modified keys, Space and Return are not taken.
+        // Unbound printable keys are swallowed; Space is the leader; Return, cursor keys and the
+        // profile's Ctrl and Alt chords are not taken.
         type(QStringLiteral("qrcfe.@~"));
         QVERIFY(host.log.isEmpty());
-        QVERIFY(!m.wouldConsume(Qt::Key_R, Qt::ControlModifier, QStringLiteral("r")));
+        QVERIFY(!m.wouldConsume(Qt::Key_S, Qt::ControlModifier, QStringLiteral("s")));
         QVERIFY(!m.wouldConsume(Qt::Key_X, Qt::AltModifier, QStringLiteral("x")));
-        QVERIFY(!m.wouldConsume(Qt::Key_Space, {}, QStringLiteral(" ")));
+        QVERIFY(m.wouldConsume(Qt::Key_Space, {}, QStringLiteral(" ")));
         QVERIFY(!m.wouldConsume(Qt::Key_Return, {}, QStringLiteral("\r")));
         QVERIFY(!m.wouldConsume(Qt::Key_Left, {}, QString()));
         QVERIFY(!m.wouldConsume(Qt::Key_Delete, {}, QStringLiteral("\x7f")));
@@ -598,6 +605,412 @@ private slots:
         QTest::keyClick(line, Qt::Key_Escape);
         QVERIFY(!line->isVisible());
         QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:40 80:40"));
+    }
+
+    // ---- The key table in the machine (step 2) ----
+
+    void ambiguousSequencesWaitForTheTimeout()
+    {
+        VimKeymap keys;
+        QVERIFY(keys.loadDefaults());
+        QVERIFY(keys.map(QStringLiteral("global"), QStringLiteral("n"), QStringLiteral("g"),
+            {QStringLiteral("edit.undo")}, {}, nullptr)); // g is also the start of gg
+        VimMachine m;
+        m.setKeymap(&keys);
+        m.setTimeoutMs(40);
+        FakeHost host;
+        m.setHost(&host);
+        Typer type {m};
+        type(QStringLiteral("g"));
+        QVERIFY(host.log.isEmpty()); // waits: it could still be gg
+        QCOMPARE(m.pending(), QStringLiteral("g"));
+        QTRY_COMPARE_WITH_TIMEOUT(host.log, QStringList {QStringLiteral("edit.undo")}, 1000);
+        QVERIFY(m.pending().isEmpty());
+        // The second key in time: gg, not g.
+        host.log.clear();
+        type(QStringLiteral("gg"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("transport.go_to_start")});
+        QTest::qWait(80);
+        QCOMPARE(host.log.size(), 1);
+        // A key that continues nothing: the short binding runs, then the key starts over.
+        host.log.clear();
+        type(QStringLiteral("gx")); // gx is nothing; x is Ripple Delete
+        QCOMPARE(host.log,
+            (QStringList {QStringLiteral("edit.undo"), QStringLiteral("edit.ripple_delete")}));
+        QVERIFY(m.pending().isEmpty());
+    }
+
+    void timeoutCanBeCalledDirectly()
+    {
+        VimKeymap keys;
+        QVERIFY(keys.loadDefaults());
+        QVERIFY(keys.map(QStringLiteral("global"), QStringLiteral("n"), QStringLiteral("g"),
+            {QStringLiteral("edit.undo")}, {}, nullptr));
+        VimMachine m;
+        m.setKeymap(&keys);
+        FakeHost host;
+        m.setHost(&host);
+        Typer type {m};
+        type(QStringLiteral("3g"));
+        m.timeoutNow();
+        QCOMPARE(host.log,
+            QStringList {QStringLiteral("edit.undo")}); // a count does not repeat a command
+        QVERIFY(m.pending().isEmpty());
+        m.timeoutNow(); // nothing pending: nothing happens
+        QCOMPARE(host.log.size(), 1);
+    }
+
+    void leaderKeysAndTheWhichKeyList()
+    {
+        VimMachine m;
+        FakeHost host;
+        m.setHost(&host);
+        Typer type {m};
+        QVERIFY(m.handleKey(Qt::Key_Space, {}, QStringLiteral(" ")));
+        QCOMPARE(m.pending(), QStringLiteral("SPC"));
+        QVERIFY(!m.whichKeyShown());
+        m.timeoutNow(); // a prefix with no short form: the list appears, nothing runs
+        QVERIFY(m.whichKeyShown());
+        QVERIFY(host.log.isEmpty());
+        QCOMPARE(m.whichKeyPrefix(), QStringLiteral("SPC"));
+        QStringList rows;
+        for (const VimContinuation& c : m.whichKeyEntries())
+            rows.append(vimkeys::displayToken(c.token) + QLatin1Char(' ') + c.desc);
+        QVERIFY(rows.contains(QStringLiteral("s source edits")));
+        QVERIFY(rows.contains(QStringLiteral("SPC play / pause")));
+        QVERIFY(m.pending() == QStringLiteral("SPC")); // still waiting, no timeout cancel
+        type(QStringLiteral("s"));
+        QVERIFY(!m.whichKeyShown()); // the next key hides it
+        m.timeoutNow();
+        QVERIFY(m.whichKeyShown());
+        QCOMPARE(m.whichKeyPrefix(), QStringLiteral("SPC s"));
+        rows.clear();
+        for (const VimContinuation& c : m.whichKeyEntries())
+            rows.append(c.token + QLatin1Char(' ') + c.desc);
+        QVERIFY(rows.contains(QStringLiteral("i insert the source clip")));
+        QVERIFY(rows.contains(QStringLiteral("o overwrite with the source clip")));
+        type(QStringLiteral("o"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("edit.overwrite")});
+        QVERIFY(!m.whichKeyShown());
+        QVERIFY(m.pending().isEmpty());
+        // Space Space plays; Esc drops the leader and hides the list.
+        host.log.clear();
+        QVERIFY(m.handleKey(Qt::Key_Space, {}, QStringLiteral(" ")));
+        QVERIFY(m.handleKey(Qt::Key_Space, {}, QStringLiteral(" ")));
+        QCOMPARE(host.log, QStringList {QStringLiteral("transport.play_pause")});
+        QVERIFY(m.handleKey(Qt::Key_Space, {}, QStringLiteral(" ")));
+        m.timeoutNow();
+        QVERIFY(m.handleKey(Qt::Key_Escape, {}, QString()));
+        QVERIFY(m.pending().isEmpty());
+        QVERIFY(!m.whichKeyShown());
+        // An unbound key after the leader ends the sequence and does nothing.
+        host.log.clear();
+        QVERIFY(m.handleKey(Qt::Key_Space, {}, QStringLiteral(" ")));
+        type(QStringLiteral("Z"));
+        QVERIFY(host.log.isEmpty());
+        QVERIFY(m.pending().isEmpty());
+    }
+
+    void controlRIsRedoInNormal()
+    {
+        VimMachine m;
+        FakeHost host;
+        m.setHost(&host);
+        QVERIFY(m.wouldConsume(Qt::Key_R, Qt::ControlModifier, QStringLiteral("\x12")));
+        QVERIFY(m.handleKey(Qt::Key_R, Qt::ControlModifier, QStringLiteral("\x12")));
+        QCOMPARE(host.log, QStringList {QStringLiteral("edit.redo")});
+        // Other Ctrl chords stay the profile's.
+        QVERIFY(!m.wouldConsume(Qt::Key_S, Qt::ControlModifier, QStringLiteral("\x13")));
+        QVERIFY(!m.wouldConsume(Qt::Key_Z, Qt::ControlModifier | Qt::ShiftModifier, QString()));
+    }
+
+    void userMappingsReachTheMachine()
+    {
+        VimKeymap keys;
+        QVERIFY(keys.loadDefaults());
+        VimMachine m;
+        m.setKeymap(&keys);
+        FakeHost host;
+        m.setHost(&host);
+        Typer type {m};
+        QVERIFY(keys.map(QStringLiteral("global"), QStringLiteral("n"), QStringLiteral("Q"),
+            {QStringLiteral("edit.undo"), QStringLiteral("edit.redo")}, {},
+            nullptr)); // a list runs in order
+        type(QStringLiteral("Q"));
+        QCOMPARE(
+            host.log, (QStringList {QStringLiteral("edit.undo"), QStringLiteral("edit.redo")}));
+        host.log.clear();
+        QVERIFY(keys.map(QStringLiteral("global"), QStringLiteral("n"), QStringLiteral("W"),
+            {QStringLiteral(":marker add --frame 5")}, {}, nullptr));
+        type(QStringLiteral("W"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("ex marker add --frame 5")});
+        // A change of the table drops a half-typed sequence.
+        type(QStringLiteral("z"));
+        QCOMPARE(m.pending(), QStringLiteral("z"));
+        QVERIFY(keys.unmap(QStringLiteral("global"), QStringLiteral("n"), QStringLiteral("Q")));
+        QVERIFY(m.pending().isEmpty());
+        // Unmapped: the key is swallowed like any unbound key.
+        host.log.clear();
+        type(QStringLiteral("Q"));
+        QVERIFY(host.log.isEmpty());
+    }
+
+    void contextsPickTheirKeys()
+    {
+        VimMachine m;
+        FakeHost host;
+        m.setHost(&host);
+        Typer type {m};
+        QString context = QStringLiteral("timeline");
+        m.setContextProvider([&] { return context; });
+        type(QStringLiteral("zf"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("timeline.zoom_fit")});
+        host.log.clear();
+        context = QStringLiteral("viewer");
+        type(QStringLiteral("zf"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("view.viewer_zoom_fit")});
+        host.log.clear();
+        type(QStringLiteral("2l")); // inherited from the timeline
+        QCOMPARE(host.log, QStringList(2, QStringLiteral("transport.next_frame")));
+    }
+
+    void aBurstOfKeysIsFast()
+    {
+        VimMachine m;
+        FakeHost host;
+        m.setHost(&host);
+        QElapsedTimer timer;
+        timer.start();
+        for (int i = 0; i < 20000; ++i) {
+            QVERIFY(m.handleKey('l', {}, QStringLiteral("l")));
+            QVERIFY(m.handleKey('3', {}, QStringLiteral("3")));
+            QVERIFY(m.handleKey('h', {}, QStringLiteral("h")));
+            host.log.clear();
+        }
+        QVERIFY2(timer.elapsed() < 2000, qPrintable(QString::number(timer.elapsed())));
+    }
+
+    // ---- Physical keys: a Russian layout in NORMAL ----
+
+    void aRussianLayoutDrivesNormalMode()
+    {
+        using vimkeys::KeyInfo;
+        // evdev codes (X11 / Wayland scan codes are +8): l = 38, h = 35, w = 17, [ = 26, 4 = 5, ;
+        // = 39.
+        auto ru = [](QChar typed, int evdev, Qt::KeyboardModifiers mods = {}) {
+            KeyInfo k;
+            k.key = int(0x0433); // whatever: the typed character is Cyrillic
+            k.modifiers = mods;
+            k.text = QString(typed);
+            k.nativeScanCode = quint32(evdev + 8);
+            return k;
+        };
+        VimMachine m;
+        FakeHost host;
+        m.setHost(&host);
+        // "д" sits where "l" is: next frame. "р" is h, "ц" is w.
+        QVERIFY(m.handleKey(ru(QChar(0x0434), 38)));
+        QVERIFY(m.handleKey(ru(QChar(0x0440), 35)));
+        QVERIFY(m.handleKey(ru(QChar(0x0446), 17)));
+        QCOMPARE(host.log,
+            (QStringList {QStringLiteral("transport.next_frame"),
+                QStringLiteral("transport.prev_frame"), QStringLiteral("transport.next_edit")}));
+        // Shift + "х" is { , Shift + "ж" is : .
+        host.log.clear();
+        QVERIFY(m.handleKey(ru(QChar(0x0425), 26, Qt::ShiftModifier)));
+        QVERIFY(m.handleKey(ru(QChar(0x0416), 39, Qt::ShiftModifier)));
+        QCOMPARE(host.log, QStringList {QStringLiteral("colon")});
+        // Two-key sequences and counts work in the layout: "пп" is gg, and 5 д is 5l.
+        host.log.clear();
+        QVERIFY(m.handleKey(ru(QChar(0x043f), 34)));
+        QVERIFY(m.handleKey(ru(QChar(0x043f), 34)));
+        QCOMPARE(host.log, QStringList {QStringLiteral("transport.go_to_start")});
+        host.log.clear();
+        KeyInfo five;
+        five.key = Qt::Key_5;
+        five.text = QStringLiteral("5");
+        five.nativeScanCode = 6 + 8;
+        QVERIFY(m.handleKey(five));
+        QVERIFY(m.handleKey(ru(QChar(0x0434), 38)));
+        QCOMPARE(host.log.size(), 5);
+        // The shifted digit row follows once the layout is known to be Cyrillic: the Russian
+        // layout types ';' on Shift+4, and $ is meant.
+        host.log.clear();
+        KeyInfo dollar;
+        dollar.key = Qt::Key_Semicolon;
+        dollar.modifiers = Qt::ShiftModifier;
+        dollar.text = QStringLiteral(";");
+        dollar.nativeScanCode = 5 + 8;
+        QVERIFY(m.handleKey(dollar));
+        QCOMPARE(host.log, QStringList {QStringLiteral("transport.go_to_end")});
+        // A Latin letter switches back: the typed character counts again.
+        host.log.clear();
+        KeyInfo latinL;
+        latinL.key = Qt::Key_L;
+        latinL.text = QStringLiteral("l");
+        latinL.nativeScanCode = 38 + 8;
+        QVERIFY(m.handleKey(latinL));
+        QCOMPARE(host.log, QStringList {QStringLiteral("transport.next_frame")});
+        host.log.clear();
+        QVERIFY(m.handleKey(dollar)); // Latin layout: ';' is just an unbound key
+        QVERIFY(host.log.isEmpty());
+    }
+
+    void physicalKeysCanBeSwitchedOff()
+    {
+        VimMachine m;
+        FakeHost host;
+        m.setHost(&host);
+        m.setPhysicalKeys(false);
+        vimkeys::KeyInfo k;
+        k.key = int(0x043b);
+        k.text = QString(QChar(0x0434));
+        k.nativeScanCode = 38 + 8;
+        // The typed character counts: a Cyrillic letter is an unbound printable key.
+        QVERIFY(!vimkeys::isCharToken(QStringLiteral("")));
+        m.handleKey(k);
+        QVERIFY(host.log.isEmpty());
+    }
+
+    void aKeyWithoutAScanCodeUsesItsText()
+    {
+        VimMachine m;
+        FakeHost host;
+        m.setHost(&host);
+        vimkeys::KeyInfo k; // a layout the platform gives no scan code for
+        k.key = int(0x043b);
+        k.text = QString(QChar(0x0434));
+        QVERIFY(m.handleKey(k)); // swallowed as an unbound key
+        QVERIFY(host.log.isEmpty());
+    }
+
+    // ---- The key table in the window ----
+
+    void whichKeyPopupInTheWindow()
+    {
+        vimopts::setTimeoutMs(60);
+        Fixture f;
+        auto* popup = f.window->vimController()->whichKey();
+        QVERIFY(popup && !popup->isVisible());
+        f.key(Qt::Key_Space);
+        QTRY_VERIFY_WITH_TIMEOUT(popup->isVisible(), 2000);
+        QVERIFY(popup->rows().contains(QStringLiteral("s  +source edits")));
+        QVERIFY(popup->title().contains(QStringLiteral("SPC")));
+        QCOMPARE(f.window->vimController()->modeLine()->pendingText(), QStringLiteral("SPC"));
+        f.type(QStringLiteral("s"));
+        QVERIFY(!popup->isVisible()); // the next key hides it ...
+        QTRY_VERIFY_WITH_TIMEOUT(popup->isVisible(), 2000); // ... and the next prefix shows its own
+        QVERIFY(popup->rows().contains(QStringLiteral("i  insert the source clip")));
+        f.key(Qt::Key_Escape);
+        QVERIFY(!popup->isVisible());
+        QVERIFY(f.window->vimController()->modeLine()->pendingText().isEmpty());
+        // Turning the option off hides it too.
+        f.key(Qt::Key_Space);
+        QTRY_VERIFY_WITH_TIMEOUT(popup->isVisible(), 2000);
+        f.actions.action(QLatin1String(vimopts::kActionId))->setChecked(false);
+        QVERIFY(!popup->isVisible());
+    }
+
+    void spaceSpacePlaysInNormalAndSpacePlaysInInsert()
+    {
+        Fixture f;
+        int plays = 0;
+        connect(f.actions.action(QStringLiteral("transport.play_pause")), &QAction::triggered, this,
+            [&] { ++plays; });
+        f.key(Qt::Key_Space);
+        QCOMPARE(plays, 0); // the leader
+        f.key(Qt::Key_Space);
+        QCOMPARE(plays, 1);
+        f.type(QStringLiteral("i"));
+        f.key(Qt::Key_Space);
+        QCOMPARE(plays, 2); // INSERT: the profile's Space
+    }
+
+    void aRussianLayoutWorksInTheWindow()
+    {
+        Fixture f;
+        auto press = [&](QChar typed, int evdev, Qt::KeyboardModifiers mods = {}) {
+            QKeyEvent ev(
+                QEvent::KeyPress, int(0x0430), mods, quint32(evdev + 8), 0, 0, QString(typed));
+            QApplication::sendEvent(QApplication::focusWidget(), &ev);
+            return ev.isAccepted();
+        };
+        // "ц" is where w is: next edit point; "и" is where b is: back.
+        press(QChar(0x0446), 17);
+        QCOMPARE(f.playhead(), int64_t(40));
+        press(QChar(0x0446), 17);
+        QCOMPARE(f.playhead(), int64_t(80));
+        press(QChar(0x0438), 48);
+        QCOMPARE(f.playhead(), int64_t(40));
+        // "пп" is gg, "Ю" (Shift + the . key) is not bound; Shift + "п" is G.
+        press(QChar(0x043f), 34);
+        press(QChar(0x043f), 34);
+        QCOMPARE(f.playhead(), int64_t(0));
+        press(QChar(0x041f), 34, Qt::ShiftModifier);
+        QCOMPARE(f.playhead(), int64_t(120));
+        // The layer took them: nothing was typed into anything and no shortcut fired.
+        QCOMPARE(f.undoCount(), 1);
+        // Switched off, the typed letters are the Cyrillic ones: unbound and swallowed.
+        vimopts::setPhysicalKeys(false);
+        f.vim()->keymap()->setTimeoutMs(400); // emits optionsChanged
+        f.project.timeline()->setPlayhead(0);
+        press(QChar(0x0446), 17);
+        QCOMPARE(f.playhead(), int64_t(0));
+    }
+
+    void exCommandsEditTheKeysAndSetOptions()
+    {
+        Fixture f;
+        auto* vc = f.window->vimController();
+        QCOMPARE(vc->runCommand(QStringLiteral("nmap Q :marker add --at 9 --name K")),
+            QStringLiteral("done"));
+        f.focusTimeline();
+        f.type(QStringLiteral("Q"));
+        const auto& markers = f.project.timeline()->data().markers;
+        QCOMPARE(markers.size(), qsizetype(1));
+        QCOMPARE(markers.first().frame, int64_t(9));
+        QVERIFY(vc->runCommand(QStringLiteral("map")).contains(QStringLiteral("marker add")));
+        QCOMPARE(vc->runCommand(QStringLiteral("nunmap Q")), QStringLiteral("done"));
+        f.type(QStringLiteral("Q"));
+        QCOMPARE(markers.size(), qsizetype(1));
+        QVERIFY(vc->runCommand(QStringLiteral("nmap Q")).contains(QStringLiteral("wants")));
+        QVERIFY(vc->runCommand(QStringLiteral("set bogus=1"))
+                .contains(QStringLiteral("Unknown option")));
+        QCOMPARE(vc->runCommand(QStringLiteral("set timeoutlen=123")), QStringLiteral("done"));
+        QCOMPARE(vc->keymap()->timeoutMs(), 123);
+        // :set novim leaves Vim mode through the option, so the menu check and the stored value
+        // follow.
+        QCOMPARE(vc->runCommand(QStringLiteral("set novim")), QStringLiteral("Vim mode off"));
+        QVERIFY(!f.actions.action(QLatin1String(vimopts::kActionId))->isChecked());
+        QVERIFY(!vimopts::enabled());
+        QVERIFY(!f.vim()->active());
+        QCOMPARE(vc->runCommand(QStringLiteral("set vim")), QStringLiteral("Vim mode on"));
+        QVERIFY(f.vim()->active());
+        // :source reads a vimrc file.
+        QTemporaryDir dir;
+        QFile rc(dir.filePath(QStringLiteral("rc")));
+        QVERIFY(rc.open(QIODevice::WriteOnly));
+        rc.write("nmap Z edit.split\n");
+        rc.close();
+        QCOMPARE(vc->runCommand(QStringLiteral("source ") + rc.fileName()),
+            QStringLiteral("vimrc read"));
+        QCOMPARE(vc->keymap()->trie(QStringLiteral("timeline"), 'n').match({"Z"}).kind,
+            VimMatch::Kind::Exact);
+        QVERIFY(vc->runCommand(QStringLiteral("source ") + dir.filePath(QStringLiteral("none")))
+                .contains(QStringLiteral("No vimrc")));
+    }
+
+    void keysComeFromTheSharedTable()
+    {
+        Fixture f;
+        // The window and Keyboard Customization share one table (a child of the registry).
+        VimKeymap* table = VimKeymap::of(f.actions);
+        QCOMPARE(f.window->vimController()->keymap(), table);
+        QVERIFY(table->map(QStringLiteral("timeline"), QStringLiteral("n"), QStringLiteral("Q"),
+            {QStringLiteral("edit.split")}, {}, nullptr));
+        f.project.timeline()->setPlayhead(50);
+        f.type(QStringLiteral("Q"));
+        QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:10 50:30 80:40"));
     }
 
     void survivesRestartAndSettingsTransfer()
