@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // CopyLinkDialog implementation.
 #include "ui/help/CopyLinkDialog.h"
+#include "ui/common/DialogSizing.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -48,6 +49,7 @@ CopyLinkDialog::CopyLinkDialog(const QUrl& url, QWidget* parent)
         m_copy->setText(tr("Copied"));
     });
     connect(close, &QPushButton::clicked, this, &QDialog::reject);
+    dialogsizing::fit(this);
 }
 
 QString CopyLinkDialog::linkText() const

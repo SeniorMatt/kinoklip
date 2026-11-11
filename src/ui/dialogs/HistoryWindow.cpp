@@ -3,6 +3,7 @@
 #include "ui/dialogs/HistoryWindow.h"
 
 #include "core/Project.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SchemeColors.h"
 
@@ -62,7 +63,6 @@ HistoryWindow::HistoryWindow(Project* project, QWidget* parent)
     m_view->setItemDelegate(new HistoryDelegate(project->undoStack(), m_view));
     m_view->setAlternatingRowColors(true);
     layout->addWidget(m_view);
-    resize(kDefaultWidth, kDefaultHeight);
     applyColors();
 
     // Never move the stack under an open edit (Project::undo() refuses that too).
@@ -73,6 +73,7 @@ HistoryWindow::HistoryWindow(Project* project, QWidget* parent)
         qOverload<>(&QWidget::update));
     connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this,
         &HistoryWindow::applyColors);
+    dialogsizing::fit(this, QSize(kDefaultWidth, kDefaultHeight));
 }
 
 bool HistoryWindow::eventFilter(QObject* watched, QEvent* event)

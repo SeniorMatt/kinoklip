@@ -9,6 +9,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/MediaImport.h"
 #include "ui/common/TimecodeFormat.h"
 
@@ -106,6 +107,7 @@ ClipAttributesDialog::ClipAttributesDialog(const MediaItem& item, int count, QWi
     layout->addWidget(location);
     layout->addWidget(m_tabs);
     layout->addWidget(buttons);
+    dialogsizing::fit(this);
 }
 
 QWidget* ClipAttributesDialog::buildVideoTab(const MediaItem& item)

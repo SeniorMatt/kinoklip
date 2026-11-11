@@ -3,6 +3,7 @@
 // The standard pages themselves are in PreferencePages.cpp.
 #include "ui/dialogs/PreferencesDialog.h"
 
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SettingsPages.h"
 #include "ui/common/TextFit.h"
@@ -108,7 +109,6 @@ PreferencesDialog::PreferencesDialog(const SettingsPageRegistry* registry, QWidg
     : QDialog(parent)
 {
     setWindowTitle(tr("Preferences"));
-    resize(kDialogSize);
 
     // Without a registry (tests, tools) the dialog shows the standard pages.
     SettingsPageRegistry standard;
@@ -164,10 +164,8 @@ PreferencesDialog::PreferencesDialog(const SettingsPageRegistry* registry, QWidg
             m_pages.append(page);
         }
         layout->addStretch(1);
-        auto* scroll = new QScrollArea;
+        auto* scroll = new PageScrollArea;
         scroll->setWidget(content);
-        scroll->setWidgetResizable(true);
-        scroll->setFrameShape(QFrame::NoFrame);
         m_stack->addWidget(scroll);
 
         auto* item = new QListWidgetItem(section.title, m_sections);
@@ -202,6 +200,8 @@ PreferencesDialog::PreferencesDialog(const SettingsPageRegistry* registry, QWidg
     const int userTab = int(m_groupIds.indexOf(QStringLiteral("user")));
     m_groups->setCurrentIndex(std::max(0, userTab));
     showGroup(m_groups->currentIndex());
+    // Big enough for the widest and tallest section of both tabs (spec 73).
+    dialogsizing::fit(this, kDialogSize);
 }
 
 void PreferencesDialog::showGroup(int group)
