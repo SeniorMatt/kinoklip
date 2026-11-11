@@ -14,13 +14,14 @@
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/StandardActions.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QWidget>
-#include <QAction>
 
 #include <algorithm>
 #include <cmath>
@@ -1160,6 +1161,15 @@ void TimelineController::connectActions()
         if (QAction* a = reg->action(QLatin1String(id)))
             connect(a, &QAction::triggered, this, slot);
     };
+    // Edit > Cut, Copy, Paste, Delete and Select All act on the nodes while a node editor has
+    // focus (CompositingPage); the timeline leaves them alone then (spec 82).
+    auto onTimeline = [this, reg](const char* id, auto slot) {
+        if (QAction* a = reg->action(QLatin1String(id)))
+            connect(a, &QAction::triggered, this, [this, slot] {
+                if (!nodeEditorHasFocus())
+                    (this->*slot)();
+            });
+    };
     auto toggle = [this, reg](const char* id, auto fn) {
         if (QAction* a = reg->action(QLatin1String(id)))
             connect(a, &QAction::toggled, this, fn);
@@ -1229,13 +1239,13 @@ void TimelineController::connectActions()
             [this, n] { toggleAutoSelectByNumber(TrackType::Audio, n); });
     }
     on("edit.split", &TimelineController::splitAtPlayhead);
-    on("edit.delete", &TimelineController::deleteSelection);
+    onTimeline("edit.delete", &TimelineController::deleteSelection);
     on("edit.ripple_delete", &TimelineController::rippleDeleteSelection);
-    on("edit.cut", &TimelineController::cut);
-    on("edit.copy", &TimelineController::copy);
-    on("edit.paste", &TimelineController::paste);
+    onTimeline("edit.cut", &TimelineController::cut);
+    onTimeline("edit.copy", &TimelineController::copy);
+    onTimeline("edit.paste", &TimelineController::paste);
     on("edit.paste_insert", &TimelineController::pasteInsert);
-    on("edit.select_all", &TimelineController::selectAll);
+    onTimeline("edit.select_all", &TimelineController::selectAll);
     on("edit.deselect_all", &TimelineController::deselectAll);
     on("edit.insert", [this] { sourceEdit(SourceEditMode::Insert); });
     on("edit.overwrite", [this] { sourceEdit(SourceEditMode::Overwrite); });

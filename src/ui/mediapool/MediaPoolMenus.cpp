@@ -8,15 +8,16 @@
 #include "core/Project.h"
 #include "media/MediaSource.h"
 #include "pack/EmbeddedMedia.h"
-#include "platform/OpenUrl.h"
 #include "platform/FileDialogs.h"
 #include "platform/FileManager.h"
+#include "platform/OpenUrl.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/FolderImport.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
 #include "ui/common/MediaStore.h"
+#include "ui/common/MenuLayouts.h"
 #include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolPanel.h"
@@ -76,8 +77,11 @@ void MediaPoolPanel::addColorMenu(QMenu& menu, const QStringList& ids)
         else if (c != shared)
             same = false;
     }
+    int shown = 0;
     for (const PaletteColor& c : clipColorPalette()) {
         const QString colorId = QLatin1String(c.id);
+        if (menulayout::paletteBreakBefore(shown++))
+            sub->addSeparator();
         QAction* a = sub->addAction(swatch(QColor(c.rgb)), clipColorName(colorId), this,
             [this, ids, colorId] { setClipColor(ids, colorId); });
         a->setCheckable(true);
@@ -98,6 +102,8 @@ void MediaPoolPanel::addFlagMenu(QMenu& menu, const QStringList& ids)
     }
     for (int i = 0; i < int(flagPalette().size()); ++i) {
         const bool on = (all & (1u << i)) != 0;
+        if (menulayout::paletteBreakBefore(i))
+            sub->addSeparator();
         QAction* a = sub->addAction(
             swatch(flagColor(i)), flagName(i), this, [this, ids, i, on] { setFlag(ids, i, !on); });
         a->setCheckable(true);
@@ -212,6 +218,162 @@ void MediaPoolPanel::revealInFileManager(const QString& id)
     platform::openUrl(QUrl::fromLocalFile(QFileInfo(item->path).absolutePath()));
 }
 
+void MediaPoolPanel::addFileRepairCommands(
+    QMenu& menu, const QStringList& ids, const QString& current, bool power)
+{
+    const MediaItem* currentItem = m_model->item(current);
+    // A single-file project: linked files of the selection can be copied in.
+    if (!power && m_ctx.mediaStore && m_ctx.mediaStore->storesMedia()) {
+        const QStringList targets = ids.contains(current) ? ids : QStringList {current};
+        const bool anyLinked
+            = std::any_of(targets.cbegin(), targets.cend(), [this](const QString& id) {
+                  const MediaItem* m = m_model->item(id);
+                  return m && !m->isTimeline() && isLinkedFile(m->path);
+              });
+        if (anyLinked) {
+            menu.addAction(tr("Store in Project File"), this,
+                [this, targets] { storeItemsInProject(m_ctx, targets, this); });
+        }
+    }
+    // Resolve's "Relink Selected Clips": offered when one of the selected items is offline.
+    const QStringList selectedIds = ids.contains(current) ? ids : QStringList {current};
+    if (!power && std::any_of(selectedIds.cbegin(), selectedIds.cend(), [this](const QString& id) {
+            return m_ctx.project->mediaPool()->isOffline(id);
+        }))
+        menu.addAction(tr("Relink Selected Clips…"), this,
+            [this, selectedIds] { relinkWithDialog(selectedIds); });
+    // Replace Selected Clip: any file, also a renamed one Relink cannot find by name.
+    if (!power && selectedIds.size() == 1 && currentItem
+        && currentItem->kind == MediaItemKind::File)
+        menu.addAction(tr("Replace Selected Clip…"), this, [this, current] {
+            const QString path = platform::getOpenFileName(this, tr("Replace Selected Clip"),
+                mediaFileDialogFilter(), QStringLiteral("paths/lastRelinkDir"));
+            QString error;
+            if (!path.isEmpty() && !replaceClip(current, path, &error))
+                QMessageBox::warning(this, tr("Replace Selected Clip"), error);
+        });
+}
+
+void MediaPoolPanel::fillStreamlinedItemMenu(QMenu& menu)
+{
+    const QStringList ids = selectedMediaIds();
+    const QString current = currentMediaId();
+    const MediaItem* currentItem = m_model->item(current);
+    const bool power = currentItem && m_model->poolOf(current) != m_ctx.project->mediaPool();
+    ActionRegistry* reg = m_ctx.actions;
+    const bool onItem = !current.isEmpty();
+    const QStringList selection = ids.contains(current) ? ids : QStringList {current};
+    // Drops a submenu that ended up empty.
+    auto dropIfEmpty = [](QMenu* sub) {
+        if (sub->actions().isEmpty())
+            delete sub; // removes its entry from the parent as well
+    };
+
+    if (onItem) {
+        // Open, rename, find the file.
+        if (currentItem && currentItem->isTimeline()) {
+            const quint64 uid = currentItem->timelineUid;
+            if (currentItem->kind == MediaItemKind::MulticamClip)
+                menu.addAction(tr("Open in Source Viewer"), this,
+                    [this, current] { emit openInSourceViewer(current); });
+            menu.addAction(tr("Open in Timeline"), this, [this, uid] { openTimeline(uid); });
+        } else if (!currentItem || !currentItem->isSubtitle()) {
+            menu.addAction(tr("Open in Source Viewer"), this, [this, current] {
+                const QStringList projectIds = ensureInProject({current});
+                if (!projectIds.isEmpty())
+                    emit openInSourceViewer(projectIds.front());
+            });
+        }
+        menu.addAction(tr("Rename"), this, &MediaPoolPanel::renameCurrentItem);
+        if (currentItem && !currentItem->isTimeline()) {
+            const bool stored = isStoredInProject(currentItem->path);
+            menu.addAction(
+                stored ? tr("Reveal Project File in File Manager") : tr("Reveal in File Manager"),
+                this, [this, current] { revealInFileManager(current); });
+        }
+        menu.addSeparator();
+        // Organise.
+        addColorMenu(menu, ids);
+        addFlagMenu(menu, ids);
+        QMenu* move = menu.addMenu(tr("Move to Bin"));
+        const QString prefix
+            = power ? QLatin1String(MediaPoolFilterModel::kPowerPrefix) : QString();
+        const MediaPool* pool = power ? m_ctx.powerBins->pool() : m_ctx.project->mediaPool();
+        move->addAction(power ? tr("Power Bins") : tr("Master"), this,
+            [this, ids, prefix] { moveItemsToBin(ids, prefix); });
+        for (const Bin& bin : pool->bins()) {
+            const QString key = prefix + bin.id;
+            move->addAction(bin.name, this, [this, ids, key] { moveItemsToBin(ids, key); });
+        }
+        menu.addSeparator();
+        // About the media.
+        if (currentItem && currentItem->kind == MediaItemKind::File) {
+            menu.addAction(tr("Clip Attributes…"), this, [this, ids, current] {
+                const QStringList projectIds
+                    = ensureInProject(ids.contains(current) ? ids : QStringList {current});
+                if (!projectIds.isEmpty())
+                    clipattributes::edit(*m_ctx.project, projectIds, this);
+            });
+        }
+        if (reg && m_ctx.media && currentItem && !currentItem->isTimeline() && !power) {
+            publishSelection();
+            QMenu* proxies = menu.addMenu(tr("Proxies and Optimized Media"));
+            proxies->setObjectName(QStringLiteral("ProxyMenu"));
+            for (const char* id : {"mediapool.generate_proxy", "mediapool.generate_optimized",
+                     "mediapool.stop_generation"})
+                addRegistered(*proxies, reg, id);
+            proxies->addSeparator();
+            for (const char* id : {"mediapool.link_proxy", "mediapool.unlink_proxy"})
+                addRegistered(*proxies, reg, id);
+            proxies->addSeparator();
+            for (const char* id : {"mediapool.delete_proxy", "mediapool.delete_optimized"})
+                addRegistered(*proxies, reg, id);
+        }
+        if (!power && currentItem && !currentItem->isTimeline()) {
+            QMenu* multicamMenu = menu.addMenu(tr("Multicam"));
+            multicamMenu->setObjectName(QStringLiteral("MulticamMenu"));
+            addMulticamMenu(*multicamMenu, ids);
+            dropIfEmpty(multicamMenu);
+        }
+        menu.addSeparator();
+        menu.addAction(icon(QStringLiteral("remove")),
+            selection.size() > 1 ? tr("Delete %1 Items").arg(selection.size()) : tr("Delete"), this,
+            [this, selection] { confirmAndDelete(selection); });
+        menu.addSeparator();
+    }
+    // Adding to the pool and looking after it.
+    QMenu* add = menu.addMenu(tr("Add"));
+    add->setObjectName(QStringLiteral("AddToPoolMenu"));
+    add->addAction(icon(QStringLiteral("import")), tr("Import Media…"), this,
+        &MediaPoolPanel::importWithDialog);
+    if (!MediaPoolFilterModel::isSmartKey(currentBinKey())
+        && !MediaPoolFilterModel::isPowerKey(currentBinKey()))
+        add->addAction(icon(QStringLiteral("folder")), tr("Import Media Folder…"), this,
+            [this] { importFolderWithDialog(currentBinKey()); });
+    add->addAction(icon(QStringLiteral("folder")), tr("New Bin"), this,
+        [this] { createBin(tr("New Bin"), currentBinKey()); });
+    add->addAction(icon(QStringLiteral("smart_bin")), tr("New Smart Bin…"), this,
+        &MediaPoolPanel::newSmartBinWithDialog);
+    addRegistered(*add, reg, "timeline.new");
+    QMenu* tools = menu.addMenu(tr("Media Tools"));
+    tools->setObjectName(QStringLiteral("MediaToolsMenu"));
+    if (onItem && currentItem && !currentItem->isTimeline())
+        addFileRepairCommands(*tools, ids, current, power);
+    if (onItem && !power && reg)
+        addRegistered(*tools, reg, "mediapool.select_in_timeline");
+    if (!tools->actions().isEmpty())
+        tools->addSeparator();
+    if (reg && reg->contains(QStringLiteral("mediapool.remove_unused")))
+        addRegistered(*tools, reg, "mediapool.remove_unused");
+    else
+        tools->addAction(tr("Remove Unused Clips…"), this, [this] { removeUnusedClips(true); });
+    // Only offered when something is offline (one stat per item when the menu opens).
+    const auto& items = m_ctx.project->mediaPool()->state().items;
+    if (std::any_of(items.cbegin(), items.cend(),
+            [](const MediaItem& m) { return !m.isTimeline() && !media::mediaExists(m.path); }))
+        tools->addAction(tr("Relink Offline Media…"), this, [this] { relinkWithDialog(); });
+}
+
 void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
 {
     const QStringList ids = selectedMediaIds();
@@ -220,6 +382,11 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
     const MediaItem* currentItem = m_model->item(current);
     const bool power = currentItem && m_model->poolOf(current) != m_ctx.project->mediaPool();
     ActionRegistry* reg = m_ctx.actions;
+    if (menulayout::streamlined()) {
+        fillStreamlinedItemMenu(menu);
+        menu.exec(globalPos);
+        return;
+    }
     if (currentItem && currentItem->isTimeline()) {
         const quint64 uid = currentItem->timelineUid;
         if (currentItem->kind == MediaItemKind::MulticamClip)
@@ -255,36 +422,7 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
         menu.addAction(
             stored ? tr("Reveal Project File in File Manager") : tr("Reveal in File Manager"), this,
             [this, current] { revealInFileManager(current); });
-        // A single-file project: linked files of the selection can be copied in.
-        if (!power && m_ctx.mediaStore && m_ctx.mediaStore->storesMedia()) {
-            const QStringList targets = ids.contains(current) ? ids : QStringList {current};
-            const bool anyLinked
-                = std::any_of(targets.cbegin(), targets.cend(), [this](const QString& id) {
-                      const MediaItem* m = m_model->item(id);
-                      return m && !m->isTimeline() && isLinkedFile(m->path);
-                  });
-            if (anyLinked) {
-                menu.addAction(tr("Store in Project File"), this,
-                    [this, targets] { storeItemsInProject(m_ctx, targets, this); });
-            }
-        }
-        // Resolve's "Relink Selected Clips": offered when one of the selected items is offline.
-        const QStringList selectedIds = ids.contains(current) ? ids : QStringList {current};
-        if (!power
-            && std::any_of(selectedIds.cbegin(), selectedIds.cend(),
-                [this](const QString& id) { return m_ctx.project->mediaPool()->isOffline(id); }))
-            menu.addAction(tr("Relink Selected Clips…"), this,
-                [this, selectedIds] { relinkWithDialog(selectedIds); });
-        // Replace Selected Clip: any file, also a renamed one Relink cannot find by name.
-        if (!power && selectedIds.size() == 1 && currentItem
-            && currentItem->kind == MediaItemKind::File)
-            menu.addAction(tr("Replace Selected Clip…"), this, [this, current] {
-                const QString path = platform::getOpenFileName(this, tr("Replace Selected Clip"),
-                    mediaFileDialogFilter(), QStringLiteral("paths/lastRelinkDir"));
-                QString error;
-                if (!path.isEmpty() && !replaceClip(current, path, &error))
-                    QMessageBox::warning(this, tr("Replace Selected Clip"), error);
-            });
+        addFileRepairCommands(menu, ids, current, power);
         // Clip Attributes (attrs branch) of the selected file items; power bin items are
         // copied into the project first, the dialog edits project items only.
         if (currentItem && currentItem->kind == MediaItemKind::File) {
@@ -441,6 +579,9 @@ void MediaPoolPanel::showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos)
         if (kind != BinList::RowKind::PowerRoot && kind != BinList::RowKind::PowerBin)
             menu.addAction(icon(QStringLiteral("smart_bin")), tr("New Smart Bin…"), this,
                 &MediaPoolPanel::newSmartBinWithDialog);
+        // Streamlined (spec 82): making bins, then changing this one, then the bin list.
+        if (menulayout::streamlined())
+            menu.addSeparator();
         if (kind == BinList::RowKind::ProjectBin || kind == BinList::RowKind::PowerBin) {
             menu.addAction(tr("Rename Bin"), this, [this, item] { m_bins->editItem(item); });
             menu.addAction(icon(QStringLiteral("remove")), tr("Delete Bin"), this,

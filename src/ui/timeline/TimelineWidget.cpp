@@ -15,6 +15,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaManagement.h"
+#include "ui/common/MenuLayouts.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/common/UiAnimation.h"
 #include "ui/timeline/ClipColorMenu.h"
@@ -792,6 +793,207 @@ void TimelineWidget::addTrackHeightMenu(QMenu& menu, TrackRef ref, bool allTrack
     }
 }
 
+void TimelineWidget::addMulticamAngleMenu(QMenu& menu, quint64 id)
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const auto lookup = m_ctx.project->timelineLookup();
+    const ClipData* clip = editops::clipById(data, id);
+    if (!clip || !multicam::isMulticamClip(*clip, lookup))
+        return;
+    // Multicam clips: angle switch per side, edit the angles, flatten.
+    const TimelineData* mc = lookup(clip->nestedUid);
+    QMenu* angles = menu.addMenu(tr("Switch Multicam Clip Angle"));
+    angles->setObjectName(QStringLiteral("SwitchAngleMenu"));
+    const multicam::MulticamParts parts = multicam::parts(data, id);
+    const std::pair<multicam::AngleTarget, QString> sides[] = {
+        {multicam::AngleTarget::Both, tr("Video and Audio")},
+        {multicam::AngleTarget::Video, tr("Video")},
+        {multicam::AngleTarget::Audio, tr("Audio")},
+    };
+    for (const auto& [target, text] : sides) {
+        const multicam::AngleTarget side = target;
+        if ((side == multicam::AngleTarget::Video && parts.video.isEmpty())
+            || (side == multicam::AngleTarget::Audio && parts.audio.isEmpty()))
+            continue;
+        QMenu* sub = angles->addMenu(text);
+        const quint64 shownBy = side == multicam::AngleTarget::Audio && !parts.audio.isEmpty()
+            ? parts.audio.first()
+            : (!parts.video.isEmpty() ? parts.video.first() : id);
+        const int current = editops::clipById(data, shownBy)->multicamAngle;
+        for (int a = 0; a < multicam::angleCount(*mc); ++a) {
+            QAction* act = sub->addAction(
+                QStringLiteral("%1  %2").arg(a + 1).arg(multicam::angleName(*mc, a)), this,
+                [this, id, a, side] { m_controller->switchMulticamAngle(id, a, side); });
+            act->setCheckable(true);
+            act->setChecked(side != multicam::AngleTarget::Both && a == current);
+        }
+    }
+}
+
+void TimelineWidget::addRemoveTransitionsEntry(QMenu& menu, quint64 id, TrackRef track)
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const ClipData* clip = editops::clipById(data, id);
+    const TrackData* clipTrack = data.track(track);
+    const bool editable = clipTrack && !clipTrack->locked;
+    if (editable && clip && (clip->transitionIn || clip->transitionOut)) {
+        menu.addAction(tr("Remove Transitions"), this, [this, id] {
+            m_ctx.project->beginEdit(tr("Remove Transitions"));
+            if (ClipData* c = editops::clipById(m_ctx.project->timeline()->mutableData(), id)) {
+                c->transitionIn.reset();
+                c->transitionOut.reset();
+            }
+            m_ctx.project->endEdit();
+        });
+    }
+}
+
+void TimelineWidget::addTransitionAlignmentMenus(QMenu& menu, quint64 id, TrackRef track)
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const ClipData* clip = editops::clipById(data, id);
+    const TrackData* clipTrack = data.track(track);
+    const bool editable = clipTrack && !clipTrack->locked;
+    // Alignment of the transitions at a cut (spec 13.5).
+    if (editable && clip) {
+        for (const bool head : {true, false}) {
+            const auto& slot = head ? clip->transitionIn : clip->transitionOut;
+            if (!slot || !editops::cutNeighbour(data, id, head))
+                continue;
+            QMenu* sub = menu.addMenu(
+                head ? tr("Transition Alignment (Start)") : tr("Transition Alignment (End)"));
+            const std::pair<TransitionAlignment, QString> choices[] = {
+                {TransitionAlignment::EndOnCut, tr("End on Edit")},
+                {TransitionAlignment::Centre, tr("Centre on Edit")},
+                {TransitionAlignment::StartOnCut, tr("Start on Edit")},
+            };
+            for (const auto& [alignment, text] : choices) {
+                QAction* a = sub->addAction(text, this, [this, id, head, alignment] {
+                    m_controller->setTransitionAlignment(id, head, alignment);
+                });
+                a->setCheckable(true);
+                a->setChecked(slot->alignment == alignment);
+            }
+        }
+    }
+}
+
+void TimelineWidget::addRemoveEffectsEntry(QMenu& menu, quint64 id, TrackRef track)
+{
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const ClipData* clip = editops::clipById(data, id);
+    const TrackData* clipTrack = data.track(track);
+    const bool editable = clipTrack && !clipTrack->locked;
+    if (editable && clip && !clip->effects.isEmpty()) {
+        menu.addAction(tr("Remove Effects"), this, [this, id] {
+            m_ctx.project->beginEdit(tr("Remove Effects"));
+            if (ClipData* c = editops::clipById(m_ctx.project->timeline()->mutableData(), id))
+                c->effects.clear();
+            m_ctx.project->endEdit();
+        });
+    }
+}
+
+void TimelineWidget::streamlinedClipMenu(QMenu& menu, const TimelineHit& hit)
+{
+    ActionRegistry* reg = m_ctx.actions;
+    if (!reg)
+        return;
+    const TimelineData& data = m_ctx.project->timeline()->data();
+    const quint64 id = hit.clipId;
+    const ClipData* clip = editops::clipById(data, id);
+    const TrackData* track = data.track(hit.track);
+    const bool editable = track && !track->locked;
+    const bool multi = m_selected.size() > 1;
+    const auto lookup = m_ctx.project->timelineLookup();
+    const bool isMulticam = clip && multicam::isMulticamClip(*clip, lookup);
+    const bool clipboardFull = !m_controller->clipboard().isEmpty();
+    auto add = [&](QMenu& into, const char* actionId, const QString& label = {}) {
+        return menulayout::addCommand(&into, *reg, QLatin1String(actionId), label);
+    };
+
+    // Clipboard.
+    add(menu, "edit.cut");
+    add(menu, "edit.copy");
+    if (clipboardFull)
+        add(menu, "edit.paste");
+    menu.addSeparator();
+    // Edit.
+    add(menu, "edit.split", tr("Split at Playhead"));
+    add(menu, "clip.toggle_enabled",
+        clip && !clip->enabled ? tr("Enable Clip") : tr("Disable Clip"));
+    if (editable)
+        add(menu, "timeline.add_transition", tr("Add Transition"));
+    menu.addSeparator();
+    // Clip properties.
+    QMenu* speed = menu.addMenu(tr("Speed and Duration"));
+    speed->setObjectName(QStringLiteral("SpeedAndDurationMenu"));
+    add(*speed, "clip.change_speed", tr("Change Speed…"));
+    add(*speed, "clip.change_duration", tr("Change Duration…"));
+    speed->addSeparator();
+    add(*speed, "clip.retime_controls", tr("Retime Controls"));
+    add(*speed, "clip.retime_curve", tr("Retime Curve"));
+    add(*speed, "clip.freeze_frame", tr("Freeze Frame"));
+    if (clip && clip->linkGroup != 0)
+        add(menu, "clip.unlink", tr("Unlink"));
+    else if (multi)
+        add(menu, "clip.link", tr("Link"));
+    if (clip && clip->kind == ClipKind::Media)
+        add(menu, "clip.attributes", tr("Attributes…"));
+    if (editable) {
+        menu.addSeparator();
+        add(menu, "edit.delete", tr("Delete"));
+        add(menu, "edit.ripple_delete", tr("Ripple Delete"));
+    }
+
+    // The rest, in one submenu so the menu stays short.
+    QMenu* more = menu.addMenu(tr("More"));
+    more->setObjectName(QStringLiteral("MoreClipMenu"));
+    addClipColorMenus(*more, m_ctx, m_ctx.selection->clips(), this);
+    if (hit.track.type == TrackType::Audio || (clip && clip->linkGroup != 0))
+        add(*more, "clip.normalize_audio", tr("Normalize Audio…"));
+    if (clipboardFull)
+        add(*more, "edit.paste_attributes", tr("Paste Attributes…"));
+    if (clip && clip->kind == ClipKind::Media)
+        add(*more, "timeline.find_in_media_pool", tr("Find in Media Pool"));
+    more->addSeparator();
+    QMenu* compound = more->addMenu(tr("Compound"));
+    compound->setObjectName(QStringLiteral("CompoundMenu"));
+    add(*compound, "clip.new_compound", tr("New Compound Clip…"));
+    if (clip && clip->kind == ClipKind::Nested) {
+        add(*compound, "clip.open_in_timeline", tr("Open in Timeline"));
+        if (!isMulticam)
+            add(*compound, "clip.decompose", tr("Decompose in Place"));
+    }
+    if (isMulticam) {
+        QMenu* multicamMenu = more->addMenu(tr("Multicam"));
+        multicamMenu->setObjectName(QStringLiteral("MulticamMenu"));
+        addMulticamAngleMenu(*multicamMenu, id);
+        add(*multicamMenu, "multicam.flatten", tr("Flatten"));
+    }
+    if (clip && hit.track.type == TrackType::Video) {
+        QMenu* composition = more->addMenu(tr("Composition"));
+        composition->setObjectName(QStringLiteral("CompositionMenu"));
+        add(*composition, "clip.open_in_compositing", tr("Open in Compositing Page"));
+        add(*composition, "clip.reset_composition", tr("Reset Composition"));
+    }
+    // Remove: only what the clip has.
+    QMenu remove;
+    addRemoveTransitionsEntry(remove, id, hit.track);
+    addRemoveEffectsEntry(remove, id, hit.track);
+    const QList<QAction*> removals = remove.actions();
+    if (!removals.isEmpty()) {
+        more->addSeparator();
+        QMenu* removeMenu = more->addMenu(tr("Remove"));
+        removeMenu->setObjectName(QStringLiteral("RemoveMenu"));
+        for (QAction* a : removals) {
+            a->setParent(removeMenu);
+            removeMenu->addAction(a);
+        }
+        addTransitionAlignmentMenus(*more, id, hit.track);
+    }
+}
+
 void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
 {
     if (m_drag.mode != DragMode::None)
@@ -912,6 +1114,10 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
     case TimelineHit::Area::Clip: {
         if (!m_selected.contains(hit.clipId))
             m_ctx.selection->setClips(clickedWithLinks(hit.clipId));
+        if (menulayout::streamlined()) {
+            streamlinedClipMenu(menu, hit);
+            break;
+        }
         addAction("edit.cut");
         addAction("edit.copy");
         addAction("edit.paste");
@@ -942,35 +1148,7 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
         addAction("clip.new_compound");
         const auto lookup = m_ctx.project->timelineLookup();
         if (clip && multicam::isMulticamClip(*clip, lookup)) {
-            // Multicam clips: angle switch per side, edit the angles, flatten.
-            const TimelineData* mc = lookup(clip->nestedUid);
-            QMenu* angles = menu.addMenu(tr("Switch Multicam Clip Angle"));
-            angles->setObjectName(QStringLiteral("SwitchAngleMenu"));
-            const multicam::MulticamParts parts = multicam::parts(data, id);
-            const std::pair<multicam::AngleTarget, QString> sides[] = {
-                {multicam::AngleTarget::Both, tr("Video and Audio")},
-                {multicam::AngleTarget::Video, tr("Video")},
-                {multicam::AngleTarget::Audio, tr("Audio")},
-            };
-            for (const auto& [target, text] : sides) {
-                const multicam::AngleTarget side = target;
-                if ((side == multicam::AngleTarget::Video && parts.video.isEmpty())
-                    || (side == multicam::AngleTarget::Audio && parts.audio.isEmpty()))
-                    continue;
-                QMenu* sub = angles->addMenu(text);
-                const quint64 shownBy
-                    = side == multicam::AngleTarget::Audio && !parts.audio.isEmpty()
-                    ? parts.audio.first()
-                    : (!parts.video.isEmpty() ? parts.video.first() : id);
-                const int current = editops::clipById(data, shownBy)->multicamAngle;
-                for (int a = 0; a < multicam::angleCount(*mc); ++a) {
-                    QAction* act = sub->addAction(
-                        QStringLiteral("%1  %2").arg(a + 1).arg(multicam::angleName(*mc, a)), this,
-                        [this, id, a, side] { m_controller->switchMulticamAngle(id, a, side); });
-                    act->setCheckable(true);
-                    act->setChecked(side != multicam::AngleTarget::Both && a == current);
-                }
-            }
+            addMulticamAngleMenu(menu, id);
             addAction("clip.open_in_timeline");
             addAction("multicam.flatten");
         } else if (clip && clip->kind == ClipKind::Nested) {
@@ -987,48 +1165,9 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
             addAction("clip.reset_composition");
         }
         menu.addSeparator();
-        const TrackData* clipTrack = data.track(hit.track);
-        const bool editable = clipTrack && !clipTrack->locked;
-        if (editable && clip && (clip->transitionIn || clip->transitionOut)) {
-            menu.addAction(tr("Remove Transitions"), this, [this, id] {
-                m_ctx.project->beginEdit(tr("Remove Transitions"));
-                if (ClipData* c = editops::clipById(m_ctx.project->timeline()->mutableData(), id)) {
-                    c->transitionIn.reset();
-                    c->transitionOut.reset();
-                }
-                m_ctx.project->endEdit();
-            });
-        }
-        // Alignment of the transitions at a cut (spec 13.5).
-        if (editable && clip) {
-            for (const bool head : {true, false}) {
-                const auto& slot = head ? clip->transitionIn : clip->transitionOut;
-                if (!slot || !editops::cutNeighbour(data, id, head))
-                    continue;
-                QMenu* sub = menu.addMenu(
-                    head ? tr("Transition Alignment (Start)") : tr("Transition Alignment (End)"));
-                const std::pair<TransitionAlignment, QString> choices[] = {
-                    {TransitionAlignment::EndOnCut, tr("End on Edit")},
-                    {TransitionAlignment::Centre, tr("Centre on Edit")},
-                    {TransitionAlignment::StartOnCut, tr("Start on Edit")},
-                };
-                for (const auto& [alignment, text] : choices) {
-                    QAction* a = sub->addAction(text, this, [this, id, head, alignment] {
-                        m_controller->setTransitionAlignment(id, head, alignment);
-                    });
-                    a->setCheckable(true);
-                    a->setChecked(slot->alignment == alignment);
-                }
-            }
-        }
-        if (editable && clip && !clip->effects.isEmpty()) {
-            menu.addAction(tr("Remove Effects"), this, [this, id] {
-                m_ctx.project->beginEdit(tr("Remove Effects"));
-                if (ClipData* c = editops::clipById(m_ctx.project->timeline()->mutableData(), id))
-                    c->effects.clear();
-                m_ctx.project->endEdit();
-            });
-        }
+        addRemoveTransitionsEntry(menu, id, hit.track);
+        addTransitionAlignmentMenus(menu, id, hit.track);
+        addRemoveEffectsEntry(menu, id, hit.track);
         menu.addSeparator();
         addAction("edit.delete");
         addAction("edit.ripple_delete");

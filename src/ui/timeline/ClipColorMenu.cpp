@@ -10,6 +10,7 @@
 #include "core/Project.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
+#include "ui/common/MenuLayouts.h"
 
 #include <QCoreApplication>
 #include <QMenu>
@@ -82,8 +83,13 @@ void addClipColorMenus(
 
     QMenu* colors = menu.addMenu(tr("Clip Color"));
     colors->setObjectName(QStringLiteral("TimelineClipColorMenu"));
+    // Streamlined (spec 82.7): a palette is not a list of commands, so it may be longer than
+    // 12, but it is laid out in groups of four.
+    int shown = 0;
     for (const PaletteColor& c : clipColorPalette()) {
         const QColor value(c.rgb);
+        if (menulayout::paletteBreakBefore(shown++))
+            colors->addSeparator();
         QAction* a = colors->addAction(swatch(value), clipColorName(QLatin1String(c.id)), context,
             [project, clipIds, value] { setLabel(project, clipIds, value); });
         a->setCheckable(true);
@@ -103,6 +109,8 @@ void addClipColorMenus(
     flags->setObjectName(QStringLiteral("TimelineFlagMenu"));
     for (int i = 0; i < int(flagPalette().size()); ++i) {
         const bool on = (all & (1u << i)) != 0;
+        if (menulayout::paletteBreakBefore(i))
+            flags->addSeparator();
         QAction* a
             = flags->addAction(swatch(flagColor(i)), flagName(i), context, [project, items, i, on] {
                   project->beginEdit(on ? tr("Remove Flag") : tr("Add Flag"));

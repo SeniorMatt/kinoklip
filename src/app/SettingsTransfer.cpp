@@ -77,6 +77,7 @@ const QVector<Rule>& rules()
         add("ui/widgetStyle", Kind::Text, 0, 64);
         add("ui/colorScheme", Kind::Text, 0, 128);
         add("ui/useSystemColors", Kind::Bool);
+        add("ui/menuLayout", Kind::Choice, 0, 0, {"resolve", "streamlined"});
         add("ui/animations", Kind::Bool);
         add("ui/animationSpeed", Kind::Double, 0.1, 10);
         add("ui/scaleFactor", Kind::Text, 0, 16);

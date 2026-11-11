@@ -2,6 +2,7 @@
 // MainWindow — menu bar, interface toolbar, page stack and page bar.
 #pragma once
 
+#include "ui/common/MenuLayouts.h"
 #include "ui/common/Page.h"
 
 #include <QMainWindow>
@@ -10,6 +11,7 @@
 
 class QAction;
 class QActionGroup;
+class QMenu;
 class QStackedWidget;
 class QTimer;
 
@@ -97,6 +99,13 @@ public:
     /// Shows the window: restored geometry if available, otherwise maximised.
     void showRestored();
 
+    /// The arrangement of the menu bar in use (Preferences > UI Settings > Menu layout).
+    [[nodiscard]] menulayout::Layout menuLayout() const { return m_menuLayout; }
+    /// Rebuilds the menu bar in @p layout at once, without touching the stored preference
+    /// (the menu reference writes both). Shortcuts and check states live in the actions, so
+    /// they carry over.
+    void setMenuLayout(menulayout::Layout layout);
+
 protected:
     void closeEvent(QCloseEvent* event) override;
     void changeEvent(QEvent* event) override;
@@ -109,6 +118,10 @@ private:
     };
 
     void buildMenus();
+    /// Removes the menus of the menu bar (deleted later: this may run from one of them).
+    void discardMenus();
+    /// Streamlined layout: the menu of the page shown (Cut, Nodes, Grade), none on other pages.
+    void updatePageMenu();
     /// Drops the Alt+letter mnemonic of a menu bar title whose Alt+letter is a keyboard
     /// shortcut (Alt+V Paste Attributes, Alt+F Find in Media Pool, Alt+M Delete Marker), so the
     /// shortcut wins instead of both being ignored as ambiguous (spec 23.9).
@@ -129,6 +142,8 @@ private:
     QStackedWidget* m_stack = nullptr;
     PageBar* m_pageBar = nullptr;
     QActionGroup* m_pageActions = nullptr;
+    menulayout::Layout m_menuLayout = menulayout::Layout::Resolve;
+    QPointer<QMenu> m_pageMenu;
     QVector<PageEntry> m_pages;
     MediaPage* m_mediaPage = nullptr;
     CutPage* m_cutPage = nullptr;
