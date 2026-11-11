@@ -1268,7 +1268,10 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 onColor = strip.darker(140);
                 break;
             case HeaderButton::Arm:
-                break; // drawn disabled below (recording is deferred)
+                on = in.voiceOver.armedTrack == track.id && track.id != 0;
+                onColor
+                    = in.voiceOver.recording ? QColor(0xd0, 0x20, 0x20) : QColor(0x9c, 0x30, 0x30);
+                break;
             default:
                 break;
             }
@@ -1282,8 +1285,26 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
             }
             if (b == HeaderButton::Arm) {
                 p.setFont(m_boldFont);
-                p.setPen(sc().textDisabled);
+                const bool usable = in.voiceOver.present && in.voiceOver.available;
+                p.setPen(on ? QColor(Qt::white) : usable ? m_text : sc().textDisabled);
                 p.drawText(br, Qt::AlignCenter, qtr("R"));
+                if (on) {
+                    // Input level of the armed track: a thin bar along the header's foot.
+                    const QRect bar(46, r.bottom() - 5, kHeaderWidth - 46 - 8, 3);
+                    p.fillRect(bar, m_window.darker(150));
+                    // dBFS scale, -48 dB at the left edge; red above -6, yellow above -18.
+                    const double db = in.voiceOver.peak > 0.0f
+                        ? 20.0 * std::log10(double(in.voiceOver.peak))
+                        : -96.0;
+                    const double level = std::clamp((db + 48.0) / 48.0, 0.0, 1.0);
+                    p.fillRect(QRect(bar.left(), bar.top(), int(level * bar.width()), bar.height()),
+                        db > -6.0        ? sc().negative
+                            : db > -18.0 ? sc().neutral
+                                         : sc().positive);
+                    if (in.voiceOver.clipped)
+                        p.fillRect(QRect(bar.right() - 3, bar.top() - 1, 4, bar.height() + 2),
+                            sc().negative);
+                }
             }
             if (b == HeaderButton::AutoSelect) {
                 // Painted glyph (no icon file): a track bar with a selection tick; bright when

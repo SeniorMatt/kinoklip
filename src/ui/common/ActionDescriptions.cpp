@@ -20,7 +20,10 @@ struct Description
     const char* text;
 };
 
-#define KK_TIP(id, text) {id, QT_TRANSLATE_NOOP("kk::ActionDescriptions", text)}
+#define KK_TIP(id, text)                                                                           \
+    {                                                                                              \
+        id, QT_TRANSLATE_NOOP("kk::ActionDescriptions", text)                                      \
+    }
 
 // clang-format off
 const Description kDescriptions[] = {
@@ -448,6 +451,9 @@ const Description kDescriptions[] = {
         "Plays backwards; each further press doubles the speed."),
     KK_TIP("transport.shuttle_stop",
         "Stops playback."),
+    KK_TIP("transport.record",
+        "Counts in, then plays the timeline from the playhead and records the microphone onto the "
+        "armed audio track. Press Space or Stop to end the take."),
     KK_TIP("transport.shuttle_forward",
         "Plays forwards; each further press doubles the speed."),
     KK_TIP("transport.prev_frame",

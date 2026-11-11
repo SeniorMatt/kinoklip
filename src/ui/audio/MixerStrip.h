@@ -25,9 +25,10 @@ class PanKnob;
 /// A vertical channel strip for a track or a bus (top to bottom, Resolve's order): input,
 /// EQ and Dynamics buttons (lit when on; a click opens the small editor window), bus
 /// assignment (tracks: a menu of checkable buses; buses: "Output" makes the bus the one heard
-/// and rendered), pan knob and automation mode (tracks), record arm (disabled: recording is
-/// deferred) / mute / solo, the fader with its meter, the fader value, and the name with the
-/// channel format (right-click: Mono / Stereo; buses also Rename / Delete).
+/// and rendered), pan knob and automation mode (tracks), record arm (voice-over, spec 75;
+/// right-click: the input; a level bar shows while armed) / mute / solo, the fader with its meter,
+/// the fader value, and the name with the channel format (right-click: Mono / Stereo; buses also
+/// Rename / Delete).
 ///
 /// Every gesture is one undo step through MixerController. The strip re-reads the timeline on
 /// MixerController::mixChanged() and follows the playhead (automated faders move).
@@ -47,6 +48,7 @@ public:
     [[nodiscard]] QToolButton* dynamicsButton() const { return m_dynamics; }
     [[nodiscard]] QToolButton* muteButton() const { return m_mute; }
     [[nodiscard]] QToolButton* soloButton() const { return m_solo; }
+    [[nodiscard]] QToolButton* armButton() const { return m_arm; }
     [[nodiscard]] QToolButton* busButton() const { return m_bus; }
     [[nodiscard]] QComboBox* automationCombo() const { return m_automation; }
 
@@ -74,6 +76,7 @@ private:
     PanKnob* m_pan = nullptr;
     QComboBox* m_automation = nullptr;
     QToolButton* m_arm = nullptr;
+    QWidget* m_inputLevel = nullptr; ///< level of the microphone, shown while armed
     QToolButton* m_mute = nullptr;
     QToolButton* m_solo = nullptr;
     FaderWidget* m_fader = nullptr;

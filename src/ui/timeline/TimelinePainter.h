@@ -69,6 +69,17 @@ struct CacheBarRange
     bool cached = false;
 };
 
+/// The voice-over state the audio track headers show (spec 75), filled by the widget.
+struct VoiceOverPaint
+{
+    bool present = false; ///< a voice-over controller exists (else the arm button is inert)
+    bool available = false; ///< a microphone can be used (else the arm button is greyed out)
+    quint64 armedTrack = 0; ///< TrackData::id of the armed track, 0 = none
+    bool recording = false; ///< count-in or recording under way
+    float peak = 0.0f; ///< input level 0..1 linear
+    bool clipped = false;
+};
+
 /// What video clips show below their name band (Timeline View Options, spec 12.11).
 enum class ClipThumbnails {
     Filmstrip, ///< a thumbnail every tile width across the clip (default)
@@ -110,6 +121,8 @@ struct TimelinePaintInput
     const std::function<const TimelineData*(quint64)>* timelines = nullptr;
     /// Audio page header meters: dBFS (left, right) of an audio track by id; nullptr = none.
     const std::function<std::pair<float, float>(quint64)>* headerMeter = nullptr;
+    /// Voice-over arm buttons and the input level of the armed track's header.
+    VoiceOverPaint voiceOver;
     /// Running display animations (TimelineAnimator.h): clips are drawn at their tweened
     /// rects, plus ghosts, flashes, the playhead glide and the snap fade. nullptr (animations
     /// off or idle) = everything is drawn exactly at the model.

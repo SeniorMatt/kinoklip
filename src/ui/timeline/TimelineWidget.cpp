@@ -10,6 +10,8 @@
 #include "core/Timeline.h"
 #include "export/RenderCacheManager.h"
 #include "playback/PlaybackEngine.h"
+#include "ui/audio/VoiceOverController.h"
+#include "ui/audio/VoiceOverMenu.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/MediaManagement.h"
@@ -69,6 +71,14 @@ TimelineWidget::TimelineWidget(AppContext& ctx, TimelineController* controller, 
         };
         connect(cache, &RenderCacheManager::rangesChanged, this, syncCache);
         syncCache();
+    }
+    if (VoiceOverController* vo = ctx.voiceOver) {
+        // The arm buttons and the input level of the armed track's header.
+        auto repaint
+            = [this] { viewport()->update(0, 0, timelinemetrics::kHeaderWidth, height()); };
+        connect(vo, &VoiceOverController::armedChanged, this, repaint);
+        connect(vo, &VoiceOverController::levelChanged, this, repaint);
+        connect(vo, &VoiceOverController::stateChanged, this, repaint);
     }
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -350,6 +360,14 @@ void TimelineWidget::paintEvent(QPaintEvent*)
     in.selectedKeys = &m_ctx.selection->keyframes();
     if (m_options.headerMeter)
         in.headerMeter = &m_options.headerMeter;
+    if (const VoiceOverController* vo = m_ctx.voiceOver) {
+        in.voiceOver.present = true;
+        in.voiceOver.available = vo->problem().isEmpty();
+        in.voiceOver.armedTrack = vo->armedTrackId();
+        in.voiceOver.recording = vo->state() != VoiceOverController::State::Idle;
+        in.voiceOver.peak = vo->peak();
+        in.voiceOver.clipped = vo->clipped();
+    }
     in.thumbnails = m_thumbMode;
     in.waveforms = m_showWaveforms;
     in.sourceTimecode = m_showSourceTimecode;
@@ -823,6 +841,11 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
     case TimelineHit::Area::HeaderResize: {
         const TrackRef ref = hit.track;
         const TrackData* track = data.track(ref);
+        if (hit.button == HeaderButton::Arm && track && ref.type == TrackType::Audio) {
+            fillVoiceOverInputMenu(menu, m_ctx.voiceOver, track->id); // right-click on R
+            menu.exec(event->globalPos());
+            return;
+        }
         menu.addAction(tr("Rename Track…"), this, [this, ref, track] {
             bool ok = false;
             const QString name = QInputDialog::getText(
@@ -843,6 +866,13 @@ void TimelineWidget::contextMenuEvent(QContextMenuEvent* event)
                 [this, ref] { m_controller->toggleTrackFlag(ref, TimelineController::FlagMuted); });
             menu.addAction(track->solo ? tr("Unsolo Track") : tr("Solo Track"), this,
                 [this, ref] { m_controller->toggleTrackFlag(ref, TimelineController::FlagSolo); });
+            if (m_ctx.voiceOver) {
+                const quint64 id = track->id;
+                VoiceOverController* vo = m_ctx.voiceOver;
+                menu.addAction(vo->isArmed(id) ? tr("Disarm Voice-Over") : tr("Arm for Voice-Over"),
+                    this, [vo, id] { vo->toggleArm(id); });
+                fillVoiceOverInputMenu(*menu.addMenu(tr("Voice-Over Input")), vo, id);
+            }
         }
         menu.addSeparator();
         // Move Track Up / Down (spec 12.9): on screen, so the outermost track cannot move out.

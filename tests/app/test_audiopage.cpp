@@ -196,7 +196,8 @@ private slots:
         QVERIFY(audioRow >= 0 && videoRow >= 0);
         QVERIFY(L.rowRect(audioRow).height() >= 2 * timelinemetrics::kDefaultAudioHeight);
         QCOMPARE(L.rowRect(videoRow).height(), timelinemetrics::kMinTrackHeight);
-        // Audio page headers: record arm and a meter; the Edit page has neither.
+        // Audio page headers: record arm and a meter; the Edit page has the arm button only
+        // (voice-over, spec 75).
         QVERIFY(!L.headerButtonRect(audioRow, HeaderButton::Arm).isEmpty());
         QVERIFY(!L.headerMeterRect(audioRow).isEmpty());
         // Round 2 polish: the buttons go to a second line so the track name has the first
@@ -210,9 +211,11 @@ private slots:
         }
         QVERIFY(L.headerMeterRect(audioRow).left() - patch.right() > 100); // name room
         const TimelineLayout& edit = f.window->editPage()->timeline()->timelineWidget()->layout();
-        QVERIFY(edit.headerButtonRect(edit.rowOf(TrackRef {TrackType::Audio, 0}), HeaderButton::Arm)
-                    .isEmpty());
-        // The arm button does nothing (recording is deferred): no undo step.
+        const int editRow = edit.rowOf(TrackRef {TrackType::Audio, 0});
+        QVERIFY(!edit.headerButtonRect(editRow, HeaderButton::Arm).isEmpty());
+        QVERIFY(edit.headerMeterRect(editRow).isEmpty());
+        // Arming is not an edit (and without a voice-over controller in this fixture it does
+        // nothing at all): no undo step.
         const int before = f.steps();
         QWidget* vp = f.audio()->timeline()->viewport();
         const QPoint arm = L.headerButtonRect(audioRow, HeaderButton::Arm).center();

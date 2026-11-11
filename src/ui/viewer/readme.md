@@ -23,6 +23,7 @@ Owned by the playback agent. Widgets on top of `src/playback` (engine, source pl
 | `ViewerOffline.cpp` | ViewerPanel part: the "Media Offline" notice when the clip shown has no file (`MediaPool::isOffline()`, spec 24.8) |
 | `TrimTwoUpView.h` | Timeline mode: the two-up trim view (spec 8.15, 8.19): exact source frames from `MediaCache::frame()` (default), or with Preferences > Editing "Trim view shows effects and transforms" each clip alone rendered by the program compositor (`setProgramSource()`, `Pictures::Program`, GPU only); one request in flight per side; `ViewerPanel::setTrimPreview()` |
 | `ScrubBar.h` | jog/scrub strip: duration, in/out band with brackets, playhead; drag to scrub, wheel = one frame |
+| `RecordOverlay.h` | the voice-over count-in numbers and the REC mark over the picture (a child of the surface; passes mouse events through) |
 | `ViewerTransport.h` | routes the playback-owned global actions to the **active** viewer, J/K/L hold detection, full-screen viewer |
 
 ## Behaviour
@@ -94,7 +95,7 @@ and decode angles at reduced size when no proxy exists.
 `transport.play_pause` (Space), `transport.shuttle_reverse/stop/forward` (J/K/L, auto-repeat
 off), `transport.prev_frame/next_frame` (arrows), `transport.back_1s/forward_1s`
 (Shift+arrows), `transport.play_in_out` (Alt+/), `transport.play_around` (/), `transport.play_reverse` (Shift+Space),
-`view.fullscreen_viewer` (Ctrl+F). **Not** `transport.prev_edit/next_edit/go_to_start/go_to_end`
+`view.fullscreen_viewer` (Ctrl+F), `transport.record` (Ctrl+Alt+R: `VoiceOverController::toggleRecording()`; Space / K / the Play and Stop buttons cancel a count-in instead of starting playback). **Not** `transport.prev_edit/next_edit/go_to_start/go_to_end`
 (timeline module) and not `transport.loop` (each viewer applies the toggle).
 
 ## Performance

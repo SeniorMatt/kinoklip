@@ -7,6 +7,7 @@
 #include "media/MediaCache.h"
 #include "platform/FileDialogs.h"
 #include "playback/AudioDeviceMonitor.h"
+#include "playback/AudioInput.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/Metrics.h"
@@ -396,6 +397,37 @@ public:
                     "used as soon as it is saved; while it is not connected, the system's "
                     "device plays instead.")));
         fillDevices(prefs::audioOutputDevice());
+
+        // Voice-over (spec 75).
+        m_input = new QComboBox;
+        m_input->setObjectName(QStringLiteral("AudioInputDevice"));
+        form->addRow(tr("Input device"), m_input);
+        m_countIn = new QSpinBox;
+        m_countIn->setObjectName(QStringLiteral("VoiceOverCountIn"));
+        m_countIn->setRange(0, 10);
+        m_countIn->setSuffix(tr(" s"));
+        m_countIn->setSpecialValueText(tr("None"));
+        m_countIn->setValue(prefs::voiceOverCountInSeconds());
+        form->addRow(tr("Voice-over count-in"), m_countIn);
+        m_latency = new QSpinBox;
+        m_latency->setObjectName(QStringLiteral("VoiceOverLatency"));
+        m_latency->setRange(0, 1000);
+        m_latency->setSuffix(tr(" ms"));
+        m_latency->setValue(prefs::voiceOverLatencyMs());
+        form->addRow(tr("Voice-over extra latency"), m_latency);
+        m_bits = new QComboBox;
+        m_bits->setObjectName(QStringLiteral("VoiceOverBits"));
+        m_bits->addItem(tr("24-bit"), 24);
+        m_bits->addItem(tr("16-bit"), 16);
+        m_bits->setCurrentIndex(std::max(0, m_bits->findData(prefs::voiceOverBits())));
+        form->addRow(tr("Voice-over WAV format"), m_bits);
+        form->addRow(QString(),
+            note(tr("Voice-over records onto an armed audio track (the R button of the track) "
+                    "while the timeline plays. The input is never played back through the "
+                    "speakers, so use headphones for the timeline's sound. Kinoklip adds the "
+                    "size of the input's buffer to the extra latency to line the take up with "
+                    "the picture; raise the extra latency if your voice comes in late.")));
+        fillInputs(prefs::audioInputDevice());
         // Devices connected or removed (and a new system default) while the dialog is open.
         connect(AudioDeviceMonitor::instance(), &AudioDeviceMonitor::outputsChanged, this,
             [this] { fillDevices(m_device->currentData().toString()); });
@@ -404,6 +436,11 @@ public:
     void apply() override
     {
         QSettings().setValue(QLatin1String(prefs::kAudioOutputDevice), m_device->currentData());
+        QSettings s;
+        s.setValue(QLatin1String(prefs::kAudioInputDevice), m_input->currentData());
+        s.setValue(QLatin1String(prefs::kVoiceOverCountIn), m_countIn->value());
+        s.setValue(QLatin1String(prefs::kVoiceOverLatencyMs), m_latency->value());
+        s.setValue(QLatin1String(prefs::kVoiceOverBits), m_bits->currentData());
         // Every playback output switches now, also in the middle of a play.
         AudioDeviceMonitor::instance()->reloadPreference();
     }
@@ -430,7 +467,29 @@ private:
         m_device->setCurrentIndex(std::max(0, index));
     }
 
+    /// Rebuilds the recording input list; @p selectedId "" = the system's default input.
+    void fillInputs(const QString& selectedId)
+    {
+        m_input->clear();
+        const QList<AudioInputDevice> devices = systemAudioInputs();
+        m_input->addItem(devices.isEmpty() ? tr("Automatic (no input device)")
+                                           : tr("Automatic (%1)").arg(devices.first().description),
+            QString());
+        for (const AudioInputDevice& d : devices)
+            m_input->addItem(d.description, QString::fromUtf8(d.id));
+        int index = m_input->findData(selectedId);
+        if (index < 0 && !selectedId.isEmpty()) {
+            m_input->addItem(tr("%1 (not connected)").arg(selectedId), selectedId);
+            index = m_input->count() - 1;
+        }
+        m_input->setCurrentIndex(std::max(0, index));
+    }
+
     QComboBox* m_device = nullptr;
+    QComboBox* m_input = nullptr;
+    QSpinBox* m_countIn = nullptr;
+    QSpinBox* m_latency = nullptr;
+    QComboBox* m_bits = nullptr;
 };
 
 // ---- User: UI Settings ---------------------------------------------------------------

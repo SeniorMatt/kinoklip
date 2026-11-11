@@ -247,7 +247,8 @@ Display only: the model and the undo stack change instantly, hit tests use the m
 ```
 Idle --press--> [area/tool decides]
   ruler                      -> Scrub (immediately; snaps to edges/marks when snapping is on)
-  header button              -> toggle (one undo step), back to Idle
+  header button              -> toggle (one undo step), back to Idle (the R button arms the
+                                track for voice-over, spec 75: no edit; right-click: input menu)
   header bottom edge         -> ResizeTrack
   middle button              -> Pan
   blade tool on a clip       -> split clip + linked clips at the pointer (one undo step)
