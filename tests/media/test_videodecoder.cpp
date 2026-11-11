@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // test_videodecoder — frame-exact seeking, sequential decoding, VFR, rotation, alpha, stills.
 #include "MediaTestUtil.h"
+#include "core/SessionLog.h"
 #include "media/HwAccel.h"
 #include "media/VideoDecoder.h"
 
 #include <QRandomGenerator>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QtConcurrent>
 
@@ -123,6 +125,37 @@ private slots:
         qputenv("KINOKLIP_SW_THREADS", "3");
         QCOMPARE(autoSoftwareThreads(3840, 2160, 8), 3);
         qunsetenv("KINOKLIP_SW_THREADS");
+    }
+
+    /// Spec 77.5: a tester's log must say why a file is decoded in software. Without a usable
+    /// GPU the "decoding ..." line carries the reason of every backend that was tried.
+    void theOpenLineSaysWhyHardwareIsNotUsed()
+    {
+        bool anyHardware = false;
+        for (const HwDeviceInfo& backend : hwCapabilities())
+            anyHardware = anyHardware || backend.available;
+        if (anyHardware)
+            QSKIP("a hardware backend works here: nothing to explain");
+        QTemporaryDir dir;
+        const QString copy = dir.filePath(QStringLiteral("explained.mp4"));
+        QVERIFY(QFile::copy(test::fixture("hevc10.mp4"), copy));
+        sessionlog::installMessageHandler();
+        sessionlog::buffer().clear();
+        VideoDecoder decoder;
+        decoder.setHwAccel(HwAccelMode::Auto);
+        QVERIFY(decoder.open(copy));
+        QCOMPARE(decoder.activeHwAccel(), HwAccelMode::Off);
+        QStringList lines;
+        for (const sessionlog::Entry& e : sessionlog::buffer().entries()) {
+            if (e.category == QLatin1String("kk.media")
+                && e.text.contains(QStringLiteral("decoding explained.mp4")))
+                lines << e.text;
+        }
+        QCOMPARE(lines.size(), 1);
+        QVERIFY2(
+            lines.first().contains(QStringLiteral("with software")), qPrintable(lines.first()));
+        QVERIFY2(lines.first().contains(QStringLiteral("VAAPI unavailable: ")),
+            qPrintable(lines.first()));
     }
 
     void initTestCase()

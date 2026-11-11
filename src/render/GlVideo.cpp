@@ -3,6 +3,7 @@
 #include "render/GlVideo.h"
 
 #include "media/HdrToSdr.h"
+#include "render/GlDmaBuf.h"
 #include "render/YuvMath.h"
 
 #include <string>
@@ -132,6 +133,28 @@ void GlVideo::upload(
 {
     if (t.uploaded == frame)
         return; // same decoded frame as last time: textures are current
+    if (frame->dmabuf) {
+        // Zero copy: the planes stay in GPU memory. If the GPU cannot import them, the same
+        // picture is downloaded (slow, but never a black frame) and the importer is switched
+        // off by the caller (see GlRenderer).
+        if (m_dmabuf && m_dmabuf->usable() && m_dmabuf->import(kit, t, *frame, &m_importError)) {
+            ++m_imported;
+        } else {
+            ++m_fallbacks;
+            if (const auto cpu = frame->dmabuf->download()) {
+                uploadPlanes(kit, t, *cpu);
+            }
+        }
+        t.uploaded = frame;
+        return;
+    }
+    uploadPlanes(kit, t, *frame);
+    t.uploaded = frame;
+}
+
+void GlVideo::uploadPlanes(GlKit& kit, PlaneTextures& t, const media::VideoFrame& frameRef)
+{
+    const media::VideoFrame* frame = &frameRef;
     GlFunctions* gl = kit.gl();
     gl->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     for (int p = 0; p < frame->planeCount && p < 3; ++p) {
@@ -163,7 +186,6 @@ void GlVideo::upload(
     }
     gl->glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
     gl->glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    t.uploaded = frame;
 }
 
 void GlVideo::release(GlKit& kit, PlaneTextures& t)

@@ -176,6 +176,7 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
     hwFailed = false;
     hwFailReason.clear();
     hwPacketErrors = 0;
+    hwUnavailable.clear();
     softSeekAllowed = softSeekPending = false;
     const AVCodec* decoder = avcodec_find_decoder(stream->codecpar->codec_id);
     for (const HwAccelMode mode : hwCandidates(requested)) {
@@ -185,10 +186,21 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
         }
         AVBufferRef* device = HwDeviceManager::instance().acquire(mode);
         if (!device) {
+            const HwDeviceInfo unavailable = HwDeviceManager::instance().info(mode);
+            hwUnavailable += (hwUnavailable.isEmpty() ? QString() : QStringLiteral("; "))
+                + unavailable.name + QStringLiteral(" unavailable: ")
+                + (unavailable.available ? QStringLiteral("disabled for this session after "
+                                                          "repeated failures")
+                                         : unavailable.error);
             continue;
         }
         hwState.hwFormat = hwFormat;
         hwState.rejected = false;
+        // Zero-copy frames stay referenced by the compositor (the frame on screen) and by the
+        // cut look-ahead (3 frames) while the decoder moves on: 6 more surfaces (4K NV12:
+        // 12 MB each, shared memory).
+        constexpr int kZeroCopyExtraFrames = 10;
+        hwState.extraFrames = zeroCopy && mode == HwAccelMode::Vaapi ? kZeroCopyExtraFrames : 4;
         hwLock = HwDeviceManager::instance().callLock(mode);
         {
             const auto lock = lockHw();
@@ -197,6 +209,7 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
         av_buffer_unref(&device);
         if (codec) {
             activeHw = mode;
+            factory.setZeroCopy(zeroCopy && mode == HwAccelMode::Vaapi);
             // FFmpeg's H.264 flush forces a full hwaccel re-init on the next slice. That costs
             // ~250 ms per seek with NVDEC (decoder re-creation) and Vulkan (video session), but
             // only ~5 ms with VAAPI and nothing for HEVC/VP9/AV1, whose flush keeps state.
@@ -206,6 +219,7 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
         }
         hwLock = nullptr;
     }
+    factory.setZeroCopy(false);
     const int threads = threadCount > 0
         ? threadCount
         : autoSoftwareThreads(info.width, info.height, QThread::idealThreadCount());
@@ -233,7 +247,10 @@ bool VideoDecoder::Impl::switchToSoftware(bool duringOpen)
     const bool ok = openCodec(HwAccelMode::Off, nullptr);
     if (duringOpen) {
         hwOpenFailure = QStringLiteral("%1 failed: %2").arg(name, why);
-        hwOpenFailed = !rejected;
+        if (!hwOpenDetail.isEmpty()) {
+            hwOpenFailure += QStringLiteral(" (%1)").arg(hwOpenDetail);
+        }
+        hwOpenFailed = true; // the session log must say why the GPU is not used
     } else {
         const QString line = QStringLiteral("%1 decoding failed for %2 at %3 s (%4); continuing "
                                             "in software (%5 threads)")
@@ -268,8 +285,18 @@ void VideoDecoder::Impl::logOpened()
                        .arg(with);
     if (!hwOpenFailure.isEmpty()) {
         line += QStringLiteral("; ") + hwOpenFailure;
+    } else if (activeHw == HwAccelMode::Off && !hwUnavailable.isEmpty()) {
+        line += QStringLiteral("; ")
+            + hwUnavailable; // info: machines without a GPU decoder are common
     }
-    if (!firstTime(QStringLiteral("open|%1|%2|%3").arg(info.path, with, hwOpenFailure))) {
+    if (activeHw != HwAccelMode::Off) {
+        line += zeroCopy && factory.zeroCopy()
+            ? QStringLiteral(", output: DMA-BUF (zero-copy, no download)")
+            : QStringLiteral(", output: downloaded to system memory%1")
+                  .arg(zeroCopy ? QStringLiteral(" (zero-copy export unavailable)") : QString());
+    }
+    if (!firstTime(QStringLiteral("open|%1|%2|%3|%4")
+                       .arg(info.path, with, hwOpenFailure, hwUnavailable))) {
         qCDebug(lcMedia).noquote() << line;
     } else if (hwOpenFailed) {
         qCWarning(lcMedia).noquote() << line;
@@ -317,6 +344,10 @@ bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
 
     const HwAccelMode requested
         = info.isStillImage ? HwAccelMode::Off : hwOverride.value_or(preferredHwAccel());
+    // FFmpeg explains why a GPU refuses a stream in its own log (profile not supported, VAAPI
+    // connection failed, ...): keep the first error for the line that says why we decode in
+    // software.
+    FfmpegLogCapture capture;
     if (!openCodec(requested, error)) {
         return false;
     }
@@ -327,6 +358,7 @@ bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
         if (!ok && !hwFailed && hwFailReason.isEmpty()) {
             hwFailReason = QStringLiteral("no frame decoded");
         }
+        hwOpenDetail = capture.firstError();
         ok = switchToSoftware(true) && seek(firstTs, 0) && decodeOne(cur);
     }
     if (!ok) {
@@ -450,7 +482,10 @@ QImage VideoDecoder::Impl::currentImage(QSize maxSize)
     // software frames straight from the decoder output.
     const AVFrame* frame = cur.av.get();
     if (frame->hw_frames_ctx) {
-        const std::shared_ptr<const VideoFrame> video = currentVideoFrame();
+        std::shared_ptr<const VideoFrame> video = currentVideoFrame();
+        if (video && video->dmabuf) {
+            video = video->dmabuf->download(); // zero-copy decoder asked for an image
+        }
         if (!video || !video->avFrame) {
             return {};
         }
@@ -479,6 +514,22 @@ void VideoDecoder::setThreadCount(int threads)
 void VideoDecoder::setHwAccel(HwAccelMode mode)
 {
     m_impl->hwOverride = mode;
+}
+
+void VideoDecoder::setZeroCopy(bool enabled)
+{
+    m_impl->zeroCopy = enabled;
+    m_impl->factory.setZeroCopy(enabled && m_impl->activeHw == HwAccelMode::Vaapi);
+}
+
+void VideoDecoder::setZeroCopyGate(std::shared_ptr<const std::atomic<bool>> gate)
+{
+    m_impl->factory.setZeroCopyGate(std::move(gate));
+}
+
+bool VideoDecoder::zeroCopyActive() const
+{
+    return m_impl->factory.zeroCopy() && m_impl->activeHw == HwAccelMode::Vaapi;
 }
 
 HwAccelMode VideoDecoder::activeHwAccel() const
@@ -596,13 +647,13 @@ bool VideoDecoder::prepareFrame(
     // The frames after the first, decoded (and downloaded, for hardware decoding) now, so the
     // first frames of a cut do not wait for the decoder one by one (spec 72.7).
     std::vector<std::shared_ptr<const VideoFrame>> ahead;
-    if (ok && readAheadFrames > 0 && frame->durationUs > 0 && frame->avFrame) {
+    if (ok && readAheadFrames > 0 && frame->durationUs > 0 && (frame->avFrame || frame->dmabuf)) {
         ahead.push_back(frame);
         for (int i = 0; i < readAheadFrames && !stop(); ++i) {
             // A quarter frame into the next one: durations are rounded down.
             frame = decodeFrame(ahead.back()->ptsUs + ahead.back()->durationUs * 5 / 4);
             if (d.stopped || !frame || frame->ptsUs <= ahead.back()->ptsUs || frame->durationUs <= 0
-                || !frame->avFrame) {
+                || !(frame->avFrame || frame->dmabuf)) {
                 break;
             }
             ahead.push_back(frame);
@@ -639,7 +690,11 @@ QImage VideoDecoder::frameAt(int64_t timeUs, QSize maxSize, Accuracy accuracy)
     }
     if (!d.readAhead.empty() && accuracy == Accuracy::Exact) {
         if (auto hit = d.readAheadAt(std::max<int64_t>(timeUs, 0))) {
-            QImage image = d.convertFrame(hit->avFrame, maxSize);
+            std::shared_ptr<const VideoFrame> cpu = hit;
+            if (cpu->dmabuf) {
+                cpu = cpu->dmabuf->download();
+            }
+            QImage image = cpu && cpu->avFrame ? d.convertFrame(cpu->avFrame, maxSize) : QImage();
             if (!image.isNull()) {
                 d.lastReturnedUs = hit->ptsUs;
                 return image;

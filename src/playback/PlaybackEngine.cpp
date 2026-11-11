@@ -951,6 +951,14 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
         m_scheduler.resetAverage(); // paused stills say nothing about playback
         if (m_logStats) {
             m_statsAtPlay = stats();
+            m_decodeAtPlay = media::decodeCounters();
+            m_warnedDecodeBound = false;
+            emitStatsLine(QStringLiteral("playback sources: %1 (proxy or optimized media ready for "
+                                         "%2 media items)")
+                              .arg(m_proxiesInUse
+                                      ? QStringLiteral("the timeline plays proxy or optimized media")
+                                      : QStringLiteral("the timeline plays the original files"))
+                              .arg(m_proxies ? m_proxies->size() : 0));
             std::copy(std::begin(m_stageSum), std::end(m_stageSum), m_playStageSumAtStart);
             m_playStageCountAtStart = m_stageCount;
             m_playStatsActive = true;
@@ -1251,6 +1259,7 @@ void PlaybackEngine::logStats(int64_t nowUs)
     if (m_statsLogUs == 0) {
         m_statsLogUs = nowUs;
         m_statsAtLog = stats();
+        m_decodeAtLog = media::decodeCounters();
         return;
     }
     if (nowUs - m_statsLogUs < 1'000'000) {
@@ -1261,9 +1270,30 @@ void PlaybackEngine::logStats(int64_t nowUs)
     const int64_t frames = std::max<int64_t>(1, m_winCount);
     auto stage = [&](int i) { return m_winSum[i] / double(frames); };
     const QSize size = renderSize();
+    const media::DecodeCounters decodeNow = media::decodeCounters();
+    const QString decodePath = media::describeDecodeWindow(m_decodeAtLog, decodeNow);
+    m_decodeAtLog = decodeNow;
+    const double shownFps = double(s.presented - m_statsAtLog.presented) / seconds;
+    const double wantedFps = fps().toDouble() * std::abs(m_rate);
+    const double intervalMs = wantedFps > 0 ? 1000.0 / wantedFps : 0.0;
+    if (!m_warnedDecodeBound && wantedFps > 0 && shownFps < 0.8 * wantedFps
+        && stage(0) > 0.5 * intervalMs) {
+        // The one line a tester's log needs when a clip is choppy: the decoder cannot deliver
+        // a frame per interval, so neither a faster GPU nor a smaller viewer helps.
+        m_warnedDecodeBound = true;
+        emitStatsLine(QStringLiteral("playback is limited by decoding: %1 fps shown of %2, "
+                                     "decoding takes %3 ms per frame (a frame is due every "
+                                     "%4 ms); see the \"decoding ...\" line of the clip for "
+                                     "the decoder in use and why. A proxy or a faster decoder "
+                                     "(hardware, zero-copy) is needed.")
+                          .arg(shownFps, 0, 'f', 1)
+                          .arg(wantedFps, 0, 'f', 1)
+                          .arg(stage(0), 0, 'f', 1)
+                          .arg(intervalMs, 0, 'f', 1));
+    }
     emitStatsLine(
         QStringLiteral("stats: %1 fps (of %2), %3 dropped, quality %4 %5x%6, render %7 ms "
-                       "[decode %8, upload %9, composite %10, output %11], %12, A/V %13")
+                       "[decode %8, upload %9, composite %10, output %11], %12, A/V %13%14")
             .arg(double(s.presented - m_statsAtLog.presented) / seconds, 0, 'f', 1)
             .arg(fps().toDouble() * std::abs(m_rate), 0, 'f', 2)
             .arg(s.dropped - m_statsAtLog.dropped)
@@ -1276,7 +1306,8 @@ void PlaybackEngine::logStats(int64_t nowUs)
             .arg(stage(2), 0, 'f', 1)
             .arg(stage(3), 0, 'f', 1)
             .arg(s.audioMaster ? QStringLiteral("audio clock") : QStringLiteral("wall clock"))
-            .arg(s.avOffsetFrames, 0, 'f', 2));
+            .arg(s.avOffsetFrames, 0, 'f', 2)
+            .arg(decodePath.isEmpty() ? QString() : QStringLiteral(", ") + decodePath));
     m_statsLogUs = nowUs;
     m_statsAtLog = s;
     std::fill(std::begin(m_winSum), std::end(m_winSum), 0.0);
@@ -1303,9 +1334,10 @@ void PlaybackEngine::logStatsSummary()
     const int64_t presented = s.presented - m_statsAtPlay.presented;
     const int64_t frames = std::max<int64_t>(1, m_stageCount - m_playStageCountAtStart);
     auto stage = [&](int i) { return (m_stageSum[i] - m_playStageSumAtStart[i]) / double(frames); };
+    const QString decodePath = media::describeDecodeWindow(m_decodeAtPlay, media::decodeCounters());
     emitStatsLine(QStringLiteral(
         "stats summary: played %1 s, %2 frames shown (%3 fps of %4), %5 dropped, %6 seeks "
-        "while playing, render avg [decode %7, upload %8, composite %9, output %10] ms")
+        "while playing, render avg [decode %7, upload %8, composite %9, output %10] ms%11")
                       .arg(seconds, 0, 'f', 2)
             .arg(presented)
             .arg(seconds > 0 ? double(presented) / seconds : 0.0, 0, 'f', 1)
@@ -1315,7 +1347,8 @@ void PlaybackEngine::logStatsSummary()
             .arg(stage(0), 0, 'f', 1)
             .arg(stage(1), 0, 'f', 1)
             .arg(stage(2), 0, 'f', 1)
-            .arg(stage(3), 0, 'f', 1));
+            .arg(stage(3), 0, 'f', 1)
+            .arg(decodePath.isEmpty() ? QString() : QStringLiteral(", ") + decodePath));
 }
 
 void PlaybackEngine::prepareParked()

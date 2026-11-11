@@ -52,6 +52,7 @@ struct VideoDecoder::Impl
     MediaInfo info;
     int threadCount = 0;
     std::optional<HwAccelMode> hwOverride;
+    bool zeroCopy = false; ///< VideoDecoder::setZeroCopy()
     bool isOpen = false;
     int64_t lastReturnedUs = -1;
 
@@ -107,6 +108,8 @@ struct VideoDecoder::Impl
     detail::HwDecodeState hwState; ///< get_format callback state (codec->opaque points here)
     bool hwFailed = false; ///< hw decoding broke → switch to software at the next chance
     QString hwFailReason; ///< why (for the one log line of the fall-back)
+    QString hwUnavailable; ///< "VAAPI unavailable: ..." for backends that could not even be opened
+    QString hwOpenDetail; ///< FFmpeg's first error message while opening the hardware decoder
     QString hwOpenFailure; ///< "VAAPI failed: ..." when open() fell back to software
     bool hwOpenFailed = false; ///< ... because of an error (not a profile the GPU lacks)
     int hwPacketErrors = 0;

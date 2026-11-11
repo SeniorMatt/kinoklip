@@ -31,6 +31,21 @@ glBindTexture(GL_TEXTURE_2D, f->texture);        // RGBA8, premultiplied, row 0 
 `compositor.isGpu() == false` (no GL 3.3, `KINOKLIP_RENDER=cpu`): request `OutputImage` and
 show `f->image` with the raster path instead (`texture` is 0).
 
+### Zero-copy VAAPI frames (spec 77.2)
+
+`GlDmaBuf` (probe at `GlRenderer::initialize()`, import per frame) turns a `VideoFrame::dmabuf` (VAAPI
+surface exported as DMA-BUF, see `media/readme.md`) into the plane textures `GlVideo` draws: one EGLImage per
+plane (`EGL_EXT_image_dma_buf_import`, modifiers when `..._modifiers` exists; R8 + GR88 for NV12, R16 +
+GR1616 for P010), bound with `glEGLImageTargetTexture2DOES`, the image object destroyed at once (the
+texture keeps the buffer), the frame held until the next upload. The same YUV -> RGB shader reads
+them, so colour, range, HDR mapping and deinterlacing are unchanged. Needs an EGL context
+(Wayland; X11 with `KINOKLIP_X11_EGL=1` which sets `QT_XCB_GL_INTEGRATION=xcb_egl`); the EGL
+entry points are looked up at run time (no libEGL dependency). If the probe fails, no decoder
+exports (the `DecoderPool` zero-copy gate stays closed) and nothing changes; if an import fails
+(`GlVideo` downloads that frame through `dmabuf->download()`), `GlRenderer::checkZeroCopy()` closes
+the gate for the session with one warning. `KINOKLIP_ZEROCOPY=0` switches it off. The design (one
+EGLImage per plane, no copy) is the one VLC and mpv use; no code of theirs is used.
+
 ### Export (readback)
 
 ```cpp
