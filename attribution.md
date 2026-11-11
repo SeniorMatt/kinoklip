@@ -22,6 +22,7 @@ Rules for adding assets: [docs/clean-room.md](docs/clean-room.md).
 | `scripts/status.py` | draws `docs/images/status.svg` and the readme's Status block; its picture layout and treemap routine follow the status script of [Picasso Suite](https://github.com/fabox-os/Picasso-Suite), rewritten for Kinoklip | original work for Kinoklip, adapted from Picasso Suite | GPL-3.0-or-later |
 | `resources/export/presets.json` | render presets | original work for Kinoklip | GPL-3.0-or-later |
 | `usr/share/kinoklip/fonts/NotoColorEmoji.ttf` (release bundles only; not in this repository) | [Noto Color Emoji](https://github.com/googlefonts/noto-emoji), the colour emoji font titles and captions fall back to when the system has none ([spec 69](docs/behavior-spec.md)); copied from the build host's `noto-fonts-emoji` / `fonts-noto-color-emoji` package by `scripts/package_linux.sh` | The Noto Project Authors (Google) | SIL Open Font License 1.1 (GPL-compatible for distribution with the program as a separate font file) |
+| AI model for Background Removal (not in this repository or the bundles; downloaded by the user, `src/matting/ModelCatalog.cpp`) | `rvm_mobilenetv3_fp32.onnx`, the MobileNetV3 weights of [Robust Video Matting](https://github.com/PeterL1n/RobustVideoMatting) (Shanchuan Lin, Linjie Yang, Imran Saleemi, Soumyadip Sengupta, "Robust High-Resolution Video Matting with Temporal Guidance", WACV 2022), release v1.0.0, 14,975,696 bytes, SHA-256 `88d4531297118f595bf2fd60f6f566aec2e559393802d1f436c380f0cbbd2828`. Licence evidence (checked 2026-11-11): the repository's `LICENSE` is the GNU GPL version 3 and its README says "[Sep 16 2021] Code is re-released under GPL-3.0 license"; the weights are published as release assets of that repository and the project states no separate licence for them, so they are taken to be under the same GPL-3.0. Downloaded only when the user presses Download in the dialog that shows this name, size, licence and source ([spec 78](docs/behavior-spec.md)). Not chosen (checked the same day): BRIA RMBG (non-commercial), BiRefNet and U^2-Net (code MIT / Apache-2.0, but no stated licence for the weights, which are on Google Drive), MODNet (Apache-2.0, but a single-image model that flickers on video) | Shanchuan Lin et al. (ByteDance) | GPL-3.0 |
 
 Test media (`tests/data/generated`) is not in the repository: `scripts/make_test_media.sh`
 generates it with FFmpeg's test sources.
@@ -31,7 +32,7 @@ The Linux bundles also contain third-party libraries and data, each under its ow
 (LGPL-3.0), KDE Frameworks and the Breeze widget style and icons (LGPL-2.0/2.1/3.0-or-later),
 FFmpeg (built with GPL components, GPL-2.0-or-later / GPL-3.0) and the codec libraries it uses
 (x264, x265, dav1d, libaom, SVT-AV1, libvpx, Opus, LAME, Vorbis and others), and the system
-libraries they need, and the Noto Color Emoji font (SIL OFL 1.1) for emoji in titles and captions.
+libraries they need, the Noto Color Emoji font (SIL OFL 1.1) for emoji in titles and captions, and ONNX Runtime (MIT, with its dependencies protobuf-lite, Abseil and cpuinfo: BSD-3-Clause / Apache-2.0 / BSD-2-Clause), the CPU inference engine of Background Removal.
 The full list and every licence text ship inside the bundle under
 `usr/share/doc/kinoklip/`.
 

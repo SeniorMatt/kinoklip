@@ -12,6 +12,7 @@
 | `src/core/` | data model (mixer model included), EditOps, snapshot undo, JSON project files, effect catalogue, preferences |
 | `src/media/` | FFmpeg probe/decoders/caches (`media::probe()` is the shared contract) |
 | `src/render/` | GPU compositor, CPU fallback renderer, masks, retime, audio mixer and mixer DSP (EQ, dynamics, loudness) |
+| `src/matting/` | the AI tool Background Removal (spec 78): model catalogue and download, ONNX Runtime session (Robust Video Matting), the matte service (background worker, memory and disk cache) |
 | `src/compositing/tracking/` | tracking for the Tracker and Planar Tracker nodes (template matching, homography maths, runner, track store and link) |
 | `src/playback/` | timeline and source players, audio output, meter readings |
 | `src/export/` | encoders and the render queue |

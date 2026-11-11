@@ -44,6 +44,7 @@ search field.
 
 - [Export a video for YouTube](export-for-youtube.md)
 - [Remove a green screen](remove-a-green-screen.md)
+- [Remove a background with the AI tool](remove-a-background.md)
 - [Speed up or slow down a clip](change-clip-speed.md)
 - [Fade audio in and out, and add music](fade-audio-and-add-music.md)
 - [Fade to or from black](fade-to-black.md)

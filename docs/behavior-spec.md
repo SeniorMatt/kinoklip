@@ -1963,6 +1963,37 @@ every frame size, so on an 8-core laptop half of the cores stay idle (the report
 |---|-----------|--------|
 | 77.1 | Software decoding above 1080p uses 3/4 of the cores (at least 4, at most 8); up to 1080p it stays at 4. `KINOKLIP_SW_THREADS=<n>` sets the number exactly. | Done (`test_videodecoder` softwareThreadsGrowWithFrameSize) |
 
+## 78. Background Removal: an optional AI tool (bgremove branch, roadmap 1.4)
+
+Resolve exposes this kind of tool as Magic Mask on the Color page and as an effect in its Effects library; its
+public documentation describes a mask that follows a subject and is refined with edge controls. Kinoklip has no
+exact equivalent, so (as the owner asked) it is an effect in the Effects library, folder Key, named
+**Background Removal**, with an "AI" label and the controls below. Only the public description of that kind of
+tool was used; no Blackmagic code, icon or text.
+
+**Model and runtime (evidence in [attribution.md](../attribution.md))**: Robust Video Matting (Lin et al., WACV
+2022), the MobileNetV3 float32 ONNX file of the project's release v1.0.0, 14,975,696 bytes. Code and weights are
+published under the GNU GPL version 3 (`LICENSE` and README of github.com/PeterL1n/RobustVideoMatting, checked
+2026-11-11). It is recurrent: it carries four state tensors from frame to frame, so edges are stable in video.
+Compared and not used: BRIA RMBG (non-commercial), BiRefNet and U^2-Net (no stated licence for the weights; hosted
+on Google Drive), MODNet (Apache-2.0; looks at one image at a time, so it flickers on video). The inference
+runtime is ONNX Runtime (MIT), CPU only (no CUDA dependency), linked when found at build time
+(`KK_WITH_ONNXRUNTIME`); the Linux bundle carries it with its libraries (protobuf-lite, Abseil, cpuinfo).
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 78.1 | The effect is in the Effects library, folder Key, named Background Removal; its description starts with "AI". The Inspector shows an "AI" row (the model runs on this computer, nothing is uploaded), the model status, Download Model, Process Whole Clip and Cancel buttons, a progress bar and a status line. | Done (`test_backgroundremoval` effectIsRegisteredWithItsControls) |
+| 78.2 | Controls: Output (Foreground, Matte Only, Background Only), Threshold (0-100 %, 50), Edge Softness (0-100 %, 50: the width of the soft step around the threshold), Shrink / Grow (-50 to 50 px: moves the edge in or out), Feather (0-50 px blur of the matte), Quality (Preview (fast), Full (slow)). All pixel values are timeline pixels and scale with the preview size. | Done (`test_backgroundremoval` effectIsRegisteredWithItsControls, foregroundKeepsTheMatteAndDropsTheRest, aHighThresholdStillKeepsASolidMatte) |
+| 78.3 | Optional and unavailable without trouble: with no runtime in the build, no model file, or a model that fails to load, the tool reports why (status line, Preferences) and the picture is left as it is; nothing crashes. | Done (`test_matteservice` withoutModelOrRuntime..., aModelThatFailsToLoad...; `test_rvmbackend` aFileThatIsNotTheModelIsRefused...; `test_backgroundremoval` withoutAModelThePictureStaysAsItIs) |
+| 78.4 | The model is downloaded only when the user asks. The dialog (Inspector > Download Model..., Preferences > System > AI Models) shows the name, the size, the licence and the source with links, says what happens, and has Download and Cancel; progress while downloading; Cancel deletes the partial file. Nothing is requested before Download is pressed. This is the only network access in Kinoklip. | Done (`test_mattemodel`; the dialog by hand) |
+| 78.5 | The download is HTTPS only, from github.com release assets (a redirect to GitHub's asset hosts is allowed, any other host or plain HTTP is refused, also after a redirect), no cookies, no credentials. The file is written as `<name>.part`, its size and SHA-256 (hard-coded in `ModelCatalog.cpp`) are checked, and only then it is renamed into `<AppDataLocation>/models/`. A mismatch deletes it. | Done (`test_mattemodel` onlyHttps..., downloadIsInstalledOnlyWhenSizeAndChecksumMatch, aDownloadFromAForbiddenAddressNeverStarts) |
+| 78.6 | Preferences > System > AI Models shows the model, its size on disk, the runtime and the reason when unavailable; Remove Model deletes the file (after a question); Clear Matte Cache deletes the cached mattes. | Done (by hand) |
+| 78.7 | Playback never stalls. The renderer asks the MatteService for the matte of the clip's source frame: a finished one (memory, then disk) is used at once; otherwise the frame is queued for a worker thread at the lowest priority (nice 15 on Linux) and the frame draws the unprocessed picture, or the matte of a frame within 0.2 s if there is one, until it is ready. The worker also computes the next six frames after the one asked for, and the viewer redraws the paused frame (at most every 250 ms) when a matte arrives. Process Whole Clip queues every frame of the clip with a progress bar. | Done (`test_matteservice` aMissingMatteIsQueuedAndArrivesLater; `test_backgroundremoval` withoutWaitingAnUnfinishedMatteLeavesThePicture) |
+| 78.8 | Renders wait. Export and the render cache ask for the matte with `waitForAi` and block until it exists, so a finished file never contains an unprocessed frame. If the frame cannot be decoded or the tool is unavailable, the picture is left as it is. | Done (`test_matteservice` waitingReturnsTheRealMatte, aFrameThatCannotBeDecoded...; `test_backgroundremoval` foregroundKeepsTheMatte...) |
+| 78.9 | The matte is cached on disk per media file (path, size, modification time), model and quality: `<cache folder>/MatteCache/<key>/<ms>.png`, 8-bit greyscale. A clip is cut out once, also after a restart. The key time is the source time in milliseconds, rounded up; a stored matte within 3 ms counts as the same frame. A different quality is a different cache. | Done (`test_matteservice` theDiskCacheAnswersWithoutRunningTheModel; `test_mattemodel` cache tests) |
+| 78.10 | The recurrent state is reset when the frames do not follow each other: the first frame, a seek, a cut, another file or quality, or a gap of more than 120 ms in source time. After a reset the first picture is shown to the model twice so one frame already settles. Following frames keep the state. | Done (`test_matteservice` followingFramesKeepTheStateAndASeekResetsIt) |
+| 78.11 | The matte is made from the clip's own source picture (the file, never a proxy) at the source time of the frame, so speed changes and reverse follow the clip, and the matte covers the whole picture; crop and the effects above in the list are applied to the layer, not to the matte. The effect works in the GPU renderer; the CPU fallback skips it (one warning). | Done (by design) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
@@ -2157,3 +2188,6 @@ every frame size, so on an 8-core laptop half of the cores stay idle (the report
   headers of the Edit and Audio pages and the mixer strips, input level meter, count-in, takes written as WAV
   files in a "Voice Over" folder, imported into a "Voice Over" bin and placed on the armed track as one undo
   step, with the input latency compensated).
+- The bgremove branch (owner request, roadmap 1.4) added 78.1 - 78.11 (Background Removal, an optional AI tool:
+  Robust Video Matting through ONNX Runtime, downloaded only on request and checked against a hard-coded SHA-256,
+  mattes computed in the background and cached on disk, renders that wait for them).

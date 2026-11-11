@@ -9,8 +9,13 @@ explicitly choose to share it.**
 - No update checks or other "pings" from the app itself. [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) and [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) look for
   new versions by reading the release files on GitHub; that happens in those tools, outside
   Kinoklip, when you ask them to.
-- Kinoklip makes no network requests at all. Links (the user guide, a bug report) open in your
-  web browser, and only when you click them.
+- Kinoklip makes no network requests, with one exception that you start yourself: the optional AI
+  model of Background Removal. Nothing is fetched until you press **Download** in the dialog that
+  shows its name, size, licence and source; the file comes over HTTPS from the model project's
+  release page on GitHub, is checked against a checksum and is kept on your computer (Preferences >
+  System > AI Models removes it). The model then runs entirely on your computer: no pictures, no
+  names and no usage are sent anywhere, and no account is needed. Links (the user guide, a bug
+  report) open in your web browser, and only when you click them.
 
 ## Working with other programs
 **`kinoklip mcp`** lets an AI assistant that you set up yourself control Kinoklip with the same
