@@ -4,6 +4,7 @@
 #include "PanelTestUtils.h"
 #include "app/Theme.h"
 #include "core/ParamKeys.h"
+#include "matting/MatteService.h"
 #include "ui/common/Resources.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/inspector/InspectorPanel.h"
@@ -18,6 +19,7 @@
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTest>
@@ -121,6 +123,41 @@ private slots:
         saveScreenshot(panel, QStringLiteral("inspector_video"));
         panel.tabs()->setCurrentIndex(InspectorPanel::EffectsTab);
         saveScreenshot(panel, QStringLiteral("inspector_effects"));
+    }
+
+    /// Background Removal (spec 78): the AI label, the status line and the buttons, and the
+    /// unavailable reason when there is no model.
+    void backgroundRemovalShowsItsAiLabelAndStatus()
+    {
+        PanelFixture f;
+        const quint64 id = f.addClip(kV1, 10, 100);
+        InspectorPanel panel(f.ctx);
+        panel.resize(420, 800);
+        f.selection.selectClip(id);
+        QCOMPARE(
+            effectactions::applyEffect(f.project, {id}, QStringLiteral("background_removal")), 1);
+        ParamGroupBox* group = groupTitled(panel, tr("Background Removal"));
+        QVERIFY(group);
+        QStringList rowKeys;
+        for (auto* row : group->rows())
+            rowKeys << row->ref().key;
+        QCOMPARE(rowKeys,
+            (QStringList {QStringLiteral("bgOutput"), QStringLiteral("bgThreshold"),
+                QStringLiteral("bgSoftness"), QStringLiteral("bgShrinkGrow"),
+                QStringLiteral("bgFeather"), QStringLiteral("bgQuality")}));
+        auto* ai = group->findChild<QLabel*>(QStringLiteral("AiLabel"));
+        QVERIFY(ai);
+        QVERIFY(ai->text().contains(QStringLiteral("AI")));
+        auto* status = group->findChild<QLabel*>(QStringLiteral("BgStatus"));
+        QVERIFY(status);
+        QVERIFY(!status->text().isEmpty());
+        QVERIFY(group->findChild<QPushButton*>(QStringLiteral("BgProcess")));
+        QVERIFY(group->findChild<QPushButton*>(QStringLiteral("BgDownload")));
+        // Without the model the tool says why and leaves the picture alone.
+        if (!matting::MatteService::instance().status().ready)
+            QVERIFY(status->text().contains(QStringLiteral("Not available")));
+        panel.tabs()->setCurrentIndex(InspectorPanel::EffectsTab);
+        saveScreenshot(panel, QStringLiteral("inspector_background_removal"));
     }
 
     void playheadMoveRefreshesWithoutRebuild()

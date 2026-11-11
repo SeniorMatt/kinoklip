@@ -113,6 +113,27 @@
       ]
     },
     {
+      "id": "remove-a-background",
+      "title": "Remove a background with the AI tool",
+      "file": "remove-a-background.md",
+      "summary": "Cut a person out of a clip without a green screen with Background Removal: the optional AI model, its download, the settings and the cached cut-outs.",
+      "keywords": [
+        "background removal",
+        "remove background",
+        "cut out person",
+        "ai",
+        "matte",
+        "rotoscope",
+        "magic mask",
+        "model",
+        "download model",
+        "transparent background"
+      ],
+      "contexts": [
+        "effect:background_removal"
+      ]
+    },
+    {
       "id": "change-clip-speed",
       "title": "Speed up or slow down a clip",
       "file": "change-clip-speed.md",
@@ -1028,6 +1049,5 @@
         "action:transport.record"
       ]
     }
-
   ]
 }

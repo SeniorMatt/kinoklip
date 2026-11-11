@@ -503,3 +503,11 @@ It cannot test real GPUs, real desktop sessions, FUSE or SELinux.
 - Host libraries newer than ours with the same soname are shared (e.g. bundled `libwebp`,
   `libjpeg` vs. the host's in host-Qt mode). Not seen in tests; watch for "undefined symbol"
   warnings from host image plugins in host-Qt mode.
+
+## ONNX Runtime (Background Removal, spec 78)
+
+`libonnxruntime.so` (MIT, CPU only) is linked when the build host has it (`KK_WITH_ONNXRUNTIME`), so the
+dependency walker of `scripts/package_linux.sh` bundles it with the libraries it needs (protobuf-lite, Abseil,
+cpuinfo): about 28 MB unpacked, 7 MB compressed. The AI model itself is never bundled; the user downloads it
+from inside the app (the `models` folder of the app's XDG data directory). A build host without ONNX Runtime still builds
+and the tool then reports itself unavailable.

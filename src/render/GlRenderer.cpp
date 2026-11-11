@@ -531,6 +531,8 @@ void GlRenderer::render(RenderJob& job)
     m_nested.clear();
     m_compClips.clear();
     m_proxies = rq.proxies.get();
+    m_media = job.media.get();
+    m_waitForAi = rq.waitForAi;
     // Compositing page viewer: one node of one clip's composition instead of the timeline.
     const ClipData* compClipOwner = nullptr;
     if (rq.compositionNode) {
@@ -1126,6 +1128,8 @@ void GlRenderer::drawClip(
             in.sourceSeconds = fc.timeline->fps.isValid()
                 ? double(clip.sourceTimeUsAt(clip.start + local, fc.timeline->fps)) / 1e6
                 : 0.0;
+            in.mediaPath = m_media ? m_media->value(clip.mediaId) : QString();
+            in.waitForAi = m_waitForAi;
             PooledTarget next = m_activeEffects[i]->apply(*m_kit, in);
             if (next)
                 layer = std::move(next);
@@ -1194,6 +1198,8 @@ void GlRenderer::applyEffects(const LayerJob& job, int64_t at, size_t count, Poo
         in.sourceSeconds = job.fc->timeline->fps.isValid()
             ? double(job.clip->sourceTimeUsAt(job.clip->start + at, job.fc->timeline->fps)) / 1e6
             : 0.0;
+        in.mediaPath = m_media ? m_media->value(job.clip->mediaId) : QString();
+        in.waitForAi = m_waitForAi;
         PooledTarget next = job.effects[i]->apply(*m_kit, in);
         if (next)
             layer = std::move(next);

@@ -46,6 +46,13 @@ for (int64_t f = in; f < out; ++f) {
 Keeping 2-3 requests queued lets the PBO readback of frame N overlap rendering of frame N+1
 (~20 % faster than one at a time, see the numbers below).
 
+### AI effects (Background Removal, spec 78)
+
+`EffectInput::mediaPath` and `waitForAi` (from `RenderRequest::waitForAi`, set by `ExportJob`, so also by the
+render cache) let an effect ask `matting::MatteService` for the AI result of the clip's source frame. Viewer
+and playback leave `waitForAi` false: a result that is not ready yet draws the unprocessed picture and never
+blocks the render thread; renders for files wait for it.
+
 ### Audio
 
 ```cpp

@@ -199,6 +199,9 @@ private:
     /// Adds the Track buttons, progress and status line under the parameters of a tracking
     /// effect (Match Move; Surface Tracker); other effects get nothing.
     void buildTrackingControls(ParamGroupBox* group, const EffectInstance& fx, quint64 clipId);
+    /// The AI label, model status and buttons under Background Removal (spec 78); other
+    /// effects get nothing (InspectorBackgroundRemoval.cpp).
+    void buildBackgroundRemovalControls(ParamGroupBox* group, const EffectInstance& fx, quint64 clipId);
     void startEffectTrack(quint64 clipId, quint64 effectId, bool forward);
     void onEffectTrackFinished(kk::tracking::TrackOutcome outcome, const QString& reason);
     // ---- Stabilization (InspectorStabilize.cpp) ----

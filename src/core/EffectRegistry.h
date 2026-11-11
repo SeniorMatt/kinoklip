@@ -198,6 +198,7 @@ private:
     void registerVideoEffects6(); ///< 1.2 template looks: CCTV, Glitch, Drone, DSLR, DVE, Call,
                                   ///< Camera (spec 65)
     void registerVideoEffects7(); ///< 1.2 tracking: Match Move, Surface Tracker, Warper (spec 70)
+    void registerVideoEffects8(); ///< 1.4 Background Removal (AI, spec 78)
     /// The clip audio effects (BuiltinAudioEffects.cpp).
     void registerAudioEffects();
 

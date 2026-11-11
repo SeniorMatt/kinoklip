@@ -50,6 +50,11 @@ struct EffectInput
     LayerHistory* history = nullptr;
     /// The clip's source time at this frame, seconds (the key of stored tracks, spec 70).
     double sourceSeconds = 0.0;
+    /// The clip's media file (the original, never a proxy) and whether the render must wait for
+    /// the slow AI results (export, render cache) instead of drawing the unprocessed picture:
+    /// Background Removal's mattes (spec 78).
+    QString mediaPath;
+    bool waitForAi = false;
 };
 
 /// One video effect, implemented as one or more fragment-shader passes over the layer.
@@ -135,5 +140,7 @@ struct GlEffectFactory
 [[nodiscard]] std::span<const GlEffectFactory> templateLookGlEffects();
 /// Tracking effects (GlMeshEffects.cpp, spec 70).
 [[nodiscard]] std::span<const GlEffectFactory> meshGlEffects();
+/// Background Removal (GlBackgroundRemoval.cpp, spec 78).
+[[nodiscard]] std::span<const GlEffectFactory> backgroundRemovalGlEffects();
 
 } // namespace kk::render

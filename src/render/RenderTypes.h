@@ -157,6 +157,10 @@ struct RenderRequest
     /// future completes at once with an empty frame; `cancelled` also stops the preparation in
     /// progress (a seek, an edit) within one decoded frame.
     std::optional<PrepareRange> prepare = std::nullopt;
+    /// true: the AI effects (Background Removal, spec 78) wait for their results, so the frame
+    /// is final (export, render cache). false: a result still being computed is replaced by
+    /// the unprocessed picture so playback never stalls.
+    bool waitForAi = false;
 };
 
 /// Result of a render request. Immutable once handed out; share it as RenderedFramePtr.

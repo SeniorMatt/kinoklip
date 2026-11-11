@@ -81,6 +81,10 @@ Shipped in 1.3 ([release notes](releases/v1.3.0-beta.1.md)):
 - [x] Audio: voice-over: record from the microphone straight onto an audio track while the timeline plays. An arm button and an input menu on the track header (Edit and Audio pages), an input level meter, a count-in, and each take saved as a WAV file beside the project and added to the Media Pool (owner pick) (spec 75; the capture itself could not be tested without a microphone)
 - [x] Interface: dragging files over a closed panel's toolbar button (Media Pool, Effects and every other panel that takes files) opens that panel after the same hover delay as the page buttons, so the drop can land in it
 
+## Version 1.4
+
+- [x] Effects: Background Removal: an optional, clearly labelled AI tool in the Effects library (Key) that cuts the person out of a clip with a model that runs on your computer (Robust Video Matting, GPL-3.0, through ONNX Runtime, MIT). The model is downloaded only when you ask (name, size, licence and source shown first, checked against a checksum, removable in Preferences > AI Models); mattes are made in the background and cached, playback never waits, the render does (spec 78, [guide](guide/remove-a-background.md))
+
 ## Next big release
 
 A large feature, so it gets its own big release. Smaller fix releases will come out before it.
@@ -243,6 +247,5 @@ when the owner asks for it.
 - In-app update check or automatic updates: Kinoklip sends nothing and fetches nothing by itself; new versions are on the releases page (owner decision)
 - Final Cut Pro 7 / Premiere XML import and export (owner decision)
 - macOS version (OpenGL is frozen there, a port would need a Metal renderer, signing and a Mac to test on)
-- Background removal
 - AAF and FCPXML interchange (owner, 2026-11-11): OpenTimelineIO already moves timelines to Resolve, and its adapters can convert to both; brought back if a user asks.
 - Importing Resolve project files: they are undocumented and could only be read by analysing them (clean room). Moving work over stays possible through open formats (EDL today; see AAF and FCPXML under Later)
