@@ -36,6 +36,12 @@ page opens. Move away before it is full and nothing happens.
 You can also switch pages with the keyboard: **Shift+2** (Media) up to **Shift+8** (Deliver);
 **Shift+4** is the Edit page.
 
+## Choose a menu layout
+
+The menus at the top of the window come in two arrangements. **Resolve** (the default) has the menus of DaVinci Resolve, so a Resolve user finds everything where they expect it. **Streamlined** has shorter menus, none more than 12 lines long, grouped by task and with plain names, and one extra menu for the page you are on (Cut, Nodes or Grade, shown only on the Cut, Compositing and Color pages). Right-click menus on the timeline and in the Media Pool are shorter too, and show only what applies. The commands and their keys are the same in both.
+
+To switch, open **Kinoklip > Preferences > UI Settings** and choose **Menu layout**. The menus change at once.
+
 ## Make a project
 
 A project holds your timeline and the list of clips you use. When Kinoklip starts, it shows the

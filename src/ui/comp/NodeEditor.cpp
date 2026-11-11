@@ -62,6 +62,7 @@ NodeEditor::NodeEditor(CompSession* session, ActionRegistry* actions, QWidget* p
     , m_actions(actions)
 {
     setObjectName(QStringLiteral("NodeEditor"));
+    setProperty("kkNodeEditor", true); // Edit > Cut / Copy / Paste / Delete / Select All
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
     setAcceptDrops(true);

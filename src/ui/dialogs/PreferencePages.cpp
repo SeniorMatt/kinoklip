@@ -10,6 +10,7 @@
 #include "playback/AudioInput.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
+#include "ui/common/MenuLayouts.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SettingsPages.h"
 #include "ui/common/UiAnimation.h"
@@ -516,6 +517,20 @@ public:
         m_scale->setToolTip(tr("Takes effect after restarting the application."));
         form->addRow(tr("Interface scale"), m_scale);
 
+        // Our own (Resolve has one arrangement): shorter menus grouped by task (spec 82).
+        m_menuLayout = new QComboBox;
+        m_menuLayout->setObjectName(QStringLiteral("MenuLayout"));
+        m_menuLayout->addItem(tr("Resolve"), menulayout::layoutId(menulayout::Layout::Resolve));
+        m_menuLayout->addItem(
+            tr("Streamlined"), menulayout::layoutId(menulayout::Layout::Streamlined));
+        m_menuLayout->setCurrentIndex(
+            std::max(0, m_menuLayout->findData(menulayout::layoutId(menulayout::layout()))));
+        form->addRow(tr("Menu layout"), m_menuLayout);
+        form->addRow(QString(),
+            note(tr("Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, "
+                    "grouped by task, with plain names. The commands and their keys are the "
+                    "same. Takes effect at once.")));
+
         // v2.2: small tweens of timeline edits (src/ui/common/UiAnimation.h).
         m_animate = new QCheckBox(tr("Animate timeline edits"));
         m_animate->setObjectName(QStringLiteral("AnimateTimelineEdits"));
@@ -555,6 +570,7 @@ public:
     void apply() override
     {
         QSettings().setValue(QLatin1String(prefs::kUiScale), m_scale->currentData().toString());
+        menulayout::setLayout(menulayout::layoutFromId(m_menuLayout->currentData().toString()));
         prefs::setAnimationsEnabled(m_animate->isChecked());
         prefs::setAnimationSpeed(m_speed->value() * kSpeedStep);
         prefs::setRenderNotificationsEnabled(m_renderNotify->isChecked());
@@ -566,6 +582,7 @@ private:
     static constexpr int kMinSpeedStep = 2; ///< 0.5x
     static constexpr int kMaxSpeedStep = 8; ///< 2x
     QComboBox* m_scale = nullptr;
+    QComboBox* m_menuLayout = nullptr;
     QCheckBox* m_animate = nullptr;
     QSlider* m_speed = nullptr;
     QCheckBox* m_renderNotify = nullptr;

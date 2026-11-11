@@ -214,6 +214,16 @@ protected:
     void contextMenuEvent(QContextMenuEvent* event) override;
     /// Context menu of a transition (spec 13.10): delete, duration, alignment.
     void transitionMenu(QMenu& menu, const TransitionRef& ref);
+    /// Pieces of the clip menu, shared by both menu layouts: the angle switch of a multicam
+    /// clip, Remove Transitions, the alignment of the transitions at a cut, Remove Effects.
+    /// Each adds nothing when it does not apply.
+    void addMulticamAngleMenu(QMenu& menu, quint64 clipId);
+    void addRemoveTransitionsEntry(QMenu& menu, quint64 clipId, TrackRef track);
+    void addTransitionAlignmentMenus(QMenu& menu, quint64 clipId, TrackRef track);
+    void addRemoveEffectsEntry(QMenu& menu, quint64 clipId, TrackRef track);
+    /// The clip menu of the Streamlined menu layout (spec 82): at most 12 entries, grouped,
+    /// what does not apply is left out.
+    void streamlinedClipMenu(QMenu& menu, const TimelineHit& hit);
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dragLeaveEvent(QDragLeaveEvent* event) override;

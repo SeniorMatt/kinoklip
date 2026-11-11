@@ -7,6 +7,7 @@ Used by every panel and page. Depends on `core` only.
 | `AppContext.h` | the struct of shared objects every panel receives: `Project*`, `SelectionModel*`, `ActionRegistry*`, `PlaybackEngine*` (null until src/playback exists) |
 | `ActionRegistry.h` | every command as a `QAction` with a stable id; rebind/reset/import/export/conflict lookup (scope aware: window, `page:<id>`, `widget:<name>`); **keymap profiles** (implementation in `KeymapProfiles.cpp`, see below) |
 | `VimInput.h` | the vim key layer (spec 62): `VimMachine` (counts, sequences, NORMAL / VISUAL; asks a `VimHost`, never edits) and `VimInput`, the application event filter that is active only with the keyboard profile `vim` and only while a widget with the property `kkVimScope` (timelines, viewers) has the focus and is not a text field |
+| `MenuLayouts.h` | the Streamlined menu layout (spec 82) as data: `streamlinedMenus()`, `pageMenu()`, the hidden list, `fill()` (entries under another name are mirrors of the command); the stored choice `ui/menuLayout` and its change signal |
 | `StandardActions.h` | the catalogue: ids, texts, menus, icons; `standardMenus()`; `describeStandardActions()` gives each command its one-line description from `ActionDescriptions.cpp` (status tip; the menu reference, spec 63, is written from it) |
 | `PanelInfo.h` | `setPanelInfo(widget, name, description)`: the name and one-line description of a panel or page area, read by the menu reference (spec 63) |
 | `MediaManagement.h` | proxy / optimized media and render cache glue (created in `main()`, `AppContext::media`): `mediapool.*`, `playback.proxy_*`, `playback.use_*`, `playback.render_cache_*`, `clip.render_cache_output` commands; ProxyQueue + RenderCacheManager + a shared background Compositor; proxy map for every viewer, cache view for program playback, per-item status for the media pool |
@@ -145,7 +146,9 @@ test in `test_actionregistry`).
 3. Add a one-line description of what it does to `ActionDescriptions.cpp` (read the slot first):
    it becomes the status tip and the "What it does" column of `docs/menu-reference.md`.
 4. Connect `triggered` in the owning module.
-5. Regenerate the menu reference with `scripts/menu-reference.sh` (the test `check_menu_reference`
+5. Put it in the Streamlined menu table in `MenuLayouts.cpp` (or in its hidden list with the reason);
+   the test `test_menulayout` fails for a command that is in neither.
+6. Regenerate the menu reference with `scripts/menu-reference.sh` (the test `check_menu_reference`
    fails until you do).
 
 **Add an icon:** draw a 24×24 single-colour SVG (black strokes/fills; it is re-tinted at

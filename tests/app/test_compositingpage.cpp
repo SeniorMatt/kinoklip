@@ -875,15 +875,19 @@ private slots:
         f.project.timeline()->setPlayhead(20);
         f.selection.setClips({f.clipId});
         f.showPage();
-        for (const char* id : {"edit.ripple_delete", "edit.delete", "edit.copy", "edit.paste",
-                 "edit.split", "clip.toggle_enabled", "multicam.angle_1", "mark.in",
-                 "trim.nudge_left", "timeline.target_video_1"})
+        for (const char* id : {"edit.ripple_delete", "edit.split", "clip.toggle_enabled",
+                 "multicam.angle_1", "mark.in", "trim.nudge_left", "timeline.target_video_1"})
             QVERIFY2(!f.action(id)->isEnabled(), id);
         for (const char* id : {"transport.play_pause", "transport.next_frame", "view.page_edit",
                  "clip.reset_composition", "mark.go_to_in", "comp.delete"})
             QVERIFY2(f.action(id)->isEnabled(), id);
-        // Delete with the focus outside the node editor leaves the hidden timeline alone.
+        // Delete with the focus outside the node editor leaves the hidden timeline alone. Edit's
+        // Cut, Copy, Paste, Delete and Select All are on only while the node editor has focus
+        // (they act on the nodes then, spec 82.8).
+        f.window->activateWindow();
         f.page()->transport()->setFocus();
+        for (const char* id : {"edit.delete", "edit.copy", "edit.paste", "edit.cut", "edit.select_all"})
+            QTRY_VERIFY2(!f.action(id)->isEnabled(), id);
         f.action("edit.ripple_delete")->trigger();
         QTest::keyClick(f.page()->transport(), Qt::Key_Delete);
         QCoreApplication::processEvents();

@@ -7,7 +7,9 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QApplication>
 #include <QCoreApplication>
+#include <QWidget>
 
 namespace kk {
 
@@ -510,6 +512,15 @@ QVector<MenuCategory> standardMenus()
             translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Workspace"))},
         {QStringLiteral("help"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Help"))},
     };
+}
+
+bool nodeEditorHasFocus()
+{
+    for (const QWidget* w = QApplication::focusWidget(); w; w = w->parentWidget()) {
+        if (w->property("kkNodeEditor").toBool())
+            return true;
+    }
+    return false;
 }
 
 void registerStandardActions(ActionRegistry& registry)

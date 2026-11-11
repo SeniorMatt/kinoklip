@@ -238,6 +238,7 @@ when the owner asks for it.
 - [x] Interface: panel sizes remembered, Reset UI Layout (v1.1.x notes)
 - [x] Interface: menu bar with File > Import, Workspace and the grouped View menu (spec 23)
 - [x] Interface: Report a Bug or Inconsistency from the Help menu (v1.1.x notes)
+- [x] Interface: Menu layout option, Resolve or Streamlined (shorter menus grouped by task, a page menu, shorter context menus) (spec 82)
 - [x] Platform: single AppImage for x86_64 Linux on X11 and Wayland (release notes)
 - [x] Platform: privacy by design, no telemetry or automatic crash reports (privacy.md)
 

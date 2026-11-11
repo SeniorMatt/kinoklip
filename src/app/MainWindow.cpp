@@ -29,6 +29,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/ListKeyGuard.h"
 #include "ui/common/MediaManagement.h"
+#include "ui/common/MenuLayouts.h"
 #include "ui/common/PanelSearchFocus.h"
 #include "ui/common/ResizeProfiler.h"
 #include "ui/common/ShortcutFallback.h"
@@ -54,6 +55,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QPushButton>
 #include <QSettings>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -234,7 +236,13 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     }
 
     describeStandardActions(*ctx.actions); // status tips; the menu reference reads them
+    m_menuLayout = menulayout::layout();
     buildMenus();
+    // The page menu of the Streamlined layout follows the page shown.
+    connect(m_stack, &QStackedWidget::currentChanged, this, &MainWindow::updatePageMenu);
+    // Preferences > UI Settings > Menu layout: the menu bar is rebuilt at once.
+    connect(&menulayout::notifier(), &menulayout::Notifier::changed, this,
+        [this] { setMenuLayout(menulayout::layout()); });
     // A rebound key may take or free a menu title's Alt+letter.
     connect(ctx.actions, &ActionRegistry::shortcutsChanged, this, &MainWindow::updateMenuMnemonics);
     connect(
@@ -371,47 +379,87 @@ Page* MainWindow::page(const QString& pageId) const
     return nullptr;
 }
 
+void MainWindow::discardMenus()
+{
+    // The menus go later (this can run from an action of one of them, e.g. the Preferences
+    // dialog); until then they are out of the bar and nameless, so nothing finds them.
+    const auto old = menuBar()->findChildren<QMenu*>(Qt::FindDirectChildrenOnly);
+    for (QMenu* menu : old) {
+        menuBar()->removeAction(menu->menuAction());
+        menu->hide();
+        menu->setObjectName(QString());
+        const auto inner = menu->findChildren<QObject*>();
+        for (QObject* child : inner)
+            child->setObjectName(QString());
+        menu->deleteLater();
+    }
+    m_pageMenu = nullptr;
+}
+
+void MainWindow::setMenuLayout(menulayout::Layout layout)
+{
+    if (layout == m_menuLayout && !menuBar()->actions().isEmpty())
+        return;
+    m_menuLayout = layout;
+    buildMenus();
+}
+
 void MainWindow::buildMenus()
 {
+    discardMenus();
     // Menus are data (docs/archive/plan.md 5.9): each category lists action ids, separators and
     // submenu markers; nothing here knows what a menu contains.
     const ActionRegistry& registry = *m_ctx.actions;
-    std::function<void(QMenu*, const QString&)> fillMenu;
-    fillMenu = [&registry, &fillMenu](QMenu* menu, const QString& category) {
-        for (const QString& id : registry.menuEntries(category)) {
-            if (id == QLatin1String(ActionRegistry::kSeparator)) {
-                menu->addSeparator();
-            } else if (const QString sub = ActionRegistry::submenuOf(id); !sub.isEmpty()) {
-                QMenu* submenu = menu->addMenu(registry.submenuTitle(sub));
-                submenu->setObjectName(QStringLiteral("menu:") + sub);
-                fillMenu(submenu, sub);
-            } else {
-                menu->addAction(registry.action(id));
-            }
+    if (m_menuLayout == menulayout::Layout::Streamlined) {
+        // The second table (src/ui/common/MenuLayouts.cpp): the same actions, arranged by task.
+        for (const menulayout::Menu& spec : menulayout::streamlinedMenus()) {
+            const QString title = spec.id == QLatin1String("app")
+                ? QCoreApplication::applicationName()
+                : spec.title;
+            QMenu* menu = menuBar()->addMenu(title);
+            menu->setObjectName(QStringLiteral("menu:") + spec.id);
+            menu->menuAction()->setProperty("kkTitle", title);
+            menulayout::fill(menu, spec.entries, *m_ctx.actions, menu->objectName());
         }
-    };
-    QStringList known;
-    QMenu* helpMenu = nullptr;
-    for (const MenuCategory& category : standardMenus()) {
-        known.append(category.id);
-        QMenu* menu = menuBar()->addMenu(category.title);
-        menu->setObjectName(QStringLiteral("menu:") + category.id);
-        menu->menuAction()->setProperty("kkTitle", category.title);
-        fillMenu(menu, category.id);
-        if (category.id == QLatin1String("help"))
-            helpMenu = menu;
-    }
-    // Categories registered by other modules get their own menu before Help (submenu
-    // categories are already shown inside their parent menu).
-    for (const QString& category : registry.categories()) {
-        if (known.contains(category) || registry.isSubmenu(category))
-            continue;
-        QString title = category;
-        title[0] = title[0].toUpper();
-        QMenu* menu = new QMenu(title, menuBar());
-        menu->setObjectName(QStringLiteral("menu:") + category);
-        menuBar()->insertMenu(helpMenu ? helpMenu->menuAction() : nullptr, menu);
-        fillMenu(menu, category);
+        updatePageMenu();
+    } else {
+        std::function<void(QMenu*, const QString&)> fillMenu;
+        fillMenu = [&registry, &fillMenu](QMenu* menu, const QString& category) {
+            for (const QString& id : registry.menuEntries(category)) {
+                if (id == QLatin1String(ActionRegistry::kSeparator)) {
+                    menu->addSeparator();
+                } else if (const QString sub = ActionRegistry::submenuOf(id); !sub.isEmpty()) {
+                    QMenu* submenu = menu->addMenu(registry.submenuTitle(sub));
+                    submenu->setObjectName(QStringLiteral("menu:") + sub);
+                    fillMenu(submenu, sub);
+                } else {
+                    menu->addAction(registry.action(id));
+                }
+            }
+        };
+        QStringList known;
+        QMenu* helpMenu = nullptr;
+        for (const MenuCategory& category : standardMenus()) {
+            known.append(category.id);
+            QMenu* menu = menuBar()->addMenu(category.title);
+            menu->setObjectName(QStringLiteral("menu:") + category.id);
+            menu->menuAction()->setProperty("kkTitle", category.title);
+            fillMenu(menu, category.id);
+            if (category.id == QLatin1String("help"))
+                helpMenu = menu;
+        }
+        // Categories registered by other modules get their own menu before Help (submenu
+        // categories are already shown inside their parent menu).
+        for (const QString& category : registry.categories()) {
+            if (known.contains(category) || registry.isSubmenu(category))
+                continue;
+            QString title = category;
+            title[0] = title[0].toUpper();
+            QMenu* menu = new QMenu(title, menuBar());
+            menu->setObjectName(QStringLiteral("menu:") + category);
+            menuBar()->insertMenu(helpMenu ? helpMenu->menuAction() : nullptr, menu);
+            fillMenu(menu, category);
+        }
     }
     if (!menuBar()->findChild<QObject*>(QStringLiteral("MenuBarGrabGuard"))) {
         auto* guard = new MenuBarGrabGuard(menuBar());
@@ -453,6 +501,36 @@ void MainWindow::buildMenus()
     ViewerOverlaySettings::instance().attachPresetMenus(
         menuBar()->findChild<QMenu*>(QStringLiteral("menu:view.guide_presets")),
         menuBar()->findChild<QMenu*>(QStringLiteral("menu:view.guide_presets_delete")));
+}
+
+void MainWindow::updatePageMenu()
+{
+    if (m_menuLayout != menulayout::Layout::Streamlined)
+        return;
+    if (m_pageMenu) {
+        menuBar()->removeAction(m_pageMenu->menuAction());
+        m_pageMenu->hide();
+        m_pageMenu->setObjectName(QString());
+        const auto inner = m_pageMenu->findChildren<QObject*>();
+        for (QObject* child : inner)
+            child->setObjectName(QString());
+        m_pageMenu->deleteLater();
+        m_pageMenu = nullptr;
+    }
+    const menulayout::Menu spec = menulayout::pageMenu(currentPageId());
+    if (spec.id.isEmpty())
+        return;
+    // Before Help; the title follows the page (Cut, Nodes, Grade).
+    QAction* before = nullptr;
+    if (const QMenu* help = menuBar()->findChild<QMenu*>(QStringLiteral("menu:help")))
+        before = help->menuAction();
+    auto* menu = new QMenu(spec.title, menuBar());
+    menu->setObjectName(QStringLiteral("menu:") + spec.id);
+    menu->menuAction()->setProperty("kkTitle", spec.title);
+    menulayout::fill(menu, spec.entries, *m_ctx.actions, menu->objectName());
+    menuBar()->insertMenu(before, menu);
+    m_pageMenu = menu;
+    updateMenuMnemonics();
 }
 
 void MainWindow::updateMenuMnemonics()
@@ -566,10 +644,25 @@ void MainWindow::connectAppActions()
 
     // ---- Help ----
     connect(actions.action(QStringLiteral("help.about")), &QAction::triggered, this, [this] {
-        QMessageBox::about(this, tr("About %1").arg(QLatin1String(appinfo::name)),
-            tr("<h3>%1 %2</h3><p>A non-linear video editor built with Qt and FFmpeg.</p>"
-               "<p>Licensed under the GNU GPL v3 or later.</p>")
-                .arg(QLatin1String(appinfo::name), appinfo::displayVersion()));
+        const QString title = tr("About %1").arg(QLatin1String(appinfo::name));
+        const QString text
+            = tr("<h3>%1 %2</h3><p>A non-linear video editor built with Qt and FFmpeg.</p>"
+                 "<p>Licensed under the GNU GPL v3 or later.</p>")
+                  .arg(QLatin1String(appinfo::name), appinfo::displayVersion());
+        if (m_menuLayout != menulayout::Layout::Streamlined) {
+            QMessageBox::about(this, title, text);
+            return;
+        }
+        // Streamlined: Help has no "About Qt" entry; the box offers it (spec 82).
+        QMessageBox box(this);
+        box.setWindowTitle(title);
+        box.setText(text);
+        box.setIconPixmap(windowIcon().pixmap(64, 64));
+        QPushButton* aboutQt = box.addButton(tr("About Qt"), QMessageBox::ActionRole);
+        box.addButton(QMessageBox::Ok);
+        box.exec();
+        if (box.clickedButton() == aboutQt)
+            QApplication::aboutQt();
     });
     connect(actions.action(QStringLiteral("help.about_qt")), &QAction::triggered, qApp,
         &QApplication::aboutQt);

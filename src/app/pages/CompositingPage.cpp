@@ -10,6 +10,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/StandardActions.h"
 #include "ui/common/TimelineCommandSuspension.h"
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompInspector.h"
@@ -176,6 +177,32 @@ void CompositingPage::connectActions()
     on("comp.duplicate", [s] { s->duplicateSelection(); });
     on("comp.delete", [s] { s->deleteSelection(); });
     on("comp.select_all", [s] { s->selectAll(); });
+    // The generic Edit commands act on the nodes while the node editor has focus (the
+    // timeline leaves them alone then): the Streamlined menu has no node copies of them.
+    auto onEdit = [this](const char* id, auto handler) {
+        if (QAction* a = registryAction(m_ctx, QLatin1String(id)))
+            connect(a, &QAction::triggered, this, [this, handler] {
+                if (isVisible() && nodeEditorHasFocus())
+                    handler();
+            });
+    };
+    onEdit("edit.cut", [s] { s->cutSelection(); });
+    onEdit("edit.copy", [s] { s->copySelection(); });
+    onEdit("edit.paste", [this, s] { s->paste(m_editor->pastePosition()); });
+    onEdit("edit.delete", [s] { s->deleteSelection(); });
+    onEdit("edit.select_all", [s] { s->selectAll(); });
+    // The page suspends the timeline's commands (TimelineCommandSuspension); these five are
+    // switched on while the node editor has focus, so Edit > Cut ... Select All work there.
+    connect(qApp, &QApplication::focusChanged, this, [this] {
+        if (!isVisible())
+            return;
+        const bool focused = nodeEditorHasFocus();
+        for (const char* id :
+            {"edit.cut", "edit.copy", "edit.paste", "edit.delete", "edit.select_all"}) {
+            if (QAction* a = registryAction(m_ctx, QLatin1String(id)))
+                a->setEnabled(focused);
+        }
+    });
     on("comp.rename", [this, s] {
         if (s->currentNode())
             m_editor->startRename(s->currentNode());

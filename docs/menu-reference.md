@@ -4,7 +4,7 @@
 
 Written by Kinoklip itself (`kinoklip --menu-reference <file>`) from the tables its menus are built from and from the description every panel carries, so it cannot go stale: the test `check_menu_reference` fails when this file differs from what the program writes. Do not edit it by hand; run `scripts/menu-reference.sh` after adding or renaming a menu entry or a panel.
 
-Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard profile or your own changes (Keyboard Customization) do not show here. Entries are listed in menu bar order; a submenu entry is written as `Submenu > Entry`. "(toggle)" entries switch on and off, "(choice)" entries are one of a group. Menus that list files (Open Recent, guide presets) are one row. Commands without a menu entry are in the last menu table. The context menus of the timeline, the media pool and other panels offer the same commands as these menus and are not listed again.
+Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard profile or your own changes (Keyboard Customization) do not show here. Entries are listed in menu bar order; a submenu entry is written as `Submenu > Entry`. "(toggle)" entries switch on and off, "(choice)" entries are one of a group. Menus that list files (Open Recent, guide presets) are one row. Commands without a menu entry are in the last menu table. The context menus of the timeline, the media pool and other panels offer the same commands as these menus and are not listed again. The Resolve layout is listed first; the Streamlined layout follows the panels.
 
 ## Kinoklip
 
@@ -499,3 +499,431 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Render Range | The timeline overview under the viewer, showing the range that will be rendered. |
 | Render Settings | Preset, file name and location, video, audio and file options and render range of the export; Add to Render Queue is here. |
 | Timeline Viewer | Shows the picture of the timeline at the playhead, with transport controls. |
+
+# Streamlined menu layout
+
+Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 349 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
+
+## Streamlined Kinoklip
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| About Kinoklip |  | Shows the version of Kinoklip, its licence and the libraries it uses. |
+| Preferences… | Ctrl+, | Opens the Preferences window (user settings such as editing, playback, interface and local control). |
+| Keyboard Shortcuts… | Ctrl+Alt+K | Opens the keyboard settings: pick a keyboard profile, change or clear the key of any command. |
+| Quit Kinoklip | Ctrl+Q | Closes Kinoklip, asking first whether to save unsaved changes. |
+
+## Streamlined File
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| New Project |  | Starts a new, empty project after asking about unsaved changes in the open one. |
+| Open Project… | Ctrl+O | Opens a project file from disk. |
+| Open Recent |  | Lists the projects opened lately, newest first; choosing one opens it. |
+| Project Manager… | Shift+1 | Opens the Project Manager, where projects are created, opened, renamed and deleted. |
+| Save | Ctrl+S | Saves the open project; asks for a file name if it has none yet. |
+| Save As… | Ctrl+Shift+S | Saves the open project under another name or as another kind (linked or single file). |
+| Import > Media… | Ctrl+I | Adds media files to the media pool. |
+| Import > Media Folder… |  | Adds a whole folder of media to the media pool, keeping its sub-folders as bins. |
+| Import > Timeline… |  | Reads a timeline from an OpenTimelineIO file into the project as a new timeline. |
+| Import > Subtitles… |  | Adds a SubRip (.srt) or WebVTT (.vtt) subtitle file to the media pool. |
+| Export > Timeline as EDL… |  | Writes the timeline as an edit decision list (EDL) file. |
+| Export > Timeline as OpenTimelineIO… |  | Writes the timeline as an OpenTimelineIO file for other editors. |
+| Export > Markers as EDL… |  | Writes the timeline markers to an EDL file. |
+| Export > Markers as CSV… |  | Writes the timeline markers to a CSV file that opens in a spreadsheet. |
+| Project Tools > Pack… |  | Packs a linked project and all the media it uses into one single-file project. |
+| Project Tools > Unpack… |  | Writes the media of a single-file project to a folder and continues with a linked project. |
+| Project Tools > Compact… |  | Rewrites a single-file project without unused media and old versions, to make it smaller. |
+| Project Tools > Verify Project File |  | Checks every byte of a single-file project and offers to repair a damaged one. |
+| Project Tools > Remove Unused Clips… |  | Removes the media pool clips that no timeline uses, after asking. |
+| Project Tools > Proxies and Optimized Media > Generate Proxies |  | Creates proxy media (small, fast copies) for the selected clips. |
+| Project Tools > Proxies and Optimized Media > Generate Optimized Media |  | Creates optimized media (a file that is easier to play) for the selected clips. |
+| Project Tools > Proxies and Optimized Media > Stop |  | Stops making proxy and optimized media. |
+| Project Tools > Proxies and Optimized Media > Link Proxies… |  | Links an existing file as the proxy of the selected clip. |
+| Project Tools > Proxies and Optimized Media > Unlink Proxies |  | Removes the link to the proxy of the selected clips; the file stays. |
+| Project Tools > Proxies and Optimized Media > Delete Proxies… |  | Deletes the proxy files of the selected clips after asking. |
+| Project Tools > Proxies and Optimized Media > Delete Optimized Media… |  | Deletes the optimized media files of the selected clips after asking. |
+| Project Settings… | Shift+9 | Opens the project settings: timeline resolution, frame rate, colour and other project-wide choices. |
+
+## Streamlined Edit
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Undo | Ctrl+Z | Takes back the last edit; the entry names the edit. |
+| Redo | Ctrl+Shift+Z | Does again the edit that was just taken back. |
+| History… |  | Opens a floating list of all undo steps; clicking one goes back or forward to it at once. |
+| Cut | Ctrl+X | Removes the selection and keeps it on the clipboard. |
+| Ripple Cut | Ctrl+Shift+X | Cuts the selection to the clipboard and closes the gap it leaves. |
+| Copy | Ctrl+C | Copies the selection to the clipboard. |
+| Paste | Ctrl+V | Puts the clipboard clips at the playhead, replacing what is there. With the Media Pool focused it imports the files or picture on the clipboard into the current bin. |
+| Paste Special > Paste Insert | Ctrl+Shift+V | Puts the clipboard clips at the playhead, pushing later clips along. |
+| Paste Special > Paste Attributes… | Alt+V | Opens a dialog to copy chosen attributes (transform, effects, volume, pan, speed) from the clipboard clip to the selected clips. |
+| Delete | Backspace | Deletes the selected clips and leaves a gap. |
+| Ripple Delete | Del, Shift+Backspace | Deletes the selection and closes the gap it leaves. |
+| Close Gaps |  | Removes the gaps common to the auto-select tracks, keeping them in sync. |
+| Select > All | Ctrl+A | Selects every clip of the timeline. |
+| Select > None | Ctrl+Shift+A | Clears the selection. |
+| Select > Forward | Y | Selects every clip from the playhead to the end on the auto-select tracks. |
+| Select > Backward | Ctrl+Y | Selects every clip from the start to the playhead on the auto-select tracks. |
+| Select > Forward on All Tracks | Alt+Y | Selects every clip from the playhead to the end on all unlocked tracks. |
+| Select > Backward on All Tracks | Ctrl+Alt+Y | Selects every clip from the start to the playhead on all unlocked tracks. |
+| Select > Nearest Clip or Gap | Shift+V | Selects the clip under the playhead, or the gap if there is no clip. |
+
+## Streamlined View
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Go to Page > Media (choice) | Shift+2 | Switches to the Media page. |
+| Go to Page > Cut (choice) | Shift+3 | Switches to the Cut page. |
+| Go to Page > Edit (choice) | Shift+4 | Switches to the Edit page. |
+| Go to Page > Compositing (choice) | Shift+5 | Switches to the Compositing page. |
+| Go to Page > Color (choice) | Shift+6 | Switches to the Color page. |
+| Go to Page > Audio (choice) | Shift+7 | Switches to the Audio page. |
+| Go to Page > Deliver (choice) | Shift+8 | Switches to the Deliver page. |
+| Panels > Media Pool (toggle) |  | Shows or hides the Media Pool panel. |
+| Panels > Effects (toggle) |  | Shows or hides the Effects library panel. |
+| Panels > Inspector (toggle) |  | Shows or hides the Inspector panel. |
+| Panels > Metadata (toggle) |  | Shows or hides the Metadata panel. |
+| Panels > Timeline (toggle) |  | Shows or hides the mini timeline on the Color page. |
+| Panels > Stacked Timelines (toggle) |  | Shows a second timeline above the first, each with its own tabs, playhead and zoom. |
+| Panels > Edit Index (toggle) |  | Shows or hides the Edit Index panel. |
+| Panels > Keyframes (toggle) |  | Shows or hides the Keyframes panel. |
+| Panels > Clips (toggle) |  | Shows or hides the clip thumbnail strip on the Color page. |
+| Panels > Nodes (toggle) |  | Shows or hides the node editor. |
+| Panels > Gallery (toggle) |  | Shows or hides the Gallery of stills on the Color page. |
+| Panels > Scopes (toggle) |  | Shows or hides the scopes on the Color page. |
+| Viewer > Single Viewer (toggle) |  | Shows one viewer instead of the source and timeline viewers side by side. |
+| Viewer > Source / Timeline | Q | Switches the single viewer between the source clip and the timeline. |
+| Viewer > Multicam Angles (toggle) |  | Makes the source viewer show all angles of the multicam clip. |
+| Viewer > Zoom to Fit | Z | Fits the picture to the viewer. |
+| Viewer > Full-Screen Viewer | Ctrl+F | Shows the viewer picture full screen. |
+| Viewer > Float Viewer (toggle) |  | Puts the small viewer of the Audio page in its own window, and back. |
+| Viewer > On-Screen Controls > Transform (toggle) |  | Shows controls in the viewer to move, scale and rotate the selected clip. |
+| Viewer > On-Screen Controls > Crop (toggle) |  | Shows controls in the viewer to crop the selected clip. |
+| Viewer > On-Screen Controls > Mask (toggle) |  | Shows controls in the viewer to edit the masks of the selected clip. |
+| Viewer > On-Screen Controls > Dynamic Zoom (toggle) |  | Shows controls in the viewer to set the start and end framing of dynamic zoom. |
+| Overlays > Rulers (toggle) |  | Shows rulers along the top and left edges of the viewer picture; new guides are dragged out of them. |
+| Overlays > Grid (toggle) |  | Shows or hides the grid over the viewer picture. |
+| Overlays > Grid Type > Rule of Thirds (choice) |  | Uses a rule-of-thirds grid. |
+| Overlays > Grid Type > 4 x 4 Grid (choice) |  | Uses a 4 x 4 grid. |
+| Overlays > Grid Type > Custom Grid… (choice) |  | Opens a box to set the number of grid columns and rows (2 to 32). |
+| Overlays > Action Safe (toggle) |  | Shows the action-safe area (90 percent of the picture) over the viewer. |
+| Overlays > Title Safe (toggle) |  | Shows the title-safe area (80 percent of the picture) over the viewer. |
+| Overlays > Centre Mark (toggle) |  | Shows a mark at the centre of the picture. |
+| Overlays > Aspect Marker > None (choice) |  | Shows no aspect-ratio marker over the viewer. |
+| Overlays > Aspect Marker > 2.39:1 (choice) |  | Shows a 2.39:1 widescreen frame over the viewer. |
+| Overlays > Aspect Marker > 1.85:1 (choice) |  | Shows a 1.85:1 flat frame over the viewer. |
+| Overlays > Aspect Marker > 4:3 (choice) |  | Shows a 4:3 frame over the viewer. |
+| Overlays > Aspect Marker > 1:1 (choice) |  | Shows a 1:1 square frame over the viewer. |
+| Overlays > Aspect Marker > 4:5 (choice) |  | Shows a 4:5 portrait frame over the viewer. |
+| Overlays > Aspect Marker > 9:16 (choice) |  | Shows a 9:16 vertical-video frame over the viewer. |
+| Guides > Show (toggle) |  | Shows or hides the guides over the viewer picture. |
+| Guides > Lock (toggle) |  | Locks the guides so they cannot be moved by accident. |
+| Guides > Snap (toggle) |  | Makes an on-screen transform drag snap the picture to the guides. |
+| Guides > Add Horizontal |  | Adds a horizontal guide in the middle of the picture. |
+| Guides > Add Vertical |  | Adds a vertical guide in the middle of the picture. |
+| Guides > Clear |  | Removes all guides. |
+| Guides > Colour… |  | Opens a colour chooser for the colour of the guides. |
+| Guides > Load Preset |  | Lists the built-in and saved guide presets; choosing one applies it to the viewer. |
+| Guides > Save Preset… |  | Saves the current guides as a named preset. |
+| Guides > Delete Preset |  | Lists the guide presets you saved; choosing one deletes it. |
+| Full Screen Window (toggle) | Ctrl+Shift+F | Makes the window fill the whole screen. |
+| Reset Layout |  | Puts the panels of every page back to their default places and sizes. |
+| Look > Colour Scheme |  | Lists the colour schemes found on this computer; choosing one changes the colours of the whole window. |
+| Look > Widget Style |  | Lists the widget styles found on this computer; choosing one changes how buttons and panels are drawn. |
+
+## Streamlined Timeline
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Add to Timeline > Insert | F9 | Puts the source clip into the timeline at the playhead, pushing later clips along. |
+| Add to Timeline > Overwrite | F10 | Puts the source clip into the timeline at the playhead, replacing what is there. |
+| Add to Timeline > Replace | F11 | Replaces the clip under the playhead with the source clip, keeping its position and length. |
+| Add to Timeline > Place on Top | F12 | Puts the source clip on the first free track above the destination track at the playhead. |
+| Add to Timeline > Append at End | Shift+F12 | Adds the source clip after the last clip of the timeline. |
+| Add to Timeline > Fit to Fill | Shift+F11 | Changes the speed of the source range so it fills exactly the timeline in-to-out range. |
+| Add to Timeline > Ripple Overwrite | Shift+F10 | Replaces the in-to-out range of the timeline with the source and shifts later clips by the difference in length. |
+| Split at Playhead | Ctrl+\ | Cuts the clip under the playhead in two (all auto-select tracks when nothing is selected). |
+| Join Clips | Alt+\ | Joins the selected edit point or touching clips that continue each other back into one clip. |
+| Add Transition | Ctrl+T | Adds the default transition at the selected edit point or the clip edge nearest the playhead. |
+| Add Subtitle |  | Adds a 3-second caption at the playhead on the subtitle track. |
+| Snapping (toggle) | N | Makes clips and the playhead snap to edit points, markers and the playhead while dragging. |
+| Linked Selection (toggle) | Ctrl+Shift+L | Makes clips that are linked (such as picture and sound) be selected and moved together. |
+| Tracks > Add Video Track |  | Adds a video track to the timeline. |
+| Tracks > Add Audio Track |  | Adds an audio track to the timeline. |
+| Tracks > Add Subtitle Track |  | Adds a subtitle track to the timeline. |
+| Tracks > Delete Empty Tracks |  | Removes every track that has no clips (keeping one video and one audio track and locked tracks). |
+| Timelines > New Timeline… | Ctrl+N | Creates a new timeline in the project, asking for its name and settings. |
+| Timelines > Duplicate |  | Makes a copy of the current timeline in the project. |
+| Timelines > Delete |  | Deletes the current timeline from the project. |
+| Timelines > Next Tab |  | Shows the next open timeline. |
+| Timelines > Previous Tab |  | Shows the previous open timeline. |
+| Timelines > Close Tab |  | Closes the tab of the current timeline (the timeline stays in the project). |
+| Timelines > Timeline Settings… |  | Opens the settings of the current timeline. |
+| Zoom > Zoom In | Ctrl+= | Zooms the timeline in. |
+| Zoom > Zoom Out | Ctrl+- | Zooms the timeline out. |
+| Zoom > Zoom to Fit | Shift+Z | Zooms the timeline so all of it is visible. |
+
+## Streamlined Clip
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Enabled | D | Switches the selected clips off or on without deleting them. |
+| Attributes… |  | Opens the attributes of the selected clip (such as start timecode and audio levels). |
+| Speed and Duration > Change Speed… | R | Opens a box to set the speed of the selected clips. |
+| Speed and Duration > Change Duration… | Ctrl+D | Opens a box to set the length of the selected clips. |
+| Speed and Duration > Speed +10% |  | Makes the selected clips 10 percentage points faster. |
+| Speed and Duration > Speed -10% |  | Makes the selected clips 10 percentage points slower. |
+| Speed and Duration > Retime Controls | Ctrl+R | Shows the retime controls on the selected clips for changing speed along the clip. |
+| Speed and Duration > Retime Curve | Ctrl+Shift+R | Opens the retime curve of the selected clip, to change its speed over time. |
+| Speed and Duration > Freeze Frame | Shift+R | Makes the selected clips hold the frame under the playhead as a still. |
+| Link | Ctrl+Alt+L | Links the selected clips so they are selected and moved together. |
+| Unlink |  | Removes the link between the selected clips. |
+| Keyframes > Add | Alt+K | Adds a keyframe at the playhead to the parameter being edited on the selected clip. |
+| Keyframes > Delete |  | Deletes the selected keyframes. |
+| Keyframes > Previous | [ | Moves the playhead to the previous keyframe of the selected clip. |
+| Keyframes > Next | ] | Moves the playhead to the next keyframe of the selected clip. |
+| Keyframes > Copy |  | Copies the selected keyframes. |
+| Keyframes > Paste |  | Pastes copied keyframes at the playhead. |
+| Keyframes > Interpolation > Linear |  | Gives the selected keyframes linear interpolation. |
+| Keyframes > Interpolation > Ease In |  | Gives the selected keyframes ease-in interpolation. |
+| Keyframes > Interpolation > Ease Out |  | Gives the selected keyframes ease-out interpolation. |
+| Keyframes > Interpolation > Ease In and Out |  | Gives the selected keyframes ease-in and ease-out interpolation. |
+| Keyframes > Keyframe Editor |  | Shows the keyframe (dope sheet) view of the Keyframes panel. |
+| Keyframes > Curve Editor |  | Shows the curve view of the Keyframes panel. |
+| Keyframes > Toggle Keyframe / Curve |  | Switches the Keyframes panel between the keyframe view and the curve view. |
+| Masks > Rectangle |  | Adds a rectangle mask to the selected clip. |
+| Masks > Ellipse |  | Adds an ellipse mask to the selected clip. |
+| Masks > Polygon |  | Adds a polygon mask to the selected clip. |
+| Masks > Bezier |  | Adds a Bezier mask to the selected clip. |
+| Masks > Freehand |  | Adds a freehand mask to the selected clip. |
+| Compound > New Compound Clip… |  | Combines the selected clips into one compound clip with its own timeline inside. |
+| Compound > Open in Timeline |  | Opens the timeline inside a compound or nested clip. |
+| Compound > Decompose in Place |  | Replaces a compound clip by the clips it contains, in the same place. |
+| Multicam > New Multicam Clip… |  | Makes a multicam clip from the selected media pool clips, one angle per clip. |
+| Multicam > Sync and Place > Based on Waveform |  | Lines up the selected clips by matching their sound and places them on the timeline. |
+| Multicam > Sync and Place > Based on Timecode |  | Lines up the selected clips by their timecode and places them on the timeline. |
+| Multicam > Sync and Place > Based on In Points |  | Lines up the selected clips by their in points and places them on the timeline. |
+| Multicam > Flatten |  | Replaces the multicam clip by the clips of the angles it currently shows. |
+| Multicam > Cut Mode (choice) |  | Cut mode: clicking an angle cuts the multicam clip at the playhead and uses that angle after it. |
+| Multicam > Switch Mode (choice) |  | Switch mode: clicking an angle changes the angle of the current segment. |
+| Multicam > Video and Audio (choice) |  | Angle changes apply to both video and audio. |
+| Multicam > Video Only (choice) |  | Angle changes apply to the video only. |
+| Multicam > Audio Only (choice) |  | Angle changes apply to the audio only. |
+| Multicam > Angle > Previous Page |  | Shows the previous page of angles in the multicam viewer. |
+| Multicam > Angle > Next Page |  | Shows the next page of angles in the multicam viewer. |
+| Multicam > Angle > Angle 1 | 1 | Cuts or switches the multicam clip under the playhead to angle 1 (see Cut Mode and Switch Mode). |
+| Multicam > Angle > Angle 2 | 2 | Cuts or switches the multicam clip under the playhead to angle 2 (see Cut Mode and Switch Mode). |
+| Multicam > Angle > Angle 3 | 3 | Cuts or switches the multicam clip under the playhead to angle 3 (see Cut Mode and Switch Mode). |
+| Multicam > Angle > Angle 4 | 4 | Cuts or switches the multicam clip under the playhead to angle 4 (see Cut Mode and Switch Mode). |
+| Multicam > Angle > Angle 5 | 5 | Cuts or switches the multicam clip under the playhead to angle 5 (see Cut Mode and Switch Mode). |
+| Multicam > Angle > Angle 6 | 6 | Cuts or switches the multicam clip under the playhead to angle 6 (see Cut Mode and Switch Mode). |
+| Multicam > Angle > Angle 7 | 7 | Cuts or switches the multicam clip under the playhead to angle 7 (see Cut Mode and Switch Mode). |
+| Multicam > Angle > Angle 8 | 8 | Cuts or switches the multicam clip under the playhead to angle 8 (see Cut Mode and Switch Mode). |
+| Multicam > Angle > Angle 9 | 9 | Cuts or switches the multicam clip under the playhead to angle 9 (see Cut Mode and Switch Mode). |
+| Composition > Open in Compositing Page |  | Opens the selected clip on the Compositing page. |
+| Composition > Reset Composition |  | Removes the Compositing page node graph from the selected clips. |
+| Composition > Cache Clip Output (toggle) |  | Marks the selected clips to be rendered into the cache when the render cache is set to User. |
+| Match Frame | F | Loads the source of the clip under the playhead into the source viewer at the same frame. |
+| Find in Media Pool | Alt+F | Selects the media pool item that the selected clip comes from. |
+
+## Streamlined Trim
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Selection Mode (choice) | A | Selection tool: click and drag clips to select and move them. |
+| Trim Mode (choice) | T | Trim tool: drag clip edges to trim, roll or ripple, and slip or slide clips. |
+| Blade Mode (choice) | B | Blade tool: click a clip to cut it in two at that point. |
+| Dynamic Trim (toggle) | W | Dynamic trim: with an edit point selected, playback moves the edit point along with the playhead. |
+| Trim to Playhead > Start | Shift+[ | Trims the start of the clip under the playhead to the playhead, leaving a gap. |
+| Trim to Playhead > End | Shift+] | Trims the end of the clip under the playhead to the playhead, leaving a gap. |
+| Trim to Playhead > Ripple Start | Ctrl+Shift+[ | Trims the start of the clip to the playhead and closes the gap. |
+| Trim to Playhead > Ripple End | Ctrl+Shift+] | Trims the end of the clip to the playhead and closes the gap. |
+| Trim to Playhead > Extend Edit | E | Moves the selected edit point to the playhead. |
+| Nudge > Left 1 Frame | , | Moves the selected clips or edit point one frame to the left. |
+| Nudge > Right 1 Frame | . | Moves the selected clips or edit point one frame to the right. |
+| Nudge > Left Several Frames | Shift+, | Moves the selected clips or edit point several frames to the left (the number is set in Preferences). |
+| Nudge > Right Several Frames | Shift+. | Moves the selected clips or edit point several frames to the right (the number is set in Preferences). |
+| Move > Swap with Previous | Ctrl+Shift+, | Swaps the selected clip with the clip before it. |
+| Move > Swap with Next | Ctrl+Shift+. | Swaps the selected clip with the clip after it. |
+| Move > Up a Track | Alt+Up | Moves the selected clips one track up, replacing what is there. |
+| Move > Down a Track | Alt+Down | Moves the selected clips one track down, replacing what is there. |
+| Edit Point > Select Nearest | V | Selects the edit point nearest to the playhead; at a cut both sides are selected. |
+| Edit Point > Cycle Side | U | Cycles the selected edit point between the outgoing side, both sides (roll) and the incoming side. |
+
+## Streamlined Mark
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Mark In | I | Sets the in point at the playhead. |
+| Mark Out | O | Sets the out point at the playhead. |
+| Mark Clip | X | Sets in and out points around the selected clip, or the clip under the playhead. |
+| Mark Selection | Shift+A | Sets in and out points around all selected clips. |
+| Clear In | Alt+I | Removes the in point. |
+| Clear Out | Alt+O | Removes the out point. |
+| Clear In and Out | Alt+X | Removes both the in and out points. |
+| Add Marker | M | Adds a marker at the playhead. |
+| Add Marker with Note… | Ctrl+M | Adds a marker at the playhead, or edits the one there, in a dialog (name, colour, note, length). |
+| Delete Marker | Alt+M | Deletes the marker at the playhead. |
+| Flag Clip |  | Adds or removes a coloured flag on the selected clips (the colour is chosen in the timeline tool bar). |
+
+## Streamlined Playback
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Play / Pause | Space | Starts or stops playback. |
+| Play Reverse | Shift+Space | Plays backwards. |
+| Stop | K | Stops playback. |
+| Shuttle > Shuttle Reverse | J | Plays backwards; each further press doubles the speed. |
+| Shuttle > Shuttle Forward | L | Plays forwards; each further press doubles the speed. |
+| Loop (toggle) | Ctrl+/ | Repeats playback instead of stopping at the end of the timeline. |
+| Play In to Out | Alt+/ | Plays from the in point to the out point. |
+| Play Around Current Frame | / | Plays a short stretch before and after the playhead and returns to it. |
+| Go To > Start | Home | Moves the playhead to the start of the timeline. |
+| Go To > End | End | Moves the playhead to the end of the timeline. |
+| Go To > Previous Frame | Left | Moves the playhead back one frame. |
+| Go To > Next Frame | Right | Moves the playhead forward one frame. |
+| Go To > Back 1 Second | Shift+Left | Moves the playhead back one second. |
+| Go To > Forward 1 Second | Shift+Right | Moves the playhead forward one second. |
+| Go To > Previous Edit | Up | Moves the playhead to the previous edit point. |
+| Go To > Next Edit | Down | Moves the playhead to the next edit point. |
+| Go To > Previous Marker | Shift+Up | Moves the playhead to the previous marker. |
+| Go To > Next Marker | Shift+Down | Moves the playhead to the next marker. |
+| Go To > In | Shift+I | Moves the playhead to the in point. |
+| Go To > Out | Shift+O | Moves the playhead to the out point. |
+| Quality > Full (choice) |  | Play every frame at full resolution; frames are skipped if the computer cannot keep up. |
+| Quality > Half (choice) |  | Play the viewer at half the timeline resolution, for smoother playback. |
+| Quality > Quarter (choice) |  | Play the viewer at a quarter of the timeline resolution, for smoother playback. |
+| Quality > Automatic (choice) |  | Play at full resolution and drop to half only while playback cannot keep up; paused frames stay full. |
+| Quality > Prefer Proxies (choice) |  | Plays proxy media where it exists. |
+| Quality > Prefer Originals (choice) |  | Plays the camera original files even where proxy media exists. |
+| Quality > No Proxies (choice) |  | Ignores all proxy media. |
+| Quality > Use Proxies (toggle) |  | Uses proxy media for playback when a proxy exists. |
+| Quality > Use Optimized Media (toggle) |  | Uses optimized media for playback when it exists. |
+| Render Cache > None (choice) |  | Does not cache rendered sections. |
+| Render Cache > Smart (choice) |  | Caches sections that need heavy work (transitions, composites, effects, speed changes) automatically. |
+| Render Cache > User (choice) |  | Caches only the clips marked with Render Cache Clip Output. |
+| Render Cache > Delete Render Cache… |  | Deletes the cached renders after asking. |
+
+## Streamlined Audio
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Record Voice-Over… | Ctrl+Alt+R | Counts in, then plays the timeline from the playhead and records the microphone onto the armed audio track. Press Space or Stop to end the take. |
+| Normalize Levels… |  | Opens a box to change the sound level of the selected clips to a target level. |
+| Audio Scrubbing (toggle) | Shift+S | Play a short piece of the sound while the playhead is dragged or stepped |
+| Mixer (toggle) |  | Shows or hides the Mixer panel. |
+| Add Bus |  | Adds a stereo audio bus to the mixer. |
+| Reset Loudness Meter |  | Restarts the loudness measurement. |
+
+## Streamlined Help
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Help for This… | F1 | Opens the guide page about the panel or page under the pointer. |
+| Guide… |  | Opens the Kinoklip guide. |
+| Getting Started |  | Opens the getting-started page of the guide. |
+| Report a Bug… |  | Shows what a bug report would contain and opens the report form on GitHub. |
+| Discord Community |  | Opens the Kinoklip community on Discord in the web browser. |
+| Export Log File… |  | Saves what Kinoklip did in this session (system facts, decoder for each file, playback statistics, warnings) as a text file to attach to a bug report. |
+
+## Streamlined Cut (Cut page)
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Smart Insert |  | Cut page: inserts the source at the edit point nearest the playhead, so no clip is split. |
+| Append |  | Cut page: adds the source after the last clip. |
+| Close Up |  | Cut page: puts the source on top at the playhead, zoomed in on the centre. |
+| Source Overwrite |  | Cut page: puts the source on the track above so its timecode matches the clip under the playhead. |
+| Ripple Overwrite |  | Cut page: replaces the range around the playhead with the source and shifts later clips. |
+| Place on Top |  | Cut page: puts the source on the track above at the playhead. |
+| Fast Review (toggle) |  | Cut page: plays the timeline faster, each shot at a speed that depends on its length. |
+| Show Source Clip (choice) |  | Cut page: shows one source clip in the viewer. |
+| Show Source Tape (choice) |  | Cut page: shows all source clips as one continuous tape in the viewer. |
+| Show Timeline (choice) |  | Cut page: shows the timeline in the viewer. |
+
+## Streamlined Nodes (Compositing page)
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Add Node… | Shift+Space | Compositing page: opens the node chooser to add a node. |
+| Add Note |  | Compositing page: adds a note to the node graph. |
+| Duplicate | Ctrl+D | Compositing page: duplicates the selected nodes. |
+| Rename | F2 | Compositing page: renames the selected node. |
+| Pass Through (toggle) | Ctrl+P | Compositing page: makes the selected node pass its input through unchanged. |
+| Lock (toggle) |  | Compositing page: locks the selected node so its settings cannot be changed. |
+| Swap Inputs | Ctrl+T | Compositing page: swaps the two main inputs of the current node. |
+| View in Left Viewer | 1 | Compositing page: shows the selected node in the left viewer. |
+| View in Right Viewer | 2 | Compositing page: shows the selected node in the right viewer. |
+| Fit to View | Ctrl+F | Compositing page: fits all nodes into the node editor. |
+| Snap to Grid (toggle) |  | Compositing page: makes dragged nodes snap to a grid. |
+
+## Streamlined Grade (Color page)
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| Add Node > Serial | Alt+S | Color page: adds a serial node after the current node. |
+| Add Node > Serial Before | Shift+S | Color page: adds a serial node before the current node. |
+| Add Node > Parallel | Alt+P | Color page: adds a parallel node next to the current node. |
+| Add Node > Layer | Alt+L | Color page: adds a layer node above the current node. |
+| Delete Node | Del, Backspace | Color page: deletes the current node. |
+| Enable Node | Ctrl+D | Color page: switches the grade of the current node off or on. |
+| Copy Grade | Ctrl+C | Color page: copies the grade of the current clip. |
+| Paste Grade | Ctrl+V | Color page: pastes the copied grade onto the current clip. |
+| Reset > Node Grade | Shift+Home | Color page: resets the grade of the current node. |
+| Reset > Clip Grade | Ctrl+Home | Color page: resets the whole grade of the clip. |
+| Bypass All Grades (toggle) | Shift+D | Color page: switches all grades of the clip off or on, to compare with the original. |
+| Highlight (toggle) | Shift+H | Color page: shows in the viewer what the current node's key selects. |
+| Grade the Timeline (toggle) |  | Color page: grades the whole timeline instead of the clip. |
+| Stills > Grab | Ctrl+Alt+G | Color page: saves the viewer picture with its grade as a still in the gallery. |
+| Stills > Apply |  | Color page: gives the current clip the grade of the selected gallery still. |
+| Stills > Wipe (toggle) | Ctrl+W | Color page: splits the viewer to compare with the selected gallery still. |
+| Add / Remove Keyframe |  | Color page: adds or removes a keyframe at the playhead for the current node. |
+
+## Streamlined: commands without a menu entry
+
+| Entry | Shortcut (default Resolve keymap) | What it does |
+|---|---|---|
+| About Qt |  | Shows which version of the Qt toolkit this build uses. |
+| New Bin | Ctrl+Shift+N | Adds a new bin (folder) to the media pool. |
+| New Smart Bin… |  | Adds a smart bin: a bin that fills itself with the clips matching rules you set. |
+| Show Bin List (toggle) |  | Shows or hides the bin list of the media pool. |
+| Video Scopes (toggle) | Ctrl+Shift+W | Opens a floating window with scopes of the picture on the viewer. |
+| Cut Nodes | Ctrl+X | Compositing page: cuts the selected nodes to the clipboard. |
+| Copy Nodes | Ctrl+C | Compositing page: copies the selected nodes. |
+| Paste Nodes | Ctrl+V | Compositing page: pastes the copied nodes. |
+| Delete Nodes | Del, Backspace | Compositing page: deletes the selected nodes. |
+| Select All Nodes | Ctrl+A | Compositing page: selects all nodes. |
+| Select Clips in Timeline |  | Selects the timeline clips that come from the selected media pool clips. |
+| Video Destination V1 | Alt+1 | Makes video track V1 the destination of source edits. |
+| Video Destination V2 | Alt+2 | Makes video track V2 the destination of source edits. |
+| Video Destination V3 | Alt+3 | Makes video track V3 the destination of source edits. |
+| Video Destination V4 | Alt+4 | Makes video track V4 the destination of source edits. |
+| Video Destination V5 | Alt+5 | Makes video track V5 the destination of source edits. |
+| Video Destination V6 | Alt+6 | Makes video track V6 the destination of source edits. |
+| Video Destination V7 | Alt+7 | Makes video track V7 the destination of source edits. |
+| Video Destination V8 | Alt+8 | Makes video track V8 the destination of source edits. |
+| Audio Destination A1 | Ctrl+Alt+1 | Makes audio track A1 the destination of source edits. |
+| Audio Destination A2 | Ctrl+Alt+2 | Makes audio track A2 the destination of source edits. |
+| Audio Destination A3 | Ctrl+Alt+3 | Makes audio track A3 the destination of source edits. |
+| Audio Destination A4 | Ctrl+Alt+4 | Makes audio track A4 the destination of source edits. |
+| Audio Destination A5 | Ctrl+Alt+5 | Makes audio track A5 the destination of source edits. |
+| Audio Destination A6 | Ctrl+Alt+6 | Makes audio track A6 the destination of source edits. |
+| Audio Destination A7 | Ctrl+Alt+7 | Makes audio track A7 the destination of source edits. |
+| Audio Destination A8 | Ctrl+Alt+8 | Makes audio track A8 the destination of source edits. |
+| Toggle Auto Select V1 | Ctrl+1 | Switches auto select on or off for video track V1. |
+| Toggle Auto Select V2 | Ctrl+2 | Switches auto select on or off for video track V2. |
+| Toggle Auto Select V3 | Ctrl+3 | Switches auto select on or off for video track V3. |
+| Toggle Auto Select V4 | Ctrl+4 | Switches auto select on or off for video track V4. |
+| Toggle Auto Select V5 | Ctrl+5 | Switches auto select on or off for video track V5. |
+| Toggle Auto Select V6 | Ctrl+6 | Switches auto select on or off for video track V6. |
+| Toggle Auto Select V7 | Ctrl+7 | Switches auto select on or off for video track V7. |
+| Toggle Auto Select V8 | Ctrl+8 | Switches auto select on or off for video track V8. |
+| Toggle Auto Select A1 | Ctrl+Shift+1 | Switches auto select on or off for audio track A1. |
+| Toggle Auto Select A2 | Ctrl+Shift+2 | Switches auto select on or off for audio track A2. |
+| Toggle Auto Select A3 | Ctrl+Shift+3 | Switches auto select on or off for audio track A3. |
+| Toggle Auto Select A4 | Ctrl+Shift+4 | Switches auto select on or off for audio track A4. |
+| Toggle Auto Select A5 | Ctrl+Shift+5 | Switches auto select on or off for audio track A5. |
+| Toggle Auto Select A6 | Ctrl+Shift+6 | Switches auto select on or off for audio track A6. |
+| Toggle Auto Select A7 | Ctrl+Shift+7 | Switches auto select on or off for audio track A7. |
+| Toggle Auto Select A8 | Ctrl+Shift+8 | Switches auto select on or off for audio track A8. |

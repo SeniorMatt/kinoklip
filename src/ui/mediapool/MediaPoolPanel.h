@@ -348,6 +348,13 @@ private:
     [[nodiscard]] MediaPool* poolForKey(const QString& key) const;
     // ---- Context menus (MediaPoolMenus.cpp) ----
     void showItemMenu(const QPoint& globalPos);
+    /// The item menu of the Streamlined menu layout (spec 82): at most 12 entries, groups of
+    /// at most 5, what does not apply left out; the rest is in the submenus.
+    void fillStreamlinedItemMenu(QMenu& menu);
+    /// Store in Project File, Relink Selected Clips…, Replace Selected Clip… (as they apply to
+    /// the selection @p ids with @p current as the clicked item).
+    void addFileRepairCommands(
+        QMenu& menu, const QStringList& ids, const QString& current, bool power);
     void showBinMenu(QTreeWidgetItem* item, const QPoint& globalPos);
     /// Context menu of a folder (a sub-bin in the clip area) of @p view at @p index.
     void showFolderMenu(QAbstractItemView* view, const QModelIndex& index, const QPoint& globalPos);

@@ -18,11 +18,14 @@ struct Reference
     int entries = 0; ///< menu entries (rows of the menu tables)
     int menus = 0; ///< menu tables
     int panels = 0; ///< panel rows (a panel shown on several pages counts for each page)
+    int streamlinedEntries = 0; ///< rows of the Streamlined layout's menu tables
+    int streamlinedMenus = 0; ///< menu tables of the Streamlined layout
     /// Entries (as "Menu > Entry") and panels without a description. Empty when complete.
     QStringList undescribed;
 };
 
-/// Walks the menu bar of @p window (submenus too), the registry actions that no menu shows and
+/// Walks the menu bar of @p window in both menu layouts (Resolve first, then Streamlined; the
+/// window ends in the layout it had) (submenus too), the registry actions that no menu shows and
 /// the panels of every page, and writes them as Markdown. Everything comes from the live
 /// objects: the menu tables and the descriptions set where the actions and panels are built.
 /// The window must have been made from default settings for the result to be reproducible.
