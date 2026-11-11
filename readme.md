@@ -11,6 +11,8 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 
 **[Roadmap](docs/roadmap.md)**
 
+<a href="docs/images/readme/themes.png"><img src="docs/images/readme/themes.png" width="100%" alt="The Edit page of Kinoklip in the Breeze Dark colour scheme on the left and Breeze Light on the right, divided by a diagonal line"></a>
+
 ## Status
 
 <!-- status:start -->
@@ -54,6 +56,9 @@ It is still a beta, missing many of Resolve's features, so it's not a full repla
 
 ## Screenshots
 
+<details>
+<summary>Show the screenshots</summary>
+
 <table>
 <tr>
 <td width="50%" valign="top"><a href="docs/images/readme/media.png"><img src="docs/images/readme/media.png" width="100%" alt="The Media page of Kinoklip"></a><br><b>Media</b></td>
@@ -72,6 +77,8 @@ It is still a beta, missing many of Resolve's features, so it's not a full repla
 <td width="50%" valign="top"><a href="docs/images/readme/project-manager.png"><img src="docs/images/readme/project-manager.png" width="100%" alt="The Project Manager window of Kinoklip"></a><br><b>Project Manager</b></td>
 </tr>
 </table>
+
+</details>
 
 ## Documentation
 

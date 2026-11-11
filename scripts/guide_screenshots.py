@@ -168,7 +168,7 @@ def build_projects(tests: Path, media: Path, projects: Path) -> None:
 
 
 def run_shot(app: Path, target: str, project: Path, png: Path, geometry: Path,
-             extra_env: dict, luts=()) -> None:
+             extra_env: dict, luts=(), args=()) -> None:
     with tempfile.TemporaryDirectory(prefix="kk-guide-home-") as home:
         env = clean_env(Path(home))
         env["KK_SCREENSHOT_GEOMETRY"] = str(geometry)
@@ -182,6 +182,7 @@ def run_shot(app: Path, target: str, project: Path, png: Path, geometry: Path,
         cmd = [str(app), "--screenshot", target, str(png)]
         if project:
             cmd.append(str(project))
+        cmd += list(args)  # e.g. --color-scheme BreezeDark
         result = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, timeout=180)
         if result.returncode != 0 or not png.exists():

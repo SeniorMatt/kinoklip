@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Makes the screenshots of the readme's Screenshots section (docs/images/readme/).
 
-One picture per page (Media, Cut, Edit, Compositing, Color, Audio, Deliver) and a few feature
-shots, taken from the real app with its default look (Breeze widget style, Kinoklip colour
+One picture per page (Media, Cut, Edit, Compositing, Color, Audio, Deliver), a few feature
+shots and themes.png (Breeze Dark and Breeze Light split diagonally), taken from the real app with its default look (Breeze widget style, Kinoklip colour
 scheme) at 1920x1080, then scaled to 1600 px wide and stored as palette PNGs.
 
 The footage is made from five CC0 kitten photos (scripts/readme-media, credited in
@@ -59,6 +59,11 @@ SHOTS = {
                         {"KK_PROJECT_LIBRARY": "{library}"}),
 }
 
+# The readme's theme picture: the Edit page in Breeze Dark and in Breeze Light, joined along a
+# diagonal (dark on the left). name: colour scheme id given with --color-scheme.
+THEMES = {"breeze-dark": "BreezeDark", "breeze-light": "BreezeLight"}
+SPLIT = (0.62, 0.38)  # where the dividing line meets the top and the bottom edge (of the width)
+
 
 PHOTOS = ROOT / "scripts" / "readme-media"
 
@@ -113,6 +118,25 @@ def store(raw: Path, out: Path) -> None:
           f"{out.stat().st_size // 1024} KB")
 
 
+def store_split(dark: Path, light: Path, out: Path) -> None:
+    """Joins two shots of the same size along a diagonal and stores the result like store()."""
+    from PIL import ImageDraw
+    a, b = Image.open(dark).convert("RGB"), Image.open(light).convert("RGB")
+    w, h = a.size
+    top, bottom = SPLIT[0] * w, SPLIT[1] * w
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).polygon([(0, 0), (top, 0), (bottom, h), (0, h)], fill=255)
+    joined = Image.composite(a, b, mask)
+    ImageDraw.Draw(joined).line([(top, 0), (bottom, h)], fill=(128, 128, 128), width=4)
+    # Kept in full colour: two schemes in one 256-colour palette turn the reds and oranges
+    # (playhead, selection) brown.
+    joined = joined.resize((WIDTH, round(h * WIDTH / w)), Image.LANCZOS)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    joined.save(out, optimize=True)
+    print(f"  {out.relative_to(ROOT)}: {joined.width}x{joined.height}, "
+          f"{out.stat().st_size // 1024} KB")
+
+
 def breeze_available(app: Path) -> bool:
     """True when the app can load the Breeze widget style: bundled next to it (an AppDir), on
     QT_PLUGIN_PATH or in the system's Qt 6 plugin folders. Without it Qt silently uses Fusion."""
@@ -129,7 +153,7 @@ def main() -> None:
     parser.add_argument("--app", default=str(ROOT / "build" / "kinoklip"))
     parser.add_argument("--tests", default=str(ROOT / "build"))
     parser.add_argument("--work", default=str(ROOT / "build" / "readme"))
-    parser.add_argument("--only", help="one shot (" + ", ".join(SHOTS) + ")")
+    parser.add_argument("--only", help="one shot (" + ", ".join(list(SHOTS) + ["themes"]) + ")")
     parser.add_argument("--keep", action="store_true", help="reuse raw shots from --work")
     parser.add_argument("--delay", type=int, default=30000,
                         help="ms to wait for thumbnails and waveforms before each shot")
@@ -193,6 +217,14 @@ def main() -> None:
             env = {k: v.format(library=library) for k, v in env.items()}
             guide.run_shot(app, target, projects / project, png, geo, env)
         store(png, OUT / f"{name}.png")
+    if not args.only or args.only == "themes":
+        target, project, env = SHOTS["edit"]
+        for name, scheme in THEMES.items():
+            png, geo = raw / f"{name}.png", raw / f"{name}.json"
+            if not (args.keep and png.exists()):
+                guide.run_shot(app, target, projects / project, png, geo, env,
+                               args=("--color-scheme", scheme))
+        store_split(raw / "breeze-dark.png", raw / "breeze-light.png", OUT / "themes.png")
 
 
 if __name__ == "__main__":
