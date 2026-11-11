@@ -23,7 +23,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "" FORCE)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Multimedia Svg SvgWidgets OpenGL OpenGLWidgets Concurrent DBus Test)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Multimedia Svg SvgWidgets OpenGL OpenGLWidgets Concurrent DBus Network Test)
 
 # Qt's private QDesktopUnixServices (Qt >= 6.9) exports our window for the XDG desktop portal
 # ("wayland:<handle>"), so the native file dialog is attached to the Kinoklip window
@@ -68,6 +68,14 @@ endif()
 if(KK_WITH_LIBRAW)
   pkg_check_modules(LIBRAW IMPORTED_TARGET libraw_r) # thread-safe LibRaw build
 endif()
+# Optional AI runtime for Background Removal (src/matting): ONNX Runtime (MIT), CPU. Without it the
+# tool is built but reports itself unavailable (spec 78).
+option(KK_WITH_ONNXRUNTIME "Background Removal: run the model with ONNX Runtime (if found)" ON)
+if(KK_WITH_ONNXRUNTIME)
+  find_path(KK_ORT_INCLUDE onnxruntime_cxx_api.h PATH_SUFFIXES onnxruntime onnxruntime/core/session)
+  find_library(KK_ORT_LIBRARY onnxruntime)
+endif()
+message(STATUS "ONNX Runtime: ${KK_ORT_LIBRARY}")
 message(STATUS "libheif: ${LIBHEIF_FOUND} ${LIBHEIF_VERSION}, LibRaw: ${LIBRAW_FOUND} ${LIBRAW_VERSION}")
 
 # ---- Core library: everything under src/ except main.cpp ----
@@ -82,7 +90,7 @@ target_compile_definitions(kinoklip_core PUBLIC
 )
 target_link_libraries(kinoklip_core PUBLIC
   Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Multimedia Qt6::Svg Qt6::SvgWidgets
-  Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::DBus PkgConfig::FFMPEG)
+  Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::DBus Qt6::Network PkgConfig::FFMPEG)
 if(KK_HAVE_PORTAL_WINDOW_ID)
   target_link_libraries(kinoklip_core PRIVATE Qt6::GuiPrivate)
   target_compile_definitions(kinoklip_core PRIVATE KK_HAVE_PORTAL_WINDOW_ID)
@@ -94,6 +102,11 @@ endif()
 if(LIBHEIF_FOUND)
   target_link_libraries(kinoklip_core PUBLIC PkgConfig::LIBHEIF)
   target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_LIBHEIF=1)
+endif()
+if(KK_ORT_INCLUDE AND KK_ORT_LIBRARY)
+  target_include_directories(kinoklip_core PRIVATE ${KK_ORT_INCLUDE})
+  target_link_libraries(kinoklip_core PUBLIC ${KK_ORT_LIBRARY})
+  target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_ONNXRUNTIME=1)
 endif()
 if(LIBRAW_FOUND)
   target_link_libraries(kinoklip_core PUBLIC PkgConfig::LIBRAW)

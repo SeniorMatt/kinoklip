@@ -1147,6 +1147,12 @@ void PlaybackEngine::scrubAudio(int64_t frame)
     m_scrubIdle.start();
 }
 
+void PlaybackEngine::redrawStill()
+{
+    if (!isPlaying())
+        requestStill(true);
+}
+
 void PlaybackEngine::requestStill(bool force)
 {
     if (!m_snapshot) {

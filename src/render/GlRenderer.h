@@ -261,6 +261,8 @@ private:
 
     DecoderPool m_decoders;
     const ProxyMap* m_proxies = nullptr; ///< RenderRequest::proxies of the current frame
+    const MediaPathMap* m_media = nullptr; ///< media id -> path of the current frame (matte keys)
+    bool m_waitForAi = false; ///< RenderRequest::waitForAi of the current frame
     QThreadPool m_decodeThreads; ///< parallel decoding of the clips visible in one frame
     std::vector<DecodedClip> m_decoded; ///< per-frame scratch (capacity reused)
     qint64 m_uploadNs = 0; ///< plane upload time of the current frame (statistics)

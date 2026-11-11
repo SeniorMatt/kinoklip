@@ -233,6 +233,7 @@ void EffectRegistry::registerBuiltins()
     registerVideoEffects5(); // 1.2 multi-frame effects: trails, deflicker, dirt (spec 60)
     registerVideoEffects6(); // 1.2 template looks (spec 65)
     registerVideoEffects7(); // 1.2 tracking effects: Match Move, Surface Tracker, Warper (spec 70)
+    registerVideoEffects8(); // 1.4 Background Removal (AI tool, spec 78)
     registerAudioEffects(); // gain, EQ, dynamics, filters, delay, reverb
 
     // ---- Transitions (ClipData::transitionIn / transitionOut) ----

@@ -357,6 +357,9 @@ public Q_SLOTS:
     void shuttleStop();
     /// Physical J/K/L key state (from a key event filter) for K+L / K+J.
     void setShuttleKeyHeld(ShuttleControl::Key key, bool held);
+    /// Draws the frame at the playhead again while paused (a slow background result such as a
+    /// Background Removal matte arrived, spec 78). Playing: nothing, the next frames show it.
+    void redrawStill();
     /// Pauses and moves by @p frames (clamped to the timeline).
     void step(int64_t frames);
     /// Moves by one second of frames (@p direction +1 / -1).
