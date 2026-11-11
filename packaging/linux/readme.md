@@ -205,7 +205,7 @@ done | grep -E 'undefined symbol|not found'
      `QT_QPA_PLATFORMTHEME=generic` and `QT_STYLE_OVERRIDE` unset, so neither a host platform
      theme nor Qt's built-in KDE theme can restyle the app: Breeze style, KDE colour scheme and
      Breeze icons come from the bundle and look identical on every system (the user changes
-     them in Settings > Color Theme / Style). `QT_MEDIA_BACKEND=ffmpeg` (unless set).
+     them in Settings > Color Theme / Style). `QT_MEDIA_BACKEND=ffmpeg` (unless set); `QT_AUDIO_BACKEND=pulseaudio` (unless set) when no PipeWire client.conf exists on the host (Qt 6.12's PipeWire backend crashes then).
    - **Opt-in: `KINOKLIP_HOST_QT=1`** uses the system Qt only if it is **exactly** the Qt
      release in `usr/lib/qt/qt-version.txt` (major.minor.patch, e.g. 6.12.0), has every module
      in `host-qt-requirements.txt` from that same release, and has a wayland or xcb platform

@@ -433,7 +433,24 @@ use_bundled_qt() {
     unset_var QT_STYLE_OVERRIDE
     # the only multimedia backend we ship (shares the bundled FFmpeg)
     [ -n "${QT_MEDIA_BACKEND:-}" ] || set_var QT_MEDIA_BACKEND ffmpeg
+    # Qt 6.12's PipeWire audio backend crashes (SIGSEGV in QPlatformAudioDevices::create, at the
+    # first look at the audio devices) when libpipewire is installed but its client
+    # configuration is not: Ubuntu 24.04 / Debian 13 with a KDE library set and no "pipewire"
+    # package. PulseAudio's API (also served by PipeWire) works there.
+    if [ -z "${QT_AUDIO_BACKEND:-}" ] && ! pipewire_client_conf_exists; then
+        set_var QT_AUDIO_BACKEND pulseaudio
+    fi
     log "using bundled Qt $(cat "$QTDIR/qt-version.txt" 2>/dev/null)"
+}
+
+# pipewire_client_conf_exists: succeeds if libpipewire can find its client configuration (the
+# first of these files it looks at, as pw_conf_load_conf does).
+pipewire_client_conf_exists() {
+    for _f in "${XDG_CONFIG_HOME:-$HOME/.config}/pipewire/client.conf" /etc/pipewire/client.conf \
+        /usr/share/pipewire/client.conf; do
+        [ -f "$_f" ] && return 0
+    done
+    return 1
 }
 
 # ---- desktop integration ---------------------------------------------------------------
