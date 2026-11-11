@@ -22,11 +22,26 @@ namespace kk::media {
 
 using namespace detail;
 
-namespace {
+int autoSoftwareThreads(int width, int height, int cores)
+{
+    // KINOKLIP_SW_THREADS=<n>: exact number (diagnostics, e.g. when a report says the CPU is
+    // half idle during playback).
+    if (const int forced = qEnvironmentVariableIntValue("KINOKLIP_SW_THREADS"); forced > 0) {
+        return forced;
+    }
+    cores = std::max(1, cores);
+    // Up to 1080p: 4 threads leave the rest of a 4-core/8-thread laptop to compositing, audio
+    // and the UI. Above that a 4K frame costs four times as much and 4 threads cap the decoder
+    // at about half of a 8-core machine (4K60 HEVC played at 25 fps); it may use 3/4 of the
+    // cores, 8 at most.
+    constexpr int64_t kFullHdPixels = int64_t(1920) * 1088;
+    if (int64_t(width) * height <= kFullHdPixels) {
+        return std::min(4, cores);
+    }
+    return std::clamp(cores * 3 / 4, std::min(4, cores), 8);
+}
 
-/// Software decoding threads when the caller does not choose: the target machines are
-/// 4-core/8-thread laptops that also composite, mix audio and run the UI.
-constexpr int kMaxAutoSoftwareThreads = 4;
+namespace {
 
 /// Hardware decoders do the work on the GPU; extra CPU threads only add latency.
 constexpr int kHardwareDecodeThreads = 1;
@@ -192,7 +207,7 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
     }
     const int threads = threadCount > 0
         ? threadCount
-        : std::min(kMaxAutoSoftwareThreads, QThread::idealThreadCount());
+        : autoSoftwareThreads(info.width, info.height, QThread::idealThreadCount());
     codec = openDecoder(stream, threads, error);
     return codec != nullptr;
 }

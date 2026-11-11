@@ -1947,6 +1947,19 @@ it worse; that part is checked on his hardware.
 | 76.3 | Keyframe tiles live in memory only (never written to the disk cache). When playback stops they are dropped, `thumbnailReady` makes the views ask again, and the exact frames replace them. | Done (`test_mediacache` trickledTilesAreKeyframesUntilPlaybackStops) |
 | 76.4 | Playback with the view following the playhead shows at least 97 % of the frames of the same playback with the view fixed, and loses at most 30 frames more. | Done (`test_pageturnplayback` pageTurnDoesNotHurtPlayback) |
 
+## 77. 4K HEVC playback drops half the frames (hevc4k branch, Discord report)
+
+A tester (Core Ultra 7 258V, Arc 140V, 4K HEVC, released AppImage) saw about 50 % of the frames dropped
+with the CPU at 55 %, the GPU at 11 % and proxies making no difference. Measured with
+`tests/playback/test_hevc4kperf.cpp` (generated libx265 3840x2160, `KK_PERF_HEVC=1`, four CPUs, software
+decoding): the timeline size does not matter (4K and 1080p timelines play the same), a 960x540 proxy
+plays 60 of 60 fps, 4K60 originals play 12 to 28 fps. Software decoding was capped at 4 threads for
+every frame size, so on an 8-core laptop half of the cores stay idle (the report's 55 %).
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 77.1 | Software decoding above 1080p uses 3/4 of the cores (at least 4, at most 8); up to 1080p it stays at 4. `KINOKLIP_SW_THREADS=<n>` sets the number exactly. | Done (`test_videodecoder` softwareThreadsGrowWithFrameSize) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

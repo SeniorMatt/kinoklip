@@ -106,6 +106,25 @@ class TestVideoDecoder : public QObject
     Q_OBJECT
 
 private slots:
+    /// 4K HEVC played at half speed on an 8-core laptop (CPU ~55 %, GPU idle): software
+    /// decoding was capped at 4 threads whatever the frame size. Large frames get more.
+    void softwareThreadsGrowWithFrameSize()
+    {
+        QVERIFY(qEnvironmentVariableIsEmpty("KINOKLIP_SW_THREADS"));
+        using media::autoSoftwareThreads;
+        QCOMPARE(autoSoftwareThreads(1920, 1080, 8), 4); // unchanged up to 1080p
+        QCOMPARE(autoSoftwareThreads(1280, 720, 16), 4);
+        QCOMPARE(autoSoftwareThreads(1920, 1080, 2), 2);
+        QCOMPARE(autoSoftwareThreads(3840, 2160, 8), 6);
+        QCOMPARE(autoSoftwareThreads(3840, 2160, 16), 8);
+        QCOMPARE(autoSoftwareThreads(3840, 2160, 32), 8);
+        QCOMPARE(autoSoftwareThreads(3840, 2160, 4), 4); // a 4-core machine keeps its 4
+        QCOMPARE(autoSoftwareThreads(3840, 2160, 2), 2);
+        qputenv("KINOKLIP_SW_THREADS", "3");
+        QCOMPARE(autoSoftwareThreads(3840, 2160, 8), 3);
+        qunsetenv("KINOKLIP_SW_THREADS");
+    }
+
     void initTestCase()
     {
         QString why;
