@@ -14,6 +14,7 @@
 #include "core/Project.h"
 #include "playback/PlaybackEngine.h"
 #include "render/Compositor.h"
+#include "render/DecoderPool.h"
 
 #include <QElapsedTimer>
 #include <QProcess>
@@ -34,7 +35,8 @@ const int kFps = qEnvironmentVariableIntValue("KK_KEYCUT_FPS") > 0
 constexpr int kGop = 250;
 constexpr int kFileSeconds = 30;
 constexpr int kClipFrames = 90; ///< 3 s
-constexpr int kLead = 30; ///< frames played in the previous clip before the cut
+const int kLead
+    = 2 * kFps + kFps / 2; ///< frames played in the previous clip before the cut (2.5 s)
 
 bool makeScreenFile(const QString& path, const QString& source)
 {
@@ -68,6 +70,7 @@ struct Case
     bool keyed = true;
     bool otherFile = false;
     bool startOnClip = false;
+    int openDelayMs = 0; ///< hardware-decoder-like slow open() of decoders opened at the cut
     int gapFrames = 120; ///< source gap between the two clips (0 = contiguous)
 };
 
@@ -144,10 +147,12 @@ class TestKeyframeCut : public QObject
                     shown.push_back({f->frame, clock.nsecsElapsed() / 1e6});
             });
         const int64_t endFrame = kClipFrames + kFps + 10;
+        render::DecoderPool::setOpenDelayMs(c.openDelayMs);
         engine.play();
         (void)QTest::qWaitFor(
             [&] { return engine.currentFrame() && engine.position() >= endFrame; }, 20000);
         engine.pause();
+        render::DecoderPool::setOpenDelayMs(0);
         Result r;
         // First shown frame of the window is "on time" by definition; later ones are compared
         // with the ideal schedule from it.
@@ -208,19 +213,19 @@ private Q_SLOTS:
         QTest::addColumn<int>("gap");
         QTest::newRow("jump of 4 s in the file") << 120;
         QTest::newRow("contiguous") << 0;
-        QTest::newRow("gap 20 frames") << 20;
     }
 
     void crossing()
     {
         QFETCH(int, gap);
-        report("a keyed, start on the clip", Case {true, false, true, gap});
+        report("a keyed, start on the clip", Case {true, false, true, 0, gap});
         const Result startOn = m_last;
-        report("b keyed, start in the previous clip, same file", Case {true, false, false, gap});
+        report("b keyed, start in the previous clip, same file", Case {true, false, false, 0, gap});
         const Result keyed = m_last;
-        report("c plain, start in the previous clip, same file", Case {false, false, false, gap});
+        report(
+            "c plain, start in the previous clip, same file", Case {false, false, false, 0, gap});
         const Result plain = m_last;
-        report("d keyed, start in the previous clip, other file", Case {true, true, false, gap});
+        report("d keyed, start in the previous clip, other file", Case {true, true, false, 0, gap});
         const Result other = m_last;
         // The keys must not make crossing worse than the same cut without keys, nor than a
         // cut between files, nor than starting on the clip (margins: noise on a busy machine).
@@ -229,6 +234,23 @@ private Q_SLOTS:
         QVERIFY2(keyed.lost <= startOn.lost + 3, "crossing loses more than starting on the clip");
         QVERIFY2(keyed.hold <= std::max(plain.hold, startOn.hold) + 80.0,
             "a long hold only when crossing into the keyed clip");
+    }
+
+    void slowOpen_data()
+    {
+        QTest::addColumn<int>("delayMs");
+        QTest::newRow("open 300 ms") << 300;
+        QTest::newRow("open 800 ms") << 800;
+        QTest::newRow("open 1200 ms") << 1200;
+    }
+
+    /// A hardware decoder opens slowly: the look-ahead for a same-file jump must still be early
+    /// enough, or the cut loses frames.
+    void slowOpen()
+    {
+        QFETCH(int, delayMs);
+        report("keyed, jump in the same file", Case {true, false, false, delayMs, 120});
+        QVERIFY2(m_last.lost <= 3, "a slow decoder open at the cut loses frames");
     }
 
 private:

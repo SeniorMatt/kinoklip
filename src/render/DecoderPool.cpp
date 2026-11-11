@@ -7,7 +7,9 @@
 #include <QThreadPool>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <thread>
 #include <limits>
 
 namespace kk::render {
@@ -19,6 +21,16 @@ constexpr int kPreparePriority = -1;
 /// Due times this close belong to one frame (clips cutting together on two tracks).
 constexpr qint64 kSameFrameMs = 5;
 
+std::atomic<int> s_openDelayMs {0};
+
+/// open() plus the test hook's delay.
+bool openDecoder(media::VideoDecoder& decoder, const QString& path, QString* error)
+{
+    if (const int ms = s_openDelayMs.load(std::memory_order_relaxed); ms > 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    return decoder.open(path, error);
+}
+
 bool workerRunning(const DecoderPool::Entry& entry)
 {
     return entry.ahead.valid()
@@ -26,6 +38,11 @@ bool workerRunning(const DecoderPool::Entry& entry)
 }
 
 } // namespace
+
+void DecoderPool::setOpenDelayMs(int ms)
+{
+    s_openDelayMs.store(ms, std::memory_order_relaxed);
+}
 
 DecoderPool::DecoderPool()
 {
@@ -133,7 +150,7 @@ DecoderPool::Entry* DecoderPool::acquire(const QString& path, int64_t timeUs)
         auto entry = std::make_unique<Entry>();
         entry->decoder = std::make_unique<media::VideoDecoder>();
         QString error;
-        if (!entry->decoder->open(path, &error)) {
+        if (!openDecoder(*entry->decoder, path, &error)) {
             if (failed == m_failedAtMs.constEnd())
                 qCWarning(lcRender) << "cannot open" << path << ":" << error;
             m_failedAtMs.insert(path, now);
@@ -202,6 +219,7 @@ int DecoderPool::reservedCount() const
 DecoderPool::PrepareStats DecoderPool::prepareStats() const
 {
     PrepareStats s;
+    s.lastCostMs = m_stats.lastCostMs.load(std::memory_order_relaxed);
     s.requested = m_stats.requested.load(std::memory_order_relaxed);
     s.started = m_stats.started.load(std::memory_order_relaxed);
     s.reused = m_stats.reused.load(std::memory_order_relaxed);
@@ -330,7 +348,7 @@ void DecoderPool::startPreparation(const Wish& wish, qint64 now)
             QElapsedTimer timer;
             timer.start();
             QString error;
-            if (!stop() && (reuse || decoder->open(path, &error)) && !stop()
+            if (!stop() && (reuse || openDecoder(*decoder, path, &error)) && !stop()
                 && decoder->prepareFrame(timeUs, stop)) {
                 stats->ready.fetch_add(1, std::memory_order_relaxed);
                 stats->lastCostMs.store(int(timer.elapsed()), std::memory_order_relaxed);

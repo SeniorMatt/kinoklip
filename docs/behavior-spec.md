@@ -1846,7 +1846,7 @@ started in the clip before it and played across the cut, the viewer lags for abo
 while the keys animate (export is fine). Guarantee: animated Transform values never change how
 a clip is prepared or presented; crossing a cut into a keyed clip loses no more frames than the
 same cut into an unkeyed clip, than a cut between two files, or than starting on the clip.
-Measured with `tests/playback/test_keyframecut.cpp` (kc) on a CPU-only machine (software
+Measured with `tests/playback/test_keyframecut.cpp` (kc) and `tests/app/test_playheadload.cpp` (ph, whole main window) on a CPU-only machine (software
 decoder, CPU compositor and llvmpipe OpenGL, 720p30, 1080p60): 0 frames lost in the first second
 of the keyed clip in every case, longest hold one frame time; the lag of the report was not
 reproduced there, so the test compares the cases with each other (generous margins) and
@@ -1856,6 +1856,8 @@ guards against the regression.
 |---|-----------|--------|
 | 72.1 | Playing across a cut between two clips of the same file into a clip with Transform keys from frame 0 loses at most 3 frames more than the same cut without keys, than the same cut from another file, and than starting on the keyed clip, in the clip's first second. | Done (kc crossing) |
 | 72.2 | The longest hold between two shown frames in that second is at most 80 ms above the unkeyed crossing's or the start-on-clip's. | Done (kc crossing) |
+| 72.3 | The viewer's GUI thread (Inspector on the clip's Transform, Keyframes panel, on-screen Transform controls, all following the playhead) is no busier when playing across a cut into the selected keyed clip than into the unkeyed one: the longest event-loop stall measured is within 60 ms of the others (measured: ~20 ms in all three cases, 0 or 1 frames lost). | Done (ph crossingIntoSelectedKeyedClip) |
+| 72.4 | A slow decoder open (a hardware decoder's session setup) does not make a same-file jump lose frames: the cut look-ahead starts 2 s before the cut, and 2 x the last preparation's measured cost (at most 4 s) when preparations were slow. Measured with a delay hook in the decoder pool (`DecoderPool::setOpenDelayMs`), playing from 2.5 s before the cut: open 300 / 800 / 1200 ms lost 0 / 2-3 / 11-15 frames with the old 1 s look-ahead, 0 / 0 / 0 now. | Done (kc slowOpen) |
 
 ## Summary
 

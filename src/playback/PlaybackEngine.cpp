@@ -1420,7 +1420,11 @@ void PlaybackEngine::onTick()
     // KK_NO_CUT_LOOKAHEAD: without it, to compare (tests/playback/test_cutperf).
     static const bool lookAhead = qEnvironmentVariableIsEmpty("KK_NO_CUT_LOOKAHEAD");
     if (lookAhead && m_rate > 0.0 && m_rate <= kCutLookAheadMaxRate) {
-        int64_t lastKey = dueKey + int64_t(kCutLookAheadMs / intervalMs * m_rate);
+        // Longer when the last preparation took long: twice its cost, so a slow open (hardware
+        // decoder) is done before its cut.
+        const int cost = m_compositor->prepareStats().lastCostMs;
+        const int lead = std::clamp(2 * cost, int(kCutLookAheadMs), int(kCutLookAheadMaxMs));
+        int64_t lastKey = dueKey + int64_t(lead / intervalMs * m_rate);
         if (!m_rangeLoop)
             lastKey = std::min(lastKey, m_rangeEnd - 1);
         m_scheduler.prepareAhead(dueKey, lastKey, intervalMs / m_rate,
