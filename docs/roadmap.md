@@ -69,7 +69,9 @@ Still to do for 1.2:
 - [x] Interface: vim keybindings, so nvim users can edit easily
 - [x] Interface: Help > Export Log File: saves what the app did in this session (messages, warnings, the decoder chosen for each file, the graphics card, the playback statistics) as one text file to attach to a bug report. The log is kept in memory while you work and written only when you ask; the dialog says what the file contains (owner pick, idea from [Picasso Suite](https://github.com/fabox-os/Picasso-Suite))
 
-## Version 1.3 (owner's picks, 2026-11-11)
+## Version 1.3 (released 2026-11-11 as 1.3 Beta)
+
+Shipped in 1.3 ([release notes](releases/v1.3.0-beta.1.md)):
 
 - [x] Interface: every window and dialog opens at least big enough for its content, so no scrollbars appear when they are not needed (Project Settings first)
 - [x] Audio: voice-over: record from the microphone straight onto an audio track while the timeline plays. An arm button and an input menu on the track header (Edit and Audio pages), an input level meter, a count-in, and each take saved as a WAV file beside the project and added to the Media Pool (owner pick) (spec 75; the capture itself could not be tested without a microphone)
