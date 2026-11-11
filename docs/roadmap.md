@@ -73,6 +73,7 @@ Still to do for 1.2:
 
 - [ ] Interface: every window and dialog opens at least big enough for its content, so no scrollbars appear when they are not needed (Project Settings first)
 - [ ] Audio: voice-over: record from the microphone straight onto an audio track while the timeline plays. An arm button and an input menu on the track header (Edit and Audio pages), an input level meter, a count-in, and each take saved as a WAV file beside the project and added to the Media Pool (owner pick)
+- [ ] Interface: dragging files over a closed panel's toolbar button (Media Pool, Effects and every other panel that takes files) opens that panel after the same hover delay as the page buttons, so the drop can land in it
 
 ## Next big release
 
@@ -118,7 +119,7 @@ when the owner asks for it.
 - [ ] Audio: dialogue leveler, elastic wave, console mapping, VCAs, more effects
 - [ ] Project: pack with trimming (only the used parts of long clips plus handles) and image sequences inside single-file projects
 - [ ] Project: more than one project library, Open in a New Window, a cloud / shared library
-- [ ] Interchange: AAF and FCPXML interchange, EDL export with more than one video track
+- [ ] Interchange: EDL export with more than one video track
 - [ ] Edit: type a marker Duration in the Edit Index table
 - [ ] Platform: cache shaped clip names so painting a 1,500-clip timeline is cheaper
 - [ ] Edit: two-up trim view with the program look (effects, transforms) without lag
@@ -237,4 +238,5 @@ when the owner asks for it.
 - Final Cut Pro 7 / Premiere XML import and export (owner decision)
 - macOS version (OpenGL is frozen there, a port would need a Metal renderer, signing and a Mac to test on)
 - Background removal
+- AAF and FCPXML interchange (owner, 2026-11-11): OpenTimelineIO already moves timelines to Resolve, and its adapters can convert to both; brought back if a user asks.
 - Importing Resolve project files: they are undocumented and could only be read by analysing them (clean room). Moving work over stays possible through open formats (EDL today; see AAF and FCPXML under Later)
