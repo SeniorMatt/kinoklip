@@ -196,8 +196,9 @@ private slots:
         f.page("view.page_media");
         f.page("view.page_compositing");
         QVERIFY(!f.action("edit.split")->isEnabled());
-        QVERIFY(!f.action("edit.delete")->isEnabled());
+        // Edit > Delete follows the node editor's focus here (spec 82): not checked.
         f.page("view.page_color");
+        QVERIFY(!f.action("edit.delete")->isEnabled());
         QVERIFY(!f.action("edit.split")->isEnabled());
         f.page("view.page_deliver");
         QVERIFY(!f.action("edit.split")->isEnabled());
