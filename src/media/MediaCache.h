@@ -5,6 +5,7 @@
 #include "media/WaveformData.h"
 
 #include <QCache>
+#include <QHash>
 #include <QImage>
 #include <QMutex>
 #include <QObject>
@@ -114,10 +115,18 @@ public:
     /// cores (docs/behavior-spec.md, thumbnails during playback). Jobs already running finish.
     /// Parked jobs start when playback stops; the newest kMaxDeferredJobs are kept, older ones are
     /// forgotten (asked for again if still drawn).
+    /// A thumbnail job that starts while playing (the trickle) is cheap: it takes the keyframe
+    /// at or before the time (one decoded frame, a short read, not hundreds of frames from the
+    /// last keyframe of a long GOP) on a software decoder (never the playback's hardware
+    /// device), and its thread gets the idle scheduling class where the system has one. Such
+    /// a tile is kept in memory only; when playback stops it is dropped and, if still drawn,
+    /// asked for again and rendered exact (thumbnailReady() tells the views to draw).
     void setPlaybackActive(bool active);
     [[nodiscard]] bool playbackActive() const { return m_playbackActive; }
     /// Number of parked jobs (tests).
     [[nodiscard]] int deferredJobCount() const;
+    /// Number of image jobs asked for and not yet delivered (queued, parked or running; tests).
+    [[nodiscard]] int pendingImageCount() const;
     /// Test hooks. Parked jobs trickle while playing: at most `limit` (default 1) per pool run
     /// at a time, newest first, at the lowest thread priority. peakTrickleJobs() is the most
     /// that ever ran at once in the image or the waveform pool.
@@ -153,6 +162,9 @@ private:
         int64_t timeUs = 0;
         int height = 0;
         QString key;
+        /// Set by the job when it starts while the program plays: the nearest keyframe on a
+        /// software decoder instead of the exact frame (see setPlaybackActive()).
+        bool approximate = false;
     };
 
     explicit MediaCache(QObject* parent = nullptr);
@@ -164,9 +176,10 @@ private:
     void runImageJob(const ImageRequest& request);
     QImage renderImage(const ImageRequest& request, bool* hasAlpha);
     void finishImage(const ImageRequest& request, const QImage& image);
+    void dropApproximateImages();
     void runWaveformJob(const QString& path);
     void finishWaveform(const QString& path, const std::shared_ptr<const WaveformData>& data);
-    std::unique_ptr<VideoDecoder> acquireDecoder(const QString& path);
+    std::unique_ptr<VideoDecoder> acquireDecoder(const QString& path, bool softwareOnly = false);
     void releaseDecoder(const QString& path, std::unique_ptr<VideoDecoder> decoder);
     QString diskDirectory(const QString& path, const char* kind) const;
 
@@ -174,6 +187,7 @@ private:
     QCache<QString, QImage> m_images;
     QCache<QString, std::shared_ptr<const WaveformData>> m_waveforms;
     QSet<QString> m_inFlight;
+    QHash<QString, QString> m_approximate; ///< memory-cache key -> path of approximate tiles
     QSet<QString> m_failed;
     QString m_cacheDirectory;
 

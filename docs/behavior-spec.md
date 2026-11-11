@@ -1872,6 +1872,24 @@ buttons are plain buttons. Tests: `tests/app/test_pagespring.cpp` (ps).
 | 74.4 | A drop on such a button opens the closed panel at once and is taken with no action (71.5): nothing is imported. | Done (ps dropOnPanelButtonOpensAndImportsNothing) |
 | 74.5 | The table `kPanelToggles` in `MainWindow.cpp` has a `takesDrops` flag per panel; `InterfaceBar::enableSpringLoad` installs `SpringLoad` on that button. | Done |
 
+## 76. Page turns during playback (issue2 branch, GitHub issue 2)
+
+A 30-minute 4K 100 fps clip lost most frames after the timeline view page-scrolled during playback,
+worse at 300 % speed. Measured with `tests/playback/test_pageturnplayback.cpp` (1080p 100 fps, GOP
+600, three CPUs, filmstrip and waveform on, 300 % speed): the page scroll itself costs nothing (same
+frames with "Clip Name Only", no GUI stall, the engine is not touched), but the tiles of the new page
+did: the trickled thumbnail jobs (1.36) decoded from the last keyframe to the exact frame, hundreds of
+frames each, next to the playback decoder (70 of 94 fps, 25 % of the frames lost; Qt's "lowest
+priority" does nothing for normal Linux threads). The reporter's 4K hardware decoder and slow disk make
+it worse; that part is checked on his hardware.
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 76.1 | A thumbnail job that starts while the program plays takes the keyframe at or before its time (one decoded frame, a short read) instead of the exact frame, so the filmstrip of a new page fills at once without loading the playback. | Done (`test_mediacache` trickledTilesAreKeyframesUntilPlaybackStops) |
+| 76.2 | Such a job decodes in software, never on the hardware device the playback uses, and its thread runs in the idle scheduling class where the system has one (Linux `SCHED_IDLE`). | Done |
+| 76.3 | Keyframe tiles live in memory only (never written to the disk cache). When playback stops they are dropped, `thumbnailReady` makes the views ask again, and the exact frames replace them. | Done (`test_mediacache` trickledTilesAreKeyframesUntilPlaybackStops) |
+| 76.4 | Playback with the view following the playhead shows at least 97 % of the frames of the same playback with the view fixed, and loses at most 30 frames more. | Done (`test_pageturnplayback` pageTurnDoesNotHurtPlayback) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

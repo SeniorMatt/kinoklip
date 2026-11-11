@@ -18,6 +18,12 @@
 
 #include <algorithm>
 
+#ifdef Q_OS_LINUX
+#include <sched.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
+
 namespace kk::media {
 
 namespace {
@@ -80,6 +86,19 @@ void saveDiskImage(const QString& basePath, const QImage& image, bool hasAlpha)
         || !file.commit()) {
         qCDebug(lcMedia) << "cannot write thumbnail cache file" << file.fileName();
     }
+}
+
+/// Puts the calling thread into (or back out of) the idle scheduling class: it then runs only
+/// on cores nothing else wants. QThread::setPriority() does nothing for the normal Linux
+/// policy, so the trickle's "lowest priority" would otherwise compete like any other thread.
+void setThreadIdle(bool idle)
+{
+#ifdef Q_OS_LINUX
+    sched_param param {};
+    sched_setscheduler(pid_t(syscall(SYS_gettid)), idle ? SCHED_IDLE : SCHED_OTHER, &param);
+#else
+    Q_UNUSED(idle);
+#endif
 }
 
 } // namespace
@@ -234,6 +253,7 @@ void MediaCache::clearMemoryCache()
     {
         const QMutexLocker lock(&m_mutex);
         m_images.clear();
+        m_approximate.clear();
         m_waveforms.clear();
         m_failed.clear();
     }
@@ -324,8 +344,10 @@ void MediaCache::pumpDeferred()
         pool->start([this, kind, job = std::move(job)] {
             QThread* thread = QThread::currentThread();
             thread->setPriority(QThread::LowestPriority);
+            setThreadIdle(true);
             job();
-            thread->setPriority(QThread::InheritPriority);
+            setThreadIdle(false);
+            thread->setPriority(QThread::NormalPriority);
             {
                 const QMutexLocker lock(&m_mutex);
                 --m_trickleRunning[kind];
@@ -349,6 +371,28 @@ void MediaCache::setPlaybackActive(bool active)
     for (auto it = toStart.rbegin(); it != toStart.rend(); ++it) {
         it->pool->start(std::move(it->job));
     }
+    if (!active) {
+        dropApproximateImages();
+    }
+}
+
+void MediaCache::dropApproximateImages()
+{
+    QSet<QString> paths;
+    {
+        const QMutexLocker lock(&m_mutex);
+        for (auto it = m_approximate.cbegin(); it != m_approximate.cend(); ++it) {
+            m_images.remove(it.key());
+            paths.insert(it.value());
+        }
+        m_approximate.clear();
+    }
+    // The views ask again for what they still draw; those jobs render the exact frame.
+    if (!m_cancelled) {
+        for (const QString& path : paths) {
+            emit thumbnailReady(path);
+        }
+    }
 }
 
 int MediaCache::deferredJobCount() const
@@ -357,8 +401,16 @@ int MediaCache::deferredJobCount() const
     return int(m_deferred.size());
 }
 
-void MediaCache::runImageJob(const ImageRequest& request)
+int MediaCache::pendingImageCount() const
 {
+    const QMutexLocker lock(&m_mutex);
+    return int(m_inFlight.size());
+}
+
+void MediaCache::runImageJob(const ImageRequest& jobRequest)
+{
+    ImageRequest request = jobRequest;
+    request.approximate = request.kind == ImageKind::Thumbnail && m_playbackActive;
     QImage image;
     if (!m_cancelled) {
         // Exact frames are transient previews: memory cache only.
@@ -375,7 +427,7 @@ void MediaCache::runImageJob(const ImageRequest& request)
         if (image.isNull() && !m_cancelled) {
             bool hasAlpha = false;
             image = renderImage(request, &hasAlpha);
-            if (!image.isNull() && !basePath.isEmpty()) {
+            if (!image.isNull() && !basePath.isEmpty() && !request.approximate) {
                 saveDiskImage(basePath, image, hasAlpha);
             }
         }
@@ -386,7 +438,7 @@ void MediaCache::runImageJob(const ImageRequest& request)
 
 QImage MediaCache::renderImage(const ImageRequest& request, bool* hasAlpha)
 {
-    std::unique_ptr<VideoDecoder> decoder = acquireDecoder(request.path);
+    std::unique_ptr<VideoDecoder> decoder = acquireDecoder(request.path, request.approximate);
     if (!decoder) {
         return {};
     }
@@ -395,7 +447,9 @@ QImage MediaCache::renderImage(const ImageRequest& request, bool* hasAlpha)
     if (request.kind == ImageKind::Poster) {
         timeUs = info.isStillImage ? 0 : info.durationUs / kPosterPositionDivisor;
     }
-    const QImage image = decoder->frameAt(timeUs, QSize(0, request.height));
+    const QImage image = decoder->frameAt(timeUs, QSize(0, request.height),
+        request.approximate ? VideoDecoder::Accuracy::NearestKeyframe
+                            : VideoDecoder::Accuracy::Exact);
     *hasAlpha = info.hasAlpha;
     releaseDecoder(request.path, std::move(decoder));
     return image;
@@ -410,7 +464,14 @@ void MediaCache::finishImage(const ImageRequest& request, const QImage& image)
             m_failed.insert(request.key);
             return;
         }
-        m_images.insert(request.key, new QImage(image), imageCostKb(image));
+        // A keyframe tile that finished after playback stopped is not kept: the view asks again
+        // and gets the exact frame.
+        if (!request.approximate || m_playbackActive) {
+            m_images.insert(request.key, new QImage(image), imageCostKb(image));
+            if (request.approximate) {
+                m_approximate.insert(request.key, request.path);
+            }
+        }
     }
     if (m_cancelled) {
         // A job that was already running when shutdown() was called: keep its result, but stay
@@ -426,12 +487,15 @@ void MediaCache::finishImage(const ImageRequest& request, const QImage& image)
     }
 }
 
-std::unique_ptr<VideoDecoder> MediaCache::acquireDecoder(const QString& path)
+std::unique_ptr<VideoDecoder> MediaCache::acquireDecoder(const QString& path, bool softwareOnly)
 {
     {
         const std::lock_guard lock(m_decoderMutex);
-        const auto it = std::find_if(m_idleDecoders.begin(), m_idleDecoders.end(),
-            [&](const auto& entry) { return entry.first == path; });
+        const auto it
+            = std::find_if(m_idleDecoders.begin(), m_idleDecoders.end(), [&](const auto& entry) {
+                  return entry.first == path
+                      && (!softwareOnly || entry.second->activeHwAccel() == HwAccelMode::Off);
+              });
         if (it != m_idleDecoders.end()) {
             std::unique_ptr<VideoDecoder> decoder = std::move(it->second);
             m_idleDecoders.erase(it);
@@ -450,10 +514,11 @@ std::unique_ptr<VideoDecoder> MediaCache::acquireDecoder(const QString& path)
         }
         return decoder;
     };
-    auto decoder = open(mode == PreviewDecoding::Hardware ? HwAccelMode::Auto : HwAccelMode::Off);
+    auto decoder = open(
+        mode == PreviewDecoding::Hardware && !softwareOnly ? HwAccelMode::Auto : HwAccelMode::Off);
     // BySize: a software open is cheap (no device), so large pictures are simply reopened on
     // the hardware decoder, where seeking to a 4K HEVC frame is about twice as fast.
-    if (decoder && mode == PreviewDecoding::BySize
+    if (decoder && mode == PreviewDecoding::BySize && !softwareOnly
         && int64_t(decoder->info().width) * decoder->info().height > kSoftwarePreviewMaxPixels) {
         if (auto hw = open(HwAccelMode::Auto))
             decoder = std::move(hw);

@@ -186,6 +186,13 @@ For resampled sources the input is additionally aligned to a common grid point o
   first filmstrip delayed the program playback's own one (first play after an import dropped
   frames), while small frames decode as fast in software; 4K HEVC is about twice as fast on
   the hardware decoder (test_mediaperf filmstripLatency).
+* While the program plays (`setPlaybackActive(true)`), parked image jobs trickle (one per pool)
+  and render the nearest keyframe on a software decoder instead of the exact frame, in the idle
+  scheduling class (`SCHED_IDLE`; `QThread::setPriority` is a no-op for normal Linux threads).
+  Those tiles are memory-only; `setPlaybackActive(false)` drops them and emits `thumbnailReady`
+  so the views ask again for the exact frames (spec 76, GitHub issue 2: a page turn during
+  playback of a long-GOP clip lost a quarter of the frames to exact seeks of the new tiles).
+  Measure with `tests/playback/test_pageturnplayback.cpp` (`KK_PAGETURN_REPORT=1`).
 * `shutdown()` (automatic on quit) drops queued jobs and waits for running ones.
 
 `prepareFrame()` is `decodeFrame()` for the render look-ahead: it gives up between two decoded
