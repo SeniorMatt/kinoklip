@@ -2,14 +2,18 @@
 #include "ui/common/VimInput.h"
 
 #include "ui/common/ActionRegistry.h"
+#include "ui/common/VimOptions.h"
 
 #include <QAbstractItemView>
 #include <QAbstractSpinBox>
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QKeyEvent>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QTextEdit>
+#include <QTimer>
 
 #include <algorithm>
 
@@ -33,18 +37,64 @@ VimMachine::VimMachine(QObject* parent)
 {
 }
 
+QString VimMachine::modeName(Mode mode)
+{
+    switch (mode) {
+    case Mode::Visual:
+        return tr("VISUAL");
+    case Mode::Insert:
+        return tr("INSERT");
+    case Mode::Command:
+        return tr("COMMAND");
+    case Mode::Normal:
+        break;
+    }
+    return tr("NORMAL");
+}
+
 QString VimMachine::statusText() const
 {
-    const QString name = m_mode == Mode::Visual ? tr("VISUAL") : tr("NORMAL");
+    const QString name = modeName(m_mode);
     return m_pending.isEmpty() ? name : name + QStringLiteral("  ") + m_pending;
+}
+
+void VimMachine::enterInsert()
+{
+    const bool wasVisual = m_mode == Mode::Visual;
+    cancelPending();
+    if (wasVisual && m_host)
+        m_host->clearSelection();
+    m_mode = Mode::Insert;
+    emit statusChanged();
+}
+
+void VimMachine::setCommandMode(bool open)
+{
+    if (open == (m_mode == Mode::Command))
+        return;
+    if (open) {
+        cancelPending();
+        m_mode = Mode::Command;
+    } else {
+        m_mode = Mode::Normal;
+    }
+    emit statusChanged();
 }
 
 bool VimMachine::wouldConsume(int key, Qt::KeyboardModifiers modifiers, const QString& text) const
 {
     if (!m_host)
         return false;
-    if (key == Qt::Key_Escape)
-        return m_mode == Mode::Visual || !m_pending.isEmpty();
+    // The command line owns its keys.
+    if (m_mode == Mode::Command)
+        return false;
+    const bool escape = key == Qt::Key_Escape
+        || (modifiers == Qt::ControlModifier && key == Qt::Key_BracketLeft)
+        || (modifiers == Qt::ControlModifier && key == Qt::Key_C && busy());
+    if (escape)
+        return m_mode == Mode::Visual || m_mode == Mode::Insert || !m_pending.isEmpty();
+    if (m_mode == Mode::Insert)
+        return false;
     if (modifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))
         return false;
     return isPrintableKey(text);
@@ -54,11 +104,17 @@ bool VimMachine::handleKey(int key, Qt::KeyboardModifiers modifiers, const QStri
 {
     if (!wouldConsume(key, modifiers, text))
         return false;
-    if (key == Qt::Key_Escape) {
-        const bool wasVisual = m_mode == Mode::Visual;
-        cancelPending();
-        if (wasVisual)
+    const bool escape = key == Qt::Key_Escape || key == Qt::Key_BracketLeft || key == Qt::Key_C;
+    if (escape && (key == Qt::Key_Escape || modifiers & Qt::ControlModifier)) {
+        // One rule, innermost first: pending keys, then VISUAL, then INSERT.
+        if (!m_pending.isEmpty()) {
+            cancelPending();
+        } else if (m_mode == Mode::Visual) {
             leaveVisual(true);
+        } else if (m_mode == Mode::Insert) {
+            m_mode = Mode::Normal;
+            emit statusChanged();
+        }
         return true;
     }
     const QChar c = text.at(0);
@@ -96,10 +152,15 @@ void VimMachine::cancelPending()
 void VimMachine::reset()
 {
     const bool wasVisual = m_mode == Mode::Visual;
+    const bool wasInsert = m_mode == Mode::Insert;
     m_marks.clear();
     cancelPending();
     if (wasVisual)
         leaveVisual(true);
+    if (wasInsert) {
+        m_mode = Mode::Normal;
+        emit statusChanged();
+    }
 }
 
 void VimMachine::repeat(const char* actionId, int times)
@@ -233,14 +294,9 @@ void VimMachine::dispatch(QChar c)
             repeat("edit.undo", times);
             break;
         case 'i':
-            m_host->trigger(QStringLiteral("edit.insert"));
-            break;
-        case 'o':
-            m_host->trigger(QStringLiteral("edit.overwrite"));
-            break;
         case 'a':
-            m_host->trigger(QStringLiteral("edit.append_at_end"));
-            break;
+            enterInsert(); // typing mode: the preset's own keys work (Esc comes back)
+            return;
         case 's':
             m_host->trigger(QStringLiteral("edit.split"));
             break;
@@ -277,6 +333,12 @@ void VimMachine::second(QChar first, QChar c)
         if (c == QLatin1Char('g')) {
             m_host->trigger(QStringLiteral("transport.go_to_start"));
             afterMotion();
+        } else if (m_mode == Mode::Normal && c == QLatin1Char('i')) {
+            m_host->trigger(QStringLiteral("edit.insert")); // source edits: gi go ga for now
+        } else if (m_mode == Mode::Normal && c == QLatin1Char('o')) {
+            m_host->trigger(QStringLiteral("edit.overwrite"));
+        } else if (m_mode == Mode::Normal && c == QLatin1Char('a')) {
+            m_host->trigger(QStringLiteral("edit.append_at_end"));
         }
         break;
     case 'd':
@@ -325,16 +387,25 @@ VimInput::VimInput(ActionRegistry* actions, QObject* parent)
     , m_actions(actions)
     , m_machine(this)
 {
-    connect(&m_machine, &VimMachine::statusChanged, this, [this] { emit statusChanged(statusText()); });
-    if (m_actions) {
-        connect(m_actions, &ActionRegistry::activeProfileChanged, this, [this] { followProfile(); });
-        followProfile();
+    connect(&m_machine, &VimMachine::statusChanged, this, [this] {
+        emit statusChanged(statusText());
+        emit displayChanged();
+    });
+    QAction* option = m_actions && m_actions->contains(QLatin1String(vimopts::kActionId))
+        ? m_actions->action(QLatin1String(vimopts::kActionId))
+        : nullptr;
+    if (option) {
+        m_active = option->isChecked();
+        connect(option, &QAction::toggled, this, [this](bool on) { setActive(on); });
+    } else {
+        m_active = vimopts::enabled();
     }
     if (qApp) {
         qApp->installEventFilter(this);
         connect(qApp, &QApplication::focusChanged, this, [this](QWidget*, QWidget* now) {
             if (!inScope(now))
                 m_machine.cancelPending();
+            emit displayChanged();
         });
     }
 }
@@ -345,9 +416,8 @@ VimInput::~VimInput()
         qApp->removeEventFilter(this);
 }
 
-void VimInput::followProfile()
+void VimInput::setActive(bool on)
 {
-    const bool on = m_actions && m_actions->activeProfile() == QLatin1String(kProfile);
     if (on == m_active)
         return;
     m_active = on;
@@ -355,11 +425,39 @@ void VimInput::followProfile()
         m_machine.reset();
     emit activeChanged(on);
     emit statusChanged(statusText());
+    emit displayChanged();
 }
 
 QString VimInput::statusText() const
 {
     return m_active ? m_machine.statusText() : QString();
+}
+
+bool VimInput::isTextField(const QWidget* focus)
+{
+    if (!focus)
+        return false;
+    if (qobject_cast<const QAbstractSpinBox*>(focus) || qobject_cast<const QTextEdit*>(focus)
+        || qobject_cast<const QPlainTextEdit*>(focus) || focus->inherits("QLineEdit")
+        || focus->inherits("QKeySequenceEdit"))
+        return true;
+    if (const auto* combo = qobject_cast<const QComboBox*>(focus); combo && combo->isEditable())
+        return true;
+    for (const QWidget* w = focus; w; w = w->parentWidget()) {
+        if (w->inherits("QLineEdit") || w->inherits("QAbstractSpinBox"))
+            return true; // an editor embedded in a view or a spin box
+    }
+    return false;
+}
+
+VimMachine::Mode VimInput::displayMode(const QWidget* focus) const
+{
+    const VimMachine::Mode mode = m_machine.mode();
+    if (mode == VimMachine::Mode::Command)
+        return mode;
+    if (isTextField(focus) && !(focus && focus->property(kCommandLineProperty).toBool()))
+        return VimMachine::Mode::Insert;
+    return mode;
 }
 
 bool VimInput::inScope(const QWidget* focus) const
@@ -369,30 +467,95 @@ bool VimInput::inScope(const QWidget* focus) const
     if (QApplication::activeModalWidget() || QApplication::activePopupWidget())
         return false;
     // Anything the user types text into keeps its keys.
-    if (qobject_cast<const QAbstractSpinBox*>(focus) || qobject_cast<const QTextEdit*>(focus)
-        || qobject_cast<const QPlainTextEdit*>(focus) || focus->inherits("QLineEdit")
-        || focus->inherits("QKeySequenceEdit"))
-        return false;
-    if (const auto* combo = qobject_cast<const QComboBox*>(focus); combo && combo->isEditable())
+    if (isTextField(focus))
         return false;
     for (const QWidget* w = focus; w; w = w->parentWidget()) {
-        if (w->inherits("QLineEdit") || w->inherits("QAbstractSpinBox"))
-            return false; // an editor embedded in a view or a spin box
         if (w->property(kScopeProperty).toBool())
             return true;
     }
     return false;
 }
 
+void VimInput::focusPanelHome(QWidget* from)
+{
+    QWidget* frame = nullptr;
+    for (QWidget* w = from; w; w = w->parentWidget()) {
+        if (w->inherits("kk::PanelFrame")) {
+            frame = w;
+            break;
+        }
+    }
+    if (!frame)
+        return;
+    // The panel's main widget (timeline, viewer) when it has one, else the panel itself.
+    for (QWidget* child : frame->findChildren<QWidget*>()) {
+        if (child->property(kScopeProperty).toBool() && child->isVisible()
+            && child->focusPolicy() != Qt::NoFocus) {
+            child->setFocus(Qt::OtherFocusReason);
+            return;
+        }
+    }
+    frame->setFocus(Qt::OtherFocusReason);
+}
+
+/// Esc, one rule from the innermost thing outwards (spec 83): pending keys, VISUAL, INSERT are
+/// the machine's; this handles what is left: a text field is left (its text stays) and a
+/// control deep inside a panel gives the focus back to the panel. Returns whether the key was
+/// taken (only when the machine used it).
+bool VimInput::handleEscape(QKeyEvent* key, QEvent::Type type)
+{
+    QWidget* focus = QApplication::focusWidget();
+    if (!focus || QApplication::activeModalWidget() || QApplication::activePopupWidget())
+        return false;
+    if (focus->property(kCommandLineProperty).toBool())
+        return false;
+    const bool textField = isTextField(focus);
+    if (!textField && m_machine.wouldConsume(key->key(), key->modifiers(), key->text())) {
+        if (!inScope(focus)) {
+            // Outside the timeline and viewers the machine still comes back to NORMAL, but
+            // the key is left to the widget (it closes a popup, cancels an edit).
+            if (type == QEvent::KeyPress)
+                m_machine.handleKey(key->key(), key->modifiers(), key->text());
+            return false;
+        }
+        if (type == QEvent::ShortcutOverride) {
+            key->accept();
+            return true;
+        }
+        return m_machine.handleKey(key->key(), key->modifiers(), key->text());
+    }
+    if (type != QEvent::KeyPress || key->key() != Qt::Key_Escape)
+        return false;
+    // Rules 4 and 5: not taken (a drag is cancelled, a popup closes, a numeric field cancels
+    // its typing as always); afterwards the focus goes back to the panel when it is still on
+    // a field or control. Deferred so the widget's own Esc handling runs first.
+    bool numeric = false;
+    for (const QWidget* w = focus; w; w = w->parentWidget())
+        numeric = numeric || w->inherits("kk::ValueField");
+    bool inEditor = false;
+    for (const QWidget* w = focus; w; w = w->parentWidget())
+        inEditor = inEditor || qobject_cast<const QAbstractItemView*>(w);
+    if (numeric || inEditor || focus->property(kScopeProperty).toBool())
+        return false;
+    QPointer<QWidget> from = focus;
+    QTimer::singleShot(0, this, [from] {
+        if (from && QApplication::focusWidget() == from.data())
+            focusPanelHome(from);
+    });
+    return false;
+}
+
 bool VimInput::eventFilter(QObject*, QEvent* event)
 {
-    if (!m_active || !m_host)
+    if (!m_active)
         return false;
     if (event->type() != QEvent::KeyPress && event->type() != QEvent::ShortcutOverride)
         return false;
-    if (!inScope(QApplication::focusWidget()))
-        return false;
     auto* key = static_cast<QKeyEvent*>(event);
+    if (key->key() == Qt::Key_Escape)
+        return handleEscape(key, event->type());
+    if (!m_host || !inScope(QApplication::focusWidget()))
+        return false;
     if (!m_machine.wouldConsume(key->key(), key->modifiers(), key->text()))
         return false;
     if (event->type() == QEvent::ShortcutOverride) {

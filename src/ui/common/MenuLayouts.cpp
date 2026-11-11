@@ -53,6 +53,7 @@ Menu appMenu()
         S(),
         A("edit.preferences"),
         A("edit.keyboard_customization", "Keyboard Shortcuts…"),
+        A("settings.vim_mode"),
         S(),
         A("file.quit"),
     });

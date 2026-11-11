@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Tests of the vim key layer and the Vim keyboard preset (spec section 62): the state machine
-// with a fake host (counts, sequences, modes, Esc), real key events in the main window (motions,
-// dd / yy / p, u, visual mode, one undo step per edit), the focus rules (text fields keep their
-// keys), the other presets unaffected, the `:` command line, and the preset surviving a
-// restart and a settings export / import.
+// Tests of the vim key layer (spec sections 62 and 83): the state machine with a fake host
+// (counts, sequences, modes, Esc), real key events in the main window (motions, dd / yy / p, u,
+// visual mode, one undo step per edit), the focus rules (text fields keep their keys), every
+// keyboard preset with Vim mode on or off, and the `:` command line. The option, the mode line
+// and the migration of the old preset are in test_vimoption.
 #include "app/MainWindow.h"
 #include "app/SettingsTransfer.h"
 #include "app/Theme.h"
 #include "app/VimController.h"
+#include "app/VimModeLine.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/Project.h"
@@ -17,6 +18,7 @@
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
 #include "ui/common/VimInput.h"
+#include "ui/common/VimOptions.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelinePanel.h"
@@ -98,12 +100,14 @@ struct Fixture
     AppContext ctx;
     std::unique_ptr<MainWindow> window;
 
-    explicit Fixture(const QString& profile = QStringLiteral("vim"))
+    /// Vim mode is an option, independent of the keyboard preset: @p profile is the preset.
+    explicit Fixture(const QString& profile = QStringLiteral("resolve-windows"), bool vim = true)
     {
         actions.loadDefaultKeymap();
         registerStandardActions(actions);
         QString error;
         QVERIFY2(actions.setActiveProfile(profile, &error), qPrintable(error));
+        actions.action(QLatin1String(vimopts::kActionId))->setChecked(vim);
         ctx.project = &project;
         ctx.selection = &selection;
         ctx.actions = &actions;
@@ -266,12 +270,17 @@ private slots:
         type(QStringLiteral("yy"));
         QCOMPARE(host.log, (QStringList {QStringLiteral("select-clips 1"), QStringLiteral("edit.copy")}));
         host.log.clear();
-        type(QStringLiteral("xXpPiaos"));
+        type(QStringLiteral("xXpPs"));
         QCOMPARE(host.log,
             (QStringList {QStringLiteral("edit.ripple_delete"), QStringLiteral("edit.delete"),
                 QStringLiteral("edit.paste_insert"), QStringLiteral("edit.paste"),
-                QStringLiteral("edit.insert"), QStringLiteral("edit.append_at_end"),
-                QStringLiteral("edit.overwrite"), QStringLiteral("edit.split")}));
+                QStringLiteral("edit.split")}));
+        // The source edits are gi go ga for now (i and a start INSERT mode).
+        host.log.clear();
+        type(QStringLiteral("gigoga"));
+        QCOMPARE(host.log,
+            (QStringList {QStringLiteral("edit.insert"), QStringLiteral("edit.overwrite"),
+                QStringLiteral("edit.append_at_end")}));
         host.log.clear();
         type(QStringLiteral("3u"));
         QCOMPARE(host.log, QStringList(3, QStringLiteral("edit.undo")));
@@ -360,20 +369,11 @@ private slots:
 
     // ---- The real window ----
 
-    void presetIsSelectable()
+    void actionsTheLayerDrivesExist()
     {
         ActionRegistry actions;
         actions.loadDefaultKeymap();
         registerStandardActions(actions);
-        const auto info = actions.profile(QStringLiteral("vim"));
-        QVERIFY(info && info->builtIn);
-        QCOMPARE(info->name, QStringLiteral("Vim"));
-        QVERIFY(actions.setActiveProfile(QStringLiteral("vim")));
-        // Redo is Ctrl+R; the layer's own keys carry no shortcut.
-        QVERIFY(actions.shortcuts(QStringLiteral("edit.redo")).contains(QKeySequence(QStringLiteral("Ctrl+R"))));
-        QVERIFY(actions.shortcuts(QStringLiteral("edit.undo")).contains(QKeySequence(QStringLiteral("Ctrl+Z"))));
-        QVERIFY(actions.shortcuts(QStringLiteral("mark.in")).isEmpty());
-        QVERIFY(actions.shortcuts(QStringLiteral("transport.play_pause")).contains(QKeySequence(Qt::Key_Space)));
         // Every action the layer drives exists.
         for (const char* id : {"transport.prev_frame", "transport.next_frame", "transport.back_1s",
                  "transport.forward_1s", "transport.next_edit", "transport.prev_edit",
@@ -390,7 +390,7 @@ private slots:
     {
         Fixture f;
         QVERIFY(f.vim()->active());
-        QCOMPARE(f.window->vimController()->indicator()->text(), QStringLiteral("NORMAL"));
+        QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("NORMAL"));
         // Frame steps belong to the playback engine (absent here): count the action's triggers.
         int steps = 0;
         QAction* next = f.actions.action(QStringLiteral("transport.next_frame"));
@@ -432,7 +432,7 @@ private slots:
         QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:40 80:40"));
         QCOMPARE(f.undoCount(), before + 1); // the stack keeps the step; the index moved back
         QVERIFY(f.project.undoStack()->canRedo());
-        f.key(Qt::Key_R, Qt::ControlModifier);
+        f.key(Qt::Key_Z, Qt::ControlModifier | Qt::ShiftModifier); // Resolve redo
         QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:40"));
         // 2dd removes the clip under the playhead and the next one, in one step.
         f.type(QStringLiteral("u"));
@@ -475,12 +475,12 @@ private slots:
         Fixture f;
         f.project.timeline()->setPlayhead(10);
         f.type(QStringLiteral("v"));
-        QCOMPARE(f.window->vimController()->indicator()->text(), QStringLiteral("VISUAL"));
+        QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("VISUAL"));
         QCOMPARE(f.selection.clips().size(), qsizetype(2)); // clip 1 and its audio
         f.type(QStringLiteral("w"));
         QCOMPARE(f.selection.clips().size(), qsizetype(4)); // up to the playhead at 40: clips 1 and 2
         f.key(Qt::Key_Escape);
-        QCOMPARE(f.window->vimController()->indicator()->text(), QStringLiteral("NORMAL"));
+        QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("NORMAL"));
         QVERIFY(f.selection.clips().isEmpty());
         // v, motion, d: one ripple delete.
         f.project.timeline()->setPlayhead(10);
@@ -488,16 +488,16 @@ private slots:
         f.type(QStringLiteral("vwd"));
         QCOMPARE(f.layout(kV1), QStringLiteral("0:40"));
         QCOMPARE(f.project.undoStack()->index(), before + 1);
-        QCOMPARE(f.window->vimController()->indicator()->text(), QStringLiteral("NORMAL"));
+        QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("NORMAL"));
     }
 
     void pendingKeysShowInTheIndicator()
     {
         Fixture f;
         f.type(QStringLiteral("3d"));
-        QCOMPARE(f.window->vimController()->indicator()->text(), QStringLiteral("NORMAL  3d"));
+        QCOMPARE(f.window->vimController()->modeLine()->pendingText(), QStringLiteral("3d"));
         f.key(Qt::Key_Escape);
-        QCOMPARE(f.window->vimController()->indicator()->text(), QStringLiteral("NORMAL"));
+        QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("NORMAL"));
     }
 
     void textFieldsKeepTheirKeys()
@@ -526,13 +526,13 @@ private slots:
 
     void otherPresetsAreUnaffected()
     {
+        // Vim mode off: no preset sees any change.
         for (const char* id : {"resolve-windows", "avid-media-composer", "final-cut-pro", "kdenlive",
                  "premiere-pro", "shotcut", "vegas-pro"}) {
-            Fixture f {QString::fromLatin1(id)};
+            Fixture f {QString::fromLatin1(id), false};
             QVERIFY2(!f.vim()->active(), id);
             QVERIFY2(f.vim()->statusText().isEmpty(), id);
-            QVERIFY2(!f.window->vimController()->indicator()->isVisible(), id);
-            // 'd' then 'd' must not start a sequence or change anything the layer owns.
+            QVERIFY2(!f.window->vimController()->modeLine()->isVisible(), id);
             f.project.timeline()->setPlayhead(50);
             const QString before = f.layout(kV1);
             f.type(QStringLiteral("gg"));
@@ -540,19 +540,31 @@ private slots:
             QVERIFY2(f.vim()->machine().mode() == VimMachine::Mode::Normal, id);
             QCOMPARE(f.layout(kV1), before);
         }
-        // Resolve: D still toggles the clip (a plain shortcut), 5 and l are not a count and a motion.
-        Fixture r(QStringLiteral("resolve-windows"));
+        // Resolve, Vim mode off: D still toggles the clip (a plain shortcut).
+        Fixture r(QStringLiteral("resolve-windows"), false);
         r.project.timeline()->setPlayhead(50);
         r.selection.setClips({r.project.timeline()->data().track(kV1)->clips[1].id});
         r.type(QStringLiteral("d"));
         QVERIFY(!r.project.timeline()->data().track(kV1)->clips[1].enabled);
-        // Switching the profile turns the layer on and off at once.
-        QVERIFY(r.actions.setActiveProfile(QStringLiteral("vim")));
+        // The option turns the layer on and off at once, whatever the preset.
+        QAction* option = r.actions.action(QLatin1String(vimopts::kActionId));
+        option->setChecked(true);
         QVERIFY(r.vim()->active());
-        QCOMPARE(r.window->vimController()->indicator()->text(), QStringLiteral("NORMAL"));
-        QVERIFY(r.actions.setActiveProfile(QStringLiteral("resolve-windows")));
+        QVERIFY(r.window->vimController()->modeLine()->isVisible());
+        QCOMPARE(r.window->vimController()->modeLine()->modeText(), QStringLiteral("NORMAL"));
+        option->setChecked(false);
         QVERIFY(!r.vim()->active());
+        QVERIFY(!r.window->vimController()->modeLine()->isVisible());
         QVERIFY(r.vim()->statusText().isEmpty());
+        // Vim mode on works over every preset: the same keys, the preset's keys stay in INSERT.
+        for (const char* id : {"avid-media-composer", "final-cut-pro", "kdenlive", "premiere-pro",
+                 "shotcut", "vegas-pro"}) {
+            Fixture f {QString::fromLatin1(id), true};
+            QVERIFY2(f.vim()->active(), id);
+            f.project.timeline()->setPlayhead(50);
+            f.type(QStringLiteral("dd"));
+            QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:40"));
+        }
     }
 
     void commandLine()
@@ -594,14 +606,16 @@ private slots:
             ActionRegistry a;
             a.loadDefaultKeymap();
             registerStandardActions(a);
-            QVERIFY(a.setActiveProfile(QStringLiteral("vim")));
+            QVERIFY(!a.action(QLatin1String(vimopts::kActionId))->isChecked()); // default off
+            a.action(QLatin1String(vimopts::kActionId))->setChecked(true);
             a.setShortcuts(QStringLiteral("edit.undo"), {QKeySequence(QStringLiteral("Ctrl+U"))});
         }
         {
             ActionRegistry again; // a restart
             again.loadDefaultKeymap();
             registerStandardActions(again);
-            QCOMPARE(again.activeProfile(), QStringLiteral("vim"));
+            QVERIFY(again.action(QLatin1String(vimopts::kActionId))->isChecked());
+            QCOMPARE(again.activeProfile(), QStringLiteral("resolve-windows"));
             QCOMPARE(again.shortcuts(QStringLiteral("edit.undo")).value(0), QKeySequence(QStringLiteral("Ctrl+U")));
         }
         QTemporaryDir dir;
@@ -612,7 +626,7 @@ private slots:
             ActionRegistry fresh;
             fresh.loadDefaultKeymap();
             registerStandardActions(fresh);
-            QCOMPARE(fresh.activeProfile(), QStringLiteral("resolve-windows"));
+            QVERIFY(!fresh.action(QLatin1String(vimopts::kActionId))->isChecked());
         }
         settingstransfer::Parsed parsed;
         QString error;
@@ -623,7 +637,7 @@ private slots:
         ActionRegistry imported;
         imported.loadDefaultKeymap();
         registerStandardActions(imported);
-        QCOMPARE(imported.activeProfile(), QStringLiteral("vim"));
+        QVERIFY(imported.action(QLatin1String(vimopts::kActionId))->isChecked());
         QCOMPARE(imported.shortcuts(QStringLiteral("edit.undo")).value(0), QKeySequence(QStringLiteral("Ctrl+U")));
     }
 };

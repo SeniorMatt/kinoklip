@@ -7,7 +7,7 @@ come with you in one click each way.
 ## What is in the file
 
 - Everything in **Preferences**: colours and style, autosave, playback and editing options.
-- Your **keyboard**: the profile you chose (Resolve, Vim, Premiere Pro, ...) and every key you
+- Your **keyboard**: the profile you chose (Resolve, Premiere Pro, ...), Vim mode and every key you
   changed, and your own keyboard profiles.
 - The **layout**: window size, which panels are open and how big, the page you were on.
 - **View options**: the Timeline View Options, Media Pool view, Edit Index columns, viewer

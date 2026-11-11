@@ -14,6 +14,7 @@
 #include "ui/common/Metrics.h"
 #include "ui/common/SettingsPages.h"
 #include "ui/common/UiAnimation.h"
+#include "ui/common/VimOptions.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ViewerPanel.h"
@@ -886,8 +887,9 @@ private:
 class KeyboardPage final : public SettingsPage
 {
 public:
-    KeyboardPage(QAction* customize, QWidget* parent)
+    KeyboardPage(QAction* customize, QAction* vimMode, QWidget* parent)
         : SettingsPage(parent)
+        , m_vimAction(vimMode)
     {
         auto* form = makeForm(this);
         auto* button = new QPushButton(tr("Keyboard Customization…"));
@@ -930,11 +932,34 @@ public:
                                      "opens the panel puts the cursor into its search field"));
         m_focusSearch->setChecked(prefs::focusSearchOnPanelKey());
         form->addRow(tr("Panels"), m_focusSearch);
+
+        // Vim mode (spec section 83): independent of the keyboard profile, off by default.
+        m_vim = new QCheckBox(tr("Vim mode (Vim keys for the editor)"));
+        m_vim->setObjectName(QStringLiteral("VimModeCheck"));
+        m_vim->setToolTip(
+            tr("Plain keys become Vim commands (NORMAL mode); i switches to INSERT, "
+               "where your keyboard profile's shortcuts work as usual. Esc comes back."));
+        m_vim->setChecked(m_vimAction ? m_vimAction->isChecked() : vimopts::enabled());
+        if (m_vimAction) // the menu item can change it while this page is open
+            connect(m_vimAction, &QAction::toggled, m_vim, &QCheckBox::setChecked);
+        form->addRow(tr("Vim"), m_vim);
+        form->addRow(QString(),
+            note(tr("Works with every keyboard profile. The mode, the keys typed so far and the "
+                    "focused panel show at the left of the page bar.")));
     }
 
-    void apply() override { prefs::setFocusSearchOnPanelKey(m_focusSearch->isChecked()); }
+    void apply() override
+    {
+        prefs::setFocusSearchOnPanelKey(m_focusSearch->isChecked());
+        if (m_vimAction)
+            m_vimAction->setChecked(m_vim->isChecked()); // stores vim/enabled
+        else
+            vimopts::setEnabled(m_vim->isChecked());
+    }
 
 private:
+    QPointer<QAction> m_vimAction;
+    QCheckBox* m_vim = nullptr;
     QCheckBox* m_focusSearch = nullptr;
 };
 
@@ -973,8 +998,12 @@ void registerStandardSettingsPages(SettingsPageRegistry& registry, ActionRegistr
     QAction* keyboard = actions && actions->contains(QStringLiteral("edit.keyboard_customization"))
         ? actions->action(QStringLiteral("edit.keyboard_customization"))
         : nullptr;
+    QAction* vimMode = actions && actions->contains(QLatin1String(vimopts::kActionId))
+        ? actions->action(QLatin1String(vimopts::kActionId))
+        : nullptr;
     add("keyboard", tr("Keyboard"), "input-keyboard", 150, user,
-        [keyboard](QWidget* parent) { return new KeyboardPage(keyboard, parent); });
+        [keyboard, vimMode](
+            QWidget* parent) { return new KeyboardPage(keyboard, vimMode, parent); });
 }
 
 void applyHwAccelPreference()

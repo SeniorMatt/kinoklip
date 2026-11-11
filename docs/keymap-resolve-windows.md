@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 344 commands; sure 106, likely 115, unsure 123.
+Counts: 345 commands; sure 106, likely 115, unsure 124.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -78,6 +78,7 @@ that every command has an entry and that no key is used twice.
 | Append at End | `edit.append_at_end` | `Shift+F12` | sure |  |
 | Keyboard Customization | `edit.keyboard_customization` | `Ctrl+Alt+K` | sure |  |
 | Preferences | `edit.preferences` | `Ctrl+,` | likely |  |
+| Vim Mode | `settings.vim_mode` | (none) | unsure | Kinoklip's own option (Vim keys); Resolve has no counterpart |
 
 ## Tools and trimming
 

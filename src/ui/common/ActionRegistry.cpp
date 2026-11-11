@@ -4,6 +4,7 @@
 #include "ui/common/ActionRegistry.h"
 
 #include "ui/common/Icons.h"
+#include "ui/common/VimOptions.h"
 
 #include <QAction>
 #include <QFile>
@@ -134,6 +135,8 @@ bool ActionRegistry::writeKeymap(const QString& path, const KeyMap& keys, const 
 
 bool ActionRegistry::loadDefaultKeymap(const QString& path, QString* error)
 {
+    // The "Vim" preset of 1.2 - 1.4 is now the Vim mode option: move old settings first.
+    vimopts::migrateLegacyVimProfile(userProfileDirectory(), m_settingsGroup);
     scanProfiles();
     migrateLegacyOverrides();
     const QString stored

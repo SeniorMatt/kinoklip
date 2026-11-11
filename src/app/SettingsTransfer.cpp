@@ -3,6 +3,7 @@
 
 #include "app/AppInfo.h"
 #include "core/Preferences.h"
+#include "ui/common/VimOptions.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -119,6 +120,11 @@ const QVector<Rule>& rules()
         add("mediapool/livePreview", Kind::Bool);
         add("deliver/notifyWhenFinished", Kind::Bool);
         add("editIndex/hiddenColumns/", Kind::TextList);
+        add("vim/enabled", Kind::Bool);
+        add("vim/physicalKeys", Kind::Bool);
+        add("vim/timeoutlen", Kind::Int, 50, 5000);
+        add("vim/leader", Kind::Text, 0, 32);
+        add("vim/maps", Kind::Text, 0, 65536);
         // Layouts, view options and remembered choices of the panels and dialogs: any plain
         // value (text, number, flag, list, saved window state) of a bounded size.
         for (const char* g : {"mainWindow/", "pages/", "projectManager/", "mediaPool/", "timeline/",
@@ -625,6 +631,8 @@ ApplyResult apply(const Parsed& parsed, const ApplyOptions& options)
         settings.setValue(QLatin1String(kRecentKey), parsed.recentProjects);
         ++result.settingsApplied;
     }
+    // A file from 1.2 - 1.4 may still name the removed Vim keyboard preset.
+    vimopts::migrateLegacyVimProfile(dataRoot + QStringLiteral("/keymaps"));
     settings.sync();
     if (settings.status() != QSettings::NoError) {
         result.error = QObject::tr("The settings could not be written. Your backup is %1.")

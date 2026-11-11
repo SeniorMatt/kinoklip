@@ -33,6 +33,8 @@ const Description kDescriptions[] = {
         "Shows which version of the Qt toolkit this build uses."),
     KK_TIP("edit.keyboard_customization",
         "Opens the keyboard settings: pick a keyboard profile, change or clear the key of any command."),
+    KK_TIP("settings.vim_mode",
+        "Turns Vim mode on or off: with it on, plain keys are Vim commands (NORMAL mode) and i gives you the usual shortcuts back (INSERT mode). Works with any keyboard profile."),
     KK_TIP("edit.preferences",
         "Opens the Preferences window (user settings such as editing, playback, interface and local control)."),
     KK_TIP("file.quit",

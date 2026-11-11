@@ -4,6 +4,7 @@
 #include "ui/common/StandardActions.h"
 
 #include "ui/common/ActionRegistry.h"
+#include "ui/common/VimOptions.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -37,6 +38,7 @@ const ActionSpec kActions[] = {
     {"app", "help.about_qt",          QT_TRANSLATE_NOOP("kk::StandardActions", "About &Qt")},
     {"app", "-"},
     {"app", "edit.keyboard_customization", QT_TRANSLATE_NOOP("kk::StandardActions", "&Keyboard Customization…")},
+    {"app", "settings.vim_mode",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Vim Mode"), "", true},
     {"app", "edit.preferences",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Preferences…")},
     {"app", "-"},
     {"app", "file.quit",              QT_TRANSLATE_NOOP("kk::StandardActions", "&Quit %1")},
@@ -548,6 +550,11 @@ void registerStandardActions(ActionRegistry& registry)
     registry.action(QStringLiteral("help.about_qt"))->setMenuRole(QAction::AboutQtRole);
     registry.action(QStringLiteral("file.quit"))->setMenuRole(QAction::QuitRole);
     registry.action(QStringLiteral("edit.preferences"))->setMenuRole(QAction::PreferencesRole);
+
+    // Vim mode (spec section 83): the check mark is the stored option; the window follows it.
+    QAction* vimMode = registry.action(QLatin1String(vimopts::kActionId));
+    vimMode->setChecked(vimopts::enabled());
+    QObject::connect(vimMode, &QAction::toggled, vimMode, [](bool on) { vimopts::setEnabled(on); });
 
     auto* tools = new QActionGroup(&registry);
     for (const char* id : {"tool.select", "tool.trim", "tool.blade"})

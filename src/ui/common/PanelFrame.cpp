@@ -8,9 +8,10 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
+#include <QPainter>
 #include <QSettings>
 #include <QSplitter>
-#include <QLineEdit>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -129,6 +130,58 @@ void PanelFrame::setTitleCentered(bool centered)
     } else {
         m_titleGrid->removeWidget(m_titleLabel);
         m_leadingLayout->insertWidget(m_leadingLayout->count() - 1, m_titleLabel);
+    }
+}
+
+namespace {
+
+/// The Vim focus frame: a border drawn over the panel, ignoring the mouse.
+class FocusRing final : public QWidget
+{
+public:
+    explicit FocusRing(QWidget* parent)
+        : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("VimFocusFrame"));
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_NoSystemBackground);
+        setFocusPolicy(Qt::NoFocus);
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        QPainter painter(this);
+        QPen pen(palette().color(QPalette::Highlight), 2);
+        pen.setJoinStyle(Qt::MiterJoin);
+        painter.setPen(pen);
+        painter.drawRect(rect().adjusted(1, 1, -1, -1));
+    }
+};
+
+} // namespace
+
+void PanelFrame::setVimFocusFrame(bool on)
+{
+    if (on && !m_focusRing)
+        m_focusRing = new FocusRing(this);
+    if (!m_focusRing)
+        return;
+    if (on) {
+        m_focusRing->setGeometry(rect());
+        m_focusRing->show();
+        m_focusRing->raise();
+    } else {
+        m_focusRing->hide();
+    }
+}
+
+void PanelFrame::resizeEvent(QResizeEvent* event)
+{
+    QFrame::resizeEvent(event);
+    if (m_focusRing && m_focusRing->isVisible()) {
+        m_focusRing->setGeometry(rect());
+        m_focusRing->raise();
     }
 }
 
