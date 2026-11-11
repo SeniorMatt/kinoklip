@@ -132,6 +132,29 @@ private slots:
         QVERIFY(!m_cache->thumbnail(path, 6'000'000, 180).isNull());
     }
 
+    /// GitHub issue 2: a 4K long-GOP seek for a trickled tile decoded hundreds of frames next to
+    /// the playback. While playing a tile is the keyframe at or before its time (one frame);
+    /// when playback stops it is replaced by the exact frame.
+    void trickledTilesAreKeyframesUntilPlaybackStops()
+    {
+        const QString path = test::fixture("h264_60fps.mp4"); // one keyframe in 4 s (GOP 240)
+        m_cache->clearMemoryCache();
+        QSignalSpy spy(m_cache, &MediaCache::thumbnailReady);
+        m_cache->setPlaybackActive(true);
+        QVERIFY(m_cache->thumbnail(path, 3'000'000, 180).isNull());
+        QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, kWaitMs);
+        const QImage rough = m_cache->thumbnail(path, 3'000'000, 180);
+        QVERIFY(!rough.isNull());
+        QCOMPARE(test::readFrameIndex(rough), 0); // the keyframe, not frame 180
+        // The exact frames were not written to disk as the keyframe's.
+        spy.clear();
+        m_cache->setPlaybackActive(false);
+        QVERIFY(spy.count() >= 1); // views are told to ask again
+        QVERIFY(m_cache->thumbnail(path, 3'000'000, 180).isNull());
+        QTRY_VERIFY_WITH_TIMEOUT(!m_cache->thumbnail(path, 3'000'000, 180).isNull(), kWaitMs);
+        QCOMPARE(test::readFrameIndex(m_cache->thumbnail(path, 3'000'000, 180)), 180);
+    }
+
     void parkedJobsAreBounded()
     {
         const QString path = QStringLiteral("/nonexistent/parked.mp4"); // jobs fail fast
