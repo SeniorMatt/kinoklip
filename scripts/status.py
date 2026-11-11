@@ -186,14 +186,8 @@ def build():
         f"{START}\n"
         f"![Status: {rp:.2f}% of the roadmap items are done, {ep:.2f}% of the effects library "
         f"works](docs/images/status.svg)\n\n"
-        f"| | Done | Total | |\n|---|---|---|---|\n"
-        f"| Roadmap items* | {rd} | {rt} | {rp:.2f}% |\n"
-        f"| Effects library | {ed} | {et} | {ep:.2f}% |\n\n"
-        f"Green is made, grey is not. Roadmap items are the checklist lines of "
-        f"[`docs/roadmap.md`](docs/roadmap.md); the effects library is every entry of Resolve's "
-        f"Effects library that Kinoklip is compared with ([`docs/effects-library-status.md`]"
-        f"(docs/effects-library-status.md)). \\* To-do items are bigger than done ones, so this "
-        f"share looks better than the work left. Made by `python3 scripts/status.py`.\n"
+        f"Green is done, grey is still to do. Details: [roadmap](docs/roadmap.md) and "
+        f"[effects library](docs/effects-library-status.md).\n"
         f"{END}"
     )
     return "\n".join(svg) + "\n", block

@@ -9,8 +9,6 @@ A non-linear video editor written from scratch in C++20 with Qt 6 Widgets and FF
 behaviour and default shortcuts follow DaVinci Resolve's Edit page, with the KDE Breeze look.
 Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 
-**[Roadmap](docs/roadmap.md)**
-
 <a href="docs/images/readme/themes.png"><img src="docs/images/readme/themes.png" width="100%" alt="The Edit page of Kinoklip in the Breeze Dark colour scheme on the left and Breeze Light on the right, divided by a diagonal line"></a>
 
 ## Status
@@ -18,15 +16,10 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 <!-- status:start -->
 ![Status: 75.00% of the roadmap items are done, 92.90% of the effects library works](docs/images/status.svg)
 
-| | Done | Total | |
-|---|---|---|---|
-| Roadmap items* | 135 | 180 | 75.00% |
-| Effects library | 170 | 183 | 92.90% |
-
-Green is made, grey is not. Roadmap items are the checklist lines of [`docs/roadmap.md`](docs/roadmap.md); the effects library is every entry of Resolve's Effects library that Kinoklip is compared with ([`docs/effects-library-status.md`](docs/effects-library-status.md)). \* To-do items are bigger than done ones, so this share looks better than the work left. Made by `python3 scripts/status.py`.
+Green is done, grey is still to do. Details: [roadmap](docs/roadmap.md) and [effects library](docs/effects-library-status.md).
 <!-- status:end -->
 
-All releases are alpha or beta pre-releases for now: expect bugs and keep backups.
+Kinoklip is still a beta: expect bugs and keep backups.
 
 ## Why use Kinoklip over Resolve?
 
@@ -90,17 +83,7 @@ It is still a beta, missing many of Resolve's features, so it's not a full repla
 - [Release notes](docs/releases/): changes in each release
 - [Privacy](docs/privacy.md): what Kinoklip keeps on your computer, and what a bug report can share
 
-**Build and contribute**
-- [Building](docs/building.md): from source (Arch container or host Qt), command-line options
-- [Contributing](docs/contributing.md): code, shortcuts, naming and tests
-- [Coding style](docs/coding-style.md) and [directory map](docs/directory-map.md)
-- [Behaviour spec](docs/behavior-spec.md): how each feature behaves, with test references
-- [Linux packaging](packaging/linux/readme.md): building the AppImage
-
-**Project records**
-- [Clean-room policy](docs/clean-room.md): what may and may not be used to build Kinoklip
-- [Attribution](attribution.md): every asset with its author and licence
-- [All documents](docs/readme.md): the full index, including old plans in the archive
+For developers: [building](docs/building.md), [contributing](docs/contributing.md) and [all documents](docs/readme.md).
 
 ## Community
 
