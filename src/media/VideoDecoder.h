@@ -16,6 +16,11 @@
 
 namespace kk::media {
 
+/// Software decoding threads when the caller does not choose (VideoDecoder::setThreadCount(0)):
+/// 4 up to 1080p, 3/4 of @p cores (at least 4, at most 8) above it. KINOKLIP_SW_THREADS=<n>
+/// overrides it. Pure apart from that variable.
+int autoSoftwareThreads(int width, int height, int cores);
+
 /// Decodes the video stream of one file (or a still image) by media time — as raw planes for
 /// the GPU compositor (decodeFrame()) or as a ready-to-paint QImage (frameAt()).
 ///
@@ -36,8 +41,8 @@ namespace kk::media {
 /// stepping); anything else seeks to the previous keyframe and decodes forward from there.
 /// Hardware decoding (VAAPI/CUDA/Vulkan, see HwAccel.h) is used when available, with a
 /// transparent fall-back to software (at open or mid-stream). Software decoding uses at most
-/// 4 threads by default (see setThreadCount()). Intermediate frames skipped while seeking are
-/// never converted or downloaded from the GPU.
+/// 4 threads by default, more for frames above 1080p (see autoSoftwareThreads()). Intermediate
+/// frames skipped while seeking are never converted or downloaded from the GPU.
 ///
 /// Output of frameAt(): `QImage::Format_ARGB32_Premultiplied`, sample aspect ratio and display
 /// rotation applied, alpha preserved (opaque sources have alpha 255). decodeFrame() leaves SAR
@@ -64,7 +69,7 @@ public:
     VideoDecoder& operator=(const VideoDecoder&) = delete;
 
     /// Number of software decoding threads used by the next open(): 0 = automatic (the
-    /// default: one per core, at most 4 — leaves CPU for compositing and audio), 1 =
+    /// default, see autoSoftwareThreads()), 1 =
     /// single-threaded (best when many decoders run in parallel). Hardware decoding always
     /// uses one thread.
     void setThreadCount(int threads);
