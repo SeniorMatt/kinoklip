@@ -26,6 +26,7 @@ contains *t* (exact for VFR too); requests before the first / after the last fra
 | `MediaInfo.h` | `MediaInfo` struct + `probe(path)` (synchronous, any thread). Stills report `isStillImage`, `durationUs = 0`. |
 | `VideoDecoder.h` | `decodeFrame(timeUs)` → `shared_ptr<const VideoFrame>` (raw planes, GPU compositor path); `frameAt(timeUs, maxSize)` → `QImage` ARGB32_Premultiplied (thumbnails, tests). `Accuracy::{Exact, NearestKeyframe}`. Not thread-safe; one per thread. |
 | `VideoFrame.h` | Raw frame: `PixelFormat` (NV12, P010, YUV420P/422P/444P, 10-bit planar, BGRA premultiplied), plane pointers/strides, colour matrix/range/transfer, pts, duration, SAR, rotation. Immutable, refcounted, may outlive the decoder. |
+| `DecodeStats.h` | process-wide counters (zero-copy / downloaded / software frames and their cost) for the per-second playback statistics |
 | `HwAccel.h` | `HwAccelMode {Auto, Off, Cuda, Vaapi, Vulkan}`, `setPreferredHwAccel()`, `hwCapabilities()` (for Preferences), `probedHwDevices()` (the backends already tried, opens nothing; for Help > Report a Bug). |
 | `WavWriter.h` | streams interleaved float samples into a 16/24-bit PCM WAV file, header patched on close (voice-over takes) |
 | `AudioDecoder.h` | `read(startSample48k, dst, frames)`: sample-accurate, zero-filled outside the media. Not thread-safe. |
@@ -111,6 +112,21 @@ The decoder keeps the last returned frame (`cur`) and the following one (`next`)
   "download-bound" (86 fps for 1080p below). Falls back to `av_hwframe_transfer_data` if
   mapping fails; `KINOKLIP_VAAPI_COPY=transfer` forces the old path (diagnostics).
   TODO(media): re-measure on Intel (the numbers below predate this change).
+* **Zero-copy (1.4, spec 77.2)**: `VideoDecoder::setZeroCopy(true)` (set by `render::DecoderPool` for the
+  GL compositor's decoders, before `open()`): `decodeFrame()` of a VAAPI NV12/P010 surface does
+  not download it but exports it (`av_hwframe_map` to `AV_PIX_FMT_DRM_PRIME`: `vaSyncSurface`, then
+  `vaExportSurfaceHandle`, one layer per plane) as a `VideoFrame` with `dmabuf` set (fds,
+  offsets, pitches, modifier, DRM format R8 + GR88 / R16 + GR1616 per plane) and no pixel
+  pointers; the GL side imports the planes as textures (`render/GlDmaBuf.h`). The frame holds the
+  VA surface (through the DRM frame) until it is released; the surface pool has 6 more surfaces
+  for that (`HwDecodeState::extraFrames`). A shared switch (`setZeroCopyGate()`, cleared by the
+  compositor when the GPU cannot import) and `VideoFrame::dmabuf->download()` (the plain download
+  of the same surface) keep every failure a fallback: the picture is never lost. `frameAt()`, the
+  CPU renderer, thumbnails and export through the CPU path are not affected (they download).
+  Counters per path (`DecodeStats.h`) feed the per-second playback statistics.
+* The first line of a file's log says why hardware was not used: `hwUnavailable` (device could not
+  be opened: the error plus GPU PCI id, libva, driver files libva can see), the GPU's refusal
+  with FFmpeg's own first error message, and which output path a hardware decoder uses.
 * H.264 on CUDA/Vulkan: FFmpeg's flush re-creates the whole hw decoder (~250 ms). When the
   packet at the new position is an IDR we skip the flush ("soft seek") and drop stale frames
   via packet→frame `opaque` generation tags. VAAPI re-inits in ~5 ms and always flushes.
@@ -282,9 +298,8 @@ no fixture (no encoder available). Results on the dev box: all tested rows pass,
 
 ## Known limitations / TODO
 
-* TODO(media): **zero-copy GPU interop** — VAAPI surface → dma-buf → `EGLImage`, CUDA → GL
-  interop, Vulkan → GL memory import. The VAAPI download (de-tiling the iGPU surface) is the
-  bottleneck of the hardware path today.
+* TODO(media): zero-copy for CUDA (CUDA → GL interop) and Vulkan (memory import). VAAPI → EGL
+  DMA-BUF is done (1.4); on X11 it needs `KINOKLIP_X11_EGL=1` (Qt uses GLX there).
 * TODO(media): software seeks in long-GOP 1080p H.264 average ~200 ms (target 150 ms). Idea:
   `skip_frame = AVDISCARD_NONREF` while decoding towards a target that is still far ahead.
 * HDR (PQ / HLG) and BT.2020 video is mapped to the SDR BT.709 timeline (`HdrToSdr.h`: BT.2100

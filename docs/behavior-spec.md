@@ -1960,9 +1960,24 @@ decoding): the timeline size does not matter (4K and 1080p timelines play the sa
 plays 60 of 60 fps, 4K60 originals play 12 to 28 fps. Software decoding was capped at 4 threads for
 every frame size, so on an 8-core laptop half of the cores stay idle (the report's 55 %).
 
+The tester's second report (1.3, still choppy): the same Lunar Lake laptop plays 4K HEVC smoothly in VLC and in
+Filmcraft (both decode with VAAPI and show the picture without a CPU copy), the Resources monitor showed the CPU
+at 55 % and 81 degrees, the GPU at 11 %. The hardware path of Kinoklip copied every decoded 4K picture from the
+GPU surface to system memory (1.3: `av_hwframe_map` + streaming copy; on the Comet Lake UHD 630 test machine the
+1080p version of that copy was the limit, 86 fps) and the playback engine turns a decoder that is only
+as fast as the clock into a fraction of the picture rate (readme of `src/playback`, Known gaps). 1.4 removes the
+copy (77.2 - 77.4) and makes the log say what runs (77.5). Measured here with libx265 3840x2160 files, software
+decoding only (this container cannot open a render node): a 100 Mbit/s 4K60 10-bit file decodes at 25 fps (4
+threads), 31 fps (6) and 27 fps (8) in `decodeFrame()`, an easy 30 Mbit/s file at 77 fps (8-bit) and 64 fps
+(10-bit); played in the viewer, the 100 Mbit/s file showed 2.3 fps and the easy 8-bit 60 fps file 12.9 fps (6 threads, loaded machine, llvmpipe output, so the stage times are not a GPU's).
+
 | # | Behaviour | Status |
 |---|-----------|--------|
 | 77.1 | Software decoding above 1080p uses 3/4 of the cores (at least 4, at most 8); up to 1080p it stays at 4. `KINOKLIP_SW_THREADS=<n>` sets the number exactly. | Done (`test_videodecoder` softwareThreadsGrowWithFrameSize) |
+| 77.2 | Zero copy (1.4): when the GL context is an EGL context with `EGL_EXT_image_dma_buf_import` (Wayland; X11 with `KINOKLIP_X11_EGL=1`), a VAAPI NV12 / P010 decoder hands its frames to the compositor as DMA-BUF handles (`av_hwframe_map` to DRM PRIME, one layer per plane) and the GPU imports every plane as an EGLImage texture (R8 + GR88, R16 + GR1616), so the decoded picture is never copied through system memory (the download of a 4K surface was the stage the 1.3 playback waited for). The same shader converts colour, range, HDR and deinterlacing as for uploaded frames. | Done (`test_dmabuf` attribute lists, probe, software decoding never exports; the import of a real VAAPI surface is not covered by a test: it needs a GPU render node) |
+| 77.3 | Every failure of that path is a fallback, never a lost or black picture: no EGL / extension, FFmpeg without DRM export, a surface layout other than 8/10-bit 4:2:0, a GPU that refuses the import (that frame is downloaded through `VideoFrame::dmabuf->download()`, the gate that lets decoders export is closed for the session and one warning says why). `KINOKLIP_ZEROCOPY=0` switches the path off. CPU rendering, thumbnails (`frameAt()`) and software decoders are not affected. | Done (`test_dmabuf` aFrameThatCannotBeImportedIsDownloadedInstead, withoutAnImporterTheSameFrameIsDownloaded) |
+| 77.4 | Memory stays bounded: an exported frame holds its VA surface until the compositor drops it, so a zero-copy decoder's surface pool has 6 more surfaces (frame on screen, cut look-ahead of 3 frames); decoders reserved by the look-ahead are limited as before (3). | Done (by construction; measured only for the software side) |
+| 77.5 | The session log (Help > Export Log File) answers why a file plays the way it does: per file the decoder (`with VAAPI (iHD 24.x, /dev/dri/renderD128), output: DMA-BUF (zero-copy, no download)` or `with software (N threads); <backend> unavailable: <reason> [GPU PCI id, libva, driver files libva can see]` or `VAAPI failed: <reason> (<FFmpeg's first error>)`); once, which libva (host or bundled) and driver are loaded and which of H.264 / HEVC Main / HEVC Main10 / VP9 / AV1 the VAAPI driver decodes; whether zero-copy is ready, unavailable (and why) or off; the first imported frame; and, in every per-second statistics line and every summary, how the frames reached the GPU (`frames: 59 zero-copy (0.1 ms each), 0 downloaded (0.0 ms each), 0 software`) and, at every play, whether the timeline plays proxies or originals. | Done (`test_videodecoder` theOpenLineSaysWhyHardwareIsNotUsed, `test_dmabuf` theDecodeWindowIsDescribedForTheStatsLine) |
 
 ## 78. Background Removal: an optional AI tool (bgremove branch, roadmap 1.4)
 

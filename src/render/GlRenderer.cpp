@@ -191,6 +191,7 @@ bool GlRenderer::initialize(QString* why)
         || !m_comp.initialize(*m_kit, why) || !m_grade.initialize(*m_kit, why))
         return false;
     m_output = std::make_unique<GlOutput>(*m_kit);
+    setUpZeroCopy();
     {
         QString log;
         m_retimeOk = m_retime.initialize(*m_kit, &log);
@@ -228,6 +229,43 @@ bool GlRenderer::initialize(QString* why)
         return false;
     }
     return true;
+}
+
+void GlRenderer::setUpZeroCopy()
+{
+    const QByteArray env = qgetenv("KINOKLIP_ZEROCOPY").trimmed().toLower();
+    if (env == "0" || env == "off" || env == "no" || env == "false") {
+        qCInfo(lcRender) << "zero-copy decoding (VAAPI -> EGL DMA-BUF): off (KINOKLIP_ZEROCOPY)";
+        return;
+    }
+    QString why;
+    if (!m_dmaBuf.probe(m_context.get(), &why)) {
+        qCInfo(lcRender).noquote()
+            << "zero-copy decoding (VAAPI -> EGL DMA-BUF) unavailable:" << why
+            << "- hardware frames are downloaded to system memory";
+        return;
+    }
+    m_zeroCopyGate = std::make_shared<std::atomic<bool>>(true);
+    m_decoders.setZeroCopyGate(m_zeroCopyGate);
+    m_video.setDmaBufImporter(&m_dmaBuf);
+    qCInfo(lcRender) << "zero-copy decoding (VAAPI -> EGL DMA-BUF): ready on the" << m_description
+                     << "renderer (used when a VAAPI decoder opens)";
+}
+
+void GlRenderer::checkZeroCopy()
+{
+    if (!m_zeroCopyGate)
+        return;
+    if (!m_loggedFirstImport && m_video.importedFrames() > 0) {
+        m_loggedFirstImport = true;
+        qCInfo(lcRender) << "zero-copy decoding: the first DMA-BUF frame was imported by the GPU";
+    }
+    if (m_zeroCopyGate->load() && !m_dmaBuf.usable()) {
+        m_zeroCopyGate->store(false);
+        qCWarning(lcRender).noquote()
+            << "zero-copy decoding switched off, frames are downloaded from now on:"
+            << m_video.lastImportError();
+    }
 }
 
 GlEffect* GlRenderer::effectFor(const QString& id)
@@ -804,6 +842,7 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         QElapsedTimer uploadTimer;
         uploadTimer.start();
         m_video.upload(*m_kit, *planes, d->frame);
+        checkZeroCopy();
         m_uploadNs += uploadTimer.nsecsElapsed();
         const media::VideoFrame& f = *d->frame;
         src.kind = ClipSource::Kind::Video;
@@ -932,6 +971,7 @@ GLuint GlRenderer::retimedPicture(const DecodedClip& d, QSize size)
     QElapsedTimer uploadTimer;
     uploadTimer.start();
     m_video.upload(*m_kit, *planesB, d.frameB);
+    checkZeroCopy();
     m_uploadNs += uploadTimer.nsecsElapsed();
     const auto planesA = planesOf(d.entry); // uploaded by resolveSource()
     // Both frames upright (display orientation), unblended, into RGBA16F targets.

@@ -2,15 +2,19 @@
 // VideoFrame — plane geometry helpers + VideoFrameFactory (decoder output → VideoFrame).
 #include "media/VideoFrame.h"
 
+#include "media/DecodeStats.h"
 #include "media/HwDevices.h"
 #include "media/MediaLog.h"
 #include "media/VideoFrameFactory.h"
 
 extern "C" {
 #include <libavutil/hwcontext.h>
+#include <libavutil/hwcontext_drm.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/pixdesc.h>
 }
+
+#include <QElapsedTimer>
 
 #include <optional>
 
@@ -80,6 +84,15 @@ std::optional<PixelFormat> mapPixelFormat(int format, bool* fullRange)
         return std::nullopt;
     }
 }
+
+constexpr uint32_t fourcc(char a, char b, char c, char d)
+{
+    return uint32_t(a) | (uint32_t(b) << 8) | (uint32_t(c) << 16) | (uint32_t(d) << 24);
+}
+constexpr uint32_t kDrmR8 = fourcc('R', '8', ' ', ' ');
+constexpr uint32_t kDrmGr88 = fourcc('G', 'R', '8', '8');
+constexpr uint32_t kDrmR16 = fourcc('R', '1', '6', ' ');
+constexpr uint32_t kDrmGr1616 = fourcc('G', 'R', '3', '2');
 
 ColorMatrix colorMatrix(const AVFrame* frame)
 {
@@ -303,12 +316,130 @@ QString VideoFrameFactory::lastErrorString() const
     return text;
 }
 
+std::shared_ptr<const VideoFrame> VideoFrameFactory::makeDmaBuf(
+    const AVFrame* hwFrame, const FrameMeta& meta)
+{
+    const auto* frames = reinterpret_cast<const AVHWFramesContext*>(hwFrame->hw_frames_ctx->data);
+    const bool is10 = frames->sw_format == AV_PIX_FMT_P010LE;
+    if (frames->device_ctx->type != AV_HWDEVICE_TYPE_VAAPI
+        || (frames->sw_format != AV_PIX_FMT_NV12 && !is10)) {
+        m_exportFailed = true; // 8/10-bit 4:2:0 only: the shader reads exactly these layouts
+        qCDebug(lcMedia) << "zero-copy: surface format" << av_get_pix_fmt_name(frames->sw_format)
+                         << "is not exported; downloading";
+        return nullptr;
+    }
+    m_lastError = 0;
+    m_lastErrorText.clear();
+    if (takeInjectedDownloadFailure()) {
+        m_lastError = AVERROR(EIO); // test hook: the same failure the download would have
+        m_lastErrorText = QStringLiteral("injected download failure (test)");
+        return nullptr;
+    }
+    QElapsedTimer timer;
+    timer.start();
+    FfmpegLogCapture capture;
+    FramePtr drm(av_frame_alloc());
+    if (!drm) {
+        return nullptr;
+    }
+    drm->format = AV_PIX_FMT_DRM_PRIME;
+    // Syncs the surface (vaSyncSurface: waits for the decoder), then vaExportSurfaceHandle:
+    // separate layers, one per plane. FFmpeg keeps a reference to the surface in `drm`.
+    const int ret = av_hwframe_map(drm.get(), hwFrame, AV_HWFRAME_MAP_READ);
+    if (ret == AVERROR(EIO)) {
+        m_lastError = ret;
+        m_lastErrorText = capture.firstError();
+        return nullptr; // the surface is bad; the caller's download reports it the usual way
+    }
+    const auto* desc
+        = ret >= 0 ? reinterpret_cast<const AVDRMFrameDescriptor*>(drm->data[0]) : nullptr;
+    auto fail = [&](const QString& why) {
+        m_exportFailed = true;
+        qCDebug(lcMedia).noquote()
+            << "zero-copy: DMA-BUF export unavailable (" << why << "); downloading frames";
+        return std::shared_ptr<const VideoFrame>();
+    };
+    if (!desc) {
+        return fail(avErrorString(ret) + QStringLiteral(" ") + capture.firstError());
+    }
+    // Flatten layers -> planes: separate layers (one plane each) or one layer with two planes.
+    auto dmabuf = std::make_shared<DmaBufFrame>();
+    const uint32_t formats[2] = {is10 ? kDrmR16 : kDrmR8, is10 ? kDrmGr1616 : kDrmGr88};
+    for (int l = 0; l < desc->nb_layers; ++l) {
+        for (int p = 0; p < desc->layers[l].nb_planes; ++p) {
+            const AVDRMPlaneDescriptor& plane = desc->layers[l].planes[p];
+            if (dmabuf->planeCount >= 2 || plane.object_index < 0
+                || plane.object_index >= desc->nb_objects) {
+                return fail(QStringLiteral("unexpected layout"));
+            }
+            const AVDRMObjectDescriptor& object = desc->objects[plane.object_index];
+            DmaBufFrame::Plane& out = dmabuf->planes[size_t(dmabuf->planeCount)];
+            out.drmFormat = formats[dmabuf->planeCount];
+            out.fd = object.fd;
+            out.offset = uint32_t(plane.offset);
+            out.pitch = uint32_t(plane.pitch);
+            out.modifier = object.format_modifier;
+            out.width = dmabuf->planeCount == 0 ? hwFrame->width : (hwFrame->width + 1) / 2;
+            out.height = dmabuf->planeCount == 0 ? hwFrame->height : (hwFrame->height + 1) / 2;
+            ++dmabuf->planeCount;
+        }
+    }
+    if (dmabuf->planeCount != 2) {
+        return fail(QStringLiteral("%1 planes").arg(dmabuf->planeCount));
+    }
+    std::shared_ptr<AVFrame> owner(drm.release(), [](AVFrame* f) { av_frame_free(&f); });
+    dmabuf->owner = owner;
+    // Fallback for a GPU that cannot import the buffers: the plain download of the same surface.
+    std::shared_ptr<AVFrame> hwRef(av_frame_clone(hwFrame), [](AVFrame* f) { av_frame_free(&f); });
+    dmabuf->download = [hwRef, meta]() -> std::shared_ptr<const VideoFrame> {
+        std::mutex* hwLock = HwDeviceManager::instance().callLock(HwAccelMode::Vaapi);
+        const auto lock
+            = hwLock ? std::unique_lock<std::mutex>(*hwLock) : std::unique_lock<std::mutex>();
+        VideoFrameFactory plain;
+        return plain.make(hwRef.get(), meta);
+    };
+
+    auto frame = std::make_shared<VideoFrame>();
+    frame->format = is10 ? PixelFormat::P010 : PixelFormat::Nv12;
+    frame->width = hwFrame->width;
+    frame->height = hwFrame->height;
+    frame->planeCount = 2;
+    frame->matrix = colorMatrix(hwFrame);
+    frame->range
+        = hwFrame->color_range == AVCOL_RANGE_JPEG ? ColorRange::Full : ColorRange::Limited;
+    frame->transfer = colorTransfer(hwFrame);
+    applyMeta(*frame, meta);
+    // Colour primaries (BT.2020 SDR detection) are read from the hardware frame's properties;
+    // it holds no pixels the CPU can read.
+    frame->avFrame = hwRef.get();
+    frame->dmabuf = std::move(dmabuf);
+    frame->storage = std::move(owner);
+    countZeroCopyFrame(timer.nsecsElapsed() / 1000);
+    return frame;
+}
+
 std::shared_ptr<const VideoFrame> VideoFrameFactory::make(
     const AVFrame* decoded, const FrameMeta& meta)
 {
-    FramePtr owned(decoded->hw_frames_ctx ? download(decoded).release() : av_frame_clone(decoded));
+    if (decoded->hw_frames_ctx && zeroCopy()) {
+        if (auto exported = makeDmaBuf(decoded, meta)) {
+            return exported;
+        }
+        if (!m_exportFailed && m_lastError != 0) {
+            return nullptr; // a bad surface: the caller handles it like a failed download
+        }
+    }
+    QElapsedTimer timer;
+    timer.start();
+    const bool hardware = decoded->hw_frames_ctx != nullptr;
+    FramePtr owned(hardware ? download(decoded).release() : av_frame_clone(decoded));
     if (!owned) {
         return nullptr;
+    }
+    if (hardware) {
+        countDownloadedFrame(timer.nsecsElapsed() / 1000);
+    } else {
+        countSoftwareFrame();
     }
     bool fullRange = owned->color_range == AVCOL_RANGE_JPEG;
     const std::optional<PixelFormat> format = mapPixelFormat(owned->format, &fullRange);

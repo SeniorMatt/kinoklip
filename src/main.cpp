@@ -61,6 +61,13 @@ void configureOpenGL()
     format.setSwapInterval(1); // vsync on X11 (no tearing); 0 on Wayland, see LiveResize.h
     QSurfaceFormat::setDefaultFormat(format);
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    // Zero-copy hardware decoding (VAAPI -> EGL DMA-BUF) needs an EGL context. Wayland always
+    // has one; on X11 Qt uses GLX unless asked: KINOKLIP_X11_EGL=1 asks for EGL (tester switch
+    // for 4K hardware decoding on X11 sessions; the session log says whether it worked).
+    if (qEnvironmentVariableIntValue("KINOKLIP_X11_EGL") > 0
+        && !qEnvironmentVariableIsSet("QT_XCB_GL_INTEGRATION")) {
+        qputenv("QT_XCB_GL_INTEGRATION", "xcb_egl");
+    }
 }
 
 /// Must run before QApplication exists: applies the "Interface scale" preference

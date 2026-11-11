@@ -30,6 +30,37 @@ The steps below still work for a run from a terminal.
 
 Please run the steps below and send `kinoklip-*.txt` back. Each run takes about two minutes.
 
+## 4K HEVC is choppy (Core Ultra 7 258V / Arc 140V report, 1.4)
+
+Since 1.4 a VAAPI decoder hands its frames to the GPU as DMA-BUF handles instead of copying every
+4K picture through system memory (spec 77.2), and the log says in plain words what is used and why.
+If 4K HEVC is still choppy, run this and send the file from **Help > Export Log File...** (or the
+`tee` output):
+
+```sh
+vainfo --display drm --device /dev/dri/renderD128 2>&1 | head -30     # driver version, VAProfileHEVCMain/Main10 : VAEntrypointVLD
+ls -l /dev/dri; id                                                      # you need the render group (or a logged-in seat) for renderD128
+QT_FORCE_STDERR_LOGGING=1 KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.AppImage 2>&1 | tee kinoklip-4k.txt   # play the 4K clip for 10 s, stop, quit
+KINOKLIP_ZEROCOPY=0 QT_FORCE_STDERR_LOGGING=1 KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.AppImage 2>&1 | tee kinoklip-4k-download.txt   # same, with the old download path
+KINOKLIP_HWACCEL=off QT_FORCE_STDERR_LOGGING=1 KK_PLAYBACK_STATS=1 ./Kinoklip-x86_64.AppImage 2>&1 | tee kinoklip-4k-software.txt    # software reference
+```
+
+On an X11 session add `KINOKLIP_X11_EGL=1` to the first command (zero-copy needs an EGL context;
+Wayland has one, X11 uses GLX unless asked).
+
+Read the log from the top:
+
+| Line | Meaning |
+|---|---|
+| `hardware decoding VAAPI available: /dev/dri/renderD128, driver iHD 24.x, libva 2.x (host\|bundled, ...), decodes: ... HEVC Main yes, HEVC Main10 yes ...` | VAAPI works; the driver and libva in use; what the GPU decodes |
+| `hardware decoding VAAPI unavailable: ... [GPU PCI id 8086:6420; libva ...; drivers: ...]` | VAAPI does not start; the text after it says which GPU, which libva, which driver files libva can see (a driver too old for the GPU shows here as "unknown libva error") |
+| `decoding clip.mp4 (hevc main 10 3840x2160) with VAAPI (iHD ..., /dev/dri/renderD128), output: DMA-BUF (zero-copy, no download)` | the good case |
+| `... with software (6 threads); VAAPI failed: ... (<FFmpeg's reason>)` | the GPU or driver refused this stream; the reason is FFmpeg's own message |
+| `zero-copy decoding (VAAPI -> EGL DMA-BUF): ready ...` / `unavailable: <why>` | the GL side; `unavailable` names the missing piece (EGL context, extension) |
+| `zero-copy decoding: the first DMA-BUF frame was imported by the GPU` | proof that the path works on this machine |
+| `kk.playback: stats: ... [decode ..., upload ..., composite ..., output ...], ..., frames: 59 zero-copy (0.1 ms each), 0 downloaded (0.0 ms each), 0 software` | per second: how frames reached the GPU and what each cost |
+| `playback sources: the timeline plays proxy or optimized media ...` / `... the original files` | whether proxies are used while playing |
+
 ## 0. System facts (once)
 
 ```sh
@@ -104,6 +135,9 @@ KK_PLAYBACK_STATS=1 KK_SCREENSHOT_PLAY_MS=5000 ./Kinoklip-x86_64.run --screensho
 | `KK_PLAYBACK_STATS=1` | stats line per second while playing, summary on stop |
 | `KINOKLIP_HWACCEL=off\|auto\|vaapi\|cuda\|vulkan` | force software or one backend for decoding |
 | `KINOKLIP_HW_SERIALIZE=off\|vaapi\|all` | which hardware decoders take turns on their device (default `vaapi`) |
+| `KINOKLIP_ZEROCOPY=0` | no zero-copy: VAAPI frames are downloaded to system memory (the 1.3 path) |
+| `KINOKLIP_X11_EGL=1` | X11: ask Qt for an EGL context (needed for zero-copy; Wayland always has one) |
+| `KINOKLIP_SW_THREADS=<n>` | software decoding threads (default: 4, 3/4 of the cores above 1080p) |
 | `KINOKLIP_VAAPI_COPY=transfer` | VAAPI download through `av_hwframe_transfer_data` (old path) |
 | `KINOKLIP_HWENC=off` | no hardware encoders for export |
 | `QT_LOGGING_RULES="kk.media.debug=true"` | verbose media log (also `kk.export.debug`, `kk.playback.debug`) |
