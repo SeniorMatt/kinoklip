@@ -187,7 +187,7 @@ RenderedFramePtr FrameScheduler::poll(int64_t due, int direction, int64_t* shown
 }
 
 int FrameScheduler::prepareAhead(int64_t dueKey, int64_t lastKey, double frameMs,
-    const std::function<int64_t(int64_t)>& frameOfKey)
+    const std::function<int64_t(int64_t)>& frameOfKey, double extraDueMs)
 {
     int64_t key = m_hasPrepareEdge ? std::max(m_prepareEdge, dueKey) + 1 : dueKey + 1;
     if (key > lastKey)
@@ -213,7 +213,7 @@ int FrameScheduler::prepareAhead(int64_t dueKey, int64_t lastKey, double frameMs
         range.previous = before == first - 1 ? before : -1;
         range.first = first;
         range.end = first + count;
-        range.firstDueMs = double(key - dueKey) * frameMs;
+        range.firstDueMs = double(key - dueKey) * frameMs + extraDueMs;
         range.frameMs = frameMs;
         request.prepare = range;
         (void)m_render(std::move(request));
@@ -260,7 +260,7 @@ RenderedFramePtr FrameScheduler::pollStill()
     return result;
 }
 
-void FrameScheduler::clear()
+void FrameScheduler::clear(bool keepPrepare)
 {
     for (Entry& e : m_entries) {
         if (!check(e)) {
@@ -276,7 +276,8 @@ void FrameScheduler::clear()
     m_stillActive = false;
     m_still = Entry {};
     cancelOutstanding();
-    cancelPrepare();
+    if (!keepPrepare)
+        cancelPrepare();
 }
 
 void FrameScheduler::noteRendered(const RenderedFramePtr& frame)
