@@ -51,6 +51,7 @@ struct VideoDecoder::Impl
 
     MediaInfo info;
     int threadCount = 0;
+    bool skipNonReference = false; ///< setSkipNonReference(), kept across open()
     std::optional<HwAccelMode> hwOverride;
     bool zeroCopy = false; ///< VideoDecoder::setZeroCopy()
     bool isOpen = false;

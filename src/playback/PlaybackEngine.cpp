@@ -25,6 +25,11 @@ namespace kk {
 namespace {
 
 /// Ring between mixer thread and device: 8192 frames = 171 ms at 48 kHz.
+/// Longest a frame may be shown behind the clock to keep decoding sequential (mpv and VLC
+/// tolerate the same before they drop; lip sync is unnoticeable up to ~125 ms behind).
+constexpr double kMaxLateMs = 110.0;
+/// Most the picture is presented behind the clock to smooth a decoder's bursts.
+constexpr double kMaxLagMs = 55.0;
 constexpr size_t kRingFrames = 8192;
 /// Pre-roll before the device starts (frames in the ring), and how long to wait for it.
 constexpr size_t kPrerollFrames = 2 * 1024;
@@ -919,6 +924,7 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     m_parkedPrepareFrame = -1;
     m_parkedPrepare.stop();
     m_hasShownKey = false;
+    m_lag.reset();
 
     m_rangeLoop = m_loop;
     range(&m_rangeStart, &m_rangeEnd);
@@ -1483,8 +1489,21 @@ void PlaybackEngine::onTick()
         // timeline is on screen at once instead of at the far end of the look-ahead.
         wanted.push_back({dueKey, int64_t(wrap(double(dueKey)))});
     }
-    for (int k = lead; k <= lead + m_scheduler.maxInFlight() + 1; ++k) {
-        const int64_t key = int64_t(std::floor(unwrapped + m_rate * k));
+    LookAhead look;
+    look.unwrapped = unwrapped;
+    look.dueKey = dueKey - m_lag.frames();
+    look.rate = m_rate;
+    look.lead = lead;
+    look.count = m_scheduler.maxInFlight() + 2;
+    look.sequential = !m_sequentialOff;
+    look.maxLateFrames = std::max<int64_t>(1, int64_t(std::ceil(kMaxLateMs / intervalMs)));
+    look.haveNewest = m_scheduler.newestRequestedKey(dir, &look.newest);
+    if (m_hasShownKey && (!look.haveNewest || m_lastShownKey > look.newest)) {
+        look.newest = m_lastShownKey;
+        look.haveNewest = true;
+    }
+    bool catchUp = false;
+    for (const int64_t key : lookAheadKeys(look, &catchUp)) {
         if (key == lastKey) {
             continue; // slow play: the same frame for several intervals
         }
@@ -1498,7 +1517,7 @@ void PlaybackEngine::onTick()
         if (!wanted.empty() && wanted.front().key == key) {
             continue;
         }
-        wanted.push_back({key, int64_t(wrap(double(key)))});
+        wanted.push_back({key, int64_t(wrap(double(key))), catchUp});
     }
     if (m_scheduler.prefetch(wanted) > 0) {
         m_wantDueFrame = false;
@@ -1517,8 +1536,21 @@ void PlaybackEngine::onTick()
             [this](int64_t key) { return int64_t(wrap(double(key))); });
     }
 
+    // Display lag: a decoder that delivers in bursts (frame threads) finishes several frames at
+    // once after a stall; presented at the clock, only the newest would be shown and the others
+    // dropped. Presenting a few frames behind the clock (at most kMaxLagMs, raised after a
+    // missed frame, lowered after a second without one) shows each in turn.
+    const bool lagging = m_rate == 1.0 && !m_sequentialOff;
+    if (!lagging)
+        m_lag.reset();
+    const int64_t displayKey = dueKey - m_lag.frames();
     int64_t shownKey = 0;
-    if (RenderedFramePtr frame = m_scheduler.poll(dueKey, dir, &shownKey)) {
+    RenderedFramePtr shown = m_scheduler.poll(displayKey, dir, &shownKey);
+    if (lagging) {
+        const bool owed = m_hasShownKey && displayKey > m_lastShownKey;
+        m_lag.update(!shown && owed, now, int(kMaxLagMs / intervalMs));
+    }
+    if (RenderedFramePtr frame = shown) {
         present(frame, shownKey);
     }
     setPositionInternal(int64_t(wrap(double(dueKey))), true);

@@ -43,6 +43,9 @@ public:
     struct Options
     {
         bool forceCpu = false; ///< use the QPainter backend even if OpenGL works
+        /// Background work (proxies, render cache): the render thread and the decoder threads
+        /// it starts yield to the playback threads when the cores are busy.
+        bool background = false;
     };
 
     /// Starts the render thread and initialises the backend (blocks until ready; typically

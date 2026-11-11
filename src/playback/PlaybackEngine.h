@@ -508,6 +508,9 @@ private:
     void startClock(double fromFrame, int64_t nowUs);
 
     RenderedFramePtr m_current;
+    /// KK_NO_SEQUENTIAL_LOOKAHEAD: the old look-ahead rule, for comparisons.
+    bool m_sequentialOff = qEnvironmentVariableIsSet("KK_NO_SEQUENTIAL_LOOKAHEAD");
+    DisplayLag m_lag; ///< how far behind the clock the picture is presented (burst smoothing)
     int64_t m_lastShownKey = 0;
     bool m_hasShownKey = false;
     bool m_wantDueFrame = false; ///< an edit changed the pictures: request the frame due first

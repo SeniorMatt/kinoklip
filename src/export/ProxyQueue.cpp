@@ -17,6 +17,7 @@ ProxyQueue::ProxyQueue(MediaLinks* links, QObject* parent)
     : QObject(parent)
     , m_links(links)
 {
+    m_queue.setBackground(true);
     connect(&m_queue, &RenderQueue::jobChanged, this, &ProxyQueue::onJobChanged);
     connect(&m_queue, &RenderQueue::jobFinished, this, &ProxyQueue::onJobFinished);
     connect(&m_queue, &RenderQueue::runningChanged, this, &ProxyQueue::runningChanged);

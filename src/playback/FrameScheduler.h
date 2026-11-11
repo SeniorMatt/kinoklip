@@ -35,6 +35,70 @@ struct FrameSlot
 {
     int64_t key = 0;
     int64_t frame = 0;
+    bool catchUp = false; ///< RenderRequest::catchUp
+};
+
+/// What the playback look-ahead needs to choose the frames to ask for.
+struct LookAhead
+{
+    double unwrapped = 0.0; ///< clock position in timeline frames (unwrapped when looping)
+    int64_t dueKey = 0; ///< the frame due now
+    double rate = 1.0; ///< play rate (negative: reverse)
+    int lead = 0; ///< frames to start ahead of the clock (rendering slower than the interval)
+    int count = 5; ///< number of intervals to cover
+    bool sequential = true; ///< allow the sequential mode below
+    bool haveNewest = false; ///< a frame was asked for or shown
+    int64_t newest = 0; ///< the newest key asked for or shown (in play direction)
+    int64_t maxLateFrames = 6; ///< how far behind the clock the sequential mode goes
+};
+
+/// The keys of the frames to ask for, in display order (the engine still skips what is on
+/// screen, outside the play range or already requested).
+///
+/// Normally the frames due at the next display intervals. At 1x forward: decoding cannot skip,
+/// a request for a frame decodes every frame since the last one. If the look-ahead always starts
+/// at the clock, a decoder nearly as slow as the clock makes every gap longer than the one
+/// before (the gap is the time the last request took) and the shown rate collapses far below
+/// the decoder's throughput (4K60 HEVC that decodes at 77 fps showed 13 fps). So the next
+/// request is the frame after the newest one asked for as long as that is not more than
+/// 2 x maxLateFrames behind the clock: it is shown late, which costs a little lip sync but keeps
+/// the shown rate at the throughput, like mpv and VLC, which show every decoded frame and drop
+/// only when far behind. Beyond that, or with nothing asked for yet, it starts at the clock
+/// (plus lead).
+///
+/// @p catchUp is set while the frames are more than half of maxLateFrames behind the clock: those
+/// requests discard the frames nothing refers to (RenderRequest::catchUp), which costs about half
+/// the decoding, until the lag is gone, like mpv's framedrop. Beyond twice maxLateFrames the start
+/// jumps to the clock.
+[[nodiscard]] std::vector<int64_t> lookAheadKeys(const LookAhead& in, bool* catchUp = nullptr);
+
+/// How many frames behind the clock the picture is presented (0 .. maxFrames). A decoder that
+/// delivers in bursts finishes several frames at once after a stall; presented at the clock only
+/// the newest would be shown. Raised by one (at most every 100 ms) when a frame was owed and
+/// missing, lowered by one after a second without a miss.
+class DisplayLag
+{
+public:
+    [[nodiscard]] int frames() const { return m_frames; }
+    void reset() { m_frames = 0; }
+    /// @p missed: a frame was owed at the display time and had not finished.
+    void update(bool missed, int64_t nowUs, int maxFrames)
+    {
+        if (missed) {
+            if (m_frames < maxFrames && nowUs - m_stepUs >= 100'000) {
+                ++m_frames;
+                m_stepUs = nowUs;
+            }
+            m_missUs = nowUs;
+        } else if (m_frames > 0 && nowUs - std::max(m_stepUs, m_missUs) >= 1'000'000) {
+            --m_frames;
+            m_stepUs = nowUs;
+        }
+    }
+
+private:
+    int m_frames = 0;
+    int64_t m_stepUs = 0, m_missUs = 0;
 };
 
 /// Request bookkeeping between the playback engine and the Compositor.
@@ -109,6 +173,9 @@ public:
     void cancelPrepare();
     /// True while a look-ahead is in progress (prepareAhead() ran since the last cancelPrepare()).
     [[nodiscard]] bool prepareActive() const { return m_hasPrepareEdge; }
+    /// Playback: the newest key (in direction @p direction) among the requests not yet presented
+    /// or dropped. @return false if there is none.
+    [[nodiscard]] bool newestRequestedKey(int direction, int64_t* key) const;
     /// True if any request (playback, still or discarded) is unfinished.
     [[nodiscard]] bool busy();
     /// Unfinished requests (including discarded ones).
@@ -132,7 +199,7 @@ private:
         bool ready = false;
     };
 
-    std::future<RenderedFramePtr> issue(int64_t frame);
+    std::future<RenderedFramePtr> issue(int64_t frame, bool catchUp);
     /// Moves a ready future's value into the entry; true if ready.
     static bool check(Entry& e);
     void reapZombies();

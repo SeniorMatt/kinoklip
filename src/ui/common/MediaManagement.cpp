@@ -118,7 +118,8 @@ void MediaManagement::ensureCompositor()
 {
     if (m_compositor)
         return;
-    m_compositor = std::make_unique<Compositor>(); // GUI thread (QOffscreenSurface)
+    // GUI thread (QOffscreenSurface); background: yields to playback when the cores are busy.
+    m_compositor = std::make_unique<Compositor>(Compositor::Options {.background = true});
     m_queue->setCompositor(m_compositor.get());
     m_cache->setCompositor(m_compositor.get());
 }

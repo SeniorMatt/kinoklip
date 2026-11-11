@@ -69,6 +69,9 @@ public:
     /// Uses @p compositor (owned by the caller, must outlive the queue) instead of creating
     /// one; lets background queues (proxies, render cache) share a single render thread.
     void setCompositor(Compositor* compositor) { m_external = compositor; }
+    /// Background queue (proxies, render cache): jobs run at a lower nice value, so playback
+    /// and the editor keep their cores while a job runs; an idle machine renders at full speed.
+    void setBackground(bool background) { m_background = background; }
     /// Replaces the name, settings, timeline snapshot, media and proxies of job @p id (Resolve's
     /// "Update Job" after editing a job); a finished job is queued again. @return false if the
     /// job renders or is unknown.
@@ -127,6 +130,7 @@ private:
     quint64 m_runningId = 0;
     std::unique_ptr<Compositor> m_compositor;
     Compositor* m_external = nullptr; ///< setCompositor()
+    bool m_background = false; ///< setBackground()
 };
 
 } // namespace kk

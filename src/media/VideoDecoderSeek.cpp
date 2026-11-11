@@ -228,7 +228,10 @@ bool VideoDecoder::Impl::canDecodeForwardTo(int64_t ts) const
         return true;
     }
     // Seeking only pays off if it lands on a keyframe after our current position.
-    const int64_t keyframe = keyframeAtOrBefore(ts);
+    // Index timestamps are decode times; a keyframe is shown video_delay frames after its decode
+    // time, and a seek to ts only lands on keyframes shown at or before ts.
+    const int64_t delay = av_rescale_q(250'000, kMicrosecondsTb, stream->time_base);
+    const int64_t keyframe = keyframeAtOrBefore(ts - delay);
     if (keyframe != AV_NOPTS_VALUE) {
         return keyframe <= position;
     }

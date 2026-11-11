@@ -208,6 +208,8 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
         }
         av_buffer_unref(&device);
         if (codec) {
+            if (skipNonReference)
+                codec->skip_frame = AVDISCARD_NONREF;
             activeHw = mode;
             factory.setZeroCopy(zeroCopy && mode == HwAccelMode::Vaapi);
             // FFmpeg's H.264 flush forces a full hwaccel re-init on the next slice. That costs
@@ -224,6 +226,8 @@ bool VideoDecoder::Impl::openCodec(HwAccelMode requested, QString* error)
         ? threadCount
         : autoSoftwareThreads(info.width, info.height, QThread::idealThreadCount());
     codec = openDecoder(stream, threads, error);
+    if (codec && skipNonReference)
+        codec->skip_frame = AVDISCARD_NONREF;
     return codec != nullptr;
 }
 
@@ -530,6 +534,14 @@ void VideoDecoder::setZeroCopyGate(std::shared_ptr<const std::atomic<bool>> gate
 bool VideoDecoder::zeroCopyActive() const
 {
     return m_impl->factory.zeroCopy() && m_impl->activeHw == HwAccelMode::Vaapi;
+}
+
+void VideoDecoder::setSkipNonReference(bool skip)
+{
+    Impl& d = *m_impl;
+    d.skipNonReference = skip;
+    if (d.codec)
+        d.codec->skip_frame = skip ? AVDISCARD_NONREF : AVDISCARD_DEFAULT;
 }
 
 HwAccelMode VideoDecoder::activeHwAccel() const

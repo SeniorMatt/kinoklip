@@ -74,6 +74,7 @@ public:
         m_grades = !rq.bypassGrades;
         m_dynamicZoom = rq.dynamicZoom;
         m_decoders.beginFrame();
+        m_decoders.setCatchUp(rq.catchUp);
         QImage image;
         if (rq.compositionNode) {
             image = compositionNodeImage(tl, *rq.compositionNode, out);
