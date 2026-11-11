@@ -290,8 +290,8 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
     connect(m_live, &live::LiveServer::clientCountChanged, m_interfaceBar,
         &InterfaceBar::setRemoteControlClients);
     applyLocalControlPreference();
-    // Vim keys (Keyboard profile "vim"): active only while that profile is chosen.
-    m_vim = new VimController(ctx, m_editPage->timeline(), this, target, this);
+    // Vim mode (Kinoklip menu > Vim Mode, off by default): the keys, the mode line, the `:` line.
+    m_vim = new VimController(ctx, m_editPage->timeline(), this, m_pageBar, target, this);
     // A settings import may have switched Local Control off.
     connect(settingstransfer::notifier(), &settingstransfer::Notifier::applied, this,
         &MainWindow::applyLocalControlPreference, Qt::QueuedConnection);

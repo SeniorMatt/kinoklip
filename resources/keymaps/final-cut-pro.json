@@ -50,6 +50,7 @@
         "edit.append_at_end": ["E"],
         "edit.keyboard_customization": ["Ctrl+Alt+K"],
         "edit.preferences": ["Ctrl+,"],
+        "settings.vim_mode": [],
         "tool.select": ["A"],
         "tool.trim": ["T"],
         "tool.blade": ["B"],

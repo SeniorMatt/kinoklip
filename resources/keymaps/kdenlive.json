@@ -50,6 +50,7 @@
         "edit.append_at_end": ["Shift+F12"],
         "edit.keyboard_customization": ["Ctrl+Alt+,"],
         "edit.preferences": ["Ctrl+Shift+,"],
+        "settings.vim_mode": [],
         "tool.select": ["S"],
         "tool.trim": ["T"],
         "tool.blade": ["X"],

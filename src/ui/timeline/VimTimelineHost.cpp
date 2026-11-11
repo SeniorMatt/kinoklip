@@ -115,4 +115,10 @@ void VimTimelineHost::openSearch()
         onSearch();
 }
 
+void VimTimelineHost::runEx(const QString& line)
+{
+    if (onEx)
+        onEx(line);
+}
+
 } // namespace kk

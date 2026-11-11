@@ -220,7 +220,7 @@ private slots:
         QVERIFY(QDir().mkpath(configDir));
         QFile conf(configDir + QStringLiteral("/Kinoklip.conf"));
         QVERIFY(conf.open(QIODevice::WriteOnly));
-        conf.write("[keymap]\nprofile=vim\n");
+        conf.write("[keymap]\nprofile=kdenlive\n[vim]\nenabled=true\n");
         conf.close();
         const QByteArray before = [&] {
             QFile c(conf.fileName());
@@ -247,7 +247,8 @@ private slots:
         }
         QVERIFY(!outputs[0].isEmpty());
         QCOMPARE(outputs[0], outputs[1]);
-        QVERIFY(outputs[0].contains(QStringLiteral("| Undo | Ctrl+Z | "))); // not the Vim profile
+        QVERIFY(
+            outputs[0].contains(QStringLiteral("| Undo | Ctrl+Z | "))); // not the Kdenlive profile
         QFile c(conf.fileName());
         QVERIFY(c.open(QIODevice::ReadOnly));
         QCOMPARE(c.readAll(), before);

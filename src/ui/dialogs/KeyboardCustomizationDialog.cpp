@@ -6,6 +6,9 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/DialogSizing.h"
 #include "ui/common/StandardActions.h"
+#include "ui/common/VimKeymap.h"
+#include "ui/common/VimOptions.h"
+#include "ui/dialogs/VimKeysTab.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -19,6 +22,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
@@ -193,13 +197,36 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
     buttons->addButton(importButton, QDialogButtonBox::ActionRole);
     buttons->addButton(exportButton, QDialogButtonBox::ActionRole);
 
-    auto* layout = new QVBoxLayout(this);
+    // Two tabs: the shortcuts of the profile, and the Vim keys (their own table, spec 83).
+    auto* shortcutsPage = new QWidget;
+    auto* layout = new QVBoxLayout(shortcutsPage);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto* banner = new QLabel(
+        tr("Vim mode is on: plain keys are handled by Vim keys in NORMAL mode and work as these "
+           "shortcuts in INSERT mode. <a href=\"vim\">Change the Vim keys</a>"));
+    banner->setObjectName(QStringLiteral("VimBanner"));
+    banner->setWordWrap(true);
+    banner->setVisible(vimopts::enabled());
+    layout->addWidget(banner);
     layout->addLayout(profileRow);
     layout->addWidget(m_search);
     layout->addWidget(m_tree, 1);
     layout->addLayout(editRow);
     layout->addWidget(m_status);
-    layout->addWidget(buttons);
+    m_tabs = new QTabWidget;
+    m_tabs->setObjectName(QStringLiteral("KeyboardTabs"));
+    m_tabs->addTab(shortcutsPage, tr("Shortcuts"));
+    m_vimTab = new VimKeysTab(registry, *VimKeymap::of(registry));
+    m_tabs->addTab(m_vimTab, tr("Vim keys"));
+    auto* outer = new QVBoxLayout(this);
+    outer->addWidget(m_tabs, 1);
+    outer->addWidget(buttons);
+    connect(banner, &QLabel::linkActivated, this, [this] { showVimKeys(); });
+    // The profile buttons belong to the Shortcuts tab; the Vim keys have their own.
+    connect(m_tabs, &QTabWidget::currentChanged, this, [=](int index) {
+        for (QPushButton* b : {resetAll, importButton, exportButton})
+            b->setVisible(index == 0);
+    });
 
     populate();
 
@@ -231,6 +258,11 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     updateButtons();
     dialogsizing::fit(this, QSize(760, 620));
+}
+
+void KeyboardCustomizationDialog::showVimKeys()
+{
+    m_tabs->setCurrentWidget(m_vimTab);
 }
 
 QString KeyboardCustomizationDialog::commandName(const QString& id) const

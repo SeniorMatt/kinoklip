@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "app/VimController.h"
 
+#include "app/PageBar.h"
+#include "app/VimModeLine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/PanelFrame.h"
 #include "ui/common/VimInput.h"
+#include "ui/common/VimKeymap.h"
+#include "ui/common/VimOptions.h"
+#include "ui/common/VimWhichKey.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/VimTimelineHost.h"
 
 #include <QAction>
 #include <QApplication>
+#include <QDir>
 #include <QEvent>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -16,8 +23,9 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QProcess>
+#include <QRegularExpression>
+#include <QSettings>
 #include <QTimer>
-#include <QToolBar>
 
 #include <algorithm>
 
@@ -46,29 +54,43 @@ QJsonValue typed(const commands::ParamSpec& spec, const QString& text)
 } // namespace
 
 VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* window,
-    commands::LiveTarget target, QObject* parent)
+    PageBar* pageBar, commands::LiveTarget target, QObject* parent)
     : QObject(parent)
     , m_ctx(ctx)
     , m_window(window)
     , m_target(std::move(target))
+    , m_pageBar(pageBar)
 {
     m_host = new VimTimelineHost(ctx, timeline->controller());
     m_host->onCommandLine = [this] { showCommandLine(); };
+    m_host->onEx = [this](const QString& line) {
+        const QString message = runCommand(line);
+        if (!message.isEmpty())
+            m_modeLine->showMessage(message, kMessageMs);
+    };
     m_input = new VimInput(ctx.actions, this);
     m_input->setHost(m_host);
 
-    m_indicator = new QLabel;
-    m_indicator->setObjectName(QStringLiteral("VimModeIndicator"));
-    m_indicator->setContentsMargins(8, 0, 8, 0);
-    m_indicator->setToolTip(tr("Vim keys: the mode and any keys typed so far"));
-    if (QToolBar* bar = timeline->toolBar())
-        m_indicatorAction = bar->addWidget(m_indicator);
-    connect(m_input, &VimInput::statusChanged, this, [this] { updateIndicator(); });
-    updateIndicator();
+    m_modeLine = new VimModeLine;
+    m_pageBar->setLeadingWidget(m_modeLine);
+    connect(m_input, &VimInput::statusChanged, this, [this] { updateModeLine(); });
+    connect(m_input, &VimInput::displayChanged, this, [this] {
+        updateModeLine();
+        updateFocusFrame();
+    });
+    connect(m_input, &VimInput::activeChanged, this, [this] {
+        updateModeLine();
+        updateFocusFrame();
+        updateWhichKey();
+    });
+    m_whichKey = new VimWhichKey(window);
+    connect(&m_input->machine(), &VimMachine::whichKeyChanged, this, [this] { updateWhichKey(); });
 
-    m_line = new QLineEdit(window);
+    m_line = new QLineEdit;
     m_line->setObjectName(QStringLiteral("VimCommandLine"));
+    m_line->setProperty(VimInput::kCommandLineProperty, true);
     m_line->setPlaceholderText(tr(": command (w, q, wq, or a Kinoklip command such as marker add)"));
+    m_pageBar->setOverlayWidget(m_line);
     m_line->hide();
     m_line->installEventFilter(this);
     connect(m_line, &QLineEdit::returnPressed, this, [this] {
@@ -78,31 +100,94 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
             if (m_history.size() > kMaxHistory)
                 m_history.removeFirst();
         }
+        closeCommandLine();
         const QString message = runCommand(text);
-        m_line->setText(message);
-        m_line->setReadOnly(true);
-        QTimer::singleShot(kMessageMs, this, [this] { closeCommandLine(); });
+        if (!message.isEmpty())
+            m_modeLine->showMessage(message, kMessageMs);
     });
+
+    // A settings import or the migration of the old Vim preset leaves a one-time notice.
+    QSettings settings;
+    if (settings.value(QLatin1String(vimopts::kMigrationNoticeKey)).toBool()) {
+        settings.remove(QLatin1String(vimopts::kMigrationNoticeKey));
+        m_modeLine->showMessage(tr("Vim keys are now an option: Preferences > Keyboard"), 15000);
+    }
+    updateModeLine();
 }
 
 VimController::~VimController()
 {
+    if (m_framed)
+        m_framed->setVimFocusFrame(false);
     delete m_host;
 }
 
-void VimController::updateIndicator()
+void VimController::updateModeLine()
 {
-    const QString text = m_input->statusText();
-    m_indicator->setText(text);
-    if (m_indicatorAction)
-        m_indicatorAction->setVisible(!text.isEmpty());
+    const bool on = m_input->active();
+    m_modeLine->setVisible(on);
+    if (!on)
+        return;
+    const QWidget* focus = QApplication::focusWidget();
+    const VimMachine::Mode mode = m_input->displayMode(focus);
+    QString key = QStringLiteral("NORMAL");
+    if (mode == VimMachine::Mode::Visual)
+        key = QStringLiteral("VISUAL");
+    else if (mode == VimMachine::Mode::Insert)
+        key = QStringLiteral("INSERT");
+    else if (mode == VimMachine::Mode::Command)
+        key = QStringLiteral("COMMAND");
+    m_modeLine->setMode(VimMachine::modeName(mode), key);
+    m_modeLine->setPending(m_input->machine().pending());
+    QString panel;
+    for (const QWidget* w = focus; w; w = w->parentWidget()) {
+        if (const auto* frame = qobject_cast<const PanelFrame*>(w)) {
+            panel = frame->title().toLower();
+            break;
+        }
+    }
+    m_modeLine->setPanel(panel);
+}
+
+VimKeymap* VimController::keymap() const
+{
+    return m_input->keymap();
+}
+
+void VimController::updateWhichKey()
+{
+    const VimMachine& machine = m_input->machine();
+    if (!m_input->active() || !machine.whichKeyShown()) {
+        m_whichKey->hideEntries();
+        return;
+    }
+    m_whichKey->showEntries(
+        machine.whichKeyPrefix(), machine.whichKeyEntries(), m_pageBar->height());
+}
+
+void VimController::updateFocusFrame()
+{
+    PanelFrame* frame = nullptr;
+    if (m_input->active()) {
+        for (QWidget* w = QApplication::focusWidget(); w; w = w->parentWidget()) {
+            if ((frame = qobject_cast<PanelFrame*>(w)))
+                break;
+        }
+    }
+    if (frame == m_framed.data())
+        return;
+    if (m_framed)
+        m_framed->setVimFocusFrame(false);
+    m_framed = frame;
+    if (m_framed)
+        m_framed->setVimFocusFrame(true);
 }
 
 void VimController::showCommandLine()
 {
-    const int height = m_line->sizeHint().height();
-    m_line->setGeometry(0, m_window->height() - height, m_window->width(), height);
-    m_line->setReadOnly(false);
+    m_returnFocus = QApplication::focusWidget();
+    m_input->machine().setCommandMode(true);
+    m_line->setGeometry(m_pageBar->rect().adjusted(8, 3, -8, -3));
     m_line->clear();
     m_historyPos = m_history.size();
     m_line->show();
@@ -115,19 +200,20 @@ void VimController::closeCommandLine()
     if (!m_line->isVisible())
         return;
     m_line->hide();
-    m_line->setReadOnly(false);
     m_line->clear();
+    m_input->machine().setCommandMode(false);
+    if (m_returnFocus)
+        m_returnFocus->setFocus(Qt::OtherFocusReason);
+    m_returnFocus.clear();
 }
 
 bool VimController::eventFilter(QObject* watched, QEvent* event)
 {
     if (watched == m_line && event->type() == QEvent::KeyPress) {
         const auto* key = static_cast<QKeyEvent*>(event);
-        if (m_line->isReadOnly()) {
-            closeCommandLine();
-            return true;
-        }
-        if (key->key() == Qt::Key_Escape) {
+        if (key->key() == Qt::Key_Escape
+            || (key->key() == Qt::Key_BracketLeft && key->modifiers() == Qt::ControlModifier)
+            || (key->key() == Qt::Key_C && key->modifiers() == Qt::ControlModifier)) {
             closeCommandLine();
             return true;
         }
@@ -174,6 +260,40 @@ QString VimController::runCommand(const QString& rawText)
             return tr("closing");
         }
         return tr("Quit is not available");
+    }
+
+    // The Vim keys' own commands: :nmap, :nunmap, :map, :set, :source.
+    {
+        static const QStringList own {QStringLiteral("nmap"), QStringLiteral("nnoremap"),
+            QStringLiteral("vmap"), QStringLiteral("vnoremap"), QStringLiteral("xmap"),
+            QStringLiteral("xnoremap"), QStringLiteral("map"), QStringLiteral("noremap"),
+            QStringLiteral("nunmap"), QStringLiteral("vunmap"), QStringLiteral("xunmap"),
+            QStringLiteral("unmap"), QStringLiteral("set")};
+        const QString first = text.section(QRegularExpression(QStringLiteral("\\s")), 0, 0);
+        const QString rest = text.mid(first.size()).trimmed();
+        if (first == QLatin1String("set")
+            && (rest == QLatin1String("novim") || rest == QLatin1String("vim"))) {
+            if (QAction* option = action(vimopts::kActionId))
+                option->setChecked(rest == QLatin1String("vim")); // stores vim/enabled
+            return rest == QLatin1String("vim") ? tr("Vim mode on") : tr("Vim mode off");
+        }
+        if (own.contains(first) && keymap()) {
+            bool ok = true;
+            QString message = keymap()->executeLine(text, &ok);
+            if (!ok)
+                return message;
+            return message.isEmpty() ? tr("done")
+                                     : message.replace(QLatin1Char('\n'), QStringLiteral("  |  "));
+        }
+        if (first == QLatin1String("source") || first == QLatin1String("so")) {
+            if (!keymap())
+                return tr("No Vim keys");
+            const QString path = rest.isEmpty() ? VimKeymap::vimrcPath() : rest;
+            if (!keymap()->sourceVimrc(path))
+                return tr("No vimrc at %1").arg(QDir::toNativeSeparators(path));
+            const QStringList problems = keymap()->vimrcMessages();
+            return problems.isEmpty() ? tr("vimrc read") : problems.first();
+        }
     }
 
     // A registry command: "marker add --frame 120" (the same words as the command line).

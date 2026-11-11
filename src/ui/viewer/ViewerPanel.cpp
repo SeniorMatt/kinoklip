@@ -130,7 +130,8 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
             ? tr("Shows the clip chosen in the media pool, with in and out points and a scrub bar.")
             : tr("Shows the picture of the timeline at the playhead, with transport controls."));
     setPanelKey(QStringLiteral("viewer")); // in-app help: panel:viewer
-    setProperty("kkVimScope", true); // the vim key layer (ui/common/VimInput.h) works here
+    setProperty("kkVimContext",
+        "viewer"); // the vim key layer (ui/common/VimInput.h) works here, with these keys
     registry().append(this);
     m_resizeSettle = new QTimer(this);
     m_resizeSettle->setSingleShot(true);

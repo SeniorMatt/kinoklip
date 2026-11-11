@@ -57,98 +57,12 @@ def scopes_conflict(a, b):
 KEY_RE = re.compile(r"^((Ctrl|Shift|Alt|Meta|Num)\+)*([A-Z0-9]|F[0-9]{1,2}|Space|Left|Right|Up|Down|Home|End|PgUp|PgDown|Del|Backspace|Return|Tab|Esc|[\[\]\\/,.;'`=\-])$")
 
 
-# ---- The vim layer (src/ui/common/VimInput.cpp) ----
-
-VIM_OWNER = "<vim>"
-BARE_KEY = re.compile(r"^(Shift\+)?([A-Z0-9]|[\[\]\\/,.;'`=\-])$")
-
-def layer_takes(action_id, key):
-    # A key typed without Ctrl / Alt / Meta belongs to the layer while a timeline or viewer has
-    # the focus. The Color page's and the node editor's own keys (their scopes) stay.
-    return bool(BARE_KEY.match(key)) and not action_id.startswith(("color.", "comp."))
-
-def alt_key(key):
-    return "Alt+" + key
-
-def move_to_alt(p, shortcuts, report):
-    """Every key taken by the layer moves to Alt + the same key when that key is free."""
-    for aid, row in ACTIONS.items():
-        if aid in p.rows:
-            continue
-        moved = []
-        for k in row[2]:
-            if not layer_takes(aid, k):
-                continue
-            alt = alt_key(k)
-            clash = any(alt in keys and scopes_conflict(scope(aid), scope(other)) for other, keys in shortcuts.items())
-            if KEY_RE.match(alt) and not clash:
-                moved.append(alt)
-        if moved:
-            shortcuts[aid] = shortcuts[aid] + moved
-            kind, keys, conf, note = report[aid]
-            report[aid] = ("moved", shortcuts[aid], "", ", ".join(f"{k} moved to {a}" for k, a in zip([x for x in row[2] if layer_takes(aid, x)], moved)))
-
-# Key table of the vim layer: (section, [(keys, what, action ids)]). The docs page is written from
-# it, and test_vimkeys checks that every action id exists.
-VIM_LAYER = [
-    ("Motions (NORMAL and VISUAL; a count repeats the motion: `5l`)", [
-        ("`h` / `l`", "previous / next frame", "transport.prev_frame, transport.next_frame"),
-        ("`H` / `L`", "one second back / forward", "transport.back_1s, transport.forward_1s"),
-        ("`w` / `b`", "next / previous edit point", "transport.next_edit, transport.prev_edit"),
-        ("`0` / `$`", "start / end of the timeline (the same as `gg` / `G`: there is no action for the edges of the clip under the playhead)", "transport.go_to_start, transport.go_to_end"),
-        ("`gg` / `G`", "start / end of the timeline", "transport.go_to_start, transport.go_to_end"),
-        ("`n` / `N`", "next / previous marker", "transport.next_marker, transport.prev_marker"),
-        ("`m{a-z}`", "remember the playhead position (kept until the window closes)", ""),
-        ("`'{a-z}` / `` `{a-z} ``", "jump to the remembered position", ""),
-        ("`zi` / `zo` / `zf`", "zoom the timeline in / out / to fit", "timeline.zoom_in, timeline.zoom_out, timeline.zoom_fit"),
-        ("`j` / `k`", "target video track one down / up (the track source edits go to; no track exists below V1)", ""),
-    ]),
-    ("Edits (NORMAL)", [
-        ("`x`", "Ripple Delete the selection (nothing happens without a selection)", "edit.ripple_delete"),
-        ("`X`", "Delete the selection and leave a gap", "edit.delete"),
-        ("`dd`", "Ripple Delete the clip under the playhead (`3dd`: that clip and the next two on its track); the target video track is tried first, then the top-most track with a clip there", "edit.ripple_delete"),
-        ("`yy`", "copy the clip under the playhead (with a count, as `dd`)", "edit.copy"),
-        ("`p`", "paste at the playhead, inserting (rippling)", "edit.paste_insert"),
-        ("`P`", "paste at the playhead, overwriting", "edit.paste"),
-        ("`u`, `Ctrl+R`", "undo (`3u`: three steps) / redo", "edit.undo, edit.redo"),
-        ("`i`", "Insert edit of the source clip", "edit.insert"),
-        ("`o`", "Overwrite edit of the source clip", "edit.overwrite"),
-        ("`a`", "Append the source clip at the end", "edit.append_at_end"),
-        ("`s`", "split at the playhead", "edit.split"),
-        ("`>` / `<`", "nudge the selection one frame right / left (a count repeats)", "trim.nudge_right, trim.nudge_left"),
-        ("`M`", "add a marker at the playhead", "mark.add_marker"),
-    ]),
-    ("Modes and the command line", [
-        ("`v`", "VISUAL: selects the clips from where you were to the playhead, on every track; the motions above extend it", ""),
-        ("`d` / `x` (VISUAL)", "Ripple Delete the selected clips and go back to NORMAL", "edit.ripple_delete"),
-        ("`X` (VISUAL)", "Delete them and leave a gap", "edit.delete"),
-        ("`y` (VISUAL)", "copy them and go back to NORMAL", "edit.copy"),
-        ("`Esc`, `v` (VISUAL)", "back to NORMAL; drops half-typed keys and a count; clears the VISUAL selection", ""),
-        ("`:`", "the command line at the bottom of the window", ""),
-    ]),
-]
-
-VIM_UNBOUND = [
-    ("`.` (repeat the last edit)", "not implemented: the editor has no record of the last edit as a command"),
-    ("`/` (search)", "the timeline has no search; Edit Index has its own search field (open it with the Edit Index panel key)"),
-    ("`d{motion}`, `y{motion}`, `c`, `r`, `~`, `e`, `f`, `t`, `%`, `*`, `q`, `@`, `J`, `K`, `O`, `A`, `I`, `S`, `C`, `R`, `Y`, `Z`, and the rest of the letters", "no sensible timeline meaning: the key is taken by the layer and does nothing (as an unmapped key does in vim)"),
-    ("Insert mode (`i` starts an Insert edit, not a text mode)", "there is no text to type into on the timeline"),
-]
-
-VIM_COMMANDS = [
-    ("`:w`", "save the project (File > Save)"),
-    ("`:q`", "close the window; asks about unsaved changes as usual"),
-    ("`:wq`, `:x`", "save, then close"),
-    ("`:marker add --frame 120`", "any command of `kinoklip commands`, written as on the command line (`marker add`, `clip split`, ...), on the open project; one undo step"),
-]
-
 # ---- Presets ----
 
 class Preset:
     def __init__(self, pid, name, editor, intro, gaps):
         self.id, self.name, self.editor, self.intro, self.gaps = pid, name, editor, intro, gaps
         self.rows = collections.OrderedDict()  # id -> (keys, confidence, note)
-        self.layer = None  # the vim preset: key table of the input layer (VIM_LAYER below)
 
     def m(self, action_id, keys, conf, note=""):
         if action_id not in ACTIONS:
@@ -504,29 +418,6 @@ p.m("file.new", ["Ctrl+N"], S)
 p.m("file.save_as", ["Ctrl+Shift+S"], S)
 p.m("view.fullscreen", ["F11"], L)
 
-# ---- Vim ----
-p = preset("vim", "Vim", "Vim and Neovim",
-    ["A keyboard preset for people who edit text with Vim or",
-     "Neovim. The keys are not shortcuts: while the **timeline or a viewer has",
-     "the focus** a small input layer reads them as vim does, with counts (`5l`), two-key",
-     "sequences (`gg`, `dd`, `yy`) and modes (NORMAL, VISUAL, shown in the timeline's tool bar).",
-     "It is off in every text field, the Inspector, dialogs and the title editor, and it exists",
-     "only while this preset is chosen; every other preset behaves exactly as before. Every",
-     "key drives an existing action (a Ripple Delete is the ordinary Ripple Delete, one undo step).",
-     "",
-     "All other commands keep their Resolve keys. Keys the layer takes (every key typed without",
-     "Ctrl, Alt or Meta) move to **Alt + the same key** where that is free, so nothing is lost;",
-     "the rest are listed below as unbound."],
-    ["Vim's text objects, registers, macros (`q`), the jump list, folds, windows and tabs, and Ex ranges.",
-     "Insert mode: the timeline has no text; `i` and `a` start Insert and Append edits instead.",
-     "`.` repeats the last change in vim; Kinoklip does not record edits as repeatable commands.",
-     "`/` search: the timeline has none."])
-p.layer = VIM_LAYER
-p.m("edit.redo", ["Ctrl+R", "Ctrl+Shift+Z"], S, "vim's redo; Ctrl+Shift+Z kept")
-p.m("transport.shuttle_reverse", ["Alt+J"], L, "J is typed to the layer")
-p.m("transport.shuttle_stop", ["Alt+Shift+K"], L, "Alt+K is Add Keyframe")
-p.m("transport.shuttle_forward", ["Alt+L"], L, "L is typed to the layer")
-
 # ---- Build each preset ----
 
 def build(p):
@@ -550,20 +441,16 @@ def build(p):
         kept, lost = [], []
         for k in rkeys:
             owner = next((a2 for k2, sc2, a2 in used if k2 == k and scopes_conflict(scope(aid), sc2)), None)
-            if owner is None and p.layer is not None and layer_takes(aid, k):
-                owner = VIM_OWNER
             (lost if owner else kept).append((k, owner))
         keys = [k for k, _ in kept]
         shortcuts[aid] = keys
         if lost:
-            what = "; ".join((f"{k} is typed to the vim layer here" if o == VIM_OWNER else f"{k} is {ACTIONS[o][1].split(' (')[0]} here") for k, o in lost)
+            what = "; ".join(f"{k} is {ACTIONS[o][1].split(' (')[0]} here" for k, o in lost)
             report[aid] = ("kept" if keys else "freed", keys, "", what)
         elif keys:
             report[aid] = ("kept", keys, "", "")
         else:
             report[aid] = ("none", [], "", "")
-    if p.layer is not None:
-        move_to_alt(p, shortcuts, report)
     # Final check over every key, like test_keypresets.
     seen = []
     for aid, keys in shortcuts.items():
@@ -635,33 +522,6 @@ def write_doc(p, report):
     for aid, (kind, keys, conf, note) in report.items():
         if kind == "kept":
             out.append(f"| {ACTIONS[aid][1]} | `{aid}` | {md_keys(keys)} | {note} |")
-    if p.layer is not None:
-        out += ["", "## Keys moved to Alt", "",
-            "The layer takes every key typed without Ctrl, Alt or Meta while a timeline or viewer has the",
-            "focus, so these commands moved to Alt + their key (or kept no key where that is taken).", "",
-            "| Command | Action id | Keys now | What happened |", "|---|---|---|---|"]
-        for aid, (kind, keys, conf, note) in report.items():
-            if kind == "moved":
-                out.append(f"| {ACTIONS[aid][1]} | `{aid}` | {md_keys(keys)} | {note} |")
-        out += ["", "## The vim keys (timeline and viewer focus only)", "",
-            "Typed as in vim: an optional count, then the keys. Esc drops what was typed. The mode and the",
-            "keys typed so far show in the timeline's tool bar (`NORMAL`, `VISUAL`, `NORMAL  3d`).", ""]
-        for title, rows in p.layer:
-            out += [f"### {title}", "", "| Keys | What it does | Action |", "|---|---|---|"]
-            for keys, what, acts in rows:
-                out.append(f"| {keys} | {what} | {md_keys(a.strip() for a in acts.split(',')) if acts else ''} |")
-            out.append("")
-        out += ["### The `:` command line", "",
-            "`:` opens a line at the bottom of the window. Return runs it, Esc closes it, Up / Down walk",
-            "through what you typed before in this session. There is no Tab completion.", "",
-            "| Command | What it does |", "|---|---|"]
-        out += [f"| {k} | {v} |" for k, v in VIM_COMMANDS]
-        out += ["", "### Left out", "", "| Vim | Why |", "|---|---|"]
-        out += [f"| {k} | {v} |" for k, v in VIM_UNBOUND]
-        out += ["", "### When the keys are not the layer's", "",
-            "Nothing changes in text fields (name, timecode, search, Inspector fields), dialogs, menus, the",
-            "title editor, or any other panel. Typing `dd` in a text field types two letters. Ctrl, Alt and",
-            "Meta combinations, Space, Return and the cursor keys are always ordinary shortcuts."]
     out += ["", f"## {p.editor} commands Kinoklip does not have (gaps)", ""]
     out += [f"- {g}" for g in p.gaps]
     with open(os.path.join(root, "docs", "keymaps", p.id + ".md"), "w", encoding="utf-8") as f:

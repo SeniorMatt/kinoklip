@@ -10,6 +10,7 @@
 
 class QComboBox;
 class QLabel;
+class QTabWidget;
 class QPushButton;
 class QTreeWidget;
 class QTreeWidgetItem;
@@ -17,6 +18,7 @@ class QTreeWidgetItem;
 namespace kk {
 
 class ActionRegistry;
+class VimKeysTab;
 
 /// A line edit that records one key chord (e.g. Ctrl+Shift+K) instead of typing text.
 /// Escape without modifiers cancels; plain modifier presses are ignored.
@@ -92,6 +94,11 @@ public:
     QString importFile(const QString& path, QString* error = nullptr);
     /// The status line's text (tests).
     [[nodiscard]] QString statusText() const;
+    /// Shows the "Vim keys" tab (Preferences > Keyboard > Vim keys opens it so).
+    void showVimKeys();
+    /// The Vim keys tab (tests).
+    [[nodiscard]] VimKeysTab* vimTab() const { return m_vimTab; }
+    [[nodiscard]] QTabWidget* tabs() const { return m_tabs; }
 
     void reject() override;
 
@@ -122,6 +129,8 @@ private:
     QString m_originalProfile; ///< profile active when the dialog opened
     QStringList m_createdProfiles; ///< imported / duplicated while open (Cancel deletes them)
     QHash<QString, QString> m_originalNames; ///< user profiles renamed while open: first name
+    QTabWidget* m_tabs = nullptr;
+    VimKeysTab* m_vimTab = nullptr;
     QComboBox* m_profiles = nullptr;
     QPushButton* m_profileMenu = nullptr;
     QHash<QString, QTreeWidgetItem*> m_rows;

@@ -74,7 +74,19 @@ public:
     /// Restores what saveSplitterSizes() wrote (missing keys keep the built sizes).
     void restoreSplitterSizes(const QSettings& settings, const QString& prefix);
 
+    /// Draws (or removes) the accent frame that shows which panel has the focus while Vim mode
+    /// is on (spec section 83). A transparent overlay: layout and painting of the panel stay.
+    void setVimFocusFrame(bool on);
+    [[nodiscard]] bool vimFocusFrame() const
+    {
+        return m_focusRing != nullptr && m_focusRing->isVisible();
+    }
+
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+
 private:
+    QWidget* m_focusRing = nullptr;
     QWidget* m_titleBar = nullptr;
     QLabel* m_titleLabel = nullptr;
     QHBoxLayout* m_toolsLayout = nullptr;

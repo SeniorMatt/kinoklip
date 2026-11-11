@@ -115,7 +115,7 @@ private slots:
             QStringList {QStringLiteral("a"), QStringLiteral("b")});
         s.setValue(QStringLiteral("mainWindow/state"), QByteArray("\x01\x02state\xff", 8));
         s.setValue(QStringLiteral("pages/edit/main"), QByteArray("splitter-bytes"));
-        s.setValue(QStringLiteral("keymap/profile"), QStringLiteral("vim"));
+        s.setValue(QStringLiteral("keymap/profile"), QStringLiteral("kdenlive"));
         s.setValue(QStringLiteral("shortcuts/resolve-windows/edit.undo"), QStringLiteral("Ctrl+Y"));
         s.setValue(QStringLiteral("paths/recentProjects"), QStringList {QStringLiteral("/a.kkproj")});
         s.setValue(QStringLiteral("system/cacheDirectory"), QStringLiteral("/home/other/cache"));
@@ -167,7 +167,7 @@ private slots:
             (QStringList {QStringLiteral("a"), QStringLiteral("b")}));
         QCOMPARE(t.value(QStringLiteral("mainWindow/state")).toByteArray(), QByteArray("\x01\x02state\xff", 8));
         QCOMPARE(t.value(QStringLiteral("pages/edit/main")).toByteArray(), QByteArray("splitter-bytes"));
-        QCOMPARE(t.value(QStringLiteral("keymap/profile")).toString(), QStringLiteral("vim"));
+        QCOMPARE(t.value(QStringLiteral("keymap/profile")).toString(), QStringLiteral("kdenlive"));
         QCOMPARE(t.value(QStringLiteral("shortcuts/resolve-windows/edit.undo")).toString(), QStringLiteral("Ctrl+Y"));
         // Machine-specific values are not touched by an import, nor is the recent list.
         QCOMPARE(t.value(QStringLiteral("system/cacheDirectory")).toString(), QStringLiteral("/mine"));
@@ -233,11 +233,40 @@ private slots:
 
     void keymapGroupIsReplacedWhole()
     {
-        QSettings().setValue(QStringLiteral("shortcuts/vim/edit.undo"), QStringLiteral("U"));
-        QSettings().setValue(QStringLiteral("shortcuts/vim/edit.redo"), QStringLiteral("R"));
-        QVERIFY(importBytes(makeFile({{QStringLiteral("shortcuts/vim/edit.redo"), QStringLiteral("Ctrl+R")}})).ok);
-        QVERIFY(!QSettings().contains(QStringLiteral("shortcuts/vim/edit.undo")));
-        QCOMPARE(QSettings().value(QStringLiteral("shortcuts/vim/edit.redo")).toString(), QStringLiteral("Ctrl+R"));
+        QSettings().setValue(QStringLiteral("shortcuts/kdenlive/edit.undo"), QStringLiteral("U"));
+        QSettings().setValue(QStringLiteral("shortcuts/kdenlive/edit.redo"), QStringLiteral("R"));
+        QVERIFY(importBytes(
+            makeFile({{QStringLiteral("shortcuts/kdenlive/edit.redo"), QStringLiteral("Ctrl+R")}}))
+                .ok);
+        QVERIFY(!QSettings().contains(QStringLiteral("shortcuts/kdenlive/edit.undo")));
+        QCOMPARE(QSettings().value(QStringLiteral("shortcuts/kdenlive/edit.redo")).toString(),
+            QStringLiteral("Ctrl+R"));
+    }
+
+    void oldVimPresetInAFileBecomesTheOption()
+    {
+        // A file from 1.2 - 1.4: the Vim keyboard preset and its changed keys.
+        QVERIFY(
+            importBytes(makeFile({{QStringLiteral("keymap/profile"), QStringLiteral("vim")},
+                            {QStringLiteral("shortcuts/vim/edit.redo"), QStringLiteral("Ctrl+R")}}))
+                .ok);
+        QSettings s;
+        QCOMPARE(s.value(QStringLiteral("keymap/profile")).toString(),
+            QStringLiteral("resolve-windows"));
+        QVERIFY(s.value(QStringLiteral("vim/enabled")).toBool());
+        QVERIFY(!s.contains(QStringLiteral("shortcuts/vim/edit.redo")));
+        QCOMPARE(s.value(QStringLiteral("shortcuts/resolve-windows/edit.redo")).toString(),
+            QStringLiteral("Ctrl+R"));
+    }
+
+    void vimOptionsTravelWithTheSettings()
+    {
+        QVERIFY(importBytes(makeFile({{QStringLiteral("vim/enabled"), true},
+                                {QStringLiteral("vim/timeoutlen"), 250},
+                                {QStringLiteral("vim/leader"), QStringLiteral("<Space>")}}))
+                .ok);
+        QVERIFY(QSettings().value(QStringLiteral("vim/enabled")).toBool());
+        QCOMPARE(QSettings().value(QStringLiteral("vim/timeoutlen")).toInt(), 250);
     }
 
     void hostileHeaders()

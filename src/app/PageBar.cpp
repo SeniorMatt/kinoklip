@@ -24,13 +24,34 @@ PageBar::PageBar(QWidget* parent)
     setObjectName(QStringLiteral("PageBar"));
     setAttribute(Qt::WA_StyledBackground);
     setFixedHeight(kBarHeight);
-    auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(metrics::kSpaceM, 0, metrics::kSpaceM, 0);
-    layout->addStretch(1);
+    m_root = new QHBoxLayout(this);
+    m_root->setContentsMargins(metrics::kSpaceM, 0, metrics::kSpaceM, 0);
+    m_root->addStretch(1);
     m_buttons = new QHBoxLayout;
     m_buttons->setSpacing(metrics::kSpaceM);
-    layout->addLayout(m_buttons);
-    layout->addStretch(1);
+    m_root->addLayout(m_buttons);
+    m_root->addStretch(1);
+}
+
+void PageBar::setLeadingWidget(QWidget* widget)
+{
+    m_root->insertWidget(0, widget);
+}
+
+void PageBar::setOverlayWidget(QWidget* widget)
+{
+    m_overlay = widget;
+    if (m_overlay) {
+        m_overlay->setParent(this);
+        m_overlay->setGeometry(rect().adjusted(metrics::kSpaceM, 3, -metrics::kSpaceM, -3));
+    }
+}
+
+void PageBar::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    if (m_overlay)
+        m_overlay->setGeometry(rect().adjusted(metrics::kSpaceM, 3, -metrics::kSpaceM, -3));
 }
 
 void PageBar::addPageAction(QAction* pageAction)
