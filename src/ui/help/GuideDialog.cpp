@@ -2,6 +2,7 @@
 // GuideDialog implementation.
 #include "ui/help/GuideDialog.h"
 
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Metrics.h"
 #include "ui/help/Guide.h"
 
@@ -23,7 +24,6 @@ GuideDialog::GuideDialog(QWidget* parent)
 {
     setObjectName(QStringLiteral("GuideDialog"));
     setWindowTitle(tr("Guide"));
-    resize(440, 420);
 
     m_search = new QLineEdit(this);
     m_search->setPlaceholderText(tr("Search the guide"));
@@ -50,6 +50,7 @@ GuideDialog::GuideDialog(QWidget* parent)
     connect(m_search, &QLineEdit::textChanged, this, &GuideDialog::setFilterText);
     connect(m_list, &QListWidget::itemActivated, this, &GuideDialog::open);
     m_search->setFocus();
+    dialogsizing::fit(this, QSize(440, 420));
 }
 
 void GuideDialog::populate()

@@ -3,6 +3,7 @@
 
 #include "app/LogExport.h"
 #include "platform/FileDialogs.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Metrics.h"
 
 #include <QDialogButtonBox>
@@ -50,6 +51,7 @@ LogExportDialog::LogExportDialog(const QString& logText, QWidget* parent)
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     layout->addWidget(buttons);
+    dialogsizing::fit(this);
 }
 
 QString LogExportDialog::contentsText() const

@@ -70,3 +70,5 @@ Preferences dialog stored new values.
 `timelineTargets()`. `clip.attributes` is connected in `connectDialogActions()`: the media of
 the selected timeline clips, else the media pool selection (published into the action's data
 by MediaPoolPanel).
+
+Every dialog here ends its constructor with `dialogsizing::fit()` (`ui/common/DialogSizing.h`, spec 73): minimum and opening size come from the content and are capped to the screen; pages of a settings dialog sit in `PageScrollArea` so the dialog asks for the widest and tallest page.

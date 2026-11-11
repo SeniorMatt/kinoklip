@@ -3,6 +3,7 @@
 #include "ui/timeline/ChangeSpeedDialog.h"
 
 #include "core/Retime.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/TimecodeFormat.h"
 
@@ -107,6 +108,7 @@ ChangeSpeedDialog::ChangeSpeedDialog(
     connect(m_freeze, &QCheckBox::toggled, this, &ChangeSpeedDialog::updateEnabled);
     setSpeed(m_value, nullptr);
     updateEnabled();
+    dialogsizing::fit(this);
 }
 
 void ChangeSpeedDialog::setSpeed(double speed, QObject* from)

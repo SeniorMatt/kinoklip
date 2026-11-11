@@ -8,6 +8,7 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "ui/common/DialogSizing.h"
 
 #include <QButtonGroup>
 #include <QComboBox>
@@ -150,6 +151,7 @@ NormalizeAudioDialog::NormalizeAudioDialog(
     });
     updateUnit();
     m_target->setValue(audionorm::defaultTarget(mode()));
+    dialogsizing::fit(this);
 }
 
 NormalizeAudioDialog::~NormalizeAudioDialog()

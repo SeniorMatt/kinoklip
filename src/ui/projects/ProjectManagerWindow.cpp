@@ -8,6 +8,7 @@
 #include "platform/FileDialogs.h"
 #include "platform/FileManager.h"
 #include "projects/ProjectLibrary.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/ProgressTask.h"
@@ -884,8 +885,10 @@ void ProjectManagerWindow::restoreSettings()
 {
     QSettings s;
     s.beginGroup(QLatin1String(kSettingsGroup));
-    if (!restoreGeometry(s.value(QStringLiteral("geometry")).toByteArray()))
-        resize(kDefaultSize);
+    // A saved size smaller than the window needs (or from a bigger screen) is not used (spec 73).
+    const QSize initial = dialogsizing::fit(this, kDefaultSize);
+    dialogsizing::restoreGeometryIfFits(
+        this, s.value(QStringLiteral("geometry")).toByteArray(), initial);
     m_listView->header()->restoreState(s.value(QStringLiteral("listHeader")).toByteArray());
     const int width
         = s.value(QStringLiteral("cardWidth"), ProjectCardDelegate::kDefaultWidth).toInt();

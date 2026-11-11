@@ -5,6 +5,7 @@
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "export/ProxyMedia.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/common/TextFit.h"
@@ -123,7 +124,6 @@ ProjectSettingsDialog::ProjectSettingsDialog(Project* project, QWidget* parent)
     , m_project(project)
 {
     setWindowTitle(tr("Project Settings: %1").arg(project->name()));
-    resize(kDialogSize);
 
     m_sections = new QListWidget;
     m_sections->setObjectName(QStringLiteral("ProjectSettingsSections"));
@@ -166,6 +166,8 @@ ProjectSettingsDialog::ProjectSettingsDialog(Project* project, QWidget* parent)
     connect(m_fps, &QComboBox::currentIndexChanged, this,
         [this] { m_playbackFps->setItemText(0, m_fps->currentText()); });
     setSettings(project->settings());
+    // Big enough for the widest and tallest section: no scroll bar at the first opening (spec 73).
+    dialogsizing::fit(this, kDialogSize);
 }
 
 void ProjectSettingsDialog::addSection(const QString& id, const QString& title, QWidget* page)
@@ -184,10 +186,8 @@ void ProjectSettingsDialog::addSection(const QString& id, const QString& title, 
     layout->addWidget(heading);
     layout->addWidget(page);
     layout->addStretch(1);
-    auto* scroll = new QScrollArea;
+    auto* scroll = new PageScrollArea;
     scroll->setWidget(content);
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
     m_stack->addWidget(scroll);
     auto* item = new QListWidgetItem(title, m_sections);
     item->setData(Qt::UserRole, id);

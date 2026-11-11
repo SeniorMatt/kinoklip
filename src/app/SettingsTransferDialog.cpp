@@ -2,6 +2,7 @@
 #include "app/SettingsTransferDialog.h"
 
 #include "platform/FileDialogs.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/SettingsPages.h"
 
@@ -82,6 +83,7 @@ SettingsTransferDialog* SettingsTransferDialog::forExport(const QString& path, Q
     connect(buttons, &QDialogButtonBox::accepted, d, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, d, &QDialog::reject);
     layout->addWidget(buttons);
+    dialogsizing::fit(d);
     return d;
 }
 
@@ -136,6 +138,7 @@ SettingsTransferDialog* SettingsTransferDialog::forImport(const QString& path,
     connect(buttons, &QDialogButtonBox::accepted, d, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, d, &QDialog::reject);
     layout->addWidget(buttons);
+    dialogsizing::fit(d);
     return d;
 }
 

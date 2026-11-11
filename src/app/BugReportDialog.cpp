@@ -2,6 +2,7 @@
 // BugReportDialog implementation.
 #include "app/BugReportDialog.h"
 
+#include "ui/common/DialogSizing.h"
 #include "ui/help/Guide.h"
 
 #include <QButtonGroup>
@@ -97,6 +98,7 @@ BugReportDialog::BugReportDialog(bugreport::SystemInfo info, QWidget* parent)
         m_copy->setText(tr("Copied"));
     });
     updatePreview();
+    dialogsizing::fit(this);
 }
 
 bugreport::Kind BugReportDialog::kind() const

@@ -3,6 +3,7 @@
 #include "ui/mediapool/SmartBinDialog.h"
 
 #include "core/SmartBins.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Icons.h"
 
 #include <QComboBox>
@@ -145,8 +146,7 @@ SmartBinDialog::SmartBinDialog(const SmartBin& bin, QWidget* parent)
     m_rulesLayout = new QVBoxLayout(rulesHost);
     m_rulesLayout->setContentsMargins(0, 0, 0, 0);
     m_rulesLayout->addStretch(1);
-    auto* scroll = new QScrollArea;
-    scroll->setWidgetResizable(true);
+    auto* scroll = new PageScrollArea;
     scroll->setWidget(rulesHost);
     layout->addWidget(scroll, 1);
 
@@ -170,6 +170,7 @@ SmartBinDialog::SmartBinDialog(const SmartBin& bin, QWidget* parent)
     for (const SmartRule& rule : bin.rules)
         addRule(rule);
     updateOk();
+    dialogsizing::fit(this);
 }
 
 void SmartBinDialog::addRule(const SmartRule& rule)

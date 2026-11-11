@@ -1838,6 +1838,40 @@ with a bar along its bottom edge; when the sweep is full the page opens. Tests:
 | 71.6 | With the UI animations off (Preferences, the desktop's no-animation setting or `KK_NO_ANIMATIONS`) the button shows the plain highlight without the moving fill; the page still opens after the same delay. | Done |
 | 71.7 | The helper is `kk::SpringLoad` (`src/ui/common/SpringLoad.h`), an event filter that any button can use with one line; the page bar installs it on its buttons. | Done |
 
+## 73. Dialogs open big enough for their content (ui-sizes-drag branch, roadmap 1.3)
+
+Owner report: Project Settings opened tiny (about 390 x 200); its section list and its page both
+showed scroll bars and clipped text. Rule for every dialog and separate window: it opens at least
+as big as its content needs, so no scroll bar shows when none is needed, and never bigger than
+the screen. The size comes from the size hints of the content, not from numbers per dialog; one
+helper does it: `src/ui/common/DialogSizing.h`. Tests: `tests/panels/test_dialogsizing.cpp` (ds), with
+the screen set to 1366 x 768.
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 73.1 | `dialogsizing::fit(window, preferred)` makes the minimum size of the window the size its content asks for (size hint of its layout), and the opening size max(minimum, preferred); both are capped to the available screen less 60 px for the title bar and frame. | Done (ds sizeIsCappedToTheScreen) |
+| 73.2 | The pages of Project Settings, Preferences and the Smart Bin rules sit in `PageScrollArea`, whose size hint is the size of its page: the dialog asks for the widest and tallest page, so every section shows without a scroll bar at the opening size (on a screen big enough). Where the screen is too small the page scrolls instead. | Done (ds projectSettingsEveryPage, preferencesEverySection) |
+| 73.3 | Project Settings cannot be made smaller than its content, whatever size a window manager remembers; its section list is as wide as its longest section name (23.20). | Done (ds projectSettingsIsNotTiny) |
+| 73.4 | These dialogs use the helper: Project Settings, Preferences, Keyboard Customization, History, Guide, Smart Bin, New Project, Bug Report, Export Log File, Export and Import Settings, Copy Link, Clip Attributes, Normalize Audio, Change Clip Speed, Project Manager. Each opens inside a 1366 x 768 screen with no scroll bar on its first page (lists, trees and text previews whose content can be long may scroll). | Done (ds, one test per dialog) |
+| 73.5 | A saved window geometry (Project Manager) is used only when the restored window is not smaller than the minimum size; otherwise the window opens at its computed size (`restoreGeometryIfFits`). | Done (ds savedGeometryBelowMinimumIsIgnored) |
+| 73.6 | Small question dialogs built inline (Multicam options, guide position) and the standard message and file dialogs size themselves from their layout and are not changed. The main window has its own minimum size (separate roadmap line). | Done |
+
+## 74. Drag hover opens panels (ui-sizes-drag branch, roadmap 1.3)
+
+The same hover as the page buttons (71) on the panel buttons of the interface bar: a drag resting on
+the button of a closed panel that takes drops opens the panel, so the files can be dropped into it
+without letting go. Panels that take drops: Media Pool, Inspector, Nodes. The other panels (Effects,
+Edit Index, Keyframes, Gallery, Clips, Color Timeline, Scopes, Mixer, Metadata) take no drops, so their
+buttons are plain buttons. Tests: `tests/app/test_pagespring.cpp` (ps).
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 74.1 | The button of a panel that takes drops behaves like a page button (71.1, 71.2, 71.3): it accepts the drag, shows the highlight and the sweeping fill over `kSpringLoadDelayMs`, and when the fill is complete the closed panel opens, as if the button had been clicked. | Done (ps hoverOpensClosedPanel) |
+| 74.2 | If the panel is already open (the button is checked) the hover does nothing: nothing is shown and the panel is not closed. | Done (ps hoverOnOpenPanelDoesNothing) |
+| 74.3 | The buttons of panels that take no drops are not spring-loaded and refuse drags. | Done (ps buttonOfPanelWithoutDropsIsNotSpringLoaded) |
+| 74.4 | A drop on such a button opens the closed panel at once and is taken with no action (71.5): nothing is imported. | Done (ps dropOnPanelButtonOpensAndImportsNothing) |
+| 74.5 | The table `kPanelToggles` in `MainWindow.cpp` has a `takesDrops` flag per panel; `InterfaceBar::enableSpringLoad` installs `SpringLoad` on that button. | Done |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

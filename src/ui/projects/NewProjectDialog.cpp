@@ -3,6 +3,7 @@
 #include "ui/projects/NewProjectDialog.h"
 
 #include "projects/ProjectKinds.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/Metrics.h"
 
 #include <QDialogButtonBox>
@@ -87,6 +88,7 @@ NewProjectDialog::NewProjectDialog(const QString& suggestedName, QWidget* parent
         buttons->button(QDialogButtonBox::Ok)->setEnabled(!t.trimmed().isEmpty());
     });
     layout->addWidget(buttons);
+    dialogsizing::fit(this);
 }
 
 QString NewProjectDialog::name() const

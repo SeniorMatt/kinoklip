@@ -4,6 +4,7 @@
 
 #include "platform/FileDialogs.h"
 #include "ui/common/ActionRegistry.h"
+#include "ui/common/DialogSizing.h"
 #include "ui/common/StandardActions.h"
 
 #include <QAction>
@@ -109,7 +110,6 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
     , m_registry(registry)
 {
     setWindowTitle(tr("Keyboard Customization"));
-    resize(760, 620);
     for (const QString& id : registry.ids())
         m_original.insert(id, registry.shortcuts(id));
     m_originalProfile = registry.activeProfile();
@@ -230,6 +230,7 @@ KeyboardCustomizationDialog::KeyboardCustomizationDialog(ActionRegistry& registr
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     updateButtons();
+    dialogsizing::fit(this, QSize(760, 620));
 }
 
 QString KeyboardCustomizationDialog::commandName(const QString& id) const
