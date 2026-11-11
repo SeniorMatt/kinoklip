@@ -18,6 +18,8 @@
 #include "ui/timeline/ClipColorMenu.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
+#include <QApplication>
+#include <QWidget>
 #include <QAction>
 
 #include <algorithm>
@@ -975,6 +977,11 @@ void TimelineController::unlinkSelection()
 
 void TimelineController::paste()
 {
+    // Edit > Paste with the media pool focused imports the clipboard there (spec 79).
+    for (const QWidget* w = QApplication::focusWidget(); w; w = w->parentWidget()) {
+        if (w->inherits("kk::MediaPoolPanel"))
+            return;
+    }
     if (m_clipboard.isEmpty())
         return;
     const int64_t at = timeline()->playhead();

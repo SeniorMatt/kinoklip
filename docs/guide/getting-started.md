@@ -75,6 +75,7 @@ The buttons at the top of the window show or hide panels: **Media Pool**, **Effe
 Do one of these:
 - Choose **File > Import > Media** (**Ctrl+I**) and pick your video, audio and picture files.
 - Or drag the files from your file manager into the media pool.
+- Or copy the files (or a picture, such as a screenshot) anywhere, click in the media pool and press **Ctrl+V**. A pasted picture is saved as a PNG in a **Pasted Media** folder next to your project (or in Kinoklip's data folder if the project is not saved yet).
 
 Your clips now appear in the media pool. Kinoklip reads common camera and phone formats (MP4,
 MOV, MKV, H.264, H.265, ...), audio files and pictures.

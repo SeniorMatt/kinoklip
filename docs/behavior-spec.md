@@ -1994,6 +1994,20 @@ runtime is ONNX Runtime (MIT), CPU only (no CUDA dependency), linked when found 
 | 78.10 | The recurrent state is reset when the frames do not follow each other: the first frame, a seek, a cut, another file or quality, or a gap of more than 120 ms in source time. After a reset the first picture is shown to the model twice so one frame already settles. Following frames keep the state. | Done (`test_matteservice` followingFramesKeepTheStateAndASeekResetsIt) |
 | 78.11 | The matte is made from the clip's own source picture (the file, never a proxy) at the source time of the frame, so speed changes and reverse follow the clip, and the matte covers the whole picture; crop and the effects above in the list are applied to the layer, not to the matte. The effect works in the GPU renderer; the CPU fallback skips it (one warning). | Done (by design) |
 
+## 79. Paste into the Media Pool (poolpaste branch)
+
+Copy an image or files anywhere, click in the Media Pool and press Ctrl+V: it is imported. Resolve has no such
+paste; the owner asked for it. The shortcut stays Ctrl+V and the menu entry stays Edit > Paste.
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 79.1 | With the Media Pool focused (a clip view or the bin list), Ctrl+V and Edit > Paste import what is on the clipboard into the import target bin (the shown bin, or Master when Preferences > Editing says so or a smart bin is shown), as one undo step like any import. | Done (`test_poolpaste` ctrlVOnTheViewImports, fileUrlsImportIntoTheCurrentBinAndBeatImageData) |
+| 79.2 | Files copied in a file manager (text/uri-list, x-special/gnome-copied-files, KDE) are imported the same way as a drop from a file manager (`platform::droppedLocalFiles`, then the normal import with its report): media files of any supported kind, and folders as bins. | Done (`test_poolpaste` fileUrlsImportIntoTheCurrentBinAndBeatImageData) |
+| 79.3 | Raw picture data (a screenshot, "Copy Image" in a browser) is saved as a PNG named `Pasted image <yyyy-MM-dd HH.mm.ss>.png` (`(2)`, `(3)`... appended when the name exists; nothing is overwritten) and imported. It goes in the folder `Pasted Media` next to the project file; for a project that has not been saved yet, in `Pasted Media` inside the application data folder (`~/.local/share/<app>/Pasted Media` on Linux). | Done (`test_poolpaste` imageDataIsSavedNextToTheProjectAndImported, unsavedProjectUsesTheAppDataFolder) |
+| 79.4 | When both files and picture data are on the clipboard, the files are used and no extra picture is written. | Done (`test_poolpaste` fileUrlsImportIntoTheCurrentBinAndBeatImageData) |
+| 79.5 | Nothing usable on the clipboard: the status bar says "Nothing to paste: the clipboard has no files or picture." for four seconds; no dialog, nothing imported. | Done (`test_poolpaste` nothingUsableGivesAStatusMessageOnly) |
+| 79.6 | Paste is routed by focus. Outside the Media Pool, Ctrl+V and Edit > Paste do what they did (timeline clips, compositing nodes, colour grade, keyframes); with the pool focused the timeline's paste steps aside, so no clip is pasted at the playhead. | Done (`test_poolpaste` timelinePasteStillWorks) |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,
