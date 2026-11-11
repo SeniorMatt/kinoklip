@@ -37,6 +37,13 @@ int64_t nowMs()
     return monotonicUs() / 1000;
 }
 
+/// KK_NO_CUT_LOOKAHEAD: without the cut look-ahead, to compare (tests/playback/test_cutperf).
+bool cutLookAheadEnabled()
+{
+    static const bool enabled = qEnvironmentVariableIsEmpty("KK_NO_CUT_LOOKAHEAD");
+    return enabled;
+}
+
 } // namespace
 
 PlaybackBehaviour PlaybackBehaviour::fromSettings()
@@ -119,6 +126,9 @@ void PlaybackEngine::init(Options options)
     m_shuttleTimer.setTimerType(Qt::PreciseTimer);
     connect(
         &m_shuttleTimer, &QTimer::timeout, this, [this] { applyShuttle(m_shuttle.poll(nowMs())); });
+    m_parkedPrepare.setSingleShot(true);
+    m_parkedPrepare.setInterval(kParkedPrepareDelayMs);
+    connect(&m_parkedPrepare, &QTimer::timeout, this, &PlaybackEngine::prepareParked);
     m_scrubIdle.setSingleShot(true);
     m_scrubIdle.setInterval(kScrubIdleMs);
     connect(&m_scrubIdle, &QTimer::timeout, this, [this] {
@@ -902,7 +912,12 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
         m_stats.playSeconds += double(now - m_motionStartUs) * 1e-6;
     }
     stopAudio();
-    m_scheduler.clear(); // look-ahead for the old rate/position is useless now
+    // The look-ahead for the old rate/position is useless now; except the one made while paused
+    // right where this play starts.
+    m_scheduler.clear(
+        fromRest && rate > 0.0 && m_parkedPrepareFrame == int64_t(std::floor(fromFrame)));
+    m_parkedPrepareFrame = -1;
+    m_parkedPrepare.stop();
     m_hasShownKey = false;
 
     m_rangeLoop = m_loop;
@@ -1285,7 +1300,7 @@ void PlaybackEngine::logStatsSummary()
     emitStatsLine(QStringLiteral(
         "stats summary: played %1 s, %2 frames shown (%3 fps of %4), %5 dropped, %6 seeks "
         "while playing, render avg [decode %7, upload %8, composite %9, output %10] ms")
-            .arg(seconds, 0, 'f', 2)
+                      .arg(seconds, 0, 'f', 2)
             .arg(presented)
             .arg(seconds > 0 ? double(presented) / seconds : 0.0, 0, 'f', 1)
             .arg(fps().toDouble() * std::abs(m_statsPlayRate), 0, 'f', 2)
@@ -1297,12 +1312,37 @@ void PlaybackEngine::logStatsSummary()
             .arg(stage(3), 0, 'f', 1));
 }
 
+void PlaybackEngine::prepareParked()
+{
+    // Decoders of the cuts ahead are opened and positioned (a clip deep in a long GOP needs
+    // most of a second to decode up to its first frame) while the playhead rests, so that a
+    // play pressed later does not wait for them at the first cuts (spec 72.5).
+    if (isPlaying() || m_parked || !m_snapshot || !cutLookAheadEnabled())
+        return;
+    int64_t start = 0;
+    int64_t end = 0;
+    range(&start, &end);
+    const int64_t at = m_position;
+    if (at < start || at >= end - 1)
+        return;
+    const double intervalMs = 1000.0 / std::max(1.0, fps().toDouble());
+    const int64_t lastKey = std::min(at + int64_t(kCutLookAheadMaxMs / intervalMs), end - 1);
+    if (m_parkedPrepareFrame == at && m_scheduler.prepareActive())
+        return; // already prepared from here (another still of the same frame)
+    m_scheduler.cancelPrepare(); // a new position: the old preparations are for other cuts
+    m_scheduler.prepareAhead(
+        at, lastKey, intervalMs, [](int64_t key) { return key; }, kParkedPrepareSlackMs);
+    m_parkedPrepareFrame = at;
+}
+
 void PlaybackEngine::onTick()
 {
     const int64_t now = monotonicUs();
     if (!isPlaying()) {
         if (RenderedFramePtr frame = m_scheduler.pollStill()) {
             present(frame, frame->frame);
+            if (frame->ok && cutLookAheadEnabled())
+                m_parkedPrepare.start(); // restarts: only a playhead at rest gets prepared
         }
         if (!m_scheduler.busy()) {
             m_tick.stop();
@@ -1324,6 +1364,15 @@ void PlaybackEngine::onTick()
             wanted.push_back({key, int64_t(wrap(double(key)))});
         }
         m_scheduler.prefetch(wanted);
+        if (cutLookAheadEnabled() && m_rate > 0.0 && m_rate <= kCutLookAheadMaxRate) {
+            // The decoders of the next cuts start opening now, not when the clock starts.
+            const double intervalMs = 1000.0 / std::max(1.0, fps().toDouble());
+            int64_t lastKey = first + int64_t(kCutLookAheadMs / intervalMs * m_rate);
+            if (!m_rangeLoop)
+                lastKey = std::min(lastKey, m_rangeEnd - 1);
+            m_scheduler.prepareAhead(first, lastKey, intervalMs / m_rate,
+                [this](int64_t key) { return int64_t(wrap(double(key))); });
+        }
         int64_t shownKey = 0;
         RenderedFramePtr frame = m_scheduler.poll(first, dir, &shownKey);
         const bool ready = frame && frame->ok;
@@ -1417,9 +1466,7 @@ void PlaybackEngine::onTick()
     }
     // Forward at up to 2x, the decoders of the next clips get ready well before their cuts.
     // (In reverse every frame seeks anyway, and J/K/L at 4x+ lands anywhere after a cut.)
-    // KK_NO_CUT_LOOKAHEAD: without it, to compare (tests/playback/test_cutperf).
-    static const bool lookAhead = qEnvironmentVariableIsEmpty("KK_NO_CUT_LOOKAHEAD");
-    if (lookAhead && m_rate > 0.0 && m_rate <= kCutLookAheadMaxRate) {
+    if (cutLookAheadEnabled() && m_rate > 0.0 && m_rate <= kCutLookAheadMaxRate) {
         // Longer when the last preparation took long: twice its cost, so a slow open (hardware
         // decoder) is done before its cut.
         const int cost = m_compositor->prepareStats().lastCostMs;

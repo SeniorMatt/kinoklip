@@ -96,6 +96,12 @@ file is left to the playing decoder. `DecoderPool::prepare()` then gets a decode
 decode worker thread (an idle one of that file if any, otherwise a new one) and reserves it
 for that position; `acquire()` finds it when the frame comes and the frame costs no decoding.
 
+Paused, the same happens once the playhead has rested 150 ms (`PlaybackEngine::prepareParked()`:
+the cuts of the next `kCutLookAheadMaxMs`, reserved 10 s longer than they are away). A play that
+starts at that frame keeps those preparations (`FrameScheduler::clear(keepPrepare)`), and the
+play-start pre-roll already prepares the next 2 s, so a cut 1 s after pressing play, deep in a long
+GOP, finds its decoder ready (spec 72.5).
+
 Limits (`DecoderPool`): 3 decoders reserved, 2 preparing, 8 wishes waiting (memory: a decoder's
 reference pictures and its two frames; no extra picture queue). A reservation ends when used,
 when a later one is used, 250 ms after its due time, or on a seek or edit, which stop the work

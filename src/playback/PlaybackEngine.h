@@ -178,6 +178,11 @@ public:
     static constexpr int kCutLookAheadMaxMs = 4000;
     /// Above this speed frames are skipped too widely to know which ones come after a cut.
     static constexpr double kCutLookAheadMaxRate = 2.0;
+    /// While paused, the decoders of the cuts in the next kCutLookAheadMaxMs are prepared once
+    /// the playhead has rested this long (a scrub must not open decoders at every position) ...
+    static constexpr int kParkedPrepareDelayMs = 150;
+    /// ... and kept reserved this much longer than the cut is away, for a play that starts later.
+    static constexpr int kParkedPrepareSlackMs = 10000;
 
     /// Creates an engine with its own Compositor and the default audio output.
     explicit PlaybackEngine(QObject* parent = nullptr);
@@ -232,7 +237,8 @@ public:
     [[nodiscard]] bool bypassGrades() const { return m_bypassGrades; }
     /// Tracking effects (spec 70): renders frame @p frame of @p timeline (a private, modified
     /// copy of the current snapshot) as an image of @p outSize, with the engine's media table and
-    /// proxies, graded whatever the viewer bypass is, never from the render cache. Any thread may wait on the future.
+    /// proxies, graded whatever the viewer bypass is, never from the render cache. Any thread may
+    /// wait on the future.
     [[nodiscard]] std::future<RenderedFramePtr> renderImageOf(
         std::shared_ptr<const TimelineData> timeline, int64_t frame, QSize outSize) const;
     /// Effects live preview (spec 47): renders frame @p frame of @p timeline (a private,
@@ -412,6 +418,8 @@ private:
     void writePlayhead();
     void ensureTicking();
     void updateAutoQuality(int64_t nowUs);
+    /// Paused: prepares the decoders of the cuts after the playhead (spec 72.5).
+    void prepareParked();
     void logStats(int64_t nowUs);
     void logStatsSummary();
     void updateMeters(int64_t nowUs, double heardFrame);
@@ -435,6 +443,8 @@ private:
     ShuttleControl m_shuttle;
     QTimer m_tick;
     QTimer m_shuttleTimer; ///< fires at ShuttleControl::holdDeadlineMs()
+    QTimer m_parkedPrepare; ///< fires kParkedPrepareDelayMs after the last still was shown
+    int64_t m_parkedPrepareFrame = -1; ///< where prepareParked() made its look-ahead
     QTimer m_scrubIdle; ///< stops the scrub sound (kScrubIdleMs after the last move)
 
     Timeline* m_timeline = nullptr;

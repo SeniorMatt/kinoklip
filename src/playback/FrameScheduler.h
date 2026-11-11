@@ -88,8 +88,11 @@ public:
     /// the slot due now, @p frameMs the wall time per slot; @p frameOfKey maps a slot to its
     /// frame (loops). @return the requests issued (not counted in issuedCount() or inFlight();
     /// they complete at once and nothing waits for them).
+    ///
+    /// @p extraDueMs is added to every due time: a look-ahead made while paused, for a play
+    /// that may start any time later (the prepared decoders stay reserved that much longer).
     int prepareAhead(int64_t dueKey, int64_t lastKey, double frameMs,
-        const std::function<int64_t(int64_t)>& frameOfKey);
+        const std::function<int64_t(int64_t)>& frameOfKey, double extraDueMs = 0.0);
 
     /// Scrub/still: wants frame @p frame shown as soon as possible (coalesced, see above).
     /// @p force re-renders even if @p frame is the frame last shown (timeline edit).
@@ -99,7 +102,13 @@ public:
 
     /// Forgets all playback and still requests and cancels the unfinished ones (they keep
     /// counting until the render thread has skipped or finished them).
-    void clear();
+    /// @p keepPrepare: the look-ahead in progress stays (a play that starts where the paused
+    /// look-ahead was made, see PlaybackEngine::prepareParked()).
+    void clear(bool keepPrepare = false);
+    /// Stops the look-ahead in progress; the next prepareAhead() starts over.
+    void cancelPrepare();
+    /// True while a look-ahead is in progress (prepareAhead() ran since the last cancelPrepare()).
+    [[nodiscard]] bool prepareActive() const { return m_hasPrepareEdge; }
     /// True if any request (playback, still or discarded) is unfinished.
     [[nodiscard]] bool busy();
     /// Unfinished requests (including discarded ones).
@@ -130,8 +139,6 @@ private:
     void noteRendered(const RenderedFramePtr& frame);
     /// Sets the cancellation flag of every request issued so far.
     void cancelOutstanding();
-    /// Stops the look-ahead in progress; the next prepareAhead() starts over.
-    void cancelPrepare();
 
     RenderFn m_render;
     RenderParams m_params;

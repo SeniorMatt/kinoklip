@@ -1849,7 +1849,7 @@ same cut into an unkeyed clip, than a cut between two files, or than starting on
 Measured with `tests/playback/test_keyframecut.cpp` (kc) and `tests/app/test_playheadload.cpp` (ph, whole main window) on a CPU-only machine (software
 decoder, CPU compositor and llvmpipe OpenGL, 720p30, 1080p60): 0 frames lost in the first second
 of the keyed clip in every case, longest hold one frame time; the lag of the report was not
-reproduced there, so the test compares the cases with each other (generous margins) and
+reproduced with clips near a keyframe (see 72.5 for the case that does), so the test compares the cases with each other (generous margins) and
 guards against the regression.
 
 | # | Behaviour | Status |
@@ -1858,6 +1858,8 @@ guards against the regression.
 | 72.2 | The longest hold between two shown frames in that second is at most 80 ms above the unkeyed crossing's or the start-on-clip's. | Done (kc crossing) |
 | 72.3 | The viewer's GUI thread (Inspector on the clip's Transform, Keyframes panel, on-screen Transform controls, all following the playhead) is no busier when playing across a cut into the selected keyed clip than into the unkeyed one: the longest event-loop stall measured is within 60 ms of the others (measured: ~20 ms in all three cases, 0 or 1 frames lost). | Done (ph crossingIntoSelectedKeyedClip) |
 | 72.4 | A slow decoder open (a hardware decoder's session setup) does not make a same-file jump lose frames: the cut look-ahead starts 2 s before the cut, and 2 x the last preparation's measured cost (at most 4 s) when preparations were slow. Measured with a delay hook in the decoder pool (`DecoderPool::setOpenDelayMs`), playing from 2.5 s before the cut: open 300 / 800 / 1200 ms lost 0 / 2-3 / 11-15 frames with the old 1 s look-ahead, 0 / 0 / 0 now. | Done (kc slowOpen) |
+| 72.5 | Cause reproduced after 1.3 on a CPU-only machine, not yet confirmed on the owner's Intel/VAAPI machine (the owner's session log: look-ahead "3 prepared, 0 ready at the cut, 1 waited" matches): the clip after the cut lies deep inside the file's long GOP, so preparing its decoder (open, seek to the keyframe, decode up to the first frame) takes about as long as the time between pressing play and the cut; the keys only make the stall visible. A play started 1 s before such a cut (1080p60 H.264, GOP 600, clip 590 frames after the keyframe, 4 CPUs, viewer 1382x778 at Half = 691x389) found the decoder still working: look-ahead started 1, hits ready 0, waited 1, 14 frames lost (keyed) / 5 (plain), gap across the cut 219 / 123 ms. Now the decoders of the cuts in the next 4 s are prepared while the playhead rests (150 ms after the last still, reserved for 10 s longer than the cut is away), kept when play starts at that frame, and the play-start pre-roll already prepares the cuts of the next 2 s. Same case now: hits ready 1, waited 0, no gap. | Done (kc deepInGop) |
+| 72.6 | Help > Export Log File lists the decoder chosen for each media file even when the system's logging rules switch Qt info messages off (`QT_LOGGING_RULES`, qtlogging.ini): the line is then written to the session log directly. | Done |
 
 ## 73. Dialogs open big enough for their content (ui-sizes-drag branch, roadmap 1.3)
 
