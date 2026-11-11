@@ -3,7 +3,9 @@
 #include "app/InterfaceBar.h"
 
 #include "ui/common/Metrics.h"
+#include "ui/common/SpringLoad.h"
 
+#include <QAbstractButton>
 #include <QAction>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -67,6 +69,12 @@ void InterfaceBar::setActionShown(QAction* action, bool shown)
 {
     if (QWidget* button = m_buttons.value(action))
         button->setVisible(shown);
+}
+
+void InterfaceBar::enableSpringLoad(QAction* action)
+{
+    if (auto* button = qobject_cast<QAbstractButton*>(m_buttons.value(action)))
+        new SpringLoad(button);
 }
 
 void InterfaceBar::addLeftAction(QAction* action)

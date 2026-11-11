@@ -24,6 +24,9 @@ public:
     void addLeftAction(QAction* action);
     /// Appends a toggle button for @p action to the right group.
     void addRightAction(QAction* action);
+    /// Makes the button of @p action spring-loaded (SpringLoad): a drag resting on it for
+    /// kSpringLoadDelayMs opens the panel when it is closed; an open panel is left alone.
+    void enableSpringLoad(QAction* action);
     /// Sets the centred title (project name).
     void setTitle(const QString& title);
     /// Shows or hides the button of @p action (like Resolve, each page only shows the

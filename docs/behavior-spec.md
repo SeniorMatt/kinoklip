@@ -1838,6 +1838,22 @@ with a bar along its bottom edge; when the sweep is full the page opens. Tests:
 | 71.6 | With the UI animations off (Preferences, the desktop's no-animation setting or `KK_NO_ANIMATIONS`) the button shows the plain highlight without the moving fill; the page still opens after the same delay. | Done |
 | 71.7 | The helper is `kk::SpringLoad` (`src/ui/common/SpringLoad.h`), an event filter that any button can use with one line; the page bar installs it on its buttons. | Done |
 
+## 74. Drag hover opens panels (ui-sizes-drag branch, roadmap 1.3)
+
+The same hover as the page buttons (71) on the panel buttons of the interface bar: a drag resting on
+the button of a closed panel that takes drops opens the panel, so the files can be dropped into it
+without letting go. Panels that take drops: Media Pool, Inspector, Nodes. The other panels (Effects,
+Edit Index, Keyframes, Gallery, Clips, Color Timeline, Scopes, Mixer, Metadata) take no drops, so their
+buttons are plain buttons. Tests: `tests/app/test_pagespring.cpp` (ps).
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 74.1 | The button of a panel that takes drops behaves like a page button (71.1, 71.2, 71.3): it accepts the drag, shows the highlight and the sweeping fill over `kSpringLoadDelayMs`, and when the fill is complete the closed panel opens, as if the button had been clicked. | Done (ps hoverOpensClosedPanel) |
+| 74.2 | If the panel is already open (the button is checked) the hover does nothing: nothing is shown and the panel is not closed. | Done (ps hoverOnOpenPanelDoesNothing) |
+| 74.3 | The buttons of panels that take no drops are not spring-loaded and refuse drags. | Done (ps buttonOfPanelWithoutDropsIsNotSpringLoaded) |
+| 74.4 | A drop on such a button opens the closed panel at once and is taken with no action (71.5): nothing is imported. | Done (ps dropOnPanelButtonOpensAndImportsNothing) |
+| 74.5 | The table `kPanelToggles` in `MainWindow.cpp` has a `takesDrops` flag per panel; `InterfaceBar::enableSpringLoad` installs `SpringLoad` on that button. | Done |
+
 ## Summary
 
 - 160 numbered items on the parity branch; the resolveedit branch added 25 (7.11-7.13, 9.6,

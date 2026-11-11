@@ -79,20 +79,21 @@ struct PanelToggle
     const char* actionId;
     PanelId panel;
     bool leftSide;
+    bool takesDrops; ///< the panel accepts dropped files / clips: a drag over its button opens it
 };
 constexpr PanelToggle kPanelToggles[] = {
-    {"view.toggle_media_pool", PanelId::MediaPool, true},
-    {"view.toggle_effects", PanelId::Effects, true},
-    {"view.toggle_edit_index", PanelId::EditIndex, true},
-    {"view.toggle_keyframes", PanelId::Keyframes, true}, // Resolve 20: top left
-    {"view.toggle_gallery", PanelId::Gallery, true}, // Color page
-    {"view.toggle_clips", PanelId::Clips, true}, // Color page
-    {"view.toggle_color_timeline", PanelId::ColorTimeline, true}, // Color page
-    {"view.toggle_nodes", PanelId::Nodes, false}, // Compositing and Color page node editors
-    {"view.toggle_scopes", PanelId::Scopes, false}, // Color page
-    {"view.toggle_mixer", PanelId::Mixer, false},
-    {"view.toggle_metadata", PanelId::Metadata, false},
-    {"view.toggle_inspector", PanelId::Inspector, false},
+    {"view.toggle_media_pool", PanelId::MediaPool, true, true},
+    {"view.toggle_effects", PanelId::Effects, true, false},
+    {"view.toggle_edit_index", PanelId::EditIndex, true, false},
+    {"view.toggle_keyframes", PanelId::Keyframes, true, false}, // Resolve 20: top left
+    {"view.toggle_gallery", PanelId::Gallery, true, false}, // Color page
+    {"view.toggle_clips", PanelId::Clips, true, false}, // Color page
+    {"view.toggle_color_timeline", PanelId::ColorTimeline, true, false}, // Color page
+    {"view.toggle_nodes", PanelId::Nodes, false, true}, // Compositing and Color page node editors
+    {"view.toggle_scopes", PanelId::Scopes, false, false}, // Color page
+    {"view.toggle_mixer", PanelId::Mixer, false, false},
+    {"view.toggle_metadata", PanelId::Metadata, false, false},
+    {"view.toggle_inspector", PanelId::Inspector, false, true},
 };
 
 /// Page bar slots in Resolve's order: page id, or nullptr for a page that is not built yet.
@@ -467,6 +468,9 @@ void MainWindow::buildInterfaceBar()
             m_interfaceBar->addLeftAction(action);
         else
             m_interfaceBar->addRightAction(action);
+        // A drag resting on the button of a panel that takes drops opens the panel (spec 74).
+        if (toggle.takesDrops)
+            m_interfaceBar->enableSpringLoad(action);
     }
 }
 

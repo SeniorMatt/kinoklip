@@ -10,7 +10,7 @@ Nothing in `src/ui/**` or below may include from here (dependency direction PLAN
 |---|---|
 | `AppInfo.h` | product name/id/version (from CMake) — rename the app there + `CMakeLists.txt` |
 | `MainWindow.h` | menu bar (built from `ActionRegistry`), `InterfaceBar`, page stack, `PageBar`; window/page layout persistence; close prompt |
-| `InterfaceBar.h` | top strip: panel toggles left/right, project name centred |
+| `InterfaceBar.h` | top strip: panel toggles left/right, project name centred; a drag held over the button of a closed panel that takes drops opens it (`SpringLoad`, spec 74) |
 | `PageBar.h` | bottom strip in Resolve's order: Media · Cut · Edit · Compositing · Color · Audio · Deliver (unbuilt pages disabled; a drag held over a button opens the page, `SpringLoad`; slots are the `kPageSlots` table in `MainWindow.cpp`) |
 | `pages/AudioPage.h` | the Audio page (spec 37): small floatable `ViewerPanel`, `LoudnessPanel` (meters, loudness), a `TimelineWidget` with the audio page view options (tall audio, collapsed video, headers with arm / format / meter) driven by the Edit page's `TimelineController`, the large `MixerPanel`; own `MixerController` (Write passes while shown) and `MeterModel`; widgets in `src/ui/audio`. `ScreenshotAudio.h` builds the `audio[:eq|dynamics]` screenshot (demo mix, offline meter reading) |
 | `pages/CompositingPage.h` | the Compositing page (spec 42b): two `CompViewer`s, `CompTransport`, the node tool bar and `NodeEditor`, `CompInspector`, `NodeLibraryPanel`; one `CompSession` holds the open clip's composition; connects the comp.* commands (widgets in `src/ui/comp`) |

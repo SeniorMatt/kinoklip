@@ -73,7 +73,7 @@ Still to do for 1.2:
 
 - [ ] Interface: every window and dialog opens at least big enough for its content, so no scrollbars appear when they are not needed (Project Settings first)
 - [ ] Audio: voice-over: record from the microphone straight onto an audio track while the timeline plays. An arm button and an input menu on the track header (Edit and Audio pages), an input level meter, a count-in, and each take saved as a WAV file beside the project and added to the Media Pool (owner pick)
-- [ ] Interface: dragging files over a closed panel's toolbar button (Media Pool, Effects and every other panel that takes files) opens that panel after the same hover delay as the page buttons, so the drop can land in it
+- [x] Interface: dragging files over a closed panel's toolbar button (Media Pool, Effects and every other panel that takes files) opens that panel after the same hover delay as the page buttons, so the drop can land in it
 
 ## Next big release
 

@@ -173,6 +173,85 @@ private slots:
         QCOMPARE(f.window->currentPageId(), QStringLiteral("deliver"));
         QCOMPARE(f.project.mediaPool()->items().size(), before); // nothing imported
     }
+    // ---- panel buttons (spec 74) ----
+    void hoverOpensClosedPanel()
+    {
+        Fixture f;
+        f.actions.action(QStringLiteral("view.page_edit"))->trigger();
+        QAction* toggle = f.actions.action(QStringLiteral("view.toggle_media_pool"));
+        if (toggle->isChecked())
+            toggle->trigger(); // close the Media Pool
+        QVERIFY(!toggle->isChecked());
+        QToolButton* button = f.button("view.toggle_media_pool");
+        QVERIFY(button);
+        QMimeData mime;
+        mime.setUrls({QUrl::fromLocalFile(QStringLiteral("/tmp/none.mp4"))});
+        QDragEnterEvent enter(DragPos(5, 5), Qt::CopyAction, &mime, Qt::LeftButton, {});
+        enter.setAccepted(false);
+        QCoreApplication::sendEvent(button, &enter);
+        QVERIFY(enter.isAccepted());
+        auto* spring = button->findChild<SpringLoad*>();
+        QVERIFY(spring && spring->active());
+        advance(kSpringLoadDelayMs / 2);
+        QVERIFY(!toggle->isChecked());
+        advance(kSpringLoadDelayMs / 2 + 50);
+        QVERIFY(toggle->isChecked());
+        QDragLeaveEvent leave;
+        QCoreApplication::sendEvent(button, &leave);
+    }
+    void hoverOnOpenPanelDoesNothing()
+    {
+        Fixture f;
+        f.actions.action(QStringLiteral("view.page_edit"))->trigger();
+        QAction* toggle = f.actions.action(QStringLiteral("view.toggle_media_pool"));
+        if (!toggle->isChecked())
+            toggle->trigger();
+        QVERIFY(toggle->isChecked());
+        QToolButton* button = f.button("view.toggle_media_pool");
+        QMimeData mime;
+        mime.setUrls({QUrl::fromLocalFile(QStringLiteral("/tmp/none.mp4"))});
+        QDragEnterEvent enter(DragPos(5, 5), Qt::CopyAction, &mime, Qt::LeftButton, {});
+        QCoreApplication::sendEvent(button, &enter);
+        QVERIFY(!button->findChild<SpringLoad*>()->active());
+        advance(kSpringLoadDelayMs * 2);
+        QVERIFY(toggle->isChecked()); // still open, not toggled off
+        QDragLeaveEvent leave;
+        QCoreApplication::sendEvent(button, &leave);
+    }
+    void buttonOfPanelWithoutDropsIsNotSpringLoaded()
+    {
+        Fixture f;
+        f.actions.action(QStringLiteral("view.page_edit"))->trigger();
+        QAction* toggle = f.actions.action(QStringLiteral("view.toggle_effects"));
+        if (toggle->isChecked())
+            toggle->trigger();
+        QToolButton* button = f.button("view.toggle_effects");
+        QVERIFY(button);
+        QVERIFY(!button->findChild<SpringLoad*>());
+        QVERIFY(!button->acceptDrops());
+        advance(kSpringLoadDelayMs * 2);
+        QVERIFY(!toggle->isChecked());
+    }
+    void dropOnPanelButtonOpensAndImportsNothing()
+    {
+        Fixture f;
+        f.actions.action(QStringLiteral("view.page_edit"))->trigger();
+        QAction* toggle = f.actions.action(QStringLiteral("view.toggle_media_pool"));
+        if (toggle->isChecked())
+            toggle->trigger();
+        QToolButton* button = f.button("view.toggle_media_pool");
+        QMimeData mime;
+        mime.setUrls({QUrl::fromLocalFile(QStringLiteral("/tmp/none.mp4"))});
+        QDragEnterEvent enter(DragPos(5, 5), Qt::CopyAction, &mime, Qt::LeftButton, {});
+        QCoreApplication::sendEvent(button, &enter);
+        const auto before = f.project.mediaPool()->items().size();
+        QDropEvent drop(DragPos(5, 5), Qt::CopyAction, &mime, Qt::LeftButton, {});
+        drop.setAccepted(true);
+        QCoreApplication::sendEvent(button, &drop);
+        QCOMPARE(drop.dropAction(), Qt::IgnoreAction);
+        QVERIFY(toggle->isChecked());
+        QCOMPARE(f.project.mediaPool()->items().size(), before);
+    }
 };
 
 QTEST_MAIN(TestPageSpring)
