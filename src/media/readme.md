@@ -43,7 +43,7 @@ contains *t* (exact for VFR too); requests before the first / after the last fra
 ```
                     ┌──────────── VideoDecoder ────────────────────────────────────┐
 file ─ libavformat ─┤ seek / decode-forward state machine (cur + look-ahead frame) │
-                    │   libavcodec (SW ≤4 threads, or VAAPI/CUDA/Vulkan hwaccel)   │
+                    │   libavcodec (SW 4 threads, more above 1080p, or VAAPI/CUDA/Vulkan hwaccel)   │
                     │      │ only the frame actually returned is materialised:    │
                     │      ├─ decodeFrame(): hw surface → av_hwframe_transfer_data │
                     │      │    → pooled NV12/P010 │ SW frame shared by reference  │
