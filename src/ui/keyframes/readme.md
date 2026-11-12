@@ -69,3 +69,17 @@ Video clips list their masks after Cropping in one "Masks" group (`appendMasksGr
 for point masks, a "<mask>: Shape" row (path `mask/<id>/shape`). The shape row has keys but no
 value field (shapes are edited in the viewer); vertical drags in the curve editor leave shape
 keys alone (`keyframeops::offsetKeyValues()` skips them).
+
+## Compositing page mode and loops
+`KeyframesPanel::attachComposition(session, view)` turns a panel into the Compositing page's
+Spline (Curves) or Keyframes (dope sheet) panel. Only the model differs: `keyframeitems::buildComp()`
+lists the animated parameters of the selected nodes (all nodes with Sel off) of the open clip's composition
+as `ParamScope::CompNode` rows with paths `node/<node id>/<key>` (`keyframeops::nodePath()`), comp frames =
+clip-local frames. Everything else (drags, selection, undo, copy / paste, tree values) is unchanged, because
+the node parameters live in `ClipData::composition` and the project's undo covers them.
+
+Extrapolation (`AnimatedValue::pre` / `post`, `core/Animation.h`) is edited by `keyframecommands::
+setExtrapolation()` / `reverseSelected()` / `stretchSelected()` / `stepSelected()` (Loop button and menu,
+context menu, the `clip.keyframe_*` registry commands bound by `bindSplineActions()`). The curve view draws
+the extrapolated parts dashed and dimmed. The panels add the registry actions to themselves with a widget
+shortcut context, so S L I O V T F act only while a panel has the focus.

@@ -52,6 +52,26 @@ composition.
   back on.
 - **Delete** a node: select it and press **Delete**. **Ctrl+Z** undoes every step.
 
+## Spline and Keyframes panels
+
+Click **Spline** (or **Keyframes**) in the bar at the top of the page, next to **Nodes**. The
+panel opens beside the node editor and lists the animated parameters of the selected nodes,
+node by node, with a check box for each curve. **Sel** switches between the selected nodes
+and every node; **All** and **None** show or hide all curves; **Show All** also lists the
+parameters you have not animated yet.
+
+Select keyframes with a click or a rubber band and use the tools above the curves:
+**Smooth** (**S**), **Linear** (**L**), **Step In** (**I**), **Step Out** (the Static button,
+**O**), **Ease In and Out** (**T**), **Flat**, **Reverse** (**V**) and **Time Stretch**. **F** fits all curves to
+the panel. The **T** and **V** boxes type an exact frame and value for the selected keyframe.
+
+To repeat an animation, click **Loop**: after the last keyframe the value repeats the keyed
+range (a dashed curve shows the repeats). Its arrow offers **Set Ping-Pong**, **Set
+Relative** (each repeat continues from where the last ended, for a turning angle),
+**Linear Extrapolation**, **Remove Loop** and the **Pre-Loop** versions for before the first
+keyframe. The panel is small on purpose: widen it by dragging the line between it and the
+node editor, and use the **»** button when the tool row does not fit.
+
 ## Tips
 
 - **Fade the text in:** select **Merge1** and keyframe its **Blend** (0 at the start, 1 a

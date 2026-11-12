@@ -24,6 +24,7 @@ enum class PanelId {
     Inspector,
     Keyframes, ///< the large keyframe editor (dockable / floating)
     Nodes, ///< the node editor (Compositing and Color pages)
+    Spline, ///< the Spline panel (Compositing page)
     Gallery, ///< Color page stills
     Clips, ///< Color page thumbnail strip
     ColorTimeline, ///< Color page mini timeline
@@ -50,6 +51,8 @@ enum class PanelId {
         return QStringLiteral("keyframes");
     case PanelId::Nodes:
         return QStringLiteral("nodes");
+    case PanelId::Spline:
+        return QStringLiteral("spline");
     case PanelId::Gallery:
         return QStringLiteral("gallery");
     case PanelId::Clips:
@@ -65,7 +68,7 @@ enum class PanelId {
 /// All toggleable panels, in interface-toolbar order.
 inline constexpr PanelId kAllPanels[] = {PanelId::MediaPool, PanelId::Effects, PanelId::EditIndex,
     PanelId::Keyframes, PanelId::Gallery, PanelId::Clips, PanelId::ColorTimeline, PanelId::Nodes,
-    PanelId::Scopes, PanelId::Mixer, PanelId::Metadata, PanelId::Inspector};
+    PanelId::Spline, PanelId::Scopes, PanelId::Mixer, PanelId::Metadata, PanelId::Inspector};
 
 /// A full-window page selected from the page bar. Pages report which toggleable panels they
 /// have; the main window keeps the interface-toolbar toggles in sync with them.

@@ -1,4 +1,4 @@
-352 menu entries in 12 menus; 48 panels
+368 menu entries in 12 menus; 50 panels
 
 # Menu and panel reference
 
@@ -262,10 +262,25 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Delete Keyframes |  | Deletes the selected keyframes. |
 | Copy Keyframes |  | Copies the selected keyframes. |
 | Paste Keyframes |  | Pastes copied keyframes at the playhead. |
-| Keyframe Interpolation > Keyframe Linear |  | Gives the selected keyframes linear interpolation. |
+| Keyframe Interpolation > Keyframe Linear | L | Gives the selected keyframes linear interpolation. |
 | Keyframe Interpolation > Keyframe Ease In |  | Gives the selected keyframes ease-in interpolation. |
 | Keyframe Interpolation > Keyframe Ease Out |  | Gives the selected keyframes ease-out interpolation. |
-| Keyframe Interpolation > Keyframe Ease In and Out |  | Gives the selected keyframes ease-in and ease-out interpolation. |
+| Keyframe Interpolation > Keyframe Ease In and Out | T | Gives the selected keyframes ease-in and ease-out interpolation. |
+| Keyframe Interpolation > Keyframe Smooth | S | Gives the selected keyframes smooth (automatic Bezier) interpolation. |
+| Keyframe Interpolation > Keyframe Step In | I | Step In: the value jumps right after the previous keyframe to the selected keyframe's value. |
+| Keyframe Interpolation > Keyframe Step Out | O | Step Out: the value of the selected keyframe stays until the next keyframe, then jumps. |
+| Keyframe Loops > Set Loop |  | After its last keyframe the parameter repeats the keyed range. |
+| Keyframe Loops > Set Ping-Pong |  | After its last keyframe the parameter plays the keyed range back and forth. |
+| Keyframe Loops > Set Relative |  | After its last keyframe the parameter repeats the keyed range, each repeat continuing from the end value of the one before. |
+| Keyframe Loops > Linear Extrapolation |  | After its last keyframe the parameter continues along the keyframe's tangent. |
+| Keyframe Loops > Remove Loop |  | After its last keyframe the parameter holds the last value (the default). |
+| Keyframe Loops > Set Pre-Loop |  | Before its first keyframe the parameter repeats the keyed range. |
+| Keyframe Loops > Set Pre-Ping-Pong |  | Before its first keyframe the parameter plays the keyed range back and forth. |
+| Keyframe Loops > Set Pre-Relative |  | Before its first keyframe the parameter repeats the keyed range, each repeat continuing from the start value of the one after. |
+| Keyframe Loops > Linear Extrapolation Before |  | Before its first keyframe the parameter continues along the keyframe's tangent. |
+| Keyframe Loops > Remove Pre-Loop |  | Before its first keyframe the parameter holds the first value (the default). |
+| Reverse Keyframes | V | Mirrors the selected keyframes in time. |
+| Fit Keyframe Editor to Curves | F | Fits the curves of the focused Keyframes or Spline panel to the view. |
 | Show Keyframe Editor |  | Shows the keyframe (dope sheet) view of the Keyframes panel. |
 | Show Curve Editor |  | Shows the curve view of the Keyframes panel. |
 | Add Mask > Rectangle Mask |  | Adds a rectangle mask to the selected clip. |
@@ -308,6 +323,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Show Panel in Workspace > Keyframes (toggle) |  | Shows or hides the Keyframes panel. |
 | Show Panel in Workspace > Keyframes Panel: Toggle Keyframe / Curve |  | Switches the Keyframes panel between the keyframe view and the curve view. |
 | Show Panel in Workspace > Nodes (toggle) |  | Shows or hides the node editor. |
+| Show Panel in Workspace > Spline (toggle) |  | Shows or hides the Spline panel of the Compositing page: the curves of the selected nodes' animated parameters, with Smooth, Linear, Step, Ease, Reverse, Time Stretch and Loop. |
 | Show Panel in Workspace > Gallery (toggle) |  | Shows or hides the Gallery of stills on the Color page. |
 | Show Panel in Workspace > Clips (toggle) |  | Shows or hides the clip thumbnail strip on the Color page. |
 | Show Panel in Workspace > Timeline (toggle) |  | Shows or hides the mini timeline on the Color page. |
@@ -461,11 +477,13 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Panel | What it is |
 |---|---|
 | Inspector | Parameters of the selected node, with an on/off switch and Reset. |
+| Keyframes | The keyframes of the selected nodes' animated parameters along time. |
 | Left Viewer | Shows the output of one node of the open composition. |
 | Media Pool | The project's media in bins (Master, smart bins, power bins), as posters or a list, with search and colour filter; clips are dragged from here to the timeline. |
 | Node Editor | The node graph of the open clip: select, move, connect and edit nodes. |
 | Nodes | Searchable list of every node type; drag one onto the node editor or double-click it to add it. |
 | Right Viewer | Shows the output of one node of the open composition. |
+| Spline | Curves of the animated parameters of the selected nodes, with the spline tools: Smooth, Linear, Step, Ease, Reverse, Time Stretch and Loop. |
 | Transport | Play and stop, and a ruler over the frames of the open clip. |
 
 ### Color page
@@ -505,7 +523,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 
 # Streamlined menu layout
 
-Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 352 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
+Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 368 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
 
 ## Streamlined Kinoklip
 
@@ -689,10 +707,24 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Keyframes > Next | ] | Moves the playhead to the next keyframe of the selected clip. |
 | Keyframes > Copy |  | Copies the selected keyframes. |
 | Keyframes > Paste |  | Pastes copied keyframes at the playhead. |
-| Keyframes > Interpolation > Linear |  | Gives the selected keyframes linear interpolation. |
+| Keyframes > Interpolation > Linear | L | Gives the selected keyframes linear interpolation. |
 | Keyframes > Interpolation > Ease In |  | Gives the selected keyframes ease-in interpolation. |
 | Keyframes > Interpolation > Ease Out |  | Gives the selected keyframes ease-out interpolation. |
-| Keyframes > Interpolation > Ease In and Out |  | Gives the selected keyframes ease-in and ease-out interpolation. |
+| Keyframes > Interpolation > Ease In and Out | T | Gives the selected keyframes ease-in and ease-out interpolation. |
+| Keyframes > Interpolation > Smooth | S | Gives the selected keyframes smooth (automatic Bezier) interpolation. |
+| Keyframes > Interpolation > Step In | I | Step In: the value jumps right after the previous keyframe to the selected keyframe's value. |
+| Keyframes > Interpolation > Step Out | O | Step Out: the value of the selected keyframe stays until the next keyframe, then jumps. |
+| Keyframes > Loops > Set Loop |  | After its last keyframe the parameter repeats the keyed range. |
+| Keyframes > Loops > Set Ping-Pong |  | After its last keyframe the parameter plays the keyed range back and forth. |
+| Keyframes > Loops > Set Relative |  | After its last keyframe the parameter repeats the keyed range, each repeat continuing from the end value of the one before. |
+| Keyframes > Loops > Linear Extrapolation |  | After its last keyframe the parameter continues along the keyframe's tangent. |
+| Keyframes > Loops > Remove Loop |  | After its last keyframe the parameter holds the last value (the default). |
+| Keyframes > Loops > Set Pre-Loop |  | Before its first keyframe the parameter repeats the keyed range. |
+| Keyframes > Loops > Set Pre-Ping-Pong |  | Before its first keyframe the parameter plays the keyed range back and forth. |
+| Keyframes > Loops > Set Pre-Relative |  | Before its first keyframe the parameter repeats the keyed range, each repeat continuing from the start value of the one after. |
+| Keyframes > Loops > Linear Extrapolation Before |  | Before its first keyframe the parameter continues along the keyframe's tangent. |
+| Keyframes > Loops > Remove Pre-Loop |  | Before its first keyframe the parameter holds the first value (the default). |
+| Keyframes > Reverse | V | Mirrors the selected keyframes in time. |
 | Keyframes > Keyframe Editor |  | Shows the keyframe (dope sheet) view of the Keyframes panel. |
 | Keyframes > Curve Editor |  | Shows the curve view of the Keyframes panel. |
 | Keyframes > Toggle Keyframe / Curve |  | Switches the Keyframes panel between the keyframe view and the curve view. |
@@ -892,6 +924,8 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Vim Mode (toggle) |  | Turns Vim mode on or off: with it on, plain keys are Vim commands (NORMAL mode) and i gives you the usual shortcuts back (INSERT mode). Works with any keyboard profile. |
 | New Bin | Ctrl+Shift+N | Adds a new bin (folder) to the media pool. |
 | New Smart Bin… |  | Adds a smart bin: a bin that fills itself with the clips matching rules you set. |
+| Fit Keyframe Editor to Curves | F | Fits the curves of the focused Keyframes or Spline panel to the view. |
+| Spline (toggle) |  | Shows or hides the Spline panel of the Compositing page: the curves of the selected nodes' animated parameters, with Smooth, Linear, Step, Ease, Reverse, Time Stretch and Loop. |
 | Show Bin List (toggle) |  | Shows or hides the bin list of the media pool. |
 | Video Scopes (toggle) | Ctrl+Shift+W | Opens a floating window with scopes of the picture on the viewer. |
 | Cut Nodes | Ctrl+X | Compositing page: cuts the selected nodes to the clipboard. |

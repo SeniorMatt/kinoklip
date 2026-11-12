@@ -111,6 +111,145 @@ bool flattenSelected(AppContext& ctx)
         > 0;
 }
 
+QVector<KeyframeRef> extrapolationTargets(AppContext& ctx, const QVector<KeyframeRef>& fallback)
+{
+    QVector<KeyframeRef> refs = ctx.selection->keyframes();
+    if (refs.isEmpty())
+        refs = fallback;
+    if (refs.isEmpty())
+        refs = easingTargets(ctx);
+    return refs;
+}
+
+bool setExtrapolation(
+    AppContext& ctx, bool pre, bool post, Extrapolation mode, const QVector<KeyframeRef>& fallback)
+{
+    const QVector<KeyframeRef> refs = extrapolationTargets(ctx, fallback);
+    if (refs.isEmpty())
+        return false;
+    const char* label = mode == Extrapolation::Constant
+        ? QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Remove Keyframe Loop")
+        : QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Set Keyframe Loop");
+    ctx.project->beginEdit(tr(label));
+    const int n
+        = ko::setExtrapolation(ctx.project->timeline()->mutableData(), refs, pre, post, mode);
+    ctx.project->endEdit();
+    return n > 0;
+}
+
+bool reverseSelected(AppContext& ctx)
+{
+    QVector<KeyframeRef> moved;
+    const int n
+        = runOnSelection(ctx, QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Reverse Keyframes"),
+            [&moved](TimelineData& d, const QVector<KeyframeRef>& r) {
+                moved = ko::reverseKeys(d, r);
+                return int(moved.size());
+            });
+    if (n > 0)
+        ctx.selection->setKeyframes(moved);
+    return n > 0;
+}
+
+bool stretchSelected(AppContext& ctx, double pivot, double factor)
+{
+    if (!(factor > 0.0))
+        return false;
+    QVector<KeyframeRef> moved;
+    const int n = runOnSelection(ctx,
+        QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Stretch Keyframes in Time"),
+        [&](TimelineData& d, const QVector<KeyframeRef>& r) {
+            moved = ko::stretchKeys(d, r, pivot, factor);
+            return int(moved.size());
+        });
+    if (n > 0)
+        ctx.selection->setKeyframes(moved);
+    return n > 0;
+}
+
+bool stretchSelectedAtPlayhead(AppContext& ctx, double factor)
+{
+    const QVector<KeyframeRef> refs = ctx.selection->keyframes();
+    if (refs.isEmpty())
+        return false;
+    const ClipData* clip = editops::clipById(ctx.project->timeline()->data(), refs.front().clipId);
+    if (!clip)
+        return false;
+    return stretchSelected(ctx, double(ctx.project->timeline()->playhead() - clip->start), factor);
+}
+
+bool stepSelected(AppContext& ctx, bool stepIn)
+{
+    return runOnSelection(ctx,
+               QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Change Keyframe Interpolation"),
+               [stepIn](TimelineData& d, const QVector<KeyframeRef>& r) {
+                   return ko::stepKeys(d, r, stepIn);
+               })
+        > 0;
+}
+
+const QVector<SplineAction>& splineActions()
+{
+    using K = SplineAction::Kind;
+    static const QVector<SplineAction> list {
+        {"clip.keyframe_loop", K::Extrapolate, false, Extrapolation::Loop, Interp::Linear},
+        {"clip.keyframe_ping_pong", K::Extrapolate, false, Extrapolation::PingPong, Interp::Linear},
+        {"clip.keyframe_relative", K::Extrapolate, false, Extrapolation::Relative, Interp::Linear},
+        {"clip.keyframe_extrapolate_linear", K::Extrapolate, false, Extrapolation::Linear,
+            Interp::Linear},
+        {"clip.keyframe_no_loop", K::Extrapolate, false, Extrapolation::Constant, Interp::Linear},
+        {"clip.keyframe_pre_loop", K::Extrapolate, true, Extrapolation::Loop, Interp::Linear},
+        {"clip.keyframe_pre_ping_pong", K::Extrapolate, true, Extrapolation::PingPong,
+            Interp::Linear},
+        {"clip.keyframe_pre_relative", K::Extrapolate, true, Extrapolation::Relative,
+            Interp::Linear},
+        {"clip.keyframe_pre_extrapolate_linear", K::Extrapolate, true, Extrapolation::Linear,
+            Interp::Linear},
+        {"clip.keyframe_pre_no_loop", K::Extrapolate, true, Extrapolation::Constant,
+            Interp::Linear},
+        {"clip.keyframe_smooth", K::Interpolate, false, Extrapolation::Constant, Interp::Smooth},
+        {"clip.keyframe_step_in", K::StepIn, false, Extrapolation::Constant, Interp::Linear},
+        {"clip.keyframe_step_out", K::StepOut, false, Extrapolation::Constant, Interp::Hold},
+        {"clip.keyframe_reverse", K::Reverse, false, Extrapolation::Constant, Interp::Linear},
+    };
+    return list;
+}
+
+void bindSplineActions(AppContext& ctx)
+{
+    if (!ctx.actions)
+        return;
+    AppContext* context = &ctx;
+    for (const SplineAction& a : splineActions()) {
+        const QString id = QLatin1String(a.id);
+        QAction* action = ctx.actions->contains(id) ? ctx.actions->action(id) : nullptr;
+        if (!action || action->property("kk_splineBound").toBool())
+            continue;
+        action->setProperty("kk_splineBound", true);
+        const SplineAction spec = a;
+        QObject::connect(action, &QAction::triggered, ctx.actions, [context, spec] {
+            using K = SplineAction::Kind;
+            switch (spec.kind) {
+            case K::Extrapolate:
+                setExtrapolation(*context, spec.pre, !spec.pre, spec.mode);
+                break;
+            case K::Interpolate:
+                easeTargets(*context, spec.interp);
+                break;
+            case K::Reverse:
+                reverseSelected(*context);
+                break;
+            case K::StepIn:
+                stepSelected(*context, true);
+                break;
+            case K::StepOut:
+                stepSelected(*context, false);
+                break;
+            }
+        });
+    }
+}
+
 const QVector<EasingAction>& easingActions()
 {
     static const QVector<EasingAction> list {

@@ -19,6 +19,8 @@
 #include "ui/comp/CompViewer.h"
 #include "ui/comp/NodeEditor.h"
 #include "ui/comp/NodeLibrary.h"
+#include "ui/keyframes/KeyframeCommands.h"
+#include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 
 #include <QAction>
@@ -32,6 +34,8 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace kk {
 
 namespace {
@@ -43,7 +47,7 @@ constexpr int kInspectorWidth = 400;
 constexpr int kViewersHeight = 470;
 constexpr int kNodeAreaHeight = 420;
 /// Layout version of the saved splitter states (bump when the structure changes).
-constexpr int kLayoutVersion = 1;
+constexpr int kLayoutVersion = 2;
 
 QAction* registryAction(const AppContext& ctx, const QString& id)
 {
@@ -86,10 +90,28 @@ CompositingPage::CompositingPage(AppContext& ctx, QWidget* parent)
     na->addWidget(m_toolBar);
     na->addWidget(m_editor, 1);
 
+    // Spline and Keyframes (interface bar, off by default) sit beside the node editor like
+    // Resolve's Fusion page; they show the animated parameters of the selected nodes.
+    m_spline = new KeyframesPanel(ctx);
+    m_spline->attachComposition(m_session, KeyframesPanel::View::Curves);
+    m_keyframes = new KeyframesPanel(ctx);
+    m_keyframes->attachComposition(m_session, KeyframesPanel::View::Keyframes);
+    m_spline->hide();
+    m_keyframes->hide();
+    m_nodeRow = new PanelSplitter(Qt::Horizontal);
+    m_nodeRow->setObjectName(QStringLiteral("CompNodeRow"));
+    m_nodeRow->addWidget(m_nodeArea);
+    m_nodeRow->addWidget(m_spline);
+    m_nodeRow->addWidget(m_keyframes);
+    m_nodeRow->setStretchFactor(0, 3);
+    m_nodeRow->setStretchFactor(1, 2);
+    m_nodeRow->setStretchFactor(2, 2);
+    m_nodeRow->setChildrenCollapsible(false);
+
     m_centre = new PanelSplitter(Qt::Vertical);
     m_centre->setObjectName(QStringLiteral("CompCentreSplitter"));
     m_centre->addWidget(viewerArea);
-    m_centre->addWidget(m_nodeArea);
+    m_centre->addWidget(m_nodeRow);
     m_centre->setStretchFactor(1, 1);
     m_centre->setSizes({kViewersHeight, kNodeAreaHeight});
 
@@ -145,9 +167,13 @@ QWidget* CompositingPage::buildToolBar()
             m_session->addNode(type);
             m_editor->setFocus();
         });
+        b->setMinimumWidth(b->sizeHint().width());
         l->addWidget(b);
     }
     l->addStretch(1);
+    // The row may be narrower than all the buttons (Spline / Keyframes beside the node editor
+    // at 1366 px): the buttons on the right are cut off, Shift+Space adds every node.
+    bar->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     return bar;
 }
 
@@ -260,8 +286,17 @@ QStringList CompositingPage::keptCommandIds()
 {
     // Besides TimelineCommandSuspension::alwaysKept(): the page's own clip commands and the
     // in / out marks it shows on its time ruler.
-    return {QStringLiteral("clip.open_in_compositing"), QStringLiteral("clip.reset_composition"),
-        QStringLiteral("mark.go_to_in"), QStringLiteral("mark.go_to_out")};
+    // The keyframe commands of the Spline and Keyframes panels edit the open clip's nodes.
+    QStringList ids {QStringLiteral("clip.open_in_compositing"),
+        QStringLiteral("clip.reset_composition"), QStringLiteral("mark.go_to_in"),
+        QStringLiteral("mark.go_to_out"), QStringLiteral("clip.keyframe_fit"),
+        QStringLiteral("clip.delete_keyframe"), QStringLiteral("clip.copy_keyframes"),
+        QStringLiteral("clip.paste_keyframes")};
+    for (const auto& a : keyframecommands::splineActions())
+        ids << QLatin1String(a.id);
+    for (const auto& a : keyframecommands::easingActions())
+        ids << QLatin1String(a.id);
+    return ids;
 }
 
 QStringList CompositingPage::suspendedCommandIds(const ActionRegistry& registry)
@@ -310,7 +345,7 @@ void CompositingPage::setNodeCommandsEnabled(bool enabled)
 bool CompositingPage::hasPanel(PanelId id) const
 {
     return id == PanelId::MediaPool || id == PanelId::Effects || id == PanelId::Nodes
-        || id == PanelId::Inspector;
+        || id == PanelId::Inspector || id == PanelId::Spline || id == PanelId::Keyframes;
 }
 
 void CompositingPage::setPanelVisible(PanelId id, bool visible)
@@ -318,13 +353,38 @@ void CompositingPage::setPanelVisible(PanelId id, bool visible)
     QWidget* panel = id == PanelId::MediaPool ? static_cast<QWidget*>(m_mediaPool)
         : id == PanelId::Effects              ? static_cast<QWidget*>(m_library)
         : id == PanelId::Nodes                ? m_nodeArea
+        : id == PanelId::Spline               ? static_cast<QWidget*>(m_spline)
+        : id == PanelId::Keyframes            ? static_cast<QWidget*>(m_keyframes)
         : id == PanelId::Inspector            ? static_cast<QWidget*>(m_inspector)
                                               : nullptr;
     if (!panel || panel->isHidden() == !visible)
         return;
     panel->setVisible(visible);
     updateLeftColumn();
+    updateNodeRow();
     emit panelVisibilityChanged(id, visible);
+}
+
+void CompositingPage::updateNodeRow()
+{
+    const bool any = !m_nodeArea->isHidden() || !m_spline->isHidden() || !m_keyframes->isHidden();
+    m_nodeRow->setVisible(any);
+    const bool curves = !m_spline->isHidden() || !m_keyframes->isHidden();
+    // After the layout has seen the shown panel: widths 3 : 3 : 3 of the visible parts, and
+    // the node row as tall as the viewers (curves need height) while Spline / Keyframes show.
+    QTimer::singleShot(0, this, [this, curves] {
+        const int total = std::max(1, m_nodeRow->width());
+        const int weights[] = {m_nodeArea->isHidden() ? 0 : 3, m_spline->isHidden() ? 0 : 3,
+            m_keyframes->isHidden() ? 0 : 3};
+        const int sum = weights[0] + weights[1] + weights[2];
+        if (sum > 0)
+            m_nodeRow->setSizes(
+                {total * weights[0] / sum, total * weights[1] / sum, total * weights[2] / sum});
+        if (curves) {
+            const int h = m_centre->height();
+            m_centre->setSizes({h * 2 / 5, h * 3 / 5});
+        }
+    });
 }
 
 void CompositingPage::updateLeftColumn()
@@ -341,6 +401,10 @@ bool CompositingPage::isPanelVisible(PanelId id) const
         return !m_library->isHidden();
     case PanelId::Nodes:
         return !m_nodeArea->isHidden();
+    case PanelId::Spline:
+        return !m_spline->isHidden();
+    case PanelId::Keyframes:
+        return !m_keyframes->isHidden();
     case PanelId::Inspector:
         return !m_inspector->isHidden();
     default:
@@ -353,10 +417,12 @@ void CompositingPage::saveLayout(QSettings& settings) const
     settings.setValue(QStringLiteral("layoutVersion"), kLayoutVersion);
     settings.setValue(QStringLiteral("columns"), m_columns->saveState());
     settings.setValue(QStringLiteral("centre"), m_centre->saveState());
+    settings.setValue(QStringLiteral("nodeRow"), m_nodeRow->saveState());
     settings.setValue(QStringLiteral("viewers"), m_viewers->saveState());
     settings.setValue(QStringLiteral("leftColumn"), m_leftColumn->saveState());
     m_mediaPool->saveSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
-    for (PanelId id : {PanelId::MediaPool, PanelId::Effects, PanelId::Nodes, PanelId::Inspector})
+    for (PanelId id : {PanelId::MediaPool, PanelId::Effects, PanelId::Nodes, PanelId::Inspector,
+             PanelId::Spline, PanelId::Keyframes})
         settings.setValue(QStringLiteral("visible/") + panelIdToString(id), isPanelVisible(id));
 }
 
@@ -365,12 +431,14 @@ void CompositingPage::restoreLayout(const QSettings& settings)
     if (settings.value(QStringLiteral("layoutVersion"), 0).toInt() == kLayoutVersion) {
         m_columns->restoreState(settings.value(QStringLiteral("columns")).toByteArray());
         m_centre->restoreState(settings.value(QStringLiteral("centre")).toByteArray());
+        m_nodeRow->restoreState(settings.value(QStringLiteral("nodeRow")).toByteArray());
         m_viewers->restoreState(settings.value(QStringLiteral("viewers")).toByteArray());
         m_leftColumn->restoreState(settings.value(QStringLiteral("leftColumn")).toByteArray());
     }
     m_mediaPool->restoreSplitterSizes(settings, QStringLiteral("mediaPoolPanel/"));
     // Splitter states carry visibility too; the explicit flags win.
-    for (PanelId id : {PanelId::MediaPool, PanelId::Effects, PanelId::Nodes, PanelId::Inspector}) {
+    for (PanelId id : {PanelId::MediaPool, PanelId::Effects, PanelId::Nodes, PanelId::Inspector,
+             PanelId::Spline, PanelId::Keyframes}) {
         const QString key = QStringLiteral("visible/") + panelIdToString(id);
         if (settings.contains(key))
             setPanelVisible(id, settings.value(key).toBool());

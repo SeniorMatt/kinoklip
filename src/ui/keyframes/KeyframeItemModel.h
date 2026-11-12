@@ -64,6 +64,13 @@ inline constexpr int kMaxItems = 8;
 [[nodiscard]] KeyframeItems build(
     const TimelineData& data, const QVector<quint64>& selectedClips, bool showAll);
 
+/// Builds the model of the Compositing page panels: one item (clip @p clipId), one group per
+/// node of its composition (@p nodeIds in that order; empty = every node) with the node's
+/// animatable parameters (only animated ones unless @p showAll). Paths are "node/<id>/<key>"
+/// and frames are comp frames.
+[[nodiscard]] KeyframeItems buildComp(
+    const TimelineData& data, quint64 clipId, const QVector<quint64>& nodeIds, bool showAll);
+
 /// Entries not hidden under a collapsed item / group (@p collapsed holds entry keys).
 [[nodiscard]] QVector<int> visibleRows(
     const QVector<KeyframeEntry>& entries, const QSet<QString>& collapsed);

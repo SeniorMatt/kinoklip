@@ -30,6 +30,7 @@ const QString kRetime = QStringLiteral("retime");
 const QString kMask = QStringLiteral("mask");
 const QString kGrade = QStringLiteral("grade");
 const QString kGradeWindow = QStringLiteral("gradewin");
+const QString kNode = QStringLiteral("node");
 
 // Parses "<head>/<id>/<key>" (effect and mask paths). Returns false for malformed paths.
 bool splitIdPath(const QString& path, qsizetype slash, quint64* id, QString* key)
@@ -75,6 +76,13 @@ auto resolveSet(Clip& clip, const QString& path, QString* key) -> decltype(&clip
         auto* node = clip.grade.node(id);
         return node ? &node->params : nullptr;
     }
+    if (head == kNode) {
+        quint64 id = 0;
+        if (!splitIdPath(path, slash, &id, key) || !clip.composition)
+            return nullptr;
+        auto* node = clip.composition->node(id);
+        return node ? &node->params : nullptr;
+    }
     if (head == kLayer) {
         quint64 id = 0;
         if (!splitIdPath(path, slash, &id, key))
@@ -118,6 +126,8 @@ double defaultBase(const ClipData& clip, const QString& path, const QString& key
 {
     if (path.startsWith(kMask))
         return maskkeys::defaultValue(key);
+    if (path.startsWith(kNode + QLatin1Char('/')))
+        return 0.0;
     if (path.startsWith(kGradeWindow + QLatin1Char('/')))
         return gradewindowkeys::defaultValue(key);
     if (path.startsWith(kGrade + QLatin1Char('/')))
@@ -249,6 +259,11 @@ QString gradePath(quint64 nodeId, const QString& key)
 QString gradeWindowPath(quint64 windowId, const QString& key)
 {
     return kGradeWindow + QLatin1Char('/') + QString::number(windowId) + QLatin1Char('/') + key;
+}
+
+QString nodePath(quint64 nodeId, const QString& key)
+{
+    return kNode + QLatin1Char('/') + QString::number(nodeId) + QLatin1Char('/') + key;
 }
 
 QString maskPath(quint64 maskId, const QString& key)
@@ -673,7 +688,83 @@ int flattenHandles(TimelineData& data, const QVector<KeyframeRef>& refs)
                 h->mode = KeyHandle::Mode::Ease;
         }
         k.hold = false;
+        k.stepIn = false;
     });
+}
+
+int stepKeys(TimelineData& data, const QVector<KeyframeRef>& refs, bool stepIn)
+{
+    return forEachKey(data, refs, [&](AnimatedValue& v, qsizetype i) {
+        Keyframe& k = v.keys[i];
+        k.hold = !stepIn;
+        k.stepIn = stepIn;
+    });
+}
+
+namespace {
+// The distinct (clip, path) parameters of refs, in order of first appearance, with their frames.
+QVector<std::pair<std::pair<quint64, QString>, QVector<int64_t>>> groupByParam(
+    const QVector<KeyframeRef>& refs)
+{
+    QVector<std::pair<std::pair<quint64, QString>, QVector<int64_t>>> out;
+    for (const KeyframeRef& r : refs) {
+        const std::pair<quint64, QString> id {r.clipId, r.paramPath};
+        auto it
+            = std::find_if(out.begin(), out.end(), [&](const auto& g) { return g.first == id; });
+        if (it == out.end())
+            out.append({id, {r.frame}});
+        else
+            it->second.append(r.frame);
+    }
+    return out;
+}
+} // namespace
+
+QVector<KeyframeRef> reverseKeys(TimelineData& data, const QVector<KeyframeRef>& refs)
+{
+    QVector<KeyframeRef> out;
+    for (const auto& [id, frames] : groupByParam(refs)) {
+        ClipData* clip = editops::clipById(data, id.first);
+        AnimatedValue* value = clip ? findValue(*clip, id.second) : nullptr;
+        if (!value || isShapePath(id.second))
+            continue;
+        for (int64_t f : value->reverseKeys(frames))
+            out.append({id.first, id.second, f});
+    }
+    return out;
+}
+
+QVector<KeyframeRef> stretchKeys(
+    TimelineData& data, const QVector<KeyframeRef>& refs, double pivot, double factor)
+{
+    QVector<KeyframeRef> out;
+    for (const auto& [id, frames] : groupByParam(refs)) {
+        ClipData* clip = editops::clipById(data, id.first);
+        AnimatedValue* value = clip ? findValue(*clip, id.second) : nullptr;
+        if (!value || isShapePath(id.second))
+            continue;
+        for (int64_t f : value->stretchKeys(frames, pivot, factor))
+            out.append({id.first, id.second, f});
+    }
+    return out;
+}
+
+int setExtrapolation(
+    TimelineData& data, const QVector<KeyframeRef>& params, bool pre, bool post, Extrapolation mode)
+{
+    int n = 0;
+    for (const auto& [id, frames] : groupByParam(params)) {
+        ClipData* clip = editops::clipById(data, id.first);
+        AnimatedValue* value = clip ? findValue(*clip, id.second) : nullptr;
+        if (!value || !value->isAnimated() || isShapePath(id.second))
+            continue;
+        if (pre)
+            value->pre = mode;
+        if (post)
+            value->post = mode;
+        ++n;
+    }
+    return n;
 }
 
 bool setHandle(TimelineData& data, const KeyframeRef& ref, HandleSide side, double dtFrames,
@@ -692,6 +783,7 @@ bool setHandle(TimelineData& data, const KeyframeRef& ref, HandleSide side, doub
     KeyHandle& o = side == HandleSide::In ? k.out : k.in;
     h = KeyHandle {KeyHandle::Mode::Free, dtFrames, dv};
     k.hold = false;
+    k.stepIn = false;
     if (keepSmooth && o.mode != KeyHandle::Mode::Linear) {
         // Same slope on both sides (both dv conventions are slope * dt), other length kept.
         const double slope = dv / dtFrames;
@@ -749,6 +841,7 @@ QVector<KeyframeRef> pasteKeys(
                 k.in = e.key.in;
                 k.out = e.key.out;
                 k.hold = e.key.hold;
+                k.stepIn = e.key.stepIn;
             }
             out.append({clipId, e.path, frame});
             continue;

@@ -3,15 +3,18 @@
 #include "ui/keyframes/KeyframesPanel.h"
 
 #include "core/EditOps.h"
+#include "core/KeyframeOps.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/comp/CompSession.h"
 #include "ui/keyframes/CurveView.h"
 #include "ui/keyframes/DopeSheetView.h"
 #include "ui/keyframes/KeyframeCommands.h"
@@ -21,8 +24,11 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QSettings>
@@ -39,6 +45,7 @@
 namespace kk {
 
 namespace kc = keyframecommands;
+namespace ko = keyframeops;
 
 namespace {
 constexpr int kAxisWidth = 64; ///< value axis column of the curves (ruler / dope sheet align)
@@ -205,6 +212,7 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this,
         &KeyframesPanel::applyRegionColors);
     applyRegionColors();
+    setupSplineTools();
     setView(View::Keyframes);
     rebuild();
 }
@@ -303,6 +311,81 @@ QWidget* KeyframesPanel::buildToolRow()
     }
     connect(button(QStringLiteral("interp_flatten"), {}, tr("Flatten Handles"), false),
         &QToolButton::clicked, this, [this] { kc::flattenSelected(m_ctx); });
+    // Spline tools (Fusion's Spline editor): Step In, Reverse, Time Stretch and the loop modes.
+    m_stepInButton = button({}, tr("Step In"),
+        tr("Step In (I): the value jumps right after the previous key. Step Out is the "
+           "Static (Hold) button."),
+        false);
+    connect(m_stepInButton, &QToolButton::clicked, this, [this] { kc::stepSelected(m_ctx, true); });
+    m_reverseButton = button(
+        {}, tr("Reverse"), tr("Reverse (V): mirror the selected keyframes in time"), false);
+    connect(m_reverseButton, &QToolButton::clicked, this, [this] { kc::reverseSelected(m_ctx); });
+    m_stretchButton = button({}, tr("Time Stretch"),
+        tr("Time Stretch: scale the time of the selected keyframes around the playhead"), false);
+    connect(m_stretchButton, &QToolButton::clicked, this, [this] {
+        bool ok = false;
+        const double percent = QInputDialog::getDouble(this, tr("Time Stretch"),
+            tr("Scale the selected keyframes around the playhead (percent of their time):"), 200.0,
+            1.0, 10000.0, 1, &ok);
+        if (ok)
+            stretchSelectedKeys(percent / 100.0);
+    });
+    m_loopButton = button({}, tr("Loop"),
+        tr("Set Loop: repeat the keyed range after the last key. The arrow lists Ping-Pong, "
+           "Relative, Linear, the Pre-Loop variants and Remove Loop."),
+        false);
+    m_loopButton->setPopupMode(QToolButton::MenuButtonPopup);
+    auto* loopMenu = new QMenu(m_loopButton);
+    m_loopButton->setMenu(loopMenu);
+    connect(loopMenu, &QMenu::aboutToShow, this, [this, loopMenu] {
+        loopMenu->clear();
+        fillSplineMenu(*loopMenu);
+    });
+    connect(m_loopButton, &QToolButton::clicked, this, [this] {
+        kc::setExtrapolation(m_ctx, false, true, Extrapolation::Loop, shownCurveRefs());
+    });
+    m_timeBox = new QDoubleSpinBox(row);
+    m_timeBox->setObjectName(QStringLiteral("KeyframesTimeBox"));
+    m_timeBox->setPrefix(tr("T "));
+    m_timeBox->setDecimals(0);
+    m_timeBox->setRange(-1000000, 1000000);
+    m_timeBox->setKeyboardTracking(false);
+    m_timeBox->setToolTip(tr("Frame of the selected keyframe (clip frames); type to move it"));
+    m_valueBox = new QDoubleSpinBox(row);
+    m_valueBox->setObjectName(QStringLiteral("KeyframesValueBox"));
+    m_valueBox->setPrefix(tr("V "));
+    m_valueBox->setDecimals(3);
+    m_valueBox->setRange(-1e9, 1e9);
+    m_valueBox->setKeyboardTracking(false);
+    m_valueBox->setToolTip(tr("Value of the selected keyframe; type to change it"));
+    m_timeBox->setEnabled(false);
+    m_valueBox->setEnabled(false);
+    connect(m_timeBox, &QDoubleSpinBox::valueChanged, this, [this] { applyKeyBox(true); });
+    connect(m_valueBox, &QDoubleSpinBox::valueChanged, this, [this] { applyKeyBox(false); });
+    h->addWidget(m_timeBox);
+    h->addWidget(m_valueBox);
+    // Compositing page: which nodes' curves the list shows and which curves are drawn.
+    m_selOnlyButton = button({}, tr("Sel"),
+        tr("Sel: list only the selected nodes' parameters; off: every node of the composition"),
+        true);
+    m_selOnlyButton->setChecked(true);
+    connect(m_selOnlyButton, &QToolButton::toggled, this, [this](bool on) {
+        m_selOnly = on;
+        rebuild();
+    });
+    m_allCurvesButton
+        = button({}, tr("All"), tr("Show the curves of every listed parameter"), false);
+    connect(m_allCurvesButton, &QToolButton::clicked, this, [this] {
+        for (const CurveInfo& c : m_curves->curves())
+            m_curves->setCurveShown(c.id, true);
+    });
+    m_noCurvesButton = button({}, tr("None"), tr("Hide every curve"), false);
+    connect(m_noCurvesButton, &QToolButton::clicked, this, [this] {
+        for (const CurveInfo& c : m_curves->curves())
+            m_curves->setCurveShown(c.id, false);
+    });
+    for (QToolButton* b : {m_selOnlyButton, m_allCurvesButton, m_noCurvesButton})
+        m_toolActions.value(b)->setVisible(false); // Compositing page only
     separator();
 
     m_normalisedButton = button({}, tr("Normalised"),
@@ -315,10 +398,7 @@ QWidget* KeyframesPanel::buildToolRow()
     });
     connect(button(QStringLiteral("curve_fit"), {}, tr("Fit All: every curve and the whole clip"),
                 false),
-        &QToolButton::clicked, this, [this] {
-            m_curves->fitView();
-            setViewMode(ViewMode::FitClip);
-        });
+        &QToolButton::clicked, this, [this] { fitAll(); });
     m_fitSelectionButton
         = button({}, tr("Fit Selection"), tr("Zoom to the selected keyframes"), false);
     connect(
@@ -350,6 +430,189 @@ QWidget* KeyframesPanel::buildToolRow()
     // hidden by action, and the toolbar's own minimum is just the extension button, so a
     // docked column does not jump when the view switches.
     return row;
+}
+
+// ---- Compositing page mode and spline tools ----
+
+void KeyframesPanel::attachComposition(CompSession* session, View view)
+{
+    m_session = session;
+    const bool spline = view == View::Curves;
+    setTitle(spline ? tr("Spline") : tr("Keyframes"));
+    setPanelInfo(this, spline ? tr("Spline") : tr("Keyframes"),
+        spline ? tr("Curves of the animated parameters of the selected nodes, with the spline "
+                    "tools: Smooth, Linear, Step, Ease, Reverse, Time Stretch and Loop.")
+               : tr("The keyframes of the selected nodes' animated parameters along time."));
+    setPanelKey(spline ? QStringLiteral("spline") : QStringLiteral("keyframes_comp"));
+    setObjectName(spline ? QStringLiteral("SplinePanel") : QStringLiteral("CompKeyframesPanel"));
+    m_floatButton->hide();
+    m_keyframesViewButton->hide();
+    m_curvesViewButton->hide();
+    m_toolActions.value(m_keyframesViewButton)->setVisible(false);
+    m_toolActions.value(m_curvesViewButton)->setVisible(false);
+    for (QToolButton* b : {m_selOnlyButton, m_allCurvesButton, m_noCurvesButton})
+        m_toolActions.value(b)->setVisible(b == m_selOnlyButton || spline);
+    QWidget* oldPlaceholder = m_stack->widget(0);
+    m_stack->removeWidget(oldPlaceholder);
+    oldPlaceholder->deleteLater();
+    m_stack->insertWidget(0,
+        createPlaceholderContent(
+            tr("Select a node with animated parameters. Animate a parameter with the keyframe "
+               "button in the Inspector, or turn on Show All to list every parameter.")));
+    connect(session, &CompSession::selectionChanged, this, &KeyframesPanel::rebuild);
+    connect(session, &CompSession::compositionChanged, this, &KeyframesPanel::rebuild);
+    connect(session, &CompSession::clipChanged, this, &KeyframesPanel::rebuild);
+    m_split->setSizes({kTreeWidth / 2, 1000}); // the page's panels are narrow: curves first
+    setView(view);
+    rebuild();
+}
+
+void KeyframesPanel::setupSplineTools()
+{
+    // Right-click menu of both views: the loop, reverse and stretch commands after the presets.
+    auto extender = [this](QMenu& menu) {
+        menu.addSeparator();
+        fillSplineMenu(menu);
+    };
+    m_curves->setMenuExtender(extender);
+    m_dope->setMenuExtender(extender);
+    kc::bindSplineActions(m_ctx);
+    if (!m_ctx.actions)
+        return;
+    // The registry's commands (Clip > Keyframes, keys S L I O V T F) act while this panel has
+    // the focus: the actions are added to the panel and have a widget-with-children context.
+    QStringList ids;
+    for (const kc::SplineAction& a : kc::splineActions())
+        ids << QLatin1String(a.id);
+    for (const kc::EasingAction& a : kc::easingActions())
+        ids << QLatin1String(a.id);
+    ids << QStringLiteral("clip.keyframe_fit");
+    for (const QString& id : std::as_const(ids)) {
+        if (m_ctx.actions->contains(id))
+            addAction(m_ctx.actions->action(id));
+    }
+    if (m_ctx.actions->contains(QStringLiteral("clip.keyframe_fit"))) {
+        connect(m_ctx.actions->action(QStringLiteral("clip.keyframe_fit")), &QAction::triggered,
+            this, [this] {
+                const QWidget* focus = QApplication::focusWidget();
+                if (focus && (focus == this || isAncestorOf(focus)))
+                    fitAll();
+            });
+    }
+}
+
+void KeyframesPanel::showEvent(QShowEvent* event)
+{
+    PanelFrame::showEvent(event);
+    if (m_session)
+        rebuild();
+}
+
+QVector<KeyframeRef> KeyframesPanel::shownCurveRefs() const
+{
+    QVector<KeyframeRef> refs;
+    for (const ParamId& id : m_curves->shownCurves())
+        refs.append({id.clipId, id.path, 0});
+    return refs;
+}
+
+void KeyframesPanel::fillSplineMenu(QMenu& menu)
+{
+    const QVector<KeyframeRef> fallback = shownCurveRefs();
+    auto add = [&](QMenu& into, const QString& text, bool pre, Extrapolation mode) {
+        into.addAction(text, this, [this, pre, mode, fallback] {
+            kc::setExtrapolation(m_ctx, pre, !pre, mode, fallback);
+        });
+    };
+    add(menu, tr("Set Loop"), false, Extrapolation::Loop);
+    add(menu, tr("Set Ping-Pong"), false, Extrapolation::PingPong);
+    add(menu, tr("Set Relative"), false, Extrapolation::Relative);
+    add(menu, tr("Linear Extrapolation"), false, Extrapolation::Linear);
+    add(menu, tr("Remove Loop"), false, Extrapolation::Constant);
+    QMenu* pre = menu.addMenu(tr("Pre-Loop"));
+    add(*pre, tr("Set Pre-Loop"), true, Extrapolation::Loop);
+    add(*pre, tr("Set Pre-Ping-Pong"), true, Extrapolation::PingPong);
+    add(*pre, tr("Set Pre-Relative"), true, Extrapolation::Relative);
+    add(*pre, tr("Linear Extrapolation Before"), true, Extrapolation::Linear);
+    add(*pre, tr("Remove Pre-Loop"), true, Extrapolation::Constant);
+    menu.addSeparator();
+    menu.addAction(tr("Step In"), this, [this] { kc::stepSelected(m_ctx, true); });
+    menu.addAction(tr("Reverse"), this, [this] { kc::reverseSelected(m_ctx); });
+    menu.addAction(tr("Time Stretch…"), this, [this] { m_stretchButton->click(); });
+}
+
+bool KeyframesPanel::stretchSelectedKeys(double factor)
+{
+    return kc::stretchSelectedAtPlayhead(m_ctx, factor);
+}
+
+void KeyframesPanel::fitAll()
+{
+    m_curves->fitView();
+    setViewMode(ViewMode::FitClip);
+}
+
+void KeyframesPanel::updateKeyBoxes()
+{
+    // One selected key shows its clip frame and value; typing in a box edits that key.
+    const QVector<KeyframeRef> sel = m_ctx.selection->keyframes();
+    const ClipData* clip = nullptr;
+    const AnimatedValue* v = nullptr;
+    qsizetype index = -1;
+    if (sel.size() == 1) {
+        clip = editops::clipById(m_ctx.project->timeline()->data(), sel.front().clipId);
+        v = clip ? ko::findValue(*clip, sel.front().paramPath) : nullptr;
+        index = v ? v->indexOf(sel.front().frame) : -1;
+    }
+    m_updatingBoxes = true;
+    const bool on = index >= 0 && !ko::isShapePath(sel.front().paramPath);
+    m_timeBox->setEnabled(on);
+    m_valueBox->setEnabled(on);
+    if (on) {
+        double sign = 1.0;
+        for (const CurveInfo& c : m_curves->curves()) {
+            if (c.id.clipId == sel.front().clipId && c.id.path == sel.front().paramPath)
+                sign = c.displayNegated ? -1.0 : 1.0;
+        }
+        m_timeBox->setValue(double(sel.front().frame));
+        m_valueBox->setValue(sign * v->keys[index].value);
+    }
+    m_updatingBoxes = false;
+}
+
+void KeyframesPanel::applyKeyBox(bool time)
+{
+    const QVector<KeyframeRef> sel = m_ctx.selection->keyframes();
+    if (m_updatingBoxes || sel.size() != 1)
+        return;
+    const KeyframeRef ref = sel.front();
+    const ClipData* clip = editops::clipById(m_ctx.project->timeline()->data(), ref.clipId);
+    const AnimatedValue* v = clip ? ko::findValue(*clip, ref.paramPath) : nullptr;
+    const qsizetype index = v ? v->indexOf(ref.frame) : -1;
+    if (index < 0)
+        return;
+    if (time) {
+        const int64_t delta = int64_t(std::llround(m_timeBox->value())) - ref.frame;
+        if (delta == 0)
+            return;
+        m_ctx.project->beginEdit(tr("Move Keyframes"));
+        const QVector<KeyframeRef> moved
+            = ko::moveKeys(m_ctx.project->timeline()->mutableData(), {ref}, delta);
+        m_ctx.project->endEdit();
+        m_ctx.selection->setKeyframes(moved);
+    } else {
+        double sign = 1.0;
+        for (const CurveInfo& c : m_curves->curves()) {
+            if (c.id.clipId == ref.clipId && c.id.path == ref.paramPath)
+                sign = c.displayNegated ? -1.0 : 1.0;
+        }
+        const double delta = sign * m_valueBox->value() - v->keys[index].value;
+        if (delta == 0.0)
+            return;
+        m_ctx.project->beginEdit(tr("Change Keyframe Value"));
+        ko::offsetKeyValues(m_ctx.project->timeline()->mutableData(), {ref}, delta);
+        m_ctx.project->endEdit();
+    }
 }
 
 // ---- Options ----
@@ -427,7 +690,20 @@ void KeyframesPanel::setShowAllParameters(bool all)
 void KeyframesPanel::rebuild()
 {
     const TimelineData& data = m_ctx.project->timeline()->data();
-    m_model = keyframeitems::build(data, m_ctx.selection->clips(), m_showAll);
+    if (m_session) {
+        // A hidden panel (the page's toggle is off) skips the work; showEvent() rebuilds.
+        if (!isVisible())
+            return;
+        QVector<quint64> nodes;
+        if (m_selOnly) {
+            nodes = m_session->selectedNodes();
+            if (nodes.isEmpty())
+                nodes = {0}; // matches no node: Sel with nothing selected lists nothing
+        }
+        m_model = keyframeitems::buildComp(data, m_session->clipId(), nodes, m_showAll);
+    } else {
+        m_model = keyframeitems::build(data, m_ctx.selection->clips(), m_showAll);
+    }
     const QVector<quint64> clips = m_model.allClips();
     const bool newItems = clips != m_shownClips;
     m_shownClips = clips;
@@ -438,7 +714,9 @@ void KeyframesPanel::rebuild()
         name = tr("%1 + %n more", nullptr, int(m_model.items.size() - 1)).arg(name);
     if (m_itemLabel->text() != name)
         m_itemLabel->setText(name);
-    m_stack->setCurrentIndex(m_model.items.isEmpty() ? 0 : 1);
+    // Compositing page: without a listed parameter the placeholder explains how to get one.
+    const bool noRows = m_session && m_model.entries.size() <= 1;
+    m_stack->setCurrentIndex(m_model.items.isEmpty() || noRows ? 0 : 1);
 
     const QVector<int> rows = keyframeitems::visibleRows(m_model.entries, m_collapsed);
     QVector<KeyRow> keyRows;
@@ -468,6 +746,7 @@ void KeyframesPanel::rebuild()
     m_ruler->setClips(clips);
     m_tree->setRows(m_model.entries, rows, m_collapsed);
     syncDopeWindow();
+    updateKeyBoxes();
     if (newItems || m_viewMode == ViewMode::FitClip)
         applyView();
 }
@@ -604,7 +883,7 @@ bool KeyframesPanel::headerEvent(QEvent* event)
     switch (event->type()) {
     case QEvent::MouseButtonDblClick: {
         auto* mouse = static_cast<QMouseEvent*>(event);
-        if (mouse->button() != Qt::LeftButton)
+        if (mouse->button() != Qt::LeftButton || m_session)
             return false;
         m_headerArmed = false;
         emit floatToggleRequested();
@@ -612,7 +891,7 @@ bool KeyframesPanel::headerEvent(QEvent* event)
     }
     case QEvent::MouseButtonPress: {
         auto* mouse = static_cast<QMouseEvent*>(event);
-        m_headerArmed = mouse->button() == Qt::LeftButton;
+        m_headerArmed = mouse->button() == Qt::LeftButton && !m_session;
         m_headerPressGlobal = mouse->globalPosition().toPoint();
         return false;
     }

@@ -235,6 +235,24 @@ const ActionSpec kActions[] = {
     {"clip.keyframe_interp", "clip.keyframe_ease_in", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe Ease &In")},
     {"clip.keyframe_interp", "clip.keyframe_ease_out", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe Ease &Out")},
     {"clip.keyframe_interp", "clip.keyframe_ease_in_out", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe Ease In &and Out")},
+    {"clip.keyframe_interp", "clip.keyframe_smooth", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe &Smooth")},
+    {"clip.keyframe_interp", "clip.keyframe_step_in", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe Step I&n")},
+    {"clip.keyframe_interp", "clip.keyframe_step_out", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe Step Ou&t")},
+    // Loops (extrapolation) of the animated parameters of the selected keys; Reverse mirrors the keys.
+    {"clip", ">clip.keyframe_loops", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframe L&oops")},
+    {"clip.keyframe_loops", "clip.keyframe_loop", QT_TRANSLATE_NOOP("kk::StandardActions", "Set &Loop")},
+    {"clip.keyframe_loops", "clip.keyframe_ping_pong", QT_TRANSLATE_NOOP("kk::StandardActions", "Set &Ping-Pong")},
+    {"clip.keyframe_loops", "clip.keyframe_relative", QT_TRANSLATE_NOOP("kk::StandardActions", "Set &Relative")},
+    {"clip.keyframe_loops", "clip.keyframe_extrapolate_linear", QT_TRANSLATE_NOOP("kk::StandardActions", "Linear &Extrapolation")},
+    {"clip.keyframe_loops", "clip.keyframe_no_loop", QT_TRANSLATE_NOOP("kk::StandardActions", "Remove L&oop")},
+    {"clip.keyframe_loops", "-"},
+    {"clip.keyframe_loops", "clip.keyframe_pre_loop", QT_TRANSLATE_NOOP("kk::StandardActions", "Set Pre-Loop")},
+    {"clip.keyframe_loops", "clip.keyframe_pre_ping_pong", QT_TRANSLATE_NOOP("kk::StandardActions", "Set Pre-Ping-Pong")},
+    {"clip.keyframe_loops", "clip.keyframe_pre_relative", QT_TRANSLATE_NOOP("kk::StandardActions", "Set Pre-Relative")},
+    {"clip.keyframe_loops", "clip.keyframe_pre_extrapolate_linear", QT_TRANSLATE_NOOP("kk::StandardActions", "Linear Extrapolation Before")},
+    {"clip.keyframe_loops", "clip.keyframe_pre_no_loop", QT_TRANSLATE_NOOP("kk::StandardActions", "Remove Pre-Loop")},
+    {"clip", "clip.keyframe_reverse", QT_TRANSLATE_NOOP("kk::StandardActions", "&Reverse Keyframes")},
+    {"clip", "clip.keyframe_fit", QT_TRANSLATE_NOOP("kk::StandardActions", "&Fit Keyframe Editor to Curves")},
     {"clip", "clip.toggle_keyframe_editor", QT_TRANSLATE_NOOP("kk::StandardActions", "Show Keyframe &Editor"), "keyframe_editor"},
     {"clip", "clip.toggle_curve_editor", QT_TRANSLATE_NOOP("kk::StandardActions", "Show C&urve Editor"), "curve_editor"},
     {"clip", "-"},
@@ -284,6 +302,7 @@ const ActionSpec kActions[] = {
     {"view.panels", "view.toggle_keyframes", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframes"), "panel_keyframes", true},
     {"view.panels", "view.keyframes_panel_toggle_view", QT_TRANSLATE_NOOP("kk::StandardActions", "Keyframes Panel: Toggle Keyframe / Curve"), "curve_editor"},
     {"view.panels", "view.toggle_nodes",     QT_TRANSLATE_NOOP("kk::StandardActions", "Nodes"), "panel_nodes", true},
+    {"view.panels", "view.toggle_spline",    QT_TRANSLATE_NOOP("kk::StandardActions", "Spline"), "curve_editor", true},
     {"view.panels", "view.toggle_gallery",   QT_TRANSLATE_NOOP("kk::StandardActions", "Gallery"), "image", true},
     {"view.panels", "view.toggle_clips",     QT_TRANSLATE_NOOP("kk::StandardActions", "Clips"), "strip_view", true},
     {"view.panels", "view.toggle_color_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline"), "timeline", true},
@@ -655,6 +674,19 @@ void registerStandardActions(ActionRegistry& registry)
         if (registry.contains(id)) {
             registry.action(id)->setEnabled(false);
             registry.setShortcutScope(id, QStringLiteral("page:cut"));
+        }
+    }
+
+    // The spline keys (S L I O V T F) act while a Keyframes / Spline panel has the focus: the
+    // panels add these actions to themselves; as window shortcuts L, I and O would clash with
+    // transport and marks.
+    for (const char* id :
+        {"clip.keyframe_linear", "clip.keyframe_ease_in", "clip.keyframe_ease_out",
+            "clip.keyframe_ease_in_out", "clip.keyframe_smooth", "clip.keyframe_step_in",
+            "clip.keyframe_step_out", "clip.keyframe_reverse", "clip.keyframe_fit"}) {
+        if (registry.contains(QLatin1String(id))) {
+            registry.action(QLatin1String(id))->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+            registry.setShortcutScope(QLatin1String(id), QStringLiteral("widget:keyframes_panel"));
         }
     }
 

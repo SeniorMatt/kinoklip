@@ -45,6 +45,31 @@ To make every new keyframe start that way, right-click a diamond (or a keyframe 
 Keyframes panel) and choose **Set as Default for New Keyframes**, or pick it in
 **Preferences > Editing > New keyframes**. Keyframes you already made stay as they are.
 
+## Loop the keyframes
+
+A value normally stays at its last keyframe's value for the rest of the clip. To make the
+animation repeat instead, open the **Keyframes** panel (**Show Panel in Workspace >
+Keyframes**), switch to **Curves**, and click one keyframe of the row you want (or none to loop
+every curve you see). Click **Loop**: after the last keyframe the value repeats the keyed range.
+The repeated part of the curve is drawn dashed and dimmed; change the original keyframes and
+the repeats follow.
+
+The arrow beside **Loop** lists the other kinds:
+
+- **Set Ping-Pong** plays the range forward, then backward, and so on.
+- **Set Relative** repeats the range but each repeat starts where the last one ended, so a
+  rotation from 0 to 90 degrees keeps turning: 180, 270, ...
+- **Linear Extrapolation** carries on along the last segment's slope.
+- **Remove Loop** goes back to holding the last value.
+- **Pre-Loop** does the same before the first keyframe.
+
+The same commands are in **Clip > Keyframes > Loops** and in the right-click menu of the
+panel. **Reverse** (key **V** in the panel) mirrors the selected keyframes in time, and
+**Time Stretch** scales their spacing around the playhead (200 % makes the movement twice as
+slow). The panels' **T** and **V** boxes type an exact frame and value for the selected
+keyframe. Each of these is one undo step. On the [Compositing page](compositing-page.md) the
+Spline panel has the same buttons for the parameters of the selected nodes.
+
 ## See all keyframes on the timeline
 
 Every animated clip shows two small buttons at its bottom-right corner on the timeline. The
@@ -65,6 +90,8 @@ move keyframes in time. The curve button shows how the value changes between the
 
 ## If something goes wrong
 
+- **The Loop button does nothing.** A loop needs at least two keyframes on the parameter.
+  Select a keyframe (or turn on the curves you want in the list) first.
 - **The diamond is greyed out.** The playhead is not over the selected clip. Move it into the
   clip first.
 - **Changing a value changes it for the whole clip.** The row has no keyframes yet. Click its

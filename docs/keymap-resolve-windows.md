@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 345 commands; sure 106, likely 115, unsure 124.
+Counts: 363 commands; sure 106, likely 122, unsure 135.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -201,10 +201,25 @@ that every command has an entry and that no key is used twice.
 | Delete Keyframes | `clip.delete_keyframe` | (none) | unsure | no known default; Delete / Backspace act on selected keys while the keyframe or curve editor has focus |
 | Copy Keyframes | `clip.copy_keyframes` | (none) | unsure | no known default; Ctrl+C acts on selected keys while the keyframe or curve editor has focus |
 | Paste Keyframes | `clip.paste_keyframes` | (none) | unsure | no known default; Ctrl+V pastes keys at the playhead while the keyframe or curve editor has focus |
-| Keyframe Linear (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_linear` | (none) | unsure | Resolve sets interpolation from the keyframe context menus; no default key |
+| Keyframe Linear (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_linear` | `L` | likely | Fusion Spline editor key L; acts while a Keyframes or Spline panel has the focus |
 | Keyframe Ease In (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_ease_in` | (none) | unsure | no default key known |
 | Keyframe Ease Out (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_ease_out` | (none) | unsure | no default key known |
-| Keyframe Ease In and Out (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_ease_in_out` | (none) | unsure | no default key known |
+| Keyframe Ease In and Out (selected keys, else the keys at the playhead of the selected clips) | `clip.keyframe_ease_in_out` | `T` | likely | Fusion Spline editor key T (ease); acts while a Keyframes or Spline panel has the focus |
+| Keyframe Smooth | `clip.keyframe_smooth` | `S` | likely | acts while a Keyframes or Spline panel has the focus (Fusion Spline editor key) |
+| Keyframe Step In | `clip.keyframe_step_in` | `I` | likely | acts while a Keyframes or Spline panel has the focus (Fusion Spline editor key) |
+| Keyframe Step Out | `clip.keyframe_step_out` | `O` | likely | acts while a Keyframes or Spline panel has the focus (Fusion Spline editor key) |
+| Set Loop (after the last keyframe) | `clip.keyframe_loop` | (none) | unsure | Fusion's Set Loop is a spline editor button and context menu entry; no key |
+| Set Ping-Pong (after the last keyframe) | `clip.keyframe_ping_pong` | (none) | unsure | Fusion's Set Ping-Pong is a spline editor button and context menu entry; no key |
+| Set Relative (after the last keyframe) | `clip.keyframe_relative` | (none) | unsure | Fusion's Set Relative is a spline editor button and context menu entry; no key |
+| Linear Extrapolation (after the last keyframe) | `clip.keyframe_extrapolate_linear` | (none) | unsure | Kinoklip's own, no key |
+| Remove Loop (hold the last value) | `clip.keyframe_no_loop` | (none) | unsure | no key |
+| Set Pre-Loop (before the first keyframe) | `clip.keyframe_pre_loop` | (none) | unsure | Fusion lists Pre-Loop in the spline editor context menu only; no key |
+| Set Pre-Ping-Pong | `clip.keyframe_pre_ping_pong` | (none) | unsure | context menu only in Fusion; no key |
+| Set Pre-Relative | `clip.keyframe_pre_relative` | (none) | unsure | context menu only in Fusion; no key |
+| Linear Extrapolation Before the first keyframe | `clip.keyframe_pre_extrapolate_linear` | (none) | unsure | Kinoklip's own, no key |
+| Remove Pre-Loop | `clip.keyframe_pre_no_loop` | (none) | unsure | no key |
+| Reverse Keyframes (mirror the selected keys in time) | `clip.keyframe_reverse` | `V` | likely | acts while a Keyframes or Spline panel has the focus (Fusion Spline editor key) |
+| Fit Keyframe Editor to Curves | `clip.keyframe_fit` | `F` | likely | acts while a Keyframes or Spline panel has the focus (Fusion Spline editor key) |
 | Show Keyframe Editor | `clip.toggle_keyframe_editor` | (none) | likely | Resolve uses the clip's keyframe button; no default key |
 | Show Curve Editor | `clip.toggle_curve_editor` | (none) | likely | Resolve uses the clip's curve button; no default key |
 
@@ -239,6 +254,7 @@ that every command has an entry and that no key is used twice.
 | Media Pool panel | `view.toggle_media_pool` | (none) | likely |  |
 | Effects panel | `view.toggle_effects` | (none) | likely |  |
 | Edit Index panel | `view.toggle_edit_index` | (none) | likely |  |
+| Spline panel (Compositing page curves of the selected nodes) | `view.toggle_spline` | (none) | unsure | interface bar toggle; no default key known, none assigned |
 | Nodes panel (Compositing page node editor) | `view.toggle_nodes` | (none) | unsure | interface bar toggle; no default key known, none assigned |
 | Keyframes panel (keyframe editor window) | `view.toggle_keyframes` | (none) | unsure | Kinoklip's large keyframe editor; no default key is known, none assigned. |
 | Keyframes Panel: Toggle Keyframe / Curve | `view.keyframes_panel_toggle_view` | (none) | unsure | Third-party guides name a Toggle Keyframe/Curve command in Resolve's Keyboard Customization, with no default key; none assigned. |

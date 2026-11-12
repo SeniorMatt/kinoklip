@@ -96,6 +96,7 @@ constexpr PanelToggle kPanelToggles[] = {
     {"view.toggle_clips", PanelId::Clips, true, false}, // Color page
     {"view.toggle_color_timeline", PanelId::ColorTimeline, true, false}, // Color page
     {"view.toggle_nodes", PanelId::Nodes, false, true}, // Compositing and Color page node editors
+    {"view.toggle_spline", PanelId::Spline, false, false}, // Compositing page
     {"view.toggle_scopes", PanelId::Scopes, false, false}, // Color page
     {"view.toggle_mixer", PanelId::Mixer, false, false},
     {"view.toggle_metadata", PanelId::Metadata, false, false},

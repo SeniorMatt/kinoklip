@@ -24,7 +24,8 @@ namespace kk::keyframeops {
 //   its AnimatedPath::timing value; the operations below keep the shapes in step).
 //   "retime/retimeFrame" (the retime curve, core/Retime.h; group id "retime", listed last).
 //   "grade/<node id>/<key>" (GradeNode::params of the Color page grade, gradekeys::*) and
-//   "gradewin/<window id>/<key>" (GradeWindow::params, gradewindowkeys::*).
+//   "gradewin/<window id>/<key>" (GradeWindow::params, gradewindowkeys::*) and
+//   "node/<node id>/<key>" (CompNode::params of the clip's composition).
 
 /// Path of a parameter stored in a clip ParamSet member ("transform", "audio", "title",
 /// "retime").
@@ -39,6 +40,9 @@ namespace kk::keyframeops {
 [[nodiscard]] QString gradeWindowPath(quint64 windowId, const QString& key);
 /// Path of a parameter of mask @p maskId (maskkeys::Shape for the animated shape).
 [[nodiscard]] QString maskPath(quint64 maskId, const QString& key);
+/// Path of a parameter of Compositing page node @p nodeId (ClipData::composition, CompNode::params;
+/// frames are comp frames = clip-local frames).
+[[nodiscard]] QString nodePath(quint64 nodeId, const QString& key);
 /// True if @p path addresses a mask shape (its key values are shape indices, not numbers).
 [[nodiscard]] bool isShapePath(const QString& path);
 /// The mask with id @p maskId of @p clip, or nullptr.
@@ -119,6 +123,22 @@ int setInterp(TimelineData& data, const QVector<KeyframeRef>& refs, Interp inter
 /// "Flatten": makes both handles of keys @p refs horizontal, keeping their lengths (curve
 /// editor). Returns the number changed.
 int flattenHandles(TimelineData& data, const QVector<KeyframeRef>& refs);
+
+/// Step Out (@p stepIn false: the value stays until the next key, then jumps = hold) or Step In
+/// (the value jumps right after the previous key) on keys @p refs. Returns the number changed.
+int stepKeys(TimelineData& data, const QVector<KeyframeRef>& refs, bool stepIn);
+/// Mirrors the keys @p refs of each parameter in time inside their own range (Reverse). Returns
+/// the refs at their new frames.
+QVector<KeyframeRef> reverseKeys(TimelineData& data, const QVector<KeyframeRef>& refs);
+/// Scales the time of the keys @p refs around clip-local frame @p pivot by @p factor (> 0).
+/// Returns the refs at their new frames.
+QVector<KeyframeRef> stretchKeys(
+    TimelineData& data, const QVector<KeyframeRef>& refs, double pivot, double factor);
+/// Sets what the animated parameters of @p params (their clip and path; frames are ignored)
+/// do before the first key (@p pre) and / or after the last (@p post). Parameters without keys
+/// are skipped. Returns the number of parameters changed.
+int setExtrapolation(TimelineData& data, const QVector<KeyframeRef>& params, bool pre, bool post,
+    Extrapolation mode);
 
 /// Which handle of a key the curve editor drags.
 enum class HandleSide {

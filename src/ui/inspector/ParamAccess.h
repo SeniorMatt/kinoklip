@@ -24,10 +24,12 @@ enum class ParamScope {
     Effect, ///< ClipData::effects[i].params, i found by ParamRef::effectId
     TransitionIn, ///< ClipData::transitionIn->params (+ the synthetic duration key)
     TransitionOut, ///< ClipData::transitionOut->params (+ the synthetic duration key)
-    Mask ///< ClipData::masks[i].params, i found by ParamRef::effectId (= MaskData::id);
-         ///< the statics maskkeys::Mode / Invert map to MaskData::mode / invert, and the key
-         ///< maskkeys::Shape to the animated path (animated() = its timing; toggleKey() and
-         ///< setKeyInterp() edit shape keys; setScalar() ignores it)
+    Mask, ///< ClipData::masks[i].params, i found by ParamRef::effectId (= MaskData::id);
+          ///< the statics maskkeys::Mode / Invert map to MaskData::mode / invert, and the key
+          ///< maskkeys::Shape to the animated path (animated() = its timing; toggleKey() and
+          ///< setKeyInterp() edit shape keys; setScalar() ignores it)
+    CompNode ///< ClipData::composition node params, node found by ParamRef::effectId (=
+             ///< CompNode::id)
 };
 
 /// Full address of one parameter: clip, storage, effect instance (Effect scope) and key.

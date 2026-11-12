@@ -45,6 +45,14 @@ look of free equalizer editors, which were studied for ideas only: Audacity's Fi
 is not used because it draws a FIR envelope, not a parametric one), FL Studio-style filled total curve
 with numbered band handles. No code from any of them was copied; the maths is Kinoklip's own RBJ biquads (`src/render/Biquad.h`).
 
+### Keyframe loops
+The extrapolation modes of animated values (`src/core/Animation.cpp`, `AnimatedValue::extrapolatedValue()`)
+follow the documented behaviour of Blender's F-Curve Cycles modifier (GPL-2.0-or-later: Repeat Motion, Repeat
+with Offset, Repeat Mirrored; before and after the keyed range separately) and of Fusion's Set Loop / Ping-Pong /
+Relative (Blackmagic Fusion manual). Natron's keyframe extrapolation (GPL-2.0-or-later) was read for the same
+idea. No code from any of them was copied; the maths (period, floor division, mirrored odd repeats, a per-period
+offset) is written from the behaviour.
+
 ## In the release bundles
 The Linux bundles also contain third-party libraries and data, each under its own licence: Qt
 (LGPL-3.0), KDE Frameworks and the Breeze widget style and icons (LGPL-2.0/2.1/3.0-or-later),
