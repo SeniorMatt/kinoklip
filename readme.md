@@ -3,8 +3,8 @@
 
 <h1 align="center"><a href="https://github.com/SeniorMatt/kinoklip/releases">Download here</a></h1>
 <p align="center"><a href="docs/guide/readme.md">How to use Kinoklip</a></p>
+<p align="center"><img src="docs/images/readme/star.svg" height="16" alt="" valign="middle"> If you like Kinoklip, give it a star. It helps a lot!</p>
 <p align="center"><a href="https://discord.gg/pCeHnvDn3x"><img src="https://cdn.simpleicons.org/discord/5865F2" height="16" alt="" valign="middle"> Join our Discord</a></p>
-<p align="center">If you like Kinoklip, give it a star. It helps a lot!</p>
 
 A non-linear video editor written from scratch in C++20 with Qt 6 Widgets and FFmpeg. The layout,
 behaviour and default shortcuts follow DaVinci Resolve's Edit page, with the KDE Breeze look.
