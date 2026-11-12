@@ -32,12 +32,15 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QDebug>
 #include <QLabel>
 #include <QSettings>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QToolBar>
 #include <QToolButton>
 #include <QUndoStack>
 
@@ -418,6 +421,7 @@ private slots:
         };
         QVERIFY(fillOf(p.keyframesViewButton()) != fillOf(p.curvesViewButton()));
         QTest::mouseClick(p.curvesViewButton(), Qt::LeftButton);
+        QApplication::processEvents(); // the tool row lays out its buttons
         QCOMPARE(p.minimumSizeHint().width(), minimumWidth); // a docked column stays put
         QVERIFY(fillOf(p.keyframesViewButton()) != fillOf(p.curvesViewButton()));
         QCOMPARE(p.view(), KeyframesPanel::View::Curves);
@@ -432,6 +436,42 @@ private slots:
         QTest::mouseClick(p.keyframesViewButton(), Qt::LeftButton);
         QVERIFY(p.dopeSheet()->isVisible());
         QVERIFY(!p.curveView()->isVisible());
+    }
+
+    // 15.27: the panel shrinks for a small laptop screen: tool row buttons that do not fit
+    // move into the "»" extension menu, the tree and the views have small minimums.
+    void spec15_27_shrinksOnSmallScreens()
+    {
+        Fixture f;
+        PanelView v(f.ctx);
+        f.selection.selectClip(f.video);
+        QApplication::processEvents();
+        KeyframesPanel& p = v.panel;
+        const QSize hint = p.minimumSizeHint();
+        qInfo() << "keyframes panel minimum size" << hint << "tree" << p.tree()->minimumSizeHint()
+                << "dope" << p.dopeSheet()->minimumSizeHint() << "ruler"
+                << p.ruler()->minimumSizeHint() << "row"
+                << p.findChild<QToolBar*>(QStringLiteral("KeyframesToolRow"))->minimumSizeHint();
+        QVERIFY(hint.width() <= 320);
+        QVERIFY(hint.height() <= 160);
+        p.resize(hint.expandedTo(QSize(300, 200)));
+        QApplication::processEvents();
+        QVERIFY(p.width() <= 320);
+        auto* bar = p.findChild<QToolBar*>(QStringLiteral("KeyframesToolRow"));
+        QVERIFY(bar);
+        QVERIFY(bar->width() <= p.width());
+        QVERIFY(p.keyframesViewButton()->isVisible()); // first in order, kept longest
+        QVERIFY(!p.findChild<QComboBox*>(QStringLiteral("KeyframesViewMode"))->isVisible());
+        auto* ext = bar->findChild<QToolButton*>(QStringLiteral("qt_toolbar_ext_button"));
+        QVERIFY(ext && ext->isVisible()); // the overflow button
+        QVERIFY(p.tree()->isVisible() && p.tree()->width() > 0);
+        QVERIFY(p.dopeSheet()->isVisible() && p.dopeSheet()->width() > 0);
+        if (const QByteArray png = qgetenv("KK_KEYFRAMES_NARROW_PNG"); !png.isEmpty())
+            p.grab().save(QString::fromLocal8Bit(png)); // for looking at the layout by hand
+        p.resize(1400, 600);
+        QApplication::processEvents();
+        QVERIFY(p.findChild<QComboBox*>(QStringLiteral("KeyframesViewMode"))->isVisible());
+        QVERIFY(!ext->isVisible());
     }
 
     // The view switch is two standard checkable tool buttons in one exclusive group, raised
@@ -473,8 +513,8 @@ private slots:
         const QPoint from = dope->rect().center();
         QTest::mousePress(dope, Qt::MiddleButton, {}, from);
         const QPointF to(from + QPoint(-60, 0));
-        QMouseEvent move(QEvent::MouseMove, to, dope->mapToGlobal(to),
-            Qt::NoButton, Qt::MiddleButton, Qt::NoModifier);
+        QMouseEvent move(QEvent::MouseMove, to, dope->mapToGlobal(to), Qt::NoButton,
+            Qt::MiddleButton, Qt::NoModifier);
         QApplication::sendEvent(dope, &move);
         QTest::mouseRelease(dope, Qt::MiddleButton, {}, from + QPoint(-60, 0));
 

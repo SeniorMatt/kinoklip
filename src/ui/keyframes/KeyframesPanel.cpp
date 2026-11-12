@@ -28,6 +28,7 @@
 #include <QSettings>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWheelEvent>
@@ -41,6 +42,7 @@ namespace kc = keyframecommands;
 
 namespace {
 constexpr int kAxisWidth = 64; ///< value axis column of the curves (ruler / dope sheet align)
+constexpr int kTreeMinWidth = 96; ///< smallest width of the tree and of the time views
 constexpr int kTreeWidth = 380; ///< default width of the parameter tree
 constexpr double kFitMargin = 0.04; ///< Fit Clip: free space each side, fraction of the span
 constexpr double kMinPpf = 0.01; ///< time zoom limits (pixels per frame)
@@ -122,14 +124,14 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     m_dope->setLabelWidth(kAxisWidth);
     m_dope->setDrawLabels(false);
     m_dope->setRowHeight(KeyframeParamTree::kRowHeight);
-    m_dope->setMinimumHeight(40);
+    m_dope->setMinimumHeight(24);
     m_dope->setPanelColors(true);
     m_curves = new CurveView(ctx, m_map, nullptr);
     m_curves->setProperty("kkVimContext", QStringLiteral("keyframes"));
     m_curves->setLabelWidth(kAxisWidth);
     m_curves->setAxisLabelsInColumn(true);
     m_curves->setTimeGrid(true);
-    m_curves->setMinimumHeight(80);
+    m_curves->setMinimumHeight(40);
     m_curves->setPanelColors(true);
     m_curves->setTimePanner([this](double dx) { scrollTimePx(-dx); });
     m_dope->setPanner([this](double dx, double dy) {
@@ -150,6 +152,9 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
 
     m_split = new PanelSplitter(Qt::Horizontal);
     m_split->setChildrenCollapsible(false);
+    left->setMinimumWidth(kTreeMinWidth); // narrow, never hidden
+    m_tree->setMinimumHeight(40);
+    m_right->setMinimumWidth(kTreeMinWidth);
     m_split->setHandleWidth(3);
     m_split->addWidget(left);
     m_split->addWidget(m_right);
@@ -208,11 +213,35 @@ KeyframesPanel::~KeyframesPanel() = default;
 
 QWidget* KeyframesPanel::buildToolRow()
 {
-    auto* row = new QWidget;
+    // A QToolBar: what does not fit moves, in order, into its extension menu ("»"), and its
+    // minimum width is only that button, so the panel can be made narrow (spec 15.27).
+    auto* row = new QToolBar;
     row->setObjectName(QStringLiteral("KeyframesToolRow"));
-    auto* h = new QHBoxLayout(row);
-    h->setContentsMargins(metrics::kSpaceS, metrics::kSpaceXs, metrics::kSpaceS, metrics::kSpaceXs);
-    h->setSpacing(metrics::kSpaceXs);
+    row->setMovable(false);
+    row->setFloatable(false);
+    row->setContextMenuPolicy(Qt::PreventContextMenu);
+    row->setIconSize(QSize(metrics::kToolIconSize, metrics::kToolIconSize));
+    row->layout()->setContentsMargins(metrics::kSpaceS, 0, metrics::kSpaceS, 0);
+    row->layout()->setSpacing(metrics::kSpaceXs);
+    struct Adder
+    {
+        QToolBar* bar;
+        QAction* addWidget(QWidget* w) { return bar->addWidget(w); }
+        void addSpacing(int px)
+        {
+            auto* w = new QWidget;
+            w->setFixedSize(px, 1);
+            bar->addWidget(w);
+        }
+        void addStretch(int)
+        {
+            auto* w = new QWidget;
+            w->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+            w->setMinimumWidth(0);
+            bar->addWidget(w);
+        }
+    } hh {row};
+    Adder* h = &hh;
     auto button
         = [&](const QString& icon, const QString& text, const QString& tip, bool checkable) {
               auto* b = new QToolButton(row);
@@ -229,7 +258,7 @@ QWidget* KeyframesPanel::buildToolRow()
                   b->setText(text);
                   b->setFixedHeight(kToolButtonSize);
               }
-              h->addWidget(b);
+              m_toolActions.insert(b, h->addWidget(b));
               return b;
           };
     auto separator = [&] { h->addSpacing(metrics::kSpaceL); };
@@ -317,9 +346,9 @@ QWidget* KeyframesPanel::buildToolRow()
         true);
     connect(m_showAllButton, &QToolButton::toggled, this, &KeyframesPanel::setShowAllParameters);
 
-    // As wide in both views: a docked column must not jump when the view switches and the
-    // curves' buttons appear (setView() has not hidden them yet).
-    row->setMinimumWidth(row->minimumSizeHint().width());
+    // The tool row's width does not depend on the view: Normalised and Fit Selection are
+    // hidden by action, and the toolbar's own minimum is just the extension button, so a
+    // docked column does not jump when the view switches.
     return row;
 }
 
@@ -374,8 +403,8 @@ void KeyframesPanel::setView(View view)
     if (hadFocus)
         next->setFocus(); // Delete and Ctrl+C keep acting on the selected keys
     // These two act on the value axis, which only the curves have.
-    m_normalisedButton->setVisible(view == View::Curves);
-    m_fitSelectionButton->setVisible(view == View::Curves);
+    m_toolActions.value(m_normalisedButton)->setVisible(view == View::Curves);
+    m_toolActions.value(m_fitSelectionButton)->setVisible(view == View::Curves);
 }
 
 void KeyframesPanel::setNormalised(bool normalised)

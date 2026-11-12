@@ -7,6 +7,7 @@
 #include "ui/keyframes/KeyframeItemModel.h"
 #include "ui/keyframes/KeyframeTimeMap.h"
 
+#include <QHash>
 #include <QSet>
 
 class QButtonGroup;
@@ -153,6 +154,7 @@ private:
     QButtonGroup* m_viewGroup = nullptr;
     QToolButton* m_keyframesViewButton = nullptr;
     QToolButton* m_curvesViewButton = nullptr;
+    QHash<QToolButton*, QAction*> m_toolActions; ///< tool row action of each button
     QToolButton* m_normalisedButton = nullptr;
     QToolButton* m_fitSelectionButton = nullptr;
     QToolButton* m_showAllButton = nullptr;
