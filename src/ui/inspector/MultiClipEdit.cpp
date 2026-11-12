@@ -70,6 +70,12 @@ bool copyChanged(const ParamSet& before, const ParamSet& after, ParamSet& peer)
     return values || statics;
 }
 
+/// Titles of different presets share their parameters, so they edit together.
+bool sameKind(const ClipData& a, const ClipData& b)
+{
+    return a.kind == b.kind && (a.kind == ClipKind::Title || a.generator == b.generator);
+}
+
 } // namespace
 
 QVector<quint64> peers(const TimelineData& data, const QVector<quint64>& selection, quint64 shownId)
@@ -86,9 +92,10 @@ QVector<quint64> peers(const TimelineData& data, const QVector<quint64>& selecti
             continue;
         const auto loc = editops::findClip(data, id);
         const ClipData* c = editops::clipById(data, id);
-        // Titles of different presets share their parameters, so they edit together.
-        if (!loc || !c || loc->track.type != shownLoc->track.type || c->kind != shown->kind
-            || (c->kind != ClipKind::Title && c->generator != shown->generator))
+        // Transform, cropping, composite and audio sets exist on every clip, so clips of any
+        // kind on the same kind of track are peers; sets that belong to one kind (titles,
+        // solids, effects) are copied only between clips of that kind (propagate()).
+        if (!loc || !c || loc->track.type != shownLoc->track.type)
             continue;
         const TrackData* track = data.track(loc->track);
         if (!track || track->locked || out.contains(id))
@@ -102,6 +109,16 @@ std::optional<ParamRef> peerRef(const ClipData& shown, const ClipData& peer, con
 {
     ParamRef out = ref;
     out.clipId = peer.id;
+    switch (ref.scope) {
+    case ParamScope::Title:
+    case ParamScope::SolidColor:
+    case ParamScope::Effect:
+        if (!sameKind(shown, peer))
+            return std::nullopt;
+        break;
+    default:
+        break;
+    }
     switch (ref.scope) {
     case ParamScope::Title:
         // A caption's text is its own (spec 28.19): never matched, never "Mixed".
@@ -136,8 +153,9 @@ bool propagate(const ClipData& before, const ClipData& after, ClipData& peer)
 {
     bool changed = copyChanged(before.transform, after.transform, peer.transform);
     changed = copyChanged(before.audio, after.audio, peer.audio) || changed;
-    if (peer.kind == after.kind
-        && (after.kind == ClipKind::Title || peer.generator == after.generator)) {
+    if (!sameKind(peer, after))
+        return changed;
+    {
         if (after.kind == ClipKind::Subtitle) {
             // Typing a caption's words changes that caption only (spec 28.19); its style
             // settings still reach every selected caption.

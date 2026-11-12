@@ -204,6 +204,74 @@ bool TimelineController::addTransition(const QString& typeId)
     });
 }
 
+bool TimelineController::copyTransition()
+{
+    const auto ref = m_ctx.selection->transition();
+    if (!ref)
+        return false;
+    const auto loc = ops::findClip(timeline()->data(), ref->clipId);
+    const ClipData* clip = ops::clipById(timeline()->data(), ref->clipId);
+    if (!loc || !clip)
+        return false;
+    const auto& slot = ref->head ? clip->transitionIn : clip->transitionOut;
+    if (!slot)
+        return false;
+    m_transitionBoard = TransitionBoard {*slot, loc->track.type};
+    return true;
+}
+
+bool TimelineController::pasteTransition()
+{
+    if (!m_transitionBoard)
+        return false;
+    const TimelineData& d = timeline()->data();
+    // Targets: (clip id, head?). A selected transition, else the selected edit point, else
+    // both ends of every selected clip (as Ctrl+T, spec 13.2).
+    QVector<std::pair<quint64, bool>> edges;
+    const QVector<quint64> selected = effectiveSelection();
+    if (const auto t = m_ctx.selection->transition()) {
+        edges.append({t->clipId, t->head});
+    } else if (!m_selectedEdit.isEmpty()) {
+        if (m_selectedEdit.headClip)
+            edges.append({m_selectedEdit.headClip, true});
+        else
+            edges.append({m_selectedEdit.tailClip, false});
+    } else {
+        for (quint64 id : selected) {
+            edges.append({id, true});
+            edges.append({id, false});
+        }
+    }
+    QVector<std::pair<quint64, bool>> todo;
+    for (auto [clipId, head] : std::as_const(edges)) {
+        if (!head) {
+            if (const quint64 next = ops::cutNeighbour(d, clipId, false)) {
+                clipId = next;
+                head = true;
+            }
+        }
+        const auto loc = ops::findClip(d, clipId);
+        if (!loc || loc->track.type != m_transitionBoard->trackType || d.track(loc->track)->locked
+            || todo.contains({clipId, head}))
+            continue;
+        todo.append({clipId, head});
+    }
+    if (todo.isEmpty())
+        return false;
+    const TransitionData board = m_transitionBoard->transition;
+    QVector<TransitionRef> placed;
+    const bool changed = runEdit(project(), tr("Paste Transition"), [&](TimelineData& data) {
+        for (const auto& [clipId, head] : std::as_const(todo)) {
+            if (ops::placeTransition(data, clipId, head, board))
+                placed.append({clipId, head});
+        }
+        return !placed.isEmpty();
+    });
+    if (changed && placed.size() == 1)
+        selectTransition(placed.front());
+    return changed;
+}
+
 bool TimelineController::setTransitionAlignment(
     quint64 clipId, bool head, TransitionAlignment alignment)
 {

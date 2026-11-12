@@ -991,6 +991,10 @@ void TimelineController::paste()
         if (w->inherits("kk::MediaPoolPanel"))
             return;
     }
+    if (m_transitionBoard) {
+        pasteTransition();
+        return;
+    }
     if (m_clipboard.isEmpty())
         return;
     const int64_t at = timeline()->playhead();

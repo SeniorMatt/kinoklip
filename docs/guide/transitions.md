@@ -22,6 +22,11 @@ Click a transition on the timeline to change it in the **Inspector** (its **Tran
 the length, where it sits on the cut, and the settings of that transition. Drag its edges to
 make it longer or shorter.
 
+To copy a transition with everything set on it, hold **Alt** and drag it onto another cut or
+clip edge (Alt can be pressed after you start dragging). Or click it, press **Ctrl+C**, select
+a cut or some clips and press **Ctrl+V**: the transition is pasted on the selected cut, or on
+both ends of each selected clip, in one step.
+
 ## The folders
 
 - **Dissolve.** Cross Dissolve, Dip to Color, Additive Dissolve (the two pictures are added, so

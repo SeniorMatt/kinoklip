@@ -109,6 +109,23 @@ private:
     double m_turned = 0; ///< accumulated rotation of this drag, degrees
 };
 
+/// The parameters the on-screen drags change, read at one frame (spec 24.9).
+struct DragValues
+{
+    double posX = 0, posY = 0, zoomX = 1, zoomY = 1, rotation = 0;
+    double cropL = 0, cropR = 0, cropT = 0, cropB = 0;
+    [[nodiscard]] static DragValues read(const ParamSet& transform, int64_t localFrame);
+};
+
+/// Multi-clip drags (spec 24.1): the change the primary clip's drag made, from @p start to
+/// @p now, applied to another selected clip that was at @p peerStart when the drag began, as
+/// a relative change: Position, Rotation and Crop (source pixels) are moved by the same
+/// amount, Zoom X / Y are multiplied by the same factor. Only parameters the primary changed
+/// are written (AnimatedValue::setValue() at @p peerLocal, so an animated parameter gets a
+/// key); @p peerSourcePx limits the crop of the peer to its own picture.
+void applyRelative(const DragValues& start, const DragValues& now, const DragValues& peerStart,
+    ParamSet& peerTransform, int64_t peerLocal, QSizeF peerSourcePx);
+
 } // namespace transformgesture
 
 } // namespace kk

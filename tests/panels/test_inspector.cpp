@@ -448,10 +448,10 @@ private slots:
         QCOMPARE(panel.clipId(), other);
         // Both are video clips of the same kind: an edit reaches both (multi-clip editing).
         QCOMPARE(info->text(), QStringLiteral("2 clips selected, edits apply to all"));
-        // A title among them is another kind: the edit reaches only the media clips.
+        // A solid among them is another kind: Transform still reaches all three.
         const quint64 title = f.addClip(kV1, 90, 20, ClipKind::Solid);
         f.selection.addClips({title});
-        QCOMPARE(info->text(), QStringLiteral("3 clips selected, showing the last one"));
+        QCOMPARE(info->text(), QStringLiteral("3 clips selected, edits apply to all"));
     }
 
     /// Multi-clip editing (spec 24.1): with several clips of the same kind selected, a value
@@ -478,7 +478,8 @@ private slots:
             = [&](quint64 id) { return editops::clipById(d, id)->transform.value(keys::ZoomX, 0); };
         QCOMPARE(zoomOf(a), 1.5);
         QCOMPARE(zoomOf(b), 1.5);
-        QCOMPARE(zoomOf(solid), 1.0); // another kind
+        QCOMPARE(zoomOf(solid), 1.5); // another kind: Transform applies to every video clip
+        QVERIFY(!zoom->isMixed());
         // Different values: "Mixed" until the next edit.
         f.project.beginEdit(QStringLiteral("setup"));
         editops::clipById(f.project.timeline()->mutableData(), a)
@@ -500,6 +501,7 @@ private slots:
         f.project.undoStack()->undo();
         QCOMPARE(zoomOf(a), 2.0);
         QCOMPARE(zoomOf(b), 1.5);
+        QCOMPARE(zoomOf(solid), 1.5);
         // A locked track is left alone.
         const quint64 locked = f.addClip(TrackRef {TrackType::Video, 1}, 0, 50);
         f.project.beginEdit(QStringLiteral("lock"));
@@ -509,6 +511,51 @@ private slots:
         emit zoom->valueCommitted(0.5);
         QCOMPARE(zoomOf(a), 0.5);
         QCOMPARE(zoomOf(locked), 1.0);
+    }
+
+    /// Transform, Cropping and Composite reach every selected video clip whatever its kind
+    /// (owner report); sets of one kind (a solid's colour, effects) stay with that kind.
+    void spec24_1_multiClipAnyKind()
+    {
+        PanelFixture f;
+        const quint64 media = f.addClip(kV1, 0, 50);
+        const quint64 solid = f.addClip(kV1, 60, 50, ClipKind::Solid);
+        const quint64 title
+            = effectactions::addGeneratorClip(f.project, QStringLiteral("text_title"), 120);
+        QVERIFY(title);
+        const TimelineData& d = f.project.timeline()->data();
+        const ClipData* m = editops::clipById(d, media);
+        const ClipData* s = editops::clipById(d, solid);
+        const ClipData* t = editops::clipById(d, title);
+        QCOMPARE(multiclip::peers(d, {media, solid, title}, solid).size(), 2);
+        for (const QString& key : {keys::CropL, keys::Opacity, keys::Rotation}) {
+            const ParamRef ref {solid, ParamScope::Transform, 0, key};
+            QVERIFY(multiclip::peerRef(*s, *m, ref));
+            QVERIFY(multiclip::peerRef(*s, *t, ref));
+        }
+        // Kind-specific sets are not matched across kinds.
+        QVERIFY(!multiclip::peerRef(*t, *s, {title, ParamScope::Title, 0, keys::Text}));
+        QVERIFY(!multiclip::peerRef(*s, *m, {solid, ParamScope::SolidColor, 0, QString()}));
+        ClipData before = *s;
+        ClipData after = before;
+        after.transform.setBase(keys::Opacity, 40.0);
+        after.transform.setBase(keys::CropL, 12.0);
+        after.solidColor = QColor(Qt::red);
+        ClipData peer = *t;
+        QVERIFY(multiclip::propagate(before, after, peer));
+        QCOMPARE(peer.transform.value(keys::Opacity, 0), 40.0);
+        QCOMPARE(peer.transform.value(keys::CropL, 0), 12.0);
+        QVERIFY(peer.solidColor != QColor(Qt::red));
+        // Live: Opacity typed on the shown solid reaches the media clip and the title.
+        InspectorPanel panel(f.ctx);
+        f.selection.setClips({media, title, solid});
+        auto* opacity = panel.findChild<ValueField*>(QStringLiteral("value:") + keys::Opacity);
+        QVERIFY(opacity);
+        const int steps = f.project.undoStack()->count();
+        emit opacity->valueCommitted(55.0);
+        QCOMPARE(f.project.undoStack()->count(), steps + 1);
+        for (quint64 id : {media, solid, title})
+            QCOMPARE(editops::clipById(d, id)->transform.value(keys::Opacity, 0), 55.0);
     }
 
     /// Effect parameters: the matching instance (same type, same position among that type)

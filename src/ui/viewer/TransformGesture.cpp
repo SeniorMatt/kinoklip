@@ -280,4 +280,55 @@ void TransformDrag::update(ParamSet& t, int64_t local, QPointF pointer, bool shi
     }
 }
 
+DragValues DragValues::read(const ParamSet& p, int64_t local)
+{
+    DragValues v;
+    v.posX = p.value(keys::PosX, local);
+    v.posY = p.value(keys::PosY, local);
+    v.zoomX = p.value(keys::ZoomX, local);
+    v.zoomY = p.value(keys::ZoomY, local);
+    v.rotation = p.value(keys::Rotation, local);
+    v.cropL = p.value(keys::CropL, local);
+    v.cropR = p.value(keys::CropR, local);
+    v.cropT = p.value(keys::CropT, local);
+    v.cropB = p.value(keys::CropB, local);
+    return v;
+}
+
+void applyRelative(const DragValues& start, const DragValues& now, const DragValues& peerStart,
+    ParamSet& t, int64_t local, QSizeF sourcePx)
+{
+    auto set = [&t, local](const QString& key, double fallback, double value) {
+        t.animated(key, fallback).setValue(local, value);
+    };
+    auto changed = [](double a, double b) { return std::abs(a - b) > 1e-9; };
+    auto moved = [&](const QString& key, double def, double s, double n, double peer, double lo,
+                     double hi) {
+        if (changed(s, n))
+            set(key, def, std::clamp(peer + (n - s), lo, hi));
+    };
+    moved(keys::PosX, 0, start.posX, now.posX, peerStart.posX, -kMaxOffset, kMaxOffset);
+    moved(keys::PosY, 0, start.posY, now.posY, peerStart.posY, -kMaxOffset, kMaxOffset);
+    moved(keys::Rotation, 0, start.rotation, now.rotation, peerStart.rotation, -kMaxRotation,
+        kMaxRotation);
+    auto zoomed = [&](const QString& key, double s, double n, double peer) {
+        if (changed(s, n) && std::abs(s) > 1e-9)
+            set(key, 1, roundTo(std::clamp(peer * n / s, kMinZoom, kMaxZoom), kZoomStep));
+    };
+    zoomed(keys::ZoomX, start.zoomX, now.zoomX, peerStart.zoomX);
+    zoomed(keys::ZoomY, start.zoomY, now.zoomY, peerStart.zoomY);
+    // Crop: whole source pixels, one pixel of the peer's picture always stays visible.
+    const double w = std::max(1.0, sourcePx.width()), h = std::max(1.0, sourcePx.height());
+    auto crop = [&](const QString& key, double s, double n, double peer, double opposite,
+                    double size) {
+        if (changed(s, n))
+            set(key, 0,
+                std::clamp(std::round(peer + (n - s)), 0.0, std::max(0.0, size - opposite - 1)));
+    };
+    crop(keys::CropL, start.cropL, now.cropL, peerStart.cropL, peerStart.cropR, w);
+    crop(keys::CropR, start.cropR, now.cropR, peerStart.cropR, peerStart.cropL, w);
+    crop(keys::CropT, start.cropT, now.cropT, peerStart.cropT, peerStart.cropB, h);
+    crop(keys::CropB, start.cropB, now.cropB, peerStart.cropB, peerStart.cropT, h);
+}
+
 } // namespace kk::transformgesture
