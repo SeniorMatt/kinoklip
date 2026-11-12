@@ -13,6 +13,8 @@
 #include <QSurfaceFormat>
 #include <QThread>
 
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -38,6 +40,17 @@ struct Compositor::Impl
     std::condition_variable wake;
     std::deque<RenderJob> queue;
     bool stopping = false;
+    std::atomic<int> statDecoders {0};
+    std::atomic<int> statTitles {0};
+    std::atomic<int64_t> statTargetBytes {0};
+    void publishStats()
+    {
+        const render::ResourceStats s = backend->resources();
+        statDecoders = s.decoders;
+        statTitles = s.titleTextures;
+        statTargetBytes = s.targetBytes;
+    }
+    std::chrono::milliseconds idleRelease {15000}; ///< see Options::idleReleaseMs
     std::shared_ptr<const MediaPathMap> defaultMedia;
 
     /// Look-ahead request: the decoders that frames of the range will need and the frames before
@@ -61,8 +74,8 @@ struct Compositor::Impl
             const RenderCacheChunk* chunk = cache ? cache->find(frame) : nullptr;
             const TimelineData& tl = chunk ? *chunk->timeline : *rq.timeline;
             render::collectDecodeTargets(tl, frame, tl.nested,
-                chunk ? chunk->media.get() : job.media.get(),
-                chunk ? nullptr : rq.proxies.get(), out);
+                chunk ? chunk->media.get() : job.media.get(), chunk ? nullptr : rq.proxies.get(),
+                out);
         };
         if (range.previous >= 0)
             collect(range.previous, before);
@@ -101,6 +114,7 @@ struct Compositor::Impl
         qCInfo(lcRender).noquote() << "compositor:" << description;
         ready.set_value();
 
+        bool released = true; // nothing to give back before the first request
         for (;;) {
             RenderJob job;
             bool moreQueued = false;
@@ -112,9 +126,20 @@ struct Compositor::Impl
                     backend->finishPending(false);
                     continue;
                 }
-                wake.wait(lock, [this] { return stopping || !queue.empty(); });
+                const auto ready = [this] { return stopping || !queue.empty(); };
+                if (released || idleRelease.count() <= 0) {
+                    wake.wait(lock, ready);
+                } else if (!wake.wait_for(lock, idleRelease, ready)) {
+                    // Nothing to do for a while: give the GPU memory back (see releaseIdle()).
+                    lock.unlock();
+                    backend->releaseIdle();
+                    publishStats();
+                    released = true;
+                    continue;
+                }
                 if (queue.empty()) // stopping and drained
                     break;
+                released = false;
                 job = std::move(queue.front());
                 queue.pop_front();
                 moreQueued = !queue.empty();
@@ -135,6 +160,7 @@ struct Compositor::Impl
             // Keep the newest readback in flight only while more work is waiting: its DMA then
             // overlaps the next frame's rendering instead of stalling this thread.
             backend->finishPending(moreQueued);
+            publishStats();
         }
         backend->finishPending(false);
         backend->shutdown();
@@ -168,6 +194,7 @@ Compositor::Compositor(Options options)
     std::promise<void> ready;
     auto readyFuture = ready.get_future();
     Impl* impl = m_impl.get();
+    impl->idleRelease = std::chrono::milliseconds(options.idleReleaseMs);
     m_impl->thread.reset(QThread::create([impl, forceCpu, background = options.background, &ready] {
         impl->run(forceCpu, background, ready);
     }));
@@ -185,6 +212,11 @@ Compositor::~Compositor()
     m_impl->wake.notify_all();
     m_impl->thread->wait();
     m_impl->surface.reset(); // GUI thread, after the context using it is gone
+}
+
+render::ResourceStats Compositor::resourceStats() const
+{
+    return {m_impl->statDecoders, m_impl->statTitles, m_impl->statTargetBytes};
 }
 
 bool Compositor::isGpu() const
@@ -212,8 +244,7 @@ std::future<RenderedFramePtr> Compositor::renderAsync(RenderRequest request)
     // an edit (= new snapshot) can never show an outdated picture.
     if (const RenderCacheView* view = job.request.renderCache.get(); view && view->snapshot
         && !job.request.prepare && view->snapshot == job.request.timeline
-        && !job.request.compositionNode
-        && !job.request.bypassGrades && job.request.dynamicZoom) {
+        && !job.request.compositionNode && !job.request.bypassGrades && job.request.dynamicZoom) {
         if (const RenderCacheChunk* chunk = view->find(job.request.frame)) {
             job.request.timeline = chunk->timeline;
             job.request.media = chunk->media;

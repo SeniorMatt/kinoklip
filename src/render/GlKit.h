@@ -9,6 +9,7 @@
 #include <QString>
 #include <QTransform>
 
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -115,8 +116,17 @@ public:
     void setByteLimit(int64_t bytes) { m_limit = bytes; }
     [[nodiscard]] int64_t byteLimit() const { return m_limit; }
     [[nodiscard]] size_t targetCount() const { return m_all.size(); }
+    /// Deletes every free (idle) target; the ones in use stay (current context required).
+    void trimAll();
     /// Deletes all GL objects (current context required).
     void destroyAll();
+    /// Bytes held by the targets of all pools of the process (every Compositor has its own
+    /// context and pool: the viewer, the Deliver preview, the render, ...).
+    [[nodiscard]] static int64_t processBytes() { return s_processBytes.load(); }
+    /// Free targets are also deleted when the pools of the process together would go above
+    /// this.
+    [[nodiscard]] static int64_t processByteLimit() { return s_processLimit.load(); }
+    static void setProcessByteLimit(int64_t bytes) { s_processLimit = bytes; }
 
 private:
     static constexpr int kTrimFrames = 120; ///< ~5 s of playback at 25 fps
@@ -125,6 +135,8 @@ private:
     std::vector<RenderTarget*> m_free;
     int64_t m_bytes = 0;
     int64_t m_limit = 1024LL << 20;
+    static inline std::atomic<int64_t> s_processBytes {0};
+    static inline std::atomic<int64_t> s_processLimit {2048LL << 20};
     void deleteTarget(RenderTarget* t);
     void evictFor(int64_t incoming);
 };

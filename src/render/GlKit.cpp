@@ -202,6 +202,7 @@ PooledTarget TargetPool::acquire(QSize size, GLenum format)
     const int64_t cost = targetBytes(size, format);
     evictFor(cost);
     m_bytes += cost;
+    s_processBytes += cost;
     auto t = std::make_unique<RenderTarget>();
     t->size = size;
     t->format = format;
@@ -256,6 +257,7 @@ void TargetPool::deleteTarget(RenderTarget* t)
     m_gl->glDeleteFramebuffers(1, &t->fbo);
     m_gl->glDeleteTextures(1, &t->texture);
     m_bytes -= targetBytes(t->size, t->format);
+    s_processBytes -= targetBytes(t->size, t->format);
     const auto it
         = std::find_if(m_all.begin(), m_all.end(), [t](const auto& p) { return p.get() == t; });
     if (it != m_all.end())
@@ -264,7 +266,8 @@ void TargetPool::deleteTarget(RenderTarget* t)
 
 void TargetPool::evictFor(int64_t incoming)
 {
-    while (m_bytes + incoming > m_limit && !m_free.empty()) {
+    while ((m_bytes + incoming > m_limit || s_processBytes + incoming > s_processLimit)
+        && !m_free.empty()) {
         size_t oldest = 0;
         for (size_t i = 1; i < m_free.size(); ++i) {
             if (m_free[i]->idleFrames > m_free[oldest]->idleFrames)
@@ -272,6 +275,15 @@ void TargetPool::evictFor(int64_t incoming)
         }
         RenderTarget* t = m_free[oldest];
         m_free[oldest] = m_free.back();
+        m_free.pop_back();
+        deleteTarget(t);
+    }
+}
+
+void TargetPool::trimAll()
+{
+    while (!m_free.empty()) {
+        RenderTarget* t = m_free.back();
         m_free.pop_back();
         deleteTarget(t);
     }
@@ -285,6 +297,7 @@ void TargetPool::destroyAll()
     }
     m_all.clear();
     m_free.clear();
+    s_processBytes -= m_bytes;
     m_bytes = 0;
 }
 

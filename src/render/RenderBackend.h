@@ -24,6 +24,15 @@ struct RenderJob
     std::promise<RenderedFramePtr> promise;
 };
 
+/// What a backend holds that costs memory between frames (GPU objects of an integrated GPU are
+/// system memory no process meter shows).
+struct ResourceStats
+{
+    int decoders = 0; ///< open video decoders (each with its frame pool)
+    int titleTextures = 0; ///< cached title/caption textures
+    int64_t targetBytes = 0; ///< this backend's pooled render targets
+};
+
 /// Produces frames on the render thread. Every method is called on that one thread.
 class RenderBackend
 {
@@ -47,6 +56,12 @@ public:
     virtual void finishPending(bool keepNewest) { Q_UNUSED(keepNewest); }
     /// True if finishPending() has work to do.
     [[nodiscard]] virtual bool hasPending() const { return false; }
+    /// Called when no request has come for a while: gives back what only speeds up the next
+    /// frames (open decoders and their frame pools, idle render targets, title textures). GPU
+    /// memory of an integrated GPU is system memory that no process meter shows.
+    virtual void releaseIdle() { }
+    /// What is held right now.
+    [[nodiscard]] virtual ResourceStats resources() const { return {}; }
     /// Releases everything (still on the render thread, before it exits).
     virtual void shutdown() { }
 };

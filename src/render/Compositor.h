@@ -4,6 +4,7 @@
 #pragma once
 
 #include "render/DecoderPool.h"
+#include "render/RenderBackend.h"
 #include "render/RenderTypes.h"
 
 #include <QImage>
@@ -46,6 +47,9 @@ public:
         /// Background work (proxies, render cache): the render thread and the decoder threads
         /// it starts yield to the playback threads when the cores are busy.
         bool background = false;
+        /// After this long without a request the backend gives back its decoders, idle render
+        /// targets and title textures (they are made again on demand). 0 = never.
+        int idleReleaseMs = 15000;
     };
 
     /// Starts the render thread and initialises the backend (blocks until ready; typically
@@ -89,6 +93,10 @@ public:
     [[nodiscard]] RenderedFramePtr render(std::shared_ptr<const TimelineData> timeline,
         int64_t frame, QSize outSize, Quality quality = Quality::Full,
         unsigned outputs = OutputTexture);
+
+    /// What the render thread holds between frames (decoders, title textures, pooled targets),
+    /// as of the last finished request or idle release; any thread.
+    [[nodiscard]] render::ResourceStats resourceStats() const;
 
     /// Counters of the decoder look-ahead (RenderRequest::prepare): measurements and tests.
     [[nodiscard]] render::DecoderPool::PrepareStats prepareStats() const;

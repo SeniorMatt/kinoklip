@@ -73,6 +73,30 @@ private Q_SLOTS:
         pool.destroyAll();
     }
 
+    void poolsOfTheProcessShareALimit()
+    {
+        // Spec 85.7: each Compositor has its own pool; together they stay under one limit.
+        const int64_t before = TargetPool::processByteLimit();
+        TargetPool a(m_gl), b(m_gl);
+        const int64_t base = TargetPool::processBytes();
+        TargetPool::setProcessByteLimit(base + (6LL << 20)); // three 512x512 RGBA16F targets
+        for (int i = 0; i < 6; ++i) {
+            PooledTarget t = a.acquire({512, 512 + i}, GL_RGBA16F);
+        }
+        QVERIFY(a.bytes() <= (6LL << 20) + targetBytes({512, 520}, GL_RGBA16F));
+        {
+            PooledTarget t = b.acquire({512, 512}, GL_RGBA16F); // a's idle targets make room
+            QCOMPARE(a.bytes() + b.bytes(), TargetPool::processBytes() - base);
+            QVERIFY(TargetPool::processBytes() - base <= (6LL << 20) + 1);
+        }
+        a.trimAll();
+        QCOMPARE(a.bytes(), 0);
+        b.destroyAll();
+        a.destroyAll();
+        QCOMPARE(TargetPool::processBytes(), base);
+        TargetPool::setProcessByteLimit(before);
+    }
+
     void sameSizeIsReused()
     {
         TargetPool pool(m_gl);
