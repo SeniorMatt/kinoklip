@@ -145,6 +145,7 @@ void CompInspector::rebuild()
         m_tracker->hide();
         delete m_scroll->takeWidget();
         m_group = nullptr;
+        m_settings = nullptr;
         m_source = nullptr;
         m_follow = nullptr;
         m_followButton = nullptr;
@@ -171,6 +172,23 @@ void CompInspector::rebuild()
                 m_tracker->show();
             }
             l->addWidget(m_group);
+            const QVector<ParamDescriptor> common
+                = NodeRegistry::instance().commonControls(n->type);
+            if (!common.isEmpty()) {
+                // Settings > Common Controls: Blend, channels, mask options (spec 91).
+                m_settings = new ParamGroupBox(tr("Settings"));
+                m_settings->setObjectName(QStringLiteral("CompNodeSettings"));
+                for (const ParamDescriptor& desc : common) {
+                    ParamRef ref;
+                    ref.clipId = kProxyClipId;
+                    ref.scope = ParamScope::Effect;
+                    ref.effectId = n->id;
+                    ref.key = desc.key;
+                    m_settings->addParam(ref, desc, *this);
+                }
+                m_settings->setCollapsed(true);
+                l->addWidget(m_settings);
+            }
             if (n->type == nodetypes::MediaIn) {
                 // The picture it reads: the clip's own, or another media pool item (a logo).
                 auto* row = new QWidget;
@@ -243,6 +261,8 @@ void CompInspector::rebuild()
         m_reset->setEnabled(!n->locked);
         if (m_group)
             m_group->setEnabled(!n->locked);
+        if (m_settings)
+            m_settings->setEnabled(!n->locked);
         if (m_source)
             fillSourcePicker(*n);
         if (m_follow)
@@ -294,6 +314,8 @@ void CompInspector::refreshRows()
         return;
     syncProxy();
     m_group->refresh(m_proxy, m_session->compFrame(), true);
+    if (m_settings)
+        m_settings->refresh(m_proxy, m_session->compFrame(), true);
 }
 
 // ---- ParamEditHost ----

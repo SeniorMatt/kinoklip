@@ -114,6 +114,11 @@ private:
     PooledTarget mixPass(
         GlKit& kit, const CompEval& ev, GLuint a, GLuint b, GLuint mask, float amount);
 
+    /// The Common Controls (compmath::applyCommon()) of the result @p result of a node whose
+    /// main input is @p in (0 = transparent); @p mask 0 = no Effect Mask.
+    PooledTarget commonPassOf(GlKit& kit, const CompEval& ev, const compmath::CommonParams& c,
+        GLuint in, GLuint result, GLuint mask);
+
     /// @p texture drawn through @p inputToOutput (timeline px) by the per-pixel resampler.
     PooledTarget resamplePass(GlKit& kit, const CompEval& ev, GLuint texture,
         const QTransform& inputToOutput, const compmath::Resampling& r, bool* invertible);
@@ -136,6 +141,9 @@ private:
           m_mergeHasMask = -1;
     GlProgram m_mix;
     GLint m_mixAmount = -1, m_mixHasMask = -1;
+    GlProgram m_common;
+    GLint m_commonHasMask = -1, m_commonBlend = -1, m_commonChannels = -1, m_commonInverted = -1,
+          m_commonMultiply = -1;
     GlProgram m_corrector;
     GLint m_ccLevels = -1, m_ccLgg = -1, m_ccSat = -1;
     GlProgram m_channels;

@@ -252,12 +252,18 @@ private:
     {
         const NodeDescriptor* d = NodeRegistry::instance().find(n.type);
         const QString main = d ? d->mainInput : QString();
-        if (!d || !n.enabled || n.type == nodetypes::MediaOut)
-            return main.isEmpty() ? QImage() : input(n, main, depth);
         const int64_t f = m_ev.compFrame;
+        const bool common = NodeRegistry::instance().hasCommonControls(n.type);
+        const compmath::CommonParams cp
+            = common ? compmath::commonParams(n, f) : compmath::CommonParams();
+        if (!d || !n.enabled || n.type == nodetypes::MediaOut || cp.skipped())
+            return main.isEmpty() ? QImage() : input(n, main, depth);
         const QSize size = m_ev.size;
         const double s = m_ev.scale;
         const QImage mask = d->input(nodeports::Mask) ? input(n, nodeports::Mask, depth) : QImage();
+        // The Common Controls pass (Blend, channels, mask options) does the mask work itself.
+        const bool commonPass = common && (cp.needsPass() || (!mask.isNull() && cp.maskInverted));
+        const QImage nodeMask = commonPass ? QImage() : mask;
         const QImage in = main.isEmpty() ? QImage() : input(n, main, depth);
         QImage out;
         bool maskDone = false;
@@ -266,10 +272,10 @@ private:
             if (out.isNull())
                 out = blank(size);
         } else if (n.type == nodetypes::Merge) {
-            out = merge(n, in, input(n, nodeports::Foreground, depth), mask);
+            out = merge(n, in, input(n, nodeports::Foreground, depth), nodeMask);
             maskDone = true;
         } else if (n.type == nodetypes::Dissolve) {
-            out = mixImages(in, input(n, nodeports::Foreground, depth), mask,
+            out = mixImages(in, input(n, nodeports::Foreground, depth), nodeMask,
                 float(std::clamp(n.params.value(k::Mix, f, 0.0), 0.0, 1.0)), size);
             maskDone = true;
         } else if ((n.type == nodetypes::Transform || n.type == nodetypes::Tracker
@@ -366,8 +372,36 @@ private:
         }
         if (out.isNull())
             return in; // identity or not available: the main input passes through
+        if (commonPass)
+            return commonImage(cp, in, out, mask);
         if (!mask.isNull() && !maskDone)
             out = mixImages(in, out, mask, 1.0f, size);
+        return out;
+    }
+
+    /// The Common Controls on @p res (the node's result) against @p in (its main input).
+    QImage commonImage(const compmath::CommonParams& cp, const QImage& in, const QImage& res,
+        const QImage& mask)
+    {
+        const QSize size = m_ev.size;
+        QImage out = blank(size);
+        for (int y = 0; y < size.height(); ++y) {
+            const QRgb* pi
+                = in.isNull() ? nullptr : reinterpret_cast<const QRgb*>(in.constScanLine(y));
+            const QRgb* pr = reinterpret_cast<const QRgb*>(res.constScanLine(y));
+            const QRgb* pm
+                = mask.isNull() ? nullptr : reinterpret_cast<const QRgb*>(mask.constScanLine(y));
+            QRgb* po = reinterpret_cast<QRgb*>(out.scanLine(y));
+            for (int x = 0; x < size.width(); ++x) {
+                float ci[4] = {0, 0, 0, 0}, cr[4], o[4];
+                if (pi)
+                    unpack(pi[x], ci);
+                unpack(pr[x], cr);
+                const float m = pm ? qAlpha(pm[x]) / 255.0f : 0.0f;
+                compmath::applyCommon(cp, ci, cr, pm ? &m : nullptr, o);
+                po[x] = pack(o);
+            }
+        }
         return out;
     }
 
