@@ -440,6 +440,15 @@ use_bundled_qt() {
     if [ -z "${QT_AUDIO_BACKEND:-}" ] && ! pipewire_client_conf_exists; then
         set_var QT_AUDIO_BACKEND pulseaudio
     fi
+    # The bundled OpenSSL reads the host's /etc/ssl/openssl.cnf. openSUSE's sets
+    # config_diagnostics = 1 and includes options from its own OpenSSL patches: upstream OpenSSL
+    # then refuses to start, and every HTTPS download fails ("TLS initialization failed"). Only
+    # there, use OpenSSL's built-in defaults instead.
+    if [ -z "${OPENSSL_CONF:-}" ] && [ -r /etc/ssl/openssl.cnf ] &&
+        grep -Eq '^[[:space:]]*config_diagnostics[[:space:]]*=[[:space:]]*[1-9]' /etc/ssl/openssl.cnf; then
+        set_var OPENSSL_CONF /dev/null
+        log "host OpenSSL config has config_diagnostics on: using OpenSSL defaults"
+    fi
     log "using bundled Qt $(cat "$QTDIR/qt-version.txt" 2>/dev/null)"
 }
 
