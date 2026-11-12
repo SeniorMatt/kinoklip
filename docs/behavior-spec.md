@@ -2398,3 +2398,12 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 84.8 | Every font list follows: the Font box of titles, captions styles, Generators and the Compositing Text node (a `QFontComboBox`, which Qt updates when the font database changes) keeps the chosen family; titles drawn with a stand-in font while theirs was missing are drawn again (the title cache key carries a font generation that grows with every reload that added fonts) and the viewer redraws the frame. | Done (test_fontreload newFontFileBecomesAvailable) |
 | 84.9 | **Kinoklip > Reload Fonts** (`settings.reload_fonts`) scans the folders at once and shows which families were added, or that there were none. | Done (test_fontreload reloadCommandFindsFilesWithoutEvents; check_menu_reference) |
 | 84.10 | Same in the AppImage: it uses the Qt it bundles, `addApplicationFont` needs no fontconfig call, and the host font folders are read as before (nothing in apprun.sh changes). Removing a font still needs a restart. | Done |
+## 85. Render memory (memleak branch)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 85.1 | A render keeps flat memory: GPU render targets are pooled by size, and a keyframed zoom on a generator, a composition or a retimed clip used to give every frame its own size (kept 120 frames each: up to several GB of system memory on an integrated GPU, at the end of a project with a Paper generator). Target sizes are now rounded up to quarter steps of zoom. | Fixed (test_targetpool) |
+| 85.2 | The target pool has a byte limit (1 GiB): when a new target would go over it, idle targets are deleted, oldest first; targets in use are never touched. | Fixed (test_targetpool) |
+| 85.3 | A render waits while less than 768 MiB are available (/proc/meminfo MemAvailable) and goes on at 1 GiB; the Deliver queue says "Paused: the computer is nearly out of memory", the command line prints it; Cancel works while paused. | Fixed (test_memoryguard) |
+| 85.4 | A render that started and never finished leaves a marker; the next start says the last render was interrupted, probably by the system for lack of memory. | Fixed (test_memoryguard) |
+

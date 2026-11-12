@@ -10,6 +10,7 @@
 #include "app/SettingsTransferDialog.h"
 #include "app/Theme.h"
 #include "core/EditBehaviour.h"
+#include "core/MemoryGuard.h"
 #include "core/PowerBins.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
@@ -36,6 +37,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QGuiApplication>
+#include <QMessageBox>
 #include <QSettings>
 #include <QSslSocket>
 #include <QSurfaceFormat>
@@ -325,6 +327,17 @@ int main(int argc, char** argv)
         projects->openLastProject();
     } else if (QGuiApplication::platformName() != QLatin1String("offscreen")) {
         projects->showProjectManager();
+    }
+    // A render that started and never finished: the kernel most likely killed the program.
+    if (const QString killed = kk::memguard::takeInterruptedRender(); !killed.isEmpty()) {
+        qWarning().noquote() << "the last render was interrupted:" << killed;
+        if (QGuiApplication::platformName() != QLatin1String("offscreen")) {
+            QMessageBox::warning(&window, QObject::tr("Render Interrupted"),
+                QObject::tr("The last render did not finish: %1\n\nThe program was probably "
+                            "closed by the system because the computer ran out of memory. Close "
+                            "other programs, or render in smaller parts, and try again.")
+                    .arg(killed));
+        }
     }
     return QApplication::exec();
 }

@@ -199,6 +199,9 @@ PooledTarget TargetPool::acquire(QSize size, GLenum format)
             return PooledTarget(this, t);
         }
     }
+    const int64_t cost = targetBytes(size, format);
+    evictFor(cost);
+    m_bytes += cost;
     auto t = std::make_unique<RenderTarget>();
     t->size = size;
     t->format = format;
@@ -237,14 +240,40 @@ void TargetPool::trim()
             ++i;
             continue;
         }
-        m_gl->glDeleteFramebuffers(1, &t->fbo);
-        m_gl->glDeleteTextures(1, &t->texture);
         m_free[i] = m_free.back();
         m_free.pop_back();
-        const auto it
-            = std::find_if(m_all.begin(), m_all.end(), [t](const auto& p) { return p.get() == t; });
-        if (it != m_all.end())
-            m_all.erase(it);
+        deleteTarget(t);
+    }
+}
+
+int64_t targetBytes(QSize size, GLenum format)
+{
+    return int64_t(size.width()) * size.height() * (format == GL_RGBA16F ? 8 : 4);
+}
+
+void TargetPool::deleteTarget(RenderTarget* t)
+{
+    m_gl->glDeleteFramebuffers(1, &t->fbo);
+    m_gl->glDeleteTextures(1, &t->texture);
+    m_bytes -= targetBytes(t->size, t->format);
+    const auto it
+        = std::find_if(m_all.begin(), m_all.end(), [t](const auto& p) { return p.get() == t; });
+    if (it != m_all.end())
+        m_all.erase(it);
+}
+
+void TargetPool::evictFor(int64_t incoming)
+{
+    while (m_bytes + incoming > m_limit && !m_free.empty()) {
+        size_t oldest = 0;
+        for (size_t i = 1; i < m_free.size(); ++i) {
+            if (m_free[i]->idleFrames > m_free[oldest]->idleFrames)
+                oldest = i;
+        }
+        RenderTarget* t = m_free[oldest];
+        m_free[oldest] = m_free.back();
+        m_free.pop_back();
+        deleteTarget(t);
     }
 }
 
@@ -256,6 +285,7 @@ void TargetPool::destroyAll()
     }
     m_all.clear();
     m_free.clear();
+    m_bytes = 0;
 }
 
 // ---- GlKit ----

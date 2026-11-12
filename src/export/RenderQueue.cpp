@@ -189,11 +189,14 @@ void RenderQueue::startNext()
             yieldToOtherThreads(10);
         QElapsedTimer throttle;
         throttle.start();
+        bool lastLow = false;
         const ExportResult result = job->run([&](const ExportProgress& p) {
             // Throttled hand-over to the GUI thread (queued call; dropped if the queue died).
-            if (throttle.elapsed() < kProgressIntervalMs && p.framesDone < p.totalFrames) {
+            if (throttle.elapsed() < kProgressIntervalMs && p.framesDone < p.totalFrames
+                && p.memoryLow == lastLow) {
                 return;
             }
+            lastLow = p.memoryLow;
             throttle.restart();
             QMetaObject::invokeMethod(
                 self,
@@ -265,6 +268,9 @@ QString RenderQueue::statusText(const Job& job)
     case Status::Queued:
         return tr("Queued");
     case Status::Rendering: {
+        if (job.progress.memoryLow)
+            return tr("Paused: the computer is nearly out of memory. Close other programs; "
+                      "the render goes on by itself.");
         QString text = tr("Rendering %1%").arg(int(std::floor(job.progress.fraction() * 100)));
         if (job.progress.fps > 0) {
             text += QStringLiteral(" · %1 fps").arg(job.progress.fps, 0, 'f', 1);

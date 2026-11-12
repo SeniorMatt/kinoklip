@@ -141,6 +141,11 @@ int runRender(const QString& projectPath, const QString& outPath, const QString&
                 return;
             }
             lastPrint.restart();
+            if (p.memoryLow) {
+                std::printf("render: paused, the machine is nearly out of memory\n");
+                std::fflush(stdout);
+                return;
+            }
             std::printf("render: %3d%% %lld/%lld frames, %.1f fps, ETA %s\n",
                 int(p.fraction() * 100), static_cast<long long>(p.framesDone),
                 static_cast<long long>(p.totalFrames), p.fps, qPrintable(formatEta(p.etaSeconds)));
