@@ -6,8 +6,9 @@
 //
 // A binding is {context, mode, keys, run, type, desc}. Contexts: "global", "timeline" and
 // "viewer"; a context's keys are those of itself, of the contexts it inherits (viewer ->
-// timeline -> global), and the user's own, which win. Modes: 'n' NORMAL, 'v' VISUAL. `run` is a
-// list of commands: "vim:<builtin>", "action:<registry id>", "ex:<command line>". Type
+// timeline -> global), and the user's own, which win. Modes: 'n' NORMAL, 'v' VISUAL, 'o'
+// operator-pending (the motions and text objects an operator accepts). `run` is a list of
+// commands: "vim:<builtin>", "action:<registry id>", "ex:<command line>". Type
 // "group" gives a key prefix a name for the which-key popup and runs nothing.
 //
 // The trie with exact / partial / ambiguous results and a timeout for the ambiguous case
@@ -40,13 +41,14 @@ struct VimBinding
     };
 
     QString context; ///< "global", "timeline", "viewer"
-    QChar mode = QLatin1Char('n'); ///< 'n' or 'v'
+    QChar mode = QLatin1Char('n'); ///< 'n', 'v' or 'o'
     QString keys; ///< as written ("<leader>ff"), with the leader as typed by the user
     QStringList tokens; ///< parsed, with the leader replaced
     QStringList run;
-    QString type = QStringLiteral("command"); ///< motion, operator, command, mode, group
+    QString type = QStringLiteral("command"); ///< motion, object, operator, command, mode, group
     QString desc;
     bool repeat = false; ///< a count repeats the action (motions, undo)
+    bool dot = false; ///< an action that is a change: `.` repeats it, one undo step
     Origin origin = Origin::Default;
 
     [[nodiscard]] bool isGroup() const { return type == QLatin1String("group"); }

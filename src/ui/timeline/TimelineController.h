@@ -592,6 +592,25 @@ public:
     };
     /// The clipboard (last copy/cut).
     [[nodiscard]] const editops::Clipboard& clipboard() const { return m_clipboard; }
+    /// Replaces the clipboard (the Vim registers put their content here for a paste).
+    void setClipboard(const editops::Clipboard& clipboard) { m_clipboard = clipboard; }
+
+    /// What Vim mode draws on the timeline (ui/timeline/VimTimelineHost.h): the cursor track
+    /// and the VISUAL selection. Empty while Vim mode is off.
+    struct VimOverlay
+    {
+        bool cursor = false; ///< highlight the row of cursorTrack
+        TrackRef cursorTrack;
+        /// 0 none, 1 frames on one track (v), 2 whole clips (V), 3 block across tracks
+        int visual = 0;
+        int64_t frameFrom = 0; ///< inclusive
+        int64_t frameTo = 0; ///< inclusive
+        TrackRef trackFrom;
+        TrackRef trackTo;
+        friend bool operator==(const VimOverlay&, const VimOverlay&) = default;
+    };
+    [[nodiscard]] const VimOverlay& vimOverlay() const { return m_vimOverlay; }
+    void setVimOverlay(const VimOverlay& overlay);
 
 signals:
     /// An edit did nothing and the user should be told why (the Cut page shows it in its message line).
@@ -648,6 +667,7 @@ private:
     int m_targetVideo = 0;
     int m_targetAudio = 0;
     editops::Clipboard m_clipboard;
+    VimOverlay m_vimOverlay;
     EditPointSelection m_selectedEdit;
     std::optional<GapSelection> m_selectedGap;
     std::function<std::optional<SourceSelection>()> m_sourceProvider;

@@ -20,7 +20,14 @@ CONTEXT_TITLES = {
     "timeline": "Timeline (and viewers)",
     "viewer": "Viewers only",
 }
-MODE_TEXT = {"n": "NORMAL", "v": "VISUAL", "nv": "NORMAL and VISUAL"}
+MODE_TEXT = {
+    "n": "NORMAL",
+    "v": "VISUAL",
+    "nv": "NORMAL and VISUAL",
+    "o": "after an operator",
+    "vo": "VISUAL and after an operator",
+    "nvo": "NORMAL, VISUAL and after an operator",
+}
 
 
 def cell(text):
@@ -28,6 +35,7 @@ def cell(text):
 
 
 def key_text(keys):
+    keys = keys.replace("|", "\\|")
     return "`" + keys.replace("`", "` `` `") + "`" if "`" in keys else "`" + keys + "`"
 
 
@@ -45,6 +53,14 @@ def build():
         "typed; `i` or `a` switches to INSERT, where the keyboard profile's own shortcuts work, Esc comes",
         "back. Keys match their place on the keyboard when the layout is not Latin (a Russian layout works",
         "without switching).",
+        "",
+        "The timeline is the buffer: time is the line (a column is a frame), the tracks are the lines (the",
+        "top track first, video then audio), clips are words, gaps are white space. The cursor is the",
+        "playhead on the cursor track. The grammar is Vim's: `[\"register][count]operator[count]motion` or",
+        "`operator` + text object, for example `\"a3dw`, `d]]`, `yiw`, `cip`. An operator key typed twice",
+        "(`dd`, `yy`, `cc`) works on the clip under the cursor. The operators are `d` (ripple delete), `c`",
+        "(delete leaving a gap, then INSERT) and `y` (copy). The rows marked *after an operator* are the",
+        "motions and text objects an operator accepts. `.` repeats the last change.",
         "",
     ]
     leader = [b for b in bindings if b["type"] != "group" and b["keys"].startswith("<leader>")]

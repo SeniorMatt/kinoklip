@@ -65,6 +65,39 @@ class TestTimelineController : public QObject
 private slots:
     void initTestCase() { initTimelineTestCase("test_timelinecontroller"); }
 
+    void vimStateIsHeldForThePainter()
+    {
+        Ctl t;
+        // The clipboard can be replaced (the Vim registers paste through it).
+        QVERIFY(t.c.clipboard().isEmpty());
+        const quint64 a = t.put(kV1, solidClip(0, 40));
+        t.f.selection.selectClip(a);
+        t.c.copy();
+        const ops::Clipboard board = t.c.clipboard();
+        QVERIFY(!board.isEmpty());
+        t.c.setClipboard({});
+        QVERIFY(t.c.clipboard().isEmpty());
+        t.c.setClipboard(board);
+        QCOMPARE(t.c.clipboard().clips.size(), board.clips.size());
+        // The Vim overlay (cursor track, VISUAL selection) is state: setting it repaints once.
+        int changes = 0;
+        connect(&t.c, &TimelineController::stateChanged, this, [&] { ++changes; });
+        TimelineController::VimOverlay overlay;
+        overlay.cursor = true;
+        overlay.cursorTrack = kV2;
+        overlay.visual = 3;
+        overlay.frameFrom = 3;
+        overlay.frameTo = 9;
+        t.c.setVimOverlay(overlay);
+        t.c.setVimOverlay(overlay); // unchanged: no signal
+        QCOMPARE(changes, 1);
+        QCOMPARE(t.c.vimOverlay().cursorTrack, kV2);
+        QCOMPARE(t.c.vimOverlay().visual, 3);
+        t.c.setVimOverlay({});
+        QCOMPARE(changes, 2);
+        QVERIFY(!t.c.vimOverlay().cursor);
+    }
+
     void splitAtPlayheadAllOrSelected()
     {
         Ctl t;

@@ -29,12 +29,36 @@ const QStringList kContexts {
     QStringLiteral("global"), QStringLiteral("timeline"), QStringLiteral("viewer")};
 
 /// The built-in commands of `vim:` items.
-const QStringList kBuiltins {QStringLiteral("set_mark"), QStringLiteral("goto_mark"),
-    QStringLiteral("target_down"), QStringLiteral("target_up"), QStringLiteral("delete_clips"),
-    QStringLiteral("yank_clips"), QStringLiteral("visual_start"), QStringLiteral("visual_leave"),
-    QStringLiteral("visual_delete"), QStringLiteral("visual_delete_gap"),
-    QStringLiteral("visual_yank"), QStringLiteral("insert_mode"), QStringLiteral("command_line"),
-    QStringLiteral("search")};
+const QStringList kBuiltins {
+    // motions (VimGrammar.h) and marks
+    QStringLiteral("frame_prev"), QStringLiteral("frame_next"), QStringLiteral("second_prev"),
+    QStringLiteral("second_next"), QStringLiteral("timeline_start"),
+    QStringLiteral("timeline_end"), QStringLiteral("goto_frame"), QStringLiteral("first_clip"),
+    QStringLiteral("clip_next"), QStringLiteral("clip_prev"), QStringLiteral("clip_end"),
+    QStringLiteral("clip_end_prev"), QStringLiteral("edit_next"), QStringLiteral("edit_prev"),
+    QStringLiteral("edit_end"), QStringLiteral("edit_end_prev"), QStringLiteral("marker_next"),
+    QStringLiteral("marker_prev"), QStringLiteral("keyframe_next"),
+    QStringLiteral("keyframe_prev"), QStringLiteral("track_down"), QStringLiteral("track_up"),
+    QStringLiteral("track_first"), QStringLiteral("track_last"), QStringLiteral("set_mark"),
+    QStringLiteral("goto_mark"), QStringLiteral("jump_back"),
+    // text objects
+    QStringLiteral("obj_iw"), QStringLiteral("obj_aw"), QStringLiteral("obj_iW"),
+    QStringLiteral("obj_aW"), QStringLiteral("obj_ip"), QStringLiteral("obj_ap"),
+    QStringLiteral("obj_im"), QStringLiteral("obj_ir"), QStringLiteral("obj_it"),
+    // operators and the commands built on them
+    QStringLiteral("op_delete"), QStringLiteral("op_change"), QStringLiteral("op_yank"),
+    QStringLiteral("op_lift"), QStringLiteral("cmd_delete"), QStringLiteral("cmd_lift"),
+    QStringLiteral("cmd_yank"), QStringLiteral("cmd_delete_to_end"),
+    QStringLiteral("cmd_paste"), QStringLiteral("cmd_paste_over"), QStringLiteral("repeat"),
+    QStringLiteral("cursor_select"), QStringLiteral("cursor_unselect"),
+    QStringLiteral("copy_timecode"),
+    // visual mode
+    QStringLiteral("visual_char"), QStringLiteral("visual_line"), QStringLiteral("visual_block"),
+    QStringLiteral("visual_other_end"), QStringLiteral("visual_reselect"),
+    QStringLiteral("visual_paste"),
+    // modes and lines
+    QStringLiteral("insert_mode"), QStringLiteral("command_line"), QStringLiteral("search"),
+    QStringLiteral("search_next"), QStringLiteral("search_prev")};
 
 /// The contexts whose keys a context uses, least specific first.
 QStringList chainOf(const QString& context)
@@ -285,6 +309,7 @@ bool VimKeymap::loadDefaults(QString* error)
         proto.repeat = o.contains(QLatin1String("repeat"))
             ? o.value(QLatin1String("repeat")).toBool()
             : proto.type == QLatin1String("motion");
+        proto.dot = o.value(QLatin1String("dot")).toBool();
         QString parseError;
         proto.tokens = vimkeys::parseKeys(proto.keys, lead, &parseError);
         if (proto.tokens.isEmpty() || !kContexts.contains(proto.context)) {
@@ -381,7 +406,7 @@ void VimKeymap::rebuild()
     m_tries.clear();
     for (const QString& context : kContexts) {
         const QStringList chain = chainOf(context);
-        for (const QChar mode : {QLatin1Char('n'), QLatin1Char('v')}) {
+        for (const QChar mode : {QLatin1Char('n'), QLatin1Char('v'), QLatin1Char('o')}) {
             VimTrie trie;
             // Defaults by chain order (inherited first), then user and vimrc entries.
             for (const VimBinding::Origin origin : {VimBinding::Origin::Default,
@@ -434,7 +459,7 @@ void VimKeymap::saveUserOps()
 static bool validModes(const QString& modes)
 {
     return !modes.isEmpty() && std::all_of(modes.begin(), modes.end(), [](QChar c) {
-        return c == QLatin1Char('n') || c == QLatin1Char('v');
+        return c == QLatin1Char('n') || c == QLatin1Char('v') || c == QLatin1Char('o');
     });
 }
 
@@ -865,7 +890,7 @@ QList<VimKeymap::Issue> VimKeymap::issues(const ActionRegistry* actions) const
     }
     // Prefixes: a binding that is also the start of a longer one, as seen from each context.
     for (const QString& context : kContexts) {
-        for (const QChar mode : {QLatin1Char('n'), QLatin1Char('v')}) {
+        for (const QChar mode : {QLatin1Char('n'), QLatin1Char('v'), QLatin1Char('o')}) {
             const VimTrie& t = trie(context, mode);
             for (const VimBinding& b : m_effective) {
                 if (b.isGroup() || b.mode != mode || b.context != context)

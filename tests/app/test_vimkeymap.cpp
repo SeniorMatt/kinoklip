@@ -279,7 +279,7 @@ private slots:
             }
         }
         // Resolve's Ctrl keys stay the profile's, except these (design section 8).
-        QCOMPARE(chords, (QSet<QString> {QStringLiteral("<C-r>")}));
+        QCOMPARE(chords, (QSet<QString> {QStringLiteral("<C-r>"), QStringLiteral("<C-v>")}));
     }
 
     void todaysKeysAreInTheTable()
@@ -295,8 +295,12 @@ private slots:
                     != VimMatch::Kind::None,
                 k);
         }
-        QCOMPARE(first(QStringLiteral("timeline"), 'n', {"d", "d"}).kind, VimMatch::Kind::Exact);
-        QCOMPARE(first(QStringLiteral("timeline"), 'n', {"y", "y"}).kind, VimMatch::Kind::Exact);
+        // d and y are operators; dd, yy and dw come from the grammar, not from the table
+        QCOMPARE(first(QStringLiteral("timeline"), 'n', {"d"}).kind, VimMatch::Kind::Exact);
+        QCOMPARE(first(QStringLiteral("timeline"), 'n', {"d", "d"}).kind, VimMatch::Kind::None);
+        QCOMPARE(first(QStringLiteral("timeline"), 'o', {"w"}).kind, VimMatch::Kind::Exact);
+        QCOMPARE(first(QStringLiteral("timeline"), 'o', {"i", "w"}).kind, VimMatch::Kind::Exact);
+        QCOMPARE(first(QStringLiteral("timeline"), 'o', {"d"}).kind, VimMatch::Kind::None);
         QCOMPARE(first(QStringLiteral("timeline"), 'n', {"g", "g"}).kind, VimMatch::Kind::Exact);
         QCOMPARE(first(QStringLiteral("timeline"), 'n', {"z", "f"}).kind, VimMatch::Kind::Exact);
         QCOMPARE(first(QStringLiteral("timeline"), 'n', {"m", "a"}).kind, VimMatch::Kind::Exact);
@@ -360,10 +364,10 @@ private slots:
         // Reset one key: the default comes back; the others stay.
         again.resetKeys(QStringLiteral("timeline"), QStringLiteral("n"), QStringLiteral("p"));
         QCOMPARE(again.trie(QStringLiteral("timeline"), 'n').match({"p"}).binding->run.value(0),
-            QStringLiteral("action:edit.paste_insert"));
+            QStringLiteral("vim:cmd_paste"));
         again.resetKeys(QStringLiteral("timeline"), QStringLiteral("n"), QStringLiteral("x"));
         QCOMPARE(again.trie(QStringLiteral("timeline"), 'n').match({"x"}).binding->run.value(0),
-            QStringLiteral("action:edit.ripple_delete"));
+            QStringLiteral("vim:cmd_delete"));
         QCOMPARE(again.userOps().size(), 1);
         again.resetAll();
         QVERIFY(again.userOps().isEmpty());
@@ -466,7 +470,7 @@ private slots:
         QCOMPARE(
             map.trie(QStringLiteral("timeline"), 'n').match({"<Space>", "w"}).binding->run.value(0),
             QStringLiteral("ex:w"));
-        QVERIFY(map.executeLine(QStringLiteral("vmap Z vim:visual_leave"), &ok).isEmpty());
+        QVERIFY(map.executeLine(QStringLiteral("vmap Z vim:visual_char"), &ok).isEmpty());
         QCOMPARE(
             map.trie(QStringLiteral("timeline"), 'v').match({"Z"}).kind, VimMatch::Kind::Exact);
         QCOMPARE(map.trie(QStringLiteral("timeline"), 'n').match({"Z"}).kind, VimMatch::Kind::None);
@@ -599,8 +603,8 @@ private slots:
         QCOMPARE(VimKeymap::normaliseRunItem(QStringLiteral(":w<CR>")), QStringLiteral("ex:w"));
         QCOMPARE(VimKeymap::normaliseRunItem(QStringLiteral(":marker add --frame 3")),
             QStringLiteral("ex:marker add --frame 3"));
-        QCOMPARE(VimKeymap::normaliseRunItem(QStringLiteral("vim:visual_start")),
-            QStringLiteral("vim:visual_start"));
+        QCOMPARE(VimKeymap::normaliseRunItem(QStringLiteral("vim:visual_char")),
+            QStringLiteral("vim:visual_char"));
     }
 
     void ofRegistryIsOnePerApplication()

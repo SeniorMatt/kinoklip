@@ -43,13 +43,15 @@ public:
     [[nodiscard]] VimKeymap* keymap() const;
     [[nodiscard]] VimWhichKey* whichKey() const { return m_whichKey; }
     [[nodiscard]] QLineEdit* commandLine() const { return m_line; }
+    /// The timeline host (cursor track, registers, search).
+    [[nodiscard]] VimTimelineHost* host() const { return m_host; }
 
     /// Runs one command-line text (without the colon) and returns the message to show.
     /// Public for tests.
     QString runCommand(const QString& text);
 
     /// Opens the `:` line (also what the layer does for the colon key).
-    void showCommandLine();
+    void showCommandLine(bool search = false);
 
 private:
     void closeCommandLine();
@@ -71,6 +73,7 @@ private:
     QLineEdit* m_line = nullptr;
     QStringList m_history;
     int m_historyPos = 0;
+    bool m_searchLine = false; ///< the line is open for /search
 };
 
 } // namespace kk

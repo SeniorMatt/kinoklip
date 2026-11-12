@@ -76,6 +76,9 @@ public:
         m_modes->addItem(tr("NORMAL"), QStringLiteral("n"));
         m_modes->addItem(tr("VISUAL"), QStringLiteral("v"));
         m_modes->addItem(tr("NORMAL and VISUAL"), QStringLiteral("nv"));
+        m_modes->addItem(tr("After an operator (motions and objects)"), QStringLiteral("o"));
+        m_modes->addItem(tr("NORMAL, VISUAL and after an operator"), QStringLiteral("nvo"));
+        m_modes->addItem(tr("VISUAL and after an operator"), QStringLiteral("vo"));
         m_modes->setCurrentIndex(std::max(0, m_modes->findData(start.modes)));
         m_keys = new QLineEdit(start.keys);
         m_keys->setObjectName(QStringLiteral("VimKeysEdit"));
@@ -160,7 +163,10 @@ private:
 
 QString modesText(const QString& modes)
 {
-    return modes == QLatin1String("nv") ? QStringLiteral("n v") : modes;
+    QStringList parts;
+    for (const QChar c : modes)
+        parts.append(QString(c));
+    return parts.join(QLatin1Char(' '));
 }
 
 } // namespace

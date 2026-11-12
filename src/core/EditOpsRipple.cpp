@@ -221,6 +221,37 @@ Clipboard copyRange(const TimelineData& data, int64_t in, int64_t out, const Tra
     return board;
 }
 
+TrackFilter trackSetFilter(const std::vector<TrackRef>& tracks)
+{
+    return [tracks](TrackRef ref, const TrackData&) {
+        return std::find(tracks.begin(), tracks.end(), ref) != tracks.end();
+    };
+}
+
+std::vector<TrackRef> tracksWithLinkedPartners(const TimelineData& data,
+    const std::vector<TrackRef>& tracks, int64_t in, int64_t out)
+{
+    std::vector<TrackRef> result = tracks;
+    for (const TrackRef& ref : tracks) {
+        const TrackData* track = data.track(ref);
+        if (!track)
+            continue;
+        for (const ClipData& clip : track->clips) {
+            if (clip.start >= out || clip.end() <= in || clip.linkGroup == 0)
+                continue;
+            for (const quint64 id : linkedClips(data, clip.id)) {
+                if (const auto loc = findClip(data, id))
+                    result.push_back(loc->track);
+            }
+        }
+    }
+    std::sort(result.begin(), result.end(), [](const TrackRef& a, const TrackRef& b) {
+        return a.type != b.type ? int(a.type) < int(b.type) : a.index < b.index;
+    });
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+    return result;
+}
+
 int64_t deleteGaps(TimelineData& data, const TrackFilter& filter)
 {
     const TrackFilter accept = orUnlocked(filter ? filter : autoSelectTracks());
