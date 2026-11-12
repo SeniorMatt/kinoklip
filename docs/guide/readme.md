@@ -52,6 +52,7 @@ search field.
 - [Emoji in titles and captions](emoji-in-titles-and-captions.md)
 - [Add a transition, and hide a jump cut with Smooth Cut](transitions.md)
 - [Freeze a frame](freeze-a-frame.md)
+- [Change the frame rate of a timeline](change-the-frame-rate-of-a-timeline.md)
 - [Steady a shaky clip](stabilize-a-shaky-clip.md)
 - [Test patterns, generators and ready-made looks](test-patterns-and-looks.md)
 - [Camera and screen looks: CCTV, glitch, drone, DSLR, video call and more](camera-and-screen-looks.md)

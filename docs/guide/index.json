@@ -247,6 +247,23 @@
       ]
     },
     {
+      "id": "change-the-frame-rate-of-a-timeline",
+      "title": "Change the frame rate of a timeline",
+      "file": "change-the-frame-rate-of-a-timeline.md",
+      "summary": "Change a timeline or the project from 24 to 60 fps after the clips are in; everything stays at the same time.",
+      "keywords": [
+        "frame rate",
+        "fps",
+        "60 fps",
+        "24 fps",
+        "convert",
+        "timeline settings",
+        "project settings",
+        "smooth keyframes"
+      ],
+      "contexts": []
+    },
+    {
       "id": "stabilize-a-shaky-clip",
       "title": "Steady a shaky clip",
       "file": "stabilize-a-shaky-clip.md",

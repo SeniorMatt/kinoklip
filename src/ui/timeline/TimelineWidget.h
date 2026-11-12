@@ -481,6 +481,9 @@ private:
     AppContext& m_ctx;
     TimelineController* m_controller = nullptr;
     TimelineLayout m_layout;
+    /// Timeline and frame rate seen by the last onTimelineChanged() (zoom follows a rate change).
+    quint64 m_seenFpsUid = 0;
+    Rational m_seenFps;
     TimelinePainter m_painter;
     /// Project timelines by uid for the painter (multicam angle names); set once.
     std::function<const TimelineData*(quint64)> m_timelineLookup;

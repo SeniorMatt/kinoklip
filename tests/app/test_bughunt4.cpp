@@ -33,6 +33,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialog>
 #include <QDir>
 #include <QFile>
@@ -202,10 +203,44 @@ private slots:
         QCOMPARE(reopened.timeline()->data().audioTracks.size(), size_t(3));
     }
 
-    // Spec 25.15: Timeline Settings of a timeline with clips at its own frame rate does not
-    // offer "Use project settings" when the project runs at another rate (ticking it was
-    // silently ignored, spec 25.13).
-    void spec25_15_useProjectSettingsLockedWithClipsAtAnotherRate()
+    // Spec 25.13: Timeline Settings changes the frame rate of a timeline with clips after a
+    // confirmation; one undo step; the project keeps its rate.
+    void spec25_13_timelineSettingsConvertsAFilledTimeline()
+    {
+        Project project;
+        const quint64 uid = project.activeTimelineUid();
+        addSolid(project, 0);
+        addSolid(project, 25);
+        QTimer::singleShot(100, [&] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            auto* follow = dialog->findChild<QCheckBox*>(QStringLiteral("UseProjectSettings"));
+            follow->setChecked(false);
+            const auto combos = dialog->findChildren<QComboBox*>();
+            for (QComboBox* c : combos) {
+                const int i = c->findData(QPoint(60, 1));
+                if (i >= 0 && c->objectName().isEmpty())
+                    c->setCurrentIndex(i);
+            }
+            answerNextMessageBox(QStringLiteral("Yes"));
+            dialog->accept();
+        });
+        const int steps = project.undoStack()->count();
+        timelinedialogs::editTimelineSettings(nullptr, project, uid);
+        QCOMPARE(project.undoStack()->count(), steps + 1);
+        const auto data = project.timelineData(uid);
+        QCOMPARE(data->fps, (Rational {60, 1}));
+        QVERIFY(!data->useProjectSettings);
+        QCOMPARE(project.settings().fps, (Rational {24, 1}));
+        QCOMPARE(data->videoTracks[0].clips[0].duration, int64_t(63));
+        project.undo();
+        QCOMPARE(project.timelineData(uid)->fps, (Rational {24, 1}));
+        QCOMPARE(project.timelineData(uid)->videoTracks[0].clips[0].duration, int64_t(25));
+    }
+
+    // Spec 25.15 (superseded by 25.13): "Use project settings" is offered for a timeline with
+    // clips at its own frame rate; ticking it converts the timeline to the project's rate.
+    void spec25_15_useProjectSettingsOfferedWithClipsAtAnotherRate()
     {
         Project project;
         const quint64 uid = project.activeTimelineUid();
@@ -228,8 +263,8 @@ private slots:
         });
         timelinedialogs::editTimelineSettings(nullptr, project, uid);
         QVERIFY(!checked);
-        QVERIFY(!enabled);
-        QVERIFY(!tip.isEmpty());
+        QVERIFY(enabled);
+        QVERIFY(tip.isEmpty());
 
         // Without clips it can still be ticked.
         Project empty;

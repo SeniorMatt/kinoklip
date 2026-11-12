@@ -79,6 +79,8 @@ private:
     void addSection(const QString& id, const QString& title, QWidget* page);
 
     void updateWarning();
+    [[nodiscard]] bool followersHaveClips() const;
+    [[nodiscard]] bool confirmFrameRateChange();
 
     Project* m_project = nullptr;
     QLineEdit* m_name = nullptr;

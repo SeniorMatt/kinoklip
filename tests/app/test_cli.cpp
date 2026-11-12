@@ -290,6 +290,65 @@ private slots:
         r = run({"--no-such-option"});
         QVERIFY(r.exitCode != 0);
     }
+
+    void convertRateWritesANewFileAndNeverTouchesTheOriginal()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString project = dir.filePath(QStringLiteral("a.kkproj"));
+        const QString out = dir.filePath(QStringLiteral("a60.kkproj"));
+        QCOMPARE(run({QStringLiteral("project"), QStringLiteral("new"), QStringLiteral("--project"),
+                         project, QStringLiteral("--fps"), QStringLiteral("24")})
+                     .exitCode,
+            0);
+        for (const char* at : {"0", "25"}) {
+            QCOMPARE(run({QStringLiteral("generator"), QStringLiteral("add"),
+                             QStringLiteral("--generator"), QStringLiteral("solid_color"),
+                             QStringLiteral("--at"), QString::fromLatin1(at),
+                             QStringLiteral("--duration"), QStringLiteral("25"),
+                             QStringLiteral("--project"), project})
+                         .exitCode,
+                0);
+        }
+        QFile original(project);
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        const QByteArray before = original.readAll();
+        original.close();
+
+        // The input path and an existing file are refused.
+        const Run same = run({QStringLiteral("timeline"), QStringLiteral("convert-rate"),
+            QStringLiteral("--fps"), QStringLiteral("60"), QStringLiteral("--project"), project,
+            QStringLiteral("--output"), project});
+        QVERIFY(same.exitCode != 0);
+        QVERIFY(QFile::exists(dir.filePath(QStringLiteral("a.kkproj"))));
+        const Run missing = run({QStringLiteral("timeline"), QStringLiteral("convert-rate"),
+            QStringLiteral("--fps"), QStringLiteral("60"), QStringLiteral("--project"), project});
+        QVERIFY(missing.exitCode != 0); // --output is required
+
+        const Run converted = run({QStringLiteral("timeline"), QStringLiteral("convert-rate"),
+            QStringLiteral("--fps"), QStringLiteral("60"), QStringLiteral("--project"), project,
+            QStringLiteral("--output"), out, QStringLiteral("--json")});
+        QCOMPARE(converted.exitCode, 0);
+        QVERIFY(QFile::exists(out));
+        const Run list = run({QStringLiteral("clip"), QStringLiteral("list"),
+            QStringLiteral("--project"), out, QStringLiteral("--json")});
+        const QJsonArray clips = at(list.json(), QStringLiteral("result"), QStringLiteral("clips"))
+                                     .toArray();
+        QCOMPARE(clips.size(), 2);
+        QCOMPARE(clips[0].toObject().value(QStringLiteral("start")).toInt(), 0);
+        QCOMPARE(clips[0].toObject().value(QStringLiteral("duration")).toInt(), 63); // 62.5 rounds up
+        QCOMPARE(clips[1].toObject().value(QStringLiteral("start")).toInt(), 63); // the clips still touch
+        QCOMPARE(at(list.json(), QStringLiteral("result"), QStringLiteral("fps")).toInt(), 60);
+
+        // A second run to the same output is refused; the original is byte for byte unchanged.
+        QVERIFY(run({QStringLiteral("timeline"), QStringLiteral("convert-rate"),
+                        QStringLiteral("--fps"), QStringLiteral("50"), QStringLiteral("--project"),
+                        project, QStringLiteral("--output"), out})
+                    .exitCode
+            != 0);
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        QCOMPARE(original.readAll(), before);
+    }
 };
 
 QTEST_GUILESS_MAIN(TestCli)
