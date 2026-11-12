@@ -194,8 +194,17 @@ bool VimMachine::wouldConsume(const vimkeys::KeyInfo& key) const
     if (!m_keys.isEmpty())
         return vimkeys::isCharToken(token) || token == QLatin1String("<Space>")
             || trie.match(m_keys + QStringList {token}).kind != VimMatch::Kind::None;
-    if (vimkeys::isCharToken(token))
-        return true; // an unbound printable key does nothing, as in vim
+    if (vimkeys::isCharToken(token)) {
+        // An unbound printable key does nothing, as in vim; but in the panels of fields and
+        // buttons it is left to the widget (a button, a field the user clicked into).
+        const QString context = currentContext();
+        const bool plainPanel
+            = context == QLatin1String("panel") || context == QLatin1String("form");
+        // (Counts and registers stay the machine's.)
+        const bool count
+            = token.size() == 1 && (token.at(0).isDigit() || token == QLatin1String("\""));
+        return !plainPanel || count || trie.startsWith(token);
+    }
     return trie.startsWith(token);
 }
 
@@ -1053,6 +1062,12 @@ bool VimInput::inScope(const QWidget* focus) const
 
 QString VimInput::contextOf(const QWidget* focus)
 {
+    // A list or tree is a list even inside a panel of rows (the title layers of the Inspector).
+    if (focus && qobject_cast<const QAbstractItemView*>(focus)
+        && focus->property(kScopeProperty).toString().isEmpty()
+        && (vimwin::frameOf(const_cast<QWidget*>(focus))
+            || qobject_cast<const QMainWindow*>(focus->window())))
+        return QStringLiteral("list");
     for (const QWidget* w = focus; w; w = w->parentWidget()) {
         if (const QString context = w->property(kScopeProperty).toString(); !context.isEmpty())
             return context;
@@ -1071,15 +1086,31 @@ QString VimInput::contextOf(const QWidget* focus)
 void VimInput::syncHost(QWidget* focus)
 {
     VimHost* want = m_host;
-    if (m_listHost && contextOf(focus) == QLatin1String("list")) {
-        want = m_listHost;
+    if (VimHost* panel = m_contextHosts.value(contextOf(focus))) {
+        want = panel;
         want->focusChanged(focus);
     }
     m_machine.switchHost(want);
 }
 
+void VimInput::setContextHost(const QString& context, VimHost* host)
+{
+    if (host)
+        m_contextHosts.insert(context, host);
+    else
+        m_contextHosts.remove(context);
+}
+
 void VimInput::focusPanelHome(QWidget* from)
 {
+    // A panel of rows takes the focus itself (the Inspector, a form outside a panel frame).
+    for (QWidget* w = from; w; w = w->parentWidget()) {
+        if (w->property(kScopeProperty).toString() == QLatin1String("form")
+            && w->focusPolicy() != Qt::NoFocus) {
+            w->setFocus(Qt::OtherFocusReason);
+            return;
+        }
+    }
     QWidget* frame = nullptr;
     for (QWidget* w = from; w; w = w->parentWidget()) {
         if (w->inherits("kk::PanelFrame")) {

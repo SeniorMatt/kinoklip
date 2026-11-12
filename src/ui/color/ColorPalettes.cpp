@@ -5,6 +5,7 @@
 #include "ui/color/ColorFrameSource.h"
 #include "ui/color/ColorSession.h"
 #include "ui/common/TextFit.h"
+#include "ui/common/VimRowOps.h"
 #include "ui/inspector/ValueField.h"
 
 #include <QButtonGroup>
@@ -232,6 +233,7 @@ QualifierPanel::QualifierPanel(ColorSession* session, QWidget* parent)
     : QWidget(parent)
     , m_session(session)
 {
+    markVimForm(this);
     setObjectName(QStringLiteral("QualifierPanel"));
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(6, 2, 6, 4);
@@ -496,6 +498,7 @@ WindowsPanel::WindowsPanel(ColorSession* session, QWidget* parent)
     : QWidget(parent)
     , m_session(session)
 {
+    markVimForm(this);
     setObjectName(QStringLiteral("WindowsPanel"));
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(6, 2, 6, 4);
@@ -832,6 +835,7 @@ KeyPanel::KeyPanel(ColorSession* session, ColorFrameSource* frames, QWidget* par
     , m_session(session)
     , m_frames(frames)
 {
+    markVimForm(this);
     setObjectName(QStringLiteral("KeyPanel"));
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(6, 2, 6, 4);

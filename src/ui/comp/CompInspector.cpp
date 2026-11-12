@@ -11,6 +11,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelInfo.h"
+#include "ui/common/VimRowOps.h"
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompSession.h"
 #include "ui/comp/TrackerPanel.h"
@@ -35,6 +36,7 @@ CompInspector::CompInspector(AppContext& ctx, CompSession* session, QWidget* par
     , m_ctx(ctx)
     , m_session(session)
 {
+    markVimForm(this);
     setPanelInfo(this, tr("Inspector"),
         tr("Parameters of the selected node, with an on/off switch and Reset."));
     setObjectName(QStringLiteral("CompInspector"));

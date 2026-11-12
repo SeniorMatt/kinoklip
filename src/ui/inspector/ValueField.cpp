@@ -314,10 +314,18 @@ void ValueField::finishTextEdit(bool commit)
 
 bool ValueField::eventFilter(QObject* watched, QEvent* event)
 {
-    if (watched == m_editor && event->type() == QEvent::KeyPress
-        && static_cast<QKeyEvent*>(event)->key() == Qt::Key_Escape) {
-        finishTextEdit(false);
-        return true;
+    if (watched == m_editor && event->type() == QEvent::KeyPress) {
+        const int key = static_cast<QKeyEvent*>(event)->key();
+        if (key == Qt::Key_Escape) {
+            finishTextEdit(false);
+            return true;
+        }
+        // Enter keeps the number. Consumed here: QLineEdit ignores it after editingFinished(),
+        // and it would reach this field's own Enter and open the editor again.
+        if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+            finishTextEdit(true);
+            return true;
+        }
     }
     return QWidget::eventFilter(watched, event);
 }

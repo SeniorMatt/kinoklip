@@ -3,6 +3,7 @@
 // Rows place their widgets into a shared QGridLayout so all labels/fields line up.
 #pragma once
 
+#include "ui/common/VimRowOps.h"
 #include "ui/inspector/ParamAccess.h"
 
 #include <QObject>
@@ -34,7 +35,7 @@ inline constexpr int kColumnCount = 5;
 ///
 /// Rows own no model state: they read the clip passed to refresh() and write through the
 /// ParamEditHost, which wraps every change in Project::beginEdit()/endEdit().
-class ParamRow : public QObject
+class ParamRow : public QObject, public VimRowOps
 {
     Q_OBJECT
 public:
@@ -57,6 +58,20 @@ public:
     /// Descriptor of the parameter (a copy, so synthetic descriptors work too).
     [[nodiscard]] const ParamDescriptor& descriptor() const { return m_desc; }
 
+    // ---- VimRowOps: the keyboard access of the Vim layer (spec section 83) ----
+    [[nodiscard]] QString vimName() const override { return m_desc.label; }
+    [[nodiscard]] QList<QWidget*> vimWidgets() const override;
+    bool vimStep(int steps, double scale) override;
+    bool vimReset() override;
+    bool vimEdit() override;
+    bool vimActivate() override;
+    [[nodiscard]] QVariant vimValue() const override;
+    bool vimSetValue(const QVariant& value) override;
+    bool vimToggleKeyframe() override;
+    bool vimJumpKeyframe(bool forward) override;
+    bool vimDeleteKeyframe() override;
+    bool vimSetInterp(Ease ease) override;
+
 protected:
     ParamRow(
         const ParamRef& ref, const ParamDescriptor& desc, ParamEditHost& host, QObject* parent);
@@ -67,12 +82,22 @@ protected:
     void refreshReset(const ClipData& clip, int64_t localFrame);
     /// Label of undo commands changing this parameter ("Change Opacity").
     [[nodiscard]] QString changeLabel() const;
+    /// Sets scalar parameter to the shown value @p shown in one undo step (typed, wheel, keys).
+    void applyScalarOnce(double shown);
+    /// Adds a key at the playhead or removes the one there (the diamond).
+    void toggleKey();
+    /// Moves the playhead to the next / previous key of this parameter.
+    void jump(bool forward);
+    /// True for a parameter that can carry keyframes.
+    [[nodiscard]] bool keyable() const;
 
     ParamRef m_ref;
     ParamDescriptor m_desc;
     ParamEditHost& m_host;
     QLabel* m_label = nullptr;
     QToolButton* m_reset = nullptr;
+    QWidget* m_main = nullptr; ///< the editor widget the keyboard works on (ValueField, combo, ...)
+    QList<QWidget*> m_extra; ///< more widgets of the row (the keyframe buttons)
     bool m_resetEnabled = true; ///< cached so refresh() only touches the button on change
 };
 

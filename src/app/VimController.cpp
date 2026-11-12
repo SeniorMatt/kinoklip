@@ -8,6 +8,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/common/VimCommandLine.h"
+#include "ui/common/VimFormHost.h"
 #include "ui/common/VimInput.h"
 #include "ui/common/VimKeymap.h"
 #include "ui/common/VimListHost.h"
@@ -94,6 +95,16 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     m_listHost->onUpLevel = [this] { return upOneBin(); };
     m_listHost->onNewItem = [this] { return newBin(); };
     m_input->setListHost(m_listHost);
+    m_formHost = new VimFormHost(ctx.actions);
+    m_formHost->onCommandLine = [this] { showCommandLine(false); };
+    m_formHost->onMessage
+        = [this](const QString& text) { m_modeLine->showMessage(text, kMessageMs); };
+    m_formHost->onEx = [this](const QString& line) {
+        bool ok = true;
+        const QString message = runCommand(line, &ok);
+        showResult(message, ok);
+    };
+    m_input->setContextHost(QStringLiteral("form"), m_formHost);
     if (qApp)
         qApp->installEventFilter(this);
 
@@ -106,6 +117,7 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     });
     connect(m_input, &VimInput::activeChanged, this, [this] {
         m_host->showCursor(m_input->active());
+        m_formHost->setCursorVisible(m_input->active());
         updateModeLine();
         updateFocusFrame();
         updateWhichKey();
@@ -219,6 +231,7 @@ VimController::~VimController()
         m_framed->setVimFocusFrame(false);
     delete m_host;
     delete m_listHost;
+    delete m_formHost;
 }
 
 void VimController::updateModeLine()

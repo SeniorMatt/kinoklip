@@ -9,6 +9,7 @@
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelInfo.h"
+#include "ui/common/VimRowOps.h"
 #include "ui/deliver/RenderPresetRow.h"
 
 #include <QButtonGroup>
@@ -181,6 +182,7 @@ RenderSettingsPanel::RenderSettingsPanel(AppContext& ctx, ExportPresets* presets
     , m_ctx(ctx)
     , m_presets(presets)
 {
+    markVimForm(this);
     setPanelInfo(this, tr("Render Settings"),
         tr("Preset, file name and location, video, audio and file options and render range of the "
            "export; Add to Render Queue is here."));

@@ -22,6 +22,7 @@
 
 #include <QChar>
 #include <QEvent>
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -264,7 +265,10 @@ public:
 
     void setHost(VimHost* host) { m_machine.setHost(host); m_host = host; }
     /// The host for the "list" context (VimListHost): lists, trees and grids anywhere.
-    void setListHost(VimHost* host) { m_listHost = host; }
+    void setListHost(VimHost* host) { setContextHost(QStringLiteral("list"), host); }
+    /// The host for the panels of key context @p context ("form", "keyframes", "nodes",
+    /// "mixer"): their keys are commands of the host. nullptr removes it.
+    void setContextHost(const QString& context, VimHost* host);
     [[nodiscard]] VimMachine& machine() { return m_machine; }
     /// True while Vim mode is on.
     [[nodiscard]] bool active() const { return m_active; }
@@ -302,7 +306,7 @@ private:
     VimKeymap* m_keymap = nullptr;
     VimMachine m_machine;
     VimHost* m_host = nullptr;
-    VimHost* m_listHost = nullptr;
+    QHash<QString, VimHost*> m_contextHosts; ///< by key context, besides m_host (timeline)
     bool m_active = false;
 };
 

@@ -280,13 +280,20 @@ private slots:
         }
         // Resolve's Ctrl keys stay the profile's, except these (design section 8): Redo, the
         // block selection of the timeline, the focus moves between panels and the window
-        // prefix (83.46), and half a page in lists (<C-d> <C-u>, only in the list context).
+        // prefix (83.46), and half a page in lists (<C-d> <C-u>, only in the list context), and
+        // stepping a value in forms (<C-a> <C-x>).
         QCOMPARE(chords,
             (QSet<QString> {QStringLiteral("<C-r>"), QStringLiteral("<C-v>"),
                 QStringLiteral("<C-h>"), QStringLiteral("<C-j>"), QStringLiteral("<C-k>"),
                 QStringLiteral("<C-l>"), QStringLiteral("<C-w>"), QStringLiteral("<C-d>"),
-                QStringLiteral("<C-u>")}));
+                QStringLiteral("<C-u>"), QStringLiteral("<C-a>"), QStringLiteral("<C-x>")}));
         // <C-d> and <C-u> are only in the lists; the timeline keeps Change Duration and Duplicate.
+        // <C-a> and <C-x> step values in forms (the timeline keeps Select All and Cut).
+        for (const VimBinding& b : map.bindings()) {
+            if (b.tokens.contains(QStringLiteral("<C-a>"))
+                || b.tokens.contains(QStringLiteral("<C-x>")))
+                QVERIFY2(b.context == QLatin1String("form"), qPrintable(b.context));
+        }
         for (const VimBinding& b : map.bindings()) {
             if (b.tokens.contains(QStringLiteral("<C-d>"))
                 || b.tokens.contains(QStringLiteral("<C-u>")))

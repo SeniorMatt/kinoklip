@@ -4,6 +4,7 @@
 
 #include "core/GradeMath.h"
 #include "ui/color/ColorSession.h"
+#include "ui/common/VimRowOps.h"
 #include "ui/inspector/ValueField.h"
 
 #include <QButtonGroup>
@@ -440,6 +441,7 @@ PrimariesPanel::PrimariesPanel(ColorSession* session, QWidget* parent)
     : QWidget(parent)
     , m_session(session)
 {
+    markVimForm(this);
     setObjectName(QStringLiteral("PrimariesPanel"));
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(6, 2, 6, 4);
@@ -936,6 +938,7 @@ ColorCurvesPanel::ColorCurvesPanel(ColorSession* session, QWidget* parent)
     : QWidget(parent)
     , m_session(session)
 {
+    markVimForm(this);
     setObjectName(QStringLiteral("ColorCurvesPanel"));
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(6, 2, 6, 4);

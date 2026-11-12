@@ -19,6 +19,7 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelInfo.h"
+#include "ui/common/VimRowOps.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/help/Guide.h"
 #include "ui/inspector/KeyframeButton.h"
@@ -37,14 +38,17 @@
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMimeData>
+#include <QPlainTextEdit>
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSet>
 #include <QTabWidget>
+#include <QTextCursor>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -123,6 +127,7 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     : PanelFrame(tr("Inspector"), parent)
     , m_ctx(ctx)
 {
+    markVimForm(this);
     setPanelInfo(this, tr("Inspector"),
         tr("Edits the parameters of the selected clip on the video, audio, effects, title and "
            "transition tabs."));
@@ -779,6 +784,22 @@ void InspectorPanel::rebuild()
     QVector<int> scrollPositions;
     for (QScrollArea* scroll : std::as_const(m_tabScroll))
         scrollPositions.append(scroll->verticalScrollBar()->value());
+    // Typing in the first line of a title text renames its layer and so rebuilds the tab on
+    // every key: the text field being typed in keeps the focus and its cursor.
+    QString typingIn;
+    int cursorAt = 0;
+    int anchorAt = 0;
+    if (QWidget* focus = QApplication::focusWidget(); focus && isAncestorOf(focus)) {
+        if (auto* text = qobject_cast<QPlainTextEdit*>(focus)) {
+            typingIn = text->objectName();
+            cursorAt = text->textCursor().position();
+            anchorAt = text->textCursor().anchor();
+        } else if (auto* line = qobject_cast<QLineEdit*>(focus)) {
+            typingIn = line->objectName();
+            cursorAt = line->cursorPosition();
+            anchorAt = cursorAt;
+        }
+    }
     clearTabs();
     for (QScrollArea* scroll : std::as_const(m_tabScroll)) {
         auto* page = new QWidget;
@@ -877,6 +898,20 @@ void InspectorPanel::rebuild()
     // Restore the scroll positions once the new pages have a size.
     for (int i = 0; i < m_tabScroll.size(); ++i)
         m_tabScroll[i]->verticalScrollBar()->setValue(scrollPositions[i]);
+    if (!typingIn.isEmpty()) {
+        QWidget* again = findChild<QWidget*>(typingIn);
+        if (auto* text = qobject_cast<QPlainTextEdit*>(again)) {
+            text->setFocus(Qt::OtherFocusReason);
+            QTextCursor cursor = text->textCursor();
+            cursor.setPosition(std::min(anchorAt, int(text->toPlainText().size())));
+            cursor.setPosition(
+                std::min(cursorAt, int(text->toPlainText().size())), QTextCursor::KeepAnchor);
+            text->setTextCursor(cursor);
+        } else if (auto* line = qobject_cast<QLineEdit*>(again)) {
+            line->setFocus(Qt::OtherFocusReason);
+            line->setCursorPosition(cursorAt);
+        }
+    }
 }
 
 void InspectorPanel::buildCaptionsTab(const ClipData& c)

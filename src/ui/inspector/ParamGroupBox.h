@@ -2,6 +2,7 @@
 // ParamGroupBox — a collapsible inspector section (header + aligned grid of ParamRows).
 #pragma once
 
+#include "ui/common/VimRowOps.h"
 #include "ui/inspector/InspectorGlyphs.h"
 #include "ui/inspector/ParamAccess.h"
 
@@ -29,7 +30,7 @@ class ParamRow;
 /// labels, fields and keyframe buttons line up in columns (see paramgrid::).
 ///
 /// Built once per structure; refresh() just forwards to the rows (cheap, no allocation).
-class ParamGroupBox : public QWidget
+class ParamGroupBox : public QWidget, public VimRowOps
 {
     Q_OBJECT
 public:
@@ -82,6 +83,15 @@ public:
     /// Refreshes the header and every row from @p clip at @p localFrame.
     void refresh(const ClipData& clip, int64_t localFrame, bool playheadInside);
 
+    // ---- VimRowOps: the section header as a row of the keyboard cursor ----
+    [[nodiscard]] QString vimName() const override { return title(); }
+    [[nodiscard]] QList<QWidget*> vimWidgets() const override { return {m_header}; }
+    bool vimActivate() override { return vimFold(0); }
+    bool vimFold(int mode) override;
+    bool vimSwitch() override;
+    bool vimRemove() override;
+    bool vimMove(int delta) override;
+
 signals:
     /// The user collapsed or expanded the group.
     void collapsedChanged(bool collapsed);
@@ -93,6 +103,11 @@ private:
     QWidget* m_header = nullptr;
     QHBoxLayout* m_headerLayout = nullptr;
     QToolButton* m_chevron = nullptr;
+    QCheckBox* m_enable = nullptr; ///< the header's enable toggle, if any
+    QToolButton* m_removeButton = nullptr; ///< glyph Remove
+    QToolButton* m_resetButton = nullptr; ///< glyph Reset ("Reset all")
+    QToolButton* m_upButton = nullptr;
+    QToolButton* m_downButton = nullptr;
     QLabel* m_title = nullptr;
     QWidget* m_body = nullptr;
     QGridLayout* m_grid = nullptr;

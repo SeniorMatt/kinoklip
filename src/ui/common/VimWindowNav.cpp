@@ -143,6 +143,12 @@ bool focusPanel(PanelFrame* frame)
 {
     if (!frame)
         return false;
+    // A panel of rows (the Inspector) takes the focus itself, whatever lists it holds.
+    if (frame->property(VimInput::kScopeProperty).toString() == QLatin1String("form")
+        && frame->focusPolicy() != Qt::NoFocus) {
+        frame->setFocus(Qt::OtherFocusReason);
+        return true;
+    }
     for (QWidget* child : frame->findChildren<QWidget*>()) {
         if (!child->property(VimInput::kScopeProperty).toString().isEmpty() && child->isVisible()
             && child->focusPolicy() != Qt::NoFocus) {

@@ -26,7 +26,8 @@ namespace kk {
 namespace {
 
 const QStringList kContexts {QStringLiteral("global"), QStringLiteral("timeline"),
-    QStringLiteral("viewer"), QStringLiteral("list"), QStringLiteral("panel")};
+    QStringLiteral("viewer"), QStringLiteral("list"), QStringLiteral("panel"),
+    QStringLiteral("form")};
 
 /// The built-in commands of `vim:` items.
 const QStringList kBuiltins {// motions (VimGrammar.h) and marks
@@ -70,6 +71,23 @@ const QStringList kBuiltins {// motions (VimGrammar.h) and marks
     QStringLiteral("list_fold_close"), QStringLiteral("list_fold_open_all"),
     QStringLiteral("list_fold_close_all"), QStringLiteral("list_scroll_top"),
     QStringLiteral("list_scroll_middle"), QStringLiteral("list_scroll_bottom"),
+    // forms: the Inspector and every panel of rows (VimFormHost.h)
+    QStringLiteral("form_down"), QStringLiteral("form_up"), QStringLiteral("form_first"),
+    QStringLiteral("form_last"), QStringLiteral("form_left"), QStringLiteral("form_right"),
+    QStringLiteral("form_inc"), QStringLiteral("form_dec"), QStringLiteral("form_inc_coarse"),
+    QStringLiteral("form_dec_coarse"), QStringLiteral("form_inc_fine"),
+    QStringLiteral("form_dec_fine"), QStringLiteral("form_edit"), QStringLiteral("form_activate"),
+    QStringLiteral("form_switch"), QStringLiteral("form_delete"), QStringLiteral("form_yank"),
+    QStringLiteral("form_paste"), QStringLiteral("form_fold_toggle"),
+    QStringLiteral("form_fold_open"), QStringLiteral("form_fold_close"),
+    QStringLiteral("form_fold_open_all"), QStringLiteral("form_fold_close_all"),
+    QStringLiteral("form_move_down"), QStringLiteral("form_move_up"),
+    QStringLiteral("form_tab_next"), QStringLiteral("form_tab_prev"), QStringLiteral("form_help"),
+    QStringLiteral("form_key_toggle"), QStringLiteral("form_key_delete"),
+    QStringLiteral("form_key_next"), QStringLiteral("form_key_prev"),
+    QStringLiteral("form_key_linear"), QStringLiteral("form_key_ease_in"),
+    QStringLiteral("form_key_ease_out"), QStringLiteral("form_key_ease_in_out"),
+    QStringLiteral("form_key_smooth"), QStringLiteral("form_key_hold"),
     // panels, windows and pages
     QStringLiteral("win_left"), QStringLiteral("win_down"), QStringLiteral("win_up"),
     QStringLiteral("win_right"), QStringLiteral("win_next"), QStringLiteral("win_prev"),
@@ -87,8 +105,8 @@ QStringList chainOf(const QString& context)
         return {QStringLiteral("global"), QStringLiteral("timeline"), QStringLiteral("viewer")};
     if (context == QLatin1String("timeline"))
         return {QStringLiteral("global"), QStringLiteral("timeline")};
-    if (context == QLatin1String("list"))
-        return {QStringLiteral("global"), QStringLiteral("list")};
+    if (context == QLatin1String("list") || context == QLatin1String("form"))
+        return {QStringLiteral("global"), context};
     return {QStringLiteral("global")};
 }
 

@@ -175,6 +175,46 @@ the timeline, and `o l h - a r` open, go up, add a bin and rename.
 | `zz` | NORMAL | scroll the row to the middle | `vim:list_scroll_middle` |
 | `zb` | NORMAL | scroll the row to the bottom | `vim:list_scroll_bottom` |
 
+## Inspector and other panels of rows (Compositing Inspector, Deliver settings, ...)
+
+| Keys | Mode | What it does | Runs |
+|---|---|---|---|
+| `j` | NORMAL | next row (count: that many) | `vim:form_down` |
+| `k` | NORMAL | previous row (count: that many) | `vim:form_up` |
+| `gg` | NORMAL | first row; with a count, that row | `vim:form_first` |
+| `G` | NORMAL | last row; with a count, that row | `vim:form_last` |
+| `h` | NORMAL | previous control of the row; on a value: one step down (count: that many) | `vim:form_left` |
+| `l` | NORMAL | next control of the row; on a value: one step up (count: that many) | `vim:form_right` |
+| `<C-a>` | NORMAL | increase the value by one step (count: that many steps; a choice goes to the next entry, a check box toggles) | `vim:form_inc` |
+| `<C-x>` | NORMAL | decrease the value by one step (count: that many steps) | `vim:form_dec` |
+| `g<C-a>` | NORMAL | increase the value by ten steps | `vim:form_inc_coarse` |
+| `g<C-x>` | NORMAL | decrease the value by ten steps | `vim:form_dec_coarse` |
+| `zl` | NORMAL | increase the value by a tenth of a step | `vim:form_inc_fine` |
+| `zh` | NORMAL | decrease the value by a tenth of a step | `vim:form_dec_fine` |
+| `i` | NORMAL | type the value (INSERT; Enter keeps it, Esc leaves it) | `vim:form_edit` |
+| `a` | NORMAL | type the value (INSERT; Enter keeps it, Esc leaves it) | `vim:form_edit` |
+| `cw` | NORMAL | type a new value | `vim:form_edit` |
+| `cc` | NORMAL | type a new value | `vim:form_edit` |
+| `<CR>` | NORMAL | do the row's own thing: type a number or text, toggle a check box, open a choice, a colour or a file, press a button, fold a section | `vim:form_activate` |
+| `x` | NORMAL | switch a section on or off; toggle a check box; press a button | `vim:form_switch` |
+| `dd` | NORMAL | reset the value to its default; on a section header remove the effect, mask or transition | `vim:form_delete` |
+| `yy` | NORMAL | copy the value of the row | `vim:form_yank` |
+| `p` | NORMAL | paste the copied value into the row (another clip works too) | `vim:form_paste` |
+| `P` | NORMAL | paste the copied value into the row | `vim:form_paste` |
+| `.` | NORMAL | repeat the last change on this row | `vim:repeat` |
+| `za` | NORMAL | open / close the section | `vim:form_fold_toggle` |
+| `zo` | NORMAL | open the section | `vim:form_fold_open` |
+| `zc` | NORMAL | close the section | `vim:form_fold_close` |
+| `zR` | NORMAL | open every section | `vim:form_fold_open_all` |
+| `zM` | NORMAL | close every section | `vim:form_fold_close_all` |
+| `]]` | NORMAL | next tab of the panel (Video, Audio, Effects, ...) | `vim:form_tab_next` |
+| `[[` | NORMAL | previous tab of the panel | `vim:form_tab_prev` |
+| `]k` | NORMAL | playhead to the next keyframe of this parameter | `vim:form_key_next` |
+| `[k` | NORMAL | playhead to the previous keyframe of this parameter | `vim:form_key_prev` |
+| `>>` | NORMAL | move the effect, mask or layer down in its stack | `vim:form_move_down` |
+| `<<` | NORMAL | move the effect, mask or layer up in its stack | `vim:form_move_up` |
+| `K` | NORMAL | what this parameter does (its tooltip) | `vim:form_help` |
+
 ## Leader keys (Space, then...)
 
 | Keys | What it does | Runs |
@@ -238,6 +278,15 @@ the timeline, and `o l h - a r` open, go up, add a bin and rename.
 | `<leader>fk` | find a Vim key and run its command | `vim:picker_keymaps` |
 | `<leader>n` | show / hide the Media Pool | `action:view.toggle_media_pool` |
 | `<leader>x` | close the timeline tab | `action:timeline.close_tab` |
+| **`<leader>k`** | **keyframes** | |
+| `<leader>kk` | add a keyframe on this parameter at the playhead, or remove the one there | `vim:form_key_toggle` |
+| `<leader>kd` | delete the keyframe of this parameter at the playhead | `vim:form_key_delete` |
+| `<leader>kl` | linear keyframe | `vim:form_key_linear` |
+| `<leader>ki` | ease in | `vim:form_key_ease_in` |
+| `<leader>ko` | ease out | `vim:form_key_ease_out` |
+| `<leader>kb` | ease in and out | `vim:form_key_ease_in_out` |
+| `<leader>ks` | smooth (Bezier) keyframe | `vim:form_key_smooth` |
+| `<leader>kh` | static (hold) keyframe | `vim:form_key_hold` |
 
 ## The command line
 
