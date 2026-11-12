@@ -19,6 +19,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMouseEvent>
 #include <QPainter>
@@ -710,6 +711,13 @@ LutBrowser::LutBrowser(ColorSession* session, QWidget* parent)
     tools->addWidget(m_interpolation);
     tools->addWidget(m_remove);
     layout->addLayout(tools);
+    // A folder of LUTs easily holds hundreds: type part of a name to narrow the list.
+    m_search = new QLineEdit(this);
+    m_search->setObjectName(QStringLiteral("LutSearch"));
+    m_search->setPlaceholderText(tr("Search LUTs"));
+    m_search->setClearButtonEnabled(true);
+    layout->addWidget(m_search);
+    connect(m_search, &QLineEdit::textChanged, this, [this] { applyFilter(); });
     m_tree = new QTreeWidget(this);
     m_tree->setObjectName(QStringLiteral("LutTree"));
     m_tree->setHeaderHidden(true);
@@ -802,6 +810,26 @@ void LutBrowser::rescan()
             empty->setFlags(Qt::NoItemFlags);
         }
         root->setExpanded(true);
+    }
+    applyFilter();
+}
+
+void LutBrowser::applyFilter()
+{
+    const QStringList words
+        = m_search->text().toLower().split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    for (int r = 0; r < m_tree->topLevelItemCount(); ++r) {
+        QTreeWidgetItem* root = m_tree->topLevelItem(r);
+        int shown = 0;
+        for (int i = 0; i < root->childCount(); ++i) {
+            QTreeWidgetItem* item = root->child(i);
+            bool hit = true;
+            for (const QString& w : words)
+                hit = hit && item->text(0).toLower().contains(w);
+            item->setHidden(!hit);
+            shown += hit ? 1 : 0;
+        }
+        root->setHidden(!words.isEmpty() && shown == 0); // a folder with no match gives way
     }
 }
 

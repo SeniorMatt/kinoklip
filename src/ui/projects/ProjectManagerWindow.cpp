@@ -17,6 +17,7 @@
 #include "ui/projects/ProjectCardDelegate.h"
 #include "ui/projects/ProjectLibraryModel.h"
 
+#include <QApplication>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDir>
@@ -33,6 +34,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QSettings>
 #include <QSlider>
@@ -128,6 +130,7 @@ ProjectManagerWindow::ProjectManagerWindow(ProjectLibrary* library, QWidget* par
     m_delegate = new ProjectCardDelegate(this);
     buildUi();
     restoreSettings();
+    qApp->installEventFilter(this); // mouse back / forward anywhere in the window
     connect(
         m_model, &ProjectLibraryModel::operationFailed, this, &ProjectManagerWindow::reportError);
     connect(m_model, &QAbstractItemModel::modelReset, this, [this] {
@@ -141,6 +144,8 @@ ProjectManagerWindow::ProjectManagerWindow(ProjectLibrary* library, QWidget* par
 
 ProjectManagerWindow::~ProjectManagerWindow()
 {
+    if (qApp)
+        qApp->removeEventFilter(this);
     saveSettings();
 }
 
@@ -326,16 +331,45 @@ void ProjectManagerWindow::setTopBanner(QWidget* banner)
 
 // ---- Navigation ----
 
+namespace {
+const QString kRecentPlace = QStringLiteral("\x01recent");
+}
+
 void ProjectManagerWindow::showFolder(const QString& folder)
 {
     m_places->setCurrentRow(0);
     m_model->showFolder(folder.isEmpty() || !m_library->contains(folder) ? QString() : folder);
+    recordPlace(m_model->folder());
 }
 
 void ProjectManagerWindow::showRecent()
 {
     m_places->setCurrentRow(1);
     m_model->showRecent(m_recent);
+    recordPlace(kRecentPlace);
+}
+
+void ProjectManagerWindow::recordPlace(const QString& place)
+{
+    if (m_navigating || (m_historyPos >= 0 && m_history.value(m_historyPos) == place))
+        return;
+    m_history.resize(m_historyPos + 1); // a new place drops the forward entries
+    m_history.append(place);
+    m_historyPos = int(m_history.size()) - 1;
+}
+
+void ProjectManagerWindow::navigateHistory(int direction)
+{
+    const int pos = m_historyPos + direction;
+    if (pos < 0 || pos >= m_history.size())
+        return;
+    m_navigating = true;
+    m_historyPos = pos;
+    if (m_history.at(pos) == kRecentPlace)
+        showRecent();
+    else
+        showFolder(m_history.at(pos));
+    m_navigating = false;
 }
 
 void ProjectManagerWindow::goUp()
@@ -691,7 +725,7 @@ bool ProjectManagerWindow::removeFromRecent(const QStringList& paths)
     for (const QString& p : paths) {
         if (m_library->isOpenOrContainsOpen(p)) {
             reportError(tr("“%1” is open and cannot be removed. Open another project first.")
-                            .arg(QFileInfo(p).completeBaseName()));
+                    .arg(QFileInfo(p).completeBaseName()));
             return false;
         }
         clean << QDir::cleanPath(p);
@@ -886,6 +920,19 @@ void ProjectManagerWindow::showContextMenu(QAbstractItemView* view, const QPoint
 
 bool ProjectManagerWindow::eventFilter(QObject* watched, QEvent* event)
 {
+    // The mouse back / forward buttons step through the folders shown, like a file manager.
+    if ((event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick
+            || event->type() == QEvent::MouseButtonRelease)
+        && watched->isWidgetType() && isVisible()) {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        const auto* w = static_cast<const QWidget*>(watched);
+        if ((mouse->button() == Qt::BackButton || mouse->button() == Qt::ForwardButton)
+            && (w == this || isAncestorOf(w))) {
+            if (event->type() != QEvent::MouseButtonRelease)
+                navigateHistory(mouse->button() == Qt::BackButton ? -1 : 1);
+            return true;
+        }
+    }
     if (event->type() == QEvent::KeyPress && (watched == m_cardView || watched == m_listView)) {
         auto* key = static_cast<QKeyEvent*>(event);
         auto* view = static_cast<QAbstractItemView*>(watched);

@@ -285,6 +285,7 @@ private:
     void updateOutputClient();
     void updateTitle();
     void updateMarksLabel();
+    void fitMarksLabel();
     void startSourceDrag();
     bool handleSourceKey(const QString& actionId);
     [[nodiscard]] QString matchSourceKey(const QKeyEvent* key) const;

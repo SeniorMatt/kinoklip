@@ -21,6 +21,7 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -266,6 +267,7 @@ MixerStrip::MixerStrip(
     m_name->setAlignment(Qt::AlignCenter);
     m_name->setAutoFillBackground(true);
     m_name->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_name->installEventFilter(this); // a double-click renames
     connect(m_name, &QLabel::customContextMenuRequested, this,
         [this](const QPoint& pos) { showNameMenu(m_name->mapToGlobal(pos)); });
     layout->addWidget(m_name);
@@ -295,7 +297,7 @@ void MixerStrip::refresh(int64_t frame)
         textfit::setElidedText(m_input, tr("Sum"), tr("Input: the tracks routed to this bus"));
         textfit::setElidedText(m_name,
             QStringLiteral("%1\n%2").arg(busDisplayName(*b), b->mono ? tr("Mono") : tr("Stereo")),
-            tr("Right-click for the channel format, rename and delete"));
+            tr("Double-click to rename; right-click for the channel format and delete"));
         m_bus->setChecked(d.mixer.outputBus == b->id);
         m_mute->setChecked(s->muted);
     } else {
@@ -304,7 +306,7 @@ void MixerStrip::refresh(int64_t frame)
         textfit::setElidedText(m_input, name, tr("Input: the track's clips"));
         textfit::setElidedText(m_name,
             QStringLiteral("%1\n%2").arg(name, t->mix.mono ? tr("Mono") : tr("Stereo")),
-            tr("Right-click for the channel format"));
+            tr("Double-click to rename; right-click for the channel format"));
         QStringList buses;
         for (int id : t->mix.buses) {
             if (const BusData* b = mixerops::bus(d, id))
@@ -385,6 +387,49 @@ void MixerStrip::fillBusMenu()
     }
 }
 
+bool MixerStrip::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_name && event->type() == QEvent::MouseButtonDblClick
+        && static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton) {
+        askRename();
+        return true;
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void MixerStrip::askRename()
+{
+    const TimelineData& d = m_controller->data();
+    const bool bus = m_target.isBus();
+    const QString current = bus ? busDisplayName(*mixerops::bus(d, int(m_target.id)))
+                                : mixerops::targetName(d, m_target);
+    if (m_namePrompt) {
+        if (const auto name = m_namePrompt(current))
+            renameTarget(*name);
+        return;
+    }
+    bool ok = false;
+    const QString name = QInputDialog::getText(this, bus ? tr("Rename Bus") : tr("Rename Track"),
+        tr("Name:"), QLineEdit::Normal, current, &ok);
+    if (ok)
+        renameTarget(name);
+}
+
+void MixerStrip::renameTarget(const QString& name)
+{
+    const bool bus = m_target.isBus();
+    const QString trimmed = name.trimmed();
+    m_controller->edit(bus ? tr("Rename Bus") : tr("Rename Track"), [&](TimelineData& data) {
+        if (bus)
+            return mixerops::renameBus(data, int(m_target.id), trimmed);
+        TrackData* t = mixerops::audioTrack(data, m_target.id);
+        if (!t || t->name == trimmed)
+            return false;
+        t->name = trimmed;
+        return true;
+    });
+}
+
 void MixerStrip::showNameMenu(const QPoint& globalPos)
 {
     const TimelineData& d = m_controller->data();
@@ -400,7 +445,10 @@ void MixerStrip::showNameMenu(const QPoint& globalPos)
     stereoAction->setChecked(!mono);
     QAction* rename = nullptr;
     QAction* remove = nullptr;
-    if (bus) {
+    if (!bus) {
+        menu.addSeparator();
+        rename = menu.addAction(tr("Rename Track…"));
+    } else {
         menu.addSeparator();
         rename = menu.addAction(tr("Rename Bus…"));
         remove = menu.addAction(tr("Delete Bus"));
@@ -416,13 +464,7 @@ void MixerStrip::showNameMenu(const QPoint& globalPos)
                        : mixerops::setTrackMono(data, m_target.id, wantMono);
         });
     } else if (chosen == rename) {
-        bool ok = false;
-        const QString name = QInputDialog::getText(this, tr("Rename Bus"), tr("Name:"),
-            QLineEdit::Normal, busDisplayName(*mixerops::bus(d, int(m_target.id))), &ok);
-        if (ok)
-            m_controller->edit(tr("Rename Bus"), [&](TimelineData& data) {
-                return mixerops::renameBus(data, int(m_target.id), name.trimmed());
-            });
+        askRename();
     } else if (chosen == remove) {
         m_controller->edit(tr("Delete Bus"),
             [&](TimelineData& data) { return mixerops::removeBus(data, int(m_target.id)); });

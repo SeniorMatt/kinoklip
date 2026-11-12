@@ -16,6 +16,7 @@ class QButtonGroup;
 class QCheckBox;
 class QComboBox;
 class QLabel;
+class QLineEdit;
 class QListWidget;
 class QToolButton;
 class QTreeWidget;
@@ -161,6 +162,8 @@ public:
     /// Rescans the folders.
     void rescan();
     [[nodiscard]] QTreeWidget* tree() const { return m_tree; }
+    /// Shows only the LUTs whose name holds every word of the search field.
+    void applyFilter();
     /// The default LUT folder (created when missing).
     [[nodiscard]] static QString defaultFolder();
 
@@ -170,6 +173,7 @@ private:
 
     QPointer<ColorSession> m_session;
     QTreeWidget* m_tree = nullptr;
+    QLineEdit* m_search = nullptr;
     QLabel* m_current = nullptr;
     QComboBox* m_interpolation = nullptr;
     QToolButton* m_remove = nullptr;

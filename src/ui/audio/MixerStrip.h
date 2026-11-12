@@ -8,6 +8,9 @@
 #include <QPointer>
 #include <QWidget>
 
+#include <functional>
+#include <optional>
+
 class QComboBox;
 class QLabel;
 class QToolButton;
@@ -62,6 +65,18 @@ public:
     /// Strip width (px).
     static constexpr int kWidth = 92;
 
+    /// Asks for a new name (a double-click on the strip's name, or the menu's Rename), given
+    /// the current one; nothing = cancelled. The default is an input dialog; tests replace it.
+    using NamePrompt = std::function<std::optional<QString>(const QString& current)>;
+    void setNamePrompt(NamePrompt prompt) { m_namePrompt = std::move(prompt); }
+    /// Renames the track or bus of this strip (one undo step; empty = the automatic name).
+    void renameTarget(const QString& name);
+    /// Asks for the name and renames.
+    void askRename();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     void fillBusMenu();
     void showNameMenu(const QPoint& globalPos);
@@ -83,6 +98,7 @@ private:
     LevelMeter* m_meter = nullptr;
     QLabel* m_value = nullptr;
     QLabel* m_name = nullptr;
+    NamePrompt m_namePrompt;
     int64_t m_frame = 0; ///< frame of the last refresh()
     QPointer<EqWindow> m_eqWindow;
     QPointer<DynamicsWindow> m_dynamicsWindow;

@@ -239,8 +239,8 @@ private slots:
         QCOMPARE(real.data(ProjectLibraryModel::KindBadgeRole).toString(),
             QStringLiteral("Single file"));
         QVERIFY(real.data(ProjectLibraryModel::DetailsRole)
-                    .toString()
-                    .contains(QStringLiteral("1920 x 1080")));
+                .toString()
+                .contains(QStringLiteral("1920 x 1080")));
         QVERIFY(!m_window->grab().isNull()); // error cards paint
         // Opening the broken one fails in the controller, not here: the request is made.
         QSignalSpy requested(m_window.get(), &ProjectManagerWindow::openRequested);
@@ -420,6 +420,37 @@ private slots:
         QVERIFY(!m_window->model()->index(1, 0).data(ProjectLibraryModel::ExistsRole).toBool());
     }
 
+    /// Spec 89.8: the mouse back / forward buttons step through the folders and lists the
+    /// Project Manager showed, like a file manager.
+    void mouseBackForwardStepsThroughFolders()
+    {
+        open();
+        const QString folder = m_window->createFolder(QStringLiteral("Client"));
+        m_window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(m_window.get()));
+        m_window->openPath(folder);
+        QCOMPARE(m_window->model()->folder(), folder);
+        m_window->showRecent();
+        QVERIFY(m_window->model()->isRecent());
+        const auto press = [this](QEvent::Type type, Qt::MouseButton button) {
+            QWidget* over = m_window->cardView()->viewport();
+            QMouseEvent e(type, QPointF(5, 5), over->mapToGlobal(QPointF(5, 5)), button, button,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(over, &e);
+        };
+        press(QEvent::MouseButtonPress, Qt::BackButton);
+        QVERIFY(!m_window->model()->isRecent());
+        QCOMPARE(m_window->model()->folder(), folder);
+        press(QEvent::MouseButtonDblClick, Qt::BackButton); // a quick second press
+        QCOMPARE(m_window->model()->folder(), m_root);
+        press(QEvent::MouseButtonPress, Qt::ForwardButton);
+        QCOMPARE(m_window->model()->folder(), folder);
+        press(QEvent::MouseButtonPress, Qt::ForwardButton);
+        QVERIFY(m_window->model()->isRecent());
+        press(QEvent::MouseButtonPress, Qt::ForwardButton); // at the end: stays
+        QVERIFY(m_window->model()->isRecent());
+    }
+
     void newProjectKinds()
     {
         // Single file is the owner's default (nothing remembered yet); both are enabled.
@@ -465,11 +496,11 @@ private slots:
         const QString b = project(QStringLiteral("Second"));
         App app;
         QVERIFY(app.actions.action(QStringLiteral("file.project_manager"))
-                    ->shortcuts()
-                    .contains(QKeySequence(QStringLiteral("Shift+1"))));
+                ->shortcuts()
+                .contains(QKeySequence(QStringLiteral("Shift+1"))));
         QVERIFY(!app.actions.action(QStringLiteral("file.open"))
-                     ->shortcuts()
-                     .contains(QKeySequence(QStringLiteral("Shift+1"))));
+                ->shortcuts()
+                .contains(QKeySequence(QStringLiteral("Shift+1"))));
         app.window->show();
         app.actions.action(QStringLiteral("file.project_manager"))->trigger();
         ProjectManagerWindow* pm = app.window->projectController()->projectManager();

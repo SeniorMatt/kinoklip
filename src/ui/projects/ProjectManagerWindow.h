@@ -115,6 +115,9 @@ public slots:
     /// Export as a single file: the save dialog offers `.kinoklip` first (Pack).
     void exportAsSingleFile();
     void goUp(); ///< parent folder (not above the library root)
+    /// Back / forward through the folders and lists shown (the mouse buttons 4 and 5).
+    void goBack() { navigateHistory(-1); }
+    void goForward() { navigateHistory(1); }
 
 signals:
     /// The remaining Recent Projects list after removeFromRecent() (to be stored).
@@ -148,6 +151,11 @@ private:
     ProjectCardDelegate* m_delegate = nullptr;
     std::function<bool(QWidget*)> m_guard;
     QStringList m_recent;
+    QStringList m_history; ///< shown places: a folder path, or kRecentPlace
+    int m_historyPos = -1;
+    bool m_navigating = false;
+    void recordPlace(const QString& place);
+    void navigateHistory(int direction);
 
     QListWidget* m_places = nullptr;
     QToolButton* m_upButton = nullptr;
