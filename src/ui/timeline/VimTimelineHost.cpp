@@ -212,6 +212,12 @@ QVector<quint64> VimTimelineHost::selectedClips() const
     return m_controller->effectiveSelection();
 }
 
+QString VimTimelineHost::clipName(quint64 id) const
+{
+    const ClipData* clip = ops::clipById(data(), id);
+    return clip ? clip->name : QString();
+}
+
 // ---- Operations ----
 
 void VimTimelineHost::beginUndoGroup()
@@ -250,22 +256,67 @@ std::vector<TrackRef> VimTimelineHost::tracksOf(const VimRange& range) const
     return tracks;
 }
 
-void VimTimelineHost::store(QChar reg, const ops::Clipboard& board)
+namespace {
+
+/// Appends @p more after @p base (the `"A` registers): the clips of @p more follow the
+/// duration of @p base on their own tracks.
+ops::Clipboard appended(ops::Clipboard base, const ops::Clipboard& more)
+{
+    if (base.isEmpty())
+        return more;
+    for (ops::ClipboardClip c : more.clips) {
+        c.clip.start += base.duration;
+        base.clips.append(c);
+    }
+    base.duration += more.duration;
+    return base;
+}
+
+} // namespace
+
+void VimTimelineHost::store(QChar reg, const ops::Clipboard& board, VimOp op, bool large)
 {
     if (board.isEmpty() || reg == QLatin1Char('_'))
-        return;
-    if (!reg.isNull() && reg != QLatin1Char('0'))
+        return; // the black hole
+    // Neovim's rules (change.txt, "registers"): a-z set a register and A-Z append to it; no
+    // register means the unnamed one. A yank without a register fills "0; a delete or change
+    // fills "1 when it is large (several tracks or whole clips), shifting "1 .. "8 up one,
+    // else the small delete register "-. "1 is filled even when a register was named; "- only
+    // when none was. The unnamed register always holds the newest content.
+    const bool letter = reg.isLetter() && reg.unicode() < 128;
+    const bool direct = reg.isDigit() || reg == QLatin1Char('-');
+    ops::Clipboard content = board;
+    if (letter) {
+        const QChar lower = reg.toLower();
+        if (reg.isUpper())
+            content = appended(m_registers.value(lower), board);
+        m_registers.insert(lower, content);
+    } else if (direct) {
         m_registers.insert(reg, board);
-    else
-        m_controller->setClipboard(board); // the unnamed register is the editor's clipboard
-    m_registers.insert(QLatin1Char('0'), board); // the last yank / delete
+    }
+    m_controller->setClipboard(content); // the unnamed register is the editor's clipboard
+    if (op == VimOp::Yank) {
+        if (!letter && !direct)
+            m_registers.insert(QLatin1Char('0'), board);
+        return;
+    }
+    if (large) {
+        for (char c = '9'; c > '1'; --c) {
+            const QChar from = QLatin1Char(char(c - 1));
+            if (m_registers.contains(from))
+                m_registers.insert(QLatin1Char(c), m_registers.value(from));
+        }
+        m_registers.insert(QLatin1Char('1'), board);
+    } else if (!letter && !direct) {
+        m_registers.insert(QLatin1Char('-'), board);
+    }
 }
 
 ops::Clipboard VimTimelineHost::registerContent(QChar reg) const
 {
-    if (reg.isNull())
+    if (reg.isNull() || reg == QLatin1Char('"'))
         return m_controller->clipboard();
-    return m_registers.value(reg);
+    return m_registers.value(reg.toLower());
 }
 
 bool VimTimelineHost::operate(const VimOperation& operation)
@@ -293,7 +344,7 @@ bool VimTimelineHost::operate(const VimOperation& operation)
         if (board.isEmpty())
             return false;
         if (yank) {
-            store(operation.reg, board);
+            store(operation.reg, board, operation.op, true);
             return true;
         }
         const bool ripple = operation.op == VimOp::Delete;
@@ -311,7 +362,7 @@ bool VimTimelineHost::operate(const VimOperation& operation)
             showMessage(QObject::tr("The track is locked"));
             return false;
         }
-        store(operation.reg, board);
+        store(operation.reg, board, operation.op, true);
         m_ctx.selection->clear();
         if (first != INT64_MAX)
             m_controller->setPlayheadAfterEdit(first);
@@ -325,8 +376,10 @@ bool VimTimelineHost::operate(const VimOperation& operation)
     }
     const ops::TrackFilter filter = ops::trackSetFilter(tracks);
     const ops::Clipboard board = ops::copyRange(data(), range.start, range.end, filter);
+    // A change inside one track is a small delete (Vim: less than a line).
+    const bool large = tracks.size() > 1;
     if (yank) {
-        store(operation.reg, board);
+        store(operation.reg, board, operation.op, large);
         return !board.isEmpty();
     }
     const bool ripple = operation.op == VimOp::Delete;
@@ -339,7 +392,7 @@ bool VimTimelineHost::operate(const VimOperation& operation)
         showMessage(QObject::tr("The track is locked"));
         return false;
     }
-    store(operation.reg, board);
+    store(operation.reg, board, operation.op, large);
     m_controller->setPlayheadAfterEdit(range.start);
     return true;
 }
@@ -455,10 +508,10 @@ void VimTimelineHost::showMessage(const QString& text)
         onMessage(text);
 }
 
-bool VimTimelineHost::search(const QString& pattern)
+bool VimTimelineHost::search(const QString& pattern, bool forward)
 {
     m_pattern = pattern.trimmed();
-    return !m_pattern.isEmpty() && searchStep(true, 1);
+    return !m_pattern.isEmpty() && searchStep(forward, 1);
 }
 
 bool VimTimelineHost::searchStep(bool forward, int count)

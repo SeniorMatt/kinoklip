@@ -88,6 +88,20 @@ public:
     [[nodiscard]] VisualKind visualKind() const { return m_visualKind; }
     /// The register typed with `"` and waiting for its command (0 = none).
     [[nodiscard]] QChar pendingRegister() const { return m_reg; }
+    /// The register being recorded into (`qa`), or a null char.
+    [[nodiscard]] QChar recordingRegister() const { return m_recordReg; }
+    /// The keys of macro register @p name ('a'..'z', '0'..'9') as typed, one per entry (a
+    /// submitted `:` or `/` line is one entry starting with U+0001).
+    [[nodiscard]] QStringList macro(QChar name) const { return m_macros.value(name.toLower()); }
+    /// Sets a macro register (tests, a restored session). An empty list clears it.
+    void setMacro(QChar name, const QStringList& tokens);
+    /// The window reports a line the user submitted from the `:` line (@p kind ':') or the search
+    /// line ('/' or '?'): `q` records it, `@:` repeats it, `n` follows its direction.
+    void lineSubmitted(QChar kind, const QString& text);
+    /// The direction of the last search: `/` forward, `?` backward; `n` follows it.
+    [[nodiscard]] bool searchForward() const { return m_searchForward; }
+    /// True while a macro runs.
+    [[nodiscard]] bool playingMacro() const { return m_playing; }
     /// True while an operator waits for its motion or text object (`d`, `2y`).
     [[nodiscard]] bool operatorPending() const { return !m_opName.isEmpty(); }
     /// The place of a mark (m{a-z}), if set.
@@ -167,6 +181,11 @@ private:
     };
 
     void feed(const QString& token);
+    void processToken(const QString& token); ///< Esc rules, else feed(); INSERT ignores keys
+    void startRecording(QChar name);
+    void stopRecording();
+    void playMacro(const QStringList& tokens, int times);
+    void fail() { m_failed = true; }
     void resolve();
     void finish(); ///< clears count and pending after a command
     void clearKeys(); ///< drops the keys typed (not the operator)
@@ -242,6 +261,18 @@ private:
     bool m_changed = false; ///< the command being run changed something
     bool m_replaying = false; ///< `.` is feeding keys: nothing is recorded
     bool m_cursorSelected = false; ///< cursor_select selected a clip for the next action
+    // macros, find, search
+    QHash<QChar, QStringList> m_macros; ///< 'a'..'z', '0'..'9'
+    QChar m_recordReg; ///< the register being recorded into
+    QStringList m_recorded;
+    bool m_playing = false; ///< a macro runs: nothing is recorded, command lines stay shut
+    int m_playDepth = 0;
+    bool m_failed = false; ///< a motion, search or paste found nothing: the macro stops
+    QChar m_lastMacro;
+    QString m_lastEx; ///< for `@:`
+    QChar m_findKind; ///< 'f' 'F' 't' 'T' of the last find, for `;` and `,`
+    QChar m_findChar;
+    bool m_searchForward = true;
     bool m_skipRecord = false; ///< the running command is `.`: it does not become the last change
 };
 

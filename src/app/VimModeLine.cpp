@@ -46,11 +46,16 @@ VimModeLine::VimModeLine(QWidget* parent)
     m_pending->setStyleSheet(
         QStringLiteral("QLabel { font-family: monospace; font-weight: 600; }"));
     m_pending->setMinimumWidth(40);
+    m_recording = new QLabel(this);
+    m_recording->setObjectName(QStringLiteral("VimRecording"));
+    m_recording->setStyleSheet(QStringLiteral("QLabel { color: #e05050; font-weight: 600; }"));
+    m_recording->hide();
     m_panel = new QLabel(this);
     m_panel->setObjectName(QStringLiteral("VimPanelName"));
     m_message = new QLabel(this);
     m_message->setObjectName(QStringLiteral("VimMessage"));
     layout->addWidget(m_chip);
+    layout->addWidget(m_recording);
     layout->addWidget(m_pending);
     layout->addWidget(m_panel);
     layout->addWidget(m_message, 1);
@@ -70,6 +75,17 @@ void VimModeLine::setMode(const QString& text, const QString& mode)
 void VimModeLine::setPending(const QString& keys)
 {
     m_pending->setText(keys);
+}
+
+void VimModeLine::setRecording(const QString& text)
+{
+    m_recording->setText(text);
+    m_recording->setVisible(!text.isEmpty());
+}
+
+QString VimModeLine::recordingText() const
+{
+    return m_recording->text();
 }
 
 void VimModeLine::setPanel(const QString& name)

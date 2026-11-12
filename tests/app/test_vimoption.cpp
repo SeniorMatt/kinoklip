@@ -339,6 +339,19 @@ private slots:
         QCOMPARE(f.line()->modeText(), QStringLiteral("NORMAL"));
     }
 
+    void modeLineShowsRecording()
+    {
+        Fixture f;
+        f.focusTimeline();
+        QVERIFY(f.line()->recordingText().isEmpty());
+        f.type(QStringLiteral("qq"));
+        QCOMPARE(f.line()->recordingText(), QStringLiteral("recording @q"));
+        QCOMPARE(f.line()->modeText(), QStringLiteral("NORMAL"));
+        f.type(QStringLiteral("l"));
+        f.type(QStringLiteral("q"));
+        QVERIFY(f.line()->recordingText().isEmpty());
+    }
+
     void commandLineReplacesTheModeLine()
     {
         Fixture f;

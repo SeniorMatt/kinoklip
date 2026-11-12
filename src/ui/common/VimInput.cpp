@@ -110,7 +110,9 @@ QString VimMachine::modeName(Mode mode)
 
 QString VimMachine::statusText() const
 {
-    const QString name = displayName();
+    QString name = displayName();
+    if (!m_recordReg.isNull())
+        name += QStringLiteral("  ") + tr("recording @%1").arg(m_recordReg);
     return m_pending.isEmpty() ? name : name + QStringLiteral("  ") + m_pending;
 }
 
@@ -213,6 +215,21 @@ bool VimMachine::handleKey(const vimkeys::KeyInfo& key)
     if (!wouldConsume(key))
         return false;
     const QString token = m_translator.token(key);
+    // `q` ends a recording when no command is half typed (so it does not need a binding of
+    // its own; `q:` and `q{a-z}` start from the same key).
+    if (!m_recordReg.isNull() && m_mode != Mode::Insert && m_pending.isEmpty()
+        && token == QLatin1String("q")) {
+        stopRecording();
+        return true;
+    }
+    if (!m_recordReg.isNull() && !m_playing)
+        m_recorded.append(token);
+    processToken(token);
+    return true;
+}
+
+void VimMachine::processToken(const QString& token)
+{
     if (token == QLatin1String("<Esc>") || token == QLatin1String("<C-[>")
         || token == QLatin1String("<C-c>")) {
         // One rule, innermost first: pending keys, then VISUAL, then INSERT.
@@ -224,10 +241,93 @@ bool VimMachine::handleKey(const vimkeys::KeyInfo& key)
             m_mode = Mode::Normal;
             emit statusChanged();
         }
-        return true;
+        return;
     }
+    if (m_mode == Mode::Insert || m_mode == Mode::Command)
+        return; // typing is not part of a macro: the widgets take it
     feed(token);
-    return true;
+}
+
+// ---- Macros --------------------------------------------------------------------------
+
+void VimMachine::setMacro(QChar name, const QStringList& tokens)
+{
+    if (tokens.isEmpty())
+        m_macros.remove(name.toLower());
+    else
+        m_macros.insert(name.toLower(), tokens);
+}
+
+void VimMachine::startRecording(QChar name)
+{
+    if (!m_recordReg.isNull())
+        return;
+    // qA appends to a, qa starts it again (Neovim repeat.txt, "q").
+    m_recordReg = name.toLower();
+    m_recorded = name.isUpper() ? m_macros.value(m_recordReg) : QStringList();
+    emit statusChanged();
+}
+
+void VimMachine::stopRecording()
+{
+    if (m_recordReg.isNull())
+        return;
+    setMacro(m_recordReg, m_recorded);
+    m_recordReg = QChar();
+    m_recorded.clear();
+    emit statusChanged();
+}
+
+void VimMachine::lineSubmitted(QChar kind, const QString& text)
+{
+    if (kind == QLatin1Char(':'))
+        m_lastEx = text;
+    else
+        m_searchForward = kind == QLatin1Char('/');
+    if (!m_recordReg.isNull() && !m_playing)
+        m_recorded.append(QString(QChar(1)) + kind + text);
+}
+
+void VimMachine::playMacro(const QStringList& tokens, int times)
+{
+    constexpr int kMaxDepth = 100; // a macro that calls itself without end stops here
+    if (!m_host || tokens.isEmpty() || m_playDepth >= kMaxDepth) {
+        fail();
+        return;
+    }
+    if (m_playDepth == 0)
+        m_failed = false;
+    ++m_playDepth;
+    const bool wasPlaying = m_playing;
+    m_playing = true;
+    for (int i = 0; i < times && !m_failed; ++i) {
+        for (const QString& token : tokens) {
+            if (token.startsWith(QChar(1))) {
+                const QChar kind = token.size() > 1 ? token.at(1) : QChar();
+                const QString text = token.mid(2);
+                if (kind == QLatin1Char(':')) {
+                    m_lastEx = text;
+                    m_host->runEx(text);
+                } else {
+                    m_searchForward = kind == QLatin1Char('/');
+                    if (!m_host->searchFor(text, m_searchForward)) {
+                        m_host->showMessage(tr("No match: %1").arg(text));
+                        fail();
+                    }
+                }
+            } else {
+                processToken(token);
+            }
+            if (m_failed)
+                break;
+        }
+    }
+    if (m_failed)
+        cancelPending();
+    m_playing = wasPlaying;
+    --m_playDepth;
+    // What the macro changed is its own business: `.` repeats the last change inside it.
+    m_changed = false;
 }
 
 void VimMachine::updatePending()
@@ -243,13 +343,17 @@ void VimMachine::updatePending()
 
 namespace {
 
-/// A character that names a register: a-z (A-Z count as the lower case), 0, _ .
+/// A character that names a register: a-z, A-Z (append), 0-9, - (small delete), _ (black hole)
+/// and " (the unnamed one).
 bool isRegisterName(const QString& token)
 {
     if (token.size() != 1)
         return false;
     const QChar c = token.at(0);
-    return c.isLetter() ? c.unicode() < 128 : (c == QLatin1Char('0') || c == QLatin1Char('_'));
+    if (c.unicode() >= 128)
+        return false;
+    return c.isLetterOrNumber() || c == QLatin1Char('_') || c == QLatin1Char('-')
+        || c == QLatin1Char('"');
 }
 
 VimOp opFromName(const QString& name)
@@ -284,7 +388,7 @@ void VimMachine::feed(const QString& token)
     if (m_regPending) {
         m_regPending = false;
         if (isRegisterName(token)) {
-            m_reg = token.at(0).toLower();
+            m_reg = token.at(0) == QLatin1Char('"') ? QChar() : token.at(0);
             m_head += QLatin1Char('"') + token;
             updatePending();
             emit statusChanged();
@@ -394,6 +498,7 @@ void VimMachine::resolve()
                 feed(t);
             return;
         }
+        fail();
         finish(); // unbound: swallowed (an operator is dropped), like an unmapped key in vim
         return;
     }
@@ -493,6 +598,7 @@ void VimMachine::reset()
 {
     const bool wasVisual = m_mode == Mode::Visual;
     const bool wasInsert = m_mode == Mode::Insert;
+    stopRecording();
     m_marks.clear();
     m_lastJump.reset();
     m_lastVisual = {};
@@ -698,12 +804,26 @@ bool VimMachine::runMotion(const QString& name, const Call& call)
         if (m_lastJump)
             motion = vimgrammar::Motion {*m_lastJump, vimgrammar::Motion::Type::Exclusive, false};
         jump = true;
+    } else if (name == QLatin1String("find_again") || name == QLatin1String("find_reverse")) {
+        // `;` and `,`: the last f F t T again, or the other way round (Neovim motion.txt).
+        if (!m_findChar.isNull()) {
+            QChar kind = m_findKind;
+            if (name == QLatin1String("find_reverse"))
+                kind = kind.isUpper() ? kind.toLower() : kind.toUpper();
+            motion = vimgrammar::findClip(*m_host, kind, m_findChar, from, call.count, true);
+        }
+    } else if (name.startsWith(QLatin1String("find_")) && !call.arg.isEmpty()) {
+        m_findKind = name.at(5);
+        m_findChar = call.arg.at(0);
+        motion = vimgrammar::motion(*m_host, name, from, call.count, call.hasCount, call.arg);
     } else {
         motion = vimgrammar::motion(*m_host, name, from, call.count, call.hasCount);
         jump = name == QLatin1String("track_first") || name == QLatin1String("track_last");
     }
-    if (!motion)
+    if (!motion) {
+        fail();
         return false; // nothing to go to: an operator waiting for it is dropped
+    }
     if (!call.op.isEmpty()) {
         // `cw` works like `ce` (Neovim change.txt, "cw"): it changes the clip, not the gap after.
         if (call.op == QLatin1String("op_change") && name == QLatin1String("clip_next")) {
@@ -807,8 +927,10 @@ void VimMachine::paste(const Call& call, bool insert)
 {
     if (m_host->pasteRegister(call.reg, call.count, insert))
         markChange();
-    else
+    else {
+        fail();
         m_host->showMessage(tr("Nothing to paste"));
+    }
 }
 
 void VimMachine::visualPaste(const Call& call)
@@ -842,6 +964,10 @@ void VimMachine::repeatLast(const Call& call)
         m_dot.count = call.count;
         m_dot.hasCount = true;
     }
+    // "1p . . : the numbered register steps up each time, to walk the deleted material back
+    // (Neovim change.txt, "quote1").
+    if (m_dot.reg >= QLatin1Char('1') && m_dot.reg < QLatin1Char('9'))
+        m_dot.reg = QLatin1Char(char(m_dot.reg.toLatin1() + 1));
     const Dot dot = m_dot;
     m_replaying = true;
     m_skipRecord = true;
@@ -871,7 +997,8 @@ void VimMachine::repeatLast(const Call& call)
 bool VimMachine::runBuiltin(const QString& name, const Call& call)
 {
     if (vimgrammar::isMotion(name) || name == QLatin1String("goto_mark")
-        || name == QLatin1String("jump_back")) {
+        || name == QLatin1String("jump_back") || name == QLatin1String("find_again")
+        || name == QLatin1String("find_reverse")) {
         if (!runMotion(name, call) && !call.op.isEmpty())
             return false;
         return true;
@@ -939,12 +1066,59 @@ bool VimMachine::runBuiltin(const QString& name, const Call& call)
     } else if (name == QLatin1String("insert_mode")) {
         enterInsert(); // typing mode: the profile's own keys work (Esc comes back)
     } else if (name == QLatin1String("command_line")) {
-        m_host->openCommandLine();
-    } else if (name == QLatin1String("search")) {
-        m_host->openSearch();
+        if (!m_playing) // a macro has the line it typed as an entry of its own
+            m_host->openCommandLine();
+    } else if (name == QLatin1String("search") || name == QLatin1String("search_back")) {
+        m_searchForward = name == QLatin1String("search");
+        if (!m_playing)
+            m_host->openSearch();
     } else if (name == QLatin1String("search_next") || name == QLatin1String("search_prev")) {
-        if (!m_host->searchStep(name == QLatin1String("search_next"), call.count))
+        // n goes the way of the last search, N the other way (Neovim pattern.txt).
+        const bool forward = m_searchForward == (name == QLatin1String("search_next"));
+        if (!m_host->searchStep(forward, call.count)) {
+            fail();
             m_host->showMessage(tr("No match"));
+        }
+    } else if (name == QLatin1String("search_word") || name == QLatin1String("search_word_back")) {
+        // * and #: search for the name of the clip (the row) under the cursor.
+        const VimPos at = cursor();
+        const QString text = m_host->clipName(vimgrammar::clipAt(*m_host, at.track, at.frame).id);
+        m_searchForward = name == QLatin1String("search_word");
+        if (text.isEmpty()) {
+            fail();
+            m_host->showMessage(tr("No name under the cursor"));
+        } else if (!m_host->searchFor(text, m_searchForward)) {
+            fail();
+            m_host->showMessage(tr("No match: %1").arg(text));
+        }
+    } else if (name == QLatin1String("macro_record")) {
+        if (!call.arg.isEmpty() && !m_playing)
+            startRecording(call.arg.at(0));
+    } else if (name == QLatin1String("macro_play") || name == QLatin1String("macro_repeat")) {
+        QChar reg = name == QLatin1String("macro_repeat") ? m_lastMacro : QChar();
+        if (reg.isNull() && !call.arg.isEmpty())
+            reg = call.arg.at(0);
+        if (reg.isNull()) {
+            fail();
+            m_host->showMessage(tr("No macro has run yet"));
+        } else {
+            m_lastMacro = reg;
+            const QStringList tokens = m_macros.value(reg.toLower());
+            if (tokens.isEmpty()) {
+                fail();
+                m_host->showMessage(tr("Macro register @%1 is empty").arg(reg));
+            } else {
+                playMacro(tokens, call.count);
+            }
+        }
+    } else if (name == QLatin1String("macro_ex")) {
+        if (m_lastEx.isEmpty()) {
+            fail();
+            m_host->showMessage(tr("No command line has run yet"));
+        } else {
+            for (int i = 0; i < call.count; ++i)
+                m_host->runEx(m_lastEx);
+        }
     } else if (m_host->hostCommandArg(name, call.count, call.hasCount, call.arg)) {
         return true;
     } else if (m_commandHandler) {

@@ -141,6 +141,14 @@ public:
         return false;
     }
 
+    /// The name of the clip (the row text in a list); empty when unknown. `f` `t` and `*`
+    /// match on it.
+    [[nodiscard]] virtual QString clipName(quint64 id) const
+    {
+        Q_UNUSED(id);
+        return {};
+    }
+
     /// The clips of the selection (linked ones included when linked selection is on).
     [[nodiscard]] virtual QVector<quint64> selectedClips() const { return {}; }
 
@@ -206,6 +214,14 @@ public:
     virtual void focusChanged(QWidget* focus) { Q_UNUSED(focus); }
     /// A message for the mode line ("3 clips yanked", "track is locked").
     virtual void showMessage(const QString& text) { Q_UNUSED(text); }
+    /// Searches for @p pattern from the cursor in the given direction and remembers it for
+    /// `n` / `N`; false when nothing matches. Default: no search.
+    virtual bool searchFor(const QString& pattern, bool forward)
+    {
+        Q_UNUSED(pattern);
+        Q_UNUSED(forward);
+        return false;
+    }
     /// Jumps to the next / previous (@p forward) search match of the last search; false when
     /// there is none.
     virtual bool searchStep(bool forward, int count)

@@ -296,10 +296,18 @@ bool VimListHost::hostCommand(const QString& name, int, bool)
 
 // ---- Search ----
 
-bool VimListHost::search(const QString& pattern)
+bool VimListHost::search(const QString& pattern, bool forward)
 {
     m_pattern = pattern.trimmed();
-    return !m_pattern.isEmpty() && searchStep(true, 1);
+    return !m_pattern.isEmpty() && searchStep(forward, 1);
+}
+
+QString VimListHost::clipName(quint64 id) const
+{
+    const QVector<QModelIndex> list = rows();
+    if (id == 0 || id > quint64(list.size()))
+        return {};
+    return list[int(id) - 1].data(Qt::DisplayRole).toString();
 }
 
 bool VimListHost::searchStep(bool forward, int count)

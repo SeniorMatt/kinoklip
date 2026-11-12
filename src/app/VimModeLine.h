@@ -22,6 +22,9 @@ public:
     /// "INSERT", "COMMAND").
     void setMode(const QString& text, const QString& mode);
     void setPending(const QString& keys);
+    /// "recording @q" while a macro is being recorded; empty hides it.
+    void setRecording(const QString& text);
+    [[nodiscard]] QString recordingText() const;
     void setPanel(const QString& name);
     /// Shows @p text after the panel for @p ms milliseconds (0 = until replaced).
     void showMessage(const QString& text, int ms = 3000);
@@ -38,6 +41,7 @@ public:
 private:
     QLabel* m_chip = nullptr;
     QLabel* m_pending = nullptr;
+    QLabel* m_recording = nullptr;
     QLabel* m_panel = nullptr;
     QLabel* m_message = nullptr;
     QTimer* m_messageTimer = nullptr;

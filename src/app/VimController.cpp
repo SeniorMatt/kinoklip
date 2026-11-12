@@ -214,12 +214,15 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
         const QString text = m_line->text().trimmed();
         const bool search = m_searchLine;
         const bool inList = m_searchInList;
+        const bool forward = m_input->machine().searchForward();
+        m_input->machine().lineSubmitted(
+            search ? (forward ? QLatin1Char('/') : QLatin1Char('?')) : QLatin1Char(':'), text);
         m_line->addHistory(text);
         (search ? m_searchHistory : m_exHistory) = m_line->history();
         saveHistory();
         closeCommandLine();
         if (search) {
-            if (!(inList ? m_listHost->search(text) : m_host->search(text)))
+            if (!(inList ? m_listHost->search(text, forward) : m_host->search(text, forward)))
                 m_modeLine->showError(tr("No match: %1").arg(text), kMessageMs);
             return;
         }
@@ -282,6 +285,8 @@ void VimController::updateModeLine()
                                          : VimMachine::modeName(mode),
         key);
     m_modeLine->setPending(m_input->machine().pending());
+    const QChar recording = m_input->machine().recordingRegister();
+    m_modeLine->setRecording(recording.isNull() ? QString() : tr("recording @%1").arg(recording));
     QString panel;
     for (const QWidget* w = focus; w; w = w->parentWidget()) {
         if (const auto* frame = qobject_cast<const PanelFrame*>(w)) {
@@ -332,7 +337,8 @@ void VimController::showCommandLine(bool search)
 {
     m_searchLine = search;
     m_line->setPlaceholderText(
-        search ? tr("/ search marker and clip names")
+        search ? (m_input->machine().searchForward() ? tr("/ search marker and clip names")
+                                                     : tr("? search backwards"))
                : tr(": command (w, q, wq, or a Kinoklip command such as marker add)"));
     m_returnFocus = QApplication::focusWidget();
     m_input->machine().setCommandMode(true);

@@ -36,8 +36,18 @@ struct Motion
 /// Where the motion @p name leads from @p from; std::nullopt when it cannot move (no clip,
 /// no marker ...). @p hasCount tells whether the count was typed (`G` without a count goes
 /// to the last track, `5G` to the fifth).
-[[nodiscard]] std::optional<Motion> motion(
-    const VimHost& host, const QString& name, VimPos from, int count, bool hasCount);
+/// @p arg is the typed character of `find_f find_F find_t find_T`.
+[[nodiscard]] std::optional<Motion> motion(const VimHost& host, const QString& name, VimPos from,
+    int count, bool hasCount, const QString& arg = QString());
+
+/// `f F t T` ( @p kind ): the clip of the cursor track whose name starts with @p ch (any case),
+/// the @p count th one after (f t) or before (F T) @p from. f lands on its first frame, t on the
+/// frame before it, F on the first frame of the one before, T on the frame after the end of
+/// the one before. @p again is `;` / `,`: t and T skip a clip they already stand next to.
+/// std::nullopt when there is no such clip. The motions are exclusive, except t, which is
+/// inclusive: with an operator, `f` and `t` both leave the target clip alone.
+[[nodiscard]] std::optional<Motion> findClip(const VimHost& host, QChar kind, QChar ch,
+    VimPos from, int count, bool again);
 
 /// The range an operator gets from a motion typed at @p from. Empty when nothing is covered.
 [[nodiscard]] VimRange rangeOfMotion(const VimHost& host, VimPos from, const Motion& motion);
