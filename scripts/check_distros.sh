@@ -22,6 +22,7 @@
 #   norun     --version without XDG_RUNTIME_DIR and with a read-only home (links go under TMPDIR)
 #   rotmp     the same with a read-only TMPDIR too: nowhere is left for the launcher's links
 #   noexec    --version with XDG_RUNTIME_DIR and TMPDIR on a noexec mount
+#   tls       --check-tls: HTTPS works (the bundled TLS plugin and OpenSSL load)
 # Prints a table and exits non-zero if a row failed. Not covered: real GPUs, real desktop sessions,
 # FUSE, SELinux. Run outside kk-arch (it needs podman), after packaging.
 set -uo pipefail
@@ -170,6 +171,8 @@ timeout 60 $BASE_ENV HOME=/kkro TMPDIR=/kkro "$B/AppRun" --version >"$OUT/rotmp.
 result rotmp $? "$OUT/rotmp.log"
 timeout 60 $BASE_ENV HOME=/tmp/h TMPDIR=/kknoexec XDG_RUNTIME_DIR=/kknoexec "$B/AppRun" --version >"$OUT/noexec.log" 2>&1
 result noexec $? "$OUT/noexec.log"
+timeout 60 $CLEAN "$B/AppRun" --check-tls >"$OUT/tls.log" 2>&1
+result tls $? "$OUT/tls.log"
 
 if [ "$set" = bare ]; then
     # no display and no driver at all: still draws, in software
@@ -229,7 +232,7 @@ chmod a+rx "$WORK/inner.sh"
 # ---- the rows --------------------------------------------------------------------------------
 PULLED=()
 fails=0
-printf '%-38s %-6s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %s\n' image set version appimage norun rotmp noexec xcb wayland 'first error' | tee "$LOGS/table.txt"
+printf '%-38s %-6s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %s\n' image set version appimage norun rotmp noexec tls xcb wayland 'first error' | tee "$LOGS/table.txt"
 ran=0
 stopped=0
 for row in "${ROWS[@]}"; do
@@ -266,8 +269,8 @@ for row in "${ROWS[@]}"; do
     [ "$set" = bare ] && xc="offscrn:$(val offscreen)" && wl="-"
     err="$(sed -n 's/^ERROR //p' "$log/result.txt" | head -n 1)"
     grep -q 'RESULT install=FAILED' "$log/result.txt" && err="package install failed; $err"
-    printf '%-38s %-6s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %s\n' "${image#docker.io/}" "$set" \
-        "$(val version)" "$(val appimage)" "$(val norun)" "$(val rotmp)" "$(val noexec)" "$xc" "$wl" "$err" |
+    printf '%-38s %-6s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %s\n' "${image#docker.io/}" "$set" \
+        "$(val version)" "$(val appimage)" "$(val norun)" "$(val rotmp)" "$(val noexec)" "$(val tls)" "$xc" "$wl" "$err" |
         tee -a "$LOGS/table.txt"
     grep -q 'FAIL' "$log/result.txt" && fails=$((fails + 1))
 done

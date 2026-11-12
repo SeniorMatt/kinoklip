@@ -37,6 +37,7 @@
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QSettings>
+#include <QSslSocket>
 #include <QSurfaceFormat>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -101,7 +102,7 @@ bool wantsTextOnly(int argc, char** argv)
         if (arg == "--") // positional arguments only from here on
             return false;
         if (arg == "-h" || arg == "--help" || arg == "--help-all" || arg == "-?" || arg == "-v"
-            || arg == "--version")
+            || arg == "--version" || arg == "--check-tls")
             return true;
     }
     return false;
@@ -168,7 +169,15 @@ int main(int argc, char** argv)
         setApplicationIdentity();
         kk::CommandLineOptions options;
         QString error;
-        kk::parseCommandLine(QCoreApplication::arguments(), options, &error); // prints, exits
+        const bool parsed = kk::parseCommandLine(QCoreApplication::arguments(), options, &error);
+        if (parsed && options.checkTls) {
+            // Secure downloads (the AI model) need a TLS backend plugin and its library.
+            const bool ok = QSslSocket::supportsSsl();
+            std::printf("TLS: %s, backend %s, library %s\n", ok ? "ok" : "NOT AVAILABLE",
+                qPrintable(QSslSocket::activeBackend()),
+                qPrintable(QSslSocket::sslLibraryVersionString()));
+            return ok ? 0 : 1;
+        }
         std::fprintf(stderr, "%s\n", qPrintable(error));
         return 2;
     }

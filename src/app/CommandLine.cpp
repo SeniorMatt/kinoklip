@@ -66,6 +66,11 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
             "Uses default settings; the user's settings are neither read nor changed. This is "
             "how docs/menu-reference.md is made."),
         QStringLiteral("file"));
+    const QCommandLineOption checkTls(QStringLiteral("check-tls"),
+        QCoreApplication::translate("kk::CommandLine",
+            "Print whether secure downloads (HTTPS) work and which TLS library is used, then "
+            "exit (status 1 if they do not)."));
+    parser.addOption(checkTls);
     parser.addOption(render);
     parser.addOption(preset);
     parser.addOption(menuReference);
@@ -78,6 +83,7 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
     parser.process(arguments); // exits on --help / --version / unknown options
 
     QStringList positional = parser.positionalArguments();
+    options.checkTls = parser.isSet(checkTls);
     options.resetLayout = parser.isSet(resetLayout);
     options.style = parser.value(style);
     options.colorScheme = parser.value(colorScheme);
