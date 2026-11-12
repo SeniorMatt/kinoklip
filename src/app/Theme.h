@@ -15,11 +15,11 @@ class SettingsPageRegistry;
 
 namespace kk::theme {
 
-/// Id of the default colour scheme (KDE file base name): Kinoklip's own scheme, compiled
-/// into the app (resources/color-schemes/Kinoklip.colors), so it exists in every build.
-inline constexpr char kDefaultColorScheme[] = "Kinoklip";
+/// Id of the default colour scheme (KDE file base name): Breeze Dark (owner, 1.6), compiled
+/// into the app (resources/color-schemes/BreezeDark.colors), so it exists in every build.
+inline constexpr char kDefaultColorScheme[] = "BreezeDark";
 /// Used when the default scheme cannot be found (then the style's own palette).
-inline constexpr char kFallbackColorScheme[] = "BreezeDark";
+inline constexpr char kFallbackColorScheme[] = "Kinoklip";
 /// Default widget style (QStyleFactory key); Fusion is used if the Breeze plugin is missing.
 inline constexpr char kDefaultStyle[] = "Breeze";
 

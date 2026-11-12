@@ -130,7 +130,7 @@ private slots:
         QCOMPARE(names,
             QStringList({QStringLiteral("Left Lower Third"), QStringLiteral("Middle Lower Third"),
                 QStringLiteral("Right Lower Third"), QStringLiteral("Scroll"),
-                QStringLiteral("Text"), QStringLiteral("Text Box")}));
+                QStringLiteral("Typewriter"), QStringLiteral("Text"), QStringLiteral("Text Box")}));
         // Every preset has the same parameters as Text (any title can become any other).
         const EffectDescriptor* text = registry.find(titles::Text);
         QVERIFY(text);

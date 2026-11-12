@@ -289,8 +289,10 @@ private slots:
         QCOMPARE(column->orientation(), Qt::Vertical);
         QCOMPARE(column->indexOf(pool) >= 0, true);
         QTRY_VERIFY(keyframes->isVisible() && keyframes->height() >= 160);
-        // The column is wide enough for the curve editor: about a third of the width.
-        QTRY_VERIFY(column->width() > f.window->width() * 0.30);
+        // The column is wide enough for the curve editor: over a quarter of the width (640 of
+        // 1920 asked for, less the room two viewers need; since the Keyframes panel's own minimum
+        // width became small, spec 15.27, nothing else widens it).
+        QTRY_VERIFY(column->width() > f.window->width() * 0.25);
         f.action("view.toggle_keyframes")->trigger();
         QVERIFY(!keyframes->isVisible());
         f.window->close();

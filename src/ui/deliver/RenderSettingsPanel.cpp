@@ -263,9 +263,16 @@ RenderSettingsPanel::RenderSettingsPanel(AppContext& ctx, ExportPresets* presets
     rebuildPresetRow();
 
     setDefaultOutput(QString(), QString());
-    applyPreset(QStringLiteral("youtube_1080p"));
-    if (m_presetId.isEmpty())
-        setSettings(settings());
+    // Start like Resolve's Custom Export: the YouTube preset's codec and quality, at the
+    // timeline's own size (owner: Match timeline is the default, not 1920 x 1080).
+    ExportSettings start = settings();
+    m_presets->apply(QStringLiteral("youtube_1080p"), start);
+    start.video.width = 0;
+    start.video.height = 0;
+    setSettings(start);
+    m_presetId.clear();
+    m_presetRow->setCurrent(QString());
+    m_presetName->setText(tr("Custom Export"));
 }
 
 QWidget* RenderSettingsPanel::buildHeader()

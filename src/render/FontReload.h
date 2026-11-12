@@ -33,7 +33,7 @@ public:
     explicit FontWatcher(const QStringList& dirs, QObject* parent = nullptr, int debounceMs = 1500);
 
     /// Scans now: every font file not seen before is added to Qt's font database. Returns the
-    /// families that became available (empty when nothing new). Also the Reload Fonts command.
+    /// families that became available (empty when nothing new).
     QStringList reload();
 
 signals:

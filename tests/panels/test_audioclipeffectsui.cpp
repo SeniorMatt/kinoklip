@@ -26,6 +26,7 @@
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QUndoStack>
+#include <QWidgetAction>
 
 using namespace kk;
 using namespace kk::test;
@@ -48,8 +49,11 @@ QVector<QToolButton*> addEffectButtons(InspectorPanel& panel)
 QStringList menuTexts(QToolButton* button)
 {
     QStringList texts;
-    for (QAction* a : button->menu()->actions())
-        texts.append(a->text());
+    // The entries a person sees: no search field, separators or hidden search results.
+    for (QAction* a : button->menu()->actions()) {
+        if (a->isVisible() && !a->isSeparator() && !qobject_cast<QWidgetAction*>(a))
+            texts.append(a->text());
+    }
     return texts;
 }
 

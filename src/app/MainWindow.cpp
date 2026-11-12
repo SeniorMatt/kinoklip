@@ -24,6 +24,7 @@
 #include "core/Logging.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
+#include "render/FontReload.h"
 #include "ui/audio/VoiceOverController.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
@@ -35,7 +36,6 @@
 #include "ui/common/ShortcutFallback.h"
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
-#include "render/FontReload.h"
 #include "ui/dialogs/DialogActions.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/help/Guide.h"
@@ -51,9 +51,9 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QHash>
-#include <QCursor>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMouseEvent>
@@ -62,7 +62,6 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTimer>
-#include <QToolTip>
 #include <QUndoStack>
 #include <QVBoxLayout>
 
@@ -679,21 +678,25 @@ void MainWindow::connectAppActions()
     connect(actions.action(QStringLiteral("help.community")), &QAction::triggered, this,
         [this] { guide::openUrl(QUrl(QLatin1String(appinfo::communityUrl)), this); });
 
-    // ---- Fonts installed while the program runs: watched folders + Kinoklip > Reload Fonts ----
+    // ---- Fonts installed while the program runs: watched folders and a look on activation ----
     {
         auto* fontWatcher = new render::fonts::FontWatcher(render::fonts::defaultFontDirs(), this);
         connect(fontWatcher, &render::fonts::FontWatcher::fontsAdded, this, [this] {
             if (m_ctx.playback)
                 m_ctx.playback->redrawStill(); // titles in a font that was missing show it now
         });
-        connect(actions.action(QStringLiteral("settings.reload_fonts")), &QAction::triggered, this,
-            [this, fontWatcher] {
-                const QStringList added = fontWatcher->reload();
-                QToolTip::showText(QCursor::pos(),
-                    added.isEmpty() ? tr("No new fonts found.")
-                                    : tr("Added fonts: %1").arg(added.join(QStringLiteral(", "))),
-                    this);
+        // Backup for changes the folder watch misses (a new font folder, inotify limits): look
+        // again whenever Kinoklip becomes the active window, at most every 10 seconds.
+        auto* sinceScan = new QElapsedTimer;
+        sinceScan->start();
+        connect(qApp, &QGuiApplication::applicationStateChanged, fontWatcher,
+            [fontWatcher, sinceScan](Qt::ApplicationState state) {
+                if (state != Qt::ApplicationActive || sinceScan->elapsed() < 10000)
+                    return;
+                sinceScan->restart();
+                fontWatcher->reload();
             });
+        connect(fontWatcher, &QObject::destroyed, [sinceScan] { delete sinceScan; });
     }
 
     // ---- Dialogs (src/ui/dialogs) ----

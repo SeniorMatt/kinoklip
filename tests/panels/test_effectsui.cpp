@@ -26,6 +26,7 @@
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QUndoStack>
+#include <QWidgetAction>
 
 #include <memory>
 
@@ -161,10 +162,55 @@ private slots:
         }
         QVERIFY(add && add->menu());
         QStringList menus;
-        for (QAction* a : add->menu()->actions())
-            menus.append(a->text());
-        QCOMPARE(menus.size(), 13); // eight folders, Texture (spec 56.11), Refine, Revival, Sharpen (57.1), Temporal (60.1)
+        for (QAction* a : add->menu()->actions()) {
+            if (a->menu()) // the folders; the search field and its hidden flat list come too
+                menus.append(a->text());
+        }
+        QCOMPARE(menus.size(), 13); // eight folders, Texture (spec 56.11), Refine, Revival, Sharpen
+                                    // (57.1), Temporal (60.1)
         QCOMPARE(menus[3], QStringLiteral("Key"));
+    }
+
+    // Spec 52.6: typing in the Add Effect menu's search field lists the matching effects (by
+    // name, folder or description) instead of the folders; Enter adds the best match.
+    void addEffectMenuSearch()
+    {
+        PanelFixture f;
+        const quint64 clip = f.addClip(kV1, 0, 50);
+        InspectorPanel inspector(f.ctx);
+        f.selection.clear();
+        f.selection.selectClip(clip);
+        inspector.tabs()->setCurrentIndex(InspectorPanel::EffectsTab);
+        auto* search = inspector.findChild<QLineEdit*>(QStringLiteral("add-effect-search"));
+        QVERIFY(search);
+        QMenu* menu = qobject_cast<QMenu*>(search->parentWidget()->parentWidget());
+        QVERIFY(menu);
+        auto visible = [menu](bool folders) {
+            QStringList out;
+            for (QAction* a : menu->actions()) {
+                if (a->isVisible() && !a->isSeparator() && a->isEnabled()
+                    && !qobject_cast<QWidgetAction*>(a) && bool(a->menu()) == folders)
+                    out.append(a->text());
+            }
+            return out;
+        };
+        QVERIFY(visible(true).size() > 5);
+        QVERIFY(visible(false).isEmpty());
+        search->setText(QStringLiteral("stro"));
+        QVERIFY(visible(true).isEmpty());
+        const QStringList hits = visible(false);
+        QVERIFY(!hits.isEmpty());
+        QVERIFY(hits.join(QLatin1Char('|')).contains(QStringLiteral("Strobe")));
+        search->setText(QStringLiteral("zzzz no such effect"));
+        QVERIFY(visible(false).isEmpty());
+        search->setText(QStringLiteral("strobe"));
+        const int commands = f.project.undoStack()->count();
+        emit search->returnPressed();
+        QCOMPARE(f.project.undoStack()->count(), commands + 1);
+        QCOMPARE(f.clip(clip)->effects.size(), 1);
+        QCOMPARE(f.clip(clip)->effects[0].type, QLatin1String(fxid::Strobe));
+        search->clear();
+        QVERIFY(visible(true).size() > 5);
     }
 
     // Spec 40.3: the eyedropper button of the key colour drives SelectionModel::colorPicker().

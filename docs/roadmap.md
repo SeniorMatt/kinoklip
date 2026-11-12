@@ -98,22 +98,30 @@ Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 - [x] Interface: Vim keys in every panel: windows and pages, lists and trees, the Inspector and other forms, the keyframe editor, node graphs, the mixer and transitions (spec 83, steps 5 to 7)
 - [x] Interface: Vim macros (q, @, @@, @:), append and numbered registers, ? backward search, f F t T ; , to find clips by name, * and #, a check of the whole key table, the guide "Vim for Kinoklip" and a one-page cheat sheet (spec 83, step 8).
 
-## Version 1.6 (in progress): the Compositing page
+## Version 1.6 (in progress)
 
-- [ ] Compositing: a Spline panel (Fusion-style curve editor for every animated node value), with keyframe loops: Loop, Ping-Pong and Relative (repeat with offset) before and after the keys
-- [ ] Compositing: Fusion's node editor behaviour (auto-Merge when connecting onto a connected node, insert on a link, add after the selected node, swap inputs) and Merge's missing controls (Flip, Edges and more)
-- [ ] Compositing: keyframe loops in the animation model (Loop, Relative, Ping-Pong, Pre-Loop, Reverse, Time Stretch)
-- [ ] Compositing: Keyframes panel on the page (Fusion style), next to the Spline panel
+- [ ] Compositing: a Spline panel (Fusion-style curve editor for every animated node value) and a Keyframes panel on the page, with keyframe loops: Loop, Ping-Pong and Relative (repeat with offset) before and after the keys, Reverse and Time Stretch; the loop commands also in the Edit page's Curves view
+- [x] Compositing: dropping an output onto a connected node adds a Merge; Merge has Flip Horizontal and Flip Vertical
+- [ ] Edit: change Transform and Crop of several selected clips at once (Inspector and viewer handles); copy transitions with all their settings (Alt-drag, Ctrl+C / Ctrl+V); audio plays after a big paste without a restart
+- [x] Background Removal: a general model for pictures and any subject (BiRefNet)
+- [x] Media Pool: Save a Copy to Computer for media stored in a single-file project
+- [x] Timeline: thumbnails come back quickly after zooming
+- [x] Fonts: newly installed fonts show up without restarting (automatic)
+- [x] Audio: a visual equalizer editor (curve with draggable bands)
+- [x] Timeline Settings: change a timeline's or compound clip's frame rate after clips are in it (clips keep their time)
+- [x] Titles: Write On (typewriter) for titles and the Text node, and a Typewriter title
+- [x] Project Settings: the standard transition and its length are project settings (Set as Standard Transition in the Effects library); Preferences: default type for new keyframes
+- [x] Render: memory stays flat with keyframed generators; a render pauses instead of being killed when memory runs out
+- [x] Keyframes panel fits small screens; Vim Mode in Preferences only; title typing no longer flickers; transitions from the library land on the cut
+
+## Version 1.7: the Compositing page
+
 - [ ] Compositing: Merge and Transform controls in full (Edges, Pivot, Invert Transform, Alpha Gain, Burn In, all apply modes)
+- [ ] Compositing: the rest of Fusion's node editor behaviour (insert on a link, add after the selected node, swap inputs), checked against Resolve's documentation
 - [ ] Compositing: viewer features (A/B split, channel keys, checker, show/hide controls, lock)
 - [ ] Compositing: Common Controls tab on every tool (Blend, RGBA, mask options, motion blur)
 - [ ] Compositing: more tools (Delta Keyer, Luma Keyer, Corner Positioner, B-Spline mask, rounded Rectangle) and node editor extras (thumbnails, Replace, Find, tile colours, Paste Settings)
-- [ ] Background Removal: a general model for pictures and any subject, and a newer video model if one fits our licence
-- [ ] Media Pool: Save a Copy to Computer for media stored in a single-file project
-- [ ] Timeline: thumbnails come back quickly after zooming
-- [x] Fonts: newly installed fonts show up without restarting (automatic, plus a Reload Fonts command)
-- [ ] Audio: a visual equalizer editor (curve with draggable bands, Audacity / FL Studio style)
-- [x] Timeline Settings: change a timeline's or compound clip's frame rate after clips are in it (clips keep their time); Project Settings says what happens
+- [ ] Background Removal: a newer video model if one fits our licence
 
 ## Next big release
 
@@ -130,6 +138,8 @@ Rule for every AI-assisted tool: optional, clearly labelled, downloaded only whe
 
 Planned, not started. Compare each page with Resolve and add most of what is missing, starting
 when the owner asks for it.
+
+- [ ] Website on GitHub Pages (starts when the owner says): home page with a Download button for the latest AppImage, the guide as searchable pages built from docs/guide, new screenshots in Breeze Dark with real (not generated) people in the sample footage, and a simple bug report form that opens a GitHub issue for people who have no GitHub account
 
 - [ ] Audio: Bounce Mix to Track and Bounce Selected Tracks (Timeline menu): render the whole mix, or each selected track with its effects, into a new audio track as one clip
 - [ ] Edit: Auto Align Clips (clip context menu): line up selected clips on different tracks by timecode or by matching their sound

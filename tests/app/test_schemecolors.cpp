@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Colour schemes for custom-painted widgets: Kinoklip is the default scheme (found in every
+// Colour schemes for custom-painted widgets: Breeze Dark is the default scheme (found in every
 // build), SchemeColors follows the active scheme's roles, and the timeline actually repaints
 // in the new colours after a switch (lanes, ruler, clip fill, playhead), keyframe colours too.
 #include "../media/MediaTestUtil.h"
@@ -129,19 +129,19 @@ private slots:
         theme::apply(*qApp);
     }
 
-    void defaultSchemeIsKinoklip()
+    void defaultSchemeIsBreezeDark()
     {
-        QCOMPARE(QLatin1String(theme::kDefaultColorScheme), QLatin1String("Kinoklip"));
+        QCOMPARE(QLatin1String(theme::kDefaultColorScheme), QLatin1String("BreezeDark"));
         // No stored choice: the default scheme is active, in this build mode (KF6 or not).
         QVERIFY(!QSettings().contains(QLatin1String(prefs::kColorScheme)));
-        QCOMPARE(theme::currentColorScheme(), QStringLiteral("Kinoklip"));
+        QCOMPARE(theme::currentColorScheme(), QStringLiteral("BreezeDark"));
         int listed = 0;
         for (const theme::ColorSchemeInfo& s : theme::availableColorSchemes())
-            listed += s.id == QLatin1String("Kinoklip") ? 1 : 0;
+            listed += s.id == QLatin1String("BreezeDark") ? 1 : 0;
         QCOMPARE(listed, 1);
-        const ColorSchemeFile kinoklip = schemeFile(QStringLiteral("Kinoklip"));
+        const ColorSchemeFile dflt = schemeFile(QStringLiteral("BreezeDark"));
         QCOMPARE(QApplication::palette().color(QPalette::Window),
-            kinoklip.color(QStringLiteral("Window"), QStringLiteral("BackgroundNormal")));
+            dflt.color(QStringLiteral("Window"), QStringLiteral("BackgroundNormal")));
     }
 
     void explicitChoiceIsKept()
@@ -151,7 +151,7 @@ private slots:
         QCOMPARE(theme::currentColorScheme(), QStringLiteral("BreezeLight"));
         QSettings().remove(QLatin1String(prefs::kColorScheme));
         theme::apply(*qApp);
-        QCOMPARE(theme::currentColorScheme(), QStringLiteral("Kinoklip"));
+        QCOMPARE(theme::currentColorScheme(), QStringLiteral("BreezeDark"));
     }
 
     void helperFollowsSchemeRoles()

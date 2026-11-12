@@ -44,8 +44,8 @@ private slots:
 
     void defaultsAreBreezeAndKinoklip()
     {
-        // The default colour scheme is Kinoklip's own (dark), in both build modes.
-        QCOMPARE(theme::currentColorScheme(), QStringLiteral("Kinoklip"));
+        // The default colour scheme is Breeze Dark (since 1.6), in both build modes.
+        QCOMPARE(theme::currentColorScheme(), QStringLiteral("BreezeDark"));
         QVERIFY(theme::isDark());
         if (theme::haveKdeFrameworks()) {
             // The container build ships the real Breeze style: it must be found and used.
@@ -57,8 +57,8 @@ private slots:
             QVERIFY(breeze);
             QCOMPARE(QString::fromLatin1(breeze->metaObject()->className()),
                 QStringLiteral("Breeze::Style"));
-            // KColorSchemeManager installed Kinoklip's window colour.
-            QCOMPARE(QApplication::palette().color(QPalette::Window), QColor(35, 35, 40));
+            // KColorSchemeManager installed Breeze Dark's window colour.
+            QCOMPARE(QApplication::palette().color(QPalette::Window), QColor(32, 35, 38));
         } else {
             QVERIFY(!theme::currentStyle().isEmpty()); // Breeze if installed, else Fusion
         }
@@ -105,7 +105,9 @@ private slots:
         QAction* dark = registry.action(theme::colorSchemeActionId(QStringLiteral("BreezeDark")));
         QAction* kinoklip = registry.action(theme::colorSchemeActionId(QStringLiteral("Kinoklip")));
         QVERIFY(light && dark && kinoklip);
-        QVERIFY(kinoklip->isChecked()); // the default
+        QVERIFY(dark->isChecked()); // the default
+        kinoklip->trigger();
+        QVERIFY(kinoklip->isChecked());
         dark->trigger();
         QVERIFY(dark->isChecked());
         light->trigger();

@@ -51,7 +51,6 @@
         "edit.keyboard_customization": ["Ctrl+Alt+K"],
         "edit.preferences": ["Ctrl+,"],
         "settings.vim_mode": [],
-        "settings.reload_fonts": [],
         "tool.select": ["A"],
         "tool.trim": ["T"],
         "tool.blade": ["B"],

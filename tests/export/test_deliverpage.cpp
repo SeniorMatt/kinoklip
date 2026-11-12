@@ -191,7 +191,11 @@ private Q_SLOTS:
         QCOMPARE(preview.last().at(0).value<int64_t>(), int64_t(35));
 
         RenderSettingsPanel* panel = page.settingsPanel();
-        QCOMPARE(panel->currentPresetId(), QStringLiteral("youtube_1080p"));
+        // The page opens as Custom Export at the timeline's own size (Match timeline).
+        QCOMPARE(panel->currentPresetId(), QString());
+        QCOMPARE(panel->settings().video.width, 0);
+        QCOMPARE(panel->settings().video.height, 0);
+        QCOMPARE(panel->settings().video.codec, QStringLiteral("h264"));
         panel->applyPreset(QStringLiteral("master_prores_hq"));
         ExportSettings s = panel->settings();
         QCOMPARE(s.container, QStringLiteral("mov"));

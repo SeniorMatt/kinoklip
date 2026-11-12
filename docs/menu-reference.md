@@ -1,4 +1,4 @@
-352 menu entries in 12 menus; 48 panels
+351 menu entries in 12 menus; 48 panels
 
 # Menu and panel reference
 
@@ -14,7 +14,6 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | About Qt |  | Shows which version of the Qt toolkit this build uses. |
 | Keyboard Customization… | Ctrl+Alt+K | Opens the keyboard settings: pick a keyboard profile, change or clear the key of any command. |
 | Vim Mode (toggle) |  | Turns Vim mode on or off: with it on, plain keys are Vim commands (NORMAL mode) and i gives you the usual shortcuts back (INSERT mode). Works with any keyboard profile. |
-| Reload Fonts |  | Looks for fonts installed while Kinoklip is open and adds them to every font list. Kinoklip also does this by itself a moment after a font file appears in a font folder. |
 | Preferences… | Ctrl+, | Opens the Preferences window (user settings such as editing, playback, interface and local control). |
 | Quit Kinoklip | Ctrl+Q | Closes Kinoklip, asking first whether to save unsaved changes. |
 
@@ -505,7 +504,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 
 # Streamlined menu layout
 
-Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 352 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
+Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 351 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
 
 ## Streamlined Kinoklip
 
@@ -514,7 +513,6 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | About Kinoklip |  | Shows the version of Kinoklip, its licence and the libraries it uses. |
 | Preferences… | Ctrl+, | Opens the Preferences window (user settings such as editing, playback, interface and local control). |
 | Keyboard Shortcuts… | Ctrl+Alt+K | Opens the keyboard settings: pick a keyboard profile, change or clear the key of any command. |
-| Reload Fonts |  | Looks for fonts installed while Kinoklip is open and adds them to every font list. Kinoklip also does this by itself a moment after a font file appears in a font folder. |
 | Quit Kinoklip | Ctrl+Q | Closes Kinoklip, asking first whether to save unsaved changes. |
 
 ## Streamlined File

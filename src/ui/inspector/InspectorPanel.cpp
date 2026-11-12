@@ -52,8 +52,10 @@
 #include <QSignalBlocker>
 #include <QTabWidget>
 #include <QTextCursor>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QWidgetAction>
 
 #include <algorithm>
 
@@ -995,23 +997,97 @@ void InspectorPanel::buildEffectSection(
     const QVector<const EffectDescriptor*> effects = registry.byCategory(category);
     auto addEntry = [&](QMenu* into, const EffectDescriptor* d) {
         const QString id = d->id;
-        into->addAction(d->name, this,
+        return into->addAction(d->name, this,
             [this, id, clipId] { effectactions::applyEffect(*m_ctx.project, {clipId}, id); });
     };
+    // A search field on top: type part of a name (or of its folder or description) and the
+    // folders give way to a flat list of the matches; Enter adds the first one.
+    auto* search = new QLineEdit;
+    search->setObjectName(QStringLiteral("add-effect-search"));
+    search->setPlaceholderText(tr("Search effects"));
+    search->setClearButtonEnabled(true);
+    auto* searchHolder = new QWidget;
+    auto* searchLayout = new QHBoxLayout(searchHolder);
+    searchLayout->setContentsMargins(6, 4, 6, 4);
+    searchLayout->addWidget(search);
+    auto* searchAction = new QWidgetAction(menu);
+    searchAction->setDefaultWidget(searchHolder);
+    menu->addAction(searchAction);
+    menu->addSeparator();
+    QList<QAction*> folders;
     // One submenu per library folder (Blur, Color, Key, ...), like the Effects library.
     for (const QString& group : registry.groups(category)) {
         QMenu* sub = menu->addMenu(EffectRegistry::groupName(group));
+        folders.append(sub->menuAction());
         for (const EffectDescriptor* d : effects) {
             if (d->group == group)
                 addEntry(sub, d);
         }
     }
+    struct Match
+    {
+        QAction* action;
+        QString text; ///< name, folder and description, lower case
+        bool inFolder; ///< a hidden flat copy of an entry in a folder submenu
+    };
+    QVector<Match> flat;
+    // Effects outside a folder are listed once and stay visible while they match; the others get
+    // a hidden flat copy named with their folder.
     for (const EffectDescriptor* d : effects) {
-        if (d->group.isEmpty())
-            addEntry(menu, d);
+        QAction* a = addEntry(menu, d);
+        if (!d->group.isEmpty()) {
+            a->setText(tr("%1  (%2)").arg(d->name, EffectRegistry::groupName(d->group)));
+            a->setVisible(false);
+        }
+        flat.append({a,
+            (d->name + QLatin1Char(' ') + EffectRegistry::groupName(d->group) + QLatin1Char(' ')
+                + d->description)
+                .toLower(),
+            !d->group.isEmpty()});
     }
+    auto* noMatch = menu->addAction(tr("No effect matches"));
+    noMatch->setEnabled(false);
+    noMatch->setVisible(false);
+    connect(search, &QLineEdit::textChanged, menu, [=](const QString& text) {
+        const QStringList words = text.toLower().split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        for (QAction* f : folders)
+            f->setVisible(words.isEmpty());
+        int shown = 0;
+        for (const Match& m : flat) {
+            bool hit = true;
+            for (const QString& w : words)
+                hit = hit && m.text.contains(w);
+            if (words.isEmpty()) {
+                m.action->setVisible(!m.inFolder);
+                continue;
+            }
+            m.action->setVisible(hit);
+            shown += hit ? 1 : 0;
+        }
+        noMatch->setVisible(!words.isEmpty() && shown == 0);
+    });
+    connect(search, &QLineEdit::returnPressed, menu, [=] {
+        const QString first = search->text().toLower().split(QLatin1Char(' ')).value(0);
+        QAction* best = nullptr;
+        for (const Match& m : flat) {
+            if (!m.action->isVisible())
+                continue;
+            if (!best
+                || (m.action->text().toLower().startsWith(first)
+                    && !best->text().toLower().startsWith(first)))
+                best = m.action;
+        }
+        if (best) {
+            menu->close();
+            best->trigger();
+        }
+    });
+    connect(menu, &QMenu::aboutToShow, search, [search] {
+        search->clear();
+        QTimer::singleShot(0, search, [search] { search->setFocus(Qt::PopupFocusReason); });
+    });
     addEffect->setMenu(menu);
-    addEffect->setEnabled(!menu->isEmpty());
+    addEffect->setEnabled(!effects.isEmpty());
     barLayout->addWidget(addEffect);
     barLayout->addStretch(1);
     tabLayout(EffectsTab)->addWidget(bar);

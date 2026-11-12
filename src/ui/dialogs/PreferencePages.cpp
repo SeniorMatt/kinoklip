@@ -748,6 +748,54 @@ public:
         m_twoUpLook->setObjectName(QStringLiteral("TwoUpProgramLook"));
         m_twoUpLook->setChecked(b.twoUpProgramLook);
         form->addRow(QString(), m_twoUpLook);
+    }
+
+    void apply() override
+    {
+        QSettings s;
+        s.setValue(QStringLiteral("edit/stillSeconds"), m_still->value());
+        s.setValue(QStringLiteral("edit/generatorSeconds"), m_generator->value());
+        s.setValue(QStringLiteral("edit/transitionSeconds"), m_transition->value());
+        setDefaultKeyInterp(Interp(m_newKeyInterp->currentData().toInt()));
+        s.setValue(QStringLiteral("edit/multiFrameNudge"), m_nudge->value());
+        s.setValue(QStringLiteral("edit/threePointEditing"), m_threePoint->isChecked());
+        s.setValue(QStringLiteral("edit/rippleDeleteGapAtPlayhead"), m_rippleGap->isChecked());
+        s.setValue(QStringLiteral("edit/rippleDeleteClipAtPlayhead"), m_rippleClip->isChecked());
+        s.setValue(QStringLiteral("edit/selectToolRollsAtCut"), m_rollAtCut->isChecked());
+        s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
+        s.setValue(QStringLiteral("edit/twoUpProgramLook"), m_twoUpLook->isChecked());
+        s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
+        EditBehaviour::setWheelScheme(WheelScheme(m_wheel->currentData().toInt()));
+    }
+
+private:
+    QDoubleSpinBox* m_still = nullptr;
+    QDoubleSpinBox* m_generator = nullptr;
+    QDoubleSpinBox* m_transition = nullptr;
+    QSpinBox* m_nudge = nullptr;
+    QComboBox* m_newKeyInterp = nullptr;
+    QComboBox* m_wheel = nullptr;
+    QComboBox* m_zoom = nullptr;
+    QCheckBox* m_threePoint = nullptr;
+    QCheckBox* m_twoUpLook = nullptr;
+    QCheckBox* m_rippleGap = nullptr;
+    QCheckBox* m_rippleClip = nullptr;
+    QCheckBox* m_rollAtCut = nullptr;
+    QCheckBox* m_slideInName = nullptr;
+};
+
+// ---- User: Timeline and Media Pool ---------------------------------------------------
+
+/// Timeline tabs, the ruler, the default smart bins and where imports go (split off the
+/// Editing page so that one fits a 768 px high screen without a scroll bar).
+class TimelinePage final : public SettingsPage
+{
+public:
+    explicit TimelinePage(QWidget* parent)
+        : SettingsPage(parent)
+    {
+        const EditBehaviour b = EditBehaviour::fromSettings();
+        auto* form = makeForm(this);
         m_tabs = new QCheckBox(tr("Show open timelines as tabs"));
         m_tabs->setObjectName(QStringLiteral("TimelineTabs"));
         m_tabs->setToolTip(tr("Off: one timeline at a time, chosen from a drop-down above "
@@ -781,39 +829,13 @@ public:
     void apply() override
     {
         QSettings s;
-        s.setValue(QStringLiteral("edit/stillSeconds"), m_still->value());
-        s.setValue(QStringLiteral("edit/generatorSeconds"), m_generator->value());
-        s.setValue(QStringLiteral("edit/transitionSeconds"), m_transition->value());
-        setDefaultKeyInterp(Interp(m_newKeyInterp->currentData().toInt()));
-        s.setValue(QStringLiteral("edit/multiFrameNudge"), m_nudge->value());
-        s.setValue(QStringLiteral("edit/threePointEditing"), m_threePoint->isChecked());
-        s.setValue(QStringLiteral("edit/rippleDeleteGapAtPlayhead"), m_rippleGap->isChecked());
-        s.setValue(QStringLiteral("edit/rippleDeleteClipAtPlayhead"), m_rippleClip->isChecked());
-        s.setValue(QStringLiteral("edit/selectToolRollsAtCut"), m_rollAtCut->isChecked());
-        s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
-        s.setValue(QStringLiteral("edit/twoUpProgramLook"), m_twoUpLook->isChecked());
         s.setValue(QStringLiteral("edit/timelineTabs"), m_tabs->isChecked());
-        s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
         prefs::setShowDefaultSmartBins(m_smartBins->isChecked());
         prefs::setImportIntoMasterBin(m_importTarget->currentData().toBool());
-        EditBehaviour::setWheelScheme(WheelScheme(m_wheel->currentData().toInt()));
         s.setValue(QStringLiteral("edit/rulerPressJumpsPlayhead"), m_rulerJumps->isChecked());
     }
 
 private:
-    QDoubleSpinBox* m_still = nullptr;
-    QDoubleSpinBox* m_generator = nullptr;
-    QDoubleSpinBox* m_transition = nullptr;
-    QSpinBox* m_nudge = nullptr;
-    QComboBox* m_newKeyInterp = nullptr;
-    QComboBox* m_wheel = nullptr;
-    QComboBox* m_zoom = nullptr;
-    QCheckBox* m_threePoint = nullptr;
-    QCheckBox* m_twoUpLook = nullptr;
-    QCheckBox* m_rippleGap = nullptr;
-    QCheckBox* m_rippleClip = nullptr;
-    QCheckBox* m_rollAtCut = nullptr;
-    QCheckBox* m_slideInName = nullptr;
     QCheckBox* m_tabs = nullptr;
     QCheckBox* m_smartBins = nullptr;
     QComboBox* m_importTarget = nullptr;
@@ -1033,6 +1055,8 @@ void registerStandardSettingsPages(SettingsPageRegistry& registry, ActionRegistr
         [](QWidget* parent) { return new ProjectSavePage(parent); });
     add("editing", tr("Editing"), "edit-cut", 130, user,
         [](QWidget* parent) { return new EditingPage(parent); });
+    add("timeline", tr("Timeline and Media Pool"), "view-media-track", 135, user,
+        [](QWidget* parent) { return new TimelinePage(parent); });
     add("playback", tr("Playback Settings"), "media-playback-start", 140, user,
         [](QWidget* parent) { return new PlaybackPage(parent); });
     QAction* keyboard = actions && actions->contains(QStringLiteral("edit.keyboard_customization"))
