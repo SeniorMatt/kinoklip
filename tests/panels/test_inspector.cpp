@@ -142,7 +142,7 @@ private slots:
         for (auto* row : group->rows())
             rowKeys << row->ref().key;
         QCOMPARE(rowKeys,
-            (QStringList {QStringLiteral("bgOutput"), QStringLiteral("bgThreshold"),
+            (QStringList {QStringLiteral("bgModel"), QStringLiteral("bgOutput"), QStringLiteral("bgThreshold"),
                 QStringLiteral("bgSoftness"), QStringLiteral("bgShrinkGrow"),
                 QStringLiteral("bgFeather"), QStringLiteral("bgQuality")}));
         auto* ai = group->findChild<QLabel*>(QStringLiteral("AiLabel"));
