@@ -54,6 +54,7 @@ Menu appMenu()
         A("edit.preferences"),
         A("edit.keyboard_customization", "Keyboard Shortcuts…"),
         A("settings.vim_mode"),
+        A("settings.reload_fonts"),
         S(),
         A("file.quit"),
     });

@@ -420,7 +420,9 @@ NodeRegistry::NodeRegistry()
             color(k::Color, tr("Color"), QColor(Qt::white)),
             color(k::OutlineColor, tr("Outline Color"), QColor(Qt::black)),
             number(k::OutlineWidth, tr("Outline Width"), 0, 100, 0, 0.5, kPx),
-            boolean(k::Shadow, tr("Drop Shadow"), false)};
+            boolean(k::Shadow, tr("Drop Shadow"), false),
+            number(k::WriteOnStart, tr("Write On Start"), 0, 1, 0, 0.01),
+            number(k::WriteOnEnd, tr("Write On End"), 0, 1, 1, 0.01)};
         d.params += centre();
         d.controls = ViewerControls::Transform;
         add(d);

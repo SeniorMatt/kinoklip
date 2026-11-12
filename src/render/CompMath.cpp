@@ -411,6 +411,8 @@ TitleStyle textStyle(
     s.shadow = p.staticValue(k::Shadow, false).toBool();
     s.size = std::max(1.0, num(p, k::FontSize, frame, 96.0));
     s.outlineWidth = std::max(0.0, num(p, k::OutlineWidth, frame, 0.0));
+    s.writeOnStart = std::clamp(num(p, k::WriteOnStart, frame, 0.0), 0.0, 1.0);
+    s.writeOnEnd = std::clamp(num(p, k::WriteOnEnd, frame, 1.0), 0.0, 1.0);
     s.canvas = canvas;
     s.scale = scale;
     const QPointF c

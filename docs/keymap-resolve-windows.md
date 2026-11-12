@@ -79,6 +79,7 @@ that every command has an entry and that no key is used twice.
 | Keyboard Customization | `edit.keyboard_customization` | `Ctrl+Alt+K` | sure |  |
 | Preferences | `edit.preferences` | `Ctrl+,` | likely |  |
 | Vim Mode | `settings.vim_mode` | (none) | unsure | Kinoklip's own option (Vim keys); Resolve has no counterpart |
+| Reload Fonts | `settings.reload_fonts` | (none) | unsure | Kinoklip's own command (fonts installed while it runs); Resolve has no counterpart |
 
 ## Tools and trimming
 

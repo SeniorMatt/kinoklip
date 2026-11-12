@@ -19,6 +19,7 @@
 #include <QEvent>
 #include <QFileInfo>
 #include <QFontComboBox>
+#include <QGuiApplication>
 #include <QGridLayout>
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -497,6 +498,14 @@ public:
         makeCompact(m_combo);
         grid->addWidget(m_combo, gridRow, paramgrid::kEditor, 1, 2);
         m_main = m_combo;
+        // A font installed while the program runs (render/FontReload.h): the combo's list
+        // follows by itself, the chosen family is selected again (it may be the new one).
+        connect(qGuiApp, &QGuiApplication::fontDatabaseChanged, this, [this] {
+            if (m_family.isEmpty())
+                return;
+            const QSignalBlocker block(m_combo);
+            m_combo->setCurrentFont(QFont(m_family));
+        });
         connect(m_combo, &QComboBox::activated, this, [this] {
             const QString family = m_combo->currentFont().family();
             m_host.editClip(changeLabel(), m_ref.clipId,

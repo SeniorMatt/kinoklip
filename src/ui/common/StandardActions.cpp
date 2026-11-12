@@ -39,6 +39,7 @@ const ActionSpec kActions[] = {
     {"app", "-"},
     {"app", "edit.keyboard_customization", QT_TRANSLATE_NOOP("kk::StandardActions", "&Keyboard Customization…")},
     {"app", "settings.vim_mode",      QT_TRANSLATE_NOOP("kk::StandardActions", "&Vim Mode"), "", true},
+    {"app", "settings.reload_fonts",  QT_TRANSLATE_NOOP("kk::StandardActions", "Reload &Fonts")},
     {"app", "edit.preferences",       QT_TRANSLATE_NOOP("kk::StandardActions", "&Preferences…")},
     {"app", "-"},
     {"app", "file.quit",              QT_TRANSLATE_NOOP("kk::StandardActions", "&Quit %1")},

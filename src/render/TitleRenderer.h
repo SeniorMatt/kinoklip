@@ -5,6 +5,7 @@
 
 #include "core/TimelineData.h"
 
+#include <QBitArray>
 #include <QColor>
 #include <QImage>
 #include <QRectF>
@@ -15,6 +16,9 @@
 #include <vector>
 
 namespace kk::render {
+
+/// render::fonts::fontGeneration() (render/FontReload.h).
+[[nodiscard]] int currentFontGeneration();
 
 /// Everything that influences a title's pixels at one frame, resolved from ClipData::title.
 /// Used as the title texture cache key: equal styles produce identical images, so a static
@@ -35,6 +39,9 @@ struct TitleStyle
     };
 
     Kind kind = Kind::Text;
+    /// render::fonts::fontGeneration() when the style was made: a title cached before a font
+    /// was installed is drawn again with it.
+    int fontGeneration = currentFontGeneration();
     QString text;
     QString font;
     bool bold = false;
@@ -48,6 +55,8 @@ struct TitleStyle
     double size = 72; ///< font pixel size at timeline resolution
     double tracking = 0; ///< percent letter spacing added (0 = normal)
     double lineSpacing = 100; ///< percent of the font's natural line spacing
+    double writeOnStart = 0; ///< Write On: fraction of the characters hidden at the start
+    double writeOnEnd = 1; ///< Write On: characters after this fraction are hidden
     double outlineWidth = 0; ///< px at timeline resolution, drawn outside the glyphs
     double bgOpacity = 60; ///< percent
     double posX = 0.5; ///< anchor point of the text block, 0..1 of the canvas from the left
@@ -72,6 +81,12 @@ struct TitleStyle
 
     friend bool operator==(const TitleStyle&, const TitleStyle&) = default;
 };
+
+/// Write On: which UTF-16 units of @p text are drawn when the range @p start..@p end (0..1) of
+/// its characters is shown. Characters are grapheme clusters (an emoji, a letter with its
+/// combining marks), spaces count, line breaks do not. Cluster i of n is shown when
+/// round(start * n) <= i < round(end * n). Hidden characters keep their place in the layout.
+[[nodiscard]] QBitArray writeOnVisible(const QString& text, double start, double end);
 
 /// Hash of a TitleStyle (for the texture cache).
 [[nodiscard]] size_t qHash(const TitleStyle& style, size_t seed = 0);

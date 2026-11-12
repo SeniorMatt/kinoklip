@@ -100,6 +100,10 @@ inline const QString Size
 inline const QString Tracking
     = QStringLiteral("tracking"); ///< animated percent letter spacing; default 0
 inline const QString LineSpacing = QStringLiteral("lineSpacing"); ///< animated percent; default 100
+/// Write On (Resolve's Text+ control): animated 0..1 range of the characters drawn. Characters
+/// before Start and after End are hidden but keep their place; defaults 0 / 1 = all shown.
+inline const QString WriteOnStart = QStringLiteral("writeOnStart");
+inline const QString WriteOnEnd = QStringLiteral("writeOnEnd");
 inline const QString OutlineWidth = QStringLiteral("outlineWidth"); ///< animated px; default 0
 inline const QString BgOpacity
     = QStringLiteral("bgOpacity"); ///< animated percent 0..100; default 60

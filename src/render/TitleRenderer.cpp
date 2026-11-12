@@ -5,6 +5,7 @@
 #include "core/ParamKeys.h"
 #include "core/TitleLayers.h"
 #include "render/EmojiText.h"
+#include "render/FontReload.h"
 
 #include <QFont>
 #include <QFontMetricsF>
@@ -12,6 +13,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPolygonF>
+#include <QTextBoundaryFinder>
 #include <QTransform>
 
 #include <algorithm>
@@ -56,6 +58,41 @@ QString stringStatic(const ParamSet& p, const QString& key, const QString& fallb
 
 } // namespace
 
+int currentFontGeneration()
+{
+    return fonts::fontGeneration();
+}
+
+QBitArray writeOnVisible(const QString& text, double start, double end)
+{
+    QBitArray visible(int(text.size()), true);
+    start = std::clamp(start, 0.0, 1.0);
+    end = std::clamp(end, 0.0, 1.0);
+    if (start <= 0.0 && end >= 1.0)
+        return visible;
+    // Grapheme clusters as [from, to) UTF-16 ranges, without line breaks.
+    std::vector<std::pair<int, int>> clusters;
+    QTextBoundaryFinder finder(QTextBoundaryFinder::Grapheme, text);
+    int from = 0;
+    for (int to = finder.toNextBoundary(); to > 0; from = to, to = finder.toNextBoundary()) {
+        const QString piece = text.mid(from, to - from);
+        if (piece == QLatin1String("\n") || piece == QLatin1String("\r")
+            || piece == QLatin1String("\r\n"))
+            continue;
+        clusters.emplace_back(from, to);
+    }
+    const double n = double(clusters.size());
+    const int first = int(std::lround(start * n));
+    const int last = int(std::lround(end * n));
+    for (int i = 0; i < int(clusters.size()); ++i) {
+        if (i >= first && i < last)
+            continue;
+        for (int u = clusters[size_t(i)].first; u < clusters[size_t(i)].second; ++u)
+            visible.clearBit(u);
+    }
+    return visible;
+}
+
 size_t qHash(const TitleStyle& s, size_t seed)
 {
     // Qt 6.12 deprecates the seedless combiner (the seed must reach the element hashes);
@@ -65,6 +102,7 @@ size_t qHash(const TitleStyle& s, size_t seed)
 #else
     QtPrivate::QHashCombine hash;
 #endif
+    seed = hash(seed, s.fontGeneration);
     seed = hash(seed, s.text);
     seed = hash(seed, s.font);
     seed
@@ -76,6 +114,8 @@ size_t qHash(const TitleStyle& s, size_t seed)
     seed = hash(seed, s.size);
     seed = hash(seed, s.tracking);
     seed = hash(seed, s.lineSpacing);
+    seed = hash(seed, s.writeOnStart);
+    seed = hash(seed, s.writeOnEnd);
     seed = hash(seed, s.outlineWidth);
     seed = hash(seed, s.bgOpacity);
     seed = hash(seed, s.posX);
@@ -153,6 +193,8 @@ TitleStyle resolveLayerStyle(const ParamSet& p, TitleLayerKind kind, const ClipD
     s.size = std::max(1.0, p.value(keys::Size, localFrame));
     s.tracking = p.value(keys::Tracking, localFrame);
     s.lineSpacing = p.value(keys::LineSpacing, localFrame);
+    s.writeOnStart = std::clamp(p.value(keys::WriteOnStart, localFrame), 0.0, 1.0);
+    s.writeOnEnd = std::clamp(p.value(keys::WriteOnEnd, localFrame), 0.0, 1.0);
     s.bgOpacity = std::clamp(p.value(keys::BgOpacity, localFrame), 0.0, 100.0);
     const QString anchor = stringStatic(p, keys::Anchor, QString());
     s.anchor = anchor == kLeft ? 0 : anchor == kRight ? 2 : 1;
@@ -254,18 +296,17 @@ TitleImage renderText(const TitleStyle& s)
     };
     QVector<EmojiRun> emojiRuns;
     QPainterPath path;
-    for (int i = 0; i < lines.size(); ++i) {
-        const double w = emojiMetrics.horizontalAdvance(lines[i]);
-        const double x = s.align == 0 ? 0.0
-            : s.align == 2            ? blockWidth - w
-                                      : (blockWidth - w) * 0.5;
-        const double baseline = block.top() + fm.ascent() + i * lineStep;
-        if (!emoji::containsEmoji(lines[i])) {
-            path.addText(block.left() + x, baseline, font, lines[i]);
-            continue;
+    // Write On: hidden characters are left out but the line keeps its width and alignment, so
+    // the visible ones stay where they will be once the whole text is shown.
+    const QBitArray shown = writeOnVisible(s.text, s.writeOnStart, s.writeOnEnd);
+    const bool partial = shown.count(false) > 0;
+    const auto addRun = [&](const QString& text, double x, double baseline) {
+        if (!emoji::containsEmoji(text)) {
+            path.addText(x, baseline, font, text);
+            return;
         }
-        double runX = block.left() + x;
-        for (const emoji::Run& run : emoji::split(lines[i])) {
+        double runX = x;
+        for (const emoji::Run& run : emoji::split(text)) {
             const double advance = emojiMetrics.horizontalAdvance(run.text);
             if (run.emoji)
                 emojiRuns.append({run.text, QPointF(runX, baseline), advance});
@@ -273,7 +314,36 @@ TitleImage renderText(const TitleStyle& s)
                 path.addText(runX, baseline, font, run.text);
             runX += advance;
         }
+    };
+    int lineOffset = 0; // UTF-16 offset of the line inside s.text
+    for (int i = 0; i < lines.size(); ++i) {
+        const double w = emojiMetrics.horizontalAdvance(lines[i]);
+        const double x = s.align == 0 ? 0.0
+            : s.align == 2            ? blockWidth - w
+                                      : (blockWidth - w) * 0.5;
+        const double baseline = block.top() + fm.ascent() + i * lineStep;
+        if (!partial) {
+            addRun(lines[i], block.left() + x, baseline);
+        } else {
+            const int len = int(lines[i].size());
+            int a = 0;
+            while (a < len) {
+                if (!shown.testBit(lineOffset + a)) {
+                    ++a;
+                    continue;
+                }
+                int b = a;
+                while (b < len && shown.testBit(lineOffset + b))
+                    ++b;
+                addRun(lines[i].mid(a, b - a),
+                    block.left() + x + emojiMetrics.horizontalAdvance(lines[i].left(a)), baseline);
+                a = b;
+            }
+        }
+        lineOffset += int(lines[i].size()) + 1;
     }
+    if (partial && path.isEmpty() && emojiRuns.isEmpty() && !s.bgEnabled)
+        return result; // nothing typed yet
 
     const double outline = s.outlineWidth * s.scale;
     const double shadowOffset = s.shadow ? std::max(kMinShadowPx, pixelSize * kShadowOffsetEm) : 0;

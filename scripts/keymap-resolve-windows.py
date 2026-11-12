@@ -64,6 +64,7 @@ a("edit.append_at_end", "Append at End", ["Shift+F12"], S)
 a("edit.keyboard_customization", "Keyboard Customization", ["Ctrl+Alt+K"], S)
 a("edit.preferences", "Preferences", ["Ctrl+,"], L)
 a("settings.vim_mode", "Vim Mode", [], U, "Kinoklip's own option (Vim keys); Resolve has no counterpart")
+a("settings.reload_fonts", "Reload Fonts", [], U, "Kinoklip's own command (fonts installed while it runs); Resolve has no counterpart")
 
 sec("Tools and trimming")
 a("tool.select", "Selection Mode", ["A"], S)
