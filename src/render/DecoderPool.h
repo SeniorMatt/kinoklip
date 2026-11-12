@@ -73,6 +73,9 @@ public:
     /// first frames of a cut are ready too, not only the cut frame (spec 72.7).
     static constexpr int kReadAheadFrames = 3;
     static constexpr int kMaxReserved = 3;
+    /// Open decoders at most (idle ones are closed, least recently used first, to open a new
+    /// one; decoders in use or reserved are never closed, so a frame needing more still works).
+    static constexpr int kMaxOpen = 8;
     /// Preparations running at the same time at most (leave threads for the visible clips).
     static constexpr int kMaxPrepareRunning = 2;
     /// Wishes waiting for a free reservation at most.
@@ -192,9 +195,6 @@ private:
     static constexpr qint64 kRetryFailedMs = 5000;
     /// Hard limit of decoders per path (beyond it the closest idle one is reused anyway).
     static constexpr int kMaxPerPath = 6;
-    /// Open decoders at most (idle ones are closed, least recently used first, to open a new
-    /// one; decoders in use or reserved are never closed, so a frame needing more still works).
-    static constexpr int kMaxOpen = 8;
 
     /// Closes idle decoders until a new one fits under kMaxOpen.
     void makeRoom();

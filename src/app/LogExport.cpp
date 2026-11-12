@@ -166,7 +166,7 @@ QString build(const bugreport::SystemInfo& info, const Session& session, const Q
     addSection(out, 3, problems, QStringLiteral("(none)"));
     addSection(out, 4, other, QStringLiteral("(none)"));
     QStringList memory = memreport::lines();
-    memory += render::Compositor::liveStats();
+    memory += Compositor::liveStats();
     addSection(out, 5, memory, QStringLiteral("(not available on this system)"));
     return out;
 }

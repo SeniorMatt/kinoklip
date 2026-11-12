@@ -139,7 +139,7 @@ private slots:
         qInfo(
             "peak: %d decoders, %.1f MiB of targets", peakDecoders, double(peakBytes) / (1 << 20));
         // Open decoders are bounded (in use + reserved by the look-ahead on top of the limit).
-        QVERIFY2(peakDecoders <= render::DecoderPool::kMaxOpen + render::DecoderPool::kMaxReserved,
+        QVERIFY2(peakDecoders <= 11, // 8 open + 3 reserved by the look-ahead
             qPrintable(QString::number(peakDecoders)));
         QVERIFY(peakBytes <= render::TargetPool::processByteLimit());
 
