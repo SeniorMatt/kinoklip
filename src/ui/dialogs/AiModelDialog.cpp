@@ -34,7 +34,7 @@ QString infoHtml(const matting::ModelInfo& m)
                           "<tr><td>%3</td><td>%4</td></tr>"
                           "<tr><td>%5</td><td>%6 (%7)</td></tr>"
                           "<tr><td>%8</td><td>%9</td></tr></table>"
-                          "<p>%10</p>")
+                          "%11<p>%10</p>")
         .arg(m.name.toHtmlEscaped(), m.description.toHtmlEscaped(), tr("Download size:"),
             matting::sizeText(m.sizeBytes), tr("Licence:"), m.licence.toHtmlEscaped(),
             link(m.licenceUrl), tr("Source:"), link(m.sourceUrl),
@@ -43,7 +43,9 @@ QString infoHtml(const matting::ModelInfo& m)
                "release page over HTTPS, and checked against a checksum. It is used on this "
                "computer "
                "only: nothing is uploaded and no account is needed. You can remove it again in "
-               "Preferences."));
+               "Preferences."),
+            m.memoryNote.isEmpty() ? QString()
+                                   : QStringLiteral("<p>%1</p>").arg(m.memoryNote.toHtmlEscaped()));
 }
 
 } // namespace
@@ -134,9 +136,14 @@ void ModelDownloadDialog::onFinished(bool ok, const QString& message)
 
 bool ModelDownloadDialog::run(QWidget* parent)
 {
-    ModelDownloadDialog dialog(matting::defaultModel(), parent);
+    return run(parent, matting::defaultModel());
+}
+
+bool ModelDownloadDialog::run(QWidget* parent, const matting::ModelInfo& model)
+{
+    ModelDownloadDialog dialog(model, parent);
     dialog.exec();
-    return matting::isInstalled(matting::defaultModel());
+    return matting::isInstalled(model);
 }
 
 // ---- Preferences > System > AI Models ----
@@ -158,39 +165,43 @@ public:
         connect(m_status, &QLabel::linkActivated, this,
             [this](const QString& url) { guide::openUrl(QUrl(url), this); });
         layout->addWidget(m_status);
-        auto* row = new QHBoxLayout;
-        m_download = new QPushButton(tr("Download Model..."));
-        m_download->setObjectName(QStringLiteral("AiModelDownload"));
-        m_remove = new QPushButton(tr("Remove Model"));
-        m_remove->setObjectName(QStringLiteral("AiModelRemove"));
+        auto makeRow = [this, layout](const matting::ModelInfo& model, const QString& suffix,
+                           QPushButton*& download, QPushButton*& remove) {
+            auto* row = new QHBoxLayout;
+            download = new QPushButton(tr("Download %1...").arg(model.name));
+            download->setObjectName(QStringLiteral("Ai%1ModelDownload").arg(suffix));
+            remove = new QPushButton(tr("Remove %1").arg(model.name));
+            remove->setObjectName(QStringLiteral("Ai%1ModelRemove").arg(suffix));
+            row->addWidget(download);
+            row->addWidget(remove);
+            row->addStretch(1);
+            layout->addLayout(row);
+            connect(download, &QPushButton::clicked, this, [this, &model] {
+                ModelDownloadDialog::run(this, model);
+                refresh();
+            });
+            connect(remove, &QPushButton::clicked, this, [this, &model] {
+                if (QMessageBox::question(this, tr("Remove Model"),
+                        tr("Remove the downloaded model (%1)? Background Removal with it stops "
+                           "working until it is downloaded again.")
+                            .arg(matting::sizeText(matting::installedBytes(model))))
+                    != QMessageBox::Yes)
+                    return;
+                matting::MatteService::instance().unload();
+                matting::removeModel(model);
+                refresh();
+            });
+        };
+        makeRow(matting::defaultModel(), QString(), m_download, m_remove);
+        makeRow(matting::imageModel(), QStringLiteral("Image"), m_downloadImage, m_removeImage);
         m_clear = new QPushButton(tr("Clear Matte Cache"));
         m_clear->setObjectName(QStringLiteral("AiMatteClear"));
-        row->addWidget(m_download);
-        row->addWidget(m_remove);
-        row->addWidget(m_clear);
-        row->addStretch(1);
-        layout->addLayout(row);
+        layout->addWidget(m_clear);
         m_cache = new QLabel;
         m_cache->setObjectName(QStringLiteral("AiMatteCache"));
         m_cache->setWordWrap(true);
         layout->addWidget(m_cache);
         layout->addStretch(1);
-        connect(m_download, &QPushButton::clicked, this, [this] {
-            ModelDownloadDialog::run(this);
-            refresh();
-        });
-        connect(m_remove, &QPushButton::clicked, this, [this] {
-            const auto& model = matting::defaultModel();
-            if (QMessageBox::question(this, tr("Remove Model"),
-                    tr("Remove the downloaded model (%1)? Background Removal stops working until "
-                       "it is downloaded again.")
-                        .arg(matting::sizeText(matting::installedBytes(model))))
-                != QMessageBox::Yes)
-                return;
-            matting::MatteService::instance().unload();
-            matting::removeModel(model);
-            refresh();
-        });
         connect(m_clear, &QPushButton::clicked, this, [this] {
             matting::MatteService::instance().unload();
             matting::MatteService::instance().cache().clear();
@@ -204,34 +215,42 @@ public:
 private:
     void refresh()
     {
-        const auto& m = matting::defaultModel();
         const auto status = matting::MatteService::instance().status();
         QString text = QStringLiteral("<p><b>%1</b> (%2)</p><p>%3</p>")
                            .arg(tr("AI tool: Background Removal"), tr("optional"),
-                               tr("Cuts a person out of the footage with a model that runs on this "
-                                  "computer. The model is not part of Kinoklip: it is downloaded "
-                                  "only when you ask."));
-        text += QStringLiteral("<p>%1 %2<br>%3 %4, %5 %6<br>%7 %8</p>")
-                    .arg(tr("Model:"), m.name.toHtmlEscaped(), tr("Size:"),
-                        matting::sizeText(m.sizeBytes), tr("Licence:"), m.licence.toHtmlEscaped(),
-                        tr("Source:"), link(m.sourceUrl));
-        text
-            += QStringLiteral("<p>%1 %2<br>%3 %4</p>")
-                   .arg(tr("Model file:"),
-                       matting::isInstalled(m)
-                           ? tr("installed (%1)").arg(matting::sizeText(matting::installedBytes(m)))
-                           : tr("not installed"),
-                       tr("Runtime:"),
-                       status.runtimeCompiled ? status.runtime : tr("not part of this build"));
-        if (!status.ready)
+                               tr("Cuts a subject out of the footage with a model that runs on "
+                                  "this computer. The models are not part of Kinoklip: each is "
+                                  "downloaded only when you ask. The people model is for video; "
+                                  "the any-subject model is for still pictures."));
+        for (const matting::ModelInfo* m : {&matting::defaultModel(), &matting::imageModel()}) {
+            text += QStringLiteral("<p>%1 %2<br>%3 %4, %5 %6<br>%7 %8<br>%9 %10</p>")
+                        .arg(tr("Model:"), m->name.toHtmlEscaped(), tr("Size:"),
+                            matting::sizeText(m->sizeBytes), tr("Licence:"),
+                            m->licence.toHtmlEscaped(), tr("Source:"), link(m->sourceUrl),
+                            tr("Model file:"),
+                            matting::isInstalled(*m)
+                                ? tr("installed (%1)")
+                                      .arg(matting::sizeText(matting::installedBytes(*m)))
+                                : tr("not installed"));
+            if (!m->memoryNote.isEmpty())
+                text += QStringLiteral("<p>%1</p>").arg(m->memoryNote.toHtmlEscaped());
+        }
+        text += QStringLiteral("<p>%1 %2</p>")
+                    .arg(tr("Runtime:"),
+                        status.runtimeCompiled ? status.runtime : tr("not part of this build"));
+        if (!status.runtimeCompiled)
             text += QStringLiteral("<p>%1 %2</p>")
                         .arg(tr("Unavailable:"), status.reason.toHtmlEscaped());
         m_status->setText(text);
-        m_download->setEnabled(!matting::isInstalled(m) && status.runtimeCompiled);
-        m_remove->setEnabled(matting::installedBytes(m) > 0);
+        m_download->setEnabled(
+            !matting::isInstalled(matting::defaultModel()) && status.runtimeCompiled);
+        m_remove->setEnabled(matting::installedBytes(matting::defaultModel()) > 0);
+        m_downloadImage->setEnabled(
+            !matting::isInstalled(matting::imageModel()) && status.runtimeCompiled);
+        m_removeImage->setEnabled(matting::installedBytes(matting::imageModel()) > 0);
         const qint64 bytes = matting::MatteService::instance().cache().sizeBytes();
         m_cache->setText(tr("Matte cache: %1 (kept so a clip is cut out only once)")
-                             .arg(matting::sizeText(bytes)));
+                .arg(matting::sizeText(bytes)));
         m_clear->setEnabled(bytes > 0);
     }
 
@@ -239,6 +258,8 @@ private:
     QLabel* m_cache = nullptr;
     QPushButton* m_download = nullptr;
     QPushButton* m_remove = nullptr;
+    QPushButton* m_downloadImage = nullptr;
+    QPushButton* m_removeImage = nullptr;
     QPushButton* m_clear = nullptr;
 };
 

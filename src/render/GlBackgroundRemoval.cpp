@@ -90,9 +90,12 @@ public:
     {
         const ParamSet& p = *in.params;
         const bool full = choiceParam(p, k::BgQuality, fxchoice::BgPreview) == fxchoice::BgFull;
-        const matting::MattePtr matte
-            = matting::MatteService::instance().matte(in.mediaPath, in.sourceSeconds,
-                full ? matting::MatteQuality::Full : matting::MatteQuality::Preview, in.waitForAi);
+        const matting::MatteModel model
+            = matting::resolveModel(choiceParam(p, k::BgModel, fxchoice::BgModelAuto),
+                matting::isStillImagePath(in.mediaPath));
+        const matting::MattePtr matte = matting::MatteService::instance().matte(in.mediaPath,
+            in.sourceSeconds, full ? matting::MatteQuality::Full : matting::MatteQuality::Preview,
+            in.waitForAi, model);
         if (!matte || matte->isNull())
             return {}; // not ready (or unavailable): the picture stays as it is
         upload(kit, matte);

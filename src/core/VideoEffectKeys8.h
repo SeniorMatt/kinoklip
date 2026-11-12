@@ -18,6 +18,7 @@ inline const QString BgSoftness = QStringLiteral("bgSoftness");
 inline const QString BgShrinkGrow = QStringLiteral("bgShrinkGrow");
 inline const QString BgFeather = QStringLiteral("bgFeather");
 inline const QString BgQuality = QStringLiteral("bgQuality");
+inline const QString BgModel = QStringLiteral("bgModel");
 } // namespace fxkeys
 
 namespace fxchoice {
@@ -26,6 +27,10 @@ inline const QString BgMatte = QStringLiteral("matte");
 inline const QString BgBackground = QStringLiteral("background");
 inline const QString BgPreview = QStringLiteral("preview");
 inline const QString BgFull = QStringLiteral("full");
+// Model: automatic (still image -> any-subject model, video -> people model), or fixed.
+inline const QString BgModelAuto = QStringLiteral("auto");
+inline const QString BgModelVideo = QStringLiteral("video");
+inline const QString BgModelImage = QStringLiteral("image");
 } // namespace fxchoice
 
 } // namespace kk

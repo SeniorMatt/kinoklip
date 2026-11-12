@@ -42,6 +42,7 @@ struct Job
     QString path;
     int64_t ms = 0;
     MatteQuality quality = MatteQuality::Preview;
+    MatteModel model = MatteModel::Video;
 };
 
 struct Range
@@ -49,6 +50,7 @@ struct Range
     QString path;
     int64_t fromMs = 0, toMs = 0;
     MatteQuality quality = MatteQuality::Preview;
+    MatteModel model = MatteModel::Video;
     int64_t nextMs = 0;
     bool started = false;
 };
@@ -93,12 +95,13 @@ struct MatteService::Impl
     FrameSourceFn frameSource;
     QString cacheRoot;
     QString loadError;
+    MatteModel loadErrorModel = MatteModel::Video; ///< the model loadError is about
     std::atomic<int> runCount {0}, resetCount {0};
     std::atomic<bool> resetBackend {false}; ///< the worker drops its session before the next job
 
     // Worker-only state.
     std::unique_ptr<MatteBackend> backend;
-    QString backendModel;
+    MatteModel backendModel = MatteModel::Video;
     media::VideoDecoder decoder;
     QString decoderPath;
     double decoderFps = 25.0;
@@ -113,14 +116,15 @@ struct MatteService::Impl
         return MatteCache(root);
     }
 
-    FolderPtr folderFor(const QString& path, MatteQuality q)
+    FolderPtr folderFor(const QString& path, MatteQuality q, MatteModel model)
     {
-        const QString id = path + QLatin1Char('|') + QString::number(int(q));
+        const QString id = path + QLatin1Char('|') + QString::number(int(q)) + QLatin1Char('|')
+            + QString::number(int(model));
         auto it = folderOfFile.find(id);
         if (it == folderOfFile.end()) {
             const QFileInfo info(path);
             const QString key = MatteCache::folderKey(path, info.size(),
-                info.lastModified().toMSecsSinceEpoch(), defaultModel().id, int(q));
+                info.lastModified().toMSecsSinceEpoch(), modelInfo(model).id, int(q));
             it = folderOfFile.emplace(id, key).first;
         }
         FolderPtr& slot = folders[it->second];
@@ -191,7 +195,8 @@ struct MatteService::Impl
     {
         q.erase(std::remove_if(q.begin(), q.end(),
                     [&](const Job& o) {
-                        return o.path == j.path && o.ms == j.ms && o.quality == j.quality;
+                        return o.path == j.path && o.ms == j.ms && o.quality == j.quality
+                            && o.model == j.model;
                     }),
             q.end());
         q.push_back(j);
@@ -212,7 +217,7 @@ struct MatteService::Impl
 
     bool isCached(const Job& j, std::unique_lock<std::mutex>& lock)
     {
-        const FolderPtr keep = folderFor(j.path, j.quality);
+        const FolderPtr keep = folderFor(j.path, j.quality, j.model);
         Folder& f = *keep;
         return find(f, j.ms, kToleranceMs, lock) != nullptr || f.failed.count(j.ms);
     }
@@ -265,6 +270,8 @@ struct MatteService::Impl
     std::optional<Job> nextAhead(std::unique_lock<std::mutex>& lock)
     {
         const Job base = *hint;
+        if (isStillImagePath(base.path))
+            return std::nullopt; // one picture: nothing follows it
         const int64_t step
             = std::max<int64_t>(1, int64_t(std::llround(1000.0 / decoderFpsFor(base.path))));
         for (int i = 1; i <= kLookAhead; ++i) {
@@ -290,7 +297,7 @@ struct MatteService::Impl
             }
             const int64_t step
                 = std::max<int64_t>(1, int64_t(std::llround(1000.0 / decoderFpsFor(r.path))));
-            Job j {r.path, r.nextMs, r.quality};
+            Job j {r.path, r.nextMs, r.quality, r.model};
             r.nextMs += step;
             if (isCached(j, lock)) {
                 ++rangeDone;
@@ -332,7 +339,7 @@ struct MatteService::Impl
 
     void compute(const Job& job, std::unique_lock<std::mutex>& lock)
     {
-        const int edge = inputEdge(job.quality);
+        const int edge = inputEdge(job.quality, job.model);
         bool ok = false;
         MattePtr result;
         QString folderKey;
@@ -359,15 +366,23 @@ struct MatteService::Impl
                 pic = pic.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
             pic = pic.convertToFormat(QImage::Format_RGB888);
 
+            if (backend && backendModel != job.model) {
+                backend.reset(); // the other model: load its session
+                lastFolder.clear();
+            }
             if (!backend) {
                 QString why;
-                const QString path = modelPath(defaultModel());
-                backend = makeBackend ? makeBackend(path, &why) : createRvmBackend(path, &why);
+                const QString path = modelPath(modelInfo(job.model));
+                backend
+                    = makeBackend ? makeBackend(path, &why) : createBackend(job.model, path, &why);
+                backendModel = job.model;
                 std::lock_guard<std::mutex> guard(mutex);
                 loadError = backend ? QString() : why;
+                loadErrorModel = job.model;
             }
             if (backend) {
-                const QString id = job.path + QLatin1Char('|') + QString::number(int(job.quality));
+                const QString id = job.path + QLatin1Char('|') + QString::number(int(job.quality))
+                    + QLatin1Char('|') + QString::number(int(job.model));
                 const bool sequence
                     = lastFolder == id && job.ms > lastMs && job.ms - lastMs <= kSequenceMs;
                 if (!sequence)
@@ -387,7 +402,7 @@ struct MatteService::Impl
         }
         lock.lock();
         const MatteCache cache = makeCache();
-        const FolderPtr keep = folderFor(job.path, job.quality);
+        const FolderPtr keep = folderFor(job.path, job.quality, job.model);
         Folder& f = *keep;
         folderKey = f.key;
         if (ok) {
@@ -447,12 +462,12 @@ MatteService::~MatteService()
         d->thread->wait();
 }
 
-MatteService::Status MatteService::status() const
+MatteService::Status MatteService::status(MatteModel model) const
 {
     Status s;
     s.runtimeCompiled = runtimeCompiledIn();
     s.runtime = runtimeVersion();
-    s.modelInstalled = isInstalled(defaultModel());
+    s.modelInstalled = isInstalled(modelInfo(model));
     std::lock_guard<std::mutex> guard(d->mutex);
     if (d->factory) {
         s.ready = true;
@@ -463,24 +478,25 @@ MatteService::Status MatteService::status() const
     else if (!s.modelInstalled)
         s.reason
             = tr("The AI model is not installed. Download it from the Inspector or Preferences.");
-    else if (!d->loadError.isEmpty())
+    else if (!d->loadError.isEmpty() && d->loadErrorModel == model)
         s.reason = d->loadError;
     else
         s.ready = true;
     return s;
 }
 
-MattePtr MatteService::matte(
-    const QString& mediaPath, double sourceSeconds, MatteQuality quality, bool wait)
+MattePtr MatteService::matte(const QString& mediaPath, double sourceSeconds, MatteQuality quality,
+    bool wait, MatteModel model)
 {
-    if (mediaPath.isEmpty() || !status().ready)
+    if (mediaPath.isEmpty() || !status(model).ready)
         return {};
-    const int64_t ms = matteKeyMs(sourceSeconds);
+    // A still picture has one matte, whatever source time the clip asks for.
+    const int64_t ms = isStillImagePath(mediaPath) ? 0 : matteKeyMs(sourceSeconds);
     std::unique_lock<std::mutex> lock(d->mutex);
-    const Impl::FolderPtr keep = d->folderFor(mediaPath, quality);
+    const Impl::FolderPtr keep = d->folderFor(mediaPath, quality, model);
     Impl::Folder& f = *keep;
     if (MattePtr hit = d->find(f, ms, kToleranceMs, lock)) {
-        d->hint = Job {mediaPath, ms, quality};
+        d->hint = Job {mediaPath, ms, quality, model};
         d->ensureThread();
         d->wake.notify_all();
         return hit;
@@ -488,14 +504,14 @@ MattePtr MatteService::matte(
     if (f.failed.count(ms) && !wait)
         return {};
     f.failed.erase(ms); // a retry: the file may be readable now
-    d->push(d->urgent, Job {mediaPath, ms, quality});
-    d->hint = Job {mediaPath, ms, quality};
+    d->push(d->urgent, Job {mediaPath, ms, quality, model});
+    d->hint = Job {mediaPath, ms, quality, model};
     d->ensureThread();
     d->wake.notify_all();
     if (!wait)
         return d->find(f, ms, kStaleMs, lock);
     while (!d->stop) {
-        const Impl::FolderPtr again = d->folderFor(mediaPath, quality);
+        const Impl::FolderPtr again = d->folderFor(mediaPath, quality, model);
         Impl::Folder& g = *again;
         if (MattePtr hit = d->find(g, ms, kToleranceMs, lock))
             return hit;
@@ -503,7 +519,7 @@ MattePtr MatteService::matte(
             return {};
         if (!d->working && d->urgent.empty()) {
             // The queue was emptied under us (unload()): ask again.
-            d->push(d->urgent, Job {mediaPath, ms, quality});
+            d->push(d->urgent, Job {mediaPath, ms, quality, model});
             d->wake.notify_all();
         }
         d->done.wait_for(lock, std::chrono::milliseconds(100));
@@ -511,11 +527,13 @@ MattePtr MatteService::matte(
     return {};
 }
 
-void MatteService::queueRange(
-    const QString& mediaPath, double fromSeconds, double toSeconds, MatteQuality quality)
+void MatteService::queueRange(const QString& mediaPath, double fromSeconds, double toSeconds,
+    MatteQuality quality, MatteModel model)
 {
-    if (mediaPath.isEmpty() || toSeconds < fromSeconds || !status().ready)
+    if (mediaPath.isEmpty() || toSeconds < fromSeconds || !status(model).ready)
         return;
+    if (isStillImagePath(mediaPath))
+        fromSeconds = toSeconds = 0.0;
     std::lock_guard<std::mutex> guard(d->mutex);
     if (d->ranges.empty() && !d->working)
         d->rangeDone = d->rangeTotal = 0;
@@ -524,6 +542,7 @@ void MatteService::queueRange(
     r.fromMs = matteKeyMs(fromSeconds);
     r.toMs = matteKeyMs(toSeconds);
     r.quality = quality;
+    r.model = model;
     const double fps = d->decoderFpsFor(mediaPath);
     d->rangeTotal += int((r.toMs - r.fromMs) * fps / 1000.0) + 1;
     d->ranges.push_back(r);
@@ -556,10 +575,11 @@ bool MatteService::busy() const
     return d->working || !d->urgent.empty() || !d->ranges.empty();
 }
 
-int MatteService::cachedFrames(const QString& mediaPath, MatteQuality quality) const
+int MatteService::cachedFrames(
+    const QString& mediaPath, MatteQuality quality, MatteModel model) const
 {
     std::lock_guard<std::mutex> guard(d->mutex);
-    const Impl::FolderPtr f = d->folderFor(mediaPath, quality);
+    const Impl::FolderPtr f = d->folderFor(mediaPath, quality, model);
     return int(d->makeCache().times(f->key).size());
 }
 

@@ -38,6 +38,38 @@ const ModelInfo& defaultModel()
     return model;
 }
 
+const ModelInfo& imageModel()
+{
+    static const ModelInfo model = [] {
+        ModelInfo m;
+        m.id = QStringLiteral("birefnet-general-swint-fp32");
+        m.name = QStringLiteral("BiRefNet (general, Swin-T)");
+        m.description = QCoreApplication::translate("kk::matting",
+            "An AI model that cuts any subject out of any background, also a white one, one "
+            "picture at a time. It runs on your computer; nothing is sent anywhere.");
+        m.fileName = QStringLiteral("birefnet_general_swin_tiny_fp32.onnx");
+        m.sizeBytes = 224005088;
+        m.sha256
+            = QStringLiteral("5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333");
+        m.url = QUrl(QStringLiteral("https://github.com/ZhengPeng7/BiRefNet/releases/download/v1/"
+                                    "BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx"));
+        m.licence = QStringLiteral("MIT");
+        m.licenceUrl
+            = QUrl(QStringLiteral("https://github.com/ZhengPeng7/BiRefNet/blob/main/LICENSE"));
+        m.sourceUrl = QUrl(QStringLiteral("https://github.com/ZhengPeng7/BiRefNet"));
+        m.memoryNote = QCoreApplication::translate("kk::matting",
+            "Needs about 7 GB of free memory and a few seconds per picture; made for still "
+            "pictures and single frames, slow for whole videos.");
+        return m;
+    }();
+    return model;
+}
+
+const ModelInfo& modelInfo(MatteModel model)
+{
+    return model == MatteModel::Image ? imageModel() : defaultModel();
+}
+
 QString modelsDirectory()
 {
     if (!g_testDirectory.isEmpty())
@@ -112,8 +144,8 @@ bool installDownloaded(const ModelInfo& model, const QString& partPath, QString*
     if (info.size() != model.sizeBytes)
         return fail(QCoreApplication::translate(
             "kk::matting", "The downloaded file has the wrong size (%1 bytes, expected %2).")
-                        .arg(info.size())
-                        .arg(model.sizeBytes));
+                .arg(info.size())
+                .arg(model.sizeBytes));
     if (sha256OfFile(partPath) != model.sha256)
         return fail(QCoreApplication::translate("kk::matting",
             "The downloaded file does not match the checksum of the model. It was deleted."));

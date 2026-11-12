@@ -39,19 +39,19 @@ public:
         QString reason; ///< empty when ready
         QString runtime; ///< "ONNX Runtime 1.29.0"
     };
-    [[nodiscard]] Status status() const;
+    [[nodiscard]] Status status(MatteModel model = MatteModel::Video) const;
 
     /// The matte of the source frame at @p sourceSeconds of @p mediaPath, or null. Not ready:
     /// it is queued, and a matte of a frame within 0.2 s is returned if there is one. With
     /// @p wait the call blocks until the matte exists (null only if the service is unavailable
     /// or the frame cannot be decoded).
-    [[nodiscard]] MattePtr matte(
-        const QString& mediaPath, double sourceSeconds, MatteQuality quality, bool wait);
+    [[nodiscard]] MattePtr matte(const QString& mediaPath, double sourceSeconds,
+        MatteQuality quality, bool wait, MatteModel model = MatteModel::Video);
 
     /// Queues the whole source range [@p fromSeconds, @p toSeconds] of a file (lowest priority
     /// after what playback asks for). Progress: backgroundProgress().
-    void queueRange(
-        const QString& mediaPath, double fromSeconds, double toSeconds, MatteQuality quality);
+    void queueRange(const QString& mediaPath, double fromSeconds, double toSeconds,
+        MatteQuality quality, MatteModel model = MatteModel::Video);
     void cancelBackground();
     struct Progress
     {
@@ -63,7 +63,8 @@ public:
     [[nodiscard]] bool busy() const;
 
     /// Frames of the range (sourceSeconds step @p fps) already in the disk cache.
-    [[nodiscard]] int cachedFrames(const QString& mediaPath, MatteQuality quality) const;
+    [[nodiscard]] int cachedFrames(
+        const QString& mediaPath, MatteQuality quality, MatteModel model = MatteModel::Video) const;
 
     [[nodiscard]] MatteCache cache() const;
     void setCacheRoot(const QString& root);

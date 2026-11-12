@@ -106,11 +106,12 @@ private slots:
         for (const ParamDescriptor& p : d->params)
             keys << p.key;
         QCOMPARE(keys,
-            (QStringList {k::BgOutput, k::BgThreshold, k::BgSoftness, k::BgShrinkGrow, k::BgFeather,
+            (QStringList {k::BgModel, k::BgOutput, k::BgThreshold, k::BgSoftness, k::BgShrinkGrow, k::BgFeather,
                 k::BgQuality}));
         const ParamSet defaults = EffectRegistry::instance().defaultParams(d->id);
         QCOMPARE(defaults.staticValue(k::BgOutput).toString(), fxchoice::BgForeground);
         QCOMPARE(defaults.staticValue(k::BgQuality).toString(), fxchoice::BgPreview);
+        QCOMPARE(defaults.staticValue(k::BgModel).toString(), fxchoice::BgModelAuto);
         QCOMPARE(defaults.value(k::BgThreshold, 0, -1), 50.0);
         QCOMPARE(defaults.value(k::BgShrinkGrow, 0, -1), 0.0);
         const ParamDescriptor* out = d->param(k::BgOutput);
