@@ -98,6 +98,15 @@ Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 - [x] Interface: Vim keys in every panel: windows and pages, lists and trees, the Inspector and other forms, the keyframe editor, node graphs, the mixer and transitions (spec 83, steps 5 to 7)
 - [x] Interface: Vim macros (q, @, @@, @:), append and numbered registers, ? backward search, f F t T ; , to find clips by name, * and #, a check of the whole key table, the guide "Vim for Kinoklip" and a one-page cheat sheet (spec 83, step 8).
 
+## Version 1.6 (in progress): the Compositing page
+
+- [ ] Compositing: a Spline panel (Fusion-style curve editor for every animated node value), with keyframe loops: Loop, Ping-Pong and Relative (repeat with offset) before and after the keys
+- [ ] Compositing: Fusion's node editor behaviour (auto-Merge when connecting onto a connected node, insert on a link, add after the selected node, swap inputs) and Merge's missing controls (Flip, Edges and more)
+- [ ] Compositing: a deeper pass over the page to match Fusion (Keyframes panel, tools, viewers, shortcuts)
+- [ ] Background Removal: a general model for pictures and any subject, and a newer video model if one fits our licence
+- [ ] Media Pool: Save a Copy to Computer for media stored in a single-file project
+- [ ] Timeline: thumbnails come back quickly after zooming
+
 ## Next big release
 
 A large feature, so it gets its own big release. Smaller fix releases will come out before it.
