@@ -514,7 +514,6 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | About Kinoklip |  | Shows the version of Kinoklip, its licence and the libraries it uses. |
 | Preferences… | Ctrl+, | Opens the Preferences window (user settings such as editing, playback, interface and local control). |
 | Keyboard Shortcuts… | Ctrl+Alt+K | Opens the keyboard settings: pick a keyboard profile, change or clear the key of any command. |
-| Vim Mode (toggle) |  | Turns Vim mode on or off: with it on, plain keys are Vim commands (NORMAL mode) and i gives you the usual shortcuts back (INSERT mode). Works with any keyboard profile. |
 | Reload Fonts |  | Looks for fonts installed while Kinoklip is open and adds them to every font list. Kinoklip also does this by itself a moment after a font file appears in a font folder. |
 | Quit Kinoklip | Ctrl+Q | Closes Kinoklip, asking first whether to save unsaved changes. |
 
@@ -890,6 +889,7 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Entry | Shortcut (default Resolve keymap) | What it does |
 |---|---|---|
 | About Qt |  | Shows which version of the Qt toolkit this build uses. |
+| Vim Mode (toggle) |  | Turns Vim mode on or off: with it on, plain keys are Vim commands (NORMAL mode) and i gives you the usual shortcuts back (INSERT mode). Works with any keyboard profile. |
 | New Bin | Ctrl+Shift+N | Adds a new bin (folder) to the media pool. |
 | New Smart Bin… |  | Adds a smart bin: a bin that fills itself with the clips matching rules you set. |
 | Show Bin List (toggle) |  | Shows or hides the bin list of the media pool. |
