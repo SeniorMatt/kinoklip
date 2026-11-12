@@ -32,6 +32,22 @@ namespace ko = keyframeops;
 namespace {
 constexpr int kIndentPx = 14; ///< per tree level
 constexpr int kExpandSize = 16;
+/// A label that shows "..." instead of cutting its text off.
+class ElidedLabel : public QLabel
+{
+public:
+    using QLabel::QLabel;
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        QPainter p(this);
+        p.setPen(palette().color(QPalette::WindowText));
+        p.drawText(contentsRect(), int(alignment()),
+            fontMetrics().elidedText(text(), Qt::ElideRight, contentsRect().width()));
+    }
+};
+
 constexpr int kValueFieldWidth = 84;
 constexpr int kSwatchWidth = 3; ///< curve colour bar left of a parameter's check box
 
@@ -208,7 +224,8 @@ void KeyframeParamTree::buildRow(Row& row, int index)
     });
     h->addWidget(row.check);
 
-    row.label = new QLabel(e.label, row.widget);
+    row.label = new ElidedLabel(e.label, row.widget);
+    row.label->setToolTip(e.label); // the full name when the tree is narrow
     row.label->setProperty("kkRow", index);
     row.label->installEventFilter(this);
     row.label->setMinimumWidth(20);

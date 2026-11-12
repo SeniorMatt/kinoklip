@@ -19,6 +19,7 @@ class CompSession;
 class CompTransport;
 class CompViewer;
 class NodeEditor;
+class KeyframesPanel;
 class MediaPoolPanel;
 class NodeLibraryPanel;
 class SelectNodePopup;
@@ -70,6 +71,10 @@ public:
     [[nodiscard]] CompInspector* inspector() const { return m_inspector; }
     [[nodiscard]] CompTransport* transport() const { return m_transport; }
     [[nodiscard]] NodeLibraryPanel* library() const { return m_library; }
+    /// The Spline panel (interface bar "Spline") and the Keyframes panel (interface bar
+    /// "Keyframes"), both off by default and shown beside the node editor.
+    [[nodiscard]] KeyframesPanel* splinePanel() const { return m_spline; }
+    [[nodiscard]] KeyframesPanel* keyframesPanel() const { return m_keyframes; }
     /// The page's media pool (interface bar "Media Pool", off by default): its items are
     /// dragged onto the node editor as MediaIn nodes (spec 42b.30).
     [[nodiscard]] MediaPoolPanel* mediaPool() const { return m_mediaPool; }
@@ -109,7 +114,11 @@ private:
     SelectNodePopup* m_selectNode = nullptr;
     QWidget* m_toolBar = nullptr;
     QSplitter* m_columns = nullptr; ///< left column | centre | inspector
-    QSplitter* m_centre = nullptr; ///< viewers + transport | node area
+    QSplitter* m_centre = nullptr; ///< viewers + transport | node row
+    QSplitter* m_nodeRow = nullptr; ///< node area | Spline | Keyframes (hidden when all are)
+    KeyframesPanel* m_spline = nullptr;
+    KeyframesPanel* m_keyframes = nullptr;
+    void updateNodeRow();
     QSplitter* m_viewers = nullptr; ///< left | right viewer
 };
 

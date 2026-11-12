@@ -849,6 +849,49 @@ private slots:
         QVERIFY(f.value(f.video, kPosX).hasKeyAt(0));
         f.actions.action(QStringLiteral("timeline.snapping"))->setChecked(false);
     }
+
+    void spec43_curvesLoopCommand()
+    {
+        // Loops on the Edit page: the Loop button of the Curves view, the registry commands,
+        // Reverse and Time Stretch; one undo step each.
+        Fixture f;
+        KeyframesPanel panel(f.ctx);
+        panel.resize(900, 400);
+        panel.show();
+        panel.setView(KeyframesPanel::View::Curves);
+        f.selection.selectClip(f.video);
+        QVERIFY(panel.loopButton());
+        QVERIFY(panel.reverseButton() && panel.stretchButton());
+        QVERIFY(!panel.isCompositionPanel());
+        const AnimatedValue& x = f.value(f.video, kPosX);
+        QCOMPARE(x.valueAt(60), 100.0); // 0 -> 100 over 0..40, held after
+        f.undoCount();
+        const int steps = f.undoCount();
+        f.selection.setKeyframes(
+            {KeyframeRef {f.video, kPosX, 0}, KeyframeRef {f.video, kPosX, 40}});
+        panel.loopButton()->click(); // Set Loop
+        QCOMPARE(f.undoCount(), steps + 1);
+        QCOMPARE(f.value(f.video, kPosX).post, Extrapolation::Loop);
+        QCOMPARE(f.value(f.video, kPosX).valueAt(60), 50.0);
+        QCOMPARE(
+            f.value(f.video, kOpacity).post, Extrapolation::Constant); // other params untouched
+        f.actions.action(QStringLiteral("clip.keyframe_pre_ping_pong"))->trigger();
+        QCOMPARE(f.value(f.video, kPosX).pre, Extrapolation::PingPong);
+        QCOMPARE(f.value(f.video, kPosX).valueAt(-10), 25.0);
+        f.actions.action(QStringLiteral("clip.keyframe_no_loop"))->trigger();
+        QCOMPARE(f.value(f.video, kPosX).post, Extrapolation::Constant);
+        f.project.undo();
+        QCOMPARE(f.value(f.video, kPosX).post, Extrapolation::Loop);
+        // The dimmed extrapolated part is drawn without crashing and the value fit stays sane.
+        panel.curveView()->fitView();
+        QVERIFY(!panel.grab().isNull());
+        // Reverse: the 0 -> 100 ramp becomes 100 -> 0.
+        QVERIFY(keyframecommands::reverseSelected(f.ctx));
+        QCOMPARE(f.value(f.video, kPosX).valueAt(0), 100.0);
+        QCOMPARE(f.value(f.video, kPosX).valueAt(40), 0.0);
+        f.project.undo();
+        QCOMPARE(f.value(f.video, kPosX).valueAt(0), 0.0);
+    }
 };
 
 QTEST_MAIN(TestKeyframesPanel)

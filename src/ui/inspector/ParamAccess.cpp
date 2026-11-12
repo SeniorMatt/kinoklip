@@ -120,6 +120,10 @@ const ParamSet* paramSet(const ClipData& clip, const ParamRef& ref)
         const MaskData* m = mask(clip, ref.effectId);
         return m ? &m->params : nullptr;
     }
+    case ParamScope::CompNode: {
+        const CompNode* n = clip.composition ? clip.composition->node(ref.effectId) : nullptr;
+        return n ? &n->params : nullptr;
+    }
     }
     return nullptr;
 }
@@ -158,6 +162,10 @@ ParamSet* paramSet(ClipData& clip, const ParamRef& ref)
     case ParamScope::Mask: {
         MaskData* m = mask(clip, ref.effectId);
         return m ? &m->params : nullptr;
+    }
+    case ParamScope::CompNode: {
+        CompNode* n = clip.composition ? clip.composition->node(ref.effectId) : nullptr;
+        return n ? &n->params : nullptr;
     }
     }
     return nullptr;

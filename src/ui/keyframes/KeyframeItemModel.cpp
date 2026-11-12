@@ -4,6 +4,7 @@
 
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
+#include "core/NodeRegistry.h"
 #include "core/TitleLayers.h"
 #include "core/TitlePresets.h"
 
@@ -270,6 +271,69 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
             if (itemRow >= 0)
                 model.entries[itemRow].params += model.entries[i].params;
         }
+    }
+    return model;
+}
+
+KeyframeItems buildComp(
+    const TimelineData& data, quint64 clipId, const QVector<quint64>& nodeIds, bool showAll)
+{
+    KeyframeItems model;
+    const ClipData* clip = editops::clipById(data, clipId);
+    if (!clip)
+        return model;
+    model.items.append(QVector<quint64> {clipId});
+    model.entries.append(
+        {KeyRow::Kind::Master, tr(QT_TRANSLATE_NOOP("kk::KeyframeItems", "Keyframes")),
+            QStringLiteral("master"), QString(), 0, {}, {}, {}, -1});
+    if (!clip->composition)
+        return model;
+    const Composition& comp = *clip->composition;
+    QVector<quint64> ids = nodeIds;
+    if (ids.isEmpty()) {
+        for (const CompNode& n : comp.nodes)
+            ids.append(n.id);
+    }
+    int colorIndex = 0;
+    for (quint64 id : std::as_const(ids)) {
+        const CompNode* node = comp.node(id);
+        const NodeDescriptor* desc = node ? NodeRegistry::instance().find(node->type) : nullptr;
+        if (!node || !desc)
+            continue;
+        const QString groupKey = QStringLiteral("group:%1/node%2").arg(clipId).arg(id);
+        KeyframeEntry group;
+        group.kind = KeyRow::Kind::Group;
+        group.label = node->name.isEmpty() ? desc->name : node->name;
+        group.key = groupKey;
+        group.depth = 0;
+        QVector<KeyframeEntry> params;
+        for (const ParamDescriptor& pd : desc->params) {
+            if (!pd.isScalar() || !pd.animatable)
+                continue;
+            const ParamRef ref {clipId, ParamScope::CompNode, id, pd.key};
+            const AnimatedValue* v = paramaccess::animated(*clip, ref);
+            if (!showAll && !(v && v->isAnimated()))
+                continue;
+            const QString path = ko::nodePath(id, pd.key);
+            KeyframeEntry e;
+            e.kind = KeyRow::Kind::Param;
+            e.label = pd.label;
+            e.key = QStringLiteral("param:%1/%2").arg(clipId).arg(path);
+            e.parentKey = groupKey;
+            e.depth = 1;
+            e.params = {{clipId, path}};
+            e.ref = ref;
+            e.desc = pd;
+            e.colorIndex = colorIndex++;
+            group.params.append(e.params.front());
+            params.append(e);
+        }
+        if (params.isEmpty())
+            continue;
+        model.entries.append(group);
+        for (const KeyframeEntry& e : std::as_const(params))
+            model.entries[0].params += e.params;
+        model.entries += params;
     }
     return model;
 }

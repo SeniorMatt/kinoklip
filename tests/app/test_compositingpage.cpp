@@ -11,6 +11,7 @@
 #include "compositing/tracking/TrackStore.h"
 #include "core/CompOps.h"
 #include "core/EditOps.h"
+#include "core/KeyframeOps.h"
 #include "core/MediaPool.h"
 #include "core/NodeRegistry.h"
 #include "core/Project.h"
@@ -35,6 +36,11 @@
 #include "ui/inspector/ParamGroupBox.h"
 #include "ui/inspector/ParamRows.h"
 #include "ui/inspector/ValueField.h"
+#include "ui/keyframes/CurveView.h"
+#include "ui/keyframes/KeyframeCommands.h"
+#include "ui/keyframes/KeyframeItemModel.h"
+#include "ui/keyframes/KeyframeParamTree.h"
+#include "ui/keyframes/KeyframesPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/viewer/ViewerSurface.h"
 
@@ -43,6 +49,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
+#include <QDoubleSpinBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -144,6 +151,25 @@ struct Fixture
         QCoreApplication::processEvents();
     }
 };
+
+// A Transform node with animated Center X (frames 0, 20, 40 -> 0.2, 0.8, 0.5) and Angle.
+quint64 animatedTransform(Fixture& f)
+{
+    const quint64 t = f.session()->addNode(nodetypes::Transform);
+    f.session()->edit(QStringLiteral("Animate"), [t](Composition& c) {
+        CompNode* n = c.node(t);
+        AnimatedValue& x = n->params.animated(nodekeys::CenterX, 0.5);
+        x.setKey(0, 0.2, Interp::Linear);
+        x.setKey(20, 0.8, Interp::Linear);
+        x.setKey(40, 0.4, Interp::Linear);
+        AnimatedValue& a = n->params.animated(nodekeys::Angle, 0.0);
+        a.setKey(0, 0.0, Interp::Linear);
+        a.setKey(30, 90.0, Interp::Linear);
+        return true;
+    });
+    f.session()->setSelection({t});
+    return t;
+}
 
 } // namespace
 
@@ -1048,6 +1074,228 @@ private slots:
         QVERIFY(!g.page()->isPanelVisible(PanelId::Inspector));
         QCOMPARE(g.page()->findChild<QSplitter*>(QStringLiteral("CompCentreSplitter"))->saveState(),
             columns);
+    }
+
+    // ---- Spline and Keyframes panels (spec 43) ----
+    void spec43_splineAndKeyframesButtons()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        for (const char* id : {"view.toggle_spline", "view.toggle_keyframes"})
+            QVERIFY2(f.action(id)->isEnabled(), id);
+        QVERIFY(!f.page()->isPanelVisible(PanelId::Spline));
+        QVERIFY(!f.page()->isPanelVisible(PanelId::Keyframes));
+        f.action("view.toggle_spline")->trigger();
+        QVERIFY(f.page()->isPanelVisible(PanelId::Spline));
+        QVERIFY(f.page()->splinePanel()->isVisible());
+        QVERIFY(f.page()->splinePanel()->isCompositionPanel());
+        QCOMPARE(f.page()->splinePanel()->view(), KeyframesPanel::View::Curves);
+        f.action("view.toggle_keyframes")->trigger();
+        QVERIFY(f.page()->keyframesPanel()->isVisible());
+        QCOMPARE(f.page()->keyframesPanel()->view(), KeyframesPanel::View::Keyframes);
+        // Both panels and the node editor share the node row.
+        QVERIFY(f.page()->nodeEditor()->isVisible());
+        f.action("view.toggle_spline")->trigger();
+        QVERIFY(!f.page()->splinePanel()->isVisible());
+    }
+
+    void spec43_splinePanelListsSelectedNodesAnimatedParams()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.action("view.toggle_spline")->trigger();
+        KeyframesPanel* panel = f.page()->splinePanel();
+        // Nothing animated, nothing selected: no parameter rows.
+        QCOMPARE(panel->model().entries.size(), 1);
+        const quint64 t = animatedTransform(f);
+        // Master row + one group (the node) + its two animated parameters.
+        QCOMPARE(panel->model().entries.size(), 4);
+        QCOMPARE(panel->model().entries[1].label, f.comp().node(t)->name);
+        QStringList labels;
+        for (const KeyframeEntry& e : panel->model().entries)
+            if (e.kind == KeyRow::Kind::Param)
+                labels << e.label;
+        QCOMPARE(labels.size(), 2);
+        QVERIFY(labels.contains(QStringLiteral("Angle")));
+        QCOMPARE(panel->curveView()->curves().size(), 2);
+        // Another node selected: its (empty) list replaces it; Sel off lists every node.
+        f.session()->setSelection({f.nodeOfType(nodetypes::MediaOut)});
+        QCOMPARE(panel->model().entries.size(), 1);
+        panel->selectedNodesButton()->click();
+        QCOMPARE(panel->model().entries.size(), 4);
+        panel->selectedNodesButton()->click();
+        // Show All lists the node's other animatable parameters too.
+        f.session()->setSelection({t});
+        QToolButton* showAll = panel->findChild<QToolButton*>(QStringLiteral("Show All"));
+        QVERIFY(showAll);
+        showAll->click();
+        QVERIFY(panel->model().entries.size() > 4);
+        showAll->click();
+        // The Keyframes panel lists the same rows in the dope sheet.
+        f.action("view.toggle_keyframes")->trigger();
+        QCOMPARE(f.page()->keyframesPanel()->model().entries.size(), 4);
+    }
+
+    void spec43_loopOnTheSplinePanelChangesEvaluation()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.action("view.toggle_spline")->trigger();
+        KeyframesPanel* panel = f.page()->splinePanel();
+        const quint64 t = animatedTransform(f);
+        const QString path = keyframeops::nodePath(t, nodekeys::CenterX);
+        auto x = [&](int64_t frame) {
+            return f.comp().node(t)->params.values.value(nodekeys::CenterX).valueAt(frame);
+        };
+        QCOMPARE(x(50), 0.4); // held after the last key
+        const int before = f.steps();
+        // Loop with the panel's Loop button: no key selected acts on the shown curves.
+        panel->loopButton()->click();
+        QCOMPARE(f.steps(), before + 1);
+        QCOMPARE(
+            f.comp().node(t)->params.values.value(nodekeys::CenterX).post, Extrapolation::Loop);
+        QVERIFY(qAbs(x(50) - 0.2 - (0.8 - 0.2) * 0.5) < 1e-9); // frame 50 = frame 10 of the range
+        // Angle looped too (every shown curve), and undo removes the loop again.
+        QCOMPARE(f.comp().node(t)->params.values.value(nodekeys::Angle).post, Extrapolation::Loop);
+        f.project.undoStack()->undo();
+        QCOMPARE(x(50), 0.4);
+        f.project.undoStack()->redo();
+        QVERIFY(qAbs(x(50) - 0.5) < 1e-9);
+        // Relative on the selected key's parameter only, through the registry command.
+        f.selection.setKeyframes({KeyframeRef {f.clipId, path, 20}});
+        f.action("clip.keyframe_relative")->trigger();
+        QCOMPARE(
+            f.comp().node(t)->params.values.value(nodekeys::CenterX).post, Extrapolation::Relative);
+        QCOMPARE(f.comp().node(t)->params.values.value(nodekeys::Angle).post, Extrapolation::Loop);
+        QVERIFY(qAbs(x(60) - (0.8 + 0.2)) < 1e-9); // one repeat later, 0.2 higher (0.4 - 0.2)
+        // Reverse and Time Stretch are one undo step each and keep the keys selected.
+        f.selection.setKeyframes({KeyframeRef {f.clipId, path, 0}, KeyframeRef {f.clipId, path, 20},
+            KeyframeRef {f.clipId, path, 40}});
+        const int steps = f.steps();
+        QVERIFY(keyframecommands::reverseSelected(f.ctx));
+        QCOMPARE(f.steps(), steps + 1);
+        QCOMPARE(x(0), 0.4);
+        QCOMPARE(x(40), 0.2);
+        QVERIFY(keyframecommands::stretchSelected(f.ctx, 0.0, 2.0));
+        QCOMPARE(f.steps(), steps + 2);
+        QCOMPARE(f.comp().node(t)->params.values.value(nodekeys::CenterX).keys.back().frame, 80);
+        f.project.undoStack()->undo();
+        f.project.undoStack()->undo();
+        QCOMPARE(x(0), 0.2);
+        QCOMPARE(f.comp().node(t)->params.values.value(nodekeys::CenterX).keys.back().frame, 40);
+    }
+
+    void spec43_splineTimeAndValueBoxesEditTheSelectedKey()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        f.action("view.toggle_spline")->trigger();
+        KeyframesPanel* panel = f.page()->splinePanel();
+        const quint64 t = animatedTransform(f);
+        const QString path = keyframeops::nodePath(t, nodekeys::CenterX);
+        QVERIFY(!panel->timeBox()->isEnabled());
+        f.selection.setKeyframes({KeyframeRef {f.clipId, path, 20}});
+        QVERIFY(panel->timeBox()->isEnabled());
+        QCOMPARE(panel->timeBox()->value(), 20.0);
+        QCOMPARE(panel->valueBox()->value(), 0.8);
+        panel->valueBox()->setValue(0.9);
+        QCOMPARE(f.comp().node(t)->params.values.value(nodekeys::CenterX).keys[1].value, 0.9);
+        panel->timeBox()->setValue(25);
+        QCOMPARE(f.comp().node(t)->params.values.value(nodekeys::CenterX).keys[1].frame, 25);
+    }
+
+    void spec43_panelsFitA1366Window()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.window->resize(1366, 768);
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        f.action("view.page_compositing")->trigger();
+        f.action("view.toggle_spline")->trigger();
+        f.action("view.toggle_keyframes")->trigger();
+        QCoreApplication::processEvents();
+        const QRect win = f.window->rect();
+        for (QWidget* w : {static_cast<QWidget*>(f.page()->splinePanel()),
+                 static_cast<QWidget*>(f.page()->keyframesPanel())}) {
+            const QRect r(w->mapTo(f.window.get(), QPoint(0, 0)), w->size());
+            QVERIFY2(win.contains(r), qPrintable(w->objectName()));
+            QVERIFY(w->width() >= 150 && w->height() >= 150);
+        }
+    }
+
+    void spec43_toolRowNeverOverlapsAndTreeNamesAreReadable()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.window->resize(1366, 768);
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        f.action("view.page_compositing")->trigger();
+        const quint64 t = animatedTransform(f);
+        Q_UNUSED(t);
+        f.action("view.toggle_spline")->trigger();
+        QTest::qWait(100);
+        QCoreApplication::processEvents();
+        // Node editor tool row: no two visible buttons intersect, and some moved into the "»" menu.
+        const auto buttons = f.window->findChildren<QToolButton*>();
+        QList<QRect> rects;
+        for (QToolButton* b : buttons) {
+            if (!b->objectName().startsWith(QStringLiteral("CompTool:")) || !b->isVisible())
+                continue;
+            rects << QRect(b->mapTo(f.window.get(), QPoint(0, 0)), b->size());
+        }
+        QVERIFY(!rects.isEmpty());
+        for (int i = 0; i < rects.size(); ++i)
+            for (int j = i + 1; j < rects.size(); ++j)
+                QVERIFY2(!rects[i].intersects(rects[j]), "tool buttons overlap");
+        // The Spline panel's tree shows whole names.
+        KeyframesPanel* panel = f.page()->splinePanel();
+        int checked = 0;
+        for (QLabel* l : panel->tree()->findChildren<QLabel*>()) {
+            if (l->text() != f.comp().node(f.session()->currentNode())->name
+                && l->text() != QStringLiteral("Angle") && l->text() != QStringLiteral("Center X"))
+                continue;
+            QVERIFY2(l->isVisible(), qPrintable(l->text()));
+            QVERIFY2(
+                l->width() >= l->fontMetrics().horizontalAdvance(l->text()), qPrintable(l->text()));
+            QVERIFY(l->toolTip() == l->text());
+            ++checked;
+        }
+        QCOMPARE(checked, 3);
+    }
+
+    void screenshotSplinePanel()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.window->resize(1366, 768);
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        f.action("view.page_compositing")->trigger();
+        const quint64 t = animatedTransform(f);
+        f.session()->edit(QStringLiteral("Loop"), [t](Composition& c) {
+            c.node(t)->params.values[nodekeys::CenterX].post = Extrapolation::PingPong;
+            c.node(t)->params.values[nodekeys::CenterX].pre = Extrapolation::Loop;
+            c.node(t)->params.values[nodekeys::Angle].post = Extrapolation::Relative;
+            return true;
+        });
+        f.action("view.toggle_spline")->trigger();
+        f.action("view.toggle_nodes")->trigger();
+        f.action("view.toggle_nodes")->trigger();
+        f.page()->splinePanel()->curveView()->fitView();
+        QCoreApplication::processEvents();
+        const QString dir = qEnvironmentVariable("KK_SCREENSHOT_DIR");
+        if (dir.isEmpty())
+            QSKIP("KK_SCREENSHOT_DIR not set");
+        QDir().mkpath(dir);
+        QTest::qWait(200);
+        QVERIFY(
+            f.window->grab().save(QDir(dir).filePath(QStringLiteral("compositing-spline.png"))));
     }
 
     void screenshotSmallGraph()

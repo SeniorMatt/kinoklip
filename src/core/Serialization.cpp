@@ -258,6 +258,8 @@ QJsonObject keyframeToJson(const Keyframe& k)
         o[QLatin1String("out")] = keyHandleToJson(k.out);
     if (k.hold)
         o[QLatin1String("hold")] = true;
+    if (k.stepIn)
+        o[QLatin1String("stepIn")] = true;
     return o;
 }
 
@@ -269,6 +271,7 @@ Keyframe keyframeFromJson(const QJsonObject& o)
     k.in = keyHandleFromJson(o.value(QLatin1String("in")));
     k.out = keyHandleFromJson(o.value(QLatin1String("out")));
     k.hold = o.value(QLatin1String("hold")).toBool();
+    k.stepIn = o.value(QLatin1String("stepIn")).toBool();
     return k;
 }
 
@@ -283,6 +286,10 @@ QJsonObject paramSetToJson(const ParamSet& params)
             for (const Keyframe& k : it->keys)
                 keys.append(keyframeToJson(k));
             v[QLatin1String("keys")] = keys;
+            if (it->pre != Extrapolation::Constant)
+                v[QLatin1String("pre")] = extrapolationToString(it->pre);
+            if (it->post != Extrapolation::Constant)
+                v[QLatin1String("post")] = extrapolationToString(it->post);
         }
         values[it.key()] = v;
     }
@@ -329,6 +336,8 @@ ParamSet paramSetFromJson(const QJsonObject& json)
                 legacy.append(byFrame.value(key.frame, Interp::Linear));
             migrateLegacyInterp(value, legacy);
         }
+        value.pre = extrapolationFromString(v.value(QLatin1String("pre")).toString());
+        value.post = extrapolationFromString(v.value(QLatin1String("post")).toString());
         params.values.insert(it.key(), value);
     }
     const QJsonObject statics = json.value(QLatin1String("statics")).toObject();

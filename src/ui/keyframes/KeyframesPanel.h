@@ -8,11 +8,14 @@
 #include "ui/keyframes/KeyframeTimeMap.h"
 
 #include <QHash>
+#include <QPointer>
 #include <QSet>
 
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
+class QDoubleSpinBox;
+class QMenu;
 class QLabel;
 class QScrollBar;
 class QSettings;
@@ -23,6 +26,7 @@ class QToolButton;
 namespace kk {
 
 struct AppContext;
+class CompSession;
 class CurveView;
 class DopeSheetView;
 class KeyframeParamTree;
@@ -72,6 +76,15 @@ public:
     explicit KeyframesPanel(AppContext& ctx, QWidget* parent = nullptr);
     ~KeyframesPanel() override;
 
+    /// Compositing page mode: shows the animated parameters of the nodes of the composition open
+    /// in @p session (the selected nodes, or all with the "Sel" button off) instead of a clip
+    /// selection's, as the Spline (@p view Curves) or Keyframes (@p view Keyframes) panel of that
+    /// page. The view is fixed, the float / dock button and the view switch are hidden and the
+    /// Spline tools (Step In, Reverse, Time Stretch, Loop, Sel / All / None, Time and Value boxes)
+    /// are shown. Edits are the Edit page's (paths "node/<id>/<key>", one undo step each).
+    void attachComposition(CompSession* session, View view);
+    [[nodiscard]] bool isCompositionPanel() const { return m_session != nullptr; }
+
     /// The timeline view shows frames [@p firstFrame, @p lastFrame] (Follow Timeline mode).
     void setTimelineView(double firstFrame, double lastFrame);
     /// Shows the float / dock state on the title-bar button.
@@ -106,6 +119,19 @@ public:
     [[nodiscard]] QButtonGroup* viewGroup() const { return m_viewGroup; }
     [[nodiscard]] QToolButton* normalisedButton() const { return m_normalisedButton; }
     [[nodiscard]] QToolButton* fitSelectionButton() const { return m_fitSelectionButton; }
+    /// The Loop button (default action: Set Loop; menu: every extrapolation mode).
+    [[nodiscard]] QToolButton* loopButton() const { return m_loopButton; }
+    [[nodiscard]] QToolButton* reverseButton() const { return m_reverseButton; }
+    [[nodiscard]] QToolButton* stretchButton() const { return m_stretchButton; }
+    [[nodiscard]] QToolButton* selectedNodesButton() const { return m_selOnlyButton; }
+    [[nodiscard]] QDoubleSpinBox* timeBox() const { return m_timeBox; }
+    [[nodiscard]] QDoubleSpinBox* valueBox() const { return m_valueBox; }
+    /// The loop / reverse / stretch entries of the panel's context menu and Loop button.
+    void fillSplineMenu(QMenu& menu);
+    /// Time Stretch with @p factor around the playhead (the button asks for it).
+    bool stretchSelectedKeys(double factor);
+    /// Fit All: every shown curve over the whole clip.
+    void fitAll();
 
 signals:
     /// The user clicked the float / dock button or double-clicked the header.
@@ -118,6 +144,7 @@ signals:
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 
 private:
     bool headerEvent(QEvent* event);
@@ -132,6 +159,10 @@ private:
     void fitFrames(double first, double last);
     void setFreeMode();
     void onPlayheadChanged();
+    void updateKeyBoxes();
+    void applyKeyBox(bool time);
+    [[nodiscard]] QVector<KeyframeRef> shownCurveRefs() const;
+    void setupSplineTools();
     [[nodiscard]] double dataWidth() const;
 
     AppContext& m_ctx;
@@ -158,6 +189,19 @@ private:
     QToolButton* m_normalisedButton = nullptr;
     QToolButton* m_fitSelectionButton = nullptr;
     QToolButton* m_showAllButton = nullptr;
+    QToolButton* m_loopButton = nullptr;
+    QToolButton* m_reverseButton = nullptr;
+    QToolButton* m_stretchButton = nullptr;
+    QToolButton* m_stepInButton = nullptr;
+    QToolButton* m_selOnlyButton = nullptr;
+    QToolButton* m_allCurvesButton = nullptr;
+    QToolButton* m_noCurvesButton = nullptr;
+    QDoubleSpinBox* m_timeBox = nullptr;
+    QDoubleSpinBox* m_valueBox = nullptr;
+    QPointer<CompSession> m_session; ///< Compositing page mode (null on the Edit page)
+    bool m_selOnly = true; ///< composition mode: only the selected nodes
+    bool m_updatingBoxes = false;
+    bool m_treeWidthSet = false; ///< composition mode: default tree width applied
     QComboBox* m_viewCombo = nullptr;
     QStackedWidget* m_stack = nullptr;
     QSplitter* m_split = nullptr; ///< tree | right column

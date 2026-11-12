@@ -261,11 +261,20 @@ const AnimatedValue* CurveView::valueOf(const ParamId& id, const ClipData** clip
 
 CurveView::Range CurveView::fittedRange(const ParamId& id) const
 {
-    const AnimatedValue* v = valueOf(id, nullptr);
+    const ClipData* clip = nullptr;
+    const AnimatedValue* v = valueOf(id, &clip);
     if (!v)
         return {};
     double lo = v->keys.isEmpty() ? v->base : v->keys.front().value;
     double hi = lo;
+    if (v->isExtrapolated() && clip) {
+        // Relative loops and linear extrapolation leave the keyed values inside the clip.
+        for (const int64_t f : {int64_t(0), std::max<int64_t>(0, clip->duration - 1)}) {
+            const double e = v->valueAt(f);
+            lo = std::min(lo, e);
+            hi = std::max(hi, e);
+        }
+    }
     // A Bezier segment lies inside the convex hull of its control points, so the key values
     // plus the handle tips bound the whole curve: no sampling needed.
     for (qsizetype i = 0; i < v->keys.size(); ++i) {
@@ -341,9 +350,9 @@ bool CurveView::handleVisible(const AnimatedValue& v, qsizetype i, bool out)
 {
     // Handles exist where a segment does and are only shown for curved sides (a Linear side
     // has no handle in Resolve-style editors; pick Smooth or an ease to get one).
-    if (out && (i + 1 >= v.keys.size() || v.keys[i].hold))
+    if (out && (i + 1 >= v.keys.size() || v.keys[i].hold || v.keys[i + 1].stepIn))
         return false;
-    if (!out && (i == 0 || v.keys[i - 1].hold))
+    if (!out && (i == 0 || v.keys[i - 1].hold || v.keys[i].stepIn))
         return false;
     return (out ? v.keys[i].out.mode : v.keys[i].in.mode) != KeyHandle::Mode::Linear;
 }
@@ -547,8 +556,41 @@ void CurveView::paintEvent(QPaintEvent*)
         QColor line = col;
         if (!active)
             line.setAlpha(170);
-        p.setPen(QPen(line, active ? 1.6 : 1.2));
-        p.drawPolyline(m_polyline);
+        const QPen solid(line, active ? 1.6 : 1.2);
+        if (!v->isExtrapolated()) {
+            p.setPen(solid);
+            p.drawPolyline(m_polyline);
+        } else {
+            // Loops and linear extrapolation: the keyed range solid, the repeated parts
+            // dimmed and dashed (they follow the keys, they cannot be dragged).
+            const double xa = xOfLocal(*c, double(v->keys.front().frame));
+            const double xb = xOfLocal(*c, double(v->keys.back().frame));
+            QColor faint = line;
+            faint.setAlpha(std::min(faint.alpha(), 110));
+            QPen dashed(faint, solid.widthF());
+            dashed.setStyle(Qt::DashLine);
+            QPolygonF pre, mid, post;
+            for (const QPointF& pt : std::as_const(m_polyline)) {
+                if (pt.x() < xa)
+                    pre.append(pt);
+                else if (pt.x() > xb)
+                    post.append(pt);
+                else
+                    mid.append(pt);
+            }
+            const double yFirst = valueToY(r, v->keys.front().value);
+            const double yLast = valueToY(r, v->keys.back().value);
+            if (!pre.isEmpty())
+                pre.append(QPointF(xa, yFirst));
+            if (!post.isEmpty())
+                post.prepend(QPointF(xb, yLast));
+            p.setPen(v->pre != Extrapolation::Constant ? dashed : solid);
+            p.drawPolyline(pre);
+            p.setPen(solid);
+            p.drawPolyline(mid);
+            p.setPen(v->post != Extrapolation::Constant ? dashed : solid);
+            p.drawPolyline(post);
+        }
 
         // Keys and the handles of selected keys.
         for (qsizetype k = 0; k < v->keys.size(); ++k) {
@@ -576,7 +618,7 @@ void CurveView::paintEvent(QPaintEvent*)
                 fill.setAlpha(110);
             p.setPen(QPen(withAlpha(schemeColors().shadow, outside ? 110 : 255), 1));
             p.setBrush(fill);
-            if (key.hold)
+            if (key.hold || key.stepIn)
                 p.drawRect(QRectF(kp.x() - kPointRadius, kp.y() - kPointRadius, 2 * kPointRadius,
                     2 * kPointRadius));
             else

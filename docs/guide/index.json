@@ -482,7 +482,11 @@
         "ken burns",
         "move title",
         "ease",
-        "curve"
+        "curve",
+        "loop",
+        "repeat",
+        "ping-pong",
+        "spline"
       ],
       "contexts": [
         "action:clip.add_keyframe",
@@ -493,6 +497,8 @@
         "action:clip.paste_keyframes",
         "action:clip.toggle_keyframe_editor",
         "action:clip.toggle_curve_editor",
+        "action:clip.keyframe_loop",
+        "action:clip.keyframe_reverse",
         "action:view.toggle_keyframes",
         "panel:keyframes"
       ]
@@ -537,7 +543,9 @@
         "action:view.page_compositing",
         "action:clip.open_in_compositing",
         "action:clip.reset_composition",
-        "action:view.toggle_nodes"
+        "action:view.toggle_nodes",
+        "action:view.toggle_spline",
+        "panel:spline"
       ]
     },
     {

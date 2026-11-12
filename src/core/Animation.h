@@ -78,6 +78,9 @@ struct Keyframe
     KeyHandle out; ///< handle of the segment leaving this key
     /// "Static" key: the value stays at this key's value until the next key, then jumps.
     bool hold = false;
+    /// "Step In": the segment arriving at this key is flat at this key's value, so the value
+    /// jumps right after the previous key (the mirror image of `hold`; Fusion's Step In).
+    bool stepIn = false;
 
     friend bool operator==(const Keyframe&, const Keyframe&) = default;
 };
@@ -88,15 +91,35 @@ void applyInterp(Keyframe& key, Interp interp);
 /// The preset that describes @p key, or Interp::Custom.
 [[nodiscard]] Interp keyInterp(const Keyframe& key);
 
+/// What an animated value does before its first and after its last key (Fusion's Set Loop /
+/// Pre-Loop, Blender's F-Curve Cycles, Natron's extrapolation). The repeated range is the keyed
+/// range [first key, last key]; with a single key every mode is Constant.
+enum class Extrapolation : quint8 {
+    Constant, ///< hold the first / last key's value (the default)
+    Loop, ///< repeat the keyed range
+    PingPong, ///< repeat the keyed range, every other repeat reversed in time
+    Relative, ///< repeat the keyed range, each repeat starting at the previous repeat's end value
+    Linear ///< continue along the tangent of the end key
+};
+
+/// Stable string id of an extrapolation mode as stored in project files ("constant", "loop",
+/// "pingPong", "relative", "linear").
+[[nodiscard]] QString extrapolationToString(Extrapolation mode);
+/// Parses extrapolationToString(); unknown strings yield Constant.
+[[nodiscard]] Extrapolation extrapolationFromString(const QString& text);
+
 /// A keyframeable scalar parameter (position, opacity, volume, blur radius, ...).
 ///
 /// Without keys the value is the constant `base`. With keys, `base` is ignored and the value is
-/// interpolated between the keys (held constant before the first and after the last key).
+/// interpolated between the keys; before the first and after the last key it follows `pre` /
+/// `post` (held constant by default).
 /// Plain value type; thread-safety as for any value type (copy before sharing).
 struct AnimatedValue
 {
     double base = 0.0; ///< value used while the parameter has no keyframes
     QVector<Keyframe> keys; ///< always sorted by frame, at most one key per frame
+    Extrapolation pre = Extrapolation::Constant; ///< before the first key
+    Extrapolation post = Extrapolation::Constant; ///< after the last key
 
     AnimatedValue() = default;
     /// Creates a non-animated value.
@@ -132,6 +155,20 @@ struct AnimatedValue
     [[nodiscard]] std::optional<int64_t> previousKeyFrame(int64_t localFrame) const;
     /// Frame of the closest key strictly after @p localFrame, if any.
     [[nodiscard]] std::optional<int64_t> nextKeyFrame(int64_t localFrame) const;
+    /// Mirrors the keys at @p frames in time inside their own range (the first becomes the last):
+    /// frames, handles (in <-> out), hold <-> stepIn. Frames without a key are ignored; fewer
+    /// than two keys: no-op. Returns the new frames of the moved keys (ascending).
+    QVector<int64_t> reverseKeys(const QVector<int64_t>& frames);
+    /// Scales the time of the keys at @p frames around @p pivot (frame' = pivot + (frame -
+    /// pivot) * @p factor, rounded; free handle lengths scale too, keeping their slope). A key
+    /// landing on another key replaces it. @p factor must be > 0. Returns the new frames.
+    QVector<int64_t> stretchKeys(const QVector<int64_t>& frames, double pivot, double factor);
+    /// True if a mode other than Constant applies outside the keys.
+    [[nodiscard]] bool isExtrapolated() const
+    {
+        return keys.size() > 1
+            && (pre != Extrapolation::Constant || post != Extrapolation::Constant);
+    }
     /// Moves every key by @p deltaFrames (used when a clip's head is trimmed or a clip is split).
     void shiftKeys(int64_t deltaFrames);
 
@@ -147,6 +184,8 @@ struct AnimatedValue
 
 private:
     [[nodiscard]] double segmentValue(qsizetype i, double localFrame) const;
+    [[nodiscard]] double innerValue(double localFrame) const;
+    [[nodiscard]] double extrapolatedValue(double localFrame, bool before) const;
     [[nodiscard]] double smoothSlope(qsizetype index) const;
 };
 

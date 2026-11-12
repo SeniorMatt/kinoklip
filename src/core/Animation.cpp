@@ -22,6 +22,7 @@ void applyInterp(Keyframe& key, Interp interp)
         key.in = KeyHandle::withMode(in);
         key.out = KeyHandle::withMode(out);
         key.hold = false;
+        key.stepIn = false;
     };
     switch (interp) {
     case Interp::Linear:
@@ -51,6 +52,8 @@ Interp keyInterp(const Keyframe& key)
 {
     if (key.hold)
         return Interp::Hold;
+    if (key.stepIn)
+        return Interp::Custom;
     const Mode i = key.in.mode;
     const Mode o = key.out.mode;
     if (i == Mode::Linear && o == Mode::Linear)
@@ -162,6 +165,33 @@ std::pair<double, double> resolveHandle(
 }
 } // namespace
 
+QString extrapolationToString(Extrapolation mode)
+{
+    switch (mode) {
+    case Extrapolation::Constant:
+        return QStringLiteral("constant");
+    case Extrapolation::Loop:
+        return QStringLiteral("loop");
+    case Extrapolation::PingPong:
+        return QStringLiteral("pingPong");
+    case Extrapolation::Relative:
+        return QStringLiteral("relative");
+    case Extrapolation::Linear:
+        return QStringLiteral("linear");
+    }
+    return QStringLiteral("constant");
+}
+
+Extrapolation extrapolationFromString(const QString& text)
+{
+    for (Extrapolation m : {Extrapolation::Loop, Extrapolation::PingPong, Extrapolation::Relative,
+             Extrapolation::Linear}) {
+        if (text == extrapolationToString(m))
+            return m;
+    }
+    return Extrapolation::Constant;
+}
+
 std::pair<double, double> AnimatedValue::outHandle(qsizetype i) const
 {
     if (i < 0 || i >= keys.size())
@@ -210,6 +240,8 @@ double AnimatedValue::segmentValue(qsizetype i, double localFrame) const
     const Keyframe& b = keys[i + 1];
     if (a.hold)
         return a.value;
+    if (b.stepIn)
+        return b.value;
     const double length = double(b.frame - a.frame);
     const double u = localFrame - double(a.frame);
     // Fast path: a straight segment (the default for every key).
@@ -228,14 +260,8 @@ double AnimatedValue::segmentValue(qsizetype i, double localFrame) const
     return bezier(a.value, y1, y2, b.value, s);
 }
 
-double AnimatedValue::valueAtTime(double localFrame) const
+double AnimatedValue::innerValue(double localFrame) const
 {
-    if (keys.isEmpty())
-        return base;
-    if (localFrame <= double(keys.front().frame))
-        return keys.front().value;
-    if (localFrame >= double(keys.back().frame))
-        return keys.back().value;
     // Last key at or before localFrame (binary search; keys are sorted).
     const auto it = std::upper_bound(keys.cbegin(), keys.cend(), localFrame,
         [](double f, const Keyframe& k) { return f < double(k.frame); });
@@ -243,6 +269,52 @@ double AnimatedValue::valueAtTime(double localFrame) const
     if (double(keys[i].frame) == localFrame)
         return keys[i].value;
     return segmentValue(i, localFrame);
+}
+
+// Extrapolation of the keyed range [t0, t1] outside itself. Loop / ping-pong / relative map the
+// time into the range with n = floor((t - t0) / period) full periods away (the same maths as
+// Blender's Cycles modifier and Natron's keyframe extrapolation, written from their documented
+// behaviour); linear continues the end tangent.
+double AnimatedValue::extrapolatedValue(double localFrame, bool before) const
+{
+    const Keyframe& edge = before ? keys.front() : keys.back();
+    const Extrapolation mode = before ? pre : post;
+    const double t0 = double(keys.front().frame);
+    const double t1 = double(keys.back().frame);
+    const double period = t1 - t0;
+    if (mode == Extrapolation::Constant || keys.size() < 2 || period <= 0.0)
+        return edge.value;
+    if (mode == Extrapolation::Linear) {
+        const auto [dt, dv] = before ? outHandle(0) : inHandle(keys.size() - 1);
+        const double slope = dt > 0.0 ? dv / dt : 0.0;
+        return edge.value + slope * (localFrame - double(edge.frame));
+    }
+    const double u = localFrame - t0;
+    const double n = std::floor(u / period);
+    double r = u - n * period; // [0, period)
+    if (mode == Extrapolation::PingPong && std::fmod(std::abs(n), 2.0) == 1.0)
+        r = period - r;
+    double v = innerValue(t0 + r);
+    if (mode == Extrapolation::Relative)
+        v += n * (keys.back().value - keys.front().value);
+    return v;
+}
+
+double AnimatedValue::valueAtTime(double localFrame) const
+{
+    if (keys.isEmpty())
+        return base;
+    if (localFrame <= double(keys.front().frame)) {
+        return localFrame < double(keys.front().frame) && pre != Extrapolation::Constant
+            ? extrapolatedValue(localFrame, true)
+            : keys.front().value;
+    }
+    if (localFrame >= double(keys.back().frame)) {
+        return localFrame > double(keys.back().frame) && post != Extrapolation::Constant
+            ? extrapolatedValue(localFrame, false)
+            : keys.back().value;
+    }
+    return innerValue(localFrame);
 }
 
 // Hot path (called per parameter, per clip, per rendered frame): binary search on the sorted
@@ -320,6 +392,68 @@ std::optional<int64_t> AnimatedValue::nextKeyFrame(int64_t localFrame) const
     if (it == keys.cend())
         return std::nullopt;
     return it->frame;
+}
+
+QVector<int64_t> AnimatedValue::reverseKeys(const QVector<int64_t>& frames)
+{
+    QVector<Keyframe> taken;
+    for (int64_t f : frames) {
+        const qsizetype i = indexOf(f);
+        if (i >= 0) {
+            taken.append(keys[i]);
+            keys.remove(i);
+        }
+    }
+    QVector<int64_t> out;
+    if (taken.size() < 2) {
+        for (const Keyframe& k : std::as_const(taken))
+            putKey(k);
+        return {};
+    }
+    std::sort(taken.begin(), taken.end(),
+        [](const Keyframe& a, const Keyframe& b) { return a.frame < b.frame; });
+    const int64_t sum = taken.front().frame + taken.back().frame;
+    for (Keyframe k : std::as_const(taken)) {
+        k.frame = sum - k.frame;
+        std::swap(k.in, k.out);
+        // Free geometry is stored as slope * length on both sides; mirroring time flips the sign.
+        for (KeyHandle* h : {&k.in, &k.out})
+            h->dv = -h->dv;
+        std::swap(k.hold, k.stepIn);
+        putKey(k);
+        out.append(k.frame);
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+QVector<int64_t> AnimatedValue::stretchKeys(
+    const QVector<int64_t>& frames, double pivot, double factor)
+{
+    QVector<int64_t> out;
+    if (!(factor > 0.0))
+        return out;
+    QVector<Keyframe> taken;
+    for (int64_t f : frames) {
+        const qsizetype i = indexOf(f);
+        if (i >= 0) {
+            taken.append(keys[i]);
+            keys.remove(i);
+        }
+    }
+    for (Keyframe k : std::as_const(taken)) {
+        k.frame = std::llround(pivot + (double(k.frame) - pivot) * factor);
+        for (KeyHandle* h : {&k.in, &k.out}) {
+            if (h->mode == KeyHandle::Mode::Free) {
+                h->dtFrames *= factor;
+                h->dv *= factor;
+            }
+        }
+        putKey(k);
+        out.append(k.frame);
+    }
+    std::sort(out.begin(), out.end());
+    return out;
 }
 
 void AnimatedValue::shiftKeys(int64_t deltaFrames)

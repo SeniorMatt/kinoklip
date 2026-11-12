@@ -143,6 +143,7 @@ std::optional<ParamRef> peerRef(const ClipData& shown, const ClipData& peer, con
     case ParamScope::TransitionIn:
     case ParamScope::TransitionOut:
     case ParamScope::Mask:
+    case ParamScope::CompNode:
     case ParamScope::TitleLayer: // layers are per clip: never matched between clips
         return std::nullopt;
     }

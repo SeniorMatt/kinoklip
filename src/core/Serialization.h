@@ -113,7 +113,12 @@ namespace kk::serialization {
 ///   "stdTransitionFrames" (frames; absent = follow the Preferences > Editing duration), the
 ///   transitions Ctrl+T adds. Files of versions 1 - 17 have none and so behave as before;
 ///   older builds refuse version 18 instead of silently adding other transitions.
-inline constexpr int kFormatVersion = 18;
+/// - 19 (splines branch): keyframe extrapolation. An animated value may carry "pre" / "post"
+///   (what happens before the first and after the last key: "loop", "pingPong", "relative",
+///   "linear"; absent = "constant") and a key may carry "stepIn". Files of versions 1 - 18 have
+///   none and play exactly as before; older builds refuse version 19 instead of silently
+///   showing held values where the animation loops.
+inline constexpr int kFormatVersion = 19;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);
