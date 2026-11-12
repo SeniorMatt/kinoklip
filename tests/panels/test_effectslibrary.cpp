@@ -144,10 +144,10 @@ private slots:
         QVERIFY(!effectactions::applyTransition(f.project, a, QStringLiteral("wipe"), false));
         QVERIFY(!effectactions::applyTransition(
             f.project, v, QStringLiteral("audio_crossfade_0db"), false));
-        QCOMPARE(effectactions::defaultTransitionId(TrackType::Audio),
+        QCOMPARE(effectactions::defaultTransitionId(f.project, TrackType::Audio),
             QStringLiteral("audio_crossfade_3db"));
-        QCOMPARE(
-            effectactions::defaultTransitionId(TrackType::Video), QStringLiteral("cross_dissolve"));
+        QCOMPARE(effectactions::defaultTransitionId(f.project, TrackType::Video),
+            QStringLiteral("cross_dissolve"));
     }
 
     void dragPayloadIsDescriptorId()

@@ -39,9 +39,19 @@ struct ProjectSettings
     /// Starting timecode of new timelines, in frames of `fps` (01:00:00:00 in new projects,
     /// 0 in projects saved before format 17; spec 25.12). Existing timelines keep their own.
     int64_t timelineStart = 0;
+    /// Standard transitions (Project Settings > General Options): what Ctrl+T, the Cut page
+    /// button and "Add Default Transition" add. Empty = Cross Dissolve / the default audio
+    /// transition. settings() reports the resolved values.
+    QString stdVideoTransition;
+    QString stdAudioTransition;
+    /// Standard transition length in frames; 0 = follow Preferences > Editing (old projects).
+    int64_t stdTransitionFrames = 0;
 
     friend bool operator==(const ProjectSettings&, const ProjectSettings&) = default;
 };
+
+/// ProjectSettings::stdTransitionFrames for another frame rate: the same duration (0 stays 0).
+[[nodiscard]] int64_t scaledTransitionFrames(int64_t frames, Rational from, Rational to);
 
 /// Per-timeline view state remembered across tab switches and saved with the project (not
 /// undoable, does not make the project modified).
@@ -104,6 +114,15 @@ public:
     [[nodiscard]] ProjectSettings settings() const;
     /// Applies new settings; resolution/fps changes are undoable timeline edits.
     void setSettings(const ProjectSettings& settings);
+    /// Effect id of the standard transition for video (Cross Dissolve unless changed) or audio
+    /// tracks.
+    [[nodiscard]] QString standardTransitionId(bool audio) const;
+    /// Standard transition length in frames (at least 1): the project's, else the
+    /// Preferences > Editing duration at the current frame rate.
+    [[nodiscard]] int64_t standardTransitionFrames() const;
+    /// Makes @p effectId the standard video or audio transition; one undo step. Returns false
+    /// for an id that is not a transition of that kind.
+    bool setStandardTransition(bool audio, const QString& effectId);
     /// Proxy / optimized media links of the media pool items (owned by the project, never
     /// null; saved with it, not undoable). Changing a link marks the project modified.
     [[nodiscard]] MediaLinks* mediaLinks() const { return m_links; }
@@ -373,6 +392,9 @@ public:
         Rational fps {24, 1};
         RetimeProcess retimeProcess = RetimeProcess::Nearest;
         int64_t timelineStart = 0; ///< ProjectSettings::timelineStart
+        QString stdVideoTransition; ///< ProjectSettings::stdVideoTransition (empty = default)
+        QString stdAudioTransition; ///< ProjectSettings::stdAudioTransition (empty = default)
+        int64_t stdTransitionFrames = 0; ///< ProjectSettings::stdTransitionFrames
         friend bool operator==(const Format&, const Format&) = default;
     };
     /// Restores a complete state (undo commands). @p primary: the timeline the step was made

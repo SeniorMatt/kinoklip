@@ -27,10 +27,8 @@ CommandResult runAdd(CommandContext& ctx, const CommandArgs& args)
         return *bad;
     const bool head = args.string(QStringLiteral("edge")) == QLatin1String("head");
     const bool audio = found.track.type == TrackType::Audio;
-    const QString type = args.has(QStringLiteral("type"))
-        ? args.string(QStringLiteral("type"))
-        : (audio ? QString::fromLatin1(audiotransitions::kCrossFadePlus3dB)
-                 : QStringLiteral("cross_dissolve"));
+    const QString type = args.has(QStringLiteral("type")) ? args.string(QStringLiteral("type"))
+                                                          : project.standardTransitionId(audio);
     const EffectDescriptor* descriptor = EffectRegistry::instance().find(type);
     const EffectCategory wanted
         = audio ? EffectCategory::AudioTransition : EffectCategory::Transition;
@@ -43,7 +41,7 @@ CommandResult runAdd(CommandContext& ctx, const CommandArgs& args)
         return *bad;
     TransitionData transition;
     transition.type = type;
-    transition.duration = duration.value_or(timecodeBase(d.fps)); // one second
+    transition.duration = duration.value_or(project.standardTransitionFrames());
     if (transition.duration < 1)
         return fail("out_of_range", QStringLiteral("the duration must be at least one frame"));
     if (d.track(found.track)->locked)
@@ -196,23 +194,24 @@ CommandResult runRemove(CommandContext& ctx, const CommandArgs& args)
 
 void registerTransitionCommands(CommandRegistry& registry)
 {
-    registry.add(
-        {{QStringLiteral("transition.add"),
-             QStringLiteral("Add a transition at the head or tail of a clip (shortened to fit the "
-                            "clips). Default: Cross Dissolve on video, Cross Fade +3 dB on audio."),
-             {{QStringLiteral("clip"), ParamType::Integer,
-                  QStringLiteral("clip id (see clip.list)"), true, {}, {}},
-                 {QStringLiteral("edge"), ParamType::String,
-                     QStringLiteral("which edge of the clip"), true, {},
-                     {QStringLiteral("head"), QStringLiteral("tail")}},
-                 {QStringLiteral("type"), ParamType::String,
-                     QStringLiteral("effect id of the transition, e.g. cross_dissolve"), false, {},
-                     {}},
-                 {QStringLiteral("duration"), ParamType::Time,
-                     QStringLiteral("length in frames or timecode"), false,
-                     QStringLiteral("one second"), {}}},
-             ProjectUse::Modify, true},
-            runAdd});
+    registry.add({{QStringLiteral("transition.add"),
+                      QStringLiteral(
+                          "Add a transition at the head or tail of a clip (shortened to fit the "
+                          "clips). Default: the project's standard transition (Cross Dissolve on "
+                          "video, Cross Fade +3 dB on audio unless changed in Project Settings)."),
+                      {{QStringLiteral("clip"), ParamType::Integer,
+                           QStringLiteral("clip id (see clip.list)"), true, {}, {}},
+                          {QStringLiteral("edge"), ParamType::String,
+                              QStringLiteral("which edge of the clip"), true, {},
+                              {QStringLiteral("head"), QStringLiteral("tail")}},
+                          {QStringLiteral("type"), ParamType::String,
+                              QStringLiteral("effect id of the transition, e.g. cross_dissolve"),
+                              false, {}, {}},
+                          {QStringLiteral("duration"), ParamType::Time,
+                              QStringLiteral("length in frames or timecode"), false,
+                              QStringLiteral("the project's standard transition duration"), {}}},
+                      ProjectUse::Modify, true},
+        runAdd});
     const ParamSpec clip {QStringLiteral("clip"), ParamType::Integer,
         QStringLiteral("clip id (see clip.list)"), true, {}, {}};
     const ParamSpec edge {QStringLiteral("edge"), ParamType::String,

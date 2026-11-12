@@ -118,9 +118,9 @@ bool rangeFree(const TrackData& track, int64_t start, int64_t end)
 
 } // namespace
 
-int64_t defaultTransitionFrames(Rational fps)
+int64_t defaultTransitionFrames(const Project& project)
 {
-    return std::max<int64_t>(1, std::llround(fps.toDouble()));
+    return project.standardTransitionFrames();
 }
 
 int64_t defaultGeneratorFrames(Rational fps)
@@ -155,8 +155,8 @@ std::optional<ClipData> makeGeneratorClip(
                 const int64_t end = std::clamp<int64_t>(
                     std::llround(fps.toDouble()), 1, std::max<int64_t>(1, clip.duration - 1));
                 AnimatedValue& on = clip.title.animated(keys::WriteOnEnd, 1.0);
-                on.setKey(0, 0.0);
-                on.setKey(end, 1.0);
+                on.setKey(0, 0.0, Interp::Linear);
+                on.setKey(end, 1.0, Interp::Linear);
             }
         }
         break;
@@ -219,10 +219,9 @@ bool transitionFitsTrack(EffectCategory category, TrackType type)
         || (category == EffectCategory::AudioTransition && type == TrackType::Audio);
 }
 
-QString defaultTransitionId(TrackType type)
+QString defaultTransitionId(const Project& project, TrackType type)
 {
-    return type == TrackType::Audio ? audiotransitions::defaultId()
-                                    : QStringLiteral("cross_dissolve");
+    return project.standardTransitionId(type == TrackType::Audio);
 }
 
 int applyEffect(Project& project, const QVector<quint64>& clipIds, const QString& descriptorId)
@@ -265,7 +264,7 @@ bool applyTransition(Project& project, quint64 clipId, const QString& descriptor
     const auto& slot = atHead ? existing->transitionIn : existing->transitionOut;
     int64_t frames = durationFrames;
     if (frames < 1)
-        frames = slot ? slot->duration : defaultTransitionFrames(project.timeline()->data().fps);
+        frames = slot ? slot->duration : defaultTransitionFrames(project);
     frames = std::clamp<int64_t>(frames, 1, std::max<int64_t>(1, existing->duration));
 
     // The tail of a clip touching its right neighbour is that neighbour's head: placeTransition

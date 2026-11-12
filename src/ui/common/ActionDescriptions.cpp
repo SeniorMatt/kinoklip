@@ -179,7 +179,7 @@ const Description kDescriptions[] = {
     KK_TIP("edit.join",
         "Joins the selected edit point or touching clips that continue each other back into one clip."),
     KK_TIP("timeline.add_transition",
-        "Adds the default transition at the selected edit point or the clip edge nearest the playhead."),
+        "Adds the project's standard transition (Project Settings; Set as Standard Transition in the Effects library) at the selected edit point or the clip edge nearest the playhead."),
     KK_TIP("timeline.snapping",
         "Makes clips and the playhead snap to edit points, markers and the playhead while dragging."),
     KK_TIP("timeline.linked_selection",

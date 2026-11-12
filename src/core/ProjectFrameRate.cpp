@@ -89,6 +89,8 @@ bool Project::convertTimelineFrameRate(quint64 uid, Rational fps, bool includeCo
     if (moveProject) {
         m_format.timelineStart
             = std::max<int64_t>(0, convertTimecode(m_format.timelineStart, m_format.fps, fps));
+        m_format.stdTransitionFrames
+            = scaledTransitionFrames(m_format.stdTransitionFrames, m_format.fps, fps);
         m_format.fps = fps;
     }
     for (const quint64 target : targets) {
@@ -109,6 +111,8 @@ bool Project::convertProjectFrameRate(Rational fps)
     beginEdit(tr("Change Frame Rate"));
     m_format.timelineStart
         = std::max<int64_t>(0, convertTimecode(m_format.timelineStart, m_format.fps, fps));
+    m_format.stdTransitionFrames
+        = scaledTransitionFrames(m_format.stdTransitionFrames, m_format.fps, fps);
     m_format.fps = fps;
     for (const quint64 uid : timelineUids()) {
         const auto data = timelineData(uid);

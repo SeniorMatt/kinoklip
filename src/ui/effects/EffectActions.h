@@ -20,8 +20,9 @@ struct AppContext;
 
 namespace effectactions {
 
-/// Default transition length: one second at the timeline rate (at least one frame).
-[[nodiscard]] int64_t defaultTransitionFrames(Rational fps);
+/// Default transition length: the project's standard transition duration (Project Settings;
+/// at least one frame).
+[[nodiscard]] int64_t defaultTransitionFrames(const Project& project);
 /// Default length of a new title / generator / adjustment clip: Preferences > Editing >
 /// generator duration (EditBehaviour::generatorSeconds, 5 s by default) at the timeline rate.
 [[nodiscard]] int64_t defaultGeneratorFrames(Rational fps);
@@ -44,9 +45,9 @@ namespace effectactions {
 /// tracks. Other categories never fit.
 [[nodiscard]] bool transitionFitsTrack(EffectCategory category, TrackType type);
 
-/// The default transition for a track of @p type: Cross Dissolve on video, Cross Fade +3 dB
-/// (audiotransitions::defaultId()) on audio.
-[[nodiscard]] QString defaultTransitionId(TrackType type);
+/// The project's standard transition for a track of @p type (Project Settings; Cross Dissolve
+/// on video and Cross Fade +3 dB on audio unless changed).
+[[nodiscard]] QString defaultTransitionId(const Project& project, TrackType type);
 
 /// Appends a new instance of effect @p descriptorId to every clip in @p clipIds whose track
 /// type fits the effect. One undo step. Returns the number of clips changed (0 = nothing done,

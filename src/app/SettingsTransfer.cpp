@@ -104,6 +104,8 @@ const QVector<Rule>& rules()
         for (const char* k :
             {"edit/stillSeconds", "edit/generatorSeconds", "edit/transitionSeconds"})
             add(k, Kind::Double, 0.01, 3600);
+        add("edit/newKeyInterp", Kind::Choice, 0, 0,
+            {"linear", "easeIn", "easeOut", "easeInOut", "smooth", "hold"});
         add("edit/multiFrameNudge", Kind::Int, 1, 1000);
         add("edit/wheelScheme", Kind::Auto);
         for (const char* k : {"edit/threePointEditing", "edit/rippleDeleteGapAtPlayhead",

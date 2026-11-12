@@ -41,6 +41,10 @@ By default the value changes at an even speed from one keyframe to the next, whi
 mechanical. Right-click a filled diamond and choose **Ease In and Out**: the movement then
 starts slowly, speeds up and slows down again before it stops.
 
+To make every new keyframe start that way, right-click a diamond (or a keyframe in the
+Keyframes panel) and choose **Set as Default for New Keyframes**, or pick it in
+**Preferences > Editing > New keyframes**. Keyframes you already made stay as they are.
+
 ## See all keyframes on the timeline
 
 Every animated clip shows two small buttons at its bottom-right corner on the timeline. The

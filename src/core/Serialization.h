@@ -108,7 +108,12 @@ namespace kk::serialization {
 ///   "compositeMode" (blend mode id of core/NodeRegistry.h blendmodes::, absent = normal).
 ///   Files of versions 1 - 16 load unchanged; older builds refuse version 17 instead of
 ///   showing every timecode an hour off and compositing every clip as Normal.
-inline constexpr int kFormatVersion = 17;
+/// - 18 (stddefaults branch): standard transitions. The project may carry "stdVideoTransition"
+///   and "stdAudioTransition" (effect ids; absent = Cross Dissolve / Cross Fade +3 dB) and
+///   "stdTransitionFrames" (frames; absent = follow the Preferences > Editing duration), the
+///   transitions Ctrl+T adds. Files of versions 1 - 17 have none and so behave as before;
+///   older builds refuse version 18 instead of silently adding other transitions.
+inline constexpr int kFormatVersion = 18;
 
 /// Encodes one keyframe: {"frame", "value"} plus "in" / "out" / "hold" when not default.
 [[nodiscard]] QJsonObject keyframeToJson(const Keyframe& key);

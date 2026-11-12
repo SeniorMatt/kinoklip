@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // PreferencePages — the standard System and User preference pages (Resolve's sections) and
 // the code that applies stored preferences to the running application.
+#include "core/Animation.h"
 #include "core/EditBehaviour.h"
 #include "media/HwAccel.h"
 #include "media/ImageLoader.h"
@@ -681,7 +682,26 @@ public:
         form->addRow(tr("Standard title and generator duration"), m_generator);
         m_transition = secondsSpin(b.transitionSeconds);
         m_transition->setObjectName(QStringLiteral("TransitionSeconds"));
+        m_transition->setToolTip(
+            tr("The starting value of new projects. Each project keeps its own "
+               "standard transition and duration in Project Settings > "
+               "General Options."));
         form->addRow(tr("Standard transition duration"), m_transition);
+        m_newKeyInterp = new QComboBox;
+        m_newKeyInterp->setObjectName(QStringLiteral("NewKeyInterp"));
+        for (const auto& [interp, name] :
+            {std::pair {Interp::Linear, tr("Linear")}, std::pair {Interp::EaseIn, tr("Ease In")},
+                std::pair {Interp::EaseOut, tr("Ease Out")},
+                std::pair {Interp::EaseInOut, tr("Ease In and Out")},
+                std::pair {Interp::Smooth, tr("Smooth (Bezier)")},
+                std::pair {Interp::Hold, tr("Static (Hold)")}})
+            m_newKeyInterp->addItem(name, int(interp));
+        m_newKeyInterp->setCurrentIndex(
+            std::max(0, m_newKeyInterp->findData(int(defaultKeyInterp()))));
+        m_newKeyInterp->setToolTip(tr("The type of every keyframe you add. Right-click a "
+                                      "keyframe and choose Set as Default for New Keyframes "
+                                      "to change it from there."));
+        form->addRow(tr("New keyframes"), m_newKeyInterp);
         m_nudge = new QSpinBox;
         m_nudge->setObjectName(QStringLiteral("MultiFrameNudge"));
         m_nudge->setRange(1, kMaxNudgeFrames);
@@ -764,6 +784,7 @@ public:
         s.setValue(QStringLiteral("edit/stillSeconds"), m_still->value());
         s.setValue(QStringLiteral("edit/generatorSeconds"), m_generator->value());
         s.setValue(QStringLiteral("edit/transitionSeconds"), m_transition->value());
+        setDefaultKeyInterp(Interp(m_newKeyInterp->currentData().toInt()));
         s.setValue(QStringLiteral("edit/multiFrameNudge"), m_nudge->value());
         s.setValue(QStringLiteral("edit/threePointEditing"), m_threePoint->isChecked());
         s.setValue(QStringLiteral("edit/rippleDeleteGapAtPlayhead"), m_rippleGap->isChecked());
@@ -784,6 +805,7 @@ private:
     QDoubleSpinBox* m_generator = nullptr;
     QDoubleSpinBox* m_transition = nullptr;
     QSpinBox* m_nudge = nullptr;
+    QComboBox* m_newKeyInterp = nullptr;
     QComboBox* m_wheel = nullptr;
     QComboBox* m_zoom = nullptr;
     QCheckBox* m_threePoint = nullptr;

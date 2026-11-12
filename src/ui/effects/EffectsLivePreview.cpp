@@ -102,7 +102,9 @@ std::optional<PreparedScene> PreparedScene::prepare(const TimelineData& snapshot
         const std::optional<TransitionData>& existing
             = head ? stored->transitionIn : stored->transitionOut;
         TransitionData transition = EffectRegistry::instance().createTransition(descriptorId,
-            existing ? existing->duration : effectactions::defaultTransitionFrames(snapshot.fps));
+            existing
+                ? existing->duration
+                : std::max<int64_t>(1, std::llround(snapshot.fps.toDouble())) /* preview length */);
         if (existing)
             transition.alignment = existing->alignment;
 

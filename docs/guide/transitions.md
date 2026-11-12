@@ -3,8 +3,20 @@
 A transition changes one clip into the next. Kinoklip has them in the same folders as
 DaVinci Resolve: open the effects
 library (**Toolbox > Video Transitions**) and drag one onto the cut between two clips. Pressing
-**Ctrl+T** adds the standard one, a one-second **Cross Dissolve**. Double-clicking a transition
-in the library puts it on the selected cut, or on the cut nearest the playhead.
+**Ctrl+T** adds the standard one, a **Cross Dissolve** unless you changed it (see below).
+Double-clicking a transition in the library puts it on the selected cut, or on the cut nearest
+the playhead.
+
+## Choose the standard transition
+
+The standard transition belongs to the project. Right-click a transition in the effects library
+and choose **Set as Standard Transition**; the standard video transition and the standard audio
+transition are shown in bold. You can also pick them, and the standard length in frames, in
+**File > Project Settings > General Options > Standard Transitions**. Ctrl+T, the Cut page's
+transition button and the Inspector's **Transition In** and **Transition Out** buttons all use
+them. A new project starts with the length from **Preferences > Editing > Standard transition
+duration**; projects made before keep a Cross Dissolve of that length. Changing the standard
+transition can be undone.
 
 Click a transition on the timeline to change it in the **Inspector** (its **Transition** tab):
 the length, where it sits on the cut, and the settings of that transition. Drag its edges to

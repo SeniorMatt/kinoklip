@@ -91,6 +91,8 @@ protected:
 
 private:
     void populate();
+    /// Bolds the project's standard video and audio transition (Set as Standard Transition).
+    void markStandardTransitions();
     void applyFilters();
     void activate(const QString& descriptorId);
 

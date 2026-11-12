@@ -2,6 +2,7 @@
 // KeyframeViewBase implementation: clips, selection, drag protocol, snapping, menu, keyboard.
 #include "ui/keyframes/KeyframeViewBase.h"
 
+#include "core/Animation.h"
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
 #include "core/Project.h"
@@ -307,6 +308,11 @@ void KeyframeViewBase::showKeyMenu(const QPoint& globalPos)
             }
         }
     }
+    QAction* asDefault = menu.addAction(tr("Set as Default for New Keyframes"));
+    asDefault->setEnabled(common && !mixed && *common != Interp::Custom);
+    if (common)
+        connect(
+            asDefault, &QAction::triggered, this, [type = *common] { setDefaultKeyInterp(type); });
     QAction* flatten = menu.addAction(tr("Flatten Handles"));
     flatten->setEnabled(!keys.isEmpty());
     connect(flatten, &QAction::triggered, this, [this] { kc::flattenSelected(m_ctx); });

@@ -31,9 +31,10 @@ namespace kk {
 /// - Image Scaling: mismatched resolution handling ("scale entire image to fit", the
 ///   compositor's only mode for now), output scaling (= timeline).
 /// - Audio: sample rate 48 kHz and 32-bit float mixing (the mixer's fixed format, PLAN 5.1).
-/// - General Options: project name, starting timecode of new timelines (spec 25.12),
-///   autosave interval (the user preference `project/autosaveMinutes`, shared with
-///   Preferences > Project Save and Load).
+/// - General Options: standard video / audio transition and their duration (frames; what
+///   Ctrl+T adds; Project::standardTransitionId()), project name, starting timecode of new
+///   timelines (spec 25.12), autosave interval (the user preference `project/autosaveMinutes`,
+///   shared with Preferences > Project Save and Load).
 /// - Render Cache: render cache / optimized media placeholders.
 /// Settings the engine cannot change yet are shown disabled with a tooltip saying why.
 class ProjectSettingsDialog : public QDialog
@@ -93,6 +94,9 @@ private:
     QComboBox* m_retimeProcess = nullptr; ///< Frame Interpolation > Retime process
     QSpinBox* m_autosave = nullptr;
     QLineEdit* m_timelineStart = nullptr; ///< General Options > starting timecode
+    QComboBox* m_stdVideo = nullptr; ///< General Options > standard video transition
+    QComboBox* m_stdAudio = nullptr; ///< General Options > standard audio transition
+    QSpinBox* m_stdFrames = nullptr; ///< General Options > standard transition duration
     QLabel* m_warning = nullptr;
     QComboBox* m_proxyResolution = nullptr;
     QComboBox* m_proxyFormat = nullptr;

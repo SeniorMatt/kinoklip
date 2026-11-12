@@ -159,7 +159,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 |---|---|---|
 | Split Clip at Playhead | Ctrl+\ | Cuts the clip under the playhead in two (all auto-select tracks when nothing is selected). |
 | Join Clips | Alt+\ | Joins the selected edit point or touching clips that continue each other back into one clip. |
-| Add Default Transition | Ctrl+T | Adds the default transition at the selected edit point or the clip edge nearest the playhead. |
+| Add Default Transition | Ctrl+T | Adds the project's standard transition (Project Settings; Set as Standard Transition in the Effects library) at the selected edit point or the clip edge nearest the playhead. |
 | Snapping (toggle) | N | Makes clips and the playhead snap to edit points, markers and the playhead while dragging. |
 | Linked Selection (toggle) | Ctrl+Shift+L | Makes clips that are linked (such as picture and sound) be selected and moved together. |
 | Audio Scrubbing (toggle) | Shift+S | Play a short piece of the sound while the playhead is dragged or stepped |
@@ -649,7 +649,7 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Add to Timeline > Ripple Overwrite | Shift+F10 | Replaces the in-to-out range of the timeline with the source and shifts later clips by the difference in length. |
 | Split at Playhead | Ctrl+\ | Cuts the clip under the playhead in two (all auto-select tracks when nothing is selected). |
 | Join Clips | Alt+\ | Joins the selected edit point or touching clips that continue each other back into one clip. |
-| Add Transition | Ctrl+T | Adds the default transition at the selected edit point or the clip edge nearest the playhead. |
+| Add Transition | Ctrl+T | Adds the project's standard transition (Project Settings; Set as Standard Transition in the Effects library) at the selected edit point or the clip edge nearest the playhead. |
 | Add Subtitle |  | Adds a 3-second caption at the playhead on the subtitle track. |
 | Snapping (toggle) | N | Makes clips and the playhead snap to edit points, markers and the playhead while dragging. |
 | Linked Selection (toggle) | Ctrl+Shift+L | Makes clips that are linked (such as picture and sound) be selected and moved together. |

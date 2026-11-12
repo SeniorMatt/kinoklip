@@ -1113,7 +1113,8 @@ void InspectorPanel::buildTransitionTab(const ClipData& c)
     auto* layout = new QHBoxLayout(bar);
     layout->setContentsMargins(8, 6, 8, 6);
     const quint64 clipId = m_clipId;
-    const QString defaultId = effectactions::defaultTransitionId(trackTypeOfClip(clipId));
+    const QString defaultId
+        = effectactions::defaultTransitionId(*m_ctx.project, trackTypeOfClip(clipId));
     if (!c.transitionIn) {
         auto* addIn = new QPushButton(inspectorGlyph(InspectorGlyph::Add), tr("Transition In"));
         connect(addIn, &QPushButton::clicked, this, [this, clipId, defaultId] {
@@ -1204,8 +1205,7 @@ void InspectorPanel::addTransitionGroup(const ClipData& c, bool atHead)
     duration.type = ParamType::Int;
     duration.min = 1;
     duration.max = double(std::max<int64_t>(1, c.duration));
-    duration.def
-        = double(effectactions::defaultTransitionFrames(m_ctx.project->timeline()->data().fps));
+    duration.def = double(effectactions::defaultTransitionFrames(*m_ctx.project));
     duration.step = 1;
     duration.unit = tr("fr");
     duration.animatable = false;
