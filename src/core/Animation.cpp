@@ -5,6 +5,8 @@
 
 #include "core/ParamKeys.h"
 
+#include <QSettings>
+
 #include <algorithm>
 #include <cmath>
 
@@ -264,8 +266,7 @@ void AnimatedValue::setKey(int64_t localFrame, double value, std::optional<Inter
     Keyframe key;
     key.frame = localFrame;
     key.value = value;
-    if (interp)
-        applyInterp(key, *interp);
+    applyInterp(key, interp ? *interp : defaultKeyInterp());
     keys.insert(i, key);
 }
 
@@ -390,6 +391,26 @@ void ParamSet::shiftKeys(int64_t deltaFrames)
 }
 
 // ---- Names ----
+
+Interp defaultKeyInterp()
+{
+    static constexpr Interp kChoices[] = {Interp::Linear, Interp::EaseIn, Interp::EaseOut,
+        Interp::EaseInOut, Interp::Smooth, Interp::Hold};
+    const QString text = QSettings()
+                             .value(QStringLiteral("edit/newKeyInterp"), QStringLiteral("linear"))
+                             .toString();
+    for (const Interp choice : kChoices) {
+        if (interpToString(choice) == text)
+            return choice;
+    }
+    return Interp::Linear;
+}
+
+void setDefaultKeyInterp(Interp interp)
+{
+    if (interp != Interp::Custom)
+        QSettings().setValue(QStringLiteral("edit/newKeyInterp"), interpToString(interp));
+}
 
 QString interpToString(Interp interp)
 {

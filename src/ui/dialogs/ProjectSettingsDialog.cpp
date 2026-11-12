@@ -2,6 +2,7 @@
 // ProjectSettingsDialog implementation.
 #include "ui/dialogs/ProjectSettingsDialog.h"
 
+#include "core/EffectRegistry.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
 #include "export/ProxyMedia.h"
@@ -339,7 +340,35 @@ QWidget* ProjectSettingsDialog::buildGeneral()
     m_autosave->setToolTip(tr("Applies to every project (also in Preferences > User > Project "
                               "Save and Load)."));
     form->addRow(tr("Autosave every"), m_autosave);
-    return formWidget(form);
+
+    // The transitions Ctrl+T and "Add Default Transition" add in this project.
+    auto* page = new QWidget;
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(formWidget(form));
+    layout->addWidget(subHeading(tr("Standard Transitions")));
+    auto* transitions = makeForm();
+    const auto transitionCombo = [](const char* name, EffectCategory category) {
+        auto* combo = new QComboBox;
+        combo->setObjectName(QLatin1String(name));
+        for (const EffectDescriptor* d : EffectRegistry::instance().byCategory(category))
+            combo->addItem(d->name, d->id);
+        return combo;
+    };
+    m_stdVideo = transitionCombo("StandardVideoTransition", EffectCategory::Transition);
+    transitions->addRow(tr("Standard video transition"), m_stdVideo);
+    m_stdAudio = transitionCombo("StandardAudioTransition", EffectCategory::AudioTransition);
+    transitions->addRow(tr("Standard audio transition"), m_stdAudio);
+    m_stdFrames = new QSpinBox;
+    m_stdFrames->setObjectName(QStringLiteral("StandardTransitionFrames"));
+    m_stdFrames->setRange(1, 100000);
+    m_stdFrames->setSuffix(tr(" frames"));
+    m_stdFrames->setToolTip(tr("Length of the transitions Ctrl+T adds. New projects start from "
+                               "Preferences > Editing > Standard transition duration."));
+    transitions->addRow(tr("Standard transition duration"), m_stdFrames);
+    layout->addWidget(formWidget(transitions));
+    layout->addStretch();
+    return page;
 }
 
 QWidget* ProjectSettingsDialog::buildCache()
@@ -452,6 +481,9 @@ ProjectSettings ProjectSettingsDialog::settings() const
         if (const auto frames = timecode::parse(m_timelineStart->text(), s.fps))
             s.timelineStart = std::max<int64_t>(0, *frames);
     }
+    s.stdVideoTransition = m_stdVideo->currentData().toString();
+    s.stdAudioTransition = m_stdAudio->currentData().toString();
+    s.stdTransitionFrames = m_stdFrames->value();
     return s;
 }
 
@@ -473,6 +505,9 @@ void ProjectSettingsDialog::setSettings(const ProjectSettings& settings)
     const int process = m_retimeProcess->findData(int(settings.retimeProcess));
     m_retimeProcess->setCurrentIndex(std::max(0, process));
     m_timelineStart->setText(timecode::format(settings.timelineStart, settings.fps));
+    m_stdVideo->setCurrentIndex(std::max(0, m_stdVideo->findData(settings.stdVideoTransition)));
+    m_stdAudio->setCurrentIndex(std::max(0, m_stdAudio->findData(settings.stdAudioTransition)));
+    m_stdFrames->setValue(int(std::max<int64_t>(1, settings.stdTransitionFrames)));
     updateWarning();
 }
 

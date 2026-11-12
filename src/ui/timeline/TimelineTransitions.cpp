@@ -119,8 +119,7 @@ bool TimelineController::addTransition(const QString& typeId)
     };
     QVector<Edge> todo;
     QVector<std::pair<quint64, bool>> retype; ///< existing transitions to change to typeId
-    const int64_t standard
-        = EditBehaviour::frames(EditBehaviour::fromSettings().transitionSeconds, d.fps);
+    const int64_t standard = project()->standardTransitionFrames();
     int64_t missing = 0;
     bool canShorten = false;
     for (auto [clipId, head] : std::as_const(edges)) {
@@ -195,9 +194,10 @@ bool TimelineController::addTransition(const QString& typeId)
                 continue;
             ClipData* clip = ops::clipById(data, e.clip);
             std::optional<TransitionData>& slot = e.head ? clip->transitionIn : clip->transitionOut;
-            // Default transition (Ctrl+T); its length comes from EditBehaviour.
+            // Default transition (Ctrl+T): the project's standard transition and length.
             slot = EffectRegistry::instance().createTransition(
-                typeId.isEmpty() ? effectactions::defaultTransitionId(e.type) : typeId, e.frames);
+                typeId.isEmpty() ? effectactions::defaultTransitionId(*project(), e.type) : typeId,
+                e.frames);
             changed = true;
         }
         return changed;

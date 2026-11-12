@@ -200,6 +200,7 @@ private slots:
         s.fps = Rational {30000, 1001};
         p.setSettings(s);
         s.timelineStart = 30 * 3600; // still 01:00:00:00 at the new rate
+        s.stdTransitionFrames = 30; // one second stays one second
         QCOMPARE(p.settings(), s);
         QVERIFY(p.isDirty());
         QCOMPARE(dirty.count(), 1);

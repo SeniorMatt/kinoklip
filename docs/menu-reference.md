@@ -159,7 +159,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 |---|---|---|
 | Split Clip at Playhead | Ctrl+\ | Cuts the clip under the playhead in two (all auto-select tracks when nothing is selected). |
 | Join Clips | Alt+\ | Joins the selected edit point or touching clips that continue each other back into one clip. |
-| Add Default Transition | Ctrl+T | Adds the default transition at the selected edit point or the clip edge nearest the playhead. |
+| Add Default Transition | Ctrl+T | Adds the project's standard transition (Project Settings; Set as Standard Transition in the Effects library) at the selected edit point or the clip edge nearest the playhead. |
 | Snapping (toggle) | N | Makes clips and the playhead snap to edit points, markers and the playhead while dragging. |
 | Linked Selection (toggle) | Ctrl+Shift+L | Makes clips that are linked (such as picture and sound) be selected and moved together. |
 | Audio Scrubbing (toggle) | Shift+S | Play a short piece of the sound while the playhead is dragged or stepped |
@@ -514,7 +514,6 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | About Kinoklip |  | Shows the version of Kinoklip, its licence and the libraries it uses. |
 | Preferences… | Ctrl+, | Opens the Preferences window (user settings such as editing, playback, interface and local control). |
 | Keyboard Shortcuts… | Ctrl+Alt+K | Opens the keyboard settings: pick a keyboard profile, change or clear the key of any command. |
-| Vim Mode (toggle) |  | Turns Vim mode on or off: with it on, plain keys are Vim commands (NORMAL mode) and i gives you the usual shortcuts back (INSERT mode). Works with any keyboard profile. |
 | Reload Fonts |  | Looks for fonts installed while Kinoklip is open and adds them to every font list. Kinoklip also does this by itself a moment after a font file appears in a font folder. |
 | Quit Kinoklip | Ctrl+Q | Closes Kinoklip, asking first whether to save unsaved changes. |
 
@@ -650,7 +649,7 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Add to Timeline > Ripple Overwrite | Shift+F10 | Replaces the in-to-out range of the timeline with the source and shifts later clips by the difference in length. |
 | Split at Playhead | Ctrl+\ | Cuts the clip under the playhead in two (all auto-select tracks when nothing is selected). |
 | Join Clips | Alt+\ | Joins the selected edit point or touching clips that continue each other back into one clip. |
-| Add Transition | Ctrl+T | Adds the default transition at the selected edit point or the clip edge nearest the playhead. |
+| Add Transition | Ctrl+T | Adds the project's standard transition (Project Settings; Set as Standard Transition in the Effects library) at the selected edit point or the clip edge nearest the playhead. |
 | Add Subtitle |  | Adds a 3-second caption at the playhead on the subtitle track. |
 | Snapping (toggle) | N | Makes clips and the playhead snap to edit points, markers and the playhead while dragging. |
 | Linked Selection (toggle) | Ctrl+Shift+L | Makes clips that are linked (such as picture and sound) be selected and moved together. |
@@ -890,6 +889,7 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Entry | Shortcut (default Resolve keymap) | What it does |
 |---|---|---|
 | About Qt |  | Shows which version of the Qt toolkit this build uses. |
+| Vim Mode (toggle) |  | Turns Vim mode on or off: with it on, plain keys are Vim commands (NORMAL mode) and i gives you the usual shortcuts back (INSERT mode). Works with any keyboard profile. |
 | New Bin | Ctrl+Shift+N | Adds a new bin (folder) to the media pool. |
 | New Smart Bin… |  | Adds a smart bin: a bin that fills itself with the clips matching rules you set. |
 | Show Bin List (toggle) |  | Shows or hides the bin list of the media pool. |

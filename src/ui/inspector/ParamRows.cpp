@@ -2,6 +2,7 @@
 // ParamRows implementation: the concrete row types and the factory.
 #include "ui/inspector/ParamRows.h"
 
+#include "core/Animation.h"
 #include "core/CurveParam.h"
 #include "core/ParamKeys.h"
 #include "core/VideoEffectKeys.h"
@@ -19,7 +20,6 @@
 #include <QEvent>
 #include <QFileInfo>
 #include <QFontComboBox>
-#include <QGuiApplication>
 #include <QGridLayout>
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -292,6 +292,11 @@ private:
                         ClipData& c) { paramaccess::setKeyInterp(c, m_ref, frame, m); });
             });
         }
+        menu.addSeparator();
+        QAction* asDefault = menu.addAction(tr("Set as Default for New Keyframes"));
+        asDefault->setEnabled(*current != Interp::Custom);
+        const Interp type = *current;
+        connect(asDefault, &QAction::triggered, this, [type] { setDefaultKeyInterp(type); });
         menu.exec(globalPos);
     }
 

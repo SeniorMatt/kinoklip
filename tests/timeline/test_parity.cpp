@@ -585,8 +585,10 @@ private slots:
         t.c.setSelectedEdit({0, c});
         t.action("timeline.add_transition")->trigger();
         QVERIFY(ops::clipById(t.f.view(), c)->transitionIn);
-        // Standard length from EditBehaviour.
-        QSettings().setValue(QStringLiteral("edit/transitionSeconds"), 2.0);
+        // Standard length from the project (Project Settings > General Options).
+        ProjectSettings settings = t.f.project.settings();
+        settings.stdTransitionFrames = 50;
+        t.f.project.setSettings(settings);
         t.c.setSelectedEdit({c, 0});
         t.action("timeline.add_transition")->trigger();
         QCOMPARE(ops::clipById(t.f.view(), c)->transitionOut->duration, int64_t(50));

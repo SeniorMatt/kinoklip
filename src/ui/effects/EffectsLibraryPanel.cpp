@@ -5,6 +5,7 @@
 #include "core/AudioTransitions.h"
 #include "core/EffectRegistry.h"
 #include "core/Preferences.h"
+#include "core/Project.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
@@ -27,6 +28,7 @@
 #include <QSplitter>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -417,6 +419,12 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     setContentWidget(splitter);
 
     populate();
+    if (m_ctx.project) {
+        markStandardTransitions();
+        connect(
+            m_ctx.project, &Project::editCommitted, this, [this] { markStandardTransitions(); });
+        connect(m_ctx.project, &Project::projectReset, this, [this] { markStandardTransitions(); });
+    }
     // The category glyphs are pixmaps in the scheme's colours: redraw them on a switch.
     connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, this, [this] {
         for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
@@ -468,11 +476,46 @@ QMenu* EffectsLibraryPanel::createContextMenu(const QString& descriptorId)
     auto* menu = new QMenu(this);
     if (QAction* howTo = guide::createHowToAction(QStringLiteral("effect:") + d->id, d->name, menu))
         menu->addAction(howTo);
+    const bool videoTransition = d->category == EffectCategory::Transition;
+    if (m_ctx.project && (videoTransition || d->category == EffectCategory::AudioTransition)) {
+        // Resolve: right-click a transition > Set as Standard Transition (this project).
+        QAction* standard = menu->addAction(tr("Set as Standard Transition"));
+        standard->setObjectName(QStringLiteral("SetStandardTransition"));
+        standard->setEnabled(m_ctx.project->standardTransitionId(!videoTransition) != d->id);
+        connect(standard, &QAction::triggered, this, [this, id = d->id, videoTransition] {
+            m_ctx.project->setStandardTransition(!videoTransition, id);
+            markStandardTransitions();
+        });
+    }
     if (menu->isEmpty()) {
         delete menu;
         return nullptr;
     }
     return menu;
+}
+
+void EffectsLibraryPanel::markStandardTransitions()
+{
+    if (!m_ctx.project)
+        return;
+    const EffectRegistry& registry = EffectRegistry::instance();
+    QTreeWidgetItemIterator it(m_tree);
+    for (; *it; ++it) {
+        const QString id = (*it)->data(0, kDescriptorRole).toString();
+        const EffectDescriptor* d = id.isEmpty() ? nullptr : registry.find(id);
+        if (!d
+            || (d->category != EffectCategory::Transition
+                && d->category != EffectCategory::AudioTransition))
+            continue;
+        const bool audio = d->category == EffectCategory::AudioTransition;
+        const bool standard = m_ctx.project->standardTransitionId(audio) == id;
+        QFont font = m_tree->font();
+        font.setBold(standard);
+        (*it)->setFont(0, font);
+        (*it)->setToolTip(0,
+            standard ? tr("%1\nStandard transition of this project").arg(d->description)
+                     : d->description);
+    }
 }
 
 void EffectsLibraryPanel::populate()

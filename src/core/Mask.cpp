@@ -105,7 +105,8 @@ void AnimatedPath::setKey(int64_t localFrame, std::optional<MaskPath> path)
     // Append the shape and point a new key at it; normalize() then puts it in frame order
     // (and drops the static shape when this is the first key).
     shapes.append(std::move(shape));
-    timing.setKey(localFrame, double(shapes.size() - 1));
+    // Linear: the curve only picks the shape, it is not an animation of its own.
+    timing.setKey(localFrame, double(shapes.size() - 1), Interp::Linear);
     normalize();
 }
 

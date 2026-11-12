@@ -3,6 +3,7 @@
 // of the dope sheet and the curve editor, selecting, moving, deleting, copying and easing keys.
 #include "../core/ClassicTimeline.h"
 #include "app/Theme.h"
+#include "core/Animation.h"
 #include "core/EditOps.h"
 #include "core/KeyframeOps.h"
 #include "core/ParamKeys.h"
@@ -222,6 +223,20 @@ private slots:
         QCOMPARE(f.view()->cursorFrame(), int64_t(50)); // the cursor stays on a key
         f.project.undo();
         QVERIFY(f.value(kPosX).hasKeyAt(40));
+    }
+
+    void newKeysUseTheDefaultInterpolation()
+    {
+        Fixture f;
+        setDefaultKeyInterp(Interp::EaseInOut);
+        f.onPosX();
+        f.project.timeline()->setPlayhead(50 + 20);
+        QVERIFY(f.view()->addKeyAtPlayhead());
+        const qsizetype i = f.value(kPosX).indexOf(20);
+        QVERIFY(i >= 0);
+        QCOMPARE(keyInterp(f.value(kPosX).keys[i]), Interp::EaseInOut);
+        QCOMPARE(keyInterp(f.value(kPosX).keys[0]), Interp::Linear); // existing keys unchanged
+        setDefaultKeyInterp(Interp::Linear);
     }
 
     void ctrlAMovesKeysLaterInTheDopeSheet()

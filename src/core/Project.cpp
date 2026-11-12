@@ -3,6 +3,9 @@
 // Timelines, tabs and compound clips: ProjectTimelines.cpp.
 #include "core/Project.h"
 
+#include "core/AudioTransitions.h"
+#include "core/EditBehaviour.h"
+#include "core/EffectRegistry.h"
 #include "core/FileParams.h"
 #include "core/Logging.h"
 #include "core/Retime.h"
@@ -23,6 +26,7 @@
 #include <QUndoStack>
 
 #include <algorithm>
+#include <cmath>
 
 namespace kk {
 
@@ -187,7 +191,54 @@ void Project::setCacheSettings(const MediaCacheSettings& settings)
 ProjectSettings Project::settings() const
 {
     return ProjectSettings {m_name, m_format.width, m_format.height, m_format.fps,
-        m_format.retimeProcess, m_format.timelineStart};
+        m_format.retimeProcess, m_format.timelineStart, standardTransitionId(false),
+        standardTransitionId(true), standardTransitionFrames()};
+}
+
+namespace {
+QString defaultTransition(bool audio)
+{
+    return audio ? audiotransitions::defaultId() : QStringLiteral("cross_dissolve");
+}
+} // namespace
+
+int64_t scaledTransitionFrames(int64_t frames, Rational from, Rational to)
+{
+    // The same duration at the new frame rate (0 = follows the preference, nothing to scale).
+    if (frames <= 0 || from == to || !from.isValid() || !to.isValid())
+        return frames;
+    return std::max<int64_t>(1, std::llround(double(frames) * to.toDouble() / from.toDouble()));
+}
+
+QString Project::standardTransitionId(bool audio) const
+{
+    const QString& id = audio ? m_format.stdAudioTransition : m_format.stdVideoTransition;
+    return id.isEmpty() ? defaultTransition(audio) : id;
+}
+
+int64_t Project::standardTransitionFrames() const
+{
+    if (m_format.stdTransitionFrames > 0)
+        return m_format.stdTransitionFrames;
+    return std::max<int64_t>(
+        1, EditBehaviour::frames(EditBehaviour::fromSettings().transitionSeconds, m_format.fps));
+}
+
+bool Project::setStandardTransition(bool audio, const QString& effectId)
+{
+    const EffectDescriptor* desc = EffectRegistry::instance().find(effectId);
+    const EffectCategory wanted
+        = audio ? EffectCategory::AudioTransition : EffectCategory::Transition;
+    if (!desc || desc->category != wanted)
+        return false;
+    if (standardTransitionId(audio) == effectId)
+        return true;
+    beginEdit(tr("Set as Standard Transition"));
+    (audio ? m_format.stdAudioTransition : m_format.stdVideoTransition)
+        = effectId == defaultTransition(audio) ? QString() : effectId;
+    endEdit();
+    setSettingsDirty(true);
+    return true;
 }
 
 void Project::setSettings(const ProjectSettings& settings)
@@ -198,10 +249,18 @@ void Project::setSettings(const ProjectSettings& settings)
     const int64_t start = settings.timelineStart == m_format.timelineStart
         ? convertTimecode(m_format.timelineStart, m_format.fps, fps)
         : settings.timelineStart;
+    // The default ids are stored as empty, so old projects stay "follow the defaults".
+    const auto storedId = [](const QString& wanted, bool audio) {
+        return wanted == defaultTransition(audio) ? QString() : wanted;
+    };
     const Format format {settings.width, settings.height, fps,
         settings.retimeProcess == RetimeProcess::ProjectDefault ? RetimeProcess::Nearest
                                                                 : settings.retimeProcess,
-        std::max<int64_t>(0, start)};
+        std::max<int64_t>(0, start), storedId(settings.stdVideoTransition, false),
+        storedId(settings.stdAudioTransition, true),
+        settings.stdTransitionFrames == standardTransitionFrames()
+            ? scaledTransitionFrames(m_format.stdTransitionFrames, m_format.fps, fps)
+            : std::max<int64_t>(0, settings.stdTransitionFrames)};
     if (format == m_format)
         return;
     const Rational oldFps = m_format.fps;
@@ -270,7 +329,10 @@ void Project::newProject()
     m_name = ProjectSettings {}.name;
     // New projects: 24 fps and timelines starting at 01:00:00:00, as in Resolve (spec 25.12).
     m_format = Format {kDefaultWidth, kDefaultHeight, kDefaultFps, RetimeProcess::Nearest,
-        oneHourTimecode(kDefaultFps)};
+        oneHourTimecode(kDefaultFps), {}, {}, 0};
+    // New projects start from the Preferences > Editing duration; later preference changes
+    // do not reach them.
+    m_format.stdTransitionFrames = standardTransitionFrames();
     m_mediaPool->clear();
     m_links->clear();
     {
@@ -330,6 +392,16 @@ QJsonObject Project::toJson(const SaveSnapshot& snap, const QString& path)
         {QLatin1String("fps"), fpsToJson(snap.format.fps)},
         {QLatin1String("retimeProcess"), retime::processToString(snap.format.retimeProcess)},
         {QLatin1String("timelineStart"), qint64(snap.format.timelineStart)}};
+    {
+        QJsonObject p = root.value(QLatin1String("project")).toObject();
+        if (!snap.format.stdVideoTransition.isEmpty())
+            p[QLatin1String("stdVideoTransition")] = snap.format.stdVideoTransition;
+        if (!snap.format.stdAudioTransition.isEmpty())
+            p[QLatin1String("stdAudioTransition")] = snap.format.stdAudioTransition;
+        if (snap.format.stdTransitionFrames > 0)
+            p[QLatin1String("stdTransitionFrames")] = qint64(snap.format.stdTransitionFrames);
+        root[QLatin1String("project")] = p;
+    }
     root[QLatin1String("mediaPool")] = serialization::mediaPoolToJson(snap.pool, projectDir);
     QJsonArray timelines;
     QJsonArray views;
@@ -448,6 +520,11 @@ bool Project::fromJson(const QJsonObject& root, int version, const QDir& project
         // Format <= 16: no starting timecode (new timelines keep starting at 00:00:00:00).
         format.timelineStart
             = std::max<qint64>(0, project.value(QLatin1String("timelineStart")).toInteger(0));
+        // Format <= 17: no standard transitions (Cross Dissolve, the preference's length).
+        format.stdVideoTransition = project.value(QLatin1String("stdVideoTransition")).toString();
+        format.stdAudioTransition = project.value(QLatin1String("stdAudioTransition")).toString();
+        format.stdTransitionFrames
+            = std::max<qint64>(0, project.value(QLatin1String("stdTransitionFrames")).toInteger(0));
     }
     for (const QJsonValue& v : root.value(QLatin1String("timelineViews")).toArray()) {
         const QJsonObject o = v.toObject();

@@ -3,6 +3,7 @@
 // cheap playhead refreshes, effects list editing, linked audio clips.
 #include "PanelTestUtils.h"
 #include "app/Theme.h"
+#include "core/Animation.h"
 #include "core/ParamKeys.h"
 #include "matting/MatteService.h"
 #include "ui/common/Resources.h"
@@ -20,6 +21,7 @@
 #include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTest>
@@ -248,6 +250,21 @@ private slots:
         // Playhead outside the clip: the diamond is disabled.
         f.project.timeline()->setPlayhead(500);
         QVERIFY(!diamond->isEnabled());
+    }
+
+    void diamondUsesTheDefaultInterpolation()
+    {
+        QSettings().clear();
+        PanelFixture f;
+        const quint64 id = f.addClip(kV1, 10, 100);
+        InspectorPanel panel(f.ctx);
+        f.selection.selectClip(id);
+        f.project.timeline()->setPlayhead(30);
+        setDefaultKeyInterp(Interp::Smooth);
+        panel.findChild<KeyframeButton*>(QStringLiteral("keyframe:") + keys::PosX)->click();
+        const AnimatedValue& posX = f.clip(id)->transform.values.value(keys::PosX);
+        QCOMPARE(keyInterp(posX.keys.front()), Interp::Smooth);
+        setDefaultKeyInterp(Interp::Linear);
     }
 
     void linkedZoomKeysBothAxes()

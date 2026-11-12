@@ -180,6 +180,11 @@ struct ParamSet
 
 /// Stable string id of an interpolation preset (used in the UI and tests), e.g. "easeInOut".
 [[nodiscard]] QString interpToString(Interp interp);
+/// The preset new keyframes get when no preset is asked for (Preferences > Editing > "New
+/// keyframes", setting "edit/newKeyInterp"; Linear by default, never Custom).
+[[nodiscard]] Interp defaultKeyInterp();
+/// Stores the "New keyframes" preference (Custom is ignored).
+void setDefaultKeyInterp(Interp interp);
 /// Parses a string produced by interpToString(); unknown strings yield Interp::Linear.
 [[nodiscard]] Interp interpFromString(const QString& text);
 /// Stable string id of a handle mode stored in project files ("linear", "ease", "smooth",
