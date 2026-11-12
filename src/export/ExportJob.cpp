@@ -2,6 +2,7 @@
 // ExportJob — the render/encode/mux loop.
 #include "export/ExportJob.h"
 
+#include "core/MemoryGuard.h"
 #include "core/TimelineData.h"
 #include "export/AudioEncoder.h"
 #include "export/EdlExport.h"
@@ -149,7 +150,9 @@ ExportResult ExportJob::run(const ProgressCallback& progress)
     }
     QElapsedTimer timer;
     timer.start();
+    memguard::markRenderStart(m_settings.outputPath);
     result = m_settings.kind() == OutputKind::Still ? runStill() : runStreams(progress);
+    memguard::markRenderEnd();
     result.seconds = double(timer.nsecsElapsed()) / 1e9;
     if (result.ok) {
         qCInfo(lcExport).noquote()
@@ -381,6 +384,15 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
     QImage converted; // reused when the compositor delivers another format
     while (done < total) {
         if (isCancelled()) {
+            return failWith({}, true);
+        }
+        // Pause while the machine is nearly out of memory instead of being killed by the kernel.
+        if (!memguard::waitForMemory([this] { return isCancelled(); },
+                [&](bool paused) {
+                    state.memoryLow = paused;
+                    if (progress)
+                        progress(state);
+                })) {
             return failWith({}, true);
         }
         int64_t step = 1;

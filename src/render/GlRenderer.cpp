@@ -68,6 +68,14 @@ double titleRasterZoom(double zoom)
     return 4.0;
 }
 
+/// Zoom factor for sizing a per-frame render target, rounded up to a quarter step and clamped to
+/// [1, maxZoom]. Keyframed zooms would otherwise give every frame its own target size, and the
+/// target pool (keyed by size) would hold one unused full-size texture per frame.
+double targetZoom(double zoom, double maxZoom)
+{
+    return std::clamp(std::ceil(zoom * 4.0 - 1e-9) / 4.0, 1.0, maxZoom);
+}
+
 /// Crop rectangle (normalised content coordinates) of @p clip for a source of @p sourcePx.
 QRectF cropRect(const ClipData& clip, int64_t localFrame, QSizeF sourcePx)
 {
@@ -814,7 +822,7 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         // The composition's output replaces the clip's picture: a frame-sized texture at the
         // resolution the frame covers in the output (x zoom up to 2, like generators), so
         // the clip's crop (timeline px), effects, masks and transform apply on top of it.
-        const double scale = std::max(fc.sx, fc.sy) * std::clamp(maxZoomValue, 1.0, kMaxNestedZoom);
+        const double scale = std::max(fc.sx, fc.sy) * targetZoom(maxZoomValue, kMaxNestedZoom);
         QSize size(std::max(1, int(std::ceil(frameSize.width() * scale))),
             std::max(1, int(std::ceil(frameSize.height() * scale))));
         if (size.width() > kMaxTargetEdge || size.height() > kMaxTargetEdge)
@@ -865,7 +873,7 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         if (d->frameB && d->weightB > 0.0f) {
             // Retimed between two source frames: the in-between picture at the size the clip
             // covers in the output (never above the source), then drawn like a texture.
-            const double scale = std::max(fc.sx, fc.sy) * std::max(1.0, maxZoomValue);
+            const double scale = std::max(fc.sx, fc.sy) * targetZoom(maxZoomValue, 8.0);
             QSize size = (src.content * scale).toSize().boundedTo(src.sourcePx.toSize());
             size = size.boundedTo(QSize(kMaxTargetEdge, kMaxTargetEdge)).expandedTo(QSize(1, 1));
             if (const GLuint texture = retimedPicture(*d, size)) {
@@ -904,7 +912,7 @@ bool GlRenderer::resolveSource(const ClipData& clip, int64_t localFrame, const F
         const QSizeF native(n->width, n->height);
         const QSizeF content = fitSize(native, frameSize);
         const double scale = std::max(fc.sx, fc.sy) * content.width() / native.width()
-            * std::clamp(maxZoomValue, 1.0, kMaxNestedZoom);
+            * targetZoom(maxZoomValue, kMaxNestedZoom);
         QSize size(std::max(1, int(std::ceil(native.width() * scale))),
             std::max(1, int(std::ceil(native.height() * scale))));
         if (size.width() > kMaxTargetEdge || size.height() > kMaxTargetEdge)
@@ -1406,7 +1414,7 @@ const RenderTarget* GlRenderer::generatorTarget(
         return nullptr;
     // Rendered at the size the frame covers in the output (sharper when zoomed in, up to 2x).
     const QSizeF frameSize(fc.timeline->width, fc.timeline->height);
-    const double scale = std::max(fc.sx, fc.sy) * std::clamp(zoom, 1.0, kMaxNestedZoom);
+    const double scale = std::max(fc.sx, fc.sy) * targetZoom(zoom, kMaxNestedZoom);
     QSize size(std::max(1, int(std::ceil(frameSize.width() * scale))),
         std::max(1, int(std::ceil(frameSize.height() * scale))));
     if (size.width() > kMaxTargetEdge || size.height() > kMaxTargetEdge)

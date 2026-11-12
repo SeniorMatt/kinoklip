@@ -28,6 +28,7 @@ struct ExportProgress
     double fps = 0.0; ///< current speed (frames per second, sliding window of ~1 s)
     double elapsedSeconds = 0.0;
     double etaSeconds = -1.0; ///< estimated remaining time; < 0 while unknown
+    bool memoryLow = false; ///< paused: the machine is nearly out of memory (resumes by itself)
 
     /// 0..1 completion.
     [[nodiscard]] double fraction() const

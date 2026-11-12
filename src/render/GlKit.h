@@ -51,6 +51,9 @@ struct RenderTarget
     int idleFrames = 0; ///< frames spent unused in the pool (for trimming)
 };
 
+/// GPU bytes of a target of @p size / @p format (RGBA16F = 8 per pixel, else 4).
+[[nodiscard]] int64_t targetBytes(QSize size, GLenum format);
+
 class TargetPool;
 
 /// Move-only handle returning its RenderTarget to the pool on destruction.
@@ -105,6 +108,13 @@ public:
     void release(RenderTarget* target);
     /// Ages free targets and deletes those idle for too long. Call once per frame.
     void trim();
+    /// Bytes held by all targets (in use and free).
+    [[nodiscard]] int64_t bytes() const { return m_bytes; }
+    /// Free targets are deleted, oldest-idle first, when a new allocation would take the total
+    /// above this. Targets in use are never touched, so a frame always completes.
+    void setByteLimit(int64_t bytes) { m_limit = bytes; }
+    [[nodiscard]] int64_t byteLimit() const { return m_limit; }
+    [[nodiscard]] size_t targetCount() const { return m_all.size(); }
     /// Deletes all GL objects (current context required).
     void destroyAll();
 
@@ -113,6 +123,10 @@ private:
     GlFunctions* m_gl;
     std::vector<std::unique_ptr<RenderTarget>> m_all;
     std::vector<RenderTarget*> m_free;
+    int64_t m_bytes = 0;
+    int64_t m_limit = 1024LL << 20;
+    void deleteTarget(RenderTarget* t);
+    void evictFor(int64_t incoming);
 };
 
 /// Shared GL helpers. Owned by the GL renderer; effects and transitions receive a reference.
