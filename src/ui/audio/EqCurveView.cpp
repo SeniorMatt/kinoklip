@@ -6,6 +6,7 @@
 #include "ui/audio/AudioScales.h"
 #include "ui/common/SchemeColors.h"
 
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -18,7 +19,6 @@ namespace kk {
 
 namespace {
 constexpr double kSampleRate = 48000.0;
-constexpr double kRangeDb = kEqMaxGainDb; ///< the plot shows +-24 dB
 constexpr int kHandleRadius = 7;
 constexpr int kMargin = 24; ///< room for the axis labels
 constexpr double kQWheelFactor = 1.12; ///< Q change per wheel notch
@@ -35,7 +35,9 @@ EqCurveView::EqCurveView(QWidget* parent)
     : QWidget(parent)
 {
     setMouseTracking(false);
-    setToolTip(tr("Drag a band to change its frequency and gain; the wheel changes its Q"));
+    setFocusPolicy(Qt::StrongFocus);
+    setToolTip(tr("Drag a band to change its frequency and gain (Shift: fine). The wheel or "
+                  "Alt-drag changes its Q, double-click resets the band, arrow keys move it."));
 }
 
 void EqCurveView::setSettings(const EqSettings& settings)
@@ -43,6 +45,29 @@ void EqCurveView::setSettings(const EqSettings& settings)
     if (settings == m_settings)
         return;
     m_settings = settings;
+    update();
+}
+
+void EqCurveView::setBandCount(int count)
+{
+    count = std::clamp(count, 1, kEqBandCount);
+    if (count == m_count)
+        return;
+    m_count = count;
+    if (m_selected >= count)
+        m_selected = -1;
+    update();
+}
+
+void EqCurveView::setRangeDb(double db)
+{
+    m_rangeDb = std::max(1.0, db);
+    update();
+}
+
+void EqCurveView::setShowBandCurves(bool on)
+{
+    m_showBandCurves = on;
     update();
 }
 
@@ -68,7 +93,7 @@ double EqCurveView::xOf(double hz) const
 double EqCurveView::yOf(double db) const
 {
     const QRectF r = plot();
-    return r.center().y() - std::clamp(db, -kRangeDb, kRangeDb) / kRangeDb * r.height() / 2.0;
+    return r.center().y() - std::clamp(db, -m_rangeDb, m_rangeDb) / m_rangeDb * r.height() / 2.0;
 }
 
 QPointF EqCurveView::handlePosition(int band) const
@@ -81,7 +106,7 @@ int EqCurveView::bandAt(QPointF pos) const
 {
     int best = -1;
     double bestDist = kHandleRadius * 1.6;
-    for (int i = 0; i < kEqBandCount; ++i) {
+    for (int i = 0; i < m_count; ++i) {
         const double d = QLineF(pos, handlePosition(i)).length();
         if (d < bestDist) {
             bestDist = d;
@@ -142,15 +167,21 @@ void EqCurveView::paintEvent(QPaintEvent*)
     };
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setClipRect(r);
-    if (m_selected >= 0 && m_settings.bands[size_t(m_selected)].enabled) {
-        const dsp::BiquadCoeffs& c = coeffs[size_t(m_selected)];
-        p.setPen(QPen(withAlpha(sc.series(m_selected), 170), 1.2, Qt::DashLine));
+    for (int i = 0; i < m_count; ++i) {
+        const bool selected = i == m_selected;
+        if (!m_settings.bands[size_t(i)].enabled || (!selected && !m_showBandCurves))
+            continue;
+        const dsp::BiquadCoeffs& c = coeffs[size_t(i)];
+        QPen pen(withAlpha(sc.series(i), selected ? 200 : 90), selected ? 1.4 : 1.0);
+        if (selected)
+            pen.setStyle(Qt::DashLine);
+        p.setPen(pen);
         p.drawPath(curve([&](double hz) { return dsp::magnitudeDb(c, hz, kSampleRate); }));
     }
     const QPainterPath total = curve([&](double hz) {
         double db = 0.0;
-        for (const dsp::BiquadCoeffs& c : coeffs)
-            db += dsp::magnitudeDb(c, hz, kSampleRate);
+        for (int i = 0; i < m_count; ++i)
+            db += dsp::magnitudeDb(coeffs[size_t(i)], hz, kSampleRate);
         return db;
     });
     QPainterPath area = total;
@@ -164,10 +195,15 @@ void EqCurveView::paintEvent(QPaintEvent*)
     p.setClipping(false);
 
     // Handles.
-    for (int i = 0; i < kEqBandCount; ++i) {
+    for (int i = 0; i < m_count; ++i) {
         const EqBand& b = m_settings.bands[size_t(i)];
         const QPointF h = handlePosition(i);
         const QColor c = b.enabled ? sc.series(i) : sc.textDisabled;
+        if (i == m_selected && hasFocus()) {
+            p.setPen(QPen(withAlpha(sc.focus, 160), 2));
+            p.setBrush(Qt::NoBrush);
+            p.drawEllipse(h, kHandleRadius + 4, kHandleRadius + 4);
+        }
         p.setPen(QPen(i == m_selected ? sc.text : sc.shadow, i == m_selected ? 2 : 1));
         p.setBrush(c);
         p.drawEllipse(h, kHandleRadius, kHandleRadius);
@@ -180,16 +216,25 @@ void EqCurveView::paintEvent(QPaintEvent*)
 
 void EqCurveView::mousePressEvent(QMouseEvent* event)
 {
-    if (event->button() != Qt::LeftButton)
+    if (event->button() != Qt::LeftButton && event->button() != Qt::RightButton)
         return;
     const int band = bandAt(event->position());
+    setFocus(Qt::MouseFocusReason);
     if (band != m_selected) {
         setSelectedBand(band);
         emit bandSelected(band);
     }
+    if (event->button() == Qt::RightButton) {
+        emit bandContextRequested(band, event->globalPosition().toPoint());
+        return;
+    }
     if (band < 0)
         return;
     m_dragging = band;
+    m_dragPoint = handlePosition(band);
+    m_lastMouse = event->position();
+    m_dragQ = false;
+    m_dragQValue = m_settings.bands[size_t(band)].q;
     emit bandPressed(band);
 }
 
@@ -197,13 +242,27 @@ void EqCurveView::mouseMoveEvent(QMouseEvent* event)
 {
     if (m_dragging < 0)
         return;
+    const QPointF delta = event->position() - m_lastMouse;
+    m_lastMouse = event->position();
+    if (event->modifiers() & Qt::AltModifier) {
+        // Alt-drag: Q, one octave of Q per 60 pixels up.
+        m_dragQ = true;
+        const double factor = (event->modifiers() & Qt::ShiftModifier) ? 0.1 : 1.0;
+        m_dragQValue = std::clamp(
+            m_dragQValue * std::pow(2.0, -delta.y() * factor / 60.0), kEqMinQ, kEqMaxQ);
+        emit bandQDragged(m_dragging, m_dragQValue);
+        return;
+    }
     const QRectF r = plot();
-    const double x = (event->position().x() - r.left()) / std::max(1.0, r.width());
+    const double scale = (event->modifiers() & Qt::ShiftModifier) ? 0.1 : 1.0;
+    m_dragPoint += delta * scale;
+    m_dragPoint.setX(std::clamp(m_dragPoint.x(), r.left(), r.right()));
+    m_dragPoint.setY(std::clamp(m_dragPoint.y(), r.top(), r.bottom()));
+    const double x = (m_dragPoint.x() - r.left()) / std::max(1.0, r.width());
     const double hz
         = std::clamp(audioscale::positionFrequency(x), kEqMinFrequencyHz, kEqMaxFrequencyHz);
-    const double db
-        = std::clamp((r.center().y() - event->position().y()) / (r.height() / 2.0) * kRangeDb,
-            -kRangeDb, kRangeDb);
+    const double db = std::clamp(
+        (r.center().y() - m_dragPoint.y()) / (r.height() / 2.0) * m_rangeDb, -m_rangeDb, m_rangeDb);
     emit bandDragged(m_dragging, hz, db);
 }
 
@@ -216,6 +275,88 @@ void EqCurveView::mouseReleaseEvent(QMouseEvent* event)
     emit bandReleased(band);
 }
 
+void EqCurveView::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    if (event->button() != Qt::LeftButton)
+        return;
+    const int band = bandAt(event->position());
+    if (band >= 0)
+        emit bandResetRequested(band);
+}
+
+void EqCurveView::focusInEvent(QFocusEvent* event)
+{
+    QWidget::focusInEvent(event);
+    if (m_selected < 0 && event->reason() != Qt::MouseFocusReason) {
+        m_selected = event->reason() == Qt::BacktabFocusReason ? m_count - 1 : 0;
+        emit bandSelected(m_selected);
+    }
+    update();
+}
+
+bool EqCurveView::focusNextPrevChild(bool next)
+{
+    if (hasFocus() && m_selected >= 0) {
+        const int target = m_selected + (next ? 1 : -1);
+        if (target >= 0 && target < m_count) {
+            setSelectedBand(target);
+            emit bandSelected(target);
+            return true;
+        }
+        setSelectedBand(-1); // leaving: the next visit starts at the first / last band
+    }
+    return QWidget::focusNextPrevChild(next);
+}
+
+void EqCurveView::keyPressEvent(QKeyEvent* event)
+{
+    const int b = m_selected;
+    if (b < 0 || b >= m_count) {
+        QWidget::keyPressEvent(event);
+        return;
+    }
+    const EqBand& band = m_settings.bands[size_t(b)];
+    const bool fine = event->modifiers() & Qt::ShiftModifier;
+    switch (event->key()) {
+    case Qt::Key_Left:
+    case Qt::Key_Right: {
+        // 1/12 octave per step, 1/96 with Shift.
+        const double octaves = (event->key() == Qt::Key_Right ? 1.0 : -1.0) / (fine ? 96.0 : 12.0);
+        const double hz = std::clamp(
+            band.frequencyHz * std::pow(2.0, octaves), kEqMinFrequencyHz, kEqMaxFrequencyHz);
+        emit bandPressed(b);
+        emit bandDragged(b, hz, band.gainDb);
+        emit bandReleased(b);
+        break;
+    }
+    case Qt::Key_Up:
+    case Qt::Key_Down: {
+        const double step = (event->key() == Qt::Key_Up ? 1.0 : -1.0) * (fine ? 0.1 : 0.5);
+        const double db = std::clamp(band.gainDb + step, -m_rangeDb, m_rangeDb);
+        emit bandPressed(b);
+        emit bandDragged(b, band.frequencyHz, db);
+        emit bandReleased(b);
+        break;
+    }
+    case Qt::Key_PageUp:
+    case Qt::Key_PageDown: {
+        const double q = std::clamp(
+            band.q * std::pow(kQWheelFactor, event->key() == Qt::Key_PageUp ? 1 : -1), kEqMinQ,
+            kEqMaxQ);
+        emit bandQRequested(b, q);
+        break;
+    }
+    case Qt::Key_Delete:
+    case Qt::Key_Backspace:
+        emit bandResetRequested(b);
+        break;
+    default:
+        QWidget::keyPressEvent(event);
+        return;
+    }
+    event->accept();
+}
+
 void EqCurveView::wheelEvent(QWheelEvent* event)
 {
     const int band = bandAt(event->position());
@@ -223,8 +364,10 @@ void EqCurveView::wheelEvent(QWheelEvent* event)
     if (band >= 0 && notches != 0) {
         const double q = m_settings.bands[size_t(band)].q * std::pow(kQWheelFactor, notches);
         emit bandQRequested(band, std::clamp(q, kEqMinQ, kEqMaxQ));
+        event->accept();
+        return;
     }
-    event->accept();
+    event->ignore(); // not over a handle: the Inspector scrolls
 }
 
 } // namespace kk

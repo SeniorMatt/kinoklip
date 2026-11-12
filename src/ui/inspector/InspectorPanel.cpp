@@ -22,6 +22,7 @@
 #include "ui/common/VimRowOps.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/help/Guide.h"
+#include "ui/inspector/ClipEqEditor.h"
 #include "ui/inspector/KeyframeButton.h"
 #include "ui/inspector/MultiClipEdit.h"
 #include "ui/inspector/ParamGroupBox.h"
@@ -691,6 +692,12 @@ void InspectorPanel::addDescriptorGroup(
 {
     ParamGroupBox* group = addGroup(tab, desc.id, desc.name, clipId);
     attachHelp(group, desc.id, desc.name);
+    if (desc.id == QLatin1String(groups::AudioEq)) {
+        // The graphical editor sits above the number rows (which stay).
+        auto* eq = new ClipEqEditor(*this, clipId);
+        group->addWidgetRow({}, eq);
+        group->addHeaderRefresh([eq](const ClipData& c) { eq->refresh(c); });
+    }
     for (const ParamDescriptor& p : desc.params)
         group->addParam(ParamRef {clipId, scope, effectId, p.key}, p, *this);
     addSectionKeyframeButton(group, desc, scope, clipId, effectId);

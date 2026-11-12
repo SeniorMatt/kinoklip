@@ -37,6 +37,13 @@ R16 / GR1616 (P010), so decoded 4K pictures never go through system memory. The 
 Test media (`tests/data/generated`) is not in the repository: `scripts/make_test_media.sh`
 generates it with FFmpeg's test sources.
 
+### Equalizer editor
+The graphical Equalizer (`src/ui/audio/EqCurveView.*`, `src/ui/inspector/ClipEqEditor.*`) follows the
+look of free equalizer editors, which were studied for ideas only: Audacity's Filter Curve EQ (GPL-2.0-or-later: a plot with a
+0 dB line, a labelled log frequency axis and dB grid, redraw on edit; its envelope-point editor itself
+is not used because it draws a FIR envelope, not a parametric one), FL Studio-style filled total curve
+with numbered band handles. No code from any of them was copied; the maths is Kinoklip's own RBJ biquads (`src/render/Biquad.h`).
+
 ## In the release bundles
 The Linux bundles also contain third-party libraries and data, each under its own licence: Qt
 (LGPL-3.0), KDE Frameworks and the Breeze widget style and icons (LGPL-2.0/2.1/3.0-or-later),
