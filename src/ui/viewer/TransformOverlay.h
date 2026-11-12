@@ -11,6 +11,7 @@
 #include <QWidget>
 
 #include <optional>
+#include <vector>
 
 class QAction;
 
@@ -37,6 +38,11 @@ class ViewerSurface;
 /// dragging anywhere else moves the clip (Position X / Y). Crop (spec 24.12): the uncropped
 /// outline dimmed and the crop rectangle with edge and corner handles (Crop Left / Right /
 /// Top / Bottom). The maths and the Shift conventions are in transformgesture::TransformDrag.
+///
+/// With several video clips selected, the move, scale, rotate and crop drags change every one
+/// of them by the same amount (position, rotation and crop shift by the same distance, zoom
+/// is multiplied by the same factor), as the Inspector does; the anchor point moves only the
+/// shown clip (spec 24.1).
 ///
 /// One named undo step per drag ("Move Clip", "Scale Clip", "Rotate Clip", "Move Anchor
 /// Point", "Crop Clip"); an animated parameter gets a key at the playhead, as an Inspector
@@ -102,6 +108,16 @@ private:
     bool m_dragging = false;
     quint64 m_dragClip = 0;
     transformgesture::TransformDrag m_drag;
+    /// The other selected video clips, which get the same relative change (spec 24.1).
+    struct Peer
+    {
+        quint64 id = 0;
+        transformgesture::DragValues start;
+    };
+    std::vector<Peer> m_peers;
+    transformgesture::DragValues m_primaryStart;
+    /// Applies the change the primary clip's drag made so far to m_peers.
+    void updatePeers(const ClipData& primary, int64_t primaryLocal);
     QPointer<GuideOverlay> m_guides; ///< setGuideOverlay()
 };
 

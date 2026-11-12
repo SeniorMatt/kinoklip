@@ -40,6 +40,10 @@ Controls**. A frame with handles appears around the selected clip in the viewer:
 - drag a corner or an edge to make it bigger or smaller;
 - drag the round handle above the top edge to rotate it.
 
+With several clips selected, dragging the frame of the shown clip changes all of them by the
+same amount (and typing in the Inspector's Transform, Cropping and Composite sections does
+too), whatever kind of clip they are.
+
 Choose **On-Screen Crop Controls** to crop by dragging the edges of the frame, and **Off** to
 hide the handles again.
 

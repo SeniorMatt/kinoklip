@@ -295,6 +295,76 @@ private slots:
         f.action("view.onscreen_transform")->setChecked(false);
     }
 
+    // Several selected video clips of any kind: move, scale, rotate and crop drags change all
+    // of them by the same amount, in one undo step (owner report, spec 24.1).
+    void dragsApplyToEverySelectedClip()
+    {
+        Fixture f;
+        TimelineData d = f.project.timeline()->data();
+        ClipData other = solid(); // a second solid, zoomed 2x already
+        other.id = d.allocateId();
+        other.transform.setBase(keys::ZoomX, 2.0);
+        other.transform.setBase(keys::ZoomY, 2.0);
+        other.transform.setBase(keys::PosX, 10.0);
+        ClipData titleClip = solid();
+        titleClip.id = d.allocateId();
+        titleClip.kind = ClipKind::Title;
+        d.videoTracks[1].clips.push_back(other);
+        editops::addTrack(d, TrackType::Video);
+        d.videoTracks[2].clips.push_back(titleClip);
+        f.project.timeline()->setData(d);
+        f.selection.setClips({other.id, titleClip.id, f.clipId}); // f.clipId is the current one
+        ViewerPanel viewer(ViewerPanel::Mode::Timeline, f.ctx);
+        viewer.resize(700, 500);
+        viewer.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&viewer));
+        TransformOverlay* overlay = viewer.transformOverlay();
+        f.action("view.onscreen_transform")->setChecked(true);
+        QTRY_VERIFY(overlay->isEditing());
+        QUndoStack* undo = f.project.undoStack();
+        auto zoomOf = [&](quint64 id) {
+            return editops::clipById(f.project.timeline()->data(), id)
+                ->transform.value(keys::ZoomX, 0);
+        };
+        // Corner out: 1.5x on the shown clip, 1.5x on the others (2 -> 3).
+        QPointF from = handleAt(overlay, 1, 1, false);
+        QPointF to = overlay->frameToWidget()->map(QPointF(400, 225));
+        int steps = undo->index();
+        press(overlay, from);
+        move(overlay, (from + to) / 2);
+        move(overlay, to);
+        release(overlay, to);
+        QCOMPARE(undo->index(), steps + 1);
+        QVERIFY(std::abs(zoomOf(f.clipId) - 1.5) < 0.02);
+        QVERIFY(std::abs(zoomOf(other.id) - 3.0) < 0.04);
+        QVERIFY(std::abs(zoomOf(titleClip.id) - 1.5) < 0.02);
+        undo->undo();
+        QCOMPARE(zoomOf(other.id), 2.0);
+        QCOMPARE(zoomOf(titleClip.id), 1.0);
+        // Move: the same distance for all.
+        from = overlay->frameToWidget()->map(QPointF(100, 60));
+        to = overlay->frameToWidget()->map(QPointF(140, 80));
+        steps = undo->index();
+        press(overlay, from);
+        move(overlay, to);
+        release(overlay, to);
+        QCOMPARE(undo->index(), steps + 1);
+        auto posOf = [&](quint64 id, const QString& key) {
+            return editops::clipById(f.project.timeline()->data(), id)->transform.value(key, 0);
+        };
+        QCOMPARE(posOf(f.clipId, keys::PosX), 40.0);
+        QCOMPARE(posOf(other.id, keys::PosX), 50.0);
+        QCOMPARE(posOf(titleClip.id, keys::PosY), 20.0);
+        // Esc puts everything back.
+        undo->undo();
+        press(overlay, from);
+        move(overlay, to);
+        QTest::keyClick(overlay, Qt::Key_Escape);
+        QCOMPARE(posOf(other.id, keys::PosX), 10.0);
+        QCOMPARE(posOf(titleClip.id, keys::PosX), 0.0);
+        f.action("view.onscreen_transform")->setChecked(false);
+    }
+
     // The real overlay: scale, rotate and crop drags are one named undo step each and
     // write keys at the playhead when the parameter is animated.
     void overlayDragsAreUndoStepsAndKeyframe()

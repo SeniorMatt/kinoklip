@@ -9,6 +9,7 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/inspector/MultiClipEdit.h"
 #include "ui/viewer/GuideOverlay.h"
 #include "ui/viewer/ViewerSurface.h"
 
@@ -290,6 +291,20 @@ void TransformOverlay::mousePressEvent(QMouseEvent* event)
     m_drag.begin(*clip, local, *pic, handle, toWidget->inverted().map(event->position()));
     m_dragging = true;
     m_dragClip = id;
+    m_peers.clear();
+    m_primaryStart = tg::DragValues::read(clip->transform, local);
+    if (handle.kind != TransformHandle::Kind::Anchor && m_ctx.selection) {
+        const TimelineData& data = m_ctx.project->timeline()->data();
+        for (quint64 peerId : multiclip::peers(data, m_ctx.selection->clips(), id)) {
+            const ClipData* peer = editops::clipById(data, peerId);
+            if (!peer)
+                continue;
+            const int64_t at
+                = std::clamp<int64_t>(peer->localFrame(m_ctx.project->timeline()->playhead()), 0,
+                    std::max<int64_t>(0, peer->duration - 1));
+            m_peers.push_back({peerId, tg::DragValues::read(peer->transform, at)});
+        }
+    }
     m_ctx.project->beginEdit(undoName(handle.kind));
 }
 
@@ -311,7 +326,26 @@ void TransformOverlay::mouseMoveEvent(QMouseEvent* event)
     m_drag.update(clip->transform, local, pointer, shift);
     if (m_guides && !(event->modifiers() & Qt::ControlModifier))
         pointer = snapPointer(*clip, local, pointer, shift, *toWidget);
+    updatePeers(*clip, local);
     timeline->notifyChanged(); // live picture and Inspector while dragging
+}
+
+void TransformOverlay::updatePeers(const ClipData& primary, int64_t primaryLocal)
+{
+    if (m_peers.empty())
+        return;
+    Timeline* timeline = m_ctx.project->timeline();
+    const tg::DragValues now = tg::DragValues::read(primary.transform, primaryLocal);
+    const QSizeF frame(timeline->data().width, timeline->data().height);
+    for (const Peer& p : m_peers) {
+        ClipData* peer = editops::clipById(timeline->mutableData(), p.id);
+        if (!peer)
+            continue;
+        const int64_t at = std::clamp<int64_t>(
+            peer->localFrame(timeline->playhead()), 0, std::max<int64_t>(0, peer->duration - 1));
+        const QSizeF source = tg::picture(*peer, at, frame, m_ctx.project->mediaPool()).sourcePx;
+        tg::applyRelative(m_primaryStart, now, p.start, peer->transform, at, source);
+    }
 }
 
 void TransformOverlay::setGuideOverlay(GuideOverlay* guides)
@@ -399,6 +433,7 @@ void TransformOverlay::keyPressEvent(QKeyEvent* event)
 void TransformOverlay::finishDrag(bool commit)
 {
     m_dragging = false;
+    m_peers.clear();
     if (!commit)
         m_ctx.project->cancelEdit();
     m_ctx.project->endEdit();
