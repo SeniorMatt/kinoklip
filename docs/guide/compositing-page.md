@@ -72,6 +72,27 @@ Relative** (each repeat continues from where the last ended, for a turning angle
 keyframe. The panel is small on purpose: widen it by dragging the line between it and the
 node editor, and use the **»** button when the tool row does not fit.
 
+## Viewer tools
+
+Each viewer has a row of buttons under its title (the ones that do not fit are in the **»**
+menu). The keys below work only while that viewer has the focus (click into it first), so they
+never get in the way of keys like **I** and **O** elsewhere.
+
+- **A, B and A|B** (keys **,** **.** and **/**): the viewer has two buffers. Buffer A shows the
+  node you sent with **1** / **2**. Press **.** to switch to buffer B (it starts as a copy of
+  A), then send another node with **1** / **2** or drag one in: it goes into B and A keeps its
+  node. **/** shows both at once with a split line; drag the dot to move the line, drag the
+  line itself to turn it (hold **Shift** for steps of 45 degrees).
+- **Color, Red, Green, Blue, Alpha** (keys **C**, **R**, **G**, **B**, **A**): show one channel
+  of the picture as grey. **Checker** shows a checker pattern under the picture so you can see
+  which parts are transparent. These need a saved composition (make one edit first).
+- **Controls** (**Ctrl+K**): hide or show the handles over the picture.
+- **Lock** (**Ctrl+L**): the viewer keeps its node when you press **1** / **2** for another.
+- **Clear** (**~**): empties both viewers.
+- **100%** (**Ctrl+1**): shows the picture at its real size.
+- **Loop** (next to Play): click to change what happens at the end of the clip: **Loop**,
+  **Ping-pong** (plays forward and backward) or **Once** (stops on the last frame).
+
 ## Tips
 
 - **Fade the text in:** select **Merge1** and keyframe its **Blend** (0 at the start, 1 a

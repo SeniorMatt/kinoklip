@@ -65,6 +65,9 @@ CompositingPage::CompositingPage(AppContext& ctx, QWidget* parent)
 
     m_left = new CompViewer(0, ctx, m_session);
     m_right = new CompViewer(1, ctx, m_session);
+    // Clear Viewers (the ~ key or button of either viewer) empties both.
+    connect(m_left, &CompViewer::clearRequested, m_right, &CompViewer::clearViewer);
+    connect(m_right, &CompViewer::clearRequested, m_left, &CompViewer::clearViewer);
     m_viewers = new PanelSplitter(Qt::Horizontal);
     m_viewers->setObjectName(QStringLiteral("CompViewersSplitter"));
     m_viewers->addWidget(m_left);

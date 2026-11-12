@@ -42,6 +42,9 @@ private:
     QPointer<CompSession> m_session;
 };
 
+/// What playback does at the end of the clip range (the Loop button cycles them).
+enum class CompLoopMode { Loop, PingPong, Once };
+
 /// Play / stop, the ruler, and the comp frame with the timeline timecode. Play runs the
 /// program PlaybackEngine over the clip's range of the timeline and loops back to the clip's
 /// first frame at its end (the composition's render range); stop pauses.
@@ -60,6 +63,12 @@ public:
     void play();
     /// Pauses.
     void stop();
+    /// Loop (back to the first frame), Ping-pong (reverse at both ends) or Once (stop at the
+    /// last frame).
+    [[nodiscard]] CompLoopMode loopMode() const { return m_loop; }
+    void setLoopMode(CompLoopMode mode);
+    /// Loop -> Ping-pong -> Once -> Loop (the button).
+    void cycleLoopMode();
     /// True while the transport plays the clip range.
     [[nodiscard]] bool isPlaying() const { return m_playing; }
 
@@ -72,6 +81,8 @@ private:
     CompTimeRuler* m_ruler = nullptr;
     QToolButton* m_play = nullptr;
     QToolButton* m_stop = nullptr;
+    QToolButton* m_loopButton = nullptr;
+    CompLoopMode m_loop = CompLoopMode::Loop;
     QLabel* m_position = nullptr;
     bool m_playing = false;
 };

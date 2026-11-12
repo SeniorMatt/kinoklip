@@ -57,10 +57,12 @@
 #include <QMouseEvent>
 #include <QProgressBar>
 #include <QSettings>
+#include <QKeyEvent>
 #include <QSignalSpy>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QTest>
+#include <QToolBar>
 #include <QToolButton>
 #include <QUndoStack>
 
@@ -1206,6 +1208,249 @@ private slots:
         QCOMPARE(f.comp().node(t)->params.values.value(nodekeys::CenterX).keys[1].value, 0.9);
         panel->timeBox()->setValue(25);
         QCOMPARE(f.comp().node(t)->params.values.value(nodekeys::CenterX).keys[1].frame, 25);
+    }
+
+    // ---- Spec 90: viewer features (A/B, channels, checker, controls, lock, clear, 100 %, loop) ----
+
+    void spec90_channelCheckerAndWipeHelpers()
+    {
+        using namespace viewerfx;
+        QImage img(8, 4, QImage::Format_ARGB32);
+        img.fill(qRgba(200, 100, 50, 255));
+        img.setPixel(0, 0, qRgba(10, 20, 30, 0));
+        QCOMPARE(qRed(showChannel(img, Channel::Red).pixel(3, 1)), 200);
+        QCOMPARE(qGreen(showChannel(img, Channel::Green).pixel(3, 1)), 100);
+        QCOMPARE(qBlue(showChannel(img, Channel::Blue).pixel(3, 1)), 50);
+        const QImage alpha = showChannel(img, Channel::Alpha);
+        QCOMPARE(qRed(alpha.pixel(3, 1)), 255);
+        QCOMPARE(qRed(alpha.pixel(0, 0)), 0);
+        QCOMPARE(qAlpha(alpha.pixel(0, 0)), 255); // the channel view is opaque
+        QCOMPARE(showChannel(img, Channel::Color), img);
+        // Checker: a transparent picture shows two different greys; an opaque pixel stays.
+        QImage clear(64, 32, QImage::Format_ARGB32_Premultiplied);
+        clear.fill(Qt::transparent);
+        clear.setPixelColor(40, 20, QColor(255, 0, 0));
+        const QImage c = overChecker(clear, 16);
+        QVERIFY(c.pixel(2, 2) != c.pixel(20, 2));
+        QCOMPARE(c.pixel(2, 2), c.pixel(36, 2));
+        QCOMPARE(c.pixelColor(40, 20), QColor(255, 0, 0));
+        QCOMPARE(qAlpha(c.pixel(2, 2)), 255);
+        // Wipe: A on the left of a vertical line, B on the right; 0 degrees swaps to the top.
+        QImage a(20, 10, QImage::Format_ARGB32_Premultiplied), b = a;
+        a.fill(Qt::red);
+        b.fill(Qt::blue);
+        const QImage w = splitWipe(a, b, QPointF(0.5, 0.5), 90);
+        QCOMPARE(w.pixelColor(2, 5), QColor(Qt::red));
+        QCOMPARE(w.pixelColor(17, 5), QColor(Qt::blue));
+        const QImage h = splitWipe(a, b, QPointF(0.5, 0.5), 0);
+        QVERIFY(h.pixelColor(10, 1) != h.pixelColor(10, 8));
+    }
+
+    void spec90_buffersAAndB()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        CompViewer* v = f.page()->viewer(0);
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        const quint64 out = f.nodeNamed(QStringLiteral("MediaOut1"));
+        f.session()->setViewerNode(0, in);
+        QCOMPARE(v->activeBuffer(), 0);
+        QTest::keyClick(v, Qt::Key_Period); // buffer B: starts as a copy of A
+        QCOMPARE(v->activeBuffer(), 1);
+        QCOMPARE(v->bufferNode(1), in);
+        QVERIFY(v->toolAction(QStringLiteral("b"))->isChecked());
+        // A node assigned while B is shown goes to B; A keeps its node.
+        f.session()->setViewerNode(0, out);
+        QCOMPARE(v->bufferNode(1), out);
+        QCOMPARE(v->bufferNode(0), in);
+        QCOMPARE(f.session()->viewerNode(0), in);
+        QCOMPARE(v->node(), out);
+        QTest::keyClick(v, Qt::Key_Comma);
+        QCOMPARE(v->activeBuffer(), 0);
+        QCOMPARE(v->node(), in);
+        QVERIFY(v->headerText().contains(QStringLiteral("MediaIn1")));
+        // Split display with / (and the A|B button), a movable line.
+        QVERIFY(!v->splitShown());
+        QTest::keyClick(v, Qt::Key_Slash);
+        QVERIFY(v->splitShown());
+        QVERIFY(v->toolAction(QStringLiteral("split"))->isChecked());
+        v->setSplitLine(QPointF(0.25, 0.5), 45);
+        QCOMPARE(v->splitPos(), QPointF(0.25, 0.5));
+        QCOMPARE(v->splitAngle(), 45.0);
+        v->toolAction(QStringLiteral("split"))->trigger();
+        QVERIFY(!v->splitShown());
+        // Buffers are per viewer.
+        QCOMPARE(f.page()->viewer(1)->activeBuffer(), 0);
+    }
+
+    void spec90_channelKeys()
+    {
+        Fixture f;
+        f.showPage();
+        CompViewer* v = f.page()->viewer(1);
+        using viewerfx::Channel;
+        QCOMPARE(v->channel(), Channel::Color);
+        const std::pair<Qt::Key, Channel> keys[] = {{Qt::Key_R, Channel::Red},
+            {Qt::Key_G, Channel::Green}, {Qt::Key_B, Channel::Blue}, {Qt::Key_A, Channel::Alpha},
+            {Qt::Key_C, Channel::Color}};
+        const char* ids[] = {"red", "green", "blue", "alpha", "color"};
+        int i = 0;
+        for (const auto& [key, ch] : keys) {
+            QTest::keyClick(v, key);
+            QCOMPARE(v->channel(), ch);
+            QVERIFY(v->toolAction(QLatin1String(ids[i++]))->isChecked());
+        }
+        // The same key again goes back to colour (button).
+        v->toolAction(QStringLiteral("red"))->trigger();
+        QCOMPARE(v->channel(), Channel::Red);
+        v->toolAction(QStringLiteral("red"))->trigger();
+        QCOMPARE(v->channel(), Channel::Color);
+    }
+
+    void spec90_checkerControlsLockClearAndZoom()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        CompViewer* v = f.page()->viewer(0);
+        CompViewer* r = f.page()->viewer(1);
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        f.session()->setViewerNode(0, in);
+        // Checker button.
+        QVERIFY(!v->checkerShown());
+        v->toolAction(QStringLiteral("checker"))->trigger();
+        QVERIFY(v->checkerShown());
+        // Ctrl+K hides and shows the on-screen controls.
+        QVERIFY(v->controls()->isVisible());
+        QTest::keyClick(v, Qt::Key_K, Qt::ControlModifier);
+        QVERIFY(!v->controlsShown());
+        QVERIFY(!v->controls()->isVisible());
+        QTest::keyClick(v, Qt::Key_K, Qt::ControlModifier);
+        QVERIFY(v->controls()->isVisible());
+        // Ctrl+L locks: 1 / 2 and drops no longer change what the viewer shows.
+        QTest::keyClick(v, Qt::Key_L, Qt::ControlModifier);
+        QVERIFY(v->locked());
+        const quint64 out = f.nodeNamed(QStringLiteral("MediaOut1"));
+        f.session()->setViewerNode(0, out);
+        QCOMPARE(v->node(), in);
+        QVERIFY(v->headerText().contains(QStringLiteral("MediaIn1")));
+        QTest::keyClick(v, Qt::Key_L, Qt::ControlModifier);
+        QVERIFY(!v->locked());
+        QCOMPARE(v->node(), out);
+        // Ctrl+1: 100 %.
+        v->setZoom(0.0);
+        QTest::keyClick(v, Qt::Key_1, Qt::ControlModifier);
+        QCOMPARE(v->surface()->zoom(), 1.0);
+        // ~ clears both viewers (and the lock).
+        QTest::keyClick(v, Qt::Key_L, Qt::ControlModifier);
+        QCOMPARE(r->node(), f.nodeNamed(QStringLiteral("MediaOut1")));
+        QTest::keyClick(v, Qt::Key_AsciiTilde, Qt::ShiftModifier);
+        QVERIFY(!v->locked());
+        QCOMPARE(v->node(), quint64(0));
+        QCOMPARE(r->node(), quint64(0));
+        QCOMPARE(f.session()->viewerNode(0), quint64(0));
+        QVERIFY(v->headerText().contains(QStringLiteral("No Node")));
+    }
+
+    // The keys are viewer-local: with the focus in the node editor they do nothing, and the
+    // global keys (I = Mark In, ...) are not touched.
+    void spec90_keysActOnlyWithViewerFocus()
+    {
+        Fixture f;
+        f.showPage();
+        CompViewer* v = f.page()->viewer(1);
+        f.editor()->setFocus();
+        for (Qt::Key k : {Qt::Key_R, Qt::Key_G, Qt::Key_A, Qt::Key_Comma, Qt::Key_Slash})
+            QTest::keyClick(f.editor(), k);
+        QTest::keyClick(f.editor(), Qt::Key_K, Qt::ControlModifier);
+        QTest::keyClick(f.editor(), Qt::Key_L, Qt::ControlModifier);
+        QCoreApplication::processEvents();
+        QCOMPARE(v->channel(), viewerfx::Channel::Color);
+        QCOMPARE(v->activeBuffer(), 0);
+        QVERIFY(!v->splitShown());
+        QVERIFY(v->controlsShown());
+        QVERIFY(!v->locked());
+        // The viewer itself ignores keys it does not own (I stays free for Mark In).
+        QKeyEvent over(QEvent::ShortcutOverride, Qt::Key_I, Qt::NoModifier);
+        QCoreApplication::sendEvent(v, &over);
+        QVERIFY(!over.isAccepted());
+        QKeyEvent mine(QEvent::ShortcutOverride, Qt::Key_R, Qt::NoModifier);
+        QCoreApplication::sendEvent(v, &mine);
+        QVERIFY(mine.isAccepted());
+    }
+
+    void spec90_viewerToolBarFitsA1366Window()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.window->resize(1366, 768);
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        f.action("view.page_compositing")->trigger();
+        QCoreApplication::processEvents();
+        for (int i = 0; i < 2; ++i) {
+            QToolBar* bar = f.page()->viewer(i)->toolBar();
+            QVERIFY(bar->isVisible());
+            const QRect barRect(bar->mapTo(f.window.get(), QPoint(0, 0)), bar->size());
+            QVERIFY(f.window->rect().contains(barRect));
+            QList<QRect> rects;
+            for (QToolButton* b : bar->findChildren<QToolButton*>()) {
+                if (!b->isVisible())
+                    continue;
+                const QRect r(b->mapTo(f.window.get(), QPoint(0, 0)), b->size());
+                QVERIFY2(barRect.contains(r), qPrintable(b->text())); // nothing cut off
+                rects << r;
+            }
+            QVERIFY(rects.size() >= 2);
+            for (int a = 0; a < rects.size(); ++a)
+                for (int b = a + 1; b < rects.size(); ++b)
+                    QVERIFY2(!rects[a].intersects(rects[b]), "viewer tool buttons overlap");
+        }
+    }
+
+    void spec90_loopModeHasThreeStates()
+    {
+        Fixture f(true, true);
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        CompTransport* t = f.page()->transport();
+        QCOMPARE(t->loopMode(), CompLoopMode::Loop);
+        auto* button = t->findChild<QToolButton*>(QStringLiteral("CompLoop"));
+        QVERIFY(button);
+        button->click();
+        QCOMPARE(t->loopMode(), CompLoopMode::PingPong);
+        QCOMPARE(button->text(), QStringLiteral("Ping-pong"));
+        button->click();
+        QCOMPARE(t->loopMode(), CompLoopMode::Once);
+        button->click();
+        QCOMPARE(t->loopMode(), CompLoopMode::Loop);
+        // Once: playing from the last frame stops at it.
+        t->setLoopMode(CompLoopMode::Once);
+        f.project.timeline()->setPlayhead(58);
+        t->play();
+        QTRY_VERIFY_WITH_TIMEOUT(!t->isPlaying(), 5000);
+        QVERIFY(f.project.timeline()->playhead() >= 58);
+        QVERIFY(f.project.timeline()->playhead() <= 59);
+        // Ping-pong: at the end the engine turns round.
+        t->setLoopMode(CompLoopMode::PingPong);
+        f.project.timeline()->setPlayhead(57);
+        t->play();
+        QTRY_VERIFY_WITH_TIMEOUT(f.playback->rate() < 0.0, 5000);
+        t->stop();
+    }
+
+    void spec90_channelViewRendersAnImage()
+    {
+        Fixture f(true, true);
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        CompViewer* v = f.page()->viewer(1);
+        f.session()->renameNode(f.nodeNamed(QStringLiteral("MediaIn1")), QStringLiteral("Plate"));
+        v->setChannel(viewerfx::Channel::Alpha);
+        v->setChecker(true);
+        v->setSplit(true);
+        QTRY_VERIFY_WITH_TIMEOUT(v->surface()->picture().hasFrame(), 5000);
     }
 
     void spec43_panelsFitA1366Window()
