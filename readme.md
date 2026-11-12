@@ -39,6 +39,10 @@ a few real advantages there:
   titles and animations play back without lag.
 - **H.264, H.265 and AAC for free**, for import and export. Resolve's free version on Linux has
   none of them, and Studio adds H.264 and H.265 only with an NVIDIA GPU.
+- **Audio recording that works.** Record a voice-over straight onto the timeline from any
+  microphone your desktop sees, through PipeWire or PulseAudio, on Wayland and X11
+  ([how](docs/guide/record-a-voice-over.md)). Resolve on Linux talks only to ALSA, so on most
+  desktops recording a microphone doesn't work without extra setup.
 - **Any GPU with OpenGL 3.3**: AMD, Intel and NVIDIA, including integrated graphics, which
   Resolve doesn't officially support.
 - **One AppImage**
