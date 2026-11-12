@@ -102,7 +102,12 @@ Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 
 - [ ] Compositing: a Spline panel (Fusion-style curve editor for every animated node value), with keyframe loops: Loop, Ping-Pong and Relative (repeat with offset) before and after the keys
 - [ ] Compositing: Fusion's node editor behaviour (auto-Merge when connecting onto a connected node, insert on a link, add after the selected node, swap inputs) and Merge's missing controls (Flip, Edges and more)
-- [ ] Compositing: a deeper pass over the page to match Fusion (Keyframes panel, tools, viewers, shortcuts)
+- [ ] Compositing: keyframe loops in the animation model (Loop, Relative, Ping-Pong, Pre-Loop, Reverse, Time Stretch)
+- [ ] Compositing: Keyframes panel on the page (Fusion style), next to the Spline panel
+- [ ] Compositing: Merge and Transform controls in full (Edges, Pivot, Invert Transform, Alpha Gain, Burn In, all apply modes)
+- [ ] Compositing: viewer features (A/B split, channel keys, checker, show/hide controls, lock)
+- [ ] Compositing: Common Controls tab on every tool (Blend, RGBA, mask options, motion blur)
+- [ ] Compositing: more tools (Delta Keyer, Luma Keyer, Corner Positioner, B-Spline mask, rounded Rectangle) and node editor extras (thumbnails, Replace, Find, tile colours, Paste Settings)
 - [ ] Background Removal: a general model for pictures and any subject, and a newer video model if one fits our licence
 - [ ] Media Pool: Save a Copy to Computer for media stored in a single-file project
 - [ ] Timeline: thumbnails come back quickly after zooming
