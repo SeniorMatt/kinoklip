@@ -676,19 +676,6 @@ void registerStandardActions(ActionRegistry& registry)
         }
     }
 
-    // The spline keys (S L I O V T F) act while a Keyframes / Spline panel has the focus: the
-    // panels add these actions to themselves; as window shortcuts L, I and O would clash with
-    // transport and marks.
-    for (const char* id :
-        {"clip.keyframe_linear", "clip.keyframe_ease_in", "clip.keyframe_ease_out",
-            "clip.keyframe_ease_in_out", "clip.keyframe_smooth", "clip.keyframe_step_in",
-            "clip.keyframe_step_out", "clip.keyframe_reverse", "clip.keyframe_fit"}) {
-        if (registry.contains(QLatin1String(id))) {
-            registry.action(QLatin1String(id))->setShortcutContext(Qt::WidgetWithChildrenShortcut);
-            registry.setShortcutScope(QLatin1String(id), QStringLiteral("widget:keyframes_panel"));
-        }
-    }
-
     // Node editor keys act only while the node editor has focus (NodeEditor claims them through
     // QEvent::ShortcutOverride); as window shortcuts they would clash with Copy, Delete, the
     // multicam number keys and so on. Their scope tells Keyboard Customization that sharing a

@@ -32,6 +32,7 @@
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QSettings>
+#include <QShortcut>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTimer>
@@ -42,6 +43,7 @@
 #include <QWindow>
 
 #include <cmath>
+#include <functional>
 
 namespace kk {
 
@@ -479,18 +481,21 @@ void KeyframesPanel::setupSplineTools()
     kc::bindSplineActions(m_ctx);
     if (!m_ctx.actions)
         return;
-    // The registry's commands (Clip > Keyframes, keys S L I O V T F) act while this panel has
-    // the focus: the actions are added to the panel and have a widget-with-children context.
-    QStringList ids;
-    for (const kc::SplineAction& a : kc::splineActions())
-        ids << QLatin1String(a.id);
-    for (const kc::EasingAction& a : kc::easingActions())
-        ids << QLatin1String(a.id);
-    ids << QStringLiteral("clip.keyframe_fit");
-    for (const QString& id : std::as_const(ids)) {
-        if (m_ctx.actions->contains(id))
-            addAction(m_ctx.actions->action(id));
-    }
+    // The Fusion spline keys live in the panel, not in the registry (the global commands stay
+    // keyless, spec 49.4, and L / I / O / V / F keep their meaning elsewhere): S Smooth, L Linear,
+    // I Step In, O Step Out, V Reverse, T Ease In and Out, F Fit, while the panel has the focus.
+    auto key = [this](const char* seq, std::function<void()> fn) {
+        auto* sc = new QShortcut(QKeySequence(QLatin1String(seq)), this);
+        sc->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(sc, &QShortcut::activated, this, std::move(fn));
+    };
+    key("S", [this] { kc::easeTargets(m_ctx, Interp::Smooth); });
+    key("L", [this] { kc::easeTargets(m_ctx, Interp::Linear); });
+    key("T", [this] { kc::easeTargets(m_ctx, Interp::EaseInOut); });
+    key("I", [this] { kc::stepSelected(m_ctx, true); });
+    key("O", [this] { kc::stepSelected(m_ctx, false); });
+    key("V", [this] { kc::reverseSelected(m_ctx); });
+    key("F", [this] { fitAll(); });
     if (m_ctx.actions->contains(QStringLiteral("clip.keyframe_fit"))) {
         connect(m_ctx.actions->action(QStringLiteral("clip.keyframe_fit")), &QAction::triggered,
             this, [this] {

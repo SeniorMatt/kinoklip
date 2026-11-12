@@ -17,5 +17,3 @@ Import of your own files (Keyboard Customization > Import...): Premiere Pro `.ky
 Cut Pro `.commandset` (XML plist) files are read too. The commands Kinoklip recognises get
 their keys on top of the matching preset; unknown entries are skipped and counted.
 See `src/ui/common/ForeignKeymaps.cpp`.
-
-Vim mode is not a preset: it is an option that works with any of these. Its keys are in [vim-keys.md](vim-keys.md); the guide is [Vim for Kinoklip](../guide/edit-with-vim-keys.md) and a one-page list is the [Vim cheat sheet](../guide/vim-cheat-sheet.md).

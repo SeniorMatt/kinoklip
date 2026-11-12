@@ -320,8 +320,8 @@ private slots:
             QStringLiteral("audio"), QStringLiteral("deliver")};
         const QStringList panels {QStringLiteral("media_pool"), QStringLiteral("effects"),
             QStringLiteral("edit_index"), QStringLiteral("inspector"), QStringLiteral("keyframes"),
-            QStringLiteral("mixer"), QStringLiteral("metadata"), QStringLiteral("timeline"),
-            QStringLiteral("viewer"), QStringLiteral("render_settings"),
+            QStringLiteral("spline"), QStringLiteral("mixer"), QStringLiteral("metadata"),
+            QStringLiteral("timeline"), QStringLiteral("viewer"), QStringLiteral("render_settings"),
             QStringLiteral("render_queue"), QStringLiteral("color_gallery"),
             QStringLiteral("color_nodes"), QStringLiteral("color_scopes"),
             QStringLiteral("color_primaries"), QStringLiteral("color_curves"),
