@@ -333,6 +333,8 @@ bool VimController::handleCommand(const QString& name, int count, bool hasCount,
         QTimer::singleShot(0, this, [this, kind = name.mid(7)] { openPicker(kind); });
         return true;
     }
+    if (name.startsWith(QLatin1String("transition_")))
+        return transitionCommand(name, count, hasCount);
     return windowCommand(name, count, hasCount, arg);
 }
 

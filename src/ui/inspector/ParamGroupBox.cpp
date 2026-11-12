@@ -33,6 +33,7 @@ ParamGroupBox::ParamGroupBox(const QString& title, QWidget* parent)
     m_header->setAttribute(Qt::WA_StyledBackground);
     m_header->setFixedHeight(kHeaderHeight);
     m_header->setCursor(Qt::PointingHandCursor);
+    m_header->setProperty(VimRowOps::kRowProperty, QVariant::fromValue<QObject*>(this));
     m_header->installEventFilter(this);
     m_headerLayout = new QHBoxLayout(m_header);
     m_headerLayout->setContentsMargins(2, 0, 4, 0);
@@ -96,6 +97,7 @@ QCheckBox* ParamGroupBox::addEnableToggle()
     box->setFocusPolicy(Qt::NoFocus);
     box->setToolTip(tr("Enable or disable"));
     m_headerLayout->insertWidget(1, box);
+    m_enable = box;
     return box;
 }
 
@@ -108,6 +110,22 @@ QToolButton* ParamGroupBox::addHeaderButton(InspectorGlyph glyph, const QString&
     button->setToolTip(toolTip);
     button->setFocusPolicy(Qt::NoFocus);
     m_headerLayout->addWidget(button);
+    switch (glyph) {
+    case InspectorGlyph::Remove:
+        m_removeButton = button;
+        break;
+    case InspectorGlyph::Reset:
+        m_resetButton = button;
+        break;
+    case InspectorGlyph::MoveUp:
+        m_upButton = button;
+        break;
+    case InspectorGlyph::MoveDown:
+        m_downButton = button;
+        break;
+    default:
+        break;
+    }
     return button;
 }
 
@@ -152,6 +170,43 @@ void ParamGroupBox::refresh(const ClipData& clip, int64_t localFrame, bool playh
         m_headerRefresh(clip);
     for (ParamRow* row : std::as_const(m_rows))
         row->refresh(clip, localFrame, playheadInside);
+}
+
+bool ParamGroupBox::vimFold(int mode)
+{
+    const bool collapse = mode == 0 ? !m_collapsed : mode < 0;
+    if (collapse == m_collapsed)
+        return true;
+    setCollapsed(collapse);
+    emit collapsedChanged(m_collapsed);
+    return true;
+}
+
+bool ParamGroupBox::vimSwitch()
+{
+    if (!m_enable || !m_enable->isEnabled())
+        return false;
+    m_enable->click();
+    return true;
+}
+
+bool ParamGroupBox::vimRemove()
+{
+    // An effect, mask or transition goes; a section that cannot be removed resets.
+    QToolButton* button = m_removeButton ? m_removeButton : m_resetButton;
+    if (!button || !button->isEnabled())
+        return false;
+    button->click();
+    return true;
+}
+
+bool ParamGroupBox::vimMove(int delta)
+{
+    QToolButton* button = delta < 0 ? m_upButton : m_downButton;
+    if (!button || !button->isEnabled())
+        return false;
+    button->click();
+    return true;
 }
 
 bool ParamGroupBox::eventFilter(QObject* watched, QEvent* event)

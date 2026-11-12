@@ -32,6 +32,10 @@ class PanelFrame;
 class TimelinePanel;
 class VimInput;
 class VimListHost;
+class VimFormHost;
+class VimKeyframeHost;
+class VimNodeHost;
+class VimMixerHost;
 class VimKeymap;
 class VimModeLine;
 class VimPicker;
@@ -67,6 +71,10 @@ public:
 
     /// The list host (the "list" context: any list, tree or grid with the focus).
     [[nodiscard]] VimListHost* listHost() const { return m_listHost; }
+    [[nodiscard]] VimFormHost* formHost() const { return m_formHost; }
+    [[nodiscard]] VimKeyframeHost* keyframeHost() const { return m_keyframeHost; }
+    [[nodiscard]] VimNodeHost* nodeHost() const { return m_nodeHost; }
+    [[nodiscard]] VimMixerHost* mixerHost() const { return m_mixerHost; }
     /// Gives the focus to the panel with key @p name (a panel key such as "media_pool", or one
     /// of :panel's names: media effects inspector timeline viewer keyframes mixer nodes
     /// metadata index) on the shown page, showing it first when it is hidden. False when this
@@ -89,6 +97,7 @@ private:
     bool eventFilter(QObject* watched, QEvent* event) override;
     bool handleCommand(const QString& name, int count, bool hasCount, const QString& arg);
     // panels, windows, pages, lists (VimWindows.cpp)
+    bool transitionCommand(const QString& name, int count, bool hasCount);
     bool windowCommand(const QString& name, int count, bool hasCount, const QString& arg);
     bool newBin();
     [[nodiscard]] PanelFrame* currentFrame() const;
@@ -122,6 +131,10 @@ private:
     QPointer<PanelFrame> m_previousFrame; ///< the panel that had it before (<C-w>p)
     QVector<QPointer<PanelFrame>> m_zoomHidden; ///< the panels <C-w>o hid
     VimListHost* m_listHost = nullptr;
+    VimFormHost* m_formHost = nullptr;
+    VimKeyframeHost* m_keyframeHost = nullptr;
+    VimNodeHost* m_nodeHost = nullptr;
+    VimMixerHost* m_mixerHost = nullptr;
     bool m_searchInList = false; ///< the `/` line searches the rows of a list
     QPointer<QWidget> m_returnFocus; ///< where the focus goes when the `:` line closes
     VimCommandLine* m_line = nullptr;

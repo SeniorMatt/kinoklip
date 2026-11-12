@@ -12,6 +12,7 @@
 #include "ui/inspector/ParamEditHost.h"
 #include "ui/inspector/ValueField.h"
 
+#include <QAbstractButton>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -28,9 +29,11 @@
 #include <QPlainTextEdit>
 #include <QSignalBlocker>
 #include <QSlider>
+#include <QTextCursor>
 #include <QTimer>
 #include <QToolButton>
 
+#include <algorithm>
 #include <cmath>
 
 namespace kk {
@@ -125,6 +128,7 @@ public:
         m_field->setSuffix(desc.unit);
         m_field->setToolTip(tr("Drag to change (Shift: fine, Ctrl: coarse), double-click to type"));
         grid->addWidget(m_field, gridRow, paramgrid::kEditor);
+        m_main = m_field;
 
         connect(m_field, &ValueField::scrubStarted, this, [this] {
             m_host.setActiveParam(m_ref, m_desc);
@@ -133,13 +137,15 @@ public:
         });
         connect(m_field, &ValueField::valueScrubbed, this, [this](double v) { apply(v); });
         connect(m_field, &ValueField::scrubFinished, this, [this] { finishGesture(); });
-        connect(m_field, &ValueField::valueCommitted, this, [this](double v) { applyOnce(v); });
+        connect(
+            m_field, &ValueField::valueCommitted, this, [this](double v) { applyScalarOnce(v); });
 
         if (desc.max - desc.min <= kMaxSliderRange) {
             m_slider = new QSlider(Qt::Horizontal, parentWidget);
             m_slider->setRange(0, kSliderSteps);
             m_slider->setFocusPolicy(Qt::NoFocus);
             grid->addWidget(m_slider, gridRow, paramgrid::kSlider);
+            m_extra.append(m_slider);
             connect(m_slider, &QSlider::sliderPressed, this, [this] {
                 m_host.setActiveParam(m_ref, m_desc);
                 m_host.beginParamEdit(changeLabel());
@@ -150,15 +156,13 @@ public:
                 if (m_inGesture)
                     apply(v);
                 else
-                    applyOnce(v); // page step / keyboard: one undo step each
+                    applyScalarOnce(v); // page step / keyboard: one undo step each
             });
             connect(m_slider, &QSlider::sliderReleased, this, [this] { finishGesture(); });
         }
 
         // Transition parameters are not keyframed (the transition has its own time base).
-        const bool keyable = desc.animatable && ref.scope != ParamScope::TransitionIn
-            && ref.scope != ParamScope::TransitionOut;
-        if (keyable) {
+        if (keyable()) {
             auto* box = new QWidget(parentWidget);
             auto* layout = new QHBoxLayout(box);
             layout->setContentsMargins(0, 0, 0, 0);
@@ -180,6 +184,7 @@ public:
                     [this](bool on) { m_host.setColorPicking(m_ref, on); });
             }
             grid->addWidget(box, gridRow, paramgrid::kKeyframe);
+            m_extra.append(box);
             connect(m_diamond, &QAbstractButton::clicked, this, [this] { toggleKey(); });
             // Right-click on a key: interpolation of the segment that starts there (spec 15.6).
             m_diamond->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -249,36 +254,12 @@ private:
         });
     }
 
-    void applyOnce(double shown)
-    {
-        const double value = m_desc.displayed(shown);
-        m_host.setActiveParam(m_ref, m_desc);
-        const quint64 clipId = m_ref.clipId;
-        m_host.editClip(changeLabel(), clipId, [this, clipId, value](ClipData& clip) {
-            paramaccess::setScalar(clip, m_ref, m_desc, m_host.localFrame(clipId), value);
-        });
-    }
-
     void finishGesture()
     {
         if (!m_inGesture)
             return;
         m_inGesture = false;
         m_host.endParamEdit();
-    }
-
-    void toggleKey()
-    {
-        const ClipData* clip = m_host.clip(m_ref.clipId);
-        if (!clip)
-            return;
-        m_host.setActiveParam(m_ref, m_desc);
-        const int64_t frame = m_host.localFrame(m_ref.clipId);
-        const AnimatedValue* anim = paramaccess::animated(*clip, m_ref);
-        const QString label
-            = anim && anim->hasKeyAt(frame) ? tr("Remove Keyframe") : tr("Add Keyframe");
-        m_host.editClip(label, m_ref.clipId,
-            [this, frame](ClipData& c) { paramaccess::toggleKey(c, m_ref, m_desc, frame); });
     }
 
     void showInterpMenu(const QPoint& globalPos)
@@ -313,18 +294,6 @@ private:
         menu.exec(globalPos);
     }
 
-    void jump(bool forward)
-    {
-        const ClipData* clip = m_host.clip(m_ref.clipId);
-        const AnimatedValue* anim = clip ? paramaccess::animated(*clip, m_ref) : nullptr;
-        if (!anim)
-            return;
-        const int64_t frame = m_host.localFrame(m_ref.clipId);
-        const auto target = forward ? anim->nextKeyFrame(frame) : anim->previousKeyFrame(frame);
-        if (target)
-            m_host.seekLocalFrame(m_ref.clipId, *target);
-    }
-
     ValueField* m_field = nullptr;
     QSlider* m_slider = nullptr;
     KeyframeButton* m_diamond = nullptr;
@@ -346,6 +315,7 @@ public:
         addCommonWidgets(grid, gridRow, parentWidget);
         m_box = new QCheckBox(parentWidget);
         grid->addWidget(m_box, gridRow, paramgrid::kEditor, 1, 2);
+        m_main = m_box;
         // clicked (not toggled): only user input creates undo steps, never refresh().
         connect(m_box, &QCheckBox::clicked, this, [this](bool on) {
             m_host.editClip(changeLabel(), m_ref.clipId,
@@ -392,6 +362,7 @@ public:
             m_combo->addItem(label, desc.choices[i]);
         }
         grid->addWidget(m_combo, gridRow, paramgrid::kEditor, 1, 2);
+        m_main = m_combo;
         connect(m_combo, &QComboBox::activated, this, [this](int index) {
             const QString value = m_combo->itemData(index).toString();
             m_host.editClip(changeLabel(), m_ref.clipId,
@@ -430,6 +401,7 @@ public:
         m_swatch->setAutoRaise(true);
         m_swatch->setToolTip(tr("Click to choose a color"));
         grid->addWidget(m_swatch, gridRow, paramgrid::kEditor, 1, 2, Qt::AlignLeft);
+        m_main = m_swatch;
         if (desc.viewerPicker && ref.scope == ParamScope::Effect) {
             // Eyedropper: while checked, a click (or a drag over an area) in the timeline
             // viewer picks the colour (ColorPickOverlay); it unchecks itself after the pick.
@@ -437,6 +409,7 @@ public:
                 tr("Pick the color in the timeline viewer: click a pixel or drag over an area "
                    "to average it"));
             grid->addWidget(m_picker, gridRow, paramgrid::kKeyframe, Qt::AlignLeft);
+            m_extra.append(m_picker);
             connect(m_picker, &QToolButton::toggled, this,
                 [this](bool on) { m_host.setColorPicking(m_ref, on); });
         }
@@ -486,6 +459,7 @@ public:
         m_edit = new QLineEdit(parentWidget);
         m_edit->setObjectName(QStringLiteral("text:") + desc.key); // tests, guide screenshots
         grid->addWidget(m_edit, gridRow, paramgrid::kEditor, 1, 2);
+        m_main = m_edit;
         connect(m_edit, &QLineEdit::editingFinished, this, [this] {
             const QString text = m_edit->text();
             const ClipData* clip = m_host.clip(m_ref.clipId);
@@ -522,6 +496,7 @@ public:
         m_combo->setEditable(false);
         makeCompact(m_combo);
         grid->addWidget(m_combo, gridRow, paramgrid::kEditor, 1, 2);
+        m_main = m_combo;
         connect(m_combo, &QComboBox::activated, this, [this] {
             const QString family = m_combo->currentFont().family();
             m_host.editClip(changeLabel(), m_ref.clipId,
@@ -562,6 +537,7 @@ public:
         m_edit->setFixedHeight(lineHeight * kTextEditLines + 12);
         m_edit->installEventFilter(this);
         grid->addWidget(m_edit, gridRow, paramgrid::kEditor, 1, 3);
+        m_main = m_edit;
         m_idle.setSingleShot(true);
         m_idle.setInterval(kTextEditIdleMs);
         connect(&m_idle, &QTimer::timeout, this, [this] { finishTyping(); });
@@ -642,6 +618,7 @@ public:
         else if (desc.key == fxkeys::BlueCurve)
             m_editor->setCurveColor(sc.link);
         grid->addWidget(m_editor, gridRow, paramgrid::kEditor, 1, 3);
+        m_main = m_editor;
         connect(m_editor, &CurveEditor::editStarted, this, [this] {
             m_host.beginParamEdit(changeLabel());
             m_inGesture = true;
@@ -711,6 +688,8 @@ public:
         layout->addWidget(m_name, 1);
         layout->addWidget(m_browse);
         grid->addWidget(box, gridRow, paramgrid::kEditor, 1, 3);
+        m_main = m_browse;
+        m_extra.append(box);
         connect(m_browse, &QToolButton::clicked, this, [this] {
             const QString picked = m_host.pickFile(m_path, m_desc.label, m_desc.fileFilter);
             if (picked.isEmpty() || picked == m_path)
@@ -761,6 +740,7 @@ void ParamRow::addCommonWidgets(QGridLayout* grid, int gridRow, QWidget* parentW
     m_label = new QLabel(m_desc.label, parentWidget);
     m_label->setObjectName(QStringLiteral("InspectorParamLabel"));
     m_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    m_label->setProperty(VimRowOps::kRowProperty, QVariant::fromValue<QObject*>(this));
     grid->addWidget(m_label, gridRow, paramgrid::kLabel,
         m_desc.type == ParamType::String && m_desc.key == keys::Text
             ? Qt::AlignRight | Qt::AlignTop
@@ -787,6 +767,242 @@ void ParamRow::refreshReset(const ClipData& clip, int64_t localFrame)
 QString ParamRow::changeLabel() const
 {
     return tr("Change %1").arg(m_desc.label);
+}
+
+// ---- Keyboard access (VimRowOps) ----
+
+bool ParamRow::keyable() const
+{
+    return m_desc.animatable && m_desc.isScalar() && m_ref.scope != ParamScope::TransitionIn
+        && m_ref.scope != ParamScope::TransitionOut;
+}
+
+void ParamRow::applyScalarOnce(double shown)
+{
+    const double value = m_desc.displayed(shown);
+    m_host.setActiveParam(m_ref, m_desc);
+    const quint64 clipId = m_ref.clipId;
+    m_host.editClip(changeLabel(), clipId, [this, clipId, value](ClipData& clip) {
+        paramaccess::setScalar(clip, m_ref, m_desc, m_host.localFrame(clipId), value);
+    });
+}
+
+void ParamRow::toggleKey()
+{
+    const ClipData* clip = m_host.clip(m_ref.clipId);
+    if (!clip)
+        return;
+    m_host.setActiveParam(m_ref, m_desc);
+    const int64_t frame = m_host.localFrame(m_ref.clipId);
+    const AnimatedValue* anim = paramaccess::animated(*clip, m_ref);
+    const QString label
+        = anim && anim->hasKeyAt(frame) ? tr("Remove Keyframe") : tr("Add Keyframe");
+    m_host.editClip(label, m_ref.clipId,
+        [this, frame](ClipData& c) { paramaccess::toggleKey(c, m_ref, m_desc, frame); });
+}
+
+void ParamRow::jump(bool forward)
+{
+    const ClipData* clip = m_host.clip(m_ref.clipId);
+    const AnimatedValue* anim = clip ? paramaccess::animated(*clip, m_ref) : nullptr;
+    if (!anim)
+        return;
+    const int64_t frame = m_host.localFrame(m_ref.clipId);
+    const auto target = forward ? anim->nextKeyFrame(frame) : anim->previousKeyFrame(frame);
+    if (target)
+        m_host.seekLocalFrame(m_ref.clipId, *target);
+}
+
+QList<QWidget*> ParamRow::vimWidgets() const
+{
+    QList<QWidget*> widgets {m_label, m_reset};
+    if (m_main)
+        widgets.append(m_main);
+    widgets.append(m_extra);
+    return widgets;
+}
+
+bool ParamRow::vimStep(int steps, double scale)
+{
+    const ClipData* clip = m_host.clip(m_ref.clipId);
+    if (!clip || steps == 0)
+        return false;
+    if (m_desc.isScalar()) {
+        const int64_t frame = m_host.localFrame(m_ref.clipId);
+        double shown = m_desc.displayed(paramaccess::scalar(*clip, m_ref, m_desc, frame));
+        double step = m_desc.step * scale;
+        if (m_desc.type == ParamType::Int)
+            step = std::max(1.0, std::round(step));
+        // Rounded to the decimals the field shows (one more for the fine step), so 0.1 added
+        // ten times is 1.0, not 0.99999.
+        const int decimals = decimalsForStep(m_desc) + (scale < 1.0 ? 1 : 0);
+        const double unit = std::pow(10.0, decimals);
+        shown = std::clamp(shown + steps * step, m_desc.min, m_desc.max);
+        shown = std::round(shown * unit) / unit;
+        applyScalarOnce(shown);
+        return true;
+    }
+    if (m_desc.type == ParamType::Bool) {
+        const bool on = !paramaccess::staticValue(*clip, m_ref, m_desc).toBool();
+        m_host.editClip(changeLabel(), m_ref.clipId,
+            [this, on](ClipData& c) { paramaccess::setStatic(c, m_ref, on); });
+        return true;
+    }
+    if (m_desc.type == ParamType::Choice && !m_desc.choices.isEmpty()) {
+        const int n = int(m_desc.choices.size());
+        const int at = std::max<qsizetype>(
+            0, m_desc.choices.indexOf(paramaccess::staticValue(*clip, m_ref, m_desc).toString()));
+        const QString value = m_desc.choices[((at + steps) % n + n) % n];
+        m_host.editClip(changeLabel(), m_ref.clipId,
+            [this, value](ClipData& c) { paramaccess::setStatic(c, m_ref, value); });
+        return true;
+    }
+    return false;
+}
+
+bool ParamRow::vimReset()
+{
+    if (!m_reset || !m_reset->isEnabled())
+        return false;
+    m_reset->click();
+    return true;
+}
+
+bool ParamRow::vimEdit()
+{
+    if (!m_main)
+        return false;
+    if (auto* field = qobject_cast<ValueField*>(m_main)) {
+        field->setFocus(Qt::OtherFocusReason);
+        field->startTextEdit();
+        return true;
+    }
+    if (auto* line = qobject_cast<QLineEdit*>(m_main)) {
+        if (line->isReadOnly())
+            return false;
+        line->setFocus(Qt::OtherFocusReason);
+        line->end(false);
+        return true;
+    }
+    if (auto* text = qobject_cast<QPlainTextEdit*>(m_main)) {
+        text->setFocus(Qt::OtherFocusReason);
+        text->moveCursor(QTextCursor::End);
+        return true;
+    }
+    return vimActivate();
+}
+
+bool ParamRow::vimActivate()
+{
+    if (!m_main)
+        return false;
+    if (qobject_cast<ValueField*>(m_main) || qobject_cast<QLineEdit*>(m_main)
+        || qobject_cast<QPlainTextEdit*>(m_main))
+        return vimEdit();
+    if (auto* button = qobject_cast<QAbstractButton*>(m_main)) {
+        if (!button->isEnabled())
+            return false;
+        button->click();
+        return true;
+    }
+    if (auto* combo = qobject_cast<QComboBox*>(m_main)) {
+        combo->setFocus(Qt::OtherFocusReason);
+        combo->showPopup();
+        return true;
+    }
+    return false;
+}
+
+QVariant ParamRow::vimValue() const
+{
+    const ClipData* clip = m_host.clip(m_ref.clipId);
+    if (!clip || m_desc.type == ParamType::Curve)
+        return {};
+    QVariant value;
+    if (m_desc.isScalar()) {
+        const int64_t frame = m_host.localFrame(m_ref.clipId);
+        value = m_desc.displayed(paramaccess::scalar(*clip, m_ref, m_desc, frame));
+    } else {
+        value = paramaccess::staticValue(*clip, m_ref, m_desc);
+    }
+    return QVariantList {int(m_desc.type), value};
+}
+
+bool ParamRow::vimSetValue(const QVariant& packed)
+{
+    const QVariantList list = packed.toList();
+    if (list.size() != 2 || list[0].toInt() != int(m_desc.type) || m_desc.type == ParamType::Curve)
+        return false;
+    if (m_desc.isScalar()) {
+        applyScalarOnce(std::clamp(list[1].toDouble(), m_desc.min, m_desc.max));
+        return true;
+    }
+    const QVariant value = list[1];
+    m_host.editClip(changeLabel(), m_ref.clipId,
+        [this, value](ClipData& c) { paramaccess::setStatic(c, m_ref, value); });
+    return true;
+}
+
+bool ParamRow::vimToggleKeyframe()
+{
+    if (!keyable())
+        return false;
+    toggleKey();
+    return true;
+}
+
+bool ParamRow::vimJumpKeyframe(bool forward)
+{
+    if (!keyable())
+        return false;
+    jump(forward);
+    return true;
+}
+
+bool ParamRow::vimDeleteKeyframe()
+{
+    const ClipData* clip = m_host.clip(m_ref.clipId);
+    if (!keyable() || !clip)
+        return false;
+    const AnimatedValue* anim = paramaccess::animated(*clip, m_ref);
+    if (!anim || !anim->hasKeyAt(m_host.localFrame(m_ref.clipId)))
+        return false;
+    toggleKey();
+    return true;
+}
+
+bool ParamRow::vimSetInterp(Ease ease)
+{
+    const ClipData* clip = m_host.clip(m_ref.clipId);
+    if (!keyable() || !clip)
+        return false;
+    const int64_t frame = m_host.localFrame(m_ref.clipId);
+    if (!paramaccess::keyInterp(*clip, m_ref, frame))
+        return false;
+    kk::Interp mode = kk::Interp::Linear;
+    switch (ease) {
+    case Ease::Linear:
+        mode = kk::Interp::Linear;
+        break;
+    case Ease::EaseIn:
+        mode = kk::Interp::EaseIn;
+        break;
+    case Ease::EaseOut:
+        mode = kk::Interp::EaseOut;
+        break;
+    case Ease::EaseInOut:
+        mode = kk::Interp::EaseInOut;
+        break;
+    case Ease::Smooth:
+        mode = kk::Interp::Smooth;
+        break;
+    case Ease::Hold:
+        mode = kk::Interp::Hold;
+        break;
+    }
+    m_host.editClip(tr("Change Keyframe Interpolation"), m_ref.clipId,
+        [this, frame, mode](ClipData& c) { paramaccess::setKeyInterp(c, m_ref, frame, mode); });
+    return true;
 }
 
 ParamRow* ParamRow::create(const ParamRef& ref, const ParamDescriptor& desc, ParamEditHost& host,

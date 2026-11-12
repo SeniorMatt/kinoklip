@@ -51,6 +51,8 @@ public:
     void setMixed(bool mixed);
     [[nodiscard]] bool isMixed() const { return m_mixed; }
 
+    /// Value change per step (before the modifiers).
+    [[nodiscard]] double step() const { return m_step; }
     /// Minimum of the range.
     [[nodiscard]] double minimum() const { return m_min; }
     /// Maximum of the range.

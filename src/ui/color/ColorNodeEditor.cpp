@@ -2,6 +2,7 @@
 // ColorNodeEditor — painting, hit tests and gestures of the Color page node graph.
 #include "ui/color/ColorNodeEditor.h"
 
+#include "ui/color/ColorNodeOps.h"
 #include "ui/color/ColorSession.h"
 #include "ui/common/ActionRegistry.h"
 
@@ -43,6 +44,7 @@ ColorNodeEditor::ColorNodeEditor(ColorSession* session, ActionRegistry* actions,
     , m_actions(actions)
 {
     setObjectName(QStringLiteral("ColorNodeEditor"));
+    new ColorNodeOps(this, session, actions); // the keys of Vim mode (spec 83)
     setMouseTracking(true);
     setFocusPolicy(Qt::ClickFocus);
     setMinimumSize(160, 120);

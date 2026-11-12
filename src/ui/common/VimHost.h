@@ -192,6 +192,13 @@ public:
         Q_UNUSED(hasCount);
         return false;
     }
+    /// Like hostCommand() for a command that takes the typed character of a class key ("{a-z}");
+    /// the default ignores it.
+    virtual bool hostCommandArg(const QString& name, int count, bool hasCount, const QString& arg)
+    {
+        Q_UNUSED(arg);
+        return hostCommand(name, count, hasCount);
+    }
     /// How many rows a list shows (VimListHost): `<C-d>` / `<C-u>` move half of it.
     [[nodiscard]] virtual int pageRows() const { return 20; }
     /// The focus moved to @p focus, in the context this host serves (a list host finds its

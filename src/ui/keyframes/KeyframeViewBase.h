@@ -4,6 +4,7 @@
 // the drag / undo protocol, snapping, the keyframe menu, painting helpers and keyboard.
 #pragma once
 
+#include "core/Animation.h"
 #include "core/SelectionModel.h"
 #include "core/TimelineData.h"
 
@@ -87,6 +88,56 @@ public:
     [[nodiscard]] QVector<KeyframeRef> keysAtFrame(
         int64_t frame, const QVector<ParamId>& params) const;
 
+    // ---- Keyboard cursor (Vim mode, spec section 83, 5.7) ----
+    /// The rows the keyboard cursor moves over: for each row the parameters whose keys it shows
+    /// (a dope sheet row, a shown curve). The base shows none.
+    [[nodiscard]] virtual QVector<QVector<ParamId>> cursorRows() const { return {}; }
+    [[nodiscard]] bool hasCursor() const { return m_cursorRow >= 0; }
+    [[nodiscard]] int cursorRow() const { return m_cursorRow; }
+    /// Timeline frame of the cursor.
+    [[nodiscard]] int64_t cursorFrame() const { return m_cursorFrame; }
+    /// Puts the cursor on @p row (clamped) at timeline frame @p frame and repaints.
+    void placeCursor(int row, int64_t frame);
+    void clearCursor();
+    /// Sorted, unique timeline frames of the keys of row @p row.
+    [[nodiscard]] QVector<int64_t> rowFrames(int row) const;
+    /// The keys under the cursor.
+    [[nodiscard]] QVector<KeyframeRef> cursorKeys() const;
+    /// What the keyboard commands act on: the selected keys, else the keys under the cursor.
+    [[nodiscard]] QVector<KeyframeRef> keyTargets() const;
+    /// Moves the cursor @p delta rows (the nearest key frame in the new row) / to row @p row.
+    bool moveCursorRows(int delta);
+    bool moveCursorToRow(int row);
+    /// Moves the cursor @p delta keys along its row.
+    bool moveCursorKeys(int delta);
+    /// Moves the cursor to the first / last key of its row.
+    bool moveCursorToEdgeKey(bool last);
+    /// Selects (@p toggle: toggles) the keys under the cursor / every key of the row.
+    bool selectCursor(bool toggle);
+    bool selectCursorRow();
+    void unselectKeys();
+    /// Moves the targets @p frames later (negative: earlier). One undo step.
+    bool nudgeTime(int64_t frames);
+    /// Changes the value of the targets by @p steps of a hundredth of the parameter's range
+    /// (curve view only). One undo step.
+    virtual bool nudgeValue(int steps)
+    {
+        Q_UNUSED(steps);
+        return false;
+    }
+    /// Adds a key at the playhead to every parameter of the cursor row. One undo step.
+    bool addKeyAtPlayhead();
+    bool deleteTargets();
+    bool copyTargets();
+    bool pasteAtPlayhead();
+    bool interpTargets(Interp interp);
+    /// Moves the playhead to the cursor frame.
+    bool jumpToCursor();
+
+signals:
+    /// The keyboard cursor moved to row @p row.
+    void cursorMoved(int row);
+
 protected:
     /// The clip @p clipId (current state), or nullptr.
     [[nodiscard]] const ClipData* clipData(quint64 clipId) const;
@@ -168,6 +219,8 @@ private:
     bool m_editOpen = false;
     std::vector<int64_t> m_dragSnaps; ///< snap targets of the open drag (sorted)
     bool m_panelColors = false;
+    int m_cursorRow = -1;
+    int64_t m_cursorFrame = 0;
 };
 
 /// Colour helper shared by the keyframe views: linear mix of @p a and @p b.

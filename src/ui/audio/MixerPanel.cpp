@@ -24,6 +24,8 @@ MixerPanel::MixerPanel(
     , m_controller(controller)
     , m_meters(meters)
 {
+    setProperty("kkVimContext", QStringLiteral("mixer")); // Vim mode (spec 83)
+    setFocusPolicy(Qt::StrongFocus);
     setPanelInfo(this, tr("Mixer"),
         tr("A strip for each audio track and each bus, with its level and meter."));
     setPanelKey(QStringLiteral("mixer")); // in-app help: panel:mixer

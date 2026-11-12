@@ -118,12 +118,14 @@ KeyframesPanel::KeyframesPanel(AppContext& ctx, QWidget* parent)
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->setSpacing(0);
     m_dope = new DopeSheetView(ctx, m_map, nullptr);
+    m_dope->setProperty("kkVimContext", QStringLiteral("keyframes")); // Vim mode (spec 83)
     m_dope->setLabelWidth(kAxisWidth);
     m_dope->setDrawLabels(false);
     m_dope->setRowHeight(KeyframeParamTree::kRowHeight);
     m_dope->setMinimumHeight(40);
     m_dope->setPanelColors(true);
     m_curves = new CurveView(ctx, m_map, nullptr);
+    m_curves->setProperty("kkVimContext", QStringLiteral("keyframes"));
     m_curves->setLabelWidth(kAxisWidth);
     m_curves->setAxisLabelsInColumn(true);
     m_curves->setTimeGrid(true);

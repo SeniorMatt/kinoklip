@@ -4,17 +4,21 @@
 #include "app/PageBar.h"
 #include "app/VimEx.h"
 #include "app/VimModeLine.h"
+#include "ui/audio/VimMixerHost.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/common/VimCommandLine.h"
+#include "ui/common/VimFormHost.h"
 #include "ui/common/VimInput.h"
 #include "ui/common/VimKeymap.h"
 #include "ui/common/VimListHost.h"
+#include "ui/common/VimNodeHost.h"
 #include "ui/common/VimOptions.h"
 #include "ui/common/VimPicker.h"
 #include "ui/common/VimWhichKey.h"
 #include "ui/help/Guide.h"
+#include "ui/keyframes/VimKeyframeHost.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/VimTimelineHost.h"
 
@@ -94,6 +98,36 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     m_listHost->onUpLevel = [this] { return upOneBin(); };
     m_listHost->onNewItem = [this] { return newBin(); };
     m_input->setListHost(m_listHost);
+    m_formHost = new VimFormHost(ctx.actions);
+    m_formHost->onCommandLine = [this] { showCommandLine(false); };
+    m_formHost->onMessage
+        = [this](const QString& text) { m_modeLine->showMessage(text, kMessageMs); };
+    m_formHost->onEx = [this](const QString& line) {
+        bool ok = true;
+        const QString message = runCommand(line, &ok);
+        showResult(message, ok);
+    };
+    m_input->setContextHost(QStringLiteral("form"), m_formHost);
+    // The keyframe editor, the node graphs and the mixer: hosts of commands, one each.
+    const auto setUp = [this](VimPanelHost* host) {
+        host->onCommandLine = [this] { showCommandLine(false); };
+        host->onMessage
+            = [this](const QString& text) { m_modeLine->showMessage(text, kMessageMs); };
+        host->onEx = [this](const QString& line) {
+            bool ok = true;
+            const QString message = runCommand(line, &ok);
+            showResult(message, ok);
+        };
+    };
+    m_keyframeHost = new VimKeyframeHost(ctx.actions);
+    m_nodeHost = new VimNodeHost(ctx.actions);
+    m_mixerHost = new VimMixerHost(ctx.actions);
+    for (VimPanelHost* host : {static_cast<VimPanelHost*>(m_keyframeHost),
+             static_cast<VimPanelHost*>(m_nodeHost), static_cast<VimPanelHost*>(m_mixerHost)})
+        setUp(host);
+    m_input->setContextHost(QStringLiteral("keyframes"), m_keyframeHost);
+    m_input->setContextHost(QStringLiteral("nodes"), m_nodeHost);
+    m_input->setContextHost(QStringLiteral("mixer"), m_mixerHost);
     if (qApp)
         qApp->installEventFilter(this);
 
@@ -106,6 +140,9 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     });
     connect(m_input, &VimInput::activeChanged, this, [this] {
         m_host->showCursor(m_input->active());
+        m_formHost->setCursorVisible(m_input->active());
+        m_keyframeHost->setCursorVisible(m_input->active());
+        m_mixerHost->setCursorVisible(m_input->active());
         updateModeLine();
         updateFocusFrame();
         updateWhichKey();
@@ -219,6 +256,10 @@ VimController::~VimController()
         m_framed->setVimFocusFrame(false);
     delete m_host;
     delete m_listHost;
+    delete m_formHost;
+    delete m_keyframeHost;
+    delete m_nodeHost;
+    delete m_mixerHost;
 }
 
 void VimController::updateModeLine()

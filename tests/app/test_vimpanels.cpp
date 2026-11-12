@@ -627,11 +627,12 @@ private slots:
     void globalKeysWorkInEveryPanel()
     {
         Fixture f;
-        // The Inspector has fields and buttons, no list: the "panel" context, global keys only.
+        // The Inspector has fields and buttons, no list: the "form" context (global keys and
+        // the form's own).
         QVERIFY(f.vim()->focusPanelKey(QStringLiteral("inspector")));
         QCOMPARE(f.focusedKey(), QStringLiteral("inspector"));
-        QCOMPARE(VimInput::contextOf(QApplication::focusWidget()), QStringLiteral("panel"));
-        f.type(QStringLiteral("j")); // nothing to move: swallowed, as an unbound key in Vim
+        QCOMPARE(VimInput::contextOf(QApplication::focusWidget()), QStringLiteral("form"));
+        f.type(QStringLiteral("j")); // no clip, no rows: nothing happens
         QCOMPARE(f.focusedKey(), QStringLiteral("inspector"));
         // : opens the line, a picker opens, windows move, pages change.
         f.type(QStringLiteral(":"));

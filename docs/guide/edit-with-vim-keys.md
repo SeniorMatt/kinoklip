@@ -163,6 +163,71 @@ Counts, VISUAL and the registers are Vim's: `3dd`, `Vjjd`. The arrow keys, Enter
 **Dialogs** keep the Qt keys: Tab, arrows, Enter and Esc work, and Vim keys are not taken. In a list
 inside a dialog `Ctrl+J` and `Ctrl+K` also move down and up (from the filter field above the list too).
 
+## The Inspector and other panels of fields
+
+The Inspector, the Compositing Inspector, Render Settings, Metadata and the Color page's panels are
+**forms**: a column of rows (a label, a value, a keyframe diamond, a reset button). Press `Space w i` (or `Ctrl+L` from the viewer) to focus the Inspector. A frame marks the row you are on; the keyboard focus stays on the panel, so `j` and
+`k` never type into a field.
+
+| Keys | What it does |
+|---|---|
+| `j` `k` `gg` `G` `{n}G` | next / previous row, first / last row, row n |
+| `Ctrl+A` `Ctrl+X` | raise / lower the value by one step; `5 Ctrl+A` five steps. A choice goes to the next / previous entry, a check box toggles |
+| `g Ctrl+A` `g Ctrl+X` / `zl` `zh` | ten steps / a tenth of a step |
+| `h` `l` | on a row with a single value, one step down / up (on a line with several buttons, move between them) |
+| `i` `a` `cw` `Enter` | type the value: a number gets its line edit, a text (the title text too) its box. You are in INSERT while you type; Enter keeps it, Esc leaves it and gives the panel back its keys |
+| `Enter` `x` | toggle a check box, open a choice, a colour or a file dialog, press a button, fold a section; `x` on a section header switches the effect on or off |
+| `dd` | reset the value to its default; on a section header remove the effect, mask or transition |
+| `yy` `p` | copy the value, paste it into this row (select another clip first to copy across clips) |
+| `.` | repeat the last change |
+| `Space k k` | add a keyframe on this parameter at the playhead, or remove the one there |
+| `]k` `[k` | playhead to the next / previous keyframe of this parameter |
+| `Space k l` `i` `o` `b` `s` `h` | the keyframe at the playhead: linear, ease in, ease out, ease in and out, smooth, hold |
+| `Space k d` | delete the keyframe at the playhead |
+| `za` `zo` `zc` `zR` `zM` | fold / open / close the section, open / close all |
+| `]]` `[[` | next / previous tab (Video, Audio, Effects, Title, Transition) |
+| `>>` `<<` | move the effect or mask down / up in its stack |
+| `K` | what the parameter does |
+
+Controls that are not parameters (the buttons, boxes and fields of Render Settings, for one) are rows
+too; the same keys work on them.
+
+## Keyframes, nodes, the mixer and transitions
+
+**Keyframes panel.** A ring marks the key you are on; `h` `l` go to the previous / next key of the row, `j` `k`
+to the row below / above, `0` `$` to the first / last key, `gg` `G` to the first / last row. `v` selects the keys
+under the ring (again to unselect), `V` the whole row, `U` none. What follows works on the selected keys, or on the
+key under the ring when nothing is selected.
+
+| Keys | What it does |
+|---|---|
+| `x` `dd` | delete the keys |
+| `yy` `p` | copy the keys; paste them with the first at the playhead |
+| `o` | add a key at the playhead on the row |
+| `>` `<` | move the keys one frame later / earlier (`5>` five frames) |
+| `Ctrl+A` `Ctrl+X` | dope sheet: later / earlier by frames; curves: raise / lower the value by a hundredth of the range |
+| `Enter` | playhead to the key |
+| `Space k l` `i` `o` `b` `s` `h` | linear, ease in, ease out, ease in and out, smooth, hold |
+| `gs` `zf` | dope sheet / curves, fit |
+
+**Node graphs** (Compositing and Color). `h` `j` `k` `l` select the nearest node in that direction; `w` `b` follow the signal
+(`gg` `G` first and last). `a` adds a node (Compositing opens the node library; Color adds a serial node), `o` adds one
+after, `O` before, `P` a parallel and `L` a layer node (Color). `x` `dd` delete, `yy` `p` copy and paste, `gb` bypass,
+`r` rename (Compositing), `gw` wipe (Color), `zf` fit. **Connect:** put the cursor on the node whose output you want, press
+`gc`, move to the node that should receive it, press `gc` again. `gx` disconnects the node's main input, `gX` all inputs.
+`Enter` takes you to the node's controls.
+
+**Mixer.** `h` `l` choose the strip, `j` `k` (or `Ctrl+X` `Ctrl+A`) move its fader by half a decibel (`6j` three),
+`0` resets it, `i` types a value in dB, `>` `<` pan, `m` mute, `s` solo, `r` record arm, `Enter` opens the EQ, `g d` the dynamics.
+
+**Transitions.** `]t` and `[t` select the next / previous transition and put the playhead on its edit point.
+`Space e +` and `Space e -` lengthen and shorten it by a frame (`10 Space e +`), `Space e a` changes its alignment,
+`Space e d` deletes it, `Space e e` adds the default one, and `Space f e` on an edit point picks another one. The Inspector's
+Transition tab is a form: `Space w i`, go to Duration, `5 Ctrl+A`.
+
+**Deliver.** The render queue and the render settings are forms: `j` `k` over the buttons and fields, `Enter` presses,
+`Ctrl+A` steps a number, a choice cycles.
+
 ## Space is the leader
 
 Space starts a second group of keys. Wait half a second after it (or after `g`, `z`) and a list
@@ -301,6 +366,8 @@ timeline), `H` and `L` switch to the previous and next timeline tab (`{` and `}`
 - Keys that Neovim has for text and Kinoklip has no use for (`f`, `t`, `%`, `*`, `q` macros,
   `"Ayy` appending, the numbered registers) do nothing.
 - `p` in VISUAL replaces the selection but does not put the removed clips into a register.
+- In the Inspector `Ctrl+A` and `Ctrl+X` step a value (they are not "add" and "subtract" on text), and `x` toggles, because `Space` is the leader.
+- In the Keyframes panel, the mixer and the Inspector `Ctrl+A` and `Ctrl+X` step a value; the timeline keeps Select All and Cut.
 - `/` finds marker and clip names, not text; `?` is not bound.
 - `J`, `r`, `s` and `~` are Kinoklip's edits (join, replace, split, enable), not Vim's.
 

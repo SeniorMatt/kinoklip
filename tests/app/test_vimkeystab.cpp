@@ -84,7 +84,9 @@ private slots:
         QCOMPARE(groups,
             (QStringList {QStringLiteral("Leader"), QStringLiteral("Global"),
                 QStringLiteral("Timeline"), QStringLiteral("Viewer"),
-                QStringLiteral("Lists and trees")}));
+                QStringLiteral("Lists and trees"), QStringLiteral("Inspector and forms"),
+                QStringLiteral("Keyframes panel"), QStringLiteral("Node graphs"),
+                QStringLiteral("Mixer")}));
         QVERIFY(hasRow(tab, QStringLiteral("Lists and trees | j | n v o | vim:row_down")));
         QVERIFY(hasRow(tab, QStringLiteral("Timeline | h | n v o | vim:frame_prev")));
         QVERIFY(hasRow(tab, QStringLiteral("Timeline | d | n v | vim:op_delete")));
