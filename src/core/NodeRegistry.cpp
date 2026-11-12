@@ -263,7 +263,9 @@ NodeRegistry::NodeRegistry()
                         blendmodes::Normal),
             number(k::Opacity, tr("Blend"), 0, 1, 1, 0.01)};
         d.params += centre();
-        d.params += {number(k::Size, tr("Size"), 0, 100, 1, 0.01), angle()};
+        d.params += {number(k::Size, tr("Size"), 0, 100, 1, 0.01), angle(),
+            boolean(k::FlipH, tr("Flip Horizontal"), false),
+            boolean(k::FlipV, tr("Flip Vertical"), false)};
         d.controls = ViewerControls::Transform;
         add(d);
     }

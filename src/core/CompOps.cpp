@@ -228,6 +228,34 @@ AddResult addNodeAfter(Composition& comp, const QString& type, quint64 selected)
     return result;
 }
 
+quint64 mergeOnto(Composition& comp, quint64 fg, quint64 target)
+{
+    const CompNode* f = comp.node(fg);
+    const CompNode* t = comp.node(target);
+    if (!f || !t || fg == target || t->type == nodetypes::MediaOut
+        || !kindsCompatible(outputKindOf(*f), PortKind::Image)
+        || !kindsCompatible(outputKindOf(*t), PortKind::Image))
+        return 0;
+    const QPointF tPos = t->position;
+    shiftDownstream(comp, target, kStepX);
+    const quint64 merge = addNode(comp, nodetypes::Merge, tPos + QPointF(kStepX, 0));
+    if (!merge)
+        return 0;
+    // Consumers of the target move to the Merge, except the dragged node (it would loop).
+    for (CompNode& n : comp.nodes) {
+        if (n.id == merge || n.id == fg)
+            continue;
+        for (auto it = n.inputs.begin(); it != n.inputs.end(); ++it) {
+            if (it->nodeId == target && it->outputIndex == 0)
+                *it = NodeLink {merge, 0};
+        }
+    }
+    if (connect(comp, target, 0, merge, nodeports::Background) != ConnectError::None
+        || connect(comp, fg, 0, merge, nodeports::Foreground) != ConnectError::None)
+        return 0; // the caller discards the edit
+    return merge;
+}
+
 int removeNodes(Composition& comp, const QVector<quint64>& ids)
 {
     QSet<quint64> removed;

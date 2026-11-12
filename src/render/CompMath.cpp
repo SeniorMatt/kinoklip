@@ -116,8 +116,10 @@ QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameS
         = toFrame(num(p, k::CenterX, frame, 0.5), num(p, k::CenterY, frame, 0.5), frameSize);
     const double size = num(p, k::Size, frame, 1.0);
     const double angle = num(p, k::Angle, frame, 0.0);
-    return translate(-mid) * QTransform::fromScale(size, size) * QTransform().rotate(-angle)
-        * translate(centre);
+    const double fx = p.staticValue(k::FlipH, false).toBool() ? -1.0 : 1.0;
+    const double fy = p.staticValue(k::FlipV, false).toBool() ? -1.0 : 1.0;
+    return translate(-mid) * QTransform::fromScale(size * fx, size * fy)
+        * QTransform().rotate(-angle) * translate(centre);
 }
 
 QRectF resizeRect(const ParamSet& p, int64_t frame, QSizeF frameSize)

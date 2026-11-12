@@ -3,6 +3,7 @@
 // Painting is in NodeEditorPaint.cpp.
 #include "ui/comp/NodeEditor.h"
 
+#include "core/CompOps.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/DragMime.h"
 #include "ui/comp/CompNodeOps.h"
@@ -677,6 +678,18 @@ void NodeEditor::finishConnect(QPointF pos)
     case Drag::Connect: {
         quint64 to = 0;
         QString port;
+        if (hit.kind == Hit::Kind::Output && hit.node != m_pressNode) {
+            // Dropped on another node's output: a Merge combines the two (Fusion).
+            const quint64 fg = m_pressNode;
+            const quint64 bg = hit.node;
+            quint64 merge = 0;
+            if (m_session->edit(tr("Merge"), [&](Composition& g) {
+                    merge = compops::mergeOnto(g, fg, bg);
+                    return merge != 0;
+                }))
+                m_session->setSelection({merge}, {}, merge);
+            return;
+        }
         if (hit.kind == Hit::Kind::Input) {
             to = hit.node;
             port = hit.port;

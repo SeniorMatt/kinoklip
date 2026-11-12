@@ -63,7 +63,7 @@ composition.
 - **A logo picture:** import the logo into the media pool first. Click **Media Pool** in the
   bar at the top of the page and drag the logo onto the node editor: a new **MediaIn2** node
   reads it. Select **MediaOut1** and click **Merge**, then drag from the output of
-  **MediaIn2** to the foreground input of **Merge1** (foreground links are green). Select
+  **MediaIn2** to the foreground input of **Merge1** (foreground links are green). A shortcut: drag from the output of **MediaIn2** and drop it on the output of **MediaIn1**; a Merge appears with **MediaIn1** as the background and **MediaIn2** as the foreground, and whatever read **MediaIn1** now reads the Merge. Select
   **Merge1** and lower its **Size** and change **Center X** / **Center Y** to put the logo in a
   corner. To read another picture into a MediaIn node, select it and choose the item under
   **Source** in the Inspector (**This clip** goes back to the clip's own picture).

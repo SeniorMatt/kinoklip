@@ -86,6 +86,13 @@ bool disconnect(Composition& comp, quint64 to, const QString& port);
 /// not connected, @p node has no main input, the kinds do not fit or it would make a cycle.
 bool insertIntoLink(Composition& comp, quint64 node, quint64 to, const QString& port);
 
+/// Fusion's "drop a connection on an output": a Merge is added right of @p target with
+/// @p target as its background and @p fg (the dragged node) as its foreground; everything that
+/// read @p target (except @p fg and the Merge) now reads the Merge, so the chain continues
+/// through it. Returns the Merge's id, or 0 when refused (unknown nodes, same node, a mask
+/// output, a cycle: @p target would read the Merge through @p fg).
+quint64 mergeOnto(Composition& comp, quint64 fg, quint64 target);
+
 /// Moves the nodes @p ids by @p delta (grid units).
 void moveNodes(Composition& comp, const QVector<quint64>& ids, QPointF delta);
 
