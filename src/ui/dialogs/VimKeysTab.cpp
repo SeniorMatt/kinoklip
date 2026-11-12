@@ -54,6 +54,10 @@ QString contextTitle(const QString& context)
         return QObject::tr("Timeline");
     if (context == QLatin1String("viewer"))
         return QObject::tr("Viewer");
+    if (context == QLatin1String("list"))
+        return QObject::tr("Lists and trees");
+    if (context == QLatin1String("panel"))
+        return QObject::tr("Panels");
     return context;
 }
 
@@ -278,9 +282,9 @@ void VimKeysTab::refresh()
         groups.insert(key, g);
         return g;
     };
-    // Fixed order: Leader, Global, Timeline, Viewer.
+    // Fixed order: Leader, Global, Timeline, Viewer, Lists.
     for (const QString& c : {QStringLiteral("leader"), QStringLiteral("global"),
-             QStringLiteral("timeline"), QStringLiteral("viewer")})
+             QStringLiteral("timeline"), QStringLiteral("viewer"), QStringLiteral("list")})
         group(c);
     const QString leaderToken = m_keymap.leader();
     // One row per (context, keys); the modes of identical entries are joined.

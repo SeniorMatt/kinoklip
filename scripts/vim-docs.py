@@ -19,6 +19,7 @@ CONTEXT_TITLES = {
     "global": "Everywhere the Vim keys work",
     "timeline": "Timeline (and viewers)",
     "viewer": "Viewers only",
+    "list": "Lists, trees and grids (Media Pool, Effects, Edit Index, ...)",
 }
 MODE_TEXT = {
     "n": "NORMAL",
@@ -62,6 +63,11 @@ def build():
         "(delete leaving a gap, then INSERT) and `y` (copy). The rows marked *after an operator* are the",
         "motions and text objects an operator accepts. `.` repeats the last change.",
         "",
+        "Panels are the windows: `<C-h/j/k/l>` and `<C-w>` + `h j k l w W p o = c` move the focus between them,",
+        "`<leader>w` + a letter focuses a named panel, `gt` / `gT` / `{n}gt` change the page. In a list, tree or",
+        "grid (the last table) the rows are the lines: `j k gg G {n}G`, `V`, `dd`, `yy`, `/` and `n` work as in",
+        "the timeline, and `o l h - a r` open, go up, add a bin and rename.",
+        "",
     ]
     leader = [b for b in bindings if b["type"] != "group" and b["keys"].startswith("<leader>")]
     rest = [b for b in bindings if b["type"] != "group" and not b["keys"].startswith("<leader>")]
@@ -76,7 +82,7 @@ def build():
             out.append(f"| {key_text(b['keys'])} | {MODE_TEXT[b['modes']]} | {cell(b['desc'])} | {run} |")
         out.append("")
 
-    for context in ("global", "timeline", "viewer"):
+    for context in ("global", "timeline", "viewer", "list"):
         table(CONTEXT_TITLES[context], [b for b in rest if b["context"] == context])
     names = {g["keys"]: g["desc"] for g in groups}
     out.extend(["## Leader keys (Space, then...)", "", "| Keys | What it does | Runs |", "|---|---|---|"])
@@ -93,10 +99,14 @@ def build():
     out.extend([
         "## The command line",
         "",
-        "`:` opens the command line in the bottom row. Besides the commands of `kinoklip commands`",
-        "(`:marker add --frame 120`) it takes `:w`, `:q`, `:wq`, `:x`, `:nmap {keys} {command}`,",
-        "`:nunmap {keys}`, `:map` (lists your mappings), `:source` (reads the vimrc again) and",
-        "`:set leader=<Space>`, `:set timeoutlen=400`, `:set physicalkeys`, `:set novim`.",
+        "`:` opens the command line in the bottom row; Tab completes, Up and Down recall older lines,",
+        "`q:` lists the history. Besides the commands of `kinoklip commands` (`:marker add --frame 120`)",
+        "it takes `:w` `:q` `:q!` `:wq` `:x`, `:e {timeline or file}` `:enew` `:bn` `:bp` `:bd` `:b {n}` `:ls`,",
+        "`:120` / `:+10` / `:$` / `:00:01:10:00` (go to a frame or timecode), `:page {name}`, `:undo` `:redo`",
+        "`:history`, `:render` `:deliver`, `:action {id}`, `:help` `:cheat` `:noh` `:play`, `:export` `:import`,",
+        "`:nmap {keys} {command}`, `:nunmap {keys}`, `:map` (lists your mappings), `:source` (reads the vimrc",
+        "again) and `:set snap` / `linked` / `audioscrub` / `loop` / `leader=<Space>` / `timeoutlen=400` /",
+        "`physicalkeys` / `novim`.",
         "A command is an action id (`edit.undo`), `vim:name`, or `:` and a command line (`:w<CR>`).",
         "",
         "## The vimrc file",

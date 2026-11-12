@@ -66,6 +66,8 @@ public:
     /// `/pattern`: remembers it and jumps to the first match after the cursor. False when
     /// nothing matches.
     bool search(const QString& pattern);
+    /// `:noh`: forgets the pattern.
+    void clearSearch() { m_pattern.clear(); }
     /// Draws or clears the cursor track highlight (Vim mode on / off).
     void showCursor(bool on);
 

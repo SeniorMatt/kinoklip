@@ -25,22 +25,20 @@ namespace kk {
 
 namespace {
 
-const QStringList kContexts {
-    QStringLiteral("global"), QStringLiteral("timeline"), QStringLiteral("viewer")};
+const QStringList kContexts {QStringLiteral("global"), QStringLiteral("timeline"),
+    QStringLiteral("viewer"), QStringLiteral("list"), QStringLiteral("panel")};
 
 /// The built-in commands of `vim:` items.
-const QStringList kBuiltins {
-    // motions (VimGrammar.h) and marks
+const QStringList kBuiltins {// motions (VimGrammar.h) and marks
     QStringLiteral("frame_prev"), QStringLiteral("frame_next"), QStringLiteral("second_prev"),
-    QStringLiteral("second_next"), QStringLiteral("timeline_start"),
-    QStringLiteral("timeline_end"), QStringLiteral("goto_frame"), QStringLiteral("first_clip"),
-    QStringLiteral("clip_next"), QStringLiteral("clip_prev"), QStringLiteral("clip_end"),
-    QStringLiteral("clip_end_prev"), QStringLiteral("edit_next"), QStringLiteral("edit_prev"),
-    QStringLiteral("edit_end"), QStringLiteral("edit_end_prev"), QStringLiteral("marker_next"),
-    QStringLiteral("marker_prev"), QStringLiteral("keyframe_next"),
-    QStringLiteral("keyframe_prev"), QStringLiteral("track_down"), QStringLiteral("track_up"),
-    QStringLiteral("track_first"), QStringLiteral("track_last"), QStringLiteral("set_mark"),
-    QStringLiteral("goto_mark"), QStringLiteral("jump_back"),
+    QStringLiteral("second_next"), QStringLiteral("timeline_start"), QStringLiteral("timeline_end"),
+    QStringLiteral("goto_frame"), QStringLiteral("first_clip"), QStringLiteral("clip_next"),
+    QStringLiteral("clip_prev"), QStringLiteral("clip_end"), QStringLiteral("clip_end_prev"),
+    QStringLiteral("edit_next"), QStringLiteral("edit_prev"), QStringLiteral("edit_end"),
+    QStringLiteral("edit_end_prev"), QStringLiteral("marker_next"), QStringLiteral("marker_prev"),
+    QStringLiteral("keyframe_next"), QStringLiteral("keyframe_prev"), QStringLiteral("track_down"),
+    QStringLiteral("track_up"), QStringLiteral("track_first"), QStringLiteral("track_last"),
+    QStringLiteral("set_mark"), QStringLiteral("goto_mark"), QStringLiteral("jump_back"),
     // text objects
     QStringLiteral("obj_iw"), QStringLiteral("obj_aw"), QStringLiteral("obj_iW"),
     QStringLiteral("obj_aW"), QStringLiteral("obj_ip"), QStringLiteral("obj_ap"),
@@ -48,17 +46,39 @@ const QStringList kBuiltins {
     // operators and the commands built on them
     QStringLiteral("op_delete"), QStringLiteral("op_change"), QStringLiteral("op_yank"),
     QStringLiteral("op_lift"), QStringLiteral("cmd_delete"), QStringLiteral("cmd_lift"),
-    QStringLiteral("cmd_yank"), QStringLiteral("cmd_delete_to_end"),
-    QStringLiteral("cmd_paste"), QStringLiteral("cmd_paste_over"), QStringLiteral("repeat"),
-    QStringLiteral("cursor_select"), QStringLiteral("cursor_unselect"),
-    QStringLiteral("copy_timecode"),
+    QStringLiteral("cmd_yank"), QStringLiteral("cmd_delete_to_end"), QStringLiteral("cmd_paste"),
+    QStringLiteral("cmd_paste_over"), QStringLiteral("repeat"), QStringLiteral("cursor_select"),
+    QStringLiteral("cursor_unselect"), QStringLiteral("copy_timecode"),
     // visual mode
     QStringLiteral("visual_char"), QStringLiteral("visual_line"), QStringLiteral("visual_block"),
     QStringLiteral("visual_other_end"), QStringLiteral("visual_reselect"),
     QStringLiteral("visual_paste"),
     // modes and lines
     QStringLiteral("insert_mode"), QStringLiteral("command_line"), QStringLiteral("search"),
-    QStringLiteral("search_next"), QStringLiteral("search_prev")};
+    QStringLiteral("search_next"), QStringLiteral("search_prev"),
+    // pickers (VimPicker.h) and the command history
+    QStringLiteral("picker_media"), QStringLiteral("picker_commands"),
+    QStringLiteral("picker_effects"), QStringLiteral("picker_timelines"),
+    QStringLiteral("picker_markers"), QStringLiteral("picker_bins"), QStringLiteral("picker_help"),
+    QStringLiteral("picker_keymaps"), QStringLiteral("picker_history"),
+    // lists and trees (VimListHost.h)
+    QStringLiteral("row_down"), QStringLiteral("row_up"), QStringLiteral("row_first"),
+    QStringLiteral("row_last"), QStringLiteral("row_half_down"), QStringLiteral("row_half_up"),
+    QStringLiteral("list_open"), QStringLiteral("list_right"), QStringLiteral("list_left"),
+    QStringLiteral("list_parent"), QStringLiteral("list_new"), QStringLiteral("list_rename"),
+    QStringLiteral("list_fold_toggle"), QStringLiteral("list_fold_open"),
+    QStringLiteral("list_fold_close"), QStringLiteral("list_fold_open_all"),
+    QStringLiteral("list_fold_close_all"), QStringLiteral("list_scroll_top"),
+    QStringLiteral("list_scroll_middle"), QStringLiteral("list_scroll_bottom"),
+    // panels, windows and pages
+    QStringLiteral("win_left"), QStringLiteral("win_down"), QStringLiteral("win_up"),
+    QStringLiteral("win_right"), QStringLiteral("win_next"), QStringLiteral("win_prev"),
+    QStringLiteral("win_last"), QStringLiteral("win_only"), QStringLiteral("win_reset"),
+    QStringLiteral("win_close"), QStringLiteral("focus_media"), QStringLiteral("focus_effects"),
+    QStringLiteral("focus_inspector"), QStringLiteral("focus_timeline"),
+    QStringLiteral("focus_viewer"), QStringLiteral("focus_keyframes"),
+    QStringLiteral("focus_mixer"), QStringLiteral("focus_nodes"), QStringLiteral("focus_metadata"),
+    QStringLiteral("focus_index"), QStringLiteral("page_goto"), QStringLiteral("page_prev")};
 
 /// The contexts whose keys a context uses, least specific first.
 QStringList chainOf(const QString& context)
@@ -67,6 +87,8 @@ QStringList chainOf(const QString& context)
         return {QStringLiteral("global"), QStringLiteral("timeline"), QStringLiteral("viewer")};
     if (context == QLatin1String("timeline"))
         return {QStringLiteral("global"), QStringLiteral("timeline")};
+    if (context == QLatin1String("list"))
+        return {QStringLiteral("global"), QStringLiteral("list")};
     return {QStringLiteral("global")};
 }
 

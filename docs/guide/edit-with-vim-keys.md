@@ -18,8 +18,9 @@ line appears at the left of the page bar, on every page:
 - **COMMAND**: `:` opens the command line in the same row; Enter runs it, Esc closes it.
 
 The mode line also shows the keys you have typed so far (`3d`) and the panel that has the keyboard
-focus; that panel gets an accent frame. For now the keys act on the **timeline and the viewers**;
-click in one to use them. Everywhere else the profile's shortcuts work as before.
+focus; that panel gets an accent frame. The keys work in the **timeline and the viewers**, in every
+**list and tree** (Media Pool, Effects, Edit Index, ...) and, for the keys that move between panels,
+pages and the command line, in every other panel. Text fields and dialogs keep their own keys.
 
 ## Esc
 
@@ -113,6 +114,55 @@ Operators work on the **cursor track**; with *Linked Selection* on (`Space` `o` 
 linked clips (picture and sound) are cut together. A **locked** track is never changed. Where the
 text says every track (`W`, `im`, `ir`), the tracks with *Auto Select* on are cut.
 
+## Panels, windows and pages
+
+The panels are the windows of the editor. Move the keyboard focus the way you move between Neovim
+windows; the panel with the focus has the accent frame and its name is in the mode line.
+
+| Keys | What it does |
+|---|---|
+| `Ctrl+H` `Ctrl+J` `Ctrl+K` `Ctrl+L` | focus the panel to the left / below / above / right (the nearest one in that direction, by where it is on the screen) |
+| `Ctrl+W` + `h` `j` `k` `l` | the same |
+| `Ctrl+W` `w` / `W` | the next / previous panel in reading order (top to bottom, then left to right), wrapping round; `3` `Ctrl+W` `w` goes to the third |
+| `Ctrl+W` `p` | the panel that had the focus before |
+| `Ctrl+W` `o` | zoom: hide the other panels; again brings them back (`:only` does it too) |
+| `Ctrl+W` `=` | bring the hidden panels back and reset the layout |
+| `Ctrl+W` `c` | hide this panel (the same as its button in the interface bar) |
+| `Space` `w` + `m` `e` `i` `t` `v` `k` `x` `n` `d` `l` | focus the Media Pool, Effects, Inspector, timeline, viewer, Keyframes, Mixer, Nodes, Metadata, Edit Index; a hidden panel is shown first |
+| `gt` / `gT` | the next / previous page, wrapping round |
+| `3gt` | page 3 (1 Media, 2 Cut, 3 Edit, 4 Compositing, 5 Color, 6 Audio, 7 Deliver); `2gT` goes two pages back |
+
+`:page edit`, `:page next` and `:panel inspector` do the same by name. After a page change the focus
+lands on the same kind of panel (else the first one). A panel made of fields and buttons (the
+Inspector) takes only the global keys for now: `j` does nothing there, the fields work as usual.
+
+## Lists and trees
+
+Every list, tree and grid (the Media Pool's bins and clips, the Effects library, the Edit Index, the
+render queue, ...) works with the same keys; no panel needed code for it. A row is a line: `j` and `k`
+move over the rows of the view, a tree is read as drawn (closed branches skipped).
+
+| Keys | What it does |
+|---|---|
+| `j` `k` `gg` `G` `{n}G` | next / previous row, first row, last row, row n (`dj` takes this row and the next, `d3j` four) |
+| `Ctrl+D` `Ctrl+U` | half a page down / up |
+| `o` / `l` | open: a bin, a clip in the Source viewer, an effect applied (`l` first opens a closed branch) |
+| `h` / `-` | close an open branch, else go to the parent row; in the Media Pool, up to the parent bin |
+| `za` `zo` `zc` `zR` `zM` | toggle / open / close this branch, open / close all branches |
+| `zt` `zz` `zb` | scroll the row to the top / middle / bottom |
+| `V` (or `v`) | select rows (`j` `k` grow it, `o` goes to the other end, Esc leaves) |
+| `dd` `x` `d{motion}` | delete the rows: it presses the panel's own Delete key, so a panel that asks first (media used in the timeline) still asks |
+| `yy` `y{motion}` | copy the names of the rows to the system clipboard (`2yy` two rows) |
+| `p` | the panel's own paste: the Media Pool imports the files on the clipboard |
+| `a` / `r` | new bin / rename (F2), Neo-tree's keys |
+| `/` `n` `N` | the panel's search field gets the focus (type to filter; `Ctrl+J` `Ctrl+K` move over the rows, Enter gives the list the focus, Esc too); `n` and `N` then step to the next and previous row. In a list without a search field `/` asks for text and `n` `N` find the next and previous row with that text |
+| `.` | repeat the last change |
+
+Counts, VISUAL and the registers are Vim's: `3dd`, `Vjjd`. The arrow keys, Enter and F2 keep working.
+
+**Dialogs** keep the Qt keys: Tab, arrows, Enter and Esc work, and Vim keys are not taken. In a list
+inside a dialog `Ctrl+J` and `Ctrl+K` also move down and up (from the filter field above the list too).
+
 ## Space is the leader
 
 Space starts a second group of keys. Wait half a second after it (or after `g`, `z`) and a list
@@ -128,7 +178,9 @@ appears above the page bar with every key that can follow and what it does (the 
 | `Space` `e` `e` | add the default transition |
 | `Space` `t` + `v` `a` `d` | add a video track, an audio track, delete empty tracks |
 | `Space` `o` + `s` `l` `a` `L` | snapping, linked selection, audio scrubbing, loop |
-| `Space` `f` `p` / `n` / `x` | Project Manager / show the Media Pool / close the timeline tab |
+| `Space` `f` + `f` `c` `e` `t` `m` `d` `h` `k` `p` | pickers: media, commands, effects, timelines, markers, bins, help, Vim keys, projects (see Pickers) |
+| `Space` `w` + `m` `e` `i` `t` `v` `k` `x` `n` `d` `l` | focus a panel (see Panels, windows and pages) |
+| `Space` `n` / `x` | show the Media Pool / close the timeline tab |
 | `g` `j` `k` `l` | shuttle reverse, stop, forward |
 
 The full list is the [cheat sheet](../keymaps/vim-keys.md).
@@ -169,14 +221,62 @@ selects the last selection again.
 
 ## The command line
 
-`:` opens a line in the page bar row, in place of the mode line.
+`:` opens a line in the page bar row, in place of the mode line. Enter runs it, Esc closes it (so do
+Ctrl+C, Ctrl+[ and Backspace on an empty line). The result shows in the mode line; a failure is red.
 
-- `:w` saves the project, `:q` closes the window (asking about unsaved changes as usual), `:wq` does both.
-- `:set novim` switches Vim mode off, so you can never get stuck.
-- Any Kinoklip command works too, written as on the command line: `:marker add --at 120 --name Intro`.
-  See [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md).
-- `:nmap`, `:nunmap`, `:map`, `:source` and `:set` change the Vim keys (see above).
-- **Up** and **Down** bring back what you typed before. There is no Tab completion.
+**Completion.** **Tab** completes the word before the cursor: command names, action ids
+(`:action edit.un` -> `edit.undo`), pages, timeline names, options, and the timecodes of the markers
+after a number. One match is filled in; several are listed above the line and extended to what they
+share, then **Tab** and **Shift+Tab** (or Ctrl+N and Ctrl+P) step through them.
+
+**History.** **Up** and **Down** bring back the older and newer lines that start with what you have
+typed; Shift+Up, Page Up (or Ctrl+P, Ctrl+K) and Shift+Down, Page Down (Ctrl+N, Ctrl+J) take any line.
+The history survives a restart (200 lines; `/` keeps its own). **`q:`** in NORMAL opens it as a
+picker, newest first; choosing a line runs it. Editing: Ctrl+B and Ctrl+E go to the start and the end,
+Ctrl+H and Ctrl+L one character left and right, Ctrl+W deletes the word before the cursor, Ctrl+U
+everything before it.
+
+| Command | What it does |
+|---|---|
+| `:w` `:wa` | save the project |
+| `:q` `:qa` | quit (asking about unsaved changes as usual); `:q!` quits without asking |
+| `:wq` `:x` `:wqa` `:xa` | save and quit |
+| `:e {name}` | open the timeline with that name in a tab; `:e {file}` opens a project file; `:e` alone opens the Project Manager |
+| `:enew {name}` `:new {name}` | a new timeline (the name is optional) |
+| `:bn` `:bp` `:bd` | next / previous / close the timeline tab |
+| `:b {n or name}` `:ls` | switch to tab n or a timeline by (a part of) its name; list the tabs |
+| `:120` `:+10` `:-5` `:$` `:00:01:10:00` | go to a frame, forward / back some frames, the end, or a timecode |
+| `:page {name}` | `media cut edit comp color audio deliver`, `next`, `prev` or a number |
+| `:undo [n]` `:redo [n]` `:history` | undo or redo n steps; the edit history window |
+| `:render` `:deliver` | go to the Deliver page; `:render --output out.mp4 --preset ...` renders from the line |
+| `:set snap` `nosnap` `snap!` `snap?` | the options `snap`, `linked`, `audioscrub`, `loop` (`no` turns off, `!` or `inv` flips, `?` asks), also `vim`, `leader=`, `timeoutlen=`, `physicalkeys` |
+| `:nmap` `:nunmap` `:map` `:source` | change the Vim keys (see above) |
+| `:action {id or name}` | run any action of the Shortcuts tab; a bare id works too (`:edit.undo`) |
+| `:export edl\|otio\|markers` `:import media\|timeline\|subtitle` | the File menu's export and import |
+| `:help [topic]` `:cheat` | open the guide (a topic is searched); the Vim keys page |
+| `:noh` `:play` | forget the search; play / pause |
+| `:marker add --at 120` | any Kinoklip command, as on the command line (see [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md)) |
+
+Commands can be shortened as in Vim (`:w`, `:bn`, `:pa edit`, `:red`). `:set novim` switches Vim mode
+off, so you can never get stuck.
+
+## Pickers
+
+Space `f` opens a list with a filter field (Telescope's way). Type to narrow it: every word must match
+as letters in order (`cutpg` finds *Cut Page*), a capital letter makes that word case sensitive.
+**Ctrl+J** and **Ctrl+K** (or Down and Up, Ctrl+N and Ctrl+P) move, **Enter** chooses, **Esc** closes.
+
+| Keys | Lists | Enter |
+|---|---|---|
+| `Space` `f` `f` | the media of the project | shows it in the Source viewer |
+| `Space` `f` `c` | every command, with its id and key | runs it |
+| `Space` `f` `e` | effects, transitions, titles and generators | applies it to the clip under the cursor; a transition goes to the edit point at the cursor (the clip that starts there, else the one that ends there). **Alt+Enter** only shows what it is |
+| `Space` `f` `t` | the timelines | opens it |
+| `Space` `f` `m` | the markers | goes to it |
+| `Space` `f` `d` | the bins | shows the bin in the Media Pool |
+| `Space` `f` `h` | the pages of the guide | opens it |
+| `Space` `f` `k` | the Vim keys | runs its command (a motion says which keys to type) |
+| `Space` `f` `p` | the Project Manager | |
 
 ## If you used the Vim keyboard profile
 
@@ -195,6 +295,9 @@ timeline), `H` and `L` switch to the previous and next timeline tab (`{` and `}`
 - `d` is a ripple delete and `c` leaves a gap; `p` inserts at the playhead and `P` overwrites.
 - The cursor sits on a **frame**, so `$` is the end of the whole timeline (not of the track) and
   `dj` (a motion between tracks) works on the clips under the cursor frame, not on whole tracks.
+- The windows are the **panels**: `Ctrl+W` `o` hides the other panels (it does not close them), `Ctrl+W` `c` hides this one, `Ctrl+W` `w` wraps from the last panel to the first. `gt` counts pages (Neovim: tab pages) and `{n}gt` is page n; `2gT` goes two back, wrapping round, as in Neovim.
+- In lists `yy` copies the *names* of the rows as text, `p` is the panel's own paste, and `dd` presses Delete in the view (the panel decides what is deleted). `Ctrl+D` / `Ctrl+U` move half the *visible* rows.
+- On the `:` line `:q` quits the program (Vim closes a window), `:e` opens a timeline, and a number goes to a **frame** (Vim: a line). `:q!` quits without asking. `Ctrl+N` / `Ctrl+P` step through completions and, when none are listed, through the history, as in Neovim. There are no ranges (`:%s`), no `:!`.
 - Keys that Neovim has for text and Kinoklip has no use for (`f`, `t`, `%`, `*`, `q` macros,
   `"Ayy` appending, the numbered registers) do nothing.
 - `p` in VISUAL replaces the selection but does not put the removed clips into a register.

@@ -79,6 +79,8 @@ void VimModeLine::setPanel(const QString& name)
 
 void VimModeLine::showMessage(const QString& text, int ms)
 {
+    m_error = false;
+    m_message->setStyleSheet(QString());
     m_message->setText(text);
     if (ms > 0)
         m_messageTimer->start(ms);
@@ -86,8 +88,17 @@ void VimModeLine::showMessage(const QString& text, int ms)
         m_messageTimer->stop();
 }
 
+void VimModeLine::showError(const QString& text, int ms)
+{
+    showMessage(text, ms);
+    m_error = true;
+    m_message->setStyleSheet(QStringLiteral("QLabel { color: #e05050; font-weight: 600; }"));
+}
+
 void VimModeLine::clearMessage()
 {
+    m_error = false;
+    m_message->setStyleSheet(QString());
     m_message->clear();
 }
 

@@ -2,8 +2,10 @@
 #include "ui/common/VimInput.h"
 
 #include "ui/common/ActionRegistry.h"
+#include "ui/common/PanelFrame.h"
 #include "ui/common/VimGrammar.h"
 #include "ui/common/VimOptions.h"
+#include "ui/common/VimWindowNav.h"
 
 #include <QAbstractItemView>
 #include <QAbstractSpinBox>
@@ -11,6 +13,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QKeyEvent>
+#include <QMainWindow>
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QTextEdit>
@@ -43,6 +46,17 @@ VimMachine::VimMachine(QObject* parent)
 }
 
 VimMachine::~VimMachine() = default;
+
+void VimMachine::switchHost(VimHost* host)
+{
+    if (!host || host == m_host)
+        return;
+    if (m_host && m_mode == Mode::Visual)
+        leaveVisual(false);
+    cancelPending();
+    m_dot = {};
+    m_host = host;
+}
 
 void VimMachine::setKeymap(VimKeymap* keymap)
 {
@@ -922,6 +936,10 @@ bool VimMachine::runBuiltin(const QString& name, const Call& call)
     } else if (name == QLatin1String("search_next") || name == QLatin1String("search_prev")) {
         if (!m_host->searchStep(name == QLatin1String("search_next"), call.count))
             m_host->showMessage(tr("No match"));
+    } else if (m_host->hostCommand(name, call.count, call.hasCount)) {
+        return true;
+    } else if (m_commandHandler) {
+        return m_commandHandler(name, call.count, call.hasCount, call.arg);
     } else {
         return false;
     }
@@ -964,6 +982,8 @@ VimInput::VimInput(ActionRegistry* actions, QObject* parent)
         connect(qApp, &QApplication::focusChanged, this, [this](QWidget*, QWidget* now) {
             if (!inScope(now))
                 m_machine.cancelPending();
+            else
+                syncHost(now);
             emit displayChanged();
         });
     }
@@ -1037,7 +1057,25 @@ QString VimInput::contextOf(const QWidget* focus)
         if (const QString context = w->property(kScopeProperty).toString(); !context.isEmpty())
             return context;
     }
-    return {};
+    // Without a context of its own: a list, tree or grid is "list" (zero code per panel), any
+    // other part of a panel is "panel" (only the global keys). Dialogs are never in a panel.
+    const bool inPanel = vimwin::frameOf(const_cast<QWidget*>(focus)) != nullptr;
+    for (const QWidget* w = focus; w; w = w->parentWidget()) {
+        if (qobject_cast<const QAbstractItemView*>(w)
+            && (inPanel || qobject_cast<const QMainWindow*>(w->window())))
+            return QStringLiteral("list");
+    }
+    return inPanel ? QStringLiteral("panel") : QString();
+}
+
+void VimInput::syncHost(QWidget* focus)
+{
+    VimHost* want = m_host;
+    if (m_listHost && contextOf(focus) == QLatin1String("list")) {
+        want = m_listHost;
+        want->focusChanged(focus);
+    }
+    m_machine.switchHost(want);
 }
 
 void VimInput::focusPanelHome(QWidget* from)
@@ -1051,15 +1089,12 @@ void VimInput::focusPanelHome(QWidget* from)
     }
     if (!frame)
         return;
-    // The panel's main widget (timeline, viewer) when it has one, else the panel itself.
-    for (QWidget* child : frame->findChildren<QWidget*>()) {
-        if (!child->property(kScopeProperty).toString().isEmpty() && child->isVisible()
-            && child->focusPolicy() != Qt::NoFocus) {
-            child->setFocus(Qt::OtherFocusReason);
-            return;
-        }
-    }
-    frame->setFocus(Qt::OtherFocusReason);
+    // The panel's main widget (timeline, viewer, its list or tree) when it has one, else the
+    // panel itself.
+    if (auto* panel = qobject_cast<PanelFrame*>(frame))
+        vimwin::focusPanel(panel);
+    else
+        frame->setFocus(Qt::OtherFocusReason);
 }
 
 /// Esc, one rule from the innermost thing outwards (spec 83): pending keys, VISUAL, INSERT are
@@ -1121,6 +1156,7 @@ bool VimInput::eventFilter(QObject*, QEvent* event)
         return handleEscape(key, event->type());
     if (!m_host || !inScope(QApplication::focusWidget()))
         return false;
+    syncHost(QApplication::focusWidget());
     const vimkeys::KeyInfo info = vimkeys::KeyInfo::from(key);
     if (!m_machine.wouldConsume(info))
         return false;

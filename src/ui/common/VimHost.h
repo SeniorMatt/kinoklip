@@ -13,6 +13,8 @@
 #include <QString>
 #include <QVector>
 
+class QWidget;
+
 #include <cstdint>
 #include <utility>
 
@@ -181,6 +183,20 @@ public:
     virtual void copyToClipboard(const QString& text) { Q_UNUSED(text); }
     /// The timecode of @p frame.
     [[nodiscard]] virtual QString timecode(int64_t frame) const { return QString::number(frame); }
+    /// A command of `vim:<name>` that only this host knows (the list host's `list_open`);
+    /// false when it is not one of its own. @p count is the typed count.
+    virtual bool hostCommand(const QString& name, int count, bool hasCount)
+    {
+        Q_UNUSED(name);
+        Q_UNUSED(count);
+        Q_UNUSED(hasCount);
+        return false;
+    }
+    /// How many rows a list shows (VimListHost): `<C-d>` / `<C-u>` move half of it.
+    [[nodiscard]] virtual int pageRows() const { return 20; }
+    /// The focus moved to @p focus, in the context this host serves (a list host finds its
+    /// view).
+    virtual void focusChanged(QWidget* focus) { Q_UNUSED(focus); }
     /// A message for the mode line ("3 clips yanked", "track is locked").
     virtual void showMessage(const QString& text) { Q_UNUSED(text); }
     /// Jumps to the next / previous (@p forward) search match of the last search; false when

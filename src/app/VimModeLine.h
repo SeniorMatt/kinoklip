@@ -25,6 +25,9 @@ public:
     void setPanel(const QString& name);
     /// Shows @p text after the panel for @p ms milliseconds (0 = until replaced).
     void showMessage(const QString& text, int ms = 3000);
+    /// Like showMessage() in the error colour (an ex command that failed).
+    void showError(const QString& text, int ms = 5000);
+    [[nodiscard]] bool messageIsError() const { return m_error; }
     void clearMessage();
 
     [[nodiscard]] QString modeText() const;
@@ -38,6 +41,7 @@ private:
     QLabel* m_panel = nullptr;
     QLabel* m_message = nullptr;
     QTimer* m_messageTimer = nullptr;
+    bool m_error = false;
 };
 
 } // namespace kk

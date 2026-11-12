@@ -854,6 +854,46 @@ private slots:
         QVERIFY(!vimgrammar::motion(host, QStringLiteral("nonsense"), {}, 1, false));
     }
 
+    void rowMotionsOfAListAreLinewise()
+    {
+        // A list is one track of one-frame rows (VimListHost): the rows motions are inclusive,
+        // so `dj` takes this row and the next.
+        struct Rows final : VimHost
+        {
+            bool trigger(const QString&) override { return false; }
+            int64_t playhead() const override { return 0; }
+            void setPlayhead(int64_t) override { }
+            void clearSelection() override { }
+            void openCommandLine() override { }
+            int64_t timelineEnd() const override { return 30; }
+            int pageRows() const override { return 10; }
+        } host;
+        using vimgrammar::Motion;
+        const auto go = [&](const char* name, int64_t from, int count = 1, bool has = false) {
+            return vimgrammar::motion(host, QLatin1String(name), {from, 0}, count, has);
+        };
+        QVERIFY(go("row_down", 4));
+        QCOMPARE(go("row_down", 4)->to.frame, int64_t(5));
+        QCOMPARE(go("row_down", 4)->type, Motion::Type::Inclusive);
+        QCOMPARE(go("row_down", 4, 3, true)->to.frame, int64_t(7));
+        QCOMPARE(go("row_down", 28, 9, true)->to.frame, int64_t(29)); // the last row
+        QCOMPARE(go("row_up", 4, 2, true)->to.frame, int64_t(2));
+        QCOMPARE(go("row_up", 1, 5, true)->to.frame, int64_t(0));
+        QCOMPARE(go("row_first", 12)->to.frame, int64_t(0));
+        QCOMPARE(go("row_last", 12)->to.frame, int64_t(29));
+        QCOMPARE(go("row_last", 12, 5, true)->to.frame, int64_t(4)); // 5G is row 5
+        QCOMPARE(go("row_last", 12, 99, true)->to.frame, int64_t(29));
+        QCOMPARE(go("row_half_down", 2)->to.frame, int64_t(7)); // half of 10
+        QCOMPARE(go("row_half_up", 2)->to.frame, int64_t(0));
+        QCOMPARE(go("row_half_down", 2, 2, true)->to.frame, int64_t(12));
+        // The range `dj` covers: two rows.
+        const auto motion = *go("row_down", 4);
+        const VimRange range = vimgrammar::rangeOfMotion(host, {4, 0}, motion);
+        QCOMPARE(range.start, int64_t(4));
+        QCOMPARE(range.end, int64_t(6));
+        QVERIFY(vimgrammar::isMotion(QStringLiteral("row_down")));
+    }
+
     // ---- The real host ----
 
     void cursorTrackFollowsJAndK()

@@ -83,7 +83,9 @@ private slots:
             groups.append(tree->topLevelItem(i)->text(0));
         QCOMPARE(groups,
             (QStringList {QStringLiteral("Leader"), QStringLiteral("Global"),
-                QStringLiteral("Timeline"), QStringLiteral("Viewer")}));
+                QStringLiteral("Timeline"), QStringLiteral("Viewer"),
+                QStringLiteral("Lists and trees")}));
+        QVERIFY(hasRow(tab, QStringLiteral("Lists and trees | j | n v o | vim:row_down")));
         QVERIFY(hasRow(tab, QStringLiteral("Timeline | h | n v o | vim:frame_prev")));
         QVERIFY(hasRow(tab, QStringLiteral("Timeline | d | n v | vim:op_delete")));
         QVERIFY(hasRow(tab, QStringLiteral("Leader | <leader>si | n | action:edit.insert")));

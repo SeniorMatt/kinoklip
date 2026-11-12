@@ -278,8 +278,20 @@ private slots:
                     chords.insert(t);
             }
         }
-        // Resolve's Ctrl keys stay the profile's, except these (design section 8).
-        QCOMPARE(chords, (QSet<QString> {QStringLiteral("<C-r>"), QStringLiteral("<C-v>")}));
+        // Resolve's Ctrl keys stay the profile's, except these (design section 8): Redo, the
+        // block selection of the timeline, the focus moves between panels and the window
+        // prefix (83.46), and half a page in lists (<C-d> <C-u>, only in the list context).
+        QCOMPARE(chords,
+            (QSet<QString> {QStringLiteral("<C-r>"), QStringLiteral("<C-v>"),
+                QStringLiteral("<C-h>"), QStringLiteral("<C-j>"), QStringLiteral("<C-k>"),
+                QStringLiteral("<C-l>"), QStringLiteral("<C-w>"), QStringLiteral("<C-d>"),
+                QStringLiteral("<C-u>")}));
+        // <C-d> and <C-u> are only in the lists; the timeline keeps Change Duration and Duplicate.
+        for (const VimBinding& b : map.bindings()) {
+            if (b.tokens.contains(QStringLiteral("<C-d>"))
+                || b.tokens.contains(QStringLiteral("<C-u>")))
+                QCOMPARE(b.context, QStringLiteral("list"));
+        }
     }
 
     void todaysKeysAreInTheTable()
