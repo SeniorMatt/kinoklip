@@ -10,6 +10,7 @@
 #include <QImage>
 #include <QSize>
 #include <QString>
+#include <QStringList>
 
 #include <cstdint>
 #include <future>
@@ -97,6 +98,9 @@ public:
     /// What the render thread holds between frames (decoders, title textures, pooled targets),
     /// as of the last finished request or idle release; any thread.
     [[nodiscard]] render::ResourceStats resourceStats() const;
+
+    /// resourceStats() of every live Compositor of the process, one text line each (log file).
+    [[nodiscard]] static QStringList liveStats();
 
     /// Counters of the decoder look-ahead (RenderRequest::prepare): measurements and tests.
     [[nodiscard]] render::DecoderPool::PrepareStats prepareStats() const;

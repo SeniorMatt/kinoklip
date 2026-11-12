@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "app/LogExport.h"
 
+#include "core/MemoryReport.h"
+#include "render/Compositor.h"
+
 #include <QCoreApplication>
 #include <QDate>
 #include <QSaveFile>
@@ -24,6 +27,7 @@ QString title(int index)
         QStringLiteral("Playback statistics"),
         QStringLiteral("Warnings and errors"),
         QStringLiteral("Other messages"),
+        QStringLiteral("Memory"),
     };
     return titles.at(index);
 }
@@ -98,7 +102,7 @@ void addSection(QString& out, int index, const QStringList& lines, const QString
 QStringList sectionTitles()
 {
     QStringList list;
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 6; ++i)
         list.append(title(i));
     return list;
 }
@@ -161,6 +165,9 @@ QString build(const bugreport::SystemInfo& info, const Session& session, const Q
     addSection(out, 2, stats, QStringLiteral("(nothing was played in this session)"));
     addSection(out, 3, problems, QStringLiteral("(none)"));
     addSection(out, 4, other, QStringLiteral("(none)"));
+    QStringList memory = memreport::lines();
+    memory += render::Compositor::liveStats();
+    addSection(out, 5, memory, QStringLiteral("(not available on this system)"));
     return out;
 }
 
@@ -184,6 +191,8 @@ QString contentsDescription()
         tr("The warnings and errors of this session"),
         tr("Other messages Kinoklip printed (the last %1 lines at most)")
             .arg(sessionlog::kMaxLines),
+        tr("Memory when the file was saved: the process and system memory, what the graphics "
+           "driver counts for Kinoklip, and what the renderers hold"),
     };
     const QStringList titles = sectionTitles();
     for (int i = 0; i < items.size(); ++i)

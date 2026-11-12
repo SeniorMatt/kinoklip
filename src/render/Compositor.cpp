@@ -18,6 +18,7 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <vector>
 
 namespace kk {
 
@@ -27,6 +28,15 @@ namespace {
 constexpr int kBackgroundNice = 10; ///< ~10 % of a core's share against normal threads
 }
 using render::RenderJob;
+
+namespace {
+std::mutex g_liveMutex;
+std::vector<const Compositor*>& liveCompositors()
+{
+    static std::vector<const Compositor*> list;
+    return list;
+}
+} // namespace
 
 struct Compositor::Impl
 {
@@ -201,10 +211,16 @@ Compositor::Compositor(Options options)
     m_impl->thread->setObjectName(QStringLiteral("kk.render"));
     m_impl->thread->start();
     readyFuture.wait();
+    const std::lock_guard live(g_liveMutex);
+    liveCompositors().push_back(this);
 }
 
 Compositor::~Compositor()
 {
+    {
+        const std::lock_guard live(g_liveMutex);
+        std::erase(liveCompositors(), this);
+    }
     {
         std::lock_guard lock(m_impl->mutex);
         m_impl->stopping = true;
@@ -212,6 +228,24 @@ Compositor::~Compositor()
     m_impl->wake.notify_all();
     m_impl->thread->wait();
     m_impl->surface.reset(); // GUI thread, after the context using it is gone
+}
+
+QStringList Compositor::liveStats()
+{
+    QStringList out;
+    const std::lock_guard live(g_liveMutex);
+    int n = 0;
+    for (const Compositor* c : liveCompositors()) {
+        const render::ResourceStats s = c->resourceStats();
+        out.append(QStringLiteral("Compositor %1 (%2): %3 decoders, %4 title textures, %5 MiB of "
+                                  "render targets")
+                       .arg(++n)
+                       .arg(c->isGpu() ? QStringLiteral("GPU") : QStringLiteral("CPU"))
+                       .arg(s.decoders)
+                       .arg(s.titleTextures)
+                       .arg(double(s.targetBytes) / (1 << 20), 0, 'f', 0));
+    }
+    return out;
 }
 
 render::ResourceStats Compositor::resourceStats() const
