@@ -36,14 +36,14 @@ namespace kk::render {
 /// Look-ahead: prepare() gets a decoder ready for a request that comes later (the first frame
 /// after a cut) on a worker thread: opened, seeked and decoded forward to that frame. Until
 /// then the entry is *reserved*: acquire() hands it out for its own position only. A request
-/// that arrives before the preparation is done waits for the rest of it. At most kMaxReserved decoders are reserved and kMaxPrepareRunning
-/// preparing at a time, which is what bounds the memory (each holds its decoded frames and its
-/// reference pictures); further wishes wait in a short list until their due time has passed.
-/// A reservation ends when its request arrives, when the request of a later reservation
-/// arrives (the frames between were skipped), kPrepareGraceMs after its due time, or when its
-/// `cancelled` flag is set (a seek, an edit). When cuts come faster than decoders can get ready,
-/// a wish that cannot be nearly done in time is not started (see the last preparation's cost);
-/// its clip decodes at the cut, as if there were no look-ahead.
+/// that arrives before the preparation is done waits for the rest of it. At most kMaxReserved
+/// decoders are reserved and kMaxPrepareRunning preparing at a time, which is what bounds the
+/// memory (each holds its decoded frames and its reference pictures); further wishes wait in a
+/// short list until their due time has passed. A reservation ends when its request arrives, when
+/// the request of a later reservation arrives (the frames between were skipped), kPrepareGraceMs
+/// after its due time, or when its `cancelled` flag is set (a seek, an edit). When cuts come faster
+/// than decoders can get ready, a wish that cannot be nearly done in time is not started (see the
+/// last preparation's cost); its clip decodes at the cut, as if there were no look-ahead.
 ///
 /// Thread-safety: NOT thread-safe; owned and used by one thread (the render thread). Decoders
 /// handed out may be used on worker threads in between (parallel decode) as long as the
@@ -73,6 +73,9 @@ public:
     /// first frames of a cut are ready too, not only the cut frame (spec 72.7).
     static constexpr int kReadAheadFrames = 3;
     static constexpr int kMaxReserved = 3;
+    /// Open decoders at most (idle ones are closed, least recently used first, to open a new
+    /// one; decoders in use or reserved are never closed, so a frame needing more still works).
+    static constexpr int kMaxOpen = 8;
     /// Preparations running at the same time at most (leave threads for the visible clips).
     static constexpr int kMaxPrepareRunning = 2;
     /// Wishes waiting for a free reservation at most.
@@ -192,6 +195,9 @@ private:
     static constexpr qint64 kRetryFailedMs = 5000;
     /// Hard limit of decoders per path (beyond it the closest idle one is reused anyway).
     static constexpr int kMaxPerPath = 6;
+
+    /// Closes idle decoders until a new one fits under kMaxOpen.
+    void makeRoom();
 
     /// A prepare() that found no free reservation yet.
     struct Wish

@@ -49,6 +49,8 @@ public:
     void finishPending(bool keepNewest) override;
     [[nodiscard]] bool hasPending() const override;
     void shutdown() override;
+    void releaseIdle() override;
+    [[nodiscard]] ResourceStats resources() const override;
 
     /// Number of transition programs built so far (a fresh renderer has built only the
     /// fallback, cross_dissolve). Render thread only; for tests.

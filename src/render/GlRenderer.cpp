@@ -314,6 +314,30 @@ GlTransition* GlRenderer::transitionFor(const QString& id)
     return m_transitions.insert(id, std::move(transition))->get();
 }
 
+ResourceStats GlRenderer::resources() const
+{
+    ResourceStats s;
+    s.decoders = m_decoders.openCount();
+    s.titleTextures = int(m_titles.size());
+    s.targetBytes = m_kit ? m_kit->targets().bytes() : 0;
+    return s;
+}
+
+void GlRenderer::releaseIdle()
+{
+    if (!m_context || !m_kit || !m_context->makeCurrent(m_surface))
+        return;
+    finishPending(false);
+    m_decoders.stopPreparing();
+    m_decodeThreads.waitForDone();
+    m_decoders.clear();
+    for (const TitleTexture& t : std::as_const(m_titles))
+        m_gl->glDeleteTextures(1, &t.texture);
+    m_titles.clear();
+    m_kit->targets().trimAll();
+    m_gl->glFlush();
+}
+
 void GlRenderer::shutdown()
 {
     if (!m_context)

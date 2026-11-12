@@ -158,6 +158,7 @@ DecoderPool::Entry* DecoderPool::acquire(const QString& path, int64_t timeUs)
         const auto failed = m_failedAtMs.constFind(path);
         if (failed != m_failedAtMs.constEnd() && now - *failed < kRetryFailedMs)
             return nullptr;
+        makeRoom();
         auto entry = std::make_unique<Entry>();
         entry->decoder = std::make_unique<media::VideoDecoder>();
         QString error;
@@ -193,6 +194,25 @@ void DecoderPool::closeEntry(size_t index)
     if (m_closeHook)
         m_closeHook(e);
     m_entries.erase(m_entries.begin() + qsizetype(index));
+}
+
+void DecoderPool::makeRoom()
+{
+    // Every open decoder holds a pool of frames (hardware surfaces: shared GPU memory that no
+    // process meter shows, 100+ MB for 4K), so the number of idle ones is bounded.
+    while (int(m_entries.size()) >= kMaxOpen) {
+        int oldest = -1;
+        for (size_t i = 0; i < m_entries.size(); ++i) {
+            const Entry& e = *m_entries[i];
+            if (e.busy || e.reservation)
+                continue;
+            if (oldest < 0 || e.lastUsedMs < m_entries[size_t(oldest)]->lastUsedMs)
+                oldest = int(i);
+        }
+        if (oldest < 0)
+            return; // everything is in use this frame
+        closeEntry(size_t(oldest));
+    }
 }
 
 void DecoderPool::collectIdle()
@@ -339,6 +359,7 @@ void DecoderPool::startPreparation(const Wish& wish, qint64 now)
     if (!reuse) {
         if (perPath >= kMaxPerPath - 1)
             return; // keep room for the requests that cannot wait
+        makeRoom();
         auto created = std::make_unique<Entry>();
         created->decoder = std::make_unique<media::VideoDecoder>();
         created->path = wish.path;

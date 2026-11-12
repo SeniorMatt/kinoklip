@@ -2,7 +2,9 @@
 // RenderQueue — job bookkeeping on the GUI thread, rendering on a worker QThread.
 #include "export/RenderQueue.h"
 
+#include "core/MemoryReport.h"
 #include "core/ThreadNice.h"
+#include "export/ExportLog.h"
 #include "render/Compositor.h"
 
 #include <QCoreApplication>
@@ -241,6 +243,12 @@ void RenderQueue::onFinished(quint64 id, const ExportResult& result)
     }
     m_running.reset();
     m_runningId = 0;
+    qCInfo(lcExport).noquote() << "memory after the render"
+                               << (result.ok                 ? "(finished):"
+                                          : result.cancelled ? "(cancelled):"
+                                                             : "(failed):")
+                               << memreport::oneLine()
+                               << Compositor::liveStats().join(QLatin1Char(';'));
     if (Job* job = findJob(id)) {
         job->result = result;
         job->status = result.ok ? Status::Done
