@@ -10,10 +10,11 @@ explicitly choose to share it.**
   new versions by reading the release files on GitHub; that happens in those tools, outside
   Kinoklip, when you ask them to.
 - Kinoklip makes no network requests, with one exception that you start yourself: the optional AI
-  model of Background Removal. Nothing is fetched until you press **Download** in the dialog that
-  shows its name, size, licence and source; the file comes over HTTPS from the model project's
+  models of Background Removal (one for people in video, one for any subject in still pictures).
+  Nothing is fetched until you press **Download** in the dialog that
+  shows the model's name, size, licence and source; the file comes over HTTPS from the model project's
   release page on GitHub, is checked against a checksum and is kept on your computer (Preferences >
-  System > AI Models removes it). The model then runs entirely on your computer: no pictures, no
+  System > AI Models removes it). A model then runs entirely on your computer: no pictures, no
   names and no usage are sent anywhere, and no account is needed. Links (the user guide, a bug
   report) open in your web browser, and only when you click them.
 
