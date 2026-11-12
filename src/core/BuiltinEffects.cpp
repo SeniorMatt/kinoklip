@@ -385,6 +385,8 @@ QVector<ParamDescriptor> titleParams(const TitleLook& look)
         color(keys::Color, tr("Color"), QColor(Qt::white)),
         number(keys::Tracking, tr("Tracking"), -50, 200, 0, 1, kPercent),
         number(keys::LineSpacing, tr("Line Spacing"), 50, 300, 100, 1, kPercent),
+        number(keys::WriteOnStart, tr("Write On Start"), 0, 1, 0, 0.01),
+        number(keys::WriteOnEnd, tr("Write On End"), 0, 1, 1, 0.01),
         number(keys::TextPosX, tr("Position X"), -1, 2, look.posX, 0.001),
         number(keys::TextPosY, tr("Position Y"), -1, 2, look.posY, 0.001),
         choice(keys::Anchor, tr("Anchor"), sides, sideLabels, look.anchor),
@@ -462,6 +464,12 @@ void EffectRegistry::registerTitles()
     add(descriptor(titles::Scroll, tr("Scroll"), C::Title,
         tr("Rolling credits: the text moves up through the frame over the clip's length"),
         titleParams(scroll), storage));
+
+    TitleLook typed;
+    typed.text = tr("Type your text here");
+    add(descriptor(titles::Typewriter, tr("Typewriter"), C::Title,
+        tr("Text typed on letter by letter in the first second (Write On End 0 to 1)"),
+        titleParams(typed), storage));
 
     TitleLook basic;
     basic.text = tr("Basic Title"); // as in Resolve (spec 14.5)

@@ -150,6 +150,14 @@ std::optional<ClipData> makeGeneratorClip(
             // clip is named after it, as Resolve names a Left Lower Third clip.
             clip.generator = descriptorId;
             clip.name = desc->name;
+            if (descriptorId == titles::Typewriter) {
+                // Write On End 0 -> 1 over the first second (or the whole clip if shorter).
+                const int64_t end = std::clamp<int64_t>(
+                    std::llround(fps.toDouble()), 1, std::max<int64_t>(1, clip.duration - 1));
+                AnimatedValue& on = clip.title.animated(keys::WriteOnEnd, 1.0);
+                on.setKey(0, 0.0);
+                on.setKey(end, 1.0);
+            }
         }
         break;
     case EffectCategory::Effects:

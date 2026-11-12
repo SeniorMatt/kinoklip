@@ -35,6 +35,8 @@ const Description kDescriptions[] = {
         "Opens the keyboard settings: pick a keyboard profile, change or clear the key of any command."),
     KK_TIP("settings.vim_mode",
         "Turns Vim mode on or off: with it on, plain keys are Vim commands (NORMAL mode) and i gives you the usual shortcuts back (INSERT mode). Works with any keyboard profile."),
+    KK_TIP("settings.reload_fonts",
+        "Looks for fonts installed while Kinoklip is open and adds them to every font list. Kinoklip also does this by itself a moment after a font file appears in a font folder."),
     KK_TIP("edit.preferences",
         "Opens the Preferences window (user settings such as editing, playback, interface and local control)."),
     KK_TIP("file.quit",

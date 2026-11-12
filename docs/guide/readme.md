@@ -50,6 +50,7 @@ search field.
 - [Fade to or from black](fade-to-black.md)
 - [Add layers to a title](add-layers-to-a-title.md) (text and shape layers in one title)
 - [Emoji in titles and captions](emoji-in-titles-and-captions.md)
+- [Type text on with Write On](type-text-on-with-write-on.md)
 - [Add a transition, and hide a jump cut with Smooth Cut](transitions.md)
 - [Freeze a frame](freeze-a-frame.md)
 - [Change the frame rate of a timeline](change-the-frame-rate-of-a-timeline.md)

@@ -22,6 +22,7 @@ double defaultValue(QStringView key)
         {Opacity, 100.0},
         {Size, 72.0},
         {LineSpacing, 100.0},
+        {WriteOnEnd, 1.0},
         {BgOpacity, 60.0},
         {TextPosX, 0.5},
         {TextPosY, 0.5},

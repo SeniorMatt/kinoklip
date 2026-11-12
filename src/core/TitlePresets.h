@@ -20,6 +20,7 @@ inline const QString LeftLowerThird = QStringLiteral("title_lower_third_left");
 inline const QString MiddleLowerThird = QStringLiteral("title_lower_third_middle");
 inline const QString RightLowerThird = QStringLiteral("title_lower_third_right");
 inline const QString Scroll = QStringLiteral("title_scroll");
+inline const QString Typewriter = QStringLiteral("title_typewriter");
 inline const QString TextBox = QStringLiteral("title_text_box");
 
 /// The title descriptor whose parameters @p clip shows (a Title clip): its preset, else Text.

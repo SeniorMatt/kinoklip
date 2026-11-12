@@ -35,6 +35,7 @@
 #include "ui/common/ShortcutFallback.h"
 #include "ui/common/StandardActions.h"
 #include "ui/deliver/DeliverPage.h"
+#include "render/FontReload.h"
 #include "ui/dialogs/DialogActions.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/help/Guide.h"
@@ -52,6 +53,7 @@
 #include <QCloseEvent>
 #include <QGuiApplication>
 #include <QHash>
+#include <QCursor>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMouseEvent>
@@ -60,6 +62,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTimer>
+#include <QToolTip>
 #include <QUndoStack>
 #include <QVBoxLayout>
 
@@ -675,6 +678,23 @@ void MainWindow::connectAppActions()
     // Help > Join the Community on Discord: the invite opens in the browser.
     connect(actions.action(QStringLiteral("help.community")), &QAction::triggered, this,
         [this] { guide::openUrl(QUrl(QLatin1String(appinfo::communityUrl)), this); });
+
+    // ---- Fonts installed while the program runs: watched folders + Kinoklip > Reload Fonts ----
+    {
+        auto* fontWatcher = new render::fonts::FontWatcher(render::fonts::defaultFontDirs(), this);
+        connect(fontWatcher, &render::fonts::FontWatcher::fontsAdded, this, [this] {
+            if (m_ctx.playback)
+                m_ctx.playback->redrawStill(); // titles in a font that was missing show it now
+        });
+        connect(actions.action(QStringLiteral("settings.reload_fonts")), &QAction::triggered, this,
+            [this, fontWatcher] {
+                const QStringList added = fontWatcher->reload();
+                QToolTip::showText(QCursor::pos(),
+                    added.isEmpty() ? tr("No new fonts found.")
+                                    : tr("Added fonts: %1").arg(added.join(QStringLiteral(", "))),
+                    this);
+            });
+    }
 
     // ---- Dialogs (src/ui/dialogs) ----
     connectDialogActions(m_ctx, this, [this] {
