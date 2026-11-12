@@ -20,6 +20,7 @@
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineTabs.h"
+#include "ui/timeline/TimelineWidget.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
