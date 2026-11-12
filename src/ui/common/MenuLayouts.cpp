@@ -622,6 +622,7 @@ QList<HiddenAction> hiddenActions()
         {"mediapool.new_bin", "In the Media Pool's menus"},
         {"mediapool.new_smart_bin", "In the Media Pool's menus"},
         {"mediapool.select_in_timeline", "In the Media Pool's item menu"},
+        {"mediapool.save_copy", "In the Media Pool's item menu (media stored in the project)"},
         {"comp.cut", "Edit > Cut acts on the node editor while it has focus (rule 8)"},
         {"comp.copy", "Edit > Copy acts on the node editor while it has focus (rule 8)"},
         {"comp.paste", "Edit > Paste acts on the node editor while it has focus (rule 8)"},

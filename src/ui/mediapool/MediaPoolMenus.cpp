@@ -18,6 +18,7 @@
 #include "ui/common/MediaImport.h"
 #include "ui/common/MediaStore.h"
 #include "ui/common/MenuLayouts.h"
+#include "ui/common/SaveMediaCopy.h"
 #include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolPanel.h"
@@ -234,6 +235,15 @@ void MediaPoolPanel::addFileRepairCommands(
             menu.addAction(tr("Store in Project File"), this,
                 [this, targets] { storeItemsInProject(m_ctx, targets, this); });
         }
+    }
+    // Media stored in the project file can be saved out to the computer again.
+    if (!power && m_ctx.project
+        && !storedCopySources(
+            *m_ctx.project->mediaPool(), ids.contains(current) ? ids : QStringList {current})
+                .isEmpty()) {
+        QStringList targets = ids.contains(current) ? ids : QStringList {current};
+        menu.addAction(tr("Save a Copy to Computer…"), this,
+            [this, targets] { saveCopiesToComputer(m_ctx, targets, this); });
     }
     // Resolve's "Relink Selected Clips": offered when one of the selected items is offline.
     const QStringList selectedIds = ids.contains(current) ? ids : QStringList {current};

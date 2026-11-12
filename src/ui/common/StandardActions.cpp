@@ -456,6 +456,7 @@ const ActionSpec kActions[] = {
 
     // ---- Media pool organisation (File > Media Pool; MediaPoolPanel acts on its selection) ----
     {"mediapool.organize", "mediapool.select_in_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "Select Clips in &Timeline")},
+    {"mediapool.organize", "mediapool.save_copy", QT_TRANSLATE_NOOP("kk::StandardActions", "Save a &Copy to Computer…")},
     {"mediapool.organize", "mediapool.remove_unused", QT_TRANSLATE_NOOP("kk::StandardActions", "Remove &Unused Clips…")},
 
     // ---- Workspace (Resolve's Workspace menu: the window; our look and feel entries are

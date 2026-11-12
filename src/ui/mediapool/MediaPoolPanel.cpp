@@ -20,6 +20,7 @@
 #include "ui/common/MediaManagement.h"
 #include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/common/SaveMediaCopy.h"
 #include "ui/common/SelectedRows.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaHoverPreview.h"
@@ -583,6 +584,7 @@ void MediaPoolPanel::connectActions()
     on("mediapool.new_bin", [this] { createBin(tr("New Bin"), currentBinKey()); });
     on("mediapool.new_smart_bin", [this] { newSmartBinWithDialog(); });
     on("mediapool.remove_unused", [this] { removeUnusedClips(true); });
+    on("mediapool.save_copy", [this] { saveCopiesToComputer(m_ctx, selectedMediaIds(), this); });
     on("mediapool.select_in_timeline", [this] { selectClipsInTimeline(selectedMediaIds()); });
 }
 
@@ -614,6 +616,11 @@ void MediaPoolPanel::publishSelection()
         {"mediapool.generate_proxy", anyFile}, {"mediapool.stop_generation", anyPending},
         {"mediapool.link_proxy", anyFile && ids.size() == 1}, {"mediapool.unlink_proxy", anyProxy},
         {"mediapool.delete_proxy", anyProxy}, {"mediapool.delete_optimized", anyOptimized}};
+    if (m_ctx.actions->contains(QStringLiteral("mediapool.save_copy"))) {
+        QAction* a = m_ctx.actions->action(QStringLiteral("mediapool.save_copy"));
+        a->setData(ids);
+        a->setEnabled(!storedCopySources(*m_ctx.project->mediaPool(), ids).isEmpty());
+    }
     if (m_ctx.actions->contains(QStringLiteral("clip.attributes"))) // Clip > Clip Attributes
         m_ctx.actions->action(QStringLiteral("clip.attributes"))->setData(ids);
     for (const auto& [id, on] : enabled) {

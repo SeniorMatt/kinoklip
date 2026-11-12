@@ -60,6 +60,9 @@ A project holds your timeline and the list of clips you use. When Kinoklip start
       move or back up, but it takes more disk space.
    2. **Linked**: the project only points to your clips where they already are. Smaller, but do
       not move or rename the clips afterwards.
+
+   Lost the original of a clip in a single-file project? Right-click it in the Media Pool and
+   choose **Save a Copy to Computer…**; the file is written out exactly as you imported it.
 4. Click **Create**. The project opens on the Edit page.
 
 Save your work often with **File > Save Project** (**Ctrl+S**).

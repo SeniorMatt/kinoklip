@@ -336,6 +336,7 @@ that every command has an entry and that no key is used twice.
 | New Bin | `mediapool.new_bin` | `Ctrl+Shift+N` | likely | File > New Bin |
 | New Smart Bin | `mediapool.new_smart_bin` | (none) | likely | File menu / bin list context menu, no default key |
 | Select Clips in Timeline (media pool selection) | `mediapool.select_in_timeline` | (none) | unsure | media pool context menu; Kinoklip's wording |
+| Save a Copy to Computer (media pool, stored media) | `mediapool.save_copy` | (none) | unsure | media pool context menu; Kinoklip's wording |
 | Remove Unused Clips | `mediapool.remove_unused` | (none) | likely | media pool context menu, asks first, no default key |
 | Show Bin List (media pool sidebar) | `view.show_bin_list` | (none) | likely | media pool toolbar button, no default key |
 | Video Scopes (floating window: waveform, parade, vectorscope, histogram) | `view.video_scopes` | `Ctrl+Shift+W` | likely | Workspace > Video Scopes in Resolve; Kinoklip's window shows two scopes of the program picture |

@@ -155,6 +155,18 @@ struct UnpackResult
 UnpackResult unpackProject(
     const QString& containerPath, const QString& folder, const Progress& progress = {});
 
+struct ExtractResult
+{
+    Status status = Status::Failed;
+    QString error;
+};
+/// Save a Copy: writes the stored bytes of the media entry @p entryName of @p containerPath
+/// (not a re-encode) to the file @p target, through "<target>.part" renamed when the CRC
+/// matched; an existing @p target is replaced only then. The container is only read. Cancelled
+/// or failed: no @p target change and no ".part" left.
+ExtractResult extractMedia(const QString& containerPath, const QString& entryName,
+    const QString& target, const Progress& progress = {});
+
 struct CompactResult
 {
     Status status = Status::Failed;
