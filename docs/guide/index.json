@@ -883,6 +883,22 @@
       "contexts": []
     },
     {
+      "id": "vim-quick-start",
+      "title": "Vim mode: quick start",
+      "file": "vim-quick-start.md",
+      "summary": "A short step-by-step lesson for beginners: turn Vim mode on, read the mode line, move, edit, select, the Space menu, the Inspector, panels and the command line.",
+      "keywords": [
+        "vim",
+        "quick start",
+        "tutorial",
+        "beginner",
+        "lesson",
+        "neovim",
+        "keyboard"
+      ],
+      "contexts": []
+    },
+    {
       "id": "edit-with-vim-keys",
       "title": "Vim for Kinoklip",
       "file": "edit-with-vim-keys.md",

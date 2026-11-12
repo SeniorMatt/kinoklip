@@ -1,5 +1,7 @@
 # Vim for Kinoklip
 
+New to Vim mode? Start with the step-by-step [quick start](vim-quick-start.md).
+
 If you live in Vim or Neovim, Kinoklip has a **Vim mode** that edits with the keys you already know:
 `5l` steps five frames, `w` jumps to the next clip, `dd` removes the clip under the playhead, `.`
 repeats the last change, `qa` records a macro and `u` undoes. It is an option, off by default, and
