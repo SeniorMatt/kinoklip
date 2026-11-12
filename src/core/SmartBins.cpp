@@ -279,7 +279,7 @@ QVector<std::pair<QString, QString>> choicesFor(SmartField field)
     switch (field) {
     case SmartField::Type:
         out = {{QStringLiteral("video"), tr("Video")}, {QStringLiteral("audio"), tr("Audio")},
-            {QStringLiteral("still"), tr("Still")}, {QStringLiteral("timeline"), tr("Timeline")},
+            {QStringLiteral("still"), tr("Still Image")}, {QStringLiteral("timeline"), tr("Timeline")},
             {QStringLiteral("compound"), tr("Compound Clip")},
             {QStringLiteral("multicam"), tr("Multicam Clip")},
             {QStringLiteral("subtitle"), tr("Subtitle")}};
