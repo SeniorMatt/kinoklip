@@ -288,6 +288,8 @@ public:
     void setOutputClient(const void* client, QSize pixelSize, bool canDrawTextures);
     /// Unregisters @p client.
     void removeOutputClient(const void* client);
+    /// True while at least one viewer shows this engine's pictures.
+    [[nodiscard]] bool hasOutputClients() const { return !m_clients.isEmpty(); }
     /// Picture size of the largest client (timeline aspect, never above timeline resolution).
     [[nodiscard]] QSize outputSize() const;
     /// Size frames are rendered at now: outputSize() capped by the proxy resolution.

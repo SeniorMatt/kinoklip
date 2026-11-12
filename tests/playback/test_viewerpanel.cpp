@@ -18,6 +18,7 @@
 #include "ui/common/AppContext.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/viewer/PlaybackResolution.h"
 #include "ui/viewer/ScrubBar.h"
 #include "ui/viewer/TransformOverlay.h"
@@ -34,6 +35,7 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QSettings>
+#include <QStackedWidget>
 #include <QStandardPaths>
 #include <QSurfaceFormat>
 #include <QTest>
@@ -526,6 +528,124 @@ private Q_SLOTS:
         QVERIFY(!tl.audioTracks.empty() && !tl.audioTracks[0].clips.empty()); // linked audio
         // The program viewer now shows it (after the playhead moved to the end of the clip).
         QCOMPARE(f.project.timeline()->playhead(), int64_t(50));
+    }
+
+    /// Spec 24.27: what the viewer no longer shows stops playing. In single viewer mode the
+    /// playing source clip stops when the one viewer switches to the timeline (Q, a timeline
+    /// opened from the media pool, work in the timeline, the mode buttons) and the playing
+    /// timeline stops when it switches to a clip; the stopped player keeps its position; dual
+    /// mode keeps both viewers as they are.
+    void singleViewerStopsWhatIsNotShown()
+    {
+        QString why;
+        if (!test::ensureFixtures(&why)) {
+            QSKIP(qPrintable(why));
+        }
+        Fixture f;
+        f.solidTimeline();
+        const QString id
+            = f.project.importMedia({test::fixture("h264_25fps.mp4")}).importedIds.value(0);
+        QMainWindow window;
+        auto* edit = new EditPage(f.ctx);
+        EditPage& page = *edit;
+        window.addActions(f.actions.actions());
+        window.setCentralWidget(edit);
+        window.resize(1600, 900);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        ViewerPanel* source = page.sourceViewer();
+        ViewerPanel* program = page.timelineViewer();
+        page.setSingleViewer(true);
+
+        const auto playSource = [&] {
+            emit page.mediaPool()->openInSourceViewer(id);
+            QVERIFY(page.singleViewerShowsSource());
+            source->engine()->seek(10);
+            source->engine()->play();
+            QVERIFY(source->engine()->isPlaying());
+        };
+        const auto expectSourceStopped = [&] {
+            QVERIFY(!page.singleViewerShowsSource());
+            QVERIFY(!source->engine()->isPlaying());
+            QVERIFY(source->engine()->position() >= 10); // keeps its position
+            QVERIFY(!program->isHidden());
+        };
+
+        // Q.
+        playSource();
+        QVERIFY(!QTest::currentTestFailed());
+        f.actions.action(QStringLiteral("view.toggle_source_timeline"))->trigger();
+        expectSourceStopped();
+        QVERIFY(!QTest::currentTestFailed());
+        // A timeline opened from the media pool (double click on it).
+        playSource();
+        QVERIFY(!QTest::currentTestFailed());
+        emit page.mediaPool()->timelineOpened(f.project.timeline()->data().uid);
+        expectSourceStopped();
+        QVERIFY(!QTest::currentTestFailed());
+        // Work in the timeline (its viewer becomes the active one).
+        playSource();
+        QVERIFY(!QTest::currentTestFailed());
+        program->activate();
+        expectSourceStopped();
+        QVERIFY(!QTest::currentTestFailed());
+        // The page's mode buttons: dual mode keeps the playing source, single shows one again.
+        playSource();
+        QVERIFY(!QTest::currentTestFailed());
+        page.setSingleViewer(false);
+        QVERIFY(source->engine()->isPlaying());
+        page.timelineViewer()->activate();
+        QVERIFY(source->engine()->isPlaying());
+        page.setSingleViewer(true); // the timeline viewer is the active one: it stays
+        expectSourceStopped();
+        QVERIFY(!QTest::currentTestFailed());
+
+        // The other way: the playing timeline stops when the viewer switches to a clip.
+        program->activate();
+        f.engine->seek(5);
+        f.engine->play();
+        QVERIFY(f.engine->isPlaying());
+        emit page.mediaPool()->openInSourceViewer(id);
+        QVERIFY(page.singleViewerShowsSource());
+        QVERIFY(!f.engine->isPlaying());
+        QVERIFY(f.engine->position() >= 5);
+        // Back to the timeline: it shows the timeline playhead, nothing plays.
+        f.actions.action(QStringLiteral("view.toggle_source_timeline"))->trigger();
+        QVERIFY(!source->engine()->isPlaying());
+        QVERIFY(!f.engine->isPlaying());
+        QCOMPARE(f.project.timeline()->playhead(), f.engine->position());
+    }
+
+    /// Spec 24.27: switching the page stops the playing viewer of the page left (the Media and
+    /// Cut pages have their own viewers), a minimised window does not.
+    void pageSwitchStopsPlayingViewer()
+    {
+        QString why;
+        if (!test::ensureFixtures(&why)) {
+            QSKIP(qPrintable(why));
+        }
+        Fixture f;
+        f.solidTimeline();
+        const QString id
+            = f.project.importMedia({test::fixture("h264_25fps.mp4")}).importedIds.value(0);
+        QStackedWidget stack;
+        auto* a = new ViewerPanel(ViewerPanel::Mode::Source, f.ctx);
+        auto* b = new ViewerPanel(ViewerPanel::Mode::Timeline, f.ctx);
+        stack.addWidget(a);
+        stack.addWidget(b);
+        stack.resize(640, 480);
+        stack.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&stack));
+        a->setSourceMedia(id);
+        a->engine()->seek(10);
+        a->engine()->play();
+        QVERIFY(a->engine()->isPlaying());
+        stack.setCurrentWidget(b);
+        QVERIFY(!a->engine()->isPlaying());
+        QVERIFY(a->engine()->position() >= 10);
+        f.engine->play();
+        stack.setCurrentWidget(a);
+        QVERIFY(!f.engine->isPlaying());
     }
 };
 
