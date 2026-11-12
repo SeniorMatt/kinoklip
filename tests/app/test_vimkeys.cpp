@@ -26,6 +26,7 @@
 #include "ui/timeline/TimelineLayout.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
+#include "ui/timeline/VimTimelineHost.h"
 
 #include <QAction>
 #include <QApplication>
@@ -51,13 +52,14 @@ namespace {
 constexpr TrackRef kV1 {TrackType::Video, 0};
 constexpr TrackRef kA1 {TrackType::Audio, 0};
 
-/// Records what the machine asks for.
+/// Records what the machine asks for. Three tracks, no clips; the timeline ends at 500.
 class FakeHost final : public VimHost
 {
 public:
     QStringList log;
     int64_t frame = 100;
-    int clipsAtPlayhead = 1; ///< what selectClipsAtPlayhead() returns (a clip is there)
+    int track = 2;
+    VimVisual::Kind visualKind = VimVisual::Kind::None;
 
     bool trigger(const QString& id) override
     {
@@ -70,20 +72,19 @@ public:
         frame = f;
         log.append(QStringLiteral("seek %1").arg(f));
     }
-    bool selectClipsAtPlayhead(int count) override
-    {
-        log.append(QStringLiteral("select-clips %1").arg(count));
-        return clipsAtPlayhead > 0;
-    }
-    void selectRange(int64_t a, int64_t b) override
-    {
-        log.append(QStringLiteral("range %1 %2").arg(a).arg(b));
-    }
     void clearSelection() override { log.append(QStringLiteral("clear")); }
-    void moveTarget(int delta) override { log.append(QStringLiteral("target %1").arg(delta)); }
     void openCommandLine() override { log.append(QStringLiteral("colon")); }
     void openSearch() override { log.append(QStringLiteral("search")); }
     void runEx(const QString& line) override { log.append(QStringLiteral("ex ") + line); }
+    int trackCount() const override { return 3; }
+    int cursorTrack() const override { return track; }
+    void setCursorTrack(int index) override
+    {
+        track = index;
+        log.append(QStringLiteral("track %1").arg(index));
+    }
+    int64_t timelineEnd() const override { return 500; }
+    void showVisual(const VimVisual& v) override { visualKind = v.kind; }
 };
 
 struct Typer
@@ -208,45 +209,55 @@ private slots:
         m.setHost(&host);
         Typer type {m};
         type(QStringLiteral("5l"));
-        QCOMPARE(host.log, QStringList(5, QStringLiteral("transport.next_frame")));
-        host.log.clear();
-        type(QStringLiteral("3w"));
-        QCOMPARE(host.log, QStringList(3, QStringLiteral("transport.next_edit")));
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 105")});
         host.log.clear();
         type(QStringLiteral("12h"));
-        QCOMPARE(host.log.size(), 12);
-        QCOMPARE(host.log.first(), QStringLiteral("transport.prev_frame"));
-        host.log.clear();
-        type(QStringLiteral("2b"));
-        QCOMPARE(host.log, QStringList(2, QStringLiteral("transport.prev_edit")));
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 93")});
         host.log.clear();
         type(QStringLiteral("10"));
         QCOMPARE(m.pending(), QStringLiteral("10"));
         type(QStringLiteral("l"));
-        QCOMPARE(host.log.size(), 10);
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 103")});
         QVERIFY(m.pending().isEmpty());
         // A zero after other digits is part of the count; a first zero is a motion.
         host.log.clear();
         type(QStringLiteral("0"));
-        QCOMPARE(host.log, QStringList {QStringLiteral("transport.go_to_start")});
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 0")});
+        // { and } are a second (25 frames here), H and L the timeline tabs.
+        host.frame = 100;
+        host.log.clear();
+        type(QStringLiteral("}2{"));
+        QCOMPARE(host.log, (QStringList {QStringLiteral("seek 125"), QStringLiteral("seek 75")}));
+        host.log.clear();
+        type(QStringLiteral("HL"));
+        QCOMPARE(host.log,
+            (QStringList {QStringLiteral("timeline.prev_tab"), QStringLiteral("timeline.next_tab")}));
     }
 
-    void startEndMarkersZoom()
+    void tracksAndEnds()
     {
         VimMachine m;
         FakeHost host;
         m.setHost(&host);
         Typer type {m};
+        // gg and G go to the first and last track, 2G to the second, $ to the end of the timeline
+        // (they were the start and end of the timeline in 1.2).
         type(QStringLiteral("gg"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("track 0")});
+        host.log.clear();
         type(QStringLiteral("G"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("track 2")});
+        host.log.clear();
+        type(QStringLiteral("2G"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("track 1")});
+        host.log.clear();
         type(QStringLiteral("$"));
-        type(QStringLiteral("nN"));
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 500")});
+        host.log.clear();
         type(QStringLiteral("zizozf"));
         QCOMPARE(host.log,
-            (QStringList {QStringLiteral("transport.go_to_start"), QStringLiteral("transport.go_to_end"),
-                QStringLiteral("transport.go_to_end"), QStringLiteral("transport.next_marker"),
-                QStringLiteral("transport.prev_marker"), QStringLiteral("timeline.zoom_in"),
-                QStringLiteral("timeline.zoom_out"), QStringLiteral("timeline.zoom_fit")}));
+            (QStringList {QStringLiteral("timeline.zoom_in"), QStringLiteral("timeline.zoom_out"),
+                QStringLiteral("timeline.zoom_fit")}));
         // A single g waits; another key cancels it and does nothing.
         host.log.clear();
         type(QStringLiteral("g"));
@@ -256,33 +267,13 @@ private slots:
         QVERIFY(m.pending().isEmpty());
     }
 
-    void deleteYankAndEdits()
+    void editsAndLeaderKeys()
     {
         VimMachine m;
         FakeHost host;
         m.setHost(&host);
         Typer type {m};
-        type(QStringLiteral("dd"));
-        QCOMPARE(host.log, (QStringList {QStringLiteral("select-clips 1"), QStringLiteral("edit.ripple_delete")}));
-        host.log.clear();
-        type(QStringLiteral("3dd"));
-        QCOMPARE(host.log, (QStringList {QStringLiteral("select-clips 3"), QStringLiteral("edit.ripple_delete")}));
-        host.log.clear();
-        host.clipsAtPlayhead = 0; // nothing under the playhead: nothing deleted
-        type(QStringLiteral("dd"));
-        QCOMPARE(host.log, QStringList {QStringLiteral("select-clips 1")});
-        host.clipsAtPlayhead = 1;
-        host.log.clear();
-        type(QStringLiteral("yy"));
-        QCOMPARE(host.log, (QStringList {QStringLiteral("select-clips 1"), QStringLiteral("edit.copy")}));
-        host.log.clear();
-        type(QStringLiteral("xXpPs"));
-        QCOMPARE(host.log,
-            (QStringList {QStringLiteral("edit.ripple_delete"), QStringLiteral("edit.delete"),
-                QStringLiteral("edit.paste_insert"), QStringLiteral("edit.paste"),
-                QStringLiteral("edit.split")}));
         // The source edits are on the leader (Space s i / o / a); i and a start INSERT mode.
-        host.log.clear();
         type(QStringLiteral(" si so sa"));
         QCOMPARE(host.log,
             (QStringList {QStringLiteral("edit.insert"), QStringLiteral("edit.overwrite"),
@@ -292,13 +283,7 @@ private slots:
         QCOMPARE(host.log, QStringList(3, QStringLiteral("edit.undo")));
         host.log.clear();
         type(QStringLiteral("jk2k"));
-        QCOMPARE(host.log, (QStringList {QStringLiteral("target -1"), QStringLiteral("target 1"), QStringLiteral("target 2")}));
-        // d and a motion is not implemented: nothing is deleted.
-        host.log.clear();
-        type(QStringLiteral("dw"));
-        QVERIFY(host.log.isEmpty());
-        type(QStringLiteral("dh"));
-        QVERIFY(host.log.isEmpty());
+        QCOMPARE(host.log, (QStringList {QStringLiteral("track 1"), QStringLiteral("track 0")}));
     }
 
     void modesAndEscape()
@@ -312,14 +297,10 @@ private slots:
         type(QStringLiteral("v"));
         QCOMPARE(m.mode(), VimMachine::Mode::Visual);
         QCOMPARE(m.statusText(), QStringLiteral("VISUAL"));
-        QCOMPARE(host.log.last(), QStringLiteral("range 100 100"));
-        host.log.clear();
-        host.frame = 140;
-        type(QStringLiteral("l"));
-        QCOMPARE(host.log.last(), QStringLiteral("range 100 140"));
-        host.log.clear();
-        type(QStringLiteral("d"));
-        QCOMPARE(host.log, QStringList {QStringLiteral("edit.ripple_delete")});
+        QCOMPARE(host.visualKind, VimVisual::Kind::Char);
+        type(QStringLiteral("V"));
+        QCOMPARE(m.statusText(), QStringLiteral("V-LINE"));
+        type(QStringLiteral("V"));
         QCOMPARE(m.mode(), VimMachine::Mode::Normal);
         // Esc leaves VISUAL and clears the selection.
         type(QStringLiteral("v"));
@@ -327,13 +308,10 @@ private slots:
         QVERIFY(m.handleKey(Qt::Key_Escape, {}, QString()));
         QCOMPARE(m.mode(), VimMachine::Mode::Normal);
         QCOMPARE(host.log, QStringList {QStringLiteral("clear")});
-        // v again leaves it too; y copies and leaves.
+        QCOMPARE(host.visualKind, VimVisual::Kind::None);
+        // v again leaves it too.
         type(QStringLiteral("vv"));
         QCOMPARE(m.mode(), VimMachine::Mode::Normal);
-        host.log.clear();
-        type(QStringLiteral("vy"));
-        QCOMPARE(m.mode(), VimMachine::Mode::Normal);
-        QVERIFY(host.log.contains(QStringLiteral("edit.copy")));
         // Esc drops pending keys and a count, and is not taken when nothing is pending.
         type(QStringLiteral("3d"));
         QCOMPARE(m.pending(), QStringLiteral("3d"));
@@ -364,7 +342,7 @@ private slots:
         QVERIFY(host.log.isEmpty());
         // Unbound printable keys are swallowed; Space is the leader; Return, cursor keys and the
         // profile's Ctrl and Alt chords are not taken.
-        type(QStringLiteral("qrcfe.@~"));
+        type(QStringLiteral("qft@!%"));
         QVERIFY(host.log.isEmpty());
         QVERIFY(!m.wouldConsume(Qt::Key_S, Qt::ControlModifier, QStringLiteral("s")));
         QVERIFY(!m.wouldConsume(Qt::Key_X, Qt::AltModifier, QStringLiteral("x")));
@@ -389,7 +367,9 @@ private slots:
                  "timeline.zoom_fit", "edit.ripple_delete", "edit.delete", "edit.copy",
                  "edit.paste", "edit.paste_insert", "edit.undo", "edit.redo", "edit.insert",
                  "edit.overwrite", "edit.append_at_end", "edit.split", "mark.add_marker",
-                 "trim.nudge_right", "trim.nudge_left", "file.save", "file.quit"})
+                 "trim.nudge_right", "trim.nudge_left", "file.save", "file.quit", "edit.join",
+                 "edit.replace", "edit.ripple_overwrite", "edit.fit_to_fill", "clip.toggle_enabled",
+                 "timeline.prev_tab", "timeline.next_tab"})
             QVERIFY2(actions.contains(QLatin1String(id)), id);
     }
 
@@ -398,31 +378,30 @@ private slots:
         Fixture f;
         QVERIFY(f.vim()->active());
         QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("NORMAL"));
-        // Frame steps belong to the playback engine (absent here): count the action's triggers.
-        int steps = 0;
-        QAction* next = f.actions.action(QStringLiteral("transport.next_frame"));
-        QAction* prev = f.actions.action(QStringLiteral("transport.prev_frame"));
-        connect(next, &QAction::triggered, this, [&] { ++steps; });
-        connect(prev, &QAction::triggered, this, [&] { steps += 100; });
+        auto* host = f.window->vimController()->host();
+        // The cursor starts on V1 (the target video track); V1 is the first of two tracks here.
+        QCOMPARE(host->trackCount(), 2);
         f.type(QStringLiteral("5l"));
-        QCOMPARE(steps, 5);
+        QCOMPARE(f.playhead(), int64_t(5));
         f.type(QStringLiteral("2h"));
-        QCOMPARE(steps, 205);
-        f.project.timeline()->setPlayhead(3);
+        QCOMPARE(f.playhead(), int64_t(3));
         f.type(QStringLiteral("w"));
         QCOMPARE(f.playhead(), int64_t(40));
         f.type(QStringLiteral("2w"));
         QCOMPARE(f.playhead(), int64_t(120));
         f.type(QStringLiteral("b"));
         QCOMPARE(f.playhead(), int64_t(80));
+        f.type(QStringLiteral("G")); // the last track, the same frame
+        QCOMPARE(host->cursorTrack(), 1);
+        QCOMPARE(f.playhead(), int64_t(80));
         f.type(QStringLiteral("gg"));
-        QCOMPARE(f.playhead(), int64_t(0));
-        f.type(QStringLiteral("G"));
-        QCOMPARE(f.playhead(), int64_t(120));
+        QCOMPARE(host->cursorTrack(), 0);
         f.type(QStringLiteral("0"));
         QCOMPARE(f.playhead(), int64_t(0));
         f.type(QStringLiteral("$"));
         QCOMPARE(f.playhead(), int64_t(120));
+        f.type(QStringLiteral("j"));
+        QCOMPARE(host->cursorTrack(), 1);
         QCOMPARE(f.undoCount(), 1); // motions are not edits (only the setup step exists)
     }
 
@@ -452,16 +431,23 @@ private slots:
         QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:40 80:40"));
     }
 
-    void xDeletesSelection()
+    void xDeletesTheSelectionElseTheClipUnderTheCursor()
     {
         Fixture f;
-        f.type(QStringLiteral("x")); // nothing selected: nothing happens
-        QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:40 80:40"));
+        const quint64 first = f.project.timeline()->data().track(kV1)->clips[0].id;
+        // Nothing selected: the clip under the cursor (and its linked audio) goes.
         f.project.timeline()->setPlayhead(50);
+        f.type(QStringLiteral("x"));
+        QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:40"));
+        QCOMPARE(f.project.timeline()->data().track(kV1)->clips[0].id, first);
+        f.type(QStringLiteral("u"));
+        // A selection wins over the cursor.
+        f.project.timeline()->setPlayhead(0);
         f.selection.setClips({f.project.timeline()->data().track(kV1)->clips[1].id});
         const int before = f.project.undoStack()->index();
         f.type(QStringLiteral("x"));
         QCOMPARE(f.layout(kV1), QStringLiteral("0:40 40:40"));
+        QCOMPARE(f.project.timeline()->data().track(kV1)->clips[0].id, first);
         QCOMPARE(f.project.undoStack()->index(), before + 1);
     }
 
@@ -483,17 +469,24 @@ private slots:
         f.project.timeline()->setPlayhead(10);
         f.type(QStringLiteral("v"));
         QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("VISUAL"));
-        QCOMPARE(f.selection.clips().size(), qsizetype(2)); // clip 1 and its audio
+        QCOMPARE(f.window->editPage()->timeline()->controller()->vimOverlay().visual, 1);
         f.type(QStringLiteral("w"));
-        QCOMPARE(f.selection.clips().size(), qsizetype(4)); // up to the playhead at 40: clips 1 and 2
+        QCOMPARE(f.playhead(), int64_t(40));
         f.key(Qt::Key_Escape);
         QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("NORMAL"));
+        QCOMPARE(f.window->editPage()->timeline()->controller()->vimOverlay().visual, 0);
+        // V is the clip mode and names itself so.
+        f.project.timeline()->setPlayhead(10);
+        f.type(QStringLiteral("V"));
+        QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("V-LINE"));
+        QVERIFY(!f.selection.clips().isEmpty()); // the clips show as selected
+        f.key(Qt::Key_Escape);
         QVERIFY(f.selection.clips().isEmpty());
-        // v, motion, d: one ripple delete.
+        // v, motion, d: one undo step that cuts frames 10..40 (the w motion lands on 40).
         f.project.timeline()->setPlayhead(10);
         const int before = f.project.undoStack()->index();
         f.type(QStringLiteral("vwd"));
-        QCOMPARE(f.layout(kV1), QStringLiteral("0:40"));
+        QCOMPARE(f.layout(kV1), QStringLiteral("0:10 10:39 49:40"));
         QCOMPARE(f.project.undoStack()->index(), before + 1);
         QCOMPARE(f.window->vimController()->modeLine()->modeText(), QStringLiteral("NORMAL"));
     }
@@ -629,14 +622,13 @@ private slots:
         // The second key in time: gg, not g.
         host.log.clear();
         type(QStringLiteral("gg"));
-        QCOMPARE(host.log, QStringList {QStringLiteral("transport.go_to_start")});
+        QCOMPARE(host.log, QStringList {QStringLiteral("track 0")});
         QTest::qWait(80);
         QCOMPARE(host.log.size(), 1);
         // A key that continues nothing: the short binding runs, then the key starts over.
         host.log.clear();
-        type(QStringLiteral("gx")); // gx is nothing; x is Ripple Delete
-        QCOMPARE(host.log,
-            (QStringList {QStringLiteral("edit.undo"), QStringLiteral("edit.ripple_delete")}));
+        type(QStringLiteral("gx")); // gx is nothing: the user's g runs, then x starts over
+        QCOMPARE(host.log, QStringList {QStringLiteral("edit.undo")});
         QVERIFY(m.pending().isEmpty());
     }
 
@@ -771,7 +763,7 @@ private slots:
         QCOMPARE(host.log, QStringList {QStringLiteral("view.viewer_zoom_fit")});
         host.log.clear();
         type(QStringLiteral("2l")); // inherited from the timeline
-        QCOMPARE(host.log, QStringList(2, QStringLiteral("transport.next_frame")));
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 102")});
     }
 
     void aBurstOfKeysIsFast()
@@ -808,23 +800,21 @@ private slots:
         VimMachine m;
         FakeHost host;
         m.setHost(&host);
-        // "д" sits where "l" is: next frame. "р" is h, "ц" is w.
+        // "д" sits where "l" is: next frame. "р" is h, "ц" is w (no clips here: no move).
         QVERIFY(m.handleKey(ru(QChar(0x0434), 38)));
         QVERIFY(m.handleKey(ru(QChar(0x0440), 35)));
         QVERIFY(m.handleKey(ru(QChar(0x0446), 17)));
-        QCOMPARE(host.log,
-            (QStringList {QStringLiteral("transport.next_frame"),
-                QStringLiteral("transport.prev_frame"), QStringLiteral("transport.next_edit")}));
+        QCOMPARE(host.log, (QStringList {QStringLiteral("seek 101"), QStringLiteral("seek 100")}));
         // Shift + "х" is { , Shift + "ж" is : .
         host.log.clear();
         QVERIFY(m.handleKey(ru(QChar(0x0425), 26, Qt::ShiftModifier)));
         QVERIFY(m.handleKey(ru(QChar(0x0416), 39, Qt::ShiftModifier)));
-        QCOMPARE(host.log, QStringList {QStringLiteral("colon")});
+        QCOMPARE(host.log, (QStringList {QStringLiteral("seek 75"), QStringLiteral("colon")}));
         // Two-key sequences and counts work in the layout: "пп" is gg, and 5 д is 5l.
         host.log.clear();
         QVERIFY(m.handleKey(ru(QChar(0x043f), 34)));
         QVERIFY(m.handleKey(ru(QChar(0x043f), 34)));
-        QCOMPARE(host.log, QStringList {QStringLiteral("transport.go_to_start")});
+        QCOMPARE(host.log, QStringList {QStringLiteral("track 0")});
         host.log.clear();
         KeyInfo five;
         five.key = Qt::Key_5;
@@ -832,7 +822,7 @@ private slots:
         five.nativeScanCode = 6 + 8;
         QVERIFY(m.handleKey(five));
         QVERIFY(m.handleKey(ru(QChar(0x0434), 38)));
-        QCOMPARE(host.log.size(), 5);
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 80")});
         // The shifted digit row follows once the layout is known to be Cyrillic: the Russian
         // layout types ';' on Shift+4, and $ is meant.
         host.log.clear();
@@ -842,7 +832,7 @@ private slots:
         dollar.text = QStringLiteral(";");
         dollar.nativeScanCode = 5 + 8;
         QVERIFY(m.handleKey(dollar));
-        QCOMPARE(host.log, QStringList {QStringLiteral("transport.go_to_end")});
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 500")});
         // A Latin letter switches back: the typed character counts again.
         host.log.clear();
         KeyInfo latinL;
@@ -850,7 +840,7 @@ private slots:
         latinL.text = QStringLiteral("l");
         latinL.nativeScanCode = 38 + 8;
         QVERIFY(m.handleKey(latinL));
-        QCOMPARE(host.log, QStringList {QStringLiteral("transport.next_frame")});
+        QCOMPARE(host.log, QStringList {QStringLiteral("seek 501")});
         host.log.clear();
         QVERIFY(m.handleKey(dollar)); // Latin layout: ';' is just an unbound key
         QVERIFY(host.log.isEmpty());
@@ -942,12 +932,14 @@ private slots:
         QCOMPARE(f.playhead(), int64_t(80));
         press(QChar(0x0438), 48);
         QCOMPARE(f.playhead(), int64_t(40));
-        // "пп" is gg, "Ю" (Shift + the . key) is not bound; Shift + "п" is G.
-        press(QChar(0x043f), 34);
-        press(QChar(0x043f), 34);
-        QCOMPARE(f.playhead(), int64_t(0));
+        // "пп" is gg (the first track), Shift + "п" is G (the last).
+        auto* host = f.window->vimController()->host();
         press(QChar(0x041f), 34, Qt::ShiftModifier);
-        QCOMPARE(f.playhead(), int64_t(120));
+        QCOMPARE(host->cursorTrack(), 1);
+        press(QChar(0x043f), 34);
+        press(QChar(0x043f), 34);
+        QCOMPARE(host->cursorTrack(), 0);
+        QCOMPARE(f.playhead(), int64_t(40));
         // The layer took them: nothing was typed into anything and no shortcut fired.
         QCOMPARE(f.undoCount(), 1);
         // Switched off, the typed letters are the Cyrillic ones: unbound and swallowed.

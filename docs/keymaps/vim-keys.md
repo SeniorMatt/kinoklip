@@ -9,6 +9,14 @@ typed; `i` or `a` switches to INSERT, where the keyboard profile's own shortcuts
 back. Keys match their place on the keyboard when the layout is not Latin (a Russian layout works
 without switching).
 
+The timeline is the buffer: time is the line (a column is a frame), the tracks are the lines (the
+top track first, video then audio), clips are words, gaps are white space. The cursor is the
+playhead on the cursor track. The grammar is Vim's: `["register][count]operator[count]motion` or
+`operator` + text object, for example `"a3dw`, `d]]`, `yiw`, `cip`. An operator key typed twice
+(`dd`, `yy`, `cc`) works on the clip under the cursor. The operators are `d` (ripple delete), `c`
+(delete leaving a gap, then INSERT) and `y` (copy). The rows marked *after an operator* are the
+motions and text objects an operator accepts. `.` repeats the last change.
+
 ## Everywhere the Vim keys work
 
 | Keys | Mode | What it does | Runs |
@@ -22,49 +30,82 @@ without switching).
 
 | Keys | Mode | What it does | Runs |
 |---|---|---|---|
-| `h` | NORMAL and VISUAL | previous frame | `action:transport.prev_frame` |
-| `l` | NORMAL and VISUAL | next frame | `action:transport.next_frame` |
-| `H` | NORMAL and VISUAL | one second back | `action:transport.back_1s` |
-| `L` | NORMAL and VISUAL | one second forward | `action:transport.forward_1s` |
-| `w` | NORMAL and VISUAL | next edit point | `action:transport.next_edit` |
-| `b` | NORMAL and VISUAL | previous edit point | `action:transport.prev_edit` |
-| `n` | NORMAL and VISUAL | next marker | `action:transport.next_marker` |
-| `N` | NORMAL and VISUAL | previous marker | `action:transport.prev_marker` |
-| `]]` | NORMAL and VISUAL | next marker | `action:transport.next_marker` |
-| `[[` | NORMAL and VISUAL | previous marker | `action:transport.prev_marker` |
-| `0` | NORMAL and VISUAL | start of the timeline | `action:transport.go_to_start` |
-| `$` | NORMAL and VISUAL | end of the timeline | `action:transport.go_to_end` |
-| `gg` | NORMAL and VISUAL | start of the timeline | `action:transport.go_to_start` |
-| `G` | NORMAL and VISUAL | end of the timeline | `action:transport.go_to_end` |
+| `h` | NORMAL, VISUAL and after an operator | previous frame | `vim:frame_prev` |
+| `l` | NORMAL, VISUAL and after an operator | next frame | `vim:frame_next` |
+| `{` | NORMAL, VISUAL and after an operator | one second back | `vim:second_prev` |
+| `}` | NORMAL, VISUAL and after an operator | one second forward | `vim:second_next` |
+| `0` | NORMAL, VISUAL and after an operator | start of the timeline | `vim:timeline_start` |
+| `$` | NORMAL, VISUAL and after an operator | end of the timeline | `vim:timeline_end` |
+| `\|` | NORMAL, VISUAL and after an operator | frame number (the count), 0 without one | `vim:goto_frame` |
+| `^` | NORMAL, VISUAL and after an operator | start of the first clip | `vim:first_clip` |
+| `w` | NORMAL, VISUAL and after an operator | start of the next clip on the cursor track | `vim:clip_next` |
+| `b` | NORMAL, VISUAL and after an operator | start of this clip, or of the previous one | `vim:clip_prev` |
+| `e` | NORMAL, VISUAL and after an operator | last frame of this clip, or of the next one | `vim:clip_end` |
+| `ge` | NORMAL, VISUAL and after an operator | last frame of the previous clip | `vim:clip_end_prev` |
+| `W` | NORMAL, VISUAL and after an operator | next edit point on any track | `vim:edit_next` |
+| `B` | NORMAL, VISUAL and after an operator | previous edit point on any track | `vim:edit_prev` |
+| `E` | NORMAL, VISUAL and after an operator | last frame before the next edit point on any track | `vim:edit_end` |
+| `gE` | NORMAL, VISUAL and after an operator | last frame before the previous edit point on any track | `vim:edit_end_prev` |
+| `]]` | NORMAL, VISUAL and after an operator | next marker | `vim:marker_next` |
+| `[[` | NORMAL, VISUAL and after an operator | previous marker | `vim:marker_prev` |
+| `]k` | NORMAL, VISUAL and after an operator | next keyframe of the clip | `vim:keyframe_next` |
+| `[k` | NORMAL, VISUAL and after an operator | previous keyframe of the clip | `vim:keyframe_prev` |
+| `j` | NORMAL, VISUAL and after an operator | track below (count: that many) | `vim:track_down` |
+| `k` | NORMAL, VISUAL and after an operator | track above (count: that many) | `vim:track_up` |
+| `gg` | NORMAL, VISUAL and after an operator | first (top) track | `vim:track_first` |
+| `G` | NORMAL, VISUAL and after an operator | last (bottom) track; with a count, that track | `vim:track_last` |
+| `'{a-z}` | NORMAL, VISUAL and after an operator | jump to a remembered place (frame and track) | `vim:goto_mark` |
+| `` `` `{a-z}` | NORMAL, VISUAL and after an operator | jump to a remembered place (frame and track) | `vim:goto_mark` |
+| `''` | NORMAL, VISUAL and after an operator | jump back to where the last jump started | `vim:jump_back` |
+| `m{a-z}` | NORMAL and VISUAL | remember the cursor (frame and track) under a letter | `vim:set_mark` |
+| `iw` | VISUAL and after an operator | clip under the cursor (in a gap: the gap) | `vim:obj_iw` |
+| `aw` | VISUAL and after an operator | clip and the gap after it | `vim:obj_aw` |
+| `iW` | VISUAL and after an operator | clip and the clips linked to it | `vim:obj_iW` |
+| `aW` | VISUAL and after an operator | clip and the clips linked to it | `vim:obj_aW` |
+| `ip` | VISUAL and after an operator | run of touching clips | `vim:obj_ip` |
+| `ap` | VISUAL and after an operator | run of touching clips and the gap after it | `vim:obj_ap` |
+| `im` | VISUAL and after an operator | span between the markers around the cursor, every track | `vim:obj_im` |
+| `ir` | VISUAL and after an operator | In to Out range, every track | `vim:obj_ir` |
+| `it` | VISUAL and after an operator | the clips at the cursor frame on every track | `vim:obj_it` |
+| `d` | NORMAL and VISUAL | delete: ripple delete: later material closes up (then a motion or text object; the key twice = the clip under the cursor) | `vim:op_delete` |
+| `c` | NORMAL and VISUAL | change: delete leaving a gap and go to INSERT (then a motion or text object; the key twice = the clip under the cursor) | `vim:op_change` |
+| `y` | NORMAL and VISUAL | yank: copy (then a motion or text object; the key twice = the clip under the cursor) | `vim:op_yank` |
+| `x` | NORMAL | ripple delete the selection, else the clip under the cursor (count: that many) | `vim:cmd_delete` |
+| `x` | VISUAL | ripple delete the selection | `vim:op_delete` |
+| `X` | NORMAL | delete the selection, else the clip under the cursor, leaving a gap | `vim:cmd_lift` |
+| `X` | VISUAL | delete the selection leaving a gap | `vim:op_lift` |
+| `D` | NORMAL | ripple delete from the cursor to the end of the clip | `vim:cmd_delete_to_end` |
+| `Y` | NORMAL | copy the clip under the cursor (same as yy) | `vim:cmd_yank` |
+| `p` | NORMAL | paste at the cursor, inserting (count: times; "a: register a) | `vim:cmd_paste` |
+| `P` | NORMAL | paste at the cursor, overwriting | `vim:cmd_paste_over` |
+| `p` | VISUAL | replace the selection with the register | `vim:visual_paste` |
+| `P` | VISUAL | replace the selection with the register | `vim:visual_paste` |
+| `.` | NORMAL | repeat the last change (a count replaces its count) | `vim:repeat` |
+| `v` | NORMAL and VISUAL | VISUAL: frames on the cursor track | `vim:visual_char` |
+| `V` | NORMAL and VISUAL | V-LINE: whole clips | `vim:visual_line` |
+| `<C-v>` | NORMAL and VISUAL | V-BLOCK: frames across tracks | `vim:visual_block` |
+| `o` | VISUAL | go to the other end of the selection | `vim:visual_other_end` |
+| `gv` | NORMAL and VISUAL | select the last VISUAL selection again | `vim:visual_reselect` |
+| `s` | NORMAL | split the clip at the cursor | `vim:cursor_select`, `action:edit.split`, `vim:cursor_unselect` |
+| `J` | NORMAL | join the clip with the next one (through edit) | `vim:cursor_select`, `action:edit.join`, `vim:cursor_unselect` |
+| `~` | NORMAL | enable / disable the clip | `vim:cursor_select`, `action:clip.toggle_enabled`, `vim:cursor_unselect` |
+| `r` | NORMAL | replace the clip with the source clip | `vim:cursor_select`, `action:edit.replace`, `vim:cursor_unselect` |
+| `R` | NORMAL | ripple overwrite with the source clip | `vim:cursor_select`, `action:edit.ripple_overwrite`, `vim:cursor_unselect` |
+| `>` | NORMAL | nudge the clip one frame right (count: frames) | `vim:cursor_select`, `action:trim.nudge_right`, `vim:cursor_unselect` |
+| `<` | NORMAL | nudge the clip one frame left (count: frames) | `vim:cursor_select`, `action:trim.nudge_left`, `vim:cursor_unselect` |
+| `H` | NORMAL | previous timeline tab | `action:timeline.prev_tab` |
+| `L` | NORMAL | next timeline tab | `action:timeline.next_tab` |
+| `n` | NORMAL | next search match | `vim:search_next` |
+| `N` | NORMAL | previous search match | `vim:search_prev` |
+| `/` | NORMAL | search markers and clip names | `vim:search` |
 | `zi` | NORMAL and VISUAL | zoom in | `action:timeline.zoom_in` |
 | `zo` | NORMAL and VISUAL | zoom out | `action:timeline.zoom_out` |
 | `zf` | NORMAL and VISUAL | zoom to fit | `action:timeline.zoom_fit` |
-| `m{a-z}` | NORMAL and VISUAL | remember the playhead position under a letter | `vim:set_mark` |
-| `'{a-z}` | NORMAL and VISUAL | jump to a remembered position | `vim:goto_mark` |
-| `` `` `{a-z}` | NORMAL and VISUAL | jump to a remembered position | `vim:goto_mark` |
-| `j` | NORMAL | target video track one down | `vim:target_down` |
-| `k` | NORMAL | target video track one up | `vim:target_up` |
-| `dd` | NORMAL | ripple delete the clip under the playhead (count: and the next ones) | `vim:delete_clips` |
-| `yy` | NORMAL | copy the clip under the playhead (count: and the next ones) | `vim:yank_clips` |
-| `x` | NORMAL | ripple delete the selection | `action:edit.ripple_delete` |
-| `X` | NORMAL | delete the selection, leave a gap | `action:edit.delete` |
-| `p` | NORMAL | paste at the playhead, inserting | `action:edit.paste_insert` |
-| `P` | NORMAL | paste at the playhead, overwriting | `action:edit.paste` |
 | `u` | NORMAL | undo (count: that many steps) | `action:edit.undo` |
-| `s` | NORMAL | split at the playhead | `action:edit.split` |
 | `M` | NORMAL | add a marker at the playhead | `action:mark.add_marker` |
-| `>` | NORMAL | nudge the selection one frame right (count: frames) | `action:trim.nudge_right` |
-| `<` | NORMAL | nudge the selection one frame left (count: frames) | `action:trim.nudge_left` |
-| `v` | NORMAL | VISUAL: select from here to the playhead | `vim:visual_start` |
-| `v` | VISUAL | leave VISUAL, clear the selection | `vim:visual_leave` |
-| `d` | VISUAL | ripple delete the selection, back to NORMAL | `vim:visual_delete` |
-| `x` | VISUAL | ripple delete the selection, back to NORMAL | `vim:visual_delete` |
-| `X` | VISUAL | delete the selection leaving a gap, back to NORMAL | `vim:visual_delete_gap` |
-| `y` | VISUAL | copy the selection, back to NORMAL | `vim:visual_yank` |
 | `i` | NORMAL | INSERT: the keyboard profile's shortcuts work (Esc comes back) | `vim:insert_mode` |
 | `a` | NORMAL | INSERT: the keyboard profile's shortcuts work (Esc comes back) | `vim:insert_mode` |
 | `:` | NORMAL | command line | `vim:command_line` |
-| `/` | NORMAL | search | `vim:search` |
 
 ## Viewers only
 
@@ -77,6 +118,7 @@ without switching).
 
 | Keys | What it does | Runs |
 |---|---|---|
+| `<leader>y` | copy the timecode of the cursor to the system clipboard | `vim:copy_timecode` |
 | `<leader><leader>` | play / pause | `action:transport.play_pause` |
 | **`<leader>s`** | **source edits** | |
 | `<leader>si` | insert the source clip | `action:edit.insert` |

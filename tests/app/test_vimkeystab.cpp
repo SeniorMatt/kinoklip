@@ -84,8 +84,8 @@ private slots:
         QCOMPARE(groups,
             (QStringList {QStringLiteral("Leader"), QStringLiteral("Global"),
                 QStringLiteral("Timeline"), QStringLiteral("Viewer")}));
-        QVERIFY(hasRow(tab, QStringLiteral("Timeline | h | n v | action:transport.prev_frame")));
-        QVERIFY(hasRow(tab, QStringLiteral("Timeline | dd | n | vim:delete_clips")));
+        QVERIFY(hasRow(tab, QStringLiteral("Timeline | h | n v o | vim:frame_prev")));
+        QVERIFY(hasRow(tab, QStringLiteral("Timeline | d | n v | vim:op_delete")));
         QVERIFY(hasRow(tab, QStringLiteral("Leader | <leader>si | n | action:edit.insert")));
         QVERIFY(hasRow(tab, QStringLiteral("Global | <C-r> | n v | action:edit.redo")));
         QVERIFY(hasRow(tab, QStringLiteral("Viewer | zf | n v | action:view.viewer_zoom_fit")));
@@ -120,12 +120,12 @@ private slots:
             VimMatch::Kind::Exact);
         // Changing a row moves its keys: x now means Q's old command; the old keys are free.
         const VimKeysTab::Edit before = edit("timeline", "n", "Q", "edit.undo");
-        QCOMPARE(tab.saveBinding(edit("timeline", "n", "W", "edit.redo"), &before, false, &message),
+        QCOMPARE(tab.saveBinding(edit("timeline", "n", "Z", "edit.redo"), &before, false, &message),
             VimKeysTab::Result::Saved);
         QVERIFY(!hasRow(tab, QStringLiteral("Timeline | Q |")));
-        QVERIFY(hasRow(tab, QStringLiteral("Timeline | W | n | action:edit.redo")));
+        QVERIFY(hasRow(tab, QStringLiteral("Timeline | Z | n | action:edit.redo")));
         // A leader key with a description.
-        VimKeysTab::Edit leader = edit("global", "n", "<leader>zz", "vim:visual_start");
+        VimKeysTab::Edit leader = edit("global", "n", "<leader>zz", "vim:visual_char");
         leader.description = QStringLiteral("my visual");
         QCOMPARE(tab.saveBinding(leader, nullptr, false, &message), VimKeysTab::Result::Saved);
         QVERIFY(hasRow(tab, QStringLiteral("Leader | <leader>zz |")));
@@ -133,7 +133,7 @@ private slots:
         VimKeymap again;
         again.reload();
         QCOMPARE(
-            again.trie(QStringLiteral("timeline"), 'n').match({"W"}).kind, VimMatch::Kind::Exact);
+            again.trie(QStringLiteral("timeline"), 'n').match({"Z"}).kind, VimMatch::Kind::Exact);
         QCOMPARE(
             again.trie(QStringLiteral("timeline"), 'n').match({"<Space>", "z", "z"}).binding->desc,
             QStringLiteral("my visual"));
@@ -166,14 +166,14 @@ private slots:
         QVERIFY(message.contains(QStringLiteral("already bound")));
         QVERIFY(f.keymap->userOps().isEmpty());
         QCOMPARE(f.keymap->trie(QStringLiteral("timeline"), 'n').match({"h"}).binding->run.value(0),
-            QStringLiteral("action:transport.prev_frame"));
+            QStringLiteral("vim:frame_prev"));
         QCOMPARE(tab.saveBinding(edit("timeline", "n", "h", "edit.undo"), nullptr, true, &message),
             VimKeysTab::Result::Saved);
         QCOMPARE(f.keymap->trie(QStringLiteral("timeline"), 'n').match({"h"}).binding->run.value(0),
             QStringLiteral("action:edit.undo"));
         // The same keys in VISUAL only are free: h in VISUAL is still the motion.
         QCOMPARE(f.keymap->trie(QStringLiteral("timeline"), 'v').match({"h"}).binding->run.value(0),
-            QStringLiteral("action:transport.prev_frame"));
+            QStringLiteral("vim:frame_prev"));
     }
 
     void prefixesAreWarnedAbout()
@@ -205,7 +205,7 @@ private slots:
             VimMatch::Kind::None);
         // Reset brings it back.
         tab.resetBinding(QStringLiteral("timeline"), QStringLiteral("n"), QStringLiteral("p"));
-        QVERIFY(hasRow(tab, QStringLiteral("Timeline | p | n | action:edit.paste_insert")));
+        QVERIFY(hasRow(tab, QStringLiteral("Timeline | p | n | vim:cmd_paste")));
         // Remove one of your own: gone for good.
         QString message;
         tab.saveBinding(edit("timeline", "n", "Q", "edit.undo"), nullptr, false, &message);
@@ -218,8 +218,8 @@ private slots:
         tab.removeBinding(QStringLiteral("timeline"), QStringLiteral("n"), QStringLiteral("x"));
         tab.resetAll();
         QVERIFY(f.keymap->userOps().isEmpty());
-        QVERIFY(hasRow(tab, QStringLiteral("Timeline | x | n | action:edit.ripple_delete")));
-        QVERIFY(hasRow(tab, QStringLiteral("Timeline | h | n v | action:transport.prev_frame")));
+        QVERIFY(hasRow(tab, QStringLiteral("Timeline | x | n | vim:cmd_delete")));
+        QVERIFY(hasRow(tab, QStringLiteral("Timeline | h | n v o | vim:frame_prev")));
     }
 
     void exportAndImportThroughFiles()

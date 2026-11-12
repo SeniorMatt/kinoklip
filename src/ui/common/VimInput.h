@@ -5,8 +5,9 @@
 //
 // Two parts:
 // - VimMachine: the state machine. It knows keys, counts and modes and asks a VimHost to do
-//   things. It never edits anything itself: every edit is an existing action (ActionRegistry
-//   ids such as edit.ripple_delete) triggered through the host.
+//   things. It never edits anything itself: it parses [register][count]operator[count]motion
+//   (or text object), turns it into a range (VimGrammar.h) and hands the operation to the host,
+//   which does it as one undo step; other keys trigger actions (ActionRegistry ids).
 // - VimInput: the application-wide event filter. Active only while the Vim mode option is on
 //   (QSettings "vim/enabled", the action settings.vim_mode; independent of the keyboard
 //   preset) AND the focus is in a timeline or viewer (a widget with the property kkVimScope)
@@ -15,6 +16,7 @@
 //   shortcuts work.
 #pragma once
 
+#include "ui/common/VimHost.h"
 #include "ui/common/VimKeymap.h"
 #include "ui/common/VimKeys.h"
 
@@ -28,6 +30,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 
 class QKeyEvent;
 class QTimer;
@@ -36,34 +39,6 @@ class QWidget;
 namespace kk {
 
 class ActionRegistry;
-
-/// What the vim layer needs from the editor. Implemented for the timeline in
-/// ui/timeline/VimTimelineHost.h; tests use a fake.
-class VimHost
-{
-public:
-    virtual ~VimHost() = default;
-    /// Triggers the action @p actionId if it exists and is enabled. Returns whether it ran.
-    virtual bool trigger(const QString& actionId) = 0;
-    [[nodiscard]] virtual int64_t playhead() const = 0;
-    virtual void setPlayhead(int64_t frame) = 0;
-    /// Selects the clip under the playhead and the next @p count - 1 clips of its track
-    /// (the target video track first, else the top-most track with a clip there). False when
-    /// there is no clip under the playhead.
-    virtual bool selectClipsAtPlayhead(int count) = 0;
-    /// Selects the clips that touch the frames @p a .. @p b (either order) on every track.
-    virtual void selectRange(int64_t a, int64_t b) = 0;
-    virtual void clearSelection() = 0;
-    /// Moves the target video track by @p delta (+1 = the track above).
-    virtual void moveTarget(int delta) = 0;
-    /// `:` was typed.
-    virtual void openCommandLine() = 0;
-    /// Runs an ex command line (a key bound to ":w<CR>" or "ex:marker add"); the window shows
-    /// the result. Default: nothing.
-    virtual void runEx(const QString& line) { Q_UNUSED(line); }
-    /// `/` was typed. The host opens a search if the editor has one.
-    virtual void openSearch() {}
-};
 
 class VimMachine : public QObject
 {
@@ -75,6 +50,7 @@ public:
         Insert,
         Command
     };
+    using VisualKind = VimVisual::Kind;
 
     /// Without a keymap the machine uses the default table (no user changes).
     explicit VimMachine(QObject* parent = nullptr);
@@ -96,6 +72,16 @@ public:
     [[nodiscard]] QString statusText() const;
     /// The mode name alone.
     [[nodiscard]] static QString modeName(Mode mode);
+    /// What the mode line shows: "VISUAL", "V-LINE" (V) or "V-BLOCK" (Ctrl+V) in VISUAL, else
+    /// modeName().
+    [[nodiscard]] QString displayName() const;
+    [[nodiscard]] VisualKind visualKind() const { return m_visualKind; }
+    /// The register typed with `"` and waiting for its command (0 = none).
+    [[nodiscard]] QChar pendingRegister() const { return m_reg; }
+    /// True while an operator waits for its motion or text object (`d`, `2y`).
+    [[nodiscard]] bool operatorPending() const { return !m_opName.isEmpty(); }
+    /// The place of a mark (m{a-z}), if set.
+    [[nodiscard]] std::optional<VimPos> mark(QChar name) const;
 
     /// INSERT: the layer is passive until Esc. COMMAND is set by the window while its `:` line
     /// is open.
@@ -141,16 +127,64 @@ signals:
     void whichKeyChanged();
 
 private:
+    /// Everything a command needs once its keys are complete.
+    struct Call
+    {
+        const VimBinding* binding = nullptr;
+        QString arg;
+        int count = 1;
+        bool hasCount = false;
+        QChar reg;
+        QString op; ///< the operator waiting for this motion / object ("op_delete"), else empty
+        QString opToken; ///< the key that started it
+        QStringList keys; ///< the keys without counts and register, for dot-repeat
+        bool operatorRepeat = false; ///< `dd`: the operator key twice
+        VisualKind visual = VisualKind::None; ///< VISUAL when the key was typed
+        int64_t visualFrames = 0;
+        int visualTracks = 0;
+    };
+    /// The last change, for `.`.
+    struct Dot
+    {
+        bool valid = false;
+        QChar reg;
+        int count = 1;
+        bool hasCount = false;
+        QStringList keys;
+        VimVisual::Kind visual = VimVisual::Kind::None;
+        int64_t frames = 0; ///< VISUAL: width of the selection
+        int tracks = 0; ///< VISUAL: tracks - 1 covered
+    };
+
     void feed(const QString& token);
     void resolve();
     void finish(); ///< clears count and pending after a command
-    void clearKeys();
-    void runBinding(const VimBinding* binding, const QString& arg, int count);
-    void runItem(const QString& item, const VimBinding* binding, const QString& arg, int count);
-    bool runBuiltin(const QString& name, const QString& arg, int count);
-    void afterMotion();
-    void enterVisual();
+    void clearKeys(); ///< drops the keys typed (not the operator)
+    void endCommand(); ///< drops everything of the command being typed
+    [[nodiscard]] Call takeCall(const VimBinding* binding, const QString& arg);
+    void runCall(const Call& call);
+    void runItem(const QString& item, const Call& call);
+    bool runBuiltin(const QString& name, const Call& call);
+    bool runMotion(const QString& name, const Call& call);
+    bool runObject(const QString& name, const Call& call);
+    void beginOperator(const QString& name, const QString& token);
+    void applyOperator(VimOp op, const VimRange& range, const Call& call);
+    void runOperatorRepeat(const Call& call);
+    void runCommandOperator(VimOp op, const Call& call, bool toEnd);
+    void paste(const Call& call, bool insert);
+    void visualPaste(const Call& call);
+    void repeatLast(const Call& call);
+    void markChange() { m_changed = true; }
+    void dispatch(const VimBinding* binding, const QString& arg);
+    void recordDot(const Call& call);
+    void selectObject(const VimRange& range);
+    [[nodiscard]] VimPos cursor() const;
+    void moveCursor(VimPos to);
+    void enterVisualKind(VisualKind kind);
     void leaveVisual(bool clearSelection);
+    void showVisual();
+    [[nodiscard]] VimRange visualRange() const;
+    [[nodiscard]] static bool isOperatorBinding(const VimBinding* binding, QString* name);
     [[nodiscard]] const VimTrie& currentTrie() const;
     [[nodiscard]] QString currentContext() const;
     [[nodiscard]] int effectiveTimeout() const;
@@ -169,12 +203,35 @@ private:
     QStringList m_keys; ///< the tokens of the sequence being typed (after the count)
     QString m_countText;
     QString m_pending; ///< count digits and keys, for display
+    QString m_head; ///< display text typed before the sequence: register, count and operator
     int m_exactLen = 0; ///< length of the longest binding already complete in m_keys
     const VimBinding* m_exactBinding = nullptr;
     QString m_exactArg;
     bool m_whichKey = false;
-    int64_t m_anchor = 0; ///< VISUAL: the frame where v was typed
-    std::map<QChar, int64_t> m_marks; ///< m{a-z}
+    // register, operator
+    QChar m_reg; ///< the register chosen with "
+    bool m_regPending = false; ///< " typed, the register name comes next
+    QString m_opName; ///< "op_delete" ... while an operator waits for its motion
+    QString m_opToken; ///< the key that started it
+    int m_opCount = 0; ///< the count typed before the operator
+    QStringList m_cmdKeys; ///< keys of the command being typed (dot-repeat)
+    // VISUAL
+    VisualKind m_visualKind = VisualKind::None;
+    VimPos m_anchor;
+    struct LastVisual
+    {
+        VisualKind kind = VisualKind::None;
+        VimPos anchor;
+        VimPos cursor;
+    } m_lastVisual;
+    // marks, dot-repeat
+    std::map<QChar, VimPos> m_marks; ///< m{a-z}
+    std::optional<VimPos> m_lastJump; ///< where the last jump started ('')
+    Dot m_dot;
+    bool m_changed = false; ///< the command being run changed something
+    bool m_replaying = false; ///< `.` is feeding keys: nothing is recorded
+    bool m_cursorSelected = false; ///< cursor_select selected a clip for the next action
+    bool m_skipRecord = false; ///< the running command is `.`: it does not become the last change
 };
 
 class VimInput : public QObject

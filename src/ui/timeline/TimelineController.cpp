@@ -744,6 +744,14 @@ void TimelineController::rippleTrimEndToPlayhead()
     trimToPlayhead(false, true);
 }
 
+void TimelineController::setVimOverlay(const VimOverlay& overlay)
+{
+    if (m_vimOverlay == overlay)
+        return;
+    m_vimOverlay = overlay;
+    emit stateChanged();
+}
+
 void TimelineController::setPlayheadAfterEdit(int64_t frame)
 {
     if (!isPlaying())

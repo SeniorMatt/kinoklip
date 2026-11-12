@@ -370,6 +370,11 @@ void TimelineWidget::paintEvent(QPaintEvent*)
         in.voiceOver.peak = vo->peak();
         in.voiceOver.clipped = vo->clipped();
     }
+    {
+        const TimelineController::VimOverlay& vim = m_controller->vimOverlay();
+        in.vim = {vim.cursor, vim.cursorTrack, vim.visual, vim.frameFrom, vim.frameTo,
+            vim.trackFrom, vim.trackTo};
+    }
     in.thumbnails = m_thumbMode;
     in.waveforms = m_showWaveforms;
     in.sourceTimecode = m_showSourceTimecode;

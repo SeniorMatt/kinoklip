@@ -62,7 +62,9 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     , m_pageBar(pageBar)
 {
     m_host = new VimTimelineHost(ctx, timeline->controller());
-    m_host->onCommandLine = [this] { showCommandLine(); };
+    m_host->onCommandLine = [this] { showCommandLine(false); };
+    m_host->onSearch = [this] { showCommandLine(true); };
+    m_host->onMessage = [this](const QString& text) { m_modeLine->showMessage(text, kMessageMs); };
     m_host->onEx = [this](const QString& line) {
         const QString message = runCommand(line);
         if (!message.isEmpty())
@@ -79,6 +81,7 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
         updateFocusFrame();
     });
     connect(m_input, &VimInput::activeChanged, this, [this] {
+        m_host->showCursor(m_input->active());
         updateModeLine();
         updateFocusFrame();
         updateWhichKey();
@@ -100,7 +103,13 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
             if (m_history.size() > kMaxHistory)
                 m_history.removeFirst();
         }
+        const bool search = m_searchLine;
         closeCommandLine();
+        if (search) {
+            if (!m_host->search(text))
+                m_modeLine->showMessage(tr("No match: %1").arg(text), kMessageMs);
+            return;
+        }
         const QString message = runCommand(text);
         if (!message.isEmpty())
             m_modeLine->showMessage(message, kMessageMs);
@@ -112,6 +121,7 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
         settings.remove(QLatin1String(vimopts::kMigrationNoticeKey));
         m_modeLine->showMessage(tr("Vim keys are now an option: Preferences > Keyboard"), 15000);
     }
+    m_host->showCursor(m_input->active());
     updateModeLine();
 }
 
@@ -137,7 +147,10 @@ void VimController::updateModeLine()
         key = QStringLiteral("INSERT");
     else if (mode == VimMachine::Mode::Command)
         key = QStringLiteral("COMMAND");
-    m_modeLine->setMode(VimMachine::modeName(mode), key);
+    m_modeLine->setMode(
+        mode == VimMachine::Mode::Visual ? m_input->machine().displayName()
+                                         : VimMachine::modeName(mode),
+        key);
     m_modeLine->setPending(m_input->machine().pending());
     QString panel;
     for (const QWidget* w = focus; w; w = w->parentWidget()) {
@@ -183,8 +196,12 @@ void VimController::updateFocusFrame()
         m_framed->setVimFocusFrame(true);
 }
 
-void VimController::showCommandLine()
+void VimController::showCommandLine(bool search)
 {
+    m_searchLine = search;
+    m_line->setPlaceholderText(
+        search ? tr("/ search marker and clip names")
+               : tr(": command (w, q, wq, or a Kinoklip command such as marker add)"));
     m_returnFocus = QApplication::focusWidget();
     m_input->machine().setCommandMode(true);
     m_line->setGeometry(m_pageBar->rect().adjusted(8, 3, -8, -3));
@@ -201,6 +218,7 @@ void VimController::closeCommandLine()
         return;
     m_line->hide();
     m_line->clear();
+    m_searchLine = false;
     m_input->machine().setCommandMode(false);
     if (m_returnFocus)
         m_returnFocus->setFocus(Qt::OtherFocusReason);

@@ -246,6 +246,7 @@ void TimelinePainter::paint(QPainter& p, const TimelinePaintInput& in)
     p.fillRect(QRect(QPoint(0, 0), in.layout->viewSize()), m_base);
     paintTrackArea(p, in);
     paintOverlays(p, in);
+    paintVim(p, in);
     paintHeaders(p, in);
     paintRuler(p, in);
     paintPlayhead(p, in);
@@ -1488,6 +1489,44 @@ void TimelinePainter::paintRuler(QPainter& p, const TimelinePaintInput& in)
     p.setClipping(false);
     p.fillRect(QRect(0, kRulerHeight - 1, width, 1), m_line);
     p.fillRect(QRect(kHeaderWidth - 1, 0, 1, kRulerHeight), m_line);
+}
+
+void TimelinePainter::paintVim(QPainter& p, const TimelinePaintInput& in)
+{
+    const VimPaint& v = in.vim;
+    if (!v.cursor && v.visual == 0)
+        return;
+    const TimelineLayout& L = *in.layout;
+    const QSize view = L.viewSize();
+    p.setClipRect(QRect(
+        kHeaderWidth, kRulerHeight, view.width() - kHeaderWidth, view.height() - kRulerHeight));
+    if (v.cursor) {
+        // The cursor track: a faint band and an accent edge on its left.
+        const int row = L.rowOf(v.cursorTrack);
+        if (row >= 0) {
+            const QRect r = L.rowRect(row);
+            p.fillRect(QRect(kHeaderWidth, r.top(), view.width() - kHeaderWidth, r.height()),
+                withAlpha(m_accent, 30));
+            p.fillRect(QRect(kHeaderWidth, r.top(), 3, r.height()), m_accent);
+        }
+    }
+    if (v.visual != 0) {
+        int row0 = L.rowOf(v.visual == 1 ? v.trackTo : v.trackFrom);
+        int row1 = L.rowOf(v.trackTo);
+        if (row0 < 0 || row1 < 0)
+            return;
+        if (row0 > row1)
+            std::swap(row0, row1);
+        const double x0 = L.frameToX(double(std::min(v.frameFrom, v.frameTo)));
+        const double x1 = L.frameToX(double(std::max(v.frameFrom, v.frameTo) + 1));
+        const QRectF r(x0, L.rowRect(row0).top(), std::max(2.0, x1 - x0),
+            L.rowRect(row1).bottom() - L.rowRect(row0).top() + 1);
+        p.fillRect(r, withAlpha(m_accent, v.visual == 2 ? 36 : 70));
+        p.setPen(QPen(m_accent, 1, v.visual == 2 ? Qt::DashLine : Qt::SolidLine));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
+    }
+    p.setClipping(false);
 }
 
 void TimelinePainter::paintPlayhead(QPainter& p, const TimelinePaintInput& in)

@@ -87,6 +87,18 @@ enum class ClipThumbnails {
     None, ///< no pictures: name band and clip colour only (fastest)
 };
 
+/// What Vim mode draws (VimTimelineHost): the cursor track and the VISUAL selection.
+struct VimPaint
+{
+    bool cursor = false;
+    TrackRef cursorTrack;
+    int visual = 0; ///< 0 none, 1 frames on one track, 2 whole clips, 3 block across tracks
+    int64_t frameFrom = 0; ///< inclusive
+    int64_t frameTo = 0; ///< inclusive
+    TrackRef trackFrom;
+    TrackRef trackTo;
+};
+
 struct TimelinePaintInput
 {
     const TimelineData* data = nullptr;
@@ -134,6 +146,8 @@ struct TimelinePaintInput
     /// Media and nested clips show their source in timecode after the name (Timeline View
     /// Options > Show Source Timecode, spec 12.14); off by default like Resolve.
     bool sourceTimecode = false;
+    /// Vim mode: the cursor track and the VISUAL selection.
+    VimPaint vim;
 };
 
 /// Draws the timeline. Keeps per-widget caches (elided clip names, icon pixmaps, waveform and
@@ -214,6 +228,7 @@ private:
     void paintRuler(QPainter& p, const TimelinePaintInput& in);
     void paintOverlays(QPainter& p, const TimelinePaintInput& in);
     void paintPlayhead(QPainter& p, const TimelinePaintInput& in);
+    void paintVim(QPainter& p, const TimelinePaintInput& in);
     /// Name band text of @p clip: its name, or for a multicam segment the active angle
     /// (number, name) and the name (cached per clip).
     [[nodiscard]] const QString& clipLabel(const TimelinePaintInput& in, const ClipData& clip);
