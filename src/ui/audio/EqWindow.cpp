@@ -60,6 +60,7 @@ EqWindow::EqWindow(MixerController* controller, const MixTarget& target, QWidget
     m_enabled = new QCheckBox(tr("EQ on"));
     layout->addWidget(m_enabled);
     m_curve = new EqCurveView;
+    m_curve->setShowBandCurves(true);
     layout->addWidget(m_curve, 1);
 
     auto* grid = new QGridLayout;
@@ -130,6 +131,15 @@ EqWindow::EqWindow(MixerController* controller, const MixTarget& target, QWidget
         });
     });
     connect(m_curve, &EqCurveView::bandReleased, this, [this](int) { m_controller->endGesture(); });
+    connect(m_curve, &EqCurveView::bandQDragged, this, [this](int band, double q) {
+        m_controller->updateGesture([&](TimelineData& d) {
+            ChannelStrip* s = mixerops::strip(d, m_target);
+            if (!s)
+                return false;
+            s->eq.bands[size_t(band)].q = q;
+            return true;
+        });
+    });
     connect(m_curve, &EqCurveView::bandQRequested, this,
         [this](int band, double q) { editBand(band, tr("EQ Q"), [q](EqBand& b) { b.q = q; }); });
     connect(m_curve, &EqCurveView::bandSelected, this, [this](int band) {

@@ -23,7 +23,12 @@ ends where it did.
    Band 1 is a low shelf (lifts or lowers everything below its frequency), bands 2 and 3 are
    bells (a peak or dip around their frequency; a higher Q makes it narrower) and band 4 is a
    high shelf.
-3. Untick **Equalizer** to hear the clip without it; the settings stay.
+3. Shape the sound on the graph above the numbers. Each numbered dot is a band. Drag a dot
+   to change its frequency and gain together (hold Shift for fine steps). Use the mouse wheel on
+   a dot, or hold Alt and drag it up or down, to change **Q**. Double-click a dot to reset that
+   band. With the graph focused, Tab picks the next band, the arrow keys move it and Page Up /
+   Page Down change Q. The curve shows exactly what the equalizer does to the sound.
+4. Untick **Equalizer** to hear the clip without it; the settings stay.
 
 The clip equalizer works on this clip only. For the whole track use the equalizer of the
 track's strip on the Audio page.
