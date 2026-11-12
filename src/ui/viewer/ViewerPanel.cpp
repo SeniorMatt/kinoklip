@@ -846,6 +846,11 @@ void ViewerPanel::hideEvent(QHideEvent* event)
     PanelFrame::hideEvent(event);
     if (m_engine) {
         m_engine->removeOutputClient(this);
+        // What the viewer no longer shows stops playing (Resolve): the single viewer switching
+        // to the other side, another page, a closed panel. The player keeps its position. A
+        // minimised window (spontaneous hide) keeps playing.
+        if (!event->spontaneous() && m_engine->isPlaying())
+            m_engine->pause();
     }
 }
 
