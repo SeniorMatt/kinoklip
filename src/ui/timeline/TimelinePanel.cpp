@@ -27,6 +27,7 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QApplication>
 #include <QCoreApplication>
 #include <QDrag>
 #include <QEvent>
@@ -37,6 +38,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QSettings>
@@ -238,6 +240,19 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
             m_pane->showTimeline(m_previousActive);
     });
 
+    // Back / forward history: the mouse buttons 4 and 5 over the panel step through the
+    // timelines that were active (one application filter, not one per child widget).
+    m_navHistory.append(ctx.project->activeTimelineUid());
+    m_navPos = 0;
+    connect(ctx.project, &Project::activeTimelineChanged, this, [this](quint64 uid) {
+        if (m_navigating || (m_navPos >= 0 && m_navHistory.value(m_navPos) == uid))
+            return;
+        m_navHistory.resize(m_navPos + 1); // a new navigation drops the forward entries
+        m_navHistory.append(uid);
+        m_navPos = int(m_navHistory.size()) - 1;
+    });
+    qApp->installEventFilter(this);
+
     // Title = timeline name (the program viewer is already called "Timeline").
     Timeline* timeline = ctx.project->timeline();
     auto updateTitle = [this, timeline] {
@@ -412,8 +427,35 @@ void TimelinePanel::syncZoomSlider()
     m_syncingSlider = false;
 }
 
+void TimelinePanel::navigateTimelines(int direction)
+{
+    Project* project = m_ctx.project;
+    for (int pos = m_navPos + direction; pos >= 0 && pos < m_navHistory.size(); pos += direction) {
+        const quint64 uid = m_navHistory.at(pos);
+        if (!project->hasTimeline(uid) || !project->tabs().contains(uid))
+            continue; // closed or deleted: skipped
+        m_navigating = true;
+        const bool ok = project->setActiveTimeline(uid);
+        m_navigating = false;
+        if (ok)
+            m_navPos = pos;
+        return;
+    }
+}
+
 bool TimelinePanel::eventFilter(QObject* watched, QEvent* event)
 {
+    if ((event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease)
+        && watched->isWidgetType() && isVisible()) {
+        auto* mouse = static_cast<QMouseEvent*>(event);
+        const Qt::MouseButton b = mouse->button();
+        auto* w = static_cast<QWidget*>(watched);
+        if ((b == Qt::BackButton || b == Qt::ForwardButton) && (w == this || isAncestorOf(w))) {
+            if (event->type() == QEvent::MouseButtonPress)
+                navigateTimelines(b == Qt::BackButton ? -1 : 1);
+            return true;
+        }
+    }
     if (event->type() == QEvent::Paint && watched == m_view->viewport())
         syncZoomSlider();
     return PanelFrame::eventFilter(watched, event);
