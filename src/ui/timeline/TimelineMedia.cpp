@@ -12,7 +12,7 @@ namespace kk {
 ThumbnailProvider mediaCacheThumbnails()
 {
     return [](const QString& path, int64_t timeUs, int height) {
-        return media::MediaCache::instance().thumbnail(path, timeUs, height);
+        return media::MediaCache::instance().thumbnailOrNearest(path, timeUs, height);
     };
 }
 
