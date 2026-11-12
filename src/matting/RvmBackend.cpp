@@ -4,8 +4,10 @@
 // recurrent states and downsample_ratio, and returns the foreground, the alpha and the new states;
 // the states are fed back for the next frame, which keeps the edges steady (spec 78).
 #include "matting/MatteBackend.h"
+#include "media/FFmpegUtil.h"
 
 #include <QCoreApplication>
+#include <QFileInfo>
 #include <QThread>
 
 #include <algorithm>
@@ -19,9 +21,25 @@
 
 namespace kk::matting {
 
-int inputEdge(MatteQuality quality)
+int inputEdge(MatteQuality quality, MatteModel model)
 {
+    if (model == MatteModel::Image)
+        return quality == MatteQuality::Full ? 2048 : 1024;
     return quality == MatteQuality::Full ? 1280 : 512;
+}
+
+bool isStillImagePath(const QString& path)
+{
+    return media::detail::isStillImageSuffix(QFileInfo(path).suffix());
+}
+
+MatteModel resolveModel(const QString& choice, bool still)
+{
+    if (choice == QLatin1String("video"))
+        return MatteModel::Video;
+    if (choice == QLatin1String("image"))
+        return MatteModel::Image;
+    return still ? MatteModel::Image : MatteModel::Video;
 }
 
 float downsampleRatio(MatteQuality quality, int edge)

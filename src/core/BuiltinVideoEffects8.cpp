@@ -27,8 +27,11 @@ void EffectRegistry::registerVideoEffects8()
     namespace c = fxchoice;
     EffectDescriptor d = descriptor(QLatin1String(fxid::BackgroundRemoval),
         tr("Background Removal"), EffectCategory::VideoEffect,
-        tr("AI tool: cuts the person out of the picture with a model that runs on this computer"),
+        tr("AI tool: cuts the subject out of the picture with a model that runs on this computer"),
         {
+            choice(k::BgModel, tr("Model"), {c::BgModelAuto, c::BgModelVideo, c::BgModelImage},
+                {tr("Automatic"), tr("People in video (temporal)"), tr("Any subject (per frame)")},
+                c::BgModelAuto),
             choice(k::BgOutput, tr("Output"), {c::BgForeground, c::BgMatte, c::BgBackground},
                 {tr("Foreground"), tr("Matte Only"), tr("Background Only")}, c::BgForeground),
             number(k::BgThreshold, tr("Threshold"), 0, 100, 50, 0.5, QStringLiteral("%")),

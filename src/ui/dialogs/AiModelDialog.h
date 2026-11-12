@@ -25,8 +25,9 @@ class ModelDownloadDialog final : public QDialog
 public:
     explicit ModelDownloadDialog(const matting::ModelInfo& model, QWidget* parent = nullptr);
 
-    /// Runs the dialog; true if the model is installed afterwards.
+    /// Runs the dialog for @p model (default: the video model); true if it is installed afterwards.
     static bool run(QWidget* parent);
+    static bool run(QWidget* parent, const matting::ModelInfo& model);
     /// The facts shown (tests).
     [[nodiscard]] QString infoText() const;
     /// Starts the download as the Download button does (tests with a fake model).

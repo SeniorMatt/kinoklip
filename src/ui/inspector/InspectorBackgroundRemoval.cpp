@@ -59,13 +59,29 @@ void InspectorPanel::buildBackgroundRemovalControls(
     status->setWordWrap(true);
     group->addWidgetRow(QString(), status);
 
-    connect(download, &QPushButton::clicked, this, [this] {
-        ModelDownloadDialog::run(this);
+    // The model this effect uses now: its Model choice, and for Automatic the clip's media type.
+    auto modelOf = [this, clipId, effectId]() {
+        const ClipData* c = clip(clipId);
+        QString choice = fxchoice::BgModelAuto;
+        bool still = false;
+        if (c) {
+            for (const EffectInstance& x : c->effects)
+                if (x.id == effectId)
+                    choice
+                        = x.params.staticValue(fxkeys::BgModel, fxchoice::BgModelAuto).toString();
+            if (m_ctx.project && m_ctx.project->mediaPool())
+                if (const MediaItem* item = m_ctx.project->mediaPool()->item(c->mediaId))
+                    still = matting::isStillImagePath(item->path);
+        }
+        return matting::resolveModel(choice, still);
+    };
+    connect(download, &QPushButton::clicked, this, [this, modelOf] {
+        ModelDownloadDialog::run(this, matting::modelInfo(modelOf()));
         refreshValues();
     });
     connect(cancel, &QPushButton::clicked, this,
         [] { matting::MatteService::instance().cancelBackground(); });
-    connect(process, &QPushButton::clicked, this, [this, clipId, effectId] {
+    connect(process, &QPushButton::clicked, this, [this, clipId, effectId, modelOf] {
         const ClipData* c = clip(clipId);
         if (!c || !m_ctx.project || !m_ctx.project->mediaPool())
             return;
@@ -83,8 +99,8 @@ void InspectorPanel::buildBackgroundRemovalControls(
         const double from = double(c->sourceTimeUsAt(c->start, fps)) / 1e6;
         const double to = double(c->sourceTimeUsAt(c->start + c->duration - 1, fps)) / 1e6;
         matting::MatteService::instance().queueRange(item->path, std::min(from, to),
-            std::max(from, to),
-            full ? matting::MatteQuality::Full : matting::MatteQuality::Preview);
+            std::max(from, to), full ? matting::MatteQuality::Full : matting::MatteQuality::Preview,
+            modelOf());
     });
     // The progress bar follows the service even when nothing else repaints the panel.
     connect(&matting::MatteService::instance(), &matting::MatteService::backgroundProgressChanged,
@@ -93,9 +109,10 @@ void InspectorPanel::buildBackgroundRemovalControls(
             progress->setValue(std::min(done, total));
         });
 
-    group->addHeaderRefresh([download, process, cancel, progress, status](const ClipData&) {
+    group->addHeaderRefresh([download, process, cancel, progress, status, modelOf](
+                                const ClipData&) {
         auto& service = matting::MatteService::instance();
-        const auto s = service.status();
+        const auto s = service.status(modelOf());
         const auto p = service.backgroundProgress();
         download->setVisible(!s.modelInstalled && s.runtimeCompiled);
         process->setEnabled(s.ready);

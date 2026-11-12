@@ -4,6 +4,8 @@
 // bundled and never downloaded unless the user asks (ModelDownload.h).
 #pragma once
 
+#include "matting/MatteBackend.h"
+
 #include <QString>
 #include <QUrl>
 
@@ -24,10 +26,15 @@ struct ModelInfo
     QString licence; ///< SPDX-style licence name of code and weights
     QUrl licenceUrl;
     QUrl sourceUrl; ///< the project page
+    QString memoryNote; ///< what the model needs from the computer (shown before the download)
 };
 
-/// The model Background Removal uses: Robust Video Matting, MobileNetV3, float32 ONNX.
+/// The video model Background Removal uses: Robust Video Matting, MobileNetV3, float32 ONNX.
 [[nodiscard]] const ModelInfo& defaultModel();
+/// The any-subject model: BiRefNet (general, Swin-T backbone), float32 ONNX, 1024 x 1024 input.
+[[nodiscard]] const ModelInfo& imageModel();
+/// The model file of @p model (videoModel == defaultModel()).
+[[nodiscard]] const ModelInfo& modelInfo(MatteModel model);
 
 /// Folder of the downloaded models: `<AppDataLocation>/models`. Tests may redirect it.
 [[nodiscard]] QString modelsDirectory();
