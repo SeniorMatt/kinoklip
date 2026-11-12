@@ -115,6 +115,64 @@ QTransform inImagePixels(const QTransform& m, double scale)
         * QTransform::fromScale(scale, scale);
 }
 
+/// @p in drawn through @p inputToOutput (timeline px) with edge mode and filter of @p r, per
+/// pixel (the same maths as the GLSL kResampleGlsl): output pixel centre -> input position,
+/// then the filter's 4x4 taps, each read through the edge mode.
+QImage resample(const QImage& in, const QTransform& inputToOutput, QSizeF frame,
+    const compmath::Resampling& r)
+{
+    const QSize size = in.size();
+    QImage out = blank(size);
+    const QTransform toUv = QTransform::fromScale(1.0 / frame.width(), 1.0 / frame.height());
+    bool ok = false;
+    const QTransform outToIn = (toUv.inverted() * inputToOutput * toUv).inverted(&ok);
+    if (!ok)
+        return out;
+    const int w = size.width(), h = size.height();
+    const auto tap = [&](int x, int y, float c[4]) {
+        const int ix = compmath::edgeIndex(x, w, r.edges);
+        const int iy = compmath::edgeIndex(y, h, r.edges);
+        if (ix < 0 || iy < 0) {
+            c[0] = c[1] = c[2] = c[3] = 0;
+            return;
+        }
+        unpack(reinterpret_cast<const QRgb*>(in.constScanLine(iy))[ix], c);
+    };
+    for (int y = 0; y < h; ++y) {
+        QRgb* dst = reinterpret_cast<QRgb*>(out.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            const QPointF uv = outToIn.map(QPointF((x + 0.5) / w, (y + 0.5) / h));
+            const double px = uv.x() * w - 0.5, py = uv.y() * h - 0.5;
+            float c[4];
+            if (r.filter == 0) {
+                tap(int(std::floor(px + 0.5)), int(std::floor(py + 0.5)), c);
+                dst[x] = pack(c);
+                continue;
+            }
+            const int x0 = int(std::floor(px)), y0 = int(std::floor(py));
+            const float fx = float(px - x0), fy = float(py - y0);
+            float acc[4] = {0, 0, 0, 0};
+            float wsum = 0;
+            for (int j = -1; j <= 2; ++j) {
+                const float wy = compmath::filterWeight(r.filter, float(j) - fy);
+                for (int i = -1; i <= 2; ++i) {
+                    const float wt = compmath::filterWeight(r.filter, float(i) - fx) * wy;
+                    if (wt == 0.0f)
+                        continue;
+                    tap(x0 + i, y0 + j, c);
+                    for (int q = 0; q < 4; ++q)
+                        acc[q] += wt * c[q];
+                    wsum += wt;
+                }
+            }
+            for (float& v : acc)
+                v = std::clamp(v / wsum, 0.0f, 1.0f);
+            dst[x] = pack(acc); // pack() keeps colour <= alpha
+        }
+    }
+    return out;
+}
+
 /// @p in moved by (dx, dy) image pixels with bilinear sampling (premultiplied ARGB32, transparent
 /// outside). QPainter rounds a pure translation to whole pixels even with smooth
 /// transformation on, which would make a sub-pixel Match Move jump.
@@ -217,23 +275,31 @@ private:
         } else if ((n.type == nodetypes::Transform || n.type == nodetypes::Tracker
                        || n.type == nodetypes::PlanarTracker)
             && !in.isNull()) {
-            out = blank(size);
-            const QTransform m = inImagePixels(n.type == nodetypes::PlanarTracker
-                    ? compmath::planarMatrix(n.params, f, m_ev.frame)
-                    : n.type == nodetypes::Tracker
-                    ? compmath::trackerMatrix(n.params, f, m_ev.frame)
-                    : compmath::transformMatrix(n.params, f, m_ev.frame),
-                s);
-            if (m.type() == QTransform::TxTranslate
-                && (std::abs(m.dx() - std::round(m.dx())) > 1e-3
-                    || std::abs(m.dy() - std::round(m.dy())) > 1e-3)) {
-                out = shifted(in, m.dx(), m.dy());
+            const compmath::Resampling rs = n.type == nodetypes::Transform
+                ? compmath::resampling(n.params)
+                : compmath::Resampling();
+            if (!rs.isDefault()) {
+                out = resample(
+                    in, compmath::transformMatrix(n.params, f, m_ev.frame), m_ev.frame, rs);
             } else {
-                QPainter p(&out);
-                p.setRenderHint(QPainter::SmoothPixmapTransform);
-                p.setRenderHint(QPainter::Antialiasing);
-                p.setTransform(m);
-                p.drawImage(0, 0, in);
+                out = blank(size);
+                const QTransform m = inImagePixels(n.type == nodetypes::PlanarTracker
+                        ? compmath::planarMatrix(n.params, f, m_ev.frame)
+                        : n.type == nodetypes::Tracker
+                        ? compmath::trackerMatrix(n.params, f, m_ev.frame)
+                        : compmath::transformMatrix(n.params, f, m_ev.frame),
+                    s);
+                if (m.type() == QTransform::TxTranslate
+                    && (std::abs(m.dx() - std::round(m.dx())) > 1e-3
+                        || std::abs(m.dy() - std::round(m.dy())) > 1e-3)) {
+                    out = shifted(in, m.dx(), m.dy());
+                } else {
+                    QPainter p(&out);
+                    p.setRenderHint(QPainter::SmoothPixmapTransform);
+                    p.setRenderHint(QPainter::Antialiasing);
+                    p.setTransform(m);
+                    p.drawImage(0, 0, in);
+                }
             }
         } else if (n.type == nodetypes::Crop && !in.isNull()) {
             out = blank(size);
@@ -311,17 +377,19 @@ private:
             return bg;
         const QSize size = m_ev.size;
         const int64_t f = m_ev.compFrame;
+        const QTransform fgMatrix = compmath::mergeForegroundMatrix(n.params, f, m_ev.frame);
+        const compmath::Resampling rs = compmath::resampling(n.params);
         QImage moved = blank(size);
-        {
+        if (!rs.isDefault()) {
+            moved = resample(fg, fgMatrix, m_ev.frame, rs);
+        } else {
             QPainter p(&moved);
             p.setRenderHint(QPainter::SmoothPixmapTransform);
             p.setRenderHint(QPainter::Antialiasing);
-            p.setTransform(inImagePixels(
-                compmath::mergeForegroundMatrix(n.params, f, m_ev.frame), m_ev.scale));
+            p.setTransform(inImagePixels(fgMatrix, m_ev.scale));
             p.drawImage(0, 0, fg);
         }
-        const int mode = blendmodes::index(n.params.staticValue(k::BlendMode).toString());
-        const float opacity = float(std::clamp(n.params.value(k::Opacity, f, 1.0), 0.0, 1.0));
+        const compmath::MergeParams mp = compmath::mergeParams(n.params, f);
         QImage out = blank(size);
         for (int y = 0; y < size.height(); ++y) {
             const QRgb* pb
@@ -335,9 +403,7 @@ private:
                 if (pb)
                     unpack(pb[x], b);
                 unpack(pf[x], s);
-                for (float& v : s)
-                    v *= opacity;
-                compmath::blendPremultiplied(mode, b, s, o);
+                compmath::mergePixel(mp, b, s, o);
                 if (pm) {
                     const float t = qAlpha(pm[x]) / 255.0f;
                     for (int i = 0; i < 4; ++i)

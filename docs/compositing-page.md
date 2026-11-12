@@ -50,7 +50,7 @@ general knowledge of node compositors, our own drawing, names and icons; never R
 ## Nodes (first release)
 - **I/O**: MediaIn (the clip, or any media pool item), MediaOut.
 - **Composite**: Merge (background, foreground, mask; blend mode (Normal, Screen, Multiply,
-  Add, Overlay, Darken, Lighten, Difference, Subtract), opacity, foreground centre / size / angle, flip horizontal / vertical),
+  Add, Overlay, Darken, Lighten, Difference, Subtract), opacity, foreground centre / pivot / size / angle, flip horizontal / vertical, edges, filter method, invert transform, alpha gain, burn in, subtractive / additive, reference size; 33 apply modes and the Normal operators Over / In / Held Out / Atop / XOr: spec section 88),
   Dissolve.
 - **Transform**: Transform (centre, size, angle, pivot, flip), Crop, Resize, Letterbox.
 - **Generate**: Background (solid colour or 2/4-colour gradient), Text (font, size, colour,

@@ -49,6 +49,26 @@ namespace kk::render::compmath {
 /// centre goes to Center, scaled by Size and turned by Angle about its centre).
 [[nodiscard]] QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);
 
+/// How Merge and Transform resample the picture: the edge mode (edgemodes:: index) and the
+/// filter (filtermethods:: index, Nearest 0, Linear 1, ...). The default (Canvas, Linear) is
+/// drawn by the plain textured quad / QPainter path; anything else by the per-pixel resampler
+/// (CpuComposition::resample(), the GLSL kResampleGlsl), which gives the same pixels.
+struct Resampling
+{
+    int edges = 0;
+    int filter = 1;
+    [[nodiscard]] bool isDefault() const { return edges == 0 && filter == 1; }
+};
+[[nodiscard]] Resampling resampling(const ParamSet& p);
+/// Weight of the filter's kernel at distance @p d (pixels) from the sample position; the
+/// resampler uses the 4x4 nearest taps and divides by the sum of the weights.
+[[nodiscard]] float filterWeight(int filter, float d);
+/// The pixel of a row / column @p i of @p n that edge mode @p edges reads (-1: transparent).
+[[nodiscard]] int edgeIndex(int i, int n, int edges);
+/// GLSL: kkResample(sampler2D, vec2 uv, int edges, int filter) on premultiplied texels,
+/// the same as CpuComposition's resampler.
+extern const char* const kResampleGlsl;
+
 /// Resize node: the rectangle (timeline px) the input frame is drawn into.
 [[nodiscard]] QRectF resizeRect(const ParamSet& p, int64_t frame, QSizeF frameSize);
 
@@ -94,6 +114,28 @@ void applyChannels(const std::array<int, 4>& src, float rgba[4]);
 /// vec3 kkBlend3(int mode, vec3 b, vec3 s), for the Merge node (GlComposition) and the
 /// timeline's composite modes (GlRenderer).
 extern const char* const kBlendFunctionGlsl;
+/// Blend of whole straight colours (all modes, including Hue, Saturation, Color, Luminosity,
+/// Darker / Lighter Color which need the three channels together).
+void blendColor(int mode, const float cb[3], const float cs[3], float out[3]);
+
+/// The Merge node's compositing parameters at one frame.
+struct MergeParams
+{
+    int mode = 0; ///< blendmodes::index()
+    int operation = 0; ///< mergeops::index(), used by Normal only
+    float opacity = 1, alphaGain = 1, subAdd = 0, burnIn = 0;
+};
+[[nodiscard]] MergeParams mergeParams(const ParamSet& p, int64_t frame);
+/// The Merge node on premultiplied @p b (background) and @p s (foreground) into @p o, all
+/// rgba 0..1. Blend scales the whole foreground, Alpha Gain only its alpha (the colour stays,
+/// so a foreground below full gain adds light). The backdrop kept under the foreground is
+/// 1 - alpha · ((1 - subAdd) + subAdd · burnIn): Subtractive (0) is the usual "over",
+/// Additive (1) leaves the backdrop unchanged under the foreground and Burn In brings the
+/// darkening back. The Normal mode applies the Operator (Over, In, Held Out, Atop, XOr, the
+/// Porter-Duff operators), the other modes blend as blendPremultiplied(). The GLSL pass
+/// (GlComposition) computes exactly the same.
+void mergePixel(const MergeParams& m, const float b[4], const float s[4], float o[4]);
+
 /// The Merge composite of premultiplied @p s over premultiplied @p b (rgba 0..1) with mode
 /// @p mode into @p o (the formula above; mode 0 = plain "over").
 void blendPremultiplied(int mode, const float b[4], const float s[4], float o[4]);

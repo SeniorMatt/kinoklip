@@ -45,6 +45,16 @@ look of free equalizer editors, which were studied for ideas only: Audacity's Fi
 is not used because it draws a FIR envelope, not a parametric one), FL Studio-style filled total curve
 with numbered band handles. No code from any of them was copied; the maths is Kinoklip's own RBJ biquads (`src/render/Biquad.h`).
 
+### Merge and Transform controls
+The extra apply modes of the Merge node (`src/render/CompMath.cpp`, `blendChannel()` / `blendColor()` and the
+GLSL copy): Hue, Saturation, Color, Luminosity, Divide, Darker / Lighter Color, Average, Negation, Reflect, Glow,
+Phoenix, Freeze and Heat. The non-separable four use the W3C Compositing and Blending specification; the others
+are the common formulas that Natron's merge operators (GPL-2.0-or-later) and other open compositors list. They
+were written from those definitions, no code was copied. The Normal operators (Over, In, Held Out, Atop, XOr) are
+the Porter-Duff operators; the filter kernels (Catmull-Rom, Mitchell, cubic B-spline, Lanczos, Gaussian) are the
+published Mitchell-Netravali family and the Lanczos window. The control names and the behaviour of Edges, Pivot,
+Invert Transform, Alpha Gain, Burn In and Subtractive / Additive follow the Blackmagic Fusion manual.
+
 ### Keyframe loops
 The extrapolation modes of animated values (`src/core/Animation.cpp`, `AnimatedValue::extrapolatedValue()`)
 follow the documented behaviour of Blender's F-Curve Cycles modifier (GPL-2.0-or-later: Repeat Motion, Repeat
