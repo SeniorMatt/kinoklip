@@ -33,6 +33,7 @@
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QCloseEvent>
 #include <QCursor>
 #include <QGuiApplication>
@@ -321,6 +322,14 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_timeline->setProperty("kkProgramFocus", true);
     connect(m_timelineViewer, &ViewerPanel::activated, this,
         [this] { showSourceInSingleViewer(false); });
+    // A click in the timeline (ruler, clip, track, timeline tab) or focus moving into it brings
+    // the timeline to the one viewer, also when the timeline viewer is hidden (then the focus
+    // tracking of ViewerTransport finds no visible timeline viewer to activate).
+    qApp->installEventFilter(this);
+    connect(qApp, &QApplication::focusChanged, this, [this](QWidget*, QWidget* now) {
+        if (now && m_timeline->isAncestorOf(now))
+            followTimelineInSingleViewer();
+    });
 
     // Viewer mode button at the right end of both viewer headers (alpha.2 feedback #5).
     for (ViewerPanel* viewer : {m_sourceViewer, m_timelineViewer}) {
@@ -702,8 +711,21 @@ void EditPage::tearOffKeyframes()
     QTimer::singleShot(0, this, *tryMove);
 }
 
+void EditPage::followTimelineInSingleViewer()
+{
+    if (!m_singleViewer || !isVisible() || !singleViewerShowsSource())
+        return;
+    showSourceInSingleViewer(false);
+    m_timelineViewer->activate();
+}
+
 bool EditPage::eventFilter(QObject* watched, QEvent* event)
 {
+    if (event->type() == QEvent::MouseButtonPress && m_singleViewer && watched->isWidgetType()) {
+        auto* w = static_cast<QWidget*>(watched);
+        if (m_timeline->isAncestorOf(w) || w == m_timeline)
+            followTimelineInSingleViewer();
+    }
     // Until the user drags a column splitter, keep the default column proportions at every
     // size (the window often starts small and is maximised right after the first show). Done
     // when the top row receives its new size, before QSplitter::resizeEvent() lays it out:

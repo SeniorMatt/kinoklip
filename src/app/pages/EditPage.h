@@ -107,6 +107,7 @@ private:
     void updateViewers();
     /// Single mode: which viewer to show (source only once a clip is loaded).
     void showSourceInSingleViewer(bool source);
+    void followTimelineInSingleViewer();
     void updateViewerModeButtons();
     [[nodiscard]] QAction* singleViewerAction() const;
     /// Resolve's default row heights for the page's actual size (first show without a stored
