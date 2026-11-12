@@ -161,6 +161,8 @@ private:
     viewerfx::Channel m_channel = viewerfx::Channel::Color;
     bool m_checker = false;
     bool m_controlsShown = true;
+    quint64 m_seen = 0; ///< the session's node for this viewer at the last change
+    bool m_empty = false; ///< Clear Viewers: shows nothing until a node is assigned
     bool m_capturing = false; ///< guard while B takes the session's node
     bool m_inFlight = false;
     bool m_renderAgain = false;

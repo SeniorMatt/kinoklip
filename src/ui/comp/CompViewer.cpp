@@ -199,6 +199,7 @@ CompViewer::CompViewer(int index, AppContext& ctx, CompSession* session, QWidget
 
     connect(session, &CompSession::viewersChanged, this, &CompViewer::onSessionViewers);
     connect(session, &CompSession::viewersChanged, this, &CompViewer::refresh);
+    connect(session, &CompSession::clipChanged, this, [this] { m_empty = false; });
     connect(session, &CompSession::clipChanged, this, &CompViewer::refresh);
     connect(session, &CompSession::compositionChanged, this, &CompViewer::refresh);
     connect(ctx.project->timeline(), &Timeline::playheadChanged, this, &CompViewer::refresh);
@@ -239,6 +240,8 @@ quint64 CompViewer::bufferNode(int buffer) const
         return m_locked;
     if (buffer == 1)
         return m_nodeB;
+    if (m_empty)
+        return 0;
     return m_active == 0 && m_session ? m_session->viewerNode(m_index) : m_nodeA;
 }
 
@@ -377,6 +380,9 @@ void CompViewer::onSessionViewers()
     if (m_capturing || !m_session)
         return;
     const quint64 now = m_session->viewerNode(m_index);
+    if (now != m_seen)
+        m_empty = false; // a node was assigned to this viewer
+    m_seen = now;
     if (m_active == 1 && !m_locked && now != m_nodeA) {
         // Buffer B is shown: the node assigned now goes to B and A keeps its node.
         m_nodeB = now;
@@ -410,6 +416,7 @@ void CompViewer::setActiveBuffer(int buffer)
 
 void CompViewer::setBufferNode(int buffer, quint64 nodeId)
 {
+    m_empty = false;
     if (buffer == 1) {
         m_nodeB = nodeId;
         refresh();
@@ -480,10 +487,12 @@ void CompViewer::clearViewer()
     m_nodeA = 0;
     m_active = 0;
     m_split = false;
+    m_empty = true;
     m_capturing = true;
     if (m_session)
         m_session->setViewerNode(m_index, 0);
     m_capturing = false;
+    m_seen = m_session ? m_session->viewerNode(m_index) : 0;
     syncToolBar();
     refresh();
 }

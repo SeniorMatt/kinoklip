@@ -1341,7 +1341,7 @@ private slots:
         // Ctrl+1: 100 %.
         v->setZoom(0.0);
         QTest::keyClick(v, Qt::Key_1, Qt::ControlModifier);
-        QCOMPARE(v->surface()->zoom(), 1.0);
+        QCOMPARE(v->surface()->picture().zoom(), 1.0);
         // ~ clears both viewers (and the lock).
         QTest::keyClick(v, Qt::Key_L, Qt::ControlModifier);
         QCOMPARE(r->node(), f.nodeNamed(QStringLiteral("MediaOut1")));
