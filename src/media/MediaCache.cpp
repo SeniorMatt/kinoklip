@@ -230,8 +230,8 @@ QImage MediaCache::thumbnailOrNearest(const QString& path, int64_t timeUs, int h
     // Neighbouring time steps at the wanted height.
     if (!still) {
         const int64_t t0 = snapThumbnailTimeUs(timeUs, wanted);
-        const int64_t grid = wanted <= kSmallThumbnailMaxHeight ? kSmallThumbnailGridUs
-                                                                : kLargeThumbnailGridUs;
+        const int64_t grid
+            = wanted <= kSmallThumbnailMaxHeight ? kSmallThumbnailGridUs : kLargeThumbnailGridUs;
         for (int64_t t : {t0 - grid, t0 + grid}) {
             if (t >= 0) {
                 if (const QImage* hit = m_images.object(keyFor(wanted, t)))
