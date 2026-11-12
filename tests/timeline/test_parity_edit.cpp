@@ -644,6 +644,119 @@ private slots:
         QVERIFY(!ops::clipById(v.f.view(), c)->transitionOut);
     }
 
+    void spec13_17_altPressedAfterTheClickStillCopies()
+    {
+        // A window manager that grabs Alt+drag never delivers the press with Alt: Alt held
+        // while the pointer moves is enough, and every property travels with the copy.
+        View v;
+        v.put(kV1, mediaClip(0, 40, 50));
+        const quint64 b = v.put(kV1, mediaClip(40, 40, 50));
+        const quint64 c = v.put(kV1, mediaClip(80, 40, 50));
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        TransitionData t;
+        t.type = QStringLiteral("wipe");
+        t.duration = 10;
+        t.alignment = TransitionAlignment::StartOnCut;
+        t.params.animated(QStringLiteral("softness"), 0.0).setKey(0, 5.0);
+        ops::clipById(v.f.data(), b)->transitionIn = t;
+        v.f.project.endEdit();
+        const TransitionData source = *ops::clipById(v.f.view(), b)->transitionIn;
+        const QPoint from = v.at(42, kV1), to = v.at(75, kV1);
+        const int before = v.undoCount();
+        QTest::mousePress(v.vp(), Qt::LeftButton, {}, from); // no Alt at the press
+        QTest::mouseMove(v.vp(), from + QPoint(10, 0)); // plain move: nothing happens
+        QCOMPARE(v.undoCount(), before);
+        QMouseEvent move(QEvent::MouseMove, QPointF(to), v.vp()->mapToGlobal(QPointF(to)),
+            Qt::NoButton, Qt::LeftButton, Qt::AltModifier);
+        QCoreApplication::sendEvent(v.vp(), &move);
+        QTest::mouseRelease(v.vp(), Qt::LeftButton, {}, to);
+        QCOMPARE(v.undoCount(), before + 1);
+        QCOMPARE(*ops::clipById(v.f.view(), c)->transitionIn, source);
+        QVERIFY(ops::clipById(v.f.view(), b)->transitionIn);
+        // Without Alt at any time nothing is copied.
+        v.drag(v.at(42, kV1), v.at(115, kV1));
+        QVERIFY(!ops::clipById(v.f.view(), c)->transitionOut);
+    }
+
+    void spec16_8_pastedAudioTracksAreShown()
+    {
+        // Paste into a timeline with fewer audio tracks: the new tracks are created, shown
+        // and hold the audio (owner report: "my audio disappeared" after a big paste).
+        View v;
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        v.f.data() = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 640, 360, 3, 3);
+        v.f.project.endEdit();
+        QVector<quint64> ids;
+        for (int t = 0; t < 3; ++t) {
+            const quint64 vid = v.put(TrackRef {TrackType::Video, t}, mediaClip(0, 40, 50));
+            const quint64 aud = v.put(TrackRef {TrackType::Audio, t}, mediaClip(0, 40, 50));
+            v.link({vid, aud});
+            ids << vid << aud;
+        }
+        v.f.selection.setClips(ids);
+        v.action("edit.copy")->trigger();
+        v.f.project.beginEdit(QStringLiteral("shrink"));
+        v.f.data() = makeDefaultTimeline(QStringLiteral("u"), Rational {25, 1}, 640, 360, 1, 1);
+        v.f.project.endEdit();
+        v.tl()->setPlayhead(10);
+        v.action("edit.paste")->trigger();
+        QCOMPARE(int(v.f.view().audioTracks.size()), 3);
+        int audioRows = 0;
+        for (const auto& row : v.w.layout().rows())
+            audioRows += row.ref.type == TrackType::Audio;
+        QCOMPARE(audioRows, 3);
+        for (const TrackData& t : v.f.view().audioTracks)
+            QCOMPARE(int(t.clips.size()), 1);
+    }
+
+    void spec13_19_copyPasteATransition()
+    {
+        View v;
+        const quint64 a = v.put(kV1, mediaClip(0, 40, 50));
+        const quint64 b = v.put(kV1, mediaClip(40, 40, 50));
+        const quint64 c = v.put(kV1, mediaClip(80, 40, 50));
+        const quint64 d = v.put(kV1, mediaClip(120, 40, 50));
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        TransitionData t;
+        t.type = QStringLiteral("wipe");
+        t.duration = 12;
+        t.alignment = TransitionAlignment::EndOnCut;
+        t.params.animated(QStringLiteral("softness"), 0.0).setKey(0, 5.0);
+        t.params.animated(QStringLiteral("softness"), 0.0).setKey(6, 9.0);
+        ops::clipById(v.f.data(), b)->transitionIn = t;
+        ops::clipById(v.f.data(), d)->transitionIn = TransitionData {}; // replaced by the paste
+        v.f.project.endEdit();
+        // Nothing copied yet: Paste with a cut selected does nothing.
+        v.c.setSelectedEdit({a, b});
+        v.f.selection.selectTransition({b, true});
+        v.action("edit.copy")->trigger();
+        QVERIFY(v.c.hasTransitionClipboard());
+        // A selected edit point.
+        v.c.setSelectedEdit({b, c});
+        int before = v.undoCount();
+        v.action("edit.paste")->trigger();
+        QCOMPARE(v.undoCount(), before + 1);
+        QCOMPARE(v.f.project.undoStack()->undoText(), QStringLiteral("Paste Transition"));
+        QCOMPARE(*ops::clipById(v.f.view(), c)->transitionIn, t);
+        QCOMPARE(layout(v.f.view(), kV1), QStringLiteral("0:40 40:40 80:40 120:40"));
+        // Selected clips: both ends of each, a replaced transition included, one step.
+        v.c.setSelectedEdit({});
+        v.f.selection.setClips({d});
+        before = v.undoCount();
+        v.action("edit.paste")->trigger();
+        QCOMPARE(v.undoCount(), before + 1);
+        QCOMPARE(*ops::clipById(v.f.view(), d)->transitionIn, t);
+        QVERIFY(ops::clipById(v.f.view(), d)->transitionOut); // the last clip's free end
+        // Undo is one step.
+        v.f.project.undoStack()->undo();
+        QCOMPARE(
+            ops::clipById(v.f.view(), d)->transitionIn->type, QStringLiteral("cross_dissolve"));
+        // Copying clips afterwards makes Paste paste clips again.
+        v.f.selection.setClips({a});
+        v.action("edit.copy")->trigger();
+        QVERIFY(!v.c.hasTransitionClipboard());
+    }
+
     // ---- 16 Clipboard ----
 
     void spec16_4_pasteAttributes()

@@ -168,8 +168,10 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     // from the clip edges outside the block or with the transition's outer edges.
     if (const auto t = transitionAt(pos)) {
         m_controller->selectTransition(*t);
-        // Alt+drag copies it onto another edit point (owner request 0.4.0).
-        if ((m_drag.modifiers & Qt::AltModifier) && tool == TimelineTool::Select) {
+        // Alt+drag copies it onto another edit point (owner request 0.4.0). Alt may be held at
+        // the press or pressed once the drag has begun (a window manager that grabs Alt+drag
+        // never delivers the press, so the user presses Alt after the click, as in Resolve).
+        if (tool == TimelineTool::Select) {
             m_drag.copySource = *t;
             m_drag.pending = DragMode::TransitionCopy;
             m_drag.mode = DragMode::Pending;
@@ -278,6 +280,9 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
         const int threshold = trim ? kTrimThresholdPx : QApplication::startDragDistance();
         if ((pos - m_drag.pressPos).manhattanLength() < threshold)
             return;
+        if (m_drag.pending == DragMode::TransitionCopy
+            && !((m_drag.modifiers | event->modifiers()) & Qt::AltModifier))
+            return; // a plain drag of a transition block does nothing; it waits for Alt
         startDrag(m_drag.pending);
         if (m_drag.mode == DragMode::None)
             return; // a gesture that ends once dragged (a ruler click, spec 48.1)

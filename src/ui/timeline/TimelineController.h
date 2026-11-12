@@ -528,6 +528,16 @@ public slots:
     /// length and alignment (the Effects library's double-click, spec 13.18). Returns whether
     /// anything changed.
     bool addTransition(const QString& typeId);
+    /// Copies the selected transition (type, length, alignment, parameters and keyframes) for
+    /// pasteTransition(); false when none is selected (spec 13.19).
+    bool copyTransition();
+    /// Pastes the copied transition onto the selected transition's edge, the selected edit
+    /// point, or both ends of every selected clip, on tracks of the copied one's type; the
+    /// length is clamped to what the clips allow, an existing transition is replaced; one undo
+    /// step "Paste Transition". Returns whether anything changed.
+    bool pasteTransition();
+    /// True while the last copy was a transition (the next paste is pasteTransition()).
+    [[nodiscard]] bool hasTransitionClipboard() const { return m_transitionBoard.has_value(); }
     /// Changes the alignment of the transition at the head (@p head) or tail of @p clipId
     /// (spec 13.5); one undo step. Returns whether it changed.
     bool setTransitionAlignment(quint64 clipId, bool head, TransitionAlignment alignment);
@@ -667,6 +677,12 @@ private:
     int m_targetVideo = 0;
     int m_targetAudio = 0;
     editops::Clipboard m_clipboard;
+    struct TransitionBoard
+    {
+        TransitionData transition;
+        TrackType trackType = TrackType::Video;
+    };
+    std::optional<TransitionBoard> m_transitionBoard; ///< the last copy was a transition
     VimOverlay m_vimOverlay;
     EditPointSelection m_selectedEdit;
     std::optional<GapSelection> m_selectedGap;

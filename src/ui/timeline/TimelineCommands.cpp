@@ -196,7 +196,10 @@ void TimelineController::deleteGaps()
 void TimelineController::copy()
 {
     const QVector<quint64> ids = effectiveSelection();
+    if (ids.isEmpty() && copyTransition())
+        return;
     if (!ids.isEmpty()) {
+        m_transitionBoard.reset();
         m_clipboard = ops::copyClips(timeline()->data(), ids);
         return;
     }
@@ -214,6 +217,7 @@ void TimelineController::cut()
 {
     const QVector<quint64> ids = effectiveSelection();
     if (!ids.isEmpty()) {
+        m_transitionBoard.reset();
         m_clipboard = ops::copyClips(timeline()->data(), ids);
         runEdit(project(), tr("Cut"),
             [&](TimelineData& data) { return ops::liftClips(data, ids) > 0; });
