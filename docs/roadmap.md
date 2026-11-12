@@ -122,6 +122,7 @@ Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 - [ ] Compositing: Common Controls tab on every tool (Blend, RGBA, mask options, motion blur)
 - [ ] Compositing: more tools (Delta Keyer, Luma Keyer, Corner Positioner, B-Spline mask, rounded Rectangle) and node editor extras (thumbnails, Replace, Find, tile colours, Paste Settings)
 - [ ] Background Removal: a newer video model if one fits our licence
+- [ ] Bug hunt for 1.7: look for bugs like the ones the owner found on 2026-11-12 and fix them. Look for: the viewer not following what was clicked; mouse buttons and keys that do nothing where Resolve acts; panels and tool rows overlapping or cutting off names on small screens; keys that take over other keys; missing search or defaults that differ from Resolve; effects and niche controls Resolve has that are missing or behave differently
 
 ## Next big release
 
