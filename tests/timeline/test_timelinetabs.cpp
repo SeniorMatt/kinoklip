@@ -15,6 +15,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QMouseEvent>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTabBar>
@@ -243,6 +244,49 @@ private slots:
         QVERIFY(tc->insertSource(item, 0, 0, SourceEditMode::Overwrite).size() == 1);
         QVERIFY(f.project.setActiveTimeline(other));
         QVERIFY(tc->makeMediaClips(f.project.timelineItemId(main), 0, 0, 0, 0).isEmpty());
+    }
+
+    /// Owner: "If I click the mouse back button, it'll take me back from the timeline that I've
+    /// clicked ... I press mouse 4 or 5, and it goes back and forth." (spec 25.19)
+    void mouseBackForwardStepsThroughTimelines()
+    {
+        PanelFixture f;
+        TimelinePanel panel(f.ctx);
+        quiet(panel);
+        panel.resize(1200, 400);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        const quint64 a = f.project.activeTimelineUid();
+        trigger(f, "timeline.new");
+        const quint64 b = f.project.activeTimelineUid();
+        trigger(f, "timeline.new");
+        const quint64 c = f.project.activeTimelineUid();
+        QWidget* over = panel.timelineWidget();
+        const auto press = [&](Qt::MouseButton button) {
+            QMouseEvent e(QEvent::MouseButtonPress, QPointF(5, 5), over->mapToGlobal(QPointF(5, 5)),
+                button, button, Qt::NoModifier);
+            QCoreApplication::sendEvent(over, &e);
+        };
+        press(Qt::BackButton);
+        QCOMPARE(f.project.activeTimelineUid(), b);
+        press(Qt::BackButton);
+        QCOMPARE(f.project.activeTimelineUid(), a);
+        press(Qt::BackButton); // at the start: nothing
+        QCOMPARE(f.project.activeTimelineUid(), a);
+        press(Qt::ForwardButton);
+        QCOMPARE(f.project.activeTimelineUid(), b);
+        // A closed timeline is skipped.
+        QVERIFY(f.project.closeTab(c));
+        press(Qt::ForwardButton);
+        QCOMPARE(f.project.activeTimelineUid(), b);
+        // A new navigation after going back drops the forward entries.
+        press(Qt::BackButton);
+        QCOMPARE(f.project.activeTimelineUid(), a);
+        QVERIFY(f.project.setActiveTimeline(b));
+        press(Qt::ForwardButton);
+        QCOMPARE(f.project.activeTimelineUid(), b);
+        press(Qt::BackButton);
+        QCOMPARE(f.project.activeTimelineUid(), a);
     }
 };
 

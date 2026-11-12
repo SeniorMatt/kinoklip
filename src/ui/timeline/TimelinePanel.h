@@ -110,6 +110,11 @@ private:
     bool m_swapping = false;
     int m_activeSlot = 1;
     quint64 m_previousActive = 0;
+    /// Back / forward history of the active timeline (mouse buttons 4 and 5, like a browser).
+    void navigateTimelines(int direction);
+    QVector<quint64> m_navHistory;
+    int m_navPos = -1;
+    bool m_navigating = false;
 };
 
 } // namespace kk

@@ -19,6 +19,8 @@
 #include "ui/mediapool/MediaBrowserPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelinePanel.h"
+#include "ui/timeline/TimelineTabs.h"
+#include "ui/timeline/TimelineWidget.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAction>
@@ -186,6 +188,17 @@ private slots:
             f.action("view.toggle_source_timeline")->trigger();
             QVERIFY(!edit->singleViewerShowsSource());
             QVERIFY(!edit->timelineViewer()->isHidden());
+            // A click in the timeline or on its tab bar brings the timeline back (owner report:
+            // "I click on the timeline and I play it, the viewer should switch to this preview").
+            for (QWidget* target : {static_cast<QWidget*>(edit->timeline()->timelineWidget()),
+                     static_cast<QWidget*>(edit->timeline()->tabs())}) {
+                emit edit->mediaPool()->openInSourceViewer(id);
+                QVERIFY(edit->singleViewerShowsSource());
+                QTest::mouseClick(target, Qt::LeftButton, Qt::NoModifier, QPoint(5, 5));
+                QVERIFY(!edit->singleViewerShowsSource());
+                QVERIFY(!edit->timelineViewer()->isHidden());
+                QVERIFY(edit->sourceViewer()->isHidden());
+            }
             // The menu entry leaves single mode again; both viewers come back.
             single->trigger();
             QVERIFY(!edit->isSingleViewer());
