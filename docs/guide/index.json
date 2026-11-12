@@ -884,9 +884,9 @@
     },
     {
       "id": "edit-with-vim-keys",
-      "title": "Edit with vim keys",
+      "title": "Vim for Kinoklip",
       "file": "edit-with-vim-keys.md",
-      "summary": "Turn on Vim mode (any keyboard profile) and edit the timeline with counts, dd, yy, gg, visual mode, INSERT mode, a Space leader with a which-key list, a command line, keys you can change and a Russian layout.",
+      "summary": "Turn on Vim mode (any keyboard profile) and edit with Vim and Neovim keys: modes, the Space leader with a which-key list, counts, operators and text objects on the timeline, registers, macros, search and find, lists, the Inspector, keyframes, nodes, the mixer, the command line, pickers, your own keys and a vimrc.",
       "keywords": [
         "vim",
         "neovim",
@@ -906,7 +906,29 @@
         "which-key",
         "vimrc",
         "insert mode",
-        "russian layout"
+        "russian layout",
+        "macro",
+        "macros",
+        "register",
+        "registers",
+        "recording"
+      ],
+      "contexts": []
+    },
+    {
+      "id": "vim-cheat-sheet",
+      "title": "Vim cheat sheet",
+      "file": "vim-cheat-sheet.md",
+      "summary": "The Vim keys of Kinoklip on one page: modes, moving, changing, registers and macros, the Space leader, panels, lists, forms, keyframes, nodes, the mixer, the command line and pickers.",
+      "keywords": [
+        "vim",
+        "cheat sheet",
+        "cheatsheet",
+        "keys",
+        "keybindings",
+        "shortcuts",
+        "neovim",
+        "reference"
       ],
       "contexts": []
     },

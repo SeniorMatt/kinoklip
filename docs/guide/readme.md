@@ -76,7 +76,7 @@ search field.
 - [Use a LUT](use-a-lut.md)
 - [Use the shortcuts of your old editor](use-the-shortcuts-of-your-old-editor.md) (Vegas Pro,
   Premiere Pro, Final Cut Pro, Avid, Kdenlive, Shotcut)
-- [Edit with vim keys](edit-with-vim-keys.md) (Vim mode: Vim and Neovim keys on the timeline, with any keyboard profile)
+- [Vim for Kinoklip](edit-with-vim-keys.md) (Vim mode: Vim and Neovim keys everywhere, with any keyboard profile) and its [cheat sheet](vim-cheat-sheet.md)
 - [Move your settings to another computer](move-your-settings-to-another-computer.md)
 - [Send a log file with a bug report](send-a-log-file-with-a-bug-report.md)
 - [Track a moving thing and warp the picture](track-and-warp-a-picture.md)

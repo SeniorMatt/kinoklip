@@ -14,7 +14,7 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 ## Status
 
 <!-- status:start -->
-![Status: 75.40% of the roadmap items are done, 92.90% of the effects library works](docs/images/status.svg)
+![Status: 76.32% of the roadmap items are done, 92.90% of the effects library works](docs/images/status.svg)
 
 Green is done, grey is still to do. Details: [roadmap](docs/roadmap.md) and [effects library](docs/effects-library-status.md).
 <!-- status:end -->
@@ -74,7 +74,7 @@ a few real advantages there:
 **Use it**
 - [How to use Kinoklip](docs/guide/readme.md): short how-to guides
 - [Resolve keymap](docs/keymap-resolve-windows.md): the default shortcuts
-- [Keyboard presets](docs/keymaps/readme.md): Vegas Pro, Premiere Pro, Final Cut Pro, Avid Media Composer, Kdenlive, Shotcut; Vim mode (modal keys, with any of them)
+- [Keyboard presets](docs/keymaps/readme.md): Vegas Pro, Premiere Pro, Final Cut Pro, Avid Media Composer, Kdenlive, Shotcut; Vim mode (modal keys, with any of them): [Vim for Kinoklip](docs/guide/edit-with-vim-keys.md) and the [Vim cheat sheet](docs/guide/vim-cheat-sheet.md)
 - [Menu reference](docs/menu-reference.md): every menu entry and panel, what it does
 - [Release notes](docs/releases/): changes in each release
 - [Privacy](docs/privacy.md): what Kinoklip keeps on your computer, and what a bug report can share

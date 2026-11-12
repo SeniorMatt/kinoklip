@@ -93,7 +93,10 @@ Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 
 - [x] Interface: Vim mode is an option (Preferences > Keyboard, Kinoklip > Vim Mode), no longer a keyboard preset: a permanent mode line in the page bar row, INSERT mode, the Esc rule, the focused-panel frame, and the old Vim profile migrated (spec 83, step 1)
 - [x] Interface: Vim keys as a table: per-context key sequences with timeout, your own keys in Keyboard Customization > Vim keys, a vimrc file, :nmap, which-key list, keys by physical position (a Russian layout works) (spec 83, step 2)
-- [ ] Interface: Vim grammar on the timeline (cursor track, operators with motions and text objects, registers, dot repeat, search), the command line with completion and pickers, all panels, forms, keyframes, nodes, mixer, macros (design steps 3 to 8)
+- [x] Interface: Vim grammar on the timeline (cursor track, operators with motions and text objects, registers, dot repeat, marks, Visual modes, search) (spec 83, step 3)
+- [x] Interface: Vim command line with completion and history, Telescope-style pickers on the leader (spec 83, steps 4)
+- [x] Interface: Vim keys in every panel: windows and pages, lists and trees, the Inspector and other forms, the keyframe editor, node graphs, the mixer and transitions (spec 83, steps 5 to 7)
+- [x] Interface: Vim macros (q, @, @@, @:), append and numbered registers, ? backward search, f F t T ; , to find clips by name, * and #, a check of the whole key table, the guide "Vim for Kinoklip" and a one-page cheat sheet (spec 83, step 8). Version 1.5 is not released yet
 
 ## Next big release
 
