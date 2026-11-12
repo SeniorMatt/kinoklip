@@ -266,8 +266,23 @@ QString VimController::runBuiltin(const vimex::Parsed& p, bool* ok)
         }
         if (target < 0 || target >= pages.size())
             return fail(tr("No such page: %1").arg(p.arg));
-        return run(pageActionId(pages[target]), tr("page %1").arg(pages[target]));
+        const QString done = run(pageActionId(pages[target]), tr("page %1").arg(pages[target]));
+        if (*ok)
+            afterPageChange();
+        return done;
     }
+    if (name == QLatin1String("panel") || name == QLatin1String("only")) {
+        const QString what = name == QLatin1String("only") ? QStringLiteral("only") : p.arg;
+        if (what.isEmpty())
+            return fail(
+                tr("panel wants a name: %1").arg(vimex::panelNames().join(QLatin1Char(' '))));
+        if (!handleCommand(name == QLatin1String("only") ? QStringLiteral("win_only")
+                                                         : QStringLiteral("win_panel"),
+                1, false, what))
+            return fail(tr("No such panel on this page: %1").arg(what));
+        return {};
+    }
+
     // ---- undo ----
     if (name == QLatin1String("undo") || name == QLatin1String("redo")) {
         const int times = p.arg.isEmpty() ? 1 : std::max(1, p.arg.toInt());

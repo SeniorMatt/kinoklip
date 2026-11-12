@@ -19,7 +19,9 @@ const QStringList kMotions {QStringLiteral("frame_prev"), QStringLiteral("frame_
     QStringLiteral("edit_end"), QStringLiteral("edit_end_prev"), QStringLiteral("marker_next"),
     QStringLiteral("marker_prev"), QStringLiteral("keyframe_next"), QStringLiteral("keyframe_prev"),
     QStringLiteral("track_down"), QStringLiteral("track_up"), QStringLiteral("track_first"),
-    QStringLiteral("track_last")};
+    QStringLiteral("track_last"), QStringLiteral("row_down"), QStringLiteral("row_up"),
+    QStringLiteral("row_first"), QStringLiteral("row_last"), QStringLiteral("row_half_down"),
+    QStringLiteral("row_half_up")};
 
 const QStringList kObjects {QStringLiteral("obj_iw"), QStringLiteral("obj_aw"),
     QStringLiteral("obj_iW"), QStringLiteral("obj_aW"), QStringLiteral("obj_ip"),
@@ -291,6 +293,26 @@ std::optional<Motion> motion(
     } else if (name == QLatin1String("track_last")) {
         m.to.track = hasCount ? clampTrack(host, count - 1) : std::max(0, host.trackCount() - 1);
         m.type = Motion::Type::Lines;
+    } else if (name.startsWith(QLatin1String("row_"))) {
+        // The rows of a list (VimListHost): one track, every row a one-frame clip; the motions
+        // are linewise like Vim's, so `dj` takes this row and the next.
+        const int64_t last = std::max<int64_t>(0, host.timelineEnd() - 1);
+        const int64_t half = std::max(1, host.pageRows() / 2) * int64_t(n);
+        int64_t to = f;
+        if (name == QLatin1String("row_down"))
+            to = f + n;
+        else if (name == QLatin1String("row_up"))
+            to = f - n;
+        else if (name == QLatin1String("row_first"))
+            to = 0;
+        else if (name == QLatin1String("row_last"))
+            to = hasCount ? count - 1 : last;
+        else if (name == QLatin1String("row_half_down"))
+            to = f + half;
+        else
+            to = f - half;
+        m.to.frame = std::clamp<int64_t>(to, 0, last);
+        m.type = Motion::Type::Inclusive;
     } else {
         return std::nullopt;
     }

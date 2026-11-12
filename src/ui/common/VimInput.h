@@ -64,6 +64,9 @@ public:
     /// Milliseconds to wait for the next key of an ambiguous sequence; 0 = the keymap's value.
     void setTimeoutMs(int ms) { m_timeoutOverride = ms; }
     void setPhysicalKeys(bool on) { m_translator.setPhysical(on); }
+    /// Moves the machine to another host (the list host while a list has the focus); a
+    /// half-typed command is dropped and a VISUAL selection ends. nullptr is ignored.
+    void switchHost(VimHost* host);
     /// Runs the window's commands (`vim:picker_*`, `vim:win_*`, `vim:page_*` ...): the machine
     /// passes the name, the count (@p hasCount tells whether one was typed) and the character a
     /// class token matched. Returns whether it knew the command.
@@ -260,6 +263,8 @@ public:
     ~VimInput() override;
 
     void setHost(VimHost* host) { m_machine.setHost(host); m_host = host; }
+    /// The host for the "list" context (VimListHost): lists, trees and grids anywhere.
+    void setListHost(VimHost* host) { m_listHost = host; }
     [[nodiscard]] VimMachine& machine() { return m_machine; }
     /// True while Vim mode is on.
     [[nodiscard]] bool active() const { return m_active; }
@@ -291,11 +296,13 @@ protected:
 
 private:
     bool handleEscape(QKeyEvent* key, QEvent::Type type);
+    void syncHost(QWidget* focus);
 
     ActionRegistry* m_actions = nullptr;
     VimKeymap* m_keymap = nullptr;
     VimMachine m_machine;
     VimHost* m_host = nullptr;
+    VimHost* m_listHost = nullptr;
     bool m_active = false;
 };
 

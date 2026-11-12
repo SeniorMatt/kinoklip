@@ -17,12 +17,34 @@ playhead on the cursor track. The grammar is Vim's: `["register][count]operator[
 (delete leaving a gap, then INSERT) and `y` (copy). The rows marked *after an operator* are the
 motions and text objects an operator accepts. `.` repeats the last change.
 
+Panels are the windows: `<C-h/j/k/l>` and `<C-w>` + `h j k l w W p o = c` move the focus between them,
+`<leader>w` + a letter focuses a named panel, `gt` / `gT` / `{n}gt` change the page. In a list, tree or
+grid (the last table) the rows are the lines: `j k gg G {n}G`, `V`, `dd`, `yy`, `/` and `n` work as in
+the timeline, and `o l h - a r` open, go up, add a bin and rename.
+
 ## Everywhere the Vim keys work
 
 | Keys | Mode | What it does | Runs |
 |---|---|---|---|
 | `:` | NORMAL | command line (Tab completes, Up / Down recall) | `vim:command_line` |
 | `q:` | NORMAL | pick a line from the command history and run it | `vim:picker_history` |
+| `gt` | NORMAL | next page; with a count, page n (1 Media, 2 Cut, 3 Edit, 4 Compositing, 5 Color, 6 Audio, 7 Deliver) | `vim:page_goto` |
+| `gT` | NORMAL | previous page (a count: that many back), wrapping round | `vim:page_prev` |
+| `<C-h>` | NORMAL | focus the panel to the left | `vim:win_left` |
+| `<C-j>` | NORMAL | focus the panel below | `vim:win_down` |
+| `<C-k>` | NORMAL | focus the panel above | `vim:win_up` |
+| `<C-l>` | NORMAL | focus the panel to the right | `vim:win_right` |
+| `<C-w>h` | NORMAL | focus the panel to the left | `vim:win_left` |
+| `<C-w>j` | NORMAL | focus the panel below | `vim:win_down` |
+| `<C-w>k` | NORMAL | focus the panel above | `vim:win_up` |
+| `<C-w>l` | NORMAL | focus the panel to the right | `vim:win_right` |
+| `<C-w>w` | NORMAL | next panel in reading order (a count: panel n), wrapping round | `vim:win_next` |
+| `<C-w>W` | NORMAL | previous panel in reading order, wrapping round | `vim:win_prev` |
+| `<C-w>p` | NORMAL | the panel that had the focus before | `vim:win_last` |
+| `<C-w>o` | NORMAL | zoom the focused panel (hide the others); again to bring them back | `vim:win_only` |
+| `<C-w>=` | NORMAL | bring the zoomed panels back and reset the layout | `vim:win_reset` |
+| `<C-w>c` | NORMAL | hide the focused panel | `vim:win_close` |
+| `u` | NORMAL | undo (count: that many steps) | `action:edit.undo` |
 | `<C-r>` | NORMAL and VISUAL | redo | `action:edit.redo` |
 | `gj` | NORMAL | shuttle reverse (J) | `action:transport.shuttle_reverse` |
 | `gk` | NORMAL | shuttle stop (K) | `action:transport.shuttle_stop` |
@@ -115,10 +137,59 @@ motions and text objects an operator accepts. `.` repeats the last change.
 | `zf` | NORMAL and VISUAL | fit the viewer image to its window | `action:view.viewer_zoom_fit` |
 | `gf` | NORMAL | full-screen viewer | `action:view.fullscreen_viewer` |
 
+## Lists, trees and grids (Media Pool, Effects, Edit Index, ...)
+
+| Keys | Mode | What it does | Runs |
+|---|---|---|---|
+| `j` | NORMAL, VISUAL and after an operator | row below (count: that many) | `vim:row_down` |
+| `k` | NORMAL, VISUAL and after an operator | row above (count: that many) | `vim:row_up` |
+| `gg` | NORMAL, VISUAL and after an operator | first row | `vim:row_first` |
+| `G` | NORMAL, VISUAL and after an operator | last row; with a count, that row | `vim:row_last` |
+| `<C-d>` | NORMAL, VISUAL and after an operator | half a page down | `vim:row_half_down` |
+| `<C-u>` | NORMAL, VISUAL and after an operator | half a page up | `vim:row_half_up` |
+| `d` | NORMAL and VISUAL | delete the rows (the panel asks first where it must; then a motion, or d again for this row) | `vim:op_delete` |
+| `y` | NORMAL and VISUAL | yank: copy the names of the rows to the system clipboard (then a motion, or y again) | `vim:op_yank` |
+| `x` | NORMAL | delete the selected rows, else this row (count: that many) | `vim:cmd_delete` |
+| `x` | VISUAL | delete the selected rows | `vim:op_delete` |
+| `p` | NORMAL | paste (Ctrl+V of the panel: the Media Pool imports files from the clipboard) | `vim:cmd_paste` |
+| `P` | NORMAL | paste (Ctrl+V of the panel) | `vim:cmd_paste` |
+| `V` | NORMAL and VISUAL | V-LINE: select rows (j and k grow it) | `vim:visual_line` |
+| `v` | NORMAL and VISUAL | V-LINE: select rows (j and k grow it) | `vim:visual_line` |
+| `o` | VISUAL | go to the other end of the selection | `vim:visual_other_end` |
+| `.` | NORMAL | repeat the last change | `vim:repeat` |
+| `o` | NORMAL | open the row (a bin, a clip in the Source viewer, apply an effect) | `vim:list_open` |
+| `l` | NORMAL | open a closed branch, else open the row | `vim:list_right` |
+| `h` | NORMAL | close an open branch, else go to the parent row | `vim:list_left` |
+| `-` | NORMAL | the parent row, or the parent bin | `vim:list_parent` |
+| `a` | NORMAL | new bin (Media Pool) | `vim:list_new` |
+| `r` | NORMAL | rename the row (F2) | `vim:list_rename` |
+| `/` | NORMAL | search: the panel's search field, else a search of the row names | `vim:search` |
+| `n` | NORMAL | next match (without a search: next row) | `vim:search_next` |
+| `N` | NORMAL | previous match (without a search: previous row) | `vim:search_prev` |
+| `za` | NORMAL | open / close the branch | `vim:list_fold_toggle` |
+| `zo` | NORMAL | open the branch | `vim:list_fold_open` |
+| `zc` | NORMAL | close the branch | `vim:list_fold_close` |
+| `zR` | NORMAL | open every branch | `vim:list_fold_open_all` |
+| `zM` | NORMAL | close every branch | `vim:list_fold_close_all` |
+| `zt` | NORMAL | scroll the row to the top | `vim:list_scroll_top` |
+| `zz` | NORMAL | scroll the row to the middle | `vim:list_scroll_middle` |
+| `zb` | NORMAL | scroll the row to the bottom | `vim:list_scroll_bottom` |
+
 ## Leader keys (Space, then...)
 
 | Keys | What it does | Runs |
 |---|---|---|
+| **`<leader>w`** | **panels** | |
+| `<leader>wm` | focus the Media Pool (shown if hidden) | `vim:focus_media` |
+| `<leader>we` | focus the Effects (shown if hidden) | `vim:focus_effects` |
+| `<leader>wi` | focus the Inspector (shown if hidden) | `vim:focus_inspector` |
+| `<leader>wt` | focus the timeline (shown if hidden) | `vim:focus_timeline` |
+| `<leader>wv` | focus the viewer (shown if hidden) | `vim:focus_viewer` |
+| `<leader>wk` | focus the Keyframes (shown if hidden) | `vim:focus_keyframes` |
+| `<leader>wx` | focus the Mixer (shown if hidden) | `vim:focus_mixer` |
+| `<leader>wn` | focus the Nodes (shown if hidden) | `vim:focus_nodes` |
+| `<leader>wd` | focus the Metadata (shown if hidden) | `vim:focus_metadata` |
+| `<leader>wl` | focus the Edit Index (shown if hidden) | `vim:focus_index` |
 | `<leader>y` | copy the timecode of the cursor to the system clipboard | `vim:copy_timecode` |
 | `<leader><leader>` | play / pause | `action:transport.play_pause` |
 | **`<leader>s`** | **source edits** | |

@@ -34,6 +34,8 @@ QVector<Command> build()
         {QStringLiteral("buffers"), 7, A::None, QStringLiteral("list the timeline tabs")},
         {QStringLiteral("files"), 5, A::None, QStringLiteral("list the timeline tabs")},
         {QStringLiteral("page"), 2, A::Page, QStringLiteral("go to a page: media cut edit comp color audio deliver, next, prev, a number")},
+        {QStringLiteral("panel"), 3, A::Panel, QStringLiteral("show and focus a panel")},
+        {QStringLiteral("only"), 2, A::None, QStringLiteral("zoom the focused panel (again to undo)")},
         {QStringLiteral("undo"), 1, A::None, QStringLiteral("undo (a number: that many steps)")},
         {QStringLiteral("redo"), 3, A::None, QStringLiteral("redo (a number: that many steps)")},
         {QStringLiteral("history"), 3, A::None, QStringLiteral("open the edit history")},

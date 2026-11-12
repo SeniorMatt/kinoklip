@@ -25,8 +25,8 @@ namespace kk {
 
 namespace {
 
-const QStringList kContexts {
-    QStringLiteral("global"), QStringLiteral("timeline"), QStringLiteral("viewer")};
+const QStringList kContexts {QStringLiteral("global"), QStringLiteral("timeline"),
+    QStringLiteral("viewer"), QStringLiteral("list"), QStringLiteral("panel")};
 
 /// The built-in commands of `vim:` items.
 const QStringList kBuiltins {// motions (VimGrammar.h) and marks
@@ -60,7 +60,25 @@ const QStringList kBuiltins {// motions (VimGrammar.h) and marks
     QStringLiteral("picker_media"), QStringLiteral("picker_commands"),
     QStringLiteral("picker_effects"), QStringLiteral("picker_timelines"),
     QStringLiteral("picker_markers"), QStringLiteral("picker_bins"), QStringLiteral("picker_help"),
-    QStringLiteral("picker_keymaps"), QStringLiteral("picker_history")};
+    QStringLiteral("picker_keymaps"), QStringLiteral("picker_history"),
+    // lists and trees (VimListHost.h)
+    QStringLiteral("row_down"), QStringLiteral("row_up"), QStringLiteral("row_first"),
+    QStringLiteral("row_last"), QStringLiteral("row_half_down"), QStringLiteral("row_half_up"),
+    QStringLiteral("list_open"), QStringLiteral("list_right"), QStringLiteral("list_left"),
+    QStringLiteral("list_parent"), QStringLiteral("list_new"), QStringLiteral("list_rename"),
+    QStringLiteral("list_fold_toggle"), QStringLiteral("list_fold_open"),
+    QStringLiteral("list_fold_close"), QStringLiteral("list_fold_open_all"),
+    QStringLiteral("list_fold_close_all"), QStringLiteral("list_scroll_top"),
+    QStringLiteral("list_scroll_middle"), QStringLiteral("list_scroll_bottom"),
+    // panels, windows and pages
+    QStringLiteral("win_left"), QStringLiteral("win_down"), QStringLiteral("win_up"),
+    QStringLiteral("win_right"), QStringLiteral("win_next"), QStringLiteral("win_prev"),
+    QStringLiteral("win_last"), QStringLiteral("win_only"), QStringLiteral("win_reset"),
+    QStringLiteral("win_close"), QStringLiteral("focus_media"), QStringLiteral("focus_effects"),
+    QStringLiteral("focus_inspector"), QStringLiteral("focus_timeline"),
+    QStringLiteral("focus_viewer"), QStringLiteral("focus_keyframes"),
+    QStringLiteral("focus_mixer"), QStringLiteral("focus_nodes"), QStringLiteral("focus_metadata"),
+    QStringLiteral("focus_index"), QStringLiteral("page_goto"), QStringLiteral("page_prev")};
 
 /// The contexts whose keys a context uses, least specific first.
 QStringList chainOf(const QString& context)
@@ -69,6 +87,8 @@ QStringList chainOf(const QString& context)
         return {QStringLiteral("global"), QStringLiteral("timeline"), QStringLiteral("viewer")};
     if (context == QLatin1String("timeline"))
         return {QStringLiteral("global"), QStringLiteral("timeline")};
+    if (context == QLatin1String("list"))
+        return {QStringLiteral("global"), QStringLiteral("list")};
     return {QStringLiteral("global")};
 }
 

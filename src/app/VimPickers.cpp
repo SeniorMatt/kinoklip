@@ -71,18 +71,6 @@ QVector<quint64> VimController::cursorClips() const
     return m_host->selectedClips();
 }
 
-bool VimController::handleCommand(const QString& name, int count, bool hasCount, const QString& arg)
-{
-    Q_UNUSED(count);
-    Q_UNUSED(hasCount);
-    Q_UNUSED(arg);
-    if (name.startsWith(QLatin1String("picker_"))) {
-        QTimer::singleShot(0, this, [this, kind = name.mid(7)] { openPicker(kind); });
-        return true;
-    }
-    return false;
-}
-
 bool VimController::openPicker(const QString& kind)
 {
     Project* project = m_ctx.project;

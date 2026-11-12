@@ -10,6 +10,7 @@
 #include "ui/common/VimCommandLine.h"
 #include "ui/common/VimInput.h"
 #include "ui/common/VimKeymap.h"
+#include "ui/common/VimListHost.h"
 #include "ui/common/VimOptions.h"
 #include "ui/common/VimPicker.h"
 #include "ui/common/VimWhichKey.h"
@@ -68,7 +69,10 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
 {
     m_host = new VimTimelineHost(ctx, timeline->controller());
     m_host->onCommandLine = [this] { showCommandLine(false); };
-    m_host->onSearch = [this] { showCommandLine(true); };
+    m_host->onSearch = [this] {
+        m_searchInList = false;
+        showCommandLine(true);
+    };
     m_host->onMessage = [this](const QString& text) { m_modeLine->showMessage(text, kMessageMs); };
     m_host->onEx = [this](const QString& line) {
         bool ok = true;
@@ -77,6 +81,21 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     };
     m_input = new VimInput(ctx.actions, this);
     m_input->setHost(m_host);
+    m_listHost = new VimListHost(ctx.actions);
+    m_listHost->onCommandLine = [this] { showCommandLine(false); };
+    m_listHost->onSearch = [this] { searchInList(); };
+    m_listHost->onMessage
+        = [this](const QString& text) { m_modeLine->showMessage(text, kMessageMs); };
+    m_listHost->onEx = [this](const QString& line) {
+        bool ok = true;
+        const QString message = runCommand(line, &ok);
+        showResult(message, ok);
+    };
+    m_listHost->onUpLevel = [this] { return upOneBin(); };
+    m_listHost->onNewItem = [this] { return newBin(); };
+    m_input->setListHost(m_listHost);
+    if (qApp)
+        qApp->installEventFilter(this);
 
     m_modeLine = new VimModeLine;
     m_pageBar->setLeadingWidget(m_modeLine);
@@ -157,12 +176,13 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     connect(m_line, &QLineEdit::returnPressed, this, [this] {
         const QString text = m_line->text().trimmed();
         const bool search = m_searchLine;
+        const bool inList = m_searchInList;
         m_line->addHistory(text);
         (search ? m_searchHistory : m_exHistory) = m_line->history();
         saveHistory();
         closeCommandLine();
         if (search) {
-            if (!m_host->search(text))
+            if (!(inList ? m_listHost->search(text) : m_host->search(text)))
                 m_modeLine->showError(tr("No match: %1").arg(text), kMessageMs);
             return;
         }
@@ -193,9 +213,12 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
 
 VimController::~VimController()
 {
+    if (qApp)
+        qApp->removeEventFilter(this);
     if (m_framed)
         m_framed->setVimFocusFrame(false);
     delete m_host;
+    delete m_listHost;
 }
 
 void VimController::updateModeLine()
@@ -255,8 +278,10 @@ void VimController::updateFocusFrame()
     }
     if (frame == m_framed.data())
         return;
-    if (m_framed)
+    if (m_framed) {
         m_framed->setVimFocusFrame(false);
+        m_previousFrame = m_framed;
+    }
     m_framed = frame;
     if (m_framed)
         m_framed->setVimFocusFrame(true);
@@ -286,6 +311,7 @@ void VimController::closeCommandLine()
     m_line->begin();
     m_wild->hide();
     m_searchLine = false;
+    m_searchInList = false;
     m_input->machine().setCommandMode(false);
     if (m_returnFocus)
         m_returnFocus->setFocus(Qt::OtherFocusReason);

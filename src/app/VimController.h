@@ -14,6 +14,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QStringList>
+#include <QVector>
 
 class QFrame;
 class QLabel;
@@ -30,6 +31,7 @@ class PageBar;
 class PanelFrame;
 class TimelinePanel;
 class VimInput;
+class VimListHost;
 class VimKeymap;
 class VimModeLine;
 class VimPicker;
@@ -63,6 +65,13 @@ public:
     /// tests.
     QString runCommand(const QString& text, bool* ok = nullptr);
 
+    /// The list host (the "list" context: any list, tree or grid with the focus).
+    [[nodiscard]] VimListHost* listHost() const { return m_listHost; }
+    /// Gives the focus to the panel with key @p name (a panel key such as "media_pool", or one
+    /// of :panel's names: media effects inspector timeline viewer keyframes mixer nodes
+    /// metadata index) on the shown page, showing it first when it is hidden. False when this
+    /// page has no such panel.
+    bool focusPanelKey(const QString& name);
     /// Opens a picker: "media", "commands", "effects", "timelines", "markers", "bins", "help",
     /// "keymaps" or "history". False for another name.
     bool openPicker(const QString& kind);
@@ -77,7 +86,19 @@ private:
     void showResult(const QString& message, bool ok);
     void saveHistory() const;
     void placeWildMenu();
+    bool eventFilter(QObject* watched, QEvent* event) override;
     bool handleCommand(const QString& name, int count, bool hasCount, const QString& arg);
+    // panels, windows, pages, lists (VimWindows.cpp)
+    bool windowCommand(const QString& name, int count, bool hasCount, const QString& arg);
+    bool newBin();
+    [[nodiscard]] PanelFrame* currentFrame() const;
+    [[nodiscard]] PanelFrame* findPanel(const QString& key, bool show);
+    void navigate(int direction);
+    void zoomToggle();
+    void restoreZoom();
+    void afterPageChange();
+    void searchInList();
+    bool upOneBin();
     // ex commands (VimExCommands.cpp)
     QString runBuiltin(const vimex::Parsed& parsed, bool* ok);
     QString gotoTime(const QString& text, bool* ok);
@@ -98,6 +119,10 @@ private:
     VimModeLine* m_modeLine = nullptr;
     VimWhichKey* m_whichKey = nullptr;
     QPointer<PanelFrame> m_framed; ///< the panel drawn with the focus frame
+    QPointer<PanelFrame> m_previousFrame; ///< the panel that had it before (<C-w>p)
+    QVector<QPointer<PanelFrame>> m_zoomHidden; ///< the panels <C-w>o hid
+    VimListHost* m_listHost = nullptr;
+    bool m_searchInList = false; ///< the `/` line searches the rows of a list
     QPointer<QWidget> m_returnFocus; ///< where the focus goes when the `:` line closes
     VimCommandLine* m_line = nullptr;
     VimPicker* m_picker = nullptr;
