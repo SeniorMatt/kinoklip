@@ -34,6 +34,7 @@
 #include <QSettings>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -462,7 +463,6 @@ void KeyframesPanel::attachComposition(CompSession* session, View view)
     connect(session, &CompSession::selectionChanged, this, &KeyframesPanel::rebuild);
     connect(session, &CompSession::compositionChanged, this, &KeyframesPanel::rebuild);
     connect(session, &CompSession::clipChanged, this, &KeyframesPanel::rebuild);
-    m_split->setSizes({kTreeWidth / 2, 1000}); // the page's panels are narrow: curves first
     setView(view);
     rebuild();
 }
@@ -504,8 +504,18 @@ void KeyframesPanel::setupSplineTools()
 void KeyframesPanel::showEvent(QShowEvent* event)
 {
     PanelFrame::showEvent(event);
-    if (m_session)
+    if (m_session) {
         rebuild();
+        if (!m_treeWidthSet) {
+            // Names and the value box readable at once: about 340 px, at most 60 % of the panel.
+            m_treeWidthSet = true;
+            QTimer::singleShot(0, this, [this] {
+                const int total = std::max(1, m_split->width());
+                const int tree = std::min(340, total * 60 / 100);
+                m_split->setSizes({tree, total - tree});
+            });
+        }
+    }
 }
 
 QVector<KeyframeRef> KeyframesPanel::shownCurveRefs() const

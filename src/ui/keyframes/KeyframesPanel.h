@@ -201,6 +201,7 @@ private:
     QPointer<CompSession> m_session; ///< Compositing page mode (null on the Edit page)
     bool m_selOnly = true; ///< composition mode: only the selected nodes
     bool m_updatingBoxes = false;
+    bool m_treeWidthSet = false; ///< composition mode: default tree width applied
     QComboBox* m_viewCombo = nullptr;
     QStackedWidget* m_stack = nullptr;
     QSplitter* m_split = nullptr; ///< tree | right column

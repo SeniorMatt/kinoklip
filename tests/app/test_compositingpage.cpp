@@ -1228,6 +1228,47 @@ private slots:
         }
     }
 
+    void spec43_toolRowNeverOverlapsAndTreeNamesAreReadable()
+    {
+        Fixture f;
+        f.project.timeline()->setPlayhead(20);
+        f.window->resize(1366, 768);
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        f.action("view.page_compositing")->trigger();
+        const quint64 t = animatedTransform(f);
+        Q_UNUSED(t);
+        f.action("view.toggle_spline")->trigger();
+        QTest::qWait(100);
+        QCoreApplication::processEvents();
+        // Node editor tool row: no two visible buttons intersect, and some moved into the "»" menu.
+        const auto buttons = f.window->findChildren<QToolButton*>();
+        QList<QRect> rects;
+        for (QToolButton* b : buttons) {
+            if (!b->objectName().startsWith(QStringLiteral("CompTool:")) || !b->isVisible())
+                continue;
+            rects << QRect(b->mapTo(f.window.get(), QPoint(0, 0)), b->size());
+        }
+        QVERIFY(!rects.isEmpty());
+        for (int i = 0; i < rects.size(); ++i)
+            for (int j = i + 1; j < rects.size(); ++j)
+                QVERIFY2(!rects[i].intersects(rects[j]), "tool buttons overlap");
+        // The Spline panel's tree shows whole names.
+        KeyframesPanel* panel = f.page()->splinePanel();
+        int checked = 0;
+        for (QLabel* l : panel->tree()->findChildren<QLabel*>()) {
+            if (l->text() != f.comp().node(f.session()->currentNode())->name
+                && l->text() != QStringLiteral("Angle") && l->text() != QStringLiteral("Center X"))
+                continue;
+            QVERIFY2(l->isVisible(), qPrintable(l->text()));
+            QVERIFY2(
+                l->width() >= l->fontMetrics().horizontalAdvance(l->text()), qPrintable(l->text()));
+            QVERIFY(l->toolTip() == l->text());
+            ++checked;
+        }
+        QCOMPARE(checked, 3);
+    }
+
     void screenshotSplinePanel()
     {
         Fixture f;

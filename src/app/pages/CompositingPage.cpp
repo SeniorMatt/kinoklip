@@ -31,6 +31,7 @@
 #include <QShowEvent>
 #include <QSplitter>
 #include <QTimer>
+#include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -150,11 +151,16 @@ CompositingPage::~CompositingPage() = default;
 
 QWidget* CompositingPage::buildToolBar()
 {
-    auto* bar = new QWidget;
+    // A QToolBar: the buttons that do not fit move, in order, into its "»" menu, so they never
+    // overlap however narrow the node row is (Spline / Keyframes beside it at 1366 px).
+    auto* bar = new QToolBar;
     bar->setObjectName(QStringLiteral("CompNodeToolBar"));
-    auto* l = new QHBoxLayout(bar);
-    l->setContentsMargins(metrics::kSpaceM, metrics::kSpaceXs, metrics::kSpaceM, metrics::kSpaceXs);
-    l->setSpacing(metrics::kSpaceXs);
+    bar->setMovable(false);
+    bar->setFloatable(false);
+    bar->setContextMenuPolicy(Qt::PreventContextMenu);
+    bar->layout()->setContentsMargins(
+        metrics::kSpaceM, metrics::kSpaceXs, metrics::kSpaceM, metrics::kSpaceXs);
+    bar->layout()->setSpacing(metrics::kSpaceXs);
     for (const QString& type : compadapter::toolbarTypes()) {
         const compadapter::NodeTypeInfo* info = compadapter::nodeType(type);
         auto* b = new QToolButton(bar);
@@ -167,13 +173,8 @@ QWidget* CompositingPage::buildToolBar()
             m_session->addNode(type);
             m_editor->setFocus();
         });
-        b->setMinimumWidth(b->sizeHint().width());
-        l->addWidget(b);
+        bar->addWidget(b);
     }
-    l->addStretch(1);
-    // The row may be narrower than all the buttons (Spline / Keyframes beside the node editor
-    // at 1366 px): the buttons on the right are cut off, Shift+Space adds every node.
-    bar->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     return bar;
 }
 
