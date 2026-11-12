@@ -447,12 +447,17 @@ bool TimelineWidget::executeDrop(const DropPlan& plan)
         const auto loc = ops::findClip(data, plan.clipId);
         if (!loc || data.track(loc->track)->locked) {
             project->cancelEdit();
+            emit m_controller->editRefused(tr("The track is locked."));
             return false;
         }
-        ClipData& clip = data.track(loc->track)->clips[size_t(loc->clipIndex)];
         const TransitionData t
             = EffectRegistry::instance().createTransition(plan.effectId, plan.transitionFrames);
-        (plan.head ? clip.transitionIn : clip.transitionOut) = t;
+        // One transition per cut: placeTransition also clears a stale one on the left clip.
+        if (!ops::placeTransition(data, plan.clipId, plan.head, t)) {
+            project->cancelEdit();
+            emit m_controller->editRefused(tr("The transition does not fit at that edit."));
+            return false;
+        }
         project->endEdit();
         return true;
     }
@@ -558,10 +563,42 @@ void TimelineWidget::dropEvent(QDropEvent* event)
         });
         return;
     }
-    if (executeDrop(plan))
+    if (executeDrop(plan)) {
         event->acceptProposedAction();
-    else
+    } else {
+        if (plan.kind == DropPlan::Kind::None)
+            explainRefusedEffectDrop(event->mimeData());
         event->ignore();
+    }
+}
+
+void TimelineWidget::explainRefusedEffectDrop(const QMimeData* mime)
+{
+    // A drop of an Effects library item that found no target says why (the status bar).
+    if (!m_controller || !mime->hasFormat(QLatin1String(mime::Effect)))
+        return;
+    const EffectDescriptor* desc = EffectRegistry::instance().find(
+        QString::fromUtf8(mime->data(QLatin1String(mime::Effect))).trimmed());
+    if (!desc)
+        return;
+    switch (desc->category) {
+    case EffectCategory::Transition:
+        emit m_controller->editRefused(
+            tr("Drop a video transition on a video clip, at its start, end or an edit point."));
+        break;
+    case EffectCategory::AudioTransition:
+        emit m_controller->editRefused(
+            tr("Drop an audio transition on an audio clip, at its start, end or an edit point."));
+        break;
+    case EffectCategory::VideoEffect:
+        emit m_controller->editRefused(tr("Drop a video effect on a video clip."));
+        break;
+    case EffectCategory::AudioEffect:
+        emit m_controller->editRefused(tr("Drop an audio effect on an audio clip."));
+        break;
+    default:
+        break;
+    }
 }
 
 QStringList TimelineWidget::importDroppedFiles(const QStringList& files)

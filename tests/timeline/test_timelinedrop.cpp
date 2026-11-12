@@ -9,6 +9,7 @@
 #include "core/Preferences.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/MediaImport.h"
+#include "ui/effects/EffectActions.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineWidget.h"
 
@@ -360,6 +361,167 @@ private slots:
         transition.setData(QLatin1String(mime::Effect), "cross_dissolve");
         QVERIFY(sendDrag(v.vp(), &transition, v.at(45, kV1)).drop);
         QVERIFY(ops::clipById(v.f.view(), id)->transitionOut);
+    }
+
+    /// Spec 13.19: a transition can be added at every cut, whatever the clips carry (linked
+    /// audio, effects, keyframes, a retime, fades, a selection) and whatever the neighbour is
+    /// (a generator, title, solid or adjustment clip, before or after the video clip); dropped
+    /// anywhere on the cut including the fade handle corner, with Ctrl+T on the selected clip or
+    /// edit point, and through placeTransition; a refused drop says why in the status bar.
+    void spec13_19_transitionAtCutWithAnyNeighbour_data()
+    {
+        QTest::addColumn<int>("neighbour"); // 0 generator, 1 title, 2 solid, 3 adjustment
+        QTest::addColumn<bool>("neighbourFirst");
+        for (const bool first : {false, true}) {
+            const char* order = first ? " then video" : " after video";
+            QTest::newRow(first ? "generator then video" : "video then generator")
+                << 0 << first;
+            QTest::newRow(QByteArray("title") + order) << 1 << first;
+            QTest::newRow(QByteArray("solid") + order) << 2 << first;
+            QTest::newRow(QByteArray("adjustment") + order) << 3 << first;
+        }
+    }
+
+    void spec13_19_transitionAtCutWithAnyNeighbour()
+    {
+        QFETCH(int, neighbour);
+        QFETCH(bool, neighbourFirst);
+        View v;
+        const auto build = [&](quint64& media, quint64& other, quint64& audio) {
+            v.f.project.beginEdit(QStringLiteral("setup"));
+            TimelineData& d = v.f.data();
+            ops::addTrack(d, TrackType::Video);
+            ClipData m;
+            m.kind = ClipKind::Media;
+            m.mediaId = v.mediaId;
+            m.name = QStringLiteral("landscape");
+            m.start = neighbourFirst ? 50 : 0;
+            m.duration = 50;
+            m.sourceInUs = 0;
+            m.sourceDurationUs = 2'000'000;
+            m.linkGroup = 7;
+            m.fadeInFrames = 5;
+            m.fadeOutFrames = 8; // the fade handle sits at the cut
+            m.speed = 0.5;
+            m.effects.append(EffectRegistry::instance().createEffect(
+                QStringLiteral("gaussian_blur"), d.allocateId()));
+            m.transform.values[keys::PosY].setKey(0, 0.0);
+            m.transform.values[keys::PosY].setKey(10, 50.0);
+            ClipData a = m;
+            a.effects.clear();
+            media = ops::overwriteClip(d, kV1, m);
+            audio = ops::overwriteClip(d, kA1, a);
+            ClipData o;
+            if (neighbour == 0) {
+                for (const EffectDescriptor* desc :
+                    EffectRegistry::instance().byCategory(EffectCategory::Generator)) {
+                    if (desc->id != QLatin1String("solid_color")) {
+                        o = *effectactions::makeGeneratorClip(
+                            desc->id, d.fps, QSizeF(d.width, d.height));
+                        break;
+                    }
+                }
+            } else if (neighbour == 1) {
+                o = *effectactions::makeGeneratorClip(
+                    QStringLiteral("text_title"), d.fps, QSizeF(d.width, d.height));
+            } else if (neighbour == 2) {
+                o = solidClip(0, 50, QStringLiteral("Paper"));
+            } else {
+                o = *effectactions::makeGeneratorClip(
+                    QStringLiteral("adjustment_clip"), d.fps, QSizeF(d.width, d.height));
+            }
+            o.start = neighbourFirst ? 0 : 50;
+            o.duration = 50;
+            other = ops::overwriteClip(d, kV1, o);
+            v.f.project.endEdit();
+        };
+        quint64 media = 0, other = 0, audio = 0;
+        build(media, other, audio);
+        const auto cutLeft = neighbourFirst ? other : media;
+        const auto cutRight = neighbourFirst ? media : other;
+        const auto hasTransition = [&] {
+            const ClipData* r = ops::clipById(v.f.view(), cutRight);
+            const ClipData* l = ops::clipById(v.f.view(), cutLeft);
+            return r->transitionIn || l->transitionOut;
+        };
+        const auto clear = [&] {
+            v.f.project.beginEdit(QStringLiteral("clear"));
+            ops::clipById(v.f.data(), cutRight)->transitionIn.reset();
+            ops::clipById(v.f.data(), cutLeft)->transitionOut.reset();
+            v.f.project.endEdit();
+        };
+        QMimeData transition;
+        transition.setData(QLatin1String(mime::Effect), "cross_dissolve");
+        v.f.selection.selectClip(media); // selected like in the owner's picture (with its linked audio)
+
+        // Drop anywhere on the cut: the left clip's tail (also its fade handle corner at the
+        // top of the clip) and the right clip's head.
+        const QRect row = v.rowRect(kV1);
+        for (const double frame : {45.0, 48.0, 49.5, 50.0, 50.5, 52.0, 55.0}) {
+            for (const int y : {row.top() + 3, row.center().y(), row.bottom() - 3}) {
+                clear();
+                const QPoint pos(v.x(frame), y);
+                QVERIFY2(sendDrag(v.vp(), &transition, pos).drop,
+                    qPrintable(QStringLiteral("frame %1 y %2").arg(frame).arg(y)));
+                QVERIFY(hasTransition());
+            }
+        }
+        // Ctrl+T on the selected clip, on the selected edit point, and placeTransition.
+        clear();
+        v.f.selection.selectClip(media);
+        QVERIFY(v.c.addTransition({}));
+        QVERIFY(hasTransition());
+        clear();
+        v.f.selection.clear();
+        v.c.setSelectedEdit(EditPointSelection {cutLeft, 0});
+        QVERIFY(v.c.addTransition({}));
+        QVERIFY(hasTransition());
+        clear();
+        {
+            TimelineData copy = v.f.view();
+            QVERIFY(ops::placeTransition(copy, cutLeft, false,
+                EffectRegistry::instance().createTransition(QStringLiteral("cross_dissolve"), 25)));
+            QVERIFY(ops::clipById(copy, cutRight)->transitionIn);
+        }
+        // The library's double-click on the selected clip, the playhead nearer its tail (the
+        // owner's picture): the transition lands on the cut, not as a stale tail transition.
+        clear();
+        v.f.selection.selectClip(media);
+        const ClipData* mc = ops::clipById(v.f.view(), media);
+        v.f.project.timeline()->setPlayhead(neighbourFirst ? mc->start : mc->end() - 3);
+        QVERIFY(effectactions::activate(v.f.ctx, QStringLiteral("cross_dissolve")));
+        QVERIFY(ops::clipById(v.f.view(), cutRight)->transitionIn);
+        QVERIFY(!ops::clipById(v.f.view(), cutLeft)->transitionOut);
+        // A stale transition on the left clip is replaced by a drop (one per cut).
+        v.f.project.beginEdit(QStringLiteral("stale"));
+        ops::clipById(v.f.data(), cutLeft)->transitionOut
+            = EffectRegistry::instance().createTransition(QStringLiteral("cross_dissolve"), 10);
+        v.f.project.endEdit();
+        QVERIFY(sendDrag(v.vp(), &transition, v.at(52, kV1)).drop);
+        QVERIFY(!ops::clipById(v.f.view(), cutLeft)->transitionOut);
+        Q_UNUSED(audio);
+    }
+
+    void spec13_19_refusedTransitionDropSaysWhy()
+    {
+        View v;
+        QVERIFY(v.f.project.timeline());
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        ops::overwriteClip(v.f.data(), kV1, solidClip(0, 50));
+        v.f.project.endEdit();
+        QStringList reasons;
+        QObject::connect(&v.c, &TimelineController::editRefused, &v.c,
+            [&reasons](const QString& r) { reasons << r; });
+        QMimeData transition;
+        transition.setData(QLatin1String(mime::Effect), "cross_dissolve");
+        QVERIFY(!sendDrag(v.vp(), &transition, v.at(80, kV1)).drop); // no clip there
+        QCOMPARE(reasons.size(), 1);
+        // On a locked track.
+        v.f.project.beginEdit(QStringLiteral("lock"));
+        v.f.data().videoTracks[0].locked = true;
+        v.f.project.endEdit();
+        QVERIFY(!sendDrag(v.vp(), &transition, v.at(45, kV1)).drop);
+        QCOMPARE(reasons.size(), 2);
     }
 
     void filesFromFileManager_data()

@@ -260,10 +260,15 @@ bool applyTransition(Project& project, quint64 clipId, const QString& descriptor
         frames = slot ? slot->duration : defaultTransitionFrames(project.timeline()->data().fps);
     frames = std::clamp<int64_t>(frames, 1, std::max<int64_t>(1, existing->duration));
 
+    // The tail of a clip touching its right neighbour is that neighbour's head: placeTransition
+    // stores the cut's one transition there (a transitionOut on the left clip would not show).
     project.beginEdit(tr("Add %1").arg(desc->name));
-    ClipData* clip = editops::clipById(project.timeline()->mutableData(), clipId);
-    (atHead ? clip->transitionIn : clip->transitionOut)
-        = registry.createTransition(descriptorId, frames);
+    const bool placed = editops::placeTransition(project.timeline()->mutableData(), clipId,
+        atHead, registry.createTransition(descriptorId, frames));
+    if (!placed) {
+        project.cancelEdit();
+        return false;
+    }
     project.endEdit();
     return true;
 }

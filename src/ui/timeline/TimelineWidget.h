@@ -457,6 +457,8 @@ private:
         const QMimeData* mime, QPointF pos, Qt::KeyboardModifiers modifiers);
     void showDropPreview(const DropPlan& plan);
     bool executeDrop(const DropPlan& plan);
+    /// Tells why a dropped Effects library item found no target (TimelineController::editRefused).
+    void explainRefusedEffectDrop(const QMimeData* mime);
     void clearDropPreview();
     /// DragEnter of files from a file manager: remembers their paths and starts the probes
     /// behind their ghost clips (spec 5.6).
