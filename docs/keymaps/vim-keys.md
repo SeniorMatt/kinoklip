@@ -28,6 +28,10 @@ the timeline, and `o l h - a r` open, go up, add a bin and rename.
 |---|---|---|---|
 | `:` | NORMAL | command line (Tab completes, Up / Down recall) | `vim:command_line` |
 | `q:` | NORMAL | pick a line from the command history and run it | `vim:picker_history` |
+| `q{a-zA-Z0-9}` | NORMAL | record a macro into a register (a capital letter adds to it); q ends the recording | `vim:macro_record` |
+| `@{a-z0-9}` | NORMAL | run a macro (count: that many times; it stops at the first failed motion or search) | `vim:macro_play` |
+| `@@` | NORMAL | run the last macro again | `vim:macro_repeat` |
+| `@:` | NORMAL | run the last command line again (count: that many times) | `vim:macro_ex` |
 | `gt` | NORMAL | next page; with a count, page n (1 Media, 2 Cut, 3 Edit, 4 Compositing, 5 Color, 6 Audio, 7 Deliver) | `vim:page_goto` |
 | `gT` | NORMAL | previous page (a count: that many back), wrapping round | `vim:page_prev` |
 | `<C-h>` | NORMAL | focus the panel to the left | `vim:win_left` |
@@ -122,6 +126,15 @@ the timeline, and `o l h - a r` open, go up, add a bin and rename.
 | `n` | NORMAL | next search match | `vim:search_next` |
 | `N` | NORMAL | previous search match | `vim:search_prev` |
 | `/` | NORMAL | search markers and clip names | `vim:search` |
+| `?` | NORMAL | search backwards for a marker or clip name | `vim:search_back` |
+| `*` | NORMAL | search forward for the name under the cursor | `vim:search_word` |
+| `#` | NORMAL | search backward for the name under the cursor | `vim:search_word_back` |
+| `f{!-~}` | NORMAL, VISUAL and after an operator | next clip whose name starts with the typed letter | `vim:find_f` |
+| `F{!-~}` | NORMAL, VISUAL and after an operator | previous clip whose name starts with the typed letter (its start) | `vim:find_F` |
+| `t{!-~}` | NORMAL, VISUAL and after an operator | up to the clip before the next one whose name starts with the typed letter | `vim:find_t` |
+| `T{!-~}` | NORMAL, VISUAL and after an operator | back to just after the previous clip whose name starts with the typed letter | `vim:find_T` |
+| `;` | NORMAL, VISUAL and after an operator | repeat the last f, F, t or T | `vim:find_again` |
+| `,` | NORMAL, VISUAL and after an operator | repeat the last f, F, t or T the other way | `vim:find_reverse` |
 | `zi` | NORMAL and VISUAL | zoom in | `action:timeline.zoom_in` |
 | `zo` | NORMAL and VISUAL | zoom out | `action:timeline.zoom_out` |
 | `zf` | NORMAL and VISUAL | zoom to fit | `action:timeline.zoom_fit` |
@@ -166,6 +179,15 @@ the timeline, and `o l h - a r` open, go up, add a bin and rename.
 | `a` | NORMAL | new bin (Media Pool) | `vim:list_new` |
 | `r` | NORMAL | rename the row (F2) | `vim:list_rename` |
 | `/` | NORMAL | search: the panel's search field, else a search of the row names | `vim:search` |
+| `?` | NORMAL | search backwards for a row name | `vim:search_back` |
+| `*` | NORMAL | search forward for the name under the cursor | `vim:search_word` |
+| `#` | NORMAL | search backward for the name under the cursor | `vim:search_word_back` |
+| `f{!-~}` | NORMAL, VISUAL and after an operator | next row whose name starts with the typed letter | `vim:find_f` |
+| `F{!-~}` | NORMAL, VISUAL and after an operator | previous row whose name starts with the typed letter (its start) | `vim:find_F` |
+| `t{!-~}` | NORMAL, VISUAL and after an operator | up to the row before the next one whose name starts with the typed letter | `vim:find_t` |
+| `T{!-~}` | NORMAL, VISUAL and after an operator | back to just after the previous row whose name starts with the typed letter | `vim:find_T` |
+| `;` | NORMAL, VISUAL and after an operator | repeat the last f, F, t or T | `vim:find_again` |
+| `,` | NORMAL, VISUAL and after an operator | repeat the last f, F, t or T the other way | `vim:find_reverse` |
 | `n` | NORMAL | next match (without a search: next row) | `vim:search_next` |
 | `N` | NORMAL | previous match (without a search: previous row) | `vim:search_prev` |
 | `za` | NORMAL | open / close the branch | `vim:list_fold_toggle` |

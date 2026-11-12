@@ -57,7 +57,13 @@ const QStringList kBuiltins {// motions (VimGrammar.h) and marks
     QStringLiteral("visual_paste"),
     // modes and lines
     QStringLiteral("insert_mode"), QStringLiteral("command_line"), QStringLiteral("search"),
-    QStringLiteral("search_next"), QStringLiteral("search_prev"),
+    QStringLiteral("search_next"), QStringLiteral("search_prev"), QStringLiteral("search_back"),
+    QStringLiteral("search_word"), QStringLiteral("search_word_back"),
+    // find a clip by the first letter of its name; macros
+    QStringLiteral("find_f"), QStringLiteral("find_F"), QStringLiteral("find_t"),
+    QStringLiteral("find_T"), QStringLiteral("find_again"), QStringLiteral("find_reverse"),
+    QStringLiteral("macro_record"), QStringLiteral("macro_play"), QStringLiteral("macro_repeat"),
+    QStringLiteral("macro_ex"),
     // pickers (VimPicker.h) and the command history
     QStringLiteral("picker_media"), QStringLiteral("picker_commands"),
     QStringLiteral("picker_effects"), QStringLiteral("picker_timelines"),

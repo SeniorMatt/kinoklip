@@ -393,6 +393,44 @@ private slots:
         QCOMPARE(f.vim()->history(), (QStringList {"set snap?"}));
     }
 
+    void backwardSearchFollowsTheDirectionAndMacrosRecordLines()
+    {
+        Fixture f;
+        f.project.timeline()->mutableData().markers = {Marker {20, QStringLiteral("zz1")},
+            Marker {60, QStringLiteral("zz2")}, Marker {90, QStringLiteral("zz3")}};
+        f.project.timeline()->setPlayhead(100);
+        f.timeline()->setFocus();
+        f.type(QStringLiteral("?"));
+        auto* cmd = f.vim()->commandLine();
+        QVERIFY(cmd->placeholderText().startsWith(QLatin1Char('?')));
+        QTest::keyClicks(cmd, QStringLiteral("zz"));
+        QTest::keyClick(cmd, Qt::Key_Return);
+        QCOMPARE(f.project.timeline()->playhead(), int64_t(90)); // backwards from 100
+        f.type(QStringLiteral("n"));
+        QCOMPARE(f.project.timeline()->playhead(), int64_t(60)); // n follows the ?
+        f.type(QStringLiteral("N"));
+        QCOMPARE(f.project.timeline()->playhead(), int64_t(90));
+        f.type(QStringLiteral("/"));
+        QVERIFY(cmd->placeholderText().startsWith(QLatin1Char('/')));
+        QTest::keyClick(cmd, Qt::Key_Escape);
+        f.timeline()->setFocus();
+
+        // a macro with a command line in it runs the line without opening it
+        f.type(QStringLiteral("qa"));
+        QCOMPARE(f.modeLine()->recordingText(), QStringLiteral("recording @a"));
+        f.ex(QStringLiteral("set snap?"));
+        f.timeline()->setFocus();
+        f.type(QStringLiteral("q"));
+        QVERIFY(f.modeLine()->recordingText().isEmpty());
+        f.modeLine()->clearMessage();
+        f.type(QStringLiteral("@a"));
+        QVERIFY(!cmd->isVisible());
+        QVERIFY(!f.modeLine()->messageText().isEmpty());
+        f.modeLine()->clearMessage();
+        f.type(QStringLiteral("@:"));
+        QVERIFY(!f.modeLine()->messageText().isEmpty());
+    }
+
     // ---- The ex commands ----
 
     void goToFrameAndTimecode()

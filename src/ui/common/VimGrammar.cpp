@@ -21,7 +21,8 @@ const QStringList kMotions {QStringLiteral("frame_prev"), QStringLiteral("frame_
     QStringLiteral("track_down"), QStringLiteral("track_up"), QStringLiteral("track_first"),
     QStringLiteral("track_last"), QStringLiteral("row_down"), QStringLiteral("row_up"),
     QStringLiteral("row_first"), QStringLiteral("row_last"), QStringLiteral("row_half_down"),
-    QStringLiteral("row_half_up")};
+    QStringLiteral("row_half_up"), QStringLiteral("find_f"), QStringLiteral("find_F"),
+    QStringLiteral("find_t"), QStringLiteral("find_T")};
 
 const QStringList kObjects {QStringLiteral("obj_iw"), QStringLiteral("obj_aw"),
     QStringLiteral("obj_iW"), QStringLiteral("obj_aW"), QStringLiteral("obj_ip"),
@@ -142,10 +143,50 @@ QVector<int64_t> editPoints(const VimHost& host)
     return points;
 }
 
-std::optional<Motion> motion(
-    const VimHost& host, const QString& name, VimPos from, int count, bool hasCount)
+std::optional<Motion> findClip(
+    const VimHost& host, QChar kind, QChar ch, VimPos from, int count, bool again)
+{
+    if (ch.isNull())
+        return std::nullopt;
+    const bool forward = kind == QLatin1Char('f') || kind == QLatin1Char('t');
+    const bool till = kind == QLatin1Char('t') || kind == QLatin1Char('T');
+    const QChar want = ch.toLower();
+    QVector<VimClipSpan> spans = host.clipSpans(from.track);
+    int64_t at = from.frame;
+    bool found = false;
+    for (int i = 0; i < std::max(1, count); ++i) {
+        found = false;
+        for (int k = 0; k < spans.size(); ++k) {
+            const VimClipSpan& c = spans[forward ? k : spans.size() - 1 - k];
+            const QString name = host.clipName(c.id);
+            if (name.isEmpty() || name.at(0).toLower() != want)
+                continue;
+            // The landing frame of this clip, and whether it lies beyond the cursor. A repeat
+            // (; ,) of t / T must not stay where it is.
+            const int64_t to = !forward ? (till ? c.end : c.start) : (till ? c.start - 1 : c.start);
+            const bool beyond = forward ? (to > at || (till && to == at && !again && i == 0))
+                                        : (to < at || (till && to == at && !again && i == 0));
+            if (!beyond || to < 0)
+                continue;
+            at = to;
+            found = true;
+            break;
+        }
+        if (!found)
+            return std::nullopt;
+    }
+    Motion m;
+    m.to = {at, from.track};
+    m.type = kind == QLatin1Char('t') ? Motion::Type::Inclusive : Motion::Type::Exclusive;
+    return m;
+}
+
+std::optional<Motion> motion(const VimHost& host, const QString& name, VimPos from, int count,
+    bool hasCount, const QString& arg)
 {
     const int n = std::max(1, count);
+    if (name.startsWith(QLatin1String("find_")) && name.size() == 6)
+        return arg.isEmpty() ? std::nullopt : findClip(host, name.at(5), arg.at(0), from, n, false);
     Motion m;
     m.to = from;
     // The clips of the cursor track, only for the motions that look at them.

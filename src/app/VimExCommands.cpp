@@ -329,7 +329,9 @@ QString VimController::runBuiltin(const vimex::Parsed& p, bool* ok)
     // ---- help ----
     if (name == QLatin1String("help") || name == QLatin1String("cheat")) {
         const GuideArticle* article = nullptr;
-        if (name == QLatin1String("cheat") || p.arg.isEmpty())
+        if (name == QLatin1String("cheat"))
+            article = guide::index().article(QStringLiteral("vim-cheat-sheet"));
+        else if (p.arg.isEmpty())
             article = guide::index().article(QStringLiteral("edit-with-vim-keys"));
         else if (const GuideArticle* exact = guide::index().article(p.arg))
             article = exact;

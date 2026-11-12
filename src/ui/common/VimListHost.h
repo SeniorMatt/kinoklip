@@ -71,7 +71,7 @@ public:
 
     /// `/pattern` in a view without a search field: remembers it and moves to the first match
     /// after the current row. False when no row matches.
-    bool search(const QString& pattern);
+    bool search(const QString& pattern, bool forward = true);
     [[nodiscard]] QString pattern() const { return m_pattern; }
     void clearSearch() { m_pattern.clear(); }
 
@@ -85,6 +85,8 @@ public:
     void openSearch() override;
     void runEx(const QString& line) override;
     [[nodiscard]] QVector<VimClipSpan> clipSpans(int track) const override;
+    [[nodiscard]] QString clipName(quint64 id) const override;
+    bool searchFor(const QString& pattern, bool forward) override { return search(pattern, forward); }
     [[nodiscard]] int64_t timelineEnd() const override;
     [[nodiscard]] QVector<quint64> selectedClips() const override;
     [[nodiscard]] int pageRows() const override;

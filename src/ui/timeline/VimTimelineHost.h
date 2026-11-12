@@ -43,6 +43,8 @@ public:
     [[nodiscard]] std::pair<int64_t, int64_t> markedRange() const override;
     [[nodiscard]] bool trackLocked(int track) const override;
     [[nodiscard]] QVector<quint64> selectedClips() const override;
+    [[nodiscard]] QString clipName(quint64 id) const override;
+    bool searchFor(const QString& pattern, bool forward) override { return search(pattern, forward); }
 
     void beginUndoGroup() override;
     void endUndoGroup() override;
@@ -65,7 +67,7 @@ public:
     [[nodiscard]] editops::Clipboard registerContent(QChar reg) const;
     /// `/pattern`: remembers it and jumps to the first match after the cursor. False when
     /// nothing matches.
-    bool search(const QString& pattern);
+    bool search(const QString& pattern, bool forward = true);
     /// `:noh`: forgets the pattern.
     void clearSearch() { m_pattern.clear(); }
     /// Draws or clears the cursor track highlight (Vim mode on / off).
@@ -84,7 +86,7 @@ private:
     /// The tracks an operation on @p range covers, widened by linked partners when linked
     /// selection is on; empty when they are all locked.
     [[nodiscard]] std::vector<TrackRef> tracksOf(const VimRange& range) const;
-    void store(QChar reg, const editops::Clipboard& board);
+    void store(QChar reg, const editops::Clipboard& board, VimOp op, bool large);
     void updateOverlay();
 
     AppContext& m_ctx;

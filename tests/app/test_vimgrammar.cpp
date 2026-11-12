@@ -473,7 +473,7 @@ private slots:
         ModelRig r;
         QCOMPARE(r.op(QStringLiteral("\"ayw")), QStringLiteral("y[a] F 5-40 t1"));
         QCOMPARE(r.op(QStringLiteral("\"add")), QStringLiteral("d[a] C 11"));
-        QCOMPARE(r.op(QStringLiteral("\"Ayy")), QStringLiteral("y[a] C 11")); // A = a here
+        QCOMPARE(r.op(QStringLiteral("\"Ayy")), QStringLiteral("y[A] C 11")); // the host appends
         QCOMPARE(r.op(QStringLiteral("\"_dd")), QStringLiteral("d[_] C 11"));
         QCOMPARE(r.op(QStringLiteral("\"0yy")), QStringLiteral("y[0] C 11"));
         QCOMPARE(r.op(QStringLiteral("3\"add")), QStringLiteral("d[a] C 11,12,13"));
@@ -1020,6 +1020,61 @@ private slots:
         QVERIFY(!r.controller.clipboard().isEmpty());
     }
 
+    void appendRegisterAddsClips()
+    {
+        Rig r;
+        r.controller.setLinkedSelection(false);
+        r.at(0);
+        r.type(QStringLiteral("\"ayy"));
+        r.at(40);
+        r.type(QStringLiteral("\"Ayy"));
+        QCOMPARE(r.host.registerContent(QLatin1Char('a')).clips.size(), 2);
+        QCOMPARE(r.host.registerContent(QLatin1Char('A')).clips.size(), 2); // A reads a
+        QCOMPARE(r.host.registerContent(QLatin1Char('a')).duration, int64_t(80));
+        r.at(120);
+        r.type(QStringLiteral("\"ap"));
+        QCOMPARE(r.layout(Rig::kV1), QStringLiteral("0:40 40:40 80:40 120:40 160:40"));
+    }
+
+    void numberedRegistersShiftOnDelete()
+    {
+        Rig r;
+        r.controller.setLinkedSelection(false);
+        r.at(0);
+        r.type(QStringLiteral("yy")); // a yank fills "0 only
+        QCOMPARE(r.host.registerContent(QLatin1Char('0')).clips.size(), 1);
+        QVERIFY(r.host.registerContent(QLatin1Char('1')).isEmpty());
+        const quint64 first = r.v1Ids[0];
+        r.at(0);
+        r.type(QStringLiteral("dd")); // whole clips: "1
+        QCOMPARE(r.host.registerContent(QLatin1Char('1')).clips.first().clip.id, first);
+        r.at(0);
+        r.type(QStringLiteral("\"add")); // a named register does not keep "1 out
+        QCOMPARE(r.host.registerContent(QLatin1Char('1')).clips.first().clip.id, r.v1Ids[1]);
+        QCOMPARE(r.host.registerContent(QLatin1Char('2')).clips.first().clip.id, first);
+        QCOMPARE(r.host.registerContent(QLatin1Char('a')).clips.first().clip.id, r.v1Ids[1]);
+        r.at(0);
+        r.type(QStringLiteral("\"_dd")); // the black hole keeps all of them
+        QCOMPARE(r.host.registerContent(QLatin1Char('1')).clips.first().clip.id, r.v1Ids[1]);
+        // "0 still holds the yank
+        QCOMPARE(r.host.registerContent(QLatin1Char('0')).clips.first().clip.id, first);
+    }
+
+    void smallDeleteGoesToTheDashRegister()
+    {
+        Rig r;
+        r.controller.setLinkedSelection(false);
+        r.at(10);
+        r.type(QStringLiteral("dl")); // five frames inside one track: a small delete
+        QVERIFY(!r.host.registerContent(QLatin1Char('-')).isEmpty());
+        QVERIFY(r.host.registerContent(QLatin1Char('1')).isEmpty());
+        r.at(10);
+        r.type(QStringLiteral("\"adl")); // with a named register "- stays as it was
+        const auto dash = r.host.registerContent(QLatin1Char('-')).duration;
+        QCOMPARE(dash, int64_t(1));
+        QVERIFY(!r.host.registerContent(QLatin1Char('a')).isEmpty());
+    }
+
     void countedPasteIsOneStep()
     {
         Rig r;
@@ -1181,13 +1236,12 @@ private slots:
     {
         Rig r;
         r.controller.setLinkedSelection(false);
-        r.at(0);
-        r.type(QStringLiteral("\"ayy")); // clip 0 into a
         r.at(40);
-        r.type(
-            QStringLiteral("Vp")); // no register typed: the unnamed one is empty, nothing happens
+        r.type(QStringLiteral("Vp")); // nothing was copied: the unnamed register is empty
         QCOMPARE(r.steps(), 0);
         QCOMPARE(r.layout(Rig::kV1), QStringLiteral("0:40 40:40 80:40"));
+        r.at(0);
+        r.type(QStringLiteral("\"ayy")); // clip 0 into a (and the unnamed register, as in Vim)
         r.at(40);
         const int before = r.steps();
         r.type(QStringLiteral("V\"ap"));
