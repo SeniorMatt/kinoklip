@@ -2,14 +2,18 @@
 #include "app/VimController.h"
 
 #include "app/PageBar.h"
+#include "app/VimEx.h"
 #include "app/VimModeLine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/PanelFrame.h"
+#include "ui/common/VimCommandLine.h"
 #include "ui/common/VimInput.h"
 #include "ui/common/VimKeymap.h"
 #include "ui/common/VimOptions.h"
+#include "ui/common/VimPicker.h"
 #include "ui/common/VimWhichKey.h"
+#include "ui/help/Guide.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/VimTimelineHost.h"
 
@@ -17,6 +21,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QEvent>
+#include <QFrame>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -26,6 +31,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QTimer>
+#include <QVBoxLayout>
 
 #include <algorithm>
 
@@ -33,7 +39,6 @@ namespace kk {
 
 namespace {
 
-constexpr int kMaxHistory = 50;
 constexpr int kMessageMs = 4000;
 
 /// The value of an option as the JSON type the parameter wants (the command line gives text).
@@ -66,9 +71,9 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     m_host->onSearch = [this] { showCommandLine(true); };
     m_host->onMessage = [this](const QString& text) { m_modeLine->showMessage(text, kMessageMs); };
     m_host->onEx = [this](const QString& line) {
-        const QString message = runCommand(line);
-        if (!message.isEmpty())
-            m_modeLine->showMessage(message, kMessageMs);
+        bool ok = true;
+        const QString message = runCommand(line, &ok);
+        showResult(message, ok);
     };
     m_input = new VimInput(ctx.actions, this);
     m_input->setHost(m_host);
@@ -89,31 +94,92 @@ VimController::VimController(AppContext& ctx, TimelinePanel* timeline, QWidget* 
     m_whichKey = new VimWhichKey(window);
     connect(&m_input->machine(), &VimMachine::whichKeyChanged, this, [this] { updateWhichKey(); });
 
-    m_line = new QLineEdit;
+    m_line = new VimCommandLine;
     m_line->setObjectName(QStringLiteral("VimCommandLine"));
     m_line->setProperty(VimInput::kCommandLineProperty, true);
     m_line->setPlaceholderText(tr(": command (w, q, wq, or a Kinoklip command such as marker add)"));
     m_pageBar->setOverlayWidget(m_line);
     m_line->hide();
-    m_line->installEventFilter(this);
+    {
+        QSettings history;
+        m_exHistory = history.value(QStringLiteral("vim/history")).toStringList();
+        m_searchHistory = history.value(QStringLiteral("vim/searchHistory")).toStringList();
+    }
+    m_line->setCompleter([this](const QString& before, int) {
+        if (m_searchLine)
+            return VimCompletion {};
+        vimex::Sources sources;
+        sources.actionIds = [this] { return m_ctx.actions ? m_ctx.actions->ids() : QStringList(); };
+        sources.registryCommands = [] {
+            QStringList names;
+            for (const commands::Command& c : commands::CommandRegistry::builtin().all())
+                names.append(QString(c.spec.name).replace(QLatin1Char('.'), QLatin1Char(' ')));
+            return names;
+        };
+        sources.timelines = [this] { return timelineNames(); };
+        sources.timecodes = [this] { return timecodes(); };
+        sources.helpTopics = [] {
+            QStringList topics;
+            for (const GuideArticle& a : guide::index().articles())
+                topics.append(a.id);
+            return topics;
+        };
+        return vimex::complete(before, sources);
+    });
+    m_wild = new QFrame(window);
+    m_wild->setObjectName(QStringLiteral("VimWildMenu"));
+    m_wild->setFrameShape(QFrame::StyledPanel);
+    m_wild->setAutoFillBackground(true);
+    m_wild->setAttribute(Qt::WA_ShowWithoutActivating);
+    m_wild->setFocusPolicy(Qt::NoFocus);
+    auto* wildLayout = new QVBoxLayout(m_wild);
+    wildLayout->setContentsMargins(8, 3, 8, 3);
+    m_wildText = new QLabel(m_wild);
+    m_wildText->setTextFormat(Qt::RichText);
+    m_wildText->setWordWrap(true);
+    wildLayout->addWidget(m_wildText);
+    m_wild->hide();
+    connect(m_line, &VimCommandLine::candidatesChanged, this,
+        [this](const QStringList& list, int index) {
+            if (list.size() < 2) {
+                m_wild->hide();
+                return;
+            }
+            QStringList cells;
+            for (int i = 0; i < list.size(); ++i) {
+                const QString t = list[i].toHtmlEscaped();
+                cells.append(i == index ? QStringLiteral("<b><u>%1</u></b>").arg(t) : t);
+            }
+            m_wildText->setText(cells.join(QStringLiteral("&nbsp;&nbsp; ")));
+            placeWildMenu();
+        });
+    connect(m_line, &VimCommandLine::cancelled, this, [this] { closeCommandLine(); });
     connect(m_line, &QLineEdit::returnPressed, this, [this] {
         const QString text = m_line->text().trimmed();
-        if (!text.isEmpty() && m_history.value(m_history.size() - 1) != text) {
-            m_history.append(text);
-            if (m_history.size() > kMaxHistory)
-                m_history.removeFirst();
-        }
         const bool search = m_searchLine;
+        m_line->addHistory(text);
+        (search ? m_searchHistory : m_exHistory) = m_line->history();
+        saveHistory();
         closeCommandLine();
         if (search) {
             if (!m_host->search(text))
-                m_modeLine->showMessage(tr("No match: %1").arg(text), kMessageMs);
+                m_modeLine->showError(tr("No match: %1").arg(text), kMessageMs);
             return;
         }
-        const QString message = runCommand(text);
-        if (!message.isEmpty())
-            m_modeLine->showMessage(message, kMessageMs);
+        bool ok = true;
+        const QString message = runCommand(text, &ok);
+        showResult(message, ok);
     });
+
+    m_picker = new VimPicker(window);
+    connect(m_picker, &VimPicker::openedChanged, this, [this](bool open) {
+        m_input->machine().setCommandMode(open);
+        updateModeLine();
+    });
+    m_input->machine().setCommandHandler(
+        [this](const QString& name, int count, bool hasCount, const QString& arg) {
+            return handleCommand(name, count, hasCount, arg);
+        });
 
     // A settings import or the migration of the old Vim preset leaves a one-time notice.
     QSettings settings;
@@ -205,8 +271,8 @@ void VimController::showCommandLine(bool search)
     m_returnFocus = QApplication::focusWidget();
     m_input->machine().setCommandMode(true);
     m_line->setGeometry(m_pageBar->rect().adjusted(8, 3, -8, -3));
-    m_line->clear();
-    m_historyPos = m_history.size();
+    m_line->setHistory(search ? m_searchHistory : m_exHistory);
+    m_line->begin();
     m_line->show();
     m_line->raise();
     m_line->setFocus();
@@ -217,7 +283,8 @@ void VimController::closeCommandLine()
     if (!m_line->isVisible())
         return;
     m_line->hide();
-    m_line->clear();
+    m_line->begin();
+    m_wild->hide();
     m_searchLine = false;
     m_input->machine().setCommandMode(false);
     if (m_returnFocus)
@@ -225,93 +292,57 @@ void VimController::closeCommandLine()
     m_returnFocus.clear();
 }
 
-bool VimController::eventFilter(QObject* watched, QEvent* event)
+void VimController::placeWildMenu()
 {
-    if (watched == m_line && event->type() == QEvent::KeyPress) {
-        const auto* key = static_cast<QKeyEvent*>(event);
-        if (key->key() == Qt::Key_Escape
-            || (key->key() == Qt::Key_BracketLeft && key->modifiers() == Qt::ControlModifier)
-            || (key->key() == Qt::Key_C && key->modifiers() == Qt::ControlModifier)) {
-            closeCommandLine();
-            return true;
-        }
-        if (key->key() == Qt::Key_Up && !m_history.isEmpty()) {
-            m_historyPos = std::max(0, m_historyPos - 1);
-            m_line->setText(m_history.value(m_historyPos));
-            return true;
-        }
-        if (key->key() == Qt::Key_Down && !m_history.isEmpty()) {
-            m_historyPos = std::min<int>(m_history.size(), m_historyPos + 1);
-            m_line->setText(m_history.value(m_historyPos));
-            return true;
-        }
-    }
-    return QObject::eventFilter(watched, event);
+    const QPoint top = m_pageBar->mapTo(m_window, QPoint(0, 0));
+    m_wild->setFixedWidth(m_window->width() - 16);
+    m_wild->adjustSize();
+    m_wild->move(8, top.y() - m_wild->height() - 2);
+    m_wild->raise();
+    m_wild->show();
 }
 
-QString VimController::runCommand(const QString& rawText)
+void VimController::showResult(const QString& message, bool ok)
 {
+    if (message.isEmpty())
+        return;
+    if (ok)
+        m_modeLine->showMessage(message, kMessageMs);
+    else
+        m_modeLine->showError(message, kMessageMs);
+}
+
+QStringList VimController::history() const
+{
+    return m_exHistory;
+}
+
+void VimController::saveHistory() const
+{
+    QSettings settings;
+    settings.setValue(QStringLiteral("vim/history"), m_exHistory);
+    settings.setValue(QStringLiteral("vim/searchHistory"), m_searchHistory);
+}
+
+QString VimController::runCommand(const QString& rawText, bool* okOut)
+{
+    bool ok = true;
+    const auto done = [&](const QString& message, bool good) {
+        ok = good;
+        if (okOut)
+            *okOut = good;
+        return message;
+    };
     QString text = rawText.trimmed();
     if (text.startsWith(QLatin1Char(':')))
         text = text.mid(1).trimmed();
     if (text.isEmpty())
-        return {};
-    auto action = [this](const char* id) -> QAction* {
-        const QString name = QLatin1String(id);
-        return m_ctx.actions && m_ctx.actions->contains(name) ? m_ctx.actions->action(name) : nullptr;
-    };
-    if (text == QLatin1String("w")) {
-        if (QAction* save = action("file.save")) {
-            save->trigger();
-            return tr("saved");
-        }
-        return tr("Save is not available");
-    }
-    if (text == QLatin1String("q") || text == QLatin1String("wq") || text == QLatin1String("x")) {
-        if (text != QLatin1String("q")) {
-            if (QAction* save = action("file.save"))
-                save->trigger();
-        }
-        if (QAction* quit = action("file.quit")) {
-            // Quit asks about unsaved changes as usual; run it after the line is closed.
-            QTimer::singleShot(0, quit, &QAction::trigger);
-            return tr("closing");
-        }
-        return tr("Quit is not available");
-    }
+        return done({}, true);
 
-    // The Vim keys' own commands: :nmap, :nunmap, :map, :set, :source.
-    {
-        static const QStringList own {QStringLiteral("nmap"), QStringLiteral("nnoremap"),
-            QStringLiteral("vmap"), QStringLiteral("vnoremap"), QStringLiteral("xmap"),
-            QStringLiteral("xnoremap"), QStringLiteral("map"), QStringLiteral("noremap"),
-            QStringLiteral("nunmap"), QStringLiteral("vunmap"), QStringLiteral("xunmap"),
-            QStringLiteral("unmap"), QStringLiteral("set")};
-        const QString first = text.section(QRegularExpression(QStringLiteral("\\s")), 0, 0);
-        const QString rest = text.mid(first.size()).trimmed();
-        if (first == QLatin1String("set")
-            && (rest == QLatin1String("novim") || rest == QLatin1String("vim"))) {
-            if (QAction* option = action(vimopts::kActionId))
-                option->setChecked(rest == QLatin1String("vim")); // stores vim/enabled
-            return rest == QLatin1String("vim") ? tr("Vim mode on") : tr("Vim mode off");
-        }
-        if (own.contains(first) && keymap()) {
-            bool ok = true;
-            QString message = keymap()->executeLine(text, &ok);
-            if (!ok)
-                return message;
-            return message.isEmpty() ? tr("done")
-                                     : message.replace(QLatin1Char('\n'), QStringLiteral("  |  "));
-        }
-        if (first == QLatin1String("source") || first == QLatin1String("so")) {
-            if (!keymap())
-                return tr("No Vim keys");
-            const QString path = rest.isEmpty() ? VimKeymap::vimrcPath() : rest;
-            if (!keymap()->sourceVimrc(path))
-                return tr("No vimrc at %1").arg(QDir::toNativeSeparators(path));
-            const QStringList problems = keymap()->vimrcMessages();
-            return problems.isEmpty() ? tr("vimrc read") : problems.first();
-        }
+    const vimex::Parsed parsed = vimex::parse(text);
+    if (!parsed.name.isEmpty()) {
+        const QString message = runBuiltin(parsed, &ok);
+        return done(message, ok);
     }
 
     // A registry command: "marker add --frame 120" (the same words as the command line).
@@ -325,16 +356,27 @@ QString VimController::runCommand(const QString& rawText)
         consumed = 2;
     else
         command = registry.find(words[0]);
-    if (!command)
-        return tr("Not a command: %1").arg(words[0]);
+    if (!command) {
+        // Not a registry command: an action id typed bare (`:edit.undo`).
+        if (m_ctx.actions && m_ctx.actions->contains(words[0])) {
+            QAction* action = m_ctx.actions->action(words[0]);
+            if (!action->isEnabled())
+                return done(tr("%1 is not available now").arg(words[0]), false);
+            action->trigger();
+            return done({}, true);
+        }
+        return done(tr("Not a command: %1").arg(words[0]), false);
+    }
     if (!command->spec.remoteAllowed) // the line runs commands through the live path
-        return tr("%1 is not available here: use Preferences > Import and Export").arg(command->spec.name);
+        return done(tr("%1 is not available here: use Preferences > Import and Export")
+                        .arg(command->spec.name),
+            false);
     const QVector<commands::ParamSpec> params = commands::CommandRegistry::fullParams(command->spec, true);
     QJsonObject call;
     for (qsizetype i = consumed; i < words.size(); ++i) {
         QString token = words[i];
         if (!token.startsWith(QLatin1String("--")))
-            return tr("Options start with --: %1").arg(token);
+            return done(tr("Options start with --: %1").arg(token), false);
         token = token.mid(2);
         QString value;
         bool hasValue = false;
@@ -346,14 +388,14 @@ QString VimController::runCommand(const QString& rawText)
         const auto spec = std::find_if(params.begin(), params.end(),
             [&](const commands::ParamSpec& p) { return p.name == token; });
         if (spec == params.end())
-            return tr("Unknown option --%1").arg(token);
+            return done(tr("Unknown option --%1").arg(token), false);
         if (!hasValue && spec->type == commands::ParamType::Boolean) {
             value = QStringLiteral("true");
             hasValue = true;
         }
         if (!hasValue) {
             if (i + 1 >= words.size())
-                return tr("Option --%1 needs a value").arg(token);
+                return done(tr("Option --%1 needs a value").arg(token), false);
             value = words[++i];
         }
         if (spec->type == commands::ParamType::StringList) {
@@ -367,8 +409,8 @@ QString VimController::runCommand(const QString& rawText)
     const commands::CommandResult result
         = commands::CommandRegistry::builtin().executeLive(command->spec.name, call, m_target);
     if (!result.ok)
-        return result.error;
-    return result.text.isEmpty() ? tr("done") : result.text;
+        return done(result.error, false);
+    return done(result.text.isEmpty() ? tr("done") : result.text, true);
 }
 
 } // namespace kk

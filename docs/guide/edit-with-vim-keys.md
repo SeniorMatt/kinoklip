@@ -128,7 +128,8 @@ appears above the page bar with every key that can follow and what it does (the 
 | `Space` `e` `e` | add the default transition |
 | `Space` `t` + `v` `a` `d` | add a video track, an audio track, delete empty tracks |
 | `Space` `o` + `s` `l` `a` `L` | snapping, linked selection, audio scrubbing, loop |
-| `Space` `f` `p` / `n` / `x` | Project Manager / show the Media Pool / close the timeline tab |
+| `Space` `f` + `f` `c` `e` `t` `m` `d` `h` `k` `p` | pickers: media, commands, effects, timelines, markers, bins, help, Vim keys, projects (see Pickers) |
+| `Space` `n` / `x` | show the Media Pool / close the timeline tab |
 | `g` `j` `k` `l` | shuttle reverse, stop, forward |
 
 The full list is the [cheat sheet](../keymaps/vim-keys.md).
@@ -169,14 +170,62 @@ selects the last selection again.
 
 ## The command line
 
-`:` opens a line in the page bar row, in place of the mode line.
+`:` opens a line in the page bar row, in place of the mode line. Enter runs it, Esc closes it (so do
+Ctrl+C, Ctrl+[ and Backspace on an empty line). The result shows in the mode line; a failure is red.
 
-- `:w` saves the project, `:q` closes the window (asking about unsaved changes as usual), `:wq` does both.
-- `:set novim` switches Vim mode off, so you can never get stuck.
-- Any Kinoklip command works too, written as on the command line: `:marker add --at 120 --name Intro`.
-  See [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md).
-- `:nmap`, `:nunmap`, `:map`, `:source` and `:set` change the Vim keys (see above).
-- **Up** and **Down** bring back what you typed before. There is no Tab completion.
+**Completion.** **Tab** completes the word before the cursor: command names, action ids
+(`:action edit.un` -> `edit.undo`), pages, timeline names, options, and the timecodes of the markers
+after a number. One match is filled in; several are listed above the line and extended to what they
+share, then **Tab** and **Shift+Tab** (or Ctrl+N and Ctrl+P) step through them.
+
+**History.** **Up** and **Down** bring back the older and newer lines that start with what you have
+typed; Shift+Up, Page Up (or Ctrl+P, Ctrl+K) and Shift+Down, Page Down (Ctrl+N, Ctrl+J) take any line.
+The history survives a restart (200 lines; `/` keeps its own). **`q:`** in NORMAL opens it as a
+picker, newest first; choosing a line runs it. Editing: Ctrl+B and Ctrl+E go to the start and the end,
+Ctrl+H and Ctrl+L one character left and right, Ctrl+W deletes the word before the cursor, Ctrl+U
+everything before it.
+
+| Command | What it does |
+|---|---|
+| `:w` `:wa` | save the project |
+| `:q` `:qa` | quit (asking about unsaved changes as usual); `:q!` quits without asking |
+| `:wq` `:x` `:wqa` `:xa` | save and quit |
+| `:e {name}` | open the timeline with that name in a tab; `:e {file}` opens a project file; `:e` alone opens the Project Manager |
+| `:enew {name}` `:new {name}` | a new timeline (the name is optional) |
+| `:bn` `:bp` `:bd` | next / previous / close the timeline tab |
+| `:b {n or name}` `:ls` | switch to tab n or a timeline by (a part of) its name; list the tabs |
+| `:120` `:+10` `:-5` `:$` `:00:01:10:00` | go to a frame, forward / back some frames, the end, or a timecode |
+| `:page {name}` | `media cut edit comp color audio deliver`, `next`, `prev` or a number |
+| `:undo [n]` `:redo [n]` `:history` | undo or redo n steps; the edit history window |
+| `:render` `:deliver` | go to the Deliver page; `:render --output out.mp4 --preset ...` renders from the line |
+| `:set snap` `nosnap` `snap!` `snap?` | the options `snap`, `linked`, `audioscrub`, `loop` (`no` turns off, `!` or `inv` flips, `?` asks), also `vim`, `leader=`, `timeoutlen=`, `physicalkeys` |
+| `:nmap` `:nunmap` `:map` `:source` | change the Vim keys (see above) |
+| `:action {id or name}` | run any action of the Shortcuts tab; a bare id works too (`:edit.undo`) |
+| `:export edl\|otio\|markers` `:import media\|timeline\|subtitle` | the File menu's export and import |
+| `:help [topic]` `:cheat` | open the guide (a topic is searched); the Vim keys page |
+| `:noh` `:play` | forget the search; play / pause |
+| `:marker add --at 120` | any Kinoklip command, as on the command line (see [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md)) |
+
+Commands can be shortened as in Vim (`:w`, `:bn`, `:pa edit`, `:red`). `:set novim` switches Vim mode
+off, so you can never get stuck.
+
+## Pickers
+
+Space `f` opens a list with a filter field (Telescope's way). Type to narrow it: every word must match
+as letters in order (`cutpg` finds *Cut Page*), a capital letter makes that word case sensitive.
+**Ctrl+J** and **Ctrl+K** (or Down and Up, Ctrl+N and Ctrl+P) move, **Enter** chooses, **Esc** closes.
+
+| Keys | Lists | Enter |
+|---|---|---|
+| `Space` `f` `f` | the media of the project | shows it in the Source viewer |
+| `Space` `f` `c` | every command, with its id and key | runs it |
+| `Space` `f` `e` | effects, transitions, titles and generators | applies it to the clip under the cursor; a transition goes to the edit point at the cursor (the clip that starts there, else the one that ends there). **Alt+Enter** only shows what it is |
+| `Space` `f` `t` | the timelines | opens it |
+| `Space` `f` `m` | the markers | goes to it |
+| `Space` `f` `d` | the bins | shows the bin in the Media Pool |
+| `Space` `f` `h` | the pages of the guide | opens it |
+| `Space` `f` `k` | the Vim keys | runs its command (a motion says which keys to type) |
+| `Space` `f` `p` | the Project Manager | |
 
 ## If you used the Vim keyboard profile
 
@@ -195,6 +244,7 @@ timeline), `H` and `L` switch to the previous and next timeline tab (`{` and `}`
 - `d` is a ripple delete and `c` leaves a gap; `p` inserts at the playhead and `P` overwrites.
 - The cursor sits on a **frame**, so `$` is the end of the whole timeline (not of the track) and
   `dj` (a motion between tracks) works on the clips under the cursor frame, not on whole tracks.
+- On the `:` line `:q` quits the program (Vim closes a window), `:e` opens a timeline, and a number goes to a **frame** (Vim: a line). `:q!` quits without asking. `Ctrl+N` / `Ctrl+P` step through completions and, when none are listed, through the history, as in Neovim. There are no ranges (`:%s`), no `:!`.
 - Keys that Neovim has for text and Kinoklip has no use for (`f`, `t`, `%`, `*`, `q` macros,
   `"Ayy` appending, the numbered registers) do nothing.
 - `p` in VISUAL replaces the selection but does not put the removed clips into a register.

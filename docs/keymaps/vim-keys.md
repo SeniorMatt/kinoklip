@@ -21,6 +21,8 @@ motions and text objects an operator accepts. `.` repeats the last change.
 
 | Keys | Mode | What it does | Runs |
 |---|---|---|---|
+| `:` | NORMAL | command line (Tab completes, Up / Down recall) | `vim:command_line` |
+| `q:` | NORMAL | pick a line from the command history and run it | `vim:picker_history` |
 | `<C-r>` | NORMAL and VISUAL | redo | `action:edit.redo` |
 | `gj` | NORMAL | shuttle reverse (J) | `action:transport.shuttle_reverse` |
 | `gk` | NORMAL | shuttle stop (K) | `action:transport.shuttle_stop` |
@@ -105,7 +107,6 @@ motions and text objects an operator accepts. `.` repeats the last change.
 | `M` | NORMAL | add a marker at the playhead | `action:mark.add_marker` |
 | `i` | NORMAL | INSERT: the keyboard profile's shortcuts work (Esc comes back) | `vim:insert_mode` |
 | `a` | NORMAL | INSERT: the keyboard profile's shortcuts work (Esc comes back) | `vim:insert_mode` |
-| `:` | NORMAL | command line | `vim:command_line` |
 
 ## Viewers only
 
@@ -156,15 +157,27 @@ motions and text objects an operator accepts. `.` repeats the last change.
 | `<leader>oL` | loop on / off | `action:transport.loop` |
 | **`<leader>f`** | **find and files** | |
 | `<leader>fp` | projects | `action:file.project_manager` |
+| `<leader>ff` | find media: choose loads it in the Source viewer | `vim:picker_media` |
+| `<leader>fc` | find a command and run it | `vim:picker_commands` |
+| `<leader>fe` | find an effect, transition, title or generator and apply it (Alt+Enter: only look) | `vim:picker_effects` |
+| `<leader>ft` | find a timeline and open it | `vim:picker_timelines` |
+| `<leader>fm` | find a marker and go to it | `vim:picker_markers` |
+| `<leader>fd` | find a bin and show it in the Media Pool | `vim:picker_bins` |
+| `<leader>fh` | find a page of the guide and open it | `vim:picker_help` |
+| `<leader>fk` | find a Vim key and run its command | `vim:picker_keymaps` |
 | `<leader>n` | show / hide the Media Pool | `action:view.toggle_media_pool` |
 | `<leader>x` | close the timeline tab | `action:timeline.close_tab` |
 
 ## The command line
 
-`:` opens the command line in the bottom row. Besides the commands of `kinoklip commands`
-(`:marker add --frame 120`) it takes `:w`, `:q`, `:wq`, `:x`, `:nmap {keys} {command}`,
-`:nunmap {keys}`, `:map` (lists your mappings), `:source` (reads the vimrc again) and
-`:set leader=<Space>`, `:set timeoutlen=400`, `:set physicalkeys`, `:set novim`.
+`:` opens the command line in the bottom row; Tab completes, Up and Down recall older lines,
+`q:` lists the history. Besides the commands of `kinoklip commands` (`:marker add --frame 120`)
+it takes `:w` `:q` `:q!` `:wq` `:x`, `:e {timeline or file}` `:enew` `:bn` `:bp` `:bd` `:b {n}` `:ls`,
+`:120` / `:+10` / `:$` / `:00:01:10:00` (go to a frame or timecode), `:page {name}`, `:undo` `:redo`
+`:history`, `:render` `:deliver`, `:action {id}`, `:help` `:cheat` `:noh` `:play`, `:export` `:import`,
+`:nmap {keys} {command}`, `:nunmap {keys}`, `:map` (lists your mappings), `:source` (reads the vimrc
+again) and `:set snap` / `linked` / `audioscrub` / `loop` / `leader=<Space>` / `timeoutlen=400` /
+`physicalkeys` / `novim`.
 A command is an action id (`edit.undo`), `vim:name`, or `:` and a command line (`:w<CR>`).
 
 ## The vimrc file

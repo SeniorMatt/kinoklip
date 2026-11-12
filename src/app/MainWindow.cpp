@@ -755,7 +755,8 @@ void MainWindow::showRestored()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
-    if (!m_projectController->maybeSave()) {
+    // `:q!` of the Vim line closes without asking (spec section 83).
+    if (!property("kkDiscardOnClose").toBool() && !m_projectController->maybeSave()) {
         event->ignore();
         return;
     }

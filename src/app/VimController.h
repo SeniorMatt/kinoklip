@@ -2,28 +2,37 @@
 // VimController — the window's side of the vim key layer (spec sections 62 and 83): builds the
 // layer (ui/common/VimInput.h) and its timeline host, shows the permanent mode line in the page
 // bar row and the accent frame of the focused panel, and owns the `:` command line (which
-// replaces the mode line while open), running a few window commands (w, q, wq) and every
-// command of the command registry on the open project (`:marker add --frame 120`).
+// replaces the mode line while open, with completion and history), runs the ex commands
+// (app/VimEx.h: :w :q :e :bn :ls :page :set :undo ... and every command of the command
+// registry on the open project, `:marker add --frame 120`), and opens the pickers
+// (ui/common/VimPicker.h) of <leader>f.
 #pragma once
 
 #include "app/commands/Command.h"
+#include "ui/common/VimCommandLine.h"
 
 #include <QObject>
 #include <QPointer>
 #include <QStringList>
 
+class QFrame;
+class QLabel;
 class QLineEdit;
 class QWidget;
 
 namespace kk {
 
 struct AppContext;
+namespace vimex {
+struct Parsed;
+}
 class PageBar;
 class PanelFrame;
 class TimelinePanel;
 class VimInput;
 class VimKeymap;
 class VimModeLine;
+class VimPicker;
 class VimWhichKey;
 class VimTimelineHost;
 
@@ -42,23 +51,43 @@ public:
     [[nodiscard]] VimModeLine* modeLine() const { return m_modeLine; }
     [[nodiscard]] VimKeymap* keymap() const;
     [[nodiscard]] VimWhichKey* whichKey() const { return m_whichKey; }
-    [[nodiscard]] QLineEdit* commandLine() const { return m_line; }
+    [[nodiscard]] VimCommandLine* commandLine() const { return m_line; }
+    [[nodiscard]] VimPicker* picker() const { return m_picker; }
+    /// The matches listed under the `:` line while completing (hidden when empty).
+    [[nodiscard]] QFrame* wildMenu() const { return m_wild; }
     /// The timeline host (cursor track, registers, search).
     [[nodiscard]] VimTimelineHost* host() const { return m_host; }
 
-    /// Runs one command-line text (without the colon) and returns the message to show.
-    /// Public for tests.
-    QString runCommand(const QString& text);
+    /// Runs one command-line text (without the colon) and returns the message to show;
+    /// @p ok (if given) tells whether it worked (a failure is shown as an error). Public for
+    /// tests.
+    QString runCommand(const QString& text, bool* ok = nullptr);
+
+    /// Opens a picker: "media", "commands", "effects", "timelines", "markers", "bins", "help",
+    /// "keymaps" or "history". False for another name.
+    bool openPicker(const QString& kind);
+    /// The lines of the `:` history, oldest first.
+    [[nodiscard]] QStringList history() const;
 
     /// Opens the `:` line (also what the layer does for the colon key).
     void showCommandLine(bool search = false);
 
 private:
     void closeCommandLine();
+    void showResult(const QString& message, bool ok);
+    void saveHistory() const;
+    void placeWildMenu();
+    bool handleCommand(const QString& name, int count, bool hasCount, const QString& arg);
+    // ex commands (VimExCommands.cpp)
+    QString runBuiltin(const vimex::Parsed& parsed, bool* ok);
+    QString gotoTime(const QString& text, bool* ok);
+    // pickers (VimPickers.cpp)
+    QVector<quint64> cursorClips() const;
+    QStringList timelineNames() const;
+    QStringList timecodes() const;
     void updateModeLine();
     void updateFocusFrame();
     void updateWhichKey();
-    bool eventFilter(QObject* watched, QEvent* event) override;
 
     AppContext& m_ctx;
     QWidget* m_window;
@@ -70,9 +99,12 @@ private:
     VimWhichKey* m_whichKey = nullptr;
     QPointer<PanelFrame> m_framed; ///< the panel drawn with the focus frame
     QPointer<QWidget> m_returnFocus; ///< where the focus goes when the `:` line closes
-    QLineEdit* m_line = nullptr;
-    QStringList m_history;
-    int m_historyPos = 0;
+    VimCommandLine* m_line = nullptr;
+    VimPicker* m_picker = nullptr;
+    QFrame* m_wild = nullptr;
+    QLabel* m_wildText = nullptr;
+    QStringList m_exHistory;
+    QStringList m_searchHistory;
     bool m_searchLine = false; ///< the line is open for /search
 };
 

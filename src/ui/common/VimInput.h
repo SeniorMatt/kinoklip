@@ -64,6 +64,12 @@ public:
     /// Milliseconds to wait for the next key of an ambiguous sequence; 0 = the keymap's value.
     void setTimeoutMs(int ms) { m_timeoutOverride = ms; }
     void setPhysicalKeys(bool on) { m_translator.setPhysical(on); }
+    /// Runs the window's commands (`vim:picker_*`, `vim:win_*`, `vim:page_*` ...): the machine
+    /// passes the name, the count (@p hasCount tells whether one was typed) and the character a
+    /// class token matched. Returns whether it knew the command.
+    using CommandHandler
+        = std::function<bool(const QString& name, int count, bool hasCount, const QString& arg)>;
+    void setCommandHandler(CommandHandler handler) { m_commandHandler = std::move(handler); }
 
     [[nodiscard]] Mode mode() const { return m_mode; }
     /// Count and pending keys as typed so far ("3d", "SPC f"), empty when nothing is pending.
@@ -195,6 +201,7 @@ private:
     VimKeymap* m_keymap = nullptr;
     std::unique_ptr<VimKeymap> m_ownedKeymap;
     std::function<QString()> m_context;
+    CommandHandler m_commandHandler;
     mutable vimkeys::KeyTranslator m_translator;
     QTimer* m_timer = nullptr;
     int m_timeoutOverride = 0;
