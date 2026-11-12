@@ -27,7 +27,8 @@ general knowledge of node compositors, our own drawing, names and icons; never R
 - Bottom: the **node editor**: pannable, zoomable canvas (middle-drag or Space-drag to pan,
   wheel to zoom, Fit with Ctrl+F), nodes as tiles with input ports on the left / top and the output
   on the right, coloured links by port kind (background, foreground, mask), selection and box
-  selection, drag to move, drop a node onto a link to insert it, drag from a port to connect,
+  selection, drag to move, drop a node onto a link to insert it, drag from a port to connect, drop an output on another
+  node's output to put a Merge there (the dragged node is the foreground),
   drag a link end away to disconnect, Delete, Ctrl+C / Ctrl+V, Ctrl+Z, notes.
 - Above the node editor: a **toolbar** with the common nodes (Background, Text, Merge,
   Transform, Rectangle, Ellipse, Polygon, Blur, Color Corrector, Chroma Key); clicking adds the node
@@ -46,7 +47,7 @@ general knowledge of node compositors, our own drawing, names and icons; never R
 ## Nodes (first release)
 - **I/O**: MediaIn (the clip, or any media pool item), MediaOut.
 - **Composite**: Merge (background, foreground, mask; blend mode (Normal, Screen, Multiply,
-  Add, Overlay, Darken, Lighten, Difference, Subtract), opacity, foreground centre / size / angle),
+  Add, Overlay, Darken, Lighten, Difference, Subtract), opacity, foreground centre / size / angle, flip horizontal / vertical),
   Dissolve.
 - **Transform**: Transform (centre, size, angle, pivot, flip), Crop, Resize, Letterbox.
 - **Generate**: Background (solid colour or 2/4-colour gradient), Text (font, size, colour,

@@ -199,6 +199,48 @@ private slots:
         QVERIFY(!f.clip(f.clipId)->composition); // back to "no composition"
     }
 
+    void dropOutputOnOutputCreatesMerge()
+    {
+        Fixture f;
+        // Background dragged onto MediaIn1's output: Merge1 (background MediaIn1, foreground
+        // Background1) takes over what MediaIn1 fed. One undo step.
+        const quint64 bg = f.session->addNodeAt(nodetypes::Background, QPointF(0, 3));
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        const quint64 out = f.comp().mediaOutId;
+        const int before = f.steps();
+        const int nodes = f.comp().nodes.size();
+        f.drag(f.editor->outputPos(*f.node(bg)), f.editor->outputPos(*f.node(in)));
+        QCOMPARE(f.steps(), before + 1);
+        QCOMPARE(f.comp().nodes.size(), nodes + 1);
+        const quint64 merge = f.nodeNamed(QStringLiteral("Merge1"));
+        QVERIFY(merge);
+        QCOMPARE(f.node(merge)->inputs.value(nodeports::Background).nodeId, in);
+        QCOMPARE(f.node(merge)->inputs.value(nodeports::Foreground).nodeId, bg);
+        QCOMPARE(f.node(out)->inputs.value(nodeports::Input).nodeId, merge);
+        QCOMPARE(f.session->currentNode(), merge);
+        f.project.undoStack()->undo();
+        QCOMPARE(f.comp().nodes.size(), nodes);
+        QCOMPARE(f.node(out)->inputs.value(nodeports::Input).nodeId, in);
+    }
+
+    void dropOutputOnOwnDownstreamIsRefusedWithoutLoop()
+    {
+        Fixture f;
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        const quint64 out = f.comp().mediaOutId;
+        f.session->setSelection({in});
+        const quint64 a = f.session->addNode(nodetypes::Transform);
+        f.session->setSelection({a});
+        const quint64 b = f.session->addNode(nodetypes::Transform);
+        QVERIFY(a && b);
+        const int before = f.steps();
+        // MediaIn1 -> A -> B -> MediaOut: B dropped on MediaIn1's output would make A read the
+        // Merge, which reads B, which reads A. Refused, nothing changes.
+        f.drag(f.editor->outputPos(*f.node(b)), f.editor->outputPos(*f.node(in)));
+        QCOMPARE(f.steps(), before);
+        QCOMPARE(f.node(out)->inputs.value(nodeports::Input).nodeId, b);
+    }
+
     void dropNodeOnLinkInserts()
     {
         Fixture f;

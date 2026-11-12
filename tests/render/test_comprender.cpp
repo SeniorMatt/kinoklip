@@ -154,6 +154,19 @@ private slots:
         }
     }
 
+    void mergeFlipMirrorsTheForeground()
+    {
+        ParamSet p;
+        const QSizeF frame(320, 180);
+        const QPointF q(200, 60);
+        const QPointF plain = compmath::mergeForegroundMatrix(p, 0, frame).map(q);
+        QCOMPARE(plain, q);
+        p.setStatic(nodekeys::FlipH, true);
+        QCOMPARE(compmath::mergeForegroundMatrix(p, 0, frame).map(q), QPointF(120, 60));
+        p.setStatic(nodekeys::FlipV, true);
+        QCOMPARE(compmath::mergeForegroundMatrix(p, 0, frame).map(q), QPointF(120, 120));
+    }
+
     void blendModesMatchCpu()
     {
         for (const QString& mode : {blendmodes::Screen, blendmodes::Multiply, blendmodes::Add,
