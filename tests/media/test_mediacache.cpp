@@ -93,6 +93,37 @@ private slots:
         QCOMPARE(spy.count(), 1); // no duplicate deliveries
     }
 
+    void ladderHeightsAreCoarse()
+    {
+        QCOMPARE(MediaCache::ladderThumbnailHeight(1), 16);
+        QCOMPARE(MediaCache::ladderThumbnailHeight(40), 48);
+        QCOMPARE(MediaCache::ladderThumbnailHeight(49), 64);
+        QCOMPARE(MediaCache::ladderThumbnailHeight(65), 96);
+        QCOMPARE(MediaCache::ladderThumbnailHeight(97), 128);
+        QCOMPARE(MediaCache::ladderThumbnailHeight(129), 192);
+    }
+
+    // Track-height zoom (Shift+wheel) changes the tile height on every notch: the tiles of the
+    // previous height must show at once, and few distinct heights may be decoded.
+    void nearestTileIsShownWhileTheExactOneLoads()
+    {
+        const QString path = test::fixture("h264_25fps.mp4");
+        m_cache->clearMemoryCache();
+        QSignalSpy spy(m_cache, &MediaCache::thumbnailReady);
+        QVERIFY(m_cache->thumbnailOrNearest(path, 2'000'000, 60).isNull());
+        QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, kWaitMs);
+        QVERIFY(!m_cache->thumbnailOrNearest(path, 2'000'000, 60).isNull());
+        // Another height of the same time: not cached, but a scaled stand-in is returned now.
+        const QImage standIn = m_cache->thumbnailOrNearest(path, 2'000'000, 100);
+        QVERIFY(!standIn.isNull());
+        QCOMPARE(standIn.height(), 64);
+        // A nearby time step at the same height too.
+        QVERIFY(!m_cache->thumbnailOrNearest(path, 2'500'000, 60).isNull());
+        // Heights within one ladder step share the decode.
+        QVERIFY(!m_cache->thumbnailOrNearest(path, 2'000'000, 55).isNull());
+        QTRY_VERIFY_WITH_TIMEOUT(m_cache->pendingImageCount() == 0, kWaitMs);
+    }
+
     void parkedJobsTrickleWhilePlaybackIsActive()
     {
         const QString path = test::fixture("h264_25fps.mp4");

@@ -17,6 +17,8 @@
 #include <QThread>
 
 #include <algorithm>
+#include <cstdlib>
+#include <vector>
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
@@ -187,6 +189,57 @@ QImage MediaCache::thumbnail(const QString& path, int64_t timeUs, int height)
         : snapThumbnailTimeUs(timeUs, height);
     request.key = QStringLiteral("t|%1|%2|%3").arg(path).arg(request.height).arg(request.timeUs);
     return requestImage(request);
+}
+
+int MediaCache::ladderThumbnailHeight(int height)
+{
+    int h = 16;
+    while (h < height && h < kMaxThumbnailHeight)
+        h = (h % 3 == 0) ? h / 3 * 4 : h / 2 * 3; // 16, 24, 32, 48, 64, 96, 128, ...
+    return std::min(h, kMaxThumbnailHeight);
+}
+
+QImage MediaCache::thumbnailOrNearest(const QString& path, int64_t timeUs, int height)
+{
+    if (path.isEmpty() || height <= 0)
+        return {};
+    const int wanted = ladderThumbnailHeight(height);
+    QImage exact = thumbnail(path, timeUs, wanted);
+    if (!exact.isNull())
+        return exact;
+    const bool still = detail::isStillImageSuffix(QFileInfo(path).suffix());
+    // Candidate heights, closest first (larger before smaller: scaling down looks better).
+    std::vector<int> heights;
+    for (int h = 16; h <= kSmallThumbnailMaxHeight * 2; h = ladderThumbnailHeight(h + 1))
+        heights.push_back(h);
+    std::sort(heights.begin(), heights.end(), [wanted](int a, int b) {
+        const int da = std::abs(a - wanted) + (a < wanted ? wanted : 0);
+        const int db = std::abs(b - wanted) + (b < wanted ? wanted : 0);
+        return da < db;
+    });
+    auto keyFor = [&](int h, int64_t time) {
+        return QStringLiteral("t|%1|%2|%3").arg(path).arg(h).arg(time);
+    };
+    const QMutexLocker lock(&m_mutex);
+    // Same time, any height.
+    for (int h : heights) {
+        const int64_t t = still ? 0 : snapThumbnailTimeUs(timeUs, h);
+        if (const QImage* hit = m_images.object(keyFor(h, t)))
+            return *hit;
+    }
+    // Neighbouring time steps at the wanted height.
+    if (!still) {
+        const int64_t t0 = snapThumbnailTimeUs(timeUs, wanted);
+        const int64_t grid = wanted <= kSmallThumbnailMaxHeight ? kSmallThumbnailGridUs
+                                                                : kLargeThumbnailGridUs;
+        for (int64_t t : {t0 - grid, t0 + grid}) {
+            if (t >= 0) {
+                if (const QImage* hit = m_images.object(keyFor(wanted, t)))
+                    return *hit;
+            }
+        }
+    }
+    return {};
 }
 
 QImage MediaCache::frame(const QString& path, int64_t timeUs, int height)

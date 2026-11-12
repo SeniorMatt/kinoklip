@@ -62,6 +62,16 @@ public:
     /// @return the cached image, or a null QImage → thumbnailReady(path) follows later.
     QImage thumbnail(const QString& path, int64_t timeUs, int height);
 
+    /// Like thumbnail(), but for timeline strips: the request height is rounded up to a coarse
+    /// ladder (so a smooth track-height zoom needs few distinct decodes) and, while the exact
+    /// tile is not cached, the closest tile already in memory (other height, or the
+    /// neighbouring time step) is returned at once (scale it into your rect). The exact one is
+    /// still scheduled; thumbnailReady() follows. Null only when nothing near is cached.
+    QImage thumbnailOrNearest(const QString& path, int64_t timeUs, int height);
+
+    /// Height used by thumbnailOrNearest(): 16, 24, 32, 48, 64, 96, 128, 192 ... (x1.5 steps).
+    static int ladderThumbnailHeight(int height);
+
     /// The exact frame at media time `timeUs` (µs, not snapped), `height` pixels high (snapped
     /// like thumbnail()), for frame-accurate previews such as the two-up trim view. Kept in
     /// the memory cache only (never written to disk).
