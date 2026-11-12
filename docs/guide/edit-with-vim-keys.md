@@ -20,7 +20,7 @@ what is different from Vim.
 
 ## Turn it on, and the modes
 
-Either tick **Vim mode** in **Preferences > Keyboard**, or choose **Kinoklip > Vim Mode**. The mode
+Tick **Vim mode** in **Preferences > Keyboard** (Kinoklip > Preferences…). The mode
 line appears at the left of the page bar, on every page:
 
 - **NORMAL**: keys are Vim commands. Nothing is typed.

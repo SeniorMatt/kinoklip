@@ -53,7 +53,6 @@ Menu appMenu()
         S(),
         A("edit.preferences"),
         A("edit.keyboard_customization", "Keyboard Shortcuts…"),
-        A("settings.vim_mode"),
         S(),
         A("file.quit"),
     });
@@ -623,6 +622,8 @@ QList<HiddenAction> hiddenActions()
         {"mediapool.new_smart_bin", "In the Media Pool's menus"},
         {"mediapool.select_in_timeline", "In the Media Pool's item menu"},
         {"mediapool.save_copy", "In the Media Pool's item menu (media stored in the project)"},
+        {"settings.vim_mode",
+            "Preferences > Keyboard (owner: switched rarely, no menu entry); its shortcut still works"},
         {"comp.cut", "Edit > Cut acts on the node editor while it has focus (rule 8)"},
         {"comp.copy", "Edit > Copy acts on the node editor while it has focus (rule 8)"},
         {"comp.paste", "Edit > Paste acts on the node editor while it has focus (rule 8)"},

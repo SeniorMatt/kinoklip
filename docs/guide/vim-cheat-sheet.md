@@ -1,7 +1,7 @@
 # Vim cheat sheet
 
 The keys of [Vim for Kinoklip](edit-with-vim-keys.md) on one page. Turn Vim mode on in
-**Preferences > Keyboard** or with **Kinoklip > Vim Mode**. `Space` is the leader. A number before a
+**Preferences > Keyboard**. `Space` is the leader. A number before a
 command repeats it (`3dd`); **Esc** drops what you typed. Every key is in the generated
 [table](../keymaps/vim-keys.md) and can be changed in **Keyboard Customization > Vim keys**.
 

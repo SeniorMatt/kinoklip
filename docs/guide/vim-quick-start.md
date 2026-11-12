@@ -28,10 +28,10 @@ whatever was half typed. Nothing gets deleted by pressing Esc.
 
 ## Step 1: turn it on
 
-1. Open **Kinoklip > Vim Mode** (or tick **Vim mode** in **Preferences > Keyboard**).
-2. Look at the left end of the page bar: it now says **NORMAL**.
+1. Open **Kinoklip > Preferences…** (Ctrl+,), go to **Keyboard** and tick **Vim mode**.
+2. Click **OK**, then look at the left end of the page bar: it now says **NORMAL**.
 
-To turn it off later, use the same menu entry. Your normal shortcuts come back at once.
+To turn it off later, untick the same box (or type `:set novim`). Your normal shortcuts come back at once.
 
 ## Step 2: get something to practise on
 
