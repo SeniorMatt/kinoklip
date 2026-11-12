@@ -111,6 +111,8 @@ Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 - [ ] Background Removal: a general model for pictures and any subject, and a newer video model if one fits our licence
 - [ ] Media Pool: Save a Copy to Computer for media stored in a single-file project
 - [ ] Timeline: thumbnails come back quickly after zooming
+- [ ] Audio: a visual equalizer editor (curve with draggable bands, Audacity / FL Studio style)
+- [ ] Timeline Settings: change a timeline's or compound clip's frame rate and resolution after clips are in it (clips keep their time); Project Settings shows why the frame rate is locked
 
 ## Next big release
 
