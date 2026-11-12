@@ -11,7 +11,7 @@ is `src/app/pages/CompositingPage`.
   viewer nodes, and every editing command as one undo step. Widgets only map input to it.
 - **NodeEditor** (+ `NodeEditorPaint.cpp`): custom-painted canvas (why not QGraphicsView: see
   the class doc). Gestures, keys through the comp.* actions, drag and drop.
-- **CompViewer** + **CompViewerOverlay**: the two viewers (surface, guides, node drops) and the
+- **CompViewer** + **CompViewerOverlay** + **ViewerFx**: the two viewers (surface, guides, node drops, A/B buffers, channel / checker / split tools with viewer-local keys, lock, clear) and the
   on-viewer handles of the selected node.
 - **CompInspector**: the Edit page parameter rows on a stand-in clip whose one effect carries the
   node's ParamSet (see the class doc); nodes with a Center also get the "Follow Track" row

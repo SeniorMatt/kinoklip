@@ -170,6 +170,13 @@ CompTransport::CompTransport(AppContext& ctx, CompSession* session, QWidget* par
     m_stop->setObjectName(QStringLiteral("CompStop"));
     m_play = button("play", tr("Play the clip range"));
     m_play->setObjectName(QStringLiteral("CompPlay"));
+    m_loopButton = new QToolButton(this);
+    m_loopButton->setObjectName(QStringLiteral("CompLoop"));
+    m_loopButton->setAutoRaise(true);
+    m_loopButton->setFocusPolicy(Qt::NoFocus);
+    layout->addWidget(m_loopButton);
+    connect(m_loopButton, &QToolButton::clicked, this, &CompTransport::cycleLoopMode);
+    setLoopMode(CompLoopMode::Loop);
     m_ruler = new CompTimeRuler(session, this);
     layout->addWidget(m_ruler, 1);
     m_position = new QLabel(this);
@@ -238,6 +245,25 @@ void CompTransport::stop()
         m_ctx.playback->pause();
 }
 
+void CompTransport::setLoopMode(CompLoopMode mode)
+{
+    m_loop = mode;
+    static const char* const kText[] = {
+        QT_TR_NOOP("Loop"), QT_TR_NOOP("Ping-pong"), QT_TR_NOOP("Once")};
+    m_loopButton->setText(tr(kText[int(mode)]));
+    m_loopButton->setToolTip(
+        tr("At the end of the clip range: Loop, Ping-pong or play Once (click to change)"));
+    // Ping-pong runs the engine backwards: going back to Loop / Once plays forward again.
+    PlaybackEngine* engine = m_ctx.playback;
+    if (mode != CompLoopMode::PingPong && m_playing && engine && engine->rate() < 0.0)
+        engine->setRate(1.0);
+}
+
+void CompTransport::cycleLoopMode()
+{
+    setLoopMode(CompLoopMode((int(m_loop) + 1) % 3));
+}
+
 void CompTransport::onEnginePosition(int64_t frame)
 {
     if (!m_playing || !m_session)
@@ -245,9 +271,28 @@ void CompTransport::onEnginePosition(int64_t frame)
     const ClipData* c = m_session->clip();
     if (!c)
         return;
-    // The clip range is the composition's render range: loop back to its first frame.
-    if (frame >= c->start + c->duration || frame < c->start)
-        m_ctx.playback->seek(c->start);
+    // The clip range is the composition's render range.
+    const int64_t last = c->start + c->duration - 1;
+    PlaybackEngine* engine = m_ctx.playback;
+    switch (m_loop) {
+    case CompLoopMode::Loop:
+        if (frame >= c->start + c->duration || frame < c->start)
+            engine->seek(c->start);
+        break;
+    case CompLoopMode::PingPong:
+        if (engine->rate() > 0.0 && frame >= last) {
+            engine->setRate(-1.0);
+        } else if (engine->rate() < 0.0 && frame <= c->start) {
+            engine->setRate(1.0);
+        }
+        break;
+    case CompLoopMode::Once:
+        if (frame >= last) {
+            stop();
+            engine->seek(last);
+        }
+        break;
+    }
 }
 
 } // namespace kk
