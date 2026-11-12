@@ -72,6 +72,32 @@ Relative** (each repeat continues from where the last ended, for a turning angle
 keyframe. The panel is small on purpose: widen it by dragging the line between it and the
 node editor, and use the **»** button when the tool row does not fit.
 
+## Merge and Transform controls
+
+Select a **Merge** or **Transform** node to see these in the Inspector.
+
+- **Apply Mode** has 33 modes (Normal, Screen, Multiply, Overlay, Soft Light, Hard Light,
+  Color Dodge, Color Burn, Hue, Saturation, Color, Luminosity, Divide, Average, Negation, and
+  more). With **Normal**, **Operator** chooses Over (the default), In (the foreground only
+  where the background has picture), Held Out (only where it has none), Atop (the foreground
+  only on the background's picture, the background kept) or XOr.
+- **Blend** fades the whole foreground. **Alpha Gain** fades only its transparency: lowering it
+  makes the foreground add light instead of covering. **Subtractive / Additive** at 0 covers
+  the background as usual; at 1 the background stays at full strength beneath the foreground
+  (for glows and fire). **Burn In** brings the covering back as you move towards Additive.
+- **Center**, **Pivot**, **Size**, **Angle** and **Flip** place the foreground. The pivot is the
+  point it turns and scales about (0.5, 0.5 is the middle). **Invert Transform** applies the
+  opposite move. **Use Frame Format Settings** off lets you give a **Reference Width / Height**:
+  the foreground is first stretched to that size.
+- **Edges** (Merge and Transform): what shows where the moved picture does not reach the edges
+  of the frame. **Canvas** shows nothing, **Wrap** repeats the picture, **Duplicate** stretches
+  the border pixels, **Mirror** mirrors the picture.
+- **Filter Method**: how the picture is resampled when it is moved or scaled. Linear is the
+  default; Cubic, Catmull-Rom, Mitchell and Lanczos are sharper, Gaussian is softer, Nearest
+  Neighbor keeps hard pixels.
+
+All numbers here can be keyframed with the diamond next to them.
+
 ## Tips
 
 - **Fade the text in:** select **Merge1** and keyframe its **Blend** (0 at the start, 1 a

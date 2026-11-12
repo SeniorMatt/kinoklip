@@ -5,6 +5,7 @@
 #pragma once
 
 #include "core/Composition.h"
+#include "render/CompMath.h"
 #include "render/GlEffects.h"
 #include "render/GlGenerators.h"
 #include "render/GlKit.h"
@@ -113,6 +114,9 @@ private:
     PooledTarget mixPass(
         GlKit& kit, const CompEval& ev, GLuint a, GLuint b, GLuint mask, float amount);
 
+    /// @p texture drawn through @p inputToOutput (timeline px) by the per-pixel resampler.
+    PooledTarget resamplePass(GlKit& kit, const CompEval& ev, GLuint texture,
+        const QTransform& inputToOutput, const compmath::Resampling& r, bool* invertible);
     PooledTarget merge(GlKit& kit, const CompEval& ev, const CompNode& n, int bg, int fg, int mask);
     PooledTarget transformNode(GlKit& kit, const CompEval& ev, const CompNode& n, int input);
     PooledTarget rectNode(GlKit& kit, const CompEval& ev, const CompNode& n, int input);
@@ -136,6 +140,9 @@ private:
     GLint m_ccLevels = -1, m_ccLgg = -1, m_ccSat = -1;
     GlProgram m_channels;
     GLint m_chSources = -1;
+    GlProgram m_resample;
+    GLint m_resampleInverse = -1, m_resampleEdges = -1, m_resampleFilter = -1;
+    GLint m_mergeOp = -1, m_mergeAlphaGain = -1, m_mergeSubAdd = -1, m_mergeBurnIn = -1;
     GlProgram m_warp;
     GLint m_warpInverse = -1;
     GlProgram m_noise;

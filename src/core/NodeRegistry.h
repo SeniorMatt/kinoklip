@@ -154,6 +154,17 @@ inline const QString FlipV = QStringLiteral("flipV"); ///< bool
 // Merge / Dissolve.
 inline const QString BlendMode = QStringLiteral("blendMode"); ///< choice (blendmodes::)
 inline const QString Opacity = QStringLiteral("opacity"); ///< 0..1
+inline const QString Operation = QStringLiteral("operation"); ///< Merge: choice (mergeops::)
+inline const QString AlphaGain = QStringLiteral("alphaGain"); ///< Merge: 0..1
+inline const QString BurnIn = QStringLiteral("burnIn"); ///< Merge: 0..1
+inline const QString SubAdd = QStringLiteral("subAdd"); ///< Merge: 0 subtractive .. 1 additive
+// Merge / Transform resampling.
+inline const QString Edges = QStringLiteral("edges"); ///< choice (edgemodes::)
+inline const QString InvertTransform = QStringLiteral("invertTransform"); ///< bool
+inline const QString FilterMethod = QStringLiteral("filterMethod"); ///< choice (filtermethods::)
+inline const QString UseFrameFormat = QStringLiteral("useFrameFormat"); ///< Merge: bool
+inline const QString RefWidth = QStringLiteral("refWidth"); ///< Merge: Reference Size, px
+inline const QString RefHeight = QStringLiteral("refHeight");
 inline const QString Mix = QStringLiteral("mix"); ///< Dissolve: 0 = background, 1 = foreground
 // Crop (timeline pixels from each edge).
 inline const QString Left = QStringLiteral("left");
@@ -249,6 +260,21 @@ inline const QString LinearLight = QStringLiteral("linearLight");
 inline const QString VividLight = QStringLiteral("vividLight");
 inline const QString PinLight = QStringLiteral("pinLight");
 inline const QString HardMix = QStringLiteral("hardMix");
+// Added in 1.7 (indices 19 and up). Hue .. Luminosity use the whole colour, the rest each channel.
+inline const QString Hue = QStringLiteral("hue");
+inline const QString Saturation = QStringLiteral("saturation");
+inline const QString Color = QStringLiteral("color");
+inline const QString Luminosity = QStringLiteral("luminosity");
+inline const QString Divide = QStringLiteral("divide");
+inline const QString DarkerColor = QStringLiteral("darkerColor");
+inline const QString LighterColor = QStringLiteral("lighterColor");
+inline const QString Average = QStringLiteral("average");
+inline const QString Negation = QStringLiteral("negation");
+inline const QString Reflect = QStringLiteral("reflect");
+inline const QString Glow = QStringLiteral("glow");
+inline const QString Phoenix = QStringLiteral("phoenix");
+inline const QString Freeze = QStringLiteral("freeze");
+inline const QString Heat = QStringLiteral("heat");
 /// Index of @p mode (0 = Normal for unknown values): the number the blend functions
 /// (compmath::blendChannel(), the GLSL kBlendFunctionGlsl) switch on. Stable: new modes are
 /// appended.
@@ -261,6 +287,41 @@ inline const QString HardMix = QStringLiteral("hardMix");
 /// Translated name of mode @p id ("Soft Light"); @p id itself if unknown.
 [[nodiscard]] QString displayName(const QString& id);
 } // namespace blendmodes
+
+/// Merge operations of the Normal apply mode (nodekeys::Operation), Porter-Duff style.
+namespace mergeops {
+inline const QString Over = QStringLiteral("over");
+inline const QString In = QStringLiteral("in");
+inline const QString HeldOut = QStringLiteral("heldOut");
+inline const QString Atop = QStringLiteral("atop");
+inline const QString XOr = QStringLiteral("xor");
+/// Index (0 Over .. 4 XOr; 0 for unknown values) and ids in that order.
+[[nodiscard]] int index(const QString& op);
+[[nodiscard]] const QStringList& ids();
+} // namespace mergeops
+
+/// What lies outside the picture when Merge / Transform resample it (nodekeys::Edges).
+namespace edgemodes {
+inline const QString Canvas = QStringLiteral("canvas"); ///< transparent
+inline const QString Wrap = QStringLiteral("wrap");
+inline const QString Duplicate = QStringLiteral("duplicate"); ///< the border pixels repeat
+inline const QString Mirror = QStringLiteral("mirror");
+[[nodiscard]] int index(const QString& mode);
+[[nodiscard]] const QStringList& ids();
+} // namespace edgemodes
+
+/// Resampling filters (nodekeys::FilterMethod).
+namespace filtermethods {
+inline const QString Nearest = QStringLiteral("nearest");
+inline const QString Linear = QStringLiteral("linear");
+inline const QString Cubic = QStringLiteral("cubic"); ///< cubic B-spline
+inline const QString CatmullRom = QStringLiteral("catmullRom");
+inline const QString Mitchell = QStringLiteral("mitchell");
+inline const QString Lanczos = QStringLiteral("lanczos");
+inline const QString Gaussian = QStringLiteral("gaussian");
+[[nodiscard]] int index(const QString& method);
+[[nodiscard]] const QStringList& ids();
+} // namespace filtermethods
 
 /// Background modes (nodekeys::Mode).
 namespace backgroundmodes {

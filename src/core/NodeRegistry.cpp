@@ -71,6 +71,21 @@ QVector<ParamDescriptor> maskCommon()
         number(nodekeys::Level, tr("Level"), 0, 1, 1, 0.01)};
 }
 
+/// Edges choice (Merge, Transform).
+ParamDescriptor edgesParam()
+{
+    return choice(nodekeys::Edges, tr("Edges"), edgemodes::ids(),
+        {tr("Canvas"), tr("Wrap"), tr("Duplicate"), tr("Mirror")}, edgemodes::Canvas);
+}
+
+ParamDescriptor filterParam()
+{
+    return choice(nodekeys::FilterMethod, tr("Filter Method"), filtermethods::ids(),
+        {tr("Nearest Neighbor"), tr("Linear"), tr("Cubic"), tr("Catmull-Rom"), tr("Mitchell"),
+            tr("Lanczos"), tr("Gaussian")},
+        filtermethods::Linear);
+}
+
 QString shortNameOf(const QString& name)
 {
     // "Gaussian Blur" -> "GBlu": initials of all words but the last + its first letters.
@@ -109,7 +124,8 @@ const QStringList& blendmodes::ids()
 {
     static const QStringList modes {Normal, Screen, Multiply, Add, Overlay, Darken, Lighten,
         Difference, Subtract, HardLight, SoftLight, ColorDodge, ColorBurn, Exclusion, LinearBurn,
-        LinearLight, VividLight, PinLight, HardMix};
+        LinearLight, VividLight, PinLight, HardMix, Hue, Saturation, Color, Luminosity, Divide,
+        DarkerColor, LighterColor, Average, Negation, Reflect, Glow, Phoenix, Freeze, Heat};
     return modes;
 }
 
@@ -137,9 +153,47 @@ QString blendmodes::displayName(const QString& id)
         {ColorBurn, QT_TR_NOOP("Color Burn")}, {Exclusion, QT_TR_NOOP("Exclusion")},
         {LinearBurn, QT_TR_NOOP("Linear Burn")}, {LinearLight, QT_TR_NOOP("Linear Light")},
         {VividLight, QT_TR_NOOP("Vivid Light")}, {PinLight, QT_TR_NOOP("Pin Light")},
-        {HardMix, QT_TR_NOOP("Hard Mix")}};
+        {HardMix, QT_TR_NOOP("Hard Mix")}, {Hue, QT_TR_NOOP("Hue")},
+        {Saturation, QT_TR_NOOP("Saturation")}, {Color, QT_TR_NOOP("Color")},
+        {Luminosity, QT_TR_NOOP("Luminosity")}, {Divide, QT_TR_NOOP("Divide")},
+        {DarkerColor, QT_TR_NOOP("Darker Color")}, {LighterColor, QT_TR_NOOP("Lighter Color")},
+        {Average, QT_TR_NOOP("Average")}, {Negation, QT_TR_NOOP("Negation")},
+        {Reflect, QT_TR_NOOP("Reflect")}, {Glow, QT_TR_NOOP("Glow")},
+        {Phoenix, QT_TR_NOOP("Phoenix")}, {Freeze, QT_TR_NOOP("Freeze")},
+        {Heat, QT_TR_NOOP("Heat")}};
     const auto it = names.constFind(id);
     return it == names.constEnd() ? id : QCoreApplication::translate("kk::blendmodes", it.value());
+}
+
+const QStringList& mergeops::ids()
+{
+    static const QStringList v {Over, In, HeldOut, Atop, XOr};
+    return v;
+}
+int mergeops::index(const QString& op)
+{
+    return std::max<int>(0, int(ids().indexOf(op)));
+}
+
+const QStringList& edgemodes::ids()
+{
+    static const QStringList v {Canvas, Wrap, Duplicate, Mirror};
+    return v;
+}
+int edgemodes::index(const QString& mode)
+{
+    return std::max<int>(0, int(ids().indexOf(mode)));
+}
+
+const QStringList& filtermethods::ids()
+{
+    static const QStringList v {Nearest, Linear, Cubic, CatmullRom, Mitchell, Lanczos, Gaussian};
+    return v;
+}
+int filtermethods::index(const QString& method)
+{
+    const int i = int(ids().indexOf(method));
+    return i < 0 ? 1 : i; // Linear
 }
 
 int channelsources::index(const QString& source)
@@ -261,11 +315,22 @@ NodeRegistry::NodeRegistry()
         d.mainInput = nodeports::Background;
         d.params = {choice(k::BlendMode, tr("Apply Mode"), blendmodes::ids(), blendModeNames(),
                         blendmodes::Normal),
-            number(k::Opacity, tr("Blend"), 0, 1, 1, 0.01)};
+            choice(k::Operation, tr("Operator"), mergeops::ids(),
+                {tr("Over"), tr("In"), tr("Held Out"), tr("Atop"), tr("XOr")}, mergeops::Over),
+            number(k::Opacity, tr("Blend"), 0, 1, 1, 0.01),
+            number(k::SubAdd, tr("Subtractive / Additive"), 0, 1, 0, 0.01),
+            number(k::AlphaGain, tr("Alpha Gain"), 0, 1, 1, 0.01),
+            number(k::BurnIn, tr("Burn In"), 0, 1, 0, 0.01)};
         d.params += centre();
-        d.params += {number(k::Size, tr("Size"), 0, 100, 1, 0.01), angle(),
+        d.params += {number(k::PivotX, tr("Pivot X"), -10, 10, 0.5, 0.001),
+            number(k::PivotY, tr("Pivot Y"), -10, 10, 0.5, 0.001),
+            number(k::Size, tr("Size"), 0, 100, 1, 0.01), angle(),
             boolean(k::FlipH, tr("Flip Horizontal"), false),
-            boolean(k::FlipV, tr("Flip Vertical"), false)};
+            boolean(k::FlipV, tr("Flip Vertical"), false),
+            boolean(k::InvertTransform, tr("Invert Transform"), false), edgesParam(),
+            filterParam(), boolean(k::UseFrameFormat, tr("Use Frame Format Settings"), true),
+            number(k::RefWidth, tr("Reference Width"), 1, 16384, 1920, 1, kPx),
+            number(k::RefHeight, tr("Reference Height"), 1, 16384, 1080, 1, kPx)};
         d.controls = ViewerControls::Transform;
         add(d);
     }
@@ -293,7 +358,9 @@ NodeRegistry::NodeRegistry()
             number(k::Size, tr("Size"), 0, 100, 1, 0.01),
             number(k::Aspect, tr("Aspect"), 0.01, 100, 1, 0.01), angle(),
             boolean(k::FlipH, tr("Flip Horizontal"), false),
-            boolean(k::FlipV, tr("Flip Vertical"), false)};
+            boolean(k::FlipV, tr("Flip Vertical"), false),
+            boolean(k::InvertTransform, tr("Invert Transform"), false), edgesParam(),
+            filterParam()};
         d.controls = ViewerControls::Transform;
         add(d);
     }

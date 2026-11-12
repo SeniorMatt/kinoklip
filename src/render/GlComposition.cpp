@@ -34,6 +34,10 @@ uniform int uMode;
 uniform float uOpacity;
 uniform int uHasFg;
 uniform int uHasMask;
+uniform int uOp;
+uniform float uAlphaGain;
+uniform float uSubAdd;
+uniform float uBurnIn;
 vec3 straight(vec4 c) { return c.a > 0.0 ? c.rgb / c.a : vec3(0.0); }
 void main()
 {
@@ -46,18 +50,41 @@ void main()
         float cover = clamp(min(d.x, d.y) + 0.5, 0.0, 1.0);
         fg = texture(uSecond, f) * cover;
     }
+    vec4 s0 = fg;
     fg *= uOpacity;
+    fg.a *= uAlphaGain;
+    float keep = 1.0 - fg.a * ((1.0 - uSubAdd) + uSubAdd * uBurnIn);
     vec4 o;
     if (uMode == 0) {
-        o = fg + bg * (1.0 - fg.a);
+        float fgScale = 1.0, bgScale = keep;
+        if (uOp == 1) { fgScale = bg.a; bgScale = 0.0; }
+        else if (uOp == 2) { fgScale = 1.0 - bg.a; bgScale = 0.0; }
+        else if (uOp == 3) { fgScale = bg.a; }
+        else if (uOp == 4) { fgScale = 1.0 - bg.a; }
+        o = fg * fgScale + bg * bgScale;
     } else {
-        vec3 B = kkBlend3(uMode, straight(bg), straight(fg));
-        o.rgb = fg.rgb * (1.0 - bg.a) + bg.rgb * (1.0 - fg.a) + fg.a * bg.a * B;
-        o.a = fg.a + bg.a * (1.0 - fg.a);
+        vec3 B = kkBlend3(uMode, straight(bg), straight(s0));
+        o.rgb = fg.rgb * (1.0 - bg.a) + bg.rgb * keep + fg.a * bg.a * B;
+        o.a = fg.a + bg.a * keep;
     }
+    o = clamp(o, 0.0, 1.0);
     if (uHasMask == 1)
         o = mix(bg, o, texture(uMask, vUv).a);
     fragColor = o;
+}
+)";
+
+/// Merge / Transform resampling: the input looked up through uInvMatrix (output uv -> input
+/// uv) with the edge mode and filter method (compmath::kResampleGlsl prepended).
+const char* const kResampleFragment = R"(
+uniform sampler2D uTex;
+uniform mat3 uInvMatrix;
+uniform int uEdges;
+uniform int uFilter;
+void main()
+{
+    vec2 f = (uInvMatrix * vec3(vUv, 1.0)).xy;
+    fragColor = kkResample(uTex, f, uEdges, uFilter);
 }
 )";
 
@@ -202,13 +229,22 @@ bool GlComposition::initialize(GlKit& kit, QString* why)
 {
     GlFunctions* gl = kit.gl();
     const QByteArray merge = QByteArray(compmath::kBlendFunctionGlsl) + kMergeFragment;
+    const QByteArray resample = QByteArray(compmath::kResampleGlsl) + kResampleFragment;
     if (!build(kit, m_merge, "comp.merge", merge.constData(), why)
         || !build(kit, m_mix, "comp.mix", kMixFragment, why)
         || !build(kit, m_corrector, "comp.corrector", kCorrectorFragment, why)
         || !build(kit, m_channels, "comp.channels", kChannelsFragment, why)
         || !build(kit, m_noise, "comp.noise", kNoiseFragment, why)
-        || !build(kit, m_warp, "comp.warp", kWarpFragment, why))
+        || !build(kit, m_warp, "comp.warp", kWarpFragment, why)
+        || !build(kit, m_resample, "comp.resample", resample.constData(), why))
         return false;
+    m_resampleInverse = m_resample.uniform(gl, "uInvMatrix");
+    m_resampleEdges = m_resample.uniform(gl, "uEdges");
+    m_resampleFilter = m_resample.uniform(gl, "uFilter");
+    m_mergeOp = m_merge.uniform(gl, "uOp");
+    m_mergeAlphaGain = m_merge.uniform(gl, "uAlphaGain");
+    m_mergeSubAdd = m_merge.uniform(gl, "uSubAdd");
+    m_mergeBurnIn = m_merge.uniform(gl, "uBurnIn");
     m_warpInverse = m_warp.uniform(gl, "uInvMatrix");
     m_mergeFgMatrix = m_merge.uniform(gl, "uFgMatrix");
     m_mergeMode = m_merge.uniform(gl, "uMode");
@@ -240,7 +276,7 @@ bool GlComposition::initialize(GlKit& kit, QString* why)
 
 void GlComposition::destroy(GlKit& kit)
 {
-    for (GlProgram* p : {&m_merge, &m_mix, &m_corrector, &m_channels, &m_noise, &m_warp})
+    for (GlProgram* p : {&m_merge, &m_mix, &m_corrector, &m_channels, &m_noise, &m_warp, &m_resample})
         p->destroy(kit.gl());
     m_stack.clear();
 }
@@ -453,6 +489,28 @@ PooledTarget GlComposition::mixPass(
     return out;
 }
 
+PooledTarget GlComposition::resamplePass(GlKit& kit, const CompEval& ev, GLuint texture,
+    const QTransform& inputToOutput, const compmath::Resampling& r, bool* invertible)
+{
+    const QTransform toUv = QTransform::fromScale(1.0 / ev.frame.width(), 1.0 / ev.frame.height());
+    bool ok = false;
+    const QTransform outToIn = (toUv.inverted() * inputToOutput * toUv).inverted(&ok);
+    *invertible = ok;
+    PooledTarget out = newTarget(kit, ev, true);
+    if (!ok)
+        return out; // collapsed: nothing visible
+    kit.setBlendOver(false);
+    GlFunctions* gl = kit.gl();
+    gl->glUseProgram(m_resample.id);
+    kit.setFullscreen(m_resample);
+    kit.setMatrix(m_resampleInverse, outToIn);
+    gl->glUniform1i(m_resampleEdges, r.edges);
+    gl->glUniform1i(m_resampleFilter, r.filter);
+    kit.bindTexture(0, texture);
+    kit.drawQuad();
+    return out;
+}
+
 PooledTarget GlComposition::merge(
     GlKit& kit, const CompEval& ev, const CompNode& n, int bg, int fg, int mask)
 {
@@ -461,23 +519,37 @@ PooledTarget GlComposition::merge(
     const ParamSet& p = n.params;
     // Output uv -> foreground uv: the inverse of foreground uv -> output uv.
     const QTransform toUv = QTransform::fromScale(1.0 / ev.frame.width(), 1.0 / ev.frame.height());
-    const QTransform fgToOut
-        = toUv.inverted() * compmath::mergeForegroundMatrix(p, ev.compFrame, ev.frame) * toUv;
+    const QTransform fgMatrix = compmath::mergeForegroundMatrix(p, ev.compFrame, ev.frame);
+    const compmath::Resampling rs = compmath::resampling(p);
     bool invertible = false;
-    const QTransform outToFg = fgToOut.inverted(&invertible);
+    QTransform outToFg;
+    GLuint fgTexture = textureOf(kit, fg);
+    PooledTarget resampled; // the foreground already in output space (Edges / Filter Method)
+    if (rs.isDefault()) {
+        outToFg = (toUv.inverted() * fgMatrix * toUv).inverted(&invertible);
+    } else {
+        resampled = resamplePass(kit, ev, fgTexture, fgMatrix, rs, &invertible);
+        fgTexture = resampled->texture;
+        outToFg = QTransform();
+        invertible = true;
+    }
     PooledTarget out = newTarget(kit, ev, false);
     kit.setBlendOver(false);
     GlFunctions* gl = kit.gl();
     gl->glUseProgram(m_merge.id);
     kit.setFullscreen(m_merge);
     kit.setMatrix(m_mergeFgMatrix, outToFg);
-    gl->glUniform1i(m_mergeMode, blendmodes::index(p.staticValue(k::BlendMode).toString()));
-    gl->glUniform1f(
-        m_mergeOpacity, float(std::clamp(p.value(k::Opacity, ev.compFrame, 1.0), 0.0, 1.0)));
+    const compmath::MergeParams mp = compmath::mergeParams(p, ev.compFrame);
+    gl->glUniform1i(m_mergeMode, mp.mode);
+    gl->glUniform1i(m_mergeOp, mp.operation);
+    gl->glUniform1f(m_mergeOpacity, mp.opacity);
+    gl->glUniform1f(m_mergeAlphaGain, mp.alphaGain);
+    gl->glUniform1f(m_mergeSubAdd, mp.subAdd);
+    gl->glUniform1f(m_mergeBurnIn, mp.burnIn);
     gl->glUniform1i(m_mergeHasFg, invertible ? 1 : 0);
     gl->glUniform1i(m_mergeHasMask, mask >= 0 ? 1 : 0);
     kit.bindTexture(0, textureOf(kit, bg));
-    kit.bindTexture(1, textureOf(kit, fg));
+    kit.bindTexture(1, fgTexture);
     kit.bindTexture(2, textureOf(kit, mask));
     kit.drawQuad();
     return out;
@@ -491,6 +563,10 @@ void GlComposition::blendLayers(GlKit& kit, GLuint background, GLuint layer, int
     kit.setFullscreen(m_merge);
     kit.setMatrix(m_mergeFgMatrix, QTransform());
     gl->glUniform1i(m_mergeMode, mode);
+    gl->glUniform1i(m_mergeOp, 0);
+    gl->glUniform1f(m_mergeAlphaGain, 1.0f);
+    gl->glUniform1f(m_mergeSubAdd, 0.0f);
+    gl->glUniform1f(m_mergeBurnIn, 0.0f);
     gl->glUniform1f(m_mergeOpacity, 1.0f);
     gl->glUniform1i(m_mergeHasFg, 1);
     gl->glUniform1i(m_mergeHasMask, 0);
@@ -512,8 +588,14 @@ PooledTarget GlComposition::transformNode(
         m = compmath::trackerMatrix(n.params, ev.compFrame, ev.frame);
     else
         m = compmath::transformMatrix(n.params, ev.compFrame, ev.frame);
-    if (m.isIdentity())
+    const compmath::Resampling rs = n.type == nodetypes::Transform ? compmath::resampling(n.params)
+                                                                   : compmath::Resampling();
+    if (m.isIdentity() && rs.isDefault())
         return {};
+    if (!rs.isDefault()) {
+        bool invertible = false;
+        return resamplePass(kit, ev, textureOf(kit, input), m, rs, &invertible);
+    }
     PooledTarget out = newTarget(kit, ev, true);
     kit.setBlendOver(false);
     if (!m.isAffine()) {

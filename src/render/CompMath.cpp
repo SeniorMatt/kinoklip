@@ -48,6 +48,11 @@ QTransform transformMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
     m = m * translate(-pivot) * QTransform::fromScale(size * aspect, size)
         * QTransform().rotate(-angle) // y down: a negative turn is counter-clockwise
         * translate(pivot + (centre - mid));
+    if (p.staticValue(k::InvertTransform, false).toBool()) {
+        bool ok = false;
+        const QTransform inv = m.inverted(&ok);
+        return ok ? inv : QTransform(0, 0, 0, 0, 0, 0);
+    }
     return m;
 }
 
@@ -114,13 +119,165 @@ QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameS
     const QPointF mid(frameSize.width() / 2, frameSize.height() / 2);
     const QPointF centre
         = toFrame(num(p, k::CenterX, frame, 0.5), num(p, k::CenterY, frame, 0.5), frameSize);
+    const QPointF pivot
+        = toFrame(num(p, k::PivotX, frame, 0.5), num(p, k::PivotY, frame, 0.5), frameSize);
     const double size = num(p, k::Size, frame, 1.0);
     const double angle = num(p, k::Angle, frame, 0.0);
     const double fx = p.staticValue(k::FlipH, false).toBool() ? -1.0 : 1.0;
     const double fy = p.staticValue(k::FlipV, false).toBool() ? -1.0 : 1.0;
-    return translate(-mid) * QTransform::fromScale(size * fx, size * fy)
+    // Reference Size: the picture counts as that many pixels, stretched about the frame centre.
+    QTransform m;
+    if (!p.staticValue(k::UseFrameFormat, true).toBool()) {
+        const double sx = std::max(1.0, num(p, k::RefWidth, frame, frameSize.width()))
+            / frameSize.width();
+        const double sy = std::max(1.0, num(p, k::RefHeight, frame, frameSize.height()))
+            / frameSize.height();
+        m = translate(-mid) * QTransform::fromScale(sx, sy) * translate(mid);
+    }
+    m = m * translate(-pivot) * QTransform::fromScale(size * fx, size * fy)
         * QTransform().rotate(-angle) * translate(centre);
+    if (p.staticValue(k::InvertTransform, false).toBool()) {
+        bool ok = false;
+        const QTransform inv = m.inverted(&ok);
+        return ok ? inv : QTransform(0, 0, 0, 0, 0, 0);
+    }
+    return m;
 }
+
+Resampling resampling(const ParamSet& p)
+{
+    Resampling r;
+    r.edges = edgemodes::index(p.staticValue(k::Edges).toString());
+    r.filter = filtermethods::index(p.staticValue(k::FilterMethod).toString());
+    return r;
+}
+
+namespace {
+
+float mitchellNetravali(float d, float B, float C)
+{
+    if (d < 1.0f)
+        return ((12 - 9 * B - 6 * C) * d * d * d + (-18 + 12 * B + 6 * C) * d * d + (6 - 2 * B))
+            / 6.0f;
+    if (d < 2.0f)
+        return ((-B - 6 * C) * d * d * d + (6 * B + 30 * C) * d * d + (-12 * B - 48 * C) * d
+                   + (8 * B + 24 * C))
+            / 6.0f;
+    return 0.0f;
+}
+
+} // namespace
+
+float filterWeight(int filter, float d)
+{
+    d = std::abs(d);
+    switch (filter) {
+    case 1: // linear
+        return std::max(0.0f, 1.0f - d);
+    case 2: // cubic B-spline
+        return mitchellNetravali(d, 1.0f, 0.0f);
+    case 3: // Catmull-Rom
+        return mitchellNetravali(d, 0.0f, 0.5f);
+    case 4: // Mitchell
+        return mitchellNetravali(d, 1.0f / 3.0f, 1.0f / 3.0f);
+    case 5: { // Lanczos, two lobes
+        if (d >= 2.0f)
+            return 0.0f;
+        if (d < 1e-6f)
+            return 1.0f;
+        const float x = 3.14159265f * d;
+        return std::sin(x) / x * std::sin(x * 0.5f) / (x * 0.5f);
+    }
+    case 6: // Gaussian
+        return d >= 2.0f ? 0.0f : std::exp(-d * d / (2.0f * 0.5f * 0.5f));
+    default: // nearest has no weights
+        return d < 0.5f ? 1.0f : 0.0f;
+    }
+}
+
+int edgeIndex(int i, int n, int edges)
+{
+    switch (edges) {
+    case 1: // wrap
+        return ((i % n) + n) % n;
+    case 2: // duplicate
+        return std::clamp(i, 0, n - 1);
+    case 3: { // mirror
+        const int m = ((i % (2 * n)) + 2 * n) % (2 * n);
+        return m >= n ? 2 * n - 1 - m : m;
+    }
+    default: // canvas
+        return i < 0 || i >= n ? -1 : i;
+    }
+}
+
+const char* const kResampleGlsl = R"(
+float kkMN(float d, float B, float C)
+{
+    if (d < 1.0) return ((12.0 - 9.0 * B - 6.0 * C) * d * d * d + (-18.0 + 12.0 * B + 6.0 * C) * d * d + (6.0 - 2.0 * B)) / 6.0;
+    if (d < 2.0) return ((-B - 6.0 * C) * d * d * d + (6.0 * B + 30.0 * C) * d * d + (-12.0 * B - 48.0 * C) * d + (8.0 * B + 24.0 * C)) / 6.0;
+    return 0.0;
+}
+float kkFilter(int f, float d)
+{
+    d = abs(d);
+    if (f == 1) return max(0.0, 1.0 - d);
+    if (f == 2) return kkMN(d, 1.0, 0.0);
+    if (f == 3) return kkMN(d, 0.0, 0.5);
+    if (f == 4) return kkMN(d, 1.0 / 3.0, 1.0 / 3.0);
+    if (f == 5) {
+        if (d >= 2.0) return 0.0;
+        if (d < 1e-6) return 1.0;
+        float x = 3.14159265 * d;
+        return sin(x) / x * sin(x * 0.5) / (x * 0.5);
+    }
+    if (f == 6) return d >= 2.0 ? 0.0 : exp(-d * d / 0.5);
+    return d < 0.5 ? 1.0 : 0.0;
+}
+ivec2 kkWrapIndex(ivec2 p, ivec2 sz)
+{
+    return p - sz * ivec2(floor(vec2(p) / vec2(sz)));
+}
+vec4 kkTap(sampler2D t, ivec2 p, ivec2 sz, int edges)
+{
+    if (edges == 1) {
+        p = kkWrapIndex(p, sz);
+    } else if (edges == 2) {
+        p = clamp(p, ivec2(0), sz - 1);
+    } else if (edges == 3) {
+        ivec2 n2 = sz * 2;
+        p = kkWrapIndex(p, n2);
+        if (p.x >= sz.x) p.x = n2.x - 1 - p.x;
+        if (p.y >= sz.y) p.y = n2.y - 1 - p.y;
+    } else if (p.x < 0 || p.y < 0 || p.x >= sz.x || p.y >= sz.y) {
+        return vec4(0.0);
+    }
+    return texelFetch(t, p, 0);
+}
+vec4 kkResample(sampler2D t, vec2 uv, int edges, int filt)
+{
+    ivec2 sz = textureSize(t, 0);
+    vec2 pos = uv * vec2(sz) - 0.5;
+    if (filt == 0) return kkTap(t, ivec2(floor(pos + 0.5)), sz, edges);
+    ivec2 i0 = ivec2(floor(pos));
+    vec2 fr = pos - vec2(i0);
+    vec4 acc = vec4(0.0);
+    float wsum = 0.0;
+    for (int j = -1; j <= 2; ++j) {
+        float wy = kkFilter(filt, float(j) - fr.y);
+        for (int i = -1; i <= 2; ++i) {
+            float w = kkFilter(filt, float(i) - fr.x) * wy;
+            if (w != 0.0) {
+                acc += w * kkTap(t, i0 + ivec2(i, j), sz, edges);
+                wsum += w;
+            }
+        }
+    }
+    acc = clamp(acc / wsum, 0.0, 1.0);
+    acc.rgb = min(acc.rgb, acc.a);
+    return acc;
+}
+)";
 
 QRectF resizeRect(const ParamSet& p, int64_t frame, QSizeF frameSize)
 {
@@ -308,8 +465,95 @@ float blendChannel(int mode, float cb, float cs)
         return cs <= 0.5f ? std::min(cb, 2.0f * cs) : std::max(cb, 2.0f * cs - 1.0f);
     case 18: // hard mix
         return cb + cs >= 1.0f ? 1.0f : 0.0f;
+    case 23: // divide
+        return cs <= 1e-6f ? 1.0f : std::min(1.0f, cb / cs);
+    case 26: // average
+        return (cb + cs) * 0.5f;
+    case 27: // negation
+        return 1.0f - std::abs(1.0f - cb - cs);
+    case 28: // reflect
+        return cs >= 1.0f ? 1.0f : std::min(1.0f, cb * cb / (1.0f - cs));
+    case 29: // glow
+        return cb >= 1.0f ? 1.0f : std::min(1.0f, cs * cs / (1.0f - cb));
+    case 30: // phoenix
+        return std::min(cb, cs) - std::max(cb, cs) + 1.0f;
+    case 31: // freeze
+        return cs <= 1e-6f ? 0.0f : std::max(0.0f, 1.0f - (1.0f - cb) * (1.0f - cb) / cs);
+    case 32: // heat
+        return cb <= 1e-6f ? 0.0f : std::max(0.0f, 1.0f - (1.0f - cs) * (1.0f - cs) / cb);
     default:
         return cs;
+    }
+}
+
+namespace {
+
+float lum(const float c[3])
+{
+    return 0.3f * c[0] + 0.59f * c[1] + 0.11f * c[2];
+}
+
+float satOf(const float c[3])
+{
+    return std::max({c[0], c[1], c[2]}) - std::min({c[0], c[1], c[2]});
+}
+
+void setSat(const float c[3], float s, float out[3])
+{
+    const float mx = std::max({c[0], c[1], c[2]});
+    const float mn = std::min({c[0], c[1], c[2]});
+    for (int i = 0; i < 3; ++i)
+        out[i] = mx > mn ? (c[i] - mn) * s / (mx - mn) : 0.0f;
+}
+
+void setLum(const float c[3], float l, float out[3])
+{
+    const float d = l - lum(c);
+    for (int i = 0; i < 3; ++i)
+        out[i] = c[i] + d;
+    const float L = lum(out);
+    const float n = std::min({out[0], out[1], out[2]});
+    const float x = std::max({out[0], out[1], out[2]});
+    if (n < 0.0f) {
+        for (float* v = out; v < out + 3; ++v)
+            *v = L + (*v - L) * L / (L - n);
+    }
+    if (x > 1.0f) {
+        for (float* v = out; v < out + 3; ++v)
+            *v = L + (*v - L) * (1.0f - L) / (x - L);
+    }
+}
+
+} // namespace
+
+void blendColor(int mode, const float cb[3], const float cs[3], float out[3])
+{
+    float t[3];
+    switch (mode) {
+    case 19: // hue: hue of the source, saturation and luminosity of the backdrop
+        setSat(cs, satOf(cb), t);
+        setLum(t, lum(cb), out);
+        return;
+    case 20: // saturation
+        setSat(cb, satOf(cs), t);
+        setLum(t, lum(cb), out);
+        return;
+    case 21: // color: hue and saturation of the source
+        setLum(cs, lum(cb), out);
+        return;
+    case 22: // luminosity
+        setLum(cb, lum(cs), out);
+        return;
+    case 24: // darker color
+    case 25: { // lighter color
+        const bool backdrop = (lum(cb) <= lum(cs)) == (mode == 24);
+        for (int i = 0; i < 3; ++i)
+            out[i] = backdrop ? cb[i] : cs[i];
+        return;
+    }
+    default:
+        for (int i = 0; i < 3; ++i)
+            out[i] = blendChannel(mode, cb[i], cs[i]);
     }
 }
 
@@ -320,12 +564,73 @@ void blendPremultiplied(int mode, const float b[4], const float s[4], float o[4]
             o[i] = s[i] + b[i] * (1.0f - s[3]);
         return;
     }
+    float cb[3], cs[3], B[3];
     for (int i = 0; i < 3; ++i) {
-        const float cb = b[3] > 0 ? b[i] / b[3] : 0.0f;
-        const float cs = s[3] > 0 ? s[i] / s[3] : 0.0f;
-        o[i] = s[i] * (1 - b[3]) + b[i] * (1 - s[3]) + s[3] * b[3] * blendChannel(mode, cb, cs);
+        cb[i] = b[3] > 0 ? b[i] / b[3] : 0.0f;
+        cs[i] = s[3] > 0 ? s[i] / s[3] : 0.0f;
     }
+    blendColor(mode, cb, cs, B);
+    for (int i = 0; i < 3; ++i)
+        o[i] = s[i] * (1 - b[3]) + b[i] * (1 - s[3]) + s[3] * b[3] * B[i];
     o[3] = s[3] + b[3] * (1 - s[3]);
+}
+
+MergeParams mergeParams(const ParamSet& p, int64_t frame)
+{
+    MergeParams m;
+    m.mode = blendmodes::index(p.staticValue(k::BlendMode).toString());
+    m.operation = mergeops::index(p.staticValue(k::Operation).toString());
+    m.opacity = float(std::clamp(num(p, k::Opacity, frame, 1.0), 0.0, 1.0));
+    m.alphaGain = float(std::clamp(num(p, k::AlphaGain, frame, 1.0), 0.0, 1.0));
+    m.subAdd = float(std::clamp(num(p, k::SubAdd, frame, 0.0), 0.0, 1.0));
+    m.burnIn = float(std::clamp(num(p, k::BurnIn, frame, 0.0), 0.0, 1.0));
+    return m;
+}
+
+void mergePixel(const MergeParams& m, const float b[4], const float s0[4], float o[4])
+{
+    // Blend scales the whole premultiplied foreground, Alpha Gain only its alpha.
+    float s[4] = {s0[0] * m.opacity, s0[1] * m.opacity, s0[2] * m.opacity, s0[3] * m.opacity};
+    s[3] *= m.alphaGain;
+    const float k = (1.0f - m.subAdd) + m.subAdd * m.burnIn;
+    const float keep = 1.0f - s[3] * k; // how much of the backdrop stays under the foreground
+    const float ba = b[3];
+    if (m.mode == 0) {
+        float fgScale = 1.0f, bgScale = keep;
+        switch (m.operation) {
+        case 1: // in
+            fgScale = ba;
+            bgScale = 0.0f;
+            break;
+        case 2: // held out
+            fgScale = 1.0f - ba;
+            bgScale = 0.0f;
+            break;
+        case 3: // atop
+            fgScale = ba;
+            break;
+        case 4: // xor
+            fgScale = 1.0f - ba;
+            break;
+        default:
+            break;
+        }
+        for (int i = 0; i < 3; ++i)
+            o[i] = s[i] * fgScale + b[i] * bgScale;
+        o[3] = s[3] * fgScale + ba * bgScale;
+    } else {
+        float cb[3], cs[3], B[3];
+        for (int i = 0; i < 3; ++i) {
+            cb[i] = ba > 0 ? b[i] / ba : 0.0f;
+            cs[i] = s0[3] > 0 ? s0[i] / s0[3] : 0.0f;
+        }
+        blendColor(m.mode, cb, cs, B);
+        for (int i = 0; i < 3; ++i)
+            o[i] = s[i] * (1 - ba) + b[i] * keep + s[3] * ba * B[i];
+        o[3] = s[3] + ba * keep;
+    }
+    for (int i = 0; i < 4; ++i)
+        o[i] = std::clamp(o[i], 0.0f, 1.0f);
 }
 
 const char* const kBlendFunctionGlsl = R"(
@@ -355,10 +660,42 @@ float kkBlend(int m, float b, float s)
     if (m == 16) return s <= 0.5 ? kkBurn(b, 2.0 * s) : kkDodge(b, 2.0 * s - 1.0);
     if (m == 17) return s <= 0.5 ? min(b, 2.0 * s) : max(b, 2.0 * s - 1.0);
     if (m == 18) return b + s >= 1.0 ? 1.0 : 0.0;
+    if (m == 23) return s <= 1e-6 ? 1.0 : min(1.0, b / s);
+    if (m == 26) return (b + s) * 0.5;
+    if (m == 27) return 1.0 - abs(1.0 - b - s);
+    if (m == 28) return s >= 1.0 ? 1.0 : min(1.0, b * b / (1.0 - s));
+    if (m == 29) return b >= 1.0 ? 1.0 : min(1.0, s * s / (1.0 - b));
+    if (m == 30) return min(b, s) - max(b, s) + 1.0;
+    if (m == 31) return s <= 1e-6 ? 0.0 : max(0.0, 1.0 - (1.0 - b) * (1.0 - b) / s);
+    if (m == 32) return b <= 1e-6 ? 0.0 : max(0.0, 1.0 - (1.0 - s) * (1.0 - s) / b);
     return s;
+}
+float kkLum(vec3 c) { return 0.3 * c.r + 0.59 * c.g + 0.11 * c.b; }
+float kkSat(vec3 c) { return max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b)); }
+vec3 kkSetSat(vec3 c, float s)
+{
+    float mx = max(c.r, max(c.g, c.b));
+    float mn = min(c.r, min(c.g, c.b));
+    return mx > mn ? (c - mn) * s / (mx - mn) : vec3(0.0);
+}
+vec3 kkSetLum(vec3 c, float l)
+{
+    c += l - kkLum(c);
+    float L = kkLum(c);
+    float n = min(c.r, min(c.g, c.b));
+    float x = max(c.r, max(c.g, c.b));
+    if (n < 0.0) c = L + (c - L) * L / (L - n);
+    if (x > 1.0) c = L + (c - L) * (1.0 - L) / (x - L);
+    return c;
 }
 vec3 kkBlend3(int m, vec3 b, vec3 s)
 {
+    if (m == 19) return kkSetLum(kkSetSat(s, kkSat(b)), kkLum(b));
+    if (m == 20) return kkSetLum(kkSetSat(b, kkSat(s)), kkLum(b));
+    if (m == 21) return kkSetLum(s, kkLum(b));
+    if (m == 22) return kkSetLum(b, kkLum(s));
+    if (m == 24) return kkLum(b) <= kkLum(s) ? b : s;
+    if (m == 25) return kkLum(b) <= kkLum(s) ? s : b;
     return vec3(kkBlend(m, b.r, s.r), kkBlend(m, b.g, s.g), kkBlend(m, b.b, s.b));
 }
 )";
