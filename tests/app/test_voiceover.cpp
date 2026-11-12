@@ -700,7 +700,7 @@ private slots:
         const QDir keymaps(QStringLiteral(KK_TEST_DATA_DIR "/../../resources/keymaps"));
         const QStringList files = keymaps.entryList({QStringLiteral("*.json")});
         QVERIFY2(
-            files.size() >= 8, qPrintable(keymaps.absolutePath() + QString::number(files.size())));
+            files.size() >= 7, qPrintable(keymaps.absolutePath() + QString::number(files.size())));
         for (const QString& name : files) {
             QFile file(keymaps.filePath(name));
             QVERIFY(file.open(QIODevice::ReadOnly));

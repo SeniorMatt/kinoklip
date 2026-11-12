@@ -10,6 +10,7 @@
 
 #include "app/commands/Command.h"
 #include "ui/common/VimCommandLine.h"
+#include "app/VimModeLine.h"
 
 #include <QObject>
 #include <QPointer>
@@ -125,7 +126,7 @@ private:
     VimInput* m_input = nullptr;
     VimTimelineHost* m_host = nullptr;
     PageBar* m_pageBar = nullptr;
-    VimModeLine* m_modeLine = nullptr;
+    QPointer<VimModeLine> m_modeLine;
     VimWhichKey* m_whichKey = nullptr;
     QPointer<PanelFrame> m_framed; ///< the panel drawn with the focus frame
     QPointer<PanelFrame> m_previousFrame; ///< the panel that had it before (<C-w>p)

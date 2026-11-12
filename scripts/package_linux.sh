@@ -117,7 +117,9 @@ classify() {
 #    Not shipped: eglfs/linuxfb/vnc platforms and egldeviceintegrations (only used by the
 #    eglfs platform: no desktop session needs it), gstreamer multimedia (we use the FFmpeg
 #    backend that shares the bundled FFmpeg), platformthemes (gtk3 would drag in GTK; the
-#    KDE theme cannot be built for Qt 6.4 -- host-Qt mode exists for that), tls, sql, print.
+#    KDE theme cannot be built for Qt 6.4 -- host-Qt mode exists for that), sql, print.
+#    tls is shipped: without it every HTTPS download (the AI model) fails with "TLS
+#    initialization failed".
 # ---------------------------------------------------------------------------------------
 PLUGIN_GLOBS=(
     # Wayland: Qt >= 6.10 ships a single platforms/libqwayland.so; older Qt (6.4 host) has
@@ -136,6 +138,8 @@ PLUGIN_GLOBS=(
     'iconengines/*.so'
     multimedia/libffmpegmediaplugin.so
     'platforminputcontexts/*.so'
+    tls/libqopensslbackend.so
+    tls/libqcertonlybackend.so
     # The real Breeze look (KF6 builds only; the globs match nothing on the Qt 6.4 host):
     # the Breeze widget style, KDE's recolouring icon engine (Breeze icons are compiled into
     # libKF6BreezeIcons, pulled in as a dependency) and KWindowSystem's platform plugins

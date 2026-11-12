@@ -267,6 +267,8 @@ VimController::~VimController()
 
 void VimController::updateModeLine()
 {
+    if (!m_modeLine) // the window is being torn down
+        return;
     const bool on = m_input->active();
     m_modeLine->setVisible(on);
     if (!on)
