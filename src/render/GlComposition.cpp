@@ -123,6 +123,38 @@ void main()
 }
 )";
 
+/// The Common Controls: compmath::applyCommon() on the node's input (uTex) and result (uSecond).
+const char* const kCommonFragment = R"(
+uniform sampler2D uTex;
+uniform sampler2D uSecond;
+uniform sampler2D uMask;
+uniform int uHasMask;
+uniform float uBlend;
+uniform vec4 uChannels;   // Process R, G, B, A (0 or 1)
+uniform int uMaskInverted;
+uniform int uMultiply;
+vec3 straight(vec4 c) { return c.a > 0.0 ? c.rgb / c.a : vec3(0.0); }
+void main()
+{
+    vec4 in4 = texture(uTex, vUv);
+    vec4 res = texture(uSecond, vUv);
+    vec4 r = res;
+    if (uChannels != vec4(1.0)) {
+        vec3 si = straight(in4), sr = straight(res);
+        float a = uChannels.a > 0.5 ? res.a : in4.a;
+        r = vec4(vec3(uChannels.r > 0.5 ? sr.r : si.r, uChannels.g > 0.5 ? sr.g : si.g,
+                      uChannels.b > 0.5 ? sr.b : si.b) * a, a);
+    }
+    if (uHasMask == 1) {
+        float m = texture(uMask, vUv).a;
+        if (uMaskInverted == 1)
+            m = 1.0 - m;
+        r = uMultiply == 1 ? r * m : mix(in4, r, m);
+    }
+    fragColor = mix(in4, r, uBlend);
+}
+)";
+
 /// Color Corrector: compmath::applyCorrector() on the straight colour.
 const char* const kCorrectorFragment = R"(
 uniform sampler2D uTex;
@@ -232,6 +264,7 @@ bool GlComposition::initialize(GlKit& kit, QString* why)
     const QByteArray resample = QByteArray(compmath::kResampleGlsl) + kResampleFragment;
     if (!build(kit, m_merge, "comp.merge", merge.constData(), why)
         || !build(kit, m_mix, "comp.mix", kMixFragment, why)
+        || !build(kit, m_common, "comp.common", kCommonFragment, why)
         || !build(kit, m_corrector, "comp.corrector", kCorrectorFragment, why)
         || !build(kit, m_channels, "comp.channels", kChannelsFragment, why)
         || !build(kit, m_noise, "comp.noise", kNoiseFragment, why)
@@ -253,6 +286,11 @@ bool GlComposition::initialize(GlKit& kit, QString* why)
     m_mergeHasMask = m_merge.uniform(gl, "uHasMask");
     m_mixAmount = m_mix.uniform(gl, "uAmount");
     m_mixHasMask = m_mix.uniform(gl, "uHasMask");
+    m_commonHasMask = m_common.uniform(gl, "uHasMask");
+    m_commonBlend = m_common.uniform(gl, "uBlend");
+    m_commonChannels = m_common.uniform(gl, "uChannels");
+    m_commonInverted = m_common.uniform(gl, "uMaskInverted");
+    m_commonMultiply = m_common.uniform(gl, "uMultiply");
     m_ccLevels = m_corrector.uniform(gl, "uLevels");
     m_ccLgg = m_corrector.uniform(gl, "uLgg");
     m_ccSat = m_corrector.uniform(gl, "uSat");
@@ -337,6 +375,15 @@ PooledTarget GlComposition::newTarget(GlKit& kit, const CompEval& ev, bool clear
     return t;
 }
 
+namespace {
+/// True if the Common Controls skip the node (Blend 0 with Process When Blend Is 0.0 off).
+bool commonSkips(const CompNode& n, int64_t frame)
+{
+    return NodeRegistry::instance().hasCommonControls(n.type)
+        && compmath::commonParams(n, frame).skipped();
+}
+} // namespace
+
 PooledTarget GlComposition::evaluate(GlKit& kit, const CompEval& ev, quint64 nodeId)
 {
     // Re-entrant (a MediaIn of a nested clip may evaluate another composition): one slot
@@ -359,7 +406,7 @@ PooledTarget GlComposition::evaluate(GlKit& kit, const CompEval& ev, quint64 nod
             if (s >= 0 && l.outputIndex == 0)
                 ++list[size_t(s)].refs;
         };
-        if (!n->enabled) {
+        if (!n->enabled || commonSkips(*n, ev.compFrame)) {
             if (const NodeLink* main = compops::mainInputLink(*n))
                 count(*main);
         } else {
@@ -398,7 +445,7 @@ void GlComposition::evalNode(GlKit& kit, const CompEval& ev, int index)
             release(inputOwner(n, it.key()));
     };
     const int mainOwner = d && !d->mainInput.isEmpty() ? inputOwner(n, d->mainInput) : -1;
-    if (!d || !n.enabled || n.type == nodetypes::MediaOut) {
+    if (!d || !n.enabled || n.type == nodetypes::MediaOut || commonSkips(n, ev.compFrame)) {
         if (!d && !m_warned.contains(n.type)) {
             m_warned.insert(n.type);
             qCWarning(lcRender) << "composition: unknown node type" << n.type;
@@ -413,19 +460,24 @@ void GlComposition::evalNode(GlKit& kit, const CompEval& ev, int index)
     const int maskOwner = d->input(nodeports::Mask) ? inputOwner(n, nodeports::Mask) : -1;
     PooledTarget out;
     bool handledMask = false;
+    const bool common = NodeRegistry::instance().hasCommonControls(n.type);
+    const compmath::CommonParams cp
+        = common ? compmath::commonParams(n, ev.compFrame) : compmath::CommonParams();
+    // The Common Controls pass (Blend, channels, mask options) does the mask work itself.
+    const bool commonPass = common && (cp.needsPass() || (maskOwner >= 0 && cp.maskInverted));
     if (n.type == nodetypes::MediaIn) {
         out = newTarget(kit, ev, true);
         if (ev.sources)
             ev.sources->drawMediaIn(n, ev.compFrame, *out);
     } else if (n.type == nodetypes::Merge) {
         const int fg = inputOwner(n, nodeports::Foreground);
-        out = merge(kit, ev, n, mainOwner, fg, maskOwner);
+        out = merge(kit, ev, n, mainOwner, fg, commonPass ? -1 : maskOwner);
         handledMask = true;
     } else if (n.type == nodetypes::Dissolve) {
         const int fg = inputOwner(n, nodeports::Foreground);
         const float t = float(std::clamp(n.params.value(k::Mix, ev.compFrame, 0.0), 0.0, 1.0));
         out = mixPass(kit, ev, textureOf(kit, mainOwner), textureOf(kit, fg),
-            maskOwner >= 0 ? textureOf(kit, maskOwner) : 0, t);
+            maskOwner >= 0 && !commonPass ? textureOf(kit, maskOwner) : 0, t);
         handledMask = true;
     } else if (n.type == nodetypes::Transform || n.type == nodetypes::Tracker
         || n.type == nodetypes::PlanarTracker) {
@@ -460,7 +512,11 @@ void GlComposition::evalNode(GlKit& kit, const CompEval& ev, int index)
             --list[size_t(mainOwner)].refs;
         return;
     }
-    if (maskOwner >= 0 && !handledMask) {
+    if (commonPass) {
+        const GLuint input = d->mainInput.isEmpty() ? 0 : textureOf(kit, mainOwner);
+        out = commonPassOf(kit, ev, cp, input, out->texture,
+            maskOwner >= 0 ? textureOf(kit, maskOwner) : 0);
+    } else if (maskOwner >= 0 && !handledMask) {
         // "The effect applies only inside the mask": mix(input, effect, mask).
         const GLuint input = d->mainInput.isEmpty() ? 0 : textureOf(kit, mainOwner);
         out = mixPass(kit, ev, input, out->texture, textureOf(kit, maskOwner), 1.0f);
@@ -471,6 +527,27 @@ void GlComposition::evalNode(GlKit& kit, const CompEval& ev, int index)
 }
 
 // ---- Passes ----
+
+PooledTarget GlComposition::commonPassOf(GlKit& kit, const CompEval& ev,
+    const compmath::CommonParams& c, GLuint in, GLuint result, GLuint mask)
+{
+    PooledTarget out = newTarget(kit, ev, false);
+    kit.setBlendOver(false);
+    GlFunctions* gl = kit.gl();
+    gl->glUseProgram(m_common.id);
+    kit.setFullscreen(m_common);
+    gl->glUniform1f(m_commonBlend, c.blend);
+    gl->glUniform4f(m_commonChannels, c.channels[0] ? 1.0f : 0.0f, c.channels[1] ? 1.0f : 0.0f,
+        c.channels[2] ? 1.0f : 0.0f, c.channels[3] ? 1.0f : 0.0f);
+    gl->glUniform1i(m_commonInverted, c.maskInverted ? 1 : 0);
+    gl->glUniform1i(m_commonMultiply, c.multiplyByMask ? 1 : 0);
+    gl->glUniform1i(m_commonHasMask, mask ? 1 : 0);
+    kit.bindTexture(0, in ? in : kit.transparentTexture());
+    kit.bindTexture(1, result);
+    kit.bindTexture(2, mask ? mask : kit.transparentTexture());
+    kit.drawQuad();
+    return out;
+}
 
 PooledTarget GlComposition::mixPass(
     GlKit& kit, const CompEval& ev, GLuint a, GLuint b, GLuint mask, float amount)

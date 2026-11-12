@@ -140,6 +140,33 @@ void mergePixel(const MergeParams& m, const float b[4], const float s[4], float 
 /// @p mode into @p o (the formula above; mode 0 = plain "over").
 void blendPremultiplied(int mode, const float b[4], const float s[4], float o[4]);
 
+/// The Common Controls (Settings) of a node at one frame.
+struct CommonParams
+{
+    float blend = 1; ///< 0..1; Merge: its own Blend (applied inside the Merge, so 1 here)
+    bool channels[4] = {true, true, true, true}; ///< Process Red, Green, Blue, Alpha
+    bool maskInverted = false, multiplyByMask = false;
+    bool processAtZero = true;
+    float ownBlend = 1; ///< the Blend that "Process When Blend Is 0.0" looks at
+    /// True if the post pass changes anything (no for a node left at the defaults).
+    [[nodiscard]] bool needsPass() const
+    {
+        return blend < 1 || !channels[0] || !channels[1] || !channels[2] || !channels[3]
+            || multiplyByMask;
+    }
+    /// True if the node is not processed at all (Blend 0 with Process When Blend Is 0.0 off).
+    [[nodiscard]] bool skipped() const { return !processAtZero && ownBlend <= 0; }
+};
+[[nodiscard]] CommonParams commonParams(const CompNode& node, int64_t frame);
+/// The Common Controls on one premultiplied pixel: @p in is the node's main input, @p res
+/// its result (rgba 0..1). Unprocessed channels are taken from @p in (the colour channels as
+/// straight colour, then re-premultiplied). @p mask is the Effect Mask's alpha or null: with
+/// Multiply By Mask the result is multiplied by it, otherwise the effect only applies inside it
+/// (mix(in, result, mask)); Apply Mask Inverted uses 1 - mask. Last, Blend mixes the input
+/// and the result. The GLSL pass (GlComposition) computes exactly the same.
+void applyCommon(const CommonParams& c, const float in[4], const float res[4],
+    const float* mask, float out[4]);
+
 /// Background node as a generator pattern (render/Generators: solid = four equal corners,
 /// gradient = linear along the angle across the frame, four corner = TL, TR, BL, BR), so the
 /// GPU (GlGenerators) and CPU (renderGeneratorImage()) draw it alike.

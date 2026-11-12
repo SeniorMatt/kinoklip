@@ -587,6 +587,49 @@ MergeParams mergeParams(const ParamSet& p, int64_t frame)
     return m;
 }
 
+CommonParams commonParams(const CompNode& n, int64_t frame)
+{
+    CommonParams c;
+    const ParamSet& p = n.params;
+    const bool merge = n.type == nodetypes::Merge;
+    c.ownBlend = float(std::clamp(
+        num(p, merge ? k::Opacity : k::CommonBlend, frame, 1.0), 0.0, 1.0));
+    c.blend = merge ? 1.0f : c.ownBlend;
+    const QString keys[4] = {k::CommonRed, k::CommonGreen, k::CommonBlue, k::CommonAlpha};
+    for (int i = 0; i < 4; ++i)
+        c.channels[i] = p.staticValue(keys[i], true).toBool();
+    c.maskInverted = p.staticValue(k::MaskInverted, false).toBool();
+    c.multiplyByMask = p.staticValue(k::MultiplyByMask, false).toBool();
+    c.processAtZero = p.staticValue(k::ProcessAtZero, true).toBool();
+    return c;
+}
+
+void applyCommon(const CommonParams& c, const float in[4], const float res[4], const float* mask,
+    float out[4])
+{
+    float r[4] = {res[0], res[1], res[2], res[3]};
+    if (!c.channels[0] || !c.channels[1] || !c.channels[2] || !c.channels[3]) {
+        float si[3] = {0, 0, 0}, sr[3] = {0, 0, 0};
+        if (in[3] > 0)
+            for (int i = 0; i < 3; ++i)
+                si[i] = in[i] / in[3];
+        if (res[3] > 0)
+            for (int i = 0; i < 3; ++i)
+                sr[i] = res[i] / res[3];
+        const float a = c.channels[3] ? res[3] : in[3];
+        for (int i = 0; i < 3; ++i)
+            r[i] = (c.channels[i] ? sr[i] : si[i]) * a;
+        r[3] = a;
+    }
+    if (mask) {
+        const float m = c.maskInverted ? 1.0f - *mask : *mask;
+        for (int i = 0; i < 4; ++i)
+            r[i] = c.multiplyByMask ? r[i] * m : in[i] + (r[i] - in[i]) * m;
+    }
+    for (int i = 0; i < 4; ++i)
+        out[i] = in[i] + (r[i] - in[i]) * c.blend;
+}
+
 void mergePixel(const MergeParams& m, const float b[4], const float s0[4], float o[4])
 {
     // Blend scales the whole premultiplied foreground, Alpha Gain only its alpha.

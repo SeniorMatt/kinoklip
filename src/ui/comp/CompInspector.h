@@ -48,6 +48,8 @@ public:
     [[nodiscard]] quint64 shownNode() const { return m_node; }
     /// The parameter group (nullptr without a node).
     [[nodiscard]] ParamGroupBox* group() const { return m_group; }
+    /// The Settings (Common Controls) section, or nullptr (masks, MediaOut).
+    [[nodiscard]] ParamGroupBox* settings() const { return m_settings; }
     /// MediaIn nodes: the Source picker (the clip's own picture or a media pool item), else
     /// null (spec 42b.30).
     [[nodiscard]] QComboBox* sourcePicker() const { return m_source; }
@@ -94,6 +96,7 @@ private:
     QCheckBox* m_enable = nullptr;
     QToolButton* m_reset = nullptr;
     ParamGroupBox* m_group = nullptr;
+    ParamGroupBox* m_settings = nullptr; ///< Settings > Common Controls
     QComboBox* m_source = nullptr; ///< sourcePicker()
     void fillSourcePicker(const CompNode& node);
     void fillFollowPicker(const CompNode& node);

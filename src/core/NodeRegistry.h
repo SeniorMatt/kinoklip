@@ -237,6 +237,17 @@ inline const QString ToRed = QStringLiteral("toRed");
 inline const QString ToGreen = QStringLiteral("toGreen");
 inline const QString ToBlue = QStringLiteral("toBlue");
 inline const QString ToAlpha = QStringLiteral("toAlpha");
+// Common Controls (the Settings section of every tool but masks and MediaOut). They are not in
+// NodeDescriptor::params: a node carries them only once one is changed, so older files and new
+// nodes stay as they were.
+inline const QString CommonBlend = QStringLiteral("ccBlend"); ///< 0..1, default 1
+inline const QString CommonRed = QStringLiteral("ccRed"); ///< bool, default on
+inline const QString CommonGreen = QStringLiteral("ccGreen");
+inline const QString CommonBlue = QStringLiteral("ccBlue");
+inline const QString CommonAlpha = QStringLiteral("ccAlpha");
+inline const QString MaskInverted = QStringLiteral("ccMaskInverted"); ///< Apply Mask Inverted
+inline const QString MultiplyByMask = QStringLiteral("ccMultiplyByMask");
+inline const QString ProcessAtZero = QStringLiteral("ccProcessAtZero"); ///< default on
 } // namespace nodekeys
 
 /// Merge blend modes (nodekeys::BlendMode values), in the order of the choice list.
@@ -371,6 +382,12 @@ public:
     [[nodiscard]] QVector<const NodeDescriptor*> byCategory(NodeCategory category) const;
     /// ParamSet with the defaults of type @p id (empty if unknown).
     [[nodiscard]] ParamSet defaultParams(const QString& id) const;
+    /// True if node type @p id has the Common Controls (everything but masks and MediaOut).
+    [[nodiscard]] bool hasCommonControls(const QString& id) const;
+    /// The Common Controls as parameter descriptors (Blend, Red, Green, Blue, Alpha, Apply
+    /// Mask Inverted, Multiply By Mask, Process When Blend Is 0.0). Merge has no Blend here:
+    /// its own Blend (nodekeys::Opacity) is the same control.
+    [[nodiscard]] QVector<ParamDescriptor> commonControls(const QString& id) const;
     /// Translated name of a library section.
     [[nodiscard]] static QString categoryName(NodeCategory category);
     /// Node type id of EffectRegistry effect @p effectId ("fx:" + id).

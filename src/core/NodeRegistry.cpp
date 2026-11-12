@@ -263,6 +263,30 @@ ParamSet NodeRegistry::defaultParams(const QString& id) const
     return set;
 }
 
+bool NodeRegistry::hasCommonControls(const QString& id) const
+{
+    const NodeDescriptor* d = find(id);
+    return d && id != nodetypes::MediaOut && d->category != NodeCategory::Mask;
+}
+
+QVector<ParamDescriptor> NodeRegistry::commonControls(const QString& id) const
+{
+    namespace k = nodekeys;
+    QVector<ParamDescriptor> out;
+    if (!hasCommonControls(id))
+        return out;
+    if (id != nodetypes::Merge)
+        out.append(number(k::CommonBlend, tr("Blend"), 0, 1, 1, 0.01));
+    out += {boolean(k::CommonRed, tr("Process Red"), true),
+        boolean(k::CommonGreen, tr("Process Green"), true),
+        boolean(k::CommonBlue, tr("Process Blue"), true),
+        boolean(k::CommonAlpha, tr("Process Alpha"), true),
+        boolean(k::MaskInverted, tr("Apply Mask Inverted"), false),
+        boolean(k::MultiplyByMask, tr("Multiply By Mask"), false),
+        boolean(k::ProcessAtZero, tr("Process When Blend Is 0.0"), true)};
+    return out;
+}
+
 QString NodeRegistry::categoryName(NodeCategory category)
 {
     switch (category) {

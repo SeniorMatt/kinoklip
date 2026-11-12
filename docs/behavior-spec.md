@@ -2475,3 +2475,16 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 90.8 | `~` (or Clear) empties both viewers: no node, buffer B and the locks cleared. | Done (spec90_checkerControlsLockClearAndZoom) |
 | 90.9 | Ctrl+1 sets the viewer to 100% zoom, centred. | Done (spec90_checkerControlsLockClearAndZoom) |
 | 90.10 | The transport has a Loop button with three states, clicked in turn: Loop (back to the first frame), Ping-pong (turns round at both ends) and Once (stops on the last frame). | Done (spec90_loopModeHasThreeStates) |
+
+
+## 91. Common Controls on the Compositing page (commonctl branch, roadmap 1.7 step 6)
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 91.1 | Every node except masks and MediaOut has a **Settings** section in the Compositing Inspector (collapsed, under the node's own parameters): Blend, Process Red / Green / Blue / Alpha, Apply Mask Inverted, Multiply By Mask, Process When Blend Is 0.0. Merge has no second Blend: its own Blend (`opacity`) is the control. | Done (test_commoncontrols defaultsAddNoKeys) |
+| 91.2 | **Blend** (0 - 1, default 1, keyframeable `ccBlend`) is mix(input, result, Blend), the input being the node's main input (transparent for nodes without one, so a Background fades in). | Done (blendMixesInputAndResult) |
+| 91.3 | A channel with **Process** off is taken from the node's input (colour channels as straight colour, then premultiplied by the output alpha; alpha as it is). | Done (unprocessedChannelsComeFromTheInput, unprocessedAlphaKeepsTheInputAlpha, pixelMath) |
+| 91.4 | The Effect Mask limits the effect (mix(input, result, mask alpha)); **Apply Mask Inverted** uses 1 - alpha; **Multiply By Mask** multiplies the result by the mask instead, so outside the mask the node outputs transparent. Merge and Dissolve follow the same rules. | Done (maskLimitsTheEffect..., multiplyByMaskClearsOutsideTheMask, mergeUsesItsMaskInvertedToo) |
+| 91.5 | With **Process When Blend Is 0.0** off and Blend 0 the node is skipped (it passes its main input through, its inputs are not evaluated). With it on (default) the picture is the same, only slower. Order: channels, mask, Blend. | Done (processWhenBlendIsZeroOffSkipsTheTool) |
+| 91.6 | One post pass does this after the node on the GPU (`GlComposition::commonPassOf()`, GLSL `kCommonFragment`) and in the CPU composition, both from `compmath::applyCommon()`; they show the same pixels. A node left at the defaults runs no extra pass. A node that passes its input through unchanged (identity) is not processed. | Done |
+| 91.7 | Project format stays 19: the keys (`ccBlend`, `ccRed`, `ccGreen`, `ccBlue`, `ccAlpha`, `ccMaskInverted`, `ccMultiplyByMask`, `ccProcessAtZero`) are not in the node's default parameters, so they are written only once changed; Reset on the node removes them. | Done |

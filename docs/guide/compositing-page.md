@@ -119,6 +119,23 @@ never get in the way of keys like **I** and **O** elsewhere.
 - **Loop** (next to Play): click to change what happens at the end of the clip: **Loop**,
   **Ping-pong** (plays forward and backward) or **Once** (stops on the last frame).
 
+## Settings on every node
+
+Every node except the masks and MediaOut has a **Settings** section under its parameters
+(collapsed until you open it):
+
+- **Blend** mixes between the node's input and its result: 1 is the full effect, 0 shows the
+  input untouched. (Merge keeps its own Blend in the main list.)
+- **Process Red, Green, Blue, Alpha**: a channel you turn off is taken from the node's input
+  instead of its result.
+- **Apply Mask Inverted**: the Effect Mask works the other way round, so the effect applies
+  outside the shape.
+- **Multiply By Mask**: instead of limiting the effect, the result is multiplied by the mask,
+  so everything outside the mask becomes transparent.
+- **Process When Blend Is 0.0**: with it off, a node whose Blend is 0 is skipped completely.
+
+Blend can be keyframed; the check boxes cannot.
+
 ## Tips
 
 - **Fade the text in:** select **Merge1** and keyframe its **Blend** (0 at the start, 1 a
