@@ -36,9 +36,11 @@
 #include <QCloseEvent>
 #include <QCursor>
 #include <QGuiApplication>
+#include <QMainWindow>
 #include <QResizeEvent>
 #include <QSettings>
 #include <QSplitter>
+#include <QStatusBar>
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -266,6 +268,12 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
             });
     }
     // Double-click on a transition / click on an fx badge: show it in the Inspector.
+    // A refused drop of an effect or transition says why in the status bar.
+    connect(m_timeline->controller(), &TimelineController::editRefused, this,
+        [this](const QString& reason) {
+            if (auto* win = qobject_cast<QMainWindow*>(window()))
+                win->statusBar()->showMessage(reason, 5000);
+        });
     connect(m_timeline->timelineWidget(), &TimelineWidget::inspectRequested, this,
         [this](quint64 clipId, TimelineWidget::InspectTarget target) {
             setPanelVisible(PanelId::Inspector, true);
