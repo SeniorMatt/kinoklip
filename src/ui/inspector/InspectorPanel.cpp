@@ -40,6 +40,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMenu>
 #include <QMimeData>
 #include <QPlainTextEdit>
@@ -48,6 +49,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSet>
+#include <QSignalBlocker>
 #include <QTabWidget>
 #include <QTextCursor>
 #include <QToolButton>
@@ -138,9 +140,8 @@ InspectorPanel::InspectorPanel(AppContext& ctx, QWidget* parent)
     m_effectTracker = new tracking::TrackerRunner(this);
     connect(m_effectTracker, &tracking::TrackerRunner::finished, this,
         &InspectorPanel::onEffectTrackFinished);
-    connect(m_effectTracker, &tracking::TrackerRunner::progress, this, [this](int, int) {
-        refreshValues();
-    });
+    connect(m_effectTracker, &tracking::TrackerRunner::progress, this,
+        [this](int, int) { refreshValues(); });
     m_stabilizer = new tracking::StabilizeRunner(this);
     connect(m_stabilizer, &tracking::StabilizeRunner::finished, this,
         &InspectorPanel::onStabilizeFinished);
@@ -592,8 +593,11 @@ InspectorPanel::Structure InspectorPanel::computeStructure(quint64 clipId) const
     if (c.kind == ClipKind::Title) {
         s.titleOrder = titlelayers::order(c);
         for (const quint64 id : s.titleOrder)
-            s.titleLayerLabels.append(titlelayers::displayName(c, id)
-                + (titlelayers::visible(c, id) ? QStringLiteral("+") : QStringLiteral("-")));
+            // Visibility only: a layer's name follows its text, so a name in the structure
+            // rebuilt the whole tab on every typed key (a frame of squeezed rows while typing
+            // fast). refreshValues() renames the list items in place.
+            s.titleLayerLabels.append(
+                titlelayers::visible(c, id) ? QStringLiteral("+") : QStringLiteral("-"));
         s.titleLayer = s.titleOrder.contains(m_titleLayer) ? m_titleLayer : 0;
     }
     s.maskIds.reserve(c.masks.size());
@@ -1215,8 +1219,27 @@ void InspectorPanel::addTransitionGroup(const ClipData& c, bool atHead)
 
 // ---- Refreshing ----
 
+void InspectorPanel::refreshTitleLayerNames()
+{
+    auto* list = findChild<QListWidget*>(QStringLiteral("title-layer-list"));
+    const ClipData* c = list ? clip(m_clipId) : nullptr;
+    if (!c || c->kind != ClipKind::Title)
+        return;
+    const QSignalBlocker block(list); // a name set here is no rename by the user
+    for (int i = 0; i < list->count(); ++i) {
+        QListWidgetItem* item = list->item(i);
+        const quint64 id = item->data(Qt::UserRole).toULongLong();
+        if (!titlelayers::exists(*c, id))
+            continue;
+        const QString name = titlelayers::displayName(*c, id);
+        if (item->text() != name && !list->isPersistentEditorOpen(item))
+            item->setText(name);
+    }
+}
+
 void InspectorPanel::refreshValues()
 {
+    refreshTitleLayerNames();
     // O(rows): two clip lookups at most (video clip + linked audio clip), then each row reads
     // its value. No widgets are created and rows skip unchanged values.
     const Timeline* timeline = m_ctx.project->timeline();

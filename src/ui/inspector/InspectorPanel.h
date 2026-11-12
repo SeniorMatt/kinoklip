@@ -29,7 +29,7 @@ class StabilizeRunner;
 class TrackerRunner;
 enum class TrackOutcome;
 struct EffectTrackPlan;
-}
+} // namespace tracking
 namespace retimeops {
 struct SpeedChange;
 }
@@ -201,7 +201,8 @@ private:
     void buildTrackingControls(ParamGroupBox* group, const EffectInstance& fx, quint64 clipId);
     /// The AI label, model status and buttons under Background Removal (spec 78); other
     /// effects get nothing (InspectorBackgroundRemoval.cpp).
-    void buildBackgroundRemovalControls(ParamGroupBox* group, const EffectInstance& fx, quint64 clipId);
+    void buildBackgroundRemovalControls(
+        ParamGroupBox* group, const EffectInstance& fx, quint64 clipId);
     void startEffectTrack(quint64 clipId, quint64 effectId, bool forward);
     void onEffectTrackFinished(kk::tracking::TrackOutcome outcome, const QString& reason);
     // ---- Stabilization (InspectorStabilize.cpp) ----
@@ -224,6 +225,7 @@ private:
 
     // ---- Refreshing ----
     void refreshValues();
+    void refreshTitleLayerNames(); ///< layer names follow their text without a rebuild
     void updateHeader();
 
     AppContext& m_ctx;
@@ -262,7 +264,8 @@ private:
     std::shared_ptr<tracking::EffectTrackPlan> m_trackPlan;
     QString m_trackMessage; ///< last result line, shown in the effect m_trackPlan names
     quint64 m_trackMessageEffect = 0;
-    QString m_stabilizeMessage; ///< last result line, shown in the section of m_stabilizeMessageClip
+    QString
+        m_stabilizeMessage; ///< last result line, shown in the section of m_stabilizeMessageClip
     quint64 m_stabilizeMessageClip = 0;
 };
 

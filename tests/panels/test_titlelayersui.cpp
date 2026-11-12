@@ -184,6 +184,32 @@ private slots:
             }
         }
     }
+    // Typing in the Text row renames the layer in the list without rebuilding the tab: a
+    // rebuild per key showed a frame of squeezed, overlapping rows while typing fast.
+    void typingKeepsTheTabAndRenamesTheLayer()
+    {
+        PanelFixture f;
+        const quint64 id
+            = effectactions::addGeneratorClip(f.project, QStringLiteral("text_title"), 0);
+        InspectorPanel panel(f.ctx);
+        panel.resize(420, 900);
+        f.selection.selectClip(id);
+        panel.tabs()->setCurrentIndex(InspectorPanel::TitleTab);
+        const QList<ParamGroupBox*> before = panel.groups();
+        QListWidget* list = layerList(panel);
+        QVERIFY(list && !before.isEmpty());
+        for (const QString& text :
+            {QStringLiteral("a"), QStringLiteral("ab"), QStringLiteral("abc")}) {
+            f.project.beginEdit(QStringLiteral("Edit Text"));
+            editops::clipById(f.project.timeline()->mutableData(), id)
+                ->title.setStatic(keys::Text, text);
+            f.project.timeline()->notifyChanged();
+            f.project.endEdit();
+            QCOMPARE(panel.groups(), before); // the same widgets: no rebuild
+            QCOMPARE(layerList(panel), list);
+            QCOMPARE(list->item(0)->text(), text);
+        }
+    }
 };
 
 QTEST_MAIN(TestTitleLayersUi)
