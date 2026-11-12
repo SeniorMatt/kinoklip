@@ -80,6 +80,8 @@ public:
         m_timePanner = std::move(panner);
     }
 
+    [[nodiscard]] QVector<QVector<ParamId>> cursorRows() const override;
+    bool nudgeValue(int steps) override;
     /// Widget-space position of the key of @p id at clip-local @p localFrame (tests).
     [[nodiscard]] QPointF keyPosAt(const ParamId& id, int64_t localFrame) const;
     /// Widget-space position of a handle tip of that key (tests).

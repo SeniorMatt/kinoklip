@@ -945,7 +945,7 @@ bool VimMachine::runBuiltin(const QString& name, const Call& call)
     } else if (name == QLatin1String("search_next") || name == QLatin1String("search_prev")) {
         if (!m_host->searchStep(name == QLatin1String("search_next"), call.count))
             m_host->showMessage(tr("No match"));
-    } else if (m_host->hostCommand(name, call.count, call.hasCount)) {
+    } else if (m_host->hostCommandArg(name, call.count, call.hasCount, call.arg)) {
         return true;
     } else if (m_commandHandler) {
         return m_commandHandler(name, call.count, call.hasCount, call.arg);

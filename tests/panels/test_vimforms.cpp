@@ -7,10 +7,12 @@
 #include "app/Theme.h"
 #include "core/EffectRegistry.h"
 #include "core/ParamKeys.h"
+#include "export/RenderQueue.h"
 #include "ui/common/Resources.h"
 #include "ui/common/VimFormHost.h"
 #include "ui/common/VimInput.h"
 #include "ui/common/VimRowOps.h"
+#include "ui/deliver/RenderQueuePanel.h"
 #include "ui/effects/EffectActions.h"
 #include "ui/inspector/InspectorPanel.h"
 #include "ui/inspector/ParamGroupBox.h"
@@ -550,6 +552,22 @@ private slots:
         // Counts multiply with G / gg.
         keys.type(QStringLiteral("gg"));
         QCOMPARE(keys.form.cursorLine(), 0);
+    }
+
+    void theRenderQueueIsAForm()
+    {
+        RenderQueue queue;
+        RenderQueuePanel panel(&queue);
+        panel.resize(400, 400);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        QCOMPARE(VimInput::contextOf(&panel), QStringLiteral("form"));
+        panel.setFocus(Qt::OtherFocusReason);
+        Keys keys;
+        keys.form.setRoot(&panel);
+        // An empty queue has nothing to press (its buttons are disabled): no rows, no crash.
+        keys.type(QStringLiteral("jkG"));
+        QVERIFY(keys.form.lines().isEmpty() || keys.form.current().anchor);
     }
 
     void aClickMovesTheCursor()

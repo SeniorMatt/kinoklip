@@ -2,6 +2,7 @@
 #include "ui/common/VimFormHost.h"
 
 #include "ui/common/PanelFrame.h"
+#include "ui/common/VimCursorFrame.h"
 #include "ui/common/VimRowOps.h"
 #include "ui/common/VimWindowNav.h"
 #include "ui/inspector/ValueField.h"
@@ -30,33 +31,6 @@
 #include <cmath>
 
 namespace kk {
-
-// ---- The frame round the row of the cursor ----
-
-class VimRowCursor final : public QWidget
-{
-public:
-    explicit VimRowCursor(QWidget* parent)
-        : QWidget(parent)
-    {
-        setAttribute(Qt::WA_TransparentForMouseEvents);
-        setAttribute(Qt::WA_NoSystemBackground);
-        setFocusPolicy(Qt::NoFocus);
-        setObjectName(QStringLiteral("VimRowCursor"));
-    }
-
-protected:
-    void paintEvent(QPaintEvent*) override
-    {
-        QPainter p(this);
-        QColor accent = palette().color(QPalette::Highlight);
-        QColor fill = accent;
-        fill.setAlpha(28);
-        p.fillRect(rect(), fill);
-        p.setPen(QPen(accent, 2));
-        p.drawRect(rect().adjusted(1, 1, -1, -1));
-    }
-};
 
 namespace {
 
@@ -268,7 +242,7 @@ void VimFormHost::show()
     if (!parent)
         return;
     if (!m_frame)
-        m_frame = new VimRowCursor(parent);
+        m_frame = new VimCursorFrame(parent);
     if (m_frame->parentWidget() != parent)
         m_frame->setParent(parent);
     const QPoint topLeft = parent->mapFrom(m_root, item.rect.topLeft());

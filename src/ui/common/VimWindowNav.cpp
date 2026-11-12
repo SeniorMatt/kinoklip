@@ -143,8 +143,9 @@ bool focusPanel(PanelFrame* frame)
 {
     if (!frame)
         return false;
-    // A panel of rows (the Inspector) takes the focus itself, whatever lists it holds.
-    if (frame->property(VimInput::kScopeProperty).toString() == QLatin1String("form")
+    // A panel with a key context of its own (the Inspector, the Mixer) takes the focus itself,
+    // whatever lists it holds.
+    if (!frame->property(VimInput::kScopeProperty).toString().isEmpty()
         && frame->focusPolicy() != Qt::NoFocus) {
         frame->setFocus(Qt::OtherFocusReason);
         return true;

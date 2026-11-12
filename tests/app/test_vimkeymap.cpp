@@ -288,11 +288,15 @@ private slots:
                 QStringLiteral("<C-l>"), QStringLiteral("<C-w>"), QStringLiteral("<C-d>"),
                 QStringLiteral("<C-u>"), QStringLiteral("<C-a>"), QStringLiteral("<C-x>")}));
         // <C-d> and <C-u> are only in the lists; the timeline keeps Change Duration and Duplicate.
-        // <C-a> and <C-x> step values in forms (the timeline keeps Select All and Cut).
+        // <C-a> and <C-x> step values in forms, move keyframes and raise the mixer fader (the
+        // timeline keeps Select All and Cut).
         for (const VimBinding& b : map.bindings()) {
             if (b.tokens.contains(QStringLiteral("<C-a>"))
                 || b.tokens.contains(QStringLiteral("<C-x>")))
-                QVERIFY2(b.context == QLatin1String("form"), qPrintable(b.context));
+                QVERIFY2(b.context == QLatin1String("form")
+                        || b.context == QLatin1String("keyframes")
+                        || b.context == QLatin1String("mixer"),
+                    qPrintable(b.context));
         }
         for (const VimBinding& b : map.bindings()) {
             if (b.tokens.contains(QStringLiteral("<C-d>"))

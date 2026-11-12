@@ -59,6 +59,7 @@ public:
     /// Widget-space centre of the diamond of row @p row at timeline frame @p frame (tests).
     [[nodiscard]] QPoint diamondPosAt(int row, int64_t frame) const;
 
+    [[nodiscard]] QVector<QVector<ParamId>> cursorRows() const override;
     /// A middle drag pans: time by @p dxPx, rows by @p dyPx (both follow the pointer).
     void setPanner(std::function<void(double dxPx, double dyPx)> panner)
     {

@@ -21,6 +21,9 @@ CONTEXT_TITLES = {
     "viewer": "Viewers only",
     "list": "Lists, trees and grids (Media Pool, Effects, Edit Index, ...)",
     "form": "Inspector and other panels of rows (Compositing Inspector, Deliver settings, ...)",
+    "keyframes": "Keyframes panel (dope sheet and curves)",
+    "nodes": "Node graphs (Compositing and Color pages)",
+    "mixer": "Mixer",
 }
 MODE_TEXT = {
     "n": "NORMAL",
@@ -83,7 +86,7 @@ def build():
             out.append(f"| {key_text(b['keys'])} | {MODE_TEXT[b['modes']]} | {cell(b['desc'])} | {run} |")
         out.append("")
 
-    for context in ("global", "timeline", "viewer", "list", "form"):
+    for context in ("global", "timeline", "viewer", "list", "form", "keyframes", "nodes", "mixer"):
         table(CONTEXT_TITLES[context], [b for b in rest if b["context"] == context])
     names = {g["keys"]: g["desc"] for g in groups}
     out.extend(["## Leader keys (Space, then...)", "", "| Keys | What it does | Runs |", "|---|---|---|"])

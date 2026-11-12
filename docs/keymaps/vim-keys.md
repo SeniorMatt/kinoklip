@@ -129,6 +129,8 @@ the timeline, and `o l h - a r` open, go up, add a bin and rename.
 | `M` | NORMAL | add a marker at the playhead | `action:mark.add_marker` |
 | `i` | NORMAL | INSERT: the keyboard profile's shortcuts work (Esc comes back) | `vim:insert_mode` |
 | `a` | NORMAL | INSERT: the keyboard profile's shortcuts work (Esc comes back) | `vim:insert_mode` |
+| `]t` | NORMAL | select the next transition and put the playhead on its edit point | `vim:transition_next` |
+| `[t` | NORMAL | select the previous transition | `vim:transition_prev` |
 
 ## Viewers only
 
@@ -215,6 +217,92 @@ the timeline, and `o l h - a r` open, go up, add a bin and rename.
 | `<<` | NORMAL | move the effect, mask or layer up in its stack | `vim:form_move_up` |
 | `K` | NORMAL | what this parameter does (its tooltip) | `vim:form_help` |
 
+## Keyframes panel (dope sheet and curves)
+
+| Keys | Mode | What it does | Runs |
+|---|---|---|---|
+| `h` | NORMAL | previous keyframe on the row (count: that many) | `vim:kf_prev` |
+| `l` | NORMAL | next keyframe on the row (count: that many) | `vim:kf_next` |
+| `j` | NORMAL | row below (count: that many) | `vim:kf_row_down` |
+| `k` | NORMAL | row above (count: that many) | `vim:kf_row_up` |
+| `0` | NORMAL | first keyframe of the row | `vim:kf_first` |
+| `$` | NORMAL | last keyframe of the row | `vim:kf_last` |
+| `gg` | NORMAL | first row; with a count, that row | `vim:kf_row_first` |
+| `G` | NORMAL | last row; with a count, that row | `vim:kf_row_last` |
+| `v` | NORMAL | select / unselect the keyframes under the cursor | `vim:kf_select_toggle` |
+| `V` | NORMAL | select every keyframe of the row | `vim:kf_select_row` |
+| `U` | NORMAL | unselect every keyframe | `vim:kf_select_none` |
+| `x` | NORMAL | delete the selected keyframes, else the one under the cursor | `vim:kf_delete` |
+| `dd` | NORMAL | delete the selected keyframes, else the one under the cursor | `vim:kf_delete` |
+| `yy` | NORMAL | copy the selected keyframes, else the one under the cursor | `vim:kf_copy` |
+| `p` | NORMAL | paste the copied keyframes with the first at the playhead | `vim:kf_paste` |
+| `o` | NORMAL | add a keyframe on this row at the playhead | `vim:kf_add` |
+| `<C-a>` | NORMAL | dope sheet: move the keyframes later; curves: raise their value (count: that many steps) | `vim:kf_inc` |
+| `<C-x>` | NORMAL | dope sheet: move the keyframes earlier; curves: lower their value | `vim:kf_dec` |
+| `>` | NORMAL | move the keyframes one frame later (count: that many) | `vim:kf_later` |
+| `<` | NORMAL | move the keyframes one frame earlier (count: that many) | `vim:kf_earlier` |
+| `<CR>` | NORMAL | playhead to the keyframe | `vim:kf_jump` |
+| `gs` | NORMAL | dope sheet / curves | `vim:kf_toggle_view` |
+| `zf` | NORMAL | fit the view to the keyframes | `vim:kf_fit` |
+| `.` | NORMAL | repeat the last change | `vim:repeat` |
+
+## Node graphs (Compositing and Color pages)
+
+| Keys | Mode | What it does | Runs |
+|---|---|---|---|
+| `h` | NORMAL | select the nearest node to the left | `vim:node_left` |
+| `j` | NORMAL | select the nearest node below | `vim:node_down` |
+| `k` | NORMAL | select the nearest node above | `vim:node_up` |
+| `l` | NORMAL | select the nearest node to the right | `vim:node_right` |
+| `w` | NORMAL | select the next node in signal order (count: that many) | `vim:node_next` |
+| `b` | NORMAL | select the previous node in signal order | `vim:node_prev` |
+| `gg` | NORMAL | select the first node (the leftmost) | `vim:node_first` |
+| `G` | NORMAL | select the last node (the rightmost) | `vim:node_last` |
+| `<CR>` | NORMAL | edit the node: focus the panel with its controls | `vim:focus_inspector` |
+| `i` | NORMAL | edit the node: focus the panel with its controls | `vim:focus_inspector` |
+| `a` | NORMAL | add a node (Compositing: the node library list; Color: a serial node after) | `vim:node_add` |
+| `o` | NORMAL | add a node after this one | `vim:node_add_after` |
+| `O` | NORMAL | add a node before this one | `vim:node_add_before` |
+| `P` | NORMAL | add a parallel node (Color) | `vim:node_add_parallel` |
+| `L` | NORMAL | add a layer node (Color) | `vim:node_add_layer` |
+| `x` | NORMAL | delete the selected nodes | `vim:node_delete` |
+| `dd` | NORMAL | delete the selected nodes | `vim:node_delete` |
+| `yy` | NORMAL | copy the selected nodes | `vim:node_copy` |
+| `p` | NORMAL | paste the copied nodes | `vim:node_paste` |
+| `r` | NORMAL | rename the node (Compositing) | `vim:node_rename` |
+| `gb` | NORMAL | bypass / enable the node (pass-through) | `vim:node_bypass` |
+| `gw` | NORMAL | wipe with the still (Color) | `vim:node_wipe` |
+| `gc` | NORMAL | connect: the first press picks this node as the source, the second (on another node) connects it to that node | `vim:node_connect` |
+| `gx` | NORMAL | disconnect the input of this node | `vim:node_disconnect` |
+| `gX` | NORMAL | disconnect every input of this node | `vim:node_disconnect_all` |
+| `v` | NORMAL | add / remove the node to the selection | `vim:node_select_toggle` |
+| `V` | NORMAL | select every node | `vim:node_select_all` |
+| `zf` | NORMAL | fit the graph to the view | `vim:node_fit` |
+| `.` | NORMAL | repeat the last change | `vim:repeat` |
+
+## Mixer
+
+| Keys | Mode | What it does | Runs |
+|---|---|---|---|
+| `h` | NORMAL | strip to the left (count: that many) | `vim:mix_left` |
+| `l` | NORMAL | strip to the right (count: that many) | `vim:mix_right` |
+| `gg` | NORMAL | first strip | `vim:mix_first` |
+| `G` | NORMAL | last strip; with a count, that strip | `vim:mix_last` |
+| `j` | NORMAL | fader down by 0.5 dB (count: that many steps) | `vim:mix_down` |
+| `k` | NORMAL | fader up by 0.5 dB (count: that many steps) | `vim:mix_up` |
+| `<C-a>` | NORMAL | fader up by 0.5 dB (count: that many steps) | `vim:mix_up` |
+| `<C-x>` | NORMAL | fader down by 0.5 dB (count: that many steps) | `vim:mix_down` |
+| `0` | NORMAL | fader to 0 dB | `vim:mix_zero` |
+| `>` | NORMAL | pan right by 5 % (count: that many) | `vim:mix_pan_right` |
+| `<` | NORMAL | pan left by 5 % (count: that many) | `vim:mix_pan_left` |
+| `m` | NORMAL | mute | `vim:mix_mute` |
+| `s` | NORMAL | solo | `vim:mix_solo` |
+| `r` | NORMAL | record arm (voice-over) | `vim:mix_arm` |
+| `i` | NORMAL | type the fader value in dB | `vim:mix_type` |
+| `<CR>` | NORMAL | open the EQ of the strip | `vim:mix_eq` |
+| `gd` | NORMAL | open the dynamics of the strip | `vim:mix_dynamics` |
+| `.` | NORMAL | repeat the last change | `vim:repeat` |
+
 ## Leader keys (Space, then...)
 
 | Keys | What it does | Runs |
@@ -287,6 +375,19 @@ the timeline, and `o l h - a r` open, go up, add a bin and rename.
 | `<leader>kb` | ease in and out | `vim:form_key_ease_in_out` |
 | `<leader>ks` | smooth (Bezier) keyframe | `vim:form_key_smooth` |
 | `<leader>kh` | static (hold) keyframe | `vim:form_key_hold` |
+| `<leader>kl` | linear keyframes | `vim:kf_interp_linear` |
+| `<leader>ki` | ease in | `vim:kf_interp_ease_in` |
+| `<leader>ko` | ease out | `vim:kf_interp_ease_out` |
+| `<leader>kb` | ease in and out | `vim:kf_interp_ease_in_out` |
+| `<leader>ks` | smooth (Bezier) keyframes | `vim:kf_interp_smooth` |
+| `<leader>kh` | static (hold) keyframes | `vim:kf_interp_hold` |
+| `<leader>kd` | delete the keyframes | `vim:kf_delete` |
+| `<leader>kk` | add a keyframe on this row at the playhead | `vim:kf_add` |
+| **`<leader>e`** | **transitions** | |
+| `<leader>ed` | delete the transition at the edit point (or the selected one) | `vim:transition_delete` |
+| `<leader>e+` | lengthen the transition by a frame (count: that many) | `vim:transition_longer` |
+| `<leader>e-` | shorten the transition by a frame (count: that many) | `vim:transition_shorter` |
+| `<leader>ea` | cycle the transition's alignment: centred, ends at the cut, starts at the cut | `vim:transition_align` |
 
 ## The command line
 

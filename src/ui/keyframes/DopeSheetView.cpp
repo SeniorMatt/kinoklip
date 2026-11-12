@@ -62,6 +62,15 @@ int DopeSheetView::rowAtY(int widgetY) const
     return logical < 0 ? -1 : logical / m_rowHeight;
 }
 
+QVector<QVector<ParamId>> DopeSheetView::cursorRows() const
+{
+    QVector<QVector<ParamId>> rows;
+    rows.reserve(m_rows.size());
+    for (const KeyRow& row : m_rows)
+        rows.append(row.params);
+    return rows;
+}
+
 void DopeSheetView::rowMarks(const KeyRow& row, QVector<Mark>& out) const
 {
     out.clear();
@@ -204,6 +213,17 @@ void DopeSheetView::paintEvent(QPaintEvent*)
         p.setBrush(Qt::NoBrush);
     }
     paintPlayhead(p);
+    // The keyboard cursor (Vim mode): the row, and a ring round the key.
+    if (hasCursor() && cursorRow() < m_rows.size()) {
+        const QRect r(0, cursorRow() * m_rowHeight + kTopPadding, width(), m_rowHeight);
+        p.fillRect(QRect(lw, r.top(), width() - lw, r.height()), withAlpha(text, 18));
+        const double x = timeMap().frameToX(double(cursorFrame()));
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(QPen(pal.color(QPalette::Highlight), 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(QPointF(x, r.center().y() + 0.5), kParamDiamond + 4, kParamDiamond + 4);
+        p.setRenderHint(QPainter::Antialiasing, false);
+    }
     p.translate(0, yOffset());
     paintBand(p, m_band);
 }

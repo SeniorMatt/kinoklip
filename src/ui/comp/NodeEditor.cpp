@@ -5,6 +5,7 @@
 
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/DragMime.h"
+#include "ui/comp/CompNodeOps.h"
 #include "ui/comp/CompSession.h"
 
 #include <QAction>
@@ -62,6 +63,7 @@ NodeEditor::NodeEditor(CompSession* session, ActionRegistry* actions, QWidget* p
     , m_actions(actions)
 {
     setObjectName(QStringLiteral("NodeEditor"));
+    new CompNodeOps(this, session, actions); // the keys of Vim mode (spec 83)
     setProperty("kkNodeEditor", true); // Edit > Cut / Copy / Paste / Delete / Select All
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);

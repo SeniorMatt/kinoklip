@@ -27,7 +27,8 @@ namespace {
 
 const QStringList kContexts {QStringLiteral("global"), QStringLiteral("timeline"),
     QStringLiteral("viewer"), QStringLiteral("list"), QStringLiteral("panel"),
-    QStringLiteral("form")};
+    QStringLiteral("form"), QStringLiteral("keyframes"), QStringLiteral("nodes"),
+    QStringLiteral("mixer")};
 
 /// The built-in commands of `vim:` items.
 const QStringList kBuiltins {// motions (VimGrammar.h) and marks
@@ -88,6 +89,37 @@ const QStringList kBuiltins {// motions (VimGrammar.h) and marks
     QStringLiteral("form_key_linear"), QStringLiteral("form_key_ease_in"),
     QStringLiteral("form_key_ease_out"), QStringLiteral("form_key_ease_in_out"),
     QStringLiteral("form_key_smooth"), QStringLiteral("form_key_hold"),
+    // keyframe editor, node graphs, mixer, transitions (VimKeyframeHost.h, VimNodeHost.h,
+    // VimMixerHost.h)
+    QStringLiteral("kf_prev"), QStringLiteral("kf_next"), QStringLiteral("kf_row_down"),
+    QStringLiteral("kf_row_up"), QStringLiteral("kf_first"), QStringLiteral("kf_last"),
+    QStringLiteral("kf_row_first"), QStringLiteral("kf_row_last"),
+    QStringLiteral("kf_select_toggle"), QStringLiteral("kf_select_row"),
+    QStringLiteral("kf_select_none"), QStringLiteral("kf_delete"), QStringLiteral("kf_copy"),
+    QStringLiteral("kf_paste"), QStringLiteral("kf_add"), QStringLiteral("kf_inc"),
+    QStringLiteral("kf_dec"), QStringLiteral("kf_later"), QStringLiteral("kf_earlier"),
+    QStringLiteral("kf_jump"), QStringLiteral("kf_toggle_view"), QStringLiteral("kf_fit"),
+    QStringLiteral("kf_interp_linear"), QStringLiteral("kf_interp_ease_in"),
+    QStringLiteral("kf_interp_ease_out"), QStringLiteral("kf_interp_ease_in_out"),
+    QStringLiteral("kf_interp_smooth"), QStringLiteral("kf_interp_hold"),
+    QStringLiteral("node_left"), QStringLiteral("node_down"), QStringLiteral("node_up"),
+    QStringLiteral("node_right"), QStringLiteral("node_next"), QStringLiteral("node_prev"),
+    QStringLiteral("node_first"), QStringLiteral("node_last"), QStringLiteral("node_add"),
+    QStringLiteral("node_add_after"), QStringLiteral("node_add_before"),
+    QStringLiteral("node_add_parallel"), QStringLiteral("node_add_layer"),
+    QStringLiteral("node_delete"), QStringLiteral("node_copy"), QStringLiteral("node_paste"),
+    QStringLiteral("node_rename"), QStringLiteral("node_bypass"), QStringLiteral("node_wipe"),
+    QStringLiteral("node_connect"), QStringLiteral("node_disconnect"),
+    QStringLiteral("node_disconnect_all"), QStringLiteral("node_select_toggle"),
+    QStringLiteral("node_select_all"), QStringLiteral("node_fit"), QStringLiteral("mix_left"),
+    QStringLiteral("mix_right"), QStringLiteral("mix_first"), QStringLiteral("mix_last"),
+    QStringLiteral("mix_up"), QStringLiteral("mix_down"), QStringLiteral("mix_zero"),
+    QStringLiteral("mix_pan_left"), QStringLiteral("mix_pan_right"), QStringLiteral("mix_mute"),
+    QStringLiteral("mix_solo"), QStringLiteral("mix_arm"), QStringLiteral("mix_type"),
+    QStringLiteral("mix_eq"), QStringLiteral("mix_dynamics"), QStringLiteral("transition_next"),
+    QStringLiteral("transition_prev"), QStringLiteral("transition_delete"),
+    QStringLiteral("transition_longer"), QStringLiteral("transition_shorter"),
+    QStringLiteral("transition_align"),
     // panels, windows and pages
     QStringLiteral("win_left"), QStringLiteral("win_down"), QStringLiteral("win_up"),
     QStringLiteral("win_right"), QStringLiteral("win_next"), QStringLiteral("win_prev"),
@@ -105,7 +137,9 @@ QStringList chainOf(const QString& context)
         return {QStringLiteral("global"), QStringLiteral("timeline"), QStringLiteral("viewer")};
     if (context == QLatin1String("timeline"))
         return {QStringLiteral("global"), QStringLiteral("timeline")};
-    if (context == QLatin1String("list") || context == QLatin1String("form"))
+    if (context == QLatin1String("list") || context == QLatin1String("form")
+        || context == QLatin1String("keyframes") || context == QLatin1String("nodes")
+        || context == QLatin1String("mixer"))
         return {QStringLiteral("global"), context};
     return {QStringLiteral("global")};
 }

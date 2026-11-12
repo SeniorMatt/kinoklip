@@ -73,6 +73,36 @@ const CurveInfo* CurveView::info(const ParamId& id) const
     return nullptr;
 }
 
+QVector<QVector<ParamId>> CurveView::cursorRows() const
+{
+    QVector<QVector<ParamId>> rows;
+    for (const ParamId& id : shownCurves())
+        rows.append({id});
+    return rows;
+}
+
+bool CurveView::nudgeValue(int steps)
+{
+    const QVector<KeyframeRef> refs = keyTargets();
+    if (refs.isEmpty() || steps == 0)
+        return false;
+    // A step is a hundredth of the parameter's range; a negated parameter (Position Y) moves
+    // the other way in storage.
+    m_ctx.project->beginEdit(tr("Change Keyframe Value"));
+    bool any = false;
+    for (const KeyframeRef& ref : refs) {
+        const CurveInfo* curve = info({ref.clipId, ref.paramPath});
+        double delta = steps * (curve ? (curve->max - curve->min) : 1.0) / 100.0;
+        if (curve && curve->displayNegated)
+            delta = -delta;
+        any = ko::offsetKeyValues(m_ctx.project->timeline()->mutableData(), {ref}, delta) > 0
+            || any;
+    }
+    m_ctx.project->endEdit();
+    update();
+    return any;
+}
+
 QVector<ParamId> CurveView::shownCurves() const
 {
     QVector<ParamId> out;
@@ -568,6 +598,23 @@ void CurveView::paintEvent(QPaintEvent*)
     p.setRenderHint(QPainter::Antialiasing, false);
     p.restore();
     paintPlayhead(p);
+    // The keyboard cursor (Vim mode): a ring round the key.
+    if (hasCursor()) {
+        const QVector<ParamId> shown = shownCurves();
+        if (cursorRow() < shown.size()) {
+            const ParamId& id = shown[cursorRow()];
+            if (const ClipData* c = clipData(id.clipId)) {
+                const QPointF at = keyPosAt(id, cursorFrame() - c->start);
+                if (!at.isNull()) {
+                    p.setRenderHint(QPainter::Antialiasing, true);
+                    p.setPen(QPen(palette().color(QPalette::Highlight), 2));
+                    p.setBrush(Qt::NoBrush);
+                    p.drawEllipse(at + QPointF(0, yOffset()), 8.0, 8.0);
+                    p.setRenderHint(QPainter::Antialiasing, false);
+                }
+            }
+        }
+    }
     p.translate(0, yOffset());
     paintBand(p, m_band);
 }

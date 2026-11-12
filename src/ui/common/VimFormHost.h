@@ -25,7 +25,7 @@ class QWidget;
 namespace kk {
 
 class VimRowOps;
-class VimRowCursor;
+class VimCursorFrame;
 
 class VimFormHost final : public VimPanelHost
 {
@@ -85,7 +85,7 @@ private:
     int m_item = 0;
     QVariant m_register; ///< `yy`
     QString m_registerName;
-    QPointer<VimRowCursor> m_frame; ///< a child of the row it frames: deleted with it
+    QPointer<VimCursorFrame> m_frame; ///< a child of the row it frames: deleted with it
     bool m_visible = true;
 };
 
