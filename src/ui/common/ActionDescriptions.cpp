@@ -619,6 +619,8 @@ const Description kDescriptions[] = {
         "Deletes the optimized media files of the selected clips after asking."),
     KK_TIP("mediapool.select_in_timeline",
         "Selects the timeline clips that come from the selected media pool clips."),
+    KK_TIP("mediapool.save_copy",
+        "Saves the original file of media stored in the project file to your computer; the project stays as it is."),
     KK_TIP("mediapool.remove_unused",
         "Removes the media pool clips that no timeline uses, after asking."),
     KK_TIP("view.fullscreen",

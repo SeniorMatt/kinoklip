@@ -1,4 +1,4 @@
-350 menu entries in 12 menus; 48 panels
+351 menu entries in 12 menus; 48 panels
 
 # Menu and panel reference
 
@@ -50,6 +50,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Proxy and Optimized Media > Delete Proxy Media… |  | Deletes the proxy files of the selected clips after asking. |
 | Proxy and Optimized Media > Delete Optimized Media… |  | Deletes the optimized media files of the selected clips after asking. |
 | Media Pool > Select Clips in Timeline |  | Selects the timeline clips that come from the selected media pool clips. |
+| Media Pool > Save a Copy to Computer… |  | Saves the original file of media stored in the project file to your computer; the project stays as it is. |
 | Media Pool > Remove Unused Clips… |  | Removes the media pool clips that no timeline uses, after asking. |
 | Project Settings… | Shift+9 | Opens the project settings: timeline resolution, frame rate, colour and other project-wide choices. |
 
@@ -503,7 +504,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 
 # Streamlined menu layout
 
-Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 350 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
+Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 351 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
 
 ## Streamlined Kinoklip
 
@@ -897,6 +898,7 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Delete Nodes | Del, Backspace | Compositing page: deletes the selected nodes. |
 | Select All Nodes | Ctrl+A | Compositing page: selects all nodes. |
 | Select Clips in Timeline |  | Selects the timeline clips that come from the selected media pool clips. |
+| Save a Copy to Computer… |  | Saves the original file of media stored in the project file to your computer; the project stays as it is. |
 | Video Destination V1 | Alt+1 | Makes video track V1 the destination of source edits. |
 | Video Destination V2 | Alt+2 | Makes video track V2 the destination of source edits. |
 | Video Destination V3 | Alt+3 | Makes video track V3 the destination of source edits. |

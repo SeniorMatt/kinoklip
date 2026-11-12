@@ -676,6 +676,52 @@ PackResult packProject(
 
 // ---- Unpack ------------------------------------------------------------------------------------
 
+ExtractResult extractMedia(const QString& containerPath, const QString& entryName,
+    const QString& target, const Progress& progress)
+{
+    ExtractResult result;
+    EntryLocation loc;
+    if (!locateEntry(containerPath, entryName, &loc, &result.error))
+        return result;
+    const QString temp = target + QStringLiteral(".part");
+    const auto fail = [&](Status status, const QString& why) {
+        QFile::remove(temp);
+        result.status = status;
+        result.error = why;
+        return result;
+    };
+    RangeFile in;
+    QFile out(temp);
+    if (!in.open(loc.containerPath, loc.dataOffset, loc.size)
+        || !out.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return fail(Status::Failed, QStringLiteral("Cannot write %1").arg(target));
+    std::vector<char> buf(size_t(std::min(kChunk, std::max<qint64>(loc.size, 1))));
+    uint32_t crc = 0;
+    for (qint64 pos = 0; pos < loc.size;) {
+        const qint64 n = in.read(pos, buf.data(), qint64(buf.size()));
+        if (n <= 0 || out.write(buf.data(), n) != n)
+            return fail(Status::Failed, QStringLiteral("Cannot write %1").arg(target));
+        crc = crc32Update(crc, buf.data(), size_t(n));
+        pos += n;
+        if (progress && !progress(pos, loc.size))
+            return fail(Status::Cancelled, QStringLiteral("Cancelled"));
+    }
+    if (crc != loc.crc32)
+        return fail(Status::Failed,
+            QStringLiteral("%1 is damaged (CRC mismatch)").arg(QFileInfo(entryName).fileName()));
+    if (!syncFile(out))
+        return fail(Status::Failed, QStringLiteral("Cannot write %1").arg(target));
+    if (loc.modifiedMs > 0)
+        out.setFileTime(
+            QDateTime::fromMSecsSinceEpoch(loc.modifiedMs), QFileDevice::FileModificationTime);
+    out.close();
+    QFile::remove(target);
+    if (!QFile::rename(temp, target))
+        return fail(Status::Failed, QStringLiteral("Cannot write %1").arg(target));
+    result.status = Status::Ok;
+    return result;
+}
+
 UnpackResult unpackProject(
     const QString& containerPath, const QString& folder, const Progress& progress)
 {

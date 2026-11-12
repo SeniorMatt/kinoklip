@@ -31,6 +31,7 @@
 #include "ui/common/MediaImport.h"
 #include "ui/common/ProgressTask.h"
 #include "ui/common/Resources.h"
+#include "ui/common/SaveMediaCopy.h"
 #include "ui/common/StandardActions.h"
 #include "ui/mediapool/MediaPoolModel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
@@ -39,19 +40,19 @@
 #include "ui/timeline/TimelinePanel.h"
 
 #include <QAbstractButton>
+#include <QAbstractItemView>
 #include <QAction>
 #include <QApplication>
 #include <QDir>
 #include <QFile>
+#include <QListView>
+#include <QMenu>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
-#include <QListView>
-#include <QMenu>
-#include <QAbstractItemView>
 #include <QTest>
 #include <QTimer>
 #include <QUndoStack>
@@ -800,6 +801,116 @@ private slots:
             closeNotices();
         }
         QFile::setPermissions(file, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    }
+
+    void saveCopyToComputerPureLogic()
+    {
+        // Default folder: original folder, then the type folder, then the project's folder.
+        const QString a = path(QStringLiteral("orig"));
+        const QString b = path(QStringLiteral("type"));
+        const QString c = path(QStringLiteral("proj"));
+        QDir().mkpath(b);
+        QDir().mkpath(c);
+        QCOMPARE(defaultCopyFolder(a, b, c), b); // the original folder is gone
+        QDir().mkpath(a);
+        QCOMPARE(defaultCopyFolder(a, b, c), a);
+        QCOMPARE(defaultCopyFolder({}, path(QStringLiteral("none")), c), c);
+        QCOMPARE(defaultCopyFolder({}, {}, path(QStringLiteral("none"))), QDir::homePath());
+        // Names: " (2)" before the extension, never an existing or already chosen name.
+        QFile f(path(QStringLiteral("proj/clip.mp4")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.close();
+        QCOMPARE(uniqueCopyName(c, QStringLiteral("other.mp4")), QStringLiteral("other.mp4"));
+        QCOMPARE(uniqueCopyName(c, QStringLiteral("clip.mp4")), QStringLiteral("clip (2).mp4"));
+        QCOMPARE(uniqueCopyName(c, QStringLiteral("clip.mp4"), {QStringLiteral("clip (2).mp4")}),
+            QStringLiteral("clip (3).mp4"));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.close();
+        QFile noExt(path(QStringLiteral("proj/README")));
+        QVERIFY(noExt.open(QIODevice::WriteOnly));
+        noExt.close();
+        QCOMPARE(uniqueCopyName(c, QStringLiteral("README")), QStringLiteral("README (2)"));
+    }
+
+    void saveCopyToComputer()
+    {
+        // "I imported a file, deleted it from my laptop, and want it back": the stored file is
+        // written out byte for byte; the project stays as it is.
+        const QString video = copyMedia(QStringLiteral("in/beach.mp4"));
+        const QString still = copyMedia(QStringLiteral("in/shot.jpg"), "still.jpg");
+        const QByteArray videoBytes = readAll(video);
+        const QByteArray stillBytes = readAll(still);
+        App app;
+        const QString file = newSingleFile(app, QStringLiteral("Copies"));
+        const QStringList ids = importMediaWithFeedback(app.ctx, {video, still}, app.window.get());
+        QCOMPARE(ids.size(), 2);
+        // A linked item and a timeline are not offered.
+        app.project.beginEdit(QStringLiteral("linked"));
+        const ImportResult linked = app.project.importMedia(
+            {copyMedia(QStringLiteral("in/linked.jpg"), "still.jpg")}); // bypasses the store
+        app.project.endEdit();
+        QStringList all = ids + linked.importedIds;
+        for (const MediaItem& m : app.project.mediaPool()->state().items) {
+            if (m.isTimeline())
+                all.append(m.id);
+        }
+        const QVector<StoredCopySource> offered = storedCopySources(*app.project.mediaPool(), all);
+        QCOMPARE(offered.size(), 2);
+        QCOMPARE(offered[0].fileName, QStringLiteral("beach.mp4"));
+        QCOMPARE(offered[1].fileName, QStringLiteral("shot.jpg"));
+        QVERIFY(storedCopySources(*app.project.mediaPool(), linked.importedIds).isEmpty());
+        QVERIFY(app.action("mediapool.save_copy"));
+        const qint64 containerSize = QFileInfo(file).size();
+        const QByteArray containerBytes = readAll(file);
+
+        // The original is gone from the laptop.
+        QVERIFY(QFile::remove(video));
+        QVERIFY(QFile::remove(still));
+
+        // One item: a save dialog; the file is the stored one.
+        const QString target = path(QStringLiteral("back/beach again.mp4"));
+        QDir().mkpath(path(QStringLiteral("back")));
+        QString suggested;
+        platform::setFileDialogHandlerForTests([&](const platform::FileDialogRequest& r) {
+            suggested = r.fileName;
+            return QStringList {target};
+        });
+        QCOMPARE(saveCopiesToComputer(app.ctx, {ids[0]}, app.window.get()), 1);
+        QCOMPARE(suggested, QStringLiteral("beach.mp4"));
+        QCOMPARE(readAll(target), videoBytes);
+        QVERIFY(!QFileInfo::exists(target + QStringLiteral(".part")));
+
+        // Several: a folder; a name that exists there is not overwritten.
+        const QString folder = path(QStringLiteral("many"));
+        QDir().mkpath(folder);
+        {
+            QFile existing(folder + QStringLiteral("/beach.mp4"));
+            QVERIFY(existing.open(QIODevice::WriteOnly));
+            existing.write("mine");
+        }
+        answerFileDialogs({folder});
+        QCOMPARE(saveCopiesToComputer(app.ctx, ids, app.window.get()), 2);
+        QCOMPARE(readAll(folder + QStringLiteral("/beach.mp4")), QByteArray("mine"));
+        QCOMPARE(readAll(folder + QStringLiteral("/beach (2).mp4")), videoBytes);
+        QCOMPARE(readAll(folder + QStringLiteral("/shot.jpg")), stillBytes);
+
+        // Cancel: nothing new, no partial file.
+        const QString cancelled = path(QStringLiteral("back/cancelled.mp4"));
+        answerFileDialogs({cancelled});
+        cancelProgress(true);
+        QCOMPARE(saveCopiesToComputer(app.ctx, {ids[0]}, app.window.get()), 0);
+        cancelProgress(false);
+        QVERIFY(!QFileInfo::exists(cancelled));
+        QVERIFY(!QFileInfo::exists(cancelled + QStringLiteral(".part")));
+
+        // A cancelled file dialog does nothing.
+        answerFileDialogs({});
+        QCOMPARE(saveCopiesToComputer(app.ctx, ids, app.window.get()), 0);
+
+        // The project file is unchanged and the items still point into it.
+        QCOMPARE(QFileInfo(file).size(), containerSize);
+        QCOMPARE(readAll(file), containerBytes);
+        QVERIFY(isStoredInProject(app.project.mediaPool()->item(ids[0])->path));
     }
 };
 
