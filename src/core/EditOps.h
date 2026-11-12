@@ -235,6 +235,15 @@ bool extractRange(TimelineData& data, int64_t in, int64_t out, const TrackFilter
 [[nodiscard]] Clipboard copyRange(
     const TimelineData& data, int64_t in, int64_t out, const TrackFilter& filter = {});
 
+/// Predicate accepting exactly the tracks in @p tracks (locked ones are still refused by the
+/// range operations above).
+[[nodiscard]] TrackFilter trackSetFilter(const std::vector<TrackRef>& tracks);
+/// @p tracks plus the tracks of every clip linked to a clip that touches [@p in, @p out) on one
+/// of them (the Vim operators with linked selection on: the same frames go from the partner
+/// tracks, so picture and sound stay together). Sorted by type and index, without duplicates.
+[[nodiscard]] std::vector<TrackRef> tracksWithLinkedPartners(const TimelineData& data,
+    const std::vector<TrackRef>& tracks, int64_t in, int64_t out);
+
 /// Delete gaps: removes every time range in which all tracks accepted by @p filter (default:
 /// unlocked auto-select tracks) are empty, up to the end of the last clip, shifting later clips
 /// on those tracks left, so sync between them is kept. Returns the frames removed in total.

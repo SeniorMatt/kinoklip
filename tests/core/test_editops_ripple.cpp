@@ -271,6 +271,107 @@ private slots:
                 QFAIL(qPrintable(QStringLiteral("step %1: %2").arg(step).arg(why)));
         }
     }
+
+    // ---- track sets: the ranges of the Vim operators (spec 83.25) ----
+    void trackSetFilterPicksTheListedTracks()
+    {
+        TimelineData d = timeline();
+        const ops::TrackFilter filter = ops::trackSetFilter({kV1, kA1});
+        QVERIFY(filter(kV1, d.videoTracks[0]));
+        QVERIFY(filter(kA1, d.audioTracks[0]));
+        QVERIFY(!filter(kV2, d.videoTracks[1]));
+        QVERIFY(!filter(kA2, d.audioTracks[1]));
+    }
+
+    void extractOnATrackSetRipplesOnlyThoseTracks()
+    {
+        TimelineData d = timeline();
+        ops::overwriteClip(d, kV1, mediaClip(0, 40));
+        ops::overwriteClip(d, kV1, mediaClip(40, 40));
+        ops::overwriteClip(d, kV2, mediaClip(0, 40));
+        ops::overwriteClip(d, kV2, mediaClip(40, 40));
+        QVERIFY(ops::extractRange(d, 10, 30, ops::trackSetFilter({kV1})));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:10 10:10 20:40")); // the cut clip is two pieces
+        QCOMPARE(layout(d, kV2), QStringLiteral("0:40 40:40")); // not in the set
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void liftOnATrackSetLeavesTheGap()
+    {
+        TimelineData d = timeline();
+        ops::overwriteClip(d, kV1, mediaClip(0, 40));
+        ops::overwriteClip(d, kV1, mediaClip(40, 40));
+        ops::overwriteClip(d, kA1, mediaClip(0, 80));
+        QVERIFY(ops::liftRange(d, 10, 50, ops::trackSetFilter({kV1})));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:10 50:30"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("0:80"));
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void linkedPartnersJoinTheTrackSet()
+    {
+        TimelineData d = timeline();
+        const quint64 v = ops::overwriteClip(d, kV1, mediaClip(0, 40));
+        const quint64 a = ops::overwriteClip(d, kA1, mediaClip(0, 40));
+        ops::linkClips(d, {v, a});
+        ops::overwriteClip(d, kV2, mediaClip(0, 40)); // not linked
+        // V1 alone gets A1 with it, and only where a linked clip touches the range
+        const auto tracks = ops::tracksWithLinkedPartners(d, {kV1}, 10, 20);
+        QCOMPARE(tracks, (std::vector<TrackRef> {kV1, kA1}));
+        QCOMPARE(ops::tracksWithLinkedPartners(d, {kV1}, 50, 60), (std::vector<TrackRef> {kV1}));
+        QCOMPARE(ops::tracksWithLinkedPartners(d, {kV2}, 10, 20), (std::vector<TrackRef> {kV2}));
+        // an unknown track is kept as given
+        QVERIFY(ops::extractRange(d, 10, 30, ops::trackSetFilter(tracks)));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("0:10 10:10"));
+        QCOMPARE(layout(d, kV2), QStringLiteral("0:40"));
+        // the pieces of the cut clips stay linked to their partners
+        QCOMPARE(d.videoTracks[0].clips[0].linkGroup, d.audioTracks[0].clips[0].linkGroup);
+        QCOMPARE(d.videoTracks[0].clips[1].linkGroup, d.audioTracks[0].clips[1].linkGroup);
+        QVERIFY(d.videoTracks[0].clips[0].linkGroup != d.videoTracks[0].clips[1].linkGroup);
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void partnersWithDifferentSpansLoseTheSameFrames()
+    {
+        TimelineData d = timeline();
+        const quint64 v = ops::overwriteClip(d, kV1, mediaClip(0, 40));
+        const quint64 a = ops::overwriteClip(d, kA1, mediaClip(0, 30));
+        ops::linkClips(d, {v, a});
+        const auto tracks = ops::tracksWithLinkedPartners(d, {kV1}, 20, 35);
+        QVERIFY(ops::extractRange(d, 20, 35, ops::trackSetFilter(tracks)));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:20 20:5"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("0:20"));
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void lockedTracksOfASetAreNotChanged()
+    {
+        TimelineData d = timeline();
+        ops::overwriteClip(d, kV1, mediaClip(0, 40));
+        ops::overwriteClip(d, kA1, mediaClip(0, 40));
+        d.audioTracks[0].locked = true;
+        QVERIFY(ops::extractRange(d, 10, 20, ops::trackSetFilter({kV1, kA1})));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:10 10:20"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("0:40")); // locked: never touched
+        d.videoTracks[0].locked = true;
+        QVERIFY(!ops::extractRange(d, 10, 20, ops::trackSetFilter({kV1, kA1})));
+        QVERIFY(!ops::liftRange(d, 10, 20, ops::trackSetFilter({kV1, kA1})));
+        // copying from a locked track is fine
+        QVERIFY(!ops::copyRange(d, 10, 20, ops::trackSetFilter({kV1})).isEmpty());
+    }
+
+    void copyRangeOfATrackSetCutsTheEdges()
+    {
+        TimelineData d = timeline();
+        ops::overwriteClip(d, kV1, mediaClip(0, 40));
+        ops::overwriteClip(d, kV2, mediaClip(0, 40));
+        const ops::Clipboard board = ops::copyRange(d, 10, 25, ops::trackSetFilter({kV1}));
+        QCOMPARE(board.clips.size(), qsizetype(1));
+        QCOMPARE(board.clips[0].clip.duration, int64_t(15));
+        QCOMPARE(board.duration, int64_t(15));
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:40")); // copying changes nothing
+    }
 };
 
 QTEST_GUILESS_MAIN(TestEditOpsRipple)
