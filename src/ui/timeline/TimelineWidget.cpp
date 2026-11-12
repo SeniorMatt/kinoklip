@@ -218,6 +218,22 @@ void TimelineWidget::refreshMedia()
 
 void TimelineWidget::onTimelineChanged()
 {
+    // A frame rate change (Timeline / Project Settings convert the content, spec 25.13) keeps
+    // the zoom per second: a frame is now shorter or longer, so pixels per frame scale with it.
+    {
+        const quint64 shown = m_ctx.project->activeTimelineUid();
+        const Rational fps = m_ctx.project->timeline()->data().fps;
+        if (shown == m_seenFpsUid && fps.isValid() && m_seenFps.isValid() && fps != m_seenFps) {
+            const double scroll = m_layout.scrollX();
+            m_layout.setPixelsPerFrame(m_layout.pixelsPerFrame() * double(m_seenFps.num) * fps.den
+                    / (double(m_seenFps.den) * fps.num),
+                timelinemetrics::kHeaderWidth);
+            m_layout.setScrollX(scroll);
+            m_anim.clear();
+        }
+        m_seenFpsUid = shown;
+        m_seenFps = fps;
+    }
     // Animations: compare the committed state with the previous one while the old layout is
     // still in place (the old rows give the old clip positions). Live changes of an open edit
     // (drags, here or in another view of the same timeline) are drawn 1:1 instead.

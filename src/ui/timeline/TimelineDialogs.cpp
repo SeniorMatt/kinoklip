@@ -294,21 +294,17 @@ void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
     }
     fps->setCurrentIndex(index);
     form->addRow(QCoreApplication::translate("kk::timelinedialogs", "Timeline frame rate"), fps);
-    // As in Resolve the frame rate is fixed once the timeline has clips (their frame
-    // positions would no longer match their media; spec 25.13).
+    // A timeline with clips can change its frame rate: the clips, markers and keyframes are
+    // converted so they stay at the same time (spec 25.13); the user is asked first.
     const bool hasClips = data->duration() > 0;
-    if (hasClips) {
-        fps->setEnabled(false);
-        fps->setToolTip(QCoreApplication::translate("kk::timelinedialogs",
-            "The frame rate cannot be changed once the timeline has clips."));
-        // Following the project would change the rate too: not offered (it was ignored).
-        if (!follow->isChecked() && project.settings().fps != data->fps) {
-            follow->setEnabled(false);
-            follow->setToolTip(QCoreApplication::translate("kk::timelinedialogs",
-                "The project runs at another frame rate, which cannot be used once the "
-                "timeline has clips."));
-        }
-    }
+    auto* rateNote = new QLabel;
+    rateNote->setObjectName(QStringLiteral("TimelineFrameRateNote"));
+    rateNote->setWordWrap(true);
+    rateNote->setVisible(hasClips);
+    rateNote->setText(QCoreApplication::translate("kk::timelinedialogs",
+        "This timeline has clips. Changing the frame rate keeps every clip, marker and "
+        "keyframe at the same time (a clip edge can move by up to half a frame)."));
+    form->addRow(QString(), rateNote);
     layout->addWidget(box);
     box->setEnabled(!follow->isChecked());
     QObject::connect(follow, &QCheckBox::toggled, box, [box](bool on) { box->setEnabled(!on); });
@@ -327,12 +323,31 @@ void editTimelineSettings(QWidget* parent, Project& project, quint64 uid)
     if (dialog.exec() != QDialog::Accepted)
         return;
     const QPoint rate = fps->currentData().toPoint();
-    // A frame rate change with clips is refused (the combo box is disabled, but "Use project
-    // settings" could still switch to another rate).
-    const Rational chosen = hasClips ? data->fps : Rational {rate.x(), rate.y()};
-    const bool followProject
-        = follow->isChecked() && !(hasClips && project.settings().fps != data->fps);
+    const bool followProject = follow->isChecked();
+    const Rational chosen {rate.x(), rate.y()};
+    const Rational target = followProject ? project.settings().fps : chosen;
+    const bool convert = hasClips && target.isValid() && target != data->fps;
+    if (convert) {
+        const auto answer = QMessageBox::question(parent,
+            QCoreApplication::translate("kk::timelinedialogs", "Change Frame Rate"),
+            QCoreApplication::translate("kk::timelinedialogs",
+                "Change the frame rate of \"%1\" from %2 to %3 fps?\n\nClips, markers and "
+                "effects stay at the same time and the keyframes are re-timed. A clip edge can "
+                "move by up to half a frame. You can undo this.")
+                .arg(data->name, QString::number(data->fps.toDouble(), 'g', 5),
+                    QString::number(target.toDouble(), 'g', 5)),
+            QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Yes);
+        if (answer != QMessageBox::Yes)
+            return;
+    }
     project.beginEdit(QCoreApplication::translate("kk::timelinedialogs", "Timeline Settings"));
+    if (convert) {
+        // Leave the project settings first, so the project's own rate stays when this timeline
+        // is given its own.
+        if (data->useProjectSettings && !followProject)
+            project.setTimelineFormat(uid, false, width->value(), height->value(), data->fps);
+        project.convertTimelineFrameRate(uid, target, true);
+    }
     project.setTimelineFormat(uid, followProject, width->value(), height->value(), chosen);
     if (const auto now = project.timelineData(uid)) {
         if (const auto frames = timecode::parse(start->text(), now->fps);

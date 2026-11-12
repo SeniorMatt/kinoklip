@@ -19,6 +19,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QScrollArea>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -509,28 +510,68 @@ void ProjectSettingsDialog::selectResolutionPreset(QComboBox* presets, int width
     presets->setCurrentIndex(index); // the spin boxes' lock follows the index
 }
 
-void ProjectSettingsDialog::updateWarning()
+bool ProjectSettingsDialog::followersHaveClips() const
 {
-    // As in Resolve the timeline frame rate is locked once a timeline that follows the
-    // project settings has clips: their frame positions would no longer match their media
-    // (spec 25.13). A new timeline with its own frame rate is the way to change it.
-    bool hasClips = false;
     for (const quint64 uid : m_project->timelineUids()) {
         const auto data = m_project->timelineData(uid);
         if (data && data->useProjectSettings && data->duration() > 0)
-            hasClips = true;
+            return true;
     }
-    m_fps->setEnabled(!hasClips);
-    m_fps->setToolTip(hasClips ? tr("The frame rate cannot be changed once a timeline has "
-                                    "clips. Create a new timeline and turn off \"Use project "
-                                    "settings\" in its Timeline Settings to use another rate.")
-                               : QString());
-    m_warning->setVisible(false);
+    return false;
+}
+
+void ProjectSettingsDialog::updateWarning()
+{
+    // A timeline that follows the project and has clips is converted when the frame rate
+    // changes: clips, markers and keyframes stay at the same time (spec 25.13). Said in plain
+    // text under the box, not only in a tool tip.
+    const QPoint rate = m_fps->currentData().toPoint();
+    const bool changes
+        = followersHaveClips() && (Rational {rate.x(), rate.y()}) != m_project->settings().fps;
+    m_warning->setText(changes
+            ? tr("Timelines that use the project settings and have clips are converted to the "
+                 "new frame rate: clips, markers and effects stay at the same time and the "
+                 "keyframes are re-timed (a clip edge can move by up to half a frame). You are "
+                 "asked before it happens, and Undo takes it back.")
+            : QString());
+    m_warning->setVisible(changes);
+    m_fps->setToolTip(followersHaveClips()
+            ? tr("Timelines with clips are converted when the frame rate changes.")
+            : QString());
+}
+
+bool ProjectSettingsDialog::confirmFrameRateChange()
+{
+    const ProjectSettings wanted = settings();
+    const ProjectSettings current = m_project->settings();
+    if (wanted.fps == current.fps || !followersHaveClips())
+        return true;
+    return QMessageBox::question(this, tr("Change Frame Rate"),
+               tr("Change the project frame rate from %1 to %2 fps?\n\nThe timelines that use "
+                  "the project settings are converted: clips, markers and effects stay at the "
+                  "same time and the keyframes are re-timed. A clip edge can move by up to "
+                  "half a frame. You can undo this.")
+                   .arg(QString::number(current.fps.toDouble(), 'g', 5),
+                       QString::number(wanted.fps.toDouble(), 'g', 5)),
+               QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Yes)
+        == QMessageBox::Yes;
 }
 
 void ProjectSettingsDialog::apply()
 {
-    m_project->setSettings(settings());
+    ProjectSettings wanted = settings();
+    if (wanted.fps != m_project->settings().fps && followersHaveClips()) {
+        // Convert the content and change the settings as one undo step.
+        m_project->beginEdit(tr("Project Settings"));
+        const bool startTyped = wanted.timelineStart != m_project->settings().timelineStart;
+        m_project->convertProjectFrameRate(wanted.fps);
+        if (!startTyped)
+            wanted.timelineStart = m_project->settings().timelineStart;
+        m_project->setSettings(wanted);
+        m_project->endEdit();
+    } else {
+        m_project->setSettings(wanted);
+    }
     m_project->setCacheSettings(cacheSettings());
     if (m_autosave->value() != prefs::autosaveMinutes()) {
         prefs::setAutosaveMinutes(m_autosave->value());
@@ -540,6 +581,8 @@ void ProjectSettingsDialog::apply()
 
 void ProjectSettingsDialog::accept()
 {
+    if (!confirmFrameRateChange())
+        return;
     apply();
     QDialog::accept();
 }

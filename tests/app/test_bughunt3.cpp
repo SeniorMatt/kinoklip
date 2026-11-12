@@ -356,8 +356,9 @@ private slots:
         QVERIFY(edl::markersToEdl(data).contains(QStringLiteral("* LOC: 01:00:01:00")));
     }
 
-    // Spec 25.13: the timeline frame rate is locked once a timeline has clips.
-    void spec25_13_frameRateLockedOnceTimelineHasClips()
+    // Spec 25.13: the frame rate of a timeline with clips can be changed; the content is
+    // converted, the dialog says so under the box, and it is one undo step.
+    void spec25_13_frameRateChangeConvertsTimelinesWithClips()
     {
         Project project;
         {
@@ -377,10 +378,26 @@ private slots:
         project.endEdit();
         ProjectSettingsDialog dialog(&project);
         auto* fps = dialog.findChild<QComboBox*>(QStringLiteral("TimelineFrameRate"));
-        QVERIFY(!fps->isEnabled());
-        QVERIFY(!fps->toolTip().isEmpty());
+        QVERIFY(fps->isEnabled());
+        const int index = fps->findData(QPoint(60, 1));
+        QVERIFY(index >= 0);
+        fps->setCurrentIndex(index);
+        // The reason and the consequence are visible text under the box.
+        auto labels = dialog.findChildren<QLabel*>();
+        bool noted = false;
+        for (QLabel* label : labels)
+            noted = noted || (label->isVisibleTo(&dialog) && label->text().contains(QLatin1String("re-timed")));
+        QVERIFY(noted);
+        const int steps = project.undoStack()->count();
         dialog.apply();
+        QCOMPARE(project.undoStack()->count(), steps + 1);
+        QCOMPARE(project.settings().fps, (Rational {60, 1}));
+        QCOMPARE(project.timeline()->data().fps, (Rational {60, 1}));
+        QCOMPARE(project.timeline()->data().videoTracks[0].clips[0].duration, int64_t(100));
+        QCOMPARE(project.settings().timelineStart, int64_t(60 * 3600));
+        project.undo();
         QCOMPARE(project.settings().fps, (Rational {24, 1}));
+        QCOMPARE(project.timeline()->data().videoTracks[0].clips[0].duration, int64_t(40));
     }
 
     // Spec 24.19: the Video tab has a Composite group after Cropping with Composite Mode
