@@ -51,6 +51,7 @@ the timeline. A minus sign makes it negative (`--delta -8` moves an edge 8 frame
 | `project new`, `project info` | Create a project; show its settings, timelines and media. |
 | `media import`, `media list`, `media relink` | Add files; list them (and which are offline); find moved files again. |
 | `timeline list`, `timeline new`, `timeline select` | List timelines; make an empty one; choose the active one. |
+| `timeline convert-rate` | Change the frame rate of a timeline that already has clips and save the result as a new project file; see below. |
 | `clip list`, `clip add`, `clip move`, `clip trim`, `clip split`, `clip delete`, `clip set` | Look at and edit the clips of a timeline (speed, volume, pan, on or off, name, zoom, position, rotation, opacity, crop with `clip set`). |
 | `clip stabilize` | Measure the camera movement of a shaky clip and switch Stabilization on (`--mode perspective`, `similarity` or `translation`; `--smooth`, `--strength`, `--cropping-ratio`, `--zoom`, `--camera-lock`); `--settings-only` changes the settings without measuring again. `clip set --stabilization off` switches it off. See [Steady a shaky clip](stabilize-a-shaky-clip.md). |
 | `marker add`, `marker list`, `marker delete` | Timeline markers. |
@@ -73,6 +74,25 @@ from `timeline list`) to use another for that one command.
 Clips are named by the number in `clip list`. Tracks are written like on the timeline: `V1`,
 `A2`. Moving, trimming, splitting and deleting a clip also changes the clips linked to it; add
 `--unlinked` to change only the one you named.
+
+## Change the frame rate of a timeline that has clips
+
+The frame rate of a timeline with clips is locked in the window, because clip positions and
+keyframes are counted in frames. `timeline convert-rate` converts them: every clip, keyframe,
+marker, fade and transition stays at the same moment in time (a clip edge moves by at most half
+a new frame; clips that touched still touch and gaps stay gaps). It always writes a new file,
+and refuses to write over an existing one, so your original project is never changed.
+
+```
+kinoklip timeline convert-rate --project "My Film.kkproj" --timeline "Timeline 1" --fps 60 --output "My Film 60fps.kkproj"
+```
+
+- `--fps` is the new rate: `60`, `29.97`, `59.94`, `23.976`.
+- `--timeline` is the timeline name or number; leave it out for the active one.
+- A timeline that follows the project settings takes the project's frame rate along (the other timelines that follow it must be empty). Otherwise only that timeline changes and keeps its own rate.
+- Compound and multicam clips that run at the timeline's old rate are converted with it; add `--with-compounds false` to leave them.
+- Source in and out points are in time, not frames, so the pictures shown stay the same. Effect settings counted in frames (Motion Trails spacing, Time Window) are converted too.
+- A single-file project (`.kinoklip`) is not read by the commands: unpack it first (File > Unpack Project) and give the `.kkproj` it makes.
 
 ## Run a command in the open window
 

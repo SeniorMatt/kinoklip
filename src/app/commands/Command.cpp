@@ -4,6 +4,7 @@
 
 #include "core/Project.h"
 #include "core/Timeline.h"
+#include "pack/ProjectPackage.h"
 #include "ui/common/TimecodeFormat.h"
 
 #include <QFile>
@@ -358,6 +359,12 @@ CommandResult CommandRegistry::execute(
             if (!QFileInfo(ctx.projectPath).isFile())
                 return CommandResult::failure(QStringLiteral("file_not_found"),
                     QStringLiteral("project file %1 does not exist").arg(ctx.projectPath));
+            if (pack::isContainerFile(ctx.projectPath))
+                return CommandResult::failure(QStringLiteral("packed_project"),
+                    QStringLiteral("%1 is a single-file project; the commands read ordinary "
+                                   "project files only. Unpack it first (File > Unpack "
+                                   "Project...) and use the .kkproj file it makes.")
+                        .arg(ctx.projectPath));
             QString error;
             if (!project.load(ctx.projectPath, &error))
                 return CommandResult::failure(QStringLiteral("project_error"), error);

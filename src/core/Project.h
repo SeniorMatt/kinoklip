@@ -206,6 +206,18 @@ public:
     /// Sets the starting timecode of timeline @p uid (frames of its rate, >= 0; one undo
     /// step "Starting Timecode"; spec 25.12). False if there is no such timeline.
     bool setTimelineStartTimecode(quint64 uid, int64_t frames);
+    /// Changes the frame rate of timeline @p uid to @p fps and keeps everything at the same
+    /// moment in time (convertTimelineFrameRate()), playhead and zoom included. A timeline that
+    /// follows the project settings drags the project along when no other timeline that follows
+    /// it has clips (they are converted too); otherwise it leaves the project settings and
+    /// keeps the rate as its own. With @p includeCompounds the compound clips (and multicam
+    /// clips) it shows, which run at its old rate, are converted as well. One undo step
+    /// "Change Frame Rate". False if there is no such timeline or @p fps is invalid.
+    bool convertTimelineFrameRate(quint64 uid, Rational fps, bool includeCompounds = false);
+    /// Changes the project frame rate to @p fps and converts every timeline that follows the
+    /// project settings, content included (one undo step). The other timelines keep their rate.
+    /// False if @p fps is invalid.
+    bool convertProjectFrameRate(Rational fps);
     /// Generates a free name like "Timeline 2" / "Compound Clip 3".
     [[nodiscard]] QString uniqueTimelineName(const QString& base) const;
 
@@ -450,6 +462,8 @@ private:
     [[nodiscard]] static QJsonObject toJson(const SaveSnapshot& snapshot, const QString& path);
     bool fromJson(const QJsonObject& root, int version, const QDir& projectDir,
         const QString& fallbackName, QString* error);
+    /// Converts timeline @p uid to @p fps inside an open edit (playhead, zoom, project follow).
+    void convertOneTimeline(quint64 uid, Rational fps, bool followProject);
     TimelineSlot* slot(quint64 uid);
     const TimelineSlot* slot(quint64 uid) const;
     const TimelineData* lookup(quint64 uid) const;

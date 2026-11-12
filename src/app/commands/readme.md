@@ -16,7 +16,7 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `CommandSupport.h/.cpp` | track names (V1, A2), JSON of clips and timelines, id lists, time reading, frame-rate rationals |
 | `ProjectCommands.cpp` | `version`, `project.new`, `project.info`, `project.save`, `session.info` |
 | `MediaCommands.cpp` | `media.import`, `media.list`, `media.relink` |
-| `TimelineCommands.cpp` | `timeline.list`, `timeline.new`, `timeline.select` |
+| `TimelineCommands.cpp` | `timeline.list`, `timeline.new`, `timeline.select`, `timeline.convert-rate` |
 | `ClipCommands.cpp` | `clip.list`, `clip.add`, `clip.move`, `clip.trim`, `clip.split`, `clip.delete`, `clip.set` |
 | `StabilizeCommands.cpp` | `clip.stabilize`: measures a clip's camera movement (progress per frame) and stores settings + data in one undo step; `clip.set --stabilization on/off` is in `ClipCommands.cpp` |
 | `MarkerCommands.cpp` | `marker.add`, `marker.list`, `marker.delete` |
