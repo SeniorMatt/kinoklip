@@ -157,7 +157,7 @@ void appendMasksGroup(QVector<KeyframeEntry>& out, int& colorIndex, const ClipDa
         if (mask.isPathShape()) {
             ParamDescriptor shape;
             shape.key = maskkeys::Shape;
-            shape.label = tr(QT_TRANSLATE_NOOP("kk::KeyframeItems", "Shape"));
+            shape.label = QCoreApplication::translate("kk::KeyframeItems", "Shape");
             shape.min = 0;
             shape.max = double(std::max<qsizetype>(1, mask.path.timing.keys.size() - 1));
             add(shape);
@@ -200,7 +200,7 @@ KeyframeItems build(const TimelineData& data, const QVector<quint64>& selectedCl
     const EffectRegistry& reg = EffectRegistry::instance();
     const bool multi = model.items.size() > 1;
     model.entries.append(
-        {KeyRow::Kind::Master, tr(QT_TRANSLATE_NOOP("kk::KeyframeItems", "Keyframes")),
+        {KeyRow::Kind::Master, QCoreApplication::translate("kk::KeyframeItems", "Keyframes"),
             QStringLiteral("master"), QString(), 0, {}, {}, {}, -1});
     int colorIndex = 0;
     for (const QVector<quint64>& item : std::as_const(model.items)) {
@@ -284,7 +284,7 @@ KeyframeItems buildComp(
         return model;
     model.items.append(QVector<quint64> {clipId});
     model.entries.append(
-        {KeyRow::Kind::Master, tr(QT_TRANSLATE_NOOP("kk::KeyframeItems", "Keyframes")),
+        {KeyRow::Kind::Master, QCoreApplication::translate("kk::KeyframeItems", "Keyframes"),
             QStringLiteral("master"), QString(), 0, {}, {}, {}, -1});
     if (!clip->composition)
         return model;

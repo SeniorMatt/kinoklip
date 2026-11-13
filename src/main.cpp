@@ -11,6 +11,7 @@
 #include "app/Theme.h"
 #include "core/EditBehaviour.h"
 #include "core/MemoryGuard.h"
+#include "core/Translations.h"
 #include "core/PowerBins.h"
 #include "core/Preferences.h"
 #include "core/Project.h"
@@ -210,6 +211,8 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "%s\n", qPrintable(error));
         return 2;
     }
+    // Before any widget exists: --lang, KK_LANG, the Preferences choice, the desktop language.
+    kk::i18n::install(options.language);
     if (options.isRender())
         return kk::runRender(options.renderProject, options.renderOutput, options.renderPreset);
     if (options.isRenderFrame())

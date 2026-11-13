@@ -83,7 +83,7 @@ bool paste(AppContext& ctx)
     if (!clip || clipboard().isEmpty())
         return false;
     const int64_t local = ctx.project->timeline()->playhead() - clip->start;
-    ctx.project->beginEdit(tr(QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Paste Keyframes")));
+    ctx.project->beginEdit(QCoreApplication::translate("kk::KeyframeCommands", "Paste Keyframes"));
     const QVector<KeyframeRef> refs
         = ko::pasteKeys(ctx.project->timeline()->mutableData(), id, clipboard(), local);
     ctx.project->endEdit();
@@ -282,7 +282,7 @@ bool easeTargets(AppContext& ctx, Interp interp)
     if (refs.isEmpty())
         return false;
     ctx.project->beginEdit(
-        tr(QT_TRANSLATE_NOOP("kk::KeyframeCommands", "Change Keyframe Interpolation")));
+        QCoreApplication::translate("kk::KeyframeCommands", "Change Keyframe Interpolation"));
     const int n = ko::setInterp(ctx.project->timeline()->mutableData(), refs, interp);
     ctx.project->endEdit();
     return n > 0;

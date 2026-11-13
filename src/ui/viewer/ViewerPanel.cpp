@@ -164,6 +164,8 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     m_qualityBox->setObjectName(QStringLiteral("ViewerQuality"));
     m_qualityBox->setFocusPolicy(Qt::NoFocus);
     m_qualityBox->setMinimumWidth(metrics::kTitleComboMinWidth);
+    // Long translated names ("Volle Auflösung") must fit: grow to the widest entry.
+    m_qualityBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     // One application-wide playback resolution (Playback menu, every viewer, Preferences).
     PlaybackResolution& resolution = PlaybackResolution::instance();
     resolution.bindCombo(m_qualityBox);

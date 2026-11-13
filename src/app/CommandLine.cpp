@@ -70,6 +70,12 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
         QCoreApplication::translate("kk::CommandLine",
             "Print whether secure downloads (HTTPS) work and which TLS library is used, then "
             "exit (status 1 if they do not)."));
+    const QCommandLineOption lang(QStringLiteral("lang"),
+        QCoreApplication::translate("kk::CommandLine",
+            "Interface language for this run (en, de, es, ru, uk); the stored choice is kept. "
+            "The environment variable KK_LANG does the same."),
+        QStringLiteral("code"));
+    parser.addOption(lang);
     parser.addOption(checkTls);
     parser.addOption(render);
     parser.addOption(preset);
@@ -87,6 +93,7 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
     options.resetLayout = parser.isSet(resetLayout);
     options.style = parser.value(style);
     options.colorScheme = parser.value(colorScheme);
+    options.language = parser.value(lang);
     options.menuReferenceFile = parser.value(menuReference);
     if (parser.isSet(screenshot)) {
         options.screenshotPage = parser.value(screenshot);
