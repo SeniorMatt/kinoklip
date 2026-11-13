@@ -1,5 +1,5 @@
 #!/bin/sh
-# Publishes the AppImage in dist/ as a GitHub pre-release. (The readme's "Download here" link
+# Publishes the AppImage in dist/ as the latest GitHub release. (The readme's "Download here" link
 # points at the releases page, so it needs no update.) Run from the repository root after packaging:
 #   scripts/publish_release.sh v1.1.0-beta.1 "Kinoklip 1.1.0 Beta"
 # Needs: gh (logged in), dist/Kinoklip-x86_64.AppImage(.zsync), dist/SHA256SUMS.txt and
@@ -20,7 +20,7 @@ if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
 fi
 echo "Tag $tag -> $(git rev-list -n1 "$tag")"
 git push origin "$tag"
-gh release create "$tag" --prerelease --title "$title" --notes-file "$notes" \
+gh release create "$tag" --latest --title "$title" --notes-file "$notes" \
     dist/Kinoklip-x86_64.AppImage dist/Kinoklip-x86_64.AppImage.zsync dist/SHA256SUMS.txt
 
 echo "Published $title: https://github.com/SeniorMatt/kinoklip/releases/tag/$tag"
