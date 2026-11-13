@@ -594,6 +594,8 @@ int64_t TimelineController::applyEditTrim(
     const bool head = edit.headClip != 0;
     const quint64 primary = head ? edit.headClip : edit.tailClip;
     const QVector<quint64> ids = sameEdgeLinks(data, primary, head, m_linked);
+    if (ripple) // the other auto-select tracks follow (spec 8.18)
+        return ops::rippleTrimSynced(data, ids, head, frames);
     const int64_t applied = head ? ops::trimHead(data, primary, frames, ripple)
                                  : ops::trimTail(data, primary, frames, ripple);
     for (int i = 1; i < ids.size(); ++i) {
@@ -712,6 +714,18 @@ void TimelineController::trimToPlayhead(bool head, bool ripple)
                : (head ? tr("Trim Start") : tr("Trim End")),
         [&](TimelineData& data) {
             bool any = false;
+            // Ripple: the other auto-select tracks follow the first clip's change (spec 8.18).
+            int64_t syncPoint = -1;
+            int64_t syncShift = 0;
+            if (ripple) {
+                if (const ClipData* first = ops::clipById(data, ids.first())) {
+                    syncPoint = first->end();
+                    const int64_t want = head ? f - first->start : f - first->end();
+                    const int64_t room = ops::rippleSyncRoom(data, ids, syncPoint);
+                    if (head ? want > room : -want > room)
+                        return false; // the other tracks have no room to close up that far
+                }
+            }
             for (quint64 id : ids) {
                 const ClipData* c = ops::clipById(data, id);
                 if (!c)
@@ -719,14 +733,22 @@ void TimelineController::trimToPlayhead(bool head, bool ripple)
                 if (head) {
                     // The playhead frame becomes the first frame of the clip.
                     const int64_t start = c->start;
-                    any |= ops::trimHead(data, id, f - start, ripple) != 0;
+                    const int64_t got = ops::trimHead(data, id, f - start, ripple);
+                    any |= got != 0;
+                    if (id == ids.first())
+                        syncShift = -got;
                     if (ripple)
                         newPlayhead = start; // the same picture is now at the old start
                 } else {
                     // The playhead frame is the first frame removed.
-                    any |= ops::trimTail(data, id, f - c->end(), ripple) != 0;
+                    const int64_t got = ops::trimTail(data, id, f - c->end(), ripple);
+                    any |= got != 0;
+                    if (id == ids.first())
+                        syncShift = got;
                 }
             }
+            if (ripple && syncPoint >= 0)
+                ops::rippleSyncShift(data, ids, syncPoint, syncShift);
             return any;
         });
     if (changed && newPlayhead != f)

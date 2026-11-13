@@ -387,6 +387,80 @@ int64_t trimTail(TimelineData& data, quint64 clipId, int64_t delta, bool ripple)
     return applied;
 }
 
+int64_t rippleSyncRoom(const TimelineData& data, const QVector<quint64>& trimmedIds, int64_t point)
+{
+    QVector<TrackRef> skip;
+    for (quint64 id : trimmedIds)
+        if (const auto loc = findClip(data, id))
+            skip.append(loc->track);
+    int64_t room = std::numeric_limits<int64_t>::max();
+    const TrackFilter accept = autoSelectTracks();
+    for (const TrackType type : {TrackType::Video, TrackType::Audio}) {
+        const auto& list = data.tracks(type);
+        for (size_t t = 0; t < list.size(); ++t) {
+            const TrackRef ref {type, int(t)};
+            if (skip.contains(ref) || !accept(ref, list[t]))
+                continue;
+            int64_t prevEnd = 0;
+            int64_t firstStart = -1;
+            for (const ClipData& c : list[t].clips) {
+                if (c.start < point)
+                    prevEnd = std::max(prevEnd, c.end());
+                else if (firstStart < 0 || c.start < firstStart)
+                    firstStart = c.start;
+            }
+            if (firstStart >= 0)
+                room = std::min(room, std::max<int64_t>(0, firstStart - prevEnd));
+        }
+    }
+    return room;
+}
+
+void rippleSyncShift(
+    TimelineData& data, const QVector<quint64>& trimmedIds, int64_t point, int64_t shift)
+{
+    if (shift == 0)
+        return;
+    QVector<TrackRef> skip;
+    for (quint64 id : trimmedIds)
+        if (const auto loc = findClip(data, id))
+            skip.append(loc->track);
+    const TrackFilter accept = autoSelectTracks();
+    forEachTrack(data, [&](TrackRef ref, TrackData& track) {
+        if (skip.contains(ref) || !accept(ref, track))
+            return;
+        for (ClipData& c : track.clips)
+            if (c.start >= point)
+                c.start += shift;
+    });
+}
+
+int64_t rippleTrimSynced(TimelineData& data, const QVector<quint64>& ids, bool head, int64_t delta)
+{
+    if (ids.isEmpty())
+        return 0;
+    const ClipData* primary = clipById(data, ids.first());
+    if (!primary)
+        return 0;
+    const int64_t point = primary->end();
+    // Shortening pulls the other tracks left: never further than they have room for.
+    const int64_t room = rippleSyncRoom(data, ids, point);
+    if (head)
+        delta = std::min(delta, room);
+    else
+        delta = std::max(delta, -room);
+    const auto trim = [&](quint64 id, int64_t d) {
+        return head ? trimHead(data, id, d, true) : trimTail(data, id, d, true);
+    };
+    const int64_t applied = trim(ids.first(), delta);
+    if (applied == 0)
+        return 0;
+    for (int i = 1; i < ids.size(); ++i)
+        trim(ids[i], applied);
+    rippleSyncShift(data, ids, point, head ? -applied : applied);
+    return applied;
+}
+
 int64_t slipClip(TimelineData& data, quint64 clipId, int64_t deltaFrames)
 {
     ClipData* clip = clipById(data, clipId);

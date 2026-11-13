@@ -512,6 +512,29 @@ private slots:
         QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("10:40"));
     }
 
+    void spec8_18_rippleTrimKeepsOtherAutoSelectTracksInSync()
+    {
+        Ctl t;
+        constexpr TrackRef kA2 {TrackType::Audio, 1};
+        t.put(kV1, mediaClip(10, 40));
+        t.put(kV1, mediaClip(50, 10));
+        t.put(kV2, mediaClip(55, 10)); // follows
+        t.put(kA1, mediaClip(52, 6)); // follows
+        t.put(kA2, mediaClip(52, 6)); // auto select off: stays
+        t.c.toggleTrackFlag(kA2, TimelineController::FlagAutoSelect);
+        t.tl()->setPlayhead(30);
+        const int before = t.undoCount();
+        t.action("trim.ripple_trim_end")->trigger();
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:20 30:10"));
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("35:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("32:6"));
+        QCOMPARE(layout(t.f.view(), kA2), QStringLiteral("52:6"));
+        QCOMPARE(t.undoCount(), before + 1); // one undo step for all tracks
+        t.f.project.undoStack()->undo();
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("55:10"));
+        QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("52:6"));
+    }
+
     void spec8_11_extendEdit()
     {
         Ctl t;

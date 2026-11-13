@@ -290,6 +290,12 @@ CommandResult runTrim(CommandContext& ctx, const CommandArgs& args)
     }
     int64_t applied = 0;
     runEdit(&project, QStringLiteral("Trim Clip"), [&](TimelineData& data) {
+        if (ripple) {
+            QVector<quint64> group {id};
+            group += partners;
+            applied = ops::rippleTrimSynced(data, group, head, *requested);
+            return applied != 0;
+        }
         applied = head ? ops::trimHead(data, id, *requested, ripple)
                        : ops::trimTail(data, id, *requested, ripple);
         if (applied == 0)

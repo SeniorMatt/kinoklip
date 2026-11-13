@@ -128,6 +128,20 @@ bool moveClips(
 int64_t trimHead(TimelineData& data, quint64 clipId, int64_t delta, bool ripple);
 /// Moves the tail (out point) of clip @p clipId by @p delta frames. Returns the applied delta.
 int64_t trimTail(TimelineData& data, quint64 clipId, int64_t delta, bool ripple);
+/// Ripple sync (spec 8.18): a ripple trim of @p trimmedIds also shifts the clips that start at
+/// or after @p point (the primary clip's end before the trim) on every other unlocked
+/// auto-select track, so the tracks stay in sync. Tracks holding a trimmed clip are left to the
+/// trims themselves; a clip that spans @p point stays where it is.
+/// Largest number of frames those clips can shift left before one meets the clip before it.
+int64_t rippleSyncRoom(const TimelineData& data, const QVector<quint64>& trimmedIds, int64_t point);
+/// Shifts those clips by @p shift frames (negative = left; the caller limits it with rippleSyncRoom).
+void rippleSyncShift(
+    TimelineData& data, const QVector<quint64>& trimmedIds, int64_t point, int64_t shift);
+/// Ripple-trims the head (@p head) or tail of the first clip of @p ids by @p delta, the other
+/// clips of @p ids (linked edges) by the same applied amount, and shifts the other auto-select
+/// tracks along (rippleSyncShift). @p delta is first limited so no other track collides.
+/// Returns the applied delta.
+int64_t rippleTrimSynced(TimelineData& data, const QVector<quint64>& ids, bool head, int64_t delta);
 /// Slip: changes which part of the source is shown without moving the clip. Positive
 /// @p deltaFrames move the in point later in the source. Clamped to the available media.
 /// Returns the applied delta.
