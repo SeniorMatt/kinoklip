@@ -239,7 +239,8 @@ private slots:
         QCOMPARE(h.track, (TrackRef {TrackType::Audio, 0}));
         QCOMPARE(L.hitTest(d, {100, double(r.bottom())}).area, TimelineHit::Area::HeaderResize);
         for (HeaderButton b :
-            {HeaderButton::Target, HeaderButton::Lock, HeaderButton::Mute, HeaderButton::Solo}) {
+            {HeaderButton::Target, HeaderButton::Lock, HeaderButton::SyncLock, HeaderButton::Mute,
+                HeaderButton::Solo}) {
             const QRect br = L.headerButtonRect(row, b);
             QVERIFY(!br.isEmpty());
             QVERIFY(br.right() < kHeaderWidth);
@@ -250,6 +251,9 @@ private slots:
         QVERIFY(L.headerButtonRect(vRow, HeaderButton::Mute).isEmpty());
         QCOMPARE(L.hitTest(d, L.headerButtonRect(vRow, HeaderButton::Visible).center()).button,
             HeaderButton::Visible);
+        // Sync Lock sits right of the track lock (spec 97.1).
+        QVERIFY(L.headerButtonRect(vRow, HeaderButton::SyncLock).left()
+            > L.headerButtonRect(vRow, HeaderButton::Lock).left());
     }
 };
 

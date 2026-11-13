@@ -45,6 +45,9 @@ using TrackFilter = std::function<bool(TrackRef ref, const TrackData& track)>;
 /// Filter accepting the unlocked tracks whose auto track selector is on (TrackData::autoSelect);
 /// used by the playhead-based commands when nothing is selected (docs/behavior-spec.md 6.4).
 [[nodiscard]] TrackFilter autoSelectTracks();
+/// Filter accepting the unlocked tracks whose sync lock is on (TrackData::syncLock): the tracks
+/// that ripple with edits on other tracks (spec 97).
+[[nodiscard]] TrackFilter syncLockTracks();
 
 // ---- Placing clips ----
 
@@ -58,8 +61,8 @@ struct PlacedClip
 /// Which tracks an insert ripples (shifts to the right).
 enum class RippleScope {
     TargetTracks, ///< only the tracks receiving clips
-    /// the receiving tracks plus every other unlocked track whose auto track selector is on,
-    /// keeping V/A sync (default; a track with TrackData::autoSelect off is left alone)
+    /// the receiving tracks plus every other unlocked track whose sync lock is on,
+    /// keeping V/A sync (default; a track with TrackData::syncLock off is left alone)
     AllTracks
 };
 
@@ -90,7 +93,7 @@ QVector<quint64> insertClips(TimelineData& data, const QVector<PlacedClip>& clip
 /// Returns the number of clips removed.
 int liftClips(TimelineData& data, const QVector<quint64>& clipIds);
 /// Ripple delete: removes the clips and shifts later clips on the same track left to close the
-/// gaps. With RippleScope::AllTracks every other unlocked auto-select track shifts by the same
+/// gaps. With RippleScope::AllTracks every other unlocked sync-locked track shifts by the same
 /// amount for each removed time range in which it is empty (spec 10.4: keeps sync; a track
 /// with content inside the range stays where it is). Include linked clips to keep them in
 /// sync. Locked tracks never change. Returns the number of clips removed.
@@ -128,19 +131,17 @@ bool moveClips(
 int64_t trimHead(TimelineData& data, quint64 clipId, int64_t delta, bool ripple);
 /// Moves the tail (out point) of clip @p clipId by @p delta frames. Returns the applied delta.
 int64_t trimTail(TimelineData& data, quint64 clipId, int64_t delta, bool ripple);
-/// Ripple sync (spec 8.18): a ripple trim of @p trimmedIds also shifts the clips that start at
-/// or after @p point (the primary clip's end before the trim) on every other unlocked
-/// auto-select track, so the tracks stay in sync. Tracks holding a trimmed clip are left to the
-/// trims themselves; a clip that spans @p point stays where it is.
-/// Largest number of frames those clips can shift left before one meets the clip before it.
-int64_t rippleSyncRoom(const TimelineData& data, const QVector<quint64>& trimmedIds, int64_t point);
-/// Shifts those clips by @p shift frames (negative = left; the caller limits it with rippleSyncRoom).
-void rippleSyncShift(
-    TimelineData& data, const QVector<quint64>& trimmedIds, int64_t point, int64_t shift);
+/// Ripple sync (spec 8.18 / 97, Resolve 20.2 model): after a ripple trim changed the length of
+/// the trimmed clip by @p change frames at @p point (the primary clip's end before the trim),
+/// every other unlocked track with sync lock on follows. Lengthened: a clip spanning @p point is
+/// cut there and the clips from @p point on move right by @p change (a gap opens). Shortened: the
+/// frames [point + change, point) leave those tracks (spanning clips are trimmed or cut, clips
+/// inside go) and the later clips move left. Tracks holding a trimmed clip are left to the trims.
+void rippleSyncApply(
+    TimelineData& data, const QVector<quint64>& trimmedIds, int64_t point, int64_t change);
 /// Ripple-trims the head (@p head) or tail of the first clip of @p ids by @p delta, the other
-/// clips of @p ids (linked edges) by the same applied amount, and shifts the other auto-select
-/// tracks along (rippleSyncShift). @p delta is first limited so no other track collides.
-/// Returns the applied delta.
+/// clips of @p ids (linked edges) by the same applied amount, and shifts the other sync-locked
+/// tracks along (rippleSyncApply). Returns the applied delta.
 int64_t rippleTrimSynced(TimelineData& data, const QVector<quint64>& ids, bool head, int64_t delta);
 /// Slip: changes which part of the source is shown without moving the clip. Positive
 /// @p deltaFrames move the in point later in the source. Clamped to the available media.
@@ -174,7 +175,7 @@ int64_t slideClip(TimelineData& data, quint64 clipId, int64_t delta);
     const TimelineData& data, TrackRef ref, int64_t frame);
 
 /// Close gap: removes the gap under @p frame on track @p ref by shifting every later clip left.
-/// With RippleScope::AllTracks every other unlocked auto-select track is shifted by the same
+/// With RippleScope::AllTracks every other unlocked sync-locked track is shifted by the same
 /// amount, which
 /// is reduced to the room that is free on all of them in the gap range (keeps sync).
 /// Returns the number of frames removed (0 if there is no gap or the track is locked).
@@ -185,7 +186,7 @@ int64_t closeGap(TimelineData& data, TrackRef ref, int64_t frame,
     RippleScope scope = RippleScope::TargetTracks, bool* brokeSync = nullptr);
 
 /// True if closeGap() with the same arguments would remove at least one frame. False after the
-/// last clip (open end), on a locked track, or when other auto-select tracks leave no room.
+/// last clip (open end), on a locked track, or when other sync-locked tracks leave no room.
 [[nodiscard]] bool canCloseGap(const TimelineData& data, TrackRef ref, int64_t frame,
     RippleScope scope = RippleScope::TargetTracks);
 
@@ -287,7 +288,7 @@ bool shuffleClip(TimelineData& data, quint64 clipId, int64_t frame);
 /// Ripple overwrite (spec 4.11): replaces [@p rangeStart, @p rangeEnd) on the clips' tracks
 /// with @p clips (all starting at rangeStart) and ripples everything after the range by the
 /// length difference, on the receiving tracks and (scope AllTracks) the other unlocked
-/// auto-select tracks; when the new material is shorter, another track only follows if the
+/// sync-locked tracks; when the new material is shorter, another track only follows if the
 /// room it gives up is empty. Returns the new ids in input order (empty on invalid input).
 QVector<quint64> rippleOverwriteClips(TimelineData& data, const QVector<PlacedClip>& clips,
     int64_t rangeStart, int64_t rangeEnd, RippleScope scope = RippleScope::AllTracks);

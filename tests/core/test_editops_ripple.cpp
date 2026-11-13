@@ -39,7 +39,7 @@ private slots:
         ops::overwriteClip(d, kA1, mediaClip(5, 20)); // spans the range: stays
         ops::overwriteClip(d, kA1, mediaClip(40, 5)); // after a non-free range: stays
         ops::overwriteClip(d, kA2, mediaClip(30, 5));
-        d.audioTracks[1].autoSelect = false; // auto select off: stays
+        d.audioTracks[1].syncLock = false; // sync lock off: stays
         QCOMPARE(ops::rippleDeleteClips(d, {a}, ops::RippleScope::AllTracks), 1);
         QCOMPARE(layout(d, kV1), QStringLiteral("10:10"));
         QCOMPARE(layout(d, kV2), QStringLiteral("15:10"));
@@ -373,22 +373,25 @@ private slots:
         QCOMPARE(layout(d, kV1), QStringLiteral("0:40")); // copying changes nothing
     }
 
-    // ---- ripple trim keeps the other auto-select tracks in sync (8.18) ----
-    void rippleTrimTailShiftsOtherAutoSelectTracks()
+    // ---- ripple trim keeps the other sync-locked tracks in sync (8.18, 97) ----
+    void rippleTrimTailLengtheningCutsSpanningClipsAndOpensGaps()
     {
         TimelineData d = timeline();
         const quint64 a = ops::overwriteClip(d, kV1, mediaClip(0, 10));
         ops::overwriteClip(d, kV1, mediaClip(10, 10));
-        ops::overwriteClip(d, kV2, mediaClip(5, 20)); // spans the edit point: stays
+        ops::overwriteClip(d, kV2, mediaClip(5, 20)); // spans the edit point: cut there
         ops::overwriteClip(d, kV2, mediaClip(30, 5));
         ops::overwriteClip(d, kA1, mediaClip(12, 8));
         ops::overwriteClip(d, kA2, mediaClip(14, 4));
-        d.audioTracks[1].autoSelect = false; // auto select off: stays
+        d.audioTracks[1].syncLock = false; // sync lock off: stays
         QCOMPARE(ops::rippleTrimSynced(d, {a}, false, 3), 3);
         QCOMPARE(layout(d, kV1), QStringLiteral("0:13 13:10"));
-        QCOMPARE(layout(d, kV2), QStringLiteral("5:20 33:5"));
+        // Changed from "5:20 33:5": the spanning clip is no longer left alone, its tail follows.
+        QCOMPARE(layout(d, kV2), QStringLiteral("5:5 13:15 33:5"));
         QCOMPARE(layout(d, kA1), QStringLiteral("15:8"));
         QCOMPARE(layout(d, kA2), QStringLiteral("14:4"));
+        // The cut keeps the picture continuous: the second part shows later source material.
+        QVERIFY(d.videoTracks[1].clips[1].sourceInUs > d.videoTracks[1].clips[0].sourceInUs);
         KK_VERIFY_INVARIANTS(d);
     }
 
@@ -399,7 +402,7 @@ private slots:
         ops::overwriteClip(d, kV1, mediaClip(10, 10));
         ops::overwriteClip(d, kA1, mediaClip(10, 10));
         ops::overwriteClip(d, kA2, mediaClip(12, 4));
-        d.audioTracks[1].locked = true; // locked: stays
+        d.audioTracks[1].locked = true; // locked: stays (even with sync lock on)
         QCOMPARE(ops::rippleTrimSynced(d, {a}, true, 4), 4); // head +4 shortens by 4
         QCOMPARE(layout(d, kV1), QStringLiteral("0:6 6:10"));
         QCOMPARE(layout(d, kA1), QStringLiteral("6:10"));
@@ -407,18 +410,63 @@ private slots:
         KK_VERIFY_INVARIANTS(d);
     }
 
-    void rippleTrimShorteningStopsWhereAnotherTrackWouldCollide()
+    void rippleTrimShorteningRemovesTheSameFramesFromOtherTracks()
     {
         TimelineData d = timeline();
         const quint64 a = ops::overwriteClip(d, kV1, mediaClip(0, 20));
         ops::overwriteClip(d, kV1, mediaClip(20, 10));
         ops::overwriteClip(d, kV2, mediaClip(0, 12)); // ends at 12, next starts at 20
         ops::overwriteClip(d, kV2, mediaClip(20, 5));
-        // Room on V2 is 8 frames: a 15 frame shortening is limited to 8.
-        QCOMPARE(ops::rippleTrimSynced(d, {a}, false, -15), -8);
-        QCOMPARE(layout(d, kV1), QStringLiteral("0:12 12:10"));
-        QCOMPARE(layout(d, kV2), QStringLiteral("0:12 12:5"));
+        // Changed from "limited to 8 frames by the room on V2": nothing limits the trim now;
+        // frames 5..20 leave V2 as well (its first clip is trimmed to 0:5).
+        QCOMPARE(ops::rippleTrimSynced(d, {a}, false, -15), -15);
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:5 5:10"));
+        QCOMPARE(layout(d, kV2), QStringLiteral("0:5 5:5"));
         KK_VERIFY_INVARIANTS(d);
+    }
+
+    void rippleTrimShorteningTrimsSpanningClipsAndDropsInnerOnes()
+    {
+        TimelineData d = timeline();
+        const quint64 a = ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        ops::overwriteClip(d, kV1, mediaClip(10, 10));
+        ops::overwriteClip(d, kV2, mediaClip(5, 20)); // spans the point: loses frames 7..10
+        ops::overwriteClip(d, kA1, mediaClip(7, 3)); // exactly inside 7..10: removed
+        ops::overwriteClip(d, kA1, mediaClip(12, 4));
+        QCOMPARE(ops::rippleTrimSynced(d, {a}, false, -3), -3);
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:7 7:10"));
+        QCOMPARE(layout(d, kV2), QStringLiteral("5:2 7:15"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("9:4"));
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void rippleTrimWithSyncLockOffOnEveryOtherTrackMovesNothingElse()
+    {
+        TimelineData d = timeline();
+        const quint64 a = ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        ops::overwriteClip(d, kV1, mediaClip(10, 10));
+        ops::overwriteClip(d, kV2, mediaClip(5, 20));
+        ops::overwriteClip(d, kA1, mediaClip(12, 4));
+        d.videoTracks[1].syncLock = false;
+        d.audioTracks[0].syncLock = false;
+        QCOMPARE(ops::rippleTrimSynced(d, {a}, false, 4), 4);
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:14 14:10"));
+        QCOMPARE(layout(d, kV2), QStringLiteral("5:20"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("12:4"));
+        QCOMPARE(ops::rippleTrimSynced(d, {a}, false, -4), -4);
+        QCOMPARE(layout(d, kV2), QStringLiteral("5:20"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("12:4"));
+    }
+
+    void autoSelectDoesNotDecideWhatRipples()
+    {
+        TimelineData d = timeline();
+        const quint64 a = ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        ops::overwriteClip(d, kV1, mediaClip(10, 10));
+        ops::overwriteClip(d, kV2, mediaClip(12, 4));
+        d.videoTracks[1].autoSelect = false; // Resolve 20.2: only sync lock counts
+        QCOMPARE(ops::rippleTrimSynced(d, {a}, false, 2), 2);
+        QCOMPARE(layout(d, kV2), QStringLiteral("14:4"));
     }
 
     void rippleTrimLinkedPartnersAreNotShiftedTwice()

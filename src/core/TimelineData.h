@@ -290,8 +290,14 @@ struct TrackData
     bool solo = false;
     /// Auto track selector: the track takes part in edits that are not aimed at a specific
     /// clip (previous/next edit point, split at the playhead without a selection, mark clip,
-    /// default transition) and in the all-track ripple of insert edits and gap removal.
+    /// default transition) and in the gap removal across tracks. Since Resolve 20.2 it no longer
+    /// decides what ripples (see syncLock).
     bool autoSelect = true;
+    /// Sync lock (Resolve 20.2, spec 97): the track ripples with edits on other tracks (ripple
+    /// trim, ripple delete, insert) so it stays in sync; off = the track holds its position.
+    /// Independent of autoSelect; a locked track never ripples. Saved in the project (absent
+    /// in older projects = on).
+    bool syncLock = true;
     int height = 0; ///< UI track height in px, 0 = default
     /// Subtitle tracks only: the default caption style (subtitle style keys of
     /// core/Subtitles.h); a caption's own ClipData::title keys override it.

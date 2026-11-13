@@ -378,8 +378,13 @@ bool TimelineWidget::viewportEvent(QEvent* event)
     } else if (const TimelineHit hit = m_layout.hitTest(data, help->pos());
                hit.area == TimelineHit::Area::Header) {
         if (hit.button == HeaderButton::AutoSelect)
-            tip = tr("Auto Select: decides which tracks follow ripple edits (ripple trim, ripple "
-                     "delete, insert) and cuts. Alt+click: only this track.");
+            tip = tr("Auto Select: decides which tracks cuts and other edits at the playhead "
+                     "reach (blade, copy and paste, edit-point navigation). It does not decide "
+                     "what ripples (see Sync Lock). Alt+click: only this track.");
+        else if (hit.button == HeaderButton::SyncLock)
+            tip = tr("Sync Lock: the track ripples with edits on other tracks (ripple trim, "
+                     "ripple delete, insert) so it stays in sync. Off: the track holds its "
+                     "position.");
         else if (hit.button == HeaderButton::Lock)
             tip = tr("Lock: a locked track is never changed or rippled by edits.");
     }

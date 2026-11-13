@@ -247,6 +247,10 @@ private slots:
         QCOMPARE(v.undoText(), QStringLiteral("Disable Track"));
         v.c.toggleTrackFlag(v1, TimelineController::FlagAutoSelect);
         QCOMPARE(v.undoText(), QStringLiteral("Auto Track Selector"));
+        v.c.toggleTrackFlag(v1, TimelineController::FlagSyncLock);
+        QCOMPARE(v.undoText(), QStringLiteral("Sync Lock Off"));
+        v.c.toggleTrackFlag(v1, TimelineController::FlagSyncLock);
+        QCOMPARE(v.undoText(), QStringLiteral("Sync Lock On"));
         // Several media pool items dropped at once: named after the edit.
         const QString media = addMedia(v.f.project);
         v.c.editSources({SourceSelection {media, 0, 0}, SourceSelection {media, 0, 0}},

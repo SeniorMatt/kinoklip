@@ -594,7 +594,7 @@ int64_t TimelineController::applyEditTrim(
     const bool head = edit.headClip != 0;
     const quint64 primary = head ? edit.headClip : edit.tailClip;
     const QVector<quint64> ids = sameEdgeLinks(data, primary, head, m_linked);
-    if (ripple) // the other auto-select tracks follow (spec 8.18)
+    if (ripple) // the other sync-locked tracks follow (spec 8.18)
         return ops::rippleTrimSynced(data, ids, head, frames);
     const int64_t applied = head ? ops::trimHead(data, primary, frames, ripple)
                                  : ops::trimTail(data, primary, frames, ripple);
@@ -714,16 +714,12 @@ void TimelineController::trimToPlayhead(bool head, bool ripple)
                : (head ? tr("Trim Start") : tr("Trim End")),
         [&](TimelineData& data) {
             bool any = false;
-            // Ripple: the other auto-select tracks follow the first clip's change (spec 8.18).
+            // Ripple: the other sync-locked tracks follow the first clip's change (spec 8.18, 97).
             int64_t syncPoint = -1;
             int64_t syncShift = 0;
             if (ripple) {
                 if (const ClipData* first = ops::clipById(data, ids.first())) {
                     syncPoint = first->end();
-                    const int64_t want = head ? f - first->start : f - first->end();
-                    const int64_t room = ops::rippleSyncRoom(data, ids, syncPoint);
-                    if (head ? want > room : -want > room)
-                        return false; // the other tracks have no room to close up that far
                 }
             }
             for (quint64 id : ids) {
@@ -748,7 +744,7 @@ void TimelineController::trimToPlayhead(bool head, bool ripple)
                 }
             }
             if (ripple && syncPoint >= 0)
-                ops::rippleSyncShift(data, ids, syncPoint, syncShift);
+                ops::rippleSyncApply(data, ids, syncPoint, syncShift);
             return any;
         });
     if (changed && newPlayhead != f)
@@ -1163,6 +1159,9 @@ void TimelineController::toggleTrackFlag(TrackRef ref, int flag)
     case FlagAutoSelect:
         label = tr("Auto Track Selector");
         break;
+    case FlagSyncLock:
+        label = current->syncLock ? tr("Sync Lock Off") : tr("Sync Lock On");
+        break;
     default:
         return;
     }
@@ -1185,6 +1184,9 @@ void TimelineController::toggleTrackFlag(TrackRef ref, int flag)
             break;
         case FlagAutoSelect:
             t->autoSelect = !t->autoSelect;
+            break;
+        case FlagSyncLock:
+            t->syncLock = !t->syncLock;
             break;
         default:
             return false;

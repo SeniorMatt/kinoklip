@@ -42,7 +42,7 @@ inline constexpr double kCloseUpZoom = 1.5;
 [[nodiscard]] int64_t nearestEditPoint(const TimelineData& data, int64_t frame);
 
 /// Smart Insert: inserts the material at the edit point nearest to @p playhead (never splits a
-/// clip); later clips on every unlocked auto-select track ripple right.
+/// clip); later clips on every unlocked sync-locked track ripple right.
 Result smartInsert(TimelineData& data, const SourceGroups& groups, int64_t playhead);
 /// Append: puts the material after the last clip of the timeline (nothing moves).
 Result append(TimelineData& data, const SourceGroups& groups);

@@ -127,9 +127,9 @@ int rippleDeleteClips(TimelineData& data, const QVector<quint64>& clipIds, Rippl
             track.clips = std::move(kept);
             return;
         }
-        if (scope != RippleScope::AllTracks || !track.autoSelect)
+        if (scope != RippleScope::AllTracks || !track.syncLock)
             return;
-        // Another auto-select track follows every removed range it has room for. Right to left,
+        // Another sync-locked track follows every removed range it has room for. Right to left,
         // so the earlier ranges keep their coordinates.
         for (auto it = merged.crbegin(); it != merged.crend(); ++it) {
             if (rangeFree(track, it->first, it->second))
@@ -457,7 +457,7 @@ QVector<quint64> rippleOverwriteClips(TimelineData& data, const QVector<PlacedCl
         if (track.locked)
             return;
         const bool target = targets.contains(ref);
-        if (!target && (scope == RippleScope::TargetTracks || !track.autoSelect))
+        if (!target && (scope == RippleScope::TargetTracks || !track.syncLock))
             return;
         if (target) {
             clearRangeImpl(data, track, rangeStart, rangeEnd, remap);

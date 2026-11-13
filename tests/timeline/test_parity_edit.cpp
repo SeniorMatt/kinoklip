@@ -128,7 +128,7 @@ private slots:
         const quint64 v = t.put(kV1, solidClip(30, 10));
         const quint64 a = t.put(kA1, solidClip(30, 10));
         t.link({v, a});
-        t.f.data().audioTracks[0].autoSelect = false;
+        t.f.data().audioTracks[0].syncLock = false;
         QVERIFY(t.c.canCloseGapAt(kV1, 15));
         t.c.closeGapAt(kV1, 15);
         QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:10 10:10"));

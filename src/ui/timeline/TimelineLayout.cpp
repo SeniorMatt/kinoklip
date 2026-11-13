@@ -178,11 +178,11 @@ int TimelineLayout::rowOf(TrackRef ref) const
 const std::vector<HeaderButton>& TimelineLayout::headerButtons(TrackType type)
 {
     static const std::vector<HeaderButton> video {
-        HeaderButton::Visible, HeaderButton::Lock, HeaderButton::AutoSelect};
+        HeaderButton::Visible, HeaderButton::SyncLock, HeaderButton::Lock, HeaderButton::AutoSelect};
     static const std::vector<HeaderButton> audio {HeaderButton::Solo, HeaderButton::Mute,
-        HeaderButton::Arm, HeaderButton::Lock, HeaderButton::AutoSelect};
+        HeaderButton::Arm, HeaderButton::SyncLock, HeaderButton::Lock, HeaderButton::AutoSelect};
     static const std::vector<HeaderButton> subtitle {
-        HeaderButton::Visible, HeaderButton::Lock, HeaderButton::AutoSelect};
+        HeaderButton::Visible, HeaderButton::SyncLock, HeaderButton::Lock, HeaderButton::AutoSelect};
     switch (type) {
     case TrackType::Video:
         return video;
@@ -197,7 +197,7 @@ const std::vector<HeaderButton>& TimelineLayout::headerButtons(TrackType type)
 const std::vector<HeaderButton>& TimelineLayout::buttonsFor(TrackType type) const
 {
     static const std::vector<HeaderButton> audioPage {HeaderButton::Mute, HeaderButton::Solo,
-        HeaderButton::Arm, HeaderButton::Lock, HeaderButton::AutoSelect};
+        HeaderButton::Arm, HeaderButton::SyncLock, HeaderButton::Lock, HeaderButton::AutoSelect};
     return m_audioPageHeaders && type == TrackType::Audio ? audioPage : headerButtons(type);
 }
 

@@ -77,6 +77,7 @@ enum class HeaderButton {
     Mute, ///< audio
     Solo, ///< audio
     AutoSelect, ///< auto track selector (TrackData::autoSelect, spec 12.5)
+    SyncLock, ///< sync lock (TrackData::syncLock, spec 97), right of the track lock
     Arm ///< audio: voice-over record arm (spec 75); right-click opens the input menu
 };
 

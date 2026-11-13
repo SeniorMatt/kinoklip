@@ -143,10 +143,13 @@ The tools on the left of the timeline tool bar (see the picture above):
 
 - **Selection** (1, **A**): click clips to select them, drag them to move them.
 - **Trim** (2, **T**): drag the edge of a clip to make it shorter or longer; the clips after it
-  move along, so no gap appears. The clips after the edit on the other tracks move too (as
-  long as the track's **Auto Select** button in the track header is on and the track is not
-  locked), so picture and sound stay together. Turn **Auto Select** off, or lock the track, for
-  a track that must stay where it is. **Ctrl+Shift+[** and **Ctrl+Shift+]** trim to the playhead
+  move along, so no gap appears. The other tracks follow so picture and sound stay in sync (as
+  long as the track's **Sync Lock** button in the track header, right of the lock, is on and
+  the track is not locked): making the clip longer cuts a clip that spans the edit point and
+  opens a gap of the same length; making it shorter removes the same frames from those tracks.
+  Turn **Sync Lock** off, or lock the track, for a track that must stay where it is.
+  **Auto Select** only decides which tracks cuts and other edits at the playhead reach.
+  **Ctrl+Shift+[** and **Ctrl+Shift+]** trim to the playhead
   the same way.
 - **Blade** (3, **B**): click a clip to cut it in two at that spot. Press **A** to go back to
   the selection tool.

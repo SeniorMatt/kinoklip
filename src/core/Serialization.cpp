@@ -146,6 +146,8 @@ QJsonObject trackToJson(const TrackData& track)
     o[QLatin1String("muted")] = track.muted;
     o[QLatin1String("solo")] = track.solo;
     o[QLatin1String("autoSelect")] = track.autoSelect;
+    if (!track.syncLock) // omitted while on (the default; older projects have no field)
+        o[QLatin1String("syncLock")] = false;
     o[QLatin1String("height")] = track.height;
     // Format 13: the mixer channel of audio tracks, omitted while it has the defaults.
     if (track.type == TrackType::Audio && track.mix != TrackMix {})
@@ -173,6 +175,7 @@ TrackData trackFromJson(const QJsonObject& o, TrackType type)
     t.muted = o.value(QLatin1String("muted")).toBool(false);
     t.solo = o.value(QLatin1String("solo")).toBool(false);
     t.autoSelect = o.value(QLatin1String("autoSelect")).toBool(true);
+    t.syncLock = o.value(QLatin1String("syncLock")).toBool(true);
     t.height = o.value(QLatin1String("height")).toInt(0);
     if (type == TrackType::Audio) // formats 1 - 11 have no "mix": the defaults
         t.mix = trackMixFromJson(o.value(QLatin1String("mix")).toObject());
