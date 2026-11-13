@@ -1275,6 +1275,10 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                 on = track.autoSelect;
                 onColor = strip.darker(140);
                 break;
+            case HeaderButton::SyncLock:
+                on = track.syncLock;
+                onColor = strip.darker(140);
+                break;
             case HeaderButton::Arm:
                 on = in.voiceOver.armedTrack == track.id && track.id != 0;
                 onColor
@@ -1313,6 +1317,17 @@ void TimelinePainter::paintHeaders(QPainter& p, const TimelinePaintInput& in)
                         p.fillRect(QRect(bar.right() - 3, bar.top() - 1, 4, bar.height() + 2),
                             sc().negative);
                 }
+            }
+            if (b == HeaderButton::SyncLock) {
+                // Painted glyph: two track bars joined by a link; bright while the track is
+                // kept in sync.
+                p.setPen(Qt::NoPen);
+                p.setBrush(on ? sc().textOn(onColor) : m_text.darker(160));
+                p.drawRect(QRect(br.left() + 4, br.top() + 4, br.width() - 8, 3));
+                p.drawRect(QRect(br.left() + 4, br.bottom() - 6, br.width() - 8, 3));
+                if (on)
+                    p.drawRect(QRect(br.center().x() - 1, br.top() + 4, 2, br.height() - 8));
+                p.setBrush(Qt::NoBrush);
             }
             if (b == HeaderButton::AutoSelect) {
                 // Painted glyph (no icon file): a track bar with a selection tick; bright when

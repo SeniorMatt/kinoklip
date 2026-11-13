@@ -191,7 +191,7 @@ private slots:
         const quint64 v2 = ops::overwriteClip(d, kV1, mediaClip(30, 10));
         const quint64 a = ops::overwriteClip(d, kA1, mediaClip(30, 10));
         ops::linkClips(d, {v2, a});
-        d.audioTracks[0].autoSelect = false;
+        d.audioTracks[0].syncLock = false;
         bool broke = true;
         QCOMPARE(ops::closeGap(d, kV1, 15, ops::RippleScope::AllTracks, &broke), int64_t(20));
         QVERIFY(!broke);

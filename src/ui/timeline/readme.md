@@ -109,7 +109,7 @@ dialogs in TimelinePanel), `mark.modify_marker` (Ctrl+M), `mark.delete_marker` (
 `timeline.target_video_n/target_audio_n/auto_select_video_n/auto_select_audio_n`. With no clip
 selected and in + out marks set, Backspace lifts and Delete extracts the marked range on the
 auto-select tracks; Ctrl+C / Ctrl+X copy / cut it. Ripple delete of clips makes the other
-auto-select tracks follow where they have room. Mouse wheel: `EditBehaviour::wheelScheme`
+sync-locked tracks follow where they have room. Mouse wheel: `EditBehaviour::wheelScheme`
 (Resolve: Alt zooms, Ctrl scrolls time, Shift scales the track heights) and `zoomAnchor`.
 
 Hooks the page / panel wire: `setSourceProvider()`, `setMatchFrameHandler()`,
@@ -180,7 +180,7 @@ and F9/F10/F12 work unchanged. Actions: `timeline.new` (Ctrl+N), `timeline.dupli
 ## Subtitle tracks, adjustment clips, generators (v2)
 - `TimelineLayout::rebuild()` stacks subtitle rows above the video rows (ST(n) first); the
   divider stays between video and audio. Headers: "ST<n>" label without a source patch (target
-  setters ignore subtitle refs), eye / lock / auto-select.
+  setters ignore subtitle refs), eye / lock / auto-select, sync lock.
 - `TimelinePainter`: adjustment clips slate with hatching, generators terracotta, captions
   sand with their text.
 - `TimelineController::addSubtitleAtPlayhead()` (`timeline.add_subtitle`), `addTrack(Subtitle)`

@@ -395,7 +395,7 @@ public slots:
     /// auto-select tracks.
     void deleteSelection();
     /// Delete / Shift+Backspace (spec 10.2-10.8): ripple-deletes the selected clips (later
-    /// clips on their tracks close up, other auto-select tracks follow where they have room);
+    /// clips on their tracks close up, other sync-locked tracks follow where they have room);
     /// closes a selected gap; with no clip selected and in + out marks set, extracts the
     /// marked range on the auto-select tracks (playhead to the in mark, marks cleared).
     void rippleDeleteSelection();
@@ -611,7 +611,8 @@ public:
         FlagLocked,
         FlagMuted,
         FlagSolo,
-        FlagAutoSelect
+        FlagAutoSelect,
+        FlagSyncLock
     };
     /// The clipboard (last copy/cut).
     [[nodiscard]] const editops::Clipboard& clipboard() const { return m_clipboard; }

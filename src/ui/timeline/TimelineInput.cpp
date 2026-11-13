@@ -937,12 +937,8 @@ void TimelineWidget::updateTrim(QPointF pos)
             return head ? ops::trimHead(data, id, d, m_drag.ripple)
                         : ops::trimTail(data, id, d, m_drag.ripple);
         };
-        // Ripple: the other auto-select tracks follow, so they limit the move too (spec 8.18).
+        // Ripple: the other sync-locked tracks follow (spec 8.18, 97).
         const int64_t point = m_drag.primaryEnd;
-        if (m_drag.ripple) {
-            const int64_t room = ops::rippleSyncRoom(data, m_drag.clips, point);
-            delta = head ? std::min(delta, room) : std::max(delta, -room);
-        }
         const int64_t applied = trim(m_drag.primary, delta);
         bool consistent = true;
         for (int i = 1; i < m_drag.clips.size(); ++i) {
@@ -957,7 +953,7 @@ void TimelineWidget::updateTrim(QPointF pos)
             m_overlay.snapFrame.reset(); // clamped: the indicator would lie
         if (consistent) {
             if (m_drag.ripple)
-                ops::rippleSyncShift(data, m_drag.clips, point, head ? -applied : applied);
+                ops::rippleSyncApply(data, m_drag.clips, point, head ? -applied : applied);
             break;
         }
     }
@@ -1122,6 +1118,9 @@ void TimelineWidget::headerClick(const TimelineHit& hit)
             m_controller->soloAutoSelect(hit.track); // spec 6.6
         else
             m_controller->toggleTrackFlag(hit.track, TimelineController::FlagAutoSelect);
+        break;
+    case HeaderButton::SyncLock:
+        m_controller->toggleTrackFlag(hit.track, TimelineController::FlagSyncLock);
         break;
     case HeaderButton::Arm:
         // Voice-over (spec 75): arm / disarm; a refusal reaches the user through the

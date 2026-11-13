@@ -162,13 +162,13 @@ private slots:
 
     // ---- 4 Source edits ----
 
-    void spec4_1_insertRipplesOnlyAutoSelectTracks()
+    void spec4_1_insertRipplesOnlySyncLockTracks()
     {
         Ctl t;
         const QString media = addMedia(t.f.project, true, false);
         t.put(kV1, solidClip(0, 100));
         t.put(kV2, solidClip(60, 10));
-        t.c.toggleTrackFlag(kV2, TimelineController::FlagAutoSelect);
+        t.c.toggleTrackFlag(kV2, TimelineController::FlagSyncLock);
         t.tl()->setPlayhead(40);
         t.c.insertSource(media, 0, 1'000'000, SourceEditMode::Insert); // 25 frames
         QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("0:40 40:25 65:60"));
@@ -512,7 +512,7 @@ private slots:
         QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("10:40"));
     }
 
-    void spec8_18_rippleTrimKeepsOtherAutoSelectTracksInSync()
+    void spec8_18_rippleTrimKeepsOtherSyncLockedTracksInSync()
     {
         Ctl t;
         constexpr TrackRef kA2 {TrackType::Audio, 1};
@@ -520,8 +520,9 @@ private slots:
         t.put(kV1, mediaClip(50, 10));
         t.put(kV2, mediaClip(55, 10)); // follows
         t.put(kA1, mediaClip(52, 6)); // follows
-        t.put(kA2, mediaClip(52, 6)); // auto select off: stays
-        t.c.toggleTrackFlag(kA2, TimelineController::FlagAutoSelect);
+        t.put(kA2, mediaClip(52, 6)); // sync lock off: stays
+        t.c.toggleTrackFlag(kA2, TimelineController::FlagSyncLock);
+        QVERIFY(!t.f.view().audioTracks[1].syncLock);
         t.tl()->setPlayhead(30);
         const int before = t.undoCount();
         t.action("trim.ripple_trim_end")->trigger();
@@ -533,6 +534,40 @@ private slots:
         t.f.project.undoStack()->undo();
         QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("55:10"));
         QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("52:6"));
+    }
+
+    void spec8_18_spanningClipIsCutAndUndoRestoresIt()
+    {
+        Ctl t;
+        t.put(kV1, mediaClip(10, 40));
+        t.put(kV2, mediaClip(0, 80)); // spans the edit point
+        // Auto Select off: the playhead command trims only V1, V2 is reached by sync lock only.
+        t.c.toggleTrackFlag(kV2, TimelineController::FlagAutoSelect);
+        t.tl()->setPlayhead(30);
+        t.action("trim.ripple_trim_end")->trigger(); // removes frames 30..50 on every track
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:20"));
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("0:30 30:30"));
+        t.f.project.undoStack()->undo();
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("0:80"));
+    }
+
+    void spec97_syncLockDefaultOnAndSaved()
+    {
+        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 2, 2);
+        QVERIFY(d.videoTracks[0].syncLock);
+        d.audioTracks[1].syncLock = false;
+        QString error;
+        QJsonObject json = serialization::timelineToJson(d);
+        TimelineData back;
+        QVERIFY(serialization::timelineFromJson(json, back, &error));
+        QVERIFY(back.videoTracks[0].syncLock);
+        QVERIFY(!back.audioTracks[1].syncLock);
+        // An older project has no "syncLock" field: every track keeps its sync lock on.
+        d.audioTracks[1].syncLock = true;
+        json = serialization::timelineToJson(d);
+        TimelineData old;
+        QVERIFY(serialization::timelineFromJson(json, old, &error));
+        QVERIFY(old.audioTracks[1].syncLock);
     }
 
     void spec8_11_extendEdit()

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Commands: track.list, track.add, track.set (mute, lock, enable, solo, auto-select, name). The
+// Commands: track.list, track.add, track.set (mute, lock, enable, solo, auto-select, sync-lock, name). The
 // same fields the track header buttons of the timeline switch; addTrack() is the timeline's.
 #include "app/commands/Command.h"
 #include "app/commands/CommandSupport.h"
@@ -26,6 +26,7 @@ QJsonObject trackJson(const TrackData& t, TrackRef ref)
         {QStringLiteral("name"), t.name}, {QStringLiteral("enabled"), t.enabled},
         {QStringLiteral("locked"), t.locked}, {QStringLiteral("muted"), t.muted},
         {QStringLiteral("solo"), t.solo}, {QStringLiteral("autoSelect"), t.autoSelect},
+        {QStringLiteral("syncLock"), t.syncLock},
         {QStringLiteral("clips"), int(t.clips.size())}};
 }
 
@@ -93,7 +94,7 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
     };
     static const Flag flags[] = {{"enabled", &TrackData::enabled}, {"locked", &TrackData::locked},
         {"muted", &TrackData::muted}, {"solo", &TrackData::solo},
-        {"auto-select", &TrackData::autoSelect}};
+        {"auto-select", &TrackData::autoSelect}, {"sync-lock", &TrackData::syncLock}};
     bool any = args.has(QStringLiteral("name"));
     for (const Flag& f : flags)
         any |= args.has(QString::fromLatin1(f.option));
@@ -143,6 +144,7 @@ void registerTrackCommands(CommandRegistry& registry)
                           flag("locked", "true: no edit changes the track"),
                           flag("muted", "true: the track is silent"),
                           flag("solo", "true: only soloed tracks are heard"),
+                          flag("sync-lock", "true: the track ripples with edits on other tracks (sync lock)"),
                           flag("auto-select", "true: edits without a target include this track"),
                           {QStringLiteral("name"), ParamType::String,
                               QStringLiteral("track name (empty: V1, A2, ...)"), false, {}, {}}},

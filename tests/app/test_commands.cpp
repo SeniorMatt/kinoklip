@@ -946,7 +946,11 @@ private slots:
         ok("track.set", {{"track", "V1"}, {"enabled", false}, {"auto-select", false}});
         const TrackData& v1 = load()->timeline()->data().videoTracks[0];
         QVERIFY(!v1.enabled && !v1.autoSelect);
-        ok("track.set", {{"track", "V1"}, {"enabled", true}});
+        QVERIFY(v1.syncLock);
+        ok("track.set", {{"track", "V1"}, {"sync-lock", false}});
+        QVERIFY(!load()->timeline()->data().videoTracks[0].syncLock);
+        ok("track.set", {{"track", "V1"}, {"enabled", true}, {"sync-lock", true}});
+        QVERIFY(load()->timeline()->data().videoTracks[0].syncLock);
         QVERIFY(load()->timeline()->data().videoTracks[0].enabled);
         bad("track.set", {{"track", "V9"}, {"muted", true}}, "unknown_track");
         bad("track.set", {{"track", "X1"}, {"muted", true}}, "unknown_track");
