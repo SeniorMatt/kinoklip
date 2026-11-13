@@ -304,10 +304,26 @@ QWidget* RenderSettingsPanel::buildHeader()
     m_individualClips = new QRadioButton(tr("Individual clips"));
     m_individualClips->setObjectName(QStringLiteral("RenderIndividualClips"));
     m_singleClip->setChecked(true);
-    m_individualClips->setEnabled(false);
     m_individualClips->setToolTip(
-        tr("Rendering every timeline clip to its own file is coming in a later version."));
+        tr("Render every clip of the range to its own file in the Location folder"));
     form->addRow(tr("Render"), row({m_singleClip, m_individualClips}));
+    m_clipNaming = new QComboBox;
+    m_clipNaming->setObjectName(QStringLiteral("RenderClipNaming"));
+    m_clipNaming->addItem(tr("Clip name"), int(ClipNaming::ClipName));
+    m_clipNaming->addItem(tr("Source name"), int(ClipNaming::SourceName));
+    m_clipNaming->addItem(tr("Number + clip name"), int(ClipNaming::NumberedClipName));
+    m_clipNaming->setToolTip(tr("Where the file names of the clips come from"));
+    form->addRow(tr("Filename uses"), m_clipNaming);
+    m_clipHandles = new QSpinBox;
+    m_clipHandles->setObjectName(QStringLiteral("RenderClipHandles"));
+    m_clipHandles->setRange(0, 1000);
+    m_clipHandles->setSuffix(tr(" frames"));
+    m_clipHandles->setToolTip(tr("Extra frames rendered before and after every clip"));
+    form->addRow(tr("Handles"), m_clipHandles);
+    m_headerForm = form;
+    connect(m_individualClips, &QRadioButton::toggled, this, [this] { refresh(); });
+    connect(m_clipNaming, &QComboBox::currentIndexChanged, this, [this] { refresh(); });
+    connect(m_clipHandles, &QSpinBox::valueChanged, this, [this] { refresh(); });
     return header;
 }
 
@@ -692,6 +708,9 @@ ExportSettings RenderSettingsPanel::settings() const
     s.audio.sampleRate = m_sampleRate->currentData().toInt();
     s.audio.bitDepth = m_bitDepth->currentData().toInt();
     s.range = RangeMode(m_range->currentData().toInt());
+    s.individualClips = m_individualClips->isChecked();
+    s.clipNaming = ClipNaming(m_clipNaming->currentData().toInt());
+    s.clipHandles = m_clipHandles->value();
     s.subtitles.enabled = m_subtitleExport->isChecked() && s.kind() != OutputKind::Audio
         && s.kind() != OutputKind::Still;
     s.subtitles.mode = SubtitleExportMode(m_subtitleMode->currentData().toInt());
@@ -808,6 +827,9 @@ void RenderSettingsPanel::setSettings(const ExportSettings& input)
     selectData(m_sampleRate, s.audio.sampleRate);
     selectData(m_bitDepth, s.audio.bitDepth);
     selectData(m_range, int(s.range));
+    (s.individualClips ? m_individualClips : m_singleClip)->setChecked(true);
+    selectData(m_clipNaming, int(s.clipNaming));
+    m_clipHandles->setValue(s.clipHandles);
     m_subtitleExport->setChecked(s.subtitles.enabled);
     selectData(m_subtitleMode, int(s.subtitles.mode));
     selectData(m_subtitleFormat, int(s.subtitles.sidecarFormat));
@@ -865,6 +887,10 @@ void RenderSettingsPanel::updateVisibility()
     const bool video = kind != OutputKind::Audio;
     const bool movie = kind == OutputKind::Movie;
     const bool videoOn = video && (!movie || s.videoEnabled);
+    m_headerForm->setRowVisible(m_clipNaming, s.individualClips);
+    m_headerForm->setRowVisible(m_clipHandles, s.individualClips);
+    // Individual clips take their file names from the clips: the Filename box is not used.
+    m_fileName->setEnabled(!s.individualClips);
     const bool interFrame = videoOn && codec && codec->hasBitrate; // h264/hevc/av1/vp9
     m_videoForm->setRowVisible(m_videoEnabled, movie);
     m_videoForm->setRowVisible(m_codec, video);
@@ -957,8 +983,12 @@ void RenderSettingsPanel::updateVisibility()
 void RenderSettingsPanel::updateResultPath()
 {
     const ExportSettings s = settings();
-    const QString path
+    QString path
         = s.kind() == OutputKind::ImageSequence ? sequencePattern(s.outputPath) : s.outputPath;
+    if (s.individualClips) {
+        const QFileInfo fi(s.outputPath);
+        path = fi.dir().filePath(tr("<clip name>.") + fi.suffix());
+    }
     m_resultPath->setText(QDir::toNativeSeparators(path));
 }
 

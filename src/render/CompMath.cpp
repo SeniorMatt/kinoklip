@@ -17,9 +17,10 @@ namespace k = nodekeys;
 
 namespace {
 
-double num(const ParamSet& p, const QString& key, int64_t frame, double fallback)
+/// A parameter at @p frame (valueAt() of a whole frame is valueAtTime() of the same number).
+double num(const ParamSet& p, const QString& key, double frame, double fallback)
 {
-    return p.value(key, frame, fallback);
+    return p.valueAtTime(key, frame, fallback);
 }
 
 QTransform translate(QPointF d)
@@ -29,7 +30,7 @@ QTransform translate(QPointF d)
 
 } // namespace
 
-QTransform transformMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
+QTransform transformMatrix(const ParamSet& p, double frame, QSizeF frameSize)
 {
     const QPointF mid(frameSize.width() / 2, frameSize.height() / 2);
     const QPointF pivot
@@ -114,7 +115,7 @@ QTransform planarMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
     return QTransform(c, s, -s, c, sim->dx, sim->dy);
 }
 
-QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
+QTransform mergeForegroundMatrix(const ParamSet& p, double frame, QSizeF frameSize)
 {
     const QPointF mid(frameSize.width() / 2, frameSize.height() / 2);
     const QPointF centre
@@ -758,6 +759,34 @@ CommonParams commonParams(const CompNode& n, int64_t frame)
     c.multiplyByMask = p.staticValue(k::MultiplyByMask, false).toBool();
     c.processAtZero = p.staticValue(k::ProcessAtZero, true).toBool();
     return c;
+}
+
+MotionBlurSamples motionBlurSamples(const CompNode& n, double frame)
+{
+    MotionBlurSamples out;
+    if (n.type != nodetypes::Merge && n.type != nodetypes::Transform)
+        return out;
+    const ParamSet& p = n.params;
+    if (!p.staticValue(k::MotionBlur, false).toBool())
+        return out;
+    const int quality = std::clamp(int(std::lround(num(p, k::MotionBlurQuality, frame, 2.0))), 1, 10);
+    const double shutter = std::clamp(num(p, k::ShutterAngle, frame, 100.0), 0.0, 720.0) / 360.0;
+    const double bias = std::clamp(num(p, k::CenterBias, frame, 0.0), -1.0, 1.0);
+    const double spread = std::clamp(num(p, k::SampleSpread, frame, 1.0), 0.0, 2.0);
+    if (shutter <= 0)
+        return out;
+    const int count = 2 * quality + 1;
+    float sum = 0;
+    for (int i = 0; i < count; ++i) {
+        const double u = 2.0 * i / (count - 1) - 1.0; // -1..1 across the shutter
+        out.offsets.push_back((u + bias) * shutter / 2);
+        const float w = float(std::exp((spread - 1.0) * 3.0 * u * u));
+        out.weights.push_back(w);
+        sum += w;
+    }
+    for (float& w : out.weights)
+        w /= sum;
+    return out;
 }
 
 void applyCommon(const CommonParams& c, const float in[4], const float res[4], const float* mask,

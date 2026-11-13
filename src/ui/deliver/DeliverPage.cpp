@@ -5,6 +5,7 @@
 #include "core/Project.h"
 #include "export/EncoderCatalog.h"
 #include "export/ExportPresets.h"
+#include "export/IndividualClips.h"
 #include "export/RenderQueue.h"
 #include "render/Compositor.h"
 #include "render/ProxySelection.h"
@@ -192,6 +193,8 @@ std::optional<DeliverPage::PreparedJob> DeliverPage::prepareJob(
 
 quint64 DeliverPage::addCurrentToQueue(bool confirmOverwrite)
 {
+    if (m_settingsPanel->settings().individualClips)
+        return addIndividualClipsToQueue(confirmOverwrite);
     std::optional<PreparedJob> job = prepareJob(tr("Add to Render Queue"), confirmOverwrite);
     if (!job)
         return 0;
@@ -199,6 +202,48 @@ quint64 DeliverPage::addCurrentToQueue(bool confirmOverwrite)
         job->name, job->settings, job->timeline, job->media, std::move(job->proxies));
     m_jobMediaChoice.insert(id, {job->useProxies, job->useOptimized});
     return id;
+}
+
+quint64 DeliverPage::addIndividualClipsToQueue(bool confirmOverwrite)
+{
+    const QString title = tr("Add to Render Queue");
+    std::optional<PreparedJob> job = prepareJob(title, false);
+    if (!job)
+        return 0;
+    const QList<ClipRenderJob> clips
+        = individualClipJobs(*job->timeline, job->settings, *job->media);
+    if (clips.isEmpty()) {
+        QMessageBox::warning(this, title, tr("There are no clips in the render range."));
+        return 0;
+    }
+    if (confirmOverwrite) {
+        QStringList existing;
+        for (const ClipRenderJob& c : clips) {
+            const QString path = c.settings.kind() == OutputKind::ImageSequence
+                ? QString::asprintf(qPrintable(sequencePattern(c.settings.outputPath)), 0)
+                : c.settings.outputPath;
+            if (QFileInfo::exists(path))
+                existing << QFileInfo(path).fileName();
+        }
+        if (!existing.isEmpty()
+            && QMessageBox::question(this, title,
+                   tr("%n file(s) already exist (%1). Overwrite them when the jobs render?",
+                       nullptr, int(existing.size()))
+                       .arg(existing.first()))
+                != QMessageBox::Yes) {
+            return 0;
+        }
+    }
+    // One job per clip: the queue shows the progress of every clip.
+    quint64 first = 0;
+    for (const ClipRenderJob& c : clips) {
+        const quint64 id
+            = m_queue->addJob(c.name, c.settings, job->timeline, job->media, job->proxies);
+        m_jobMediaChoice.insert(id, {job->useProxies, job->useOptimized});
+        if (first == 0)
+            first = id;
+    }
+    return first;
 }
 
 void DeliverPage::editJob(quint64 id)

@@ -487,6 +487,12 @@ double ParamSet::value(const QString& key, int64_t localFrame, double fallback) 
     return it == values.cend() ? fallback : it->valueAt(localFrame);
 }
 
+double ParamSet::valueAtTime(const QString& key, double localFrame, double fallback) const
+{
+    const auto it = values.constFind(key);
+    return it == values.cend() ? fallback : it->valueAtTime(localFrame);
+}
+
 double ParamSet::value(const QString& key, int64_t localFrame) const
 {
     // Look up first: the default table is only consulted for absent keys.

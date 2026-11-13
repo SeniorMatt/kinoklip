@@ -2534,3 +2534,23 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 93.8 | **Paste Settings:** Ctrl+Shift+V while the node editor has the focus (and the right-click entry) copies the parameters of a copied node (Ctrl+C) onto each selected node of the same type; other types, locked nodes and positions are untouched; one undo step "Paste Settings". Not claimed when a comp command has the key. | Done (spec93_pasteSettingsCopiesParamsOfTheSameType) |
 | 93.9 | **Disconnect both ends:** Shift-drag on a link (more than the drag distance) removes the link from its output and its input; a Shift click without moving leaves it. A dashed red line follows the pointer. | Done (spec93_shiftDragOnALinkDisconnectsIt) |
 | 93.10 | Project format stays 19: tile colour and the tile picture flag are written only when set; older files load unchanged. | Done (spec93_tilePicturesAreRenderedLazilyAndSaved, spec93_tileColourIsWrittenOnlyWhenSet) |
+
+
+## 94. Motion Blur on Merge and Transform (motionblur branch, roadmap 1.7)
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 94.1 | The Settings (Common Controls) of **Merge** and **Transform** nodes (only those) have **Motion Blur** (check box, off), **Quality** (1..10, 2), **Shutter Angle** (0..720 degrees, 100), **Center Bias** (-1..1, 0) and **Sample Spread** (0..2, 1). A new node carries none of the keys; they are written only when changed. Project format stays 19. | Done (test_commoncontrols defaultsAddNoKeys, motionBlurSmearsAMovingSquare) |
+| 94.2 | With Motion Blur on, the node's transform is rendered at 2 x Quality + 1 times across the shutter (Shutter Angle / 360 frames, centred on the frame, moved by Center Bias: -1 ends at the frame, 1 starts at it) and the pictures are averaged. Sample Spread 1 weights them equally, below 1 favours the middle, above 1 the ends. Shutter Angle 0 renders as with Motion Blur off. | Done (motionBlurSmearsAMovingSquare) |
+| 94.3 | Animated parameters (Center, Size, Angle, Pivot) are evaluated at fractional frames between their keys. | Done (motionBlurSmearsAMovingSquare) |
+| 94.4 | A square moving 32 px per frame gets a soft edge about 32 px wide along its path; with Motion Blur off the edge is hard. The GPU and CPU renderers show the same picture (within 14 of 255). For Merge only the foreground is blurred. | Done (motionBlurSmearsAMovingSquare) |
+
+## 95. Deliver: Individual clips (individualclips branch, roadmap 1.7)
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 95.1 | **Individual clips** next to **Render** is enabled. With it on, **Filename uses** (Clip name, Source name, Number + clip name) and **Handles** (0..1000 frames) appear and the Filename box is disabled; the Output file line shows `<clip name>.ext`. | Done (test_deliverpage renderSettingsForm) |
+| 95.2 | Add to Render Queue adds one job per clip of the render range, all with the page's settings and own file in the Location folder, named by the chosen rule (illegal characters become _, a file extension in the clip name is dropped, equal names get _2, _3, "Number + clip name" gives 001_...). The queue shows each clip's progress. | Done (individualClipsRenderOneFilePerClip) |
+| 95.3 | The clips are the cuts of the picture: the topmost enabled video-track clip at each frame; a gap gives no file; a clip cut by In/Out starts or ends at the range edge. | Done (individualClipsRenderOneFilePerClip) |
+| 95.4 | Handles add that many frames before and after every clip, limited to the timeline (0 .. its end). Three clips of 20, 30 and 10 frames with 5 handles render 25, 40 and 15 frames. | Done (individualClipsRenderOneFilePerClip) |
+| 95.5 | Project / preset JSON: `individualClips`, `clipNaming`, `clipHandles` are written only when Individual clips is on (handles only when above 0). Jobs in the queue are plain single-range jobs, editable as before. | Done (renderSettingsForm) |

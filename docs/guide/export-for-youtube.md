@@ -45,6 +45,22 @@ afterwards.
   **File > Project Settings** (**Shift+9**) before you start editing.
 - **Only the sound:** the **Audio MP3** or **Audio WAV** presets export just the audio.
 
+## One file for every clip
+
+To get each clip of the timeline as its own video file (for a client, or to import them in
+another program), choose **Individual clips** next to **Render** on the Deliver page, instead of
+**Single clip**.
+
+- The files go to the **Location** folder. The **Filename** box is not used: **Filename uses**
+  picks the names, **Clip name**, **Source name** (the name of the media file) or **Number +
+  clip name** (001_, 002_ ... in timeline order). Two clips with the same name get _2, _3.
+- **Handles** adds that many extra frames before and after every clip, so the editor who gets
+  the files can still adjust the cuts. The extra frames show what the timeline has around the
+  clip, and stop at the start and end of the timeline.
+- Where clips lie over each other, the one on top is the clip. Gaps give no file.
+- **In/Out Range** works too: only clips inside it are rendered, cut at its edges.
+- **Add to Render Queue** adds one job for every clip, so the queue shows how far each clip is.
+
 ## If something goes wrong
 
 - **"Nothing to render: the timeline is empty."** Put some clips on the timeline first, on the

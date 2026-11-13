@@ -106,6 +106,8 @@ private:
         bool useOptimized = false;
     };
     /// Validates the settings (messages titled @p title) and snapshots the timeline.
+    /// "Individual clips": one queued job per clip of the range. @return the first job's id.
+    quint64 addIndividualClipsToQueue(bool confirmOverwrite);
     std::optional<PreparedJob> prepareJob(const QString& title, bool confirmOverwrite);
     void leaveEditMode(bool restoreSettings);
 

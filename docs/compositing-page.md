@@ -176,6 +176,21 @@ the renderers.
 prediction for very fast movement, per-frame manual correction with re-tracking from the
 corrected frame, a live (re-resolving) link, linking sizes and angles, and tracking of masks.
 
+## Motion Blur (1.7, spec 94)
+
+Common Controls of Merge and Transform only (`NodeRegistry::commonControls()`): `ccMotionBlur`
+(static bool), `ccMbQuality` (int, default 2), `ccMbShutter` (degrees, default 100),
+`ccMbBias` (-1..1), `ccMbSpread` (0..2). Keys are written only when set. Public Fusion manuals
+only (clean room). `compmath::motionBlurSamples()` gives 2q + 1 frame offsets across the
+shutter (angle / 360 frames, centred, moved by Center Bias) and normalised weights
+(exp((spread - 1) * 3 * u^2)). The node's matrix is evaluated at each fractional frame
+(`transformMatrix()` / `mergeForegroundMatrix()` take a double frame; `ParamSet::valueAtTime()`
+-> `AnimatedValue::valueAtTime()`), the input is resampled for each (per-pixel resampler on
+both paths) and the pictures are averaged: GPU `GlComposition::blurredResample()` (running
+weighted mean with the mix pass), CPU `weightedMean()` in `CpuComposition`. For Merge only the
+foreground transform is blurred; Blend, mode and mask apply to the averaged foreground.
+Tracker, Planar Tracker and Corner Positioner do not blur yet.
+
 ## Node editor extras (1.7, spec 93)
 
 Insert on links (Shift-drag of a connected tile; library drops already did), tile pictures

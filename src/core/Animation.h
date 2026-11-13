@@ -199,6 +199,9 @@ struct ParamSet
 
     /// Value of animated parameter @p key at @p localFrame, or @p fallback if the key is absent.
     [[nodiscard]] double value(const QString& key, int64_t localFrame, double fallback) const;
+    /// Value of animated parameter @p key at a fractional @p localFrame (motion blur samples
+    /// between frames), or @p fallback if the key is absent.
+    [[nodiscard]] double valueAtTime(const QString& key, double localFrame, double fallback) const;
     /// Value of animated parameter @p key using the documented default from kk::keys as fallback.
     [[nodiscard]] double value(const QString& key, int64_t localFrame) const;
     /// Static parameter @p key, or @p fallback if absent.

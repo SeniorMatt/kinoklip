@@ -14,6 +14,7 @@
 
 #include <array>
 #include <cstdint>
+#include <vector>
 
 namespace kk::render::compmath {
 
@@ -26,7 +27,8 @@ namespace kk::render::compmath {
 
 /// Transform node: maps a timeline pixel of the input to the output (centre, pivot, size,
 /// aspect, angle counter-clockwise, flips about the frame centre).
-[[nodiscard]] QTransform transformMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);
+/// @p frame may be fractional (a motion blur sample).
+[[nodiscard]] QTransform transformMatrix(const ParamSet& p, double frame, QSizeF frameSize);
 
 /// Tracker node: the move of the input at @p frame, relative to the reference frame: the
 /// tracked point (CenterX / CenterY) at @p frame minus its place at RefFrame (Match Move), or
@@ -47,7 +49,8 @@ namespace kk::render::compmath {
 
 /// Merge node: maps a timeline pixel of the foreground to the output (the foreground's
 /// centre goes to Center, scaled by Size and turned by Angle about its centre).
-[[nodiscard]] QTransform mergeForegroundMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize);
+/// @p frame may be fractional (a motion blur sample).
+[[nodiscard]] QTransform mergeForegroundMatrix(const ParamSet& p, double frame, QSizeF frameSize);
 
 /// How Merge and Transform resample the picture: the edge mode (edgemodes:: index) and the
 /// filter (filtermethods:: index, Nearest 0, Linear 1, ...). The default (Canvas, Linear) is
@@ -205,6 +208,21 @@ struct CommonParams
     [[nodiscard]] bool skipped() const { return !processAtZero && ownBlend <= 0; }
 };
 [[nodiscard]] CommonParams commonParams(const CompNode& node, int64_t frame);
+/// Motion Blur of a Merge or Transform node (Common Controls, Fusion's public manual): the
+/// node's transform is evaluated at several sub-frame times across the shutter and the
+/// renderings are averaged. Empty when Motion Blur is off, the node is of another type, or the
+/// Shutter Angle is 0 (nothing changes then).
+struct MotionBlurSamples
+{
+    std::vector<double> offsets; ///< frames relative to the current one
+    std::vector<float> weights; ///< sum 1
+    [[nodiscard]] bool empty() const { return offsets.empty(); }
+};
+/// Quality q gives 2q + 1 samples (Quality 2: five). The shutter is Shutter Angle / 360 frames
+/// long, centred on the frame and moved by Center Bias (-1 ends at the frame, 0 centred, 1
+/// starts at it, -1..1 scales between). Sample Spread weights the samples: 1 equal, below 1
+/// favours the centre of the shutter, above 1 its ends.
+[[nodiscard]] MotionBlurSamples motionBlurSamples(const CompNode& node, double frame);
 /// The Common Controls on one premultiplied pixel: @p in is the node's main input, @p res
 /// its result (rgba 0..1). Unprocessed channels are taken from @p in (the colour channels as
 /// straight colour, then re-premultiplied). @p mask is the Effect Mask's alpha or null: with

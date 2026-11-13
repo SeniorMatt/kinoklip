@@ -6,6 +6,7 @@
 #include "../panels/PanelTestUtils.h"
 #include "ExportTestUtil.h"
 #include "export/ExportPresets.h"
+#include "export/IndividualClips.h"
 #include "export/RenderQueue.h"
 #include "ui/common/Resources.h"
 #include "ui/deliver/DeliverPage.h"
@@ -16,6 +17,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
+#include <QFileInfo>
 #include <QFile>
 #include <QLineEdit>
 #include <QRadioButton>
@@ -76,10 +78,21 @@ private Q_SLOTS:
         resolution->setCurrentIndex(0);
         QCOMPARE(panel->settings().video.width, 0);
 
-        // Unsupported options are disabled with a tooltip, not faked.
+        // Individual clips: naming and handles appear only with the radio button (spec 94).
         auto* individual = panel->findChild<QRadioButton*>(QStringLiteral("RenderIndividualClips"));
-        QVERIFY(!individual->isEnabled());
-        QVERIFY(!individual->toolTip().isEmpty());
+        QVERIFY(individual->isEnabled());
+        auto* handles = panel->findChild<QSpinBox*>(QStringLiteral("RenderClipHandles"));
+        QVERIFY(handles->isHidden() || !panel->settings().individualClips);
+        individual->setChecked(true);
+        handles->setValue(4);
+        s = panel->settings();
+        QVERIFY(s.individualClips);
+        QCOMPARE(s.clipHandles, 4);
+        QVERIFY(s.toJson().contains(QStringLiteral("individualClips")));
+        individual->parentWidget()->findChildren<QRadioButton*>().first()->setChecked(true); // Single clip
+        QVERIFY(!panel->settings().individualClips);
+        QVERIFY(!panel->settings().toJson().contains(QStringLiteral("individualClips")));
+        QVERIFY(!panel->settings().toJson().contains(QStringLiteral("clipHandles")));
 
         // File tab: subfolder and unique names build the output path and persist.
         QTemporaryDir dir;
@@ -172,6 +185,78 @@ private Q_SLOTS:
         timeline->mutableData().markOut = 60;
         timeline->notifyChanged();
         QCOMPARE(panel->settings().range, RangeMode::InOut);
+    }
+
+    /// Individual clips: three clips give three files of the right lengths, handles included.
+    void individualClipsRenderOneFilePerClip()
+    {
+        PanelFixture fx;
+        {
+            fx.project.beginEdit(QStringLiteral("Clips"));
+            TimelineData& tl = fx.project.timeline()->mutableData();
+            tl.width = 320;
+            tl.height = 180;
+            tl.fps = {25, 1};
+            const QColor colors[3] = {Qt::red, Qt::green, Qt::blue};
+            const int64_t starts[3] = {0, 20, 50}, lengths[3] = {20, 30, 10};
+            const QString names[3] = {QStringLiteral("Intro"), QStringLiteral("Main/Part"),
+                QStringLiteral("Main/Part")};
+            for (int i = 0; i < 3; ++i) {
+                ClipData c = solidClip(tl, colors[i], starts[i], lengths[i]);
+                c.name = names[i];
+                addClip(tl, TrackType::Video, 0, c);
+            }
+            fx.project.endEdit();
+        }
+        QTemporaryDir dir;
+        DeliverPage page(fx.ctx);
+        RenderSettingsPanel* panel = page.settingsPanel();
+        ExportSettings s = panel->settings();
+        s.video.width = 0;
+        s.video.height = 0;
+        s.audio.enabled = false;
+        s.outputPath = dir.filePath(QStringLiteral("ignored.mp4"));
+        s.individualClips = true;
+        s.clipHandles = 5;
+        panel->setSettings(s);
+        QVERIFY(panel->settings().individualClips);
+        QCOMPARE(panel->settings().clipHandles, 5);
+
+        // The expansion: ranges with handles clamped to the timeline, names made safe and unique.
+        const auto jobs = individualClipJobs(
+            fx.project.timeline()->data(), panel->settings(), MediaPathMap());
+        QCOMPARE(jobs.size(), 3);
+        const std::pair<int64_t, int64_t> expected[3] = {{0, 25}, {15, 55}, {45, 60}};
+        const QString files[3] = {QStringLiteral("Intro.mp4"), QStringLiteral("Main_Part.mp4"),
+            QStringLiteral("Main_Part_2.mp4")};
+        for (int i = 0; i < 3; ++i) {
+            QCOMPARE(jobs[i].settings.rangeIn, expected[i].first);
+            QCOMPARE(jobs[i].settings.rangeOut, expected[i].second);
+            QCOMPARE(jobs[i].settings.range, RangeMode::Custom);
+            QCOMPARE(QFileInfo(jobs[i].settings.outputPath).fileName(), files[i]);
+        }
+        ExportSettings numbered = panel->settings();
+        numbered.clipNaming = ClipNaming::NumberedClipName;
+        QCOMPARE(QFileInfo(individualClipJobs(fx.project.timeline()->data(), numbered,
+                               MediaPathMap())[1].settings.outputPath).fileName(),
+            QStringLiteral("002_Main_Part.mp4"));
+
+        // Through the page: one queued job per clip, each rendered to its own file.
+        RenderQueue* queue = page.renderQueue();
+        QVERIFY(page.addCurrentToQueue(false) != 0);
+        QCOMPARE(queue->jobs().size(), 3);
+        queue->startAll();
+        QVERIFY(queue->waitForIdle(120000));
+        const int64_t lengthsWithHandles[3] = {25, 40, 15};
+        for (int i = 0; i < 3; ++i) {
+            QVERIFY2(queue->jobs()[i].status == RenderQueue::Status::Done,
+                qPrintable(queue->jobs()[i].result.error));
+            const media::MediaInfo info = media::probe(dir.filePath(files[i]));
+            QVERIFY(info.valid && info.hasVideo);
+            QVERIFY2(std::abs(info.durationUs - lengthsWithHandles[i] * 40'000) <= 40'000,
+                qPrintable(files[i] + QString::number(info.durationUs)));
+        }
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("ignored.mp4"))));
     }
 
     void pageWorkflow()

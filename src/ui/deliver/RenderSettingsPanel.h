@@ -117,6 +117,9 @@ private:
     QLineEdit* m_location = nullptr;
     QRadioButton* m_singleClip = nullptr;
     QRadioButton* m_individualClips = nullptr;
+    QComboBox* m_clipNaming = nullptr;
+    QSpinBox* m_clipHandles = nullptr;
+    QFormLayout* m_headerForm = nullptr;
     QTabWidget* m_tabs = nullptr;
     // Video
     QFormLayout* m_videoForm = nullptr;

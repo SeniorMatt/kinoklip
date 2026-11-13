@@ -24,10 +24,10 @@ namespace {
 constexpr int kW = 320;
 constexpr int kH = 180;
 
-TimelineData compTimeline(const Composition& comp, QColor color)
+TimelineData compTimeline(const Composition& comp, QColor color, int64_t length = 50)
 {
     TimelineData tl = emptyTimeline(kW, kH);
-    ClipData c = solidClip(tl, color, 0, 50);
+    ClipData c = solidClip(tl, color, 0, length);
     c.composition = comp;
     addClip(tl, TrackType::Video, 0, c);
     return tl;
@@ -69,6 +69,7 @@ class TestCommonControls : public QObject
     std::unique_ptr<Compositor> m_gpu;
     std::unique_ptr<Compositor> m_cpu;
     const QColor m_yellow = QColor(255, 255, 0);
+    TimelineData compTimelineOf(const Composition& c) const { return compTimeline(c, m_yellow); }
 
     template<typename Fn>
     void both(const Composition& comp, Fn&& check)
@@ -236,6 +237,91 @@ private slots:
         p.animated(k::CommonBlend, 1.0).setKey(0, 1.0);
         p.animated(k::CommonBlend, 1.0).setKey(20, 0.0);
         QVERIFY(std::abs(compmath::commonParams(*c.node(cc), 10).blend - 0.5f) < 0.01f);
+    }
+
+    /// Motion Blur (spec section 94): a square moving 32 px per frame is smeared along its
+    /// path with Motion Blur on, and Motion Blur off changes nothing; GPU and CPU agree.
+    void motionBlurSmearsAMovingSquare()
+    {
+        const auto build = [](bool merge, bool blur) {
+            Composition c = co::defaultComposition();
+            CompNode* node = nullptr;
+            if (merge) {
+                const co::AddResult r
+                    = co::addNodeAfter(c, nodetypes::Background, mediaIn(c));
+                c.node(r.node)->params.setStatic(k::Color, QColor(0, 255, 0));
+                node = c.node(r.merge);
+            } else {
+                node = c.node(co::addNodeAfter(c, nodetypes::Transform, mediaIn(c)).node);
+            }
+            node->params.setBase(k::Size, 0.25); // a 80 x 45 px square
+            node->params.setBase(k::CenterY, 0.5);
+            node->params.animated(k::CenterX, 0.5).setKey(0, 0.0, Interp::Linear);
+            node->params.animated(k::CenterX, 0.5).setKey(10, 1.0, Interp::Linear);
+            if (blur) {
+                node->params.setStatic(k::MotionBlur, true);
+                node->params.setBase(k::MotionBlurQuality, 5);
+                node->params.setBase(k::ShutterAngle, 360); // one frame: +-16 px
+            }
+            return c;
+        };
+        for (const bool merge : {false, true}) {
+            const char* what = merge ? "merge" : "transform";
+            // Frame 5: the square sits at x 120..200 (centre 160), y 67..112.
+            const auto alpha = [&](const QImage& img, int x) {
+                const Px p = px(img, x, 90);
+                // Transform: the square is yellow on nothing; Merge: green over the yellow clip.
+                return merge ? 255 - p.r : p.a;
+            };
+            QVector<QImage> sharp, blurred;
+            for (Compositor* c : {m_gpu.get(), m_cpu.get()}) {
+                sharp << c->renderImage(snap(compTimelineOf(build(merge, false))), 5);
+                blurred << c->renderImage(snap(compTimelineOf(build(merge, true))), 5);
+            }
+            for (int i = 0; i < 2; ++i) {
+                const QImage& s = sharp[i];
+                const QImage& b = blurred[i];
+                const QByteArray who = QByteArray(what) + (i ? " cpu" : " gpu");
+                QVERIFY2(alpha(s, 110) < 8 && alpha(s, 130) > 247, who);
+                // Blurred: a ramp across 104..136 instead of the hard edge at 120.
+                QVERIFY2(alpha(b, 98) < 8 && alpha(b, 142) > 247, who);
+                QVERIFY2(alpha(b, 110) > 20 && alpha(b, 110) < 120, who);
+                QVERIFY2(alpha(b, 130) > 135 && alpha(b, 130) < 235, who);
+                QVERIFY2(std::abs(alpha(b, 120) - 128) < 40, who);
+            }
+            // GPU and CPU agree along the whole row.
+            for (int x = 90; x < 230; x += 5)
+                QVERIFY2(std::abs(alpha(blurred[0], x) - alpha(blurred[1], x)) < 14,
+                    qPrintable(QString::number(x) + QLatin1String(what)));
+            // Sample Spread and Center Bias move the weight; Shutter 0 / off give no samples.
+            CompNode n;
+            n.type = merge ? nodetypes::Merge : nodetypes::Transform;
+            QVERIFY(compmath::motionBlurSamples(n, 0).empty());
+            n.params.setStatic(k::MotionBlur, true);
+            QCOMPARE(int(compmath::motionBlurSamples(n, 0).offsets.size()), 5);
+            n.params.setBase(k::ShutterAngle, 0);
+            QVERIFY(compmath::motionBlurSamples(n, 0).empty());
+        }
+        CompNode n;
+        n.type = nodetypes::Transform;
+        n.params.setStatic(k::MotionBlur, true);
+        n.params.setBase(k::MotionBlurQuality, 1);
+        n.params.setBase(k::ShutterAngle, 360);
+        n.params.setBase(k::CenterBias, 1);
+        auto s = compmath::motionBlurSamples(n, 0);
+        QCOMPARE(int(s.offsets.size()), 3);
+        QVERIFY(std::abs(s.offsets.front() - 0.0) < 1e-9 && std::abs(s.offsets.back() - 1.0) < 1e-9);
+        n.params.setBase(k::CenterBias, 0);
+        n.params.setBase(k::SampleSpread, 0);
+        s = compmath::motionBlurSamples(n, 0);
+        QVERIFY(s.weights[1] > s.weights[0]);
+        // Evaluated between frames: the Center key at frame 0.5.
+        ParamSet p;
+        p.animated(k::CenterX, 0.5).setKey(0, 0.0, Interp::Linear);
+        p.animated(k::CenterX, 0.5).setKey(10, 1.0, Interp::Linear);
+        const QPointF a = compmath::transformMatrix(p, 0.0, QSizeF(320, 180)).map(QPointF(0, 0));
+        const QPointF b = compmath::transformMatrix(p, 0.5, QSizeF(320, 180)).map(QPointF(0, 0));
+        QVERIFY(std::abs((b.x() - a.x()) - 16.0) < 0.5);
     }
 
     void pixelMath()
