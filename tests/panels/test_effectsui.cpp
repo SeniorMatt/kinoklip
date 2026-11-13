@@ -211,6 +211,21 @@ private slots:
         QCOMPARE(f.clip(clip)->effects[0].type, QLatin1String(fxid::Strobe));
         search->clear();
         QVERIFY(visible(true).size() > 5);
+
+        // Spec 96.1: typing never changes the open menu's size (a popup that resizes is moved
+        // by the window system: the menu jumped up while typing).
+        menu->popup(QPoint(100, 100));
+        QTRY_VERIFY(menu->isVisible());
+        const QSize open = menu->size();
+        for (const char* text : {"b", "blur", "bl", "a", "zzzz no such effect", ""}) {
+            search->setText(QString::fromLatin1(text));
+            QCoreApplication::processEvents();
+            QCOMPARE(menu->size(), open);
+        }
+        search->setText(QStringLiteral("a"));
+        QVERIFY(visible(false).size() <= 14);
+        QVERIFY(!visible(false).isEmpty());
+        menu->close();
     }
 
     // Spec 40.3: the eyedropper button of the key colour drives SelectionModel::colorPicker().

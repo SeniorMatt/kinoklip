@@ -2562,3 +2562,9 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 95.3 | The clips are the cuts of the picture: the topmost enabled video-track clip at each frame; a gap gives no file; a clip cut by In/Out starts or ends at the range edge. | Done (individualClipsRenderOneFilePerClip) |
 | 95.4 | Handles add that many frames before and after every clip, limited to the timeline (0 .. its end). Three clips of 20, 30 and 10 frames with 5 handles render 25, 40 and 15 frames. | Done (individualClipsRenderOneFilePerClip) |
 | 95.5 | Project / preset JSON: `individualClips`, `clipNaming`, `clipHandles` are written only when Individual clips is on (handles only when above 0). Jobs in the queue are plain single-range jobs, editable as before. | Done (renderSettingsForm) |
+
+## 96. Owner reports after 1.7
+
+| # | Behaviour | Status |
+|---|---|---|
+| 96.1 | The Inspector's Add Effect menu keeps its size and place while you type in its search field: its size is set when it opens (wide enough for the longest entry, tall enough for 14 matches or every folder), and at most that many matches are listed. | Fixed (owner report: the menu jumped up while typing; a popup that changes size is moved by the window system. ef addEffectMenuSearch) |

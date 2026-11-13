@@ -59,6 +59,7 @@
 #include <QWidgetAction>
 
 #include <algorithm>
+#include <memory>
 
 namespace kk {
 
@@ -987,6 +988,7 @@ void InspectorPanel::buildEffectSection(
         label->setFont(font);
         barLayout->addWidget(label);
     }
+    constexpr int kAddEffectRows = 14; // matches listed while searching
     auto* addEffect = new QToolButton(bar);
     if (!m_addEffect)
         m_addEffect = addEffect; // the first (or only) one
@@ -1049,7 +1051,11 @@ void InspectorPanel::buildEffectSection(
     auto* noMatch = menu->addAction(tr("No effect matches"));
     noMatch->setEnabled(false);
     noMatch->setVisible(false);
-    connect(search, &QLineEdit::textChanged, menu, [=](const QString& text) {
+    // Rows the menu has room for while it is open: its size is fixed when it opens, so typing
+    // never resizes it (a popup that grows or shrinks is moved by the window system, which made
+    // the whole menu jump up while typing). Matches beyond the room are not listed.
+    auto rows = std::make_shared<int>(kAddEffectRows);
+    auto filter = [=](const QString& text) {
         const QStringList words = text.toLower().split(QLatin1Char(' '), Qt::SkipEmptyParts);
         for (QAction* f : folders)
             f->setVisible(words.isEmpty());
@@ -1062,11 +1068,13 @@ void InspectorPanel::buildEffectSection(
                 m.action->setVisible(!m.inFolder);
                 continue;
             }
+            hit = hit && shown < *rows;
             m.action->setVisible(hit);
             shown += hit ? 1 : 0;
         }
         noMatch->setVisible(!words.isEmpty() && shown == 0);
-    });
+    };
+    connect(search, &QLineEdit::textChanged, menu, filter);
     connect(search, &QLineEdit::returnPressed, menu, [=] {
         const QString first = search->text().toLower().split(QLatin1Char(' ')).value(0);
         QAction* best = nullptr;
@@ -1083,8 +1091,32 @@ void InspectorPanel::buildEffectSection(
             best->trigger();
         }
     });
-    connect(menu, &QMenu::aboutToShow, search, [search] {
+    connect(menu, &QMenu::aboutToShow, search, [=] {
+        search->blockSignals(true);
         search->clear();
+        search->blockSignals(false);
+        // Measure with every entry listed (the widest name sets the width), then with the
+        // folders only (the height of one row and of the search field part).
+        menu->setMinimumSize(0, 0);
+        menu->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        for (const Match& m : flat)
+            m.action->setVisible(true);
+        const int width = menu->sizeHint().width();
+        filter(QString());
+        const QSize base = menu->sizeHint();
+        int listed = int(folders.size());
+        for (const Match& m : flat)
+            listed += m.inFolder ? 0 : 1;
+        const QAction* first = !folders.isEmpty() ? folders.first() : nullptr;
+        for (const Match& m : flat) {
+            if (!first && m.action->isVisible())
+                first = m.action;
+        }
+        const int row = first ? menu->actionGeometry(const_cast<QAction*>(first)).height() : 0;
+        *rows = std::max(kAddEffectRows, listed);
+        if (row > 0)
+            menu->setFixedSize(std::max(width, base.width()),
+                base.height() + (*rows - listed) * row);
         QTimer::singleShot(0, search, [search] { search->setFocus(Qt::PopupFocusReason); });
     });
     addEffect->setMenu(menu);
