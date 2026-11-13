@@ -18645,6 +18645,14 @@ Kinoklip neu starten, um sie anzuwenden.</translation>
         <translation>Spur solo schalten</translation>
     </message>
     <message>
+        <source>Sync Lock Off</source>
+        <translation>Sync-Sperre aus</translation>
+    </message>
+    <message>
+        <source>Sync Lock On</source>
+        <translation>Sync-Sperre ein</translation>
+    </message>
+    <message>
         <source>Marker %1</source>
         <translation>Marker %1</translation>
     </message>
@@ -19047,8 +19055,12 @@ Die Clips trimmen, damit die Medien den Übergang abdecken?</translation>
         <translation> (Dauer %1)</translation>
     </message>
     <message>
-        <source>Auto Select: decides which tracks follow ripple edits (ripple trim, ripple delete, insert) and cuts. Alt+click: only this track.</source>
-        <translation>Auto-Auswahl: bestimmt, welche Spuren Ripple-Edits (Ripple-Trimmen, Ripple-Löschen, Einfügen) und Schnitten folgen. Alt+Klick: nur diese Spur.</translation>
+        <source>Auto Select: decides which tracks cuts and other edits at the playhead reach (blade, copy and paste, edit-point navigation). It does not decide what ripples (see Sync Lock). Alt+click: only this track.</source>
+        <translation>Automatische Auswahl: legt fest, welche Spuren Schnitte und andere Bearbeitungen am Abspielkopf erreichen (Klinge, Kopieren und Einfügen, Navigation zwischen Schnittpunkten). Sie legt nicht fest, was beim Ripple-Schnitt mitwandert (siehe Sync-Sperre). Alt+Klick: nur diese Spur.</translation>
+    </message>
+    <message>
+        <source>Sync Lock: the track ripples with edits on other tracks (ripple trim, ripple delete, insert) so it stays in sync. Off: the track holds its position.</source>
+        <translation>Sync-Sperre: die Spur wandert bei Bearbeitungen auf anderen Spuren mit (Ripple-Trimmen, Ripple-Löschen, Einfügen) und bleibt synchron. Aus: die Spur behält ihre Position.</translation>
     </message>
     <message>
         <source>Lock: a locked track is never changed or rippled by edits.</source>

@@ -18645,6 +18645,14 @@ Reiniciar Kinoklip para aplicarlos.</translation>
         <translation>Solo de pista</translation>
     </message>
     <message>
+        <source>Sync Lock Off</source>
+        <translation>Bloqueo de sincronía desactivado</translation>
+    </message>
+    <message>
+        <source>Sync Lock On</source>
+        <translation>Bloqueo de sincronía activado</translation>
+    </message>
+    <message>
         <source>Marker %1</source>
         <translation>Marcador %1</translation>
     </message>
@@ -19047,8 +19055,12 @@ Trim the clips so the media covers the transition?</source>
         <translation> (duración %1)</translation>
     </message>
     <message>
-        <source>Auto Select: decides which tracks follow ripple edits (ripple trim, ripple delete, insert) and cuts. Alt+click: only this track.</source>
-        <translation>Selección automática: decide qué pistas siguen las ediciones ripple (recorte ripple, borrado ripple, inserción) y los cortes. Alt+clic: solo esta pista.</translation>
+        <source>Auto Select: decides which tracks cuts and other edits at the playhead reach (blade, copy and paste, edit-point navigation). It does not decide what ripples (see Sync Lock). Alt+click: only this track.</source>
+        <translation>Selección automática: decide a qué pistas llegan los cortes y otras ediciones en el cabezal (cuchilla, copiar y pegar, navegación entre puntos de edición). No decide qué se desplaza en una edición en cadena (ver Bloqueo de sincronía). Alt+clic: solo esta pista.</translation>
+    </message>
+    <message>
+        <source>Sync Lock: the track ripples with edits on other tracks (ripple trim, ripple delete, insert) so it stays in sync. Off: the track holds its position.</source>
+        <translation>Bloqueo de sincronía: la pista se desplaza con las ediciones de otras pistas (recorte en cadena, eliminación en cadena, insertar) y se mantiene sincronizada. Desactivado: la pista conserva su posición.</translation>
     </message>
     <message>
         <source>Lock: a locked track is never changed or rippled by edits.</source>

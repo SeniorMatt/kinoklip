@@ -18659,6 +18659,14 @@ Restart Kinoklip to apply them.</source>
         <translation>Соло доріжки</translation>
     </message>
     <message>
+        <source>Sync Lock Off</source>
+        <translation>Синхроблокування вимк.</translation>
+    </message>
+    <message>
+        <source>Sync Lock On</source>
+        <translation>Синхроблокування увімк.</translation>
+    </message>
+    <message>
         <source>Marker %1</source>
         <translation>Маркер %1</translation>
     </message>
@@ -19061,8 +19069,12 @@ Trim the clips so the media covers the transition?</source>
         <translation> (тривалість %1)</translation>
     </message>
     <message>
-        <source>Auto Select: decides which tracks follow ripple edits (ripple trim, ripple delete, insert) and cuts. Alt+click: only this track.</source>
-        <translation>Автовибір: визначає, які доріжки слідують за змінами зі зсувом (підрізка, видалення зі зсувом, вставка) і розрізами. Alt+клацання: лише ця доріжка.</translation>
+        <source>Auto Select: decides which tracks cuts and other edits at the playhead reach (blade, copy and paste, edit-point navigation). It does not decide what ripples (see Sync Lock). Alt+click: only this track.</source>
+        <translation>Автовибір: визначає, на які доріжки діють розрізи та інші правки біля вказівника відтворення (лезо, копіювання та вставлення, перехід між точками монтажу). Не визначає, що зсувається під час зсувної правки (див. Синхроблокування). Alt+клацання: лише ця доріжка.</translation>
+    </message>
+    <message>
+        <source>Sync Lock: the track ripples with edits on other tracks (ripple trim, ripple delete, insert) so it stays in sync. Off: the track holds its position.</source>
+        <translation>Синхроблокування: доріжка зсувається разом із правками на інших доріжках (зсувне підрізання, зсувне видалення, вставлення) і залишається синхронною. Вимк.: доріжка залишається на місці.</translation>
     </message>
     <message>
         <source>Lock: a locked track is never changed or rippled by edits.</source>
