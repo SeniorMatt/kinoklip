@@ -507,7 +507,7 @@ constexpr int kTrackShortcutCount = 8;
 /// Angles that have a "Cut / Switch to Angle n" command (number keys 1-9).
 constexpr int kMulticamAngleShortcutCount = 9;
 
-QString translate(const char* text)
+QString lookup(const char* text)
 {
     return QCoreApplication::translate(kContext, text);
 }
@@ -519,20 +519,20 @@ QVector<MenuCategory> standardMenus()
     return {
         // Resolve's first menu carries the application's name (About, Preferences, Quit).
         {QStringLiteral("app"), QCoreApplication::applicationName()},
-        {QStringLiteral("file"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&File"))},
-        {QStringLiteral("edit"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Edit"))},
-        {QStringLiteral("trim"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Trim"))},
+        {QStringLiteral("file"), lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&File"))},
+        {QStringLiteral("edit"), lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&Edit"))},
+        {QStringLiteral("trim"), lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&Trim"))},
         {QStringLiteral("timeline"),
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Time&line"))},
-        {QStringLiteral("clip"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Clip"))},
-        {QStringLiteral("mark"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Mark"))},
-        {QStringLiteral("view"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&View"))},
+            lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "Time&line"))},
+        {QStringLiteral("clip"), lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&Clip"))},
+        {QStringLiteral("mark"), lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&Mark"))},
+        {QStringLiteral("view"), lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&View"))},
         {QStringLiteral("playback"),
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Playback"))},
-        {QStringLiteral("audio"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Audio"))},
+            lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&Playback"))},
+        {QStringLiteral("audio"), lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&Audio"))},
         {QStringLiteral("settings"),
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Workspace"))},
-        {QStringLiteral("help"), translate(QT_TRANSLATE_NOOP("kk::StandardActions", "&Help"))},
+            lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&Workspace"))},
+        {QStringLiteral("help"), lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "&Help"))},
     };
 }
 
@@ -554,10 +554,10 @@ void registerStandardActions(ActionRegistry& registry)
             continue;
         }
         if (const QString sub = ActionRegistry::submenuOf(QLatin1String(spec.id)); !sub.isEmpty()) {
-            registry.addSubmenu(category, sub, translate(spec.text));
+            registry.addSubmenu(category, sub, lookup(spec.text));
             continue;
         }
-        registry.add(QLatin1String(spec.id), translate(spec.text), category,
+        registry.add(QLatin1String(spec.id), lookup(spec.text), category,
             QLatin1String(spec.icon), spec.checkable);
     }
 
@@ -611,7 +611,7 @@ void registerStandardActions(ActionRegistry& registry)
     // timeline playhead while the multicam viewer is shown.
     for (int n = 1; n <= kMulticamAngleShortcutCount; ++n) {
         registry.add(QStringLiteral("multicam.angle_") + QString::number(n),
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Cut / Switch to Angle %1")).arg(n),
+            lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "Cut / Switch to Angle %1")).arg(n),
             QStringLiteral("clip.multicam"));
     }
     registry.action(QStringLiteral("timeline.linked_selection"))->setChecked(true);
@@ -627,35 +627,35 @@ void registerStandardActions(ActionRegistry& registry)
         {"view.page_deliver", QT_TRANSLATE_NOOP("kk::StandardActions", "Deliver")},
     };
     for (const auto& [id, label] : pageLabels)
-        registry.action(QLatin1String(id))->setIconText(translate(label));
+        registry.action(QLatin1String(id))->setIconText(lookup(label));
 
     // Track destination (patch) and auto track selector toggles per track number (data-driven
     // submenu; keys in the keymap profile).
     for (int n = 1; n <= kTrackShortcutCount; ++n) {
         const QString num = QString::number(n);
         registry.add(QStringLiteral("timeline.target_video_") + num,
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Video Destination V%1")).arg(n),
+            lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "Video Destination V%1")).arg(n),
             QStringLiteral("timeline.tracks"));
     }
     registry.addSeparator(QStringLiteral("timeline.tracks"));
     for (int n = 1; n <= kTrackShortcutCount; ++n) {
         const QString num = QString::number(n);
         registry.add(QStringLiteral("timeline.target_audio_") + num,
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Audio Destination A%1")).arg(n),
+            lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "Audio Destination A%1")).arg(n),
             QStringLiteral("timeline.tracks"));
     }
     registry.addSeparator(QStringLiteral("timeline.tracks"));
     for (int n = 1; n <= kTrackShortcutCount; ++n) {
         const QString num = QString::number(n);
         registry.add(QStringLiteral("timeline.auto_select_video_") + num,
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Auto Select V%1")).arg(n),
+            lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Auto Select V%1")).arg(n),
             QStringLiteral("timeline.tracks"));
     }
     registry.addSeparator(QStringLiteral("timeline.tracks"));
     for (int n = 1; n <= kTrackShortcutCount; ++n) {
         const QString num = QString::number(n);
         registry.add(QStringLiteral("timeline.auto_select_audio_") + num,
-            translate(QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Auto Select A%1")).arg(n),
+            lookup(QT_TRANSLATE_NOOP("kk::StandardActions", "Toggle Auto Select A%1")).arg(n),
             QStringLiteral("timeline.tracks"));
     }
 
