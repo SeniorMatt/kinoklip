@@ -35,6 +35,8 @@ struct CompNode
     QPointF position; ///< node editor position in grid units (1 unit = one tile height)
     bool enabled = true; ///< false = pass-through: the main input goes straight to the output
     bool locked = false; ///< parameters cannot be edited
+    QColor color; ///< tile colour set by the user (Set Color); invalid = the default look
+    bool thumbnail = false; ///< show the node's picture on its tile (node editor)
     ParamSet params; ///< keys from the descriptor's parameters; keyframes in comp frames
     /// Inputs by port id from the descriptor ("background", "foreground", "mask", "input").
     /// Ports without an entry are unconnected.

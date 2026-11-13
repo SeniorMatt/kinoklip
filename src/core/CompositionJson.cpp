@@ -29,6 +29,10 @@ QJsonObject nodeToJson(const CompNode& n, bool pictureOnly)
         o[QLatin1String("pos")] = pointToJson(n.position);
         if (n.locked)
             o[QLatin1String("locked")] = true;
+        if (n.color.isValid())
+            o[QLatin1String("color")] = n.color.name(QColor::HexArgb);
+        if (n.thumbnail)
+            o[QLatin1String("thumb")] = true;
     }
     if (!n.enabled)
         o[QLatin1String("enabled")] = false;
@@ -57,6 +61,12 @@ CompNode nodeFromJson(const QJsonObject& o)
     n.position = pointFromJson(o.value(QLatin1String("pos")));
     n.enabled = o.value(QLatin1String("enabled")).toBool(true);
     n.locked = o.value(QLatin1String("locked")).toBool(false);
+    if (o.contains(QLatin1String("color"))) {
+        const QColor c(o.value(QLatin1String("color")).toString());
+        if (c.isValid())
+            n.color = c;
+    }
+    n.thumbnail = o.value(QLatin1String("thumb")).toBool(false);
     n.params = paramSetFromJson(o.value(QLatin1String("params")).toObject());
     const QJsonObject inputs = o.value(QLatin1String("inputs")).toObject();
     for (auto it = inputs.constBegin(); it != inputs.constEnd(); ++it) {

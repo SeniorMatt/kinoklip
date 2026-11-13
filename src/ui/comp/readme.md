@@ -10,7 +10,9 @@ is `src/app/pages/CompositingPage`.
 - **CompSession**: the open clip, its graph (stored, or the unsaved default), node selection,
   viewer nodes, and every editing command as one undo step. Widgets only map input to it.
 - **NodeEditor** (+ `NodeEditorPaint.cpp`): custom-painted canvas (why not QGraphicsView: see
-  the class doc). Gestures, keys through the comp.* actions, drag and drop.
+  the class doc). Gestures, keys through the comp.* actions, drag and drop; panel-local Find
+  (Ctrl+F) and Paste Settings (Ctrl+Shift+V); tile colours, tile pictures (rendered through a
+  page-supplied source, throttled), tooltip and Replace With (spec 93).
 - **CompViewer** + **CompViewerOverlay** + **ViewerFx**: the two viewers (surface, guides, node drops, A/B buffers, channel / checker / split tools with viewer-local keys, lock, clear) and the
   on-viewer handles of the selected node.
 - **CompInspector**: the Edit page parameter rows on a stand-in clip whose one effect carries the

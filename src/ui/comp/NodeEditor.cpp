@@ -4,6 +4,7 @@
 #include "ui/comp/NodeEditor.h"
 
 #include "core/CompOps.h"
+#include "core/NodeRegistry.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/DragMime.h"
 #include "ui/comp/CompNodeOps.h"
@@ -11,6 +12,8 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QColorDialog>
+#include <QHelpEvent>
 #include <QContextMenuEvent>
 #include <QDrag>
 #include <QKeyEvent>
@@ -18,10 +21,15 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QIcon>
+#include <QPixmap>
 #include <QPlainTextEdit>
+#include <QSet>
+#include <QToolTip>
 #include <QWheelEvent>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -29,6 +37,17 @@
 namespace kk {
 
 namespace {
+
+bool isFindKey(const QKeyEvent* e)
+{
+    return e->key() == Qt::Key_F && (e->modifiers() & ~Qt::KeypadModifier) == Qt::ControlModifier;
+}
+
+bool isPasteSettingsKey(const QKeyEvent* e)
+{
+    return e->key() == Qt::Key_V
+        && (e->modifiers() & ~Qt::KeypadModifier) == (Qt::ControlModifier | Qt::ShiftModifier);
+}
 
 /// Port hit radius in pixels (at least; grows with the zoom).
 constexpr double kPortHitPx = 7.0;
@@ -38,6 +57,20 @@ constexpr double kLinkHitPx = 6.0;
 constexpr int kCurveSamples = 20;
 /// Wheel zoom: factor per 120 eighths of a degree (one notch).
 constexpr double kWheelZoomStep = 1.2;
+/// Tile pictures: at most one round of renders per interval, collected by polling.
+constexpr int kThumbIntervalMs = 400;
+constexpr int kThumbPollMs = 50;
+constexpr int kThumbHeightPx = 64;
+constexpr int kThumbsPerRound = 6;
+/// Preset colours of Set Color (name, colour).
+struct ColorPreset
+{
+    const char* name;
+    const char* hex;
+};
+constexpr ColorPreset kColorPresets[] = {{"Red", "#a63a3a"}, {"Orange", "#b3702d"},
+    {"Yellow", "#a89a2f"}, {"Green", "#3f8f4e"}, {"Teal", "#2f8f8f"}, {"Blue", "#3a62a8"},
+    {"Purple", "#7a4aa8"}, {"Pink", "#a84a86"}, {"Gray", "#6a6a6a"}};
 /// Margin around the graph after Fit, in grid units.
 constexpr double kFitMargin = 1.0;
 
@@ -71,7 +104,15 @@ NodeEditor::NodeEditor(CompSession* session, ActionRegistry* actions, QWidget* p
     setAcceptDrops(true);
     setAttribute(Qt::WA_OpaquePaintEvent);
     setMinimumSize(200, 120);
-    connect(session, &CompSession::compositionChanged, this, qOverload<>(&QWidget::update));
+    m_thumbTimer.setSingleShot(true);
+    m_thumbTimer.setInterval(kThumbIntervalMs);
+    connect(&m_thumbTimer, &QTimer::timeout, this, [this] { refreshTilePictures(); });
+    m_thumbPoll.setInterval(kThumbPollMs);
+    connect(&m_thumbPoll, &QTimer::timeout, this, [this] { collectTilePictures(); });
+    connect(session, &CompSession::compositionChanged, this, [this] {
+        update();
+        scheduleTilePictures();
+    });
     connect(session, &CompSession::selectionChanged, this, qOverload<>(&QWidget::update));
     connect(session, &CompSession::viewersChanged, this, qOverload<>(&QWidget::update));
     connect(session, &CompSession::clipChanged, this, [this] {
@@ -331,13 +372,17 @@ NodeEditor::Hit NodeEditor::insertTarget() const
     const Composition& c = m_session->composition();
     const CompNode* n = c.node(m_session->selectedNodes().first());
     const compadapter::NodeTypeInfo* info = n ? compadapter::nodeType(n->type) : nullptr;
-    if (!info || info->outputCount == 0 || info->mainInput().isEmpty()
-        || n->inputs.value(info->mainInput()).isConnected())
+    if (!info || info->outputCount == 0 || info->mainInput().isEmpty())
         return {};
-    for (const CompNode& other : c.nodes)
-        for (const NodeLink& l : other.inputs)
-            if (l.nodeId == n->id)
-                return {}; // its output is in use
+    // A connected tile is inserted only with Shift held (it leaves its place, spec 93.1).
+    if (!m_moveShift) {
+        if (n->inputs.value(info->mainInput()).isConnected())
+            return {};
+        for (const CompNode& other : c.nodes)
+            for (const NodeLink& l : other.inputs)
+                if (l.nodeId == n->id)
+                    return {}; // its output is in use
+    }
     return linkAt(tileRect(*n).center(), n->id);
 }
 
@@ -365,8 +410,25 @@ QString NodeEditor::actionForKey(const QKeyEvent* event) const
 
 bool NodeEditor::event(QEvent* event)
 {
+    if (event->type() == QEvent::ToolTip) {
+        auto* help = static_cast<QHelpEvent*>(event);
+        const QString text = m_drag == Drag::None ? tooltipAt(help->pos()) : QString();
+        if (text.isEmpty()) {
+            QToolTip::hideText();
+            event->ignore();
+        } else {
+            QToolTip::showText(help->globalPos(), text, this);
+        }
+        return true;
+    }
     if (event->type() == QEvent::ShortcutOverride) {
         auto* key = static_cast<QKeyEvent*>(event);
+        // Find (Ctrl+F) and Paste Settings (Ctrl+Shift+V) belong to the editor only while it
+        // has the focus; a key the keymap gives to a comp command stays that command's.
+        if (actionForKey(key).isEmpty() && (isFindKey(key) || isPasteSettingsKey(key))) {
+            event->accept();
+            return true;
+        }
         // Space pans while held (and plays / stops on a plain tap, see keyReleaseEvent()).
         if ((key->key() == Qt::Key_Space && key->modifiers() == Qt::NoModifier)
             || (key->key() == Qt::Key_Escape && m_drag != Drag::None)
@@ -403,6 +465,15 @@ void NodeEditor::keyPressEvent(QKeyEvent* event)
         m_actions->action(id)->trigger();
         return;
     }
+    if (isFindKey(event)) {
+        startFind();
+        return;
+    }
+    if (isPasteSettingsKey(event)) {
+        if (m_session)
+            m_session->pasteSettings();
+        return;
+    }
     QWidget::keyPressEvent(event);
 }
 
@@ -436,6 +507,8 @@ void NodeEditor::setDrag(Drag drag)
     if (drag == Drag::None) {
         m_moveDelta = {};
         m_linkSource = 0;
+        m_moveShift = false;
+        m_pendingToggle = false;
     }
 }
 
@@ -484,7 +557,13 @@ void NodeEditor::mousePressEvent(QMouseEvent* event)
         m_pressNode = hit.node;
         QVector<quint64> nodes = m_session->selectedNodes();
         QVector<quint64> notes = m_session->selectedNotes();
-        if (toggle) {
+        const bool shiftOnly = m_pressMods.testFlag(Qt::ShiftModifier)
+            && !m_pressMods.testFlag(Qt::ControlModifier);
+        if (toggle && shiftOnly && nodes.contains(hit.node)) {
+            // Shift on a selected tile: it may be dragged (Shift-drag onto a link inserts it);
+            // a plain click without moving deselects it on release.
+            m_pendingToggle = true;
+        } else if (toggle) {
             if (nodes.contains(hit.node))
                 nodes.removeAll(hit.node);
             else
@@ -494,7 +573,10 @@ void NodeEditor::mousePressEvent(QMouseEvent* event)
             notes.clear();
         }
         m_session->setSelection(nodes, notes, hit.node);
-        setDrag(nodes.contains(hit.node) ? Drag::Pending : Drag::None);
+        const bool pending = nodes.contains(hit.node);
+        setDrag(pending ? Drag::Pending : Drag::None);
+        if (!pending)
+            m_pendingToggle = false;
         return;
     }
     case Hit::Kind::Note: {
@@ -515,6 +597,14 @@ void NodeEditor::mousePressEvent(QMouseEvent* event)
         return;
     }
     case Hit::Kind::Link:
+        if (m_pressMods.testFlag(Qt::ShiftModifier) && !m_pressMods.testFlag(Qt::ControlModifier)) {
+            m_pressNode = hit.node;
+            m_pressPort = hit.port;
+            setDrag(Drag::CutLink);
+            update();
+            return;
+        }
+        [[fallthrough]];
     case Hit::Kind::None:
         setDrag(Drag::Box);
         update();
@@ -540,6 +630,7 @@ void NodeEditor::mouseMoveEvent(QMouseEvent* event)
         setDrag(Drag::Move);
         [[fallthrough]];
     case Drag::Move:
+        m_moveShift = event->modifiers().testFlag(Qt::ShiftModifier);
         // Out of the editor with a node: hand it to the viewers as a drag (spec 42b).
         if (m_pressNode && !rect().contains(pos.toPoint())) {
             const quint64 node = m_pressNode;
@@ -570,6 +661,12 @@ void NodeEditor::mouseReleaseEvent(QMouseEvent* event)
             unsetCursor();
         break;
     case Drag::Pending:
+        if (m_pendingToggle) {
+            QVector<quint64> nodes = m_session->selectedNodes();
+            nodes.removeAll(m_pressNode);
+            m_session->setSelection(nodes, m_session->selectedNotes());
+            break;
+        }
         // A plain click on a node of a multiple selection selects only that node.
         if (!(m_pressMods & (Qt::ControlModifier | Qt::ShiftModifier))) {
             if (m_pressNode)
@@ -588,6 +685,11 @@ void NodeEditor::mouseReleaseEvent(QMouseEvent* event)
     }
     case Drag::Box:
         finishBox(m_pressMods);
+        break;
+    case Drag::CutLink:
+        // Shift-drag on a link pulls it off both its ends (spec 93.8).
+        if ((pos - m_pressPos).manhattanLength() >= QApplication::startDragDistance())
+            m_session->disconnectInput(m_pressNode, m_pressPort);
         break;
     case Drag::Connect:
     case Drag::ConnectReverse:
@@ -775,9 +877,15 @@ QMenu* NodeEditor::buildContextMenu(QPointF pos, QWidget* parent)
         add("comp.lock");
         add("comp.swap_inputs");
         menu->addSeparator();
+        if (n)
+            addNodeMenuItems(menu, *n);
+        menu->addSeparator();
         add("comp.cut");
         add("comp.copy");
         add("comp.duplicate");
+        if (m_session->canPasteSettings())
+            menu->addAction(tr("Paste Settings\tCtrl+Shift+V"), this,
+                [this] { m_session->pasteSettings(); });
         add("comp.delete");
         return menu;
     }
@@ -810,6 +918,45 @@ QMenu* NodeEditor::buildContextMenu(QPointF pos, QWidget* parent)
     add("comp.fit");
     add("comp.snap_grid");
     return menu;
+}
+
+void NodeEditor::addNodeMenuItems(QMenu* menu, const CompNode& node)
+{
+    // Replace Tool: types with the same input shape.
+    const QStringList types = compops::replacementTypes(node.type);
+    if (!types.isEmpty() && !node.locked) {
+        QMenu* replace = menu->addMenu(tr("Replace With"));
+        replace->setObjectName(QStringLiteral("ReplaceToolMenu"));
+        for (const QString& type : types) {
+            const compadapter::NodeTypeInfo* info = compadapter::nodeType(type);
+            if (!info)
+                continue;
+            replace->addAction(info->name, this,
+                [this, id = node.id, type] { m_session->replaceNode(id, type); });
+        }
+    }
+    QMenu* colors = menu->addMenu(tr("Set Color"));
+    colors->setObjectName(QStringLiteral("SetColorMenu"));
+    for (const ColorPreset& preset : kColorPresets) {
+        QPixmap swatch(14, 14);
+        swatch.fill(QColor(QLatin1String(preset.hex)));
+        colors->addAction(QIcon(swatch), tr(preset.name), this,
+            [this, hex = QString::fromLatin1(preset.hex)] { m_session->setNodeColor(QColor(hex)); });
+    }
+    colors->addAction(tr("Other..."), this, [this] {
+        const CompNode* n = m_session->composition().node(m_session->currentNode());
+        const QColor c = QColorDialog::getColor(n ? n->color : QColor(), this, tr("Tile Color"));
+        if (c.isValid())
+            m_session->setNodeColor(c);
+    });
+    colors->addSeparator();
+    colors->addAction(tr("Default"), this, [this] { m_session->setNodeColor(QColor()); });
+    QAction* thumb = menu->addAction(tr("Tile Picture"));
+    thumb->setObjectName(QStringLiteral("TilePictureAction"));
+    thumb->setCheckable(true);
+    thumb->setChecked(node.thumbnail);
+    connect(thumb, &QAction::triggered, this,
+        [this](bool on) { m_session->setNodeThumbnails(on); });
 }
 
 void NodeEditor::contextMenuEvent(QContextMenuEvent* event)
@@ -971,8 +1118,191 @@ void NodeEditor::commitNoteEdit(bool accept)
         m_session->setNoteText(id, text);
 }
 
+// ---- Tooltip ----
+
+QString NodeEditor::tooltipAt(QPointF pos) const
+{
+    if (!m_session)
+        return {};
+    const Hit hit = hitTest(pos);
+    if (hit.kind != Hit::Kind::Tile)
+        return {};
+    const CompNode* n = m_session->composition().node(hit.node);
+    if (!n)
+        return {};
+    const compadapter::NodeTypeInfo* info = compadapter::nodeType(n->type);
+    QStringList lines {QStringLiteral("%1 (%2)").arg(n->name, info ? info->name : n->type)};
+    int shown = 0;
+    const int64_t frame = m_session->compFrame();
+    if (info) {
+        for (const ParamDescriptor& p : info->params) {
+            if (shown >= 4)
+                break;
+            if (p.hidden)
+                continue;
+            QString value;
+            if (p.isScalar()) {
+                if (!n->params.values.contains(p.key))
+                    continue;
+                const double v = p.displayed(n->params.value(p.key, frame, p.def));
+                value = QLocale().toString(v, 'g', 4) + (p.unit.isEmpty() ? QString() : p.unit);
+            } else if (p.type == ParamType::Bool) {
+                value = n->params.staticValue(p.key, p.defStatic).toBool() ? tr("On") : tr("Off");
+            } else if (p.type == ParamType::Choice) {
+                const QString v = n->params.staticValue(p.key, p.defStatic).toString();
+                const int i = p.choices.indexOf(v);
+                value = i >= 0 && i < p.choiceLabels.size() ? p.choiceLabels.at(i) : v;
+            } else {
+                continue;
+            }
+            lines << QStringLiteral("%1: %2").arg(p.label, value);
+            ++shown;
+        }
+    }
+    if (!n->enabled)
+        lines << tr("Pass-through");
+    if (n->locked)
+        lines << tr("Locked");
+    return lines.join(QLatin1Char('\n'));
+}
+
+// ---- Find ----
+
+void NodeEditor::startFind()
+{
+    if (!m_session || !m_session->clipId())
+        return;
+    closeFind();
+    m_find = new QLineEdit(this);
+    m_find->setObjectName(QStringLiteral("NodeFindField"));
+    m_find->setPlaceholderText(tr("Find node by name or type"));
+    m_find->setClearButtonEnabled(true);
+    const int w = std::min(260, std::max(120, width() - 16));
+    m_find->setGeometry(8, 8, w, m_find->sizeHint().height());
+    m_find->show();
+    m_find->setFocus();
+    m_find->installEventFilter(this);
+    connect(m_find, &QLineEdit::textChanged, this, [this](const QString& text) {
+        if (!text.isEmpty())
+            findNodes(text);
+    });
+    connect(m_find, &QLineEdit::returnPressed, this, [this] {
+        findNodes(m_find->text());
+        closeFind();
+    });
+}
+
+void NodeEditor::closeFind()
+{
+    if (!m_find)
+        return;
+    QLineEdit* field = std::exchange(m_find, nullptr);
+    field->removeEventFilter(this);
+    const bool hadFocus = field->hasFocus();
+    field->hide();
+    field->deleteLater();
+    if (hadFocus)
+        setFocus();
+}
+
+int NodeEditor::findNodes(const QString& text)
+{
+    if (!m_session || text.trimmed().isEmpty())
+        return 0;
+    const QString needle = text.trimmed();
+    const Composition& c = m_session->composition();
+    QVector<quint64> found;
+    QRectF bounds;
+    for (const CompNode& n : c.nodes) {
+        const compadapter::NodeTypeInfo* info = compadapter::nodeType(n.type);
+        if (n.name.contains(needle, Qt::CaseInsensitive)
+            || (info && info->name.contains(needle, Qt::CaseInsensitive))) {
+            found.append(n.id);
+            bounds |= QRectF(n.position, QSizeF(kTileWidth, 1.0));
+        }
+    }
+    m_session->setSelection(found, {}, found.isEmpty() ? 0 : found.last());
+    if (!found.isEmpty()) {
+        bounds.adjust(-kFitMargin, -kFitMargin, kFitMargin, kFitMargin);
+        const double zx = width() / (bounds.width() * kUnitPx);
+        const double zy = height() / (bounds.height() * kUnitPx);
+        setView(bounds.center(), std::clamp(std::min({zx, zy, 1.0}), kMinZoom, kMaxZoom));
+    }
+    return int(found.size());
+}
+
+// ---- Tile pictures ----
+
+void NodeEditor::setThumbnailSource(ThumbnailSource source)
+{
+    m_thumbSource = std::move(source);
+    scheduleTilePictures();
+}
+
+void NodeEditor::scheduleTilePictures()
+{
+    if (m_thumbSource && !m_thumbTimer.isActive())
+        m_thumbTimer.start();
+}
+
+int NodeEditor::refreshTilePictures()
+{
+    if (!m_thumbSource || !m_session || !m_session->clipId() || !m_pendingPictures.empty())
+        return 0;
+    const Composition& c = m_session->composition();
+    const QSize frame = m_session->frameSize();
+    const double aspect = frame.height() > 0 ? double(frame.width()) / frame.height() : 16.0 / 9.0;
+    const QSize px(std::max(1, int(kThumbHeightPx * aspect)), kThumbHeightPx);
+    const QRectF visible = rect();
+    QSet<quint64> alive;
+    int started = 0;
+    for (const CompNode& n : c.nodes) {
+        if (!n.thumbnail)
+            continue;
+        alive.insert(n.id);
+        if (started >= kThumbsPerRound || !visible.intersects(tileRect(n)))
+            continue;
+        std::future<RenderedFramePtr> f = m_thumbSource(n.id, px);
+        if (!f.valid())
+            continue;
+        m_pendingPictures.push_back({n.id, std::move(f)});
+        ++started;
+    }
+    for (auto it = m_thumbs.begin(); it != m_thumbs.end();)
+        it = alive.contains(it.key()) ? std::next(it) : m_thumbs.erase(it);
+    if (started > 0)
+        m_thumbPoll.start();
+    return started;
+}
+
+void NodeEditor::collectTilePictures()
+{
+    bool changed = false;
+    for (auto it = m_pendingPictures.begin(); it != m_pendingPictures.end();) {
+        if (it->frame.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+            ++it;
+            continue;
+        }
+        const RenderedFramePtr frame = it->frame.get();
+        if (frame && frame->ok && !frame->image.isNull()) {
+            m_thumbs.insert(it->node, frame->image);
+            changed = true;
+        }
+        it = m_pendingPictures.erase(it);
+    }
+    if (m_pendingPictures.empty())
+        m_thumbPoll.stop();
+    if (changed)
+        update();
+}
+
 bool NodeEditor::eventFilter(QObject* watched, QEvent* event)
 {
+    if (watched == m_find && event && event->type() == QEvent::KeyPress
+        && static_cast<QKeyEvent*>(event)->key() == Qt::Key_Escape) {
+        closeFind();
+        return true;
+    }
     if ((watched == m_rename || watched == m_noteEdit) && event) {
         if (event->type() == QEvent::KeyPress) {
             auto* key = static_cast<QKeyEvent*>(event);

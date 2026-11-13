@@ -5,7 +5,12 @@
 
 #include "ui/comp/CompAdapter.h"
 
+#include "render/RenderTypes.h"
+
 #include <QFont>
+#include <QHash>
+#include <QImage>
+#include <QTimer>
 #include <QFontMetricsF>
 #include <QLine>
 #include <QPointF>
@@ -14,6 +19,9 @@
 #include <QWidget>
 
 #include <cstdint>
+#include <functional>
+#include <future>
+#include <vector>
 
 class QLineEdit;
 class QMenu;
@@ -45,7 +53,8 @@ class CompSession;
 /// connected input's end away disconnects (or reconnects elsewhere), middle-drag or Space-drag
 /// pans, the wheel zooms around the cursor. Dragging a tile out of the widget starts a drag of
 /// the node (mime::CompNode) for the viewers. Nodes library entries (mime::CompNodeType) can be
-/// dropped onto the canvas or onto a link.
+/// dropped onto the canvas or onto a link. Shift-dragging a connected tile onto a link
+/// inserts it (it leaves its place); Shift-dragging on a link disconnects it.
 ///
 /// **Keys** are the comp.* commands of the ActionRegistry (keymap profile). They are widget
 /// shortcuts: while the editor has focus it claims their keys through QEvent::ShortcutOverride
@@ -132,6 +141,28 @@ public:
     /// Context menu for a click at @p pos (built from the registry's comp.* commands).
     [[nodiscard]] QMenu* buildContextMenu(QPointF pos, QWidget* parent);
 
+    /// Text of the hover tooltip of the tile at @p pos: name, type and the key settings (empty
+    /// over anything else).
+    [[nodiscard]] QString tooltipAt(QPointF pos) const;
+    /// Opens the Find field (Ctrl+F while the editor has focus): typing selects the nodes whose
+    /// name or type contains the text, Enter frames them, Esc closes it.
+    void startFind();
+    /// The Find field while open, else nullptr (tests).
+    [[nodiscard]] QLineEdit* findField() const { return m_find; }
+    /// Selects the nodes whose name or type contains @p text (case-insensitive) and frames
+    /// them in the view. Returns how many matched.
+    int findNodes(const QString& text);
+
+    /// Renders the picture of node @p nodeId at @p pixels for the tile pictures (comp frame of
+    /// the page); an invalid future = not available. Set by the page.
+    using ThumbnailSource = std::function<std::future<RenderedFramePtr>(quint64, QSize)>;
+    void setThumbnailSource(ThumbnailSource source);
+    /// Tile picture of @p nodeId, or a null image (not rendered yet; tests).
+    [[nodiscard]] QImage tilePicture(quint64 nodeId) const { return m_thumbs.value(nodeId); }
+    /// Renders the pictures of the visible nodes that show one now (normally the throttle
+    /// timer does this; tests call it directly). Returns the number requested.
+    int refreshTilePictures();
+
     /// Duration of the last paintEvent() in milliseconds (performance test).
     [[nodiscard]] double lastPaintMs() const { return m_lastPaintMs; }
 
@@ -166,7 +197,8 @@ private:
         Pan,
         Connect, ///< from an output to an input
         ConnectReverse, ///< from an (unconnected) input to an output
-        Reconnect ///< a connected input's end picked up
+        Reconnect, ///< a connected input's end picked up
+        CutLink ///< Shift pressed on a link: dragging away disconnects it
     };
 
     /// The comp.* action bound to the key of @p event, or empty.
@@ -192,6 +224,11 @@ private:
     void setDrag(Drag drag);
     void commitRename(bool accept);
     void commitNoteEdit(bool accept);
+    void closeFind();
+    /// Replace With / Set Color / Tile Picture entries of a node's context menu.
+    void addNodeMenuItems(QMenu* menu, const CompNode& node);
+    void scheduleTilePictures();
+    void collectTilePictures();
 
     // ---- Painting (NodeEditorPaint.cpp) ----
     void paintGrid(QPainter& p, const QRectF& gridRect) const;
@@ -218,6 +255,19 @@ private:
     bool m_spacePanned = false;
     Hit m_dropLink; ///< library drag: link under the cursor
 
+    bool m_moveShift = false; ///< Shift held during the Move drag (insert a connected node)
+    bool m_pendingToggle = false; ///< Shift pressed on a selected tile: a click deselects it
+    QLineEdit* m_find = nullptr;
+    ThumbnailSource m_thumbSource;
+    QHash<quint64, QImage> m_thumbs;
+    struct PendingPicture
+    {
+        quint64 node = 0;
+        std::future<RenderedFramePtr> frame;
+    };
+    std::vector<PendingPicture> m_pendingPictures;
+    QTimer m_thumbTimer; ///< throttle: at most one round of renders per interval
+    QTimer m_thumbPoll;  ///< collects finished renders
     QLineEdit* m_rename = nullptr;
     quint64 m_renameNode = 0;
     QPlainTextEdit* m_noteEdit = nullptr;

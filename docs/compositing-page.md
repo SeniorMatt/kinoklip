@@ -25,7 +25,7 @@ general knowledge of node compositors, our own drawing, names and icons; never R
 - Under the viewers: a **time ruler and transport** over the composition's frames (the clip's
   duration), with keyframe ticks of the selected node, and the comp frame / timeline timecode.
 - Bottom: the **node editor**: pannable, zoomable canvas (middle-drag or Space-drag to pan,
-  wheel to zoom, Fit with Ctrl+F), nodes as tiles with input ports on the left / top and the output
+  wheel to zoom, Fit with Shift+F), nodes as tiles with input ports on the left / top and the output
   on the right, coloured links by port kind (background, foreground, mask), selection and box
   selection, drag to move, drop a node onto a link to insert it, drag from a port to connect, drop an output on another
   node's output to put a Merge there (the dragged node is the foreground),
@@ -170,3 +170,13 @@ the renderers.
 **Not done yet.** Polygon regions (a bounding plane from more than four points), motion
 prediction for very fast movement, per-frame manual correction with re-tracking from the
 corrected frame, a live (re-resolving) link, linking sizes and angles, and tracking of masks.
+
+## Node editor extras (1.7, spec 93)
+
+Insert on links (Shift-drag of a connected tile; library drops already did), tile pictures
+(`CompNode::thumbnail`, rendered by a page-supplied `NodeEditor::ThumbnailSource` through
+`PlaybackEngine::renderCompositionNode()`, throttled), hover tooltip, Replace With
+(`compops::replaceType()`), Find (Ctrl+F, panel-local), Set Color (`CompNode::color`), Paste
+Settings (Ctrl+Shift+V, panel-local) and Shift-drag on a link to disconnect it. Colour and
+picture flag are written only when set; the project format stays 19. Fit Nodes to View is
+Shift+F now (Ctrl+F is Find).

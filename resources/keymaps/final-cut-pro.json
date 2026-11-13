@@ -335,7 +335,7 @@
         "comp.swap_inputs": ["Ctrl+T"],
         "comp.view_left": ["1"],
         "comp.view_right": ["2"],
-        "comp.fit": ["Ctrl+F"],
+        "comp.fit": ["Shift+F"],
         "comp.snap_grid": [],
         "color.add_serial": ["Alt+S"],
         "color.add_parallel": ["Alt+P"],

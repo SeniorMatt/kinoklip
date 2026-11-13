@@ -381,6 +381,108 @@ bool insertIntoLink(Composition& comp, quint64 node, quint64 to, const QString& 
     return true;
 }
 
+/// Keys of the Common Controls (Settings section): carried over by Replace Tool.
+static bool isCommonKey(const QString& key)
+{
+    return key.size() > 2 && key.startsWith(QLatin1String("cc")) && key.at(2).isUpper();
+}
+
+bool moveIntoLink(Composition& comp, quint64 node, quint64 to, const QString& port)
+{
+    const CompNode* n = comp.node(node);
+    const NodeDescriptor* d = n ? descriptorOf(*n) : nullptr;
+    if (!d || d->mainInput.isEmpty() || d->outputs < 1 || node == to)
+        return false;
+    const Composition backup = comp;
+    const NodeLink source = n->inputs.value(d->mainInput);
+    for (CompNode& other : comp.nodes) {
+        for (auto it = other.inputs.begin(); it != other.inputs.end();) {
+            if (it->nodeId != node) {
+                ++it;
+            } else if (source.isConnected() && comp.node(source.nodeId)
+                && kindsCompatible(outputKindOf(*comp.node(source.nodeId)),
+                    inputKindOf(other, it.key()))) {
+                *it = source;
+                ++it;
+            } else {
+                it = other.inputs.erase(it);
+            }
+        }
+    }
+    comp.node(node)->inputs.remove(d->mainInput);
+    if (!insertIntoLink(comp, node, to, port)) {
+        comp = backup;
+        return false;
+    }
+    return true;
+}
+
+QStringList replacementTypes(const QString& type)
+{
+    QStringList out;
+    const NodeDescriptor* from = NodeRegistry::instance().find(type);
+    if (!from || type == nodetypes::MediaOut)
+        return out;
+    for (const NodeDescriptor& d : NodeRegistry::instance().all()) {
+        if (d.id == type || d.id == nodetypes::MediaOut || d.mainInput != from->mainInput
+            || d.outputs != from->outputs || d.outputKind != from->outputKind
+            || d.inputs.size() != from->inputs.size())
+            continue;
+        bool same = true;
+        for (const NodePort& p : from->inputs) {
+            const NodePort* q = d.input(p.id);
+            same = same && q && q->kind == p.kind;
+        }
+        if (same)
+            out.append(d.id);
+    }
+    return out;
+}
+
+bool replaceType(Composition& comp, quint64 node, const QString& type)
+{
+    CompNode* n = comp.node(node);
+    if (!n || n->locked || !replacementTypes(n->type).contains(type))
+        return false;
+    const NodeDescriptor* from = descriptorOf(*n);
+    const NodeDescriptor* to = NodeRegistry::instance().find(type);
+    const ParamSet defaults = NodeRegistry::instance().defaultParams(type);
+    ParamSet params = defaults;
+    for (auto it = n->params.values.cbegin(); it != n->params.values.cend(); ++it)
+        if ((to->param(it.key()) && from->param(it.key())) || isCommonKey(it.key()))
+            params.values.insert(it.key(), it.value());
+    for (auto it = n->params.statics.cbegin(); it != n->params.statics.cend(); ++it)
+        if ((to->param(it.key()) && from->param(it.key())) || isCommonKey(it.key()))
+            params.statics.insert(it.key(), it.value());
+    // A default name (base + number) follows the new type; a name the user chose stays.
+    QString digits = n->name.mid(from->nameBase.size());
+    bool isNumber = false;
+    digits.toInt(&isNumber);
+    const bool defaultName = n->name.startsWith(from->nameBase) && isNumber;
+    n->type = type;
+    n->params = params;
+    n->mediaId.clear();
+    n->path = type == nodetypes::PolygonMask ? defaultPolygon(216.0) : AnimatedPath {};
+    if (defaultName)
+        n->name = uniqueName(comp, to->nameBase);
+    return true;
+}
+
+int pasteSettings(Composition& comp, const CompNode& from, const QVector<quint64>& targets)
+{
+    int changed = 0;
+    for (quint64 id : targets) {
+        CompNode* n = comp.node(id);
+        if (!n || n->locked || n->id == from.id || n->type != from.type || n->params == from.params)
+            continue;
+        n->params = from.params;
+        if (n->type == nodetypes::PolygonMask)
+            n->path = from.path;
+        ++changed;
+    }
+    return changed;
+}
+
 void moveNodes(Composition& comp, const QVector<quint64>& ids, QPointF delta)
 {
     for (CompNode& n : comp.nodes) {
