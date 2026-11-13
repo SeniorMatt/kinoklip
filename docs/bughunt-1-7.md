@@ -58,8 +58,6 @@ first). They print `PROBE`, `TEXTPROBE`, `KEYPROBE`, `STEALPROBE` and `TABPROBE`
 - `src/ui/inspector/InspectorPanel.cpp:1241`: the transition Type combo lists every transition
   (about sixty) without a search; Resolve's list is also long. A searchable popup like the
   Add Effect menu would do.
-- `src/ui/comp/NodeEditor.cpp:792-805`: the Add Node context menu is submenus only; Shift+Space
-  (Select Node) is the search, but the menu does not say so. Add the entry at its top.
 - `src/ui/mediapool/MediaBrowserPanel.cpp:setRootPath`: the Media Storage browser has no folder
   history, so the mouse back / forward buttons do nothing there (the Project Manager has them
   since 89.8).

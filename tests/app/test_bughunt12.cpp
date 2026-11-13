@@ -4,6 +4,7 @@
 #include "app/Theme.h"
 #include "app/pages/AudioPage.h"
 #include "app/pages/ColorPage.h"
+#include "app/pages/CompositingPage.h"
 #include "app/pages/EditPage.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
@@ -20,6 +21,7 @@
 #include "ui/common/Page.h"
 #include "ui/common/Resources.h"
 #include "ui/common/StandardActions.h"
+#include "ui/comp/NodeEditor.h"
 #include "ui/deliver/DeliverPage.h"
 #include "ui/deliver/RenderSettingsPanel.h"
 #include "ui/dialogs/NormalizeAudioDialog.h"
@@ -463,6 +465,22 @@ private slots:
         strip->setNamePrompt([](const QString&) -> std::optional<QString> { return std::nullopt; });
         QCoreApplication::sendEvent(name, &e);
         QCOMPARE(f.project.undoStack()->count(), steps + 1);
+    }
+
+    /// Spec 89.10: the Add Node menu of the node editor starts with the search (Select Node).
+    void spec89_10_addNodeMenuHasSearch()
+    {
+        Fixture f;
+        f.window->resize(1366, 768);
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        f.action("view.page_compositing")->trigger();
+        NodeEditor* editor = f.window->compositingPage()->nodeEditor();
+        std::unique_ptr<QMenu> menu(editor->buildContextMenu(QPointF(5, 5), editor));
+        QMenu* add = menu->findChild<QMenu*>(QStringLiteral("AddNodeMenu"));
+        QVERIFY(add);
+        QVERIFY(!add->actions().isEmpty());
+        QCOMPARE(add->actions().first(), f.action("comp.select_node"));
     }
 
     void probeTabOrder()

@@ -285,6 +285,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));
     // Secondary text from the palette (readable in light and dark colour schemes).
     m_marksLabel->setForegroundRole(QPalette::PlaceholderText);
+    m_marksLabel->setMinimumWidth(1);
     bar->addWidget(m_marksLabel);
     m_transport->installEventFilter(this); // the label gives way when the bar is too narrow
     bar->addStretch(1);
@@ -672,9 +673,10 @@ void ViewerPanel::fitMarksLabel()
     if (!m_marksLabel || !m_transport || !m_transport->layout())
         return;
     const QLayout* bar = m_transport->layout();
-    int needed = bar->minimumSize().width();
-    if (m_marksLabel->isHidden() && !m_marksLabel->text().isEmpty())
-        needed += m_marksLabel->sizeHint().width() + bar->spacing();
+    // The label counts for 1 px in the minimum (set where it is made), so that it never
+    // changes the viewer's minimum width: its own hint is added here, shown or not.
+    int needed = bar->minimumSize().width() + m_marksLabel->sizeHint().width();
+    needed += m_marksLabel->isHidden() ? bar->spacing() : -m_marksLabel->minimumWidth();
     const bool fits = m_transport->width() >= needed;
     if (m_marksLabel->isHidden() == fits)
         m_marksLabel->setVisible(fits);
