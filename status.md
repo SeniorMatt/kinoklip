@@ -222,3 +222,4 @@
 - Merge lesson: worktree agents committed the tests/data/generated symlink twice; .gitignore now covers it. Check `git diff --stat main...branch` before merging.
 - Next (roadmap Now): search box squeeze, Keyframes/Curves switch look, FUSE-missing error, full licence texts, then Editing and Audio groups. Stereo 3D, raw, masks and removal are in "Next big release".
 - Owner rules: release without asking once checks pass; notify every finished task; no Claude lines in commits; no Claude mention in commits or comments.
+- README and website shots now use CC0 photos of creative people (filmmaker, painter, guitarist, pianist, studio band) in Breeze Dark instead of kittens; the website shows the real shots (website/static/shots comes from docs/images/readme).

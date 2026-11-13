@@ -123,6 +123,18 @@ kbd { background: #292c30; border: 1px solid var(--line2); border-bottom-width: 
 .stage-copy p { color: var(--muted); }
 .stage-art { background: var(--deep); border-left: 1px solid var(--line); display: flex; align-items: center; justify-content: center; padding: 32px; min-width: 0; }
 .stage-art > div { width: 100%; max-width: 480px; }
+.stage.wide { grid-template-columns: minmax(0, .8fr) minmax(0, 1.7fr); }
+.stage.wide .stage-art { padding: 20px; }
+.stage.wide .stage-art > div { max-width: none; }
+
+/* Real screenshots of the app */
+.shot { margin: 0; background: var(--deep); border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, .45); min-width: 0; }
+.shot img { display: block; width: 100%; height: auto; }
+.shot.big { border-radius: 12px; }
+.showcase { padding: 0 0 72px; }
+.showcase figcaption { padding: 10px 16px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); background: var(--panel); }
+.art .shot { margin-top: 22px; box-shadow: none; }
+.js [data-anim] .shot.a-rise { animation-delay: calc(var(--i, 0) * 90ms); }
 
 /* Illustrations */
 .ill { width: 100%; }
@@ -392,7 +404,7 @@ pre code { background: none; border: 0; padding: 0; font-size: inherit; overflow
 
 /* Responsive */
 @media (max-width: 960px) {
-  .hero .wrap, .split, .feat .wrap, .dl-box, .stage { grid-template-columns: minmax(0, 1fr); }
+  .hero .wrap, .split, .feat .wrap, .dl-box, .stage, .stage.wide { grid-template-columns: minmax(0, 1fr); }
   .hero .wrap { gap: 40px; }
   .feat.flip .copy { order: 0; }
   .stage-art { border-left: 0; border-top: 1px solid var(--line); }

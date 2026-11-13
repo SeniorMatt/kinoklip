@@ -3,12 +3,14 @@
 """Makes the screenshots of the readme's Screenshots section (docs/images/readme/).
 
 One picture per page (Media, Cut, Edit, Compositing, Color, Audio, Deliver), a few feature
-shots and themes.png (Breeze Dark and Breeze Light split diagonally), taken from the real app with its default look (Breeze widget style, Kinoklip colour
-scheme) at 1920x1080, then scaled to 1600 px wide and stored as palette PNGs.
+shots and themes.png (Breeze Dark and Breeze Light split diagonally), taken from the real app
+in Breeze Dark (Breeze widget style and colour scheme) at 1920x1080, then scaled to 1600 px
+wide and stored as palette PNGs.
 
-The footage is made from five CC0 kitten photos (scripts/readme-media, credited in
-attribution.md): each becomes a 1920x1080 25 fps clip with a slow zoom or pan, so timeline
-thumbnails differ along the clip; kitten-lawn.mp4 also carries a speech-like sound track.
+The footage is made from five CC0 photos of people doing creative work (scripts/readme-media,
+credited in attribution.md): each becomes a 1920x1080 25 fps clip with a slow zoom or pan, so
+timeline thumbnails differ along the clip; filmmaker-camera.mp4 also carries a speech-like
+sound track.
 Reuses the user guide's tools (scripts/guide_screenshots.py): its generated music, the demo
 projects of tests/timeline/test_guidedemo.cpp (readme-edit, readme-compositing and
 readme-color.kkproj) and `kinoklip --screenshot <target> <png> <project>`.
@@ -39,14 +41,14 @@ WIDTH = 1600   # px of the stored pictures (the readme shows them at about half 
 COLOURS = 256  # palette size of the stored PNGs
 # The projects refer to the demo media through this link, so the pictures (Metadata, Media
 # Storage) show a short neutral folder instead of the build directory.
-MEDIA_LINK = Path("/tmp/kinoklip-demo/Videos/Kittens")
+MEDIA_LINK = Path("/tmp/kinoklip-demo/Videos/Shoot")
 
 # name: (target, project, extra environment). The names are the files in docs/images/readme.
 SHOTS = {
-    "media": ("media:kitten-lawn.mp4", "readme-edit.kkproj", {}),
+    "media": ("media:filmmaker-camera.mp4", "readme-edit.kkproj", {}),
     "cut": ("cut", "readme-edit.kkproj", {}),
     "edit": ("clip:V3:title", "readme-edit.kkproj",
-             {"KK_SCREENSHOT_SOURCE": "kitten-wide-eyed.mp4"}),
+             {"KK_SCREENSHOT_SOURCE": "guitarist-stage.mp4"}),
     "compositing": ("compositing", "readme-compositing.kkproj",
                     {"KK_SCREENSHOT_NODE": "Transform1"}),
     "color": ("color:primaries", "readme-color.kkproj",
@@ -67,14 +69,15 @@ SPLIT = (0.62, 0.38)  # where the dividing line meets the top and the bottom edg
 
 PHOTOS = ROOT / "scripts" / "readme-media"
 
-# clip: (photo, seconds, (zoom from, to), (x from, to), (y from, to)); x and y place the zoomed
-# window from 0 (left / top) to 1 (right / bottom) of the 16:9 middle of the photo.
-KITTENS = {
-    "kitten-lawn.mp4": ("kitten-lawn.jpg", 36, (1.0, 1.3), (0.38, 0.32), (0.5, 0.55)),
-    "kitten-curious.mp4": ("kitten-curious.jpg", 20, (1.15, 1.0), (0.2, 0.5), (0.4, 0.5)),
-    "kitten-wide-eyed.mp4": ("kitten-wide-eyed.jpg", 15, (1.0, 1.35), (0.45, 0.45), (0.4, 0.4)),
-    "kittens-piano.mp4": ("kittens-piano.jpg", 15, (1.3, 1.3), (0.0, 1.0), (0.6, 0.6)),
-    "kitten-sleeping.mp4": ("kitten-sleeping.jpg", 12, (1.35, 1.0), (0.5, 0.5), (0.5, 0.5)),
+# clip: (photo, seconds, (zoom from, to), (x from, to), (y from, to), vertical place of the 16:9
+# band in the photo); x and y place the zoomed window from 0 (left / top) to 1 (right / bottom)
+# of that band, the last number from 0 (top) to 1 (bottom) of the photo.
+CLIPS = {
+    "filmmaker-camera.mp4": ("filmmaker-camera.jpg", 36, (1.0, 1.12), (0.6, 0.8), (0.3, 0.3), 0.5),
+    "painter-easel.mp4": ("painter-easel.jpg", 20, (1.15, 1.0), (0.7, 0.5), (0.3, 0.4), 0.3),
+    "guitarist-stage.mp4": ("guitarist-stage.jpg", 15, (1.0, 1.3), (0.5, 0.5), (0.1, 0.3), 0.1),
+    "pianist-recital.mp4": ("pianist-recital.jpg", 15, (1.0, 1.3), (0.7, 0.8), (0.4, 0.4), 0.35),
+    "band-studio.mp4": ("band-studio.jpg", 12, (1.35, 1.0), (0.85, 0.7), (0.5, 0.5), 0.5),
 }
 
 
@@ -86,10 +89,10 @@ def speech(seconds: int) -> str:
             "aformat=channel_layouts=stereo")
 
 
-def make_kittens(media: Path) -> None:
-    """The kitten clips: each photo cropped to 16:9 and slowly zoomed or panned (zoompan on a
-    2x frame, so the motion stays smooth); kitten-lawn.mp4 gets the speech-like sound."""
-    for name, (photo, seconds, zoom, xs, ys) in KITTENS.items():
+def make_clips(media: Path) -> None:
+    """The demo clips: each photo cropped to 16:9 and slowly zoomed or panned (zoompan on a
+    2x frame, so the motion stays smooth); filmmaker-camera.mp4 gets the speech-like sound."""
+    for name, (photo, seconds, zoom, xs, ys, band) in CLIPS.items():
         out = media / name
         if out.exists():
             continue
@@ -98,10 +101,10 @@ def make_kittens(media: Path) -> None:
         z = f"{zoom[0]}+({zoom[1]}-{zoom[0]})*on/{n}"
         x = f"(iw-iw/zoom)*({xs[0]}+({xs[1]}-{xs[0]})*on/{n})"
         y = f"(ih-ih/zoom)*({ys[0]}+({ys[1]}-{ys[0]})*on/{n})"
-        vf = (f"crop=iw:iw*9/16,scale=3840:2160,"
+        vf = (f"crop=iw:iw*9/16:0:(ih-iw*9/16)*{band},scale=3840:2160,"
               f"zoompan=z='{z}':x='{x}':y='{y}':d=1:s=1920x1080:fps=25,format=yuv420p")
         cmd = guide.FF + ["-loop", "1", "-framerate", "25", "-i", str(PHOTOS / photo)]
-        if name == "kitten-lawn.mp4":
+        if name == "filmmaker-camera.mp4":
             cmd += ["-f", "lavfi", "-i", speech(seconds)] + guide.AAC
         cmd += ["-vf", vf] + guide.X264 + ["-r", "25", "-t", str(seconds), str(out)]
         subprocess.run(cmd, check=True)
@@ -174,32 +177,32 @@ def main() -> None:
 
     app, work = Path(args.app).resolve(), Path(args.work).resolve()
     media, projects, raw = work / "media", work / "projects", work / "raw"
-    kittens = work / "kittens"
+    clips = work / "clips"
     library = work / "library"
     raw.mkdir(parents=True, exist_ok=True)
     print("demo media")
     guide.make_media(media)  # music.wav
-    # The kitten clips and the music in a folder of their own, so Media Storage lists only them
+    # The demo clips and the music in a folder of their own, so Media Storage lists only them
     # (the guide's demo projects need the rest and are skipped here).
-    kittens.mkdir(parents=True, exist_ok=True)
-    make_kittens(kittens)
-    if not (kittens / "music.wav").exists():
-        shutil.copy(media / "music.wav", kittens / "music.wav")
+    clips.mkdir(parents=True, exist_ok=True)
+    make_clips(clips)
+    if not (clips / "music.wav").exists():
+        shutil.copy(media / "music.wav", clips / "music.wav")
     MEDIA_LINK.parent.mkdir(parents=True, exist_ok=True)
     if MEDIA_LINK.is_symlink() or MEDIA_LINK.exists():
         MEDIA_LINK.unlink()
-    MEDIA_LINK.symlink_to(kittens, target_is_directory=True)
+    MEDIA_LINK.symlink_to(clips, target_is_directory=True)
     print("demo projects")
     guide.build_projects(Path(args.tests).resolve(), MEDIA_LINK, projects)
-    # A small Project Manager library: the demo projects under kitten names, two of them with
-    # the playhead (the poster frame) moved to another kitten.
+    # A small Project Manager library: the demo projects under other names, two of them with
+    # the playhead (the poster frame) moved to another clip.
     if library.exists():
         shutil.rmtree(library)
     library.mkdir(parents=True)
-    for name, file, seconds in (("Daisy on the Lawn", "readme-edit", None),
-                                ("Kitten Diaries", "readme-edit", 20),
-                                ("Piano Kittens", "readme-color", 15),
-                                ("Nap Time", "readme-color", 19)):
+    for name, file, seconds in (("Behind the Camera", "readme-edit", None),
+                                ("Studio Stories", "readme-edit", 20),
+                                ("Piano Recital", "readme-color", 15),
+                                ("Live Session", "readme-color", 19)):
         project = json.loads((projects / f"{file}.kkproj").read_text())
         project["project"]["name"] = name
         if seconds is not None:
@@ -215,7 +218,8 @@ def main() -> None:
         png, geo = raw / f"{name}.png", raw / f"{name}.json"
         if not (args.keep and png.exists()):
             env = {k: v.format(library=library) for k, v in env.items()}
-            guide.run_shot(app, target, projects / project, png, geo, env)
+            guide.run_shot(app, target, projects / project, png, geo, env,
+                           args=("--color-scheme", "BreezeDark"))
         store(png, OUT / f"{name}.png")
     if not args.only or args.only == "themes":
         target, project, env = SHOTS["edit"]

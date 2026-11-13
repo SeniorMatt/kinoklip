@@ -29,6 +29,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(REPO, "website")
 GUIDE = os.path.join(REPO, "docs", "guide")
 RELEASES = os.path.join(REPO, "docs", "releases")
+SHOTS = os.path.join(REPO, "docs", "images", "readme")  # the readme's screenshots, also used on the site
 GITHUB = "https://github.com/SeniorMatt/kinoklip"
 
 # Guide articles by topic. Anything not listed ends up under "More".
@@ -408,6 +409,11 @@ def build(out, base):
     site = Site(out, base)
     for d in ("css", "js", "static"):
         shutil.copytree(os.path.join(SRC, d), os.path.join(out, d))
+    shots = os.path.join(out, "static", "shots")
+    os.makedirs(shots)
+    for f in sorted(os.listdir(SHOTS)):
+        if f.endswith(".png"):
+            shutil.copy(os.path.join(SHOTS, f), os.path.join(shots, f))
     write(os.path.join(out, ".nojekyll"), "")
 
     by_id = build_guide(site, warnings)

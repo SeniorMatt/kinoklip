@@ -484,24 +484,24 @@ private slots:
         saveAndCheck(project, file);
     }
 
-    /// The readme's Edit (also Media, Cut, Audio and Deliver) project: kitten-lawn (with a
-    /// speech-like sound) cut with cross dissolves on V1 / A1, B-roll kittens on V2, a lower
+    /// The readme's Edit (also Media, Cut, Audio and Deliver) project: filmmaker-camera (with a
+    /// speech-like sound) cut with cross dissolves on V1 / A1, B-roll of other creatives on V2, a lower
     /// third and an end title on V3, music with fades on A2 (scripts/readme_screenshots.py
-    /// makes the kitten clips from CC0 photos).
+    /// makes the clips from CC0 photos).
     void readmeEditProject()
     {
         Project project;
         if (!importAll(project,
-                {"kitten-lawn.mp4", "kitten-curious.mp4", "kitten-wide-eyed.mp4",
-                    "kittens-piano.mp4", "kitten-sleeping.mp4", "music.wav"}))
-            QSKIP("KK_GUIDE_MEDIA has no kitten clips (scripts/readme_screenshots.py makes them)");
+                {"filmmaker-camera.mp4", "painter-easel.mp4", "guitarist-stage.mp4",
+                    "pianist-recital.mp4", "band-studio.mp4", "music.wav"}))
+            QSKIP("KK_GUIDE_MEDIA has no demo clips (scripts/readme_screenshots.py makes them)");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
-        d.name = QStringLiteral("Daisy on the Lawn");
+        d.name = QStringLiteral("Behind the Camera");
         while (d.videoTracks.size() < 3)
             editops::addTrack(d, TrackType::Video);
         withGuideTracks(d);
-        d.videoTracks[0].name = QStringLiteral("Daisy");
+        d.videoTracks[0].name = QStringLiteral("Interview");
         d.videoTracks[1].name = QStringLiteral("B-Roll");
         d.videoTracks[2].name = QStringLiteral("Titles");
         d.audioTracks[0].name = QStringLiteral("Narration");
@@ -518,19 +518,19 @@ private slots:
             }
             return id;
         };
-        // V1 / A1: Daisy on the lawn, the curious kitten, Daisy again.
-        at(QStringLiteral("kitten-lawn"), 0, 18, 0, 0, 0);
-        const quint64 curious = at(QStringLiteral("kitten-curious"), 18, 4, 6, 0, -1);
-        const quint64 back = at(QStringLiteral("kitten-lawn"), 22, 8, 20, 0, 0);
-        for (const quint64 id : {curious, back}) {
+        // V1 / A1: the filmmaker, the painter, the filmmaker again.
+        at(QStringLiteral("filmmaker-camera"), 0, 18, 0, 0, 0);
+        const quint64 painter = at(QStringLiteral("painter-easel"), 18, 4, 6, 0, -1);
+        const quint64 back = at(QStringLiteral("filmmaker-camera"), 22, 8, 20, 0, 0);
+        for (const quint64 id : {painter, back}) {
             ClipData* c = editops::clipById(d, id);
             QVERIFY(c);
             c->transitionIn = EffectRegistry::instance().createTransition(
                 QStringLiteral("cross_dissolve"), fps);
         }
-        // V2: B-roll kittens over Daisy (picture only).
-        at(QStringLiteral("kitten-wide-eyed"), 7, 4, 3, 1, -1);
-        at(QStringLiteral("kittens-piano"), 12, 3, 4, 1, -1);
+        // V2: B-roll (musicians) over the filmmaker (picture only).
+        at(QStringLiteral("guitarist-stage"), 7, 4, 3, 1, -1);
+        at(QStringLiteral("pianist-recital"), 12, 3, 4, 1, -1);
         // V3: a left lower third over the first shot and an end title.
         auto title = [&](const QString& preset, const QString& name, const QString& text,
                          int64_t start, int64_t length) {
@@ -545,7 +545,7 @@ private slots:
             editops::overwriteClip(d, TrackRef {TrackType::Video, 2}, c);
         };
         title(titles::LeftLowerThird, QStringLiteral("Left Lower Third"),
-            QStringLiteral("Daisy\nThe Lawn Patrol"), 1, 5);
+            QStringLiteral("Behind the Camera\nA Creative Day"), 1, 5);
         title(titles::Text, QStringLiteral("Text"), QStringLiteral("Thanks for watching"), 26, 4);
         // A2: music under the whole piece, faded in and out, a little lower.
         ClipData* m = editops::clipById(d, at(QStringLiteral("music"), 0, 30, 0, -1, 1));
@@ -556,29 +556,29 @@ private slots:
         d.videoTracks[0].height = 70;
         d.audioTracks[0].height = 70;
         d.audioTracks[1].height = 70;
-        d.markers.append(Marker {18 * fps, QStringLiteral("Curious"), QColor(0x4c, 0x9b, 0xe8)});
+        d.markers.append(Marker {18 * fps, QStringLiteral("Painter"), QColor(0x4c, 0x9b, 0xe8)});
         project.endEdit();
         project.timeline()->setPlayhead(int64_t(3.5 * double(fps)));
-        project.setName(QStringLiteral("Daisy on the Lawn"));
+        project.setName(QStringLiteral("Behind the Camera"));
         saveAndCheck(project, QStringLiteral("readme-edit.kkproj"));
     }
 
-    /// The readme's Compositing page: kitten-lawn (MediaIn1) brightened by a Color Corrector,
-    /// a white frame (a Background masked by a Rectangle) and the curious kitten (MediaIn2)
+    /// The readme's Compositing page: filmmaker-camera (MediaIn1) brightened by a Color Corrector,
+    /// a white frame (a Background masked by a Rectangle) and the painter (MediaIn2)
     /// scaled down by a Transform merged over it as a picture-in-picture, a Text node on top;
     /// the left viewer shows the graded background, the right one the result.
     void readmeCompositingProject()
     {
         Project project;
-        if (!importAll(project, {"kitten-lawn.mp4", "kitten-curious.mp4"}))
-            QSKIP("KK_GUIDE_MEDIA has no kitten-lawn.mp4 / kitten-curious.mp4");
+        if (!importAll(project, {"filmmaker-camera.mp4", "painter-easel.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no filmmaker-camera.mp4 / painter-easel.mp4");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
         withGuideTracks(d);
-        d.name = QStringLiteral("Kitten Diaries");
+        d.name = QStringLiteral("Studio Stories");
         const int64_t fps = 24; // a new project's frame rate
         const quint64 id
-            = place(d, *itemNamed(project, QStringLiteral("kitten-lawn")), 0, 10 * fps, 0, -1);
+            = place(d, *itemNamed(project, QStringLiteral("filmmaker-camera")), 0, 10 * fps, 0, -1);
         ClipData* c = editops::clipById(d, id);
         QVERIFY(c);
         constexpr double sx = 4.5; // the node editor's spacing (CompOps.cpp kStepX, kStepY)
@@ -596,7 +596,7 @@ private slots:
         const quint64 text = compops::addNode(comp, nodetypes::Text, QPointF(4 * sx, -sy));
         const quint64 merge3 = compops::addNode(comp, nodetypes::Merge, QPointF(4 * sx, 0));
         QVERIFY(cc && rect && frame && in2 && xf && merge1 && merge2 && text && merge3);
-        comp.node(in2)->mediaId = itemNamed(project, QStringLiteral("kitten-curious"))->id;
+        comp.node(in2)->mediaId = itemNamed(project, QStringLiteral("painter-easel"))->id;
         comp.node(comp.mediaOutId)->position = QPointF(5 * sx, 0);
         const struct
         {
@@ -629,7 +629,7 @@ private slots:
         g.setBase(nodekeys::Gamma, 1.06);
         g.setBase(nodekeys::Saturation, 1.2);
         CompNode* t = comp.node(text);
-        t->params.setStatic(nodekeys::Text, QStringLiteral("Daisy and Friends"));
+        t->params.setStatic(nodekeys::Text, QStringLiteral("On Set"));
         t->params.setBase(nodekeys::FontSize, 110);
         t->params.setStatic(nodekeys::Bold, true);
         t->params.setBase(nodekeys::OutlineWidth, 3);
@@ -641,31 +641,31 @@ private slots:
         c->composition = comp;
         project.endEdit();
         project.timeline()->setPlayhead(5 * fps);
-        project.setName(QStringLiteral("Kitten Diaries"));
+        project.setName(QStringLiteral("Studio Stories"));
         saveAndCheck(project, QStringLiteral("readme-compositing.kkproj"));
     }
 
-    /// The readme's Color page: kitten-lawn warmed (the wheels moved), the green grass
+    /// The readme's Color page: filmmaker-camera warmed (the wheels moved), the skin tones
     /// qualified and made richer, and a soft vignette (an inverted circle window), between
-    /// the other kittens.
+    /// the other clips.
     void readmeColorProject()
     {
         Project project;
         if (!importAll(project,
-                {"kitten-lawn.mp4", "kitten-curious.mp4", "kitten-wide-eyed.mp4",
-                    "kittens-piano.mp4", "kitten-sleeping.mp4"}))
-            QSKIP("KK_GUIDE_MEDIA has no kitten clips (scripts/readme_screenshots.py makes them)");
+                {"filmmaker-camera.mp4", "painter-easel.mp4", "guitarist-stage.mp4",
+                    "pianist-recital.mp4", "band-studio.mp4"}))
+            QSKIP("KK_GUIDE_MEDIA has no demo clips (scripts/readme_screenshots.py makes them)");
         project.beginEdit(QStringLiteral("Demo"));
         TimelineData& d = project.timeline()->mutableData();
-        d.name = QStringLiteral("Kitten Grade");
+        d.name = QStringLiteral("Studio Grade");
         const int64_t fps = 24; // a new project's frame rate
-        const MediaItem& lawn = *itemNamed(project, QStringLiteral("kitten-lawn"));
-        const quint64 first = place(d, lawn, 0, 5 * fps, 0, 0);
-        place(d, *itemNamed(project, QStringLiteral("kitten-curious")), 5 * fps, 4 * fps, 0, 0);
-        place(d, *itemNamed(project, QStringLiteral("kitten-wide-eyed")), 9 * fps, 4 * fps, 0, 0);
-        place(d, *itemNamed(project, QStringLiteral("kittens-piano")), 13 * fps, 4 * fps, 0, 0);
-        place(d, *itemNamed(project, QStringLiteral("kitten-sleeping")), 17 * fps, 4 * fps, 0, 0);
-        place(d, lawn, 21 * fps, 5 * fps, 0, 0);
+        const MediaItem& main = *itemNamed(project, QStringLiteral("filmmaker-camera"));
+        const quint64 first = place(d, main, 0, 5 * fps, 0, 0);
+        place(d, *itemNamed(project, QStringLiteral("painter-easel")), 5 * fps, 4 * fps, 0, 0);
+        place(d, *itemNamed(project, QStringLiteral("guitarist-stage")), 9 * fps, 4 * fps, 0, 0);
+        place(d, *itemNamed(project, QStringLiteral("pianist-recital")), 13 * fps, 4 * fps, 0, 0);
+        place(d, *itemNamed(project, QStringLiteral("band-studio")), 17 * fps, 4 * fps, 0, 0);
+        place(d, main, 21 * fps, 5 * fps, 0, 0);
         project.endEdit();
         namespace gk = gradekeys;
         namespace wk = gradewindowkeys;
@@ -685,15 +685,15 @@ private slots:
         const quint64 n2 = gradeops::addSerialNode(g, n1);
         GradeQualifier& q = g.node(n2)->qualifier;
         q.enabled = true;
-        q.hueCenter = 0.27; // the green grass
-        q.hueWidth = 0.12;
+        q.hueCenter = 0.06; // the skin tones
+        q.hueWidth = 0.07;
         q.hueSoft = 0.05;
         q.satLow = 0.25;
         q.satHigh = 1.0;
         q.lumLow = 0.05;
         q.lumHigh = 0.9;
-        g.node(n2)->params.setBase(gk::Saturation, 1.3);
-        g.node(n2)->params.setBase(gk::Hue, 6);
+        g.node(n2)->params.setBase(gk::Saturation, 1.2);
+        g.node(n2)->params.setBase(gk::Hue, 2);
         const quint64 n3 = gradeops::addSerialNode(g, n2);
         const quint64 w = gradeops::addWindow(g, n3, GradeWindowShape::Circle);
         QVERIFY(w);
@@ -710,7 +710,7 @@ private slots:
         g.node(n3)->params.setBase(gk::GainY, 0.75);
         QVERIFY(project.setClipGrade(project.activeTimelineUid(), first, g, QStringLiteral("G")));
         project.timeline()->setPlayhead(2 * fps);
-        project.setName(QStringLiteral("Kitten Grade"));
+        project.setName(QStringLiteral("Studio Grade"));
         saveAndCheck(project, QStringLiteral("readme-color.kkproj"));
     }
 
