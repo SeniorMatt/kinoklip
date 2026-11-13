@@ -107,6 +107,29 @@ QImage pointwise(const QImage& in, Fn&& fn)
     return out;
 }
 
+/// The weighted mean of @p images (same size, premultiplied), per pixel in float.
+QImage weightedMean(const std::vector<QImage>& images, const std::vector<float>& weights)
+{
+    QImage out = blank(images.front().size());
+    std::vector<float> acc(size_t(out.width()) * 4);
+    for (int y = 0; y < out.height(); ++y) {
+        std::fill(acc.begin(), acc.end(), 0.0f);
+        for (size_t k = 0; k < images.size(); ++k) {
+            const QRgb* p = reinterpret_cast<const QRgb*>(images[k].constScanLine(y));
+            for (int x = 0; x < out.width(); ++x) {
+                float c[4];
+                unpack(p[x], c);
+                for (int i = 0; i < 4; ++i)
+                    acc[size_t(x) * 4 + size_t(i)] += c[i] * weights[k];
+            }
+        }
+        QRgb* po = reinterpret_cast<QRgb*>(out.scanLine(y));
+        for (int x = 0; x < out.width(); ++x)
+            po[x] = pack(&acc[size_t(x) * 4]);
+    }
+    return out;
+}
+
 /// Timeline px -> image px transform conjugation: an image-pixel QPainter transform for a
 /// timeline-pixel matrix @p m.
 QTransform inImagePixels(const QTransform& m, double scale)
@@ -285,7 +308,17 @@ private:
             const compmath::Resampling rs = n.type == nodetypes::Transform
                 ? compmath::resampling(n.params)
                 : compmath::Resampling();
-            if (!rs.isDefault()) {
+            const compmath::MotionBlurSamples mb = n.type == nodetypes::Transform
+                ? compmath::motionBlurSamples(n, double(f))
+                : compmath::MotionBlurSamples();
+            if (!mb.empty()) {
+                std::vector<QImage> shots;
+                for (double o : mb.offsets)
+                    shots.push_back(resample(in,
+                        compmath::transformMatrix(n.params, double(f) + o, m_ev.frame), m_ev.frame,
+                        rs));
+                out = weightedMean(shots, mb.weights);
+            } else if (!rs.isDefault()) {
                 out = resample(
                     in, compmath::transformMatrix(n.params, f, m_ev.frame), m_ev.frame, rs);
             } else {
@@ -423,7 +456,15 @@ private:
         const QTransform fgMatrix = compmath::mergeForegroundMatrix(n.params, f, m_ev.frame);
         const compmath::Resampling rs = compmath::resampling(n.params);
         QImage moved = blank(size);
-        if (!rs.isDefault()) {
+        const compmath::MotionBlurSamples mb = compmath::motionBlurSamples(n, double(f));
+        if (!mb.empty()) {
+            std::vector<QImage> shots;
+            for (double o : mb.offsets)
+                shots.push_back(resample(fg,
+                    compmath::mergeForegroundMatrix(n.params, double(f) + o, m_ev.frame),
+                    m_ev.frame, rs));
+            moved = weightedMean(shots, mb.weights);
+        } else if (!rs.isDefault()) {
             moved = resample(fg, fgMatrix, m_ev.frame, rs);
         } else {
             QPainter p(&moved);

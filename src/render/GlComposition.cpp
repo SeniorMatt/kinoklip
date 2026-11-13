@@ -684,6 +684,27 @@ PooledTarget GlComposition::resamplePass(GlKit& kit, const CompEval& ev, GLuint 
     return out;
 }
 
+PooledTarget GlComposition::blurredResample(GlKit& kit, const CompEval& ev, GLuint texture,
+    const compmath::MotionBlurSamples& mb, const compmath::Resampling& rs,
+    const std::function<QTransform(double)>& matrixAt)
+{
+    // Running weighted mean: acc = mix(acc, shot, w / (sum of the weights so far)).
+    PooledTarget acc;
+    float total = 0;
+    for (size_t i = 0; i < mb.offsets.size(); ++i) {
+        bool invertible = false;
+        PooledTarget shot = resamplePass(
+            kit, ev, texture, matrixAt(double(ev.compFrame) + mb.offsets[i]), rs, &invertible);
+        total += mb.weights[i];
+        if (!acc) {
+            acc = std::move(shot);
+            continue;
+        }
+        acc = mixPass(kit, ev, acc->texture, shot->texture, 0, mb.weights[i] / total);
+    }
+    return acc;
+}
+
 PooledTarget GlComposition::merge(
     GlKit& kit, const CompEval& ev, const CompNode& n, int bg, int fg, int mask)
 {
@@ -698,7 +719,14 @@ PooledTarget GlComposition::merge(
     QTransform outToFg;
     GLuint fgTexture = textureOf(kit, fg);
     PooledTarget resampled; // the foreground already in output space (Edges / Filter Method)
-    if (rs.isDefault()) {
+    const compmath::MotionBlurSamples mb = compmath::motionBlurSamples(n, double(ev.compFrame));
+    if (!mb.empty()) {
+        resampled = blurredResample(kit, ev, fgTexture, mb, rs,
+            [&](double t) { return compmath::mergeForegroundMatrix(p, t, ev.frame); });
+        fgTexture = resampled->texture;
+        outToFg = QTransform();
+        invertible = true;
+    } else if (rs.isDefault()) {
         outToFg = (toUv.inverted() * fgMatrix * toUv).inverted(&invertible);
     } else {
         resampled = resamplePass(kit, ev, fgTexture, fgMatrix, rs, &invertible);
@@ -765,6 +793,13 @@ PooledTarget GlComposition::transformNode(
         m = compmath::transformMatrix(n.params, ev.compFrame, ev.frame);
     const compmath::Resampling rs = n.type == nodetypes::Transform ? compmath::resampling(n.params)
                                                                    : compmath::Resampling();
+    const compmath::MotionBlurSamples mb = n.type == nodetypes::Transform
+        ? compmath::motionBlurSamples(n, double(ev.compFrame))
+        : compmath::MotionBlurSamples();
+    if (!mb.empty()) {
+        return blurredResample(kit, ev, textureOf(kit, input), mb, rs,
+            [&](double t) { return compmath::transformMatrix(n.params, t, ev.frame); });
+    }
     if (m.isIdentity() && rs.isDefault())
         return {};
     if (!rs.isDefault()) {

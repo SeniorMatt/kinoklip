@@ -326,6 +326,16 @@ QJsonObject ExportSettings::toJson() const
         o[QStringLiteral("outputPath")] = outputPath;
     }
     o[QStringLiteral("subtitles")] = subtitles.toJson();
+    if (individualClips) {
+        o[QStringLiteral("individualClips")] = true;
+        o[QStringLiteral("clipNaming")] = clipNaming == ClipNaming::SourceName
+            ? QStringLiteral("source")
+            : clipNaming == ClipNaming::NumberedClipName ? QStringLiteral("numbered")
+                                                         : QStringLiteral("clip");
+        if (clipHandles > 0) {
+            o[QStringLiteral("clipHandles")] = clipHandles;
+        }
+    }
     return o;
 }
 
@@ -378,6 +388,14 @@ ExportSettings ExportSettings::fromJson(const QJsonObject& o, const ExportSettin
     s.outputPath = str(o, "outputPath", s.outputPath);
     s.subtitles = SubtitleExportSettings::fromJson(
         o.value(QStringLiteral("subtitles")).toObject(), base.subtitles);
+    s.individualClips = boolean(o, "individualClips", s.individualClips);
+    if (o.contains(QLatin1String("clipNaming"))) {
+        const QString id = str(o, "clipNaming", {});
+        s.clipNaming = id == QLatin1String("source") ? ClipNaming::SourceName
+            : id == QLatin1String("numbered")        ? ClipNaming::NumberedClipName
+                                                     : ClipNaming::ClipName;
+    }
+    s.clipHandles = std::clamp(int(num(o, "clipHandles", s.clipHandles)), 0, 1000);
     return s;
 }
 

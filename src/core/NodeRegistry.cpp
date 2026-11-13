@@ -288,6 +288,12 @@ QVector<ParamDescriptor> NodeRegistry::commonControls(const QString& id) const
         boolean(k::MaskInverted, tr("Apply Mask Inverted"), false),
         boolean(k::MultiplyByMask, tr("Multiply By Mask"), false),
         boolean(k::ProcessAtZero, tr("Process When Blend Is 0.0"), true)};
+    if (id == nodetypes::Merge || id == nodetypes::Transform)
+        out += {boolean(k::MotionBlur, tr("Motion Blur"), false),
+            integer(k::MotionBlurQuality, tr("Quality"), 1, 10, 2),
+            number(k::ShutterAngle, tr("Shutter Angle"), 0, 720, 100, 1),
+            number(k::CenterBias, tr("Center Bias"), -1, 1, 0, 0.01),
+            number(k::SampleSpread, tr("Sample Spread"), 0, 2, 1, 0.01)};
     return out;
 }
 

@@ -146,6 +146,23 @@ Every node except the masks and MediaOut has a **Settings** section under its pa
 
 Blend can be keyframed; the check boxes cannot.
 
+**Motion Blur** is in the Settings of **Merge** and **Transform** nodes. Turn it on and a
+moving or turning picture is smeared along its path, as a camera with a shutter would see it.
+The node is drawn several times, a little earlier and later than the frame, and the pictures
+are averaged.
+
+- **Quality** is the number of samples on each side of the frame: 2 gives five pictures. Use
+  more for fast movement.
+- **Shutter Angle** is how long the shutter stays open: 360 is one whole frame, the default 100
+  a little more than a quarter of a frame. 0 gives no blur.
+- **Center Bias** moves the shutter in time: 0 is centred on the frame, -1 ends at the frame
+  (a trail behind the picture), 1 starts at it.
+- **Sample Spread** is how much each picture counts: 1 counts all equally, less gives the middle
+  of the shutter more weight, more gives the ends more weight.
+
+Quality, Shutter Angle, Center Bias and Sample Spread can be keyframed. A picture that does not
+move looks the same with Motion Blur on or off.
+
 ## Masks, keyers and the Corner Positioner
 
 - **Rectangle**: Corner Radius rounds the corners (1 is a pill). **Level** fades the whole mask and **Paint Mode**

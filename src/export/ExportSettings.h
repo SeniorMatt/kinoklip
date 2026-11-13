@@ -86,6 +86,13 @@ struct AudioExportSettings
     friend bool operator==(const AudioExportSettings&, const AudioExportSettings&) = default;
 };
 
+/// How the files of "Individual clips" are named (Deliver > Render: Individual clips).
+enum class ClipNaming {
+    ClipName, ///< the timeline clip's name
+    SourceName, ///< the name of the clip's media file
+    NumberedClipName ///< "001_" + the clip's name, in timeline order
+};
+
 /// Complete settings of one render job.
 struct ExportSettings
 {
@@ -100,6 +107,12 @@ struct ExportSettings
     /// Output file. Image sequences: a "%0Nd" in the name is the frame number; without one,
     /// "_%05d" is inserted before the extension (see sequencePattern()).
     QString outputPath;
+    /// Render every clip of the range to its own file in the folder of outputPath (see
+    /// export/IndividualClips.h). Off by default and then not written to JSON.
+    bool individualClips = false;
+    ClipNaming clipNaming = ClipNaming::ClipName;
+    /// Individual clips: extra frames rendered before and after each clip (0..1000).
+    int clipHandles = 0;
 
     /// The container descriptor (never null for a validated settings object).
     [[nodiscard]] const ContainerInfo* containerInfo() const { return findContainer(container); }

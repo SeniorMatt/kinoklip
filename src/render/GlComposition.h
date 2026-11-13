@@ -122,6 +122,11 @@ private:
     /// @p texture drawn through @p inputToOutput (timeline px) by the per-pixel resampler.
     PooledTarget resamplePass(GlKit& kit, const CompEval& ev, GLuint texture,
         const QTransform& inputToOutput, const compmath::Resampling& r, bool* invertible);
+    /// @p texture resampled at every motion blur sample (matrixAt(frame) = input to output) and
+    /// averaged with the sample weights.
+    PooledTarget blurredResample(GlKit& kit, const CompEval& ev, GLuint texture,
+        const compmath::MotionBlurSamples& mb, const compmath::Resampling& rs,
+        const std::function<QTransform(double)>& matrixAt);
     PooledTarget merge(GlKit& kit, const CompEval& ev, const CompNode& n, int bg, int fg, int mask);
     PooledTarget transformNode(GlKit& kit, const CompEval& ev, const CompNode& n, int input);
     PooledTarget rectNode(GlKit& kit, const CompEval& ev, const CompNode& n, int input);

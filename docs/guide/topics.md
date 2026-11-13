@@ -46,4 +46,3 @@ Topics that come up often but that Kinoklip cannot do yet (no article until it c
 - needs: automatic subtitles from speech (speech-to-text).
 - needs: noise reduction for audio (voice clean-up); the Noise Reduction in the effects library is for video.
 - needs: Difference Key against a clean plate (spec 40.10), for screens that are not green or blue.
-- needs: rendering every timeline clip to its own file (Deliver > Individual clips is disabled).

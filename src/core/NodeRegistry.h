@@ -268,6 +268,12 @@ inline const QString CommonAlpha = QStringLiteral("ccAlpha");
 inline const QString MaskInverted = QStringLiteral("ccMaskInverted"); ///< Apply Mask Inverted
 inline const QString MultiplyByMask = QStringLiteral("ccMultiplyByMask");
 inline const QString ProcessAtZero = QStringLiteral("ccProcessAtZero"); ///< default on
+// Motion Blur (Merge and Transform only).
+inline const QString MotionBlur = QStringLiteral("ccMotionBlur"); ///< bool, default off
+inline const QString MotionBlurQuality = QStringLiteral("ccMbQuality"); ///< 1..10, default 2
+inline const QString ShutterAngle = QStringLiteral("ccMbShutter"); ///< degrees, default 100
+inline const QString CenterBias = QStringLiteral("ccMbBias"); ///< -1..1, default 0
+inline const QString SampleSpread = QStringLiteral("ccMbSpread"); ///< 0..2, default 1
 } // namespace nodekeys
 
 /// Paint Mode of a mask node (nodekeys::PaintMode): how the mask joins the mask plugged into it.
