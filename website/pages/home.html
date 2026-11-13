@@ -28,6 +28,12 @@
 </div>
 </section>
 
+<section class="showcase" id="screenshot">
+<div class="wrap" data-anim>
+<figure class="shot big a-rise" style="--i:1"><img src="{{root}}static/shots/edit.png" width="1600" height="900" loading="lazy" alt="Kinoklip's Edit page in Breeze Dark: a filmmaker with a cinema camera in the viewer, clip thumbnails of musicians and a painter on the timeline, and the inspector on the right."><figcaption>The Edit page, with the media pool, two viewers, the inspector and the timeline.</figcaption></figure>
+</div>
+</section>
+
 <section class="section" id="pages">
 <div class="wrap" data-anim>
 <div class="section-head reveal">
@@ -46,53 +52,53 @@
 <button class="tab" type="button" role="tab" id="t-deliver" aria-controls="p-deliver">Deliver</button>
 </div>
 
-<div class="stage" role="tabpanel" id="p-media" aria-labelledby="t-media">
+<div class="stage wide" role="tabpanel" id="p-media" aria-labelledby="t-media">
 <div class="stage-copy"><p class="kicker">Media page</p><h3>Bring everything in</h3>
 <p>Look through your files and bring them into the project. The media pool keeps clips in bins, smart bins that fill themselves with the clips matching your rules, and power bins. Import a whole folder and its sub-folders become bins.</p>
 <p><a href="{{root}}guide/getting-started/">Getting started</a></p></div>
-<div class="stage-art"><div>{{> ill-media}}</div></div>
+<div class="stage-art"><figure class="shot"><img src="{{root}}static/shots/media.png" width="1600" height="900" loading="lazy" alt="The Media page: the media pool with clip thumbnails, a viewer and the metadata of the selected clip."></figure></div>
 </div>
 
-<div class="stage" role="tabpanel" id="p-cut" aria-labelledby="t-cut">
+<div class="stage wide" role="tabpanel" id="p-cut" aria-labelledby="t-cut">
 <div class="stage-copy"><p class="kicker">Cut page</p><h3>A quick rough cut</h3>
 <p>A simple editor for fast first versions. Two timelines sit one above the other: the whole edit, and a close-up of the part you are working on. The viewer can show one source clip, all your source clips as one continuous tape, or the timeline.</p>
 <p><a href="{{root}}guide/getting-started/">Getting started</a></p></div>
-<div class="stage-art"><div>{{> ill-cut}}</div></div>
+<div class="stage-art"><figure class="shot"><img src="{{root}}static/shots/cut.png" width="1600" height="900" loading="lazy" alt="The Cut page: the source tape viewer above two timelines, the whole edit and a close-up."></figure></div>
 </div>
 
-<div class="stage" role="tabpanel" id="p-edit" aria-labelledby="t-edit">
+<div class="stage wide" role="tabpanel" id="p-edit" aria-labelledby="t-edit">
 <div class="stage-copy"><p class="kicker">Edit page</p><h3>The main editor</h3>
 <p>Tracks, trims, blade, transitions, titles and keyframes, with the keys you know: <kbd>I</kbd> and <kbd>O</kbd> mark, <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> play, <kbd>B</kbd> cuts. Most Resolve tutorials for the Edit page work here too.</p>
 <p><a href="{{root}}guide/transitions/">Transitions</a> &middot; <a href="{{root}}guide/keyframe-animation/">Keyframes</a></p></div>
-<div class="stage-art"><div>{{> ill-edit}}</div></div>
+<div class="stage-art"><figure class="shot"><img src="{{root}}static/shots/edit.png" width="1600" height="900" loading="lazy" alt="The Edit page: media pool, source and timeline viewers, the inspector and a timeline with video, titles and audio tracks."></figure></div>
 </div>
 
-<div class="stage" role="tabpanel" id="p-comp" aria-labelledby="t-comp">
+<div class="stage wide" role="tabpanel" id="p-comp" aria-labelledby="t-comp">
 <div class="stage-copy"><p class="kicker">Compositing page</p><h3>Nodes, when layers are not enough</h3>
 <p>Build the picture of one clip from nodes: small boxes that each do one thing, such as show the clip, write a text, blur, key out green or combine two pictures, joined by lines. Merge and Transform in full, masks, Luma and Delta keyers, Motion Blur, and Spline and Keyframes panels.</p>
 <p><a href="{{root}}guide/compositing-page/">Put text over a clip</a></p></div>
-<div class="stage-art"><div>{{> ill-comp}}</div></div>
+<div class="stage-art"><figure class="shot"><img src="{{root}}static/shots/compositing.png" width="1600" height="900" loading="lazy" alt="The Compositing page: a node graph above two viewers, showing a graded background and the merged result."></figure></div>
 </div>
 
-<div class="stage" role="tabpanel" id="p-color" aria-labelledby="t-color">
+<div class="stage wide" role="tabpanel" id="p-color" aria-labelledby="t-color">
 <div class="stage-copy"><p class="kicker">Color page</p><h3>Grade every clip</h3>
 <p>Fix a shot that came out too dark or too blue, or give it a look. Lift, Gamma, Gain and Offset wheels, curves, a qualifier, power windows and LUTs, in a node graph per clip, plus a grade for the whole timeline. What you see here plays on the Edit page and is part of the exported video.</p>
 <p><a href="{{root}}guide/colour-correct-a-clip/">Colour correct a clip</a></p></div>
-<div class="stage-art"><div>{{> ill-color}}</div></div>
+<div class="stage-art"><figure class="shot"><img src="{{root}}static/shots/color.png" width="1600" height="900" loading="lazy" alt="The Color page: colour wheels, a node graph and scopes beside the viewer."></figure></div>
 </div>
 
-<div class="stage" role="tabpanel" id="p-audio" aria-labelledby="t-audio">
+<div class="stage wide" role="tabpanel" id="p-audio" aria-labelledby="t-audio">
 <div class="stage-copy"><p class="kicker">Audio page</p><h3>Mix and record</h3>
 <p>Mix the sound with track levels, meters, an equaliser and dynamics. Record a voice-over straight onto the timeline from any microphone your desktop sees, through PipeWire or PulseAudio.</p>
 <p><a href="{{root}}guide/record-a-voice-over/">Record a voice-over</a></p></div>
-<div class="stage-art"><div>{{> ill-audio}}</div></div>
+<div class="stage-art"><figure class="shot"><img src="{{root}}static/shots/audio.png" width="1600" height="900" loading="lazy" alt="The Audio page: a mixer with a fader and meters for every track."></figure></div>
 </div>
 
-<div class="stage" role="tabpanel" id="p-deliver" aria-labelledby="t-deliver">
+<div class="stage wide" role="tabpanel" id="p-deliver" aria-labelledby="t-deliver">
 <div class="stage-copy"><p class="kicker">Deliver page</p><h3>Export for anywhere</h3>
 <p>Export the finished video to a file with a preset such as YouTube 1080p, in H.264 or H.265 with AAC sound. Jobs wait in a render queue, and Individual clips renders each clip to its own file, with handles and naming options.</p>
 <p><a href="{{root}}guide/export-for-youtube/">Export for YouTube</a></p></div>
-<div class="stage-art"><div>{{> ill-deliver}}</div></div>
+<div class="stage-art"><figure class="shot"><img src="{{root}}static/shots/deliver.png" width="1600" height="900" loading="lazy" alt="The Deliver page: render settings and a queue with two jobs."></figure></div>
 </div>
 </div>
 </div>
