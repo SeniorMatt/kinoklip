@@ -44,6 +44,8 @@ constexpr int kCategoryRole = Qt::UserRole + 1; ///< EffectCategory of a section
 constexpr int kFolderRole = Qt::UserRole + 2; ///< EffectDescriptor::group of a folder row
 constexpr int kSidebarWidth = 150; ///< px, category sidebar
 constexpr int kListWidth = 230;
+constexpr int kMinSidebarWidth = 80; ///< px, narrowest category sidebar
+constexpr int kMinListWidth = 150; ///< px, narrowest effect list
 constexpr int kScrubLineWidth = 2; ///< px, Live Preview scrub line
 constexpr int kScrubFillAlpha = 48; ///< tint of the part of the row already passed
 
@@ -412,6 +414,10 @@ EffectsLibraryPanel::EffectsLibraryPanel(AppContext& ctx, QWidget* parent)
     auto* splitter = new PanelSplitter(Qt::Horizontal);
     splitter->setChildrenCollapsible(false);
     splitter->setHandleWidth(1);
+    // A width floor for both sides, so the effect names stay readable when the Media Pool,
+    // Effects and Edit Index share a narrow window (spec 89.14).
+    m_categories->setMinimumWidth(kMinSidebarWidth);
+    listSide->setMinimumWidth(kMinListWidth);
     splitter->addWidget(m_categories);
     splitter->addWidget(listSide);
     splitter->setStretchFactor(1, 1);

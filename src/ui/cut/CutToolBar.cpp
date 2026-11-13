@@ -8,9 +8,10 @@
 #include "ui/common/Metrics.h"
 
 #include <QAction>
-#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QSizePolicy>
+#include <QToolBar>
 #include <QTimer>
 #include <QToolButton>
 
@@ -32,14 +33,6 @@ constexpr Entry kSmartEdits[]
 constexpr Entry kTools[]
     = {{"edit.split", false}, {"edit.ripple_delete", false}, {"timeline.snapping", false}};
 
-QFrame* separator()
-{
-    auto* line = new QFrame;
-    line->setFrameShape(QFrame::VLine);
-    line->setFrameShadow(QFrame::Sunken);
-    return line;
-}
-
 } // namespace
 
 CutToolBar::CutToolBar(AppContext& ctx, QWidget* parent)
@@ -51,14 +44,25 @@ CutToolBar::CutToolBar(AppContext& ctx, QWidget* parent)
     layout->setContentsMargins(
         metrics::kSpaceS, metrics::kSpaceXs, metrics::kSpaceS, metrics::kSpaceXs);
     layout->setSpacing(metrics::kSpaceXs);
+    // The buttons sit in a QToolBar: the ones that do not fit move, in order, into its "»"
+    // menu, so the bar never decides the minimum width of the Cut page (spec 89.14).
+    m_bar = new QToolBar(this);
+    m_bar->setObjectName(QStringLiteral("CutToolBarButtons"));
+    m_bar->setMovable(false);
+    m_bar->setFloatable(false);
+    m_bar->setContextMenuPolicy(Qt::PreventContextMenu);
+    m_bar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    m_bar->layout()->setContentsMargins(0, 0, 0, 0);
+    m_bar->layout()->setSpacing(metrics::kSpaceXs);
+    layout->addWidget(m_bar);
     for (const Entry& e : kSmartEdits) {
         if (QToolButton* b = addActionButton(e.id, e.withText))
-            layout->addWidget(b);
+            m_bar->addWidget(b);
     }
-    layout->addWidget(separator());
+    m_bar->addSeparator();
     for (const Entry& e : kTools) {
         if (QToolButton* b = addActionButton(e.id, e.withText))
-            layout->addWidget(b);
+            m_bar->addWidget(b);
     }
     // The quick dissolve button: Add Default Transition (a cross dissolve at the edit nearest
     // to the playhead) with a dissolve icon; a plain button so the action keeps its own icon.
@@ -76,15 +80,16 @@ CutToolBar::CutToolBar(AppContext& ctx, QWidget* parent)
         connect(b, &QToolButton::clicked, transition, &QAction::trigger);
         connect(transition, &QAction::changed, b,
             [b, transition] { b->setEnabled(transition->isEnabled()); });
-        layout->addWidget(b);
+        m_bar->addWidget(b);
     }
-    layout->addWidget(separator());
+    m_bar->addSeparator();
     if (QToolButton* review = addActionButton("cut.fast_review", true))
-        layout->addWidget(review);
+        m_bar->addWidget(review);
 
     m_message = new QLabel(this);
     m_message->setObjectName(QStringLiteral("CutToolBarMessage"));
     m_message->setContentsMargins(metrics::kSpaceM, 0, metrics::kSpaceM, 0);
+    m_message->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     layout->addWidget(m_message, 1);
     m_messageTimer = new QTimer(this);
     m_messageTimer->setSingleShot(true);

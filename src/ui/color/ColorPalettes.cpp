@@ -25,6 +25,7 @@
 #include <QPainter>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -703,13 +704,24 @@ LutBrowser::LutBrowser(ColorSession* session, QWidget* parent)
     m_interpolation->setObjectName(QStringLiteral("LutInterpolation"));
     m_interpolation->addItem(tr("Tetrahedral"));
     m_interpolation->addItem(tr("Trilinear"));
-    tools->addWidget(addFolderButton);
-    tools->addWidget(loadFile);
-    tools->addWidget(refreshButton);
-    tools->addStretch(1);
+    // Two rows: the buttons in a QToolBar (what does not fit goes into its "»" menu), and the
+    // interpolation below, so nothing overlaps at the narrowest palette width (spec 89.14).
+    auto* bar = new QToolBar(this);
+    bar->setObjectName(QStringLiteral("LutToolBar"));
+    bar->setMovable(false);
+    bar->setFloatable(false);
+    bar->setContextMenuPolicy(Qt::PreventContextMenu);
+    bar->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    bar->layout()->setContentsMargins(0, 0, 0, 0);
+    bar->layout()->setSpacing(2);
+    bar->addWidget(addFolderButton);
+    bar->addWidget(loadFile);
+    bar->addWidget(refreshButton);
+    bar->addWidget(m_remove);
+    layout->addWidget(bar);
     tools->addWidget(new QLabel(tr("Interpolation"), this));
     tools->addWidget(m_interpolation);
-    tools->addWidget(m_remove);
+    tools->addStretch(1);
     layout->addLayout(tools);
     // A folder of LUTs easily holds hundreds: type part of a name to narrow the list.
     m_search = new QLineEdit(this);

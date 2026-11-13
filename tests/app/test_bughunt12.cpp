@@ -27,8 +27,14 @@
 #include "ui/dialogs/NormalizeAudioDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
+#include "core/ClipAttributes.h"
+#include "core/Serialization.h"
+#include "ui/cut/CutToolBar.h"
+#include "ui/dialogs/ClipAttributesDialog.h"
+#include "ui/timeline/TimelineDialogs.h"
 #include "ui/editindex/EditIndexPanel.h"
 #include "ui/effects/EffectsLibraryPanel.h"
+#include "ui/mediapool/MediaBrowserPanel.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/projects/NewProjectDialog.h"
 #include "ui/timeline/TimelineController.h"
@@ -39,6 +45,11 @@
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QComboBox>
+#include <QCheckBox>
+#include <QDir>
+#include <QJsonObject>
+#include <QPoint>
+#include <QTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QFrame>
@@ -54,6 +65,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextEdit>
+#include <QToolBar>
 #include <QTreeView>
 #include <QTreeWidget>
 #include <QUndoStack>
@@ -481,6 +493,173 @@ private slots:
         QVERIFY(add);
         QVERIFY(!add->actions().isEmpty());
         QCOMPARE(add->actions().first(), f.action("comp.select_node"));
+    }
+
+    /// Spec 89.14: the Cut page tool bar folds into a "»" menu (a small minimum width), the
+    /// Effects library keeps a width floor and the LUT browser tool row does not overlap.
+    void spec89_14_smallScreens()
+    {
+        Fixture f;
+        CutToolBar cut(f.ctx);
+        QVERIFY(cut.findChild<QToolBar*>());
+        QVERIFY2(cut.minimumSizeHint().width() < 400,
+            qPrintable(QString::number(cut.minimumSizeHint().width())));
+        cut.resize(300, 40);
+        cut.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&cut));
+        QVERIFY(cut.button(QStringLiteral("cut.smart_insert")));
+        EffectsLibraryPanel effects(f.ctx);
+        QVERIFY2(effects.minimumSizeHint().width() >= 200,
+            qPrintable(QString::number(effects.minimumSizeHint().width())));
+        f.window->setCurrentPage(QStringLiteral("color"));
+        LutBrowser* luts = f.window->colorPage()->luts();
+        luts->resize(220, 400);
+        luts->show();
+        QTest::qWait(50);
+        auto* bar = luts->findChild<QWidget*>(QStringLiteral("LutToolBar"));
+        auto* interpolation = luts->findChild<QComboBox*>(QStringLiteral("LutInterpolation"));
+        QVERIFY(bar && interpolation);
+        QVERIFY(bar->geometry().bottom() < interpolation->geometry().top());
+        QVERIFY(interpolation->geometry().right() <= luts->width());
+    }
+
+    /// Spec 89.16: the Media Storage browser keeps a folder history; the mouse back / forward
+    /// buttons step through it.
+    void spec89_16_mediaStorageHistory()
+    {
+        Fixture f;
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString a = dir.filePath(QStringLiteral("a"));
+        const QString b = dir.filePath(QStringLiteral("b"));
+        QVERIFY(QDir().mkpath(a) && QDir().mkpath(b));
+        MediaBrowserPanel panel(f.ctx);
+        panel.resize(500, 400);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        panel.showFolder(a);
+        panel.showFolder(b);
+        const auto press = [&panel](Qt::MouseButton button) {
+            QMouseEvent e(QEvent::MouseButtonPress, QPointF(10, 10), panel.mapToGlobal(QPointF(10, 10)),
+                button, button, Qt::NoModifier);
+            QCoreApplication::sendEvent(&panel, &e);
+        };
+        press(Qt::BackButton);
+        QCOMPARE(panel.currentFolder(), a);
+        press(Qt::BackButton);
+        QCOMPARE(panel.currentFolder(), QDir::homePath());
+        press(Qt::ForwardButton);
+        QCOMPARE(panel.currentFolder(), a);
+        // A new folder drops the forward entries.
+        panel.showFolder(dir.path());
+        press(Qt::ForwardButton);
+        QCOMPARE(panel.currentFolder(), dir.path());
+    }
+
+    /// Spec 89.17: Clip Attributes has a Video frame rate override (a 60 fps file played as 24
+    /// runs 2.5 times slower and clips added from it are 2.5 times longer) and an Alpha mode;
+    /// both are written to the project only when set.
+    void spec89_17_frameRateOverrideAndAlphaMode()
+    {
+        Fixture f;
+        f.window->setCurrentPage(QStringLiteral("edit"));
+        MediaItem item;
+        item.path = QStringLiteral("/nonexistent/sixty.mov");
+        item.name = QStringLiteral("sixty");
+        item.info.valid = true;
+        item.info.hasVideo = true;
+        item.info.frameRate = Rational {60, 1};
+        item.info.durationUs = 10'000'000; // 10 s
+        item.info.width = 1920;
+        item.info.height = 1080;
+        const QString id = f.project.mediaPool()->addItem(item);
+        TimelineController* tc = f.window->editPage()->timeline()->controller();
+        const Rational fps = f.project.timeline()->data().fps;
+        const int64_t plain = tc->makeMediaClips(id, 0, 0, 0, 0).at(0).clip.duration;
+        QVERIFY(plain > 0);
+        QCOMPARE(tc->makeMediaClips(id, 0, 0, 0, 0).at(0).clip.speed, 1.0);
+        // The dialog offers both controls and returns them.
+        const MediaItem* stored = f.project.mediaPool()->item(id);
+        QVERIFY(stored);
+        ClipAttributesDialog dialog(*stored, 1);
+        QVERIFY(dialog.frameRateBox() && dialog.alphaModeBox());
+        QVERIFY(!dialog.result().frameRate.isValid());
+        const int at = dialog.frameRateBox()->findData(QPoint(24, 1));
+        QVERIFY(at > 0);
+        dialog.frameRateBox()->setCurrentIndex(at);
+        dialog.alphaModeBox()->setCurrentIndex(
+            dialog.alphaModeBox()->findData(int(AlphaMode::Premultiplied)));
+        const ClipAttributes a = dialog.result();
+        QCOMPARE(a.frameRate, (Rational {24, 1}));
+        QCOMPARE(a.alphaMode, AlphaMode::Premultiplied);
+        QVERIFY(a.affectsVideo());
+        QCOMPARE(frameRateScale(a, Rational {60, 1}), 0.4);
+        f.project.beginEdit(QStringLiteral("Clip Attributes"));
+        QVERIFY(f.project.mediaPool()->setItemAttributes(id, a));
+        f.project.endEdit();
+        const ClipData clip = tc->makeMediaClips(id, 0, 0, 0, 0).at(0).clip;
+        QCOMPARE(clip.speed, 0.4);
+        QVERIFY(std::abs(double(clip.duration) / double(plain) - 2.5) < 0.01);
+        // After 24 timeline frames (one second at 24 fps) 24 file frames (0.4 s) have passed.
+        const int64_t us = clip.sourceTimeUsAt(clip.start + fps.num / fps.den, fps);
+        QVERIFY2(std::abs(us - 400'000) < 2000, qPrintable(QString::number(us)));
+        // Saved only when set, and read back.
+        const QJsonObject json = serialization::attributesToJson(a);
+        QVERIFY(json.contains(QStringLiteral("frameRate")));
+        QCOMPARE(serialization::attributesFromJson(json), a);
+        const QJsonObject none = serialization::attributesToJson(ClipAttributes {});
+        QVERIFY(!none.contains(QStringLiteral("alphaMode")));
+        QVERIFY(!none.contains(QStringLiteral("frameRate")));
+    }
+
+    /// Spec 89.18: Create New Timeline has Empty Timeline, Use Project Settings and the audio
+    /// track type; one undo step.
+    void spec89_18_createNewTimelineOptions()
+    {
+        Fixture f;
+        f.window->setCurrentPage(QStringLiteral("edit"));
+        TimelineController* tc = f.window->editPage()->timeline()->controller();
+        bool providerAsked = false;
+        tc->setMediaSelectionProvider([&providerAsked] {
+            providerAsked = true;
+            return QStringList();
+        });
+        tc->setNewTimelinePrompt([](const TimelineController::NewTimelineOptions& suggestion) {
+            auto o = suggestion;
+            o.name = QStringLiteral("Own");
+            o.empty = false;
+            o.useProjectSettings = false;
+            o.width = 1280;
+            o.height = 720;
+            o.fps = Rational {25, 1};
+            o.monoAudio = true;
+            return std::optional<TimelineController::NewTimelineOptions>(o);
+        });
+        const int before = f.project.undoStack()->count();
+        const quint64 uid = tc->newTimeline();
+        QVERIFY(uid != 0);
+        QVERIFY(providerAsked);
+        const TimelineData& t = f.project.timeline()->data();
+        QCOMPARE(t.name, QStringLiteral("Own"));
+        QVERIFY(!t.useProjectSettings);
+        QCOMPARE(t.width, 1280);
+        QCOMPARE(t.height, 720);
+        QCOMPARE(t.fps, (Rational {25, 1}));
+        QVERIFY(t.audioTracks.at(0).mix.mono);
+        QCOMPARE(f.project.undoStack()->count(), before + 1);
+        // The dialog itself has the controls.
+        bool hasControls = false;
+        QTimer::singleShot(100, [&hasControls] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            if (!dialog)
+                return;
+            hasControls = dialog->findChild<QCheckBox*>(QStringLiteral("EmptyTimeline"))
+                && dialog->findChild<QCheckBox*>(QStringLiteral("UseProjectSettings"))
+                && dialog->findChild<QComboBox*>(QStringLiteral("AudioTrackType"));
+            dialog->reject();
+        });
+        timelinedialogs::askNewTimeline(nullptr, {}, Rational {24, 1});
+        QVERIFY(hasControls);
     }
 
     void probeTabOrder()

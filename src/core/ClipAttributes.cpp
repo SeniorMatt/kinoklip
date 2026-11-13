@@ -67,6 +67,7 @@ E fromId(const QString& s, const char* const (&names)[N])
 
 const char* const kLevels[] = {"auto", "video", "full"};
 const char* const kFields[] = {"auto", "progressive", "upper", "lower"};
+const char* const kAlpha[] = {"auto", "premultiplied", "straight", "none"};
 const char* const kFormats[] = {"auto", "stereo", "mono"};
 
 } // namespace
@@ -78,6 +79,20 @@ QString dataLevelsToString(DataLevels v)
 DataLevels dataLevelsFromString(const QString& s)
 {
     return fromId<DataLevels>(s, kLevels);
+}
+QString alphaModeToString(AlphaMode v)
+{
+    return toId(v, kAlpha);
+}
+AlphaMode alphaModeFromString(const QString& s)
+{
+    return fromId<AlphaMode>(s, kAlpha);
+}
+double frameRateScale(const ClipAttributes& attributes, Rational fileRate)
+{
+    if (!attributes.frameRate.isValid() || !fileRate.isValid())
+        return 1.0;
+    return attributes.frameRate.toDouble() / fileRate.toDouble();
 }
 QString fieldOrderToString(FieldOrder v)
 {

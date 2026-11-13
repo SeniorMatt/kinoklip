@@ -53,8 +53,14 @@ TimelineData makeSourceTimeline(const MediaItem& item)
         frames = int64_t(std::ceil(double(info.durationUs) * fps.num / (1e6 * fps.den) - 1e-6));
     }
     frames = std::max<int64_t>(1, frames);
+    // A frame rate override (Clip Attributes) plays the file at another speed (spec 89.17).
+    const double rateScale = info.isStillImage ? 1.0 : frameRateScale(item.attributes, info.frameRate);
+    if (rateScale != 1.0 && rateScale > 0.0)
+        frames = std::max<int64_t>(1, int64_t(std::llround(double(frames) / rateScale)));
 
     ClipData clip;
+    if (rateScale != 1.0 && rateScale > 0.0)
+        clip.speed = rateScale;
     clip.kind = ClipKind::Media;
     clip.mediaId = item.id;
     clip.name = item.name;
@@ -251,9 +257,15 @@ std::optional<SourceRange> SourcePlayer::selection() const
     SourceRange range;
     range.mediaId = m_item.id;
     const Rational rate = fps();
-    range.inUs = markIn() >= 0 ? framesToUs(markIn(), rate) : 0;
+    // The frames of the player are stretched by a frame rate override (spec 89.17).
+    const double scale = m_item.info.isStillImage ? 1.0
+                                                  : frameRateScale(m_item.attributes, m_item.info.frameRate);
+    const auto toSourceUs = [&](int64_t frames) {
+        return int64_t(std::llround(double(framesToUs(frames, rate)) * scale));
+    };
+    range.inUs = markIn() >= 0 ? toSourceUs(markIn()) : 0;
     if (markOut() > 0) {
-        range.outUs = framesToUs(markOut(), rate);
+        range.outUs = toSourceUs(markOut());
         if (!m_item.info.isStillImage && m_item.info.durationUs > 0) {
             range.outUs = std::min(range.outUs, m_item.info.durationUs);
         }

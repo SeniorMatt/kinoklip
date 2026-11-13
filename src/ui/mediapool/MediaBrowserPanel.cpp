@@ -9,12 +9,14 @@
 #include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
 
+#include <QApplication>
 #include <QComboBox>
 #include <QDir>
 #include <QFileSystemModel>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QSortFilterProxyModel>
 #include <QSplitter>
@@ -181,6 +183,7 @@ MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
         menu.exec(m_tree->viewport()->mapToGlobal(pos));
     });
 
+    qApp->installEventFilter(this); // mouse back / forward anywhere over the panel
     setRootPath(QDir::homePath());
     updateButton();
 }
@@ -199,12 +202,50 @@ void MediaBrowserPanel::showFolder(const QString& path)
     if (path == m_folder)
         return;
     m_folder = path;
+    if (!m_navigating) {
+        m_history.resize(m_historyPos + 1); // a new folder drops the forward entries
+        m_history.append(path);
+        m_historyPos = int(m_history.size()) - 1;
+    }
     static_cast<FilesOnlyProxy*>(m_filesProxy)->m_folder = path;
     const QModelIndex root = m_files->setRootPath(path);
     m_filesProxy->invalidate();
     m_list->setRootIndex(m_filesProxy->mapFromSource(root));
     m_list->clearSelection();
     updateButton();
+}
+
+void MediaBrowserPanel::navigateHistory(int direction)
+{
+    const int pos = m_historyPos + direction;
+    if (pos < 0 || pos >= m_history.size())
+        return;
+    m_navigating = true;
+    m_historyPos = pos;
+    const QString path = m_history.at(pos);
+    const QModelIndex index = m_dirs->index(path);
+    if (index.isValid())
+        m_tree->setCurrentIndex(index); // showFolder() runs from the selection change
+    showFolder(path);
+    m_navigating = false;
+}
+
+bool MediaBrowserPanel::eventFilter(QObject* watched, QEvent* event)
+{
+    // The mouse back / forward buttons over the browser step through the folders shown.
+    if ((event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick
+            || event->type() == QEvent::MouseButtonRelease)
+        && watched->isWidgetType() && isVisible()) {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        const auto* w = static_cast<const QWidget*>(watched);
+        if ((mouse->button() == Qt::BackButton || mouse->button() == Qt::ForwardButton)
+            && (w == this || isAncestorOf(w))) {
+            if (event->type() != QEvent::MouseButtonRelease)
+                navigateHistory(mouse->button() == Qt::BackButton ? -1 : 1);
+            return true;
+        }
+    }
+    return PanelFrame::eventFilter(watched, event);
 }
 
 QStringList MediaBrowserPanel::selectedFiles() const

@@ -26,6 +26,7 @@ uniform float uSampleScale;
 uniform vec4 uCrop;      // visible rect in quad coordinates: x0, y0, x1, y1
 uniform float uOpacity;
 uniform int uKeepField;  // deinterlace: -1 off, 0 keep the top field (even rows), 1 the bottom
+uniform int uAlphaMode;  // Clip Attributes alpha mode: 0 auto, 1 premultiplied, 2 straight, 3 none
 uniform int uHdr;        // media::HdrMapping: 0 SDR, 1 HLG, 2 PQ, 3 BT.2020 SDR (hdrToSdr())
 // Deinterlacing by field interpolation (Clip Attributes): only the rows of the kept field are
 // sampled, vertically interpolated between two rows of that field (2 rows apart), so the
@@ -45,6 +46,13 @@ void main()
     vec4 c;
     if (uLayout == 0) {
         c = fieldSample(uPlane0, vUv);
+        // The frame is premultiplied by the decoder (the file taken as straight alpha). A file
+        // that already carried premultiplied colour, or one whose alpha is ignored, has the
+        // alpha divided out again.
+        if ((uAlphaMode == 1 || uAlphaMode == 3) && c.a > 0.0)
+            c.rgb = min(c.rgb / c.a, vec3(1.0));
+        if (uAlphaMode == 3)
+            c.a = 1.0;
     } else {
         vec3 yuv;
         yuv.x = fieldSample(uPlane0, vUv).r;
@@ -114,6 +122,7 @@ bool GlVideo::initialize(GlKit& kit, QString* why)
     m_crop = m_program.uniform(gl, "uCrop");
     m_opacity = m_program.uniform(gl, "uOpacity");
     m_keepField = m_program.uniform(gl, "uKeepField");
+    m_alphaMode = m_program.uniform(gl, "uAlphaMode");
     m_hdr = m_program.uniform(gl, "uHdr");
     gl->glUseProgram(m_program.id);
     gl->glUniform1i(m_program.uniform(gl, "uPlane0"), 0);
@@ -223,6 +232,7 @@ VideoLook GlVideo::lookFor(const media::VideoFrame& frame, const ClipAttributes&
                                                : frame.range;
     if (a.deinterlace && a.fieldOrder != FieldOrder::Progressive)
         look.keepField = a.fieldOrder == FieldOrder::LowerFirst ? 1 : 0;
+    look.alphaMode = int(a.alphaMode);
     return look;
 }
 
@@ -234,6 +244,7 @@ void GlVideo::draw(GlKit& kit, const PlaneTextures& t, const media::VideoFrame& 
     kit.setMatrix(m_program.posMatrix, quadToNdc);
     kit.setMatrix(m_program.uvMatrix, rotationUv(look.rotation));
     gl->glUniform1i(m_keepField, look.keepField);
+    gl->glUniform1i(m_alphaMode, look.alphaMode);
     const int layout = layoutOf(frame.format);
     gl->glUniform1i(m_layout, layout);
     if (layout != 0) {

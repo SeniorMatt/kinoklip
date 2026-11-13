@@ -35,6 +35,7 @@ struct VideoLook
 {
     int rotation = 0; ///< clockwise display rotation (file + attribute), 0/90/180/270
     media::ColorRange range = media::ColorRange::Limited; ///< data levels used for YUV -> RGB
+    int alphaMode = 0; ///< AlphaMode of the Clip Attributes (0 Auto, 1 Premultiplied, 2 Straight, 3 None)
     int keepField = -1; ///< deinterlacing: -1 off, 0 keep the top field, 1 the bottom field
 };
 
@@ -92,6 +93,7 @@ private:
     GLint m_crop = -1;
     GLint m_opacity = -1;
     GLint m_keepField = -1;
+    GLint m_alphaMode = -1;
     GLint m_hdr = -1;
 };
 

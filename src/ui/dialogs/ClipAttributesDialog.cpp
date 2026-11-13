@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ClipAttributesDialog implementation and the apply / edit helpers.
 #include "ui/dialogs/ClipAttributesDialog.h"
+#include "ui/dialogs/ProjectSettingsDialog.h"
 
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
@@ -23,6 +24,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QPoint>
 #include <QRadioButton>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -187,6 +189,44 @@ QWidget* ClipAttributesDialog::buildVideoTab(const MediaItem& item)
         m_rotation->setToolTip(
             tr("Added to the file's own rotation (%1 degrees).").arg(info.rotation));
     form->addRow(tr("Rotation:"), m_rotation);
+
+    // Video frame rate: the file's frames are played at this rate (60 fps file as 24 fps).
+    m_frameRate = new QComboBox;
+    m_frameRate->setObjectName(QStringLiteral("VideoFrameRate"));
+    m_frameRate->addItem(
+        info.frameRate.isValid()
+            ? tr("Auto (file: %1 fps)").arg(QString::number(info.frameRate.toDouble(), 'g', 5))
+            : tr("Auto"),
+        QVariant::fromValue(QPoint(0, 1)));
+    auto addRate = [this](Rational r) {
+        m_frameRate->addItem(
+            tr("%1 fps").arg(QString::number(r.toDouble(), 'g', 5)), QVariant(QPoint(r.num, r.den)));
+    };
+    for (const Rational& r : ProjectSettingsDialog::frameRates())
+        addRate(r);
+    if (a.frameRate.isValid() && m_frameRate->findData(QPoint(a.frameRate.num, a.frameRate.den)) < 0)
+        addRate(a.frameRate);
+    m_frameRate->setCurrentIndex(
+        std::max(0, m_frameRate->findData(QPoint(a.frameRate.num > 0 ? a.frameRate.num : 0,
+                        a.frameRate.num > 0 ? a.frameRate.den : 1))));
+    m_frameRate->setEnabled(info.hasVideo && !info.isStillImage);
+    m_frameRate->setToolTip(tr("Plays the file's frames at this rate: a 60 fps file at 24 fps "
+                               "runs 2.5 times slower and is 2.5 times longer. Applies to clips "
+                               "added after the change."));
+    form->addRow(tr("Video frame rate:"), m_frameRate);
+
+    // Alpha mode.
+    m_alphaMode = new QComboBox;
+    m_alphaMode->setObjectName(QStringLiteral("AlphaMode"));
+    m_alphaMode->addItem(tr("Auto"), int(AlphaMode::Auto));
+    m_alphaMode->addItem(tr("Premultiplied"), int(AlphaMode::Premultiplied));
+    m_alphaMode->addItem(tr("Straight"), int(AlphaMode::Straight));
+    m_alphaMode->addItem(tr("None"), int(AlphaMode::None));
+    m_alphaMode->setCurrentIndex(std::max(0, m_alphaMode->findData(int(a.alphaMode))));
+    m_alphaMode->setToolTip(tr("How the file's alpha channel is read. Premultiplied: the colour "
+                               "already includes the alpha. Straight: it does not. None: the "
+                               "picture is opaque. GPU renderer only."));
+    form->addRow(tr("Alpha mode:"), m_alphaMode);
     return page;
 }
 
@@ -295,6 +335,9 @@ ClipAttributes ClipAttributesDialog::result() const
     a.fieldOrder = FieldOrder(m_fieldOrder->currentData().toInt());
     a.deinterlace = m_deinterlace->isChecked();
     a.rotation = m_rotation->currentData().toInt();
+    const QPoint rate = m_frameRate->currentData().toPoint();
+    a.frameRate = rate.x() > 0 ? Rational {rate.x(), rate.y()} : Rational {0, 1};
+    a.alphaMode = AlphaMode(m_alphaMode->currentData().toInt());
     a.channelFormat = ChannelFormat(m_format->currentData().toInt());
     if (a.channelFormat == ChannelFormat::Auto) {
         a.left = 0;

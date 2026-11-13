@@ -224,6 +224,50 @@ std::optional<TimelineController::NewTimelineOptions> askNewTimeline(
     audio->setValue(suggestion.audioTracks);
     form->addRow(tr("No. of Video Tracks"), video);
     form->addRow(tr("No. of Audio Tracks"), audio);
+    auto* audioType = new QComboBox;
+    audioType->setObjectName(QStringLiteral("AudioTrackType"));
+    audioType->addItem(tr("Stereo"), false);
+    audioType->addItem(tr("Mono"), true);
+    audioType->setCurrentIndex(suggestion.monoAudio ? 1 : 0);
+    form->addRow(tr("Audio Track Type"), audioType);
+    auto* empty = new QCheckBox(tr("Empty Timeline"));
+    empty->setObjectName(QStringLiteral("EmptyTimeline"));
+    empty->setChecked(suggestion.empty);
+    empty->setToolTip(tr("Unchecked, the clips selected in the media pool are added to the new "
+                         "timeline."));
+    form->addRow(QString(), empty);
+    auto* useProject = new QCheckBox(tr("Use Project Settings"));
+    useProject->setObjectName(QStringLiteral("UseProjectSettings"));
+    useProject->setChecked(suggestion.useProjectSettings);
+    form->addRow(QString(), useProject);
+    // Own format: only while Use Project Settings is off.
+    auto* width = new QSpinBox;
+    width->setObjectName(QStringLiteral("TimelineWidth"));
+    auto* height = new QSpinBox;
+    height->setObjectName(QStringLiteral("TimelineHeight"));
+    for (QSpinBox* spin : {width, height}) {
+        spin->setRange(16, 8192);
+        spin->setSuffix(QStringLiteral(" px"));
+    }
+    width->setValue(suggestion.width > 0 ? suggestion.width : 1920);
+    height->setValue(suggestion.height > 0 ? suggestion.height : 1080);
+    auto* rate = new QComboBox;
+    rate->setObjectName(QStringLiteral("TimelineFrameRate"));
+    for (const Rational& r : ProjectSettingsDialog::frameRates())
+        rate->addItem(QStringLiteral("%1 fps").arg(QString::number(r.toDouble(), 'g', 5)),
+            QVariant::fromValue(QPoint(r.num, r.den)));
+    const Rational startRate = suggestion.fps.isValid() ? suggestion.fps : fps;
+    rate->setCurrentIndex(std::max(0, rate->findData(QPoint(startRate.num, startRate.den))));
+    form->addRow(tr("Timeline resolution"), width);
+    form->addRow(QString(), height);
+    form->addRow(tr("Timeline frame rate"), rate);
+    const auto syncFormat = [=] {
+        for (QWidget* w : {static_cast<QWidget*>(width), static_cast<QWidget*>(height),
+                 static_cast<QWidget*>(rate)})
+            w->setEnabled(!useProject->isChecked());
+    };
+    QObject::connect(useProject, &QCheckBox::toggled, &dialog, syncFormat);
+    syncFormat();
     layout->addLayout(form);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     buttons->button(QDialogButtonBox::Ok)->setText(tr("Create"));
@@ -239,6 +283,15 @@ std::optional<TimelineController::NewTimelineOptions> askNewTimeline(
     result.name = name->text();
     result.videoTracks = video->value();
     result.audioTracks = audio->value();
+    result.monoAudio = audioType->currentData().toBool();
+    result.empty = empty->isChecked();
+    result.useProjectSettings = useProject->isChecked();
+    if (!result.useProjectSettings) {
+        result.width = width->value();
+        result.height = height->value();
+        const QPoint r = rate->currentData().toPoint();
+        result.fps = Rational {r.x(), r.y()};
+    }
     if (const auto frames = timecode::parse(start->text(), fps))
         result.startTimecode = *frames;
     return result;

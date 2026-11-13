@@ -7,6 +7,7 @@
 
 class QLabel;
 class QTimer;
+class QToolBar;
 class QToolButton;
 
 namespace kk {
@@ -40,6 +41,7 @@ private:
     QToolButton* addActionButton(const char* actionId, bool withText);
 
     AppContext& m_ctx;
+    QToolBar* m_bar = nullptr;
     QLabel* m_message = nullptr;
     QTimer* m_messageTimer = nullptr;
 };
