@@ -372,6 +372,69 @@ private slots:
         QCOMPARE(board.duration, int64_t(15));
         QCOMPARE(layout(d, kV1), QStringLiteral("0:40")); // copying changes nothing
     }
+
+    // ---- ripple trim keeps the other auto-select tracks in sync (8.18) ----
+    void rippleTrimTailShiftsOtherAutoSelectTracks()
+    {
+        TimelineData d = timeline();
+        const quint64 a = ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        ops::overwriteClip(d, kV1, mediaClip(10, 10));
+        ops::overwriteClip(d, kV2, mediaClip(5, 20)); // spans the edit point: stays
+        ops::overwriteClip(d, kV2, mediaClip(30, 5));
+        ops::overwriteClip(d, kA1, mediaClip(12, 8));
+        ops::overwriteClip(d, kA2, mediaClip(14, 4));
+        d.audioTracks[1].autoSelect = false; // auto select off: stays
+        QCOMPARE(ops::rippleTrimSynced(d, {a}, false, 3), 3);
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:13 13:10"));
+        QCOMPARE(layout(d, kV2), QStringLiteral("5:20 33:5"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("15:8"));
+        QCOMPARE(layout(d, kA2), QStringLiteral("14:4"));
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void rippleTrimHeadAndLockedTracks()
+    {
+        TimelineData d = timeline();
+        const quint64 a = ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        ops::overwriteClip(d, kV1, mediaClip(10, 10));
+        ops::overwriteClip(d, kA1, mediaClip(10, 10));
+        ops::overwriteClip(d, kA2, mediaClip(12, 4));
+        d.audioTracks[1].locked = true; // locked: stays
+        QCOMPARE(ops::rippleTrimSynced(d, {a}, true, 4), 4); // head +4 shortens by 4
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:6 6:10"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("6:10"));
+        QCOMPARE(layout(d, kA2), QStringLiteral("12:4"));
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void rippleTrimShorteningStopsWhereAnotherTrackWouldCollide()
+    {
+        TimelineData d = timeline();
+        const quint64 a = ops::overwriteClip(d, kV1, mediaClip(0, 20));
+        ops::overwriteClip(d, kV1, mediaClip(20, 10));
+        ops::overwriteClip(d, kV2, mediaClip(0, 12)); // ends at 12, next starts at 20
+        ops::overwriteClip(d, kV2, mediaClip(20, 5));
+        // Room on V2 is 8 frames: a 15 frame shortening is limited to 8.
+        QCOMPARE(ops::rippleTrimSynced(d, {a}, false, -15), -8);
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:12 12:10"));
+        QCOMPARE(layout(d, kV2), QStringLiteral("0:12 12:5"));
+        KK_VERIFY_INVARIANTS(d);
+    }
+
+    void rippleTrimLinkedPartnersAreNotShiftedTwice()
+    {
+        TimelineData d = timeline();
+        const quint64 v = ops::overwriteClip(d, kV1, mediaClip(0, 10));
+        const quint64 au = ops::overwriteClip(d, kA1, mediaClip(0, 10));
+        ops::overwriteClip(d, kV1, mediaClip(10, 10));
+        ops::overwriteClip(d, kA1, mediaClip(10, 10));
+        ops::overwriteClip(d, kA2, mediaClip(10, 10));
+        QCOMPARE(ops::rippleTrimSynced(d, {v, au}, false, 5), 5);
+        QCOMPARE(layout(d, kV1), QStringLiteral("0:15 15:10"));
+        QCOMPARE(layout(d, kA1), QStringLiteral("0:15 15:10"));
+        QCOMPARE(layout(d, kA2), QStringLiteral("15:10"));
+        KK_VERIFY_INVARIANTS(d);
+    }
 };
 
 QTEST_GUILESS_MAIN(TestEditOpsRipple)

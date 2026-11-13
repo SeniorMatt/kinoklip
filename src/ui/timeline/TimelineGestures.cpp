@@ -375,6 +375,13 @@ bool TimelineWidget::viewportEvent(QEvent* event)
                     tip = markerToolTip(m, clip->start + m.frame);
             }
         }
+    } else if (const TimelineHit hit = m_layout.hitTest(data, help->pos());
+               hit.area == TimelineHit::Area::Header) {
+        if (hit.button == HeaderButton::AutoSelect)
+            tip = tr("Auto Select: decides which tracks follow ripple edits (ripple trim, ripple "
+                     "delete, insert) and cuts. Alt+click: only this track.");
+        else if (hit.button == HeaderButton::Lock)
+            tip = tr("Lock: a locked track is never changed or rippled by edits.");
     }
     if (tip.isEmpty()) {
         QToolTip::hideText();
