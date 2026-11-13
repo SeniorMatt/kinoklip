@@ -279,7 +279,8 @@ private:
                 float(std::clamp(n.params.value(k::Mix, f, 0.0), 0.0, 1.0)), size);
             maskDone = true;
         } else if ((n.type == nodetypes::Transform || n.type == nodetypes::Tracker
-                       || n.type == nodetypes::PlanarTracker)
+                       || n.type == nodetypes::PlanarTracker
+                       || n.type == nodetypes::CornerPositioner)
             && !in.isNull()) {
             const compmath::Resampling rs = n.type == nodetypes::Transform
                 ? compmath::resampling(n.params)
@@ -291,6 +292,8 @@ private:
                 out = blank(size);
                 const QTransform m = inImagePixels(n.type == nodetypes::PlanarTracker
                         ? compmath::planarMatrix(n.params, f, m_ev.frame)
+                        : n.type == nodetypes::CornerPositioner
+                        ? compmath::cornerPositionerMatrix(n.params, f, m_ev.frame)
                         : n.type == nodetypes::Tracker
                         ? compmath::trackerMatrix(n.params, f, m_ev.frame)
                         : compmath::transformMatrix(n.params, f, m_ev.frame),
@@ -362,6 +365,12 @@ private:
                 // Channel sources read the alpha of the input; the result is re-premultiplied.
                 compmath::applyChannels(src, px);
             });
+        } else if (n.type == nodetypes::LumaKeyer && !in.isNull()) {
+            const compmath::LumaKeyParams k = compmath::lumaKeyParams(n.params, f);
+            out = pointwise(in, [&k](float* px) { px[3] *= compmath::lumaKey(k, px); });
+        } else if (n.type == nodetypes::DeltaKeyer && !in.isNull()) {
+            const compmath::DeltaKeyParams k = compmath::deltaKeyParams(n.params, f);
+            out = pointwise(in, [&k](float* px) { compmath::deltaKey(k, px); });
         } else if (!d->effectId.isEmpty() && !in.isNull()) {
             if (fxmath::isPointEffect(d->effectId)) {
                 out = in.copy();
@@ -493,8 +502,21 @@ private:
             p.fillPath(shape, Qt::white);
         }
         if (!in.isNull()) {
-            QPainter p(&out);
-            p.drawImage(0, 0, in); // union: "over" of white mattes
+            // The mask plugged in joins this one by the Paint Mode (Merge: the union).
+            const int mode
+                = std::max(0, paintmodes::index(n.params.staticValue(k::PaintMode).toString()));
+            for (int y = 0; y < size.height(); ++y) {
+                const QRgb* pi = reinterpret_cast<const QRgb*>(in.constScanLine(y));
+                QRgb* po = reinterpret_cast<QRgb*>(out.scanLine(y));
+                for (int x = 0; x < size.width(); ++x) {
+                    float cm[4], ci[4], o[4];
+                    unpack(po[x], cm);
+                    unpack(pi[x], ci);
+                    for (int i = 0; i < 4; ++i)
+                        o[i] = compmath::paintMask(mode, ci[i], cm[i]);
+                    po[x] = pack(o);
+                }
+            }
         }
         return out;
     }

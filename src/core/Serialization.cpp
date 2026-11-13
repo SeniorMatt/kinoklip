@@ -394,8 +394,10 @@ QJsonArray maskPathToJson(const MaskPath& path)
     QJsonArray points;
     for (const MaskPoint& p : path) {
         QJsonArray a {p.x, p.y, p.inX, p.inY, p.outX, p.outY};
-        if (p.smooth)
-            a.append(1);
+        if (p.smooth || p.weight != 1.0)
+            a.append(p.smooth ? 1 : 0);
+        if (p.weight != 1.0)
+            a.append(p.weight);
         points.append(a);
     }
     return points;
@@ -417,6 +419,8 @@ MaskPath maskPathFromJson(const QJsonArray& array)
         p.outX = a.at(4).toDouble();
         p.outY = a.at(5).toDouble();
         p.smooth = a.at(6).toInt() != 0;
+        if (a.size() > 7)
+            p.weight = a.at(7).toDouble(1.0);
         path.append(p);
     }
     return path;

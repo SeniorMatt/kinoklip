@@ -30,16 +30,18 @@ uniform int uInvert[8];
 uniform float uOpacity[8];
 uniform vec4 uGeom[8];     // centre (layer px), half size (layer px)
 uniform vec2 uRot[8];      // cos, sin of the clockwise rotation
+uniform float uRadius[8]; // rectangle corner radius (layer px)
 uniform vec3 uSoft[8];     // feather inside, feather outside, expand (layer px)
 uniform int uCovIndex[8];
 uniform int uHasPrev;      // matte of the previous chunk in uPrev.r
 uniform float uStart;      // initial matte without a previous chunk
 uniform int uApply;        // 1: write layer * matte, 0: write the matte
 
-float sdRect(vec2 q, vec2 h)
+float sdRect(vec2 q, vec2 h, float r)
 {
-    vec2 d = abs(q) - h;
-    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+    r = min(r, min(h.x, h.y));
+    vec2 d = abs(q) - (h - r);
+    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
 }
 
 // First-order distance estimate f / |grad f| of f = |q / h| - 1, scaled by |q / h|: exact for
@@ -67,7 +69,7 @@ float coverage(int i, vec2 p)
     vec2 d = p - uGeom[i].xy;
     vec2 cs = uRot[i];
     vec2 q = vec2(cs.x * d.x + cs.y * d.y, -cs.y * d.x + cs.x * d.y);
-    float sd = uType[i] == 0 ? sdRect(q, uGeom[i].zw) : sdEllipse(q, uGeom[i].zw);
+    float sd = uType[i] == 0 ? sdRect(q, uGeom[i].zw, uRadius[i]) : sdEllipse(q, uGeom[i].zw);
     sd -= uSoft[i].z;
     float lo = -uSoft[i].x;
     float hi = uSoft[i].y;
@@ -142,6 +144,7 @@ bool GlMasks::initialize(GlKit& kit, QString* why)
     m_uGeom = m_combine.uniform(gl, "uGeom");
     m_uRot = m_combine.uniform(gl, "uRot");
     m_uSoft = m_combine.uniform(gl, "uSoft");
+    m_uRadius = m_combine.uniform(gl, "uRadius");
     m_uCovIndex = m_combine.uniform(gl, "uCovIndex");
     m_uHasPrev = m_combine.uniform(gl, "uHasPrev");
     m_uStart = m_combine.uniform(gl, "uStart");
@@ -320,6 +323,8 @@ PooledTarget GlMasks::apply(GlKit& kit, const RenderTarget& layer, const MaskLay
                 it.soft[0] = float(std::max(0.0, m.value(maskkeys::FeatherIn, localFrame)) * s);
                 it.soft[1] = float(std::max(0.0, m.value(maskkeys::FeatherOut, localFrame)) * s);
                 it.soft[2] = float(m.value(maskkeys::Expand, localFrame) * s);
+                it.radius = float(
+                    std::max(0.0, m.value(maskkeys::CornerRadius, localFrame)) * s);
             }
             m_items.push_back(it);
             ++j;
@@ -328,7 +333,7 @@ PooledTarget GlMasks::apply(GlKit& kit, const RenderTarget& layer, const MaskLay
         // Uniform arrays of this chunk.
         GLint type[kChunk] = {}, mode[kChunk] = {}, invert[kChunk] = {}, covIndex[kChunk] = {};
         GLfloat opacity[kChunk] = {}, geom[kChunk * 4] = {}, rot[kChunk * 2] = {},
-                soft[kChunk * 3] = {};
+                soft[kChunk * 3] = {}, radius[kChunk] = {};
         const int count = int(m_items.size());
         for (int k = 0; k < count; ++k) {
             const Item& it = m_items[size_t(k)];
@@ -340,6 +345,7 @@ PooledTarget GlMasks::apply(GlKit& kit, const RenderTarget& layer, const MaskLay
             std::copy(it.geom, it.geom + 4, geom + k * 4);
             std::copy(it.rot, it.rot + 2, rot + k * 2);
             std::copy(it.soft, it.soft + 3, soft + k * 3);
+            radius[k] = it.radius;
         }
         const bool last = j == m_masks.size();
         PooledTarget out = kit.acquire(layer.size);
@@ -356,6 +362,7 @@ PooledTarget GlMasks::apply(GlKit& kit, const RenderTarget& layer, const MaskLay
         gl->glUniform4fv(m_uGeom, kChunk, geom);
         gl->glUniform2fv(m_uRot, kChunk, rot);
         gl->glUniform3fv(m_uSoft, kChunk, soft);
+        gl->glUniform1fv(m_uRadius, kChunk, radius);
         gl->glUniform1i(m_uHasPrev, prev ? 1 : 0);
         gl->glUniform1f(m_uStart, start);
         gl->glUniform1i(m_uApply, last ? 1 : 0);

@@ -4,6 +4,7 @@
 #include "ui/comp/CompViewerOverlay.h"
 
 #include "core/NodeRegistry.h"
+#include "render/CompMath.h"
 #include "ui/common/SchemeColors.h"
 #include "ui/comp/CompSession.h"
 #include "ui/viewer/ViewerSurface.h"
@@ -13,6 +14,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPolygonF>
+#include <QWheelEvent>
 #include <QTransform>
 
 #include <cmath>
@@ -89,14 +91,19 @@ std::optional<CompViewerOverlay::State> CompViewerOverlay::state() const
     s.height = value(s.keys.height, 0.5);
     s.angleDeg = value(s.keys.angle, 0.0);
     if (s.keys.kind == compadapter::ViewerControl::Polygon) {
-        for (const MaskPoint& pt : n->path.at(double(f)))
+        for (const MaskPoint& pt : n->path.at(double(f))) {
             s.points.append(QPointF(pt.x, pt.y));
+            s.weights.append(pt.weight);
+        }
     }
     if (s.keys.kind == compadapter::ViewerControl::Planar) {
         QPointF sum;
+        // Corner Positioner: the frame's own corners unless set (Planar Tracker: its region).
+        const bool pin = n->type == nodetypes::CornerPositioner;
+        static constexpr double kPinX[4] = {0, 1, 1, 0}, kPinY[4] = {1, 1, 0, 0};
         for (int i = 0; i < nodekeys::kPlanarCorners; ++i) {
-            s.points.append(QPointF(value(nodekeys::planarCorner(i, false), 0.5),
-                value(nodekeys::planarCorner(i, true), 0.5)));
+            s.points.append(QPointF(value(nodekeys::planarCorner(i, false), pin ? kPinX[i] : 0.5),
+                value(nodekeys::planarCorner(i, true), pin ? kPinY[i] : 0.5)));
             sum += s.points.last();
         }
         s.centre = sum / double(nodekeys::kPlanarCorners);
@@ -313,6 +320,35 @@ void CompViewerOverlay::paintEvent(QPaintEvent*)
         }
         if (s->points.size() > 2)
             path.closeSubpath();
+        const CompNode* node = m_session->composition().node(m_session->currentNode());
+        if (node && node->type == nodetypes::BSplineMask && s->points.size() > 2) {
+            // The control cage in a thin line, the curve it makes in the full stroke.
+            p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(QColor(255, 255, 255, 120), 1.0, Qt::DashLine));
+            p.drawPath(path);
+            MaskPath controls;
+            for (int i = 0; i < s->points.size(); ++i) {
+                MaskPoint mp;
+                mp.x = s->points[i].x();
+                mp.y = s->points[i].y();
+                mp.weight = i < s->weights.size() ? s->weights[i] : 1.0;
+                controls.append(mp);
+            }
+            QPainterPath curve;
+            const MaskPath poly = render::compmath::bsplinePolygon(controls);
+            for (qsizetype i = 0; i < poly.size(); ++i) {
+                const QPointF w = pointToWidget(*s, poly[i].pos());
+                if (i == 0)
+                    curve.moveTo(w);
+                else
+                    curve.lineTo(w);
+            }
+            curve.closeSubpath();
+            stroke(curve);
+            for (const QPointF& pt : s->points)
+                handle(pointToWidget(*s, pt));
+            return;
+        }
         stroke(path);
         for (const QPointF& pt : s->points)
             handle(pointToWidget(*s, pt));
@@ -500,6 +536,36 @@ void CompViewerOverlay::applyDrag(QPointF pos)
             }
         }
     });
+}
+
+void CompViewerOverlay::wheelEvent(QWheelEvent* event)
+{
+    // B-spline mask: the wheel over a point changes its weight (how hard it pulls the curve).
+    int point = -1;
+    const CompNode* node = m_session ? m_session->composition().node(m_session->currentNode())
+                                     : nullptr;
+    if (!node || node->type != nodetypes::BSplineMask || m_drag != Handle::None
+        || handleAt(event->position(), &point) != Handle::Point || point < 0
+        || event->angleDelta().y() == 0) {
+        event->ignore();
+        return;
+    }
+    const double factor = std::pow(1.15, event->angleDelta().y() / 120.0);
+    const quint64 id = node->id;
+    const int64_t frame = m_session->compFrame();
+    m_session->beginGesture(tr("Point Weight %1").arg(node->name));
+    m_session->modifyLive([&](Composition& comp) {
+        CompNode* n = comp.node(id);
+        if (!n)
+            return;
+        MaskPath path = n->path.at(double(frame));
+        if (point < path.size()) {
+            path[point].weight = std::clamp(path[point].weight * factor, 0.05, 20.0);
+            n->path.setShape(frame, path);
+        }
+    });
+    m_session->endGesture();
+    event->accept();
 }
 
 void CompViewerOverlay::mouseReleaseEvent(QMouseEvent* event)

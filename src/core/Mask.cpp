@@ -74,6 +74,7 @@ void AnimatedPath::evaluate(double localFrame, MaskPath& out) const
         r.outX = p.outX + (q.outX - p.outX) * t;
         r.outY = p.outY + (q.outY - p.outY) * t;
         r.smooth = t < 0.5 ? p.smooth : q.smooth;
+        r.weight = p.weight + (q.weight - p.weight) * t;
     }
 }
 
@@ -309,10 +310,16 @@ QPainterPath maskOutline(const MaskData& mask, int64_t localFrame)
         const double w = mask.value(maskkeys::Width, localFrame);
         const double h = mask.value(maskkeys::Height, localFrame);
         const QRectF r(-w / 2, -h / 2, w, h);
-        if (mask.shape == MaskShape::Ellipse)
+        if (mask.shape == MaskShape::Ellipse) {
             local.addEllipse(r);
-        else
-            local.addRect(r);
+        } else {
+            const double radius = std::clamp(
+                mask.value(maskkeys::CornerRadius, localFrame), 0.0, std::min(w, h) / 2);
+            if (radius > 0.0)
+                local.addRoundedRect(r, radius, radius);
+            else
+                local.addRect(r);
+        }
     }
     QTransform t;
     t.translate(mask.value(maskkeys::PosX, localFrame), mask.value(maskkeys::PosY, localFrame));

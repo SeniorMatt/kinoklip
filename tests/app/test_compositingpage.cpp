@@ -254,7 +254,7 @@ private slots:
             = f.page()->toolButton(NodeRegistry::effectNodeType(QStringLiteral("gaussian_blur")));
         QVERIFY(blur);
         QVERIFY(f.page()->toolButton(nodetypes::Background));
-        QCOMPARE(compadapter::toolbarTypes().size(), 10);
+        QCOMPARE(compadapter::toolbarTypes().size(), 14);
         blur->click();
         QCOMPARE(f.steps(), before + 1);
         QVERIFY(f.clip()->composition); // created on the first edit

@@ -161,6 +161,9 @@ QWidget* CompositingPage::buildToolBar()
     bar->setMovable(false);
     bar->setFloatable(false);
     bar->setContextMenuPolicy(Qt::PreventContextMenu);
+    // However many tools there are, the row takes the width it is given (extra buttons fold
+    // into "»") and never widens the panels beside the node editor.
+    bar->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
     bar->layout()->setContentsMargins(
         metrics::kSpaceM, metrics::kSpaceXs, metrics::kSpaceM, metrics::kSpaceXs);
     bar->layout()->setSpacing(metrics::kSpaceXs);

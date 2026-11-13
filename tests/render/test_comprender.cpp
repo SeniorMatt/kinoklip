@@ -321,6 +321,222 @@ private slots:
         }
     }
 
+    /// The picture of node @p id on both renderers (GPU first).
+    QVector<QImage> nodeImages(const TimelineData& tl, quint64 id)
+    {
+        const auto clipId = tl.videoTracks[0].clips[0].id;
+        QVector<QImage> out;
+        for (Compositor* comp : {m_gpu.get(), m_cpu.get()}) {
+            const RenderedFramePtr f
+                = comp->renderCompositionNode(snap(tl), clipId, id, 0, {}, Quality::Full,
+                        OutputImage)
+                      .get();
+            out.append(f && f->ok ? f->image : QImage());
+        }
+        return out;
+    }
+
+    void rectangleCornerRadius()
+    {
+        Composition c = co::defaultComposition();
+        const quint64 r = co::addNode(c, nodetypes::RectangleMask, {});
+        // The box is x 80..240, y 45..135: its corner pixel is inside until the corners round.
+        for (const QImage& img : nodeImages(compTimeline(c), r)) {
+            QCOMPARE(px(img, 82, 47).a, 255);
+            QCOMPARE(px(img, 160, 90).a, 255);
+        }
+        c.node(r)->params.setBase(nodekeys::CornerRadius, 1.0);
+        for (const QImage& img : nodeImages(compTimeline(c), r)) {
+            QCOMPARE(px(img, 82, 47).a, 0);
+            QCOMPARE(px(img, 160, 90).a, 255);
+            QVERIFY(px(img, 160, 47).a > 250); // the flat part of the top edge stays
+        }
+        // Level fades the whole mask.
+        c.node(r)->params.setBase(nodekeys::Level, 0.5);
+        for (const QImage& img : nodeImages(compTimeline(c), r))
+            QVERIFY2(std::abs(px(img, 160, 90).a - 128) <= 2, describe(px(img, 160, 90)));
+    }
+
+    void maskPaintModes()
+    {
+        // A rectangle on the left joins an ellipse on the right through its mask input.
+        Composition c = co::defaultComposition();
+        const quint64 rect = co::addNode(c, nodetypes::RectangleMask, {});
+        const quint64 elp = co::addNode(c, nodetypes::EllipseMask, {});
+        c.node(rect)->params.setBase(nodekeys::CenterX, 0.3);
+        c.node(rect)->params.setBase(nodekeys::Width, 0.3);
+        c.node(rect)->params.setBase(nodekeys::Height, 0.4);
+        c.node(elp)->params.setBase(nodekeys::CenterX, 0.7);
+        c.node(elp)->params.setBase(nodekeys::Width, 0.3);
+        c.node(elp)->params.setBase(nodekeys::Height, 0.4);
+        QVERIFY(co::connect(c, rect, 0, elp, nodeports::Mask) == co::ConnectError::None);
+        struct Case
+        {
+            QString mode;
+            int onRect, onEllipse;
+        };
+        const Case cases[] = {{paintmodes::Merge, 255, 255}, {paintmodes::Add, 255, 255},
+            {paintmodes::Subtract, 255, 0}, {paintmodes::Maximum, 255, 255},
+            {paintmodes::Minimum, 0, 0}, {paintmodes::Multiply, 0, 0},
+            {paintmodes::Replace, 0, 255}, {paintmodes::Invert, 255, 255},
+            {paintmodes::Copy, 255, 255}, {paintmodes::Ignore, 255, 0}};
+        for (const Case& k : cases) {
+            c.node(elp)->params.setStatic(nodekeys::PaintMode, k.mode);
+            for (const QImage& img : nodeImages(compTimeline(c), elp)) {
+                QVERIFY2(px(img, 96, 90).a == k.onRect, qPrintable(k.mode));
+                QVERIFY2(px(img, 224, 90).a == k.onEllipse, qPrintable(k.mode));
+            }
+        }
+    }
+
+    /// The frame (on black) on both renderers, GPU first.
+    QVector<QImage> frames(const Composition& c, QColor color)
+    {
+        const TimelineData tl = compTimeline(c, color);
+        return {gpu(tl), cpu(tl)};
+    }
+
+    void lumaKeyer()
+    {
+        quint64 k = 0;
+        Composition c = after(nodetypes::LumaKeyer, &k);
+        const QColor grey(100, 100, 100);
+        // Grey 100: luma 0.39. Keep 0.5..1: gone (black); keep 0.3..1: stays; inverted: gone.
+        c.node(k)->params.setBase(nodekeys::KeyLow, 0.5);
+        for (const QImage& img : frames(c, grey))
+            QVERIFY2(px(img, 50, 50).a < 3, describe(px(img, 50, 50)));
+        c.node(k)->params.setBase(nodekeys::KeyLow, 0.3);
+        for (const QImage& img : frames(c, grey))
+            QVERIFY2(near(px(img, 50, 50), 100, 100, 100, 255, 1), describe(px(img, 50, 50)));
+        c.node(k)->params.setStatic(nodekeys::Invert, true);
+        for (const QImage& img : frames(c, grey))
+            QVERIFY2(px(img, 50, 50).a < 3, describe(px(img, 50, 50)));
+        // Soft range: partly kept.
+        c.node(k)->params.setStatic(nodekeys::Invert, false);
+        c.node(k)->params.setBase(nodekeys::KeyLow, 0.44);
+        c.node(k)->params.setBase(nodekeys::SoftRange, 0.2);
+        const float rgba[4] = {100 / 255.0f, 100 / 255.0f, 100 / 255.0f, 1.0f};
+        const float key = compmath::lumaKey(compmath::lumaKeyParams(c.node(k)->params, 0), rgba);
+        QVERIFY(key > 0.2f && key < 0.95f);
+        for (const QImage& img : frames(c, grey))
+            QVERIFY2(std::abs(px(img, 50, 50).a - int(255 * key + 0.5f)) <= 3,
+                describe(px(img, 50, 50)));
+        // The red channel instead of luma.
+        c.node(k)->params.setStatic(nodekeys::KeyChannel, channelsources::Red);
+        c.node(k)->params.setBase(nodekeys::SoftRange, 0.0);
+        c.node(k)->params.setBase(nodekeys::KeyLow, 0.9);
+        for (const QImage& img : frames(c, QColor(255, 0, 0)))
+            QVERIFY2(near(px(img, 50, 50), 255, 0, 0, 255, 1), describe(px(img, 50, 50)));
+    }
+
+    void deltaKeyer()
+    {
+        quint64 k = 0;
+        Composition c = after(nodetypes::DeltaKeyer, &k);
+        c.node(k)->params.setStatic(nodekeys::Color, QColor(0, 200, 0));
+        // The screen colour itself: out (black). Red: stays as it is.
+        for (const QImage& img : frames(c, QColor(0, 200, 0)))
+            QVERIFY2(px(img, 50, 50).a < 3, describe(px(img, 50, 50)));
+        for (const QImage& img : frames(c, QColor(255, 0, 0)))
+            QVERIFY2(near(px(img, 50, 50), 255, 0, 0, 255, 2), describe(px(img, 50, 50)));
+        // A greenish edge pixel against the formula (matte and despill), both renderers.
+        c.node(k)->params.setBase(nodekeys::Gain, 1.3);
+        c.node(k)->params.setBase(nodekeys::PreSoft, 0.5);
+        c.node(k)->params.setBase(nodekeys::CleanBackground, 0.1);
+        c.node(k)->params.setBase(nodekeys::MatteHigh, 0.9);
+        c.node(k)->params.setBase(nodekeys::Despill, 0.6);
+        float px4[4] = {140 / 255.0f, 190 / 255.0f, 90 / 255.0f, 1.0f};
+        compmath::deltaKey(compmath::deltaKeyParams(c.node(k)->params, 0), px4);
+        QVERIFY(px4[3] > 0.05f && px4[3] < 0.95f);
+        for (const QImage& img : frames(c, QColor(140, 190, 90))) {
+            const Px g = px(img, 50, 50);
+            QVERIFY2(std::abs(g.r - int(px4[0] * px4[3] * 255 + 0.5)) <= 4
+                    && std::abs(g.g - int(px4[1] * px4[3] * 255 + 0.5)) <= 4
+                    && std::abs(g.b - int(px4[2] * px4[3] * 255 + 0.5)) <= 4,
+                describe(g));
+        }
+        // A blue screen is found by its own colour.
+        c.node(k)->params.setStatic(nodekeys::Color, QColor(0, 0, 255));
+        for (const QImage& img : frames(c, QColor(0, 0, 255)))
+            QVERIFY2(px(img, 50, 50).a < 3, describe(px(img, 50, 50)));
+    }
+
+    void cornerPositionerPinsTheCorners()
+    {
+        quint64 cp = 0;
+        Composition c = after(nodetypes::CornerPositioner, &cp);
+        // Default corners: the picture as it is.
+        for (const QImage& img : frames(c, QColor(255, 0, 0)))
+            QVERIFY2(near(px(img, 3, 3), 255, 0, 0, 255, 1), describe(px(img, 3, 3)));
+        // A narrower top edge (perspective) and a lifted bottom-right corner.
+        auto& p = c.node(cp)->params;
+        p.setBase(nodekeys::planarCorner(0, false), 0.3);
+        p.setBase(nodekeys::planarCorner(1, false), 0.7);
+        p.setBase(nodekeys::planarCorner(2, true), 0.2);
+        const QVector<QImage> imgs = frames(c, QColor(255, 0, 0));
+        for (const QImage& img : imgs) {
+            QVERIFY2(near(px(img, 160, 90), 255, 0, 0, 255, 1), describe(px(img, 160, 90)));
+            QCOMPARE(px(img, 8, 6).r, 0); // outside the pinned quad (top-left of the frame)
+            QCOMPARE(px(img, 312, 6).r, 0);
+            QCOMPARE(px(img, 312, 170).r, 0); // the lifted corner left it
+        }
+        // GPU and CPU cover the same pixels (but for the antialiased edge).
+        int differing = 0;
+        for (int y = 0; y < kH; ++y)
+            for (int x = 0; x < kW; ++x)
+                differing += std::abs(px(imgs[0], x, y).r - px(imgs[1], x, y).r) > 64;
+        QVERIFY2(differing < 60, qPrintable(QString::number(differing)));
+    }
+
+    void bsplineMask()
+    {
+        Composition c = co::defaultComposition();
+        const quint64 b = co::addNode(c, nodetypes::BSplineMask, {});
+        for (const QImage& img : nodeImages(compTimeline(c), b)) {
+            QCOMPARE(px(img, 160, 90).a, 255);
+            QCOMPARE(px(img, 5, 5).a, 0);
+        }
+        // The curve of a square stays inside its control points; a heavier point pulls it out.
+        MaskPath square;
+        for (const QPointF& v : {QPointF(-100, -100), QPointF(100, -100), QPointF(100, 100),
+                 QPointF(-100, 100)}) {
+            MaskPoint p;
+            p.x = v.x();
+            p.y = v.y();
+            square.append(p);
+        }
+        const MaskPath plain = compmath::bsplinePolygon(square, 16);
+        QCOMPARE(plain.size(), qsizetype(64));
+        for (const MaskPoint& p : plain)
+            QVERIFY(std::abs(p.x) < 100 && std::abs(p.y) < 100);
+        square[2].weight = 8.0;
+        const MaskPath heavy = compmath::bsplinePolygon(square, 16);
+        double nearest = 1e9, nearestPlain = 1e9;
+        for (const MaskPoint& p : heavy)
+            nearest = std::min(nearest, std::hypot(p.x - 100, p.y - 100));
+        for (const MaskPoint& p : plain)
+            nearestPlain = std::min(nearestPlain, std::hypot(p.x - 100, p.y - 100));
+        QVERIFY(nearest < nearestPlain * 0.7);
+        // Animated as one shape: the key at frame 10 holds a smaller square.
+        CompNode* node = c.node(b);
+        MaskPath small = node->path.at(0.0);
+        for (MaskPoint& p : small) {
+            p.x *= 0.25;
+            p.y *= 0.25;
+        }
+        node->path.setKey(0);
+        node->path.setKey(10, small);
+        const MaskData m0 = compmath::maskOf(*node, 0, QSizeF(kW, kH));
+        const MaskData m10 = compmath::maskOf(*node, 10, QSizeF(kW, kH));
+        auto extent = [](const MaskData& m) {
+            double r = 0;
+            for (const MaskPoint& p : m.path.shapes[0])
+                r = std::max(r, std::hypot(p.x, p.y));
+            return r;
+        };
+        QVERIFY(extent(m10) < extent(m0) * 0.5);
+    }
+
     void viewerApiRendersAnyNode()
     {
         quint64 bg = 0, merge = 0;

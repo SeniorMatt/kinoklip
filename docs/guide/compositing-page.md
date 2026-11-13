@@ -136,6 +136,23 @@ Every node except the masks and MediaOut has a **Settings** section under its pa
 
 Blend can be keyframed; the check boxes cannot.
 
+## Masks, keyers and the Corner Positioner
+
+- **Rectangle**: Corner Radius rounds the corners (1 is a pill). **Level** fades the whole mask and **Paint Mode**
+  says how the mask joins the mask plugged into it: Merge (the union), Add, Subtract, Minimum, Maximum, Multiply,
+  Replace, Invert, Copy or Ignore. Every mask node has Level and Paint Mode.
+- **B-Spline**: like Polygon, but the points pull a smooth curve instead of being corners. Drag a point in the
+  viewer to move it; turn the mouse wheel over a point to make it pull harder or softer (its weight). Keyframing the
+  points animates the whole shape.
+- **Luma Keyer** (Matte): keeps the pixels whose Luminance (or Red, Green, Blue, Alpha) lies between Low and High,
+  with a Soft Range fade at both ends. Invert keeps the rest.
+- **Delta Keyer** (Matte): pick the screen colour in Background Color, then raise Gain until the screen is gone.
+  Balance weights the two other channels, Pre-Matte Soft Range softens the edge, Clean Background and Clean
+  Foreground push the matte to fully out or fully in, Matte Threshold Low / High set the final range, and Despill
+  removes the screen colour from the edges.
+- **Corner Positioner** (Transform): drag the four corners in the viewer (or type them) to pin the picture to a
+  new quadrilateral in perspective.
+
 ## Tips
 
 - **Fade the text in:** select **Merge1** and keyframe its **Blend** (0 at the start, 1 a
