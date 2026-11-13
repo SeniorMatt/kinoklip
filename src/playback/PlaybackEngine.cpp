@@ -236,6 +236,41 @@ void PlaybackEngine::setDynamicZoomApplied(bool applied)
     updateParams(true);
 }
 
+void PlaybackEngine::setCompositionView(
+    const void* owner, int priority, quint64 clipId, quint64 nodeId)
+{
+    for (CompView& v : m_compViews) {
+        if (v.owner == owner) {
+            if (v.priority == priority && v.clipId == clipId && v.nodeId == nodeId)
+                return;
+            v = CompView {owner, priority, clipId, nodeId};
+            updateParams(true);
+            return;
+        }
+    }
+    m_compViews.push_back(CompView {owner, priority, clipId, nodeId});
+    updateParams(true);
+}
+
+void PlaybackEngine::clearCompositionView(const void* owner)
+{
+    const auto it = std::find_if(m_compViews.begin(), m_compViews.end(),
+        [owner](const CompView& v) { return v.owner == owner; });
+    if (it == m_compViews.end())
+        return;
+    m_compViews.erase(it);
+    updateParams(true);
+}
+
+const void* PlaybackEngine::compositionViewOwner() const
+{
+    const CompView* best = nullptr;
+    for (const CompView& v : m_compViews)
+        if (!best || v.priority < best->priority)
+            best = &v;
+    return best ? best->owner : nullptr;
+}
+
 void PlaybackEngine::setMediaPaths(std::shared_ptr<const MediaPathMap> media)
 {
     m_media = std::move(media);
@@ -600,6 +635,22 @@ void PlaybackEngine::updateParams(bool rerender)
     params.renderCache = m_renderCache;
     params.bypassGrades = m_bypassGrades;
     params.dynamicZoom = m_dynamicZoomApplied;
+    if (const void* owner = compositionViewOwner(); owner && params.timeline) {
+        for (const CompView& v : m_compViews) {
+            if (v.owner != owner)
+                continue;
+            for (const TrackData& track : params.timeline->videoTracks) {
+                const int i = track.indexOfClip(v.clipId);
+                if (i < 0)
+                    continue;
+                const ClipData& clip = track.clips[size_t(i)];
+                params.compNode = CompositionNodeView {v.clipId, v.nodeId, 0};
+                params.compStart = clip.start;
+                params.compLength = clip.duration;
+                params.renderCache = nullptr; // the cache holds timeline pictures
+            }
+        }
+    }
     // The proxy resolution is applied here (relative to the timeline resolution, see
     // renderSize()); the compositor renders exactly that size.
     params.outSize = renderSize();
@@ -612,7 +663,12 @@ void PlaybackEngine::updateParams(bool rerender)
     const RenderParams& old = m_scheduler.params();
     const bool contentChanged = old.timeline != params.timeline || old.media != params.media
         || old.proxies != params.proxies || old.bypassGrades != params.bypassGrades
-        || old.dynamicZoom != params.dynamicZoom;
+        || old.dynamicZoom != params.dynamicZoom
+        || old.compNode.has_value() != params.compNode.has_value()
+        || (old.compNode && params.compNode
+            && (old.compNode->clipId != params.compNode->clipId
+                || old.compNode->nodeId != params.compNode->nodeId))
+        || old.compStart != params.compStart || old.compLength != params.compLength;
     const bool changed
         = contentChanged || old.outSize != params.outSize || old.outputs != params.outputs;
     if (old.timeline != params.timeline || old.proxies != params.proxies) {

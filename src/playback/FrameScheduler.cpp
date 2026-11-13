@@ -71,6 +71,14 @@ std::future<RenderedFramePtr> FrameScheduler::issue(int64_t frame, bool catchUp)
     request.dynamicZoom = m_params.dynamicZoom;
     request.frame = frame;
     request.catchUp = catchUp;
+    if (m_params.compNode) {
+        CompositionNodeView view = *m_params.compNode;
+        view.compFrame = std::clamp<int64_t>(frame - m_params.compStart, 0,
+            std::max<int64_t>(0, m_params.compLength - 1));
+        request.compositionNode = view;
+        request.frame = frame;
+        request.subtitles = false;
+    }
     request.outSize = m_params.outSize;
     request.quality = m_params.quality;
     request.outputs = m_params.outputs;

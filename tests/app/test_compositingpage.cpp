@@ -1446,6 +1446,62 @@ private slots:
         t->stop();
     }
 
+    // ---- issue #7 (spec 99) ----
+    void spec99_loopModeWrapsAtTheClipEnd()
+    {
+        // The clip (10..59) ends the timeline: the engine never plays past it, so Loop has to
+        // wrap at the last frame.
+        Fixture f(true, true);
+        f.project.timeline()->setPlayhead(20);
+        f.showPage();
+        CompTransport* t = f.page()->transport();
+        QCOMPARE(t->loopMode(), CompLoopMode::Loop);
+        f.project.timeline()->setPlayhead(54);
+        t->play();
+        QTRY_VERIFY_WITH_TIMEOUT(f.project.timeline()->playhead() < 40, 5000);
+        QVERIFY(f.playback->isPlaying()); // still playing after the wrap
+        QTest::qWait(300);
+        QVERIFY(f.playback->isPlaying());
+        t->stop();
+    }
+
+    void spec99_viewerIsServedByTheProgramEngine()
+    {
+        // A clip on V2 over the open clip: the engine renders the viewer's node (not the
+        // tracks above), with and without a stored graph, and statistics count its frames.
+        Fixture f(true, true);
+        ClipData over;
+        over.kind = ClipKind::Solid;
+        over.name = QStringLiteral("Over");
+        over.start = 20;
+        over.duration = 30;
+        f.project.beginEdit(QStringLiteral("Add Clip"));
+        editops::overwriteClip(
+            f.project.timeline()->mutableData(), TrackRef {TrackType::Video, 1}, over);
+        f.project.endEdit();
+        f.project.timeline()->setPlayhead(30);
+        QVERIFY(!f.playback->compositionViewOwner());
+        f.showPage();
+        QVERIFY(f.session()->clipId() == f.clipId);
+        QVERIFY(!f.session()->isStored());
+        QVERIFY(f.playback->compositionViewOwner()); // empty graph
+        f.session()->addNode(nodetypes::Transform);
+        QVERIFY(f.session()->isStored());
+        QVERIFY(f.playback->compositionViewOwner()); // same with a node added
+        f.playback->play();
+        QTest::qWait(500);
+        f.playback->resetStats();
+        QTest::qWait(1000);
+        const PlaybackEngine::Stats s = f.playback->stats();
+        f.playback->pause();
+        qInfo("compositing page playback: %.1f fps shown, %lld dropped", s.fps(),
+            qlonglong(s.dropped));
+        QVERIFY(s.presented > 0);
+        f.action("view.page_edit")->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(!f.playback->compositionViewOwner()); // the Edit page shows the timeline again
+    }
+
     void spec90_channelViewRendersAnImage()
     {
         Fixture f(true, true);

@@ -218,8 +218,31 @@ CompViewer::CompViewer(int index, AppContext& ctx, CompSession* session, QWidget
 
 CompViewer::~CompViewer()
 {
-    if (m_engine)
+    if (m_engine) {
+        m_engine->clearCompositionView(this);
         m_engine->removeOutputClient(this);
+    }
+}
+
+bool CompViewer::followsEngine() const
+{
+    return m_engine && m_engine->compositionViewOwner() == this;
+}
+
+void CompViewer::updateEngineView()
+{
+    if (!m_engine)
+        return;
+    // The program engine renders this viewer's node itself (issue #7): playback then runs
+    // through the Edit page's pipeline. Not with the viewer tools, which work on pictures.
+    const bool wanted = isVisible() && m_engine->compositor() && m_session && m_session->clipId()
+        && node() && !needsFx();
+    if (!wanted) {
+        m_engine->clearCompositionView(this);
+        return;
+    }
+    const quint64 id = node() == m_session->composition().mediaOutId ? 0 : node();
+    m_engine->setCompositionView(this, m_index, m_session->clipId(), id);
 }
 
 quint64 CompViewer::node() const
@@ -278,6 +301,7 @@ void CompViewer::updateHeader()
 
 void CompViewer::refresh()
 {
+    updateEngineView();
     updateHeader();
     if (!m_session || !m_session->clipId()) {
         m_surface->clear(tr("Select a clip on the Edit page"));
@@ -286,6 +310,11 @@ void CompViewer::refresh()
     if (!node()) {
         m_surface->clear(
             m_index == 0 ? tr("Select a node and press 1") : tr("Select a node and press 2"));
+        return;
+    }
+    if (followsEngine()) {
+        // The engine's frame for this node arrives with frameReady(); show the current one now
+        // if it already is that.
         return;
     }
     if (rendersNodes()) {
@@ -307,7 +336,7 @@ bool CompViewer::rendersNodes() const
 
 void CompViewer::requestRender()
 {
-    if (!isVisible() || !rendersNodes() || !node())
+    if (!isVisible() || !rendersNodes() || !node() || followsEngine())
         return;
     // One render in flight per viewer: requests while it runs (scrubbing, playback, slider
     // drags) collapse into one more render of the newest state when it finishes.
@@ -660,6 +689,11 @@ void CompViewer::keyPressEvent(QKeyEvent* e)
 
 void CompViewer::showFrame(const RenderedFramePtr& frame)
 {
+    if (followsEngine()) {
+        if (isVisible() && node() && frame && frame->ok)
+            m_surface->setRenderedFrame(frame);
+        return;
+    }
     if (rendersNodes()) {
         requestRender(); // the program moved on (playback): render the node at the new frame
         return;
@@ -692,8 +726,10 @@ void CompViewer::showEvent(QShowEvent* event)
 void CompViewer::hideEvent(QHideEvent* event)
 {
     PanelFrame::hideEvent(event);
-    if (m_engine)
+    if (m_engine) {
+        m_engine->clearCompositionView(this);
         m_engine->removeOutputClient(this);
+    }
 }
 
 void CompViewer::resizeEvent(QResizeEvent* event)

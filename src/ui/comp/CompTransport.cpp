@@ -276,7 +276,9 @@ void CompTransport::onEnginePosition(int64_t frame)
     PlaybackEngine* engine = m_ctx.playback;
     switch (m_loop) {
     case CompLoopMode::Loop:
-        if (frame >= c->start + c->duration || frame < c->start)
+        // At the last frame, not past it: a clip that ends the timeline never plays past its
+        // end (the engine stops there), so waiting for a later frame never wrapped (issue #7).
+        if (frame >= last || frame < c->start)
             engine->seek(c->start);
         break;
     case CompLoopMode::PingPong:

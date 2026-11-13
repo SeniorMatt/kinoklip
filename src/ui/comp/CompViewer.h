@@ -128,6 +128,8 @@ private:
     [[nodiscard]] bool rendersNodes() const;
     /// Queues PlaybackEngine::renderCompositionNode() for the node at the comp frame.
     void requestRender();
+    [[nodiscard]] bool followsEngine() const;
+    void updateEngineView();
     void onRendered();
     /// The viewer tool a key press means (empty: not ours).
     [[nodiscard]] QString keyTool(const QKeyEvent* event) const;

@@ -255,6 +255,15 @@ public:
     /// are rendered without the clips' Dynamic Zoom, so the start and end rectangles can be
     /// drawn over the whole picture (spec 24.20). Default true.
     void setDynamicZoomApplied(bool applied);
+    /// Compositing page (issue #7): the program frames become node @p nodeId (0 = MediaOut) of
+    /// clip @p clipId's composition (the clip's own picture when it has none), so the page
+    /// plays with the Edit page's pipeline: look-ahead, frame skipping, proxy size, frame
+    /// dropping and statistics. Several viewers may ask; the lowest @p priority is served.
+    /// @p owner identifies the asker for clearCompositionView().
+    void setCompositionView(const void* owner, int priority, quint64 clipId, quint64 nodeId);
+    void clearCompositionView(const void* owner);
+    /// The asker whose node the program frames show now (nullptr = the timeline).
+    [[nodiscard]] const void* compositionViewOwner() const;
     [[nodiscard]] bool dynamicZoomApplied() const { return m_dynamicZoomApplied; }
     /// Compositing page viewers: Compositor::renderCompositionNode() of node @p nodeId (0 =
     /// MediaOut) of clip @p clipId of @p timeline at comp frame @p compFrame, with the
@@ -462,6 +471,13 @@ private:
     std::shared_ptr<const RenderCacheView> m_renderCache;
     bool m_bypassGrades = false;
     bool m_dynamicZoomApplied = true; ///< setDynamicZoomApplied()
+    struct CompView
+    {
+        const void* owner = nullptr;
+        int priority = 0;
+        quint64 clipId = 0, nodeId = 0;
+    };
+    std::vector<CompView> m_compViews; ///< setCompositionView()
     bool m_proxiesInUse = false;
     QMetaObject::Connection m_timelineChanged, m_playheadChanged, m_poolChanged;
 

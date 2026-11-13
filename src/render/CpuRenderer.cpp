@@ -108,8 +108,15 @@ private:
         }
         QImage image(out, QImage::Format_ARGB32_Premultiplied);
         image.fill(Qt::transparent);
-        if (!clip || !clip->composition)
+        if (!clip)
             return image;
+        // No stored graph: the default MediaIn -> MediaOut (the clip's own picture).
+        std::optional<ClipData> defaultOwner;
+        if (!clip->composition) {
+            defaultOwner = *clip;
+            defaultOwner->composition = compops::defaultComposition();
+            clip = &*defaultOwner;
+        }
         m_timeline = &tl;
         m_frame = clip->start + view.compFrame;
         m_out = out;
