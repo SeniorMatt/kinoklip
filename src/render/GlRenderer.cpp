@@ -606,11 +606,19 @@ void GlRenderer::render(RenderJob& job)
     m_decoders.setCatchUp(rq.catchUp);
     // Compositing page viewer: one node of one clip's composition instead of the timeline.
     const ClipData* compClipOwner = nullptr;
+    std::optional<ClipData> defaultOwner;
     if (rq.compositionNode) {
         for (const TrackData& track : tl.videoTracks) {
             const int i = track.indexOfClip(rq.compositionNode->clipId);
             if (i >= 0)
                 compClipOwner = &track.clips[size_t(i)];
+        }
+        // No stored graph: the default MediaIn -> MediaOut, the clip's own picture (not the
+        // tracks above it; issue #7).
+        if (compClipOwner && !compClipOwner->composition) {
+            defaultOwner = *compClipOwner;
+            defaultOwner->composition = compops::defaultComposition();
+            compClipOwner = &*defaultOwner;
         }
         if (compClipOwner) {
             fc.frame = compClipOwner->start + rq.compositionNode->compFrame;

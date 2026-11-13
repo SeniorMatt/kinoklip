@@ -10,6 +10,7 @@
 #include <deque>
 #include <functional>
 #include <future>
+#include <optional>
 #include <vector>
 
 namespace kk {
@@ -26,6 +27,12 @@ struct RenderParams
     std::shared_ptr<const RenderCacheView> renderCache; ///< cached chunks of `timeline`
     bool bypassGrades = false; ///< Color page "bypass all grades" (viewer only)
     bool dynamicZoom = true; ///< false: without Dynamic Zoom (on-screen controls, viewer only)
+    /// Compositing page: every frame is one node of one clip's composition (RenderRequest::
+    /// compositionNode) instead of the timeline picture; `frame - compStart` (clamped to
+    /// [0, compLength)) is the comp frame. Playback, look-ahead and frame dropping are the same.
+    std::optional<CompositionNodeView> compNode = std::nullopt;
+    int64_t compStart = 0;
+    int64_t compLength = 0;
 };
 
 /// One frame the playback engine wants: `frame` is rendered, `key` orders the frames in play
