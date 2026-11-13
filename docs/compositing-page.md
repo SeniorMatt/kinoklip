@@ -55,8 +55,13 @@ general knowledge of node compositors, our own drawing, names and icons; never R
 - **Transform**: Transform (centre, size, angle, pivot, flip), Crop, Resize, Letterbox.
 - **Generate**: Background (solid colour or 2/4-colour gradient), Text (font, size, colour,
   outline, shadow, position), Noise / Fast Noise.
-- **Masks**: Rectangle, Ellipse, Polygon, (B-spline later); each with soft edge, invert,
-  centre / size / angle; masks plug into any node's mask input.
+- **Masks**: Rectangle (with Corner Radius), Ellipse, Polygon, B-Spline (points with weights, animated as one
+  shape); each with soft edge, invert, level, paint mode, centre / size / angle; masks plug into any node's mask
+  input (the Paint Mode says how a mask joins the one plugged into it). Spec section 92.
+- **Matte**: Luma Keyer (channel, low / high, soft range, invert), Delta Keyer (screen colour key with gain,
+  balance, pre-matte soft range, clean background / foreground, matte thresholds and despill).
+- **Corner Positioner** (Transform): four corner points and a perspective warp, with draggable corner handles in
+  the viewer.
 - **Effects**: every Edit page video effect (62 today: keys, colour, blur, light, stylize,
   distort, time) as a node with one image input and a mask input, generated from the
   EffectRegistry (type `fx:<id>`), so new effects appear on both pages.

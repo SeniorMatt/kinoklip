@@ -62,6 +62,9 @@ struct MaskPoint
     double outY = 0.0;
     /// Smooth point: dragging one tangent turns the other to stay collinear (Alt breaks it).
     bool smooth = false;
+    /// B-spline mask only: how hard the point pulls the curve (1 = normal, 0 = none, >1 = the
+    /// curve gets closer to the point). Stored in the project only when not 1.
+    double weight = 1.0;
 
     [[nodiscard]] QPointF pos() const { return {x, y}; }
     [[nodiscard]] bool hasTangents() const
@@ -140,6 +143,7 @@ inline const QString Opacity = QStringLiteral("opacity"); ///< percent 0..100; d
 inline const QString FeatherIn = QStringLiteral("featherIn"); ///< soft edge inside, px >= 0
 inline const QString FeatherOut = QStringLiteral("featherOut"); ///< soft edge outside, px >= 0
 inline const QString Expand = QStringLiteral("expand"); ///< px, > 0 grows, < 0 contracts
+inline const QString CornerRadius = QStringLiteral("cornerRadius"); ///< rectangle, px (clamped to half the shorter side)
 /// Inspector-only keys of the "builtin.mask" descriptor routed to MaskData::mode / invert (not
 /// stored in params; the renderer reads the struct fields, no QVariant per frame).
 inline const QString Mode = QStringLiteral("mode");

@@ -71,6 +71,7 @@ private:
         float opacity = 1.0f;
         float geom[4] = {}; ///< analytic: centre x, y, half width, half height (layer px)
         float rot[2] = {1.0f, 0.0f}; ///< cos, sin of the rotation
+        float radius = 0; ///< rectangle corner radius (layer px)
         float soft[3] = {}; ///< analytic: feather in, feather out, expand (layer px)
         int coverage = -1; ///< type 2: index into m_coverage
     };
@@ -81,7 +82,7 @@ private:
 
     GlProgram m_combine;
     GLint m_uCount = -1, m_uType = -1, m_uMode = -1, m_uInvert = -1, m_uOpacity = -1;
-    GLint m_uGeom = -1, m_uRot = -1, m_uSoft = -1, m_uHasPrev = -1, m_uStart = -1;
+    GLint m_uGeom = -1, m_uRot = -1, m_uSoft = -1, m_uRadius = -1, m_uHasPrev = -1, m_uStart = -1;
     GLint m_uApply = -1, m_uCovIndex = -1;
     GlProgram m_fan;
     GLuint m_fanVao = 0;

@@ -55,6 +55,15 @@ the Porter-Duff operators; the filter kernels (Catmull-Rom, Mitchell, cubic B-sp
 published Mitchell-Netravali family and the Lanczos window. The control names and the behaviour of Edges, Pivot,
 Invert Transform, Alpha Gain, Burn In and Subtractive / Additive follow the Blackmagic Fusion manual.
 
+### Masks and keyers (Compositing page)
+The Luma Keyer, Delta Keyer, Corner Positioner, B-Spline mask, Rectangle Corner Radius and the mask Paint Modes
+(`src/render/CompMath.cpp`, `lumaKey()`, `deltaKey()`, `cornerPositionerMatrix()`, `bsplinePolygon()`,
+`paintMask()`; GLSL copies in `GlComposition.cpp`, `GlMasks.cpp`) take their control names and behaviour from the
+Blackmagic Fusion manual. The formulas are our own: a difference key on the strongest screen channel with a
+Gain / Balance / Clean / Threshold remap, a linear soft range for the luma key, the standard uniform cubic
+B-spline basis (with point weights as a rational B-spline) and a signed-distance rounded rectangle. No code or
+formula was taken from Natron, Kdenlive / MLT or any other project.
+
 ### Keyframe loops
 The extrapolation modes of animated values (`src/core/Animation.cpp`, `AnimatedValue::extrapolatedValue()`)
 follow the documented behaviour of Blender's F-Curve Cycles modifier (GPL-2.0-or-later: Repeat Motion, Repeat

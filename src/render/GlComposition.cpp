@@ -195,6 +195,91 @@ void main()
 }
 )";
 
+/// Luma Keyer: compmath::lumaKey() on the straight colour; the alpha is multiplied by the key.
+const char* const kLumaKeyFragment = R"(
+uniform sampler2D uTex;
+uniform vec4 uKey;      // low, high, soft range, channel (0 R, 1 G, 2 B, 3 A, 4 luma)
+uniform int uInvert;
+vec3 straight(vec4 c) { return c.a > 0.0 ? c.rgb / c.a : vec3(0.0); }
+void main()
+{
+    vec4 t = texture(uTex, vUv);
+    vec3 s = straight(t);
+    float v = uKey.w < 0.5 ? s.r : uKey.w < 1.5 ? s.g : uKey.w < 2.5 ? s.b
+            : uKey.w < 3.5 ? t.a : dot(s, vec3(0.2126, 0.7152, 0.0722));
+    float lo = uKey.z > 0.0 ? clamp((v - (uKey.x - uKey.z)) / uKey.z, 0.0, 1.0)
+                            : (v >= uKey.x ? 1.0 : 0.0);
+    float hi = uKey.z > 0.0 ? clamp(((uKey.y + uKey.z) - v) / uKey.z, 0.0, 1.0)
+                            : (v <= uKey.y ? 1.0 : 0.0);
+    float a = lo * hi;
+    if (uInvert == 1)
+        a = 1.0 - a;
+    fragColor = t * a;
+}
+)";
+
+/// Delta Keyer: compmath::deltaKey() on the straight colour.
+const char* const kDeltaKeyFragment = R"(
+uniform sampler2D uTex;
+uniform vec3 uBg;       // screen colour
+uniform vec4 uTune;     // gain, balance, pre-matte soft range, despill
+uniform vec4 uClean;    // clean background, clean foreground, matte low, matte high
+uniform int uInvert;
+vec3 straight(vec4 c) { return c.a > 0.0 ? c.rgb / c.a : vec3(0.0); }
+float others(vec3 v, int d)
+{
+    float a = v[(d + 1) % 3], b = v[(d + 2) % 3];
+    return uTune.y * max(a, b) + (1.0 - uTune.y) * min(a, b);
+}
+void main()
+{
+    vec4 t = texture(uTex, vUv);
+    if (t.a <= 0.0) {
+        fragColor = vec4(0.0);
+        return;
+    }
+    vec3 c = straight(t);
+    int d = 0;
+    if (uBg[1] > uBg[d]) d = 1;
+    if (uBg[2] > uBg[d]) d = 2;
+    float ref = max(uBg[d] - others(uBg, d), 1e-3);
+    float screen = (c[d] - others(c, d)) / ref * uTune.x;
+    float m = 1.0 - clamp(screen, 0.0, 1.0);
+    m = m + (m * m * (3.0 - 2.0 * m) - m) * uTune.z;
+    m = clamp((m - uClean.x) / max(1.0 - uClean.x - uClean.y, 1e-3), 0.0, 1.0);
+    m = clamp((m - uClean.z) / max(uClean.w - uClean.z, 1e-3), 0.0, 1.0);
+    if (uInvert == 1)
+        m = 1.0 - m;
+    c[d] = c[d] + (min(c[d], others(c, d)) - c[d]) * uTune.w;
+    float a = t.a * m;
+    fragColor = vec4(clamp(c, 0.0, 1.0) * a, a);
+}
+)";
+
+/// Paint Mode: compmath::paintMask() of this mask (uTex) and the one plugged in (uSecond).
+const char* const kPaintMaskFragment = R"(
+uniform sampler2D uTex;
+uniform sampler2D uSecond;
+uniform int uMode;
+vec4 paint(vec4 M, vec4 m)
+{
+    if (uMode == 1) return min(M + m, 1.0);
+    if (uMode == 2) return max(M - m, 0.0);
+    if (uMode == 3) return min(M, m);
+    if (uMode == 4) return max(M, m);
+    if (uMode == 5) return M * m;
+    if (uMode == 6) return m;
+    if (uMode == 7) return M + m * (1.0 - 2.0 * M);
+    if (uMode == 8) return mix(M, m, vec4(greaterThan(m, vec4(0.0))));
+    if (uMode == 9) return M;
+    return m + M * (1.0 - m);
+}
+void main()
+{
+    fragColor = paint(texture(uSecond, vUv), texture(uTex, vUv));
+}
+)";
+
 /// Fast Noise: fractal value noise in (x, y, time), cells of 1 / uScale frame widths, octaves
 /// halving in size and amplitude; an integer hash keeps it identical on every GPU.
 const char* const kNoiseFragment = R"(
@@ -267,6 +352,9 @@ bool GlComposition::initialize(GlKit& kit, QString* why)
         || !build(kit, m_common, "comp.common", kCommonFragment, why)
         || !build(kit, m_corrector, "comp.corrector", kCorrectorFragment, why)
         || !build(kit, m_channels, "comp.channels", kChannelsFragment, why)
+        || !build(kit, m_lumaKey, "comp.lumakey", kLumaKeyFragment, why)
+        || !build(kit, m_deltaKey, "comp.deltakey", kDeltaKeyFragment, why)
+        || !build(kit, m_paintMask, "comp.paintmask", kPaintMaskFragment, why)
         || !build(kit, m_noise, "comp.noise", kNoiseFragment, why)
         || !build(kit, m_warp, "comp.warp", kWarpFragment, why)
         || !build(kit, m_resample, "comp.resample", resample.constData(), why))
@@ -295,6 +383,13 @@ bool GlComposition::initialize(GlKit& kit, QString* why)
     m_ccLgg = m_corrector.uniform(gl, "uLgg");
     m_ccSat = m_corrector.uniform(gl, "uSat");
     m_chSources = m_channels.uniform(gl, "uSources");
+    m_lkParams = m_lumaKey.uniform(gl, "uKey");
+    m_lkInvert = m_lumaKey.uniform(gl, "uInvert");
+    m_dkBg = m_deltaKey.uniform(gl, "uBg");
+    m_dkTune = m_deltaKey.uniform(gl, "uTune");
+    m_dkClean = m_deltaKey.uniform(gl, "uClean");
+    m_dkInvert = m_deltaKey.uniform(gl, "uInvert");
+    m_pmMode = m_paintMask.uniform(gl, "uMode");
     m_nSize = m_noise.uniform(gl, "uSize");
     m_nCentre = m_noise.uniform(gl, "uCentre");
     m_nRot = m_noise.uniform(gl, "uRot");
@@ -480,7 +575,7 @@ void GlComposition::evalNode(GlKit& kit, const CompEval& ev, int index)
             maskOwner >= 0 && !commonPass ? textureOf(kit, maskOwner) : 0, t);
         handledMask = true;
     } else if (n.type == nodetypes::Transform || n.type == nodetypes::Tracker
-        || n.type == nodetypes::PlanarTracker) {
+        || n.type == nodetypes::PlanarTracker || n.type == nodetypes::CornerPositioner) {
         out = transformNode(kit, ev, n, mainOwner);
     } else if (n.type == nodetypes::Crop || n.type == nodetypes::Resize
         || n.type == nodetypes::Letterbox) {
@@ -494,7 +589,8 @@ void GlComposition::evalNode(GlKit& kit, const CompEval& ev, int index)
     } else if (d->category == NodeCategory::Mask) {
         out = maskNode(kit, ev, n, mainOwner);
         handledMask = true; // the mask port of a mask node combines (union), see maskNode()
-    } else if (n.type == nodetypes::ColorCorrector || n.type == nodetypes::ChannelBooleans) {
+    } else if (n.type == nodetypes::ColorCorrector || n.type == nodetypes::ChannelBooleans
+        || n.type == nodetypes::LumaKeyer || n.type == nodetypes::DeltaKeyer) {
         out = colorNode(kit, ev, n, mainOwner);
     } else if (!d->effectId.isEmpty()) {
         out = effectNode(kit, ev, n, mainOwner);
@@ -661,6 +757,8 @@ PooledTarget GlComposition::transformNode(
     QTransform m;
     if (n.type == nodetypes::PlanarTracker)
         m = compmath::planarMatrix(n.params, ev.compFrame, ev.frame);
+    else if (n.type == nodetypes::CornerPositioner)
+        m = compmath::cornerPositionerMatrix(n.params, ev.compFrame, ev.frame);
     else if (n.type == nodetypes::Tracker)
         m = compmath::trackerMatrix(n.params, ev.compFrame, ev.frame);
     else
@@ -819,11 +917,19 @@ PooledTarget GlComposition::maskNode(GlKit& kit, const CompEval& ev, const CompN
         kit.clearTransparent();
     }
     if (input >= 0) {
-        // Masks plugged into a mask: the union (premultiplied "over" of white mattes).
-        kit.bindTarget(*out);
-        kit.setBlendOver(true);
-        kit.blit(textureOf(kit, input), kFullscreenNdc);
+        // The mask plugged in joins this one by the Paint Mode (Merge: the union).
+        const int mode
+            = std::max(0, paintmodes::index(n.params.staticValue(k::PaintMode).toString()));
+        PooledTarget joined = newTarget(kit, ev, false);
         kit.setBlendOver(false);
+        GlFunctions* gl = kit.gl();
+        gl->glUseProgram(m_paintMask.id);
+        kit.setFullscreen(m_paintMask);
+        gl->glUniform1i(m_pmMode, mode);
+        kit.bindTexture(0, out->texture);
+        kit.bindTexture(1, textureOf(kit, input));
+        kit.drawQuad();
+        out = std::move(joined);
     }
     return out;
 }
@@ -844,6 +950,32 @@ PooledTarget GlComposition::colorNode(GlKit& kit, const CompEval& ev, const Comp
         gl->glUniform4f(m_ccLevels, c.inBlack, c.inWhite, c.levelGamma, 0.0f);
         gl->glUniform4f(m_ccLgg, c.outBlack, c.outWhite, c.lift, c.gain);
         gl->glUniform2f(m_ccSat, c.gamma, c.saturation);
+        kit.bindTexture(0, textureOf(kit, input));
+        kit.drawQuad();
+        return out;
+    }
+    if (n.type == nodetypes::LumaKeyer) {
+        const compmath::LumaKeyParams k = compmath::lumaKeyParams(n.params, ev.compFrame);
+        PooledTarget out = newTarget(kit, ev, false);
+        kit.setBlendOver(false);
+        gl->glUseProgram(m_lumaKey.id);
+        kit.setFullscreen(m_lumaKey);
+        gl->glUniform4f(m_lkParams, k.low, k.high, k.soft, float(k.channel));
+        gl->glUniform1i(m_lkInvert, k.invert ? 1 : 0);
+        kit.bindTexture(0, textureOf(kit, input));
+        kit.drawQuad();
+        return out;
+    }
+    if (n.type == nodetypes::DeltaKeyer) {
+        const compmath::DeltaKeyParams k = compmath::deltaKeyParams(n.params, ev.compFrame);
+        PooledTarget out = newTarget(kit, ev, false);
+        kit.setBlendOver(false);
+        gl->glUseProgram(m_deltaKey.id);
+        kit.setFullscreen(m_deltaKey);
+        gl->glUniform3f(m_dkBg, k.bg[0], k.bg[1], k.bg[2]);
+        gl->glUniform4f(m_dkTune, k.gain, k.balance, k.soft, k.despill);
+        gl->glUniform4f(m_dkClean, k.cleanBg, k.cleanFg, k.low, k.high);
+        gl->glUniform1i(m_dkInvert, k.invert ? 1 : 0);
         kit.bindTexture(0, textureOf(kit, input));
         kit.drawQuad();
         return out;

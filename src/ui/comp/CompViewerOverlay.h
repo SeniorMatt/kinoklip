@@ -60,6 +60,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
 
@@ -74,6 +75,7 @@ private:
         double angleDeg = 0.0;
         QVector<QPointF>
             points; ///< Polygon: CompNode::path points (timeline px around the centre, y down)
+        QVector<double> weights; ///< B-spline mask: the weight of each point
         bool locked = false;
     };
     [[nodiscard]] std::optional<State> state() const;

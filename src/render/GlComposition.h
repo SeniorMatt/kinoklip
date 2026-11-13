@@ -148,6 +148,9 @@ private:
     GLint m_ccLevels = -1, m_ccLgg = -1, m_ccSat = -1;
     GlProgram m_channels;
     GLint m_chSources = -1;
+    GlProgram m_lumaKey, m_deltaKey, m_paintMask;
+    GLint m_lkParams = -1, m_lkInvert = -1, m_dkBg = -1, m_dkTune = -1, m_dkClean = -1,
+          m_dkInvert = -1, m_pmMode = -1;
     GlProgram m_resample;
     GLint m_resampleInverse = -1, m_resampleEdges = -1, m_resampleFilter = -1;
     GLint m_mergeOp = -1, m_mergeAlphaGain = -1, m_mergeSubAdd = -1, m_mergeBurnIn = -1;

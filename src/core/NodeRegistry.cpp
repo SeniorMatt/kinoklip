@@ -68,7 +68,11 @@ QVector<ParamDescriptor> maskCommon()
 {
     return {number(nodekeys::SoftEdge, tr("Soft Edge"), 0, 1, 0, 0.001),
         boolean(nodekeys::Invert, tr("Invert"), false),
-        number(nodekeys::Level, tr("Level"), 0, 1, 1, 0.01)};
+        number(nodekeys::Level, tr("Level"), 0, 1, 1, 0.01),
+        choice(nodekeys::PaintMode, tr("Paint Mode"), paintmodes::ids(),
+            {tr("Merge"), tr("Add"), tr("Subtract"), tr("Minimum"), tr("Maximum"), tr("Multiply"),
+                tr("Replace"), tr("Invert"), tr("Copy"), tr("Ignore")},
+            paintmodes::Merge)};
 }
 
 /// Edges choice (Merge, Transform).
@@ -302,6 +306,8 @@ QString NodeRegistry::categoryName(NodeCategory category)
         return tr("Mask");
     case NodeCategory::Color:
         return tr("Color");
+    case NodeCategory::Matte:
+        return tr("Matte");
     case NodeCategory::Effect:
         return tr("Effects");
     }
@@ -452,6 +458,26 @@ NodeRegistry::NodeRegistry()
         add(d);
     }
     {
+        NodeDescriptor d = node(nodetypes::CornerPositioner, tr("Corner Positioner"),
+            QStringLiteral("CPos"), QStringLiteral("CornerPositioner"), C::Transform,
+            tr("Pins the four corners of the picture to new places (a perspective warp)"));
+        d.inputs = {inputPort(), maskPort()};
+        d.mainInput = nodeports::Input;
+        const char* const names[4] = {QT_TRANSLATE_NOOP("kk::NodeRegistry", "Top Left"),
+            QT_TRANSLATE_NOOP("kk::NodeRegistry", "Top Right"),
+            QT_TRANSLATE_NOOP("kk::NodeRegistry", "Bottom Right"),
+            QT_TRANSLATE_NOOP("kk::NodeRegistry", "Bottom Left")};
+        const double xs[4] = {0, 1, 1, 0}, ys[4] = {1, 1, 0, 0};
+        for (int i = 0; i < nodekeys::kPlanarCorners; ++i) {
+            d.params += number(
+                nodekeys::planarCorner(i, false), tr(names[i]) + tr(" X"), -10, 10, xs[i], 0.001);
+            d.params += number(
+                nodekeys::planarCorner(i, true), tr(names[i]) + tr(" Y"), -10, 10, ys[i], 0.001);
+        }
+        d.controls = ViewerControls::Planar;
+        add(d);
+    }
+    {
         NodeDescriptor d
             = node(nodetypes::Crop, tr("Crop"), QStringLiteral("Crp"), QStringLiteral("Crop"),
                 C::Transform, tr("Cuts the edges off the picture (they become transparent)"));
@@ -552,13 +578,34 @@ NodeRegistry::NodeRegistry()
         d.controls = ViewerControls::Rect;
         return d;
     };
-    add(shapeMask(nodetypes::RectangleMask, tr("Rectangle"), QStringLiteral("Rct"),
-        QStringLiteral("Rectangle"), tr("A rectangular mask")));
+    {
+        NodeDescriptor d = shapeMask(nodetypes::RectangleMask, tr("Rectangle"),
+            QStringLiteral("Rct"), QStringLiteral("Rectangle"), tr("A rectangular mask"));
+        // After Angle, before the shared Soft Edge / Invert / Level / Paint Mode.
+        d.params.insert(d.params.size() - maskCommon().size(),
+            number(nodekeys::CornerRadius, tr("Corner Radius"), 0, 1, 0, 0.001));
+        add(d);
+    }
     add(shapeMask(nodetypes::EllipseMask, tr("Ellipse"), QStringLiteral("Elp"),
         QStringLiteral("Ellipse"), tr("An elliptical mask")));
     {
         NodeDescriptor d = node(nodetypes::PolygonMask, tr("Polygon"), QStringLiteral("Ply"),
             QStringLiteral("Polygon"), C::Mask, tr("A mask from a closed polygon"));
+        d.inputs = {port(nodeports::Mask, tr("Mask"), PortKind::Mask, false)};
+        d.mainInput = nodeports::Mask;
+        d.outputKind = PortKind::Mask;
+        d.params = centre();
+        d.params += {number(k::Size, tr("Size"), 0, 100, 1, 0.01), angle()};
+        d.params += maskCommon();
+        d.controls = ViewerControls::Polygon;
+        add(d);
+    }
+
+    {
+        NodeDescriptor d = node(nodetypes::BSplineMask, tr("B-Spline"), QStringLiteral("BSp"),
+            QStringLiteral("BSpline"), C::Mask,
+            tr("A smooth mask from a closed B-spline; the points pull the curve, a heavier "
+               "point pulls harder"));
         d.inputs = {port(nodeports::Mask, tr("Mask"), PortKind::Mask, false)};
         d.mainInput = nodeports::Mask;
         d.outputKind = PortKind::Mask;
@@ -602,6 +649,43 @@ NodeRegistry::NodeRegistry()
             choice(k::ToGreen, tr("To Green"), values, labels, channelsources::Green),
             choice(k::ToBlue, tr("To Blue"), values, labels, channelsources::Blue),
             choice(k::ToAlpha, tr("To Alpha"), values, labels, channelsources::Alpha)};
+        add(d);
+    }
+
+    // ---- Matte ----
+    {
+        NodeDescriptor d = node(nodetypes::LumaKeyer, tr("Luma Keyer"), QStringLiteral("LKy"),
+            QStringLiteral("LumaKeyer"), C::Matte,
+            tr("Keeps the pixels whose brightness (or another channel) lies between Low and High"));
+        d.inputs = {inputPort(), maskPort()};
+        d.mainInput = nodeports::Input;
+        d.params = {choice(k::KeyChannel, tr("Channel"),
+                        {channelsources::Red, channelsources::Green, channelsources::Blue,
+                            channelsources::Alpha, channelsources::Luma},
+                        {tr("Red"), tr("Green"), tr("Blue"), tr("Alpha"), tr("Luminance")},
+                        channelsources::Luma),
+            number(k::KeyLow, tr("Low"), 0, 1, 0, 0.001),
+            number(k::KeyHigh, tr("High"), 0, 1, 1, 0.001),
+            number(k::SoftRange, tr("Soft Range"), 0, 1, 0, 0.001),
+            boolean(k::Invert, tr("Invert"), false)};
+        add(d);
+    }
+    {
+        NodeDescriptor d = node(nodetypes::DeltaKeyer, tr("Delta Keyer"), QStringLiteral("DKy"),
+            QStringLiteral("DeltaKeyer"), C::Matte,
+            tr("Keys out a green or blue screen and removes its spill"));
+        d.inputs = {inputPort(), maskPort()};
+        d.mainInput = nodeports::Input;
+        d.params = {color(k::Color, tr("Background Color"), QColor(0, 200, 0)),
+            number(k::Gain, tr("Gain"), 0, 4, 1, 0.01),
+            number(k::KeyBalance, tr("Balance"), 0, 1, 0.5, 0.01),
+            number(k::PreSoft, tr("Pre-Matte Soft Range"), 0, 1, 0, 0.01),
+            number(k::CleanBackground, tr("Clean Background"), 0, 1, 0, 0.01),
+            number(k::CleanForeground, tr("Clean Foreground"), 0, 1, 0, 0.01),
+            number(k::MatteLow, tr("Matte Threshold Low"), 0, 1, 0, 0.01),
+            number(k::MatteHigh, tr("Matte Threshold High"), 0, 1, 1, 0.01),
+            number(k::Despill, tr("Despill"), 0, 1, 1, 0.01),
+            boolean(k::Invert, tr("Invert"), false)};
         add(d);
     }
 

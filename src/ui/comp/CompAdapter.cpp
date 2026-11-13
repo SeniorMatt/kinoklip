@@ -21,7 +21,8 @@ namespace {
 /// Library order of the categories.
 constexpr NodeCategory kCategoryOrder[]
     = {NodeCategory::InputOutput, NodeCategory::Composite, NodeCategory::Transform,
-        NodeCategory::Generator, NodeCategory::Mask, NodeCategory::Color, NodeCategory::Effect};
+        NodeCategory::Generator, NodeCategory::Mask, NodeCategory::Color, NodeCategory::Matte,
+        NodeCategory::Effect};
 
 LinkRole roleOf(const NodePort& port)
 {
@@ -113,7 +114,8 @@ QStringList toolbarTypes()
 {
     QStringList out {nodetypes::Background, nodetypes::Text, nodetypes::Merge, nodetypes::Transform,
         nodetypes::RectangleMask, nodetypes::EllipseMask, nodetypes::PolygonMask,
-        NodeRegistry::effectNodeType(QStringLiteral("gaussian_blur")), nodetypes::ColorCorrector,
+        nodetypes::BSplineMask, nodetypes::LumaKeyer, nodetypes::DeltaKeyer,
+        nodetypes::CornerPositioner, NodeRegistry::effectNodeType(QStringLiteral("gaussian_blur")), nodetypes::ColorCorrector,
         NodeRegistry::effectNodeType(QLatin1String(fxid::ChromaKey))};
     out.erase(std::remove_if(
                   out.begin(), out.end(), [](const QString& t) { return nodeType(t) == nullptr; }),

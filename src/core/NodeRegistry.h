@@ -42,6 +42,7 @@ enum class NodeCategory : quint8 {
     Generator, ///< Background, Text, Fast Noise
     Mask, ///< Rectangle, Ellipse, Polygon
     Color, ///< Color Corrector, Channel Booleans
+    Matte, ///< Luma Keyer, Delta Keyer
     Effect ///< every EffectRegistry video effect ("fx:<id>")
 };
 
@@ -123,6 +124,10 @@ inline const QString FastNoise = QStringLiteral("fast_noise");
 inline const QString RectangleMask = QStringLiteral("rectangle_mask");
 inline const QString EllipseMask = QStringLiteral("ellipse_mask");
 inline const QString PolygonMask = QStringLiteral("polygon_mask");
+inline const QString BSplineMask = QStringLiteral("bspline_mask");
+inline const QString LumaKeyer = QStringLiteral("luma_keyer");
+inline const QString DeltaKeyer = QStringLiteral("delta_keyer");
+inline const QString CornerPositioner = QStringLiteral("corner_positioner");
 inline const QString ColorCorrector = QStringLiteral("color_corrector");
 inline const QString ChannelBooleans = QStringLiteral("channel_booleans");
 /// Prefix of the effect nodes: "fx:" + EffectRegistry id.
@@ -222,6 +227,21 @@ inline const QString Seed = QStringLiteral("seed");
 inline const QString SoftEdge = QStringLiteral("softEdge"); ///< fraction of the frame width
 inline const QString Invert = QStringLiteral("invert"); ///< bool
 inline const QString Level = QStringLiteral("level"); ///< mask opacity 0..1
+inline const QString CornerRadius = QStringLiteral("cornerRadius"); ///< Rectangle: fraction of the shorter side, 0..1
+inline const QString PaintMode = QStringLiteral("paintMode"); ///< choice (paintmodes::), how the mask joins the one plugged in
+// Luma Keyer: Channel (channelsources::), Low / High (0..1), Soft Range (0..1), Invert (above).
+inline const QString KeyChannel = QStringLiteral("keyChannel");
+inline const QString KeyLow = QStringLiteral("keyLow");
+inline const QString KeyHigh = QStringLiteral("keyHigh");
+inline const QString SoftRange = QStringLiteral("softRange");
+// Delta Keyer (Color = Background Color; Gain above): screen colour key.
+inline const QString KeyBalance = QStringLiteral("keyBalance"); ///< 0..1 weight of the larger other channel
+inline const QString PreSoft = QStringLiteral("preMatteSoft"); ///< Pre-Matte Soft Range 0..1
+inline const QString CleanBackground = QStringLiteral("cleanBackground"); ///< 0..1
+inline const QString CleanForeground = QStringLiteral("cleanForeground"); ///< 0..1
+inline const QString MatteLow = QStringLiteral("matteLow"); ///< Matte Threshold Low
+inline const QString MatteHigh = QStringLiteral("matteHigh"); ///< Matte Threshold High
+inline const QString Despill = QStringLiteral("despill"); ///< 0..1
 // Color Corrector.
 inline const QString Lift = QStringLiteral("lift"); ///< added to the shadows, -1..1
 inline const QString Gamma = QStringLiteral("gamma"); ///< midtone power, 1 = unchanged
@@ -249,6 +269,26 @@ inline const QString MaskInverted = QStringLiteral("ccMaskInverted"); ///< Apply
 inline const QString MultiplyByMask = QStringLiteral("ccMultiplyByMask");
 inline const QString ProcessAtZero = QStringLiteral("ccProcessAtZero"); ///< default on
 } // namespace nodekeys
+
+/// Paint Mode of a mask node (nodekeys::PaintMode): how the mask joins the mask plugged into it.
+/// M = the incoming matte, m = this mask (after Invert and Level).
+namespace paintmodes {
+inline const QString Merge = QStringLiteral("merge"); ///< m + M (1 - m): the union, default
+inline const QString Add = QStringLiteral("add"); ///< min(M + m, 1)
+inline const QString Subtract = QStringLiteral("subtract"); ///< max(M - m, 0)
+inline const QString Minimum = QStringLiteral("minimum");
+inline const QString Maximum = QStringLiteral("maximum");
+inline const QString Multiply = QStringLiteral("multiply");
+inline const QString Replace = QStringLiteral("replace"); ///< m
+inline const QString Invert = QStringLiteral("invert"); ///< M where m is 0, 1 - M where m is 1
+inline const QString Copy = QStringLiteral("copy"); ///< m where this mask covers, M elsewhere
+inline const QString Ignore = QStringLiteral("ignore"); ///< M
+[[nodiscard]] inline QStringList ids()
+{
+    return {Merge, Add, Subtract, Minimum, Maximum, Multiply, Replace, Invert, Copy, Ignore};
+}
+[[nodiscard]] inline int index(const QString& id) { return ids().indexOf(id); }
+} // namespace paintmodes
 
 /// Merge blend modes (nodekeys::BlendMode values), in the order of the choice list.
 namespace blendmodes {

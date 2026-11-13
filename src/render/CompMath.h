@@ -84,6 +84,53 @@ extern const char* const kResampleGlsl;
 /// Soft edge = feather in + out of soft · width / 2 each; Level = opacity.
 [[nodiscard]] MaskData maskOf(const CompNode& node, int64_t frame, QSizeF frameSize);
 
+/// Paint Mode of a mask node (paintmodes:: index): the matte @p m of a mask joined with the
+/// matte @p incoming that was plugged into it (both 0..1). The GLSL of GlComposition computes
+/// exactly the same.
+[[nodiscard]] float paintMask(int mode, float incoming, float m);
+
+/// The closed B-spline mask's control points (weights in MaskPoint::weight) as a polygon: a
+/// uniform cubic rational B-spline, @p perSegment samples per span. Fewer than three points are
+/// returned as they are.
+[[nodiscard]] MaskPath bsplinePolygon(const MaskPath& controls, int perSegment = 16);
+
+/// Luma Keyer parameters at one frame.
+struct LumaKeyParams
+{
+    int channel = 4; ///< channelsources:: index: 0 R, 1 G, 2 B, 3 A, 4 luma
+    float low = 0, high = 1, soft = 0;
+    bool invert = false;
+};
+[[nodiscard]] LumaKeyParams lumaKeyParams(const ParamSet& p, int64_t frame);
+/// The key (0..1) of straight @p rgba: 1 between Low and High, falling off linearly over the
+/// Soft Range outside them (a step when it is 0); Invert flips it. The pixel's alpha is
+/// multiplied by it. The GLSL pass (GlComposition) computes exactly the same.
+[[nodiscard]] float lumaKey(const LumaKeyParams& k, const float rgba[4]);
+
+/// Delta Keyer parameters at one frame.
+struct DeltaKeyParams
+{
+    float bg[3] = {0, 0.78f, 0}; ///< screen colour, straight
+    float gain = 1, balance = 0.5f, soft = 0, cleanBg = 0, cleanFg = 0;
+    float low = 0, high = 1, despill = 1;
+    bool invert = false;
+};
+[[nodiscard]] DeltaKeyParams deltaKeyParams(const ParamSet& p, int64_t frame);
+/// Keys straight @p rgba (in place: colour despilled, alpha multiplied by the matte). The
+/// screen colour's strongest channel d is the screen channel; "screenness" of a pixel is
+/// c_d - (balance * max(others) + (1 - balance) * min(others)) over the same for the screen
+/// colour; times Gain, the matte is 1 - that (clamped), softened by the Pre-Matte Soft Range
+/// (smoothstep blended in), cut by Clean Background / Foreground, stretched between the Matte
+/// Thresholds, then Invert. Despill pulls c_d down to the others' balanced mean. The GLSL pass
+/// computes exactly the same.
+void deltaKey(const DeltaKeyParams& k, float rgba[4]);
+
+/// Corner Positioner node: maps a timeline pixel of the input to the output (the input frame's
+/// corners go to the four corner points, a perspective map). Identity for the default corners;
+/// a null (singular) transform for a collapsed quad.
+[[nodiscard]] QTransform cornerPositionerMatrix(
+    const ParamSet& p, int64_t frame, QSizeF frameSize);
+
 /// Color Corrector parameters at one frame.
 struct CorrectorParams
 {

@@ -147,7 +147,7 @@ std::optional<CompNode> makeNode(Composition& comp, const QString& type, QPointF
     n.name = uniqueName(comp, d->nameBase);
     n.position = position;
     n.params = NodeRegistry::instance().defaultParams(type);
-    if (type == nodetypes::PolygonMask)
+    if (type == nodetypes::PolygonMask || type == nodetypes::BSplineMask)
         n.path = defaultPolygon(216.0); // a fifth of a 1080 px frame height
     return n;
 }

@@ -321,7 +321,8 @@ MaskData maskOf(const CompNode& node, int64_t frame, QSizeF frameSize)
     MaskData m;
     m.id = node.id;
     m.shape = node.type == nodetypes::EllipseMask ? MaskShape::Ellipse
-        : node.type == nodetypes::PolygonMask     ? MaskShape::Polygon
+        : node.type == nodetypes::PolygonMask || node.type == nodetypes::BSplineMask
+        ? MaskShape::Polygon
                                                   : MaskShape::Rectangle;
     m.invert = p.staticValue(k::Invert, false).toBool();
     m.closed = true;
@@ -339,12 +340,167 @@ MaskData maskOf(const CompNode& node, int64_t frame, QSizeF frameSize)
         const double size = num(p, k::Size, frame, 1.0);
         set(maskkeys::ScaleX, size);
         set(maskkeys::ScaleY, size);
-        m.path = node.path;
+        if (node.type == nodetypes::BSplineMask) {
+            // The curve of the control points at this frame, sampled: one static shape.
+            m.path = AnimatedPath();
+            m.path.shapes[0] = bsplinePolygon(node.path.at(double(frame)));
+        } else {
+            m.path = node.path;
+        }
     } else {
-        set(maskkeys::Width, std::max(0.0, num(p, k::Width, frame, 0.5)) * W);
-        set(maskkeys::Height, std::max(0.0, num(p, k::Height, frame, 0.5)) * H);
+        const double w = std::max(0.0, num(p, k::Width, frame, 0.5)) * W;
+        const double h = std::max(0.0, num(p, k::Height, frame, 0.5)) * H;
+        set(maskkeys::Width, w);
+        set(maskkeys::Height, h);
+        if (node.type == nodetypes::RectangleMask) {
+            // Corner Radius 1 = the shorter side's half (a pill / circle).
+            set(maskkeys::CornerRadius,
+                std::clamp(num(p, k::CornerRadius, frame, 0.0), 0.0, 1.0) * std::min(w, h) / 2);
+        }
     }
     return m;
+}
+
+float paintMask(int mode, float M, float m)
+{
+    switch (mode) {
+    case 1:
+        return std::min(M + m, 1.0f);
+    case 2:
+        return std::max(M - m, 0.0f);
+    case 3:
+        return std::min(M, m);
+    case 4:
+        return std::max(M, m);
+    case 5:
+        return M * m;
+    case 6:
+        return m;
+    case 7:
+        return M + m * (1.0f - 2.0f * M);
+    case 8:
+        return m > 0.0f ? m : M;
+    case 9:
+        return M;
+    default:
+        return m + M * (1.0f - m);
+    }
+}
+
+MaskPath bsplinePolygon(const MaskPath& c, int perSegment)
+{
+    const qsizetype n = c.size();
+    if (n < 3)
+        return c;
+    MaskPath out;
+    out.reserve(n * perSegment);
+    for (qsizetype i = 0; i < n; ++i) {
+        const MaskPoint* pt[4] = {&c[(i + n - 1) % n], &c[i], &c[(i + 1) % n], &c[(i + 2) % n]};
+        for (int s = 0; s < perSegment; ++s) {
+            const double t = double(s) / perSegment, t2 = t * t, t3 = t2 * t;
+            const double b[4] = {(1 - t) * (1 - t) * (1 - t) / 6.0, (3 * t3 - 6 * t2 + 4) / 6.0,
+                (-3 * t3 + 3 * t2 + 3 * t + 1) / 6.0, t3 / 6.0};
+            double sum = 0, x = 0, y = 0;
+            for (int j = 0; j < 4; ++j) {
+                const double w = b[j] * std::max(0.0, pt[j]->weight);
+                sum += w;
+                x += w * pt[j]->x;
+                y += w * pt[j]->y;
+            }
+            MaskPoint q;
+            if (sum > 1e-12) {
+                q.x = x / sum;
+                q.y = y / sum;
+            } else {
+                q.x = pt[1]->x;
+                q.y = pt[1]->y;
+            }
+            out.append(q);
+        }
+    }
+    return out;
+}
+
+LumaKeyParams lumaKeyParams(const ParamSet& p, int64_t frame)
+{
+    LumaKeyParams k;
+    const int ch = channelsources::index(p.staticValue(k::KeyChannel).toString());
+    k.channel = ch >= 0 && ch <= 4 ? ch : 4;
+    k.low = float(std::clamp(num(p, k::KeyLow, frame, 0.0), 0.0, 1.0));
+    k.high = float(std::clamp(num(p, k::KeyHigh, frame, 1.0), 0.0, 1.0));
+    k.soft = float(std::clamp(num(p, k::SoftRange, frame, 0.0), 0.0, 1.0));
+    k.invert = p.staticValue(k::Invert, false).toBool();
+    return k;
+}
+
+float lumaKey(const LumaKeyParams& k, const float c[4])
+{
+    const float v
+        = k.channel == 4 ? 0.2126f * c[0] + 0.7152f * c[1] + 0.0722f * c[2] : c[k.channel];
+    const float lo = k.soft > 0 ? std::clamp((v - (k.low - k.soft)) / k.soft, 0.0f, 1.0f)
+                                : (v >= k.low ? 1.0f : 0.0f);
+    const float hi = k.soft > 0 ? std::clamp(((k.high + k.soft) - v) / k.soft, 0.0f, 1.0f)
+                                : (v <= k.high ? 1.0f : 0.0f);
+    const float a = lo * hi;
+    return k.invert ? 1.0f - a : a;
+}
+
+DeltaKeyParams deltaKeyParams(const ParamSet& p, int64_t frame)
+{
+    DeltaKeyParams k;
+    const QColor bg = p.staticValue(k::Color, QColor(0, 200, 0)).value<QColor>();
+    if (bg.isValid()) {
+        k.bg[0] = float(bg.redF());
+        k.bg[1] = float(bg.greenF());
+        k.bg[2] = float(bg.blueF());
+    }
+    k.gain = float(std::clamp(num(p, k::Gain, frame, 1.0), 0.0, 4.0));
+    k.balance = float(std::clamp(num(p, k::KeyBalance, frame, 0.5), 0.0, 1.0));
+    k.soft = float(std::clamp(num(p, k::PreSoft, frame, 0.0), 0.0, 1.0));
+    k.cleanBg = float(std::clamp(num(p, k::CleanBackground, frame, 0.0), 0.0, 1.0));
+    k.cleanFg = float(std::clamp(num(p, k::CleanForeground, frame, 0.0), 0.0, 1.0));
+    k.low = float(std::clamp(num(p, k::MatteLow, frame, 0.0), 0.0, 1.0));
+    k.high = float(std::clamp(num(p, k::MatteHigh, frame, 1.0), 0.0, 1.0));
+    k.despill = float(std::clamp(num(p, k::Despill, frame, 1.0), 0.0, 1.0));
+    k.invert = p.staticValue(k::Invert, false).toBool();
+    return k;
+}
+
+void deltaKey(const DeltaKeyParams& k, float c[4])
+{
+    int d = 0;
+    for (int i = 1; i < 3; ++i)
+        if (k.bg[i] > k.bg[d])
+            d = i;
+    const int o1 = (d + 1) % 3, o2 = (d + 2) % 3;
+    const auto others = [&](const float* v) {
+        return k.balance * std::max(v[o1], v[o2]) + (1.0f - k.balance) * std::min(v[o1], v[o2]);
+    };
+    const float ref = std::max(k.bg[d] - others(k.bg), 1e-3f);
+    const float screen = (c[d] - others(c)) / ref * k.gain;
+    float m = 1.0f - std::clamp(screen, 0.0f, 1.0f);
+    m = m + (m * m * (3.0f - 2.0f * m) - m) * k.soft;
+    m = std::clamp((m - k.cleanBg) / std::max(1.0f - k.cleanBg - k.cleanFg, 1e-3f), 0.0f, 1.0f);
+    m = std::clamp((m - k.low) / std::max(k.high - k.low, 1e-3f), 0.0f, 1.0f);
+    if (k.invert)
+        m = 1.0f - m;
+    c[d] = c[d] + (std::min(c[d], others(c)) - c[d]) * k.despill;
+    c[3] *= m;
+}
+
+QTransform cornerPositionerMatrix(const ParamSet& p, int64_t frame, QSizeF frameSize)
+{
+    static constexpr double kX[4] = {0, 1, 1, 0};
+    static constexpr double kY[4] = {1, 1, 0, 0};
+    QPolygonF from, to;
+    from << QPointF(0, 0) << QPointF(frameSize.width(), 0)
+         << QPointF(frameSize.width(), frameSize.height()) << QPointF(0, frameSize.height());
+    for (int i = 0; i < k::kPlanarCorners; ++i) {
+        to << toFrame(num(p, k::planarCorner(i, false), frame, kX[i]),
+            num(p, k::planarCorner(i, true), frame, kY[i]), frameSize);
+    }
+    QTransform t;
+    return QTransform::quadToQuad(from, to, t) ? t : QTransform();
 }
 
 bool CorrectorParams::isIdentity() const
