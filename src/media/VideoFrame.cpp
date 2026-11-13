@@ -15,6 +15,8 @@ extern "C" {
 }
 
 #include <QElapsedTimer>
+#include <QSet>
+#include <mutex>
 
 #include <optional>
 
@@ -316,6 +318,24 @@ QString VideoFrameFactory::lastErrorString() const
     return text;
 }
 
+namespace {
+/// Why a decoder gave up on DMA-BUF export, once per distinct reason and process (warning
+/// level: zero-copy was asked for and not delivered, e.g. by NVIDIA's VA-API driver).
+void logExportFailure(const QString& why)
+{
+    static std::mutex mutex;
+    static QSet<QString> seen;
+    {
+        const std::lock_guard lock(mutex);
+        if (seen.contains(why))
+            return;
+        seen.insert(why);
+    }
+    qCWarning(lcMedia).noquote() << "zero-copy decoding: DMA-BUF export unavailable (" << why
+                                 << "); this decoder downloads its frames to system memory";
+}
+} // namespace
+
 std::shared_ptr<const VideoFrame> VideoFrameFactory::makeDmaBuf(
     const AVFrame* hwFrame, const FrameMeta& meta)
 {
@@ -324,8 +344,8 @@ std::shared_ptr<const VideoFrame> VideoFrameFactory::makeDmaBuf(
     if (frames->device_ctx->type != AV_HWDEVICE_TYPE_VAAPI
         || (frames->sw_format != AV_PIX_FMT_NV12 && !is10)) {
         m_exportFailed = true; // 8/10-bit 4:2:0 only: the shader reads exactly these layouts
-        qCDebug(lcMedia) << "zero-copy: surface format" << av_get_pix_fmt_name(frames->sw_format)
-                         << "is not exported; downloading";
+        logExportFailure(QStringLiteral("surface format %1 is not exported (8/10-bit 4:2:0 only)")
+                .arg(QString::fromUtf8(av_get_pix_fmt_name(frames->sw_format))));
         return nullptr;
     }
     m_lastError = 0;
@@ -347,6 +367,7 @@ std::shared_ptr<const VideoFrame> VideoFrameFactory::makeDmaBuf(
     // separate layers, one per plane. FFmpeg keeps a reference to the surface in `drm`.
     const int ret = av_hwframe_map(drm.get(), hwFrame, AV_HWFRAME_MAP_READ);
     if (ret == AVERROR(EIO)) {
+        logExportFailure(QStringLiteral("surface export failed: ") + capture.firstError());
         m_lastError = ret;
         m_lastErrorText = capture.firstError();
         return nullptr; // the surface is bad; the caller's download reports it the usual way
@@ -355,8 +376,7 @@ std::shared_ptr<const VideoFrame> VideoFrameFactory::makeDmaBuf(
         = ret >= 0 ? reinterpret_cast<const AVDRMFrameDescriptor*>(drm->data[0]) : nullptr;
     auto fail = [&](const QString& why) {
         m_exportFailed = true;
-        qCDebug(lcMedia).noquote()
-            << "zero-copy: DMA-BUF export unavailable (" << why << "); downloading frames";
+        logExportFailure(why);
         return std::shared_ptr<const VideoFrame>();
     };
     if (!desc) {

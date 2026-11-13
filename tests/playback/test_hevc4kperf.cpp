@@ -5,6 +5,9 @@
 //   KK_HEVC_FPS=25|60  KK_HEVC_BITS=8|10  KK_HEVC_TL=3840x2160|1920x1080  KK_HEVC_PROXY=0|1
 //   KK_HEVC_CRF=<x265 quality, default 24>   KK_HEVC_DIR=<folder for the generated clip>
 //   KK_HEVC_HW=1 (allow hardware decoding)
+//   KK_HEVC_FILE=<clip>  play this existing clip instead of a generated one (fps and bit depth are
+//                        read from it); prints decoder-only speed (software and, with KK_HEVC_HW=1,
+//                        the hardware path) and the playback stages
 //   KK_HEVC_BGJOB=1  generate the clip's proxy in the background while it plays (the editor's
 //                    proxy / render cache queues: does a background job disturb playback?)
 // The clip file name carries the CRF when it is set (a clip made by other means can be put there).
@@ -19,6 +22,7 @@
 #include "render/ProxySelection.h"
 
 #include <QDir>
+#include <cmath>
 #include <QElapsedTimer>
 #include <QProcess>
 #include <QSettings>
@@ -44,17 +48,26 @@ private slots:
 
     void play()
     {
-        const int fps = qEnvironmentVariableIntValue("KK_HEVC_FPS")
+        int fps = qEnvironmentVariableIntValue("KK_HEVC_FPS")
             ? qEnvironmentVariableIntValue("KK_HEVC_FPS")
             : 25;
-        const int bits = qEnvironmentVariableIntValue("KK_HEVC_BITS") == 10 ? 10 : 8;
+        int bits = qEnvironmentVariableIntValue("KK_HEVC_BITS") == 10 ? 10 : 8;
         const bool proxy = qEnvironmentVariableIntValue("KK_HEVC_PROXY") != 0;
         const QStringList tl = qEnvironmentVariable("KK_HEVC_TL", "3840x2160").split('x');
         const int tw = tl.value(0).toInt(), th = tl.value(1).toInt();
         const QString dir = qEnvironmentVariable("KK_HEVC_DIR", QDir::tempPath());
         QDir().mkpath(dir);
-        const QString src = QStringLiteral("%1/hevc4k_%2fps_%3bit%4.mp4").arg(dir).arg(fps).arg(bits).arg(qEnvironmentVariableIsSet("KK_HEVC_CRF") ? QStringLiteral("_crf") + qEnvironmentVariable("KK_HEVC_CRF") : QString());
-        if (!QFile::exists(src)) {
+        QString src = QStringLiteral("%1/hevc4k_%2fps_%3bit%4.mp4").arg(dir).arg(fps).arg(bits).arg(qEnvironmentVariableIsSet("KK_HEVC_CRF") ? QStringLiteral("_crf") + qEnvironmentVariable("KK_HEVC_CRF") : QString());
+        const QString given = qEnvironmentVariable("KK_HEVC_FILE");
+        if (!given.isEmpty()) {
+            src = given;
+            media::VideoDecoder probe;
+            QVERIFY(probe.open(src));
+            const media::MediaInfo mi = probe.info();
+            qInfo("CLIP %s %dx%d %s %s", qPrintable(src), mi.width, mi.height, qPrintable(mi.pixelFormat), qPrintable(mi.videoCodec));
+            fps = int(std::lround(mi.frameRate.num / double(std::max(1, mi.frameRate.den))));
+            bits = mi.pixelFormat.contains(QLatin1String("10")) ? 10 : 8;
+        } else if (!QFile::exists(src)) {
             QProcess ff;
             ff.start(QStringLiteral("ffmpeg"),
                 {"-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-f", "lavfi", "-i",
