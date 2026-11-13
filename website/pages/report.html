@@ -1,0 +1,52 @@
+<section class="page-head">
+<div class="wrap" data-anim>
+<p class="kicker a-rise">Report a bug</p>
+<h1 class="a-rise" style="--i:1">Something broke? Tell us.</h1>
+<p class="lead a-rise" style="--i:2">You do not need to be an expert. Say what you did and what went wrong, in your own words. Bugs are tracked on GitHub so they do not get lost in chat.</p>
+</div>
+</section>
+
+<section class="section tight">
+<div class="wrap">
+<div class="section-head"><p class="kicker">Before you write</p><h2>Two things that help most</h2></div>
+<ol class="steps">
+<li><h3>Use the newest version</h3><p>The problem may already be fixed. Get it from the <a href="{{root}}download/">download page</a>.</p></li>
+<li><h3>Save a log file</h3><p>In Kinoklip choose <strong>Help &gt; Export Log File...</strong>, read the text, and save it. It says which decoder Kinoklip used for each video, whether the graphics card was used, and every warning. Nothing is written to disk or sent anywhere until you save the file yourself. You can attach it on the next step. <a href="{{root}}guide/send-a-log-file-with-a-bug-report/">How to send a log file</a></p></li>
+</ol>
+<p class="muted" style="margin-top:24px">Tip: <strong>Help &gt; Report a Bug or Inconsistency...</strong> inside Kinoklip fills in the version and system info for you. You see the text before anything is shared.</p>
+</div>
+</section>
+
+<section class="section band" id="form">
+<div class="wrap">
+<div class="section-head"><p class="kicker">Write it down</p><h2>Open a prefilled GitHub issue</h2>
+<p class="lead">This page cannot send anything itself. Fill in what you know and the button opens a new GitHub issue with your text already in it. You need a free GitHub account to submit it; if you do not have one, ask on Discord instead (below).</p></div>
+<form class="form" data-bugform data-issue-url="https://github.com/SeniorMatt/kinoklip/issues/new">
+<label for="f-actual">What happened <span>Include any error message you saw.</span></label>
+<textarea id="f-actual" name="actual" required></textarea>
+<label for="f-steps">Steps to reproduce <span>What did you do, step by step, so we can make it happen again?</span></label>
+<textarea id="f-steps" name="steps" required placeholder="1. Open a new project&#10;2. Import a video and drag it onto the timeline&#10;3. Press B and click in the middle of the clip"></textarea>
+<label for="f-expected">What you expected</label>
+<textarea id="f-expected" name="expected" style="min-height:80px"></textarea>
+<div class="two">
+<label for="f-version">Kinoklip version <span>Shown in the About box.</span><input id="f-version" name="version" required placeholder="{{version_short}}"></label>
+<label for="f-page">Where in Kinoklip?<span>Optional.</span>
+<select id="f-page" name="page"><option value="">Not sure</option><option>Media</option><option>Cut</option><option>Edit</option><option>Compositing</option><option>Color</option><option>Audio</option><option>Deliver</option><option>Project Manager</option><option>Other</option></select></label>
+</div>
+<label for="f-env">Linux distribution and desktop <span>For example: Linux Mint 22.1, KDE Plasma, Wayland.</span></label>
+<input id="f-env" name="environment" placeholder="Linux Mint 22.1, KDE Plasma, Wayland">
+<div class="cta-row"><button class="btn btn-primary btn-lg" type="submit">Open the GitHub issue</button></div>
+<p class="muted" style="margin:0;font-size:15px" data-issue-preview-wrap>On GitHub you can still edit everything, drag in your log file and add screenshots before you submit. <a data-issue-preview href="#" hidden>Link did not open? Use this one.</a></p>
+</form>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap">
+<div class="community">
+<div class="panel"><h3>Ask on Discord</h3><p>No GitHub account, or not sure it is a bug? Ask in the Kinoklip server.</p><a class="btn btn-quiet" href="https://discord.gg/pCeHnvDn3x">Join Discord</a></div>
+<div class="panel"><h3>Something else</h3><p>An idea for a feature, or a place where Kinoklip behaves differently from Resolve?</p>
+<div class="alt"><a class="btn btn-quiet" href="https://github.com/SeniorMatt/kinoklip/issues/new?template=feature_request.yml">Request a feature</a><a class="btn btn-quiet" href="https://github.com/SeniorMatt/kinoklip/issues/new?template=resolve_difference.yml">Difference from Resolve</a></div></div>
+</div>
+</div>
+</section>

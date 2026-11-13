@@ -66,3 +66,12 @@ open window (Preferences > Local Control). `kinoklip mcp` serves the same comman
 assistant (MCP) on stdin / stdout, see [docs/guide/control-kinoklip-from-an-ai-assistant.md](guide/control-kinoklip-from-an-ai-assistant.md). The older options above
 (`--render`, `--render-frame`, `--screenshot`, ...) are unchanged. Tests: `test_commands` (the
 layer), `test_cli` (the built binary as a process) and `test_livecontrol` (the open window).
+
+## Build the website locally
+The website (GitHub Pages) is plain HTML made from `website/`, `docs/guide/` and `docs/releases/`.
+It needs Python 3 and the `markdown` module.
+
+```sh
+python3 scripts/build_website.py --check   # writes _site/ and checks every link, image and tag
+python3 -m http.server -d _site            # then open http://localhost:8000/
+```
