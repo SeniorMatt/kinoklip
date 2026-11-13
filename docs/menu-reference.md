@@ -107,7 +107,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Compositing Page > Swap Inputs | Ctrl+T | Compositing page: swaps the two main inputs of the current node. |
 | Compositing Page > View in Left Viewer | 1 | Compositing page: shows the selected node in the left viewer. |
 | Compositing Page > View in Right Viewer | 2 | Compositing page: shows the selected node in the right viewer. |
-| Compositing Page > Fit Nodes to View | Ctrl+F | Compositing page: fits all nodes into the node editor. |
+| Compositing Page > Fit Nodes to View | Shift+F | Compositing page: fits all nodes into the node editor. |
 | Compositing Page > Snap Nodes to Grid (toggle) |  | Compositing page: makes dragged nodes snap to a grid. |
 | Color Page > Add Serial Node | Alt+S | Color page: adds a serial node after the current node. |
 | Color Page > Add Parallel Node | Alt+P | Color page: adds a parallel node next to the current node. |
@@ -889,7 +889,7 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Swap Inputs | Ctrl+T | Compositing page: swaps the two main inputs of the current node. |
 | View in Left Viewer | 1 | Compositing page: shows the selected node in the left viewer. |
 | View in Right Viewer | 2 | Compositing page: shows the selected node in the right viewer. |
-| Fit to View | Ctrl+F | Compositing page: fits all nodes into the node editor. |
+| Fit to View | Shift+F | Compositing page: fits all nodes into the node editor. |
 | Snap to Grid (toggle) |  | Compositing page: makes dragged nodes snap to a grid. |
 
 ## Streamlined Grade (Color page)

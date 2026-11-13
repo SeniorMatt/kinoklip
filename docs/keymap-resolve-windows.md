@@ -418,7 +418,7 @@ that every command has an entry and that no key is used twice.
 | Swap Inputs (background and foreground of Merge / Dissolve) | `comp.swap_inputs` | `Ctrl+T` | likely | acts while the node editor has focus |
 | View Node in Left Viewer | `comp.view_left` | `1` | sure | acts while the node editor has focus |
 | View Node in Right Viewer | `comp.view_right` | `2` | sure | acts while the node editor has focus |
-| Fit Nodes to View | `comp.fit` | `Ctrl+F` | unsure | acts while the node editor has focus; Resolve's default not confirmed |
+| Fit Nodes to View | `comp.fit` | `Shift+F` | unsure | acts while the node editor has focus; Resolve's default not confirmed |
 | Snap Nodes to Grid | `comp.snap_grid` | (none) | unsure | node editor context menu option; no default key known |
 
 ## Color page

@@ -42,7 +42,7 @@ composition.
 ## Find your way around the node editor
 
 - **Move** a node by dragging it. **Pan** with the middle mouse button (or hold **Space** and
-  drag); **zoom** with the mouse wheel; **Ctrl+F** fits all nodes into view.
+  drag); **zoom** with the mouse wheel; **Shift+F** fits all nodes into view.
 - **Show a node in a viewer:** select it and press **1** (left viewer) or **2** (right viewer).
   Handy to look at the text alone, or at the clip before the text.
 - **Add other nodes:** the buttons above the node editor add the most common ones after the
@@ -51,6 +51,16 @@ composition.
 - **Turn a node off** for a moment: select it and press **Ctrl+P**; press it again to turn it
   back on.
 - **Delete** a node: select it and press **Delete**. **Ctrl+Z** undoes every step.
+- **Insert a node into a link:** drag a tool from the buttons or the Nodes list onto a link,
+  or hold **Shift** and drag a node that already has links onto the link; it leaves its old
+  place and joins the new one. **Shift+drag on a link** pulls the link off both ends.
+- **Find a node:** with the node editor focused press **Ctrl+F**, type part of a name or
+  type; matching nodes are selected and framed. **Esc** closes the field.
+- **Right-click a node** for **Replace With** (another tool with the same inputs; links and
+  matching settings stay), **Set Color** and **Tile Picture** (a small picture of the node's
+  result on its tile). Hover a node to see its type and key settings.
+- **Copy settings between nodes:** copy a node with **Ctrl+C**, select another node of the
+  same type and press **Ctrl+Shift+V**.
 
 ## Spline and Keyframes panels
 

@@ -86,6 +86,25 @@ bool disconnect(Composition& comp, quint64 to, const QString& port);
 /// not connected, @p node has no main input, the kinds do not fit or it would make a cycle.
 bool insertIntoLink(Composition& comp, quint64 node, quint64 to, const QString& port);
 
+/// Shift-drag of an existing tile onto a link: @p node leaves its place (what read it now
+/// reads its main input's source, or nothing; its main input is cleared) and is inserted as
+/// insertIntoLink() does. Nothing changes when the move is refused (kinds, cycle).
+bool moveIntoLink(Composition& comp, quint64 node, quint64 to, const QString& port);
+
+/// Node types a node of type @p type can be replaced by: the same input ports (ids, kinds),
+/// main input, output count and output kind, never MediaOut. Excludes @p type itself.
+[[nodiscard]] QStringList replacementTypes(const QString& type);
+
+/// Replace Tool: node @p node becomes a node of type @p type. Links in and out are kept; a
+/// parameter with the same key in both types is carried over, the others get the new type's
+/// defaults. A name made of the old base and a number follows the new type. False when
+/// @p type is not in replacementTypes() or the node is locked.
+bool replaceType(Composition& comp, quint64 node, const QString& type);
+
+/// Paste Settings: copies the parameters of @p from onto every node of @p targets with the
+/// same type (locked nodes and @p from itself are skipped). Returns the number changed.
+int pasteSettings(Composition& comp, const CompNode& from, const QVector<quint64>& targets);
+
 /// Fusion's "drop a connection on an output": a Merge is added right of @p target with
 /// @p target as its background and @p fg (the dragged node) as its foreground; everything that
 /// read @p target (except @p fg and the Merge) now reads the Merge, so the chain continues

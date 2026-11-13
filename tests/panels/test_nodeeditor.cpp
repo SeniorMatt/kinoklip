@@ -6,6 +6,7 @@
 #include "PanelTestUtils.h"
 #include "core/CompOps.h"
 #include "core/NodeRegistry.h"
+#include "core/Serialization.h"
 #include "core/Timeline.h"
 #include "ui/common/Resources.h"
 #include "ui/comp/CompAdapter.h"
@@ -14,6 +15,8 @@
 #include "ui/comp/NodeLibrary.h"
 
 #include <QApplication>
+#include <QJsonDocument>
+#include <QMenu>
 #include <QElapsedTimer>
 #include <QImage>
 #include <QLineEdit>
@@ -23,6 +26,7 @@
 #include <QUndoStack>
 
 #include <ctime>
+#include <future>
 #include <memory>
 
 using namespace kk;
@@ -377,6 +381,255 @@ private slots:
         QCOMPARE(f.session->selectedNotes(), QVector<quint64> {note});
         QVERIFY(f.session->deleteSelection());
         QVERIFY(f.comp().notes.isEmpty());
+    }
+
+
+    // ---- Spec 93: node editor extras ----
+
+    void spec93_shiftDragInsertsAConnectedNode()
+    {
+        Fixture f;
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        const quint64 out = f.comp().mediaOutId;
+        const quint64 bg = f.session->addNodeAt(nodetypes::Background, QPointF(0, 4));
+        const quint64 t = f.session->addNodeAt(nodetypes::Transform, QPointF(4, 4));
+        f.session->connectNodes(bg, t, nodeports::Input);
+        const QPointF onLink = (f.editor->outputPos(*f.node(in))
+                                   + f.editor->inputPos(*f.node(out), nodeports::Input))
+            / 2;
+        // Without Shift a connected tile only moves.
+        f.session->setSelection({t});
+        f.drag(f.centreOf(t), onLink);
+        QCOMPARE(f.node(out)->inputs.value(nodeports::Input).nodeId, in);
+        // With Shift (the tile was already selected) it leaves its place and joins the link.
+        f.session->edit(QStringLiteral("Place"), [t](Composition& c) {
+            c.node(t)->position = QPointF(4, 4);
+            return true;
+        });
+        const QPointF onLink2 = (f.editor->outputPos(*f.node(in))
+                                    + f.editor->inputPos(*f.node(out), nodeports::Input))
+            / 2;
+        const int before = f.steps();
+        f.session->setSelection({t});
+        f.drag(f.centreOf(t), onLink2, Qt::ShiftModifier);
+        QCOMPARE(f.steps(), before + 1);
+        QCOMPARE(f.node(out)->inputs.value(nodeports::Input).nodeId, t);
+        QCOMPARE(f.node(t)->inputs.value(nodeports::Input).nodeId, in);
+        QVERIFY(f.comp().node(bg));
+        // Undo restores the old connection of the tile in one step.
+        f.project.undoStack()->undo();
+        QCOMPARE(f.node(out)->inputs.value(nodeports::Input).nodeId, in);
+        QCOMPARE(f.node(t)->inputs.value(nodeports::Input).nodeId, bg);
+    }
+
+    void spec93_shiftClickStillTogglesTheSelection()
+    {
+        Fixture f;
+        const quint64 a = f.session->addNodeAt(nodetypes::Transform, QPointF(4, 4));
+        const quint64 b = f.session->addNodeAt(nodetypes::Transform, QPointF(4, 6));
+        f.session->setSelection({a, b}, {}, b);
+        f.click(f.centreOf(b), Qt::ShiftModifier);
+        QCOMPARE(f.session->selectedNodes(), QVector<quint64>({a}));
+        f.click(f.centreOf(b), Qt::ShiftModifier);
+        QCOMPARE(f.session->selectedNodes().size(), 2);
+    }
+
+    void spec93_moveIntoLinkBridgesAndRefusesCycles()
+    {
+        Composition c = compadapter::defaultComposition();
+        const quint64 in = c.nodes.first().id;
+        const quint64 out = c.mediaOutId;
+        const quint64 a = compadapter::addNode(c, nodetypes::Transform, QPointF(2, 0));
+        const quint64 b = compadapter::addNode(c, nodetypes::Transform, QPointF(4, 0));
+        compadapter::connectNodes(c, in, 0, a, nodeports::Input);
+        compadapter::connectNodes(c, a, 0, b, nodeports::Input);
+        compadapter::connectNodes(c, b, 0, out, nodeports::Input);
+        // Move b (in the middle of in -> a -> b -> out) onto the in -> a link: out now reads a.
+        QVERIFY(compops::moveIntoLink(c, b, a, nodeports::Input));
+        QCOMPARE(c.node(out)->inputs.value(nodeports::Input).nodeId, a);
+        QCOMPARE(c.node(a)->inputs.value(nodeports::Input).nodeId, b);
+        QCOMPARE(c.node(b)->inputs.value(nodeports::Input).nodeId, in);
+        // A refused move changes nothing.
+        const Composition before = c;
+        QVERIFY(!compops::moveIntoLink(c, a, a, nodeports::Input));
+        QVERIFY(c == before);
+    }
+
+    void spec93_swapInputsIsOnMerge()
+    {
+        Fixture f;
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        const quint64 bg = f.session->addNodeAt(nodetypes::Background, QPointF(0, 3));
+        const quint64 merge = f.session->addNodeAt(nodetypes::Merge, QPointF(5, 3));
+        f.session->connectNodes(in, merge, nodeports::Background);
+        f.session->connectNodes(bg, merge, nodeports::Foreground);
+        f.session->setSelection({merge});
+        QVERIFY(f.session->swapInputs());
+        QCOMPARE(f.node(merge)->inputs.value(nodeports::Background).nodeId, bg);
+    }
+
+    void spec93_tilePicturesAreRenderedLazilyAndSaved()
+    {
+        Fixture f;
+        int requests = 0;
+        f.editor->setThumbnailSource([&requests](quint64, QSize px) {
+            ++requests;
+            auto frame = std::make_shared<RenderedFrame>();
+            frame->ok = true;
+            frame->image = QImage(px, QImage::Format_ARGB32_Premultiplied);
+            frame->image.fill(Qt::red);
+            std::promise<RenderedFramePtr> promise;
+            promise.set_value(frame);
+            return promise.get_future();
+        });
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        // Off by default: nothing is rendered and nothing is written.
+        QCOMPARE(f.editor->refreshTilePictures(), 0);
+        QCOMPARE(requests, 0);
+        QVERIFY(!QJsonDocument(serialization::compositionToJson(f.comp())).toJson().contains("thumb"));
+        f.session->setSelection({in});
+        QVERIFY(f.session->setNodeThumbnails(true));
+        QVERIFY(f.node(in)->thumbnail);
+        QTRY_VERIFY_WITH_TIMEOUT(!f.editor->tilePicture(in).isNull(), 3000);
+        QCOMPARE(requests, 1);
+        QImage target(f.editor->size(), QImage::Format_ARGB32_Premultiplied);
+        f.editor->render(&target); // paints the picture on the tile
+        const Composition back = serialization::compositionFromJson(serialization::compositionToJson(f.comp()));
+        QVERIFY(back.node(in)->thumbnail);
+        // The context menu offers the toggle, checked.
+        QMenu* menu = f.editor->buildContextMenu(f.centreOf(in), f.editor.get());
+        QAction* toggle = menu->findChild<QAction*>(QStringLiteral("TilePictureAction"));
+        QVERIFY(toggle && toggle->isChecked());
+        delete menu;
+        QVERIFY(f.session->setNodeThumbnails(false));
+        QVERIFY(!QJsonDocument(serialization::compositionToJson(f.comp())).toJson().contains("thumb"));
+    }
+
+    void spec93_tooltipNamesTheNodeAndItsSettings()
+    {
+        Fixture f;
+        const quint64 t = f.session->addNodeAt(nodetypes::Transform, QPointF(4, 4));
+        const QString tip = f.editor->tooltipAt(f.centreOf(t));
+        QVERIFY2(tip.contains(f.node(t)->name), qPrintable(tip));
+        QVERIFY2(tip.contains(compadapter::nodeType(nodetypes::Transform)->name), qPrintable(tip));
+        QVERIFY(tip.contains(QLatin1Char(':'))); // at least one setting
+        QVERIFY(f.editor->tooltipAt(QPointF(2, 2)).isEmpty());
+    }
+
+    void spec93_replaceToolKeepsLinksAndSharedSettings()
+    {
+        Fixture f;
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        const quint64 out = f.comp().mediaOutId;
+        const quint64 t
+            = f.session->addNodeAt(nodetypes::Transform, QPointF(4, 4), out, nodeports::Input);
+        QCOMPARE(f.node(t)->inputs.value(nodeports::Input).nodeId, in);
+        const QStringList types = compops::replacementTypes(nodetypes::Transform);
+        QVERIFY(!types.isEmpty());
+        QVERIFY(compops::replacementTypes(nodetypes::MediaOut).isEmpty());
+        f.session->edit(QStringLiteral("Blend"), [t](Composition& c) {
+            c.node(t)->params.setBase(QStringLiteral("ccBlend"), 0.25);
+            return true;
+        });
+        // The context menu lists them.
+        QMenu* menu = f.editor->buildContextMenu(f.centreOf(t), f.editor.get());
+        QVERIFY(menu->findChild<QMenu*>(QStringLiteral("ReplaceToolMenu")));
+        delete menu;
+        const int before = f.steps();
+        QVERIFY(f.session->replaceNode(t, types.first()));
+        QCOMPARE(f.steps(), before + 1);
+        QCOMPARE(f.node(t)->type, types.first());
+        QCOMPARE(f.node(t)->inputs.value(nodeports::Input).nodeId, in);
+        QCOMPARE(f.node(out)->inputs.value(nodeports::Input).nodeId, t);
+        QCOMPARE(f.node(t)->params.value(QStringLiteral("ccBlend"), 0), 0.25);
+        QVERIFY(!f.session->replaceNode(t, nodetypes::MediaOut));
+    }
+
+    void spec93_findSelectsAndFramesOnlyWithEditorFocus()
+    {
+        Fixture f;
+        const quint64 a = f.session->addNodeAt(nodetypes::Transform, QPointF(40, 30));
+        f.session->addNodeAt(nodetypes::Background, QPointF(0, 6));
+        QCOMPARE(f.editor->findNodes(QStringLiteral("transform")), 1);
+        QCOMPARE(f.session->selectedNodes(), QVector<quint64>({a}));
+        QVERIFY(f.editor->rect().contains(f.editor->tileRect(*f.node(a)).center().toPoint()));
+        QCOMPARE(f.editor->findNodes(QStringLiteral("nothing like this")), 0);
+        QVERIFY(f.session->selectedNodes().isEmpty());
+        // Ctrl+F opens the field; typing selects; Esc closes it.
+        QVERIFY(!f.editor->findField());
+        QTest::keyClick(f.editor.get(), Qt::Key_F, Qt::ControlModifier);
+        QVERIFY(f.editor->findField());
+        QTest::keyClicks(f.editor->findField(), QStringLiteral("backg"));
+        QCOMPARE(f.session->selectedNodes().size(), 1);
+        QTest::keyClick(f.editor->findField(), Qt::Key_Escape);
+        QVERIFY(!f.editor->findField());
+        // The key is claimed through the shortcut override only for the editor itself.
+        QKeyEvent claim(QEvent::ShortcutOverride, Qt::Key_F, Qt::ControlModifier);
+        claim.ignore();
+        QApplication::sendEvent(f.editor.get(), &claim);
+        QVERIFY(claim.isAccepted());
+        QKeyEvent other(QEvent::ShortcutOverride, Qt::Key_F, Qt::NoModifier);
+        other.ignore();
+        QApplication::sendEvent(f.editor.get(), &other);
+        QVERIFY(!other.isAccepted());
+    }
+
+    void spec93_tileColourIsWrittenOnlyWhenSet()
+    {
+        Fixture f;
+        const quint64 t = f.session->addNodeAt(nodetypes::Transform, QPointF(4, 4));
+        QVERIFY(!QJsonDocument(serialization::compositionToJson(f.comp())).toJson().contains("color"));
+        f.session->setSelection({t});
+        QVERIFY(f.session->setNodeColor(QColor(QStringLiteral("#3a62a8"))));
+        const Composition back = serialization::compositionFromJson(serialization::compositionToJson(f.comp()));
+        QCOMPARE(back.node(t)->color, QColor(QStringLiteral("#3a62a8")));
+        QMenu* menu = f.editor->buildContextMenu(f.centreOf(t), f.editor.get());
+        QVERIFY(menu->findChild<QMenu*>(QStringLiteral("SetColorMenu")));
+        delete menu;
+        QImage target(f.editor->size(), QImage::Format_ARGB32_Premultiplied);
+        f.editor->render(&target);
+        QVERIFY(f.session->setNodeColor(QColor()));
+        QVERIFY(!QJsonDocument(serialization::compositionToJson(f.comp())).toJson().contains("color"));
+    }
+
+    void spec93_pasteSettingsCopiesParamsOfTheSameType()
+    {
+        Fixture f;
+        const quint64 a = f.session->addNodeAt(nodetypes::Transform, QPointF(4, 4));
+        const quint64 b = f.session->addNodeAt(nodetypes::Transform, QPointF(4, 6));
+        const quint64 m = f.session->addNodeAt(nodetypes::Merge, QPointF(8, 6));
+        f.session->edit(QStringLiteral("Size"), [a](Composition& c) {
+            c.node(a)->params.setBase(nodekeys::Size, 2.5);
+            return true;
+        });
+        f.session->setSelection({a});
+        f.session->copySelection();
+        f.session->setSelection({m});
+        QVERIFY(!f.session->canPasteSettings());
+        QVERIFY(!f.session->pasteSettings());
+        f.session->setSelection({b});
+        QVERIFY(f.session->canPasteSettings());
+        f.editor->setFocus();
+        QTest::keyClick(f.editor.get(), Qt::Key_V, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(f.node(b)->params.value(nodekeys::Size, 0), 2.5);
+        QCOMPARE(f.project.undoStack()->undoText(), QStringLiteral("Paste Settings"));
+        QCOMPARE(f.node(b)->position, QPointF(4, 6)); // only the settings, not the place
+    }
+
+    void spec93_shiftDragOnALinkDisconnectsIt()
+    {
+        Fixture f;
+        const quint64 in = f.nodeNamed(QStringLiteral("MediaIn1"));
+        const quint64 out = f.comp().mediaOutId;
+        const QPointF onLink = (f.editor->outputPos(*f.node(in))
+                                   + f.editor->inputPos(*f.node(out), nodeports::Input))
+            / 2;
+        QCOMPARE(f.editor->hitTest(onLink).kind, NodeEditor::Hit::Kind::Link);
+        // A Shift click without dragging leaves it.
+        f.click(onLink, Qt::ShiftModifier);
+        QVERIFY(f.node(out)->inputs.value(nodeports::Input).isConnected());
+        f.drag(onLink, onLink + QPointF(0, 80), Qt::ShiftModifier);
+        QVERIFY(!f.node(out)->inputs.value(nodeports::Input).isConnected());
     }
 
     void twoHundredNodesPaintFast()

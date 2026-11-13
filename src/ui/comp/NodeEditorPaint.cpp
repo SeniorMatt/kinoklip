@@ -174,7 +174,9 @@ void NodeEditor::paintTile(
         = node.type == QLatin1String("media_in") || node.type == QLatin1String("media_out");
 
     QColor fill = mixColors(sc.button, sc.window, 0.25);
-    if (io)
+    if (node.color.isValid())
+        fill = node.color; // Set Color
+    else if (io)
         fill = mixColors(fill, sc.videoClip, 0.35);
     if (current)
         fill = mixColors(fill, sc.highlight, 0.25);
@@ -202,17 +204,31 @@ void NodeEditor::paintTile(
         p.drawLine(r.bottomLeft() + QPointF(radius, -2), r.topRight() + QPointF(-radius, 2));
     }
 
+    // Tile picture: a small image at the left of the tile; the name then uses the rest.
+    double textLeft = r.left();
+    if (node.thumbnail && m_zoom >= kMinTextZoom) {
+        const auto pic = m_thumbs.constFind(node.id);
+        if (pic != m_thumbs.constEnd() && !pic->isNull()) {
+            const double margin = std::max(2.0, h * 0.08);
+            const double ph = h - 2 * margin;
+            const double pw = std::min(ph * pic->width() / pic->height(), r.width() * 0.45);
+            const QRectF target(r.left() + margin, r.top() + margin, pw, ph);
+            p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+            p.drawImage(target, *pic);
+            textLeft = target.right() + margin * 0.5;
+        }
+    }
     if (m_zoom >= kMinTextZoom && m_tileMetrics) {
         // Point-based drawText (no rectangle layout); elide only names that do not fit.
         p.setPen(node.enabled ? sc.textOn(fill) : sc.textDisabled);
-        const double room = r.width() - h * 0.6;
+        const double room = r.right() - textLeft - h * 0.6;
         double w = m_tileMetrics->horizontalAdvance(node.name);
         QString text = node.name;
         if (w > room) {
             text = m_tileMetrics->elidedText(node.name, Qt::ElideRight, room);
             w = m_tileMetrics->horizontalAdvance(text);
         }
-        p.drawText(QPointF(r.center().x() - w / 2,
+        p.drawText(QPointF((textLeft + r.right()) / 2 - w / 2,
                        r.center().y() + (m_tileMetrics->ascent() - m_tileMetrics->descent()) / 2),
             text);
     }
@@ -298,6 +314,12 @@ void NodeEditor::paintDragOverlay(QPainter& p) const
         p.setPen(QPen(sc.highlight, 1.0));
         p.setBrush(withAlpha(sc.highlight, 40));
         p.drawRect(box);
+        return;
+    }
+    case Drag::CutLink: {
+        // The pulled-off link: a dashed red stroke from the press to the cursor.
+        p.setPen(QPen(sc.negative, 1.5, Qt::DashLine));
+        p.drawLine(m_pressPos, m_mousePos);
         return;
     }
     case Drag::Connect:

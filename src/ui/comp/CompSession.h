@@ -5,6 +5,7 @@
 
 #include "core/Composition.h"
 
+#include <QColor>
 #include <QObject>
 #include <QPointF>
 #include <QSet>
@@ -134,6 +135,18 @@ public:
     bool toggleLock();
     /// Swaps background and foreground of the current node (Merge / Dissolve).
     bool swapInputs();
+
+    /// Sets the tile colour of the selected nodes (an invalid colour restores the default look).
+    bool setNodeColor(const QColor& color);
+    /// Shows or hides the picture on the tile of the selected nodes.
+    bool setNodeThumbnails(bool on);
+    /// Replace Tool: node @p id becomes a node of @p type (see compops::replaceType()).
+    bool replaceNode(quint64 id, const QString& type);
+    /// Paste Settings: the parameters of the copied node (node clipboard) of the same type
+    /// go onto each selected node of that type. False when none matches.
+    bool pasteSettings();
+    /// True if the node clipboard holds a node of the same type as a selected node.
+    [[nodiscard]] bool canPasteSettings() const;
 
     // ---- Selection (UI state) ----
 

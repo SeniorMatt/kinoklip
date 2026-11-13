@@ -5,6 +5,7 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "playback/PlaybackEngine.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/Metrics.h"
@@ -83,6 +84,17 @@ CompositingPage::CompositingPage(AppContext& ctx, QWidget* parent)
     va->addWidget(m_transport);
 
     m_editor = new NodeEditor(m_session, ctx.actions);
+    // Tile pictures: the node's own image at the playhead, rendered like the viewers do.
+    m_editor->setThumbnailSource(
+        [this](quint64 nodeId, QSize px) -> std::future<RenderedFramePtr> {
+            PlaybackEngine* engine = m_ctx.playback;
+            if (!engine || !engine->compositor() || !m_session->isStored() || !m_ctx.project
+                || !m_ctx.project->timeline())
+                return {};
+            const bool out = nodeId == m_session->composition().mediaOutId;
+            return engine->renderCompositionNode(m_ctx.project->timeline()->snapshot(),
+                m_session->clipId(), out ? 0 : nodeId, m_session->compFrame(), px, OutputImage);
+        });
     setPanelInfo(m_editor, tr("Node Editor"),
         tr("The node graph of the open clip: select, move, connect and edit nodes."));
     m_toolBar = buildToolBar();

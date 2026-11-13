@@ -222,7 +222,7 @@ shares with a Final Cut Pro command was removed, see the note).
 | Swap Inputs (background and foreground of Merge / Dissolve) | `comp.swap_inputs` | `Ctrl+T` |  |
 | View Node in Left Viewer | `comp.view_left` | `1` |  |
 | View Node in Right Viewer | `comp.view_right` | `2` |  |
-| Fit Nodes to View | `comp.fit` | `Ctrl+F` |  |
+| Fit Nodes to View | `comp.fit` | `Shift+F` |  |
 | Add Serial Node (after the current node) | `color.add_serial` | `Alt+S` |  |
 | Add Parallel Node (with a Parallel mixer) | `color.add_parallel` | `Alt+P` |  |
 | Add Layer Node (with a Layer mixer) | `color.add_layer` | `Alt+L` |  |

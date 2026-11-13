@@ -2,6 +2,7 @@
 // CompSession implementation: graph commands as copy-mutate-store, one undo step each.
 #include "ui/comp/CompSession.h"
 
+#include "core/CompOps.h"
 #include "core/EditOps.h"
 #include "core/MediaPool.h"
 #include "core/NodeRegistry.h"
@@ -355,7 +356,7 @@ bool CompSession::moveSelection(QPointF delta, quint64 insertTo, const QString& 
                 n.position = snap ? snapped(n.position + delta) : n.position + delta;
         }
         if (inserting)
-            compadapter::insertIntoLink(c, nodes.first(), insertTo, insertPort);
+            compops::moveIntoLink(c, nodes.first(), insertTo, insertPort);
         return true;
     });
 }
@@ -481,6 +482,65 @@ bool CompSession::swapInputs()
     const quint64 id = m_current;
     return edit(
         tr("Swap Inputs"), [&](Composition& c) { return compadapter::swapMainInputs(c, id); });
+}
+
+bool CompSession::setNodeColor(const QColor& color)
+{
+    const QVector<quint64> ids = m_selNodes;
+    return edit(tr("Set Node Color"), [&](Composition& c) {
+        for (quint64 id : ids)
+            if (CompNode* n = c.node(id))
+                n->color = color.isValid() ? color : QColor();
+        return !ids.isEmpty();
+    });
+}
+
+bool CompSession::setNodeThumbnails(bool on)
+{
+    const QVector<quint64> ids = m_selNodes;
+    return edit(on ? tr("Show Tile Pictures") : tr("Hide Tile Pictures"), [&](Composition& c) {
+        for (quint64 id : ids)
+            if (CompNode* n = c.node(id))
+                n->thumbnail = on;
+        return !ids.isEmpty();
+    });
+}
+
+bool CompSession::replaceNode(quint64 id, const QString& type)
+{
+    return edit(tr("Replace Tool"),
+        [&](Composition& c) { return compops::replaceType(c, id, type); });
+}
+
+bool CompSession::pasteSettings()
+{
+    const Composition& clip = nodeClipboard();
+    const QVector<quint64> ids = m_selNodes;
+    return edit(tr("Paste Settings"), [&](Composition& c) {
+        int changed = 0;
+        for (quint64 id : ids) {
+            const CompNode* target = c.node(id);
+            if (!target)
+                continue;
+            for (const CompNode& from : clip.nodes) {
+                if (from.type == target->type) {
+                    changed += compops::pasteSettings(c, from, {id});
+                    break;
+                }
+            }
+        }
+        return changed > 0;
+    });
+}
+
+bool CompSession::canPasteSettings() const
+{
+    for (quint64 id : m_selNodes)
+        if (const CompNode* n = m_comp.node(id))
+            for (const CompNode& from : nodeClipboard().nodes)
+                if (from.type == n->type)
+                    return true;
+    return false;
 }
 
 // ---- Selection ----
