@@ -1,0 +1,171 @@
+<section class="page-head">
+<div class="wrap">
+<p class="kicker">Features</p>
+<h1>Everything an editor needs, nothing running behind your back</h1>
+<p class="lead">Kinoklip is a native C++ and Qt application that does what an editor needs. Here is each area in a little more depth, with links to the step-by-step guide.</p>
+<div class="toc" aria-label="On this page">
+<a href="#editing">Editing</a><a href="#compositing">Compositing</a><a href="#color">Color</a><a href="#audio">Audio</a><a href="#deliver">Deliver</a><a href="#performance">Performance</a><a href="#vim">Vim mode</a><a href="#control">Command line and MCP</a><a href="#keymaps">Keymaps</a>
+</div>
+</div>
+</section>
+
+<section class="feat" id="editing">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Edit, Cut and Media</p>
+<h2>Editing like in Resolve</h2>
+<p>The Edit page is where you spend most of your time: clips on tracks, a playhead, and the same keys as Resolve. Press <kbd>B</kbd> for the blade, <kbd>I</kbd> and <kbd>O</kbd> to mark, <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> to play. Most Resolve tutorials for the Edit page work in Kinoklip too.</p>
+<ul class="plain">
+<li>Transitions live in the same folders as in Resolve; <kbd>Ctrl+T</kbd> adds the standard one, and Smooth Cut hides a jump cut.</li>
+<li>Titles with text and shape layers, emoji, and Write On to type text on.</li>
+<li>Keyframes for zooms, slides and fades, with loops, reverse and time stretch.</li>
+<li>Change a clip's speed, freeze a frame, steady a shaky clip, add subtitles.</li>
+<li>Track a moving thing so a graphic follows it, and warp the picture.</li>
+</ul>
+<a class="more" href="{{root}}guide/getting-started/">Getting started</a>
+</div>
+<div class="art" data-anim>{{> ill-edit}}<img class="a-rise" style="margin-top:22px;--i:3" src="{{root}}static/edit-page.png" width="1920" height="1080" loading="lazy" alt="Kinoklip's Edit page: media pool and viewer on top, a timeline with video and audio tracks below."></div>
+</div>
+</section>
+
+<section class="feat flip" id="compositing">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Compositing page</p>
+<h2>Nodes for pictures with several layers</h2>
+<p>Every video clip can get a composition: a node graph whose result replaces the clip's picture. A new one is just MediaIn to MediaOut, so opening a clip here changes nothing until you add nodes. It plays on the Edit page and renders on Deliver exactly as you see it on this page.</p>
+<ul class="plain">
+<li>Merge and Transform in full, with blend modes, 33 apply modes and the Over, In, Held Out, Atop and XOr operators.</li>
+<li>Masks: Rectangle, Ellipse, Polygon and B-Spline; Luma Keyer, Delta Keyer and Corner Positioner.</li>
+<li>Motion Blur on Merge and Transform.</li>
+<li>Spline and Keyframes panels, with Loop, Ping-Pong, Relative and Linear keyframe loops.</li>
+<li>Two viewers with A/B buffers and a split wipe; drop a node on a link to insert it.</li>
+</ul>
+<a class="more" href="{{root}}guide/compositing-page/">Put text over a clip</a>
+</div>
+<div class="art" data-anim>{{> ill-comp}}</div>
+</div>
+</section>
+
+<section class="feat" id="color">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Color page</p>
+<h2>A grade for every clip, and one for the timeline</h2>
+<p>Every clip can have a grade: a small node graph of correctors, in series or combined by Parallel and Layer mixers. The timeline has a grade of its own, applied after every clip grade. A grade plays on the Edit page and is part of the exported video; <kbd>Shift+D</kbd> bypasses grades in the viewers only.</p>
+<ul class="plain">
+<li>Lift, Gamma, Gain and Offset wheels, with red, green, blue and master controls.</li>
+<li>Custom curves and hue curves, a qualifier with soft edges, and power windows.</li>
+<li>Load a <code>.cube</code> LUT in any corrector, or use the Apply LUT effect.</li>
+<li>Change the colour of just one object, and check your work on the waveform.</li>
+</ul>
+<a class="more" href="{{root}}guide/colour-correct-a-clip/">Colour correct a clip</a>
+</div>
+<div class="art" data-anim>{{> ill-color}}</div>
+</div>
+</section>
+
+<section class="feat flip" id="audio">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Audio page</p>
+<h2>Mix, and record your voice</h2>
+<p>Record a voice-over straight onto the timeline from any microphone your desktop sees, through PipeWire or PulseAudio, on Wayland and X11. Click the R button in the header of the audio track, speak while the video plays, and the recording lands on the track lined up with the picture. Use headphones so the speakers do not reach the microphone.</p>
+<ul class="plain">
+<li>The Audio page has track levels, meters, an equaliser and dynamics.</li>
+<li>Each clip has a four-band equaliser and a pitch control from -24 to +24 semitones in the Inspector.</li>
+<li>Normalise quiet and loud clips so they sound about equally loud.</li>
+<li>Fade audio in and out, add music, or separate the audio from the video.</li>
+</ul>
+<a class="more" href="{{root}}guide/record-a-voice-over/">Record a voice-over</a>
+</div>
+<div class="art" data-anim>{{> ill-audio}}</div>
+</div>
+</section>
+
+<section class="feat" id="deliver">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Deliver page</p>
+<h2>Export for YouTube, or anywhere</h2>
+<p>Pick a preset such as YouTube 1080p, press render, and your timeline becomes a file. Kinoklip always exports from the original files at full quality, whatever you used for smooth playback while editing. H.264, H.265 and AAC are included.</p>
+<ul class="plain">
+<li>Render Queue: jobs wait their turn; double-click a job to edit it.</li>
+<li>Individual clips renders each clip to its own file, with handles and naming options.</li>
+<li>Make a vertical video for Shorts, Reels and TikTok, and change a timeline's frame rate.</li>
+<li>Export subtitles burnt into the picture or as a separate file, and move a timeline to or from another editor through OpenTimelineIO.</li>
+</ul>
+<a class="more" href="{{root}}guide/export-for-youtube/">Export for YouTube</a>
+</div>
+<div class="art" data-anim>{{> ill-deliver}}</div>
+</div>
+</section>
+
+<section class="feat flip" id="performance">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Performance</p>
+<h2>Light enough for integrated graphics</h2>
+<p>Kinoklip decodes with the GPU's own video engine (VA-API) on Intel and AMD, composites on the GPU with plain OpenGL 3.3, prepares the next clip before a cut, and keeps nothing running in the background that you didn't ask for.</p>
+<ul class="plain">
+<li>If playback still stutters, lower the playback resolution to half or quarter. It never changes your export.</li>
+<li>Make proxies of large files: a small copy plays while you edit, and the original is used for the export.</li>
+<li>Works with AMD, Intel and NVIDIA, integrated graphics too.</li>
+</ul>
+<a class="more" href="{{root}}guide/smooth-playback/">Fix choppy playback</a>
+</div>
+<div class="art" data-anim>{{> ill-perf}}</div>
+</div>
+</section>
+
+<section class="feat" id="vim">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Vim mode</p>
+<h2>Edit without the mouse</h2>
+<p>If you live in Vim or Neovim, Kinoklip has a Vim mode that edits with the keys you already know. It is an option, off by default, and it works with every keyboard profile: it does not replace the profile. Turn it on in Preferences > Keyboard or Kinoklip > Vim Mode.</p>
+<ul class="plain">
+<li>Change any key in Keyboard Customization or in a vimrc file.</li>
+<li>Keys follow their position, so other keyboard layouts work.</li>
+</ul>
+<a class="more" href="{{root}}guide/vim-quick-start/">Vim mode: quick start</a> &nbsp; <a class="more" href="{{root}}guide/vim-cheat-sheet/">Cheat sheet</a>
+</div>
+<div class="art" data-anim>{{> ill-vim}}</div>
+</div>
+</section>
+
+<section class="feat flip" id="control">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Command line and MCP</p>
+<h2>Script it, or let an assistant do it</h2>
+<p>Make a project, put a clip on its timeline, cut it and render it from a terminal or a script, without opening the window. Every command works on a project file and can print its result as JSON.</p>
+<p>The same commands are available to an AI assistant through <code>kinoklip mcp</code>, a program your assistant starts on your own computer. It opens no network connection and sends nothing anywhere; what an online model sees is decided by the assistant you choose.</p>
+<a class="more" href="{{root}}guide/control-kinoklip-from-the-command-line/">Command line</a> &nbsp; <a class="more" href="{{root}}guide/control-kinoklip-from-an-ai-assistant/">AI assistant (MCP)</a>
+</div>
+<div class="art" data-anim style="display:grid;gap:16px">{{> ill-cli}}{{> ill-mcp}}</div>
+</div>
+</section>
+
+<section class="feat" id="keymaps">
+<div class="wrap">
+<div class="copy">
+<p class="kicker">Keymaps</p>
+<h2>Your fingers keep their habits</h2>
+<p>The default keys follow DaVinci Resolve on Windows. If you come from another editor, switch all of Kinoklip's keys to its keys in one step: Vegas Pro (where <kbd>S</kbd> cuts the clip at the playhead), Premiere Pro, Final Cut Pro, Avid Media Composer, Kdenlive or Shotcut. You can also import your own Premiere Pro <code>.kys</code> or Final Cut Pro <code>.commandset</code> file.</p>
+<a class="more" href="{{root}}guide/use-the-shortcuts-of-your-old-editor/">Use the shortcuts of your old editor</a>
+</div>
+<div class="art" data-anim>{{> ill-keymaps}}</div>
+</div>
+</section>
+
+<section class="section band">
+<div class="wrap">
+<div class="section-head" style="margin:0">
+<p class="kicker">Private</p>
+<h2>Nothing is sent anywhere</h2>
+<p class="lead">No telemetry, no analytics, no automatic crash reports and no update checks from the app itself. A bug report shares system info only when you choose to. <a href="https://github.com/SeniorMatt/kinoklip/blob/main/docs/privacy.md">Read the privacy page</a>.</p>
+<a class="btn btn-primary" href="{{root}}download/">{{> dl-icon}} Download Kinoklip</a>
+</div>
+</div>
+</section>

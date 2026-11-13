@@ -10,3 +10,5 @@ logs/
 # Local-only material (owner feedback screenshots with private content): never committed
 /local/
 __pycache__/
+
+_site/

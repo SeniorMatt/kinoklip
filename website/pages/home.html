@@ -1,0 +1,196 @@
+<section class="hero" data-anim data-hero>
+<div class="wrap">
+<div class="a-rise">
+<p class="kicker">Video editor for Linux</p>
+<h1>The Resolve layout and keys, free and light on Linux.</h1>
+<p class="lead">Kinoklip is a free, open source video editor with the pages, menus and shortcuts of DaVinci Resolve. It is light enough for a laptop with integrated graphics, and H.264, H.265 and AAC are included.</p>
+<div class="cta-row">
+<a class="btn btn-primary btn-lg" href="{{root}}download/">{{> dl-icon}} Download {{version_short}}</a>
+<a class="btn btn-quiet btn-lg" href="{{root}}guide/">Read the guide</a>
+</div>
+<p class="fineprint">Still in beta, so save often. GPL-3.0, one AppImage for x86_64.</p>
+</div>
+<div class="win a-rise" style="--i:2" role="img" aria-label="An animated sketch of Kinoklip's Edit page: a title types itself above a timeline while the playhead moves across three video clips and an audio track.">
+<div class="win-bar" aria-hidden="true"><span>File</span><span>Edit</span><span>Timeline</span><span class="title">My First Edit</span><span class="tc" data-tc>01:00:00:00</span></div>
+<div class="win-view" aria-hidden="true"><div class="typed"><span data-typed data-text="Cut. Edit. Done.">Cut. Edit. Done.</span><span class="caret"></span></div></div>
+<div class="tl" aria-hidden="true">
+<div class="tl-heads"><div class="h0"></div><div style="height:30px">V2</div><div style="height:38px">V1</div><div style="height:34px;border:0">A1</div></div>
+<div class="tl-main">
+<div class="tl-ruler"></div>
+<div class="tl-row" style="height:30px"><div class="clip t a-slide" style="--i:3;left:4%;width:34%">Text: Cut. Edit. Done.</div><span class="key" style="left:4%"></span><span class="key" style="left:38%"></span></div>
+<div class="tl-row" style="height:38px"><div class="clip v a-slide" style="--i:0;left:0;width:41%">beach_morning.mp4</div><div class="clip v2 a-slide" style="--i:1;left:41.4%;width:30%">pier.mov</div><div class="clip v a-slide" style="--i:2;left:71.8%;width:28%">sunset_4k.mp4</div></div>
+<div class="tl-row" style="height:34px;border:0"><div class="clip a a-slide" style="--i:4;left:0;width:99.8%"><div class="wave"></div></div></div>
+<div class="playhead a-sweep" style="--dur:8s;left:0"></div>
+</div>
+</div>
+<div class="pagebar" aria-hidden="true"><span>Media</span><span>Cut</span><span class="on">Edit</span><span>Compositing</span><span>Color</span><span>Audio</span><span>Deliver</span></div>
+</div>
+</div>
+</section>
+
+<section class="section" id="pages">
+<div class="wrap" data-anim>
+<div class="section-head reveal">
+<p class="kicker">The page bar</p>
+<h2>Seven pages, one job each</h2>
+<p class="lead">The buttons along the bottom of the window are the same as in Resolve. Press Shift+2 for Media up to Shift+8 for Deliver; Shift+4 is Edit.</p>
+</div>
+<div data-tabs class="reveal">
+<div class="tabs" role="tablist" aria-label="Kinoklip pages">
+<button class="tab" type="button" role="tab" id="t-media" aria-controls="p-media">Media</button>
+<button class="tab" type="button" role="tab" id="t-cut" aria-controls="p-cut">Cut</button>
+<button class="tab" type="button" role="tab" id="t-edit" aria-controls="p-edit">Edit</button>
+<button class="tab" type="button" role="tab" id="t-comp" aria-controls="p-comp">Compositing</button>
+<button class="tab" type="button" role="tab" id="t-color" aria-controls="p-color">Color</button>
+<button class="tab" type="button" role="tab" id="t-audio" aria-controls="p-audio">Audio</button>
+<button class="tab" type="button" role="tab" id="t-deliver" aria-controls="p-deliver">Deliver</button>
+</div>
+
+<div class="stage" role="tabpanel" id="p-media" aria-labelledby="t-media">
+<div class="stage-copy"><p class="kicker">Media page</p><h3>Bring everything in</h3>
+<p>Look through your files and bring them into the project. The media pool keeps clips in bins, smart bins that fill themselves with the clips matching your rules, and power bins. Import a whole folder and its sub-folders become bins.</p>
+<p><a href="{{root}}guide/getting-started/">Getting started</a></p></div>
+<div class="stage-art"><div>{{> ill-media}}</div></div>
+</div>
+
+<div class="stage" role="tabpanel" id="p-cut" aria-labelledby="t-cut">
+<div class="stage-copy"><p class="kicker">Cut page</p><h3>A quick rough cut</h3>
+<p>A simple editor for fast first versions. Two timelines sit one above the other: the whole edit, and a close-up of the part you are working on. The viewer can show one source clip, all your source clips as one continuous tape, or the timeline.</p>
+<p><a href="{{root}}guide/getting-started/">Getting started</a></p></div>
+<div class="stage-art"><div>{{> ill-cut}}</div></div>
+</div>
+
+<div class="stage" role="tabpanel" id="p-edit" aria-labelledby="t-edit">
+<div class="stage-copy"><p class="kicker">Edit page</p><h3>The main editor</h3>
+<p>Tracks, trims, blade, transitions, titles and keyframes, with the keys you know: <kbd>I</kbd> and <kbd>O</kbd> mark, <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> play, <kbd>B</kbd> cuts. Most Resolve tutorials for the Edit page work here too.</p>
+<p><a href="{{root}}guide/transitions/">Transitions</a> &middot; <a href="{{root}}guide/keyframe-animation/">Keyframes</a></p></div>
+<div class="stage-art"><div>{{> ill-edit}}</div></div>
+</div>
+
+<div class="stage" role="tabpanel" id="p-comp" aria-labelledby="t-comp">
+<div class="stage-copy"><p class="kicker">Compositing page</p><h3>Nodes, when layers are not enough</h3>
+<p>Build the picture of one clip from nodes: small boxes that each do one thing, such as show the clip, write a text, blur, key out green or combine two pictures, joined by lines. Merge and Transform in full, masks, Luma and Delta keyers, Motion Blur, and Spline and Keyframes panels.</p>
+<p><a href="{{root}}guide/compositing-page/">Put text over a clip</a></p></div>
+<div class="stage-art"><div>{{> ill-comp}}</div></div>
+</div>
+
+<div class="stage" role="tabpanel" id="p-color" aria-labelledby="t-color">
+<div class="stage-copy"><p class="kicker">Color page</p><h3>Grade every clip</h3>
+<p>Fix a shot that came out too dark or too blue, or give it a look. Lift, Gamma, Gain and Offset wheels, curves, a qualifier, power windows and LUTs, in a node graph per clip, plus a grade for the whole timeline. What you see here plays on the Edit page and is part of the exported video.</p>
+<p><a href="{{root}}guide/colour-correct-a-clip/">Colour correct a clip</a></p></div>
+<div class="stage-art"><div>{{> ill-color}}</div></div>
+</div>
+
+<div class="stage" role="tabpanel" id="p-audio" aria-labelledby="t-audio">
+<div class="stage-copy"><p class="kicker">Audio page</p><h3>Mix and record</h3>
+<p>Mix the sound with track levels, meters, an equaliser and dynamics. Record a voice-over straight onto the timeline from any microphone your desktop sees, through PipeWire or PulseAudio.</p>
+<p><a href="{{root}}guide/record-a-voice-over/">Record a voice-over</a></p></div>
+<div class="stage-art"><div>{{> ill-audio}}</div></div>
+</div>
+
+<div class="stage" role="tabpanel" id="p-deliver" aria-labelledby="t-deliver">
+<div class="stage-copy"><p class="kicker">Deliver page</p><h3>Export for anywhere</h3>
+<p>Export the finished video to a file with a preset such as YouTube 1080p, in H.264 or H.265 with AAC sound. Jobs wait in a render queue, and Individual clips renders each clip to its own file, with handles and naming options.</p>
+<p><a href="{{root}}guide/export-for-youtube/">Export for YouTube</a></p></div>
+<div class="stage-art"><div>{{> ill-deliver}}</div></div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="section band" id="keys">
+<div class="wrap">
+<div class="section-head">
+<p class="kicker">Try it</p>
+<h2>Press a key</h2>
+<p class="lead">This is a tiny timeline with Kinoklip's real keys. Click a key below, or click the timeline and use your keyboard.</p>
+</div>
+<div class="demo" data-demo>
+<div class="demo-bar"><span class="demo-msg" role="status" aria-live="polite">Click a key below, or focus the timeline and press it</span><span class="tc" aria-label="Timecode">01:00:18:00</span></div>
+<div class="demo-tl" tabindex="0" aria-label="Demo timeline. Keys: J, K, L, I, O, B and Shift plus Delete.">
+<div class="demo-ruler"></div>
+<div class="demo-range" hidden></div>
+<div class="demo-clips"></div>
+<div class="demo-aud" aria-hidden="true"><span style="height:40%"></span><span style="height:70%"></span><span style="height:30%"></span><span style="height:85%"></span><span style="height:50%"></span><span style="height:65%"></span><span style="height:35%"></span><span style="height:80%"></span><span style="height:45%"></span><span style="height:75%"></span><span style="height:30%"></span><span style="height:60%"></span><span style="height:90%"></span><span style="height:40%"></span><span style="height:55%"></span><span style="height:70%"></span><span style="height:35%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:65%"></span><span style="height:40%"></span><span style="height:75%"></span><span style="height:30%"></span><span style="height:60%"></span></div>
+<div class="demo-head"></div>
+</div>
+<div class="demo-keys">
+<button type="button" class="keybtn" data-key="j" aria-label="J, play backwards"><b>J</b><small>back</small></button>
+<button type="button" class="keybtn" data-key="k" aria-label="K, stop"><b>K</b><small>stop</small></button>
+<button type="button" class="keybtn" data-key="l" aria-label="L, play forwards"><b>L</b><small>play</small></button>
+<button type="button" class="keybtn" data-key="i" aria-label="I, mark in"><b>I</b><small>mark in</small></button>
+<button type="button" class="keybtn" data-key="o" aria-label="O, mark out"><b>O</b><small>mark out</small></button>
+<button type="button" class="keybtn" data-key="b" aria-label="B, blade, cut at the playhead"><b>B</b><small>blade</small></button>
+<button type="button" class="keybtn" data-key="del" aria-label="Shift Delete, ripple delete"><b>Shift Del</b><small>ripple delete</small></button>
+<button type="button" class="link-btn" data-reset>Reset</button>
+</div>
+<p class="demo-note">The real Edit page has many more shortcuts; the full list is the <a href="https://github.com/SeniorMatt/kinoklip/blob/main/docs/keymap-resolve-windows.md">Resolve keymap</a>. <a href="{{root}}guide/use-the-shortcuts-of-your-old-editor/">Use the keys of your old editor</a> if Resolve's are not yours.</p>
+</div>
+</div>
+</section>
+
+<section class="section" id="linux">
+<div class="wrap">
+<div class="split" data-anim>
+<div class="reveal">
+<p class="kicker">Why on Linux</p>
+<h2>What Kinoklip does differently</h2>
+<p class="lead">Resolve runs on Linux, but its support is minimal: a short list of officially supported distributions, NVIDIA-first GPU support, and no H.264 or H.265 in the free version.</p>
+</div>
+<div class="inspector reveal">
+<div>Kinoklip</div>
+<div><span class="dt">Light on modest hardware</span><span class="dd"><strong>VA-API decoding</strong> <span class="note">on Intel and AMD, compositing on the GPU with plain OpenGL, the next clip prepared before a cut. Keyframes, titles and animations play without lag on integrated graphics.</span></span></div>
+<div><span class="dt">Codecs</span><span class="dd"><strong>H.264, H.265 and AAC</strong> <span class="note">for import and export, for free. Resolve's free version on Linux has none of them, and Studio adds H.264 and H.265 only with an NVIDIA GPU.</span></span></div>
+<div><span class="dt">Recording</span><span class="dd"><strong>PipeWire and PulseAudio</strong> <span class="note">on Wayland and X11. Resolve on Linux talks only to ALSA, so on most desktops recording a microphone needs extra setup.</span></span></div>
+<div><span class="dt">Graphics</span><span class="dd"><strong>Any GPU with OpenGL 3.3</strong> <span class="note">AMD, Intel and NVIDIA, integrated graphics too, which Resolve doesn't officially support.</span></span></div>
+<div><span class="dt">Layout</span><span class="dd"><strong>Like Resolve</strong> <span class="note">The same pages and shortcuts.</span></span></div>
+<div><span class="dt">Licence</span><span class="dd"><strong>GPL-3.0</strong> <span class="note">Free and open source, shipped as one AppImage.</span></span></div>
+</div>
+</div>
+<div class="honest reveal">
+<p><strong>On Windows or macOS: don't.</strong> Kinoklip isn't available there yet, and even when it is, Resolve is the more complete and more mature editor. It's a great project, built and maintained by people who are paid to work on it full time, and that's worth supporting. Its free version is excellent, and buying Studio supports the people who made the workflow Kinoklip copies.</p>
+</div>
+</div>
+</section>
+
+<section class="section band" id="release">
+<div class="wrap" data-anim>
+<div class="section-head reveal">
+<p class="kicker">Latest release</p>
+<h2>New in Kinoklip {{version_short}}</h2>
+</div>
+<div class="hl reveal">
+{{highlights}}
+</div>
+<p class="reveal" style="margin-top:32px"><a href="{{root}}releases/">All release notes</a></p>
+</div>
+</section>
+
+<section class="section" id="get">
+<div class="wrap">
+<div class="dl-box" data-anim>
+<div class="reveal">
+<h2>Get Kinoklip</h2>
+<p class="lead" style="margin:0">One file, no install. Open it with Gear Lever, or make it executable and double-click.</p>
+</div>
+<div class="reveal">
+<div class="chips"><div class="chip"><small>Version</small>{{version_short}}</div><div class="chip"><small>Format</small>AppImage</div><div class="chip"><small>For</small>Linux x86_64</div></div>
+<a class="btn btn-primary btn-lg" href="{{root}}download/">{{> dl-icon}} Download for Linux</a>
+</div>
+</div>
+</div>
+</section>
+
+<section class="section tight" id="community">
+<div class="wrap" data-anim>
+<div class="section-head reveal">
+<p class="kicker">Community</p>
+<h2>Questions, ideas and your edits</h2>
+<p class="lead">Chat happens on Discord. Bugs go to GitHub issues, so they don't get lost in chat.</p>
+</div>
+<div class="community reveal">
+<a class="big" href="https://discord.gg/pCeHnvDn3x"><strong>Discord</strong><span>Join the Kinoklip server for questions, ideas and to show what you made.</span></a>
+<a class="big" href="https://github.com/SeniorMatt/kinoklip"><strong>GitHub</strong><span>The code, the issues and the roadmap. If you like Kinoklip, a star helps a lot.</span></a>
+</div>
+</div>
+</section>

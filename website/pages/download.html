@@ -1,0 +1,58 @@
+<section class="page-head">
+<div class="wrap" data-anim>
+<p class="kicker a-rise">Download</p>
+<h1 class="a-rise" style="--i:1">Kinoklip {{version_short}} for Linux</h1>
+<p class="lead a-rise" style="--i:2">One AppImage: a single file that contains the whole program. No installer, no account.</p>
+<div class="cta-row a-rise" style="--i:3">
+<a class="btn btn-primary btn-lg" href="https://github.com/SeniorMatt/kinoklip/releases/latest">{{> dl-icon}} Download the AppImage</a>
+<a class="btn btn-quiet btn-lg" href="{{root}}releases/">Release notes</a>
+</div>
+<p class="fineprint">The button opens the latest release on GitHub. The file is called <code>Kinoklip-x86_64.AppImage</code>. Kinoklip is still a beta version: save often and keep a copy of your original files.</p>
+</div>
+</section>
+
+<section class="section tight">
+<div class="wrap">
+<div class="section-head"><p class="kicker">Run it</p><h2>Three steps</h2></div>
+<ol class="steps">
+<li><h3>Download the file</h3><p>Get <code>Kinoklip-x86_64.AppImage</code> from the latest release.</p></li>
+<li><h3>Make it runnable</h3>
+<p><strong>With Gear Lever (easiest):</strong> install <a href="https://flathub.org/apps/it.mijorus.gearlever">Gear Lever</a> from your software centre, then open the AppImage with it. Kinoklip appears in your application menu, and Gear Lever keeps it updated.</p>
+<p><strong>By hand:</strong> right-click the file, choose Properties, open Permissions and tick &ldquo;Is executable&rdquo;, or run this in a terminal:</p>
+<pre><code>chmod +x Kinoklip-x86_64.AppImage</code></pre></li>
+<li><h3>Start it</h3><p>Start Kinoklip from the application menu, or double-click the file. The first thing you see is the Project Manager, where you make your first project. The <a href="{{root}}guide/getting-started/">getting started guide</a> takes it from there.</p></li>
+</ol>
+<p class="muted" style="margin-top:32px;max-width:680px">If double-clicking shows nothing, your system may be missing FUSE, a small helper for AppImages. Install <code>fuse3</code>, or run the file with <code>--appimage-extract-and-run</code>:</p>
+<pre style="max-width:680px"><code>./Kinoklip-x86_64.AppImage --appimage-extract-and-run</code></pre>
+</div>
+</section>
+
+<section class="section band">
+<div class="wrap">
+<div class="section-head"><p class="kicker">Requirements</p><h2>What your computer needs</h2></div>
+<dl class="reqs">
+<div><dt>System</dt><dd>Linux on x86_64<span>X11 or Wayland.</span></dd></div>
+<div><dt>Graphics</dt><dd>OpenGL 3.3<span>AMD, Intel or NVIDIA, integrated graphics included. Almost every computer from the last ten years has it.</span></dd></div>
+<div><dt>Helper</dt><dd>FUSE (<code>fuse3</code>)<span>Only if the AppImage does not start; see above for the workaround.</span></dd></div>
+<div><dt>Optional</dt><dd>VA-API and a microphone<span>VA-API on Intel and AMD gives GPU decoding. PipeWire or PulseAudio microphones work for voice-over.</span></dd></div>
+</dl>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap">
+<div class="split">
+<div>
+<p class="kicker">Updates and checks</p>
+<h2>Staying up to date</h2>
+</div>
+<div>
+<p><strong>Updates.</strong> Kinoklip does not check for updates itself, and it never contacts anyone on its own. Gear Lever and <a href="https://github.com/AppImageCommunity/AppImageUpdate">AppImageUpdate</a> read the release files on GitHub and update the AppImage when you ask them to.</p>
+<p><strong>Checksums.</strong> Each release also has a <code>SHA256SUMS.txt</code> file. To check your download, put it next to the AppImage and run:</p>
+<pre><code>sha256sum -c SHA256SUMS.txt</code></pre>
+<p><strong>Older versions</strong> stay on the <a href="https://github.com/SeniorMatt/kinoklip/releases">releases page</a>.</p>
+<p><strong>Build it yourself.</strong> Kinoklip is GPL software. The steps are in <a href="https://github.com/SeniorMatt/kinoklip/blob/main/docs/building.md">docs/building.md</a> on GitHub.</p>
+</div>
+</div>
+</div>
+</section>
