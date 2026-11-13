@@ -281,11 +281,20 @@ void VideoDecoder::Impl::logOpened()
     const QString with = activeHw != HwAccelMode::Off
         ? HwDeviceManager::instance().describe(activeHw)
         : QStringLiteral("software (%1 threads)").arg(codec ? codec->thread_count : 0);
-    QString line = QStringLiteral("decoding %1 (%2%3 %4x%5) with %6")
+    // Pixel format (bit depth) and frame rate: a "choppy 4K" report needs them, and the 10-bit
+    // 4:2:0 / 4:2:2 and 50/60 fps cases are the ones that tip a laptop over.
+    QString format = info.pixelFormat;
+    const int fpsDen = std::max(1, int(info.frameRate.den));
+    if (info.frameRate.num > 0) {
+        format += QStringLiteral(" %1 fps").arg(double(info.frameRate.num) / fpsDen, 0, 'f',
+            info.frameRate.num % fpsDen ? 2 : 0);
+    }
+    QString line = QStringLiteral("decoding %1 (%2%3 %4x%5, %6) with %7")
                        .arg(QFileInfo(info.path).fileName(),
                            QString::fromUtf8(avcodec_get_name(stream->codecpar->codec_id)), profile)
                        .arg(info.width)
                        .arg(info.height)
+                       .arg(format.trimmed())
                        .arg(with);
     if (!hwOpenFailure.isEmpty()) {
         line += QStringLiteral("; ") + hwOpenFailure;
@@ -299,8 +308,16 @@ void VideoDecoder::Impl::logOpened()
             : QStringLiteral(", output: downloaded to system memory%1")
                   .arg(zeroCopy ? QStringLiteral(" (zero-copy export unavailable)") : QString());
     }
-    if (!firstTime(QStringLiteral("open|%1|%2|%3|%4")
-                       .arg(info.path, with, hwOpenFailure, hwUnavailable))) {
+    // Thumbnail/preview decoders (one codec thread, see MediaCache) never export DMA-BUFs; their
+    // line must not stand in for the playback decoder's (same file, same backend) in the log.
+    const bool preview = threadCount == 1;
+    if (preview) {
+        line += QStringLiteral(" [thumbnail decoder]");
+    }
+    if (!firstTime(QStringLiteral("open|%1|%2|%3|%4|%5")
+                       .arg(info.path, with, hwOpenFailure, hwUnavailable)
+                       .arg(preview ? 1 : 0))
+        || (preview && !hwOpenFailed)) {
         qCDebug(lcMedia).noquote() << line;
     } else if (hwOpenFailed) {
         qCWarning(lcMedia).noquote() << line;
