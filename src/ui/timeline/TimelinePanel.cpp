@@ -14,6 +14,7 @@
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/Metrics.h"
+#include "ui/common/Page.h"
 #include "ui/common/PanelInfo.h"
 #include "ui/common/TimecodeFormat.h"
 #include "ui/timeline/ChangeSpeedDialog.h"
@@ -443,15 +444,37 @@ void TimelinePanel::navigateTimelines(int direction)
     }
 }
 
+namespace {
+/// Mouse back / forward step through the timelines on every page that shows a timeline, over
+/// any of its widgets, except where something else owns the buttons (the Media Pool's bins).
+bool timelineHistoryHere(const QWidget* self, QWidget* w)
+{
+    for (QWidget* p = w; p; p = p->parentWidget()) {
+        if (qstrcmp(p->metaObject()->className(), "kk::MediaPoolPanel") == 0)
+            return false;
+        if (const auto* page = qobject_cast<const Page*>(p)) {
+            const QString id = page->pageId();
+            return page->isVisible()
+                && (id == QLatin1String("edit") || id == QLatin1String("cut")
+                    || id == QLatin1String("color") || id == QLatin1String("compositing")
+                    || id == QLatin1String("audio"));
+        }
+    }
+    return w == self || self->isAncestorOf(w); // a panel shown without a page
+}
+} // namespace
+
 bool TimelinePanel::eventFilter(QObject* watched, QEvent* event)
 {
-    if ((event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease)
-        && watched->isWidgetType() && isVisible()) {
+    if ((event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick
+            || event->type() == QEvent::MouseButtonRelease)
+        && watched->isWidgetType()) {
         auto* mouse = static_cast<QMouseEvent*>(event);
         const Qt::MouseButton b = mouse->button();
         auto* w = static_cast<QWidget*>(watched);
-        if ((b == Qt::BackButton || b == Qt::ForwardButton) && (w == this || isAncestorOf(w))) {
-            if (event->type() == QEvent::MouseButtonPress)
+        if ((b == Qt::BackButton || b == Qt::ForwardButton) && timelineHistoryHere(this, w)) {
+            // Quick repeated presses arrive as double-clicks and count as presses.
+            if (event->type() != QEvent::MouseButtonRelease)
                 navigateTimelines(b == Qt::BackButton ? -1 : 1);
             return true;
         }

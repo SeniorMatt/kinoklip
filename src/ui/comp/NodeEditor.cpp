@@ -791,6 +791,11 @@ QMenu* NodeEditor::buildContextMenu(QPointF pos, QWidget* parent)
     // Background: add any node here.
     QMenu* addMenu = menu->addMenu(tr("Add Node"));
     addMenu->setObjectName(QStringLiteral("AddNodeMenu"));
+    // The folders are long: the search (Shift+Space) is the first entry.
+    if (m_actions && m_actions->contains(QStringLiteral("comp.select_node"))) {
+        addMenu->addAction(m_actions->action(QStringLiteral("comp.select_node")));
+        addMenu->addSeparator();
+    }
     const QPointF at = toGrid(pos) - QPointF(kTileWidth / 2, 0.5);
     for (const QString& category : compadapter::categories()) {
         QMenu* sub = addMenu->addMenu(category);

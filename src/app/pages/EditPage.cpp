@@ -723,7 +723,11 @@ bool EditPage::eventFilter(QObject* watched, QEvent* event)
 {
     if (event->type() == QEvent::MouseButtonPress && m_singleViewer && watched->isWidgetType()) {
         auto* w = static_cast<QWidget*>(watched);
-        if (m_timeline->isAncestorOf(w) || w == m_timeline)
+        // The timeline, and the panels that move its playhead (a click in the Edit Index, a
+        // scrub in the Keyframes panel), bring the timeline to the one viewer.
+        const auto inside
+            = [w](const QWidget* panel) { return panel && (w == panel || panel->isAncestorOf(w)); };
+        if (inside(m_timeline) || inside(m_editIndex) || inside(m_keyframes))
             followTimelineInSingleViewer();
     }
     // Until the user drags a column splitter, keep the default column proportions at every

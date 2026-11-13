@@ -7,15 +7,19 @@
 #include "platform/OpenUrl.h"
 #include "ui/common/Icons.h"
 #include "ui/common/PanelInfo.h"
+#include "ui/common/TextFit.h"
 #include "ui/common/ThinProgressBar.h"
 #include "ui/common/VimRowOps.h"
 
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QToolButton>
@@ -48,6 +52,7 @@ public:
         QFont bold = m_name->font();
         bold.setBold(true);
         m_name->setFont(bold);
+        m_name->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred); // elided, not wide
         top->addWidget(m_name, 1);
         m_edit = toolButton(QStringLiteral("edit"), tr("Edit this job"));
         m_edit->setObjectName(QStringLiteral("RenderJobEdit"));
@@ -61,6 +66,7 @@ public:
         layout->addLayout(top);
         m_details = new QLabel;
         m_details->setEnabled(false); // dimmed secondary text
+        m_details->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
         layout->addWidget(m_details);
         m_progress = new ThinProgressBar;
         m_progress->setObjectName(QStringLiteral("RenderJobProgress"));
@@ -91,7 +97,8 @@ public:
         if (!job) {
             return;
         }
-        m_name->setText(job->name);
+        // Long names are elided (full text in the tip) so a card never widens the queue.
+        textfit::setElidedText(m_name, job->name);
         const ExportSettings& s = job->settings;
         const QSize size = s.outputSize(*job->timeline);
         const auto [first, end] = s.frameRange(*job->timeline);
@@ -100,8 +107,7 @@ public:
             details += QStringLiteral(" · %1x%2").arg(size.width()).arg(size.height());
         }
         details += plural(end - first, tr(" · %n frame"), tr(" · %n frames"));
-        m_details->setText(details);
-        m_details->setToolTip(QDir::toNativeSeparators(s.outputPath));
+        textfit::setElidedText(m_details, details, QDir::toNativeSeparators(s.outputPath));
         m_status->setText(RenderQueue::statusText(*job));
         m_status->setToolTip(
             job->status == RenderQueue::Status::Failed ? job->result.error : QString());
@@ -125,6 +131,34 @@ public:
         setProperty("editing", editing);
         setFrameShadow(editing ? QFrame::Sunken : QFrame::Plain);
         m_edit->setDown(editing);
+    }
+
+protected:
+    /// A double-click on a job loads its settings for editing, like the Edit button (Resolve:
+    /// double-click a job in the Render Queue).
+    void mouseDoubleClickEvent(QMouseEvent* event) override
+    {
+        if (event->button() == Qt::LeftButton && m_edit->isEnabled())
+            m_edit->click();
+        else
+            QFrame::mouseDoubleClickEvent(event);
+    }
+
+    /// Right-click: the commands of the card's buttons.
+    void contextMenuEvent(QContextMenuEvent* event) override
+    {
+        QMenu menu(this);
+        const auto add = [&menu](const QString& text, QToolButton* button) {
+            QAction* a = menu.addAction(text, button, &QToolButton::click);
+            a->setEnabled(button->isEnabled());
+            a->setVisible(!button->isHidden());
+        };
+        add(tr("Edit Job"), m_edit);
+        add(tr("Cancel Render"), m_cancel);
+        add(tr("Show Output Folder"), m_reveal);
+        menu.addSeparator();
+        add(tr("Remove from Queue"), m_remove);
+        menu.exec(event->globalPos());
     }
 
 private:

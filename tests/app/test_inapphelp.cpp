@@ -502,11 +502,14 @@ private slots:
         EffectsLibraryPanel library(f.ctx);
         std::unique_ptr<QMenu> menu(library.createContextMenu(QLatin1String(fxid::ChromaKey)));
         QVERIFY(menu);
-        QCOMPARE(menu->actions().size(), 1);
+        QCOMPARE(menu->actions().size(), 2); // how to use, then Add to Selected Clips
         QCOMPARE(menu->actions()[0]->text(), QStringLiteral("How to use Chroma Key…"));
         menu->actions()[0]->trigger();
         QCOMPARE(f.opened, QList<QUrl> {articleUrl("remove-a-green-screen.md")});
-        QVERIFY(!library.createContextMenu(QStringLiteral("gaussian_blur")));
+        // Without a guide article the entry has only the apply command.
+        menu.reset(library.createContextMenu(QStringLiteral("gaussian_blur")));
+        QVERIFY(menu);
+        QCOMPARE(menu->actions().size(), 1);
 
         // The selected entry is the library's F1 context.
         QTreeWidgetItem* chroma = nullptr;

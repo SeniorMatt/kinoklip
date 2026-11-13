@@ -183,7 +183,7 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     // The scheme's neutral (warning) colour, refreshed on a scheme switch.
     const auto styleProxyLabel = [label = m_proxyLabel] {
         label->setStyleSheet(QStringLiteral("color: %1; font-weight: bold;")
-                                 .arg(schemeColors().neutral.name(QColor::HexRgb)));
+                .arg(schemeColors().neutral.name(QColor::HexRgb)));
     };
     styleProxyLabel();
     connect(SchemeColorsNotifier::instance(), &SchemeColorsNotifier::changed, m_proxyLabel,
@@ -285,7 +285,9 @@ ViewerPanel::ViewerPanel(Mode mode, AppContext& ctx, QWidget* parent)
     m_marksLabel->setObjectName(QStringLiteral("ViewerMarks"));
     // Secondary text from the palette (readable in light and dark colour schemes).
     m_marksLabel->setForegroundRole(QPalette::PlaceholderText);
+    m_marksLabel->setMinimumWidth(1);
     bar->addWidget(m_marksLabel);
+    m_transport->installEventFilter(this); // the label gives way when the bar is too narrow
     bar->addStretch(1);
 
     auto act = [this](const char* id) {
@@ -659,6 +661,25 @@ void ViewerPanel::updateMarksLabel()
     // Duration of the marked range (or of everything), as Resolve shows it next to the marks.
     parts << tr("Dur %1").arg(timecode::format(std::max<int64_t>(0, out - in), d.fps));
     m_marksLabel->setText(parts.join(QStringLiteral("   ")));
+    m_marksLabel->setToolTip(m_marksLabel->text());
+    fitMarksLabel();
+}
+
+void ViewerPanel::fitMarksLabel()
+{
+    // The marks and duration are secondary: on a narrow viewer (two viewers side by side on a
+    // 1366 px screen) they are hidden whole instead of being squeezed to a few letters. The
+    // layout's minimum width tells whether they fit.
+    if (!m_marksLabel || !m_transport || !m_transport->layout())
+        return;
+    const QLayout* bar = m_transport->layout();
+    // The label counts for 1 px in the minimum (set where it is made), so that it never
+    // changes the viewer's minimum width: its own hint is added here, shown or not.
+    int needed = bar->minimumSize().width() + m_marksLabel->sizeHint().width();
+    needed += m_marksLabel->isHidden() ? bar->spacing() : -m_marksLabel->minimumWidth();
+    const bool fits = m_transport->width() >= needed;
+    if (m_marksLabel->isHidden() == fits)
+        m_marksLabel->setVisible(fits);
 }
 
 // ---- Public API ----
@@ -930,6 +951,8 @@ bool ViewerPanel::event(QEvent* event)
 
 bool ViewerPanel::eventFilter(QObject* watched, QEvent* event)
 {
+    if (watched == m_transport && event->type() == QEvent::Resize)
+        fitMarksLabel();
     if (watched != m_surface->widget()) {
         return PanelFrame::eventFilter(watched, event);
     }

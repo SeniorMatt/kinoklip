@@ -476,6 +476,25 @@ QMenu* EffectsLibraryPanel::createContextMenu(const QString& descriptorId)
     auto* menu = new QMenu(this);
     if (QAction* howTo = guide::createHowToAction(QStringLiteral("effect:") + d->id, d->name, menu))
         menu->addAction(howTo);
+    // The same as the double-click, spelled out like Resolve's "Add to Selected Edit Points".
+    {
+        QString text;
+        switch (d->category) {
+        case EffectCategory::Transition:
+        case EffectCategory::AudioTransition:
+            text = tr("Add to Selected Edit Point");
+            break;
+        case EffectCategory::VideoEffect:
+        case EffectCategory::AudioEffect:
+            text = tr("Add to Selected Clips");
+            break;
+        default:
+            text = tr("Add at Playhead");
+            break;
+        }
+        QAction* apply = menu->addAction(text, this, [this, id = d->id] { activate(id); });
+        apply->setObjectName(QStringLiteral("ApplyLibraryEntry"));
+    }
     const bool videoTransition = d->category == EffectCategory::Transition;
     if (m_ctx.project && (videoTransition || d->category == EffectCategory::AudioTransition)) {
         // Resolve: right-click a transition > Set as Standard Transition (this project).
