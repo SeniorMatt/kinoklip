@@ -355,6 +355,21 @@ if [ -d "$COLOR_SCHEMES_DIR" ] && [ -f "$QT_PLUGINS/styles/breeze6.so" ]; then
     fi
 fi
 
+# Qt's own translations (standard buttons, file dialog) for the languages Kinoklip is translated
+# into; src/core/Translations.cpp looks in usr/share/kinoklip/translations when the Qt in use
+# has no translations folder of its own. Kinoklip's strings are compiled into the binary.
+QT_TRANSLATIONS="$(qtpaths6 --query QT_INSTALL_TRANSLATIONS 2>/dev/null || true)"
+[ -d "$QT_TRANSLATIONS" ] || QT_TRANSLATIONS=/usr/share/qt6/translations # Arch
+[ -d "$QT_TRANSLATIONS" ] || QT_TRANSLATIONS=/usr/share/qt6/translations
+mkdir -p "$APPDIR/usr/share/kinoklip/translations"
+for code in ru de uk es; do
+    if [ -f "$QT_TRANSLATIONS/qtbase_$code.qm" ]; then
+        cp -L "$QT_TRANSLATIONS/qtbase_$code.qm" "$APPDIR/usr/share/kinoklip/translations/"
+    else
+        log "WARNING: no qtbase_$code.qm in $QT_TRANSLATIONS: Qt's own dialogs stay English in that language"
+    fi
+done
+
 # Colour emoji for titles and captions (spec 69): Noto Color Emoji (SIL OFL 1.1) from the build
 # host's font package (Arch: noto-fonts-emoji, Debian: fonts-noto-color-emoji). Kinoklip registers
 # it at run time only when the system has no colour emoji font of its own

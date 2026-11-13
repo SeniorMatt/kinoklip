@@ -3,6 +3,7 @@
 // the code that applies stored preferences to the running application.
 #include "core/Animation.h"
 #include "core/EditBehaviour.h"
+#include "core/Translations.h"
 #include "media/HwAccel.h"
 #include "media/ImageLoader.h"
 #include "media/MediaCache.h"
@@ -520,6 +521,19 @@ public:
         m_scale->setToolTip(tr("Takes effect after restarting the application."));
         form->addRow(tr("Interface scale"), m_scale);
 
+        // Resolve: Preferences > User > UI Settings > Language (also needs a restart).
+        m_language = new QComboBox;
+        m_language->setObjectName(QStringLiteral("Language"));
+        m_language->addItem(tr("System default"), QStringLiteral("system"));
+        for (const i18n::Language& language : i18n::languages())
+            m_language->addItem(language.name, language.code); // each in its own language
+        const QString language = QSettings()
+                                     .value(QLatin1String(i18n::kLanguageKey), QStringLiteral("system"))
+                                     .toString();
+        m_language->setCurrentIndex(std::max(0, m_language->findData(language)));
+        form->addRow(tr("Language"), m_language);
+        form->addRow(QString(), note(tr("Takes effect after restarting the application.")));
+
         // Our own (Resolve has one arrangement): shorter menus grouped by task (spec 82).
         m_menuLayout = new QComboBox;
         m_menuLayout->setObjectName(QStringLiteral("MenuLayout"));
@@ -573,6 +587,8 @@ public:
     void apply() override
     {
         QSettings().setValue(QLatin1String(prefs::kUiScale), m_scale->currentData().toString());
+        QSettings().setValue(
+            QLatin1String(i18n::kLanguageKey), m_language->currentData().toString());
         menulayout::setLayout(menulayout::layoutFromId(m_menuLayout->currentData().toString()));
         prefs::setAnimationsEnabled(m_animate->isChecked());
         prefs::setAnimationSpeed(m_speed->value() * kSpeedStep);
@@ -585,6 +601,7 @@ private:
     static constexpr int kMinSpeedStep = 2; ///< 0.5x
     static constexpr int kMaxSpeedStep = 8; ///< 2x
     QComboBox* m_scale = nullptr;
+    QComboBox* m_language = nullptr;
     QComboBox* m_menuLayout = nullptr;
     QCheckBox* m_animate = nullptr;
     QSlider* m_speed = nullptr;

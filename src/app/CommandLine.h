@@ -18,6 +18,7 @@ struct CommandLineOptions
     bool resetLayout = false; ///< --reset-layout: ignore saved window/panel layout
     QString style; ///< --widget-style <key>: widget style for this run (not stored)
     QString colorScheme; ///< --color-scheme <id>: colour scheme for this run ("system" allowed)
+    QString language; ///< --lang <code>: interface language for this run (app/Translations.h)
     QString renderFrameProject; ///< --render-frame <project>: project to render a frame of
     qint64 renderFrameIndex = 0; ///< timeline frame for --render-frame
     QString renderFramePath; ///< image written by --render-frame

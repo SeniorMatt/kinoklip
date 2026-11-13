@@ -1,0 +1,50 @@
+# Texts that stay as they are in every language: brand and codec names, units.
+# One per line: an exact text, or re:<regular expression> for the whole text.
+
+# Language names: each language in its own name, never translated
+English
+Deutsch
+Español
+Русский
+Українська
+# Widget styles, colour themes, keyboard presets of other editors: proper names
+Breeze
+Breeze Classic
+Breeze Dark
+Breeze Light
+Fusion
+Kinoklip
+Union
+Windows
+Avid Media Composer
+Final Cut Pro (Ctrl for Command)
+Kdenlive
+Premiere Pro (Windows)
+Shotcut
+Vegas Pro
+# Measurements, paths, the new project's name (data in the project file)
+re:-?(inf|[0-9.]+) (LUFS|dBTP)
+re:/.*
+Untitled Project
+test_translations
+# Qt's own texts (key names, file dialog, library errors): translated by qtbase_<code>.qm
+Alt
+Ctrl
+Del
+End
+Backspace
+Computer
+Drive
+%p%
++
+re:F%1
+re:Cannot load library.*
+Meta
+Num
+OK
+Save
+Shift
+Space
+No such file or directory
+QT_LAYOUT_DIRECTION
+re:(Pan|Slide|Scroll) (Up|Down|Left|Right)

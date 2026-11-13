@@ -134,6 +134,52 @@ if(KK_QRC)
   target_sources(kinoklip_core PRIVATE ${KK_QRC_OBJS})
 endif()
 
+# Translations (resources/translations/kinoklip_<code>.ts): compiled with lrelease into
+# :/translations/kinoklip_<code>.qm. `cmake --build . --target update_translations` re-reads
+# the sources into the .ts files (docs/contributing.md, "Translating Kinoklip"). Without
+# Qt LinguistTools the application is built English-only.
+find_package(Qt6 QUIET COMPONENTS LinguistTools)
+find_package(Python3 QUIET COMPONENTS Interpreter)
+file(GLOB KK_TS_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/resources/translations/*.ts)
+if(TARGET Qt6::lrelease AND KK_TS_FILES)
+  set(KK_QM_DIR ${CMAKE_BINARY_DIR}/translations)
+  file(MAKE_DIRECTORY ${KK_QM_DIR})
+  set(KK_QM_FILES "")
+  set(KK_QM_QRC "<RCC>\n  <qresource prefix=\"/translations\">\n")
+  foreach(ts ${KK_TS_FILES})
+    get_filename_component(ts_name ${ts} NAME_WE)
+    set(qm ${KK_QM_DIR}/${ts_name}.qm)
+    if(Python3_Interpreter_FOUND)
+      # scripts/ts_fallback.py: every text also in one context, for the widgets whose tr()
+      # context differs between lupdate and run time (see the script).
+      add_custom_command(OUTPUT ${qm}
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/ts_fallback.py ${ts} ${KK_QM_DIR}/${ts_name}.ts
+        COMMAND Qt6::lrelease ${KK_QM_DIR}/${ts_name}.ts -qm ${qm}
+        DEPENDS ${ts} ${CMAKE_SOURCE_DIR}/scripts/ts_fallback.py COMMENT "lrelease ${ts_name}" VERBATIM)
+    else()
+      add_custom_command(OUTPUT ${qm}
+        COMMAND Qt6::lrelease ${ts} -qm ${qm}
+        DEPENDS ${ts} COMMENT "lrelease ${ts_name}" VERBATIM)
+    endif()
+    list(APPEND KK_QM_FILES ${qm})
+    string(APPEND KK_QM_QRC "    <file>${ts_name}.qm</file>\n")
+  endforeach()
+  string(APPEND KK_QM_QRC "  </qresource>\n</RCC>\n")
+  file(WRITE ${KK_QM_DIR}/translations.qrc "${KK_QM_QRC}")
+  add_custom_target(kk_translations DEPENDS ${KK_QM_FILES})
+  qt_add_resources(KK_QM_OBJS ${KK_QM_DIR}/translations.qrc)
+  target_sources(kinoklip_core PRIVATE ${KK_QM_OBJS})
+  add_dependencies(kinoklip_core kk_translations)
+  target_compile_definitions(kinoklip_core PUBLIC KK_HAVE_TRANSLATIONS=1)
+endif()
+if(TARGET Qt6::lupdate)
+  add_custom_target(update_translations
+    COMMAND Qt6::lupdate ${CMAKE_SOURCE_DIR}/src -recursive -locations none -no-obsolete
+            -ts ${KK_TS_FILES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "lupdate: reading the sources into resources/translations/*.ts" VERBATIM)
+endif()
+
 # ---- Application ----
 add_executable(${APP_ID} src/main.cpp)
 target_link_libraries(${APP_ID} PRIVATE kinoklip_core)

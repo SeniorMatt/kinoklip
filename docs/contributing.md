@@ -30,3 +30,32 @@ system info it would add, and opens GitHub's report form in your browser with or
 then describe what you did, what happened and what you expected, and submit it there. Without the
 app, use [New issue](https://github.com/SeniorMatt/kinoklip/issues/new/choose) on GitHub; the forms
 live in `.github/ISSUE_TEMPLATE/` (`scripts/check_issue_forms.py` checks them).
+
+## Translating Kinoklip
+The interface is available in English (the source language), German, Spanish, Russian and
+Ukrainian. The translations are Qt Linguist files, one per language, in
+`resources/translations/kinoklip_<code>.ts`; they are compiled into the application at build time
+(`lrelease`, CMake option: Qt6 LinguistTools; without it the application is built English-only).
+Open a file in Qt Linguist (`linguist`) or any text editor and fill in the `<translation>`
+elements; an entry marked `type="unfinished"` is a draft that was not reviewed yet, remove the
+mark when it is right. Keep the placeholders (`%1`, `%2`, `%n`), keep the `&` accelerator
+before a letter that no other entry of the same menu uses, and use the words of the translated
+DaVinci Resolve and the Kdenlive / Shotcut interfaces for the same language where they have one.
+
+- **Update the strings** after changing the sources: `cmake --build build --target update_translations`
+  (runs `lupdate` over `src/` into every .ts file). Translatable text is written `tr("...")`
+  (`QCoreApplication::translate("Context", "...")` outside a QObject, `QT_TRANSLATE_NOOP` in
+  static tables, `%n` in counts so that every language gets its plural forms). Object names,
+  settings keys, file formats, codec names, log lines (`kk.*` categories) and command names
+  stay English.
+- **Add a language:** copy an existing file to `kinoklip_<code>.ts` and change `language="..."`
+  in its first line, run `update_translations`, translate, add the code and the language's own
+  name to `languages()` in `src/core/Translations.cpp`, and the Qt translations of the language
+  (`qtbase_<code>.qm`) to the loop in `scripts/package_linux.sh`. Build, start with
+  `kinoklip --lang <code>` (or `KK_LANG=<code>`), look at every page and at Preferences.
+- **Choose the language:** Preferences > User > UI Settings > Language (restart needed), the
+  command line `--lang <code>` or the environment variable `KK_LANG` for one run.
+- **Check:** `test_translations` installs a pseudo language that wraps every translated text in
+  `[!! ... !!]`, builds the window, the pages and the main dialogs and fails for every visible text
+  that is not wrapped, i.e. that bypasses `tr()`. Texts that stay the same on purpose (brand
+  names, codecs, units) go into `tests/app/translation_allowlist.txt`.
