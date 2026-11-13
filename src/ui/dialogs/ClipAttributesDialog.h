@@ -45,6 +45,8 @@ public:
     [[nodiscard]] QComboBox* fieldOrderBox() const { return m_fieldOrder; }
     [[nodiscard]] QCheckBox* deinterlaceBox() const { return m_deinterlace; }
     [[nodiscard]] QComboBox* rotationBox() const { return m_rotation; }
+    [[nodiscard]] QComboBox* frameRateBox() const { return m_frameRate; }
+    [[nodiscard]] QComboBox* alphaModeBox() const { return m_alphaMode; }
     [[nodiscard]] QComboBox* channelFormatBox() const { return m_format; }
     [[nodiscard]] QComboBox* leftBox() const { return m_left; }
     [[nodiscard]] QComboBox* rightBox() const { return m_right; }
@@ -69,6 +71,8 @@ private:
     QComboBox* m_fieldOrder = nullptr;
     QCheckBox* m_deinterlace = nullptr;
     QComboBox* m_rotation = nullptr;
+    QComboBox* m_frameRate = nullptr;
+    QComboBox* m_alphaMode = nullptr;
     QComboBox* m_format = nullptr;
     QLabel* m_leftLabel = nullptr;
     QComboBox* m_left = nullptr;

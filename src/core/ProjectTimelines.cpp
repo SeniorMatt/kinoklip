@@ -550,13 +550,17 @@ QString Project::uniqueTimelineName(const QString& base) const
 }
 
 quint64 Project::createTimeline(const QString& name, const QString& binId, int videoTracks,
-    int audioTracks, std::optional<int64_t> startTimecode)
+    int audioTracks, std::optional<int64_t> startTimecode, bool monoAudio)
 {
     TimelineData t = makeDefaultTimeline(name.isEmpty() ? uniqueTimelineName(tr("Timeline")) : name,
         m_format.fps, m_format.width, m_format.height, std::max(1, videoTracks),
         std::max(1, audioTracks));
     t.uid = m_nextTimelineUid++;
     t.retimeProcess = m_format.retimeProcess;
+    if (monoAudio) {
+        for (TrackData& track : t.audioTracks)
+            track.mix.mono = true;
+    }
     t.startTimecode = std::max<int64_t>(0, startTimecode.value_or(m_format.timelineStart));
     const quint64 uid = t.uid;
     beginEdit(tr("New Timeline"));

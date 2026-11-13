@@ -249,11 +249,20 @@ QVector<ops::PlacedClip> TimelineController::makeMediaClips(
     if (info.isStillImage || frames < 1)
         frames = defaultStillFrames(data.fps);
 
+    // A video frame rate override (Clip Attributes) plays the file at a different speed: the
+    // clip runs 1 / scale times as long (spec 89.17).
+    const double rateScale
+        = info.isStillImage ? 1.0 : frameRateScale(item.attributes, info.frameRate);
+
     ClipData base;
     base.kind = ClipKind::Media;
     base.mediaId = mediaId;
     base.name = item.name;
     base.duration = frames;
+    if (rateScale != 1.0 && rateScale > 0.0) {
+        base.speed = rateScale;
+        base.duration = std::max<int64_t>(1, int64_t(std::llround(double(frames) / rateScale)));
+    }
     base.sourceInUs = info.isStillImage ? 0 : inUs;
     base.sourceDurationUs = info.isStillImage ? 0 : info.durationUs;
 

@@ -440,6 +440,8 @@ QWidget* KeyframesPanel::buildToolRow()
 void KeyframesPanel::attachComposition(CompSession* session, View view)
 {
     m_session = session;
+    for (QShortcut* sc : std::as_const(m_splineKeys))
+        sc->setEnabled(m_session != nullptr);
     const bool spline = view == View::Curves;
     setTitle(spline ? tr("Spline") : tr("Keyframes"));
     setPanelInfo(this, spline ? tr("Spline") : tr("Keyframes"),
@@ -487,6 +489,10 @@ void KeyframesPanel::setupSplineTools()
     auto key = [this](const char* seq, std::function<void()> fn) {
         auto* sc = new QShortcut(QKeySequence(QLatin1String(seq)), this);
         sc->setContext(Qt::WidgetWithChildrenShortcut);
+        // Only the Spline panel of the Compositing page has them; in the Edit page panel the
+        // keys stay global (I and O mark, L shuttles), spec 89.13.
+        sc->setEnabled(isCompositionPanel());
+        m_splineKeys.append(sc);
         connect(sc, &QShortcut::activated, this, std::move(fn));
     };
     key("S", [this] { kc::easeTargets(m_ctx, Interp::Smooth); });

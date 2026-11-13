@@ -516,6 +516,10 @@ QJsonObject attributesToJson(const ClipAttributes& a)
         o[QLatin1String("deinterlace")] = true;
     if (a.rotation != 0)
         o[QLatin1String("rotation")] = a.rotation;
+    if (a.frameRate.isValid())
+        o[QLatin1String("frameRate")] = QJsonArray {a.frameRate.num, a.frameRate.den};
+    if (a.alphaMode != d.alphaMode)
+        o[QLatin1String("alphaMode")] = alphaModeToString(a.alphaMode);
     if (a.channelFormat != d.channelFormat) {
         o[QLatin1String("channelFormat")] = channelFormatToString(a.channelFormat);
         o[QLatin1String("left")] = a.left;
@@ -539,6 +543,13 @@ ClipAttributes attributesFromJson(const QJsonObject& o)
     a.fieldOrder = fieldOrderFromString(o.value(QLatin1String("fieldOrder")).toString());
     a.deinterlace = o.value(QLatin1String("deinterlace")).toBool(false);
     a.rotation = normalizedRotation(o.value(QLatin1String("rotation")).toInt(0));
+    const QJsonArray rate = o.value(QLatin1String("frameRate")).toArray();
+    if (rate.size() == 2) {
+        const Rational r {rate[0].toInt(), rate[1].toInt()};
+        if (r.isValid())
+            a.frameRate = r;
+    }
+    a.alphaMode = alphaModeFromString(o.value(QLatin1String("alphaMode")).toString());
     a.channelFormat = channelFormatFromString(o.value(QLatin1String("channelFormat")).toString());
     a.left = o.value(QLatin1String("left")).toInt(0);
     a.right = o.value(QLatin1String("right")).toInt(1);

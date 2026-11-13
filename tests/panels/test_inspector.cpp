@@ -17,7 +17,10 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QCompleter>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -613,6 +616,32 @@ private slots:
         f.selection.selectTransition({id, true});
         QCOMPARE(panel.clipId(), id);
         QCOMPARE(panel.tabs()->currentIndex(), int(InspectorPanel::TransitionTab));
+    }
+
+    // Spec 89.15: the transition Type list is searchable (typing narrows it to the names that
+    // contain the text).
+    void spec89_15_transitionTypeIsSearchable()
+    {
+        PanelFixture f;
+        const quint64 id = f.addClip(kV1, 0, 100);
+        effectactions::applyTransition(f.project, id, QStringLiteral("wipe"), true);
+        InspectorPanel panel(f.ctx);
+        f.selection.selectTransition({id, true});
+        auto* type = panel.findChild<QComboBox*>(QStringLiteral("TransitionType"));
+        QVERIFY(type);
+        QVERIFY(type->isEditable());
+        QVERIFY(type->count() > 20);
+        QCompleter* completer = type->completer();
+        QVERIFY(completer);
+        QCOMPARE(completer->filterMode(), Qt::MatchContains);
+        completer->setCompletionPrefix(QStringLiteral("wip"));
+        QVERIFY(completer->completionCount() >= 1);
+        QVERIFY(completer->completionCount() < type->count());
+        // Text that names nothing goes back to the current transition.
+        const QString current = type->currentText();
+        type->lineEdit()->setText(QStringLiteral("zzzz nothing"));
+        emit type->lineEdit()->editingFinished();
+        QCOMPARE(type->currentText(), current);
     }
 
     void titleClipTextIsOneUndoStepPerBurst()

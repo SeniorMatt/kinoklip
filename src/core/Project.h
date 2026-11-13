@@ -197,9 +197,11 @@ public:
     /// Creates an empty timeline (project resolution and frame rate) with @p videoTracks video
     /// and @p audioTracks audio tracks (V1, A1 by default, spec 25.14), starting at
     /// @p startTimecode (default: the project's timeline start), and its media pool item in
-    /// bin @p binId. One undo step. Returns the uid. Does not activate it.
+    /// bin @p binId. With @p monoAudio the audio tracks are mono (the Create New Timeline dialog's
+    /// audio track type), else stereo. One undo step. Returns the uid. Does not activate it.
     quint64 createTimeline(const QString& name, const QString& binId = {}, int videoTracks = 1,
-        int audioTracks = 1, std::optional<int64_t> startTimecode = std::nullopt);
+        int audioTracks = 1, std::optional<int64_t> startTimecode = std::nullopt,
+        bool monoAudio = false);
     /// Adds a finished timeline (File > Import > Timeline, imported .otio files) and its media
     /// pool item in bin @p binId. @p data gets a new uid and the project's picture size and
     /// retime process; it follows the project's frame rate settings when its own rate equals

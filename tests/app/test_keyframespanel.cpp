@@ -35,7 +35,9 @@
 #include <QComboBox>
 #include <QDebug>
 #include <QLabel>
+#include <QKeyEvent>
 #include <QSettings>
+#include <QShortcut>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -193,6 +195,33 @@ private slots:
         emit v.panel.tree()->collapseToggled(v.panel.tree()->entryAt(transform).key);
         QCOMPARE(v.panel.tree()->rowCount(), 6);
         QCOMPARE(v.panel.dopeSheet()->rows().size(), 6);
+    }
+
+    // Spec 89.12 / 89.13: the views claim Delete / Backspace only without a modifier (Shift+Delete
+    // and Ctrl+Backspace stay global), and the Spline panel keys S L T I O V F are off in the
+    // Keyframes panel of the Edit page (I and O stay Mark In / Out, L stays shuttle forward).
+    void spec89_12_keysKeepModifiersAndEditPageKeys()
+    {
+        Fixture f;
+        PanelView v(f.ctx);
+        f.selection.selectClip(f.video);
+        DopeSheetView* dope = v.panel.dopeSheet();
+        f.selection.setKeyframes({KeyframeRef {f.video, QStringLiteral("transform/posX"), 0}});
+        QVERIFY(!f.selection.keyframes().isEmpty());
+        const auto claimed = [dope](int key, Qt::KeyboardModifiers mods) {
+            QKeyEvent e(QEvent::ShortcutOverride, key, mods);
+            QCoreApplication::sendEvent(dope, &e);
+            return e.isAccepted();
+        };
+        QVERIFY(claimed(Qt::Key_Delete, Qt::NoModifier));
+        QVERIFY(claimed(Qt::Key_Backspace, Qt::NoModifier));
+        QVERIFY(!claimed(Qt::Key_Delete, Qt::ShiftModifier));
+        QVERIFY(!claimed(Qt::Key_Backspace, Qt::ControlModifier));
+        QVERIFY(!v.panel.isCompositionPanel());
+        const auto shortcuts = v.panel.findChildren<QShortcut*>();
+        QVERIFY(!shortcuts.isEmpty());
+        for (QShortcut* sc : shortcuts)
+            QVERIFY2(!sc->isEnabled(), qPrintable(sc->key().toString()));
     }
 
     // 15.15 / spec 24.1: a linked pair is one item whichever part is selected; the video

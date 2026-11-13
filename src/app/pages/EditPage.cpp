@@ -202,6 +202,8 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     });
     // New timelines and compound clips go into the media pool's current bin (Resolve).
     m_timeline->controller()->setBinProvider([this] { return m_mediaPool->currentBin(); });
+    m_timeline->controller()->setMediaSelectionProvider(
+        [this] { return m_mediaPool->selectedMediaIds(); });
     // Multicam: angle clicks / number keys in the multicam viewer cut (or switch) the
     // multicam clip under the timeline playhead; Sync Based on In Points uses the source
     // viewer's marks.

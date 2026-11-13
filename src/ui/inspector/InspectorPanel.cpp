@@ -39,6 +39,7 @@
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QCompleter>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
@@ -1244,6 +1245,23 @@ void InspectorPanel::addTransitionGroup(const ClipData& c, bool atHead)
     if (current < 0 && category == EffectCategory::AudioTransition)
         current = type->findData(audiotransitions::defaultId());
     type->setCurrentIndex(current);
+    // About sixty names: typing narrows the list to the names that contain the text, like the
+    // search of the Add Effect menu (spec 89.15).
+    type->setObjectName(QStringLiteral("TransitionType"));
+    type->setEditable(true);
+    type->setInsertPolicy(QComboBox::NoInsert);
+    type->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    if (auto* completer = type->completer()) {
+        completer->setFilterMode(Qt::MatchContains);
+        completer->setCaseSensitivity(Qt::CaseInsensitive);
+        completer->setCompletionMode(QCompleter::PopupCompletion);
+    }
+    type->lineEdit()->setPlaceholderText(tr("Search transitions"));
+    connect(type->lineEdit(), &QLineEdit::editingFinished, type, [type, current] {
+        // Text that names no transition goes back to the current one.
+        if (type->findText(type->currentText(), Qt::MatchFixedString) < 0)
+            type->setCurrentIndex(current);
+    });
     connect(type, &QComboBox::activated, this, [this, type, clipId, atHead](int index) {
         effectactions::applyTransition(
             *m_ctx.project, clipId, type->itemData(index).toString(), atHead);

@@ -221,6 +221,14 @@ public:
         int64_t startTimecode = 0; ///< frames at the project rate
         int videoTracks = 1;
         int audioTracks = 1;
+        /// Empty Timeline (default): no clips. Unchecked, the clips selected in the media pool
+        /// are appended to the new timeline.
+        bool empty = true;
+        /// Use Project Settings (default); else the timeline gets its own size and rate.
+        bool useProjectSettings = true;
+        int width = 0, height = 0; ///< own size (0 = the project's)
+        Rational fps {0, 1}; ///< own rate (invalid = the project's)
+        bool monoAudio = false; ///< audio track type: Mono instead of Stereo
     };
     /// Asks for a new timeline's options, prefilled with @p suggestion; nothing = cancelled.
     /// Without this prompt, New Timeline asks for the name only (NamePrompt).
@@ -241,6 +249,11 @@ public:
     /// Media pool bin new timelines and compound clips go into (default: the root bin;
     /// EditPage wires the media pool's current bin, as in Resolve).
     void setBinProvider(std::function<QString()> provider) { m_binProvider = std::move(provider); }
+    /// The media pool's selected item ids, for a new timeline that is not empty.
+    void setMediaSelectionProvider(std::function<QStringList()> provider)
+    {
+        m_mediaSelectionProvider = std::move(provider);
+    }
     /// Where files dropped on the timeline are imported ("" = root): the bin of
     /// setBinProvider() (the media pool's current bin), or the root when Preferences > Editing >
     /// "Import new media into" is "Master bin" (prefs::importIntoMasterBin(), the same rule as
@@ -699,6 +712,7 @@ private:
     MessageSink m_messageSink;
     std::function<void(quint64)> m_timelineSettingsPrompt;
     std::function<QString()> m_binProvider;
+    std::function<QStringList()> m_mediaSelectionProvider;
     QSet<quint64> m_retimeShown; ///< clips showing their speed bar (view state)
     bool m_dynamicTrim = false;
     bool m_dynamicOpen = false; ///< an undoable dynamic-trim run is in progress

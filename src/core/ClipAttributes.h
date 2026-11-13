@@ -28,6 +28,15 @@ enum class FieldOrder : quint8 {
     LowerFirst ///< bottom field first (BFF, DV / SD)
 };
 
+/// How the alpha channel of a clip is read (Resolve's "Alpha Mode"). The decoders premultiply a
+/// file's alpha when they load it, so Auto and Straight both take the file as straight alpha.
+enum class AlphaMode : quint8 {
+    Auto,
+    Premultiplied, ///< the file's colour already includes the alpha: divided out once
+    Straight, ///< the colour is independent of the alpha
+    None ///< alpha is ignored: the picture is opaque
+};
+
 /// How the source channels become the clip's stereo pair (the mixer's internal format).
 enum class ChannelFormat : quint8 {
     Auto, ///< the decoder's standard layout (mono to both sides, stereo as is, downmix above)
@@ -57,6 +66,11 @@ struct ClipAttributes
     bool deinterlace = false;
     /// Extra clockwise rotation applied on top of the file's own (0, 90, 180, 270 degrees).
     int rotation = 0;
+    /// Video frame rate override: the file's frames are played at this rate (a 60 fps file at
+    /// 24 fps runs 2.5 times slower). {0, 1} (invalid) = the file's own rate. It acts as a
+    /// speed of frameRateScale() on the clips added from the item (spec 89.17).
+    Rational frameRate {0, 1};
+    AlphaMode alphaMode = AlphaMode::Auto;
 
     // ---- Audio ----
     ChannelFormat channelFormat = ChannelFormat::Auto;
@@ -76,7 +90,7 @@ struct ClipAttributes
     [[nodiscard]] bool affectsVideo() const
     {
         return pixelAspect.isValid() || levels != DataLevels::Auto || rotation != 0
-            || (deinterlace && fieldOrder != FieldOrder::Progressive);
+            || frameRate.isValid() || alphaMode != AlphaMode::Auto || (deinterlace && fieldOrder != FieldOrder::Progressive);
     }
     /// True when the audio channel routing differs from the decoder's default.
     [[nodiscard]] bool affectsAudio() const { return channelFormat != ChannelFormat::Auto; }
@@ -86,6 +100,10 @@ struct ClipAttributes
 
 /// Normalises a rotation in degrees to 0, 90, 180 or 270 (nearest quarter turn).
 [[nodiscard]] int normalizedRotation(int degrees);
+
+/// Speed factor of the frame rate override for a file of rate @p fileRate: override / file
+/// (60 fps file played as 24: 0.4). 1 when there is no override or a rate is unknown.
+[[nodiscard]] double frameRateScale(const ClipAttributes& attributes, Rational fileRate);
 
 /// Pixel aspect ratio of a picture: @p attributes' override, else @p fileSar (invalid / 0 →
 /// square).
@@ -102,6 +120,8 @@ bool channelMatrix(const ClipAttributes& attributes, int channels, double* matri
 [[nodiscard]] DataLevels dataLevelsFromString(const QString& s);
 [[nodiscard]] QString fieldOrderToString(FieldOrder order);
 [[nodiscard]] FieldOrder fieldOrderFromString(const QString& s);
+[[nodiscard]] QString alphaModeToString(AlphaMode mode);
+[[nodiscard]] AlphaMode alphaModeFromString(const QString& s);
 [[nodiscard]] QString channelFormatToString(ChannelFormat format);
 [[nodiscard]] ChannelFormat channelFormatFromString(const QString& s);
 

@@ -42,6 +42,9 @@ public:
     void showFolder(const QString& path);
     /// Folder whose files are listed.
     [[nodiscard]] QString currentFolder() const { return m_folder; }
+    /// Steps through the folders shown before (-1) or after (+1), like a file manager; the
+    /// mouse back / forward buttons over the panel do the same (spec 89.16).
+    void navigateHistory(int direction);
     /// Absolute paths of the selected files.
     [[nodiscard]] QStringList selectedFiles() const;
     /// Imports the selected files into the media pool (the import target bin,
@@ -56,6 +59,9 @@ signals:
     /// A file was selected (e.g. to preview it in the viewer).
     void fileSelected(const QString& path);
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     void updateButton();
 
@@ -68,6 +74,9 @@ private:
     QTreeView* m_list = nullptr;
     QPushButton* m_add = nullptr;
     QString m_folder;
+    QStringList m_history; ///< folders shown, oldest first
+    int m_historyPos = -1;
+    bool m_navigating = false;
 };
 
 } // namespace kk

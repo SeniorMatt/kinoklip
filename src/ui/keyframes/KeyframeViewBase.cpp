@@ -411,8 +411,10 @@ bool KeyframeViewBase::event(QEvent* event)
     if (event->type() == QEvent::ShortcutOverride) {
         auto* ke = static_cast<QKeyEvent*>(event);
         const bool hasKeys = !selectedKeys().isEmpty();
-        if ((ke->matches(QKeySequence::Delete) || ke->key() == Qt::Key_Backspace
-                || ke->key() == Qt::Key_Delete || ke->matches(QKeySequence::Copy))
+        const bool bare = (ke->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier;
+        // Shift+Delete and Ctrl+Backspace stay global; only the bare keys and Ctrl+C are ours.
+        if (((bare && (ke->key() == Qt::Key_Backspace || ke->key() == Qt::Key_Delete))
+                || ke->matches(QKeySequence::Copy))
             && hasKeys) {
             event->accept();
             return true;

@@ -162,9 +162,22 @@ quint64 TimelineController::newTimeline(const QString& name)
         if (!answer)
             return 0;
         const QString chosen = answer->name.trimmed();
+        // Create, and give it its own format when it does not use the project settings: one step.
+        p->beginEdit(tr("New Timeline"));
         const quint64 uid = p->createTimeline(chosen.isEmpty() ? suggestion.name : chosen,
-            binOf(m_binProvider), answer->videoTracks, answer->audioTracks, answer->startTimecode);
+            binOf(m_binProvider), answer->videoTracks, answer->audioTracks, answer->startTimecode,
+            answer->monoAudio);
+        if (!answer->useProjectSettings)
+            p->setTimelineFormat(uid, false, answer->width, answer->height, answer->fps);
+        p->endEdit();
         p->openTab(uid);
+        if (!answer->empty && m_mediaSelectionProvider) {
+            QVector<SourceSelection> sources;
+            for (const QString& id : m_mediaSelectionProvider())
+                sources.append(SourceSelection {id, 0, 0, -1});
+            if (!sources.isEmpty())
+                editSources(sources, SourceEditMode::AppendAtEnd);
+        }
         return uid;
     }
     if (finalName.isEmpty()) {

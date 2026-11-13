@@ -8,6 +8,7 @@
 #include "ui/keyframes/KeyframeTimeMap.h"
 
 #include <QHash>
+#include <QList>
 #include <QPointer>
 #include <QSet>
 
@@ -18,6 +19,7 @@ class QDoubleSpinBox;
 class QMenu;
 class QLabel;
 class QScrollBar;
+class QShortcut;
 class QSettings;
 class QSplitter;
 class QStackedWidget;
@@ -198,6 +200,7 @@ private:
     QToolButton* m_noCurvesButton = nullptr;
     QDoubleSpinBox* m_timeBox = nullptr;
     QDoubleSpinBox* m_valueBox = nullptr;
+    QList<QShortcut*> m_splineKeys; ///< S L T I O V F, enabled only with a composition session
     QPointer<CompSession> m_session; ///< Compositing page mode (null on the Edit page)
     bool m_selOnly = true; ///< composition mode: only the selected nodes
     bool m_updatingBoxes = false;

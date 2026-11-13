@@ -57,6 +57,7 @@
 #include <QMouseEvent>
 #include <QProgressBar>
 #include <QSettings>
+#include <QShortcut>
 #include <QKeyEvent>
 #include <QSignalSpy>
 #include <QSplitter>
@@ -1092,6 +1093,11 @@ private slots:
         QVERIFY(f.page()->isPanelVisible(PanelId::Spline));
         QVERIFY(f.page()->splinePanel()->isVisible());
         QVERIFY(f.page()->splinePanel()->isCompositionPanel());
+        // Spec 89.13: the spline keys are on here.
+        const auto splineKeys = f.page()->splinePanel()->findChildren<QShortcut*>();
+        QVERIFY(!splineKeys.isEmpty());
+        for (QShortcut* sc : splineKeys)
+            QVERIFY(sc->isEnabled());
         QCOMPARE(f.page()->splinePanel()->view(), KeyframesPanel::View::Curves);
         f.action("view.toggle_keyframes")->trigger();
         QVERIFY(f.page()->keyframesPanel()->isVisible());

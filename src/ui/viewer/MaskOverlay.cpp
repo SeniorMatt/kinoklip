@@ -622,7 +622,9 @@ bool MaskOverlay::event(QEvent* event)
         auto* key = static_cast<QKeyEvent*>(event);
         const auto v = view();
         const bool drawing = v && v->mask && v->mask->isPathShape() && !v->mask->closed;
-        switch (key->key()) {
+        // Only the bare keys: Shift+Delete, Ctrl+Backspace and the like stay global.
+        const bool bare = (key->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier;
+        switch (bare ? key->key() : Qt::Key_unknown) {
         case Qt::Key_Delete:
         case Qt::Key_Backspace:
             if (drawing || !m_selected.isEmpty())
@@ -752,6 +754,10 @@ void MaskOverlay::keyPressEvent(QKeyEvent* event)
     const auto v = view();
     const MaskData* m = v ? v->mask : nullptr;
     const bool drawing = m && m->isPathShape() && !m->closed;
+    if ((event->modifiers() & ~Qt::KeypadModifier) != Qt::NoModifier) {
+        QWidget::keyPressEvent(event);
+        return;
+    }
     switch (event->key()) {
     case Qt::Key_Delete:
     case Qt::Key_Backspace:

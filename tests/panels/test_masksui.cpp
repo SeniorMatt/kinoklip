@@ -353,6 +353,30 @@ private slots:
         QCOMPARE(o.mask().path.pointCount(), 3);
     }
 
+    // Spec 89.12: the overlay claims Delete / Backspace / Enter / Escape only without a modifier.
+    void overlayKeysKeepModifiersGlobal()
+    {
+        OverlayFixture o;
+        o.addMask(makeMask(MaskShape::Polygon, 0, {}));
+        click(o.overlay, o.at(-50, -40)); // a point of the path being drawn
+        const auto claimed = [&o](int key, Qt::KeyboardModifiers mods) {
+            QKeyEvent e(QEvent::ShortcutOverride, key, mods);
+            QCoreApplication::sendEvent(o.overlay, &e);
+            return e.isAccepted();
+        };
+        QVERIFY(claimed(Qt::Key_Delete, Qt::NoModifier));
+        QVERIFY(claimed(Qt::Key_Escape, Qt::NoModifier));
+        QVERIFY(!claimed(Qt::Key_Delete, Qt::ShiftModifier));
+        QVERIFY(!claimed(Qt::Key_Backspace, Qt::ControlModifier));
+        QVERIFY(!claimed(Qt::Key_Escape, Qt::ControlModifier));
+        QVERIFY(!claimed(Qt::Key_Return, Qt::ShiftModifier));
+        // Ctrl+Backspace pressed in the overlay removes no point.
+        const int points = o.mask().path.pointCount();
+        o.overlay->setFocus();
+        QTest::keyClick(o.overlay, Qt::Key_Backspace, Qt::ControlModifier);
+        QCOMPARE(o.mask().path.pointCount(), points);
+    }
+
     void overlayDrawsBezierAndFreehand()
     {
         OverlayFixture o;
