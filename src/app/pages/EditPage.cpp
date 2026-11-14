@@ -4,6 +4,7 @@
 
 #include "app/AppInfo.h"
 #include "core/EditOps.h"
+#include "core/EffectRegistry.h"
 #include "core/MediaUsage.h"
 #include "core/Project.h"
 #include "core/SelectionModel.h"
@@ -20,6 +21,7 @@
 #include "ui/common/PanelFrame.h"
 #include "ui/common/PanelSplitter.h"
 #include "ui/editindex/EditIndexPanel.h"
+#include "ui/effects/EffectActions.h"
 #include "ui/effects/EffectsLibraryPanel.h"
 #include "ui/effects/EffectsLivePreview.h"
 #include "ui/inspector/InspectorPanel.h"
@@ -106,11 +108,23 @@ EditPage::EditPage(AppContext& ctx, QWidget* parent)
     m_timeline = new TimelinePanel(ctx);
     // A double-clicked transition goes onto the selected edit point, or with nothing selected
     // onto the edit nearest the playhead, like Ctrl+T (spec 13.18); selected clips keep the
-    // library's own rule.
+    // library's own rule, except several selected clips of the transition's kind: it goes at
+    // both ends of every one of them, like Ctrl+T (owner request 1.8.1).
     m_effects->setTransitionHandler([this](const QString& id) {
         TimelineController* c = m_timeline->controller();
-        if (c->selectedEdit().isEmpty() && !m_ctx.selection->clips().isEmpty())
-            return false;
+        if (c->selectedEdit().isEmpty() && !m_ctx.selection->clips().isEmpty()) {
+            const EffectDescriptor* desc = EffectRegistry::instance().find(id);
+            const TimelineData& data = m_ctx.project->timeline()->data();
+            int fitting = 0;
+            for (quint64 clipId : c->effectiveSelection()) {
+                const auto loc = editops::findClip(data, clipId);
+                if (desc && loc
+                    && effectactions::transitionFitsTrack(desc->category, loc->track.type))
+                    ++fitting;
+            }
+            if (fitting < 2)
+                return false;
+        }
         return c->addTransition(id);
     });
     // Live Preview (spec 47): an entry under the pointer shows applied in the timeline viewer.

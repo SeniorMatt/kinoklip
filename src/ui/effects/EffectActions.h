@@ -49,8 +49,14 @@ namespace effectactions {
 /// on video and Cross Fade +3 dB on audio unless changed).
 [[nodiscard]] QString defaultTransitionId(const Project& project, TrackType type);
 
+/// The clips an effect added "to @p anchor" goes onto (owner request 1.8.1): when @p anchor is
+/// one of several @p selected clips, all of them plus their linked partners (applyEffect() keeps
+/// those on a fitting, unlocked track); else just @p anchor.
+[[nodiscard]] QVector<quint64> effectTargets(
+    const Project& project, const QVector<quint64>& selected, quint64 anchor);
+
 /// Appends a new instance of effect @p descriptorId to every clip in @p clipIds whose track
-/// type fits the effect. One undo step. Returns the number of clips changed (0 = nothing done,
+/// type fits the effect and is not locked. One undo step. Returns the number of clips changed (0 = nothing done,
 /// e.g. unknown id or no fitting clip).
 int applyEffect(Project& project, const QVector<quint64>& clipIds, const QString& descriptorId);
 

@@ -184,6 +184,25 @@ private slots:
         QCOMPARE(f.clip(1)->transitionIn->type, QStringLiteral("dip_to_color"));
     }
 
+    // Owner request 1.8.1 (spec 13.21): double-clicking a transition with several clips selected
+    // puts it at both ends of each, one undo step, like Ctrl+T.
+    void spec13_21_libraryDoubleClickWithSeveralSelectedClips()
+    {
+        Fixture f(3);
+        f.show();
+        f.selection.setClips({f.clips[0], f.clips[2]});
+        f.project.timeline()->setPlayhead(0);
+        const int before = f.project.undoStack()->index();
+        f.doubleClickEffect(QStringLiteral("Wipe"));
+        QCOMPARE(f.project.undoStack()->index(), before + 1);
+        QVERIFY(f.clip(0)->transitionIn);
+        QVERIFY(f.clip(0)->transitionOut || f.clip(1)->transitionIn);
+        QVERIFY(f.clip(2)->transitionIn || f.clip(1)->transitionOut);
+        QVERIFY(f.clip(2)->transitionOut);
+        QCOMPARE(f.clip(0)->transitionIn->type, QStringLiteral("wipe"));
+        QCOMPARE(f.clip(2)->transitionOut->type, QStringLiteral("wipe"));
+    }
+
     // Spec 18.17: the timeline tool bar's marker button has a drop-down of the sixteen marker
     // colours; the colour picked there (the current one checked) colours the timeline and clip
     // markers added from then on, and is kept in the settings.

@@ -314,6 +314,8 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
         size_t index = size_t(loc->clipIndex);
         const ClipData* c = &track.clips[index];
         bool head = hit.frame < (c->start + c->end()) / 2.0;
+        plan.pointerHead = head;
+        plan.hitClipId = hit.clipId;
         // The tail of a clip touching its right neighbour is that neighbour's head.
         if (!head && index + 1 < track.clips.size() && track.clips[index + 1].start == c->end()) {
             ++index;
@@ -427,6 +429,12 @@ bool TimelineWidget::executeDrop(const DropPlan& plan)
         return true;
     }
     case DropPlan::Kind::Effect: {
+        // A clip that is part of a multi-clip selection: the effect goes onto all selected clips
+        // of the matching kind, the selection stays (owner request 1.8.1).
+        const QVector<quint64> targets = effectactions::effectTargets(
+            *project, m_ctx.selection->clips(), plan.clipId);
+        if (targets.size() > 1)
+            return effectactions::applyEffect(*project, targets, plan.effectId) > 0;
         project->beginEdit(tr("Add Effect"));
         TimelineData& data = project->timeline()->mutableData();
         const auto loc = ops::findClip(data, plan.clipId);
@@ -452,6 +460,30 @@ bool TimelineWidget::executeDrop(const DropPlan& plan)
         }
         const TransitionData t
             = EffectRegistry::instance().createTransition(plan.effectId, plan.transitionFrames);
+        // Dropped on a selected clip (several selected): the dragged side (head or tail, as
+        // under the pointer) of every selected clip on the same kind of track (owner request
+        // 1.8.1).
+        const QVector<quint64> selected = m_controller->effectiveSelection();
+        if (selected.size() > 1 && selected.contains(plan.hitClipId)) {
+            int placed = 0;
+            for (quint64 id : selected) {
+                const auto l = ops::findClip(data, id);
+                if (!l || l->track.type != loc->track.type || data.track(l->track)->locked)
+                    continue;
+                TransitionData each = t;
+                each.duration = std::min(t.duration,
+                    std::max<int64_t>(1, data.track(l->track)->clips[size_t(l->clipIndex)].duration));
+                if (ops::placeTransition(data, id, plan.pointerHead, each))
+                    ++placed;
+            }
+            if (placed == 0) {
+                project->cancelEdit();
+                emit m_controller->editRefused(tr("The transition does not fit at that edit."));
+                return false;
+            }
+            project->endEdit();
+            return true;
+        }
         // One transition per cut: placeTransition also clears a stale one on the left clip.
         if (!ops::placeTransition(data, plan.clipId, plan.head, t)) {
             project->cancelEdit();
