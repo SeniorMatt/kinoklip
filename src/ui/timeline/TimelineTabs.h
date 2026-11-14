@@ -3,6 +3,7 @@
 // with tabs turned off in Preferences > Editing, a drop-down of the project's timelines.
 #pragma once
 
+#include <QVector>
 #include <QWidget>
 
 class QComboBox;
@@ -34,6 +35,8 @@ public:
     [[nodiscard]] QComboBox* comboBox() const { return m_combo; }
     /// Timeline uid of tab @p index (0 if out of range).
     [[nodiscard]] quint64 uidAt(int index) const;
+    /// Timeline uids in the order shown: the tabs, or the drop-down entries when tabs are off.
+    [[nodiscard]] QVector<quint64> order() const;
 
 signals:
     /// The user asked to rename timeline @p uid (the panel asks for the name).

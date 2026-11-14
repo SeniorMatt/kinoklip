@@ -173,8 +173,8 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Duplicate Timeline |  | Makes a copy of the current timeline in the project. |
 | Delete Timeline |  | Deletes the current timeline from the project. |
 | Timeline Settings… |  | Opens the settings of the current timeline. |
-| Next Timeline Tab |  | Shows the next open timeline. |
-| Previous Timeline Tab |  | Shows the previous open timeline. |
+| Next Timeline Tab | Ctrl+Tab | Shows the next open timeline. |
+| Previous Timeline Tab | Ctrl+Shift+Tab | Shows the previous open timeline. |
 | Close Timeline Tab |  | Closes the tab of the current timeline (the timeline stays in the project). |
 | Track Destination and Auto Select > Video Destination V1 | Alt+1 | Makes video track V1 the destination of source edits. |
 | Track Destination and Auto Select > Video Destination V2 | Alt+2 | Makes video track V2 the destination of source edits. |

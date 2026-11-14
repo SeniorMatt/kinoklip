@@ -243,6 +243,12 @@ public:
     /// Asks a yes/no question; without a prompt the answer is yes.
     using ConfirmPrompt = std::function<bool(const QString& title, const QString& text)>;
     void setConfirmPrompt(ConfirmPrompt prompt) { m_confirmPrompt = std::move(prompt); }
+    /// The timelines Next / Previous Timeline Tab step through, in order (the panel's tab row
+    /// or drop-down). Without one the project's open tabs are used.
+    void setTabOrderProvider(std::function<QVector<quint64>()> provider)
+    {
+        m_tabOrder = std::move(provider);
+    }
     /// Tells the user why a command did nothing (e.g. "a timeline cannot contain itself").
     using MessageSink = std::function<void(const QString& title, const QString& text)>;
     void setMessageSink(MessageSink sink) { m_messageSink = std::move(sink); }
@@ -715,6 +721,7 @@ private:
     NamePrompt m_namePrompt;
     NewTimelinePrompt m_newTimelinePrompt;
     ConfirmPrompt m_confirmPrompt;
+    std::function<QVector<quint64>()> m_tabOrder;
     MessageSink m_messageSink;
     std::function<void(quint64)> m_timelineSettingsPrompt;
     std::function<QString()> m_binProvider;
