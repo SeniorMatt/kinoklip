@@ -123,6 +123,10 @@ private Q_SLOTS:
     {
         const Result fixed = run({ClipThumbnails::Filmstrip, true, 3.0, false});
         const Result turning = run({ClipThumbnails::Filmstrip, true, 3.0, true});
+#ifdef KK_SANITIZED // speed comparison is meaningless under the sanitizer: run for leak detection only
+        QVERIFY2(turning.thumbnailsDuringPlay > 0, "the page turn asked for no tiles");
+        return;
+#endif
         QVERIFY2(fixed.presented > 300, "the reference playback is too slow on this machine");
         QVERIFY2(turning.thumbnailsDuringPlay > 0, "the page turn asked for no tiles");
         // Two runs of the same fixed playback differ by about 1 %; the unfixed page turn lost

@@ -30,6 +30,7 @@ set(KK_SANITIZE "" CACHE STRING "Sanitizers to build with: address, undefined or
 if(KK_SANITIZE)
   add_compile_options(-fsanitize=${KK_SANITIZE} -fno-omit-frame-pointer -fno-optimize-sibling-calls)
   add_link_options(-fsanitize=${KK_SANITIZE})
+  add_compile_definitions(KK_SANITIZED=1) # timing tests skip their speed asserts (about 3x slower)
 endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Multimedia Svg SvgWidgets OpenGL OpenGLWidgets Concurrent DBus Network Test)
@@ -215,7 +216,11 @@ foreach(test_src ${KK_TESTS})
   else()
     add_test(NAME ${test_name} COMMAND ${KK_TEST_LAUNCH} $<TARGET_FILE:${test_name}>)
   endif()
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 300)
+  set(KK_TEST_TIMEOUT 300)
+  if(KK_SANITIZE)
+    set(KK_TEST_TIMEOUT 900) # a test property overrides ctest --timeout; sanitized runs are slower
+  endif()
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT ${KK_TEST_TIMEOUT})
 endforeach()
 
 # The memory soak is a long run of its own: `ctest -L soak` (docs/contributing.md, "Memory leaks").

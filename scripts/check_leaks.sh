@@ -20,7 +20,7 @@ JOBS=${KK_JOBS:-2}
 TMO=${KK_LEAK_TIMEOUT:-900}
 SAN=${KK_SANITIZE:-address}
 LOGS=$(realpath -m "${KK_LEAK_LOGS:-$BUILD/leak-logs}")
-DEFAULT='^test_(memorysoak|mediacache|videodecoder|playbackengine|playbacklogic|playbackgap|varispeed|viewerpanel|pageturnplayback|editplaying|bogplayback|cutlookahead|compviewerview|compositingpage|renderer|exportjob|timelinemodel)'
+DEFAULT='^test_(memorysoak|mediacache|videodecoder|playbackengine|playbacklogic|playbackgap|varispeed|viewerpanel|pageturnplayback|editplaying|bogplayback|cutlookahead|compviewerview|compositingpage|comprender|rendermemory|export$)'
 
 if [ ! -f "$BUILD/build.ninja" ] && [ ! -f "$BUILD/Makefile" ]; then
   cmake -S . -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DKK_SANITIZE="$SAN" || exit 2
