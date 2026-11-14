@@ -286,9 +286,9 @@ private slots:
         QVERIFY(!slider->isVisible());
     }
 
-    // One wheel notch scrolls the grid by a third of a row (less than one row); a touchpad's
-    // pixel delta scrolls by exactly those pixels.
-    void wheelScrollsLessThanARow()
+    // One wheel notch scrolls the grid by one row at the default 3 wheel lines (spec 33.49); a
+    // touchpad's pixel delta scrolls by exactly those pixels.
+    void wheelScrollsOneRowPerNotch()
     {
         PanelFixture f;
         for (int i = 0; i < 200; ++i)
@@ -303,11 +303,9 @@ private slots:
         QTRY_VERIFY(bar->maximum() > 2 * g->gridSize().height());
         const int row = g->gridSize().height();
 
+        QApplication::setWheelScrollLines(3);
         wheel(g->viewport(), -120);
-        QVERIFY(bar->value() > 0);
-        QVERIFY2(bar->value() < row,
-            qPrintable(QStringLiteral("%1 px, row %2").arg(bar->value()).arg(row)));
-        QCOMPARE(bar->value(), row / 3);
+        QCOMPARE(bar->value(), row);
         wheel(g->viewport(), 120);
         QCOMPARE(bar->value(), 0);
 
@@ -318,7 +316,14 @@ private slots:
         panel.setThumbnailWidth(64);
         bar->setValue(0);
         wheel(g->viewport(), -120);
-        QCOMPARE(bar->value(), g->gridSize().height() / 3);
+        QCOMPARE(bar->value(), g->gridSize().height());
+
+        // The system's lines per notch scale the step (6 lines: two rows).
+        QApplication::setWheelScrollLines(6);
+        bar->setValue(0);
+        wheel(g->viewport(), -120);
+        QCOMPARE(bar->value(), 2 * g->gridSize().height());
+        QApplication::setWheelScrollLines(3);
     }
 };
 

@@ -676,8 +676,8 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Timelines > New Timeline… | Ctrl+N | Creates a new timeline in the project, asking for its name and settings. |
 | Timelines > Duplicate |  | Makes a copy of the current timeline in the project. |
 | Timelines > Delete |  | Deletes the current timeline from the project. |
-| Timelines > Next Tab |  | Shows the next open timeline. |
-| Timelines > Previous Tab |  | Shows the previous open timeline. |
+| Timelines > Next Tab | Ctrl+Tab | Shows the next open timeline. |
+| Timelines > Previous Tab | Ctrl+Shift+Tab | Shows the previous open timeline. |
 | Timelines > Close Tab |  | Closes the tab of the current timeline (the timeline stays in the project). |
 | Timelines > Timeline Settings… |  | Opens the settings of the current timeline. |
 | Zoom > Zoom In | Ctrl+= | Zooms the timeline in. |
