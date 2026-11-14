@@ -180,6 +180,24 @@ move looks the same with Motion Blur on or off.
 - **Corner Positioner** (Transform): drag the four corners in the viewer (or type them) to pin the picture to a
   new quadrilateral in perspective.
 
+## Sound
+
+The Compositing page plays the same sound as the Edit page: the timeline's mix, so a clip on a
+higher track with its own audio is heard over your clip's sound, and muted tracks stay silent.
+Three controls change that on this page only:
+
+- **Audio button** (the speaker left of the transport buttons): turns the page's sound on or
+  off. Kinoklip remembers the choice. The Edit page always plays with sound.
+- **Audio** (select the **MediaIn** node that reads the clip's own picture, then the **Audio**
+  section of the Inspector): **Timeline** plays the whole mix (the default); **Solo this clip**
+  plays only the sound of this clip, that is the audio clips linked to it. A clip without a
+  linked audio clip is silent.
+- **Sound Offset** (same section): moves the clip's sound against its picture, in frames and
+  fractions of a frame; a positive value plays the sound later. It does not change the Edit
+  page or the export.
+
+Both settings are saved with the clip's composition and can be undone.
+
 ## Tips
 
 - **Fade the text in:** select **Merge1** and keyframe its **Blend** (0 at the start, 1 a

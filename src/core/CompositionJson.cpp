@@ -6,6 +6,8 @@
 #include <QJsonArray>
 #include <QSet>
 
+#include <cmath>
+
 namespace kk::serialization {
 
 namespace {
@@ -130,6 +132,14 @@ QJsonObject compositionToJson(const Composition& comp, bool pictureOnly)
         {QLatin1String("zoom"), comp.viewZoom},
         {QLatin1String("left"), qint64(comp.leftViewerNode)},
         {QLatin1String("right"), qint64(comp.rightViewerNode)}};
+    if (comp.soloAudio || comp.soundOffset != 0.0) {
+        QJsonObject audio;
+        if (comp.soloAudio)
+            audio[QLatin1String("solo")] = true;
+        if (comp.soundOffset != 0.0)
+            audio[QLatin1String("offset")] = comp.soundOffset;
+        o[QLatin1String("audio")] = audio;
+    }
     return o;
 }
 
@@ -188,6 +198,10 @@ Composition compositionFromJson(const QJsonObject& o)
         comp.leftViewerNode = 0;
     if (!ids.contains(comp.rightViewerNode))
         comp.rightViewerNode = 0;
+    const QJsonObject audio = o.value(QLatin1String("audio")).toObject();
+    comp.soloAudio = audio.value(QLatin1String("solo")).toBool(false);
+    const double offset = audio.value(QLatin1String("offset")).toDouble(0.0);
+    comp.soundOffset = std::isfinite(offset) ? offset : 0.0;
     return comp;
 }
 

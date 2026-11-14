@@ -4245,6 +4245,34 @@ The program was probably closed by the system because the computer ran out of me
         <translation>Зображення, яке читає ця нода. Елементи медіапулу також можна перетягнути на редактор нод.</translation>
     </message>
     <message>
+        <source>Audio</source>
+        <translation>Аудіо</translation>
+    </message>
+    <message>
+        <source>Timeline</source>
+        <translation>Таймлайн</translation>
+    </message>
+    <message>
+        <source>Solo this clip</source>
+        <translation>Лише цей кліп</translation>
+    </message>
+    <message>
+        <source>Timeline: the page plays the timeline&apos;s sound. Solo this clip: only the sound of this clip (its linked audio). Applies on this page only.</source>
+        <translation>Таймлайн: сторінка відтворює звук таймлайну. Лише цей кліп: тільки звук цього кліпа (його пов&apos;язане аудіо). Діє лише на цій сторінці.</translation>
+    </message>
+    <message>
+        <source> frames</source>
+        <translation> кадрів</translation>
+    </message>
+    <message>
+        <source>Moves the clip&apos;s sound against its picture, in frames (fractions allowed; positive = later). Applies on this page only.</source>
+        <translation>Зсуває звук кліпа відносно зображення, у кадрах (дробові значення дозволені; додатне = пізніше). Діє лише на цій сторінці.</translation>
+    </message>
+    <message>
+        <source>Sound Offset</source>
+        <translation>Зсув звуку</translation>
+    </message>
+    <message>
         <source>This node has no parameters</source>
         <translation>У цієї ноди немає параметрів</translation>
     </message>
@@ -4393,6 +4421,14 @@ The program was probably closed by the system because the computer ran out of me
     <message>
         <source>Play the clip range</source>
         <translation>Відтворити діапазон кліпу</translation>
+    </message>
+    <message>
+        <source>Audio on: the page plays the timeline&apos;s sound (click to turn the sound off on this page)</source>
+        <translation>Звук увімкнено: сторінка відтворює звук таймлайну (натисніть, щоб вимкнути звук на цій сторінці)</translation>
+    </message>
+    <message>
+        <source>Audio off: the page plays silently (click to turn the sound on)</source>
+        <translation>Звук вимкнено: сторінка відтворює без звуку (натисніть, щоб увімкнути звук)</translation>
     </message>
     <message>
         <source>Frame %1 / %2</source>

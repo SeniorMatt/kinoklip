@@ -22,6 +22,7 @@
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -147,6 +148,9 @@ void CompInspector::rebuild()
         m_group = nullptr;
         m_settings = nullptr;
         m_source = nullptr;
+        m_audioMode = nullptr;
+        m_audioGroup = nullptr;
+        m_soundOffset = nullptr;
         m_follow = nullptr;
         m_followButton = nullptr;
         if (n) {
@@ -205,6 +209,52 @@ void CompInspector::rebuild()
                 connect(m_source, &QComboBox::activated, this, [this](int index) {
                     if (m_session && m_source)
                         m_session->setMediaInSource(m_node, m_source->itemData(index).toString());
+                });
+                // Audio (Resolve: MediaIn Inspector > Audio tab): which sound the Compositing
+                // page plays and a Sound Offset; both live in the composition.
+                auto* audio = new ParamGroupBox(tr("Audio"));
+                audio->setObjectName(QStringLiteral("CompMediaInAudio"));
+                m_audioMode = new QComboBox;
+                m_audioMode->setObjectName(QStringLiteral("CompMediaInAudioMode"));
+                m_audioMode->addItem(tr("Timeline"), false);
+                m_audioMode->addItem(tr("Solo this clip"), true);
+                m_audioMode->setToolTip(tr("Timeline: the page plays the timeline's sound. Solo "
+                                           "this clip: only the sound of this clip (its linked "
+                                           "audio). Applies on this page only."));
+                audio->addWidgetRow(tr("Audio"), m_audioMode);
+                m_soundOffset = new QDoubleSpinBox;
+                m_soundOffset->setObjectName(QStringLiteral("CompMediaInSoundOffset"));
+                m_soundOffset->setRange(-1000.0, 1000.0);
+                m_soundOffset->setDecimals(2);
+                m_soundOffset->setSingleStep(0.25);
+                m_soundOffset->setSuffix(tr(" frames"));
+                m_soundOffset->setToolTip(tr("Moves the clip's sound against its picture, in "
+                                             "frames (fractions allowed; positive = later). "
+                                             "Applies on this page only."));
+                audio->addWidgetRow(tr("Sound Offset"), m_soundOffset);
+                m_audioGroup = audio;
+                l->addWidget(audio);
+                connect(m_audioMode, &QComboBox::activated, this, [this](int index) {
+                    if (!m_session || !m_audioMode)
+                        return;
+                    const bool solo = m_audioMode->itemData(index).toBool();
+                    m_session->edit(tr("Audio"), [solo](Composition& c) {
+                        if (c.soloAudio == solo)
+                            return false;
+                        c.soloAudio = solo;
+                        return true;
+                    });
+                });
+                connect(m_soundOffset, &QDoubleSpinBox::editingFinished, this, [this] {
+                    if (!m_session || !m_soundOffset)
+                        return;
+                    const double value = m_soundOffset->value();
+                    m_session->edit(tr("Sound Offset"), [value](Composition& c) {
+                        if (c.soundOffset == value)
+                            return false;
+                        c.soundOffset = value;
+                        return true;
+                    });
                 });
             } else if (!info || info->params.isEmpty()) {
                 // MediaIn / MediaOut: no empty group to unfold, a plain note instead.
@@ -265,6 +315,16 @@ void CompInspector::rebuild()
             m_settings->setEnabled(!n->locked);
         if (m_source)
             fillSourcePicker(*n);
+        if (m_audioMode) {
+            const Composition& comp = m_session->composition();
+            const QSignalBlocker b1(m_audioMode), b2(m_soundOffset);
+            m_audioMode->setCurrentIndex(comp.soloAudio ? 1 : 0);
+            m_soundOffset->setValue(comp.soundOffset);
+            // The Audio section belongs to the MediaIn of the clip's own picture.
+            m_audioGroup->setVisible(n->mediaId.isEmpty());
+            m_audioMode->setEnabled(!n->locked);
+            m_soundOffset->setEnabled(!n->locked);
+        }
         if (m_follow)
             fillFollowPicker(*n);
     }

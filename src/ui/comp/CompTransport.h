@@ -55,6 +55,7 @@ class CompTransport : public QWidget
     Q_OBJECT
 public:
     CompTransport(AppContext& ctx, CompSession* session, QWidget* parent = nullptr);
+    ~CompTransport() override;
 
     [[nodiscard]] CompTimeRuler* ruler() const { return m_ruler; }
     /// "Frame 12 / 01:00:00:12" (tests).
@@ -71,9 +72,20 @@ public:
     void cycleLoopMode();
     /// True while the transport plays the clip range.
     [[nodiscard]] bool isPlaying() const { return m_playing; }
+    /// The Audio button (Resolve's Fusion page toolbar): sound on or off while the Compositing
+    /// page plays (settings key compositing/audio, default on). The Edit page is not affected.
+    [[nodiscard]] bool audioOn() const { return m_audioOn; }
+    void setAudioOn(bool on);
+    [[nodiscard]] QToolButton* audioButton() const { return m_audioButton; }
+
+protected:
+    void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
 
 private:
     void updatePosition();
+    /// Tells the engine which clip's sound the page plays (only while the page is shown).
+    void applyAudio();
     void onEnginePosition(int64_t frame);
 
     AppContext& m_ctx;
@@ -81,6 +93,8 @@ private:
     CompTimeRuler* m_ruler = nullptr;
     QToolButton* m_play = nullptr;
     QToolButton* m_stop = nullptr;
+    QToolButton* m_audioButton = nullptr;
+    bool m_audioOn = true;
     QToolButton* m_loopButton = nullptr;
     CompLoopMode m_loop = CompLoopMode::Loop;
     QLabel* m_position = nullptr;

@@ -11,6 +11,7 @@
 
 class QCheckBox;
 class QComboBox;
+class QDoubleSpinBox;
 class QLabel;
 class QScrollArea;
 class QToolButton;
@@ -53,6 +54,10 @@ public:
     /// MediaIn nodes: the Source picker (the clip's own picture or a media pool item), else
     /// null (spec 42b.30).
     [[nodiscard]] QComboBox* sourcePicker() const { return m_source; }
+    /// MediaIn nodes of the clip's own picture: the Audio section (Timeline / Solo this clip,
+    /// and Sound Offset in frames), else null. Stored in the composition; Compositing page only.
+    [[nodiscard]] QComboBox* audioPicker() const { return m_audioMode; }
+    [[nodiscard]] QDoubleSpinBox* soundOffset() const { return m_soundOffset; }
     /// Nodes with a position (Center X / Y) except the trackers: the list of tracks the node can
     /// follow, and the button that connects it (writes the track into its keyframes), else null.
     [[nodiscard]] QComboBox* followPicker() const { return m_follow; }
@@ -100,6 +105,9 @@ private:
     QComboBox* m_source = nullptr; ///< sourcePicker()
     void fillSourcePicker(const CompNode& node);
     void fillFollowPicker(const CompNode& node);
+    ParamGroupBox* m_audioGroup = nullptr;
+    QComboBox* m_audioMode = nullptr; ///< audioPicker()
+    QDoubleSpinBox* m_soundOffset = nullptr; ///< soundOffset()
     QComboBox* m_follow = nullptr; ///< followPicker()
     QToolButton* m_followButton = nullptr; ///< followButton()
     QWidget* m_empty = nullptr;
