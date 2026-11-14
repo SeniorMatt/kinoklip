@@ -988,7 +988,7 @@ void InspectorPanel::buildEffectSection(
         label->setFont(font);
         barLayout->addWidget(label);
     }
-    constexpr int kAddEffectRows = 14; // matches listed while searching
+    constexpr int kAddEffectRows = 10; // fewest matches listed while searching
     auto* addEffect = new QToolButton(bar);
     if (!m_addEffect)
         m_addEffect = addEffect; // the first (or only) one
@@ -1113,6 +1113,7 @@ void InspectorPanel::buildEffectSection(
                 first = m.action;
         }
         const int row = first ? menu->actionGeometry(const_cast<QAction*>(first)).height() : 0;
+        // Search fills the rows the folders take, so the menu has no empty space below them.
         *rows = std::max(kAddEffectRows, listed);
         if (row > 0)
             menu->setFixedSize(std::max(width, base.width()),
