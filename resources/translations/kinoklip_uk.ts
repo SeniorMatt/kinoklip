@@ -5274,6 +5274,18 @@ The program was probably closed by the system because the computer ran out of me
         <source>Trim view shows effects and transforms (slower)</source>
         <translation>Вигляд підрізки показує ефекти й трансформації (повільніше)</translation>
     </message>
+    <message>
+        <source>Sync Lock on new tracks</source>
+        <translation>Синхроблокування на нових доріжках</translation>
+    </message>
+    <message>
+        <source>Tracks</source>
+        <translation>Доріжки</translation>
+    </message>
+    <message>
+        <source>Sets Sync Lock for tracks added afterwards: Add Track, tracks made by dropping onto empty space above the timeline, the tracks of new timelines and of compound clips. Existing tracks keep theirs.</source>
+        <translation>Задає синхроблокування для доріжок, доданих пізніше: Додати доріжку, доріжки, створені перетягуванням на порожнє місце над таймлайном, доріжки нових таймлайнів і складених кліпів. Наявні доріжки залишаються з попереднім значенням.</translation>
+    </message>
 </context>
 <context>
     <name>kk::EdlExport</name>

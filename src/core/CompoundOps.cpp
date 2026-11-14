@@ -2,6 +2,7 @@
 // CompoundOps implementation: collapse / decompose, recursion checks, nested source sync.
 #include "core/CompoundOps.h"
 
+#include "core/EditBehaviour.h"
 #include "core/EditOps.h"
 #include "core/EditOpsInternal.h" // moveHead / insertSorted / rangeFree (shared EditOps helpers)
 
@@ -204,6 +205,7 @@ std::optional<CollapseResult> collapse(TimelineData& parent, const QVector<quint
             TrackData t;
             t.id = nested.allocateId();
             t.type = type;
+            t.syncLock = EditBehaviour::syncLockNewTracks();
             if (hi[ti] >= 0) {
                 // Keep what decides how the content looks/sounds.
                 const TrackData& src = parent.tracks(type)[size_t(lo[ti] + k)];
