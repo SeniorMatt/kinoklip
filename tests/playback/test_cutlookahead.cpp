@@ -557,7 +557,9 @@ private Q_SLOTS:
             (long long)stats.started, (long long)stats.ready, (long long)stats.hitsReady,
             (long long)stats.hitsWaited, (long long)stats.expired, stats.peakReserved);
         QVERIFY(stats.started >= int64_t(cuts.size()) / 2);
+#ifndef KK_SANITIZED // sanitized decoders are often too slow to be ready in time
         QVERIFY(stats.hitsReady + stats.hitsWaited >= int64_t(cuts.size()) / 2);
+#endif
         QVERIFY(stats.peakReserved >= 2); // more than the next clip
         QVERIFY(stats.peakReserved <= DecoderPool::kMaxReserved);
         QVERIFY(stats.peakRunning <= DecoderPool::kMaxPrepareRunning);

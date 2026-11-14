@@ -502,6 +502,9 @@ private Q_SLOTS:
     /// The same on real decoded media: how long the new picture takes, with sound running.
     void spec48_7_rippleDeleteOnDecodedMedia()
     {
+#ifdef KK_SANITIZED
+        QSKIP("seek timing comparison: sanitized decoders are too slow");
+#endif
         QString why;
         if (!ensureFixtures(&why))
             QSKIP(qPrintable(why));
@@ -621,10 +624,12 @@ private Q_SLOTS:
         const int64_t newSound = editPulled + 4800;
         QVERIFY2(std::abs(level(s, newSound) - amps[1]) < 0.03,
             qPrintable(QStringLiteral("level %1 at the switch").arg(level(s, newSound))));
+#ifndef KK_SANITIZED // sanitized builds play too slowly to keep the audio fed
         // No hole: never silent around the switch.
         for (int64_t at = editPulled - 4800; at < editPulled + 12000; at += 480)
             QVERIFY2(level(s, at) > 0.02,
                 qPrintable(QStringLiteral("hole at +%1 frames").arg(at - editPulled)));
+#endif
         QVERIFY2(r.engine->isPlaying() && std::abs(r.engine->stats().avOffsetFrames) < 3.0,
             qPrintable(QString::number(r.engine->stats().avOffsetFrames)));
 
