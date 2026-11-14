@@ -2,6 +2,7 @@
 // Implementation of the pure timeline editing functions declared in EditOps.h.
 #include "core/EditOps.h"
 
+#include "core/EditBehaviour.h"
 #include "core/EditOpsInternal.h"
 #include "core/Subtitles.h"
 
@@ -820,6 +821,7 @@ int addTrack(TimelineData& data, TrackType type, int index)
     TrackData track = type == TrackType::Subtitle ? subtitles::makeSubtitleTrack() : TrackData {};
     track.id = data.allocateId();
     track.type = type;
+    track.syncLock = EditBehaviour::syncLockNewTracks();
     list.insert(list.begin() + index, std::move(track));
     return index;
 }

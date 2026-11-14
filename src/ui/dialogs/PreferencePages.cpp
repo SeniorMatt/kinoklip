@@ -784,6 +784,13 @@ public:
         m_twoUpLook->setObjectName(QStringLiteral("TwoUpProgramLook"));
         m_twoUpLook->setChecked(b.twoUpProgramLook);
         form->addRow(QString(), m_twoUpLook);
+        m_syncLockNew = new QCheckBox(tr("Sync Lock on new tracks"));
+        m_syncLockNew->setObjectName(QStringLiteral("SyncLockNewTracks"));
+        m_syncLockNew->setChecked(EditBehaviour::syncLockNewTracks());
+        form->addRow(tr("Tracks"), m_syncLockNew);
+        hint(form, tr("Sets Sync Lock for tracks added afterwards: Add Track, tracks made by "
+                      "dropping onto empty space above the timeline, the tracks of new "
+                      "timelines and of compound clips. Existing tracks keep theirs."));
     }
 
     void apply() override
@@ -800,6 +807,7 @@ public:
         s.setValue(QStringLiteral("edit/selectToolRollsAtCut"), m_rollAtCut->isChecked());
         s.setValue(QStringLiteral("edit/trimToolSlideInNameBar"), m_slideInName->isChecked());
         s.setValue(QStringLiteral("edit/twoUpProgramLook"), m_twoUpLook->isChecked());
+        s.setValue(QStringLiteral("edit/syncLockNewTracks"), m_syncLockNew->isChecked());
         s.setValue(QLatin1String(prefs::kZoomAnchor), m_zoom->currentData());
         EditBehaviour::setWheelScheme(WheelScheme(m_wheel->currentData().toInt()));
     }
@@ -818,6 +826,7 @@ private:
     QCheckBox* m_rippleClip = nullptr;
     QCheckBox* m_rollAtCut = nullptr;
     QCheckBox* m_slideInName = nullptr;
+    QCheckBox* m_syncLockNew = nullptr;
 };
 
 // ---- User: Timeline and Media Pool ---------------------------------------------------

@@ -88,6 +88,10 @@ struct EditBehaviour
     /// Stores the wheel scheme (QSettings "edit/wheelScheme").
     static void setWheelScheme(WheelScheme scheme);
 
+    /// Sync Lock of tracks added from now on (QSettings "edit/syncLockNewTracks", default on;
+    /// spec 97.6). Existing tracks and loaded projects keep their own state.
+    [[nodiscard]] static bool syncLockNewTracks();
+
     /// Removes retired keys (called once at start-up): "edit/trimToPlayheadRipples" (until
     /// alpha.2 Shift+[ / Shift+] rippled by default; now Shift+[ / ] leave a gap and
     /// Ctrl+Shift+[ / ] ripple, as in Resolve, so the setting has no meaning any more).

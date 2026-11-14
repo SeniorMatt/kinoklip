@@ -2,6 +2,7 @@
 // Small helpers of the timeline value types.
 #include "core/TimelineData.h"
 
+#include "core/EditBehaviour.h"
 #include "core/Retime.h"
 
 #include <algorithm>
@@ -140,6 +141,7 @@ TimelineData makeDefaultTimeline(
             TrackData track;
             track.id = t.allocateId();
             track.type = type;
+            track.syncLock = EditBehaviour::syncLockNewTracks();
             t.tracks(type).push_back(track);
         }
     }

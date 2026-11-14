@@ -111,7 +111,8 @@ const QVector<Rule>& rules()
         for (const char* k : {"edit/threePointEditing", "edit/rippleDeleteGapAtPlayhead",
                  "edit/rippleDeleteClipAtPlayhead", "edit/selectToolRollsAtCut",
                  "edit/trimToolSlideInNameBar", "edit/twoUpProgramLook", "edit/timelineTabs",
-                 "edit/rulerPressJumpsPlayhead", "edit/trimToPlayheadRipples"})
+                 "edit/rulerPressJumpsPlayhead", "edit/trimToPlayheadRipples",
+                 "edit/syncLockNewTracks"})
             add(k, Kind::Bool);
         add("timeline/thumbnails", Kind::Choice, 0, 0, {"filmstrip", "headtail", "none"});
         add("timeline/waveforms", Kind::Bool);

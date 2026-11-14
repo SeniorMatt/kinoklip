@@ -5268,6 +5268,18 @@ Das Programm wurde wahrscheinlich vom System beendet, weil der Arbeitsspeicher d
         <source>Trim view shows effects and transforms (slower)</source>
         <translation>Trimmen-Ansicht zeigt Effekte und Transformationen (langsamer)</translation>
     </message>
+    <message>
+        <source>Sync Lock on new tracks</source>
+        <translation>Sync-Sperre auf neuen Spuren</translation>
+    </message>
+    <message>
+        <source>Tracks</source>
+        <translation>Spuren</translation>
+    </message>
+    <message>
+        <source>Sets Sync Lock for tracks added afterwards: Add Track, tracks made by dropping onto empty space above the timeline, the tracks of new timelines and of compound clips. Existing tracks keep theirs.</source>
+        <translation>Legt die Sync-Sperre für später hinzugefügte Spuren fest: Spur hinzufügen, Spuren, die durch Ablegen auf freiem Platz über der Timeline entstehen, die Spuren neuer Timelines und zusammengesetzter Clips. Vorhandene Spuren behalten ihre Einstellung.</translation>
+    </message>
 </context>
 <context>
     <name>kk::EdlExport</name>

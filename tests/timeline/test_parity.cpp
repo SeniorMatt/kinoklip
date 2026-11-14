@@ -11,6 +11,7 @@
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
+#include <QSettings>
 #include <QTest>
 #include <QUndoStack>
 
@@ -568,6 +569,34 @@ private slots:
         TimelineData old;
         QVERIFY(serialization::timelineFromJson(json, old, &error));
         QVERIFY(old.audioTracks[1].syncLock);
+    }
+
+    void spec97_syncLockOnNewTracksFollowsSetting()
+    {
+        QSettings s;
+        const QVariant saved = s.value(QStringLiteral("edit/syncLockNewTracks"));
+        s.setValue(QStringLiteral("edit/syncLockNewTracks"), false);
+        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 1, 1);
+        QVERIFY(!d.videoTracks[0].syncLock);
+        ops::addTrack(d, TrackType::Video);
+        QVERIFY(!d.videoTracks[1].syncLock);
+        // A saved project keeps each track's state whatever the setting says.
+        d.videoTracks[0].syncLock = true;
+        QString error;
+        TimelineData back;
+        QVERIFY(serialization::timelineFromJson(serialization::timelineToJson(d), back, &error));
+        QVERIFY(back.videoTracks[0].syncLock);
+        QVERIFY(!back.videoTracks[1].syncLock);
+        s.setValue(QStringLiteral("edit/syncLockNewTracks"), true);
+        ops::addTrack(d, TrackType::Audio);
+        QVERIFY(d.audioTracks.back().syncLock);
+        TimelineData again;
+        QVERIFY(serialization::timelineFromJson(serialization::timelineToJson(back), again, &error));
+        QVERIFY(!again.videoTracks[1].syncLock);
+        if (saved.isValid())
+            s.setValue(QStringLiteral("edit/syncLockNewTracks"), saved);
+        else
+            s.remove(QStringLiteral("edit/syncLockNewTracks"));
     }
 
     void spec8_11_extendEdit()
