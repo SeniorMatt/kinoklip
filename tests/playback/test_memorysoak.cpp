@@ -16,7 +16,7 @@
 // DecoderPool::kMaxOpen, idle decoders and cached tiles within a few of the baseline, and the
 // process grows by less than kRssGrowthMiB over the measured cycles after the warm-up.
 //
-// Run alone:   ctest -L soak            (about 40-60 s offscreen, llvmpipe)
+// Run alone:   ctest -L soak            (about 30 s offscreen, about 90 s under ASan)
 // Environment: KK_SOAK_CYCLES=n         cycles after the warm-up (default 10; 200 for an
 //                                       overnight soak)
 //              KK_SOAK_LOG=1            print the counters after every cycle
