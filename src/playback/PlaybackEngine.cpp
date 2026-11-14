@@ -1391,6 +1391,15 @@ void PlaybackEngine::logStatsSummary()
             .arg(look.hitsWaited)
             .arg(look.cancelled)
             .arg(look.expired));
+    const render::ResourceStats held = m_compositor->resourceStats();
+    emitStatsLine(QStringLiteral("held by the compositor: %1 output frames (%2 in use, %3 MiB, "
+                                 "%4 taken back), %5 decoders, %6 MiB of render targets")
+                      .arg(held.outputSlots)
+                      .arg(held.outputSlotsInUse)
+                      .arg(double(held.outputSlotBytes) / (1 << 20), 0, 'f', 0)
+                      .arg(held.outputSlotsStolen)
+                      .arg(held.decoders)
+                      .arg(double(held.targetBytes) / (1 << 20), 0, 'f', 0));
     const Stats s = stats();
     const double seconds = s.playSeconds - m_statsAtPlay.playSeconds;
     const int64_t presented = s.presented - m_statsAtPlay.presented;

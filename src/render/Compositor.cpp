@@ -53,12 +53,20 @@ struct Compositor::Impl
     std::atomic<int> statDecoders {0};
     std::atomic<int> statTitles {0};
     std::atomic<int64_t> statTargetBytes {0};
+    std::atomic<int> statSlots {0};
+    std::atomic<int> statSlotsInUse {0};
+    std::atomic<int64_t> statSlotBytes {0};
+    std::atomic<int> statSlotsStolen {0};
     void publishStats()
     {
         const render::ResourceStats s = backend->resources();
         statDecoders = s.decoders;
         statTitles = s.titleTextures;
         statTargetBytes = s.targetBytes;
+        statSlots = s.outputSlots;
+        statSlotsInUse = s.outputSlotsInUse;
+        statSlotBytes = s.outputSlotBytes;
+        statSlotsStolen = s.outputSlotsStolen;
     }
     std::chrono::milliseconds idleRelease {15000}; ///< see Options::idleReleaseMs
     std::shared_ptr<const MediaPathMap> defaultMedia;
@@ -238,19 +246,24 @@ QStringList Compositor::liveStats()
     for (const Compositor* c : liveCompositors()) {
         const render::ResourceStats s = c->resourceStats();
         out.append(QStringLiteral("Compositor %1 (%2): %3 decoders, %4 title textures, %5 MiB of "
-                                  "render targets")
+                                  "render targets, %6 output frames (%7 in use, %8 MiB, %9 taken back)")
                        .arg(++n)
                        .arg(c->isGpu() ? QStringLiteral("GPU") : QStringLiteral("CPU"))
                        .arg(s.decoders)
                        .arg(s.titleTextures)
-                       .arg(double(s.targetBytes) / (1 << 20), 0, 'f', 0));
+                       .arg(double(s.targetBytes) / (1 << 20), 0, 'f', 0)
+                       .arg(s.outputSlots)
+                       .arg(s.outputSlotsInUse)
+                       .arg(double(s.outputSlotBytes) / (1 << 20), 0, 'f', 0)
+                       .arg(s.outputSlotsStolen));
     }
     return out;
 }
 
 render::ResourceStats Compositor::resourceStats() const
 {
-    return {m_impl->statDecoders, m_impl->statTitles, m_impl->statTargetBytes};
+    return {m_impl->statDecoders, m_impl->statTitles, m_impl->statTargetBytes, m_impl->statSlots,
+        m_impl->statSlotsInUse, m_impl->statSlotBytes, m_impl->statSlotsStolen};
 }
 
 bool Compositor::isGpu() const
