@@ -585,6 +585,25 @@ private Q_SLOTS:
         q.reset(now);
         QCOMPARE(feed(q, now, 3, 25.0, 23.0), Quality::Half);
     }
+
+    /// Issue #8: a renderer faster than real time (slow motion) must not be asked for frames
+    /// further ahead of the clock than the look-ahead window, however many it has finished.
+    void sequentialLookAheadStopsAtTheHorizon()
+    {
+        LookAhead look;
+        look.unwrapped = 100.5;
+        look.count = 5;
+        look.sequential = true;
+        look.haveNewest = true;
+        look.maxLateFrames = 4;
+        look.newest = 103; // within the window: the next one is still wanted
+        const std::vector<int64_t> near = lookAheadKeys(look);
+        QVERIFY(!near.empty());
+        QCOMPARE(near.front(), int64_t(104));
+        QVERIFY(near.back() <= 104);
+        look.newest = 140; // 40 frames ahead of the clock: nothing more
+        QVERIFY(lookAheadKeys(look).empty());
+    }
 };
 
 QTEST_GUILESS_MAIN(TestPlaybackLogic)

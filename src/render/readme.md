@@ -478,7 +478,7 @@ comment of `DecoderPool`. `Compositor::prepareStats()` has the counters.
 | `GlTemporalEffects.cpp` / `GlRepairEffects.cpp` / `GlTemporalBase.h` / `EffectMathTemporal.*` | the multi-frame effects and Patch Replacer (spec 60): trails, smear, frame replacer, motion blur (flow from `GlRetime::estimateFlow()`), deflicker and colour stabilizer (`MeanProbe`: mean colours into a strip of texels, no read-back), dirt removal and dust buster (temporal median); `FrameFetch` supplies the neighbour layers; the maths file is the CPU reference and the weights the GPU uses |
 | `GlMasks.*` | clip mask pass (analytic shapes, path coverage, feather, combine) |
 | `GlTransitions.*` | the four built-in transitions and **their registration table** |
-| `GlOutput.*` | output slots (shared textures + fences), PBO readback |
+| `GlOutput.*` | output slots (shared textures + fences; at most 32 held frames and 640 MiB, the oldest is taken back beyond that, slots of a size nobody asks for any more are freed), PBO readback |
 | `CpuRenderer.cpp` | QPainter fallback |
 | `TimelineEval.*` | pure: transition spans, track evaluation, source time clamping, clip transform |
 | `TitleRenderer.*` | `TitleStyle` (cache key) + QPainter title rasteriser: text and shape layers (`TitleStyle::stack`), emoji drawn as glyphs |

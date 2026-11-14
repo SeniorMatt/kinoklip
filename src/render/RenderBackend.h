@@ -31,6 +31,10 @@ struct ResourceStats
     int decoders = 0; ///< open video decoders (each with its frame pool)
     int titleTextures = 0; ///< cached title/caption textures
     int64_t targetBytes = 0; ///< this backend's pooled render targets
+    int outputSlots = 0; ///< output textures handed to consumers (viewer, scopes...)
+    int outputSlotsInUse = 0; ///< of those, frames still referenced somewhere
+    int64_t outputSlotBytes = 0;
+    int outputSlotsStolen = 0; ///< slots taken back from a consumer holding too many frames
 };
 
 /// Produces frames on the render thread. Every method is called on that one thread.

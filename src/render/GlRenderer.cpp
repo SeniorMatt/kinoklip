@@ -320,6 +320,13 @@ ResourceStats GlRenderer::resources() const
     s.decoders = m_decoders.openCount();
     s.titleTextures = int(m_titles.size());
     s.targetBytes = m_kit ? m_kit->targets().bytes() : 0;
+    if (m_output) {
+        const GlOutput::SlotStats o = m_output->slotStats();
+        s.outputSlots = o.allocated;
+        s.outputSlotsInUse = o.inUse;
+        s.outputSlotBytes = o.bytes;
+        s.outputSlotsStolen = o.stolen;
+    }
     return s;
 }
 

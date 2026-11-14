@@ -187,7 +187,15 @@ std::vector<int64_t> lookAheadKeys(const LookAhead& in, bool* catchUp)
             if (catchUp)
                 *catchUp = late > in.maxLateFrames / 2;
         }
-        const int64_t last = std::max(first, clockKey + in.count - 1);
+        // Never further ahead of the clock than the other mode looks (count intervals plus the
+        // lead): a renderer faster than real time (slow motion, light clips) finishes every
+        // request at once, and finished ones are not "in flight", so without this limit one
+        // frame per tick was requested and held, endlessly, until the clock caught up (issue #8:
+        // dozens of output textures held at once).
+        const int64_t horizon = int64_t(std::floor(in.unwrapped)) + in.lead + in.count - 1;
+        if (first > horizon)
+            return keys;
+        const int64_t last = std::max(first, std::min(clockKey + in.count - 1, horizon));
         for (int i = 0; i < in.count && first + i <= last; ++i)
             keys.push_back(first + i);
         return keys;

@@ -27,39 +27,109 @@ GlOutput::GlOutput(GlKit& kit)
 
 GlOutput::~GlOutput() = default;
 
-int GlOutput::acquireSlot(QSize size)
+void GlOutput::freeStorage(Slot& slot)
 {
     GlFunctions* gl = m_kit.gl();
+    if (slot.fence)
+        gl->glDeleteSync(toSync(slot.fence));
+    if (slot.fbo)
+        gl->glDeleteFramebuffers(1, &slot.fbo);
+    if (slot.texture)
+        gl->glDeleteTextures(1, &slot.texture);
+    slot.fence = nullptr;
+    slot.fbo = 0;
+    slot.texture = 0;
+    slot.size = QSize();
+}
+
+void GlOutput::trimStale(QSize size)
+{
+    std::lock_guard lock(m_slots->mutex);
+    for (Slot& slot : m_slots->entries) {
+        if (slot.inUse || !slot.texture || slot.size == size)
+            continue;
+        if (m_slots->acquires - slot.lastUse > kStaleAcquires)
+            freeStorage(slot);
+    }
+}
+
+GlOutput::SlotStats GlOutput::slotStats() const
+{
+    SlotStats s;
+    std::lock_guard lock(m_slots->mutex);
+    for (const Slot& slot : m_slots->entries) {
+        if (!slot.texture)
+            continue;
+        ++s.allocated;
+        s.inUse += slot.inUse ? 1 : 0;
+        s.bytes += int64_t(slot.size.width()) * slot.size.height() * 4;
+    }
+    s.stolen = m_slots->stolen;
+    return s;
+}
+
+int GlOutput::acquireSlot(QSize size, uint64_t* owner)
+{
+    GlFunctions* gl = m_kit.gl();
+    trimStale(size);
     int index = -1;
     bool needsStorage = false;
     {
         std::lock_guard lock(m_slots->mutex);
         auto& entries = m_slots->entries;
         int anyFree = -1;
+        int count = 0;
+        int64_t bytes = 0;
+        int oldest = -1;
         for (int i = 0; i < int(entries.size()); ++i) {
-            if (entries[size_t(i)].inUse)
+            const Slot& e = entries[size_t(i)];
+            if (e.texture) {
+                ++count;
+                bytes += int64_t(e.size.width()) * e.size.height() * 4;
+            }
+            if (e.inUse) {
+                if (oldest < 0 || e.owner < entries[size_t(oldest)].owner)
+                    oldest = i;
                 continue;
-            if (entries[size_t(i)].size == size) {
+            }
+            if (e.texture && e.size == size) {
                 index = i;
                 break;
             }
-            if (anyFree < 0)
+            if (anyFree < 0 || (!e.texture && entries[size_t(anyFree)].texture))
                 anyFree = i;
         }
         if (index < 0) {
             needsStorage = true;
+            const int64_t add = int64_t(size.width()) * size.height() * 4;
+            const bool atCap = count >= kMaxSlots
+                || (count >= kMinSlots && bytes + add > kMaxSlotBytes);
             if (anyFree >= 0) {
                 index = anyFree;
-            } else {
+            } else if (!atCap) {
                 entries.push_back({});
                 index = int(entries.size()) - 1;
                 if (index == kSlotWarning)
                     qCWarning(lcRender)
                         << kSlotWarning
                         << "output frames held at once; are RenderedFramePtrs leaking?";
+            } else if (oldest >= 0) {
+                // A consumer keeps more frames than any playback needs. Memory has to stay
+                // bounded (the GPU runs out and the system with it): the oldest frame's slot is
+                // taken back; the old frame then shows a newer picture, which is harmless next
+                // to losing the display.
+                index = oldest;
+                ++m_slots->stolen;
+                if (m_slots->stolen == 1)
+                    qCWarning(lcRender) << "output slots exhausted (" << count << "slots,"
+                                        << bytes / (1 << 20)
+                                        << "MiB): reusing the oldest held frame's slot";
             }
         }
-        entries[size_t(index)].inUse = true;
+        Slot& s = entries[size_t(index)];
+        s.inUse = true;
+        s.owner = *owner = ++m_slots->acquires;
+        s.lastUse = m_slots->acquires;
     }
     // GL work outside the lock (deleters only ever touch `inUse`, under the lock).
     Slot& slot = m_slots->entries[size_t(index)];
@@ -67,7 +137,7 @@ int GlOutput::acquireSlot(QSize size)
         gl->glDeleteSync(toSync(slot.fence)); // the consumer released the frame: fence unused
         slot.fence = nullptr;
     }
-    if (needsStorage) {
+    if (needsStorage || slot.size != size) {
         if (!slot.texture) {
             gl->glGenTextures(1, &slot.texture);
             gl->glGenFramebuffers(1, &slot.fbo);
@@ -93,9 +163,10 @@ std::shared_ptr<RenderedFrame> GlOutput::produce(
     GlFunctions* gl = m_kit.gl();
     const QSize size = accumulator.size;
     int slotIndex = -1;
+    uint64_t owner = 0;
     GLuint fbo = 0;
     if (wantTexture) {
-        slotIndex = acquireSlot(size);
+        slotIndex = acquireSlot(size, &owner);
         fbo = m_slots->entries[size_t(slotIndex)].fbo;
     } else {
         scratch = m_kit.acquire(size, GL_RGBA8);
@@ -110,10 +181,12 @@ std::shared_ptr<RenderedFrame> GlOutput::produce(
     std::shared_ptr<RenderedFrame> frame;
     if (slotIndex >= 0) {
         std::weak_ptr<SlotTable> table = m_slots;
-        frame.reset(new RenderedFrame, [table, slotIndex](RenderedFrame* f) {
+        frame.reset(new RenderedFrame, [table, slotIndex, owner](RenderedFrame* f) {
             if (auto t = table.lock()) {
                 std::lock_guard lock(t->mutex);
-                t->entries[size_t(slotIndex)].inUse = false;
+                Slot& slot = t->entries[size_t(slotIndex)];
+                if (slot.owner == owner) // not taken back and handed to a newer frame
+                    slot.inUse = false;
             }
             delete f;
         });
