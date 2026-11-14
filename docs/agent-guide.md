@@ -69,6 +69,8 @@ Free models make plausible mistakes. These rules exist to catch them.
    `KK_NO_AUDIO=1 ctest --test-dir build -R '<pattern>' --output-on-failure`.
    Before saying you are done, run the whole suite once:
    `KK_NO_AUDIO=1 ctest --test-dir build -j3 -E '^test_cutperf$'`.
+   Changed playback, render, media or viewer code: also run `scripts/check_leaks.sh` (in the
+   container) and `ctest -L soak` (docs/contributing.md, "Memory leaks").
    Quote the exact failure text in your report; a rerun overwrites the log.
 4. Timing tests can fail when the machine is busy (list in docs/recovery.md). Rerun such a
    test alone; if it passes alone, say so. Never call a failure flaky without rerunning it.

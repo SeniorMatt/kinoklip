@@ -133,6 +133,9 @@ public:
     /// asked for again and rendered exact (thumbnailReady() tells the views to draw).
     void setPlaybackActive(bool active);
     [[nodiscard]] bool playbackActive() const { return m_playbackActive; }
+    /// Decoders kept open for reuse, and tiles / waveforms held in memory (tests, leak checks).
+    [[nodiscard]] int idleDecoderCount();
+    [[nodiscard]] int cachedImageCount();
     /// Number of parked jobs (tests).
     [[nodiscard]] int deferredJobCount() const;
     /// Number of image jobs asked for and not yet delivered (queued, parked or running; tests).

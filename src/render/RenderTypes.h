@@ -199,6 +199,21 @@ struct RenderedFrame
     double compositeMs = 0.0; ///< drawing layers, effects, transitions (excluding uploads)
     double outputMs = 0.0; ///< output slot + fence (+ readback for OutputImage)
     bool fromCache = false; ///< shown from the render cache (RenderRequest::renderCache)
+
+    /// RenderedFrame objects alive in the process (leak checks: it returns to its baseline
+    /// when nothing shows or caches a frame, see tests/playback/test_memorysoak.cpp).
+    [[nodiscard]] static int aliveCount() { return Live::count.load(); }
+
+private:
+    struct Live
+    {
+        static inline std::atomic<int> count {0};
+        Live() { count.fetch_add(1); }
+        Live(const Live&) { count.fetch_add(1); }
+        Live& operator=(const Live&) = default;
+        ~Live() { count.fetch_sub(1); }
+    };
+    Live m_live;
 };
 
 /// Shared handle to a rendered frame (releasing the last reference recycles the texture).

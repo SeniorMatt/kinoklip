@@ -460,6 +460,18 @@ int MediaCache::pendingImageCount() const
     return int(m_inFlight.size());
 }
 
+int MediaCache::idleDecoderCount()
+{
+    const std::lock_guard lock(m_decoderMutex);
+    return int(m_idleDecoders.size());
+}
+
+int MediaCache::cachedImageCount()
+{
+    const QMutexLocker lock(&m_mutex);
+    return int(m_images.size());
+}
+
 void MediaCache::runImageJob(const ImageRequest& jobRequest)
 {
     ImageRequest request = jobRequest;

@@ -2,6 +2,7 @@
 # Publishes the AppImage in dist/ as the latest GitHub release. (The readme's "Download here" link
 # points at the releases page, so it needs no update.) Run from the repository root after packaging:
 #   scripts/publish_release.sh v1.1.0-beta.1 "Kinoklip 1.1.0 Beta"
+# Before it: scripts/check_leaks.sh and `ctest -L soak` pass (docs/contributing.md, "Memory leaks").
 # Needs: gh (logged in), dist/Kinoklip-x86_64.AppImage(.zsync), dist/SHA256SUMS.txt and
 # docs/releases/<tag>.md.
 set -eu

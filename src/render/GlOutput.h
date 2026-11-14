@@ -38,6 +38,16 @@ public:
     /// Maps finished readbacks into QImages and fulfils their promises (see RenderBackend).
     void finishPending(bool keepNewest);
     [[nodiscard]] bool hasPending() const { return !m_pending.empty(); }
+    /// Output slots allocated and, of those, held by a live RenderedFrame (any thread; tests,
+    /// resource statistics, scripts/check_leaks.sh soak test).
+    [[nodiscard]] std::pair<int, int> slotUsage() const
+    {
+        std::lock_guard lock(m_slots->mutex);
+        int used = 0;
+        for (const Slot& s : m_slots->entries)
+            used += s.inUse ? 1 : 0;
+        return {int(m_slots->entries.size()), used};
+    }
 
     /// Deletes all GL objects (pending readbacks are completed first).
     void destroy();

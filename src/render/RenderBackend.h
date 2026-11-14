@@ -31,6 +31,8 @@ struct ResourceStats
     int decoders = 0; ///< open video decoders (each with its frame pool)
     int titleTextures = 0; ///< cached title/caption textures
     int64_t targetBytes = 0; ///< this backend's pooled render targets
+    int outputSlots = 0; ///< output textures allocated (GlOutput slots; 0 on the CPU path)
+    int outputSlotsInUse = 0; ///< ... of those held by a RenderedFrame that is still alive
 };
 
 /// Produces frames on the render thread. Every method is called on that one thread.

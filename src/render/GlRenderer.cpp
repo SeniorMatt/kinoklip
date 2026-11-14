@@ -12,6 +12,7 @@
 //   layer path (effects, masks): the source is first drawn upright into a "layer" target (layer
 //     resolution, optional transparent margin), the effects ping-pong over pooled targets, and
 //     the layer is then drawn through the transform with opacity.
+#include <tuple>
 #include "render/GlRenderer.h"
 
 #include "core/CompOps.h"
@@ -320,6 +321,8 @@ ResourceStats GlRenderer::resources() const
     s.decoders = m_decoders.openCount();
     s.titleTextures = int(m_titles.size());
     s.targetBytes = m_kit ? m_kit->targets().bytes() : 0;
+    if (m_output)
+        std::tie(s.outputSlots, s.outputSlotsInUse) = m_output->slotUsage();
     return s;
 }
 

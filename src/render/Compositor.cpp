@@ -53,12 +53,16 @@ struct Compositor::Impl
     std::atomic<int> statDecoders {0};
     std::atomic<int> statTitles {0};
     std::atomic<int64_t> statTargetBytes {0};
+    std::atomic<int> statSlots {0};
+    std::atomic<int> statSlotsInUse {0};
     void publishStats()
     {
         const render::ResourceStats s = backend->resources();
         statDecoders = s.decoders;
         statTitles = s.titleTextures;
         statTargetBytes = s.targetBytes;
+        statSlots = s.outputSlots;
+        statSlotsInUse = s.outputSlotsInUse;
     }
     std::chrono::milliseconds idleRelease {15000}; ///< see Options::idleReleaseMs
     std::shared_ptr<const MediaPathMap> defaultMedia;
@@ -250,7 +254,8 @@ QStringList Compositor::liveStats()
 
 render::ResourceStats Compositor::resourceStats() const
 {
-    return {m_impl->statDecoders, m_impl->statTitles, m_impl->statTargetBytes};
+    return {m_impl->statDecoders, m_impl->statTitles, m_impl->statTargetBytes, m_impl->statSlots,
+        m_impl->statSlotsInUse};
 }
 
 bool Compositor::isGpu() const
