@@ -10634,10 +10634,6 @@ Einen aus der Effekte-Bibliothek auf den Clip ziehen oder hier einen hinzufügen
         <translation>Automatisch (System)</translation>
     </message>
     <message>
-        <source>Takes effect after restarting the application.</source>
-        <translation>Wird nach einem Neustart der Anwendung wirksam.</translation>
-    </message>
-    <message>
         <source>Interface scale</source>
         <translation>Oberflächenskalierung</translation>
     </message>
@@ -10662,8 +10658,8 @@ Einen aus der Effekte-Bibliothek auf den Clip ziehen oder hier einen hinzufügen
         <translation>Menülayout</translation>
     </message>
     <message>
-        <source>Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, grouped by task, with plain names. The commands and their keys are the same. Takes effect at once.</source>
-        <translation>Resolve: die Menüs wie in DaVinci Resolve. Verschlankt: kürzere Menüs, nach Aufgaben gruppiert, mit einfachen Namen. Die Befehle und ihre Tasten sind gleich. Wirkt sofort.</translation>
+        <source>Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, grouped by task, with plain names. The commands and their keys are the same.</source>
+        <translation>Resolve: die Menüs wie in DaVinci Resolve. Verschlankt: kürzere Menüs, nach Aufgaben gruppiert, mit einfachen Namen. Die Befehle und ihre Tasten sind gleich.</translation>
     </message>
     <message>
         <source>Animate timeline edits</source>
@@ -12678,10 +12674,6 @@ Dateien mit %1 importieren oder hier ablegen.</translation>
         <source>GPU processing mode</source>
         <translation>GPU-Verarbeitungsmodus</translation>
     </message>
-    <message>
-        <source>The GPU processing mode applies after restarting the application.</source>
-        <translation>Der GPU-Verarbeitungsmodus gilt nach einem Neustart der Anwendung.</translation>
-    </message>
 </context>
 <context>
     <name>kk::MetadataPanel</name>
@@ -14318,6 +14310,14 @@ Auto: Voll, wechselt nur zu Halb, solange die Wiedergabe nicht mithält (pausier
     <message>
         <source>Preferences</source>
         <translation>Einstellungen</translation>
+    </message>
+    <message>
+        <source>Restart Required</source>
+        <translation>Neustart erforderlich</translation>
+    </message>
+    <message>
+        <source>Restart Kinoklip to apply: %1.</source>
+        <translation>Starten Sie Kinoklip neu, um Folgendes anzuwenden: %1.</translation>
     </message>
 </context>
 <context>

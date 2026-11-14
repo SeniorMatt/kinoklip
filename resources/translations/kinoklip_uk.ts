@@ -10640,10 +10640,6 @@ Drag one from the Effects library onto the clip, or add one here.</source>
         <translation>Автоматично (система)</translation>
     </message>
     <message>
-        <source>Takes effect after restarting the application.</source>
-        <translation>Набирає чинності після перезапуску програми.</translation>
-    </message>
-    <message>
         <source>Interface scale</source>
         <translation>Масштаб інтерфейсу</translation>
     </message>
@@ -10668,8 +10664,8 @@ Drag one from the Effects library onto the clip, or add one here.</source>
         <translation>Розкладка меню</translation>
     </message>
     <message>
-        <source>Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, grouped by task, with plain names. The commands and their keys are the same. Takes effect at once.</source>
-        <translation>Resolve: меню як у DaVinci Resolve. Спрощена: коротші меню, згруповані за завданнями, зі звичайними назвами. Команди та їхні клавіші ті самі. Діє одразу.</translation>
+        <source>Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, grouped by task, with plain names. The commands and their keys are the same.</source>
+        <translation>Resolve: меню як у DaVinci Resolve. Спрощена: коротші меню, згруповані за завданнями, зі звичайними назвами. Команди та їхні клавіші ті самі.</translation>
     </message>
     <message>
         <source>Animate timeline edits</source>
@@ -12687,10 +12683,6 @@ Import files with %1 or drop them here.</source>
         <source>GPU processing mode</source>
         <translation>Режим обробки на GPU</translation>
     </message>
-    <message>
-        <source>The GPU processing mode applies after restarting the application.</source>
-        <translation>Режим обробки на GPU набирає чинності після перезапуску програми.</translation>
-    </message>
 </context>
 <context>
     <name>kk::MetadataPanel</name>
@@ -14331,6 +14323,14 @@ Auto: Full, switching to Half only while playback cannot keep up (paused: Full).
     <message>
         <source>Preferences</source>
         <translation>Налаштування</translation>
+    </message>
+    <message>
+        <source>Restart Required</source>
+        <translation>Потрібен перезапуск</translation>
+    </message>
+    <message>
+        <source>Restart Kinoklip to apply: %1.</source>
+        <translation>Перезапустіть Kinoklip, щоб застосувати: %1.</translation>
     </message>
 </context>
 <context>

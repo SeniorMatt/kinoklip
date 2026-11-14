@@ -10634,10 +10634,6 @@ Arrastrar una desde la biblioteca de efectos al clip, o añadir una aquí.</tran
         <translation>Automático (sistema)</translation>
     </message>
     <message>
-        <source>Takes effect after restarting the application.</source>
-        <translation>Se aplica tras reiniciar la aplicación.</translation>
-    </message>
-    <message>
         <source>Interface scale</source>
         <translation>Escala de la interfaz</translation>
     </message>
@@ -10662,8 +10658,8 @@ Arrastrar una desde la biblioteca de efectos al clip, o añadir una aquí.</tran
         <translation>Disposición de menús</translation>
     </message>
     <message>
-        <source>Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, grouped by task, with plain names. The commands and their keys are the same. Takes effect at once.</source>
-        <translation>Resolve: los menús como en DaVinci Resolve. Simplificado: menús más cortos, agrupados por tarea, con nombres sencillos. Los comandos y sus teclas son los mismos. Se aplica al instante.</translation>
+        <source>Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, grouped by task, with plain names. The commands and their keys are the same.</source>
+        <translation>Resolve: los menús como en DaVinci Resolve. Simplificado: menús más cortos, agrupados por tarea, con nombres sencillos. Los comandos y sus teclas son los mismos.</translation>
     </message>
     <message>
         <source>Animate timeline edits</source>
@@ -12678,10 +12674,6 @@ Importar archivos con %1 o soltarlos aquí.</translation>
         <source>GPU processing mode</source>
         <translation>Modo de procesamiento de GPU</translation>
     </message>
-    <message>
-        <source>The GPU processing mode applies after restarting the application.</source>
-        <translation>El modo de procesamiento de GPU se aplica tras reiniciar la aplicación.</translation>
-    </message>
 </context>
 <context>
     <name>kk::MetadataPanel</name>
@@ -14318,6 +14310,14 @@ Automática: Completa, pasando a Mitad solo mientras la reproducción no pueda s
     <message>
         <source>Preferences</source>
         <translation>Preferencias</translation>
+    </message>
+    <message>
+        <source>Restart Required</source>
+        <translation>Reinicio necesario</translation>
+    </message>
+    <message>
+        <source>Restart Kinoklip to apply: %1.</source>
+        <translation>Reinicie Kinoklip para aplicar: %1.</translation>
     </message>
 </context>
 <context>

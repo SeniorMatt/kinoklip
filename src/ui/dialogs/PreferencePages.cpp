@@ -81,6 +81,25 @@ QFormLayout* makeForm(QWidget* page)
 
 /// Dimmed explanatory text under a field (palette's placeholder colour: readable in light and
 /// dark schemes).
+/// Explains the form's last row on hover: the text becomes the tooltip of its label and of
+/// every widget in its field (Resolve's Preferences carry no inline notes).
+void hint(QFormLayout* form, const QString& text)
+{
+    const int row = form->rowCount() - 1;
+    for (const QFormLayout::ItemRole role : {QFormLayout::LabelRole, QFormLayout::FieldRole}) {
+        QLayoutItem* item = form->itemAt(row, role);
+        if (!item)
+            continue;
+        if (QWidget* widget = item->widget()) {
+            widget->setToolTip(text);
+        } else if (QLayout* layout = item->layout()) {
+            for (int i = 0; i < layout->count(); ++i)
+                if (QWidget* child = layout->itemAt(i)->widget())
+                    child->setToolTip(text);
+        }
+    }
+}
+
 QLabel* note(const QString& text)
 {
     auto* label = new QLabel(text);
@@ -168,14 +187,16 @@ public:
         m_gpu->addItem(tr("CPU only"), QStringLiteral("cpu"));
         m_gpu->setCurrentIndex(prefs::forceCpuRendering() ? 1 : 0);
         form->addRow(tr("GPU processing mode"), m_gpu);
-        form->addRow(QString(),
-            note(tr("The GPU processing mode applies after restarting the application.")));
+        
     }
 
     void apply() override
     {
         QSettings settings;
         settings.setValue(QLatin1String(prefs::kStillCacheMiB), m_stillCache->value());
+        if (settings.value(QLatin1String(prefs::kRenderBackend), QStringLiteral("auto"))
+                != m_gpu->currentData())
+            PreferencesDialog::restartNeededFor(tr("GPU processing mode"));
         settings.setValue(QLatin1String(prefs::kRenderBackend), m_gpu->currentData());
     }
 
@@ -201,11 +222,10 @@ public:
                                  "project. Every call is one undo step."));
         m_enabled->setChecked(prefs::localControlEnabled());
         form->addRow(tr("Local tools"), m_enabled);
-        form->addRow(QString(),
-            note(tr("Lets programs you run on this computer, such as an AI assistant started "
+        hint(form, tr("Lets programs you run on this computer, such as an AI assistant started "
                     "with \"kinoklip mcp\", edit the project open in this window; each of their "
                     "changes is one step you can undo. Only your own user account can connect, "
-                    "and nothing is opened on the network. Off by default.")));
+                    "and nothing is opened on the network. Off by default."));
     }
 
     void apply() override { prefs::setLocalControlEnabled(m_enabled->isChecked()); }
@@ -238,9 +258,8 @@ public:
         layout->addWidget(browse);
         layout->addWidget(reset);
         form->addRow(tr("Cache files location"), row);
-        form->addRow(QString(),
-            note(tr("Thumbnails and audio waveforms of imported media are kept here so "
-                    "projects open quickly.")));
+        hint(form, tr("Thumbnails and audio waveforms of imported media are kept here so "
+                    "projects open quickly."));
         connect(browse, &QPushButton::clicked, this, [this] {
             const QString dir = platform::getExistingDirectory(this, tr("Cache Files Location"),
                 QString(), m_folder->text().isEmpty() ? defaultCacheDirectory() : m_folder->text());
@@ -281,10 +300,9 @@ public:
         m_cacheLimit->setSuffix(tr(" GB"));
         m_cacheLimit->setValue(prefs::renderCacheLimitGiB());
         form->addRow(tr("Render cache size limit"), m_cacheLimit);
-        form->addRow(QString(),
-            note(tr("Optimized media and the render cache live in the cache folder "
+        hint(form, tr("Optimized media and the render cache live in the cache folder "
                     "(OptimizedMedia, RenderCache); the oldest cached frames are deleted "
-                    "first when the limit is reached.")));
+                    "first when the limit is reached."));
     }
 
     void apply() override
@@ -396,11 +414,10 @@ public:
         m_device = new QComboBox;
         m_device->setObjectName(QStringLiteral("AudioOutputDevice"));
         form->addRow(tr("Output device"), m_device);
-        form->addRow(QString(),
-            note(tr("Playback uses 48 kHz stereo. Automatic follows the system's output device "
+        hint(form, tr("Playback uses 48 kHz stereo. Automatic follows the system's output device "
                     "(for example headphones connected while playing). A chosen device is "
                     "used as soon as it is saved; while it is not connected, the system's "
-                    "device plays instead.")));
+                    "device plays instead."));
         fillDevices(prefs::audioOutputDevice());
 
         // Voice-over (spec 75).
@@ -426,12 +443,11 @@ public:
         m_bits->addItem(tr("16-bit"), 16);
         m_bits->setCurrentIndex(std::max(0, m_bits->findData(prefs::voiceOverBits())));
         form->addRow(tr("Voice-over WAV format"), m_bits);
-        form->addRow(QString(),
-            note(tr("Voice-over records onto an armed audio track (the R button of the track) "
+        hint(form, tr("Voice-over records onto an armed audio track (the R button of the track) "
                     "while the timeline plays. The input is never played back through the "
                     "speakers, so use headphones for the timeline's sound. Kinoklip adds the "
                     "size of the input's buffer to the extra latency to line the take up with "
-                    "the picture; raise the extra latency if your voice comes in late.")));
+                    "the picture; raise the extra latency if your voice comes in late."));
         fillInputs(prefs::audioInputDevice());
         // Devices connected or removed (and a new system default) while the dialog is open.
         connect(AudioDeviceMonitor::instance(), &AudioDeviceMonitor::outputsChanged, this,
@@ -518,7 +534,6 @@ public:
         const QString scale
             = QSettings().value(QLatin1String(prefs::kUiScale), QStringLiteral("auto")).toString();
         m_scale->setCurrentIndex(std::max(0, m_scale->findData(scale)));
-        m_scale->setToolTip(tr("Takes effect after restarting the application."));
         form->addRow(tr("Interface scale"), m_scale);
 
         // Resolve: Preferences > User > UI Settings > Language (also needs a restart).
@@ -532,7 +547,7 @@ public:
                                      .toString();
         m_language->setCurrentIndex(std::max(0, m_language->findData(language)));
         form->addRow(tr("Language"), m_language);
-        form->addRow(QString(), note(tr("Takes effect after restarting the application.")));
+        
 
         // Our own (Resolve has one arrangement): shorter menus grouped by task (spec 82).
         m_menuLayout = new QComboBox;
@@ -543,10 +558,9 @@ public:
         m_menuLayout->setCurrentIndex(
             std::max(0, m_menuLayout->findData(menulayout::layoutId(menulayout::layout()))));
         form->addRow(tr("Menu layout"), m_menuLayout);
-        form->addRow(QString(),
-            note(tr("Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, "
+        hint(form, tr("Resolve: the menus as in DaVinci Resolve. Streamlined: shorter menus, "
                     "grouped by task, with plain names. The commands and their keys are the "
-                    "same. Takes effect at once.")));
+                    "same."));
 
         // v2.2: small tweens of timeline edits (src/ui/common/UiAnimation.h).
         m_animate = new QCheckBox(tr("Animate timeline edits"));
@@ -572,10 +586,9 @@ public:
         speedRow->addWidget(m_speed, 1);
         speedRow->addWidget(speedLabel);
         form->addRow(tr("Animation speed"), speedRow);
-        form->addRow(QString(),
-            note(tr("Clips slide, appear and fade after edits, cuts flash and the playhead "
+        hint(form, tr("Clips slide, appear and fade after edits, cuts flash and the playhead "
                     "glides on jumps. The timeline itself changes at once. The desktop's "
-                    "animation speed applies as well.")));
+                    "animation speed applies as well."));
 
         // Our own (Resolve has none): HandBrake-style "Render complete" (spec 45.5).
         m_renderNotify = new QCheckBox(tr("Show a system notification when renders finish"));
@@ -586,9 +599,16 @@ public:
 
     void apply() override
     {
+        if (QSettings().value(QLatin1String(prefs::kUiScale), QStringLiteral("auto")).toString()
+            != m_scale->currentData().toString())
+            PreferencesDialog::restartNeededFor(tr("Interface scale"));
         QSettings().setValue(QLatin1String(prefs::kUiScale), m_scale->currentData().toString());
-        QSettings().setValue(
-            QLatin1String(i18n::kLanguageKey), m_language->currentData().toString());
+        const QString language = m_language->currentData().toString();
+        const QString previous =
+            QSettings().value(QLatin1String(i18n::kLanguageKey), QStringLiteral("system")).toString();
+        QSettings().setValue(QLatin1String(i18n::kLanguageKey), language);
+        if (language != previous)
+            PreferencesDialog::restartNeededFor(tr("Language"));
         menulayout::setLayout(menulayout::layoutFromId(m_menuLayout->currentData().toString()));
         prefs::setAnimationsEnabled(m_animate->isChecked());
         prefs::setAnimationSpeed(m_speed->value() * kSpeedStep);
@@ -647,9 +667,8 @@ public:
         layout->addWidget(browse);
         layout->addWidget(reset);
         form->addRow(tr("Project library location"), row);
-        form->addRow(QString(),
-            note(tr("The Project Manager lists the projects in this folder and its sub-folders. "
-                    "Projects saved elsewhere appear under Recent Projects.")));
+        hint(form, tr("The Project Manager lists the projects in this folder and its sub-folders. "
+                    "Projects saved elsewhere appear under Recent Projects."));
         connect(browse, &QPushButton::clicked, this, [this] {
             const QString dir
                 = platform::getExistingDirectory(this, tr("Project Library Location"), QString(),
@@ -982,9 +1001,8 @@ public:
         layout->addWidget(button);
         layout->addStretch(1);
         form->addRow(tr("Shortcuts"), row);
-        form->addRow(QString(),
-            note(tr("Search commands, record new keys, resolve conflicts and import or export "
-                    "keyboard layouts.")));
+        hint(form, tr("Search commands, record new keys, resolve conflicts and import or export "
+                    "keyboard layouts."));
 
         // Off by default: a panel toggle leaves the focus where it was (spec 49.5).
         m_focusSearch
@@ -1022,9 +1040,8 @@ public:
             dialog.exec();
         });
         form->addRow(tr("Vim"), vimRow);
-        form->addRow(QString(),
-            note(tr("Works with every keyboard profile. The mode, the keys typed so far and the "
-                    "focused panel show at the left of the page bar.")));
+        hint(form, tr("Works with every keyboard profile. The mode, the keys typed so far and the "
+                    "focused panel show at the left of the page bar."));
     }
 
     void apply() override

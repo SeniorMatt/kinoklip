@@ -9,6 +9,7 @@
 #include "ui/common/Resources.h"
 #include "ui/common/SettingsPages.h"
 #include "ui/dialogs/KeyboardCustomizationDialog.h"
+#include "core/Translations.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/ProjectSettingsDialog.h"
 
@@ -20,6 +21,7 @@
 #include <QElapsedTimer>
 #include <QLabel>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QScrollBar>
@@ -353,6 +355,42 @@ private slots:
         PreferencesDialog again(nullptr);
         QCOMPARE(again.findChild<QSpinBox*>(QStringLiteral("StillCacheMiB"))->value(), 512);
         QCOMPARE(again.findChild<QComboBox*>(QStringLiteral("ZoomAnchor"))->currentIndex(), 1);
+        QSettings().clear();
+    }
+
+    void spec100_9_languageChangeAsksForARestart()
+    {
+        PanelFixture f;
+        auto restartBoxes = [] {
+            QList<QMessageBox*> boxes;
+            for (QWidget* w : QApplication::topLevelWidgets())
+                if (auto* box = qobject_cast<QMessageBox*>(w);
+                    box && box->objectName() == QLatin1String("RestartRequired"))
+                    boxes.append(box);
+            return boxes;
+        };
+        qDeleteAll(restartBoxes()); // left by an earlier test that changed the GPU mode
+        PreferencesDialog dialog(nullptr);
+        auto* language = dialog.findChild<QComboBox*>(QStringLiteral("Language"));
+        QVERIFY(language);
+        // Saving without a change shows nothing.
+        dialog.apply();
+        QVERIFY(restartBoxes().isEmpty());
+        // A changed language and interface scale: one message names both, on save.
+        language->setCurrentIndex(language->findData(QStringLiteral("de")));
+        auto* scale = dialog.findChild<QComboBox*>(QStringLiteral("UiScale"));
+        scale->setCurrentIndex(scale->count() - 1);
+        dialog.apply();
+        const QList<QMessageBox*> boxes = restartBoxes();
+        QCOMPARE(boxes.size(), 1);
+        QVERIFY2(boxes.first()->text().contains(QStringLiteral("Language"))
+                && boxes.first()->text().contains(QStringLiteral("Interface scale")),
+            qPrintable(boxes.first()->text()));
+        delete boxes.first();
+        QCOMPARE(QSettings().value(QLatin1String(i18n::kLanguageKey)).toString(),
+            QStringLiteral("de"));
+        // The explanations are hover text, not notes under the rows.
+        QVERIFY(!dialog.findChild<QComboBox*>(QStringLiteral("MenuLayout"))->toolTip().isEmpty());
         QSettings().clear();
     }
 

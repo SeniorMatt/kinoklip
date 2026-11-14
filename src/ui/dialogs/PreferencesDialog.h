@@ -52,6 +52,9 @@ public:
     /// Applies (stores) every page.
     void apply();
     void accept() override;
+    /// Called by a page's apply() when @p setting changed and needs a restart; after Save one
+    /// message lists them (Resolve also asks for a restart after such changes, spec 100.9).
+    static void restartNeededFor(const QString& setting);
     /// Shows the section @p sectionId (switching the System / User tab); false if unknown.
     bool showSection(const QString& sectionId);
 

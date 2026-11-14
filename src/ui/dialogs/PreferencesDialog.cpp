@@ -15,6 +15,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QStackedWidget>
@@ -22,6 +23,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <utility>
 
 namespace kk {
 
@@ -233,11 +235,37 @@ bool PreferencesDialog::showSection(const QString& sectionId)
     return false;
 }
 
+namespace {
+QStringList& pendingRestarts()
+{
+    static QStringList settings;
+    return settings;
+}
+} // namespace
+
+void PreferencesDialog::restartNeededFor(const QString& setting)
+{
+    if (!pendingRestarts().contains(setting))
+        pendingRestarts().append(setting);
+}
+
 void PreferencesDialog::apply()
 {
+    pendingRestarts().clear();
     for (SettingsPage* page : std::as_const(m_pages))
         page->apply();
     emit preferencesChanged();
+    const QStringList restart = std::exchange(pendingRestarts(), {});
+    if (!restart.isEmpty())
+    {
+        // Not blocking, and owned by the main window: Save closes this dialog right away.
+        auto* box = new QMessageBox(QMessageBox::Information, tr("Restart Required"),
+            tr("Restart Kinoklip to apply: %1.").arg(restart.join(QStringLiteral(", "))),
+            QMessageBox::Ok, parentWidget());
+        box->setObjectName(QStringLiteral("RestartRequired"));
+        box->setAttribute(Qt::WA_DeleteOnClose);
+        box->open();
+    }
 }
 
 void PreferencesDialog::accept()
