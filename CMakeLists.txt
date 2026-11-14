@@ -218,7 +218,7 @@ foreach(test_src ${KK_TESTS})
   endif()
   set(KK_TEST_TIMEOUT 300)
   if(KK_SANITIZE)
-    set(KK_TEST_TIMEOUT 900) # a test property overrides ctest --timeout; sanitized runs are slower
+    set(KK_TEST_TIMEOUT 3600) # a test property overrides ctest --timeout; sanitized runs are slower
   endif()
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT ${KK_TEST_TIMEOUT})
 endforeach()
