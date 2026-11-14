@@ -15,6 +15,7 @@
 #include "core/MediaPool.h"
 #include "core/NodeRegistry.h"
 #include "core/Project.h"
+#include "core/Serialization.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "playback/PlaybackEngine.h"
@@ -1500,6 +1501,113 @@ private slots:
         f.action("view.page_edit")->trigger();
         QCoreApplication::processEvents();
         QVERIFY(!f.playback->compositionViewOwner()); // the Edit page shows the timeline again
+    }
+
+    void spec101_compositingPageSound()
+    {
+        // V1 clip (linked to A1) with a V2 clip over it (linked to A2): the page plays the
+        // timeline mix by default; Solo keeps only the clip's own sound; the Audio button
+        // silences the page; Sound Offset moves the clip's sound; the Edit page is untouched.
+        Fixture f(true, true);
+        ClipData over;
+        over.kind = ClipKind::Solid;
+        over.start = 20;
+        over.duration = 30;
+        ClipData a1;
+        a1.kind = ClipKind::Solid;
+        a1.start = 10;
+        a1.duration = 50;
+        ClipData a2 = a1;
+        a2.start = 20;
+        a2.duration = 30;
+        f.project.beginEdit(QStringLiteral("Add Clips"));
+        TimelineData& td = f.project.timeline()->mutableData();
+        editops::addTrack(td, TrackType::Video);
+        while (td.audioTracks.size() < 2)
+            editops::addTrack(td, TrackType::Audio);
+        const quint64 v2 = editops::overwriteClip(td, TrackRef {TrackType::Video, 1}, over);
+        QVERIFY(v2);
+        const quint64 a1id = editops::overwriteClip(td, TrackRef {TrackType::Audio, 0}, a1);
+        const quint64 a2id = editops::overwriteClip(td, TrackRef {TrackType::Audio, 1}, a2);
+        QVERIFY(a1id && a2id);
+        // Clips are told apart by their link group below (7 = the open clip's, 8 = V2's).
+        for (TrackData& t : td.videoTracks)
+            for (ClipData& c : t.clips)
+                c.linkGroup = c.id == f.clipId ? 7 : c.id == v2 ? 8 : 0;
+        for (TrackData& t : td.audioTracks)
+            for (ClipData& c : t.clips)
+                c.linkGroup = c.id == a1id ? 7 : c.id == a2id ? 8 : 0;
+        f.project.endEdit();
+        auto audioClip = [&f](quint64 id) {
+            for (const TrackData& t : f.playback->soundTimeline()->audioTracks)
+                for (const ClipData& c : t.clips)
+                    if (c.linkGroup == id)
+                        return c;
+            return ClipData();
+        };
+        auto enabledAudio = [&audioClip](quint64 id) {
+            const ClipData c = audioClip(id);
+            return c.linkGroup == id && c.enabled;
+        };
+        f.project.timeline()->setPlayhead(15); // only the V1 clip is under the playhead
+        // Edit page: nothing changes.
+        QVERIFY(enabledAudio(7) && enabledAudio(8));
+        f.showPage();
+        // Default: the timeline mix, V2's sound included.
+        QVERIFY(enabledAudio(7));
+        QVERIFY(enabledAudio(8));
+        // Solo this clip through the Inspector (one undo step).
+        f.session()->setSelection({f.nodeNamed(QStringLiteral("MediaIn1"))});
+        QComboBox* mode = f.page()->inspector()->audioPicker();
+        QVERIFY(mode);
+        QVERIFY(f.page()->inspector()->soundOffset());
+        const int before = f.steps();
+        mode->setCurrentIndex(1);
+        Q_EMIT mode->activated(1);
+        QCOMPARE(f.steps(), before + 1);
+        QVERIFY(f.comp().soloAudio);
+        QVERIFY(enabledAudio(7));
+        QVERIFY(!enabledAudio(8));
+        // Saved and loaded; the default writes nothing.
+        QVERIFY(serialization::compositionToJson(f.comp(), false).contains(QLatin1String("audio")));
+        QVERIFY(serialization::compositionFromJson(serialization::compositionToJson(f.comp(), false))
+                    .soloAudio);
+        QVERIFY(!serialization::compositionToJson(Composition(), false)
+                     .contains(QLatin1String("audio")));
+        // Sound Offset: 2.5 frames later = the source position of the linked clip moves back.
+        QDoubleSpinBox* offset = f.page()->inspector()->soundOffset();
+        offset->setValue(2.5);
+        Q_EMIT offset->editingFinished();
+        QCOMPARE(f.comp().soundOffset, 2.5);
+        const double fps = f.project.timeline()->data().fps.toDouble();
+        QVERIFY(std::abs(double(audioClip(7).sourceInUs) + 2.5 / fps * 1e6) < 2.0);
+        QCOMPARE(audioClip(8).sourceInUs, int64_t(0));
+        QCOMPARE(serialization::compositionFromJson(serialization::compositionToJson(f.comp(), false))
+                     .soundOffset,
+            2.5);
+        // Undo both steps.
+        f.project.undoStack()->undo();
+        QCOMPARE(f.comp().soundOffset, 0.0);
+        f.project.undoStack()->undo();
+        QVERIFY(!f.comp().soloAudio);
+        QVERIFY(enabledAudio(8));
+        QCOMPARE(audioClip(7).sourceInUs, int64_t(0));
+        // The Audio button: off = silent, remembered; on = the mix again.
+        QToolButton* button = f.page()->transport()->audioButton();
+        QVERIFY(button->isChecked());
+        button->click();
+        QVERIFY(!f.page()->transport()->audioOn());
+        QVERIFY(!QSettings().value(QStringLiteral("compositing/audio")).toBool());
+        QVERIFY(!enabledAudio(7) && !enabledAudio(8));
+        // The Edit page plays the timeline whatever the button says.
+        f.action("view.page_edit")->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(enabledAudio(7) && enabledAudio(8));
+        f.action("view.page_compositing")->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(!enabledAudio(7));
+        button->click();
+        QVERIFY(enabledAudio(7) && enabledAudio(8));
     }
 
     void spec90_channelViewRendersAnImage()

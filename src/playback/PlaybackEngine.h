@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <future>
 #include <memory>
+#include <optional>
+#include <tuple>
 
 namespace kk {
 
@@ -264,6 +266,25 @@ public:
     void clearCompositionView(const void* owner);
     /// The asker whose node the program frames show now (nullptr = the timeline).
     [[nodiscard]] const void* compositionViewOwner() const;
+    /// Compositing page sound (GitHub issue #7, Resolve's Fusion page Audio button and the
+    /// MediaIn Audio tab): while set, the audio the engine plays is
+    /// compositionSound() of clip @p clipId: silent when @p enabled is false, otherwise the
+    /// timeline's mix, or only the clip's own sound with the composition's Solo setting, moved
+    /// by its Sound Offset. Picture, Edit page and Cut page are untouched (they never set it;
+    /// the Compositing page clears it when it is hidden).
+    void setCompositionAudio(const void* owner, quint64 clipId, bool enabled);
+    void clearCompositionAudio(const void* owner);
+    /// What the Compositing page plays for clip @p clipId of @p timeline: nothing when
+    /// @p enabled is false; else, when the clip's composition has Solo Audio, only the audio
+    /// clips linked to the clip (same non-zero link group, overlapping it; a clip without a
+    /// linked audio clip is silent, as on the Edit page, where a video clip makes no sound by
+    /// itself); then every remaining audio clip is moved by the composition's Sound Offset (its
+    /// source position changes by the offset at the clip's speed). Returns @p timeline itself
+    /// when nothing changes.
+    [[nodiscard]] static std::shared_ptr<const TimelineData> compositionSound(
+        const std::shared_ptr<const TimelineData>& timeline, quint64 clipId, bool enabled);
+    /// What the audio feeder mixes: the timeline snapshot, or its compositionSound().
+    [[nodiscard]] std::shared_ptr<const TimelineData> soundTimeline() const;
     [[nodiscard]] bool dynamicZoomApplied() const { return m_dynamicZoomApplied; }
     /// Compositing page viewers: Compositor::renderCompositionNode() of node @p nodeId (0 =
     /// MediaOut) of clip @p clipId of @p timeline at comp frame @p compFrame, with the
@@ -478,6 +499,20 @@ private:
         quint64 clipId = 0, nodeId = 0;
     };
     std::vector<CompView> m_compViews; ///< setCompositionView()
+    struct CompAudio
+    {
+        const void* owner = nullptr;
+        quint64 clipId = 0;
+        bool enabled = true;
+    };
+    std::optional<CompAudio> m_compAudio; ///< setCompositionAudio()
+    /// What of the composition decides the sound (to remix when it changes): active, enabled,
+    /// solo, offset.
+    using SoundKey = std::tuple<bool, bool, bool, double>;
+    [[nodiscard]] SoundKey soundKey() const;
+    SoundKey m_soundKey {};
+    /// Gives the feeder the current soundTimeline() (and remixes the unheard ring when playing).
+    void refreshSound(bool remix);
     bool m_proxiesInUse = false;
     QMetaObject::Connection m_timelineChanged, m_playheadChanged, m_poolChanged;
 

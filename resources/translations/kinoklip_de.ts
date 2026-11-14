@@ -4240,6 +4240,34 @@ Das Programm wurde wahrscheinlich vom System beendet, weil der Arbeitsspeicher d
         <translation>Das Bild, das diese Node liest. Medienpool-Elemente können auch auf den Node-Editor gezogen werden.</translation>
     </message>
     <message>
+        <source>Audio</source>
+        <translation>Audio</translation>
+    </message>
+    <message>
+        <source>Timeline</source>
+        <translation>Timeline</translation>
+    </message>
+    <message>
+        <source>Solo this clip</source>
+        <translation>Nur dieser Clip</translation>
+    </message>
+    <message>
+        <source>Timeline: the page plays the timeline&apos;s sound. Solo this clip: only the sound of this clip (its linked audio). Applies on this page only.</source>
+        <translation>Timeline: Die Seite spielt den Ton der Timeline ab. Nur dieser Clip: nur der Ton dieses Clips (sein verknüpftes Audio). Gilt nur auf dieser Seite.</translation>
+    </message>
+    <message>
+        <source> frames</source>
+        <translation> Bilder</translation>
+    </message>
+    <message>
+        <source>Moves the clip&apos;s sound against its picture, in frames (fractions allowed; positive = later). Applies on this page only.</source>
+        <translation>Verschiebt den Ton des Clips gegenüber dem Bild, in Bildern (Bruchteile erlaubt; positiv = später). Gilt nur auf dieser Seite.</translation>
+    </message>
+    <message>
+        <source>Sound Offset</source>
+        <translation>Tonversatz</translation>
+    </message>
+    <message>
         <source>This node has no parameters</source>
         <translation>Diese Node hat keine Parameter</translation>
     </message>
@@ -4388,6 +4416,14 @@ Das Programm wurde wahrscheinlich vom System beendet, weil der Arbeitsspeicher d
     <message>
         <source>Play the clip range</source>
         <translation>Den Clip-Bereich abspielen</translation>
+    </message>
+    <message>
+        <source>Audio on: the page plays the timeline&apos;s sound (click to turn the sound off on this page)</source>
+        <translation>Audio an: Die Seite spielt den Ton der Timeline ab (klicken, um den Ton auf dieser Seite auszuschalten)</translation>
+    </message>
+    <message>
+        <source>Audio off: the page plays silently (click to turn the sound on)</source>
+        <translation>Audio aus: Die Seite spielt ohne Ton ab (klicken, um den Ton einzuschalten)</translation>
     </message>
     <message>
         <source>Frame %1 / %2</source>

@@ -79,6 +79,13 @@ struct Composition
     double viewZoom = 1.0;
     quint64 leftViewerNode = 0; ///< node shown in the left viewer (0 = none)
     quint64 rightViewerNode = 0; ///< node shown in the right viewer (0 = MediaOut)
+    /// MediaIn > Audio (Resolve: MediaIn Inspector, Audio tab): false = the Compositing page
+    /// plays the timeline's mix (default); true = only the clip's own sound (the audio clips
+    /// linked to it). Applies only while the Compositing page plays.
+    bool soloAudio = false;
+    /// MediaIn > Audio > Sound Offset: timeline frames (fractions allowed, positive = the sound
+    /// comes later) the sound is moved against the picture on the Compositing page only.
+    double soundOffset = 0.0;
 
     /// A new id, unique within this composition.
     quint64 allocateId() { return nextId++; }

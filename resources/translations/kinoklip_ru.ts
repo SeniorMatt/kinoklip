@@ -4245,6 +4245,34 @@ The program was probably closed by the system because the computer ran out of me
         <translation>Изображение, считываемое этой нодой. Элементы медиапула также можно перетаскивать в редактор нод.</translation>
     </message>
     <message>
+        <source>Audio</source>
+        <translation>Аудио</translation>
+    </message>
+    <message>
+        <source>Timeline</source>
+        <translation>Таймлайн</translation>
+    </message>
+    <message>
+        <source>Solo this clip</source>
+        <translation>Только этот клип</translation>
+    </message>
+    <message>
+        <source>Timeline: the page plays the timeline&apos;s sound. Solo this clip: only the sound of this clip (its linked audio). Applies on this page only.</source>
+        <translation>Таймлайн: страница воспроизводит звук таймлайна. Только этот клип: только звук этого клипа (связанное с ним аудио). Действует только на этой странице.</translation>
+    </message>
+    <message>
+        <source> frames</source>
+        <translation> кадров</translation>
+    </message>
+    <message>
+        <source>Moves the clip&apos;s sound against its picture, in frames (fractions allowed; positive = later). Applies on this page only.</source>
+        <translation>Сдвигает звук клипа относительно изображения, в кадрах (допустимы доли кадра; положительное значение = позже). Действует только на этой странице.</translation>
+    </message>
+    <message>
+        <source>Sound Offset</source>
+        <translation>Сдвиг звука</translation>
+    </message>
+    <message>
         <source>This node has no parameters</source>
         <translation>У этой ноды нет параметров</translation>
     </message>
@@ -4393,6 +4421,14 @@ The program was probably closed by the system because the computer ran out of me
     <message>
         <source>Play the clip range</source>
         <translation>Воспроизвести диапазон клипа</translation>
+    </message>
+    <message>
+        <source>Audio on: the page plays the timeline&apos;s sound (click to turn the sound off on this page)</source>
+        <translation>Звук включён: страница воспроизводит звук таймлайна (нажмите, чтобы выключить звук на этой странице)</translation>
+    </message>
+    <message>
+        <source>Audio off: the page plays silently (click to turn the sound on)</source>
+        <translation>Звук выключен: страница воспроизводится без звука (нажмите, чтобы включить звук)</translation>
     </message>
     <message>
         <source>Frame %1 / %2</source>
