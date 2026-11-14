@@ -84,6 +84,16 @@ inline bool idInUse(const TimelineData& data, quint64 id)
     return id == 0 || findClip(data, id).has_value();
 }
 
+// A copied clip (the right piece of a split) gets fresh ids for its effects and masks: ids are
+// unique per timeline, a duplicate makes the saved project fail to load (owner report 1.8.1).
+inline void freshSubIds(TimelineData& data, ClipData& clip)
+{
+    for (EffectInstance& fx : clip.effects)
+        fx.id = data.allocateId();
+    for (MaskData& mask : clip.masks)
+        mask.id = data.allocateId();
+}
+
 // Splits track.clips[index] at frame (start < frame < end). Returns the right-hand clip id.
 inline quint64 splitClipAtIndex(
     TimelineData& data, TrackData& track, size_t index, int64_t frame, GroupRemap& remap)
@@ -103,8 +113,7 @@ inline quint64 splitClipAtIndex(
     right.transitionIn.reset();
     right.fadeInFrames = 0;
     right.fadeInCurve = 0.0;
-    for (MaskData& mask : right.masks) // mask ids are unique per timeline (KeyframeOps paths)
-        mask.id = data.allocateId();
+    freshSubIds(data, right);
     moveHead(right, frame - right.start, data.fps);
     const quint64 rightId = right.id;
     track.clips.insert(track.clips.begin() + std::ptrdiff_t(index) + 1, std::move(right));
@@ -131,6 +140,7 @@ inline void clearRangeImpl(
             right.transitionIn.reset();
             right.fadeInFrames = 0;
             right.fadeInCurve = 0.0;
+            freshSubIds(data, right);
             moveHead(right, e - right.start, data.fps);
             clip.duration = s - clip.start;
             clip.transitionOut.reset();
@@ -214,14 +224,16 @@ inline bool rangeFree(const TrackData& track, int64_t s, int64_t e)
 // clip, spec 49.8) get one from the timeline's allocator too.
 inline void ensureId(TimelineData& data, ClipData& clip)
 {
+    // A copy of a clip in this timeline (its id taken): its effects and masks are copies too.
+    const bool copy = clip.id != 0 && idInUse(data, clip.id);
     if (idInUse(data, clip.id))
         clip.id = data.allocateId();
     for (EffectInstance& fx : clip.effects) {
-        if (fx.id == 0)
+        if (copy || fx.id == 0)
             fx.id = data.allocateId();
     }
     for (MaskData& mask : clip.masks) {
-        if (mask.id == 0)
+        if (copy || mask.id == 0)
             mask.id = data.allocateId();
     }
 }

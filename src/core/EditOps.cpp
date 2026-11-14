@@ -1138,6 +1138,29 @@ void normalizeIds(TimelineData& data)
         }
     });
     data.nextId = std::max(data.nextId, maxId + 1);
+    // Effects and masks whose id is already taken (copied with a split or paste by 1.8.1 and
+    // older) get a fresh one, so such a project loads with everything intact (owner report
+    // 1.8.1: "effect id 314 is not unique").
+    QSet<quint64> seen;
+    forEachTrack(data, [&](TrackRef, const TrackData& track) {
+        seen.insert(track.id);
+        for (const ClipData& c : track.clips)
+            seen.insert(c.id);
+    });
+    forEachTrack(data, [&](TrackRef, TrackData& track) {
+        for (ClipData& c : track.clips) {
+            for (EffectInstance& fx : c.effects) {
+                if (fx.id == 0 || seen.contains(fx.id))
+                    fx.id = data.allocateId();
+                seen.insert(fx.id);
+            }
+            for (MaskData& mask : c.masks) {
+                if (mask.id == 0 || seen.contains(mask.id))
+                    mask.id = data.allocateId();
+                seen.insert(mask.id);
+            }
+        }
+    });
 }
 
 } // namespace kk::editops

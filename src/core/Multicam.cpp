@@ -192,6 +192,10 @@ std::optional<QVector<quint64>> placeSynced(
             to.name = from.name;
             for (ClipData c : from.clips) {
                 c.id = data.allocateId();
+                for (EffectInstance& fx : c.effects) // ids are unique per timeline
+                    fx.id = data.allocateId();
+                for (MaskData& mask : c.masks)
+                    mask.id = data.allocateId();
                 c.start += std::max<int64_t>(0, frame);
                 if (c.linkGroup != 0) {
                     auto it = groups.find(c.linkGroup);

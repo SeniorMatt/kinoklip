@@ -536,6 +536,42 @@ private slots:
             KK_VERIFY_INVARIANTS(d);
         }
     }
+
+    // Owner report 1.8.1 ("effect id 314 is not unique"): the piece of a clip cut by a sync ripple
+    // (or by clearing a range) gets fresh effect and mask ids, and a timeline saved with
+    // duplicates is repaired by normalizeIds.
+    void splitPiecesGetFreshEffectIds()
+    {
+        for (const int64_t delta : {10, -10}) {
+            TimelineData d = timeline();
+            const quint64 v = ops::overwriteClip(d, kV1, mediaClip(100, 100, 50, 1000));
+            ClipData over = mediaClip(40, 300, 0, 300);
+            EffectInstance fx;
+            fx.id = d.allocateId();
+            fx.type = QStringLiteral("blur");
+            over.effects.append(fx);
+            ops::overwriteClip(d, kV2, over);
+            QCOMPARE(ops::rippleTrimSynced(d, {v}, false, delta), delta);
+            QVERIFY(d.videoTracks[1].clips.size() >= 2);
+            KK_VERIFY_INVARIANTS(d);
+        }
+        TimelineData d = timeline();
+        ClipData a = mediaClip(0, 50);
+        EffectInstance fx;
+        fx.id = d.allocateId();
+        fx.type = QStringLiteral("blur");
+        a.effects.append(fx);
+        ops::overwriteClip(d, kV1, a);
+        ClipData b = mediaClip(60, 50);
+        b.effects.append(d.videoTracks[0].clips[0].effects[0]);
+        b.id = d.allocateId();
+        d.videoTracks[0].clips.push_back(b); // the same effect id twice, as saved by 1.8.1
+        QString why;
+        QVERIFY(!ops::checkInvariants(d, &why));
+        ops::normalizeIds(d);
+        QVERIFY2(ops::checkInvariants(d, &why), qPrintable(why));
+        QCOMPARE(d.videoTracks[0].clips[1].effects[0].type, QStringLiteral("blur"));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestEditOpsRipple)
