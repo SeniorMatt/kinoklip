@@ -23,6 +23,40 @@
    Kinoklip has no telemetry, analytics, automatic crash reports or update pings, and makes no
    network requests; see [privacy.md](privacy.md).
 
+## Memory leaks
+Kinoklip plays long sessions (hours of editing, slow-motion playback, full-screen toggles, page
+switches), so a leak is a bug that ends in an out-of-memory kill (GitHub issue #8). Two checks
+catch them; run both **before every release** and **after any change in playback, render, media
+or viewer code** (`src/playback`, `src/render`, `src/media`, `src/ui/viewer`):
+
+1. **LeakSanitizer:** `podman exec -w "$PWD" kk-arch scripts/check_leaks.sh [build dir] [ctest -R pattern]`.
+   It configures `build-asan` (`-DKK_SANITIZE=address`; `address,undefined` also works, any
+   build type, ccache), builds the application and the selected tests, runs them with
+   `detect_leaks=1` and `scripts/lsan.supp`, and prints, per test, every leak with its first
+   frames in our code (`src/`, `tests/`). The exit code is 1 on a leak, a sanitizer error or a
+   failed test. Without a pattern it runs the tests that own memory (media cache, decoders,
+   playback engine, viewer, compositing, soak: the list is `DEFAULT` at the top of the script);
+   `all` runs every test, which takes many hours under ASan. Logs: `<build dir>/leak-logs/`
+   (`<test>.<pid>` per process, `summary.txt`, `ctest.log`).
+2. **Memory soak:** `ctest -L soak` (`tests/playback/test_memorysoak.cpp`). It plays a generated
+   1080p clip through cycles of play, stop, seek, speed 100 / 25 / 12.5 %, full-screen viewer and
+   window resize, every page and a second timeline, and checks that RenderedFrame objects,
+   output slots (GL textures), decoders and cached tiles return to their values after a warm-up
+   and that process memory (VmRSS) grows by less than 250 MiB. `KK_SOAK_CYCLES=200` runs it
+   overnight, `KK_SOAK_LOG=1` prints the counters after each cycle.
+
+**Reading the output.** A record such as `Direct leak of 4096 byte(s) in 1 object(s)` is memory
+nobody can reach any more; the lines under it are the call stack that allocated it, our frame
+first. Fix the owner (a missing `delete`, a `QObject` without a parent, a `shared_ptr` cycle, a
+frame kept in a queue); `Indirect` leaks vanish with their direct parent. `still reachable`
+memory is not reported (growth of reachable memory, such as a cache without a limit, is what the
+soak test sees). A failing soak line names the counter and its two values.
+
+**Suppressions** (`scripts/lsan.supp`) are for third-party code only: Qt platform plugins,
+fontconfig, Mesa / llvmpipe, libva, FFmpeg hardware device initialisation, glib, dbus, whose
+stacks contain no Kinoklip frame. Add `leak:<library or function>` with a comment saying what
+it is and why it is not ours. Never suppress a Kinoklip function or file: fix the leak.
+
 ## Reporting bugs
 The easiest way: in Kinoklip, **Help > Report a Bug or Inconsistency...**. Choose a bug, something
 that works differently from DaVinci Resolve, or an idea; the dialog shows exactly which version and

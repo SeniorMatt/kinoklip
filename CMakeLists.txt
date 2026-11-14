@@ -23,6 +23,15 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "" FORCE)
 endif()
 
+# Sanitizers (docs/contributing.md, "Memory leaks"): -DKK_SANITIZE=address or address,undefined
+# adds -fsanitize to the application, the library and every test. Use a separate build folder
+# (build-asan); scripts/check_leaks.sh configures and runs it.
+set(KK_SANITIZE "" CACHE STRING "Sanitizers to build with: address, undefined or address,undefined")
+if(KK_SANITIZE)
+  add_compile_options(-fsanitize=${KK_SANITIZE} -fno-omit-frame-pointer -fno-optimize-sibling-calls)
+  add_link_options(-fsanitize=${KK_SANITIZE})
+endif()
+
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Multimedia Svg SvgWidgets OpenGL OpenGLWidgets Concurrent DBus Network Test)
 
 # Qt's private QDesktopUnixServices (Qt >= 6.9) exports our window for the XDG desktop portal
@@ -192,17 +201,27 @@ find_program(KK_DBUS_RUN_SESSION dbus-run-session)
 file(GLOB_RECURSE KK_TESTS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/test_*.cpp)
 foreach(test_src ${KK_TESTS})
   get_filename_component(test_name ${test_src} NAME_WE)
+  # Sanitizer builds: scripts/lsan_run.sh gives each test its own sanitizer log file.
+  set(KK_TEST_LAUNCH "")
+  if(KK_SANITIZE)
+    set(KK_TEST_LAUNCH ${CMAKE_SOURCE_DIR}/scripts/lsan_run.sh ${test_name})
+  endif()
   add_executable(${test_name} ${test_src})
   target_link_libraries(${test_name} PRIVATE kinoklip_core Qt6::Test)
   target_compile_definitions(${test_name} PRIVATE KK_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
   if(test_name MATCHES "^test_(filedialogs|rendernotify|openurl)$" AND KK_DBUS_RUN_SESSION)
     # their fake portal / notification / OpenURI services need a private session bus (skipped without)
-    add_test(NAME ${test_name} COMMAND ${KK_DBUS_RUN_SESSION} -- $<TARGET_FILE:${test_name}>)
+    add_test(NAME ${test_name} COMMAND ${KK_TEST_LAUNCH} ${KK_DBUS_RUN_SESSION} -- $<TARGET_FILE:${test_name}>)
   else()
-    add_test(NAME ${test_name} COMMAND ${test_name})
+    add_test(NAME ${test_name} COMMAND ${KK_TEST_LAUNCH} $<TARGET_FILE:${test_name}>)
   endif()
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 300)
 endforeach()
+
+# The memory soak is a long run of its own: `ctest -L soak` (docs/contributing.md, "Memory leaks").
+if(TARGET test_memorysoak)
+  set_tests_properties(test_memorysoak PROPERTIES LABELS soak TIMEOUT 900)
+endif()
 
 # test_cli runs the built application as a process.
 if(TARGET test_cli)

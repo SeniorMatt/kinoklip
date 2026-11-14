@@ -4,6 +4,11 @@ One file per release, `v<version>.md` (e.g. `v0.4.1-alpha.1.md`); its text is th
 release description. Every release is a GitHub **pre-release** until the owner decides on 1.0
 (docs/roadmap.md).
 
+## Before publishing
+Run the memory checks first ([contributing.md](../contributing.md#memory-leaks)):
+`scripts/check_leaks.sh` (clean exit, no new suppression of our own code) and `ctest -L soak`
+(passes, no QEXPECT_FAIL left). Then the whole test suite, then package.
+
 ## Assets to upload
 - `Kinoklip-x86_64.AppImage`
 - `Kinoklip-x86_64.AppImage.zsync` (Gear Lever and [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) find updates through it;

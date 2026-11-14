@@ -2616,6 +2616,7 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 100.8 | The shipped .qm files load, and each of the four languages changes an application string. A counted text is written as two translated sentences (`plural()`) so that each language can word it without a plural form of its own. | Done (shippedFilesLoad, shippedTranslationsApply) |
 | 100.9 | Settings that need a restart (Language, Interface scale, GPU processing mode) show no note; when Save stores a changed one, one "Restart Required" message names them ("Restart Kinoklip to apply: Language."). Saving without such a change shows nothing. The other Preferences explanations are hover text on the row's label and control, not grey notes (Resolve's Preferences carry none). | Done (spec100_9_languageChangeAsksForARestart) |
 
+<<<<<<< HEAD
 ## 101. Compositing page sound (GitHub issue #7)
 
 | # | Behaviour | Status |
@@ -2637,3 +2638,14 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 102.4 | Diagnostics: the log file's memory section and the `stats summary` block (`KK_PLAYBACK_STATS`) say how many output frames the compositor holds (in use, MiB, taken back) and how many decoders are open, so a report shows where memory sits. | Done (Compositor::liveStats, PlaybackEngine::logStatsSummary) |
 | 102.5 | Playing a retimed clip (12.5 % and 25 %) while the viewer size changes (a second viewer of full-screen size opens and closes) causes no seeks while playing and keeps output frames, decoders and the process's memory bounded. | Done (test_slowmotionmemory) |
 | 102.6 | The "363 seeks while playing" in the issue's log could not be reproduced: plain playback, slow motion and full-screen toggles give 0 seeks while playing (`seeksWhilePlaying`). Open; the reporter's next log (the stats summary) shows whether it remains. | Open |
+>>>>>>> main
+
+## 103. Memory leak checks (leakcheck branch, GitHub issue #8)
+
+| # | Behaviour | Status |
+|---|-----------|--------|
+| 103.1 | A long session must not grow without bound: RAM and VRAM grew until the system ran out of memory during slow-motion playback with full-screen toggles. Two checks guard it, run before every release and after any change in playback, render, media or viewer code (docs/contributing.md, "Memory leaks"). | Done (rule) |
+| 103.2 | `cmake -DKK_SANITIZE=address` (or `address,undefined`) builds the application, the library and every test with AddressSanitizer / LeakSanitizer; `scripts/check_leaks.sh [build dir] [pattern]` builds `build-asan`, runs the tests with leak detection and `scripts/lsan.supp`, exits non-zero on a leak and lists the leaks per test with their top frames in our code. | Done (scripts/check_leaks.sh, scripts/lsan_run.sh) |
+| 103.3 | `scripts/lsan.supp` holds only leaks of third-party code (Qt platform plugins, fontconfig, Mesa, libva, FFmpeg hardware device initialisation, glib, dbus), one comment per entry; a frame in Kinoklip code is never suppressed. | Done |
+| 103.4 | Soak test (`test_memorysoak`, ctest label `soak`): a generated 1080p clip, cycles of play, stop, seek, clip speed 100 / 25 / 12.5 %, full-screen viewer and window resize, every page, a second timeline opened and deleted. After a warm-up the RenderedFrame objects alive (`RenderedFrame::aliveCount()`), the output slots allocated and in use (`ResourceStats::outputSlots`, `outputSlotsInUse`), the render thread's open decoders (at most `DecoderPool::kMaxOpen`), the MediaCache's idle decoders and cached tiles stay within small bounds of their baseline, and VmRSS grows by less than 250 MiB. | Done (test_memorysoak) |
+=======

@@ -17,6 +17,9 @@ the only release artefact.
 
 ## Build
 
+Before a release build run the memory checks (`scripts/check_leaks.sh`, `ctest -L soak`;
+[docs/contributing.md](../../docs/contributing.md#memory-leaks)).
+
 ```sh
 # in the container (repository mounted at the same path):
 podman exec -w "$PWD" kk-arch env KK_BUILD_DIR=build-arch-release scripts/package_linux.sh  # Release build + AppDir + AppImage
