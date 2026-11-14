@@ -135,7 +135,7 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
     int64_t frame = m_layout.nearestFrameAtX(pos.x());
 
     auto snapStart = [&](int64_t f, int64_t duration) {
-        if (!m_controller->snapping())
+        if (!m_controller->snappingNow(modifiers))
             return f;
         const auto snaps = ops::snapCandidates(data, m_ctx.project->timeline()->playhead());
         const int64_t tol = snapToleranceFrames();

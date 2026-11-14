@@ -55,7 +55,7 @@ int64_t TimelineWidget::snapToleranceFrames() const
 
 std::optional<int64_t> TimelineWidget::snapFrame(int64_t frame) const
 {
-    if (!m_controller->snapping())
+    if (!m_controller->snappingNow(m_drag.live))
         return std::nullopt;
     return ops::snapToNearest(m_drag.snaps, frame, snapToleranceFrames());
 }
@@ -102,6 +102,7 @@ void TimelineWidget::mousePressEvent(QMouseEvent* event)
     m_drag.pressPos = pos;
     m_drag.lastPos = pos;
     m_drag.modifiers = event->modifiers();
+    m_drag.live = event->modifiers();
     m_drag.hit = m_layout.hitTest(data, pos);
     m_drag.scrollXAtPress = horizontalScrollBar()->value();
     m_drag.scrollYAtPress = verticalScrollBar()->value();
@@ -271,6 +272,7 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
         return;
     }
     m_drag.lastPos = pos;
+    m_drag.live = event->modifiers();
     if (m_drag.mode == DragMode::Pending) {
         const bool trim = m_drag.pending == DragMode::TrimHead
             || m_drag.pending == DragMode::TrimTail || m_drag.pending == DragMode::Roll
@@ -412,7 +414,28 @@ void TimelineWidget::keyPressEvent(QKeyEvent* event)
         event->accept();
         return;
     }
+    if (event->key() == Qt::Key_Shift && redoDragForShift(event->modifiers()))
+        return;
     QAbstractScrollArea::keyPressEvent(event);
+}
+
+void TimelineWidget::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Shift && redoDragForShift(event->modifiers()))
+        return;
+    QAbstractScrollArea::keyReleaseEvent(event);
+}
+
+bool TimelineWidget::redoDragForShift(Qt::KeyboardModifiers mods)
+{
+    // Shift inverts snapping while held: pressing or releasing it during a drag snaps (or
+    // unsnaps) at once, without waiting for the mouse to move.
+    if (m_drag.mode == DragMode::None || m_drag.mode == DragMode::Pending)
+        return false;
+    QMouseEvent move(QEvent::MouseMove, m_drag.lastPos, mapToGlobal(m_drag.lastPos.toPoint()),
+        Qt::NoButton, Qt::LeftButton, mods);
+    mouseMoveEvent(&move);
+    return true;
 }
 
 void TimelineWidget::leaveEvent(QEvent* event)
@@ -815,7 +838,7 @@ void TimelineWidget::updateMove(QPointF pos)
     int64_t dx = std::llround(m_layout.xToFrame(pos.x()) - m_layout.xToFrame(m_drag.pressPos.x()));
     // Snap whichever edge of the grabbed clip is closer to a candidate.
     m_overlay.snapFrame.reset();
-    if (m_controller->snapping()) {
+    if (m_controller->snappingNow(m_drag.live)) {
         const auto s1 = snapFrame(m_drag.primaryStart + dx);
         const auto s2 = snapFrame(m_drag.primaryEnd + dx);
         const int64_t d1 = s1 ? std::abs(*s1 - (m_drag.primaryStart + dx)) : INT64_MAX;
@@ -1040,7 +1063,7 @@ void TimelineWidget::bladeAt(const TimelineHit& hit)
 {
     int64_t frame = m_layout.nearestFrameAtX(m_layout.frameToX(hit.frame));
     // With snapping on, the blade snaps to the playhead and other edit points nearby.
-    if (m_controller->snapping()) {
+    if (m_controller->snappingNow(m_drag.live)) {
         const auto snaps = ops::snapCandidates(
             m_ctx.project->timeline()->data(), m_ctx.project->timeline()->playhead());
         if (const auto s = ops::snapToNearest(snaps, frame, snapToleranceFrames())) {

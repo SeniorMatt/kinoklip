@@ -124,6 +124,11 @@ public:
     [[nodiscard]] TimelineTool tool() const { return m_tool; }
     void setTool(TimelineTool tool);
     [[nodiscard]] bool snapping() const { return m_snapping; }
+    /// Snapping for a drag with @p mods held: the setting, inverted while Shift is held.
+    [[nodiscard]] bool snappingNow(Qt::KeyboardModifiers mods) const
+    {
+        return m_snapping != bool(mods & Qt::ShiftModifier);
+    }
     void setSnapping(bool on);
     [[nodiscard]] bool linkedSelection() const { return m_linked; }
     void setLinkedSelection(bool on);

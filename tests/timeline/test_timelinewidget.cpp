@@ -68,8 +68,16 @@ struct View
     void drag(QPoint from, QPoint to, Qt::KeyboardModifiers mods = {})
     {
         QTest::mousePress(vp(), Qt::LeftButton, mods, from);
-        for (int i = 1; i <= 4; ++i)
-            QTest::mouseMove(vp(), from + (to - from) * i / 4);
+        for (int i = 1; i <= 4; ++i) {
+            const QPointF p = from + (to - from) * i / 4;
+            if (mods) { // QTest::mouseMove sends no modifiers
+                QMouseEvent move(QEvent::MouseMove, p, vp()->mapToGlobal(p), Qt::NoButton,
+                    Qt::LeftButton, mods);
+                QApplication::sendEvent(vp(), &move);
+            } else {
+                QTest::mouseMove(vp(), p.toPoint());
+            }
+        }
         QTest::mouseRelease(vp(), Qt::LeftButton, mods, to);
     }
     int undoCount() const { return f.project.undoStack()->count(); }
@@ -261,6 +269,22 @@ private slots:
         v.c.setSnapping(false);
         v.drag(v.at(60, kV2), v.at(73, kV2)); // ends 3 frames past V1's end: no snap
         QCOMPARE(layout(v.f.view(), kV2), QStringLiteral("63:20"));
+    }
+
+    // Spec 11.10: holding Shift during a drag inverts snapping (off when it is on, on when off).
+    void shiftInvertsSnapping()
+    {
+        View v(2.0); // 8 px snap = 4 frames
+        v.put(kV1, solidClip(0, 50));
+        v.put(kV2, solidClip(100, 20));
+        v.drag(v.at(110, kV2), v.at(63, kV2), Qt::ShiftModifier); // snapping on, Shift: no snap
+        QCOMPARE(layout(v.f.view(), kV2), QStringLiteral("53:20"));
+        v.c.setSnapping(false);
+        // 6 frames left would start it at 47, 3 frames before V1's end: Shift snaps it to 50.
+        v.f.selection.clear(); // Shift-pressing a selected clip would deselect it
+        v.drag(v.at(63, kV2), v.at(57, kV2), Qt::ShiftModifier);
+        QCOMPARE(layout(v.f.view(), kV2), QStringLiteral("50:20"));
+        QVERIFY(!v.c.snapping()); // the setting itself is unchanged
     }
 
     void trimWithGapInSelectTool()
