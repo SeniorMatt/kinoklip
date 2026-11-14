@@ -483,6 +483,59 @@ private slots:
         QCOMPARE(layout(d, kA2), QStringLiteral("15:10"));
         KK_VERIFY_INVARIANTS(d);
     }
+
+    // Owner report 1.8.1 (spec 97.7): a compound clip on a track above V3 follows a ripple trim.
+    void rippleTrimMovesACompoundClipOnAHighTrack()
+    {
+        for (int mode = 0; mode < 4; ++mode) {
+            TimelineData d = timeline();
+            ops::addTrack(d, TrackType::Video);
+            ops::addTrack(d, TrackType::Video);
+            ops::addTrack(d, TrackType::Video);
+            const TrackRef kV5 {TrackType::Video, 4};
+            const quint64 v = ops::overwriteClip(d, kV1, mediaClip(0, 100, 50, 1000));
+            const quint64 au = ops::overwriteClip(d, kA1, mediaClip(0, 100, 50, 1000));
+            ops::linkClips(d, {v, au});
+            ops::overwriteClip(d, kV1, mediaClip(100, 100, 0, 1000));
+            ops::overwriteClip(d, kV2, mediaClip(150, 20));
+            ClipData comp = mediaClip(1500, 200);
+            comp.kind = ClipKind::Nested;
+            comp.nestedUid = 7;
+            comp.mediaId.clear();
+            ops::overwriteClip(d, kV5, comp);
+            const bool head = mode & 1;
+            const int64_t delta = mode & 2 ? -10 : 10; // tail: -10 shortens; head: +10 shortens
+            const int64_t shift = head ? -delta : delta;
+            const int64_t applied = ops::rippleTrimSynced(d, {v, au}, head, delta);
+            QCOMPARE(applied, delta);
+            QCOMPARE(layout(d, kV5), QStringLiteral("%1:200").arg(1500 + shift));
+            QCOMPARE(layout(d, kV2), QStringLiteral("%1:20").arg(150 + shift));
+            KK_VERIFY_INVARIANTS(d);
+        }
+    }
+
+    void rippleTrimCutsAndMovesASpanningCompoundClip()
+    {
+        for (int mode = 0; mode < 2; ++mode) {
+            TimelineData d = timeline();
+            ops::addTrack(d, TrackType::Video);
+            ops::addTrack(d, TrackType::Video);
+            const TrackRef kV4 {TrackType::Video, 3};
+            const quint64 v = ops::overwriteClip(d, kV1, mediaClip(100, 100, 50, 1000));
+            ClipData comp = mediaClip(40, 300, 0, 300);
+            comp.kind = ClipKind::Nested;
+            comp.nestedUid = 7;
+            comp.mediaId.clear();
+            ops::overwriteClip(d, kV4, comp);
+            const bool shorten = mode == 0;
+            QCOMPARE(ops::rippleTrimSynced(d, {v}, false, shorten ? -10 : 10), shorten ? -10 : 10);
+            // The compound clip is cut at the edit point (frame 200); the part after it moves.
+            QCOMPARE(layout(d, kV4),
+                shorten ? QStringLiteral("40:150 190:140") : QStringLiteral("40:160 210:140"));
+            QCOMPARE(d.videoTracks[3].clips[1].kind, ClipKind::Nested);
+            KK_VERIFY_INVARIANTS(d);
+        }
+    }
 };
 
 QTEST_GUILESS_MAIN(TestEditOpsRipple)

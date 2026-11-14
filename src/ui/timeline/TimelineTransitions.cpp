@@ -38,12 +38,8 @@ void rippleTrimWithLinks(TimelineData& data, quint64 clipId, bool head, int64_t 
                 ids.append(id);
         }
     }
-    for (quint64 id : ids) {
-        if (head)
-            ops::trimHead(data, id, delta, true);
-        else
-            ops::trimTail(data, id, delta, true);
-    }
+    // The other sync-locked tracks follow (spec 8.18, 97).
+    ops::rippleTrimSynced(data, ids, head, delta);
 }
 
 } // namespace
