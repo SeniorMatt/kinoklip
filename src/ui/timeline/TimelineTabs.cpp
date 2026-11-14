@@ -103,6 +103,19 @@ quint64 TimelineTabs::uidAt(int index) const
     return index >= 0 && index < m_bar->count() ? m_bar->tabData(index).toULongLong() : 0;
 }
 
+QVector<quint64> TimelineTabs::order() const
+{
+    QVector<quint64> uids;
+    if (m_tabsMode) {
+        for (int i = 0; i < m_bar->count(); ++i)
+            uids.append(uidAt(i));
+    } else {
+        for (int i = 0; i < m_combo->count(); ++i)
+            uids.append(m_combo->itemData(i).toULongLong());
+    }
+    return uids;
+}
+
 void TimelineTabs::sync()
 {
     Project* project = m_ctx.project;

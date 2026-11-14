@@ -235,11 +235,12 @@ bool TimelineController::deleteActiveTimeline()
 void TimelineController::cycleTab(int step)
 {
     Project* p = project();
-    const QVector<quint64>& tabs = p->tabs();
+    const QVector<quint64> tabs = m_tabOrder ? m_tabOrder() : p->tabs();
     if (tabs.size() < 2)
         return;
     const qsizetype index = tabs.indexOf(p->activeTimelineUid());
-    const qsizetype next = (index + step + tabs.size()) % tabs.size();
+    const qsizetype next = index < 0 ? (step > 0 ? 0 : tabs.size() - 1)
+                                     : (index + step + tabs.size()) % tabs.size();
     p->setActiveTimeline(tabs[next]);
 }
 
