@@ -16,6 +16,8 @@
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QSettings>
+#include <QSignalBlocker>
 #include <QToolButton>
 
 #include <algorithm>
@@ -166,6 +168,12 @@ CompTransport::CompTransport(AppContext& ctx, CompSession* session, QWidget* par
         layout->addWidget(b);
         return b;
     };
+    m_audioButton = button("audio", QString());
+    m_audioButton->setObjectName(QStringLiteral("CompAudio"));
+    m_audioButton->setCheckable(true);
+    m_audioOn = QSettings().value(QStringLiteral("compositing/audio"), true).toBool();
+    connect(m_audioButton, &QToolButton::clicked, this, &CompTransport::setAudioOn);
+    setAudioOn(m_audioOn);
     m_stop = button("stop", tr("Stop"));
     m_stop->setObjectName(QStringLiteral("CompStop"));
     m_play = button("play", tr("Play the clip range"));
@@ -190,6 +198,7 @@ CompTransport::CompTransport(AppContext& ctx, CompSession* session, QWidget* par
     connect(
         ctx.project->timeline(), &Timeline::playheadChanged, this, &CompTransport::updatePosition);
     connect(session, &CompSession::clipChanged, this, &CompTransport::updatePosition);
+    connect(session, &CompSession::clipChanged, this, &CompTransport::applyAudio);
     if (ctx.playback) {
         connect(
             ctx.playback, &PlaybackEngine::positionChanged, this, &CompTransport::onEnginePosition);
@@ -200,6 +209,49 @@ CompTransport::CompTransport(AppContext& ctx, CompSession* session, QWidget* par
         });
     }
     updatePosition();
+}
+
+void CompTransport::setAudioOn(bool on)
+{
+    m_audioOn = on;
+    QSettings().setValue(QStringLiteral("compositing/audio"), on);
+    const QSignalBlocker block(m_audioButton);
+    m_audioButton->setChecked(on);
+    m_audioButton->setIcon(icon(on ? QStringLiteral("audio") : QStringLiteral("mute")));
+    m_audioButton->setToolTip(on ? tr("Audio on: the page plays the timeline's sound (click to "
+                                      "turn the sound off on this page)")
+                                 : tr("Audio off: the page plays silently (click to turn the "
+                                      "sound on)"));
+    applyAudio();
+}
+
+void CompTransport::applyAudio()
+{
+    PlaybackEngine* engine = m_ctx.playback;
+    if (!engine)
+        return;
+    if (isVisible() && m_session && m_session->clipId())
+        engine->setCompositionAudio(this, m_session->clipId(), m_audioOn);
+    else
+        engine->clearCompositionAudio(this);
+}
+
+void CompTransport::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    applyAudio();
+}
+
+void CompTransport::hideEvent(QHideEvent* event)
+{
+    QWidget::hideEvent(event);
+    applyAudio();
+}
+
+CompTransport::~CompTransport()
+{
+    if (m_ctx.playback)
+        m_ctx.playback->clearCompositionAudio(this);
 }
 
 QString CompTransport::positionText() const

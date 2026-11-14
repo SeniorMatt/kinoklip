@@ -271,6 +271,90 @@ const void* PlaybackEngine::compositionViewOwner() const
     return best ? best->owner : nullptr;
 }
 
+void PlaybackEngine::setCompositionAudio(const void* owner, quint64 clipId, bool enabled)
+{
+    const CompAudio next {owner, clipId, enabled};
+    if (m_compAudio && m_compAudio->owner == owner && m_compAudio->clipId == clipId
+        && m_compAudio->enabled == enabled)
+        return;
+    m_compAudio = next;
+    m_soundKey = soundKey();
+    refreshSound(true);
+}
+
+void PlaybackEngine::clearCompositionAudio(const void* owner)
+{
+    if (!m_compAudio || m_compAudio->owner != owner)
+        return;
+    m_compAudio.reset();
+    m_soundKey = soundKey();
+    refreshSound(true);
+}
+
+PlaybackEngine::SoundKey PlaybackEngine::soundKey() const
+{
+    if (!m_compAudio || !m_snapshot)
+        return {};
+    for (const TrackData& track : m_snapshot->videoTracks) {
+        const int i = track.indexOfClip(m_compAudio->clipId);
+        if (i < 0)
+            continue;
+        const ClipData& c = track.clips[size_t(i)];
+        return {true, m_compAudio->enabled, c.composition && c.composition->soloAudio,
+            c.composition ? c.composition->soundOffset : 0.0};
+    }
+    return {true, m_compAudio->enabled, false, 0.0};
+}
+
+std::shared_ptr<const TimelineData> PlaybackEngine::soundTimeline() const
+{
+    if (!m_compAudio || !m_snapshot)
+        return m_snapshot;
+    return compositionSound(m_snapshot, m_compAudio->clipId, m_compAudio->enabled);
+}
+
+void PlaybackEngine::refreshSound(bool remix)
+{
+    if (!m_feeder || !m_snapshot)
+        return;
+    m_feeder->setTimeline(soundTimeline());
+    if (remix && isPlaying() && m_clock.isAudioMaster() && !m_parked && m_prerollUntilUs <= 0)
+        m_feeder->remixUnheard();
+}
+
+std::shared_ptr<const TimelineData> PlaybackEngine::compositionSound(
+    const std::shared_ptr<const TimelineData>& timeline, quint64 clipId, bool enabled)
+{
+    if (!timeline)
+        return timeline;
+    const ClipData* video = nullptr;
+    for (const TrackData& track : timeline->videoTracks) {
+        const int i = track.indexOfClip(clipId);
+        if (i >= 0)
+            video = &track.clips[size_t(i)];
+    }
+    const bool solo = video && video->composition && video->composition->soloAudio;
+    const double offset = video && video->composition ? video->composition->soundOffset : 0.0;
+    if (enabled && !solo && offset == 0.0)
+        return timeline;
+    auto out = std::make_shared<TimelineData>(*timeline);
+    const double offsetUs = timeline->fps.isValid() ? offset / timeline->fps.toDouble() * 1e6 : 0.0;
+    for (TrackData& track : out->audioTracks) {
+        for (ClipData& clip : track.clips) {
+            const bool linked = video && video->linkGroup != 0 && clip.linkGroup == video->linkGroup
+                && clip.start < video->end() && video->start < clip.end();
+            if (!enabled || (solo && !linked)) {
+                clip.enabled = false;
+            } else if (offsetUs != 0.0 && linked) {
+                // The clip's own sound moves against its picture (a sound that is not linked
+                // to the clip keeps its place in the timeline mix).
+                clip.sourceInUs -= std::llround(offsetUs * clip.speed);
+            }
+        }
+    }
+    return out;
+}
+
 void PlaybackEngine::setMediaPaths(std::shared_ptr<const MediaPathMap> media)
 {
     m_media = std::move(media);
@@ -290,9 +374,9 @@ void PlaybackEngine::onTimelineChanged()
         = next && m_snapshot && m_videoSnapshot && render::samePictures(*m_videoSnapshot, *next);
     m_snapshot = std::move(next);
     m_clock.setFps(fps());
-    if (m_feeder && m_snapshot) {
-        m_feeder->setTimeline(m_snapshot);
-    }
+    const bool soundChanged = m_soundKey != soundKey();
+    m_soundKey = soundKey();
+    refreshSound(soundChanged);
     if (!isPlaying())
         m_committed = m_snapshot;
     if (!soundOnly) {
@@ -1135,7 +1219,7 @@ void PlaybackEngine::startAudioClock(double fromFrame)
         loop.start = framesToSamples48k(m_rangeStart, fps());
         loop.end = framesToSamples48k(m_rangeEnd, fps());
     }
-    m_feeder->start(m_snapshot, startSample, loop, m_rate);
+    m_feeder->start(soundTimeline(), startSample, loop, m_rate);
     // A short pre-roll so the device does not start with an underrun.
     (void)m_feeder->waitForFill(kPrerollFrames, kPrerollTimeoutMs);
     if (!m_audio->start(m_ring.get())) {
@@ -1205,7 +1289,7 @@ void PlaybackEngine::scrubAudio(int64_t frame)
         return;
     if (!m_scrubActive) {
         // Open the device once per scrub gesture; snippets then only feed the ring.
-        m_feeder->startScrub(m_snapshot);
+        m_feeder->startScrub(soundTimeline());
         if (!m_audio->start(m_ring.get())) {
             m_feeder->stop();
             m_ring->clear();
@@ -1391,6 +1475,15 @@ void PlaybackEngine::logStatsSummary()
             .arg(look.hitsWaited)
             .arg(look.cancelled)
             .arg(look.expired));
+    const render::ResourceStats held = m_compositor->resourceStats();
+    emitStatsLine(QStringLiteral("held by the compositor: %1 output frames (%2 in use, %3 MiB, "
+                                 "%4 taken back), %5 decoders, %6 MiB of render targets")
+                      .arg(held.outputSlots)
+                      .arg(held.outputSlotsInUse)
+                      .arg(double(held.outputSlotBytes) / (1 << 20), 0, 'f', 0)
+                      .arg(held.outputSlotsStolen)
+                      .arg(held.decoders)
+                      .arg(double(held.targetBytes) / (1 << 20), 0, 'f', 0));
     const Stats s = stats();
     const double seconds = s.playSeconds - m_statsAtPlay.playSeconds;
     const int64_t presented = s.presented - m_statsAtPlay.presented;

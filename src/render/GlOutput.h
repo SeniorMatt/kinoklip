@@ -38,19 +38,26 @@ public:
     /// Maps finished readbacks into QImages and fulfils their promises (see RenderBackend).
     void finishPending(bool keepNewest);
     [[nodiscard]] bool hasPending() const { return !m_pending.empty(); }
-    /// Output slots allocated and, of those, held by a live RenderedFrame (any thread; tests,
-    /// resource statistics, scripts/check_leaks.sh soak test).
-    [[nodiscard]] std::pair<int, int> slotUsage() const
-    {
-        std::lock_guard lock(m_slots->mutex);
-        int used = 0;
-        for (const Slot& s : m_slots->entries)
-            used += s.inUse ? 1 : 0;
-        return {int(m_slots->entries.size()), used};
-    }
 
     /// Deletes all GL objects (pending readbacks are completed first).
     void destroy();
+
+    /// Output slots right now: allocated, handed out and not yet released, and their GPU bytes
+    /// (any thread).
+    struct SlotStats
+    {
+        int allocated = 0;
+        int inUse = 0;
+        int64_t bytes = 0;
+        int stolen = 0; ///< slots taken back from a consumer that held them past the cap
+    };
+    [[nodiscard]] SlotStats slotStats() const;
+
+    /// Most slots (frames held at once by consumers) before the oldest one is taken back, and
+    /// the most GPU memory the slots may use once there are kMinSlots.
+    static constexpr int kMaxSlots = 32;
+    static constexpr int kMinSlots = 8;
+    static constexpr int64_t kMaxSlotBytes = 640ll << 20;
 
 private:
     struct Slot
@@ -60,12 +67,16 @@ private:
         QSize size;
         void* fence = nullptr; ///< GLsync of the last frame rendered into the slot
         bool inUse = false;
+        uint64_t owner = 0; ///< serial of the frame that holds the slot (see acquireSlot())
+        uint64_t lastUse = 0; ///< acquire counter at the last hand-out
     };
     /// Shared with RenderedFrame deleters, which may outlive this object.
     struct SlotTable
     {
-        std::mutex mutex;
+        mutable std::mutex mutex;
         std::vector<Slot> entries;
+        uint64_t acquires = 0; ///< hand-outs so far; also the next owner serial
+        int stolen = 0;
     };
     struct Pbo
     {
@@ -81,12 +92,20 @@ private:
         double submitMs = 0; ///< render-thread time until the readback was queued
     };
 
-    /// Index of a free slot of @p size (allocating or resizing one if needed), marked in use.
-    int acquireSlot(QSize size);
+    /// Index of a free slot of @p size (allocating or resizing one if needed), marked in use;
+    /// the serial of the new owner goes to @p owner.
+    int acquireSlot(QSize size, uint64_t* owner);
+    /// Frees the GL objects of free slots whose size has not been asked for lately (the viewer
+    /// changed size, e.g. full screen): they would otherwise stay at the old size for good.
+    void trimStale(QSize size);
+    void freeStorage(Slot& slot);
     Pbo takePbo(qsizetype bytes);
 
     /// Above this many simultaneously held frames something is leaking RenderedFramePtrs.
-    static constexpr int kSlotWarning = 32;
+    static constexpr int kSlotWarning = 24;
+    /// A free slot of another size than the one asked for is freed after this many hand-outs
+    /// without one of its size (about 2 s of playback).
+    static constexpr uint64_t kStaleAcquires = 60;
 
     GlKit& m_kit;
     std::shared_ptr<SlotTable> m_slots;
