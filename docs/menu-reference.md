@@ -173,8 +173,8 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Duplicate Timeline |  | Makes a copy of the current timeline in the project. |
 | Delete Timeline |  | Deletes the current timeline from the project. |
 | Timeline Settings… |  | Opens the settings of the current timeline. |
-| Next Timeline Tab |  | Shows the next open timeline. |
-| Previous Timeline Tab |  | Shows the previous open timeline. |
+| Next Timeline Tab | Ctrl+Tab | Shows the next open timeline. |
+| Previous Timeline Tab | Ctrl+Shift+Tab | Shows the previous open timeline. |
 | Close Timeline Tab |  | Closes the tab of the current timeline (the timeline stays in the project). |
 | Track Destination and Auto Select > Video Destination V1 | Alt+1 | Makes video track V1 the destination of source edits. |
 | Track Destination and Auto Select > Video Destination V2 | Alt+2 | Makes video track V2 the destination of source edits. |
@@ -676,8 +676,8 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Timelines > New Timeline… | Ctrl+N | Creates a new timeline in the project, asking for its name and settings. |
 | Timelines > Duplicate |  | Makes a copy of the current timeline in the project. |
 | Timelines > Delete |  | Deletes the current timeline from the project. |
-| Timelines > Next Tab |  | Shows the next open timeline. |
-| Timelines > Previous Tab |  | Shows the previous open timeline. |
+| Timelines > Next Tab | Ctrl+Tab | Shows the next open timeline. |
+| Timelines > Previous Tab | Ctrl+Shift+Tab | Shows the previous open timeline. |
 | Timelines > Close Tab |  | Closes the tab of the current timeline (the timeline stays in the project). |
 | Timelines > Timeline Settings… |  | Opens the settings of the current timeline. |
 | Zoom > Zoom In | Ctrl+= | Zooms the timeline in. |

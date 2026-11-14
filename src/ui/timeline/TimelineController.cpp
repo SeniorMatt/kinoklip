@@ -731,10 +731,13 @@ void TimelineController::trimToPlayhead(bool head, bool ripple)
                     const int64_t start = c->start;
                     const int64_t got = ops::trimHead(data, id, f - start, ripple);
                     any |= got != 0;
-                    if (id == ids.first())
+                    if (id == ids.first()) {
                         syncShift = -got;
-                    if (ripple)
-                        newPlayhead = start; // the same picture is now at the old start
+                        // The same picture is now at the first clip's old start. Only that
+                        // clip decides: a clip on another track starts elsewhere (spec 8.10).
+                        if (ripple && got != 0)
+                            newPlayhead = start;
+                    }
                 } else {
                     // The playhead frame is the first frame removed.
                     const int64_t got = ops::trimTail(data, id, f - c->end(), ripple);

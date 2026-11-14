@@ -210,6 +210,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
+    bool redoDragForShift(Qt::KeyboardModifiers mods);
     void leaveEvent(QEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
     /// Context menu of a transition (spec 13.10): delete, duration, alignment.
@@ -276,6 +278,7 @@ private:
         QPointF lastPos;
         TimelineHit hit;
         Qt::KeyboardModifiers modifiers;
+        Qt::KeyboardModifiers live; ///< held now (last mouse or key event of the drag)
         bool ripple = false; ///< trims: ripple (trim tool) or leave gaps (select tool)
         bool editOpen = false;
         bool selectOnRelease = false; ///< click on a selected clip without dragging
@@ -441,6 +444,8 @@ private:
         quint64 clipId = 0; ///< Effect/Transition target
         QString effectId;
         bool head = true; ///< Transition: at the clip head (transitionIn) or tail
+        bool pointerHead = true; ///< Transition: the half of the clip under the pointer
+        quint64 hitClipId = 0; ///< Transition: the clip under the pointer
         int64_t transitionFrames = 0;
         int64_t previewFrom = 0;
         int64_t previewTo = 0;

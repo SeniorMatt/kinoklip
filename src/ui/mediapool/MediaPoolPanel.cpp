@@ -68,9 +68,9 @@ constexpr char kThumbnailWidthKey[] = "mediaPool/thumbnailWidth"; ///< poster wi
 constexpr int kDefaultThumbnailStep = 5;
 static_assert(
     MediaPoolPanel::kThumbnailWidths[kDefaultThumbnailStep] == MediaPoolModel::kPosterSize.width());
-/// A wheel notch scrolls the grid / strips by this fraction of a row (QListView's own step is
-/// three whole rows of 115 px).
-constexpr int kWheelRowFraction = 3;
+/// A wheel notch scrolls the grid / strips by one row at the system's default of 3 lines per
+/// notch (QApplication::wheelScrollLines(); QListView's own step is three whole rows).
+constexpr int kWheelDefaultLines = 3;
 constexpr int kWheelNotch = 120; ///< QWheelEvent::angleDelta() of one notch
 constexpr int kMaxHistory = 100; ///< bins kept in the Back / Forward history
 constexpr int kZoomSliderWidth = 70;
@@ -898,9 +898,12 @@ bool MediaPoolPanel::scrollByWheel(QAbstractItemView* view, const QWheelEvent* e
         return false; // horizontal
     const int row
         = view == m_grid ? m_grid->gridSize().height() : MediaPoolStripDelegate::rowHeight();
-    // Touchpads report pixels: follow the fingers. Wheels: a third of a row per notch.
-    double delta = pixels.y() != 0 ? double(pixels.y())
-                                   : angle.y() * (double(row) / kWheelRowFraction) / kWheelNotch;
+    // Touchpads report pixels: follow the fingers. Wheels: one row per notch, scaled by the
+    // system's lines-per-notch setting (a third of a row felt far slower than the touchpad).
+    const double lines = std::max(1, QApplication::wheelScrollLines());
+    double delta = pixels.y() != 0
+        ? double(pixels.y())
+        : angle.y() * double(row) * (lines / kWheelDefaultLines) / kWheelNotch;
     delta += m_wheelRemainder;
     const int scroll = int(delta);
     m_wheelRemainder = delta - scroll;

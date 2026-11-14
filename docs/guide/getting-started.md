@@ -147,7 +147,9 @@ The tools on the left of the timeline tool bar (see the picture above):
   long as the track's **Sync Lock** button in the track header, right of the lock, is on and
   the track is not locked): making the clip longer cuts a clip that spans the edit point and
   opens a gap of the same length; making it shorter removes the same frames from those tracks.
-  Turn **Sync Lock** off, or lock the track, for a track that must stay where it is.
+  Turn **Sync Lock** off, or lock the track, for a track that must stay where it is. To have new
+  tracks start with Sync Lock off, untick **Sync Lock on new tracks** in Preferences > Editing;
+  existing tracks keep their setting.
   **Auto Select** only decides which tracks cuts and other edits at the playhead reach.
   **Ctrl+Shift+[** and **Ctrl+Shift+]** trim to the playhead
   the same way.

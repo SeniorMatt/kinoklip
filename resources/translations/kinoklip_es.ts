@@ -5268,6 +5268,18 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
         <source>Trim view shows effects and transforms (slower)</source>
         <translation>La vista de recorte muestra efectos y transformaciones (más lento)</translation>
     </message>
+    <message>
+        <source>Sync Lock on new tracks</source>
+        <translation>Bloqueo de sincronización en pistas nuevas</translation>
+    </message>
+    <message>
+        <source>Tracks</source>
+        <translation>Pistas</translation>
+    </message>
+    <message>
+        <source>Sets Sync Lock for tracks added afterwards: Add Track, tracks made by dropping onto empty space above the timeline, the tracks of new timelines and of compound clips. Existing tracks keep theirs.</source>
+        <translation>Define el bloqueo de sincronización de las pistas añadidas después: Añadir pista, pistas creadas al soltar sobre el espacio vacío encima de la línea de tiempo, las pistas de líneas de tiempo nuevas y de clips compuestos. Las pistas existentes conservan el suyo.</translation>
+    </message>
 </context>
 <context>
     <name>kk::EdlExport</name>

@@ -126,8 +126,8 @@ that every command has an entry and that no key is used twice.
 | Duplicate Timeline | `timeline.duplicate` | (none) | likely | media pool / Timeline menu command without a default key |
 | Delete Timeline | `timeline.delete` | (none) | likely | media pool command without a default key (Delete in the media pool deletes the selected timeline item) |
 | Timeline Settings | `timeline.settings` | (none) | unsure | no known default key |
-| Next Timeline Tab | `timeline.next_tab` | (none) | unsure | no known Resolve default; click the tab or use the timeline drop-down |
-| Previous Timeline Tab | `timeline.prev_tab` | (none) | unsure | no known Resolve default |
+| Next Timeline Tab | `timeline.next_tab` | Ctrl+Tab | unsure | Kinoklip addition (browser-style); no known Resolve default |
+| Previous Timeline Tab | `timeline.prev_tab` | Ctrl+Shift+Tab | unsure | Kinoklip addition (browser-style); no known Resolve default |
 | Close Timeline Tab | `timeline.close_tab` | (none) | unsure | no known Resolve default; the tab's close button or its context menu |
 
 ## Track destination and auto track selectors

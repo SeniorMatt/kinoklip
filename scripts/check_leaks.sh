@@ -9,11 +9,16 @@
 # Environment: KK_JOBS (default 2), KK_LEAK_TIMEOUT per test in seconds (default 900),
 #              KK_LEAK_LOGS (default <build dir>/leak-logs), KK_SANITIZE (default address;
 #              address,undefined also works), KK_NO_BUILD=1 skips the build.
-# Run it in the kk-arch container:  podman exec -w "$PWD" kk-arch scripts/check_leaks.sh
+# Runs in the kk-arch container (started on the host, it re-runs itself there with podman exec).
 # Exit code: 0 clean, 1 leak / sanitizer error / failed test, 2 build or setup failure.
 # Details: docs/contributing.md, "Memory leaks".
 set -u
 cd "$(dirname "$0")/.." || exit 2
+# The build needs the kk-arch toolchain (Arch Qt and FFmpeg); started on the host, run it there.
+if [ ! -f /run/.containerenv ] && [ ! -f /.dockerenv ] && command -v podman >/dev/null; then
+  exec podman exec -w "$PWD" -e KK_JOBS -e KK_LEAK_TIMEOUT -e KK_LEAK_LOGS -e KK_SANITIZE \
+    -e KK_NO_BUILD kk-arch scripts/check_leaks.sh "$@"
+fi
 BUILD=${1:-build-asan}
 PATTERN=${2:-}
 JOBS=${KK_JOBS:-2}

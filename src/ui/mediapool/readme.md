@@ -104,7 +104,7 @@ remembered (`mediaPool/binsVisible`). The grid/list choice is remembered as `med
   `kPosterSize`'s height, so zooming out reuses MediaCache's decoded frames. The delegate drops
   badges that do not fit.
 - Wheel: QListView's own step is a whole grid row times three lines; `scrollByWheel()` scrolls
-  the grid and the strip view (per pixel) by a third of a row per notch, or by the touchpad's
+  the grid and the strip view (per pixel) by one row per notch (times the system's wheel lines / 3), or by the touchpad's
   pixel delta. The list view and the bin list keep Qt's per-row scrolling (short rows).
 
 ## Undo

@@ -59,6 +59,7 @@
 #include <QWidgetAction>
 
 #include <algorithm>
+#include <numeric>
 #include <memory>
 
 namespace kk {
@@ -988,7 +989,7 @@ void InspectorPanel::buildEffectSection(
         label->setFont(font);
         barLayout->addWidget(label);
     }
-    constexpr int kAddEffectRows = 14; // matches listed while searching
+    constexpr int kAddEffectRows = 10; // fewest matches listed while searching
     auto* addEffect = new QToolButton(bar);
     if (!m_addEffect)
         m_addEffect = addEffect; // the first (or only) one
@@ -1001,7 +1002,13 @@ void InspectorPanel::buildEffectSection(
     auto addEntry = [&](QMenu* into, const EffectDescriptor* d) {
         const QString id = d->id;
         return into->addAction(d->name, this,
-            [this, id, clipId] { effectactions::applyEffect(*m_ctx.project, {clipId}, id); });
+            [this, id, clipId] {
+                // With several clips selected the effect goes onto all of them (1.8.1).
+                const QVector<quint64> selected
+                    = m_ctx.selection ? m_ctx.selection->clips() : QVector<quint64> {};
+                effectactions::applyEffect(
+                    *m_ctx.project, effectactions::effectTargets(*m_ctx.project, selected, clipId), id);
+            });
     };
     // A search field on top: type part of a name (or of its folder or description) and the
     // folders give way to a flat list of the matches; Enter adds the first one.
@@ -1031,6 +1038,7 @@ void InspectorPanel::buildEffectSection(
     {
         QAction* action;
         QString text; ///< name, folder and description, lower case
+        QString name; ///< the effect name, lower case
         bool inFolder; ///< a hidden flat copy of an entry in a folder submenu
     };
     QVector<Match> flat;
@@ -1046,7 +1054,7 @@ void InspectorPanel::buildEffectSection(
             (d->name + QLatin1Char(' ') + EffectRegistry::groupName(d->group) + QLatin1Char(' ')
                 + d->description)
                 .toLower(),
-            !d->group.isEmpty()});
+            d->name.toLower(), !d->group.isEmpty()});
     }
     auto* noMatch = menu->addAction(tr("No effect matches"));
     noMatch->setEnabled(false);
@@ -1059,8 +1067,27 @@ void InspectorPanel::buildEffectSection(
         const QStringList words = text.toLower().split(QLatin1Char(' '), Qt::SkipEmptyParts);
         for (QAction* f : folders)
             f->setVisible(words.isEmpty());
+        // Matches by name come first (names starting with the first word before the others),
+        // then matches found only in the folder or the description.
+        auto rank = [&](const Match& m) {
+            if (words.isEmpty())
+                return 0;
+            bool inName = true;
+            for (const QString& w : words)
+                inName = inName && m.name.contains(w);
+            return inName ? (m.name.startsWith(words.first()) ? 0 : 1) : 2;
+        };
+        QVector<int> order(flat.size());
+        std::iota(order.begin(), order.end(), 0);
+        std::stable_sort(order.begin(), order.end(),
+            [&](int a, int b) { return rank(flat[a]) < rank(flat[b]); });
+        for (int i : order) {
+            menu->removeAction(flat[i].action);
+            menu->insertAction(noMatch, flat[i].action);
+        }
         int shown = 0;
-        for (const Match& m : flat) {
+        for (int i : order) {
+            const Match& m = flat[i];
             bool hit = true;
             for (const QString& w : words)
                 hit = hit && m.text.contains(w);
@@ -1076,15 +1103,14 @@ void InspectorPanel::buildEffectSection(
     };
     connect(search, &QLineEdit::textChanged, menu, filter);
     connect(search, &QLineEdit::returnPressed, menu, [=] {
-        const QString first = search->text().toLower().split(QLatin1Char(' ')).value(0);
+        // The first match listed (the list is ranked, best first).
         QAction* best = nullptr;
-        for (const Match& m : flat) {
-            if (!m.action->isVisible())
-                continue;
-            if (!best
-                || (m.action->text().toLower().startsWith(first)
-                    && !best->text().toLower().startsWith(first)))
-                best = m.action;
+        for (QAction* a : menu->actions()) {
+            if (a->isVisible() && a != noMatch && a != searchAction && !a->isSeparator()
+                && !folders.contains(a) && a->isEnabled()) {
+                best = a;
+                break;
+            }
         }
         if (best) {
             menu->close();
@@ -1113,6 +1139,7 @@ void InspectorPanel::buildEffectSection(
                 first = m.action;
         }
         const int row = first ? menu->actionGeometry(const_cast<QAction*>(first)).height() : 0;
+        // Search fills the rows the folders take, so the menu has no empty space below them.
         *rows = std::max(kAddEffectRows, listed);
         if (row > 0)
             menu->setFixedSize(std::max(width, base.width()),
@@ -1524,7 +1551,11 @@ void InspectorPanel::dropEvent(QDropEvent* event)
         const quint64 target = desc->category == EffectCategory::AudioEffect && m_audioClipId
             ? m_audioClipId
             : m_clipId;
-        done = effectactions::applyEffect(*m_ctx.project, {target}, id) > 0;
+        const QVector<quint64> selected
+            = m_ctx.selection ? m_ctx.selection->clips() : QVector<quint64> {};
+        done = effectactions::applyEffect(
+                   *m_ctx.project, effectactions::effectTargets(*m_ctx.project, selected, target), id)
+            > 0;
         if (done)
             m_tabs->setCurrentIndex(EffectsTab);
     }

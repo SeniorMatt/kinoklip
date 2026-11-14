@@ -101,6 +101,52 @@ private slots:
         theme::apply(*qApp);
     }
 
+    void spec25_20_ctrlTabStepsThroughTimelineTabs()
+    {
+        Fixture f;
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        EditPage* edit = f.window->editPage();
+        QVERIFY(f.actions.defaultShortcuts("timeline.next_tab").contains(QKeySequence(QStringLiteral("Ctrl+Tab"))));
+        QVERIFY(f.actions.defaultShortcuts("timeline.prev_tab")
+                    .contains(QKeySequence(QStringLiteral("Ctrl+Shift+Tab"))));
+        const quint64 a = f.project.activeTimelineUid();
+        const quint64 b = f.project.createTimeline(QStringLiteral("B"));
+        const quint64 c = f.project.createTimeline(QStringLiteral("C"));
+        QVERIFY(f.project.openTab(a));
+        QVERIFY(f.project.openTab(b));
+        QVERIFY(f.project.openTab(c));
+        QCOMPARE(edit->timeline()->tabs()->order(), f.project.tabs());
+        const QVector<quint64> order = f.project.tabs();
+        QVERIFY(f.project.setActiveTimeline(order.first()));
+        QWidget* target = f.window.get();
+
+        QTest::keyClick(target, Qt::Key_Tab, Qt::ControlModifier);
+        QCOMPARE(f.project.activeTimelineUid(), order[1]);
+        QTest::keyClick(target, Qt::Key_Tab, Qt::ControlModifier);
+        QTest::keyClick(target, Qt::Key_Tab, Qt::ControlModifier);
+        QCOMPARE(f.project.activeTimelineUid(), order[0]); // wrapped around
+        // Qt delivers Ctrl+Shift+Tab as Key_Backtab.
+        QTest::keyClick(target, Qt::Key_Backtab, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(f.project.activeTimelineUid(), order.last());
+        QTest::keyClick(target, Qt::Key_Backtab, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(f.project.activeTimelineUid(), order[order.size() - 2]);
+
+        // Drop-down mode (tabs off) steps through the drop-down's list.
+        QSettings().setValue(QStringLiteral("edit/timelineTabs"), false);
+        edit->timeline()->applyPreferences();
+        QVERIFY(!edit->timeline()->tabs()->tabsMode());
+        const QVector<quint64> list = edit->timeline()->tabs()->order();
+        QCOMPARE(list.size(), 3);
+        QVERIFY(f.project.setActiveTimeline(list.last()));
+        QTest::keyClick(target, Qt::Key_Tab, Qt::ControlModifier);
+        QCOMPARE(f.project.activeTimelineUid(), list.first());
+        QTest::keyClick(target, Qt::Key_Backtab, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(f.project.activeTimelineUid(), list.last());
+        QSettings().remove(QStringLiteral("edit/timelineTabs"));
+        edit->timeline()->applyPreferences();
+    }
+
     void pagesSwitch()
     {
         Fixture f;

@@ -9,6 +9,11 @@
 
 namespace kk {
 
+bool EditBehaviour::syncLockNewTracks()
+{
+    return QSettings().value(QStringLiteral("edit/syncLockNewTracks"), true).toBool();
+}
+
 EditBehaviour EditBehaviour::fromSettings()
 {
     const QSettings s;

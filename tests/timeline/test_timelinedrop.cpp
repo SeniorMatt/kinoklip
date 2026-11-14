@@ -363,6 +363,48 @@ private slots:
         QVERIFY(ops::clipById(v.f.view(), id)->transitionOut);
     }
 
+    /// Owner request 1.8.1 (spec 13.21, 52.7): dropped on a clip of a multi-clip selection an
+    /// effect goes onto all selected clips and a transition onto the dragged side of each;
+    /// dropped on an unselected clip only that clip changes.
+    void spec13_21_dropOnSelectedClipReachesTheSelection()
+    {
+        View v;
+        v.f.project.beginEdit(QStringLiteral("setup"));
+        TimelineData& d = v.f.data();
+        ops::addTrack(d, TrackType::Video);
+        ops::addTrack(d, TrackType::Video);
+        const quint64 a = ops::overwriteClip(d, kV1, solidClip(0, 50));
+        const quint64 b = ops::overwriteClip(d, kV2, solidClip(0, 50));
+        const quint64 c = ops::overwriteClip(d, TrackRef {TrackType::Video, 2}, solidClip(0, 50));
+        v.f.project.endEdit();
+        v.f.ctx.selection->setClips({a, b});
+        QMimeData effect;
+        effect.setData(QLatin1String(mime::Effect), "gaussian_blur");
+        const int before = v.f.project.undoStack()->count();
+        QVERIFY(sendDrag(v.vp(), &effect, v.at(20, kV1)).drop);
+        QCOMPARE(v.f.project.undoStack()->count(), before + 1);
+        QCOMPARE(ops::clipById(v.f.view(), a)->effects.size(), 1);
+        QCOMPARE(ops::clipById(v.f.view(), b)->effects.size(), 1);
+        QCOMPARE(ops::clipById(v.f.view(), c)->effects.size(), 0);
+        QCOMPARE(v.f.ctx.selection->clips().size(), 2); // the selection stays
+        // An unselected clip: only that one.
+        QVERIFY(sendDrag(v.vp(), &effect, v.at(20, TrackRef {TrackType::Video, 2})).drop);
+        QCOMPARE(ops::clipById(v.f.view(), c)->effects.size(), 1);
+        QCOMPARE(ops::clipById(v.f.view(), a)->effects.size(), 1);
+        // Transition on the tail half of a selected clip: the tail of both.
+        v.f.ctx.selection->setClips({a, b});
+        QMimeData transition;
+        transition.setData(QLatin1String(mime::Effect), "cross_dissolve");
+        QVERIFY(sendDrag(v.vp(), &transition, v.at(45, kV1)).drop);
+        QVERIFY(ops::clipById(v.f.view(), a)->transitionOut);
+        QVERIFY(ops::clipById(v.f.view(), b)->transitionOut);
+        QVERIFY(!ops::clipById(v.f.view(), c)->transitionOut);
+        // Head half of an unselected clip: only its head.
+        QVERIFY(sendDrag(v.vp(), &transition, v.at(5, TrackRef {TrackType::Video, 2})).drop);
+        QVERIFY(ops::clipById(v.f.view(), c)->transitionIn);
+        QVERIFY(!ops::clipById(v.f.view(), a)->transitionIn);
+    }
+
     /// Spec 13.19: a transition can be added at every cut, whatever the clips carry (linked
     /// audio, effects, keyframes, a retime, fades, a selection) and whatever the neighbour is
     /// (a generator, title, solid or adjustment clip, before or after the video clip); dropped

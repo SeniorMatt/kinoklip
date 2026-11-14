@@ -45,6 +45,7 @@ OK
 Save
 Shift
 Space
+Tab
 No such file or directory
 QT_LAYOUT_DIRECTION
 re:(Pan|Slide|Scroll) (Up|Down|Left|Right)

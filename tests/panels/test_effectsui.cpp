@@ -173,6 +173,35 @@ private slots:
 
     // Spec 52.6: typing in the Add Effect menu's search field lists the matching effects (by
     // name, folder or description) instead of the folders; Enter adds the best match.
+    // Owner request 1.8.1 (spec 52.7): the Add Effect menu (search + Enter) adds to every
+    // selected clip on a video track that is not locked, in one undo step.
+    void addEffectMenuReachesAllSelectedClips()
+    {
+        PanelFixture f;
+        f.project.beginEdit(QStringLiteral("tracks"));
+        for (int i = 0; i < 2; ++i)
+            editops::addTrack(f.project.timeline()->mutableData(), TrackType::Video);
+        f.project.endEdit();
+        const quint64 c1 = f.addClip(kV1, 0, 50);
+        const quint64 c2 = f.addClip({TrackType::Video, 1}, 0, 50);
+        const quint64 c3 = f.addClip({TrackType::Video, 2}, 0, 50);
+        const quint64 au = f.addClip({TrackType::Audio, 0}, 0, 50);
+        f.project.timeline()->mutableData().videoTracks[2].locked = true;
+        InspectorPanel inspector(f.ctx);
+        f.selection.setClips({c1, au, c3, c2});
+        inspector.tabs()->setCurrentIndex(InspectorPanel::EffectsTab);
+        auto* search = inspector.findChild<QLineEdit*>(QStringLiteral("add-effect-search"));
+        QVERIFY(search);
+        search->setText(QStringLiteral("strobe"));
+        const int commands = f.project.undoStack()->count();
+        emit search->returnPressed();
+        QCOMPARE(f.project.undoStack()->count(), commands + 1);
+        QCOMPARE(f.clip(c1)->effects.size(), 1);
+        QCOMPARE(f.clip(c2)->effects.size(), 1);
+        QCOMPARE(f.clip(c3)->effects.size(), 0);
+        QCOMPARE(f.clip(au)->effects.size(), 0);
+    }
+
     void addEffectMenuSearch()
     {
         PanelFixture f;
@@ -201,6 +230,9 @@ private slots:
         const QStringList hits = visible(false);
         QVERIFY(!hits.isEmpty());
         QVERIFY(hits.join(QLatin1Char('|')).contains(QStringLiteral("Strobe")));
+        // Matches by name come before matches found only in the description.
+        search->setText(QStringLiteral("background"));
+        QVERIFY(visible(false).value(0).startsWith(QStringLiteral("Background Removal")));
         search->setText(QStringLiteral("zzzz no such effect"));
         QVERIFY(visible(false).isEmpty());
         search->setText(QStringLiteral("strobe"));

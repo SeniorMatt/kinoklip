@@ -94,6 +94,7 @@ TimelinePanel::TimelinePanel(AppContext& ctx, QWidget* parent)
     m_controller->setConfirmPrompt([this](const QString& title, const QString& text) {
         return QMessageBox::question(this, title, text) == QMessageBox::Yes;
     });
+    m_controller->setTabOrderProvider([this] { return m_tabs ? m_tabs->order() : QVector<quint64> {}; });
     m_controller->setMessageSink([this](const QString& title, const QString& text) {
         QMessageBox::information(this, title, text);
     });

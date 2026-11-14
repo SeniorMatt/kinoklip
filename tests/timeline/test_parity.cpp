@@ -11,6 +11,7 @@
 #include "ui/timeline/TimelineWidget.h"
 
 #include <QAction>
+#include <QSettings>
 #include <QTest>
 #include <QUndoStack>
 
@@ -479,6 +480,26 @@ private slots:
         QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:30 40:10"));
     }
 
+    void spec8_10_rippleTrimStartPlayheadLandsOnTheFirstClipsCut()
+    {
+        // Owner report 1.8.1: with clips on several auto-select tracks the playhead used to
+        // jump to the start of the last clip trimmed, a place unrelated to the cut.
+        Ctl t;
+        t.put(kV1, mediaClip(10, 40));
+        t.put(kV2, mediaClip(0, 40));
+        t.put(kA1, mediaClip(5, 40));
+        t.tl()->setPlayhead(20);
+        t.action("trim.ripple_trim_start")->trigger();
+        QCOMPARE(t.tl()->playhead(), int64_t(10));
+        // Nothing under the playhead on the auto-select tracks: nothing happens.
+        t.tl()->setPlayhead(500);
+        const int before = t.undoCount();
+        t.action("trim.ripple_trim_start")->trigger();
+        t.action("trim.ripple_trim_end")->trigger();
+        QCOMPARE(t.tl()->playhead(), int64_t(500));
+        QCOMPARE(t.undoCount(), before);
+    }
+
     void spec8_10_trimStartEndToPlayheadLeavesGap()
     {
         Ctl t;
@@ -536,6 +557,19 @@ private slots:
         QCOMPARE(layout(t.f.view(), kA1), QStringLiteral("52:6"));
     }
 
+    void spec8_18_changeClipDurationKeepsOtherTracksInSync()
+    {
+        // Owner report 1.8.1: every ripple trim moves the sync-locked tracks, also this one.
+        Ctl t;
+        const quint64 a = t.put(kV1, mediaClip(10, 40));
+        t.put(kV1, mediaClip(50, 10));
+        t.put(kV2, mediaClip(500, 10));
+        t.f.selection.setClips({a});
+        QVERIFY(t.c.setSelectionDuration(30));
+        QCOMPARE(layout(t.f.view(), kV1), QStringLiteral("10:30 40:10"));
+        QCOMPARE(layout(t.f.view(), kV2), QStringLiteral("490:10"));
+    }
+
     void spec8_18_spanningClipIsCutAndUndoRestoresIt()
     {
         Ctl t;
@@ -568,6 +602,34 @@ private slots:
         TimelineData old;
         QVERIFY(serialization::timelineFromJson(json, old, &error));
         QVERIFY(old.audioTracks[1].syncLock);
+    }
+
+    void spec97_syncLockOnNewTracksFollowsSetting()
+    {
+        QSettings s;
+        const QVariant saved = s.value(QStringLiteral("edit/syncLockNewTracks"));
+        s.setValue(QStringLiteral("edit/syncLockNewTracks"), false);
+        TimelineData d = makeDefaultTimeline(QStringLiteral("t"), Rational {25, 1}, 1920, 1080, 1, 1);
+        QVERIFY(!d.videoTracks[0].syncLock);
+        ops::addTrack(d, TrackType::Video);
+        QVERIFY(!d.videoTracks[1].syncLock);
+        // A saved project keeps each track's state whatever the setting says.
+        d.videoTracks[0].syncLock = true;
+        QString error;
+        TimelineData back;
+        QVERIFY(serialization::timelineFromJson(serialization::timelineToJson(d), back, &error));
+        QVERIFY(back.videoTracks[0].syncLock);
+        QVERIFY(!back.videoTracks[1].syncLock);
+        s.setValue(QStringLiteral("edit/syncLockNewTracks"), true);
+        ops::addTrack(d, TrackType::Audio);
+        QVERIFY(d.audioTracks.back().syncLock);
+        TimelineData again;
+        QVERIFY(serialization::timelineFromJson(serialization::timelineToJson(back), again, &error));
+        QVERIFY(!again.videoTracks[1].syncLock);
+        if (saved.isValid())
+            s.setValue(QStringLiteral("edit/syncLockNewTracks"), saved);
+        else
+            s.remove(QStringLiteral("edit/syncLockNewTracks"));
     }
 
     void spec8_11_extendEdit()
