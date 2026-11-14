@@ -6,7 +6,7 @@
 #
 # build dir  default build-asan (configured with -DKK_SANITIZE=address on first use)
 # pattern    default: the tests that own memory (DEFAULT below); "all" runs every test
-# Environment: KK_JOBS (default 2), KK_LEAK_TIMEOUT per test in seconds (default 900),
+# Environment: KK_JOBS (default 2), KK_LEAK_TIMEOUT per test in seconds (default 3600),
 #              KK_LEAK_LOGS (default <build dir>/leak-logs), KK_SANITIZE (default address;
 #              address,undefined also works), KK_NO_BUILD=1 skips the build.
 # Runs in the kk-arch container (started on the host, it re-runs itself there with podman exec).
@@ -22,10 +22,10 @@ fi
 BUILD=${1:-build-asan}
 PATTERN=${2:-}
 JOBS=${KK_JOBS:-2}
-TMO=${KK_LEAK_TIMEOUT:-900}
+TMO=${KK_LEAK_TIMEOUT:-3600}
 SAN=${KK_SANITIZE:-address}
 LOGS=$(realpath -m "${KK_LEAK_LOGS:-$BUILD/leak-logs}")
-DEFAULT='^test_(memorysoak|mediacache|videodecoder|playbackengine|playbacklogic|playbackgap|varispeed|viewerpanel|pageturnplayback|editplaying|bogplayback|cutlookahead|compviewerview|compositingpage|renderer|exportjob|timelinemodel)'
+DEFAULT='^test_(memorysoak|mediacache|videodecoder|playbackengine|playbacklogic|playbackgap|varispeed|viewerpanel|pageturnplayback|editplaying|bogplayback|cutlookahead|compviewerview|compositingpage|comprender|rendermemory|export$)'
 
 if [ ! -f "$BUILD/build.ninja" ] && [ ! -f "$BUILD/Makefile" ]; then
   cmake -S . -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DKK_SANITIZE="$SAN" || exit 2

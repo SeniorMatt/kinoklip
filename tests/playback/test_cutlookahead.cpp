@@ -515,7 +515,9 @@ private Q_SLOTS:
         qInfo("started %lld ready %lld hits %lld waited %lld", (long long)stats.started,
             (long long)stats.ready, (long long)stats.hitsReady, (long long)stats.hitsWaited);
         QVERIFY(stats.hitsReady >= int64_t(cuts.size()) - 1);
+#ifndef KK_SANITIZED // sanitized builds play too slowly to keep the audio fed
         QCOMPARE(f.audio->underrunFrames(), int64_t(0));
+#endif
 
         std::vector<double> offsets;
         for (const auto& s : shown)
@@ -535,7 +537,9 @@ private Q_SLOTS:
         qInfo("cut frames shown %d of %d; late median %.1f ms, max %.1f ms", exact,
             int(cuts.size()), late[late.size() / 2], late.back());
         QVERIFY(exact >= int(cuts.size()) - 1);
+#ifndef KK_SANITIZED
         QVERIFY2(late[late.size() / 2] <= 50.0, qPrintable(QString::number(late[late.size() / 2])));
+#endif
     }
 
     /// 1.30, 1.33: a row of short clips: the look-ahead sees past the next clip, within the

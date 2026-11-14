@@ -1539,7 +1539,8 @@ private slots:
                 c.linkGroup = c.id == a1id ? 7 : c.id == a2id ? 8 : 0;
         f.project.endEdit();
         auto audioClip = [&f](quint64 id) {
-            for (const TrackData& t : f.playback->soundTimeline()->audioTracks)
+            const auto sound = f.playback->soundTimeline(); // keep it alive for the loop
+            for (const TrackData& t : sound->audioTracks)
                 for (const ClipData& c : t.clips)
                     if (c.linkGroup == id)
                         return c;

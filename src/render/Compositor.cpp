@@ -202,6 +202,9 @@ Compositor::Compositor(Options options)
         QSurfaceFormat format = QSurfaceFormat::defaultFormat();
         format.setVersion(3, 3);
         format.setProfile(QSurfaceFormat::CoreProfile);
+        // The shared context (Qt::AA_ShareOpenGLContexts) is created on first use: do it here, not
+        // on the render thread, whose end would leave its deleteLater at exit without an event loop.
+        QOpenGLContext::globalShareContext();
         m_impl->surface = std::make_unique<QOffscreenSurface>();
         m_impl->surface->setFormat(format);
         m_impl->surface->create();
