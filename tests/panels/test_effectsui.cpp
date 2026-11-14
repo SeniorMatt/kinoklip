@@ -201,6 +201,9 @@ private slots:
         const QStringList hits = visible(false);
         QVERIFY(!hits.isEmpty());
         QVERIFY(hits.join(QLatin1Char('|')).contains(QStringLiteral("Strobe")));
+        // Matches by name come before matches found only in the description.
+        search->setText(QStringLiteral("background"));
+        QVERIFY(visible(false).value(0).startsWith(QStringLiteral("Background Removal")));
         search->setText(QStringLiteral("zzzz no such effect"));
         QVERIFY(visible(false).isEmpty());
         search->setText(QStringLiteral("strobe"));

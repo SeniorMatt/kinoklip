@@ -59,6 +59,7 @@
 #include <QWidgetAction>
 
 #include <algorithm>
+#include <numeric>
 #include <memory>
 
 namespace kk {
@@ -1031,6 +1032,7 @@ void InspectorPanel::buildEffectSection(
     {
         QAction* action;
         QString text; ///< name, folder and description, lower case
+        QString name; ///< the effect name, lower case
         bool inFolder; ///< a hidden flat copy of an entry in a folder submenu
     };
     QVector<Match> flat;
@@ -1046,7 +1048,7 @@ void InspectorPanel::buildEffectSection(
             (d->name + QLatin1Char(' ') + EffectRegistry::groupName(d->group) + QLatin1Char(' ')
                 + d->description)
                 .toLower(),
-            !d->group.isEmpty()});
+            d->name.toLower(), !d->group.isEmpty()});
     }
     auto* noMatch = menu->addAction(tr("No effect matches"));
     noMatch->setEnabled(false);
@@ -1059,8 +1061,27 @@ void InspectorPanel::buildEffectSection(
         const QStringList words = text.toLower().split(QLatin1Char(' '), Qt::SkipEmptyParts);
         for (QAction* f : folders)
             f->setVisible(words.isEmpty());
+        // Matches by name come first (names starting with the first word before the others),
+        // then matches found only in the folder or the description.
+        auto rank = [&](const Match& m) {
+            if (words.isEmpty())
+                return 0;
+            bool inName = true;
+            for (const QString& w : words)
+                inName = inName && m.name.contains(w);
+            return inName ? (m.name.startsWith(words.first()) ? 0 : 1) : 2;
+        };
+        QVector<int> order(flat.size());
+        std::iota(order.begin(), order.end(), 0);
+        std::stable_sort(order.begin(), order.end(),
+            [&](int a, int b) { return rank(flat[a]) < rank(flat[b]); });
+        for (int i : order) {
+            menu->removeAction(flat[i].action);
+            menu->insertAction(noMatch, flat[i].action);
+        }
         int shown = 0;
-        for (const Match& m : flat) {
+        for (int i : order) {
+            const Match& m = flat[i];
             bool hit = true;
             for (const QString& w : words)
                 hit = hit && m.text.contains(w);
@@ -1076,15 +1097,14 @@ void InspectorPanel::buildEffectSection(
     };
     connect(search, &QLineEdit::textChanged, menu, filter);
     connect(search, &QLineEdit::returnPressed, menu, [=] {
-        const QString first = search->text().toLower().split(QLatin1Char(' ')).value(0);
+        // The first match listed (the list is ranked, best first).
         QAction* best = nullptr;
-        for (const Match& m : flat) {
-            if (!m.action->isVisible())
-                continue;
-            if (!best
-                || (m.action->text().toLower().startsWith(first)
-                    && !best->text().toLower().startsWith(first)))
-                best = m.action;
+        for (QAction* a : menu->actions()) {
+            if (a->isVisible() && a != noMatch && a != searchAction && !a->isSeparator()
+                && !folders.contains(a) && a->isEnabled()) {
+                best = a;
+                break;
+            }
         }
         if (best) {
             menu->close();
