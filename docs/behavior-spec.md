@@ -2420,7 +2420,6 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 85.7 | Every Compositor has its own GL context and target pool (1 GiB each); the pools of the process together are also counted (limit 2 GiB): a pool deletes its own idle targets first when a new one would take the process above it (idle pools are emptied by 85.6). | Fixed (test_rendermemory, test_targetpool) |
 | 85.8 | The saved log file (Help > Save Log File) ends with a "Memory" section: process RSS and RssShmem, MemAvailable, shared memory and swap of the system, what the graphics driver counts for the process (DRM fdinfo, summed per region) and what each live Compositor holds. One line with the same numbers is logged when a render finishes, fails or is cancelled. | Fixed (test_memoryreport, test_logexport) |
 
-
 ## 86. Standard transition and default keyframe type (stddefaults branch, owner requests: "the default transition should be obviously the project setting, not the app setting", and a default type for new keyframes)
 
 | # | Behaviour | Status |
@@ -2433,7 +2432,6 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 86.6 | Preferences > Editing has **New keyframes**: Linear (default), Ease In, Ease Out, Ease In and Out, Smooth (Bezier), Static (Hold) (`edit/newKeyInterp`, `defaultKeyInterp()`). Every keyframe created without a type of its own takes it: the Inspector diamond and Add Keyframe, the Keyframes panel and the curve editors, auto keyframes, viewer handle drags and the Compositing page (all go through `AnimatedValue::setKey()`). Existing keys keep theirs; internal keys (tracking, mask shape timing, the fade of Typewriter) stay Linear. | Done (test_stddefaults newKeysUseDefaultInterp, test_inspector diamondUsesTheDefaultInterpolation, test_vimkeyframes newKeysUseTheDefaultInterpolation) |
 | 86.7 | The Inspector's keyframe menu and the keyframe menu of the Keyframes panel and the timeline keyframe lanes have **Set as Default for New Keyframes**: it makes the type of the clicked (or the selected, when all alike) keyframe the preference. Disabled for mixed or custom (dragged handle) keys. | Done |
 | 86.8 | Settings export / import includes `edit/newKeyInterp` (a choice of the six names). | Done |
-
 
 ## 87. Keyframe loops and the Spline and Keyframes panels (splines branch, owner requests: "how do I go to spline?", "How do I loop the keyframes? I would have used Spline")
 
@@ -2478,7 +2476,6 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 90.9 | Ctrl+1 sets the viewer to 100% zoom, centred. | Done (spec90_checkerControlsLockClearAndZoom) |
 | 90.10 | The transport has a Loop button with three states, clicked in turn: Loop (back to the first frame), Ping-pong (turns round at both ends) and Once (stops on the last frame). | Done (spec90_loopModeHasThreeStates) |
 
-
 ## 91. Common Controls on the Compositing page (commonctl branch, roadmap 1.7 step 6)
 
 | # | Behaviour | Status |
@@ -2504,7 +2501,6 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 92.7 | The new tools are in the Select Node list and Nodes library (Matte category for the keyers) and on the node tool row (which folds the buttons that do not fit into its "»" menu); each has the Common Controls (the masks do not), keyframeable parameters and renders the same on GPU and CPU. | Done |
 | 92.8 | Project format stays 19: the new parameters are written like any node parameter; the point weight is written only when not 1. | Done |
 
-
 ## 89. Bug hunt for 1.7 (bughunt17 branch, the five classes of 2026-11-12: viewer not following, mouse buttons, small screens, keys taking over, missing search and defaults)
 
 | # | Behaviour | Status |
@@ -2529,7 +2525,6 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 89.18 | Create New Timeline has **Empty Timeline** (default on; off appends the media pool's selected clips), **Use Project Settings** (default on; off enables resolution and frame rate of its own) and the **Audio Track Type** (Stereo, Mono; 5.1, 7.1 and Adaptive need a surround mixer and are not offered). One undo step for the timeline and its format. | Done (test_bughunt12 spec89_18) |
 | 89.19 | Edit Index: no row context menu. Resolve's manual describes only the options menu and the column choice for it, which the panel has (the column menu on the header); nothing was added. | Decided |
 
-
 ## 93. Node editor extras (nodeextras branch, roadmap 1.7 step 8)
 
 | # | Behaviour | Status |
@@ -2544,7 +2539,6 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 93.8 | **Paste Settings:** Ctrl+Shift+V while the node editor has the focus (and the right-click entry) copies the parameters of a copied node (Ctrl+C) onto each selected node of the same type; other types, locked nodes and positions are untouched; one undo step "Paste Settings". Not claimed when a comp command has the key. | Done (spec93_pasteSettingsCopiesParamsOfTheSameType) |
 | 93.9 | **Disconnect both ends:** Shift-drag on a link (more than the drag distance) removes the link from its output and its input; a Shift click without moving leaves it. A dashed red line follows the pointer. | Done (spec93_shiftDragOnALinkDisconnectsIt) |
 | 93.10 | Project format stays 19: tile colour and the tile picture flag are written only when set; older files load unchanged. | Done (spec93_tilePicturesAreRenderedLazilyAndSaved, spec93_tileColourIsWrittenOnlyWhenSet) |
-
 
 ## 94. Motion Blur on Merge and Transform (motionblur branch, roadmap 1.7)
 
@@ -2599,11 +2593,6 @@ Write On is Text+'s range control of Resolve: the characters outside the range S
 | 99.2 | `KK_PLAYBACK_STATS` and the engine statistics count what the Compositing viewer shows: its frames are the engine's presented and dropped frames. | Done (spec99_viewerIsServedByTheProgramEngine) |
 | 99.3 | Loop on the Compositing page wraps at the clip's last frame, also when the clip ends the timeline (the engine never plays past the timeline's end, so waiting for a later frame never wrapped). Ping-pong and Once are unchanged. Source: issue #7. | Done (spec99_loopModeWrapsAtTheClipEnd) |
 | 99.4 | A viewer shows the open clip's own composition (MediaIn through its nodes), never the tracks above it. A clip without a stored graph shows the default MediaIn -> MediaOut, the same picture as after any node is added; a clip on V2 over it does not appear in either state. Resolve's Fusion page viewer shows the clip's own composition the same way (Fusion page, MediaIn / MediaOut, DaVinci Resolve manual; clean room). Source: issue #7. | Done (test_compviewerview emptyAndStoredGraphShowTheClipNotTheTrackAbove, GPU and CPU) |
-
-| 97.1 | The track header's Auto Select button decides which tracks follow ripple edits (ripple trim, ripple delete, insert); its tooltip says so. There is no separate toolbar switch: Resolve has none, the selector buttons are the control. | Done (TimelineGestures tooltip) |
-| 97.2 | Sources: Resolve's manual (Auto Select controls: "ripple editing or ripple deleting affects all clips to the right of the clip ... on tracks with Auto Select enabled"; tracks with it off, or locked, do not ripple; newer Resolve 20.x versions name this role "sync lock" and cut spanning clips; Kinoklip keeps the 18.x model and leaves spanning clips alone); Shotcut (`MultitrackModel::trimClipIn/trimClipOut`, setting "Ripple all tracks": every unlocked track is shifted at the edit position by the trim delta, the trim itself is the only limit). Clean room: public documentation and open-source code only. | Decision |
-| 97.3 | Edit position: a head or tail trim moves everything that starts at or after the trimmed clip's old end by the applied delta (head: minus, tail: plus). Linked partners trimmed along are not shifted twice. With several clips trimmed to the playhead (8.10) the first clip's change drives the other tracks. | Done (EditOps rippleTrimSynced, rippleSyncShift) |
-| 97.4 | Collision decision: Shotcut inserts or removes blank on the other tracks; Kinoklip tracks have no blank clips, so a shortening is limited by the smallest gap before the next shifted clip on any following track (EditOps rippleSyncRoom); trim to playhead does nothing when that room is too small. | Done (rippleTrimShorteningStopsWhereAnotherTrackWouldCollide) |
 
 ## 100. Interface languages (translations branch, roadmap 1.8)
 
