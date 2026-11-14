@@ -484,8 +484,8 @@ bool TimelineController::setSelectionDuration(int64_t frames)
         bool any = false;
         for (quint64 id : ids) {
             const ClipData* c = ops::clipById(data, id);
-            if (c)
-                any |= ops::trimTail(data, id, frames - c->duration, true) != 0;
+            if (c) // ripple: the other sync-locked tracks follow (spec 8.18, 97)
+                any |= ops::rippleTrimSynced(data, {id}, false, frames - c->duration) != 0;
         }
         return any;
     });
