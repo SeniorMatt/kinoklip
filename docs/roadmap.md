@@ -119,10 +119,33 @@ Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 - [ ] Compositing: Merge and Transform controls in full (Edges, Pivot, Invert Transform, Alpha Gain, Burn In, all apply modes)
 - [ ] Compositing: the rest of Fusion's node editor behaviour (insert on a link, add after the selected node, swap inputs), checked against Resolve's documentation
 - [ ] Compositing: viewer features (A/B split, channel keys, checker, show/hide controls, lock)
-- [ ] Compositing: Common Controls tab on every tool (Blend, RGBA, mask options, motion blur)
+- [x] Compositing: Common Controls tab on every tool (Blend, RGBA, mask options, motion blur)
 - [ ] Compositing: more tools (Delta Keyer, Luma Keyer, Corner Positioner, B-Spline mask, rounded Rectangle) and node editor extras (thumbnails, Replace, Find, tile colours, Paste Settings)
 - [ ] Background Removal: a newer video model if one fits our licence
 - [ ] Bug hunt for 1.7: look for bugs like the ones the owner found on 2026-11-12 and fix them. Look for: the viewer not following what was clicked; mouse buttons and keys that do nothing where Resolve acts; panels and tool rows overlapping or cutting off names on small screens; keys that take over other keys; missing search or defaults that differ from Resolve; effects and niche controls Resolve has that are missing or behave differently
+
+## 1.8.1 (released 2026-11-14)
+
+- [x] Playback: memory stays bounded in slow-motion playback ([#8](https://github.com/SeniorMatt/kinoklip/issues/8))
+- [x] Compositing: page sound: Audio button, MediaIn Audio (Timeline / Solo this clip) and Sound Offset ([#7](https://github.com/SeniorMatt/kinoklip/issues/7))
+- [x] Edit: effects and transitions go to every selected clip
+- [x] Edit: Shift held during a timeline drag flips snapping
+- [x] Edit: Preferences > Editing "Sync Lock on new tracks"
+- [x] Edit: Ctrl+Tab and Ctrl+Shift+Tab switch timeline tabs
+- [x] Edit: ripple trims keep sync-locked tracks in sync on every path
+- [x] Effects: Add Effect search lists name matches first
+- [x] Media: one Media Pool row per mouse wheel notch
+- [x] Preferences: explanations on hover, one restart message after Save
+
+## Next version (after 1.8.x)
+
+- [ ] Audio: noise reduction with a local, open model (RNNoise / DeepFilterNet, spectral gate fallback)
+- [ ] Audio: Effects Library and Inspector on the Audio page, effect slots on mixer tracks
+- [ ] Background Removal: Keep / Remove brush to correct the model by hand
+- [ ] Media: New Fusion Clip, and Fusion / compound clips as Media Pool entries you can drag to the timeline
+- [ ] Edit: several edit points selected and trimmed together
+- [ ] Platform: nightly builds on GitHub (a Nightly pre-release once a day)
+- [ ] Titles: underline and strikethrough
 
 ## Next big release
 
@@ -140,7 +163,7 @@ Rule for every AI-assisted tool: optional, clearly labelled, downloaded only whe
 Planned, not started. Compare each page with Resolve and add most of what is missing, starting
 when the owner asks for it.
 
-- [ ] Website on GitHub Pages (starts when the owner says): home page with a Download button for the latest AppImage, the guide as searchable pages built from docs/guide, new screenshots in Breeze Dark with real (not generated) people in the sample footage, and a simple bug report form that opens a GitHub issue for people who have no GitHub account
+- [x] Website on GitHub Pages (starts when the owner says): home page with a Download button for the latest AppImage, the guide as searchable pages built from docs/guide, new screenshots in Breeze Dark with real (not generated) people in the sample footage, and a simple bug report form that opens a GitHub issue for people who have no GitHub account
 
 - [ ] Audio: Bounce Mix to Track and Bounce Selected Tracks (Timeline menu): render the whole mix, or each selected track with its effects, into a new audio track as one clip
 - [ ] Edit: Auto Align Clips (clip context menu): line up selected clips on different tracks by timecode or by matching their sound
@@ -176,7 +199,8 @@ when the owner asks for it.
 - [ ] Edit: two-up trim view with the program look (effects, transforms) without lag
 - [ ] Platform: fewer dropped frames on the first play of 4K HEVC
 - [ ] Edit: every remaining Resolve behaviour and quirk, page by page, driven by [behavior-spec.md](behavior-spec.md) and the parity tests
-- [ ] Platform: memory checks with ASan, UBSan and TSan (declined for now)
+- [x] Platform: memory leak checks with ASan and LeakSanitizer (`scripts/check_leaks.sh`) and a playback soak test, run before every release
+- [ ] Platform: UBSan and TSan checks
 
 ## Long-term
 

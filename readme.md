@@ -16,7 +16,7 @@ Kinoklip is an independent project and is not affiliated with Blackmagic Design.
 ## Status
 
 <!-- status:start -->
-![Status: 73.93% of the roadmap items are done, 92.90% of the effects library works](docs/images/status.svg)
+![Status: 73.80% of the roadmap items are done, 92.90% of the effects library works](docs/images/status.svg)
 
 Green is done, grey is still to do. Details: [roadmap](docs/roadmap.md) and [effects library](docs/effects-library-status.md).
 <!-- status:end -->
