@@ -184,6 +184,35 @@ private slots:
         QCOMPARE(f.project.undoStack()->count(), commands + 1);
     }
 
+    // Owner request 1.8.1 (spec 52.7): an effect goes onto every selected clip of its kind, one
+    // undo step; audio clips and clips on locked tracks are skipped.
+    void spec52_7_activateEffectOnSeveralSelectedClips()
+    {
+        PanelFixture f;
+        f.project.beginEdit(QStringLiteral("tracks"));
+        for (int i = 0; i < 3; ++i)
+            editops::addTrack(f.project.timeline()->mutableData(), TrackType::Video);
+        f.project.endEdit();
+        const quint64 v1 = f.addClip({TrackType::Video, 0}, 0, 50);
+        const quint64 v2 = f.addClip({TrackType::Video, 1}, 0, 50);
+        const quint64 v3 = f.addClip({TrackType::Video, 2}, 0, 50);
+        const quint64 v4 = f.addClip({TrackType::Video, 3}, 0, 50);
+        const quint64 a = f.addClip({TrackType::Audio, 0}, 0, 50);
+        f.project.timeline()->mutableData().videoTracks[2].locked = true;
+        f.selection.setClips({v1, v2, v3, v4, a});
+        const int commands = f.project.undoStack()->count();
+        QVERIFY(effectactions::activate(f.ctx, QStringLiteral("vignette")));
+        QCOMPARE(f.project.undoStack()->count(), commands + 1);
+        QCOMPARE(f.clip(v1)->effects.size(), 1);
+        QCOMPARE(f.clip(v2)->effects.size(), 1);
+        QCOMPARE(f.clip(v3)->effects.size(), 0); // locked
+        QCOMPARE(f.clip(v4)->effects.size(), 1);
+        QCOMPARE(f.clip(a)->effects.size(), 0); // audio
+        f.project.undoStack()->undo();
+        QCOMPARE(f.clip(v1)->effects.size(), 0);
+        QCOMPARE(f.clip(v4)->effects.size(), 0);
+    }
+
     void activateTransitionUsesNearerEnd()
     {
         PanelFixture f;

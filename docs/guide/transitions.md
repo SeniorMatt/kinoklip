@@ -5,7 +5,9 @@ DaVinci Resolve: open the effects
 library (**Toolbox > Video Transitions**) and drag one onto the cut between two clips. Pressing
 **Ctrl+T** adds the standard one, a **Cross Dissolve** unless you changed it (see below).
 Double-clicking a transition in the library puts it on the selected cut, or on the cut nearest
-the playhead.
+the playhead. With several clips selected, double-clicking a transition (or dragging one onto
+the edge of a selected clip) puts it on every selected clip of the same kind; effects work the
+same way (Inspector **Add Effect**, a double-click or a drag from the library).
 
 ## Choose the standard transition
 

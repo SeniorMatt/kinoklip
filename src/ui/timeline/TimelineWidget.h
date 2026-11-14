@@ -441,6 +441,8 @@ private:
         quint64 clipId = 0; ///< Effect/Transition target
         QString effectId;
         bool head = true; ///< Transition: at the clip head (transitionIn) or tail
+        bool pointerHead = true; ///< Transition: the half of the clip under the pointer
+        quint64 hitClipId = 0; ///< Transition: the clip under the pointer
         int64_t transitionFrames = 0;
         int64_t previewFrom = 0;
         int64_t previewTo = 0;

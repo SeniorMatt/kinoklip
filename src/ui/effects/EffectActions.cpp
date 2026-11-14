@@ -224,6 +224,21 @@ QString defaultTransitionId(const Project& project, TrackType type)
     return project.standardTransitionId(type == TrackType::Audio);
 }
 
+QVector<quint64> effectTargets(
+    const Project& project, const QVector<quint64>& selected, quint64 anchor)
+{
+    if (selected.size() < 2 || !selected.contains(anchor))
+        return {anchor};
+    QVector<quint64> out = selected;
+    for (quint64 id : selected) {
+        for (quint64 linked : editops::linkedClips(project.timeline()->data(), id)) {
+            if (!out.contains(linked))
+                out.append(linked);
+        }
+    }
+    return out;
+}
+
 int applyEffect(Project& project, const QVector<quint64>& clipIds, const QString& descriptorId)
 {
     const EffectRegistry& registry = EffectRegistry::instance();
@@ -235,7 +250,8 @@ int applyEffect(Project& project, const QVector<quint64>& clipIds, const QString
     QVector<quint64> targets;
     for (quint64 id : clipIds) {
         const auto type = trackTypeOf(current, id);
-        if (type && effectFitsTrack(desc->category, *type))
+        const auto loc = editops::findClip(current, id);
+        if (type && effectFitsTrack(desc->category, *type) && loc && !current.track(loc->track)->locked)
             targets.append(id);
     }
     if (targets.isEmpty())

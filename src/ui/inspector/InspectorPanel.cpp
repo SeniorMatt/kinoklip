@@ -1001,7 +1001,13 @@ void InspectorPanel::buildEffectSection(
     auto addEntry = [&](QMenu* into, const EffectDescriptor* d) {
         const QString id = d->id;
         return into->addAction(d->name, this,
-            [this, id, clipId] { effectactions::applyEffect(*m_ctx.project, {clipId}, id); });
+            [this, id, clipId] {
+                // With several clips selected the effect goes onto all of them (1.8.1).
+                const QVector<quint64> selected
+                    = m_ctx.selection ? m_ctx.selection->clips() : QVector<quint64> {};
+                effectactions::applyEffect(
+                    *m_ctx.project, effectactions::effectTargets(*m_ctx.project, selected, clipId), id);
+            });
     };
     // A search field on top: type part of a name (or of its folder or description) and the
     // folders give way to a flat list of the matches; Enter adds the first one.
@@ -1524,7 +1530,11 @@ void InspectorPanel::dropEvent(QDropEvent* event)
         const quint64 target = desc->category == EffectCategory::AudioEffect && m_audioClipId
             ? m_audioClipId
             : m_clipId;
-        done = effectactions::applyEffect(*m_ctx.project, {target}, id) > 0;
+        const QVector<quint64> selected
+            = m_ctx.selection ? m_ctx.selection->clips() : QVector<quint64> {};
+        done = effectactions::applyEffect(
+                   *m_ctx.project, effectactions::effectTargets(*m_ctx.project, selected, target), id)
+            > 0;
         if (done)
             m_tabs->setCurrentIndex(EffectsTab);
     }
