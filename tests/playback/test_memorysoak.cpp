@@ -71,7 +71,7 @@ double rssMiB()
 struct Counters
 {
     int framesAlive = 0;
-    int slots = 0;
+    int slotCount = 0;
     int slotsInUse = 0;
     int renderDecoders = 0;
     int idleDecoders = 0;
@@ -83,7 +83,7 @@ struct Counters
         return QStringLiteral("frames %1 | slots %2 (in use %3) | render decoders %4 | idle "
                               "decoders %5 | tiles %6 | RSS %7 MiB")
             .arg(framesAlive)
-            .arg(slots)
+            .arg(slotCount)
             .arg(slotsInUse)
             .arg(renderDecoders)
             .arg(idleDecoders)
@@ -190,7 +190,7 @@ private Q_SLOTS:
             Counters n;
             n.framesAlive = RenderedFrame::aliveCount();
             const render::ResourceStats s = compositor->resourceStats();
-            n.slots = s.outputSlots;
+            n.slotCount = s.outputSlots;
             n.slotsInUse = s.outputSlotsInUse;
             n.renderDecoders = s.decoders;
             n.idleDecoders = cache.idleDecoderCount();
@@ -257,7 +257,7 @@ private Q_SLOTS:
                 qInfo().noquote() << "[soak] cycle" << i + 1 << n.text();
             }
             const Counters n = measure();
-            peak.slots = std::max(peak.slots, n.slots);
+            peak.slotCount = std::max(peak.slotCount, n.slotCount);
             peak.renderDecoders = std::max(peak.renderDecoders, n.renderDecoders);
         }
         engine.stop();
@@ -266,7 +266,7 @@ private Q_SLOTS:
         settle(800); // the viewer drops its frames; the render thread publishes its stats
         const Counters end = measure();
         qInfo().noquote() << "[soak]" << cycles << "cycles in" << timer.elapsed() / 1000
-                          << "s, end:" << end.text() << "| peak slots" << peak.slots;
+                          << "s, end:" << end.text() << "| peak slots" << peak.slotCount;
 
         // Issue #8: RAM and VRAM grew without bound during slow-motion playback with
         // full-screen toggles. The fix agent removes these QEXPECT_FAILs when the cause is fixed.
@@ -278,10 +278,10 @@ private Q_SLOTS:
             qPrintable(QStringLiteral("output slots in use: %1 -> %2")
                            .arg(base.slotsInUse)
                            .arg(end.slotsInUse)));
-        QVERIFY2(end.slots <= base.slots + kSlotSlack,
+        QVERIFY2(end.slotCount <= base.slotCount + kSlotSlack,
             qPrintable(QStringLiteral("output slots allocated: %1 -> %2")
-                           .arg(base.slots)
-                           .arg(end.slots)));
+                           .arg(base.slotCount)
+                           .arg(end.slotCount)));
         QVERIFY2(peak.renderDecoders <= render::DecoderPool::kMaxOpen,
             qPrintable(QStringLiteral("render decoders open: %1").arg(peak.renderDecoders)));
         QVERIFY2(end.idleDecoders <= base.idleDecoders + kDecoderSlack,
