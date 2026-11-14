@@ -1,0 +1,30 @@
+# LeakSanitizer suppressions for scripts/check_leaks.sh. Only leaks whose allocation stack is
+# entirely third-party code (Qt platform plugins, fontconfig, Mesa, libva, FFmpeg device
+# initialisation, glib, dbus). Never add a pattern naming a Kinoklip function or file: a leak
+# in our code is fixed, not hidden (docs/contributing.md, "Memory leaks").
+
+# Fontconfig builds its font cache once per process and never frees it.
+leak:libfontconfig
+# Mesa / llvmpipe / DRI drivers keep per-process compiler and screen state until exit.
+leak:libLLVM
+leak:libgallium
+leak:swrast_dri
+leak:radeonsi_dri
+leak:iris_dri
+leak:libGLX_mesa
+leak:libEGL_mesa
+# libva keeps driver contexts and the display list until exit.
+leak:libva
+# FFmpeg hardware device initialisation (VAAPI / DRM device contexts, probing).
+leak:av_hwdevice_ctx_create
+# glib / gio / dbus global singletons (main context, type system, session bus).
+leak:libglib-2.0
+leak:libgobject-2.0
+leak:libgio-2.0
+leak:libdbus-1
+# Qt platform plugins and the Qt font database / plugin loader create process-wide singletons.
+leak:libqoffscreen
+leak:libqxcb
+leak:libqwayland
+leak:libQt6XcbQpa
+leak:libQt6WaylandClient

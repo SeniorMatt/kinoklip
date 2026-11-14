@@ -23,6 +23,15 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "" FORCE)
 endif()
 
+# Sanitizers (docs/contributing.md, "Memory leaks"): -DKK_SANITIZE=address or address,undefined
+# adds -fsanitize to the application, the library and every test. Use a separate build folder
+# (build-asan); scripts/check_leaks.sh configures and runs it.
+set(KK_SANITIZE "" CACHE STRING "Sanitizers to build with: address, undefined or address,undefined")
+if(KK_SANITIZE)
+  add_compile_options(-fsanitize=${KK_SANITIZE} -fno-omit-frame-pointer -fno-optimize-sibling-calls)
+  add_link_options(-fsanitize=${KK_SANITIZE})
+endif()
+
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Multimedia Svg SvgWidgets OpenGL OpenGLWidgets Concurrent DBus Network Test)
 
 # Qt's private QDesktopUnixServices (Qt >= 6.9) exports our window for the XDG desktop portal
