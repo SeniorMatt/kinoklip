@@ -133,6 +133,8 @@ struct VideoDecoder::Impl
     std::shared_ptr<const VideoFrame> readAheadAt(int64_t timeUs);
     /// @p frame (decoder output or downloaded copy) as an image of at most @p maxSize.
     QImage convertFrame(const AVFrame* frame, QSize maxSize);
+    /// Display image of a frame the factory already converted to Bgra (no AVFrame behind it).
+    QImage bgraImage(const VideoFrame& video, QSize maxSize);
     bool openStill(const QString& path, const ImageHeader& header, QString* error);
     bool openFrameList(
         const QString& path, detail::MediaRoute route, const ImageHeader& header, QString* error);

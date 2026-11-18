@@ -3,6 +3,7 @@
 #include "MediaTestUtil.h"
 #include "core/SessionLog.h"
 #include "media/HwAccel.h"
+#include "media/HwDevices.h"
 #include "media/VideoDecoder.h"
 
 #include <QRandomGenerator>
@@ -165,6 +166,10 @@ private slots:
             QSKIP(qPrintable(why));
         }
     }
+
+    /// A backend disabled by fallbacks of an earlier test (a driver hiccup on a random seek)
+    /// must not hide the hardware paths of the later ones.
+    void init() { kk::media::detail::HwDeviceManager::instance().resetFailures(); }
 
     void fitSize()
     {
@@ -433,6 +438,12 @@ private slots:
         VideoDecoder decoder;
         decoder.setHwAccel(hw);
         OPEN_OR_FAIL(decoder, "h264_25fps.mp4");
+        if (hw != HwAccelMode::Off && decoder.activeHwAccel() == HwAccelMode::Off) {
+            // The device opens (Vulkan: ProRes needs no video queue) but has no H.264 decoder,
+            // e.g. Mesa anv without VK_KHR_video_decode_queue. The decoder fell back to
+            // software (checked by the fallback tests); there is no hardware path to verify.
+            QSKIP(qPrintable(hwAccelName(hw) + QStringLiteral(" cannot decode H.264 on this device")));
+        }
         QCOMPARE(decoder.activeHwAccel(), hw);
 
         const auto first = decoder.decodeFrame(2'020'000); // frame 50 (a keyframe)
@@ -489,7 +500,17 @@ private slots:
             VideoDecoder prores;
             prores.setHwAccel(device.mode);
             OPEN_OR_FAIL(prores, "prores4444_alpha.mov");
-            QCOMPARE(prores.activeHwAccel(), HwAccelMode::Off);
+            // No GPU has a ProRes decoder through the video queues; Vulkan has a compute one,
+            // so it may decode it. Either way the picture must be right (alpha checked below).
+            QVERIFY(prores.activeHwAccel() == HwAccelMode::Off
+                || prores.activeHwAccel() == HwAccelMode::Vulkan);
+            const QImage image = prores.frameAt(0);
+            QCOMPARE(image.format(), QImage::Format_ARGB32_Premultiplied);
+            QCOMPARE(qAlpha(image.pixel(40, 120)), 255);
+            QCOMPARE(qAlpha(image.pixel(280, 120)), 0);
+            QVERIFY2(qRed(image.pixel(40, 120)) + qGreen(image.pixel(40, 120))
+                        + qBlue(image.pixel(40, 120)) > 30,
+                "hardware ProRes frame is black");
             const auto frame = prores.decodeFrame(0);
             QVERIFY(frame);
             QCOMPARE(frame->format, PixelFormat::Bgra); // 12-bit + alpha → premultiplied BGRA

@@ -485,6 +485,31 @@ QImage VideoDecoder::Impl::convertFrame(const AVFrame* frame, QSize maxSize)
     return image;
 }
 
+QImage VideoDecoder::Impl::bgraImage(const VideoFrame& video, QSize maxSize)
+{
+    const QImage view(video.data[0], video.width, video.height, video.linesize[0],
+        QImage::Format_ARGB32_Premultiplied);
+    const AVRational sar {info.sampleAspectRatio.num, info.sampleAspectRatio.den};
+    QSize display(int(std::lround(double(video.width) * sar.num / sar.den)), video.height);
+    const bool quarterTurn = info.rotation == 90 || info.rotation == 270;
+    if (quarterTurn) {
+        display.transpose();
+    }
+    const QSize out = fitSize(display, maxSize);
+    QImage image = view.scaled(quarterTurn ? out.transposed() : out, Qt::IgnoreAspectRatio,
+        Qt::SmoothTransformation);
+    if (image.size() == view.size()) {
+        image = view.copy(); // detach from the frame's buffer
+    }
+    if (info.rotation != 0) {
+        image = image.transformed(QTransform().rotate(info.rotation));
+        if (image.format() != QImage::Format_ARGB32_Premultiplied) {
+            image.convertTo(QImage::Format_ARGB32_Premultiplied);
+        }
+    }
+    return image;
+}
+
 std::shared_ptr<const VideoFrame> VideoDecoder::Impl::readAheadAt(int64_t timeUs)
 {
     for (const auto& f : readAhead) {
@@ -508,6 +533,15 @@ QImage VideoDecoder::Impl::currentImage(QSize maxSize)
         std::shared_ptr<const VideoFrame> video = currentVideoFrame();
         if (video && video->dmabuf) {
             video = video->dmabuf->download(); // zero-copy decoder asked for an image
+        }
+        if (video && !video->avFrame && video->format == PixelFormat::Bgra && video->data[0]) {
+            // Layouts outside PixelFormat (alpha, 12-bit, 4:4:4: ProRes 4444 on Vulkan) were
+            // converted once to Bgra by the factory; there is no AVFrame to convert again.
+            QImage image = bgraImage(*video, maxSize);
+            curImage = image;
+            curImageMaxSize = maxSize;
+            curImageValid = !image.isNull();
+            return image;
         }
         if (!video || !video->avFrame) {
             return {};
@@ -754,6 +788,11 @@ QImage VideoDecoder::frameAt(int64_t timeUs, QSize maxSize, Accuracy accuracy)
         return {};
     }
     QImage image = d.currentImage(maxSize);
+    if (image.isNull() && d.activeHw != HwAccelMode::Off && !d.hwFailed) {
+        // The hardware picture could not be turned into an image: never show it as black.
+        d.hwFailed = true;
+        d.hwFailReason = QStringLiteral("the decoded picture could not be converted");
+    }
     if (image.isNull() && d.hwFailed && d.switchToSoftware() && d.position(ts, accuracy)) {
         image = d.currentImage(maxSize);
     }

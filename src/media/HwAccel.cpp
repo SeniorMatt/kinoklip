@@ -120,7 +120,9 @@ QStringList vaapiRenderNodes()
     };
     QList<Node> nodes;
     const QDir dri(QStringLiteral("/dev/dri"));
-    const QStringList names = dri.entryList({QStringLiteral("renderD*")}, QDir::System, QDir::Name);
+    // Device nodes: QDir::System alone lists nothing with Qt 6.12 (it needs Files as well).
+    const QStringList names = dri.entryList(
+        {QStringLiteral("renderD*")}, QDir::System | QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
     for (const QString& name : names) {
         const QString sys = QStringLiteral("/sys/class/drm/%1/device/").arg(name);
         auto readSys = [&](const char* file) {
