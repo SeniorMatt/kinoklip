@@ -290,6 +290,22 @@ private slots:
         }
     }
 
+    void settingsSurviveOpen()
+    {
+        // open() starts with close(): the settings made before it must survive, or the decoder
+        // pool's zero-copy request is lost and every VAAPI frame is downloaded (a Lunar Lake
+        // report: 4K 10-bit HEVC at 31 ms per frame download).
+        VideoDecoder decoder;
+        decoder.setZeroCopy(true);
+        OPEN_OR_FAIL(decoder, "h264_25fps.mp4");
+        QVERIFY(decoder.zeroCopyRequested());
+        OPEN_OR_FAIL(decoder, "h264_25fps.mp4");
+        QVERIFY(decoder.zeroCopyRequested());
+        decoder.setZeroCopy(false);
+        OPEN_OR_FAIL(decoder, "h264_25fps.mp4");
+        QVERIFY(!decoder.zeroCopyRequested());
+    }
+
     void clampsOutOfRange()
     {
         VideoDecoder decoder;

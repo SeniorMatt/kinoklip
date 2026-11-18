@@ -548,7 +548,13 @@ void VideoDecoder::setZeroCopy(bool enabled)
 
 void VideoDecoder::setZeroCopyGate(std::shared_ptr<const std::atomic<bool>> gate)
 {
+    m_impl->zeroCopyGate = gate;
     m_impl->factory.setZeroCopyGate(std::move(gate));
+}
+
+bool VideoDecoder::zeroCopyRequested() const
+{
+    return m_impl->zeroCopy;
 }
 
 bool VideoDecoder::zeroCopyActive() const
@@ -601,12 +607,21 @@ bool VideoDecoder::open(const QString& path, QString* error)
 
 void VideoDecoder::close()
 {
+    // The settings made before open() survive it (open() starts with close()): without this
+    // the decoder pool's setZeroCopy(true) was dropped and every VAAPI frame was downloaded.
     const int threads = m_impl->threadCount;
     const std::optional<HwAccelMode> hw = m_impl->hwOverride;
+    const bool skipNonReference = m_impl->skipNonReference;
+    const bool zeroCopy = m_impl->zeroCopy;
+    std::shared_ptr<const std::atomic<bool>> gate = std::move(m_impl->zeroCopyGate);
     m_impl = std::make_unique<Impl>();
     m_impl->threadCount = threads;
     m_impl->factory.setPreview(threads == 1);
     m_impl->hwOverride = hw;
+    m_impl->skipNonReference = skipNonReference;
+    m_impl->zeroCopy = zeroCopy;
+    m_impl->zeroCopyGate = gate;
+    m_impl->factory.setZeroCopyGate(std::move(gate));
 }
 
 bool VideoDecoder::isOpen() const

@@ -53,7 +53,8 @@ struct VideoDecoder::Impl
     int threadCount = 0;
     bool skipNonReference = false; ///< setSkipNonReference(), kept across open()
     std::optional<HwAccelMode> hwOverride;
-    bool zeroCopy = false; ///< VideoDecoder::setZeroCopy()
+    bool zeroCopy = false; ///< VideoDecoder::setZeroCopy(), kept across open()
+    std::shared_ptr<const std::atomic<bool>> zeroCopyGate; ///< setZeroCopyGate(), kept across open()
     bool isOpen = false;
     int64_t lastReturnedUs = -1;
 

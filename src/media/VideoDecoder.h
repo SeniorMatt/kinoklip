@@ -89,6 +89,9 @@ public:
     void setZeroCopyGate(std::shared_ptr<const std::atomic<bool>> gate);
     /// True while decodeFrame() returns DMA-BUF frames for the open file.
     bool zeroCopyActive() const;
+    /// What setZeroCopy() asked for (kept across open() and close()), whether or not the file
+    /// decodes on a VAAPI device.
+    bool zeroCopyRequested() const;
 
     /// Catch-up mode (the playback engine is far behind the clock): the decoder discards frames
     /// no other frame refers to (FFmpeg AVDISCARD_NONREF, as mpv's framedrop does), which costs
