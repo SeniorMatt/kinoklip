@@ -75,6 +75,7 @@ public:
         m_dynamicZoom = rq.dynamicZoom;
         m_decoders.beginFrame();
         m_decoders.setCatchUp(rq.catchUp);
+        m_sourceId = 0;
         QImage image;
         if (rq.compositionNode) {
             image = compositionNodeImage(tl, *rq.compositionNode, out);
@@ -91,6 +92,7 @@ public:
         frame->size = out;
         frame->ok = true;
         frame->fromCache = job.fromCache;
+        frame->sourceId = m_sourceId;
         frame->image = std::move(image);
         frame->renderMs = double(timer.nsecsElapsed()) / 1e6;
         job.promise.set_value(std::move(frame));
@@ -381,6 +383,8 @@ private:
             if (extraRotation % 180)
                 want.transpose(); // decoded in the file's orientation, turned below
             picture = entry->decoder->frameAt(timeUs, want.expandedTo(QSize(1, 1)));
+            if (entry->decoder->lastFrameTimeUs() > 0) // 0: a still image, or the first frame
+                m_sourceId = mixSourceId(m_sourceId, entry->decoder->lastFrameTimeUs());
             // Frame Blend / Optical Flow (no flow on the CPU: blended): mix in the next source
             // frame by where the source time falls between the two.
             if (retime::effectiveProcess(clip, *m_timeline) != RetimeProcess::Nearest
@@ -655,6 +659,7 @@ private:
     const ProxyMap* m_proxies = nullptr;
     const NestedTimelines* m_nested = nullptr;
     int m_depth = 0;
+    uint64_t m_sourceId = 0; ///< RenderedFrame::sourceId of the frame being drawn
     bool m_grades = true; ///< apply grades (false: RenderRequest::bypassGrades)
     bool m_dynamicZoom = true; ///< RenderRequest::dynamicZoom
     int64_t m_frame = 0;

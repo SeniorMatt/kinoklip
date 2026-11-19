@@ -76,17 +76,19 @@ inline int readFrameIndex(const QImage& image)
     return index;
 }
 
-/// Index of the frame shown at `timeUs` in a constant-rate fixture of `num/den` fps
-/// (frame k covers [k·den/num s, (k+1)·den/num s)).
+/// Index of the frame shown at `timeUs` in a constant-rate fixture of `num/den` fps. Frame k
+/// starts at k·den/num s rounded to the nearest microsecond (as VideoFrame::ptsUs and the
+/// timeline's framesToUs() round it), so it covers [round(start k), round(start k+1)).
 inline int64_t expectedFrameIndex(int64_t timeUs, int64_t num, int64_t den)
 {
-    return (timeUs * num) / (den * 1'000'000);
+    return ((2 * timeUs + 1) * num) / (2 * den * 1'000'000);
 }
 
-/// First microsecond (rounded up) at which frame `index` of a `num/den` fps fixture is shown.
+/// First microsecond at which frame `index` of a `num/den` fps fixture is shown: its start rounded
+/// to the nearest microsecond.
 inline int64_t frameStartUs(int64_t index, int64_t num, int64_t den)
 {
-    return (index * den * 1'000'000 + num - 1) / num;
+    return (2 * index * den * 1'000'000 + num) / (2 * num);
 }
 
 } // namespace kk::test

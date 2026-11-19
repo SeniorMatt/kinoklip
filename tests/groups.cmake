@@ -10,7 +10,7 @@ set(KK_TESTS_RELEASE
   test_playbackperf test_realworld test_wayland_session test_resizebench test_keyframecut
   test_memorysoak test_renderperf test_mediaperf test_proxyperf test_hevc4kperf test_compperf
   test_exportperf test_audioperf test_pageturnplayback test_cutlookahead test_editplaying
-  test_firstplay test_timelinebench test_rendermemory test_playbackstats test_playbackstatslog
+  test_firstplay test_uniqueframes test_timelinebench test_rendermemory test_playbackstats test_playbackstatslog
   test_livepreview test_pasteaudiolive test_memoryprofile
 )
 
@@ -43,7 +43,7 @@ set(KK_TESTS_QUICK
   test_effectparams test_effects5 test_effectsb test_effectsgap test_effectsheets
   test_effectslibrary test_effectsui test_embeddedexport test_emoji test_encoderprobe
   test_export test_extrapolation test_fadecurves test_filedialogs test_folderimport
-  test_folderscan test_fontreload test_formats test_framerateconvert test_generators
+  test_folderscan test_fontreload test_formats test_framematch test_framerateconvert test_generators
   test_glviewer test_grade test_gradeexport test_graderender test_guidedemo test_guideoverlay
   test_guidesrender test_homography test_hwdecode test_inspector test_keyframedcpu
   test_keyframeeditor test_keyframeops test_keyframespanel test_keypresets test_largeproject

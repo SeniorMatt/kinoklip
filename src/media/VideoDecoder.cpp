@@ -362,6 +362,13 @@ bool VideoDecoder::Impl::openVideo(const QString& path, QString* error)
         ? AVRational {info.frameRate.num, info.frameRate.den}
         : kFallbackFrameRate;
     frameStepTs = std::max<int64_t>(1, av_rescale_q(1, av_inv_q(rate), tb));
+    {
+        const double tickUs = 1e6 * double(tb.num) / double(std::max(1, tb.den));
+        const double frameUs = 1e6 * double(rate.den) / double(std::max(1, rate.num));
+        // Half µs; a coarse time base (a tick of 200 µs or more) rounds the frame's own stamp.
+        frameSlackHalfUs
+            = tickUs >= 200.0 ? 1 + std::min(int64_t(std::ceil(tickUs)), int64_t(frameUs)) : 1;
+    }
 
     const HwAccelMode requested
         = info.isStillImage ? HwAccelMode::Off : hwOverride.value_or(preferredHwAccel());
@@ -703,7 +710,7 @@ std::shared_ptr<const VideoFrame> VideoDecoder::decodeFrame(int64_t timeUs, Accu
             return hit;
         }
     }
-    const int64_t ts = std::max(d.usToTs(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
+    const int64_t ts = std::max(d.frameTsAt(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
     if (!d.position(ts, accuracy)) {
         return nullptr;
     }
@@ -783,7 +790,7 @@ QImage VideoDecoder::frameAt(int64_t timeUs, QSize maxSize, Accuracy accuracy)
             }
         }
     }
-    const int64_t ts = std::max(d.usToTs(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
+    const int64_t ts = std::max(d.frameTsAt(std::max<int64_t>(timeUs, 0)), d.firstFrameTs);
     if (!d.position(ts, accuracy)) {
         return {};
     }

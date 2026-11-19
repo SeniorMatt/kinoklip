@@ -87,6 +87,8 @@ struct VideoDecoder::Impl
     int64_t firstTs = 0; ///< earliest timestamp of the stream (seek lower bound)
     int64_t firstFrameTs = 0; ///< pts of the first decodable frame (clamp lower bound)
     int64_t frameStepTs = 1; ///< one nominal frame period in stream time base
+    /// Rounding allowance of frame lookups in half microseconds (see frameTsAt()).
+    int64_t frameSlackHalfUs = 1;
     int64_t lastDecodedTs = AV_NOPTS_VALUE;
     int64_t lastSeekTs = 0;
     bool eof = false; ///< decoder fully drained; `cur` is the last frame of the stream
@@ -152,6 +154,22 @@ struct VideoDecoder::Impl
         return originTs
             + av_rescale_q_rnd(us, detail::kMicrosecondsTb, stream->time_base,
                 AVRounding(AV_ROUND_DOWN | AV_ROUND_PASS_MINMAX));
+    }
+    /// The stream timestamp to look a frame up by, for media time @p us. A time computed from a
+    /// timeline frame (frame * 1001 / 24000 s, rounded to µs) can fall up to half a microsecond
+    /// before the start of the very frame it names: a 23.976 fps timeline asks for 1292958 µs while
+    /// the frame starts at 1292958.33 µs (31031 / 24000 s), which floors to the frame before, and
+    /// every third picture was shown twice. VideoFrame::ptsUs rounds the frame's start to µs, so a
+    /// request is answered with the frame whose rounded start is not after it: the lookup adds half
+    /// a microsecond (a request one µs before a frame that starts on a whole µs still finds the
+    /// frame before). Containers with a coarse time base (milliseconds: Matroska, WebM) round the
+    /// frame's own timestamp by up to half a tick, so those get half a tick (never more than half a
+    /// frame) instead.
+    int64_t frameTsAt(int64_t us) const
+    {
+        return originTs
+            + av_rescale_q_rnd(2 * us + frameSlackHalfUs, AVRational {1, 2'000'000},
+                stream->time_base, AVRounding(AV_ROUND_DOWN | AV_ROUND_PASS_MINMAX));
     }
     int64_t tsToUs(int64_t ts) const
     {

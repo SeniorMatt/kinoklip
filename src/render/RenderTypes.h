@@ -199,6 +199,10 @@ struct RenderedFrame
     double compositeMs = 0.0; ///< drawing layers, effects, transitions (excluding uploads)
     double outputMs = 0.0; ///< output slot + fence (+ readback for OutputImage)
     bool fromCache = false; ///< shown from the render cache (RenderRequest::renderCache)
+    /// Which source pictures this frame was drawn from: a hash of the presentation times of the
+    /// decoded frames of every visible media clip (0 = none, e.g. only generators). Two frames
+    /// with the same value show the same source picture; playback statistics count the repeats.
+    uint64_t sourceId = 0;
 
     /// RenderedFrame objects alive in the process (leak checks: it returns to its baseline
     /// when nothing shows or caches a frame, see tests/playback/test_memorysoak.cpp).
@@ -215,6 +219,15 @@ private:
     };
     Live m_live;
 };
+
+/// Adds the presentation time @p ptsUs of one decoded source frame to a RenderedFrame::sourceId
+/// (never 0 once something was added).
+[[nodiscard]] inline uint64_t mixSourceId(uint64_t id, int64_t ptsUs)
+{
+    uint64_t h = (id ^ uint64_t(ptsUs)) * 0x9E3779B97F4A7C15ull;
+    h ^= h >> 29;
+    return h ? h : 1;
+}
 
 /// Shared handle to a rendered frame (releasing the last reference recycles the texture).
 using RenderedFramePtr = std::shared_ptr<const RenderedFrame>;

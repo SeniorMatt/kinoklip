@@ -155,6 +155,13 @@ public:
     {
         int64_t presented = 0; ///< frames shown while playing
         int64_t dropped = 0; ///< frames skipped at |rate| = 1 (gaps in the presented sequence)
+        /// Frames shown whose source picture (RenderedFrame::sourceId) differs from the one shown
+        /// before; `presented` also counts a picture shown again.
+        int64_t uniqueFrames = 0;
+        /// At |rate| = 1: frames shown with the same source picture as the frame before (the
+        /// decoder had no new picture when one was due; a clip below the timeline rate counts
+        /// its legitimate repeats here too). Frames without a source (generators) are not counted.
+        int64_t repeatedFrames = 0;
         double playSeconds = 0.0; ///< wall time spent playing
         double averageRenderMs = 0.0; ///< compositor time per presented frame (moving average)
         double averageDecodeMs = 0.0; ///< of averageRenderMs: decoding (+ hw download)
@@ -568,6 +575,7 @@ private:
     DisplayLag m_lag; ///< how far behind the clock the picture is presented (burst smoothing)
     int64_t m_lastShownKey = 0;
     bool m_hasShownKey = false;
+    uint64_t m_lastSourceId = 0; ///< RenderedFrame::sourceId of the last frame shown (0 = none)
     bool m_wantDueFrame = false; ///< an edit changed the pictures: request the frame due first
 
     struct Client

@@ -697,6 +697,14 @@ void GlRenderer::render(RenderJob& job)
         = m_output->produce(*accumulator, (rq.outputs & OutputTexture) != 0, scratch, &readFbo);
     result->frame = rq.frame;
     result->fromCache = job.fromCache;
+    // The decoded pictures behind this frame (stills have no timeline of their own: skipped).
+    result->sourceId = 0;
+    for (const DecodedClip& d : m_decoded) {
+        if (d.frame && (d.frame->avFrame || d.frame->dmabuf))
+            result->sourceId = mixSourceId(result->sourceId, d.frame->ptsUs);
+        if (d.frameB && (d.frameB->avFrame || d.frameB->dmabuf))
+            result->sourceId = mixSourceId(result->sourceId, d.frameB->ptsUs);
+    }
     result->decodeMs = double(decodedNs) / 1e6;
     result->uploadMs = double(m_uploadNs) / 1e6;
     result->compositeMs = double(compositedNs - decodedNs - m_uploadNs) / 1e6;

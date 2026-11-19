@@ -36,6 +36,12 @@ developers). Only the idea was taken for `src/render/GlDmaBuf.*` and `src/media/
 export a VAAPI surface as DMA-BUF and import each plane as an EGLImage with the DRM formats R8 / GR88 (NV12) and
 R16 / GR1616 (P010), so decoded 4K pictures never go through system memory. The code is written for Kinoklip.
 
+Design reference for the decoded-surface queue, no code copied (checked 2026-11-19): mpv `video/decode/vd_lavc.c`
+(LGPL-2.1-or-later, mpv developers). mpv sizes a hardware frame pool with `hwdec_get_extra_frames()` (6 extra
+surfaces, or the video output's frame references plus 3, whichever is more) and keeps a delay queue of up to 4
+decoded frames. Kinoklip asks for 4 extra surfaces (10 with zero-copy), which the measurements of spec 135 showed
+to be enough: the stutter reported for 23.976 fps footage was the frame lookup, not the queue.
+
 Test media (`tests/data/generated`) is not in the repository: `scripts/make_test_media.sh`
 generates it with FFmpeg's test sources.
 

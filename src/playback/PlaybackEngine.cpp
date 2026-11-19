@@ -1122,6 +1122,7 @@ void PlaybackEngine::startMotion(double rate, double fromFrame)
     // unless an edit made it outdated (it may show a clip that is no longer there).
     if (m_current && !m_currentStale && m_current->frame == int64_t(start)) {
         m_lastShownKey = int64_t(start);
+        m_lastSourceId = m_current->sourceId;
         m_hasShownKey = true;
     }
     ensureTicking();
@@ -1373,6 +1374,13 @@ void PlaybackEngine::present(const RenderedFramePtr& frame, int64_t key)
         }
         m_lastShownKey = key;
         m_hasShownKey = true;
+        if (frame->sourceId != 0) {
+            if (frame->sourceId != m_lastSourceId)
+                ++m_stats.uniqueFrames;
+            else if (std::abs(m_rate) == 1.0)
+                ++m_stats.repeatedFrames;
+            m_lastSourceId = frame->sourceId;
+        }
         const double stages[4]
             = {frame->decodeMs, frame->uploadMs, frame->compositeMs, frame->outputMs};
         for (int i = 0; i < 4; ++i) {
@@ -1404,6 +1412,24 @@ void PlaybackEngine::updateAutoQuality(int64_t nowUs)
     m_scheduler.resetAverage();
     updateParams(false);
 }
+
+namespace {
+
+/// ", unique 23.9/s, 0 repeated": new source pictures shown per second and pictures shown again
+/// (the fps of the line above counts presentations, which hides repeats); empty without a clip.
+QString sourceFramesText(const PlaybackEngine::Stats& now, const PlaybackEngine::Stats& before,
+    double seconds)
+{
+    const int64_t unique = now.uniqueFrames - before.uniqueFrames;
+    const int64_t repeated = now.repeatedFrames - before.repeatedFrames;
+    if (unique + repeated == 0 || seconds <= 0)
+        return {};
+    return QStringLiteral(", unique %1/s, %2 repeated")
+        .arg(double(unique) / seconds, 0, 'f', 1)
+        .arg(repeated);
+}
+
+} // namespace
 
 void PlaybackEngine::logStats(int64_t nowUs)
 {
@@ -1444,7 +1470,7 @@ void PlaybackEngine::logStats(int64_t nowUs)
     }
     emitStatsLine(
         QStringLiteral("stats: %1 fps (of %2), %3 dropped, quality %4 %5x%6, render %7 ms "
-                       "[decode %8, upload %9, composite %10, output %11], %12, A/V %13%14")
+                       "[decode %8, upload %9, composite %10, output %11], %12, A/V %13%14%15")
             .arg(double(s.presented - m_statsAtLog.presented) / seconds, 0, 'f', 1)
             .arg(fps().toDouble() * std::abs(m_rate), 0, 'f', 2)
             .arg(s.dropped - m_statsAtLog.dropped)
@@ -1458,7 +1484,8 @@ void PlaybackEngine::logStats(int64_t nowUs)
             .arg(stage(3), 0, 'f', 1)
             .arg(s.audioMaster ? QStringLiteral("audio clock") : QStringLiteral("wall clock"))
             .arg(s.avOffsetFrames, 0, 'f', 2)
-            .arg(decodePath.isEmpty() ? QString() : QStringLiteral(", ") + decodePath));
+            .arg(decodePath.isEmpty() ? QString() : QStringLiteral(", ") + decodePath)
+            .arg(sourceFramesText(s, m_statsAtLog, seconds)));
     m_statsLogUs = nowUs;
     m_statsAtLog = s;
     std::fill(std::begin(m_winSum), std::end(m_winSum), 0.0);
@@ -1497,7 +1524,7 @@ void PlaybackEngine::logStatsSummary()
     const QString decodePath = media::describeDecodeWindow(m_decodeAtPlay, media::decodeCounters());
     emitStatsLine(QStringLiteral(
         "stats summary: played %1 s, %2 frames shown (%3 fps of %4), %5 dropped, %6 seeks "
-        "while playing, render avg [decode %7, upload %8, composite %9, output %10] ms%11")
+        "while playing, render avg [decode %7, upload %8, composite %9, output %10] ms%11%12")
                       .arg(seconds, 0, 'f', 2)
             .arg(presented)
             .arg(seconds > 0 ? double(presented) / seconds : 0.0, 0, 'f', 1)
@@ -1508,7 +1535,8 @@ void PlaybackEngine::logStatsSummary()
             .arg(stage(1), 0, 'f', 1)
             .arg(stage(2), 0, 'f', 1)
             .arg(stage(3), 0, 'f', 1)
-            .arg(decodePath.isEmpty() ? QString() : QStringLiteral(", ") + decodePath));
+            .arg(decodePath.isEmpty() ? QString() : QStringLiteral(", ") + decodePath)
+            .arg(sourceFramesText(s, m_statsAtPlay, seconds)));
 }
 
 void PlaybackEngine::prepareParked()
