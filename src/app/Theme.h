@@ -53,6 +53,9 @@ void apply(QApplication& app);
 [[nodiscard]] QStringList availableStyles();
 /// The label shown for the style @p key in menus and combo boxes (translated).
 [[nodiscard]] QString styleDisplayName(const QString& key);
+/// A short note for Preferences when the "System" style could not be loaded and Breeze or
+/// Fusion stands in for it; empty otherwise.
+[[nodiscard]] QString styleNote();
 /// The active widget style key.
 [[nodiscard]] QString currentStyle();
 /// Stores @p style and switches the running application to it (re-applies the colours).

@@ -153,6 +153,26 @@ private slots:
         QCOMPARE(theme::styleActionId(theme::currentStyle()), wantedStyle);
     }
 
+    void systemStyleFollowsTheDesktopAndFallsBackWithANote()
+    {
+        QVERIFY(theme::availableStyles().contains(QStringLiteral("System")));
+        QCOMPARE(theme::styleDisplayName(QStringLiteral("System")), QStringLiteral("System (the desktop's style)"));
+        // a style the plugin folder does not have: Breeze/Fusion stands in, with a note
+        qputenv("QT_STYLE_OVERRIDE", "NoSuchStyleXyz");
+        theme::setStyle(QStringLiteral("System"));
+        QCOMPARE(theme::currentStyle(), QStringLiteral("System"));
+        QVERIFY(!theme::styleNote().isEmpty());
+        QVERIFY(theme::styleNote().contains(QStringLiteral("NoSuchStyleXyz")));
+        QVERIFY(!QApplication::style()->name().isEmpty());
+        // one that exists is used without a note
+        qputenv("QT_STYLE_OVERRIDE", "Fusion");
+        theme::setStyle(QStringLiteral("System"));
+        QVERIFY(theme::styleNote().isEmpty());
+        QCOMPARE(QApplication::style()->name().toLower(), QStringLiteral("fusion"));
+        qunsetenv("QT_STYLE_OVERRIDE");
+        theme::setStyle(QStringLiteral("Kinoklip"));
+    }
+
     void spec144_4_defaultStyleIsKinoklipAndBreezeComesBackExactly()
     {
         QCOMPARE(QString::fromLatin1(theme::kDefaultStyle), QStringLiteral("Kinoklip"));

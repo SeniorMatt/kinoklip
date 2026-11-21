@@ -20,6 +20,7 @@
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
+#include <QLabel>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QIcon>
@@ -63,6 +64,7 @@ namespace {
 Q_LOGGING_CATEGORY(lcTheme, "kk.app.theme", QtInfoMsg)
 
 constexpr char kFallbackStyle[] = "Fusion";
+constexpr char kSystemStyle[] = "System";
 constexpr char kSchemeCategory[] = "settings.color_scheme";
 constexpr char kStyleCategory[] = "settings.style";
 constexpr char kSystemActionSuffix[] = "system";
@@ -74,6 +76,7 @@ struct State
     QString styleOverride; ///< --style, this run only
     QString schemeOverride; ///< --color-scheme, this run only
     bool hasSchemeOverride = false;
+    QString styleNote; ///< why the "System" style fell back (empty: none)
     QString activeStyle; ///< key of the style in use
     QString activeScheme; ///< id of the scheme in use ("" = system)
     QPalette systemPalette; ///< platform palette before the first apply (fallback "system")
@@ -110,12 +113,19 @@ bool isAdwaita(const QString& style)
     return style.compare(QLatin1String("Libadwaita"), Qt::CaseInsensitive) == 0;
 }
 
+bool isSystemStyle(const QString& style)
+{
+    return style.compare(QLatin1String(kSystemStyle), Qt::CaseInsensitive) == 0;
+}
+
 QString styleLabel(const QString& style)
 {
     if (style.compare(KinoklipStyle::key(), Qt::CaseInsensitive) == 0)
         return QCoreApplication::translate("kk::theme", "Kinoklip (Resolve look)");
     if (isAdwaita(style))
         return QCoreApplication::translate("kk::theme", "Libadwaita (GNOME look)");
+    if (isSystemStyle(style))
+        return QCoreApplication::translate("kk::theme", "System (the desktop's style)");
     return style;
 }
 
@@ -128,6 +138,28 @@ QString storedStyle()
         .toString();
 }
 
+/// The Qt style the desktop uses: QT_STYLE_OVERRIDE (the user's own, from before the AppImage
+/// dropped it), kdeglobals [KDE] widgetStyle, else Breeze.
+QString desktopStyleName()
+{
+    for (const char* var : {"KINOKLIP_ORIG_QT_STYLE_OVERRIDE", "QT_STYLE_OVERRIDE"}) {
+        const QString v = qEnvironmentVariable(var).trimmed();
+        if (!v.isEmpty() && !isSystemStyle(v) && v.compare(KinoklipStyle::key(), Qt::CaseInsensitive) != 0)
+            return v;
+    }
+    const QString home = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+    for (const QString& dir : {home, QStringLiteral("/etc/xdg")}) {
+        const QString file = dir + QStringLiteral("/kdeglobals");
+        if (!QFile::exists(file))
+            continue;
+        const QString v
+            = QSettings(file, QSettings::IniFormat).value(QStringLiteral("KDE/widgetStyle")).toString().trimmed();
+        if (!v.isEmpty())
+            return v;
+    }
+    return QStringLiteral("Breeze");
+}
+
 /// Sets the style; falls back to Breeze, then Fusion. Returns the key in use. "Kinoklip" is our
 /// own style (KinoklipStyle, not a factory key); it carries the menu behaviour of
 /// MenuMetricsStyle itself.
@@ -138,6 +170,25 @@ QString applyStyle(const QString& wanted)
     if (wanted.compare(KinoklipStyle::key(), Qt::CaseInsensitive) == 0) {
         QApplication::setStyle(new KinoklipStyle);
         return KinoklipStyle::key();
+    }
+    state().styleNote.clear();
+    if (isSystemStyle(wanted)) {
+        const QString name = desktopStyleName();
+        const QString key = isAdwaita(name) ? name : styleKey(name);
+        QStyle* style = key.isEmpty() || isAdwaita(key) ? nullptr : QStyleFactory::create(key);
+        if (isAdwaita(name) || style) {
+            delete style;
+            applyStyle(isAdwaita(name) ? name : key);
+            qApp->setProperty("kkKinoklipStyle", false);
+            return QString::fromLatin1(kSystemStyle);
+        }
+        applyStyle(QStringLiteral("Breeze"));
+        state().styleNote = QCoreApplication::translate("kk::theme",
+            "The desktop's style \"%1\" cannot be loaded here (the AppImage only loads styles built "
+            "for its own Qt). Breeze or Fusion is used instead.").arg(name.isEmpty() ? QStringLiteral("?") : name);
+        qCInfo(lcTheme) << "system widget style" << name << "not loadable, using Breeze/Fusion";
+        qApp->setProperty("kkKinoklipStyle", false);
+        return QString::fromLatin1(kSystemStyle);
     }
     if (isAdwaita(wanted)) { // built in (third_party/qt-libadwaita), not the factory plugin
         // Labels keep Kinoklip's interface font weight: libadwaita's bold 700 with greyscale
@@ -572,6 +623,12 @@ public:
             "of DaVinci Resolve, the same on every desktop; Breeze is the KDE look, Fusion a "
             "neutral look."));
         form->addRow(QCoreApplication::translate("kk::theme", "Widget style"), m_style);
+        m_note = new QLabel;
+        m_note->setObjectName(QStringLiteral("WidgetStyleNote"));
+        m_note->setWordWrap(true);
+        m_note->setText(styleNote());
+        m_note->setVisible(!m_note->text().isEmpty());
+        form->addRow(QString(), m_note);
     }
 
     void apply() override
@@ -582,12 +639,15 @@ public:
             if (action && !action->isChecked())
                 action->trigger();
         }
+        m_note->setText(styleNote());
+        m_note->setVisible(!m_note->text().isEmpty());
     }
 
 private:
     ActionRegistry& m_registry;
     QComboBox* m_scheme = nullptr;
     QComboBox* m_style = nullptr;
+    QLabel* m_note = nullptr;
 };
 
 } // namespace
@@ -653,13 +713,16 @@ QStringList availableStyles()
     keys.prepend(KinoklipStyle::key());
     keys.removeIf([](const QString& k) { return isAdwaita(k); }); // an installed plugin copy
     keys.append(QStringLiteral("Libadwaita"));
+    keys.removeIf([](const QString& k) { return isSystemStyle(k); });
+    keys.append(QString::fromLatin1(kSystemStyle));
     // Kinoklip first, then Breeze, then Fusion, then the rest alphabetically.
     std::sort(keys.begin(), keys.end(), [](const QString& a, const QString& b) {
         const auto rank = [](const QString& k) {
             return k.compare(KinoklipStyle::key(), Qt::CaseInsensitive) == 0 ? 0
                 : k.compare(QLatin1String("Breeze"), Qt::CaseInsensitive) == 0 ? 1
                 : k.compare(QLatin1String("Fusion"), Qt::CaseInsensitive) == 0  ? 2
-                                                                                : 3;
+                : isSystemStyle(k)                                              ? 3
+                                                                                : 4;
         };
         return rank(a) != rank(b) ? rank(a) < rank(b) : a.compare(b, Qt::CaseInsensitive) < 0;
     });
@@ -669,6 +732,11 @@ QStringList availableStyles()
 QString styleDisplayName(const QString& key)
 {
     return styleLabel(key);
+}
+
+QString styleNote()
+{
+    return isSystemStyle(state().activeStyle) ? state().styleNote : QString();
 }
 
 QString currentStyle()

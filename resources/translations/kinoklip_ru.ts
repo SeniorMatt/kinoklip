@@ -36150,6 +36150,14 @@ Open a multicam clip from the media pool or move the playhead over one.</source>
         <translation>Libadwaita (вид GNOME)</translation>
     </message>
     <message>
+        <source>System (the desktop's style)</source>
+        <translation>Системный (стиль рабочего стола)</translation>
+    </message>
+    <message>
+        <source>The desktop's style "%1" cannot be loaded here (the AppImage only loads styles built for its own Qt). Breeze or Fusion is used instead.</source>
+        <translation>Стиль рабочего стола «%1» не удаётся загрузить (AppImage загружает только стили, собранные для его собственной Qt). Вместо него используется Breeze или Fusion.</translation>
+    </message>
+    <message>
         <source>How buttons, menus and other controls are drawn. Kinoklip is the flat, dark look of DaVinci Resolve, the same on every desktop; Breeze is the KDE look, Fusion a neutral look.</source>
         <translation>Как рисуются кнопки, меню и другие элементы управления. Kinoklip — плоский тёмный вид DaVinci Resolve, одинаковый на любом рабочем столе; Breeze — вид KDE, Fusion — нейтральный вид.</translation>
     </message>

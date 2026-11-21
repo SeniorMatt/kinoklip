@@ -4,6 +4,11 @@
 #include "core/Preferences.h"
 
 #include <QApplication>
+#include <QDir>
+#include <QFile>
+#include <QProcess>
+#include <QRegularExpression>
+#include <QStandardPaths>
 #include <QFontDatabase>
 #include <QPointer>
 #include <QWidget>
@@ -179,9 +184,84 @@ void loadBundledFonts()
         QFontDatabase::addApplicationFont(QStringLiteral(":/fonts/OpenSans-%1.ttf").arg(QLatin1String(file)));
 }
 
+QFont parseKdeFont(const QString& value)
+{
+    // "Noto Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1" (QFont::toString format, as KDE writes it)
+    QFont f;
+    if (value.trimmed().isEmpty() || !f.fromString(value.trimmed()) || f.family().isEmpty())
+        return {};
+    return f;
+}
+
+QFont parseGnomeFont(const QString& value)
+{
+    // gsettings prints 'Cantarell 11' or 'Inter Variable Semi-Bold 11' (Pango description)
+    QString v = value.trimmed();
+    if (v.size() >= 2 && v.startsWith(QLatin1Char('\'')) && v.endsWith(QLatin1Char('\'')))
+        v = v.mid(1, v.size() - 2).trimmed();
+    static const QRegularExpression re(QStringLiteral("^(.*?)\\s+([0-9]+(?:\\.[0-9]+)?)$"));
+    const auto m = re.match(v);
+    if (!m.hasMatch())
+        return {};
+    QString family = m.captured(1).trimmed();
+    QFont::Weight weight = QFont::Normal;
+    bool italic = false;
+    static const QRegularExpression style(
+        QStringLiteral("\\s+(Semi-Bold|Bold|Light|Medium|Italic|Regular|Oblique)$"),
+        QRegularExpression::CaseInsensitiveOption);
+    for (auto sm = style.match(family); sm.hasMatch(); sm = style.match(family)) {
+        const QString w = sm.captured(1).toLower();
+        if (w == QLatin1String("semi-bold")) weight = QFont::DemiBold;
+        else if (w == QLatin1String("bold")) weight = QFont::Bold;
+        else if (w == QLatin1String("light")) weight = QFont::Light;
+        else if (w == QLatin1String("medium")) weight = QFont::Medium;
+        else if (w == QLatin1String("italic") || w == QLatin1String("oblique")) italic = true;
+        family.truncate(sm.capturedStart(0));
+    }
+    if (family.isEmpty())
+        return {};
+    QFont f(family);
+    f.setPointSizeF(m.captured(2).toDouble());
+    f.setWeight(weight);
+    f.setItalic(italic);
+    return f;
+}
+
+QFont desktopFont()
+{
+    // KDE: kdeglobals [General] font= (what plasma-integration would hand to Qt)
+    const bool kde = qEnvironmentVariable("XDG_CURRENT_DESKTOP").contains(QLatin1String("KDE"), Qt::CaseInsensitive);
+    const QString home = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+    for (const QString& dir : {home, QStringLiteral("/etc/xdg")}) {
+        const QString file = QDir(dir).filePath(QStringLiteral("kdeglobals"));
+        if (!QFile::exists(file))
+            continue;
+        const QFont f = parseKdeFont(
+            QSettings(file, QSettings::IniFormat).value(QStringLiteral("General/font")).toString());
+        if (!f.family().isEmpty())
+            return f;
+    }
+    if (!kde) { // GNOME and the other gsettings desktops
+        QProcess p;
+        p.start(QStringLiteral("gsettings"),
+            {QStringLiteral("get"), QStringLiteral("org.gnome.desktop.interface"),
+                QStringLiteral("font-name")});
+        if (p.waitForFinished(700) && p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0) {
+            const QFont f = parseGnomeFont(QString::fromUtf8(p.readAllStandardOutput()));
+            if (!f.family().isEmpty())
+                return f;
+        }
+    }
+    return QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+}
+
 QFont systemFont()
 {
-    static const QFont captured = QApplication::font();
+    // The AppImage runs Qt's "generic" platform theme (apprun.sh), which knows no desktop font:
+    // read the desktop's own setting then. With a real platform theme Qt's font is the truth.
+    static const QFont captured
+        = qEnvironmentVariable("QT_QPA_PLATFORMTHEME") == QLatin1String("generic") ? desktopFont()
+                                                                                   : QApplication::font();
     return captured;
 }
 

@@ -38,6 +38,29 @@ private slots:
         loadBundledFonts();
     }
 
+    void desktopFontParsing()
+    {
+        const QFont k = parseKdeFont(QStringLiteral("Noto Sans,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"));
+        QCOMPARE(k.family(), QStringLiteral("Noto Sans"));
+        QCOMPARE(k.pointSizeF(), 11.0);
+        QVERIFY(parseKdeFont(QString()).family().isEmpty());
+        const QFont g = parseGnomeFont(QStringLiteral("'Inter Variable Semi-Bold 12'\n"));
+        QCOMPARE(g.family(), QStringLiteral("Inter Variable"));
+        QCOMPARE(g.pointSizeF(), 12.0);
+        QCOMPARE(g.weight(), QFont::DemiBold);
+        QCOMPARE(parseGnomeFont(QStringLiteral("'Cantarell 11'")).family(), QStringLiteral("Cantarell"));
+        QVERIFY(parseGnomeFont(QStringLiteral("garbage")).family().isEmpty());
+        QVERIFY(!desktopFont().family().isEmpty());
+    }
+
+    void systemChoiceKeepsTheBaseFont()
+    {
+        const QFont base(QStringLiteral("DejaVu Sans"), 11);
+        const QFont f = font(Role::Body, Choice::System, base);
+        QCOMPARE(f.family(), base.family());
+        QCOMPARE(f.pointSizeF(), 11.0);
+    }
+
     void bundledOpenSansIsRegistered()
     {
         QVERIFY(QFontDatabase::families().contains(QLatin1String(kFamily)));

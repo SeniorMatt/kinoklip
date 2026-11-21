@@ -36129,6 +36129,14 @@ Abrir un clip multicámara del panel de medios o mover el cabezal de reproducci�
         <translation>Libadwaita (aspecto de GNOME)</translation>
     </message>
     <message>
+        <source>System (the desktop's style)</source>
+        <translation>Sistema (el estilo del escritorio)</translation>
+    </message>
+    <message>
+        <source>The desktop's style "%1" cannot be loaded here (the AppImage only loads styles built for its own Qt). Breeze or Fusion is used instead.</source>
+        <translation>El estilo del escritorio «%1» no se puede cargar aquí (el AppImage solo carga estilos compilados para su propia Qt). Se usa Breeze o Fusion en su lugar.</translation>
+    </message>
+    <message>
         <source>How buttons, menus and other controls are drawn. Kinoklip is the flat, dark look of DaVinci Resolve, the same on every desktop; Breeze is the KDE look, Fusion a neutral look.</source>
         <translation>Cómo se dibujan los botones, los menús y otros controles. Kinoklip es el aspecto plano y oscuro de DaVinci Resolve, igual en todos los escritorios; Breeze es el aspecto de KDE y Fusion un aspecto neutro.</translation>
     </message>
