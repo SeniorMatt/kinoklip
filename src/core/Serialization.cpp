@@ -559,6 +559,8 @@ QJsonObject attributesToJson(const ClipAttributes& a)
         o[QLatin1String("frameRate")] = QJsonArray {a.frameRate.num, a.frameRate.den};
     if (a.alphaMode != d.alphaMode)
         o[QLatin1String("alphaMode")] = alphaModeToString(a.alphaMode);
+    if (!a.inputLut.isEmpty())
+        o[QLatin1String("inputLut")] = a.inputLut;
     if (a.channelFormat != d.channelFormat) {
         o[QLatin1String("channelFormat")] = channelFormatToString(a.channelFormat);
         o[QLatin1String("left")] = a.left;
@@ -591,6 +593,7 @@ ClipAttributes attributesFromJson(const QJsonObject& o)
             a.frameRate = r;
     }
     a.alphaMode = alphaModeFromString(o.value(QLatin1String("alphaMode")).toString());
+    a.inputLut = o.value(QLatin1String("inputLut")).toString();
     a.channelFormat = channelFormatFromString(o.value(QLatin1String("channelFormat")).toString());
     a.left = o.value(QLatin1String("left")).toInt(0);
     a.right = o.value(QLatin1String("right")).toInt(1);

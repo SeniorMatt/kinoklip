@@ -228,6 +228,7 @@ private:
         QString keywordsText;
         MediaMetadata metadata;
         QString clipColorId;
+        QString inputLut; ///< .cube file of MediaItem::attributes (shown on the poster)
         QColor clipColor;
         quint32 flags = 0;
         int usage = 0;

@@ -379,7 +379,7 @@ private:
             applyPointEffects(clip, local,
                 m_timeline->fps.isValid() ? m_timeline->fps.toDouble() : 25.0, picture, solid);
         if (blend != Blend::Erase && isGraded(clip, local))
-            gradePicture(clip, local, content, outScale, picture, pictureRect, solid);
+            gradePicture(clip, m_grades, local, content, outScale, picture, pictureRect, solid);
         if (blend == Blend::Erase) {
             solid = QColor(Qt::white);
             picture = QImage();
@@ -640,21 +640,23 @@ private:
     /// True if the Color page grade of @p clip changes its picture at @p local.
     bool isGraded(const ClipData& clip, int64_t local) const
     {
-        return m_grades && !clip.grade.isEmpty() && !gradeops::isIdentity(clip.grade, local);
+        return clip.attributes.hasInputLut()
+            || (m_grades && !clip.grade.isEmpty() && !gradeops::isIdentity(clip.grade, local));
     }
 
     /// The clip's Color page grade on its picture (after the point effects, before the crop,
     /// masks and transform), the twin of the GPU layer pass: picture fractions map onto the
     /// content box (@p content, centred). A solid becomes an image first: a small one when the
     /// grade has no windows (uniform result), else one at the output resolution.
-    static void gradePicture(const ClipData& clip, int64_t local, QSizeF content, double outScale,
-        QImage& picture, QRectF& pictureRect, QColor& solid)
+    static void gradePicture(const ClipData& clip, bool withGrade, int64_t local, QSizeF content,
+        double outScale, QImage& picture, QRectF& pictureRect, QColor& solid)
     {
         constexpr int kSolidImageEdge = 8;
         constexpr int kMaxSolidEdge = 4096;
         if (solid.isValid()) {
-            const bool spatial = std::any_of(clip.grade.nodes.cbegin(), clip.grade.nodes.cend(),
-                [](const GradeNode& n) { return !n.windows.isEmpty(); });
+            const bool spatial = withGrade
+                && std::any_of(clip.grade.nodes.cbegin(), clip.grade.nodes.cend(),
+                    [](const GradeNode& n) { return !n.windows.isEmpty(); });
             QSize size(kSolidImageEdge, kSolidImageEdge);
             if (spatial) {
                 size = (pictureRect.size() * outScale).toSize().expandedTo(QSize(1, 1));
@@ -674,7 +676,8 @@ private:
         g.originY = (-content.height() / 2 - pictureRect.y()) * py;
         g.width = content.width() * px;
         g.height = content.height() * py;
-        applyGrade(prepareGrade(clip.grade, local, g), picture);
+        applyGrade(prepareClipGrade(withGrade ? clip.grade : ClipGrade {}, clip.attributes, local, g),
+            picture);
     }
 
     static bool showsAdjustment(const TrackFrame& tf)

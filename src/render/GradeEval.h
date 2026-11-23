@@ -6,6 +6,7 @@
 // renderer).
 #pragma once
 
+#include "core/ClipAttributes.h"
 #include "core/GradeMath.h"
 #include "render/CubeLut.h"
 
@@ -76,6 +77,21 @@ struct PreparedGrade
 /// an unreadable file is skipped with a warning).
 [[nodiscard]] PreparedGrade prepareGrade(
     const ClipGrade& grade, int64_t frame, const grademath::PictureGeometry& geometry);
+
+/// Puts the input LUT of @p attributes (core/ClipAttributes.h) in front of @p grade: a leading
+/// corrector node holding the LUT that every node reading the grade's input now reads, so the
+/// LUT is applied before the node graph on the GPU and the CPU alike. An unreadable file is
+/// skipped with a warning. Does nothing without an input LUT.
+void prependInputLut(PreparedGrade& grade, const ClipAttributes& attributes);
+
+/// prepareGrade() followed by prependInputLut(): the grade of a media clip with the input LUT
+/// of its media item.
+[[nodiscard]] PreparedGrade prepareClipGrade(const ClipGrade& grade,
+    const ClipAttributes& attributes, int64_t frame, const grademath::PictureGeometry& geometry);
+
+/// Applies the input LUT of @p attributes to @p image (CPU; thumbnails, posters). No-op
+/// without one.
+void applyInputLut(const ClipAttributes& attributes, QImage& image);
 
 /// Grades straight colour @p rgb (in place) at pixel centre (@p px, @p py): the whole node
 /// graph for one pixel. @p scratch holds one rgb triple + key per node (resized as needed).

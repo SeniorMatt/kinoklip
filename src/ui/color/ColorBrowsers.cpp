@@ -4,13 +4,16 @@
 
 #include "core/EditOps.h"
 #include "core/GradeGallery.h"
+#include "core/MediaPool.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
 #include "render/GradeLut.h"
 #include "ui/color/ColorFrameSource.h"
 #include "ui/color/ColorPalettes.h"
 #include "ui/color/ColorSession.h"
+#include "ui/common/InputLutMenu.h"
 #include "ui/common/SchemeColors.h"
+#include "ui/dialogs/ClipAttributesDialog.h"
 #include "ui/common/TimecodeFormat.h"
 
 #include <QApplication>
@@ -432,6 +435,22 @@ void ColorClipStrip::contextMenuEvent(QContextMenuEvent* event)
     for (const int size : render::kGradeLutSizes) {
         QAction* a = lutMenu->addAction(tr("%1 Point Cube").arg(size));
         a->setData(size);
+    }
+    // Resolve's right-click > 3D LUT: the media's input LUT, applied before the node graph.
+    const ClipData* clipData = editops::clipById(m_project->timeline()->data(), clip);
+    QMenu* inputMenu = menu.addMenu(tr("3D LUT"));
+    inputMenu->setObjectName(QStringLiteral("InputLutMenu"));
+    const MediaItem* mediaItem = clipData && clipData->kind == ClipKind::Media
+        ? m_project->mediaPool()->item(clipData->mediaId)
+        : nullptr;
+    if (mediaItem) {
+        const QString mediaId = mediaItem->id;
+        inputlut::populate(inputMenu, mediaItem->attributes.inputLut, this,
+            [this, mediaId](const QString& path) {
+                clipattributes::setInputLut(*m_project, {mediaId}, path);
+            });
+    } else {
+        inputMenu->setEnabled(false);
     }
     QAction* chosen = menu.exec(event->globalPos());
     if (chosen && chosen->parent() == lutMenu) {

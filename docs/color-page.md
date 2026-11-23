@@ -25,7 +25,13 @@ Per clip, in this order (GPU `GlRenderer::drawClip()`, CPU `CpuRenderer::drawCli
 2. **Edit page effects** (Inspector effects, in their order), including the Apply LUT effect.
    This is the clip's "input transform" stage in this release: a camera LUT is an Apply LUT
    effect, or a LUT node at the head of the grade.
-3. **Clip grade** (Color page).
+3. **Clip grade** (Color page). Its first stage is the media's **input LUT** (Media Pool or
+   clips strip right-click > **3D LUT**, `ClipAttributes::inputLut`): a `.cube` applied to the
+   picture before the first node, so the node graph sees the LUT's output. The input LUT is the
+   picture's own interpretation, not a grade: it also runs when the clip has no grade and with
+   Shift+D (bypass all grades). It is a leading LUT-only corrector node of the prepared grade
+   (`render::prependInputLut()`), so the GPU pass and the CPU path run the same maths; the file's
+   path, size and time are part of the render cache key.
 4. **Masks** of the clip (Edit page), then crop, transform, opacity, transitions and
    compositing of the tracks.
 5. **Timeline grade** over the composite of every video track.

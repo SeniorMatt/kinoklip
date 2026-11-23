@@ -455,6 +455,29 @@ bool apply(Project& project, const QStringList& ids, const ClipAttributes& attri
     return changed;
 }
 
+bool setInputLut(Project& project, const QStringList& ids, const QString& path)
+{
+    const QStringList items = editableItems(project, ids);
+    if (items.isEmpty())
+        return false;
+    bool changed = false;
+    project.beginEdit(QObject::tr("Input LUT"));
+    for (const QString& id : items) {
+        const MediaItem* item = project.mediaPool()->item(id);
+        if (item && item->attributes.inputLut != path) {
+            ClipAttributes a = item->attributes;
+            a.inputLut = path;
+            project.mediaPool()->setItemAttributes(id, a);
+            changed = true;
+        }
+    }
+    if (changed)
+        project.endEdit();
+    else
+        project.cancelEdit();
+    return changed;
+}
+
 bool edit(Project& project, const QStringList& ids, QWidget* parent)
 {
     const QStringList items = editableItems(project, ids);

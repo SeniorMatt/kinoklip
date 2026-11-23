@@ -1309,8 +1309,12 @@ void GlRenderer::drawClip(
     // need the layer path too; so does the Color page grade (after the effects, before the
     // masks).
     const bool masked = GlMasks::hasActiveMasks(clip);
-    const bool graded
-        = !erase && fc.grades && !clip.grade.isEmpty() && !gradeops::isIdentity(clip.grade, local);
+    // The input LUT of the media (Media Pool > 3D LUT) is part of the picture, not of the grade:
+    // it shows whatever the grade bypass (Shift+D) says.
+    const bool inputLut = !erase && clip.attributes.hasInputLut();
+    const bool graded = inputLut
+        || (!erase && fc.grades && !clip.grade.isEmpty()
+            && !gradeops::isIdentity(clip.grade, local));
     if (m_activeEffects.empty() && !masked && !graded) {
         // Direct path: one pass from the source into the target.
         const QTransform quad(src.quad.width() * cw, 0, 0, src.quad.height() * ch,
@@ -1395,7 +1399,9 @@ void GlRenderer::drawClip(
         g.originX = g.originY = padPx;
         g.width = cw * layerScale;
         g.height = ch * layerScale;
-        const PreparedGrade prepared = prepareGrade(clip.grade, local, g);
+        const bool withGrade = fc.grades && !clip.grade.isEmpty();
+        const PreparedGrade prepared = prepareClipGrade(
+            withGrade ? clip.grade : ClipGrade {}, clip.attributes, local, g);
         if (PooledTarget next = m_grade.apply(*m_kit, *layer, prepared))
             layer = std::move(next);
     }

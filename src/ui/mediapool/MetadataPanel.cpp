@@ -17,9 +17,20 @@
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/common/UiFonts.h"
 
+#include <QAction>
+#include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
 #include <QEvent>
+#include <QFutureWatcher>
+#include <QHeaderView>
+#include <QKeyEvent>
+#include <QMenu>
+#include <QSettings>
+#include <QToolButton>
+#include <QTreeWidget>
+#include <QtConcurrent>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QLabel>
@@ -33,6 +44,7 @@
 namespace kk {
 
 namespace {
+constexpr char kFullViewKey[] = "metadata/fullView";
 constexpr Rational kFallbackFps {25, 1};
 constexpr int kCommentsHeight = 64; ///< px, about three lines
 constexpr int kMaxRating = 5;
@@ -111,6 +123,33 @@ MetadataPanel::MetadataPanel(AppContext& ctx, QWidget* parent)
     m_stack->addWidget(scroll);
     setContentWidget(m_stack);
     buildEditors();
+    buildFullView();
+
+    // Options menu ("..." in the title bar), as in Resolve: the full metadata view.
+    auto* options = new QToolButton;
+    options->setObjectName(QStringLiteral("MetadataOptions"));
+    options->setText(QStringLiteral("\u2026"));
+    options->setToolTip(tr("Metadata options"));
+    options->setAutoRaise(true);
+    options->setPopupMode(QToolButton::InstantPopup);
+    auto* optionsMenu = new QMenu(options);
+    m_showAll = optionsMenu->addAction(tr("Show All Metadata"));
+    m_showAll->setObjectName(QStringLiteral("MetadataShowAll"));
+    m_showAll->setCheckable(true);
+    m_showAll->setChecked(QSettings().value(QLatin1String(kFullViewKey), false).toBool());
+    m_showAll->setToolTip(tr("List everything in the file: all container and stream tags "
+                             "(also non-standard ones) and side data"));
+    connect(m_showAll, &QAction::toggled, this, [this](bool on) {
+        QSettings().setValue(QLatin1String(kFullViewKey), on);
+        refresh();
+    });
+    QAction* copyAllAction = optionsMenu->addAction(tr("Copy All Metadata"));
+    copyAllAction->setObjectName(QStringLiteral("MetadataCopyAll"));
+    connect(copyAllAction, &QAction::triggered, this, [this] { copyAll(); });
+    connect(optionsMenu, &QMenu::aboutToShow, this,
+        [this, copyAllAction] { copyAllAction->setEnabled(fullView() && !m_rows.isEmpty()); });
+    options->setMenu(optionsMenu);
+    addTitleBarWidget(options);
 
     // Keep the shown items up to date (rename, undo, removal, batch edits).
     MediaPool* pool = ctx.project->mediaPool();
@@ -183,8 +222,183 @@ void MetadataPanel::buildEditors()
     form->addRow(dimLabel(tr("Rating")), m_rating);
 }
 
+bool MetadataPanel::fullView() const
+{
+    return m_showAll && m_showAll->isChecked();
+}
+
+void MetadataPanel::setFullView(bool on)
+{
+    if (m_showAll)
+        m_showAll->setChecked(on);
+}
+
+void MetadataPanel::buildFullView()
+{
+    auto* page = new QWidget;
+    page->setObjectName(QStringLiteral("MetadataFullView"));
+    auto* column = new QVBoxLayout(page);
+    column->setContentsMargins(12, 10, 12, 6);
+    column->setSpacing(4);
+    m_fullHeading = new QLabel;
+    m_fullHeading->setObjectName(QStringLiteral("MetadataFullHeading"));
+    m_fullHeading->setWordWrap(true);
+    m_fullHeading->setFont(uifonts::font(uifonts::Role::Heading, m_fullHeading->font()));
+    column->addWidget(m_fullHeading);
+    m_filter = new QLineEdit;
+    m_filter->setObjectName(QStringLiteral("MetadataFilter"));
+    m_filter->setPlaceholderText(tr("Search metadata"));
+    m_filter->setClearButtonEnabled(true);
+    column->addWidget(m_filter);
+    m_fullNote = dimLabel(QString());
+    m_fullNote->setObjectName(QStringLiteral("MetadataFullNote"));
+    m_fullNote->setWordWrap(true);
+    column->addWidget(m_fullNote);
+    m_tree = new QTreeWidget;
+    m_tree->setObjectName(QStringLiteral("MetadataTree"));
+    m_tree->setColumnCount(2);
+    m_tree->setHeaderLabels({tr("Name"), tr("Value")});
+    m_tree->header()->setStretchLastSection(true);
+    m_tree->header()->setSectionResizeMode(0, QHeaderView::Interactive);
+    m_tree->setRootIsDecorated(true);
+    m_tree->setUniformRowHeights(true);
+    m_tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_tree->setTextElideMode(Qt::ElideMiddle);
+    m_tree->installEventFilter(this);
+    column->addWidget(m_tree, 1);
+    m_stack->addWidget(page);
+
+    connect(m_filter, &QLineEdit::textChanged, this, [this] { fillFullTree(); });
+    connect(m_tree, &QWidget::customContextMenuRequested, this,
+        [this](const QPoint& pos) { showFullMenu(m_tree->viewport()->mapToGlobal(pos)); });
+    m_reader = new QFutureWatcher<QVector<media::MetadataEntry>>(this);
+    connect(m_reader, &QFutureWatcher<QVector<media::MetadataEntry>>::finished, this, [this] {
+        // A newer request (another file) replaced this one: ignore the stale result.
+        if (m_readingPath != m_rowsPath)
+            return;
+        m_rows = m_reader->result();
+        m_readingPath.clear();
+        fillFullTree();
+    });
+}
+
+void MetadataPanel::refreshFull(const QVector<const MediaItem*>& items)
+{
+    if (items.size() != 1) {
+        m_fullHeading->setText(
+            plural(items.size(), tr("%n clip selected"), tr("%n clips selected")));
+        m_fullNote->setText(tr("Select one clip to see all of its metadata."));
+        m_rows.clear();
+        m_rowsPath.clear();
+        fillFullTree();
+        return;
+    }
+    const MediaItem* item = items.front();
+    m_fullHeading->setText(item->name);
+    if (item->isTimeline() || item->isSubtitle() || item->path.isEmpty()) {
+        m_fullNote->setText(tr("This item has no media file."));
+        m_rows.clear();
+        m_rowsPath.clear();
+        fillFullTree();
+        return;
+    }
+    if (item->path == m_rowsPath)
+        return; // already read (or being read)
+    m_rowsPath = item->path;
+    m_rows.clear();
+    m_fullNote->setText(tr("Reading the file..."));
+    fillFullTree();
+    m_readingPath = item->path;
+    const QString path = item->path;
+    m_reader->setFuture(QtConcurrent::run([path] {
+        QString error;
+        QVector<media::MetadataEntry> rows = media::readAllMetadata(path, &error);
+        if (rows.isEmpty())
+            rows.append({QStringLiteral("Error"), QStringLiteral("error"),
+                error.isEmpty() ? QStringLiteral("The file cannot be read") : error});
+        return rows;
+    }));
+}
+
+void MetadataPanel::fillFullTree()
+{
+    m_tree->setUpdatesEnabled(false);
+    m_tree->clear();
+    const QVector<media::MetadataEntry> rows = media::filterMetadata(m_rows, m_filter->text());
+    QTreeWidgetItem* group = nullptr;
+    QString groupName;
+    const QFont bold = uifonts::font(uifonts::Role::Emphasis, m_tree->font());
+    for (const media::MetadataEntry& e : rows) {
+        if (!group || e.group != groupName) {
+            group = new QTreeWidgetItem(m_tree, {e.group});
+            group->setFont(0, bold);
+            group->setFirstColumnSpanned(true);
+            groupName = e.group;
+        }
+        auto* row = new QTreeWidgetItem(group, {e.key, e.value});
+        row->setToolTip(0, e.key);
+        row->setToolTip(1, e.value);
+    }
+    m_tree->expandAll();
+    m_tree->resizeColumnToContents(0);
+    if (m_tree->columnWidth(0) > m_tree->viewport()->width() / 2 && m_tree->viewport()->width() > 0)
+        m_tree->setColumnWidth(0, m_tree->viewport()->width() / 2);
+    m_tree->setUpdatesEnabled(true);
+    if (!m_rows.isEmpty())
+        m_fullNote->setText(m_filter->text().trimmed().isEmpty()
+                ? QString()
+                : tr("%1 of %2 entries").arg(rows.size()).arg(m_rows.size()));
+    m_fullNote->setVisible(!m_fullNote->text().isEmpty());
+}
+
+QString MetadataPanel::fullText() const
+{
+    return media::metadataToText(media::filterMetadata(m_rows, m_filter->text()));
+}
+
+void MetadataPanel::copyAll() const
+{
+    QApplication::clipboard()->setText(fullText());
+}
+
+void MetadataPanel::showFullMenu(const QPoint& globalPos)
+{
+    QTreeWidgetItem* item = m_tree->currentItem();
+    QMenu menu(this);
+    QAction* value = menu.addAction(tr("Copy Value"));
+    value->setObjectName(QStringLiteral("MetadataCopyValue"));
+    QAction* row = menu.addAction(tr("Copy Name and Value"));
+    row->setObjectName(QStringLiteral("MetadataCopyRow"));
+    QAction* all = menu.addAction(tr("Copy All"));
+    all->setObjectName(QStringLiteral("MetadataCopyAllRows"));
+    const bool onRow = item && item->parent();
+    value->setEnabled(onRow);
+    row->setEnabled(onRow);
+    all->setEnabled(!m_rows.isEmpty());
+    QAction* chosen = menu.exec(globalPos);
+    if (chosen == value)
+        QApplication::clipboard()->setText(item->text(1));
+    else if (chosen == row)
+        QApplication::clipboard()->setText(item->text(0) + QStringLiteral(" : ") + item->text(1));
+    else if (chosen == all)
+        copyAll();
+}
+
 bool MetadataPanel::eventFilter(QObject* watched, QEvent* event)
 {
+    if (watched == m_tree && event->type() == QEvent::KeyPress
+        && static_cast<QKeyEvent*>(event)->matches(QKeySequence::Copy)) {
+        // Ctrl+C: the selected rows as "name : value" lines (group rows as headings).
+        QStringList lines;
+        for (QTreeWidgetItem* it : m_tree->selectedItems()) {
+            lines.append(it->parent() ? it->text(0) + QStringLiteral(" : ") + it->text(1)
+                                      : QStringLiteral("[") + it->text(0) + QStringLiteral("]"));
+        }
+        if (!lines.isEmpty())
+            QApplication::clipboard()->setText(lines.join(QLatin1Char('\n')));
+        return true;
+    }
     if (watched == m_comments && event->type() == QEvent::FocusOut && !m_filling
         && m_comments->document()->isModified()) {
         m_comments->document()->setModified(false);
@@ -270,6 +484,11 @@ void MetadataPanel::refresh()
     }
     if (items.isEmpty()) {
         m_stack->setCurrentIndex(0);
+        return;
+    }
+    if (fullView()) {
+        refreshFull(items);
+        m_stack->setCurrentIndex(2);
         return;
     }
     m_heading->setText(items.size() == 1

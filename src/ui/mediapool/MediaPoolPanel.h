@@ -5,6 +5,7 @@
 #pragma once
 
 #include "core/Multicam.h"
+#include "core/RelinkMatcher.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/mediapool/MediaPoolModel.h"
 
@@ -287,8 +288,13 @@ public:
     /// number of items relinked.
     int relinkFromFolder(const QString& folder, const QStringList& onlyIds = {});
     /// "Relink Offline Media…" (all) / "Relink Selected Clips…" (@p onlyIds): asks for a
-    /// folder, then relinkFromFolder() and a summary.
+    /// folder, then the RelinkDialog shows what matches (other case or extension, a find /
+    /// replace pattern, the closest name) before relinkRows() applies it, and a summary.
     void relinkWithDialog(const QStringList& onlyIds = {});
+    /// Points the items of @p rows (RelinkDialog::result()) at their new files as one undo step
+    /// ("Relink Media"). A file that is not the same name is probed again (its length and size
+    /// may differ). Returns the number of items relinked.
+    int relinkRows(const QVector<relink::MatchRow>& rows);
     /// Resolve's "Replace Selected Clip…": points file item @p id at another file @p path
     /// (renamed or different media; probed again, one undo step "Replace Clip"). Timeline
     /// clips keep their source ranges. Returns false if @p path is not a usable media file.
@@ -364,6 +370,8 @@ private:
     void becomeImportTarget();
     void showHeaderMenu(const QPoint& globalPos);
     void addColorMenu(QMenu& menu, const QStringList& ids);
+    /// The "3D LUT" submenu (input LUT of the media items @p ids; @p current is the clicked one).
+    void addInputLutMenu(QMenu& menu, const QStringList& ids, const QString& current);
     void addFlagMenu(QMenu& menu, const QStringList& ids);
     void fillColorFilterMenu(QMenu* menu);
     void importWithDialog();

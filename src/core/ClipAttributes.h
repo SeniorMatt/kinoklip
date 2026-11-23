@@ -71,6 +71,10 @@ struct ClipAttributes
     /// speed of frameRateScale() on the clips added from the item (spec 89.17).
     Rational frameRate {0, 1};
     AlphaMode alphaMode = AlphaMode::Auto;
+    /// Input LUT (Media Pool > 3D LUT): a .cube file applied to the file's picture before the
+    /// clip's node graph, on every viewer, thumbnail, render and export. Absolute path;
+    /// empty = none. Saved as an optional key, so an older build simply ignores it.
+    QString inputLut;
 
     // ---- Audio ----
     ChannelFormat channelFormat = ChannelFormat::Auto;
@@ -95,6 +99,8 @@ struct ClipAttributes
         return pixelAspect.isValid() || levels != DataLevels::Auto || rotation != 0
             || frameRate.isValid() || alphaMode != AlphaMode::Auto || (deinterlace && fieldOrder != FieldOrder::Progressive);
     }
+    /// True when an input LUT is set.
+    [[nodiscard]] bool hasInputLut() const { return !inputLut.isEmpty(); }
     /// True when the audio channel routing differs from the decoder's default.
     [[nodiscard]] bool affectsAudio() const { return channelFormat != ChannelFormat::Auto; }
 

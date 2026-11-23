@@ -169,7 +169,7 @@ public:
     explicit LutBrowser(ColorSession* session, QWidget* parent = nullptr);
 
     /// The folders shown (settings, plus the default folder).
-    [[nodiscard]] QStringList folders() const;
+    [[nodiscard]] static QStringList folders();
     /// Adds @p folder to the list (remembered).
     void addFolder(const QString& folder);
     /// Rescans the folders.

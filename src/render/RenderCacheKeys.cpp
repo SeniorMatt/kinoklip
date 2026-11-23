@@ -106,6 +106,17 @@ void addGradeLuts(QCryptographicHash& h, const ClipGrade& grade)
     }
 }
 
+/// Adds the identity (path, size, modification time) of the input LUT of @p attributes.
+void addInputLut(QCryptographicHash& h, const ClipAttributes& attributes)
+{
+    if (!attributes.hasInputLut())
+        return;
+    const QFileInfo info(attributes.inputLut);
+    h.addData(QByteArrayLiteral("inputlut:") + attributes.inputLut.toUtf8() + ':'
+        + QByteArray::number(info.size()) + ':'
+        + QByteArray::number(info.lastModified().toMSecsSinceEpoch()));
+}
+
 /// Hash of the picture-relevant part of one clip (cached per clip within one computation).
 class ClipHasher
 {
@@ -166,6 +177,7 @@ private:
         }
         h.addData(canonicalJson(json));
         addGradeLuts(h, clip.grade); // the grade JSON names its LUTs; their content counts too
+        addInputLut(h, clip.attributes); // the same for the media's input LUT
         if (clip.kind == ClipKind::Media) {
             h.addData(m_mediaKeys.value(clip.mediaId, QByteArrayLiteral("unknown-media")));
         } else if (clip.kind == ClipKind::Nested) {

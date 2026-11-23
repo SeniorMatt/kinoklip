@@ -14,12 +14,14 @@
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/FolderImport.h"
+#include "ui/common/InputLutMenu.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
 #include "ui/common/MediaStore.h"
 #include "ui/common/MenuLayouts.h"
 #include "ui/common/SaveMediaCopy.h"
 #include "ui/dialogs/ClipAttributesDialog.h"
+#include "ui/dialogs/RelinkDialog.h"
 #include "ui/mediapool/BinList.h"
 #include "ui/mediapool/MediaPoolPanel.h"
 #include "ui/timeline/TimelineDialogs.h"
@@ -264,6 +266,23 @@ void MediaPoolPanel::addFileRepairCommands(
         });
 }
 
+void MediaPoolPanel::addInputLutMenu(QMenu& menu, const QStringList& ids, const QString& current)
+{
+    const MediaItem* item = m_model->item(current);
+    if (!item || item->kind != MediaItemKind::File || !item->info.hasVideo)
+        return;
+    // Resolve's right-click > 3D LUT: an input LUT applied before the node graph. Power bin
+    // items are copied into the project first, like for Clip Attributes.
+    QMenu* lut = menu.addMenu(tr("3D LUT"));
+    inputlut::populate(
+        lut, item->attributes.inputLut, this, [this, ids, current](const QString& path) {
+            const QStringList projectIds
+                = ensureInProject(ids.contains(current) ? ids : QStringList {current});
+            if (!projectIds.isEmpty())
+                clipattributes::setInputLut(*m_ctx.project, projectIds, path);
+        });
+}
+
 void MediaPoolPanel::fillStreamlinedItemMenu(QMenu& menu)
 {
     const QStringList ids = selectedMediaIds();
@@ -371,6 +390,8 @@ void MediaPoolPanel::fillStreamlinedItemMenu(QMenu& menu)
         addFileRepairCommands(*tools, ids, current, power);
     if (onItem && !power && reg)
         addRegistered(*tools, reg, "mediapool.select_in_timeline");
+    if (onItem && currentItem && currentItem->kind == MediaItemKind::File)
+        addInputLutMenu(*tools, ids, current);
     if (!tools->actions().isEmpty())
         tools->addSeparator();
     if (reg && reg->contains(QStringLiteral("mediapool.remove_unused")))
@@ -443,6 +464,7 @@ void MediaPoolPanel::showItemMenu(const QPoint& globalPos)
                 if (!projectIds.isEmpty())
                     clipattributes::edit(*m_ctx.project, projectIds, this);
             });
+            addInputLutMenu(menu, ids, current);
         }
         if (!power) {
             menu.addSeparator();
@@ -664,7 +686,10 @@ void MediaPoolPanel::relinkWithDialog(const QStringList& onlyIds)
         QStringLiteral("paths/lastRelinkDir"));
     if (folder.isEmpty())
         return;
-    const int relinked = relinkFromFolder(folder, onlyIds);
+    RelinkDialog dialog(*m_ctx.project->mediaPool(), onlyIds, folder, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    const int relinked = relinkRows(dialog.result());
     const auto& items = m_ctx.project->mediaPool()->state().items;
     const auto stillOffline = std::count_if(items.cbegin(), items.cend(), [&](const MediaItem& m) {
         return !m.isTimeline() && (onlyIds.isEmpty() || onlyIds.contains(m.id))
@@ -673,12 +698,49 @@ void MediaPoolPanel::relinkWithDialog(const QStringList& onlyIds)
     QMessageBox::information(this, tr("Relink Offline Media"),
         plural(relinked, tr("%n item relinked."), tr("%n items relinked."))
             + (stillOffline > 0 ? QLatin1Char(' ')
-                        + plural(stillOffline,
-                            tr("%n item is still offline (no file with the same name in "
-                               "that folder)."),
-                            tr("%n items are still offline (no file with the same name in "
-                               "that folder)."))
+                        + plural(stillOffline, tr("%n item is still offline."),
+                            tr("%n items are still offline."))
                                 : QString()));
+}
+
+int MediaPoolPanel::relinkRows(const QVector<relink::MatchRow>& rows)
+{
+    Project* project = m_ctx.project;
+    MediaPool* pool = project->mediaPool();
+    QStringList wereOffline;
+    for (const relink::MatchRow& row : rows) {
+        if (pool->isOffline(row.itemId))
+            wereOffline.append(row.itemId);
+    }
+    int relinked = 0;
+    project->beginEdit(tr("Relink Media"));
+    for (const relink::MatchRow& row : rows) {
+        const MediaItem* item = pool->item(row.itemId);
+        if (!item || item->isTimeline() || row.newPath.isEmpty())
+            continue;
+        const QString absolute = QFileInfo(row.newPath).absoluteFilePath();
+        const bool followsName
+            = item->name.compare(QFileInfo(item->path).fileName(), Qt::CaseInsensitive) == 0;
+        const QString name = followsName ? QFileInfo(absolute).fileName() : item->name;
+        const bool sameFile = row.kind == relink::MatchKind::Exact
+            || row.kind == relink::MatchKind::CaseInsensitive;
+        const QString id = row.itemId;
+        if (!pool->relinkItem(id, absolute))
+            continue;
+        if (!sameFile) {
+            // Another file: its length, size and codec may differ from the cached probe.
+            const PreparedMedia prepared = MediaPool::prepareFile(absolute);
+            if (prepared.ok && prepared.item.kind == MediaItemKind::File)
+                pool->updateItem(id, name, prepared.item.info);
+        }
+        ++relinked;
+    }
+    project->endEdit();
+    // A single-file project keeps its media inside: the found files are copied in.
+    if (relinked > 0 && !wereOffline.isEmpty())
+        storeItemsInProject(m_ctx, wereOffline, this);
+    m_model->recheckOffline();
+    return relinked;
 }
 
 } // namespace kk

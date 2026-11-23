@@ -10,6 +10,7 @@
 #include "core/SmartBins.h"
 #include "media/MediaSource.h"
 #include "pack/ProjectPackage.h"
+#include "render/GradeEval.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Icons.h"
 #include "ui/common/MediaImport.h"
@@ -405,6 +406,7 @@ MediaPoolModel::Row MediaPoolModel::makeRow(const MediaItem& item, bool power)
             row.audioText += QStringLiteral(", ")
                 + plural(info.audioTrackCount(), tr("%n audio track"), tr("%n audio tracks"));
     }
+    row.inputLut = item.attributes.inputLut;
     row.clipColorId = findClipColor(item.clipColor) ? item.clipColor : QString();
     row.clipColor = clipColorValue(row.clipColorId);
     row.colorText = clipColorName(row.clipColorId);
@@ -584,7 +586,9 @@ QPixmap MediaPoolModel::poster(const Row& row) const
         || row.kind == MulticamKind || row.kind == SubtitleKind || row.kind == FolderKind
         || !m_provider)
         return {};
-    if (const QPixmap* cached = m_posters.object(row.path))
+    // The poster shows the item's input LUT, so the cache is keyed by it too.
+    const QString key = row.inputLut.isEmpty() ? row.path : row.path + QStringLiteral("|lut|") + row.inputLut;
+    if (const QPixmap* cached = m_posters.object(key))
         return *cached;
     if (m_pending.contains(row.path))
         return {};
@@ -595,11 +599,16 @@ QPixmap MediaPoolModel::poster(const Row& row) const
         return {};
     }
     // Scale once to the tile, so painting is a plain blit.
-    auto* scaled = new QPixmap(QPixmap::fromImage(
-        image.scaled(m_posterSize, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+    QImage fitted = image.scaled(m_posterSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    if (!row.inputLut.isEmpty()) {
+        ClipAttributes attributes;
+        attributes.inputLut = row.inputLut;
+        render::applyInputLut(attributes, fitted);
+    }
+    auto* scaled = new QPixmap(QPixmap::fromImage(fitted));
     const QPixmap result = *scaled;
     const int costKiB = std::max(1, int(qint64(scaled->width()) * scaled->height() * 4 / 1024));
-    m_posters.insert(row.path, scaled, costKiB);
+    m_posters.insert(key, scaled, costKiB);
     return result;
 }
 

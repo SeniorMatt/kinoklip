@@ -23,12 +23,12 @@ set(KK_TESTS_FULL
   test_bughunt12 test_inapphelp test_audiopage test_analyzerui test_trackeffectsui test_loudnessui test_trackers test_schemecolors
   test_embeddedmedia test_cli test_voiceover test_pagecommands test_openurl test_audiosync
   test_videodecoder test_polish4shots test_pointtracker test_mediamanagement test_commands
-  test_adjustment check_menu_reference
+  test_adjustment test_inputlutui check_menu_reference
 )
 
 # Fast pure-logic and UI tests.
 set(KK_TESTS_QUICK
-  test_textmesh3d check_issue_forms check_status check_vim_docs check_translations test_actionregistry test_aimodeldialog
+  test_textmesh3d test_inputlut test_metadatafull test_relinkfuzzy check_issue_forms check_status check_vim_docs check_translations test_actionregistry test_aimodeldialog
   test_animation test_audioclipeffects test_audioclipeffectsui test_trackeffects test_noisereduction test_noisereductionui test_audiodecoder test_audiomixer
   test_audionormalize test_automation test_loudness test_dynamicskey test_modfx test_spectrum test_monitorcontrols test_voiceisolation test_sends test_arabictext test_audiopitch test_audiorouting test_audiotransitions
   test_backgroundremoval test_bins test_birefnet test_boginspector test_bogplayback

@@ -877,6 +877,119 @@ private slots:
         // samePictures() sees the timeline grade.
         QVERIFY(!render::samePictures(tl, timelineGraded));
     }
+
+    // ---- Input LUT of the media item (Media Pool > 3D LUT, ClipAttributes::inputLut) ----
+
+    TimelineData timelineWithInputLut(const QString& lut, const ClipGrade& clipGrade = {})
+    {
+        TimelineData tl = timelineWith(clipGrade);
+        tl.videoTracks[0].clips[0].attributes.inputLut = lut;
+        return tl;
+    }
+
+    void inputLutMatchesTheCubeOnBothBackends()
+    {
+        for (Compositor* c : {m_gpu.get(), m_cpu.get()}) {
+            if (c == m_gpu.get() && !gpuReady())
+                continue;
+            const QImage plain = render(*c, timelineWith({}));
+            const QImage withLut = render(*c, timelineWithInputLut(m_lut3d));
+            QVERIFY(maxDiff(plain, withLut) > 20); // the look is strong: it shows
+            // The reference: the same LUT as a node of a grade on the plain picture.
+            ClipGrade asNode = primariesGrade({});
+            asNode.nodes[0].lutPath = m_lut3d;
+            QImage reference = plain.copy();
+            applyGrade(asNode, 0, reference);
+            const int d = maxDiff(withLut, reference);
+            QVERIFY2(d <= 4, qPrintable(QString::number(d)));
+            // A 1D table works as well.
+            QVERIFY(maxDiff(plain, render(*c, timelineWithInputLut(m_lut1d))) > 20);
+        }
+    }
+
+    void inputLutGpuAndCpuAgree()
+    {
+        if (!gpuReady())
+            QSKIP("no OpenGL");
+        for (const QString& lut : {m_lut3d, m_lut1d}) {
+            const int d = maxDiff(render(*m_gpu, timelineWithInputLut(lut)),
+                render(*m_cpu, timelineWithInputLut(lut)));
+            qInfo("input LUT %s: GPU vs CPU backend max diff %d", qPrintable(lut), d);
+            QVERIFY(d <= 5);
+        }
+    }
+
+    void inputLutComesBeforeTheNodeGraph()
+    {
+        // The LUT is applied first, then the nodes: the same as a LUT-only node feeding the grade.
+        const ClipGrade grade = primariesGrade({{gk::Saturation, 0.4}, {gk::GainR, 1.25}});
+        ClipGrade chain = grade;
+        GradeNode first;
+        first.id = chain.allocateId();
+        first.lutPath = m_lut3d;
+        first.inputs = {0};
+        chain.nodes[0].inputs = {first.id};
+        chain.nodes.prepend(first);
+        chain.output = grade.output;
+        QImage reference = render(*m_cpu, timelineWith({}));
+        applyGrade(chain, 0, reference);
+        ClipGrade swapped = primariesGrade({});
+        swapped.nodes[0].lutPath = m_lut3d;
+        ClipGrade lutOnly = primariesGrade({});
+        lutOnly.nodes[0].lutPath = m_lut3d;
+        for (Compositor* c : {m_gpu.get(), m_cpu.get()}) {
+            if (c == m_gpu.get() && !gpuReady())
+                continue;
+            const QImage got = render(*c, timelineWithInputLut(m_lut3d, grade));
+            const int d = maxDiff(got, reference);
+            QVERIFY2(d <= 5, qPrintable(QString::number(d)));
+            // Not the other order (grade, then LUT): that picture differs.
+            QImage other = render(*m_cpu, timelineWith(grade));
+            applyGrade(swapped, 0, other);
+            QVERIFY(maxDiff(got, other) > 5);
+            // The bypass of the grades (Shift+D) keeps the input LUT: it is the picture's own.
+            const QImage bypassed = render(*c, timelineWithInputLut(m_lut3d, grade), true);
+            QImage onlyLut = render(*m_cpu, timelineWith({}));
+            applyGrade(lutOnly, 0, onlyLut);
+            QVERIFY(maxDiff(bypassed, onlyLut) <= 4);
+        }
+    }
+
+    void inputLutUnreadableFileIsIgnored()
+    {
+        const QString missing = m_dir.filePath(QStringLiteral("missing.cube"));
+        for (Compositor* c : {m_gpu.get(), m_cpu.get()}) {
+            if (c == m_gpu.get() && !gpuReady())
+                continue;
+            QCOMPARE(
+                maxDiff(render(*c, timelineWithInputLut(missing)), render(*c, timelineWith({}))), 0);
+        }
+    }
+
+    void inputLutIsPartOfTheCacheKeyAndThePictures()
+    {
+        const MediaKeyMap keys;
+        const CacheKeyOptions options;
+        const TimelineData plain = timelineWith({});
+        const TimelineData withLut = timelineWithInputLut(m_lut3d);
+        const TimelineData otherLut = timelineWithInputLut(m_lut1d);
+        const QByteArray k0 = renderCacheChunks(plain, keys, options)[0].key;
+        const QByteArray k1 = renderCacheChunks(withLut, keys, options)[0].key;
+        QVERIFY(k0 != k1);
+        QVERIFY(k1 != renderCacheChunks(otherLut, keys, options)[0].key);
+        QCOMPARE(renderCacheChunks(timelineWithInputLut(m_lut3d), keys, options)[0].key, k1);
+        QVERIFY(!render::samePictures(plain, withLut));
+        // A changed LUT file changes the key (size and time count).
+        QFile f(m_lut3d);
+        QVERIFY(f.open(QIODevice::Append));
+        f.write("# changed\n");
+        f.close();
+        QVERIFY(f.open(QIODevice::ReadWrite));
+        QVERIFY(f.setFileTime(
+            QDateTime::currentDateTime().addSecs(9), QFileDevice::FileModificationTime));
+        f.close();
+        QVERIFY(renderCacheChunks(withLut, keys, options)[0].key != k1);
+    }
 };
 
 int main(int argc, char** argv)

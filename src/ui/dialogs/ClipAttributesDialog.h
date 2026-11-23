@@ -98,6 +98,9 @@ namespace clipattributes {
 /// Applies @p attributes to the items @p ids as one undo step ("Clip Attributes"); their
 /// clips follow (Project::syncDerived()). Returns whether anything changed.
 bool apply(Project& project, const QStringList& ids, const ClipAttributes& attributes);
+/// Sets the input LUT (.cube path, empty = none) of the items @p ids as one undo step ("Input
+/// LUT"); their clips follow. Returns whether anything changed.
+bool setInputLut(Project& project, const QStringList& ids, const QString& path);
 /// Opens the dialog for @p ids (first editable item's values) and applies it on OK.
 /// Returns whether anything changed. Does nothing when no id is editable.
 bool edit(Project& project, const QStringList& ids, QWidget* parent);

@@ -1024,7 +1024,7 @@ LutBrowser::LutBrowser(ColorSession* session, QWidget* parent)
     refresh();
 }
 
-QStringList LutBrowser::folders() const
+QStringList LutBrowser::folders()
 {
     QStringList list = QSettings().value(QLatin1String(kLutFoldersKey)).toStringList();
     const QString def = defaultFolder();

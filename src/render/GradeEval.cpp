@@ -123,6 +123,49 @@ PreparedGrade prepareGrade(const ClipGrade& grade, int64_t frame, const PictureG
     return out;
 }
 
+void prependInputLut(PreparedGrade& g, const ClipAttributes& attributes)
+{
+    if (!attributes.hasInputLut())
+        return;
+    QString why;
+    std::shared_ptr<const CubeLut> lut = loadCubeLut(attributes.inputLut, &why);
+    if (!lut) {
+        warnLut(attributes.inputLut, why);
+        return;
+    }
+    PreparedGradeNode first;
+    first.type = GradeNodeType::Corrector;
+    first.inputs = {-1};
+    first.lut = std::move(lut);
+    first.tetrahedral = true;
+    first.corrects = true;
+    for (PreparedGradeNode& n : g.nodes) {
+        for (int& in : n.inputs)
+            in = in < 0 ? 0 : in + 1;
+    }
+    g.nodes.insert(g.nodes.begin(), std::move(first));
+    // output -1 (empty or disconnected grade): the picture leaves with just the LUT.
+    g.output = g.output < 0 ? 0 : g.output + 1;
+    g.identity = false;
+}
+
+PreparedGrade prepareClipGrade(const ClipGrade& grade, const ClipAttributes& attributes,
+    int64_t frame, const PictureGeometry& geometry)
+{
+    PreparedGrade out = prepareGrade(grade, frame, geometry);
+    prependInputLut(out, attributes);
+    return out;
+}
+
+void applyInputLut(const ClipAttributes& attributes, QImage& image)
+{
+    if (!attributes.hasInputLut() || image.isNull())
+        return;
+    PreparedGrade g;
+    prependInputLut(g, attributes);
+    applyGrade(g, image);
+}
+
 namespace {
 
 /// Evaluates node @p i of @p g for one pixel into scratch[4i .. 4i+3] (colour, layer alpha);
