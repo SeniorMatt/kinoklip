@@ -71,7 +71,7 @@ bool ColorViewerOverlay::eventFilter(QObject* watched, QEvent* event)
 
 void ColorViewerOverlay::refresh()
 {
-    const bool interactive = m_pick || isWiping()
+    const bool interactive = m_pick || isWiping() || m_chartOn
         || (m_windowControls && m_session && m_session->currentNode()
             && !m_session->currentNode()->windows.isEmpty());
     setAttribute(Qt::WA_TransparentForMouseEvents, !interactive);
@@ -83,6 +83,82 @@ void ColorViewerOverlay::setWindowControls(bool on)
 {
     m_windowControls = on;
     refresh();
+}
+
+void ColorViewerOverlay::setChart(bool on, const colormatch::ChartQuad& quad)
+{
+    m_chartOn = on;
+    m_chartQuad = quad;
+    refresh();
+}
+
+QPointF ColorViewerOverlay::chartCornerPos(int index) const
+{
+    const QRectF pic = pictureRect();
+    const QPointF c = m_chartQuad.corner[size_t(index)];
+    return QPointF(pic.left() + c.x() * pic.width(), pic.top() + c.y() * pic.height());
+}
+
+int ColorViewerOverlay::chartHit(QPointF pos) const
+{
+    if (!m_chartOn || pictureRect().isEmpty())
+        return -1;
+    int best = -1;
+    double bestDist = kChartHandleRadius;
+    for (int i = 0; i < 4; ++i) {
+        const QPointF c = chartCornerPos(i);
+        const double d = std::hypot(c.x() - pos.x(), c.y() - pos.y());
+        if (d <= bestDist) {
+            bestDist = d;
+            best = i;
+        }
+    }
+    if (best >= 0)
+        return best;
+    QPolygonF poly;
+    for (int i = 0; i < 4; ++i)
+        poly << chartCornerPos(i);
+    return poly.containsPoint(pos, Qt::OddEvenFill) ? 4 : -1;
+}
+
+void ColorViewerOverlay::paintChart(QPainter& p) const
+{
+    // The patch grid, dark under light so it shows on any picture, and the central half of
+    // every patch (where the colour is measured) dotted.
+    auto at = [&](double u, double v) {
+        const QPointF f = colormatch::chartPoint(m_chartQuad, u, v);
+        const QRectF pic = pictureRect();
+        return QPointF(pic.left() + f.x() * pic.width(), pic.top() + f.y() * pic.height());
+    };
+    for (int pass = 0; pass < 2; ++pass) {
+        p.setPen(pass == 0 ? QPen(QColor(0, 0, 0, 200), 3) : QPen(QColor(255, 255, 255, 235), 1));
+        for (int i = 0; i <= colormatch::kChartColumns; ++i) {
+            const double u = double(i) / colormatch::kChartColumns;
+            p.drawLine(at(u, 0), at(u, 1));
+        }
+        for (int j = 0; j <= colormatch::kChartRows; ++j) {
+            const double v = double(j) / colormatch::kChartRows;
+            p.drawLine(at(0, v), at(1, v));
+        }
+    }
+    p.setPen(QPen(QColor(255, 255, 255, 160), 1, Qt::DotLine));
+    p.setBrush(Qt::NoBrush);
+    for (int row = 0; row < colormatch::kChartRows; ++row) {
+        for (int col = 0; col < colormatch::kChartColumns; ++col) {
+            const double u0 = (col + 0.25) / colormatch::kChartColumns;
+            const double u1 = (col + 0.75) / colormatch::kChartColumns;
+            const double v0 = (row + 0.25) / colormatch::kChartRows;
+            const double v1 = (row + 0.75) / colormatch::kChartRows;
+            QPolygonF cell;
+            cell << at(u0, v0) << at(u1, v0) << at(u1, v1) << at(u0, v1);
+            p.drawPolygon(cell);
+        }
+    }
+    for (int i = 0; i < 4; ++i) {
+        p.setPen(QPen(QColor(0, 0, 0, 220), 1.5));
+        p.setBrush(QColor(255, 200, 60, 235));
+        p.drawEllipse(chartCornerPos(i), kChartHandleRadius * 0.7, kChartHandleRadius * 0.7);
+    }
 }
 
 void ColorViewerOverlay::setPickMode(bool on)
@@ -562,6 +638,8 @@ void ColorViewerOverlay::paintEvent(QPaintEvent*)
         p.setBrush(QColor(255, 255, 255, 220));
         p.drawEllipse(QPointF(x, pic.center().y()), 5, 5);
     }
+    if (m_chartOn && !pic.isEmpty())
+        paintChart(p);
     if (m_windowControls && m_session) {
         if (const GradeNode* n = m_session->currentNode()) {
             for (const GradeWindow& w : n->windows)
@@ -581,6 +659,11 @@ void ColorViewerOverlay::mousePressEvent(QMouseEvent* event)
 {
     const QPointF pos = event->position();
     m_pressPos = m_mousePos = pos;
+    if (m_chartOn && event->button() == Qt::LeftButton) {
+        m_chartDrag = chartHit(pos);
+        m_chartPressQuad = m_chartQuad;
+        return;
+    }
     if (!m_session)
         return;
     if (m_pick && event->button() == Qt::LeftButton) {
@@ -734,6 +817,34 @@ void ColorViewerOverlay::mouseMoveEvent(QMouseEvent* event)
 {
     const QPointF pos = event->position();
     m_mousePos = pos;
+    if (m_chartDrag >= 0) {
+        const QPointF d = toFrameFraction(pos) - toFrameFraction(m_pressPos);
+        colormatch::ChartQuad q = m_chartPressQuad;
+        if (m_chartDrag < 4) {
+            QPointF c = q.corner[size_t(m_chartDrag)] + d;
+            q.corner[size_t(m_chartDrag)] = QPointF(std::clamp(c.x(), 0.0, 1.0), std::clamp(c.y(), 0.0, 1.0));
+        } else {
+            // Keep the whole outline on the picture.
+            QPointF shift = d;
+            for (const QPointF& c : q.corner) {
+                shift.setX(std::clamp(shift.x(), -c.x(), 1.0 - c.x()));
+                shift.setY(std::clamp(shift.y(), -c.y(), 1.0 - c.y()));
+            }
+            for (QPointF& c : q.corner)
+                c += shift;
+        }
+        if (!(q == m_chartQuad)) {
+            m_chartQuad = q;
+            update();
+            emit chartQuadChanged(q);
+        }
+        return;
+    }
+    if (m_chartOn) {
+        const int hit = chartHit(pos);
+        setCursor(hit == 4 ? Qt::SizeAllCursor : hit >= 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        return;
+    }
     if (m_picking) {
         update();
         return;
@@ -782,6 +893,10 @@ void ColorViewerOverlay::mouseReleaseEvent(QMouseEvent* event)
 {
     if (event->button() != Qt::LeftButton)
         return;
+    if (m_chartDrag >= 0) {
+        m_chartDrag = -1;
+        return;
+    }
     if (m_picking) {
         m_picking = false;
         QRectF r(toFrameFraction(m_pressPos), toFrameFraction(event->position()));

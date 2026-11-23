@@ -3289,6 +3289,38 @@ The program was probably closed by the system because the computer ran out of me
         <translation>Сторінка «Колір»: додає послідовну ноду перед поточною нодою.</translation>
     </message>
     <message>
+        <source>Color page: adds an Outside node after the current node, keyed with the inverse of the current node&apos;s key.</source>
+        <translation>Сторінка кольору: додає після поточного нода зовнішній нод з інвертованим ключем поточного нода.</translation>
+    </message>
+    <message>
+        <source>Color page: adds a Key Mixer that combines the keys of several nodes into one key.</source>
+        <translation>Сторінка кольору: додає мікшер ключів, що об'єднує ключі кількох нодів в один.</translation>
+    </message>
+    <message>
+        <source>Color page: adds a Splitter and a Combiner after the current node, to grade the red, green and blue channels apart.</source>
+        <translation>Сторінка кольору: додає після поточного нода сплітер і комбайнер, щоб градуювати червоний, зелений і синій канали окремо.</translation>
+    </message>
+    <message>
+        <source>Color page: adds the Alpha Output, whose key becomes the alpha of the clip.</source>
+        <translation>Сторінка кольору: додає вихід альфи, ключ якого стає альфою кліпу.</translation>
+    </message>
+    <message>
+        <source>Color page: groups the selected nodes into one Compound node.</source>
+        <translation>Сторінка кольору: об'єднує вибрані ноди в один складений нод.</translation>
+    </message>
+    <message>
+        <source>Color page: dissolves the current Compound node into its nodes.</source>
+        <translation>Сторінка кольору: розбирає поточний складений нод на його ноди.</translation>
+    </message>
+    <message>
+        <source>Color page: shows the nodes inside the current Compound node.</source>
+        <translation>Сторінка кольору: показує ноди всередині поточного складеного нода.</translation>
+    </message>
+    <message>
+        <source>Color page: leaves the open Compound node and shows the level above.</source>
+        <translation>Сторінка кольору: виходить з відкритого складеного нода й показує рівень вище.</translation>
+    </message>
+    <message>
         <source>Color page: deletes the current node.</source>
         <translation>Сторінка «Колір»: видаляє поточну ноду.</translation>
     </message>
@@ -3338,67 +3370,67 @@ The program was probably closed by the system because the computer ran out of me
     </message>
     <message>
         <source>Color page: saves the current grade into gallery memory A.</source>
-        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам'яті A галереї.</translation>
+        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам&apos;яті A галереї.</translation>
     </message>
     <message>
         <source>Color page: saves the current grade into gallery memory B.</source>
-        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам'яті B галереї.</translation>
+        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам&apos;яті B галереї.</translation>
     </message>
     <message>
         <source>Color page: saves the current grade into gallery memory C.</source>
-        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам'яті C галереї.</translation>
+        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам&apos;яті C галереї.</translation>
     </message>
     <message>
         <source>Color page: saves the current grade into gallery memory D.</source>
-        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам'яті D галереї.</translation>
+        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам&apos;яті D галереї.</translation>
     </message>
     <message>
         <source>Color page: saves the current grade into gallery memory E.</source>
-        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам'яті E галереї.</translation>
+        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам&apos;яті E галереї.</translation>
     </message>
     <message>
         <source>Color page: saves the current grade into gallery memory F.</source>
-        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам'яті F галереї.</translation>
+        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам&apos;яті F галереї.</translation>
     </message>
     <message>
         <source>Color page: saves the current grade into gallery memory G.</source>
-        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам'яті G галереї.</translation>
+        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам&apos;яті G галереї.</translation>
     </message>
     <message>
         <source>Color page: saves the current grade into gallery memory H.</source>
-        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам'яті H галереї.</translation>
+        <translation>Сторінка «Колір»: зберігає поточну корекцію в комірку пам&apos;яті H галереї.</translation>
     </message>
     <message>
         <source>Color page: gives the current clip (the selected clips) the grade saved in gallery memory A.</source>
-        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам'яті A галереї.</translation>
+        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам&apos;яті A галереї.</translation>
     </message>
     <message>
         <source>Color page: gives the current clip (the selected clips) the grade saved in gallery memory B.</source>
-        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам'яті B галереї.</translation>
+        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам&apos;яті B галереї.</translation>
     </message>
     <message>
         <source>Color page: gives the current clip (the selected clips) the grade saved in gallery memory C.</source>
-        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам'яті C галереї.</translation>
+        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам&apos;яті C галереї.</translation>
     </message>
     <message>
         <source>Color page: gives the current clip (the selected clips) the grade saved in gallery memory D.</source>
-        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам'яті D галереї.</translation>
+        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам&apos;яті D галереї.</translation>
     </message>
     <message>
         <source>Color page: gives the current clip (the selected clips) the grade saved in gallery memory E.</source>
-        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам'яті E галереї.</translation>
+        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам&apos;яті E галереї.</translation>
     </message>
     <message>
         <source>Color page: gives the current clip (the selected clips) the grade saved in gallery memory F.</source>
-        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам'яті F галереї.</translation>
+        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам&apos;яті F галереї.</translation>
     </message>
     <message>
         <source>Color page: gives the current clip (the selected clips) the grade saved in gallery memory G.</source>
-        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам'яті G галереї.</translation>
+        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам&apos;яті G галереї.</translation>
     </message>
     <message>
         <source>Color page: gives the current clip (the selected clips) the grade saved in gallery memory H.</source>
-        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам'яті H галереї.</translation>
+        <translation>Сторінка «Колір»: застосовує до поточного кліпу (вибраних кліпів) корекцію з комірки пам&apos;яті H галереї.</translation>
     </message>
     <message>
         <source>Color page: splits the viewer to compare with the selected gallery still.</source>
@@ -9949,6 +9981,18 @@ Thank you for watching</source>
         <translation>Вставити корекцію</translation>
     </message>
     <message>
+        <source>Shot Match to This Clip</source>
+        <translation>Shot Match до цього кліпу</translation>
+    </message>
+    <message>
+        <source>Ctrl- or Shift-click the clips that should be matched to this one</source>
+        <translation>Клацніть із Ctrl або Shift кліпи, які потрібно підігнати під цей</translation>
+    </message>
+    <message>
+        <source>Match the selected clips&apos; balance and contrast to this clip</source>
+        <translation>Підігнати баланс і контраст вибраних кліпів під цей кліп</translation>
+    </message>
+    <message>
         <source>Reset Grade</source>
         <translation>Скинути корекцію</translation>
     </message>
@@ -9963,6 +10007,10 @@ Thank you for watching</source>
     <message>
         <source>3D LUT</source>
         <translation>3D LUT</translation>
+    </message>
+    <message>
+        <source>Shot Match</source>
+        <translation>Shot Match</translation>
     </message>
     <message>
         <source>grade</source>
@@ -10144,19 +10192,19 @@ Thank you for watching</source>
     </message>
     <message>
         <source>Save Memory %1</source>
-        <translation>Зберегти в пам'ять %1</translation>
+        <translation>Зберегти в пам&apos;ять %1</translation>
     </message>
     <message>
         <source>Apply Memory %1</source>
-        <translation>Застосувати пам'ять %1</translation>
+        <translation>Застосувати пам&apos;ять %1</translation>
     </message>
     <message>
         <source>Apply Memory %1 to Selected Clips</source>
-        <translation>Застосувати пам'ять %1 до вибраних кліпів</translation>
+        <translation>Застосувати пам&apos;ять %1 до вибраних кліпів</translation>
     </message>
     <message>
         <source>Clear Memory %1</source>
-        <translation>Очистити пам'ять %1</translation>
+        <translation>Очистити пам&apos;ять %1</translation>
     </message>
     <message>
         <source>Apply Grade to Selected Clips</source>
@@ -10204,7 +10252,7 @@ Thank you for watching</source>
     </message>
     <message>
         <source>The albums: Stills and its albums, PowerGrade (the same in every project) and Memories; right-click for more, drop stills on an album</source>
-        <translation>Альбоми: «Кадри» та їхні альбоми, PowerGrade (однаковий у всіх проєктах) і «Пам'ять»; права кнопка для більшого, перетягніть кадри на альбом</translation>
+        <translation>Альбоми: «Кадри» та їхні альбоми, PowerGrade (однаковий у всіх проєктах) і «Пам&apos;ять»; права кнопка для більшого, перетягніть кадри на альбом</translation>
     </message>
     <message>
         <source>Delete Still</source>
@@ -10212,7 +10260,7 @@ Thank you for watching</source>
     </message>
     <message>
         <source>Memories</source>
-        <translation>Пам'ять</translation>
+        <translation>Пам&apos;ять</translation>
     </message>
     <message numerus="yes">
         <source>%n node(s)</source>
@@ -10225,14 +10273,14 @@ Thank you for watching</source>
     <message numerus="yes">
         <source>Memory %1: %n node(s)</source>
         <translation>
-            <numerusform>Пам'ять %1: %n нода</numerusform>
-            <numerusform>Пам'ять %1: %n ноди</numerusform>
-            <numerusform>Пам'ять %1: %n нод</numerusform>
+            <numerusform>Пам&apos;ять %1: %n нода</numerusform>
+            <numerusform>Пам&apos;ять %1: %n ноди</numerusform>
+            <numerusform>Пам&apos;ять %1: %n нод</numerusform>
         </translation>
     </message>
     <message>
         <source>Memory %1 is empty; right-click to save the current grade%2</source>
-        <translation>Пам'ять %1 порожня; права кнопка, щоб зберегти поточну корекцію%2</translation>
+        <translation>Пам&apos;ять %1 порожня; права кнопка, щоб зберегти поточну корекцію%2</translation>
     </message>
     <message>
         <source> (Alt+%1)</source>
@@ -10240,7 +10288,7 @@ Thank you for watching</source>
     </message>
     <message>
         <source>Memories A to Z hold a grade each: Alt+1 to 8 save the current grade into A to H, Ctrl+1 to 8 apply them; middle-click or double-click a memory to apply it, right-click for more</source>
-        <translation>Комірки пам'яті від A до Z зберігають по одній корекції: Alt+1–8 зберігають поточну в A–H, Ctrl+1–8 застосовують їх; клік середньою кнопкою або подвійний клік по комірці застосовує її, права кнопка для більшого</translation>
+        <translation>Комірки пам&apos;яті від A до Z зберігають по одній корекції: Alt+1–8 зберігають поточну в A–H, Ctrl+1–8 застосовують їх; клік середньою кнопкою або подвійний клік по комірці застосовує її, права кнопка для більшого</translation>
     </message>
     <message>
         <source>(wipe)</source>
@@ -10432,6 +10480,89 @@ Thank you for watching</source>
     </message>
 </context>
 <context>
+    <name>kk::ColorMatchPanel</name>
+    <message>
+        <source>Color Chart</source>
+        <translation>Кольорова міра</translation>
+    </message>
+    <message>
+        <source>Show Chart</source>
+        <translation>Показати міру</translation>
+    </message>
+    <message>
+        <source>Show the chart outline in the viewer; drag its corners onto the chart in the picture, or drag inside to move it</source>
+        <translation>Показати контур міри у в'юері; перетягніть його кути на міру в кадрі або перетягніть всередині, щоб зсунути</translation>
+    </message>
+    <message>
+        <source>Reset Chart</source>
+        <translation>Скинути міру</translation>
+    </message>
+    <message>
+        <source>Put the chart outline back in the middle of the picture</source>
+        <translation>Повернути контур міри в центр кадру</translation>
+    </message>
+    <message>
+        <source>Source Gamma</source>
+        <translation>Вихідна гамма</translation>
+    </message>
+    <message>
+        <source>Target Gamma</source>
+        <translation>Цільова гамма</translation>
+    </message>
+    <message>
+        <source>Target Color Space</source>
+        <translation>Цільовий колірний простір</translation>
+    </message>
+    <message>
+        <source>White Point</source>
+        <translation>Точка білого</translation>
+    </message>
+    <message>
+        <source>Match</source>
+        <translation>Підігнати</translation>
+    </message>
+    <message>
+        <source>Measure the chart under the outline and set the selected node&apos;s lift, gamma, gain and RGB Mixer so the chart gets its reference colours</source>
+        <translation>Виміряти міру під контуром і задати lift, gamma, gain та RGB-мікшер вибраного нода так, щоб міра отримала еталонні кольори</translation>
+    </message>
+    <message>
+        <source>Shot Match Strength</source>
+        <translation>Сила Shot Match</translation>
+    </message>
+    <message>
+        <source>How far Shot Match goes. Select clips in the clips strip, then right-click the clip to match them to: Shot Match to This Clip</source>
+        <translation>Наскільки далеко заходить Shot Match. Виберіть кліпи у стрічці кліпів, потім клацніть правою кнопкою кліп-зразок: Shot Match до цього кліпу</translation>
+    </message>
+    <message>
+        <source>Open a clip to match.</source>
+        <translation>Відкрийте кліп для підгонки.</translation>
+    </message>
+    <message>
+        <source>Select a corrector node.</source>
+        <translation>Виберіть нод-коректор.</translation>
+    </message>
+    <message>
+        <source>No picture yet.</source>
+        <translation>Кадру ще немає.</translation>
+    </message>
+    <message>
+        <source>The chart outline is outside the picture or not a four-sided shape.</source>
+        <translation>Контур міри виходить за кадр або не є чотирикутником.</translation>
+    </message>
+    <message>
+        <source>The chart is too flat to match: put the outline on the chart.</source>
+        <translation>Міра надто пласка для підгонки: помістіть контур на міру.</translation>
+    </message>
+    <message>
+        <source>Color Match</source>
+        <translation>Підгонка кольору</translation>
+    </message>
+    <message>
+        <source>Chart matched: error %1 to %2</source>
+        <translation>Міру підігнано: похибка %1 → %2</translation>
+    </message>
+</context>
+<context>
     <name>kk::ColorMiniTimeline</name>
     <message>
         <source>Click or drag to move the playhead</source>
@@ -10441,6 +10572,34 @@ Thank you for watching</source>
 <context>
     <name>kk::ColorNodeEditor</name>
     <message>
+        <source>Parallel</source>
+        <translation>Паралельний</translation>
+    </message>
+    <message>
+        <source>Layer</source>
+        <translation>Шар</translation>
+    </message>
+    <message>
+        <source>Key Mixer</source>
+        <translation>Мікшер ключів</translation>
+    </message>
+    <message>
+        <source>Splitter</source>
+        <translation>Сплітер</translation>
+    </message>
+    <message>
+        <source>Combiner</source>
+        <translation>Комбайнер</translation>
+    </message>
+    <message>
+        <source>Compound</source>
+        <translation>Складений</translation>
+    </message>
+    <message>
+        <source>Alpha Output</source>
+        <translation>Вихід альфи</translation>
+    </message>
+    <message>
         <source>P</source>
         <comment>Parallel mixer</comment>
         <translation>P</translation>
@@ -10449,6 +10608,36 @@ Thank you for watching</source>
         <source>L</source>
         <comment>Layer mixer</comment>
         <translation>L</translation>
+    </message>
+    <message>
+        <source>K</source>
+        <comment>Key Mixer</comment>
+        <translation>К</translation>
+    </message>
+    <message>
+        <source>S</source>
+        <comment>Splitter</comment>
+        <translation>С</translation>
+    </message>
+    <message>
+        <source>C</source>
+        <comment>Combiner</comment>
+        <translation>К</translation>
+    </message>
+    <message>
+        <source>A</source>
+        <comment>Alpha Output</comment>
+        <translation>А</translation>
+    </message>
+    <message>
+        <source>Outside</source>
+        <comment>key input inverted marker</comment>
+        <translation>Зовнішній</translation>
+    </message>
+    <message>
+        <source>Key</source>
+        <comment>key input marker</comment>
+        <translation>Ключ</translation>
     </message>
     <message>
         <source>Q</source>
@@ -10473,8 +10662,24 @@ Thank you for watching</source>
         <translation>Джерело</translation>
     </message>
     <message>
+        <source>Input</source>
+        <translation>Вхід</translation>
+    </message>
+    <message>
         <source>Output</source>
         <translation>Вихід</translation>
+    </message>
+    <message>
+        <source>Inside %1 - double-click the background to close</source>
+        <translation>Усередині %1 - подвійне клацання по тлу, щоб закрити</translation>
+    </message>
+    <message>
+        <source>Connect Keys</source>
+        <translation>З'єднати ключі</translation>
+    </message>
+    <message>
+        <source>Reconnect Keys</source>
+        <translation>Перепідключити ключі</translation>
     </message>
     <message>
         <source>Connect Nodes</source>
@@ -10483,6 +10688,26 @@ Thank you for watching</source>
     <message>
         <source>Reconnect Nodes</source>
         <translation>З’єднати ноди заново</translation>
+    </message>
+    <message>
+        <source>Invert Key</source>
+        <translation>Інвертувати ключ</translation>
+    </message>
+    <message>
+        <source>Key Gain…</source>
+        <translation>Підсилення ключа…</translation>
+    </message>
+    <message>
+        <source>Key Gain</source>
+        <translation>Підсилення ключа</translation>
+    </message>
+    <message>
+        <source>Gain of this key:</source>
+        <translation>Підсилення цього ключа:</translation>
+    </message>
+    <message>
+        <source>Disconnect Key</source>
+        <translation>Від'єднати ключ</translation>
     </message>
     <message>
         <source>Add Serial Node</source>
@@ -10499,6 +10724,38 @@ Thank you for watching</source>
     <message>
         <source>Add Layer Node</source>
         <translation>Додати ноду шару</translation>
+    </message>
+    <message>
+        <source>Add Outside Node</source>
+        <translation>Додати зовнішній нод</translation>
+    </message>
+    <message>
+        <source>Add Key Mixer</source>
+        <translation>Додати мікшер ключів</translation>
+    </message>
+    <message>
+        <source>Add Splitter / Combiner</source>
+        <translation>Додати сплітер / комбайнер</translation>
+    </message>
+    <message>
+        <source>Add Alpha Output</source>
+        <translation>Додати вихід альфи</translation>
+    </message>
+    <message>
+        <source>Create Compound Node</source>
+        <translation>Створити складений нод</translation>
+    </message>
+    <message>
+        <source>Decompose Compound Node</source>
+        <translation>Розібрати складений нод</translation>
+    </message>
+    <message>
+        <source>Open Compound Node</source>
+        <translation>Відкрити складений нод</translation>
+    </message>
+    <message>
+        <source>Close Compound Node</source>
+        <translation>Закрити складений нод</translation>
     </message>
     <message>
         <source>Enable / Disable Node</source>
@@ -10708,6 +10965,14 @@ Thank you for watching</source>
         <translation>Застосувати до поточного вузла AgX, перетворення вигляду з Blender.</translation>
     </message>
     <message>
+        <source>Color Match</source>
+        <translation>Підгонка кольору</translation>
+    </message>
+    <message>
+        <source>Match the node to a colour chart in the picture: choose the chart and the target, drag the chart outline onto the chart in the viewer, press Match. Shot Match to another clip: right-click it in the clips strip.</source>
+        <translation>Підігнати нод під кольорову міру в кадрі: виберіть міру та ціль, перетягніть контур міри на міру у в'юері, натисніть «Підігнати». Shot Match до іншого кліпу: клацніть його правою кнопкою у стрічці кліпів.</translation>
+    </message>
+    <message>
         <source>Reset</source>
         <translation>Скинути</translation>
     </message>
@@ -10757,7 +11022,7 @@ Thank you for watching</source>
     </message>
     <message>
         <source>The stills grabbed from graded clips, in albums (Stills, PowerGrade for every project, Memories A to Z); use one to compare in the viewer or copy its grade.</source>
-        <translation>Кадри, зняті з опрацьованих кліпів, в альбомах («Кадри», PowerGrade для всіх проєктів, «Пам'ять» A–Z); використовуйте кадр для порівняння у вʼюері або щоб скопіювати його корекцію.</translation>
+        <translation>Кадри, зняті з опрацьованих кліпів, в альбомах («Кадри», PowerGrade для всіх проєктів, «Пам&apos;ять» A–Z); використовуйте кадр для порівняння у вʼюері або щоб скопіювати його корекцію.</translation>
     </message>
     <message>
         <source>Drag pins on the Hue - Sat and Chroma - Luma grids to move colours smoothly.</source>
@@ -10809,6 +11074,14 @@ Thank you for watching</source>
 <context>
     <name>kk::ColorSession</name>
     <message>
+        <source>Create Compound Node</source>
+        <translation>Створити складений нод</translation>
+    </message>
+    <message>
+        <source>Decompose Compound Node</source>
+        <translation>Розібрати складений нод</translation>
+    </message>
+    <message>
         <source>Add Serial Node</source>
         <translation>Додати послідовну ноду</translation>
     </message>
@@ -10819,6 +11092,38 @@ Thank you for watching</source>
     <message>
         <source>Add Layer Node</source>
         <translation>Додати ноду шару</translation>
+    </message>
+    <message>
+        <source>Add Outside Node</source>
+        <translation>Додати зовнішній нод</translation>
+    </message>
+    <message>
+        <source>Add Key Mixer</source>
+        <translation>Додати мікшер ключів</translation>
+    </message>
+    <message>
+        <source>Add Splitter / Combiner</source>
+        <translation>Додати сплітер / комбайнер</translation>
+    </message>
+    <message>
+        <source>Add Alpha Output</source>
+        <translation>Додати вихід альфи</translation>
+    </message>
+    <message>
+        <source>Connect Keys</source>
+        <translation>З'єднати ключі</translation>
+    </message>
+    <message>
+        <source>Disconnect Keys</source>
+        <translation>Від'єднати ключі</translation>
+    </message>
+    <message>
+        <source>Invert Key</source>
+        <translation>Інвертувати ключ</translation>
+    </message>
+    <message>
+        <source>Key Mixer Gain</source>
+        <translation>Підсилення мікшера ключів</translation>
     </message>
     <message>
         <source>Connect Nodes</source>
@@ -10918,7 +11223,7 @@ Thank you for watching</source>
     </message>
     <message>
         <source>Apply Memory %1</source>
-        <translation>Застосувати пам'ять %1</translation>
+        <translation>Застосувати пам&apos;ять %1</translation>
     </message>
     <message>
         <source>Apply Grade</source>
@@ -22220,7 +22525,7 @@ Import files with %1 or drop them here.</source>
     </message>
     <message>
         <source>Splitter / Combiner</source>
-        <translation>Роздільник / Об'єднувач</translation>
+        <translation>Роздільник / Об&apos;єднувач</translation>
     </message>
     <message>
         <source>Alpha Output</source>
@@ -23024,39 +23329,39 @@ Import files with %1 or drop them here.</source>
     </message>
     <message>
         <source>Memories</source>
-        <translation>Пам'ять</translation>
+        <translation>Пам&apos;ять</translation>
     </message>
     <message>
         <source>Memory A</source>
-        <translation>Пам'ять A</translation>
+        <translation>Пам&apos;ять A</translation>
     </message>
     <message>
         <source>Memory B</source>
-        <translation>Пам'ять B</translation>
+        <translation>Пам&apos;ять B</translation>
     </message>
     <message>
         <source>Memory C</source>
-        <translation>Пам'ять C</translation>
+        <translation>Пам&apos;ять C</translation>
     </message>
     <message>
         <source>Memory D</source>
-        <translation>Пам'ять D</translation>
+        <translation>Пам&apos;ять D</translation>
     </message>
     <message>
         <source>Memory E</source>
-        <translation>Пам'ять E</translation>
+        <translation>Пам&apos;ять E</translation>
     </message>
     <message>
         <source>Memory F</source>
-        <translation>Пам'ять F</translation>
+        <translation>Пам&apos;ять F</translation>
     </message>
     <message>
         <source>Memory G</source>
-        <translation>Пам'ять G</translation>
+        <translation>Пам&apos;ять G</translation>
     </message>
     <message>
         <source>Memory H</source>
-        <translation>Пам'ять H</translation>
+        <translation>Пам&apos;ять H</translation>
     </message>
     <message>
         <source>Mixer</source>
@@ -32907,6 +33212,38 @@ Restart Kinoklip to apply them.</source>
         <translation>Додати послідовну ноду &amp;перед</translation>
     </message>
     <message>
+        <source>Add &amp;Outside Node</source>
+        <translation>Додати &amp;зовнішній нод</translation>
+    </message>
+    <message>
+        <source>Add &amp;Key Mixer</source>
+        <translation>Додати мікшер &amp;ключів</translation>
+    </message>
+    <message>
+        <source>Add Splitter / &amp;Combiner</source>
+        <translation>Додати сплітер / &amp;комбайнер</translation>
+    </message>
+    <message>
+        <source>Add &amp;Alpha Output</source>
+        <translation>Додати вихід &amp;альфи</translation>
+    </message>
+    <message>
+        <source>Create Compound &amp;Node</source>
+        <translation>Створити складений &amp;нод</translation>
+    </message>
+    <message>
+        <source>Decompose Compound N&amp;ode</source>
+        <translation>&amp;Розібрати складений нод</translation>
+    </message>
+    <message>
+        <source>Open Compound Node</source>
+        <translation>Відкрити складений нод</translation>
+    </message>
+    <message>
+        <source>Close Compound Node</source>
+        <translation>Закрити складений нод</translation>
+    </message>
+    <message>
         <source>&amp;Delete Node</source>
         <translation>&amp;Видалити ноду</translation>
     </message>
@@ -32956,67 +33293,67 @@ Restart Kinoklip to apply them.</source>
     </message>
     <message>
         <source>Save Memory A</source>
-        <translation>Зберегти в пам'ять A</translation>
+        <translation>Зберегти в пам&apos;ять A</translation>
     </message>
     <message>
         <source>Save Memory B</source>
-        <translation>Зберегти в пам'ять B</translation>
+        <translation>Зберегти в пам&apos;ять B</translation>
     </message>
     <message>
         <source>Save Memory C</source>
-        <translation>Зберегти в пам'ять C</translation>
+        <translation>Зберегти в пам&apos;ять C</translation>
     </message>
     <message>
         <source>Save Memory D</source>
-        <translation>Зберегти в пам'ять D</translation>
+        <translation>Зберегти в пам&apos;ять D</translation>
     </message>
     <message>
         <source>Save Memory E</source>
-        <translation>Зберегти в пам'ять E</translation>
+        <translation>Зберегти в пам&apos;ять E</translation>
     </message>
     <message>
         <source>Save Memory F</source>
-        <translation>Зберегти в пам'ять F</translation>
+        <translation>Зберегти в пам&apos;ять F</translation>
     </message>
     <message>
         <source>Save Memory G</source>
-        <translation>Зберегти в пам'ять G</translation>
+        <translation>Зберегти в пам&apos;ять G</translation>
     </message>
     <message>
         <source>Save Memory H</source>
-        <translation>Зберегти в пам'ять H</translation>
+        <translation>Зберегти в пам&apos;ять H</translation>
     </message>
     <message>
         <source>Apply Memory A</source>
-        <translation>Застосувати пам'ять A</translation>
+        <translation>Застосувати пам&apos;ять A</translation>
     </message>
     <message>
         <source>Apply Memory B</source>
-        <translation>Застосувати пам'ять B</translation>
+        <translation>Застосувати пам&apos;ять B</translation>
     </message>
     <message>
         <source>Apply Memory C</source>
-        <translation>Застосувати пам'ять C</translation>
+        <translation>Застосувати пам&apos;ять C</translation>
     </message>
     <message>
         <source>Apply Memory D</source>
-        <translation>Застосувати пам'ять D</translation>
+        <translation>Застосувати пам&apos;ять D</translation>
     </message>
     <message>
         <source>Apply Memory E</source>
-        <translation>Застосувати пам'ять E</translation>
+        <translation>Застосувати пам&apos;ять E</translation>
     </message>
     <message>
         <source>Apply Memory F</source>
-        <translation>Застосувати пам'ять F</translation>
+        <translation>Застосувати пам&apos;ять F</translation>
     </message>
     <message>
         <source>Apply Memory G</source>
-        <translation>Застосувати пам'ять G</translation>
+        <translation>Застосувати пам&apos;ять G</translation>
     </message>
     <message>
         <source>Apply Memory H</source>
-        <translation>Застосувати пам'ять H</translation>
+        <translation>Застосувати пам&apos;ять H</translation>
     </message>
     <message>
         <source>&amp;Wipe with Still</source>
@@ -36599,6 +36936,161 @@ Open a multicam clip from the media pool or move the playhead over one.</source>
     <message>
         <source>Heat</source>
         <translation>Нагрівання</translation>
+    </message>
+</context>
+<context>
+    <name>kk::colormatch</name>
+    <message>
+        <source>X-Rite ColorChecker Passport Video</source>
+        <translation>X-Rite ColorChecker Passport Video</translation>
+    </message>
+    <message>
+        <source>X-Rite ColorChecker Classic 24</source>
+        <translation>X-Rite ColorChecker Classic 24</translation>
+    </message>
+    <message>
+        <source>Linear</source>
+        <translation>Лінійна</translation>
+    </message>
+    <message>
+        <source>Gamma 2.2</source>
+        <translation>Гамма 2,2</translation>
+    </message>
+    <message>
+        <source>Gamma 2.4</source>
+        <translation>Гамма 2,4</translation>
+    </message>
+    <message>
+        <source>Gamma 2.6</source>
+        <translation>Гамма 2,6</translation>
+    </message>
+    <message>
+        <source>sRGB</source>
+        <translation>sRGB</translation>
+    </message>
+    <message>
+        <source>Rec.709</source>
+        <translation>Rec.709</translation>
+    </message>
+    <message>
+        <source>DCI-P3</source>
+        <translation>DCI-P3</translation>
+    </message>
+    <message>
+        <source>Rec.2020</source>
+        <translation>Rec.2020</translation>
+    </message>
+    <message>
+        <source>D65 (6504 K)</source>
+        <translation>D65 (6504 K)</translation>
+    </message>
+    <message>
+        <source>D60 (6000 K)</source>
+        <translation>D60 (6000 K)</translation>
+    </message>
+    <message>
+        <source>D50 (5003 K)</source>
+        <translation>D50 (5003 K)</translation>
+    </message>
+    <message>
+        <source>DCI (6300 K)</source>
+        <translation>DCI (6300 K)</translation>
+    </message>
+    <message>
+        <source>Dark Skin</source>
+        <translation>Темна шкіра</translation>
+    </message>
+    <message>
+        <source>Light Skin</source>
+        <translation>Світла шкіра</translation>
+    </message>
+    <message>
+        <source>Blue Sky</source>
+        <translation>Блакитне небо</translation>
+    </message>
+    <message>
+        <source>Foliage</source>
+        <translation>Листя</translation>
+    </message>
+    <message>
+        <source>Blue Flower</source>
+        <translation>Блакитна квітка</translation>
+    </message>
+    <message>
+        <source>Bluish Green</source>
+        <translation>Блакитнувато-зелений</translation>
+    </message>
+    <message>
+        <source>Orange</source>
+        <translation>Помаранчевий</translation>
+    </message>
+    <message>
+        <source>Purplish Blue</source>
+        <translation>Пурпурно-синій</translation>
+    </message>
+    <message>
+        <source>Moderate Red</source>
+        <translation>Помірний червоний</translation>
+    </message>
+    <message>
+        <source>Purple</source>
+        <translation>Пурпуровий</translation>
+    </message>
+    <message>
+        <source>Yellow Green</source>
+        <translation>Жовто-зелений</translation>
+    </message>
+    <message>
+        <source>Orange Yellow</source>
+        <translation>Оранжево-жовтий</translation>
+    </message>
+    <message>
+        <source>Blue</source>
+        <translation>Синій</translation>
+    </message>
+    <message>
+        <source>Green</source>
+        <translation>Зелений</translation>
+    </message>
+    <message>
+        <source>Red</source>
+        <translation>Червоний</translation>
+    </message>
+    <message>
+        <source>Yellow</source>
+        <translation>Жовтий</translation>
+    </message>
+    <message>
+        <source>Magenta</source>
+        <translation>Пурпуровий</translation>
+    </message>
+    <message>
+        <source>Cyan</source>
+        <translation>Блакитний</translation>
+    </message>
+    <message>
+        <source>White</source>
+        <translation>Білий</translation>
+    </message>
+    <message>
+        <source>Neutral 8</source>
+        <translation>Нейтральний 8</translation>
+    </message>
+    <message>
+        <source>Neutral 6.5</source>
+        <translation>Нейтральний 6,5</translation>
+    </message>
+    <message>
+        <source>Neutral 5</source>
+        <translation>Нейтральний 5</translation>
+    </message>
+    <message>
+        <source>Neutral 3.5</source>
+        <translation>Нейтральний 3,5</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Чорний</translation>
     </message>
 </context>
 <context>

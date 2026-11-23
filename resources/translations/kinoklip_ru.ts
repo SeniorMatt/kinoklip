@@ -3289,6 +3289,38 @@ The program was probably closed by the system because the computer ran out of me
         <translation>Страница «Цвет»: добавляет последовательную ноду перед текущей нодой.</translation>
     </message>
     <message>
+        <source>Color page: adds an Outside node after the current node, keyed with the inverse of the current node&apos;s key.</source>
+        <translation>Страница цвета: добавляет после текущего нода внешний нод с инвертированным ключом текущего нода.</translation>
+    </message>
+    <message>
+        <source>Color page: adds a Key Mixer that combines the keys of several nodes into one key.</source>
+        <translation>Страница цвета: добавляет микшер ключей, объединяющий ключи нескольких нодов в один.</translation>
+    </message>
+    <message>
+        <source>Color page: adds a Splitter and a Combiner after the current node, to grade the red, green and blue channels apart.</source>
+        <translation>Страница цвета: добавляет после текущего нода сплиттер и комбайнер, чтобы градировать красный, зелёный и синий каналы отдельно.</translation>
+    </message>
+    <message>
+        <source>Color page: adds the Alpha Output, whose key becomes the alpha of the clip.</source>
+        <translation>Страница цвета: добавляет выход альфы, ключ которого становится альфой клипа.</translation>
+    </message>
+    <message>
+        <source>Color page: groups the selected nodes into one Compound node.</source>
+        <translation>Страница цвета: объединяет выбранные ноды в один составной нод.</translation>
+    </message>
+    <message>
+        <source>Color page: dissolves the current Compound node into its nodes.</source>
+        <translation>Страница цвета: разбирает текущий составной нод на его ноды.</translation>
+    </message>
+    <message>
+        <source>Color page: shows the nodes inside the current Compound node.</source>
+        <translation>Страница цвета: показывает ноды внутри текущего составного нода.</translation>
+    </message>
+    <message>
+        <source>Color page: leaves the open Compound node and shows the level above.</source>
+        <translation>Страница цвета: выходит из открытого составного нода и показывает уровень выше.</translation>
+    </message>
+    <message>
         <source>Color page: deletes the current node.</source>
         <translation>Страница «Цвет»: удаляет текущую ноду.</translation>
     </message>
@@ -9949,6 +9981,18 @@ Thank you for watching</source>
         <translation>Вставить цветокоррекцию</translation>
     </message>
     <message>
+        <source>Shot Match to This Clip</source>
+        <translation>Shot Match к этому клипу</translation>
+    </message>
+    <message>
+        <source>Ctrl- or Shift-click the clips that should be matched to this one</source>
+        <translation>Щёлкните с Ctrl или Shift клипы, которые нужно подогнать под этот</translation>
+    </message>
+    <message>
+        <source>Match the selected clips&apos; balance and contrast to this clip</source>
+        <translation>Подогнать баланс и контраст выбранных клипов под этот клип</translation>
+    </message>
+    <message>
         <source>Reset Grade</source>
         <translation>Сбросить цветокоррекцию</translation>
     </message>
@@ -9963,6 +10007,10 @@ Thank you for watching</source>
     <message>
         <source>3D LUT</source>
         <translation>3D LUT</translation>
+    </message>
+    <message>
+        <source>Shot Match</source>
+        <translation>Shot Match</translation>
     </message>
     <message>
         <source>grade</source>
@@ -10432,6 +10480,89 @@ Thank you for watching</source>
     </message>
 </context>
 <context>
+    <name>kk::ColorMatchPanel</name>
+    <message>
+        <source>Color Chart</source>
+        <translation>Цветовая мира</translation>
+    </message>
+    <message>
+        <source>Show Chart</source>
+        <translation>Показать миру</translation>
+    </message>
+    <message>
+        <source>Show the chart outline in the viewer; drag its corners onto the chart in the picture, or drag inside to move it</source>
+        <translation>Показать контур миры во вьюере; перетащите его углы на миру в кадре или перетащите внутри, чтобы сдвинуть</translation>
+    </message>
+    <message>
+        <source>Reset Chart</source>
+        <translation>Сбросить миру</translation>
+    </message>
+    <message>
+        <source>Put the chart outline back in the middle of the picture</source>
+        <translation>Вернуть контур миры в центр кадра</translation>
+    </message>
+    <message>
+        <source>Source Gamma</source>
+        <translation>Исходная гамма</translation>
+    </message>
+    <message>
+        <source>Target Gamma</source>
+        <translation>Целевая гамма</translation>
+    </message>
+    <message>
+        <source>Target Color Space</source>
+        <translation>Целевое цветовое пространство</translation>
+    </message>
+    <message>
+        <source>White Point</source>
+        <translation>Точка белого</translation>
+    </message>
+    <message>
+        <source>Match</source>
+        <translation>Подогнать</translation>
+    </message>
+    <message>
+        <source>Measure the chart under the outline and set the selected node&apos;s lift, gamma, gain and RGB Mixer so the chart gets its reference colours</source>
+        <translation>Измерить миру под контуром и задать lift, gamma, gain и RGB-микшер выбранного нода так, чтобы мира получила эталонные цвета</translation>
+    </message>
+    <message>
+        <source>Shot Match Strength</source>
+        <translation>Сила Shot Match</translation>
+    </message>
+    <message>
+        <source>How far Shot Match goes. Select clips in the clips strip, then right-click the clip to match them to: Shot Match to This Clip</source>
+        <translation>Насколько далеко заходит Shot Match. Выберите клипы в ленте клипов, затем щёлкните правой кнопкой клип-образец: Shot Match к этому клипу</translation>
+    </message>
+    <message>
+        <source>Open a clip to match.</source>
+        <translation>Откройте клип для подгонки.</translation>
+    </message>
+    <message>
+        <source>Select a corrector node.</source>
+        <translation>Выберите нод-корректор.</translation>
+    </message>
+    <message>
+        <source>No picture yet.</source>
+        <translation>Кадра пока нет.</translation>
+    </message>
+    <message>
+        <source>The chart outline is outside the picture or not a four-sided shape.</source>
+        <translation>Контур миры выходит за кадр или не является четырёхугольником.</translation>
+    </message>
+    <message>
+        <source>The chart is too flat to match: put the outline on the chart.</source>
+        <translation>Мира слишком плоская для подгонки: поместите контур на миру.</translation>
+    </message>
+    <message>
+        <source>Color Match</source>
+        <translation>Подгонка цвета</translation>
+    </message>
+    <message>
+        <source>Chart matched: error %1 to %2</source>
+        <translation>Мира подогнана: ошибка %1 → %2</translation>
+    </message>
+</context>
+<context>
     <name>kk::ColorMiniTimeline</name>
     <message>
         <source>Click or drag to move the playhead</source>
@@ -10441,6 +10572,34 @@ Thank you for watching</source>
 <context>
     <name>kk::ColorNodeEditor</name>
     <message>
+        <source>Parallel</source>
+        <translation>Параллельный</translation>
+    </message>
+    <message>
+        <source>Layer</source>
+        <translation>Слой</translation>
+    </message>
+    <message>
+        <source>Key Mixer</source>
+        <translation>Микшер ключей</translation>
+    </message>
+    <message>
+        <source>Splitter</source>
+        <translation>Сплиттер</translation>
+    </message>
+    <message>
+        <source>Combiner</source>
+        <translation>Комбайнер</translation>
+    </message>
+    <message>
+        <source>Compound</source>
+        <translation>Составной</translation>
+    </message>
+    <message>
+        <source>Alpha Output</source>
+        <translation>Выход альфы</translation>
+    </message>
+    <message>
         <source>P</source>
         <comment>Parallel mixer</comment>
         <translation>P</translation>
@@ -10449,6 +10608,36 @@ Thank you for watching</source>
         <source>L</source>
         <comment>Layer mixer</comment>
         <translation>L</translation>
+    </message>
+    <message>
+        <source>K</source>
+        <comment>Key Mixer</comment>
+        <translation>К</translation>
+    </message>
+    <message>
+        <source>S</source>
+        <comment>Splitter</comment>
+        <translation>С</translation>
+    </message>
+    <message>
+        <source>C</source>
+        <comment>Combiner</comment>
+        <translation>К</translation>
+    </message>
+    <message>
+        <source>A</source>
+        <comment>Alpha Output</comment>
+        <translation>А</translation>
+    </message>
+    <message>
+        <source>Outside</source>
+        <comment>key input inverted marker</comment>
+        <translation>Внешний</translation>
+    </message>
+    <message>
+        <source>Key</source>
+        <comment>key input marker</comment>
+        <translation>Ключ</translation>
     </message>
     <message>
         <source>Q</source>
@@ -10473,8 +10662,24 @@ Thank you for watching</source>
         <translation>Источник</translation>
     </message>
     <message>
+        <source>Input</source>
+        <translation>Вход</translation>
+    </message>
+    <message>
         <source>Output</source>
         <translation>Вывод</translation>
+    </message>
+    <message>
+        <source>Inside %1 - double-click the background to close</source>
+        <translation>Внутри %1 - двойной щелчок по фону, чтобы закрыть</translation>
+    </message>
+    <message>
+        <source>Connect Keys</source>
+        <translation>Соединить ключи</translation>
+    </message>
+    <message>
+        <source>Reconnect Keys</source>
+        <translation>Переподключить ключи</translation>
     </message>
     <message>
         <source>Connect Nodes</source>
@@ -10483,6 +10688,26 @@ Thank you for watching</source>
     <message>
         <source>Reconnect Nodes</source>
         <translation>Переподключить ноды</translation>
+    </message>
+    <message>
+        <source>Invert Key</source>
+        <translation>Инвертировать ключ</translation>
+    </message>
+    <message>
+        <source>Key Gain…</source>
+        <translation>Усиление ключа…</translation>
+    </message>
+    <message>
+        <source>Key Gain</source>
+        <translation>Усиление ключа</translation>
+    </message>
+    <message>
+        <source>Gain of this key:</source>
+        <translation>Усиление этого ключа:</translation>
+    </message>
+    <message>
+        <source>Disconnect Key</source>
+        <translation>Отсоединить ключ</translation>
     </message>
     <message>
         <source>Add Serial Node</source>
@@ -10499,6 +10724,38 @@ Thank you for watching</source>
     <message>
         <source>Add Layer Node</source>
         <translation>Добавить ноду слоя</translation>
+    </message>
+    <message>
+        <source>Add Outside Node</source>
+        <translation>Добавить внешний нод</translation>
+    </message>
+    <message>
+        <source>Add Key Mixer</source>
+        <translation>Добавить микшер ключей</translation>
+    </message>
+    <message>
+        <source>Add Splitter / Combiner</source>
+        <translation>Добавить сплиттер / комбайнер</translation>
+    </message>
+    <message>
+        <source>Add Alpha Output</source>
+        <translation>Добавить выход альфы</translation>
+    </message>
+    <message>
+        <source>Create Compound Node</source>
+        <translation>Создать составной нод</translation>
+    </message>
+    <message>
+        <source>Decompose Compound Node</source>
+        <translation>Разобрать составной нод</translation>
+    </message>
+    <message>
+        <source>Open Compound Node</source>
+        <translation>Открыть составной нод</translation>
+    </message>
+    <message>
+        <source>Close Compound Node</source>
+        <translation>Закрыть составной нод</translation>
     </message>
     <message>
         <source>Enable / Disable Node</source>
@@ -10708,6 +10965,14 @@ Thank you for watching</source>
         <translation>Применить к текущему узлу AgX, преобразование вида из Blender.</translation>
     </message>
     <message>
+        <source>Color Match</source>
+        <translation>Подгонка цвета</translation>
+    </message>
+    <message>
+        <source>Match the node to a colour chart in the picture: choose the chart and the target, drag the chart outline onto the chart in the viewer, press Match. Shot Match to another clip: right-click it in the clips strip.</source>
+        <translation>Подогнать нод под цветовую миру в кадре: выберите миру и цель, перетащите контур миры на миру во вьюере, нажмите «Подогнать». Shot Match к другому клипу: щёлкните его правой кнопкой в ленте клипов.</translation>
+    </message>
+    <message>
         <source>Reset</source>
         <translation>Сброс</translation>
     </message>
@@ -10809,6 +11074,14 @@ Thank you for watching</source>
 <context>
     <name>kk::ColorSession</name>
     <message>
+        <source>Create Compound Node</source>
+        <translation>Создать составной нод</translation>
+    </message>
+    <message>
+        <source>Decompose Compound Node</source>
+        <translation>Разобрать составной нод</translation>
+    </message>
+    <message>
         <source>Add Serial Node</source>
         <translation>Добавить последовательную ноду</translation>
     </message>
@@ -10819,6 +11092,38 @@ Thank you for watching</source>
     <message>
         <source>Add Layer Node</source>
         <translation>Добавить ноду слоя</translation>
+    </message>
+    <message>
+        <source>Add Outside Node</source>
+        <translation>Добавить внешний нод</translation>
+    </message>
+    <message>
+        <source>Add Key Mixer</source>
+        <translation>Добавить микшер ключей</translation>
+    </message>
+    <message>
+        <source>Add Splitter / Combiner</source>
+        <translation>Добавить сплиттер / комбайнер</translation>
+    </message>
+    <message>
+        <source>Add Alpha Output</source>
+        <translation>Добавить выход альфы</translation>
+    </message>
+    <message>
+        <source>Connect Keys</source>
+        <translation>Соединить ключи</translation>
+    </message>
+    <message>
+        <source>Disconnect Keys</source>
+        <translation>Отсоединить ключи</translation>
+    </message>
+    <message>
+        <source>Invert Key</source>
+        <translation>Инвертировать ключ</translation>
+    </message>
+    <message>
+        <source>Key Mixer Gain</source>
+        <translation>Усиление микшера ключей</translation>
     </message>
     <message>
         <source>Connect Nodes</source>
@@ -32907,6 +33212,38 @@ Restart Kinoklip to apply them.</source>
         <translation>Добавить последовательный узел &amp;Перед</translation>
     </message>
     <message>
+        <source>Add &amp;Outside Node</source>
+        <translation>Добавить &amp;внешний нод</translation>
+    </message>
+    <message>
+        <source>Add &amp;Key Mixer</source>
+        <translation>Добавить микшер &amp;ключей</translation>
+    </message>
+    <message>
+        <source>Add Splitter / &amp;Combiner</source>
+        <translation>Добавить сплиттер / &amp;комбайнер</translation>
+    </message>
+    <message>
+        <source>Add &amp;Alpha Output</source>
+        <translation>Добавить выход &amp;альфы</translation>
+    </message>
+    <message>
+        <source>Create Compound &amp;Node</source>
+        <translation>Создать составной &amp;нод</translation>
+    </message>
+    <message>
+        <source>Decompose Compound N&amp;ode</source>
+        <translation>&amp;Разобрать составной нод</translation>
+    </message>
+    <message>
+        <source>Open Compound Node</source>
+        <translation>Открыть составной нод</translation>
+    </message>
+    <message>
+        <source>Close Compound Node</source>
+        <translation>Закрыть составной нод</translation>
+    </message>
+    <message>
         <source>&amp;Delete Node</source>
         <translation>&amp;Удалить узел</translation>
     </message>
@@ -36599,6 +36936,161 @@ Open a multicam clip from the media pool or move the playhead over one.</source>
     <message>
         <source>Heat</source>
         <translation>Тепло</translation>
+    </message>
+</context>
+<context>
+    <name>kk::colormatch</name>
+    <message>
+        <source>X-Rite ColorChecker Passport Video</source>
+        <translation>X-Rite ColorChecker Passport Video</translation>
+    </message>
+    <message>
+        <source>X-Rite ColorChecker Classic 24</source>
+        <translation>X-Rite ColorChecker Classic 24</translation>
+    </message>
+    <message>
+        <source>Linear</source>
+        <translation>Линейная</translation>
+    </message>
+    <message>
+        <source>Gamma 2.2</source>
+        <translation>Гамма 2,2</translation>
+    </message>
+    <message>
+        <source>Gamma 2.4</source>
+        <translation>Гамма 2,4</translation>
+    </message>
+    <message>
+        <source>Gamma 2.6</source>
+        <translation>Гамма 2,6</translation>
+    </message>
+    <message>
+        <source>sRGB</source>
+        <translation>sRGB</translation>
+    </message>
+    <message>
+        <source>Rec.709</source>
+        <translation>Rec.709</translation>
+    </message>
+    <message>
+        <source>DCI-P3</source>
+        <translation>DCI-P3</translation>
+    </message>
+    <message>
+        <source>Rec.2020</source>
+        <translation>Rec.2020</translation>
+    </message>
+    <message>
+        <source>D65 (6504 K)</source>
+        <translation>D65 (6504 K)</translation>
+    </message>
+    <message>
+        <source>D60 (6000 K)</source>
+        <translation>D60 (6000 K)</translation>
+    </message>
+    <message>
+        <source>D50 (5003 K)</source>
+        <translation>D50 (5003 K)</translation>
+    </message>
+    <message>
+        <source>DCI (6300 K)</source>
+        <translation>DCI (6300 K)</translation>
+    </message>
+    <message>
+        <source>Dark Skin</source>
+        <translation>Тёмная кожа</translation>
+    </message>
+    <message>
+        <source>Light Skin</source>
+        <translation>Светлая кожа</translation>
+    </message>
+    <message>
+        <source>Blue Sky</source>
+        <translation>Голубое небо</translation>
+    </message>
+    <message>
+        <source>Foliage</source>
+        <translation>Листва</translation>
+    </message>
+    <message>
+        <source>Blue Flower</source>
+        <translation>Голубой цветок</translation>
+    </message>
+    <message>
+        <source>Bluish Green</source>
+        <translation>Голубовато-зелёный</translation>
+    </message>
+    <message>
+        <source>Orange</source>
+        <translation>Оранжевый</translation>
+    </message>
+    <message>
+        <source>Purplish Blue</source>
+        <translation>Пурпурно-синий</translation>
+    </message>
+    <message>
+        <source>Moderate Red</source>
+        <translation>Умеренный красный</translation>
+    </message>
+    <message>
+        <source>Purple</source>
+        <translation>Пурпурный</translation>
+    </message>
+    <message>
+        <source>Yellow Green</source>
+        <translation>Жёлто-зелёный</translation>
+    </message>
+    <message>
+        <source>Orange Yellow</source>
+        <translation>Оранжево-жёлтый</translation>
+    </message>
+    <message>
+        <source>Blue</source>
+        <translation>Синий</translation>
+    </message>
+    <message>
+        <source>Green</source>
+        <translation>Зелёный</translation>
+    </message>
+    <message>
+        <source>Red</source>
+        <translation>Красный</translation>
+    </message>
+    <message>
+        <source>Yellow</source>
+        <translation>Жёлтый</translation>
+    </message>
+    <message>
+        <source>Magenta</source>
+        <translation>Пурпурный</translation>
+    </message>
+    <message>
+        <source>Cyan</source>
+        <translation>Голубой</translation>
+    </message>
+    <message>
+        <source>White</source>
+        <translation>Белый</translation>
+    </message>
+    <message>
+        <source>Neutral 8</source>
+        <translation>Нейтральный 8</translation>
+    </message>
+    <message>
+        <source>Neutral 6.5</source>
+        <translation>Нейтральный 6,5</translation>
+    </message>
+    <message>
+        <source>Neutral 5</source>
+        <translation>Нейтральный 5</translation>
+    </message>
+    <message>
+        <source>Neutral 3.5</source>
+        <translation>Нейтральный 3,5</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Чёрный</translation>
     </message>
 </context>
 <context>

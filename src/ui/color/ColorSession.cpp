@@ -693,6 +693,23 @@ bool ColorSession::autoColor(quint64 nodeId, const QImage& picture)
     return setParams(nodeId, values, tr("Auto Color"));
 }
 
+bool ColorSession::applyChartMatch(
+    quint64 nodeId, const colormatch::ChartMatch& match, const QString& label)
+{
+    if (!hasGrade() || !match.valid)
+        return false;
+    quint64 node = 0;
+    ClipGrade g = editableGrade(nodeId, &node);
+    GradeNode* n = g.node(node);
+    if (!n || n->isMixer())
+        return false;
+    colormatch::applyChartToNode(*n, match);
+    const bool ok = commit(g, label);
+    if (ok && m_selected != node)
+        selectNode(node);
+    return ok;
+}
+
 bool ColorSession::setCurve(
     quint64 nodeId, GradeCurve curve, const CurvePoints& points, const QString& label)
 {

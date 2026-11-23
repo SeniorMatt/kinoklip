@@ -2,6 +2,7 @@
 // ColorBrowsers — gallery, clips strip and mini timeline of the Color page.
 #include "ui/color/ColorBrowsers.h"
 
+#include "core/ColorMatch.h"
 #include "core/EditOps.h"
 #include "core/GalleryStillFiles.h"
 #include "core/GradeGallery.h"
@@ -38,6 +39,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace kk {
 
@@ -1012,6 +1014,11 @@ void ColorClipStrip::contextMenuEvent(QContextMenuEvent* event)
         copy->setToolTip(tr("Ctrl- or Shift-click the clips that should get this clip's grade"));
     QAction* paste = menu.addAction(tr("Paste Grade"));
     paste->setEnabled(m_session->hasCopiedGrade());
+    QAction* shot = menu.addAction(tr("Shot Match to This Clip"));
+    shot->setEnabled(!others.isEmpty());
+    shot->setToolTip(others.isEmpty()
+            ? tr("Ctrl- or Shift-click the clips that should be matched to this one")
+            : tr("Match the selected clips' balance and contrast to this clip"));
     QAction* reset = menu.addAction(tr("Reset Grade"));
     menu.addSeparator();
     QMenu* lutMenu = menu.addMenu(tr("Generate 3D LUT (CUBE)"));
@@ -1049,10 +1056,53 @@ void ColorClipStrip::contextMenuEvent(QContextMenuEvent* event)
     } else if (chosen == paste) {
         m_session->pasteGrade(m_session->selectedClips().isEmpty() ? QVector<quint64> {clip}
                                                                    : m_session->selectedClips());
+    } else if (chosen == shot) {
+        shotMatch(clip, others);
     } else if (chosen == reset) {
         m_project->setClipGrade(
             m_project->activeTimelineUid(), clip, ClipGrade {}, tr("Reset Grade"));
     }
+}
+
+int ColorClipStrip::shotMatch(quint64 target, const QVector<quint64>& sources)
+{
+    if (!m_frames || !m_session || !m_project)
+        return 0;
+    auto statsOf = [this](quint64 clip) {
+        const QImage image = m_frames->thumbnail(clip).convertToFormat(QImage::Format_ARGB32);
+        std::vector<float> rgb;
+        rgb.reserve(size_t(image.width()) * size_t(image.height()) * 3);
+        for (int y = 0; y < image.height(); ++y) {
+            const auto* line = reinterpret_cast<const QRgb*>(image.constScanLine(y));
+            for (int x = 0; x < image.width(); ++x) {
+                rgb.push_back(float(qRed(line[x])) / 255.0f);
+                rgb.push_back(float(qGreen(line[x])) / 255.0f);
+                rgb.push_back(float(qBlue(line[x])) / 255.0f);
+            }
+        }
+        return colormatch::shotStats(rgb.data(), rgb.size() / 3);
+    };
+    const colormatch::ShotStats wanted = statsOf(target);
+    if (!wanted.valid)
+        return 0;
+    const double strength = m_session->shotMatchStrength();
+    const quint64 uid = m_project->activeTimelineUid();
+    int changed = 0;
+    m_project->beginEdit(tr("Shot Match"));
+    for (const quint64 clip : sources) {
+        if (clip == target)
+            continue;
+        const colormatch::ShotStats have = statsOf(clip);
+        if (!have.valid)
+            continue;
+        ClipGrade grade = m_project->clipGrade(uid, clip);
+        if (!colormatch::applyShotMatch(grade, colormatch::shotMatch(have, wanted, strength)))
+            continue;
+        if (m_project->setClipGrade(uid, clip, grade, tr("Shot Match")))
+            ++changed;
+    }
+    m_project->endEdit();
+    return changed;
 }
 
 void ColorClipStrip::generateLut(quint64 clipId, int size)

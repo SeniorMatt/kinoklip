@@ -4,6 +4,7 @@
 // wipe against a gallery still.
 #pragma once
 
+#include "core/ColorMatch.h"
 #include "core/Grade.h"
 
 #include <QImage>
@@ -37,6 +38,11 @@ class ViewerSurface;
 /// turns it (a smooth point keeps the other collinear, Alt breaks that), double-click on a
 /// curve point switches it between smooth (automatic tangents) and corner (no tangents). With
 /// shape keyframes every edit writes a key at the playhead. Clicking another window's outline selects it. Every drag is one undo step.
+///
+/// **Chart outline** (setChart(), the Color Match palette): the colour chart's four-sided
+/// outline with its 6 x 4 patch grid in fractions of the program frame; drag a corner handle to
+/// fit it onto the chart in the picture (a tilted or turned chart works), drag inside to move it.
+/// chartQuadChanged() reports every change.
 ///
 /// **Eyedropper** (setPickMode()): click or drag a rectangle; pickRequested() carries the
 /// frame-fraction rectangle (a point for a click).
@@ -81,6 +87,14 @@ public:
     [[nodiscard]] double wipePosition() const { return m_wipePos; }
     void setWipePosition(double fraction);
 
+    /// Shows the chart outline @p quad (fractions of the frame); @p on false hides it.
+    void setChart(bool on, const colormatch::ChartQuad& quad);
+    [[nodiscard]] bool chartVisible() const { return m_chartOn; }
+    [[nodiscard]] const colormatch::ChartQuad& chartQuad() const { return m_chartQuad; }
+    /// Widget position of chart corner @p index (0 top left, clockwise) and its hit radius.
+    [[nodiscard]] QPointF chartCornerPos(int index) const;
+    static constexpr double kChartHandleRadius = 9.0;
+
     /// Graded picture pixels (origin top-left) -> widget, and the picture's size in pixels;
     /// nullopt when there is nothing to grade.
     [[nodiscard]] std::optional<QTransform> pictureToWidget(QSizeF* pictureSize = nullptr) const;
@@ -100,6 +114,8 @@ public:
 Q_SIGNALS:
     /// The eyedropper picked @p frameRect (fractions of the program frame; zero size = a point).
     void pickRequested(const QRectF& frameRect);
+    /// The user dragged the chart outline.
+    void chartQuadChanged(const colormatch::ChartQuad& quad);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -115,6 +131,9 @@ private:
     [[nodiscard]] QPainterPath windowPath(const GradeWindow& w, double grow) const;
     [[nodiscard]] QPointF toFrameFraction(QPointF widget) const;
     void applyDrag(QPointF pos);
+    void paintChart(QPainter& p) const;
+    /// Corner under @p pos (0..3), 4 inside the outline, -1 elsewhere.
+    [[nodiscard]] int chartHit(QPointF pos) const;
     /// Sets window geometry keys given as shown (the drag works on the shown window); the
     /// tracker data is taken out again before they are stored.
     bool setShownParams(const QVector<std::pair<QString, double>>& values, const QString& label);
@@ -124,6 +143,10 @@ private:
     ViewerSurface* m_surface = nullptr;
     bool m_windowControls = false;
     bool m_pick = false;
+    bool m_chartOn = false;
+    colormatch::ChartQuad m_chartQuad;
+    colormatch::ChartQuad m_chartPressQuad;
+    int m_chartDrag = -1; ///< dragged corner 0..3, 4 = the whole outline, -1 none
     QImage m_highlight;
     QImage m_wipe;
     double m_wipePos = 0.5;

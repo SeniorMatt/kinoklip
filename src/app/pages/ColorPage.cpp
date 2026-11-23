@@ -12,6 +12,7 @@
 #include "ui/color/ColorBrowsers.h"
 #include "ui/color/ColorFrameSource.h"
 #include "ui/color/ColorKeyframes.h"
+#include "ui/color/ColorMatchPanel.h"
 #include "ui/color/ColorSizing.h"
 #include "ui/color/ColorLightbox.h"
 #include "ui/color/ColorTracker.h"
@@ -489,6 +490,15 @@ QWidget* ColorPage::buildPalettes()
     setPanelInfo(m_keyframes, tr("Keyframes"),
         tr("The keyframes of the grade's nodes and of the Sizing values; Static keys hold, "
            "Dynamic keys change smoothly to the next one."));
+    m_colorMatch = new ColorMatchPanel(m_session, m_frames);
+    setPanelInfo(m_colorMatch, tr("Color Match"),
+        tr("Match the node to a colour chart in the picture: choose the chart and the target, "
+           "drag the chart outline onto the chart in the viewer, press Match. Shot Match to "
+           "another clip: right-click it in the clips strip."));
+    connect(m_colorMatch, &ColorMatchPanel::chartShownChanged, this, [this] { updateChartOverlay(); });
+    connect(m_colorMatch, &ColorMatchPanel::chartChanged, this, [this] { updateChartOverlay(); });
+    connect(m_overlay, &ColorViewerOverlay::chartQuadChanged, m_colorMatch,
+        &ColorMatchPanel::setQuad);
     m_paletteStack = new QStackedWidget;
     m_paletteStack->setObjectName(QStringLiteral("ColorPaletteStack"));
     for (QWidget* w : {static_cast<QWidget*>(m_primaries), static_cast<QWidget*>(m_curves),
@@ -497,7 +507,8 @@ QWidget* ColorPage::buildPalettes()
              static_cast<QWidget*>(m_tracker), static_cast<QWidget*>(m_rgbMixer),
              static_cast<QWidget*>(m_agx), static_cast<QWidget*>(m_log),
              static_cast<QWidget*>(m_warper), static_cast<QWidget*>(m_hdr),
-             static_cast<QWidget*>(m_sizing), static_cast<QWidget*>(m_keyframes)})
+             static_cast<QWidget*>(m_sizing), static_cast<QWidget*>(m_keyframes),
+             static_cast<QWidget*>(m_colorMatch)})
         m_paletteStack->addWidget(w);
     auto* box = new QWidget;
     box->setObjectName(QStringLiteral("ColorPalettes"));
@@ -508,7 +519,7 @@ QWidget* ColorPage::buildPalettes()
     QWidget* bar = tabRow(m_paletteButtons,
         {tr("Primaries"), tr("Curves"), tr("Qualifier"), tr("Windows"), tr("LUTs"), tr("Blur"), tr("Tracker"),
             tr("RGB Mixer"), tr("AgX"), tr("Log"), tr("Color Warper"), tr("HDR"), tr("Sizing"),
-            tr("Keyframes")},
+            tr("Keyframes"), tr("Color Match")},
         QStringLiteral("ColorPaletteTab_"), box);
     // The primaries reset sits at the right of the bar (like Resolve's palette reset).
     auto* reset = new QToolButton(bar);
@@ -564,6 +575,9 @@ QWidget* ColorPage::buildPalettes()
         case Palette::Sizing:
             m_sizing->resetAll();
             break;
+        case Palette::ColorMatch:
+            m_colorMatch->resetAll();
+            break;
         case Palette::Keyframes:
             m_keyframes->resetAll();
             break;
@@ -585,6 +599,13 @@ void ColorPage::showPalette(Palette palette)
     if (QAbstractButton* b = m_paletteButtons->button(int(palette)); b && !b->isChecked())
         b->setChecked(true);
     m_overlay->setWindowControls(palette == Palette::Windows || palette == Palette::Tracker);
+    updateChartOverlay();
+}
+
+void ColorPage::updateChartOverlay()
+{
+    const bool on = currentPalette() == Palette::ColorMatch && m_colorMatch->chartShown();
+    m_overlay->setChart(on, m_colorMatch->quad());
 }
 
 ColorPage::Palette ColorPage::currentPalette() const
@@ -1157,7 +1178,7 @@ void ColorPage::restoreLayout(const QSettings& settings)
     m_rows->restoreState(settings.value(QStringLiteral("rows")).toByteArray());
     m_top->restoreState(settings.value(QStringLiteral("top")).toByteArray());
     m_bottom->restoreState(settings.value(QStringLiteral("bottom")).toByteArray());
-    showPalette(Palette(std::clamp(settings.value(QStringLiteral("palette"), 0).toInt(), 0, 13)));
+    showPalette(Palette(std::clamp(settings.value(QStringLiteral("palette"), 0).toInt(), 0, 14)));
     m_primaries->setBarsMode(settings.value(QStringLiteral("bars"), false).toBool());
     const int right = std::clamp(settings.value(QStringLiteral("rightTab"), 0).toInt(), 0, 1);
     m_rightStack->setCurrentIndex(right);

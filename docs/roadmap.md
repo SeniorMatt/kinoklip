@@ -214,7 +214,7 @@ Still to do:
 - [x] Color: HDR palette: Global, Shadow, Light, Highlight and Specular zones (wheel, exposure, saturation, range and falloff) and a Black Offset (keyframes, undo, same maths on GPU and CPU) (spec 147)
 - [ ] Color: Motion Effects palette: temporal and spatial Noise Reduction with Better / Faster modes
 - [ ] Color: Magic Mask palette: draw a stroke on a person or object and it follows (local open model, optional)
-- [ ] Color: Color Match palette: Shot Match to another clip, and a colour chart
+- [x] Color: Color Match palette: Shot Match to another clip (clips strip right-click, percentile balance and contrast as Gain and Offset) and a ColorChecker Classic 24 chart match with draggable chart outline, source / target gamma, target colour space and white point (spec 153; no chart auto-detection, result is lift / gamma / gain plus an RGB Mixer matrix)
 - [x] Color: Generate 3D LUT (CUBE) from a grade, in the clip strip's context menu with 17, 33 and 65 point cubes (spec 146; windows, qualifiers and blur are not part of a LUT)
 - [x] Color: node types Outside, Key Mixer, Splitter / Combiner and Compound Node, typed node labels, and an Alpha Output node with key input and output ports
 - [x] Color: Gallery albums, Memories A to Z, Power Grade albums, Import Still and Export Still (image and our own grade file; Resolve DRX is not read; spec 151)

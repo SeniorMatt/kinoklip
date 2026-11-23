@@ -39,7 +39,7 @@ Every missing piece has a line in [roadmap.md](roadmap.md) under "Next version (
 | C23 | RGB Mixer | works | Spec 109: Red / Green / Blue output tabs with three sliders each, Monochrome, Preserve Luminance; not done: HSV / HSL mixer spaces |
 | C24 | Motion Effects: Temporal and Spatial Noise Reduction, Motion Estimation | partly | Edit page Noise Reduction effect (spatial); no Motion Effects palette, no temporal noise reduction, no Better / Faster modes |
 | C25 | Magic Mask (draw a stroke on a person or object, it follows) | missing | Magic Mask palette; the optional Background Removal model only cuts a person out on the Edit page |
-| C26 | Color match / Shot Match to another clip | missing | Color Match palette (Shot Match, Color Chart); Color Stabilizer is another effect |
+| C26 | Color match / Shot Match to another clip | works | Color Match palette (spec 153): Shot Match to This Clip (strip right-click) and the ColorChecker Classic chart match; no chart auto-detection; Color Stabilizer is another effect |
 | C27 | Apply a LUT to a node, a clip or the timeline (3D LUT browser) | works | |
 | C28 | Export a LUT from a grade (Generate 3D LUT) | works | Generate 3D LUT (CUBE) in the clips strip menu (spec 146) |
 | C29 | Node types: Serial, Parallel, Layer | works | |

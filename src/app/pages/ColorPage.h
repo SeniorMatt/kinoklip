@@ -42,6 +42,7 @@ class WarperPanel;
 class HdrPanel;
 class SizingPanel;
 class ColorKeyframesPanel;
+class ColorMatchPanel;
 class ColorTrackerPanel;
 class PanelFrame;
 class PrimariesPanel;
@@ -88,7 +89,8 @@ public:
         Warper,
         Hdr,
         Sizing,
-        Keyframes
+        Keyframes,
+        ColorMatch
     };
 
     explicit ColorPage(AppContext& ctx, QWidget* parent = nullptr);
@@ -118,6 +120,8 @@ public:
     [[nodiscard]] HdrPanel* hdr() const { return m_hdr; }
     [[nodiscard]] SizingPanel* sizing() const { return m_sizing; }
     [[nodiscard]] ColorKeyframesPanel* keyframes() const { return m_keyframes; }
+    [[nodiscard]] ColorMatchPanel* colorMatch() const { return m_colorMatch; }
+    [[nodiscard]] ColorViewerOverlay* viewerOverlay() const { return m_overlay; }
     [[nodiscard]] ColorTrackerPanel* tracker() const { return m_tracker; }
     [[nodiscard]] KeyPanel* keyPanel() const { return m_key; }
     [[nodiscard]] ScopesPanel* scopes() const { return m_scopes; }
@@ -169,6 +173,9 @@ private:
     void applyDefaultSizes();
     QWidget* buildViewer();
     QWidget* buildPalettes();
+    /// Shows the chart outline over the viewer while the Color Match palette is up and its Show
+    /// Chart is on.
+    void updateChartOverlay();
     void connectActions();
     void updateOutputClient();
     void updateHeader();
@@ -216,6 +223,7 @@ private:
     HdrPanel* m_hdr = nullptr;
     SizingPanel* m_sizing = nullptr;
     ColorKeyframesPanel* m_keyframes = nullptr;
+    ColorMatchPanel* m_colorMatch = nullptr;
     ColorTrackerPanel* m_tracker = nullptr;
     KeyPanel* m_key = nullptr;
     ColorGallery* m_gallery = nullptr;

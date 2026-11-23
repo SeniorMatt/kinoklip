@@ -4,6 +4,7 @@
 // setTimelineGrade()). The widgets only map input to it; the graph maths is core/Grade.h.
 #pragma once
 
+#include "core/ColorMatch.h"
 #include "core/Grade.h"
 #include "core/KeyRows.h"
 
@@ -12,6 +13,7 @@
 #include <QPointer>
 #include <QString>
 
+#include <algorithm>
 #include <cstdint>
 
 namespace kk {
@@ -151,6 +153,13 @@ public:
     /// @p picture (the node's input), grademath::autoColor(), in one undo step. False without
     /// a grade, with a mixer, or when the picture is too flat to analyse.
     bool autoColor(quint64 nodeId, const QImage& picture);
+    /// Color Match palette: writes the chart match @p match into node @p nodeId (0: selected) as
+    /// its Primaries lift / gamma / gain and RGB Mixer matrix (colormatch::applyChartToNode()),
+    /// one undo step. False without a grade or with a mixer node.
+    bool applyChartMatch(quint64 nodeId, const colormatch::ChartMatch& match, const QString& label);
+    /// How far Shot Match goes (0..1; the Color Match palette's Strength).
+    [[nodiscard]] double shotMatchStrength() const { return m_shotStrength; }
+    void setShotMatchStrength(double strength) { m_shotStrength = std::clamp(strength, 0.0, 1.0); }
     /// Replaces curve @p curve of node @p nodeId (0: selected).
     bool setCurve(
         quint64 nodeId, GradeCurve curve, const CurvePoints& points, const QString& label);
@@ -388,6 +397,7 @@ private:
     int m_gesture = 0;
     quint64 m_selectedWindow = 0;
     QVector<quint64> m_selectedClips;
+    double m_shotStrength = 1.0;
     ClipGrade m_clipboard;
     bool m_hasClipboard = false;
     bool m_autoKey = false;

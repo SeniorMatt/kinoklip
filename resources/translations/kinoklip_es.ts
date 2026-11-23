@@ -3281,6 +3281,38 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
         <translation>Página Color: añade un nodo en serie antes del nodo actual.</translation>
     </message>
     <message>
+        <source>Color page: adds an Outside node after the current node, keyed with the inverse of the current node&apos;s key.</source>
+        <translation>Página Color: añade un nodo Exterior tras el nodo actual, con la inversa de la clave del nodo actual.</translation>
+    </message>
+    <message>
+        <source>Color page: adds a Key Mixer that combines the keys of several nodes into one key.</source>
+        <translation>Página Color: añade un mezclador de claves que combina las claves de varios nodos en una.</translation>
+    </message>
+    <message>
+        <source>Color page: adds a Splitter and a Combiner after the current node, to grade the red, green and blue channels apart.</source>
+        <translation>Página Color: añade un divisor y un combinador tras el nodo actual para corregir por separado los canales rojo, verde y azul.</translation>
+    </message>
+    <message>
+        <source>Color page: adds the Alpha Output, whose key becomes the alpha of the clip.</source>
+        <translation>Página Color: añade la salida alfa, cuya clave se convierte en el alfa del clip.</translation>
+    </message>
+    <message>
+        <source>Color page: groups the selected nodes into one Compound node.</source>
+        <translation>Página Color: agrupa los nodos seleccionados en un nodo compuesto.</translation>
+    </message>
+    <message>
+        <source>Color page: dissolves the current Compound node into its nodes.</source>
+        <translation>Página Color: disuelve el nodo compuesto actual en sus nodos.</translation>
+    </message>
+    <message>
+        <source>Color page: shows the nodes inside the current Compound node.</source>
+        <translation>Página Color: muestra los nodos dentro del nodo compuesto actual.</translation>
+    </message>
+    <message>
+        <source>Color page: leaves the open Compound node and shows the level above.</source>
+        <translation>Página Color: sale del nodo compuesto abierto y muestra el nivel superior.</translation>
+    </message>
+    <message>
         <source>Color page: deletes the current node.</source>
         <translation>Página Color: elimina el nodo actual.</translation>
     </message>
@@ -9940,6 +9972,18 @@ Gracias por ver</translation>
         <translation>Pegar corrección</translation>
     </message>
     <message>
+        <source>Shot Match to This Clip</source>
+        <translation>Shot Match a este clip</translation>
+    </message>
+    <message>
+        <source>Ctrl- or Shift-click the clips that should be matched to this one</source>
+        <translation>Haz clic con Ctrl o Mayús en los clips que deben igualarse a este</translation>
+    </message>
+    <message>
+        <source>Match the selected clips&apos; balance and contrast to this clip</source>
+        <translation>Iguala el balance y el contraste de los clips seleccionados a este clip</translation>
+    </message>
+    <message>
         <source>Reset Grade</source>
         <translation>Restablecer corrección</translation>
     </message>
@@ -9954,6 +9998,10 @@ Gracias por ver</translation>
     <message>
         <source>3D LUT</source>
         <translation>LUT 3D</translation>
+    </message>
+    <message>
+        <source>Shot Match</source>
+        <translation>Shot Match</translation>
     </message>
     <message>
         <source>grade</source>
@@ -10420,6 +10468,89 @@ Gracias por ver</translation>
     </message>
 </context>
 <context>
+    <name>kk::ColorMatchPanel</name>
+    <message>
+        <source>Color Chart</source>
+        <translation>Carta de color</translation>
+    </message>
+    <message>
+        <source>Show Chart</source>
+        <translation>Mostrar carta</translation>
+    </message>
+    <message>
+        <source>Show the chart outline in the viewer; drag its corners onto the chart in the picture, or drag inside to move it</source>
+        <translation>Muestra el contorno de la carta en el visor; arrastra sus esquinas sobre la carta de la imagen, o arrastra dentro para moverlo</translation>
+    </message>
+    <message>
+        <source>Reset Chart</source>
+        <translation>Restablecer carta</translation>
+    </message>
+    <message>
+        <source>Put the chart outline back in the middle of the picture</source>
+        <translation>Vuelve a poner el contorno de la carta en el centro de la imagen</translation>
+    </message>
+    <message>
+        <source>Source Gamma</source>
+        <translation>Gamma de origen</translation>
+    </message>
+    <message>
+        <source>Target Gamma</source>
+        <translation>Gamma de destino</translation>
+    </message>
+    <message>
+        <source>Target Color Space</source>
+        <translation>Espacio de color de destino</translation>
+    </message>
+    <message>
+        <source>White Point</source>
+        <translation>Punto blanco</translation>
+    </message>
+    <message>
+        <source>Match</source>
+        <translation>Igualar</translation>
+    </message>
+    <message>
+        <source>Measure the chart under the outline and set the selected node&apos;s lift, gamma, gain and RGB Mixer so the chart gets its reference colours</source>
+        <translation>Mide la carta bajo el contorno y ajusta lift, gamma, gain y el mezclador RGB del nodo seleccionado para que la carta tenga sus colores de referencia</translation>
+    </message>
+    <message>
+        <source>Shot Match Strength</source>
+        <translation>Intensidad de Shot Match</translation>
+    </message>
+    <message>
+        <source>How far Shot Match goes. Select clips in the clips strip, then right-click the clip to match them to: Shot Match to This Clip</source>
+        <translation>Hasta dónde llega Shot Match. Selecciona clips en la tira de clips y haz clic derecho en el clip al que igualarlos: Shot Match a este clip</translation>
+    </message>
+    <message>
+        <source>Open a clip to match.</source>
+        <translation>Abre un clip para igualar.</translation>
+    </message>
+    <message>
+        <source>Select a corrector node.</source>
+        <translation>Selecciona un nodo corrector.</translation>
+    </message>
+    <message>
+        <source>No picture yet.</source>
+        <translation>Todavía no hay imagen.</translation>
+    </message>
+    <message>
+        <source>The chart outline is outside the picture or not a four-sided shape.</source>
+        <translation>El contorno de la carta está fuera de la imagen o no es un cuadrilátero.</translation>
+    </message>
+    <message>
+        <source>The chart is too flat to match: put the outline on the chart.</source>
+        <translation>La carta es demasiado plana para igualar: coloca el contorno sobre la carta.</translation>
+    </message>
+    <message>
+        <source>Color Match</source>
+        <translation>Igualar color</translation>
+    </message>
+    <message>
+        <source>Chart matched: error %1 to %2</source>
+        <translation>Carta igualada: error %1 a %2</translation>
+    </message>
+</context>
+<context>
     <name>kk::ColorMiniTimeline</name>
     <message>
         <source>Click or drag to move the playhead</source>
@@ -10429,6 +10560,34 @@ Gracias por ver</translation>
 <context>
     <name>kk::ColorNodeEditor</name>
     <message>
+        <source>Parallel</source>
+        <translation>Paralelo</translation>
+    </message>
+    <message>
+        <source>Layer</source>
+        <translation>Capa</translation>
+    </message>
+    <message>
+        <source>Key Mixer</source>
+        <translation>Mezclador de claves</translation>
+    </message>
+    <message>
+        <source>Splitter</source>
+        <translation>Divisor</translation>
+    </message>
+    <message>
+        <source>Combiner</source>
+        <translation>Combinador</translation>
+    </message>
+    <message>
+        <source>Compound</source>
+        <translation>Compuesto</translation>
+    </message>
+    <message>
+        <source>Alpha Output</source>
+        <translation>Salida alfa</translation>
+    </message>
+    <message>
         <source>P</source>
         <comment>Parallel mixer</comment>
         <translation>P</translation>
@@ -10437,6 +10596,36 @@ Gracias por ver</translation>
         <source>L</source>
         <comment>Layer mixer</comment>
         <translation>L</translation>
+    </message>
+    <message>
+        <source>K</source>
+        <comment>Key Mixer</comment>
+        <translation>K</translation>
+    </message>
+    <message>
+        <source>S</source>
+        <comment>Splitter</comment>
+        <translation>S</translation>
+    </message>
+    <message>
+        <source>C</source>
+        <comment>Combiner</comment>
+        <translation>C</translation>
+    </message>
+    <message>
+        <source>A</source>
+        <comment>Alpha Output</comment>
+        <translation>A</translation>
+    </message>
+    <message>
+        <source>Outside</source>
+        <comment>key input inverted marker</comment>
+        <translation>Exterior</translation>
+    </message>
+    <message>
+        <source>Key</source>
+        <comment>key input marker</comment>
+        <translation>Clave</translation>
     </message>
     <message>
         <source>Q</source>
@@ -10461,8 +10650,24 @@ Gracias por ver</translation>
         <translation>Origen</translation>
     </message>
     <message>
+        <source>Input</source>
+        <translation>Entrada</translation>
+    </message>
+    <message>
         <source>Output</source>
         <translation>Salida</translation>
+    </message>
+    <message>
+        <source>Inside %1 - double-click the background to close</source>
+        <translation>Dentro de %1: doble clic en el fondo para cerrar</translation>
+    </message>
+    <message>
+        <source>Connect Keys</source>
+        <translation>Conectar claves</translation>
+    </message>
+    <message>
+        <source>Reconnect Keys</source>
+        <translation>Reconectar claves</translation>
     </message>
     <message>
         <source>Connect Nodes</source>
@@ -10471,6 +10676,26 @@ Gracias por ver</translation>
     <message>
         <source>Reconnect Nodes</source>
         <translation>Reconectar nodos</translation>
+    </message>
+    <message>
+        <source>Invert Key</source>
+        <translation>Invertir clave</translation>
+    </message>
+    <message>
+        <source>Key Gain…</source>
+        <translation>Ganancia de clave…</translation>
+    </message>
+    <message>
+        <source>Key Gain</source>
+        <translation>Ganancia de clave</translation>
+    </message>
+    <message>
+        <source>Gain of this key:</source>
+        <translation>Ganancia de esta clave:</translation>
+    </message>
+    <message>
+        <source>Disconnect Key</source>
+        <translation>Desconectar clave</translation>
     </message>
     <message>
         <source>Add Serial Node</source>
@@ -10487,6 +10712,38 @@ Gracias por ver</translation>
     <message>
         <source>Add Layer Node</source>
         <translation>Añadir nodo de capa</translation>
+    </message>
+    <message>
+        <source>Add Outside Node</source>
+        <translation>Añadir nodo exterior</translation>
+    </message>
+    <message>
+        <source>Add Key Mixer</source>
+        <translation>Añadir mezclador de claves</translation>
+    </message>
+    <message>
+        <source>Add Splitter / Combiner</source>
+        <translation>Añadir divisor / combinador</translation>
+    </message>
+    <message>
+        <source>Add Alpha Output</source>
+        <translation>Añadir salida alfa</translation>
+    </message>
+    <message>
+        <source>Create Compound Node</source>
+        <translation>Crear nodo compuesto</translation>
+    </message>
+    <message>
+        <source>Decompose Compound Node</source>
+        <translation>Descomponer nodo compuesto</translation>
+    </message>
+    <message>
+        <source>Open Compound Node</source>
+        <translation>Abrir nodo compuesto</translation>
+    </message>
+    <message>
+        <source>Close Compound Node</source>
+        <translation>Cerrar nodo compuesto</translation>
     </message>
     <message>
         <source>Enable / Disable Node</source>
@@ -10696,6 +10953,14 @@ Gracias por ver</translation>
         <translation>Aplica AgX, la transformación de vista de Blender, al nodo actual.</translation>
     </message>
     <message>
+        <source>Color Match</source>
+        <translation>Igualar color</translation>
+    </message>
+    <message>
+        <source>Match the node to a colour chart in the picture: choose the chart and the target, drag the chart outline onto the chart in the viewer, press Match. Shot Match to another clip: right-click it in the clips strip.</source>
+        <translation>Iguala el nodo a una carta de color de la imagen: elige la carta y el destino, arrastra el contorno sobre la carta en el visor y pulsa Igualar. Shot Match a otro clip: clic derecho en él en la tira de clips.</translation>
+    </message>
+    <message>
         <source>Reset</source>
         <translation>Restablecer</translation>
     </message>
@@ -10797,6 +11062,14 @@ Gracias por ver</translation>
 <context>
     <name>kk::ColorSession</name>
     <message>
+        <source>Create Compound Node</source>
+        <translation>Crear nodo compuesto</translation>
+    </message>
+    <message>
+        <source>Decompose Compound Node</source>
+        <translation>Descomponer nodo compuesto</translation>
+    </message>
+    <message>
         <source>Add Serial Node</source>
         <translation>Añadir nodo serie</translation>
     </message>
@@ -10807,6 +11080,38 @@ Gracias por ver</translation>
     <message>
         <source>Add Layer Node</source>
         <translation>Añadir nodo de capa</translation>
+    </message>
+    <message>
+        <source>Add Outside Node</source>
+        <translation>Añadir nodo exterior</translation>
+    </message>
+    <message>
+        <source>Add Key Mixer</source>
+        <translation>Añadir mezclador de claves</translation>
+    </message>
+    <message>
+        <source>Add Splitter / Combiner</source>
+        <translation>Añadir divisor / combinador</translation>
+    </message>
+    <message>
+        <source>Add Alpha Output</source>
+        <translation>Añadir salida alfa</translation>
+    </message>
+    <message>
+        <source>Connect Keys</source>
+        <translation>Conectar claves</translation>
+    </message>
+    <message>
+        <source>Disconnect Keys</source>
+        <translation>Desconectar claves</translation>
+    </message>
+    <message>
+        <source>Invert Key</source>
+        <translation>Invertir clave</translation>
+    </message>
+    <message>
+        <source>Key Mixer Gain</source>
+        <translation>Ganancia del mezclador de claves</translation>
     </message>
     <message>
         <source>Connect Nodes</source>
@@ -32885,6 +33190,38 @@ Reiniciar Kinoklip para aplicarlos.</translation>
         <translation>Añadir nodo serie &amp;antes</translation>
     </message>
     <message>
+        <source>Add &amp;Outside Node</source>
+        <translation>Añadir nodo &amp;exterior</translation>
+    </message>
+    <message>
+        <source>Add &amp;Key Mixer</source>
+        <translation>Añadir mezclador de &amp;claves</translation>
+    </message>
+    <message>
+        <source>Add Splitter / &amp;Combiner</source>
+        <translation>Añadir divisor / &amp;combinador</translation>
+    </message>
+    <message>
+        <source>Add &amp;Alpha Output</source>
+        <translation>Añadir salida &amp;alfa</translation>
+    </message>
+    <message>
+        <source>Create Compound &amp;Node</source>
+        <translation>Crear &amp;nodo compuesto</translation>
+    </message>
+    <message>
+        <source>Decompose Compound N&amp;ode</source>
+        <translation>Descomponer nodo &amp;compuesto</translation>
+    </message>
+    <message>
+        <source>Open Compound Node</source>
+        <translation>Abrir nodo compuesto</translation>
+    </message>
+    <message>
+        <source>Close Compound Node</source>
+        <translation>Cerrar nodo compuesto</translation>
+    </message>
+    <message>
         <source>&amp;Delete Node</source>
         <translation>&amp;Eliminar nodo</translation>
     </message>
@@ -36576,6 +36913,161 @@ Abrir un clip multicámara del panel de medios o mover el cabezal de reproducci�
     <message>
         <source>Heat</source>
         <translation>Calor</translation>
+    </message>
+</context>
+<context>
+    <name>kk::colormatch</name>
+    <message>
+        <source>X-Rite ColorChecker Passport Video</source>
+        <translation>X-Rite ColorChecker Passport Video</translation>
+    </message>
+    <message>
+        <source>X-Rite ColorChecker Classic 24</source>
+        <translation>X-Rite ColorChecker Classic 24</translation>
+    </message>
+    <message>
+        <source>Linear</source>
+        <translation>Lineal</translation>
+    </message>
+    <message>
+        <source>Gamma 2.2</source>
+        <translation>Gamma 2,2</translation>
+    </message>
+    <message>
+        <source>Gamma 2.4</source>
+        <translation>Gamma 2,4</translation>
+    </message>
+    <message>
+        <source>Gamma 2.6</source>
+        <translation>Gamma 2,6</translation>
+    </message>
+    <message>
+        <source>sRGB</source>
+        <translation>sRGB</translation>
+    </message>
+    <message>
+        <source>Rec.709</source>
+        <translation>Rec.709</translation>
+    </message>
+    <message>
+        <source>DCI-P3</source>
+        <translation>DCI-P3</translation>
+    </message>
+    <message>
+        <source>Rec.2020</source>
+        <translation>Rec.2020</translation>
+    </message>
+    <message>
+        <source>D65 (6504 K)</source>
+        <translation>D65 (6504 K)</translation>
+    </message>
+    <message>
+        <source>D60 (6000 K)</source>
+        <translation>D60 (6000 K)</translation>
+    </message>
+    <message>
+        <source>D50 (5003 K)</source>
+        <translation>D50 (5003 K)</translation>
+    </message>
+    <message>
+        <source>DCI (6300 K)</source>
+        <translation>DCI (6300 K)</translation>
+    </message>
+    <message>
+        <source>Dark Skin</source>
+        <translation>Piel oscura</translation>
+    </message>
+    <message>
+        <source>Light Skin</source>
+        <translation>Piel clara</translation>
+    </message>
+    <message>
+        <source>Blue Sky</source>
+        <translation>Cielo azul</translation>
+    </message>
+    <message>
+        <source>Foliage</source>
+        <translation>Follaje</translation>
+    </message>
+    <message>
+        <source>Blue Flower</source>
+        <translation>Flor azul</translation>
+    </message>
+    <message>
+        <source>Bluish Green</source>
+        <translation>Verde azulado</translation>
+    </message>
+    <message>
+        <source>Orange</source>
+        <translation>Naranja</translation>
+    </message>
+    <message>
+        <source>Purplish Blue</source>
+        <translation>Azul purpúreo</translation>
+    </message>
+    <message>
+        <source>Moderate Red</source>
+        <translation>Rojo moderado</translation>
+    </message>
+    <message>
+        <source>Purple</source>
+        <translation>Púrpura</translation>
+    </message>
+    <message>
+        <source>Yellow Green</source>
+        <translation>Verde amarillento</translation>
+    </message>
+    <message>
+        <source>Orange Yellow</source>
+        <translation>Amarillo anaranjado</translation>
+    </message>
+    <message>
+        <source>Blue</source>
+        <translation>Azul</translation>
+    </message>
+    <message>
+        <source>Green</source>
+        <translation>Verde</translation>
+    </message>
+    <message>
+        <source>Red</source>
+        <translation>Rojo</translation>
+    </message>
+    <message>
+        <source>Yellow</source>
+        <translation>Amarillo</translation>
+    </message>
+    <message>
+        <source>Magenta</source>
+        <translation>Magenta</translation>
+    </message>
+    <message>
+        <source>Cyan</source>
+        <translation>Cian</translation>
+    </message>
+    <message>
+        <source>White</source>
+        <translation>Blanco</translation>
+    </message>
+    <message>
+        <source>Neutral 8</source>
+        <translation>Neutro 8</translation>
+    </message>
+    <message>
+        <source>Neutral 6.5</source>
+        <translation>Neutro 6,5</translation>
+    </message>
+    <message>
+        <source>Neutral 5</source>
+        <translation>Neutro 5</translation>
+    </message>
+    <message>
+        <source>Neutral 3.5</source>
+        <translation>Neutro 3,5</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Negro</translation>
     </message>
 </context>
 <context>

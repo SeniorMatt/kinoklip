@@ -214,6 +214,12 @@ void ColorFrameSource::setDetailClips(const QVector<quint64>& clipIds, int width
         m_thumbTimer->start();
 }
 
+void ColorFrameSource::setThumbnailImage(quint64 clipId, const QImage& image)
+{
+    m_thumbs[clipId].image = image;
+    emit thumbnailChanged(clipId);
+}
+
 void ColorFrameSource::setDetailImage(quint64 clipId, const QImage& image)
 {
     m_details[clipId].image = image;

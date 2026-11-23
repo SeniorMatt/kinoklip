@@ -91,6 +91,8 @@ public:
 
     /// The graded thumbnail of @p clipId (null until rendered).
     [[nodiscard]] QImage thumbnail(quint64 clipId) const { return m_thumbs.value(clipId).image; }
+    /// Sets a thumbnail directly (tests, and engines without a compositor).
+    void setThumbnailImage(quint64 clipId, const QImage& image);
     /// Re-renders the thumbnails whose clip or grade changed (debounced).
     void refreshThumbnails();
 

@@ -138,6 +138,13 @@ public:
     [[nodiscard]] int rowOf(quint64 clipId) const;
     /// Clip of row @p row.
     [[nodiscard]] quint64 clipAt(int row) const;
+    /// Shot Match: gives every clip of @p sources (the target itself is skipped) the primary
+    /// balance and contrast of clip @p target, measured on the graded thumbnails
+    /// (colormatch::shotMatch(), strength from ColorSession::shotMatchStrength()). The result
+    /// is a Shot Match node at the end of each clip's grade (colormatch::applyShotMatch()); all
+    /// clips are one undo step. Returns the number of clips changed; 0 while a thumbnail is
+    /// missing.
+    int shotMatch(quint64 target, const QVector<quint64>& sources);
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;

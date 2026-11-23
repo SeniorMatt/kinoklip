@@ -136,6 +136,45 @@ pixel on the CPU (reference and CPU fallback).
 ### Primaries extras and Log palette (spec 146)
 Params (Resolve units -100..100, divided by 100 in the maths): Color Boost (vibrance: saturation scaled by 1 - HSV saturation), Shad / Hi (luma weighted, move towards white (+) or black (-)), Midtone Detail (a 4th blur stage: wide unsharp mask or blur weighted by 4 y (1 - y)). Log palette: `log*` wheels as additive offsets weighted by three luma zones (Low / High Range 0.33 / 0.55, ramps of 0.2), plus a Log Offset. Auto Color (`grademath::autoColor`): per-channel lift / gain from the 0.2 % / 99.8 % percentiles and gamma from the medians. Generate 3D LUT: `render/GradeLut`.
 
+### Color Match palette (spec 153, `src/core/ColorMatch.h`)
+Two features that end in ordinary node values, so the GPU pass and the CPU path agree without new
+shader code and no project format change is needed (nothing new is saved).
+
+**Shot Match.** Select clips in the clips strip (Ctrl- / Shift-click), right-click the clip they
+should look like, **Shot Match to This Clip**. Each clip's graded thumbnail and the target's give
+per-channel percentiles (5, 50, 95; `colormatch::shotStats()`; percentiles rather than Reinhard's
+mean and standard deviation, so clipped pixels and small bright areas do not drag the match).
+`colormatch::shotMatch()` finds, per channel, `y = gain (x + offset)`: the spread (95 - 5) is scaled
+to the target's (gain 0.5 .. 2) and the median moved onto the target's (offset within +-0.4). The
+palette's **Strength** (0 - 100 %) blends from no change to the full match. The clip gets a corrector
+labelled "Shot Match" at the end of its grade (an ungraded clip: node 01), with Gain and Offset
+R, G, B set; a second Shot Match of the same clip composes into that node exactly (gain and offset
+compose), a grade made by hand is never overwritten. All clips are one undo step.
+Not done: it measures the whole thumbnail (no face or region), not the Resolve algorithm, only
+per-channel balance and contrast (no lift / gamma split, no saturation match).
+
+**Chart match.** The palette has Color Chart (X-Rite ColorChecker Classic 24; Passport Video is its
+24-patch panel, same patches), Source Gamma, Target Gamma (Linear, Gamma 2.2 / 2.4 / 2.6, sRGB,
+Rec.709), Target Color Space (Rec.709, DCI-P3, Rec.2020), White Point (D65, D60, D50, DCI),
+Show Chart, Reset Chart and **Match**. Show Chart draws the chart outline with its 6 x 4 patch grid
+over the viewer: drag a corner handle onto the chart in the picture (any four-sided shape, so a
+tilted or turned chart works; patches are sampled through the perspective of the quad, the central
+half of each), drag inside to move the whole outline. Match measures the picture the selected node
+receives, and solves:
+1. the reference colours (published sRGB values of the chart) are brought to linear light, adapted
+   (Bradford) to the target white, put into the target primaries and encoded with Target Gamma;
+2. the six grey patches give each channel's lift, gamma and gain (Levenberg-Marquardt on the real
+   `liftGammaGain()`; the start value comes from the Source / Target Gamma pair);
+3. a 3 x 3 matrix whose rows add up to 1 (the grey axis stays put) is fitted by least squares over
+   all 24 patches on the tone-corrected values, with a weak pull to the identity.
+The result is written into the node as Primaries lift / gamma / gain (R, G, B) and the RGB Mixer
+matrix (`ColorSession::applyChartMatch()`), the node's offset, master wheels and Monochrome set to
+neutral; one undo step "Color Match". The line under the button shows the RMS error before and
+after. It needs the six grey patches to show a range; otherwise it says so and changes nothing.
+Not done: chart auto-detection, charts other than the 24 patch ColorChecker, a 3D LUT or curves as
+result (the model is per-channel power functions plus a matrix), saving the chart outline in the
+project, matching in linear light.
+
 ## Operations and undo
 - Pure graph operations in `gradeops::` (Grade.h): `initialize`, `addSerialNode` (Alt+S),
   `addSerialNodeBefore`, `addParallelNode` (Alt+P), `addLayerNode` (Alt+L), `addOutsideNode`

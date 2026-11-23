@@ -19,6 +19,7 @@ through ColorSession (one undo step per command or gesture).
   `ColorCurvesPanel`.
 - **ColorPalettes**: `QualifierPanel` (with `QualifierRangeBar`), `WindowsPanel`, `LutBrowser`,
   `KeyPanel`.
+- **ColorMatchPanel**: the Color Match palette (chart type, gammas, colour space, white point, Match; chart outline over the viewer by `ColorViewerOverlay`); maths in `core/ColorMatch`. Shot Match is `ColorClipStrip::shotMatch()`.
 - **QualifierPick**: HSL ranges from picked colours (pick, add, remove).
 - **ColorViewerOverlay**: window outlines and handles, the eyedropper rectangle, the highlight
   picture and the split wipe over the viewer.

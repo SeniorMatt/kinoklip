@@ -20,7 +20,9 @@
 #include "render/GradeEval.h"
 #include "ui/color/ColorBrowsers.h"
 #include "ui/color/ColorFrameSource.h"
+#include "core/ColorMatch.h"
 #include "ui/color/ColorKeyframes.h"
+#include "ui/color/ColorMatchPanel.h"
 #include "ui/color/ColorNodeEditor.h"
 #include "ui/color/ColorSizing.h"
 #include "ui/color/ColorTracker.h"
@@ -2129,6 +2131,132 @@ private slots:
         QCOMPARE(rows, 17 * 17 * 17);
         QVERIFY(!f.session()->generateLut(999999, 17, path, &error)); // not a clip
         QVERIFY(!f.session()->generateLut(f.clips[0], 17, dir.filePath(QStringLiteral("no/such/dir/x.cube")), &error));
+    }
+
+    /// Color Match palette (spec 153): the chart overlay in the viewer, Match on a synthetic
+    /// chart picture, and Shot Match to this clip from the clips strip.
+    void colorMatchPalette()
+    {
+        namespace cm = kk::colormatch;
+        Fixture f;
+        f.showPage();
+        ColorPage* page = f.page();
+        auto* tab = page->findChild<QAbstractButton*>(QStringLiteral("ColorPaletteTab_14"));
+        QVERIFY(tab);
+        QCOMPARE(tab->text(), QStringLiteral("Color Match"));
+        tab->click();
+        QCOMPARE(page->currentPalette(), ColorPage::Palette::ColorMatch);
+        ColorMatchPanel* panel = page->colorMatch();
+        QVERIFY(panel && panel->isVisible());
+        for (QWidget* w : {static_cast<QWidget*>(panel->chartCombo()),
+                 static_cast<QWidget*>(panel->sourceGammaCombo()),
+                 static_cast<QWidget*>(panel->targetGammaCombo()),
+                 static_cast<QWidget*>(panel->colorSpaceCombo()),
+                 static_cast<QWidget*>(panel->whitePointCombo()),
+                 static_cast<QWidget*>(panel->matchButton()),
+                 static_cast<QWidget*>(panel->showChartButton())})
+            QVERIFY(w->isVisible());
+        QCOMPARE(panel->chartCombo()->count(), 2);
+        ColorViewerOverlay* overlay = page->viewerOverlay();
+        QVERIFY(!overlay->chartVisible());
+        panel->showChartButton()->click();
+        QVERIFY(overlay->chartVisible());
+        // Dragging a corner handle moves that corner of the panel's outline.
+        const cm::ChartQuad before = panel->quad();
+        const QPointF from = overlay->chartCornerPos(0);
+        drag(overlay, from, from + QPointF(14, 9));
+        QVERIFY(panel->quad().corner[0] != before.corner[0]);
+        QCOMPARE(panel->quad().corner[2], before.corner[2]);
+        // Dragging inside moves the whole outline.
+        const cm::ChartQuad moved = panel->quad();
+        const QPointF mid = (overlay->chartCornerPos(0) + overlay->chartCornerPos(2)) / 2.0;
+        drag(overlay, mid, mid + QPointF(10, 6));
+        QVERIFY(panel->quad().corner[2] != moved.corner[2]);
+        // Another palette hides the outline again.
+        page->showPalette(ColorPage::Palette::Primaries);
+        QVERIFY(!overlay->chartVisible());
+        page->showPalette(ColorPage::Palette::ColorMatch);
+        QVERIFY(overlay->chartVisible());
+
+        // A picture of the chart as a camera would show it: darker, with a green cast.
+        panel->resetAll();
+        panel->setChartShown(true);
+        const cm::ChartQuad quad = panel->quad();
+        const auto want = cm::chartTargetColors(panel->chartType(), panel->target());
+        QImage img(320, 180, QImage::Format_ARGB32);
+        img.fill(qRgb(30, 30, 30));
+        for (int p = 0; p < cm::kChartPatches; ++p) {
+            for (int j = 0; j < 40; ++j) {
+                for (int i = 0; i < 40; ++i) {
+                    const QPointF pt = cm::chartPoint(quad,
+                        ((p % cm::kChartColumns) + (i + 0.5) / 40) / cm::kChartColumns,
+                        ((p / cm::kChartColumns) + (j + 0.5) / 40) / cm::kChartRows);
+                    const auto& c = want[size_t(p)];
+                    img.setPixel(int(pt.x() * 320), int(pt.y() * 180),
+                        qRgb(int(c[0] * 0.8f * 255), int(c[1] * 1.0f * 255), int(c[2] * 0.7f * 255)));
+                }
+            }
+        }
+        page->frames()->setInput(img);
+        const int steps = f.steps();
+        QVERIFY(panel->match());
+        QCOMPARE(f.steps(), steps + 1); // one undo step
+        QVERIFY2(panel->statusText().contains(QStringLiteral("Chart matched")),
+            qPrintable(panel->statusText()));
+        const ClipGrade g = f.grade(f.clips[0]);
+        QCOMPARE(g.nodes.size(), 1);
+        QVERIFY(g.nodes[0].value(gk::GainR, 0) > 1.0); // the red the camera lost comes back
+        QVERIFY(g.nodes[0].value(gk::GainB, 0) > 1.0);
+        // The graded picture is closer to the reference than the raw one.
+        QImage graded = img;
+        render::applyGrade(g, 0, graded);
+        const QPointF white = cm::chartPoint(quad, 0.5 / cm::kChartColumns, 3.5 / cm::kChartRows);
+        const QRgb raw = img.pixel(int(white.x() * 320), int(white.y() * 180));
+        const QRgb now = graded.pixel(int(white.x() * 320), int(white.y() * 180));
+        const int target = int(want[cm::kChartFirstNeutral][0] * 255);
+        QVERIFY(std::abs(qRed(now) - target) < std::abs(qRed(raw) - target));
+        QVERIFY(std::abs(qBlue(now) - target) < std::abs(qBlue(raw) - target));
+        f.project.undoStack()->undo();
+        QVERIFY(f.grade(f.clips[0]).isEmpty() || f.grade(f.clips[0]).nodes[0].value(gk::GainR, 0) == 1.0);
+
+        // The outline outside the picture cannot be measured: no change, a message.
+        cm::ChartQuad outside = panel->quad();
+        outside.corner[1] = QPointF(1.6, 0.1);
+        panel->setQuad(outside);
+        const int again = f.steps();
+        QVERIFY(!panel->match());
+        QCOMPARE(f.steps(), again);
+        QVERIFY(!panel->statusText().isEmpty());
+
+        // Shot Match to This Clip: clips 2 and 3 get the look of clip 1 (graded thumbnails).
+        ColorClipStrip* strip = page->clipStrip();
+        QImage dull(112, 63, QImage::Format_ARGB32);
+        QImage warm(112, 63, QImage::Format_ARGB32);
+        for (int y = 0; y < 63; ++y) {
+            for (int x = 0; x < 112; ++x) {
+                const int v = 40 + x + y / 2;
+                dull.setPixel(x, y, qRgb(v / 2, v / 2, v));
+                warm.setPixel(x, y, qRgb(std::min(255, v * 2 - 20), v + 20, v / 2));
+            }
+        }
+        page->frames()->setThumbnailImage(f.clips[0], warm);
+        page->frames()->setThumbnailImage(f.clips[1], dull);
+        page->frames()->setThumbnailImage(f.clips[2], dull);
+        const int before2 = f.steps();
+        QCOMPARE(strip->shotMatch(f.clips[0], {f.clips[0], f.clips[1], f.clips[2]}), 2);
+        QCOMPARE(f.steps(), before2 + 1); // both clips in one step
+        QVERIFY(f.grade(f.clips[0]).isEmpty()); // the target is not touched
+        for (const quint64 clip : {f.clips[1], f.clips[2]}) {
+            const ClipGrade cg = f.grade(clip);
+            QCOMPARE(cg.nodes.size(), 1);
+            QCOMPARE(cg.nodes[0].label, cm::kShotMatchLabel);
+            QVERIFY(cg.nodes[0].value(gk::GainR, 0) > 1.0); // dull is less red than warm
+        }
+        f.project.undoStack()->undo();
+        QVERIFY(f.grade(f.clips[1]).isEmpty() && f.grade(f.clips[2]).isEmpty());
+        // Without a thumbnail of the target nothing happens.
+        page->frames()->setThumbnailImage(f.clips[0], QImage());
+        QCOMPARE(strip->shotMatch(f.clips[0], {f.clips[1]}), 0);
     }
 
     void sizingPalette()
