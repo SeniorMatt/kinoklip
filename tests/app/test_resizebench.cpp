@@ -116,6 +116,11 @@ namespace {
 
 constexpr int kSteps = 40;
 constexpr int kStepPx = 10;
+// Start narrow enough that the viewers are limited by their width, not by their height: panels
+// no longer force a minimum width from their contents, so from 1200 px wide on the viewers
+// already have the largest picture the top row height allows and resizing changes nothing.
+constexpr int kStartW = 800;
+constexpr int kStartH = 800;
 
 struct Result
 {
@@ -156,7 +161,7 @@ Result runResize(int settleMs)
     windowOptions.autosave = false;
     MainWindow window(ctx, windowOptions);
     window.setCurrentPage(QStringLiteral("edit"));
-    window.resize(1200, 800);
+    window.resize(kStartW, kStartH);
     window.show();
     if (!QTest::qWaitForWindowExposed(&window))
         return {};
@@ -168,7 +173,7 @@ Result runResize(int settleMs)
     QElapsedTimer timer;
     for (int i = 1; i <= kSteps; ++i) {
         timer.start();
-        window.resize(1200 + i * kStepPx, 800 + i * kStepPx / 2);
+        window.resize(kStartW + i * kStepPx, kStartH + i * kStepPx / 2);
         window.repaint(); // layout + paint of everything now (what the compositor waits for)
         QCoreApplication::processEvents();
         times.append(timer.nsecsElapsed() / 1e6);
