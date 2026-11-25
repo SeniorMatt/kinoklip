@@ -35,6 +35,9 @@ public:
 protected:
     void childEvent(QChildEvent* event) override;
     QSplitterHandle* createHandle() override;
+
+private:
+    bool m_creatingHandle = false;
 };
 
 } // namespace kk

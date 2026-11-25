@@ -119,9 +119,11 @@ void PanelSplitter::childEvent(QChildEvent* event)
     QSplitter::childEvent(event);
     if (event->type() != QEvent::ChildAdded || !event->child()->isWidgetType())
         return;
-    auto* panel = static_cast<QWidget*>(event->child());
-    if (qobject_cast<QSplitterHandle*>(panel))
+    // A handle is a child too, announced while it is still being constructed (qobject_cast
+    // cannot tell it apart yet): createHandle() sets m_creatingHandle around it.
+    if (m_creatingHandle)
         return;
+    auto* panel = static_cast<QWidget*>(event->child());
     // A panel's contents set a minimum width through its layout (the sum of its controls'
     // minimums); an explicit minimum replaces it, so a row of panels always fits a small window.
     // Rows only: the heights of stacked panels keep what their contents ask for. A minimum a
@@ -133,7 +135,10 @@ void PanelSplitter::childEvent(QChildEvent* event)
 
 QSplitterHandle* PanelSplitter::createHandle()
 {
-    return new PanelSplitterHandle(orientation(), this);
+    m_creatingHandle = true;
+    auto* handle = new PanelSplitterHandle(orientation(), this);
+    m_creatingHandle = false;
+    return handle;
 }
 
 } // namespace kk
