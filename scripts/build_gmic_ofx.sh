@@ -23,7 +23,7 @@ trap 'rm -rf "$SRC"' EXIT
 git clone -q https://github.com/NatronGitHub/openfx-gmic.git "$SRC/openfx-gmic"
 git -C "$SRC/openfx-gmic" checkout -q "$COMMIT"
 git -C "$SRC/openfx-gmic" submodule update -q --init --depth 1
-make -C "$SRC/openfx-gmic" -j"$JOBS" LICENSE=GPL FFT=pocketfft
+make -C "$SRC/openfx-gmic" -j"$JOBS" CONFIG=release OPENMP=1 CXXSTD=c++17 GMIC_STATIC_DEPS=0 LICENSE=GPL FFT=pocketfft
 BUNDLE="$(find "$SRC/openfx-gmic/GMIC_OFX" -maxdepth 3 -name 'GMIC.ofx.bundle' -type d | head -1)"
 [ -n "$BUNDLE" ] || { echo "build_gmic_ofx: no GMIC.ofx.bundle was made" >&2; exit 1; }
 mkdir -p "$OUT"

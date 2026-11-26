@@ -24,6 +24,7 @@
 #include <QListWidget>
 #include <QMouseEvent>
 #include <QTemporaryDir>
+#include <QTreeWidget>
 #include <QTest>
 #include <QUndoStack>
 
