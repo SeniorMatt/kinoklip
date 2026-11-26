@@ -712,6 +712,75 @@ private slots:
         QVERIFY2(failures.size() <= rendered / 10, qPrintable(failures.join(QLatin1Char('\n'))));
     }
 
+    // ---- G'MIC-OFX (skipped when it is not built: scripts/build_gmic_ofx.sh, KK_OFX_GMIC_DIR) ----
+
+    static QString gmicDir()
+    {
+        QStringList candidates;
+        if (qEnvironmentVariableIsSet("KK_OFX_GMIC_DIR"))
+            candidates << qEnvironmentVariable("KK_OFX_GMIC_DIR");
+        candidates << QStringLiteral("/usr/OFX/Plugins") << QStringLiteral("/usr/local/OFX/Plugins");
+        for (const QString& c : candidates) {
+            if (QFileInfo(c + QStringLiteral("/GMIC.ofx.bundle")).isDir())
+                return c;
+        }
+        return {};
+    }
+
+    void gmicIsDescribedAndAFewFiltersRender()
+    {
+        const QString dir = gmicDir();
+        if (dir.isEmpty())
+            QSKIP("G'MIC-OFX is not built here (scripts/build_gmic_ofx.sh, KK_OFX_GMIC_DIR)");
+        OfxRegistry& reg = OfxRegistry::instance();
+        reg.setSearchDirs({dir});
+        reg.setCacheFile(m_dir.filePath(QStringLiteral("cache-gmic.json")));
+        QFile::remove(m_dir.filePath(QStringLiteral("cache-gmic.json")));
+        reg.setProbeTimeoutMs(300000);
+        reg.reload();
+        const OfxBundleEntry* gmic
+            = reg.bundle(QFileInfo(dir + QStringLiteral("/GMIC.ofx.bundle")).absoluteFilePath());
+        QVERIFY(gmic);
+        QVERIFY2(!gmic->bad, qPrintable(gmic->reason));
+        const QStringList effects = miscEffects();
+        qInfo("G'MIC-OFX: %d plugins in the bundle, %d effects offered",
+            int(gmic->info.plugins.size()), int(effects.size()));
+        QVERIFY2(effects.size() >= 20, qPrintable(QString::number(effects.size())));
+        // a few filters run with their defaults and give a finite picture of the same size
+        Picture src(64, 48);
+        for (size_t y = 0; y < size_t(src.h); ++y)
+            for (size_t x = 0; x < size_t(src.w); ++x)
+                src.px[(y * size_t(src.w) + x) * 4] = float(x) / float(src.w);
+        int rendered = 0, tried = 0;
+        QStringList failures;
+        for (const QString& id : effects) {
+            if (tried >= 6)
+                break;
+            const auto p = reg.plugin(id);
+            QString error;
+            auto inst = ofx::Instance::create(p->bundleInfo(), p->info.index, &error);
+            if (!inst) {
+                failures << id + QStringLiteral(": ") + error;
+                continue;
+            }
+            ++tried;
+            std::vector<float> dst(src.px.size(), 0.f);
+            const ofx::RenderResult r = inst->render(argsFor(src, 0), src.px.data(), dst.data(), &error);
+            if (r == ofx::RenderResult::Failed) {
+                failures << id + QStringLiteral(": ") + error;
+                continue;
+            }
+            if (r == ofx::RenderResult::Rendered) {
+                for (float v : dst)
+                    QVERIFY2(std::isfinite(v), qPrintable(id));
+            }
+            ++rendered;
+        }
+        qInfo("G'MIC-OFX: %d of %d filters rendered; %s", rendered, tried,
+            qPrintable(failures.join(QStringLiteral("; "))));
+        QVERIFY2(rendered >= 3, qPrintable(failures.join(QLatin1Char('\n'))));
+    }
+
     void theRenderCacheKeyChangesWithThePlugins()
     {
         OfxRegistry& reg = OfxRegistry::instance();

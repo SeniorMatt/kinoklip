@@ -24,6 +24,10 @@ on:
         type: choice
         options: [none, quick, full]
         default: quick
+      gmic:
+        description: "Also build G'MIC-OFX for the pack test of test_ofx (slow: gmic.cpp takes a long time)"
+        type: boolean
+        default: false
       publish:
         description: "Replace the files of the rolling dev pre-release with this build"
         type: boolean
@@ -116,6 +120,15 @@ jobs:
         run: |
           scripts/build_openfx_misc.sh "$GITHUB_WORKSPACE/ofx-misc" "$KK_JOBS"
           echo "KK_OFX_MISC_DIR=$GITHUB_WORKSPACE/ofx-misc" >> "$GITHUB_ENV"
+
+      - name: Build G'MIC-OFX (pack test of test_ofx only, not bundled)
+        if: ${{ inputs.gmic }}
+        continue-on-error: true
+        run: |
+          apt-get install -y --no-install-recommends libpng-dev libjpeg-dev libtiff-dev zlib1g-dev
+          scripts/build_gmic_ofx.sh "$GITHUB_WORKSPACE/ofx-gmic" 2
+          echo "KK_OFX_GMIC_DIR=$GITHUB_WORKSPACE/ofx-gmic" >> "$GITHUB_ENV"
+          du -sh "$GITHUB_WORKSPACE/ofx-gmic/GMIC.ofx.bundle" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Build and package
         run: |
