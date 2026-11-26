@@ -409,7 +409,8 @@ private slots:
                 continue;
             }
             ++count;
-            const QImage mid = m_rig.renderTransition(item.fullId, defaults, 0.5, a, b, &why);
+            // (at 0.3: a card that turns edge-on or a picture that scales to nothing is empty at 0.5)
+            const QImage mid = m_rig.renderTransition(item.fullId, defaults, 0.3, a, b, &why);
             const QImage at1 = m_rig.renderTransition(item.fullId, defaults, 1.0, a, b, &why);
             if (meanDifference(at0, a) > 6.0)
                 startBad << item.fullId;
