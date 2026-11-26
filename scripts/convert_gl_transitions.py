@@ -19,6 +19,11 @@ from pathlib import Path
 PLUGIN_ID = "dev.kinoklip.gl-transitions"
 DROP_TEXT = ("shadertoy.com",)
 
+# Names the host's prelude defines (kGlslCommon, kGlslHash and the transition prelude of
+# src/render/PluginShader.cpp); a shader that declares one of its own gets it renamed.
+HOST_NAMES = ("luma", "kLuma", "straight", "keyOutput", "hashU", "hash01", "hash2", "maxAbs",
+              "ratio", "progress", "uA", "uB", "uProgress", "uResolution")
+
 DECL = re.compile(
     r"^\s*uniform\s+(\w+)\s+(\w+)\s*(?:/\*\s*=\s*(.*?)\s*\*/)?\s*;\s*(?://\s*=?\s*(.*?))?\s*$")
 RANGE = re.compile(r"^//\s*@range\(\s*([-\d.eE+]+)\s*,\s*([-\d.eE+]+)\s*(?:,\s*([-\d.eE+]+)\s*)?\)\s*(.*)$")
@@ -172,6 +177,11 @@ def convert(path):
     if re.search(r"\buniform\b", text.replace("// ", "//")) and re.search(r"^\s*uniform\b", text, re.M):
         raise ValueError("uniform left")
     text = re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
+    for name in HOST_NAMES:
+        if re.search(r"\b(?:float|int|uint|bool|vec[234]|ivec[234]|mat[234]|const\s+\w+)\s+" + name + r"\b", text):
+            new = "glt" + name[:1].upper() + name[1:]
+            text = re.sub(r"(?<![\w.])" + name + r"\b", new, text)
+            print(f"  {path.stem}: its own '{name}' renamed to '{new}'")
 
     stem = path.stem
     item = {

@@ -26,7 +26,7 @@ vec4 tape(vec2 p, bool fresh) {
   return vec4(c.rgb * c.a, c.a);
 }
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
@@ -84,9 +84,9 @@ vec4 transition(vec2 uv) {
     }
     avg /= float(TAPS);
   }
-  vec3 chroma = (avg.rgb - luma(avg.rgb)) / max(avg.a, 1e-5);
-  vec3 rgb = luma(c.rgb) + chroma * c.a; // premultiplied by c.a
-  rgb = mix(rgb, vec3(luma(rgb)), 0.6 * dens);
+  vec3 chroma = (avg.rgb - gltLuma(avg.rgb)) / max(avg.a, 1e-5);
+  vec3 rgb = gltLuma(c.rgb) + chroma * c.a; // premultiplied by c.a
+  rgb = mix(rgb, vec3(gltLuma(rgb)), 0.6 * dens);
 
   // snow: short white streaks on the tape lines, starting at a random offset on each line so they never line up
   vec2 cell = vec2(floor(uv.x * LINES * 0.3 * ratio + 40.0 * jitter), line);

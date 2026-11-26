@@ -8,7 +8,7 @@ const int N = 14;
 const float FREED = 0.36;
 const float CAUGHT = 0.64;
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
@@ -22,7 +22,7 @@ vec2 spot(int i) {
 
 // how much the color c stands for a tone: the ones that stand out win, since the average of several hues is mud
 float weight(vec4 c, vec2 stats, vec3 tint, float z) {
-  float l = luma(c.rgb);
+  float l = gltLuma(c.rgb);
   float d = (l - stats.x) / stats.y - z;
   float s = 0.4 * length(c.rgb - l) + length(c.rgb - l - tint);
   float w = exp(-4.0 * d * d) * (0.1 + s);
@@ -43,7 +43,7 @@ vec4 transition(vec2 uv) {
   for (int i = 0; i < N; i++) {
     vec4 ca = progress < CAUGHT ? getFromColor(spot(i)) : vec4(0.0);
     vec4 cb = progress > FREED ? getToColor(spot(i)) : vec4(0.0);
-    vec2 l = vec2(luma(ca.rgb), luma(cb.rgb));
+    vec2 l = vec2(gltLuma(ca.rgb), gltLuma(cb.rgb));
     sum += vec2(ca.a, cb.a);
     ma += vec2(l.x, l.x * l.x) * ca.a;
     mb += vec2(l.y, l.y * l.y) * cb.a;
@@ -66,7 +66,7 @@ vec4 transition(vec2 uv) {
   if (bend < 1.0) {
     // fine detail melts into a broad field before the shapes move, so their edges do not tear
     float melt = smoothstep(0.0, 0.55, bend);
-    vec2 acc = vec2(luma(here.rgb) * here.a, here.a);
+    vec2 acc = vec2(gltLuma(here.rgb) * here.a, here.a);
     vec2 broad = vec2(late ? mb.x : ma.x, 1.0) * 1e-3;
     if (melt < 1.0) {
       float soft = smoothstep(0.0, 0.2, progress) * (1.0 - smoothstep(0.8, 1.0, progress));
@@ -75,14 +75,14 @@ vec4 transition(vec2 uv) {
         float g = 2.39996 * float(i);
         vec2 q = fold(uv + r * vec2(cos(g), sin(g)) / vec2(ratio, 1.0));
         vec4 c = late ? getToColor(q) : getFromColor(q);
-        acc += vec2(luma(c.rgb) * c.a, c.a);
+        acc += vec2(gltLuma(c.rgb) * c.a, c.a);
       }
     }
     if (melt > 0.0) {
       for (int i = 0; i < N; i++) {
         vec2 q = (uv - spot(i)) * vec2(ratio, 1.0);
         vec4 c = late ? getToColor(spot(i)) : getFromColor(spot(i));
-        broad += vec2(luma(c.rgb), 1.0) * c.a * exp(-26.0 * dot(q, q));
+        broad += vec2(gltLuma(c.rgb), 1.0) * c.a * exp(-26.0 * dot(q, q));
       }
     }
     y = mix(acc.x / max(acc.y, 1e-4), broad.x / broad.y, melt);
@@ -117,7 +117,7 @@ vec4 transition(vec2 uv) {
     }
     vec3 c = mix(pa.rgb / max(pa.a, 1e-7), pb.rgb / max(pb.a, 1e-7), turn);
     float goal = mix(ma.x + 1.2 * z * ma.y, mb.x + 1.2 * z * mb.y, turn);
-    c = clamp(goal + (c - luma(c)) * u_vivid, 0.0, 1.0);
+    c = clamp(goal + (c - gltLuma(c)) * u_vivid, 0.0, 1.0);
     col += left * cover * c;
     left *= 1.0 - cover;
     if (left <= 0.0) break;

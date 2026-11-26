@@ -1,11 +1,11 @@
 // Author: gre
 // License: MIT
 // Description: The outgoing image separates by its own brightness like oil and water: its light shapes float up out of the frame as one cut-out layer while its dark shapes sink down as another, both keeping their outlines and casting soft shadows, revealing the incoming image between them
-// Tags: content, luma, split, layers, vertical, shadow
+// Tags: content, gltLuma, split, layers, vertical, shadow
 
 const vec3 W = vec3(0.299, 0.587, 0.114);
 
-float luma(vec2 p) {
+float gltLuma(vec2 p) {
   return dot(getFromColor(p).rgb, W);
 }
 
@@ -21,7 +21,7 @@ float around(vec2 p) {
   for (int i = 0; i < 5; i++) {
     float a = 1.2566 * float(i) + 0.3;
     vec2 q = p + d * vec2(cos(a), sin(a));
-    sum += luma(1.0 - abs(1.0 - mod(q, 2.0)));
+    sum += gltLuma(1.0 - abs(1.0 - mod(q, 2.0)));
   }
   return 0.2 * sum;
 }
@@ -37,7 +37,7 @@ float inside(float y, float aa) {
 }
 
 vec4 transition(vec2 uv) {
-  float th = 0.25 * (luma(vec2(0.25)) + luma(vec2(0.75)) + luma(vec2(0.25, 0.75)) + luma(vec2(0.75, 0.25)));
+  float th = 0.25 * (gltLuma(vec2(0.25)) + gltLuma(vec2(0.75)) + gltLuma(vec2(0.25, 0.75)) + gltLuma(vec2(0.75, 0.25)));
   th = clamp(th, 0.1, 0.9);
 
   float t = progress;

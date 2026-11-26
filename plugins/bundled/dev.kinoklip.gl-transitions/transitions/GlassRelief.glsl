@@ -7,7 +7,7 @@ const int TAPS = 24;
 // in frame heights: wide enough that fine texture averages out of the height field
 const float RADIUS = 0.05;
 
-float luma(vec4 c) {
+float gltLuma(vec4 c) {
   return dot(c.rgb, vec3(0.299, 0.587, 0.114)) * c.a + 0.3 * (1.0 - c.a);
 }
 
@@ -29,7 +29,7 @@ vec4 transition(vec2 uv) {
     float f = (float(i) + 0.5) / float(TAPS);
     vec2 d = RADIUS * sqrt(f) * dir;
     float w = exp(-4.0 * f);
-    float l = luma(getToColor(mirror(uv + vec2(d.x / ratio, d.y))));
+    float l = gltLuma(getToColor(mirror(uv + vec2(d.x / ratio, d.y))));
     sw += w;
     sl += w * l;
     sd += w * d;
@@ -61,7 +61,7 @@ vec4 transition(vec2 uv) {
   vec3 glass = behind.rgb * (1.0 + 0.6 * u_shine * diff) + u_shine * (0.9 * spec * relief * min(length(g) * 6.0, 1.0) + 0.4 * max(diff, 0.0) + 0.4 * rim);
 
   vec4 to = getToColor(uv);
-  float lag = 0.7 * (1.0 - clamp(mix(h, luma(to), 0.3), 0.0, 1.0));
+  float lag = 0.7 * (1.0 - clamp(mix(h, gltLuma(to), 0.3), 0.0, 1.0));
   float fill = smoothstep(lag, lag + 0.3, melt);
   return vec4(clamp(mix(glass, to.rgb, fill), 0.0, 1.0), mix(behind.a, to.a, fill));
 }

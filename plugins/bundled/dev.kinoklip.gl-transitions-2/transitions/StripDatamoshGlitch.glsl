@@ -162,8 +162,8 @@ vec4 transition(vec2 uv) {
   float n = hash(nCell + vec2(frame * 7.0, frame * 13.0));
   color.rgb += (n - 0.5) * u_noiseAmount * b * (0.55 + glitch);
 
-  float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-  color.rgb = mix(color.rgb, vec3(luma), 0.18 * b * glitch);
+  float gltLuma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+  color.rgb = mix(color.rgb, vec3(gltLuma), 0.18 * b * glitch);
 
   float strobe = step(0.78, hash(vec2(frame, 3.14))) * pow(b, 1.65);
   color.rgb += vec3(strobe * u_flashAmount);

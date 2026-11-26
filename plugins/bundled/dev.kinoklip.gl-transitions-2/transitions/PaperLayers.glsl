@@ -20,7 +20,7 @@ const float BLUR = 0.004;
 const float SHADOW_BLUR = 0.01;
 const float EDGE = 0.0015;
 
-float luma(vec4 c) {
+float gltLuma(vec4 c) {
   return dot(c.rgb, vec3(0.299, 0.587, 0.114));
 }
 
@@ -49,10 +49,10 @@ vec2 mirror(vec2 v) {
 // brightness of the incoming image at p (whose color is c) softened over a disc of the given radius in frame heights
 float softLuma(vec2 p, vec4 c, float radius, vec2 aspect) {
   vec2 r = radius / aspect;
-  float l = luma(c);
-  l += luma(getToColor(mirror(p + r * vec2(0.0, 1.0))));
-  l += luma(getToColor(mirror(p + r * vec2(0.866, -0.5))));
-  l += luma(getToColor(mirror(p + r * vec2(-0.866, -0.5))));
+  float l = gltLuma(c);
+  l += gltLuma(getToColor(mirror(p + r * vec2(0.0, 1.0))));
+  l += gltLuma(getToColor(mirror(p + r * vec2(0.866, -0.5))));
+  l += gltLuma(getToColor(mirror(p + r * vec2(-0.866, -0.5))));
   return l / 4.0;
 }
 
@@ -115,7 +115,7 @@ vec4 transition(vec2 uv) {
         // (the dark bands are lifted a little, as paper is never black)
         float level = 0.25 + 0.75 * k / n1;
         vec3 plain = u_paper.rgb * level;
-        vec3 tinted = clamp(level + 1.25 * (src.rgb - luma(src)), 0.0, 1.0);
+        vec3 tinted = clamp(level + 1.25 * (src.rgb - gltLuma(src)), 0.0, 1.0);
         vec3 sheet = mix(plain, tinted, 0.9 * clamp(u_colorful, 0.0, 1.0));
         sheet *= 0.975 + 0.05 * grain(q * aspect * 160.0 + k * 37.0);
         color = mix(color, vec4(sheet, u_paper.a), m);

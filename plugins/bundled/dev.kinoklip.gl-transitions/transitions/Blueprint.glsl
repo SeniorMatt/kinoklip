@@ -20,12 +20,12 @@ float noise(vec2 p) {
   );
 }
 
-float luma(vec4 c) {
+float gltLuma(vec4 c) {
   return dot(c.rgb, vec3(0.299, 0.587, 0.114));
 }
 
 float edge(vec4 xp, vec4 xm, vec4 yp, vec4 ym) {
-  return smoothstep(0.05, 0.18, length(vec2(luma(xp) - luma(xm), luma(yp) - luma(ym))));
+  return smoothstep(0.05, 0.18, length(vec2(gltLuma(xp) - gltLuma(xm), gltLuma(yp) - gltLuma(ym))));
 }
 
 vec4 transition(vec2 uv) {
@@ -44,7 +44,7 @@ vec4 transition(vec2 uv) {
   float lines = max(lineA * erase, lineB * draw);
   vec2 g = abs(fract(q * 16.0) - 0.5);
   float gridLine = smoothstep(0.44, 0.48, max(g.x, g.y)) * u_grid;
-  float tone = mix(luma(a), luma(b), smoothstep(0.35, 0.65, p));
+  float tone = mix(gltLuma(a), gltLuma(b), smoothstep(0.35, 0.65, p));
   vec4 bp = vec4(u_paper.rgb * (0.8 + 0.35 * tone), u_paper.a);
   bp.rgb *= 1.0 - 0.6 * gridLine;
   bp = mix(bp, u_ink, lines * u_ink.a);

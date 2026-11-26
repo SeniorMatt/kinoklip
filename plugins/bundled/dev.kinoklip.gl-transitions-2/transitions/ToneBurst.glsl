@@ -6,7 +6,7 @@
 const int SPOTS = 7;
 const int TAPS = 16;
 
-float luma(vec4 c) {
+float gltLuma(vec4 c) {
   return dot(c.rgb, vec3(0.299, 0.587, 0.114));
 }
 
@@ -29,7 +29,7 @@ vec2 delay(vec2 uv, vec4 here, bool incoming, float sharp) {
   vec3 stats = vec3(0.0, 0.0, 1e-4);
   for (int i = 0; i < SPOTS; i++) {
     vec4 c = pixel(spot(i), incoming);
-    tone[i] = vec2(luma(c), c.a);
+    tone[i] = vec2(gltLuma(c), c.a);
     stats += vec3(tone[i].x, tone[i].x * tone[i].x, 1.0) * c.a;
   }
   float mean = stats.x / stats.z;
@@ -46,13 +46,13 @@ vec2 delay(vec2 uv, vec4 here, bool incoming, float sharp) {
 
   float grain = 0.0;
   if (sharp > 0.0) {
-    float l = luma(here);
+    float l = gltLuma(here);
     vec3 acc = vec3(l, l * l, 1.0) * here.a + vec3(0.0, 0.0, 1e-4);
     for (int i = 0; i < TAPS; i++) {
       float q = (float(i) + 0.5) / float(TAPS);
       float a = 2.399963 * float(i);
       vec4 c = pixel(fold(uv + u_softness * sqrt(q) * vec2(cos(a), sin(a)) / k), incoming);
-      l = luma(c);
+      l = gltLuma(c);
       acc += vec3(l, l * l, 1.0) * c.a * (1.0 - 0.7 * q);
     }
     l = acc.x / acc.z;

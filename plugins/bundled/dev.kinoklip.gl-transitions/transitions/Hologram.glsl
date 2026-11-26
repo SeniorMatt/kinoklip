@@ -12,7 +12,7 @@ float hash(vec2 p) {
   return fract((p.x + p.y) * p.x);
 }
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
@@ -38,14 +38,14 @@ vec4 transition(vec2 uv) {
 
   float m = step(hash(vec2(floor(uv.y * 24.0), 7.0)), (p - 0.35) / 0.3);
 
-  // the luma of the image in the tint, with colored fringes weighted by their texels' alpha
+  // the gltLuma of the image in the tint, with colored fringes weighted by their texels' alpha
   vec4 c = source(clamp(q, 0.0, 1.0), m);
   vec2 dx = vec2(0.003 + 0.01 * b, 0.0);
-  float l = luma(c.rgb);
+  float l = gltLuma(c.rgb);
   vec4 cr = source(clamp(q + dx, 0.0, 1.0), m);
   vec4 cb = source(clamp(q - dx, 0.0, 1.0), m);
-  float lr = luma(cr.rgb) * cr.a;
-  float lb = luma(cb.rgb) * cb.a;
+  float lr = gltLuma(cr.rgb) * cr.a;
+  float lb = gltLuma(cb.rgb) * cb.a;
   vec3 g = smoothstep(0.05, 0.9, vec3(lr, l, lb));
   vec3 holo = u_tint.rgb * (0.06 + 1.25 * g) + 0.45 * g * g * g;
   float roll = fract(uv.y + 2.0 * p);

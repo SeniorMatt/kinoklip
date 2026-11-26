@@ -3,13 +3,13 @@
 // Description: The incoming picture is a shadow caster between three colored lamps and the outgoing picture: its shadow arrives huge, blurred and split into colored fringes, shrinks and sharpens into one crisp gray shadow on the outgoing picture, then front light catches the caster and it lights up in color, bright parts first
 // Tags: shadow, light, silhouette, stage, color, blur
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
 float occlusion(vec2 q) {
   vec2 inside = step(vec2(0.0), q) * step(q, vec2(1.0));
-  return smoothstep(0.2, 0.85, 1.0 - luma(getToColor(q).rgb)) * inside.x * inside.y;
+  return smoothstep(0.2, 0.85, 1.0 - gltLuma(getToColor(q).rgb)) * inside.x * inside.y;
 }
 
 vec4 transition(vec2 uv) {
@@ -37,6 +37,6 @@ vec4 transition(vec2 uv) {
   vec4 b = getToColor(uv);
   vec3 screen = a.rgb * (1.0 - strength * sh);
   float f = smoothstep(0.55, 0.95, p);
-  float w = clamp(f * 1.6 - (1.0 - luma(b.rgb)) * 0.6 * (1.0 - f), 0.0, 1.0);
+  float w = clamp(f * 1.6 - (1.0 - gltLuma(b.rgb)) * 0.6 * (1.0 - f), 0.0, 1.0);
   return vec4(mix(screen, b.rgb, w), mix(a.a, b.a, w));
 }

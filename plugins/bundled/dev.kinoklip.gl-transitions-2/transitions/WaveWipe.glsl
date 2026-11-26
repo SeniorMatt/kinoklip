@@ -108,8 +108,8 @@ vec4 transition(vec2 uv) {
   float bend = u_refraction * band * band;
   vec2 off = bend * (dir * sin(17.0 * q.y + 2.0 * sin(9.0 * q.x) - 6.0 * t) + up * cos(13.0 * q.x - 5.0 * t));
   vec4 b = getToColor(mirror(uv + off * 2.0 * w / vec2(ratio, 1.0)));
-  float luma = dot(b.rgb, vec3(0.299, 0.587, 0.114));
-  vec3 tinted = u_water.rgb * (0.4 + 0.9 * luma) * (1.0 + 0.6 * q.y);
+  float gltLuma = dot(b.rgb, vec3(0.299, 0.587, 0.114));
+  vec3 tinted = u_water.rgb * (0.4 + 0.9 * gltLuma) * (1.0 + 0.6 * q.y);
   tinted += 0.18 * lip * (1.0 - k) * vec3(0.5, 1.0, 0.9);
   tinted *= 1.0 - 0.35 * lip * (1.0 - smoothstep(0.0, 0.06, r - rIn));
   tinted += 0.35 * (curled ? k * (1.0 - smoothstep(0.0, 0.015, r - rIn)) : 1.0 - smoothstep(0.0, 0.015, behind)) * vec3(0.7, 0.95, 1.0);

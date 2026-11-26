@@ -7,19 +7,19 @@ const float SPACING = 0.2;
 const float LO = 0.15;
 const float HI = 0.85;
 
-float luma(vec2 p) {
+float gltLuma(vec2 p) {
   return dot(getFromColor(p).rgb, vec3(0.299, 0.587, 0.114));
 }
 
 // height of the strongest vertical brightness change in the column at knot i, sampled on a coarse ladder
 float knot(float i) {
   float x = clamp(i * SPACING / ratio, 0.0, 1.0);
-  float prev = luma(vec2(x, LO));
+  float prev = gltLuma(vec2(x, LO));
   // the tiny prior falls back to the middle on flat columns; d is scaled so it survives half precision
   float sw = 1e-4, sy = 0.5e-4;
   for (int j = 1; j < 9; j++) {
     float y = mix(LO, HI, float(j) / 8.0);
-    float cur = luma(vec2(x, y));
+    float cur = gltLuma(vec2(x, y));
     float m = y - 0.5 * (HI - LO) / 8.0;
     float d = 4.0 * abs(cur - prev) * (1.0 - 1.2 * abs(m - 0.5));
     float w = d * d * d * d;

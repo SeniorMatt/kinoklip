@@ -13,7 +13,7 @@ const float CAUGHT = 0.64;
 // from one tone to the next, in deviations
 const float GAP = 0.62;
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
@@ -26,12 +26,12 @@ vec2 spot(int i) {
 }
 
 vec2 toned(vec4 c) {
-  return vec2(luma(c.rgb), 1.0) * c.a;
+  return vec2(gltLuma(c.rgb), 1.0) * c.a;
 }
 
 vec3 paint(vec4 sum, vec2 stats, float z) {
   vec3 c = sum.rgb / sum.a;
-  return clamp(stats.x + 1.2 * z * stats.y + (c - luma(c)) * u_vivid, 0.0, 1.0);
+  return clamp(stats.x + 1.2 * z * stats.y + (c - gltLuma(c)) * u_vivid, 0.0, 1.0);
 }
 
 vec4 transition(vec2 uv) {
@@ -44,14 +44,14 @@ vec4 transition(vec2 uv) {
   // the color to fall back on where the spots of an image are all transparent
   vec3 own = (a.rgb * a.a + b.rgb * b.a) / max(a.a + b.a, 1e-4);
   vec2 sum = vec2(1e-4);
-  vec2 ma = 1e-4 * vec2(luma(own), luma(own) * luma(own));
+  vec2 ma = 1e-4 * vec2(gltLuma(own), gltLuma(own) * gltLuma(own));
   vec2 mb = ma;
   // the spots melt the fine detail into broad blots, here and at the mirrored place
   vec4 broadA = vec4(1e-6), broadB = broadA;
   for (int i = 0; i < N; i++) {
     vec4 ca = progress < CAUGHT ? getFromColor(spot(i)) : vec4(0.0);
     vec4 cb = progress > FREED ? getToColor(spot(i)) : vec4(0.0);
-    vec2 l = vec2(luma(ca.rgb), luma(cb.rgb));
+    vec2 l = vec2(gltLuma(ca.rgb), gltLuma(cb.rgb));
     sum += vec2(ca.a, cb.a);
     ma += vec2(l.x, l.x * l.x) * ca.a;
     mb += vec2(l.y, l.y * l.y) * cb.a;
@@ -118,14 +118,14 @@ vec4 transition(vec2 uv) {
   for (int i = 0; i < N; i++) {
     if (turn < 1.0) {
       vec4 c = getFromColor(spot(i));
-      vec2 d = (luma(c.rgb) - ma.x) / ma.y - z;
+      vec2 d = (gltLuma(c.rgb) - ma.x) / ma.y - z;
       vec2 w = c.a * (exp(-6.0 * d * d) + 1e-3);
       a0 += vec4(c.rgb, 1.0) * w.x;
       a1 += vec4(c.rgb, 1.0) * w.y;
     }
     if (turn > 0.0) {
       vec4 c = getToColor(spot(i));
-      vec2 d = (luma(c.rgb) - mb.x) / mb.y - z;
+      vec2 d = (gltLuma(c.rgb) - mb.x) / mb.y - z;
       vec2 w = c.a * (exp(-6.0 * d * d) + 1e-3);
       b0 += vec4(c.rgb, 1.0) * w.x;
       b1 += vec4(c.rgb, 1.0) * w.y;

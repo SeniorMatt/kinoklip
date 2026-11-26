@@ -4,7 +4,7 @@
 // Tags: stone, fibers, shine, waves, texture, organic
 // Preview: 0.5
 
-vec2 hash2(vec2 p) {
+vec2 gltHash2(vec2 p) {
   vec3 q = fract(p.xyx * vec3(0.1031, 0.1030, 0.0973));
   q += dot(q, q.yzx + 33.33);
   return fract((q.xx + q.yz) * q.zy);
@@ -13,7 +13,7 @@ vec2 hash2(vec2 p) {
 float noise(vec2 p) {
   vec2 i = floor(p), f = p - i;
   f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash2(i).x, hash2(i + vec2(1.0, 0.0)).x, f.x), mix(hash2(i + vec2(0.0, 1.0)).x, hash2(i + 1.0).x, f.x), f.y);
+  return mix(mix(gltHash2(i).x, gltHash2(i + vec2(1.0, 0.0)).x, f.x), mix(gltHash2(i + vec2(0.0, 1.0)).x, gltHash2(i + 1.0).x, f.x), f.y);
 }
 
 vec2 fold(vec2 p) {
@@ -27,7 +27,7 @@ float bend(vec2 p) {
 // the fiber i, at the distance v from its middle, in fibers
 vec4 fiber(vec2 uv, float i, float v, float slope, float env) {
   float s = (i + 0.5) / u_fibers;
-  float h = hash2(vec2(i, 2.0)).x - 0.5;
+  float h = gltHash2(vec2(i, 2.0)).x - 0.5;
   // neighbors mostly slide together, so that the fibers stay silky on busy images
   float slide = 0.4 * h + 0.7 * (noise(vec2(i * 0.31, 8.0)) - 0.5);
   float facing = clamp(slope + 0.5 * h + 0.9 * (noise(vec2(s * 6.0, 3.0)) - 0.5), -2.4, 2.4);
@@ -40,7 +40,7 @@ vec4 fiber(vec2 uv, float i, float v, float slope, float env) {
   vec4 c = mix(a, b, smoothstep(-0.14, 0.14, y));
   float silk = 1.0 - 4.0 * v * v;
   // uneven fibers, as regular ones make moire in a small frame
-  float uneven = 0.4 + 1.2 * hash2(vec2(i, 5.0)).y;
+  float uneven = 0.4 + 1.2 * gltHash2(vec2(i, 5.0)).y;
   c.rgb *= 1.0 + u_strength * env * (0.55 * exp(-7.0 * y * y) * (0.5 + 0.5 * silk) + 0.26 * uneven * (silk - 0.75));
   return c;
 }

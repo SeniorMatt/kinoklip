@@ -60,9 +60,9 @@ vec4 transition(vec2 uv) {
   float reach = length(max(c, vec2(R, 1.0) - c));
   vec4 A = getFromColor(uv), B = getToColor(uv);
   float d = tree(a, r, reach);
-  float luma = dot(A.rgb, vec3(0.299, 0.587, 0.114));
+  float gltLuma = dot(A.rgb, vec3(0.299, 0.587, 0.114));
   // sqrt keeps channels thin behind the front (offset: finite slope, no aliasing); darker areas burn a bit sooner
-  float T = 0.5 * r / reach + 0.6 * (sqrt(clamp(d / (0.12 * reach), 0.0, 0.36) + 0.03) - 0.1732) + 0.05 * luma + 0.03 * vn(P * 30.0);
+  float T = 0.5 * r / reach + 0.6 * (sqrt(clamp(d / (0.12 * reach), 0.0, 0.36) + 0.03) - 0.1732) + 0.05 * gltLuma + 0.03 * vn(P * 30.0);
   float e = T - (p * 1.04 - 0.02 + 0.05 * sin(PI * p));
   float on = smoothstep(0.0, 0.05, p) * (1.0 - smoothstep(0.85, 1.0, p));
   // the hole lags the front: channels char first, then crumble open

@@ -15,7 +15,7 @@ float hash(float n) {
   return fract(n);
 }
 
-float hash2(vec2 p) {
+float gltHash2(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.x + p3.y) * p3.z);
@@ -25,8 +25,8 @@ float noise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = p - i;
   f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), f.x),
-             mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), f.x), f.y);
+  return mix(mix(gltHash2(i), gltHash2(i + vec2(1.0, 0.0)), f.x),
+             mix(gltHash2(i + vec2(0.0, 1.0)), gltHash2(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 
 vec2 mirror(vec2 v) {

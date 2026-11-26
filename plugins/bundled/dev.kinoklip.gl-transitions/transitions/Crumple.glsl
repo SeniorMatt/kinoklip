@@ -5,7 +5,7 @@
 
 const float PI = 3.14159265;
 
-vec2 hash2(vec2 p) {
+vec2 gltHash2(vec2 p) {
   p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
   return fract(sin(p) * 43758.5453);
 }
@@ -29,8 +29,8 @@ float outline(vec2 a, float c, float k, float radius) {
   float i = floor((th / (2.0 * PI) + 0.5) * 9.0);
   float a0 = i * 2.0 * PI / 9.0 - PI;
   float a1 = a0 + 2.0 * PI / 9.0;
-  vec2 v0 = vec2(cos(a0), sin(a0)) * (0.78 + 0.27 * hash2(vec2(mod(i, 9.0), 3.0)).x);
-  vec2 v1 = vec2(cos(a1), sin(a1)) * (0.78 + 0.27 * hash2(vec2(mod(i + 1.0, 9.0), 3.0)).x);
+  vec2 v0 = vec2(cos(a0), sin(a0)) * (0.78 + 0.27 * gltHash2(vec2(mod(i, 9.0), 3.0)).x);
+  vec2 v1 = vec2(cos(a1), sin(a1)) * (0.78 + 0.27 * gltHash2(vec2(mod(i + 1.0, 9.0), 3.0)).x);
   vec2 e = v1 - v0;
   float ball = radius * (v0.x * e.y - v0.y * e.x) / (a.x * e.y - a.y * e.x);
   return mix(rect * mix(1.0, 0.75, c) * (1.0 - c * buckle), ball, k);
@@ -46,8 +46,8 @@ void fold(vec2 x, float seed, int n, vec2 span, float len, float c, float px, fl
   for (int i = 0; i < 32; i++) {
     if (i >= n) break;
     float fi = float(i);
-    vec2 h = hash2(vec2(fi, seed));
-    vec2 g = hash2(vec2(fi, seed + 11.8));
+    vec2 h = gltHash2(vec2(fi, seed));
+    vec2 g = gltHash2(vec2(fi, seed + 11.8));
     vec2 o = (h - 0.5) * 2.0 * span;
     vec2 nrm = vec2(cos(2.0 * PI * g.x), sin(2.0 * PI * g.x));
     float d = dot(x - o, nrm);

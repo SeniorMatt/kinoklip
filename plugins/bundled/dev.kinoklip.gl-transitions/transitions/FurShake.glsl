@@ -7,7 +7,7 @@
 const float TAU = 6.2831853;
 const int LAYERS = 18;
 
-vec2 hash2(vec2 p) {
+vec2 gltHash2(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
   // a small offset, so that fract loses fewer bits
   p3 += dot(p3, p3.yzx + 7.31);
@@ -18,8 +18,8 @@ float noise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = p - i;
   f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash2(i).x, hash2(i + vec2(1.0, 0.0)).x, f.x),
-             mix(hash2(i + vec2(0.0, 1.0)).x, hash2(i + vec2(1.0, 1.0)).x, f.x), f.y);
+  return mix(mix(gltHash2(i).x, gltHash2(i + vec2(1.0, 0.0)).x, f.x),
+             mix(gltHash2(i + vec2(0.0, 1.0)).x, gltHash2(i + vec2(1.0, 1.0)).x, f.x), f.y);
 }
 
 vec2 mirror(vec2 v) {
@@ -62,14 +62,14 @@ vec4 transition(vec2 uv) {
     vec2 at = q - lie * h * sqrt(h);
     // tips lean toward the middle of their tuft
     vec2 cl = floor(at * n / 7.0);
-    vec2 dc = at - (cl + 0.25 + 0.5 * hash2(cl + 103.0)) * 7.0 / n;
+    vec2 dc = at - (cl + 0.25 + 0.5 * gltHash2(cl + 103.0)) * 7.0 / n;
     at += dc * 0.45 * h * h;
     vec2 g2 = at * n;
     float row = floor(g2.y);
-    float slide = hash2(vec2(row, 57.0)).x;
+    float slide = gltHash2(vec2(row, 57.0)).x;
     g2.x += slide;
     vec2 c = floor(g2);
-    vec2 r2 = hash2(c + 31.0);
+    vec2 r2 = gltHash2(c + 31.0);
     vec2 o = g2 - c - 0.3 - 0.4 * r2;
     float len = 0.5 + 0.5 * fract(r2.x * 7.3 + r2.y * 3.1);
     float rad = 0.62 * (1.0 - h / len);

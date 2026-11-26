@@ -6,7 +6,7 @@
 
 const int N = 12;
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
@@ -35,7 +35,7 @@ vec4 transition(vec2 uv) {
   vec2 mean = vec2(0.0);
   for (int i = 0; i < N; i++) {
     float f = float(i);
-    mean += vec2(luma(getFromColor(spot(f)).rgb), luma(getToColor(spot(partner(f))).rgb));
+    mean += vec2(gltLuma(getFromColor(spot(f)).rgb), gltLuma(getToColor(spot(partner(f))).rgb));
   }
   mean /= float(N);
 
@@ -52,7 +52,7 @@ vec4 transition(vec2 uv) {
     float t = smoothstep(0.06 + 0.03 * f, 0.6 + 0.03 * f, progress);
     vec2 m = mix(spot(f), spot(partner(f)), t);
     vec2 q = m * asp + 0.18 * min(ratio, 1.3) * sin(3.14159 * t) * vec2(cos(f * 2.4), sin(f * 2.4));
-    float v = clamp(mix(luma(ca.rgb) - mean.x, luma(cb.rgb) - mean.y, t) * 6.0, -1.2, 1.2);
+    float v = clamp(mix(gltLuma(ca.rgb) - mean.x, gltLuma(cb.rgb) - mean.y, t) * 6.0, -1.2, 1.2);
     vec2 pull = vec2(exp(-2.0 * v), exp(2.0 * v));
     sums += pull;
     vec2 d = p - q;
@@ -69,14 +69,14 @@ vec4 transition(vec2 uv) {
   for (int i = 0; i < 6; i++) {
     float n = float(i) * 1.0472;
     vec2 q = fold(uv + (0.015 + 0.015 * mod(float(i), 2.0)) * soft * vec2(cos(n), sin(n)) / asp);
-    y += luma(late ? getToColor(q).rgb : getFromColor(q).rgb) / 6.0;
+    y += gltLuma(late ? getToColor(q).rgb : getFromColor(q).rgb) / 6.0;
   }
   float h = mix((y - (late ? mean.y : mean.x)) * 5.0, log(light / dark * sums.x / sums.y), bend);
   float aa = mix(0.12, 0.06, bend);
   vec3 dk = cd.rgb / max(cd.a, 1e-6);
   vec3 lt = cl.rgb / max(cl.a, 1e-6);
-  dk = clamp(max(luma(dk) * 0.75 + 0.02, 0.17) + (dk - luma(dk)) * 1.3, 0.0, 1.0);
-  lt = clamp(luma(lt) * 0.8 + 0.22 + (lt - luma(lt)) * 1.3, 0.0, 1.0);
+  dk = clamp(max(gltLuma(dk) * 0.75 + 0.02, 0.17) + (dk - gltLuma(dk)) * 1.3, 0.0, 1.0);
+  lt = clamp(gltLuma(lt) * 0.8 + 0.22 + (lt - gltLuma(lt)) * 1.3, 0.0, 1.0);
   vec3 col = mix(dk, lt, smoothstep(-aa, aa, h));
   col = mix(col, mix(dk, lt, 0.5), (1.0 - smoothstep(-aa, aa, abs(h) - 0.5)) * 0.9);
 

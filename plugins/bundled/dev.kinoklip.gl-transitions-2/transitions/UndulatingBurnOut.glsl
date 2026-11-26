@@ -26,8 +26,8 @@ float getWave(vec2 p){
   float degs = degrees(rads) + 180.0;
   vec2 range = vec2(0.0, M_PI * 30.0);
   vec2 domain = vec2(0.0, 360.0);
-  float ratio = (M_PI * 30.0) / 360.0;
-  degs = degs * ratio;
+  float gltRatio = (M_PI * 30.0) / 360.0;
+  degs = degs * gltRatio;
   float x = progress;
   float magnitude = mix(0.02, 0.09, smoothstep(0.0, 1.0, x));
   float offset = mix(40.0, 30.0, smoothstep(0.0, 1.0, x));

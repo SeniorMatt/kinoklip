@@ -8,7 +8,7 @@ const float START = 0.35;
 const float POLE = 0.3;
 const vec2 LIGHT = vec2(0.5547, 0.8321);
 
-vec2 hash2(vec2 p) {
+vec2 gltHash2(vec2 p) {
   vec3 q = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
   q += dot(q, q.yzx + 33.33);
   return fract((q.xx + q.yz) * q.zy);
@@ -66,7 +66,7 @@ vec4 transition(vec2 uv) {
   for (int j = -2; j <= 2; j++) {
     for (int i = -2; i <= 2; i++) {
       vec2 id = cell + vec2(float(i), float(j));
-      vec2 h = hash2(id + 107.0);
+      vec2 h = gltHash2(id + 107.0);
       if (h.x <= k3.rank) continue;
       vec2 c = (id + 0.15 + 0.7 * h) / n;
       vec2 b = field(c, d1);

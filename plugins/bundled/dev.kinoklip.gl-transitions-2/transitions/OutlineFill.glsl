@@ -5,7 +5,7 @@
 
 const int TAPS = 30;
 
-float luma(vec4 c) {
+float gltLuma(vec4 c) {
   return dot(c.rgb, vec3(0.299, 0.587, 0.114)) * c.a + 0.3 * (1.0 - c.a);
 }
 
@@ -28,7 +28,7 @@ vec2 fold(vec2 v) {
 
 vec4 transition(vec2 uv) {
   vec4 b = getToColor(uv);
-  float l0 = luma(b);
+  float l0 = gltLuma(b);
   float th = mix(0.02, 0.24, clamp(u_threshold, 0.0, 1.0));
   float e = mix(progress, progress * progress * (3.0 - 2.0 * progress), 0.5);
   float front = mix(-0.1, 1.12, e);
@@ -42,7 +42,7 @@ vec4 transition(vec2 uv) {
   for (int i = 0; i < TAPS; i++) {
     float f = (float(i) + 0.5) / float(TAPS);
     float r = 0.01 + 0.99 * f * sqrt(f);
-    float l = luma(getToColor(fold(uv + u_reach * r * vec2(dir.x / ratio, dir.y))));
+    float l = gltLuma(getToColor(fold(uv + u_reach * r * vec2(dir.x / ratio, dir.y))));
     dir = turn * dir;
     diff = mix(diff, abs(l - l0), 0.2);
     float hit = smoothstep(th * 0.3, th, diff);

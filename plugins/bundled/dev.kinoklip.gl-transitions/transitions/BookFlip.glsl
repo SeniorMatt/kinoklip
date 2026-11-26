@@ -21,17 +21,17 @@ float pageAngle() {
 }
 
 // The page is seen in a cross-section across the spine, in (x, height toward the viewer) from the spine:
-// a straight part at angle a from the spine, then, when k is not 0, an arc of curvature k centered on c up to its free edge,
+// a gltStraight part at angle a from the spine, then, when k is not 0, an arc of curvature k centered on c up to its free edge,
 // extruded along y. Returns the nearest point of the page hit by the ray from eye along dir:
 // (ray length, distance along the page, angle there), with a negative ray length when it is missed.
-vec3 hitPage(vec2 eye, vec2 dir, float a, float k, float straight, vec2 c, float w) {
+vec3 hitPage(vec2 eye, vec2 dir, float a, float k, float gltStraight, vec2 c, float w) {
   vec3 best = vec3(-1.0, 0.0, 0.0);
   vec2 d = vec2(cos(a), sin(a));
   float den = cross2(d, dir);
   if (abs(den) > 1e-7) {
     float u = cross2(eye, dir) / den;
     float t = cross2(eye, d) / den;
-    if (t > 0.0 && u >= 0.0 && u <= straight) best = vec3(t, u, a);
+    if (t > 0.0 && u >= 0.0 && u <= gltStraight) best = vec3(t, u, a);
   }
   if (k != 0.0) {
     float r = 1.0 / k;
@@ -49,7 +49,7 @@ vec3 hitPage(vec2 eye, vec2 dir, float a, float k, float straight, vec2 c, float
           float db = atan(v.x, -v.y) - a;
           db -= 2.0 * PI * floor((db + PI) / (2.0 * PI));
           float s = db / k;
-          if (s >= 0.0 && s <= w - straight) best = vec3(t, straight + s, a + db);
+          if (s >= 0.0 && s <= w - gltStraight) best = vec3(t, gltStraight + s, a + db);
         }
       }
     }
@@ -73,17 +73,17 @@ vec4 transition (vec2 uv) {
   vec2 d = vec2(cos(a), sin(a));
   float k = -clamp(u_curl, 0.0, 1.0) * lift / (CURL_PART * w);
   if (abs(k) * CURL_PART * w <= 1e-4) k = 0.0;
-  float straight = k != 0.0 ? (1.0 - CURL_PART) * w : w;
-  vec2 c = straight * d + vec2(-d.y, d.x) / (k != 0.0 ? k : 1.0);
-  vec2 bend = straight * d;
-  vec2 middle = k != 0.0 ? curlPoint(c, k, a + 0.5 * k * (w - straight)) : bend;
-  vec2 edge = k != 0.0 ? curlPoint(c, k, a + k * (w - straight)) : bend;
+  float gltStraight = k != 0.0 ? (1.0 - CURL_PART) * w : w;
+  vec2 c = gltStraight * d + vec2(-d.y, d.x) / (k != 0.0 ? k : 1.0);
+  vec2 bend = gltStraight * d;
+  vec2 middle = k != 0.0 ? curlPoint(c, k, a + 0.5 * k * (w - gltStraight)) : bend;
+  vec2 edge = k != 0.0 ? curlPoint(c, k, a + k * (w - gltStraight)) : bend;
 
   // anti-aliased edges, only once the page has left the frame's plane, so that it covers it exactly at both ends
   float aa = EDGE * min(20.0 * lift, 1.0);
   vec4 img = vec4(0.0);
   float m = 0.0;
-  vec3 hit = hitPage(eye, dir, a, k, straight, c, w);
+  vec3 hit = hitPage(eye, dir, a, k, gltStraight, c, w);
   if (hit.x > 0.0) {
     float t = hit.x;
     float u = hit.y;
@@ -91,7 +91,7 @@ vec4 transition (vec2 uv) {
     vec2 pt = eye + t * dir;
     float y = clamp(0.5 + (uv.y - 0.5) * t, 0.0, 1.0);
     float edgeX = edge.x * dist / max(dist - edge.y, 1e-4);
-    m = aa > 0.0 && u > (k != 0.0 ? straight : 0.5 * w) ? clamp(abs(x - edgeX) / aa, 0.0, 1.0) : 1.0;
+    m = aa > 0.0 && u > (k != 0.0 ? gltStraight : 0.5 * w) ? clamp(abs(x - edgeX) / aa, 0.0, 1.0) : 1.0;
     vec2 normal = vec2(-sin(b), cos(b));
     bool front = dot(normal, eye - pt) > 0.0;
     img = front

@@ -7,7 +7,7 @@
 const int SPOTS = 9;
 const int TAPS = 5;
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
@@ -31,12 +31,12 @@ float rim(vec2 q) {
 
 vec3 inkOf(vec4 sum) {
   vec3 c = sum.rgb / sum.a;
-  return clamp(0.8 * luma(c) + u_vivid * (c - luma(c)), 0.0, 1.0);
+  return clamp(0.8 * gltLuma(c) + u_vivid * (c - gltLuma(c)), 0.0, 1.0);
 }
 
 vec3 pageOf(vec4 sum) {
   vec3 c = sum.rgb / sum.a;
-  return clamp(0.3 + 0.65 * luma(c) + 0.87 * u_vivid * (c - luma(c)), 0.0, 1.0);
+  return clamp(0.3 + 0.65 * gltLuma(c) + 0.87 * u_vivid * (c - gltLuma(c)), 0.0, 1.0);
 }
 
 vec4 transition(vec2 uv) {
@@ -47,7 +47,7 @@ vec4 transition(vec2 uv) {
     vec2 q = fract(vec2(0.754878, 0.569840) * float(i) + 0.4);
     vec4 ca = getFromColor(q);
     vec4 cb = getToColor(q);
-    float ya = luma(ca.rgb), yb = luma(cb.rgb);
+    float ya = gltLuma(ca.rgb), yb = gltLuma(cb.rgb);
     stats += vec4(ya * ca.a, ca.a, yb * cb.a, cb.a);
     vec2 d = exp(-8.0 * vec2(ya, yb)) * vec2(ca.a, cb.a);
     vec2 l = exp(8.0 * vec2(ya, yb)) * vec2(ca.a, cb.a);
@@ -73,7 +73,7 @@ vec4 transition(vec2 uv) {
   db += own;
   la += own;
   lb += own;
-  stats += vec2(luma(own.rgb), 1e-6).xyxy;
+  stats += vec2(gltLuma(own.rgb), 1e-6).xyxy;
   vec2 mean = stats.xz / stats.yw;
 
   float soft = 0.02 * smoothstep(0.0, 0.2, progress) * (1.0 - smoothstep(0.8, 1.0, progress));
@@ -83,7 +83,7 @@ vec4 transition(vec2 uv) {
     vec2 o = soft * vec2(cos(n), sin(n)) / vec2(ratio, 1.0);
     vec4 ta = getFromColor(fold(pa + o));
     vec4 tb = getToColor(fold(pb + o));
-    y += vec4(luma(ta.rgb) * ta.a, ta.a, luma(tb.rgb) * tb.a, tb.a);
+    y += vec4(gltLuma(ta.rgb) * ta.a, ta.a, gltLuma(tb.rgb) * tb.a, tb.a);
   }
   y.xz = y.xz / y.yw - mean;
 

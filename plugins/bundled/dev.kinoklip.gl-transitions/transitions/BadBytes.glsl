@@ -12,7 +12,7 @@ float hash(float n) {
   return fract(q * (q + q));
 }
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
@@ -42,7 +42,7 @@ vec4 transition(vec2 uv) {
   bool incoming = p > 0.3 + 0.4 * hash(seg + 11.0);
   vec4 c = incoming ? getToColor(q) : getFromColor(q);
   vec3 hue = incoming ? getToColor(r).rgb : getFromColor(r).rgb;
-  vec3 col = luma(c.rgb) + (hue - luma(hue)) * (1.0 + 0.8 * min(length(dc), 1.0));
-  col += u_tint * (dc - 0.6 * luma(dc));
+  vec3 col = gltLuma(c.rgb) + (hue - gltLuma(hue)) * (1.0 + 0.8 * min(length(dc), 1.0));
+  col += u_tint * (dc - 0.6 * gltLuma(dc));
   return vec4(clamp(col, 0.0, 1.0), c.a);
 }

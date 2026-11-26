@@ -8,7 +8,7 @@ const int N = 12;
 // from one tone to the next, in deviations
 const float GAP = 0.62;
 
-float luma(vec3 c) {
+float gltLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
@@ -31,11 +31,11 @@ vec3 ink(float k, vec2 stats, bool incoming, vec3 own) {
   vec4 sum = 1e-6 * vec4(own, 1.0);
   for (int i = 0; i < N; i++) {
     vec4 c = incoming ? getToColor(spot(i)) : getFromColor(spot(i));
-    float d = (luma(c.rgb) - stats.x) / stats.y - z;
+    float d = (gltLuma(c.rgb) - stats.x) / stats.y - z;
     sum += vec4(c.rgb, 1.0) * (c.a * (exp(-6.0 * d * d) + 1e-3));
   }
   vec3 c = sum.rgb / sum.a;
-  return clamp(stats.x + 1.2 * z * stats.y + (c - luma(c)) * u_vivid, 0.0, 1.0);
+  return clamp(stats.x + 1.2 * z * stats.y + (c - gltLuma(c)) * u_vivid, 0.0, 1.0);
 }
 
 vec4 transition(vec2 uv) {
@@ -50,12 +50,12 @@ vec4 transition(vec2 uv) {
   // the color to fall back on where the spots of an image are all transparent
   vec3 own = (a.rgb * a.a + b.rgb * b.a) / max(a.a + b.a, 1e-4);
   vec2 sum = vec2(1e-4);
-  vec2 ma = 1e-4 * vec2(luma(own), luma(own) * luma(own));
+  vec2 ma = 1e-4 * vec2(gltLuma(own), gltLuma(own) * gltLuma(own));
   vec2 mb = ma;
   for (int i = 0; i < N; i++) {
     vec4 ca = getFromColor(spot(i));
     vec4 cb = getToColor(spot(i));
-    vec2 l = vec2(luma(ca.rgb), luma(cb.rgb));
+    vec2 l = vec2(gltLuma(ca.rgb), gltLuma(cb.rgb));
     sum += vec2(ca.a, cb.a);
     ma += vec2(l.x, l.x * l.x) * ca.a;
     mb += vec2(l.y, l.y * l.y) * cb.a;
@@ -66,14 +66,14 @@ vec4 transition(vec2 uv) {
   mb.y = sqrt(max(mb.y - mb.x * mb.x, 0.0)) + 0.03;
 
   // the image's smoothed tone, in deviations from its mean
-  vec2 acc = vec2(luma(here.rgb), 1.0) * max(here.a, 1e-4);
+  vec2 acc = vec2(gltLuma(here.rgb), 1.0) * max(here.a, 1e-4);
   if (bend < 1.0) {
     float soft = smoothstep(0.0, 0.2, progress) * (1.0 - smoothstep(0.8, 1.0, progress));
     for (int i = 0; i < 6; i++) {
       float n = float(i) * 1.0472;
       vec2 q = fold(uv + (0.02 + 0.015 * mod(float(i), 2.0)) * soft * vec2(cos(n), sin(n)) / asp);
       vec4 c = late ? getToColor(q) : getFromColor(q);
-      acc += vec2(luma(c.rgb), 1.0) * c.a;
+      acc += vec2(gltLuma(c.rgb), 1.0) * c.a;
     }
   }
   float y = (acc.x / acc.y - (late ? mb.x : ma.x)) / (late ? mb.y : ma.y);
