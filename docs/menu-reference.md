@@ -1,4 +1,4 @@
-420 menu entries in 13 menus; 62 panels
+424 menu entries in 13 menus; 62 panels
 
 # Menu and panel reference
 
@@ -33,6 +33,8 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Unpack Project… |  | Writes the media of a single-file project to a folder and continues with a linked project. |
 | Compact Project… |  | Rewrites a single-file project without unused media and old versions, to make it smaller. |
 | Verify Project File |  | Checks every byte of a single-file project and offers to repair a damaged one. |
+| Export Project Archive… |  | Copies the project and every media file it uses into one archive folder (.dra), with the proxy media, optimized media and render cache if you ask for them. |
+| Restore Project Archive… |  | Copies a project archive folder (.dra) to a new folder and opens the project in it. |
 | Import > Media… | Ctrl+I | Adds media files to the media pool. |
 | Import > Media Folder… |  | Adds a whole folder of media to the media pool, keeping its sub-folders as bins. |
 | Import > Timeline… |  | Reads a timeline from an OpenTimelineIO file into the project as a new timeline. |
@@ -202,6 +204,8 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Add Subtitle Track |  | Adds a subtitle track to the timeline. |
 | Add Subtitle |  | Adds a 3-second caption at the playhead on the subtitle track. |
 | Delete Empty Tracks |  | Removes every track that has no clips (keeping one video and one audio track and locked tracks). |
+| Bounce Mix to Track |  | Renders the whole audio mix, as it is heard and exported, into a new audio track as one clip. |
+| Bounce Selected Tracks |  | Renders each audio track with a selected clip (or with its track selector on), with its effects and fader, into a new audio track of its own. |
 | Duplicate Timeline |  | Makes a copy of the current timeline in the project. |
 | Delete Timeline |  | Deletes the current timeline from the project. |
 | Timeline Settings… |  | Opens the settings of the current timeline. |
@@ -592,7 +596,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 
 # Streamlined menu layout
 
-Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 420 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
+Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 424 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
 
 ## Streamlined Kinoklip
 
@@ -627,6 +631,8 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Project Tools > Unpack… |  | Writes the media of a single-file project to a folder and continues with a linked project. |
 | Project Tools > Compact… |  | Rewrites a single-file project without unused media and old versions, to make it smaller. |
 | Project Tools > Verify Project File |  | Checks every byte of a single-file project and offers to repair a damaged one. |
+| Project Tools > Export Project Archive… |  | Copies the project and every media file it uses into one archive folder (.dra), with the proxy media, optimized media and render cache if you ask for them. |
+| Project Tools > Restore Project Archive… |  | Copies a project archive folder (.dra) to a new folder and opens the project in it. |
 | Project Tools > Remove Unused Clips… |  | Removes the media pool clips that no timeline uses, after asking. |
 | Project Tools > Proxies and Optimized Media > Generate Proxies |  | Creates proxy media (small, fast copies) for the selected clips. |
 | Project Tools > Proxies and Optimized Media > Generate Optimized Media |  | Creates optimized media (a file that is easier to play) for the selected clips. |
@@ -754,6 +760,8 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Tracks > Add Audio Track |  | Adds an audio track to the timeline. |
 | Tracks > Add Subtitle Track |  | Adds a subtitle track to the timeline. |
 | Tracks > Delete Empty Tracks |  | Removes every track that has no clips (keeping one video and one audio track and locked tracks). |
+| Tracks > Bounce Mix to Track |  | Renders the whole audio mix, as it is heard and exported, into a new audio track as one clip. |
+| Tracks > Bounce Selected Tracks |  | Renders each audio track with a selected clip (or with its track selector on), with its effects and fader, into a new audio track of its own. |
 | Timelines > New Timeline… | Ctrl+N | Creates a new timeline in the project, asking for its name and settings. |
 | Timelines > Duplicate |  | Makes a copy of the current timeline in the project. |
 | Timelines > Delete |  | Deletes the current timeline from the project. |
