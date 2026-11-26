@@ -82,7 +82,8 @@ struct PluginTransitionDef
 /// Where a preset (command recipe) applies.
 enum class PresetTarget {
     Clip, ///< once per selected clip ($clip, $start, $end, $duration)
-    Playhead ///< once at the playhead ($playhead)
+    Playhead, ///< once at the playhead ($playhead)
+    EditPoint ///< once at an edit point: the cut between two clips ($left, $right, $edit)
 };
 
 struct PluginPresetDef

@@ -819,6 +819,21 @@ void OfxRegistry::registerAll()
             }
             QVector<ParamDescriptor> params;
             mapParams(*ctx, &params, &entry.params);
+            const bool transition = info.isTransition();
+            if (transition) {
+                // "Transition" is the progress the host sets: not a control of the Inspector.
+                for (int i = entry.params.size() - 1; i >= 0; --i) {
+                    if (entry.params[i].info.name == QLatin1String("Transition")) {
+                        const QStringList keys = entry.params[i].keys;
+                        params.erase(std::remove_if(params.begin(), params.end(),
+                                         [&keys](const ParamDescriptor& d) {
+                                             return keys.contains(d.key);
+                                         }),
+                            params.end());
+                        entry.params.removeAt(i);
+                    }
+                }
+            }
             all.append(entry);
             if (!on)
                 continue;
@@ -833,7 +848,7 @@ void OfxRegistry::registerAll()
             EffectDescriptor d;
             d.id = entry.fullId;
             d.name = info.label;
-            d.category = EffectCategory::VideoEffect;
+            d.category = transition ? EffectCategory::Transition : EffectCategory::VideoEffect;
             d.description = info.description.isEmpty() ? info.group : info.description;
             d.group = QString::fromLatin1(effectgroups::OpenFX);
             d.plugin = QString::fromLatin1(kOfxPluginTag);
@@ -844,7 +859,8 @@ void OfxRegistry::registerAll()
                     registry.markAvailable(d.id);
             } else {
                 registry.add(d);
-                NodeRegistry::registerEffectNode(*registry.find(d.id));
+                if (!transition)
+                    NodeRegistry::registerEffectNode(*registry.find(d.id));
             }
         }
     }

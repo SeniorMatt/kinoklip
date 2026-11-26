@@ -173,7 +173,8 @@ target_compile_definitions(kinoklip_core PUBLIC
   KK_APP_NAME="${APP_NAME}" KK_APP_ID="${APP_ID}" KK_APP_VERSION="${PROJECT_VERSION}"
 )
 # Where plugins/examples is when running from a build of the source tree (PluginRegistry::examplesDir()).
-target_compile_definitions(kinoklip_core PRIVATE KK_PLUGIN_EXAMPLES_SOURCE_DIR="${CMAKE_SOURCE_DIR}/plugins/examples")
+target_compile_definitions(kinoklip_core PRIVATE KK_PLUGIN_EXAMPLES_SOURCE_DIR="${CMAKE_SOURCE_DIR}/plugins/examples"
+  KK_PLUGIN_BUNDLED_SOURCE_DIR="${CMAKE_SOURCE_DIR}/plugins/bundled")
 target_link_libraries(kinoklip_core PUBLIC
   Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Multimedia Qt6::Svg Qt6::SvgWidgets
   Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::DBus Qt6::Network PkgConfig::FFMPEG)
@@ -277,6 +278,7 @@ install(TARGETS ${APP_ID} RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 # Example plugins and the plugin manifest schema (docs/plugins); bundled plugins go to
 # share/kinoklip/plugins.
 install(DIRECTORY plugins/examples/ DESTINATION share/kinoklip/plugin-examples)
+install(DIRECTORY plugins/bundled/ DESTINATION share/kinoklip/plugins)
 install(FILES docs/plugins/plugin.schema.json DESTINATION share/kinoklip)
 
 # ---- Tests: every tests/**/test_*.cpp becomes its own executable ----
@@ -313,7 +315,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
 else()
   set(KK_OFX_ARCH "Linux-x86-64")
 endif()
-foreach(variant IN ITEMS "" "Crash" "Hang")
+foreach(variant IN ITEMS "" "Crash" "Hang" "Transition")
   set(ofx_target "kk_test_ofx${variant}")
   set(ofx_name "KkTest${variant}")
   add_library(${ofx_target} MODULE tests/ofx/kk_test_ofx.cpp)
@@ -325,13 +327,15 @@ foreach(variant IN ITEMS "" "Crash" "Hang")
     target_compile_definitions(${ofx_target} PRIVATE KK_OFX_CRASH=1)
   elseif(variant STREQUAL "Hang")
     target_compile_definitions(${ofx_target} PRIVATE KK_OFX_HANG=1)
+  elseif(variant STREQUAL "Transition")
+    target_compile_definitions(${ofx_target} PRIVATE KK_OFX_TRANSITION=1)
   endif()
 endforeach()
 foreach(t IN ITEMS test_ofx test_ofxrender)
   if(TARGET ${t})
     target_compile_definitions(${t} PRIVATE KK_OFX_TEST_DIR="${CMAKE_BINARY_DIR}/ofx-test"
       KK_OFX_PROBE_PATH="$<TARGET_FILE:kinoklip-ofx-probe>")
-    add_dependencies(${t} kk_test_ofx kk_test_ofxCrash kk_test_ofxHang kinoklip-ofx-probe)
+    add_dependencies(${t} kk_test_ofx kk_test_ofxCrash kk_test_ofxHang kk_test_ofxTransition kinoklip-ofx-probe)
   endif()
 endforeach()
 

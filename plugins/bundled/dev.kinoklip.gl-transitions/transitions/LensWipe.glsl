@@ -1,0 +1,66 @@
+// Author: gre
+// License: MIT
+// Description: A round glass lens grows from a point over the outgoing image, casting a soft shadow on it, and shows the incoming image magnified through it, with a bright bevelled rim and faint color fringes; as the lens fills the frame the magnification relaxes until the incoming image lies flat
+// Tags: lens, glass, circle, iris, magnify, reveal
+
+const float AA = 0.0015;
+const float BEVEL = 0.07;
+// moment the lens has grown past the farthest corner
+const float OPEN = 0.8;
+// toward the light, from the top left (xy of a unit vector)
+const vec2 LIGHT = vec2(-0.6, 0.8);
+
+vec2 mirror(vec2 v) {
+  return 1.0 - abs(1.0 - mod(v, 2.0));
+}
+
+vec4 transition(vec2 uv) {
+  float p = progress;
+  vec2 aspect = vec2(ratio, 1.0);
+  float sh = clamp(u_shading, 0.0, 1.0);
+
+  vec2 far = max((vec2(u_center_x, u_center_y)), 1.0 - (vec2(u_center_x, u_center_y))) * aspect;
+  float full = length(far) / (1.0 - BEVEL) + 2.0 * AA;
+  float t = clamp(p / OPEN, 0.0, 1.0);
+  float radius = full * t * (0.5 + t * (2.0 - 1.5 * t));
+
+  // the magnification relaxes while the lens finishes growing: exactly 0 at the end
+  float k = clamp(u_strength, 0.0, 0.8) * (1.0 - smoothstep(0.35, 1.0, p));
+
+  vec2 d = (uv - (vec2(u_center_x, u_center_y))) * aspect;
+  float r = length(d);
+
+  vec4 a = vec4(0.0);
+  if (r > radius - 2.0 * AA) {
+    a = getFromColor(uv);
+    float sd = length(d + 0.1 * LIGHT * radius) / max(radius, 1e-5);
+    float shadow = 0.55 * sh * (1.0 - smoothstep(0.85, 1.35, sd)) * smoothstep(0.0, 0.05, radius);
+    a.rgb *= 1.0 - shadow;
+    if (r >= radius) return a;
+  }
+
+  float s = r / radius;
+  float f = 1.0 - k * (1.0 - s * s);
+  vec2 n = r > 0.0 ? d / r : vec2(0.0);
+  vec2 ca = n * (0.014 * k * s * s) / aspect;
+  vec2 q = (vec2(u_center_x, u_center_y)) + d * f / aspect;
+  // each channel keeps the alpha of the tap it comes from
+  vec4 cr = getToColor(mirror(q + ca));
+  vec4 cg = getToColor(mirror(q));
+  vec4 cb = getToColor(mirror(q - ca));
+  float alpha = (cr.a + cg.a + cb.a) / 3.0;
+  vec4 b = vec4(vec3(cr.r * cr.a, cg.g * cg.a, cb.b * cb.a) / max(alpha, 1e-5), alpha);
+
+  float bevel = smoothstep(1.0 - BEVEL, 1.0, s);
+  float facing = dot(n, LIGHT);
+  float lit = bevel * bevel;
+  vec3 shade = vec3(1.0 - 0.35 * sh * lit * max(-facing, 0.0) - 0.12 * sh * bevel);
+  float spec = sh * lit * (0.55 * max(facing, 0.0) + 0.12);
+  vec2 g = (d / radius - 0.42 * LIGHT) / vec2(0.32, 0.2);
+  float glint = 0.12 * sh * exp(-dot(g, g)) * (1.0 - smoothstep(0.6, 1.0, p));
+  b.rgb = min(b.rgb * shade + (spec + glint) * b.a, vec3(1.0));
+
+  // antialiased edge, kept inside the lens so it vanishes with it
+  float cov = clamp((radius - r) / (2.0 * AA), 0.0, 1.0);
+  return mix(a, b, cov);
+}

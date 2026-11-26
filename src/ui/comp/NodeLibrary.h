@@ -32,8 +32,11 @@ public:
     [[nodiscard]] QTreeWidget* tree() const { return m_tree; }
     /// Shows only the nodes whose name contains @p text (case-insensitive).
     void setFilter(const QString& text);
+    /// Rebuilds the tree from the node registry (plugins were reloaded or scanned).
+    void refresh();
 
 private:
+    void fillTree();
     QPointer<CompSession> m_session;
     QLineEdit* m_search = nullptr;
     QTreeWidget* m_tree = nullptr;

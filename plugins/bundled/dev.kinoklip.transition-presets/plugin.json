@@ -1,0 +1,51 @@
+{
+  "id": "dev.kinoklip.transition-presets",
+  "name": "Transition Presets",
+  "version": "1.0.0",
+  "author": "The Kinoklip contributors",
+  "license": "GPL-3.0-or-later",
+  "description": "Presets for an edit point: select a clip next to a cut and double-click one in Effects Library > Toolbox > Presets, or drop it on the start or end of a clip.",
+  "api": 1,
+  "presets": [
+    {
+      "id": "quick_dissolve",
+      "name": "Quick Dissolve",
+      "description": "A short cross dissolve (12 frames) at the edit point",
+      "group": "Transitions",
+      "target": "edit_point",
+      "file": "quick_dissolve.json"
+    },
+    {
+      "id": "slow_dissolve",
+      "name": "Slow Dissolve",
+      "description": "A long cross dissolve (48 frames) at the edit point",
+      "group": "Transitions",
+      "target": "edit_point",
+      "file": "slow_dissolve.json"
+    },
+    {
+      "id": "dip_to_black",
+      "name": "Dip to Black",
+      "description": "A dip to black (24 frames) at the edit point",
+      "group": "Transitions",
+      "target": "edit_point",
+      "file": "dip_to_black.json"
+    },
+    {
+      "id": "cross_zoom_whip",
+      "name": "Cross Zoom Whip",
+      "description": "A fast zoom blur from one clip to the next (GL Transitions, 18 frames)",
+      "group": "Transitions",
+      "target": "edit_point",
+      "file": "cross_zoom_whip.json"
+    },
+    {
+      "id": "whip_pan",
+      "name": "Whip Pan",
+      "description": "A quick sideways whip between the clips (GL Transitions, 12 frames)",
+      "group": "Transitions",
+      "target": "edit_point",
+      "file": "whip_pan.json"
+    }
+  ]
+}

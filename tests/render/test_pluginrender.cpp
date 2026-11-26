@@ -56,6 +56,29 @@ int maxDifference(const QImage& a, const QImage& b)
     return worst;
 }
 
+QString bundledDir()
+{
+    return QFileInfo(QStringLiteral(__FILE__)).absolutePath()
+        + QStringLiteral("/../../plugins/bundled");
+}
+
+/// Mean absolute channel difference of two pictures of the same size (0..255).
+double meanDifference(const QImage& a, const QImage& b)
+{
+    if (a.size() != b.size())
+        return 255.0;
+    double sum = 0.0;
+    for (int y = 0; y < a.height(); ++y) {
+        for (int x = 0; x < a.width(); ++x) {
+            const QRgb p = a.pixel(x, y);
+            const QRgb q = b.pixel(x, y);
+            sum += std::abs(qRed(p) - qRed(q)) + std::abs(qGreen(p) - qGreen(q))
+                + std::abs(qBlue(p) - qBlue(q)) + std::abs(qAlpha(p) - qAlpha(q));
+        }
+    }
+    return sum / (4.0 * a.width() * a.height());
+}
+
 const QString kInvert = QStringLiteral("plugin:dev.kinoklip.invert/invert");
 const QString kPosterize = QStringLiteral("plugin:dev.kinoklip.posterize/posterize");
 const QString kDip = QStringLiteral("plugin:dev.kinoklip.dip-to-color/dip_to_color");
@@ -335,6 +358,74 @@ private slots:
         QVERIFY(std::abs(qRed(image.pixel(5, 5)) - 128) <= 1);
         QDir(dir).removeRecursively();
         PluginRegistry::instance().reload();
+    }
+
+    // The bundled gl-transitions pack (spec 160): every transition compiles for both APIs, draws
+    // the outgoing picture at progress 0 and the incoming one at 1, and nothing in between
+    // comes out empty (a NaN in a shader gives transparent black in an 8 bit target).
+    void glTransitionsPackCompilesAndRenders()
+    {
+        const QString folder = bundledDir() + QStringLiteral("/dev.kinoklip.gl-transitions");
+        QVERIFY(QFileInfo(folder + QStringLiteral("/plugin.json")).exists());
+        QVERIFY(QFileInfo(folder + QStringLiteral("/LICENSE")).exists());
+        PluginRegistry& reg = PluginRegistry::instance();
+        QString error;
+        QVERIFY2(reg.install(folder, &error), qPrintable(error));
+        const PluginValidation v = validatePluginFolder(folder, m_gl);
+        QString text;
+        for (const plugins::Problem& p : v.problems)
+            text += p.text() + QLatin1Char('\n');
+        QVERIFY2(v.valid, qPrintable(text));
+        QVERIFY2(v.items.size() > 300, "the pack lost its transitions");
+        for (const ValidatedItem& item : v.items) {
+            QVERIFY2(item.desktop != QLatin1String("error"), qPrintable(item.fullId));
+            QVERIFY2(item.gles != QLatin1String("error"), qPrintable(item.fullId));
+        }
+        if (!m_gl)
+            QSKIP("no OpenGL: the pack was only checked for its manifest");
+        const QImage a = previewTestChart(QSize(160, 90));
+        QImage b = a;
+        b.invertPixels(QImage::InvertRgb);
+        QStringList startBad, endBad, emptyBad, failed;
+        int count = 0;
+        for (const ValidatedItem& item : v.items) {
+            QString why;
+            ParamSet defaults; // the manifest defaults
+            if (const EffectDescriptor* d = EffectRegistry::instance().find(item.fullId)) {
+                for (const ParamDescriptor& pd : d->params) {
+                    if (pd.isScalar())
+                        defaults.setBase(pd.key, pd.def);
+                    else
+                        defaults.setStatic(pd.key, pd.defStatic);
+                }
+            }
+            const QImage at0 = m_rig.renderTransition(item.fullId, defaults, 0.0, a, b, &why);
+            if (at0.isNull()) {
+                failed << item.fullId + QStringLiteral(": ") + why;
+                continue;
+            }
+            ++count;
+            const QImage mid = m_rig.renderTransition(item.fullId, defaults, 0.5, a, b, &why);
+            const QImage at1 = m_rig.renderTransition(item.fullId, defaults, 1.0, a, b, &why);
+            if (meanDifference(at0, a) > 6.0)
+                startBad << item.fullId;
+            if (meanDifference(at1, b) > 6.0)
+                endBad << item.fullId;
+            int transparent = 0;
+            for (int y = 0; y < mid.height(); ++y)
+                for (int x = 0; x < mid.width(); ++x)
+                    transparent += qAlpha(mid.pixel(x, y)) == 0 ? 1 : 0;
+            if (transparent > mid.width() * mid.height() / 2)
+                emptyBad << item.fullId;
+        }
+        qInfo("gl-transitions rendered: %d; start differs: %s; end differs: %s; empty: %s", count,
+            qPrintable(startBad.join(QLatin1Char(' '))), qPrintable(endBad.join(QLatin1Char(' '))),
+            qPrintable(emptyBad.join(QLatin1Char(' '))));
+        QVERIFY2(failed.isEmpty(), qPrintable(failed.join(QLatin1Char('\n'))));
+        QVERIFY2(startBad.isEmpty(), qPrintable(startBad.join(QLatin1Char(' '))));
+        QVERIFY2(endBad.isEmpty(), qPrintable(endBad.join(QLatin1Char(' '))));
+        QVERIFY2(emptyBad.isEmpty(), qPrintable(emptyBad.join(QLatin1Char(' '))));
+        QVERIFY(reg.uninstall(QStringLiteral("dev.kinoklip.gl-transitions"), &error));
     }
 
     void everyExampleCompilesForBothApis()

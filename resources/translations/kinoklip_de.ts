@@ -18301,6 +18301,10 @@ Danke fürs Zuschauen</translation>
         <translation>Löscht die gespeicherte Makrodatei; Titel, die schon auf der Timeline liegen, bleiben unverändert</translation>
     </message>
     <message>
+        <source>Apply to Selected Edit Point</source>
+        <translation>Auf gewählten Schnittpunkt anwenden</translation>
+    </message>
+    <message>
         <source>Apply to Selected Clips</source>
         <translation>Auf ausgewählte Clips anwenden</translation>
     </message>
@@ -28420,6 +28424,10 @@ Auto: Voll, wechselt nur zu Halb, solange die Wiedergabe nicht mithält (pausier
         <translation>Die Vorgabe ist nicht verfügbar (ihr Plugin fehlt oder ist deaktiviert).</translation>
     </message>
     <message>
+        <source>Select a clip next to the edit point to apply this preset to.</source>
+        <translation>Wähle einen Clip neben dem Schnittpunkt, auf den das Preset angewendet werden soll.</translation>
+    </message>
+    <message>
         <source>Select a clip to apply this preset to.</source>
         <translation>Wählen Sie einen Clip aus, auf den die Vorgabe angewendet werden soll.</translation>
     </message>
@@ -37523,6 +37531,10 @@ Einen Multicam-Clip aus dem Medienpool öffnen oder den Abspielkopf über einen 
 </context>
 <context>
     <name>kk::compadapter</name>
+    <message>
+        <source>Plugins</source>
+        <translation>Plugins</translation>
+    </message>
     <message>
         <source>Reset Composition</source>
         <translation>Composition zurücksetzen</translation>

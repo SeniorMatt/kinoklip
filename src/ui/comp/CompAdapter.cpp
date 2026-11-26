@@ -34,12 +34,20 @@ LinkRole roleOf(const NodePort& port)
     return LinkRole::Background;
 }
 
+bool isPluginEffectId(const QString& id)
+{
+    return id.startsWith(QLatin1String("plugin:")) || id.startsWith(QLatin1String("ofx:"));
+}
+
 NodeTypeInfo toInfo(const NodeDescriptor& d)
 {
     NodeTypeInfo info;
     info.type = d.id;
     info.name = d.name;
     info.category = NodeRegistry::categoryName(d.category);
+    // The nodes of plugin effects (native and OpenFX) have a folder of their own.
+    if (isPluginEffectId(d.effectId))
+        info.category = pluginsCategory();
     info.baseName = d.nameBase;
     for (const NodePort& p : d.inputs)
         info.inputs.append(PortInfo {p.id, p.label, p.kind, roleOf(p), p.required});
@@ -59,7 +67,34 @@ QVector<NodeTypeInfo> buildCatalogue()
     for (NodeCategory c : kCategoryOrder)
         for (const NodeDescriptor* d : reg.byCategory(c))
             all.append(toInfo(*d));
+    // The Plugins folder comes last.
+    std::stable_partition(all.begin(), all.end(), [](const NodeTypeInfo& i) {
+        return i.category != pluginsCategory();
+    });
     return all;
+}
+
+struct Catalogue
+{
+    QVector<NodeTypeInfo> all;
+    QHash<QString, qsizetype> index;
+    void build()
+    {
+        all = buildCatalogue();
+        index.clear();
+        for (qsizetype i = 0; i < all.size(); ++i)
+            index.insert(all[i].type, i);
+    }
+};
+
+Catalogue& catalogue()
+{
+    static Catalogue c = [] {
+        Catalogue made;
+        made.build();
+        return made;
+    }();
+    return c;
 }
 
 QString tr(const char* text)
@@ -84,22 +119,25 @@ int NodeTypeInfo::inputIndex(const QString& id) const
 
 const QVector<NodeTypeInfo>& nodeTypes()
 {
-    static const QVector<NodeTypeInfo> all = buildCatalogue();
-    return all;
+    return catalogue().all;
+}
+
+void refreshCatalogue()
+{
+    catalogue().build();
+}
+
+QString pluginsCategory()
+{
+    return tr("Plugins");
 }
 
 const NodeTypeInfo* nodeType(const QString& type)
 {
-    // About 80 types, looked up per painted tile: a static hash keeps it O(1).
-    static const QHash<QString, qsizetype> index = [] {
-        QHash<QString, qsizetype> h;
-        const QVector<NodeTypeInfo>& all = nodeTypes();
-        for (qsizetype i = 0; i < all.size(); ++i)
-            h.insert(all[i].type, i);
-        return h;
-    }();
-    const auto it = index.constFind(type);
-    return it == index.cend() ? nullptr : &nodeTypes()[*it];
+    // About 80 types, looked up per painted tile: a hash keeps it O(1).
+    const Catalogue& c = catalogue();
+    const auto it = c.index.constFind(type);
+    return it == c.index.cend() ? nullptr : &c.all[*it];
 }
 
 QStringList categories()

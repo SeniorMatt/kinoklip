@@ -18314,6 +18314,10 @@ Thank you for watching</source>
         <translation>Удаляет сохранённый файл макроса; титры, уже лежащие на таймлайне, не меняются</translation>
     </message>
     <message>
+        <source>Apply to Selected Edit Point</source>
+        <translation>Применить к выбранной точке монтажа</translation>
+    </message>
+    <message>
         <source>Apply to Selected Clips</source>
         <translation>Применить к выбранным клипам</translation>
     </message>
@@ -28441,6 +28445,10 @@ Auto: Full, switching to Half only while playback cannot keep up (paused: Full).
         <translation>Пресет недоступен (его плагин отсутствует или отключён).</translation>
     </message>
     <message>
+        <source>Select a clip next to the edit point to apply this preset to.</source>
+        <translation>Выберите клип рядом с точкой монтажа, к которой применить этот пресет.</translation>
+    </message>
+    <message>
         <source>Select a clip to apply this preset to.</source>
         <translation>Выберите клип, к которому применить этот пресет.</translation>
     </message>
@@ -37546,6 +37554,10 @@ Open a multicam clip from the media pool or move the playhead over one.</source>
 </context>
 <context>
     <name>kk::compadapter</name>
+    <message>
+        <source>Plugins</source>
+        <translation>Плагины</translation>
+    </message>
     <message>
         <source>Reset Composition</source>
         <translation>Сбросить композицию</translation>

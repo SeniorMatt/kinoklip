@@ -249,11 +249,12 @@ The plugin system: [design](plugins/design.md), [writing plugins](plugins/writin
 - [x] Plugins: documentation an AI can write plugins from: reference, installing guide, a short prompt (`llms.txt`) and the manifest JSON Schema
 - [ ] Plugins: point parameters with on-screen handles, a second input and mask inputs, multi-pass effects (a puppet-pin warp, trackers) in plugin API 2
 - [x] Plugins: OpenFX host for video effects: bundles from `/usr/OFX/Plugins`, `~/.OFX/Plugins`, `OFX_PLUGIN_PATH` and the Kinoklip folder, Filter and General contexts, parameters with keyframes, premultiplied float CPU rendering with render scale, plugin thread-safety flags and the multi-thread suite, missing plugin kept as bypass, a probe process and cache with a bad-plugin list and Retry, Preferences > Plugins page, openfx-misc (spec 158, [openfx.md](plugins/openfx.md))
-- [ ] Plugins: OpenFX transition context, several inputs and masks, viewer overlays, regions of definition larger than the clip, G'MIC (openfx-gmic) tested and bundled packs
+- [x] Plugins: OpenFX Transition context (SourceFrom, SourceTo, the host-set "Transition" progress) and regions of definition larger than the clip (blurs and glows are no longer cut at the clip edge) (spec 160, [openfx.md](plugins/openfx.md))
+- [ ] Plugins: OpenFX several required inputs and masks, viewer overlays, G'MIC (openfx-gmic) tested through `scripts/build_gmic_ofx.sh` (see spec 160.9) and bundled packs
 - [x] Plugins: LV2 (lilv) and CLAP audio effects on the Audio page and the clip audio effects: parameters, track automation, undo, project files, export, latency compensation, a probe process with a bad-plugin list and Retry, LV2 / CLAP sections on the Plugins page, and the OpenFX, LV2 and CLAP scans run in the background, up to three probes at once (spec 159, [audio-plugins.md](plugins/audio-plugins.md))
 - [ ] Plugins: LV2 / CLAP plugin windows (their own interfaces), MIDI and instrument plugins, plugin state (presets saved by the plugin), side-chain inputs of plugins, surround plugins
-- [ ] Plugins: a bundled pack of gl-transitions (MIT) as plugins
-- [ ] Plugins: presets at an edit point (transition presets) and a Plugins folder in the Compositing node list that follows reloads
+- [x] Plugins: a bundled pack of gl-transitions (MIT) as plugins: 394 transitions with their uniforms as parameters in Effects library > Transitions > GL Transitions (spec 160, [design.md](plugins/design.md))
+- [x] Plugins: presets at an edit point (transition presets, `"target": "edit_point"`, `$left` / `$right` / `$edit`) and a Plugins folder in the Compositing node list that follows reloads (spec 160)
 
 ## Next big release
 

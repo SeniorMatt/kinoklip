@@ -265,6 +265,64 @@ private slots:
         QVERIFY(plugSymbol<int (*)()>("kkTestChangedCount")() >= 3);
     }
 
+    void aTransitionContextPluginIsATransitionOfTheEffectsLibrary()
+    {
+        OfxRegistry& reg = OfxRegistry::instance();
+        const QString dir = m_dir.filePath(QStringLiteral("transition"));
+        linkBundles(dir, {QStringLiteral("KkTestTransition")});
+        reg.setSearchDirs({dir});
+        reg.setCacheFile(m_dir.filePath(QStringLiteral("cache-transition.json")));
+        QFile::remove(m_dir.filePath(QStringLiteral("cache-transition.json")));
+        reg.reload();
+        const QString id = QStringLiteral("ofx:org.kinoklip.test.Dissolve");
+        const auto plugin = reg.plugin(id);
+        QVERIFY(plugin);
+        QVERIFY(plugin->info.isTransition());
+        const EffectDescriptor* d = EffectRegistry::instance().find(id);
+        QVERIFY(d);
+        QCOMPARE(int(d->category), int(EffectCategory::Transition));
+        // the progress is the host's: only the plugin's own controls are listed
+        QCOMPARE(d->params.size(), 1);
+        QCOMPARE(d->params[0].key, QString("softness"));
+        // the two pictures and the progress reach the plugin
+        QString error;
+        auto inst = ofx::Instance::create(plugin->bundleInfo(), plugin->info.index, &error);
+        QVERIFY2(inst, qPrintable(error));
+        Picture from(4, 2), to(4, 2);
+        for (size_t i = 0; i < to.px.size(); i += 4) {
+            to.px[i] = 1.0f;
+            to.px[i + 1] = 0.0f;
+            to.px[i + 2] = 0.0f;
+        }
+        ofx::ParamValue progress;
+        progress.v = {0.25};
+        QVERIFY(inst->setValue(QStringLiteral("Transition"), progress));
+        std::vector<float> dst(from.px.size(), -1.f);
+        QCOMPARE(inst->render(argsFor(from), from.px.data(), dst.data(), &error, to.px.data()),
+            ofx::RenderResult::Rendered);
+        QVERIFY(std::abs(dst[0] - (0.2f * 0.75f + 0.25f)) < 1e-6f); // red: from 0.2, to 1.0
+        QVERIFY(std::abs(dst[1] - 0.4f * 0.75f) < 1e-6f); // green: from 0.4, to 0
+        useGoodPlugin();
+    }
+
+    void theRegionOfDefinitionTellsHowFarAnEffectGrowsPastTheClip()
+    {
+        const auto plugin = OfxRegistry::instance().plugin(kGain);
+        QVERIFY(plugin);
+        QString error;
+        auto inst = ofx::Instance::create(plugin->bundleInfo(), plugin->info.index, &error);
+        QVERIFY2(inst, qPrintable(error));
+        double rod[4] = {};
+        // the default: the plugin has no opinion, the output is the clip's rectangle
+        QVERIFY(!inst->regionOfDefinition(0, 25, 200, 100, rod));
+        QVERIFY(inst->setValue(QStringLiteral("steps"), number(4)));
+        QVERIFY(inst->regionOfDefinition(0, 25, 200, 100, rod));
+        QCOMPARE(rod[0], -30.0);
+        QCOMPARE(rod[1], -30.0);
+        QCOMPARE(rod[2], 230.0);
+        QCOMPARE(rod[3], 130.0);
+    }
+
     void aKeyframedParameterIsReadAtTheFrameBeingRendered()
     {
         const auto plugin = OfxRegistry::instance().plugin(kGain);

@@ -310,6 +310,10 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
         [this](Project& project, const QVector<quint64>& clips, const QString& id) {
             return m_pluginHost->applyPreset(project, clips, id);
         });
+    effectactions::setEdgePresetApplier(
+        [this](Project& project, quint64 clipId, bool head, const QString& id) {
+            return m_pluginHost->applyPresetAtEdge(project, clipId, head, id);
+        });
     m_pluginHost->attachScriptsMenu(menuBar()->findChild<QMenu*>(QStringLiteral("menu:settings.scripts")));
     setAcceptDrops(true);
     // Vim mode (Kinoklip menu > Vim Mode, off by default): the keys, the mode line, the `:` line.

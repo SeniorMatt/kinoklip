@@ -6,6 +6,7 @@
 #pragma once
 
 #include "render/GlEffects.h"
+#include "render/GlTransitions.h"
 
 #include <QString>
 
@@ -15,6 +16,9 @@ namespace kk::render {
 
 /// The effect for descriptor id @p fullId ("ofx:<identifier>"), or null when no plugin provides it.
 [[nodiscard]] std::unique_ptr<GlEffect> makeOfxEffect(const QString& fullId);
+/// A transition made of an OpenFX plugin of the Transition context (SourceFrom, SourceTo and a
+/// "Transition" progress parameter); null for an unknown plugin or one that is not a transition.
+[[nodiscard]] std::unique_ptr<GlTransition> makeOfxTransition(const QString& fullId);
 /// True for the ids of OpenFX effects.
 [[nodiscard]] bool isOfxId(const QString& id);
 

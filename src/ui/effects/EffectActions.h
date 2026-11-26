@@ -61,6 +61,15 @@ namespace effectactions {
 using PresetApplier
     = std::function<int(Project& project, const QVector<quint64>& clips, const QString& presetId)>;
 void setPresetApplier(PresetApplier applier);
+/// Runs a preset of target "edit_point" (a transition preset) at the cut at the head or tail of
+/// a clip; set by the main window like the applier above.
+using EdgePresetApplier = std::function<int(
+    Project& project, quint64 clipId, bool head, const QString& presetId)>;
+void setEdgePresetApplier(EdgePresetApplier applier);
+/// True if @p descriptorId is a preset of target "edit_point".
+[[nodiscard]] bool isEditPointPreset(const QString& descriptorId);
+/// Applies the edit-point preset @p presetId at the head or tail of @p clipId (0: failed).
+int applyPresetAtEdge(Project& project, quint64 clipId, bool head, const QString& presetId);
 /// True if @p descriptorId names a preset of an enabled plugin ("plugin:<id>/<item>").
 [[nodiscard]] bool isPresetId(const QString& descriptorId);
 

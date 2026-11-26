@@ -54,8 +54,8 @@ short prompt for an AI assistant, [llms.txt](llms.txt).
   warp, a tracker) needs a `point` parameter type with a viewer handle first. Until then such
   effects take their points as number parameters.
 - Effects run on the GPU only: the CPU fallback renderer shows a plugin effect as bypass.
-- A preset is applied to clips or at the playhead; applying one at an edit point (a transition
-  preset) needs a third target.
+- A preset is applied to clips, at the playhead or at an edit point (`edit_point`, a transition
+  preset: `$left`, `$right`, `$edit`; spec 160).
 - Plugin text is not translated: labels are what the author wrote.
 - Audio plugins are LV2 and CLAP, hosted as in the next section (spec 159).
 
@@ -64,7 +64,12 @@ short prompt for an AI assistant, [llms.txt](llms.txt).
 The native format is the base. Plugins of the free ecosystems come next, as hosts inside Kinoklip.
 Nothing below is implemented yet; the order is by value over work.
 
-### 1. gl-transitions and shader packs (done in the base)
+### 1. gl-transitions and shader packs (done: the base and the bundled pack, spec 160)
+
+The pack `plugins/bundled/dev.kinoklip.gl-transitions` has 394 of the 401 transitions of the
+collection (the others: BSD or unnamed licence, a link to Shadertoy, texture inputs), made by
+`scripts/convert_gl_transitions.py` and installed in `share/kinoklip/plugins`; it shows in
+Effects library > Transitions > GL Transitions.
 
 The `transition(uv)` convention is the one of [gl-transitions](https://gl-transitions.com) (MIT).
 A gl-transitions file without parameters works as it is, with a `plugin.json` around it. One with
@@ -85,8 +90,9 @@ the probe is a separate small program (not the editor with a flag) so tests and 
 GUI; the description of every bundle is cached by binary size and date; a plugin is loaded into the
 editor only after its probe worked, and a mark file catches a crash in its first frame; pixels are
 premultiplied float RGBA (8 bit only for plugins without float); points and sizes are stored as
-fractions of the clip size. Still to do: the transition context, several inputs and masks, overlays,
-OpenGL rendering, regions of definition larger than the clip. The plan below is kept for what is not done.
+fractions of the clip size. Spec 160 added the transition context and regions of definition larger
+than the clip. Still to do: several inputs and masks, overlays, OpenGL rendering. The plan below is
+kept for what is not done.
 
 - Headers: [OpenFX](https://openfx.readthedocs.io) (BSD-3-Clause, Academy Software Foundation).
   Reference hosts to study: Natron (GPL-2.0, the complete free host), and the openfx-misc test host.

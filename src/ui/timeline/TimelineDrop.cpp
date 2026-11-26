@@ -280,11 +280,18 @@ TimelineWidget::DropPlan TimelineWidget::planDrop(
     if (!desc && effectactions::isPresetId(effectId)) {
         const plugins::PluginPresetDef* preset
             = plugins::PluginRegistry::instance().findPreset(effectId);
-        if (preset && preset->target == plugins::PresetTarget::Clip
+        if (preset && preset->target != plugins::PresetTarget::Playhead
             && hit.area == TimelineHit::Area::Clip) {
             plan.effectId = effectId;
             plan.kind = DropPlan::Kind::Effect;
             plan.clipId = hit.clipId;
+            if (preset->target == plugins::PresetTarget::EditPoint) {
+                // The cut nearer to the pointer: the clip's head or its tail.
+                if (const auto loc = ops::findClip(data, hit.clipId)) {
+                    const ClipData& c = data.track(loc->track)->clips[size_t(loc->clipIndex)];
+                    plan.pointerHead = hit.frame < (c.start + c.end()) / 2.0;
+                }
+            }
         }
         return plan;
     }
@@ -455,6 +462,10 @@ bool TimelineWidget::executeDrop(const DropPlan& plan)
         // of the matching kind, the selection stays (owner request 1.8.1).
         const QVector<quint64> targets = effectactions::effectTargets(
             *project, m_ctx.selection->clips(), plan.clipId);
+        if (effectactions::isEditPointPreset(plan.effectId))
+            return effectactions::applyPresetAtEdge(
+                       *project, plan.clipId, plan.pointerHead, plan.effectId)
+                > 0;
         if (effectactions::isPresetId(plan.effectId))
             return effectactions::applyEffect(*project, targets, plan.effectId) > 0;
         if (targets.size() > 1)

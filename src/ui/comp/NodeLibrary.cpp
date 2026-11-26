@@ -3,6 +3,8 @@
 #include "ui/comp/NodeLibrary.h"
 
 #include "core/Modifiers.h"
+#include "plugins/OfxRegistry.h"
+#include "plugins/PluginRegistry.h"
 #include "ui/common/DragMime.h"
 #include "ui/common/Metrics.h"
 #include "ui/common/PanelInfo.h"
@@ -76,6 +78,34 @@ NodeLibraryPanel::NodeLibraryPanel(CompSession* session, QWidget* parent)
     layout->addWidget(m_tree, 1);
     setContentWidget(body);
 
+    fillTree();
+    // Plugins are scanned in the background and can be reloaded: the Plugins folder follows.
+    connect(&plugins::PluginRegistry::instance(), &plugins::PluginRegistry::changed, this,
+        &NodeLibraryPanel::refresh);
+    connect(&plugins::OfxRegistry::instance(), &plugins::OfxRegistry::changed, this,
+        &NodeLibraryPanel::refresh);
+    connect(m_search, &QLineEdit::textChanged, this, &NodeLibraryPanel::setFilter);
+    connect(m_tree, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem* item) {
+        const QString modifier = item->data(0, kModifierRole).toString();
+        ModifierKind kind;
+        if (!modifier.isEmpty() && modifierKindFromId(modifier, &kind)) {
+            if (m_session)
+                m_session->addModifier(0, QString(), kind);
+            return;
+        }
+        const QString type = item->data(0, kTypeRole).toString();
+        if (m_session && !type.isEmpty())
+            m_session->addNode(type);
+    });
+}
+
+void NodeLibraryPanel::fillTree()
+{
+    // Folders the person closed or opened stay as they are over a rebuild.
+    QHash<QString, bool> expanded;
+    for (int i = 0; i < m_tree->topLevelItemCount(); ++i)
+        expanded.insert(m_tree->topLevelItem(i)->text(0), m_tree->topLevelItem(i)->isExpanded());
+    m_tree->clear();
     for (const QString& category : compadapter::categories()) {
         auto* folder = new QTreeWidgetItem(m_tree, {category});
         folder->setFlags(Qt::ItemIsEnabled);
@@ -86,7 +116,8 @@ NodeLibraryPanel::NodeLibraryPanel(CompSession* session, QWidget* parent)
             item->setData(0, kTypeRole, info.type);
             item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
         }
-        folder->setExpanded(category != compadapter::categories().last());
+        folder->setExpanded(
+            expanded.value(category, category != compadapter::categories().last()));
     }
     // Modifiers (spec 119): double-click puts one on the parameter touched last in the Inspector.
     {
@@ -104,19 +135,14 @@ NodeLibraryPanel::NodeLibraryPanel(CompSession* session, QWidget* parent)
             item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         }
     }
-    connect(m_search, &QLineEdit::textChanged, this, &NodeLibraryPanel::setFilter);
-    connect(m_tree, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem* item) {
-        const QString modifier = item->data(0, kModifierRole).toString();
-        ModifierKind kind;
-        if (!modifier.isEmpty() && modifierKindFromId(modifier, &kind)) {
-            if (m_session)
-                m_session->addModifier(0, QString(), kind);
-            return;
-        }
-        const QString type = item->data(0, kTypeRole).toString();
-        if (m_session && !type.isEmpty())
-            m_session->addNode(type);
-    });
+    if (m_search)
+        setFilter(m_search->text());
+}
+
+void NodeLibraryPanel::refresh()
+{
+    compadapter::refreshCatalogue();
+    fillTree();
 }
 
 void NodeLibraryPanel::setFilter(const QString& text)

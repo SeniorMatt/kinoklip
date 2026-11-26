@@ -27,6 +27,12 @@ struct RecipeTarget
     qint64 end = 0; ///< $end: last timeline frame of the clip
     qint64 duration = 0; ///< $duration: clip length in frames
     qint64 playhead = 0; ///< $playhead: timeline frame of the playhead
+    // Target "edit_point": a cut between two clips of one track (either side may be missing).
+    // $clip, $start, $end and $duration are those of the right clip (else the left one).
+    bool edgePoint = false;
+    qint64 left = 0; ///< $left: id of the clip that ends at the edit point (0: none)
+    qint64 right = 0; ///< $right: id of the clip that starts at it (0: none)
+    qint64 edit = 0; ///< $edit: timeline frame of the edit point (where the right clip starts)
 };
 
 /// One call of the command layer.

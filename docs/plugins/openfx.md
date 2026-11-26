@@ -95,15 +95,33 @@ alpha, rendered on the CPU, and uploaded again. Plugins that cannot do float pix
 - Rendering happens on the render thread, never on the interface thread.
 - A frame that fails is shown without the effect (bypass); the reason is in Preferences > Plugins.
 
+## Transitions and effects that grow the picture
+
+- **Transition context**: a plugin that describes the Transition context (clips `SourceFrom`,
+  `SourceTo` and `Output`, a double parameter `Transition`) and no Filter or General context is a
+  transition in Effects library > Transitions > OpenFX. The host sets `Transition` to the progress
+  (0 to 1, after the transition's curve); the other parameters are in the Inspector. Both pictures
+  are read back from the GPU like an effect's layer.
+- **Region of definition**: before each frame Kinoklip asks the plugin for its region of definition
+  for a source of the clip's size (`getRegionOfDefinition`) and gives the layer a transparent
+  margin as wide as it reaches past the clip (the largest side, at most 1000 pixels), as the
+  built-in Glow and Blur do. A blur or glow therefore no longer stops at the clip's edge.
+
+## G'MIC-OFX
+
+`scripts/build_gmic_ofx.sh <dir>` builds [openfx-gmic](https://github.com/NatronGitHub/openfx-gmic)
+(G'MIC filters; CeCILL v2.0 or CeCILL-C, GPL-compatible) from a pinned commit; the pack test uses it
+when `KK_OFX_GMIC_DIR` points at the output folder. It is not bundled: the standard library of the
+GPL build contains community filters under other licences. Copy `GMIC.ofx.bundle` into
+`~/.local/share/Kinoklip/ofx/` to use it.
+
 ## Not supported (yet)
 
-- Transition, generator, retimer and paint contexts; several required inputs; mask inputs.
+- Generator, retimer and paint contexts; several required inputs; mask inputs.
 - On-screen controls (overlays) in the viewer; keyframe editing by the plugin; custom and
   parametric parameters; string-choice parameters.
 - OpenGL rendering and OpenCL / CUDA / Metal suites (everything runs on the CPU).
-- Tiled rendering and a region of definition larger than the clip: effects that grow the picture
-  (blurs, glows) are clipped at the edge of the clip; effects that read other frames (temporal
-  clip access) get the current frame.
+- Tiled rendering; effects that read other frames (temporal clip access) get the current frame.
 - Windows and macOS binaries: the host loads Linux bundles (`Linux-x86-64`, `Linux-arm-64`).
 
 ## Build openfx-misc yourself

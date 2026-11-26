@@ -6,6 +6,7 @@
 #pragma once
 
 #include "app/commands/Command.h"
+#include "plugins/PresetRecipe.h"
 #include "plugins/ScriptRunner.h"
 
 #include <QObject>
@@ -35,6 +36,12 @@ public:
     /// applied to, 0 when it failed (presetFailed() says why).
     int applyPreset(Project& project, const QVector<quint64>& clips, const QString& presetId);
 
+    /// Applies an "edit_point" preset (a transition preset) at the cut at the head (@p head) or
+    /// tail of clip @p clipId: the clip touching it on the other side, if any, is $left or
+    /// $right. One undo step; 1 when applied, 0 when it failed.
+    int applyPresetAtEdge(
+        Project& project, quint64 clipId, bool head, const QString& presetId);
+
     /// Runs script @p scriptId (full id) of an enabled plugin and shows its output window.
     /// False (and presetFailed-like message in the output) when it cannot start.
     bool runScript(const QString& scriptId);
@@ -61,6 +68,9 @@ signals:
     void presetFailed(const QString& message);
 
 private:
+    int failPreset(const QString& message);
+    int runRecipe(Project& project, const QString& presetId,
+        const QVector<plugins::RecipeTarget>& targets);
     void fillScriptsMenu(QMenu* menu);
     void showOutput(const plugins::ScriptEntry& script);
 
