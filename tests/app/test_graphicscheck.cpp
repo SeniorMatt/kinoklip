@@ -67,7 +67,7 @@ private slots:
         QVERIFY(!pictureMatches(image, &problem));
         QVERIFY2(problem.contains(QStringLiteral("(16, 16)")), qPrintable(problem));
         // Upside down: the read-back of a card that flips rows.
-        QVERIFY(!pictureMatches(correctPicture().flipped(Qt::Vertical), &problem));
+        QVERIFY(!pictureMatches(correctPicture().mirrored(false, true), &problem));
         // A missed draw leaves the clear colour.
         QImage magenta(kPictureSize, kPictureSize, QImage::Format_RGBA8888);
         magenta.fill(Qt::magenta);
