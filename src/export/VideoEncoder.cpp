@@ -73,6 +73,10 @@ std::vector<AVPixelFormat> preferredFormats(const VideoEncoderConfig& c)
         return c.settings.profile == QLatin1String("hqx") ? std::vector {AV_PIX_FMT_YUV422P10LE}
                                                           : std::vector {AV_PIX_FMT_YUV422P};
     }
+    if (codec == QLatin1String("ffv1")) {
+        // 10-bit 4:2:2 keeps the grade's precision; the codec is lossless from there on.
+        return {AV_PIX_FMT_YUV422P10LE, AV_PIX_FMT_YUV420P};
+    }
     if (codec == QLatin1String("png") || codec == QLatin1String("tiff")) {
         return c.alpha ? std::vector {AV_PIX_FMT_RGBA} : std::vector {AV_PIX_FMT_RGB24};
     }
@@ -255,6 +259,13 @@ void configureEncoder(AVCodecContext* ctx, AVDictionary** opts, const VideoEncod
     } else if (name == QLatin1String("dnxhd")) {
         setOpt(opts, "profile",
             QByteArray("dnxhr_") + (s.profile.isEmpty() ? QByteArray("hq") : s.profile.toLatin1()));
+        ctx->bit_rate = 0;
+    } else if (name == QLatin1String("ffv1")) {
+        setOpt(opts, "level", 3); // multithreaded slices, per-slice CRC
+        setOpt(opts, "coder", 1); // range coder
+        setOpt(opts, "context", 1);
+        setOpt(opts, "slicecrc", 1);
+        setOpt(opts, "slices", 16);
         ctx->bit_rate = 0;
     } else if (name == QLatin1String("mjpeg")) {
         ctx->flags |= AV_CODEC_FLAG_QSCALE;

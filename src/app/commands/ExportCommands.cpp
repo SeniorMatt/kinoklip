@@ -22,10 +22,24 @@ const ParamSpec kFileParam {
 CommandResult exportText(
     CommandContext& ctx, const CommandArgs& args, bool otio, const QString& label)
 {
+    // EDL only: "all" (default) writes every video track with clips, a number writes that one.
+    int videoTrack = -1;
+    const QString which = args.string(QStringLiteral("video-track")).trimmed();
+    if (!otio && !which.isEmpty() && which.compare(QLatin1String("all"), Qt::CaseInsensitive)) {
+        bool ok = false;
+        const int number = which.toInt(&ok);
+        const int count = int(ctx.project->timeline()->data().videoTracks.size());
+        if (!ok || number < 1 || number > count)
+            return fail("bad_track",
+                QStringLiteral("video-track must be \"all\" or 1 ... %1, not \"%2\"")
+                    .arg(count)
+                    .arg(which));
+        videoTrack = number - 1;
+    }
     const TimelineData& data = ctx.project->timeline()->data();
     const QString path = QFileInfo(args.string(QStringLiteral("file"))).absoluteFilePath();
     const MediaPool* pool = ctx.project->mediaPool();
-    const QString text = otio ? timelineOtioText(data, pool) : timelineEdlText(data, pool);
+    const QString text = otio ? timelineOtioText(data, pool) : timelineEdlText(data, pool, videoTrack);
     QString error;
     if (!edl::writeTextFile(path, text, &error))
         return fail("write_failed", error);
@@ -107,7 +121,12 @@ void registerExportCommands(CommandRegistry& registry)
         runExportOtio});
     registry.add({{QStringLiteral("export.edl"),
                       QStringLiteral("Write a timeline as a CMX 3600 EDL (.edl) file."),
-                      {kFileParam}, ProjectUse::Read, true},
+                      {kFileParam,
+                          {QStringLiteral("video-track"), ParamType::String,
+                              QStringLiteral("\"all\" (every video track with clips) or the "
+                                             "number of one video track"),
+                              false, QStringLiteral("all"), {}}},
+                      ProjectUse::Read, true},
         runExportEdl});
     registry.add(
         {{QStringLiteral("import.otio"),

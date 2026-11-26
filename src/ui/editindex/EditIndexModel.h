@@ -97,6 +97,8 @@ public:
 private:
     /// Builds the rows of the current mode from the active timeline (inside a model reset).
     void fillRows();
+    /// Markers mode: sets the length of @p row's marker from typed @p text (one undo step).
+    bool setMarkerDuration(const editindex::MarkerRow& row, const QString& text);
     [[nodiscard]] QVariant eventData(const editindex::EventRow& row, int column, int role) const;
     [[nodiscard]] QVariant markerData(const editindex::MarkerRow& row, int column, int role) const;
 

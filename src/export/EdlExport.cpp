@@ -22,6 +22,7 @@ namespace {
 constexpr int kReelWidth = 8; ///< CMX3600 reel field
 constexpr int kChannelWidth = 5; ///< "V", "A", "A2", padded
 const QString kAuxReel = QStringLiteral("AX"); ///< reel of sources without a file
+constexpr int kAudioOrder = 1000; ///< sort order of A / A2 events after all video tracks
 
 /// One CMX event line before formatting.
 struct EventLine
@@ -93,7 +94,8 @@ int64_t dissolveBefore(const std::vector<ClipData>& clips, size_t i)
 }
 
 void addTrackEvents(std::vector<Event>& events, const TrackData& track, const QString& channel,
-    int order, const TimelineData& data, const MediaPool* pool, const EdlOptions& options)
+    int order, const TimelineData& data, const MediaPool* pool, const EdlOptions& options,
+    const QString& trackComment = {})
 {
     const Rational fps = data.fps;
     const auto& clips = track.clips;
@@ -158,6 +160,8 @@ void addTrackEvents(std::vector<Event>& events, const TrackData& track, const QS
                               .arg(timecode(line.srcIn, fps));
         }
         e.comments << QStringLiteral("* FROM CLIP NAME: %1").arg(c.name);
+        if (!trackComment.isEmpty())
+            e.comments << trackComment;
         if (c.retime.isAnimated())
             e.comments << QStringLiteral("* SPEED RAMP (WRITTEN AT THE AVERAGE SPEED)");
         if (!c.enabled)
@@ -206,15 +210,23 @@ QString markerColorName(const QColor& color, bool upper)
 QString timelineToEdl(const TimelineData& data, const MediaPool* pool, const EdlOptions& options)
 {
     std::vector<Event> events;
-    if (options.videoTrack >= 0 && options.videoTrack < int(data.videoTracks.size()))
+    if (options.allVideoTracks) {
+        for (size_t t = 0; t < data.videoTracks.size(); ++t) {
+            if (data.videoTracks[t].clips.empty())
+                continue;
+            addTrackEvents(events, data.videoTracks[t], QStringLiteral("V"), int(t), data, pool,
+                options,
+                t == 0 ? QString() : QStringLiteral("* VIDEO TRACK: V%1").arg(t + 1));
+        }
+    } else if (options.videoTrack >= 0 && options.videoTrack < int(data.videoTracks.size()))
         addTrackEvents(events, data.videoTracks[size_t(options.videoTrack)], QStringLiteral("V"), 0,
             data, pool, options);
     if (options.audioTrack1 >= 0 && options.audioTrack1 < int(data.audioTracks.size()))
         addTrackEvents(events, data.audioTracks[size_t(options.audioTrack1)], QStringLiteral("A"),
-            1, data, pool, options);
+            kAudioOrder, data, pool, options);
     if (options.audioTrack2 >= 0 && options.audioTrack2 < int(data.audioTracks.size()))
         addTrackEvents(events, data.audioTracks[size_t(options.audioTrack2)], QStringLiteral("A2"),
-            2, data, pool, options);
+            kAudioOrder + 1, data, pool, options);
     std::stable_sort(events.begin(), events.end(), [](const Event& a, const Event& b) {
         return a.recIn != b.recIn ? a.recIn < b.recIn : a.order < b.order;
     });

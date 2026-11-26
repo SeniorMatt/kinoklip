@@ -12,6 +12,7 @@
 #include "app/PluginHost.h"
 #include "app/ProjectController.h"
 #include "app/SettingsTransfer.h"
+#include "app/MediaMetadataFiles.h"
 #include "app/TimelineExport.h"
 #include "app/TimelineImport.h"
 #include "app/VimController.h"
@@ -62,6 +63,8 @@
 #include <QGuiApplication>
 #include <QHash>
 #include <QMenuBar>
+#include <QInputDialog>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QPushButton>
@@ -208,6 +211,7 @@ MainWindow::MainWindow(AppContext& ctx, const MainWindowOptions& options, QWidge
             });
     }
     connectTimelineExportActions(ctx, this); // File > Export (EDL, OTIO, marker lists)
+    connectMediaMetadataActions(ctx, this); // File > Import / Export > Metadata (CSV)
     connectTimelineImportActions(ctx, this); // File > Import > Timeline (OTIO)
     m_pageActions = new QActionGroup(this);
     m_pageActions->setExclusive(true);
@@ -512,6 +516,11 @@ void MainWindow::buildMenus()
         {"menu:settings.style",
             QT_TR_NOOP("Lists the widget styles found on this computer; choosing one changes how "
                        "buttons and panels are drawn.")},
+        {"menu:settings.layout_load",
+            QT_TR_NOOP("Lists the saved layouts; choosing one puts the panels of every page "
+                       "back as they were saved.")},
+        {"menu:settings.layout_delete",
+            QT_TR_NOOP("Lists the saved layouts; choosing one deletes it.")},
         {"menu:settings.scripts",
             QT_TR_NOOP("Lists the scripts of the enabled plugins; choosing one runs it and shows "
                        "its output.")},
@@ -525,6 +534,8 @@ void MainWindow::buildMenus()
     if (m_pluginHost)
         m_pluginHost->attachScriptsMenu(
             menuBar()->findChild<QMenu*>(QStringLiteral("menu:settings.scripts")));
+    attachLayoutPresetMenus(menuBar()->findChild<QMenu*>(QStringLiteral("menu:settings.layout_load")),
+        menuBar()->findChild<QMenu*>(QStringLiteral("menu:settings.layout_delete")));
     // File > Open Recent lists files, not registered commands: filled by ProjectController.
     if (auto* recent = menuBar()->findChild<QMenu*>(QStringLiteral("menu:file.recent")))
         m_projectController->attachRecentMenu(recent);
@@ -615,6 +626,8 @@ void MainWindow::connectAppActions()
     // ---- Workspace > Reset UI Layout: every page back to its default panels and sizes ----
     connect(actions.action(QStringLiteral("view.reset_ui_layout")), &QAction::triggered, this,
         &MainWindow::resetUiLayout);
+    connect(actions.action(QStringLiteral("settings.layout_save")), &QAction::triggered, this,
+        &MainWindow::saveLayoutPresetAsked);
 
     // ---- Undo / redo (through Project so they are refused mid-drag) ----
     QAction* undo = actions.action(QStringLiteral("edit.undo"));
@@ -887,6 +900,120 @@ void MainWindow::resetUiLayout()
         entry.page->resetLayout();
     syncPanelToggles();
     m_layoutSaveTimer->start();
+}
+
+namespace {
+
+/// QSettings group of layout preset @p name (the name is percent-encoded: no '/' or '\\').
+QString layoutPresetGroup(const QString& name)
+{
+    return QStringLiteral("layoutPresets/")
+        + QString::fromLatin1(name.trimmed().toUtf8().toPercentEncoding());
+}
+
+} // namespace
+
+QStringList MainWindow::layoutPresetNames()
+{
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("layoutPresets"));
+    QStringList names;
+    for (const QString& group : settings.childGroups())
+        names << settings.value(group + QStringLiteral("/name")).toString();
+    names.removeAll(QString());
+    names.sort(Qt::CaseInsensitive);
+    return names;
+}
+
+bool MainWindow::saveLayoutPreset(const QString& name)
+{
+    if (name.trimmed().isEmpty())
+        return false;
+    QSettings settings;
+    const QString group = layoutPresetGroup(name);
+    settings.remove(group);
+    settings.beginGroup(group);
+    settings.setValue(QStringLiteral("name"), name.trimmed());
+    settings.setValue(QStringLiteral("state"), saveState());
+    for (const PageEntry& entry : m_pages) {
+        settings.beginGroup(pageSettingsGroup(entry.page->pageId()));
+        entry.page->saveLayout(settings);
+        settings.endGroup();
+    }
+    settings.endGroup();
+    settings.sync();
+    return true;
+}
+
+bool MainWindow::loadLayoutPreset(const QString& name)
+{
+    QSettings settings;
+    const QString group = layoutPresetGroup(name);
+    if (!settings.contains(group + QStringLiteral("/name")))
+        return false;
+    settings.beginGroup(group);
+    restoreState(settings.value(QStringLiteral("state")).toByteArray());
+    for (const PageEntry& entry : std::as_const(m_pages)) {
+        settings.beginGroup(pageSettingsGroup(entry.page->pageId()));
+        entry.page->restoreLayout(settings);
+        settings.endGroup();
+    }
+    settings.endGroup();
+    syncPanelToggles();
+    m_layoutSaveTimer->start();
+    return true;
+}
+
+bool MainWindow::deleteLayoutPreset(const QString& name)
+{
+    QSettings settings;
+    const QString group = layoutPresetGroup(name);
+    if (!settings.contains(group + QStringLiteral("/name")))
+        return false;
+    settings.remove(group);
+    return true;
+}
+
+void MainWindow::saveLayoutPresetAsked()
+{
+    bool ok = false;
+    const QString title = tr("Save Layout as Preset");
+    const QString name = QInputDialog::getText(
+        this, title, tr("Name of the layout preset:"), QLineEdit::Normal, QString(), &ok)
+                             .trimmed();
+    if (!ok || name.isEmpty())
+        return;
+    if (layoutPresetNames().contains(name, Qt::CaseSensitive)
+        && QMessageBox::question(this, title, tr("Replace the layout preset “%1”?").arg(name))
+            != QMessageBox::Yes)
+        return;
+    saveLayoutPreset(name);
+}
+
+void MainWindow::attachLayoutPresetMenus(QMenu* load, QMenu* remove)
+{
+    // Rebuilt on every opening: reflects presets saved meanwhile.
+    auto fill = [this](QMenu* menu, bool removing) {
+        menu->clear();
+        const QStringList names = layoutPresetNames();
+        if (names.isEmpty()) {
+            menu->addAction(tr("No Layout Presets"))->setEnabled(false);
+            return;
+        }
+        for (const QString& name : names) {
+            QAction* a = menu->addAction(name);
+            connect(a, &QAction::triggered, this, [this, name, removing] {
+                if (removing)
+                    deleteLayoutPreset(name);
+                else
+                    loadLayoutPreset(name);
+            });
+        }
+    };
+    if (load)
+        connect(load, &QMenu::aboutToShow, this, [load, fill] { fill(load, false); });
+    if (remove)
+        connect(remove, &QMenu::aboutToShow, this, [remove, fill] { fill(remove, true); });
 }
 
 void MainWindow::saveSettings() const

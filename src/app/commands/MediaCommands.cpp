@@ -2,11 +2,14 @@
 // Commands: media.import, media.list, media.relink.
 #include "app/commands/Command.h"
 #include "app/commands/CommandSupport.h"
+#include "core/MediaMetadataCsv.h"
 #include "core/MediaPool.h"
+#include "export/EdlExport.h"
 #include "core/Project.h"
 #include "ui/common/TimecodeFormat.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 
 namespace kk::commands {
@@ -113,10 +116,60 @@ CommandResult runRelink(CommandContext& ctx, const CommandArgs& args)
             .arg(pool->offlineCount()));
 }
 
+CommandResult runExportMetadata(CommandContext& ctx, const CommandArgs& args)
+{
+    const QString path = QFileInfo(args.string(QStringLiteral("file"))).absoluteFilePath();
+    const QString text = mediametadata::toCsv(*ctx.project->mediaPool());
+    QString error;
+    if (!edl::writeTextFile(path, text, &error))
+        return fail("write_failed", error);
+    return CommandResult::success({{QStringLiteral("file"), path}},
+        QStringLiteral("wrote the metadata of the media pool to %1").arg(path));
+}
+
+CommandResult runImportMetadata(CommandContext& ctx, const CommandArgs& args)
+{
+    const QString path = QFileInfo(args.string(QStringLiteral("file"))).absoluteFilePath();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return fail("file_not_found", QStringLiteral("cannot read %1").arg(path));
+    Project& project = *ctx.project;
+    project.beginEdit(QStringLiteral("Import Metadata"));
+    const mediametadata::ImportReport report
+        = mediametadata::applyCsv(*project.mediaPool(), QString::fromUtf8(file.readAll()));
+    if (!report.ok()) {
+        project.cancelEdit();
+        return fail("bad_csv", report.error);
+    }
+    project.endEdit();
+    return CommandResult::success(
+        {{QStringLiteral("rows"), report.rows}, {QStringLiteral("updated"), report.updated},
+            {QStringLiteral("unchanged"), report.unchanged},
+            {QStringLiteral("unmatched"), QJsonArray::fromStringList(report.unmatched)},
+            {QStringLiteral("ambiguous"), QJsonArray::fromStringList(report.ambiguous)}},
+        QStringLiteral("updated %1 clip(s), %2 row(s) matched no clip")
+            .arg(report.updated)
+            .arg(report.unmatched.size()));
+}
+
 } // namespace
 
 void registerMediaCommands(CommandRegistry& registry)
 {
+    registry.add({{QStringLiteral("media.export-metadata"),
+                      QStringLiteral("Write the clip metadata of the media pool to a CSV file."),
+                      {{QStringLiteral("file"), ParamType::Path, QStringLiteral("CSV file to write"),
+                          true, {}, {}}},
+                      ProjectUse::Read, false},
+        runExportMetadata});
+    registry.add({{QStringLiteral("media.import-metadata"),
+                      QStringLiteral("Set clip metadata of the media pool from a CSV file (clips "
+                                     "are found by File Name and Clip Directory; empty cells keep "
+                                     "the value)."),
+                      {{QStringLiteral("file"), ParamType::Path, QStringLiteral("CSV file to read"),
+                          true, {}, {}}},
+                      ProjectUse::Modify, false},
+        runImportMetadata});
     registry.add(
         {{QStringLiteral("media.import"),
              QStringLiteral("Import media files into the project's media pool."),

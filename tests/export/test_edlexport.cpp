@@ -154,6 +154,40 @@ private slots:
         QVERIFY(others.contains(QStringLiteral("* FROM CLIP NAME: B-roll slow")));
     }
 
+    void moreThanOneVideoTrack()
+    {
+        TimelineData d = makeDefaultTimeline(QStringLiteral("Layers"), {25, 1}, 1920, 1080, 3, 1);
+        ops::overwriteClip(d, {TrackType::Video, 0},
+            mediaClip(QStringLiteral("a"), QStringLiteral("Base"), 0, 100, 0));
+        ops::overwriteClip(d, {TrackType::Video, 1},
+            mediaClip(QStringLiteral("b"), QStringLiteral("Overlay"), 25, 50, 5));
+        // V3 stays empty and writes nothing.
+        edl::EdlOptions options;
+        options.allVideoTracks = true;
+        QStringList others;
+        const QVector<Line> lines = parse(edl::timelineToEdl(d, nullptr, options), &others);
+        QCOMPARE(lines.size(), 2);
+        QCOMPARE(lines[0].number, 1);
+        QCOMPARE(lines[0].channel, QStringLiteral("V"));
+        QCOMPARE(lines[0].recOut, QStringLiteral("00:00:04:00"));
+        QCOMPARE(lines[1].number, 2);
+        QCOMPARE(lines[1].channel, QStringLiteral("V"));
+        QCOMPARE(lines[1].recIn, QStringLiteral("00:00:01:00"));
+        QCOMPARE(lines[1].srcIn, QStringLiteral("00:00:05:00"));
+        QVERIFY(others.contains(QStringLiteral("* FROM CLIP NAME: Overlay")));
+        QVERIFY(others.contains(QStringLiteral("* VIDEO TRACK: V2")));
+        QVERIFY(!others.contains(QStringLiteral("* VIDEO TRACK: V1")));
+
+        // One track alone: V2 only.
+        options.allVideoTracks = false;
+        options.videoTrack = 1;
+        const QVector<Line> only = parse(edl::timelineToEdl(d, nullptr, options));
+        QCOMPARE(only.size(), 1);
+        QCOMPARE(only[0].recIn, QStringLiteral("00:00:01:00"));
+        // The default stays V1 alone.
+        QCOMPARE(parse(edl::timelineToEdl(d, nullptr)).size(), 1);
+    }
+
     void reverseSpeedHasANegativeM2()
     {
         TimelineData d = makeDefaultTimeline(QStringLiteral("R"), {25, 1}, 1920, 1080, 2, 2);

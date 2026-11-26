@@ -218,6 +218,50 @@ private slots:
         QVERIFY(!(m->flags(m->index(1, EditIndexModel::MarkerName)) & Qt::ItemIsEditable));
     }
 
+    // Spec 165: the Duration cell of a marker takes a typed timecode, one undo step.
+    void markerDurationCanBeTyped()
+    {
+        PanelFixture f;
+        const quint64 clip = f.addClip(kV1, 0, 200);
+        f.project.beginEdit(QStringLiteral("Add Markers"));
+        TimelineData& d = f.project.timeline()->mutableData();
+        d.markers.push_back({5, QStringLiteral("Range"), kBlue, {}});
+        editops::clipById(d, clip)->markers.push_back({7, QStringLiteral("Clip"), kRed, {}});
+        f.project.endEdit();
+        EditIndexPanel panel(f.ctx);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        panel.setMode(EditIndexModel::Mode::Markers);
+        QAbstractItemModel* m = panel.table()->model();
+        QUndoStack* undo = f.project.undoStack();
+        const int before = undo->count();
+        const QModelIndex duration = m->index(0, EditIndexModel::MarkerDuration);
+
+        QVERIFY(m->flags(duration) & Qt::ItemIsEditable);
+        // The editor starts from the shown timecode.
+        QCOMPARE(m->data(duration, Qt::EditRole).toString(), QStringLiteral("00:00:00:01"));
+        QVERIFY(m->setData(duration, QStringLiteral("00:00:02:05"))); // 2 s 5 frames at 25 fps
+        QCOMPARE(f.project.timeline()->data().markers[0].duration, int64_t(55));
+        QCOMPARE(undo->count(), before + 1);
+        QCOMPARE(undo->undoText(), QStringLiteral("Change Marker Duration"));
+        QCoreApplication::processEvents();
+        QCOMPARE(cell(panel, 0, EditIndexModel::MarkerDuration), QStringLiteral("00:00:02:05"));
+        // Plain digits fill from the right: 12 = 12 frames. A clip marker works the same way.
+        QVERIFY(m->setData(m->index(1, EditIndexModel::MarkerDuration), QStringLiteral("12")));
+        QCOMPARE(f.clip(clip)->markers[0].duration, int64_t(12));
+        // Unreadable, zero and unchanged input keep the marker and add no step.
+        QCoreApplication::processEvents();
+        const int steps = undo->count();
+        QVERIFY(!m->setData(m->index(0, EditIndexModel::MarkerDuration), QStringLiteral("abc")));
+        QVERIFY(!m->setData(m->index(0, EditIndexModel::MarkerDuration), QStringLiteral("0")));
+        QVERIFY(!m->setData(m->index(0, EditIndexModel::MarkerDuration), QStringLiteral("00:00:02:05")));
+        QCOMPARE(undo->count(), steps);
+        undo->undo();
+        undo->undo();
+        QCoreApplication::processEvents();
+        QCOMPARE(cell(panel, 0, EditIndexModel::MarkerDuration), QStringLiteral("00:00:00:01"));
+    }
+
     // Round 3 audit A1: Delete on a marker row deletes the marker (one undo step), not the
     // clip the row selected through the window's Delete commands.
     void deleteKeyDeletesTheMarker()

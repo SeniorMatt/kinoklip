@@ -27,6 +27,8 @@
 #include <QApplication>
 #include <QFileInfo>
 #include <QHash>
+#include <QMenu>
+#include <QMenuBar>
 #include <QSettings>
 #include <QSplitter>
 #include <QStandardPaths>
@@ -756,6 +758,59 @@ private slots:
                     .arg(row->sizes().first())
                     .arg(row->width())
                     .arg(row->sizes().last())));
+        f.window->close();
+        QSettings().clear();
+    }
+
+    /// Spec 167: Workspace > Layout Presets keeps the panels and sizes of every page under a
+    /// name; loading it brings them back; deleting removes it; the menus list the names.
+    void spec167_layoutPresets()
+    {
+        QSettings().clear();
+        Fixture f;
+        f.window->resize(1920, 1080);
+        f.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(f.window.get()));
+        EditPage* edit = f.window->editPage();
+        QVERIFY(MainWindow::layoutPresetNames().isEmpty());
+        QVERIFY(!f.window->saveLayoutPreset(QStringLiteral("  ")));
+        QVERIFY(!f.window->loadLayoutPreset(QStringLiteral("Nothing")));
+
+        // Mixer shown + single viewer: a layout worth keeping (the names have a '/' and an accent).
+        for (const char* id : {"view.toggle_mixer", "view.single_viewer"})
+            f.action(id)->trigger();
+        QVERIFY(edit->isPanelVisible(PanelId::Mixer));
+        QVERIFY(edit->isSingleViewer());
+        QVERIFY(f.window->saveLayoutPreset(QStringLiteral("Mix / été")));
+        QVERIFY(f.window->saveLayoutPreset(QStringLiteral("Edit only")));
+        QCOMPARE(MainWindow::layoutPresetNames(),
+            (QStringList {QStringLiteral("Edit only"), QStringLiteral("Mix / été")}));
+
+        f.action("view.reset_ui_layout")->trigger();
+        QVERIFY(!edit->isPanelVisible(PanelId::Mixer));
+        QVERIFY(!edit->isSingleViewer());
+        QVERIFY(f.window->loadLayoutPreset(QStringLiteral("Mix / été")));
+        QVERIFY(edit->isPanelVisible(PanelId::Mixer));
+        QVERIFY(edit->isSingleViewer());
+        QVERIFY(f.action("view.toggle_mixer")->isChecked()); // the toggles follow
+
+        // The Workspace menu lists the names in Load and Delete.
+        QMenu* load = f.window->menuBar()->findChild<QMenu*>(QStringLiteral("menu:settings.layout_load"));
+        QMenu* remove = f.window->menuBar()->findChild<QMenu*>(QStringLiteral("menu:settings.layout_delete"));
+        QVERIFY(load);
+        QVERIFY(remove);
+        QVERIFY(f.action("settings.layout_save"));
+        emit load->aboutToShow();
+        QStringList shown;
+        for (QAction* a : load->actions())
+            shown << a->text();
+        QCOMPARE(shown, (QStringList {QStringLiteral("Edit only"), QStringLiteral("Mix / été")}));
+        emit remove->aboutToShow();
+        remove->actions().first()->trigger(); // "Edit only"
+        QCOMPARE(MainWindow::layoutPresetNames(), QStringList {QStringLiteral("Mix / été")});
+        QVERIFY(!MainWindow::deleteLayoutPreset(QStringLiteral("Edit only")));
+        QVERIFY(MainWindow::deleteLayoutPreset(QStringLiteral("Mix / été")));
+        QVERIFY(MainWindow::layoutPresetNames().isEmpty());
         f.window->close();
         QSettings().clear();
     }

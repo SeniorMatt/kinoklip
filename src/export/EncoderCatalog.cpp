@@ -59,6 +59,7 @@ QStringList softwareNames(const QString& codec)
         {QStringLiteral("vp9"), {QStringLiteral("libvpx-vp9")}},
         {QStringLiteral("prores"), {QStringLiteral("prores_ks")}},
         {QStringLiteral("dnxhr"), {QStringLiteral("dnxhd")}},
+        {QStringLiteral("ffv1"), {QStringLiteral("ffv1")}},
         {QStringLiteral("png"), {QStringLiteral("png")}},
         {QStringLiteral("mjpeg"), {QStringLiteral("mjpeg")}},
         {QStringLiteral("tiff"), {QStringLiteral("tiff")}},

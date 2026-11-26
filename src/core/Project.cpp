@@ -9,6 +9,7 @@
 #include "core/EditOps.h"
 #include "core/EffectRegistry.h"
 #include "core/FileParams.h"
+#include "core/LutPaths.h"
 #include "core/Logging.h"
 #include "core/Retime.h"
 #include "core/Serialization.h"
@@ -494,12 +495,15 @@ QJsonObject Project::toJson(const SaveSnapshot& snap, const QString& path)
         }
         root[QLatin1String("binViews")] = binViews;
     }
-    return root;
+    // LUT files (grade nodes, input LUTs): the absolute path plus one relative to the project.
+    return lutpaths::addRelative(root, projectDir);
 }
 
-bool Project::fromJson(const QJsonObject& root, int version, const QDir& projectDir,
+bool Project::fromJson(const QJsonObject& storedRoot, int version, const QDir& projectDir,
     const QString& fallbackName, QString* error)
 {
+    // A LUT that moved with the project folder is found through its relative path.
+    const QJsonObject root = lutpaths::resolve(storedRoot, projectDir);
     std::vector<TimelineSlot> timelineSlots;
     QVector<TimelineData> timelines;
     m_loadRepairs.clear();

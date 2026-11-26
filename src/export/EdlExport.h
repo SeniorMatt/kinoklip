@@ -21,6 +21,10 @@ struct EdlOptions
 {
     /// Video track written as the "V" events (0 = V1). CMX3600 has a single video track.
     int videoTrack = 0;
+    /// Write every video track that has clips instead of @c videoTrack: the events of all
+    /// tracks are listed in record order (V1 first at the same time), and the events of V2 and
+    /// above carry "* VIDEO TRACK: V2" so the tracks can be told apart again.
+    bool allVideoTracks = false;
     /// Audio tracks written as channel events: A1 -> "A", A2 -> "A2" (at most two in
     /// CMX3600; -1 leaves one out).
     int audioTrack1 = 0;

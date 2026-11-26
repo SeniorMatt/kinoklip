@@ -14,7 +14,8 @@ struct AppContext;
 struct TimelineData;
 
 /// The EDL text of @p data with the source timecodes File > Export > Timeline as EDL writes.
-[[nodiscard]] QString timelineEdlText(const TimelineData& data, const MediaPool* pool);
+[[nodiscard]] QString timelineEdlText(
+    const TimelineData& data, const MediaPool* pool, int videoTrack = -1);
 /// The OpenTimelineIO text of @p data as File > Export > Timeline as OpenTimelineIO writes it.
 [[nodiscard]] QString timelineOtioText(const TimelineData& data, const MediaPool* pool);
 

@@ -115,6 +115,16 @@ public:
     /// they carry over.
     void setMenuLayout(menulayout::Layout layout);
 
+    /// Workspace > Layout Presets: names of the saved layouts, sorted.
+    [[nodiscard]] static QStringList layoutPresetNames();
+    /// Keeps the panels, their visibility and splitter sizes of every page under @p name
+    /// (replaces a preset of that name). False for an empty name.
+    bool saveLayoutPreset(const QString& name);
+    /// Applies the saved layout @p name to every page. False when there is none.
+    bool loadLayoutPreset(const QString& name);
+    /// Removes the saved layout @p name. False when there is none.
+    static bool deleteLayoutPreset(const QString& name);
+
 protected:
     void closeEvent(QCloseEvent* event) override;
     void changeEvent(QEvent* event) override;
@@ -149,6 +159,10 @@ private:
     void updateTitle();
     /// Workspace > Reset UI Layout (Page::resetLayout() on every page).
     void resetUiLayout();
+    /// Workspace > Layout Presets > Save Layout as Preset…: asks for a name, then saves.
+    void saveLayoutPresetAsked();
+    /// Fills Workspace > Layout Presets > Load / Delete when they open.
+    void attachLayoutPresetMenus(QMenu* load, QMenu* remove);
     void saveSettings() const;
     void restoreSettings();
 

@@ -996,7 +996,15 @@ private slots:
         QFile ef(edl);
         QVERIFY(ef.open(QIODevice::ReadOnly));
         QVERIFY(ef.readAll().contains("TITLE"));
+        ok("export.edl", {{"file", edl}, {"video-track", "all"}});
+        ok("export.edl", {{"file", edl}, {"video-track", "1"}});
+        bad("export.edl", {{"file", edl}, {"video-track", "99"}}, "bad_track");
         bad("export.otio", {{"file", path("no-dir/x.otio")}}, "write_failed");
+        const QString meta = path("meta.csv");
+        ok("media.export-metadata", {{"file", meta}});
+        const CommandResult metaIn = ok("media.import-metadata", {{"file", meta}});
+        QCOMPARE(metaIn.data["updated"].toInt(), 0);
+        bad("media.import-metadata", {{"file", path("missing.csv")}}, "file_not_found");
 
         const CommandResult imported = ok("import.otio", {{"file", otio}});
         QVERIFY(imported.data["timeline"].toInteger() > 0);

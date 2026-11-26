@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QWidget>
 
+#include <algorithm>
 #include <functional>
 
 namespace kk {
@@ -46,9 +47,12 @@ void exportText(AppContext& ctx, QWidget* window, const QString& title, const QS
 
 } // namespace
 
-QString timelineEdlText(const TimelineData& data, const MediaPool* pool)
+QString timelineEdlText(const TimelineData& data, const MediaPool* pool, int videoTrack)
 {
     edl::EdlOptions options;
+    // -1 = every video track that has clips (V1 only when it is the only one: as before).
+    options.allVideoTracks = videoTrack < 0;
+    options.videoTrack = std::max(0, videoTrack);
     // Source timecodes start at the media's own start timecode.
     options.sourceStartUs = [pool, fps = data.fps](const ClipData& clip) {
         return sourceTimecodeBase(clip, pool, fps).startUs;

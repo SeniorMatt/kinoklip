@@ -74,6 +74,7 @@ Menu fileMenu()
             A("file.import_media_folder", "Media Folder…"),
             A("file.import_timeline", "Timeline…"),
             A("file.import_subtitle", "Subtitles…"),
+            A("file.import_metadata", "Metadata To Media Pool…"),
         }),
         M("Export", {
             A("file.export_edl", "Timeline as EDL…"),
@@ -81,6 +82,8 @@ Menu fileMenu()
             S(),
             A("file.export_markers_edl", "Markers as EDL…"),
             A("file.export_markers_csv", "Markers as CSV…"),
+            S(),
+            A("file.export_metadata", "Metadata From Media Pool…"),
         }),
         M("Project Tools", {
             A("file.pack_project", "Pack…"),
@@ -235,6 +238,11 @@ Menu viewMenu()
         S(),
         A("view.fullscreen", "Full Screen Window"),
         A("view.reset_ui_layout", "Reset Layout"),
+        M("Layout Presets", {
+            A("settings.layout_save", "Save Layout as Preset…"),
+            C("settings.layout_load", "Load Layout Preset"),
+            C("settings.layout_delete", "Delete Layout Preset"),
+        }),
         M("Look", {
             C("settings.color_scheme", "Colour Scheme"),
             C("settings.style", "Widget Style"),

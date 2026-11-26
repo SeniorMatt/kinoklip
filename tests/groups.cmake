@@ -28,7 +28,7 @@ set(KK_TESTS_FULL
 
 # Fast pure-logic and UI tests.
 set(KK_TESTS_QUICK
-  test_plugins test_plugincommands test_ofx test_audioplug
+  test_plugins test_plugincommands test_ofx test_audioplug test_mediametadatacsv test_lutpaths
   test_gallery test_autoalign test_textmesh3d test_inputlut test_metadatafull test_relinkfuzzy check_issue_forms check_status check_vim_docs check_translations test_actionregistry test_aimodeldialog
   test_animation test_audioclipeffects test_audioclipeffectsui test_trackeffects test_noisereduction test_noisereductionui test_audiodecoder test_audiomixer
   test_audionormalize test_automation test_loudness test_dynamicskey test_modfx test_spectrum test_monitorcontrols test_voiceisolation test_sends test_arabictext test_audiopitch test_audiorouting test_audiotransitions

@@ -198,6 +198,42 @@ private Q_SLOTS:
         }
     }
 
+    void platformPresets()
+    {
+        // Resolve's Deliver presets per platform: YouTube, Vimeo, X, plus the vertical ones.
+        struct Row
+        {
+            const char* id;
+            int w, h;
+        };
+        for (const Row& row : {Row {"youtube_720p", 1280, 720}, {"youtube_1080p", 1920, 1080},
+                 {"youtube_1440p", 2560, 1440}, {"youtube_4k", 3840, 2160},
+                 {"vimeo_720p", 1280, 720}, {"vimeo_1080p", 1920, 1080}, {"vimeo_4k", 3840, 2160},
+                 {"x_720p", 1280, 720}, {"x_1080p", 1920, 1080},
+                 {"tiktok_vertical", 1080, 1920}, {"instagram_reels", 1080, 1920},
+                 {"instagram_feed", 1080, 1350}, {"facebook_1080p", 1920, 1080}}) {
+            const ExportPreset* p = ExportPresets().find(QString::fromLatin1(row.id));
+            QVERIFY2(p, row.id);
+            QCOMPARE(p->category, QStringLiteral("Web"));
+            QCOMPARE(p->settings.video.width, row.w);
+            QCOMPARE(p->settings.video.height, row.h);
+            QCOMPARE(p->settings.container, QStringLiteral("mp4"));
+            ExportSettings s = p->settings;
+            s.outputPath = QStringLiteral("/tmp/x.mp4");
+            QString error;
+            QVERIFY2(s.validate(&error), qPrintable(QString::fromLatin1(row.id) + error));
+        }
+        const ExportPreset* ffv1 = ExportPresets().find(QStringLiteral("mkv_ffv1_flac"));
+        QVERIFY(ffv1);
+        QCOMPARE(ffv1->settings.video.codec, QStringLiteral("ffv1"));
+        QVERIFY(findVideoCodec(QStringLiteral("ffv1")));
+        QVERIFY(findContainer(QStringLiteral("mkv"))->videoCodecs.contains(QStringLiteral("ffv1")));
+        QVERIFY(findContainer(QStringLiteral("mov"))->videoCodecs.contains(QStringLiteral("ffv1")));
+        // MP3 is an audio-only export format.
+        QVERIFY(findContainer(QStringLiteral("mp3")));
+        QVERIFY(ExportPresets().find(QStringLiteral("audio_mp3")));
+    }
+
     void userPresets()
     {
         const QString file = m_dir.filePath(QStringLiteral("user_presets.json"));
@@ -359,6 +395,7 @@ private Q_SLOTS:
         QTest::newRow("webm vp9+opus") << QStringLiteral("web_webm");
         QTest::newRow("mov prores+pcm") << QStringLiteral("master_prores_hq");
         QTest::newRow("mkv h264+flac") << QStringLiteral("mkv_h264_flac");
+        QTest::newRow("mkv ffv1+flac") << QStringLiteral("mkv_ffv1_flac");
     }
 
     void avSync()

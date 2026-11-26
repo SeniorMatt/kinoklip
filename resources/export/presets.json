@@ -36,6 +36,116 @@
             }
         },
         {
+            "id": "youtube_720p",
+            "name": "YouTube 720p",
+            "category": "Web",
+            "description": "H.264 MP4, 1280x720, constant quality 18, AAC 320 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 18, "speed": "medium", "width": 1280, "height": 720 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 320, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "youtube_1440p",
+            "name": "YouTube 1440p",
+            "category": "Web",
+            "description": "H.264 MP4, 2560x1440, constant quality 18, AAC 320 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 18, "speed": "medium", "width": 2560, "height": 1440 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 320, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "vimeo_720p",
+            "name": "Vimeo 720p",
+            "category": "Web",
+            "description": "H.264 MP4, 1280x720, 10 Mb/s, AAC 320 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "bitrate", "bitrateKbps": 10000, "speed": "medium", "width": 1280, "height": 720 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 320, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "vimeo_4k",
+            "name": "Vimeo 4K",
+            "category": "Web",
+            "description": "H.264 MP4, 3840x2160, 60 Mb/s, AAC 320 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "bitrate", "bitrateKbps": 60000, "speed": "medium", "width": 3840, "height": 2160 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 320, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "x_720p",
+            "name": "X 720p",
+            "category": "Web",
+            "description": "H.264 MP4, 1280x720, 5 Mb/s, AAC 128 kb/s (X limits: 512 MB, 2 min 20 s)",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "bitrate", "bitrateKbps": 5000, "speed": "medium", "width": 1280, "height": 720 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 128, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "x_1080p",
+            "name": "X 1080p",
+            "category": "Web",
+            "description": "H.264 MP4, 1920x1080, 10 Mb/s, AAC 128 kb/s (X limits: 512 MB, 2 min 20 s)",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "bitrate", "bitrateKbps": 10000, "speed": "medium", "width": 1920, "height": 1080 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 128, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "tiktok_vertical",
+            "name": "TikTok 1080x1920",
+            "category": "Web",
+            "description": "H.264 MP4, vertical 1080x1920, constant quality 20, AAC 192 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 20, "speed": "medium", "width": 1080, "height": 1920 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 192, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "instagram_reels",
+            "name": "Instagram Reels 1080x1920",
+            "category": "Web",
+            "description": "H.264 MP4, vertical 1080x1920, constant quality 20, AAC 192 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 20, "speed": "medium", "width": 1080, "height": 1920 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 192, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "instagram_feed",
+            "name": "Instagram Feed 1080x1350",
+            "category": "Web",
+            "description": "H.264 MP4, 4:5 portrait 1080x1350, constant quality 20, AAC 192 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 20, "speed": "medium", "width": 1080, "height": 1350 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 192, "sampleRate": 48000 }
+            }
+        },
+        {
+            "id": "facebook_1080p",
+            "name": "Facebook 1080p",
+            "category": "Web",
+            "description": "H.264 MP4, 1920x1080, constant quality 20, AAC 192 kb/s",
+            "settings": {
+                "container": "mp4",
+                "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 20, "speed": "medium", "width": 1920, "height": 1080 },
+                "audio": { "enabled": true, "codec": "aac", "bitrateKbps": 192, "sampleRate": 48000 }
+            }
+        },
+        {
             "id": "h265_mp4",
             "name": "H.265 MP4",
             "category": "Web",
@@ -109,6 +219,17 @@
             "settings": {
                 "container": "mkv",
                 "video": { "codec": "h264", "encoder": "auto", "rateControl": "quality", "quality": 16, "speed": "medium", "width": 0, "height": 0 },
+                "audio": { "enabled": true, "codec": "flac", "sampleRate": 48000, "bitDepth": 24 }
+            }
+        },
+        {
+            "id": "mkv_ffv1_flac",
+            "name": "Lossless FFV1 + FLAC",
+            "category": "Master",
+            "description": "FFV1 lossless video in Matroska (archive), lossless FLAC audio",
+            "settings": {
+                "container": "mkv",
+                "video": { "codec": "ffv1", "encoder": "auto", "rateControl": "quality", "speed": "medium", "width": 0, "height": 0 },
                 "audio": { "enabled": true, "codec": "flac", "sampleRate": 48000, "bitDepth": 24 }
             }
         },

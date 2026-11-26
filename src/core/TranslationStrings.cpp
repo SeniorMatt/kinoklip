@@ -42,6 +42,17 @@ namespace kk {
     QT_TRANSLATE_NOOP("kk::ExportPresets", "Frame grab PNG"),
     QT_TRANSLATE_NOOP("kk::ExportPresets", "Frame grab JPEG"),
     QT_TRANSLATE_NOOP("kk::ExportPresets", "GIF"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "YouTube 720p"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "YouTube 1440p"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "Vimeo 720p"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "Vimeo 4K"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "X 720p"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "X 1080p"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "TikTok 1080x1920"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "Instagram Reels 1080x1920"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "Instagram Feed 1080x1350"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "Facebook 1080p"),
+    QT_TRANSLATE_NOOP("kk::ExportPresets", "Lossless FFV1 + FLAC"),
 };
 
 } // namespace kk

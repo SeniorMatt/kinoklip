@@ -67,6 +67,7 @@ const ActionSpec kActions[] = {
     {"file.import", "file.import_media_folder", QT_TRANSLATE_NOOP("kk::StandardActions", "Media &Folder…"), "folder"},
     {"file.import", "file.import_timeline", QT_TRANSLATE_NOOP("kk::StandardActions", "&Timeline…")},
     {"file.import", "file.import_subtitle", QT_TRANSLATE_NOOP("kk::StandardActions", "&Subtitle…")},
+    {"file.import", "file.import_metadata", QT_TRANSLATE_NOOP("kk::StandardActions", "Metadata To Media &Pool…")},
     // The media pool's proxy / optimized media commands also live here (act on the media
     // pool selection); Resolve offers them in the media pool context menu.
     // File > Export: the timeline as an edit decision list, its markers as EDL / CSV.
@@ -75,6 +76,7 @@ const ActionSpec kActions[] = {
     {"file.export", "file.export_otio", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline as &OpenTimelineIO (.otio)…")},
     {"file.export", "file.export_markers_edl", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline &Markers to EDL…")},
     {"file.export", "file.export_markers_csv", QT_TRANSLATE_NOOP("kk::StandardActions", "Timeline Markers to &CSV…")},
+    {"file.export", "file.export_metadata", QT_TRANSLATE_NOOP("kk::StandardActions", "Metadata From Media &Pool…")},
     {"file", ">mediapool",            QT_TRANSLATE_NOOP("kk::StandardActions", "Pro&xy and Optimized Media")},
     // Media pool organisation commands acting on the visible media pool (bins branch).
     {"file", ">mediapool.organize",   QT_TRANSLATE_NOOP("kk::StandardActions", "Media &Pool")},
@@ -531,6 +533,11 @@ const ActionSpec kActions[] = {
     //      filled by src/app/Theme; category id "settings" kept for stored data) ----
     {"settings", "view.fullscreen",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Full Screen Window"), "", true},
     {"settings", "view.reset_ui_layout", QT_TRANSLATE_NOOP("kk::StandardActions", "&Reset UI Layout")},
+    // Resolve's Workspace > Layout Presets: the panels and sizes of every page under a name.
+    {"settings", ">settings.layouts",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Layout Presets")},
+    {"settings.layouts", "settings.layout_save", QT_TRANSLATE_NOOP("kk::StandardActions", "&Save Layout as Preset…")},
+    {"settings.layouts", ">settings.layout_load", QT_TRANSLATE_NOOP("kk::StandardActions", "&Load Layout Preset")},
+    {"settings.layouts", ">settings.layout_delete", QT_TRANSLATE_NOOP("kk::StandardActions", "&Delete Layout Preset")},
     {"settings", "-"},
     {"settings", ">settings.color_scheme", QT_TRANSLATE_NOOP("kk::StandardActions", "&Color Theme")},
     {"settings", ">settings.style",    QT_TRANSLATE_NOOP("kk::StandardActions", "&Style")},

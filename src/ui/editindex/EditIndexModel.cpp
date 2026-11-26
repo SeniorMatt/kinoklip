@@ -157,6 +157,8 @@ QVariant EditIndexModel::markerData(const editindex::MarkerRow& row, int column,
             return row.name;
         if (column == MarkerNotes)
             return row.note;
+        if (column == MarkerDuration)
+            return timecode::format(row.duration, fps);
         return {};
     case Qt::DisplayRole:
     case Qt::ToolTipRole:
@@ -256,7 +258,8 @@ Qt::ItemFlags EditIndexModel::flags(const QModelIndex& index) const
 {
     Qt::ItemFlags f = QAbstractTableModel::flags(index);
     if (m_mode == Mode::Markers && index.isValid() && index.row() < rowCount()
-        && (index.column() == MarkerName || index.column() == MarkerNotes)
+        && (index.column() == MarkerName || index.column() == MarkerNotes
+            || index.column() == MarkerDuration)
         && !m_markers[size_t(index.row())].locked)
         f |= Qt::ItemIsEditable;
     return f;
@@ -267,6 +270,8 @@ bool EditIndexModel::setData(const QModelIndex& index, const QVariant& value, in
     if (role != Qt::EditRole || !(flags(index) & Qt::ItemIsEditable))
         return false;
     const editindex::MarkerRow row = m_markers[size_t(index.row())];
+    if (index.column() == MarkerDuration)
+        return setMarkerDuration(row, value.toString());
     const bool isName = index.column() == MarkerName;
     const QString text = value.toString();
     if (text == (isName ? row.name : row.note))
@@ -280,6 +285,25 @@ bool EditIndexModel::setData(const QModelIndex& index, const QVariant& value, in
         return false;
     }
     (isName ? marker->name : marker->note) = text;
+    m_project->endEdit();
+    return true;
+}
+
+bool EditIndexModel::setMarkerDuration(const editindex::MarkerRow& row, const QString& text)
+{
+    // Typed as a timecode (hh:mm:ss:ff) or digits filled from the right ("12" = 12 frames);
+    // zero, negative or unreadable text keeps the old length, as in the marker editor.
+    const auto frames = timecode::parse(text, m_project->timeline()->data().fps);
+    if (!frames || *frames < 1 || *frames == row.duration)
+        return false;
+    m_project->beginEdit(tr("Change Marker Duration"));
+    Marker* marker
+        = editindex::findMarker(m_project->timeline()->mutableData(), row.clipId, row.storedFrame);
+    if (!marker) {
+        m_project->cancelEdit();
+        return false;
+    }
+    marker->duration = *frames;
     m_project->endEdit();
     return true;
 }

@@ -32,10 +32,10 @@ QList<ContainerInfo> makeContainers()
         {QStringLiteral("mp4"), tr("MP4"), QStringLiteral("mp4"), QStringLiteral("mp4"),
             OutputKind::Movie, s({"h264", "hevc", "av1"}), s({"aac", "mp3", "opus"}), true},
         {QStringLiteral("mov"), tr("QuickTime"), QStringLiteral("mov"), QStringLiteral("mov"),
-            OutputKind::Movie, s({"prores", "dnxhr", "h264", "hevc"}),
+            OutputKind::Movie, s({"prores", "dnxhr", "h264", "hevc", "ffv1"}),
             s({"pcm_s24le", "pcm_s16le", "aac"}), true},
         {QStringLiteral("mkv"), tr("Matroska"), QStringLiteral("mkv"), QStringLiteral("matroska"),
-            OutputKind::Movie, s({"h264", "hevc", "av1", "vp9", "prores", "dnxhr"}),
+            OutputKind::Movie, s({"h264", "hevc", "av1", "vp9", "prores", "dnxhr", "ffv1"}),
             s({"flac", "opus", "aac", "pcm_s24le"}), false},
         {QStringLiteral("webm"), tr("WebM"), QStringLiteral("webm"), QStringLiteral("webm"),
             OutputKind::Movie, s({"vp9", "av1"}), s({"opus"}), false},
@@ -98,6 +98,8 @@ QList<VideoCodecInfo> makeVideoCodecs()
     VideoCodecInfo dnxhr = codec("dnxhr", tr("DNxHR"));
     dnxhr.profiles = s({"hq", "sq", "lb", "hqx"});
     dnxhr.profileNames = QStringList {tr("HQ"), tr("SQ"), tr("LB"), tr("HQX (10-bit)")};
+    // FFV1 is lossless and has no quality or bitrate setting (Matroska's archive codec).
+    VideoCodecInfo ffv1 = codec("ffv1", tr("FFV1 (lossless)"));
     VideoCodecInfo png = codec("png", tr("PNG"));
     png.alphaCapable = true;
     png.needsEvenSize = false;
@@ -110,7 +112,7 @@ QList<VideoCodecInfo> makeVideoCodecs()
     exr.needsEvenSize = false;
     VideoCodecInfo gif = codec("gif", tr("GIF"));
     gif.needsEvenSize = false;
-    return {h264, hevc, av1, vp9, prores, dnxhr, png, jpeg, tiff, exr, gif};
+    return {h264, hevc, av1, vp9, prores, dnxhr, ffv1, png, jpeg, tiff, exr, gif};
 }
 
 QList<AudioCodecInfo> makeAudioCodecs()
