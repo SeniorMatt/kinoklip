@@ -1886,6 +1886,7 @@ QCoreApplication::translate("kk::MenuLayouts", "Title Safe");
 QCoreApplication::translate("kk::MenuLayouts", "Toggle Keyframe / Curve");
 QCoreApplication::translate("kk::MenuLayouts", "Tracks");
 QCoreApplication::translate("kk::MenuLayouts", "Transform");
+QCoreApplication::translate("kk::MenuLayouts", "Trim Editor…");
 QCoreApplication::translate("kk::MenuLayouts", "Trim Mode");
 QCoreApplication::translate("kk::MenuLayouts", "Trim to Playhead");
 QCoreApplication::translate("kk::MenuLayouts", "Unlink");

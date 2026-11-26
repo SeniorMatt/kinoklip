@@ -769,6 +769,10 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
         <source>Rendering the audio…</source>
         <translation>Renderizando el audio…</translation>
     </message>
+    <message>
+        <source>Remove</source>
+        <translation>Quitar</translation>
+    </message>
 </context>
 <context>
     <name>TimelineRepair</name>
@@ -2475,6 +2479,10 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
     <message>
         <source>Moves the selected edit point to the playhead.</source>
         <translation>Mueve el punto de edición seleccionado al cabezal de reproducción.</translation>
+    </message>
+    <message>
+        <source>Opens the Trim Editor: the frames on both sides of the selected edit point side by side, with buttons that trim the outgoing side, the roll or the incoming side.</source>
+        <translation>Abre el Editor de recorte: los fotogramas a ambos lados del punto de edición seleccionado, uno junto al otro, con botones para recortar el lado saliente, el roll o el lado entrante.</translation>
     </message>
     <message>
         <source>Cycles the selected edit point between the outgoing side, both sides (roll) and the incoming side.</source>
@@ -10248,6 +10256,81 @@ Gracias por ver</translation>
     <message>
         <source>Reset Equalizer Band %1</source>
         <translation>Restablecer banda %1 del ecualizador</translation>
+    </message>
+</context>
+<context>
+    <name>kk::CloneToolDialog</name>
+    <message>
+        <source>Clone Tool</source>
+        <translation>Herramienta de clonación</translation>
+    </message>
+    <message>
+        <source>Source</source>
+        <translation>Origen</translation>
+    </message>
+    <message>
+        <source>Add Folder...</source>
+        <translation>Añadir carpeta...</translation>
+    </message>
+    <message>
+        <source>Add File...</source>
+        <translation>Añadir archivo...</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Source Folder</source>
+        <translation>Herramienta de clonación: carpeta de origen</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Source Files</source>
+        <translation>Herramienta de clonación: archivos de origen</translation>
+    </message>
+    <message>
+        <source>Destination</source>
+        <translation>Destino</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Destination Folder</source>
+        <translation>Herramienta de clonación: carpeta de destino</translation>
+    </message>
+    <message>
+        <source>Checksum Type</source>
+        <translation>Tipo de suma de verificación</translation>
+    </message>
+    <message>
+        <source>Verify copies after cloning</source>
+        <translation>Verificar las copias tras clonar</translation>
+    </message>
+    <message>
+        <source>Clone</source>
+        <translation>Clonar</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
+    </message>
+    <message>
+        <source>Add a source and a destination first.</source>
+        <translation>Añada primero un origen y un destino.</translation>
+    </message>
+    <message>
+        <source>Cancelled.</source>
+        <translation>Cancelado.</translation>
+    </message>
+    <message>
+        <source>Cloned %n file; every copy matches its source.</source>
+        <translation>Se clonó %n archivo; cada copia coincide con su origen.</translation>
+    </message>
+    <message>
+        <source>Cloned %n files; every copy matches its source.</source>
+        <translation>Se clonaron %n archivos; cada copia coincide con su origen.</translation>
+    </message>
+    <message>
+        <source>Cloned with problems:</source>
+        <translation>Clonado con problemas:</translation>
     </message>
 </context>
 <context>
@@ -21780,12 +21863,20 @@ También se puede hacer doble clic en el encabezado o arrastrarlo fuera del pane
         <translation>Añadir al panel de medios</translation>
     </message>
     <message>
+        <source>Clone Tool</source>
+        <translation>Herramienta de clonación</translation>
+    </message>
+    <message>
         <source>Add Folder into Media Pool</source>
         <translation>Añadir carpeta al panel de medios</translation>
     </message>
     <message>
         <source>Add Folder and Subfolders into Media Pool (Create Bins)</source>
         <translation>Añadir carpeta y subcarpetas al panel de medios (crear carpetas)</translation>
+    </message>
+    <message>
+        <source>Clone Folder...</source>
+        <translation>Clonar carpeta...</translation>
     </message>
     <message>
         <source>Add %1 Files to Media Pool</source>
@@ -24316,6 +24407,10 @@ Importar archivos con %1 o soltarlos aquí.</translation>
     <message>
         <source>Transform</source>
         <translation>Transformar</translation>
+    </message>
+    <message>
+        <source>Trim Editor…</source>
+        <translation>Editor de recorte…</translation>
     </message>
     <message>
         <source>Trim Mode</source>
@@ -30009,6 +30104,18 @@ Tamaño estimado tras compactar: %3</translation>
         <translation>Importar…</translation>
     </message>
     <message>
+        <source>&amp;Add Library…</source>
+        <translation>&amp;Añadir biblioteca…</translation>
+    </message>
+    <message>
+        <source>Add Project Library</source>
+        <translation>Añadir biblioteca de proyectos</translation>
+    </message>
+    <message>
+        <source>&amp;Remove Library from List</source>
+        <translation>&amp;Quitar biblioteca de la lista</translation>
+    </message>
+    <message>
         <source>Copy a project file into the library</source>
         <translation>Copiar un archivo de proyecto a la biblioteca</translation>
     </message>
@@ -30143,6 +30250,10 @@ Tamaño estimado tras compactar: %3</translation>
     <message>
         <source>&amp;Open</source>
         <translation>&amp;Abrir</translation>
+    </message>
+    <message>
+        <source>Open in New &amp;Window</source>
+        <translation>Abrir en una &amp;ventana nueva</translation>
     </message>
     <message>
         <source>&amp;Rename</source>
@@ -33213,6 +33324,10 @@ Reiniciar Kinoklip para aplicarlos.</translation>
         <translation>Metadatos del Media &amp;Pool…</translation>
     </message>
     <message>
+        <source>Trim &amp;Editor…</source>
+        <translation>&amp;Editor de recorte…</translation>
+    </message>
+    <message>
         <source>&amp;Retime Controls</source>
         <translation>Controles de &amp;retiming</translation>
     </message>
@@ -36180,6 +36295,41 @@ Trim the clips so the media covers the transition?</source>
     <message>
         <source>Move Clip</source>
         <translation>Mover clip</translation>
+    </message>
+</context>
+<context>
+    <name>kk::TrimEditorWindow</name>
+    <message>
+        <source>Trim Editor</source>
+        <translation>Editor de recorte</translation>
+    </message>
+    <message>
+        <source>Outgoing</source>
+        <translation>Saliente</translation>
+    </message>
+    <message>
+        <source>Roll</source>
+        <translation>Roll</translation>
+    </message>
+    <message>
+        <source>Incoming</source>
+        <translation>Entrante</translation>
+    </message>
+    <message>
+        <source>Previous Edit</source>
+        <translation>Punto de edición anterior</translation>
+    </message>
+    <message>
+        <source>Trim %1 by %2 frame(s)</source>
+        <translation>Recortar %1 en %2 fotograma(s)</translation>
+    </message>
+    <message>
+        <source>Next Edit</source>
+        <translation>Punto de edición siguiente</translation>
+    </message>
+    <message>
+        <source>Select an edit point in the timeline.</source>
+        <translation>Seleccione un punto de edición en la línea de tiempo.</translation>
     </message>
 </context>
 <context>

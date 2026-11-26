@@ -22,7 +22,7 @@ namespace {
 constexpr qint64 kBlock = 4 * 1024 * 1024;
 
 /// Job messages stay English: they are a technical report (checksums, paths), like log lines.
-QString tr(const char* text)
+QString msg(const char* text)
 {
     return QString::fromUtf8(text);
 }
@@ -82,7 +82,7 @@ QList<Item> collect(const QStringList& sources, QStringList* roots, QString* err
         const QFileInfo info(source);
         if (!info.exists()) {
             if (error)
-                *error = tr("%1 does not exist").arg(source);
+                *error = msg("%1 does not exist").arg(source);
             return {};
         }
         if (roots)
@@ -184,11 +184,11 @@ Result run(const Job& job, const Progress& progress)
 {
     Result result;
     if (job.sources.isEmpty()) {
-        result.error = tr("Add a source folder or file.");
+        result.error = msg("Add a source folder or file.");
         return result;
     }
     if (job.destinations.isEmpty()) {
-        result.error = tr("Add a destination folder.");
+        result.error = msg("Add a destination folder.");
         return result;
     }
     QString error;
@@ -213,7 +213,7 @@ Result run(const Job& job, const Progress& progress)
     };
     for (const QString& d : job.destinations) {
         if (!QDir().mkpath(d)) {
-            result.error = tr("Cannot create %1").arg(d);
+            result.error = msg("Cannot create %1").arg(d);
             return result;
         }
     }
@@ -231,7 +231,7 @@ Result run(const Job& job, const Progress& progress)
         fr.size = item.size;
         QFile in(item.sourcePath);
         if (!in.open(QIODevice::ReadOnly)) {
-            fr.failures << tr("source: cannot read %1").arg(item.sourcePath);
+            fr.failures << msg("source: cannot read %1").arg(item.sourcePath);
             for (const QString& f : std::as_const(fr.failures))
                 result.failures << QStringLiteral("%1: %2").arg(item.relative, f);
             result.results.append(fr);
@@ -242,14 +242,14 @@ Result run(const Job& job, const Progress& progress)
         for (const QString& d : job.destinations) {
             const QString path = QDir(d).filePath(item.relative);
             if (QFileInfo::exists(path)) {
-                fr.failures << tr("%1: already exists").arg(d);
+                fr.failures << msg("%1: already exists").arg(d);
                 continue;
             }
             QDir().mkpath(QFileInfo(path).absolutePath());
             auto file = std::make_unique<QSaveFile>(path);
             file->setDirectWriteFallback(false);
             if (!file->open(QIODevice::WriteOnly)) {
-                fr.failures << tr("%1: cannot write (%2)").arg(d, file->errorString());
+                fr.failures << msg("%1: cannot write (%2)").arg(d, file->errorString());
                 continue;
             }
             targets.push_back({d, path, std::move(file)});
@@ -267,7 +267,7 @@ Result run(const Job& job, const Progress& progress)
             hash.add(buf.constData(), n);
             for (auto it = targets.begin(); it != targets.end();) {
                 if (it->file->write(buf.constData(), n) != n) {
-                    fr.failures << tr("%1: write failed (%2)")
+                    fr.failures << msg("%1: write failed (%2)")
                                        .arg(it->destination, it->file->errorString());
                     it->file->cancelWriting();
                     it = targets.erase(it);
@@ -284,7 +284,7 @@ Result run(const Job& job, const Progress& progress)
         if (!readOk) {
             for (Target& t : targets)
                 t.file->cancelWriting();
-            fr.failures << tr("source: read error in %1").arg(item.sourcePath);
+            fr.failures << msg("source: read error in %1").arg(item.sourcePath);
             for (const QString& f : std::as_const(fr.failures))
                 result.failures << QStringLiteral("%1: %2").arg(item.relative, f);
             result.results.append(fr);
@@ -295,7 +295,7 @@ Result run(const Job& job, const Progress& progress)
         for (Target& t : targets) {
             if (!t.file->commit()) {
                 fr.failures
-                    << tr("%1: cannot finish (%2)").arg(t.destination, t.file->errorString());
+                    << msg("%1: cannot finish (%2)").arg(t.destination, t.file->errorString());
                 continue;
             }
             QFile copy(t.path);
@@ -311,7 +311,7 @@ Result run(const Job& job, const Progress& progress)
             if (again == fr.checksum)
                 ++result.verified;
             else
-                fr.failures << tr("%1: checksum differs after copying").arg(t.destination);
+                fr.failures << msg("%1: checksum differs after copying").arg(t.destination);
         }
         for (const QString& f : std::as_const(fr.failures))
             result.failures << QStringLiteral("%1: %2").arg(item.relative, f);
