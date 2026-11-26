@@ -838,12 +838,36 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
         <translation>Exportar marcadores de la línea de tiempo a CSV</translation>
     </message>
     <message>
+        <source>Export Metadata From Media Pool</source>
+        <translation>Exportar metadatos del Media Pool</translation>
+    </message>
+    <message>
+        <source>Media Pool</source>
+        <translation>Media Pool</translation>
+    </message>
+    <message>
         <source>CSV files (*.csv)</source>
         <translation>Archivos CSV (*.csv)</translation>
     </message>
     <message>
+        <source>Import Metadata To Media Pool</source>
+        <translation>Importar metadatos al Media Pool</translation>
+    </message>
+    <message>
         <source>Cannot read %1: %2</source>
         <translation>No se puede leer %1: %2</translation>
+    </message>
+    <message>
+        <source>Import Metadata</source>
+        <translation>Importar metadatos</translation>
+    </message>
+    <message>
+        <source>No clip found for: %1</source>
+        <translation>No se encontró clip para: %1</translation>
+    </message>
+    <message>
+        <source>Several clips have the name (add a Clip Directory column): %1</source>
+        <translation>Varios clips tienen ese nombre (añada una columna Clip Directory): %1</translation>
     </message>
     <message>
         <source>Import Timeline</source>
@@ -1562,6 +1586,10 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
         <translation>HQX (10 bits)</translation>
     </message>
     <message>
+        <source>FFV1 (lossless)</source>
+        <translation>FFV1 (sin pérdida)</translation>
+    </message>
+    <message>
         <source>PNG</source>
         <translation>PNG</translation>
     </message>
@@ -2247,6 +2275,14 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
     <message>
         <source>Adds a SubRip (.srt) or WebVTT (.vtt) subtitle file to the media pool.</source>
         <translation>Añade un archivo de subtítulos SubRip (.srt) o WebVTT (.vtt) al panel de medios.</translation>
+    </message>
+    <message>
+        <source>Reads a CSV file and sets the description, comments, keywords, scene, shot, take, camera, angle, good take, rating, clip color and flags of the media pool clips with the same file name.</source>
+        <translation>Lee un archivo CSV y establece la descripción, los comentarios, las palabras clave, la escena, el plano, la toma, la cámara, el ángulo, la toma buena, la valoración, el color y las marcas de los clips del Media Pool con el mismo nombre de archivo.</translation>
+    </message>
+    <message>
+        <source>Writes the metadata of every media pool clip to a CSV file that opens in a spreadsheet.</source>
+        <translation>Escribe los metadatos de cada clip del Media Pool en un archivo CSV que se abre en una hoja de cálculo.</translation>
     </message>
     <message>
         <source>Writes the timeline as an edit decision list (EDL) file.</source>
@@ -3591,6 +3627,10 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
     <message>
         <source>Puts the panels of every page back to their default places and sizes.</source>
         <translation>Devuelve los paneles de todas las páginas a sus lugares y tamaños predeterminados.</translation>
+    </message>
+    <message>
+        <source>Keeps the panels and their sizes on every page under a name you choose; a preset with the same name is replaced.</source>
+        <translation>Guarda los paneles y sus tamaños de cada página con un nombre a su elección; un preajuste con el mismo nombre se reemplaza.</translation>
     </message>
     <message>
         <source>Opens the guide page about the panel or page under the pointer.</source>
@@ -13468,6 +13508,10 @@ Gracias por ver</translation>
         <translation>Modificar marcador</translation>
     </message>
     <message>
+        <source>Change Marker Duration</source>
+        <translation>Cambiar duración del marcador</translation>
+    </message>
+    <message>
         <source>Delete Marker</source>
         <translation>Eliminar marcador</translation>
     </message>
@@ -18595,6 +18639,10 @@ Transición estándar de este proyecto</translation>
         <translation>DNxHR</translation>
     </message>
     <message>
+        <source>FFV1 (lossless)</source>
+        <translation>FFV1 (sin pérdida)</translation>
+    </message>
+    <message>
         <source>FLAC</source>
         <translation>FLAC</translation>
     </message>
@@ -18887,6 +18935,50 @@ Transición estándar de este proyecto</translation>
     <message>
         <source>GIF</source>
         <translation>GIF</translation>
+    </message>
+    <message>
+        <source>YouTube 720p</source>
+        <translation>YouTube 720p</translation>
+    </message>
+    <message>
+        <source>YouTube 1440p</source>
+        <translation>YouTube 1440p</translation>
+    </message>
+    <message>
+        <source>Vimeo 720p</source>
+        <translation>Vimeo 720p</translation>
+    </message>
+    <message>
+        <source>Vimeo 4K</source>
+        <translation>Vimeo 4K</translation>
+    </message>
+    <message>
+        <source>X 720p</source>
+        <translation>X 720p</translation>
+    </message>
+    <message>
+        <source>X 1080p</source>
+        <translation>X 1080p</translation>
+    </message>
+    <message>
+        <source>TikTok 1080x1920</source>
+        <translation>TikTok 1080x1920</translation>
+    </message>
+    <message>
+        <source>Instagram Reels 1080x1920</source>
+        <translation>Instagram Reels 1080x1920</translation>
+    </message>
+    <message>
+        <source>Instagram Feed 1080x1350</source>
+        <translation>Instagram Feed 1080x1350</translation>
+    </message>
+    <message>
+        <source>Facebook 1080p</source>
+        <translation>Facebook 1080p</translation>
+    </message>
+    <message>
+        <source>Lossless FFV1 + FLAC</source>
+        <translation>FFV1 sin pérdida + FLAC</translation>
     </message>
 </context>
 <context>
@@ -21361,6 +21453,14 @@ También se puede hacer doble clic en el encabezado o arrastrarlo fuera del pane
         <translation>Lista los estilos de widgets encontrados en este equipo; al elegir uno cambia cómo se dibujan botones y paneles.</translation>
     </message>
     <message>
+        <source>Lists the saved layouts; choosing one puts the panels of every page back as they were saved.</source>
+        <translation>Muestra los diseños guardados; al elegir uno, los paneles de cada página vuelven a como estaban al guardarlos.</translation>
+    </message>
+    <message>
+        <source>Lists the saved layouts; choosing one deletes it.</source>
+        <translation>Muestra los diseños guardados; al elegir uno, se elimina.</translation>
+    </message>
+    <message>
         <source>Lists the scripts of the enabled plugins; choosing one runs it and shows its output.</source>
         <translation>Muestra los scripts de los complementos activados; al elegir uno se ejecuta y se muestra su salida.</translation>
     </message>
@@ -21395,6 +21495,22 @@ También se puede hacer doble clic en el encabezado o arrastrarlo fuera del pane
     <message>
         <source>%1 (Read-Only)</source>
         <translation>%1 (solo lectura)</translation>
+    </message>
+    <message>
+        <source>Save Layout as Preset</source>
+        <translation>Guardar diseño como preajuste</translation>
+    </message>
+    <message>
+        <source>Name of the layout preset:</source>
+        <translation>Nombre del preajuste de diseño:</translation>
+    </message>
+    <message>
+        <source>Replace the layout preset “%1”?</source>
+        <translation>¿Reemplazar el preajuste de diseño «%1»?</translation>
+    </message>
+    <message>
+        <source>No Layout Presets</source>
+        <translation>Sin preajustes de diseño</translation>
     </message>
 </context>
 <context>
@@ -21737,6 +21853,55 @@ También se puede hacer doble clic en el encabezado o arrastrarlo fuera del pane
     <message>
         <source>Render Cache Clip Output</source>
         <translation>Salida de clip de la caché de renderizado</translation>
+    </message>
+</context>
+<context>
+    <name>kk::MediaMetadataFiles</name>
+    <message numerus="yes">
+        <source>Updated the metadata of %n clip(s).</source>
+        <translation>
+            <numerusform>Metadatos de %n clip actualizados.</numerusform>
+            <numerusform>Metadatos de %n clips actualizados.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n clip(s) already matched.</source>
+        <translation>
+            <numerusform>%n clip ya coincidía.</numerusform>
+            <numerusform>%n clips ya coincidían.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>CSV files (*.csv)</source>
+        <translation>Archivos CSV (*.csv)</translation>
+    </message>
+    <message>
+        <source>Cannot read %1: %2</source>
+        <translation>No se puede leer %1: %2</translation>
+    </message>
+    <message>
+        <source>Export Metadata From Media Pool</source>
+        <translation>Exportar metadatos del Media Pool</translation>
+    </message>
+    <message>
+        <source>Import Metadata</source>
+        <translation>Importar metadatos</translation>
+    </message>
+    <message>
+        <source>Import Metadata To Media Pool</source>
+        <translation>Importar metadatos al Media Pool</translation>
+    </message>
+    <message>
+        <source>Media Pool</source>
+        <translation>Media Pool</translation>
+    </message>
+    <message>
+        <source>No clip found for: %1</source>
+        <translation>No se encontró clip para: %1</translation>
+    </message>
+    <message>
+        <source>Several clips have the name (add a Clip Directory column): %1</source>
+        <translation>Varios clips tienen ese nombre (añada una columna Clip Directory): %1</translation>
     </message>
 </context>
 <context>
@@ -23054,6 +23219,10 @@ Importar archivos con %1 o soltarlos aquí.</translation>
         <translation>Eliminar pistas vacías</translation>
     </message>
     <message>
+        <source>Delete Layout Preset</source>
+        <translation>Eliminar preajuste de diseño</translation>
+    </message>
+    <message>
         <source>Delete Marker</source>
         <translation>Eliminar marcador</translation>
     </message>
@@ -23310,6 +23479,10 @@ Importar archivos con %1 o soltarlos aquí.</translation>
         <translation>Capa</translation>
     </message>
     <message>
+        <source>Layout Presets</source>
+        <translation>Preajustes de diseño</translation>
+    </message>
+    <message>
         <source>Left 1 Frame</source>
         <translation>1 fotograma a la izquierda</translation>
     </message>
@@ -23344,6 +23517,10 @@ Importar archivos con %1 o soltarlos aquí.</translation>
     <message>
         <source>Linked Selection</source>
         <translation>Selección vinculada</translation>
+    </message>
+    <message>
+        <source>Load Layout Preset</source>
+        <translation>Cargar preajuste de diseño</translation>
     </message>
     <message>
         <source>Load Preset</source>
@@ -23448,6 +23625,14 @@ Importar archivos con %1 o soltarlos aquí.</translation>
     <message>
         <source>Memory H</source>
         <translation>Memoria H</translation>
+    </message>
+    <message>
+        <source>Metadata From Media Pool…</source>
+        <translation>Metadatos del Media Pool…</translation>
+    </message>
+    <message>
+        <source>Metadata To Media Pool…</source>
+        <translation>Metadatos al Media Pool…</translation>
     </message>
     <message>
         <source>Mixer</source>
@@ -23796,6 +23981,10 @@ Importar archivos con %1 o soltarlos aquí.</translation>
     <message>
         <source>Save As…</source>
         <translation>Guardar como…</translation>
+    </message>
+    <message>
+        <source>Save Layout as Preset…</source>
+        <translation>Guardar diseño como preajuste…</translation>
     </message>
     <message>
         <source>Save Preset…</source>
@@ -32833,6 +33022,14 @@ Reiniciar Kinoklip para aplicarlos.</translation>
         <translation>&amp;Retemporización</translation>
     </message>
     <message>
+        <source>Metadata To Media &amp;Pool…</source>
+        <translation>Metadatos al Media &amp;Pool…</translation>
+    </message>
+    <message>
+        <source>Metadata From Media &amp;Pool…</source>
+        <translation>Metadatos del Media &amp;Pool…</translation>
+    </message>
+    <message>
         <source>&amp;Retime Controls</source>
         <translation>Controles de &amp;retiming</translation>
     </message>
@@ -33895,6 +34092,22 @@ Reiniciar Kinoklip para aplicarlos.</translation>
     <message>
         <source>&amp;Reset UI Layout</source>
         <translation>&amp;Restablecer disposición de la interfaz</translation>
+    </message>
+    <message>
+        <source>&amp;Layout Presets</source>
+        <translation>&amp;Preajustes de diseño</translation>
+    </message>
+    <message>
+        <source>&amp;Save Layout as Preset…</source>
+        <translation>&amp;Guardar diseño como preajuste…</translation>
+    </message>
+    <message>
+        <source>&amp;Load Layout Preset</source>
+        <translation>&amp;Cargar preajuste de diseño</translation>
+    </message>
+    <message>
+        <source>&amp;Delete Layout Preset</source>
+        <translation>&amp;Eliminar preajuste de diseño</translation>
     </message>
     <message>
         <source>&amp;Color Theme</source>

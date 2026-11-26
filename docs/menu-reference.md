@@ -37,10 +37,12 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Import > Media Folder… |  | Adds a whole folder of media to the media pool, keeping its sub-folders as bins. |
 | Import > Timeline… |  | Reads a timeline from an OpenTimelineIO file into the project as a new timeline. |
 | Import > Subtitle… |  | Adds a SubRip (.srt) or WebVTT (.vtt) subtitle file to the media pool. |
+| Import > Metadata To Media Pool… |  | Reads a CSV file and sets the description, comments, keywords, scene, shot, take, camera, angle, good take, rating, clip color and flags of the media pool clips with the same file name. |
 | Export > Timeline as EDL… |  | Writes the timeline as an edit decision list (EDL) file. |
 | Export > Timeline as OpenTimelineIO (.otio)… |  | Writes the timeline as an OpenTimelineIO file for other editors. |
 | Export > Timeline Markers to EDL… |  | Writes the timeline markers to an EDL file. |
 | Export > Timeline Markers to CSV… |  | Writes the timeline markers to a CSV file that opens in a spreadsheet. |
+| Export > Metadata From Media Pool… |  | Writes the metadata of every media pool clip to a CSV file that opens in a spreadsheet. |
 | Proxy and Optimized Media > Generate Optimized Media |  | Creates optimized media (a file that is easier to play) for the selected clips. |
 | Proxy and Optimized Media > Generate Proxy Media |  | Creates proxy media (small, fast copies) for the selected clips. |
 | Proxy and Optimized Media > Stop Generating |  | Stops making proxy and optimized media. |
@@ -463,6 +465,9 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 |---|---|---|
 | Full Screen Window (toggle) | Ctrl+Shift+F | Makes the window fill the whole screen. |
 | Reset UI Layout |  | Puts the panels of every page back to their default places and sizes. |
+| Layout Presets > Save Layout as Preset… |  | Keeps the panels and their sizes on every page under a name you choose; a preset with the same name is replaced. |
+| Layout Presets > Load Layout Preset |  | Lists the saved layouts; choosing one puts the panels of every page back as they were saved. |
+| Layout Presets > Delete Layout Preset |  | Lists the saved layouts; choosing one deletes it. |
 | Color Theme |  | Lists the colour schemes found on this computer; choosing one changes the colours of the whole window. |
 | Style |  | Lists the widget styles found on this computer; choosing one changes how buttons and panels are drawn. |
 | Plugins… |  | Opens Preferences > Plugins: the installed plugins, install a .kkplugin file or a plugin folder, switch plugins on and off, reload them. |
@@ -612,10 +617,12 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Import > Media Folder… |  | Adds a whole folder of media to the media pool, keeping its sub-folders as bins. |
 | Import > Timeline… |  | Reads a timeline from an OpenTimelineIO file into the project as a new timeline. |
 | Import > Subtitles… |  | Adds a SubRip (.srt) or WebVTT (.vtt) subtitle file to the media pool. |
+| Import > Metadata To Media Pool… |  | Reads a CSV file and sets the description, comments, keywords, scene, shot, take, camera, angle, good take, rating, clip color and flags of the media pool clips with the same file name. |
 | Export > Timeline as EDL… |  | Writes the timeline as an edit decision list (EDL) file. |
 | Export > Timeline as OpenTimelineIO… |  | Writes the timeline as an OpenTimelineIO file for other editors. |
 | Export > Markers as EDL… |  | Writes the timeline markers to an EDL file. |
 | Export > Markers as CSV… |  | Writes the timeline markers to a CSV file that opens in a spreadsheet. |
+| Export > Metadata From Media Pool… |  | Writes the metadata of every media pool clip to a CSV file that opens in a spreadsheet. |
 | Project Tools > Pack… |  | Packs a linked project and all the media it uses into one single-file project. |
 | Project Tools > Unpack… |  | Writes the media of a single-file project to a folder and continues with a linked project. |
 | Project Tools > Compact… |  | Rewrites a single-file project without unused media and old versions, to make it smaller. |
@@ -718,6 +725,9 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Guides > Delete Preset |  | Lists the guide presets you saved; choosing one deletes it. |
 | Full Screen Window (toggle) | Ctrl+Shift+F | Makes the window fill the whole screen. |
 | Reset Layout |  | Puts the panels of every page back to their default places and sizes. |
+| Layout Presets > Save Layout as Preset… |  | Keeps the panels and their sizes on every page under a name you choose; a preset with the same name is replaced. |
+| Layout Presets > Load Layout Preset |  | Lists the saved layouts; choosing one puts the panels of every page back as they were saved. |
+| Layout Presets > Delete Layout Preset |  | Lists the saved layouts; choosing one deletes it. |
 | Look > Colour Scheme |  | Lists the colour schemes found on this computer; choosing one changes the colours of the whole window. |
 | Look > Widget Style |  | Lists the widget styles found on this computer; choosing one changes how buttons and panels are drawn. |
 | Plugins… |  | Opens Preferences > Plugins: the installed plugins, install a .kkplugin file or a plugin folder, switch plugins on and off, reload them. |

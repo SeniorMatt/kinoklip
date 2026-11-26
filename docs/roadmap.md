@@ -279,24 +279,26 @@ when the owner asks for it.
 - [ ] Edit: Paste Mix to Current Track (Edit menu); its exact behaviour is read from public documentation first
 - [ ] Edit: Trim Editor as a window of its own: outgoing and incoming frames side by side with trim buttons
 - [ ] Project: Archive Project (File menu): copy the project and every media file it uses into one folder, and open such a folder again
-- [ ] Media: metadata import and export (File > Import / Export): clip metadata of the Media Pool to and from a CSV file
-- [ ] Interface: named layouts (Workspace > Layout > Save Layout / Load Layout): keep the panel sizes of every page under a name
+- [x] Media: metadata import and export (File > Import / Export): clip metadata of the Media Pool to and from a CSV file (spec 166)
+- [x] Interface: named layouts (Workspace > Layout Presets > Save Layout as Preset / Load / Delete): keep the panels and sizes of every page under a name (spec 167)
+- [ ] Interface: layout presets: window size and position, and export / import of a preset file
 - [ ] Interface: translations: a language choice in Preferences and translation files that volunteers can fill in
-- [ ] Deliver: lossless FFV1 video and MP3 audio as export formats
+- [x] Deliver: lossless FFV1 video (Matroska, QuickTime; preset Lossless FFV1 + FLAC) and MP3 audio as export formats (spec 165)
 - [ ] Platform: `kinoklip --graphics-check`: draws a test picture with the graphics card, reads it back, says whether video decodes on the card and why not, and prints a report for bug reports
 - [ ] Platform: a Flathub submission (the Kinoklip Flatpak repository exists, see "Next version")
 - [ ] Pages: compare the Media, Cut, Compositing, Color, Audio and Deliver pages with Resolve and add what is missing
 - [ ] Media: clone tool on the Media page
-- [ ] Deliver: render presets per platform
+- [x] Deliver: render presets per platform: YouTube, Vimeo, X, TikTok, Instagram, Facebook (spec 165.3)
 - [ ] Titles: automatic subtitles
-- [ ] Color: relative LUT paths, and packing LUTs into single-file projects
+- [x] Color: relative LUT paths for grade node and input LUTs (spec 168.1)
+- [ ] Color: packing LUTs into single-file projects
 - [ ] Color: thumbnails of the clip itself when a higher track covers it
 - [ ] Audio: recording and ADR, plugins, surround formats, sound library
 - [ ] Audio: elastic wave, console mapping, VCAs, more effects
 - [ ] Project: pack with trimming (only the used parts of long clips plus handles) and image sequences inside single-file projects
 - [ ] Project: more than one project library, Open in a New Window, a cloud / shared library
-- [ ] Interchange: EDL export with more than one video track
-- [ ] Edit: type a marker Duration in the Edit Index table
+- [x] Interchange: EDL export with more than one video track (spec 169.1)
+- [x] Edit: type a marker Duration in the Edit Index table (spec 169.2)
 - [ ] Platform: cache shaped clip names so painting a 1,500-clip timeline is cheaper
 - [ ] Edit: two-up trim view with the program look (effects, transforms) without lag
 - [ ] Platform: fewer dropped frames on the first play of 4K HEVC

@@ -395,7 +395,7 @@ everything before it.
 | `:set snap` `nosnap` `snap!` `snap?` | the options `snap`, `linked`, `audioscrub`, `loop` (`no` turns off, `!` or `inv` flips, `?` asks), also `vim`, `leader=`, `timeoutlen=`, `physicalkeys` |
 | `:nmap` `:nunmap` `:map` `:source` | change the Vim keys (see above) |
 | `:action {id or name}` | run any action of the Shortcuts tab; a bare id works too (`:edit.undo`) |
-| `:export edl\|otio\|markers` `:import media\|timeline\|subtitle` | the File menu's export and import |
+| `:export edl\|otio\|markers\|metadata` `:import media\|timeline\|subtitle\|metadata` | the File menu's export and import |
 | `:help [topic]` `:cheat` | open the guide (a topic is searched); the Vim cheat sheet |
 | `:noh` `:play` | forget the search; play / pause |
 | `:marker add --at 120` | any Kinoklip command, as on the command line (see [Control Kinoklip from the command line](control-kinoklip-from-the-command-line.md)) |

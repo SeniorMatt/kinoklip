@@ -846,12 +846,36 @@ The program was probably closed by the system because the computer ran out of me
         <translation>Експортувати маркери таймлайну в CSV</translation>
     </message>
     <message>
+        <source>Export Metadata From Media Pool</source>
+        <translation>Експорт метаданих із медіапулу</translation>
+    </message>
+    <message>
+        <source>Media Pool</source>
+        <translation>Медіапул</translation>
+    </message>
+    <message>
         <source>CSV files (*.csv)</source>
         <translation>Файли CSV (*.csv)</translation>
     </message>
     <message>
+        <source>Import Metadata To Media Pool</source>
+        <translation>Імпорт метаданих у медіапул</translation>
+    </message>
+    <message>
         <source>Cannot read %1: %2</source>
         <translation>Не вдалося прочитати %1: %2</translation>
+    </message>
+    <message>
+        <source>Import Metadata</source>
+        <translation>Імпорт метаданих</translation>
+    </message>
+    <message>
+        <source>No clip found for: %1</source>
+        <translation>Кліп не знайдено для: %1</translation>
+    </message>
+    <message>
+        <source>Several clips have the name (add a Clip Directory column): %1</source>
+        <translation>Кілька кліпів мають таку назву (додайте стовпець Clip Directory): %1</translation>
     </message>
     <message>
         <source>Import Timeline</source>
@@ -1570,6 +1594,10 @@ The program was probably closed by the system because the computer ran out of me
         <translation>HQX (10 біт)</translation>
     </message>
     <message>
+        <source>FFV1 (lossless)</source>
+        <translation>FFV1 (без втрат)</translation>
+    </message>
+    <message>
         <source>PNG</source>
         <translation>PNG</translation>
     </message>
@@ -2255,6 +2283,14 @@ The program was probably closed by the system because the computer ran out of me
     <message>
         <source>Adds a SubRip (.srt) or WebVTT (.vtt) subtitle file to the media pool.</source>
         <translation>Додає до медіапулу файл субтитрів SubRip (.srt) або WebVTT (.vtt).</translation>
+    </message>
+    <message>
+        <source>Reads a CSV file and sets the description, comments, keywords, scene, shot, take, camera, angle, good take, rating, clip color and flags of the media pool clips with the same file name.</source>
+        <translation>Читає файл CSV і задає опис, коментарі, ключові слова, сцену, план, дубль, камеру, ракурс, вдалий дубль, оцінку, колір кліпу та прапорці кліпів медіапулу з тією самою назвою файлу.</translation>
+    </message>
+    <message>
+        <source>Writes the metadata of every media pool clip to a CSV file that opens in a spreadsheet.</source>
+        <translation>Записує метадані кожного кліпу медіапулу у файл CSV, що відкривається в електронній таблиці.</translation>
     </message>
     <message>
         <source>Writes the timeline as an edit decision list (EDL) file.</source>
@@ -3599,6 +3635,10 @@ The program was probably closed by the system because the computer ran out of me
     <message>
         <source>Puts the panels of every page back to their default places and sizes.</source>
         <translation>Повертає панелі кожної сторінки на типові місця та до типових розмірів.</translation>
+    </message>
+    <message>
+        <source>Keeps the panels and their sizes on every page under a name you choose; a preset with the same name is replaced.</source>
+        <translation>Зберігає панелі та їхні розміри на кожній сторінці під обраною назвою; пресет із такою самою назвою замінюється.</translation>
     </message>
     <message>
         <source>Opens the guide page about the panel or page under the pointer.</source>
@@ -13481,6 +13521,10 @@ Thank you for watching</source>
         <translation>Змінити маркер</translation>
     </message>
     <message>
+        <source>Change Marker Duration</source>
+        <translation>Змінити тривалість маркера</translation>
+    </message>
+    <message>
         <source>Delete Marker</source>
         <translation>Видалити маркер</translation>
     </message>
@@ -18608,6 +18652,10 @@ Standard transition of this project</source>
         <translation>DNxHR</translation>
     </message>
     <message>
+        <source>FFV1 (lossless)</source>
+        <translation>FFV1 (без втрат)</translation>
+    </message>
+    <message>
         <source>FLAC</source>
         <translation>FLAC</translation>
     </message>
@@ -18900,6 +18948,50 @@ Standard transition of this project</source>
     <message>
         <source>GIF</source>
         <translation>GIF</translation>
+    </message>
+    <message>
+        <source>YouTube 720p</source>
+        <translation>YouTube 720p</translation>
+    </message>
+    <message>
+        <source>YouTube 1440p</source>
+        <translation>YouTube 1440p</translation>
+    </message>
+    <message>
+        <source>Vimeo 720p</source>
+        <translation>Vimeo 720p</translation>
+    </message>
+    <message>
+        <source>Vimeo 4K</source>
+        <translation>Vimeo 4K</translation>
+    </message>
+    <message>
+        <source>X 720p</source>
+        <translation>X 720p</translation>
+    </message>
+    <message>
+        <source>X 1080p</source>
+        <translation>X 1080p</translation>
+    </message>
+    <message>
+        <source>TikTok 1080x1920</source>
+        <translation>TikTok 1080x1920</translation>
+    </message>
+    <message>
+        <source>Instagram Reels 1080x1920</source>
+        <translation>Instagram Reels 1080x1920</translation>
+    </message>
+    <message>
+        <source>Instagram Feed 1080x1350</source>
+        <translation>Instagram Feed 1080x1350</translation>
+    </message>
+    <message>
+        <source>Facebook 1080p</source>
+        <translation>Facebook 1080p</translation>
+    </message>
+    <message>
+        <source>Lossless FFV1 + FLAC</source>
+        <translation>FFV1 без втрат + FLAC</translation>
     </message>
 </context>
 <context>
@@ -21378,6 +21470,14 @@ You can also double-click the header, or drag the header out of the panel.</sour
         <translation>Перелічує стилі віджетів, знайдені на цьому комп’ютері; вибір змінює вигляд кнопок і панелей.</translation>
     </message>
     <message>
+        <source>Lists the saved layouts; choosing one puts the panels of every page back as they were saved.</source>
+        <translation>Список збережених розкладок; вибір повертає панелі кожної сторінки такими, якими їх було збережено.</translation>
+    </message>
+    <message>
+        <source>Lists the saved layouts; choosing one deletes it.</source>
+        <translation>Список збережених розкладок; вибір видаляє її.</translation>
+    </message>
+    <message>
         <source>Lists the scripts of the enabled plugins; choosing one runs it and shows its output.</source>
         <translation>Показує скрипти ввімкнених плагінів; вибір запускає скрипт і показує його вивід.</translation>
     </message>
@@ -21412,6 +21512,22 @@ You can also double-click the header, or drag the header out of the panel.</sour
     <message>
         <source>%1 (Read-Only)</source>
         <translation>%1 (лише читання)</translation>
+    </message>
+    <message>
+        <source>Save Layout as Preset</source>
+        <translation>Зберегти розкладку як пресет</translation>
+    </message>
+    <message>
+        <source>Name of the layout preset:</source>
+        <translation>Назва пресета розкладки:</translation>
+    </message>
+    <message>
+        <source>Replace the layout preset “%1”?</source>
+        <translation>Замінити пресет розкладки «%1»?</translation>
+    </message>
+    <message>
+        <source>No Layout Presets</source>
+        <translation>Немає пресетів розкладки</translation>
     </message>
 </context>
 <context>
@@ -21754,6 +21870,57 @@ You can also double-click the header, or drag the header out of the panel.</sour
     <message>
         <source>Render Cache Clip Output</source>
         <translation>Кеш рендеру виходу кліпу</translation>
+    </message>
+</context>
+<context>
+    <name>kk::MediaMetadataFiles</name>
+    <message numerus="yes">
+        <source>Updated the metadata of %n clip(s).</source>
+        <translation>
+            <numerusform>Оновлено метадані %n кліпу.</numerusform>
+            <numerusform>Оновлено метадані %n кліпів.</numerusform>
+            <numerusform>Оновлено метадані %n кліпів.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n clip(s) already matched.</source>
+        <translation>
+            <numerusform>%n кліп уже збігався.</numerusform>
+            <numerusform>%n кліпи вже збігалися.</numerusform>
+            <numerusform>%n кліпів уже збігалися.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>CSV files (*.csv)</source>
+        <translation>Файли CSV (*.csv)</translation>
+    </message>
+    <message>
+        <source>Cannot read %1: %2</source>
+        <translation>Не вдається прочитати %1: %2</translation>
+    </message>
+    <message>
+        <source>Export Metadata From Media Pool</source>
+        <translation>Експорт метаданих із медіапулу</translation>
+    </message>
+    <message>
+        <source>Import Metadata</source>
+        <translation>Імпорт метаданих</translation>
+    </message>
+    <message>
+        <source>Import Metadata To Media Pool</source>
+        <translation>Імпорт метаданих у медіапул</translation>
+    </message>
+    <message>
+        <source>Media Pool</source>
+        <translation>Медіапул</translation>
+    </message>
+    <message>
+        <source>No clip found for: %1</source>
+        <translation>Кліп не знайдено для: %1</translation>
+    </message>
+    <message>
+        <source>Several clips have the name (add a Clip Directory column): %1</source>
+        <translation>Кілька кліпів мають таку назву (додайте стовпець Clip Directory): %1</translation>
     </message>
 </context>
 <context>
@@ -23071,6 +23238,10 @@ Import files with %1 or drop them here.</source>
         <translation>Видалити порожні доріжки</translation>
     </message>
     <message>
+        <source>Delete Layout Preset</source>
+        <translation>Видалити пресет розкладки</translation>
+    </message>
+    <message>
         <source>Delete Marker</source>
         <translation>Видалити маркер</translation>
     </message>
@@ -23327,6 +23498,10 @@ Import files with %1 or drop them here.</source>
         <translation>Шар</translation>
     </message>
     <message>
+        <source>Layout Presets</source>
+        <translation>Пресети розкладки</translation>
+    </message>
+    <message>
         <source>Left 1 Frame</source>
         <translation>Ліворуч на 1 кадр</translation>
     </message>
@@ -23361,6 +23536,10 @@ Import files with %1 or drop them here.</source>
     <message>
         <source>Linked Selection</source>
         <translation>Зв’язане виділення</translation>
+    </message>
+    <message>
+        <source>Load Layout Preset</source>
+        <translation>Завантажити пресет розкладки</translation>
     </message>
     <message>
         <source>Load Preset</source>
@@ -23465,6 +23644,14 @@ Import files with %1 or drop them here.</source>
     <message>
         <source>Memory H</source>
         <translation>Пам&apos;ять H</translation>
+    </message>
+    <message>
+        <source>Metadata From Media Pool…</source>
+        <translation>Метадані з медіапулу…</translation>
+    </message>
+    <message>
+        <source>Metadata To Media Pool…</source>
+        <translation>Метадані в медіапул…</translation>
     </message>
     <message>
         <source>Mixer</source>
@@ -23813,6 +24000,10 @@ Import files with %1 or drop them here.</source>
     <message>
         <source>Save As…</source>
         <translation>Зберегти як…</translation>
+    </message>
+    <message>
+        <source>Save Layout as Preset…</source>
+        <translation>Зберегти розкладку як пресет…</translation>
     </message>
     <message>
         <source>Save Preset…</source>
@@ -32855,6 +33046,14 @@ Restart Kinoklip to apply them.</source>
         <translation>&amp;Ретайминг</translation>
     </message>
     <message>
+        <source>Metadata To Media &amp;Pool…</source>
+        <translation>Метадані в медіа&amp;пул…</translation>
+    </message>
+    <message>
+        <source>Metadata From Media &amp;Pool…</source>
+        <translation>Метадані з медіа&amp;пулу…</translation>
+    </message>
+    <message>
         <source>&amp;Retime Controls</source>
         <translation>&amp;Керування ретаймом</translation>
     </message>
@@ -33917,6 +34116,22 @@ Restart Kinoklip to apply them.</source>
     <message>
         <source>&amp;Reset UI Layout</source>
         <translation>&amp;Скинути розкладку інтерфейсу</translation>
+    </message>
+    <message>
+        <source>&amp;Layout Presets</source>
+        <translation>&amp;Пресети розкладки</translation>
+    </message>
+    <message>
+        <source>&amp;Save Layout as Preset…</source>
+        <translation>&amp;Зберегти розкладку як пресет…</translation>
+    </message>
+    <message>
+        <source>&amp;Load Layout Preset</source>
+        <translation>&amp;Завантажити пресет розкладки</translation>
+    </message>
+    <message>
+        <source>&amp;Delete Layout Preset</source>
+        <translation>&amp;Видалити пресет розкладки</translation>
     </message>
     <message>
         <source>&amp;Color Theme</source>

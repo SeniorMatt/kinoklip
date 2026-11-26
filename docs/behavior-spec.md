@@ -3461,3 +3461,40 @@ Resolve's node editor has more than serial, parallel and layer nodes: Add Node >
 | 159.10 | Preferences > Plugins lists every LV2 folder and CLAP file (path, source, effect count, state "looking..." / bad plugin), its plugins with state or the reason "not used: ...", the last start problem of a plugin, a Retry button for bad plugins, a switch per format, Open LV2 Folder, Open CLAP Folder, Get Free Audio Plugins (opens docs/plugins/audio-plugins.md), and a note while scanning. | Done (test_audioplug aCrashingPluginIsOnTheBadList) |
 | 159.11 | Real free plugins: the LSP plugins (198 plugins, LV2 and CLAP), ZAM (compressor, tube; LV2 and CLAP) and x42 (fil4 equalizer, limiter; LV2) are found, create, run on noise in blocks and give finite, non-silent sound, also with every parameter at its maximum. Calf (48 of 52 effects instantiate; the others are instruments or analysers) was probed. | Done when the packs are installed (/usr/lib/lv2, /usr/lib/clap or KK_AUDIO_PACKS_ROOT), otherwise the test skips (test_audioplug theFreePacksWork) |
 | 159.12 | Not done: plugin windows (LV2 UI, CLAP GUI), MIDI / instrument plugins, LV2 worker, state and patch properties, CLAP state and presets, side-chain inputs of plugins, surround layouts, Windows and macOS. | Open |
+
+## 165. Deliver formats and platform presets (roadmap batch)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 165.1 | FFV1 (lossless, level 3, range coder, slice CRC, 10-bit 4:2:2) is a video format of the Matroska and QuickTime containers; the preset "Lossless FFV1 + FLAC" (Master) writes it with FLAC audio. It has no quality or bitrate setting. Audio and picture stay in step like the other presets. | Done (test_export platformPresets, avSync "mkv ffv1+flac") |
+| 165.2 | MP3 is an audio-only export format (container "MP3", preset "Audio MP3"; also the audio codec of MP4). | Done (test_export platformPresets) |
+| 165.3 | Platform presets in the Web category, as the Deliver page of Resolve lists them: YouTube 720p, 1080p, 1440p, 4K; Vimeo 720p, 1080p, 4K; X 720p, 1080p; TikTok 1080x1920; Instagram Reels 1080x1920; Instagram Feed 1080x1350; Facebook 1080p. H.264 MP4 with AAC; the size is the preset's, a vertical size on a horizontal timeline is stretched like any other preset size (no letterboxing yet). | Done (test_export platformPresets; names translated) |
+
+## 166. Metadata import and export (File > Import / Export; Resolve: Import Metadata To / Export Metadata From > Media Pool)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 166.1 | File > Export > Metadata From Media Pool... writes a CSV (UTF-8, RFC 4180, CRLF) with one row per imported file: File Name, Clip Directory, Description, Comments, Keywords (", " separated), Scene, Shot, Take, Camera #, Angle, Good Take (Yes / No), Rating (1 - 5), Clip Color, Flags. Timelines, compound clips and subtitle files are not listed. | Done (test_mediametadatacsv roundTrip) |
+| 166.2 | File > Import > Metadata To Media Pool... reads such a file in one undo step "Import Metadata". A row finds its clip by File Name, and by Clip Directory too when that column exists; a name used by several clips without a folder that tells them apart is reported and skipped; unknown names are listed. Only the columns present are applied, an empty cell keeps the clip's value, header names are not case sensitive, other columns are ignored, a leading byte order mark is accepted. A file without a File Name column is refused. | Done (test_mediametadatacsv partialFileKeepsTheRest, sameNameInTwoFolders, badInput) |
+| 166.3 | The same from the command line and MCP: `media.export-metadata --file f.csv`, `media.import-metadata --file f.csv` (result: rows, updated, unchanged, unmatched, ambiguous); in the Vim command line `:export metadata`, `:import metadata`. | Done (test_commands exportAndImportOtio) |
+
+## 167. Layout presets (Workspace > Layout Presets)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 167.1 | Workspace > Layout Presets > Save Layout as Preset... asks for a name and keeps the visible panels and the splitter sizes of every page (and the dock state of the window) under it; a name that exists is replaced after a question. Load Layout Preset lists the names and applies one to every page at once; Delete Layout Preset lists them and removes the chosen one. The panel toggles in the View menu follow. Any name works (also with "/" or accents). The presets are kept in the user's settings. | Done (test_mainwindow spec167_layoutPresets) |
+| 167.2 | Not done: the window's size and position are not part of a preset, and presets cannot be exported to a file. | Open |
+
+## 168. Relative LUT paths
+
+| # | Behaviour | Status |
+|---|---|---|
+| 168.1 | A LUT named by a grade node or an input LUT is stored in the project file with its absolute path and, beside it, the path relative to the project file. A project folder moved together with its LUT folder finds the LUTs again (the stored path is used while its file exists). Effect LUT parameters already worked this way (40.31). | Done (test_lutpaths) |
+| 168.2 | Not done: packing LUTs into a single-file project (they stay outside the file and must be copied with it). | Open |
+
+## 169. Interchange and Edit Index
+
+| # | Behaviour | Status |
+|---|---|---|
+| 169.1 | File > Export > Timeline as EDL writes the events of every video track that has clips, in record order (V1 first when events start together), channel "V" for all, with "* VIDEO TRACK: V2" on the events of V2 and above; a timeline with clips on V1 only gives the same text as before. `export edl --video-track N` writes track N alone (default `all`). Audio stays A / A2. | Done (test_edlexport moreThanOneVideoTrack, test_commands) |
+| 169.2 | In the Edit Index (Markers) the Duration cell can be typed (a timecode "00:00:02:05" or digits filled from the right, "12" = 12 frames), also for clip markers; zero, unreadable or unchanged text changes nothing; one undo step "Change Marker Duration". | Done (test_editindex markerDurationCanBeTyped) |
