@@ -409,7 +409,7 @@ private slots:
                 continue;
             }
             ++count;
-            // (at 0.3: a card that turns edge-on or a picture that scales to nothing is empty at 0.5)
+            // (at 0.3, and "empty" is nearly all transparent: a card that shrinks leaves the rest clear)
             const QImage mid = m_rig.renderTransition(item.fullId, defaults, 0.3, a, b, &why);
             const QImage at1 = m_rig.renderTransition(item.fullId, defaults, 1.0, a, b, &why);
             if (meanDifference(at0, a) > 6.0)
@@ -420,7 +420,7 @@ private slots:
             for (int y = 0; y < mid.height(); ++y)
                 for (int x = 0; x < mid.width(); ++x)
                     transparent += qAlpha(mid.pixel(x, y)) == 0 ? 1 : 0;
-            if (transparent > mid.width() * mid.height() / 2)
+            if (transparent > mid.width() * mid.height() * 95 / 100)
                 emptyBad << item.fullId;
         }
         qInfo("gl-transitions rendered: %d; start differs: %s; end differs: %s; empty: %s", count,
