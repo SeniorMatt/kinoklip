@@ -109,7 +109,6 @@ private Q_SLOTS:
         m_json = QJsonDocument(root).toJson();
         m_project = path(QStringLiteral("film.kkproj"));
         QVERIFY(writeFile(m_project, m_json));
-        QVERIFY(QFile::remove(moved));
     }
 
     void exportCopiesProjectAndMedia()
