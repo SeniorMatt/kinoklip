@@ -21,8 +21,7 @@ DROP_TEXT = ("shadertoy.com",)
 
 # Names the host's prelude defines (kGlslCommon, kGlslHash and the transition prelude of
 # src/render/PluginShader.cpp); a shader that declares one of its own gets it renamed.
-HOST_NAMES = ("luma", "kLuma", "straight", "keyOutput", "hashU", "hash01", "hash2", "maxAbs",
-              "ratio", "progress", "uA", "uB", "uProgress", "uResolution")
+HOST_NAMES = ("luma", "kLuma", "straight", "keyOutput", "hashU", "hash01", "maxAbs", "ratio")
 
 DECL = re.compile(
     r"^\s*uniform\s+(\w+)\s+(\w+)\s*(?:/\*\s*=\s*(.*?)\s*\*/)?\s*;\s*(?://\s*=?\s*(.*?))?\s*$")

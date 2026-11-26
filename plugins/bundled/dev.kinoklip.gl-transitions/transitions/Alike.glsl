@@ -8,7 +8,7 @@ vec2 fold(vec2 p) {
   return 1.0 - abs(1.0 - mod(p, 2.0));
 }
 
-vec2 gltHash2(vec2 p) {
+vec2 hash2(vec2 p) {
   vec3 q = fract(p.xyx * vec3(0.1031, 0.1030, 0.0973));
   q += dot(q, q.yzx + 33.33);
   return fract((q.xx + q.yz) * q.zy);
@@ -21,7 +21,7 @@ float turning(float h) {
 
 // the premultiplied color of the image at a site
 vec4 site(vec2 id, vec4 toUv) {
-  vec2 h = gltHash2(id);
+  vec2 h = hash2(id);
   vec2 c = id + 0.5 * h;
   vec2 q = fold(vec2(dot(toUv.xy, c), dot(toUv.zw, c)) + 0.5);
   vec4 s = turning(h.x) > 0.5 ? getToColor(q) : getFromColor(q);
@@ -30,7 +30,7 @@ vec4 site(vec2 id, vec4 toUv) {
 
 // the square root of a site's weight
 float near(vec2 g, vec2 id) {
-  vec2 h = gltHash2(id);
+  vec2 h = hash2(id);
   vec2 d = g - id - 0.5 * h;
   float k = max(1.0 - dot(d, d) / 2.0, 0.0);
   return sqrt(k * k * k * smoothstep(0.0, 1.0, abs(2.0 * turning(h.x) - 1.0)) + 1e-5);

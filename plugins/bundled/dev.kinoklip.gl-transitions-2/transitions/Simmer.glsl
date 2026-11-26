@@ -4,7 +4,7 @@
 // Tags: liquid, boil, bubbles, glossy, 3d
 // Preview: 0.4
 
-vec2 gltHash2(vec2 p) {
+vec2 hash2(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.xx + p3.yz) * p3.zy);
@@ -14,7 +14,7 @@ float noise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = p - i;
   f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(gltHash2(i).x, gltHash2(i + vec2(1.0, 0.0)).x, f.x), mix(gltHash2(i + vec2(0.0, 1.0)).x, gltHash2(i + vec2(1.0, 1.0)).x, f.x), f.y);
+  return mix(mix(hash2(i).x, hash2(i + vec2(1.0, 0.0)).x, f.x), mix(hash2(i + vec2(0.0, 1.0)).x, hash2(i + vec2(1.0, 1.0)).x, f.x), f.y);
 }
 
 vec2 mirror(vec2 v) {
@@ -52,7 +52,7 @@ vec4 simmer(vec2 w, float reveal, float ramp) {
         float on = step(max(abs(o.x), abs(o.y)), 1.0);
         vec4 ons = step(max(abs(o.x - ix), abs(o.y - iy)), vec4(1.0));
         vec2 c = i + o;
-        float born = 0.01 + 0.13 * fk + 0.26 * gltHash2(c + 3.0 + 5.0 * fk).y;
+        float born = 0.01 + 0.13 * fk + 0.26 * hash2(c + 3.0 + 5.0 * fk).y;
         float grow = clamp((0.86 * progress - born) / 0.16, 0.0, 1.0);
         float t = 0.86 * progress - born - 0.16;
         if (t < 0.0) {
@@ -62,11 +62,11 @@ vec4 simmer(vec2 w, float reveal, float ramp) {
         if (grow <= 0.0) continue;
         // once its ring is gone, a burst only spreads the incoming liquid, up to where it covers all
         if (t > 0.2 && (on < 0.5 || cov * reveal + ramp > 0.56)) continue;
-        vec2 d = v - c - 0.2 - 0.6 * gltHash2(c + 31.0 * fk);
+        vec2 d = v - c - 0.2 - 0.6 * hash2(c + 31.0 * fk);
         float l2 = dot(d, d);
         float l = sqrt(l2);
         if (t < 0.0 && l > 0.94) continue;
-        float s = gltHash2(c + 7.0 + 13.0 * fk).x;
+        float s = hash2(c + 7.0 + 13.0 * fk).x;
         float R = mix(0.24, 0.56, s) * (fk > 1.5 ? 0.8 : 1.0);
         vec4 l2s = max(l2 + 2.0 * SLOPE * vec4(d.x, -d.x, d.y, -d.y) + SLOPE * SLOPE, 0.0);
         if (t < 0.0) {

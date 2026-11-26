@@ -6,7 +6,7 @@
 const int FERNS = 10;
 const int TAPS = 2;
 
-vec2 gltHash2(vec2 p) {
+vec2 hash2(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.xx + p3.yz) * p3.zy);
@@ -30,7 +30,7 @@ vec4 look(vec2 uv) {
   float freq = 18.0 / max(u_size, 0.1);
   for (int i = 0; i < FERNS; i++) {
     float fi = float(i);
-    vec2 r = gltHash2(vec2(fi, 4.0)), r2 = gltHash2(vec2(fi, 14.0));
+    vec2 r = hash2(vec2(fi, 4.0)), r2 = hash2(vec2(fi, 14.0));
     vec2 c = (fract(vec2(0.7549, 0.5698) * (fi + 1.0)) - 0.5) * asp + 0.2 * (r - 0.5);
     float an = 1.0472 * floor(r2.x * 3.0) + 0.3 + 0.2 * r2.y;
     vec2 d = vec2(cos(an), sin(an)), n = vec2(-d.y, d.x);
@@ -40,7 +40,7 @@ vec4 look(vec2 uv) {
     float xb = abs(x) - 0.577 * ay;
     float k = xb * freq + r.y, f = fract(k);
     float tooth = abs(f - 0.5), off = smoothstep(0.0, 0.05, ay);
-    float h = gltHash2(vec2(floor(k) + 40.0 * sx, fi + 20.0 * sy)).x;
+    float h = hash2(vec2(floor(k) + 40.0 * sx, fi + 20.0 * sy)).x;
     // smaller needles on the needles
     float barb = abs(fract(ay * 3.0 * freq + 1.5 * tooth) - 0.5);
     float tt = 0.035 * fi + abs(xb) * 0.3 + ay * (0.62 + 0.75 * h) + (0.15 + 0.07 * barb) * tooth * off;
