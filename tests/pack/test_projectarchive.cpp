@@ -226,7 +226,7 @@ private Q_SLOTS:
             return true;
         });
         QVERIFY2(r.status == Status::Ok, qPrintable(r.error));
-        QCOMPARE(r.projectFile, QDir(target).absoluteFilePath(QStringLiteral("film.kkproj")));
+        QCOMPARE(r.projectFile, QDir(target).absoluteFilePath(QStringLiteral("full.kkproj")));
         QCOMPARE(r.cacheFiles, 1);
         QCOMPARE(lastDone, lastTotal);
         QCOMPARE(readFile(cache + QStringLiteral("/0123.mov")), QByteArray(900, 'c'));
