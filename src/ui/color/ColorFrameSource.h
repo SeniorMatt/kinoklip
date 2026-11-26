@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 class QTimer;
 template<typename T>
@@ -36,9 +37,10 @@ struct RenderedFrame;
 /// docs/color-page.md, "Full page"). It is refreshed a moment after the playhead stops or the
 /// timeline changes, never while playing.
 ///
-/// **Thumbnails.** thumbnail() is a clip's graded picture at its middle frame (the program
-/// composite there), kThumbSize, graded also while the viewers bypass the grades (Shift+D);
-/// refreshed when the clip, its grade or the timeline grade change.
+/// **Thumbnails.** thumbnail() is a clip's graded picture at its middle frame, kThumbSize, graded
+/// also while the viewers bypass the grades (Shift+D); refreshed when the clip, its grade or the
+/// timeline grade change. It is the clip itself: the other video tracks are left out
+/// (isolatedTimeline()), so a clip that a higher track covers shows its own picture (spec 178).
 ///
 /// **Detail pictures.** For the split screen and the Lightbox: setDetailClips() names the clips
 /// whose graded picture is wanted at a given width (the clip's middle frame; the clip under the
@@ -58,6 +60,14 @@ public:
         Grey, ///< the graded picture where the key is, flat grey elsewhere
         BlackWhite ///< the key as a white-on-black matte
     };
+
+    /// A copy of @p data in which only the video track of clip @p clipId shows (the other video
+    /// tracks are disabled): rendering it gives the clip's own picture, with its transform,
+    /// effects, grade and transitions, whatever other tracks cover it or lie under it. Null for a
+    /// clip that has no picture of its own (an adjustment clip works on what lies below it), an
+    /// audio or subtitle clip, or an unknown id.
+    [[nodiscard]] static std::shared_ptr<const TimelineData> isolatedTimeline(
+        const TimelineData& data, quint64 clipId);
 
     ColorFrameSource(
         PlaybackEngine* engine, Project* project, ColorSession* session, QObject* parent = nullptr);
@@ -119,6 +129,8 @@ private:
         QSize size;
         PlaybackEngine::ImageGrades grades = PlaybackEngine::ImageGrades::All;
         bool input = false; ///< the input picture (a newer one replaces it in the queue)
+        /// Render this timeline (PlaybackEngine::renderImageOf) instead of the program.
+        std::shared_ptr<const TimelineData> timeline;
         std::function<void(const QImage&)> done;
     };
 

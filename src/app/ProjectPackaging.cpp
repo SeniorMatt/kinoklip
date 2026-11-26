@@ -7,18 +7,26 @@
 #include "app/ProjectController.h"
 #include "core/MediaPool.h"
 #include "core/Plural.h"
+#include "core/Preferences.h"
 #include "core/Project.h"
+#include "export/RenderCacheManager.h"
 #include "media/MediaCache.h"
 #include "pack/EmbeddedMedia.h"
+#include "pack/ProjectArchive.h"
 #include "pack/ProjectPackage.h"
 #include "platform/FileDialogs.h"
 #include "playback/PlaybackEngine.h"
 #include "projects/ProjectLock.h"
 #include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
+#include "ui/common/MediaManagement.h"
 #include "ui/common/ProgressTask.h"
 
 #include <QAction>
+#include <QCheckBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QVBoxLayout>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -132,7 +140,8 @@ QByteArray relinkToFolder(
     }
     pool[QLatin1String("items")] = items;
     root[QLatin1String("mediaPool")] = pool;
-    return QJsonDocument(root).toJson(QJsonDocument::Indented);
+    return pack::lutsToFolder(
+        QJsonDocument(root).toJson(QJsonDocument::Indented), container, folder);
 }
 
 bool writeFile(const QString& path, const QByteArray& bytes, QString* error)
@@ -745,6 +754,133 @@ void ProjectController::verifyProject()
     notify(m_window, tr("Repair Project File"),
         tr("“%1” was repaired. Verify it again to check every byte.")
             .arg(QFileInfo(path).fileName()));
+}
+
+// ---- File menu: Export / Restore Project Archive ----
+
+namespace {
+
+QString archiveFilter()
+{
+    return QObject::tr("Project archive (*.%1)").arg(QLatin1String(pack::kArchiveSuffix));
+}
+
+} // namespace
+
+QStringList ProjectController::renderCacheFiles() const
+{
+    QStringList files;
+    const RenderCacheManager* cache = m_ctx.media ? m_ctx.media->renderCache() : nullptr;
+    if (!cache)
+        return files;
+    for (const CacheChunk& chunk : cache->chunks()) {
+        const QString file = QDir(cache->folder())
+                                 .absoluteFilePath(QString::fromLatin1(chunk.key) + QStringLiteral(".mov"));
+        if (QFileInfo(file).isFile() && !files.contains(file))
+            files.append(file);
+    }
+    return files;
+}
+
+pack::ArchiveResult ProjectController::exportArchiveTo(
+    const QString& folder, pack::ArchiveOptions options,
+    const std::function<bool(qint64, qint64)>& progress)
+{
+    const QString file = m_ctx.project->filePath();
+    const QString baseDir = file.isEmpty() ? QDir::currentPath() : QFileInfo(file).absolutePath();
+    const QString name = m_ctx.project->settings().name;
+    return pack::exportArchive(m_ctx.project->documentJson(file.isEmpty() ? baseDir + QStringLiteral("/untitled") : file),
+        baseDir, name, folder, options, progress);
+}
+
+void ProjectController::exportArchive()
+{
+    QDialog dialog(m_window);
+    dialog.setWindowTitle(tr("Export Project Archive"));
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* proxies = new QCheckBox(tr("Include Proxy Media"), &dialog);
+    auto* optimized = new QCheckBox(tr("Include Optimized Media"), &dialog);
+    auto* cache = new QCheckBox(tr("Include Render Cache"), &dialog);
+    proxies->setObjectName(QStringLiteral("archiveProxies"));
+    optimized->setObjectName(QStringLiteral("archiveOptimized"));
+    cache->setObjectName(QStringLiteral("archiveRenderCache"));
+    layout->addWidget(proxies);
+    layout->addWidget(optimized);
+    layout->addWidget(cache);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    QString target = platform::getSaveFileName(m_window, tr("Export Project Archive"),
+        archiveFilter(), QLatin1String(kLastProjectDirKey),
+        m_ctx.project->settings().name + QLatin1Char('.') + QLatin1String(pack::kArchiveSuffix));
+    if (target.isEmpty())
+        return;
+    if (QFileInfo(target).suffix().compare(QLatin1String(pack::kArchiveSuffix), Qt::CaseInsensitive) != 0)
+        target += QLatin1Char('.') + QLatin1String(pack::kArchiveSuffix);
+    pack::ArchiveOptions options;
+    options.proxyMedia = proxies->isChecked();
+    options.optimizedMedia = optimized->isChecked();
+    if (cache->isChecked())
+        options.renderCacheFiles = renderCacheFiles();
+    pack::ArchiveResult result;
+    runWithProgress(m_window, tr("Export Project Archive"),
+        tr("Copying the project and its media into %1…").arg(QFileInfo(target).fileName()),
+        [&](const TaskProgress& progress) { result = exportArchiveTo(target, options, progress); });
+    if (result.status == pack::Status::Cancelled)
+        return;
+    if (result.status != pack::Status::Ok) {
+        QMessageBox::critical(m_window, tr("Export Project Archive"),
+            tr("The project archive could not be written: %1").arg(result.error));
+        return;
+    }
+    QString text = plural(result.mediaFiles,
+                       tr("%n media file was copied into %1 (%2)."),
+                       tr("%n media files were copied into %1 (%2)."))
+                       .arg(native(target), sizeText(result.bytesCopied));
+    if (!result.skipped.isEmpty()) {
+        text += QLatin1String("\n\n")
+            + plural(result.skipped.size(), tr("%n file stays linked (not stored in the archive):"),
+                tr("%n files stay linked (not stored in the archive):"))
+            + QLatin1Char('\n') + shortList(result.skipped);
+    }
+    notify(m_window, tr("Export Project Archive"), text);
+}
+
+void ProjectController::restoreArchive()
+{
+    const QString archive = platform::getExistingDirectory(m_window,
+        tr("Restore Project Archive: Choose the Archive Folder"), QLatin1String(kLastProjectDirKey));
+    if (archive.isEmpty())
+        return;
+    if (!pack::isArchiveFolder(archive)) {
+        QMessageBox::warning(m_window, tr("Restore Project Archive"),
+            tr("%1 is not a project archive.").arg(native(archive)));
+        return;
+    }
+    const QString parent = platform::getExistingDirectory(m_window,
+        tr("Restore Project Archive: Choose the Folder to Restore Into"),
+        QLatin1String(kLastProjectDirKey));
+    if (parent.isEmpty())
+        return;
+    const QString target
+        = QDir(parent).absoluteFilePath(QFileInfo(archive).completeBaseName());
+    pack::RestoreResult result;
+    runWithProgress(m_window, tr("Restore Project Archive"),
+        tr("Copying the archive into %1…").arg(native(target)),
+        [&](const TaskProgress& progress) {
+            result = pack::restoreArchive(archive, target, prefs::renderCacheDirectory(), progress);
+        });
+    if (result.status == pack::Status::Cancelled)
+        return;
+    if (result.status != pack::Status::Ok) {
+        QMessageBox::critical(m_window, tr("Restore Project Archive"),
+            tr("The project archive could not be restored: %1").arg(result.error));
+        return;
+    }
+    openFile(result.projectFile, true);
 }
 
 } // namespace kk

@@ -1451,6 +1451,8 @@ void TimelineController::connectActions()
     on("trim.move_up", [this] { moveSelectionVertically(1); });
     on("trim.move_down", [this] { moveSelectionVertically(-1); });
     on("timeline.delete_empty_tracks", &TimelineController::deleteEmptyTracks);
+    on("timeline.bounce_mix", &TimelineController::bounceMixToTrack);
+    on("timeline.bounce_tracks", &TimelineController::bounceSelectedTracks);
     on("edit.ripple_cut", &TimelineController::rippleCut);
     on("edit.delete_gaps", &TimelineController::deleteGaps);
     on("edit.join", &TimelineController::joinSelection);

@@ -316,6 +316,8 @@ QString VimController::runBuiltin(const vimex::Parsed& p, bool* ok)
             {QStringLiteral("export otio"), "file.export_otio"},
             {QStringLiteral("export markers"), "file.export_markers_csv"},
             {QStringLiteral("export metadata"), "file.export_metadata"},
+            {QStringLiteral("export archive"), "file.export_archive"},
+            {QStringLiteral("import archive"), "file.restore_archive"},
             {QStringLiteral("import metadata"), "file.import_metadata"},
             {QStringLiteral("import media"), "file.import_media"},
             {QStringLiteral("import timeline"), "file.import_timeline"},

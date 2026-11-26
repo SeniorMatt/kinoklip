@@ -4,10 +4,13 @@
 #include "core/Project.h"
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
+#include "ui/audio/AudioBounce.h"
 #include "ui/common/AppContext.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelineEditUtil.h"
 #include "ui/timeline/TimelineLayout.h"
+
+#include <QApplication>
 
 #include <algorithm>
 
@@ -64,6 +67,18 @@ void TimelineController::deleteEmptyTracks()
         m_targetAudio = std::min(m_targetAudio, int(d.audioTracks.size()) - 1);
         emit stateChanged();
     }
+}
+
+void TimelineController::bounceMixToTrack()
+{
+    if (audiobounce::runInteractive(m_ctx, QApplication::activeWindow(), true) > 0)
+        emit stateChanged();
+}
+
+void TimelineController::bounceSelectedTracks()
+{
+    if (audiobounce::runInteractive(m_ctx, QApplication::activeWindow(), false) > 0)
+        emit stateChanged();
 }
 
 bool TimelineController::moveTrack(TrackRef ref, int up)

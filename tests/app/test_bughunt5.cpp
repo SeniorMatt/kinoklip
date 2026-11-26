@@ -13,6 +13,7 @@
 #include "core/SelectionModel.h"
 #include "core/Timeline.h"
 #include "platform/FileDialogs.h"
+#include "render/RenderTypes.h"
 #include "playback/PlaybackEngine.h"
 #include "ui/color/ColorBrowsers.h"
 #include "ui/color/ColorFrameSource.h"
@@ -459,6 +460,52 @@ private slots:
         QVERIFY(!in.isNull());
         const QColor ic = in.pixelColor(in.width() / 2, in.height() / 2);
         QVERIFY2(std::abs(ic.red() - ic.blue()) < 8, qPrintable(ic.name()));
+    }
+
+    // Spec 178.1: a clip strip thumbnail is the clip itself, also when a clip on a higher track
+    // covers it; the program (and the playhead clip's detail picture) still shows the cover.
+    void spec178_1_thumbnailOfACoveredClip()
+    {
+        Fixture f(1, true);
+        // A green solid on V2 over the whole red clip of V1.
+        f.project.beginEdit(QStringLiteral("Cover"));
+        TimelineData& tl = f.project.timeline()->mutableData();
+        editops::addTrack(tl, TrackType::Video);
+        ClipData cover;
+        cover.kind = ClipKind::Solid;
+        cover.solidColor = QColor(20, 220, 20);
+        cover.start = 0;
+        cover.duration = 50;
+        const quint64 coverId = editops::overwriteClip(tl, TrackRef {TrackType::Video, 1}, cover);
+        f.project.endEdit();
+        QVERIFY(coverId);
+
+        // The isolated timeline: only the clip's own track shows; the source is not changed.
+        const TimelineData& data = f.project.timeline()->data();
+        const auto isolated = ColorFrameSource::isolatedTimeline(data, f.clips[0]);
+        QVERIFY(isolated);
+        QVERIFY(isolated->videoTracks[0].enabled);
+        QVERIFY(!isolated->videoTracks[1].enabled);
+        QVERIFY(data.videoTracks[1].enabled);
+        QVERIFY(ColorFrameSource::isolatedTimeline(data, coverId)->videoTracks[1].enabled);
+        QVERIFY(!ColorFrameSource::isolatedTimeline(data, coverId)->videoTracks[0].enabled);
+        QVERIFY(!ColorFrameSource::isolatedTimeline(data, 987654321)); // no such clip
+
+        f.showPage();
+        ColorFrameSource* frames = f.page()->frames();
+        QSignalSpy thumbs(frames, &ColorFrameSource::thumbnailChanged);
+        frames->refreshThumbnails();
+        QVERIFY(waitFor([&] { return !thumbs.isEmpty(); }));
+        const QImage t = frames->thumbnail(f.clips[0]);
+        QVERIFY(!t.isNull());
+        const QColor c = t.pixelColor(t.width() / 2, t.height() / 2);
+        QVERIFY2(c.red() > 150 && c.green() < 100, qPrintable(c.name())); // the red clip, not the green cover
+        // The program frame is what the cover shows.
+        auto program = f.playback->renderImage(25, QSize(64, 36), PlaybackEngine::ImageGrades::All);
+        const RenderedFramePtr frame = program.get();
+        QVERIFY(frame && frame->ok);
+        const QColor p = frame->image.pixelColor(32, 18);
+        QVERIFY2(p.green() > 150 && p.red() < 100, qPrintable(p.name()));
     }
 
     // Spec 23.11: tooltips that name a key follow Keyboard Customization: the Cut page's

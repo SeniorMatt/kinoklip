@@ -561,6 +561,32 @@ private slots:
             QCOMPARE(editops::clipById(d, id)->transform.value(keys::Opacity, 0), 55.0);
     }
 
+    /// Cropping typed in the Inspector reaches every selected clip, one undo step per edit
+    /// (spec 24.1 / 24.12; roadmap: Transform and Crop of several selected clips at once).
+    void spec24_1_multiClipCropTypedReachesAll()
+    {
+        PanelFixture f;
+        const quint64 a = f.addClip(kV1, 0, 50);
+        const quint64 b = f.addClip(kV1, 60, 50);
+        const quint64 solid = f.addClip(kV1, 120, 50, ClipKind::Solid);
+        InspectorPanel panel(f.ctx);
+        f.selection.setClips({a, solid, b});
+        const TimelineData& d = f.project.timeline()->data();
+        for (const QString& key : {keys::CropL, keys::CropR, keys::CropT, keys::CropB}) {
+            auto* field = panel.findChild<ValueField*>(QStringLiteral("value:") + key);
+            QVERIFY2(field, qPrintable(key));
+            const int steps = f.project.undoStack()->count();
+            emit field->valueCommitted(21.0);
+            QCOMPARE(f.project.undoStack()->count(), steps + 1);
+            for (quint64 id : {a, solid, b})
+                QCOMPARE(editops::clipById(d, id)->transform.value(key, 0), 21.0);
+        }
+        // One undo puts the last crop back on all three.
+        f.project.undoStack()->undo();
+        for (quint64 id : {a, solid, b})
+            QCOMPARE(editops::clipById(d, id)->transform.value(keys::CropB, 0), 0.0);
+    }
+
     /// Effect parameters: the matching instance (same type, same position among that type)
     /// of every selected clip changes with the shown clip's.
     void spec24_1_multiClipEffectParams()

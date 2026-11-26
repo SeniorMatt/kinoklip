@@ -19,6 +19,7 @@
 #include "media/MediaInfo.h"
 #include "media/MediaSource.h"
 #include "pack/EmbeddedMedia.h"
+#include "pack/ProjectArchive.h"
 #include "pack/ProjectPackage.h"
 #include "platform/FileDialogs.h"
 #include "playback/PlaybackEngine.h"
@@ -43,6 +44,8 @@
 #include <QAbstractItemView>
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
+#include <QDialog>
 #include <QDir>
 #include <QFile>
 #include <QListView>
@@ -195,6 +198,26 @@ MediaItem firstFile(const Project& project)
             return m;
     }
     return {};
+}
+
+/// Ticks the check boxes named @p ticked and accepts (or rejects) the next modal dialog.
+void answerNextDialog(const QStringList& ticked, bool accept)
+{
+    QTimer::singleShot(0, qApp, [ticked, accept] {
+        auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+        if (!dialog || qobject_cast<QMessageBox*>(dialog)) {
+            answerNextDialog(ticked, accept); // not shown yet
+            return;
+        }
+        for (const QString& name : ticked) {
+            if (auto* box = dialog->findChild<QCheckBox*>(name))
+                box->setChecked(true);
+        }
+        if (accept)
+            dialog->accept();
+        else
+            dialog->reject();
+    });
 }
 
 /// Raw bytes of @p path.
@@ -911,6 +934,71 @@ private slots:
         QCOMPARE(QFileInfo(file).size(), containerSize);
         QCOMPARE(readAll(file), containerBytes);
         QVERIFY(isStoredInProject(app.project.mediaPool()->item(ids[0])->path));
+    }
+    /// File > Export Project Archive / Restore Project Archive (spec 175).
+    void archiveThroughTheFileMenu()
+    {
+        App app;
+        const QString linked = path(QStringLiteral("arc/Trip.kkproj"));
+        QDir().mkpath(QFileInfo(linked).absolutePath());
+        test::ProjectSpec spec;
+        spec.mediaFile = copyMedia(QStringLiteral("arc/clip.mp4"));
+        QVERIFY(test::writeProject(linked, spec));
+        QVERIFY(app.controller()->openFile(linked, false));
+        QVERIFY(app.action("file.export_archive")->isEnabled());
+        QVERIFY(app.action("file.restore_archive")->isEnabled());
+
+        const QString archive = path(QStringLiteral("arc-out/Trip.dra"));
+        QDir().mkpath(path(QStringLiteral("arc-out")));
+        answerFileDialogs({archive});
+        // Cancelled in the options dialog: nothing written.
+        answerNextDialog({}, false);
+        app.trigger("file.export_archive");
+        QVERIFY(!QFileInfo::exists(archive));
+        // Cancelled in the progress dialog: nothing left.
+        answerNextDialog({}, true);
+        cancelProgress(true);
+        app.trigger("file.export_archive");
+        cancelProgress(false);
+        QVERIFY(!QFileInfo::exists(archive));
+        closeNotices();
+        // Written.
+        answerNextDialog({QStringLiteral("archiveRenderCache")}, true);
+        app.trigger("file.export_archive");
+        QTRY_COMPARE(int(notices().size()), 1);
+        QVERIFY(notices().front()->text().contains(QStringLiteral("Trip.dra")));
+        closeNotices();
+        QVERIFY(pack::isArchiveFolder(archive));
+        QVERIFY(QFileInfo(archive + QStringLiteral("/Media/001/clip.mp4")).isFile());
+        QVERIFY(QFileInfo(archive + QStringLiteral("/Trip.kkproj")).isFile());
+        QCOMPARE(app.project.filePath(), linked); // the open project is unchanged
+
+        // The same through the command (also command line and MCP).
+        const QString fromCommand = path(QStringLiteral("arc-out/Command.dra"));
+        const pack::ArchiveResult viaApi = app.controller()->exportArchiveTo(fromCommand, {});
+        QVERIFY2(viaApi.status == pack::Status::Ok, qPrintable(viaApi.error));
+        QCOMPARE(viaApi.mediaFiles, 1);
+
+        // Restore: archive folder first, then the folder to restore into; the project opens.
+        const QString parent = path(QStringLiteral("restored"));
+        QDir().mkpath(parent);
+        int asked = 0;
+        platform::setFileDialogHandlerForTests([&](const platform::FileDialogRequest&) {
+            return QStringList {asked++ == 0 ? archive : parent};
+        });
+        app.trigger("file.restore_archive");
+        const QString restored = parent + QStringLiteral("/Trip/Trip.kkproj");
+        QCOMPARE(app.project.filePath(), restored);
+        const MediaItem clip = firstFile(app.project);
+        QCOMPARE(clip.path, parent + QStringLiteral("/Trip/Media/001/clip.mp4"));
+        QVERIFY(QFileInfo(clip.path).isFile());
+        QVERIFY(!app.project.mediaPool()->isOffline(clip.id));
+        // A folder that is no archive is refused with a message.
+        answerFileDialogs({path(QStringLiteral("arc"))});
+        onNextMessageBox([](QMessageBox* box) { box->reject(); });
+        app.trigger("file.restore_archive");
+        QCOMPARE(app.project.filePath(), restored);
+        answerFileDialogs({});
     }
 };
 

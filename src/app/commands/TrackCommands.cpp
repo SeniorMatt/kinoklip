@@ -6,6 +6,7 @@
 #include "core/EditOps.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
+#include "ui/audio/AudioBounce.h"
 #include "ui/timeline/TimelineEditUtil.h"
 
 namespace kk::commands {
@@ -116,10 +117,55 @@ CommandResult runSet(CommandContext& ctx, const CommandArgs& args)
         QStringLiteral("updated track %1").arg(trackName(*ref)));
 }
 
+CommandResult runBounce(CommandContext& ctx, const CommandArgs& args)
+{
+    Project& project = *ctx.project;
+    const TimelineData& d = project.timeline()->data();
+    audiobounce::Options options;
+    options.mix = args.boolean(QStringLiteral("mix"));
+    for (const QString& name : args.strings(QStringLiteral("tracks"))) {
+        const auto ref = parseTrack(d, name);
+        if (!ref || ref->type != TrackType::Audio)
+            return fail("unknown_track",
+                QStringLiteral("no audio track \"%1\" (A1 ... A%2; see track.list)")
+                    .arg(name)
+                    .arg(d.audioTracks.size()));
+        options.trackIds.append(d.audioTracks[size_t(ref->index)].id);
+    }
+    if (options.mix == !options.trackIds.isEmpty())
+        return fail("bad_value", QStringLiteral("give either --mix or --tracks A1,A2,..."));
+    options.folder = audiobounce::bounceFolder(project, false);
+    const audiobounce::Result result = audiobounce::bounce(project, options);
+    if (!result.ok)
+        return fail("bounce_failed", result.error);
+    QJsonArray tracks;
+    for (const quint64 id : result.newTrackIds) {
+        for (size_t i = 0; i < project.timeline()->data().audioTracks.size(); ++i) {
+            if (project.timeline()->data().audioTracks[i].id == id)
+                tracks.append(trackName({TrackType::Audio, int(i)}));
+        }
+    }
+    return CommandResult::success({{QStringLiteral("tracks"), tracks},
+                                      {QStringLiteral("files"), QJsonArray::fromStringList(result.files)}},
+        QStringLiteral("bounced into %1 new audio track(s)").arg(tracks.size()));
+}
+
 } // namespace
 
 void registerTrackCommands(CommandRegistry& registry)
 {
+    registry.add({{QStringLiteral("track.bounce"),
+                      QStringLiteral("Bounce Mix to Track / Bounce Selected Tracks: render the "
+                                     "mix, or each given audio track with its effects and fader, "
+                                     "into a new audio track as one clip (In/Out range or the "
+                                     "whole timeline)."),
+                      {{QStringLiteral("mix"), ParamType::Boolean,
+                           QStringLiteral("bounce the whole mix (the output bus)"), false, {}, {}},
+                          {QStringLiteral("tracks"), ParamType::StringList,
+                              QStringLiteral("audio tracks to bounce, one new track each: A1, A2, ..."),
+                              false, {}, {}}},
+                      ProjectUse::Modify, true},
+        runBounce});
     registry.add({{QStringLiteral("track.list"),
                       QStringLiteral("List the video and audio tracks of a timeline with their "
                                      "state (enabled, locked, muted, solo) and clip count."),

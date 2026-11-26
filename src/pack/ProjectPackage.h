@@ -13,6 +13,7 @@
 #include <QStringList>
 #include <QVector>
 
+#include <functional>
 #include <memory>
 
 namespace kk::pack {
@@ -50,7 +51,14 @@ QByteArray documentToRuntime(const QByteArray& stored, const QString& containerP
 /// "embedded" = entry name and path / relativePath = the entry name (relative, so an archive
 /// extracted with any unzip tool opens as a normal linked project).
 QByteArray documentToStorage(const QByteArray& runtime, const QString& containerPath);
-/// Entry names referenced by the "embedded" fields of a stored document.
+/// Calls @p fn(object, key) for every non-empty "lut" / "inputLut" string anywhere in the JSON
+/// document; changes made to the object are kept. Empty result when @p json is not an object.
+QByteArray rewriteLutKeys(
+    const QByteArray& json, const std::function<void(QJsonObject&, const QString&)>& fn);
+/// Runtime document with the LUT files inside @p containerPath pointed at the same entry below
+/// @p folder (where an Unpack wrote them; the document becomes a linked project).
+QByteArray lutsToFolder(const QByteArray& runtime, const QString& containerPath, const QString& folder);
+/// Entry names referenced by the "embedded" fields of a stored document (media and LUT files).
 QStringList embeddedEntries(const QByteArray& storedDocument);
 
 /// An open single-file project.
@@ -121,6 +129,8 @@ private:
     bool loadManifest(QString* error);
     QByteArray manifestJson() const;
     QString uniqueEntryName(const QString& fileName) const;
+    /// @p runtimeDocument with the LUT files it names outside the container copied in.
+    QByteArray withLutsStored(const QByteArray& runtimeDocument, QString* error);
 
     QString m_path;
     std::unique_ptr<Container> m_container;

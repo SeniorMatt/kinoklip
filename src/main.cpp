@@ -3,6 +3,7 @@
 #include "app/AppInfo.h"
 #include "app/CliRunner.h"
 #include "app/CommandLine.h"
+#include "app/GraphicsCheck.h"
 #include "app/MainWindow.h"
 #include "app/MenuReference.h"
 #include "app/ProjectController.h"
@@ -148,6 +149,20 @@ bool wantsMenuReference(int argc, char** argv)
     return false;
 }
 
+/// True if --graphics-check was given: runs on the real platform (that is what is tested); with no
+/// display at all it runs on Qt's offscreen platform and the report says that no card was tested.
+bool wantsGraphicsCheck(int argc, char** argv)
+{
+    for (int i = 1; i < argc; ++i) {
+        const QByteArray arg(argv[i]);
+        if (arg == "--")
+            return false;
+        if (arg == "--graphics-check")
+            return true;
+    }
+    return false;
+}
+
 void setApplicationIdentity()
 {
     QCoreApplication::setOrganizationName(QLatin1String(kk::appinfo::id));
@@ -268,6 +283,9 @@ int main(int argc, char** argv)
         qputenv("XDG_DATA_HOME", isolatedSettings->path().toLocal8Bit());
         qputenv("XDG_CACHE_HOME", isolatedSettings->path().toLocal8Bit());
     }
+    if (wantsGraphicsCheck(argc, argv) && qEnvironmentVariableIsEmpty("DISPLAY")
+        && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
+        qputenv("QT_QPA_PLATFORM", "offscreen");
     applyUiScale();
     configureOpenGL();
     kk::theme::initBeforeApplication(); // bundled Breeze icons; must precede QApplication
@@ -279,6 +297,16 @@ int main(int argc, char** argv)
     // so the compositor shows the right icon and groups windows with the desktop entry.
     QGuiApplication::setDesktopFileName(QLatin1String(kk::appinfo::desktopId));
     kk::initResources();
+    if (wantsGraphicsCheck(argc, argv)) {
+        // Before the plugin scans and the settings migration: nothing but the card is tested.
+        kk::CommandLineOptions check;
+        QString checkError;
+        if (!kk::parseCommandLine(QCoreApplication::arguments(), check, &checkError)) {
+            std::fprintf(stderr, "%s\n", qPrintable(checkError));
+            return 2;
+        }
+        return kk::graphicscheck::runCommandLine(check.graphicsCheckFile);
+    }
     kk::EditBehaviour::migrateSettings();
     kk::plugins::PluginRegistry::instance().load(); // before any project loads
     // OpenFX, LV2 and CLAP bundles: the cache is read now, new or changed bundles are probed in the

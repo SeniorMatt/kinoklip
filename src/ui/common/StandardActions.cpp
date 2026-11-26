@@ -60,6 +60,8 @@ const ActionSpec kActions[] = {
     {"file", "file.unpack_project",   QT_TRANSLATE_NOOP("kk::StandardActions", "U&npack Project…")},
     {"file", "file.compact_project",  QT_TRANSLATE_NOOP("kk::StandardActions", "Co&mpact Project…")},
     {"file", "file.verify_project",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Verify Project File")},
+    {"file", "file.export_archive",   QT_TRANSLATE_NOOP("kk::StandardActions", "&Export Project Archive…")},
+    {"file", "file.restore_archive",  QT_TRANSLATE_NOOP("kk::StandardActions", "&Restore Project Archive…")},
     {"file", "-"},
     // File > Import, as in Resolve (Media, Subtitle; Media Folder is our own).
     {"file", ">file.import",          QT_TRANSLATE_NOOP("kk::StandardActions", "&Import")},
@@ -166,6 +168,8 @@ const ActionSpec kActions[] = {
     {"timeline", "timeline.add_subtitle_track", QT_TRANSLATE_NOOP("kk::StandardActions", "Add Su&btitle Track")},
     {"timeline", "timeline.add_subtitle", QT_TRANSLATE_NOOP("kk::StandardActions", "Add Subtit&le")},
     {"timeline", "timeline.delete_empty_tracks", QT_TRANSLATE_NOOP("kk::StandardActions", "Delete &Empty Tracks")},
+    {"timeline", "timeline.bounce_mix", QT_TRANSLATE_NOOP("kk::StandardActions", "&Bounce Mix to Track")},
+    {"timeline", "timeline.bounce_tracks", QT_TRANSLATE_NOOP("kk::StandardActions", "Bounce &Selected Tracks")},
     {"timeline", "-"},
     {"timeline", "timeline.duplicate", QT_TRANSLATE_NOOP("kk::StandardActions", "D&uplicate Timeline")},
     {"timeline", "timeline.delete",   QT_TRANSLATE_NOOP("kk::StandardActions", "Delete Timel&ine")},
