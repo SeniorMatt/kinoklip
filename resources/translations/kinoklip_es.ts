@@ -749,6 +749,26 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
         <source>LUT files (*.cube)</source>
         <translation>Archivos LUT (*.cube)</translation>
     </message>
+    <message>
+        <source>Project archive (*.%1)</source>
+        <translation>Archivo de proyecto (*.%1)</translation>
+    </message>
+    <message>
+        <source>Bounce Mix to Track</source>
+        <translation>Convertir la mezcla en una pista</translation>
+    </message>
+    <message>
+        <source>Bounce Selected Tracks</source>
+        <translation>Convertir las pistas seleccionadas</translation>
+    </message>
+    <message>
+        <source>Select clips on the audio tracks to bounce, or switch on the track selector of those tracks.</source>
+        <translation>Selecciona clips en las pistas de audio que quieras convertir, o activa el selector de pista de esas pistas.</translation>
+    </message>
+    <message>
+        <source>Rendering the audio…</source>
+        <translation>Renderizando el audio…</translation>
+    </message>
 </context>
 <context>
     <name>TimelineRepair</name>
@@ -3688,6 +3708,22 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
         <source>Moves the selected clips so their start timecodes match the reference clip (the one on the lowest video track).</source>
         <translation>Mueve los clips seleccionados para que sus timecodes de inicio coincidan con el clip de referencia (el de la pista de vídeo más baja).</translation>
     </message>
+    <message>
+        <source>Copies the project and every media file it uses into one archive folder (.dra), with the proxy media, optimized media and render cache if you ask for them.</source>
+        <translation>Copia el proyecto y cada archivo de medios que usa en una carpeta de archivo (.dra), con los medios proxy, los medios optimizados y la caché de render si lo pides.</translation>
+    </message>
+    <message>
+        <source>Copies a project archive folder (.dra) to a new folder and opens the project in it.</source>
+        <translation>Copia una carpeta de archivo de proyecto (.dra) a una carpeta nueva y abre el proyecto que contiene.</translation>
+    </message>
+    <message>
+        <source>Renders the whole audio mix, as it is heard and exported, into a new audio track as one clip.</source>
+        <translation>Renderiza toda la mezcla de audio, tal como se oye y se exporta, en una pista de audio nueva como un solo clip.</translation>
+    </message>
+    <message>
+        <source>Renders each audio track with a selected clip (or with its track selector on), with its effects and fader, into a new audio track of its own.</source>
+        <translation>Renderiza cada pista de audio con un clip seleccionado (o con su selector de pista activado), con sus efectos y su fader, en una pista de audio nueva propia.</translation>
+    </message>
 </context>
 <context>
     <name>kk::ActionRegistry</name>
@@ -4154,6 +4190,61 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
     <message>
         <source>Correlation %1</source>
         <translation>Correlación %1</translation>
+    </message>
+</context>
+<context>
+    <name>kk::AudioBounce</name>
+    <message>
+        <source>Bounce</source>
+        <translation>Bounce</translation>
+    </message>
+    <message>
+        <source>Bounce Mix to Track</source>
+        <translation>Convertir la mezcla en una pista</translation>
+    </message>
+    <message>
+        <source>Bounce Selected Tracks</source>
+        <translation>Convertir las pistas seleccionadas</translation>
+    </message>
+    <message>
+        <source>Cancelled</source>
+        <translation>Cancelado</translation>
+    </message>
+    <message>
+        <source>Mix</source>
+        <translation>Mezcla</translation>
+    </message>
+    <message>
+        <source>Mix Bounce</source>
+        <translation>Bounce de la mezcla</translation>
+    </message>
+    <message>
+        <source>The bounced audio could not be added to the media pool: %1</source>
+        <translation>No se pudo añadir el audio convertido al panel de medios: %1</translation>
+    </message>
+    <message>
+        <source>The bounced audio could not be added to the project.</source>
+        <translation>No se pudo añadir el audio convertido al proyecto.</translation>
+    </message>
+    <message>
+        <source>The bounced audio could not be placed on a track.</source>
+        <translation>No se pudo colocar el audio convertido en una pista.</translation>
+    </message>
+    <message>
+        <source>The bounced audio could not be written: %1</source>
+        <translation>No se pudo escribir el audio convertido: %1</translation>
+    </message>
+    <message>
+        <source>The folder for the bounced audio could not be created: %1</source>
+        <translation>No se pudo crear la carpeta para el audio convertido: %1</translation>
+    </message>
+    <message>
+        <source>The timeline has nothing to bounce.</source>
+        <translation>La línea de tiempo no tiene nada que convertir.</translation>
+    </message>
+    <message>
+        <source>There is no audio track to bounce.</source>
+        <translation>No hay ninguna pista de audio que convertir.</translation>
     </message>
 </context>
 <context>
@@ -11798,6 +11889,10 @@ Gracias por ver</translation>
     <message>
         <source>Interface language for this run (en, de, es, ru, uk); the stored choice is kept. The environment variable KK_LANG does the same.</source>
         <translation>Idioma de la interfaz para esta ejecución (en, de, es, ru, uk); se conserva la elección guardada. La variable de entorno KK_LANG hace lo mismo.</translation>
+    </message>
+    <message>
+        <source>Draw a test picture with the graphics card, read it back, say which card and driver are used and whether video decodes on the card (and why not), print a report for bug reports, then exit (status 1 if the picture is wrong). Optional: a video file to decode with every backend: --graphics-check clip.mp4</source>
+        <translation>Dibuja una imagen de prueba con la tarjeta gráfica, la vuelve a leer, indica qué tarjeta y controlador se usan y si el vídeo se decodifica en la tarjeta (y por qué no), imprime un informe para los informes de errores y termina (estado 1 si la imagen es incorrecta). Opcional: un archivo de vídeo que se decodifica con cada backend: --graphics-check clip.mp4</translation>
     </message>
 </context>
 <context>
@@ -24310,6 +24405,22 @@ Importar archivos con %1 o soltarlos aquí.</translation>
         <source>Auto Align Clips</source>
         <translation>Alinear clips automáticamente</translation>
     </message>
+    <message>
+        <source>Bounce Mix to Track</source>
+        <translation>Convertir la mezcla en una pista</translation>
+    </message>
+    <message>
+        <source>Bounce Selected Tracks</source>
+        <translation>Convertir las pistas seleccionadas</translation>
+    </message>
+    <message>
+        <source>Export Project Archive…</source>
+        <translation>Exportar archivo de proyecto…</translation>
+    </message>
+    <message>
+        <source>Restore Project Archive…</source>
+        <translation>Restaurar archivo de proyecto…</translation>
+    </message>
 </context>
 <context>
     <name>kk::MetadataPanel</name>
@@ -29565,6 +29676,58 @@ Tamaño estimado tras compactar: %3</translation>
         <source>“%1” was repaired. Verify it again to check every byte.</source>
         <translation>«%1» se reparó. Volver a verificarlo para comprobar cada byte.</translation>
     </message>
+    <message>
+        <source>Export Project Archive</source>
+        <translation>Exportar archivo de proyecto</translation>
+    </message>
+    <message>
+        <source>Include Proxy Media</source>
+        <translation>Incluir medios proxy</translation>
+    </message>
+    <message>
+        <source>Include Optimized Media</source>
+        <translation>Incluir medios optimizados</translation>
+    </message>
+    <message>
+        <source>Include Render Cache</source>
+        <translation>Incluir la caché de render</translation>
+    </message>
+    <message>
+        <source>The project archive could not be written: %1</source>
+        <translation>No se pudo escribir el archivo de proyecto: %1</translation>
+    </message>
+    <message>
+        <source>%n file stays linked (not stored in the archive):</source>
+        <translation>%n archivo sigue vinculado (no se guarda en el archivo):</translation>
+    </message>
+    <message>
+        <source>%n files stay linked (not stored in the archive):</source>
+        <translation>%n archivos siguen vinculados (no se guardan en el archivo):</translation>
+    </message>
+    <message>
+        <source>Restore Project Archive: Choose the Archive Folder</source>
+        <translation>Restaurar archivo de proyecto: elige la carpeta del archivo</translation>
+    </message>
+    <message>
+        <source>Restore Project Archive</source>
+        <translation>Restaurar archivo de proyecto</translation>
+    </message>
+    <message>
+        <source>%1 is not a project archive.</source>
+        <translation>%1 no es un archivo de proyecto.</translation>
+    </message>
+    <message>
+        <source>Restore Project Archive: Choose the Folder to Restore Into</source>
+        <translation>Restaurar archivo de proyecto: elige la carpeta de destino</translation>
+    </message>
+    <message>
+        <source>Copying the archive into %1…</source>
+        <translation>Copiando el archivo en %1…</translation>
+    </message>
+    <message>
+        <source>The project archive could not be restored: %1</source>
+        <translation>No se pudo restaurar el archivo de proyecto: %1</translation>
+    </message>
 </context>
 <context>
     <name>kk::ProjectKinds</name>
@@ -34248,6 +34411,22 @@ Reiniciar Kinoklip para aplicarlos.</translation>
     <message>
         <source>Auto &amp;Align Clips</source>
         <translation>&amp;Alinear clips automáticamente</translation>
+    </message>
+    <message>
+        <source>&amp;Export Project Archive…</source>
+        <translation>&amp;Exportar archivo de proyecto…</translation>
+    </message>
+    <message>
+        <source>&amp;Restore Project Archive…</source>
+        <translation>&amp;Restaurar archivo de proyecto…</translation>
+    </message>
+    <message>
+        <source>&amp;Bounce Mix to Track</source>
+        <translation>&amp;Convertir la mezcla en una pista</translation>
+    </message>
+    <message>
+        <source>Bounce &amp;Selected Tracks</source>
+        <translation>Convertir las pistas &amp;seleccionadas</translation>
     </message>
 </context>
 <context>

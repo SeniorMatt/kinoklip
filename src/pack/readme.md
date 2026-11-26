@@ -10,6 +10,7 @@ Namespace `kk::pack`. Depends only on QtCore (the media engine uses `EmbeddedMed
 | `Container.h` | Low level: entries, append, `commit()` (fsync ordering, header slots), recovery at `open()`, `rollback()`. Not thread-safe; one writer per file. |
 | `EmbeddedMedia.h` | Embedded paths (`film.kinoklip/media/<id>/clip.mp4`), the process-wide entry index cache (`locateEntry`), `RangeFile` (pread over a byte range, own handle) and `RangeDevice` (QIODevice). Thread-safe / one per reader. |
 | `ProjectPackage.h` | A project in a container: runtime vs stored document form, manifest, `addMedia()` with duplicate detection, and the file operations Pack, Unpack, Compact, Verify, Repair (progress + cancel). |
+| `ProjectArchive.h` | Export / Restore Project Archive (spec 175): the `.dra` folder with the project, `Media/`, `Luts/`, and on request `Proxy/`, `Optimized/` and `Cache/`; not a container, plain copies with their modification times |
 | `Crc32.h` | CRC-32 (ZIP), slicing-by-8. |
 
 The media engine reaches embedded media only through `media::MediaSource` (`src/media`).

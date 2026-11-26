@@ -27,7 +27,7 @@ namespace {
 constexpr int kBlockFrames = 4800; ///< 100 ms per mixer call
 constexpr char kBinName[] = "Bounced Audio";
 
-QString tr(const char* text)
+QString txt(const char* text)
 {
     return QCoreApplication::translate("kk::AudioBounce", text);
 }
@@ -98,18 +98,18 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
     const TimelineData& timeline = *snapshot;
     const auto [first, end] = audionorm::mixRange(timeline);
     if (!timeline.fps.isValid() || end <= first) {
-        result.error = tr("The timeline has nothing to bounce.");
+        result.error = txt("The timeline has nothing to bounce.");
         return result;
     }
     if (!QDir().mkpath(options.folder)) {
-        result.error = tr("The folder for the bounced audio could not be created: %1").arg(options.folder);
+        result.error = txt("The folder for the bounced audio could not be created: %1").arg(options.folder);
         return result;
     }
     const QDir folder(options.folder);
 
     std::vector<Job> jobs;
     if (options.mix) {
-        jobs.push_back({0, tr("Mix"), {}});
+        jobs.push_back({0, txt("Mix"), {}});
     } else {
         for (const quint64 id : options.trackIds) {
             for (size_t i = 0; i < timeline.audioTracks.size(); ++i) {
@@ -119,14 +119,14 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
         }
     }
     if (jobs.empty()) {
-        result.error = tr("There is no audio track to bounce.");
+        result.error = txt("There is no audio track to bounce.");
         return result;
     }
     const QString projectName = safeFileName(project.name());
     for (Job& job : jobs) {
         job.path = uniquePath(folder,
             projectName + QLatin1Char(' ')
-                + (options.mix ? tr("Mix Bounce") : safeFileName(job.name) + QLatin1Char(' ') + tr("Bounce")));
+                + (options.mix ? txt("Mix Bounce") : safeFileName(job.name) + QLatin1Char(' ') + txt("Bounce")));
         result.files.append(job.path); // reserved names stay unique across the loop below
     }
     // uniquePath() only looks at the disk: make the names of this call differ from each other.
@@ -160,7 +160,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
             mixer.setTap(MixTarget::track(jobs[j].trackId), tap.data());
         media::WavWriter writer;
         if (!writer.open(jobs[j].path, AudioMixer::kSampleRate, ch, 24)) {
-            result.error = tr("The bounced audio could not be written: %1").arg(writer.error());
+            result.error = txt("The bounced audio could not be written: %1").arg(writer.error());
             cleanup();
             return result;
         }
@@ -168,7 +168,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
             if (cancel && cancel->load(std::memory_order_relaxed)) {
                 writer.close();
                 result.cancelled = true;
-                result.error = tr("Cancelled");
+                result.error = txt("Cancelled");
                 cleanup();
                 return result;
             }
@@ -176,7 +176,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
             mixer.mix(timeline, firstSample + at, frames, out.data());
             const float* heard = options.mix ? out.data() : tap.data();
             if (!writer.write(heard, frames)) {
-                result.error = tr("The bounced audio could not be written: %1").arg(writer.error());
+                result.error = txt("The bounced audio could not be written: %1").arg(writer.error());
                 writer.close();
                 cleanup();
                 return result;
@@ -185,7 +185,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
                 progress((double(j) + double(at + frames) / double(total)) / double(jobs.size()));
         }
         if (!writer.close()) {
-            result.error = tr("The bounced audio could not be written: %1").arg(writer.error());
+            result.error = txt("The bounced audio could not be written: %1").arg(writer.error());
             cleanup();
             return result;
         }
@@ -198,7 +198,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
         if (options.store) {
             path = options.store(job.path);
             if (path.isEmpty()) {
-                result.error = tr("The bounced audio could not be added to the project.");
+                result.error = txt("The bounced audio could not be added to the project.");
                 cleanup();
                 return result;
             }
@@ -207,7 +207,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
         }
         paths.append(path);
     }
-    project.beginEdit(options.mix ? tr("Bounce Mix to Track") : tr("Bounce Selected Tracks"));
+    project.beginEdit(options.mix ? txt("Bounce Mix to Track") : txt("Bounce Selected Tracks"));
     MediaPool* pool = project.mediaPool();
     QString binId;
     for (const Bin& b : pool->bins()) {
@@ -221,7 +221,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
     const ImportResult imported = project.importMedia(paths, binId);
     if (imported.importedIds.size() != int(jobs.size())) {
         project.cancelEdit();
-        result.error = tr("The bounced audio could not be added to the media pool: %1")
+        result.error = txt("The bounced audio could not be added to the media pool: %1")
                            .arg(imported.warnings.join(QLatin1Char(' ')));
         cleanup();
         return result;
@@ -231,7 +231,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
         const MediaItem* item = pool->item(imported.importedIds[int(j)]);
         const int index = editops::addTrack(edit, TrackType::Audio);
         TrackData& track = edit.audioTracks[size_t(index)];
-        track.name = options.mix ? tr("Mix Bounce") : jobs[j].name + QLatin1Char(' ') + tr("Bounce");
+        track.name = options.mix ? txt("Mix Bounce") : jobs[j].name + QLatin1Char(' ') + txt("Bounce");
         ClipData clip;
         clip.kind = ClipKind::Media;
         clip.mediaId = imported.importedIds[int(j)];
@@ -242,7 +242,7 @@ Result bounce(Project& project, const Options& options, const std::atomic<bool>*
         clip.duration = end - first;
         if (editops::overwriteClip(edit, TrackRef {TrackType::Audio, index}, clip) == 0) {
             project.cancelEdit();
-            result.error = tr("The bounced audio could not be placed on a track.");
+            result.error = txt("The bounced audio could not be placed on a track.");
             cleanup();
             return result;
         }

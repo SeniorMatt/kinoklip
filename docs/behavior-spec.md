@@ -3490,7 +3490,7 @@ Resolve's node editor has more than serial, parallel and layer nodes: Add Node >
 | # | Behaviour | Status |
 |---|---|---|
 | 168.1 | A LUT named by a grade node or an input LUT is stored in the project file with its absolute path and, beside it, the path relative to the project file. A project folder moved together with its LUT folder finds the LUTs again (the stored path is used while its file exists). Effect LUT parameters already worked this way (40.31). | Done (test_lutpaths) |
-| 168.2 | Not done: packing LUTs into a single-file project (they stay outside the file and must be copied with it). | Open |
+| 168.2 | Not done: packing LUTs into a single-file project (they stay outside the file and must be copied with it). | Done later: 175.5 |
 
 ## 169. Interchange and Edit Index
 
@@ -3498,3 +3498,43 @@ Resolve's node editor has more than serial, parallel and layer nodes: Add Node >
 |---|---|---|
 | 169.1 | File > Export > Timeline as EDL writes the events of every video track that has clips, in record order (V1 first when events start together), channel "V" for all, with "* VIDEO TRACK: V2" on the events of V2 and above; a timeline with clips on V1 only gives the same text as before. `export edl --video-track N` writes track N alone (default `all`). Audio stays A / A2. | Done (test_edlexport moreThanOneVideoTrack, test_commands) |
 | 169.2 | In the Edit Index (Markers) the Duration cell can be typed (a timecode "00:00:02:05" or digits filled from the right, "12" = 12 frames), also for clip markers; zero, unreadable or unchanged text changes nothing; one undo step "Change Marker Duration". | Done (test_editindex markerDurationCanBeTyped) |
+
+## 175. Project archive and LUTs in single-file projects (File > Project Tools; Resolve: Export Project Archive / Restore Project Archive)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 175.1 | File > Project Tools > Export Project Archive... asks what to include (Include Proxy Media, Include Optimized Media, Include Render Cache; all off), then a name, and writes the folder `<name>.dra`: `archive.json` (format "kinoklip-archive"), the project `<name>.kkproj`, `Media/<n>/<file>` (every media file the project uses, the same file once; image sequences with all their frames), `Luts/<n>/<file>`, and on request `Proxy/`, `Optimized/` and `Cache/` (the cached render chunks of the active timeline). The open project is archived as it is now (saved or not) and stays open and unchanged. Copies keep the file's modification time (so proxy links stay valid) and are checked byte for byte while copying; a name that exists is never overwritten. Progress with Cancel; a cancelled or failed export leaves no folder. Offline media and missing LUT files stay linked and are listed in the notice. A single-file project is archived too (its media are copied out). Resolve's "Export Project Archive" writes a .dra folder with the project and its media the same way. | Done (test_projectarchive; test_singlefile archiveThroughTheFileMenu) |
+| 175.2 | The project inside the archive uses relative paths into the archive (`Media/001/clip.mp4`) next to absolute ones, so the folder works where it lies and when it is moved; proxy and optimized links are written only when asked for (else dropped, the app makes them again). | Done (test_projectarchive exportCopiesProjectAndMedia) |
+| 175.3 | File > Project Tools > Restore Project Archive... asks for an archive folder and a folder to restore into, copies the archive to `<folder>/<archive name>` (never into a folder that has files), points the project's media, LUTs and proxy links at the copies, copies the cached render chunks into the render cache folder (existing files are kept) and opens the project. A folder that is no archive, or one written by a newer Kinoklip, is refused with a message. | Done (test_projectarchive restoreToAnotherPlace, notAnArchive; test_singlefile archiveThroughTheFileMenu) |
+| 175.4 | The command line and the MCP server: `project archive --folder out.dra [--proxies] [--optimized]` (errors: archive_failed) and `project restore-archive --folder out.dra --into new-folder` (not_an_archive, restore_failed); the Vim command line has `:export archive` and `:import archive` (the two dialogs). Render cache chunks are only in the dialog (they belong to the open window). | Done (test_commands projectArchive) |
+| 175.5 | LUT files named by grade nodes and input LUTs are packed into a single-file project (supersedes 168.2): Pack and Save As a single file copy each LUT file in as `media/<id>/<file>.cube` (a LUT found through its relative path counts; one that cannot be found stays linked and is listed); the stored document has the entry name in "lut" / "inputLut" and in "lutEmbedded", and the LUT loads from inside the file (no copy on disk). A LUT chosen later is copied in with the next save (once: the same file is recognised again); Unpack and Save As a linked project write the LUTs next to the media; Compact keeps the LUTs the document names and removes the others; a document extracted with an unzip tool opens as a linked project. | Done (test_lutpacking) |
+| 175.6 | Not done: "Used media only" for the archive (every file of the media pool is copied), archives of the render cache for other timelines than the active one, restoring into the Project Manager's library (the restored project is opened from its folder). | Open |
+
+## 176. Bounce Mix to Track and Bounce Selected Tracks (Timeline menu; Resolve: Bounce Mix to Track / Bounce Selected Tracks)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 176.1 | Timeline > Bounce Mix to Track renders the main mix (the output bus, as heard and exported, soft clipper included) over the In to Out range (the whole timeline when no mark is set) with the real mixer into a 24-bit 48 kHz stereo WAV, puts the file into the media pool (bin "Bounced Audio") and places it as one clip at the start of the range on a new audio track on top of the audio tracks ("Mix Bounce"). The tracks it came from stay as they are (mute them to hear only the bounce). One undo step "Bounce Mix to Track"; Cancel in the progress dialog leaves nothing (no track, no file). | Done (test_audiobounce mixIntoANewTrack, cancelLeavesNothing, inOutRangeAndNothingToBounce) |
+| 176.2 | Timeline > Bounce Selected Tracks renders every audio track that holds a selected clip (none selected: the audio tracks with clips whose track selector is on) one by one, each after its own effects, pan and fader (before it goes to a bus), into a new audio track of its own ("A1 Bounce"). One undo step "Bounce Selected Tracks". With nothing to bounce a message says so. | Done (test_audiobounce selectedTracksEachIntoATrack) |
+| 176.3 | The files are written next to the project in "Bounced Audio" (a never-saved project: the application's data folder; a single-file project: copied into the file); a name that exists gets " (2)", " (3)"; nothing is overwritten. The command line and MCP: `track bounce --mix` or `track bounce --tracks A1,A2` (errors: bad_value, unknown_track, bounce_failed). | Done (test_audiobounce cancelLeavesNothing; test_commands bounceTracks) |
+
+## 177. `kinoklip --graphics-check`
+
+| # | Behaviour | Status |
+|---|---|---|
+| 177.1 | `kinoklip --graphics-check [video file]` prints a plain text report and exits (0 = the card drew the test picture correctly, 1 = not). It names Kinoklip, Qt, the platform plugin, the session, the screens; makes an OpenGL context (desktop 3.3 core, else ES 3.0) and says API, vendor, renderer and version and whether the "card" is a CPU rasteriser (llvmpipe, softpipe, ...); draws a 64 x 64 test picture with a shader into a buffer, reads it back and compares 25 points with what a card must give (a flipped or unchanged picture is named WRONG with the first differing pixel). With no display it uses Qt's offscreen platform and says so. | Done (test_graphicscheck pictureComparison, softwareRenderersAreRecognised, realContextDrawsThePicture, reportHasEverySection; test_cli graphicsCheckPrintsAReport) |
+| 177.2 | It lists the GPU render nodes and whether this user may open them, opens the hardware decoding backends (VAAPI, CUDA, Vulkan) and prints for each: device, driver, codecs, or why not; then "Why not / notes": no render node, no access (add the user to the render group), no NVIDIA driver, no Quick Sync runtime, OpenGL on the CPU. With a video file every backend decodes its first frame and the report says hardware or software for each (and when a backend fell back to software). | Done (test_graphicscheck videoFileIsDecodedWithEveryBackend; test_cli) |
+| 177.3 | The check runs before the plugin scans and the settings migration and changes no setting. | Done (main.cpp; test_cli) |
+
+## 178. Colour page thumbnails of a covered clip
+
+| # | Behaviour | Status |
+|---|---|---|
+| 178.1 | The thumbnails of the clips strip (and the Lightbox and split screen pictures of clips that are not under the playhead) show the clip itself: the picture is rendered with the other video tracks left out, so a clip that a clip on a higher track covers shows its own picture, with its transform, effects, grade and transitions. Adjustment clips (no picture of their own) and the clip under the playhead (it shows the program, as the viewer does) are unchanged. Supersedes the "a clip covered by a higher track shows the higher one" note of the Colour page notes. | Done (test_bughunt5 spec178_1_thumbnailOfACoveredClip) |
+
+## 179. Several selected clips: Transform, Crop and transitions
+
+| # | Behaviour | Status |
+|---|---|---|
+| 179.1 | Transform and Cropping typed or dragged in the Inspector reach every selected video clip of any kind in one undo step (24.1), the viewer's on-screen move, scale, rotate and crop handles change every selected clip by the same amount (24.11, 24.12), and a transition is copied with its type, length, alignment, parameters and keyframes by Alt+drag (13.17) and Ctrl+C / Ctrl+V (13.20). New check: the four Crop fields typed with three clips selected (a media clip, a solid and a media clip) reach all of them, one undo step each. | Done (test_inspector spec24_1_multiClipCropTypedReachesAll; earlier rows' tests) |
+| 179.2 | Not done: "audio plays after a big paste without a restart" is guarded by tests (16.8) but the owner's failure was never reproduced. | Open |
