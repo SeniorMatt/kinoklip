@@ -1,4 +1,4 @@
-424 menu entries in 13 menus; 62 panels
+426 menu entries in 13 menus; 62 panels
 
 # Menu and panel reference
 
@@ -185,6 +185,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Swap Clip with Next | Ctrl+Shift+. | Swaps the selected clip with the clip after it. |
 | Move Clips Up a Track | Alt+Up | Moves the selected clips one track up, replacing what is there. |
 | Move Clips Down a Track | Alt+Down | Moves the selected clips one track down, replacing what is there. |
+| Trim Editor… |  | Opens the Trim Editor: the frames on both sides of the selected edit point side by side, with buttons that trim the outgoing side, the roll or the incoming side. |
 
 ## Timeline
 
@@ -887,6 +888,7 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Move > Down a Track | Alt+Down | Moves the selected clips one track down, replacing what is there. |
 | Edit Point > Select Nearest | V | Selects the edit point nearest to the playhead; at a cut both sides are selected. |
 | Edit Point > Cycle Side | U | Cycles the selected edit point between the outgoing side, both sides (roll) and the incoming side. |
+| Trim Editor… |  | Opens the Trim Editor: the frames on both sides of the selected edit point side by side, with buttons that trim the outgoing side, the roll or the incoming side. |
 
 ## Streamlined Mark
 
