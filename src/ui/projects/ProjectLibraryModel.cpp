@@ -65,6 +65,20 @@ ProjectLibraryModel::ProjectLibraryModel(ProjectLibrary* library, QObject* paren
     reload();
 }
 
+void ProjectLibraryModel::setLibrary(ProjectLibrary* library)
+{
+    if (!library || library == m_library)
+        return;
+    disconnect(m_library, nullptr, this, nullptr);
+    m_library = library;
+    connect(library, &ProjectLibrary::metadataReady, this, &ProjectLibraryModel::rowChanged);
+    connect(library, &ProjectLibrary::posterReady, this, &ProjectLibraryModel::rowChanged);
+    connect(library, &ProjectLibrary::changed, this, &ProjectLibraryModel::refresh);
+    m_recent = false;
+    m_folder = library->root();
+    reload();
+}
+
 void ProjectLibraryModel::showFolder(const QString& folder)
 {
     m_recent = false;

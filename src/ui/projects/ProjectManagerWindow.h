@@ -65,6 +65,33 @@ public:
     void showFolder(const QString& folder = {});
     /// Shows the Recent Projects list.
     void showRecent();
+
+    // ---- More than one project library (spec 198) ----
+
+    /// Adds the folder @p root as a project library of its own (listed under Project Library
+    /// in the places; remembered in the settings). Returns its index, or -1 for a folder that
+    /// does not exist; a folder that is a library already returns that library's index.
+    int addLibrary(const QString& root);
+    /// Removes library @p index (the first, the main one from Preferences, stays). The folder
+    /// and its projects are not touched.
+    bool removeLibrary(int index);
+    /// Shows library @p index (its root folder).
+    void selectLibrary(int index);
+    [[nodiscard]] int libraryCount() const { return int(m_libraries.size()); }
+    [[nodiscard]] int currentLibraryIndex() const { return m_current; }
+    [[nodiscard]] ProjectLibrary* libraryAt(int index) const
+    {
+        return m_libraries.at(size_t(index));
+    }
+
+    /// Open in a New Window: starts another Kinoklip with @p path (a project, not a folder).
+    /// The launcher can be replaced (tests); the default starts this program (the AppImage
+    /// itself when run from one) detached.
+    bool openInNewWindow(const QString& path);
+    void setNewWindowLauncher(std::function<bool(const QString& path)> launcher)
+    {
+        m_launcher = std::move(launcher);
+    }
     /// Card (true) or list view.
     void setCardView(bool cards);
     [[nodiscard]] bool isCardView() const;
@@ -146,6 +173,13 @@ private:
     [[nodiscard]] QString currentPath() const;
 
     ProjectLibrary* m_library;
+    std::vector<ProjectLibrary*> m_libraries; ///< the main one first, then the added ones
+    std::vector<std::unique_ptr<ProjectLibrary>> m_ownedLibraries; ///< the added ones
+    int m_current = 0; ///< index in m_libraries of the shown one
+    QString m_openPath;
+    std::function<bool(const QString&)> m_launcher;
+    void rebuildPlaces();
+    [[nodiscard]] int recentRow() const { return int(m_libraries.size()); }
     ProjectLibraryModel* m_model = nullptr;
     ProjectSortProxy* m_proxy = nullptr;
     ProjectCardDelegate* m_delegate = nullptr;

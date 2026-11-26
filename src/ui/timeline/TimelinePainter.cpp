@@ -110,7 +110,8 @@ void TimelinePainter::setStyle(const QPalette& pal, const QFont& font)
     m_font = font;
     m_smallFont = uifonts::font(uifonts::Role::Small, font);
     m_boldFont = uifonts::font(uifonts::Role::Emphasis, font);
-    m_fontAscent = QFontMetrics(m_smallFont).ascent();
+    m_smallFm = QFontMetrics(m_smallFont);
+    m_fontAscent = m_smallFm.ascent();
     m_base = pal.color(QPalette::Base);
     m_window = pal.color(QPalette::Window);
     m_text = pal.color(QPalette::WindowText);
@@ -189,9 +190,35 @@ const QString& TimelinePainter::elidedName(const ClipData& clip, const QString& 
     if (entry.width != width || entry.name != clip.name) {
         entry.name = clip.name;
         entry.width = width;
-        entry.elided = QFontMetrics(m_smallFont).elidedText(text, Qt::ElideRight, width);
+        entry.elided = m_smallFm.elidedText(text, Qt::ElideRight, width);
+        entry.elidedW = m_smallFm.horizontalAdvance(entry.elided);
     }
     return entry.elided;
+}
+
+int TimelinePainter::elidedNameWidth(const ClipData& clip) const
+{
+    const auto it = m_names.constFind(clip.id);
+    return it == m_names.constEnd() ? 0 : it->elidedW;
+}
+
+int TimelinePainter::sourceTimecodeWidth(const ClipData& clip) const
+{
+    const auto it = m_names.constFind(clip.id);
+    return it == m_names.constEnd() ? 0 : it->tcW;
+}
+
+const QString& TimelinePainter::durationText(const ClipData& clip, Rational fps, int& width)
+{
+    NameCache& entry = m_names[clip.id];
+    if (entry.durFrames != clip.duration || entry.durFps != fps || entry.dur.isEmpty()) {
+        entry.durFrames = clip.duration;
+        entry.durFps = fps;
+        entry.dur = timecode::format(clip.duration, fps);
+        entry.durW = m_smallFm.horizontalAdvance(entry.dur);
+    }
+    width = entry.durW;
+    return entry.dur;
 }
 
 const QString& TimelinePainter::sourceTimecodeText(
@@ -210,6 +237,7 @@ const QString& TimelinePainter::sourceTimecodeText(
         entry.tcStartUs = base.startUs;
         entry.tc
             = timecode::format(usToFrames(base.startUs + clip.sourceInUs, base.rate), base.rate);
+        entry.tcW = m_smallFm.horizontalAdvance(entry.tc);
     }
     return entry.tc;
 }
@@ -455,8 +483,7 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         const QString& label = clipLabel(in, clip);
         // Source timecode (view option): drawn after the name, which gives it room first.
         const QString& tc = in.sourceTimecode ? sourceTimecodeText(in, clip) : QString();
-        const QFontMetrics smallFm(m_smallFont);
-        const int tcW = tc.isEmpty() ? 0 : smallFm.horizontalAdvance(tc) + kSourceTcGap;
+        const int tcW = tc.isEmpty() ? 0 : sourceTimecodeWidth(clip) + kSourceTcGap;
         const bool showTc = tcW > 0 && nameRoom - tcW > 40;
         const QString& name = elidedName(clip, label, showTc ? nameRoom - tcW : nameRoom);
         const double baseline = r.top() + (bandH + m_fontAscent) / 2.0 - 1;
@@ -464,16 +491,15 @@ void TimelinePainter::paintClip(QPainter& p, const TimelinePaintInput& in, int r
         if (showTc) {
             p.setPen(base.lighter(175));
             p.drawText(
-                QPointF(visLeft + 5 + smallFm.horizontalAdvance(name) + kSourceTcGap, baseline),
+                QPointF(visLeft + 5 + elidedNameWidth(clip) + kSourceTcGap, baseline),
                 tc);
             p.setPen(clip.enabled ? sc().textOn(base) : m_textDim);
         }
         // Duration only when the full name fits with room to spare (duration-aware text).
         if (name == label && !showTc && nameRoom > 150) {
-            const QFontMetrics fm(m_smallFont);
-            const int nameW = fm.horizontalAdvance(name);
-            const QString dur = timecode::format(clip.duration, in.data->fps);
-            const int durW = fm.horizontalAdvance(dur);
+            const int nameW = elidedNameWidth(clip);
+            int durW = 0;
+            const QString& dur = durationText(clip, in.data->fps, durW);
             if (nameW + durW + 24 < nameRoom) {
                 p.setPen(base.lighter(175));
                 p.drawText(QPointF(visRight - 6 - badgeW - durW, baseline), dur);

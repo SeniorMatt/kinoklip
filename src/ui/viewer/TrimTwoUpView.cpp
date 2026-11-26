@@ -58,15 +58,20 @@ std::shared_ptr<const TimelineData> clipAlone(const TimelineData& snapshot, cons
 } // namespace
 
 TrimTwoUpView::TrimTwoUpView(ViewerSurface* surface, const MediaPool* pool)
-    : QWidget(surface->widget())
-    , m_surface(surface)
+    : TrimTwoUpView(surface->widget(), pool)
+{
+}
+
+TrimTwoUpView::TrimTwoUpView(QWidget* host, const MediaPool* pool)
+    : QWidget(host)
+    , m_host(host)
     , m_pool(pool)
 {
     setObjectName(QStringLiteral("TrimTwoUpView"));
     setAttribute(Qt::WA_OpaquePaintEvent);
     setAttribute(Qt::WA_TransparentForMouseEvents); // the drag happens in the timeline
-    surface->widget()->installEventFilter(this);
-    setGeometry(surface->widget()->rect());
+    host->installEventFilter(this);
+    setGeometry(host->rect());
     connect(&media::MediaCache::instance(), &media::MediaCache::frameReady, this,
         &TrimTwoUpView::onFrameReady);
     m_poll = new QTimer(this);
@@ -210,7 +215,7 @@ void TrimTwoUpView::collectRenders()
 
 void TrimTwoUpView::refresh()
 {
-    setGeometry(m_surface->widget()->rect());
+    setGeometry(m_host->rect());
     update();
 }
 
@@ -262,7 +267,7 @@ void TrimTwoUpView::onFrameReady(const QString& path)
 
 bool TrimTwoUpView::eventFilter(QObject* watched, QEvent* event)
 {
-    if (watched == m_surface->widget() && event->type() == QEvent::Resize)
+    if (watched == m_host && event->type() == QEvent::Resize)
         refresh();
     return QWidget::eventFilter(watched, event);
 }

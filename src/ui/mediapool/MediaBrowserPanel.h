@@ -16,6 +16,7 @@ class QTreeView;
 namespace kk {
 
 struct AppContext;
+class CloneToolDialog;
 
 /// Browses the local file system (Media page, left column).
 ///
@@ -54,6 +55,10 @@ public:
     /// only its own files, or with @p withSubfolders its subfolders too, as a bin named after
     /// it with sub-bins. One undo step. Returns the new media ids.
     QStringList addFolderToMediaPool(const QString& path, bool withSubfolders);
+    /// Media page > Clone Tool: shows the clone dialog (made on first use) with @p sourceFolder
+    /// as a source when it is a folder.
+    void openCloneTool(const QString& sourceFolder = {});
+    [[nodiscard]] CloneToolDialog* cloneDialog() const { return m_cloneDialog; }
 
 signals:
     /// A file was selected (e.g. to preview it in the viewer).
@@ -66,6 +71,8 @@ private:
     void updateButton();
 
     AppContext& m_ctx;
+    QPushButton* m_clone = nullptr;
+    CloneToolDialog* m_cloneDialog = nullptr;
     QComboBox* m_places = nullptr;
     QFileSystemModel* m_dirs = nullptr;
     QFileSystemModel* m_files = nullptr;

@@ -11,6 +11,7 @@
 
 #include <QColor>
 #include <QFont>
+#include <QFontMetrics>
 #include <QHash>
 #include <QLineF>
 #include <QPixmap>
@@ -240,6 +241,12 @@ private:
     /// Cached source in timecode of @p clip ("01:00:02:00"; empty for generated clips).
     [[nodiscard]] const QString& sourceTimecodeText(
         const TimelinePaintInput& in, const ClipData& clip);
+    /// Width of the name last returned by elidedName() / of the source timecode text; the
+    /// text is shaped once when it changes, not once per clip per paint (spec 195).
+    [[nodiscard]] int elidedNameWidth(const ClipData& clip) const;
+    [[nodiscard]] int sourceTimecodeWidth(const ClipData& clip) const;
+    /// The duration text (timecode of the clip's length) with its width, cached per clip.
+    [[nodiscard]] const QString& durationText(const ClipData& clip, Rational fps, int& width);
     [[nodiscard]] const QString& elidedName(const ClipData& clip, const QString& text, int width);
     [[nodiscard]] QString mediaPath(const TimelinePaintInput& in, const QString& mediaId) const;
 
@@ -251,6 +258,7 @@ private:
     QFont m_smallFont;
     QFont m_boldFont;
     int m_fontAscent = 10;
+    QFontMetrics m_smallFm {QFont()}; ///< of m_smallFont, made once per style (not per clip)
     QColor m_base, m_window, m_text, m_textDim, m_accent, m_lane, m_laneAlt, m_line, m_timecode;
     QPixmap m_iconLock, m_iconUnlock;
 
@@ -260,6 +268,12 @@ private:
         QString name;
         int width = -1;
         QString elided;
+        int elidedW = 0; ///< advance of `elided` in m_smallFont (shaped once, with the text)
+        /// Duration text drawn at the right end of a wide clip, its advance and what made it.
+        int64_t durFrames = -1;
+        Rational durFps;
+        QString dur;
+        int durW = 0;
         /// Multicam clips: the label "<n> <angle name> - <clip name>" and what it was made
         /// from (angle, multicam timeline data), rebuilt when either changes.
         int angle = -2;
@@ -269,6 +283,7 @@ private:
         int64_t tcSourceUs = -1;
         int64_t tcStartUs = -1;
         QString tc;
+        int tcW = 0; ///< advance of `tc`
     };
     QHash<quint64, NameCache> m_names;
     std::vector<float> m_peaks;

@@ -163,6 +163,8 @@ const Description kDescriptions[] = {
         QT_TRANSLATE_NOOP("kk::ActionDescriptions", "Trims the end of the clip to the playhead and closes the gap.")},
     {"trim.extend_edit",
         QT_TRANSLATE_NOOP("kk::ActionDescriptions", "Moves the selected edit point to the playhead.")},
+    {"trim.trim_editor",
+        QT_TRANSLATE_NOOP("kk::ActionDescriptions", "Opens the Trim Editor: the frames on both sides of the selected edit point side by side, with buttons that trim the outgoing side, the roll or the incoming side.")},
     {"trim.cycle_edit",
         QT_TRANSLATE_NOOP("kk::ActionDescriptions", "Cycles the selected edit point between the outgoing side, both sides (roll) and the incoming side.")},
     {"trim.select_nearest_edit",

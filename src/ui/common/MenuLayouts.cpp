@@ -481,6 +481,8 @@ Menu trimMenu()
             A("trim.select_nearest_edit", "Select Nearest"),
             A("trim.cycle_edit", "Cycle Side"),
         }),
+        S(),
+        A("trim.trim_editor", "Trim Editor…"),
     });
 }
 

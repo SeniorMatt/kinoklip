@@ -20,6 +20,8 @@
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QComboBox>
 #include <QDir>
 #include <QDragEnterEvent>
@@ -36,6 +38,7 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QProcess>
 #include <QPushButton>
 #include <QSettings>
 #include <QSlider>
@@ -125,6 +128,7 @@ ProjectManagerWindow::ProjectManagerWindow(ProjectLibrary* library, QWidget* par
     setObjectName(QStringLiteral("ProjectManager"));
     setWindowTitle(tr("Project Manager"));
     setSizeGripEnabled(true);
+    m_libraries.push_back(library);
     m_model = new ProjectLibraryModel(library, this);
     m_proxy = new ProjectSortProxy(this);
     m_proxy->setSourceModel(m_model);
@@ -229,16 +233,31 @@ void ProjectManagerWindow::buildUi()
     auto* split = new QSplitter(Qt::Horizontal);
     m_places = new QListWidget;
     m_places->setObjectName(QStringLiteral("ProjectPlaces"));
-    auto* libraryItem = new QListWidgetItem(icon(QStringLiteral("folder")), tr("Project Library"));
-    libraryItem->setToolTip(QDir::toNativeSeparators(m_library->root()));
-    m_places->addItem(libraryItem);
-    m_places->addItem(new QListWidgetItem(icon(QStringLiteral("film")), tr("Recent Projects")));
-    m_places->setCurrentRow(0);
+    rebuildPlaces();
     connect(m_places, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
-        if (m_places->row(item) == 0)
-            showFolder();
-        else
+        const int row = m_places->row(item);
+        if (row < int(m_libraries.size())) {
+            selectLibrary(row);
+        } else {
             showRecent();
+        }
+    });
+    // Right-click: add a library folder, or remove the one under the pointer (the first is the
+    // library of Preferences > Project Save and Load and stays).
+    m_places->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_places, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
+        QMenu menu(this);
+        menu.addAction(tr("&Add Library…"), this, [this] {
+            const QString dir = platform::getExistingDirectory(
+                this, tr("Add Project Library"), QStringLiteral("projectManager/libraryDir"));
+            if (!dir.isEmpty())
+                selectLibrary(addLibrary(dir));
+        });
+        const int row = m_places->row(m_places->itemAt(pos));
+        if (row > 0 && row < int(m_libraries.size()))
+            menu.addAction(
+                tr("&Remove Library from List"), this, [this, row] { removeLibrary(row); });
+        menu.exec(m_places->viewport()->mapToGlobal(pos));
     });
     split->addWidget(m_places);
 
@@ -336,16 +355,91 @@ namespace {
 const QString kRecentPlace = QStringLiteral("\x01recent");
 }
 
+void ProjectManagerWindow::rebuildPlaces()
+{
+    m_places->clear();
+    for (size_t i = 0; i < m_libraries.size(); ++i) {
+        const QString root = m_libraries[i]->root();
+        auto* item = new QListWidgetItem(icon(QStringLiteral("folder")),
+            i == 0 ? tr("Project Library") : QFileInfo(root).fileName());
+        item->setToolTip(QDir::toNativeSeparators(root));
+        m_places->addItem(item);
+    }
+    m_places->addItem(new QListWidgetItem(icon(QStringLiteral("film")), tr("Recent Projects")));
+    m_places->setCurrentRow(m_model && m_model->isRecent() ? recentRow() : m_current);
+}
+
+int ProjectManagerWindow::addLibrary(const QString& root)
+{
+    const QString clean = QDir::cleanPath(QFileInfo(root).absoluteFilePath());
+    if (!QFileInfo(clean).isDir())
+        return -1;
+    for (size_t i = 0; i < m_libraries.size(); ++i)
+        if (m_libraries[i]->root() == clean)
+            return int(i);
+    // Every library keeps its own metadata and poster cache next to the first one's.
+    const QString cache = m_libraries.front()->cacheDirectory() + QStringLiteral("/library-")
+        + QString::fromLatin1(
+            QCryptographicHash::hash(clean.toUtf8(), QCryptographicHash::Sha1).toHex().left(10));
+    auto library = std::make_unique<ProjectLibrary>(clean, cache);
+    library->setOpenProjectPath(m_openPath);
+    m_libraries.push_back(library.get());
+    m_ownedLibraries.push_back(std::move(library));
+    rebuildPlaces();
+    return int(m_libraries.size()) - 1;
+}
+
+bool ProjectManagerWindow::removeLibrary(int index)
+{
+    if (index <= 0 || index >= int(m_libraries.size()))
+        return false;
+    ProjectLibrary* gone = m_libraries[size_t(index)];
+    if (m_current == index)
+        selectLibrary(0);
+    else if (m_current > index)
+        --m_current;
+    m_libraries.erase(m_libraries.begin() + index);
+    std::erase_if(m_ownedLibraries, [gone](const auto& p) { return p.get() == gone; });
+    rebuildPlaces();
+    saveSettings();
+    return true;
+}
+
+void ProjectManagerWindow::selectLibrary(int index)
+{
+    if (index < 0 || index >= int(m_libraries.size()))
+        return;
+    m_current = index;
+    m_library = m_libraries[size_t(index)];
+    m_model->setLibrary(m_library);
+    showFolder();
+}
+
+bool ProjectManagerWindow::openInNewWindow(const QString& path)
+{
+    const QString clean = QDir::cleanPath(path);
+    if (!QFileInfo(clean).isFile())
+        return false;
+    if (m_launcher)
+        return m_launcher(clean);
+    // The AppImage's own file, not the temporary mount of this run, so that the new window
+    // outlives this one.
+    const QByteArray appImage = qgetenv("APPIMAGE");
+    const QString program = appImage.isEmpty() ? QCoreApplication::applicationFilePath()
+                                               : QString::fromLocal8Bit(appImage);
+    return QProcess::startDetached(program, {clean});
+}
+
 void ProjectManagerWindow::showFolder(const QString& folder)
 {
-    m_places->setCurrentRow(0);
+    m_places->setCurrentRow(m_current);
     m_model->showFolder(folder.isEmpty() || !m_library->contains(folder) ? QString() : folder);
     recordPlace(m_model->folder());
 }
 
 void ProjectManagerWindow::showRecent()
 {
-    m_places->setCurrentRow(1);
+    m_places->setCurrentRow(recentRow());
     m_model->showRecent(m_recent);
     recordPlace(kRecentPlace);
 }
@@ -384,7 +478,9 @@ void ProjectManagerWindow::goUp()
 
 void ProjectManagerWindow::setOpenProjectPath(const QString& path)
 {
-    m_library->setOpenProjectPath(path);
+    m_openPath = QDir::cleanPath(path);
+    for (ProjectLibrary* library : m_libraries)
+        library->setOpenProjectPath(path);
     m_model->refresh();
 }
 
@@ -871,6 +967,9 @@ void ProjectManagerWindow::showContextMenu(QAbstractItemView* view, const QPoint
         const bool exists = at.data(ProjectLibraryModel::ExistsRole).toBool();
         const bool open = path == m_library->openProjectPath();
         menu.addAction(tr("&Open"), this, &ProjectManagerWindow::openSelected)->setEnabled(exists);
+        if (!folder)
+            menu.addAction(tr("Open in New &Window"), this, [this, path] { openInNewWindow(path); })
+                ->setEnabled(exists && !open);
         menu.addSeparator();
         QAction* rename
             = menu.addAction(tr("&Rename"), this, &ProjectManagerWindow::renameSelected);
@@ -980,6 +1079,10 @@ void ProjectManagerWindow::saveSettings() const
     s.setValue(QStringLiteral("sortColumn"), m_proxy->sortColumn());
     s.setValue(QStringLiteral("descending"), m_proxy->sortOrder() == Qt::DescendingOrder);
     s.setValue(QStringLiteral("listHeader"), m_listView->header()->saveState());
+    QStringList extra;
+    for (size_t i = 1; i < m_libraries.size(); ++i)
+        extra << m_libraries[i]->root();
+    s.setValue(QStringLiteral("extraLibraries"), extra);
 }
 
 void ProjectManagerWindow::restoreSettings()
@@ -991,6 +1094,8 @@ void ProjectManagerWindow::restoreSettings()
     dialogsizing::restoreGeometryIfFits(
         this, s.value(QStringLiteral("geometry")).toByteArray(), initial);
     m_listView->header()->restoreState(s.value(QStringLiteral("listHeader")).toByteArray());
+    for (const QString& root : s.value(QStringLiteral("extraLibraries")).toStringList())
+        addLibrary(root); // a folder that is gone is skipped
     const int width
         = s.value(QStringLiteral("cardWidth"), ProjectCardDelegate::kDefaultWidth).toInt();
     m_sizeSlider->setValue(width);

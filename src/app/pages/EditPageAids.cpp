@@ -5,14 +5,17 @@
 #include "app/pages/EditPage.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
+#include "ui/common/ActionRegistry.h"
 #include "ui/common/AppContext.h"
 #include "ui/common/TimecodeEntry.h"
 #include "ui/timeline/TimelineController.h"
 #include "ui/timeline/TimelinePanel.h"
 #include "ui/timeline/TimelineWidget.h"
+#include "ui/timeline/TrimEditorWindow.h"
 #include "ui/viewer/ViewerPanel.h"
 
 #include <QAbstractSpinBox>
+#include <QAction>
 #include <QApplication>
 #include <QLineEdit>
 #include <QTextEdit>
@@ -48,6 +51,19 @@ void EditPage::setupEditingAids()
     // ---- Two-up trim view ----
     connect(
         view, &TimelineWidget::trimPreviewChanged, m_timelineViewer, &ViewerPanel::setTrimPreview);
+
+    // ---- Trim > Trim Editor: one window per page, kept (hidden) when closed ----
+    if (m_ctx.actions && m_ctx.actions->contains(QStringLiteral("trim.trim_editor"))) {
+        connect(m_ctx.actions->action(QStringLiteral("trim.trim_editor")), &QAction::triggered, this,
+            [this, controller] {
+                auto* editor = window()->findChild<TrimEditorWindow*>();
+                if (!editor)
+                    editor = new TrimEditorWindow(m_ctx, controller, window());
+                editor->show();
+                editor->raise();
+                editor->activateWindow();
+            });
+    }
 
     // ---- Edit overlay drops ----
     m_timelineViewer->setEditOverlayEnabled(true);
