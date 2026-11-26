@@ -9,6 +9,7 @@
 #include "export/IndividualClips.h"
 #include "export/RenderQueue.h"
 #include "ui/common/Resources.h"
+#include "export/EncoderCatalog.h"
 #include "ui/deliver/DeliverPage.h"
 #include "ui/deliver/RenderQueuePanel.h"
 #include "ui/deliver/RenderSettingsPanel.h"
@@ -20,6 +21,7 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QLineEdit>
+#include <QPushButton>
 #include <QRadioButton>
 #include <QSettings>
 #include <QSignalSpy>
@@ -39,6 +41,24 @@ private Q_SLOTS:
     {
         QStandardPaths::setTestModeEnabled(true); // user presets go to a test location
         initResources();
+    }
+
+    /// Issue 18: opening the Deliver page never opens a hardware encoder (a faulty GPU driver
+    /// crashed the program at start-up). Encoders are tested on the button or at the first render.
+    void openingThePageTestsNoHardwareEncoder()
+    {
+        QTemporaryDir cacheDir;
+        EncoderCatalog::setCacheFile(cacheDir.filePath(QStringLiteral("hwenc.json")));
+        EncoderCatalog::retest();
+        PanelFixture fx;
+        DeliverPage page(fx.ctx);
+        page.resize(1600, 900);
+        page.show();
+        QTest::qWait(2500); // the old detection started 1.5 s after the page was shown
+        QApplication::processEvents();
+        QVERIFY(!EncoderCatalog::probeWasRun());
+        auto* test = page.findChild<QPushButton*>(QStringLiteral("RenderTestHardware"));
+        QVERIFY(test);
     }
 
     /// Color space / Gamma tags (1.13 HDR export): Rec.2020 with PQ or HLG for H.265 and AV1,

@@ -18786,6 +18786,10 @@ Standardübergang dieses Projekts</translation>
         <translation>Der Ordner %1 kann nicht erstellt werden.</translation>
     </message>
     <message>
+        <source>The hardware encoder %1 failed (%2). The render was done again with the software encoder %3.</source>
+        <translation>Der Hardware-Encoder %1 ist fehlgeschlagen (%2). Das Rendern wurde mit dem Software-Encoder %3 wiederholt.</translation>
+    </message>
+    <message>
         <source>Rendering frame %1 failed.</source>
         <translation>Rendern von Frame %1 fehlgeschlagen.</translation>
     </message>
@@ -31547,12 +31551,16 @@ Die Timelines, die die Projekteinstellungen verwenden, werden umgerechnet: Clips
         <translation>Codec</translation>
     </message>
     <message>
-        <source>Hardware encoders are detected when the Deliver page opens. If the chosen one fails, the render falls back to the software encoder.</source>
-        <translation>Hardware-Encoder werden erkannt, wenn die Seite Ausgabe geöffnet wird. Schlägt der gewählte fehl, weicht das Rendern auf den Software-Encoder aus.</translation>
-    </message>
-    <message>
         <source>Encoder</source>
         <translation>Encoder</translation>
+    </message>
+    <message>
+        <source>Test Hardware Encoders</source>
+        <translation>Hardware-Encoder testen</translation>
+    </message>
+    <message>
+        <source>Tries every hardware encoder again in a separate process, so a faulty graphics driver cannot take Kinoklip down.</source>
+        <translation>Testet jeden Hardware-Encoder erneut in einem eigenen Prozess, damit ein fehlerhafter Grafiktreiber Kinoklip nicht abstürzen lässt.</translation>
     </message>
     <message>
         <source>Encoding profile</source>
@@ -31859,12 +31867,20 @@ Die Timelines, die die Projekteinstellungen verwenden, werden umgerechnet: Clips
         <translation>&lt;Clip-Name&gt;.</translation>
     </message>
     <message>
+        <source>The driver crashed while testing %1; hardware encoding is off for this driver and the software encoder is used. Press Test Hardware Encoders to try again.</source>
+        <translation>Der Treiber ist beim Testen von %1 abgestürzt; Hardware-Encoding ist für diesen Treiber ausgeschaltet und der Software-Encoder wird verwendet. Mit Hardware-Encoder testen erneut versuchen.</translation>
+    </message>
+    <message>
         <source>No hardware encoder was found; software encoders are used.</source>
         <translation>Es wurde kein Hardware-Encoder gefunden; Software-Encoder werden verwendet.</translation>
     </message>
     <message>
         <source>Hardware encoders found: %1</source>
         <translation>Gefundene Hardware-Encoder: %1</translation>
+    </message>
+    <message>
+        <source>Testing hardware encoders...</source>
+        <translation>Hardware-Encoder werden getestet...</translation>
     </message>
     <message>
         <source>Render Location</source>
@@ -31929,6 +31945,10 @@ Die Timelines, die die Projekteinstellungen verwenden, werden umgerechnet: Clips
     <message>
         <source>Rec.2020</source>
         <translation>Rec.2020</translation>
+    </message>
+    <message>
+        <source>Hardware encoders are tested when the first render starts, or when you press Test Hardware Encoders. If the chosen one fails, the render falls back to the software encoder.</source>
+        <translation>Hardware-Encoder werden getestet, wenn das erste Rendern startet oder wenn Sie Hardware-Encoder testen drücken. Schlägt der gewählte fehl, weicht das Rendern auf den Software-Encoder aus.</translation>
     </message>
     <message>
         <source>ST 2084 (PQ)</source>

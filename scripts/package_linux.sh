@@ -94,7 +94,7 @@ done
 if [ "$DO_BUILD" = 1 ]; then
     log "building Release in $BUILD_DIR"
     cmake -S "$ROOT" -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
-    cmake --build "$BUILD_DIR" -j"${KK_JOBS:-4}" --target kinoklip kinoklip-ofx-probe kinoklip-audio-probe
+    cmake --build "$BUILD_DIR" -j"${KK_JOBS:-4}" --target kinoklip kinoklip-ofx-probe kinoklip-audio-probe kinoklip-hwenc-probe
 fi
 BIN="$BUILD_DIR/kinoklip"
 [ -x "$BIN" ] || die "no binary at $BIN (run without --no-build)"
@@ -312,6 +312,12 @@ if [ -x "$BUILD_DIR/kinoklip-audio-probe" ]; then
     strip --strip-unneeded "$APPDIR/usr/bin/kinoklip-audio-probe"
 fi
 
+# The hardware encoder test (issue 18): one process per encoder, so a driver crash costs only the test.
+if [ -x "$BUILD_DIR/kinoklip-hwenc-probe" ]; then
+    install -m 755 "$BUILD_DIR/kinoklip-hwenc-probe" "$APPDIR/usr/bin/kinoklip-hwenc-probe"
+    strip --strip-unneeded "$APPDIR/usr/bin/kinoklip-hwenc-probe"
+fi
+
 declare -A DEST_OF=() # soname -> bundle-relative dir
 for name in "${!IN_N[@]}" "${!IN_Q[@]}"; do
     [ -n "${DEST_OF[$name]+x}" ] && continue
@@ -479,6 +485,9 @@ log "setting RUNPATHs"
     fi
     if [ -x "$APPDIR/usr/bin/kinoklip-audio-probe" ]; then
         patchelf --set-rpath '$ORIGIN/../lib:$ORIGIN/../lib/fallback-active' "$APPDIR/usr/bin/kinoklip-audio-probe"
+    fi
+    if [ -x "$APPDIR/usr/bin/kinoklip-hwenc-probe" ]; then
+        patchelf --set-rpath '$ORIGIN/../lib:$ORIGIN/../lib/fallback-active' "$APPDIR/usr/bin/kinoklip-hwenc-probe"
     fi
     for f in "$APPDIR"/usr/lib/*.so*; do
         patchelf --set-rpath '$ORIGIN:$ORIGIN/fallback-active' "$f"

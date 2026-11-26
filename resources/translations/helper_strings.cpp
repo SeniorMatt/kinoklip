@@ -1428,6 +1428,7 @@ QCoreApplication::translate("kk::ExportJob", "Normalize audio: the target of %1 
 QCoreApplication::translate("kk::ExportJob", "Nothing to render: the render range is empty.");
 QCoreApplication::translate("kk::ExportJob", "Rendering frame %1 failed.");
 QCoreApplication::translate("kk::ExportJob", "Subtitle encoding failed: %1");
+QCoreApplication::translate("kk::ExportJob", "The hardware encoder %1 failed (%2). The render was done again with the software encoder %3.");
 QCoreApplication::translate("kk::ExportJob", "Video encoding failed: %1");
 QCoreApplication::translate("kk::ExportSettings", "%1 cannot carry Rec.2020, PQ or HLG; use H.265 or AV1.");
 QCoreApplication::translate("kk::ExportSettings", "%1 cannot contain %2 audio.");

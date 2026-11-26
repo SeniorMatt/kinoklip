@@ -155,6 +155,25 @@ ExportResult ExportJob::run(const ProgressCallback& progress)
     timer.start();
     memguard::markRenderStart(m_settings.outputPath);
     result = m_settings.kind() == OutputKind::Still ? runStill() : runStreams(progress);
+    // A hardware encoder that opened but then failed (a driver fault, out of surfaces): once more
+    // with the software encoder, so the render does not simply fail.
+    if (!result.ok && !result.cancelled && result.videoEncodeFailed
+        && result.videoBackend != EncoderBackend::Software && !isCancelled()) {
+        const QString failedEncoder = result.videoEncoder;
+        const QString why = result.error;
+        qCWarning(lcExport).noquote() << "hardware encoder" << failedEncoder << "failed:" << why
+                                      << "- rendering again with the software encoder";
+        EncoderCatalog::markFailed(failedEncoder, why);
+        const EncoderBackend wanted = m_settings.video.encoder;
+        m_settings.video.encoder = EncoderBackend::Software;
+        result = runStreams(progress);
+        m_settings.video.encoder = wanted;
+        if (result.ok) {
+            result.fallbackNote = tr("The hardware encoder %1 failed (%2). The render was done again "
+                                     "with the software encoder %3.")
+                                      .arg(failedEncoder, why, result.videoEncoder);
+        }
+    }
     memguard::markRenderEnd();
     result.seconds = double(timer.nsecsElapsed()) / 1e9;
     if (result.ok) {
@@ -484,6 +503,7 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
                 image = &converted;
             }
             if (!video.encode(*image, done, videoSink, &error)) {
+                result.videoEncodeFailed = true;
                 return failWith(
                     writeError.isEmpty() ? tr("Video encoding failed: %1").arg(error) : writeError,
                     false);
@@ -507,6 +527,7 @@ ExportResult ExportJob::runStreams(const ProgressCallback& progress)
         }
     }
     if (s.hasVideo() && !video.flush(videoSink, &error)) {
+        result.videoEncodeFailed = true;
         return failWith(
             writeError.isEmpty() ? tr("Video encoding failed: %1").arg(error) : writeError, false);
     }

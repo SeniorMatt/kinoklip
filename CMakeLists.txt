@@ -124,6 +124,11 @@ add_executable(kinoklip-ofx-probe src/ofx/probe_main.cpp)
 target_link_libraries(kinoklip-ofx-probe PRIVATE kk_ofx)
 install(TARGETS kinoklip-ofx-probe RUNTIME DESTINATION bin)
 
+# kinoklip-hwenc-probe: opens one hardware encoder in a process of its own (a crashing driver, issue 18).
+add_executable(kinoklip-hwenc-probe src/export/hwenc_probe_main.cpp)
+target_link_libraries(kinoklip-hwenc-probe PRIVATE kinoklip_core)
+install(TARGETS kinoklip-hwenc-probe RUNTIME DESTINATION bin)
+
 # LV2 / CLAP audio effect host (spec 159): Qt Core, dlopen, lilv when found; CLAP headers in third_party/clap (MIT).
 add_library(kk_audioplug STATIC
   src/audioplug/AudioPluginInfo.cpp src/audioplug/AudioPluginHost.cpp src/audioplug/Lv2Host.cpp
@@ -332,6 +337,14 @@ foreach(t IN ITEMS test_ofx test_ofxrender)
     target_compile_definitions(${t} PRIVATE KK_OFX_TEST_DIR="${CMAKE_BINARY_DIR}/ofx-test"
       KK_OFX_PROBE_PATH="$<TARGET_FILE:kinoklip-ofx-probe>")
     add_dependencies(${t} kk_test_ofx kk_test_ofxCrash kk_test_ofxHang kinoklip-ofx-probe)
+  endif()
+endforeach()
+
+# The hardware encoder probe program (tests/export/test_hwencprobe.cpp): the tests run it for real.
+foreach(t IN ITEMS test_hwencprobe test_encoderprobe test_deliverpage)
+  if(TARGET ${t})
+    target_compile_definitions(${t} PRIVATE KK_HWENC_PROBE_PATH="$<TARGET_FILE:kinoklip-hwenc-probe>")
+    add_dependencies(${t} kinoklip-hwenc-probe)
   endif()
 endforeach()
 

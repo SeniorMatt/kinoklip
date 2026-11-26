@@ -76,7 +76,20 @@ kk::ExportResult r = job.run([](const kk::ExportProgress& p) { /* frames, fps, E
   low-power entry point) and caches the result for the process lifetime. If the chosen
   encoder cannot open at the real size, the job falls back to the next candidate and reports
   the encoder actually used in `ExportResult::videoEncoder`. `KINOKLIP_HWENC=off` disables
-  hardware encoding.
+  hardware encoding, and so does `KINOKLIP_HWACCEL=off`.
+* **Detection runs in a process of its own (spec 160, issue 18)**: nothing is tested at start-up
+  or when the Deliver page opens. The first `candidates()` / `hardwareEncoders()` call (first
+  render, or the "Test Hardware Encoders" button) runs `kinoklip-hwenc-probe <encoder>
+  <result file>` once per encoder (10 s limit; source `hwenc_probe_main.cpp`, which calls
+  `EncoderCatalog::probeHere()`). A crash, hang or bad exit marks the encoder unavailable
+  (`HwEncoderStatus::probeFailed`, "the driver crashed while testing the encoder"), the other
+  VAAPI encoders are then not tested, and the answers are cached in
+  `<cache dir>/hwenc-probe.json` keyed by `EncoderCatalog::driverKey()` (Kinoklip version,
+  kernel, FFmpeg, GPU ids, driver files); `retest()` forgets them. VAAPI devices for the real
+  render are opened in the main process (`vaapiDevice()`). A hardware encoder that fails while
+  rendering makes `ExportJob::run()` render again with the software encoder
+  (`ExportResult::fallbackNote`, `EncoderCatalog::markFailed()`).
+  `KK_HWENC_PROBE_TEST=crash|hang|exit` makes the probe program misbehave (tests).
 * **Quiet probing**: NVENC is not tried without `/dev/nvidiactl`, QSV not without an Intel
   render node and a oneVPL/MFX runtime (`media::nvidiaDriverPresent()`,
   `media::qsvRuntimePresent()`). FFmpeg's messages during the remaining probes are captured

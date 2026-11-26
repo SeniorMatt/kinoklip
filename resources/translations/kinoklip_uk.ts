@@ -18799,6 +18799,10 @@ Standard transition of this project</source>
         <translation>Не вдалося створити теку %1.</translation>
     </message>
     <message>
+        <source>The hardware encoder %1 failed (%2). The render was done again with the software encoder %3.</source>
+        <translation>Апаратний кодувальник %1 зазнав збою (%2). Рендеринг виконано знову програмним кодувальником %3.</translation>
+    </message>
+    <message>
         <source>Rendering frame %1 failed.</source>
         <translation>Не вдалося відрендерити кадр %1.</translation>
     </message>
@@ -31570,12 +31574,16 @@ The timelines that use the project settings are converted: clips, markers and ef
         <translation>Кодек</translation>
     </message>
     <message>
-        <source>Hardware encoders are detected when the Deliver page opens. If the chosen one fails, the render falls back to the software encoder.</source>
-        <translation>Апаратні кодери виявляються, коли відкривається сторінка Виведення. Якщо вибраний не спрацює, рендер перемикається на програмний кодер.</translation>
-    </message>
-    <message>
         <source>Encoder</source>
         <translation>Кодер</translation>
+    </message>
+    <message>
+        <source>Test Hardware Encoders</source>
+        <translation>Перевірити апаратні кодувальники</translation>
+    </message>
+    <message>
+        <source>Tries every hardware encoder again in a separate process, so a faulty graphics driver cannot take Kinoklip down.</source>
+        <translation>Знову перевіряє кожен апаратний кодувальник в окремому процесі, щоб несправний графічний драйвер не міг закрити Kinoklip.</translation>
     </message>
     <message>
         <source>Encoding profile</source>
@@ -31882,12 +31890,20 @@ The timelines that use the project settings are converted: clips, markers and ef
         <translation>&lt;назва кліпу&gt;.</translation>
     </message>
     <message>
+        <source>The driver crashed while testing %1; hardware encoding is off for this driver and the software encoder is used. Press Test Hardware Encoders to try again.</source>
+        <translation>Драйвер аварійно завершився під час перевірки %1; апаратне кодування для цього драйвера вимкнено, використовується програмний кодувальник. Натисніть «Перевірити апаратні кодувальники», щоб повторити.</translation>
+    </message>
+    <message>
         <source>No hardware encoder was found; software encoders are used.</source>
         <translation>Апаратного кодера не знайдено; використовуються програмні кодери.</translation>
     </message>
     <message>
         <source>Hardware encoders found: %1</source>
         <translation>Знайдені апаратні кодери: %1</translation>
+    </message>
+    <message>
+        <source>Testing hardware encoders...</source>
+        <translation>Перевірка апаратних кодувальників...</translation>
     </message>
     <message>
         <source>Render Location</source>
@@ -31952,6 +31968,10 @@ The timelines that use the project settings are converted: clips, markers and ef
     <message>
         <source>Rec.2020</source>
         <translation>Rec.2020</translation>
+    </message>
+    <message>
+        <source>Hardware encoders are tested when the first render starts, or when you press Test Hardware Encoders. If the chosen one fails, the render falls back to the software encoder.</source>
+        <translation>Апаратні кодувальники перевіряються під час першого рендерингу або за кнопкою «Перевірити апаратні кодувальники». Якщо вибраний не працює, рендеринг переходить на програмний кодувальник.</translation>
     </message>
     <message>
         <source>ST 2084 (PQ)</source>

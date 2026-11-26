@@ -18786,6 +18786,10 @@ Transición estándar de este proyecto</translation>
         <translation>No se puede crear la carpeta %1.</translation>
     </message>
     <message>
+        <source>The hardware encoder %1 failed (%2). The render was done again with the software encoder %3.</source>
+        <translation>El codificador por hardware %1 falló (%2). El renderizado se repitió con el codificador por software %3.</translation>
+    </message>
+    <message>
         <source>Rendering frame %1 failed.</source>
         <translation>Falló el renderizado del fotograma %1.</translation>
     </message>
@@ -31547,12 +31551,16 @@ Las líneas de tiempo que usan los ajustes del proyecto se convierten: los clips
         <translation>Códec</translation>
     </message>
     <message>
-        <source>Hardware encoders are detected when the Deliver page opens. If the chosen one fails, the render falls back to the software encoder.</source>
-        <translation>Los codificadores por hardware se detectan al abrir la página Entrega. Si el elegido falla, el renderizado recurre al codificador por software.</translation>
-    </message>
-    <message>
         <source>Encoder</source>
         <translation>Codificador</translation>
+    </message>
+    <message>
+        <source>Test Hardware Encoders</source>
+        <translation>Probar codificadores por hardware</translation>
+    </message>
+    <message>
+        <source>Tries every hardware encoder again in a separate process, so a faulty graphics driver cannot take Kinoklip down.</source>
+        <translation>Vuelve a probar cada codificador por hardware en un proceso aparte, para que un controlador gráfico defectuoso no cierre Kinoklip.</translation>
     </message>
     <message>
         <source>Encoding profile</source>
@@ -31859,12 +31867,20 @@ Las líneas de tiempo que usan los ajustes del proyecto se convierten: los clips
         <translation>&lt;nombre del clip&gt;.</translation>
     </message>
     <message>
+        <source>The driver crashed while testing %1; hardware encoding is off for this driver and the software encoder is used. Press Test Hardware Encoders to try again.</source>
+        <translation>El controlador falló al probar %1; la codificación por hardware está desactivada para este controlador y se usa el codificador por software. Pulse Probar codificadores por hardware para intentarlo de nuevo.</translation>
+    </message>
+    <message>
         <source>No hardware encoder was found; software encoders are used.</source>
         <translation>No se encontró ningún codificador por hardware; se usan codificadores por software.</translation>
     </message>
     <message>
         <source>Hardware encoders found: %1</source>
         <translation>Codificadores por hardware encontrados: %1</translation>
+    </message>
+    <message>
+        <source>Testing hardware encoders...</source>
+        <translation>Probando codificadores por hardware...</translation>
     </message>
     <message>
         <source>Render Location</source>
@@ -31929,6 +31945,10 @@ Las líneas de tiempo que usan los ajustes del proyecto se convierten: los clips
     <message>
         <source>Rec.2020</source>
         <translation>Rec.2020</translation>
+    </message>
+    <message>
+        <source>Hardware encoders are tested when the first render starts, or when you press Test Hardware Encoders. If the chosen one fails, the render falls back to the software encoder.</source>
+        <translation>Los codificadores por hardware se prueban cuando empieza el primer renderizado o al pulsar Probar codificadores por hardware. Si el elegido falla, el renderizado recurre al codificador por software.</translation>
     </message>
     <message>
         <source>ST 2084 (PQ)</source>

@@ -36,7 +36,6 @@ namespace kk {
 namespace {
 constexpr int kPreviewDebounceMs = 40; ///< coalesce bursts of playhead/timeline changes
 constexpr int kPreviewPollMs = 15; ///< check the in-flight preview at ~60 Hz
-constexpr int kHwDetectionDelayMs = 1500; ///< see showEvent()
 // Default column widths for a 1920 px window, scaled to the real width on the first show.
 constexpr int kSettingsWidth = 440;
 constexpr int kViewerWidth = 1060;
@@ -76,6 +75,8 @@ DeliverPage::DeliverPage(AppContext& ctx, QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_main);
 
+    connect(m_settingsPanel, &RenderSettingsPanel::testHardwareRequested, this,
+        &DeliverPage::detectHardware);
     connect(m_settingsPanel, &RenderSettingsPanel::addToQueueRequested, this,
         [this] { addCurrentToQueue(); });
     connect(m_settingsPanel, &RenderSettingsPanel::updateJobRequested, this,
@@ -348,9 +349,11 @@ void DeliverPage::showEvent(QShowEvent* event)
     m_viewer->setPosition(
         m_ctx.project->timeline()->playhead(), m_ctx.project->timeline()->data().fps);
     schedulePreview();
-    // Detection opens GPU encoders (NVENC init ~0.5 s each); start it after the first preview
-    // so both do not compete for the GPU driver when the page opens.
-    QTimer::singleShot(kHwDetectionDelayMs, this, &DeliverPage::detectHardware);
+    // Nothing is tested here: opening a GPU encoder can crash a faulty driver (issue 18). What
+    // an earlier test found for this GPU and driver is shown; the rest is tested when a render
+    // starts or when the user presses "Test Hardware Encoders".
+    if (const auto cached = EncoderCatalog::cachedEncoders(); !cached.isEmpty())
+        m_settingsPanel->setHardwareStatus(cached);
 }
 
 void DeliverPage::applyDefaultWidths()
@@ -379,17 +382,22 @@ void DeliverPage::resetLayout()
 
 void DeliverPage::detectHardware()
 {
-    if (m_hwDetectionStarted) {
+    if (m_hwTesting) {
         return;
     }
-    m_hwDetectionStarted = true;
-    // Opening GPU encoders takes up to a second or two: off the GUI thread.
+    m_hwTesting = true;
+    m_settingsPanel->setHardwareTesting(true);
+    // Each test runs in a process of its own (up to 10 s each): off the GUI thread.
     auto* watcher = new QFutureWatcher<QList<HwEncoderStatus>>(this);
     connect(watcher, &QFutureWatcher<QList<HwEncoderStatus>>::finished, this, [this, watcher] {
+        m_hwTesting = false;
         m_settingsPanel->setHardwareStatus(watcher->result());
         watcher->deleteLater();
     });
-    watcher->setFuture(QtConcurrent::run([] { return EncoderCatalog::hardwareEncoders(); }));
+    watcher->setFuture(QtConcurrent::run([] {
+        EncoderCatalog::retest();
+        return EncoderCatalog::hardwareEncoders();
+    }));
 }
 
 void DeliverPage::schedulePreview()

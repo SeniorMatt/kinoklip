@@ -48,6 +48,12 @@ struct ExportResult
     QStringList files; ///< every file written (one for movies, N for sequences)
     QString videoEncoder; ///< libavcodec encoder used ("h264_vaapi", ...), empty if none
     EncoderBackend videoBackend = EncoderBackend::Software;
+    /// The video encoding failed (not the muxer, the audio or a cancel); with a hardware encoder
+    /// run() then renders again with the software encoder.
+    bool videoEncodeFailed = false;
+    /// Set when the render succeeded with the software encoder after the hardware encoder
+    /// failed: what happened, for the user ("h264_vaapi failed (...); rendered with libx264").
+    QString fallbackNote;
     int64_t frames = 0; ///< frames written
     /// Normalize audio to (spec 134): the integrated loudness measured before rendering (LUFS)
     /// and the gain applied (dB); NaN / 0 when normalizing was off or the mix was silent.
